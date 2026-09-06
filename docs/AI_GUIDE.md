@@ -5,9 +5,10 @@ O SearchGEO usa IA apenas em finalidades opcionais e evidence-bound. A auditoria
 ## Finalidades
 
 1. **análise semântica**: avalia somente as evidências fornecidas pelo SearchGEO e deve devolver saída estruturada compatível com o contrato local;
-2. **remediação textual opcional**: produz sugestões exatas somente para findings elegíveis e com evidência suficiente.
+2. **remediação textual opcional (M20)**: produz sugestões exatas somente para findings elegíveis e com evidência suficiente;
+3. **remediação técnica opcional de crawling/discovery (M24)**: explica diagnósticos técnicos M24 já determinados pelo runtime e pode sugerir correção evidence-bound, sem alterar scoring ou política editorial automaticamente.
 
-Nenhuma dessas finalidades autoriza inventar fatos, credenciais, preços, datas, estatísticas ou evidências.
+Nenhuma dessas finalidades autoriza inventar fatos, credenciais, preços, datas, estatísticas, URLs, crawler policies ou evidências.
 
 ## Contexto editorial para evitar análise genérica
 
@@ -195,6 +196,48 @@ O timeout limita cada chamada ao provider; não representa tempo máximo da audi
 
 O console permite alterar o timeout diretamente na opção 4.
 
+## Remediação textual M20
+
+Superfície:
+
+```text
+--ai-content-remediation
+--no-ai-content-remediation
+SEARCHGEO_AI_CONTENT_REMEDIATION
+```
+
+Default: OFF.
+
+M20 atua sobre conteúdo/findings elegíveis depois do scoring e nunca recalcula o score.
+
+## Remediação técnica M24
+
+Superfície:
+
+```text
+--ai-technical-remediation
+--no-ai-technical-remediation
+SEARCHGEO_AI_TECHNICAL_REMEDIATION
+```
+
+Default: OFF.
+
+A execução determinística de crawling/discovery M24 não depende dessa opção. O flag habilita somente a camada de IA sobre diagnósticos técnicos já persistidos.
+
+A remediação técnica M24 deve respeitar estas fronteiras:
+
+- não criar nem alterar `RuleExecution`, Finding, Recommendation GEO, Score, Coverage, Confidence ou Consolidation;
+- não inventar URL, canonical, sitemap, data ou crawler token;
+- não decidir automaticamente se GPTBot/Google-Extended devem ser permitidos ou bloqueados;
+- distinguir OAI-SearchBot de GPTBot;
+- tratar Google-Extended como token de produto, não como crawler Search independente;
+- tratar `llms.txt` como proposta comunitária experimental e non-scoring;
+- exigir revisão humana antes de qualquer alteração em `robots.txt`, sitemap ou conteúdo publicado.
+
+Quando não existe provider compatível/configurado, o estado técnico de IA fica indisponível/`NOT_CONFIGURED`; isso não é finding do website.
+
+Documentação normativa: [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md).
+
 ## Console interativo
 
 A opção 4 reúne:
@@ -209,6 +252,8 @@ timeout por tentativa
 A opção 5, **Remediação textual IA**, só fica disponível com provider apto. Com IA=`none` ou provider indisponível, o console informa que a opção depende da configuração da opção 4.
 
 O grupo **IA — contexto editorial / YMYL** em `E. Variáveis de ambiente / credenciais` expõe os parâmetros contextuais com domínio aceito, default, explicação de impacto e link para a documentação específica.
+
+A remediação técnica M24 é uma superfície CLI/ambiente nesta versão. Não deve ser presumida como opção persistida no INI do console até existir integração explícita correspondente.
 
 ## Persistência de configuração e secrets
 
@@ -252,6 +297,8 @@ O custo é estimativa técnica local, não invoice do provider. Quando não exis
 
 Para M20, `content-suggestions.html` mostra um resumo de provider/modelo/reasoning/chamadas/duração/tokens/custo e oferece atalho para o detalhamento em `ai-usage.html`.
 
+Para M24, a finalidade técnica deve permanecer identificável em `crawling-discovery.html`/`ai-usage.html` e não ser misturada com o score de qualidade do website.
+
 ## Segurança
 
 - nunca copie uma key real para documentação, issue, report ou log;
@@ -259,7 +306,8 @@ Para M20, `content-suggestions.html` mostra um resumo de provider/modelo/reasoni
 - não reutilize credencial de um provider em outro endpoint;
 - não assuma que key configurada significa crédito disponível;
 - falha de provider não deve ser convertida em finding do website;
-- sugestão textual exige revisão humana antes de publicação;
+- sugestão textual/técnica exige revisão humana antes de publicação;
+- IA M24 não pode escolher unilateralmente política de treinamento/crawler da organização;
 - contexto YMYL não autoriza inferir responsabilidade legal/regulatória.
 
 ## Documentos relacionados
@@ -271,3 +319,4 @@ Para M20, `content-suggestions.html` mostra um resumo de provider/modelo/reasoni
 - [AI_PROVIDER_EXTENSIONS.md](AI_PROVIDER_EXTENSIONS.md)
 - [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
 - [OPENAI_PROVIDER_DIAGNOSTICS.md](OPENAI_PROVIDER_DIAGNOSTICS.md)
+- [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md)
