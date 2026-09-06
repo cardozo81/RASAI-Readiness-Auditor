@@ -24,6 +24,7 @@ class VisibilityImport:
     format_version: str
     source_type: str
     source_label: str
+    capture_method: str
     period_start: str
     period_end: str
     market: str | None
@@ -111,6 +112,7 @@ class M26Persistence:
                     format_version TEXT NOT NULL,
                     source_type TEXT NOT NULL,
                     source_label TEXT NOT NULL,
+                    capture_method TEXT NOT NULL,
                     period_start TEXT NOT NULL,
                     period_end TEXT NOT NULL,
                     market TEXT,
@@ -181,6 +183,17 @@ class M26Persistence:
                     ON generative_visibility_query_runs(import_id,status,engine,observed_at);
                 """
             )
+            # Compatibility with an M26 workspace produced by an earlier branch
+            # revision before capture provenance became mandatory.
+            columns = {
+                str(row[1])
+                for row in self.connection.execute("PRAGMA table_info(generative_visibility_imports)").fetchall()
+            }
+            if "capture_method" not in columns:
+                self.connection.execute(
+                    "ALTER TABLE generative_visibility_imports "
+                    "ADD COLUMN capture_method TEXT NOT NULL DEFAULT 'UNSPECIFIED_LEGACY'"
+                )
 
     def replace_import(
         self,
@@ -204,16 +217,17 @@ class M26Persistence:
             self.connection.execute(
                 """
                 INSERT INTO generative_visibility_imports (
-                    import_id,audit_id,format_version,source_type,source_label,period_start,period_end,
-                    market,language,source_total_citations,source_average_cited_pages,artifact_path,
-                    artifact_sha256,metadata,imported_at
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    import_id,audit_id,format_version,source_type,source_label,capture_method,
+                    period_start,period_end,market,language,source_total_citations,
+                    source_average_cited_pages,artifact_path,artifact_sha256,metadata,imported_at
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     item.import_id, item.audit_id, item.format_version, item.source_type,
-                    item.source_label, item.period_start, item.period_end, item.market, item.language,
-                    item.source_total_citations, item.source_average_cited_pages, item.artifact_path,
-                    item.artifact_sha256, _dump(item.metadata), item.imported_at,
+                    item.source_label, item.capture_method, item.period_start, item.period_end,
+                    item.market, item.language, item.source_total_citations,
+                    item.source_average_cited_pages, item.artifact_path, item.artifact_sha256,
+                    _dump(item.metadata), item.imported_at,
                 ),
             )
             self.connection.executemany(
