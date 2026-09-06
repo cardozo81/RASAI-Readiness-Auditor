@@ -103,7 +103,8 @@ class SecureRedirectRecoveryTests(unittest.TestCase):
         self.assertIn("https://mds.pt/", html)
         self.assertGreaterEqual(html.count("301"), 2)
         self.assertIn("validação TLS ativa", html)
-        self.assertNotIn("ignore_https_errors", html)
+        self.assertIn("não usar bypass de certificado ou ignore_https_errors", html)
+        self.assertNotIn("ignore_https_errors=true", html)
 
 
 if __name__ == "__main__":
