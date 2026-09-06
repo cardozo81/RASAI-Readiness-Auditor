@@ -11,9 +11,10 @@ audits/<AUD-ID>/
 ├─ logs/
 │  └─ audit.log
 └─ report/
-   ├─ index.html
-   ├─ mobile.html              # condicional
-   ├─ desktop.html             # condicional
+   ├─ index.html               # dashboard executivo
+   ├─ searchgeo.html           # SGRI-001 e indicadores proprietários
+   ├─ mobile.html              # evidências/findings; condicional
+   ├─ desktop.html             # evidências/findings; condicional
    ├─ remediation.html
    ├─ content-suggestions.html
    ├─ accessibility.html       # quando materializado
@@ -30,11 +31,24 @@ audits/<AUD-ID>/
 
 Relatórios históricos/consolidados não mudam essa regra: `AUD-*/audit.db` continua sendo a fonte oficial e é aberto em modo somente leitura.
 
+A criação de `SGRI-001` como identidade pública não migra nem recalcula o banco. Enquanto a aritmética permanecer a mesma, `scores.scoring_version` continua registrando `SCORE-GEO-002`.
+
 ## Banco SQLite
 
 O banco contém entidades da auditoria principal, evidências, execuções de regras, findings, scores, recomendações e telemetria opcional.
 
 Grupos relevantes incluem:
+
+### SearchGEO scoring
+
+```text
+scores
+score_contributions
+rule_executions
+findings
+```
+
+`searchgeo.html` apenas projeta esses dados. Overall, dimensões, Coverage, Confidence e Consolidation não são recalculados no HTML.
 
 ### IA
 
@@ -158,11 +172,36 @@ Grupos abaixo de 100 amostras válidas são explicitamente identificados como sm
 
 ### `index.html`
 
-Visão geral e seção **Configuração × resultado obtido**.
+Dashboard executivo dos resultados finais disponíveis. O index não soma nem pondera metodologias distintas entre si.
+
+Ele pode resumir:
+
+- SGRI-001 por dispositivo;
+- Core Web Vitals;
+- Lighthouse Performance;
+- Lighthouse Accessibility;
+- Synthetic Navigation Apdex.
+
+Cada card direciona para a página canônica. Quando há múltiplos contextos externos, o dashboard deve preferir faixa/quantidade de contextos válidos a criar uma média de site não definida pela metodologia de origem.
+
+### `searchgeo.html`
+
+Página canônica do **SearchGEO Readiness Index `SGRI-001`** e dos indicadores agregados proprietários:
+
+- Overall Readiness;
+- dimensões;
+- Coverage;
+- Confidence;
+- Consolidation;
+- sinais de Groundability sem subscore adicional;
+- proveniência das regras contribuintes;
+- contexto editorial/YMYL quando persistido.
 
 ### `mobile.html` / `desktop.html`
 
-Detalhes por contexto de dispositivo quando materializados.
+Evidências, snapshots, findings e avaliações por contexto de dispositivo quando materializados.
+
+Essas páginas não são a origem de Overall/dimensões e não devem duplicar Score, Coverage, Confidence ou Consolidation do SearchGEO.
 
 ### `remediation.html`
 
@@ -174,7 +213,7 @@ Sugestões textuais e JSON-LD advisory.
 
 ### `accessibility.html`
 
-Evidência Lighthouse de acessibilidade quando disponível e causa da indisponibilidade quando não disponível.
+Evidência Lighthouse de acessibilidade quando disponível e causa da indisponibilidade quando não disponível. WCAG continua standard externo; a automação não é certificação integral.
 
 ### `web-performance.html`
 
@@ -190,11 +229,17 @@ Provider/modelo, tentativas, tokens, reasoning e custo estimado quando persistid
 
 ### `references.html`
 
-Metodologia e referências públicas.
+Metodologia, proveniência e referências públicas. Deve separar fonte externa de decisão interna SearchGEO.
 
 ### `consolidated/CONS-*/report.html`
 
 Snapshot histórico/consolidado de indicadores já persistidos, filtrado por domínio, período, dispositivo e opcionalmente URL, com políticas explícitas de comparabilidade.
+
+## Regra de propriedade analítica
+
+Cada indicador possui uma página analítica canônica. O mesmo valor pode ser resumido no `index.html` para navegação executiva, mas sua tabela, metodologia e evidências detalhadas pertencem a uma única página de domínio.
+
+Essa regra evita que o usuário interprete o mesmo indicador como se fosse parte de duas metodologias diferentes.
 
 ## Log operacional
 
@@ -210,7 +255,7 @@ Deve permitir rastrear, sem secrets:
 - timeout/HTTP/quota;
 - progresso Synthetic Apdex;
 - falhas fail-open;
-- geração de reports.
+- geração de reports, incluindo a projeção `SGRI-001`.
 
 A consolidação não grava eventos em `AUD-*/logs/audit.log`; sua rastreabilidade fica no `manifest.json` do próprio `CONS-*`.
 
