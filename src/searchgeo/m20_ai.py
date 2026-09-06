@@ -15,6 +15,7 @@ import time
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 
+from searchgeo.content_context import configured_content_analysis_context
 from searchgeo.m18_ai import (
     AttemptStatus,
     ProviderAttempt,
@@ -31,7 +32,7 @@ from searchgeo.m18_ai import (
 )
 from searchgeo.semantic import _extract_json_payload
 
-CONTENT_REMEDIATION_CONTRACT_VERSION = "M20-CONTENT-REMEDIATION-v1"
+CONTENT_REMEDIATION_CONTRACT_VERSION = "M20-CONTENT-REMEDIATION-v2"
 _NUMERIC_TOKEN = re.compile(r"(?<!\w)[+-]?(?:\d[\d.,:/-]*\d|\d)(?!\w)")
 
 
@@ -80,6 +81,7 @@ class ContentRemediationRequest:
         return "\n".join(parts)
 
     def provider_payload(self) -> dict[str, Any]:
+        context = configured_content_analysis_context()
         return {
             "snapshot_id": self.snapshot_id,
             "page_id": self.page_id,
@@ -87,6 +89,7 @@ class ContentRemediationRequest:
             "device": self.device,
             "title": self.title,
             "main_content": self.main_content,
+            "content_analysis_context": context.provider_payload(),
             "findings": [
                 {
                     "finding_id": item.finding_id,
@@ -236,6 +239,7 @@ class ContentRemediationProvider:
             return ContentRemediationResult(ProviderState.NOT_CONFIGURED, reason="AI_NOT_CONFIGURED", provider=self.name, model=self.model, reasoning_profile=self.reasoning_profile)
 
         schema = content_remediation_schema()
+        context = configured_content_analysis_context()
         instructions = (
             "You are an evidence-bound website content remediation assistant. Return JSON only. "
             "Suggest exact text only for supplied findings and cite only evidence_ids attached to that finding. "
@@ -243,7 +247,8 @@ class ContentRemediationProvider:
             "search engines or AI systems, keyword-stuff, target word counts, or fabricate claims, dates, prices, "
             "statistics, credentials, experience, guarantees or sources. Do not alter facts. If evidence is "
             "insufficient for safe exact wording, omit that finding. Do not propose JSON-LD here; SearchGEO "
-            "handles structured-data guidance deterministically. Human review is mandatory before publication."
+            "handles structured-data guidance deterministically. Human review is mandatory before publication. "
+            + context.prompt_directive()
         )
         if self.structured_mode == "json_object":
             instructions += "\nNormative local JSON Schema:\n" + json.dumps(schema, ensure_ascii=False, separators=(",", ":"))
@@ -260,7 +265,10 @@ class ContentRemediationProvider:
             "text": {"format": fmt},
         }
         body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-        summary = f"contract={CONTENT_REMEDIATION_CONTRACT_VERSION};findings={len(request.findings)};evidence={len(request.evidence)};snapshot={request.snapshot_id}"
+        summary = (
+            f"contract={CONTENT_REMEDIATION_CONTRACT_VERSION};findings={len(request.findings)};"
+            f"evidence={len(request.evidence)};snapshot={request.snapshot_id};context={context.compact_summary()}"
+        )
         payload_hash = hashlib.sha256(body).hexdigest()
         started_at = datetime.now(timezone.utc)
         started_perf = time.perf_counter()
