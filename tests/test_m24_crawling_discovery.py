@@ -213,7 +213,11 @@ class M24Tests(unittest.TestCase):
             report = workspace.root / "report"
             (report / "css").mkdir(parents=True)
             (report / "css" / "site.css").write_text("body{}\n", encoding="utf-8")
-            shell = "<!doctype html><html><body><main></main><footer class='footer'>x</footer></body></html>"
+            shell = (
+                "<!doctype html><html><body>"
+                "<aside><nav><a href='index.html'>Visão geral</a></nav></aside>"
+                "<main></main><footer class='footer'>x</footer></body></html>"
+            )
             for name in ("index.html", "ai-usage.html", "references.html"):
                 (report / name).write_text(shell, encoding="utf-8")
             page = enrich_m24_report_site(audit_id=audit.audit_id, workspace=workspace)
