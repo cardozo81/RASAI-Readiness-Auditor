@@ -130,11 +130,21 @@ O Bing disponibiliza dados sobre participação real do conteúdo em respostas g
 
 Essas métricas são particularmente relevantes porque medem **resultado observado**, não apenas prontidão inferida.
 
-Uso recomendado no SearchGEO quando a integração/dado estiver disponível:
+O M26 (`Observed Generative Visibility`) materializa esse domínio de forma **import-first** por meio do contrato `OGV-IMPORT-001`. Na baseline atual, o SearchGEO não faz scraping do Bing Webmaster Tools nem presume endpoint público de AI Performance não documentado.
 
-- manter `Observed AI Visibility` separado do Readiness Score;
+Regras do M26 para dados Bing:
+
+- Total Citations e Average Cited Pages permanecem `source-reported`;
+- grounding queries, atividade por URL e tendência são preservadas conforme o dataset normalizado;
+- o artifact importado é preservado com SHA-256;
+- URLs devem pertencer ao `normalized_origin` da auditoria;
+- nenhum valor M26 entra em `SGRI-001`/`SCORE-GEO-002`.
+
+Uso recomendado:
+
+- manter `Observed Generative Visibility` separado do Readiness;
 - usar citações reais como variável de validação/calibração futura;
-- não interpretar contagem de citações como ranking, autoridade ou posição quando o próprio Bing não fornece essa semântica.
+- não interpretar contagem de citações como ranking, autoridade ou posição quando a fonte não fornece essa semântica.
 
 Referência:
 
@@ -144,17 +154,25 @@ Referência:
 
 NIST/TREC utiliza métricas consolidadas para avaliar recuperação e ranking. Elas podem ser adaptadas a experimentos de visibilidade/citação em engines generativas, desde que o protocolo de coleta seja controlado.
 
-### 4.1 Citation/Presence Rate
+### 4.1 Citation Presence Rate
 
-Para um conjunto de query-runs:
+Para um conjunto de query-runs controlados:
 
 ```text
-Citation Rate = query-runs em que o site foi citado / total de query-runs válidos
+Citation Presence Rate = query-runs VALID em que o origin auditado foi citado / total de query-runs VALID
 ```
 
-Essa métrica é um outcome diretamente observável. A fórmula é simples e não precisa de pesos heurísticos.
+Essa métrica é um outcome diretamente observável. O M26 já implementa essa fórmula quando o dataset contém `query_runs` controlados.
 
-Deve ser acompanhada de tamanho amostral e intervalo de confiança.
+Regras:
+
+- runs `INVALID` ficam fora do numerador e denominador;
+- `cited=true` exige ao menos uma URL same-origin;
+- `cited=false` não pode carregar URLs citadas do origin auditado;
+- a taxa é acompanhada do tamanho amostral;
+- o M26 calcula intervalo binomial de Wilson 95% para representar incerteza amostral quando `n > 0`.
+
+A taxa histórica **não é convertida em probabilidade preditiva de citação futura** e não valida causalidade do SGRI.
 
 ### 4.2 Mean Reciprocal Rank — MRR
 
@@ -171,6 +189,8 @@ Uso recomendado:
 
 - medir quão cedo a fonte aparece quando existe ranking/posição observável;
 - não usar quando a superfície não expõe uma ordenação semanticamente válida.
+
+O M26 aceita `rank` apenas quando o dataset também fornece `ranking_semantics`; nesta baseline ele **não agrega automaticamente MRR**, evitando presumir equivalência de ordenação entre engines/surfaces.
 
 ### 4.3 nDCG@k
 
@@ -237,7 +257,7 @@ Referência:
 
 ## 6. Arquitetura recomendada de métricas
 
-Em vez de substituir `SCORE-GEO-002` por outro número arbitrário, a evolução recomendada é separar três camadas:
+Em vez de substituir `SCORE-GEO-002` por outro número arbitrário, a evolução recomendada separa três camadas:
 
 ### 6.1 Readiness inferido
 
@@ -251,7 +271,7 @@ Mantém o papel atual do SearchGEO:
 Saída:
 
 ```text
-SearchGEO Readiness Index
+SearchGEO Readiness Index (SGRI-001)
 ```
 
 Natureza:
@@ -279,22 +299,24 @@ externamente documentado/calibrado para o fenômeno específico
 
 ### 6.3 Observed Generative Visibility
 
-Mede outcomes reais:
+Domínio implementado pelo M26 para outcomes reais/importados:
 
 ```text
-Citation Rate
-Engine Coverage
-MRR, quando posição for observável
-nDCG, quando houver relevância graduada e ranking válido
-citation support precision/recall
-Bing AI Performance citations
+Bing AI Performance source-reported metrics
+atividade/citações por URL
+grounding queries
+tendência importada
+Citation Presence Rate em query-runs controlados
+rank observado somente quando sua semântica é explícita
 ```
 
 Natureza:
 
 ```text
-observacional/experimental
+observacional/experimental; separado do readiness
 ```
+
+Métricas como MRR, nDCG e citation-support precision/recall permanecem candidatas para protocolos futuros, não outputs implícitos do M26 atual.
 
 Essa separação evita que um único número misture prontidão inferida, experiência de página e performance real de citação.
 
@@ -309,7 +331,7 @@ Y = 1 se a URL/site é citado em uma query-run elegível
 Y = 0 caso contrário
 ```
 
-Possível processo para `SCORE-GEO-003`:
+Possível processo para uma futura versão calibrada:
 
 1. coletar grande amostra de sites/páginas e queries;
 2. executar múltiplas engines e múltiplas repetições por query;
@@ -322,7 +344,9 @@ Possível processo para `SCORE-GEO-003`:
 9. publicar intervalos de confiança e limitações;
 10. versionar o modelo conforme período e superfícies avaliadas.
 
-Nesse cenário, a saída poderia ser denominada, por exemplo:
+O M26 passa a fornecer uma infraestrutura de outcomes que pode alimentar esse trabalho no futuro, mas **sua existência não valida por si só o SGRI**. Dataset, desenho experimental, separação de amostras e validação fora da amostra continuam obrigatórios.
+
+Nesse cenário, uma saída poderia ser denominada, por exemplo:
 
 ```text
 Estimated Citation Probability
@@ -332,20 +356,25 @@ somente se a validação demonstrar calibração adequada. Ela não deve substit
 
 ## 8. Recomendação para o produto atual
 
-Para o `SCORE-GEO-002`:
+Para `SGRI-001` / `SCORE-GEO-002`:
 
 - manter a fórmula atual para continuidade e reprodutibilidade;
 - explicitar que pesos/fatores/thresholds são heurísticos;
 - incorporar métricas externas somente nas dimensões em que exista correspondência conceitual válida;
-- não transformar Core Web Vitals, Lighthouse ou métricas TREC em “prova” do Overall Readiness;
-- planejar `SCORE-GEO-003` como projeto de calibração, não como simples troca manual de pesos;
-- preferir no report a apresentação conjunta de `Readiness`, `Coverage/Confidence`, `External Evidence` e, quando disponível, `Observed Generative Visibility`.
+- não transformar Core Web Vitals, Lighthouse, métricas TREC ou outcomes M26 em “prova” do Overall Readiness;
+- usar M26 como camada observacional independente e como possível fonte futura de dataset de validação;
+- planejar qualquer versão calibrada como projeto empírico, não como simples troca manual de pesos;
+- preferir no report a apresentação conjunta, porém não fundida, de `Readiness`, `Coverage/Confidence`, `External Evidence` e `Observed Generative Visibility` quando disponível.
 
 ## 9. Critério de linguagem
 
 Permitido:
 
 > O SearchGEO calcula um índice interno e reprodutível de prontidão, fundamentado em evidências técnicas e semânticas. Algumas submétricas podem utilizar padrões ou thresholds externos documentados.
+
+Também permitido para M26:
+
+> O SearchGEO apresenta outcomes de visibilidade generativa observados/importados separadamente do readiness, preservando fonte, período e tamanho amostral quando aplicável.
 
 Não permitido sem validação adicional:
 
@@ -358,3 +387,5 @@ Não permitido sem validação adicional:
 > Score cientificamente validado.
 
 > Threshold GEO universal.
+
+> Citation Presence Rate histórica = probabilidade futura de citação.
