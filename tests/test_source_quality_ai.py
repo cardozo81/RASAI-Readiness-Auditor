@@ -8,8 +8,9 @@ import unittest
 from searchgeo.acquisition import HttpAcquisitionResult, NetworkError, NetworkErrorKind, RedirectHop
 from searchgeo.audit_runner import run_audit
 from searchgeo.discovery import DEFAULT_CRAWLERS, DiscoveredPage, DiscoveryProvenance, DiscoveryResult, RobotsResult, RobotsState
-from searchgeo.domain import DiscoverySource
+from searchgeo.domain import DeviceContext, DiscoverySource
 from searchgeo.m18_ai import OpenAIProvider
+from searchgeo.rendering import BrowserRenderResult, RenderErrorKind
 
 
 _SOURCE = "https://mdsgroup.com/"
@@ -48,6 +49,29 @@ class _BlockedDiscovery:
             total_audited=1,
             max_pages=max_pages,
             limit_reached=False,
+        )
+
+
+class _BrowserFailureRenderer:
+    """Keep this unit test deterministic and independent from the live MDS route."""
+
+    def render(self, url: str, device: DeviceContext) -> BrowserRenderResult:
+        return BrowserRenderResult(
+            requested_url=url,
+            final_url=_FINAL,
+            http_status=None,
+            content_type=None,
+            rendered_html=None,
+            browser_metadata={
+                "engine": "fake-chromium",
+                "profile": {"device": device.value},
+                "navigation_trace": [
+                    {"url": _SOURCE, "status": 301, "location": "http://www.mdsgroup.com/"},
+                    {"url": "http://www.mdsgroup.com/", "status": 301, "location": _FINAL},
+                ],
+                "render_error": RenderErrorKind.NAVIGATION_ERROR.value,
+            },
+            error_kind=RenderErrorKind.NAVIGATION_ERROR,
         )
 
 
@@ -93,6 +117,7 @@ class SourceQualityAiTests(unittest.TestCase):
                 max_pages=1,
                 semantic_provider=provider,
                 discovery_engine=_BlockedDiscovery(),
+                renderer=_BrowserFailureRenderer(),
             )
             self.assertEqual(len(calls), 1)
             artifact = result.audit_root / "artifacts" / "source-quality-ai.json"
