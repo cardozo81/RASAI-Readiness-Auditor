@@ -37,7 +37,11 @@ jobs:
             src/searchgeo/m25_reporting.py \
             src/searchgeo/m25_runtime.py
       - name: M25 directed tests
-        run: python -m pytest -q tests/test_m25_synthetic_user_experience.py
+        run: |
+          python -m pytest -q \
+            tests/test_m25_synthetic_user_experience.py \
+            tests/test_m25_browser_e2e.py \
+            tests/test_m25_report_finalization.py
       - name: M23 regression
         run: python -m pytest -q tests/test_m23_integration.py
       - name: Full regression suite
