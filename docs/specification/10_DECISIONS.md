@@ -219,6 +219,27 @@ Decisão aprovada:
 
 D-039 complementa D-037/D-038; não as supersede.
 
+### D-040 — M26 Observed Generative Visibility separado de readiness
+
+Outcomes observados de Search/AI Search são aprovados como domínio **aditivo, import-first e não-scoring**, separado do `SGRI-001`/`SCORE-GEO-002`.
+
+Decisão aprovada:
+
+1. `Readiness` e `Observed Generative Visibility` são conceitos distintos e não podem ser fundidos em um score comum sem nova decisão/versionamento/validação;
+2. M26 inicia com contrato local versionado `OGV-IMPORT-001`, sem scraping de portal de webmaster e sem endpoint de API presumido ou não documentado;
+3. `BING_WEBMASTER_TOOLS_AI_PERFORMANCE` preserva Total Citations e Average Cited Pages como métricas reportadas pela fonte; o SearchGEO não inventa fórmula equivalente para recalculá-las;
+4. `CONTROLLED_QUERY_RUNS` pode produzir Citation Presence Rate somente sobre runs `VALID`, com runs `INVALID` fora do denominador;
+5. Citation Presence Rate deve ser acompanhado de tamanho amostral e intervalo Wilson 95% quando calculável; isso mede incerteza amostral e não é probabilidade preditiva de citação futura;
+6. contagem de citações não pode ser rotulada como ranking, autoridade ou preferência universal de engine;
+7. toda URL M26 deve pertencer ao `normalized_origin` da auditoria; dados cross-origin são rejeitados;
+8. o artifact importado deve ser preservado com SHA-256 e reimportação do mesmo conteúdo deve ser idempotente;
+9. `report/ai-visibility.html` é a página canônica do domínio M26;
+10. M26 não escreve nem recalcula `Score`, `Coverage`, `Confidence`, `Consolidation`, `RuleExecution`, `Finding` ou `Recommendation`;
+11. correlação/calibração futura entre SGRI e outcomes M26 exige dataset longitudinal, separação por domínio entre treino/calibração/teste e validação fora da amostra antes de qualquer claim preditivo;
+12. adapters automáticos para plataformas externas só podem ser introduzidos quando houver contrato público/documentado e política de credenciais/segurança correspondente.
+
+D-040 complementa D-037/D-038/D-039; não as supersede.
+
 ## PENDING ENVIRONMENT VALIDATION
 
 ### D-028
@@ -282,4 +303,5 @@ Essas pendências não bloqueiam desenvolvimento local do MVP.
 - LLM nunca é scoring engine;
 - cascading failures devem ser controladas;
 - métricas PageSpeed/CrUX/Lighthouse não alteram `SCORE-GEO-002` sem nova decisão/versionamento explícito;
-- diagnósticos M24 também não alteram `SCORE-GEO-002`/`SGRI-001` sem nova decisão/versionamento explícito.
+- diagnósticos M24 também não alteram `SCORE-GEO-002`/`SGRI-001` sem nova decisão/versionamento explícito;
+- outcomes M26 não alteram `SCORE-GEO-002`/`SGRI-001` e não podem ser apresentados como causalidade/predição sem validação empírica específica.
