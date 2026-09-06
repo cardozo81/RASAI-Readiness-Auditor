@@ -7,6 +7,7 @@ from searchgeo.indicator_provenance import (
     PROVENANCE_MARKER,
     enrich_indicator_provenance_html,
 )
+from searchgeo.report_semantics import enhance_report_html
 
 
 def _shell() -> str:
@@ -18,6 +19,12 @@ def test_score_page_exposes_internal_methodological_nature() -> None:
     assert PROVENANCE_MARKER in html
     assert "Heurística SearchGEO" in html
     assert "references.html#indicator-provenance" in html
+
+
+def test_central_report_semantics_pipeline_applies_provenance() -> None:
+    html = enhance_report_html(_shell(), page_name="mobile.html", report_dir=Path("."))
+    assert PROVENANCE_MARKER in html
+    assert "Heurística SearchGEO" in html
 
 
 def test_external_metric_pages_are_not_presented_as_geo_score() -> None:
