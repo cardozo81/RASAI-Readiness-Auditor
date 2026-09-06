@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from collections import Counter
 from html import escape
+import json
 from pathlib import Path
 import re
 import sqlite3
@@ -213,11 +214,13 @@ def _searchgeo_page(data: dict[str, Any], workspace: AuditWorkspace, report_dir:
     groundability = "".join(_groundability_block(scores, device) for device in ("MOBILE", "DESKTOP") if _has_device(scores, device))
     provenance = _provenance_block(data["contributions"])
     content_context = _content_context_block(workspace, str(audit["audit_id"]) if audit is not None else "")
+    limitations_block = _audit_limitations_block(audit)
     nav = report_navigation.render_report_navigation(report_dir, SEARCHGEO_FILE)
     return f"""<!doctype html>
 <html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>SearchGEO Readiness — SearchGEO Readiness Auditor</title><link rel='stylesheet' href='css/site.css'></head><body>{nav}<main class='app-main'>
 <header class='hero'><div class='eyebrow'>SearchGEO · metodologia proprietária evidence-based</div><h1>SearchGEO Readiness Index</h1><p class='lead'>O {PUBLIC_METHOD_VERSION} consolida a prontidão observada para descoberta, interpretação, recuperação e uso como evidência em Search e AI Search. Não representa probabilidade de ranking, citação ou resposta por qualquer mecanismo externo.</p><div class='score-grid'>{overall_cards or "<div class='notice warn'>Readiness geral não consolidado.</div>"}</div><div class='metric-grid'>{_metric('Metodologia pública',PUBLIC_METHOD_VERSION)}{_metric('Motor persistido',engine_label)}{_metric('Projeto',project)}{_metric('Natureza','Heurística SearchGEO')}</div></header>
 <section class='notice'><strong>Compatibilidade metodológica:</strong> {PUBLIC_METHOD_VERSION} é a identidade pública desta apresentação. O cálculo persistido continua usando <code>{escape(engine_label)}</code>; esta mudança de relatório não recalcula auditorias, não altera pesos e não quebra comparabilidade histórica.</section>
+{limitations_block}
 <section class='panel'><div class='kicker'>Indicadores proprietários</div><h2>Dimensões do readiness</h2><p class='intro'>Esta é a página canônica dos indicadores SearchGEO. Score, Coverage, Confidence e Consolidation não são repetidos nas páginas Mobile/Desktop; essas páginas passam a conter evidências e findings do respectivo dispositivo.</p>{dimension_tables or "<p class='intro'>Nenhuma dimensão de score persistida.</p>"}</section>
 <section class='panel'><div class='kicker'>Groundability</div><h2>Sinais de capacidade de fundamentação</h2><p class='intro'>SGRI-001 não cria um novo subscore de Groundability. Para evitar uma heurística adicional não calibrada, o relatório expõe separadamente os sinais já persistidos de Answerability, Citation Readiness e Evidence & Trust.</p>{groundability or "<p class='intro'>Sinais não disponíveis.</p>"}</section>
 {content_context}
@@ -225,6 +228,29 @@ def _searchgeo_page(data: dict[str, Any], workspace: AuditWorkspace, report_dir:
 <section class='panel'><div class='kicker'>Fórmula e limites</div><h2>Como interpretar o índice</h2><div class='grid'><article class='ref-card'><h3>Dimension Score</h3><p><code>Σ(weight × result_factor) / Σ(weight evaluated) × 100</code></p><p>PASS=1; WARNING=0,5 por padrão; FAIL=0. UNKNOWN/ERROR/NOT_APPLICABLE não são convertidos silenciosamente em FAIL.</p></article><article class='ref-card'><h3>Overall Readiness</h3><p>Média simples das dimensões aplicáveis suficientemente consolidadas. Dimensão legitimamente NOT_APPLICABLE não recebe zero.</p></article><article class='ref-card'><h3>Coverage</h3><p>Proporção do peso aplicável efetivamente avaliado. Mede completude da análise, não qualidade do site.</p></article><article class='ref-card'><h3>Confidence</h3><p>Qualifica a força da conclusão com thresholds internos versionados. Não é score de conteúdo nem probabilidade estatística.</p></article></div><div class='notice warn'><strong>Limite de validade:</strong> pesos, fatores WARNING, thresholds de Confidence/Consolidation e faixas visuais são decisões metodológicas do SearchGEO. Fontes externas sustentam os fenômenos observados, mas não homologam o índice composto.</div><p><a href='references.html#indicator-provenance'>Abrir proveniência, fontes primárias e regras de cálculo →</a></p></section>
 <section class='panel'><div class='kicker'>Observed AI Visibility</div><h2>Separação entre readiness e resultado observado</h2><p class='intro'>Esta auditoria não transforma readiness em suposta probabilidade de citação. Métricas observadas de AI visibility só devem ser publicadas quando houver coleta externa específica, repetível e identificada por engine/query/período. Na ausência dessa evidência, nenhum número é fabricado.</p></section>
 <footer class='footer'>SGRI-001 é uma metodologia proprietária, versionada e auditável do SearchGEO. Métricas externas permanecem em páginas próprias e mantêm sua metodologia original.</footer></main></body></html>\n"""
+
+
+def _audit_limitations_block(audit: sqlite3.Row | None) -> str:
+    if audit is None or "limitations" not in audit.keys():
+        return ""
+    raw = audit["limitations"]
+    try:
+        values = json.loads(str(raw or "[]"))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        values = []
+    if not isinstance(values, list):
+        values = []
+    items = [str(item).strip() for item in values if str(item).strip()]
+    if not items:
+        return ""
+    rows = "".join(f"<li>{escape(item)}</li>" for item in items)
+    return (
+        "<section class='notice warn' data-audit-limitations='true'>"
+        "<strong>Por que esta auditoria possui limitações:</strong>"
+        f"<ul>{rows}</ul>"
+        "<p>Essas condições reduzem Coverage/Consolidation; não são convertidas automaticamente em falha do website.</p>"
+        "</section>"
+    )
 
 
 def _overall_card(scores: list[sqlite3.Row], device: str) -> str:

@@ -227,9 +227,9 @@ def _prompt_choice(spec: EnvironmentSpec) -> str | None:
     for index, item in enumerate(spec.accepted, 1):
         marker = " [default]" if item == spec.default else ""
         print(f" {index}. {item}{marker}")
-    print(" 0. cancelar")
-    raw = input("Escolha: ").strip()
-    if raw == "0":
+    print(" V. Voltar")
+    raw = input("Escolha: ").strip().upper()
+    if raw == "V":
         return None
     if raw in spec.accepted:
         return raw
@@ -311,9 +311,18 @@ def _variable_menu(state: object, spec: EnvironmentSpec) -> None:
         render_header(state)
         _render_detail(spec)
         if spec.sensitive or is_secret(spec.name):
-            print("\nS. Setar/alterar sessão | R. Remover da sessão | P. Persistência Windows/User | D. Documentação | V. Voltar")
+            print("\nAÇÕES")
+            print("S. Setar/alterar sessão")
+            print("R. Remover da sessão")
+            print("P. Persistência Windows/User")
+            print("D. Documentação")
+            print("V. Voltar")
         else:
-            print("\nS. Setar/alterar | R. Remover override | D. Documentação | V. Voltar")
+            print("\nAÇÕES")
+            print("S. Setar/alterar")
+            print("R. Remover override")
+            print("D. Documentação")
+            print("V. Voltar")
         action = input("Escolha: ").strip().upper()
         if action == "V":
             return
@@ -355,7 +364,9 @@ def _category_menu(state: object, title: str, specs: tuple[EnvironmentSpec, ...]
         print(f"VARIÁVEIS DE AMBIENTE — {title}\n")
         for index, spec in enumerate(specs, 1):
             print(f"{index:2d}. {spec.name:<44} {_status(spec)}")
-        print("\nD. Abrir documentação detalhada | V. Voltar")
+        print("\nAÇÕES")
+        print("D. Abrir documentação detalhada")
+        print("V. Voltar")
         raw = input("Selecione a variável: ").strip().upper()
         if raw == "V":
             return

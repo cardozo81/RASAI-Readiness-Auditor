@@ -276,7 +276,7 @@ Após uma auditoria:
 ```text
 P. Abrir pasta da auditoria
 I. Abrir relatório HTML
-M. Voltar ao menu
+V. Voltar ao menu
 Q. Sair
 ```
 

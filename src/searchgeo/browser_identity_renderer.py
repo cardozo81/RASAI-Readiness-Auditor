@@ -181,7 +181,13 @@ class BrowserIdentityRenderer(BrowserRenderer):
             self.close()
         return self._startup_error
 
-    def render(self, url: str, device: DeviceContext) -> BrowserRenderResult:
+    def render(
+        self,
+        url: str,
+        device: DeviceContext,
+        *,
+        preflight_navigation_trace: Any = None,
+    ) -> BrowserRenderResult:
         profile = DESKTOP_PROFILE if device is DeviceContext.DESKTOP else MOBILE_PROFILE
         startup_error = self.start()
         if startup_error is not None or self._browser is None or self._playwright is None:
@@ -202,7 +208,11 @@ class BrowserIdentityRenderer(BrowserRenderer):
             return first
 
         original_trace = first.browser_metadata.get("navigation_trace")
+        candidate_source = "BROWSER_NAVIGATION_TRACE"
         candidate = secure_upgrade_candidate(url, original_trace)
+        if candidate is None:
+            candidate = secure_upgrade_candidate(url, preflight_navigation_trace)
+            candidate_source = "M2_HTTP_PREFLIGHT_TRACE"
         if candidate is None:
             return first
 
@@ -216,6 +226,8 @@ class BrowserIdentityRenderer(BrowserRenderer):
         recovery_metadata = {
             "policy": "STRICT_TLS_SAME_SITE_HTTPS_UPGRADE_V1",
             "trigger": "HTTPS_TO_HTTP_DOWNGRADE_AFTER_NAVIGATION_FAILURE",
+            "candidate_source": candidate_source,
+            "preflight_navigation_trace": preflight_navigation_trace if isinstance(preflight_navigation_trace, list) else [],
             "attempted": True,
             "candidate_url": candidate,
             "succeeded": recovered.succeeded,
