@@ -197,6 +197,28 @@ Decisão aprovada:
 
 D-038 complementa D-037; não a supersede.
 
+### D-039 — M24 Crawling/Discovery, políticas de crawler e IA técnica
+
+M24 é aprovado como domínio técnico **aditivo, pós-scoring e não-scoring**. Ele aprofunda evidências de rastreamento/descoberta sem criar um novo índice nem recalibrar `SCORE-GEO-002`/`SGRI-001`.
+
+Decisão aprovada:
+
+1. diagnósticos M24 permanecem determinísticos e persistidos com `scoring_impact=NONE`;
+2. `robots.txt` e sitemaps devem seguir standards/guidance públicos aplicáveis, mas severidades M24 continuam metodologia interna do SearchGEO;
+3. uma declaração absoluta `Sitemap:` pode apontar para host diferente; o auditor preserva essa declaração, porém não faz fetch cross-origin automático a partir dela enquanto não existir política explícita de SSRF/DNS/IP/redirect/autorização;
+4. a restrição de fetch cross-origin é limite de segurança/escopo do auditor e não finding do website;
+5. OAI-SearchBot representa descoberta/surfacing para Search da OpenAI; GPTBot permanece controle relacionado a potencial treinamento. O estado de um não pode ser inferido a partir do outro;
+6. Google-Extended é token de produto em `robots.txt`, não user-agent HTTP Search independente, e não afeta inclusão/ranking na Pesquisa Google conforme documentação pública do Google;
+7. `llms.txt` permanece proposta comunitária experimental: ausência, erro ou não adoção não reduz score/readiness e o arquivo não substitui robots, sitemap, canonical, HTML semântico ou conteúdo acessível;
+8. IndexNow não pode ser declarado configurado/bem-sucedido por auditoria passiva sem evidência explícita, log ou artifact verificável; na ausência disso, o estado é não determinável;
+9. remediação técnica M24 por IA é default OFF, evidence-bound, advisory e exige revisão humana;
+10. IA M24 não pode inventar URLs/policies/canonicals/datas/tokens, decidir unilateralmente política de treinamento/crawler nem alterar RuleExecution, Finding GEO, Recommendation GEO, Score, Coverage, Confidence ou Consolidation;
+11. hard source blocker confirmado impede aquisição adicional `/llms.txt` e chamada técnica de IA dependente do corpus;
+12. `report/crawling-discovery.html` é a página canônica desse domínio e deve usar navegação/CSS compartilhados;
+13. qualquer futura incorporação de diagnóstico M24 ao scoring exige decisão explícita, novo versionamento e regressão comparativa; não pode ocorrer implicitamente.
+
+D-039 complementa D-037/D-038; não as supersede.
+
 ## PENDING ENVIRONMENT VALIDATION
 
 ### D-028
@@ -254,7 +276,10 @@ Essas pendências não bloqueiam desenvolvimento local do MVP.
 - arquitetura do site não gera penalidade por si só;
 - `llms.txt` não impacta score automaticamente;
 - GPTBot e OAI-SearchBot possuem papéis distintos;
+- Google-Extended não é crawler Search independente e não afeta ranking/inclusão da Pesquisa Google;
+- sitemap externo declarado não é seguido automaticamente pelo M24 enquanto não houver política segura de aquisição cross-origin;
 - findings devem ser evidence-backed;
 - LLM nunca é scoring engine;
 - cascading failures devem ser controladas;
-- métricas PageSpeed/CrUX/Lighthouse não alteram `SCORE-GEO-002` sem nova decisão/versionamento explícito.
+- métricas PageSpeed/CrUX/Lighthouse não alteram `SCORE-GEO-002` sem nova decisão/versionamento explícito;
+- diagnósticos M24 também não alteram `SCORE-GEO-002`/`SGRI-001` sem nova decisão/versionamento explícito.
