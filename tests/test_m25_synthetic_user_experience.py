@@ -189,7 +189,8 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
             )
             self.assertEqual(result.valid_samples, 4)
             self.assertEqual(result.final_population_groups, 1)
-            self.assertTrue(gateway.closed)
+            # Injected gateways follow the M23 ownership convention: the caller owns lifecycle.
+            self.assertFalse(gateway.closed)
 
             connection = sqlite3.connect(workspace.database)
             try:
