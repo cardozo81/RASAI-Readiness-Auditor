@@ -9,7 +9,27 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
+import os
+from typing import Any, Mapping
+
+
+CONTENT_RISK_PROFILE_ENV = "SEARCHGEO_CONTENT_RISK_PROFILE"
+YMYL_CATEGORY_ENV = "SEARCHGEO_YMYL_CATEGORY"
+PAGE_PURPOSE_ENV = "SEARCHGEO_PAGE_PURPOSE"
+INTENDED_AUDIENCE_ENV = "SEARCHGEO_INTENDED_AUDIENCE"
+EXPERIENCE_REQUIREMENT_ENV = "SEARCHGEO_EXPERIENCE_REQUIREMENT"
+FRESHNESS_SENSITIVITY_ENV = "SEARCHGEO_FRESHNESS_SENSITIVITY"
+CONTENT_ORIGIN_ENV = "SEARCHGEO_CONTENT_ORIGIN"
+
+CONTENT_CONTEXT_ENV_NAMES = (
+    CONTENT_RISK_PROFILE_ENV,
+    YMYL_CATEGORY_ENV,
+    PAGE_PURPOSE_ENV,
+    INTENDED_AUDIENCE_ENV,
+    EXPERIENCE_REQUIREMENT_ENV,
+    FRESHNESS_SENSITIVITY_ENV,
+    CONTENT_ORIGIN_ENV,
+)
 
 
 class ContentRiskProfile(StrEnum):
@@ -122,6 +142,10 @@ class ContentAnalysisContext:
         configured = set(self.configured_fields)
         return tuple(name for name in all_fields if name not in configured)
 
+    @property
+    def is_fully_auto(self) -> bool:
+        return not self.configured_fields
+
     def provider_payload(self) -> dict[str, Any]:
         return {
             "risk_profile": self.risk_profile.value,
@@ -161,6 +185,21 @@ class ContentAnalysisContext:
             "Language and market are context only and must not be used to assert jurisdictional or regulatory compliance."
         )
 
+    def compact_summary(self) -> str:
+        fields = self.provider_payload()
+        return ";".join(
+            f"{name}={fields[name]}"
+            for name in (
+                "risk_profile",
+                "ymyl_category",
+                "page_purpose",
+                "intended_audience",
+                "experience_requirement",
+                "freshness_sensitivity",
+                "content_origin",
+            )
+        )
+
 
 def default_content_analysis_context() -> ContentAnalysisContext:
     return ContentAnalysisContext()
@@ -189,3 +228,22 @@ def build_content_analysis_context(
     except ValueError as exc:
         raise ValueError(f"invalid content analysis context: {exc}") from exc
     return context.validate()
+
+
+def configured_content_analysis_context(
+    env: Mapping[str, str] | None = None,
+) -> ContentAnalysisContext:
+    environment = env if env is not None else os.environ
+
+    def value(name: str) -> str:
+        return (environment.get(name) or "auto").strip() or "auto"
+
+    return build_content_analysis_context(
+        risk_profile=value(CONTENT_RISK_PROFILE_ENV),
+        ymyl_category=value(YMYL_CATEGORY_ENV),
+        page_purpose=value(PAGE_PURPOSE_ENV),
+        intended_audience=value(INTENDED_AUDIENCE_ENV),
+        experience_requirement=value(EXPERIENCE_REQUIREMENT_ENV),
+        freshness_sensitivity=value(FRESHNESS_SENSITIVITY_ENV),
+        content_origin=value(CONTENT_ORIGIN_ENV),
+    )
