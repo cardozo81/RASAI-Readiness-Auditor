@@ -101,14 +101,16 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
       <div class='metric-grid'>
         {_metric('Datasets importados', len(imports))}
         {_metric('Período mais recente', f"{latest['period_start']} → {latest['period_end']}")}
-        {_metric('Fonte mais recente', latest['source_label'])}
+        {_metric('Fonte declarada', latest['source_label'])}
+        {_metric('Método de captura', latest['capture_method'])}
         {_metric('Contrato', latest['format_version'])}
       </div>
     </header>
     <section class='panel notice-critical'>
       <h2>Readiness ≠ Visibility</h2>
       <p><strong>Readiness</strong> descreve condições técnicas/semânticas inferidas pela auditoria. <strong>Observed Generative Visibility</strong> descreve o que foi efetivamente observado numa fonte ou protocolo. Correlação entre ambos é matéria de validação empírica futura; esta página não presume causalidade.</p>
-      <p>Contagem de citações não é ranking, autoridade, posição nem probabilidade de citação futura. Métricas reportadas por terceiros são preservadas com sua origem; métricas calculadas pelo SearchGEO exibem fórmula e tamanho amostral.</p>
+      <p>Contagem de citações não é ranking, autoridade, posição nem probabilidade de citação futura. Métricas declaradas como reportadas por terceiros são preservadas sem recomputação equivalente.</p>
+      <p><strong>Proveniência:</strong> M26 é import-first. A fonte e o método de captura são declarados no artifact fornecido ao SearchGEO; nesta versão o SearchGEO não autentica o portal externo nem afirma que realizou coleta direta.</p>
     </section>
     {sections}
     {_references()}
@@ -133,7 +135,8 @@ def _import_section(item: sqlite3.Row, data: dict[str, Any]) -> str:
     reported_total = item["source_total_citations"]
     reported_average = item["source_average_cited_pages"]
     metrics = [
-        _metric("Fonte", item["source_label"]),
+        _metric("Fonte declarada", item["source_label"]),
+        _metric("Método de captura", item["capture_method"]),
         _metric("Período", f"{item['period_start']} → {item['period_end']}"),
         _metric("URLs citadas observadas", cited_pages if pages else "—"),
     ]
@@ -174,7 +177,7 @@ def _import_section(item: sqlite3.Row, data: dict[str, Any]) -> str:
       <h2>{escape(str(item['source_label']))} · {escape(str(item['period_start']))} → {escape(str(item['period_end']))}</h2>
       <div class='metric-grid'>{''.join(metrics)}</div>
       <p class='intro'><strong>Market/language:</strong> {escape(str(item['market'] or '—'))} / {escape(str(item['language'] or '—'))}. <strong>Engines nos query-runs válidos:</strong> {escape(engine_note)}.</p>
-      <div class='notice'><strong>Proveniência:</strong> artifact <code>{artifact}</code> · SHA-256 <code>{sha}</code> · importado em {escape(str(item['imported_at']))}. Metadata: <code>{metadata_text}</code>.</div>
+      <div class='notice'><strong>Proveniência declarada:</strong> método <code>{escape(str(item['capture_method']))}</code> · artifact <code>{artifact}</code> · SHA-256 <code>{sha}</code> · importado em {escape(str(item['imported_at']))}. Metadata: <code>{metadata_text}</code>. O SearchGEO preserva esta declaração, mas não a converte em prova de coleta autenticada no sistema externo.</div>
       <h3>Atividade por URL</h3>
       <div class='table-wrap'><table><thead><tr><th>URL</th><th>Citações</th><th>Data</th></tr></thead><tbody>{page_rows}</tbody></table></div>
       <h3>Grounding queries</h3>
