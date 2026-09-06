@@ -1,3 +1,0 @@
-[console_scripts]
-searchgeo = searchgeo.entrypoint:main
-searchgeo-console = searchgeo.console_entrypoint:main
