@@ -165,7 +165,7 @@ def _build_block(
     return (
         SUMMARY_MARKER_START
         + "<section class='panel source-blocker-summary' id='source-blocker-summary'>"
-        "<div class='notice notice-danger'>"
+        "<div class='notice notice-warning'>"
         "<h2>Auditoria limitada por bloqueio técnico da origem</h2>"
         "<p><strong>As métricas dependentes do conteúdo não puderam ser coletadas de forma representativa.</strong> "
         "O SearchGEO interrompeu medições repetitivas ou externas depois que a falha foi confirmada, evitando produzir números enganosos ou consumir APIs sem utilidade.</p>"
@@ -246,14 +246,12 @@ def _measurement_state(database: Path) -> dict[str, Any]:
         try:
             row = _first_row(
                 con,
-                "SELECT status,context_attempts,pagespeed_attempts,crux_attempts,reason FROM web_performance_runs LIMIT 1",
+                "SELECT status,context_attempts,reason FROM web_performance_runs LIMIT 1",
             )
             if row is not None:
                 output["web_performance"] = {
                     "status": row["status"],
                     "attempts": int(row["context_attempts"] or 0),
-                    "pagespeed_attempts": int(row["pagespeed_attempts"] or 0),
-                    "crux_attempts": int(row["crux_attempts"] or 0),
                     "reason": row["reason"],
                 }
             row = _first_row(
@@ -332,7 +330,7 @@ def _append_diagnostic_event_once(
     browser: list[dict[str, Any]],
     ai_payload: dict[str, Any] | None,
 ) -> None:
-    log_path = workspace.logs / "audit.log"
+    log_path = workspace.root / "logs" / "audit.log"
     try:
         if log_path.is_file() and "SOURCE_QUALITY_TECHNICAL_DIAGNOSTIC" in log_path.read_text(encoding="utf-8", errors="replace"):
             return
