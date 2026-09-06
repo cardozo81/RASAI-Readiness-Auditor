@@ -1,7 +1,8 @@
 """Extract Lighthouse execution settings from already-persisted M21 artifacts.
 
-This module performs no network calls and never invents missing emulation or
-throttling settings. Unknown fields remain NULL in persistence/reporting.
+This module performs no network calls for Lighthouse traceability and never
+invents missing emulation or throttling settings. M25 hooks here only as an
+additive one-shot synthetic domain before M23's standard samples.
 """
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ import sqlite3
 from typing import Any
 
 from searchgeo.m23_persistence import LighthouseExecutionProfile, M23Persistence
+from searchgeo.m25_runtime import execute_pending_m25
 from searchgeo.operational_log import try_append_operational_event
 from searchgeo.persistence import AuditWorkspace
 
@@ -26,6 +28,12 @@ class LighthouseTraceabilityResult:
 
 
 def extract_lighthouse_execution_profiles(*, audit_id: str, workspace: AuditWorkspace) -> LighthouseTraceabilityResult:
+    # M25 is deliberately fail-open and has independent persistence/reporting.
+    # The one-shot config is populated by the extended CLI. Running it here keeps
+    # M23 Standard Apdex code and formula untouched while guaranteeing M25 runs
+    # after the core audit has materialized pages/report and before M23 samples.
+    execute_pending_m25(audit_id=audit_id, workspace=workspace)
+
     rows = _observations(workspace, audit_id)
     extracted = missing = invalid = 0
     if not rows:
