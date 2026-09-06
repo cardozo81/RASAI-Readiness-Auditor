@@ -13,23 +13,13 @@ searchgeo visibility import|report ...
 
 O router superior intercepta somente `visibility`; os demais comandos continuam delegados ao pipeline de auditoria existente.
 
-Ajuda:
+Tokens canônicos do contrato público: `-h`, `--help`, `--version`, `--config PATH`.
 
-```text
--h, --help
-```
+Ajuda: `-h`, `--help`.
 
-Versão:
+Versão: `--version`.
 
-```text
---version
-```
-
-Configuração geral de aplicação/logging:
-
-```text
---config PATH
-```
+Configuração geral de aplicação/logging: `--config PATH`.
 
 ## Comando `audit`
 
@@ -54,25 +44,13 @@ searchgeo audit target [target ...] [opções]
 | `--audits-root PATH` | diretório raiz dos workspaces; default `audits` |
 | `--device-context` | `mobile`, `desktop` ou `both` |
 
-Default de dispositivo:
+Default de dispositivo: `mobile`.
 
-```text
-mobile
-```
-
-Override por ambiente:
-
-```text
-SEARCHGEO_DEVICE_CONTEXT
-```
+Override por ambiente: `SEARCHGEO_DEVICE_CONTEXT`.
 
 ## IA
 
-Seleção:
-
-```text
---ai-provider
-```
+Seleção: `--ai-provider`.
 
 Valores aceitos pela superfície pública:
 
@@ -98,11 +76,7 @@ OpenAI -> DeepSeek -> MiMo
 
 Providers adicionais são seleção explícita.
 
-Modelo explícito:
-
-```text
---ai-model MODEL_ID
-```
+Modelo explícito: `--ai-model MODEL_ID`.
 
 `--ai-model` não deve ser usado com `auto`; AUTO usa configuração por provider.
 
@@ -138,11 +112,7 @@ Overrides de reasoning/thinking usam as variáveis específicas do provider expo
 
 ### Timeout IA
 
-```text
-SEARCHGEO_AI_TIMEOUT_SECONDS
-```
-
-Default público: `180` segundos por tentativa.
+`SEARCHGEO_AI_TIMEOUT_SECONDS`. Default público: `180` segundos por tentativa.
 
 ## Remediação textual por IA
 
@@ -151,9 +121,7 @@ Default público: `180` segundos por tentativa.
 --no-ai-content-remediation
 ```
 
-Default: OFF.
-
-A remediação exige provider de IA apto. É advisory/evidence-bound e não altera automaticamente o Score GEO.
+Default: OFF. A remediação exige provider de IA apto. É advisory/evidence-bound e não altera automaticamente o Score GEO.
 
 ## M24 — remediação técnica de crawling/discovery por IA
 
@@ -164,20 +132,9 @@ A remediação exige provider de IA apto. É advisory/evidence-bound e não alte
 
 Default: OFF.
 
-Variável equivalente:
+Variável equivalente: `SEARCHGEO_AI_TECHNICAL_REMEDIATION`.
 
-```text
-SEARCHGEO_AI_TECHNICAL_REMEDIATION
-```
-
-Valores de ambiente aceitos:
-
-```text
-true / false
-1 / 0
-yes / no
-on / off
-```
+Valores de ambiente aceitos: `true/false`, `1/0`, `yes/no`, `on/off`.
 
 Precedência: argumento CLI explícito > variável de ambiente > OFF.
 
@@ -204,47 +161,17 @@ Habilitação:
 
 Default: OFF.
 
-Limite de páginas externas:
+Limite de páginas externas: `--web-performance-max-pages N`. `0` significa todas as páginas auditadas, respeitando o limite geral da auditoria.
 
-```text
---web-performance-max-pages N
-```
+Timeout por chamada externa: `--web-performance-timeout-seconds SECONDS`. Default público: `120` segundos.
 
-`0` significa todas as páginas auditadas, respeitando o limite geral da auditoria.
-
-Timeout por chamada externa:
-
-```text
---web-performance-timeout-seconds SECONDS
-```
-
-Default público: `120` segundos.
-
-Variável equivalente:
-
-```text
-SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS
-```
+Variável equivalente: `SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS`.
 
 Esse timeout controla a espera pela resposta externa PageSpeed/CrUX. A API PageSpeed executa Lighthouse remotamente; não há nessa superfície um argumento separado do SearchGEO para definir o timeout interno de carregamento usado pelo Lighthouse.
 
-Field data:
+Field data: `--web-performance-field-source auto|pagespeed|crux|none`. Default: `auto`. `crux` direto exige `SEARCHGEO_CRUX_API_KEY`.
 
-```text
---web-performance-field-source auto|pagespeed|crux|none
-```
-
-Default: `auto`.
-
-`crux` direto exige `SEARCHGEO_CRUX_API_KEY`.
-
-Categorias Lighthouse:
-
-```text
---lighthouse-categories performance,accessibility,best-practices,seo
-```
-
-Default: as quatro categorias acima.
+Categorias Lighthouse: `--lighthouse-categories performance,accessibility,best-practices,seo`.
 
 Variáveis relacionadas:
 
@@ -269,61 +196,15 @@ Habilitação:
 
 Default: OFF.
 
-Threshold:
+Parâmetros:
 
-```text
---apdex-threshold-seconds SECONDS
-```
-
-`T` é obrigatório quando Synthetic Apdex está habilitado.
-
-Amostras válidas por URL/device:
-
-```text
---apdex-samples-per-context N
-```
-
-Default quando habilitado: `100`.
-
-Máximo de tentativas:
-
-```text
---apdex-max-attempts-per-context N
-```
-
-Default: `ceil(1.25 × alvo)`.
-
-Máximo de páginas:
-
-```text
---apdex-max-pages N
-```
-
-Default: `1`; `0` usa todas as páginas disponíveis dentro do limite geral.
-
-Timeout por navegação:
-
-```text
---apdex-timeout-seconds SECONDS
-```
-
-Deve ser `> 4T`. Default efetivo: `max(45, 4T + 5)`.
-
-Delay:
-
-```text
---apdex-delay-seconds SECONDS
-```
-
-Default: `1`.
-
-Concorrência:
-
-```text
---apdex-concurrency N
-```
-
-Valores: `1` ou `2`. Default: `1`.
+- `--apdex-threshold-seconds SECONDS`: `T`, obrigatório quando habilitado;
+- `--apdex-samples-per-context N`: amostras válidas por URL/device, default `100`;
+- `--apdex-max-attempts-per-context N`: default `ceil(1.25 × alvo)`;
+- `--apdex-max-pages N`: default `1`; `0` usa todas as páginas disponíveis dentro do limite geral;
+- `--apdex-timeout-seconds SECONDS`: deve ser `> 4T`; default efetivo `max(45, 4T + 5)`;
+- `--apdex-delay-seconds SECONDS`: default `1`;
+- `--apdex-concurrency N`: valores `1` ou `2`, default `1`.
 
 Variáveis equivalentes:
 
@@ -347,9 +228,7 @@ Habilitação:
 --no-apdex-experience
 ```
 
-Default: OFF.
-
-O M25 é um segundo domínio Apdex, sintético e calibrável. Não substitui o M23 e não representa RUM.
+Default: OFF. O M25 é um segundo domínio Apdex, sintético e calibrável. Não substitui o M23 e não representa RUM.
 
 Principais parâmetros:
 
@@ -373,8 +252,6 @@ Quando habilitado, `device-mix` deve representar explicitamente a população si
 
 ### Calibração Dynatrace
 
-Pode ser solicitada por configuração exportada/offline ou integração habilitada pela superfície M25:
-
 ```text
 --apdex-dynatrace-import
 --dynatrace-base-url URL
@@ -386,11 +263,7 @@ O import de configuração é usado para alinhar KPM/thresholds/política quando
 
 Variáveis M25 usam prefixos `SEARCHGEO_APDEX_EXPERIENCE_*` e `SEARCHGEO_APDEX_DYNATRACE_IMPORT`, além das variáveis Dynatrace documentadas em `ENVIRONMENT_VARIABLES.md`.
 
-Página canônica:
-
-```text
-report/apdex-experience.html
-```
+Página canônica: `report/apdex-experience.html`.
 
 ## Observed Generative Visibility — M26
 
@@ -405,11 +278,7 @@ searchgeo visibility import `
   --file observed-visibility.json
 ```
 
-O arquivo precisa obedecer ao contrato:
-
-```text
-OGV-IMPORT-001
-```
+O arquivo precisa obedecer ao contrato `OGV-IMPORT-001`.
 
 Fontes iniciais suportadas:
 
@@ -418,13 +287,24 @@ BING_WEBMASTER_TOOLS_AI_PERFORMANCE
 CONTROLLED_QUERY_RUNS
 ```
 
+`source.capture_method` é obrigatório e registra como a evidência foi obtida/normalizada. Valores aceitos:
+
+```text
+MANUAL_TRANSCRIPTION
+NORMALIZED_EXPORT
+CONTROLLED_PROTOCOL
+EXTERNAL_AUTOMATION
+```
+
+Esse campo é proveniência declarada do dataset; não significa que o SearchGEO autenticou ou coletou diretamente a informação no sistema externo.
+
 Regras relevantes:
 
 - JSON UTF-8 válido;
 - URLs devem pertencer ao `normalized_origin` da auditoria;
 - artifact importado é preservado com SHA-256;
 - reimport do mesmo conteúdo é idempotente;
-- métricas Bing declaradas no arquivo permanecem identificadas como métricas reportadas pela fonte;
+- métricas Bing declaradas permanecem identificadas como métricas reportadas pela fonte;
 - Citation Presence Rate só é calculado sobre query-runs `VALID`;
 - runs `INVALID` ficam fora do denominador;
 - rank observado exige `ranking_semantics` explícita;
@@ -438,11 +318,7 @@ searchgeo visibility report `
   --audits-root audits
 ```
 
-Página canônica:
-
-```text
-report/ai-visibility.html
-```
+Página canônica: `report/ai-visibility.html`.
 
 O M26 é **import-first**: não faz scraping de Bing Webmaster Tools e não presume endpoint de API de AI Performance sem documentação pública correspondente.
 
@@ -473,8 +349,6 @@ searchgeo audit https://example.com `
   --ai-provider openai `
   --ai-technical-remediation
 ```
-
-Sem `--ai-technical-remediation`, M24 continua executando apenas os diagnósticos determinísticos e não gera custo de IA por essa finalidade.
 
 ### Web Performance
 
