@@ -1,6 +1,6 @@
 # TECHNICAL_ARCHITECTURE.md
 
-**Status:** APPROVED — M21 + M20 + REPORT-SITE-GEO-001
+**Status:** APPROVED — M24 + M23 + M22 + M21 + M20 + SGRI-001 + REPORT-SITE-GEO-001
 
 ## 1. Estilo arquitetural
 
@@ -13,7 +13,8 @@ Não exige:
 - Docker;
 - daemon/background worker;
 - IA externa;
-- PageSpeed Insights ou CrUX para a auditoria SearchGEO principal.
+- PageSpeed Insights ou CrUX para a auditoria SearchGEO principal;
+- `llms.txt`, IndexNow ou serviço externo de discovery para funcionar.
 
 ## 2. Runtime
 
@@ -23,14 +24,19 @@ Não exige:
 - filesystem local;
 - HTTP/HTTPS para target;
 - HTTPS para provider externo somente quando habilitado;
-- HTTPS para PageSpeed/CrUX somente quando M21 external collection estiver habilitada.
+- HTTPS para PageSpeed/CrUX somente quando M21 external collection estiver habilitada;
+- aquisição M24 adicional limitada ao mesmo origin autorizado, atualmente `/llms.txt`, quando a origem estiver tecnicamente apta.
 
 ## 3. Pipeline
 
 ```text
 CLI
 → configuração/contexto de dispositivo
+→ instalação das extensões M24 de discovery
 → discovery/acquisition
+   → robots.txt
+   → sitemap(s) same-origin permitidos
+   → XML/urlset + sitemap index + gzip + RSS/Atom + texto plano
 → rendering
 → extraction/evidence
 → deterministic rules
@@ -40,13 +46,22 @@ CLI
 → prioritization/remediation base (M10/M16/M17)
 → M20 opcional: sugestão textual evidence-bound + revisão JSON-LD determinística
 → M11/M18 intermediate reporting
-→ report-site finalization
+→ report-site base finalization
 → M20 report projection/navigation enrichment
 → M21 optional external Web Performance enrichment
    → PageSpeed Insights/Lighthouse lab
    → CrUX field data quando disponível/configurado
    → persistence + raw JSON artifacts
-   → web-performance.html + summary/references enrichment
+→ M23 Synthetic Navigation Apdex quando habilitado
+→ SGRI/reporting final por domínio
+→ M24 post-audit crawling/discovery enrichment
+   → lê audit.db + artifacts já persistidos
+   → diagnósticos determinísticos robots/sitemap/discovery
+   → `/llms.txt` same-origin quando origem apta
+   → IA técnica opcional/evidence-bound, default OFF
+   → m24_* persistence + artifacts/m24/
+   → crawling-discovery.html + ai-usage/references enrichment
+→ normalização final da navegação compartilhada
 ```
 
 Invariantes:
@@ -55,7 +70,11 @@ Invariantes:
 - M21 ocorre depois da auditoria principal e é fail-open;
 - M21 não cria RuleExecution, Finding, Recommendation ou ScoreContribution;
 - M21 não executa LLM;
-- PageSpeed/CrUX indisponível não invalida `SCORE-GEO-002`.
+- M23 é separado do scoring SearchGEO e não transforma Lighthouse/CrUX em Apdex;
+- M24 é pós-scoring, aditivo e `scoring_impact=NONE`;
+- M24 não cria nem altera RuleExecution, Finding GEO, Recommendation GEO, ScoreContribution, Coverage, Confidence, Consolidation, `SCORE-GEO-002` ou `SGRI-001`;
+- M24 AI, quando habilitada, explica somente diagnósticos já determinados e persistidos;
+- PageSpeed/CrUX, M23 ou M24 indisponíveis não invalidam `SCORE-GEO-002`.
 
 ## 4. Device context
 
@@ -87,6 +106,8 @@ M21 também usa somente snapshots existentes:
 MOBILE  → PageSpeed strategy=mobile  → CrUX formFactor=PHONE
 DESKTOP → PageSpeed strategy=desktop → CrUX formFactor=DESKTOP
 ```
+
+M24 cruza sitemaps/discovery apenas contra a amostra realmente auditada; ausência de URL fora da amostra não pode ser inferida como erro global.
 
 Chamadas internas diretas a M3 sem variável preservam `both` para compatibilidade interna/testes.
 
@@ -120,7 +141,15 @@ web_performance_observations
 web_performance_attempts
 ```
 
-Tabelas M20/M21 não participam do denominador de scoring nem substituem as tabelas normativas de RuleExecution/Score.
+M24 adiciona entidades auxiliares próprias:
+
+```text
+m24_runs
+m24_diagnostics
+m24_ai_results
+```
+
+Tabelas M20/M21/M24 não participam do denominador de scoring nem substituem as tabelas normativas de RuleExecution/Score. `m24_diagnostics.scoring_impact` permanece `NONE`.
 
 ## 6. Artifacts
 
@@ -132,7 +161,8 @@ Podem incluir:
 - structured data;
 - screenshots;
 - evidence materializada;
-- respostas JSON PageSpeed/CrUX quando M21 executar coleta externa com sucesso.
+- respostas JSON PageSpeed/CrUX quando M21 executar coleta externa com sucesso;
+- artifacts M24 quando a aquisição correspondente ocorrer.
 
 Os artifacts são referenciados por caminhos relativos ao workspace.
 
@@ -144,27 +174,40 @@ M21 escreve respostas externas reabríveis em:
 artifacts/web-performance/
 ```
 
-Esses JSONs preservam o payload utilizado na projeção sem persistir API key.
+M24 escreve artifacts próprios em:
+
+```text
+artifacts/m24/
+```
+
+Quando `/llms.txt` same-origin é obtido:
+
+```text
+artifacts/m24/llms.txt
+```
+
+Esses artifacts não contêm credenciais e são usados pela projeção sem nova chamada externa.
 
 ## 7. IA
 
 `SemanticAnalysisProvider` é abstração independente de fornecedor.
 
-Providers suportados na baseline operacional:
-
-```text
-NONE
-OPENAI
-DEEPSEEK
-MIMO
-AUTO router
-```
+Providers suportados na baseline operacional são definidos pelo registry. `NONE` continua válido; AUTO e providers explícitos respeitam a política M18 vigente.
 
 M18 persiste sessão/tentativas da finalidade de análise semântica. IA não executa scoring.
 
-M20, quando habilitado, cria uma sessão de remediação derivada dos providers M18 ainda saudáveis. Não existe segunda credencial/model surface. M20 preserva quarantine anterior e executa failover/URL pinning próprio para a finalidade de remediação, mantendo telemetria separada.
+M20, quando habilitado, cria uma sessão de remediação derivada dos providers M18 ainda saudáveis. Não existe credencial paralela; M20 preserva quarantine anterior e mantém telemetria separada.
 
-M21 não usa `SemanticAnalysisProvider`, não chama OpenAI/DeepSeek/MiMo e não acrescenta consumo LLM.
+M21 não usa `SemanticAnalysisProvider` e não acrescenta consumo LLM.
+
+M24 possui uma finalidade técnica independente de M20:
+
+```text
+--ai-technical-remediation / --no-ai-technical-remediation
+SEARCHGEO_AI_TECHNICAL_REMEDIATION
+```
+
+Default OFF. O provider recebe somente diagnósticos/evidências M24 persistidos. A saída é advisory, requer revisão humana e não pode decidir scoring, canonical preferencial sem evidência, política de treinamento/crawler ou fatos não observados.
 
 ## 8. M20
 
@@ -216,16 +259,7 @@ Com M21 desligado, auditorias reais podem materializar estado `DISABLED` e a pá
 
 ### 9.2 PageSpeed Insights
 
-Uma chamada por snapshot/dispositivo selecionado solicita as categorias configuradas, com default:
-
-```text
-performance
-accessibility
-best-practices
-seo
-```
-
-Persistem-se somente valores efetivamente retornados, incluindo versão/fetch time Lighthouse e métricas de laboratório relevantes.
+Uma chamada por snapshot/dispositivo selecionado solicita as categorias configuradas. Persistem-se somente valores efetivamente retornados, incluindo versão/fetch time Lighthouse e métricas de laboratório relevantes.
 
 ### 9.3 Core Web Vitals / CrUX
 
@@ -246,13 +280,7 @@ SEARCHGEO_PAGESPEED_API_KEY
 SEARCHGEO_CRUX_API_KEY
 ```
 
-Elas nunca substituem nem reutilizam:
-
-```text
-OPENAI_API_KEY
-DEEPSEEK_API_KEY
-MIMO_API_KEY
-```
+Elas nunca substituem credenciais de IA.
 
 `--web-performance-max-pages` limita logical pages externas; `0` significa todas. Em `both`, cada página pode produzir dois contextos PageSpeed. Timeout não gera retry automático.
 
@@ -260,7 +288,54 @@ MIMO_API_KEY
 
 Após `run_audit` concluir, M21 é enrichment. Falha inesperada deve ser registrada/logada como problema operacional de coleta e não destruir o resultado principal já produzido.
 
-## 10. Scoring
+## 10. M24 — Crawling, Discovery & AI Access
+
+### 10.1 Discovery extensions
+
+M24 instala extensões determinísticas sobre `DiscoveryEngine` antes da auditoria CLI. O contrato acrescenta interpretação de sitemap sem substituir a proveniência M2 existente.
+
+Formatos aceitos pelo runtime M24:
+
+```text
+XML urlset
+XML sitemapindex
+gzip
+RSS 2.0
+Atom 1.0
+text/plain sitemap
+```
+
+Para `urlset`, apenas `<url><loc>` representa URL de página; `<loc>` de extensões de imagem/vídeo não deve ser promovido a página.
+
+### 10.2 robots e sitemap externo
+
+Declarações `Sitemap:` absolutas são preservadas mesmo quando externas ao origin auditado. O runtime não as segue automaticamente quando cross-origin.
+
+Essa fronteira evita expansão de escopo/SSRF e não significa que sitemap externo seja inválido. Qualquer evolução para fetch externo requer política própria de validação DNS/IP/redirect/autorização.
+
+### 10.3 llms.txt
+
+M24 pode adquirir somente:
+
+```text
+<origin>/llms.txt
+```
+
+Ausência, 404/410 ou indisponibilidade não reduzem score. O arquivo é tratado como proposta comunitária experimental, não web standard nem requisito de Search/GEO.
+
+Hard source blocker confirmado impede essa aquisição adicional.
+
+### 10.4 IA técnica
+
+Quando explicitamente habilitada, a IA recebe somente o universo persistido M24 e não pode inventar URL/policy/canonical/data/crawler token. O resultado é persistido antes da projeção HTML.
+
+Sem provider apto, M24 permanece determinístico e a finalidade AI fica `NOT_CONFIGURED`/indisponível sem finding do website.
+
+### 10.5 Falha
+
+M24 é fail-open. Falha operacional do enrichment/report deve ser registrada sem invalidar a auditoria SearchGEO já concluída.
+
+## 11. Scoring
 
 `SCORE-GEO-002` é determinístico sobre RuleExecutions persistidas.
 
@@ -270,52 +345,63 @@ M20 é estritamente downstream e não pode invalidar ou recalcular scoring já c
 
 M21 também é estritamente externo ao scoring. Nenhum Lighthouse score, LCP/INP/CLS, PageSpeed category score ou estado CWV é automaticamente convertido em peso, RuleResult, ScoreContribution, Coverage, Confidence ou Overall Readiness.
 
-## 11. Reporting interno
+M23 e M24 permanecem igualmente separados do scoring. Diagnósticos de crawling/discovery M24 não criam contribuição implícita para `SCORE-GEO-002` ou `SGRI-001`.
+
+## 12. Reporting interno
 
 M11/M15/M16/M17/M18 preservam seus contratos intermediários para compatibilidade de testes/módulos.
 
 Durante `run_audit`, esses HTMLs intermediários não são o contrato final do usuário.
 
-## 12. Report site final
+## 13. Report site final
 
-O contrato final materializa:
+O contrato final pode materializar:
 
 ```text
 report/
 ├─ index.html
-├─ mobile.html             # condicional
-├─ desktop.html            # condicional
+├─ searchgeo.html
+├─ mobile.html                 # condicional
+├─ desktop.html                # condicional
 ├─ remediation.html
 ├─ content-suggestions.html
+├─ crawling-discovery.html     # M24
+├─ accessibility.html          # quando materializado
 ├─ web-performance.html
+├─ apdex.html                  # quando habilitado/materializado
 ├─ ai-usage.html
 ├─ references.html
 └─ css/
    └─ site.css
 ```
 
-`report/index.html` é o `AuditRunResult.report_path` e o `reports.file_path` persistido.
+`report/index.html` permanece ponto de entrada do workspace.
 
-Após materialização bem-sucedida, intermediários `report.html` e `remediation.html` da raiz são removidos.
+`m20_reporting` projeta `content-suggestions.html` sem chamar provider.
 
-`m20_reporting` é uma projeção sobre dados já persistidos: escreve `content-suggestions.html`, conecta a navegação compartilhada e inclui a telemetria M20 em `ai-usage.html`. O renderer não chama provider.
+`m21_reporting` projeta `web-performance.html` sem reexecutar PageSpeed/CrUX.
 
-`m21_reporting` projeta `web-performance.html`, adiciona resumo ao `index.html`, referências oficiais em `references.html` e link de navegação compartilhada. Não reexecuta PageSpeed/CrUX e não recalcula `SCORE-GEO-002`.
+`searchgeo_readiness_reporting` projeta `searchgeo.html`/dashboard sem recalcular score.
 
-## 13. Separação de domínio na apresentação
+`m24_reporting` projeta `crawling-discovery.html`, complementa `ai-usage.html`/`references.html` e normaliza a navegação usando apenas estado M24 já persistido; o renderer não chama provider nem faz aquisição de website.
 
-- `index.html`: visão executiva/readiness + resumo M21 claramente externo;
-- `mobile.html`: evidência e resultados Mobile;
-- `desktop.html`: evidência e resultados Desktop;
+## 14. Separação de domínio na apresentação
+
+- `index.html`: visão executiva e links para páginas canônicas;
+- `searchgeo.html`: `SGRI-001`, dimensões, Coverage, Confidence e Consolidation;
+- `mobile.html`: evidência/findings Mobile;
+- `desktop.html`: evidência/findings Desktop;
 - `remediation.html`: causa/prioridade/correção;
 - `content-suggestions.html`: texto opcional e JSON-LD advisory;
-- `web-performance.html`: Lighthouse lab, CrUX/Core Web Vitals e telemetria de coleta externa;
-- `ai-usage.html`: operação/telemetria M18 e M20, separadas por finalidade;
-- `references.html`: fontes, metodologia e referências M21.
+- `crawling-discovery.html`: robots, crawler policies, sitemaps, discovery, `llms.txt`, feeds, IndexNow e orientação técnica M24;
+- `web-performance.html`: Lighthouse lab, CrUX/Core Web Vitals e telemetria externa;
+- `apdex.html`: Synthetic Navigation Apdex;
+- `ai-usage.html`: operação/telemetria de IA separada por finalidade;
+- `references.html`: fontes externas, metodologia e decisões internas claramente separadas.
 
-Essa separação impede confundir falha de provider IA ou serviço de medição externa com finding do website.
+Essa separação impede confundir falha de provider/medição ou diagnóstico M24 com score do website.
 
-## 14. CSS
+## 15. CSS
 
 Todas as páginas finais referenciam:
 
@@ -325,7 +411,7 @@ report/css/site.css
 
 CSS inline/embutido não pertence ao contrato final do report site.
 
-## 15. Segurança
+## 16. Segurança
 
 Secrets nunca devem ser persistidos em:
 
@@ -338,9 +424,11 @@ Payload estruturado exibido deve passar por escaping/redaction apropriado.
 
 M20 não persiste headers de autenticação nem bodies de erro de provider não sanitizados.
 
-M21 não persiste API keys, URL de requisição contendo `key=`, headers de autenticação ou corpo de erro externo não sanitizado. Artifacts são apenas respostas de sucesso utilizadas na projeção.
+M21 não persiste API keys, URL de requisição contendo `key=`, headers de autenticação ou corpo de erro externo não sanitizado.
 
-## 16. Fonte de verdade
+M24 não segue automaticamente sitemap cross-origin declarado e não persiste credenciais. A aquisição adicional `/llms.txt` é same-origin e é suprimida quando há hard source blocker confirmado.
+
+## 17. Fonte de verdade
 
 ```text
 audit.db + artifacts
@@ -348,11 +436,13 @@ audit.db + artifacts
 
 HTML é projeção. Report generation não pode recalcular Score/Finding nem chamar provider externo.
 
-M20 external calls, quando habilitadas, ocorrem **antes** da materialização final e persistem o resultado; a projeção HTML apenas lê o estado reabrível.
+M20 external calls, quando habilitadas, ocorrem antes da projeção correspondente e persistem o resultado.
 
-M21 external calls, quando habilitadas, ocorrem como enrichment após a auditoria principal. Depois de persistidas as tabelas/artifacts M21, `web-performance.html` é reabrível sem nova chamada.
+M21 external calls, quando habilitadas, ocorrem como enrichment após a auditoria principal; sua projeção lê o estado persistido.
 
-## 17. Reprodutibilidade
+M24 acquisition/AI opcional ocorre no estágio de enrichment M24; depois de persistido `m24_*`/artifacts, `crawling-discovery.html` é reabrível sem nova chamada.
+
+## 18. Reprodutibilidade
 
 Versionar:
 
@@ -362,6 +452,8 @@ Versionar:
 - prompt/contract semântico quando aplicável;
 - contrato M20;
 - contrato M21 e interpretação de field/lab data;
+- contrato M23/Apdex;
+- contrato M24 e sua política de aquisição/IA;
 - scoring;
 - prioritization;
 - reporting contract.
