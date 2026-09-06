@@ -13,6 +13,15 @@ from searchgeo.console_m23 import M23_ENV_NAMES, apply_m23_environment_defaults,
 from searchgeo.console_runtime import render_header
 from searchgeo.console_session import clear_secret_volatile, mark_secret_volatile
 from searchgeo.console_ui import CYAN, DIM, GREEN, YELLOW, paint
+from searchgeo.content_context import (
+    CONTENT_ORIGIN_ENV,
+    CONTENT_RISK_PROFILE_ENV,
+    EXPERIENCE_REQUIREMENT_ENV,
+    FRESHNESS_SENSITIVITY_ENV,
+    INTENDED_AUDIENCE_ENV,
+    PAGE_PURPOSE_ENV,
+    YMYL_CATEGORY_ENV,
+)
 from searchgeo.m23_cli import (
     APDEX_CONCURRENCY_ENV, APDEX_DELAY_ENV, APDEX_ENABLED_ENV, APDEX_MAX_ATTEMPTS_ENV,
     APDEX_MAX_PAGES_ENV, APDEX_SAMPLES_ENV, APDEX_THRESHOLD_ENV, APDEX_TIMEOUT_ENV,
@@ -34,6 +43,7 @@ CATEGORIES = (
     "IA — credenciais",
     "IA — modelos e reasoning",
     "IA — endpoints avançados",
+    "IA — contexto editorial / YMYL",
     "Web Performance / Google APIs",
     "Synthetic Apdex",
     "Browser / Playwright",
@@ -74,12 +84,20 @@ KEY_SOURCES = {
 
 
 def _fixed_specs() -> tuple[EnvironmentSpec, ...]:
+    context_source = "docs/CONTENT_ANALYSIS_CONTEXT.md"
     return (
         EnvironmentSpec("SEARCHGEO_CONFIG", "Aplicação e execução", "Força um arquivo TOML geral; hoje usado principalmente para logging.", "caminho de arquivo existente", default="searchgeo.toml opcional quando não há override", required_when="Somente se quiser apontar explicitamente para outro TOML.", example=r"SEARCHGEO_CONFIG=C:\searchgeo\searchgeo.toml"),
         EnvironmentSpec("SEARCHGEO_LOG_LEVEL", "Aplicação e execução", "Controla a verbosidade do log operacional.", "enum", ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"), "INFO", example="SEARCHGEO_LOG_LEVEL=INFO"),
         EnvironmentSpec("SEARCHGEO_DEVICE_CONTEXT", "Aplicação e execução", "Define o dispositivo default quando menu/CLI não fornecem valor explícito.", "enum", ("mobile", "desktop", "both"), "mobile", impact="`both` multiplica contextos e pode ampliar tempo, chamadas e custo externo.", example="SEARCHGEO_DEVICE_CONTEXT=mobile"),
         EnvironmentSpec(AI_TIMEOUT_ENV, "Aplicação e execução", "Timeout máximo de uma tentativa de IA; não é o timeout da auditoria inteira.", "número > 0 (segundos)", default="180", impact="Não cria chamadas; uma chamada expirada localmente ainda pode ter sido processada pelo provider.", example=f"{AI_TIMEOUT_ENV}=180"),
         EnvironmentSpec("SEARCHGEO_AI_CONTENT_REMEDIATION", "Aplicação e execução", "Default da remediação textual por IA.", "booleano", ("true", "false"), "false", required_when="Só tem efeito com provider de IA apto.", impact="Quando true, pode gerar chamadas/tokens adicionais de IA.", example="SEARCHGEO_AI_CONTENT_REMEDIATION=false"),
+        EnvironmentSpec(CONTENT_RISK_PROFILE_ENV, "IA — contexto editorial / YMYL", "Define o perfil de risco editorial. Use YMYL explicitamente quando o conteúdo puder afetar saúde, segurança, estabilidade financeira ou bem-estar social.", "enum", ("auto", "standard", "ymyl"), "auto", impact="Não cria chamadas; condiciona o rigor da IA quando uma chamada já ocorrer.", example=f"{CONTENT_RISK_PROFILE_ENV}=ymyl", source=context_source, notes="AUTO é apenas classificação provisória da IA; para domínio claramente YMYL prefira override explícito."),
+        EnvironmentSpec(YMYL_CATEGORY_ENV, "IA — contexto editorial / YMYL", "Contextualiza a natureza do risco YMYL para orientar trust, suporte factual e qualificadores.", "enum", ("auto", "none", "health-safety", "financial-security", "civic-societal", "other-significant-welfare"), "auto", impact="Não cria chamadas; altera apenas o contexto da avaliação sem criar score YMYL.", example=f"{YMYL_CATEGORY_ENV}=financial-security", source=context_source),
+        EnvironmentSpec(PAGE_PURPOSE_ENV, "IA — contexto editorial / YMYL", "Informa a finalidade principal da página para evitar aplicar o mesmo padrão editorial a páginas informativas, transacionais, reviews, notícias ou documentação.", "enum", ("auto", "informational", "transactional", "product-service", "review-comparison", "news-editorial", "support-documentation", "forum-ugc", "other"), "auto", impact="Não cria chamadas; melhora a aderência das recomendações quando IA está ativa.", example=f"{PAGE_PURPOSE_ENV}=product-service", source=context_source),
+        EnvironmentSpec(INTENDED_AUDIENCE_ENV, "IA — contexto editorial / YMYL", "Define se o público pretendido é geral, profissional ou misto para calibrar profundidade e explicação.", "enum", ("auto", "general", "professional", "mixed"), "auto", impact="Não cria chamadas; não autoriza inferir requisitos legais ou credenciais.", example=f"{INTENDED_AUDIENCE_ENV}=general", source=context_source),
+        EnvironmentSpec(EXPERIENCE_REQUIREMENT_ENV, "IA — contexto editorial / YMYL", "Indica quando experiência em primeira mão é necessária, apenas benéfica ou não esperada; não substitui expertise técnica/profissional.", "enum", ("auto", "required", "beneficial", "not-expected"), "auto", impact="Não cria chamadas; evita exigir experiência pessoal indiscriminadamente.", example=f"{EXPERIENCE_REQUIREMENT_ENV}=beneficial", source=context_source),
+        EnvironmentSpec(FRESHNESS_SENSITIVITY_ENV, "IA — contexto editorial / YMYL", "Define o quanto datas, períodos e qualificadores temporais são materiais para a página.", "enum", ("auto", "low", "medium", "high"), "auto", impact="Não cria chamadas; HIGH eleva o rigor sobre freshness sem autorizar alterar datas artificialmente.", example=f"{FRESHNESS_SENSITIVITY_ENV}=high", source=context_source),
+        EnvironmentSpec(CONTENT_ORIGIN_ENV, "IA — contexto editorial / YMYL", "Distingue conteúdo próprio, de terceiro, UGC ou misto para orientar autoria, responsabilidade e atribuição.", "enum", ("auto", "first-party", "third-party", "user-generated", "mixed"), "auto", impact="Não cria chamadas; ajuda a separar criador da informação e publicador/host.", example=f"{CONTENT_ORIGIN_ENV}=first-party", source=context_source),
         EnvironmentSpec("SEARCHGEO_WEB_PERFORMANCE", "Web Performance / Google APIs", "Habilita PageSpeed/Lighthouse/CrUX por ambiente.", "booleano", ("true", "false"), "false", impact="Quando true, consome integração/quota externa.", example="SEARCHGEO_WEB_PERFORMANCE=false"),
         EnvironmentSpec("SEARCHGEO_WEB_PERFORMANCE_MAX_PAGES", "Web Performance / Google APIs", "Limita páginas submetidas às integrações de Web Performance; 0 significa todas.", "inteiro >= 0", default="10", impact="Multiplicador direto do volume potencial de PageSpeed/CrUX.", example="SEARCHGEO_WEB_PERFORMANCE_MAX_PAGES=10"),
         EnvironmentSpec(WEB_PERFORMANCE_TIMEOUT_ENV, "Web Performance / Google APIs", "Timeout de cada request PageSpeed/CrUX.", "número > 0 (segundos)", default="120", impact="Não cria requests adicionais; controla somente a espera do cliente.", example=f"{WEB_PERFORMANCE_TIMEOUT_ENV}=120"),
