@@ -49,6 +49,7 @@ def main(argv: list[str] | None = None) -> int:
                 audit_id=args.audit_id,
                 import_id=result.import_id,
                 source_type=result.source_type,
+                capture_method=result.capture_method,
                 period_start=result.period_start,
                 period_end=result.period_end,
                 page_observations=result.page_observations,
@@ -59,7 +60,8 @@ def main(argv: list[str] | None = None) -> int:
                 scoring_impact="NONE",
             )
             print(f"Visibilidade generativa importada: {result.import_id}")
-            print(f"Fonte: {result.source_type}")
+            print(f"Fonte declarada: {result.source_type}")
+            print(f"Método de captura: {result.capture_method}")
             print(f"Período: {result.period_start} → {result.period_end}")
             print(f"Query-runs válidos: {result.valid_query_runs}/{result.query_runs}")
             if result.citation_presence_rate is not None:
