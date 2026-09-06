@@ -27,6 +27,7 @@ from searchgeo.source_quality import (
     persist_m21_source_skip,
     persist_m23_source_skip,
 )
+from searchgeo.source_quality_report_summary import enrich_source_quality_blocker_summary
 
 _LEGACY_BUILD_PARSER = _legacy_cli.build_parser
 
@@ -260,6 +261,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                     audit_id=audit_id,
                     workspace=workspace,
                 )
+                enrich_source_quality_blocker_summary(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                )
             except Exception as exc:
                 try_append_operational_event(
                     workspace,
@@ -290,7 +295,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Qualidade da origem: BLOQUEIO TÉCNICO "
             f"({', '.join(source_quality_skip)}). "
             "Etapas externas/repetitivas dependentes da URL foram interrompidas; "
-            "consulte o bloco 'Origem, redirecionamentos e integridade de transporte' no relatório."
+            "consulte o bloco 'Auditoria limitada por bloqueio técnico da origem' no relatório "
+            "e o arquivo logs/audit.log para o diagnóstico completo."
         )
 
     if m23_config is not None:
