@@ -9,12 +9,19 @@ This renderer keeps SearchGEO stateless (no user cookies/profile reuse), preserv
 validation, prefers the locally installed Google Chrome when Playwright can launch it,
 and otherwise falls back to bundled Chromium. Desktop and mobile keep SearchGEO's
 versioned viewport semantics while borrowing Playwright's current browser descriptors.
+
+When a strict browser navigation fails after an HTTPS -> HTTP redirect on the same
+host/www alias, SearchGEO may perform one bounded recovery probe against the HTTPS
+version of that insecure hop. This does not ignore TLS and does not rewrite the original
+redirect evidence: the original chain and the recovery chain are both persisted.
 """
 from __future__ import annotations
 
+from dataclasses import replace
 import os
 import re
 from typing import Any
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from playwright.sync_api import Error as PlaywrightError, TimeoutError as PlaywrightTimeoutError, sync_playwright
 
@@ -84,6 +91,62 @@ def realistic_context_options(
     return options, identity
 
 
+def secure_upgrade_candidate(
+    requested_url: str,
+    navigation_trace: Any,
+) -> str | None:
+    """Return one safe HTTPS recovery candidate from a failed redirect trace.
+
+    The recovery is intentionally narrow:
+    - the configured/requested URL must already be HTTPS;
+    - the observed redirect must downgrade HTTPS -> HTTP;
+    - source and target hosts must differ only by an optional leading ``www.``;
+    - credentials and non-standard ports are rejected;
+    - only the insecure hop itself is upgraded to HTTPS.
+
+    A returned candidate is merely eligible for one strict-TLS browser probe. It is not
+    treated as evidence until that probe produces a valid rendered document.
+    """
+
+    try:
+        requested = urlsplit(str(requested_url))
+    except ValueError:
+        return None
+    if requested.scheme.casefold() != "https":
+        return None
+    if not isinstance(navigation_trace, list):
+        return None
+
+    for item in navigation_trace:
+        if not isinstance(item, dict):
+            continue
+        source_url = str(item.get("url") or "").strip()
+        location = str(item.get("location") or "").strip()
+        if not source_url or not location:
+            continue
+        try:
+            source = urlsplit(source_url)
+            target = urlsplit(urljoin(source_url, location))
+            port = target.port
+        except ValueError:
+            continue
+        if source.scheme.casefold() != "https" or target.scheme.casefold() != "http":
+            continue
+        if not _same_www_site(source.hostname, target.hostname):
+            continue
+        if target.username is not None or target.password is not None:
+            continue
+        if port not in (None, 80):
+            continue
+        hostname = target.hostname or ""
+        if not hostname:
+            continue
+        if ":" in hostname and not hostname.startswith("["):
+            hostname = f"[{hostname}]"
+        return urlunsplit(("https", hostname, target.path or "/", target.query, target.fragment))
+    return None
+
+
 class BrowserIdentityRenderer(BrowserRenderer):
     """M3 renderer that uses a coherent Chrome identity and records browser routing."""
 
@@ -119,19 +182,76 @@ class BrowserIdentityRenderer(BrowserRenderer):
         if startup_error is not None or self._browser is None or self._playwright is None:
             return self._failure_result(url, profile, RenderErrorKind.BROWSER_UNAVAILABLE)
 
+        options, identity = realistic_context_options(
+            self._playwright,
+            browser_version=self._browser.version,
+            device=device,
+        )
+        first = self._render_once(
+            url=url,
+            profile=profile,
+            options=options,
+            identity=identity,
+        )
+        if first.succeeded:
+            return first
+
+        original_trace = first.browser_metadata.get("navigation_trace")
+        candidate = secure_upgrade_candidate(url, original_trace)
+        if candidate is None:
+            return first
+
+        recovered = self._render_once(
+            url=candidate,
+            profile=profile,
+            options=options,
+            identity=identity,
+        )
+        recovery_trace = recovered.browser_metadata.get("navigation_trace")
+        recovery_metadata = {
+            "policy": "STRICT_TLS_SAME_SITE_HTTPS_UPGRADE_V1",
+            "trigger": "HTTPS_TO_HTTP_DOWNGRADE_AFTER_NAVIGATION_FAILURE",
+            "attempted": True,
+            "candidate_url": candidate,
+            "succeeded": recovered.succeeded,
+            "original_requested_url": url,
+            "original_error_kind": first.error_kind.value if first.error_kind is not None else None,
+            "original_navigation_trace": original_trace if isinstance(original_trace, list) else [],
+            "recovery_navigation_trace": recovery_trace if isinstance(recovery_trace, list) else [],
+            "recovery_final_url": recovered.final_url,
+            "recovery_http_status": recovered.http_status,
+            "tls_validation": "ENABLED",
+        }
+
+        if recovered.succeeded:
+            metadata = dict(recovered.browser_metadata)
+            metadata["secure_redirect_recovery"] = recovery_metadata
+            return replace(
+                recovered,
+                requested_url=url,
+                browser_metadata=metadata,
+            )
+
+        metadata = dict(first.browser_metadata)
+        metadata["secure_redirect_recovery"] = recovery_metadata
+        return replace(first, browser_metadata=metadata)
+
+    def _render_once(
+        self,
+        *,
+        url: str,
+        profile: BrowserProfile,
+        options: dict[str, Any],
+        identity: dict[str, Any],
+    ) -> BrowserRenderResult:
         context = None
         page = None
         settle_outcome = "NOT_ATTEMPTED"
         navigation_trace: list[dict[str, Any]] = []
         request_headers: dict[str, str] = {}
-        identity: dict[str, Any] = {}
 
         try:
-            options, identity = realistic_context_options(
-                self._playwright,
-                browser_version=self._browser.version,
-                device=device,
-            )
+            assert self._browser is not None
             context = self._browser.new_context(**options)
             page = context.new_page()
 
@@ -301,3 +421,14 @@ def _align_chrome_version(user_agent: str, browser_version: str | None) -> str:
         parts.append("0")
     normalized = ".".join(parts[:4])
     return re.sub(r"Chrome/\d+(?:\.\d+){0,3}", f"Chrome/{normalized}", user_agent, count=1)
+
+
+def _same_www_site(left: str | None, right: str | None) -> bool:
+    if not left or not right:
+        return False
+
+    def normalize(value: str) -> str:
+        host = value.rstrip(".").casefold()
+        return host[4:] if host.startswith("www.") else host
+
+    return normalize(left) == normalize(right)
