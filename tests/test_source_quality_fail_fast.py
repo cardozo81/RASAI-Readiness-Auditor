@@ -27,6 +27,7 @@ from searchgeo.domain import CompletionStatus, DiscoverySource, DeviceContext
 from searchgeo.m21_web_performance import WebPerformanceConfig
 from searchgeo.m23_apdex import SyntheticApdexConfig
 from searchgeo.persistence import AuditWorkspace
+from searchgeo.rendering import BrowserRenderResult, RenderErrorKind
 from searchgeo.semantic import NoneProvider
 from searchgeo.source_quality import (
     PreflightBlockedRenderer,
@@ -40,6 +41,7 @@ from searchgeo.source_quality import (
 
 _SOURCE = "https://mdsgroup.com/"
 _FINAL = "https://mds.pt/"
+_BROWSER_FINAL = "https://www.mdsgroup.com/pt/"
 _TLS_MESSAGE = "certificate verify failed: hostname mismatch for mds.pt"
 
 
@@ -112,6 +114,45 @@ class _BlockedDiscovery:
         )
 
 
+class _BrowserSuccessRenderer:
+    def render(self, url: str, device: DeviceContext) -> BrowserRenderResult:
+        return BrowserRenderResult(
+            requested_url=url,
+            final_url=_BROWSER_FINAL,
+            http_status=200,
+            content_type="text/html; charset=utf-8",
+            rendered_html=(
+                "<!doctype html><html lang='pt'><head><title>MDS</title>"
+                "<meta name='description' content='MDS Group'>"
+                f"<link rel='canonical' href='{_BROWSER_FINAL}'>"
+                "</head><body><main><h1>MDS Group</h1><p>Conteúdo válido.</p></main></body></html>"
+            ),
+            browser_metadata={
+                "engine": "fake-chromium",
+                "profile": {"device": device.value},
+                "navigation": {"settle_outcome": "NETWORKIDLE"},
+            },
+        )
+
+
+class _BrowserFailureRenderer:
+    def render(self, url: str, device: DeviceContext) -> BrowserRenderResult:
+        return BrowserRenderResult(
+            requested_url=url,
+            final_url=_FINAL,
+            http_status=None,
+            content_type=None,
+            rendered_html=None,
+            browser_metadata={
+                "engine": "fake-chromium",
+                "profile": {"device": device.value},
+                "navigation": {"settle_outcome": "NAVIGATION_ERROR"},
+                "render_error": RenderErrorKind.NAVIGATION_ERROR.value,
+            },
+            error_kind=RenderErrorKind.NAVIGATION_ERROR,
+        )
+
+
 class SourceQualityFailFastTests(unittest.TestCase):
     def test_mdsgroup_redirect_tls_is_hard_blocker_with_full_chain(self) -> None:
         assessment = assess_acquisitions((_tls_acquisition(),))
@@ -126,7 +167,7 @@ class SourceQualityFailFastTests(unittest.TestCase):
         self.assertEqual(issue.classification, "TLS_CERTIFICATE_ERROR")
         self.assertIn("Não desabilitar", " ".join(issue.recommended_actions))
 
-    def test_preflight_blocked_renderer_does_not_start_browser(self) -> None:
+    def test_preflight_blocked_renderer_remains_available_as_diagnostic_stub(self) -> None:
         assessment = assess_acquisitions((_tls_acquisition(),))
         result = PreflightBlockedRenderer(assessment).render(_SOURCE, DeviceContext.DESKTOP)
         self.assertFalse(result.succeeded)
@@ -134,7 +175,7 @@ class SourceQualityFailFastTests(unittest.TestCase):
         self.assertEqual(result.browser_metadata["engine"], "not_started")
         self.assertIn("SOURCE_QUALITY_BLOCKED:TLS", result.browser_metadata["render_skipped_reason"])
 
-    def test_core_audit_finishes_with_limitations_and_skipped_browser_metadata(self) -> None:
+    def test_core_audit_confirms_blocker_only_after_browser_failure(self) -> None:
         with TemporaryDirectory() as directory:
             result = run_audit(
                 _SOURCE,
@@ -143,6 +184,7 @@ class SourceQualityFailFastTests(unittest.TestCase):
                 max_pages=1,
                 semantic_provider=NoneProvider(),
                 discovery_engine=_BlockedDiscovery(),
+                renderer=_BrowserFailureRenderer(),
             )
             self.assertEqual(result.completion_status, CompletionStatus.COMPLETE_WITH_LIMITATIONS)
             workspace = AuditWorkspace.open(result.audit_root)
@@ -167,8 +209,8 @@ class SourceQualityFailFastTests(unittest.TestCase):
                 ).fetchall()
                 self.assertGreaterEqual(len(snapshots), 1)
                 metadata = json.loads(snapshots[0]["browser_metadata"])
-                self.assertEqual(metadata["engine"], "not_started")
-                self.assertIn("SOURCE_QUALITY_BLOCKED", metadata["render_skipped_reason"])
+                self.assertEqual(metadata["engine"], "fake-chromium")
+                self.assertFalse(metadata["render_succeeded"])
 
                 attempts = connection.execute(
                     "SELECT COUNT(*) FROM ai_provider_attempts"
@@ -177,7 +219,70 @@ class SourceQualityFailFastTests(unittest.TestCase):
             finally:
                 connection.close()
 
-    def test_m21_and_m23_persist_zero_attempt_source_skip(self) -> None:
+            log = (workspace.root / "logs" / "audit.log").read_text(encoding="utf-8")
+            self.assertIn("SOURCE_QUALITY_PREFLIGHT_BLOCKER", log)
+            self.assertIn("SOURCE_QUALITY_BLOCKED", log)
+            self.assertNotIn("SOURCE_QUALITY_BROWSER_RECOVERED", log)
+
+    def test_core_audit_continues_when_chromium_reaches_valid_browser_route(self) -> None:
+        with TemporaryDirectory() as directory:
+            result = run_audit(
+                _SOURCE,
+                audits_root=directory,
+                project_name="MDS browser reconciliation",
+                max_pages=1,
+                semantic_provider=NoneProvider(),
+                discovery_engine=_BlockedDiscovery(),
+                renderer=_BrowserSuccessRenderer(),
+            )
+            self.assertEqual(result.completion_status, CompletionStatus.COMPLETE_WITH_LIMITATIONS)
+            workspace = AuditWorkspace.open(result.audit_root)
+            assessment = load_assessment(workspace)
+            self.assertIsNotNone(assessment)
+            assert assessment is not None
+            self.assertFalse(assessment.all_pages_hard_blocked)
+            self.assertEqual(assessment.hard_blocker_kinds, ())
+            issue = assessment.issues[0]
+            self.assertFalse(issue.hard_blocker)
+            self.assertEqual(issue.classification, "HTTP_BROWSER_ROUTE_DIVERGENCE")
+            self.assertEqual(issue.final_url, _BROWSER_FINAL)
+            self.assertIsNone(issue.network_error)
+            self.assertIn(_FINAL, issue.deterministic_summary)
+            self.assertIn(_BROWSER_FINAL, issue.deterministic_summary)
+
+            connection = sqlite3.connect(workspace.database)
+            connection.row_factory = sqlite3.Row
+            try:
+                audit = connection.execute(
+                    "SELECT completion_status,limitations FROM audits WHERE audit_id=?",
+                    (result.audit_id,),
+                ).fetchone()
+                limitations = json.loads(audit["limitations"])
+                self.assertTrue(any("HTTP e Chromium" in item for item in limitations))
+
+                snapshot = connection.execute(
+                    "SELECT final_url,rendered_artifact_ref,browser_metadata FROM page_snapshots LIMIT 1"
+                ).fetchone()
+                self.assertEqual(snapshot["final_url"], _BROWSER_FINAL)
+                self.assertTrue(snapshot["rendered_artifact_ref"])
+                metadata = json.loads(snapshot["browser_metadata"])
+                self.assertTrue(metadata["render_succeeded"])
+
+                extraction = connection.execute(
+                    "SELECT title,canonical,main_content_ref FROM page_snapshots LIMIT 1"
+                ).fetchone()
+                self.assertEqual(extraction["title"], "MDS")
+                self.assertEqual(extraction["canonical"], _BROWSER_FINAL)
+                self.assertTrue(extraction["main_content_ref"])
+            finally:
+                connection.close()
+
+            log = (workspace.root / "logs" / "audit.log").read_text(encoding="utf-8")
+            self.assertIn("SOURCE_QUALITY_PREFLIGHT_BLOCKER", log)
+            self.assertIn("SOURCE_QUALITY_BROWSER_RECOVERED", log)
+            self.assertNotIn('"event":"SOURCE_QUALITY_BLOCKED"', log)
+
+    def test_m21_and_m23_persist_zero_attempt_source_skip_after_browser_confirmation(self) -> None:
         with TemporaryDirectory() as directory:
             result = run_audit(
                 _SOURCE,
@@ -186,10 +291,12 @@ class SourceQualityFailFastTests(unittest.TestCase):
                 max_pages=1,
                 semantic_provider=NoneProvider(),
                 discovery_engine=_BlockedDiscovery(),
+                renderer=_BrowserFailureRenderer(),
             )
             workspace = AuditWorkspace.open(result.audit_root)
             assessment = load_assessment(workspace)
             assert assessment is not None
+            self.assertTrue(assessment.all_pages_hard_blocked)
 
             m21 = persist_m21_source_skip(
                 audit_id=result.audit_id,
@@ -242,6 +349,7 @@ class SourceQualityFailFastTests(unittest.TestCase):
                 max_pages=1,
                 semantic_provider=NoneProvider(),
                 discovery_engine=_BlockedDiscovery(),
+                renderer=_BrowserFailureRenderer(),
             )
             workspace = AuditWorkspace.open(result.audit_root)
             report_dir = workspace.root / "report"
@@ -259,6 +367,26 @@ class SourceQualityFailFastTests(unittest.TestCase):
                 self.assertIn("https://mds.pt/", html)
                 self.assertIn("TLS_CERTIFICATE_ERROR", html)
                 self.assertGreaterEqual(html.count("301"), 2)
+
+    def test_recovered_route_report_exposes_browser_final_and_http_chain(self) -> None:
+        with TemporaryDirectory() as directory:
+            result = run_audit(
+                _SOURCE,
+                audits_root=directory,
+                project_name="MDS recovered report",
+                max_pages=1,
+                semantic_provider=NoneProvider(),
+                discovery_engine=_BlockedDiscovery(),
+                renderer=_BrowserSuccessRenderer(),
+            )
+            workspace = AuditWorkspace.open(result.audit_root)
+            enrich_source_quality_report_site(audit_id=result.audit_id, workspace=workspace)
+            html = result.report_path.read_text(encoding="utf-8")
+            self.assertIn("HTTP_BROWSER_ROUTE_DIVERGENCE", html)
+            self.assertIn(_BROWSER_FINAL, html)
+            self.assertIn(_FINAL, html)
+            self.assertIn("Chromium", html)
+            self.assertGreaterEqual(html.count("301"), 2)
 
     def test_console_runtime_does_not_dump_raw_recent_or_final_stdout(self) -> None:
         source = inspect.getsource(console_runtime.run_audit_from_console)
