@@ -24,7 +24,14 @@ class _Handler(BaseHTTPRequestHandler):
         <main>controlled</main>
         <script>
         window.addEventListener('load', () => {
-          fetch('/late').then(() => { setTimeout(() => { throw new Error('controlled-m25-error'); }, 15); });
+          // The timer deliberately starts the request after the load event has
+          // completed. Calling fetch() synchronously inside the load handler is
+          // still part of load-event dispatch and is not a valid post-load fixture.
+          setTimeout(() => {
+            fetch('/late').then(() => {
+              setTimeout(() => { throw new Error('controlled-m25-error'); }, 15);
+            });
+          }, 75);
         });
         </script></body></html>"""
         self.send_response(200)
