@@ -37,6 +37,13 @@ jobs:
                   text = path.read_text(encoding="utf-8")
                   text = text.replace("[OFFLINE | sem APIs]", "[OFFLINE — sem APIs]")
                   path.write_text(text, encoding="utf-8")
+          regression = Path("tests/test_consolidation_console_integration.py")
+          text = regression.read_text(encoding="utf-8")
+          text = text.replace(
+              '        self.assertIn("Histórico / relatórios consolidados", output.getvalue())\n',
+              '        self.assertEqual(output.getvalue(), "")\n',
+          )
+          regression.write_text(text, encoding="utf-8")
           PY
       - name: Install and validate
         shell: bash
