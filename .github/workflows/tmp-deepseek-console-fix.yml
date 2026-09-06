@@ -6,10 +6,10 @@ on:
       - fix/deepseek-semantic-console-actions
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  validate-and-materialize:
+  validate-committed-code:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,54 +18,34 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Apply patch when needed
+      - name: Verify materialized correction
         shell: bash
         run: |
           set -euo pipefail
-          HEAD_MSG="$(git log -1 --pretty=%s)"
-          if [[ "$HEAD_MSG" != "[deepseek-console-patch] materialize smoke corrections" ]]; then
-            python .github/tmp_apply_deepseek_console_fix.py
+          grep -q 'def _deepseek_semantic_output_schema' src/searchgeo/m18_ai.py
+          grep -q 'AÇÕES' src/searchgeo/interactive_console.py
+          if grep -E '^[[:space:]]*print\(.*\|.*\)' src/searchgeo/interactive_console.py | grep -E 'Salvar configuração|Ajuda / custos|Executar|Abrir última|Histórico / relatórios'; then
+            echo 'Selectable action row still contains pipe separator.' >&2
+            exit 1
           fi
-          if [[ -f tests/test_deepseek_semantic_contract_and_console_actions.py ]]; then
-            sed -i 's/from searchgeo.console_config import State/from searchgeo.console_m23 import State/' tests/test_deepseek_semantic_contract_and_console_actions.py
-          fi
-          python - <<'PY'
-          from pathlib import Path
-          for name in ("src/searchgeo/interactive_console.py", "docs/INTERACTIVE_CONSOLE.md", "README.md", "docs/CONSOLIDATED_REPORTING.md"):
-              path = Path(name)
-              if path.is_file():
-                  text = path.read_text(encoding="utf-8")
-                  text = text.replace("[OFFLINE | sem APIs]", "[OFFLINE — sem APIs]")
-                  path.write_text(text, encoding="utf-8")
-          regression = Path("tests/test_consolidation_console_integration.py")
-          text = regression.read_text(encoding="utf-8")
-          text = text.replace(
-              '        self.assertIn("Histórico / relatórios consolidados", output.getvalue())\n',
-              '        self.assertEqual(output.getvalue(), "")\n',
-          )
-          regression.write_text(text, encoding="utf-8")
-          PY
-      - name: Install and validate
+      - name: Install test dependencies
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install -e . pytest
-          python -m unittest discover -s tests -p 'test_deepseek_semantic_contract_and_console_actions.py' -v
-          python -m unittest discover -s tests -p 'test_consolidation_console_integration.py' -v
-          python -m unittest discover -s tests -p 'test_m18*.py' -v
-          python -m compileall -q src tests
-          git diff --check
-      - name: Commit materialized patch
+      - name: Focused regressions
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet && [[ -z "$(git ls-files --others --exclude-standard)" ]]; then
-            echo "No materialization changes to commit."
-            exit 0
-          fi
-          git config user.name "SearchGEO CI"
-          git config user.email "actions@users.noreply.github.com"
-          git add src docs tests README.md
-          git commit -m "[deepseek-console-patch] materialize smoke corrections"
-          git push origin HEAD
+          python -m unittest discover -s tests -p 'test_deepseek_semantic_contract_and_console_actions.py' -v
+          python -m unittest discover -s tests -p 'test_consolidation_console_integration.py' -v
+          python -m unittest discover -s tests -p 'test_m18*.py' -v
+      - name: Full regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -v
+          python -m compileall -q src tests
+          git diff --check
+          git diff --exit-code -- src/searchgeo docs tests README.md
