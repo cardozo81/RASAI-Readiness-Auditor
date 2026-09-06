@@ -161,6 +161,7 @@ class ContentAnalysisContext:
                 "Explicit values are audit context. AUTO values are only working hypotheses "
                 "that may be inferred from supplied visible evidence and must not be treated as facts."
             ),
+            "analysis_policy": self.prompt_directive(),
         }
 
     def prompt_directive(self) -> str:
