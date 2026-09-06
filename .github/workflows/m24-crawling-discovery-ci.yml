@@ -12,10 +12,14 @@ on:
       - 'tests/test_m2_discovery_http.py'
       - 'docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md'
       - 'docs/specification/00_SPEC_INDEX.md'
+      - 'docs/specification/07_FUNCTIONAL_REQUIREMENTS.md'
+      - 'docs/specification/08_TECHNICAL_ARCHITECTURE.md'
+      - 'docs/specification/10_DECISIONS.md'
       - 'docs/CLI_REFERENCE.md'
       - 'docs/CONFIGURATION.md'
       - 'docs/AI_GUIDE.md'
       - 'docs/OUTPUTS_AND_ARTIFACTS.md'
+      - 'README.md'
       - '.github/workflows/m24-crawling-discovery-ci.yml'
   pull_request:
     branches: [main]
@@ -28,10 +32,14 @@ on:
       - 'tests/test_m2_discovery_http.py'
       - 'docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md'
       - 'docs/specification/00_SPEC_INDEX.md'
+      - 'docs/specification/07_FUNCTIONAL_REQUIREMENTS.md'
+      - 'docs/specification/08_TECHNICAL_ARCHITECTURE.md'
+      - 'docs/specification/10_DECISIONS.md'
       - 'docs/CLI_REFERENCE.md'
       - 'docs/CONFIGURATION.md'
       - 'docs/AI_GUIDE.md'
       - 'docs/OUTPUTS_AND_ARTIFACTS.md'
+      - 'README.md'
       - '.github/workflows/m24-crawling-discovery-ci.yml'
 
 permissions:
