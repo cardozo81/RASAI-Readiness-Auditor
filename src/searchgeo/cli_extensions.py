@@ -8,6 +8,7 @@ from typing import Sequence
 
 from searchgeo import cli as _legacy_cli
 from searchgeo import m20 as _m20
+from searchgeo import report_navigation as _report_navigation
 from searchgeo.external_metrics_integrity import (
     enrich_external_metrics_integrity_report_site,
     reconcile_external_metrics_integrity,
@@ -25,6 +26,7 @@ from searchgeo.provider_runtime_policy import (
 )
 from searchgeo.provider_registry import extension_cli_choices
 from searchgeo.report_consistency_v2 import reconcile_report_outputs
+from searchgeo.searchgeo_readiness_reporting import enrich_searchgeo_reporting
 from searchgeo.source_quality import (
     enrich_source_quality_report_site,
     load_assessment,
@@ -80,6 +82,45 @@ def _resolve_m23_config(argv: list[str]) -> SyntheticApdexConfig | None:
     except ValueError as exc:
         parser.error(str(exc))
     return None
+
+
+def _restore_canonical_device_navigation_labels() -> None:
+    """Prevent report-specific wording from leaking into later in-process reports/tests."""
+    restored: list[tuple[str, str]] = []
+    for label, filename in _report_navigation.NAV_ITEMS:
+        if filename == "mobile.html":
+            label = "Relatório Mobile"
+        elif filename == "desktop.html":
+            label = "Relatório Desktop"
+        restored.append((label, filename))
+    _report_navigation.NAV_ITEMS = tuple(restored)
+
+
+def _materialize_searchgeo_fail_open(*, audit_id, workspace, event_prefix: str) -> None:
+    """Best-effort SGRI projection even when a later optional domain fails."""
+    if audit_id is None or workspace is None:
+        return
+    try:
+        searchgeo_path = enrich_searchgeo_reporting(audit_id=audit_id, workspace=workspace)
+        try_append_operational_event(
+            workspace,
+            f"{event_prefix}_SEARCHGEO_READINESS_REPORT_GENERATED",
+            audit_id=audit_id,
+            methodology="SGRI-001",
+            compatible_scoring_engine="SCORE-GEO-002",
+            report_path=str(searchgeo_path.relative_to(workspace.root)),
+        )
+    except Exception as exc:
+        try_append_operational_event(
+            workspace,
+            f"{event_prefix}_SEARCHGEO_READINESS_REPORT_FAILURE",
+            level="WARNING",
+            audit_id=audit_id,
+            error_type=type(exc).__name__,
+            error_message=str(exc)[:512],
+        )
+    finally:
+        _restore_canonical_device_navigation_labels()
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -219,6 +260,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             except Exception:
                 if audit_id is not None and workspace is not None:
                     run_m23_once(audit_id=audit_id, workspace=workspace)
+                    _materialize_searchgeo_fail_open(
+                        audit_id=audit_id,
+                        workspace=workspace,
+                        event_prefix="M21_FAILURE",
+                    )
                 raise
 
         if audit_id is not None and workspace is not None:
@@ -298,6 +344,35 @@ def main(argv: Sequence[str] | None = None) -> int:
                     error_type=type(exc).__name__,
                     error_message=str(exc)[:512],
                 )
+            try:
+                # The executive dashboard must be the final report projection so it can
+                # remove legacy cross-domain summaries and reflect the final persisted
+                # state of SearchGEO, Lighthouse/CrUX, Accessibility and Apdex.
+                searchgeo_path = enrich_searchgeo_reporting(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                )
+                try_append_operational_event(
+                    workspace,
+                    "SEARCHGEO_READINESS_REPORT_GENERATED",
+                    audit_id=audit_id,
+                    methodology="SGRI-001",
+                    compatible_scoring_engine="SCORE-GEO-002",
+                    report_path=str(searchgeo_path.relative_to(workspace.root)),
+                )
+            except Exception as exc:
+                try_append_operational_event(
+                    workspace,
+                    "SEARCHGEO_READINESS_REPORT_FAILURE",
+                    level="WARNING",
+                    audit_id=audit_id,
+                    error_type=type(exc).__name__,
+                    error_message=str(exc)[:512],
+                )
+            finally:
+                # Generated HTML retains its explicit evidence wording, but the process
+                # global menu stays canonical for later reports/tests in the same process.
+                _restore_canonical_device_navigation_labels()
         return result
 
     try:
