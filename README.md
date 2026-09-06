@@ -12,16 +12,17 @@ Capacidades integradas:
 - `mobile`, `desktop` ou `both`;
 - persistência em SQLite + artifacts + log operacional;
 - mini-site HTML com navegação canônica;
-- Score, Coverage e Confidence separados;
+- **SearchGEO Readiness Index `SGRI-001`** com Score, Coverage, Confidence e Consolidation separados;
+- dashboard executivo com síntese final dos indicadores, sem misturar metodologias;
 - análise semântica opcional por IA;
 - remediação textual evidence-bound e revisão/proposta JSON-LD;
 - PageSpeed/Lighthouse e Core Web Vitals/CrUX como domínio separado;
 - Acessibilidade automatizada projetada separadamente a partir do artifact Lighthouse;
-- Synthetic Navigation Apdex em Chromium, separado de Lighthouse/CrUX e do Score GEO;
+- Synthetic Navigation Apdex em Chromium, separado de Lighthouse/CrUX e do SGRI;
 - relatórios históricos/consolidados offline sobre múltiplos `AUD-*`, com índice analítico reconstruível e snapshots HTML estáticos;
 - console interativo com preflight, progresso, custo/quota, timeouts, persistência de configuração e abertura de artifacts.
 
-> O Score SearchGEO é um modelo interno de readiness. Lighthouse, Core Web Vitals, Acessibilidade automatizada e Apdex possuem metodologias próprias e são exibidos separadamente.
+> O `SGRI-001` é um índice proprietário, evidence-based e reprodutível do SearchGEO. Enquanto a aritmética não mudar, o banco preserva `SCORE-GEO-002` como versão do motor de cálculo. Lighthouse, Core Web Vitals, Acessibilidade automatizada e Apdex possuem metodologias próprias e não são convertidos no SGRI.
 
 ## Instalação rápida — Windows
 
@@ -324,9 +325,10 @@ audits/<AUD-ID>/
 ├─ logs/
 │  └─ audit.log
 └─ report/
-   ├─ index.html
-   ├─ mobile.html              # condicional
-   ├─ desktop.html             # condicional
+   ├─ index.html               # dashboard executivo
+   ├─ searchgeo.html           # SGRI-001 e indicadores SearchGEO
+   ├─ mobile.html              # evidências/findings; condicional
+   ├─ desktop.html             # evidências/findings; condicional
    ├─ remediation.html
    ├─ content-suggestions.html
    ├─ accessibility.html       # quando materializado
@@ -338,6 +340,10 @@ audits/<AUD-ID>/
 ```
 
 `audit.db` e `artifacts/` são fontes persistidas; o report é projeção humana.
+
+`index.html` não cria um “score geral de tudo”. Ele resume o resultado final de cada família e aponta para a página canônica correspondente. Quando existem vários contextos Lighthouse, o dashboard prefere faixa por dispositivo/quantidade de contextos válidos a inventar uma média única do site.
+
+`searchgeo.html` é a página exclusiva dos indicadores agregados SearchGEO. Mobile/Desktop não repetem Overall, dimensões, Coverage, Confidence ou Consolidation.
 
 Os relatórios históricos usam uma área separada e não escrevem nos workspaces `AUD-*`:
 
@@ -353,7 +359,7 @@ audits/consolidated/
 
 Um `CONS-*` já existente é reutilizado quando filtros, versão do formato e fingerprints das fontes elegíveis são idênticos. Um novo `AUD-*` elegível invalida essa reutilização e produz novo snapshot.
 
-A página inicial inclui **Configuração × resultado obtido**, permitindo distinguir o que foi solicitado do que foi realmente materializado e a causa de limitações operacionais.
+A página inicial inclui **Configuração × resultado obtido** quando essa projeção está disponível, permitindo distinguir o que foi solicitado do que foi realmente materializado e a causa de limitações operacionais.
 
 ## Segurança
 
@@ -383,3 +389,6 @@ Nomes internos de módulos, tabelas, eventos e documentos normativos podem mante
 - [docs/AI_GUIDE.md](docs/AI_GUIDE.md)
 - [docs/GOOGLE_API_KEYS.md](docs/GOOGLE_API_KEYS.md)
 - [docs/REPORT_GUIDE.md](docs/REPORT_GUIDE.md)
+- [docs/SEARCHGEO_READINESS_INDEX.md](docs/SEARCHGEO_READINESS_INDEX.md)
+- [docs/SCORING_GUIDE.md](docs/SCORING_GUIDE.md)
+- [docs/INDICATOR_PROVENANCE.md](docs/INDICATOR_PROVENANCE.md)
