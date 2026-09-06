@@ -31,12 +31,19 @@ FORMAT_VERSION = "OGV-IMPORT-001"
 SOURCE_BING = "BING_WEBMASTER_TOOLS_AI_PERFORMANCE"
 SOURCE_CONTROLLED = "CONTROLLED_QUERY_RUNS"
 SUPPORTED_SOURCES = (SOURCE_BING, SOURCE_CONTROLLED)
+CAPTURE_METHODS = (
+    "MANUAL_TRANSCRIPTION",
+    "NORMALIZED_EXPORT",
+    "CONTROLLED_PROTOCOL",
+    "EXTERNAL_AUTOMATION",
+)
 
 
 @dataclass(frozen=True, slots=True)
 class VisibilityImportResult:
     import_id: str
     source_type: str
+    capture_method: str
     period_start: str
     period_end: str
     page_observations: int
@@ -94,6 +101,7 @@ def import_visibility_file(*, audit_id: str, workspace: AuditWorkspace, path: st
         format_version=FORMAT_VERSION,
         source_type=parsed["source_type"],
         source_label=parsed["source_label"],
+        capture_method=parsed["capture_method"],
         period_start=parsed["period_start"],
         period_end=parsed["period_end"],
         market=parsed["market"],
@@ -121,6 +129,7 @@ def import_visibility_file(*, audit_id: str, workspace: AuditWorkspace, path: st
     return VisibilityImportResult(
         import_id=item.import_id,
         source_type=item.source_type,
+        capture_method=item.capture_method,
         period_start=item.period_start,
         period_end=item.period_end,
         page_observations=len(parsed["pages"]),
@@ -151,6 +160,9 @@ def _parse_payload(*, audit_id: str, workspace: AuditWorkspace, payload: dict[st
     source_label = _optional_text(source.get("label")) or (
         "Bing Webmaster Tools AI Performance" if source_type == SOURCE_BING else "Controlled query-runs"
     )
+    capture_method = _text(source.get("capture_method"), "source.capture_method").upper()
+    if capture_method not in CAPTURE_METHODS:
+        raise ValueError(f"source.capture_method deve ser um de: {', '.join(CAPTURE_METHODS)}")
     period_start = _iso_date(source.get("period_start"), "source.period_start")
     period_end = _iso_date(source.get("period_end"), "source.period_end")
     if date.fromisoformat(period_start) > date.fromisoformat(period_end):
@@ -193,6 +205,7 @@ def _parse_payload(*, audit_id: str, workspace: AuditWorkspace, payload: dict[st
         "import_id": import_id,
         "source_type": source_type,
         "source_label": source_label,
+        "capture_method": capture_method,
         "period_start": period_start,
         "period_end": period_end,
         "market": market,
