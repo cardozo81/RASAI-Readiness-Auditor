@@ -65,14 +65,8 @@ jobs:
 
           console = Path('src/searchgeo/console_environment.py')
           text = console.read_text(encoding='utf-8')
-          old = '''    print(" 0. cancelar")
-              raw = input("Escolha: ").strip()
-              if raw == "0":
-                  return None'''
-          new = '''    print(" V. Voltar")
-              raw = input("Escolha: ").strip().upper()
-              if raw == "V":
-                  return None'''
+          old = '    print(" 0. cancelar")\n    raw = input("Escolha: ").strip()\n    if raw == "0":\n        return None'
+          new = '    print(" V. Voltar")\n    raw = input("Escolha: ").strip().upper()\n    if raw == "V":\n        return None'
           if old not in text:
               raise SystemExit('console_environment _prompt_choice 0/cancel contract not found')
           console.write_text(text.replace(old, new, 1), encoding='utf-8', newline='\n')
