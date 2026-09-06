@@ -151,6 +151,13 @@ class BrowserIdentityTests(unittest.TestCase):
         ]
         self.assertIsNone(secure_upgrade_candidate("https://example.com/", trace))
 
+    def test_secure_upgrade_candidate_does_not_activate_after_redirect_to_third_party(self) -> None:
+        trace = [
+            {"url": "https://example.com/", "status": 302, "location": "https://third.example.net/"},
+            {"url": "https://third.example.net/", "status": 301, "location": "http://www.third.example.net/"},
+        ]
+        self.assertIsNone(secure_upgrade_candidate("https://example.com/", trace))
+
     def test_secure_upgrade_candidate_requires_https_requested_url(self) -> None:
         trace = [
             {"url": "http://example.com/", "status": 301, "location": "http://www.example.com/"},
