@@ -29,6 +29,15 @@ jobs:
           if [[ -f tests/test_deepseek_semantic_contract_and_console_actions.py ]]; then
             sed -i 's/from searchgeo.console_config import State/from searchgeo.console_m23 import State/' tests/test_deepseek_semantic_contract_and_console_actions.py
           fi
+          python - <<'PY'
+          from pathlib import Path
+          for name in ("src/searchgeo/interactive_console.py", "docs/INTERACTIVE_CONSOLE.md", "README.md", "docs/CONSOLIDATED_REPORTING.md"):
+              path = Path(name)
+              if path.is_file():
+                  text = path.read_text(encoding="utf-8")
+                  text = text.replace("[OFFLINE | sem APIs]", "[OFFLINE — sem APIs]")
+                  path.write_text(text, encoding="utf-8")
+          PY
       - name: Install and validate
         shell: bash
         run: |
@@ -50,6 +59,6 @@ jobs:
           fi
           git config user.name "SearchGEO CI"
           git config user.email "actions@users.noreply.github.com"
-          git add src docs tests
+          git add src docs tests README.md
           git commit -m "[deepseek-console-patch] materialize smoke corrections"
           git push origin HEAD
