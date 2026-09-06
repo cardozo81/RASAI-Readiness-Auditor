@@ -2,7 +2,7 @@
 
 Internal event/table identifiers retain their historical M23/M25 names for
 schema compatibility. User-facing text keeps Standard M23 and calibrated M25
-explicitly separated.
+explicitly separated without changing the pre-M25 public M23 labels/env catalog.
 """
 from __future__ import annotations
 
@@ -34,31 +34,15 @@ from searchgeo.m23_cli import (
 )
 from searchgeo.m25_apdex_experience import ExperienceApdexConfig
 from searchgeo.m25_cli import (
-    DYNATRACE_APPLICATION_ID_ENV,
-    DYNATRACE_BASE_URL_ENV,
-    DYNATRACE_CONFIG_JSON_ENV,
-    DYNATRACE_IMPORT_ENV,
     M25_ENV_NAMES,
-    UX_CONCURRENCY_ENV,
-    UX_DELAY_ENV,
-    UX_DEVICE_MIX_ENV,
-    UX_ENABLED_ENV,
-    UX_ERRORS_ENV,
-    UX_ERROR_SCOPE_ENV,
-    UX_FRUSTRATED_ENV,
-    UX_KPM_ENV,
-    UX_MAX_ATTEMPTS_ENV,
-    UX_MAX_PAGES_ENV,
-    UX_SAMPLES_ENV,
-    UX_SATISFIED_ENV,
-    UX_SESSION_MODE_ENV,
-    UX_SETTLE_ENV,
     configured_experience,
     validate_m25_env_value,
 )
 from searchgeo.m25_dynatrace import DYNATRACE_API_TOKEN_ENV
 
-M23_ONLY_ENV_NAMES = (
+# Public console environment catalog remains backward-compatible. M25 has its
+# own CLI/environment contract and is persisted as non-secret INI settings.
+M23_ENV_NAMES = (
     APDEX_ENABLED_ENV,
     APDEX_THRESHOLD_ENV,
     APDEX_SAMPLES_ENV,
@@ -68,7 +52,7 @@ M23_ONLY_ENV_NAMES = (
     APDEX_DELAY_ENV,
     APDEX_CONCURRENCY_ENV,
 )
-M23_ENV_NAMES = tuple(dict.fromkeys((*M23_ONLY_ENV_NAMES, *M25_ENV_NAMES, DYNATRACE_API_TOKEN_ENV)))
+_ALL_APDEX_ENV_NAMES = tuple(dict.fromkeys((*M23_ENV_NAMES, *M25_ENV_NAMES, DYNATRACE_API_TOKEN_ENV)))
 
 
 @dataclass(slots=True)
@@ -152,8 +136,8 @@ def apply_m23_environment_defaults(
     env: Mapping[str, str] | None = None,
     names: set[str] | None = None,
 ) -> tuple[str, ...]:
-    """Resolve M23/M25 environment defaults with the same contract as the CLI."""
-    if names is not None and not (set(M23_ENV_NAMES) & names):
+    """Resolve M23 and, when present, M25 environment defaults."""
+    if names is not None and not (set(_ALL_APDEX_ENV_NAMES) & names):
         return ()
     environment = env if env is not None else os.environ
     try:
@@ -181,7 +165,7 @@ def apply_m23_environment_defaults(
 
 def validate_env_value(name: str, value: str) -> str:
     """Validate an environment edit without weakening the base console contract."""
-    if name not in M23_ENV_NAMES:
+    if name not in _ALL_APDEX_ENV_NAMES:
         return validate_base_env_value(name, value)
     raw = value.strip()
     if not raw:
@@ -441,7 +425,7 @@ def observe_m23_workspace(workspace: Path, state: State) -> None:
     elif name == "M23_STARTED" and event.get("enabled"):
         state.status = "SYNTHETIC_APDEX"
         state.operation = "BROWSER:SYNTHETIC_APDEX"
-        set_runtime_progress(state, "Synthetic Apdex Standard", 0.0, detail="preparando navegações sintéticas", exact=True)
+        set_runtime_progress(state, "Synthetic Apdex", 0.0, detail="preparando navegações sintéticas", exact=True)
     elif name == "M23_APDEX_SAMPLE":
         state.status = "SYNTHETIC_APDEX"
         state.operation = "BROWSER:SYNTHETIC_APDEX"
@@ -459,7 +443,7 @@ def observe_m23_workspace(workspace: Path, state: State) -> None:
             f"contexto {context_index}/{context_total}; válidas {valid}/{target}; "
             f"tentativas {attempts}/{max_attempts}; último={event.get('classification') or event.get('status') or '-'}"
         )
-        set_runtime_progress(state, "Synthetic Apdex Standard", overall, detail=detail, exact=True)
+        set_runtime_progress(state, "Synthetic Apdex", overall, detail=detail, exact=True)
     elif name == "M23_COMPLETED":
         if str(event.get("status") or "") == "SKIPPED_SOURCE_BLOCKER":
             state.status = "SOURCE_BLOCKED"
