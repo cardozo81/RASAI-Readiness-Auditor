@@ -25,6 +25,7 @@ from searchgeo.provider_runtime_policy import (
 )
 from searchgeo.provider_registry import extension_cli_choices
 from searchgeo.report_consistency_v2 import reconcile_report_outputs
+from searchgeo.searchgeo_readiness_reporting import enrich_searchgeo_reporting
 from searchgeo.source_quality import (
     enrich_source_quality_report_site,
     load_assessment,
@@ -293,6 +294,31 @@ def main(argv: Sequence[str] | None = None) -> int:
                 try_append_operational_event(
                     workspace,
                     "SOURCE_QUALITY_REPORT_FAILURE",
+                    level="WARNING",
+                    audit_id=audit_id,
+                    error_type=type(exc).__name__,
+                    error_message=str(exc)[:512],
+                )
+            try:
+                # The executive dashboard must be the final report projection so it can
+                # remove legacy cross-domain summaries and reflect the final persisted
+                # state of SearchGEO, Lighthouse/CrUX, Accessibility and Apdex.
+                searchgeo_path = enrich_searchgeo_reporting(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                )
+                try_append_operational_event(
+                    workspace,
+                    "SEARCHGEO_READINESS_REPORT_GENERATED",
+                    audit_id=audit_id,
+                    methodology="SGRI-001",
+                    compatible_scoring_engine="SCORE-GEO-002",
+                    report_path=str(searchgeo_path.relative_to(workspace.root)),
+                )
+            except Exception as exc:
+                try_append_operational_event(
+                    workspace,
+                    "SEARCHGEO_READINESS_REPORT_FAILURE",
                     level="WARNING",
                     audit_id=audit_id,
                     error_type=type(exc).__name__,
