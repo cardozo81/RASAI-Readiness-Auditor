@@ -1,0 +1,123 @@
+name: Temporary apply indicator provenance hardening
+
+on:
+  push:
+    branches: [feat/ai-content-analysis-context]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/ai-content-analysis-context
+          fetch-depth: 0
+      - name: Patch integration, docs and stale contract expectation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def patch(path: str, old: str, new: str, *, required: bool = True) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              if new in text:
+                  return
+              if old not in text:
+                  if required:
+                      raise SystemExit(f"patch anchor not found: {path}: {old[:80]!r}")
+                  return
+              p.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+
+          # Central report presentation: every materialized HTML passes here.
+          patch(
+              "src/searchgeo/report_semantics.py",
+              "from typing import Any\n",
+              "from typing import Any\n\nfrom searchgeo.indicator_provenance import enrich_indicator_provenance_html\n",
+          )
+          patch(
+              "src/searchgeo/report_semantics.py",
+              '    elif page_name == "web-performance.html":\n        html = _enhance_web_performance(html)\n    return html\n\n\ndef _decorate_metrics',
+              '    elif page_name == "web-performance.html":\n        html = _enhance_web_performance(html)\n    return enrich_indicator_provenance_html(html, page_name=page_name)\n\n\ndef _decorate_metrics',
+          )
+
+          # M20 contract was intentionally versioned after adding persisted context to the request.
+          patch(
+              "tests/test_m20_content_remediation.py",
+              'self.assertEqual(attempt["contract_version"], "M20-CONTENT-REMEDIATION-v1")',
+              'self.assertEqual(attempt["contract_version"], "M20-CONTENT-REMEDIATION-v2")',
+          )
+
+          # Remove stale public references to the superseded score where they describe current behavior.
+          patch(
+              "src/searchgeo/report_navigation.py",
+              '"BR-GEO-054": "Integridade do auditor · Verifica a reprodutibilidade do SCORE-GEO-001 persistido."',
+              '"BR-GEO-054": "Integridade do auditor · Verifica a reprodutibilidade do SCORE-GEO-002 persistido."',
+          )
+          patch(
+              "docs/RULES_GUIDE.md",
+              "A coluna **Scoring** informa a dimensão de `SCORE-GEO-001`.",
+              "A coluna **Scoring** informa a dimensão vigente de `SCORE-GEO-002`.",
+          )
+          patch(
+              "docs/RULES_GUIDE.md",
+              "recalcula `SCORE-GEO-001`, reabre scores/contributions e compara resultados",
+              "recalcula `SCORE-GEO-002`, reabre scores/contributions e compara resultados",
+          )
+
+          # Ensure targeted CI exercises the new provenance contract before the full suite.
+          patch(
+              ".github/workflows/content-context-validation.yml",
+              "          tests/test_content_analysis_context.py \\\n",
+              "          tests/test_content_analysis_context.py \\\n          tests/test_indicator_provenance.py \\\n",
+          )
+
+          # Discoverable documentation links without duplicating the detailed catalog.
+          for path, block in {
+              "docs/SCORING_GUIDE.md": """
+
+## Proveniência metodológica dos indicadores
+
+O relatório final classifica explicitamente a natureza dos indicadores e separa standards externos, orientação oficial de plataforma, métricas externas definidas, heurísticas SearchGEO, telemetria e saídas de IA. Consulte [INDICATOR_PROVENANCE.md](INDICATOR_PROVENANCE.md).
+
+`references.html#indicator-provenance` reproduz essa fronteira no próprio relatório, com fonte/entidade, link oficial quando aplicável e a parte específica implementada pelo SearchGEO.
+""",
+              "docs/RULES_GUIDE.md": """
+
+## Proveniência metodológica
+
+A classificação `OFFICIAL` / `STANDARD` / `HEURISTIC` de cada BR-GEO deve ser lida junto às fontes exibidas no report. Uma referência externa não promove automaticamente uma heurística a standard. O inventário consolidado está em [INDICATOR_PROVENANCE.md](INDICATOR_PROVENANCE.md) e em `report/references.html#indicator-provenance`.
+""",
+              "docs/specification/15_ERROR_CENTRIC_REPORT_UX.md": """
+
+## 17. Proveniência metodológica dos indicadores
+
+Toda página final deve informar, de forma compacta e visível, a natureza dos indicadores centrais exibidos. `references.html` deve consolidar indicador, classificação metodológica, fonte/entidade, link oficial quando existir, lógica externa aplicável e decisão/transformação específica do SearchGEO.
+
+Taxonomia pública mínima: `RAW_OBSERVATION`, `EXTERNAL_STANDARD`, `OFFICIAL_PLATFORM_GUIDANCE`, `EXTERNAL_DEFINED_METRIC`, `SEARCHGEO_HEURISTIC`, `OPERATIONAL_TELEMETRY` e `AI_DERIVED_ADVISORY`.
+
+Informação metodológica essencial não pode depender somente de tooltip. Uma fonte oficial valida apenas o fenômeno no seu escopo e nunca deve ser usada para sugerir homologação externa do `SCORE-GEO-002`.
+""",
+          }.items():
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              marker = block.strip().splitlines()[0]
+              if marker not in text:
+                  p.write_text(text.rstrip() + block + "\n", encoding="utf-8", newline="\n")
+          PY
+
+      - name: Commit patch when needed
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No patch changes needed."
+            exit 0
+          fi
+          git config user.name "SearchGEO validation automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/searchgeo/report_semantics.py src/searchgeo/report_navigation.py tests/test_m20_content_remediation.py docs/RULES_GUIDE.md docs/SCORING_GUIDE.md docs/specification/15_ERROR_CENTRIC_REPORT_UX.md .github/workflows/content-context-validation.yml
+          git commit -m "Integrar proveniência dos indicadores e alinhar SCORE-GEO-002"
+          git push origin HEAD:feat/ai-content-analysis-context
