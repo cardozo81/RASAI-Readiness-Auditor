@@ -1,7 +1,0 @@
-Metadata-Version: 2.4
-Name: searchgeo-readiness-auditor
-Version: 0.1.0
-Summary: Local Search/GEO readiness auditor.
-Requires-Python: <3.14,>=3.13
-Requires-Dist: playwright<2,>=1.57
-Requires-Dist: tzdata>=2026.1
