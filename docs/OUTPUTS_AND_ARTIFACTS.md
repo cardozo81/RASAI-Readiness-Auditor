@@ -20,7 +20,9 @@ audits/<AUD-ID>/
    ├─ crawling-discovery.html  # M24
    ├─ accessibility.html       # quando materializado
    ├─ web-performance.html
-   ├─ apdex.html               # quando habilitado/materializado
+   ├─ apdex.html               # M23, quando habilitado/materializado
+   ├─ apdex-experience.html    # M25, quando habilitado/materializado
+   ├─ ai-visibility.html       # M26, quando houver dataset importado/report regenerado
    ├─ ai-usage.html
    ├─ references.html
    └─ css/site.css
@@ -82,7 +84,7 @@ web_performance_observations
 
 Essas tabelas permitem distinguir tentativa, sucesso, falha, HTTP, timeout, artifact e dados efetivamente obtidos.
 
-### Synthetic Apdex
+### Synthetic Apdex M23
 
 ```text
 synthetic_apdex_runs
@@ -92,6 +94,30 @@ lighthouse_execution_profiles
 ```
 
 Os nomes internos permanecem estáveis para compatibilidade de schema. A documentação operacional e os relatórios usam nomenclatura funcional.
+
+### Synthetic User Experience Apdex M25
+
+```text
+synthetic_ux_apdex_runs
+synthetic_ux_apdex_samples
+synthetic_ux_apdex_summaries
+```
+
+M25 é calibrável e separado do M23 Standard. Seus thresholds/KPM/error policy não reescrevem resultados M23 nem scoring SearchGEO.
+
+### Observed Generative Visibility M26
+
+```text
+generative_visibility_imports
+generative_visibility_page_citations
+generative_visibility_grounding_queries
+generative_visibility_trend
+generative_visibility_query_runs
+```
+
+M26 persiste outcomes observados/importados. Essas tabelas não escrevem nem recalculam `scores`, `score_contributions`, `rule_executions`, `findings` ou `recommendations`.
+
+Métricas explicitamente fornecidas pela fonte, como Total Citations e Average Cited Pages do Bing AI Performance, permanecem identificadas como **source-reported**. Citation Presence Rate é calculado somente quando existem query-runs controlados válidos e exibe tamanho amostral/intervalo Wilson 95%.
 
 ## Índice analítico reconstruível
 
@@ -104,6 +130,8 @@ audits/.searchgeo/consolidated-index.db
 Esse banco contém somente projeções necessárias para filtro e estatística histórica, como metadados de auditoria, domínios, URLs, dispositivos, versões, scores, Web Performance, Apdex e classificações de findings.
 
 Ele **não é fonte de verdade**. Pode ser removido e reconstruído a partir dos `AUD-*/audit.db` sem perda de evidência.
+
+M26 não entra automaticamente no consolidado histórico atual. Uma consolidação futura de visibilidade observada deve preservar fonte, período e comparabilidade de engine/surface antes de agregar datasets.
 
 ## Relatórios consolidados
 
@@ -158,6 +186,18 @@ Quando a remediação técnica por IA M24 é habilitada e existe saída persist�
 
 A ausência de `llms.txt` não cria artifact e não reduz score/readiness.
 
+## Artifacts M26
+
+Cada JSON normalizado `OGV-IMPORT-001` importado é preservado em:
+
+```text
+artifacts/m26/observed-generative-visibility-<sha16>.json
+```
+
+O SHA-256 completo e o caminho relativo ficam em `generative_visibility_imports`. Reimportar exatamente o mesmo artifact na mesma auditoria substitui sua projeção persistida, sem duplicar observações.
+
+O M26 é import-first: não faz scraping de Bing Webmaster Tools e não inventa endpoint de API para AI Performance.
+
 ## Acessibilidade
 
 Acessibilidade automatizada não possui uma segunda chamada externa própria. Ela reutiliza a categoria `accessibility` do artifact Lighthouse obtido via PageSpeed.
@@ -197,6 +237,8 @@ report/apdex.html
 
 Grupos abaixo de 100 amostras válidas são explicitamente identificados como small-group `*`.
 
+M25 possui domínio adicional em `report/apdex-experience.html`; ele é calibrável e não substitui o M23 Standard.
+
 ## Reports
 
 ### `index.html`
@@ -212,6 +254,8 @@ Ele pode resumir:
 - Synthetic Navigation Apdex.
 
 Cada card direciona para a página canônica. Quando há múltiplos contextos externos, o dashboard deve preferir faixa/quantidade de contextos válidos a criar uma média de site não definida pela metodologia de origem.
+
+Observed Generative Visibility permanece um domínio separado e não deve ser fundido ao SGRI. Qualquer futura síntese M26 no dashboard deve continuar exibindo-o como outcome observado independente, sem criar score comum.
 
 ### `searchgeo.html`
 
@@ -256,7 +300,27 @@ PageSpeed/Lighthouse/CrUX, Core Web Vitals, tentativas externas e diagnósticos 
 
 ### `apdex.html`
 
-Synthetic Navigation Apdex.
+Synthetic Navigation Apdex M23 Standard.
+
+### `apdex-experience.html`
+
+Synthetic User Experience Apdex M25 calibrável. Não é RUM e não substitui M23.
+
+### `ai-visibility.html`
+
+Página canônica do M26 para outcomes de visibilidade generativa observada/importada.
+
+Exibe por dataset/período:
+
+- origem e artifact SHA-256;
+- métricas reportadas pela fonte;
+- atividade por URL;
+- grounding queries;
+- tendência importada;
+- query-runs controlados;
+- Citation Presence Rate, `n` e Wilson 95% quando calculáveis.
+
+Não contém nem produz `SGRI-001`, Score GEO ou probabilidade preditiva de citação.
 
 ### `ai-usage.html`
 
@@ -290,8 +354,9 @@ Deve permitir rastrear, sem secrets:
 - PageSpeed/CrUX;
 - timeout/HTTP/quota;
 - progresso Synthetic Apdex;
+- importação M26 com source/período/contagens e `scoring_impact=NONE`;
 - falhas fail-open;
-- geração de reports, incluindo as projeções `SGRI-001` e M24.
+- geração de reports, incluindo as projeções `SGRI-001`, M24 e M26.
 
 A consolidação não grava eventos em `AUD-*/logs/audit.log`; sua rastreabilidade fica no `manifest.json` do próprio `CONS-*`.
 
@@ -302,4 +367,5 @@ A consolidação não grava eventos em `AUD-*/logs/audit.log`; sua rastreabilida
 - request IDs e diagnósticos devem ser sanitizados;
 - custo estimado não é invoice;
 - sitemap cross-origin declarado é evidência, mas M24 não faz fetch externo automático sem uma política de aquisição segura;
+- M26 rejeita URL cross-origin no dataset e não faz scraping de portais de webmaster;
 - o consolidador não escreve em `AUD-*/audit.db` e não faz chamadas externas.
