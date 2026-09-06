@@ -92,6 +92,7 @@ def execute_m24(
     technical_ai: bool = False,
     semantic_provider: Any = None,
     http_client: HttpClient | None = None,
+    allow_network: bool = True,
 ) -> M24ExecutionResult:
     """Execute deterministic M24 and optional evidence-bound technical AI.
 
@@ -164,12 +165,33 @@ def execute_m24(
             )
         )
 
-        llms_state, llms_diagnostics = _analyze_llms(
-            origin=origin,
-            workspace=workspace,
-            client=http_client or HttpClient(),
-        )
-        diagnostics.extend(llms_diagnostics)
+        if allow_network:
+            llms_state, llms_diagnostics = _analyze_llms(
+                origin=origin,
+                workspace=workspace,
+                client=http_client or HttpClient(),
+            )
+            diagnostics.extend(llms_diagnostics)
+        else:
+            llms_state = "SKIPPED_SOURCE_BLOCKER"
+            diagnostics.append(
+                M24Diagnostic(
+                    code="M24-LLMS-SKIPPED-SOURCE-BLOCKER",
+                    category="AI_ACCESS",
+                    severity="INFO",
+                    title="llms.txt não consultado por bloqueio técnico da origem",
+                    scope_url=origin,
+                    observed={
+                        "state": "SKIPPED_SOURCE_BLOCKER",
+                        "additional_network_requests": 0,
+                    },
+                    evidence_ids=(),
+                    remediation=(
+                        "Resolver primeiro o bloqueio técnico da origem. llms.txt permanece opcional "
+                        "e sem impacto em scoring."
+                    ),
+                )
+            )
 
         diagnostics.append(
             M24Diagnostic(
