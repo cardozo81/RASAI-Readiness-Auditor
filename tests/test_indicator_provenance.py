@@ -30,7 +30,7 @@ def test_central_report_semantics_pipeline_applies_provenance() -> None:
 def test_external_metric_pages_are_not_presented_as_geo_score() -> None:
     html = enrich_indicator_provenance_html(_shell(), page_name="web-performance.html")
     assert "Métricas externas definidas" in html
-    assert "não convertê-los em GEO Score" in html
+    assert "sem convertê-los em GEO Score" in html
 
     accessibility = enrich_indicator_provenance_html(_shell(), page_name="accessibility.html")
     assert "WCAG 2.2 é standard externo" in accessibility
