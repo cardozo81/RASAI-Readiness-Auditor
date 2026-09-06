@@ -461,6 +461,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                         report_path=str(m24_report_path.relative_to(workspace.root)),
                         scoring_impact="NONE",
                     )
+                    # PR #70 owns SearchGEO/device labels. Re-run the projection only
+                    # to normalize every final page after M24 has added its nav item;
+                    # persisted measurements remain untouched.
+                    enrich_searchgeo_reporting(
+                        audit_id=audit_id,
+                        workspace=workspace,
+                    )
+                    _restore_canonical_device_navigation_labels()
                 except Exception as exc:
                     m24_error = f"{type(exc).__name__}: {str(exc)[:512]}"
                     try_append_operational_event(
