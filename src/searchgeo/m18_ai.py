@@ -369,6 +369,60 @@ def _response_error(raw: Mapping[str, Any]) -> ProviderDiagnostic | None:
     )
 
 
+def _deepseek_semantic_output_schema() -> dict[str, Any]:
+    # Provider-wire schema that guarantees all 22 semantic rules without
+    # array cardinality keywords. The SearchGEO canonical model remains an
+    # ordered assessment array after local normalization.
+    schema = json.loads(json.dumps(hardened_semantic_output_schema()))
+    canonical_assessment = schema["properties"]["assessments"]["items"]
+    assessment_value = json.loads(json.dumps(canonical_assessment))
+    assessment_value["properties"].pop("rule_id", None)
+    assessment_value["required"] = [
+        field for field in assessment_value["required"] if field != "rule_id"
+    ]
+    schema["properties"]["assessments"] = {
+        "type": "object",
+        "properties": {
+            rule_id: json.loads(json.dumps(assessment_value))
+            for rule_id in SEMANTIC_RULE_IDS
+        },
+        "required": list(SEMANTIC_RULE_IDS),
+        "additionalProperties": False,
+    }
+    # DeepSeek documents maxItems/minItems as unsupported in its strict schema
+    # subset. Local SearchGEO validation continues to enforce <= 5 intents.
+    schema["properties"]["secondary_intents"].pop("maxItems", None)
+    return schema
+
+
+def _canonicalize_deepseek_wire_payload(payload: Any) -> Any:
+    # Convert the DeepSeek keyed assessment object to the canonical SearchGEO array.
+    if not isinstance(payload, Mapping):
+        return payload
+    assessments = payload.get("assessments")
+    if not isinstance(assessments, Mapping):
+        # Backward-compatible acceptance of an already-canonical array response.
+        return payload
+
+    expected = frozenset(SEMANTIC_RULE_IDS)
+    received = frozenset(str(key) for key in assessments)
+    if received != expected or len(assessments) != len(SEMANTIC_RULE_IDS):
+        raise SemanticSchemaError("INCOMPLETE_SEMANTIC_OUTPUT")
+
+    canonical_assessments: list[dict[str, Any]] = []
+    for rule_id in SEMANTIC_RULE_IDS:
+        raw = assessments.get(rule_id)
+        if not isinstance(raw, Mapping):
+            raise SemanticSchemaError(f"INVALID_ASSESSMENT_OBJECT_{rule_id}")
+        if "rule_id" in raw:
+            raise SemanticSchemaError(f"UNEXPECTED_RULE_ID_FIELD_{rule_id}")
+        canonical_assessments.append({"rule_id": rule_id, **dict(raw)})
+
+    canonical = dict(payload)
+    canonical["assessments"] = canonical_assessments
+    return canonical
+
+
 class ResponsesSemanticProvider(_HardenedOpenAIProvider):
     """Shared provider adapter using Responses-compatible HTTPS and SearchGEO validation."""
 
@@ -423,15 +477,24 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
             "The assessments array MUST contain exactly one item for every rule listed below, with no "
             "omissions, duplicates or unknown rule ids.\n\nSemantic rule contract:\n" + criteria
         )
+        semantic_schema = hardened_semantic_output_schema()
+        if self.name == "DEEPSEEK":
+            semantic_schema = _deepseek_semantic_output_schema()
+            instructions += (
+                "\n\nDeepSeek wire contract: assessments MUST be a JSON object keyed by every "
+                "rule id BR-GEO-028 through BR-GEO-049 exactly once. Each keyed value contains "
+                "the assessment fields except rule_id; SearchGEO derives rule_id from the key."
+            )
+
         format_payload: dict[str, Any]
         if self.structured_mode == "json_object":
-            instructions += "\n\nThe complete JSON Schema below is normative and will be validated locally:\n" + json.dumps(hardened_semantic_output_schema(), ensure_ascii=False, separators=(",", ":"))
+            instructions += "\n\nThe complete JSON Schema below is normative and will be validated locally:\n" + json.dumps(semantic_schema, ensure_ascii=False, separators=(",", ":"))
             format_payload = {"type": "json_object"}
         else:
             format_payload = {
                 "type": "json_schema",
                 "name": "searchgeo_semantic_assessment",
-                "schema": hardened_semantic_output_schema(),
+                "schema": semantic_schema,
             }
             if self.name == "OPENAI":
                 format_payload["strict"] = True
@@ -492,6 +555,8 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
         usage = _usage_from_native(raw)
         try:
             payload = _extract_json_payload(dict(raw))
+            if self.name == "DEEPSEEK":
+                payload = _canonicalize_deepseek_wire_payload(payload)
             normalized = normalize_provider_payload(
                 payload,
                 semantic_input.allowed_evidence_ids,
@@ -505,7 +570,20 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
             if len(received) != len(SEMANTIC_RULE_IDS) or frozenset(received) != frozenset(SEMANTIC_RULE_IDS):
                 raise SemanticSchemaError("INCOMPLETE_SEMANTIC_OUTPUT")
         except (SemanticSchemaError, SemanticEvidenceError) as exc:
-            return self._failure_result(semantic_input, started_at, started_perf, summary, payload_hash, ProviderDiagnostic(ProviderErrorClass.CONTRACT_ERROR, error_type=type(exc).__name__), AttemptStatus.CONTRACT_ERROR, usage=usage)
+            return self._failure_result(
+                semantic_input,
+                started_at,
+                started_perf,
+                summary,
+                payload_hash,
+                ProviderDiagnostic(
+                    ProviderErrorClass.CONTRACT_ERROR,
+                    error_type=type(exc).__name__,
+                    error_code=_safe_token(str(exc)),
+                ),
+                AttemptStatus.CONTRACT_ERROR,
+                usage=usage,
+            )
         except SemanticProviderError as exc:
             error_class = ProviderErrorClass.EMPTY_RESPONSE if "no textual output" in str(exc).casefold() else ProviderErrorClass.INVALID_RESPONSE
             return self._failure_result(semantic_input, started_at, started_perf, summary, payload_hash, ProviderDiagnostic(error_class, error_type=type(exc).__name__), AttemptStatus.CONTRACT_ERROR, usage=usage)

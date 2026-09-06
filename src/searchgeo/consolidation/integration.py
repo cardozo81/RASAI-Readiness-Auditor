@@ -5,7 +5,6 @@ at the public entrypoint, preserving the existing audit/configuration engine.
 """
 from __future__ import annotations
 
-import builtins
 from typing import Any, Callable
 
 from .console import run as run_consolidation_console
@@ -20,22 +19,9 @@ def install(interactive_console: Any) -> None:
     original_configure: Callable[..., None] = interactive_console._configure
 
     def menu_with_consolidation(state: Any) -> str:
-        had_module_input = hasattr(interactive_console, "input")
-        original_input = getattr(interactive_console, "input", builtins.input)
-
-        def input_with_option(prompt: str = "") -> str:
-            if prompt == "Escolha: ":
-                print("C. Histórico / relatórios consolidados [OFFLINE | sem APIs]")
-            return original_input(prompt)
-
-        interactive_console.input = input_with_option
-        try:
-            return original_menu(state)
-        finally:
-            if had_module_input:
-                interactive_console.input = original_input
-            else:
-                delattr(interactive_console, "input")
+        # The core menu renders option C so all actions share one vertical layout.
+        # This wrapper remains only to preserve the integration boundary.
+        return original_menu(state)
 
     def configure_with_consolidation(state: Any, choice: str) -> None:
         if choice != CONSOLIDATION_CHOICE:

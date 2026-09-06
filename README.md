@@ -102,7 +102,7 @@ Menu principal:
 H. Ajuda / custos
 E. Variáveis de ambiente / credenciais
 S. Salvar configuração INI [SEM CHAVES]
-C. Histórico / relatórios consolidados [OFFLINE | sem APIs]
+C. Histórico / relatórios consolidados [OFFLINE — sem APIs]
 R. Executar
 Q. Sair
 ```

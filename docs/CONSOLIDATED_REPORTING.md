@@ -33,7 +33,7 @@ consolidated/CONS-*/report.html + manifest.json
 ## Acesso pelo console
 
 ```text
-C. Histórico / relatórios consolidados [OFFLINE | sem APIs]
+C. Histórico / relatórios consolidados [OFFLINE — sem APIs]
 ```
 
 O fluxo seleciona de forma dependente:

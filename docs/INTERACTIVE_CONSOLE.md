@@ -266,7 +266,7 @@ Overrides explícitos continuam prevalecendo quando o adapter aceita o valor.
 H. Ajuda / custos
 E. Variáveis de ambiente / credenciais
 S. Salvar configuração INI [SEM CHAVES]
-C. Histórico / relatórios consolidados [OFFLINE | sem APIs]
+C. Histórico / relatórios consolidados [OFFLINE — sem APIs]
 R. Executar [APTO|INDISPONÍVEL]
 Q. Sair
 ```
@@ -412,3 +412,8 @@ Fonte configurada que falhou por timeout, quota, HTTP, ausência de artifact ou 
 - [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md)
 - [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
 - [AI_GUIDE.md](AI_GUIDE.md)
+
+
+### Layout das ações
+
+Cada ação do menu principal é exibida em linha própria. O caractere `|` pode aparecer em metadados/configurações, mas não é usado para agrupar ações selecionáveis. `V. Voltar` permanece o padrão de retorno em submenus; `Q. Sair` é reservado ao encerramento do console.
