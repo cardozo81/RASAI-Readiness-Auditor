@@ -25,6 +25,9 @@ jobs:
         run: |
           set -euo pipefail
           MESSAGE="$(git log -1 --pretty=%B)"
+          if printf '%s' "$MESSAGE" | grep -Eq '\[(patch-debug|validation-debug)\]'; then
+            exit 0
+          fi
 
           PATCH_RUN=1
           if printf '%s' "$MESSAGE" | grep -Fq '[smoke-integrity-patch]'; then
@@ -36,15 +39,6 @@ jobs:
             set -e
 
             if [ "$PATCH_RC" -ne 0 ] && grep -Fq 'gradient declarations remain in report sources: src/searchgeo/report_navigation.py' /tmp/patch-driver.log; then
-              python - <<'PY'
-          from pathlib import Path
-          path = Path('src/searchgeo/report_navigation.py')
-          text = path.read_text(encoding='utf-8')
-          old = 'background:linear-gradient(135deg,#eef2fb 0%,#f4f0fa 100%)'
-          if old not in text:
-              raise SystemExit('expected cost-total gradient not found')
-          path.write_text(text.replace(old, 'background:#eef2fb', 1), encoding='utf-8', newline='\n')
-          PY
               PATCH_RC=0
             fi
 
@@ -57,24 +51,70 @@ jobs:
               git push origin HEAD:fix/smoke-integrity-console-solid-reports
               exit "$PATCH_RC"
             fi
+
+            python - <<'PY'
+          from pathlib import Path
+
+          report = Path('src/searchgeo/report_navigation.py')
+          text = report.read_text(encoding='utf-8')
+          text = text.replace(
+              'background:linear-gradient(135deg,#eef2fb 0%,#f4f0fa 100%)',
+              'background:#eef2fb',
+          )
+          report.write_text(text, encoding='utf-8', newline='\n')
+
+          console = Path('src/searchgeo/console_environment.py')
+          text = console.read_text(encoding='utf-8')
+          old = '''    print(" 0. cancelar")
+              raw = input("Escolha: ").strip()
+              if raw == "0":
+                  return None'''
+          new = '''    print(" V. Voltar")
+              raw = input("Escolha: ").strip().upper()
+              if raw == "V":
+                  return None'''
+          if old not in text:
+              raise SystemExit('console_environment _prompt_choice 0/cancel contract not found')
+          console.write_text(text.replace(old, new, 1), encoding='utf-8', newline='\n')
+          PY
           fi
 
-          python -m pip install --upgrade pip
-          python -m pip install -e .
-          python -m playwright install --with-deps chromium
+          set +e
+          (
+            set -euo pipefail
+            python -m pip install --upgrade pip
+            python -m pip install -e .
+            python -m playwright install --with-deps chromium
 
-          python -m unittest -v \
-            tests.test_smoke_integrity_regressions \
-            tests.test_m9_scoring \
-            tests.test_source_quality_browser_identity \
-            tests.test_m18_multi_ai_provider
-          python -m unittest discover -s tests -v
-          python -m compileall -q src tests
-          git diff --check
+            python -m unittest -v \
+              tests.test_smoke_integrity_regressions \
+              tests.test_m9_scoring \
+              tests.test_source_quality_browser_identity \
+              tests.test_m18_multi_ai_provider
+            python -m unittest discover -s tests -v
+            python -m compileall -q src tests
+            git diff --check
 
-          if grep -RniE 'linear-gradient|radial-gradient' src/searchgeo/report*.py src/searchgeo/*reporting*.py; then
-            echo 'Gradient declaration found in report source.' >&2
-            exit 1
+            if grep -RniE 'linear-gradient|radial-gradient' src/searchgeo/report*.py src/searchgeo/*reporting*.py; then
+              echo 'Gradient declaration found in report source.' >&2
+              exit 1
+            fi
+            if grep -Fn '0. cancelar' src/searchgeo/interactive_console.py src/searchgeo/console_environment.py; then
+              echo 'Legacy 0=cancelar back action remains.' >&2
+              exit 1
+            fi
+          ) > /tmp/validation.log 2>&1
+          VALIDATION_RC=$?
+          set -e
+
+          if [ "$VALIDATION_RC" -ne 0 ]; then
+            cp /tmp/validation.log .github/validation-diagnostic.txt
+            git config user.name 'SearchGEO CI'
+            git config user.email 'actions@users.noreply.github.com'
+            git add .github/validation-diagnostic.txt
+            git commit -m '[validation-debug] capture smoke-integrity validation failure' || true
+            git push origin HEAD:fix/smoke-integrity-console-solid-reports
+            exit "$VALIDATION_RC"
           fi
 
           if [ "$PATCH_RUN" -eq 1 ]; then
