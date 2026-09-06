@@ -41,12 +41,15 @@ from searchgeo.pre_scoring_rules import execute_pre_scoring_rules
 from searchgeo.report_site import materialize_report_site
 from searchgeo.semantic import NoneProvider, SemanticAnalysisProvider
 from searchgeo.source_quality import (
-    PreflightBlockedRenderer,
     assess_m2_result,
     limitation_strings,
     persist_assessment,
 )
 from searchgeo.source_quality_ai import maybe_explain_source_quality
+from searchgeo.source_quality_browser import (
+    browser_reconciliation_limitations,
+    reconcile_source_quality_with_browser,
+)
 from searchgeo.url_utils import normalize_url, normalized_origin
 
 
@@ -195,35 +198,80 @@ def run_audit(
 
             source_quality = assess_m2_result(m2)
             persist_assessment(workspace, source_quality)
+            preflight_source_blocked = source_quality.all_pages_hard_blocked
+            browser_reconciliation = None
+
+            if preflight_source_blocked:
+                # M2 is intentionally crawler-like and can receive a different CDN/WAF/
+                # redirect route than a real browser. Record the strong preflight signal,
+                # but do not call it a definitive SOURCE_BLOCKED until the single normal
+                # M3 Chromium navigation confirms the same technical blocker.
+                try_append_operational_event(
+                    workspace,
+                    "SOURCE_QUALITY_PREFLIGHT_BLOCKER",
+                    level="WARNING",
+                    audit_id=audit_id,
+                    blockers=source_quality.hard_blocker_kinds,
+                    pages_considered=source_quality.pages_considered,
+                    hard_blocked_pages=source_quality.hard_blocked_pages,
+                    downstream_policy="VERIFY_ONCE_WITH_CHROMIUM_BEFORE_FAIL_FAST",
+                )
+
+            # Always allow the normal M3 Chromium pass to execute once. This is not an
+            # extra retry: M3 needs that navigation for every successful audit anyway.
+            # If it also fails, downstream repeated/external measurements are still cut.
+            m3 = execute_m3(m2, persistence, workspace, renderer=renderer)
+
+            if preflight_source_blocked:
+                browser_reconciliation = reconcile_source_quality_with_browser(
+                    assessment=source_quality,
+                    m3_result=m3,
+                    persistence=persistence,
+                    workspace=workspace,
+                )
+                source_quality = browser_reconciliation.assessment
+
             source_blocked = source_quality.all_pages_hard_blocked
-            if source_blocked:
+            if preflight_source_blocked:
                 current = persistence.audits.get(audit_id)
-                if current is not None:
+                if source_blocked:
                     additions = limitation_strings(source_quality)
+                elif browser_reconciliation is not None:
+                    additions = browser_reconciliation_limitations(browser_reconciliation)
+                else:
+                    additions = ()
+                if current is not None and additions:
                     persistence.audits.update(
                         replace(
                             current,
                             limitations=tuple(dict.fromkeys((*current.limitations, *additions))),
                         )
                     )
-                try_append_operational_event(
-                    workspace,
-                    "SOURCE_QUALITY_BLOCKED",
-                    level="ERROR",
-                    audit_id=audit_id,
-                    blockers=source_quality.hard_blocker_kinds,
-                    pages_considered=source_quality.pages_considered,
-                    hard_blocked_pages=source_quality.hard_blocked_pages,
-                    downstream_policy="SKIP_REDUNDANT_BROWSER_AND_EXTERNAL_MEASUREMENTS",
-                )
 
-            effective_renderer = renderer
-            if source_blocked and renderer is None:
-                # M2 already established a deterministic transport blocker. Materialize
-                # device snapshots without another Chromium request to the same broken URL.
-                effective_renderer = PreflightBlockedRenderer(source_quality)
+                if source_blocked:
+                    try_append_operational_event(
+                        workspace,
+                        "SOURCE_QUALITY_BLOCKED",
+                        level="ERROR",
+                        audit_id=audit_id,
+                        blockers=source_quality.hard_blocker_kinds,
+                        pages_considered=source_quality.pages_considered,
+                        hard_blocked_pages=source_quality.hard_blocked_pages,
+                        downstream_policy="SKIP_REDUNDANT_BROWSER_AND_EXTERNAL_MEASUREMENTS",
+                    )
+                elif browser_reconciliation is not None and browser_reconciliation.recovered_any:
+                    try_append_operational_event(
+                        workspace,
+                        "SOURCE_QUALITY_BROWSER_RECOVERED",
+                        level="WARNING",
+                        audit_id=audit_id,
+                        recovered_urls=browser_reconciliation.recovered_urls,
+                        browser_final_urls=tuple(
+                            item.final_url for item in browser_reconciliation.browser_observations
+                        ),
+                        policy="CONTINUE_WITH_BROWSER_EVIDENCE_AND_REPORT_DIVERGENCE",
+                    )
 
-            m3 = execute_m3(m2, persistence, workspace, renderer=effective_renderer)
             rendered_contexts = sum(len(per_device) for per_device in m3.snapshot_ids.values())
             try_append_operational_event(
                 workspace,
@@ -232,7 +280,13 @@ def run_audit(
                 pages=len(m3.snapshot_ids),
                 contexts=rendered_contexts,
                 failures=len(m3.failures),
-                source_quality_short_circuit=source_blocked,
+                source_quality_preflight_blocker=preflight_source_blocked,
+                source_quality_blocked=source_blocked,
+                source_quality_browser_recovered=(
+                    browser_reconciliation.recovered_any
+                    if browser_reconciliation is not None
+                    else False
+                ),
             )
             m4 = execute_m4(m3, persistence, workspace)
             m5 = execute_m5(audit, audit_target, m2, m3, m4, persistence, workspace)
@@ -256,10 +310,14 @@ def run_audit(
             configured_provider = semantic_provider or NoneProvider()
             analysis_provider = NoneProvider() if source_blocked else configured_provider
 
-            # When the source is blocked, do not spend a full semantic-analysis call on
-            # missing page content. One optional evidence-bound infrastructure explanation
-            # is allowed instead when a compatible AI provider is actually configured.
-            if source_blocked:
+            # A definitive blocker receives only the evidence-bound infrastructure AI
+            # explanation. A browser-recovered divergence may also receive that one
+            # explanation, but normal semantic analysis remains enabled because Chromium
+            # produced trustworthy page content.
+            explain_source_quality = source_blocked or (
+                browser_reconciliation is not None and browser_reconciliation.recovered_any
+            )
+            if explain_source_quality:
                 try:
                     ai_diagnosis = maybe_explain_source_quality(
                         audit_id=audit_id,
@@ -367,9 +425,8 @@ def run_audit(
 
             # M20 is strictly downstream of findings/scoring. It can only create
             # auxiliary suggestions and telemetry; it cannot mutate evaluated
-            # entities or retroactively alter the audit result. A source blocker
-            # disables exact-text remediation because there is no trustworthy page
-            # corpus to rewrite.
+            # entities or retroactively alter the audit result. A definitive source
+            # blocker disables exact-text remediation because no trustworthy corpus exists.
             execute_m20(
                 audit_id=audit_id,
                 enabled=(content_remediation and not source_blocked),
