@@ -3,7 +3,23 @@ name: Source quality safety
 on:
   push:
     branches:
-      - fix/audit-source-quality-tls-apdex
+      - main
+    paths:
+      - 'src/searchgeo/source_quality.py'
+      - 'src/searchgeo/source_quality_ai.py'
+      - 'src/searchgeo/source_quality_browser.py'
+      - 'src/searchgeo/source_quality_report_summary.py'
+      - 'src/searchgeo/external_metrics_integrity.py'
+      - 'src/searchgeo/browser_identity_renderer.py'
+      - 'src/searchgeo/m3.py'
+      - 'src/searchgeo/m23_apdex_profiles.py'
+      - 'src/searchgeo/audit_runner.py'
+      - 'src/searchgeo/cli_extensions.py'
+      - 'src/searchgeo/console_runtime.py'
+      - 'tests/test_source_quality*.py'
+      - 'tests/test_external_metrics_integrity.py'
+      - 'docs/SOURCE_QUALITY_AND_REDIRECTS.md'
+      - '.github/workflows/source-quality-safety.yml'
   pull_request:
     branches:
       - main
