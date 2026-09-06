@@ -1,0 +1,42 @@
+name: M26 observed generative visibility safety
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  m26-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install package and tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Compile M26 and entrypoints
+        run: |
+          python -m compileall -q \
+            src/searchgeo/entrypoint.py \
+            src/searchgeo/__main__.py \
+            src/searchgeo/m26_cli.py \
+            src/searchgeo/m26_persistence.py \
+            src/searchgeo/m26_reporting.py \
+            src/searchgeo/m26_visibility.py
+      - name: M26 directed tests
+        run: python -m pytest -q tests/test_m26_observed_generative_visibility.py
+      - name: CLI regression
+        run: python -m pytest -q tests/test_cli.py tests/test_m23_integration.py
+      - name: Full regression suite
+        run: python -m pytest -q
