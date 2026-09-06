@@ -10,6 +10,7 @@ on:
     paths:
       - 'src/searchgeo/source_quality.py'
       - 'src/searchgeo/source_quality_ai.py'
+      - 'src/searchgeo/source_quality_browser.py'
       - 'src/searchgeo/audit_runner.py'
       - 'src/searchgeo/cli_extensions.py'
       - 'src/searchgeo/console_runtime.py'
@@ -45,6 +46,7 @@ jobs:
           python -m compileall -q \
             src/searchgeo/source_quality.py \
             src/searchgeo/source_quality_ai.py \
+            src/searchgeo/source_quality_browser.py \
             src/searchgeo/audit_runner.py \
             src/searchgeo/cli_extensions.py \
             src/searchgeo/console_runtime.py
