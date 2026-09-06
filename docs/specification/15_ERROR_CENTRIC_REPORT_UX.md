@@ -328,3 +328,12 @@ Uma nova página HTML ou mudança relevante de report não está concluída enqu
 10. separação entre website finding e limitação de integração/auditor;
 11. ausência de segredo, payload sensível ou prompt interno desnecessário;
 12. smoke em HTML gerado com conteúdo suficiente para verificar menu, links e responsividade básica.
+
+## 17. Proveniência metodológica dos indicadores
+
+Toda página final deve informar, de forma compacta e visível, a natureza dos indicadores centrais exibidos. `references.html` deve consolidar indicador, classificação metodológica, fonte/entidade, link oficial quando existir, lógica externa aplicável e decisão/transformação específica do SearchGEO.
+
+Taxonomia pública mínima: `RAW_OBSERVATION`, `EXTERNAL_STANDARD`, `OFFICIAL_PLATFORM_GUIDANCE`, `EXTERNAL_DEFINED_METRIC`, `SEARCHGEO_HEURISTIC`, `OPERATIONAL_TELEMETRY` e `AI_DERIVED_ADVISORY`.
+
+Informação metodológica essencial não pode depender somente de tooltip. Uma fonte oficial valida apenas o fenômeno no seu escopo e nunca deve ser usada para sugerir homologação externa do `SCORE-GEO-002`.
+

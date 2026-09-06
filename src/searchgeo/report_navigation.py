@@ -110,7 +110,7 @@ _RULE_TOOLTIPS: dict[str, str] = {
     "BR-GEO-051": "Severidade MEDIUM · Identifica duplicatas e near-duplicates materiais no universo auditado.",
     "BR-GEO-052": "Severidade MEDIUM · Detecta e classifica diferenças materiais entre Desktop e Mobile.",
     "BR-GEO-053": "Severidade CRITICAL · Verifica rastreabilidade e reabertura de Findings, RuleExecutions e Evidences.",
-    "BR-GEO-054": "Integridade do auditor · Verifica a reprodutibilidade do SCORE-GEO-001 persistido.",
+    "BR-GEO-054": "Integridade do auditor · Verifica a reprodutibilidade do SCORE-GEO-002 persistido.",
 }
 
 _PREMIUM_CSS = r"""

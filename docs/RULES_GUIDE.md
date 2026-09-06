@@ -22,7 +22,7 @@ Nos blocos com `RuleDefinition`, a implementação registra `OFFICIAL`, `STANDAR
 
 ### Scoring
 
-A coluna **Scoring** informa a dimensão de `SCORE-GEO-001`. `—` significa que a regra não pontua diretamente. Grupos correlacionados podem ser consolidados pelo scoring para evitar dupla penalização.
+A coluna **Scoring** informa a dimensão vigente de `SCORE-GEO-002`. `—` significa que a regra não pontua diretamente. Grupos correlacionados podem ser consolidados pelo scoring para evitar dupla penalização.
 
 ## BR-GEO-001..018 — Acquisition, Technical, Indexability e Robots
 
@@ -140,7 +140,7 @@ Executada por M9 após o cálculo/persistência dos scores.
 |---|---|
 | Basis materializada | não codificada separadamente; auditor-integrity executor |
 | Scope | global |
-| Evidence | recalcula `SCORE-GEO-001`, reabre scores/contributions e compara resultados |
+| Evidence | recalcula `SCORE-GEO-002`, reabre scores/contributions e compara resultados |
 | Resultado | PASS quando score é reproduzível; FAIL em inconsistência |
 | Finding | M9 não publica Finding de qualidade do website para esta regra; é integridade do auditor |
 | Scoring | não pontua diretamente |
@@ -173,3 +173,8 @@ Não é aceitável transformar uma única falha de acesso em cadeia automática 
 - ausência de IA pode reduzir Coverage/Confidence/Consolidation, nunca aplicar fator zero artificial ao site.
 
 Consulte [AI_GUIDE.md](AI_GUIDE.md) e [SCORING_GUIDE.md](SCORING_GUIDE.md).
+
+## Proveniência metodológica
+
+A classificação `OFFICIAL` / `STANDARD` / `HEURISTIC` de cada BR-GEO deve ser lida junto às fontes exibidas no report. Uma referência externa não promove automaticamente uma heurística a standard. O inventário consolidado está em [INDICATOR_PROVENANCE.md](INDICATOR_PROVENANCE.md) e em `report/references.html#indicator-provenance`.
+
