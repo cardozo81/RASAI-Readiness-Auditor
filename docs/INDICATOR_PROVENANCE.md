@@ -40,25 +40,51 @@ A página `references.html` deve possuir uma seção consolidada **De onde vem c
 4. link oficial quando existe fonte externa primária;
 5. regra/fórmula externa aplicável;
 6. parte específica implementada ou decidida pelo SearchGEO;
-7. aviso quando a fonte não homologa o score global.
+7. aviso quando a fonte não homologa o índice global.
 
 As demais páginas devem mostrar um resumo compacto logo após o cabeçalho e um atalho para essa seção. Tooltip pode complementar a explicação, mas informação essencial não pode depender de hover.
 
+## Página canônica por indicador
+
+Para impedir dupla interpretação, cada família possui uma página analítica canônica:
+
+| Família | Página |
+|---|---|
+| SearchGEO Readiness Index, dimensões, Coverage, Confidence, Consolidation | `searchgeo.html` |
+| Evidências/findings Mobile | `mobile.html` |
+| Evidências/findings Desktop | `desktop.html` |
+| Core Web Vitals e Lighthouse Performance | `web-performance.html` |
+| Lighthouse Accessibility e evidências automatizáveis WCAG | `accessibility.html` |
+| Synthetic Navigation Apdex | `apdex.html` |
+| Telemetria/custos de IA | `ai-usage.html` |
+
+`index.html` é somente dashboard executivo. Pode resumir resultados finais, mas não deve republicar tabelas, percentis ou metodologia detalhada de uma página canônica.
+
 ## Inventário principal
 
-### SCORE-GEO-002 / Overall Readiness
+### SearchGEO Readiness Index — SGRI-001
 
 **Classificação:** `SEARCHGEO_HEURISTIC`.
 
 Não existe score GEO/AEO 0–100 universal usado como fonte normativa desta saída. A média normalizada, fatores de resultado, pesos, agregação e faixas visuais são decisões versionadas do SearchGEO.
 
-Consulte também `SCORING_GUIDE.md` e `SCORING_VALIDATION.md`.
+`SGRI-001` é a identidade pública da metodologia. Enquanto a fórmula não mudar, o banco continua registrando `SCORE-GEO-002` como versão do motor de cálculo persistido para preservar compatibilidade e comparabilidade histórica.
+
+Essa mudança de nomenclatura não representa recalibração empírica.
+
+Consulte também:
+
+- `SEARCHGEO_READINESS_INDEX.md`;
+- `SCORING_GUIDE.md`;
+- `SCORING_VALIDATION.md`.
 
 ### Coverage / Confidence / Consolidation
 
 **Classificação:** `SEARCHGEO_HEURISTIC`.
 
 Coverage mede a parcela aplicável efetivamente avaliada. Os thresholds que produzem Confidence e Consolidation são internos, versionados e não representam thresholds oficiais de Google, OpenAI, Microsoft, W3C, NIST ou outra entidade.
+
+Esses três indicadores aparecem analiticamente em `searchgeo.html` e não devem ser repetidos em `mobile.html`/`desktop.html`.
 
 ### BR-GEO-001..054
 
@@ -91,7 +117,7 @@ Para comportamento específico do Google, o catálogo por regra também referenc
 Fonte oficial: Chrome/web.dev — Web Vitals  
 https://web.dev/articles/vitals
 
-LCP, INP e CLS de campo, avaliação no percentil 75 e thresholds recomendados são mantidos externamente. O SearchGEO preserva source/scope e não converte Core Web Vitals em `SCORE-GEO-002`.
+LCP, INP e CLS de campo, avaliação no percentil 75 e thresholds recomendados são mantidos externamente. O SearchGEO preserva source/scope e não converte Core Web Vitals em `SGRI-001`.
 
 ### Lighthouse Performance
 
@@ -101,6 +127,8 @@ Fonte oficial: Chrome for Developers — Performance scoring
 https://developer.chrome.com/docs/lighthouse/performance/performance-scoring
 
 Score, pesos e curvas pertencem ao Lighthouse e podem mudar entre versões. A versão materializada deve permanecer rastreável.
+
+No dashboard, quando existem vários contextos, o SearchGEO deve preferir faixa/contextos válidos a inventar um único “Lighthouse do site”.
 
 ### Lighthouse Accessibility
 
@@ -138,6 +166,18 @@ https://developers.google.com/search/docs/fundamentals/creating-helpful-content
 
 O SearchGEO usa esses conceitos para contextualizar a análise semântica. Não produz `E-E-A-T Score` oficial nem transforma YMYL em probabilidade de ranking.
 
+### Groundability
+
+**Classificação atual:** conjunto de sinais SearchGEO; **não existe subscore próprio no SGRI-001**.
+
+Nesta versão, o relatório destaca sem agregação adicional:
+
+- Answerability;
+- Citation Readiness;
+- Evidence & Trust.
+
+A ausência de média própria é deliberada: criar mais um número sem calibração aumentaria a camada heurística. Uma versão futura só deve criar subscore após fórmula, versionamento e validação próprios.
+
 ### Structured Data / JSON-LD
 
 **Classificação:** `OFFICIAL_PLATFORM_GUIDANCE` para políticas do Google, com vocabulário Schema.org quando aplicável.
@@ -167,13 +207,13 @@ Permitido:
 
 > Core Web Vitals: métrica externa definida pelo programa Web Vitals; valor p75 coletado via CrUX.
 
-> SCORE-GEO-002: índice heurístico interno e reprodutível do SearchGEO.
+> SGRI-001: índice heurístico interno, evidence-based e reprodutível do SearchGEO; motor persistido SCORE-GEO-002.
 
 > WCAG 2.2: standard W3C; a automação cobre somente critérios tecnicamente verificáveis pela ferramenta.
 
 Não permitido:
 
-> SCORE-GEO oficial.
+> SGRI oficial do Google/OpenAI.
 
 > Lighthouse 96 = 96% de conformidade WCAG.
 
@@ -183,6 +223,8 @@ Não permitido:
 
 > Custo estimado de IA é o valor final faturado pelo provider.
 
+> SGRI 85 significa 85% de chance de citação.
+
 ## Governança
 
 Ao adicionar um novo indicador, o desenvolvimento deve atualizar simultaneamente:
@@ -190,8 +232,10 @@ Ao adicionar um novo indicador, o desenvolvimento deve atualizar simultaneamente
 1. implementação/coleta;
 2. classificação metodológica;
 3. fonte primária e link oficial quando existir;
-4. documentação operacional;
-5. `references.html`;
-6. testes que garantem que a classificação não desapareça do report.
+4. página canônica do indicador;
+5. documentação operacional;
+6. `references.html`;
+7. dashboard executivo quando houver resultado final legítimo para resumir;
+8. testes que garantem que a classificação não desapareça do report e não seja duplicada em outra página analítica.
 
 Referências externas deste catálogo foram revisadas em **2026-09-06**.
