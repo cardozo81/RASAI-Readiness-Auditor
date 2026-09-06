@@ -48,21 +48,26 @@ CLI
 → M11/M18 intermediate reporting
 → report-site base finalization
 → M20 report projection/navigation enrichment
-→ M21 optional external Web Performance enrichment
+→ M21 optional external Web Performance execution
    → PageSpeed Insights/Lighthouse lab
    → CrUX field data quando disponível/configurado
    → persistence + raw JSON artifacts
-→ M23 Synthetic Navigation Apdex quando habilitado
-→ SGRI/reporting final por domínio
-→ M24 post-audit crawling/discovery enrichment
+→ M23 Synthetic Navigation Apdex execution quando habilitado
+→ M24 crawling/discovery execution
    → lê audit.db + artifacts já persistidos
    → diagnósticos determinísticos robots/sitemap/discovery
    → `/llms.txt` same-origin quando origem apta
    → IA técnica opcional/evidence-bound, default OFF
    → m24_* persistence + artifacts/m24/
+→ M21/M23/external-integrity/source-quality report enrichments
+→ SGRI/reporting final por domínio
+→ M24 report projection
    → crawling-discovery.html + ai-usage/references enrichment
-→ normalização final da navegação compartilhada
+→ nova projeção SGRI somente para incorporar o item M24 à navegação final
+→ normalização final dos rótulos compartilhados
 ```
+
+A segunda projeção SGRI após M24 é **projection-only**: não recalcula score nem métricas. Ela existe para que a página criada por M24 participe do mesmo menu canônico e para preservar os rótulos finais de Mobile/Desktop definidos pelo domínio SGRI.
 
 Invariantes:
 
@@ -74,6 +79,7 @@ Invariantes:
 - M24 é pós-scoring, aditivo e `scoring_impact=NONE`;
 - M24 não cria nem altera RuleExecution, Finding GEO, Recommendation GEO, ScoreContribution, Coverage, Confidence, Consolidation, `SCORE-GEO-002` ou `SGRI-001`;
 - M24 AI, quando habilitada, explica somente diagnósticos já determinados e persistidos;
+- as projeções HTML posteriores não fazem aquisição adicional nem chamada de provider;
 - PageSpeed/CrUX, M23 ou M24 indisponíveis não invalidam `SCORE-GEO-002`.
 
 ## 4. Device context
@@ -385,6 +391,8 @@ report/
 
 `m24_reporting` projeta `crawling-discovery.html`, complementa `ai-usage.html`/`references.html` e normaliza a navegação usando apenas estado M24 já persistido; o renderer não chama provider nem faz aquisição de website.
 
+Após M24 criar seu arquivo, `enrich_searchgeo_reporting` pode ser executado novamente somente como projeção idempotente para que todos os HTMLs compartilhem o menu/rótulos finais. As medições persistidas não são modificadas.
+
 ## 14. Separação de domínio na apresentação
 
 - `index.html`: visão executiva e links para páginas canônicas;
@@ -440,7 +448,7 @@ M20 external calls, quando habilitadas, ocorrem antes da projeção corresponden
 
 M21 external calls, quando habilitadas, ocorrem como enrichment após a auditoria principal; sua projeção lê o estado persistido.
 
-M24 acquisition/AI opcional ocorre no estágio de enrichment M24; depois de persistido `m24_*`/artifacts, `crawling-discovery.html` é reabrível sem nova chamada.
+M24 acquisition/AI opcional ocorre no estágio de execution M24, depois da execução M21/M23 e antes das projeções finais; depois de persistido `m24_*`/artifacts, `crawling-discovery.html` é reabrível sem nova chamada.
 
 ## 18. Reprodutibilidade
 
