@@ -335,3 +335,10 @@ Persistidos:
 `BR-GEO-054` verifica reprodutibilidade sem reexecutar website ou IA.
 
 O HTML apenas exibe a projeção; a reprodutibilidade está em `audit.db`.
+
+## Proveniência metodológica dos indicadores
+
+O relatório final classifica explicitamente a natureza dos indicadores e separa standards externos, orientação oficial de plataforma, métricas externas definidas, heurísticas SearchGEO, telemetria e saídas de IA. Consulte [INDICATOR_PROVENANCE.md](INDICATOR_PROVENANCE.md).
+
+`references.html#indicator-provenance` reproduz essa fronteira no próprio relatório, com fonte/entidade, link oficial quando aplicável e a parte específica implementada pelo SearchGEO.
+

@@ -29,9 +29,10 @@ O menu `E. Variáveis de ambiente / credenciais` usa a mesma organização por f
 2. IA — credenciais
 3. IA — modelos e reasoning
 4. IA — endpoints avançados
-5. Web Performance / Google APIs
-6. Synthetic Apdex
-7. Browser / Playwright
+5. IA — contexto editorial / YMYL
+6. Web Performance / Google APIs
+7. Synthetic Apdex
+8. Browser / Playwright
 A. Todas as variáveis
 D. Abrir documentação detalhada
 V. Voltar
@@ -68,6 +69,8 @@ Synthetic Apdex
 T / samples / attempts / páginas / timeout / delay / concorrência
 ```
 
+O contexto editorial YMYL/E-E-A-T é atualmente um **override avançado por variáveis de ambiente**. Ele não é gravado no INI; o valor efetivo usado em cada auditoria é persistido no workspace para manter rastreabilidade do report.
+
 Não armazena:
 
 ```text
@@ -89,6 +92,13 @@ qualquer variável reconhecida como TOKEN / SECRET / PASSWORD / CREDENTIAL
 device                  = mobile
 ai-provider             = none
 ai-content-remediation  = off
+content-risk-profile    = auto
+ymyl-category           = auto
+page-purpose            = auto
+intended-audience       = auto
+experience-requirement  = auto
+freshness-sensitivity   = auto
+content-origin          = auto
 Web Performance         = off
 max-pages               = 100
 WebPerf max-pages       = 10
@@ -190,6 +200,49 @@ Default público:
 
 O timeout limita uma tentativa contra o provider. Não encerra a auditoria inteira.
 
+## Contexto editorial da IA — YMYL e E-E-A-T
+
+O SearchGEO permite informar contexto editorial para que a IA não aplique uma análise genérica a qualquer tipo de página.
+
+Variáveis:
+
+```text
+SEARCHGEO_CONTENT_RISK_PROFILE
+SEARCHGEO_YMYL_CATEGORY
+SEARCHGEO_PAGE_PURPOSE
+SEARCHGEO_INTENDED_AUDIENCE
+SEARCHGEO_EXPERIENCE_REQUIREMENT
+SEARCHGEO_FRESHNESS_SENSITIVITY
+SEARCHGEO_CONTENT_ORIGIN
+```
+
+Todas usam `auto` quando ausentes.
+
+Regra operacional:
+
+- valor explícito = contexto fornecido pelo operador;
+- `auto` = hipótese de trabalho que a IA pode inferir apenas a partir das evidências fornecidas;
+- configuração explícita é preferível quando o site é claramente YMYL;
+- campos `auto` não podem virar fatos sobre autor, expertise, experiência, compliance, reputação ou processo editorial;
+- o contexto não cria um score próprio de E-E-A-T/YMYL e não altera diretamente a fórmula de `SCORE-GEO-002`;
+- configurar essas variáveis não gera custo externo por si só; elas apenas condicionam chamadas de IA que já seriam executadas.
+
+Exemplo para conteúdo financeiro:
+
+```powershell
+$env:SEARCHGEO_CONTENT_RISK_PROFILE = "ymyl"
+$env:SEARCHGEO_YMYL_CATEGORY = "financial-security"
+$env:SEARCHGEO_PAGE_PURPOSE = "product-service"
+$env:SEARCHGEO_INTENDED_AUDIENCE = "general"
+$env:SEARCHGEO_EXPERIENCE_REQUIREMENT = "not-expected"
+$env:SEARCHGEO_FRESHNESS_SENSITIVITY = "high"
+$env:SEARCHGEO_CONTENT_ORIGIN = "first-party"
+```
+
+O report persiste e exibe se cada campo foi `CONFIGURADO` ou ficou em `AUTO`, além da origem global `MANUAL`, `MIXED` ou `AUTO`.
+
+Base conceitual pública e domínio completo dos valores: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md).
+
 ## Remediação textual por IA
 
 A remediação textual é OFF por padrão e só pode ser habilitada quando existe provider de IA apto.
@@ -199,6 +252,8 @@ SEARCHGEO_AI_CONTENT_REMEDIATION
 ```
 
 No console, a opção 5 informa explicitamente que depende da configuração da opção 4.
+
+Quando M20 executa IA, `content-suggestions.html` e `ai-usage.html` expõem a telemetria persistida pertinente: provider, modelo, reasoning, tentativas/status, duração, tokens e custo estimado quando existe base de pricing suportada. Valor monetário não é fabricado quando o adapter não possui base confiável.
 
 ## Web Performance, Lighthouse e CrUX
 
@@ -312,11 +367,12 @@ Default: `mobile`.
 
 ## Identificadores internos
 
-Tabelas, eventos, módulos e documentação normativa podem manter identificadores históricos para compatibilidade e rastreabilidade. A documentação operacional e a interface pública devem preferir nomes funcionais como **Web Performance**, **Acessibilidade**, **Remediação textual** e **Synthetic Apdex**.
+Tabelas, eventos, módulos e documentação normativa podem manter identificadores históricos para compatibilidade e rastreabilidade. A documentação operacional e a interface pública devem preferir nomes funcionais como **Web Performance**, **Acessibilidade**, **Remediação textual**, **Contexto editorial** e **Synthetic Apdex**.
 
 ## Documentos relacionados
 
 - [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
+- [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md)
 - [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md)
 - [CLI_REFERENCE.md](CLI_REFERENCE.md)
 - [AI_GUIDE.md](AI_GUIDE.md)

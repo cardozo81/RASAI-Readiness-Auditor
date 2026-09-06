@@ -1,7 +1,7 @@
 """Versioned technical references for M14 remediation reporting.
 
 Only URLs verified against current primary/authoritative documentation on
-2026-09-02 are stored here.  Rules without a specific normative external
+2026-09-06 are stored here. Rules without a specific normative external
 source are explicitly reported as internal/heuristic instead of receiving an
 invented authority.
 """
@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-VERIFIED_ON = "2026-09-02"
+VERIFIED_ON = "2026-09-06"
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +41,11 @@ _GOOGLE_STRUCTURED = (
     "Intro to How Structured Data Markup Works",
     "https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data",
 )
+_GOOGLE_HELPFUL_CONTENT = (
+    "Google Search Central",
+    "Creating Helpful, Reliable, People-First Content",
+    "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
+)
 _GOOGLE_ROBOTS = (
     "Google Crawling Infrastructure",
     "How Google Interprets the robots.txt Specification",
@@ -68,7 +73,7 @@ _OPENAI_PUBLISHERS = (
 )
 
 
-# Basis values follow the current BR-GEO baseline/RULES_GUIDE.  This list is
+# Basis values follow the current BR-GEO baseline/RULES_GUIDE. This list is
 # intentionally explicit so reporting never promotes a heuristic to a standard.
 _HEURISTIC_RULES = frozenset({
     "BR-GEO-008", "BR-GEO-010", "BR-GEO-014", "BR-GEO-016",
@@ -88,7 +93,13 @@ _OFFICIAL_RULES = frozenset({"BR-GEO-001", "BR-GEO-002", "BR-GEO-004"})
 
 
 def references_for(rule_id: str) -> tuple[RuleReference, ...]:
-    """Return authoritative references when they directly support the rule."""
+    """Return authoritative references when they directly support rule context.
+
+    A primary guidance reference does not change ``basis``. In particular,
+    semantic rules remain HEURISTIC where the SearchGEO evaluator/threshold is
+    an internal implementation even when the underlying quality concept is
+    discussed in official Google documentation.
+    """
 
     basis = basis_for(rule_id)
     rows: list[tuple[str, str, str, str]] = []
@@ -117,6 +128,22 @@ def references_for(rule_id: str) -> tuple[RuleReference, ...]:
         rows.append((*_WHATWG_SECTIONS, "HTML sectioning and heading semantics"))
     elif rule_id in {"BR-GEO-034", "BR-GEO-035", "BR-GEO-036", "BR-GEO-037"}:
         rows.append((*_GOOGLE_STRUCTURED, "structured data relationship to page content"))
+    elif rule_id in {"BR-GEO-038", "BR-GEO-039", "BR-GEO-040", "BR-GEO-044", "BR-GEO-048", "BR-GEO-049"}:
+        rows.append(
+            (*_GOOGLE_HELPFUL_CONTENT, "people-first purpose, intended audience, usefulness, completeness and user-needs context")
+        )
+    elif rule_id in {"BR-GEO-041", "BR-GEO-042", "BR-GEO-043", "BR-GEO-045"}:
+        rows.append(
+            (*_GOOGLE_HELPFUL_CONTENT, "factual accuracy, sourcing/evidence and trust self-assessment context")
+        )
+    elif rule_id == "BR-GEO-046":
+        rows.append(
+            (*_GOOGLE_HELPFUL_CONTENT, "Who created the content, authorship/byline and trust context")
+        )
+    elif rule_id == "BR-GEO-047":
+        rows.append(
+            (*_GOOGLE_HELPFUL_CONTENT, "content freshness/usefulness context without artificial date changes")
+        )
 
     if not rows:
         return (

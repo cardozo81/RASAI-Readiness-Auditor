@@ -113,7 +113,7 @@ class M20ContentRemediationTests(unittest.TestCase):
                 self.assertEqual(attempt["status"], "SUCCESS")
                 self.assertEqual(attempt["input_tokens"], 100)
                 self.assertEqual(attempt["output_tokens"], 40)
-                self.assertEqual(attempt["contract_version"], "M20-CONTENT-REMEDIATION-v1")
+                self.assertEqual(attempt["contract_version"], "M20-CONTENT-REMEDIATION-v2")
             finally:
                 connection.close()
 

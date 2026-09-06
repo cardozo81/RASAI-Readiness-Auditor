@@ -9,6 +9,40 @@ O SearchGEO usa IA apenas em finalidades opcionais e evidence-bound. A auditoria
 
 Nenhuma dessas finalidades autoriza inventar fatos, credenciais, preços, datas, estatísticas ou evidências.
 
+## Contexto editorial para evitar análise genérica
+
+A mesma evidência textual não deve ser interpretada com a mesma régua em qualquer página. Quando configurado, o SearchGEO fornece aos providers um contexto editorial explícito:
+
+```text
+risk profile: standard | ymyl | auto
+YMYL category
+page purpose
+intended audience
+experience requirement
+freshness sensitivity
+content origin
+```
+
+Esses valores vêm das variáveis `SEARCHGEO_CONTENT_*`, `SEARCHGEO_YMYL_CATEGORY`, `SEARCHGEO_PAGE_PURPOSE`, `SEARCHGEO_INTENDED_AUDIENCE`, `SEARCHGEO_EXPERIENCE_REQUIREMENT` e `SEARCHGEO_FRESHNESS_SENSITIVITY`.
+
+Regras:
+
+- valor explícito é contexto fornecido pelo operador;
+- `auto` é somente hipótese provisória baseada nas evidências visíveis;
+- quando o conteúdo é claramente YMYL, prefira configuração explícita;
+- YMYL eleva a exigência de confiança, atribuição, suporte factual e qualificadores onde material;
+- Trust é tratado como elemento central de E-E-A-T; Experience, Expertise e Authoritativeness são considerados conforme o propósito/tópico, não exigidos mecanicamente em todo conteúdo;
+- a IA não pode inferir como fato credenciais, compliance, revisão profissional, reputação externa, experiência pessoal ou processo editorial oculto;
+- contexto editorial não cria um score E-E-A-T/YMYL e não entra diretamente na aritmética do `SCORE-GEO-002`.
+
+A base conceitual e os valores completos estão em [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md).
+
+Fontes oficiais principais:
+
+- <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
+- <https://services.google.com/fh/files/misc/hsw-sqrg.pdf>
+- <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf>
+
 ## Providers
 
 Providers concretos no registry:
@@ -174,11 +208,15 @@ timeout por tentativa
 
 A opção 5, **Remediação textual IA**, só fica disponível com provider apto. Com IA=`none` ou provider indisponível, o console informa que a opção depende da configuração da opção 4.
 
+O grupo **IA — contexto editorial / YMYL** em `E. Variáveis de ambiente / credenciais` expõe os parâmetros contextuais com domínio aceito, default, explicação de impacto e link para a documentação específica.
+
 ## Persistência de configuração e secrets
 
-`searchgeo-console.ini` pode persistir provider, modelo, esforço, timeout e demais parâmetros não sensíveis.
+`searchgeo-console.ini` pode persistir provider, modelo, esforço, timeout e demais parâmetros não sensíveis previstos pelo INI.
 
 API keys e outros secrets **não são gravados no INI**. O console permite inseri-los pelo menu de variáveis, usa entrada sem eco e mostra apenas `[SET]`.
+
+O contexto editorial avançado é lido das variáveis de ambiente e o valor efetivo usado na auditoria é persistido em `content_analysis_contexts`, permitindo reabrir o report sem depender do estado atual do ambiente.
 
 ## AUTO e fallback
 
@@ -190,6 +228,8 @@ OpenAI -> DeepSeek -> MiMo
 
 Cada provider mantém sua própria configuração de modelo/esforço. O primeiro resultado válido encerra a cadeia para aquele contexto. Configurações ausentes ou inválidas são excluídas; erro operacional pode colocar o provider em quarantine para a auditoria.
 
+O termo `AUTO` do roteamento de providers é diferente de campos editoriais `auto`: o primeiro escolhe provider; o segundo permite inferência provisória do contexto editorial.
+
 ## Telemetria
 
 Quando disponível, o SearchGEO persiste por tentativa:
@@ -199,14 +239,18 @@ provider
 modelo
 reasoning profile
 status
-latência
+started_at / finished_at
+latência/duração
 tokens input/cache/output/reasoning/total
 custo estimado
+moeda
 versão de pricing
 diagnóstico sanitizado
 ```
 
-O custo é estimativa técnica local, não invoice do provider.
+O custo é estimativa técnica local, não invoice do provider. Quando não existe base de pricing confiável para aquele adapter/modelo, o HTML deve mostrar custo indisponível em vez de fabricar valor.
+
+Para M20, `content-suggestions.html` mostra um resumo de provider/modelo/reasoning/chamadas/duração/tokens/custo e oferece atalho para o detalhamento em `ai-usage.html`.
 
 ## Segurança
 
@@ -215,11 +259,14 @@ O custo é estimativa técnica local, não invoice do provider.
 - não reutilize credencial de um provider em outro endpoint;
 - não assuma que key configurada significa crédito disponível;
 - falha de provider não deve ser convertida em finding do website;
-- sugestão textual exige revisão humana antes de publicação.
+- sugestão textual exige revisão humana antes de publicação;
+- contexto YMYL não autoriza inferir responsabilidade legal/regulatória.
 
 ## Documentos relacionados
 
+- [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md)
 - [CONFIGURATION.md](CONFIGURATION.md)
+- [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
 - [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md)
 - [AI_PROVIDER_EXTENSIONS.md](AI_PROVIDER_EXTENSIONS.md)
 - [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)

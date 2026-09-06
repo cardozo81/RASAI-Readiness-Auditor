@@ -8,6 +8,7 @@ import sys
 from typing import Mapping
 
 from searchgeo.cli import validate_target
+from searchgeo.content_context import CONTENT_CONTEXT_ENV_NAMES, configured_content_analysis_context
 from searchgeo.provider_registry import auto_provider_ids, get_provider_registration, provider_environment_names, provider_registrations
 from searchgeo.provider_runtime_policy import (
     AI_TIMEOUT_ENV,
@@ -33,7 +34,8 @@ PROVIDER_MENU_CHOICES = ("none", *(item.id for item in _REGISTRATIONS), "auto")
 
 _BASE_ENV_NAMES = (
     "SEARCHGEO_CONFIG", "SEARCHGEO_LOG_LEVEL", "SEARCHGEO_DEVICE_CONTEXT", AI_TIMEOUT_ENV,
-    "SEARCHGEO_AI_CONTENT_REMEDIATION", "SEARCHGEO_WEB_PERFORMANCE",
+    "SEARCHGEO_AI_CONTENT_REMEDIATION", *CONTENT_CONTEXT_ENV_NAMES,
+    "SEARCHGEO_WEB_PERFORMANCE",
     "SEARCHGEO_WEB_PERFORMANCE_MAX_PAGES", WEB_PERFORMANCE_TIMEOUT_ENV,
     "SEARCHGEO_WEB_PERFORMANCE_FIELD_SOURCE", "SEARCHGEO_LIGHTHOUSE_CATEGORIES",
     "SEARCHGEO_PAGESPEED_API_KEY", "SEARCHGEO_CRUX_API_KEY",
@@ -124,6 +126,11 @@ def apply_environment_defaults(state: State, env: Mapping[str, str] | None = Non
         else: issues.append("SEARCHGEO_WEB_PERFORMANCE_FIELD_SOURCE: valor inválido")
     if active("SEARCHGEO_LIGHTHOUSE_CATEGORIES"):
         state.lighthouse_categories = (environment.get("SEARCHGEO_LIGHTHOUSE_CATEGORIES") or "").strip() or "performance,accessibility,best-practices,seo"
+    if any(active(name) for name in CONTENT_CONTEXT_ENV_NAMES):
+        try:
+            configured_content_analysis_context(environment)
+        except ValueError as exc:
+            issues.append(str(exc))
     if state.ai_provider in PROVIDERS:
         provider = PROVIDERS[state.ai_provider]
         variable = provider_reasoning_env(provider)
@@ -197,6 +204,11 @@ def validate_env_value(name: str, value: str) -> str:
             if value not in REASONING_OPTIONS[registration.provider_name]: raise ValueError("reasoning effort não suportado; use " + ", ".join(REASONING_OPTIONS[registration.provider_name]))
             return value
         if name == registration.endpoint_env: return value
+    if name in CONTENT_CONTEXT_ENV_NAMES:
+        candidate = dict(os.environ)
+        candidate[name] = value.casefold()
+        configured_content_analysis_context(candidate)
+        return value.casefold()
     if name in {"SEARCHGEO_AI_CONTENT_REMEDIATION", "SEARCHGEO_WEB_PERFORMANCE"} and value.casefold() not in {"true", "false", "1", "0", "yes", "no", "on", "off"}: raise ValueError("booleano inválido")
     if name == "SEARCHGEO_DEVICE_CONTEXT":
         value = value.casefold()
@@ -214,6 +226,7 @@ def validate_env_value(name: str, value: str) -> str:
 def preflight(state: State, env: Mapping[str, str] | None = None) -> tuple[str, ...]:
     environment = env if env is not None else os.environ
     if state.max_pages <= 0 or state.web_max_pages < 0 or state.web_timeout <= 0 or state.ai_timeout <= 0: raise ValueError("limites/timeout inválidos")
+    configured_content_analysis_context(environment)
     if state.input_mode == "url":
         if not state.target.strip(): raise ValueError("informe uma URL/domínio")
         targets = (validate_target(state.target),)

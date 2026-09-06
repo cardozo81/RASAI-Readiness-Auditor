@@ -16,6 +16,7 @@ import re
 from typing import Any
 from urllib.error import HTTPError, URLError
 
+from searchgeo.content_context import configured_content_analysis_context
 from searchgeo.semantic import (
     OpenAIProvider as _BaseOpenAIProvider,
     ProviderCallResult,
@@ -29,6 +30,27 @@ from searchgeo.semantic import (
     normalize_provider_payload,
     semantic_output_schema,
 )
+
+
+class _ContextualCriterion(str):
+    """Append runtime content context to one exported semantic criterion.
+
+    M18 imports ``SEMANTIC_RULE_CRITERIA`` from this module and formats each
+    value while building its own provider prompt.  Keeping the context here
+    therefore applies the same policy to OpenAI, DeepSeek and MiMo without
+    changing the M7 result schema or scoring contract.
+    """
+
+    def __format__(self, format_spec: str) -> str:
+        base = super().__format__(format_spec)
+        context = configured_content_analysis_context()
+        return (
+            base
+            + "\n\nContent analysis context (audit configuration; not scoring):\n"
+            + json.dumps(context.provider_payload(), ensure_ascii=False, sort_keys=True)
+            + "\nContext interpretation policy:\n"
+            + context.prompt_directive()
+        )
 
 
 SEMANTIC_RULE_CRITERIA: dict[str, str] = {
@@ -53,7 +75,7 @@ SEMANTIC_RULE_CRITERIA: dict[str, str] = {
     "BR-GEO-046": "publisher, author or responsible entity is identifiable when relevant",
     "BR-GEO-047": "publication and freshness signals are internally consistent",
     "BR-GEO-048": "one primary and up to five relevant secondary intents are represented",
-    "BR-GEO-049": "material intent coverage gaps are evidence-backed",
+    "BR-GEO-049": _ContextualCriterion("material intent coverage gaps are evidence-backed"),
 }
 
 if tuple(SEMANTIC_RULE_CRITERIA) != SEMANTIC_RULE_IDS:

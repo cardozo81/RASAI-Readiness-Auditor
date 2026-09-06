@@ -20,6 +20,7 @@ from types import MethodType
 import os
 from typing import Any, Mapping, MutableMapping
 
+from searchgeo.content_context import configured_content_analysis_context
 from searchgeo.provider_extensions import (
     EXTENDED_MODEL_ENV,
     AnthropicProvider,
@@ -173,6 +174,10 @@ def build_semantic_provider(
 ) -> Any:
     """Build a provider using lowest public defaults unless explicitly overridden."""
     effective_env = environment_with_public_defaults(env)
+    # Validate the full editorial/AI context before any audit work starts. This
+    # also applies when selection=none, preventing a malformed persisted context
+    # from failing only during report generation.
+    configured_content_analysis_context(effective_env)
     registration = get_provider_registration(selection)
     effective_model = model_override
     if registration is not None and not effective_model:

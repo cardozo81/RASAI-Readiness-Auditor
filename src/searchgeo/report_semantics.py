@@ -14,6 +14,8 @@ import re
 import sqlite3
 from typing import Any
 
+from searchgeo.indicator_provenance import enrich_indicator_provenance_html
+
 
 SEMANTIC_CSS = r"""
 /* searchgeo-result-semantics-v1 */
@@ -64,7 +66,7 @@ def enhance_report_html(html: str, *, page_name: str, report_dir: Path) -> str:
         html = _enhance_apdex(html, report_dir)
     elif page_name == "web-performance.html":
         html = _enhance_web_performance(html)
-    return html
+    return enrich_indicator_provenance_html(html, page_name=page_name)
 
 
 def _decorate_metrics(html: str, page_name: str) -> str:

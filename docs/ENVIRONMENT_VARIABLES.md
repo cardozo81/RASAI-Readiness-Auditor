@@ -2,7 +2,7 @@
 
 Referência operacional da superfície de variáveis reconhecida pelo console do SearchGEO Readiness Auditor.
 
-Verificação documental: **2026-09-04**. Para credenciais e endpoints externos, os procedimentos abaixo foram conferidos contra documentação pública oficial dos respectivos provedores.
+Verificação documental: **2026-09-06**. Para credenciais, endpoints externos e conceitos de qualidade de conteúdo, os procedimentos e definições abaixo foram conferidos contra documentação pública oficial dos respectivos provedores e do Google Search Central.
 
 ## Como usar esta configuração
 
@@ -17,9 +17,10 @@ O menu `E. Variáveis de ambiente / credenciais` é organizado por fronteira fun
 2. IA — credenciais
 3. IA — modelos e reasoning
 4. IA — endpoints avançados
-5. Web Performance / Google APIs
-6. Synthetic Apdex
-7. Browser / Playwright
+5. IA — contexto editorial / YMYL
+6. Web Performance / Google APIs
+7. Synthetic Apdex
+8. Browser / Playwright
 A. Todas as variáveis
 D. Abrir documentação detalhada
 V. Voltar
@@ -194,7 +195,67 @@ No uso normal, deixe estas variáveis ausentes.
 
 O console valida que o override seja uma URL absoluta `http://` ou `https://`, mas não pode provar que um endpoint arbitrário implementa o contrato esperado. Endpoint incorreto pode causar falha, encaminhar dados a destino indevido ou gerar cobrança em serviço diferente.
 
-## 5. Web Performance / Google APIs
+## 5. IA — contexto editorial / YMYL
+
+Estas variáveis não ligam uma integração externa por si só. Elas condicionam a análise semântica e as sugestões de conteúdo **quando uma etapa de IA já está habilitada**.
+
+Todos os defaults são `auto`.
+
+| Variável | Valores aceitos | Default | Finalidade / impacto |
+|---|---|---|---|
+| `SEARCHGEO_CONTENT_RISK_PROFILE` | `auto`, `standard`, `ymyl` | `auto` | define se a IA deve aplicar uma régua editorial comum ou uma exigência YMYL mais alta |
+| `SEARCHGEO_YMYL_CATEGORY` | `auto`, `none`, `health-safety`, `financial-security`, `civic-societal`, `other-significant-welfare` | `auto` | contextualiza o tipo de risco; não cria score YMYL |
+| `SEARCHGEO_PAGE_PURPOSE` | `auto`, `informational`, `transactional`, `product-service`, `review-comparison`, `news-editorial`, `support-documentation`, `forum-ugc`, `other` | `auto` | evita aplicar a mesma expectativa editorial a finalidades distintas |
+| `SEARCHGEO_INTENDED_AUDIENCE` | `auto`, `general`, `professional`, `mixed` | `auto` | calibra profundidade e explicação para o público pretendido |
+| `SEARCHGEO_EXPERIENCE_REQUIREMENT` | `auto`, `required`, `beneficial`, `not-expected` | `auto` | distingue experiência em primeira mão de expertise técnica/profissional |
+| `SEARCHGEO_FRESHNESS_SENSITIVITY` | `auto`, `low`, `medium`, `high` | `auto` | aumenta o rigor sobre datas e qualificadores temporais quando necessário |
+| `SEARCHGEO_CONTENT_ORIGIN` | `auto`, `first-party`, `third-party`, `user-generated`, `mixed` | `auto` | diferencia criador/origem do conteúdo e publicador/host para atribuição e responsabilidade |
+
+### Como interpretar `auto`
+
+`auto` não significa que o SearchGEO conhece o contexto com certeza. Significa que a IA pode usar uma **hipótese provisória**, baseada somente nas evidências visíveis fornecidas.
+
+Quando a classificação inferida for material, a IA deve reduzir confiança e não pode inventar:
+
+- credenciais ou certificações;
+- autoria/revisão profissional não observada;
+- experiência pessoal;
+- reputação externa;
+- conformidade legal/regulatória;
+- processo editorial oculto;
+- fontes ou fatos não presentes nas evidências.
+
+Para site claramente YMYL, prefira configuração explícita.
+
+### Regras de consistência
+
+- `SEARCHGEO_CONTENT_RISK_PROFILE=standard` não pode ser combinado com uma categoria YMYL explícita diferente de `none`/`auto`.
+- `SEARCHGEO_CONTENT_RISK_PROFILE=ymyl` não pode ser combinado com `SEARCHGEO_YMYL_CATEGORY=none`.
+- contexto editorial não entra diretamente na fórmula de `SCORE-GEO-002`;
+- E-E-A-T não é transformado em percentual proprietário;
+- as variáveis não geram custo externo sozinhas.
+
+### Exemplo financeiro/YMYL
+
+```powershell
+$env:SEARCHGEO_CONTENT_RISK_PROFILE = "ymyl"
+$env:SEARCHGEO_YMYL_CATEGORY = "financial-security"
+$env:SEARCHGEO_PAGE_PURPOSE = "product-service"
+$env:SEARCHGEO_INTENDED_AUDIENCE = "general"
+$env:SEARCHGEO_EXPERIENCE_REQUIREMENT = "not-expected"
+$env:SEARCHGEO_FRESHNESS_SENSITIVITY = "high"
+$env:SEARCHGEO_CONTENT_ORIGIN = "first-party"
+```
+
+Referência completa e base conceitual: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md).
+
+Fontes públicas oficiais principais:
+
+- Google Search Central — helpful, reliable, people-first content: <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
+- Google Search Quality Rater Guidelines overview: <https://services.google.com/fh/files/misc/hsw-sqrg.pdf>
+- Google — How AI Overviews in Search work: <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf>
+
+## 6. Web Performance / Google APIs
 
 | Variável | Finalidade | Tipo / domínio | Default | Dependência / impacto |
 |---|---|---|---|---|
@@ -218,7 +279,7 @@ O procedimento completo está em [GOOGLE_API_KEYS.md](GOOGLE_API_KEYS.md). Em re
 6. Prefira chaves separadas para PageSpeed e CrUX.
 7. Configure `SEARCHGEO_PAGESPEED_API_KEY` e/ou `SEARCHGEO_CRUX_API_KEY` pelo menu.
 
-## 6. Synthetic Apdex
+## 7. Synthetic Apdex
 
 Synthetic Apdex é OFF por default; tuning só é necessário quando habilitado.
 
@@ -235,7 +296,7 @@ Synthetic Apdex é OFF por default; tuning só é necessário quando habilitado.
 
 Para configuração normal use **11. Synthetic Apdex** no menu principal, que explica T, calcula defaults derivados e mostra a carga projetada. Use variáveis de ambiente para automação/override.
 
-## 7. Browser / Playwright
+## 8. Browser / Playwright
 
 ### `PLAYWRIGHT_CHROMIUM_EXECUTABLE`
 
@@ -254,13 +315,20 @@ $env:PLAYWRIGHT_CHROMIUM_EXECUTABLE = "C:\Program Files\Chromium\chrome.exe"
 
 ## Defaults para primeiro uso
 
-Uma instalação nova não precisa preencher as 45 variáveis. O console/INI/runtime já fornece defaults seguros:
+Uma instalação nova não precisa preencher as variáveis. O console/INI/runtime já fornece defaults seguros:
 
 ```text
 device                         = mobile
 ai-provider                    = none
 ai timeout                     = 180 s
 ai content remediation         = false
+content risk profile           = auto
+ymyl category                  = auto
+page purpose                   = auto
+intended audience              = auto
+experience requirement         = auto
+freshness sensitivity          = auto
+content origin                 = auto
 web performance                = false
 web performance max pages      = 10
 web performance timeout        = 120 s
@@ -295,6 +363,9 @@ Remove-Item Env:SEARCHGEO_OPENAI_MODEL -ErrorAction SilentlyContinue
 
 ## Fontes oficiais externas verificadas
 
+- Google Search Central — E-E-A-T/YMYL/people-first: <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
+- Google Search Quality Rater Guidelines overview: <https://services.google.com/fh/files/misc/hsw-sqrg.pdf>
+- Google — How AI Overviews in Search work: <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf>
 - OpenAI API keys: <https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key>
 - DeepSeek quick start/API key: <https://api-docs.deepseek.com/>
 - Xiaomi MiMo API key/PAYG/Token Plan: <https://mimo.mi.com/docs/en-US/quick-start/faq/api-integration>
