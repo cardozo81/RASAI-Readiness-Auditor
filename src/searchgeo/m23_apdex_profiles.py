@@ -12,6 +12,7 @@ from typing import Any, Protocol
 
 from playwright.sync_api import Error as PlaywrightError, TimeoutError as PlaywrightTimeoutError, sync_playwright
 
+from searchgeo.browser_identity_renderer import realistic_context_options
 from searchgeo.domain import DeviceContext
 from searchgeo.rendering import DESKTOP_PROFILE, MOBILE_PROFILE, BrowserProfile
 
@@ -50,6 +51,7 @@ class SyntheticProfile:
                 "height": self.browser_profile.viewport_height,
             },
             "user_agent": self.browser_profile.user_agent,
+            "browser_identity_strategy": "PLAYWRIGHT_DEVICE_DESCRIPTOR_ALIGNED_TO_RUNTIME_BROWSER",
             "device_scale_factor": self.browser_profile.device_scale_factor,
             "is_mobile": self.browser_profile.is_mobile,
             "has_touch": self.browser_profile.has_touch,
@@ -120,6 +122,7 @@ def static_host_environment() -> dict[str, Any]:
         "python_version": sys.version.split()[0],
         "playwright_version": playwright_version,
         "chromium_version": None,
+        "browser_identity_strategy": "PLAYWRIGHT_DEVICE_DESCRIPTOR_ALIGNED_TO_RUNTIME_BROWSER",
         "startup_error": None,
     }
 
@@ -170,7 +173,7 @@ class PlaywrightSyntheticNavigationGateway:
 
     def measure(self, *, url: str, profile: SyntheticProfile, timeout_seconds: float) -> NavigationMeasurement:
         self._start()
-        if self._browser is None:
+        if self._browser is None or self._playwright is None:
             return NavigationMeasurement(
                 status="BROWSER_UNAVAILABLE",
                 duration_ms=None,
@@ -188,7 +191,20 @@ class PlaywrightSyntheticNavigationGateway:
         try:
             # Every sample gets a new BrowserContext: no cookie, local/session storage,
             # service-worker storage, or browser-session reuse from another sample.
-            context = self._browser.new_context(**profile.browser_profile.context_options)
+            context_options, _identity = realistic_context_options(
+                self._playwright,
+                browser_version=getattr(self._browser, "version", None),
+                device=profile.device,
+            )
+            # Preserve the SyntheticProfile's explicitly versioned viewport semantics.
+            context_options["viewport"] = {
+                "width": profile.browser_profile.viewport_width,
+                "height": profile.browser_profile.viewport_height,
+            }
+            context_options["device_scale_factor"] = profile.browser_profile.device_scale_factor
+            context_options["is_mobile"] = profile.browser_profile.is_mobile
+            context_options["has_touch"] = profile.browser_profile.has_touch
+            context = self._browser.new_context(**context_options)
             page = context.new_page()
             session = context.new_cdp_session(page)
             session.send("Network.enable")

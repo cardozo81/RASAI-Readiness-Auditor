@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 from typing import Protocol
 
+from searchgeo.browser_identity_renderer import BrowserIdentityRenderer
 from searchgeo.device_context import runtime_devices
 from searchgeo.domain import DeviceContext, Evidence, EvidenceType, PageSnapshot, new_id, utc_now
 from searchgeo.m14_persistence import ElementObservation, M14Persistence
@@ -57,9 +58,14 @@ def execute_m3(
     When M3 is called directly without that environment variable, the legacy
     internal behavior remains both devices. The CLI always resolves an explicit
     context and defaults it to mobile.
+
+    The default renderer uses a browser identity aligned to the actual Playwright
+    browser version. This avoids stale User-Agent/browser-version combinations that
+    can trigger divergent CDN/WAF redirect policies while keeping the context
+    stateless and TLS validation enabled.
     """
 
-    active_renderer: Renderer = renderer or BrowserRenderer()
+    active_renderer: Renderer = renderer or BrowserIdentityRenderer()
     renderer_context = active_renderer if isinstance(active_renderer, BrowserRenderer) else nullcontext(active_renderer)
     snapshot_ids: dict[str, dict[DeviceContext, str]] = {}
     visual_artifact_refs: dict[str, dict[DeviceContext, str | None]] = {}

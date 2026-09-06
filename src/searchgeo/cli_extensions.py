@@ -8,6 +8,10 @@ from typing import Sequence
 
 from searchgeo import cli as _legacy_cli
 from searchgeo import m20 as _m20
+from searchgeo.external_metrics_integrity import (
+    enrich_external_metrics_integrity_report_site,
+    reconcile_external_metrics_integrity,
+)
 from searchgeo.m23_apdex import M23ExecutionResult, execute_m23_apdex
 from searchgeo.m23_cli import SyntheticApdexConfig, configured_apdex, register_apdex_arguments
 from searchgeo.m23_lighthouse_traceability import extract_lighthouse_execution_profiles
@@ -21,6 +25,13 @@ from searchgeo.provider_runtime_policy import (
 )
 from searchgeo.provider_registry import extension_cli_choices
 from searchgeo.report_consistency_v2 import reconcile_report_outputs
+from searchgeo.source_quality import (
+    enrich_source_quality_report_site,
+    load_assessment,
+    persist_m21_source_skip,
+    persist_m23_source_skip,
+)
+from searchgeo.source_quality_report_summary import enrich_source_quality_blocker_summary
 
 _LEGACY_BUILD_PARSER = _legacy_cli.build_parser
 
@@ -74,8 +85,6 @@ def _resolve_m23_config(argv: list[str]) -> SyntheticApdexConfig | None:
 def main(argv: Sequence[str] | None = None) -> int:
     """Run legacy CLI with additive providers and fail-open Synthetic Apdex enrichment."""
     effective_argv = list(argv) if argv is not None else list(sys.argv[1:])
-    # PageSpeed/Lighthouse analysis is performed remotely and may legitimately
-    # exceed the old 60s client wait. Preserve an explicit user override.
     os.environ.setdefault(
         WEB_PERFORMANCE_TIMEOUT_ENV,
         f"{DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS:g}",
@@ -92,12 +101,38 @@ def main(argv: Sequence[str] | None = None) -> int:
     m23_report_path = None
     m23_error: str | None = None
     m23_executed_for: set[str] = set()
+    source_quality_skip: tuple[str, ...] = ()
 
     def run_m23_once(*, audit_id, workspace) -> None:
-        nonlocal m23_result, m23_error
+        nonlocal m23_result, m23_error, source_quality_skip
         if m23_config is None or audit_id in m23_executed_for:
             return
         m23_executed_for.add(audit_id)
+
+        assessment = load_assessment(workspace)
+        if (
+            m23_config.enabled
+            and assessment is not None
+            and assessment.all_pages_hard_blocked
+        ):
+            source_quality_skip = assessment.hard_blocker_kinds
+            m23_result = persist_m23_source_skip(
+                audit_id=audit_id,
+                workspace=workspace,
+                config=m23_config,
+                assessment=assessment,
+            )
+            try_append_operational_event(
+                workspace,
+                "SOURCE_QUALITY_DOWNSTREAM_SKIPPED",
+                level="WARNING",
+                audit_id=audit_id,
+                component="SYNTHETIC_APDEX",
+                blockers=assessment.hard_blocker_kinds,
+                attempted_samples=0,
+            )
+            return
+
         if m23_config.enabled:
             try:
                 trace = extract_lighthouse_execution_profiles(
@@ -140,14 +175,52 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
 
     def execute_m21_and_m23(*args, **kwargs):
+        nonlocal source_quality_skip
         audit_id = kwargs.get("audit_id")
         workspace = kwargs.get("workspace")
-        try:
-            result = original_execute_m21(*args, **kwargs)
-        except Exception:
-            if audit_id is not None and workspace is not None:
-                run_m23_once(audit_id=audit_id, workspace=workspace)
-            raise
+        config = kwargs.get("config")
+
+        assessment = (
+            load_assessment(workspace)
+            if audit_id is not None and workspace is not None
+            else None
+        )
+        if (
+            assessment is not None
+            and assessment.all_pages_hard_blocked
+            and config is not None
+            and bool(getattr(config, "enabled", False))
+        ):
+            source_quality_skip = assessment.hard_blocker_kinds
+            result = persist_m21_source_skip(
+                audit_id=audit_id,
+                workspace=workspace,
+                config=config,
+                assessment=assessment,
+            )
+            try_append_operational_event(
+                workspace,
+                "SOURCE_QUALITY_DOWNSTREAM_SKIPPED",
+                level="WARNING",
+                audit_id=audit_id,
+                component="WEB_PERFORMANCE",
+                blockers=assessment.hard_blocker_kinds,
+                external_attempts=0,
+            )
+        else:
+            try:
+                result = original_execute_m21(*args, **kwargs)
+                if audit_id is not None and workspace is not None:
+                    result = reconcile_external_metrics_integrity(
+                        audit_id=audit_id,
+                        workspace=workspace,
+                        result=result,
+                    )
+            except Exception:
+                if audit_id is not None and workspace is not None:
+                    run_m23_once(audit_id=audit_id, workspace=workspace)
+                raise
+
         if audit_id is not None and workspace is not None:
             run_m23_once(audit_id=audit_id, workspace=workspace)
         return result
@@ -191,6 +264,40 @@ def main(argv: Sequence[str] | None = None) -> int:
                     error_type=type(exc).__name__,
                     error_message=str(exc)[:512],
                 )
+            try:
+                enrich_external_metrics_integrity_report_site(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                )
+            except Exception as exc:
+                try_append_operational_event(
+                    workspace,
+                    "EXTERNAL_METRICS_INTEGRITY_REPORT_FAILURE",
+                    level="WARNING",
+                    audit_id=audit_id,
+                    error_type=type(exc).__name__,
+                    error_message=str(exc)[:512],
+                )
+            try:
+                # Run last so every generated HTML page receives the same deterministic
+                # origin/redirect/TLS context, including M21/M23 pages.
+                enrich_source_quality_report_site(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                )
+                enrich_source_quality_blocker_summary(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                )
+            except Exception as exc:
+                try_append_operational_event(
+                    workspace,
+                    "SOURCE_QUALITY_REPORT_FAILURE",
+                    level="WARNING",
+                    audit_id=audit_id,
+                    error_type=type(exc).__name__,
+                    error_message=str(exc)[:512],
+                )
         return result
 
     try:
@@ -207,9 +314,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         _legacy_cli.execute_m21 = original_execute_m21
         _legacy_cli.enrich_m21_report_site = original_enrich_m21
 
+    if source_quality_skip:
+        print(
+            "Qualidade da origem: BLOQUEIO TÉCNICO "
+            f"({', '.join(source_quality_skip)}). "
+            "Etapas externas/repetitivas dependentes da URL foram interrompidas; "
+            "consulte o bloco 'Auditoria limitada por bloqueio técnico da origem' no relatório "
+            "e o arquivo logs/audit.log para o diagnóstico completo."
+        )
+
     if m23_config is not None:
         if not m23_config.enabled:
             print("Synthetic Apdex: DESABILITADO")
+        elif m23_result is not None and m23_result.status == "SKIPPED_SOURCE_BLOCKER":
+            print(
+                "Synthetic Apdex: NÃO EXECUTADO por bloqueio técnico da origem "
+                "(0 navegações sintéticas adicionais)"
+            )
         elif m23_result is not None:
             print(
                 "Synthetic Apdex: HABILITADO "

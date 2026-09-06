@@ -40,6 +40,16 @@ from searchgeo.persistence import AuditPersistence, AuditWorkspace
 from searchgeo.pre_scoring_rules import execute_pre_scoring_rules
 from searchgeo.report_site import materialize_report_site
 from searchgeo.semantic import NoneProvider, SemanticAnalysisProvider
+from searchgeo.source_quality import (
+    assess_m2_result,
+    limitation_strings,
+    persist_assessment,
+)
+from searchgeo.source_quality_ai import maybe_explain_source_quality
+from searchgeo.source_quality_browser import (
+    browser_reconciliation_limitations,
+    reconcile_source_quality_with_browser,
+)
 from searchgeo.url_utils import normalize_url, normalized_origin
 
 
@@ -129,6 +139,7 @@ def run_audit(
         "dom_element_observation",
         "static_report_site",
         "jsonld_remediation_guidance",
+        "source_quality_fail_fast",
     ]
     if content_remediation:
         capabilities.append("optional_ai_content_remediation")
@@ -184,7 +195,83 @@ def run_audit(
                 engine=discovery_engine,
                 explicit_urls=(normalized_targets if target_type is TargetType.URL_SET else None),
             )
+
+            source_quality = assess_m2_result(m2)
+            persist_assessment(workspace, source_quality)
+            preflight_source_blocked = source_quality.all_pages_hard_blocked
+            browser_reconciliation = None
+
+            if preflight_source_blocked:
+                # M2 is intentionally crawler-like and can receive a different CDN/WAF/
+                # redirect route than a real browser. Record the strong preflight signal,
+                # but do not call it a definitive SOURCE_BLOCKED until the single normal
+                # M3 Chromium navigation confirms the same technical blocker.
+                try_append_operational_event(
+                    workspace,
+                    "SOURCE_QUALITY_PREFLIGHT_BLOCKER",
+                    level="WARNING",
+                    audit_id=audit_id,
+                    blockers=source_quality.hard_blocker_kinds,
+                    pages_considered=source_quality.pages_considered,
+                    hard_blocked_pages=source_quality.hard_blocked_pages,
+                    downstream_policy="VERIFY_ONCE_WITH_CHROMIUM_BEFORE_FAIL_FAST",
+                )
+
+            # Always allow the normal M3 Chromium pass to execute once. This is not an
+            # extra retry: M3 needs that navigation for every successful audit anyway.
+            # If it also fails, downstream repeated/external measurements are still cut.
             m3 = execute_m3(m2, persistence, workspace, renderer=renderer)
+
+            if preflight_source_blocked:
+                browser_reconciliation = reconcile_source_quality_with_browser(
+                    assessment=source_quality,
+                    m3_result=m3,
+                    persistence=persistence,
+                    workspace=workspace,
+                )
+                source_quality = browser_reconciliation.assessment
+
+            source_blocked = source_quality.all_pages_hard_blocked
+            if preflight_source_blocked:
+                current = persistence.audits.get(audit_id)
+                if source_blocked:
+                    additions = limitation_strings(source_quality)
+                elif browser_reconciliation is not None:
+                    additions = browser_reconciliation_limitations(browser_reconciliation)
+                else:
+                    additions = ()
+                if current is not None and additions:
+                    persistence.audits.update(
+                        replace(
+                            current,
+                            limitations=tuple(dict.fromkeys((*current.limitations, *additions))),
+                        )
+                    )
+
+                if source_blocked:
+                    try_append_operational_event(
+                        workspace,
+                        "SOURCE_QUALITY_BLOCKED",
+                        level="ERROR",
+                        audit_id=audit_id,
+                        blockers=source_quality.hard_blocker_kinds,
+                        pages_considered=source_quality.pages_considered,
+                        hard_blocked_pages=source_quality.hard_blocked_pages,
+                        downstream_policy="SKIP_REDUNDANT_BROWSER_AND_EXTERNAL_MEASUREMENTS",
+                    )
+                elif browser_reconciliation is not None and browser_reconciliation.recovered_any:
+                    try_append_operational_event(
+                        workspace,
+                        "SOURCE_QUALITY_BROWSER_RECOVERED",
+                        level="WARNING",
+                        audit_id=audit_id,
+                        recovered_urls=browser_reconciliation.recovered_urls,
+                        browser_final_urls=tuple(
+                            item.final_url for item in browser_reconciliation.browser_observations
+                        ),
+                        policy="CONTINUE_WITH_BROWSER_EVIDENCE_AND_REPORT_DIVERGENCE",
+                    )
+
             rendered_contexts = sum(len(per_device) for per_device in m3.snapshot_ids.values())
             try_append_operational_event(
                 workspace,
@@ -193,6 +280,13 @@ def run_audit(
                 pages=len(m3.snapshot_ids),
                 contexts=rendered_contexts,
                 failures=len(m3.failures),
+                source_quality_preflight_blocker=preflight_source_blocked,
+                source_quality_blocked=source_blocked,
+                source_quality_browser_recovered=(
+                    browser_reconciliation.recovered_any
+                    if browser_reconciliation is not None
+                    else False
+                ),
             )
             m4 = execute_m4(m3, persistence, workspace)
             m5 = execute_m5(audit, audit_target, m2, m3, m4, persistence, workspace)
@@ -212,7 +306,44 @@ def run_audit(
                 persistence=persistence,
                 workspace=workspace,
             )
-            runtime_provider = semantic_provider or NoneProvider()
+
+            configured_provider = semantic_provider or NoneProvider()
+            analysis_provider = NoneProvider() if source_blocked else configured_provider
+
+            # A definitive blocker receives only the evidence-bound infrastructure AI
+            # explanation. A browser-recovered divergence may also receive that one
+            # explanation, but normal semantic analysis remains enabled because Chromium
+            # produced trustworthy page content.
+            explain_source_quality = source_blocked or (
+                browser_reconciliation is not None and browser_reconciliation.recovered_any
+            )
+            if explain_source_quality:
+                try:
+                    ai_diagnosis = maybe_explain_source_quality(
+                        audit_id=audit_id,
+                        workspace=workspace,
+                        provider=configured_provider,
+                        assessment=source_quality,
+                    )
+                    try_append_operational_event(
+                        workspace,
+                        "SOURCE_QUALITY_AI_COMPLETED",
+                        audit_id=audit_id,
+                        state=ai_diagnosis.state.value,
+                        provider=ai_diagnosis.provider,
+                        model=ai_diagnosis.model,
+                        reason=ai_diagnosis.reason,
+                    )
+                except Exception as exc:
+                    try_append_operational_event(
+                        workspace,
+                        "SOURCE_QUALITY_AI_FAILURE",
+                        level="WARNING",
+                        audit_id=audit_id,
+                        error_type=type(exc).__name__,
+                        error_message=str(exc)[:512],
+                    )
+
             m7 = execute_m7(
                 audit_id=audit_id,
                 m3_result=m3,
@@ -221,11 +352,11 @@ def run_audit(
                 m6_result=m6,
                 persistence=persistence,
                 workspace=workspace,
-                provider=runtime_provider,
+                provider=analysis_provider,
             )
             persist_provider_runtime(
                 audit_id=audit_id,
-                provider=runtime_provider,
+                provider=configured_provider,
                 workspace=workspace,
                 audit_mode=m7.audit_mode.value,
             )
@@ -233,8 +364,9 @@ def run_audit(
                 workspace,
                 "AI_RUNTIME_RECORDED",
                 audit_id=audit_id,
-                provider_class=type(runtime_provider).__name__,
+                provider_class=type(configured_provider).__name__,
                 audit_mode=m7.audit_mode.value,
+                source_quality_diagnostic_only=source_blocked,
             )
 
             _set_status(persistence, audit_id, AuditStatus.COMPARING)
@@ -293,11 +425,12 @@ def run_audit(
 
             # M20 is strictly downstream of findings/scoring. It can only create
             # auxiliary suggestions and telemetry; it cannot mutate evaluated
-            # entities or retroactively alter the audit result.
+            # entities or retroactively alter the audit result. A definitive source
+            # blocker disables exact-text remediation because no trustworthy corpus exists.
             execute_m20(
                 audit_id=audit_id,
-                enabled=content_remediation,
-                semantic_provider=runtime_provider,
+                enabled=(content_remediation and not source_blocked),
+                semantic_provider=analysis_provider,
                 workspace=workspace,
             )
 
@@ -338,6 +471,7 @@ def run_audit(
                 audited_pages=len(m2.page_ids),
                 findings=len(all_finding_ids),
                 recommendations=len(m10.recommendation_ids),
+                source_quality_blocked=source_blocked,
             )
 
             return AuditRunResult(

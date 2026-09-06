@@ -280,18 +280,29 @@ def observe_m23_workspace(workspace: Path, state: State) -> None:
         )
         set_runtime_progress(state, "Synthetic Apdex", overall, detail=detail, exact=True)
     elif name == "M23_COMPLETED":
-        state.status = "FINALIZING"
-        state.operation = "LOCAL:APDEX_REPORT"
-        set_runtime_progress(
-            state,
-            "Finalização do Synthetic Apdex",
-            100.0,
-            detail=(
-                f"Synthetic Apdex concluído: {int(event.get('valid_samples') or 0)} válidas; "
-                f"{int(event.get('invalid_samples') or 0)} inválidas"
-            ),
-            exact=True,
-        )
+        if str(event.get("status") or "") == "SKIPPED_SOURCE_BLOCKER":
+            state.status = "SOURCE_BLOCKED"
+            state.operation = "LOCAL:APDEX_SKIPPED"
+            set_runtime_progress(
+                state,
+                "Synthetic Apdex não executado",
+                100.0,
+                detail="bloqueio técnico da origem detectado antes das navegações repetitivas; 0 amostras iniciadas",
+                exact=True,
+            )
+        else:
+            state.status = "FINALIZING"
+            state.operation = "LOCAL:APDEX_REPORT"
+            set_runtime_progress(
+                state,
+                "Finalização do Synthetic Apdex",
+                100.0,
+                detail=(
+                    f"Synthetic Apdex concluído: {int(event.get('valid_samples') or 0)} válidas; "
+                    f"{int(event.get('invalid_samples') or 0)} inválidas"
+                ),
+                exact=True,
+            )
     elif name in {"M23_RUNTIME_FAILURE", "M23_REPORT_FAILURE"}:
         state.status = "SYNTHETIC_LIMITATION"
         state.operation = "LOCAL:APDEX_FAIL_OPEN"
