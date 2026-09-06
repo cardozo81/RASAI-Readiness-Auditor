@@ -1,5 +1,4 @@
-"""CLI shim for additive providers and Synthetic Navigation Apdex."""
-
+"""CLI shim for additive providers, M23 Synthetic Apdex and M24 crawling diagnostics."""
 from __future__ import annotations
 
 import os
@@ -17,6 +16,10 @@ from searchgeo.m23_apdex import M23ExecutionResult, execute_m23_apdex
 from searchgeo.m23_cli import SyntheticApdexConfig, configured_apdex, register_apdex_arguments
 from searchgeo.m23_lighthouse_traceability import extract_lighthouse_execution_profiles
 from searchgeo.m23_reporting import enrich_m23_report_site
+from searchgeo.m24_cli import M24Config, configured_m24, register_m24_arguments
+from searchgeo.m24_crawling_discovery import M24ExecutionResult, execute_m24
+from searchgeo.m24_discovery_extensions import install_discovery_extensions
+from searchgeo.m24_reporting import enrich_m24_report_site
 from searchgeo.operational_log import try_append_operational_event
 from searchgeo.provider_runtime_policy import (
     DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS,
@@ -39,7 +42,7 @@ _LEGACY_BUILD_PARSER = _legacy_cli.build_parser
 
 
 def build_parser():
-    """Return a fresh legacy parser with provider and Synthetic Apdex extensions."""
+    """Return a fresh legacy parser with additive provider/M23/M24 extensions."""
     parser = _LEGACY_BUILD_PARSER()
     subparsers = next(
         action
@@ -69,16 +72,36 @@ def build_parser():
         "this is not a separate Lighthouse page-load parameter"
     )
     register_apdex_arguments(audit_parser)
+    register_m24_arguments(audit_parser)
     return parser
 
 
-def _resolve_m23_config(argv: list[str]) -> SyntheticApdexConfig | None:
+def _parse_extended_args(argv: list[str]):
     if "audit" not in argv:
         return None
     parser = build_parser()
-    args = parser.parse_args(argv)
+    return parser, parser.parse_args(argv)
+
+
+def _resolve_m23_config(argv: list[str]) -> SyntheticApdexConfig | None:
+    parsed = _parse_extended_args(argv)
+    if parsed is None:
+        return None
+    parser, args = parsed
     try:
         return configured_apdex(args)
+    except ValueError as exc:
+        parser.error(str(exc))
+    return None
+
+
+def _resolve_m24_config(argv: list[str]) -> M24Config | None:
+    parsed = _parse_extended_args(argv)
+    if parsed is None:
+        return None
+    parser, args = parsed
+    try:
+        return configured_m24(args)
     except ValueError as exc:
         parser.error(str(exc))
     return None
@@ -124,13 +147,15 @@ def _materialize_searchgeo_fail_open(*, audit_id, workspace, event_prefix: str) 
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run legacy CLI with additive providers and fail-open Synthetic Apdex enrichment."""
+    """Run legacy CLI with additive provider, M23 and fail-open M24 enrichment."""
     effective_argv = list(argv) if argv is not None else list(sys.argv[1:])
+    install_discovery_extensions()
     os.environ.setdefault(
         WEB_PERFORMANCE_TIMEOUT_ENV,
         f"{DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS:g}",
     )
     m23_config = _resolve_m23_config(effective_argv)
+    m24_config = _resolve_m24_config(effective_argv)
 
     original_build_parser = _legacy_cli.build_parser
     original_provider_builder = _legacy_cli.build_semantic_provider
@@ -138,11 +163,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     original_execute_m21 = _legacy_cli.execute_m21
     original_enrich_m21 = _legacy_cli.enrich_m21_report_site
 
+    configured_provider_for_m24 = None
     m23_result: M23ExecutionResult | None = None
     m23_report_path = None
     m23_error: str | None = None
     m23_executed_for: set[str] = set()
+    m24_result: M24ExecutionResult | None = None
+    m24_report_path = None
+    m24_error: str | None = None
+    m24_executed_for: set[str] = set()
     source_quality_skip: tuple[str, ...] = ()
+
+    def capture_build_semantic_provider(*args, **kwargs):
+        nonlocal configured_provider_for_m24
+        configured_provider_for_m24 = build_semantic_provider(*args, **kwargs)
+        return configured_provider_for_m24
 
     def run_m23_once(*, audit_id, workspace) -> None:
         nonlocal m23_result, m23_error, source_quality_skip
@@ -215,6 +250,46 @@ def main(argv: Sequence[str] | None = None) -> int:
                 error_message=str(exc)[:512],
             )
 
+    def run_m24_once(*, audit_id, workspace) -> None:
+        nonlocal m24_result, m24_error
+        if m24_config is None or audit_id in m24_executed_for:
+            return
+        m24_executed_for.add(audit_id)
+        assessment = load_assessment(workspace)
+        allow_network = not (
+            assessment is not None and assessment.all_pages_hard_blocked
+        )
+        try:
+            m24_result = execute_m24(
+                audit_id=audit_id,
+                workspace=workspace,
+                technical_ai=m24_config.technical_ai,
+                semantic_provider=configured_provider_for_m24,
+                allow_network=allow_network,
+            )
+            try_append_operational_event(
+                workspace,
+                "M24_CRAWLING_DISCOVERY_COMPLETED",
+                audit_id=audit_id,
+                status=m24_result.status,
+                diagnostics=m24_result.diagnostics_count,
+                llms_state=m24_result.llms_state,
+                ai_state=m24_result.ai_state,
+                scoring_impact=m24_result.scoring_impact,
+                network_allowed=allow_network,
+            )
+        except Exception as exc:
+            m24_error = f"{type(exc).__name__}: {str(exc)[:512]}"
+            try_append_operational_event(
+                workspace,
+                "M24_CRAWLING_DISCOVERY_FAILURE",
+                level="WARNING",
+                audit_id=audit_id,
+                error_type=type(exc).__name__,
+                error_message=str(exc)[:512],
+                scoring_impact="NONE",
+            )
+
     def execute_m21_and_m23(*args, **kwargs):
         nonlocal source_quality_skip
         audit_id = kwargs.get("audit_id")
@@ -260,6 +335,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             except Exception:
                 if audit_id is not None and workspace is not None:
                     run_m23_once(audit_id=audit_id, workspace=workspace)
+                    run_m24_once(audit_id=audit_id, workspace=workspace)
                     _materialize_searchgeo_fail_open(
                         audit_id=audit_id,
                         workspace=workspace,
@@ -269,10 +345,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         if audit_id is not None and workspace is not None:
             run_m23_once(audit_id=audit_id, workspace=workspace)
+            run_m24_once(audit_id=audit_id, workspace=workspace)
         return result
 
     def enrich_m21_and_m23(*args, **kwargs):
-        nonlocal m23_report_path, m23_error
+        nonlocal m23_report_path, m23_error, m24_report_path, m24_error
         audit_id = kwargs.get("audit_id")
         workspace = kwargs.get("workspace")
         result = original_enrich_m21(*args, **kwargs)
@@ -325,8 +402,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     error_message=str(exc)[:512],
                 )
             try:
-                # Run last so every generated HTML page receives the same deterministic
-                # origin/redirect/TLS context, including M21/M23 pages.
+                # Run before the final SGRI/M24 projection so every already-created
+                # domain page receives the same deterministic origin/redirect/TLS context.
                 enrich_source_quality_report_site(
                     audit_id=audit_id,
                     workspace=workspace,
@@ -345,9 +422,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     error_message=str(exc)[:512],
                 )
             try:
-                # The executive dashboard must be the final report projection so it can
-                # remove legacy cross-domain summaries and reflect the final persisted
-                # state of SearchGEO, Lighthouse/CrUX, Accessibility and Apdex.
+                # Preserve PR #70 ownership: SGRI is finalized before M24 adds a
+                # separate non-scoring technical page and then normalizes navigation.
                 searchgeo_path = enrich_searchgeo_reporting(
                     audit_id=audit_id,
                     workspace=workspace,
@@ -370,14 +446,37 @@ def main(argv: Sequence[str] | None = None) -> int:
                     error_message=str(exc)[:512],
                 )
             finally:
-                # Generated HTML retains its explicit evidence wording, but the process
-                # global menu stays canonical for later reports/tests in the same process.
                 _restore_canonical_device_navigation_labels()
+
+            if m24_result is not None:
+                try:
+                    m24_report_path = enrich_m24_report_site(
+                        audit_id=audit_id,
+                        workspace=workspace,
+                    )
+                    try_append_operational_event(
+                        workspace,
+                        "M24_REPORT_GENERATED",
+                        audit_id=audit_id,
+                        report_path=str(m24_report_path.relative_to(workspace.root)),
+                        scoring_impact="NONE",
+                    )
+                except Exception as exc:
+                    m24_error = f"{type(exc).__name__}: {str(exc)[:512]}"
+                    try_append_operational_event(
+                        workspace,
+                        "M24_REPORT_FAILURE",
+                        level="WARNING",
+                        audit_id=audit_id,
+                        error_type=type(exc).__name__,
+                        error_message=str(exc)[:512],
+                        scoring_impact="NONE",
+                    )
         return result
 
     try:
         _legacy_cli.build_parser = build_parser
-        _legacy_cli.build_semantic_provider = build_semantic_provider
+        _legacy_cli.build_semantic_provider = capture_build_semantic_provider
         _m20.build_content_remediation_router = build_content_remediation_router
         _legacy_cli.execute_m21 = execute_m21_and_m23
         _legacy_cli.enrich_m21_report_site = enrich_m21_and_m23
@@ -424,5 +523,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(
                 "Synthetic Apdex: INCOMPLETO por erro operacional; "
                 "a auditoria SearchGEO principal foi preservada"
+            )
+
+    if m24_config is not None:
+        if m24_result is not None:
+            print(
+                "Rastreamento e descoberta M24: "
+                f"{m24_result.status} (diagnósticos {m24_result.diagnostics_count}; "
+                f"llms.txt {m24_result.llms_state}; IA técnica {m24_result.ai_state}; "
+                "impacto no score NENHUM)"
+            )
+            if m24_report_path is not None:
+                print(f"Relatório de rastreamento e descoberta: {m24_report_path}")
+        elif m24_error:
+            print(
+                "Rastreamento e descoberta M24: INCOMPLETO por erro operacional; "
+                "SCORE-GEO-002/SGRI-001 foram preservados"
             )
     return code
