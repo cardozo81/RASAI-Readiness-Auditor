@@ -26,6 +26,9 @@ jobs:
           if [[ "$HEAD_MSG" != "[deepseek-console-patch] materialize smoke corrections" ]]; then
             python .github/tmp_apply_deepseek_console_fix.py
           fi
+          if [[ -f tests/test_deepseek_semantic_contract_and_console_actions.py ]]; then
+            sed -i 's/from searchgeo.console_config import State/from searchgeo.console_m23 import State/' tests/test_deepseek_semantic_contract_and_console_actions.py
+          fi
       - name: Install and validate
         shell: bash
         run: |
