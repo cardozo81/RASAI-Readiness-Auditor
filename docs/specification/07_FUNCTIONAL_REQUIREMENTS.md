@@ -1,6 +1,6 @@
 # FUNCTIONAL_REQUIREMENTS.md
 
-**Status:** APPROVED — M21 + M20 + M18 + SCORE-GEO-002 + REPORT-SITE-GEO-001
+**Status:** APPROVED — M24 + M23 + M22 + M21 + M20 + M18 + SCORE-GEO-002 + SGRI-001 + REPORT-SITE-GEO-001
 
 ## Requisitos Funcionais
 
@@ -319,6 +319,57 @@ Adicionar ao `report/references.html` fontes oficiais de PageSpeed Insights, CrU
 ### FR-GEO-105
 Executar M21 como enriquecimento pós-auditoria/fail-open: indisponibilidade ou erro do serviço externo não pode invalidar RuleExecution, Finding, Recommendation ou score já concluídos.
 
+### FR-GEO-106
+Executar M24 como enriquecimento técnico não-scoring de crawling/discovery, preservando `scoring_impact=NONE` e sem alterar retrospectivamente RuleExecution, Finding, Recommendation GEO, Score, Coverage, Confidence, Consolidation, `SCORE-GEO-002` ou `SGRI-001`.
+
+### FR-GEO-107
+Aprofundar a interpretação de `robots.txt` com evidência reabrível de grupos crawler, `Allow`, `Disallow`, `Sitemap`, linhas inválidas, tamanho e campos relevantes, sem transformar ausência legítima de robots em bloqueio artificial.
+
+### FR-GEO-108
+Preservar declarações `Sitemap:` absolutas mesmo quando apontarem para host externo, mas não realizar fetch cross-origin automático a partir dessa declaração sem uma política de aquisição segura/explicitamente autorizada.
+
+### FR-GEO-109
+Suportar no discovery M24 sitemap XML `urlset`, sitemap index, gzip, RSS 2.0, Atom 1.0 e sitemap texto plano, mantendo somente URLs de página pertinentes ao formato em vez de confundir `<loc>` de extensões com páginas.
+
+### FR-GEO-110
+Avaliar, quando observável, limites de sitemap de 50 MB descompactado e 50.000 URLs, URLs absolutas, duplicatas, `lastmod`, extensões e presença de `priority`/`changefreq` sem representá-las como sinal de ranking.
+
+### FR-GEO-111
+Cruzar URLs de sitemap com a amostra efetivamente auditada para identificar não-2xx, `noindex`, canonical conflitante e bloqueio robots observados; ausência de uma URL auditada no sitemap deve permanecer diagnóstico de cobertura da amostra e não prova de erro global do site.
+
+### FR-GEO-112
+Expor separadamente Googlebot, OAI-SearchBot, GPTBot e Google-Extended de acordo com suas finalidades públicas; bloqueio de GPTBot ou Google-Extended não pode ser convertido automaticamente em bloqueio de Search.
+
+### FR-GEO-113
+Tratar Google-Extended como token de produto em robots.txt sem user-agent HTTP separado e declarar que ele não afeta inclusão/ranking na Pesquisa Google conforme documentação pública do Google.
+
+### FR-GEO-114
+Tentar `/llms.txt` somente same-origin quando a origem estiver tecnicamente apta; ausência ou erro deve ser informativo/non-scoring e presença deve ser persistível em `artifacts/m24/llms.txt`.
+
+### FR-GEO-115
+Tratar `llms.txt` como proposta comunitária experimental, não como web standard nem requisito universal de Search/GEO, e nunca usá-lo como substituto de robots, sitemap, canonical, HTML semântico ou conteúdo acessível.
+
+### FR-GEO-116
+Registrar feeds RSS/Atom observados como sinais adicionais de discovery sem atribuir score obrigatório pela presença/ausência de feed.
+
+### FR-GEO-117
+Reportar configuração/submissão IndexNow como não determinável quando a auditoria passiva não possuir evidência explícita, log ou artifact verificável; não inferir sucesso de submissão por mera observação do site.
+
+### FR-GEO-118
+Expor a remediação técnica M24 por `--ai-technical-remediation`, `--no-ai-technical-remediation` e `SEARCHGEO_AI_TECHNICAL_REMEDIATION`, com default público `false` e precedência CLI explícito → ambiente → false.
+
+### FR-GEO-119
+Restringir a IA M24 a diagnósticos/evidências persistidos, rejeitar invenção de URL/policy/canonical/data/crawler token, exigir revisão humana e não permitir que o provider decida unilateralmente política de treinamento/crawler da organização.
+
+### FR-GEO-120
+Persistir estado/telemetria M24 em tabelas auxiliares próprias, mantendo separação entre qualidade do website, diagnósticos técnicos e consumo de provider.
+
+### FR-GEO-121
+Materializar `report/crawling-discovery.html` com navegação/CSS compartilhados, robots/crawler policy, sitemaps/discovery, `llms.txt`, feeds, IndexNow, limitações de segurança, referências e eventual orientação técnica por IA.
+
+### FR-GEO-122
+Quando houver hard source blocker confirmado, M24 deve evitar aquisição adicional de `/llms.txt` e chamada técnica de IA dependente do corpus, persistindo estado de skip/fail-open sem invalidar a auditoria principal.
+
 ## Requisitos Não Funcionais
 
 ### NFR-GEO-001
@@ -361,7 +412,7 @@ RemediationRecipe e apresentação devem ser determinísticas/reprodutíveis a p
 Aplicabilidade e exclusão do Overall devem ser reproduzíveis a partir das RuleExecutions e versão do scoring.
 
 ### NFR-GEO-014
-A projeção final não deve recalcular score/finding nem chamar IA; `audit.db` e artifacts permanecem fonte de verdade. A exceção arquitetural explícita é que M20 deve concluir chamadas antes da materialização final do report site; o renderer do report não chama provider.
+A projeção final não deve recalcular score/finding nem chamar IA; `audit.db` e artifacts permanecem fonte de verdade. Exceções arquiteturais explícitas, como M20 e M24 AI, devem concluir suas chamadas antes da projeção final correspondente; o renderer do report não chama provider.
 
 ### NFR-GEO-015
 M20 deve ser fail-open em relação ao audit: indisponibilidade da finalidade de remediação textual não pode invalidar score/findings já concluídos.
@@ -380,3 +431,15 @@ Métricas M21 devem permanecer reabríveis a partir de `audit.db` + artifacts JS
 
 ### NFR-GEO-020
 M21 não pode persistir API keys, URLs contendo parâmetros de chave, Authorization ou erro externo não sanitizado; telemetria de coleta deve permanecer separada da telemetria IA.
+
+### NFR-GEO-021
+M24 deve permanecer fail-open e não pode introduzir dependência obrigatória de `llms.txt`, IndexNow ou provider de IA para executar a auditoria principal.
+
+### NFR-GEO-022
+M24 deve limitar aquisição adicional automática ao escopo same-origin autorizado; declarações externas podem ser preservadas sem serem seguidas automaticamente.
+
+### NFR-GEO-023
+Resultados M24 devem ser reabríveis a partir de `audit.db` + artifacts locais sem nova chamada externa para renderização do report.
+
+### NFR-GEO-024
+CI permanente deve cobrir compile da superfície M24, testes específicos de discovery/M24, regressões de integração afetadas e suíte completa antes de considerar mudanças M24 homologadas.
