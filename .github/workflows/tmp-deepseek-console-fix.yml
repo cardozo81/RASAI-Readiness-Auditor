@@ -28,12 +28,13 @@ jobs:
             echo 'Selectable action row still contains pipe separator.' >&2
             exit 1
           fi
-      - name: Install test dependencies
+      - name: Install test dependencies and Chromium
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install -e . pytest
+          python -m playwright install --with-deps chromium
       - name: Focused regressions
         shell: bash
         run: |
