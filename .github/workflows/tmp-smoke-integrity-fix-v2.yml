@@ -1,0 +1,59 @@
+name: Temporary smoke-integrity correction gate v2
+
+on:
+  push:
+    branches:
+      - fix/smoke-integrity-console-solid-reports
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Apply, validate and materialize corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          MESSAGE="$(git log -1 --pretty=%B)"
+          PATCH_RUN=1
+          if printf '%s' "$MESSAGE" | grep -Fq '[smoke-integrity-patch]'; then
+            PATCH_RUN=0
+          else
+            python .github/tmp_apply_smoke_integrity_fix.py
+          fi
+
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m playwright install --with-deps chromium
+
+          python -m unittest -v \
+            tests.test_smoke_integrity_regressions \
+            tests.test_m9_scoring \
+            tests.test_source_quality_browser_identity \
+            tests.test_m18_multi_ai_provider
+          python -m unittest discover -s tests -v
+          python -m compileall -q src tests
+          git diff --check
+
+          if grep -RniE 'linear-gradient|radial-gradient' src/searchgeo/report*.py src/searchgeo/*reporting*.py; then
+            echo 'Gradient declaration found in report source.' >&2
+            exit 1
+          fi
+
+          if [ "$PATCH_RUN" -eq 1 ]; then
+            git config user.name 'SearchGEO CI'
+            git config user.email 'actions@users.noreply.github.com'
+            git add src tests docs
+            git commit -m '[smoke-integrity-patch] fix report integrity, redirect recovery and console UX'
+            git push origin HEAD:fix/smoke-integrity-console-solid-reports
+          fi
