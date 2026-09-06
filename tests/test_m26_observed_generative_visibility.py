@@ -62,6 +62,7 @@ def _payload() -> dict:
         "source": {
             "type": "BING_WEBMASTER_TOOLS_AI_PERFORMANCE",
             "label": "Bing Webmaster Tools AI Performance",
+            "capture_method": "NORMALIZED_EXPORT",
             "period_start": "2026-08-01",
             "period_end": "2026-08-31",
             "market": "BR",
@@ -128,6 +129,7 @@ def test_import_is_same_origin_idempotent_and_non_scoring() -> None:
         second = import_visibility_file(audit_id="AUD-M26", workspace=workspace, path=source)
 
         assert first.import_id == second.import_id
+        assert first.capture_method == "NORMALIZED_EXPORT"
         assert first.valid_query_runs == 2
         assert first.cited_query_runs == 1
         assert first.citation_presence_rate == 0.5
@@ -138,6 +140,7 @@ def test_import_is_same_origin_idempotent_and_non_scoring() -> None:
         connection = sqlite3.connect(workspace.database)
         try:
             assert connection.execute("SELECT COUNT(*) FROM generative_visibility_imports").fetchone()[0] == 1
+            assert connection.execute("SELECT capture_method FROM generative_visibility_imports").fetchone()[0] == "NORMALIZED_EXPORT"
             assert connection.execute("SELECT COUNT(*) FROM generative_visibility_page_citations").fetchone()[0] == 2
             assert connection.execute("SELECT COUNT(*) FROM generative_visibility_query_runs").fetchone()[0] == 3
             score = connection.execute("SELECT value,scoring_version FROM scores WHERE score_id='S1'").fetchone()
@@ -162,10 +165,27 @@ def test_report_keeps_source_metrics_and_computed_presence_separate() -> None:
         assert "Average Cited Pages · fonte" in html
         assert "Citation Presence Rate" in html
         assert "50.0%" in html
+        assert "NORMALIZED_EXPORT" in html
+        assert "não autentica o portal externo" in html
         assert "runs válidos que citaram" in html
         assert "não compõem SGRI-001/SCORE-GEO-002" in html
         assert "não faz scraping" in html
         assert "ai-visibility.html" in index
+
+
+def test_capture_method_is_required_and_bounded() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        workspace = _workspace(root)
+        payload = _payload()
+        payload["source"].pop("capture_method")
+        with pytest.raises(ValueError, match="source.capture_method"):
+            import_visibility_file(audit_id="AUD-M26", workspace=workspace, path=_write(root, payload))
+
+        payload = _payload()
+        payload["source"]["capture_method"] = "DIRECT_API_VERIFIED"
+        with pytest.raises(ValueError, match="source.capture_method deve ser um de"):
+            import_visibility_file(audit_id="AUD-M26", workspace=workspace, path=_write(root, payload))
 
 
 def test_import_rejects_observations_from_another_origin() -> None:
@@ -196,6 +216,7 @@ def test_source_reported_bing_metrics_are_not_allowed_for_controlled_source() ->
         workspace = _workspace(root)
         payload = _payload()
         payload["source"]["type"] = "CONTROLLED_QUERY_RUNS"
+        payload["source"]["capture_method"] = "CONTROLLED_PROTOCOL"
         source = _write(root, payload)
         with pytest.raises(ValueError, match="reported_metrics do Bing"):
             import_visibility_file(audit_id="AUD-M26", workspace=workspace, path=source)
