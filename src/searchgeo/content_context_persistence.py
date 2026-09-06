@@ -21,6 +21,13 @@ def persist_content_analysis_context(
     context: ContentAnalysisContext,
     created_at: str,
 ) -> None:
+    """Persist the first effective context for an audit and never overwrite it.
+
+    Report regeneration may happen after environment variables have changed.
+    Replacing the row in that situation would destroy provenance, so this table
+    is intentionally write-once per ``audit_id``.
+    """
+
     source_mode = (
         "AUTO"
         if context.is_fully_auto
@@ -51,9 +58,10 @@ def persist_content_analysis_context(
             )
             connection.execute(
                 """
-                INSERT OR REPLACE INTO content_analysis_contexts VALUES (
+                INSERT INTO content_analysis_contexts VALUES (
                     ?,?,?,?,?,?,?,?,?,?,?,?
                 )
+                ON CONFLICT(audit_id) DO NOTHING
                 """,
                 (
                     audit_id,
