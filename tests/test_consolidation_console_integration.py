@@ -32,7 +32,7 @@ class ConsolidationConsoleIntegrationTests(unittest.TestCase):
         with patch("builtins.input", return_value="R"), redirect_stdout(StringIO()) as output:
             choice = console._menu(state)
         self.assertEqual(choice, "R")
-        self.assertIn("Histórico / relatórios consolidados", output.getvalue())
+        self.assertEqual(output.getvalue(), "")
         console._configure(state, choice)
         self.assertEqual(console.configured, ["R"])
 

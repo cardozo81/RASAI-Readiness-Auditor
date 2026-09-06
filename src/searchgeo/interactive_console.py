@@ -590,11 +590,18 @@ def _menu(state: State) -> str:
     ready, reason = _execution_readiness(state)
     marker = availability_badge(ready)
     reason_text = paint(reason, GREEN if ready else RED)
-    print("\nS. Salvar configuração INI [SEM CHAVES] | H. Ajuda / custos | E. Variáveis de ambiente / credenciais")
-    print(f"R. Executar [{marker}] {reason_text} | Q. Sair")
+    print("\nAÇÕES")
+    print("S. Salvar configuração INI [SEM CHAVES]")
+    print("H. Ajuda / custos")
+    print("E. Variáveis de ambiente / credenciais")
+    print("C. Histórico / relatórios consolidados [OFFLINE — sem APIs]")
+    print(f"R. Executar [{marker}] {reason_text}")
+    print("Q. Sair")
     workspace, report = artifact_status(state)
     if workspace or report:
-        print(f"P. Abrir última pasta [{availability_badge(bool(workspace))}] | I. Abrir último relatório [{availability_badge(bool(report))}]")
+        print("\nARTEFATOS")
+        print(f"P. Abrir última pasta [{availability_badge(bool(workspace))}]")
+        print(f"I. Abrir último relatório [{availability_badge(bool(report))}]")
     return input("Escolha: ").strip().upper()
 
 
