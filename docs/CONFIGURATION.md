@@ -18,9 +18,11 @@ O console nunca grava API keys, tokens, senhas ou credentials no INI.
 
 ## Variáveis de ambiente: referência detalhada
 
-A referência completa de **todas as variáveis expostas pelo console**, incluindo finalidade, tipo, domínio aceito, default efetivo, dependências, custo/impacto, exemplos e passo a passo para obtenção das credenciais, está em:
+A referência detalhada das variáveis expostas pelo console, incluindo finalidade, tipo, domínio aceito, default efetivo, dependências, custo/impacto, exemplos e passo a passo para obtenção das credenciais, está em:
 
 - [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
+
+Parâmetros adicionados primeiro como superfície CLI/ambiente e ainda não integrados ao editor do console, como `SEARCHGEO_AI_TECHNICAL_REMEDIATION`, são documentados nesta página e na referência da CLI até existir integração explícita correspondente.
 
 O menu `E. Variáveis de ambiente / credenciais` usa a mesma organização por fronteira funcional:
 
@@ -71,6 +73,8 @@ T / samples / attempts / páginas / timeout / delay / concorrência
 
 O contexto editorial YMYL/E-E-A-T é atualmente um **override avançado por variáveis de ambiente**. Ele não é gravado no INI; o valor efetivo usado em cada auditoria é persistido no workspace para manter rastreabilidade do report.
 
+A remediação técnica M24 por IA também não é persistida no INI nesta versão; use `--ai-technical-remediation` ou `SEARCHGEO_AI_TECHNICAL_REMEDIATION`.
+
 Não armazena:
 
 ```text
@@ -89,24 +93,25 @@ qualquer variável reconhecida como TOKEN / SECRET / PASSWORD / CREDENTIAL
 ## Defaults gerais
 
 ```text
-device                  = mobile
-ai-provider             = none
-ai-content-remediation  = off
-content-risk-profile    = auto
-ymyl-category           = auto
-page-purpose            = auto
-intended-audience       = auto
-experience-requirement  = auto
-freshness-sensitivity   = auto
-content-origin          = auto
-Web Performance         = off
-max-pages               = 100
-WebPerf max-pages       = 10
-Web Performance timeout = 120 s
-language                = pt-BR
-market                  = BR
-audits-root             = audits
-Synthetic Apdex         = off
+device                    = mobile
+ai-provider               = none
+ai-content-remediation    = off
+ai-technical-remediation  = off
+content-risk-profile      = auto
+ymyl-category             = auto
+page-purpose              = auto
+intended-audience         = auto
+experience-requirement    = auto
+freshness-sensitivity     = auto
+content-origin            = auto
+Web Performance           = off
+max-pages                 = 100
+WebPerf max-pages         = 10
+Web Performance timeout   = 120 s
+language                  = pt-BR
+market                    = BR
+audits-root               = audits
+Synthetic Apdex           = off
 ```
 
 Esses defaults tornam possível uma primeira auditoria local sem preencher a lista de variáveis: para o cenário sem IA e sem integrações externas, basta informar o alvo.
@@ -255,6 +260,47 @@ No console, a opção 5 informa explicitamente que depende da configuração da 
 
 Quando M20 executa IA, `content-suggestions.html` e `ai-usage.html` expõem a telemetria persistida pertinente: provider, modelo, reasoning, tentativas/status, duração, tokens e custo estimado quando existe base de pricing suportada. Valor monetário não é fabricado quando o adapter não possui base confiável.
 
+## M24 — crawling/discovery e remediação técnica por IA
+
+Os diagnósticos determinísticos M24 fazem parte do pipeline e não precisam ser habilitados por flag. A opção abaixo controla **somente a camada opcional de IA técnica**:
+
+```text
+--ai-technical-remediation
+--no-ai-technical-remediation
+SEARCHGEO_AI_TECHNICAL_REMEDIATION
+```
+
+Default:
+
+```text
+false
+```
+
+Valores aceitos pela variável:
+
+```text
+true / false
+1 / 0
+yes / no
+on / off
+```
+
+Precedência:
+
+```text
+CLI explícito > SEARCHGEO_AI_TECHNICAL_REMEDIATION > false
+```
+
+Quando habilitada e houver provider compatível/configurado, a IA recebe apenas diagnósticos/evidências M24 e produz orientação advisory com revisão humana obrigatória. Essa finalidade não altera scoring, não escolhe automaticamente política de GPTBot/Google-Extended e não transforma `llms.txt` em requisito.
+
+A página canônica é:
+
+```text
+report/crawling-discovery.html
+```
+
+A especificação normativa está em [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md).
+
 ## Web Performance, Lighthouse e CrUX
 
 ```text
@@ -363,11 +409,12 @@ Default: `mobile`.
 - secrets são mascarados como `[SET]` e a origem é exibida sem revelar o valor;
 - logs e relatórios não devem registrar valores de segredo;
 - não assuma que uma credencial configurada implica crédito/quota;
-- variáveis de ambiente persistidas não equivalem a um secret manager.
+- variáveis de ambiente persistidas não equivalem a um secret manager;
+- remediação técnica M24 permanece advisory e não deve automatizar policy de crawler/treinamento sem decisão humana.
 
 ## Identificadores internos
 
-Tabelas, eventos, módulos e documentação normativa podem manter identificadores históricos para compatibilidade e rastreabilidade. A documentação operacional e a interface pública devem preferir nomes funcionais como **Web Performance**, **Acessibilidade**, **Remediação textual**, **Contexto editorial** e **Synthetic Apdex**.
+Tabelas, eventos, módulos e documentação normativa podem manter identificadores históricos para compatibilidade e rastreabilidade. A documentação operacional e a interface pública devem preferir nomes funcionais como **Web Performance**, **Acessibilidade**, **Remediação textual**, **Contexto editorial**, **Rastreamento e descoberta** e **Synthetic Apdex**.
 
 ## Documentos relacionados
 
@@ -378,3 +425,4 @@ Tabelas, eventos, módulos e documentação normativa podem manter identificador
 - [AI_GUIDE.md](AI_GUIDE.md)
 - [GOOGLE_API_KEYS.md](GOOGLE_API_KEYS.md)
 - [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md)
+- [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md)
