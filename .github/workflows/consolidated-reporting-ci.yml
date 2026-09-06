@@ -1,6 +1,17 @@
 name: Consolidated reporting safety
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "src/searchgeo/consolidation/**"
+      - "src/searchgeo/console_entrypoint.py"
+      - "tests/test_consolidation*.py"
+      - "README.md"
+      - "docs/INTERACTIVE_CONSOLE.md"
+      - "docs/OUTPUTS_AND_ARTIFACTS.md"
+      - "docs/CONSOLIDATED_REPORTING*.md"
+      - ".github/workflows/consolidated-reporting-ci.yml"
   pull_request:
     branches: [main]
     paths:
