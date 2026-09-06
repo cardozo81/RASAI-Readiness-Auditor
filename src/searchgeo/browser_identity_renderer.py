@@ -100,7 +100,8 @@ def secure_upgrade_candidate(
     The recovery is intentionally narrow:
     - the configured/requested URL must already be HTTPS;
     - the observed redirect must downgrade HTTPS -> HTTP;
-    - source and target hosts must differ only by an optional leading ``www.``;
+    - requested, source and target hosts must represent the same site, allowing only
+      an optional leading ``www.`` difference;
     - credentials and non-standard ports are rejected;
     - only the insecure hop itself is upgraded to HTTPS.
 
@@ -114,7 +115,7 @@ def secure_upgrade_candidate(
         return None
     if requested.scheme.casefold() != "https":
         return None
-    if not isinstance(navigation_trace, list):
+    if not requested.hostname or not isinstance(navigation_trace, list):
         return None
 
     for item in navigation_trace:
@@ -131,6 +132,10 @@ def secure_upgrade_candidate(
         except ValueError:
             continue
         if source.scheme.casefold() != "https" or target.scheme.casefold() != "http":
+            continue
+        if not _same_www_site(requested.hostname, source.hostname):
+            continue
+        if not _same_www_site(requested.hostname, target.hostname):
             continue
         if not _same_www_site(source.hostname, target.hostname):
             continue
