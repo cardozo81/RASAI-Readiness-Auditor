@@ -7,6 +7,9 @@ import os
 from typing import Any
 
 from searchgeo.m23_apdex import SyntheticApdexConfig
+from searchgeo.m25_apdex_experience import ExperienceApdexConfig
+from searchgeo.m25_cli import UX_ENABLED_ENV, configured_experience, register_experience_arguments
+from searchgeo.m25_runtime import set_pending_config
 
 APDEX_ENABLED_ENV = "SEARCHGEO_SYNTHETIC_APDEX"
 APDEX_THRESHOLD_ENV = "SEARCHGEO_APDEX_THRESHOLD_SECONDS"
@@ -26,7 +29,7 @@ MAX_APDEX_CONCURRENCY = 2
 
 
 def register_apdex_arguments(audit_parser: argparse.ArgumentParser) -> None:
-    """Add M23 options without changing any existing option semantics."""
+    """Add M23 options plus the additive M25 calibrated UX options."""
     audit_parser.add_argument(
         "--synthetic-apdex",
         action=argparse.BooleanOptionalAction,
@@ -104,17 +107,23 @@ def register_apdex_arguments(audit_parser: argparse.ArgumentParser) -> None:
             f"{APDEX_CONCURRENCY_ENV}"
         ),
     )
+    register_experience_arguments(audit_parser)
 
 
 def configured_apdex(args: Any, env: dict[str, str] | os._Environ[str] | None = None) -> SyntheticApdexConfig:
     """Resolve M23 config with CLI > environment > safe defaults.
 
-    Inactive tuning variables are deliberately ignored when M23 is OFF so an
-    unrelated stale/malformed value cannot break the existing audit command.
+    M25 is an additive child capability. It is parsed here and handed off as a
+    one-shot process-local config to the M23 execution stage; it cannot be
+    enabled while M23 itself is OFF.
     """
     environment = env if env is not None else os.environ
+    set_pending_config(ExperienceApdexConfig(enabled=False))
     enabled = _configured_bool(getattr(args, "synthetic_apdex", None), APDEX_ENABLED_ENV, False, environment)
+    ux_requested = _configured_bool(getattr(args, "apdex_experience", None), UX_ENABLED_ENV, False, environment)
     if not enabled:
+        if ux_requested:
+            raise ValueError("M25 Synthetic User Experience Apdex exige --synthetic-apdex/M23 habilitado")
         return SyntheticApdexConfig(enabled=False).validate()
 
     threshold = _optional_positive_float(
@@ -167,6 +176,15 @@ def configured_apdex(args: Any, env: dict[str, str] | os._Environ[str] | None = 
     )
     if concurrency > MAX_APDEX_CONCURRENCY:
         raise ValueError(f"Synthetic Apdex concurrency must be <= {MAX_APDEX_CONCURRENCY} to bound origin load")
+
+    experience = configured_experience(
+        args,
+        environment,
+        standard_max_pages=max_pages,
+        standard_delay_seconds=delay,
+        standard_concurrency=concurrency,
+    )
+    set_pending_config(experience)
 
     return SyntheticApdexConfig(
         enabled=True,
