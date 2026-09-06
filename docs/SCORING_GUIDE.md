@@ -1,6 +1,26 @@
 # SCORING_GUIDE.md
 
-Guia operacional do baseline `SCORE-GEO-002`.
+Guia operacional do **SearchGEO Readiness Index `SGRI-001`** e do motor persistido `SCORE-GEO-002`.
+
+## Identidade pública × motor persistido
+
+A nomenclatura pública do índice é:
+
+```text
+SGRI-001 — SearchGEO Readiness Index
+```
+
+O banco continua registrando:
+
+```text
+scoring_version = SCORE-GEO-002
+```
+
+porque esta evolução não alterou a aritmética. Manter o identificador técnico anterior preserva comparação com auditorias já persistidas e evita apresentar uma mudança de UI/metodologia pública como se fosse recalibração matemática.
+
+Quando a fórmula, pesos, fatores, dimensões ou thresholds forem efetivamente alterados, o motor deve receber uma nova versão própria.
+
+Consulte também `SEARCHGEO_READINESS_INDEX.md`.
 
 ## Princípio
 
@@ -10,7 +30,7 @@ O modelo é interno ao SearchGEO e reprodutível a partir das RuleExecutions per
 
 ## Natureza metodológica e validade
 
-`SCORE-GEO-002` deve ser descrito como **índice proprietário, heurístico, determinístico, evidence-backed e reprodutível**.
+`SGRI-001`, calculado atualmente pelo motor `SCORE-GEO-002`, deve ser descrito como **índice proprietário, heurístico, determinístico, evidence-backed e reprodutível**.
 
 O fato de a especificação estar marcada como `APPROVED` significa apenas que ela foi aprovada como baseline normativo interno do projeto. Não significa homologação externa.
 
@@ -28,7 +48,7 @@ Consequentemente:
 - `80/100` não significa `80% de chance de citação`;
 - `90/100` não garante presença em AI Overviews, AI Mode, ChatGPT, Copilot ou outro mecanismo;
 - diferenças pequenas de score não devem ser tratadas como diferenças estatisticamente significativas sem calibração própria;
-- o score não deve ser apresentado como certificação GEO/AEO.
+- o índice não deve ser apresentado como certificação GEO/AEO.
 
 O projeto mantém uma referência específica sobre evidência externa, métricas calibradas e alternativas de evolução em `docs/SCORING_VALIDATION.md`.
 
@@ -239,6 +259,16 @@ Se uma dimensão aplicável necessária está `NOT_CONSOLIDATED`, o Overall não
 
 O Overall é um índice interno de prontidão. Não representa probabilidade calibrada de citação, ranking, tráfego ou conversão.
 
+## Groundability no SGRI-001
+
+Groundability é exposta como **conjunto de sinais**, não como novo subscore. O report destaca separadamente:
+
+- `ANSWERABILITY`;
+- `CITATION_READINESS`;
+- `EVIDENCE_TRUST`.
+
+Não calcular uma média específica nesta versão evita introduzir uma segunda agregação heurística sem validação. Uma versão futura pode criar um subscore somente com fórmula, versão e validação próprias.
+
 ## Structured Data
 
 JSON-LD não é requisito universal para um Overall calculável.
@@ -310,7 +340,7 @@ O SearchGEO diferencia:
 2. **métrica externa calibrada/padronizada** — metodologia quantitativa externa, por exemplo Core Web Vitals, Lighthouse ou métricas NIST/TREC;
 3. **heurística SearchGEO** — peso, fator, threshold ou agregação criados pelo produto.
 
-Uma métrica externa validada para performance web ou Information Retrieval pode fortalecer uma dimensão específica, mas não valida automaticamente o `OVERALL_READINESS` como score GEO universal.
+Uma métrica externa validada para performance web ou Information Retrieval pode fortalecer uma dimensão específica, mas não valida automaticamente o `OVERALL_READINESS`/`SGRI-001` como score GEO universal.
 
 ## Calibração futura
 
@@ -341,4 +371,3 @@ O HTML apenas exibe a projeção; a reprodutibilidade está em `audit.db`.
 O relatório final classifica explicitamente a natureza dos indicadores e separa standards externos, orientação oficial de plataforma, métricas externas definidas, heurísticas SearchGEO, telemetria e saídas de IA. Consulte [INDICATOR_PROVENANCE.md](INDICATOR_PROVENANCE.md).
 
 `references.html#indicator-provenance` reproduz essa fronteira no próprio relatório, com fonte/entidade, link oficial quando aplicável e a parte específica implementada pelo SearchGEO.
-
