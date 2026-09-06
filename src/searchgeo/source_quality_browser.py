@@ -12,6 +12,7 @@ preflight blocker.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import json
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -21,6 +22,9 @@ from searchgeo.source_quality import (
     SourceQualityIssue,
     persist_assessment,
 )
+
+
+SOURCE_QUALITY_PREFLIGHT_ARTIFACT = "artifacts/source-quality-preflight.json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +62,7 @@ def reconcile_source_quality_with_browser(
     browser-representative observation of the same configured URL.
     """
 
+    _persist_preflight_assessment(workspace, assessment)
     observations = _successful_browser_observations(m3_result, persistence)
     by_requested: dict[str, list[BrowserRouteObservation]] = {}
     for item in observations:
@@ -112,6 +117,23 @@ def browser_reconciliation_limitations(
     return tuple(dict.fromkeys(values))
 
 
+def _persist_preflight_assessment(
+    workspace: AuditWorkspace,
+    assessment: SourceQualityAssessment,
+) -> None:
+    """Keep the original M2 evidence after source-quality.json becomes reconciled."""
+
+    path = workspace.root / SOURCE_QUALITY_PREFLIGHT_ARTIFACT
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = assessment.as_dict()
+    payload["role"] = "M2_HTTP_PREFLIGHT_BEFORE_BROWSER_RECONCILIATION"
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
 def _successful_browser_observations(
     m3_result: Any,
     persistence: AuditPersistence,
@@ -157,6 +179,8 @@ def _recovered_issue(
     )
     preflight_route = issue.final_url or "destino não resolvido"
     preflight_error = issue.network_error or issue.classification
+    if issue.network_error_message:
+        preflight_error += f" ({issue.network_error_message})"
     summary = (
         "A aquisição HTTP preliminar observou "
         f"{preflight_route} e terminou em {preflight_error}, mas o Chromium do perfil "
@@ -175,6 +199,8 @@ def _recovered_issue(
         issue,
         final_url=primary.final_url,
         http_status=primary.http_status,
+        network_error=None,
+        network_error_message=None,
         hard_blocker=False,
         severity="WARNING",
         classification="HTTP_BROWSER_ROUTE_DIVERGENCE",
