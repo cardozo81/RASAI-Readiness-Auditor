@@ -62,6 +62,26 @@ Opcionalmente pode registrar surface, market, language, notes e rank observado.
 
 `rank` só é aceito quando `ranking_semantics` também é informado. O M26 não presume que ordem visual, ordem de referências ou posição de citação sejam equivalentes entre engines.
 
+### 3.3 Método de captura/proveniência
+
+`source.capture_method` é obrigatório para qualquer fonte. Valores suportados em `OGV-IMPORT-001`:
+
+```text
+MANUAL_TRANSCRIPTION
+NORMALIZED_EXPORT
+CONTROLLED_PROTOCOL
+EXTERNAL_AUTOMATION
+```
+
+Semântica:
+
+- `MANUAL_TRANSCRIPTION`: transcrição humana de uma fonte observada;
+- `NORMALIZED_EXPORT`: exportação/arquivo obtido externamente e normalizado para o contrato M26;
+- `CONTROLLED_PROTOCOL`: dataset produzido por protocolo de query-runs controlados;
+- `EXTERNAL_AUTOMATION`: coleta realizada por automação externa ao SearchGEO.
+
+O valor é **proveniência declarada do dataset**. Ele não significa, por si só, que o SearchGEO autenticou, consultou ou coletou diretamente o dado no sistema externo. O report deve deixar essa fronteira explícita.
+
 ## 4. Citation Presence Rate
 
 Para query-runs controlados:
@@ -94,6 +114,7 @@ Exemplo:
   "source": {
     "type": "BING_WEBMASTER_TOOLS_AI_PERFORMANCE",
     "label": "Bing Webmaster Tools AI Performance",
+    "capture_method": "NORMALIZED_EXPORT",
     "period_start": "2026-08-01",
     "period_end": "2026-08-31",
     "market": "BR",
@@ -156,6 +177,7 @@ Persistem-se:
 - SHA-256 completo;
 - caminho relativo do artifact;
 - source type/label;
+- `capture_method`;
 - período;
 - market/language;
 - metadata fornecida;
@@ -199,7 +221,9 @@ A página deve separar visualmente, por dataset/período:
 - tendência importada;
 - query-runs controlados;
 - Citation Presence Rate + n + Wilson 95%, quando calculável;
-- artifact, SHA-256, período e fonte.
+- artifact, SHA-256, período, fonte e método de captura.
+
+O report deve distinguir **fonte declarada** de **método de captura** e não pode sugerir coleta autenticada pelo SearchGEO quando o dataset foi transcrito, exportado ou produzido externamente.
 
 Não existe agregação global que combine fontes diferentes em um único score.
 
@@ -231,6 +255,7 @@ O M26 não deve afirmar:
 - que Total Citations representa ranking/autoridade;
 - que uma citação prova qualidade, causalidade ou preferência do engine;
 - que Bing AI Performance possui API oficial enquanto isso não estiver documentado publicamente;
+- que um `capture_method` prova coleta autenticada pelo SearchGEO;
 - que resultados de uma engine são universalmente transferíveis para outra.
 
 ## 12. Evolução futura
@@ -242,12 +267,13 @@ Uma futura calibração do readiness contra outcomes M26 deve usar dataset longi
 ## 13. Critérios de aceite
 
 - import JSON validado e same-origin;
+- `source.capture_method` obrigatório e validado;
 - artifact preservado com SHA-256;
 - reimport idempotente;
 - source-reported metrics não reinterpretadas;
 - query-runs inválidos excluídos do Citation Presence Rate;
 - Wilson 95% reproduzível;
-- report dedicado gerado;
+- report dedicado gerado com proveniência explícita;
 - zero alteração em SGRI/SCORE-GEO;
 - zero chamada de rede causada pelo M26;
 - `searchgeo audit` preserva comportamento anterior;
