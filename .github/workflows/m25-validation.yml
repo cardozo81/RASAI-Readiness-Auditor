@@ -1,0 +1,44 @@
+name: M25 calibrated synthetic UX validation
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install package and tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Compile M23/M25 surface
+        run: |
+          python -m compileall -q \
+            src/searchgeo/m23_cli.py \
+            src/searchgeo/m23_lighthouse_traceability.py \
+            src/searchgeo/m25_apdex_experience.py \
+            src/searchgeo/m25_cli.py \
+            src/searchgeo/m25_dynatrace.py \
+            src/searchgeo/m25_persistence.py \
+            src/searchgeo/m25_reporting.py \
+            src/searchgeo/m25_runtime.py
+      - name: M25 directed tests
+        run: python -m pytest -q tests/test_m25_synthetic_user_experience.py
+      - name: M23 regression
+        run: python -m pytest -q tests/test_m23_integration.py
+      - name: Full regression suite
+        run: python -m pytest -q
