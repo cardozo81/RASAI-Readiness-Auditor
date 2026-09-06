@@ -1,0 +1,33 @@
+name: Temporary final PR merge validation
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  full-merge-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm merge checkout
+        run: |
+          echo "HEAD=$(git rev-parse HEAD)"
+          echo "parents=$(git rev-list --parents -n 1 HEAD)"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install package and tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Compile package
+        run: python -m compileall -q src/searchgeo
+      - name: Full merged regression suite
+        run: python -m pytest -q
