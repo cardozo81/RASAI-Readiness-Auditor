@@ -103,9 +103,10 @@ CONFIGURAÇÃO AVANÇADA — VARIÁVEIS DE AMBIENTE
 2. IA — credenciais
 3. IA — modelos e reasoning
 4. IA — endpoints avançados
-5. Web Performance / Google APIs
-6. Synthetic Apdex
-7. Browser / Playwright
+5. IA — contexto editorial / YMYL
+6. Web Performance / Google APIs
+7. Synthetic Apdex
+8. Browser / Playwright
 
 A. Todas as variáveis
 D. Abrir documentação detalhada
@@ -129,6 +130,33 @@ Como obter/referência
 Observações
 ```
 
+### Contexto editorial / YMYL
+
+O grupo `5. IA — contexto editorial / YMYL` contém:
+
+```text
+SEARCHGEO_CONTENT_RISK_PROFILE
+SEARCHGEO_YMYL_CATEGORY
+SEARCHGEO_PAGE_PURPOSE
+SEARCHGEO_INTENDED_AUDIENCE
+SEARCHGEO_EXPERIENCE_REQUIREMENT
+SEARCHGEO_FRESHNESS_SENSITIVITY
+SEARCHGEO_CONTENT_ORIGIN
+```
+
+Esses parâmetros **não habilitam IA nem criam custo externo por si só**. Eles condicionam uma chamada de IA que já seria executada para que a avaliação não use a mesma régua editorial em qualquer página.
+
+Todos usam `auto` por default. Nesse estado a classificação é somente provisória. Para um site claramente YMYL, configure explicitamente o perfil/categoria e os demais campos que você conhece com segurança.
+
+O editor bloqueia combinações contraditórias, por exemplo:
+
+```text
+risk_profile=standard + ymyl_category=financial-security
+risk_profile=ymyl + ymyl_category=none
+```
+
+A referência conceitual e operacional está em [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md).
+
 ### Defaults na tela
 
 Quando a variável está ausente, mas existe um default seguro do produto, o console exibe por exemplo:
@@ -136,6 +164,7 @@ Quando a variável está ausente, mas existe um default seguro do produto, o con
 ```text
 SEARCHGEO_DEVICE_CONTEXT              <default efetivo: mobile>
 SEARCHGEO_AI_TIMEOUT_SECONDS           <default efetivo: 180>
+SEARCHGEO_CONTENT_RISK_PROFILE         <default efetivo: auto>
 SEARCHGEO_WEB_PERFORMANCE              <default efetivo: false>
 SEARCHGEO_OPENAI_MODEL                 <default efetivo: gpt-5.6-luna>
 ```
@@ -149,6 +178,9 @@ Enums e booleanos são configurados por lista guiada. Exemplos:
 ```text
 SEARCHGEO_DEVICE_CONTEXT
   mobile | desktop | both
+
+SEARCHGEO_CONTENT_RISK_PROFILE
+  auto | standard | ymyl
 
 SEARCHGEO_WEB_PERFORMANCE_FIELD_SOURCE
   auto | pagespeed | crux | none
@@ -165,6 +197,7 @@ O editor recusa antes da execução, entre outros casos:
 
 - `SEARCHGEO_CONFIG` apontando para arquivo inexistente;
 - `SEARCHGEO_LOG_LEVEL` fora do domínio aceito;
+- contexto editorial/YMYL fora do domínio ou com combinação contraditória;
 - categoria Lighthouse desconhecida ou duplicada;
 - endpoint avançado que não seja URL HTTP(S) absoluta;
 - modelo/reasoning fora do domínio do provider;
@@ -265,6 +298,8 @@ INDISPONÍVEL [REQUER IA CONFIGURADA E ATIVA NO ITEM 4]
 
 A remediação é advisory/evidence-bound, pode gerar chamadas adicionais e não altera automaticamente Score, Coverage, Confidence, RuleExecution ou Finding.
 
+Quando executada, os reports expõem provider, modelo, reasoning, duração, tokens e custo estimado quando existe base confiável, além do contexto editorial/YMYL usado. Custo indisponível não é substituído por estimativa arbitrária.
+
 ## Opção 6 — Web Performance
 
 Configura PageSpeed/Lighthouse e dados de campo CrUX. O console permite definir habilitação, field source e timeout por URL.
@@ -339,6 +374,7 @@ Fonte configurada que falhou por timeout, quota, HTTP, ausência de artifact ou 
 
 ## Leituras relacionadas
 
+- [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md)
 - [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
 - [CONFIGURATION.md](CONFIGURATION.md)
 - [CLI_REFERENCE.md](CLI_REFERENCE.md)
