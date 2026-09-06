@@ -1,6 +1,6 @@
 # SearchGEO Readiness Auditor
 
-Auditor local de **Search/GEO Readiness** com evidência persistida, scoring reproduzível, análise semântica opcional por IA, remediação textual advisory, diagnóstico de crawling/discovery, Acessibilidade, Web Performance/Lighthouse/CrUX e Synthetic Navigation Apdex.
+Auditor local de **Search/GEO Readiness** com evidência persistida, scoring reproduzível, análise semântica opcional por IA, remediação textual advisory, diagnóstico de crawling/discovery, Acessibilidade, Web Performance/Lighthouse/CrUX, Apdex sintético e outcomes observados de AI Search importáveis.
 
 O produto avalia sinais técnicos e semânticos úteis para Search e sistemas generativos sem prometer ranking, tráfego, citação ou presença em respostas de IA.
 
@@ -19,11 +19,19 @@ Capacidades integradas:
 - **M24 Crawling, Discovery & AI Access** com diagnóstico determinístico de `robots.txt`, crawlers, sitemaps, discovery, `llms.txt` experimental e remediação técnica opcional por IA;
 - PageSpeed/Lighthouse e Core Web Vitals/CrUX como domínio separado;
 - Acessibilidade automatizada projetada separadamente a partir do artifact Lighthouse;
-- Synthetic Navigation Apdex em Chromium, separado de Lighthouse/CrUX e do SGRI;
+- **M23 Synthetic Navigation Apdex** em Chromium, separado de Lighthouse/CrUX e do SGRI;
+- **M25 Synthetic User Experience Apdex** calibrável, com população Mobile/Desktop/Tablet, separado do M23 e explicitamente não-RUM;
 - relatórios históricos/consolidados offline sobre múltiplos `AUD-*`, com índice analítico reconstruível e snapshots HTML estáticos;
 - console interativo com preflight, progresso, custo/quota, timeouts, persistência de configuração e abertura de artifacts.
 
-> O `SGRI-001` é um índice proprietário, evidence-based e reprodutível do SearchGEO. Enquanto a aritmética não mudar, o banco preserva `SCORE-GEO-002` como versão do motor de cálculo. Lighthouse, Core Web Vitals, Acessibilidade automatizada, Apdex e diagnósticos M24 possuem metodologias/domínios próprios e não são convertidos silenciosamente no SGRI.
+Em implementação no M26, sem alterar scoring:
+
+- **Observed Generative Visibility** import-first, com outcomes observados por fonte/período em `report/ai-visibility.html`;
+- suporte inicial ao contrato `OGV-IMPORT-001` para Bing Webmaster Tools AI Performance normalizado e query-runs controlados;
+- preservação do artifact por SHA-256, validação same-origin e Citation Presence Rate somente sobre runs válidos;
+- nenhuma coleta automática por scraping e nenhum endpoint de AI Performance presumido quando não houver API pública documentada.
+
+> O `SGRI-001` é um índice proprietário, evidence-based e reprodutível do SearchGEO. Enquanto a aritmética não mudar, o banco preserva `SCORE-GEO-002` como versão do motor de cálculo. Lighthouse, Core Web Vitals, Acessibilidade automatizada, M23/M25 Apdex, diagnósticos M24 e outcomes M26 possuem metodologias/domínios próprios e não são convertidos silenciosamente no SGRI.
 
 ## Instalação rápida — Windows
 
@@ -52,10 +60,11 @@ Compatibilidade principal:
 | Windows + PowerShell/CMD | alvo operacional principal |
 | CPython 3.13.x | obrigatório; `>=3.13,<3.14` |
 | Playwright | obrigatório |
-| Chromium | obrigatório para rendering e Synthetic Apdex |
+| Chromium | obrigatório para rendering e Apdex sintético |
 | SQLite | local/embarcado |
 | IA externa | opcional |
 | PageSpeed/CrUX | opcional |
+| M26 Observed Visibility | import local; sem credencial externa nesta versão |
 
 Detalhes do bootstrap e fallback manual: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
@@ -73,7 +82,7 @@ Quando o ambiente já estiver preparado/ativado, o entrypoint direto permanece:
 searchgeo-console
 ```
 
-O console executa a mesma superfície funcional principal da CLI e adiciona configuração guiada.
+O console executa a mesma superfície funcional principal da auditoria e adiciona configuração guiada.
 
 Menu principal:
 
@@ -100,7 +109,9 @@ Q. Sair
 
 A opção `C` é independente do pipeline de auditoria: lê `AUD-*/audit.db` em modo somente leitura, atualiza um índice analítico derivado/reconstruível e gera snapshots HTML estáticos sem acessar APIs. Veja [docs/CONSOLIDATED_REPORTING.md](docs/CONSOLIDATED_REPORTING.md).
 
-A opção `E` não exibe mais uma lista plana. Ela agrupa as variáveis por **Aplicação**, **Credenciais IA**, **Modelos/reasoning**, **Endpoints avançados**, **Web Performance/Google**, **Synthetic Apdex** e **Browser/Playwright**. Cada variável mostra finalidade, domínio aceito, default efetivo, dependências, custo/impacto e referência; `D` abre diretamente a documentação detalhada. Veja [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md).
+A opção `E` agrupa as variáveis por domínios funcionais. Cada variável mostra finalidade, domínio aceito, default efetivo, dependências, custo/impacto e referência; `D` abre diretamente a documentação detalhada. Veja [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md).
+
+M26 Observed Generative Visibility é inicialmente uma superfície CLI/import-first separada; não é uma coleta automática executada pelo menu de auditoria.
 
 ### Configuração persistente
 
@@ -208,7 +219,7 @@ Equivalente por ambiente:
 SEARCHGEO_AI_TECHNICAL_REMEDIATION=true
 ```
 
-Default: OFF. Essa finalidade não altera Score, Coverage, Confidence, Consolidation ou `SGRI-001`; sugestões exigem revisão humana. Nesta versão, o controle M24 técnico é superfície CLI/ambiente e não deve ser presumido como parâmetro persistido no INI do console.
+Default: OFF. Essa finalidade não altera Score, Coverage, Confidence, Consolidation ou `SGRI-001`; sugestões exigem revisão humana.
 
 ## Credenciais
 
@@ -229,6 +240,8 @@ SEARCHGEO_CRUX_API_KEY
 Credencial configurada não garante saldo, quota, plano ou acesso ao modelo. O passo a passo para obtenção de cada chave está em [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md); PageSpeed e CrUX possuem orientação adicional em [docs/GOOGLE_API_KEYS.md](docs/GOOGLE_API_KEYS.md).
 
 MiMo PAYG usa credencial `sk-...` no adapter atual. Token Plan `tp-...` pertence a produto/endpoint diferente.
+
+M26 não exige credencial externa na implementação import-first; ele lê um JSON local normalizado.
 
 ## Crawling, Discovery & AI Access — M24
 
@@ -285,7 +298,7 @@ Quando PageSpeed falha, o relatório preserva a causa real (`timeout`, HTTP, quo
 
 O report nunca converte ausência de dado em resultado fictício do website.
 
-## Synthetic Navigation Apdex
+## Synthetic Navigation Apdex — M23
 
 Exemplo de smoke controlado:
 
@@ -327,6 +340,70 @@ Grupos com menos de 100 amostras válidas são diagnóstico small-group e recebe
 
 Synthetic Apdex não usa LLM nem chama PageSpeed/CrUX, mas gera navegações reais e tráfego HTTP contra o alvo.
 
+## Synthetic User Experience Apdex — M25
+
+M25 adiciona um domínio Apdex calibrável para user-action telemetry sintética. Pode usar população explícita Mobile/Desktop/Tablet, session mode, KPM temporal, thresholds e política de erros configurados ou importados.
+
+Exemplo manual:
+
+```powershell
+searchgeo audit https://example.com `
+  --apdex-experience `
+  --apdex-experience-device-mix mobile=60,desktop=35,tablet=5 `
+  --apdex-experience-satisfied-seconds 1.5 `
+  --apdex-experience-frustrated-seconds 6
+```
+
+Também pode alinhar parâmetros com configuração Dynatrace quando explicitamente configurado. Mesmo calibrado, o resultado continua **sintético e não-RUM**.
+
+Página canônica:
+
+```text
+report/apdex-experience.html
+```
+
+Detalhes: [docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md](docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md).
+
+## Observed Generative Visibility — M26
+
+M26 mede **outcomes observados/importados**, não readiness. Ele atua depois que já existe um `AUD-*` e não chama mecanismos de busca por conta própria.
+
+Importação:
+
+```powershell
+searchgeo visibility import `
+  --audit-id AUD-... `
+  --audits-root audits `
+  --file observed-visibility.json
+```
+
+Regeneração do report:
+
+```powershell
+searchgeo visibility report `
+  --audit-id AUD-... `
+  --audits-root audits
+```
+
+O contrato inicial é `OGV-IMPORT-001`. O arquivo é preservado em `artifacts/m26/` com SHA-256 e as URLs devem pertencer ao origin da auditoria.
+
+Para query-runs controlados:
+
+```text
+Citation Presence Rate
+= runs VALID com citação / total de runs VALID
+```
+
+O relatório mostra o tamanho amostral e intervalo Wilson 95% quando calculável. A taxa não é previsão de citação futura e não recalibra o SGRI.
+
+Página canônica:
+
+```text
+report/ai-visibility.html
+```
+
+Detalhes: [docs/specification/26_OBSERVED_GENERATIVE_VISIBILITY.md](docs/specification/26_OBSERVED_GENERATIVE_VISIBILITY.md).
+
 ## Execução rápida
 
 ### Mobile, sem IA e sem integrações externas
@@ -364,6 +441,7 @@ searchgeo audit `
 audits/<AUD-ID>/
 ├─ audit.db
 ├─ artifacts/
+│  └─ m26/                    # quando houver import M26
 ├─ logs/
 │  └─ audit.log
 └─ report/
@@ -376,7 +454,9 @@ audits/<AUD-ID>/
    ├─ crawling-discovery.html  # M24
    ├─ accessibility.html       # quando materializado
    ├─ web-performance.html
-   ├─ apdex.html               # quando habilitado/materializado
+   ├─ apdex.html               # M23, quando habilitado/materializado
+   ├─ apdex-experience.html    # M25, quando habilitado/materializado
+   ├─ ai-visibility.html       # M26, após import/report
    ├─ ai-usage.html
    ├─ references.html
    └─ css/site.css
@@ -389,6 +469,10 @@ audits/<AUD-ID>/
 `searchgeo.html` é a página exclusiva dos indicadores agregados SearchGEO. Mobile/Desktop não repetem Overall, dimensões, Coverage, Confidence ou Consolidation.
 
 `crawling-discovery.html` é a página exclusiva do domínio M24 e não recalcula o SGRI.
+
+`apdex-experience.html` é o domínio M25 e permanece separado do M23 Standard.
+
+`ai-visibility.html` é o domínio observacional M26. **Readiness e visibilidade observada não são fundidos em um score comum.**
 
 Os relatórios históricos usam uma área separada e não escrevem nos workspaces `AUD-*`:
 
@@ -417,7 +501,8 @@ A página inicial inclui **Configuração × resultado obtido** quando essa proj
 - não trate key configurada como prova de saldo/quota;
 - M24 não segue automaticamente sitemap cross-origin declarado sem política segura de aquisição/autorização;
 - remediação técnica M24 não deve automatizar policy de crawler/treinamento sem decisão humana;
-- não execute Synthetic Apdex em volume relevante contra produção sem autorização.
+- não execute M23/M25 Apdex em volume relevante contra produção sem autorização;
+- M26 rejeita URLs cross-origin e não faz scraping de portal de webmaster.
 
 ## Identificadores internos históricos
 
@@ -436,7 +521,11 @@ Nomes internos de módulos, tabelas, eventos e documentos normativos podem mante
 - [docs/AI_GUIDE.md](docs/AI_GUIDE.md)
 - [docs/GOOGLE_API_KEYS.md](docs/GOOGLE_API_KEYS.md)
 - [docs/REPORT_GUIDE.md](docs/REPORT_GUIDE.md)
+- [docs/OUTPUTS_AND_ARTIFACTS.md](docs/OUTPUTS_AND_ARTIFACTS.md)
 - [docs/SEARCHGEO_READINESS_INDEX.md](docs/SEARCHGEO_READINESS_INDEX.md)
 - [docs/SCORING_GUIDE.md](docs/SCORING_GUIDE.md)
+- [docs/SCORING_VALIDATION.md](docs/SCORING_VALIDATION.md)
 - [docs/INDICATOR_PROVENANCE.md](docs/INDICATOR_PROVENANCE.md)
 - [docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md)
+- [docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md](docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md)
+- [docs/specification/26_OBSERVED_GENERATIVE_VISIBILITY.md](docs/specification/26_OBSERVED_GENERATIVE_VISIBILITY.md)
