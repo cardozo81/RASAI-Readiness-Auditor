@@ -206,7 +206,8 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
                 ).fetchone()[0]
             finally:
                 connection.close()
-            self.assertEqual(population, (0.625, 2, 1, 1, 1))
+            # 500ms S, 2000ms+JS error F, 700ms S, 3000ms F => Apdex 0.5.
+            self.assertEqual(population, (0.5, 2, 0, 2, 1))
             self.assertEqual(tablet, 1)
             self.assertNotIn("DYNATRACE_API_TOKEN", stored_config)
             report = workspace.root / "report" / "apdex-experience.html"
