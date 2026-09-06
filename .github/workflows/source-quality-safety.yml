@@ -12,6 +12,7 @@ on:
       - 'src/searchgeo/source_quality_ai.py'
       - 'src/searchgeo/source_quality_browser.py'
       - 'src/searchgeo/source_quality_report_summary.py'
+      - 'src/searchgeo/external_metrics_integrity.py'
       - 'src/searchgeo/browser_identity_renderer.py'
       - 'src/searchgeo/m3.py'
       - 'src/searchgeo/m23_apdex_profiles.py'
@@ -19,6 +20,7 @@ on:
       - 'src/searchgeo/cli_extensions.py'
       - 'src/searchgeo/console_runtime.py'
       - 'tests/test_source_quality*.py'
+      - 'tests/test_external_metrics_integrity.py'
       - 'docs/SOURCE_QUALITY_AND_REDIRECTS.md'
       - '.github/workflows/source-quality-safety.yml'
 
@@ -52,6 +54,7 @@ jobs:
             src/searchgeo/source_quality_ai.py \
             src/searchgeo/source_quality_browser.py \
             src/searchgeo/source_quality_report_summary.py \
+            src/searchgeo/external_metrics_integrity.py \
             src/searchgeo/browser_identity_renderer.py \
             src/searchgeo/m3.py \
             src/searchgeo/m23_apdex_profiles.py \
@@ -61,7 +64,7 @@ jobs:
 
       - name: Source-quality regression tests
         run: |
-          python -m pytest -q tests/test_source_quality*.py
+          python -m pytest -q tests/test_source_quality*.py tests/test_external_metrics_integrity.py
 
       - name: Directly affected subsystem regressions
         run: |
