@@ -17,6 +17,7 @@ audits/<AUD-ID>/
    ├─ desktop.html             # evidências/findings; condicional
    ├─ remediation.html
    ├─ content-suggestions.html
+   ├─ crawling-discovery.html  # M24
    ├─ accessibility.html       # quando materializado
    ├─ web-performance.html
    ├─ apdex.html               # quando habilitado/materializado
@@ -60,6 +61,16 @@ content_remediation_attempts
 content_remediation_suggestions
 provider_pricing_catalog
 ```
+
+### M24 — crawling/discovery
+
+```text
+m24_runs
+m24_diagnostics
+m24_ai_results
+```
+
+Essas tabelas são aditivas. Diagnósticos M24 registram `scoring_impact=NONE` e não substituem `rule_executions`, `findings` ou `scores`.
 
 ### Web Performance
 
@@ -128,6 +139,24 @@ Exemplos:
 ```
 
 Se PageSpeed falhar por timeout/HTTP/quota, não existe artifact Lighthouse correspondente. O banco/log preserva a falha e o report explica quais métricas ficaram indisponíveis.
+
+## Artifacts M24
+
+M24 pode gravar artifacts próprios em:
+
+```text
+artifacts/m24/
+```
+
+Quando `/llms.txt` same-origin é obtido com sucesso:
+
+```text
+artifacts/m24/llms.txt
+```
+
+Quando a remediação técnica por IA M24 é habilitada e existe saída persistível, o artifact correspondente permanece nesse domínio M24 e sua telemetria é separada da qualidade do website.
+
+A ausência de `llms.txt` não cria artifact e não reduz score/readiness.
 
 ## Acessibilidade
 
@@ -211,6 +240,12 @@ Findings agrupados e recomendações.
 
 Sugestões textuais e JSON-LD advisory.
 
+### `crawling-discovery.html`
+
+Página canônica do M24 para robots/crawler policy, sitemaps, discovery, `llms.txt`, feeds, IndexNow não determinável sem evidência explícita e remediação técnica opcional por IA.
+
+Essa página é não-scoring: seus diagnósticos não recalculam `SCORE-GEO-002`/`SGRI-001` e devem distinguir standards/guidance externos de decisões metodológicas internas.
+
 ### `accessibility.html`
 
 Evidência Lighthouse de acessibilidade quando disponível e causa da indisponibilidade quando não disponível. WCAG continua standard externo; a automação não é certificação integral.
@@ -225,7 +260,7 @@ Synthetic Navigation Apdex.
 
 ### `ai-usage.html`
 
-Provider/modelo, tentativas, tokens, reasoning e custo estimado quando persistidos.
+Provider/modelo, tentativas, tokens, reasoning e custo estimado quando persistidos. A finalidade M24 deve permanecer identificável separadamente da análise semântica e da remediação textual M20.
 
 ### `references.html`
 
@@ -251,11 +286,12 @@ Deve permitir rastrear, sem secrets:
 
 - início/fim de etapas;
 - tentativa de provider;
+- M24 crawling/discovery e eventuais falhas fail-open;
 - PageSpeed/CrUX;
 - timeout/HTTP/quota;
 - progresso Synthetic Apdex;
 - falhas fail-open;
-- geração de reports, incluindo a projeção `SGRI-001`.
+- geração de reports, incluindo as projeções `SGRI-001` e M24.
 
 A consolidação não grava eventos em `AUD-*/logs/audit.log`; sua rastreabilidade fica no `manifest.json` do próprio `CONS-*`.
 
@@ -265,4 +301,5 @@ A consolidação não grava eventos em `AUD-*/logs/audit.log`; sua rastreabilida
 - o arquivo `searchgeo-console.ini` também não armazena secrets;
 - request IDs e diagnósticos devem ser sanitizados;
 - custo estimado não é invoice;
+- sitemap cross-origin declarado é evidência, mas M24 não faz fetch externo automático sem uma política de aquisição segura;
 - o consolidador não escreve em `AUD-*/audit.db` e não faz chamadas externas.
