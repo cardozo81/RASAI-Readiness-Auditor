@@ -19,6 +19,7 @@ jobs:
         run: |
           python .github/tmp_apply_ai_retry_observability.py
           python .github/tmp_fix_ai_retry_regressions.py
+          python .github/tmp_fix_ai_cost_level_expectations.py
       - name: Install project test dependencies
         run: |
           python -m pip install --upgrade pip
