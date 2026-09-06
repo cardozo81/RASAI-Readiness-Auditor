@@ -8,6 +8,10 @@ from typing import Sequence
 
 from searchgeo import cli as _legacy_cli
 from searchgeo import m20 as _m20
+from searchgeo.external_metrics_integrity import (
+    enrich_external_metrics_integrity_report_site,
+    reconcile_external_metrics_integrity,
+)
 from searchgeo.m23_apdex import M23ExecutionResult, execute_m23_apdex
 from searchgeo.m23_cli import SyntheticApdexConfig, configured_apdex, register_apdex_arguments
 from searchgeo.m23_lighthouse_traceability import extract_lighthouse_execution_profiles
@@ -206,6 +210,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             try:
                 result = original_execute_m21(*args, **kwargs)
+                if audit_id is not None and workspace is not None:
+                    result = reconcile_external_metrics_integrity(
+                        audit_id=audit_id,
+                        workspace=workspace,
+                        result=result,
+                    )
             except Exception:
                 if audit_id is not None and workspace is not None:
                     run_m23_once(audit_id=audit_id, workspace=workspace)
@@ -249,6 +259,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                 try_append_operational_event(
                     workspace,
                     "REPORT_CONSISTENCY_FAILURE",
+                    level="WARNING",
+                    audit_id=audit_id,
+                    error_type=type(exc).__name__,
+                    error_message=str(exc)[:512],
+                )
+            try:
+                enrich_external_metrics_integrity_report_site(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                )
+            except Exception as exc:
+                try_append_operational_event(
+                    workspace,
+                    "EXTERNAL_METRICS_INTEGRITY_REPORT_FAILURE",
                     level="WARNING",
                     audit_id=audit_id,
                     error_type=type(exc).__name__,
