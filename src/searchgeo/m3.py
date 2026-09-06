@@ -90,8 +90,23 @@ def execute_m3(
             per_device: dict[DeviceContext, str] = {}
             per_device_visual: dict[DeviceContext, str | None] = {}
             for device in devices:
+                preflight_navigation_trace = [
+                    {
+                        "url": hop.source_url,
+                        "status": hop.status,
+                        "location": hop.location,
+                    }
+                    for hop in acquisition.redirects
+                ]
                 try:
-                    render_result = session_renderer.render(url, device)
+                    if isinstance(session_renderer, BrowserIdentityRenderer):
+                        render_result = session_renderer.render(
+                            url,
+                            device,
+                            preflight_navigation_trace=preflight_navigation_trace,
+                        )
+                    else:
+                        render_result = session_renderer.render(url, device)
                 except Exception:
                     render_result = _unexpected_failure(url, device)
 
@@ -117,6 +132,15 @@ def execute_m3(
                     "final_url": acquisition.final_url,
                     "status": acquisition.status,
                     "redirect_count": len(acquisition.redirects),
+                    "redirects": [
+                        {
+                            "status": hop.status,
+                            "source_url": hop.source_url,
+                            "location": hop.location,
+                            "target_url": hop.target_url,
+                        }
+                        for hop in acquisition.redirects
+                    ],
                     "network_error": acquisition.network_error.kind.value if acquisition.network_error else None,
                 }
                 browser_metadata["render_succeeded"] = render_result.succeeded

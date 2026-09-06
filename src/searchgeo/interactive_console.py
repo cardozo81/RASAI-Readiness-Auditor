@@ -91,10 +91,10 @@ def _select(state: State, title: str, options: list[tuple[str, bool, str]]) -> s
         print(f" {index}. {value:<18} [{marker}] {reason_text}")
         if available:
             allowed[str(index)] = value
-    print(" 0. cancelar")
+    print("\n V. Voltar")
     while True:
-        raw = input("Escolha: ").strip()
-        if raw == "0":
+        raw = input("Escolha: ").strip().upper()
+        if raw == "V":
             return None
         if raw in allowed:
             return allowed[raw]
@@ -217,7 +217,13 @@ def _environment_menu(state: State) -> None:
             else:
                 shown = paint(value, CYAN)
             print(f"{index:2d}. {name:<44} {shown}")
-        action = input("\nS=setar/alterar sessão | R=remover da sessão | P=persistir/remover credencial no Windows | H=ajuda/custo | V=voltar: ").strip().upper()
+        print("\nAÇÕES")
+        print("S. Setar/alterar sessão")
+        print("R. Remover da sessão")
+        print("P. Persistir/remover credencial no Windows")
+        print("H. Ajuda / custo")
+        print("V. Voltar")
+        action = input("Escolha: ").strip().upper()
         if action == "V":
             return
         if action == "H":
@@ -527,14 +533,14 @@ def _post_run_actions(state: State) -> bool:
         print("\nAÇÕES DA AUDITORIA DESTA SESSÃO")
         print(f" P. Abrir pasta da auditoria [{availability_badge(bool(workspace))}]")
         print(f" I. Abrir relatório HTML   [{availability_badge(bool(report))}]")
-        print(" M. Voltar ao menu")
+        print(" V. Voltar ao menu")
         print(" Q. Sair")
         choice = input("Escolha: ").strip().upper()
         if choice == "Q":
             if _confirm_exit(state):
                 return True
             continue
-        if choice == "M": return False
+        if choice == "V": return False
         if choice == "P" and workspace: _artifact_action(state, "P")
         elif choice == "I" and report: _artifact_action(state, "I")
         elif choice in {"P", "I"}: state.error = "artefato ainda não disponível para esta auditoria"

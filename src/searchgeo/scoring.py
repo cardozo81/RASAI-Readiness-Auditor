@@ -101,11 +101,20 @@ class ScoringEngine:
     is observed) participates normally in score, coverage and consolidation.
     """
 
-    def score(self, *, audit_id: str, executions: Iterable[RuleExecution]) -> ScoringResult:
+    def score(
+        self,
+        *,
+        audit_id: str,
+        executions: Iterable[RuleExecution],
+        devices: Iterable[DeviceContext] | None = None,
+    ) -> ScoringResult:
         execution_list = tuple(executions)
+        selected_devices = tuple(dict.fromkeys(devices or (DeviceContext.DESKTOP, DeviceContext.MOBILE)))
+        if not selected_devices:
+            raise ValueError("scoring requires at least one device")
         scores: list[Score] = []
         contributions: list[ScoreContribution] = []
-        for device in (DeviceContext.DESKTOP, DeviceContext.MOBILE):
+        for device in selected_devices:
             for dimension in DIMENSIONS:
                 dimension_executions = tuple(
                     execution
@@ -124,7 +133,7 @@ class ScoringEngine:
 
         overall = {
             device: self._overall(audit_id, device, tuple(score for score in scores if score.device is device))
-            for device in (DeviceContext.DESKTOP, DeviceContext.MOBILE)
+            for device in selected_devices
         }
         return ScoringResult(tuple(scores), tuple(contributions), overall)
 

@@ -36,7 +36,14 @@ def execute_m9(
         executions.append(execution)
 
     engine = ScoringEngine()
-    calculated = engine.score(audit_id=audit_id, executions=executions)
+    active_devices = tuple(dict.fromkeys(
+        execution.device for execution in executions if execution.device is not None
+    ))
+    calculated = engine.score(
+        audit_id=audit_id,
+        executions=executions,
+        devices=active_devices or None,
+    )
     score_ids: list[str] = []
     contribution_ids: list[str] = []
     with ScoringPersistence(workspace) as scoring:
@@ -91,7 +98,11 @@ def _reproducibility_check(
     original: ScoringResult,
     scoring: ScoringPersistence,
 ) -> dict[str, object]:
-    recalculated = ScoringEngine().score(audit_id=audit_id, executions=executions)
+    recalculated = ScoringEngine().score(
+        audit_id=audit_id,
+        executions=executions,
+        devices=tuple(original.overall_by_device),
+    )
     expected = {
         (score.dimension, score.device.value): (
             score.value, score.coverage, score.confidence.value,

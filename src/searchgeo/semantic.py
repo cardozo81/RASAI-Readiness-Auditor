@@ -495,11 +495,26 @@ def _observed_value(value: Any) -> dict[str, Any]:
     }
 
 
+def _decode_json_text(text: str) -> Any:
+    candidate = text.strip().lstrip("\ufeff")
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError as first_error:
+        lines = candidate.splitlines()
+        if len(lines) < 3:
+            raise first_error
+        opening = lines[0].strip().casefold()
+        closing = lines[-1].strip()
+        if opening not in {"```", "```json"} or closing != "```":
+            raise first_error
+        return json.loads("\n".join(lines[1:-1]).strip())
+
+
 def _extract_json_payload(response: dict[str, Any]) -> Any:
     if not isinstance(response, dict):
         raise SemanticProviderError("provider response envelope must be an object")
     if isinstance(response.get("output_text"), str):
-        return json.loads(response["output_text"])
+        return _decode_json_text(response["output_text"])
     for item in response.get("output", []):
         if not isinstance(item, dict):
             continue
@@ -509,7 +524,7 @@ def _extract_json_payload(response: dict[str, Any]) -> Any:
                 and content.get("type") == "output_text"
                 and isinstance(content.get("text"), str)
             ):
-                return json.loads(content["text"])
+                return _decode_json_text(content["text"])
     raise SemanticProviderError("OpenAI response contained no output_text")
 
 
