@@ -42,7 +42,129 @@ Accepted environment values are `true/false`, `1/0`, `yes/no`, `on/off` case-ins
 
 JSON-LD guidance is deterministic and remains available even when textual AI remediation is disabled or no AI provider is configured.
 
-## 3. Trigger contract
+## 3. Editorial analysis context — YMYL / E-E-A-T
+
+The AI layer may receive explicit audit context so semantic assessment and content remediation are not forced into one generic editorial profile.
+
+Supported context fields:
+
+```text
+SEARCHGEO_CONTENT_RISK_PROFILE
+SEARCHGEO_YMYL_CATEGORY
+SEARCHGEO_PAGE_PURPOSE
+SEARCHGEO_INTENDED_AUDIENCE
+SEARCHGEO_EXPERIENCE_REQUIREMENT
+SEARCHGEO_FRESHNESS_SENSITIVITY
+SEARCHGEO_CONTENT_ORIGIN
+```
+
+All fields default to `auto`.
+
+### 3.1 Context semantics
+
+`SEARCHGEO_CONTENT_RISK_PROFILE`:
+
+```text
+auto
+standard
+ymyl
+```
+
+`SEARCHGEO_YMYL_CATEGORY`:
+
+```text
+auto
+none
+health-safety
+financial-security
+civic-societal
+other-significant-welfare
+```
+
+`SEARCHGEO_PAGE_PURPOSE`:
+
+```text
+auto
+informational
+transactional
+product-service
+review-comparison
+news-editorial
+support-documentation
+forum-ugc
+other
+```
+
+`SEARCHGEO_INTENDED_AUDIENCE`:
+
+```text
+auto
+general
+professional
+mixed
+```
+
+`SEARCHGEO_EXPERIENCE_REQUIREMENT`:
+
+```text
+auto
+required
+beneficial
+not-expected
+```
+
+`SEARCHGEO_FRESHNESS_SENSITIVITY`:
+
+```text
+auto
+low
+medium
+high
+```
+
+`SEARCHGEO_CONTENT_ORIGIN`:
+
+```text
+auto
+first-party
+third-party
+user-generated
+mixed
+```
+
+### 3.2 Context safety rules
+
+The context is interpretive input, not a new score and not an official ranking-factor vector.
+
+Mandatory behavior:
+
+1. explicit values are audit context supplied by the operator;
+2. `auto` permits only a provisional working hypothesis from supplied visible/persisted page evidence;
+3. an AUTO inference must not become a persisted fact about credentials, professional review, personal experience, reputation, legal/regulatory compliance, editorial process or other hidden facts;
+4. when an AUTO inference materially changes a conclusion, provider confidence should be lower than an equivalent explicit context;
+5. when `risk_profile=ymyl`, the provider must apply a materially higher trust/evidence bar to claims that can affect health, safety, financial stability/security, civic/societal welfare or comparable significant well-being;
+6. Trust is treated as the central E-E-A-T consideration; Experience, Expertise and Authoritativeness are relevant according to page purpose/topic and must not be required mechanically from every page;
+7. `experience_requirement` distinguishes first-hand experience from subject-matter expertise rather than treating them as interchangeable;
+8. `freshness_sensitivity=high` increases scrutiny of dates, periods and temporal qualifiers, but never permits manufacturing a newer date;
+9. `content_origin` distinguishes content creator/source from hosting publisher when third-party, UGC or mixed content is involved;
+10. language and market are context only and do not prove jurisdictional or regulatory compliance.
+
+Consistency validation:
+
+- `risk_profile=standard` cannot be combined with an explicit YMYL category other than `auto`/`none`;
+- `risk_profile=ymyl` cannot be combined with `ymyl_category=none`.
+
+The effective audit context must be persisted so a reopened report can prove which fields were explicit and which remained AUTO.
+
+Primary conceptual references:
+
+- Google Search Central — Creating helpful, reliable, people-first content: `https://developers.google.com/search/docs/fundamentals/creating-helpful-content`
+- Google Search Quality Rater Guidelines: `https://services.google.com/fh/files/misc/hsw-sqrg.pdf`
+- Google — How AI Overviews in Search work: `https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf`
+
+These sources support the conceptual use of E-E-A-T/YMYL and page-purpose/user-needs analysis. SearchGEO must not describe E-E-A-T itself as a standalone official ranking factor or publish a fabricated E-E-A-T/YMYL probability.
+
+## 4. Trigger contract
 
 Textual M20 must be triggered only by eligible persisted content/semantic findings.
 
@@ -57,7 +179,7 @@ BR-GEO-038..049
 
 Structured-data rules are not sent to the free-form content remediation prompt. JSON-LD guidance is handled separately under the deterministic contract in this specification.
 
-## 4. Evidence boundary
+## 5. Evidence boundary
 
 Each external M20 request is scoped to one persisted page snapshot/device and may contain only:
 
@@ -65,6 +187,7 @@ Each external M20 request is scoped to one persisted page snapshot/device and ma
 - selected device;
 - observed title;
 - bounded persisted main-content artifact;
+- effective editorial analysis context;
 - eligible findings for that page/device;
 - expected condition and observed value of those findings;
 - persisted evidence linked to those findings.
@@ -73,7 +196,7 @@ Provider output must reference an existing supplied `finding_id` and evidence ID
 
 A suggestion with foreign or invented finding/evidence references is contract-invalid and must not be published.
 
-## 5. Exact-text output
+## 6. Exact-text output
 
 Each accepted suggestion contains:
 
@@ -88,7 +211,7 @@ Each accepted suggestion contains:
 
 The system must never write the suggestion back into the audited website.
 
-## 6. People-first and anti-fabrication contract
+## 7. People-first and anti-fabrication contract
 
 Provider instructions must require content that improves real-user usefulness, clarity, completeness or trust.
 
@@ -106,7 +229,7 @@ As a local hardening rule, numeric/date/price-like tokens introduced in proposed
 
 This numeric guard is additive risk containment; it does not prove that every nonnumeric statement is factual. Human review remains mandatory.
 
-## 7. Provider routing
+## 8. Provider routing
 
 M20 reuses the already configured M18 provider universe. It does not introduce separate credentials or model configuration.
 
@@ -124,7 +247,7 @@ Rules:
 
 M20 provider failure is an auditor operational state and is never a website finding.
 
-## 8. Telemetry
+## 9. Telemetry
 
 M20 persists telemetry separately from M18 semantic-analysis attempts so cost by purpose remains auditable.
 
@@ -139,13 +262,17 @@ Minimum telemetry:
 - timestamps/duration;
 - sanitized diagnostic class/status/code/request id;
 - input/cached/output/reasoning/total tokens when reported;
-- locally estimated cost/currency/pricing version;
+- locally estimated cost/currency/pricing version when a supported pricing basis exists;
 - request summary/hash;
 - M20 contract version.
 
 Raw API keys, Authorization headers and unbounded provider error bodies must never be persisted.
 
-## 9. M20 run states
+If a provider/model does not have a trustworthy local pricing basis, the report must display the monetary estimate as unavailable instead of fabricating a cost.
+
+The context variables in section 3 do not create external calls by themselves and therefore do not independently create AI cost.
+
+## 10. M20 run states
 
 Persisted run states include:
 
@@ -161,7 +288,7 @@ DEGRADED
 
 `NOT_CONFIGURED`, `PARTIAL` and `DEGRADED` do not change website scoring.
 
-## 10. JSON-LD guidance when absent
+## 11. JSON-LD guidance when absent
 
 For each actually audited snapshot/device with no persisted JSON-LD artifact, SearchGEO may materialize a conservative Schema.org `WebPage` baseline using only persisted/observed data.
 
@@ -184,7 +311,7 @@ The baseline must not invent FAQ items, reviews, ratings, prices, authors, dates
 
 A generic `WebPage` proposal is not a promise of Google rich-result eligibility.
 
-## 11. JSON-LD guidance when present
+## 12. JSON-LD guidance when present
 
 When persisted JSON-LD exists, M20 does not replace it wholesale. It performs non-destructive generic review and may identify:
 
@@ -197,7 +324,7 @@ When persisted JSON-LD exists, M20 does not replace it wholesale. It performs no
 
 When no generic issue is detected, the report must say that type-specific required/recommended properties still need validation against the applicable feature documentation.
 
-## 12. Structured Data external guidance
+## 13. Structured Data external guidance
 
 M20 must communicate all of the following accurately:
 
@@ -216,7 +343,7 @@ Primary references:
 - Schema.org documentation: `https://schema.org/docs/documents.html`
 - Google Search Central — Optimizing for generative AI features: `https://developers.google.com/search/docs/fundamentals/ai-optimization-guide`
 
-## 13. Report contract
+## 14. Report contract
 
 REPORT-SITE-GEO-001 is extended with:
 
@@ -224,35 +351,52 @@ REPORT-SITE-GEO-001 is extended with:
 <AUD-ID>/report/content-suggestions.html
 ```
 
-The page must show:
+The page must use the same shared report navigation and external stylesheet as the other report pages and must remain visually consistent with the report design system.
+
+It must show only analytically useful information, including:
 
 - M20 enable/status/counts;
+- effective editorial context and whether each field was explicitly configured or remained AUTO;
+- explicit warning when context is partially/totally inferred;
 - exact textual suggestions grouped by page/device/finding;
 - objective, placement, evidence, provider/model and review requirement;
+- compact AI telemetry for this stage: provider/model/reasoning, call count, accumulated duration, tokens and estimated cost when available;
+- shortcut to the full AI telemetry page;
 - JSON-LD proposal when absent;
 - JSON-LD improvement notes when present;
-- explicit advisory/non-scoring language.
+- explicit advisory/non-scoring language;
+- concise official-reference links relevant to the analysis.
 
-The shared report navigation must expose this page.
+Usability requirements:
 
-M20 telemetry must also be visible in `report/ai-usage.html`, clearly separated from M18 semantic-analysis telemetry.
+1. use contextual shortcut links when a page contains multiple analytical sections;
+2. ambiguous metrics or project-specific concepts must have concise tooltip/help text where it reduces interpretation risk;
+3. tooltips/help text must supplement, not replace, an understandable visible label;
+4. detailed telemetry belongs in `ai-usage.html`; the content page should expose only the summary needed for analysis plus a direct shortcut;
+5. references should point to public official/primary sources whenever possible;
+6. no page may imply guaranteed ranking, citation, rich result or regulatory compliance.
 
-## 14. Persistence invariants
+M20 telemetry must also be visible in `report/ai-usage.html`, clearly separated from M18 semantic-analysis telemetry, with attempt-level provider/model/reasoning/status/tokens/cost/duration/error information.
+
+## 15. Persistence invariants
 
 M20 tables are additive to `audit.db` and must preserve reopenability.
 
 Minimum logical entities:
 
 ```text
+ContentAnalysisContext
 ContentRemediationRun
 ContentRemediationSuggestion
 ContentRemediationAttempt
 JsonLdRemediationSuggestion
 ```
 
+`ContentAnalysisContext` must preserve the effective audit-level values, which fields were explicitly configured, which remained AUTO, and whether the source mode was `MANUAL`, `MIXED` or `AUTO`.
+
 Foreign keys must link suggestions to the already persisted audit/page/snapshot/finding universe as applicable.
 
-## 15. Acceptance criteria
+## 16. Acceptance criteria
 
 M20 is complete only when:
 
@@ -264,9 +408,13 @@ M20 is complete only when:
 6. provider failures remain operational, not website findings;
 7. M20 does not alter pre-existing score/findings;
 8. `mobile`, `desktop`, `both` keep correct device scoping;
-9. report site exposes the new page with shared external CSS and no inline style dependency;
-10. AI telemetry distinguishes M18 and M20 purposes;
-11. unit/integration regression suite passes;
-12. real Chromium smoke passes with M20 disabled and with M20 enabled but no provider configured;
-13. documentation/CLI/config glossary are aligned;
-14. temporary validation workflow is removed before merge.
+9. report site exposes the page with shared external CSS/navigation and consistent visual hierarchy;
+10. editorial context is validated, persisted and exposed as configured vs AUTO;
+11. invalid YMYL/context combinations fail before producing misleading output;
+12. M18/M20 provider prompts receive the context without changing the structured semantic output contract;
+13. AI telemetry distinguishes M18 and M20 purposes and does not fabricate monetary cost when pricing basis is unavailable;
+14. report exposes contextual shortcuts/tooltips/reference links without turning the page into a documentation dump;
+15. unit/integration regression suite passes;
+16. real Chromium smoke passes with M20 disabled and with M20 enabled but no provider configured;
+17. documentation/CLI/config glossary are aligned;
+18. temporary validation workflow is removed before merge.
