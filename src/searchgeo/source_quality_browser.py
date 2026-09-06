@@ -7,7 +7,9 @@ after the one Chromium navigation that M3 already needs for the audit.
 
 This module never disables TLS validation and never retries synthetic/page-speed work.
 It only decides whether the normal M3 browser observation disproved an audit-wide
-preflight blocker.
+preflight blocker. When M3 performs the narrowly-scoped same-site HTTPS recovery probe,
+that fact is preserved as a distinct analyst-facing classification rather than hidden as
+a normal redirect.
 """
 from __future__ import annotations
 
@@ -33,6 +35,8 @@ class BrowserRouteObservation:
     final_url: str
     http_status: int | None
     device: str
+    secure_recovery: bool = False
+    recovery_candidate_url: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,7 +63,8 @@ def reconcile_source_quality_with_browser(
     A page is recovered only when at least one configured Chromium context produced a
     rendered document and did not finish with an HTTP >= 400 response. This is not a TLS
     bypass: Chromium still uses its normal certificate validation. It is a second,
-    browser-representative observation of the same configured URL.
+    browser-representative observation of the same configured URL or, in the specific
+    secure-hop recovery case, one HTTPS probe of an insecure same-site redirect target.
     """
 
     _persist_preflight_assessment(workspace, assessment)
@@ -109,11 +114,20 @@ def browser_reconciliation_limitations(
     for issue in reconciliation.assessment.issues:
         if issue.requested_url not in recovered:
             continue
-        values.append(
-            "Aquisição HTTP e Chromium observaram rotas técnicas diferentes para "
-            f"{issue.requested_url}. O Chromium alcançou conteúdo válido e a auditoria "
-            "prosseguiu, mas a divergência de redirecionamento/TLS deve ser revisada."
-        )
+        if issue.classification == "HTTPS_DOWNGRADE_SECURE_RECOVERY":
+            values.append(
+                "A cadeia publicada para "
+                f"{issue.requested_url} rebaixou HTTPS para HTTP. A rota original falhou, "
+                "mas o equivalente HTTPS do mesmo hop respondeu com conteúdo válido. A "
+                "auditoria prosseguiu pela rota segura; o redirect de origem deve ser "
+                "corrigido para não depender de HSTS/cache/estado prévio do navegador."
+            )
+        else:
+            values.append(
+                "Aquisição HTTP e Chromium observaram rotas técnicas diferentes para "
+                f"{issue.requested_url}. O Chromium alcançou conteúdo válido e a auditoria "
+                "prosseguiu, mas a divergência de redirecionamento/TLS deve ser revisada."
+            )
     return tuple(dict.fromkeys(values))
 
 
@@ -155,12 +169,22 @@ def _successful_browser_observations(
             requested_url = str(snapshot.requested_url or "").strip()
             if not requested_url or not final_url:
                 continue
+            recovery = metadata.get("secure_redirect_recovery")
+            recovery_dict = recovery if isinstance(recovery, dict) else {}
+            secure_recovery = bool(
+                recovery_dict.get("attempted")
+                and recovery_dict.get("succeeded")
+                and recovery_dict.get("tls_validation") == "ENABLED"
+            )
+            candidate = str(recovery_dict.get("candidate_url") or "").strip() or None
             output.append(
                 BrowserRouteObservation(
                     requested_url=requested_url,
                     final_url=final_url,
                     http_status=(int(snapshot.http_status) if snapshot.http_status is not None else None),
                     device=getattr(device, "value", str(device)),
+                    secure_recovery=secure_recovery,
+                    recovery_candidate_url=candidate,
                 )
             )
     return tuple(output)
@@ -181,20 +205,46 @@ def _recovered_issue(
     preflight_error = issue.network_error or issue.classification
     if issue.network_error_message:
         preflight_error += f" ({issue.network_error_message})"
-    summary = (
-        "A aquisição HTTP preliminar observou "
-        f"{preflight_route} e terminou em {preflight_error}, mas o Chromium do perfil "
-        f"auditado alcançou conteúdo válido ({browser_routes}). O bloqueio global foi "
-        "revogado e as métricas continuam com a evidência de navegador. A divergência "
-        "permanece registrada porque pode indicar roteamento condicionado por User-Agent, "
-        "CDN/proxy, política anti-bot ou configuração distinta entre clientes."
-    )
-    actions = (
-        "Comparar a política de redirecionamento entregue a navegadores e clientes HTTP automatizados.",
-        "Validar regras de CDN/proxy/WAF, canonicalização de domínio e tratamento de User-Agent sem assumir que a divergência é intencional.",
-        "Confirmar que a URL final observada pelo Chromium corresponde à URL pública esperada para o dispositivo auditado.",
-        "Preservar validação TLS; não usar bypass de certificado como forma de uniformizar as rotas.",
-    )
+
+    secure = tuple(item for item in ordered if item.secure_recovery)
+    if secure:
+        candidates = "; ".join(
+            f"{item.device}: {item.recovery_candidate_url or 'HTTPS equivalente'}"
+            for item in secure
+        )
+        summary = (
+            "A cadeia HTTP publicada rebaixou a navegação de HTTPS para HTTP e a rota "
+            f"original terminou em {preflight_route} com {preflight_error}. O SearchGEO "
+            "executou uma única verificação do equivalente HTTPS do mesmo hop, mantendo "
+            f"validação TLS ativa ({candidates}), e alcançou conteúdo válido "
+            f"({browser_routes}). A auditoria prosseguiu pela rota segura. Este mecanismo "
+            "não corrige o servidor: o redirect deve apontar diretamente para HTTPS e não "
+            "depender de HSTS, cache de 301 ou estado prévio do navegador."
+        )
+        actions = (
+            "Corrigir o redirect de origem para apontar diretamente para o destino HTTPS válido, sem hop intermediário HTTP.",
+            "Validar em sessão limpa que https://mdsgroup.com/ alcança a URL pública esperada sem depender de HSTS, cache de 301 ou cookies.",
+            "Manter certificado TLS válido em todos os hostnames HTTPS envolvidos e revisar canonicalização entre domínio raiz e www.",
+            "Preservar a cadeia original no troubleshooting; não usar bypass de certificado ou ignore_https_errors.",
+        )
+        classification = "HTTPS_DOWNGRADE_SECURE_RECOVERY"
+    else:
+        summary = (
+            "A aquisição HTTP preliminar observou "
+            f"{preflight_route} e terminou em {preflight_error}, mas o Chromium do perfil "
+            f"auditado alcançou conteúdo válido ({browser_routes}). O bloqueio global foi "
+            "revogado e as métricas continuam com a evidência de navegador. A divergência "
+            "permanece registrada porque pode indicar roteamento condicionado por User-Agent, "
+            "CDN/proxy, política anti-bot ou configuração distinta entre clientes."
+        )
+        actions = (
+            "Comparar a política de redirecionamento entregue a navegadores e clientes HTTP automatizados.",
+            "Validar regras de CDN/proxy/WAF, canonicalização de domínio e tratamento de User-Agent sem assumir que a divergência é intencional.",
+            "Confirmar que a URL final observada pelo Chromium corresponde à URL pública esperada para o dispositivo auditado.",
+            "Preservar validação TLS; não usar bypass de certificado como forma de uniformizar as rotas.",
+        )
+        classification = "HTTP_BROWSER_ROUTE_DIVERGENCE"
+
     return replace(
         issue,
         final_url=primary.final_url,
@@ -203,7 +253,7 @@ def _recovered_issue(
         network_error_message=None,
         hard_blocker=False,
         severity="WARNING",
-        classification="HTTP_BROWSER_ROUTE_DIVERGENCE",
+        classification=classification,
         deterministic_summary=summary,
         recommended_actions=actions,
         cross_host_redirect=_host(issue.requested_url) != _host(primary.final_url),
