@@ -150,6 +150,44 @@ Default: OFF.
 
 A remediação exige provider de IA apto. É advisory/evidence-bound e não altera automaticamente o Score GEO.
 
+## M24 — remediação técnica de crawling/discovery por IA
+
+```text
+--ai-technical-remediation
+--no-ai-technical-remediation
+```
+
+Default: OFF.
+
+Variável equivalente:
+
+```text
+SEARCHGEO_AI_TECHNICAL_REMEDIATION
+```
+
+Valores de ambiente aceitos:
+
+```text
+true / false
+1 / 0
+yes / no
+on / off
+```
+
+Precedência: argumento CLI explícito > variável de ambiente > OFF.
+
+Essa opção **não habilita o M24 determinístico** — os diagnósticos técnicos de crawling/discovery já são executados no pipeline normal. Ela habilita somente uma camada opcional de explicação/remediação por IA sobre diagnósticos M24 já persistidos.
+
+A IA técnica:
+
+- exige provider compatível/configurado para produzir sugestão;
+- não altera `RuleExecution`, Finding, Score, Coverage, Confidence ou Consolidation;
+- não decide automaticamente políticas de treinamento/crawler;
+- não transforma `llms.txt` em requisito;
+- exige revisão humana.
+
+O relatório correspondente é `report/crawling-discovery.html`; telemetria de IA M24 também pode aparecer em `report/ai-usage.html`.
+
 ## Web Performance / PageSpeed / Lighthouse / CrUX
 
 Habilitação:
@@ -313,6 +351,16 @@ searchgeo audit https://example.com `
   --ai-model gpt-5.6-luna
 ```
 
+### Remediação técnica M24 por IA
+
+```powershell
+searchgeo audit https://example.com `
+  --ai-provider openai `
+  --ai-technical-remediation
+```
+
+Sem `--ai-technical-remediation`, M24 continua executando apenas os diagnósticos determinísticos e não gera custo de IA por essa finalidade.
+
 ### Web Performance
 
 ```powershell
@@ -340,6 +388,8 @@ searchgeo audit https://example.com `
 searchgeo-console
 ```
 
-O console configura a mesma superfície de execução e adiciona persistência de parâmetros não sensíveis em `searchgeo-console.ini`, progresso, preflight e atalhos para artifacts. Secrets não são gravados no INI.
+O console configura a mesma superfície principal de execução e adiciona persistência de parâmetros não sensíveis em `searchgeo-console.ini`, progresso, preflight e atalhos para artifacts. Secrets não são gravados no INI.
 
-Consulte [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md) e [CONFIGURATION.md](CONFIGURATION.md).
+O parâmetro M24 `--ai-technical-remediation` é documentado como superfície CLI/ambiente nesta versão; não deve ser presumido como opção persistida no INI do console enquanto não houver integração explícita correspondente.
+
+Consulte [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [CONFIGURATION.md](CONFIGURATION.md) e [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md).
