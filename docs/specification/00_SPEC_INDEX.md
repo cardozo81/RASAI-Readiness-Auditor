@@ -1,6 +1,6 @@
 # SearchGEO Readiness Auditor — Specification Index
 
-**Status:** APPROVED BASELINE + M14/M15/M16/M17/M18/M20/M21/M22/M23/M24 + SCORE-GEO-002 + SGRI-001 + REPORT-SITE-GEO-001  
+**Status:** APPROVED BASELINE + M14/M15/M16/M17/M18/M20/M21/M22/M23/M24 + M25 EM BRANCH + SCORE-GEO-002 + SGRI-001 + REPORT-SITE-GEO-001  
 **Baseline:** MVP Functional Specification  
 **Idioma normativo:** Português, preservando identificadores e termos técnicos quando necessário.
 
@@ -39,6 +39,7 @@ Os documentos presentes neste diretório prevalecem sobre interpretações infor
 23. `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md`
 24. `23_SYNTHETIC_APDEX_LIGHTHOUSE_TRACEABILITY.md`
 25. `24_CRAWLING_DISCOVERY_AI_ACCESS.md`
+26. `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`
 
 ## 3. Precedência documental
 
@@ -76,16 +77,16 @@ Score, Coverage, Confidence, Consolidation, aplicabilidade e agregações. Basel
 Severity, Impact, Effort, Confidence e Priority.
 
 ### `07_FUNCTIONAL_REQUIREMENTS.md`
-Requisitos `FR-GEO-*` e `NFR-GEO-*`. Inclui device context, report site, contrato M20 de remediação opcional, M21 de evidência externa, fronteiras M22, M23 Synthetic Navigation Apdex e M24 Crawling/Discovery sem alterar scoring GEO.
+Requisitos `FR-GEO-*` e `NFR-GEO-*`. Inclui device context, report site, contrato M20 de remediação opcional, M21 de evidência externa, fronteiras M22, M23 Synthetic Navigation Apdex, M24 Crawling/Discovery e M25 Synthetic User Experience Apdex calibrável sem alterar scoring GEO.
 
 ### `08_TECHNICAL_ARCHITECTURE.md`
-Arquitetura local/modular, seleção de dispositivo, finalização do report site, M20 downstream de scoring/findings, M21 externo não-scoring, projeção M22, M23 Synthetic Navigation Apdex/rastreabilidade Lighthouse e M24 técnico não-scoring.
+Arquitetura local/modular, seleção de dispositivo, finalização do report site, M20 downstream de scoring/findings, M21 externo não-scoring, projeção M22, M23 Synthetic Navigation Apdex/rastreabilidade Lighthouse, M24 técnico não-scoring e M25 calibrado separado do M23 Standard.
 
 ### `09_IMPLEMENTATION_PLAN.md`
 Baseline de marcos e evoluções formalizadas. Quando descrição histórica de output conflitar com `FR-GEO-046`/REPORT-SITE-GEO-001, prevalece o contrato final `report/`.
 
 ### `10_DECISIONS.md`
-Decisões humanas consolidadas e pendências corporativas. D-037 formaliza `SCORE-GEO-002`; M21/M22/M23/M24 não o substituem nem recalibram implicitamente.
+Decisões humanas consolidadas e pendências corporativas. D-037 formaliza `SCORE-GEO-002`; M21/M22/M23/M24/M25 não o substituem nem recalibram implicitamente.
 
 ### `11_REPORTING_LANGUAGE_GLOSSARY.md`
 Linguagem e apresentação do relatório.
@@ -129,21 +130,25 @@ M23 integrado: Synthetic Navigation Apdex com Task/`T`/amostras explícitas, pro
 ### `24_CRAWLING_DISCOVERY_AI_ACCESS.md`
 M24 integrado: diagnóstico determinístico de robots/crawlers/sitemaps/discovery, `llms.txt` experimental, IndexNow não determinável sem evidência explícita, remediação técnica por IA default OFF e `report/crawling-discovery.html`, sempre separado de scoring.
 
+### `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`
+M25 em branch: segundo domínio Apdex, sintético e calibrável, baseado em user-action telemetry, thresholds/KPM/error policy explícitos ou importados, população Desktop/Mobile/Tablet e `report/apdex-experience.html`; não é RUM, não substitui M23 e não altera scoring.
+
 ## 5. REPORT-SITE-GEO-001
 
-A evolução de apresentação está formalizada pelos requisitos de report site e pelos marcos M20/M21/M22/M23/M24. O contrato final continua condicional por existência do arquivo.
+A evolução de apresentação está formalizada pelos requisitos de report site e pelos marcos M20/M21/M22/M23/M24/M25. O contrato final continua condicional por existência do arquivo.
 
 ```text
 <AUD-ID>/report/index.html
-<AUD-ID>/report/searchgeo.html           # SGRI-001 / SearchGEO
-<AUD-ID>/report/mobile.html              # condicional
-<AUD-ID>/report/desktop.html             # condicional
+<AUD-ID>/report/searchgeo.html             # SGRI-001 / SearchGEO
+<AUD-ID>/report/mobile.html                # condicional
+<AUD-ID>/report/desktop.html               # condicional
 <AUD-ID>/report/remediation.html
 <AUD-ID>/report/content-suggestions.html
-<AUD-ID>/report/crawling-discovery.html  # M24
-<AUD-ID>/report/accessibility.html       # M22, condicional
+<AUD-ID>/report/crawling-discovery.html    # M24
+<AUD-ID>/report/accessibility.html         # M22, condicional
 <AUD-ID>/report/web-performance.html
-<AUD-ID>/report/apdex.html               # M23, condicional
+<AUD-ID>/report/apdex.html                 # M23, condicional
+<AUD-ID>/report/apdex-experience.html      # M25, condicional
 <AUD-ID>/report/ai-usage.html
 <AUD-ID>/report/references.html
 <AUD-ID>/report/css/site.css
@@ -155,7 +160,7 @@ Default de dispositivo da CLI: `mobile`. `desktop` e `both` são seleções expl
 
 O SearchGEO não deve representar seu score ou thresholds como standard GEO/AEO universal.
 
-Referências primárias atuais incluem Google Search Central/Crawling Infrastructure, OpenAI Help Center, Schema.org, WHATWG, IETF/RFC, Chrome Developers, PageSpeed Insights, Chrome UX Report, W3C/WAI e, exclusivamente para a semântica Apdex, a especificação pública da Apdex Alliance.
+Referências primárias atuais incluem Google Search Central/Crawling Infrastructure, OpenAI Help Center, Schema.org, WHATWG, IETF/RFC, Chrome Developers, PageSpeed Insights, Chrome UX Report, W3C/WAI, Apdex Alliance e, para comparabilidade M25, documentação pública Dynatrace de user actions/Apdex/configuração.
 
 Structured Data/JSON-LD é reforço opcional, não requisito universal GEO. Quando M20 propõe ou revisa JSON-LD, deve usar somente conteúdo/evidência persistidos.
 
@@ -167,11 +172,13 @@ M23 resolve a lacuna de Apdex sem inferi-lo de Lighthouse/CrUX: usa Task de nave
 
 M24 usa RFC 9309, Google Search/Crawling Infrastructure, OpenAI publisher guidance e protocolos públicos para fundamentar os fenômenos técnicos. `llms.txt` permanece proposta comunitária experimental e a sua ausência não é requisito/falha de SearchGEO.
 
+M25 adiciona comparabilidade sintética calibrável sem alterar M23. KPM, thresholds, política de erros e mix de dispositivos devem ser explícitos ou extraídos de fonte configurada; o resultado continua não-RUM mesmo quando calibrado com Dynatrace.
+
 Heurísticas BR-GEO sem equivalente normativo devem permanecer identificadas como heurísticas/baseline interna.
 
 ## 7. Regra de mudança
 
-Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context público, conteúdo sugerido por IA, consumo externo M21, fronteiras M22, carga sintética M23, aquisição/política M24 ou requisitos corporativos devem ser reconciliadas nesta baseline antes da conclusão do merge.
+Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context público, conteúdo sugerido por IA, consumo externo M21, fronteiras M22, carga sintética M23/M25, aquisição/política M24 ou requisitos corporativos devem ser reconciliadas nesta baseline antes da conclusão do merge.
 
 Decisões puramente internas de implementação podem ser tomadas sem aprovação humana quando não alterarem comportamento funcional.
 
@@ -217,7 +224,7 @@ M22:
 - **não calcula Apdex a partir de Lighthouse/CrUX**;
 - não altera `BR-GEO-*`, RuleExecution, Finding GEO, Recommendation GEO ou `SCORE-GEO-002`.
 
-Após M23, a frase “M22 não calcula Apdex” deve ser lida como fronteira de origem/metodologia: o cálculo Synthetic Apdex pertence exclusivamente ao M23.
+Após M23, a frase “M22 não calcula Apdex” deve ser lida como fronteira de origem/metodologia: o cálculo Synthetic Apdex pertence exclusivamente ao M23/M25, cada um em seu contrato próprio.
 
 ## M23 — Synthetic Navigation Apdex + Lighthouse Traceability
 
@@ -259,3 +266,25 @@ M24:
 - persiste dados aditivos M24 e mantém `scoring_impact=NONE`;
 - é fail-open e respeita hard source blocker;
 - não altera `BR-GEO-*`, RuleExecution, Finding GEO, Recommendation GEO, `SCORE-GEO-002` ou `SGRI-001`.
+
+## M25 — Synthetic User Experience Apdex calibrável
+
+Fonte normativa: `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`.
+
+M25:
+
+- permanece separado do M23 Standard `T/4T`;
+- mede `SYNTHETIC_LOAD_ACTION` com telemetria de navegação, XHR/fetch, recursos tardios e erros;
+- permite KPM temporal e thresholds independentes;
+- pode classificar erro qualificável como `FRUSTRATED` conforme policy explícita;
+- suporta `MOBILE`, `DESKTOP` e `TABLET` em mix que deve somar 100%;
+- suporta sessão `cold` e `warm`;
+- usa 100 amostras totais por página como default; 1000 é permitido, não default;
+- permite calibração manual, JSON Dynatrace exportado ou Configuration API;
+- lê `DYNATRACE_API_TOKEN` somente do ambiente e nunca o persiste;
+- recusa KPM importada sem equivalência suficiente em vez de fallback silencioso;
+- cria `report/apdex-experience.html`;
+- usa tabelas `synthetic_ux_apdex_*` independentes;
+- é fail-open e non-scoring;
+- **não é RUM** e não representa usuários humanos observados;
+- aguarda smoke humano antes de integração em `main`.

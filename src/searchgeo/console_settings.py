@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
+from searchgeo.m25_cli import parse_device_mix
 from searchgeo.provider_registry import get_provider_registration
 from searchgeo.provider_runtime_policy import (
     AI_TIMEOUT_ENV,
@@ -91,6 +92,26 @@ def _state_values(state: Any) -> dict[str, dict[str, str]]:
             "delay_seconds": f"{float(state.apdex_delay):g}",
             "concurrency": str(int(state.apdex_concurrency)),
         },
+        "synthetic_apdex_experience": {
+            "enabled": _bool_text(bool(getattr(state, "apdex_experience", False))),
+            "samples_per_page": str(int(getattr(state, "apdex_experience_samples", 100))),
+            "max_attempts_per_page": str(int(getattr(state, "apdex_experience_max_attempts", 125))),
+            "max_pages": str(int(getattr(state, "apdex_experience_max_pages", 1))),
+            "device_mix": str(getattr(state, "apdex_experience_device_mix", "")),
+            "session_mode": str(getattr(state, "apdex_experience_session_mode", "cold")),
+            "kpm": str(getattr(state, "apdex_experience_kpm", "USER_ACTION_DURATION")),
+            "satisfied_seconds": _optional(getattr(state, "apdex_experience_satisfied", None)),
+            "frustrated_seconds": _optional(getattr(state, "apdex_experience_frustrated", None)),
+            "errors_affect_apdex": _bool_text(bool(getattr(state, "apdex_experience_errors", True))),
+            "error_scope": str(getattr(state, "apdex_experience_error_scope", "first-party")),
+            "settle_seconds": f"{float(getattr(state, 'apdex_experience_settle', 5.0)):g}",
+            "delay_seconds": f"{float(getattr(state, 'apdex_experience_delay', 1.0)):g}",
+            "concurrency": str(int(getattr(state, "apdex_experience_concurrency", 1))),
+            "dynatrace_import": _bool_text(bool(getattr(state, "apdex_dynatrace_import", False))),
+            "dynatrace_base_url": str(getattr(state, "dynatrace_base_url", "")),
+            "dynatrace_application_id": str(getattr(state, "dynatrace_application_id", "")),
+            "dynatrace_config_json": str(getattr(state, "apdex_dynatrace_config_json", "")),
+        },
     }
 
 
@@ -113,6 +134,7 @@ def save_console_config(state: Any, path: Path | None = None) -> Path:
     stream = io.StringIO()
     stream.write("; SearchGEO interactive console settings\n")
     stream.write("; API keys, tokens, passwords and other secrets are intentionally NOT persisted.\n")
+    stream.write("; DYNATRACE_API_TOKEN is environment-only and is never persisted here.\n")
     stream.write("; Use environment variables or the console session to provide credentials.\n\n")
     parser.write(stream)
     temporary = destination.with_name(destination.name + ".tmp")
@@ -132,6 +154,13 @@ def _parse_bool(value: str) -> bool:
     if normalized in {"0", "false", "no", "off"}:
         return False
     raise ValueError("use true/false")
+
+
+def _positive_float(raw: str, *, label: str) -> float:
+    value = float(raw)
+    if value <= 0:
+        raise ValueError(f"{label}: use número > 0")
+    return value
 
 
 def _assign(state: Any, section: str, option: str, raw: str) -> None:
@@ -157,9 +186,7 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
     elif key == ("ai", "model"): state.ai_model = raw.strip() or None
     elif key == ("ai", "reasoning_effort"): state.ai_reasoning = raw.strip().upper() or None
     elif key == ("ai", "timeout_seconds"):
-        value = float(raw)
-        if value <= 0: raise ValueError("use número > 0")
-        state.ai_timeout = value
+        state.ai_timeout = _positive_float(raw, label="ai.timeout_seconds")
     elif key == ("ai", "content_remediation"): state.content_remediation = _parse_bool(raw)
     elif key == ("web_performance", "enabled"): state.web_performance = _parse_bool(raw)
     elif key == ("web_performance", "max_pages"):
@@ -167,9 +194,7 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
         if value < 0: raise ValueError("use inteiro >= 0")
         state.web_max_pages = value
     elif key == ("web_performance", "timeout_seconds"):
-        value = float(raw)
-        if value <= 0: raise ValueError("use número > 0")
-        state.web_timeout = value
+        state.web_timeout = _positive_float(raw, label="web_performance.timeout_seconds")
     elif key == ("web_performance", "field_source"):
         value = raw.strip().casefold()
         if value not in {"auto", "pagespeed", "crux", "none"}: raise ValueError("use auto, pagespeed, crux ou none")
@@ -178,7 +203,7 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
         state.lighthouse_categories = raw.strip() or state.lighthouse_categories
     elif key == ("synthetic_apdex", "enabled"): state.synthetic_apdex = _parse_bool(raw)
     elif key == ("synthetic_apdex", "threshold_seconds"):
-        state.apdex_threshold = None if not raw.strip() else float(raw)
+        state.apdex_threshold = None if not raw.strip() else _positive_float(raw, label="synthetic_apdex.threshold_seconds")
     elif key == ("synthetic_apdex", "samples_per_context"):
         value = int(raw)
         if value < 1: raise ValueError("use inteiro >= 1")
@@ -192,9 +217,7 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
         if value < 0: raise ValueError("use inteiro >= 0")
         state.apdex_max_pages = value
     elif key == ("synthetic_apdex", "timeout_seconds"):
-        value = float(raw)
-        if value <= 0: raise ValueError("use número > 0")
-        state.apdex_timeout = value
+        state.apdex_timeout = _positive_float(raw, label="synthetic_apdex.timeout_seconds")
     elif key == ("synthetic_apdex", "delay_seconds"):
         value = float(raw)
         if value < 0: raise ValueError("use número >= 0")
@@ -203,6 +226,61 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
         value = int(raw)
         if value not in {1, 2}: raise ValueError("use 1 ou 2")
         state.apdex_concurrency = value
+    elif key == ("synthetic_apdex_experience", "enabled"):
+        state.apdex_experience = _parse_bool(raw)
+    elif key == ("synthetic_apdex_experience", "samples_per_page"):
+        value = int(raw)
+        if value < 1: raise ValueError("use inteiro >= 1")
+        state.apdex_experience_samples = value
+    elif key == ("synthetic_apdex_experience", "max_attempts_per_page"):
+        value = int(raw)
+        if value < 1: raise ValueError("use inteiro >= 1")
+        state.apdex_experience_max_attempts = value
+    elif key == ("synthetic_apdex_experience", "max_pages"):
+        value = int(raw)
+        if value < 0: raise ValueError("use inteiro >= 0")
+        state.apdex_experience_max_pages = value
+    elif key == ("synthetic_apdex_experience", "device_mix"):
+        value = raw.strip()
+        if value:
+            parse_device_mix(value)
+        state.apdex_experience_device_mix = value
+    elif key == ("synthetic_apdex_experience", "session_mode"):
+        value = raw.strip().casefold()
+        if value not in {"cold", "warm"}: raise ValueError("use cold ou warm")
+        state.apdex_experience_session_mode = value
+    elif key == ("synthetic_apdex_experience", "kpm"):
+        value = raw.strip().upper()
+        if not value: raise ValueError("KPM não pode ser vazia")
+        state.apdex_experience_kpm = value
+    elif key == ("synthetic_apdex_experience", "satisfied_seconds"):
+        state.apdex_experience_satisfied = None if not raw.strip() else _positive_float(raw, label="M25 satisfied_seconds")
+    elif key == ("synthetic_apdex_experience", "frustrated_seconds"):
+        state.apdex_experience_frustrated = None if not raw.strip() else _positive_float(raw, label="M25 frustrated_seconds")
+    elif key == ("synthetic_apdex_experience", "errors_affect_apdex"):
+        state.apdex_experience_errors = _parse_bool(raw)
+    elif key == ("synthetic_apdex_experience", "error_scope"):
+        value = raw.strip().casefold()
+        if value not in {"navigation", "first-party", "all"}: raise ValueError("use navigation, first-party ou all")
+        state.apdex_experience_error_scope = value
+    elif key == ("synthetic_apdex_experience", "settle_seconds"):
+        state.apdex_experience_settle = _positive_float(raw, label="M25 settle_seconds")
+    elif key == ("synthetic_apdex_experience", "delay_seconds"):
+        value = float(raw)
+        if value < 0: raise ValueError("use número >= 0")
+        state.apdex_experience_delay = value
+    elif key == ("synthetic_apdex_experience", "concurrency"):
+        value = int(raw)
+        if value not in {1, 2}: raise ValueError("use 1 ou 2")
+        state.apdex_experience_concurrency = value
+    elif key == ("synthetic_apdex_experience", "dynatrace_import"):
+        state.apdex_dynatrace_import = _parse_bool(raw)
+    elif key == ("synthetic_apdex_experience", "dynatrace_base_url"):
+        state.dynatrace_base_url = raw.strip()
+    elif key == ("synthetic_apdex_experience", "dynatrace_application_id"):
+        state.dynatrace_application_id = raw.strip()
+    elif key == ("synthetic_apdex_experience", "dynatrace_config_json"):
+        state.apdex_dynatrace_config_json = raw.strip()
 
 
 def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResult:
