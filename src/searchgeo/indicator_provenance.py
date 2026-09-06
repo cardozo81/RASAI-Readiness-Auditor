@@ -36,13 +36,13 @@ _CLASS_LABELS = {
 
 INDICATORS: tuple[IndicatorProvenance, ...] = (
     IndicatorProvenance(
-        "SCORE-GEO-002 / Overall Readiness",
+        "SearchGEO Readiness Index (SGRI-001)",
         "SEARCHGEO_HEURISTIC",
         "SearchGEO",
-        "SCORING_GUIDE / SCORING_VALIDATION",
+        "SEARCHGEO_READINESS_INDEX / SCORING_GUIDE / SCORING_VALIDATION",
         None,
         "Não existe score GEO/AEO 0–100 universal homologado usado por esta saída.",
-        "Média normalizada das RuleExecutions aplicáveis, com fatores/pesos e agregação versionados pelo SearchGEO.",
+        "SGRI-001 é a identidade pública do índice composto. Enquanto a aritmética não mudar, o motor persistido continua SCORE-GEO-002 para preservar comparabilidade histórica.",
     ),
     IndicatorProvenance(
         "Coverage / Confidence / Consolidation",
@@ -87,7 +87,7 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "Web Vitals",
         "https://web.dev/articles/vitals",
         "Métricas, avaliação no percentil 75 e thresholds recomendados são definidos externamente pelo programa Core Web Vitals.",
-        "SearchGEO coleta PageSpeed/CrUX, preserva source/scope e não converte CWV em SCORE-GEO-002.",
+        "SearchGEO coleta PageSpeed/CrUX, preserva source/scope e não converte CWV em SGRI-001.",
     ),
     IndicatorProvenance(
         "Lighthouse Performance",
@@ -96,7 +96,7 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "Performance scoring",
         "https://developer.chrome.com/docs/lighthouse/performance/performance-scoring",
         "Score, pesos e curvas pertencem ao Lighthouse e podem evoluir com a versão da ferramenta.",
-        "SearchGEO persiste versão/resultado e o apresenta separado do índice GEO interno.",
+        "SearchGEO persiste versão/resultado e o apresenta separado do índice SearchGEO.",
     ),
     IndicatorProvenance(
         "Lighthouse Accessibility",
@@ -165,16 +165,20 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
 
 _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
     "index.html": (
-        "Heurística SearchGEO + evidência rastreável",
-        "Score, Coverage, Confidence e Consolidation são índices internos versionados; observações e BR-GEO podem ter bases externas individuais.",
+        "Painel multimetodológico",
+        "O dashboard resume resultados finais sem fundir metodologias: SGRI-001 é proprietário; Core Web Vitals, Lighthouse e Apdex mantêm suas definições externas.",
+    ),
+    "searchgeo.html": (
+        "Heurística SearchGEO evidence-based",
+        "SGRI-001 centraliza Overall, dimensões, Coverage, Confidence e Consolidation. O motor persistido SCORE-GEO-002 é mantido como compatibilidade enquanto a aritmética não muda.",
     ),
     "mobile.html": (
-        "Heurística SearchGEO + regras de base mista",
-        "Os scores deste dispositivo são internos. A base OFFICIAL/STANDARD/HEURISTIC de cada BR-GEO e seus links constam em Referências e metodologia.",
+        "Evidências SearchGEO por dispositivo",
+        "Esta página contém findings e evidências Mobile. Indicadores agregados SearchGEO ficam exclusivamente em SearchGEO Readiness; a base de cada BR-GEO é rastreável em Referências e metodologia.",
     ),
     "desktop.html": (
-        "Heurística SearchGEO + regras de base mista",
-        "Os scores deste dispositivo são internos. A base OFFICIAL/STANDARD/HEURISTIC de cada BR-GEO e seus links constam em Referências e metodologia.",
+        "Evidências SearchGEO por dispositivo",
+        "Esta página contém findings e evidências Desktop. Indicadores agregados SearchGEO ficam exclusivamente em SearchGEO Readiness; a base de cada BR-GEO é rastreável em Referências e metodologia.",
     ),
     "remediation.html": (
         "Recomendação derivada de finding evidence-backed",
@@ -190,7 +194,7 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
     ),
     "web-performance.html": (
         "Métricas externas definidas",
-        "Core Web Vitals e Lighthouse preservam metodologia/thresholds externos. SearchGEO coleta e contextualiza sem convertê-los em GEO Score.",
+        "Core Web Vitals e Lighthouse preservam metodologia/thresholds externos. SearchGEO coleta e contextualiza sem convertê-los em SGRI-001.",
     ),
     "apdex.html": (
         "Método Apdex externo + T configurado pelo operador",
@@ -247,7 +251,7 @@ def _reference_panel() -> str:
         f"<section id='indicator-provenance' class='panel' data-provenance='{PROVENANCE_MARKER}'>"
         "<div class='kicker'>Proveniência metodológica</div><h2>De onde vem cada indicador</h2>"
         "<p class='intro'>Esta tabela separa standard externo, orientação oficial, métrica definida por terceiros, observação, "
-        "heurística SearchGEO, IA advisory e telemetria. Uma fonte oficial sustenta apenas o fenômeno indicado; não homologa automaticamente o SCORE-GEO-002.</p>"
+        "heurística SearchGEO, IA advisory e telemetria. Uma fonte oficial sustenta apenas o fenômeno indicado; não homologa automaticamente o SGRI-001.</p>"
         f"<p class='intro'><strong>Classificações:</strong> {legend}</p>"
         f"<div class='notice'><strong>Referências verificadas em:</strong> {VERIFIED_ON}. Links externos apontam para fontes primárias/oficiais quando disponíveis.</div>"
         "<div class='table-wrap'><table><thead><tr><th>Indicador</th><th>Natureza</th><th>Fonte / entidade</th><th>Lógica externa</th><th>Aplicação SearchGEO</th></tr></thead>"
