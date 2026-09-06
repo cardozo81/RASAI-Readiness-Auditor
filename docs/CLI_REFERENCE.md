@@ -4,26 +4,31 @@ Referência operacional da linha de comando do SearchGEO Readiness Auditor.
 
 ## Entrada principal
 
+A superfície pública possui dois fluxos:
+
 ```text
 searchgeo [-h] [--version] [--config PATH] audit ...
+searchgeo visibility import|report ...
 ```
+
+O router superior intercepta somente `visibility`; os demais comandos continuam delegados ao pipeline de auditoria existente.
 
 Ajuda:
 
 ```text
-`-h`, `--help`
+-h, --help
 ```
 
 Versão:
 
 ```text
-`--version`
+--version
 ```
 
 Configuração geral de aplicação/logging:
 
 ```text
-`--config PATH`
+--config PATH
 ```
 
 ## Comando `audit`
@@ -58,7 +63,7 @@ mobile
 Override por ambiente:
 
 ```text
-`SEARCHGEO_DEVICE_CONTEXT`
+SEARCHGEO_DEVICE_CONTEXT
 ```
 
 ## IA
@@ -66,7 +71,7 @@ Override por ambiente:
 Seleção:
 
 ```text
-`--ai-provider`
+--ai-provider
 ```
 
 Valores aceitos pela superfície pública:
@@ -96,7 +101,7 @@ Providers adicionais são seleção explícita.
 Modelo explícito:
 
 ```text
-`--ai-model MODEL_ID`
+--ai-model MODEL_ID
 ```
 
 `--ai-model` não deve ser usado com `auto`; AUTO usa configuração por provider.
@@ -253,7 +258,7 @@ SEARCHGEO_PAGESPEED_API_KEY
 SEARCHGEO_CRUX_API_KEY
 ```
 
-## Synthetic Navigation Apdex
+## Synthetic Navigation Apdex — M23
 
 Habilitação:
 
@@ -333,6 +338,116 @@ SEARCHGEO_APDEX_DELAY_SECONDS
 SEARCHGEO_APDEX_CONCURRENCY
 ```
 
+## Synthetic User Experience Apdex — M25
+
+Habilitação:
+
+```text
+--apdex-experience
+--no-apdex-experience
+```
+
+Default: OFF.
+
+O M25 é um segundo domínio Apdex, sintético e calibrável. Não substitui o M23 e não representa RUM.
+
+Principais parâmetros:
+
+```text
+--apdex-experience-samples N
+--apdex-experience-max-attempts N
+--apdex-experience-max-pages N
+--apdex-experience-device-mix mobile=60,desktop=35,tablet=5
+--apdex-experience-session-mode cold|warm
+--apdex-experience-kpm KPM
+--apdex-experience-satisfied-seconds SECONDS
+--apdex-experience-frustrated-seconds SECONDS
+--apdex-experience-errors / --no-apdex-experience-errors
+--apdex-experience-error-scope navigation|first-party|all
+--apdex-experience-settle-seconds SECONDS
+--apdex-experience-delay-seconds SECONDS
+--apdex-experience-concurrency 1|2
+```
+
+Quando habilitado, `device-mix` deve representar explicitamente a população sintética e somar 100.
+
+### Calibração Dynatrace
+
+Pode ser solicitada por configuração exportada/offline ou integração habilitada pela superfície M25:
+
+```text
+--apdex-dynatrace-import
+--dynatrace-base-url URL
+--dynatrace-application-id ID
+--apdex-dynatrace-config-json PATH
+```
+
+O import de configuração é usado para alinhar KPM/thresholds/política quando suportado. O resultado produzido continua sintético; não se torna RUM apenas por usar parâmetros derivados do Dynatrace.
+
+Variáveis M25 usam prefixos `SEARCHGEO_APDEX_EXPERIENCE_*` e `SEARCHGEO_APDEX_DYNATRACE_IMPORT`, além das variáveis Dynatrace documentadas em `ENVIRONMENT_VARIABLES.md`.
+
+Página canônica:
+
+```text
+report/apdex-experience.html
+```
+
+## Observed Generative Visibility — M26
+
+O M26 não é parte do comando `audit`; ele atua sobre um workspace `AUD-*` já existente e importa outcomes observados em domínio separado do readiness.
+
+### Importar dataset
+
+```powershell
+searchgeo visibility import `
+  --audit-id AUD-... `
+  --audits-root audits `
+  --file observed-visibility.json
+```
+
+O arquivo precisa obedecer ao contrato:
+
+```text
+OGV-IMPORT-001
+```
+
+Fontes iniciais suportadas:
+
+```text
+BING_WEBMASTER_TOOLS_AI_PERFORMANCE
+CONTROLLED_QUERY_RUNS
+```
+
+Regras relevantes:
+
+- JSON UTF-8 válido;
+- URLs devem pertencer ao `normalized_origin` da auditoria;
+- artifact importado é preservado com SHA-256;
+- reimport do mesmo conteúdo é idempotente;
+- métricas Bing declaradas no arquivo permanecem identificadas como métricas reportadas pela fonte;
+- Citation Presence Rate só é calculado sobre query-runs `VALID`;
+- runs `INVALID` ficam fora do denominador;
+- rank observado exige `ranking_semantics` explícita;
+- nenhum outcome M26 altera `SGRI-001`/`SCORE-GEO-002`.
+
+### Regenerar o report
+
+```powershell
+searchgeo visibility report `
+  --audit-id AUD-... `
+  --audits-root audits
+```
+
+Página canônica:
+
+```text
+report/ai-visibility.html
+```
+
+O M26 é **import-first**: não faz scraping de Bing Webmaster Tools e não presume endpoint de API de AI Performance sem documentação pública correspondente.
+
+Contrato completo: [specification/26_OBSERVED_GENERATIVE_VISIBILITY.md](specification/26_OBSERVED_GENERATIVE_VISIBILITY.md).
+
 ## Exemplos
 
 ### Sem IA
@@ -370,7 +485,7 @@ searchgeo audit https://example.com `
   --web-performance-field-source auto
 ```
 
-### Synthetic Apdex de smoke
+### Synthetic Navigation Apdex de smoke
 
 ```powershell
 searchgeo audit https://example.com `
@@ -382,14 +497,24 @@ searchgeo audit https://example.com `
   --apdex-concurrency 1
 ```
 
+### Importar visibilidade observada
+
+```powershell
+searchgeo visibility import `
+  --audit-id AUD-EXEMPLO `
+  --file .\observed-visibility.json
+```
+
 ## Console interativo
 
 ```powershell
 searchgeo-console
 ```
 
-O console configura a mesma superfície principal de execução e adiciona persistência de parâmetros não sensíveis em `searchgeo-console.ini`, progresso, preflight e atalhos para artifacts. Secrets não são gravados no INI.
+O console configura a superfície principal de auditoria e adiciona persistência de parâmetros não sensíveis em `searchgeo-console.ini`, progresso, preflight e atalhos para artifacts. Secrets não são gravados no INI.
 
-O parâmetro M24 `--ai-technical-remediation` é documentado como superfície CLI/ambiente nesta versão; não deve ser presumido como opção persistida no INI do console enquanto não houver integração explícita correspondente.
+O M26 é inicialmente uma superfície CLI/import-first separada; não deve ser presumido como coleta automática ou item persistido do fluxo de auditoria no console enquanto essa integração não existir explicitamente.
 
-Consulte [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [CONFIGURATION.md](CONFIGURATION.md) e [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md).
+O parâmetro M24 `--ai-technical-remediation` também permanece documentado como superfície CLI/ambiente nesta versão quando não houver integração explícita correspondente no INI.
+
+Consulte [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [CONFIGURATION.md](CONFIGURATION.md), [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md), [specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md](specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md) e [specification/26_OBSERVED_GENERATIVE_VISIBILITY.md](specification/26_OBSERVED_GENERATIVE_VISIBILITY.md).
