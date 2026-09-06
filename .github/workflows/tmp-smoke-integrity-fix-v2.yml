@@ -25,11 +25,27 @@ jobs:
         run: |
           set -euo pipefail
           MESSAGE="$(git log -1 --pretty=%B)"
+          if printf '%s' "$MESSAGE" | grep -Fq '[patch-debug]'; then
+            exit 0
+          fi
+
           PATCH_RUN=1
           if printf '%s' "$MESSAGE" | grep -Fq '[smoke-integrity-patch]'; then
             PATCH_RUN=0
           else
-            python .github/tmp_apply_smoke_integrity_fix.py
+            set +e
+            python .github/tmp_apply_smoke_integrity_fix.py > /tmp/patch-driver.log 2>&1
+            PATCH_RC=$?
+            set -e
+            if [ "$PATCH_RC" -ne 0 ]; then
+              cp /tmp/patch-driver.log .github/patch-driver-diagnostic.txt
+              git config user.name 'SearchGEO CI'
+              git config user.email 'actions@users.noreply.github.com'
+              git add .github/patch-driver-diagnostic.txt
+              git commit -m '[patch-debug] capture smoke-integrity patch failure'
+              git push origin HEAD:fix/smoke-integrity-console-solid-reports
+              exit "$PATCH_RC"
+            fi
           fi
 
           python -m pip install --upgrade pip
