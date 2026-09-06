@@ -16,7 +16,9 @@ jobs:
         with:
           python-version: '3.13'
       - name: Apply implementation patch
-        run: python .github/tmp_apply_ai_retry_observability.py
+        run: |
+          python .github/tmp_apply_ai_retry_observability.py
+          python .github/tmp_fix_ai_retry_regressions.py
       - name: Install project test dependencies
         run: |
           python -m pip install --upgrade pip
@@ -24,7 +26,14 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Focused AI resilience regressions
         run: |
-          python -m pytest -q tests/test_ai_retry_fallback_observability.py tests/test_m18_multi_ai_provider.py tests/test_deepseek_semantic_contract_and_console_actions.py
+          python -m pytest -q \
+            tests/test_ai_retry_fallback_observability.py \
+            tests/test_m18_multi_ai_provider.py \
+            tests/test_deepseek_semantic_contract_and_console_actions.py \
+            tests/test_provider_extensions.py \
+            tests/test_provider_extensions_m20.py \
+            tests/test_console_provider_registry.py \
+            tests/test_interactive_console.py
       - name: Full regression suite
         run: python -m pytest -q
       - name: Static validation
@@ -39,6 +48,7 @@ jobs:
             src/searchgeo/ai_resilience.py \
             src/searchgeo/m18_ai.py \
             src/searchgeo/provider_extensions.py \
+            src/searchgeo/provider_extensions_m20.py \
             src/searchgeo/m20_ai.py \
             src/searchgeo/m18_persistence.py \
             src/searchgeo/m18_reporting.py \
@@ -46,6 +56,8 @@ jobs:
             src/searchgeo/console_cost.py \
             tests/test_m18_multi_ai_provider.py \
             tests/test_ai_retry_fallback_observability.py \
+            tests/test_console_provider_registry.py \
+            tests/test_interactive_console.py \
             docs/specification/18_MULTI_AI_PROVIDER_ROUTING.md
           if git diff --cached --quiet; then
             echo "No functional changes to commit"
