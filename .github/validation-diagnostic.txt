@@ -1,0 +1,634 @@
+Requirement already satisfied: pip in /opt/hostedtoolcache/Python/3.13.15/x64/lib/python3.13/site-packages (26.2.1)
+Obtaining file:///home/runner/work/SearchGEO-Readiness-Auditor/SearchGEO-Readiness-Auditor
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Collecting playwright<2,>=1.57 (from searchgeo-readiness-auditor==0.1.0)
+  Downloading playwright-1.62.0-py3-none-manylinux1_x86_64.whl.metadata (3.3 kB)
+Collecting tzdata>=2026.1 (from searchgeo-readiness-auditor==0.1.0)
+  Downloading tzdata-2026.3-py2.py3-none-any.whl.metadata (1.4 kB)
+Collecting pyee<14,>=13 (from playwright<2,>=1.57->searchgeo-readiness-auditor==0.1.0)
+  Downloading pyee-13.0.1-py3-none-any.whl.metadata (3.0 kB)
+Collecting greenlet<4.0.0,>=3.1.1 (from playwright<2,>=1.57->searchgeo-readiness-auditor==0.1.0)
+  Downloading greenlet-3.5.5-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (3.8 kB)
+Collecting typing-extensions (from pyee<14,>=13->playwright<2,>=1.57->searchgeo-readiness-auditor==0.1.0)
+  Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Downloading playwright-1.62.0-py3-none-manylinux1_x86_64.whl (47.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 47.7/47.7 MB 190.1 MB/s  0:00:00
+Downloading greenlet-3.5.5-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (623 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 623.9/623.9 kB 129.4 MB/s  0:00:00
+Downloading pyee-13.0.1-py3-none-any.whl (15 kB)
+Downloading tzdata-2026.3-py2.py3-none-any.whl (348 kB)
+Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Building wheels for collected packages: searchgeo-readiness-auditor
+  Building editable for searchgeo-readiness-auditor (pyproject.toml): started
+  Building editable for searchgeo-readiness-auditor (pyproject.toml): finished with status 'done'
+  Created wheel for searchgeo-readiness-auditor: filename=searchgeo_readiness_auditor-0.1.0-0.editable-py3-none-any.whl size=1809 sha256=769ec4910dccb6f770914b609c9c12f0bf8fef2c6af7bb6ee6929c40d8264896
+  Stored in directory: /tmp/pip-ephem-wheel-cache-p0g_wmap/wheels/ed/ce/d9/9790ce987b3dd2c4b83b7a102c7fb655d1e610e15c1546936b
+Successfully built searchgeo-readiness-auditor
+Installing collected packages: tzdata, typing-extensions, greenlet, pyee, playwright, searchgeo-readiness-auditor
+
+Successfully installed greenlet-3.5.5 playwright-1.62.0 pyee-13.0.1 searchgeo-readiness-auditor-0.1.0 typing-extensions-4.16.0 tzdata-2026.3
+Installing dependencies...
+Switching to root user to install dependencies...
+Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+Get:6 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [394 kB]
+Get:8 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [441 kB]
+Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+Get:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+Get:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+Get:9 https://dl.google.com/linux/chrome-stable/deb stable InRelease [2548 B]
+Get:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1260 kB]
+Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [292 kB]
+Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Components [181 kB]
+Get:13 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1690 kB]
+Get:14 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [339 kB]
+Get:15 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Components [388 kB]
+Get:16 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1536 kB]
+Get:17 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [352 kB]
+Get:18 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Components [940 B]
+Get:19 http://azure.archive.ubuntu.com/ubuntu noble-backports/main amd64 Components [5744 B]
+Get:20 http://azure.archive.ubuntu.com/ubuntu noble-backports/universe amd64 Components [12.7 kB]
+Get:21 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [1002 kB]
+Get:22 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [212 kB]
+Get:23 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Components [46.3 kB]
+Get:24 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1206 kB]
+Get:25 http://azure.archive.ubuntu.com/ubuntu noble-security/universe Translation-en [241 kB]
+Get:26 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Components [76.4 kB]
+Get:27 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1437 kB]
+Get:28 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted Translation-en [334 kB]
+Get:29 https://dl.google.com/linux/chrome-stable/deb stable/main amd64 Packages [1401 B]
+Fetched 11.8 MB in 1s (8352 kB/s)
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+libasound2t64 is already the newest version (1.2.11-1ubuntu0.3).
+libasound2t64 set to manually installed.
+libatk-bridge2.0-0t64 is already the newest version (2.52.0-1build1).
+libatk-bridge2.0-0t64 set to manually installed.
+libatk1.0-0t64 is already the newest version (2.52.0-1build1).
+libatk1.0-0t64 set to manually installed.
+libatspi2.0-0t64 is already the newest version (2.52.0-1build1).
+libatspi2.0-0t64 set to manually installed.
+libcairo2 is already the newest version (1.18.0-3build1).
+libcairo2 set to manually installed.
+libcups2t64 is already the newest version (2.4.7-1.2ubuntu7.14).
+libcups2t64 set to manually installed.
+libdbus-1-3 is already the newest version (1.14.10-4ubuntu4.1).
+libdbus-1-3 set to manually installed.
+libdrm2 is already the newest version (2.4.125-1ubuntu0.1~24.04.2).
+libdrm2 set to manually installed.
+libgbm1 is already the newest version (25.2.8-0ubuntu0.24.04.2).
+libgbm1 set to manually installed.
+libglib2.0-0t64 is already the newest version (2.80.0-6ubuntu3.8).
+libglib2.0-0t64 set to manually installed.
+libnspr4 is already the newest version (2:4.35-1.1build1).
+libnspr4 set to manually installed.
+libnss3 is already the newest version (2:3.98-1ubuntu0.2).
+libnss3 set to manually installed.
+libpango-1.0-0 is already the newest version (1.52.1+ds-1build1).
+libpango-1.0-0 set to manually installed.
+libx11-6 is already the newest version (2:1.8.7-1build1).
+libx11-6 set to manually installed.
+libxcb1 is already the newest version (1.15-1ubuntu2).
+libxcb1 set to manually installed.
+libxcomposite1 is already the newest version (1:0.4.5-1build3).
+libxcomposite1 set to manually installed.
+libxdamage1 is already the newest version (1:1.1.6-1build1).
+libxdamage1 set to manually installed.
+libxext6 is already the newest version (2:1.3.4-1build2).
+libxext6 set to manually installed.
+libxfixes3 is already the newest version (1:6.0.0-2build1).
+libxfixes3 set to manually installed.
+libxkbcommon0 is already the newest version (1.6.0-1build1).
+libxkbcommon0 set to manually installed.
+libxrandr2 is already the newest version (2:1.5.2-2build1).
+libxrandr2 set to manually installed.
+xvfb is already the newest version (2:21.1.12-1ubuntu1.6).
+fonts-noto-color-emoji is already the newest version (2.047-0ubuntu0.24.04.1).
+libfontconfig1 is already the newest version (2.15.0-1.1ubuntu2).
+libfontconfig1 set to manually installed.
+libfreetype6 is already the newest version (2.13.2+dfsg-1ubuntu0.1).
+libfreetype6 set to manually installed.
+fonts-liberation is already the newest version (1:2.1.5-3).
+fonts-liberation set to manually installed.
+The following additional packages will be installed:
+  xfonts-encodings xfonts-utils
+Recommended packages:
+  fonts-ipafont-mincho fonts-tlwg-loma
+The following NEW packages will be installed:
+  fonts-freefont-ttf fonts-ipafont-gothic fonts-tlwg-loma-otf fonts-unifont
+  fonts-wqy-zenhei xfonts-cyrillic xfonts-encodings xfonts-scalable
+  xfonts-utils
+0 upgraded, 9 newly installed, 0 to remove and 38 not upgraded.
+Need to get 21.1 MB of archives.
+After this operation, 79.5 MB of additional disk space will be used.
+Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+Get:2 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-ipafont-gothic all 00303-21ubuntu1 [3513 kB]
+Get:3 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 fonts-freefont-ttf all 20211204+svn4273-2 [5641 kB]
+Get:4 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-tlwg-loma-otf all 1:0.7.3-1 [107 kB]
+Get:5 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-unifont all 1:15.1.01-1build1 [2993 kB]
+Get:6 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-wqy-zenhei all 0.9.45-8 [7472 kB]
+Get:7 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-encodings all 1:1.0.5-0ubuntu2 [578 kB]
+Get:8 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-utils amd64 1:7.7+6build3 [94.4 kB]
+Get:9 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 xfonts-cyrillic all 1:1.0.5+nmu1 [384 kB]
+Get:10 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-scalable all 1:1.0.3-1.3 [304 kB]
+Fetched 21.1 MB in 1s (30.6 MB/s)
+Selecting previously unselected package fonts-ipafont-gothic.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 201676 files and directories currently installed.)
+Preparing to unpack .../0-fonts-ipafont-gothic_00303-21ubuntu1_all.deb ...
+Unpacking fonts-ipafont-gothic (00303-21ubuntu1) ...
+Selecting previously unselected package fonts-freefont-ttf.
+Preparing to unpack .../1-fonts-freefont-ttf_20211204+svn4273-2_all.deb ...
+Unpacking fonts-freefont-ttf (20211204+svn4273-2) ...
+Selecting previously unselected package fonts-tlwg-loma-otf.
+Preparing to unpack .../2-fonts-tlwg-loma-otf_1%3a0.7.3-1_all.deb ...
+Unpacking fonts-tlwg-loma-otf (1:0.7.3-1) ...
+Selecting previously unselected package fonts-unifont.
+Preparing to unpack .../3-fonts-unifont_1%3a15.1.01-1build1_all.deb ...
+Unpacking fonts-unifont (1:15.1.01-1build1) ...
+Selecting previously unselected package fonts-wqy-zenhei.
+Preparing to unpack .../4-fonts-wqy-zenhei_0.9.45-8_all.deb ...
+Unpacking fonts-wqy-zenhei (0.9.45-8) ...
+Selecting previously unselected package xfonts-encodings.
+Preparing to unpack .../5-xfonts-encodings_1%3a1.0.5-0ubuntu2_all.deb ...
+Unpacking xfonts-encodings (1:1.0.5-0ubuntu2) ...
+Selecting previously unselected package xfonts-utils.
+Preparing to unpack .../6-xfonts-utils_1%3a7.7+6build3_amd64.deb ...
+Unpacking xfonts-utils (1:7.7+6build3) ...
+Selecting previously unselected package xfonts-cyrillic.
+Preparing to unpack .../7-xfonts-cyrillic_1%3a1.0.5+nmu1_all.deb ...
+Unpacking xfonts-cyrillic (1:1.0.5+nmu1) ...
+Selecting previously unselected package xfonts-scalable.
+Preparing to unpack .../8-xfonts-scalable_1%3a1.0.3-1.3_all.deb ...
+Unpacking xfonts-scalable (1:1.0.3-1.3) ...
+Setting up fonts-wqy-zenhei (0.9.45-8) ...
+Setting up fonts-freefont-ttf (20211204+svn4273-2) ...
+Setting up fonts-tlwg-loma-otf (1:0.7.3-1) ...
+Setting up xfonts-encodings (1:1.0.5-0ubuntu2) ...
+Setting up fonts-ipafont-gothic (00303-21ubuntu1) ...
+update-alternatives: using /usr/share/fonts/opentype/ipafont-gothic/ipag.ttf to provide /usr/share/fonts/truetype/fonts-japanese-gothic.ttf (fonts-japanese-gothic.ttf) in auto mode
+Setting up fonts-unifont (1:15.1.01-1build1) ...
+Setting up xfonts-utils (1:7.7+6build3) ...
+Setting up xfonts-cyrillic (1:1.0.5+nmu1) ...
+Setting up xfonts-scalable (1:1.0.3-1.3) ...
+Processing triggers for man-db (2.12.0-4build2) ...
+Not building database; man-db/auto-update is not 'true'.
+Processing triggers for fontconfig (2.15.0-1.1ubuntu2) ...
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+Downloading Chrome for Testing 151.0.7922.34 (playwright chromium v1234) from https://cdn.playwright.dev/builds/cft/151.0.7922.34/linux64/chrome-linux64.zip
+|                                                                                |   0% of 184.3 MiB
+|■■■■■■■■                                                                        |  10% of 184.3 MiB
+|■■■■■■■■■■■■■■■■                                                                |  20% of 184.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 184.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 184.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 184.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 184.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 184.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 184.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 184.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 184.3 MiB
+Chrome for Testing 151.0.7922.34 (playwright chromium v1234) downloaded to /home/runner/.cache/ms-playwright/chromium-1234
+Downloading FFmpeg (playwright ffmpeg v1011) from https://cdn.playwright.dev/dbazure/download/playwright/builds/ffmpeg/1011/ffmpeg-linux.zip
+|                                                                                |   0% of 2.3 MiB
+|■■■■■■■■                                                                        |  10% of 2.3 MiB
+|■■■■■■■■■■■■■■■■                                                                |  20% of 2.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 2.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 2.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 2.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 2.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 2.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 2.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 2.3 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 2.3 MiB
+FFmpeg (playwright ffmpeg v1011) downloaded to /home/runner/.cache/ms-playwright/ffmpeg-1011
+Downloading Chrome Headless Shell 151.0.7922.34 (playwright chromium-headless-shell v1234) from https://cdn.playwright.dev/builds/cft/151.0.7922.34/linux64/chrome-headless-shell-linux64.zip
+|                                                                                |   0% of 114.7 MiB
+|■■■■■■■■                                                                        |  10% of 114.7 MiB
+|■■■■■■■■■■■■■■■■                                                                |  20% of 114.7 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 114.7 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 114.7 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 114.7 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 114.7 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 114.7 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 114.7 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 114.7 MiB
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 114.7 MiB
+Chrome Headless Shell 151.0.7922.34 (playwright chromium-headless-shell v1234) downloaded to /home/runner/.cache/ms-playwright/chromium_headless_shell-1234
+test_console_back_action_is_v_and_actions_are_not_pipe_compacted (tests.test_smoke_integrity_regressions.SmokeIntegrityRegressionTests.test_console_back_action_is_v_and_actions_are_not_pipe_compacted) ... ok
+test_fenced_provider_json_is_accepted_but_prose_is_not (tests.test_smoke_integrity_regressions.SmokeIntegrityRegressionTests.test_fenced_provider_json_is_accepted_but_prose_is_not) ... ok
+test_mds_recovery_can_use_m2_trace_when_browser_trace_is_empty (tests.test_smoke_integrity_regressions.SmokeIntegrityRegressionTests.test_mds_recovery_can_use_m2_trace_when_browser_trace_is_empty) ... ok
+test_report_sources_have_no_gradients (tests.test_smoke_integrity_regressions.SmokeIntegrityRegressionTests.test_report_sources_have_no_gradients) ... ok
+test_single_device_scoring_does_not_materialize_phantom_device (tests.test_smoke_integrity_regressions.SmokeIntegrityRegressionTests.test_single_device_scoring_does_not_materialize_phantom_device) ... ok
+test_applicable_structured_data_failure_changes_overall_score (tests.test_m9_scoring.M9ScoringTests.test_applicable_structured_data_failure_changes_overall_score) ... ok
+test_device_independent_execution_contributes_once_to_each_device (tests.test_m9_scoring.M9ScoringTests.test_device_independent_execution_contributes_once_to_each_device) ... ok
+test_fully_not_applicable_dimension_is_excluded_without_penalty (tests.test_m9_scoring.M9ScoringTests.test_fully_not_applicable_dimension_is_excluded_without_penalty) ... ok
+test_max_impact_collapses_correlated_fail_and_pass_once (tests.test_m9_scoring.M9ScoringTests.test_max_impact_collapses_correlated_fail_and_pass_once) ... ok
+test_overall_remains_not_consolidated_when_required_dimensions_missing (tests.test_m9_scoring.M9ScoringTests.test_overall_remains_not_consolidated_when_required_dimensions_missing) ... ok
+test_prerequisite_blocked_not_applicable_dimension_still_blocks_overall (tests.test_m9_scoring.M9ScoringTests.test_prerequisite_blocked_not_applicable_dimension_still_blocks_overall) ... ok
+test_structured_data_when_present_enters_overall_calculation (tests.test_m9_scoring.M9ScoringTests.test_structured_data_when_present_enters_overall_calculation) ... ok
+test_unknown_reduces_coverage_without_reducing_quality_factor (tests.test_m9_scoring.M9ScoringTests.test_unknown_reduces_coverage_without_reducing_quality_factor) ... ok
+test_desktop_identity_tracks_runtime_chrome_version_without_changing_searchgeo_viewport (tests.test_source_quality_browser_identity.BrowserIdentityTests.test_desktop_identity_tracks_runtime_chrome_version_without_changing_searchgeo_viewport) ... ok
+test_mobile_identity_tracks_runtime_chrome_version_and_keeps_mobile_semantics (tests.test_source_quality_browser_identity.BrowserIdentityTests.test_mobile_identity_tracks_runtime_chrome_version_and_keeps_mobile_semantics) ... ok
+test_renderer_preserves_original_failure_when_secure_probe_also_fails (tests.test_source_quality_browser_identity.BrowserIdentityTests.test_renderer_preserves_original_failure_when_secure_probe_also_fails) ... ok
+test_renderer_recovers_mdsgroup_via_single_strict_https_probe (tests.test_source_quality_browser_identity.BrowserIdentityTests.test_renderer_recovers_mdsgroup_via_single_strict_https_probe) ... ok
+test_secure_upgrade_candidate_does_not_activate_after_redirect_to_third_party (tests.test_source_quality_browser_identity.BrowserIdentityTests.test_secure_upgrade_candidate_does_not_activate_after_redirect_to_third_party) ... ok
+test_secure_upgrade_candidate_does_not_cross_to_unrelated_host (tests.test_source_quality_browser_identity.BrowserIdentityTests.test_secure_upgrade_candidate_does_not_cross_to_unrelated_host) ... ok
+test_secure_upgrade_candidate_matches_mdsgroup_downgrade_hop (tests.test_source_quality_browser_identity.BrowserIdentityTests.test_secure_upgrade_candidate_matches_mdsgroup_downgrade_hop) ... ok
+test_secure_upgrade_candidate_requires_https_requested_url (tests.test_source_quality_browser_identity.BrowserIdentityTests.test_secure_upgrade_candidate_requires_https_requested_url) ... ok
+test_auto_excludes_missing_and_invalid_configuration (tests.test_m18_multi_ai_provider.M18ProviderTests.test_auto_excludes_missing_and_invalid_configuration) ... ok
+test_auto_failover_quarantines_and_promotes_fallback (tests.test_m18_multi_ai_provider.M18ProviderTests.test_auto_failover_quarantines_and_promotes_fallback) ... ok
+test_configuration_supports_each_provider_and_auto_order (tests.test_m18_multi_ai_provider.M18ProviderTests.test_configuration_supports_each_provider_and_auto_order) ... ok
+test_contract_rejects_partial_invalid_evidence_and_empty_output (tests.test_m18_multi_ai_provider.M18ProviderTests.test_contract_rejects_partial_invalid_evidence_and_empty_output) ... ok
+test_explicit_provider_quarantine_blocks_retries_across_urls (tests.test_m18_multi_ai_provider.M18ProviderTests.test_explicit_provider_quarantine_blocks_retries_across_urls) ... ok
+test_http_and_network_errors_are_sanitized_and_classified (tests.test_m18_multi_ai_provider.M18ProviderTests.test_http_and_network_errors_are_sanitized_and_classified) ... ok
+test_mobile_device_context_limits_semantic_provider_to_one_context_per_page (tests.test_m18_multi_ai_provider.M18ProviderTests.test_mobile_device_context_limits_semantic_provider_to_one_context_per_page) ... ok
+test_provider_requests_use_expected_structured_modes_and_reasoning (tests.test_m18_multi_ai_provider.M18ProviderTests.test_provider_requests_use_expected_structured_modes_and_reasoning) ... ok
+test_run_audit_persists_attempts_and_materializes_ai_telemetry_page (tests.test_m18_multi_ai_provider.M18ProviderTests.test_run_audit_persists_attempts_and_materializes_ai_telemetry_page) ... ok
+test_success_stops_chain_and_chain_exhaustion_is_explicit (tests.test_m18_multi_ai_provider.M18ProviderTests.test_success_stops_chain_and_chain_exhaustion_is_explicit) ... ok
+test_url_lock_prevents_cross_provider_mobile_completion (tests.test_m18_multi_ai_provider.M18ProviderTests.test_url_lock_prevents_cross_provider_mobile_completion) ... ok
+test_usage_and_estimated_cost_are_normalized (tests.test_m18_multi_ai_provider.M18ProviderTests.test_usage_and_estimated_cost_are_normalized) ... ok
+
+----------------------------------------------------------------------
+Ran 33 tests in 1.104s
+
+OK
+test_auto_remains_an_available_legacy_choice (test_cli_provider_extensions.CLIProviderExtensionTests.test_auto_remains_an_available_legacy_choice) ... ok
+test_extension_cli_adds_registry_explicit_provider_choices (test_cli_provider_extensions.CLIProviderExtensionTests.test_extension_cli_adds_registry_explicit_provider_choices) ... ok
+test_legacy_parser_surface_is_not_mutated (test_cli_provider_extensions.CLIProviderExtensionTests.test_legacy_parser_surface_is_not_mutated) ... ok
+test_public_main_builds_parser_without_recursion_and_restores_legacy_globals (test_cli_provider_extensions.CLIProviderExtensionTests.test_public_main_builds_parser_without_recursion_and_restores_legacy_globals) ... ok
+test_console_environment_guidance (unittest.loader._FailedTest.test_console_environment_guidance) ... ERROR
+test_option_5_explains_dependency_on_item_4 (test_console_progress_guidance.ConsoleProgressGuidanceTests.test_option_5_explains_dependency_on_item_4) ... ok
+test_public_menu_does_not_expose_milestone_labels (test_console_progress_guidance.ConsoleProgressGuidanceTests.test_public_menu_does_not_expose_milestone_labels) ... ok
+test_report_label_sanitizer_does_not_rewrite_arbitrary_page_content (test_console_progress_guidance.ConsoleProgressGuidanceTests.test_report_label_sanitizer_does_not_rewrite_arbitrary_page_content) ... ok
+test_runtime_progress_distinguishes_estimated_and_exact (test_console_progress_guidance.ConsoleProgressGuidanceTests.test_runtime_progress_distinguishes_estimated_and_exact) ... ok
+test_synthetic_configuration_explains_each_numeric_parameter (test_console_progress_guidance.ConsoleProgressGuidanceTests.test_synthetic_configuration_explains_each_numeric_parameter) ... ok
+test_synthetic_sample_projects_global_context_progress (test_console_progress_guidance.ConsoleProgressGuidanceTests.test_synthetic_sample_projects_global_context_progress) ... ok
+test_auto_exposure_counts_only_eligible_legacy_chain (test_console_provider_registry.ConsoleProviderRegistryTests.test_auto_exposure_counts_only_eligible_legacy_chain) ... ok
+test_auto_never_promotes_extension_providers (test_console_provider_registry.ConsoleProviderRegistryTests.test_auto_never_promotes_extension_providers) ... ok
+test_console_menu_is_derived_from_canonical_registry (test_console_provider_registry.ConsoleProviderRegistryTests.test_console_menu_is_derived_from_canonical_registry) ... ok
+test_extension_build_command_uses_stable_extended_cli (test_console_provider_registry.ConsoleProviderRegistryTests.test_extension_build_command_uses_stable_extended_cli) ... ok
+test_extension_environment_variables_are_exposed_without_duplicates (test_console_provider_registry.ConsoleProviderRegistryTests.test_extension_environment_variables_are_exposed_without_duplicates) ... ok
+test_extensions_are_fail_closed_without_credentials (test_console_provider_registry.ConsoleProviderRegistryTests.test_extensions_are_fail_closed_without_credentials) ... ok
+test_extensions_become_explicitly_available_with_credentials (test_console_provider_registry.ConsoleProviderRegistryTests.test_extensions_become_explicitly_available_with_credentials) ... ok
+test_registry_drives_model_and_key_validation (test_console_provider_registry.ConsoleProviderRegistryTests.test_registry_drives_model_and_key_validation) ... ok
+test_fingerprint_changes_only_with_persistable_state (test_console_settings.ConsoleSettingsTests.test_fingerprint_changes_only_with_persistable_state) ... ok
+test_missing_ini_is_created_with_defaults_and_no_secret (test_console_settings.ConsoleSettingsTests.test_missing_ini_is_created_with_defaults_and_no_secret) ... ok
+test_round_trip_persists_console_operational_parameters (test_console_settings.ConsoleSettingsTests.test_round_trip_persists_console_operational_parameters) ... ok
+test_session_dirty_metadata_is_independent_from_state_schema (test_console_settings.ConsoleSettingsTests.test_session_dirty_metadata_is_independent_from_state_schema) ... ok
+test_origin_prefers_user_persistence (test_console_windows_environment.WindowsEnvironmentTests.test_origin_prefers_user_persistence) ... ok
+test_origin_reports_machine_when_no_user_override_exists (test_console_windows_environment.WindowsEnvironmentTests.test_origin_reports_machine_when_no_user_override_exists) ... ok
+test_persisted_but_removed_from_current_session_is_visible (test_console_windows_environment.WindowsEnvironmentTests.test_persisted_but_removed_from_current_session_is_visible) ... ok
+test_persistence_is_fail_closed_outside_windows (test_console_windows_environment.WindowsEnvironmentTests.test_persistence_is_fail_closed_outside_windows) ... ok
+test_plain_process_value_is_reported_as_session (test_console_windows_environment.WindowsEnvironmentTests.test_plain_process_value_is_reported_as_session) ... ok
+test_session_override_is_explicit_when_user_value_exists (test_console_windows_environment.WindowsEnvironmentTests.test_session_override_is_explicit_when_user_value_exists) ... ok
+test_date_filter_is_inclusive (test_consolidation.ConsolidationTests.test_date_filter_is_inclusive) ... ok
+test_generation_is_read_only_and_deduplicates_identical_request (test_consolidation.ConsolidationTests.test_generation_is_read_only_and_deduplicates_identical_request) ... ok
+test_invalid_audit_is_isolated_during_refresh (test_consolidation.ConsolidationTests.test_invalid_audit_is_isolated_during_refresh) ... ok
+test_mixed_scoring_versions_are_not_averaged_together (test_consolidation.ConsolidationTests.test_mixed_scoring_versions_are_not_averaged_together) ... ok
+test_new_matching_audit_invalidates_report_reuse (test_consolidation.ConsolidationTests.test_new_matching_audit_invalidates_report_reuse) ... ok
+test_url_filter_never_reuses_audit_level_score_for_partial_universe (test_consolidation.ConsolidationTests.test_url_filter_never_reuses_audit_level_score_for_partial_universe) ... ok
+test_performance_current_is_mean_of_latest_value_per_url (test_consolidation_comparability.ConsolidationComparabilityTests.test_performance_current_is_mean_of_latest_value_per_url) ... ok
+test_score_series_uses_latest_comparable_url_universe (test_consolidation_comparability.ConsolidationComparabilityTests.test_score_series_uses_latest_comparable_url_universe) ... ok
+test_consolidation_choice_does_not_call_legacy_configure (test_consolidation_console_integration.ConsolidationConsoleIntegrationTests.test_consolidation_choice_does_not_call_legacy_configure) ... ok
+test_consolidation_failure_is_fail_open (test_consolidation_console_integration.ConsolidationConsoleIntegrationTests.test_consolidation_failure_is_fail_open) ... ok
+test_existing_choices_are_delegated_unchanged (test_consolidation_console_integration.ConsolidationConsoleIntegrationTests.test_existing_choices_are_delegated_unchanged) ... ok
+test_identical_request_still_reuses_cons2_snapshot (test_consolidation_reporting_ux.ConsolidationReportingUXTests.test_identical_request_still_reuses_cons2_snapshot) ... ok
+test_single_audit_is_rendered_as_snapshot_with_methodology (test_consolidation_reporting_ux.ConsolidationReportingUXTests.test_single_audit_is_rendered_as_snapshot_with_methodology) ... ok
+test_three_comparable_audits_render_historical_chart (test_consolidation_reporting_ux.ConsolidationReportingUXTests.test_three_comparable_audits_render_historical_chart) ... ok
+test_content_analysis_context (unittest.loader._FailedTest.test_content_analysis_context) ... ERROR
+test_fully_valid_lighthouse_preserves_scores_and_success (test_external_metrics_integrity.ExternalMetricsIntegrityTests.test_fully_valid_lighthouse_preserves_scores_and_success) ... ok
+test_lighthouse_runtime_error_discards_scores_even_when_pagespeed_http_200 (test_external_metrics_integrity.ExternalMetricsIntegrityTests.test_lighthouse_runtime_error_discards_scores_even_when_pagespeed_http_200) ... ok
+test_missing_accessibility_category_does_not_become_no_failures (test_external_metrics_integrity.ExternalMetricsIntegrityTests.test_missing_accessibility_category_does_not_become_no_failures) ... ok
+test_runtime_error_with_valid_crux_is_partial_not_lighthouse_success (test_external_metrics_integrity.ExternalMetricsIntegrityTests.test_runtime_error_with_valid_crux_is_partial_not_lighthouse_success) ... ok
+test_br_geo_054_is_order_independent_after_sqlite_reopen (test_hotfix_ai_reporting_integrity.HotfixAIReportingIntegrityTests.test_br_geo_054_is_order_independent_after_sqlite_reopen) ... ok
+test_failed_openai_call_is_reported_as_configured_but_unavailable (test_hotfix_ai_reporting_integrity.HotfixAIReportingIntegrityTests.test_failed_openai_call_is_reported_as_configured_but_unavailable) ... ok
+test_exact_duplicate_evidence_gets_precise_reason_without_selector_invention (test_hotfix_m17_duplicate_remediation.HotfixM17DuplicateRemediationTests.test_exact_duplicate_evidence_gets_precise_reason_without_selector_invention) ... ok
+test_html_projection_replaces_only_br_geo_051_fallback (test_hotfix_m17_duplicate_remediation.HotfixM17DuplicateRemediationTests.test_html_projection_replaces_only_br_geo_051_fallback) ... ok
+test_near_duplicate_evidence_gets_threshold_specific_reason (test_hotfix_m17_duplicate_remediation.HotfixM17DuplicateRemediationTests.test_near_duplicate_evidence_gets_threshold_specific_reason) ... ok
+test_all_current_recipes_expose_step_collections_not_strings (test_hotfix_smoke_report_integrity.HotfixSmokeReportIntegrityTests.test_all_current_recipes_expose_step_collections_not_strings) ... ok
+test_late_live_title_is_not_persisted_when_serialized_dom_has_no_title (test_hotfix_smoke_report_integrity.HotfixSmokeReportIntegrityTests.test_late_live_title_is_not_persisted_when_serialized_dom_has_no_title) ... ok
+test_one_item_recipe_steps_are_normalized_as_tuples (test_hotfix_smoke_report_integrity.HotfixSmokeReportIntegrityTests.test_one_item_recipe_steps_are_normalized_as_tuples) ... ok
+test_title_observation_uses_same_serialized_dom_consumed_by_semantic_analysis (test_hotfix_smoke_report_integrity.HotfixSmokeReportIntegrityTests.test_title_observation_uses_same_serialized_dom_consumed_by_semantic_analysis) ... ok
+test_actual_usage_sums_existing_m18_m20_and_m21_database_telemetry (test_interactive_console.InteractiveConsoleTests.test_actual_usage_sums_existing_m18_m20_and_m21_database_telemetry) ... ok
+test_artifact_navigation_resolves_only_the_session_audit (test_interactive_console.InteractiveConsoleTests.test_artifact_navigation_resolves_only_the_session_audit) ... ok
+test_command_delegates_to_stable_audit_cli (test_interactive_console.InteractiveConsoleTests.test_command_delegates_to_stable_audit_cli) ... ok
+test_cost_help_surfaces_external_cost_and_volume_multipliers (test_interactive_console.InteractiveConsoleTests.test_cost_help_surfaces_external_cost_and_volume_multipliers) ... ok
+test_defaults_are_single_url_mobile_without_ai (test_interactive_console.InteractiveConsoleTests.test_defaults_are_single_url_mobile_without_ai) ... ok
+test_environment_defaults_are_reflected_in_console_state (test_interactive_console.InteractiveConsoleTests.test_environment_defaults_are_reflected_in_console_state) ... ok
+test_environment_edit_sync_can_be_scoped_without_resetting_menu_choices (test_interactive_console.InteractiveConsoleTests.test_environment_edit_sync_can_be_scoped_without_resetting_menu_choices) ... ok
+test_environment_header_masks_secrets (test_interactive_console.InteractiveConsoleTests.test_environment_header_masks_secrets) ... ok
+test_environment_help_has_generic_rules_for_future_provider_variables (test_interactive_console.InteractiveConsoleTests.test_environment_help_has_generic_rules_for_future_provider_variables) ... ok
+test_exposure_uses_exact_txt_urls_devices_m20_and_m21 (test_interactive_console.InteractiveConsoleTests.test_exposure_uses_exact_txt_urls_devices_m20_and_m21) ... ok
+test_invalid_model_reasoning_and_runtime_quarantine_disable_provider (test_interactive_console.InteractiveConsoleTests.test_invalid_model_reasoning_and_runtime_quarantine_disable_provider) ... ok
+test_mimo_token_plan_key_is_rejected (test_interactive_console.InteractiveConsoleTests.test_mimo_token_plan_key_is_rejected) ... ok
+test_only_configured_valid_providers_are_available (test_interactive_console.InteractiveConsoleTests.test_only_configured_valid_providers_are_available) ... ok
+test_preflight_accepts_single_url (test_interactive_console.InteractiveConsoleTests.test_preflight_accepts_single_url) ... ok
+test_preflight_blocks_incompatible_features_before_execution (test_interactive_console.InteractiveConsoleTests.test_preflight_blocks_incompatible_features_before_execution) ... ok
+test_preflight_txt_validates_origin_and_max_pages (test_interactive_console.InteractiveConsoleTests.test_preflight_txt_validates_origin_and_max_pages) ... ok
+test_projection_persistence_does_not_duplicate_actual_tokens_or_costs (test_interactive_console.InteractiveConsoleTests.test_projection_persistence_does_not_duplicate_actual_tokens_or_costs) ... ok
+test_report_entrypoint_supports_legacy_fallback_without_hiding_current_layout (test_interactive_console.InteractiveConsoleTests.test_report_entrypoint_supports_legacy_fallback_without_hiding_current_layout) ... ok
+test_url_seed_uses_max_pages_as_projection_ceiling (test_interactive_console.InteractiveConsoleTests.test_url_seed_uses_max_pages_as_projection_ceiling) ... ok
+test_web_only_tracks_quota_without_inventing_monetary_cost (test_interactive_console.InteractiveConsoleTests.test_web_only_tracks_quota_without_inventing_monetary_cost) ... ok
+test_canonical_recipe_is_actionable_and_does_not_invent_preferred_url (test_m10_prioritization.M10PrioritizationTests.test_canonical_recipe_is_actionable_and_does_not_invent_preferred_url) ... ok
+test_critical_material_access_blocker_is_p0 (test_m10_prioritization.M10PrioritizationTests.test_critical_material_access_blocker_is_p0) ... ok
+test_execute_m10_persists_reopenable_group_and_recommendation (test_m10_prioritization.M10PrioritizationTests.test_execute_m10_persists_reopenable_group_and_recommendation) ... ok
+test_priority_formula_uses_unknown_effort_as_neutral_ease (test_m10_prioritization.M10PrioritizationTests.test_priority_formula_uses_unknown_effort_as_neutral_ease) ... ok
+test_same_root_cause_groups_findings_and_recommends_once (test_m10_prioritization.M10PrioritizationTests.test_same_root_cause_groups_findings_and_recommends_once) ... ok
+test_actionable_report_separates_score_coverage_confidence_and_renders_canonical_crawl (test_m11_reporting.M11ReportingTests.test_actionable_report_separates_score_coverage_confidence_and_renders_canonical_crawl) ... ok
+test_dynamic_text_is_html_escaped_and_optional_sections_remain_honest (test_m11_reporting.M11ReportingTests.test_dynamic_text_is_html_escaped_and_optional_sections_remain_honest) ... ok
+test_report_is_self_contained_ptbr_traceable_and_redacts_sensitive_values (test_m11_reporting.M11ReportingTests.test_report_is_self_contained_ptbr_traceable_and_redacts_sensitive_values) ... ok
+test_cli_audit_command_defaults_to_mobile_and_restores_environment (test_m12_stable_baseline.M12StableBaselineTests.test_cli_audit_command_defaults_to_mobile_and_restores_environment) ... ok
+test_end_to_end_pipeline_materializes_all_rules_devices_scores_and_report_site (test_m12_stable_baseline.M12StableBaselineTests.test_end_to_end_pipeline_materializes_all_rules_devices_scores_and_report_site) ... ok
+test_actionability_keeps_result_semantics_independent (test_m14_visual_multiurl.M14ActionabilityAndReportTests.test_actionability_keeps_result_semantics_independent) ... ok
+test_report_separates_zero_from_not_calculated_and_exposes_page_visual_dom_reference (test_m14_visual_multiurl.M14ActionabilityAndReportTests.test_report_separates_zero_from_not_calculated_and_exposes_page_visual_dom_reference) ... ok
+test_element_observation_is_bounded_and_never_invents_selector (test_m14_visual_multiurl.M14EvidenceTests.test_element_observation_is_bounded_and_never_invents_selector) ... ok
+test_m3_persists_desktop_mobile_png_and_element_observations (test_m14_visual_multiurl.M14EvidenceTests.test_m3_persists_desktop_mobile_png_and_element_observations) ... ok
+test_explicit_url_set_is_deduplicated_and_domain_resources_are_acquired_once (test_m14_visual_multiurl.M14UrlSetTests.test_explicit_url_set_is_deduplicated_and_domain_resources_are_acquired_once) ... ok
+test_explicit_url_set_rejects_mixed_origin_and_does_not_start_acquisition (test_m14_visual_multiurl.M14UrlSetTests.test_explicit_url_set_rejects_mixed_origin_and_does_not_start_acquisition) ... ok
+test_urls_file_and_direct_targets_share_the_same_cli_input (test_m14_visual_multiurl.M14UrlSetTests.test_urls_file_and_direct_targets_share_the_same_cli_input) ... ok
+test_main_ux_contains_fixed_path_navigation_score_guide_and_interpretation (test_m15_report_ux.M15ReportUxTests.test_main_ux_contains_fixed_path_navigation_score_guide_and_interpretation) ... ok
+test_remediation_groups_same_rule_across_pages_and_separates_global_scope (test_m15_report_ux.M15ReportUxTests.test_remediation_groups_same_rule_across_pages_and_separates_global_scope) ... ok
+test_short_path_hides_domain_and_keeps_query (test_m15_report_ux.M15ReportUxTests.test_short_path_hides_domain_and_keeps_query) ... ok
+test_score_grid_models_all_six_legacy_cells_and_responsive_fallbacks (test_m15_score_layout.M15ScoreLayoutTests.test_score_grid_models_all_six_legacy_cells_and_responsive_fallbacks) ... ok
+test_http_page_failure_is_page_resource (test_m16_resource_scope.M16ResourceScopeTests.test_http_page_failure_is_page_resource) ... ok
+test_robots_rules_are_domain_resources (test_m16_resource_scope.M16ResourceScopeTests.test_robots_rules_are_domain_resources) ... ok
+test_both_reports_expose_root_cause_and_do_not_invent_global_selector (test_m16_root_cause.M16RootCauseTests.test_both_reports_expose_root_cause_and_do_not_invent_global_selector) ... ok
+test_materializes_exact_set_context_and_global_scopes (test_m16_root_cause.M16RootCauseTests.test_materializes_exact_set_context_and_global_scopes) ... ok
+test_semantic_content_rules_keep_main_as_context_region (test_m16_structured_data_policy.M16StructuredDataPolicyTests.test_semantic_content_rules_keep_main_as_context_region) ... ok
+test_structured_data_rules_use_script_elements_not_main_context (test_m16_structured_data_policy.M16StructuredDataPolicyTests.test_structured_data_rules_use_script_elements_not_main_context) ... ok
+test_ai_unavailable_copy_does_not_claim_external_analysis_completed (test_m17_precision_reporting.M17PrecisionReportingTests.test_ai_unavailable_copy_does_not_claim_external_analysis_completed) ... ok
+test_canonical_absence_becomes_precise_cause_and_target_selector (test_m17_precision_reporting.M17PrecisionReportingTests.test_canonical_absence_becomes_precise_cause_and_target_selector) ... ok
+test_orphan_fail_execution_is_exposed_as_integrity_warning (test_m17_precision_reporting.M17PrecisionReportingTests.test_orphan_fail_execution_is_exposed_as_integrity_warning) ... ok
+test_remediation_groups_same_rule_across_two_pages_with_precise_occurrences (test_m17_precision_reporting.M17PrecisionReportingTests.test_remediation_groups_same_rule_across_two_pages_with_precise_occurrences) ... ok
+test_report_distinguishes_observed_and_target_selectors_and_reduces_duplication (test_m17_precision_reporting.M17PrecisionReportingTests.test_report_distinguishes_observed_and_target_selectors_and_reduces_duplication) ... ok
+test_auto_excludes_missing_and_invalid_configuration (test_m18_multi_ai_provider.M18ProviderTests.test_auto_excludes_missing_and_invalid_configuration) ... ok
+test_auto_failover_quarantines_and_promotes_fallback (test_m18_multi_ai_provider.M18ProviderTests.test_auto_failover_quarantines_and_promotes_fallback) ... ok
+test_configuration_supports_each_provider_and_auto_order (test_m18_multi_ai_provider.M18ProviderTests.test_configuration_supports_each_provider_and_auto_order) ... ok
+test_contract_rejects_partial_invalid_evidence_and_empty_output (test_m18_multi_ai_provider.M18ProviderTests.test_contract_rejects_partial_invalid_evidence_and_empty_output) ... ok
+test_explicit_provider_quarantine_blocks_retries_across_urls (test_m18_multi_ai_provider.M18ProviderTests.test_explicit_provider_quarantine_blocks_retries_across_urls) ... ok
+test_http_and_network_errors_are_sanitized_and_classified (test_m18_multi_ai_provider.M18ProviderTests.test_http_and_network_errors_are_sanitized_and_classified) ... ok
+test_mobile_device_context_limits_semantic_provider_to_one_context_per_page (test_m18_multi_ai_provider.M18ProviderTests.test_mobile_device_context_limits_semantic_provider_to_one_context_per_page) ... /home/runner/work/SearchGEO-Readiness-Auditor/SearchGEO-Readiness-Auditor/src/searchgeo/m14_reporting.py:217: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f75a3433100>
+  return list(connection.execute(sql, params).fetchall())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/runner/work/SearchGEO-Readiness-Auditor/SearchGEO-Readiness-Auditor/src/searchgeo/m14_reporting.py:217: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f75a32ce4d0>
+  return list(connection.execute(sql, params).fetchall())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/runner/work/SearchGEO-Readiness-Auditor/SearchGEO-Readiness-Auditor/src/searchgeo/m14_reporting.py:217: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f75a32ce6b0>
+  return list(connection.execute(sql, params).fetchall())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/runner/work/SearchGEO-Readiness-Auditor/SearchGEO-Readiness-Auditor/src/searchgeo/m14_reporting.py:217: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f75a32ce3e0>
+  return list(connection.execute(sql, params).fetchall())
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_provider_requests_use_expected_structured_modes_and_reasoning (test_m18_multi_ai_provider.M18ProviderTests.test_provider_requests_use_expected_structured_modes_and_reasoning) ... ok
+test_run_audit_persists_attempts_and_materializes_ai_telemetry_page (test_m18_multi_ai_provider.M18ProviderTests.test_run_audit_persists_attempts_and_materializes_ai_telemetry_page) ... ok
+test_success_stops_chain_and_chain_exhaustion_is_explicit (test_m18_multi_ai_provider.M18ProviderTests.test_success_stops_chain_and_chain_exhaustion_is_explicit) ... ok
+test_url_lock_prevents_cross_provider_mobile_completion (test_m18_multi_ai_provider.M18ProviderTests.test_url_lock_prevents_cross_provider_mobile_completion) ... ok
+test_usage_and_estimated_cost_are_normalized (test_m18_multi_ai_provider.M18ProviderTests.test_usage_and_estimated_cost_are_normalized) ... ok
+test_auto_all_quarantined_is_chain_exhausted (test_m18_operational_contract.M18OperationalContractTests.test_auto_all_quarantined_is_chain_exhausted) ... ok
+test_cli_reference_documents_every_exposed_argument (test_m18_operational_contract.M18OperationalContractTests.test_cli_reference_documents_every_exposed_argument) ... ok
+test_explicit_provider_without_token_is_visible_in_persistence_and_ai_page (test_m18_operational_contract.M18OperationalContractTests.test_explicit_provider_without_token_is_visible_in_persistence_and_ai_page) ... ok
+test_provider_credentials_are_isolated_from_openai_environment (test_m18_operational_contract.M18OperationalContractTests.test_provider_credentials_are_isolated_from_openai_environment) ... ok
+test_selected_provider_without_credential_is_not_configured (test_m18_operational_contract.M18OperationalContractTests.test_selected_provider_without_credential_is_not_configured) ... ok
+test_single_provider_failure_is_degraded_not_chain_exhausted (test_m18_operational_contract.M18OperationalContractTests.test_single_provider_failure_is_degraded_not_chain_exhausted) ... ok
+test_remediation_context_is_inserted_inside_main_content (test_m18_timeout_and_report_layout.M18ReportLayoutTests.test_remediation_context_is_inserted_inside_main_content) ... ok
+test_report_telemetry_is_inserted_inside_main_content (test_m18_timeout_and_report_layout.M18ReportLayoutTests.test_report_telemetry_is_inserted_inside_main_content) ... ok
+test_explicit_provider_uses_longer_cli_runtime_default (test_m18_timeout_and_report_layout.M18TimeoutConfigurationTests.test_explicit_provider_uses_longer_cli_runtime_default) ... ok
+test_invalid_timeout_environment_value_is_rejected_only_when_ai_is_enabled (test_m18_timeout_and_report_layout.M18TimeoutConfigurationTests.test_invalid_timeout_environment_value_is_rejected_only_when_ai_is_enabled) ... ok
+test_timeout_environment_override_applies_to_all_auto_candidates (test_m18_timeout_and_report_layout.M18TimeoutConfigurationTests.test_timeout_environment_override_applies_to_all_auto_candidates) ... ok
+test_full_m1_round_trip_and_audit_reopen (test_m1_persistence.M1PersistenceTests.test_full_m1_round_trip_and_audit_reopen) ... ok
+test_rejects_untraceable_references (test_m1_persistence.M1PersistenceTests.test_rejects_untraceable_references) ... ok
+test_default_off_still_materializes_safe_jsonld_baseline (test_m20_content_remediation.M20ContentRemediationTests.test_default_off_still_materializes_safe_jsonld_baseline) ... ok
+test_enabled_ai_persists_exact_text_evidence_and_usage (test_m20_content_remediation.M20ContentRemediationTests.test_enabled_ai_persists_exact_text_evidence_and_usage) ... ok
+test_existing_jsonld_is_reviewed_without_destructive_rewrite (test_m20_content_remediation.M20ContentRemediationTests.test_existing_jsonld_is_reviewed_without_destructive_rewrite) ... ok
+test_unsupported_numeric_claim_is_rejected_as_contract_error (test_m20_content_remediation.M20ContentRemediationTests.test_unsupported_numeric_claim_is_rejected_as_contract_error) ... ok
+test_sqlite_error_in_m21_post_processing_does_not_invalidate_core_audit (test_m21_cli_fail_open.M21CliFailOpenTests.test_sqlite_error_in_m21_post_processing_does_not_invalidate_core_audit) ... ok
+test_auto_uses_direct_crux_when_pagespeed_field_is_missing (test_m21_web_performance.M21WebPerformanceTests.test_auto_uses_direct_crux_when_pagespeed_field_is_missing) ... ok
+test_cli_disabled_ignores_inactive_m21_tuning_environment (test_m21_web_performance.M21WebPerformanceTests.test_cli_disabled_ignores_inactive_m21_tuning_environment) ... ok
+test_disabled_is_no_network_and_persists_run (test_m21_web_performance.M21WebPerformanceTests.test_disabled_is_no_network_and_persists_run) ... ok
+test_missing_cwv_metric_is_incomplete_not_fail (test_m21_web_performance.M21WebPerformanceTests.test_missing_cwv_metric_is_incomplete_not_fail) ... ok
+test_pagespeed_persists_lighthouse_and_cwv_without_touching_score (test_m21_web_performance.M21WebPerformanceTests.test_pagespeed_persists_lighthouse_and_cwv_without_touching_score) ... ok
+test_pagespeed_timeout_with_crux_success_is_partial_and_logged (test_m21_web_performance.M21WebPerformanceTests.test_pagespeed_timeout_with_crux_success_is_partial_and_logged) ... ok
+test_report_keeps_external_metrics_separate_from_score_geo_002 (test_m21_web_performance.M21WebPerformanceTests.test_report_keeps_external_metrics_separate_from_score_geo_002) ... ok
+test_accessibility_failure_preserves_lighthouse_selector_and_snippet (test_m22_quality_domains.M22QualityDomainTests.test_accessibility_failure_preserves_lighthouse_selector_and_snippet) ... ok
+test_accessibility_never_invents_selector_when_source_has_none (test_m22_quality_domains.M22QualityDomainTests.test_accessibility_never_invents_selector_when_source_has_none) ... ok
+test_navigation_keeps_accessibility_as_optional_canonical_domain (test_m22_quality_domains.M22QualityDomainTests.test_navigation_keeps_accessibility_as_optional_canonical_domain) ... ok
+test_performance_extracts_render_blocking_resource_without_a11y_leakage (test_m22_quality_domains.M22QualityDomainTests.test_performance_extracts_render_blocking_resource_without_a11y_leakage) ... ok
+test_cli_materializes_apdex_report_and_keeps_external_apis_off (test_m23_e2e_local.M23LocalE2ETests.test_cli_materializes_apdex_report_and_keeps_external_apis_off) ... ok
+test_console_command_and_load_warning_match_configuration (test_m23_integration.M23IntegrationTests.test_console_command_and_load_warning_match_configuration) ... ok
+test_disabled_m23_persists_zero_work_without_starting_browser (test_m23_integration.M23IntegrationTests.test_disabled_m23_persists_zero_work_without_starting_browser) ... ok
+test_public_parser_exposes_m23_without_changing_default (test_m23_integration.M23IntegrationTests.test_public_parser_exposes_m23_without_changing_default) ... ok
+test_three_valid_samples_are_small_group_and_formula_is_exact (test_m23_integration.M23IntegrationTests.test_three_valid_samples_are_small_group_and_formula_is_exact) ... ok
+test_timeout_must_exceed_4t (test_m23_integration.M23IntegrationTests.test_timeout_must_exceed_4t) ... ok
+test_tool_failure_is_excluded_from_denominator (test_m23_integration.M23IntegrationTests.test_tool_failure_is_excluded_from_denominator) ... ok
+test_cli_config_defaults_off_and_accepts_env (test_m24_crawling_discovery.M24Tests.test_cli_config_defaults_off_and_accepts_env) ... ok
+test_discovery_supports_xml_text_rss_atom_and_preserves_external_declaration (test_m24_crawling_discovery.M24Tests.test_discovery_supports_xml_text_rss_atom_and_preserves_external_declaration) ... ok
+test_m24_ai_enabled_without_provider_is_not_configured_not_site_failure (test_m24_crawling_discovery.M24Tests.test_m24_ai_enabled_without_provider_is_not_configured_not_site_failure) ... ok
+test_m24_persists_non_scoring_diagnostics_and_report_idempotently (test_m24_crawling_discovery.M24Tests.test_m24_persists_non_scoring_diagnostics_and_report_idempotently) ... ok
+test_source_blocker_disables_additional_llms_network_probe (test_m24_crawling_discovery.M24Tests.test_source_blocker_disables_additional_llms_network_probe) ... ok
+test_real_chromium_collects_late_fetch_and_javascript_error (test_m25_browser_e2e.M25BrowserE2ETests.test_real_chromium_collects_late_fetch_and_javascript_error) ... ok
+test_console_command_projects_m25_without_secret (test_m25_console_integration.M25ConsoleIntegrationTests.test_console_command_projects_m25_without_secret) ... ok
+test_ini_roundtrip_persists_m25_nonsecret_settings_only (test_m25_console_integration.M25ConsoleIntegrationTests.test_ini_roundtrip_persists_m25_nonsecret_settings_only) ... ok
+test_m25_requires_standard_m23_in_console_state (test_m25_console_integration.M25ConsoleIntegrationTests.test_m25_requires_standard_m23_in_console_state) ... ok
+test_m23_reporting_is_wrapped_with_m25_finalizer (test_m25_report_finalization.M25ReportFinalizationTests.test_m23_reporting_is_wrapped_with_m25_finalizer) ... ok
+test_refresh_does_not_materialize_m25_when_run_is_absent (test_m25_report_finalization.M25ReportFinalizationTests.test_refresh_does_not_materialize_m25_when_run_is_absent) ... ok
+test_refresh_runs_only_for_persisted_m25_audit (test_m25_report_finalization.M25ReportFinalizationTests.test_refresh_runs_only_for_persisted_m25_audit) ... ok
+test_calibrated_thresholds_are_independent_from_standard_4t (test_m25_synthetic_user_experience.M25SyntheticUserExperienceTests.test_calibrated_thresholds_are_independent_from_standard_4t) ... ok
+test_cli_handoff_requires_standard_m23_and_keeps_m25_separate (test_m25_synthetic_user_experience.M25SyntheticUserExperienceTests.test_cli_handoff_requires_standard_m23_and_keeps_m25_separate) ... ok
+test_device_mix_requires_explicit_100_percent_and_allocates_exact_total (test_m25_synthetic_user_experience.M25SyntheticUserExperienceTests.test_device_mix_requires_explicit_100_percent_and_allocates_exact_total) ... ok
+test_dynatrace_configuration_parser_converts_old_millisecond_thresholds (test_m25_synthetic_user_experience.M25SyntheticUserExperienceTests.test_dynatrace_configuration_parser_converts_old_millisecond_thresholds) ... ok
+test_execution_persists_population_tablet_errors_and_report (test_m25_synthetic_user_experience.M25SyntheticUserExperienceTests.test_execution_persists_population_tablet_errors_and_report) ... ok
+test_exported_dynatrace_json_does_not_persist_raw_payload (test_m25_synthetic_user_experience.M25SyntheticUserExperienceTests.test_exported_dynatrace_json_does_not_persist_raw_payload) ... ok
+test_qualifying_error_can_force_fast_action_to_frustrated (test_m25_synthetic_user_experience.M25SyntheticUserExperienceTests.test_qualifying_error_can_force_fast_action_to_frustrated) ... ok
+test_m26_observed_generative_visibility (unittest.loader._FailedTest.test_m26_observed_generative_visibility) ... ERROR
+test_discovery_is_deterministic_and_m2_persists_provenance_http_and_rules (test_m2_discovery_http.M2DiscoveryHttpTests.test_discovery_is_deterministic_and_m2_persists_provenance_http_and_rules) ... ok
+test_http_captures_redirects_headers_http_errors_and_network_errors (test_m2_discovery_http.M2DiscoveryHttpTests.test_http_captures_redirects_headers_http_errors_and_network_errors) ... ok
+test_internal_link_cycles_are_deduplicated (test_m2_discovery_http.M2DiscoveryHttpTests.test_internal_link_cycles_are_deduplicated) ... ok
+test_page_network_failure_is_persisted_without_aborting_the_audit (test_m2_discovery_http.M2DiscoveryHttpTests.test_page_network_failure_is_persisted_without_aborting_the_audit) ... ok
+test_robots_absence_and_malformed_sitemap_do_not_abort_discovery (test_m2_discovery_http.M2DiscoveryHttpTests.test_robots_absence_and_malformed_sitemap_do_not_abort_discovery) ... ok
+test_robots_access_is_resolved_independently_per_configured_crawler (test_m2_discovery_http.M2DiscoveryHttpTests.test_robots_access_is_resolved_independently_per_configured_crawler) ... ok
+test_url_normalization_is_conservative_and_rejects_unsupported_urls (test_m2_discovery_http.M2DiscoveryHttpTests.test_url_normalization_is_conservative_and_rejects_unsupported_urls) ... ok
+test_desktop_and_mobile_profiles_are_explicitly_distinct (test_m3_rendering.M3RenderingTests.test_desktop_and_mobile_profiles_are_explicitly_distinct) ... ok
+test_javascript_changes_rendered_dom_without_changing_m2_raw_artifact (test_m3_rendering.M3RenderingTests.test_javascript_changes_rendered_dom_without_changing_m2_raw_artifact) ... ok
+test_snapshots_are_independent_reopenable_and_mobile_failure_is_localized (test_m3_rendering.M3RenderingTests.test_snapshots_are_independent_reopenable_and_mobile_failure_is_localized) ... ok
+test_execute_m4_updates_each_device_and_persists_reopenable_evidence (test_m4_extraction_evidence.M4ExtractionEvidenceTests.test_execute_m4_updates_each_device_and_persists_reopenable_evidence) ... ok
+test_extractor_preserves_structural_signals_and_invalid_jsonld (test_m4_extraction_evidence.M4ExtractionEvidenceTests.test_extractor_preserves_structural_signals_and_invalid_jsonld) ... ok
+test_missing_artifact_is_localized_and_other_snapshot_continues (test_m4_extraction_evidence.M4ExtractionEvidenceTests.test_missing_artifact_is_localized_and_other_snapshot_continues) ... ok
+test_failed_retrievability_blocks_derivative_rules_without_cascading_failures (test_m5_deterministic_rules.M5RulesTests.test_failed_retrievability_blocks_derivative_rules_without_cascading_failures) ... ok
+test_indexability_conflict_is_evidence_backed_and_gptbot_block_alone_does_not_penalize (test_m5_deterministic_rules.M5RulesTests.test_indexability_conflict_is_evidence_backed_and_gptbot_block_alone_does_not_penalize) ... ok
+test_oai_searchbot_block_is_surfaced_but_not_confused_with_gptbot (test_m5_deterministic_rules.M5RulesTests.test_oai_searchbot_block_is_surfaced_but_not_confused_with_gptbot) ... ok
+test_registry_contains_normative_001_to_018_and_rejects_duplicates (test_m5_deterministic_rules.M5RulesTests.test_registry_contains_normative_001_to_018_and_rejects_duplicates) ... ok
+test_execute_m6_persists_architecture_rules_and_evidence_backed_finding (test_m6_javascript_spa.M6JavascriptSpaTests.test_execute_m6_persists_architecture_rules_and_evidence_backed_finding) ... ok
+test_lazy_content_recovered_by_bounded_probe_is_not_failed (test_m6_javascript_spa.M6JavascriptSpaTests.test_lazy_content_recovered_by_bounded_probe_is_not_failed) ... ok
+test_raw_shell_plus_rendered_content_is_valid_csr_spa (test_m6_javascript_spa.M6JavascriptSpaTests.test_raw_shell_plus_rendered_content_is_valid_csr_spa) ... ok
+test_soft404_and_non_crawlable_navigation_require_strong_evidence (test_m6_javascript_spa.M6JavascriptSpaTests.test_soft404_and_non_crawlable_navigation_require_strong_evidence) ... ok
+test_main_content_and_meaningful_non_boilerplate_do_not_use_word_thresholds (test_m7_content_extractability_gap.ContentExtractabilityGapTests.test_main_content_and_meaningful_non_boilerplate_do_not_use_word_thresholds) ... ok
+test_material_qualifier_loss_is_warning_not_semantic_fail (test_m7_content_extractability_gap.ContentExtractabilityGapTests.test_material_qualifier_loss_is_warning_not_semantic_fail) ... ok
+test_missing_rendered_document_stays_unknown (test_m7_content_extractability_gap.ContentExtractabilityGapTests.test_missing_rendered_document_stays_unknown) ... ok
+test_failed_rendered_content_blocks_semantic_derivatives_without_stale_provider_state (test_m7_dependency.M7DependencyTests.test_failed_rendered_content_blocks_semantic_derivatives_without_stale_provider_state) ... ok
+test_invalid_provider_evidence_degrades_without_penalizing_website (test_m7_semantic_provider.M7SemanticProviderTests.test_invalid_provider_evidence_degrades_without_penalizing_website) ... ok
+test_no_ai_keeps_semantic_rules_unknown_but_deterministic_checks_run (test_m7_semantic_provider.M7SemanticProviderTests.test_no_ai_keeps_semantic_rules_unknown_but_deterministic_checks_run) ... ok
+test_openai_adapter_full_mode_validates_evidence_and_persists_semantic_entities (test_m7_semantic_provider.M7SemanticProviderTests.test_openai_adapter_full_mode_validates_evidence_and_persists_semantic_entities) ... ok
+test_both_preserves_cross_device_comparison (test_m8_context_contract.DeviceContextM8ContractTests.test_both_preserves_cross_device_comparison) ... ok
+test_desktop_only_marks_br_geo_052_not_applicable (test_m8_context_contract.DeviceContextM8ContractTests.test_desktop_only_marks_br_geo_052_not_applicable) ... ok
+test_mobile_only_marks_br_geo_052_not_applicable (test_m8_context_contract.DeviceContextM8ContractTests.test_mobile_only_marks_br_geo_052_not_applicable) ... ok
+test_benign_difference_is_classified_but_not_material (test_m8_device_comparison.DeviceComparatorTests.test_benign_difference_is_classified_but_not_material) ... ok
+test_indexability_or_http_access_difference_is_material (test_m8_device_comparison.DeviceComparatorTests.test_indexability_or_http_access_difference_is_material) ... ok
+test_missing_device_is_unknown_not_fail (test_m8_device_comparison.DeviceComparatorTests.test_missing_device_is_unknown_not_fail) ... ok
+test_exact_and_near_duplicates_are_limited_to_supplied_audited_universe (test_m8_pre_scoring_rules.PreScoringRuleTests.test_exact_and_near_duplicates_are_limited_to_supplied_audited_universe) ... ok
+test_short_distinct_content_is_not_forced_into_duplicate (test_m8_pre_scoring_rules.PreScoringRuleTests.test_short_distinct_content_is_not_forced_into_duplicate) ... ok
+test_applicable_structured_data_failure_changes_overall_score (test_m9_scoring.M9ScoringTests.test_applicable_structured_data_failure_changes_overall_score) ... ok
+test_device_independent_execution_contributes_once_to_each_device (test_m9_scoring.M9ScoringTests.test_device_independent_execution_contributes_once_to_each_device) ... ok
+test_fully_not_applicable_dimension_is_excluded_without_penalty (test_m9_scoring.M9ScoringTests.test_fully_not_applicable_dimension_is_excluded_without_penalty) ... ok
+test_max_impact_collapses_correlated_fail_and_pass_once (test_m9_scoring.M9ScoringTests.test_max_impact_collapses_correlated_fail_and_pass_once) ... ok
+test_overall_remains_not_consolidated_when_required_dimensions_missing (test_m9_scoring.M9ScoringTests.test_overall_remains_not_consolidated_when_required_dimensions_missing) ... ok
+test_prerequisite_blocked_not_applicable_dimension_still_blocks_overall (test_m9_scoring.M9ScoringTests.test_prerequisite_blocked_not_applicable_dimension_still_blocks_overall) ... ok
+test_structured_data_when_present_enters_overall_calculation (test_m9_scoring.M9ScoringTests.test_structured_data_when_present_enters_overall_calculation) ... ok
+test_unknown_reduces_coverage_without_reducing_quality_factor (test_m9_scoring.M9ScoringTests.test_unknown_reduces_coverage_without_reducing_quality_factor) ... ok
+test_cli_uses_hardened_provider (test_openai_provider_hardening.OpenAIProviderHardeningTests.test_cli_uses_hardened_provider) ... ok
+test_complete_response_is_available (test_openai_provider_hardening.OpenAIProviderHardeningTests.test_complete_response_is_available) ... ok
+test_http_429_retains_sanitized_quota_diagnostic (test_openai_provider_hardening.OpenAIProviderHardeningTests.test_http_429_retains_sanitized_quota_diagnostic) ... ok
+test_partial_response_is_not_published_as_available (test_openai_provider_hardening.OpenAIProviderHardeningTests.test_partial_response_is_not_published_as_available) ... ok
+test_prompt_explains_every_rule_and_requires_complete_set (test_openai_provider_hardening.OpenAIProviderHardeningTests.test_prompt_explains_every_rule_and_requires_complete_set) ... ok
+test_report_ai_usage_distinguishes_failure_from_success (test_openai_provider_hardening.OpenAIProviderHardeningTests.test_report_ai_usage_distinguishes_failure_from_success) ... ok
+test_rule_contract_covers_all_semantic_rules (test_openai_provider_hardening.OpenAIProviderHardeningTests.test_rule_contract_covers_all_semantic_rules) ... ok
+test_sensitive_fields_are_redacted_and_configuration_booleans_are_safe (test_operational_log.OperationalLogTests.test_sensitive_fields_are_redacted_and_configuration_booleans_are_safe) ... ok
+test_try_append_is_fail_open_on_log_io_error (test_operational_log.OperationalLogTests.test_try_append_is_fail_open_on_log_io_error) ... ok
+test_anthropic_messages_contract_usage_and_refusal (test_provider_extensions.ProviderExtensionTests.test_anthropic_messages_contract_usage_and_refusal) ... ok
+test_extension_defaults_aliases_and_provisional_status (test_provider_extensions.ProviderExtensionTests.test_extension_defaults_aliases_and_provisional_status) ... ok
+test_extension_endpoint_override_is_explicit_and_isolated (test_provider_extensions.ProviderExtensionTests.test_extension_endpoint_override_is_explicit_and_isolated) ... ok
+test_gemini_interactions_contract_and_new_schema_response (test_provider_extensions.ProviderExtensionTests.test_gemini_interactions_contract_and_new_schema_response) ... ok
+test_legacy_auto_is_delegated_and_ignores_extension_keys (test_provider_extensions.ProviderExtensionTests.test_legacy_auto_is_delegated_and_ignores_extension_keys) ... ok
+test_legacy_explicit_provider_defaults_are_unchanged (test_provider_extensions.ProviderExtensionTests.test_legacy_explicit_provider_defaults_are_unchanged) ... ok
+test_missing_key_is_not_configured_and_never_calls_transport (test_provider_extensions.ProviderExtensionTests.test_missing_key_is_not_configured_and_never_calls_transport) ... ok
+test_partial_output_is_fail_closed_and_quarantined (test_provider_extensions.ProviderExtensionTests.test_partial_output_is_fail_closed_and_quarantined) ... ok
+test_qwen_chat_completions_contract (test_provider_extensions.ProviderExtensionTests.test_qwen_chat_completions_contract) ... ok
+test_xai_responses_contract_and_usage (test_provider_extensions.ProviderExtensionTests.test_xai_responses_contract_and_usage) ... ok
+test_anthropic_m20_uses_messages_schema (test_provider_extensions_m20.ProviderExtensionM20Tests.test_anthropic_m20_uses_messages_schema) ... ok
+test_gemini_m20_uses_interactions_schema (test_provider_extensions_m20.ProviderExtensionM20Tests.test_gemini_m20_uses_interactions_schema) ... ok
+test_quarantined_m7_provider_is_not_reactivated_for_m20 (test_provider_extensions_m20.ProviderExtensionM20Tests.test_quarantined_m7_provider_is_not_reactivated_for_m20) ... ok
+test_qwen_m20_uses_chat_completions_schema (test_provider_extensions_m20.ProviderExtensionM20Tests.test_qwen_m20_uses_chat_completions_schema) ... ok
+test_xai_m20_uses_responses_schema (test_provider_extensions_m20.ProviderExtensionM20Tests.test_xai_m20_uses_responses_schema) ... ok
+test_auto_chain_remains_legacy_only (test_provider_registry.ProviderRegistryTests.test_auto_chain_remains_legacy_only) ... ok
+test_environment_names_are_unique_and_include_extension_keys (test_provider_registry.ProviderRegistryTests.test_environment_names_are_unique_and_include_extension_keys) ... ok
+test_extension_aliases_and_cli_choices_are_registry_driven (test_provider_registry.ProviderRegistryTests.test_extension_aliases_and_cli_choices_are_registry_driven) ... ok
+test_extension_metadata_is_derived_from_adapter_sources (test_provider_registry.ProviderRegistryTests.test_extension_metadata_is_derived_from_adapter_sources) ... ok
+test_legacy_metadata_is_derived_from_m18_sources (test_provider_registry.ProviderRegistryTests.test_legacy_metadata_is_derived_from_m18_sources) ... ok
+test_mimo_payg_key_constraint_is_exposed_to_consumers (test_provider_registry.ProviderRegistryTests.test_mimo_payg_key_constraint_is_exposed_to_consumers) ... ok
+test_registry_contains_every_concrete_provider_once (test_provider_registry.ProviderRegistryTests.test_registry_contains_every_concrete_provider_once) ... ok
+test_console_web_timeout_default_is_120_seconds (test_provider_runtime_policy.ProviderRuntimePolicyTests.test_console_web_timeout_default_is_120_seconds) ... ok
+test_explicit_environment_override_is_preserved (test_provider_runtime_policy.ProviderRuntimePolicyTests.test_explicit_environment_override_is_preserved) ... ok
+test_public_defaults_use_lowest_supported_effort (test_provider_runtime_policy.ProviderRuntimePolicyTests.test_public_defaults_use_lowest_supported_effort) ... ok
+test_public_defaults_use_simplest_models (test_provider_runtime_policy.ProviderRuntimePolicyTests.test_public_defaults_use_simplest_models) ... ok
+test_xai_and_gemini_payloads_are_lowered (test_provider_runtime_policy.ProviderRuntimePolicyTests.test_xai_and_gemini_payloads_are_lowered) ... ok
+test_accessibility_keeps_canonical_position_when_materialized (test_report_navigation.ReportNavigationTests.test_accessibility_keeps_canonical_position_when_materialized) ... ok
+test_ai_cost_total_sums_m18_and_m20_without_double_counting (test_report_navigation.ReportNavigationTests.test_ai_cost_total_sums_m18_and_m20_without_double_counting) ... ok
+test_all_generated_pages_share_canonical_order_current_item_and_metadata (test_report_navigation.ReportNavigationTests.test_all_generated_pages_share_canonical_order_current_item_and_metadata) ... ok
+test_optional_pages_are_omitted_until_their_files_exist (test_report_navigation.ReportNavigationTests.test_optional_pages_are_omitted_until_their_files_exist) ... ok
+test_premium_css_and_br_geo_tooltips_are_shared_and_idempotent (test_report_navigation.ReportNavigationTests.test_premium_css_and_br_geo_tooltips_are_shared_and_idempotent) ... ok
+test_accessibility_distinguishes_occurrences_from_audits_and_wcag (test_report_semantics.ReportSemanticTests.test_accessibility_distinguishes_occurrences_from_audits_and_wcag) ... ok
+test_apdex_profile_is_reconciled_from_persisted_device_configuration (test_report_semantics.ReportSemanticTests.test_apdex_profile_is_reconciled_from_persisted_device_configuration) ... ok
+test_lighthouse_and_cwv_use_documented_threshold_states (test_report_semantics.ReportSemanticTests.test_lighthouse_and_cwv_use_documented_threshold_states) ... ok
+test_score_page_explains_low_confidence_and_structured_data_absence (test_report_semantics.ReportSemanticTests.test_score_page_explains_low_confidence_and_structured_data_absence) ... ok
+test_base_report_shell_uses_canonical_navigation_core (test_report_site_navigation_core.BaseReportNavigationCoreTests.test_base_report_shell_uses_canonical_navigation_core) ... ok
+test_footer_is_last_element_inside_main_after_enrichment (test_report_visual_contract.ReportVisualContractTests.test_footer_is_last_element_inside_main_after_enrichment) ... ok
+test_m20_table_has_visual_breathing_room (test_report_visual_contract.ReportVisualContractTests.test_m20_table_has_visual_breathing_room) ... ok
+test_shared_card_and_table_radius_contract (test_report_visual_contract.ReportVisualContractTests.test_shared_card_and_table_radius_contract) ... ok
+test_real_m7_json_ld_fixture_enters_structured_data_and_overall_flow (test_score_geo_002_applicability.ScoreGeo002ApplicabilityTests.test_real_m7_json_ld_fixture_enters_structured_data_and_overall_flow) ... ok
+test_report_calculates_geo_when_structured_data_is_legitimately_not_applicable (test_score_geo_002_applicability.ScoreGeo002ApplicabilityTests.test_report_calculates_geo_when_structured_data_is_legitimately_not_applicable) ... ok
+test_console_back_action_is_v_and_actions_are_not_pipe_compacted (test_smoke_integrity_regressions.SmokeIntegrityRegressionTests.test_console_back_action_is_v_and_actions_are_not_pipe_compacted) ... ok
+test_fenced_provider_json_is_accepted_but_prose_is_not (test_smoke_integrity_regressions.SmokeIntegrityRegressionTests.test_fenced_provider_json_is_accepted_but_prose_is_not) ... ok
+test_mds_recovery_can_use_m2_trace_when_browser_trace_is_empty (test_smoke_integrity_regressions.SmokeIntegrityRegressionTests.test_mds_recovery_can_use_m2_trace_when_browser_trace_is_empty) ... ok
+test_report_sources_have_no_gradients (test_smoke_integrity_regressions.SmokeIntegrityRegressionTests.test_report_sources_have_no_gradients) ... ok
+test_single_device_scoring_does_not_materialize_phantom_device (test_smoke_integrity_regressions.SmokeIntegrityRegressionTests.test_single_device_scoring_does_not_materialize_phantom_device) ... ok
+test_ai_receives_facts_once_and_cannot_replace_deterministic_tls_classification (test_source_quality_ai.SourceQualityAiTests.test_ai_receives_facts_once_and_cannot_replace_deterministic_tls_classification) ... ok
+test_desktop_identity_tracks_runtime_chrome_version_without_changing_searchgeo_viewport (test_source_quality_browser_identity.BrowserIdentityTests.test_desktop_identity_tracks_runtime_chrome_version_without_changing_searchgeo_viewport) ... ok
+test_mobile_identity_tracks_runtime_chrome_version_and_keeps_mobile_semantics (test_source_quality_browser_identity.BrowserIdentityTests.test_mobile_identity_tracks_runtime_chrome_version_and_keeps_mobile_semantics) ... ok
+test_renderer_preserves_original_failure_when_secure_probe_also_fails (test_source_quality_browser_identity.BrowserIdentityTests.test_renderer_preserves_original_failure_when_secure_probe_also_fails) ... ok
+test_renderer_recovers_mdsgroup_via_single_strict_https_probe (test_source_quality_browser_identity.BrowserIdentityTests.test_renderer_recovers_mdsgroup_via_single_strict_https_probe) ... ok
+test_secure_upgrade_candidate_does_not_activate_after_redirect_to_third_party (test_source_quality_browser_identity.BrowserIdentityTests.test_secure_upgrade_candidate_does_not_activate_after_redirect_to_third_party) ... ok
+test_secure_upgrade_candidate_does_not_cross_to_unrelated_host (test_source_quality_browser_identity.BrowserIdentityTests.test_secure_upgrade_candidate_does_not_cross_to_unrelated_host) ... ok
+test_secure_upgrade_candidate_matches_mdsgroup_downgrade_hop (test_source_quality_browser_identity.BrowserIdentityTests.test_secure_upgrade_candidate_matches_mdsgroup_downgrade_hop) ... ok
+test_secure_upgrade_candidate_requires_https_requested_url (test_source_quality_browser_identity.BrowserIdentityTests.test_secure_upgrade_candidate_requires_https_requested_url) ... ok
+test_console_runtime_does_not_dump_raw_recent_or_final_stdout (test_source_quality_fail_fast.SourceQualityFailFastTests.test_console_runtime_does_not_dump_raw_recent_or_final_stdout) ... ok
+test_core_audit_confirms_blocker_only_after_browser_failure (test_source_quality_fail_fast.SourceQualityFailFastTests.test_core_audit_confirms_blocker_only_after_browser_failure) ... ok
+test_core_audit_continues_when_chromium_reaches_valid_browser_route (test_source_quality_fail_fast.SourceQualityFailFastTests.test_core_audit_continues_when_chromium_reaches_valid_browser_route) ... ok
+test_m21_and_m23_persist_zero_attempt_source_skip_after_browser_confirmation (test_source_quality_fail_fast.SourceQualityFailFastTests.test_m21_and_m23_persist_zero_attempt_source_skip_after_browser_confirmation) ... ok
+test_mdsgroup_redirect_tls_is_hard_blocker_with_full_chain (test_source_quality_fail_fast.SourceQualityFailFastTests.test_mdsgroup_redirect_tls_is_hard_blocker_with_full_chain) ... ok
+test_preflight_blocked_renderer_remains_available_as_diagnostic_stub (test_source_quality_fail_fast.SourceQualityFailFastTests.test_preflight_blocked_renderer_remains_available_as_diagnostic_stub) ... ok
+test_recovered_route_report_exposes_browser_final_and_http_chain (test_source_quality_fail_fast.SourceQualityFailFastTests.test_recovered_route_report_exposes_browser_final_and_http_chain) ... ok
+test_source_quality_panel_is_added_to_all_reports_idempotently (test_source_quality_fail_fast.SourceQualityFailFastTests.test_source_quality_panel_is_added_to_all_reports_idempotently) ... ok
+test_blocked_source_is_explicit_on_every_report_and_log (test_source_quality_report_summary.SourceQualityReportSummaryTests.test_blocked_source_is_explicit_on_every_report_and_log) ... ok
+test_limitations_explain_that_audit_continued_but_redirect_still_requires_fix (test_source_quality_secure_redirect_recovery.SecureRedirectRecoveryTests.test_limitations_explain_that_audit_continued_but_redirect_still_requires_fix) ... ok
+test_recovered_issue_is_explicit_and_preserves_original_failure_context (test_source_quality_secure_redirect_recovery.SecureRedirectRecoveryTests.test_recovered_issue_is_explicit_and_preserves_original_failure_context) ... ok
+test_report_shows_recovered_final_url_and_original_301_chain (test_source_quality_secure_redirect_recovery.SecureRedirectRecoveryTests.test_report_shows_recovered_final_url_and_original_301_chain) ... ok
+test_brasilia_iana_timezone_is_available (test_timezone_dependency.TimezoneDependencyTests.test_brasilia_iana_timezone_is_available) ... ok
+test_all_runtime_defaults_are_120_seconds (test_web_performance_timeout_default.WebPerformanceTimeoutDefaultTests.test_all_runtime_defaults_are_120_seconds) ... ok
+
+======================================================================
+ERROR: test_console_environment_guidance (unittest.loader._FailedTest.test_console_environment_guidance)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_console_environment_guidance
+Traceback (most recent call last):
+  File "/opt/hostedtoolcache/Python/3.13.15/x64/lib/python3.13/unittest/loader.py", line 403, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "/opt/hostedtoolcache/Python/3.13.15/x64/lib/python3.13/unittest/loader.py", line 346, in _get_module_from_name
+    __import__(name)
+    ~~~~~~~~~~^^^^^^
+  File "/home/runner/work/SearchGEO-Readiness-Auditor/SearchGEO-Readiness-Auditor/tests/test_console_environment_guidance.py", line 5, in <module>
+    import pytest
+ModuleNotFoundError: No module named 'pytest'
+
+
+======================================================================
+ERROR: test_content_analysis_context (unittest.loader._FailedTest.test_content_analysis_context)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_content_analysis_context
+Traceback (most recent call last):
+  File "/opt/hostedtoolcache/Python/3.13.15/x64/lib/python3.13/unittest/loader.py", line 403, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "/opt/hostedtoolcache/Python/3.13.15/x64/lib/python3.13/unittest/loader.py", line 346, in _get_module_from_name
+    __import__(name)
+    ~~~~~~~~~~^^^^^^
+  File "/home/runner/work/SearchGEO-Readiness-Auditor/SearchGEO-Readiness-Auditor/tests/test_content_analysis_context.py", line 3, in <module>
+    import pytest
+ModuleNotFoundError: No module named 'pytest'
+
+
+======================================================================
+ERROR: test_m26_observed_generative_visibility (unittest.loader._FailedTest.test_m26_observed_generative_visibility)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_m26_observed_generative_visibility
+Traceback (most recent call last):
+  File "/opt/hostedtoolcache/Python/3.13.15/x64/lib/python3.13/unittest/loader.py", line 403, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "/opt/hostedtoolcache/Python/3.13.15/x64/lib/python3.13/unittest/loader.py", line 346, in _get_module_from_name
+    __import__(name)
+    ~~~~~~~~~~^^^^^^
+  File "/home/runner/work/SearchGEO-Readiness-Auditor/SearchGEO-Readiness-Auditor/tests/test_m26_observed_generative_visibility.py", line 9, in <module>
+    import pytest
+ModuleNotFoundError: No module named 'pytest'
+
+
+----------------------------------------------------------------------
+Ran 300 tests in 44.366s
+
+FAILED (errors=3)
