@@ -25,9 +25,6 @@ jobs:
         run: |
           set -euo pipefail
           MESSAGE="$(git log -1 --pretty=%B)"
-          if printf '%s' "$MESSAGE" | grep -Fq '[patch-debug]'; then
-            exit 0
-          fi
 
           PATCH_RUN=1
           if printf '%s' "$MESSAGE" | grep -Fq '[smoke-integrity-patch]'; then
@@ -37,12 +34,26 @@ jobs:
             python .github/tmp_apply_smoke_integrity_fix.py > /tmp/patch-driver.log 2>&1
             PATCH_RC=$?
             set -e
+
+            if [ "$PATCH_RC" -ne 0 ] && grep -Fq 'gradient declarations remain in report sources: src/searchgeo/report_navigation.py' /tmp/patch-driver.log; then
+              python - <<'PY'
+          from pathlib import Path
+          path = Path('src/searchgeo/report_navigation.py')
+          text = path.read_text(encoding='utf-8')
+          old = 'background:linear-gradient(135deg,#eef2fb 0%,#f4f0fa 100%)'
+          if old not in text:
+              raise SystemExit('expected cost-total gradient not found')
+          path.write_text(text.replace(old, 'background:#eef2fb', 1), encoding='utf-8', newline='\n')
+          PY
+              PATCH_RC=0
+            fi
+
             if [ "$PATCH_RC" -ne 0 ]; then
               cp /tmp/patch-driver.log .github/patch-driver-diagnostic.txt
               git config user.name 'SearchGEO CI'
               git config user.email 'actions@users.noreply.github.com'
               git add .github/patch-driver-diagnostic.txt
-              git commit -m '[patch-debug] capture smoke-integrity patch failure'
+              git commit -m '[patch-debug] capture smoke-integrity patch failure' || true
               git push origin HEAD:fix/smoke-integrity-console-solid-reports
               exit "$PATCH_RC"
             fi
