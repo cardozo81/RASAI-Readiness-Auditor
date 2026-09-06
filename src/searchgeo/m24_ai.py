@@ -1,0 +1,463 @@
+"""Optional evidence-bound AI remediation for M24 technical diagnostics."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import sqlite3
+import time
+from typing import Any, Mapping
+from urllib.error import HTTPError, URLError
+
+from searchgeo.domain import new_id
+from searchgeo.m18_ai import (
+    AttemptStatus,
+    ProviderAttempt,
+    ProviderDiagnostic,
+    ProviderErrorClass,
+    ProviderState,
+    ResponsesSemanticProvider,
+    RuntimeProviderState,
+    _diagnostic_from_http,
+    _response_error,
+    _usage_from_native,
+    estimate_cost,
+)
+from searchgeo.m18_persistence import M18Persistence
+from searchgeo.m24_crawling_discovery import M24Diagnostic, persist_ai_result
+from searchgeo.persistence import AuditWorkspace
+from searchgeo.semantic import _extract_json_payload
+
+CONTRACT_VERSION = "M24-TECHNICAL-REMEDIATION-v1"
+
+
+@dataclass(frozen=True, slots=True)
+class M24AiResult:
+    state: ProviderState
+    provider: str | None = None
+    model: str | None = None
+    explanation: dict[str, Any] | None = None
+    reason: str | None = None
+
+
+def maybe_remediate_m24(
+    *,
+    audit_id: str,
+    workspace: AuditWorkspace,
+    provider: Any,
+    diagnostics: tuple[M24Diagnostic, ...],
+) -> M24AiResult:
+    """Explain deterministic M24 diagnostics without changing technical conclusions."""
+    candidates = _candidates(provider)
+    if not candidates:
+        result = M24AiResult(
+            state=ProviderState.NOT_CONFIGURED,
+            reason="AI_NOT_CONFIGURED_OR_UNSUPPORTED_FOR_M24",
+        )
+        _persist_result(workspace, audit_id, result)
+        return result
+
+    page_row = _first_snapshot(workspace, audit_id)
+    if page_row is None:
+        result = M24AiResult(
+            state=ProviderState.UNAVAILABLE,
+            reason="M24_AI_NO_SNAPSHOT_CONTEXT",
+        )
+        _persist_result(workspace, audit_id, result)
+        return result
+
+    allowed_codes = frozenset(item.code for item in diagnostics)
+    allowed_evidence = frozenset(
+        evidence_id
+        for item in diagnostics
+        for evidence_id in item.evidence_ids
+        if evidence_id
+    )
+    facts = [
+        {
+            "code": item.code,
+            "category": item.category,
+            "severity": item.severity,
+            "title": item.title,
+            "scope_url": item.scope_url,
+            "observed": item.observed,
+            "evidence_ids": list(item.evidence_ids),
+            "deterministic_remediation": item.remediation,
+            "scoring_impact": "NONE",
+        }
+        for item in diagnostics[:40]
+    ]
+
+    last: M24AiResult | None = None
+    for attempt_index, candidate in enumerate(candidates, 1):
+        result, attempt = _call(
+            candidate,
+            facts=facts,
+            allowed_codes=allowed_codes,
+            allowed_evidence=allowed_evidence,
+            page_row=page_row,
+            attempt_index=attempt_index,
+        )
+        _persist_attempt(
+            workspace=workspace,
+            audit_id=audit_id,
+            page_row=page_row,
+            attempt=attempt,
+        )
+        last = result
+        if result.state is ProviderState.AVAILABLE:
+            _persist_result(workspace, audit_id, result)
+            return result
+
+    final = last or M24AiResult(
+        state=ProviderState.UNAVAILABLE,
+        reason="M24_AI_UNAVAILABLE",
+    )
+    _persist_result(workspace, audit_id, final)
+    return final
+
+
+def _candidates(provider: Any) -> tuple[ResponsesSemanticProvider, ...]:
+    routed = getattr(provider, "providers", None)
+    if isinstance(routed, tuple):
+        output = []
+        for item in routed:
+            if not isinstance(item, ResponsesSemanticProvider):
+                continue
+            if not bool(getattr(item, "api_key", None)):
+                continue
+            state = getattr(item, "_runtime_state", RuntimeProviderState.ACTIVE)
+            if state is RuntimeProviderState.QUARANTINED_FOR_AUDIT:
+                continue
+            output.append(item)
+        return tuple(output)
+    if isinstance(provider, ResponsesSemanticProvider) and bool(getattr(provider, "api_key", None)):
+        state = getattr(provider, "_runtime_state", RuntimeProviderState.ACTIVE)
+        if state is not RuntimeProviderState.QUARANTINED_FOR_AUDIT:
+            return (provider,)
+    return ()
+
+
+def _schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "summary_pt": {"type": "string", "minLength": 1, "maxLength": 2000},
+            "actions": {
+                "type": "array",
+                "maxItems": 12,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "diagnostic_code": {"type": "string", "minLength": 1},
+                        "objective_pt": {"type": "string", "minLength": 1, "maxLength": 1200},
+                        "recommended_change_pt": {"type": "string", "minLength": 1, "maxLength": 2500},
+                        "evidence_ids": {
+                            "type": "array",
+                            "uniqueItems": True,
+                            "items": {"type": "string", "minLength": 1},
+                        },
+                        "human_validation_required": {"type": "boolean"},
+                    },
+                    "required": [
+                        "diagnostic_code",
+                        "objective_pt",
+                        "recommended_change_pt",
+                        "evidence_ids",
+                        "human_validation_required",
+                    ],
+                },
+            },
+            "policy_note_pt": {"type": "string", "minLength": 1, "maxLength": 1600},
+        },
+        "required": ["summary_pt", "actions", "policy_note_pt"],
+    }
+
+
+def _call(
+    candidate: ResponsesSemanticProvider,
+    *,
+    facts: list[dict[str, Any]],
+    allowed_codes: frozenset[str],
+    allowed_evidence: frozenset[str],
+    page_row: Mapping[str, Any],
+    attempt_index: int,
+) -> tuple[M24AiResult, ProviderAttempt]:
+    schema = _schema()
+    instructions = (
+        "Você é um especialista técnico em crawling, robots.txt, sitemap e controles de crawlers. "
+        "Responda em português do Brasil e somente em JSON. Use exclusivamente os diagnósticos "
+        "determinísticos fornecidos. Não altere severidade, scoring, SCORE-GEO-002 ou SGRI-001. "
+        "Não invente URL, status HTTP, configuração, crawler, evidência, causa raiz, política ou fato. "
+        "Cada ação deve referenciar um diagnostic_code fornecido e somente evidence_ids fornecidos. "
+        "OAI-SearchBot está relacionado à descoberta no ChatGPT Search; GPTBot está relacionado a "
+        "potencial uso para treinamento. Google-Extended é um token de controle de usos específicos "
+        "Google/Gemini e não requisito de inclusão/ranking no Google Search. Nunca recomende liberar "
+        "GPTBot ou Google-Extended como técnica de SEO/Search. Mudanças nesses controles exigem decisão "
+        "de política humana. llms.txt é proposta comunitária experimental, não web standard obrigatório. "
+        "Não apresente sua ausência como defeito nem como requisito GEO. "
+        "Quando a evidência não permitir uma mudança exata e segura, recomende validação humana."
+    )
+    if candidate.structured_mode == "json_object":
+        instructions += "\nSchema local obrigatório:\n" + json.dumps(
+            schema,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        fmt: dict[str, Any] = {"type": "json_object"}
+    else:
+        fmt = {
+            "type": "json_schema",
+            "name": "searchgeo_m24_technical_remediation",
+            "schema": schema,
+        }
+        if candidate.name == "OPENAI":
+            fmt["strict"] = True
+
+    payload = {
+        "model": candidate.model,
+        "instructions": instructions,
+        "input": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": (
+                            "Diagnósticos técnicos M24 persistidos:\n"
+                            + json.dumps(facts, ensure_ascii=False, separators=(",", ":"))
+                        ),
+                    }
+                ],
+            }
+        ],
+        "reasoning": {"effort": candidate.requested_reasoning_effort.casefold()},
+        "text": {"format": fmt},
+    }
+    body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    payload_hash = hashlib.sha256(body).hexdigest()
+    started_at = datetime.now(timezone.utc)
+    started_perf = time.perf_counter()
+    usage = None
+    diagnostic = None
+    status = AttemptStatus.SUCCESS
+    explanation = None
+    reason = None
+
+    try:
+        raw = candidate._transport(candidate.endpoint, candidate._headers(), body, candidate.timeout)
+        if not isinstance(raw, Mapping):
+            raise ValueError("provider envelope is not an object")
+        usage = _usage_from_native(raw)
+        native_error = _response_error(raw)
+        if native_error is not None:
+            diagnostic = native_error
+            status = AttemptStatus.TECHNICAL_ERROR
+            reason = native_error.reason
+        else:
+            explanation = _validate(
+                _extract_json_payload(dict(raw)),
+                allowed_codes=allowed_codes,
+                allowed_evidence=allowed_evidence,
+            )
+    except HTTPError as exc:
+        diagnostic = _diagnostic_from_http(exc)
+        status = AttemptStatus.TECHNICAL_ERROR
+        reason = diagnostic.reason
+    except TimeoutError:
+        diagnostic = ProviderDiagnostic(ProviderErrorClass.TIMEOUT_ERROR)
+        status = AttemptStatus.TECHNICAL_ERROR
+        reason = diagnostic.reason
+    except (URLError, OSError):
+        diagnostic = ProviderDiagnostic(ProviderErrorClass.NETWORK_ERROR)
+        status = AttemptStatus.TECHNICAL_ERROR
+        reason = diagnostic.reason
+    except Exception as exc:
+        diagnostic = ProviderDiagnostic(
+            ProviderErrorClass.CONTRACT_ERROR,
+            error_type=type(exc).__name__,
+        )
+        status = AttemptStatus.CONTRACT_ERROR
+        reason = diagnostic.reason
+
+    finished_at = datetime.now(timezone.utc)
+    duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))
+    estimated, currency, pricing_version = estimate_cost(
+        candidate.name,
+        candidate.model,
+        usage,
+        finished_at,
+    )
+    attempt = ProviderAttempt(
+        provider=candidate.name,
+        model=candidate.model,
+        reasoning_profile=candidate.reasoning_profile,
+        provider_rank=candidate.policy.rank,
+        attempt_index=attempt_index,
+        snapshot_id=str(page_row["snapshot_id"]),
+        url=str(page_row["url"]),
+        started_at=started_at,
+        finished_at=finished_at,
+        duration_ms=duration_ms,
+        status=status,
+        diagnostic=diagnostic,
+        usage=usage,
+        estimated_cost=estimated,
+        cost_currency=currency,
+        pricing_version=pricing_version,
+        request_message_summary=(
+            f"contract={CONTRACT_VERSION};diagnostics={len(facts)};"
+            "scoring_impact=NONE"
+        ),
+        request_payload_hash=payload_hash,
+        provider_qualification=candidate.policy.qualification,
+        provider_reliability_score=candidate.policy.reliability_score,
+        semantic_contract_version=CONTRACT_VERSION,
+    )
+    if status is AttemptStatus.SUCCESS and explanation is not None:
+        return (
+            M24AiResult(
+                state=ProviderState.AVAILABLE,
+                provider=candidate.name,
+                model=candidate.model,
+                explanation=explanation,
+            ),
+            attempt,
+        )
+    return (
+        M24AiResult(
+            state=ProviderState.UNAVAILABLE,
+            provider=candidate.name,
+            model=candidate.model,
+            reason=reason or "M24_AI_UNAVAILABLE",
+        ),
+        attempt,
+    )
+
+
+def _validate(
+    value: Any,
+    *,
+    allowed_codes: frozenset[str],
+    allowed_evidence: frozenset[str],
+) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError("M24 AI root must be an object")
+    summary = str(value.get("summary_pt") or "").strip()
+    policy_note = str(value.get("policy_note_pt") or "").strip()
+    actions = value.get("actions")
+    if not summary or not policy_note or not isinstance(actions, list):
+        raise ValueError("M24 AI response misses required fields")
+    output_actions: list[dict[str, Any]] = []
+    seen_codes: set[str] = set()
+    for raw in actions[:12]:
+        if not isinstance(raw, Mapping):
+            raise ValueError("M24 AI action must be an object")
+        code = str(raw.get("diagnostic_code") or "").strip()
+        if code not in allowed_codes:
+            raise ValueError("M24 AI action references unknown diagnostic code")
+        if code in seen_codes:
+            continue
+        seen_codes.add(code)
+        objective = str(raw.get("objective_pt") or "").strip()
+        change = str(raw.get("recommended_change_pt") or "").strip()
+        evidence_raw = raw.get("evidence_ids")
+        if not objective or not change or not isinstance(evidence_raw, list):
+            raise ValueError("M24 AI action contains invalid fields")
+        evidence_ids = tuple(
+            str(item).strip()
+            for item in evidence_raw
+            if str(item).strip()
+        )
+        if not set(evidence_ids).issubset(allowed_evidence):
+            raise ValueError("M24 AI action references evidence outside supplied universe")
+        output_actions.append(
+            {
+                "diagnostic_code": code,
+                "objective_pt": objective[:1200],
+                "recommended_change_pt": change[:2500],
+                "evidence_ids": list(evidence_ids),
+                "human_validation_required": bool(raw.get("human_validation_required")),
+            }
+        )
+    return {
+        "summary_pt": summary[:2000],
+        "actions": output_actions,
+        "policy_note_pt": policy_note[:1600],
+    }
+
+
+def _first_snapshot(workspace: AuditWorkspace, audit_id: str) -> dict[str, Any] | None:
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        row = connection.execute(
+            """
+            SELECT ps.snapshot_id,ps.page_id,ps.device,
+                   COALESCE(ps.final_url,p.normalized_url) AS url
+            FROM page_snapshots ps JOIN pages p ON p.page_id=ps.page_id
+            WHERE p.audit_id=? ORDER BY ps.captured_at LIMIT 1
+            """,
+            (audit_id,),
+        ).fetchone()
+        return dict(row) if row is not None else None
+    finally:
+        connection.close()
+
+
+def _persist_attempt(
+    *,
+    workspace: AuditWorkspace,
+    audit_id: str,
+    page_row: Mapping[str, Any],
+    attempt: ProviderAttempt,
+) -> None:
+    with M18Persistence(workspace) as store:
+        store.add_attempt(
+            attempt_id=new_id("AIA"),
+            audit_id=audit_id,
+            page_id=str(page_row["page_id"]),
+            snapshot_id=str(page_row["snapshot_id"]),
+            url=str(page_row["url"]),
+            device=str(page_row["device"]),
+            attempt=attempt,
+        )
+
+
+def _persist_result(
+    workspace: AuditWorkspace,
+    audit_id: str,
+    result: M24AiResult,
+) -> Path:
+    artifact_dir = workspace.artifacts / "m24"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    path = artifact_dir / "ai-technical-remediation.json"
+    payload = {
+        "contract_version": CONTRACT_VERSION,
+        "state": result.state.value,
+        "provider": result.provider,
+        "model": result.model,
+        "reason": result.reason,
+        "explanation": result.explanation,
+        "scoring_impact": "NONE",
+    }
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    reference = path.relative_to(workspace.root).as_posix()
+    persist_ai_result(
+        workspace=workspace,
+        audit_id=audit_id,
+        state=result.state.value,
+        provider=result.provider,
+        model=result.model,
+        reason=result.reason,
+        artifact_reference=reference,
+    )
+    return path
