@@ -13,6 +13,7 @@ on:
       - 'src/searchgeo/source_quality_browser.py'
       - 'src/searchgeo/browser_identity_renderer.py'
       - 'src/searchgeo/m3.py'
+      - 'src/searchgeo/m23_apdex_profiles.py'
       - 'src/searchgeo/audit_runner.py'
       - 'src/searchgeo/cli_extensions.py'
       - 'src/searchgeo/console_runtime.py'
@@ -51,6 +52,7 @@ jobs:
             src/searchgeo/source_quality_browser.py \
             src/searchgeo/browser_identity_renderer.py \
             src/searchgeo/m3.py \
+            src/searchgeo/m23_apdex_profiles.py \
             src/searchgeo/audit_runner.py \
             src/searchgeo/cli_extensions.py \
             src/searchgeo/console_runtime.py
