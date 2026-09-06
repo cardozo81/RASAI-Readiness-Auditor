@@ -1,0 +1,52 @@
+name: Temporary DeepSeek semantic and console correction gate
+
+on:
+  push:
+    branches:
+      - fix/deepseek-semantic-console-actions
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Apply patch when needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          HEAD_MSG="$(git log -1 --pretty=%s)"
+          if [[ "$HEAD_MSG" != "[deepseek-console-patch] materialize smoke corrections" ]]; then
+            python .github/tmp_apply_deepseek_console_fix.py
+          fi
+      - name: Install and validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+          python -m unittest discover -s tests -p 'test_deepseek_semantic_contract_and_console_actions.py' -v
+          python -m unittest discover -s tests -p 'test_consolidation_console_integration.py' -v
+          python -m unittest discover -s tests -p 'test_m18*.py' -v
+          python -m compileall -q src tests
+          git diff --check
+      - name: Commit materialized patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet && [[ -z "$(git ls-files --others --exclude-standard)" ]]; then
+            echo "No materialization changes to commit."
+            exit 0
+          fi
+          git config user.name "SearchGEO CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add src docs tests
+          git commit -m "[deepseek-console-patch] materialize smoke corrections"
+          git push origin HEAD
