@@ -1,6 +1,6 @@
 # SearchGEO Readiness Auditor
 
-Auditor local de **Search/GEO Readiness** com evidência persistida, scoring reproduzível, análise semântica opcional por IA, remediação textual advisory, Acessibilidade, Web Performance/Lighthouse/CrUX e Synthetic Navigation Apdex.
+Auditor local de **Search/GEO Readiness** com evidência persistida, scoring reproduzível, análise semântica opcional por IA, remediação textual advisory, diagnóstico de crawling/discovery, Acessibilidade, Web Performance/Lighthouse/CrUX e Synthetic Navigation Apdex.
 
 O produto avalia sinais técnicos e semânticos úteis para Search e sistemas generativos sem prometer ranking, tráfego, citação ou presença em respostas de IA.
 
@@ -16,13 +16,14 @@ Capacidades integradas:
 - dashboard executivo com síntese final dos indicadores, sem misturar metodologias;
 - análise semântica opcional por IA;
 - remediação textual evidence-bound e revisão/proposta JSON-LD;
+- **M24 Crawling, Discovery & AI Access** com diagnóstico determinístico de `robots.txt`, crawlers, sitemaps, discovery, `llms.txt` experimental e remediação técnica opcional por IA;
 - PageSpeed/Lighthouse e Core Web Vitals/CrUX como domínio separado;
 - Acessibilidade automatizada projetada separadamente a partir do artifact Lighthouse;
 - Synthetic Navigation Apdex em Chromium, separado de Lighthouse/CrUX e do SGRI;
 - relatórios históricos/consolidados offline sobre múltiplos `AUD-*`, com índice analítico reconstruível e snapshots HTML estáticos;
 - console interativo com preflight, progresso, custo/quota, timeouts, persistência de configuração e abertura de artifacts.
 
-> O `SGRI-001` é um índice proprietário, evidence-based e reprodutível do SearchGEO. Enquanto a aritmética não mudar, o banco preserva `SCORE-GEO-002` como versão do motor de cálculo. Lighthouse, Core Web Vitals, Acessibilidade automatizada e Apdex possuem metodologias próprias e não são convertidos no SGRI.
+> O `SGRI-001` é um índice proprietário, evidence-based e reprodutível do SearchGEO. Enquanto a aritmética não mudar, o banco preserva `SCORE-GEO-002` como versão do motor de cálculo. Lighthouse, Core Web Vitals, Acessibilidade automatizada, Apdex e diagnósticos M24 possuem metodologias/domínios próprios e não são convertidos silenciosamente no SGRI.
 
 ## Instalação rápida — Windows
 
@@ -72,7 +73,7 @@ Quando o ambiente já estiver preparado/ativado, o entrypoint direto permanece:
 searchgeo-console
 ```
 
-O console executa a mesma superfície funcional da CLI e adiciona configuração guiada.
+O console executa a mesma superfície funcional principal da CLI e adiciona configuração guiada.
 
 Menu principal:
 
@@ -191,6 +192,24 @@ Default de timeout IA:
 180 s por tentativa
 ```
 
+### Remediação técnica M24 por IA
+
+Os diagnósticos determinísticos M24 executam independentemente de IA. Para habilitar apenas a camada técnica advisory:
+
+```powershell
+searchgeo audit https://example.com `
+  --ai-provider openai `
+  --ai-technical-remediation
+```
+
+Equivalente por ambiente:
+
+```text
+SEARCHGEO_AI_TECHNICAL_REMEDIATION=true
+```
+
+Default: OFF. Essa finalidade não altera Score, Coverage, Confidence, Consolidation ou `SGRI-001`; sugestões exigem revisão humana. Nesta versão, o controle M24 técnico é superfície CLI/ambiente e não deve ser presumido como parâmetro persistido no INI do console.
+
 ## Credenciais
 
 Principais variáveis:
@@ -210,6 +229,29 @@ SEARCHGEO_CRUX_API_KEY
 Credencial configurada não garante saldo, quota, plano ou acesso ao modelo. O passo a passo para obtenção de cada chave está em [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md); PageSpeed e CrUX possuem orientação adicional em [docs/GOOGLE_API_KEYS.md](docs/GOOGLE_API_KEYS.md).
 
 MiMo PAYG usa credencial `sk-...` no adapter atual. Token Plan `tp-...` pertence a produto/endpoint diferente.
+
+## Crawling, Discovery & AI Access — M24
+
+M24 aprofunda o diagnóstico técnico de descoberta sem criar novo score. Ele cobre, conforme evidência disponível:
+
+- `robots.txt` e acesso por crawler;
+- Googlebot, OAI-SearchBot, GPTBot e Google-Extended com papéis separados;
+- sitemaps XML, sitemap index, gzip, RSS 2.0, Atom 1.0 e texto plano;
+- limites/sintaxe e cruzamentos com HTTP, `noindex`, canonical e robots na amostra auditada;
+- feeds RSS/Atom observados;
+- `/llms.txt` como proposta comunitária experimental e **non-scoring**;
+- IndexNow como não determinável quando não existir evidência explícita de submissão;
+- remediação técnica opcional por IA, default OFF.
+
+Declarações `Sitemap:` cross-origin são preservadas como evidência, mas não são seguidas automaticamente pelo auditor; isso é uma fronteira de segurança/escopo, não um finding do site.
+
+Página canônica:
+
+```text
+report/crawling-discovery.html
+```
+
+Detalhes: [docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md).
 
 ## Web Performance, Lighthouse e Acessibilidade
 
@@ -331,6 +373,7 @@ audits/<AUD-ID>/
    ├─ desktop.html             # evidências/findings; condicional
    ├─ remediation.html
    ├─ content-suggestions.html
+   ├─ crawling-discovery.html  # M24
    ├─ accessibility.html       # quando materializado
    ├─ web-performance.html
    ├─ apdex.html               # quando habilitado/materializado
@@ -344,6 +387,8 @@ audits/<AUD-ID>/
 `index.html` não cria um “score geral de tudo”. Ele resume o resultado final de cada família e aponta para a página canônica correspondente. Quando existem vários contextos Lighthouse, o dashboard prefere faixa por dispositivo/quantidade de contextos válidos a inventar uma média única do site.
 
 `searchgeo.html` é a página exclusiva dos indicadores agregados SearchGEO. Mobile/Desktop não repetem Overall, dimensões, Coverage, Confidence ou Consolidation.
+
+`crawling-discovery.html` é a página exclusiva do domínio M24 e não recalcula o SGRI.
 
 Os relatórios históricos usam uma área separada e não escrevem nos workspaces `AUD-*`:
 
@@ -370,6 +415,8 @@ A página inicial inclui **Configuração × resultado obtido** quando essa proj
 - variáveis de ambiente não substituem um secret manager quando esse nível de proteção for necessário;
 - secrets não devem aparecer em reports/logs;
 - não trate key configurada como prova de saldo/quota;
+- M24 não segue automaticamente sitemap cross-origin declarado sem política segura de aquisição/autorização;
+- remediação técnica M24 não deve automatizar policy de crawler/treinamento sem decisão humana;
 - não execute Synthetic Apdex em volume relevante contra produção sem autorização.
 
 ## Identificadores internos históricos
@@ -392,3 +439,4 @@ Nomes internos de módulos, tabelas, eventos e documentos normativos podem mante
 - [docs/SEARCHGEO_READINESS_INDEX.md](docs/SEARCHGEO_READINESS_INDEX.md)
 - [docs/SCORING_GUIDE.md](docs/SCORING_GUIDE.md)
 - [docs/INDICATOR_PROVENANCE.md](docs/INDICATOR_PROVENANCE.md)
+- [docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md)
