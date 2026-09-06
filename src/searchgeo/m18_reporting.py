@@ -113,6 +113,7 @@ def _report_section(session: sqlite3.Row, attempts: list[sqlite3.Row], snapshot_
     enabled = bool(session["enabled"])
     configured = _provider_configured(session)
     success = [row for row in attempts if row["status"] == "SUCCESS"]
+    failures = [row for row in attempts if row["status"] != "SUCCESS"]
     provider_counts: dict[str, set[str]] = {}
     for row in success:
         provider_counts.setdefault(str(row["provider"]), set()).add(str(row["url"]))
@@ -122,18 +123,24 @@ def _report_section(session: sqlite3.Row, attempts: list[sqlite3.Row], snapshot_
     effective = _provider_label(session["effective_provider"], session["effective_model"])
     if not session["effective_provider"]:
         effective = "NÃO HOUVE RESULTADO SEMÂNTICO VÁLIDO"
+    retry_count = sum(1 for row in attempts if _row_value(row, "decision") == "RETRY")
+    fallback_used = any(_row_value(row, "fallback_from_provider") for row in attempts)
+    failed_cost = sum(float(_row_value(row, "estimated_cost", 0.0) or 0.0) for row in failures)
 
     metrics = (
         _metric("IA habilitada pelo comando", "SIM" if enabled else "NÃO")
         + _metric("Provider configurado", "SIM" if configured else "NÃO")
         + _metric("Estratégia", str(session["strategy"]))
-        + _metric("Provider inicialmente selecionado", initial or "NÃO APLICÁVEL")
+        + _metric("Provider que deveria atender primeiro", initial or "NÃO APLICÁVEL")
         + _metric("Provider efetivamente utilizado", effective)
+        + _metric("Fallback utilizado", "SIM" if fallback_used else "NÃO")
+        + _metric("Retries transitórios", str(retry_count))
         + _metric("Modelo efetivo", str(session["effective_model"] or "NÃO APLICÁVEL"))
         + _metric("Profundidade", str(session["effective_reasoning_profile"] or session["initial_reasoning_profile"] or "NÃO APLICÁVEL"))
         + _metric("Status", str(session["status"]))
         + _metric("Chamadas externas realizadas", str(len(attempts)))
         + _metric("Tentativas com sucesso", str(len(success)))
+        + _metric("Custo estimado de tentativas sem sucesso", f"{failed_cost:.8f} USD" if failed_cost else "0 ou não mensurável")
         + _metric("URLs analisadas com sucesso por provider", counts_html)
     )
     chain = " → ".join(
@@ -141,25 +148,26 @@ def _report_section(session: sqlite3.Row, attempts: list[sqlite3.Row], snapshot_
         for item in configured_chain if isinstance(item, dict)
     ) or "NENHUMA IA ELEGÍVEL"
     failover = _failover_summary(attempts)
+    failure_detail = _failure_detail(attempts)
     rows = "".join(_attempt_row(row) for row in attempts)
     if not rows:
-        rows = "<tr><td colspan='12'>Nenhuma chamada externa foi realizada.</td></tr>"
+        rows = "<tr><td colspan='19'>Nenhuma chamada externa foi realizada.</td></tr>"
     coverage = f"{len(success)}/{snapshot_count} contextos Desktop/Mobile com tentativa bem-sucedida" if snapshot_count else "NÃO APLICÁVEL"
     return (
         "<section id='ai-runtime' class='m18-ai'>"
-        "<h2>Uso de IA — execução e telemetria</h2>"
-        "<p class='m18-note'>A indisponibilidade ou falta de configuração de um provider é limitação operacional da auditoria; não é finding GEO e não reduz o Score do website.</p>"
+        "<h2>Uso de IA — execução, erros, retry e fallback</h2>"
+        "<p class='m18-note'>Falhas de provider são limitações operacionais da auditoria; não são findings do website. Retry só ocorre para erro transitório, no máximo uma vez por provider/contexto; AUTO também possui teto global de chamadas.</p>"
         f"<div class='m18-grid'>{metrics}</div>"
         f"<p><strong>Cadeia inicial imutável:</strong> {chain}</p>"
         f"<p><strong>Cobertura semântica externa:</strong> {escape(coverage)}</p>"
-        f"<p><strong>Failover:</strong> {failover}</p>"
-        "<h3>Relatório de uso da IA</h3><div class='m18-table-wrap'><table>"
-        "<thead><tr><th>URL</th><th>Device</th><th>Provider</th><th>Model</th><th>Depth</th><th>Status</th><th>Tokens input</th><th>Tokens output</th><th>Tokens reasoning</th><th>Estimated cost</th><th>Duration</th><th>Error</th></tr></thead>"
+        f"<p><strong>Fallback:</strong> {failover}</p>"
+        f"{failure_detail}"
+        "<h3>Relatório detalhado de uso da IA</h3><div class='m18-table-wrap'><table>"
+        "<thead><tr><th>URL</th><th>Device</th><th>Operação</th><th>Tentativa</th><th>Provider</th><th>Model</th><th>Status</th><th>Error class</th><th>Error type</th><th>HTTP</th><th>Error code</th><th>Request ID</th><th>Retryable</th><th>Decisão</th><th>Fallback de</th><th>Tokens input</th><th>Tokens output</th><th>Estimated cost</th><th>Duration</th></tr></thead>"
         f"<tbody>{rows}</tbody></table></div>"
-        "<p class='m18-note'>ESTIMATED_COST usa catálogo versionado local e não representa invoice/billing do provider. Campos de tokens não reportados permanecem vazios.</p>"
+        "<p class='m18-note'>Estimated cost usa catálogo versionado local e não representa invoice/billing. Uma tentativa falha pode ter custo quando o provider reporta tokens; quando não há telemetria suficiente, o relatório não inventa custo zero.</p>"
         "</section>"
     )
-
 
 def _remediation_context(session: sqlite3.Row, attempts: list[sqlite3.Row], snapshot_count: int) -> str:
     success = [row for row in attempts if row["status"] == "SUCCESS"]
@@ -193,49 +201,109 @@ def _metric(label: str, value: str) -> str:
     return f"<div class='m18-metric'><strong>{escape(label)}</strong><span>{safe_value}</span></div>"
 
 
+def _row_value(row: Any, key: str, default: Any = None) -> Any:
+    try:
+        keys = row.keys()
+    except AttributeError:
+        keys = row
+    try:
+        if key in keys:
+            return row[key]
+    except (KeyError, TypeError):
+        pass
+    return default
+
+
+def _operation(row: Any) -> str:
+    contract = str(_row_value(row, "semantic_contract_version", "") or "")
+    return "Remediação textual" if contract.startswith("M20-") else "Análise semântica"
+
+
 def _attempt_row(row: sqlite3.Row) -> str:
-    error_parts = [str(row[key]) for key in ("error_class", "http_status", "error_code") if row[key] not in (None, "")]
-    error = " · ".join(error_parts) or "—"
     cost = "—"
-    if row["estimated_cost"] is not None:
-        cost = f"{row['estimated_cost']:.8f} {row['cost_currency'] or ''}".strip()
+    if _row_value(row, "estimated_cost") is not None:
+        cost = f"{float(_row_value(row, 'estimated_cost')):.8f} {_row_value(row, 'cost_currency', '') or ''}".strip()
+    retryable = "SIM" if bool(_row_value(row, "retry_eligible", 0)) else "NÃO"
     return (
         "<tr>"
         f"<td title='{escape(str(row['url']))}'>{escape(_truncate(str(row['url']), 72))}</td>"
         f"<td>{escape(str(row['device'] or '—'))}</td>"
+        f"<td>{escape(_operation(row))}</td>"
+        f"<td>{escape(str(row['attempt_index']))}</td>"
         f"<td>{escape(str(row['provider']))}</td>"
         f"<td>{escape(str(row['model'] or '—'))}</td>"
-        f"<td>{escape(str(row['reasoning_profile']))}</td>"
         f"<td>{escape(str(row['status']))}</td>"
-        f"<td>{_nullable(row['input_tokens'])}</td>"
-        f"<td>{_nullable(row['output_tokens'])}</td>"
-        f"<td>{_nullable(row['reasoning_tokens'])}</td>"
+        f"<td>{escape(str(_row_value(row, 'error_class', '—') or '—'))}</td>"
+        f"<td>{escape(str(_row_value(row, 'error_type', '—') or '—'))}</td>"
+        f"<td>{escape(str(_row_value(row, 'http_status', '—') or '—'))}</td>"
+        f"<td>{escape(str(_row_value(row, 'error_code', '—') or '—'))}</td>"
+        f"<td>{escape(str(_row_value(row, 'request_id', '—') or '—'))}</td>"
+        f"<td>{retryable}</td>"
+        f"<td>{escape(str(_row_value(row, 'decision', '—') or '—'))}</td>"
+        f"<td>{escape(str(_row_value(row, 'fallback_from_provider', '—') or '—'))}</td>"
+        f"<td>{_nullable(_row_value(row, 'input_tokens'))}</td>"
+        f"<td>{_nullable(_row_value(row, 'output_tokens'))}</td>"
         f"<td>{escape(cost)}</td>"
         f"<td>{int(row['duration_ms'])} ms</td>"
-        f"<td class='m18-error' title='{escape(error)}'>{escape(_truncate(error, 80))}</td>"
         "</tr>"
     )
 
 
+def _failure_detail(attempts: list[sqlite3.Row]) -> str:
+    failures = [row for row in attempts if str(row["status"]) != "SUCCESS"]
+    if not failures:
+        return "<p><strong>Diagnóstico:</strong> nenhuma falha de integração de IA registrada.</p>"
+    items: list[str] = []
+    for row in failures[:12]:
+        parts = [
+            f"{row['provider']}/{row['model'] or '—'}",
+            str(_row_value(row, "error_class", row["status"]) or row["status"]),
+        ]
+        if _row_value(row, "error_type"):
+            parts.append(f"type={_row_value(row, 'error_type')}")
+        if _row_value(row, "http_status"):
+            parts.append(f"HTTP={_row_value(row, 'http_status')}")
+        if _row_value(row, "error_code"):
+            parts.append(f"code={_row_value(row, 'error_code')}")
+        parts.append(f"retryable={'SIM' if bool(_row_value(row, 'retry_eligible', 0)) else 'NÃO'}")
+        parts.append(f"decisão={_row_value(row, 'decision', 'STOP')}")
+        items.append("<li>" + escape(" · ".join(parts)) + "</li>")
+    return (
+        "<div class='m18-note'><strong>Diagnóstico das falhas:</strong><ul>"
+        + "".join(items)
+        + "</ul><p>Erros de autenticação, permissão, crédito, quota, modelo e contrato não são repetidos automaticamente. Erros transitórios podem ter uma única nova tentativa.</p></div>"
+    )
+
+
 def _failover_summary(attempts: list[sqlite3.Row]) -> str:
-    if not attempts:
-        return "NÃO OCORREU"
+    events: list[str] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for row in attempts:
+        source = str(_row_value(row, "fallback_from_provider", "") or "")
+        if not source:
+            continue
+        target = str(row["provider"])
+        reason = str(_row_value(row, "fallback_reason", "AI_PROVIDER_UNAVAILABLE") or "AI_PROVIDER_UNAVAILABLE")
+        outcome = str(row["status"])
+        key = (source, target, reason, str(row["url"]))
+        if key in seen:
+            continue
+        seen.add(key)
+        events.append(f"{source} deveria atender o contexto, falhou por {reason}; fallback para {target} ({outcome})")
+    if events:
+        return escape("; ".join(events))
+
+    # Compatibility for pre-migration audit DBs.
     by_context: dict[tuple[str, str], list[sqlite3.Row]] = {}
     for row in attempts:
         by_context.setdefault((str(row["url"]), str(row["device"])), []).append(row)
-    events: list[str] = []
+    legacy: list[str] = []
     for rows in by_context.values():
-        if len(rows) < 2:
-            continue
         successful = next((row for row in rows if row["status"] == "SUCCESS"), None)
         failed = [row for row in rows if row["status"] != "SUCCESS"]
-        if successful and failed:
-            first = failed[0]
-            events.append(
-                f"{escape(str(first['provider']))} ({escape(str(first['error_class'] or first['status']))}) → {escape(str(successful['provider']))}"
-            )
-    return "; ".join(events) if events else "NÃO OCORREU"
-
+        if successful and failed and str(successful["provider"]) != str(failed[0]["provider"]):
+            legacy.append(f"{failed[0]['provider']} falhou; fallback para {successful['provider']}")
+    return escape("; ".join(legacy)) if legacy else "NÃO OCORREU"
 
 def _provider_label(provider: Any, model: Any) -> str:
     if not provider:

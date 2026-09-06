@@ -230,11 +230,14 @@ class M18ProviderTests(unittest.TestCase):
         ))
         url = "https://example.com/a"
         self.assertEqual(router.analyze(_input(url, "SNP-A-D")).provider, "DEEPSEEK")
-        failed_mobile = router.analyze(_input(url, "SNP-A-M"))
-        self.assertEqual(failed_mobile.state, ProviderState.UNAVAILABLE)
-        self.assertEqual(mimo_calls, 0)
-        self.assertEqual(router.analyze(_input("https://example.com/b", "SNP-B-D")).provider, "MIMO")
+        recovered_mobile = router.analyze(_input(url, "SNP-A-M"))
+        self.assertEqual(recovered_mobile.state, ProviderState.AVAILABLE)
+        self.assertEqual(recovered_mobile.provider, "MIMO")
         self.assertEqual(mimo_calls, 1)
+        attempts = router.consume_attempts()
+        self.assertTrue(any(item.fallback_from_provider == "DEEPSEEK" for item in attempts))
+        self.assertEqual(router.analyze(_input("https://example.com/b", "SNP-B-D")).provider, "MIMO")
+        self.assertEqual(mimo_calls, 2)
 
     def test_success_stops_chain_and_chain_exhaustion_is_explicit(self) -> None:
         mimo_calls = 0
@@ -276,11 +279,11 @@ class M18ProviderTests(unittest.TestCase):
         self.assertEqual(first.state, ProviderState.UNAVAILABLE)
         self.assertEqual(second.state, ProviderState.UNAVAILABLE)
         self.assertEqual(second.reason, "AI_PROVIDER_UNAVAILABLE:PROVIDER_QUARANTINED")
-        self.assertEqual(calls, 1)
+        self.assertEqual(calls, 2)
         snapshot = provider.session_snapshot()
         self.assertEqual(snapshot["strategy"], "SINGLE_PROVIDER")
         self.assertEqual(snapshot["provider_states"]["OPENAI"], "QUARANTINED_FOR_AUDIT")
-        self.assertEqual(len(provider.attempt_history()), 1)
+        self.assertEqual(len(provider.attempt_history()), 2)
 
     def test_run_audit_persists_attempts_and_materializes_ai_telemetry_page(self) -> None:
         with _server() as origin, TemporaryDirectory() as directory:

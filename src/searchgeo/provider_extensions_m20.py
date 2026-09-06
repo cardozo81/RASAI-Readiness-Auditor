@@ -5,6 +5,7 @@ Legacy M20 routing is delegated unchanged for OpenAI, DeepSeek, MiMo and AUTO.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -12,6 +13,14 @@ import time
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 
+from searchgeo.ai_resilience import (
+    DECISION_RETRY,
+    DECISION_STOP,
+    DECISION_SUCCESS,
+    DECISION_SUCCESS_AFTER_RETRY,
+    MAX_PROVIDER_ATTEMPTS_PER_CONTEXT,
+    retry_policy,
+)
 from searchgeo.m18_ai import (
     AttemptStatus,
     ProviderAttempt,
@@ -19,6 +28,7 @@ from searchgeo.m18_ai import (
     ProviderErrorClass,
     ProviderState,
     RuntimeProviderState,
+    estimate_cost,
 )
 from searchgeo.m20_ai import (
     CONTENT_REMEDIATION_CONTRACT_VERSION,
@@ -66,6 +76,7 @@ class ExtensionContentRemediationProvider:
         self._transport = base._transport
         self._runtime_state = RuntimeProviderState.ACTIVE
         self._last_attempt: ProviderAttempt | None = None
+        self._last_attempts: tuple[ProviderAttempt, ...] = ()
 
     def _request_payload(self, request: ContentRemediationRequest) -> dict[str, Any]:
         schema = content_remediation_schema()
@@ -137,7 +148,81 @@ class ExtensionContentRemediationProvider:
 
         raise ValueError(f"unsupported extension provider for M20: {self.name}")
 
-    def analyze(self, request: ContentRemediationRequest) -> ContentRemediationResult:
+    def analyze(
+        self,
+        request: ContentRemediationRequest,
+        *,
+        max_attempts: int = MAX_PROVIDER_ATTEMPTS_PER_CONTEXT,
+    ) -> ContentRemediationResult:
+        """Retry only one transient integration failure; never loop paid calls."""
+        self._last_attempts = ()
+        collected: list[ProviderAttempt] = []
+        bounded = max(1, min(int(max_attempts), MAX_PROVIDER_ATTEMPTS_PER_CONTEXT))
+        last: ContentRemediationResult | None = None
+        for ordinal in range(1, bounded + 1):
+            result = self._analyze_once(request)
+            last = result
+            attempt = self._last_attempt
+            self._last_attempt = None
+            policy = retry_policy(None)
+            if attempt is not None:
+                diagnostic = attempt.diagnostic
+                policy = retry_policy(
+                    diagnostic.error_class if diagnostic else None,
+                    diagnostic.retry_after_seconds if diagnostic else None,
+                )
+                estimated = attempt.estimated_cost
+                currency = attempt.cost_currency
+                pricing_version = attempt.pricing_version
+                if attempt.usage is not None and estimated is None:
+                    estimated, currency, pricing_version = estimate_cost(
+                        attempt.provider,
+                        attempt.model or "",
+                        attempt.usage,
+                        attempt.finished_at,
+                    )
+                if result.state is ProviderState.AVAILABLE:
+                    decision = DECISION_SUCCESS_AFTER_RETRY if ordinal > 1 else DECISION_SUCCESS
+                elif policy.eligible and ordinal < bounded:
+                    decision = DECISION_RETRY
+                else:
+                    decision = DECISION_STOP
+                collected.append(
+                    replace(
+                        attempt,
+                        attempt_index=ordinal,
+                        retry_eligible=policy.eligible,
+                        decision=decision,
+                        estimated_cost=estimated,
+                        cost_currency=currency,
+                        pricing_version=pricing_version,
+                    )
+                )
+
+            if result.state is ProviderState.AVAILABLE:
+                self._last_attempts = tuple(collected)
+                return result
+            if result.state is ProviderState.NOT_CONFIGURED:
+                self._last_attempts = tuple(collected)
+                return result
+            if attempt is not None and policy.eligible and ordinal < bounded:
+                self._runtime_state = RuntimeProviderState.ACTIVE
+                if policy.delay_seconds > 0:
+                    time.sleep(policy.delay_seconds)
+                continue
+            self._last_attempts = tuple(collected)
+            return result
+
+        self._last_attempts = tuple(collected)
+        return last or ContentRemediationResult(
+            ProviderState.UNAVAILABLE,
+            reason="AI_PROVIDER_UNAVAILABLE",
+            provider=self.name,
+            model=self.model,
+            reasoning_profile=self.reasoning_profile,
+        )
+
+    def _analyze_once(self, request: ContentRemediationRequest) -> ContentRemediationResult:
         self._last_attempt = None
         if self._runtime_state is RuntimeProviderState.QUARANTINED_FOR_AUDIT:
             return ContentRemediationResult(
@@ -296,9 +381,10 @@ class ExtensionContentRemediationProvider:
         )
 
     def consume_attempts(self) -> tuple[ProviderAttempt, ...]:
-        item = self._last_attempt
+        items = self._last_attempts
+        self._last_attempts = ()
         self._last_attempt = None
-        return (item,) if item is not None else ()
+        return items
 
 
 def build_content_remediation_router(semantic_provider: Any) -> ContentRemediationRoutingSession:

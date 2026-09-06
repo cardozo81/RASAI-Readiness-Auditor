@@ -15,6 +15,11 @@ import time
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
 
+from searchgeo.ai_resilience import (
+    DECISION_FALLBACK, DECISION_FALLBACK_SUCCESS, DECISION_RETRY, DECISION_STOP,
+    DECISION_SUCCESS, DECISION_SUCCESS_AFTER_RETRY, MAX_AUTO_ATTEMPTS_PER_CONTEXT,
+    MAX_PROVIDER_ATTEMPTS_PER_CONTEXT, retry_policy,
+)
 from searchgeo.content_context import configured_content_analysis_context
 from searchgeo.m18_ai import (
     AttemptStatus,
@@ -230,8 +235,48 @@ class ContentRemediationProvider:
         self._headers = base._headers
         self._runtime_state = RuntimeProviderState.ACTIVE
         self._last_attempt: ProviderAttempt | None = None
+        self._last_attempts: tuple[ProviderAttempt, ...] = ()
 
-    def analyze(self, request: ContentRemediationRequest) -> ContentRemediationResult:
+    def analyze(
+        self, request: ContentRemediationRequest, *, max_attempts: int = MAX_PROVIDER_ATTEMPTS_PER_CONTEXT
+    ) -> ContentRemediationResult:
+        self._last_attempts = ()
+        collected: list[ProviderAttempt] = []
+        bounded = max(1, min(int(max_attempts), MAX_PROVIDER_ATTEMPTS_PER_CONTEXT))
+        last: ContentRemediationResult | None = None
+        for ordinal in range(1, bounded + 1):
+            result = self._analyze_once(request)
+            last = result
+            attempt = self._last_attempt
+            self._last_attempt = None
+            policy = retry_policy(None)
+            if attempt is not None:
+                diagnostic = attempt.diagnostic
+                policy = retry_policy(diagnostic.error_class if diagnostic else None, diagnostic.retry_after_seconds if diagnostic else None)
+                estimated = attempt.estimated_cost
+                currency = attempt.cost_currency
+                pricing_version = attempt.pricing_version
+                if attempt.usage is not None and estimated is None:
+                    estimated, currency, pricing_version = estimate_cost(attempt.provider, attempt.model or '', attempt.usage, attempt.finished_at)
+                decision = (DECISION_SUCCESS_AFTER_RETRY if result.state is ProviderState.AVAILABLE and ordinal > 1 else DECISION_SUCCESS if result.state is ProviderState.AVAILABLE else DECISION_RETRY if policy.eligible and ordinal < bounded else DECISION_STOP)
+                collected.append(replace(attempt, attempt_index=ordinal, retry_eligible=policy.eligible, decision=decision, estimated_cost=estimated, cost_currency=currency, pricing_version=pricing_version))
+            if result.state is ProviderState.AVAILABLE:
+                self._last_attempts = tuple(collected)
+                return result
+            if result.state is ProviderState.NOT_CONFIGURED:
+                self._last_attempts = tuple(collected)
+                return result
+            if attempt is not None and policy.eligible and ordinal < bounded:
+                self._runtime_state = RuntimeProviderState.ACTIVE
+                if policy.delay_seconds > 0:
+                    time.sleep(policy.delay_seconds)
+                continue
+            self._last_attempts = tuple(collected)
+            return result
+        self._last_attempts = tuple(collected)
+        return last or ContentRemediationResult(ProviderState.UNAVAILABLE, reason='AI_PROVIDER_UNAVAILABLE', provider=self.name, model=self.model, reasoning_profile=self.reasoning_profile)
+
+    def _analyze_once(self, request: ContentRemediationRequest) -> ContentRemediationResult:
         self._last_attempt = None
         if self._runtime_state is RuntimeProviderState.QUARANTINED_FOR_AUDIT:
             return ContentRemediationResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_UNAVAILABLE:PROVIDER_QUARANTINED", provider=self.name, model=self.model, reasoning_profile=self.reasoning_profile)
@@ -329,9 +374,10 @@ class ContentRemediationProvider:
         return ContentRemediationResult(ProviderState.UNAVAILABLE, reason=diagnostic.reason, provider=self.name, model=self.model, reasoning_profile=self.reasoning_profile)
 
     def consume_attempts(self) -> tuple[ProviderAttempt, ...]:
-        item = self._last_attempt
+        items = self._last_attempts
+        self._last_attempts = ()
         self._last_attempt = None
-        return (item,) if item else ()
+        return items
 
 
 @dataclass(slots=True)
@@ -352,25 +398,43 @@ class ContentRemediationRoutingSession:
         self._last_attempts = ()
         if not self.providers:
             return ContentRemediationResult(ProviderState.NOT_CONFIGURED, reason="AI_NOT_CONFIGURED")
-        candidates = self._healthy_candidates()
+        candidates = list(self._healthy_candidates())
         pinned = self._pins.get(request.page_url)
         if pinned:
-            candidates = tuple(item for item in candidates if item.name == pinned)
-            if not candidates:
-                return ContentRemediationResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_UNAVAILABLE:PINNED_PROVIDER_QUARANTINED", provider=pinned)
+            candidates.sort(key=lambda item: (0 if item.name == pinned else 1, item.policy.rank))
         attempts: list[ProviderAttempt] = []
         last: ContentRemediationResult | None = None
-        for index, provider in enumerate(candidates, 1):
-            result = provider.analyze(request)
-            attempts.extend(replace(item, attempt_index=index) for item in provider.consume_attempts())
+        fallback_from: str | None = None
+        fallback_reason: str | None = None
+        for index, provider in enumerate(candidates):
+            remaining = MAX_AUTO_ATTEMPTS_PER_CONTEXT - len(attempts)
+            if remaining <= 0:
+                break
+            result = provider.analyze(request, max_attempts=min(MAX_PROVIDER_ATTEMPTS_PER_CONTEXT, remaining))
+            local = list(provider.consume_attempts())
+            if fallback_from is not None:
+                local = [replace(item, fallback_from_provider=fallback_from, fallback_reason=fallback_reason) for item in local]
+            local = [replace(item, attempt_index=len(attempts) + offset) for offset, item in enumerate(local, 1)]
+            attempts.extend(local)
             last = result
             if result.state is ProviderState.AVAILABLE:
+                if fallback_from is not None and attempts:
+                    attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK_SUCCESS, fallback_from_provider=fallback_from, fallback_reason=fallback_reason)
                 self._pins[request.page_url] = provider.name
                 self._last_attempts = tuple(attempts)
                 return result
-            if result.state is not ProviderState.NOT_CONFIGURED:
-                self._states[provider.name] = RuntimeProviderState.QUARANTINED_FOR_AUDIT
+            if result.state is ProviderState.NOT_CONFIGURED:
+                continue
+            self._states[provider.name] = RuntimeProviderState.QUARANTINED_FOR_AUDIT
+            has_next = index < len(candidates) - 1 and len(attempts) < MAX_AUTO_ATTEMPTS_PER_CONTEXT
+            if has_next:
+                if attempts:
+                    attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK)
+                fallback_from = provider.name
+                fallback_reason = result.reason or "AI_PROVIDER_UNAVAILABLE"
         self._last_attempts = tuple(attempts)
+        if len(attempts) >= MAX_AUTO_ATTEMPTS_PER_CONTEXT and self._healthy_candidates():
+            return ContentRemediationResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_ATTEMPT_BUDGET_EXHAUSTED")
         if not self._healthy_candidates():
             return ContentRemediationResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED")
         return last or ContentRemediationResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_UNAVAILABLE")

@@ -7,6 +7,7 @@ extension providers and delegates every legacy selection unchanged.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -16,6 +17,10 @@ from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from searchgeo.ai_resilience import (
+    DECISION_RETRY, DECISION_STOP, DECISION_SUCCESS, DECISION_SUCCESS_AFTER_RETRY,
+    MAX_PROVIDER_ATTEMPTS_PER_CONTEXT, parse_retry_after, retry_policy,
+)
 from searchgeo.m18_ai import (
     AttemptStatus,
     ProviderAttempt,
@@ -24,6 +29,7 @@ from searchgeo.m18_ai import (
     ProviderPolicy,
     ProviderUsage,
     RuntimeProviderState,
+    estimate_cost,
     SemanticProviderResult,
     build_semantic_provider as _legacy_build_semantic_provider,
 )
@@ -175,12 +181,19 @@ def _diagnostic_from_http(exc: HTTPError) -> ProviderDiagnostic:
     except (AttributeError, TypeError):
         pass
 
+    retry_after_seconds = None
+    try:
+        if exc.headers is not None:
+            retry_after_seconds = parse_retry_after(exc.headers.get('Retry-After'))
+    except (AttributeError, TypeError, ValueError):
+        pass
     return ProviderDiagnostic(
         error_class=_classify_http_error(int(exc.code), error_type, error_code),
         http_status=int(exc.code),
         error_type=error_type,
         error_code=error_code,
         request_id=request_id,
+        retry_after_seconds=retry_after_seconds,
     )
 
 
@@ -247,6 +260,7 @@ class IsolatedStructuredSemanticProvider:
         self._transport = transport or _http_transport
         self.policy = EXTENSION_POLICIES[(self.name, self.model)]
         self._last_attempt: ProviderAttempt | None = None
+        self._last_attempts: tuple[ProviderAttempt, ...] = ()
         self._history: list[ProviderAttempt] = []
         self._runtime_state = RuntimeProviderState.ACTIVE
         self._successful_urls: set[str] = set()
@@ -266,7 +280,70 @@ class IsolatedStructuredSemanticProvider:
     def _native_error(self, raw: Mapping[str, Any]) -> ProviderDiagnostic | None:
         return None
 
-    def analyze(self, semantic_input: SemanticInput) -> SemanticProviderResult:
+    def analyze(
+        self,
+        semantic_input: SemanticInput,
+        *,
+        max_attempts: int = MAX_PROVIDER_ATTEMPTS_PER_CONTEXT,
+    ) -> SemanticProviderResult:
+        self._last_attempts = ()
+        collected: list[ProviderAttempt] = []
+        bounded = max(1, min(int(max_attempts), MAX_PROVIDER_ATTEMPTS_PER_CONTEXT))
+        last_result: SemanticProviderResult | None = None
+        for ordinal in range(1, bounded + 1):
+            result = self._analyze_once(semantic_input)
+            last_result = result
+            attempt = self._last_attempt
+            self._last_attempt = None
+            policy = retry_policy(None)
+            if attempt is not None:
+                diagnostic = attempt.diagnostic
+                policy = retry_policy(
+                    diagnostic.error_class if diagnostic else None,
+                    diagnostic.retry_after_seconds if diagnostic else None,
+                )
+                estimated = attempt.estimated_cost
+                currency = attempt.cost_currency
+                pricing_version = attempt.pricing_version
+                if attempt.usage is not None and estimated is None:
+                    estimated, currency, pricing_version = estimate_cost(
+                        attempt.provider, attempt.model or "", attempt.usage, attempt.finished_at
+                    )
+                decision = (
+                    DECISION_SUCCESS_AFTER_RETRY if result.status is ProviderState.AVAILABLE and ordinal > 1
+                    else DECISION_SUCCESS if result.status is ProviderState.AVAILABLE
+                    else DECISION_RETRY if policy.eligible and ordinal < bounded
+                    else DECISION_STOP
+                )
+                annotated = replace(
+                    attempt,
+                    attempt_index=ordinal,
+                    retry_eligible=policy.eligible,
+                    decision=decision,
+                    estimated_cost=estimated,
+                    cost_currency=currency,
+                    pricing_version=pricing_version,
+                )
+                if self._history and self._history[-1] == attempt:
+                    self._history[-1] = annotated
+                collected.append(annotated)
+            if result.status is ProviderState.AVAILABLE:
+                self._last_attempts = tuple(collected)
+                return result
+            if result.status is ProviderState.NOT_CONFIGURED:
+                self._last_attempts = tuple(collected)
+                return result
+            if attempt is not None and policy.eligible and ordinal < bounded:
+                self._runtime_state = RuntimeProviderState.ACTIVE
+                if policy.delay_seconds > 0:
+                    time.sleep(policy.delay_seconds)
+                continue
+            self._last_attempts = tuple(collected)
+            return result
+        self._last_attempts = tuple(collected)
+        return last_result or SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_UNAVAILABLE", provider=self.name, model=self.model, reasoning_profile=self.reasoning_profile)
+
+    def _analyze_once(self, semantic_input: SemanticInput) -> SemanticProviderResult:
         self._last_attempt = None
         if self._runtime_state is RuntimeProviderState.QUARANTINED_FOR_AUDIT:
             return SemanticProviderResult(
@@ -479,9 +556,10 @@ class IsolatedStructuredSemanticProvider:
         )
 
     def consume_attempts(self) -> tuple[ProviderAttempt, ...]:
-        attempt = self._last_attempt
+        attempts = self._last_attempts
+        self._last_attempts = ()
         self._last_attempt = None
-        return (attempt,) if attempt is not None else ()
+        return attempts
 
     def attempt_history(self) -> tuple[ProviderAttempt, ...]:
         return tuple(self._history)

@@ -115,3 +115,20 @@ Os HTMLs legados temporários usados durante a composição interna do pipeline 
 ## DeepSeek wire contract por chaves obrigatórias
 
 Para DeepSeek via Responses API, o contrato de transporte das 22 avaliações semânticas usa um objeto cujas chaves obrigatórias são `BR-GEO-028` até `BR-GEO-049`. Isso evita depender de `minItems`/`maxItems` para cardinalidade de arrays, restrições que a documentação do DeepSeek declara não suportadas em seu subconjunto estrito de JSON Schema. Antes da persistência, o adapter converte o objeto para o array canônico SearchGEO e reaplica todas as validações locais de schema, evidência, completude e duplicidade. A alteração não muda scoring nem a semântica das regras.
+
+
+## Política de retry e fallback com controle de custo
+
+O SearchGEO trata chamadas de IA como integrações potencialmente tarifadas. Retry não é genérico.
+
+- cada provider/contexto pode realizar no máximo **2 chamadas**: 1 inicial + 1 retry;
+- AUTO possui teto adicional de **4 chamadas totais por URL/device**, independentemente da quantidade de providers configurados;
+- retry é permitido somente para `NETWORK_ERROR`, `TIMEOUT_ERROR`, `SERVER_ERROR`, `RATE_LIMIT_ERROR` e `EMPTY_RESPONSE`;
+- `AUTH_ERROR`, `PERMISSION_ERROR`, `CREDIT_ERROR`, `QUOTA_ERROR`, `MODEL_ERROR`, `CONTRACT_ERROR`, `INVALID_RESPONSE` e erros desconhecidos não são repetidos automaticamente;
+- `Retry-After` só é obedecido quando o atraso calculado não excede 5 segundos; acima disso não há nova chamada automática;
+- após esgotar o retry de um provider, ele entra em quarentena para a auditoria;
+- em AUTO, erro de integração pode acionar fallback para o próximo provider saudável, inclusive quando havia preferência anterior para a URL;
+- um resultado válido encerra imediatamente a cadeia para aquele contexto; nenhum provider adicional é chamado;
+- a telemetria persiste cada tentativa, classe/tipo/código do erro, request id quando disponível, elegibilidade de retry, decisão (`RETRY`, `FALLBACK`, `STOP`, `SUCCESS_*`), origem do fallback, tokens e custo estimado quando mensurável.
+
+O relatório deve distinguir explicitamente **provider que deveria atender primeiro** de **provider efetivamente utilizado**. Quando houver fallback, deve declarar a causa que inviabilizou o provider anterior. Falha de integração não pode ser convertida em finding do website.
