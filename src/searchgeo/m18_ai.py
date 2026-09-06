@@ -13,6 +13,18 @@ import time
 from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
 
+from searchgeo.ai_resilience import (
+    DECISION_FALLBACK,
+    DECISION_FALLBACK_SUCCESS,
+    DECISION_RETRY,
+    DECISION_STOP,
+    DECISION_SUCCESS,
+    DECISION_SUCCESS_AFTER_RETRY,
+    MAX_AUTO_ATTEMPTS_PER_CONTEXT,
+    MAX_PROVIDER_ATTEMPTS_PER_CONTEXT,
+    parse_retry_after,
+    retry_policy,
+)
 from searchgeo.openai_provider import (
     OpenAIProvider as _HardenedOpenAIProvider,
     SEMANTIC_RULE_CRITERIA,
@@ -85,6 +97,7 @@ class ProviderDiagnostic:
     error_type: str | None = None
     error_code: str | None = None
     request_id: str | None = None
+    retry_after_seconds: float | None = None
 
     @property
     def reason(self) -> str | None:
@@ -126,6 +139,10 @@ class ProviderAttempt:
     provider_reliability_score: float | None = None
     qualification_version: str = QUALIFICATION_VERSION
     semantic_contract_version: str = SEMANTIC_CONTRACT_VERSION
+    retry_eligible: bool = False
+    decision: str = DECISION_STOP
+    fallback_from_provider: str | None = None
+    fallback_reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -324,12 +341,19 @@ def _diagnostic_from_http(exc: HTTPError) -> ProviderDiagnostic:
             request_id = _safe_token(exc.headers.get("x-request-id") or exc.headers.get("request-id"))
     except (AttributeError, TypeError):
         pass
+    retry_after_seconds = None
+    try:
+        if exc.headers is not None:
+            retry_after_seconds = parse_retry_after(exc.headers.get('Retry-After'))
+    except (AttributeError, TypeError, ValueError):
+        pass
     return ProviderDiagnostic(
         error_class=_classify_http_error(int(exc.code), error_type, error_code),
         http_status=int(exc.code),
         error_type=error_type,
         error_code=error_code,
         request_id=request_id,
+        retry_after_seconds=retry_after_seconds,
     )
 
 
@@ -448,6 +472,7 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
         self.requested_reasoning_effort = self._validate_reasoning(reasoning_effort)
         self.reasoning_profile = self._reasoning_profile(self.requested_reasoning_effort)
         self._last_attempt: ProviderAttempt | None = None
+        self._last_attempts: tuple[ProviderAttempt, ...] = ()
         self._history: list[ProviderAttempt] = []
         self.policy = _policy(self.name, self.model)
         self._runtime_state = RuntimeProviderState.ACTIVE
@@ -506,7 +531,81 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
             "text": {"format": format_payload},
         }
 
-    def analyze(self, semantic_input: SemanticInput) -> SemanticProviderResult:
+    def analyze(
+        self,
+        semantic_input: SemanticInput,
+        *,
+        max_attempts: int = MAX_PROVIDER_ATTEMPTS_PER_CONTEXT,
+    ) -> SemanticProviderResult:
+        """Execute at most one bounded retry for transient integration failures."""
+        self._last_attempts = ()
+        collected: list[ProviderAttempt] = []
+        bounded = max(1, min(int(max_attempts), MAX_PROVIDER_ATTEMPTS_PER_CONTEXT))
+        last_result: SemanticProviderResult | None = None
+        for ordinal in range(1, bounded + 1):
+            result = self._analyze_once(semantic_input)
+            last_result = result
+            attempt = self._last_attempt
+            self._last_attempt = None
+            policy = retry_policy(None)
+            if attempt is not None:
+                diagnostic = attempt.diagnostic
+                policy = retry_policy(
+                    diagnostic.error_class if diagnostic else None,
+                    diagnostic.retry_after_seconds if diagnostic else None,
+                )
+                estimated = attempt.estimated_cost
+                currency = attempt.cost_currency
+                pricing_version = attempt.pricing_version
+                if attempt.usage is not None and estimated is None:
+                    estimated, currency, pricing_version = estimate_cost(
+                        attempt.provider, attempt.model or "", attempt.usage, attempt.finished_at
+                    )
+                if result.status is ProviderState.AVAILABLE:
+                    decision = DECISION_SUCCESS_AFTER_RETRY if ordinal > 1 else DECISION_SUCCESS
+                elif policy.eligible and ordinal < bounded:
+                    decision = DECISION_RETRY
+                else:
+                    decision = DECISION_STOP
+                annotated = replace(
+                    attempt,
+                    attempt_index=ordinal,
+                    retry_eligible=policy.eligible,
+                    decision=decision,
+                    estimated_cost=estimated,
+                    cost_currency=currency,
+                    pricing_version=pricing_version,
+                )
+                if self._history and self._history[-1] == attempt:
+                    self._history[-1] = annotated
+                collected.append(annotated)
+
+            if result.status is ProviderState.AVAILABLE:
+                self._last_attempts = tuple(collected)
+                return result
+            if result.status is ProviderState.NOT_CONFIGURED:
+                self._last_attempts = tuple(collected)
+                return result
+            if attempt is not None and policy.eligible and ordinal < bounded:
+                # _analyze_once quarantines every failure. A transient retry is the
+                # only case allowed to reactivate it, and only for this one retry.
+                self._runtime_state = RuntimeProviderState.ACTIVE
+                if policy.delay_seconds > 0:
+                    time.sleep(policy.delay_seconds)
+                continue
+            self._last_attempts = tuple(collected)
+            return result
+
+        self._last_attempts = tuple(collected)
+        return last_result or SemanticProviderResult(
+            ProviderState.UNAVAILABLE,
+            reason="AI_PROVIDER_UNAVAILABLE",
+            provider=self.name,
+            model=self.model,
+            reasoning_profile=self.reasoning_profile,
+        )
+
+    def _analyze_once(self, semantic_input: SemanticInput) -> SemanticProviderResult:
         self._last_attempt = None
         if self._runtime_state is RuntimeProviderState.QUARANTINED_FOR_AUDIT:
             return SemanticProviderResult(
@@ -672,9 +771,10 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
         )
 
     def consume_attempts(self) -> tuple[ProviderAttempt, ...]:
-        attempt = self._last_attempt
+        attempts = self._last_attempts
+        self._last_attempts = ()
         self._last_attempt = None
-        return (attempt,) if attempt is not None else ()
+        return attempts
 
     def attempt_history(self) -> tuple[ProviderAttempt, ...]:
         return tuple(self._history)
@@ -780,7 +880,7 @@ class ProviderRoutingSession:
 
     @property
     def capabilities(self) -> tuple[str, ...]:
-        return ("MULTI_PROVIDER_ROUTING", "AUDIT_QUARANTINE", "URL_PROVIDER_LOCK", "USAGE_TELEMETRY")
+        return ("MULTI_PROVIDER_ROUTING", "AUDIT_QUARANTINE", "BOUNDED_RETRY", "BOUNDED_AUTO_FALLBACK", "USAGE_TELEMETRY")
 
     @property
     def initial_provider(self) -> ResponsesSemanticProvider | None:
@@ -795,44 +895,83 @@ class ProviderRoutingSession:
         if not self.providers:
             return SemanticProviderResult(ProviderState.NOT_CONFIGURED, reason="AI_NOT_CONFIGURED", provider="AUTO", reasoning_profile="NONE")
 
+        candidates = list(self._healthy_candidates())
         pinned_name = self._pins.get(semantic_input.page_url)
         if pinned_name:
-            provider = self._provider_by_name(pinned_name)
-            if provider is None or self._states.get(pinned_name) is RuntimeProviderState.QUARANTINED_FOR_AUDIT:
-                return SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_UNAVAILABLE:PINNED_PROVIDER_QUARANTINED", provider=pinned_name, model=provider.model if provider else None, reasoning_profile=provider.reasoning_profile if provider else "NONE")
-            result = provider.analyze(semantic_input)
-            self._last_attempts = tuple(replace(item, attempt_index=index) for index, item in enumerate(provider.consume_attempts(), 1))
-            self._history.extend(self._last_attempts)
-            if result.status is ProviderState.AVAILABLE:
-                self._successful_urls[pinned_name].add(semantic_input.page_url)
-                return result
-            if result.status is ProviderState.UNAVAILABLE:
-                self._quarantine(pinned_name)
-            return result
-
-        candidates = self._healthy_candidates()
+            # A previous success keeps preference, but an integration failure may
+            # legitimately fall back to another healthy provider for this context.
+            candidates.sort(key=lambda item: (0 if item.name == pinned_name else 1, item.policy.rank))
         if not candidates:
             return SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED", provider="AUTO", reasoning_profile="NONE")
 
         attempts: list[ProviderAttempt] = []
         last_result: SemanticProviderResult | None = None
-        for attempt_index, provider in enumerate(candidates, 1):
-            result = provider.analyze(semantic_input)
-            attempts.extend(replace(item, attempt_index=attempt_index) for item in provider.consume_attempts())
+        fallback_from: str | None = None
+        fallback_reason: str | None = None
+
+        for candidate_index, provider in enumerate(candidates):
+            remaining = MAX_AUTO_ATTEMPTS_PER_CONTEXT - len(attempts)
+            if remaining <= 0:
+                break
+            result = provider.analyze(
+                semantic_input,
+                max_attempts=min(MAX_PROVIDER_ATTEMPTS_PER_CONTEXT, remaining),
+            )
+            local = list(provider.consume_attempts())
+            if fallback_from is not None:
+                local = [
+                    replace(
+                        item,
+                        fallback_from_provider=fallback_from,
+                        fallback_reason=fallback_reason,
+                    )
+                    for item in local
+                ]
+            local = [
+                replace(item, attempt_index=len(attempts) + offset)
+                for offset, item in enumerate(local, 1)
+            ]
+            attempts.extend(local)
             last_result = result
+
             if result.status is ProviderState.AVAILABLE:
+                if fallback_from is not None and attempts:
+                    attempts[-1] = replace(
+                        attempts[-1],
+                        decision=DECISION_FALLBACK_SUCCESS,
+                        fallback_from_provider=fallback_from,
+                        fallback_reason=fallback_reason,
+                    )
                 self._pins[semantic_input.page_url] = provider.name
                 self._promote(provider.name)
                 self._successful_urls[provider.name].add(semantic_input.page_url)
                 self._last_attempts = tuple(attempts)
                 self._history.extend(self._last_attempts)
                 return result
+
             if result.status is ProviderState.NOT_CONFIGURED:
                 continue
+
             self._quarantine(provider.name)
+            has_next = (
+                candidate_index < len(candidates) - 1
+                and len(attempts) < MAX_AUTO_ATTEMPTS_PER_CONTEXT
+            )
+            if has_next:
+                if attempts:
+                    attempts[-1] = replace(attempts[-1], decision=DECISION_FALLBACK)
+                fallback_from = provider.name
+                fallback_reason = result.reason or "AI_PROVIDER_UNAVAILABLE"
 
         self._last_attempts = tuple(attempts)
         self._history.extend(self._last_attempts)
+        if len(attempts) >= MAX_AUTO_ATTEMPTS_PER_CONTEXT and self._healthy_candidates():
+            return SemanticProviderResult(
+                ProviderState.UNAVAILABLE,
+                reason="AI_PROVIDER_ATTEMPT_BUDGET_EXHAUSTED",
+                provider="AUTO",
+                reasoning_profile="NONE",
+            )
         if self._healthy_candidates():
             return last_result or SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_UNAVAILABLE", provider="AUTO", reasoning_profile="NONE")
         return SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED", provider="AUTO", reasoning_profile="NONE")

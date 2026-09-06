@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import sqlite3
 
+from searchgeo.ai_resilience import MAX_PROVIDER_ATTEMPTS_PER_CONTEXT, max_attempts_for_auto
 from searchgeo.cli import validate_target
 from searchgeo.console_config import State, provider_capabilities
 from searchgeo.m18_ai import PRICING_CATALOG, PRICING_VERSION
@@ -173,9 +174,14 @@ def estimate_exposure(state: State) -> ExposureEstimate:
     max_ai = 0
     if provider_count:
         min_ai = min_pages * devices
-        max_ai = max_pages * devices * provider_count
+        per_context_max = (
+            max_attempts_for_auto(provider_count)
+            if state.ai_provider == 'auto'
+            else MAX_PROVIDER_ATTEMPTS_PER_CONTEXT
+        )
+        max_ai = max_pages * devices * per_context_max
         if state.content_remediation:
-            max_ai += max_pages * devices * provider_count
+            max_ai += max_pages * devices * per_context_max
 
     min_web = 0
     max_web = 0
@@ -208,8 +214,9 @@ def estimate_exposure(state: State) -> ExposureEstimate:
         reasons.append("BOTH duplica os contextos potenciais mobile/desktop.")
     if provider_count:
         reasons.append(
-            f"IA ativa: até {max_ai} tentativa(s) potenciais considerando M18, "
-            "cadeia de providers e M20 quando habilitado."
+            f"IA ativa: até {max_ai} chamada(s) potenciais considerando M18, retry transitório limitado, "
+            "fallback AUTO e M20 quando habilitado. Cada provider/contexto tem no máximo 2 chamadas "
+            "(1 inicial + 1 retry); AUTO possui teto global de 4 chamadas por contexto."
         )
     if state.ai_provider == "auto":
         reasons.append(

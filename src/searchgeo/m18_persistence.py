@@ -160,6 +160,18 @@ class M18Persistence:
                 );
                 """
             )
+            existing_attempt_columns = {
+                str(row['name']) for row in self._connection.execute('PRAGMA table_info(ai_provider_attempts)').fetchall()
+            }
+            for column, ddl in (
+                ('retry_eligible', 'INTEGER NOT NULL DEFAULT 0'),
+                ('retry_after_seconds', 'REAL'),
+                ('decision', "TEXT NOT NULL DEFAULT 'STOP'"),
+                ('fallback_from_provider', 'TEXT'),
+                ('fallback_reason', 'TEXT'),
+            ):
+                if column not in existing_attempt_columns:
+                    self._connection.execute(f'ALTER TABLE ai_provider_attempts ADD COLUMN {column} {ddl}')
             for item in PRICING_CATALOG:
                 self._connection.execute(
                     """
@@ -243,57 +255,49 @@ class M18Persistence:
     ) -> None:
         diagnostic = attempt.diagnostic
         usage = attempt.usage
+        columns = (
+            "attempt_id", "audit_id", "page_id", "snapshot_id", "url", "device", "provider", "model",
+            "reasoning_profile", "provider_rank", "attempt_index", "started_at", "finished_at", "duration_ms",
+            "status", "http_status", "error_class", "error_type", "error_code", "request_id",
+            "retry_eligible", "retry_after_seconds", "decision", "fallback_from_provider", "fallback_reason",
+            "input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens", "total_tokens",
+            "estimated_cost", "cost_currency", "pricing_version", "request_message_summary", "request_payload_hash",
+            "semantic_contract_version", "provider_qualification", "provider_reliability_score", "qualification_version",
+        )
+        values = (
+            attempt_id, audit_id, page_id, snapshot_id, url, device, attempt.provider, attempt.model,
+            attempt.reasoning_profile, attempt.provider_rank, attempt.attempt_index,
+            attempt.started_at.isoformat(), attempt.finished_at.isoformat(), attempt.duration_ms, attempt.status.value,
+            diagnostic.http_status if diagnostic else None,
+            diagnostic.error_class.value if diagnostic and diagnostic.error_class else None,
+            diagnostic.error_type if diagnostic else None,
+            diagnostic.error_code if diagnostic else None,
+            diagnostic.request_id if diagnostic else None,
+            1 if attempt.retry_eligible else 0,
+            diagnostic.retry_after_seconds if diagnostic else None,
+            attempt.decision,
+            attempt.fallback_from_provider,
+            attempt.fallback_reason,
+            usage.input_tokens if usage else None,
+            usage.cached_input_tokens if usage else None,
+            usage.output_tokens if usage else None,
+            usage.reasoning_tokens if usage else None,
+            usage.total_tokens if usage else None,
+            attempt.estimated_cost,
+            attempt.cost_currency,
+            attempt.pricing_version,
+            attempt.request_message_summary[:512],
+            attempt.request_payload_hash,
+            attempt.semantic_contract_version,
+            attempt.provider_qualification,
+            attempt.provider_reliability_score,
+            attempt.qualification_version,
+        )
+        placeholders = ",".join("?" for _ in columns)
         with self._connection:
             self._connection.execute(
-                """
-                INSERT INTO ai_provider_attempts (
-                    attempt_id,audit_id,page_id,snapshot_id,url,device,provider,model,
-                    reasoning_profile,provider_rank,attempt_index,started_at,finished_at,
-                    duration_ms,status,http_status,error_class,error_type,error_code,request_id,
-                    input_tokens,cached_input_tokens,output_tokens,reasoning_tokens,total_tokens,
-                    estimated_cost,cost_currency,pricing_version,request_message_summary,
-                    request_payload_hash,semantic_contract_version,provider_qualification,
-                    provider_reliability_score,qualification_version
-                ) VALUES (
-                    ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
-                )
-                """,
-                (
-                    attempt_id,
-                    audit_id,
-                    page_id,
-                    snapshot_id,
-                    url,
-                    device,
-                    attempt.provider,
-                    attempt.model,
-                    attempt.reasoning_profile,
-                    attempt.provider_rank,
-                    attempt.attempt_index,
-                    attempt.started_at.isoformat(),
-                    attempt.finished_at.isoformat(),
-                    attempt.duration_ms,
-                    attempt.status.value,
-                    diagnostic.http_status if diagnostic else None,
-                    diagnostic.error_class.value if diagnostic and diagnostic.error_class else None,
-                    diagnostic.error_type if diagnostic else None,
-                    diagnostic.error_code if diagnostic else None,
-                    diagnostic.request_id if diagnostic else None,
-                    usage.input_tokens if usage else None,
-                    usage.cached_input_tokens if usage else None,
-                    usage.output_tokens if usage else None,
-                    usage.reasoning_tokens if usage else None,
-                    usage.total_tokens if usage else None,
-                    attempt.estimated_cost,
-                    attempt.cost_currency,
-                    attempt.pricing_version,
-                    attempt.request_message_summary[:512],
-                    attempt.request_payload_hash,
-                    attempt.semantic_contract_version,
-                    attempt.provider_qualification,
-                    attempt.provider_reliability_score,
-                    attempt.qualification_version,
-                ),
+                f"INSERT INTO ai_provider_attempts ({','.join(columns)}) VALUES ({placeholders})",
+                values,
             )
 
     def list_attempts(self, audit_id: str) -> tuple[sqlite3.Row, ...]:
