@@ -37,6 +37,6 @@ jobs:
       - name: M26 directed tests
         run: python -m pytest -q tests/test_m26_observed_generative_visibility.py
       - name: CLI regression
-        run: python -m pytest -q tests/test_cli.py tests/test_m23_integration.py
+        run: python -m pytest -q tests/test_cli_provider_extensions.py tests/test_m23_integration.py
       - name: Full regression suite
         run: python -m pytest -q
