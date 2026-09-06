@@ -43,7 +43,6 @@ class SourceQualityBrowserReconciliation:
         return bool(self.recovered_urls)
 
 
-
 def reconcile_source_quality_with_browser(
     *,
     assessment: SourceQualityAssessment,
@@ -95,7 +94,6 @@ def reconcile_source_quality_with_browser(
     )
 
 
-
 def browser_reconciliation_limitations(
     reconciliation: SourceQualityBrowserReconciliation,
 ) -> tuple[str, ...]:
@@ -112,7 +110,6 @@ def browser_reconciliation_limitations(
             "prosseguiu, mas a divergência de redirecionamento/TLS deve ser revisada."
         )
     return tuple(dict.fromkeys(values))
-
 
 
 def _successful_browser_observations(
@@ -147,7 +144,6 @@ def _successful_browser_observations(
     return tuple(output)
 
 
-
 def _recovered_issue(
     issue: SourceQualityIssue,
     observations: tuple[BrowserRouteObservation, ...],
@@ -179,8 +175,6 @@ def _recovered_issue(
         issue,
         final_url=primary.final_url,
         http_status=primary.http_status,
-        network_error=None,
-        network_error_message=None,
         hard_blocker=False,
         severity="WARNING",
         classification="HTTP_BROWSER_ROUTE_DIVERGENCE",
@@ -188,7 +182,6 @@ def _recovered_issue(
         recommended_actions=actions,
         cross_host_redirect=_host(issue.requested_url) != _host(primary.final_url),
     )
-
 
 
 def _host(value: str | None) -> str:
