@@ -18,6 +18,7 @@ Capacidades integradas:
 - PageSpeed/Lighthouse e Core Web Vitals/CrUX como domínio separado;
 - Acessibilidade automatizada projetada separadamente a partir do artifact Lighthouse;
 - Synthetic Navigation Apdex em Chromium, separado de Lighthouse/CrUX e do Score GEO;
+- relatórios históricos/consolidados offline sobre múltiplos `AUD-*`, com índice analítico reconstruível e snapshots HTML estáticos;
 - console interativo com preflight, progresso, custo/quota, timeouts, persistência de configuração e abertura de artifacts.
 
 > O Score SearchGEO é um modelo interno de readiness. Lighthouse, Core Web Vitals, Acessibilidade automatizada e Apdex possuem metodologias próprias e são exibidos separadamente.
@@ -90,9 +91,12 @@ Menu principal:
 H. Ajuda / custos
 E. Variáveis de ambiente / credenciais
 S. Salvar configuração INI [SEM CHAVES]
+C. Histórico / relatórios consolidados [OFFLINE | sem APIs]
 R. Executar
 Q. Sair
 ```
+
+A opção `C` é independente do pipeline de auditoria: lê `AUD-*/audit.db` em modo somente leitura, atualiza um índice analítico derivado/reconstruível e gera snapshots HTML estáticos sem acessar APIs. Veja [docs/CONSOLIDATED_REPORTING.md](docs/CONSOLIDATED_REPORTING.md).
 
 A opção `E` não exibe mais uma lista plana. Ela agrupa as variáveis por **Aplicação**, **Credenciais IA**, **Modelos/reasoning**, **Endpoints avançados**, **Web Performance/Google**, **Synthetic Apdex** e **Browser/Playwright**. Cada variável mostra finalidade, domínio aceito, default efetivo, dependências, custo/impacto e referência; `D` abre diretamente a documentação detalhada. Veja [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md).
 
@@ -335,6 +339,20 @@ audits/<AUD-ID>/
 
 `audit.db` e `artifacts/` são fontes persistidas; o report é projeção humana.
 
+Os relatórios históricos usam uma área separada e não escrevem nos workspaces `AUD-*`:
+
+```text
+audits/.searchgeo/
+└─ consolidated-index.db       # cache analítico reconstruível
+
+audits/consolidated/
+└─ CONS-<timestamp>/
+   ├─ report.html              # snapshot estático
+   └─ manifest.json            # filtros, fontes e rastreabilidade
+```
+
+Um `CONS-*` já existente é reutilizado quando filtros, versão do formato e fingerprints das fontes elegíveis são idênticos. Um novo `AUD-*` elegível invalida essa reutilização e produz novo snapshot.
+
 A página inicial inclui **Configuração × resultado obtido**, permitindo distinguir o que foi solicitado do que foi realmente materializado e a causa de limitações operacionais.
 
 ## Segurança
@@ -360,6 +378,8 @@ Nomes internos de módulos, tabelas, eventos e documentos normativos podem mante
 - [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 - [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
 - [docs/INTERACTIVE_CONSOLE.md](docs/INTERACTIVE_CONSOLE.md)
+- [docs/CONSOLIDATED_REPORTING.md](docs/CONSOLIDATED_REPORTING.md)
+- [docs/CONSOLIDATED_REPORTING_VALIDATION.md](docs/CONSOLIDATED_REPORTING_VALIDATION.md)
 - [docs/AI_GUIDE.md](docs/AI_GUIDE.md)
 - [docs/GOOGLE_API_KEYS.md](docs/GOOGLE_API_KEYS.md)
 - [docs/REPORT_GUIDE.md](docs/REPORT_GUIDE.md)

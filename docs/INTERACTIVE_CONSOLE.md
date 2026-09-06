@@ -6,7 +6,7 @@ O SearchGEO mantém `searchgeo audit` como interface estável e oferece o consol
 searchgeo-console
 ```
 
-O console é uma camada de configuração, preflight, observabilidade e execução sobre o mesmo pipeline da CLI. Ele não implementa um segundo motor de auditoria.
+O console é uma camada de configuração, preflight, observabilidade e execução sobre o mesmo pipeline da CLI. Ele não implementa um segundo motor de auditoria. O submenu de relatórios consolidados é um subsistema offline adicional e também não altera o pipeline de auditoria.
 
 ## Princípios
 
@@ -20,7 +20,8 @@ O console é uma camada de configuração, preflight, observabilidade e execuç�
 - integração externa indisponível é explicada e não vira finding do website;
 - custo prévio é estimativa de exposição, não invoice;
 - consumo real após a execução vem da telemetria persistida;
-- Synthetic Apdex é carga sintética, não custo financeiro de API.
+- Synthetic Apdex é carga sintética, não custo financeiro de API;
+- consolidação histórica é somente leitura sobre `AUD-*/audit.db`, sem chamadas de API e sem recalcular o motor GEO.
 
 ## Arquivo de configuração do usuário
 
@@ -232,6 +233,7 @@ Overrides explícitos continuam prevalecendo quando o adapter aceita o valor.
 H. Ajuda / custos
 E. Variáveis de ambiente / credenciais
 S. Salvar configuração INI [SEM CHAVES]
+C. Histórico / relatórios consolidados [OFFLINE | sem APIs]
 R. Executar [APTO|INDISPONÍVEL]
 Q. Sair
 ```
@@ -299,6 +301,31 @@ concorrência           = 1; máximo 2
 
 Grupos com 1–99 amostras válidas são small-group e recebem `*`. Synthetic Apdex não usa LLM nem PageSpeed/CrUX, mas gera tráfego HTTP real; volume relevante em produção exige autorização.
 
+## Opção C — Histórico / relatórios consolidados
+
+A opção `C` é um fluxo independente e offline. Ela não usa provider de IA, PageSpeed, CrUX ou Synthetic Apdex em modo de execução. Apenas lê os resultados que já foram persistidos em auditorias anteriores.
+
+Fluxo:
+
+```text
+AUD-*/audit.db
+  -> leitura SQLite mode=ro / query_only
+  -> .searchgeo/consolidated-index.db
+  -> filtros de domínio, período, device e URL
+  -> validação de comparabilidade
+  -> consolidated/CONS-*/report.html + manifest.json
+```
+
+O índice é cache derivado e reconstruível. Os `audit.db` permanecem fonte de verdade e não são modificados.
+
+O relatório reúne os indicadores persistidos relevantes — Score/Coverage/Confidence, dimensões GEO, Web Performance, CWV, Synthetic Apdex e estatística de findings — apenas quando as observações são comparáveis. Mudanças de `scoring_version`, universo de URLs, profile/threshold Apdex ou ausência de dado são tratadas explicitamente; nenhum valor ausente vira zero.
+
+Mobile e Desktop permanecem separados. Em filtro explícito por URL, score audit-level só entra se o universo completo da auditoria estiver contido no conjunto selecionado; o sistema não recalcula score parcial.
+
+Relatórios idênticos são reutilizados somente quando filtros, versão do formato e fingerprints dos AUDs elegíveis permanecem iguais. Um novo AUD elegível gera novo snapshot.
+
+Detalhes de arquitetura, metodologia, dedupe e rollback: [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md) e [CONSOLIDATED_REPORTING_VALIDATION.md](CONSOLIDATED_REPORTING_VALIDATION.md).
+
 ## Progresso durante a execução
 
 A mesma tela é atualizada aproximadamente uma vez por segundo com:
@@ -335,7 +362,8 @@ Fonte configurada que falhou por timeout, quota, HTTP, ausência de artifact ou 
 - origem `SO:USER`, `SO:MACHINE` ou `SESSÃO` é mostrada sem revelar o secret;
 - variáveis de ambiente não equivalem a secret manager;
 - parâmetros não sensíveis podem ser salvos no INI;
-- alterações não salvas são avisadas antes da saída.
+- alterações não salvas são avisadas antes da saída;
+- consolidação não escreve em `AUD-*/audit.db` e não depende de credenciais externas.
 
 ## Leituras relacionadas
 
@@ -343,6 +371,8 @@ Fonte configurada que falhou por timeout, quota, HTTP, ausência de artifact ou 
 - [CONFIGURATION.md](CONFIGURATION.md)
 - [CLI_REFERENCE.md](CLI_REFERENCE.md)
 - [CONSOLE_COST_AND_USAGE.md](CONSOLE_COST_AND_USAGE.md)
+- [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md)
+- [CONSOLIDATED_REPORTING_VALIDATION.md](CONSOLIDATED_REPORTING_VALIDATION.md)
 - [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md)
 - [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
 - [AI_GUIDE.md](AI_GUIDE.md)

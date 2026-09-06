@@ -28,6 +28,8 @@ audits/<AUD-ID>/
 
 `audit.db` e `artifacts/` são a persistência principal. `audit.log` registra eventos operacionais sanitizados. O HTML é projeção humana derivada desses dados.
 
+Relatórios históricos/consolidados não mudam essa regra: `AUD-*/audit.db` continua sendo a fonte oficial e é aberto em modo somente leitura.
+
 ## Banco SQLite
 
 O banco contém entidades da auditoria principal, evidências, execuções de regras, findings, scores, recomendações e telemetria opcional.
@@ -65,6 +67,36 @@ lighthouse_execution_profiles
 ```
 
 Os nomes internos permanecem estáveis para compatibilidade de schema. A documentação operacional e os relatórios usam nomenclatura funcional.
+
+## Índice analítico reconstruível
+
+A consolidação histórica mantém um cache derivado fora de qualquer workspace `AUD-*`:
+
+```text
+audits/.searchgeo/consolidated-index.db
+```
+
+Esse banco contém somente projeções necessárias para filtro e estatística histórica, como metadados de auditoria, domínios, URLs, dispositivos, versões, scores, Web Performance, Apdex e classificações de findings.
+
+Ele **não é fonte de verdade**. Pode ser removido e reconstruído a partir dos `AUD-*/audit.db` sem perda de evidência.
+
+## Relatórios consolidados
+
+Cada snapshot novo é salvo separadamente:
+
+```text
+audits/consolidated/CONS-<timestamp>/
+├─ report.html
+└─ manifest.json
+```
+
+`report.html` é estático: ao ser aberto não relê `audit.db`, não chama APIs e não recalcula indicadores.
+
+`manifest.json` registra filtros, data de geração, fingerprints das fontes, AUDs considerados, período efetivamente observado, versões metodológicas, limitações e resultado da atualização do índice.
+
+Quando versão do formato, filtros canônicos e fingerprints do conjunto elegível de AUDs são idênticos a um snapshot anterior, o `CONS-*` existente é reutilizado em vez de gerar uma duplicata. Novo AUD elegível ou alteração de filtro produz novo snapshot.
+
+Detalhes: [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md).
 
 ## Artifacts de Web Performance
 
@@ -160,6 +192,10 @@ Provider/modelo, tentativas, tokens, reasoning e custo estimado quando persistid
 
 Metodologia e referências públicas.
 
+### `consolidated/CONS-*/report.html`
+
+Snapshot histórico/consolidado de indicadores já persistidos, filtrado por domínio, período, dispositivo e opcionalmente URL, com políticas explícitas de comparabilidade.
+
 ## Log operacional
 
 ```text
@@ -176,9 +212,12 @@ Deve permitir rastrear, sem secrets:
 - falhas fail-open;
 - geração de reports.
 
+A consolidação não grava eventos em `AUD-*/logs/audit.log`; sua rastreabilidade fica no `manifest.json` do próprio `CONS-*`.
+
 ## Segurança
 
 - API keys não devem ser persistidas no SQLite, report ou log;
 - o arquivo `searchgeo-console.ini` também não armazena secrets;
 - request IDs e diagnósticos devem ser sanitizados;
-- custo estimado não é invoice.
+- custo estimado não é invoice;
+- o consolidador não escreve em `AUD-*/audit.db` e não faz chamadas externas.
