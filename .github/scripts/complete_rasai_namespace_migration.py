@@ -76,7 +76,6 @@ def transform_text(text: str) -> str:
     text = text.replace("GEO_MINIMUM_REQUIREMENTS.md", "READINESS_MINIMUM_REQUIREMENTS.md")
     text = text.replace("19_SCORE_APPLICABILITY_GEO_MINIMUMS.md", "19_SCORE_APPLICABILITY_READINESS_MINIMUMS.md")
 
-    # Old product wording. GEO remains valid only where it is a methodology/concept identifier.
     text = text.replace("Search/GEO readiness", "Search & AI Readiness")
     text = text.replace("Search/GEO", "Search & AI")
     text = text.replace("Search / GEO", "Search & AI")
@@ -85,7 +84,6 @@ def transform_text(text: str) -> str:
     text = text.replace("GEO score universal", "score universal de Search & AI Readiness")
     text = text.replace("universal GEO score", "universal Search & AI Readiness score")
 
-    # Public typography contract: use ASCII hyphen, never en/em dash.
     text = text.replace("—", "-").replace("–", "-")
     return text
 
@@ -159,14 +157,7 @@ def patch_report_normalizer() -> None:
     needle = "        normalized = _move_footer_to_end_of_main(normalized)\n        html_path.write_text(normalized, encoding=\"utf-8\", newline=\"\\n\")"
     replacement = (
         "        normalized = _move_footer_to_end_of_main(normalized)\n"
-        "        normalized = (normalized.replace(\"SEARCHGEO\", \"RASAI\")\n"
-        "                     .replace(\"SearchGEO\", \"RASAi\")\n"
-        "                     .replace(\"searchgeo\", \"rasai\")\n"
-        "                     .replace(\"Search/GEO readiness\", \"Search & AI Readiness\")\n"
-        "                     .replace(\"Search/GEO\", \"Search & AI\")\n"
-        "                     .replace(\"Readiness GEO\", \"Search & AI Readiness\")\n"
-        "                     .replace(\"GEO Readiness\", \"Search & AI Readiness\")\n"
-        "                     .replace(\"—\", \"-\").replace(\"–\", \"-\"))\n"
+        "        normalized = normalized.replace(\"—\", \"-\").replace(\"–\", \"-\")\n"
         "        html_path.write_text(normalized, encoding=\"utf-8\", newline=\"\\n\")"
     )
     if needle not in text:
