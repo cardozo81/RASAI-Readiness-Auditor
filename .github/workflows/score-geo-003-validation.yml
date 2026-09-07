@@ -28,13 +28,13 @@ jobs:
       - name: Compile SCORE-GEO-003 surface
         run: |
           python -m compileall -q \
-            src/searchgeo/score_geo_003.py \
-            src/searchgeo/score_geo_003_calibration.py \
-            src/searchgeo/score_geo_003_cli.py \
-            src/searchgeo/scoring_v003.py \
-            src/searchgeo/score_geo_003_reporting.py \
-            src/searchgeo/m9.py \
-            src/searchgeo/entrypoint.py
+            src/rasai/score_geo_003.py \
+            src/rasai/score_geo_003_calibration.py \
+            src/rasai/score_geo_003_cli.py \
+            src/rasai/scoring_v003.py \
+            src/rasai/score_geo_003_reporting.py \
+            src/rasai/m9.py \
+            src/rasai/entrypoint.py
       - name: SCORE-GEO-003 directed tests
         run: python -m pytest -q tests/test_score_geo_003.py
       - name: Scoring and reporting regressions
@@ -42,7 +42,7 @@ jobs:
           python -m pytest -q \
             tests/test_m9_scoring.py \
             tests/test_score_geo_002_applicability.py \
-            tests/test_searchgeo_readiness_reporting.py \
+            tests/test_rasai_readiness_reporting.py \
             tests/test_consolidation_reporting_ux.py \
             tests/test_m26_observed_generative_visibility.py
       - name: Full regression suite
