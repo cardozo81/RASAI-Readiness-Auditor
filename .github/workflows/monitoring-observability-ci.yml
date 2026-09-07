@@ -45,6 +45,7 @@ jobs:
             tests/test_change_impact_genai_semantics.py \
             tests/test_observability_import_hardening.py \
             tests/test_crux_scope_hardening.py \
+            tests/test_gsc_scope_hardening.py \
             tests/test_score_geo_003_dataset.py \
             tests/test_report_registry_and_method_docs.py
       - name: Existing scoring and observed visibility regressions
