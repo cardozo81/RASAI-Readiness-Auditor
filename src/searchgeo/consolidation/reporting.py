@@ -16,7 +16,7 @@ from .models import ConsolidatedData, GenerationResult, NumericSummary, RefreshR
 REPORT_FORMAT_VERSION = "CONS-2"
 
 _DIMENSIONS = {
-    "OVERALL_READINESS": "Compatibilidade GEO geral",
+    "OVERALL_READINESS": "Readiness Search & AI geral",
     "TECHNICAL_ACCESSIBILITY": "Acessibilidade técnica",
     "INDEXABILITY": "Capacidade de indexação",
     "CONTENT_EXTRACTABILITY": "Extração de conteúdo",
@@ -280,7 +280,7 @@ def _render_executive(data: ConsolidatedData) -> str:
         overall = _latest_score_row(data, device, "OVERALL_READINESS")
         if overall and _number(overall.get("value")) is not None:
             bullets.append(
-                f"<li><strong>{escape(_device(device))}:</strong> Compatibilidade GEO {_fmt(_number(overall.get('value')))} / 100, "
+                f"<li><strong>{escape(_device(device))}:</strong> Readiness Search & AI {_fmt(_number(overall.get('value')))} / 100, "
                 f"cobertura {_pct(_number(overall.get('coverage')))} e confiança {escape(_confidence(overall.get('confidence')))}.</li>"
             )
         dimensions = [
@@ -323,10 +323,10 @@ def _render_score_trends(data: ConsolidatedData) -> str:
     for device in devices:
         rows = _compatible_score_rows(data, device, "OVERALL_READINESS")
         chart = _svg_line_chart(
-            title=f"Evolução da Compatibilidade GEO — {_device(device)}",
+            title=f"Evolução da Readiness Search & AI — {_device(device)}",
             rows=rows,
             primary_field="value",
-            primary_label="Compatibilidade GEO",
+            primary_label="Readiness Search & AI",
             secondary_field="coverage",
             secondary_label="Cobertura",
             fixed_0_100=True,
@@ -386,7 +386,7 @@ def _render_dimension_matrix(data: ConsolidatedData) -> str:
 
 def _render_scores(data: ConsolidatedData) -> str:
     if not data.scores:
-        return "<section id='scores'><h2>Compatibilidade GEO e dimensões</h2><p class='empty'>Nenhuma pontuação comparável persistida para o filtro.</p></section>"
+        return "<section id='scores'><h2>Readiness Search & AI e dimensões</h2><p class='empty'>Nenhuma pontuação comparável persistida para o filtro.</p></section>"
     rows: list[str] = []
     advanced: list[str] = []
     notes: list[str] = []
@@ -422,7 +422,7 @@ def _render_scores(data: ConsolidatedData) -> str:
         advanced_html = "<p class='notice info'><strong>Snapshot:</strong> há somente um valor comparável por série; estatísticas redundantes de média/mediana/mínimo/máximo foram ocultadas.</p>"
     notes_html = f"<ul class='notes'>{''.join(notes)}</ul>" if notes else ""
     return f"""
-    <section id='scores'><div class='section-title'><div><h2>Compatibilidade GEO e dimensões</h2><p>Ausência de dado não é convertida em zero. Valores atuais são apresentados primeiro; estatísticas históricas ficam sob demanda.</p></div><div class='method-badge'><small>Versão do método de pontuação</small><strong>{escape(method_text)}</strong></div></div>
+    <section id='scores'><div class='section-title'><div><h2>Readiness Search & AI e dimensões</h2><p>Ausência de dado não é convertida em zero. Valores atuais são apresentados primeiro; estatísticas históricas ficam sob demanda.</p></div><div class='method-badge'><small>Versão do método de pontuação</small><strong>{escape(method_text)}</strong></div></div>
     <div class='table-tools'><label>Filtrar dimensões <input type='search' data-table-filter='score-table' placeholder='Ex.: indexação, Mobile'></label></div>
     <div class='table-wrap bounded'><table id='score-table'><thead><tr><th>Dispositivo</th><th>Dimensão</th><th>Atual</th><th>Cobertura</th><th>Confiança</th><th>Estado</th><th>N</th><th>Versão do método</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>
     {advanced_html}{notes_html}</section>
@@ -518,7 +518,7 @@ def _render_findings(data: ConsolidatedData) -> str:
     caution = "<p class='subtle'>O volume bruto de ocorrências deve ser interpretado junto com a quantidade de URLs auditadas; escopos maiores podem produzir mais ocorrências sem representar piora proporcional.</p>" if trend else ""
     return f"""
     <section id='findings'><h2>Ocorrências persistidas</h2>
-    <p>As contagens descrevem o histórico observado e não recalculam a Compatibilidade GEO.</p>
+    <p>As contagens descrevem o histórico observado e não recalculam a Readiness Search & AI.</p>
     <div class='metric-grid'><div><small>Ocorrências</small><strong>{finding.observations}</strong></div><div><small>Páginas afetadas</small><strong>{finding.affected_pages}</strong></div><div><small>Severidades</small><div class='chips'>{_human_counts(finding.severity_counts, _SEVERITY)}</div></div><div><small>Categorias</small><div class='chips'>{_human_counts(finding.category_counts)}</div></div></div>
     {chart}{caution}</section>
     """
@@ -547,7 +547,7 @@ def _render_reliability(data: ConsolidatedData) -> str:
       <div><small>Fidelidade às fontes</small><strong>Alta</strong><p>Dados lidos dos SQLite persistidos em modo somente leitura; a consolidação não reexecuta APIs nem o motor de pontuação.</p></div>
       <div><small>Comparabilidade metodológica</small><strong>{'Alta' if comparable else 'Limitada'}</strong><p>{escape('Uma única versão de método/regras no universo selecionado.' if comparable else 'Há mais de uma versão de método ou conjunto de regras; séries incompatíveis são segmentadas/excluídas da agregação.')}</p></div>
       <div><small>Base histórica</small><strong>{escape(mode)}</strong><p>{escape(mode_note)}</p></div>
-      <div><small>Confiança da medição GEO</small><strong>{escape(' · '.join(confidence_items) or 'Indisponível')}</strong><p>É a Confidence persistida pelo SearchGEO; representa força/cobertura da conclusão, não qualidade do website.</p></div>
+      <div><small>Confiança da medição GEO</small><strong>{escape(' · '.join(confidence_items) or 'Indisponível')}</strong><p>É a Confidence persistida pelo RASAI; representa força/cobertura da conclusão, não qualidade do website.</p></div>
       <div><small>Robustez do Apdex</small><strong>{escape(apdex_text)}</strong><p>Apdex só é agregado entre perfil e T compatíveis.</p></div>
       <div><small>Validação externa do SCORE-GEO</small><strong>Não estabelecida como preditor</strong><p>O método é interno e reproduzível, mas não é uma métrica oficial de Google/OpenAI nem prova ranking, tráfego ou citação por sistemas generativos.</p></div>
     </div></section>
@@ -568,7 +568,7 @@ def _render_methodology(data: ConsolidatedData) -> str:
           <li>A pontuação da dimensão é <code>soma(peso × fator) / soma dos pesos efetivamente avaliados × 100</code>.</li>
           <li>A cobertura da dimensão é <code>peso avaliado / peso aplicável</code>. UNKNOWN/ERROR não viram zero automaticamente; reduzem a cobertura/confiabilidade quando aplicável.</li>
           <li>Dimensão legitimamente não aplicável não recebe 0 nem 100 e fica fora do denominador geral.</li>
-          <li>A Compatibilidade GEO geral é a média aritmética simples das dimensões aplicáveis suficientemente consolidadas. A cobertura geral é a média das coberturas dessas dimensões.</li>
+          <li>A Readiness Search & AI geral é a média aritmética simples das dimensões aplicáveis suficientemente consolidadas. A cobertura geral é a média das coberturas dessas dimensões.</li>
           <li>A confiança é Alta quando cobertura ≥ 90%, evidência está completa e não há erro; Média quando cobertura ≥ 80% e não há erro; nos demais casos mensuráveis é Baixa. A confiança geral é conservadora e adota o menor nível entre as dimensões aplicáveis.</li>
         </ol>
         """
@@ -595,7 +595,7 @@ def _render_methodology(data: ConsolidatedData) -> str:
       <li><strong>Interpolação:</strong> não existe; gráficos usam somente observações realmente persistidas.</li>
     </ul>
     <h3>Base técnica e interpretação</h3>
-    <p>O SCORE-GEO é um método interno de readiness do SearchGEO. Sua aritmética é determinística e rastreável, mas sua validade externa como preditor de ranking/citação não está estabelecida. Lighthouse/Core Web Vitals e Apdex mantêm suas metodologias próprias e não são incorporados silenciosamente ao SCORE-GEO.</p>
+    <p>O SCORE-GEO é um método interno de readiness do RASAI. Sua aritmética é determinística e rastreável, mas sua validade externa como preditor de ranking/citação não está estabelecida. Lighthouse/Core Web Vitals e Apdex mantêm suas metodologias próprias e não são incorporados silenciosamente ao SCORE-GEO.</p>
     <ul class='references'>
       <li><strong>Especificação interna:</strong> <code>docs/specification/19_SCORE_APPLICABILITY_GEO_MINIMUMS.md</code>.</li>
       <li><strong>Google Search:</strong> <a href='https://developers.google.com/search/docs/fundamentals/ai-optimization-guide'>Optimizing your website for generative AI features on Google Search</a>.</li>
@@ -633,13 +633,13 @@ def _render_html(data: ConsolidatedData, generated_at: str, request_fingerprint:
     mode, _ = _historical_mode(data)
     return f"""<!doctype html>
 <html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
-<title>SearchGEO — Relatório Consolidado</title>
+<title>RASAI — Relatório Consolidado</title>
 <style>
 :root{{--bg:#f5f7fb;--surface:#fffefd;--ink:#26354a;--muted:#6e7a8c;--line:rgba(91,108,132,.17);--blue:#637fc2;--blue2:#9ab0df;--green:#6f9f82;--green-soft:#edf6f0;--amber:#b2864f;--amber-soft:#fbf4e8;--red:#b96c70;--red-soft:#faeeee;--soft:#eef2f8;--nav:#2f3a4d}}
 *{{box-sizing:border-box}}html{{scroll-behavior:smooth}}body{{margin:0;background:var(--bg);color:var(--ink);font:14.5px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}}a{{color:#496ba8}}header{{background:var(--nav);color:white;padding:24px 28px}}header h1{{margin:0;font-size:1.6rem}}header p{{margin:.35rem 0 0;color:#d7dfeb}}nav{{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:9px max(18px,calc((100% - 1500px)/2 + 18px));display:flex;gap:7px;overflow:auto}}nav a{{white-space:nowrap;text-decoration:none;color:var(--ink);padding:6px 9px;border-radius:6px}}nav a:hover{{background:var(--soft)}}main{{max-width:1500px;margin:auto;padding:26px}}section,.panel,.chart-card{{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:20px;margin:0 0 18px;box-shadow:0 3px 14px rgba(47,58,78,.035)}}.panel,.chart-card{{margin-top:14px}}h2{{margin:0 0 8px;font-size:1.25rem}}h3{{margin:16px 0 8px}}p{{margin:.4rem 0 1rem}}.subtle,.empty{{color:var(--muted)}}.metric-grid,.reliability-grid,.method-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}}.metric-grid>div,.reliability-grid>div,.method-grid>div{{background:#f7f9fc;border:1px solid rgba(91,108,132,.08);border-radius:7px;padding:12px}}.reliability-grid>div p,.method-grid>div p{{font-size:.92rem;color:var(--muted);margin:.35rem 0 0}}small{{display:block;color:var(--muted);margin-bottom:5px}}strong{{overflow-wrap:anywhere}}.section-title{{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}}.method-badge{{min-width:220px;background:var(--soft);border-radius:7px;padding:10px 12px}}.table-wrap{{overflow:auto;margin-top:12px}}.bounded{{max-height:570px;border:1px solid var(--line);border-radius:7px}}table{{border-collapse:collapse;width:100%;min-width:760px}}th,td{{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}}thead th{{background:#f0f3f8;position:sticky;top:0;z-index:2}}tbody tr:hover{{background:#fafbfe}}.table-tools{{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:12px 0 4px}}.table-tools label{{font-size:.9rem;color:var(--muted)}}input,select,button{{font:inherit;border:1px solid var(--line);border-radius:6px;padding:7px 9px;background:white;color:var(--ink)}}input[type=search]{{min-width:240px}}button{{cursor:pointer}}button:disabled{{opacity:.45;cursor:default}}.pager{{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}}.notice{{background:var(--amber-soft);border-left:4px solid var(--amber);padding:10px 12px;border-radius:4px}}.notice.info{{background:var(--soft);border-color:var(--blue)}}.notice.warning{{background:var(--amber-soft)}}.notes{{padding-left:20px}}.decision-list{{padding-left:20px}}.decision-list li{{margin:.45rem 0}}.chips{{display:flex;gap:5px;flex-wrap:wrap}}.chip{{display:inline-flex;gap:5px;align-items:center;background:var(--soft);border-radius:999px;padding:3px 8px;font-size:.86rem}}.details{{margin-top:13px;border-top:1px solid var(--line);padding-top:11px}}.details summary{{cursor:pointer;font-weight:650}}code{{word-break:break-all;background:#f3f5f8;padding:1px 4px;border-radius:4px}}.chart-card{{padding:14px 16px}}.chart-heading{{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}}.chart-heading h3{{margin:0}}.chart-heading p{{color:var(--muted);margin:.25rem 0 0}}.chart-scroll{{overflow:auto}}svg{{width:100%;min-width:720px;height:auto}}.grid-line{{stroke:#e2e7ef;stroke-width:1}}.axis-label{{fill:#718096;font-size:11px}}.trend-line{{fill:none;stroke-width:2.5}}.primary-line{{stroke:var(--blue)}}.secondary-line{{stroke:var(--green)}}.dot{{stroke:white;stroke-width:1.5}}.primary-dot{{fill:var(--blue)}}.secondary-dot{{fill:var(--green)}}.legend-row{{display:flex;gap:12px;flex-wrap:wrap}}.legend:before{{content:'';display:inline-block;width:18px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}}.primary-legend:before{{background:var(--blue)}}.secondary-legend:before{{background:var(--green)}}.matrix th small{{font-weight:400;margin-top:2px}}.heat{{text-align:center;font-variant-numeric:tabular-nums}}.heat.high{{background:var(--green-soft)}}.heat.mid{{background:#fff8e9}}.heat.low{{background:var(--red-soft)}}.heat.na{{color:var(--muted);background:#f7f8fa}}.references li{{margin:.35rem 0}}footer{{color:var(--muted);padding:0 4px 30px;font-size:.9rem}}@media(max-width:760px){{main{{padding:16px}}header{{padding:18px}}.section-title,.chart-heading{{display:block}}.method-badge{{margin-top:10px}}input[type=search]{{min-width:180px;width:100%}}}}
 </style></head><body>
-<header><h1>SearchGEO — Relatório Consolidado</h1><p>Snapshot estático e offline de indicadores persistidos · {escape(mode)}</p></header>
-<nav aria-label='Navegação do relatório'><a href='#summary'>Resumo</a><a href='#evolution'>Evolução</a><a href='#scores'>Compatibilidade GEO</a><a href='#performance'>Desempenho</a><a href='#apdex'>Apdex</a><a href='#findings'>Ocorrências</a><a href='#reliability'>Confiabilidade</a><a href='#sources'>Auditorias</a><a href='#method'>Metodologia</a></nav>
+<header><h1>RASAI — Relatório Consolidado</h1><p>Snapshot estático e offline de indicadores persistidos · {escape(mode)}</p></header>
+<nav aria-label='Navegação do relatório'><a href='#summary'>Resumo</a><a href='#evolution'>Evolução</a><a href='#scores'>Readiness Search & AI</a><a href='#performance'>Desempenho</a><a href='#apdex'>Apdex</a><a href='#findings'>Ocorrências</a><a href='#reliability'>Confiabilidade</a><a href='#sources'>Auditorias</a><a href='#method'>Metodologia</a></nav>
 <main>
 <section id='scope'><h2>Escopo observado</h2><div class='metric-grid'>
 <div><small>Auditorias consideradas</small><strong>{len(data.audits)}</strong></div><div><small>URLs únicas</small><strong>{data.unique_urls}</strong></div>

@@ -1,13 +1,13 @@
-"""Dedicated SearchGEO readiness reporting and cross-domain executive dashboard.
+"""Dedicated RASAI readiness reporting and cross-domain executive dashboard.
 
 This module is deliberately projection-only. It never recalculates persisted
-scores, Lighthouse/CrUX values or Apdex. ``SGRI-001`` is the public methodology
-identifier for the current SearchGEO Readiness Index presentation; the persisted
+scores, Lighthouse/CrUX values or Apdex. ``SARI-001`` is the public methodology
+identifier for the current Search & AI Readiness Index presentation; the persisted
 calculation engine remains ``SCORE-GEO-002`` until the arithmetic itself changes.
 
 The executive dashboard shows only final/summary outcomes and links to the
-single analytical home of each indicator. Detailed SearchGEO dimensions live in
-``searchgeo.html``; Lighthouse/CrUX, Accessibility and Apdex remain in their
+single analytical home of each indicator. Detailed RASAI dimensions live in
+``readiness.html``; Lighthouse/CrUX, Accessibility and Apdex remain in their
 respective pages.
 """
 from __future__ import annotations
@@ -21,13 +21,21 @@ import sqlite3
 from typing import Any
 
 from searchgeo import report_navigation
+from searchgeo.branding import (
+    CANONICAL_READINESS_REPORT,
+    LEGACY_PUBLIC_INDEX_VERSION,
+    LEGACY_READINESS_REPORT,
+    PUBLIC_INDEX_VERSION,
+)
 from searchgeo.content_context_persistence import load_content_analysis_context
 from searchgeo.persistence import AuditWorkspace
 from searchgeo.rule_references import references_for
 
 
-SEARCHGEO_FILE = "searchgeo.html"
-PUBLIC_METHOD_VERSION = "SGRI-001"
+SEARCHGEO_FILE = CANONICAL_READINESS_REPORT
+PUBLIC_METHOD_VERSION = PUBLIC_INDEX_VERSION
+LEGACY_SEARCHGEO_FILE = LEGACY_READINESS_REPORT
+LEGACY_PUBLIC_METHOD_VERSION = LEGACY_PUBLIC_INDEX_VERSION
 COMPATIBLE_ENGINE_VERSION = "SCORE-GEO-002"
 _DASHBOARD_START = "<!-- searchgeo-executive-dashboard:start -->"
 _DASHBOARD_END = "<!-- searchgeo-executive-dashboard:end -->"
@@ -63,13 +71,16 @@ _SECTION_BY_KICKER = (
 
 
 def enrich_searchgeo_reporting(*, audit_id: str, workspace: AuditWorkspace) -> Path:
-    """Create/update SearchGEO page and normalize dashboard/device report roles.
+    """Create/update RASAI page and normalize dashboard/device report roles.
 
     Idempotent by design. It can run after Sugestões e remediação de conteúdo por IA, Web Performance externo/Acessibilidade automatizada e diagnósticos Web, Synthetic Navigation Apdex and final report
     enrichments without changing source measurements.
     """
     report_dir = workspace.root / "report"
     report_dir.mkdir(parents=True, exist_ok=True)
+    legacy_readiness_path = report_dir / LEGACY_SEARCHGEO_FILE
+    if legacy_readiness_path.is_file():
+        legacy_readiness_path.unlink()
     _register_navigation()
     data = _load(audit_id, workspace)
 
@@ -105,18 +116,35 @@ def enrich_searchgeo_reporting(*, audit_id: str, workspace: AuditWorkspace) -> P
         html = references_path.read_text(encoding="utf-8")
         html = html.replace(
             "<div class=\"kicker\">SCORE-GEO-002</div><h2>Regras de cálculo</h2>",
-            f"<div class=\"kicker\">{PUBLIC_METHOD_VERSION}</div><h2>Regras do SearchGEO Readiness Index</h2>",
+            f"<div class=\"kicker\">{PUBLIC_METHOD_VERSION}</div><h2>Regras do Search & AI Readiness Index</h2>",
         )
         html = html.replace(
             "<div class='kicker'>SCORE-GEO-002</div><h2>Regras de cálculo</h2>",
-            f"<div class='kicker'>{PUBLIC_METHOD_VERSION}</div><h2>Regras do SearchGEO Readiness Index</h2>",
+            f"<div class='kicker'>{PUBLIC_METHOD_VERSION}</div><h2>Regras do Search & AI Readiness Index</h2>",
         )
         references_path.write_text(html, encoding="utf-8", newline="\n")
 
     report_navigation.normalize_report_navigation(report_dir)
     _post_normalize_language(report_dir)
+
+    legacy_path = report_dir / LEGACY_SEARCHGEO_FILE
+    legacy_path.write_text(
+        _legacy_readiness_redirect(),
+        encoding="utf-8",
+        newline="\n",
+    )
     return searchgeo_path
 
+
+
+def _legacy_readiness_redirect() -> str:
+    """Keep old report bookmarks functional without duplicating analytics."""
+    return f"""<!doctype html>
+<html lang='pt-BR'><head><meta charset='utf-8'>
+<meta http-equiv='refresh' content='0; url={SEARCHGEO_FILE}'>
+<link rel='canonical' href='{SEARCHGEO_FILE}'>
+<title>RASAI — relatório legado</title></head>
+<body><p>Este endereço é legado. Abra <a href='{SEARCHGEO_FILE}'>{SEARCHGEO_FILE}</a>.</p></body></html>\n"""
 
 def _register_navigation() -> None:
     items: list[tuple[str, str]] = []
@@ -124,7 +152,7 @@ def _register_navigation() -> None:
     for label, filename in report_navigation.NAV_ITEMS:
         if filename == SEARCHGEO_FILE:
             if not searchgeo_seen:
-                items.append(("SearchGEO Readiness", SEARCHGEO_FILE))
+                items.append(("Search & AI Readiness", SEARCHGEO_FILE))
                 searchgeo_seen = True
             continue
         if filename == "mobile.html":
@@ -137,7 +165,7 @@ def _register_navigation() -> None:
             (index + 1 for index, value in enumerate(items) if value[1] == "index.html"),
             1,
         )
-        items.insert(insertion, ("SearchGEO Readiness", SEARCHGEO_FILE))
+        items.insert(insertion, ("Search & AI Readiness", SEARCHGEO_FILE))
     report_navigation.NAV_ITEMS = tuple(items)
 
 
@@ -222,18 +250,18 @@ def _searchgeo_page(data: dict[str, Any], workspace: AuditWorkspace, report_dir:
     ai_operational_block = _ai_operational_diagnostic(data)
     nav = report_navigation.render_report_navigation(report_dir, SEARCHGEO_FILE)
     return f"""<!doctype html>
-<html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>SearchGEO Readiness — SearchGEO Readiness Auditor</title><link rel='stylesheet' href='css/site.css'></head><body>{nav}<main class='app-main'>
-<header class='hero'><div class='eyebrow'>SearchGEO · metodologia proprietária evidence-based</div><h1>SearchGEO Readiness Index</h1><p class='lead'>O {PUBLIC_METHOD_VERSION} consolida a prontidão observada para descoberta, interpretação, recuperação e uso como evidência em Search e AI Search. Não representa probabilidade de ranking, citação ou resposta por qualquer mecanismo externo.</p><div class='score-grid'>{overall_cards or "<div class='notice warn'>Readiness geral não consolidado.</div>"}</div><div class='metric-grid'>{_metric('Metodologia pública',PUBLIC_METHOD_VERSION)}{_metric('Motor persistido',engine_label)}{_metric('Projeto',project)}{_metric('Natureza','Heurística SearchGEO')}</div></header>
+<html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Search & AI Readiness — RASAI — Search & AI Readiness Auditor</title><link rel='stylesheet' href='css/site.css'></head><body>{nav}<main class='app-main'>
+<header class='hero'><div class='eyebrow'>RASAI · metodologia proprietária evidence-based</div><h1>Search & AI Readiness Index</h1><p class='lead'>O {PUBLIC_METHOD_VERSION} consolida a prontidão observada para descoberta, interpretação, recuperação e uso como evidência em Search e AI Search. Não representa probabilidade de ranking, citação ou resposta por qualquer mecanismo externo.</p><div class='score-grid'>{overall_cards or "<div class='notice warn'>Readiness geral não consolidado.</div>"}</div><div class='metric-grid'>{_metric('Metodologia pública',PUBLIC_METHOD_VERSION)}{_metric('Motor persistido',engine_label)}{_metric('Projeto',project)}{_metric('Natureza','Heurística RASAI')}</div></header>
 <section class='notice'><strong>Compatibilidade metodológica:</strong> {PUBLIC_METHOD_VERSION} é a identidade pública desta apresentação. O cálculo persistido continua usando <code>{escape(engine_label)}</code>; esta mudança de relatório não recalcula auditorias, não altera pesos e não quebra comparabilidade histórica.</section>
 {limitations_block}
 {ai_operational_block}
-<section class='panel'><div class='kicker'>Indicadores proprietários</div><h2>Dimensões do readiness</h2><p class='intro'>Esta é a página canônica dos indicadores SearchGEO. Score, Coverage, Confidence e Consolidation não são repetidos nas páginas Mobile/Desktop; essas páginas passam a conter evidências e findings do respectivo dispositivo.</p>{dimension_tables or "<p class='intro'>Nenhuma dimensão de score persistida.</p>"}</section>
-<section class='panel'><div class='kicker'>Groundability</div><h2>Sinais de capacidade de fundamentação</h2><p class='intro'>SGRI-001 não cria um novo subscore de Groundability. Para evitar uma heurística adicional não calibrada, o relatório expõe separadamente os sinais já persistidos de Answerability, Citation Readiness e Evidence & Trust.</p>{groundability or "<p class='intro'>Sinais não disponíveis.</p>"}</section>
+<section class='panel'><div class='kicker'>Indicadores proprietários</div><h2>Dimensões do readiness</h2><p class='intro'>Esta é a página canônica dos indicadores RASAI. Score, Coverage, Confidence e Consolidation não são repetidos nas páginas Mobile/Desktop; essas páginas passam a conter evidências e findings do respectivo dispositivo.</p>{dimension_tables or "<p class='intro'>Nenhuma dimensão de score persistida.</p>"}</section>
+<section class='panel'><div class='kicker'>Groundability</div><h2>Sinais de capacidade de fundamentação</h2><p class='intro'>SARI-001 não cria um novo subscore de Groundability. Para evitar uma heurística adicional não calibrada, o relatório expõe separadamente os sinais já persistidos de Answerability, Citation Readiness e Evidence & Trust.</p>{groundability or "<p class='intro'>Sinais não disponíveis.</p>"}</section>
 {content_context}
 {provenance}
-<section class='panel'><div class='kicker'>Fórmula e limites</div><h2>Como interpretar o índice</h2><div class='grid'><article class='ref-card'><h3>Dimension Score</h3><p><code>Σ(weight × result_factor) / Σ(weight evaluated) × 100</code></p><p>PASS=1; WARNING=0,5 por padrão; FAIL=0. UNKNOWN/ERROR/NOT_APPLICABLE não são convertidos silenciosamente em FAIL.</p></article><article class='ref-card'><h3>Overall Readiness</h3><p>Média simples das dimensões aplicáveis suficientemente consolidadas. Dimensão legitimamente NOT_APPLICABLE não recebe zero.</p></article><article class='ref-card'><h3>Coverage</h3><p>Proporção do peso aplicável efetivamente avaliado. Mede completude da análise, não qualidade do site.</p></article><article class='ref-card'><h3>Confidence</h3><p>Qualifica a força da conclusão com thresholds internos versionados. Não é score de conteúdo nem probabilidade estatística.</p></article></div><div class='notice warn'><strong>Limite de validade:</strong> pesos, fatores WARNING, thresholds de Confidence/Consolidation e faixas visuais são decisões metodológicas do SearchGEO. Fontes externas sustentam os fenômenos observados, mas não homologam o índice composto.</div><p><a href='references.html#indicator-provenance'>Abrir proveniência, fontes primárias e regras de cálculo →</a></p></section>
+<section class='panel'><div class='kicker'>Fórmula e limites</div><h2>Como interpretar o índice</h2><div class='grid'><article class='ref-card'><h3>Dimension Score</h3><p><code>Σ(weight × result_factor) / Σ(weight evaluated) × 100</code></p><p>PASS=1; WARNING=0,5 por padrão; FAIL=0. UNKNOWN/ERROR/NOT_APPLICABLE não são convertidos silenciosamente em FAIL.</p></article><article class='ref-card'><h3>Overall Readiness</h3><p>Média simples das dimensões aplicáveis suficientemente consolidadas. Dimensão legitimamente NOT_APPLICABLE não recebe zero.</p></article><article class='ref-card'><h3>Coverage</h3><p>Proporção do peso aplicável efetivamente avaliado. Mede completude da análise, não qualidade do site.</p></article><article class='ref-card'><h3>Confidence</h3><p>Qualifica a força da conclusão com thresholds internos versionados. Não é score de conteúdo nem probabilidade estatística.</p></article></div><div class='notice warn'><strong>Limite de validade:</strong> pesos, fatores WARNING, thresholds de Confidence/Consolidation e faixas visuais são decisões metodológicas do RASAI. Fontes externas sustentam os fenômenos observados, mas não homologam o índice composto.</div><p><a href='references.html#indicator-provenance'>Abrir proveniência, fontes primárias e regras de cálculo →</a></p></section>
 <section class='panel'><div class='kicker'>Observed AI Visibility</div><h2>Separação entre readiness e resultado observado</h2><p class='intro'>Esta auditoria não transforma readiness em suposta probabilidade de citação. Métricas observadas de AI visibility só devem ser publicadas quando houver coleta externa específica, repetível e identificada por engine/query/período. Na ausência dessa evidência, nenhum número é fabricado.</p></section>
-<footer class='footer'>SGRI-001 é uma metodologia proprietária, versionada e auditável do SearchGEO. Métricas externas permanecem em páginas próprias e mantêm sua metodologia original.</footer></main></body></html>\n"""
+<footer class='footer'>SARI-001 é uma metodologia proprietária, versionada e auditável do RASAI. Métricas externas permanecem em páginas próprias e mantêm sua metodologia original.</footer></main></body></html>\n"""
 
 
 def _ai_operational_diagnostic(data: dict[str, Any]) -> str:
@@ -262,7 +290,7 @@ def _ai_operational_diagnostic(data: dict[str, Any]) -> str:
         headline = "Fallback de IA utilizado por falha de integração"
         impact = (
             f"O provider que deveria atender primeiro era {initial}. Após erro operacional, "
-            f"o SearchGEO utilizou {effective} como fallback e obteve resultado válido. "
+            f"o RASAI utilizou {effective} como fallback e obteve resultado válido. "
             "O fallback é identificado na telemetria e não é atribuído ao website."
         )
         css = "notice"
@@ -395,8 +423,8 @@ def _provenance_block(contributions: list[sqlite3.Row]) -> str:
 
 
 def _rewrite_index(html: str, data: dict[str, Any], report_dir: Path) -> str:
-    # Remove SearchGEO score cards from the legacy Overview header while keeping
-    # audit metadata. The canonical SearchGEO score now lives in searchgeo.html.
+    # Remove RASAI score cards from the legacy Overview header while keeping
+    # audit metadata. The canonical RASAI score now lives in readiness.html.
     html = re.sub(
         r"<div class=\"score-grid\">.*?<div class=\"metric-grid\">",
         '<div class="metric-grid">',
@@ -444,7 +472,7 @@ def _rewrite_index(html: str, data: dict[str, Any], report_dir: Path) -> str:
         flags=re.DOTALL,
     )
     html = html.replace(
-        "Dashboard executivo de readiness. O índice é um modelo interno e reprodutível do SearchGEO; não é uma nota oficial do Google, OpenAI ou de outro mantenedor.",
+        "Dashboard executivo de readiness. O índice é um modelo interno e reprodutível do RASAI; não é uma nota oficial do Google, OpenAI ou de outro mantenedor.",
         "Dashboard executivo dos resultados finais disponíveis. Cada indicador mantém sua metodologia e sua página analítica própria; o painel não cruza métricas distintas em um score comum.",
     )
     dashboard = _dashboard(data, report_dir)
@@ -480,7 +508,7 @@ def _rewrite_device_page(html: str, filename: str) -> str:
     if marker not in html:
         notice = (
             f"<section class='notice' {marker}><strong>Papel desta página:</strong> evidências e findings {label}. "
-            f"Score, Coverage, Confidence e dimensões SearchGEO estão centralizados em <a href='{SEARCHGEO_FILE}'>SearchGEO Readiness</a>.</section>"
+            f"Score, Coverage, Confidence e dimensões RASAI estão centralizados em <a href='{SEARCHGEO_FILE}'>Search & AI Readiness</a>.</section>"
         )
         html = html.replace("</header>", "</header>" + notice, 1)
     html = html.replace("<div class=\"eyebrow\">Relatório por dispositivo</div>", "<div class=\"eyebrow\">Evidências por dispositivo</div>")
@@ -508,7 +536,7 @@ def _dashboard(data: dict[str, Any], report_dir: Path) -> str:
         else:
             value = f"{float(row['value']):.1f}/100"
             detail = f"Coverage {float(row['coverage'])*100:.0f}% · Confidence {_STATUS_LABELS.get(str(row['confidence']),str(row['confidence']))}"
-        cards.append(_indicator_card(f"SearchGEO Readiness · {label}", value, detail, SEARCHGEO_FILE, "SearchGEO · SGRI-001"))
+        cards.append(_indicator_card(f"Search & AI Readiness · {label}", value, detail, SEARCHGEO_FILE, "RASAI · SARI-001"))
 
     web = data["web"]
     cwv_values = [str(row["cwv_assessment"]) for row in web if str(row["cwv_assessment"]) in {"PASS", "FAIL"}]
@@ -545,7 +573,7 @@ def _dashboard(data: dict[str, Any], report_dir: Path) -> str:
         _DASHBOARD_START
         + "<section id='executive-indicator-dashboard' class='panel'><div class='kicker'>Dashboard executivo</div>"
         "<h2>Resultados finais por indicador</h2>"
-        "<p class='intro'>O painel resume resultados sem misturar metodologias. Nenhum Lighthouse, Core Web Vitals, Accessibility ou Apdex é convertido no SGRI-001; cada card aponta para a página que contém evidência, escopo e fonte oficial.</p>"
+        "<p class='intro'>O painel resume resultados sem misturar metodologias. Nenhum Lighthouse, Core Web Vitals, Accessibility ou Apdex é convertido no SARI-001; cada card aponta para a página que contém evidência, escopo e fonte oficial.</p>"
         f"<div class='grid'>{''.join(cards)}</div></section>"
         + _DASHBOARD_END
     )
@@ -621,20 +649,20 @@ def _post_normalize_language(report_dir: Path) -> None:
     replacements = {
         "index.html": (
             (
-                "<strong>Natureza dos indicadores:</strong> Heurística SearchGEO + evidência rastreável. Score, Coverage, Confidence e Consolidation são índices internos versionados; observações e BR-GEO podem ter bases externas individuais.",
-                "<strong>Natureza dos indicadores:</strong> painel multimetodológico. O SGRI-001 é proprietário; Core Web Vitals, Lighthouse e Apdex preservam metodologia externa e permanecem independentes.",
+                "<strong>Natureza dos indicadores:</strong> Heurística RASAI + evidência rastreável. Score, Coverage, Confidence e Consolidation são índices internos versionados; observações e BR-GEO podem ter bases externas individuais.",
+                "<strong>Natureza dos indicadores:</strong> painel multimetodológico. O SARI-001 é proprietário; Core Web Vitals, Lighthouse e Apdex preservam metodologia externa e permanecem independentes.",
             ),
         ),
         "mobile.html": (
             (
                 "Os scores deste dispositivo são internos. A base OFFICIAL/STANDARD/HEURISTIC de cada BR-GEO e seus links constam em Referências e metodologia.",
-                "Esta página contém evidências e findings do dispositivo. Os indicadores agregados SearchGEO ficam exclusivamente em SearchGEO Readiness; a base de cada BR-GEO permanece rastreável em Referências e metodologia.",
+                "Esta página contém evidências e findings do dispositivo. Os indicadores agregados RASAI ficam exclusivamente em Search & AI Readiness; a base de cada BR-GEO permanece rastreável em Referências e metodologia.",
             ),
         ),
         "desktop.html": (
             (
                 "Os scores deste dispositivo são internos. A base OFFICIAL/STANDARD/HEURISTIC de cada BR-GEO e seus links constam em Referências e metodologia.",
-                "Esta página contém evidências e findings do dispositivo. Os indicadores agregados SearchGEO ficam exclusivamente em SearchGEO Readiness; a base de cada BR-GEO permanece rastreável em Referências e metodologia.",
+                "Esta página contém evidências e findings do dispositivo. Os indicadores agregados RASAI ficam exclusivamente em Search & AI Readiness; a base de cada BR-GEO permanece rastreável em Referências e metodologia.",
             ),
         ),
     }

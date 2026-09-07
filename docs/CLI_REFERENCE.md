@@ -1,6 +1,6 @@
 # Referência da CLI
 
-Referência operacional da linha de comando do SearchGEO Readiness Auditor.
+Referência operacional da linha de comando do RASAI — Search & AI Readiness Auditor.
 
 ## Entrada principal
 
@@ -8,8 +8,8 @@ A superfície pública possui três fluxos:
 
 ```text
 searchgeo [-h] [--version] [--config PATH] audit ...
-searchgeo visibility import|report ...
-searchgeo scoring calibrate|inspect ...
+rasai visibility import|report ...
+rasai scoring calibrate|inspect ...
 ```
 
 O router superior intercepta `visibility` e `scoring`; os demais comandos continuam delegados ao pipeline de auditoria existente.
@@ -27,7 +27,7 @@ Configuração geral de aplicação/logging: `--config PATH`.
 Forma geral:
 
 ```powershell
-searchgeo audit target [target ...] [opções]
+rasai audit target [target ...] [opções]
 ```
 
 `target` pode ser domínio ou URL HTTP(S). Também é possível usar `--urls-file PATH`.
@@ -70,7 +70,7 @@ SEARCHGEO_SCORE_GEO_003_MODEL
 ### Calibrar SCORE-GEO-003
 
 ```powershell
-searchgeo scoring calibrate `
+rasai scoring calibrate `
   --audits-root audits `
   --dataset-version GEO-CAL-001 `
   --output .searchgeo\scoring\score-geo-003-model.json
@@ -85,13 +85,13 @@ Se o dataset não atender ao promotion gate, o artifact é gravado como `EXPERIM
 ### Inspecionar model artifact
 
 ```powershell
-searchgeo scoring inspect
+rasai scoring inspect
 ```
 
 Com path explícito:
 
 ```powershell
-searchgeo scoring inspect --model .searchgeo\scoring\score-geo-003-model.json
+rasai scoring inspect --model .searchgeo\scoring\score-geo-003-model.json
 ```
 
 O comando informa status, model version, dataset version, engines, Confidence da calibração e SHA-256.
@@ -171,7 +171,7 @@ Overrides de reasoning/thinking usam as variáveis específicas do provider expo
 --no-ai-content-remediation
 ```
 
-Default: OFF. A remediação exige provider de IA apto. É advisory/evidence-bound e não altera automaticamente o SearchGEO Readiness Index.
+Default: OFF. A remediação exige provider de IA apto. É advisory/evidence-bound e não altera automaticamente o Search & AI Readiness Index.
 
 ## Remediação técnica de rastreamento e descoberta por IA
 
@@ -320,7 +320,7 @@ Observed Generative Visibility não é parte do comando `audit`; atua sobre work
 ### Importar dataset
 
 ```powershell
-searchgeo visibility import `
+rasai visibility import `
   --audit-id AUD-... `
   --audits-root audits `
   --file observed-visibility.json
@@ -354,13 +354,13 @@ Regras:
 - Citation Presence Rate somente sobre runs `VALID`;
 - runs `INVALID` fora do denominador;
 - rank exige `ranking_semantics`;
-- a importação não recalcula o SGRI nem o score do AUD fonte;
-- `CONTROLLED_QUERY_RUNS` elegíveis podem alimentar posteriormente `searchgeo scoring calibrate`.
+- a importação não recalcula o SARI nem o score do AUD fonte;
+- `CONTROLLED_QUERY_RUNS` elegíveis podem alimentar posteriormente `rasai scoring calibrate`.
 
 ### Regenerar report
 
 ```powershell
-searchgeo visibility report `
+rasai visibility report `
   --audit-id AUD-... `
   --audits-root audits
 ```
@@ -376,7 +376,7 @@ Contrato completo: [specification/26_OBSERVED_GENERATIVE_VISIBILITY.md](specific
 ### Sem IA
 
 ```powershell
-searchgeo audit https://example.com `
+rasai audit https://example.com `
   --ai-provider none `
   --device-context mobile
 ```
@@ -384,7 +384,7 @@ searchgeo audit https://example.com `
 ### OpenAI explícito
 
 ```powershell
-searchgeo audit https://example.com `
+rasai audit https://example.com `
   --ai-provider openai `
   --ai-model gpt-5.6-luna
 ```
@@ -392,7 +392,7 @@ searchgeo audit https://example.com `
 ### Remediação técnica de rastreamento e descoberta por IA
 
 ```powershell
-searchgeo audit https://example.com `
+rasai audit https://example.com `
   --ai-provider openai `
   --ai-technical-remediation
 ```
@@ -400,7 +400,7 @@ searchgeo audit https://example.com `
 ### Web Performance
 
 ```powershell
-searchgeo audit https://example.com `
+rasai audit https://example.com `
   --web-performance `
   --web-performance-timeout-seconds 120 `
   --web-performance-field-source auto
@@ -409,7 +409,7 @@ searchgeo audit https://example.com `
 ### Synthetic Navigation Apdex de smoke
 
 ```powershell
-searchgeo audit https://example.com `
+rasai audit https://example.com `
   --synthetic-apdex `
   --apdex-threshold-seconds 1.5 `
   --apdex-samples-per-context 5 `
@@ -421,7 +421,7 @@ searchgeo audit https://example.com `
 ### Importar visibilidade observada
 
 ```powershell
-searchgeo visibility import `
+rasai visibility import `
   --audit-id AUD-EXEMPLO `
   --file .\observed-visibility.json
 ```
@@ -429,16 +429,16 @@ searchgeo visibility import `
 ### Calibrar SCORE-GEO-003
 
 ```powershell
-searchgeo scoring calibrate --dataset-version GEO-CAL-001
+rasai scoring calibrate --dataset-version GEO-CAL-001
 ```
 
 ## Console interativo
 
 ```powershell
-searchgeo-console
+rasai-console
 ```
 
-O console configura a superfície principal da auditoria com parâmetros não sensíveis em `searchgeo-console.ini`, progresso, preflight e atalhos. Secrets não são gravados no INI.
+O console configura a superfície principal da auditoria com parâmetros não sensíveis em `rasai-console.ini`, progresso, preflight e atalhos. Secrets não são gravados no INI.
 
 Observed Generative Visibility e calibração `SCORE-GEO-003` permanecem superfícies CLI separadas nesta versão; não devem ser presumidas como coleta/treinamento automático no menu da auditoria.
 

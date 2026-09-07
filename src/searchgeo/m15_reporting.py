@@ -158,7 +158,7 @@ class M15ReportBuilder(M14ReportBuilder):
         page_links = "".join(links) or "<span>Nenhuma página persistida</span>"
         return (
             "<aside class='m15-sidebar' aria-label='Páginas auditadas'>"
-            "<div class='brand'>SearchGEO Auditor</div><h2>Páginas</h2><nav>"
+            "<div class='brand'>RASAI Auditor</div><h2>Páginas</h2><nav>"
             "<a href='#resumo-m14'>Resumo</a>"
             f"{page_links}"
             "<a class='secondary' href='#guia-score-geo'>Entender Score GEO</a>"

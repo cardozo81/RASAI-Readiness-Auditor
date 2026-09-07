@@ -1,6 +1,6 @@
 # Guia do usuário
 
-Guia operacional do SearchGEO Readiness Auditor para execução local e leitura dos resultados.
+Guia operacional do RASAI — Search & AI Readiness Auditor para execução local e leitura dos resultados.
 
 ## Fluxo recomendado
 
@@ -28,7 +28,7 @@ python -m playwright install chromium
 ## Console interativo
 
 ```powershell
-searchgeo-console
+rasai-console
 ```
 
 O console oferece:
@@ -41,7 +41,7 @@ O console oferece:
 - configuração guiada de Synthetic Apdex;
 - progresso por etapa;
 - estimativa de custo/quota/carga;
-- arquivo `searchgeo-console.ini` para parâmetros não sensíveis;
+- arquivo `rasai-console.ini` para parâmetros não sensíveis;
 - aviso de alterações não salvas;
 - atalhos para abrir pasta e relatório.
 
@@ -54,25 +54,25 @@ Detalhes: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md).
 ### Básica
 
 ```powershell
-searchgeo audit https://example.com --project "Exemplo"
+rasai audit https://example.com --project "Exemplo"
 ```
 
 ### Desktop
 
 ```powershell
-searchgeo audit https://example.com --device-context desktop
+rasai audit https://example.com --device-context desktop
 ```
 
 ### Ambos os dispositivos
 
 ```powershell
-searchgeo audit https://example.com --device-context both
+rasai audit https://example.com --device-context both
 ```
 
 ### Várias URLs
 
 ```powershell
-searchgeo audit `
+rasai audit `
   https://example.com/ `
   https://example.com/produto `
   --max-pages 2
@@ -91,7 +91,7 @@ A remediação textual por IA é opcional e exige provider apto.
 Habilite com:
 
 ```powershell
-searchgeo audit https://example.com --web-performance
+rasai audit https://example.com --web-performance
 ```
 
 Default de timeout externo:
@@ -100,7 +100,7 @@ Default de timeout externo:
 120 s por chamada PageSpeed/CrUX
 ```
 
-Se PageSpeed exceder o timeout, o SearchGEO registra a tentativa como erro operacional. CrUX direto pode continuar disponível. Lighthouse lab e Acessibilidade automatizada ficam indisponíveis quando não há artifact PageSpeed e o report deve informar a causa.
+Se PageSpeed exceder o timeout, o RASAI registra a tentativa como erro operacional. CrUX direto pode continuar disponível. Lighthouse lab e Acessibilidade automatizada ficam indisponíveis quando não há artifact PageSpeed e o report deve informar a causa.
 
 A ausência de dado não é transformada em score artificial.
 
@@ -111,7 +111,7 @@ Synthetic Apdex é OFF por padrão e exige `T` explícito.
 Para smoke:
 
 ```powershell
-searchgeo audit https://example.com `
+rasai audit https://example.com `
   --synthetic-apdex `
   --apdex-threshold-seconds 1.5 `
   --apdex-samples-per-context 5 `

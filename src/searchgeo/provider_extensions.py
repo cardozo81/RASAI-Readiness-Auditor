@@ -902,7 +902,7 @@ def _resolve_extension_config(
     ).strip()
     if model not in EXTENDED_SUPPORTED_MODELS[provider_name]:
         raise ValueError(
-            f"unsupported SearchGEO model for {provider_name}: {model}; allowed: "
+            f"unsupported RASAI model for {provider_name}: {model}; allowed: "
             + ", ".join(EXTENDED_SUPPORTED_MODELS[provider_name])
         )
     key = environment.get(EXTENDED_KEY_ENV[provider_name])

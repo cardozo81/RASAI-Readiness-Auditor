@@ -1,4 +1,4 @@
-"""Semantic presentation layer for generated SearchGEO HTML reports.
+"""Semantic presentation layer for generated RASAI HTML reports.
 
 This module does not change persisted findings, scores, Lighthouse/CrUX data or
 Apdex calculations. It only reconciles final HTML with persisted evidence and

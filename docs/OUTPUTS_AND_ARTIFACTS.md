@@ -12,7 +12,7 @@ audits/<AUD-ID>/
 │  └─ audit.log
 └─ report/
    ├─ index.html               # dashboard executivo
-   ├─ searchgeo.html           # SGRI-001 e indicadores proprietários
+   ├─ readiness.html           # SARI-001 e indicadores proprietários
    ├─ mobile.html              # evidências/findings; condicional
    ├─ desktop.html             # evidências/findings; condicional
    ├─ remediation.html
@@ -34,7 +34,7 @@ audits/<AUD-ID>/
 
 Relatórios históricos/consolidados não mudam essa regra: `AUD-*/audit.db` continua sendo a fonte oficial e é aberto em modo somente leitura.
 
-A criação de `SGRI-001` como identidade pública não migra nem recalcula o banco. Enquanto a aritmética permanecer a mesma, `scores.scoring_version` continua registrando `SCORE-GEO-002`.
+A criação de `SARI-001` como identidade pública não migra nem recalcula o banco. Enquanto a aritmética permanecer a mesma, `scores.scoring_version` continua registrando `SCORE-GEO-002`.
 
 ## Banco SQLite
 
@@ -42,7 +42,7 @@ O banco contém entidades da auditoria principal, evidências, execuções de re
 
 Grupos relevantes incluem:
 
-### SearchGEO scoring
+### RASAI scoring
 
 ```text
 scores
@@ -51,7 +51,7 @@ rule_executions
 findings
 ```
 
-`searchgeo.html` apenas projeta esses dados. Overall, dimensões, Coverage, Confidence e Consolidation não são recalculados no HTML.
+`readiness.html` apenas projeta esses dados. Overall, dimensões, Coverage, Confidence e Consolidation não são recalculados no HTML.
 
 ### IA
 
@@ -103,7 +103,7 @@ synthetic_ux_apdex_samples
 synthetic_ux_apdex_summaries
 ```
 
-Synthetic User Experience Apdex é calibrável e separado do Synthetic Navigation Apdex Standard. Seus thresholds/KPM/error policy não reescrevem resultados Synthetic Navigation Apdex nem scoring SearchGEO.
+Synthetic User Experience Apdex é calibrável e separado do Synthetic Navigation Apdex Standard. Seus thresholds/KPM/error policy não reescrevem resultados Synthetic Navigation Apdex nem scoring RASAI.
 
 ### Observed Generative Visibility
 
@@ -153,7 +153,7 @@ Detalhes: [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md).
 
 ## Artifacts de Web Performance
 
-Quando uma resposta externa é obtida, o SearchGEO pode persistir JSON em:
+Quando uma resposta externa é obtida, o RASAI pode persistir JSON em:
 
 ```text
 artifacts/web-performance/
@@ -247,7 +247,7 @@ Dashboard executivo dos resultados finais disponíveis. O index não soma nem po
 
 Ele pode resumir:
 
-- SGRI-001 por dispositivo;
+- SARI-001 por dispositivo;
 - Core Web Vitals;
 - Lighthouse Performance;
 - Lighthouse Accessibility;
@@ -255,11 +255,11 @@ Ele pode resumir:
 
 Cada card direciona para a página canônica. Quando há múltiplos contextos externos, o dashboard deve preferir faixa/quantidade de contextos válidos a criar uma média de site não definida pela metodologia de origem.
 
-Observed Generative Visibility permanece um domínio separado e não deve ser fundido ao SGRI. Qualquer futura síntese Observed Generative Visibility no dashboard deve continuar exibindo-o como outcome observado independente, sem criar score comum.
+Observed Generative Visibility permanece um domínio separado e não deve ser fundido ao SARI. Qualquer futura síntese Observed Generative Visibility no dashboard deve continuar exibindo-o como outcome observado independente, sem criar score comum.
 
-### `searchgeo.html`
+### `readiness.html`
 
-Página canônica do **SearchGEO Readiness Index `SGRI-001`** e dos indicadores agregados proprietários:
+Página canônica do **Search & AI Readiness Index `SARI-001`** e dos indicadores agregados proprietários:
 
 - Overall Readiness;
 - dimensões;
@@ -274,7 +274,7 @@ Página canônica do **SearchGEO Readiness Index `SGRI-001`** e dos indicadores 
 
 Evidências, snapshots, findings e avaliações por contexto de dispositivo quando materializados.
 
-Essas páginas não são a origem de Overall/dimensões e não devem duplicar Score, Coverage, Confidence ou Consolidation do SearchGEO.
+Essas páginas não são a origem de Overall/dimensões e não devem duplicar Score, Coverage, Confidence ou Consolidation do RASAI.
 
 ### `remediation.html`
 
@@ -288,7 +288,7 @@ Sugestões textuais e JSON-LD advisory.
 
 Página canônica do Rastreamento, descoberta e acesso de crawlers para robots/crawler policy, sitemaps, discovery, `llms.txt`, feeds, IndexNow não determinável sem evidência explícita e remediação técnica opcional por IA.
 
-Essa página é informativa e não altera o SearchGEO Readiness Index: seus diagnósticos não recalculam `SCORE-GEO-002`/`SGRI-001` e devem distinguir standards/guidance externos de decisões metodológicas internas.
+Essa página é informativa e não altera o Search & AI Readiness Index: seus diagnósticos não recalculam `SCORE-GEO-002`/`SARI-001` e devem distinguir standards/guidance externos de decisões metodológicas internas.
 
 ### `accessibility.html`
 
@@ -320,7 +320,7 @@ Exibe por dataset/período:
 - query-runs controlados;
 - Citation Presence Rate, `n` e Wilson 95% quando calculáveis.
 
-Não contém nem produz `SGRI-001`, Score GEO ou probabilidade preditiva de citação.
+Não contém nem produz `SARI-001`, Score GEO ou probabilidade preditiva de citação.
 
 ### `ai-usage.html`
 
@@ -328,7 +328,7 @@ Provider/modelo, tentativas, tokens, reasoning e custo estimado quando persistid
 
 ### `references.html`
 
-Metodologia, proveniência e referências públicas. Deve separar fonte externa de decisão interna SearchGEO.
+Metodologia, proveniência e referências públicas. Deve separar fonte externa de decisão interna RASAI.
 
 ### `consolidated/CONS-*/report.html`
 
@@ -356,14 +356,14 @@ Deve permitir rastrear, sem secrets:
 - progresso Synthetic Apdex;
 - importação Observed Generative Visibility com source/período/contagens e `scoring_impact=NONE`;
 - falhas fail-open;
-- geração de reports, incluindo as projeções `SGRI-001`, Rastreamento, descoberta e acesso de crawlers e Observed Generative Visibility.
+- geração de reports, incluindo as projeções `SARI-001`, Rastreamento, descoberta e acesso de crawlers e Observed Generative Visibility.
 
 A consolidação não grava eventos em `AUD-*/logs/audit.log`; sua rastreabilidade fica no `manifest.json` do próprio `CONS-*`.
 
 ## Segurança
 
 - API keys não devem ser persistidas no SQLite, report ou log;
-- o arquivo `searchgeo-console.ini` também não armazena secrets;
+- o arquivo `rasai-console.ini` também não armazena secrets;
 - request IDs e diagnósticos devem ser sanitizados;
 - custo estimado não é invoice;
 - sitemap cross-origin declarado é evidência, mas Rastreamento, descoberta e acesso de crawlers não faz fetch externo automático sem uma política de aquisição segura;

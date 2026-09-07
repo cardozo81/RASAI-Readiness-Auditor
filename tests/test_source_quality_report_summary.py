@@ -23,7 +23,7 @@ class SourceQualityReportSummaryTests(unittest.TestCase):
             report_dir.mkdir()
             for name in ("index.html", "apdex.html"):
                 (report_dir / name).write_text(
-                    "<!doctype html><html><body><header><h1>SearchGEO</h1></header><main><p>conteúdo</p></main></body></html>",
+                    "<!doctype html><html><body><header><h1>RASAI</h1></header><main><p>conteúdo</p></main></body></html>",
                     encoding="utf-8",
                 )
 

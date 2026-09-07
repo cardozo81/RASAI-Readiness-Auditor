@@ -65,7 +65,7 @@ O bump de `CONS-1` para `CONS-2` foi intencional para invalidar o dedupe de snap
 - leitura executiva;
 - navegação fixa;
 - modo adaptativo Snapshot / comparação de dois pontos / série histórica;
-- gráfico de Compatibilidade GEO + Cobertura quando há 2+ pontos comparáveis;
+- gráfico de Readiness Search & AI + Cobertura quando há 2+ pontos comparáveis;
 - matriz histórica das dimensões quando há base comparável;
 - estatísticas avançadas expansíveis;
 - destaque de amostra pequena de Apdex;
@@ -76,7 +76,7 @@ O bump de `CONS-1` para `CONS-2` foi intencional para invalidar o dedupe de snap
 
 ## Comparabilidade estatística
 
-### Compatibilidade GEO
+### Readiness Search & AI
 
 Uma série numérica só é agregada dentro da combinação mais recente de:
 
@@ -203,7 +203,7 @@ Executar na branch `feature/consolidated-reporting` com AUDs reais:
 4. gerar um consolidado com 1 AUD e confirmar modo **Snapshot**;
 5. gerar com 2 AUDs comparáveis e confirmar aviso de variação, não tendência;
 6. gerar com 3+ AUDs comparáveis e validar gráfico/matriz;
-7. verificar Compatibilidade GEO, Coverage e Confidence contra pelo menos um `audit.db` fonte;
+7. verificar Readiness Search & AI, Coverage e Confidence contra pelo menos um `audit.db` fonte;
 8. conferir Apdex small-group quando aplicável;
 9. testar pesquisa/paginação de **Auditorias consideradas**;
 10. conferir seção de metodologia/cálculos;

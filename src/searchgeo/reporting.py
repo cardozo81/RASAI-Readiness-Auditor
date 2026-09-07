@@ -29,7 +29,7 @@ _DIMENSION_LABELS = {
     "CITATION_READINESS": "Preparação para Citação",
     "EVIDENCE_TRUST": "Evidências e Confiabilidade",
     "INTENT_COVERAGE": "Cobertura de Intenções",
-    "OVERALL_READINESS": "Compatibilidade GEO",
+    "OVERALL_READINESS": "Readiness Search & AI",
 }
 _STATUS_LABELS = {
     "PASS": "APROVADO",
@@ -352,7 +352,7 @@ class ReportBuilder:
             )
         )
         return self._document(
-            title=f"SearchGEO Readiness — {_text(audit['project_name'])}", body=body
+            title=f"Search & AI Readiness — {_text(audit['project_name'])}", body=body
         )
 
     @staticmethod
@@ -420,14 +420,14 @@ class ReportBuilder:
             headline = "NÃO DETERMINADA"
             headline_state = "unknown"
             explanation = (
-                "Não há evidência suficiente para determinar o nível geral de compatibilidade GEO deste website. "
+                "Não há evidência suficiente para determinar o nível geral de readiness Search & AI deste website. "
                 "Cobertura e confiabilidade abaixo não são uma nota GEO."
             )
         else:
             headline = "RESULTADOS CONSOLIDADOS POR DISPOSITIVO"
             headline_state = "info"
             explanation = (
-                "A compatibilidade GEO é apresentada separadamente para Desktop e Mobile. "
+                "A readiness Search & AI é apresentada separadamente para Desktop e Mobile. "
                 "Nenhuma nota combinada entre dispositivos é criada."
             )
 
@@ -438,8 +438,8 @@ class ReportBuilder:
         limitation_summary = self._principal_limitations(limitations)
         return f"""
         <header class="hero">
-          <div class="eyebrow">SearchGEO Readiness Auditor · Actionable Remediation</div>
-          <h1>Compatibilidade GEO</h1>
+          <div class="eyebrow">RASAI — Search & AI Readiness Auditor · Actionable Remediation</div>
+          <h1>Readiness Search & AI</h1>
           <div class="compatibility-state state-{headline_state}">{escape(headline)}</div>
           <p class="lead">{escape(explanation)}</p>
           <div class="overall-grid">{device_cards}</div>
@@ -504,7 +504,7 @@ class ReportBuilder:
                 <article class="reliability-card">
                   <h3>{_device_label(device)}</h3>
                   <div class="reliability-grid">
-                    <div><span>Compatibilidade GEO</span><strong>{escape(_score_value_text(overall))}</strong><small>Quão preparado está o site?</small></div>
+                    <div><span>Readiness Search & AI</span><strong>{escape(_score_value_text(overall))}</strong><small>Quão preparado está o site?</small></div>
                     <div><span>Cobertura da análise</span><strong>{escape(_coverage_text(overall))}</strong><small>Quanto do universo aplicável foi avaliado?</small></div>
                     <div><span>Confiabilidade</span><strong>{escape(_confidence_text(overall))}</strong><small>Quanto podemos confiar na conclusão?</small></div>
                   </div>
@@ -515,7 +515,7 @@ class ReportBuilder:
         <section>
           <div class="section-kicker">Leitura obrigatória</div>
           <h2>Cobertura e confiabilidade</h2>
-          <p class="section-intro">Compatibilidade GEO, cobertura e confiabilidade são conceitos distintos. Cobertura baixa nunca deve ser lida como uma nota baixa do website.</p>
+          <p class="section-intro">Readiness Search & AI, cobertura e confiabilidade são conceitos distintos. Cobertura baixa nunca deve ser lida como uma nota baixa do website.</p>
           {''.join(cards)}
           <div class="notice notice-info">{escape(self._ai_disclaimer(audit_mode=audit_mode, capabilities=capabilities))}</div>
         </section>
@@ -1010,7 +1010,7 @@ class ReportBuilder:
         self, *, audit_mode: AuditMode | None, limitations: tuple[str, ...]
     ) -> str:
         items = [
-            "Compatibilidade GEO, cobertura e confiabilidade devem ser interpretadas separadamente.",
+            "Readiness Search & AI, cobertura e confiabilidade devem ser interpretadas separadamente.",
             "Desktop e Mobile são independentes e não são combinados em uma nota artificial.",
             "Findings e remediações são limitados ao universo auditado e às evidências persistidas.",
             "Exemplos de HTML representam estruturas recomendadas; não são apresentados como código originalmente observado quando o trecho não foi persistido.",
@@ -1058,7 +1058,7 @@ class ReportBuilder:
     @staticmethod
     def _interpretation() -> str:
         items = (
-            ("Compatibilidade GEO", "Quão preparado está o site segundo scores consolidados. Nunca é substituída pela cobertura."),
+            ("Readiness Search & AI", "Quão preparado está o site segundo scores consolidados. Nunca é substituída pela cobertura."),
             ("Cobertura da Análise", "Quanto do universo aplicável pôde ser efetivamente avaliado. Baixa cobertura não significa baixa qualidade do site."),
             ("Confiabilidade", "Grau de segurança da conclusão com base em evidências, método, cobertura e limitações."),
             ("NÃO DETERMINADO", "Não existe base suficiente para apresentar conclusão consolidada; não equivale a zero nem a falha."),

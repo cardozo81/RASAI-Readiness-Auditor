@@ -5,7 +5,7 @@
 
 ## 0. Natureza metodológica
 
-`SCORE-GEO-003` é o método proprietário e versionado de scoring do SearchGEO.
+`SCORE-GEO-003` é o método proprietário e versionado de scoring do RASAI.
 
 `APPROVED` significa aprovado como baseline normativa interna. Não significa homologação por Google, OpenAI, Microsoft, Anthropic, NIST, W3C, schema.org ou outro mantenedor.
 
@@ -282,18 +282,18 @@ Relatórios históricos/consolidados devem segmentar pontos por `scoring_version
 
 ## 17. Evidência externa
 
-O SearchGEO continua separando:
+O RASAI continua separando:
 
 1. requisito/sinal oficial externo;
 2. métrica externa definida/calibrada por terceiros;
-3. regra/heurística SearchGEO;
-4. modelo SearchGEO empiricamente calibrado.
+3. regra/heurística RASAI;
+4. modelo RASAI empiricamente calibrado.
 
 A calibração do Overall não transforma Core Web Vitals, Lighthouse, WCAG, E-E-A-T ou qualquer outra referência externa em homologação do índice completo.
 
 ## 18. Relatório
 
-`searchgeo.html` continua sendo a página canônica do SGRI.
+`readiness.html` continua sendo a página canônica do SARI.
 
 `score-geo-003.html` expõe:
 

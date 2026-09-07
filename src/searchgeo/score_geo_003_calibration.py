@@ -1,6 +1,6 @@
 """Empirical calibration pipeline for SCORE-GEO-003.
 
-The calibrator consumes previously persisted SearchGEO dimension scores and
+The calibrator consumes previously persisted RASAI dimension scores and
 Observed Generative Visibility controlled query-runs. Domains, not queries, are
 the holdout unit. The implementation is intentionally small and transparent:
 a regularized logistic model is trained with deterministic gradient descent.

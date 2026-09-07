@@ -178,7 +178,7 @@ Implementar:
 - recomendações Priorização e recomendações específicas por regra sempre que houver recipe;
 - fallback explicitamente identificado;
 - `REPORT-GEO-002`;
-- resumo executivo com Compatibilidade GEO, Coverage e Confidence separados;
+- resumo executivo com Readiness Search & AI, Coverage e Confidence separados;
 - `NÃO DETERMINADA` quando Overall não for consolidável;
 - classificação textual/visual de score;
 - principais oportunidades derivadas dos dados persistidos;

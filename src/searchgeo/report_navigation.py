@@ -213,7 +213,7 @@ def render_report_navigation(
     return (
         "<aside class='app-nav' aria-label='Navegação do relatório'>"
         "<div class='brand'>"
-        "<small>SearchGEO Auditor</small>"
+        "<small>RASAI Auditor</small>"
         "<strong>Relatório da auditoria</strong>"
         f"<small>Versão {escape(version)}</small>"
         f"<small>Gerado em {escape(generated_label)} — Horário de Brasília</small>"
@@ -349,7 +349,7 @@ def _rule_tooltip_markup(match: re.Match[str]) -> str:
     rule_id = match.group(1)
     detail = _RULE_TOOLTIPS.get(
         rule_id,
-        "Business Rule do SearchGEO. Consulte o bloco atual para resultado, evidência e remediação aplicável.",
+        "Business Rule do RASAI. Consulte o bloco atual para resultado, evidência e remediação aplicável.",
     )
     aria = escape(f"{rule_id}: {detail}", quote=True)
     return (

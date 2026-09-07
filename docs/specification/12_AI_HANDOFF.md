@@ -83,7 +83,7 @@ Ao trabalhar com Core Web Vitals/Lighthouse:
 7. nunca reutilize automaticamente API key de IA como chave PageSpeed/CrUX ou vice-versa;
 8. não acrescente análise LLM de métricas Web Performance externo implicitamente;
 9. preserve raw response artifacts e telemetria Web Performance externo sem secrets;
-10. mantenha `report/web-performance.html` claramente separado de `ai-usage.html` e do score SearchGEO.
+10. mantenha `report/web-performance.html` claramente separado de `ai-usage.html` e do score RASAI.
 
 ## 7. Não reabrir decisões
 

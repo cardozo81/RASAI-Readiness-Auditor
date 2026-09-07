@@ -54,4 +54,4 @@ Synthetic Apdex usa Chromium local e tráfego HTTP real contra o alvo. Não depe
 
 ## Persistência do console
 
-`searchgeo-console.ini` armazena somente parâmetros não sensíveis. Credenciais permanecem em ambiente/sessão e não são persistidas pelo console.
+`rasai-console.ini` armazena somente parâmetros não sensíveis. Credenciais permanecem em ambiente/sessão e não são persistidas pelo console.

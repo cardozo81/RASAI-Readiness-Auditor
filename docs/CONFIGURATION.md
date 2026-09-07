@@ -1,14 +1,14 @@
 # Configuração operacional
 
-O SearchGEO pode ser configurado por CLI, console interativo, arquivo INI do console e variáveis de ambiente. Credenciais permanecem fora do arquivo INI.
+O RASAI pode ser configurado por CLI, console interativo, arquivo INI do console e variáveis de ambiente. Credenciais permanecem fora do arquivo INI.
 
 ## Prioridade prática
 
-Para `searchgeo audit`, argumentos CLI explícitos prevalecem sobre defaults de ambiente quando o parâmetro possui equivalente CLI.
+Para `rasai audit`, argumentos CLI explícitos prevalecem sobre defaults de ambiente quando o parâmetro possui equivalente CLI.
 
-Para `searchgeo-console`:
+Para `rasai-console`:
 
-1. `searchgeo-console.ini` fornece parâmetros persistidos não sensíveis;
+1. `rasai-console.ini` fornece parâmetros persistidos não sensíveis;
 2. variáveis de ambiente ficam disponíveis para credenciais e overrides avançados;
 3. alterações de sessão valem imediatamente para o processo atual;
 4. `S. Salvar configuração INI` persiste somente estado não sensível;
@@ -47,7 +47,7 @@ Quando existe um default seguro, o menu mostra o **default efetivo** em vez de i
 Arquivo padrão:
 
 ```text
-searchgeo-console.ini
+rasai-console.ini
 ```
 
 Se não existir, o console o cria com defaults. O arquivo armazena parâmetros como:
@@ -207,7 +207,7 @@ O timeout limita uma tentativa contra o provider. Não encerra a auditoria intei
 
 ## Contexto editorial da IA — YMYL e E-E-A-T
 
-O SearchGEO permite informar contexto editorial para que a IA não aplique uma análise genérica a qualquer tipo de página.
+O RASAI permite informar contexto editorial para que a IA não aplique uma análise genérica a qualquer tipo de página.
 
 Variáveis:
 
@@ -323,7 +323,7 @@ SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS=120
 
 Também pode ser configurado diretamente na opção 6 do console.
 
-O valor é o limite de espera do cliente SearchGEO pela resposta externa PageSpeed/CrUX. A chamada PageSpeed executa Lighthouse remotamente; o endpoint usado pelo SearchGEO não fornece um parâmetro separado para configurar o timeout interno de carregamento da página dentro do Lighthouse.
+O valor é o limite de espera do cliente RASAI pela resposta externa PageSpeed/CrUX. A chamada PageSpeed executa Lighthouse remotamente; o endpoint usado pelo RASAI não fornece um parâmetro separado para configurar o timeout interno de carregamento da página dentro do Lighthouse.
 
 Um timeout PageSpeed pode deixar:
 

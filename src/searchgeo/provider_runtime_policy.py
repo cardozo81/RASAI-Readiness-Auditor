@@ -12,7 +12,7 @@ policy used by the public CLI and interactive console:
 
 Provider-specific payload tuning is limited to parameters confirmed by the
 current adapters/provider contracts. Qwen remains PROVIDER_DEFAULT because the
-current SearchGEO adapter does not expose a validated reasoning-effort control.
+current RASAI adapter does not expose a validated reasoning-effort control.
 """
 from __future__ import annotations
 

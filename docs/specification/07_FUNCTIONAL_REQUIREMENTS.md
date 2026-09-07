@@ -1,6 +1,6 @@
 # FUNCTIONAL_REQUIREMENTS.md
 
-**Status:** APPROVED — Rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance externo + Sugestões e remediação de conteúdo por IA + Análise semântica por IA, roteamento e telemetria + SCORE-GEO-002 + SGRI-001 + REPORT-SITE-GEO-001
+**Status:** APPROVED — Rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance externo + Sugestões e remediação de conteúdo por IA + Análise semântica por IA, roteamento e telemetria + SCORE-GEO-002 + SARI-001 + REPORT-SITE-GEO-001
 
 ## Requisitos Funcionais
 
@@ -239,7 +239,7 @@ Todos os HTMLs finais devem usar estrutura de navegação consistente e styleshe
 Explicar explicitamente que Confidence é força da conclusão do auditor e que `LOW` não significa, isoladamente, baixa qualidade ou não aderência do texto.
 
 ### FR-GEO-079
-A fundamentação deve distinguir norma/standard externo de heurística interna e declarar que o SearchGEO não representa suas faixas de score como standard GEO/AEO oficial.
+A fundamentação deve distinguir norma/standard externo de heurística interna e declarar que o RASAI não representa suas faixas de score como standard GEO/AEO oficial.
 
 ### FR-GEO-080
 Expor remediação textual por IA por `--ai-content-remediation`, `--no-ai-content-remediation` e `SEARCHGEO_AI_CONTENT_REMEDIATION`, com default público `false`.
@@ -320,7 +320,7 @@ Adicionar ao `report/references.html` fontes oficiais de PageSpeed Insights, CrU
 Executar Web Performance externo como enriquecimento pós-auditoria/fail-open: indisponibilidade ou erro do serviço externo não pode invalidar RuleExecution, Finding, Recommendation ou score já concluídos.
 
 ### FR-GEO-106
-Executar Rastreamento, descoberta e acesso de crawlers como enriquecimento técnico não-scoring de crawling/discovery, preservando `scoring_impact=NONE` e sem alterar retrospectivamente RuleExecution, Finding, Recommendation GEO, Score, Coverage, Confidence, Consolidation, `SCORE-GEO-002` ou `SGRI-001`.
+Executar Rastreamento, descoberta e acesso de crawlers como enriquecimento técnico não-scoring de crawling/discovery, preservando `scoring_impact=NONE` e sem alterar retrospectivamente RuleExecution, Finding, Recommendation GEO, Score, Coverage, Confidence, Consolidation, `SCORE-GEO-002` ou `SARI-001`.
 
 ### FR-GEO-107
 Aprofundar a interpretação de `robots.txt` com evidência reabrível de grupos crawler, `Allow`, `Disallow`, `Sitemap`, linhas inválidas, tamanho e campos relevantes, sem transformar ausência legítima de robots em bloqueio artificial.

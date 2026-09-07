@@ -1,12 +1,12 @@
 # Providers de IA adicionais
 
-Guia operacional dos providers semânticos adicionais integrados ao SearchGEO por meio do `provider_registry` canônico.
+Guia operacional dos providers semânticos adicionais integrados ao RASAI por meio do `provider_registry` canônico.
 
 ## Estado atual
 
 Os providers abaixo estão implementados, mas permanecem **PROVISIONAL** e **explicit-only**. Eles não participam de `--ai-provider auto` enquanto não houver qualificação humana com credenciais reais de cada provider.
 
-| CLI | Provider | Modelo default público | API usada | Estado SearchGEO |
+| CLI | Provider | Modelo default público | API usada | Estado RASAI |
 |---|---|---|---|---|
 | `xai` / `grok` | xAI / Grok | `grok-4.6` | Responses API | `PROVISIONAL` |
 | `qwen` | Alibaba Cloud Model Studio / Qwen | `qwen3.8-flash` | OpenAI-compatible Chat Completions | `PROVISIONAL` |
@@ -54,13 +54,13 @@ O caminho de sucesso real dos providers adicionais permanece dependente de crede
 
 ```powershell
 $env:XAI_API_KEY = "<xai-api-key>"
-searchgeo audit https://example.com --ai-provider xai
+rasai audit https://example.com --ai-provider xai
 ```
 
 Alias:
 
 ```powershell
-searchgeo audit https://example.com --ai-provider grok
+rasai audit https://example.com --ai-provider grok
 ```
 
 Modelo:
@@ -94,7 +94,7 @@ Referências oficiais:
 
 ```powershell
 $env:DASHSCOPE_API_KEY = "<model-studio-api-key>"
-searchgeo audit https://example.com --ai-provider qwen
+rasai audit https://example.com --ai-provider qwen
 ```
 
 Modelos:
@@ -132,7 +132,7 @@ Referências oficiais:
 
 ```powershell
 $env:GEMINI_API_KEY = "<gemini-api-key>"
-searchgeo audit https://example.com --ai-provider gemini
+rasai audit https://example.com --ai-provider gemini
 ```
 
 Modelo:
@@ -168,13 +168,13 @@ Referências oficiais:
 
 ```powershell
 $env:ANTHROPIC_API_KEY = "<anthropic-api-key>"
-searchgeo audit https://example.com --ai-provider anthropic
+rasai audit https://example.com --ai-provider anthropic
 ```
 
 Alias:
 
 ```powershell
-searchgeo audit https://example.com --ai-provider claude
+rasai audit https://example.com --ai-provider claude
 ```
 
 Modelo:
@@ -212,4 +212,4 @@ Selecionar explicitamente um provider sem sua key resulta em `NOT_CONFIGURED`, z
 
 ## Segurança
 
-Credenciais podem ser alteradas pelo console, mas não são gravadas em `searchgeo-console.ini`. A presença da chave não garante saldo, quota ou acesso ao modelo.
+Credenciais podem ser alteradas pelo console, mas não são gravadas em `rasai-console.ini`. A presença da chave não garante saldo, quota ou acesso ao modelo.

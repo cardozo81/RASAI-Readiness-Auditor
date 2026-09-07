@@ -7,7 +7,7 @@ Ative a `.venv` e reinstale o projeto em modo editável:
 ```powershell
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e .
-searchgeo --version
+rasai --version
 ```
 
 ## Chromium/Playwright
@@ -58,7 +58,7 @@ report/accessibility.html
 
 Se aparecer `TIMEOUTERROR`, a chamada PageSpeed excedeu o timeout do cliente. O default público atual é 120 s e pode ser alterado na opção 6 ou em `SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS`.
 
-PageSpeed executa Lighthouse remotamente. O SearchGEO não possui, nesse endpoint, um parâmetro separado para aumentar o timeout interno de carregamento da página dentro do Lighthouse.
+PageSpeed executa Lighthouse remotamente. O RASAI não possui, nesse endpoint, um parâmetro separado para aumentar o timeout interno de carregamento da página dentro do Lighthouse.
 
 ## Acessibilidade sem dados
 
@@ -78,7 +78,7 @@ Grupos com menos de 100 amostras válidas são deliberadamente small-group e rec
 
 ## INI não salva credenciais
 
-Comportamento intencional. `searchgeo-console.ini` persiste somente parâmetros não sensíveis. Chaves alteradas no console são voláteis ao processo se o usuário não as configurar externamente.
+Comportamento intencional. `rasai-console.ini` persiste somente parâmetros não sensíveis. Chaves alteradas no console são voláteis ao processo se o usuário não as configurar externamente.
 
 ## Configuração não salva
 

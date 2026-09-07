@@ -423,7 +423,7 @@ class M11ReportingTests(unittest.TestCase):
                 )
 
             html = (workspace.root / "report.html").read_text(encoding="utf-8")
-            self.assertIn("Compatibilidade GEO", html)
+            self.assertIn("Readiness Search & AI", html)
             self.assertIn("RESULTADOS CONSOLIDADOS POR DISPOSITIVO", html)
             self.assertIn("82.0", html)
             self.assertIn("Alta", html)

@@ -10,7 +10,7 @@ from searchgeo.score_geo_003_calibration import collect_calibration_rows, fit_ca
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="searchgeo scoring",
+        prog="rasai scoring",
         description="Calibra e inspeciona o modelo versionado do SCORE-GEO-003.",
     )
     subparsers = parser.add_subparsers(dest="scoring_command", required=True)

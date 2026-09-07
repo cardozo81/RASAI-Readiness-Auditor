@@ -2,7 +2,7 @@
 
 ## 1. Finalidade
 
-O Synthetic User Experience Apdex adiciona ao SearchGEO um **Synthetic User Experience Apdex calibrável**, separado do Synthetic Navigation Apdex `Synthetic Navigation Apdex` Standard.
+O Synthetic User Experience Apdex adiciona ao RASAI um **Synthetic User Experience Apdex calibrável**, separado do Synthetic Navigation Apdex `Synthetic Navigation Apdex` Standard.
 
 A distinção é obrigatória:
 
@@ -16,13 +16,13 @@ Synthetic User Experience Apdex **não é RUM** e não deve ser usado para prome
 
 ## 2. Pré-requisitos
 
-- dependências normais do SearchGEO instaladas;
+- dependências normais do RASAI instaladas;
 - Chromium Playwright disponível;
 - autorização para executar navegações repetidas contra o alvo;
 - Synthetic Navigation Apdex habilitado com `T` explícito;
 - quando houver importação live do Dynatrace, `DYNATRACE_API_TOKEN` definido no ambiente.
 
-O token Dynatrace não possui flag CLI e não é persistido pelo SearchGEO.
+O token Dynatrace não possui flag CLI e não é persistido pelo RASAI.
 
 ## 3. Smoke humano recomendado — calibração manual
 
@@ -31,7 +31,7 @@ Use primeiro uma URL autorizada e um volume baixo. O objetivo do smoke é valida
 PowerShell:
 
 ```powershell
-python -m searchgeo audit "https://SEU-ALVO/" `
+python -m rasai audit "https://SEU-ALVO/" `
   --max-pages 1 `
   --device-context mobile `
   --ai-provider none `
@@ -87,7 +87,7 @@ Após a execução:
 9. XHR/fetch, recursos tardios e erros aparecem somente quando observados;
 10. `console.error` não força `Frustrated` sozinho;
 11. erro qualificável força `Frustrated` quando `errors_affect_apdex=true`;
-12. nenhuma alteração ocorre em `SCORE-GEO-002`, `SGRI-001`, findings ou recomendações GEO.
+12. nenhuma alteração ocorre em `SCORE-GEO-002`, `SARI-001`, findings ou recomendações GEO.
 
 ## 5. Verificação de persistência
 
@@ -122,7 +122,7 @@ Quando usar importação Dynatrace, defina o token apenas no ambiente:
 $env:DYNATRACE_API_TOKEN = "seu-token"
 ```
 
-O SearchGEO não deve gravar o token em INI, SQLite, HTML, logs ou argumentos CLI.
+O RASAI não deve gravar o token em INI, SQLite, HTML, logs ou argumentos CLI.
 
 Para procurar acidentalmente pelo **valor real** do token nos artefatos de uma auditoria:
 
@@ -148,7 +148,7 @@ O nome pode aparecer em texto explicativo do relatório/documentação; o **valo
 O modo preferido para auditoria reproduzível é um JSON de configuração exportado previamente:
 
 ```powershell
-python -m searchgeo audit "https://SEU-ALVO/" `
+python -m rasai audit "https://SEU-ALVO/" `
   --max-pages 1 `
   --ai-provider none `
   --no-web-performance `
@@ -228,7 +228,7 @@ Aumentar N reduz ruído amostral do laboratório. Não transforma o conjunto sin
 
 ## 12. Interpretação do delta para Dynatrace
 
-Antes de interpretar `SearchGEO Synthetic User Experience Apdex != Dynatrace`, confira:
+Antes de interpretar `RASAI Synthetic User Experience Apdex != Dynatrace`, confira:
 
 - mesma URL/user action;
 - mesma KPM;

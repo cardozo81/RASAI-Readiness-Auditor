@@ -1,11 +1,11 @@
-# SearchGEO Readiness Auditor — Project Charter & Scope
+# RASAI — Search & AI Readiness Auditor — Project Charter & Scope
 
 **Status:** APPROVED
 **Versão funcional:** MVP Baseline
 
 ## 1. Visão do Produto
 
-O SearchGEO Readiness Auditor é uma ferramenta local destinada a avaliar a preparação de websites para mecanismos tradicionais de busca e sistemas generativos baseados em IA.
+O RASAI — Search & AI Readiness Auditor é uma ferramenta local destinada a avaliar a preparação de websites para mecanismos tradicionais de busca e sistemas generativos baseados em IA.
 
 O produto transforma evidências técnicas, estruturais e semânticas em:
 

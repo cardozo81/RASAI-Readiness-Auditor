@@ -4,7 +4,7 @@
 
 ## 1. Objetivo
 
-Definir entidades, relacionamentos e invariantes do SearchGEO Readiness Auditor sem acoplar o domínio a banco, ORM ou framework.
+Definir entidades, relacionamentos e invariantes do RASAI — Search & AI Readiness Auditor sem acoplar o domínio a banco, ORM ou framework.
 
 ## 2. Modelo principal
 
@@ -517,5 +517,5 @@ O Report pode rederivar presentation-only data, como classificação visual, dia
 13. Ausência de IA é limitação da auditoria.
 14. Finding sem evidência não pode ser publicado.
 15. RemediationRecipe não pode fabricar evidence, HTML observado, URL preferencial, autor, fonte, data, claim ou informação comercial.
-16. Compatibilidade GEO, Coverage e Confidence são conceitos distintos e devem permanecer visual e semanticamente separados.
+16. Readiness Search & AI, Coverage e Confidence são conceitos distintos e devem permanecer visual e semanticamente separados.
 17. Se `OVERALL_READINESS` não for consolidável, o Report deve apresentar `NÃO DETERMINADA`, não substituir o valor por Coverage ou zero.

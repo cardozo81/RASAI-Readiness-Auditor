@@ -1,4 +1,4 @@
-"""Friendly menu for SearchGEO audit execution."""
+"""Friendly menu for RASAI audit execution."""
 from __future__ import annotations
 
 from getpass import getpass

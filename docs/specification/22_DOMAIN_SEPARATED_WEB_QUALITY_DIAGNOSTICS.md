@@ -100,7 +100,7 @@ Acessibilidade automatizada e diagnósticos Web não prescreve `aria-label` como
 report/web-performance.html
 ```
 
-Acessibilidade automatizada e diagnósticos Web adiciona diagnóstico técnico à página Web Performance externo existente, sem criar score próprio SearchGEO.
+Acessibilidade automatizada e diagnósticos Web adiciona diagnóstico técnico à página Web Performance externo existente, sem criar score próprio RASAI.
 
 ### 5.2 Campo e laboratório
 

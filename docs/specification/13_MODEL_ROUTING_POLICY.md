@@ -5,7 +5,7 @@
 
 ## 1. Separar dois usos de IA
 
-### A. IA usada para desenvolver o SearchGEO Auditor
+### A. IA usada para desenvolver o RASAI Auditor
 
 É a IA/agente que:
 
@@ -15,7 +15,7 @@
 - executa testes;
 - diagnostica problemas.
 
-### B. IA usada pelo SearchGEO Auditor em runtime
+### B. IA usada pelo RASAI Auditor em runtime
 
 É o SemanticAnalysisProvider utilizado para avaliar páginas.
 
@@ -78,7 +78,7 @@ Quando a tarefa exigir criar/editar arquivos no repositório local, utilizar obr
 
 Um chat sem acesso ao filesystem não deve afirmar que gravou arquivos em:
 
-`C:\IA-PROJETOS\github\SearchGEO-Readiness-Auditor`
+`C:\IA-PROJETOS\github\RASAI-Readiness-Auditor`
 
 ## 3. Runtime do produto
 

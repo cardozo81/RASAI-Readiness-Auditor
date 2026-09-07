@@ -39,7 +39,7 @@ class Context:
     crux_reason: str
 
 
-# Exact presentation strings emitted by SearchGEO templates. Deliberately avoid
+# Exact presentation strings emitted by RASAI templates. Deliberately avoid
 # a generic M<number> replacement because audited content may legitimately use
 # such tokens (product names, model numbers, page copy, JSON-LD, code samples).
 
@@ -114,7 +114,7 @@ def reconcile_report_outputs(*, audit_id: str, workspace: AuditWorkspace) -> Non
         )
         web.write_text(_sanitize_presentation(html), encoding="utf-8", newline="\n")
 
-    # Other pages only receive exact SearchGEO-owned label substitutions. This
+    # Other pages only receive exact RASAI-owned label substitutions. This
     # intentionally does not scan arbitrary text for milestone-like tokens.
     for path in report_dir.glob("*.html"):
         if path.name in {"index.html", "accessibility.html", "web-performance.html"}:
@@ -142,7 +142,7 @@ def _analyst_glossary_html() -> str:
         ("LCP", "Largest Contentful Paint; mede o tempo de renderização do maior conteúdo visível relevante."),
         ("INP", "Interaction to Next Paint; mede responsividade às interações do usuário."),
         ("CLS", "Cumulative Layout Shift; mede instabilidade visual."),
-        ("RUM", "Real User Monitoring; observação de usuários reais, diferente das medições sintéticas do SearchGEO."),
+        ("RUM", "Real User Monitoring; observação de usuários reais, diferente das medições sintéticas do RASAI."),
         ("TLS", "Protocolo de segurança usado por HTTPS para autenticação e proteção da conexão."),
         ("WCAG", "Web Content Accessibility Guidelines, recomendações do W3C para acessibilidade Web."),
     )

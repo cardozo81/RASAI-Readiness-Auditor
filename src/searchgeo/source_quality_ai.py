@@ -152,7 +152,7 @@ def _call(
     schema = _schema()
     instructions = (
         "Você é um analista técnico de infraestrutura web. Responda em português do Brasil e somente em JSON. "
-        "Use exclusivamente os fatos fornecidos. A classificação técnica determinística do SearchGEO é soberana: "
+        "Use exclusivamente os fatos fornecidos. A classificação técnica determinística do RASAI é soberana: "
         "não transforme erro TLS/DNS/protocolo em comportamento normal e nunca recomende desabilitar validação TLS. "
         "Explique a causa provável, a cadeia de redirecionamentos e ações de correção para um analista humano. "
         "Um redirecionamento HTTP bem-sucedido pode ser intencional; quando a intenção de negócio não estiver nas "

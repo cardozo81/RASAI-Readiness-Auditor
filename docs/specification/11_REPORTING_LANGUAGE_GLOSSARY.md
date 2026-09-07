@@ -18,7 +18,7 @@ O usuário deve descobrir o resultado executivo antes de metodologia detalhada.
 ## 2. Tradução da interface
 
 Overall Readiness
-→ Compatibilidade GEO
+→ Readiness Search & AI
 
 Technical Accessibility
 → Acessibilidade Técnica
@@ -136,7 +136,7 @@ NÃO DETERMINADA
 
 Não usar somente `—` como estado principal.
 
-Não apresentar Coverage como substituto de Compatibilidade GEO.
+Não apresentar Coverage como substituto de Readiness Search & AI.
 
 `NÃO DETERMINADA` significa informação insuficiente para conclusão geral; não equivale a zero, FAIL ou resultado crítico.
 
@@ -176,7 +176,7 @@ Estados textuais possíveis incluem:
 | 0–39 | Crítica |
 | sem resultado válido | Não Determinada |
 
-A tabela acima é classificação interna para scores SearchGEO válidos. Ela não deve ser reutilizada automaticamente para classificar `Lighthouse Performance`, cujo score pertence à metodologia externa do Lighthouse.
+A tabela acima é classificação interna para scores RASAI válidos. Ela não deve ser reutilizada automaticamente para classificar `Lighthouse Performance`, cujo score pertence à metodologia externa do Lighthouse.
 
 A cor do resultado geral deve respeitar também Consolidation. Um valor não consolidável não deve receber apresentação de resultado geral válido.
 
@@ -228,9 +228,9 @@ Título deve incluir:
 
 Deve explicar separadamente:
 
-### Compatibilidade GEO
+### Readiness Search & AI
 
-Quão preparado está o site segundo score consolidado SearchGEO.
+Quão preparado está o site segundo score consolidado RASAI.
 
 ### Cobertura da Análise
 
@@ -273,7 +273,7 @@ São contextos independentes e podem apresentar resultados diferentes.
 - Lighthouse = laboratório;
 - CrUX/Core Web Vitals = dados de campo agregados quando disponíveis;
 - `PASS` de Core Web Vitals não significa “GEO aprovado”;
-- `FAIL` de Core Web Vitals não substitui `SCORE-GEO-002` nem cria finding SearchGEO automaticamente;
+- `FAIL` de Core Web Vitals não substitui `SCORE-GEO-002` nem cria finding RASAI automaticamente;
 - `INCOMPLETE`/`UNAVAILABLE` significa falta de base externa suficiente, não defeito comprovado do site.
 
 ## 8. Linguagem de remediação
@@ -376,4 +376,4 @@ O produto mede readiness, oferece remediação evidence-backed e pode apresentar
 
 ### Linguagem orientada ao analista
 
-A apresentação HTML é destinada a profissionais de análise de dados e SEO, não a desenvolvedores do SearchGEO. Termos técnicos só devem aparecer na leitura principal quando tiverem fonte pública reconhecida e uso difundido no domínio. Vocabulário interno de implementação deve permanecer fora da interface principal; quando tecnicamente necessário para suporte, deve ficar recolhido em detalhes técnicos e acompanhado de explicação humana. Identificadores históricos de etapas de entrega não fazem parte do vocabulário do produto e não devem aparecer em relatórios, console ou documentação operacional.
+A apresentação HTML é destinada a profissionais de análise de dados e SEO, não a desenvolvedores do RASAI. Termos técnicos só devem aparecer na leitura principal quando tiverem fonte pública reconhecida e uso difundido no domínio. Vocabulário interno de implementação deve permanecer fora da interface principal; quando tecnicamente necessário para suporte, deve ficar recolhido em detalhes técnicos e acompanhado de explicação humana. Identificadores históricos de etapas de entrega não fazem parte do vocabulário do produto e não devem aparecer em relatórios, console ou documentação operacional.

@@ -7,7 +7,7 @@
 
 ## 1. Objetivo
 
-O Web Performance externo adiciona à auditoria SearchGEO evidências de Web Performance fundamentadas em documentação externa oficial, sem remover, substituir ou recalibrar silenciosamente o `SCORE-GEO-002`.
+O Web Performance externo adiciona à auditoria RASAI evidências de Web Performance fundamentadas em documentação externa oficial, sem remover, substituir ou recalibrar silenciosamente o `SCORE-GEO-002`.
 
 Quando explicitamente habilitado, o recurso pode coletar:
 
@@ -23,7 +23,7 @@ O Web Performance externo responde a uma pergunta diferente daquela respondida p
 
 ```text
 SCORE-GEO-002
-→ índice heurístico interno de prontidão baseado nas RuleExecutions do SearchGEO
+→ índice heurístico interno de prontidão baseado nas RuleExecutions do RASAI
 
 Web Performance externo Lighthouse
 → medição e score de laboratório definidos externamente
@@ -63,7 +63,7 @@ Referências oficiais:
 - <https://developers.google.com/speed/docs/insights/v5/reference/pagespeedapi/runpagespeed>
 - <https://developers.google.com/speed/docs/insights/v5/get-started>
 
-O SearchGEO usa PageSpeed Insights para executar Lighthouse sobre a URL auditada. Categorias suportadas pelo Web Performance externo:
+O RASAI usa PageSpeed Insights para executar Lighthouse sobre a URL auditada. Categorias suportadas pelo Web Performance externo:
 
 ```text
 performance
@@ -98,8 +98,8 @@ cumulative_layout_shift
 Mapeamento de dispositivo:
 
 ```text
-SearchGEO MOBILE  → CrUX PHONE
-SearchGEO DESKTOP → CrUX DESKTOP
+RASAI MOBILE  → CrUX PHONE
+RASAI DESKTOP → CrUX DESKTOP
 ```
 
 ### 3.3 Core Web Vitals
@@ -137,7 +137,7 @@ Referência oficial:
 
 Lighthouse Performance é score externo de 0 a 100. Pesos e curvas são mantidos pelo projeto Lighthouse e podem evoluir entre versões.
 
-O SearchGEO persiste a versão Lighthouse retornada e nunca apresenta Lighthouse como `GEO Score`.
+O RASAI persiste a versão Lighthouse retornada e nunca apresenta Lighthouse como `GEO Score`.
 
 ## 4. Ativação e política de rede
 

@@ -120,7 +120,7 @@ def _build_block(
             ),
         ),
         (
-            "Compatibilidade GEO e análises de conteúdo",
+            "Readiness Search & AI e análises de conteúdo",
             "Não interpretar valores dependentes de DOM/conteúdo como diagnóstico completo: a origem não produziu um documento validado pelo navegador.",
         ),
     ]
@@ -168,7 +168,7 @@ def _build_block(
         "<div class='notice notice-warning'>"
         "<h2>Auditoria limitada por bloqueio técnico da origem</h2>"
         "<p><strong>As métricas dependentes do conteúdo não puderam ser coletadas de forma representativa.</strong> "
-        "O SearchGEO interrompeu medições repetitivas ou externas depois que a falha foi confirmada, evitando produzir números enganosos ou consumir APIs sem utilidade.</p>"
+        "O RASAI interrompeu medições repetitivas ou externas depois que a falha foi confirmada, evitando produzir números enganosos ou consumir APIs sem utilidade.</p>"
         f"<p><strong>URL informada:</strong> <code>{escape(issue.requested_url)}</code><br>"
         f"<strong>URL final observada:</strong> <code>{escape(issue.final_url or 'não resolvida')}</code><br>"
         f"<strong>Classificação:</strong> {escape(issue.classification)} · "

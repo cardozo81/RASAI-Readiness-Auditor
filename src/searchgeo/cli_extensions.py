@@ -58,7 +58,7 @@ def build_parser():
     ai_action.help = (
         "semantic analysis provider; AUTO remains the homologated "
         "OpenAI/DeepSeek/MiMo chain, extension providers are explicit-only; "
-        "when model/effort are not explicitly configured SearchGEO uses the "
+        "when model/effort are not explicitly configured RASAI uses the "
         "simplest supported model and lowest supported reasoning effort"
     )
     web_timeout_action = next(
@@ -120,7 +120,7 @@ def _restore_canonical_device_navigation_labels() -> None:
 
 
 def _materialize_searchgeo_fail_open(*, audit_id, workspace, event_prefix: str) -> None:
-    """Best-effort SGRI projection even when a later optional domain fails."""
+    """Best-effort SARI projection even when a later optional domain fails."""
     if audit_id is None or workspace is None:
         return
     try:
@@ -129,7 +129,7 @@ def _materialize_searchgeo_fail_open(*, audit_id, workspace, event_prefix: str) 
             workspace,
             f"{event_prefix}_SEARCHGEO_READINESS_REPORT_GENERATED",
             audit_id=audit_id,
-            methodology="SGRI-001",
+            methodology="SARI-001",
             compatible_scoring_engine="SCORE-GEO-002",
             report_path=str(searchgeo_path.relative_to(workspace.root)),
         )
@@ -402,7 +402,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     error_message=str(exc)[:512],
                 )
             try:
-                # Run before the final SGRI/M24 projection so every already-created
+                # Run before the final SARI/M24 projection so every already-created
                 # domain page receives the same deterministic origin/redirect/TLS context.
                 enrich_source_quality_report_site(
                     audit_id=audit_id,
@@ -422,7 +422,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     error_message=str(exc)[:512],
                 )
             try:
-                # Preserve PR #70 ownership: SGRI is finalized before M24 adds a
+                # Preserve PR #70 ownership: SARI is finalized before M24 adds a
                 # separate non-scoring technical page and then normalizes navigation.
                 searchgeo_path = enrich_searchgeo_reporting(
                     audit_id=audit_id,
@@ -432,7 +432,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     workspace,
                     "SEARCHGEO_READINESS_REPORT_GENERATED",
                     audit_id=audit_id,
-                    methodology="SGRI-001",
+                    methodology="SARI-001",
                     compatible_scoring_engine="SCORE-GEO-002",
                     report_path=str(searchgeo_path.relative_to(workspace.root)),
                 )
@@ -461,7 +461,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         report_path=str(m24_report_path.relative_to(workspace.root)),
                         scoring_impact="NONE",
                     )
-                    # PR #70 owns SearchGEO/device labels. Re-run the projection only
+                    # PR #70 owns RASAI/device labels. Re-run the projection only
                     # to normalize every final page after M24 has added its nav item;
                     # persisted measurements remain untouched.
                     enrich_searchgeo_reporting(
@@ -530,7 +530,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif m23_error:
             print(
                 "Synthetic Apdex: INCOMPLETO por erro operacional; "
-                "a auditoria SearchGEO principal foi preservada"
+                "a auditoria RASAI principal foi preservada"
             )
 
     if m24_config is not None:
@@ -546,6 +546,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif m24_error:
             print(
                 "Rastreamento e descoberta M24: INCOMPLETO por erro operacional; "
-                "SCORE-GEO-002/SGRI-001 foram preservados"
+                "SCORE-GEO-002/SARI-001 foram preservados"
             )
     return code

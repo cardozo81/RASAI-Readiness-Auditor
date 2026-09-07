@@ -26,7 +26,7 @@ entrada/targets
 
 O produto mantém separados:
 
-- Score/Coverage/Confidence de SearchGEO;
+- Score/Coverage/Confidence de RASAI;
 - análise semântica e remediação por IA;
 - Lighthouse/Core Web Vitals/CrUX;
 - Acessibilidade automatizada;
@@ -60,9 +60,9 @@ Exemplos:
 
 ## Console
 
-O console é uma camada sobre a CLI, não um segundo pipeline. Configura parâmetros, executa preflight, acompanha progresso por estado persistido/log e inicia a mesma superfície `searchgeo audit`.
+O console é uma camada sobre a CLI, não um segundo pipeline. Configura parâmetros, executa preflight, acompanha progresso por estado persistido/log e inicia a mesma superfície `rasai audit`.
 
-`searchgeo-console.ini` guarda somente configuração não sensível. Secrets permanecem no ambiente/processo.
+`rasai-console.ini` guarda somente configuração não sensível. Secrets permanecem no ambiente/processo.
 
 ## Compatibilidade histórica
 

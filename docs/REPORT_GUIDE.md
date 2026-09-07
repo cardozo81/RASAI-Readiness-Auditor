@@ -1,6 +1,6 @@
 # Guia de leitura dos relatórios
 
-O SearchGEO gera um mini-site HTML estático por auditoria. O report é projeção humana derivada da persistência; não recalcula scoring nem inventa dados ausentes.
+O RASAI gera um mini-site HTML estático por auditoria. O report é projeção humana derivada da persistência; não recalcula scoring nem inventa dados ausentes.
 
 ## Entrada principal
 
@@ -13,7 +13,7 @@ A página inicial é o **dashboard executivo multimetodológico**. Ela resume so
 Princípios obrigatórios do `index.html`:
 
 - não criar um score combinado entre metodologias diferentes;
-- não somar nem ponderar SGRI, Core Web Vitals, Lighthouse, Accessibility, Apdex ou outcomes Observed Generative Visibility entre si;
+- não somar nem ponderar SARI, Core Web Vitals, Lighthouse, Accessibility, Apdex ou outcomes Observed Generative Visibility entre si;
 - mostrar somente síntese suficiente para decisão/navegação;
 - deixar tabelas, evidências, percentis, URLs e metodologia detalhada na página canônica de cada domínio;
 - ausência de dado deve permanecer `NÃO DISPONÍVEL`, `INCOMPLETO` ou estado equivalente; nunca virar zero ou aprovação.
@@ -23,7 +23,7 @@ Princípios obrigatórios do `index.html`:
 ```text
 report/
 ├─ index.html                  # dashboard executivo
-├─ searchgeo.html              # SGRI-001 e indicadores proprietários SearchGEO
+├─ readiness.html              # SARI-001 e indicadores proprietários RASAI
 ├─ mobile.html                 # evidências/findings Mobile, condicional
 ├─ desktop.html                # evidências/findings Desktop, condicional
 ├─ remediation.html
@@ -39,14 +39,14 @@ report/
 └─ css/site.css
 ```
 
-## SearchGEO Readiness Index
+## Search & AI Readiness Index
 
-`searchgeo.html` é a **página canônica e exclusiva dos indicadores agregados SearchGEO**.
+`readiness.html` é a **página canônica e exclusiva dos indicadores agregados RASAI**.
 
 A identidade pública da metodologia é:
 
 ```text
-SGRI-001 — SearchGEO Readiness Index
+SARI-001 — Search & AI Readiness Index
 ```
 
 Enquanto a aritmética não mudar, o banco preserva:
@@ -60,7 +60,7 @@ como versão do motor de cálculo persistido. Essa compatibilidade é intenciona
 A página apresenta, por dispositivo aplicável:
 
 - Overall Readiness;
-- dimensões SearchGEO;
+- dimensões RASAI;
 - Coverage;
 - Confidence;
 - Consolidation;
@@ -71,7 +71,7 @@ A página apresenta, por dispositivo aplicável:
 
 ### Groundability
 
-No `SGRI-001`, Groundability **não é um novo subscore**. Para evitar uma agregação adicional ainda não calibrada externamente, a página mostra separadamente os sinais existentes:
+No `SARI-001`, Groundability **não é um novo subscore**. Para evitar uma agregação adicional ainda não calibrada externamente, a página mostra separadamente os sinais existentes:
 
 - Answerability;
 - Citation Readiness;
@@ -79,9 +79,9 @@ No `SGRI-001`, Groundability **não é um novo subscore**. Para evitar uma agreg
 
 Um subscore específico só deve ser criado em versão metodológica futura se houver fórmula documentada, validação e versionamento próprios.
 
-### Limite de validade do SGRI-001
+### Limite de validade do SARI-001
 
-O SGRI-001 é metodologia proprietária, evidence-based e reprodutível. Não representa:
+O SARI-001 é metodologia proprietária, evidence-based e reprodutível. Não representa:
 
 - nota oficial do Google, Bing, OpenAI ou outro mecanismo;
 - probabilidade estatística de ranking;
@@ -89,7 +89,7 @@ O SGRI-001 é metodologia proprietária, evidence-based e reprodutível. Não re
 - certificação de GEO/AEO;
 - substituto de métricas externas ou outcomes observados.
 
-Fontes oficiais sustentam os fenômenos observados; elas não homologam automaticamente a agregação SearchGEO.
+Fontes oficiais sustentam os fenômenos observados; elas não homologam automaticamente a agregação RASAI.
 
 ## Evidências Mobile e Desktop
 
@@ -103,7 +103,7 @@ Elas não devem repetir:
 - Confidence;
 - Consolidation.
 
-Esses indicadores pertencem exclusivamente a `searchgeo.html`. Mobile/Desktop preservam URLs, snapshots, findings, RuleExecutions, evidências e avaliações semânticas necessárias ao diagnóstico.
+Esses indicadores pertencem exclusivamente a `readiness.html`. Mobile/Desktop preservam URLs, snapshots, findings, RuleExecutions, evidências e avaliações semânticas necessárias ao diagnóstico.
 
 ## Regra de não duplicação de indicadores
 
@@ -111,8 +111,8 @@ Cada indicador tem uma página analítica canônica:
 
 | Indicador/domínio | Página canônica | Fonte metodológica |
 | --- | --- | --- |
-| SearchGEO Readiness Index / dimensões | `searchgeo.html` | SearchGEO — SGRI-001 / motor SCORE-GEO-002 |
-| Rastreamento e descoberta | `crawling-discovery.html` | standards/guidance + diagnóstico SearchGEO Rastreamento, descoberta e acesso de crawlers |
+| Search & AI Readiness Index / dimensões | `readiness.html` | RASAI — SARI-001 / motor SCORE-GEO-002 |
+| Rastreamento e descoberta | `crawling-discovery.html` | standards/guidance + diagnóstico RASAI Rastreamento, descoberta e acesso de crawlers |
 | Core Web Vitals | `web-performance.html` | Chrome / web.dev |
 | Lighthouse Performance | `web-performance.html` | Chrome Lighthouse |
 | Lighthouse Accessibility | `accessibility.html` | Chrome Lighthouse |
@@ -120,13 +120,13 @@ Cada indicador tem uma página analítica canônica:
 | Synthetic Navigation Apdex | `apdex.html` | Apdex Technical Specification + coleta sintética Synthetic Navigation Apdex |
 | Synthetic User Experience Apdex | `apdex-experience.html` | Apdex + contrato/calibração sintética Synthetic User Experience Apdex; não é RUM |
 | Observed Generative Visibility | `ai-visibility.html` | fonte observada/importada + protocolo Observed Generative Visibility |
-| Uso/custo de IA | `ai-usage.html` | telemetria operacional do provider/SearchGEO |
+| Uso/custo de IA | `ai-usage.html` | telemetria operacional do provider/RASAI |
 
 O `index.html` pode repetir **somente a síntese final necessária ao dashboard**, sempre acompanhada de link para a página canônica. Uma página especializada pode referenciar outra métrica para contexto, mas não deve republicar seu score, percentis ou tabela como se fossem parte do próprio domínio.
 
 ## Readiness ≠ Observed Generative Visibility
 
-`ai-visibility.html` pertence ao Observed Generative Visibility e é deliberadamente separado de `searchgeo.html`.
+`ai-visibility.html` pertence ao Observed Generative Visibility e é deliberadamente separado de `readiness.html`.
 
 A distinção é:
 
@@ -138,7 +138,7 @@ Observed Generative Visibility
 = outcomes efetivamente observados/importados numa fonte ou protocolo identificado
 ```
 
-O Observed Generative Visibility não altera `SGRI-001`/`SCORE-GEO-002` e não converte citações em score GEO.
+O Observed Generative Visibility não altera `SARI-001`/`SCORE-GEO-002` e não converte citações em score GEO.
 
 A página pode apresentar, conforme o dataset:
 
@@ -156,7 +156,7 @@ A página pode apresentar, conforme o dataset:
 
 ### Métricas reportadas pela fonte
 
-Quando um valor vem de uma plataforma — por exemplo Total Citations do Bing AI Performance — o relatório o identifica como **métrica da fonte**. O SearchGEO não tenta reconstruir fórmula não publicada para afirmar equivalência.
+Quando um valor vem de uma plataforma — por exemplo Total Citations do Bing AI Performance — o relatório o identifica como **métrica da fonte**. O RASAI não tenta reconstruir fórmula não publicada para afirmar equivalência.
 
 ### Citation Presence Rate
 
@@ -167,7 +167,7 @@ Citation Presence Rate
 = runs VALID com cited=true / total de runs VALID
 ```
 
-Runs `INVALID` ficam fora do denominador. A taxa e o Wilson 95% descrevem a amostra registrada; não representam probabilidade de citação futura nem validam causalidade do SGRI.
+Runs `INVALID` ficam fora do denominador. A taxa e o Wilson 95% descrevem a amostra registrada; não representam probabilidade de citação futura nem validam causalidade do SARI.
 
 ### O que uma citação não significa
 
@@ -178,7 +178,7 @@ Citação observada não deve ser interpretada automaticamente como:
 - preferência global da engine;
 - qualidade absoluta da página;
 - garantia de nova citação;
-- efeito causado exclusivamente por uma recomendação SearchGEO.
+- efeito causado exclusivamente por uma recomendação RASAI.
 
 ## Configuração × resultado obtido
 
@@ -201,7 +201,7 @@ A causa deve ser persistida e apresentada. Timeout, quota, HTTP, ausência de ar
 
 ## Rastreamento e descoberta
 
-`crawling-discovery.html` é a página canônica do Rastreamento, descoberta e acesso de crawlers. Ela concentra diagnóstico de robots/crawlers/sitemaps/discovery, `llms.txt` experimental e evidências correlatas sem recalcular o SGRI.
+`crawling-discovery.html` é a página canônica do Rastreamento, descoberta e acesso de crawlers. Ela concentra diagnóstico de robots/crawlers/sitemaps/discovery, `llms.txt` experimental e evidências correlatas sem recalcular o SARI.
 
 ## Acessibilidade
 
@@ -274,9 +274,9 @@ YMYL e E-E-A-T condicionam o rigor da análise quando configurados/inferidos, ma
 
 ## Referências
 
-`references.html` documenta base metodológica, proveniência e fontes públicas relevantes. A existência de uma referência não transforma uma prática em requisito universal de GEO/AEO nem homologa o SGRI-001.
+`references.html` documenta base metodológica, proveniência e fontes públicas relevantes. A existência de uma referência não transforma uma prática em requisito universal de GEO/AEO nem homologa o SARI-001.
 
-O Observed Generative Visibility também exibe em sua própria página as referências necessárias para interpretar a fonte observacional, sem transformar documentação do Bing ou de outra plataforma em homologação do SearchGEO.
+O Observed Generative Visibility também exibe em sua própria página as referências necessárias para interpretar a fonte observacional, sem transformar documentação do Bing ou de outra plataforma em homologação do RASAI.
 
 ## Consistência visual
 
