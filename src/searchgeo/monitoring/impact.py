@@ -1,0 +1,180 @@
+"""Observed-outcome change analysis layered over an audit comparison."""
+from __future__ import annotations
+
+from collections import defaultdict
+from dataclasses import dataclass
+from html import escape
+import json
+from pathlib import Path
+import sqlite3
+from typing import Any
+
+from .models import ComparisonResult
+
+
+@dataclass(frozen=True, slots=True)
+class OutcomeChange:
+    key: str
+    source: str
+    metric: str
+    before: float | str | None
+    after: float | str | None
+    status: str
+    delta: float | None = None
+    unit: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ImpactAnalysis:
+    outcome_changes: tuple[OutcomeChange, ...]
+    associations: tuple[dict[str, Any], ...]
+    limitations: tuple[str, ...]
+
+
+def analyze_change_impact(result: ComparisonResult) -> ImpactAnalysis:
+    before = _observed_snapshot(result.baseline.workspace)
+    after = _observed_snapshot(result.current.workspace)
+    changes: list[OutcomeChange] = []
+    for key in sorted(set(before) | set(after)):
+        left = before.get(key)
+        right = after.get(key)
+        if left is None or right is None:
+            item = right or left
+            assert item is not None
+            changes.append(OutcomeChange(key, item["source"], item["metric"], left["value"] if left else None, right["value"] if right else None, "DATA_UNAVAILABLE", unit=item.get("unit")))
+            continue
+        old = left["value"]
+        new = right["value"]
+        if old == new:
+            continue
+        direction = right.get("direction", "STATE")
+        status = "CHANGED"
+        delta: float | None = None
+        if isinstance(old, (int, float)) and isinstance(new, (int, float)):
+            delta = float(new) - float(old)
+            if direction == "HIGHER_BETTER":
+                status = "IMPROVED" if delta > 0 else "REGRESSED"
+            elif direction == "LOWER_BETTER":
+                status = "IMPROVED" if delta < 0 else "REGRESSED"
+        changes.append(OutcomeChange(key, right["source"], right["metric"], old, new, status, delta, right.get("unit")))
+
+    technical = [event for event in result.regressions if event.domain in {"RULE", "PAGE", "PERFORMANCE", "APDEX", "UX_APDEX"}]
+    outcome_regressions = [change for change in changes if change.status == "REGRESSED"]
+    associations: list[dict[str, Any]] = []
+    if technical and outcome_regressions:
+        for change in outcome_regressions:
+            associations.append({
+                "status": "TEMPORAL_ASSOCIATION_ONLY",
+                "outcome_key": change.key,
+                "outcome_metric": change.metric,
+                "outcome_source": change.source,
+                "technical_regression_count": len(technical),
+                "technical_examples": [event.rule_id or event.label for event in technical[:8]],
+                "statement": "Technical regression(s) and an observed outcome regression coexist across the same audit pair. Causality is not established.",
+            })
+    limitations = [
+        "Outcome windows may not exactly match audit timestamps; inspect dataset periods before interpretation.",
+        "Search engines, demand, competition, seasonality and measurement coverage can change independently of the website.",
+        "This analyzer reports co-occurrence/temporal association only and never causal attribution.",
+    ]
+    return ImpactAnalysis(tuple(changes), tuple(associations), tuple(limitations))
+
+
+def write_impact_report(report_dir: str | Path, result: ComparisonResult, analysis: ImpactAnalysis | None = None) -> Path:
+    active = analysis or analyze_change_impact(result)
+    root = Path(report_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / "impact.html"
+    rows = "".join(_change_row(item) for item in active.outcome_changes) or "<tr><td colspan='7'>Nenhum outcome observacional comparável ou alterado.</td></tr>"
+    association_rows = "".join(
+        f"<tr><td>{escape(str(item['status']))}</td><td>{escape(str(item['outcome_source']))}</td><td>{escape(str(item['outcome_metric']))}</td><td>{int(item['technical_regression_count'])}</td><td>{escape(', '.join(item['technical_examples']))}</td><td>{escape(str(item['statement']))}</td></tr>"
+        for item in active.associations
+    ) or "<tr><td colspan='6'>Nenhuma coocorrência entre regressão técnica e outcome observado foi detectada neste par.</td></tr>"
+    limitations = "".join(f"<li>{escape(item)}</li>" for item in active.limitations)
+    path.write_text(f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>RASAI Change Impact</title><style>{_CSS}</style></head><body><main><header class='hero'><div class='eyebrow'>RASAI Monitor · Change Impact</div><h1>Mudança técnica × outcomes observados</h1><p>Baseline <code>{escape(result.baseline.audit_id)}</code> → atual <code>{escape(result.current.audit_id)}</code>. Esta página não estabelece causalidade.</p></header><section class='panel'><h2>Outcomes alterados</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Fonte</th><th>Métrica</th><th>Antes</th><th>Depois</th><th>Delta</th><th>Unidade</th></tr></thead><tbody>{rows}</tbody></table></div></section><section class='panel'><h2>Associações temporais</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Fonte</th><th>Outcome</th><th>Regressões técnicas</th><th>Exemplos</th><th>Interpretação</th></tr></thead><tbody>{association_rows}</tbody></table></div></section><section class='panel'><h2>Limitações</h2><ul>{limitations}</ul></section></main></body></html>""", encoding="utf-8", newline="\n")
+    return path
+
+
+def _observed_snapshot(workspace: Path) -> dict[str, dict[str, Any]]:
+    database = workspace / "observability.db"
+    if not database.is_file():
+        return {}
+    connection = sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA query_only=ON")
+    try:
+        tables = {str(row[0]) for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        output: dict[str, dict[str, Any]] = {}
+        if "search_performance" in tables:
+            _search_signals(connection, output)
+        if "index_observations" in tables:
+            _index_signals(connection, output)
+        if "crux_history" in tables:
+            _crux_signals(connection, output)
+        return output
+    finally:
+        connection.close()
+
+
+def _search_signals(connection: sqlite3.Connection, output: dict[str, dict[str, Any]]) -> None:
+    rows = connection.execute("SELECT source,COALESCE(surface,'ALL') surface,clicks,impressions,position FROM search_performance").fetchall()
+    groups: dict[tuple[str, str], list[sqlite3.Row]] = defaultdict(list)
+    for row in rows:
+        groups[(str(row["source"]), str(row["surface"]))].append(row)
+    for (source, surface), items in groups.items():
+        clicks = sum(float(row["clicks"] or 0.0) for row in items)
+        impressions = sum(float(row["impressions"] or 0.0) for row in items)
+        weighted_position_den = sum(float(row["impressions"] or 0.0) for row in items if row["position"] is not None)
+        weighted_position = None
+        if weighted_position_den > 0:
+            weighted_position = sum(float(row["position"]) * float(row["impressions"] or 0.0) for row in items if row["position"] is not None) / weighted_position_den
+        for metric, value, direction, unit in (
+            ("impressions", impressions, "HIGHER_BETTER", "count"),
+            ("clicks", clicks, "HIGHER_BETTER", "count"),
+            ("ctr", (clicks / impressions if impressions > 0 else None), "HIGHER_BETTER", "ratio"),
+            ("position", weighted_position, "LOWER_BETTER", "position"),
+        ):
+            if value is None:
+                continue
+            key = f"SEARCH|{source}|{surface}|{metric}"
+            output[key] = {"source": source, "metric": f"{surface} {metric}", "value": float(value), "direction": direction, "unit": unit}
+
+
+def _index_signals(connection: sqlite3.Connection, output: dict[str, dict[str, Any]]) -> None:
+    rows = connection.execute("SELECT source,url,verdict,indexing_state,selected_canonical FROM index_observations").fetchall()
+    for row in rows:
+        source = str(row["source"])
+        url = str(row["url"])
+        for metric, value in (("verdict", row["verdict"]), ("indexing_state", row["indexing_state"]), ("selected_canonical", row["selected_canonical"])):
+            if value is None:
+                continue
+            key = f"INDEX|{source}|{url}|{metric}"
+            output[key] = {"source": source, "metric": metric, "value": str(value), "direction": "STATE", "unit": None}
+
+
+def _crux_signals(connection: sqlite3.Connection, output: dict[str, dict[str, Any]]) -> None:
+    rows = connection.execute("SELECT * FROM crux_history ORDER BY COALESCE(period_end,''),rowid").fetchall()
+    latest: dict[tuple[str, str, str, str], sqlite3.Row] = {}
+    for row in rows:
+        latest[(str(row["target"]), str(row["target_scope"]), str(row["form_factor"] or "ALL"), str(row["metric"]))] = row
+    for (target, scope, form, metric), row in latest.items():
+        if row["p75"] is None:
+            continue
+        key = f"CRUX|{scope}|{target}|{form}|{metric}"
+        output[key] = {"source": "CHROME_UX_REPORT_HISTORY", "metric": f"{metric} p75", "value": float(row["p75"]), "direction": "LOWER_BETTER", "unit": "native"}
+
+
+def _change_row(item: OutcomeChange) -> str:
+    delta = "—" if item.delta is None else f"{item.delta:+.4f}".rstrip("0").rstrip(".")
+    return f"<tr><td>{escape(item.status)}</td><td>{escape(item.source)}</td><td>{escape(item.metric)}</td><td>{escape(_value(item.before))}</td><td>{escape(_value(item.after))}</td><td>{escape(delta)}</td><td>{escape(item.unit or '—')}</td></tr>"
+
+
+def _value(value: Any) -> str:
+    if value is None:
+        return "—"
+    if isinstance(value, float):
+        return f"{value:.4f}".rstrip("0").rstrip(".")
+    return str(value)
+
+
+_CSS = """body{margin:0;background:#f5f7fa;color:#273449;font:14px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:1450px;margin:auto;padding:32px}.hero,.panel{background:#fff;border:1px solid #e1e6ec;border-radius:7px;padding:24px;margin-bottom:16px}.eyebrow{font-size:12px;text-transform:uppercase;color:#6d7786;letter-spacing:.08em}.table-wrap{overflow:auto;border:1px solid #e1e6ec;border-radius:6px}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:9px 10px;border-bottom:1px solid #e1e6ec;text-align:left;vertical-align:top}th{background:#f7f8fb}code{background:#f1f3f6;padding:1px 4px;border-radius:4px}@media(max-width:700px){main{padding:16px}}"""
