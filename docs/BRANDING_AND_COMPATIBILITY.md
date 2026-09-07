@@ -24,7 +24,7 @@ Convenção de escrita:
 
 A página principal do índice é `report/readiness.html`.
 
-Os comandos preferenciais são `rasai`, `rasai-console`, `rasai audit`, `rasai visibility`, `rasai monitoring`, `rasai quality` e `rasai scoring`.
+Os comandos preferenciais são `rasai`, `rasai-console`, `rasai audit`, `rasai visibility`, `rasai monitor`, `rasai observe`, `rasai quality`, `rasai platform` e `rasai scoring`.
 
 Por compatibilidade operacional, também são aceitos:
 
