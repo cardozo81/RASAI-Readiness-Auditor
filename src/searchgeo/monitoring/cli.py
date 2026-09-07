@@ -5,6 +5,7 @@ import argparse
 from pathlib import Path
 
 from .compare import compare_audits, evaluate_release_gate
+from .impact import analyze_change_impact, write_impact_report
 from .models import GatePolicy
 from .reporting import write_monitoring_report
 
@@ -19,6 +20,10 @@ def build_parser() -> argparse.ArgumentParser:
     compare = sub.add_parser("compare", help="comparar baseline e auditoria atual; gerar MON-*/report.html")
     _pair(compare)
     compare.add_argument("--report-root", help="diretório opcional para MON-*; padrão <audits-root>/monitoring")
+
+    impact = sub.add_parser("impact", help="comparar também outcomes observados; sem inferir causalidade")
+    _pair(impact)
+    impact.add_argument("--report-root", help="diretório opcional para MON-*; padrão <audits-root>/monitoring")
 
     gate = sub.add_parser("gate", help="release gate; 0=PASS, 1=regressão bloqueante, 2=erro")
     _pair(gate)
@@ -49,13 +54,19 @@ def main(argv: list[str] | None = None) -> int:
         baseline = _workspace(args.audits_root, args.baseline)
         current = _workspace(args.audits_root, args.current)
         result = compare_audits(baseline, current)
-        if args.monitor_command == "compare":
+        if args.monitor_command in {"compare", "impact"}:
             report = write_monitoring_report(args.audits_root, result, report_root=args.report_root)
             print(f"RASAI Monitor: {result.baseline.audit_id} → {result.current.audit_id}")
             print(f"Regressões materiais: {len(result.regressions)}")
             print(f"Melhorias/resoluções: {len(result.improvements)}")
             print(f"Relatório: {report.report_path}")
             print(f"Manifest: {report.manifest_path}")
+            if args.monitor_command == "impact":
+                analysis = analyze_change_impact(result)
+                impact_path = write_impact_report(report.report_dir, result, analysis)
+                print(f"Outcomes alterados: {len(analysis.outcome_changes)}")
+                print(f"Associações temporais: {len(analysis.associations)}")
+                print(f"Change Impact: {impact_path}")
             if result.compatibility_notes:
                 print("Limitações de comparabilidade:")
                 for note in result.compatibility_notes:
