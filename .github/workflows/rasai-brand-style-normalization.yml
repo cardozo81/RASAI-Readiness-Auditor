@@ -6,6 +6,7 @@ on:
       - '.github/workflows/rasai-brand-style-normalization.yml'
       - '.github/scripts/rasai_brand_normalize.py'
       - '.github/scripts/rasai_brand_cleanup.py'
+      - '.github/scripts/rasai_brand_finalize.py'
   workflow_dispatch:
 
 permissions:
@@ -25,9 +26,13 @@ jobs:
       - name: Normalize public brand
         shell: bash
         run: |
-          python .github/scripts/rasai_brand_normalize.py || echo "Pre-cleanup scan found predecessor references; continuing to current-state cleanup."
+          python .github/scripts/rasai_brand_normalize.py || echo "Pre-cleanup scan found predecessor references; continuing."
       - name: Normalize current-state documentation
-        run: python .github/scripts/rasai_brand_cleanup.py
+        shell: bash
+        run: |
+          python .github/scripts/rasai_brand_cleanup.py || echo "Additional predecessor references found; continuing to final normalization."
+      - name: Final documentation normalization and gate
+        run: python .github/scripts/rasai_brand_finalize.py
       - name: Install package and browser
         run: |
           python -m pip install -e . pytest
@@ -40,7 +45,7 @@ jobs:
         run: pytest -q
       - name: Remove normalization runners and commit
         run: |
-          git rm .github/workflows/rasai-brand-style-normalization.yml .github/scripts/rasai_brand_normalize.py .github/scripts/rasai_brand_cleanup.py
+          git rm .github/workflows/rasai-brand-style-normalization.yml .github/scripts/rasai_brand_normalize.py .github/scripts/rasai_brand_cleanup.py .github/scripts/rasai_brand_finalize.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add README.md docs src tests pyproject.toml iniciar.cmd
