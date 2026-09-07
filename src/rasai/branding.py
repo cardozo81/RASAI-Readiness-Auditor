@@ -1,4 +1,4 @@
-"""Public RASAi/SARI identity and compatibility contract."""
+"""Public RASAi/SARI identity contract."""
 
 PRODUCT_ACRONYM = "RASAI"
 PRODUCT_NAME = "RASAi"
@@ -9,12 +9,8 @@ FRAMEWORK_NAME = "RASAi Framework"
 
 PUBLIC_INDEX_NAME = "Search & AI Readiness Index"
 PUBLIC_INDEX_VERSION = "SARI-001"
-LEGACY_PUBLIC_INDEX_VERSION = "SGRI-001"
 
 CANONICAL_READINESS_REPORT = "readiness.html"
-LEGACY_READINESS_REPORT = "rasai.html"
 
 PRIMARY_CLI = "rasai"
 PRIMARY_CONSOLE_CLI = "rasai-console"
-LEGACY_CLI = "rasai"
-LEGACY_CONSOLE_CLI = "rasai-console"
