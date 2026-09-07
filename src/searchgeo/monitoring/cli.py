@@ -25,9 +25,14 @@ def build_parser() -> argparse.ArgumentParser:
     _pair(impact)
     impact.add_argument("--report-root", help="diretório opcional para MON-*; padrão <audits-root>/monitoring")
 
-    gate = sub.add_parser("gate", help="release gate; 0=PASS, 1=regressão bloqueante, 2=erro")
+    gate = sub.add_parser("gate", help="release gate; 0=PASS, 1=deterioração bloqueante, 2=erro")
     _pair(gate)
     gate.add_argument("--include-semantic", action="store_true", help="permitir regras semânticas/IA no gate")
+    gate.add_argument(
+        "--allow-new-failures",
+        action="store_true",
+        help="não bloquear sinais NEW materialmente ruins; use somente quando a mudança de universo for deliberada",
+    )
     gate.add_argument("--include-performance", action="store_true", help="incluir Lighthouse/field performance explicitamente")
     gate.add_argument("--include-synthetic", action="store_true", help="incluir Synthetic Navigation/UX Apdex explicitamente")
     gate.add_argument("--include-finding-aggregates", action="store_true", help="incluir contagens agregadas de findings explicitamente")
@@ -85,6 +90,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.monitor_command == "gate":
             policy = GatePolicy(
                 deterministic_only=not args.include_semantic,
+                block_new_failures=not args.allow_new_failures,
                 include_performance=args.include_performance,
                 include_synthetic=args.include_synthetic,
                 include_finding_aggregates=args.include_finding_aggregates,
@@ -97,6 +103,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"RASAI Release Gate: {'PASS' if gate.passed else 'FAIL'}")
             print(gate.reason)
             print(f"Regras: {'determinísticas' if policy.deterministic_only else 'inclui semânticas'}")
+            print(f"New failures: {'bloqueiam' if policy.block_new_failures else 'permitidos por opt-out'}")
             print(
                 "Opt-ins: "
                 f"performance={policy.include_performance}, synthetic={policy.include_synthetic}, "
@@ -104,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             for event in gate.blocking_events:
                 print(
-                    f"BLOCK {event.severity} {event.rule_id or event.label} "
+                    f"BLOCK {event.status} {event.severity} {event.rule_id or event.label} "
                     f"{event.device or '-'} {event.url or '-'}: {event.before!r} → {event.after!r}"
                 )
             return 0 if gate.passed else 1
