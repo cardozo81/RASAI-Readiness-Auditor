@@ -5,7 +5,7 @@ from dataclasses import asdict
 from html import escape
 import json
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from searchgeo.monitoring.models import ComparisonResult, GateResult
 
@@ -14,7 +14,7 @@ from .store import PlatformStore
 
 _PLATFORM_CSS = """
 :root{--bg:#f6f7fb;--surface:#fffefd;--ink:#273449;--muted:#6f7b8d;--line:rgba(111,123,141,.16);--blue:#657fc6;--green:#5f9674;--amber:#b68a50;--red:#bf6f70;--soft-blue:#eef2fb;--soft-green:#edf6f0;--soft-amber:#fbf4e8;--soft-red:#fbefef;--radius:6px}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14.5px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}.layout{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh}.nav{background:#2f3a4d;color:#e8edf4;padding:20px 14px}.brand{padding:4px 8px 18px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:14px}.brand strong{display:block;font-size:18px}.brand small{color:#bac4d2}.nav a{display:block;color:#d8e0ea;text-decoration:none;padding:9px 10px;border-radius:5px;margin:3px 0}.nav a.active,.nav a:hover{background:#46536a;color:#fff}.main{padding:30px clamp(18px,3vw,42px) 60px;max-width:1560px}.hero,.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 4px 16px rgba(47,58,78,.04);padding:22px;margin:0 0 16px}.eyebrow,.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--muted);font-weight:700}.lead{max-width:78ch;color:#526074}.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;margin-top:16px}.metric{padding:12px 13px;border-radius:5px;background:#f7f8fb}.metric span{display:block;color:var(--muted);font-size:12px}.metric strong{font-size:18px}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{font-size:12px;color:var(--muted);font-weight:650}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.good{color:#35664a}.bad{color:#8f4245}.warn{color:#82632e}.chip{display:inline-block;padding:3px 7px;border-radius:999px;background:#f1f3f6;font-size:11px;font-weight:650}.chip.good{background:var(--soft-green)}.chip.bad{background:var(--soft-red)}.chip.warn{background:var(--soft-amber)}.timeline{display:flex;flex-direction:column;gap:10px}.timeline-item{display:grid;grid-template-columns:180px 12px minmax(0,1fr);gap:10px;align-items:start}.dot{width:10px;height:10px;border-radius:50%;background:var(--blue);margin-top:7px}.card{padding:12px;border:1px solid var(--line);border-radius:5px;background:#fff}.footer{color:var(--muted);font-size:12px;margin-top:18px}@media(max-width:850px){.layout{grid-template-columns:1fr}.nav{position:static}.main{padding:18px}.timeline-item{grid-template-columns:1fr}.dot{display:none}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14.5px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}.layout{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh}.nav{background:#2f3a4d;color:#e8edf4;padding:20px 14px}.brand{padding:4px 8px 18px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:14px}.brand strong{display:block;font-size:18px}.brand small{color:#bac4d2}.nav a{display:block;color:#d8e0ea;text-decoration:none;padding:9px 10px;border-radius:5px;margin:3px 0}.nav a.active,.nav a:hover{background:#46536a;color:#fff}.nav-context{display:block;color:#fff;padding:9px 10px;border-radius:5px;margin:3px 0;background:#46536a}.main{padding:30px clamp(18px,3vw,42px) 60px;max-width:1560px}.hero,.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 4px 16px rgba(47,58,78,.04);padding:22px;margin:0 0 16px}.eyebrow,.kicker{text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--muted);font-weight:700}.lead{max-width:78ch;color:#526074}.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;margin-top:16px}.metric{padding:12px 13px;border-radius:5px;background:#f7f8fb}.metric span{display:block;color:var(--muted);font-size:12px}.metric strong{font-size:18px}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{font-size:12px;color:var(--muted);font-weight:650}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.good{color:#35664a}.bad{color:#8f4245}.warn{color:#82632e}.chip{display:inline-block;padding:3px 7px;border-radius:999px;background:#f1f3f6;font-size:11px;font-weight:650}.chip.good{background:var(--soft-green)}.chip.bad{background:var(--soft-red)}.chip.warn{background:var(--soft-amber)}.timeline{display:flex;flex-direction:column;gap:10px}.timeline-item{display:grid;grid-template-columns:180px 12px minmax(0,1fr);gap:10px;align-items:start}.dot{width:10px;height:10px;border-radius:50%;background:var(--blue);margin-top:7px}.card{padding:12px;border:1px solid var(--line);border-radius:5px;background:#fff}.footer{color:var(--muted);font-size:12px;margin-top:18px}@media(max-width:850px){.layout{grid-template-columns:1fr}.nav{position:static}.main{padding:18px}.timeline-item{grid-template-columns:1fr}.dot{display:none}}
 """
 
 _NAV = (
@@ -26,16 +26,19 @@ _NAV = (
 )
 
 
-def _nav(current: str) -> str:
-    links = "".join(
-        f"<a class='{'active' if filename == current else ''}' href='{escape(filename)}'>{escape(label)}</a>"
-        for label, filename in _NAV
-    )
-    return f"<aside class='nav'><div class='brand'><strong>RASAI</strong><small>Product Platform</small></div>{links}</aside>"
+def _nav(current: str, *, platform_links: bool = True) -> str:
+    if platform_links:
+        content = "".join(
+            f"<a class='{'active' if filename == current else ''}' href='{escape(filename)}'>{escape(label)}</a>"
+            for label, filename in _NAV
+        )
+    else:
+        content = "<span class='nav-context'>Deployment Impact</span>"
+    return f"<aside class='nav'><div class='brand'><strong>RASAI</strong><small>Product Platform</small></div>{content}</aside>"
 
 
-def _shell(title: str, current: str, body: str) -> str:
-    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>{escape(title)} · RASAI</title><style>{_PLATFORM_CSS}</style></head><body><div class='layout'>{_nav(current)}<main class='main'>{body}<footer class='footer'>RASAI Product Platform · dados gerenciais derivados; AUD workspaces permanecem imutáveis.</footer></main></div></body></html>"""
+def _shell(title: str, current: str, body: str, *, platform_links: bool = True) -> str:
+    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>{escape(title)} · RASAI</title><style>{_PLATFORM_CSS}</style></head><body><div class='layout'>{_nav(current, platform_links=platform_links)}<main class='main'>{body}<footer class='footer'>RASAI Product Platform · dados gerenciais derivados; AUD workspaces permanecem imutáveis.</footer></main></div></body></html>"""
 
 
 def _metric(label: str, value: Any) -> str:
@@ -52,7 +55,7 @@ def write_platform_site(store: PlatformStore, output_dir: str | Path) -> Path:
     recent_audits = sorted(audits, key=lambda item: item.event_time, reverse=True)[:25]
     property_rows = []
     for prop in properties:
-        scoped = [item for item in audits if item.property_id == prop.property_id]
+        scoped = store.list_audits(property_id=prop.property_id)
         last = max(scoped, key=lambda item: item.event_time) if scoped else None
         hierarchy = store.hierarchy_for_property(prop.property_id)
         property_rows.append(
@@ -127,7 +130,9 @@ def write_deployment_report(
     ) or "<tr><td colspan=9>Sem mudanças materiais.</td></tr>"
     limitation_html = "".join(f"<li>{escape(x)}</li>" for x in result.compatibility_notes) or "<li>Nenhuma limitação adicional registrada.</li>"
     body = f"""<header class='hero'><div class='eyebrow'>Deployment Impact</div><h1>{escape(pair.milestone.title)}</h1><p class='lead'>Marco em {escape(pair.milestone.occurred_at)} · release {escape(pair.milestone.release or '—')} · commit {escape(pair.milestone.commit_sha or '—')}. Comparação técnica before/after; outcomes posteriores devem ser tratados como associação temporal até existir evidência causal independente.</p><div class='metric-grid'>{_metric('Baseline', pair.baseline_audit_id or '—')}{_metric('Current', pair.current_audit_id or '—')}{_metric('Comparável', 'SIM' if result.comparable else 'NÃO')}{_metric('Regressões', len(result.regressions))}{_metric('Melhorias', len(result.improvements))}{_metric('Release gate', 'PASS' if gate.passed else 'FAIL')}</div></header><section class='panel'><div class='kicker'>Baseline resolution</div><h2>Par selecionado</h2><p><strong>Antes:</strong> {escape(pair.baseline_reason)}<br><strong>Depois:</strong> {escape(pair.current_reason)}</p></section><section class='panel'><div class='kicker'>Material changes</div><h2>Mudanças detectadas</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Sev.</th><th>Domínio</th><th>Sinal/regra</th><th>Device</th><th>URL</th><th>Antes</th><th>Depois</th><th>Interpretação</th></tr></thead><tbody>{rows}</tbody></table></div></section><section class='panel'><h2>Limitações de comparabilidade</h2><ul>{limitation_html}</ul></section>"""
-    path.write_text(_shell("Deployment Impact", "deployments.html", body), encoding="utf-8", newline="\n")
+    # This report is stored under audits/deployments/<milestone>/, not inside
+    # the portfolio directory. Avoid emitting dead relative navigation links.
+    path.write_text(_shell("Deployment Impact", "deployments.html", body, platform_links=False), encoding="utf-8", newline="\n")
     manifest = {
         "schema": "RASAI-DEPLOYMENT-IMPACT-001",
         "milestone": asdict(pair.milestone),
