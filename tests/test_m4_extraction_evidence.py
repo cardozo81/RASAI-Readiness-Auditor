@@ -1,4 +1,4 @@
-"""Risk-oriented tests for M4 — Extraction + Evidence."""
+"""Risk-oriented tests for M4 - Extraction + Evidence."""
 
 from __future__ import annotations
 
@@ -8,11 +8,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from searchgeo.domain import Audit, DeviceContext, Page, PageSnapshot, new_id
-from searchgeo.extraction import ContentExtractor
-from searchgeo.m3 import M3ExecutionResult
-from searchgeo.m4 import execute_m4
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
+from rasai.domain import Audit, DeviceContext, Page, PageSnapshot, new_id
+from rasai.extraction import ContentExtractor
+from rasai.m3 import M3ExecutionResult
+from rasai.m4 import execute_m4
+from rasai.persistence import AuditPersistence, AuditWorkspace
 
 
 _HTML = """<!doctype html>

@@ -1,4 +1,4 @@
-"""Risk-oriented tests for M7 — Semantic Provider + Fallback."""
+"""Risk-oriented tests for M7 - Semantic Provider + Fallback."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from searchgeo.domain import (
+from rasai.domain import (
     ArchitectureClassification,
     Audit,
     AuditMode,
@@ -22,14 +22,14 @@ from searchgeo.domain import (
     RuleResult,
     new_id,
 )
-from searchgeo.m3 import M3ExecutionResult
-from searchgeo.m4 import M4ExecutionResult
-from searchgeo.m5 import M5ExecutionResult
-from searchgeo.m6 import M6ExecutionResult
-from searchgeo.m7 import execute_m7, m7_rule_ids
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
-from searchgeo.semantic import NoneProvider, OpenAIProvider, SEMANTIC_RULE_IDS
-from searchgeo.semantic_persistence import SemanticPersistence
+from rasai.m3 import M3ExecutionResult
+from rasai.m4 import M4ExecutionResult
+from rasai.m5 import M5ExecutionResult
+from rasai.m6 import M6ExecutionResult
+from rasai.m7 import execute_m7, m7_rule_ids
+from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.semantic import NoneProvider, OpenAIProvider, SEMANTIC_RULE_IDS
+from rasai.semantic_persistence import SemanticPersistence
 
 
 _NOW = datetime(2026, 9, 2, 18, 0, tzinfo=timezone.utc)

@@ -10,15 +10,15 @@ from tempfile import TemporaryDirectory
 from threading import Thread
 import unittest
 
-from searchgeo.acquisition import HttpClient
-from searchgeo.discovery import DiscoveryEngine, SitemapState
-from searchgeo.domain import Audit, AuditTarget, TargetType, new_id
-from searchgeo.m2 import execute_m2
-from searchgeo.m24_cli import TECHNICAL_AI_ENV, configured_m24
-from searchgeo.m24_crawling_discovery import execute_m24
-from searchgeo.m24_discovery_extensions import install_discovery_extensions
-from searchgeo.m24_reporting import enrich_m24_report_site
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
+from rasai.acquisition import HttpClient
+from rasai.discovery import DiscoveryEngine, SitemapState
+from rasai.domain import Audit, AuditTarget, TargetType, new_id
+from rasai.m2 import execute_m2
+from rasai.m24_cli import TECHNICAL_AI_ENV, configured_m24
+from rasai.m24_crawling_discovery import execute_m24
+from rasai.m24_discovery_extensions import install_discovery_extensions
+from rasai.m24_reporting import enrich_m24_report_site
+from rasai.persistence import AuditPersistence, AuditWorkspace
 
 
 class _Handler(BaseHTTPRequestHandler):

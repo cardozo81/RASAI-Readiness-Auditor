@@ -6,9 +6,9 @@ import os
 import unittest
 from unittest.mock import patch
 
-from searchgeo.console_m23 import State
-from searchgeo.console_session import get_config_path, is_dirty, mark_dirty, set_config_path
-from searchgeo.console_settings import (
+from rasai.console_m23 import State
+from rasai.console_session import get_config_path, is_dirty, mark_dirty, set_config_path
+from rasai.console_settings import (
     configuration_fingerprint,
     load_console_config,
     save_console_config,
@@ -19,10 +19,10 @@ class ConsoleSettingsTests(unittest.TestCase):
     def test_missing_ini_is_created_with_defaults_and_no_secret(self) -> None:
         with TemporaryDirectory() as directory, patch.dict(
             os.environ,
-            {"OPENAI_API_KEY": "super-secret-value", "SEARCHGEO_PAGESPEED_API_KEY": "page-secret"},
+            {"OPENAI_API_KEY": "super-secret-value", "RASAI_PAGESPEED_API_KEY": "page-secret"},
             clear=False,
         ):
-            path = Path(directory) / "searchgeo-console.ini"
+            path = Path(directory) / "rasai-console.ini"
             state = State()
             result = load_console_config(state, path)
             self.assertTrue(result.created)
@@ -33,7 +33,7 @@ class ConsoleSettingsTests(unittest.TestCase):
             self.assertNotIn("super-secret-value", text)
             self.assertNotIn("page-secret", text)
             self.assertNotIn("OPENAI_API_KEY", text)
-            self.assertNotIn("SEARCHGEO_PAGESPEED_API_KEY", text)
+            self.assertNotIn("RASAI_PAGESPEED_API_KEY", text)
 
     def test_round_trip_persists_console_operational_parameters(self) -> None:
         with TemporaryDirectory() as directory:

@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from searchgeo.domain import (
+from rasai.domain import (
     Audit,
     AuditTarget,
     DeviceContext,
@@ -21,11 +21,11 @@ from searchgeo.domain import (
     Severity,
     TargetType,
 )
-from searchgeo.m14_persistence import M14Persistence
-from searchgeo.m16_root_cause import M16Persistence, materialize_root_causes
-from searchgeo.m17_precision import M17PrecisionPersistence, materialize_m17_precision
-from searchgeo.m17_reporting import M17RemediationReportBuilder, M17ReportBuilder, _ai_disclaimer
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
+from rasai.m14_persistence import M14Persistence
+from rasai.m16_root_cause import M16Persistence, materialize_root_causes
+from rasai.m17_precision import M17PrecisionPersistence, materialize_m17_precision
+from rasai.m17_reporting import M17RemediationReportBuilder, M17ReportBuilder, _ai_disclaimer
+from rasai.persistence import AuditPersistence, AuditWorkspace
 
 
 _NOW = datetime(2026, 9, 3, 10, 0, tzinfo=timezone.utc)

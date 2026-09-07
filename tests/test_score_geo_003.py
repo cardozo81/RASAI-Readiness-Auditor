@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 import tempfile
 
-from searchgeo.domain import DeviceContext, RuleExecution, RuleResult
-from searchgeo.score_geo_003 import (
+from rasai.domain import DeviceContext, RuleExecution, RuleResult
+from rasai.score_geo_003 import (
     CalibrationModel,
     FEATURE_ORDER,
     MODEL_FORMAT_VERSION,
@@ -14,9 +14,9 @@ from searchgeo.score_geo_003 import (
     load_model,
     write_model,
 )
-from searchgeo.score_geo_003_calibration import CalibrationRow, fit_calibration_model
-from searchgeo.scoring import ConsolidationStatus
-from searchgeo.scoring_v003 import ScoreGeo003Engine
+from rasai.score_geo_003_calibration import CalibrationRow, fit_calibration_model
+from rasai.scoring import ConsolidationStatus
+from rasai.scoring_v003 import ScoreGeo003Engine
 
 _NOW = datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc)
 _DEFAULT_DAYS = ("2026-09-01", "2026-09-02", "2026-09-03")

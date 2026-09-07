@@ -1,4 +1,4 @@
-"""Risk-oriented tests for M5 — Deterministic Rules Engine."""
+"""Risk-oriented tests for M5 - Deterministic Rules Engine."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from searchgeo.acquisition import HttpAcquisitionResult, NetworkError, NetworkErrorKind
-from searchgeo.discovery import (
+from rasai.acquisition import HttpAcquisitionResult, NetworkError, NetworkErrorKind
+from rasai.discovery import (
     DiscoveredPage,
     DiscoveryResult,
     RobotsResult,
@@ -16,7 +16,7 @@ from searchgeo.discovery import (
     SitemapResult,
     SitemapState,
 )
-from searchgeo.domain import (
+from rasai.domain import (
     Audit,
     AuditTarget,
     DeviceContext,
@@ -30,12 +30,12 @@ from searchgeo.domain import (
     TargetType,
     new_id,
 )
-from searchgeo.m2 import M2ExecutionResult
-from searchgeo.m3 import M3ExecutionResult
-from searchgeo.m4 import M4ExecutionResult
-from searchgeo.m5 import execute_m5
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
-from searchgeo.rules import RuleDefinition, RuleRegistry, RuleScope, baseline_registry
+from rasai.m2 import M2ExecutionResult
+from rasai.m3 import M3ExecutionResult
+from rasai.m4 import M4ExecutionResult
+from rasai.m5 import execute_m5
+from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.rules import RuleDefinition, RuleRegistry, RuleScope, baseline_registry
 
 
 _NOW = datetime(2026, 9, 2, 16, 30, tzinfo=timezone.utc)

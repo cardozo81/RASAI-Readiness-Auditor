@@ -1,6 +1,6 @@
 # RASAi Monitor & Search/AI Observability
 
-**Status:** IMPLEMENTED CANDIDATE — PR #82; CI obrigatória no head corrente e smoke humano requerido antes do merge.
+**Status:** IMPLEMENTED CANDIDATE - PR #82; CI obrigatória no head corrente e smoke humano requerido antes do merge.
 **Natureza:** capacidades derivadas/complementares, read-only sobre a evidência de auditoria e non-scoring por padrão.
 
 ## 1. Objetivo
@@ -141,7 +141,7 @@ Regras:
 
 ## 5. Google Search Console
 
-Autenticação usa OAuth bearer token em runtime (`GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` por default da CLI). O token nunca é persistido.
+Autenticação usa OAuth bearer token em runtime (`RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` por default da CLI). O token nunca é persistido.
 
 ### 5.1 Properties / Sites
 

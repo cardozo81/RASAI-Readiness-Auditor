@@ -9,7 +9,7 @@ import tempfile
 import threading
 import unittest
 
-from searchgeo.cli_extensions import main
+from rasai.cli_extensions import main
 
 _HTML = b"""<!doctype html><html lang='pt-BR'><head><title>M23 local</title><meta name='description' content='fixture local'><link rel='canonical' href='/'></head><body><header><nav><a href='/'>Inicio</a></nav></header><main><h1>Fixture M23</h1><p>Conteudo controlado para validar Synthetic Navigation Apdex sem trafego externo de API.</p></main></body></html>"""
 

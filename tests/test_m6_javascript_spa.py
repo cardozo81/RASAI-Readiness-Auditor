@@ -1,4 +1,4 @@
-"""Risk-oriented tests for M6 — JavaScript / SPA."""
+"""Risk-oriented tests for M6 - JavaScript / SPA."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from searchgeo.acquisition import HttpAcquisitionResult
-from searchgeo.discovery import DiscoveredPage, DiscoveryResult, RobotsResult, RobotsState
-from searchgeo.domain import (
+from rasai.acquisition import HttpAcquisitionResult
+from rasai.discovery import DiscoveredPage, DiscoveryResult, RobotsResult, RobotsState
+from rasai.domain import (
     ArchitectureClassification,
     Audit,
     DeviceContext,
@@ -20,13 +20,13 @@ from searchgeo.domain import (
     RuleResult,
     new_id,
 )
-from searchgeo.javascript_spa import JavascriptSpaAnalyzer
-from searchgeo.m2 import M2ExecutionResult
-from searchgeo.m3 import M3ExecutionResult
-from searchgeo.m4 import M4ExecutionResult
-from searchgeo.m5 import M5ExecutionResult
-from searchgeo.m6 import execute_m6
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
+from rasai.javascript_spa import JavascriptSpaAnalyzer
+from rasai.m2 import M2ExecutionResult
+from rasai.m3 import M3ExecutionResult
+from rasai.m4 import M4ExecutionResult
+from rasai.m5 import M5ExecutionResult
+from rasai.m6 import execute_m6
+from rasai.persistence import AuditPersistence, AuditWorkspace
 
 
 _NOW = datetime(2026, 9, 2, 17, 0, tzinfo=timezone.utc)

@@ -5,7 +5,7 @@ O registry canônico centraliza metadados usados por CLI, console e adapters par
 Arquivo principal:
 
 ```text
-src/searchgeo/provider_registry.py
+src/rasai/provider_registry.py
 ```
 
 ## Providers concretos

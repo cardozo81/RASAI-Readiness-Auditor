@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 import json
 import unittest
 
-from searchgeo.domain import DeviceContext, RuleExecution, RuleResult
-from searchgeo.m11 import _PersistedInputAwareReportBuilder
-from searchgeo.m9 import _reproducibility_check
-from searchgeo.scoring import ScoringEngine, ScoringResult
+from rasai.domain import DeviceContext, RuleExecution, RuleResult
+from rasai.m11 import _PersistedInputAwareReportBuilder
+from rasai.m9 import _reproducibility_check
+from rasai.scoring import ScoringEngine, ScoringResult
 
 
 _NOW = datetime(2026, 9, 3, 12, 0, tzinfo=timezone.utc)
@@ -117,7 +117,7 @@ class HotfixAIReportingIntegrityTests(unittest.TestCase):
 
         self.assertIn("TENTATIVA SEM SUCESSO", html)
         self.assertIn("Provider configurado", html)
-        self.assertIn("OPENAI — CHAMADA INDISPONÍVEL", html)
+        self.assertIn("OPENAI - CHAMADA INDISPONÍVEL", html)
         self.assertIn("CONFIGURADO · NÃO CONFIRMADO PELA API", html)
         self.assertIn("HTTP_429", html)
         self.assertNotIn("<small>Modelo</small><strong>NÃO APLICÁVEL", html)

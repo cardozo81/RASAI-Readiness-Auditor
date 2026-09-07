@@ -1,4 +1,4 @@
-# Precisão e consistência das recomendações — Remediation Precision + Report Consistency
+# Precisão e consistência das recomendações - Remediation Precision + Report Consistency
 
 **Status:** APPROVED EVOLUTION
 **Baseline de entrada:** Remediação por causa raiz e elemento integrado em `main`

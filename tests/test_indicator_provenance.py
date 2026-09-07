@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from searchgeo.indicator_provenance import (
+from rasai.indicator_provenance import (
     INDICATORS,
     PROVENANCE_MARKER,
     enrich_indicator_provenance_html,
 )
-from searchgeo.report_semantics import enhance_report_html
+from rasai.report_semantics import enhance_report_html
 
 
 def _shell() -> str:
@@ -28,14 +28,14 @@ def test_central_report_semantics_pipeline_applies_provenance() -> None:
     assert "Evidências RASAi por dispositivo" in html
 
 
-def test_searchgeo_page_has_explicit_internal_methodological_nature() -> None:
+def test_rasai_page_has_explicit_internal_methodological_nature() -> None:
     html = enrich_indicator_provenance_html(_shell(), page_name="readiness.html")
     assert "Heurística RASAi evidence-based" in html
     assert "SARI-001" in html
     assert "SCORE-GEO-002" in html
 
 
-def test_external_metric_pages_are_not_presented_as_searchgeo_score() -> None:
+def test_external_metric_pages_are_not_presented_as_rasai_score() -> None:
     html = enrich_indicator_provenance_html(_shell(), page_name="web-performance.html")
     assert "Métricas externas definidas" in html
     assert "sem convertê-los em SARI-001" in html
@@ -73,7 +73,7 @@ def test_enrichment_is_idempotent_and_unknown_pages_are_untouched() -> None:
 def test_inventory_has_explicit_classification_and_no_fake_external_source_for_internal_index() -> None:
     assert INDICATORS
     score = next(item for item in INDICATORS if item.indicator.startswith("Search & AI Readiness Index"))
-    assert score.classification == "SEARCHGEO_HEURISTIC"
+    assert score.classification == "RASAI_HEURISTIC"
     assert score.source_url is None
-    assert "SCORE-GEO-002" in score.searchgeo_logic
+    assert "SCORE-GEO-002" in score.rasai_logic
     assert all(item.classification for item in INDICATORS)

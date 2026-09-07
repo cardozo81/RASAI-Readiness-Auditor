@@ -1,6 +1,6 @@
-# Análise semântica por IA, roteamento e telemetria — Multi-AI Provider Abstraction, Reliability Routing & Usage Telemetry
+# Análise semântica por IA, roteamento e telemetria - Multi-AI Provider Abstraction, Reliability Routing & Usage Telemetry
 
-**Status:** APPROVED — reconciliado com `SARI-001`/`SCORE-GEO-003`, report site e contexto de dispositivo configurável.
+**Status:** APPROVED - reconciliado com `SARI-001`/`SCORE-GEO-003`, report site e contexto de dispositivo configurável.
 
 Análise semântica por IA, roteamento e telemetria é uma extensão aditiva de infraestrutura de IA. Não transforma LLM em scoring engine, não altera as Business Rules e não converte falha/ausência de IA em defeito do website. O método de scoring usado pela auditoria é `SCORE-GEO-003`.
 
@@ -43,11 +43,11 @@ Falha qualificadora antes de resultado válido permite fallback na mesma URL som
 
 Quando mais de um dispositivo é auditado, o primeiro provider que entrega resultado válido para a URL fixa `PINNED_TO_URL`; os demais contextos dessa URL reutilizam esse provider. Se o provider fixado falhar no outro dispositivo, não ocorre troca silenciosa de fornecedor nessa mesma URL; a lacuna permanece degradada/UNKNOWN conforme dependências semânticas e o provider pode ser quarantined para URLs posteriores.
 
-O escopo de dispositivo é definido pelo runtime atual por `SEARCHGEO_DEVICE_CONTEXT` / `--device-context`:
+O escopo de dispositivo é definido pelo runtime atual por `RASAI_DEVICE_CONTEXT` / `--device-context`:
 
-- `mobile` — somente Mobile;
-- `desktop` — somente Desktop;
-- `both` — Desktop e Mobile.
+- `mobile` - somente Mobile;
+- `desktop` - somente Desktop;
+- `both` - Desktop e Mobile.
 
 A CLI usa `mobile` como default. Análise semântica por IA, roteamento e telemetria só pode chamar provider para snapshots/contextos efetivamente produzidos. Portanto um audit Mobile-only não deve gerar chamada Desktop apenas para completar simetria. Essa regra reduz custo sem alterar score retrospectivamente.
 
@@ -63,7 +63,7 @@ Falha do provider nunca cria finding do website por si só. Dependências semân
 
 ## Timeout
 
-O timeout operacional da CLI é configurável por `SEARCHGEO_AI_TIMEOUT_SECONDS` e possui default atual de 180 segundos por chamada. O valor deve ser finito e maior que zero.
+O timeout operacional da CLI é configurável por `RASAI_AI_TIMEOUT_SECONDS` e possui default atual de 180 segundos por chamada. O valor deve ser finito e maior que zero.
 
 Timeout não implica retry automático da mesma chamada, evitando consumo duplicado quando a requisição pode ter alcançado o provider.
 

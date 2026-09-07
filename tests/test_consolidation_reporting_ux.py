@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from searchgeo.consolidation.service import generate, normalize_filter
+from rasai.consolidation.service import generate, normalize_filter
 from tests.test_consolidation import _make_audit
 
 
@@ -30,7 +30,7 @@ class ConsolidationReportingUXTests(unittest.TestCase):
             self.assertIn("Validação externa do SCORE-GEO", html)
             self.assertIn("Pesquisar", html)
             self.assertIn("Linhas por página", html)
-            self.assertNotIn("—%", html)
+            self.assertNotIn("-%", html)
             self.assertNotIn('{&quot;HIGH&quot;', html)
 
             manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))

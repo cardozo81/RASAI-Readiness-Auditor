@@ -68,16 +68,16 @@ Confidence × 15%
 +
 Ease × 10%
 
-Resultado 0–100.
+Resultado 0-100.
 
 Effort nunca deve reduzir artificialmente a importância de blocker crítico.
 
 ## 7. Classes
 
 P0 = blocker por regra especial
-P1 = 75–100
-P2 = 60–74.9
-P3 = 40–59.9
+P1 = 75-100
+P2 = 60-74.9
+P3 = 40-59.9
 P4 = <40
 INFO = informacional
 

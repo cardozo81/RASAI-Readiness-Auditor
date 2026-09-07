@@ -1,6 +1,6 @@
 # WORKFLOWS.md
 
-**Status:** APPROVED — reconciliado com RASAi/SARI-001, `SCORE-GEO-003`, device context configurável e REPORT-SITE-GEO-001
+**Status:** APPROVED - reconciliado com RASAi/SARI-001, `SCORE-GEO-003`, device context configurável e REPORT-SITE-GEO-001
 
 ## 1. Princípios
 

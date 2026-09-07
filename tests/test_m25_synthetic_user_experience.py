@@ -6,9 +6,9 @@ import sqlite3
 import tempfile
 import unittest
 
-from searchgeo.cli_extensions import build_parser
-from searchgeo.m23_cli import configured_apdex
-from searchgeo.m25_apdex_experience import (
+from rasai.cli_extensions import build_parser
+from rasai.m23_cli import configured_apdex
+from rasai.m25_apdex_experience import (
     Calibration,
     ExperienceApdexConfig,
     UxMeasurement,
@@ -16,10 +16,10 @@ from searchgeo.m25_apdex_experience import (
     classify_measurement,
     execute_m25_experience,
 )
-from searchgeo.m25_cli import parse_device_mix
-from searchgeo.m25_dynatrace import parse_dynatrace_configuration
-from searchgeo.m25_runtime import consume_pending_config, peek_pending_config
-from searchgeo.persistence import AuditWorkspace
+from rasai.m25_cli import parse_device_mix
+from rasai.m25_dynatrace import parse_dynatrace_configuration
+from rasai.m25_runtime import consume_pending_config, peek_pending_config
+from rasai.persistence import AuditWorkspace
 
 
 class _Gateway:
@@ -225,7 +225,7 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
                 "loadActionApdexSettings": {"toleratedThreshold": 1000, "frustratingThreshold": 4000},
                 "arbitraryPrivateConfiguration": "do-not-copy",
             }), encoding="utf-8")
-            from searchgeo.m25_dynatrace import load_dynatrace_calibration
+            from rasai.m25_dynatrace import load_dynatrace_calibration
             value = load_dynatrace_calibration(base_url=None, application_id=None, config_json_path=str(path))
             self.assertEqual(value.satisfied_threshold_seconds, 1.0)
             self.assertFalse(value.metadata["raw_configuration_persisted"])

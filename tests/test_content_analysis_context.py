@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from searchgeo.content_context import (
+from rasai.content_context import (
     build_content_analysis_context,
     configured_content_analysis_context,
 )
-from searchgeo.m20_ai import ContentRemediationRequest
-from searchgeo.m20_reporting import _context_panel, _telemetry_summary
-from searchgeo.openai_provider import SEMANTIC_RULE_CRITERIA
-from searchgeo.provider_runtime_policy import build_semantic_provider
+from rasai.m20_ai import ContentRemediationRequest
+from rasai.m20_reporting import _context_panel, _telemetry_summary
+from rasai.openai_provider import SEMANTIC_RULE_CRITERIA
+from rasai.provider_runtime_policy import build_semantic_provider
 
 
 def test_content_context_defaults_are_explicitly_auto() -> None:
@@ -63,9 +63,9 @@ def test_inconsistent_ymyl_combinations_fail_closed() -> None:
 def test_environment_context_is_normalized_and_validated() -> None:
     context = configured_content_analysis_context(
         {
-            "SEARCHGEO_CONTENT_RISK_PROFILE": "YMYL",
-            "SEARCHGEO_YMYL_CATEGORY": "HEALTH-SAFETY",
-            "SEARCHGEO_PAGE_PURPOSE": "INFORMATIONAL",
+            "RASAI_CONTENT_RISK_PROFILE": "YMYL",
+            "RASAI_YMYL_CATEGORY": "HEALTH-SAFETY",
+            "RASAI_PAGE_PURPOSE": "INFORMATIONAL",
         }
     )
     assert context.risk_profile.value == "ymyl"
@@ -79,15 +79,15 @@ def test_provider_build_validates_context_even_when_ai_is_none() -> None:
         build_semantic_provider(
             "none",
             env={
-                "SEARCHGEO_CONTENT_RISK_PROFILE": "standard",
-                "SEARCHGEO_YMYL_CATEGORY": "financial-security",
+                "RASAI_CONTENT_RISK_PROFILE": "standard",
+                "RASAI_YMYL_CATEGORY": "financial-security",
             },
         )
 
 
 def test_semantic_prompt_contract_receives_context(monkeypatch) -> None:
-    monkeypatch.setenv("SEARCHGEO_CONTENT_RISK_PROFILE", "ymyl")
-    monkeypatch.setenv("SEARCHGEO_YMYL_CATEGORY", "financial-security")
+    monkeypatch.setenv("RASAI_CONTENT_RISK_PROFILE", "ymyl")
+    monkeypatch.setenv("RASAI_YMYL_CATEGORY", "financial-security")
     rendered = f"{SEMANTIC_RULE_CRITERIA['BR-GEO-049']}"
     assert "content_analysis_context" in rendered
     assert '"risk_profile": "ymyl"' in rendered
@@ -95,8 +95,8 @@ def test_semantic_prompt_contract_receives_context(monkeypatch) -> None:
 
 
 def test_m20_payload_carries_same_context(monkeypatch) -> None:
-    monkeypatch.setenv("SEARCHGEO_CONTENT_RISK_PROFILE", "ymyl")
-    monkeypatch.setenv("SEARCHGEO_YMYL_CATEGORY", "financial-security")
+    monkeypatch.setenv("RASAI_CONTENT_RISK_PROFILE", "ymyl")
+    monkeypatch.setenv("RASAI_YMYL_CATEGORY", "financial-security")
     request = ContentRemediationRequest(
         snapshot_id="SNP-1",
         page_id="PAG-1",

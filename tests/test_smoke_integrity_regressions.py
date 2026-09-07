@@ -4,11 +4,11 @@ import json
 from pathlib import Path
 import unittest
 
-from searchgeo.browser_identity_renderer import BrowserIdentityRenderer
-from searchgeo.domain import DeviceContext, RuleExecution, RuleResult
-from searchgeo.rendering import BrowserRenderResult, RenderErrorKind
-from searchgeo.scoring import ScoringEngine
-from searchgeo.semantic import _extract_json_payload
+from rasai.browser_identity_renderer import BrowserIdentityRenderer
+from rasai.domain import DeviceContext, RuleExecution, RuleResult
+from rasai.rendering import BrowserRenderResult, RenderErrorKind
+from rasai.scoring import ScoringEngine
+from rasai.semantic import _extract_json_payload
 
 
 class _FakeBrowser:
@@ -125,7 +125,7 @@ class SmokeIntegrityRegressionTests(unittest.TestCase):
             _extract_json_payload({"output_text": "texto antes\n{\"a\": 1}"})
 
     def test_report_sources_have_no_gradients(self) -> None:
-        for path in Path("src/searchgeo").glob("*.py"):
+        for path in Path("src/rasai").glob("*.py"):
             if "report" not in path.name and "reporting" not in path.name:
                 continue
             text = path.read_text(encoding="utf-8").casefold()
@@ -133,8 +133,8 @@ class SmokeIntegrityRegressionTests(unittest.TestCase):
             self.assertNotIn("radial-gradient", text, path)
 
     def test_console_back_action_is_v_and_actions_are_not_pipe_compacted(self) -> None:
-        interactive = Path("src/searchgeo/interactive_console.py").read_text(encoding="utf-8")
-        environment = Path("src/searchgeo/console_environment.py").read_text(encoding="utf-8")
+        interactive = Path("src/rasai/interactive_console.py").read_text(encoding="utf-8")
+        environment = Path("src/rasai/console_environment.py").read_text(encoding="utf-8")
         self.assertNotIn("0. cancelar", interactive)
         self.assertNotIn("M. Voltar ao menu", interactive)
         self.assertNotIn("V=voltar:", interactive)

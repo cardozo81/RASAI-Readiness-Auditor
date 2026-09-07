@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "searchgeo-readiness-auditor"
+name = "rasai-readiness-auditor"
 version = "0.1.0"
-description = "RASAi — Search & AI Readiness Auditor. Python package namespace: searchgeo."
+description = "RASAi - Search & AI Readiness Auditor. Python package namespace: rasai."
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "playwright>=1.57,<2",
@@ -13,10 +13,8 @@ dependencies = [
 ]
 
 [project.scripts]
-rasai = "searchgeo.entrypoint:main"
-rasai-console = "searchgeo.console_entrypoint:main"
-searchgeo = "searchgeo.entrypoint:main"
-searchgeo-console = "searchgeo.console_entrypoint:main"
+rasai = "rasai.entrypoint:main"
+rasai-console = "rasai.console_entrypoint:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

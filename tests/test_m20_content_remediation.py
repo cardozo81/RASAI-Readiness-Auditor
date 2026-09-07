@@ -7,7 +7,7 @@ import sqlite3
 import tempfile
 import unittest
 
-from searchgeo.domain import (
+from rasai.domain import (
     Audit,
     AuditTarget,
     DeviceContext,
@@ -23,10 +23,10 @@ from searchgeo.domain import (
     Severity,
     TargetType,
 )
-from searchgeo.m18_ai import OpenAIProvider
-from searchgeo.m20 import execute_m20
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
-from searchgeo.semantic import NoneProvider
+from rasai.m18_ai import OpenAIProvider
+from rasai.m20 import execute_m20
+from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.semantic import NoneProvider
 
 _NOW = datetime(2026, 9, 3, 12, 0, tzinfo=timezone.utc)
 

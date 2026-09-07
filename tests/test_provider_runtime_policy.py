@@ -4,8 +4,8 @@ import os
 import unittest
 from unittest.mock import patch
 
-from searchgeo.console_config import State
-from searchgeo.provider_runtime_policy import (
+from rasai.console_config import State
+from rasai.provider_runtime_policy import (
     DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS,
     LOWEST_REASONING,
     SIMPLE_DEFAULT_MODELS,
@@ -31,20 +31,20 @@ class ProviderRuntimePolicyTests(unittest.TestCase):
 
     def test_explicit_environment_override_is_preserved(self) -> None:
         env = environment_with_public_defaults({
-            "SEARCHGEO_OPENAI_MODEL": "gpt-5.6-sol",
-            "SEARCHGEO_OPENAI_REASONING_EFFORT": "HIGH",
+            "RASAI_OPENAI_MODEL": "gpt-5.6-sol",
+            "RASAI_OPENAI_REASONING_EFFORT": "HIGH",
         })
-        self.assertEqual(env["SEARCHGEO_OPENAI_MODEL"], "gpt-5.6-sol")
-        self.assertEqual(env["SEARCHGEO_OPENAI_REASONING_EFFORT"], "HIGH")
+        self.assertEqual(env["RASAI_OPENAI_MODEL"], "gpt-5.6-sol")
+        self.assertEqual(env["RASAI_OPENAI_REASONING_EFFORT"], "HIGH")
 
     def test_console_web_timeout_default_is_120_seconds(self) -> None:
         self.assertEqual(DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS, 120.0)
         self.assertEqual(State().web_timeout, 120.0)
 
     def test_xai_and_gemini_payloads_are_lowered(self) -> None:
-        xai = build_semantic_provider("xai", env={"XAI_API_KEY": "x", "SEARCHGEO_XAI_MODEL": "grok-4.6"})
+        xai = build_semantic_provider("xai", env={"XAI_API_KEY": "x", "RASAI_XAI_MODEL": "grok-4.6"})
         self.assertEqual(xai.reasoning_profile, "LOW")
-        gemini = build_semantic_provider("gemini", env={"GEMINI_API_KEY": "x", "SEARCHGEO_GEMINI_MODEL": "gemini-3.8-flash"})
+        gemini = build_semantic_provider("gemini", env={"GEMINI_API_KEY": "x", "RASAI_GEMINI_MODEL": "gemini-3.8-flash"})
         self.assertEqual(gemini.reasoning_profile, "LOW")
 
 

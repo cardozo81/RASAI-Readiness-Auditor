@@ -49,12 +49,12 @@ Troca de hostname e salto `HTTPS → HTTP` recebem destaque porque merecem revis
 
 A política `SOURCE-QUALITY-1` considera sinais fortes de bloqueio, entre outros:
 
-- `TLS` — certificado/cadeia/hostname não validável;
-- `DNS` — hostname não resolvido;
-- `REDIRECT_LOOP` — cadeia circular;
-- `TOO_MANY_REDIRECTS` — limite de saltos excedido;
-- `INVALID_REDIRECT` — `Location` ausente ou inválido;
-- `PROTOCOL` — falha do protocolo HTTP antes de resposta utilizável.
+- `TLS` - certificado/cadeia/hostname não validável;
+- `DNS` - hostname não resolvido;
+- `REDIRECT_LOOP` - cadeia circular;
+- `TOO_MANY_REDIRECTS` - limite de saltos excedido;
+- `INVALID_REDIRECT` - `Location` ausente ou inválido;
+- `PROTOCOL` - falha do protocolo HTTP antes de resposta utilizável.
 
 `TIMEOUT` e erro genérico de conexão não são tratados automaticamente como bloqueadores definitivos nessa política, pois podem ser transitórios. Eles continuam registrados e analisáveis.
 

@@ -1,4 +1,4 @@
-# Remediação por causa raiz e elemento — Root Cause + Element-Level Remediation
+# Remediação por causa raiz e elemento - Root Cause + Element-Level Remediation
 
 **Status:** APPROVED EVOLUTION
 **Baseline de entrada:** Experiência e organização dos relatórios + OpenAI provider hardening integrado em `main`
@@ -29,9 +29,9 @@ Remediação por causa raiz e elemento não pode criar falsa precisão.
 
 Há três classes de localização:
 
-1. `EXACT_ELEMENT` — finding possui vínculo determinístico com um único `ElementObservation`;
-2. `ELEMENT_SET_OR_CONTEXT` — regra pertence a conjunto de nós ou região de conteúdo; vários elementos/um contêiner contextual podem ser mostrados sem afirmar que um único nó é a causa;
-3. `RESOURCE_OR_DOCUMENT` — causa pertence a HTTP, header, robots.txt, sitemap ou documento e não possui selector DOM aplicável.
+1. `EXACT_ELEMENT` - finding possui vínculo determinístico com um único `ElementObservation`;
+2. `ELEMENT_SET_OR_CONTEXT` - regra pertence a conjunto de nós ou região de conteúdo; vários elementos/um contêiner contextual podem ser mostrados sem afirmar que um único nó é a causa;
+3. `RESOURCE_OR_DOCUMENT` - causa pertence a HTTP, header, robots.txt, sitemap ou documento e não possui selector DOM aplicável.
 
 Quando um selector não puder ser provado:
 

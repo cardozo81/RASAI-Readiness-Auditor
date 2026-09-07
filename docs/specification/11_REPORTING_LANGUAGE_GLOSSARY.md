@@ -1,6 +1,6 @@
 # REPORTING_LANGUAGE_GLOSSARY.md
 
-**Status:** APPROVED — extended through Web Performance externo Web Performance Evidence
+**Status:** APPROVED - extended through Web Performance externo Web Performance Evidence
 
 ## 1. Regra editorial
 
@@ -134,7 +134,7 @@ COMPATIBILIDADE GEO
 NÃO DETERMINADA
 ```
 
-Não usar somente `—` como estado principal.
+Não usar somente `-` como estado principal.
 
 Não apresentar Coverage como substituto de Readiness Search & AI.
 
@@ -169,11 +169,11 @@ Estados textuais possíveis incluem:
 
 | Faixa | Termo |
 |---:|---|
-| 90–100 | Excelente |
-| 75–89 | Alta |
-| 60–74 | Moderada |
-| 40–59 | Baixa |
-| 0–39 | Crítica |
+| 90-100 | Excelente |
+| 75-89 | Alta |
+| 60-74 | Moderada |
+| 40-59 | Baixa |
+| 0-39 | Crítica |
 | sem resultado válido | Não Determinada |
 
 A tabela acima é classificação interna para scores RASAi válidos. Ela não deve ser reutilizada automaticamente para classificar `Lighthouse Performance`, cujo score pertence à metodologia externa do Lighthouse.
@@ -214,9 +214,9 @@ Canonical (URL canônica)
 
 Soft 404 (página com semântica de erro sem status HTTP apropriado)
 
-Client-Side Rendering — CSR (renderização no navegador)
+Client-Side Rendering - CSR (renderização no navegador)
 
-CrUX (Chrome UX Report — dados agregados de usuários reais)
+CrUX (Chrome UX Report - dados agregados de usuários reais)
 
 Lighthouse Performance (score de laboratório do Lighthouse)
 

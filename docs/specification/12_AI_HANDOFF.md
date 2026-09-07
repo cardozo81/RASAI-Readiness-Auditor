@@ -62,7 +62,7 @@ Nenhum marco pode ser considerado concluído apenas para permitir avanço. Bloqu
 - relatório HTML estático em português;
 - testes mínimos orientados a risco.
 
-## 6. Web Performance e observability externos — regra de continuidade
+## 6. Web Performance e observability externos - regra de continuidade
 
 Ao trabalhar com Core Web Vitals, Lighthouse ou Search/AI Observability:
 
@@ -104,7 +104,7 @@ A execução deve interromper quando houver condição que dependa necessariamen
 1. conflito normativo real não solucionável pela precedência documental;
 2. impossibilidade técnica material após investigação;
 3. alteração necessária de escopo ou comportamento funcional aprovado;
-4. mudança material em scoring, priorização ou interpretação oficial — inclusive incorporar sinais externos ao `SARI-001/SCORE-GEO-003`;
+4. mudança material em scoring, priorização ou interpretação oficial - inclusive incorporar sinais externos ao `SARI-001/SCORE-GEO-003`;
 5. política ou autorização corporativa necessária;
 6. credencial, segredo ou acesso externo indispensável e indisponível para um gate obrigatório;
 7. ação externa obrigatória que a ferramenta disponível não consiga executar;

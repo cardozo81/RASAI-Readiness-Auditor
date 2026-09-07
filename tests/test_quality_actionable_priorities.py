@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from searchgeo.quality.analysis import FindingAssessment, QualityBundle
-from searchgeo.quality.reporting import _actionable_findings
+from rasai.quality.analysis import FindingAssessment, QualityBundle
+from rasai.quality.reporting import _actionable_findings
 
 
 def _finding(finding_id: str, status: str, score: float) -> FindingAssessment:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from searchgeo.pre_scoring_rules import _duplicate_pairs
+from rasai.pre_scoring_rules import _duplicate_pairs
 
 
 class PreScoringRuleTests(unittest.TestCase):

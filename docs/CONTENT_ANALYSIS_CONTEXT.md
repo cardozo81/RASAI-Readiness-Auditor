@@ -1,4 +1,4 @@
-# Contexto de análise de conteúdo — YMYL, E-E-A-T e finalidade da página
+# Contexto de análise de conteúdo - YMYL, E-E-A-T e finalidade da página
 
 ## Objetivo
 
@@ -10,7 +10,7 @@ A configuração é especialmente útil em conteúdo **YMYL (Your Money or Your 
 
 Fontes normativas/conceituais usadas nesta implementação:
 
-1. **Google Search Central — Creating helpful, reliable, people-first content**
+1. **Google Search Central - Creating helpful, reliable, people-first content**
    <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
 
    A documentação declara, entre outros pontos, que:
@@ -22,12 +22,12 @@ Fontes normativas/conceituais usadas nesta implementação:
    - propósito do site, público existente/pretendido, experiência em primeira mão, completude e atualização são aspectos relevantes de conteúdo people-first;
    - E-E-A-T **não é, por si só, um fator específico de ranking**.
 
-2. **Google — Search Quality Rater Guidelines / overview**
+2. **Google - Search Quality Rater Guidelines / overview**
    <https://services.google.com/fh/files/misc/hsw-sqrg.pdf>
 
    As diretrizes são referência conceitual para propósito da página, Page Quality e Needs Met. Ratings humanos não são usados diretamente como ranking individual de uma página.
 
-3. **Google — How AI Overviews in Search work**
+3. **Google - How AI Overviews in Search work**
    <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf>
 
    O Google informa que consultas YMYL recebem uma barra mais alta para informações de suporte provenientes de fontes confiáveis.
@@ -47,7 +47,7 @@ Quando uma variável permanece `auto`, a IA pode usar apenas uma **hipótese de 
 
 Todas são opcionais e usam `auto` por padrão.
 
-### `SEARCHGEO_CONTENT_RISK_PROFILE`
+### `RASAI_CONTENT_RISK_PROFILE`
 
 Valores:
 
@@ -61,7 +61,7 @@ Use `ymyl` quando o conteúdo analisado puder afetar materialmente saúde, segur
 
 `auto` permite classificação provisória pela IA. Para sites claramente YMYL, prefira `ymyl` explícito.
 
-### `SEARCHGEO_YMYL_CATEGORY`
+### `RASAI_YMYL_CATEGORY`
 
 Valores:
 
@@ -81,7 +81,7 @@ Validações:
 - `risk_profile=standard` não aceita categoria YMYL explícita diferente de `none`/`auto`;
 - `risk_profile=ymyl` não aceita `ymyl_category=none`.
 
-### `SEARCHGEO_PAGE_PURPOSE`
+### `RASAI_PAGE_PURPOSE`
 
 Valores:
 
@@ -99,7 +99,7 @@ other
 
 Evita avaliar uma página transacional, uma review e uma documentação técnica com exatamente a mesma expectativa editorial.
 
-### `SEARCHGEO_INTENDED_AUDIENCE`
+### `RASAI_INTENDED_AUDIENCE`
 
 Valores:
 
@@ -112,7 +112,7 @@ mixed
 
 Ajuda a calibrar profundidade, explicações e necessidade de contexto. Não deve ser usado para inferir requisitos legais ou regulatórios.
 
-### `SEARCHGEO_EXPERIENCE_REQUIREMENT`
+### `RASAI_EXPERIENCE_REQUIREMENT`
 
 Valores:
 
@@ -131,7 +131,7 @@ Exemplos conceituais:
 - orientação médica: experiência pessoal não substitui expertise adequada e suporte factual;
 - documentação de API: experiência pessoal pode ser secundária frente à exatidão técnica.
 
-### `SEARCHGEO_FRESHNESS_SENSITIVITY`
+### `RASAI_FRESHNESS_SENSITIVITY`
 
 Valores:
 
@@ -144,7 +144,7 @@ high
 
 Quando `high`, a IA aplica maior rigor a datas, períodos, qualificadores temporais e coerência entre sinais de atualização. O sistema nunca deve propor alterar uma data apenas para aparentar conteúdo mais recente.
 
-### `SEARCHGEO_CONTENT_ORIGIN`
+### `RASAI_CONTENT_ORIGIN`
 
 Valores:
 
@@ -158,27 +158,27 @@ mixed
 
 Ajuda a distinguir autor/criador do conteúdo e entidade publicadora/host. É relevante para atribuição, responsabilidade editorial e avaliação de conteúdo de terceiros ou UGC.
 
-## Exemplo — site financeiro/YMYL
+## Exemplo - site financeiro/YMYL
 
 PowerShell:
 
 ```powershell
-$env:SEARCHGEO_CONTENT_RISK_PROFILE = "ymyl"
-$env:SEARCHGEO_YMYL_CATEGORY = "financial-security"
-$env:SEARCHGEO_PAGE_PURPOSE = "product-service"
-$env:SEARCHGEO_INTENDED_AUDIENCE = "general"
-$env:SEARCHGEO_EXPERIENCE_REQUIREMENT = "not-expected"
-$env:SEARCHGEO_FRESHNESS_SENSITIVITY = "high"
-$env:SEARCHGEO_CONTENT_ORIGIN = "first-party"
+$env:RASAI_CONTENT_RISK_PROFILE = "ymyl"
+$env:RASAI_YMYL_CATEGORY = "financial-security"
+$env:RASAI_PAGE_PURPOSE = "product-service"
+$env:RASAI_INTENDED_AUDIENCE = "general"
+$env:RASAI_EXPERIENCE_REQUIREMENT = "not-expected"
+$env:RASAI_FRESHNESS_SENSITIVITY = "high"
+$env:RASAI_CONTENT_ORIGIN = "first-party"
 ```
 
 Efeito esperado: a IA deve elevar a exigência de confiança, atribuição e suporte factual, prestar atenção especial a claims financeiros, datas, condições e qualificadores e evitar recomendações que criem promessas, garantias ou fatos não sustentados.
 
-## Exemplo — conteúdo comum com inferência parcial
+## Exemplo - conteúdo comum com inferência parcial
 
 ```powershell
-$env:SEARCHGEO_CONTENT_RISK_PROFILE = "standard"
-$env:SEARCHGEO_CONTENT_ORIGIN = "first-party"
+$env:RASAI_CONTENT_RISK_PROFILE = "standard"
+$env:RASAI_CONTENT_ORIGIN = "first-party"
 ```
 
 Os demais campos permanecem `auto`. O report classificará a origem do contexto como **MIXED**: parte configurada e parte inferível.

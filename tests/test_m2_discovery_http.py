@@ -10,12 +10,12 @@ from tempfile import TemporaryDirectory
 from threading import Thread
 import unittest
 
-from searchgeo.acquisition import HttpClient, NetworkErrorKind
-from searchgeo.discovery import DiscoveryEngine, RobotsState, SitemapState
-from searchgeo.domain import Audit, AuditTarget, EvidenceType, RuleResult, TargetType, new_id
-from searchgeo.m2 import execute_m2
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
-from searchgeo.url_utils import InvalidUrl, normalize_url, resolve_http_url
+from rasai.acquisition import HttpClient, NetworkErrorKind
+from rasai.discovery import DiscoveryEngine, RobotsState, SitemapState
+from rasai.domain import Audit, AuditTarget, EvidenceType, RuleResult, TargetType, new_id
+from rasai.m2 import execute_m2
+from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.url_utils import InvalidUrl, normalize_url, resolve_http_url
 
 
 class _FixtureHandler(BaseHTTPRequestHandler):

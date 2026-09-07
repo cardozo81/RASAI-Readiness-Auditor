@@ -7,11 +7,11 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from searchgeo.acquisition import HttpClient
-from searchgeo.audit_runner import run_audit
-from searchgeo.discovery import DiscoveryEngine
-from searchgeo.m18_ai import DeepSeekProvider, MiMoProvider, OpenAIProvider
-from searchgeo.m18_persistence import _resolve_session_status
+from rasai.acquisition import HttpClient
+from rasai.audit_runner import run_audit
+from rasai.discovery import DiscoveryEngine
+from rasai.m18_ai import DeepSeekProvider, MiMoProvider, OpenAIProvider
+from rasai.m18_persistence import _resolve_session_status
 from tests.test_m12_stable_baseline import _FixtureRenderer, _server
 
 
@@ -135,7 +135,7 @@ class M18OperationalContractTests(unittest.TestCase):
             "`--device-context`",
             "`--ai-provider`",
             "`--ai-model MODEL_ID`",
-            "`SEARCHGEO_DEVICE_CONTEXT`",
+            "`RASAI_DEVICE_CONTEXT`",
         )
         for token in required_tokens:
             with self.subTest(token=token):

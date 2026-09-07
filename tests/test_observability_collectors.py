@@ -7,10 +7,10 @@ from pathlib import Path
 import sqlite3
 import tempfile
 
-from searchgeo.observability.crux_history import collect_crux_history
-from searchgeo.observability.google_search_console import collect_search_analytics, collect_url_inspection
-from searchgeo.observability.importers import import_bing_search_performance_csv
-from searchgeo.observability.store import ObservabilityStore
+from rasai.observability.crux_history import collect_crux_history
+from rasai.observability.google_search_console import collect_search_analytics, collect_url_inspection
+from rasai.observability.importers import import_bing_search_performance_csv
+from rasai.observability.store import ObservabilityStore
 
 
 class _Response:

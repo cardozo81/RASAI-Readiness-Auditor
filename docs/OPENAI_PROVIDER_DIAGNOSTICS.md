@@ -48,7 +48,7 @@ Default CLI:
 Override:
 
 ```powershell
-$env:SEARCHGEO_AI_TIMEOUT_SECONDS = "240"
+$env:RASAI_AI_TIMEOUT_SECONDS = "240"
 ```
 
 Não existe retry automático após timeout.

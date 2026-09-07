@@ -28,7 +28,7 @@ O launcher foi criado para deixar o ambiente local pronto para **todas as capaci
 5. verifica se o pacote RASAi e as dependências-base declaradas em `pyproject.toml` estão instalados a partir deste repositório;
 6. lê também todos os grupos existentes em `[project.optional-dependencies]` e, quando existirem, inclui esses extras no comando de instalação para que recursos opcionais declarados pelo projeto também fiquem disponíveis;
 7. compara um hash local de `pyproject.toml` para detectar mudança de dependências, extras ou entrypoints sem reinstalar desnecessariamente a cada abertura;
-8. executa `pip install -e .` — ou `pip install -e ".[extra1,extra2,...]"` quando houver extras — somente quando a instalação local está ausente, inconsistente ou o `pyproject.toml` mudou;
+8. executa `pip install -e .` - ou `pip install -e ".[extra1,extra2,...]"` quando houver extras - somente quando a instalação local está ausente, inconsistente ou o `pyproject.toml` mudou;
 9. verifica o Chromium gerenciado pelo Playwright e executa `python -m playwright install chromium` somente quando o browser está ausente;
 10. abre imediatamente a primeira tela do console interativo pelo entrypoint oficial `rasai-console`.
 
@@ -133,7 +133,7 @@ python -m playwright install chromium
 
 ## Diagnóstico
 
-Se `searchgeo` não for reconhecido no terminal, confirme que a `.venv` está ativada ou use `iniciar.cmd`, que chama diretamente o executável do console dentro da `.venv`.
+Se `rasai` não for reconhecido no terminal, confirme que a `.venv` está ativada ou use `iniciar.cmd`, que chama diretamente o executável do console dentro da `.venv`.
 
 Se Chromium estiver ausente no fluxo manual:
 

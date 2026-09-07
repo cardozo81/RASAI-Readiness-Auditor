@@ -6,7 +6,7 @@ import sqlite3
 import tempfile
 import unittest
 
-from searchgeo.report_semantics import enhance_report_html
+from rasai.report_semantics import enhance_report_html
 
 
 class ReportSemanticTests(unittest.TestCase):
@@ -15,7 +15,7 @@ class ReportSemanticTests(unittest.TestCase):
             "<html><body><main><header><span>Confiança baixa</span></header>"
             "<section><h2>Dimensões Mobile</h2><table><tbody>"
             "<tr><td>Capacidade de indexação</td><td>75.0</td><td>67%</td><td>Baixa</td><td>Parcial</td></tr>"
-            "<tr><td>Dados estruturados</td><td>—</td><td>0%</td><td>Indisponível</td><td>Não aplicável</td></tr>"
+            "<tr><td>Dados estruturados</td><td>-</td><td>0%</td><td>Indisponível</td><td>Não aplicável</td></tr>"
             "</tbody></table></section></main></body></html>"
         )
         with tempfile.TemporaryDirectory() as tmp:
@@ -39,7 +39,7 @@ class ReportSemanticTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as tmp:
             output = enhance_report_html(html, page_name="web-performance.html", report_dir=Path(tmp))
-        self.assertIn("Ruim (0–49)", output)
+        self.assertIn("Ruim (0-49)", output)
         self.assertIn("Não aprovado no p75", output)
         self.assertEqual(output.count("Precisa melhorar</span>"), 2)
         self.assertIn("<span class='result-tag bad'>Ruim</span>", output)
@@ -74,7 +74,7 @@ class ReportSemanticTests(unittest.TestCase):
             db.execute("CREATE TABLE synthetic_apdex_summaries(url TEXT, device TEXT, profile_id TEXT)")
             configuration = {
                 "mobile_profile": {
-                    "profile_id": "SEARCHGEO_MOBILE_TEST",
+                    "profile_id": "RASAI_MOBILE_TEST",
                     "cpu_slowdown": 4.0,
                     "rtt_ms": 150.0,
                     "download_kbps": 1638.4,
@@ -82,7 +82,7 @@ class ReportSemanticTests(unittest.TestCase):
                     "viewport": {"width": 412, "height": 915},
                 },
                 "desktop_profile": {
-                    "profile_id": "SEARCHGEO_DESKTOP_TEST",
+                    "profile_id": "RASAI_DESKTOP_TEST",
                     "cpu_slowdown": 1.0,
                     "rtt_ms": 40.0,
                     "download_kbps": 10240.0,
@@ -93,7 +93,7 @@ class ReportSemanticTests(unittest.TestCase):
             db.execute("INSERT INTO synthetic_apdex_runs VALUES (?)", (json.dumps(configuration),))
             db.execute(
                 "INSERT INTO synthetic_apdex_summaries VALUES (?,?,?)",
-                ("https://example.test/", "MOBILE", "SEARCHGEO_MOBILE_TEST"),
+                ("https://example.test/", "MOBILE", "RASAI_MOBILE_TEST"),
             )
             db.commit()
             db.close()
@@ -102,14 +102,14 @@ class ReportSemanticTests(unittest.TestCase):
                 "<article class='page-card apdex-card'>"
                 "<span class='badge'>MOBILE</span><h3 class='page-url'>https://example.test/</h3>"
                 "<div class='metric'><small>Apdex</small><strong>1.00 [8.0]*</strong></div>"
-                "<p class='intro'><strong>Perfil sintético:</strong> SEARCHGEO_DESKTOP_TEST · CPU 1.0×</p>"
+                "<p class='intro'><strong>Perfil sintético:</strong> RASAI_DESKTOP_TEST · CPU 1.0×</p>"
                 "<div class='notice'><strong>Correlação com campo</strong><span>CrUX/Core Web Vitals também não aprovou neste contexto.</span></div>"
                 "</article></main></body></html>"
             )
             output = enhance_report_html(html, page_name="apdex.html", report_dir=report_dir)
             second = enhance_report_html(output, page_name="apdex.html", report_dir=report_dir)
-        self.assertIn("SEARCHGEO_MOBILE_TEST", output)
-        self.assertNotIn("SEARCHGEO_DESKTOP_TEST", output)
+        self.assertIn("RASAI_MOBILE_TEST", output)
+        self.assertNotIn("RASAI_DESKTOP_TEST", output)
         self.assertIn("T=8s", output)
         self.assertIn("notice warn", output)
         self.assertEqual(second.count("apdex-conflict"), 1)

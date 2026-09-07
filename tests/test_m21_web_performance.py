@@ -8,11 +8,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from searchgeo.cli import _configured_web_performance, build_parser
-from searchgeo.domain import Audit, AuditTarget, DeviceContext, DiscoverySource, Page, PageSnapshot, TargetType
-from searchgeo.m21_reporting import enrich_m21_report_site
-from searchgeo.m21_web_performance import ExternalServiceError, HttpJsonResult, WebPerformanceConfig, execute_m21
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
+from rasai.cli import _configured_web_performance, build_parser
+from rasai.domain import Audit, AuditTarget, DeviceContext, DiscoverySource, Page, PageSnapshot, TargetType
+from rasai.m21_reporting import enrich_m21_report_site
+from rasai.m21_web_performance import ExternalServiceError, HttpJsonResult, WebPerformanceConfig, execute_m21
+from rasai.persistence import AuditPersistence, AuditWorkspace
 
 _NOW = datetime(2026, 9, 3, 15, 0, tzinfo=timezone.utc)
 
@@ -76,10 +76,10 @@ class M21WebPerformanceTests(unittest.TestCase):
         parser = build_parser()
         args = parser.parse_args(["audit", "https://example.test", "--no-web-performance"])
         noisy_env = {
-            "SEARCHGEO_WEB_PERFORMANCE_MAX_PAGES": "-999",
-            "SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS": "not-a-number",
-            "SEARCHGEO_WEB_PERFORMANCE_FIELD_SOURCE": "crux",
-            "SEARCHGEO_LIGHTHOUSE_CATEGORIES": "not-a-category",
+            "RASAI_WEB_PERFORMANCE_MAX_PAGES": "-999",
+            "RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS": "not-a-number",
+            "RASAI_WEB_PERFORMANCE_FIELD_SOURCE": "crux",
+            "RASAI_LIGHTHOUSE_CATEGORIES": "not-a-category",
         }
         with patch.dict(os.environ, noisy_env, clear=False):
             config = _configured_web_performance(args)

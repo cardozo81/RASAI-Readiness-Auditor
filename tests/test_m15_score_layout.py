@@ -1,6 +1,6 @@
 import unittest
 
-from searchgeo.m15_style_overrides import SCORE_LAYOUT_CSS
+from rasai.m15_style_overrides import SCORE_LAYOUT_CSS
 
 
 class M15ScoreLayoutTests(unittest.TestCase):

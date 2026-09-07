@@ -8,13 +8,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from searchgeo.domain import Audit, AuditMode, DeviceContext, RuleExecution, RuleResult, new_id
-from searchgeo.m7 import execute_m7
-from searchgeo.m11 import execute_m11
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
-from searchgeo.scoring import ConsolidationStatus, ScoringEngine
-from searchgeo.scoring_persistence import ScoringPersistence
-from searchgeo.semantic import OpenAIProvider, SEMANTIC_RULE_IDS
+from rasai.domain import Audit, AuditMode, DeviceContext, RuleExecution, RuleResult, new_id
+from rasai.m7 import execute_m7
+from rasai.m11 import execute_m11
+from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.scoring import ConsolidationStatus, ScoringEngine
+from rasai.scoring_persistence import ScoringPersistence
+from rasai.semantic import OpenAIProvider, SEMANTIC_RULE_IDS
 from tests.test_m7_semantic_provider import _fixture
 
 

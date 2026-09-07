@@ -5,12 +5,12 @@ import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
 
-from searchgeo.acquisition import HttpAcquisitionResult, NetworkError, NetworkErrorKind, RedirectHop
-from searchgeo.audit_runner import run_audit
-from searchgeo.discovery import DEFAULT_CRAWLERS, DiscoveredPage, DiscoveryProvenance, DiscoveryResult, RobotsResult, RobotsState
-from searchgeo.domain import DeviceContext, DiscoverySource
-from searchgeo.m18_ai import OpenAIProvider
-from searchgeo.rendering import BrowserRenderResult, RenderErrorKind
+from rasai.acquisition import HttpAcquisitionResult, NetworkError, NetworkErrorKind, RedirectHop
+from rasai.audit_runner import run_audit
+from rasai.discovery import DEFAULT_CRAWLERS, DiscoveredPage, DiscoveryProvenance, DiscoveryResult, RobotsResult, RobotsState
+from rasai.domain import DeviceContext, DiscoverySource
+from rasai.m18_ai import OpenAIProvider
+from rasai.rendering import BrowserRenderResult, RenderErrorKind
 
 
 _SOURCE = "https://mdsgroup.com/"

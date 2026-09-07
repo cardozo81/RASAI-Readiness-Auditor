@@ -6,14 +6,14 @@ from email.message import Message
 import unittest
 from urllib.error import HTTPError
 
-from searchgeo.cli import _semantic_provider, build_parser
-from searchgeo.m11 import _ai_usage_status
-from searchgeo.openai_provider import (
+from rasai.cli import _semantic_provider, build_parser
+from rasai.m11 import _ai_usage_status
+from rasai.openai_provider import (
     OpenAIProvider,
     SEMANTIC_RULE_CRITERIA,
     hardened_semantic_output_schema,
 )
-from searchgeo.semantic import (
+from rasai.semantic import (
     ProviderState,
     SEMANTIC_RULE_IDS,
     SemanticEvidenceInput,

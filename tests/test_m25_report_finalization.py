@@ -6,9 +6,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from searchgeo import m23_reporting
-from searchgeo.m25_runtime import refresh_m25_report_after_m23
-from searchgeo.persistence import AuditWorkspace
+from rasai import m23_reporting
+from rasai.m25_runtime import refresh_m25_report_after_m23
+from rasai.persistence import AuditWorkspace
 
 
 class M25ReportFinalizationTests(unittest.TestCase):
@@ -32,7 +32,7 @@ class M25ReportFinalizationTests(unittest.TestCase):
 
     def test_m23_reporting_is_wrapped_with_m25_finalizer(self) -> None:
         self.assertTrue(
-            getattr(m23_reporting.enrich_m23_report_site, "_searchgeo_m25_finalizer", False)
+            getattr(m23_reporting.enrich_m23_report_site, "_rasai_m25_finalizer", False)
         )
 
     def test_refresh_runs_only_for_persisted_m25_audit(self) -> None:
@@ -40,7 +40,7 @@ class M25ReportFinalizationTests(unittest.TestCase):
             workspace = self._workspace(directory, with_run=True)
             expected = workspace.root / "report" / "apdex-experience.html"
             with patch(
-                "searchgeo.m25_reporting.enrich_m25_report_site",
+                "rasai.m25_reporting.enrich_m25_report_site",
                 return_value=expected,
             ) as enrich:
                 refresh_m25_report_after_m23(
@@ -53,7 +53,7 @@ class M25ReportFinalizationTests(unittest.TestCase):
     def test_refresh_does_not_materialize_m25_when_run_is_absent(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace = self._workspace(directory, with_run=False)
-            with patch("searchgeo.m25_reporting.enrich_m25_report_site") as enrich:
+            with patch("rasai.m25_reporting.enrich_m25_report_site") as enrich:
                 refresh_m25_report_after_m23(
                     audit_id="AUD-M25-FINAL", workspace=workspace
                 )

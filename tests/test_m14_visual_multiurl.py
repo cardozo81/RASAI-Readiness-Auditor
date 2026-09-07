@@ -9,10 +9,10 @@ import sqlite3
 import tempfile
 import unittest
 
-from searchgeo.acquisition import HttpAcquisitionResult
-from searchgeo.actionability import Actionability, classify_actionability
-from searchgeo.cli import _audit_targets
-from searchgeo.discovery import (
+from rasai.acquisition import HttpAcquisitionResult
+from rasai.actionability import Actionability, classify_actionability
+from rasai.cli import _audit_targets
+from rasai.discovery import (
     DiscoveredPage,
     DiscoveryEngine,
     DiscoveryProvenance,
@@ -20,7 +20,7 @@ from searchgeo.discovery import (
     RobotsResult,
     RobotsState,
 )
-from searchgeo.domain import (
+from rasai.domain import (
     Audit,
     AuditTarget,
     DeviceContext,
@@ -35,17 +35,17 @@ from searchgeo.domain import (
     Severity,
     TargetType,
 )
-from searchgeo.m3 import execute_m3
-from searchgeo.m11 import execute_m11
-from searchgeo.m14_discovery import discover_url_set
-from searchgeo.m14_linking import link_findings_to_elements
-from searchgeo.m14_persistence import ElementObservation, M14Persistence, sanitize_element_observation
-from searchgeo.m14_reporting import TEMPLATE_VERSION
-from searchgeo.m2 import M2ExecutionResult
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
-from searchgeo.rendering import BrowserRenderResult, RenderedElementObservation
-from searchgeo.scoring import ConsolidationStatus, Score, ScoreConfidence, SCORING_VERSION
-from searchgeo.scoring_persistence import ScoringPersistence
+from rasai.m3 import execute_m3
+from rasai.m11 import execute_m11
+from rasai.m14_discovery import discover_url_set
+from rasai.m14_linking import link_findings_to_elements
+from rasai.m14_persistence import ElementObservation, M14Persistence, sanitize_element_observation
+from rasai.m14_reporting import TEMPLATE_VERSION
+from rasai.m2 import M2ExecutionResult
+from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.rendering import BrowserRenderResult, RenderedElementObservation
+from rasai.scoring import ConsolidationStatus, Score, ScoreConfidence, SCORING_VERSION
+from rasai.scoring_persistence import ScoringPersistence
 
 
 _NOW = datetime(2026, 9, 2, 20, 0, tzinfo=timezone.utc)

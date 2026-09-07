@@ -1,4 +1,4 @@
-# Sugestões e remediação de conteúdo por IA — Optional AI Content Remediation + JSON-LD Guidance
+# Sugestões e remediação de conteúdo por IA - Optional AI Content Remediation + JSON-LD Guidance
 
 **Status:** APPROVED FOR IMPLEMENTATION
 **Domínio:** `Sugestões e remediação de conteúdo por IA`
@@ -29,7 +29,7 @@ Public controls:
 ```text
 --ai-content-remediation
 --no-ai-content-remediation
-SEARCHGEO_AI_CONTENT_REMEDIATION
+RASAI_AI_CONTENT_REMEDIATION
 ```
 
 Precedence:
@@ -42,27 +42,27 @@ Accepted environment values are `true/false`, `1/0`, `yes/no`, `on/off` case-ins
 
 JSON-LD guidance is deterministic and remains available even when textual AI remediation is disabled or no AI provider is configured.
 
-## 3. Editorial analysis context — YMYL / E-E-A-T
+## 3. Editorial analysis context - YMYL / E-E-A-T
 
 The AI layer may receive explicit audit context so semantic assessment and content remediation are not forced into one generic editorial profile.
 
 Supported context fields:
 
 ```text
-SEARCHGEO_CONTENT_RISK_PROFILE
-SEARCHGEO_YMYL_CATEGORY
-SEARCHGEO_PAGE_PURPOSE
-SEARCHGEO_INTENDED_AUDIENCE
-SEARCHGEO_EXPERIENCE_REQUIREMENT
-SEARCHGEO_FRESHNESS_SENSITIVITY
-SEARCHGEO_CONTENT_ORIGIN
+RASAI_CONTENT_RISK_PROFILE
+RASAI_YMYL_CATEGORY
+RASAI_PAGE_PURPOSE
+RASAI_INTENDED_AUDIENCE
+RASAI_EXPERIENCE_REQUIREMENT
+RASAI_FRESHNESS_SENSITIVITY
+RASAI_CONTENT_ORIGIN
 ```
 
 All fields default to `auto`.
 
 ### 3.1 Context semantics
 
-`SEARCHGEO_CONTENT_RISK_PROFILE`:
+`RASAI_CONTENT_RISK_PROFILE`:
 
 ```text
 auto
@@ -70,7 +70,7 @@ standard
 ymyl
 ```
 
-`SEARCHGEO_YMYL_CATEGORY`:
+`RASAI_YMYL_CATEGORY`:
 
 ```text
 auto
@@ -81,7 +81,7 @@ civic-societal
 other-significant-welfare
 ```
 
-`SEARCHGEO_PAGE_PURPOSE`:
+`RASAI_PAGE_PURPOSE`:
 
 ```text
 auto
@@ -95,7 +95,7 @@ forum-ugc
 other
 ```
 
-`SEARCHGEO_INTENDED_AUDIENCE`:
+`RASAI_INTENDED_AUDIENCE`:
 
 ```text
 auto
@@ -104,7 +104,7 @@ professional
 mixed
 ```
 
-`SEARCHGEO_EXPERIENCE_REQUIREMENT`:
+`RASAI_EXPERIENCE_REQUIREMENT`:
 
 ```text
 auto
@@ -113,7 +113,7 @@ beneficial
 not-expected
 ```
 
-`SEARCHGEO_FRESHNESS_SENSITIVITY`:
+`RASAI_FRESHNESS_SENSITIVITY`:
 
 ```text
 auto
@@ -122,7 +122,7 @@ medium
 high
 ```
 
-`SEARCHGEO_CONTENT_ORIGIN`:
+`RASAI_CONTENT_ORIGIN`:
 
 ```text
 auto
@@ -158,9 +158,9 @@ The effective audit context must be persisted so a reopened report can prove whi
 
 Primary conceptual references:
 
-- Google Search Central — Creating helpful, reliable, people-first content: `https://developers.google.com/search/docs/fundamentals/creating-helpful-content`
+- Google Search Central - Creating helpful, reliable, people-first content: `https://developers.google.com/search/docs/fundamentals/creating-helpful-content`
 - Google Search Quality Rater Guidelines: `https://services.google.com/fh/files/misc/hsw-sqrg.pdf`
-- Google — How AI Overviews in Search work: `https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf`
+- Google - How AI Overviews in Search work: `https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf`
 
 These sources support the conceptual use of E-E-A-T/YMYL and page-purpose/user-needs analysis. RASAi must not describe E-E-A-T itself as a standalone official ranking factor or publish a fabricated E-E-A-T/YMYL probability.
 
@@ -243,7 +243,7 @@ Rules:
 6. provider success establishes URL provider pinning for subsequent Sugestões e remediação de conteúdo por IA contexts of the same URL;
 7. a failed provider is quarantined for the Sugestões e remediação de conteúdo por IA routing session;
 8. no automatic timeout retry;
-9. selected `SEARCHGEO_DEVICE_CONTEXT` bounds the Sugestões e remediação de conteúdo por IA request universe because only selected snapshots exist downstream.
+9. selected `RASAI_DEVICE_CONTEXT` bounds the Sugestões e remediação de conteúdo por IA request universe because only selected snapshots exist downstream.
 
 Sugestões e remediação de conteúdo por IA provider failure is an auditor operational state and is never a website finding.
 
@@ -333,15 +333,15 @@ Sugestões e remediação de conteúdo por IA must communicate all of the follow
 - more-specific applicable Schema.org types are preferable when they faithfully describe the content;
 - required/recommended properties vary by Search feature/type;
 - valid markup does not guarantee that a rich result will be shown;
-- Structured Data/JSON-LD is not a universal requirement for generative Search/GEO;
+- Structured Data/JSON-LD is not a universal requirement for generative Search & AI;
 - RASAi must not invent special GEO/AEO markup.
 
 Primary references:
 
-- Google Search Central — General Structured Data Guidelines: `https://developers.google.com/search/docs/appearance/structured-data/sd-policies`
-- Google Search Central — Intro to Structured Data: `https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data`
+- Google Search Central - General Structured Data Guidelines: `https://developers.google.com/search/docs/appearance/structured-data/sd-policies`
+- Google Search Central - Intro to Structured Data: `https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data`
 - Schema.org documentation: `https://schema.org/docs/documents.html`
-- Google Search Central — Optimizing for generative AI features: `https://developers.google.com/search/docs/fundamentals/ai-optimization-guide`
+- Google Search Central - Optimizing for generative AI features: `https://developers.google.com/search/docs/fundamentals/ai-optimization-guide`
 
 ## 14. Report contract
 

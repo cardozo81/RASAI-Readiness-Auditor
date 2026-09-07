@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from searchgeo.m18_ai import DEFAULT_MODELS, KEY_ENV, MODEL_ENV, SUPPORTED_MODELS
-from searchgeo.provider_extensions import (
+from rasai.m18_ai import DEFAULT_MODELS, KEY_ENV, MODEL_ENV, SUPPORTED_MODELS
+from rasai.provider_extensions import (
     EXTENDED_DEFAULT_MODELS,
     EXTENDED_ENDPOINT_ENV,
     EXTENDED_KEY_ENV,
@@ -11,7 +11,7 @@ from searchgeo.provider_extensions import (
     EXTENDED_SUPPORTED_MODELS,
     _PROVIDER_ALIASES,
 )
-from searchgeo.provider_registry import (
+from rasai.provider_registry import (
     auto_provider_ids,
     cli_provider_choices,
     extension_cli_choices,

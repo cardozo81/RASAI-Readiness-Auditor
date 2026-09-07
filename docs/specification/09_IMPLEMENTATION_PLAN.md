@@ -1,8 +1,8 @@
 # IMPLEMENTATION_PLAN.md
 
-**Status:** APPROVED — extended through Precisão e consistência das recomendações
+**Status:** APPROVED - extended through Precisão e consistência das recomendações
 
-## Bootstrap e fundação do projeto — Bootstrap
+## Bootstrap e fundação do projeto - Bootstrap
 
 Objetivo:
 
@@ -17,7 +17,7 @@ Objetivo:
 
 Não implementar módulos futuros vazios.
 
-## Auditoria e persistência — Audit + Persistence
+## Auditoria e persistência - Audit + Persistence
 
 Implementar:
 
@@ -34,7 +34,7 @@ Implementar:
 
 Critério: criar, persistir, encerrar, reabrir e recuperar Audit.
 
-## Descoberta e aquisição HTTP — Discovery + HTTP
+## Descoberta e aquisição HTTP - Discovery + HTTP
 
 Implementar:
 
@@ -52,7 +52,7 @@ Implementar:
 
 Primeiras regras técnicas.
 
-## Renderização Desktop e Mobile — Rendering Desktop/Mobile
+## Renderização Desktop e Mobile - Rendering Desktop/Mobile
 
 Implementar:
 
@@ -64,7 +64,7 @@ Implementar:
 - rendered;
 - PageSnapshot independente.
 
-## Extração e evidências — Extraction + Evidence
+## Extração e evidências - Extraction + Evidence
 
 Implementar:
 
@@ -75,7 +75,7 @@ Implementar:
 - Dados Estruturados;
 - Evidence Manager.
 
-## Motor de regras determinísticas — Deterministic Rules Engine
+## Motor de regras determinísticas - Deterministic Rules Engine
 
 Implementar:
 
@@ -90,7 +90,7 @@ Principalmente BR-GEO-001..018.
 
 Checkpoint: Technical Auditor Alpha funcional sem IA.
 
-## JavaScript e SPA — JavaScript / SPA
+## JavaScript e SPA - JavaScript / SPA
 
 Implementar:
 
@@ -101,7 +101,7 @@ Implementar:
 - lazy loading;
 - crawlable navigation.
 
-## Análise semântica e fallback — Semantic Provider + Fallback
+## Análise semântica e fallback - Semantic Provider + Fallback
 
 Implementar:
 
@@ -115,11 +115,11 @@ Implementar:
 
 Teste obrigatório com IA e sem IA.
 
-## Comparação Desktop e Mobile — Desktop × Mobile Comparison
+## Comparação Desktop e Mobile - Desktop × Mobile Comparison
 
 Implementar DeviceComparator e BR-GEO-052.
 
-## Scoring e confiabilidade — Scoring + Reliability
+## Scoring e confiabilidade - Scoring + Reliability
 
 Implementar:
 
@@ -131,7 +131,7 @@ Implementar:
 - scoring groups;
 - Overall por dispositivo.
 
-## Priorização e recomendações — Prioritization + Recommendations
+## Priorização e recomendações - Prioritization + Recommendations
 
 Implementar:
 
@@ -142,7 +142,7 @@ Implementar:
 - deterministic recommendation templates;
 - RemediationGroup.
 
-## Relatório HTML estático — Static HTML Report
+## Relatório HTML estático - Static HTML Report
 
 Implementar:
 
@@ -156,7 +156,7 @@ Implementar:
 - recommendations;
 - limitations.
 
-## Testes críticos e baseline local estável — Critical Tests + Stable Local Baseline
+## Testes críticos e baseline local estável - Critical Tests + Stable Local Baseline
 
 Testar minimamente:
 
@@ -168,7 +168,7 @@ Testar minimamente:
 - report;
 - regressões críticas.
 
-## Remediação GEO acionável — Actionable GEO Remediation Report
+## Remediação GEO acionável - Actionable GEO Remediation Report
 
 Objetivo: evoluir a Stable Local Baseline de `GEO scoring/reporting` para `GEO scoring + evidence-backed actionable remediation`, sem alterar arbitrariamente o scoring aprovado.
 
@@ -202,7 +202,7 @@ Restrições:
 - não inventar HTML observado, canonical, noindex policy, structured data, autor, fonte, data ou fatos;
 - relatório continua estático, autocontido, responsivo e sem dependência externa obrigatória.
 
-## Auditoria multi-URL e evidência visual — Multi-URL + Visual/DOM Evidence + Actionability
+## Auditoria multi-URL e evidência visual - Multi-URL + Visual/DOM Evidence + Actionability
 
 Objetivo: permitir auditoria explícita de várias URLs do mesmo origin em um único `audit_id` e melhorar a rastreabilidade visual/técnica das correções.
 
@@ -225,7 +225,7 @@ Restrições:
 - não inventar selector, HTML observado ou referência técnica;
 - recursos de domínio não são findings duplicados por página.
 
-## Experiência e organização dos relatórios — Error-Centric Report + Report UX
+## Experiência e organização dos relatórios - Error-Centric Report + Report UX
 
 Objetivo: melhorar navegação, legibilidade e priorização humana sem alterar dados persistidos, scoring ou findings.
 
@@ -267,7 +267,7 @@ Critérios de conclusão:
 9. suíte determinística permanece verde;
 10. diff final não contém workflow temporário nem secrets.
 
-## Remediação por causa raiz e elemento — Root Cause + Element-Level Remediation
+## Remediação por causa raiz e elemento - Root Cause + Element-Level Remediation
 
 Objetivo: transformar cada finding em diagnóstico técnico por ocorrência, informando a causa raiz, onde ela foi observada e como corrigi-la sem fabricar precisão.
 
@@ -309,7 +309,7 @@ Critérios de conclusão:
 9. suíte determinística permanece verde;
 10. diff final não contém workflow temporário nem secrets.
 
-## Precisão e consistência das recomendações — Remediation Precision + Report Consistency
+## Precisão e consistência das recomendações - Remediation Precision + Report Consistency
 
 Objetivo: tornar o diagnóstico técnico inequívoco para implementação e alinhar os dois relatórios à actionability real, sem alterar regras, scoring ou prioridade.
 
@@ -407,5 +407,5 @@ A execução deve interromper diante dos blockers reais definidos em D-034 ou em
 Nenhum marco pode ser declarado concluído apenas para permitir avanço, e nenhum escopo do marco seguinte deve ser antecipado materialmente antes do encerramento do marco atual, salvo infraestrutura estritamente necessária e já permitida pela especificação.
 
 <!-- M18_MULTI_AI_PROVIDER_ROUTING -->
-## Análise semântica por IA, roteamento e telemetria — Multi-AI Provider Abstraction, Reliability Routing & Usage Telemetry
+## Análise semântica por IA, roteamento e telemetria - Multi-AI Provider Abstraction, Reliability Routing & Usage Telemetry
 Implementar adapters provider-neutral para OpenAI/DeepSeek/MiMo, AUTO determinístico com quarantine e URL provider lock, telemetria persistida, catálogo versionado de preços e projeção operacional nos HTMLs. Preservar NoneProvider/OpenAI compatibility e invariantes de scoring. Testes externos usam mocks/fakes; live smoke é condicionado à presença de tokens.

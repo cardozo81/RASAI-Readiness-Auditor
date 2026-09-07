@@ -5,21 +5,21 @@ from pathlib import Path
 import sqlite3
 import tempfile
 
-from searchgeo.monitoring.compare import compare_audits, evaluate_release_gate
-from searchgeo.monitoring.impact import _observed_snapshot, analyze_change_impact
-from searchgeo.monitoring.models import AuditSnapshot, ChangeEvent, ComparisonResult, GatePolicy
-from searchgeo.observability.diagnostics import analyze_workspace
-from searchgeo.observability.google_genai import (
+from rasai.monitoring.compare import compare_audits, evaluate_release_gate
+from rasai.monitoring.impact import _observed_snapshot, analyze_change_impact
+from rasai.monitoring.models import AuditSnapshot, ChangeEvent, ComparisonResult, GatePolicy
+from rasai.observability.diagnostics import analyze_workspace
+from rasai.observability.google_genai import (
     import_google_genai_performance_csv,
     persist_google_genai_control,
 )
-from searchgeo.observability.google_search_console import collect_search_analytics
-from searchgeo.observability.gsc_resources import collect_sites, collect_sitemaps
-from searchgeo.observability.store import Dataset, ObservabilityStore, new_dataset
-from searchgeo.quality.analysis import analyze_quality
-from searchgeo.quality.content_controls import analyze_content_controls
-from searchgeo.quality.reporting import write_quality_report
-from searchgeo.quality.verification import verify_fixes
+from rasai.observability.google_search_console import collect_search_analytics
+from rasai.observability.gsc_resources import collect_sites, collect_sitemaps
+from rasai.observability.store import Dataset, ObservabilityStore, new_dataset
+from rasai.quality.analysis import analyze_quality
+from rasai.quality.content_controls import analyze_content_controls
+from rasai.quality.reporting import write_quality_report
+from rasai.quality.verification import verify_fixes
 
 
 class _Response:

@@ -130,7 +130,7 @@ generative_visibility_query_runs
 
 Essas tabelas preservam outcomes observados/importados e não recalculam `scores`, `rule_executions` ou `findings`.
 
-## `observability.db` — `RASAI-OBS-002`
+## `observability.db` - `RASAI-OBS-002`
 
 Criado somente quando uma operação observacional persiste dataset externo.
 
@@ -261,7 +261,7 @@ Synthetic User Experience Apdex calibrável. Não é RUM.
 
 ### `ai-visibility.html`
 
-Observed Generative Visibility import-first; não produz GEO score universal nem altera `SCORE-GEO-003`.
+Observed Generative Visibility import-first; não produz score universal de Search & AI Readiness nem altera `SCORE-GEO-003`.
 
 ### `observability.html`
 
@@ -286,7 +286,7 @@ Pode conter:
 
 - Audit Health / Data Quality;
 - Evidence Confidence por finding;
-- Operational Priority `P0`–`P3`;
+- Operational Priority `P0`-`P3`;
 - Coverage Map;
 - `nosnippet`, `max-snippet`, `data-nosnippet`, `X-Robots-Tag`;
 - Recommendation Validation;
@@ -305,7 +305,7 @@ Metodologia, natureza das fontes e referências públicas.
 ## Relatórios históricos/consolidados
 
 ```text
-audits/.searchgeo/consolidated-index.db
+audits/.rasai/consolidated-index.db
 
 audits/consolidated/CONS-*/
 ├─ report.html

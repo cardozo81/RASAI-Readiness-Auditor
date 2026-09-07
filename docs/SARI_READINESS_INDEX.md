@@ -1,4 +1,4 @@
-# Search & AI Readiness Index — SARI-001
+# Search & AI Readiness Index - SARI-001
 
 ## 1. Objetivo
 

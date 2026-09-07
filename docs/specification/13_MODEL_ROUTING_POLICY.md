@@ -21,7 +21,7 @@
 
 As duas coisas não devem ser confundidas.
 
-## 2. Roteamento por esforço — desenvolvimento
+## 2. Roteamento por esforço - desenvolvimento
 
 ### Esforço baixo
 

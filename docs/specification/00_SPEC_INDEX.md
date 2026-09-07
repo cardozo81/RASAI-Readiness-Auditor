@@ -1,12 +1,12 @@
-# RASAi — Search & AI Readiness Auditor — Specification Index
+# RASAi - Search & AI Readiness Auditor - Specification Index
 
-**Status:** BASELINE VIGENTE — capacidades integradas e documentação reconciliada com `main` + candidato PR #82.
+**Status:** BASELINE VIGENTE - capacidades integradas e documentação reconciliada com `main` + candidato PR #82.
 **Baseline:** MVP Functional Specification
 **Idioma normativo:** Português, preservando identificadores e termos técnicos quando necessário.
 
 ## 1. Objetivo
 
-Este diretório constitui a fonte normativa do RASAi — Search & AI Readiness Auditor.
+Este diretório constitui a fonte normativa do RASAi - Search & AI Readiness Auditor.
 
 Uma IA, desenvolvedor ou ferramenta que assuma o projeto não deve depender do histórico de chats para descobrir requisitos formalizados. Os documentos presentes neste diretório prevalecem sobre interpretações informais do histórico de conversa.
 
@@ -31,7 +31,7 @@ Uma IA, desenvolvedor ou ferramenta que assuma o projeto não deve depender do h
 17. `16_ROOT_CAUSE_ELEMENT_REMEDIATION.md`
 18. `17_REMEDIATION_PRECISION_REPORT_CONSISTENCY.md`
 19. `18_MULTI_AI_PROVIDER_ROUTING.md`
-20. `19_SCORE_APPLICABILITY_GEO_MINIMUMS.md`
+20. `19_SCORE_APPLICABILITY_READINESS_MINIMUMS.md`
 21. `20_AI_CONTENT_REMEDIATION.md`
 22. `21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md`
 23. `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md`
@@ -61,37 +61,37 @@ Nenhuma decisão funcional deve ser alterada silenciosamente durante implementa�
 
 ### Core
 
-- `01_PROJECT_CHARTER_SCOPE.md` — propósito, escopo, princípios e exclusões.
-- `02_DOMAIN_MODEL.md` — entidades, relacionamentos, identificadores, estados e invariantes.
-- `03_BUSINESS_RULES.md` — Business Rules `BR-GEO-001` a `BR-GEO-054`.
-- `04_WORKFLOWS.md` — workflows e ordem de execução.
-- `05_SCORING_MODEL.md` — Score, Coverage, Confidence, Consolidation, aplicabilidade e Overall calibrado. Baseline: `SCORE-GEO-003`.
-- `06_PRIORITIZATION_MODEL.md` — Severity, Impact, Effort, Confidence e Priority.
-- `07_FUNCTIONAL_REQUIREMENTS.md` — requisitos funcionais e não funcionais vigentes.
-- `08_TECHNICAL_ARCHITECTURE.md` — arquitetura local/modular e fronteiras entre domínios.
-- `09_IMPLEMENTATION_PLAN.md` — histórico e ordem de implementação das capacidades.
-- `10_DECISIONS.md` — decisões humanas consolidadas e pendências corporativas.
-- `11_REPORTING_LANGUAGE_GLOSSARY.md` — linguagem e apresentação do relatório.
-- `12_AI_HANDOFF.md` — continuidade operacional por IA/desenvolvedor.
-- `13_MODEL_ROUTING_POLICY.md` — política de modelos e esforço.
+- `01_PROJECT_CHARTER_SCOPE.md` - propósito, escopo, princípios e exclusões.
+- `02_DOMAIN_MODEL.md` - entidades, relacionamentos, identificadores, estados e invariantes.
+- `03_BUSINESS_RULES.md` - Business Rules `BR-GEO-001` a `BR-GEO-054`.
+- `04_WORKFLOWS.md` - workflows e ordem de execução.
+- `05_SCORING_MODEL.md` - Score, Coverage, Confidence, Consolidation, aplicabilidade e Overall calibrado. Baseline: `SCORE-GEO-003`.
+- `06_PRIORITIZATION_MODEL.md` - Severity, Impact, Effort, Confidence e Priority.
+- `07_FUNCTIONAL_REQUIREMENTS.md` - requisitos funcionais e não funcionais vigentes.
+- `08_TECHNICAL_ARCHITECTURE.md` - arquitetura local/modular e fronteiras entre domínios.
+- `09_IMPLEMENTATION_PLAN.md` - histórico e ordem de implementação das capacidades.
+- `10_DECISIONS.md` - decisões humanas consolidadas e pendências corporativas.
+- `11_REPORTING_LANGUAGE_GLOSSARY.md` - linguagem e apresentação do relatório.
+- `12_AI_HANDOFF.md` - continuidade operacional por IA/desenvolvedor.
+- `13_MODEL_ROUTING_POLICY.md` - política de modelos e esforço.
 
 ### Especificações funcionais complementares
 
-- `14_MULTI_URL_VISUAL_EVIDENCE_REMEDIATION.md` — auditoria multi-URL e evidência visual.
-- `15_ERROR_CENTRIC_REPORT_UX.md` — experiência de leitura e organização dos relatórios.
-- `16_ROOT_CAUSE_ELEMENT_REMEDIATION.md` — remediação por causa raiz e elemento.
-- `17_REMEDIATION_PRECISION_REPORT_CONSISTENCY.md` — precisão e consistência das recomendações.
-- `18_MULTI_AI_PROVIDER_ROUTING.md` — análise semântica por IA, roteamento, fallback e telemetria.
-- `19_SCORE_APPLICABILITY_GEO_MINIMUMS.md` — semântica de aplicabilidade introduzida no histórico `002` e preservada no `003`.
-- `20_AI_CONTENT_REMEDIATION.md` — sugestões e remediação de conteúdo por IA, sem alteração retroativa do score.
-- `21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md` — PageSpeed, Lighthouse e Core Web Vitals/CrUX como evidência externa complementar.
-- `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md` — acessibilidade automatizada e diagnósticos Web separados do Search & AI Readiness.
-- `23_SYNTHETIC_APDEX_LIGHTHOUSE_TRACEABILITY.md` — Synthetic Navigation Apdex.
-- `24_CRAWLING_DISCOVERY_AI_ACCESS.md` — rastreamento, descoberta e políticas de crawlers.
-- `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md` — Synthetic User Experience Apdex calibrável, separado de RUM.
-- `26_OBSERVED_GENERATIVE_VISIBILITY.md` — visibilidade generativa observada/importada e query-runs controlados.
-- `27_MONITORING_OBSERVABILITY.md` — comparação longitudinal, release gate, outcomes externos, sidecar observacional e diagnósticos complementares.
-- `28_AUDIT_QUALITY_VERIFICATION.md` — Audit Health, Evidence Confidence, operational priority, content-use controls, Fix Verification e Evidence Timeline.
+- `14_MULTI_URL_VISUAL_EVIDENCE_REMEDIATION.md` - auditoria multi-URL e evidência visual.
+- `15_ERROR_CENTRIC_REPORT_UX.md` - experiência de leitura e organização dos relatórios.
+- `16_ROOT_CAUSE_ELEMENT_REMEDIATION.md` - remediação por causa raiz e elemento.
+- `17_REMEDIATION_PRECISION_REPORT_CONSISTENCY.md` - precisão e consistência das recomendações.
+- `18_MULTI_AI_PROVIDER_ROUTING.md` - análise semântica por IA, roteamento, fallback e telemetria.
+- `19_SCORE_APPLICABILITY_READINESS_MINIMUMS.md` - semântica de aplicabilidade introduzida no histórico `002` e preservada no `003`.
+- `20_AI_CONTENT_REMEDIATION.md` - sugestões e remediação de conteúdo por IA, sem alteração retroativa do score.
+- `21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md` - PageSpeed, Lighthouse e Core Web Vitals/CrUX como evidência externa complementar.
+- `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md` - acessibilidade automatizada e diagnósticos Web separados do Search & AI Readiness.
+- `23_SYNTHETIC_APDEX_LIGHTHOUSE_TRACEABILITY.md` - Synthetic Navigation Apdex.
+- `24_CRAWLING_DISCOVERY_AI_ACCESS.md` - rastreamento, descoberta e políticas de crawlers.
+- `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md` - Synthetic User Experience Apdex calibrável, separado de RUM.
+- `26_OBSERVED_GENERATIVE_VISIBILITY.md` - visibilidade generativa observada/importada e query-runs controlados.
+- `27_MONITORING_OBSERVABILITY.md` - comparação longitudinal, release gate, outcomes externos, sidecar observacional e diagnósticos complementares.
+- `28_AUDIT_QUALITY_VERIFICATION.md` - Audit Health, Evidence Confidence, operational priority, content-use controls, Fix Verification e Evidence Timeline.
 
 ## 5. Baseline vigente de scoring e método público
 

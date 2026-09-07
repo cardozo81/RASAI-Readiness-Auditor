@@ -12,11 +12,11 @@ import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError, URLError
 
-from searchgeo.acquisition import HttpClient
-from searchgeo.audit_runner import run_audit
-from searchgeo.device_context import DEVICE_CONTEXT_ENV
-from searchgeo.discovery import DiscoveryEngine
-from searchgeo.m18_ai import (
+from rasai.acquisition import HttpClient
+from rasai.audit_runner import run_audit
+from rasai.device_context import DEVICE_CONTEXT_ENV
+from rasai.discovery import DiscoveryEngine
+from rasai.m18_ai import (
     DeepSeekProvider,
     MiMoProvider,
     OpenAIProvider,
@@ -28,7 +28,7 @@ from searchgeo.m18_ai import (
     build_semantic_provider,
     estimate_cost,
 )
-from searchgeo.semantic import SemanticEvidenceInput, SemanticInput
+from rasai.semantic import SemanticEvidenceInput, SemanticInput
 from tests.test_m12_stable_baseline import _FixtureRenderer, _server
 
 
@@ -113,7 +113,7 @@ class M18ProviderTests(unittest.TestCase):
         auto = build_semantic_provider("auto", env={
             "OPENAI_API_KEY": "x",
             "MIMO_API_KEY": "x",
-            "SEARCHGEO_MIMO_MODEL": "bad-model",
+            "RASAI_MIMO_MODEL": "bad-model",
         })
         self.assertEqual([item.name for item in auto.providers], ["OPENAI"])
         self.assertEqual(auto.excluded_configurations, ("MIMO:INVALID_CONFIGURATION",))

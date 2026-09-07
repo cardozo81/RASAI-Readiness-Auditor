@@ -1,4 +1,4 @@
-# Validação e reversibilidade — relatórios consolidados
+# Validação e reversibilidade - relatórios consolidados
 
 ## Escopo da mudança
 
@@ -14,7 +14,7 @@ PR:
 #67
 ```
 
-A mudança permanece aditiva e isolada. O único arquivo de runtime preexistente alterado é `src/searchgeo/console_entrypoint.py`, usado apenas para instalar o adapter da opção `C` antes de delegar ao mesmo console existente.
+A mudança permanece aditiva e isolada. O único arquivo de runtime preexistente alterado é `src/rasai/console_entrypoint.py`, usado apenas para instalar o adapter da opção `C` antes de delegar ao mesmo console existente.
 
 Não há alteração em:
 
@@ -45,7 +45,7 @@ PRAGMA query_only=ON
 A feature só escreve em:
 
 ```text
-.searchgeo/consolidated-index.db
+.rasai/consolidated-index.db
 consolidated/CONS-*/report.html
 consolidated/CONS-*/manifest.json
 ```
@@ -198,7 +198,7 @@ A documentação final também deve passar pelo mesmo workflow antes do smoke hu
 Executar na branch `feature/consolidated-reporting` com AUDs reais:
 
 1. abrir `iniciar.cmd`;
-2. confirmar que menu legado permanece normal;
+2. confirmar que menu principal permanece normal;
 3. entrar em `C`;
 4. gerar um consolidado com 1 AUD e confirmar modo **Snapshot**;
 5. gerar com 2 AUDs comparáveis e confirmar aviso de variação, não tendência;
@@ -233,6 +233,6 @@ Se futuramente integrado, usar preferencialmente **Squash and merge** para mante
 Rollback:
 
 1. reverter o commit squash do PR #67;
-2. opcionalmente apagar `.searchgeo/consolidated-index.db`;
+2. opcionalmente apagar `.rasai/consolidated-index.db`;
 3. opcionalmente arquivar/remover `consolidated/CONS-*`;
 4. não restaurar/migrar `AUD-*`, pois a feature nunca grava neles.

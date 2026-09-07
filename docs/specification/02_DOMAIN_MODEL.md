@@ -1,10 +1,10 @@
 # DOMAIN_MODEL.md
 
-**Status:** APPROVED — extended by Remediação GEO acionável Actionable GEO Report
+**Status:** APPROVED - extended by Remediação GEO acionável Actionable GEO Report
 
 ## 1. Objetivo
 
-Definir entidades, relacionamentos e invariantes do RASAi — Search & AI Readiness Auditor sem acoplar o domínio a banco, ORM ou framework.
+Definir entidades, relacionamentos e invariantes do RASAi - Search & AI Readiness Auditor sem acoplar o domínio a banco, ORM ou framework.
 
 ## 2. Modelo principal
 

@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import unittest
 
-from searchgeo.m16_root_cause import RootCauseAnalysis
-from searchgeo.m17_duplicate_remediation import refine_br_geo_051_html
-from searchgeo.m17_precision import derive_precision
+from rasai.m16_root_cause import RootCauseAnalysis
+from rasai.m17_duplicate_remediation import refine_br_geo_051_html
+from rasai.m17_precision import derive_precision
 
 
 _NOW = datetime(2026, 9, 3, 13, 0, tzinfo=timezone.utc)

@@ -8,10 +8,10 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from searchgeo.audit_runner import AuditRunResult
-from searchgeo.cli import main
-from searchgeo.domain import CompletionStatus
-from searchgeo.persistence import AuditWorkspace
+from rasai.audit_runner import AuditRunResult
+from rasai.cli import main
+from rasai.domain import CompletionStatus
+from rasai.persistence import AuditWorkspace
 
 
 class M21CliFailOpenTests(unittest.TestCase):
@@ -34,8 +34,8 @@ class M21CliFailOpenTests(unittest.TestCase):
             )
             output = io.StringIO()
 
-            with patch("searchgeo.cli.run_audit", return_value=result), patch(
-                "searchgeo.cli.execute_m21", side_effect=sqlite3.OperationalError("simulated sqlite failure")
+            with patch("rasai.cli.run_audit", return_value=result), patch(
+                "rasai.cli.execute_m21", side_effect=sqlite3.OperationalError("simulated sqlite failure")
             ), redirect_stdout(output):
                 exit_code = main([
                     "audit",

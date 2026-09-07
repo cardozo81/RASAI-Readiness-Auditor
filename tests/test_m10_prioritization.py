@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from searchgeo.domain import (
+from rasai.domain import (
     Audit,
     Evidence,
     EvidenceType,
@@ -17,17 +17,17 @@ from searchgeo.domain import (
     RuleResult,
     Severity,
 )
-from searchgeo.m10 import execute_m10
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
-from searchgeo.prioritization import (
+from rasai.m10 import execute_m10
+from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.prioritization import (
     Effort,
     Impact,
     PriorityClass,
     PriorityConfidence,
     PriorityEngine,
 )
-from searchgeo.recommendation_persistence import RecommendationPersistence
-from searchgeo.remediation import recipe_for
+from rasai.recommendation_persistence import RecommendationPersistence
+from rasai.remediation import recipe_for
 
 
 _NOW = datetime(2026, 9, 2, 17, 30, tzinfo=timezone.utc)

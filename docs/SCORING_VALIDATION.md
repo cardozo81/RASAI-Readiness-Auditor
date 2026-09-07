@@ -11,7 +11,7 @@ Registrar como o `SCORE-GEO-003` é validado e separar claramente:
 
 ## 1. Limite normativo
 
-Não existe um score GEO/AEO 0–100 universal homologado por Google, OpenAI, Microsoft, Anthropic, NIST, W3C ou outro mantenedor equivalente.
+Não existe um score GEO/AEO 0-100 universal homologado por Google, OpenAI, Microsoft, Anthropic, NIST, W3C ou outro mantenedor equivalente.
 
 `SCORE-GEO-003` continua sendo método proprietário do RASAi. A calibração melhora respaldo quantitativo, mas não converte o índice em padrão oficial.
 

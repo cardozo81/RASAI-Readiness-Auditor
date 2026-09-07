@@ -157,7 +157,7 @@ Ao final da cascata, deve ser apresentada ao humano a lista completa das branche
 
 A mesma regra de limpeza diferida aplica-se às branches de governança criadas especificamente para viabilizar esta cascata.
 
-### D-037 — Aplicabilidade de dimensões no SARI
+### D-037 - Aplicabilidade de dimensões no SARI
 
 As dez dimensões permanecem no modelo, preservando D-008. Uma dimensão cujas RuleExecutions existam e estejam **todas legitimamente `NOT_APPLICABLE`** não pode ser tratada como `NOT_CONSOLIDATED` nem bloquear o Overall.
 
@@ -170,13 +170,13 @@ Regra aprovada:
 5. dimensão `NOT_APPLICABLE` é excluída do denominador do Overall e de sua Coverage;
 6. todas as dimensões aplicáveis restantes precisam estar suficientemente consolidadas para existir Overall;
 7. a exclusão deve ser persistida/rastreável como `DIMENSION_NOT_APPLICABLE:<DIMENSION>`;
-8. se um tópico opcional passar a existir — por exemplo JSON-LD — suas regras passam a ser aplicáveis e seus resultados entram normalmente no score.
+8. se um tópico opcional passar a existir - por exemplo JSON-LD - suas regras passam a ser aplicáveis e seus resultados entram normalmente no score.
 
 JSON-LD/Structured Data é classificado como **OPCIONAL / REFORÇO**, não como requisito universal para GEO funcional. Sua ausência legítima, isoladamente, não é FAIL nem impedimento para Readiness Search & AI mensurável. Quando presente, deve ser interpretável e coerente com o conteúdo visível; markup inválido ou contraditório pode reduzir o score.
 
 O foco primário desta classificação é Google Search e seus recursos de IA. Outros mecanismos podem ser documentados como sinais complementares sem alterar a regra de scoring.
 
-### D-038 — Web Performance externo e separação metodológica
+### D-038 - Web Performance externo e separação metodológica
 
 Core Web Vitals/CrUX e Lighthouse entram como **evidência externa complementar** e não como substituição ou calibração implícita do `SARI-001`/`SCORE-GEO-003`.
 
@@ -195,7 +195,7 @@ Decisão aprovada:
 
 D-038 complementa D-037; não a supersede.
 
-### D-039 — Rastreamento, descoberta e acesso de crawlers Crawling/Discovery, políticas de crawler e IA técnica
+### D-039 - Rastreamento, descoberta e acesso de crawlers Crawling/Discovery, políticas de crawler e IA técnica
 
 Rastreamento, descoberta e acesso de crawlers é aprovado como domínio técnico **aditivo, pós-scoring e não-scoring**. Ele aprofunda evidências de rastreamento/descoberta sem criar um novo índice nem recalibrar `SARI-001`/`SCORE-GEO-003`.
 
@@ -217,7 +217,7 @@ Decisão aprovada:
 
 D-039 complementa D-037/D-038; não as supersede.
 
-### D-040 — Observed Generative Visibility separado de readiness
+### D-040 - Observed Generative Visibility separado de readiness
 
 Outcomes observados de Search/AI Search são aprovados como domínio **aditivo, import-first e não-scoring**, separado do `SARI-001` e sem alterar `SCORE-GEO-003`.
 
@@ -304,6 +304,6 @@ Essas pendências não bloqueiam desenvolvimento local do MVP.
 - diagnósticos de rastreamento e descoberta também não alteram `SARI-001`/`SCORE-GEO-003` sem decisão e contrato metodológico explícitos;
 - outcomes Observed Generative Visibility não alteram `SARI-001`/`SCORE-GEO-003` e não podem ser apresentados como causalidade/predição sem validação empírica específica.
 
-### D-041 — Linguagem pública por domínio funcional
+### D-041 - Linguagem pública por domínio funcional
 
 A documentação de produto, o console e os relatórios destinados ao usuário devem nomear capacidades pelo domínio funcional, não por identificadores históricos de etapas de entrega. Termos técnicos na apresentação só são admitidos quando documentados por fonte pública reconhecida e difundidos no domínio; vocabulário de código/runtime deve ficar oculto da leitura principal. O público-alvo primário é o analista de dados/SEO.

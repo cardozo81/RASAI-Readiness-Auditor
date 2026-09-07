@@ -1,10 +1,10 @@
-# RASAi — Search & AI Readiness Auditor
+# RASAi - Search & AI Readiness Auditor
 
 > **RASAi** é a identidade pública do produto. O acrônimo formal **RASAI** deriva de **R**eadiness **A**ssessment for **S**earch & **AI**. A grafia **RASAi**, com `i` minúsculo, é uma escolha tipográfica de marca para destacar visualmente a ligação do produto com inteligência artificial sem alterar o significado formal do acrônimo.
 
 **Descriptor:** Search & AI Readiness Auditor  
 **Framework:** RASAi Framework  
-**Índice:** `SARI-001` — Search & AI Readiness Index
+**Índice:** `SARI-001` - Search & AI Readiness Index
 
 A forma **RASAi** deve ser usada em interfaces, relatórios e documentação. **RASAI** em caixa alta fica restrito à explicação formal do acrônimo ou a identificadores técnicos cuja grafia faça parte do contrato.
 
@@ -42,7 +42,7 @@ Observed Generative Visibility (domínio observacional separado):
 
 > O `SARI-001` é um índice proprietário e reprodutível. `SCORE-GEO-003` é o método de scoring aplicado às auditorias: as dimensões permanecem determinísticas/evidence-based e o Overall exige model artifact `VALIDATED`. Sem model artifact validado, o Overall fica `NOT_CONSOLIDATED`; nenhum coeficiente ou resultado substituto é inventado. Lighthouse, Core Web Vitals, Acessibilidade automatizada, Apdex e outcomes observados mantêm seus domínios próprios.
 
-## Instalação rápida — Windows
+## Instalação rápida - Windows
 
 A forma recomendada é executar, por duplo clique ou pelo terminal, o launcher da raiz:
 
@@ -112,7 +112,7 @@ Menu principal:
 H. Ajuda / custos
 E. Variáveis de ambiente / credenciais
 S. Salvar configuração INI [SEM CHAVES]
-C. Histórico / relatórios consolidados [OFFLINE — sem APIs]
+C. Histórico / relatórios consolidados [OFFLINE - sem APIs]
 R. Executar
 Q. Sair
 ```
@@ -234,7 +234,7 @@ rasai audit https://example.com `
 Equivalente por ambiente:
 
 ```text
-SEARCHGEO_AI_TECHNICAL_REMEDIATION=true
+RASAI_AI_TECHNICAL_REMEDIATION=true
 ```
 
 Default: OFF. Essa finalidade não altera Score, Coverage, Confidence, Consolidation ou `SARI-001`; sugestões exigem revisão humana.
@@ -251,8 +251,8 @@ XAI_API_KEY
 DASHSCOPE_API_KEY
 GEMINI_API_KEY
 ANTHROPIC_API_KEY
-SEARCHGEO_PAGESPEED_API_KEY
-SEARCHGEO_CRUX_API_KEY
+RASAI_PAGESPEED_API_KEY
+RASAI_CRUX_API_KEY
 ```
 
 Credencial configurada não garante saldo, quota, plano ou acesso ao modelo. O passo a passo para obtenção de cada chave está em [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md); PageSpeed e CrUX possuem orientação adicional em [docs/GOOGLE_API_KEYS.md](docs/GOOGLE_API_KEYS.md).
@@ -306,7 +306,7 @@ Configurável por:
 
 ```text
 --web-performance-timeout-seconds
-SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS
+RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS
 opção 6 do console
 ```
 
@@ -384,7 +384,7 @@ report/apdex-experience.html
 
 Detalhes: [docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md](docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md).
 
-## SCORE-GEO-003 — calibração
+## SCORE-GEO-003 - calibração
 
 O `SCORE-GEO-003` mantém as dez dimensões atuais como features e calibra somente o Overall contra outcome binário `CITED/NOT_CITED`.
 
@@ -419,13 +419,13 @@ rasai scoring inspect
 Artifact padrão:
 
 ```text
-.searchgeo/scoring/score-geo-003-model.json
+.rasai/scoring/score-geo-003-model.json
 ```
 
 Override de path:
 
 ```text
-SEARCHGEO_SCORE_GEO_003_MODEL
+RASAI_SCORE_GEO_003_MODEL
 ```
 
 Artifact abaixo dos gates recebe `EXPERIMENTAL` e não consolida Overall. Detalhes: [docs/SCORE_GEO_003.md](docs/SCORE_GEO_003.md).
@@ -532,7 +532,7 @@ audits/<AUD-ID>/
 Model artifact global/local do projeto:
 
 ```text
-.searchgeo/
+.rasai/
 └─ scoring/
    └─ score-geo-003-model.json
 ```
@@ -554,7 +554,7 @@ Model artifact global/local do projeto:
 Os relatórios históricos usam uma área separada e não escrevem nos workspaces `AUD-*`:
 
 ```text
-audits/.searchgeo/
+audits/.rasai/
 └─ consolidated-index.db       # cache analítico reconstruível
 
 audits/consolidated/

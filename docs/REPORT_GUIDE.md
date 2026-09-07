@@ -147,7 +147,7 @@ Verifica integridade/completude da coleta e artifacts. **Audit Health não é re
 
 ### Operational Priority
 
-`P0`–`P3` orienta ordem de remediação combinando severidade, escopo, confiança da evidência e esforço estimado. Não altera Severity nem SCORE-GEO.
+`P0`-`P3` orienta ordem de remediação combinando severidade, escopo, confiança da evidência e esforço estimado. Não altera Severity nem SCORE-GEO.
 
 ### Coverage Map
 

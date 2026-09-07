@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import unittest
 
-from searchgeo.browser_identity_renderer import (
+from rasai.browser_identity_renderer import (
     BrowserIdentityRenderer,
     realistic_context_options,
     secure_upgrade_candidate,
 )
-from searchgeo.domain import DeviceContext
-from searchgeo.rendering import BrowserRenderResult, RenderErrorKind
+from rasai.domain import DeviceContext
+from rasai.rendering import BrowserRenderResult, RenderErrorKind
 
 
 class _FakePlaywright:
@@ -107,7 +107,7 @@ class _RecoveryRenderer(BrowserIdentityRenderer):
 
 
 class BrowserIdentityTests(unittest.TestCase):
-    def test_desktop_identity_tracks_runtime_chrome_version_without_changing_searchgeo_viewport(self) -> None:
+    def test_desktop_identity_tracks_runtime_chrome_version_without_changing_rasai_viewport(self) -> None:
         options, identity = realistic_context_options(
             _FakePlaywright(),
             browser_version="151.0.7922.34",

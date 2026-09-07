@@ -1,6 +1,6 @@
-# 28 — Audit Quality, Verification & Decision Support
+# 28 - Audit Quality, Verification & Decision Support
 
-**Status:** APPROVED / IMPLEMENTED — candidate for smoke in PR #82.
+**Status:** APPROVED / IMPLEMENTED - candidate for smoke in PR #82.
 
 ## 1. Purpose
 
@@ -164,10 +164,10 @@ audits/verification/VER-*/report.html
 
 Rule-level statuses:
 
-- `FIXED` — baseline FAIL/WARNING reached PASS;
-- `PARTIALLY_FIXED` — rule improved but is not proven fully resolved;
-- `NOT_FIXED` — issue remains or degraded;
-- `NOT_VERIFIABLE` — current evidence is unavailable/incomparable.
+- `FIXED` - baseline FAIL/WARNING reached PASS;
+- `PARTIALLY_FIXED` - rule improved but is not proven fully resolved;
+- `NOT_FIXED` - issue remains or degraded;
+- `NOT_VERIFIABLE` - current evidence is unavailable/incomparable.
 
 Fix Verification MUST use the persisted comparison contract. It cannot assert downstream Search/AI impact.
 
@@ -235,7 +235,7 @@ Avoid:
 
 - guaranteed ranking gain;
 - proven causal impact from temporal coincidence;
-- universal GEO score;
+- universal Search & AI Readiness score;
 - compliance claims not established by the method.
 
 ## 10. Tests / safety gates

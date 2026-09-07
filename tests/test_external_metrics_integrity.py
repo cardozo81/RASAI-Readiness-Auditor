@@ -7,15 +7,15 @@ import sqlite3
 import tempfile
 import unittest
 
-from searchgeo.domain import Audit, AuditTarget, DeviceContext, DiscoverySource, Page, PageSnapshot, TargetType
-from searchgeo.external_metrics_integrity import (
+from rasai.domain import Audit, AuditTarget, DeviceContext, DiscoverySource, Page, PageSnapshot, TargetType
+from rasai.external_metrics_integrity import (
     ARTIFACT,
     enrich_external_metrics_integrity_report_site,
     reconcile_external_metrics_integrity,
 )
-from searchgeo.m21_reporting import enrich_m21_report_site
-from searchgeo.m21_web_performance import HttpJsonResult, WebPerformanceConfig, execute_m21
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
+from rasai.m21_reporting import enrich_m21_report_site
+from rasai.m21_web_performance import HttpJsonResult, WebPerformanceConfig, execute_m21
+from rasai.persistence import AuditPersistence, AuditWorkspace
 
 
 _NOW = datetime(2026, 9, 5, 20, 0, tzinfo=timezone.utc)

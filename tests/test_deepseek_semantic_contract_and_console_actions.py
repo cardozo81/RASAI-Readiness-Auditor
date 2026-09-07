@@ -6,10 +6,10 @@ import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from searchgeo.console_m23 import State
-from searchgeo.interactive_console import _menu
-from searchgeo.m18_ai import DeepSeekProvider
-from searchgeo.semantic import (
+from rasai.console_m23 import State
+from rasai.interactive_console import _menu
+from rasai.m18_ai import DeepSeekProvider
+from rasai.semantic import (
     ProviderState,
     SEMANTIC_RULE_IDS,
     SemanticEvidenceInput,

@@ -1,6 +1,6 @@
 # Synthetic Navigation Apdex + Lighthouse Traceability
 
-**Status:** INTEGRADO — smoke humano controlado aprovado antes do merge.
+**Status:** INTEGRADO - smoke humano controlado aprovado antes do merge.
 **Escopo:** Web Performance sintética e rastreabilidade de configuração Lighthouse.
 **Não altera:** `BR-GEO-*`, `SARI-001`, Coverage, Confidence, Consolidation, findings GEO ou recomendações GEO.
 
@@ -65,7 +65,7 @@ Default operacional:
 100 amostras válidas por URL/dispositivo
 ```
 
-Grupos com 1–99 amostras válidas podem ser calculados para diagnóstico, mas são marcados como `small_group=*` e não constituem o grupo final normal.
+Grupos com 1-99 amostras válidas podem ser calculados para diagnóstico, mas são marcados como `small_group=*` e não constituem o grupo final normal.
 
 A baseline tenta substituir amostras inválidas até o orçamento `max_attempts_per_context`. O default desse orçamento é `ceil(1.25 × target_valid_samples)`.
 
@@ -125,14 +125,14 @@ Flags:
 Variáveis:
 
 ```text
-SEARCHGEO_SYNTHETIC_APDEX
-SEARCHGEO_APDEX_THRESHOLD_SECONDS
-SEARCHGEO_APDEX_SAMPLES_PER_CONTEXT
-SEARCHGEO_APDEX_MAX_ATTEMPTS_PER_CONTEXT
-SEARCHGEO_APDEX_MAX_PAGES
-SEARCHGEO_APDEX_TIMEOUT_SECONDS
-SEARCHGEO_APDEX_DELAY_SECONDS
-SEARCHGEO_APDEX_CONCURRENCY
+RASAI_SYNTHETIC_APDEX
+RASAI_APDEX_THRESHOLD_SECONDS
+RASAI_APDEX_SAMPLES_PER_CONTEXT
+RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT
+RASAI_APDEX_MAX_PAGES
+RASAI_APDEX_TIMEOUT_SECONDS
+RASAI_APDEX_DELAY_SECONDS
+RASAI_APDEX_CONCURRENCY
 ```
 
 Precedência: CLI > ambiente > defaults seguros.
@@ -216,7 +216,7 @@ O console expõe Synthetic Navigation Apdex como item próprio e mantém:
 - observabilidade de progresso `M23_APDEX_SAMPLE`;
 - totais reais persistidos no resumo final.
 
-## 14. Gate de smoke humano — concluído
+## 14. Gate de smoke humano - concluído
 
 O gate inicial foi executado antes da integração em `main` com alvo local/controlado, 1 URL, 1 device, `T` explícito, 5 amostras válidas, concorrência 1, IA OFF e Web Performance externo externo OFF.
 
@@ -238,7 +238,7 @@ O gate funcional pequeno está encerrado. A regra operacional permanece: uma exe
 ## 15. Referências
 
 - Apdex Technical Specification v1.1: https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf
-- Chrome DevTools Protocol — Emulation: https://chromedevtools.github.io/devtools-protocol/tot/Emulation/
-- Chrome DevTools Protocol — Network: https://chromedevtools.github.io/devtools-protocol/tot/Network/
-- Lighthouse — Understanding results: https://github.com/GoogleChrome/lighthouse/blob/main/docs/understanding-results.md
-- Lighthouse — Emulation: https://github.com/GoogleChrome/lighthouse/blob/main/docs/emulation.md
+- Chrome DevTools Protocol - Emulation: https://chromedevtools.github.io/devtools-protocol/tot/Emulation/
+- Chrome DevTools Protocol - Network: https://chromedevtools.github.io/devtools-protocol/tot/Network/
+- Lighthouse - Understanding results: https://github.com/GoogleChrome/lighthouse/blob/main/docs/understanding-results.md
+- Lighthouse - Emulation: https://github.com/GoogleChrome/lighthouse/blob/main/docs/emulation.md

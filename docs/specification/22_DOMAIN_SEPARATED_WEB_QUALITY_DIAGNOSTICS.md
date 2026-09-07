@@ -1,4 +1,4 @@
-# Acessibilidade automatizada e diagnósticos Web — Diagnósticos de Qualidade Web com Fronteiras de Domínio
+# Acessibilidade automatizada e diagnósticos Web - Diagnósticos de Qualidade Web com Fronteiras de Domínio
 
 **Status:** INTEGRADO
 **Domínio:** `Acessibilidade automatizada e diagnósticos Web`
@@ -145,7 +145,7 @@ Exemplo não permitido sem evidência adicional:
 app.css é a única causa do LCP ruim.
 ```
 
-## 7. Apdex — fronteira Acessibilidade automatizada e diagnósticos Web e evolução Synthetic Navigation Apdex
+## 7. Apdex - fronteira Acessibilidade automatizada e diagnósticos Web e evolução Synthetic Navigation Apdex
 
 ### 7.1 Regra Acessibilidade automatizada e diagnósticos Web permanece válida
 

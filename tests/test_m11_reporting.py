@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from searchgeo.domain import (
+from rasai.domain import (
     Audit,
     AuditMode,
     DeviceContext,
@@ -21,10 +21,10 @@ from searchgeo.domain import (
     RuleResult,
     Severity,
 )
-from searchgeo.m10 import execute_m10
-from searchgeo.m11 import execute_m11
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
-from searchgeo.prioritization import (
+from rasai.m10 import execute_m10
+from rasai.m11 import execute_m11
+from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.prioritization import (
     Effort,
     Impact,
     PriorityClass,
@@ -32,15 +32,15 @@ from searchgeo.prioritization import (
     Recommendation,
     RemediationGroup,
 )
-from searchgeo.recommendation_persistence import RecommendationPersistence
-from searchgeo.reporting import ReportPersistence, TEMPLATE_VERSION
-from searchgeo.scoring import (
+from rasai.recommendation_persistence import RecommendationPersistence
+from rasai.reporting import ReportPersistence, TEMPLATE_VERSION
+from rasai.scoring import (
     ConsolidationStatus,
     Score,
     ScoreConfidence,
     SCORING_VERSION,
 )
-from searchgeo.scoring_persistence import ScoringPersistence
+from rasai.scoring_persistence import ScoringPersistence
 
 
 _NOW = datetime(2026, 9, 2, 18, 0, tzinfo=timezone.utc)
@@ -430,8 +430,8 @@ class M11ReportingTests(unittest.TestCase):
             self.assertIn("NÃO DETERMINADA", html)
             self.assertIn("Cobertura da análise", html)
             self.assertIn("Confiabilidade", html)
-            self.assertIn("Score GEO — Desktop", html)
-            self.assertIn("Score GEO — Mobile", html)
+            self.assertIn("Score GEO - Desktop", html)
+            self.assertIn("Score GEO - Mobile", html)
             self.assertIn("Corrigir declaração canonical", html)
             self.assertIn("Nenhuma declaração canonical válida foi encontrada.", html)
             self.assertIn("&lt;link rel=&quot;canonical&quot;&gt;", html)

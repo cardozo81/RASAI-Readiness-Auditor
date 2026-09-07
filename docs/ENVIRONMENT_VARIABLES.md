@@ -1,6 +1,6 @@
-# Variáveis de ambiente — referência completa
+# Variáveis de ambiente - referência completa
 
-Referência operacional da superfície de variáveis reconhecida pelo console do RASAi — Search & AI Readiness Auditor.
+Referência operacional da superfície de variáveis reconhecida pelo console do RASAi - Search & AI Readiness Auditor.
 
 Verificação documental: **2026-09-07**. Para credenciais, endpoints externos e conceitos de qualidade de conteúdo, os procedimentos e definições abaixo foram conferidos contra documentação pública oficial dos respectivos provedores e do Google Search Central.
 
@@ -8,16 +8,16 @@ Verificação documental: **2026-09-07**. Para credenciais, endpoints externos e
 
 Variáveis de ambiente são uma camada de **override avançado**, não uma lista de campos que o usuário precisa preencher antes da primeira auditoria. Quando existe um default seguro, o RASAi já o aplica internamente e o console passa a mostrar esse **default efetivo** mesmo que a variável não exista no sistema operacional.
 
-Não materialize todos os defaults no ambiente sem necessidade. Isso criaria configuração redundante e pode mudar sem querer a semântica de parâmetros opcionais. Exemplo: `SEARCHGEO_CONFIG` não precisa existir; sem override, `searchgeo.toml` é opcional. Se `SEARCHGEO_CONFIG` for definido, o arquivo apontado precisa existir.
+Não materialize todos os defaults no ambiente sem necessidade. Isso criaria configuração redundante e pode mudar sem querer a semântica de parâmetros opcionais. Exemplo: `RASAI_CONFIG` não precisa existir; sem override, `rasai.toml` é opcional. Se `RASAI_CONFIG` for definido, o arquivo apontado precisa existir.
 
 O menu `E. Variáveis de ambiente / credenciais` é organizado por fronteira funcional:
 
 ```text
 1. Aplicação e execução
-2. IA — credenciais
-3. IA — modelos e reasoning
-4. IA — endpoints avançados
-5. IA — contexto editorial / YMYL
+2. IA - credenciais
+3. IA - modelos e reasoning
+4. IA - endpoints avançados
+5. IA - contexto editorial / YMYL
 6. Web Performance / Google APIs
 7. Synthetic Apdex
 8. Browser / Playwright
@@ -43,23 +43,23 @@ Ao selecionar uma variável, o console mostra: finalidade, tipo, domínio aceito
 
 | Variável | Para que serve | Tipo / valores | Default efetivo | Quando definir | Impacto |
 |---|---|---|---|---|---|
-| `SEARCHGEO_CONFIG` | força um TOML geral, usado principalmente para logging | caminho de arquivo existente | `searchgeo.toml` é opcional quando não há override | somente para apontar um TOML específico | sem custo; override inválido bloqueia a configuração |
-| `SEARCHGEO_LOG_LEVEL` | verbosidade do log | `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG` | `INFO` | para alterar detalhamento | `DEBUG` aumenta volume de log local |
-| `SEARCHGEO_DEVICE_CONTEXT` | dispositivo default | `mobile`, `desktop`, `both` | `mobile` | quando não quiser configurar pela CLI/menu principal | `both` multiplica contextos e pode aumentar tempo/chamadas externas |
-| `SEARCHGEO_AI_TIMEOUT_SECONDS` | timeout por tentativa de IA | número finito `>0` em segundos | `180` | override de timeout | não cria chamadas; timeout local não garante ausência de processamento/faturamento externo |
-| `SEARCHGEO_AI_CONTENT_REMEDIATION` | default da remediação textual por IA | `true`, `false` | `false` | para habilitar por ambiente | `true` pode gerar chamadas adicionais de IA |
+| `RASAI_CONFIG` | força um TOML geral, usado principalmente para logging | caminho de arquivo existente | `rasai.toml` é opcional quando não há override | somente para apontar um TOML específico | sem custo; override inválido bloqueia a configuração |
+| `RASAI_LOG_LEVEL` | verbosidade do log | `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG` | `INFO` | para alterar detalhamento | `DEBUG` aumenta volume de log local |
+| `RASAI_DEVICE_CONTEXT` | dispositivo default | `mobile`, `desktop`, `both` | `mobile` | quando não quiser configurar pela CLI/menu principal | `both` multiplica contextos e pode aumentar tempo/chamadas externas |
+| `RASAI_AI_TIMEOUT_SECONDS` | timeout por tentativa de IA | número finito `>0` em segundos | `180` | override de timeout | não cria chamadas; timeout local não garante ausência de processamento/faturamento externo |
+| `RASAI_AI_CONTENT_REMEDIATION` | default da remediação textual por IA | `true`, `false` | `false` | para habilitar por ambiente | `true` pode gerar chamadas adicionais de IA |
 
-### `SEARCHGEO_CONFIG`
+### `RASAI_CONFIG`
 
 Exemplo:
 
 ```powershell
-$env:SEARCHGEO_CONFIG = "C:\searchgeo\searchgeo.toml"
+$env:RASAI_CONFIG = "C:\rasai\rasai.toml"
 ```
 
 Defina somente se o arquivo já existir. Para o uso normal do console, deixe a variável ausente e use `rasai-console.ini` para os parâmetros persistíveis.
 
-## 2. IA — credenciais
+## 2. IA - credenciais
 
 As credenciais não possuem default.
 
@@ -84,7 +84,7 @@ Fontes oficiais: <https://help.openai.com/en/articles/4936850-how-to-create-and-
 5. Configure as permissões compatíveis com a chamada ao modelo/endpoint que será usado.
 6. Copie o segredo no momento da criação; a chave completa não é mostrada novamente depois.
 7. Confirme créditos/billing, limites e acesso ao modelo no mesmo projeto.
-8. No RASAi: `E > IA — credenciais > OPENAI_API_KEY > S`. Use `P` apenas se quiser persistir no ambiente User do Windows.
+8. No RASAi: `E > IA - credenciais > OPENAI_API_KEY > S`. Use `P` apenas se quiser persistir no ambiente User do Windows.
 
 ### Como obter `DEEPSEEK_API_KEY`
 
@@ -94,7 +94,7 @@ Fontes oficiais: <https://api-docs.deepseek.com/> e <https://platform.deepseek.c
 2. Abra **API Keys**.
 3. Crie uma chave e armazene-a com segurança.
 4. Confirme saldo/quota antes do primeiro teste.
-5. Configure `DEEPSEEK_API_KEY` no grupo **IA — credenciais**.
+5. Configure `DEEPSEEK_API_KEY` no grupo **IA - credenciais**.
 6. Selecione somente modelos aceitos pelo registry do RASAi; o menu rejeita nomes fora do domínio atual.
 
 ### Como obter `MIMO_API_KEY`
@@ -132,7 +132,7 @@ Fonte oficial: <https://www.alibabacloud.com/help/en/model-studio/first-api-call
 4. Selecione **Create API key**; o modelo não precisa ser escolhido durante a criação da chave.
 5. Quando aplicável, restrinja o escopo de modelos conforme a política da conta.
 6. Copie a chave e configure `DASHSCOPE_API_KEY`.
-7. O adapter atual usa por default o endpoint US `https://dashscope-us.aliyuncs.com/compatible-mode/v1/chat/completions`. Chaves/regiões Alibaba não são necessariamente intercambiáveis; use `SEARCHGEO_QWEN_ENDPOINT` somente se houver necessidade regional validada.
+7. O adapter atual usa por default o endpoint US `https://dashscope-us.aliyuncs.com/compatible-mode/v1/chat/completions`. Chaves/regiões Alibaba não são necessariamente intercambiáveis; use `RASAI_QWEN_ENDPOINT` somente se houver necessidade regional validada.
 
 ### Como obter `GEMINI_API_KEY`
 
@@ -158,44 +158,44 @@ Fontes oficiais: <https://support.claude.com/en/articles/8114521-how-can-i-acces
 5. Copie e configure `ANTHROPIC_API_KEY`.
 6. Não assuma que uma assinatura paga do produto Claude de chat inclui créditos de API; o Console/API possui cobrança própria.
 
-## 3. IA — modelos e reasoning
+## 3. IA - modelos e reasoning
 
 Estas variáveis são overrides. Se ausentes, o RASAi usa os defaults públicos abaixo.
 
 | Variável | Valores aceitos | Default efetivo |
 |---|---|---|
-| `SEARCHGEO_OPENAI_MODEL` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `gpt-5.6-luna` |
-| `SEARCHGEO_OPENAI_REASONING_EFFORT` | `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `NONE` |
-| `SEARCHGEO_DEEPSEEK_MODEL` | `deepseek-v4-pro`, `deepseek-v4-flash` | `deepseek-v4-flash` |
-| `SEARCHGEO_DEEPSEEK_REASONING_EFFORT` | `NONE`, `LOW`, `HIGH`, `MAX` | `NONE` |
-| `SEARCHGEO_MIMO_MODEL` | `mimo-v2.5-pro`, `mimo-v2.5` | `mimo-v2.5` |
-| `SEARCHGEO_MIMO_REASONING_EFFORT` | `NONE`, `LOW`, `MEDIUM`, `HIGH` | `NONE` |
-| `SEARCHGEO_XAI_MODEL` | `grok-4.6` | `grok-4.6` |
-| `SEARCHGEO_XAI_REASONING_EFFORT` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH` | `LOW` |
-| `SEARCHGEO_QWEN_MODEL` | `qwen3.8-max`, `qwen3.8-flash` | `qwen3.8-flash` |
-| `SEARCHGEO_GEMINI_MODEL` | `gemini-3.8-flash` | `gemini-3.8-flash` |
-| `SEARCHGEO_GEMINI_REASONING_EFFORT` | `LOW`, `MEDIUM`, `HIGH` | `LOW` |
-| `SEARCHGEO_ANTHROPIC_MODEL` | `claude-sonnet-5` | `claude-sonnet-5` |
-| `SEARCHGEO_ANTHROPIC_REASONING_EFFORT` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` |
+| `RASAI_OPENAI_MODEL` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `gpt-5.6-luna` |
+| `RASAI_OPENAI_REASONING_EFFORT` | `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `NONE` |
+| `RASAI_DEEPSEEK_MODEL` | `deepseek-v4-pro`, `deepseek-v4-flash` | `deepseek-v4-flash` |
+| `RASAI_DEEPSEEK_REASONING_EFFORT` | `NONE`, `LOW`, `HIGH`, `MAX` | `NONE` |
+| `RASAI_MIMO_MODEL` | `mimo-v2.5-pro`, `mimo-v2.5` | `mimo-v2.5` |
+| `RASAI_MIMO_REASONING_EFFORT` | `NONE`, `LOW`, `MEDIUM`, `HIGH` | `NONE` |
+| `RASAI_XAI_MODEL` | `grok-4.6` | `grok-4.6` |
+| `RASAI_XAI_REASONING_EFFORT` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH` | `LOW` |
+| `RASAI_QWEN_MODEL` | `qwen3.8-max`, `qwen3.8-flash` | `qwen3.8-flash` |
+| `RASAI_GEMINI_MODEL` | `gemini-3.8-flash` | `gemini-3.8-flash` |
+| `RASAI_GEMINI_REASONING_EFFORT` | `LOW`, `MEDIUM`, `HIGH` | `LOW` |
+| `RASAI_ANTHROPIC_MODEL` | `claude-sonnet-5` | `claude-sonnet-5` |
+| `RASAI_ANTHROPIC_REASONING_EFFORT` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` |
 
-Qwen não possui `SEARCHGEO_QWEN_REASONING_EFFORT`: o adapter atual mantém `PROVIDER_DEFAULT`. Não crie variável inexistente.
+Qwen não possui `RASAI_QWEN_REASONING_EFFORT`: o adapter atual mantém `PROVIDER_DEFAULT`. Não crie variável inexistente.
 
 Para uso normal, prefira **4. IA** no menu principal. Use variáveis de modelo/reasoning para AUTO, automação ou override avançado. Esforço maior pode elevar latência, tokens e custo.
 
-## 4. IA — endpoints avançados
+## 4. IA - endpoints avançados
 
 No uso normal, deixe estas variáveis ausentes.
 
 | Variável | Default embutido | Tipo | Quando alterar |
 |---|---|---|---|
-| `SEARCHGEO_XAI_ENDPOINT` | `https://api.x.ai/v1/responses` | URL HTTP(S) absoluta | somente proxy/endpoint xAI comprovadamente compatível |
-| `SEARCHGEO_QWEN_ENDPOINT` | `https://dashscope-us.aliyuncs.com/compatible-mode/v1/chat/completions` | URL HTTP(S) absoluta | região/endpoint Qwen compatível |
-| `SEARCHGEO_GEMINI_ENDPOINT` | `https://generativelanguage.googleapis.com/v1beta/interactions` | URL HTTP(S) absoluta | endpoint Gemini Interactions compatível |
-| `SEARCHGEO_ANTHROPIC_ENDPOINT` | `https://api.anthropic.com/v1/messages` | URL HTTP(S) absoluta | endpoint Messages compatível |
+| `RASAI_XAI_ENDPOINT` | `https://api.x.ai/v1/responses` | URL HTTP(S) absoluta | somente proxy/endpoint xAI comprovadamente compatível |
+| `RASAI_QWEN_ENDPOINT` | `https://dashscope-us.aliyuncs.com/compatible-mode/v1/chat/completions` | URL HTTP(S) absoluta | região/endpoint Qwen compatível |
+| `RASAI_GEMINI_ENDPOINT` | `https://generativelanguage.googleapis.com/v1beta/interactions` | URL HTTP(S) absoluta | endpoint Gemini Interactions compatível |
+| `RASAI_ANTHROPIC_ENDPOINT` | `https://api.anthropic.com/v1/messages` | URL HTTP(S) absoluta | endpoint Messages compatível |
 
 O console valida que o override seja uma URL absoluta `http://` ou `https://`, mas não pode provar que um endpoint arbitrário implementa o contrato esperado. Endpoint incorreto pode causar falha, encaminhar dados a destino indevido ou gerar cobrança em serviço diferente.
 
-## 5. IA — contexto editorial / YMYL
+## 5. IA - contexto editorial / YMYL
 
 Estas variáveis não ligam uma integração externa por si só. Elas condicionam a análise semântica e as sugestões de conteúdo **quando uma etapa de IA já está habilitada**.
 
@@ -203,13 +203,13 @@ Todos os defaults são `auto`.
 
 | Variável | Valores aceitos | Default | Finalidade / impacto |
 |---|---|---|---|
-| `SEARCHGEO_CONTENT_RISK_PROFILE` | `auto`, `standard`, `ymyl` | `auto` | define se a IA deve aplicar uma régua editorial comum ou uma exigência YMYL mais alta |
-| `SEARCHGEO_YMYL_CATEGORY` | `auto`, `none`, `health-safety`, `financial-security`, `civic-societal`, `other-significant-welfare` | `auto` | contextualiza o tipo de risco; não cria score YMYL |
-| `SEARCHGEO_PAGE_PURPOSE` | `auto`, `informational`, `transactional`, `product-service`, `review-comparison`, `news-editorial`, `support-documentation`, `forum-ugc`, `other` | `auto` | evita aplicar a mesma expectativa editorial a finalidades distintas |
-| `SEARCHGEO_INTENDED_AUDIENCE` | `auto`, `general`, `professional`, `mixed` | `auto` | calibra profundidade e explicação para o público pretendido |
-| `SEARCHGEO_EXPERIENCE_REQUIREMENT` | `auto`, `required`, `beneficial`, `not-expected` | `auto` | distingue experiência em primeira mão de expertise técnica/profissional |
-| `SEARCHGEO_FRESHNESS_SENSITIVITY` | `auto`, `low`, `medium`, `high` | `auto` | aumenta o rigor sobre datas e qualificadores temporais quando necessário |
-| `SEARCHGEO_CONTENT_ORIGIN` | `auto`, `first-party`, `third-party`, `user-generated`, `mixed` | `auto` | diferencia criador/origem do conteúdo e publicador/host para atribuição e responsabilidade |
+| `RASAI_CONTENT_RISK_PROFILE` | `auto`, `standard`, `ymyl` | `auto` | define se a IA deve aplicar uma régua editorial comum ou uma exigência YMYL mais alta |
+| `RASAI_YMYL_CATEGORY` | `auto`, `none`, `health-safety`, `financial-security`, `civic-societal`, `other-significant-welfare` | `auto` | contextualiza o tipo de risco; não cria score YMYL |
+| `RASAI_PAGE_PURPOSE` | `auto`, `informational`, `transactional`, `product-service`, `review-comparison`, `news-editorial`, `support-documentation`, `forum-ugc`, `other` | `auto` | evita aplicar a mesma expectativa editorial a finalidades distintas |
+| `RASAI_INTENDED_AUDIENCE` | `auto`, `general`, `professional`, `mixed` | `auto` | calibra profundidade e explicação para o público pretendido |
+| `RASAI_EXPERIENCE_REQUIREMENT` | `auto`, `required`, `beneficial`, `not-expected` | `auto` | distingue experiência em primeira mão de expertise técnica/profissional |
+| `RASAI_FRESHNESS_SENSITIVITY` | `auto`, `low`, `medium`, `high` | `auto` | aumenta o rigor sobre datas e qualificadores temporais quando necessário |
+| `RASAI_CONTENT_ORIGIN` | `auto`, `first-party`, `third-party`, `user-generated`, `mixed` | `auto` | diferencia criador/origem do conteúdo e publicador/host para atribuição e responsabilidade |
 
 ### Como interpretar `auto`
 
@@ -229,8 +229,8 @@ Para site claramente YMYL, prefira configuração explícita.
 
 ### Regras de consistência
 
-- `SEARCHGEO_CONTENT_RISK_PROFILE=standard` não pode ser combinado com categoria YMYL explícita diferente de `none`/`auto`;
-- `SEARCHGEO_CONTENT_RISK_PROFILE=ymyl` não pode ser combinado com `SEARCHGEO_YMYL_CATEGORY=none`;
+- `RASAI_CONTENT_RISK_PROFILE=standard` não pode ser combinado com categoria YMYL explícita diferente de `none`/`auto`;
+- `RASAI_CONTENT_RISK_PROFILE=ymyl` não pode ser combinado com `RASAI_YMYL_CATEGORY=none`;
 - contexto editorial não entra diretamente em `SARI-001` nem na fórmula vigente de `SCORE-GEO-003`;
 - E-E-A-T não é transformado em percentual proprietário;
 - as variáveis não geram custo externo sozinhas.
@@ -238,35 +238,35 @@ Para site claramente YMYL, prefira configuração explícita.
 ### Exemplo financeiro/YMYL
 
 ```powershell
-$env:SEARCHGEO_CONTENT_RISK_PROFILE = "ymyl"
-$env:SEARCHGEO_YMYL_CATEGORY = "financial-security"
-$env:SEARCHGEO_PAGE_PURPOSE = "product-service"
-$env:SEARCHGEO_INTENDED_AUDIENCE = "general"
-$env:SEARCHGEO_EXPERIENCE_REQUIREMENT = "not-expected"
-$env:SEARCHGEO_FRESHNESS_SENSITIVITY = "high"
-$env:SEARCHGEO_CONTENT_ORIGIN = "first-party"
+$env:RASAI_CONTENT_RISK_PROFILE = "ymyl"
+$env:RASAI_YMYL_CATEGORY = "financial-security"
+$env:RASAI_PAGE_PURPOSE = "product-service"
+$env:RASAI_INTENDED_AUDIENCE = "general"
+$env:RASAI_EXPERIENCE_REQUIREMENT = "not-expected"
+$env:RASAI_FRESHNESS_SENSITIVITY = "high"
+$env:RASAI_CONTENT_ORIGIN = "first-party"
 ```
 
 Referência completa e base conceitual: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md).
 
 Fontes públicas oficiais principais:
 
-- Google Search Central — helpful, reliable, people-first content: <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
+- Google Search Central - helpful, reliable, people-first content: <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
 - Google Search Quality Rater Guidelines overview: <https://services.google.com/fh/files/misc/hsw-sqrg.pdf>
-- Google — How AI Overviews in Search work: <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf>
+- Google - How AI Overviews in Search work: <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf>
 
 ## 6. Web Performance / Google APIs
 
 | Variável | Finalidade | Tipo / domínio | Default | Dependência / impacto |
 |---|---|---|---|---|
-| `SEARCHGEO_WEB_PERFORMANCE` | habilita PageSpeed/Lighthouse/CrUX | `true`, `false` | `false` | `true` consome integração/quota externa |
-| `SEARCHGEO_WEB_PERFORMANCE_MAX_PAGES` | teto de páginas enviadas | inteiro `>=0`; `0=todas` | `10` | multiplica chamadas potenciais |
-| `SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS` | timeout por request | número `>0` | `120` | não cria request adicional |
-| `SEARCHGEO_WEB_PERFORMANCE_FIELD_SOURCE` | política de field data | `auto`, `pagespeed`, `crux`, `none` | `auto` | `crux` exige `SEARCHGEO_CRUX_API_KEY` |
-| `SEARCHGEO_LIGHTHOUSE_CATEGORIES` | categorias Lighthouse | CSV de `performance`, `accessibility`, `best-practices`, `seo` | as quatro | categoria desconhecida/duplicada é rejeitada pelo console |
-| `SEARCHGEO_PAGESPEED_API_KEY` | chave PageSpeed | secret | nenhum | opcional em uso ad hoc; recomendada para uso recorrente/gestão de quota |
-| `SEARCHGEO_CRUX_API_KEY` | chave CrUX direta | secret | nenhum | obrigatória para chamada direta à CrUX API |
-| `GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` | bearer OAuth para comandos `rasai observe gsc-*` | secret/token temporário | nenhum | exige escopo Search Console compatível e permissão sobre a property; não é API key |
+| `RASAI_WEB_PERFORMANCE` | habilita PageSpeed/Lighthouse/CrUX | `true`, `false` | `false` | `true` consome integração/quota externa |
+| `RASAI_WEB_PERFORMANCE_MAX_PAGES` | teto de páginas enviadas | inteiro `>=0`; `0=todas` | `10` | multiplica chamadas potenciais |
+| `RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS` | timeout por request | número `>0` | `120` | não cria request adicional |
+| `RASAI_WEB_PERFORMANCE_FIELD_SOURCE` | política de field data | `auto`, `pagespeed`, `crux`, `none` | `auto` | `crux` exige `RASAI_CRUX_API_KEY` |
+| `RASAI_LIGHTHOUSE_CATEGORIES` | categorias Lighthouse | CSV de `performance`, `accessibility`, `best-practices`, `seo` | as quatro | categoria desconhecida/duplicada é rejeitada pelo console |
+| `RASAI_PAGESPEED_API_KEY` | chave PageSpeed | secret | nenhum | opcional em uso ad hoc; recomendada para uso recorrente/gestão de quota |
+| `RASAI_CRUX_API_KEY` | chave CrUX direta | secret | nenhum | obrigatória para chamada direta à CrUX API |
+| `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` | bearer OAuth para comandos `rasai observe gsc-*` | secret/token temporário | nenhum | exige escopo Search Console compatível e permissão sobre a property; não é API key |
 
 ### Como obter as chaves Google para PageSpeed/CrUX
 
@@ -278,16 +278,16 @@ O procedimento completo está em [GOOGLE_API_KEYS.md](GOOGLE_API_KEYS.md). Em re
 4. Restrinja a chave à API necessária e, quando operacionalmente estável, aplique restrição de aplicação adequada.
 5. Para a CLI, não use HTTP referrer apenas para “ter uma restrição”.
 6. Prefira chaves separadas para PageSpeed e CrUX.
-7. Configure `SEARCHGEO_PAGESPEED_API_KEY` e/ou `SEARCHGEO_CRUX_API_KEY` pelo menu.
+7. Configure `RASAI_PAGESPEED_API_KEY` e/ou `RASAI_CRUX_API_KEY` pelo menu.
 
-### `GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`
+### `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`
 
 Essa variável é diferente das API keys acima. Os collectors Search Console usam **OAuth 2.0 bearer token** em runtime.
 
 Uso:
 
 ```powershell
-$env:GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN = "<oauth-access-token>"
+$env:RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN = "<oauth-access-token>"
 rasai observe gsc-sites --audit AUD-...
 ```
 
@@ -315,20 +315,20 @@ Synthetic Apdex é OFF por default; tuning só é necessário quando habilitado.
 
 | Variável | Finalidade | Tipo / domínio | Default quando ativo | Impacto |
 |---|---|---|---|---|
-| `SEARCHGEO_SYNTHETIC_APDEX` | habilita medição | booleano | `false` | gera navegações reais contra o alvo |
-| `SEARCHGEO_APDEX_THRESHOLD_SECONDS` | threshold T | número `>0` | **sem default** | obrigatório quando Apdex está ON |
-| `SEARCHGEO_APDEX_SAMPLES_PER_CONTEXT` | amostras válidas por URL/device | inteiro `>=1` | `100` | maior valor aumenta carga/duração |
-| `SEARCHGEO_APDEX_MAX_ATTEMPTS_PER_CONTEXT` | teto de reposição | inteiro `>= samples` | `ceil(1.25 × samples)` | teto direto de navegações |
-| `SEARCHGEO_APDEX_MAX_PAGES` | páginas medidas | inteiro `>=0`; `0=todas` | `1` | multiplica contextos |
-| `SEARCHGEO_APDEX_TIMEOUT_SECONDS` | timeout por navegação | número `>0` e efetivamente `>4T` | `max(45, 4T+5)` | baixo demais trunca a faixa Frustrated |
-| `SEARCHGEO_APDEX_DELAY_SECONDS` | intervalo mínimo entre inícios | número `>=0` | `1` | maior delay reduz pressão e aumenta duração |
-| `SEARCHGEO_APDEX_CONCURRENCY` | workers simultâneos | `1`, `2` | `1` | `2` aumenta carga concorrente |
+| `RASAI_SYNTHETIC_APDEX` | habilita medição | booleano | `false` | gera navegações reais contra o alvo |
+| `RASAI_APDEX_THRESHOLD_SECONDS` | threshold T | número `>0` | **sem default** | obrigatório quando Apdex está ON |
+| `RASAI_APDEX_SAMPLES_PER_CONTEXT` | amostras válidas por URL/device | inteiro `>=1` | `100` | maior valor aumenta carga/duração |
+| `RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT` | teto de reposição | inteiro `>= samples` | `ceil(1.25 × samples)` | teto direto de navegações |
+| `RASAI_APDEX_MAX_PAGES` | páginas medidas | inteiro `>=0`; `0=todas` | `1` | multiplica contextos |
+| `RASAI_APDEX_TIMEOUT_SECONDS` | timeout por navegação | número `>0` e efetivamente `>4T` | `max(45, 4T+5)` | baixo demais trunca a faixa Frustrated |
+| `RASAI_APDEX_DELAY_SECONDS` | intervalo mínimo entre inícios | número `>=0` | `1` | maior delay reduz pressão e aumenta duração |
+| `RASAI_APDEX_CONCURRENCY` | workers simultâneos | `1`, `2` | `1` | `2` aumenta carga concorrente |
 
 Para configuração normal use **11. Synthetic Apdex** no menu principal, que explica T, calcula defaults derivados e mostra a carga projetada. Use variáveis de ambiente para automação/override.
 
 ## 8. Browser / Playwright
 
-### `PLAYWRIGHT_CHROMIUM_EXECUTABLE`
+### `RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE`
 
 - **Finalidade:** apontar para um Chromium específico.
 - **Tipo:** caminho de arquivo existente.
@@ -340,7 +340,7 @@ Para configuração normal use **11. Synthetic Apdex** no menu principal, que ex
 Exemplo:
 
 ```powershell
-$env:PLAYWRIGHT_CHROMIUM_EXECUTABLE = "C:\Program Files\Chromium\chrome.exe"
+$env:RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE = "C:\Program Files\Chromium\chrome.exe"
 ```
 
 ## Defaults para primeiro uso
@@ -371,7 +371,7 @@ max-pages                      = 100
 audits-root                    = audits
 ```
 
-Modelos e reasoning usam os defaults da tabela de IA. Credenciais, `GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` e `SEARCHGEO_APDEX_THRESHOLD_SECONDS` **não recebem valor inventado**.
+Modelos e reasoning usam os defaults da tabela de IA. Credenciais, `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` e `RASAI_APDEX_THRESHOLD_SECONDS` **não recebem valor inventado**.
 
 A configuração mínima para uma auditoria local, sem IA e sem APIs externas, é informar o alvo no item **1. Entrada**.
 
@@ -381,21 +381,21 @@ Sessão atual:
 
 ```powershell
 $env:OPENAI_API_KEY = "<chave>"
-$env:SEARCHGEO_OPENAI_MODEL = "gpt-5.6-luna"
-$env:SEARCHGEO_OPENAI_REASONING_EFFORT = "NONE"
+$env:RASAI_OPENAI_MODEL = "gpt-5.6-luna"
+$env:RASAI_OPENAI_REASONING_EFFORT = "NONE"
 ```
 
 Remover override e voltar ao default interno:
 
 ```powershell
-Remove-Item Env:SEARCHGEO_OPENAI_MODEL -ErrorAction SilentlyContinue
+Remove-Item Env:RASAI_OPENAI_MODEL -ErrorAction SilentlyContinue
 ```
 
 ## Fontes oficiais externas verificadas
 
-- Google Search Central — E-E-A-T/YMYL/people-first: <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
+- Google Search Central - E-E-A-T/YMYL/people-first: <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
 - Google Search Quality Rater Guidelines overview: <https://services.google.com/fh/files/misc/hsw-sqrg.pdf>
-- Google — How AI Overviews in Search work: <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf>
+- Google - How AI Overviews in Search work: <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf>
 - Google Search Console API authorization: <https://developers.google.com/webmaster-tools/v1/how-tos/authorizing>
 - Google Search Analytics API: <https://developers.google.com/webmaster-tools/v1/searchanalytics/query>
 - OpenAI API keys: <https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key>

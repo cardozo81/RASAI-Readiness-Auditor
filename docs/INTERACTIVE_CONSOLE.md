@@ -59,8 +59,8 @@ Principais variáveis:
 | Qwen | `DASHSCOPE_API_KEY` |
 | Gemini | `GEMINI_API_KEY` |
 | Anthropic | `ANTHROPIC_API_KEY` |
-| PageSpeed | `SEARCHGEO_PAGESPEED_API_KEY` |
-| CrUX | `SEARCHGEO_CRUX_API_KEY` |
+| PageSpeed | `RASAI_PAGESPEED_API_KEY` |
+| CrUX | `RASAI_CRUX_API_KEY` |
 
 A referência completa, incluindo **como obter cada chave**, está em [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md). Para as chaves Google de PageSpeed/CrUX, veja também [GOOGLE_API_KEYS.md](GOOGLE_API_KEYS.md).
 
@@ -93,18 +93,18 @@ Variáveis de ambiente não são um secret manager: processos e ferramentas com 
 
 MiMo exige credencial PAYG `sk-...` no adapter atual. Token Plan `tp-...` usa produto/endpoint diferente.
 
-## Menu de variáveis de ambiente — organizado por domínio
+## Menu de variáveis de ambiente - organizado por domínio
 
 A antiga lista plana foi substituída por um nível de navegação por fronteira funcional:
 
 ```text
-CONFIGURAÇÃO AVANÇADA — VARIÁVEIS DE AMBIENTE
+CONFIGURAÇÃO AVANÇADA - VARIÁVEIS DE AMBIENTE
 
 1. Aplicação e execução
-2. IA — credenciais
-3. IA — modelos e reasoning
-4. IA — endpoints avançados
-5. IA — contexto editorial / YMYL
+2. IA - credenciais
+3. IA - modelos e reasoning
+4. IA - endpoints avançados
+5. IA - contexto editorial / YMYL
 6. Web Performance / Google APIs
 7. Synthetic Apdex
 8. Browser / Playwright
@@ -133,16 +133,16 @@ Observações
 
 ### Contexto editorial / YMYL
 
-O grupo `5. IA — contexto editorial / YMYL` contém:
+O grupo `5. IA - contexto editorial / YMYL` contém:
 
 ```text
-SEARCHGEO_CONTENT_RISK_PROFILE
-SEARCHGEO_YMYL_CATEGORY
-SEARCHGEO_PAGE_PURPOSE
-SEARCHGEO_INTENDED_AUDIENCE
-SEARCHGEO_EXPERIENCE_REQUIREMENT
-SEARCHGEO_FRESHNESS_SENSITIVITY
-SEARCHGEO_CONTENT_ORIGIN
+RASAI_CONTENT_RISK_PROFILE
+RASAI_YMYL_CATEGORY
+RASAI_PAGE_PURPOSE
+RASAI_INTENDED_AUDIENCE
+RASAI_EXPERIENCE_REQUIREMENT
+RASAI_FRESHNESS_SENSITIVITY
+RASAI_CONTENT_ORIGIN
 ```
 
 Esses parâmetros **não habilitam IA nem criam custo externo por si só**. Eles condicionam uma chamada de IA que já seria executada para que a avaliação não use a mesma régua editorial em qualquer página.
@@ -163,11 +163,11 @@ A referência conceitual e operacional está em [CONTENT_ANALYSIS_CONTEXT.md](CO
 Quando a variável está ausente, mas existe um default seguro do produto, o console exibe por exemplo:
 
 ```text
-SEARCHGEO_DEVICE_CONTEXT              <default efetivo: mobile>
-SEARCHGEO_AI_TIMEOUT_SECONDS           <default efetivo: 180>
-SEARCHGEO_CONTENT_RISK_PROFILE         <default efetivo: auto>
-SEARCHGEO_WEB_PERFORMANCE              <default efetivo: false>
-SEARCHGEO_OPENAI_MODEL                 <default efetivo: gpt-5.6-luna>
+RASAI_DEVICE_CONTEXT              <default efetivo: mobile>
+RASAI_AI_TIMEOUT_SECONDS           <default efetivo: 180>
+RASAI_CONTENT_RISK_PROFILE         <default efetivo: auto>
+RASAI_WEB_PERFORMANCE              <default efetivo: false>
+RASAI_OPENAI_MODEL                 <default efetivo: gpt-5.6-luna>
 ```
 
 Isso **não cria a variável no sistema operacional**. O objetivo é mostrar o valor efetivamente usado e evitar configuração redundante. Secrets não possuem default. O threshold T do Synthetic Apdex também não recebe valor inventado porque precisa refletir o objetivo de desempenho definido pelo usuário.
@@ -177,16 +177,16 @@ Isso **não cria a variável no sistema operacional**. O objetivo é mostrar o v
 Enums e booleanos são configurados por lista guiada. Exemplos:
 
 ```text
-SEARCHGEO_DEVICE_CONTEXT
+RASAI_DEVICE_CONTEXT
   mobile | desktop | both
 
-SEARCHGEO_CONTENT_RISK_PROFILE
+RASAI_CONTENT_RISK_PROFILE
   auto | standard | ymyl
 
-SEARCHGEO_WEB_PERFORMANCE_FIELD_SOURCE
+RASAI_WEB_PERFORMANCE_FIELD_SOURCE
   auto | pagespeed | crux | none
 
-SEARCHGEO_APDEX_CONCURRENCY
+RASAI_APDEX_CONCURRENCY
   1 | 2
 ```
 
@@ -196,8 +196,8 @@ Modelos e níveis de reasoning são derivados do provider registry, reduzindo ri
 
 O editor recusa antes da execução, entre outros casos:
 
-- `SEARCHGEO_CONFIG` apontando para arquivo inexistente;
-- `SEARCHGEO_LOG_LEVEL` fora do domínio aceito;
+- `RASAI_CONFIG` apontando para arquivo inexistente;
+- `RASAI_LOG_LEVEL` fora do domínio aceito;
 - contexto editorial/YMYL fora do domínio ou com combinação contraditória;
 - categoria Lighthouse desconhecida ou duplicada;
 - endpoint avançado que não seja URL HTTP(S) absoluta;
@@ -266,7 +266,7 @@ Overrides explícitos continuam prevalecendo quando o adapter aceita o valor.
 H. Ajuda / custos
 E. Variáveis de ambiente / credenciais
 S. Salvar configuração INI [SEM CHAVES]
-C. Histórico / relatórios consolidados [OFFLINE — sem APIs]
+C. Histórico / relatórios consolidados [OFFLINE - sem APIs]
 R. Executar [APTO|INDISPONÍVEL]
 Q. Sair
 ```
@@ -280,7 +280,7 @@ V. Voltar ao menu
 Q. Sair
 ```
 
-## Opção 4 — IA
+## Opção 4 - IA
 
 A configuração reúne provider, modelo, esforço/profundidade quando suportado e timeout por tentativa. Exemplo:
 
@@ -288,9 +288,9 @@ A configuração reúne provider, modelo, esforço/profundidade quando suportado
 4. IA : openai [APTO] | modelo=gpt-5.6-luna | esforço=NONE | timeout=180s
 ```
 
-`SEARCHGEO_AI_TIMEOUT_SECONDS` continua disponível como override avançado. Em `AUTO`, OpenAI, DeepSeek e MiMo mantêm suas próprias configurações; fallback não herda parâmetro incompatível do provider anterior.
+`RASAI_AI_TIMEOUT_SECONDS` continua disponível como override avançado. Em `AUTO`, OpenAI, DeepSeek e MiMo mantêm suas próprias configurações; fallback não herda parâmetro incompatível do provider anterior.
 
-## Opção 5 — Remediação textual por IA
+## Opção 5 - Remediação textual por IA
 
 Só pode ser habilitada quando a opção 4 possui provider apto. Com IA=`none` ou provider indisponível:
 
@@ -302,7 +302,7 @@ A remediação é advisory/evidence-bound, pode gerar chamadas adicionais e não
 
 Quando executada, os reports expõem provider, modelo, reasoning, duração, tokens e custo estimado quando existe base confiável, além do contexto editorial/YMYL usado. Custo indisponível não é substituído por estimativa arbitrária.
 
-## Opção 6 — Web Performance
+## Opção 6 - Web Performance
 
 Configura PageSpeed/Lighthouse e dados de campo CrUX. O console permite definir habilitação, field source e timeout por URL.
 
@@ -314,11 +314,11 @@ Default operacional:
 
 Esse timeout controla quanto o cliente espera a resposta PageSpeed/CrUX. A API PageSpeed executa Lighthouse remotamente e não expõe ao RASAi parâmetro separado para o timeout interno de carregamento do Lighthouse.
 
-`field_source=crux` exige `SEARCHGEO_CRUX_API_KEY`.
+`field_source=crux` exige `RASAI_CRUX_API_KEY`.
 
 Falha PageSpeed pode deixar Lighthouse/Acessibilidade indisponíveis enquanto CrUX direto ainda pode funcionar. O relatório preserva a causa real; não converte ausência de dado em problema do website.
 
-## Opção 11 — Synthetic Apdex
+## Opção 11 - Synthetic Apdex
 
 Ao habilitar, o console explica e solicita T, amostras válidas, máximo de tentativas, máximo de páginas, timeout, delay e concorrência.
 
@@ -334,9 +334,9 @@ delay                  = 1 s
 concorrência           = 1; máximo 2
 ```
 
-Grupos com 1–99 amostras válidas são small-group e recebem `*`. Synthetic Apdex não usa LLM nem PageSpeed/CrUX, mas gera tráfego HTTP real; volume relevante em produção exige autorização.
+Grupos com 1-99 amostras válidas são small-group e recebem `*`. Synthetic Apdex não usa LLM nem PageSpeed/CrUX, mas gera tráfego HTTP real; volume relevante em produção exige autorização.
 
-## Opção C — Histórico / relatórios consolidados
+## Opção C - Histórico / relatórios consolidados
 
 A opção `C` é um fluxo independente e offline. Ela não usa provider de IA, PageSpeed, CrUX ou Synthetic Apdex em modo de execução. Apenas lê os resultados que já foram persistidos em auditorias anteriores.
 
@@ -345,7 +345,7 @@ Fluxo:
 ```text
 AUD-*/audit.db
   -> leitura SQLite mode=ro / query_only
-  -> .searchgeo/consolidated-index.db
+  -> .rasai/consolidated-index.db
   -> filtros de domínio, período, device e URL
   -> validação de comparabilidade
   -> consolidated/CONS-*/report.html + manifest.json
@@ -353,7 +353,7 @@ AUD-*/audit.db
 
 O índice é cache derivado e reconstruível. Os `audit.db` permanecem fonte de verdade e não são modificados.
 
-O relatório reúne os indicadores persistidos relevantes — Score/Coverage/Confidence, dimensões GEO, Web Performance, CWV, Synthetic Apdex e estatística de findings — apenas quando as observações são comparáveis. Mudanças de `scoring_version`, universo de URLs, profile/threshold Apdex ou ausência de dado são tratadas explicitamente; nenhum valor ausente vira zero.
+O relatório reúne os indicadores persistidos relevantes - Score/Coverage/Confidence, dimensões GEO, Web Performance, CWV, Synthetic Apdex e estatística de findings - apenas quando as observações são comparáveis. Mudanças de `scoring_version`, universo de URLs, profile/threshold Apdex ou ausência de dado são tratadas explicitamente; nenhum valor ausente vira zero.
 
 Mobile e Desktop permanecem separados. Em filtro explícito por URL, score audit-level só entra se o universo completo da auditoria estiver contido no conjunto selecionado; o sistema não recalcula score parcial.
 

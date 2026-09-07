@@ -1,6 +1,6 @@
 # Referência da CLI
 
-Referência operacional do **RASAi — Search & AI Readiness Auditor**.
+Referência operacional do **RASAi - Search & AI Readiness Auditor**.
 
 ## Entradas públicas
 
@@ -15,13 +15,11 @@ rasai quality report|verify|timeline ...
 rasai-console
 ```
 
-Aliases legados `searchgeo` e `searchgeo-console` permanecem por compatibilidade.
-
 ## Opções globais
 
-- `-h`, `--help` — ajuda da superfície/comando.
-- `--version` — identificador técnico do pacote quando necessário para diagnóstico; não representa uma versão comercial divulgada do produto.
-- `--config PATH` — arquivo de configuração do audit quando suportado pela CLI principal.
+- `-h`, `--help` - ajuda da superfície/comando.
+- `--version` - identificador técnico do pacote quando necessário para diagnóstico; não representa uma versão comercial divulgada do produto.
+- `--config PATH` - arquivo de configuração do audit quando suportado pela CLI principal.
 
 ## `audit`
 
@@ -46,7 +44,7 @@ rasai audit target [target ...] [opções]
 | `--ai-provider` | provider semântico: `none`, provider explícito ou `auto` |
 | `--ai-model MODEL_ID` | modelo explícito quando compatível |
 
-Default público de dispositivo: `mobile`. Override: `SEARCHGEO_DEVICE_CONTEXT`.
+Default público de dispositivo: `mobile`. Override: `RASAI_DEVICE_CONTEXT`.
 
 ## SARI-001 / SCORE-GEO-003
 
@@ -55,10 +53,10 @@ As auditorias usam `SCORE-GEO-003`. Sem model artifact `VALIDATED`, o Overall pe
 Artifact padrão:
 
 ```text
-.searchgeo/scoring/score-geo-003-model.json
+.rasai/scoring/score-geo-003-model.json
 ```
 
-Override: `SEARCHGEO_SCORE_GEO_003_MODEL`.
+Override: `RASAI_SCORE_GEO_003_MODEL`.
 
 ### Dataset pré-fit
 
@@ -74,7 +72,7 @@ Avalia gates pré-fit e gera manifest/fingerprint. `READY_FOR_MODEL_FIT != VALID
 rasai scoring calibrate `
   --audits-root audits `
   --dataset-version GEO-CAL-001 `
-  --output .searchgeo\scoring\score-geo-003-model.json
+  --output .rasai\scoring\score-geo-003-model.json
 ```
 
 Fitting é offline sobre AUDs/query-runs elegíveis. AUDs são lidos em modo SQLite read-only. Quando o outcome controlado não tem granularidade por dispositivo, o collector gera uma única linha de features por AUD em vez de duplicar o mesmo target contra vetores mobile/desktop distintos.
@@ -83,7 +81,7 @@ Fitting é offline sobre AUDs/query-runs elegíveis. AUDs são lidos em modo SQL
 
 ```powershell
 rasai scoring inspect
-rasai scoring inspect --model .searchgeo\scoring\score-geo-003-model.json
+rasai scoring inspect --model .rasai\scoring\score-geo-003-model.json
 ```
 
 ## IA no audit
@@ -104,7 +102,7 @@ anthropic/claude
 
 `AUTO` permanece limitado à cadeia habilitada/configurada. Provider explícito não deve ser invalidado por credencial ausente de provider não selecionado.
 
-Timeout principal: `SEARCHGEO_AI_TIMEOUT_SECONDS`, default atual 180 s por tentativa.
+Timeout principal: `RASAI_AI_TIMEOUT_SECONDS`, default atual 180 s por tentativa.
 
 ### Remediação textual
 
@@ -120,7 +118,7 @@ Default OFF; advisory/non-scoring.
 ```text
 --ai-technical-remediation
 --no-ai-technical-remediation
-SEARCHGEO_AI_TECHNICAL_REMEDIATION
+RASAI_AI_TECHNICAL_REMEDIATION
 ```
 
 Default OFF. Precedência: CLI explícito > ambiente > OFF.
@@ -138,13 +136,13 @@ Default OFF. Precedência: CLI explícito > ambiente > OFF.
 Variáveis principais:
 
 ```text
-SEARCHGEO_WEB_PERFORMANCE
-SEARCHGEO_WEB_PERFORMANCE_MAX_PAGES
-SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS
-SEARCHGEO_WEB_PERFORMANCE_FIELD_SOURCE
-SEARCHGEO_LIGHTHOUSE_CATEGORIES
-SEARCHGEO_PAGESPEED_API_KEY
-SEARCHGEO_CRUX_API_KEY
+RASAI_WEB_PERFORMANCE
+RASAI_WEB_PERFORMANCE_MAX_PAGES
+RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS
+RASAI_WEB_PERFORMANCE_FIELD_SOURCE
+RASAI_LIGHTHOUSE_CATEGORIES
+RASAI_PAGESPEED_API_KEY
+RASAI_CRUX_API_KEY
 ```
 
 Lab e field data permanecem separados e não entram automaticamente em SARI/SCORE-GEO-003.
@@ -328,7 +326,7 @@ Opções adicionais:
 
 É evidência observacional/manual e non-scoring.
 
-### Search Console — propriedades
+### Search Console - propriedades
 
 ```powershell
 rasai observe gsc-sites --audit AUD-...
@@ -336,7 +334,7 @@ rasai observe gsc-sites --audit AUD-...
 
 Lista/persiste propriedades acessíveis e permission level.
 
-### Search Console — sitemaps
+### Search Console - sitemaps
 
 ```powershell
 rasai observe gsc-sitemaps `
@@ -360,7 +358,7 @@ rasai observe gsc-search `
 
 `--max-rows` é teto real da coleta; page size da API é limitado separadamente.
 
-Bearer token default: `GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`. Override: `--token-env NAME`.
+Bearer token default: `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`. Override: `--token-env NAME`.
 
 ### Search Console Search Appearance
 
@@ -397,7 +395,7 @@ rasai observe crux-history `
   [--periods 40]
 ```
 
-API key default: `SEARCHGEO_CRUX_API_KEY`. Override: `--key-env NAME`.
+API key default: `RASAI_CRUX_API_KEY`. Override: `--key-env NAME`.
 
 ## RASAi Quality
 
@@ -413,7 +411,7 @@ Gera `report/quality.html` com:
 
 - Audit Health;
 - Evidence Confidence por finding;
-- Operational Priority `P0`–`P3`;
+- Operational Priority `P0`-`P3`;
 - Coverage Map;
 - `nosnippet`, `max-snippet`, `data-nosnippet`, `X-Robots-Tag`;
 - Recommendation Validation.
@@ -453,8 +451,8 @@ Saída: `audits/quality/TIMELINE-*/report.html` por default.
 ## Credenciais observacionais
 
 ```text
-GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
-SEARCHGEO_CRUX_API_KEY
+RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
+RASAI_CRUX_API_KEY
 ```
 
 Tokens/keys são inputs de runtime e não são persistidos em sidecar/report.

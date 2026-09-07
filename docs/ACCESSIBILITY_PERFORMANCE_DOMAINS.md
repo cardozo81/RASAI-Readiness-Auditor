@@ -1,4 +1,4 @@
-# Acessibilidade e Web Performance — domínios separados
+# Acessibilidade e Web Performance - domínios separados
 
 O RASAi apresenta Acessibilidade, Web Performance e **Search & AI Readiness** como domínios distintos para evitar mistura de métricas e conclusões.
 
@@ -25,12 +25,12 @@ O report deve mostrar essa relação e a causa concreta.
 
 ### Score Lighthouse e ocorrências
 
-O score Lighthouse de Acessibilidade é apresentado com a convenção visual oficial do Lighthouse para scores 0–100:
+O score Lighthouse de Acessibilidade é apresentado com a convenção visual oficial do Lighthouse para scores 0-100:
 
 ```text
-90–100  Bom
-50–89   Precisa melhorar
-0–49    Ruim
+90-100  Bom
+50-89   Precisa melhorar
+0-49    Ruim
 ```
 
 `Ocorrências automatizadas` conta elementos/nós apontados pelos audits reprovados. Um mesmo audit pode produzir várias ocorrências; por isso o report também explica essa diferença.
@@ -53,12 +53,12 @@ Dados lab e field não são intercambiáveis.
 
 ### Faixas visuais
 
-Para o score Lighthouse 0–100, o report usa:
+Para o score Lighthouse 0-100, o report usa:
 
 ```text
-90–100  Bom
-50–89   Precisa melhorar
-0–49    Ruim
+90-100  Bom
+50-89   Precisa melhorar
+0-49    Ruim
 ```
 
 Para Core Web Vitals no percentil 75, o report usa os thresholds publicados pelo Google/web.dev:

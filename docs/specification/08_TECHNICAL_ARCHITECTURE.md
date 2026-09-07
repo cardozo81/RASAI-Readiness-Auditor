@@ -1,6 +1,6 @@
 # TECHNICAL_ARCHITECTURE.md
 
-**Status:** APPROVED — consolidated current architecture for RASAi/SARI-001, SCORE-GEO-003, external evidence, Apdex, AI visibility, monitoring and observability.
+**Status:** APPROVED - consolidated current architecture for RASAi/SARI-001, SCORE-GEO-003, external evidence, Apdex, AI visibility, monitoring and observability.
 
 ## 1. Architectural style
 
@@ -71,7 +71,7 @@ AUD-*/
 ### 6.2 Consolidated history
 
 ```text
-audits/.searchgeo/consolidated-index.db
+audits/.rasai/consolidated-index.db
 ```
 
 This is a derived, rebuildable cache. Source `audit.db` files are opened read-only.
@@ -124,7 +124,7 @@ Invariants:
 
 `ai-visibility.html` is an import-first observed-outcome surface. It may preserve supported external exports and controlled query runs under the documented contract.
 
-Observed visibility does not enter SARI/SCORE-GEO-003 automatically and is not converted into a universal GEO score.
+Observed visibility does not enter SARI/SCORE-GEO-003 automatically and is not converted into a universal Search & AI Readiness score.
 
 ## 12. Search & AI Observability
 

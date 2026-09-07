@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from searchgeo.source_quality import RedirectDetail, SourceQualityAssessment, SourceQualityIssue, _report_block
-from searchgeo.source_quality_browser import (
+from rasai.source_quality import RedirectDetail, SourceQualityAssessment, SourceQualityIssue, _report_block
+from rasai.source_quality_browser import (
     BrowserRouteObservation,
     _recovered_issue,
     browser_reconciliation_limitations,

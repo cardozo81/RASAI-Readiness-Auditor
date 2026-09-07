@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from searchgeo.monitoring.compare import _compare_signal, evaluate_release_gate
-from searchgeo.monitoring.models import AuditSnapshot, ComparisonResult, GatePolicy, Signal
+from rasai.monitoring.compare import _compare_signal, evaluate_release_gate
+from rasai.monitoring.models import AuditSnapshot, ComparisonResult, GatePolicy, Signal
 
 
 def _snapshot(audit_id: str) -> AuditSnapshot:

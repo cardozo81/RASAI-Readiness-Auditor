@@ -7,11 +7,11 @@ import tempfile
 
 import pytest
 
-from searchgeo.observability.importers import (
+from rasai.observability.importers import (
     import_bing_search_performance_csv,
     import_observability_json,
 )
-from searchgeo.observability.store import ObservabilityStore
+from rasai.observability.store import ObservabilityStore
 
 
 def _workspace(root: Path) -> Path:

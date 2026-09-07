@@ -24,10 +24,10 @@ O menu de ambiente/credenciais é organizado por fronteira funcional:
 
 ```text
 1. Aplicação e execução
-2. IA — credenciais
-3. IA — modelos e reasoning
-4. IA — endpoints avançados
-5. IA — contexto editorial / YMYL
+2. IA - credenciais
+3. IA - modelos e reasoning
+4. IA - endpoints avançados
+5. IA - contexto editorial / YMYL
 6. Web Performance / Google APIs
 7. Synthetic Apdex
 8. Browser / Playwright
@@ -56,9 +56,9 @@ XAI_API_KEY
 DASHSCOPE_API_KEY
 GEMINI_API_KEY
 ANTHROPIC_API_KEY
-SEARCHGEO_PAGESPEED_API_KEY
-SEARCHGEO_CRUX_API_KEY
-GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
+RASAI_PAGESPEED_API_KEY
+RASAI_CRUX_API_KEY
+RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
 qualquer TOKEN / SECRET / PASSWORD / CREDENTIAL
 ```
 
@@ -144,23 +144,23 @@ ANTHROPIC  claude-sonnet-5
 ### Timeout de IA
 
 ```text
-SEARCHGEO_AI_TIMEOUT_SECONDS=180
+RASAI_AI_TIMEOUT_SECONDS=180
 ```
 
 É timeout por tentativa, não da auditoria inteira.
 
-## Contexto editorial da IA — YMYL e E-E-A-T
+## Contexto editorial da IA - YMYL e E-E-A-T
 
 Variáveis:
 
 ```text
-SEARCHGEO_CONTENT_RISK_PROFILE
-SEARCHGEO_YMYL_CATEGORY
-SEARCHGEO_PAGE_PURPOSE
-SEARCHGEO_INTENDED_AUDIENCE
-SEARCHGEO_EXPERIENCE_REQUIREMENT
-SEARCHGEO_FRESHNESS_SENSITIVITY
-SEARCHGEO_CONTENT_ORIGIN
+RASAI_CONTENT_RISK_PROFILE
+RASAI_YMYL_CATEGORY
+RASAI_PAGE_PURPOSE
+RASAI_INTENDED_AUDIENCE
+RASAI_EXPERIENCE_REQUIREMENT
+RASAI_FRESHNESS_SENSITIVITY
+RASAI_CONTENT_ORIGIN
 ```
 
 Todas usam `auto` quando ausentes.
@@ -179,7 +179,7 @@ Base conceitual: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md).
 ## Remediação textual por IA
 
 ```text
-SEARCHGEO_AI_CONTENT_REMEDIATION
+RASAI_AI_CONTENT_REMEDIATION
 ```
 
 OFF por padrão. Quando habilitada e executada, `content-suggestions.html` e `ai-usage.html` expõem provider, modelo, reasoning, tentativas/status, duração, tokens e custo estimado quando existe base suportada.
@@ -191,13 +191,13 @@ A camada determinística faz parte do pipeline. A IA técnica opcional usa:
 ```text
 --ai-technical-remediation
 --no-ai-technical-remediation
-SEARCHGEO_AI_TECHNICAL_REMEDIATION
+RASAI_AI_TECHNICAL_REMEDIATION
 ```
 
 Default `false`; precedência:
 
 ```text
-CLI explícito > SEARCHGEO_AI_TECHNICAL_REMEDIATION > false
+CLI explícito > RASAI_AI_TECHNICAL_REMEDIATION > false
 ```
 
 Essa finalidade é advisory, não altera scoring e não decide automaticamente política de GPTBot/Google-Extended.
@@ -211,19 +211,19 @@ report/crawling-discovery.html
 ## Web Performance, Lighthouse e CrUX
 
 ```text
-SEARCHGEO_WEB_PERFORMANCE
-SEARCHGEO_WEB_PERFORMANCE_MAX_PAGES
-SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS
-SEARCHGEO_WEB_PERFORMANCE_FIELD_SOURCE
-SEARCHGEO_LIGHTHOUSE_CATEGORIES
-SEARCHGEO_PAGESPEED_API_KEY
-SEARCHGEO_CRUX_API_KEY
+RASAI_WEB_PERFORMANCE
+RASAI_WEB_PERFORMANCE_MAX_PAGES
+RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS
+RASAI_WEB_PERFORMANCE_FIELD_SOURCE
+RASAI_LIGHTHOUSE_CATEGORIES
+RASAI_PAGESPEED_API_KEY
+RASAI_CRUX_API_KEY
 ```
 
 Default de timeout externo:
 
 ```text
-SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS=120
+RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS=120
 ```
 
 Field source:
@@ -235,14 +235,14 @@ crux
 none
 ```
 
-`crux` direto exige `SEARCHGEO_CRUX_API_KEY`.
+`crux` direto exige `RASAI_CRUX_API_KEY`.
 
 ## Search Console / Observability
 
 Os comandos `rasai observe gsc-sites`, `gsc-sitemaps`, `gsc-search`, `gsc-appearance` e `gsc-inspect` usam OAuth bearer token em runtime:
 
 ```text
-GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
+RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
 ```
 
 Esse valor é **token OAuth temporário**, não API key. Não deve ser gravado no INI, artifact, SQLite ou HTML. O token precisa ter escopo Search Console compatível e acesso à propriedade informada. Consulte [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md) e [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md).
@@ -250,14 +250,14 @@ Esse valor é **token OAuth temporário**, não API key. Não deve ser gravado n
 ## Synthetic Apdex
 
 ```text
-SEARCHGEO_SYNTHETIC_APDEX
-SEARCHGEO_APDEX_THRESHOLD_SECONDS
-SEARCHGEO_APDEX_SAMPLES_PER_CONTEXT
-SEARCHGEO_APDEX_MAX_ATTEMPTS_PER_CONTEXT
-SEARCHGEO_APDEX_MAX_PAGES
-SEARCHGEO_APDEX_TIMEOUT_SECONDS
-SEARCHGEO_APDEX_DELAY_SECONDS
-SEARCHGEO_APDEX_CONCURRENCY
+RASAI_SYNTHETIC_APDEX
+RASAI_APDEX_THRESHOLD_SECONDS
+RASAI_APDEX_SAMPLES_PER_CONTEXT
+RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT
+RASAI_APDEX_MAX_PAGES
+RASAI_APDEX_TIMEOUT_SECONDS
+RASAI_APDEX_DELAY_SECONDS
+RASAI_APDEX_CONCURRENCY
 ```
 
 Quando habilitado:
@@ -277,7 +277,7 @@ T não recebe valor arbitrário.
 ## Dispositivo
 
 ```text
-SEARCHGEO_DEVICE_CONTEXT
+RASAI_DEVICE_CONTEXT
 ```
 
 Valores: `mobile`, `desktop`, `both`. Default: `mobile`.

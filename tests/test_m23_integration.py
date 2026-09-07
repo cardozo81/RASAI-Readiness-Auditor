@@ -5,11 +5,11 @@ import sqlite3
 import tempfile
 import unittest
 
-from searchgeo.cli_extensions import build_parser
-from searchgeo.console_m23 import State, append_m23_command, synthetic_load_summary, validate_m23_state
-from searchgeo.m23_apdex import SyntheticApdexConfig, execute_m23_apdex
-from searchgeo.m23_apdex_profiles import NavigationMeasurement
-from searchgeo.persistence import AuditWorkspace
+from rasai.cli_extensions import build_parser
+from rasai.console_m23 import State, append_m23_command, synthetic_load_summary, validate_m23_state
+from rasai.m23_apdex import SyntheticApdexConfig, execute_m23_apdex
+from rasai.m23_apdex_profiles import NavigationMeasurement
+from rasai.persistence import AuditWorkspace
 
 
 class _Gateway:
@@ -165,7 +165,7 @@ class M23IntegrationTests(unittest.TestCase):
             apdex_concurrency=1,
         )
         validate_m23_state(state)
-        command = append_m23_command(["python", "-m", "searchgeo", "audit", state.target], state)
+        command = append_m23_command(["python", "-m", "rasai", "audit", state.target], state)
         self.assertIn("--synthetic-apdex", command)
         self.assertIn("--apdex-threshold-seconds", command)
         attempts, message = synthetic_load_summary(state)

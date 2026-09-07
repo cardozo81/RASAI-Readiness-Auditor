@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from searchgeo.m16_root_cause import _scope_status
+from rasai.m16_root_cause import _scope_status
 
 
 class M16ResourceScopeTests(unittest.TestCase):

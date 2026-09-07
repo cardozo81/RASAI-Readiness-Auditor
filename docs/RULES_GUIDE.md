@@ -1,4 +1,4 @@
-# Guia das Business Rules — BR-GEO-001..054
+# Guia das Business Rules - BR-GEO-001..054
 
 A definição normativa prevalente está em [`docs/specification/03_BUSINESS_RULES.md`](specification/03_BUSINESS_RULES.md). Este guia explica a finalidade operacional das regras sem duplicar pesos/fórmulas de scoring.
 

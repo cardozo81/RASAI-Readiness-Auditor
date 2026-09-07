@@ -1,8 +1,8 @@
-# Rastreamento, descoberta e acesso de crawlers — Crawling, Discovery & AI Access
+# Rastreamento, descoberta e acesso de crawlers - Crawling, Discovery & AI Access
 
 **Status:** INTEGRATED BASELINE
 **Natureza:** enriquecimento técnico pós-auditoria, determinístico por padrão e não-scoring
-**Runtime:** `src/searchgeo/m24_crawling_discovery.py`, `m24_discovery_extensions.py`, `m24_ai.py`, `m24_reporting.py`, `m24_cli.py`
+**Runtime:** `src/rasai/m24_crawling_discovery.py`, `m24_discovery_extensions.py`, `m24_ai.py`, `m24_reporting.py`, `m24_cli.py`
 
 ## 1. Objetivo
 
@@ -126,7 +126,7 @@ Superfície pública:
 ```text
 --ai-technical-remediation
 --no-ai-technical-remediation
-SEARCHGEO_AI_TECHNICAL_REMEDIATION
+RASAI_AI_TECHNICAL_REMEDIATION
 ```
 
 Default: **OFF**.
@@ -134,7 +134,7 @@ Default: **OFF**.
 Precedência:
 
 1. argumento CLI explícito;
-2. variável `SEARCHGEO_AI_TECHNICAL_REMEDIATION`;
+2. variável `RASAI_AI_TECHNICAL_REMEDIATION`;
 3. `false`.
 
 Valores de ambiente aceitos:
@@ -222,7 +222,7 @@ Rastreamento, descoberta e acesso de crawlers é considerado íntegro quando:
 
 Fontes normativas/primárias usadas para os fenômenos externos:
 
-- RFC 9309 — Robots Exclusion Protocol: <https://www.rfc-editor.org/rfc/rfc9309>
+- RFC 9309 - Robots Exclusion Protocol: <https://www.rfc-editor.org/rfc/rfc9309>
 - Google robots.txt specification: <https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec>
 - Google sitemap guidance: <https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap>
 - Google common crawlers / Google-Extended: <https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers>

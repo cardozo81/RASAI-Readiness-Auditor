@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from searchgeo.monitoring.impact import _search_signals
+from rasai.monitoring.impact import _search_signals
 
 
 def test_google_genai_export_metrics_are_non_directional_and_missing_metrics_stay_absent() -> None:

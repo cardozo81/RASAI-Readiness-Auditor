@@ -6,11 +6,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from searchgeo.domain import AuditMode, DeviceContext, RuleExecution, RuleResult, new_id, utc_now
-from searchgeo.m6 import M6ExecutionResult
-from searchgeo.m7 import execute_m7
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
-from searchgeo.semantic import NoneProvider
+from rasai.domain import AuditMode, DeviceContext, RuleExecution, RuleResult, new_id, utc_now
+from rasai.m6 import M6ExecutionResult
+from rasai.m7 import execute_m7
+from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.semantic import NoneProvider
 from test_m7_semantic_provider import _fixture
 
 

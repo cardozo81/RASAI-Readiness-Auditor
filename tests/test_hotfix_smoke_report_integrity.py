@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import unittest
 
-from searchgeo.m3 import _align_title_observation_to_rendered_artifact
-from searchgeo.remediation import RemediationRecipe, recipe_for
-from searchgeo.rendering import BrowserRenderResult, RenderedElementObservation
+from rasai.m3 import _align_title_observation_to_rendered_artifact
+from rasai.remediation import RemediationRecipe, recipe_for
+from rasai.rendering import BrowserRenderResult, RenderedElementObservation
 
 
 class HotfixSmokeReportIntegrityTests(unittest.TestCase):

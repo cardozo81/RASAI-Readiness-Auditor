@@ -8,10 +8,10 @@ from unittest.mock import patch
 
 import pytest
 
-from searchgeo import entrypoint
-from searchgeo.m26_reporting import enrich_m26_report_site
-from searchgeo.m26_visibility import FORMAT_VERSION, import_visibility_file, wilson_interval
-from searchgeo.persistence import AuditWorkspace
+from rasai import entrypoint
+from rasai.m26_reporting import enrich_m26_report_site
+from rasai.m26_visibility import FORMAT_VERSION, import_visibility_file, wilson_interval
+from rasai.persistence import AuditWorkspace
 
 
 def _workspace(root: Path) -> AuditWorkspace:
@@ -230,10 +230,10 @@ def test_wilson_interval_uses_only_explicit_binomial_sample() -> None:
 
 
 def test_top_level_entrypoint_delegates_existing_commands_and_intercepts_visibility() -> None:
-    with patch("searchgeo.entrypoint.cli_extensions.main", return_value=17) as existing:
+    with patch("rasai.entrypoint.cli_extensions.main", return_value=17) as existing:
         assert entrypoint.main(["audit", "example.test"]) == 17
         existing.assert_called_once_with(["audit", "example.test"])
 
-    with patch("searchgeo.m26_cli.main", return_value=23) as visibility:
+    with patch("rasai.m26_cli.main", return_value=23) as visibility:
         assert entrypoint.main(["visibility", "report", "--audit-id", "AUD-X"]) == 23
         visibility.assert_called_once_with(["report", "--audit-id", "AUD-X"])

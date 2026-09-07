@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import unittest
 
-from searchgeo.domain import DeviceContext, RuleExecution, RuleResult
-from searchgeo.scoring import ConsolidationStatus, SCORING_VERSION, ScoringEngine
+from rasai.domain import DeviceContext, RuleExecution, RuleResult
+from rasai.scoring import ConsolidationStatus, SCORING_VERSION, ScoringEngine
 
 
 _NOW = datetime(2026, 9, 2, 17, 0, tzinfo=timezone.utc)

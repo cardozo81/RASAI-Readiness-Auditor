@@ -5,12 +5,12 @@ from pathlib import Path
 import sqlite3
 import tempfile
 
-from searchgeo.monitoring.compare import compare_audits, evaluate_release_gate
-from searchgeo.monitoring.impact import analyze_change_impact
-from searchgeo.monitoring.reporting import write_monitoring_report
-from searchgeo.observability.diagnostics import analyze_workspace
-from searchgeo.observability.reporting import enrich_observability_report
-from searchgeo.observability.store import ObservabilityStore, new_dataset
+from rasai.monitoring.compare import compare_audits, evaluate_release_gate
+from rasai.monitoring.impact import analyze_change_impact
+from rasai.monitoring.reporting import write_monitoring_report
+from rasai.observability.diagnostics import analyze_workspace
+from rasai.observability.reporting import enrich_observability_report
+from rasai.observability.store import ObservabilityStore, new_dataset
 
 
 def _workspace(

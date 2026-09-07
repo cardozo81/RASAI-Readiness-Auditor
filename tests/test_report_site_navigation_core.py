@@ -5,8 +5,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from searchgeo import report_site
-from searchgeo.report_navigation import NAV_ITEMS
+from rasai import report_site
+from rasai.report_navigation import NAV_ITEMS
 
 
 _LINK_RE = re.compile(r"<a class='([^']*)' href='([^']+)'>([^<]+)</a>")

@@ -1,6 +1,6 @@
 # Guia do usuário
 
-Guia operacional do RASAi — Search & AI Readiness Auditor para execução local e leitura dos resultados.
+Guia operacional do RASAi - Search & AI Readiness Auditor para execução local e leitura dos resultados.
 
 ## Fluxo recomendado
 

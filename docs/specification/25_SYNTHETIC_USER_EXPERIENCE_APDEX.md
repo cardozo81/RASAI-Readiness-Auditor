@@ -8,7 +8,7 @@
 
 Synthetic User Experience Apdex adiciona um segundo domínio de Apdex, separado do Synthetic Navigation Apdex, para medir uma **user action sintética enriquecida** e permitir calibração explícita com ferramentas RUM/APM, inclusive Dynatrace.
 
-O objetivo é reduzir divergências explicáveis por metodologia de coleta — KPM, thresholds, política de erros, dispositivo e sessão — sem manipular o resultado para fazê-lo coincidir com RUM.
+O objetivo é reduzir divergências explicáveis por metodologia de coleta - KPM, thresholds, política de erros, dispositivo e sessão - sem manipular o resultado para fazê-lo coincidir com RUM.
 
 Synthetic User Experience Apdex **não é RUM**. Nenhuma execução automatizada deve ser descrita como população de usuários humanos observados.
 
@@ -17,7 +17,7 @@ Synthetic User Experience Apdex **não é RUM**. Nenhuma execução automatizada
 Synthetic Navigation Apdex permanece normativo e independente:
 
 ```text
-Synthetic Navigation Apdex — Standard
+Synthetic Navigation Apdex - Standard
 Task       = NAVIGATION_LOAD
 Satisfied  <= T
 Tolerating > T e <= 4T
@@ -27,7 +27,7 @@ Frustrated > 4T ou erro de aplicação/navegação válido
 Synthetic User Experience Apdex é aditivo:
 
 ```text
-Synthetic User Experience Apdex — Calibrated
+Synthetic User Experience Apdex - Calibrated
 Task       = SYNTHETIC_LOAD_ACTION
 KPM        = configurável/importada
 Satisfied  <= threshold_satisfied
@@ -128,7 +128,7 @@ O RASAi não inventa percentuais de população. Para comparação com RUM, pref
 Perfil Tablet baseline Synthetic User Experience Apdex:
 
 ```text
-profile     = SEARCHGEO_TABLET_CONTROLLED4G_V1
+profile     = RASAI_TABLET_CONTROLLED4G_V1
 viewport    = 1024x1366
 DSF         = 2
 has_touch   = true
@@ -193,8 +193,8 @@ Uma futura distribuição estratificada de CPU/rede só poderá ser habilitada c
 
 Há dois modos:
 
-1. **JSON exportado** — preferido para reprodutibilidade/offline;
-2. **Configuration API** — consulta HTTPS da configuração de aplicação.
+1. **JSON exportado** - preferido para reprodutibilidade/offline;
+2. **Configuration API** - consulta HTTPS da configuração de aplicação.
 
 A importação extrai apenas o necessário para calibração:
 
@@ -322,7 +322,7 @@ Antes do merge:
 1. executar 1 URL autorizada;
 2. Synthetic Navigation Apdex Standard ON com T explícito;
 3. Synthetic User Experience Apdex ON;
-4. usar inicialmente 6–12 amostras, não 1000;
+4. usar inicialmente 6-12 amostras, não 1000;
 5. concorrência 1;
 6. confirmar `apdex.html` inalterado;
 7. confirmar `apdex-experience.html`;
@@ -334,10 +334,10 @@ Antes do merge:
 
 ## 18. Referências públicas
 
-- Apdex Technical Specification v1.1 — https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf
-- Dynatrace — User actions in RUM Classic — https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-actions
-- Dynatrace — Apdex ratings — https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/scores-and-ratings/apdex-ratings
-- Dynatrace — Web application configuration API — https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration
-- Chrome DevTools Protocol — Network — https://chromedevtools.github.io/devtools-protocol/tot/Network/
-- Chrome DevTools Protocol — Emulation — https://chromedevtools.github.io/devtools-protocol/tot/Emulation/
-- W3C Performance Timeline — https://www.w3.org/TR/performance-timeline/
+- Apdex Technical Specification v1.1 - https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf
+- Dynatrace - User actions in RUM Classic - https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-actions
+- Dynatrace - Apdex ratings - https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/scores-and-ratings/apdex-ratings
+- Dynatrace - Web application configuration API - https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration
+- Chrome DevTools Protocol - Network - https://chromedevtools.github.io/devtools-protocol/tot/Network/
+- Chrome DevTools Protocol - Emulation - https://chromedevtools.github.io/devtools-protocol/tot/Emulation/
+- W3C Performance Timeline - https://www.w3.org/TR/performance-timeline/

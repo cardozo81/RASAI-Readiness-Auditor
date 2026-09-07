@@ -6,8 +6,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from searchgeo.operational_log import append_operational_event, operational_log_path, try_append_operational_event
-from searchgeo.persistence import AuditWorkspace
+from rasai.operational_log import append_operational_event, operational_log_path, try_append_operational_event
+from rasai.persistence import AuditWorkspace
 
 
 class OperationalLogTests(unittest.TestCase):
@@ -39,7 +39,7 @@ class OperationalLogTests(unittest.TestCase):
 
     def test_try_append_is_fail_open_on_log_io_error(self) -> None:
         workspace = AuditWorkspace(Path("unused-audit-root"))
-        with patch("searchgeo.operational_log.append_operational_event", side_effect=OSError("disk unavailable")):
+        with patch("rasai.operational_log.append_operational_event", side_effect=OSError("disk unavailable")):
             result = try_append_operational_event(workspace, "TEST_FAILURE")
         self.assertIsNone(result)
 

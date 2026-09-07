@@ -8,7 +8,7 @@ import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
 
-from searchgeo.domain import (
+from rasai.domain import (
     Audit,
     AuditTarget,
     CompletionStatus,
@@ -26,7 +26,7 @@ from searchgeo.domain import (
     TargetType,
     new_id,
 )
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
+from rasai.persistence import AuditPersistence, AuditWorkspace
 
 
 class M1PersistenceTests(unittest.TestCase):

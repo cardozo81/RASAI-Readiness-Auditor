@@ -6,8 +6,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from searchgeo.console_m23 import State, append_m23_command, experience_from_state
-from searchgeo.console_settings import load_console_config, save_console_config
+from rasai.console_m23 import State, append_m23_command, experience_from_state
+from rasai.console_settings import load_console_config, save_console_config
 
 
 class M25ConsoleIntegrationTests(unittest.TestCase):
@@ -41,7 +41,7 @@ class M25ConsoleIntegrationTests(unittest.TestCase):
 
     def test_console_command_projects_m25_without_secret(self) -> None:
         state = self._state()
-        command = append_m23_command(["python", "-m", "searchgeo", "audit", state.target], state)
+        command = append_m23_command(["python", "-m", "rasai", "audit", state.target], state)
         self.assertIn("--synthetic-apdex", command)
         self.assertIn("--apdex-experience", command)
         self.assertIn("mobile=60,desktop=30,tablet=10", command)
@@ -54,7 +54,7 @@ class M25ConsoleIntegrationTests(unittest.TestCase):
 
     def test_ini_roundtrip_persists_m25_nonsecret_settings_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "searchgeo-console.ini"
+            path = Path(directory) / "rasai-console.ini"
             state = self._state()
             state.apdex_dynatrace_import = True
             state.dynatrace_base_url = "https://example.live.dynatrace.com"

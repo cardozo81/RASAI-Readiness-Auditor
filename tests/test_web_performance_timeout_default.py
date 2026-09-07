@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import unittest
 
-from searchgeo import cli
-from searchgeo.m21_web_performance import WebPerformanceConfig
-from searchgeo.provider_runtime_policy import DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS
+from rasai import cli
+from rasai.m21_web_performance import WebPerformanceConfig
+from rasai.provider_runtime_policy import DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS
 
 
 class WebPerformanceTimeoutDefaultTests(unittest.TestCase):

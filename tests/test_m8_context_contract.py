@@ -8,11 +8,11 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-from searchgeo.comparison import DeviceComparison, DeviceComparisonOutcome
-from searchgeo.device_context import DEVICE_CONTEXT_ENV
-from searchgeo.domain import DeviceContext, RuleResult
-from searchgeo.m3 import M3ExecutionResult
-from searchgeo.m8 import execute_m8
+from rasai.comparison import DeviceComparison, DeviceComparisonOutcome
+from rasai.device_context import DEVICE_CONTEXT_ENV
+from rasai.domain import DeviceContext, RuleResult
+from rasai.m3 import M3ExecutionResult
+from rasai.m8 import execute_m8
 
 
 class _Repo:
@@ -75,9 +75,9 @@ class DeviceContextM8ContractTests(unittest.TestCase):
         )
 
         with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: context}, clear=False):
-            with patch("searchgeo.m8.EvidenceManager", return_value=evidence_manager):
-                with patch("searchgeo.m8.SemanticPersistence", return_value=_SemanticContext()):
-                    with patch("searchgeo.m8.DeviceComparator.compare", return_value=comparison) as compare:
+            with patch("rasai.m8.EvidenceManager", return_value=evidence_manager):
+                with patch("rasai.m8.SemanticPersistence", return_value=_SemanticContext()):
+                    with patch("rasai.m8.DeviceComparator.compare", return_value=comparison) as compare:
                         result = execute_m8(
                             audit_id="AUD-1",
                             m3_result=M3ExecutionResult(

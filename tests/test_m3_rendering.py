@@ -11,13 +11,13 @@ import unittest
 
 from playwright.sync_api import sync_playwright
 
-from searchgeo.acquisition import HttpClient
-from searchgeo.discovery import DiscoveryEngine
-from searchgeo.domain import Audit, AuditTarget, DeviceContext, TargetType, new_id
-from searchgeo.m2 import execute_m2
-from searchgeo.m3 import execute_m3
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
-from searchgeo.rendering import (
+from rasai.acquisition import HttpClient
+from rasai.discovery import DiscoveryEngine
+from rasai.domain import Audit, AuditTarget, DeviceContext, TargetType, new_id
+from rasai.m2 import execute_m2
+from rasai.m3 import execute_m3
+from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.rendering import (
     BrowserRenderResult,
     BrowserRenderer,
     DESKTOP_PROFILE,
@@ -214,7 +214,7 @@ class M3RenderingTests(unittest.TestCase):
         with _server() as origin, TemporaryDirectory() as temp_dir:
             workspace, persistence, m2_result = _build_m2(origin, temp_dir)
             executable = (
-                os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE")
+                os.environ.get("RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE")
                 or shutil.which("chromium")
                 or shutil.which("chromium-browser")
                 or shutil.which("google-chrome")

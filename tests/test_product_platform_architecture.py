@@ -5,15 +5,15 @@ from pathlib import Path
 import sqlite3
 import tempfile
 
-from searchgeo.platform.automation import compute_next_run
-from searchgeo.platform.central_store import CentralPlatformStore
-from searchgeo.platform.cli import build_parser
-from searchgeo.platform.deployment import compare_deployment_pair, resolve_deployment_pair
-from searchgeo.platform.indexing import index_audit_workspace
-from searchgeo.platform.integrations import classify_ai_crawler, import_combined_access_log, import_ga4_csv
-from searchgeo.platform.models import Schedule
-from searchgeo.platform.page_compare import compare_pages, write_page_compare_report
-from searchgeo.platform.reporting import write_deployment_report, write_platform_site
+from rasai.platform.automation import compute_next_run
+from rasai.platform.central_store import CentralPlatformStore
+from rasai.platform.cli import build_parser
+from rasai.platform.deployment import compare_deployment_pair, resolve_deployment_pair
+from rasai.platform.indexing import index_audit_workspace
+from rasai.platform.integrations import classify_ai_crawler, import_combined_access_log, import_ga4_csv
+from rasai.platform.models import Schedule
+from rasai.platform.page_compare import compare_pages, write_page_compare_report
+from rasai.platform.reporting import write_deployment_report, write_platform_site
 
 
 def _audit(
@@ -98,7 +98,7 @@ def _add_secondary_domain(workspace: Path, audit_id: str, completed_at: str) -> 
 def test_platform_store_is_central_sidecar_and_hierarchy_is_idempotent() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory) / "Audits With Space"
-        database = root / ".searchgeo" / "platform.db"
+        database = root / ".rasai" / "platform.db"
         with CentralPlatformStore(database) as store:
             org1, ws1, project1, prop1, env1 = store.ensure_local_hierarchy(
                 project_name="Loja Brasil", origin="https://www.example.test"
@@ -120,7 +120,7 @@ def test_audit_index_preserves_immutable_audit_and_detects_tamper() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         workspace = _audit(root, "AUD-BASE", completed_at="2026-09-07T10:00:00-03:00")
-        with CentralPlatformStore(root / ".searchgeo" / "platform.db") as store:
+        with CentralPlatformStore(root / ".rasai" / "platform.db") as store:
             record, unchanged = index_audit_workspace(store, workspace)
             assert unchanged is False
             _, unchanged_again = index_audit_workspace(store, workspace)
@@ -151,7 +151,7 @@ def test_multidomain_audit_is_linked_to_every_property_scope() -> None:
         completed = "2026-09-07T10:00:00-03:00"
         workspace = _audit(root, "AUD-MULTI", completed_at=completed)
         _add_secondary_domain(workspace, "AUD-MULTI", completed)
-        with CentralPlatformStore(root / ".searchgeo" / "platform.db") as store:
+        with CentralPlatformStore(root / ".rasai" / "platform.db") as store:
             record, _ = index_audit_workspace(store, workspace)
             scopes = store.audit_scopes(record.audit_id)
             assert len(scopes) == 2
@@ -178,7 +178,7 @@ def test_multidomain_audit_is_linked_to_every_property_scope() -> None:
 
 def test_multiuser_membership_and_scope_integrity_are_tenant_safe() -> None:
     with tempfile.TemporaryDirectory() as directory:
-        with CentralPlatformStore(Path(directory) / ".searchgeo" / "platform.db") as store:
+        with CentralPlatformStore(Path(directory) / ".rasai" / "platform.db") as store:
             org_a = store.get_or_create_organization("Org A", slug="org-a")
             org_b = store.get_or_create_organization("Org B", slug="org-b")
             ws_a = store.get_or_create_workspace(org_a.organization_id, "Client A")
@@ -236,7 +236,7 @@ def test_deployment_pair_before_after_gate_and_reports() -> None:
             canonical_a="https://example.test/b",
             title_a="Produto A novo",
         )
-        with CentralPlatformStore(root / ".searchgeo" / "platform.db") as store:
+        with CentralPlatformStore(root / ".rasai" / "platform.db") as store:
             before_record, _ = index_audit_workspace(store, before)
             after_record, _ = index_audit_workspace(store, after)
             hierarchy = store.hierarchy_for_property(before_record.property_id)
@@ -292,7 +292,7 @@ def test_golden_baseline_override_and_page_compare() -> None:
         golden = _audit(root, "AUD-GOLD", completed_at="2026-09-05T10:00:00-03:00")
         before = _audit(root, "AUD-BEFORE", completed_at="2026-09-07T10:00:00-03:00")
         after = _audit(root, "AUD-AFTER", completed_at="2026-09-07T16:00:00-03:00", title_a="Título alterado")
-        with CentralPlatformStore(root / ".searchgeo" / "platform.db") as store:
+        with CentralPlatformStore(root / ".rasai" / "platform.db") as store:
             gold_record, _ = index_audit_workspace(store, golden)
             before_record, _ = index_audit_workspace(store, before)
             after_record, _ = index_audit_workspace(store, after)
@@ -333,7 +333,7 @@ def test_external_imports_keep_outcomes_outside_audit_db() -> None:
             '203.0.113.1 - - [07/Sep/2026:10:10:00 -0300] "GET /a HTTP/1.1" 200 1234 "-" "GPTBot/1.0"\n',
             encoding="utf-8",
         )
-        with CentralPlatformStore(root / ".searchgeo" / "platform.db") as store:
+        with CentralPlatformStore(root / ".rasai" / "platform.db") as store:
             record, _ = index_audit_workspace(store, workspace)
             ga4_dataset = import_ga4_csv(
                 store,

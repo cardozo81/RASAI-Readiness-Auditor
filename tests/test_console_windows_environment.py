@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import unittest
 
-from searchgeo.windows_environment import (
+from rasai.windows_environment import (
     classify_environment_origin,
     current_matches_persisted,
     persist_user_environment,

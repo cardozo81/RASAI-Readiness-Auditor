@@ -24,7 +24,7 @@ freshness sensitivity
 content origin
 ```
 
-Esses valores vêm das variáveis `SEARCHGEO_CONTENT_*`, `SEARCHGEO_YMYL_CATEGORY`, `SEARCHGEO_PAGE_PURPOSE`, `SEARCHGEO_INTENDED_AUDIENCE`, `SEARCHGEO_EXPERIENCE_REQUIREMENT` e `SEARCHGEO_FRESHNESS_SENSITIVITY`.
+Esses valores vêm das variáveis `RASAI_CONTENT_*`, `RASAI_YMYL_CATEGORY`, `RASAI_PAGE_PURPOSE`, `RASAI_INTENDED_AUDIENCE`, `RASAI_EXPERIENCE_REQUIREMENT` e `RASAI_FRESHNESS_SENSITIVITY`.
 
 Regras:
 
@@ -183,7 +183,7 @@ Default público de effort: `LOW`.
 ## Timeout
 
 ```text
-SEARCHGEO_AI_TIMEOUT_SECONDS
+RASAI_AI_TIMEOUT_SECONDS
 ```
 
 Default público:
@@ -203,7 +203,7 @@ Superfície:
 ```text
 --ai-content-remediation
 --no-ai-content-remediation
-SEARCHGEO_AI_CONTENT_REMEDIATION
+RASAI_AI_CONTENT_REMEDIATION
 ```
 
 Default: OFF.
@@ -217,7 +217,7 @@ Superfície:
 ```text
 --ai-technical-remediation
 --no-ai-technical-remediation
-SEARCHGEO_AI_TECHNICAL_REMEDIATION
+RASAI_AI_TECHNICAL_REMEDIATION
 ```
 
 Default: OFF.
@@ -251,7 +251,7 @@ timeout por tentativa
 
 A opção 5, **Remediação textual IA**, só fica disponível com provider apto. Com IA=`none` ou provider indisponível, o console informa que a opção depende da configuração da opção 4.
 
-O grupo **IA — contexto editorial / YMYL** em `E. Variáveis de ambiente / credenciais` expõe os parâmetros contextuais com domínio aceito, default, explicação de impacto e link para a documentação específica.
+O grupo **IA - contexto editorial / YMYL** em `E. Variáveis de ambiente / credenciais` expõe os parâmetros contextuais com domínio aceito, default, explicação de impacto e link para a documentação específica.
 
 A remediação técnica Rastreamento, descoberta e acesso de crawlers é uma superfície CLI/ambiente na implementação atual. Não deve ser presumida como opção persistida no INI do console até existir integração explícita correspondente.
 

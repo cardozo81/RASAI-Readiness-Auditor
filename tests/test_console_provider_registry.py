@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from searchgeo.console_config import (
+from rasai.console_config import (
     ENV_NAMES,
     PROVIDER_MENU_CHOICES,
     State,
@@ -10,8 +10,8 @@ from searchgeo.console_config import (
     provider_capabilities,
     validate_env_value,
 )
-from searchgeo.console_cost import estimate_exposure
-from searchgeo.provider_registry import auto_provider_ids, provider_registrations
+from rasai.console_cost import estimate_exposure
+from rasai.provider_registry import auto_provider_ids, provider_registrations
 
 
 class ConsoleProviderRegistryTests(unittest.TestCase):
@@ -44,14 +44,14 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
             "DASHSCOPE_API_KEY",
             "GEMINI_API_KEY",
             "ANTHROPIC_API_KEY",
-            "SEARCHGEO_XAI_MODEL",
-            "SEARCHGEO_QWEN_MODEL",
-            "SEARCHGEO_GEMINI_MODEL",
-            "SEARCHGEO_ANTHROPIC_MODEL",
-            "SEARCHGEO_XAI_ENDPOINT",
-            "SEARCHGEO_QWEN_ENDPOINT",
-            "SEARCHGEO_GEMINI_ENDPOINT",
-            "SEARCHGEO_ANTHROPIC_ENDPOINT",
+            "RASAI_XAI_MODEL",
+            "RASAI_QWEN_MODEL",
+            "RASAI_GEMINI_MODEL",
+            "RASAI_ANTHROPIC_MODEL",
+            "RASAI_XAI_ENDPOINT",
+            "RASAI_QWEN_ENDPOINT",
+            "RASAI_GEMINI_ENDPOINT",
+            "RASAI_ANTHROPIC_ENDPOINT",
         ):
             self.assertIn(name, ENV_NAMES)
 
@@ -140,11 +140,11 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
 
     def test_registry_drives_model_and_key_validation(self) -> None:
         self.assertEqual(
-            validate_env_value("SEARCHGEO_QWEN_MODEL", "qwen3.8-flash"),
+            validate_env_value("RASAI_QWEN_MODEL", "qwen3.8-flash"),
             "qwen3.8-flash",
         )
         with self.assertRaises(ValueError):
-            validate_env_value("SEARCHGEO_QWEN_MODEL", "unknown")
+            validate_env_value("RASAI_QWEN_MODEL", "unknown")
         with self.assertRaises(ValueError):
             validate_env_value("MIMO_API_KEY", "tp-test")
         self.assertEqual(validate_env_value("MIMO_API_KEY", "sk-test"), "sk-test")

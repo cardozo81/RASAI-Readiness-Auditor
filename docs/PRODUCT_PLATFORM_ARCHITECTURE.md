@@ -10,7 +10,7 @@ The architectural rule is explicit:
 
 > `AUD-*/audit.db` remains immutable execution evidence. Product, tenant, milestone, schedule, integration, cost and longitudinal metadata live in a separate control-plane database.
 
-## Current local architecture — Windows first
+## Current local architecture - Windows first
 
 The supported local runtime remains native Windows/Python. Docker is **not** required.
 
@@ -25,7 +25,7 @@ Windows
         |
         +-- Product Platform
                |
-               +-- audits/.searchgeo/platform.db
+               +-- audits/.rasai/platform.db
                +-- audits/platform-report/
                +-- audits/deployments/
 ```
@@ -51,7 +51,7 @@ RASAi can have more than one local SQLite database, but they do **not** have equ
 ### Canonical control plane
 
 ```text
-audits/.searchgeo/platform.db
+audits/.rasai/platform.db
 ```
 
 This is the authoritative product/control-plane database for:
@@ -72,7 +72,7 @@ This is the authoritative product/control-plane database for:
 ### Legacy consolidated analytical cache
 
 ```text
-audits/.searchgeo/consolidated-index.db
+audits/.rasai/consolidated-index.db
 ```
 
 When present, this remains a **derived, rebuildable compatibility/analytical cache** used by the historical consolidated-reporting surface. It is not a second control plane and must not become authoritative for tenancy, milestones, integrations or lifecycle metadata.
@@ -151,11 +151,11 @@ Organization
                   -> External datasets
 ```
 
-- **Organization** — commercial/security tenant.
-- **Workspace** — client, business unit or portfolio boundary.
-- **Project** — logical Search & AI initiative; may contain multiple properties/domains.
-- **Property** — owned or competitor web property identified by origin/hostname.
-- **Environment** — `PRODUCTION`, `STAGING`, `QA`, `PREVIEW`, `DEVELOPMENT` or `OTHER`.
+- **Organization** - commercial/security tenant.
+- **Workspace** - client, business unit or portfolio boundary.
+- **Project** - logical Search & AI initiative; may contain multiple properties/domains.
+- **Property** - owned or competitor web property identified by origin/hostname.
+- **Environment** - `PRODUCTION`, `STAGING`, `QA`, `PREVIEW`, `DEVELOPMENT` or `OTHER`.
 
 ## Multi-user and tenant integrity
 
@@ -241,8 +241,8 @@ If the nearest pair is not comparable, RASAi does not silently normalize incompa
 
 Alternative modes:
 
-- `GOLDEN` — approved Golden Baseline versus first compatible post-milestone AUD;
-- `EXPLICIT` — operator-selected baseline/current pair.
+- `GOLDEN` - approved Golden Baseline versus first compatible post-milestone AUD;
+- `EXPLICIT` - operator-selected baseline/current pair.
 
 ## Deployment Impact
 
@@ -276,11 +276,11 @@ The report does not claim that a later business/Search outcome was caused by the
 
 `rasai platform site` generates:
 
-- `index.html` — Portfolio;
-- `timeline.html` — AUD + milestone timeline;
-- `deployments.html` — deployments/releases;
-- `pages.html` — page lineage;
-- `usage.html` — usage/cost ledger.
+- `index.html` - Portfolio;
+- `timeline.html` - AUD + milestone timeline;
+- `deployments.html` - deployments/releases;
+- `pages.html` - page lineage;
+- `usage.html` - usage/cost ledger.
 
 Property counters resolve through canonical multi-property AUD scopes rather than only the legacy primary property.
 
@@ -293,7 +293,7 @@ The local scheduler stores argument arrays, never raw shell command strings.
 Execution uses:
 
 ```text
-<current-python> -m searchgeo <argv...>
+<current-python> -m rasai <argv...>
 ```
 
 with `shell=False`.
@@ -325,9 +325,9 @@ When one or more `--status` values are supplied explicitly, they **replace** the
 
 Current destinations:
 
-- `NONE` — persist notification only;
-- `JSON` — persist structured notification;
-- `WEBHOOK` — POST structured JSON.
+- `NONE` - persist notification only;
+- `JSON` - persist structured notification;
+- `WEBHOOK` - POST structured JSON.
 
 Webhook URLs are not stored in `platform.db`. Only an environment-variable name is persisted. Non-local webhooks require HTTPS.
 
@@ -539,7 +539,7 @@ Existing commands remain unchanged:
 - `rasai quality`;
 - `rasai observability`;
 - `rasai visibility`;
-- legacy `searchgeo` command aliases.
+- legacy `rasai` command aliases.
 
 The new surface is additive under `rasai platform`.
 

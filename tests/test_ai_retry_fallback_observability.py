@@ -7,8 +7,8 @@ import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
 
-from searchgeo.ai_resilience import MAX_AUTO_ATTEMPTS_PER_CONTEXT, retry_policy
-from searchgeo.m18_ai import (
+from rasai.ai_resilience import MAX_AUTO_ATTEMPTS_PER_CONTEXT, retry_policy
+from rasai.m18_ai import (
     DeepSeekProvider,
     MiMoProvider,
     OpenAIProvider,
@@ -17,8 +17,8 @@ from searchgeo.m18_ai import (
     ProviderState,
     SEMANTIC_RULE_IDS,
 )
-from searchgeo.m18_reporting import _attempt_row, _failover_summary
-from searchgeo.semantic import SemanticEvidenceInput, SemanticInput
+from rasai.m18_reporting import _attempt_row, _failover_summary
+from rasai.semantic import SemanticEvidenceInput, SemanticInput
 
 
 def semantic_input() -> SemanticInput:
@@ -76,7 +76,7 @@ class AiRetryFallbackTests(unittest.TestCase):
                 raise TimeoutError()
             return success(*args)
         provider = OpenAIProvider(api_key="x", transport=transport)
-        with patch("searchgeo.m18_ai.time.sleep", return_value=None):
+        with patch("rasai.m18_ai.time.sleep", return_value=None):
             result = provider.analyze(semantic_input())
         self.assertEqual(result.state, ProviderState.AVAILABLE)
         self.assertEqual(calls, 2)
@@ -139,7 +139,7 @@ class AiRetryFallbackTests(unittest.TestCase):
             DeepSeekProvider(api_key="x", transport=timeout),
             MiMoProvider(api_key="x", transport=timeout),
         ))
-        with patch("searchgeo.m18_ai.time.sleep", return_value=None):
+        with patch("rasai.m18_ai.time.sleep", return_value=None):
             result = router.analyze(semantic_input())
         self.assertEqual(result.state, ProviderState.UNAVAILABLE)
         self.assertEqual(calls, MAX_AUTO_ATTEMPTS_PER_CONTEXT)

@@ -4,10 +4,10 @@ import contextlib
 import io
 import unittest
 
-from searchgeo import cli as legacy_cli
-from searchgeo.cli import build_parser as legacy_build_parser
-from searchgeo.cli_extensions import build_parser, main
-from searchgeo.provider_registry import extension_cli_choices
+from rasai import cli as legacy_cli
+from rasai.cli import build_parser as legacy_build_parser
+from rasai.cli_extensions import build_parser, main
+from rasai.provider_registry import extension_cli_choices
 
 
 class CLIProviderExtensionTests(unittest.TestCase):

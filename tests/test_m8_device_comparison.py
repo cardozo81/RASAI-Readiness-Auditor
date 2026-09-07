@@ -1,4 +1,4 @@
-"""Risk-oriented tests for M8 — Desktop × Mobile comparison."""
+"""Risk-oriented tests for M8 - Desktop × Mobile comparison."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from searchgeo.comparison import DeviceComparator, DeviceComparisonOutcome
-from searchgeo.domain import DeviceContext, PageSnapshot, RuleResult
+from rasai.comparison import DeviceComparator, DeviceComparisonOutcome
+from rasai.domain import DeviceContext, PageSnapshot, RuleResult
 
 
 _NOW = datetime(2026, 9, 2, 17, 0, tzinfo=timezone.utc)

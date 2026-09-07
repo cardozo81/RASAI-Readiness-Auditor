@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 import unittest
 
-from searchgeo.m18_ai import ProviderState, RuntimeProviderState
-from searchgeo.m20_ai import ContentEvidenceInput, ContentFindingInput, ContentRemediationRequest
-from searchgeo.provider_extensions import AnthropicProvider, GeminiProvider, QwenProvider, XAIProvider
-from searchgeo.provider_extensions_m20 import build_content_remediation_router
+from rasai.m18_ai import ProviderState, RuntimeProviderState
+from rasai.m20_ai import ContentEvidenceInput, ContentFindingInput, ContentRemediationRequest
+from rasai.provider_extensions import AnthropicProvider, GeminiProvider, QwenProvider, XAIProvider
+from rasai.provider_extensions_m20 import build_content_remediation_router
 
 
 def _request() -> ContentRemediationRequest:
@@ -78,7 +78,7 @@ class ProviderExtensionM20Tests(unittest.TestCase):
         self._assert_success(
             provider,
             {"output_text": json.dumps(_suggestions())},
-            "searchgeo_content_remediation",
+            "rasai_content_remediation",
         )
 
     def test_qwen_m20_uses_chat_completions_schema(self) -> None:

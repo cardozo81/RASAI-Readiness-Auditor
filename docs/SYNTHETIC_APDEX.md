@@ -57,14 +57,14 @@ CLI:
 Variáveis:
 
 ```text
-SEARCHGEO_SYNTHETIC_APDEX
-SEARCHGEO_APDEX_THRESHOLD_SECONDS
-SEARCHGEO_APDEX_SAMPLES_PER_CONTEXT
-SEARCHGEO_APDEX_MAX_ATTEMPTS_PER_CONTEXT
-SEARCHGEO_APDEX_MAX_PAGES
-SEARCHGEO_APDEX_TIMEOUT_SECONDS
-SEARCHGEO_APDEX_DELAY_SECONDS
-SEARCHGEO_APDEX_CONCURRENCY
+RASAI_SYNTHETIC_APDEX
+RASAI_APDEX_THRESHOLD_SECONDS
+RASAI_APDEX_SAMPLES_PER_CONTEXT
+RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT
+RASAI_APDEX_MAX_PAGES
+RASAI_APDEX_TIMEOUT_SECONDS
+RASAI_APDEX_DELAY_SECONDS
+RASAI_APDEX_CONCURRENCY
 ```
 
 Defaults quando habilitado:
@@ -102,7 +102,7 @@ Synthetic Apdex não possui API paga própria e não chama LLM/PageSpeed/CrUX, m
 
 Não interprete `100 amostras` como `100 requests HTTP`. Cada navegação pode carregar muitos recursos.
 
-Para smoke, prefira 1 URL, 1 device, 3–5 amostras, concorrência 1 e alvo controlado. Não execute volume relevante contra produção sem autorização.
+Para smoke, prefira 1 URL, 1 device, 3-5 amostras, concorrência 1 e alvo controlado. Não execute volume relevante contra produção sem autorização.
 
 ## Persistência
 

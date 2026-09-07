@@ -13,15 +13,15 @@ from threading import Thread
 import unittest
 from unittest.mock import patch
 
-from searchgeo.acquisition import HttpClient
-from searchgeo.audit_runner import AuditRunResult, run_audit
-from searchgeo.cli import main
-from searchgeo.device_context import DEVICE_CONTEXT_ENV
-from searchgeo.discovery import DiscoveryEngine
-from searchgeo.domain import AuditMode, AuditStatus, CompletionStatus, DeviceContext
-from searchgeo.persistence import AuditPersistence, AuditWorkspace
-from searchgeo.rendering import BrowserRenderResult
-from searchgeo.semantic import NoneProvider
+from rasai.acquisition import HttpClient
+from rasai.audit_runner import AuditRunResult, run_audit
+from rasai.cli import main
+from rasai.device_context import DEVICE_CONTEXT_ENV
+from rasai.discovery import DiscoveryEngine
+from rasai.domain import AuditMode, AuditStatus, CompletionStatus, DeviceContext
+from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.rendering import BrowserRenderResult
+from rasai.semantic import NoneProvider
 
 
 class _BaselineHandler(BaseHTTPRequestHandler):
@@ -224,7 +224,7 @@ class M12StableBaselineTests(unittest.TestCase):
                 return expected
 
             with patch.dict(os.environ, {}, clear=True):
-                with patch("searchgeo.cli.run_audit", side_effect=fake_run) as mocked, redirect_stdout(output):
+                with patch("rasai.cli.run_audit", side_effect=fake_run) as mocked, redirect_stdout(output):
                     exit_code = main([
                         "audit",
                         "example.com",

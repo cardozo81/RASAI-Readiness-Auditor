@@ -1,9 +1,9 @@
-# Auditoria multi-URL e evidência visual — Multi-URL Audit + Visual/DOM Evidence + Actionable Remediation
+# Auditoria multi-URL e evidência visual - Multi-URL Audit + Visual/DOM Evidence + Actionable Remediation
 
 **Status:** NORMATIVE EVOLUTION
 **Capacidade:** Auditoria multi-URL e evidência visual
 **Report contract:** `REPORT-GEO-003`
-**Scoring contract:** `SCORE-GEO-003` — unchanged by this capability
+**Scoring contract:** `SCORE-GEO-003` - unchanged by this capability
 
 ## 1. Purpose
 
@@ -215,7 +215,7 @@ Crawler policy reporting must keep `OAI-SearchBot` and `GPTBot` separate. Their 
 
 No business recommendation may claim that permitting either crawler guarantees indexing, ranking, citation or inclusion in generated answers.
 
-## 12. Report contract — REPORT-GEO-003
+## 12. Report contract - REPORT-GEO-003
 
 The Auditoria multi-URL e evidência visual report must visibly contain:
 

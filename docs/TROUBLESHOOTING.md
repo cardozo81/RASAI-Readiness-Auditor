@@ -1,6 +1,6 @@
 # Troubleshooting
 
-## `searchgeo` não é reconhecido
+## `rasai` não é reconhecido
 
 Ative a `.venv` e reinstale o projeto em modo editável:
 
@@ -16,7 +16,7 @@ rasai --version
 python -m playwright install chromium
 ```
 
-Se `PLAYWRIGHT_CHROMIUM_EXECUTABLE` estiver configurado, o caminho precisa existir.
+Se `RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE` estiver configurado, o caminho precisa existir.
 
 ## Provider de IA indisponível
 
@@ -56,7 +56,7 @@ report/web-performance.html
 report/accessibility.html
 ```
 
-Se aparecer `TIMEOUTERROR`, a chamada PageSpeed excedeu o timeout do cliente. O default público atual é 120 s e pode ser alterado na opção 6 ou em `SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS`.
+Se aparecer `TIMEOUTERROR`, a chamada PageSpeed excedeu o timeout do cliente. O default público atual é 120 s e pode ser alterado na opção 6 ou em `RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS`.
 
 PageSpeed executa Lighthouse remotamente. O RASAi não possui, nesse endpoint, um parâmetro separado para aumentar o timeout interno de carregamento da página dentro do Lighthouse.
 
@@ -74,7 +74,7 @@ Acessibilidade automatizada reutiliza a categoria `accessibility` do artifact Li
 
 ## Synthetic Apdex `PARTIAL`
 
-Grupos com menos de 100 amostras válidas são deliberadamente small-group e recebem `*`. Um smoke de 3–5 amostras pode estar operacionalmente correto e ainda ser `PARTIAL` por não ser grupo final.
+Grupos com menos de 100 amostras válidas são deliberadamente small-group e recebem `*`. Um smoke de 3-5 amostras pode estar operacionalmente correto e ainda ser `PARTIAL` por não ser grupo final.
 
 ## INI não salva credenciais
 

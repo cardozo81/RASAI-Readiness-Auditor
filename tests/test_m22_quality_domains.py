@@ -4,11 +4,11 @@ import tempfile
 from pathlib import Path
 import unittest
 
-from searchgeo.m22_quality_domains import (
+from rasai.m22_quality_domains import (
     extract_accessibility_issues,
     extract_performance_diagnostics,
 )
-from searchgeo.report_navigation import available_navigation
+from rasai.report_navigation import available_navigation
 
 
 class M22QualityDomainTests(unittest.TestCase):

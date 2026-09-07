@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import tempfile
 
-from searchgeo.quality.content_controls import _read
+from rasai.quality.content_controls import _read
 
 
 def test_content_control_reader_rejects_parent_traversal() -> None:

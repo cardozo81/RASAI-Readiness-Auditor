@@ -10,7 +10,7 @@ O consolidador reúne indicadores **já persistidos** em auditorias `AUD-*` e ge
 - bancos fonte são abertos em modo somente leitura;
 - nenhuma API externa é chamada para gerar um `CONS-*`;
 - nenhum schema de `audit.db` é migrado pelo consolidador;
-- `.searchgeo/consolidated-index.db` é cache derivado, descartável e reconstruível;
+- `.rasai/consolidated-index.db` é cache derivado, descartável e reconstruível;
 - falha do consolidador é `fail-open` para `rasai audit` e para o console;
 - relatórios `CONS-*` não substituem `AUD-*`;
 - Mobile e Desktop permanecem séries distintas;
@@ -20,7 +20,7 @@ O consolidador reúne indicadores **já persistidos** em auditorias `AUD-*` e ge
 AUD-*/audit.db (fonte oficial, read-only)
         |
         v
-.searchgeo/consolidated-index.db (cache reconstruível)
+.rasai/consolidated-index.db (cache reconstruível)
         |
         v
 filtros + comparabilidade + estatística descritiva
@@ -45,7 +45,7 @@ Web Performance, Apdex e ocorrências page-level podem ser filtrados diretamente
 
 ### Método vigente
 
-O índice público do RASAi é **SARI-001 — Search & AI Readiness Index**. O motor de scoring vigente para novas auditorias é **`SCORE-GEO-003`**.
+O índice público do RASAi é **SARI-001 - Search & AI Readiness Index**. O motor de scoring vigente para novas auditorias é **`SCORE-GEO-003`**.
 
 Séries com contratos de scoring distintos permanecem segmentadas por `scoring_version` e não são convertidas ou agregadas silenciosamente.
 

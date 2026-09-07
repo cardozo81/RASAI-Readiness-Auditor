@@ -7,8 +7,8 @@ import tempfile
 
 import pytest
 
-from searchgeo.observability.crux_history import collect_crux_history
-from searchgeo.observability.store import ObservabilityStore
+from rasai.observability.crux_history import collect_crux_history
+from rasai.observability.store import ObservabilityStore
 
 
 class _Response:

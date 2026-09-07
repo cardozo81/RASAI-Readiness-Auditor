@@ -24,7 +24,7 @@ Uma referência externa não deve ser usada para sugerir homologação do produt
 | `EXTERNAL_STANDARD` | Standard externo | especificação formal ou Recommendation aplicável ao fenômeno |
 | `OFFICIAL_PLATFORM_GUIDANCE` | Orientação oficial de plataforma | regra, política ou orientação publicada pelo mantenedor da plataforma |
 | `EXTERNAL_DEFINED_METRIC` | Métrica externa definida | fórmula, score, threshold ou curva definidos externamente |
-| `SEARCHGEO_HEURISTIC` | Heurística RASAi | peso, threshold, classificação ou agregação definida internamente |
+| `RASAI_HEURISTIC` | Heurística RASAi | peso, threshold, classificação ou agregação definida internamente |
 | `OPERATIONAL_TELEMETRY` | Telemetria operacional | tempo, chamadas, tokens, custo estimado, erros de integração e runtime |
 | `AI_DERIVED_ADVISORY` | Análise/sugestão por IA | interpretação semântica ou texto proposto por LLM, sempre evidence-bound e advisory |
 
@@ -62,11 +62,11 @@ Para impedir dupla interpretação, cada família possui uma página analítica 
 
 ## Inventário principal
 
-### Search & AI Readiness Index — SARI-001
+### Search & AI Readiness Index - SARI-001
 
-**Classificação:** `SEARCHGEO_HEURISTIC`.
+**Classificação:** `RASAI_HEURISTIC`.
 
-Não existe score GEO/AEO 0–100 universal usado como fonte normativa desta saída. A média normalizada, fatores de resultado, pesos, agregação e faixas visuais são decisões versionadas do RASAi.
+Não existe score GEO/AEO 0-100 universal usado como fonte normativa desta saída. A média normalizada, fatores de resultado, pesos, agregação e faixas visuais são decisões versionadas do RASAi.
 
 `SARI-001` é a identidade pública da metodologia e `SCORE-GEO-003` é o método de scoring persistido. Provenance, model artifact, dataset e evidências permanecem rastreáveis.
 
@@ -80,7 +80,7 @@ Consulte também:
 
 ### Coverage / Confidence / Consolidation
 
-**Classificação:** `SEARCHGEO_HEURISTIC`.
+**Classificação:** `RASAI_HEURISTIC`.
 
 Coverage mede a parcela aplicável efetivamente avaliada. Os thresholds que produzem Confidence e Consolidation são internos, versionados e não representam thresholds oficiais de Google, OpenAI, Microsoft, W3C, NIST ou outra entidade.
 
@@ -96,7 +96,7 @@ Consulte `RULES_GUIDE.md`.
 
 **Classificação:** `EXTERNAL_STANDARD` para a semântica HTTP.
 
-Fonte oficial: RFC 9110 — HTTP Semantics
+Fonte oficial: RFC 9110 - HTTP Semantics
 https://www.rfc-editor.org/rfc/rfc9110.html
 
 O RASAi adiciona regras próprias de materialidade, dependência e auditabilidade sobre a observação HTTP.
@@ -105,7 +105,7 @@ O RASAi adiciona regras próprias de materialidade, dependência e auditabilidad
 
 **Classificação:** `EXTERNAL_STANDARD`.
 
-Fonte oficial: RFC 9309 — Robots Exclusion Protocol
+Fonte oficial: RFC 9309 - Robots Exclusion Protocol
 https://www.rfc-editor.org/rfc/rfc9309.html
 
 Para comportamento específico do Google, o catálogo por regra também referencia a documentação oficial do Google Crawling Infrastructure.
@@ -114,7 +114,7 @@ Para comportamento específico do Google, o catálogo por regra também referenc
 
 **Classificação:** `EXTERNAL_DEFINED_METRIC`.
 
-Fonte oficial: Chrome/web.dev — Web Vitals
+Fonte oficial: Chrome/web.dev - Web Vitals
 https://web.dev/articles/vitals
 
 LCP, INP e CLS de campo, avaliação no percentil 75 e thresholds recomendados são mantidos externamente. O RASAi preserva source/scope e não converte Core Web Vitals em `SARI-001`.
@@ -123,7 +123,7 @@ LCP, INP e CLS de campo, avaliação no percentil 75 e thresholds recomendados s
 
 **Classificação:** `EXTERNAL_DEFINED_METRIC`.
 
-Fonte oficial: Chrome for Developers — Performance scoring
+Fonte oficial: Chrome for Developers - Performance scoring
 https://developer.chrome.com/docs/lighthouse/performance/performance-scoring
 
 Score, pesos e curvas pertencem ao Lighthouse e podem mudar entre versões. A versão materializada deve permanecer rastreável.
@@ -134,7 +134,7 @@ No dashboard, quando existem vários contextos, o RASAi deve preferir faixa/cont
 
 **Classificação:** `EXTERNAL_DEFINED_METRIC`.
 
-Fonte oficial: Chrome for Developers — Accessibility scoring
+Fonte oficial: Chrome for Developers - Accessibility scoring
 https://developer.chrome.com/docs/lighthouse/accessibility/scoring
 
 O score automatizado do Lighthouse não é percentual de conformidade WCAG e não deve ser apresentado como certificação.
@@ -143,7 +143,7 @@ O score automatizado do Lighthouse não é percentual de conformidade WCAG e nã
 
 **Classificação:** `EXTERNAL_STANDARD`.
 
-Fonte oficial: W3C Recommendation — WCAG 2.2
+Fonte oficial: W3C Recommendation - WCAG 2.2
 https://www.w3.org/TR/WCAG22/
 
 O RASAi pode mapear falhas automatizáveis a critérios aplicáveis, mas uma avaliação automatizada não autoriza declarar conformidade integral WCAG.
@@ -161,7 +161,7 @@ A especificação define a fórmula, Satisfied/Tolerating/Frustrated, reporting 
 
 **Classificação:** `OFFICIAL_PLATFORM_GUIDANCE`.
 
-Fonte oficial: Google Search Central — Creating helpful, reliable, people-first content
+Fonte oficial: Google Search Central - Creating helpful, reliable, people-first content
 https://developers.google.com/search/docs/fundamentals/creating-helpful-content
 
 O RASAi usa esses conceitos para contextualizar a análise semântica. Não produz `E-E-A-T Score` oficial nem transforma YMYL em probabilidade de ranking.

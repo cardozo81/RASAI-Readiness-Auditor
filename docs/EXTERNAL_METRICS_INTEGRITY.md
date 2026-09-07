@@ -12,8 +12,8 @@ A coleta Web Performance usa a PageSpeed Insights API v5 como meio oficial para 
 
 Referências oficiais:
 
-- PageSpeed Insights API v5 — `pagespeedapi.runpagespeed`: https://developers.google.com/speed/docs/insights/rest/v5/pagespeedapi/runpagespeed
-- PageSpeed Insights — Get Started: https://developers.google.com/speed/docs/insights/v5/get-started
+- PageSpeed Insights API v5 - `pagespeedapi.runpagespeed`: https://developers.google.com/speed/docs/insights/rest/v5/pagespeedapi/runpagespeed
+- PageSpeed Insights - Get Started: https://developers.google.com/speed/docs/insights/v5/get-started
 - Lighthouse Accessibility scoring: https://developer.chrome.com/docs/lighthouse/accessibility/scoring
 - Lighthouse Performance scoring: https://developer.chrome.com/docs/lighthouse/performance/performance-scoring
 
@@ -48,7 +48,7 @@ Se algumas categorias solicitadas forem válidas e outras estiverem ausentes/inv
 
 O RASAi **não recalcula** o score de Acessibilidade do Lighthouse.
 
-O valor 0–100 mostrado em `accessibility.html` é a projeção do score da categoria `lighthouseResult.categories.accessibility.score`, multiplicado por 100 na camada Web Performance externo. A metodologia de ponderação pertence ao Lighthouse; a documentação oficial descreve o score como média ponderada das auditorias automatizadas e informa que auditorias manuais não participam dessa pontuação.
+O valor 0-100 mostrado em `accessibility.html` é a projeção do score da categoria `lighthouseResult.categories.accessibility.score`, multiplicado por 100 na camada Web Performance externo. A metodologia de ponderação pertence ao Lighthouse; a documentação oficial descreve o score como média ponderada das auditorias automatizadas e informa que auditorias manuais não participam dessa pontuação.
 
 Regras de integridade:
 
@@ -110,9 +110,9 @@ O `audit.log` recebe `EXTERNAL_METRICS_INTEGRITY_RECONCILED`.
 
 Os reports devem distinguir quatro perguntas:
 
-1. **A API respondeu?** — telemetria PageSpeed/CrUX.
-2. **O Lighthouse é válido?** — validação de `lighthouseResult`/`runtimeError`/categorias.
-3. **A categoria necessária foi obtida?** — Performance, Accessibility, Best Practices, SEO.
-4. **Há field data válido?** — CrUX e cobertura LCP/INP/CLS.
+1. **A API respondeu?** - telemetria PageSpeed/CrUX.
+2. **O Lighthouse é válido?** - validação de `lighthouseResult`/`runtimeError`/categorias.
+3. **A categoria necessária foi obtida?** - Performance, Accessibility, Best Practices, SEO.
+4. **Há field data válido?** - CrUX e cobertura LCP/INP/CLS.
 
 Somente dados que passam pelo gate correspondente podem alimentar médias e indicadores apresentados como efetivamente obtidos.

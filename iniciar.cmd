@@ -1,13 +1,13 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
-title RASAi — Search & AI Readiness Auditor
+title RASAi - Search & AI Readiness Auditor
 
 set "VENV_DIR=%CD%\.venv"
 set "VENV_PY=%CD%\.venv\Scripts\python.exe"
 set "CONSOLE_EXE=%CD%\.venv\Scripts\rasai-console.exe"
 set "STAMP_FILE=%CD%\.venv\.rasai-pyproject.sha256"
-set "LEGACY_STAMP_FILE=%CD%\.venv\.searchgeo-pyproject.sha256"
+set "LEGACY_STAMP_FILE=%CD%\.venv\.rasai-pyproject.sha256"
 set "NEED_INSTALL=0"
 set "OPTIONAL_EXTRAS="
 
@@ -43,7 +43,7 @@ for /f "usebackq delims=" %%E in (`"%VENV_PY%" -c "import pathlib,tomllib; data=
 if not exist "%CONSOLE_EXE%" set "NEED_INSTALL=1"
 
 if "!NEED_INSTALL!"=="0" (
-    "%VENV_PY%" -c "import importlib.metadata as m, pathlib, searchgeo, playwright, tzdata; root=(pathlib.Path.cwd()/'src').resolve(); src=pathlib.Path(searchgeo.__file__).resolve(); m.version('searchgeo-readiness-auditor'); raise SystemExit(0 if src.is_relative_to(root) else 1)" >nul 2>&1
+    "%VENV_PY%" -c "import importlib.metadata as m, pathlib, rasai, playwright, tzdata; root=(pathlib.Path.cwd()/'src').resolve(); src=pathlib.Path(rasai.__file__).resolve(); m.version('rasai-readiness-auditor'); raise SystemExit(0 if src.is_relative_to(root) else 1)" >nul 2>&1
     if errorlevel 1 set "NEED_INSTALL=1"
 )
 

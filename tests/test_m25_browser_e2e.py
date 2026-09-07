@@ -5,8 +5,8 @@ import threading
 import time
 import unittest
 
-from searchgeo.m23_apdex_profiles import DESKTOP_STANDARD_PROFILE
-from searchgeo.m25_apdex_experience import PlaywrightSyntheticUxGateway
+from rasai.m23_apdex_profiles import DESKTOP_STANDARD_PROFILE
+from rasai.m25_apdex_experience import PlaywrightSyntheticUxGateway
 
 
 class _Handler(BaseHTTPRequestHandler):

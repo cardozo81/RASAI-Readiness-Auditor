@@ -1,4 +1,4 @@
-# Console — custo, quota e telemetria de execução
+# Console - custo, quota e telemetria de execução
 
 Este documento descreve como o `rasai-console` apresenta exposição prévia e consumo realmente persistido após uma auditoria.
 

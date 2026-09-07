@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from searchgeo.consolidation.integration import install
+from rasai.consolidation.integration import install
 
 
 class _FakeConsole:
@@ -40,7 +40,7 @@ class ConsolidationConsoleIntegrationTests(unittest.TestCase):
         console = _FakeConsole()
         install(console)
         state = SimpleNamespace(audits_root="audits", status="READY", operation="LOCAL:MENU", error="")
-        with patch("searchgeo.consolidation.integration.run_consolidation_console") as run:
+        with patch("rasai.consolidation.integration.run_consolidation_console") as run:
             console._configure(state, "C")
         run.assert_called_once_with("audits")
         self.assertEqual(console.configured, [])
@@ -51,7 +51,7 @@ class ConsolidationConsoleIntegrationTests(unittest.TestCase):
         console = _FakeConsole()
         install(console)
         state = SimpleNamespace(audits_root="audits", status="READY", operation="LOCAL:MENU", error="")
-        with patch("searchgeo.consolidation.integration.run_consolidation_console", side_effect=RuntimeError("boom")):
+        with patch("rasai.consolidation.integration.run_consolidation_console", side_effect=RuntimeError("boom")):
             console._configure(state, "C")
         self.assertEqual(state.status, "READY")
         self.assertEqual(state.operation, "LOCAL:CONSOLIDATION_ERROR")

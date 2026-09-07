@@ -1,6 +1,6 @@
 # FUNCTIONAL_REQUIREMENTS.md
 
-**Status:** APPROVED — Rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance externo + Sugestões e remediação de conteúdo por IA + Análise semântica por IA, roteamento e telemetria + SCORE-GEO-003 + SARI-001 + REPORT-SITE-GEO-001
+**Status:** APPROVED - Rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance externo + Sugestões e remediação de conteúdo por IA + Análise semântica por IA, roteamento e telemetria + SCORE-GEO-003 + SARI-001 + REPORT-SITE-GEO-001
 
 ## Requisitos Funcionais
 
@@ -167,7 +167,7 @@ Exibir readiness geral como não determinado/não consolidado quando `OVERALL_RE
 Exibir e explicar separadamente Compatibilidade/Readiness, Coverage e Confidence.
 
 ### FR-GEO-055
-Aplicar classificação visual interna a scores válidos: 90–100 Excelente, 75–89 Alta, 60–74 Moderada, 40–59 Baixa, 0–39 Crítica; estado sem resultado válido permanece Não Determinado. Essas faixas são internas e não podem ser apresentadas como standard oficial GEO/AEO.
+Aplicar classificação visual interna a scores válidos: 90-100 Excelente, 75-89 Alta, 60-74 Moderada, 40-59 Baixa, 0-39 Crítica; estado sem resultado válido permanece Não Determinado. Essas faixas são internas e não podem ser apresentadas como standard oficial GEO/AEO.
 
 ### FR-GEO-056
 Produzir principais oportunidades somente de findings/prioridades persistidos, sem transformar UNKNOWN em problema.
@@ -221,7 +221,7 @@ Documentar premissas `MÍNIMO`, `CONTEXTUAL`, `OPCIONAL / REFORÇO` e `NÃO OBRI
 Classificar JSON-LD/Structured Data como `OPCIONAL / REFORÇO`: ausência legítima isolada não é FAIL nem impede Overall; quando presente, deve ser interpretável, factual e coerente com o conteúdo visível.
 
 ### FR-GEO-073
-Expor `--device-context mobile|desktop|both` e `SEARCHGEO_DEVICE_CONTEXT`, com precedência flag → ambiente → default `mobile` na CLI.
+Expor `--device-context mobile|desktop|both` e `RASAI_DEVICE_CONTEXT`, com precedência flag → ambiente → default `mobile` na CLI.
 
 ### FR-GEO-074
 O contexto de dispositivo selecionado deve controlar rendering e, por consequência, os contextos enviados ao provider semântico; nenhum provider deve ser chamado para dispositivo que não possui snapshot selecionado.
@@ -242,7 +242,7 @@ Explicar explicitamente que Confidence é força da conclusão do auditor e que 
 A fundamentação deve distinguir norma/standard externo de heurística interna e declarar que o RASAi não representa suas faixas de score como standard GEO/AEO oficial.
 
 ### FR-GEO-080
-Expor remediação textual por IA por `--ai-content-remediation`, `--no-ai-content-remediation` e `SEARCHGEO_AI_CONTENT_REMEDIATION`, com default público `false`.
+Expor remediação textual por IA por `--ai-content-remediation`, `--no-ai-content-remediation` e `RASAI_AI_CONTENT_REMEDIATION`, com default público `false`.
 
 ### FR-GEO-081
 Executar Sugestões e remediação de conteúdo por IA textual somente depois de findings, scoring e priorização; Sugestões e remediação de conteúdo por IA não pode alterar retrospectivamente RuleExecution, Finding, Recommendation, Score, Coverage, Confidence ou Consolidation.
@@ -281,7 +281,7 @@ Expor Sugestões e remediação de conteúdo por IA em `report/content-suggestio
 Informar explicitamente que JSON-LD é reforço opcional, que não existe markup especial GEO/AEO obrigatório, que propriedades de rich result dependem do tipo/feature e que markup válido não garante exibição de rich result.
 
 ### FR-GEO-093
-Expor Web Performance externo por `--web-performance`, `--no-web-performance` e `SEARCHGEO_WEB_PERFORMANCE`, com default público `false` e nenhuma chamada PageSpeed/CrUX quando desabilitado.
+Expor Web Performance externo por `--web-performance`, `--no-web-performance` e `RASAI_WEB_PERFORMANCE`, com default público `false` e nenhuma chamada PageSpeed/CrUX quando desabilitado.
 
 ### FR-GEO-094
 Quando Web Performance externo estiver habilitado, coletar por página/dispositivo selecionado evidência Lighthouse por PageSpeed Insights API e persistir scores/metricas retornados sem convertê-los em contribuição de `SCORE-GEO-003`.
@@ -299,7 +299,7 @@ Expor política de field data `auto|pagespeed|crux|none`; `auto` deve preferir d
 Expor `--web-performance-max-pages`, `--web-performance-timeout-seconds` e `--lighthouse-categories`, com equivalentes por ambiente, para controlar quota, duração e escopo de chamadas externas.
 
 ### FR-GEO-099
-Isolar `SEARCHGEO_PAGESPEED_API_KEY` e `SEARCHGEO_CRUX_API_KEY` entre si e das credenciais OpenAI/DeepSeek/MiMo; nenhuma credencial Web Performance externo deve ser persistida ou exibida.
+Isolar `RASAI_PAGESPEED_API_KEY` e `RASAI_CRUX_API_KEY` entre si e das credenciais OpenAI/DeepSeek/MiMo; nenhuma credencial Web Performance externo deve ser persistida ou exibida.
 
 ### FR-GEO-100
 Web Performance externo deve adicionar zero chamadas LLM e não pode reutilizar automaticamente SemanticProvider/Sugestões e remediação de conteúdo por IA para interpretar métricas externas.
@@ -347,7 +347,7 @@ Tratar Google-Extended como token de produto em robots.txt sem user-agent HTTP s
 Tentar `/llms.txt` somente same-origin quando a origem estiver tecnicamente apta; ausência ou erro deve ser informativo/non-scoring e presença deve ser persistível em `artifacts/m24/llms.txt`.
 
 ### FR-GEO-115
-Tratar `llms.txt` como proposta comunitária experimental, não como web standard nem requisito universal de Search/GEO, e nunca usá-lo como substituto de robots, sitemap, canonical, HTML semântico ou conteúdo acessível.
+Tratar `llms.txt` como proposta comunitária experimental, não como web standard nem requisito universal de Search & AI, e nunca usá-lo como substituto de robots, sitemap, canonical, HTML semântico ou conteúdo acessível.
 
 ### FR-GEO-116
 Registrar feeds RSS/Atom observados como sinais adicionais de discovery sem atribuir score obrigatório pela presença/ausência de feed.
@@ -356,7 +356,7 @@ Registrar feeds RSS/Atom observados como sinais adicionais de discovery sem atri
 Reportar configuração/submissão IndexNow como não determinável quando a auditoria passiva não possuir evidência explícita, log ou artifact verificável; não inferir sucesso de submissão por mera observação do site.
 
 ### FR-GEO-118
-Expor a remediação técnica Rastreamento, descoberta e acesso de crawlers por `--ai-technical-remediation`, `--no-ai-technical-remediation` e `SEARCHGEO_AI_TECHNICAL_REMEDIATION`, com default público `false` e precedência CLI explícito → ambiente → false.
+Expor a remediação técnica Rastreamento, descoberta e acesso de crawlers por `--ai-technical-remediation`, `--no-ai-technical-remediation` e `RASAI_AI_TECHNICAL_REMEDIATION`, com default público `false` e precedência CLI explícito → ambiente → false.
 
 ### FR-GEO-119
 Restringir a IA Rastreamento, descoberta e acesso de crawlers a diagnósticos/evidências persistidos, rejeitar invenção de URL/policy/canonical/data/crawler token, exigir revisão humana e não permitir que o provider decida unilateralmente política de treinamento/crawler da organização.

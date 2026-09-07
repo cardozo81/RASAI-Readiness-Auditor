@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import tempfile
 
-from searchgeo import report_navigation
-from searchgeo.report_registry import CANONICAL_NAV_ITEMS, install
+from rasai import report_navigation
+from rasai.report_registry import CANONICAL_NAV_ITEMS, install
 
 
 def _page(title: str) -> str:
@@ -76,7 +76,7 @@ def test_current_method_documents_do_not_restore_score_geo_002_as_current() -> N
         "docs/specification/08_TECHNICAL_ARCHITECTURE.md",
         "docs/specification/12_AI_HANDOFF.md",
         "docs/specification/18_MULTI_AI_PROVIDER_ROUTING.md",
-        "docs/specification/19_SCORE_APPLICABILITY_GEO_MINIMUMS.md",
+        "docs/specification/19_SCORE_APPLICABILITY_READINESS_MINIMUMS.md",
         "docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md",
         "docs/specification/27_MONITORING_OBSERVABILITY.md",
     )

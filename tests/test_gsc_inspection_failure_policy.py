@@ -8,8 +8,8 @@ from urllib.error import HTTPError
 
 import pytest
 
-from searchgeo.observability.google_search_console import collect_url_inspection
-from searchgeo.observability.store import ObservabilityStore
+from rasai.observability.google_search_console import collect_url_inspection
+from rasai.observability.store import ObservabilityStore
 
 
 def _workspace(root: Path) -> Path:

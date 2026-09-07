@@ -13,7 +13,7 @@ rasai audit --help
 
 Help deve conter `--device-context`, `--ai-provider` e `--ai-content-remediation`.
 
-## 2. Mobile sem IA — default
+## 2. Mobile sem IA - default
 
 ```powershell
 rasai audit https://example.com --project "Smoke Mobile" --max-pages 1

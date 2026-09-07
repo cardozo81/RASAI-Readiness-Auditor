@@ -3,8 +3,8 @@ import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
 
-from searchgeo.console_artifacts import audit_workspace, report_entrypoint
-from searchgeo.console_config import (
+from rasai.console_artifacts import audit_workspace, report_entrypoint
+from rasai.console_config import (
     State,
     apply_environment_defaults,
     build_command,
@@ -13,8 +13,8 @@ from searchgeo.console_config import (
     provider_capabilities,
     validate_env_value,
 )
-from searchgeo.console_cost import actual_usage, estimate_exposure, persist_execution_projection
-from searchgeo.console_help import current_cost_summary, environment_help, menu_cost_badges
+from rasai.console_cost import actual_usage, estimate_exposure, persist_execution_projection
+from rasai.console_help import current_cost_summary, environment_help, menu_cost_badges
 
 
 class InteractiveConsoleTests(unittest.TestCase):
@@ -29,12 +29,12 @@ class InteractiveConsoleTests(unittest.TestCase):
     def test_environment_defaults_are_reflected_in_console_state(self) -> None:
         state = State()
         issues = apply_environment_defaults(state, {
-            "SEARCHGEO_DEVICE_CONTEXT": "desktop",
-            "SEARCHGEO_AI_CONTENT_REMEDIATION": "true",
-            "SEARCHGEO_WEB_PERFORMANCE": "true",
-            "SEARCHGEO_WEB_PERFORMANCE_MAX_PAGES": "4",
-            "SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS": "30",
-            "SEARCHGEO_WEB_PERFORMANCE_FIELD_SOURCE": "pagespeed",
+            "RASAI_DEVICE_CONTEXT": "desktop",
+            "RASAI_AI_CONTENT_REMEDIATION": "true",
+            "RASAI_WEB_PERFORMANCE": "true",
+            "RASAI_WEB_PERFORMANCE_MAX_PAGES": "4",
+            "RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS": "30",
+            "RASAI_WEB_PERFORMANCE_FIELD_SOURCE": "pagespeed",
         })
         self.assertEqual(issues, ())
         self.assertEqual(state.device, "desktop")
@@ -48,8 +48,8 @@ class InteractiveConsoleTests(unittest.TestCase):
         state = State(device="both", web_performance=True)
         issues = apply_environment_defaults(
             state,
-            {"SEARCHGEO_WEB_PERFORMANCE_MAX_PAGES": "3"},
-            names={"SEARCHGEO_WEB_PERFORMANCE_MAX_PAGES"},
+            {"RASAI_WEB_PERFORMANCE_MAX_PAGES": "3"},
+            names={"RASAI_WEB_PERFORMANCE_MAX_PAGES"},
         )
         self.assertEqual(issues, ())
         self.assertEqual(state.web_max_pages, 3)
@@ -74,22 +74,22 @@ class InteractiveConsoleTests(unittest.TestCase):
             validate_env_value("MIMO_API_KEY", "tp-test")
 
     def test_invalid_model_reasoning_and_runtime_quarantine_disable_provider(self) -> None:
-        caps = provider_capabilities({"OPENAI_API_KEY": "sk-test", "SEARCHGEO_OPENAI_MODEL": "bad"})
+        caps = provider_capabilities({"OPENAI_API_KEY": "sk-test", "RASAI_OPENAI_MODEL": "bad"})
         self.assertFalse(caps["openai"].available)
-        caps = provider_capabilities({"OPENAI_API_KEY": "sk-test", "SEARCHGEO_OPENAI_REASONING_EFFORT": "bad"})
+        caps = provider_capabilities({"OPENAI_API_KEY": "sk-test", "RASAI_OPENAI_REASONING_EFFORT": "bad"})
         self.assertFalse(caps["openai"].available)
         caps = provider_capabilities({"OPENAI_API_KEY": "sk-test"}, {"openai": "AUTH_ERROR/HTTP 401"})
         self.assertFalse(caps["openai"].available)
         self.assertFalse(caps["auto"].available)
 
     def test_environment_header_masks_secrets(self) -> None:
-        values = environment_summary({"OPENAI_API_KEY": "secret-value", "SEARCHGEO_LOG_LEVEL": "DEBUG"})
+        values = environment_summary({"OPENAI_API_KEY": "secret-value", "RASAI_LOG_LEVEL": "DEBUG"})
         rendered = " | ".join(values)
         self.assertIn("OPENAI_API_KEY=[SET]", rendered)
         self.assertNotIn("secret-value", rendered)
-        self.assertIn("SEARCHGEO_LOG_LEVEL=DEBUG", rendered)
-        custom = " | ".join(environment_summary({"SEARCHGEO_CUSTOM_API_KEY": "also-secret"}))
-        self.assertIn("SEARCHGEO_CUSTOM_API_KEY=[SET]", custom)
+        self.assertIn("RASAI_LOG_LEVEL=DEBUG", rendered)
+        custom = " | ".join(environment_summary({"RASAI_CUSTOM_API_KEY": "also-secret"}))
+        self.assertIn("RASAI_CUSTOM_API_KEY=[SET]", custom)
         self.assertNotIn("also-secret", custom)
 
     def test_preflight_accepts_single_url(self) -> None:
@@ -167,10 +167,10 @@ class InteractiveConsoleTests(unittest.TestCase):
         purpose, cost = environment_help("FUTURE_PROVIDER_API_KEY")
         self.assertIn("Credencial", purpose)
         self.assertIn("CUSTO", cost)
-        purpose, cost = environment_help("SEARCHGEO_FUTURE_PROVIDER_MODEL")
+        purpose, cost = environment_help("RASAI_FUTURE_PROVIDER_MODEL")
         self.assertIn("modelo", purpose)
         self.assertIn("preços", cost)
-        purpose, cost = environment_help("SEARCHGEO_FUTURE_PROVIDER_REASONING_EFFORT")
+        purpose, cost = environment_help("RASAI_FUTURE_PROVIDER_REASONING_EFFORT")
         self.assertIn("reasoning", purpose)
         self.assertIn("custo", cost)
 

@@ -116,7 +116,7 @@ O usuário pode alterar coleta e universo de calibração:
 - `dataset_version`;
 - engines e queries que compõem os query-runs;
 - volume/repetições e distribuição temporal da coleta;
-- caminho do artifact via `SEARCHGEO_SCORE_GEO_003_MODEL`.
+- caminho do artifact via `RASAI_SCORE_GEO_003_MODEL`.
 
 O usuário **não** altera por auditoria:
 
@@ -144,7 +144,7 @@ Com caminho explícito:
 rasai scoring calibrate `
   --audits-root audits `
   --dataset-version GEO-CAL-001 `
-  --output .searchgeo\scoring\score-geo-003-model.json
+  --output .rasai\scoring\score-geo-003-model.json
 ```
 
 Inspecionar:
@@ -156,13 +156,13 @@ rasai scoring inspect
 Por padrão, auditorias procuram:
 
 ```text
-.searchgeo/scoring/score-geo-003-model.json
+.rasai/scoring/score-geo-003-model.json
 ```
 
 ou o caminho definido em:
 
 ```text
-SEARCHGEO_SCORE_GEO_003_MODEL
+RASAI_SCORE_GEO_003_MODEL
 ```
 
 ## Compatibilidade histórica

@@ -5,14 +5,14 @@ import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
 
-from searchgeo.persistence import AuditWorkspace
-from searchgeo.source_quality import (
+from rasai.persistence import AuditWorkspace
+from rasai.source_quality import (
     RedirectDetail,
     SourceQualityAssessment,
     SourceQualityIssue,
     persist_assessment,
 )
-from searchgeo.source_quality_report_summary import enrich_source_quality_blocker_summary
+from rasai.source_quality_report_summary import enrich_source_quality_blocker_summary
 
 
 class SourceQualityReportSummaryTests(unittest.TestCase):
@@ -169,7 +169,7 @@ class SourceQualityReportSummaryTests(unittest.TestCase):
                 workspace=workspace,
             )
             html = (report_dir / "index.html").read_text(encoding="utf-8")
-            self.assertEqual(html.count("searchgeo-source-blocker-summary:start"), 1)
+            self.assertEqual(html.count("rasai-source-blocker-summary:start"), 1)
 
             log = (workspace.root / "logs" / "audit.log").read_text(encoding="utf-8")
             self.assertEqual(log.count("SOURCE_QUALITY_TECHNICAL_DIAGNOSTIC"), 1)

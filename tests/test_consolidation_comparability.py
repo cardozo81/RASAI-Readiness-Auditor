@@ -4,8 +4,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from searchgeo.consolidation.index import ConsolidationIndex
-from searchgeo.consolidation.service import build_data, normalize_filter
+from rasai.consolidation.index import ConsolidationIndex
+from rasai.consolidation.service import build_data, normalize_filter
 from tests.test_consolidation import _make_audit
 
 

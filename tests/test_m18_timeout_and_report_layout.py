@@ -5,8 +5,8 @@ import os
 import unittest
 from unittest.mock import patch
 
-from searchgeo.cli import _semantic_provider, build_parser
-from searchgeo.m18_reporting import enrich_remediation_html, enrich_report_html
+from rasai.cli import _semantic_provider, build_parser
+from rasai.m18_reporting import enrich_remediation_html, enrich_report_html
 
 
 class M18TimeoutConfigurationTests(unittest.TestCase):
@@ -35,7 +35,7 @@ class M18TimeoutConfigurationTests(unittest.TestCase):
             "OPENAI_API_KEY": "openai-key",
             "DEEPSEEK_API_KEY": "deepseek-key",
             "MIMO_API_KEY": "mimo-key",
-            "SEARCHGEO_AI_TIMEOUT_SECONDS": "240",
+            "RASAI_AI_TIMEOUT_SECONDS": "240",
         }
         with patch.dict(os.environ, environment, clear=True):
             router = _semantic_provider(args)
@@ -58,10 +58,10 @@ class M18TimeoutConfigurationTests(unittest.TestCase):
         ])
         environment = {
             "OPENAI_API_KEY": "test-key",
-            "SEARCHGEO_AI_TIMEOUT_SECONDS": "0",
+            "RASAI_AI_TIMEOUT_SECONDS": "0",
         }
         with patch.dict(os.environ, environment, clear=True):
-            with self.assertRaisesRegex(ValueError, "SEARCHGEO_AI_TIMEOUT_SECONDS"):
+            with self.assertRaisesRegex(ValueError, "RASAI_AI_TIMEOUT_SECONDS"):
                 _semantic_provider(enabled)
             provider = _semantic_provider(disabled)
         self.assertEqual(provider.name, "NONE")
@@ -96,7 +96,7 @@ class M18ReportLayoutTests(unittest.TestCase):
             "<main class='page m15-main'><section>Conteúdo</section></main>"
             "</body></html>"
         )
-        with patch("searchgeo.m18_reporting._load", return_value=(self._session(), [], 2)):
+        with patch("rasai.m18_reporting._load", return_value=(self._session(), [], 2)):
             enriched = enrich_report_html(html, audit_id="AUD-1", workspace=object())
         self.assertLess(enriched.index("id='ai-runtime'"), enriched.index("</main>"))
         self.assertLess(enriched.index(".m18-ai{"), enriched.index("</head>"))
@@ -111,7 +111,7 @@ class M18ReportLayoutTests(unittest.TestCase):
             "<main class='wrap'><section>Conteúdo</section></main>"
             "</body></html>"
         )
-        with patch("searchgeo.m18_reporting._load", return_value=(self._session(), [], 2)):
+        with patch("rasai.m18_reporting._load", return_value=(self._session(), [], 2)):
             enriched = enrich_remediation_html(html, audit_id="AUD-1", workspace=object())
         self.assertLess(enriched.index("id='ai-remediation-context'"), enriched.index("</main>"))
         self.assertLess(enriched.index(".m18-ai{"), enriched.index("</head>"))

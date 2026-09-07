@@ -7,8 +7,8 @@ import tempfile
 
 import pytest
 
-from searchgeo.observability.google_search_console import collect_search_analytics
-from searchgeo.observability.store import ObservabilityStore
+from rasai.observability.google_search_console import collect_search_analytics
+from rasai.observability.store import ObservabilityStore
 
 
 class _Response:

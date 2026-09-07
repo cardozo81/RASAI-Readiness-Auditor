@@ -12,7 +12,7 @@ A distinção é obrigatória:
 | Synthetic User Experience Apdex | laboratório sintético enriquecido/calibrável | `SYNTHETIC_LOAD_ACTION`, mix explícito de dispositivos | Satisfied e Frustrated independentes ou importados |
 | Dynatrace RUM | usuários reais | user actions reais observadas no período | configuração efetiva da aplicação/action |
 
-Synthetic User Experience Apdex **não é RUM** e não deve ser usado para prometer igualdade numérica com Dynatrace. Ele reduz diferenças metodológicas controláveis — KPM, thresholds, política de erros, sessão e mix de dispositivos — para tornar o delta restante mais interpretável.
+Synthetic User Experience Apdex **não é RUM** e não deve ser usado para prometer igualdade numérica com Dynatrace. Ele reduz diferenças metodológicas controláveis - KPM, thresholds, política de erros, sessão e mix de dispositivos - para tornar o delta restante mais interpretável.
 
 ## 2. Pré-requisitos
 
@@ -24,7 +24,7 @@ Synthetic User Experience Apdex **não é RUM** e não deve ser usado para prome
 
 O token Dynatrace não possui flag CLI e não é persistido pelo RASAi.
 
-## 3. Smoke humano recomendado — calibração manual
+## 3. Smoke humano recomendado - calibração manual
 
 Use primeiro uma URL autorizada e um volume baixo. O objetivo do smoke é validar fluxo, persistência e relatório, não estabilizar estatisticamente o score.
 

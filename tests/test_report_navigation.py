@@ -6,7 +6,7 @@ import re
 import tempfile
 import unittest
 
-from searchgeo.report_navigation import NAV_ITEMS, normalize_report_navigation
+from rasai.report_navigation import NAV_ITEMS, normalize_report_navigation
 
 
 _LINK_RE = re.compile(r"<a class='([^']*)' href='([^']+)'>([^<]+)</a>")
@@ -41,7 +41,7 @@ class ReportNavigationTests(unittest.TestCase):
                 active = [href for css_class, href, _ in links if css_class == "active"]
                 self.assertEqual(active, [filename], filename)
                 self.assertNotIn("Versão 9.9.9", html)
-                self.assertIn("Gerado em 03/09/2026 22:30:45 — Horário de Brasília", html)
+                self.assertIn("Gerado em 03/09/2026 22:30:45 - Horário de Brasília", html)
 
     def test_optional_pages_are_omitted_until_their_files_exist(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -84,7 +84,7 @@ class ReportNavigationTests(unittest.TestCase):
 
             css = (report_dir / "css" / "site.css").read_text(encoding="utf-8")
             html = (report_dir / "index.html").read_text(encoding="utf-8")
-            self.assertEqual(css.count("searchgeo-premium-report-v2"), 1)
+            self.assertEqual(css.count("rasai-premium-report-v2"), 1)
             self.assertIn("grid-template-columns:minmax(0,1fr) minmax(320px,390px)", css)
             self.assertIn("@media(max-width:700px)", css)
             self.assertIn(".snapshot>figure{grid-column:2;grid-row:1", css)

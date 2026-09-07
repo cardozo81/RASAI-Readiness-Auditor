@@ -1,4 +1,4 @@
-# Web Performance externo — Evidência Externa de Web Performance: Core Web Vitals + Lighthouse
+# Web Performance externo - Evidência Externa de Web Performance: Core Web Vitals + Lighthouse
 
 **Status:** EVOLUÇÃO APROVADA
 **Domínio:** `Web Performance externo`
@@ -148,7 +148,7 @@ Controles:
 ```text
 --web-performance
 --no-web-performance
-SEARCHGEO_WEB_PERFORMANCE
+RASAI_WEB_PERFORMANCE
 ```
 
 Precedência:
@@ -171,7 +171,7 @@ Quando desabilitado:
 
 ```text
 --web-performance-max-pages N
-SEARCHGEO_WEB_PERFORMANCE_MAX_PAGES
+RASAI_WEB_PERFORMANCE_MAX_PAGES
 ```
 
 Default:
@@ -191,7 +191,7 @@ Regras:
 
 ```text
 --web-performance-timeout-seconds SECONDS
-SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS
+RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS
 ```
 
 Default:
@@ -214,7 +214,7 @@ Um timeout PageSpeed com CrUX bem-sucedido deve produzir estado Web Performance 
 
 ```text
 --lighthouse-categories performance,accessibility,best-practices,seo
-SEARCHGEO_LIGHTHOUSE_CATEGORIES
+RASAI_LIGHTHOUSE_CATEGORIES
 ```
 
 O default solicita as quatro categorias.
@@ -224,7 +224,7 @@ O default solicita as quatro categorias.
 ### 6.1 PageSpeed
 
 ```text
-SEARCHGEO_PAGESPEED_API_KEY
+RASAI_PAGESPEED_API_KEY
 ```
 
 Opcional para PageSpeed conforme política/quota do serviço.
@@ -232,7 +232,7 @@ Opcional para PageSpeed conforme política/quota do serviço.
 ### 6.2 CrUX
 
 ```text
-SEARCHGEO_CRUX_API_KEY
+RASAI_CRUX_API_KEY
 ```
 
 Obrigatória quando `--web-performance-field-source crux` é utilizado.
@@ -264,7 +264,7 @@ Controle:
 
 ```text
 --web-performance-field-source auto|pagespeed|crux|none
-SEARCHGEO_WEB_PERFORMANCE_FIELD_SOURCE
+RASAI_WEB_PERFORMANCE_FIELD_SOURCE
 ```
 
 Default: `auto`.
@@ -282,7 +282,7 @@ Usa somente field data presente na resposta PageSpeed. Não faz chamada CrUX dir
 
 ### `crux`
 
-Field data é obtido pela CrUX API direta. Exige `SEARCHGEO_CRUX_API_KEY`. PageSpeed continua sendo chamado para Lighthouse de laboratório.
+Field data é obtido pela CrUX API direta. Exige `RASAI_CRUX_API_KEY`. PageSpeed continua sendo chamado para Lighthouse de laboratório.
 
 ### `none`
 
@@ -515,7 +515,7 @@ Somente URL alvo, resposta externa permitida, telemetria sanitizada, métricas d
 Com configuração padrão:
 
 ```text
-SEARCHGEO_WEB_PERFORMANCE=false
+RASAI_WEB_PERFORMANCE=false
 ```
 
 não existem chamadas PageSpeed/CrUX novas.

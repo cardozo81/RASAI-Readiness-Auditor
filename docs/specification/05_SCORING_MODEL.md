@@ -143,12 +143,12 @@ NOT_CONSOLIDATED Coverage < 50% ou Confidence UNAVAILABLE
 NOT_APPLICABLE   universo legitimamente não aplicável
 ```
 
-## 9. Overall — mudança do SCORE-GEO-003
+## 9. Overall - mudança do SCORE-GEO-003
 
 Existem separadamente:
 
-- Overall Readiness — Desktop;
-- Overall Readiness — Mobile.
+- Overall Readiness - Desktop;
+- Overall Readiness - Mobile.
 
 Pré-condições:
 

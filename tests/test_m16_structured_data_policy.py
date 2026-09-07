@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from searchgeo.m16_root_cause import _EXACT_TAGS, _SEMANTIC_CONTEXT_RULES
+from rasai.m16_root_cause import _EXACT_TAGS, _SEMANTIC_CONTEXT_RULES
 
 
 class M16StructuredDataPolicyTests(unittest.TestCase):

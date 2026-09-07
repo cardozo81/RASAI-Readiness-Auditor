@@ -7,10 +7,10 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from searchgeo.console_m23 import State, observe_m23_workspace
-from searchgeo.console_runtime import clear_runtime_progress, runtime_progress_summary, set_runtime_progress
-from searchgeo.interactive_console import _configure, _configure_apdex, _menu
-from searchgeo.report_consistency_v2 import _sanitize_presentation
+from rasai.console_m23 import State, observe_m23_workspace
+from rasai.console_runtime import clear_runtime_progress, runtime_progress_summary, set_runtime_progress
+from rasai.interactive_console import _configure, _configure_apdex, _menu
+from rasai.report_consistency_v2 import _sanitize_presentation
 
 
 class ConsoleProgressGuidanceTests(unittest.TestCase):
@@ -67,7 +67,7 @@ class ConsoleProgressGuidanceTests(unittest.TestCase):
         self.assertEqual(choice, "Q")
         rendered = output.getvalue()
         self.assertIn("REQUER IA CONFIGURADA E ATIVA NO ITEM 4", rendered)
-        with patch("searchgeo.interactive_console.render_header"), redirect_stdout(io.StringIO()):
+        with patch("rasai.interactive_console.render_header"), redirect_stdout(io.StringIO()):
             _configure(state, "5")
         self.assertFalse(state.content_remediation)
         self.assertEqual(state.error, "opção 5 requer uma IA configurada e ativa no item 4")

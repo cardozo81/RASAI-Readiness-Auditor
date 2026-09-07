@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from searchgeo.score_geo_003 import FEATURE_ORDER
-from searchgeo.score_geo_003_calibration import CalibrationCollection, CalibrationRow
-from searchgeo.score_geo_003_dataset import build_dataset_manifest
+from rasai.score_geo_003 import FEATURE_ORDER
+from rasai.score_geo_003_calibration import CalibrationCollection, CalibrationRow
+from rasai.score_geo_003_dataset import build_dataset_manifest
 
 
 def _row(domain: str, *, total: int = 60) -> CalibrationRow:

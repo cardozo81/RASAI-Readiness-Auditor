@@ -1,6 +1,6 @@
 # RASAi Monitor, Observability & Quality
 
-**Status:** IMPLEMENTED CANDIDATE — human smoke required before merge.
+**Status:** IMPLEMENTED CANDIDATE - human smoke required before merge.
 
 ## Purpose
 
@@ -38,7 +38,7 @@ AUD-* collection
 
 `audit.db` is not migrated by Monitor, Observability or Quality. External observations are derived/rebuildable sidecar data.
 
-## Observability sidecar — RASAI-OBS-002
+## Observability sidecar - RASAI-OBS-002
 
 Observation rows are identified by:
 
@@ -81,9 +81,9 @@ rasai monitor gate --audits-root audits --baseline AUD-BASELINE --current AUD-CU
 
 Exit codes:
 
-- `0` — PASS;
-- `1` — blocking deterioration or non-comparable pair;
-- `2` — execution/configuration error.
+- `0` - PASS;
+- `1` - blocking deterioration or non-comparable pair;
+- `2` - execution/configuration error.
 
 The default gate is **deterministic and fail-closed**:
 
@@ -140,7 +140,7 @@ Google Generative AI Performance exports are deliberately **non-directional** in
 OAuth bearer token default:
 
 ```powershell
-$env:GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN="..."
+$env:RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN="..."
 ```
 
 The token is runtime-only.
@@ -210,7 +210,7 @@ Failure policy:
 ## CrUX History
 
 ```powershell
-$env:SEARCHGEO_CRUX_API_KEY="..."
+$env:RASAI_CRUX_API_KEY="..."
 rasai observe crux-history `
   --audit AUD-... `
   --target https://example.com/ `
@@ -248,7 +248,7 @@ rasai observe bing-import --audit AUD-... --file bing-search-performance.csv --s
 
 Bing remains import-first where a direct documented contract is not implemented. Explicit `--surface` participates in dataset/source identity, so the same raw CSV can coexist as separate explicit surfaces without overwriting another import. Artifact SHA-256 still describes the original bytes.
 
-## Google Generative AI Performance — import-first
+## Google Generative AI Performance - import-first
 
 RASAi does not presume an undocumented API endpoint for these reports.
 
@@ -313,7 +313,7 @@ rasai quality report --audit AUD-...
 
 - Audit Health / Data Quality;
 - Evidence Confidence per finding;
-- actionable Operational Priority P0–P3;
+- actionable Operational Priority P0-P3;
 - Coverage Map;
 - Search/AI content controls;
 - Recommendation Validation.

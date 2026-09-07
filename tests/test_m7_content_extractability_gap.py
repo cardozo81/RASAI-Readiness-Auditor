@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import unittest
 
-from searchgeo.content_extractability import _evaluate, _material_qualifiers
-from searchgeo.domain import RuleResult
-from searchgeo.extraction import ContentExtractor
+from rasai.content_extractability import _evaluate, _material_qualifiers
+from rasai.domain import RuleResult
+from rasai.extraction import ContentExtractor
 
 
 class ContentExtractabilityGapTests(unittest.TestCase):

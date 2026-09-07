@@ -3,15 +3,15 @@ from __future__ import annotations
 import json
 import unittest
 
-from searchgeo.m18_ai import ProviderState, ProviderUsage
-from searchgeo.provider_extensions import (
+from rasai.m18_ai import ProviderState, ProviderUsage
+from rasai.provider_extensions import (
     AnthropicProvider,
     GeminiProvider,
     QwenProvider,
     XAIProvider,
     build_semantic_provider,
 )
-from searchgeo.semantic import SEMANTIC_RULE_IDS, SemanticEvidenceInput, SemanticInput
+from rasai.semantic import SEMANTIC_RULE_IDS, SemanticEvidenceInput, SemanticInput
 
 
 def _input() -> SemanticInput:
@@ -97,7 +97,7 @@ class ProviderExtensionTests(unittest.TestCase):
             "qwen",
             env={
                 "DASHSCOPE_API_KEY": "x",
-                "SEARCHGEO_QWEN_ENDPOINT": "https://workspace.example/v1/chat/completions",
+                "RASAI_QWEN_ENDPOINT": "https://workspace.example/v1/chat/completions",
             },
         )
         self.assertEqual(provider.endpoint, "https://workspace.example/v1/chat/completions")

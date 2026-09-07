@@ -1,6 +1,6 @@
-# RASAi Monitoring, Observability & Quality — Delivery Status
+# RASAi Monitoring, Observability & Quality - Delivery Status
 
-**Status:** IMPLEMENTED CANDIDATE — automated CI is mandatory on the current PR head; human smoke remains required before merge.
+**Status:** IMPLEMENTED CANDIDATE - automated CI is mandatory on the current PR head; human smoke remains required before merge.
 **Branch:** `feat/rasai-monitoring-observability`
 **PR:** #82
 
@@ -65,7 +65,7 @@
 - Coverage Map;
 - Recommendation Validation;
 - publisher controls (`nosnippet`, `max-snippet`, `data-nosnippet`, `X-Robots-Tag`);
-- actionable Operational Priority P0–P3, excluding `RESOLVED`/`CLOSED`/`DISMISSED` from the executive work queue while retaining their historical evidence;
+- actionable Operational Priority P0-P3, excluding `RESOLVED`/`CLOSED`/`DISMISSED` from the executive work queue while retaining their historical evidence;
 - Fix Verification;
 - Evidence Timeline;
 - artifact reads confined to the AUD workspace.

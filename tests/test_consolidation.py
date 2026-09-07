@@ -8,8 +8,8 @@ import sqlite3
 import tempfile
 import unittest
 
-from searchgeo.consolidation.index import ConsolidationIndex
-from searchgeo.consolidation.service import build_data, generate, normalize_filter
+from rasai.consolidation.index import ConsolidationIndex
+from rasai.consolidation.service import build_data, generate, normalize_filter
 
 
 def _digest(path: Path) -> str:
@@ -82,7 +82,7 @@ def _make_audit(
             connection.execute(
                 "INSERT INTO synthetic_apdex_summaries VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
-                    audit_id, url, device, when, "SEARCHGEO_MOBILE_TEST", 2.0,
+                    audit_id, url, device, when, "RASAI_MOBILE_TEST", 2.0,
                     100, 0, 90, 8, 2, 0.94, 0, 1,
                     900.0, 1200.0, 1500.0, 1900.0, 2400.0, 2.0,
                 ),

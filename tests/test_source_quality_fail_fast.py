@@ -7,15 +7,15 @@ import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
 
-from searchgeo.acquisition import (
+from rasai.acquisition import (
     HttpAcquisitionResult,
     NetworkError,
     NetworkErrorKind,
     RedirectHop,
 )
-from searchgeo.audit_runner import run_audit
-from searchgeo import console_runtime
-from searchgeo.discovery import (
+from rasai.audit_runner import run_audit
+from rasai import console_runtime
+from rasai.discovery import (
     DEFAULT_CRAWLERS,
     DiscoveredPage,
     DiscoveryProvenance,
@@ -23,13 +23,13 @@ from searchgeo.discovery import (
     RobotsResult,
     RobotsState,
 )
-from searchgeo.domain import CompletionStatus, DiscoverySource, DeviceContext
-from searchgeo.m21_web_performance import WebPerformanceConfig
-from searchgeo.m23_apdex import SyntheticApdexConfig
-from searchgeo.persistence import AuditWorkspace
-from searchgeo.rendering import BrowserRenderResult, RenderErrorKind
-from searchgeo.semantic import NoneProvider
-from searchgeo.source_quality import (
+from rasai.domain import CompletionStatus, DiscoverySource, DeviceContext
+from rasai.m21_web_performance import WebPerformanceConfig
+from rasai.m23_apdex import SyntheticApdexConfig
+from rasai.persistence import AuditWorkspace
+from rasai.rendering import BrowserRenderResult, RenderErrorKind
+from rasai.semantic import NoneProvider
+from rasai.source_quality import (
     PreflightBlockedRenderer,
     assess_acquisitions,
     enrich_source_quality_report_site,
@@ -361,7 +361,7 @@ class SourceQualityFailFastTests(unittest.TestCase):
 
             for path in (result.report_path, extra):
                 html = path.read_text(encoding="utf-8")
-                self.assertEqual(html.count("searchgeo-source-quality:start"), 1)
+                self.assertEqual(html.count("rasai-source-quality:start"), 1)
                 self.assertIn("Origem, redirecionamentos e integridade de transporte", html)
                 self.assertIn("https://mdsgroup.com/", html)
                 self.assertIn("https://mds.pt/", html)

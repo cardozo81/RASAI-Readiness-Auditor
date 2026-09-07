@@ -1,6 +1,6 @@
 # ERROR_CENTRIC_REPORT_UX.md
 
-**Status:** APPROVED — Experiência e organização dos relatórios historical contract evolved by REPORT-SITE-GEO-001 + Sugestões e remediação de conteúdo por IA/Web Performance externo/Acessibilidade automatizada e diagnósticos Web/Synthetic Navigation Apdex
+**Status:** APPROVED - Experiência e organização dos relatórios historical contract evolved by REPORT-SITE-GEO-001 + Sugestões e remediação de conteúdo por IA/Web Performance externo/Acessibilidade automatizada e diagnósticos Web/Synthetic Navigation Apdex
 
 ## 1. Objetivo
 
@@ -201,7 +201,7 @@ Configuração contextual de IA que não gera request por si só não deve ser c
 - avisos sobre heurísticas internas;
 - distinção entre recomendações RASAi e requisitos oficiais.
 
-Páginas especializadas podem apresentar 2–5 referências diretamente relevantes com links claros e encaminhar ao catálogo global quando houver material adicional.
+Páginas especializadas podem apresentar 2-5 referências diretamente relevantes com links claros e encaminhar ao catálogo global quando houver material adicional.
 
 Prioridade de fonte:
 
@@ -333,6 +333,6 @@ Uma nova página HTML ou mudança relevante de report não está concluída enqu
 
 Toda página final deve informar, de forma compacta e visível, a natureza dos indicadores centrais exibidos. `references.html` deve consolidar indicador, classificação metodológica, fonte/entidade, link oficial quando existir, lógica externa aplicável e decisão/transformação específica do RASAi.
 
-Taxonomia pública mínima: `RAW_OBSERVATION`, `EXTERNAL_STANDARD`, `OFFICIAL_PLATFORM_GUIDANCE`, `EXTERNAL_DEFINED_METRIC`, `SEARCHGEO_HEURISTIC`, `OPERATIONAL_TELEMETRY` e `AI_DERIVED_ADVISORY`.
+Taxonomia pública mínima: `RAW_OBSERVATION`, `EXTERNAL_STANDARD`, `OFFICIAL_PLATFORM_GUIDANCE`, `EXTERNAL_DEFINED_METRIC`, `RASAI_HEURISTIC`, `OPERATIONAL_TELEMETRY` e `AI_DERIVED_ADVISORY`.
 
 Informação metodológica essencial não pode depender somente de tooltip. Uma fonte oficial valida apenas o fenômeno no seu escopo e nunca deve ser usada para sugerir homologação externa do `SARI-001`.

@@ -5,7 +5,7 @@ import re
 import tempfile
 import unittest
 
-from searchgeo.report_navigation import _PREMIUM_CSS, normalize_report_navigation
+from rasai.report_navigation import _PREMIUM_CSS, normalize_report_navigation
 
 
 class ReportVisualContractTests(unittest.TestCase):

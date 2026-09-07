@@ -198,13 +198,13 @@ rasai scoring inspect
 Artifact padrão:
 
 ```text
-.searchgeo/scoring/score-geo-003-model.json
+.rasai/scoring/score-geo-003-model.json
 ```
 
 Override de localização:
 
 ```text
-SEARCHGEO_SCORE_GEO_003_MODEL
+RASAI_SCORE_GEO_003_MODEL
 ```
 
 ## Reprodutibilidade
