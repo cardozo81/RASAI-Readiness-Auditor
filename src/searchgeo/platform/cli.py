@@ -7,14 +7,10 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict
-from datetime import datetime
 import json
 from pathlib import Path
 import sys
 from typing import Any
-
-from searchgeo.monitoring.compare import evaluate_release_gate
-from searchgeo.monitoring.models import GatePolicy
 
 from .alerts import evaluate_and_deliver
 from .automation import run_due_schedules
@@ -30,7 +26,7 @@ from .integrations import (
 )
 from .page_compare import compare_pages, write_page_compare_report
 from .reporting import write_deployment_report, write_platform_site
-from .store import PlatformStore, default_platform_database, utc_now
+from .store import PlatformStore, default_platform_database
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -187,7 +183,12 @@ def build_parser() -> argparse.ArgumentParser:
     alert_add.add_argument("--property", required=True)
     alert_add.add_argument("--environment", required=True)
     alert_add.add_argument("--name", required=True)
-    alert_add.add_argument("--status", action="append", default=["REGRESSED", "NEW"])
+    alert_add.add_argument(
+        "--status",
+        action="append",
+        default=None,
+        help="status material a observar; repetível. Default: REGRESSED + NEW",
+    )
     alert_add.add_argument("--min-severity", default="HIGH")
     alert_add.add_argument("--destination", choices=["NONE", "JSON", "WEBHOOK"], default="NONE")
     alert_add.add_argument("--destination-env", help="nome da env var contendo URL; a URL não é persistida")
@@ -465,12 +466,13 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
             if command == "alert":
                 if args.alert_command == "add":
+                    statuses = args.status or ["REGRESSED", "NEW"]
                     _print(asdict(store.add_alert_rule(
                         project_id=args.project,
                         property_id=args.property,
                         environment_id=args.environment,
                         name=args.name,
-                        event_statuses=args.status,
+                        event_statuses=statuses,
                         min_severity=args.min_severity,
                         destination=args.destination,
                         destination_env=args.destination_env,
