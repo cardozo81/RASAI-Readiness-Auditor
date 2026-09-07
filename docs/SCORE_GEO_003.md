@@ -58,11 +58,14 @@ Um artifact só recebe `VALIDATED` quando atende simultaneamente:
 | Engines | 2 |
 | Queries por domínio | 10 |
 | Repetições por query/engine | 3 |
+| Dias distintos de observação por domínio | 3 |
 | Observações válidas | 2400 |
 | AUC no holdout | 0,60 |
 | Brier Score | menor que baseline por prevalência de treino |
 
 O split é determinístico por **domínio**, aproximadamente 70/30. Queries do mesmo domínio não atravessam treino e validação.
+
+A cobertura temporal mínima impede promover um artifact sustentado apenas por múltiplas repetições concentradas no mesmo dia. O timestamp `observed_at` dos query-runs elegíveis é reduzido à data civil ISO e cada domínio precisa representar ao menos três datas distintas.
 
 Os números acima são gates internos versionados do SearchGEO; não são thresholds oficiais de GEO definidos por plataforma externa.
 
@@ -87,7 +90,7 @@ O artifact persiste:
 - coeficientes;
 - médias de imputação;
 - métricas de treino/validação;
-- protocolo/gates;
+- protocolo/gates, inclusive cobertura temporal mínima;
 - SHA-256 do artifact.
 
 ## NOT_APPLICABLE
@@ -112,7 +115,7 @@ O usuário pode alterar coleta e universo de calibração:
 - diretório de AUDs;
 - `dataset_version`;
 - engines e queries que compõem os query-runs;
-- volume/repetições de coleta;
+- volume/repetições e distribuição temporal da coleta;
 - caminho do artifact via `SEARCHGEO_SCORE_GEO_003_MODEL`.
 
 O usuário **não** altera por auditoria:
@@ -176,7 +179,7 @@ Cada auditoria gera `report/score-geo-003.html` com:
 - estado/modelo/dataset da calibração;
 - AUC/Brier quando disponíveis;
 - Overall por device;
-- promotion gate;
+- promotion gate, incluindo cobertura temporal mínima;
 - regras de parametrização e compatibilidade histórica.
 
 `searchgeo.html` continua sendo a página canônica do SGRI e é reconciliada para explicar que o Overall do `003` é calibrado.
