@@ -97,6 +97,7 @@ def analyze_change_impact(result: ComparisonResult) -> ImpactAnalysis:
 
     limitations = [
         "One latest dataset per source is selected in each AUD; overlapping historical datasets are not summed.",
+        "Missing metrics stay unavailable; NULL is never converted into an observed zero.",
         "Temporal association is emitted only for aligned or partially overlapping observation windows.",
         "Search engines, demand, competition, seasonality and measurement coverage can change independently of the website.",
         "This analyzer reports co-occurrence/temporal association only and never causal attribution.",
@@ -189,19 +190,27 @@ def _search_signals(connection: sqlite3.Connection, output: dict[str, dict[str, 
     for row in rows:
         groups[(str(row["source"]), str(row["surface"]))].append(row)
     for (source, surface), items in groups.items():
-        clicks = sum(float(row["clicks"] or 0.0) for row in items)
-        impressions = sum(float(row["impressions"] or 0.0) for row in items)
-        weighted_position_den = sum(float(row["impressions"] or 0.0) for row in items if row["position"] is not None)
+        click_values = [float(row["clicks"]) for row in items if row["clicks"] is not None]
+        impression_values = [float(row["impressions"]) for row in items if row["impressions"] is not None]
+        clicks = sum(click_values) if click_values else None
+        impressions = sum(impression_values) if impression_values else None
+        positioned = [row for row in items if row["position"] is not None]
+        weighted_position_den = sum(
+            float(row["impressions"]) for row in positioned if row["impressions"] is not None
+        )
         weighted_position = None
         if weighted_position_den > 0:
             weighted_position = sum(
-                float(row["position"]) * float(row["impressions"] or 0.0)
-                for row in items if row["position"] is not None
+                float(row["position"]) * float(row["impressions"])
+                for row in positioned if row["impressions"] is not None
             ) / weighted_position_den
+        ctr = None
+        if clicks is not None and impressions is not None and impressions > 0:
+            ctr = clicks / impressions
         for metric, value, direction, unit in (
             ("impressions", impressions, "HIGHER_BETTER", "count"),
             ("clicks", clicks, "HIGHER_BETTER", "count"),
-            ("ctr", (clicks / impressions if impressions > 0 else None), "HIGHER_BETTER", "ratio"),
+            ("ctr", ctr, "HIGHER_BETTER", "ratio"),
             ("position", weighted_position, "LOWER_BETTER", "position"),
         ):
             if value is None:
