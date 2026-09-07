@@ -9,6 +9,7 @@ renders files that actually exist (or the current page).
 from __future__ import annotations
 
 from html import escape
+from pathlib import Path
 import sqlite3
 
 CANONICAL_NAV_ITEMS: tuple[tuple[str, str], ...] = (
@@ -135,6 +136,37 @@ def _patch_lighthouse_traceability_message() -> None:
     m23_reporting._rasai_lighthouse_state_patch = True
 
 
+def _patch_final_branding_normalization() -> None:
+    """Prevent legacy product wording from reappearing in generated HTML."""
+    from searchgeo import report_navigation
+
+    if getattr(report_navigation, "_rasai_public_wording_patch", False):
+        return
+    original = report_navigation.normalize_report_navigation
+
+    def normalize_with_current_wording(report_dir):
+        result = original(report_dir)
+        root = Path(report_dir)
+        for path in root.glob("*.html"):
+            try:
+                html = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeError):
+                continue
+            updated = html.replace("Search/GEO readiness", "Search & AI Readiness")
+            updated = updated.replace("Search/GEO Readiness", "Search & AI Readiness")
+            updated = updated.replace("Search/GEO", "Search & AI")
+            updated = updated.replace("Search/AI", "Search & AI")
+            if updated != html:
+                try:
+                    path.write_text(updated, encoding="utf-8", newline="\n")
+                except OSError:
+                    continue
+        return result
+
+    report_navigation.normalize_report_navigation = normalize_with_current_wording
+    report_navigation._rasai_public_wording_patch = True
+
+
 def install() -> None:
     """Install the current catalogue and report consistency adapters idempotently."""
     from searchgeo import report_navigation
@@ -146,3 +178,4 @@ def install() -> None:
     )
     _patch_apdex_navigation()
     _patch_lighthouse_traceability_message()
+    _patch_final_branding_normalization()
