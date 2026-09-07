@@ -205,7 +205,7 @@ Sem override explícito, o SearchGEO privilegia o modelo mais simples disponíve
 | Gemini | `gemini-3.8-flash` | `LOW` |
 | Anthropic | `claude-sonnet-5` | `LOW` |
 
-A opção 4 do console permite escolher provider, modelo, esforço/profundidade quando suportado e timeout por tentativa.
+A opção 4 do console permite escolher provider, modelo, esforço/profundidade quando suportados e timeout por tentativa.
 
 Default de timeout IA:
 
@@ -388,12 +388,13 @@ Promotion gate mínimo:
 2 engines
 10 queries por domínio
 3 repetições por query/engine
+3 dias distintos de observação por domínio
 2400 observações válidas
 AUC holdout >= 0,60
 Brier < baseline por prevalência de treino
 ```
 
-O split é feito por domínio, evitando que queries do mesmo site apareçam em treino e validação.
+O split é feito por domínio, evitando que queries do mesmo site apareçam em treino e validação. A cobertura temporal é agregada por domínio entre AUDs elegíveis e exige pelo menos três datas distintas.
 
 Calibrar:
 
