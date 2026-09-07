@@ -14,6 +14,7 @@ from .timeline import TimelineBundle
 from .verification import VerificationBundle
 
 QUALITY_FILE = "quality.html"
+_INACTIVE_FINDING_STATES = frozenset({"RESOLVED", "CLOSED", "DISMISSED"})
 
 
 def write_quality_report(audit_workspace: str | Path) -> Path:
@@ -26,7 +27,9 @@ def write_quality_report(audit_workspace: str | Path) -> Path:
     path = report_dir / QUALITY_FILE
     nav = report_navigation.render_report_navigation(report_dir, QUALITY_FILE)
     confidence_counts = _count(item.evidence_confidence for item in bundle.finding_assessments)
-    priority_counts = _count(item.priority_class for item in bundle.finding_assessments)
+    actionable = _actionable_findings(bundle)
+    priority_counts = _count(item.priority_class for item in actionable)
+    top_priorities = actionable[:10]
     rec_attention = sum(
         item.status not in {"SUPPORTED_BY_PERSISTED_EVIDENCE", "SUPPORTED_BY_GROUP"}
         for item in bundle.recommendation_assessments
@@ -35,20 +38,21 @@ def write_quality_report(audit_workspace: str | Path) -> Path:
 <header class='hero'>
   <div class='eyebrow'>RASAI Quality · derivado · non-scoring</div>
   <h1>Qualidade da auditoria e decisão</h1>
-  <p class='lead'>Avalia a qualidade da própria evidência RASAI, prioriza findings e valida a coerência das recomendações sem alterar SARI-001/SCORE-GEO-003.</p>
+  <p class='lead'>Avalia a qualidade da própria evidência RASAI, prioriza findings acionáveis e valida a coerência das recomendações sem alterar SARI-001/SCORE-GEO-003.</p>
   <div class='metric-grid'>
     {_metric('Audit health', bundle.health_status)}
     {_metric('Findings', len(bundle.finding_assessments))}
+    {_metric('Findings acionáveis', len(actionable))}
     {_metric('Evidence HIGH', confidence_counts.get('HIGH', 0))}
-    {_metric('Prioridades P0/P1', priority_counts.get('P0', 0) + priority_counts.get('P1', 0))}
+    {_metric('Prioridades P0/P1 acionáveis', priority_counts.get('P0', 0) + priority_counts.get('P1', 0))}
     {_metric('Recomendações a revisar', rec_attention)}
     {_metric('Controles de conteúdo', len(controls))}
   </div>
 </header>
 <section class='panel notice'><h2>Fronteira metodológica</h2><p><strong>Quality não é um novo score de readiness.</strong> Audit Health descreve a qualidade/completude da coleta; Evidence Confidence descreve a força da evidência de cada finding; Operational Priority é uma heurística de decisão independente; nenhum deles recalcula SARI.</p></section>
 <section class='panel'><div class='kicker'>Audit Health</div><h2>Qualidade da própria auditoria</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Sev.</th><th>Código</th><th>Verificação</th><th>Detalhe</th></tr></thead><tbody>{''.join(_health_row(x) for x in bundle.health_checks) or '<tr><td colspan=5>Sem verificações.</td></tr>'}</tbody></table></div></section>
-<section class='panel'><div class='kicker'>Executive decision</div><h2>Top prioridades operacionais</h2><p>A prioridade combina severidade, abrangência, confiança da evidência e esforço estimado. Ela orienta ordem de trabalho; não altera scoring.</p><div class='table-wrap'><table><thead><tr><th>Prior.</th><th>Score</th><th>Regra</th><th>Sev.</th><th>Confidence</th><th>Escopo</th><th>Esforço</th><th>URL</th><th>Título</th></tr></thead><tbody>{''.join(_finding_row(x) for x in bundle.top_priorities) or '<tr><td colspan=9>Nenhum finding.</td></tr>'}</tbody></table></div></section>
-<section class='panel'><div class='kicker'>Evidence Confidence</div><h2>Confiança por finding</h2><div class='table-wrap'><table><thead><tr><th>Prior.</th><th>Regra</th><th>Sev.</th><th>Confidence</th><th>Proveniência</th><th>Device</th><th>URL</th><th>Razões</th></tr></thead><tbody>{''.join(_confidence_row(x) for x in sorted(bundle.finding_assessments, key=lambda i: (-i.operational_priority, i.rule_id, i.finding_id))) or '<tr><td colspan=8>Nenhum finding.</td></tr>'}</tbody></table></div></section>
+<section class='panel'><div class='kicker'>Executive decision</div><h2>Top prioridades operacionais acionáveis</h2><p>Somente findings não resolvidos/fechados/dispensados entram nesta lista. A prioridade combina severidade, abrangência, confiança da evidência e esforço estimado; orienta ordem de trabalho e não altera scoring.</p><div class='table-wrap'><table><thead><tr><th>Prior.</th><th>Score</th><th>Regra</th><th>Sev.</th><th>Confidence</th><th>Escopo</th><th>Esforço</th><th>URL</th><th>Título</th></tr></thead><tbody>{''.join(_finding_row(x) for x in top_priorities) or '<tr><td colspan=9>Nenhum finding acionável.</td></tr>'}</tbody></table></div></section>
+<section class='panel'><div class='kicker'>Evidence Confidence</div><h2>Confiança por finding</h2><p>Esta tabela preserva também findings históricos/resolvidos para rastreabilidade.</p><div class='table-wrap'><table><thead><tr><th>Status</th><th>Prior.</th><th>Regra</th><th>Sev.</th><th>Confidence</th><th>Proveniência</th><th>Device</th><th>URL</th><th>Razões</th></tr></thead><tbody>{''.join(_confidence_row(x) for x in sorted(bundle.finding_assessments, key=lambda i: (-i.operational_priority, i.rule_id, i.finding_id))) or '<tr><td colspan=9>Nenhum finding.</td></tr>'}</tbody></table></div></section>
 <section class='panel'><div class='kicker'>Coverage Map</div><h2>URL × domínio de evidência</h2><div class='table-wrap'><table><thead><tr><th>URL</th><th>Device</th><th>Technical</th><th>Rendering</th><th>Semantic/entity</th><th>Answer/evidence/intent</th><th>Governance</th></tr></thead><tbody>{''.join(_coverage_row(x) for x in bundle.coverage_map) or '<tr><td colspan=7>Sem cobertura por URL.</td></tr>'}</tbody></table></div></section>
 <section class='panel'><div class='kicker'>Search & AI content controls</div><h2>Controles de snippet e uso direto</h2><p>Diretivas restritivas são decisões do publisher e não penalidades. O RASAI apenas registra sua presença para interpretar corretamente Search/GenAI observados.</p><div class='table-wrap'><table><thead><tr><th>URL</th><th>Device</th><th>Meta robots</th><th>X-Robots-Tag</th><th>nosnippet</th><th>max-snippet</th><th>data-nosnippet</th><th>Interpretação</th></tr></thead><tbody>{''.join(_control_row(x) for x in controls) or '<tr><td colspan=8>Sem snapshots para avaliar.</td></tr>'}</tbody></table></div></section>
 <section class='panel'><div class='kicker'>Recommendation Validation</div><h2>Coerência das recomendações persistidas</h2><p>Esta validação verifica referência, estado e confiança contra a evidência atual; não substitui revisão humana do conteúdo da recomendação.</p><div class='table-wrap'><table><thead><tr><th>Status</th><th>ID</th><th>Confidence</th><th>Prior.</th><th>Recomendação</th><th>Motivo</th></tr></thead><tbody>{''.join(_rec_row(x) for x in bundle.recommendation_assessments) or '<tr><td colspan=6>Sem recomendações persistidas.</td></tr>'}</tbody></table></div></section>
@@ -99,6 +103,19 @@ def write_timeline_report(
     return path
 
 
+def _actionable_findings(bundle: QualityBundle) -> tuple[Any, ...]:
+    return tuple(
+        sorted(
+            (
+                item
+                for item in bundle.finding_assessments
+                if str(item.status).upper() not in _INACTIVE_FINDING_STATES
+            ),
+            key=lambda item: (-item.operational_priority, item.rule_id, item.finding_id),
+        )
+    )
+
+
 def _health_row(x: Any) -> str:
     return f"<tr><td>{escape(x.status)}</td><td>{escape(x.severity)}</td><td class='mono'>{escape(x.code)}</td><td>{escape(x.title)}</td><td>{escape(x.detail)}</td></tr>"
 
@@ -108,7 +125,7 @@ def _finding_row(x: Any) -> str:
 
 
 def _confidence_row(x: Any) -> str:
-    return f"<tr><td>{escape(x.priority_class)}</td><td class='mono'>{escape(x.rule_id)}</td><td>{escape(x.severity)}</td><td>{escape(x.evidence_confidence)}</td><td>{escape(x.provenance)}</td><td>{escape(x.device or '—')}</td><td class='mono'>{escape(x.url or '—')}</td><td>{escape(', '.join(x.confidence_reasons))}</td></tr>"
+    return f"<tr><td>{escape(x.status)}</td><td>{escape(x.priority_class)}</td><td class='mono'>{escape(x.rule_id)}</td><td>{escape(x.severity)}</td><td>{escape(x.evidence_confidence)}</td><td>{escape(x.provenance)}</td><td>{escape(x.device or '—')}</td><td class='mono'>{escape(x.url or '—')}</td><td>{escape(', '.join(x.confidence_reasons))}</td></tr>"
 
 
 def _coverage_row(x: dict[str, Any]) -> str:
