@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "searchgeo-readiness-auditor"
 version = "0.1.0"
-description = "RASAi — Search & AI readiness auditor. Legacy Python namespace retained for compatibility."
+description = "RASAi — Search & AI Readiness Auditor. Python package namespace: searchgeo."
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "playwright>=1.57,<2",
