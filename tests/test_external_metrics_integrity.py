@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import closing
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -44,7 +45,6 @@ class ExternalMetricsIntegrityTests(unittest.TestCase):
                 config=WebPerformanceConfig(enabled=True, field_source="none"),
                 pagespeed_client=_PageSpeed(payload),
             )
-            # M21 transport succeeded. The integrity gate must independently reject LHR.
             self.assertEqual(result.pagespeed_successes, 1)
             reconciled = reconcile_external_metrics_integrity(
                 audit_id="AUD-INTEGRITY",
@@ -54,7 +54,7 @@ class ExternalMetricsIntegrityTests(unittest.TestCase):
             self.assertEqual(reconciled.status, "UNAVAILABLE")
             self.assertEqual(reconciled.successful_contexts, 0)
 
-            with sqlite3.connect(workspace.database) as db:
+            with closing(sqlite3.connect(workspace.database)) as db:
                 row = db.execute(
                     "SELECT status,performance_score,accessibility_score,error_summary FROM web_performance_observations"
                 ).fetchone()
@@ -93,7 +93,7 @@ class ExternalMetricsIntegrityTests(unittest.TestCase):
             self.assertEqual(reconciled.status, "PARTIAL")
             self.assertEqual(reconciled.successful_contexts, 1)
             self.assertEqual(reconciled.partial_contexts, 1)
-            with sqlite3.connect(workspace.database) as db:
+            with closing(sqlite3.connect(workspace.database)) as db:
                 row = db.execute(
                     "SELECT status,performance_score,accessibility_score,cwv_assessment FROM web_performance_observations"
                 ).fetchone()
@@ -116,7 +116,7 @@ class ExternalMetricsIntegrityTests(unittest.TestCase):
                 result=result,
             )
             self.assertEqual(reconciled.status, "PARTIAL")
-            with sqlite3.connect(workspace.database) as db:
+            with closing(sqlite3.connect(workspace.database)) as db:
                 row = db.execute(
                     "SELECT performance_score,accessibility_score,status,error_summary FROM web_performance_observations"
                 ).fetchone()
@@ -157,7 +157,7 @@ class ExternalMetricsIntegrityTests(unittest.TestCase):
                 result=result,
             )
             self.assertEqual(reconciled.status, "SUCCESS")
-            with sqlite3.connect(workspace.database) as db:
+            with closing(sqlite3.connect(workspace.database)) as db:
                 row = db.execute(
                     "SELECT performance_score,accessibility_score,status,error_summary FROM web_performance_observations"
                 ).fetchone()
