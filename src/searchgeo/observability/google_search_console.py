@@ -22,6 +22,7 @@ URL_INSPECTION_ENDPOINT = "https://searchconsole.googleapis.com/v1/urlInspection
 SOURCE_SEARCH = "GOOGLE_SEARCH_CONSOLE_SEARCH_ANALYTICS"
 SOURCE_APPEARANCE = "GOOGLE_SEARCH_CONSOLE_SEARCH_APPEARANCE"
 SOURCE_INSPECTION = "GOOGLE_SEARCH_CONSOLE_URL_INSPECTION"
+_SYSTEMIC_HTTP_CODES = (401, 403, 429, 500, 502, 503, 504)
 
 JsonOpener = Callable[..., Any]
 
@@ -212,27 +213,12 @@ def collect_url_inspection(
                     "metadata": {"inspectionResultLink": result.get("inspectionResultLink")},
                 }
             )
-        except (OSError, ValueError, RuntimeError) as exc:
-            raw.append({"url": url, "error": f"{type(exc).__name__}: {exc}"})
-            normalized.append(
-                {
-                    "record_id": f"GSC-UI-{index:08d}",
-                    "source": SOURCE_INSPECTION,
-                    "url": url,
-                    "verdict": "ERROR",
-                    "coverage_state": None,
-                    "indexing_state": None,
-                    "robots_txt_state": None,
-                    "page_fetch_state": None,
-                    "user_canonical": None,
-                    "selected_canonical": None,
-                    "last_crawl_time": None,
-                    "crawled_as": None,
-                    "referring_urls": (),
-                    "sitemap_urls": (),
-                    "metadata": {"error": f"{type(exc).__name__}: {exc}"},
-                }
-            )
+        except RuntimeError as exc:
+            if _systemic_google_failure(exc):
+                raise
+            _append_url_inspection_error(raw, normalized, index, url, exc)
+        except (OSError, ValueError) as exc:
+            _append_url_inspection_error(raw, normalized, index, url, exc)
     artifact = {
         "format_version": "RASAI-GSC-UI-001",
         "source": SOURCE_INSPECTION,
@@ -254,6 +240,43 @@ def collect_url_inspection(
             "errors": sum(row["verdict"] == "ERROR" for row in normalized),
         },
     )
+
+
+def _append_url_inspection_error(
+    raw: list[dict[str, Any]],
+    normalized: list[dict[str, Any]],
+    index: int,
+    url: str,
+    exc: Exception,
+) -> None:
+    message = f"{type(exc).__name__}: {exc}"
+    raw.append({"url": url, "error": message})
+    normalized.append(
+        {
+            "record_id": f"GSC-UI-{index:08d}",
+            "source": SOURCE_INSPECTION,
+            "url": url,
+            "verdict": "ERROR",
+            "coverage_state": None,
+            "indexing_state": None,
+            "robots_txt_state": None,
+            "page_fetch_state": None,
+            "user_canonical": None,
+            "selected_canonical": None,
+            "last_crawl_time": None,
+            "crawled_as": None,
+            "referring_urls": (),
+            "sitemap_urls": (),
+            "metadata": {"error": message},
+        }
+    )
+
+
+def _systemic_google_failure(exc: RuntimeError) -> bool:
+    message = str(exc)
+    if message.startswith("Google API network error:"):
+        return True
+    return any(message.startswith(f"Google API HTTP {code}:") for code in _SYSTEMIC_HTTP_CODES)
 
 
 def _post_json(endpoint: str, payload: dict[str, Any], token: str, timeout: float, opener: JsonOpener) -> dict[str, Any]:
