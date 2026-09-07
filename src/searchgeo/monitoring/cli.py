@@ -25,9 +25,14 @@ def build_parser() -> argparse.ArgumentParser:
     _pair(impact)
     impact.add_argument("--report-root", help="diretório opcional para MON-*; padrão <audits-root>/monitoring")
 
-    gate = sub.add_parser("gate", help="release gate; 0=PASS, 1=deterioração bloqueante, 2=erro")
+    gate = sub.add_parser("gate", help="release gate; 0=PASS, 1=deterioração/incomparabilidade bloqueante, 2=erro")
     _pair(gate)
     gate.add_argument("--include-semantic", action="store_true", help="permitir regras semânticas/IA no gate")
+    gate.add_argument(
+        "--allow-noncomparable",
+        action="store_true",
+        help="permitir gate mesmo quando o par de AUDs foi marcado não comparável; default fail-closed",
+    )
     gate.add_argument(
         "--allow-new-failures",
         action="store_true",
@@ -90,6 +95,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.monitor_command == "gate":
             policy = GatePolicy(
                 deterministic_only=not args.include_semantic,
+                require_comparable=not args.allow_noncomparable,
                 block_new_failures=not args.allow_new_failures,
                 include_performance=args.include_performance,
                 include_synthetic=args.include_synthetic,
@@ -103,6 +109,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"RASAI Release Gate: {'PASS' if gate.passed else 'FAIL'}")
             print(gate.reason)
             print(f"Regras: {'determinísticas' if policy.deterministic_only else 'inclui semânticas'}")
+            print(f"Comparabilidade: {'obrigatória' if policy.require_comparable else 'override explícito'}")
             print(f"New failures: {'bloqueiam' if policy.block_new_failures else 'permitidos por opt-out'}")
             print(
                 "Opt-ins: "
