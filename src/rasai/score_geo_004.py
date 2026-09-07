@@ -1,22 +1,19 @@
 """SCORE-GEO-004 deterministic operational scoring contract.
 
-SCORE-GEO-004 keeps the evidence, applicability and dimension arithmetic used by
-the established RASAi scoring engine. It changes the operational Overall
-contract introduced by SCORE-GEO-003: empirical calibration is no longer a
-runtime prerequisite. The Overall is a transparent equal-weight mean of the
-applicable dimension scores and can be consolidated from one audit when the
-measurement itself has sufficient Coverage and Confidence.
+SCORE-GEO-004 is the sole runtime scoring method for new RASAi audits. Dimension
+evidence, applicability, Coverage and Confidence remain deterministic and
+reproducible. The Overall is a transparent equal-weight mean of applicable
+dimension scores and can be consolidated from one audit when the measurement
+itself has sufficient Coverage and Confidence.
 
-SCORE-GEO-003 remains a historical calibrated method and its calibration
-pipeline remains available for empirical validation/research. SCORE-GEO-004
-never represents its deterministic Overall as a probability of citation.
+External empirical validation may be performed independently, but it is never a
+runtime prerequisite and never changes the score silently. SCORE-GEO-004 does
+not represent its Overall as a probability of ranking or citation.
 """
 from __future__ import annotations
 
 
 SCORING_VERSION = "SCORE-GEO-004"
-CALIBRATED_PREVIOUS_VERSION = "SCORE-GEO-003"
-LEGACY_SCORING_VERSION = "SCORE-GEO-002"
 OVERALL_AGGREGATION_VERSION = "EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1"
 MIN_OVERALL_COVERAGE = 0.80
 MIN_PARTIAL_COVERAGE = 0.50
@@ -39,5 +36,5 @@ def method_trace_limitations() -> tuple[str, ...]:
     """Persist an explicit trace of the deterministic Overall contract."""
     return (
         f"OVERALL_AGGREGATION:{OVERALL_AGGREGATION_VERSION}",
-        "EMPIRICAL_CALIBRATION:OPTIONAL_NOT_SCORE_INPUT",
+        "EMPIRICAL_VALIDATION:NOT_SCORE_INPUT",
     )
