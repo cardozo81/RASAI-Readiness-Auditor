@@ -1,0 +1,59 @@
+name: RASAI monitoring and observability safety
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  monitoring-observability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install package and tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+      - name: Compile new surfaces
+        run: |
+          python -m compileall -q \
+            src/searchgeo/entrypoint.py \
+            src/searchgeo/console_entrypoint.py \
+            src/searchgeo/report_registry.py \
+            src/searchgeo/monitoring \
+            src/searchgeo/observability \
+            src/searchgeo/quality \
+            src/searchgeo/score_geo_003_dataset.py \
+            src/searchgeo/score_geo_003_cli.py \
+            src/searchgeo/score_geo_003_calibration.py
+      - name: Directed monitoring observability and quality tests
+        run: |
+          python -m pytest -q \
+            tests/test_monitoring_observability.py \
+            tests/test_observability_collectors.py \
+            tests/test_quality_observability_hardening.py \
+            tests/test_release_gate_new_failures.py \
+            tests/test_release_gate_comparability.py \
+            tests/test_change_impact_genai_semantics.py \
+            tests/test_observability_import_hardening.py \
+            tests/test_crux_scope_hardening.py \
+            tests/test_gsc_scope_hardening.py \
+            tests/test_gsc_inspection_failure_policy.py \
+            tests/test_quality_actionable_priorities.py \
+            tests/test_quality_filesystem_safety.py \
+            tests/test_score_geo_003_dataset.py \
+            tests/test_report_registry_and_method_docs.py
+      - name: Existing scoring and observed visibility regressions
+        run: |
+          python -m pytest -q \
+            tests/test_m26_observed_generative_visibility.py \
+            tests/test_score_geo_003.py

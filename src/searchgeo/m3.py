@@ -21,7 +21,6 @@ from searchgeo.rendering import (
     RenderedElementObservation,
 )
 
-
 _RENDERING_MODE = "PLAYWRIGHT_CHROMIUM"
 _DEVICES = (DeviceContext.DESKTOP, DeviceContext.MOBILE)  # legacy internal reference; runtime selection is configurable.
 _TITLE_ELEMENT_RE = re.compile(r"<title\b[^>]*>.*?</title\s*>", re.IGNORECASE | re.DOTALL)
@@ -52,19 +51,7 @@ def execute_m3(
     *,
     renderer: Renderer | None = None,
 ) -> M3ExecutionResult:
-    """Render every M2 page for the configured device context and persist snapshots.
-
-    ``SEARCHGEO_DEVICE_CONTEXT`` accepts ``mobile``, ``desktop`` or ``both``.
-    When M3 is called directly without that environment variable, the legacy
-    internal behavior remains both devices. The CLI always resolves an explicit
-    context and defaults it to mobile.
-
-    The default renderer uses a browser identity aligned to the actual Playwright
-    browser version. This avoids stale User-Agent/browser-version combinations that
-    can trigger divergent CDN/WAF redirect policies while keeping the context
-    stateless and TLS validation enabled.
-    """
-
+    """Render every M2 page for the configured device context and persist snapshots."""
     active_renderer: Renderer = renderer or BrowserIdentityRenderer()
     renderer_context = active_renderer if isinstance(active_renderer, BrowserRenderer) else nullcontext(active_renderer)
     snapshot_ids: dict[str, dict[DeviceContext, str]] = {}
@@ -91,11 +78,7 @@ def execute_m3(
             per_device_visual: dict[DeviceContext, str | None] = {}
             for device in devices:
                 preflight_navigation_trace = [
-                    {
-                        "url": hop.source_url,
-                        "status": hop.status,
-                        "location": hop.location,
-                    }
+                    {"url": hop.source_url, "status": hop.status, "location": hop.location}
                     for hop in acquisition.redirects
                 ]
                 try:
@@ -113,18 +96,10 @@ def execute_m3(
                 snapshot_id = new_id("SNP")
                 captured_at = utc_now()
                 rendered_artifact_ref = _write_rendered_artifact(
-                    workspace,
-                    page_id,
-                    device,
-                    snapshot_id,
-                    render_result.rendered_html,
+                    workspace, page_id, device, snapshot_id, render_result.rendered_html
                 )
                 visual_artifact_ref = _write_visual_artifact(
-                    workspace,
-                    page_id,
-                    device,
-                    snapshot_id,
-                    render_result.screenshot_png,
+                    workspace, page_id, device, snapshot_id, render_result.screenshot_png
                 )
                 browser_metadata = dict(render_result.browser_metadata)
                 browser_metadata["raw_http"] = {
@@ -142,6 +117,9 @@ def execute_m3(
                         for hop in acquisition.redirects
                     ],
                     "network_error": acquisition.network_error.kind.value if acquisition.network_error else None,
+                    # Only this non-secret response-control header is persisted;
+                    # the complete header set (cookies/auth-related values) is deliberately excluded.
+                    "x_robots_tag": list(acquisition.header_values("X-Robots-Tag")),
                 }
                 browser_metadata["render_succeeded"] = render_result.succeeded
                 browser_metadata["visual_artifact_ref"] = visual_artifact_ref
@@ -154,15 +132,8 @@ def execute_m3(
                     requested_url=url,
                     final_url=render_result.final_url or acquisition.final_url,
                     captured_at=captured_at,
-                    http_status=(
-                        render_result.http_status
-                        if render_result.http_status is not None
-                        else acquisition.status
-                    ),
-                    content_type=(
-                        render_result.content_type
-                        or acquisition.header("Content-Type")
-                    ),
+                    http_status=(render_result.http_status if render_result.http_status is not None else acquisition.status),
+                    content_type=(render_result.content_type or acquisition.header("Content-Type")),
                     rendering_mode=_RENDERING_MODE,
                     raw_artifact_ref=raw_artifact_ref,
                     rendered_artifact_ref=rendered_artifact_ref,
@@ -226,13 +197,7 @@ def execute_m3(
                     )
 
                 if render_result.error_kind is not None:
-                    failures.append(
-                        RenderFailure(
-                            page_id=page_id,
-                            device=device,
-                            error_kind=render_result.error_kind.value,
-                        )
-                    )
+                    failures.append(RenderFailure(page_id=page_id, device=device, error_kind=render_result.error_kind.value))
             snapshot_ids[page_id] = per_device
             visual_artifact_refs[page_id] = per_device_visual
 
@@ -246,27 +211,16 @@ def execute_m3(
 def _align_title_observation_to_rendered_artifact(
     render_result: BrowserRenderResult,
 ) -> tuple[RenderedElementObservation, ...]:
-    """Bind title evidence to the serialized DOM consumed by M4/M7.
-
-    Chromium pages may mutate document.title after ``page.content()`` is
-    captured but before the live observation pass runs. In that case a later
-    live ``<title>`` must not be linked as exact evidence for a semantic result
-    computed from the earlier persisted DOM. Other live observations remain
-    unchanged because this hotfix only resolves the demonstrated title race.
-    """
-
+    """Bind title evidence to the serialized DOM consumed by M4/M7."""
     if render_result.rendered_html is None:
         return render_result.element_observations
-
     non_title = tuple(
-        observation
-        for observation in render_result.element_observations
+        observation for observation in render_result.element_observations
         if observation.tag_name.casefold() != "title"
     )
     match = _TITLE_ELEMENT_RE.search(render_result.rendered_html)
     if match is None:
         return non_title
-
     outer_html = match.group(0)[:4096]
     title = RenderedElementObservation(
         selector="title",

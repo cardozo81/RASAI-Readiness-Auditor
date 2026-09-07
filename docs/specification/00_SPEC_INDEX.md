@@ -1,6 +1,6 @@
 # RASAI — Search & AI Readiness Auditor — Specification Index
 
-**Status:** BASELINE VIGENTE — capacidades integradas e documentação reconciliada com `main`.
+**Status:** BASELINE VIGENTE — capacidades integradas e documentação reconciliada com `main` + candidato PR #82.
 **Baseline:** MVP Functional Specification
 **Idioma normativo:** Português, preservando identificadores e termos técnicos quando necessário.
 
@@ -39,6 +39,8 @@ Uma IA, desenvolvedor ou ferramenta que assuma o projeto não deve depender do h
 25. `24_CRAWLING_DISCOVERY_AI_ACCESS.md`
 26. `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`
 27. `26_OBSERVED_GENERATIVE_VISIBILITY.md`
+28. `27_MONITORING_OBSERVABILITY.md`
+29. `28_AUDIT_QUALITY_VERIFICATION.md`
 
 ## 3. Precedência documental
 
@@ -80,14 +82,16 @@ Nenhuma decisão funcional deve ser alterada silenciosamente durante implementa�
 - `16_ROOT_CAUSE_ELEMENT_REMEDIATION.md` — remediação por causa raiz e elemento.
 - `17_REMEDIATION_PRECISION_REPORT_CONSISTENCY.md` — precisão e consistência das recomendações.
 - `18_MULTI_AI_PROVIDER_ROUTING.md` — análise semântica por IA, roteamento, fallback e telemetria.
-- `19_SCORE_APPLICABILITY_GEO_MINIMUMS.md` — semântica de aplicabilidade introduzida no `SCORE-GEO-002` e preservada no `SCORE-GEO-003`.
+- `19_SCORE_APPLICABILITY_GEO_MINIMUMS.md` — semântica de aplicabilidade introduzida no histórico `002` e preservada no `003`.
 - `20_AI_CONTENT_REMEDIATION.md` — sugestões e remediação de conteúdo por IA, sem alteração retroativa do score.
 - `21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md` — PageSpeed, Lighthouse e Core Web Vitals/CrUX como evidência externa complementar.
 - `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md` — acessibilidade automatizada e diagnósticos Web separados do Search & AI Readiness.
 - `23_SYNTHETIC_APDEX_LIGHTHOUSE_TRACEABILITY.md` — Synthetic Navigation Apdex.
 - `24_CRAWLING_DISCOVERY_AI_ACCESS.md` — rastreamento, descoberta e políticas de crawlers.
 - `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md` — Synthetic User Experience Apdex calibrável, separado de RUM.
-- `26_OBSERVED_GENERATIVE_VISIBILITY.md` — visibilidade generativa observada/importada; query-runs controlados podem alimentar a calibração offline do Overall `003`.
+- `26_OBSERVED_GENERATIVE_VISIBILITY.md` — visibilidade generativa observada/importada e query-runs controlados.
+- `27_MONITORING_OBSERVABILITY.md` — comparação longitudinal, release gate, outcomes externos, sidecar observacional e diagnósticos complementares.
+- `28_AUDIT_QUALITY_VERIFICATION.md` — Audit Health, Evidence Confidence, operational priority, content-use controls, Fix Verification e Evidence Timeline.
 
 ## 5. Baseline vigente de scoring e método público
 
@@ -99,28 +103,31 @@ Nenhuma decisão funcional deve ser alterada silenciosamente durante implementa�
 - o Overall `003` exige artifact de calibração `VALIDATED`; sem ele, permanece `NOT_CONSOLIDATED`;
 - não existe alegação de score GEO/AEO universal ou homologado;
 - métricas externas não são incorporadas silenciosamente ao SARI;
-- outcomes controlados de Observed Generative Visibility podem ser usados pelo processo separado de calibração, sem alterar retroativamente o AUD que os contém.
+- outcomes controlados de Observed Generative Visibility podem ser usados pelo processo separado de calibração, sem alterar retroativamente o AUD que os contém;
+- Monitoring, Observability e Quality permanecem domínios derivados/complementares e non-scoring por padrão.
 
-Detalhes operacionais: `../SCORE_GEO_003.md`.
+Detalhes: `../SCORE_GEO_003.md`, `27_MONITORING_OBSERVABILITY.md` e `28_AUDIT_QUALITY_VERIFICATION.md`.
 
 ## 6. REPORT-SITE-GEO-001
 
-O contrato final de saída continua condicional pela existência/materialização do arquivo:
+O contrato final de saída é condicional pela existência/materialização do arquivo:
 
 ```text
 <AUD-ID>/report/index.html
-<AUD-ID>/report/readiness.html             # SARI-001 / RASAI
-<AUD-ID>/report/score-geo-003.html         # método/modelo/dataset/gates do scoring vigente
-<AUD-ID>/report/mobile.html                # condicional
-<AUD-ID>/report/desktop.html               # condicional
+<AUD-ID>/report/readiness.html
+<AUD-ID>/report/score-geo-003.html
+<AUD-ID>/report/mobile.html
+<AUD-ID>/report/desktop.html
 <AUD-ID>/report/remediation.html
 <AUD-ID>/report/content-suggestions.html
-<AUD-ID>/report/crawling-discovery.html    # rastreamento e descoberta
-<AUD-ID>/report/accessibility.html         # acessibilidade automatizada, condicional
-<AUD-ID>/report/web-performance.html       # Lighthouse/Core Web Vitals, quando habilitados
-<AUD-ID>/report/apdex.html                 # Synthetic Navigation Apdex, condicional
-<AUD-ID>/report/apdex-experience.html      # Synthetic User Experience Apdex, condicional
-<AUD-ID>/report/ai-visibility.html         # visibilidade observada, após importação/regeneração
+<AUD-ID>/report/crawling-discovery.html
+<AUD-ID>/report/accessibility.html
+<AUD-ID>/report/web-performance.html
+<AUD-ID>/report/apdex.html
+<AUD-ID>/report/apdex-experience.html
+<AUD-ID>/report/ai-visibility.html
+<AUD-ID>/report/observability.html
+<AUD-ID>/report/quality.html
 <AUD-ID>/report/ai-usage.html
 <AUD-ID>/report/references.html
 <AUD-ID>/report/css/site.css
@@ -128,43 +135,33 @@ O contrato final de saída continua condicional pela existência/materializaçã
 
 Default de dispositivo da CLI: `mobile`. `desktop` e `both` são seleções explícitas/parametrizáveis.
 
-### Propriedade analítica
+Cada indicador/domínio possui página canônica. `index.html` pode resumir resultados para navegação executiva, mas não deve fundir metodologias em score comum.
 
-Cada indicador ou domínio possui uma página canônica. O `index.html` pode resumir um resultado final para navegação executiva, mas não deve duplicar metodologia/evidência detalhada nem fundir métricas diferentes em um score comum.
+`readiness.html` é a página canônica do SARI. `score-geo-003.html` documenta o estado de calibração. Acessibilidade, Web Performance, Apdex, visibilidade generativa, Search & AI Observability e Quality permanecem domínios separados.
 
-`readiness.html` é a página canônica de SARI/indicadores proprietários. `score-geo-003.html` documenta o estado da calibração. Acessibilidade, Web Performance, Apdex e visibilidade generativa observada permanecem domínios separados.
+O menu final é canônico e condicional à existência dos arquivos; uma projeção opcional gerada posteriormente não pode remover do menu outra página opcional já materializada.
 
 ## 7. Fronteiras dos domínios complementares
 
 | Domínio | Finalidade | Regra de fronteira |
 |---|---|---|
 | Web Performance | PageSpeed/Lighthouse/CrUX | evidência externa; não entra diretamente no Overall `003` |
-| Acessibilidade automatizada | diagnóstico Lighthouse de acessibilidade | não declara conformidade WCAG integral nem entra diretamente no Overall `003` |
+| Acessibilidade automatizada | diagnóstico automatizado | não declara conformidade WCAG integral nem entra diretamente no Overall `003` |
 | Synthetic Navigation Apdex | navegação sintética controlada | T/4T explícito; não é RUM; permanece indicador separado |
-| Rastreamento e descoberta | robots.txt, sitemaps, feeds e políticas de crawlers | diagnóstico técnico; permanece domínio separado |
-| Synthetic User Experience Apdex | experiência sintética calibrável | não é RUM; permanece separado do Synthetic Navigation Apdex e do SARI |
-| Observed Generative Visibility | resultados observados/importados de AI Search | permanece domínio observacional; query-runs controlados podem alimentar calibração offline, sem criar score próprio |
+| Rastreamento e descoberta | robots.txt, sitemaps, feeds e políticas de crawlers | diagnóstico técnico non-scoring |
+| Synthetic User Experience Apdex | experiência sintética calibrável | não é RUM; separado de Navigation Apdex e SARI |
+| Observed Generative Visibility | resultados observados/importados de AI Search | domínio observacional; query-runs podem alimentar calibração offline |
+| Search & AI Observability | Search Console, GenAI exports, URL Inspection, CrUX History/imports | `RASAI-OBS-002`; non-scoring; proveniência explícita |
+| RASAI Monitor | comparação baseline/current, release gate e change impact | read-only; não cria score e não presume causalidade |
+| RASAI Quality | qualidade da evidência, priorização operacional e validação | read-only; não cria readiness score |
+| Fix Verification | transição de regra entre AUDs | prova apenas estado persistido; não prova downstream impact |
+| Evidence Timeline | projeção longitudinal de AUDs | não regrava histórico |
 
 ## 8. Observed Generative Visibility e calibração
 
 Fonte normativa: `26_OBSERVED_GENERATIVE_VISIBILITY.md`.
 
-A capacidade:
-
-- está integrada à baseline vigente;
-- usa contrato `OGV-IMPORT-001`;
-- funciona por importação de evidência normalizada, sem scraping de portal e sem presumir endpoint não documentado;
-- suporta inicialmente `BING_WEBMASTER_TOOLS_AI_PERFORMANCE` e `CONTROLLED_QUERY_RUNS`;
-- preserva o JSON normalizado como artifact e registra SHA-256;
-- exige URLs do mesmo `normalized_origin` da auditoria;
-- mantém Total Citations/Average Cited Pages como métricas reportadas pela fonte;
-- calcula Citation Presence Rate apenas sobre runs controlados `VALID`;
-- apresenta `n` e Wilson 95% quando a taxa é calculável;
-- cria `report/ai-visibility.html`;
-- a importação não escreve nem recalcula `scores`, `score_contributions`, `rule_executions`, `findings` ou `recommendations`;
-- não cria GEO Score, ranking, autoridade nem garantia de citação futura;
-- `CONTROLLED_QUERY_RUNS` elegíveis podem ser lidos posteriormente pelo comando `rasai scoring calibrate`;
-- a calibração gera artifact separado e versionado; não altera o histórico do AUD fonte.
+A capacidade usa `OGV-IMPORT-001`, preserva artifact/SHA-256, mantém métricas reportadas pela fonte separadas de cálculos RASAI e não escreve/recalcula scores do AUD fonte. `CONTROLLED_QUERY_RUNS` elegíveis podem ser consumidos posteriormente pela calibração offline `SCORE-GEO-003`.
 
 ## 9. SCORE-GEO-003
 
@@ -178,68 +175,105 @@ model = L2_REGULARIZED_LOGISTIC_REGRESSION
 split = DOMAIN_HOLDOUT_70_30_V1
 ```
 
-Promotion gate mínimo:
+Promotion gate mínimo documentado:
 
 - 40 domínios;
 - 12 domínios no holdout;
 - 2 engines;
 - 10 queries por domínio;
 - 3 repetições por query/engine;
+- 3 dias distintos por domínio;
 - 2400 observações válidas;
 - AUC holdout >= 0,60;
 - Brier menor que baseline por prevalência de treino.
 
 Sem artifact `VALIDATED`, as dimensões continuam auditáveis, mas `OVERALL_READINESS` permanece sem valor consolidado. Não existe fallback silencioso para a aritmética `002`.
 
-## 10. Fontes externas e heurística
+`rasai scoring dataset` avalia gates pré-fit e gera fingerprint/manifest; `READY_FOR_MODEL_FIT` não equivale a `VALIDATED`.
 
-O RASAI não deve representar seu score ou thresholds como standard GEO/AEO universal.
+A calibração abre os AUDs de origem em modo read-only e não duplica outcomes sem granularidade por device contra feature vectors separados por device.
 
-Referências primárias atuais incluem Google Search Central/Crawling Infrastructure, OpenAI publisher/help documentation, Schema.org, WHATWG, IETF/RFC, Chrome Developers, PageSpeed Insights, Chrome UX Report, W3C/WAI, Apdex Alliance, documentação pública Dynatrace para comparabilidade do Synthetic User Experience Apdex e documentação pública Bing Webmaster/Search para visibilidade observada.
+## 10. Monitoring, Observability & Quality
 
-Structured Data/JSON-LD é reforço opcional, não requisito universal GEO. Quando a remediação de conteúdo por IA propõe ou revisa JSON-LD, usa somente conteúdo/evidência persistidos.
+### Monitoring
 
-Lighthouse e Core Web Vitals introduzem métricas externas documentadas para fenômenos específicos. Não homologam `SCORE-GEO-003` e não são combinados silenciosamente com ele.
+```text
+rasai monitor compare
+rasai monitor impact
+rasai monitor gate
+```
 
-Acessibilidade automatizada Lighthouse permanece independente do GEO e não equivale a conformidade WCAG integral.
+- abre `audit.db` somente leitura;
+- respeita scoring version/device/URL universe;
+- gate default = deterministic rules + page-state;
+- Performance, synthetic Apdex, aggregate findings e score dimensions são opt-in;
+- impact seleciona um dataset mais recente por fonte;
+- associação temporal exige janelas alinhadas/parcialmente sobrepostas;
+- `NULL` externo não vira zero.
 
-Os dois domínios Synthetic Apdex usam contratos sintéticos próprios; não são derivados de Lighthouse/CrUX e não devem ser apresentados como população humana observada.
+### Observability
 
-Rastreamento e descoberta usam protocolos e orientações públicas aplicáveis. `llms.txt` permanece proposta comunitária experimental e sua ausência não é falha de RASAI.
+```text
+rasai observe ...
+rasai observability ...
+```
 
-Observed Generative Visibility separa métricas reportadas pela fonte de cálculos RASAI sobre query-runs. Contagem de citações não deve ser rotulada como ranking ou autoridade.
+- sidecar `observability.db` no contrato `RASAI-OBS-002`;
+- identidade de linha `(dataset_id, record_id)`;
+- artifacts em `artifacts/observability/`;
+- Search Analytics, Search Appearance, propriedades, sitemaps e URL Inspection via APIs oficiais implementadas;
+- Google Generative AI Performance é import-first;
+- Search e Discover GenAI têm proveniência separada;
+- CrUX History via API oficial;
+- Bing import-first quando não há contrato direto implementado;
+- `report/observability.html`;
+- não persiste secrets;
+- não altera `audit.db` nem SARI/SCORE-GEO-003.
+
+### Quality
+
+```text
+rasai quality report
+rasai quality verify
+rasai quality timeline
+```
+
+- `report/quality.html`;
+- Audit Health;
+- Evidence Confidence;
+- Operational Priority independente;
+- Coverage Map;
+- Recommendation Validation;
+- `nosnippet`, `max-snippet`, `data-nosnippet`, `X-Robots-Tag`;
+- Fix Verification e Evidence Timeline read-only.
+
+## 11. Fontes externas e heurística
+
+O RASAI não representa seu score ou thresholds como standard GEO/AEO universal.
+
+Referências primárias podem incluir Google Search Central/Crawling Infrastructure, Google Search Console APIs, Chrome UX Report, OpenAI publisher/help documentation, Schema.org, WHATWG, IETF/RFC, W3C/WAI, Apdex Alliance, Dynatrace e documentação pública Bing Search/Webmaster.
+
+Essas fontes sustentam fenômenos externos específicos; não homologam SARI-001/SCORE-GEO-003.
 
 Heurísticas BR-GEO sem equivalente normativo permanecem identificadas como heurísticas/baseline interna.
 
-## 11. Continuidade de branches e integração
+## 12. Continuidade de branches e integração
 
-Branches de trabalho são temporárias.
+Branches de trabalho são temporárias. Após validação e merge em `main`, confirmar que não existe conteúdo exclusivo pendente antes de excluir branch. Uma branch ativa de outro trabalho não deve ser incorporada sem necessidade técnica explícita.
 
-Após validação e merge em `main`:
+## 13. Regra de mudança
 
-1. confirmar que `main` contém integralmente a alteração;
-2. confirmar ausência de conteúdo exclusivo pendente;
-3. classificar a branch como removível;
-4. excluir fisicamente quando a ferramenta/permissão permitir;
-5. impossibilidade de exclusão pelo conector não bloqueia a continuidade quando a integração já está comprovada, conforme decisões vigentes.
+Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context, conteúdo sugerido por IA, Web Performance, acessibilidade, Apdex, crawling/discovery, visibilidade observada, monitoring/observability/quality ou requisitos corporativos devem ser reconciliadas nesta baseline antes do merge.
 
-Uma branch ativa de outro trabalho não deve ser modificada ou incorporada por uma alteração concorrente sem necessidade técnica explícita.
-
-## 12. Regra de mudança
-
-Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context público, conteúdo sugerido por IA, consumo de Web Performance, fronteiras de acessibilidade, carga sintética, aquisição/rastreamento, visibilidade observada ou requisitos corporativos devem ser reconciliadas nesta baseline antes da conclusão do merge.
-
-Decisões puramente internas de implementação podem ser tomadas sem aprovação humana quando não alterarem comportamento funcional.
-
-## 13. Critério de encerramento de alteração
+## 14. Critério de encerramento de alteração
 
 Uma alteração só está apta a merge quando:
 
 - código e documentação normativa estão consistentes;
 - testes dirigidos passam;
 - regressões relevantes passam;
-- suíte completa aplicável passa;
 - CI está verde;
 - não há conflito material com `main` atualizado;
 - limitações/fail-open estão explícitos;
+- HTML/menu estão coerentes;
 - quando o comportamento exige inspeção visual/operacional, o estado é liberado para smoke humano antes do merge, salvo autorização humana explícita em contrário.

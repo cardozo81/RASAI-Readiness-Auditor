@@ -87,7 +87,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
         body = """
         <header class='hero'><div class='eyebrow'>Observed Generative Visibility · visibilidade observada</div><h1>Observed Generative Visibility</h1>
         <p class='lead'>Nenhum dataset de visibilidade generativa foi importado para esta auditoria.</p></header>
-        <section class='panel'><h2>Readiness ≠ Visibility</h2><p>Esta página é deliberadamente separada do SARI/SCORE-GEO. Ausência de dados observados não reduz o readiness.</p></section>
+        <section class='panel'><h2>Readiness ≠ Visibility</h2><p>Esta página é deliberadamente separada de SARI-001 e do SCORE-GEO-003 vigente. SCORE-GEO-002 permanece histórico. Ausência de dados observados não reduz readiness.</p></section>
         """
         return _shell(nav, body)
 
@@ -97,7 +97,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     <header class='hero'>
       <div class='eyebrow'>Observed Generative Visibility · visibilidade observada · informativo; não altera o índice</div>
       <h1>Observed Generative Visibility</h1>
-      <p class='lead'>Resultados observados/importados sobre participação e citação em superfícies de IA. Estes dados <strong>não compõem SARI-001/SCORE-GEO-002</strong> e não são convertidos em um “GEO Score”.</p>
+      <p class='lead'>Resultados observados/importados sobre participação e citação em superfícies de IA. Estes dados <strong>não compõem SARI-001/SCORE-GEO-002 histórico e tampouco SCORE-GEO-003 vigente</strong>; não são convertidos em um “GEO Score”.</p>
       <div class='metric-grid'>
         {_metric('Datasets importados', len(imports))}
         {_metric('Período mais recente', f"{latest['period_start']} → {latest['period_end']}")}
@@ -114,7 +114,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     </section>
     {sections}
     {_references()}
-    <footer class='footer'>Observed Generative Visibility é import-first, auditável e informativo; não altera o índice. O RASAI não faz scraping de portais de webmaster nem inventa endpoint de API para esta coleta.</footer>
+    <footer class='footer'>Observed Generative Visibility é import-first, auditável e informativo; não altera SARI-001 nem SCORE-GEO-003. O RASAI não faz scraping de portais de webmaster nem inventa endpoint de API para esta coleta.</footer>
     """
     return _shell(nav, body)
 

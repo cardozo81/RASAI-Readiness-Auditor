@@ -1,8 +1,8 @@
 # Análise semântica por IA, roteamento e telemetria — Multi-AI Provider Abstraction, Reliability Routing & Usage Telemetry
 
-**Status:** APPROVED — reconciliado com `SCORE-GEO-002`, report site e contexto de dispositivo configurável.
+**Status:** APPROVED — reconciliado com `SARI-001`/`SCORE-GEO-003`, report site e contexto de dispositivo configurável.
 
-Análise semântica por IA, roteamento e telemetria é uma extensão aditiva de infraestrutura de IA. Não transforma LLM em scoring engine, não altera as Business Rules e não converte falha/ausência de IA em defeito do website. O scoring vigente é `SCORE-GEO-002`.
+Análise semântica por IA, roteamento e telemetria é uma extensão aditiva de infraestrutura de IA. Não transforma LLM em scoring engine, não altera as Business Rules e não converte falha/ausência de IA em defeito do website. O scoring vigente para novas auditorias é `SCORE-GEO-003`; `SCORE-GEO-002` permanece histórico.
 
 ## Providers e contrato
 
@@ -110,12 +110,11 @@ Os HTMLs legados temporários usados durante a composição interna do pipeline 
 7. provider não selecionado/sem credencial não pode invalidar provider explícito funcional.
 8. contexto de dispositivo limita rendering e chamadas de IA ao escopo solicitado.
 9. telemetria é separada de findings e score.
-
+10. outcomes externos/observability não entram em `SARI-001/SCORE-GEO-003` sem contrato metodológico versionado explícito.
 
 ## DeepSeek wire contract por chaves obrigatórias
 
 Para DeepSeek via Responses API, o contrato de transporte das 22 avaliações semânticas usa um objeto cujas chaves obrigatórias são `BR-GEO-028` até `BR-GEO-049`. Isso evita depender de `minItems`/`maxItems` para cardinalidade de arrays, restrições que a documentação do DeepSeek declara não suportadas em seu subconjunto estrito de JSON Schema. Antes da persistência, o adapter converte o objeto para o array canônico RASAI e reaplica todas as validações locais de schema, evidência, completude e duplicidade. A alteração não muda scoring nem a semântica das regras.
-
 
 ## Política de retry e fallback com controle de custo
 

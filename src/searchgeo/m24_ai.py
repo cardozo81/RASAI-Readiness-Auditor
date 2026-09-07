@@ -191,7 +191,7 @@ def _call(
     instructions = (
         "Você é um especialista técnico em crawling, robots.txt, sitemap e controles de crawlers. "
         "Responda em português do Brasil e somente em JSON. Use exclusivamente os diagnósticos "
-        "determinísticos fornecidos. Não altere severidade, scoring, SCORE-GEO-002 ou SARI-001. "
+        "determinísticos fornecidos. Não altere severidade, scoring, SCORE-GEO-003 ou SARI-001. "
         "Não invente URL, status HTTP, configuração, crawler, evidência, causa raiz, política ou fato. "
         "Cada ação deve referenciar um diagnostic_code fornecido e somente evidence_ids fornecidos. "
         "OAI-SearchBot está relacionado à descoberta no ChatGPT Search; GPTBot está relacionado a "
@@ -368,11 +368,7 @@ def _validate(
         evidence_raw = raw.get("evidence_ids")
         if not objective or not change or not isinstance(evidence_raw, list):
             raise ValueError("M24 AI action contains invalid fields")
-        evidence_ids = tuple(
-            str(item).strip()
-            for item in evidence_raw
-            if str(item).strip()
-        )
+        evidence_ids = tuple(str(item).strip() for item in evidence_raw if str(item).strip())
         if not set(evidence_ids).issubset(allowed_evidence):
             raise ValueError("M24 AI action references evidence outside supplied universe")
         output_actions.append(
@@ -392,8 +388,10 @@ def _validate(
 
 
 def _first_snapshot(workspace: AuditWorkspace, audit_id: str) -> dict[str, Any] | None:
-    connection = sqlite3.connect(workspace.database)
+    uri = workspace.database.resolve().as_uri() + "?mode=ro"
+    connection = sqlite3.connect(uri, uri=True)
     connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA query_only=ON")
     try:
         row = connection.execute(
             """

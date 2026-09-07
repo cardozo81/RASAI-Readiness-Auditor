@@ -2,26 +2,25 @@
 
 ## Objetivo
 
-A funcionalidade reúne indicadores já persistidos em auditorias `AUD-*` e gera um snapshot HTML estático para análise por domínio, período, dispositivo e URL.
-
-Ela é deliberadamente independente do pipeline de auditoria.
+O consolidador reúne indicadores **já persistidos** em auditorias `AUD-*` e gera um snapshot HTML estático para análise por domínio, período, dispositivo e URL. Ele é independente do pipeline de auditoria e não reexecuta coleta, regras, IA ou scoring.
 
 ## Garantias de arquitetura
 
-- `AUD-*/audit.db` permanece a fonte de verdade;
-- cada banco fonte é aberto com SQLite `mode=ro` e `PRAGMA query_only=ON`;
-- nenhuma API externa é chamada durante indexação, filtro, cálculo ou geração do consolidado;
-- `rasai audit`, scoring, persistence, PageSpeed/CrUX, IA e Synthetic Apdex não dependem do consolidador;
-- nenhum schema de `audit.db` é migrado ou alterado;
-- falha do consolidador é `fail-open` em relação ao console existente;
-- o índice analítico é derivado, descartável e reconstruível;
-- relatórios `CONS-*` são snapshots derivados e não substituem `AUD-*`.
+- `AUD-*/audit.db` permanece a fonte de verdade de cada auditoria;
+- bancos fonte são abertos em modo somente leitura;
+- nenhuma API externa é chamada para gerar um `CONS-*`;
+- nenhum schema de `audit.db` é migrado pelo consolidador;
+- `.searchgeo/consolidated-index.db` é cache derivado, descartável e reconstruível;
+- falha do consolidador é `fail-open` para `rasai audit` e para o console;
+- relatórios `CONS-*` não substituem `AUD-*`;
+- Mobile e Desktop permanecem séries distintas;
+- versões de scoring incompatíveis nunca são fundidas silenciosamente.
 
 ```text
-AUD-*/audit.db (fonte oficial, somente leitura)
+AUD-*/audit.db (fonte oficial, read-only)
         |
         v
-.searchgeo/consolidated-index.db (cache analítico reconstruível)
+.searchgeo/consolidated-index.db (cache reconstruível)
         |
         v
 filtros + comparabilidade + estatística descritiva
@@ -30,43 +29,9 @@ filtros + comparabilidade + estatística descritiva
 consolidated/CONS-*/report.html + manifest.json
 ```
 
-## Acesso pelo console
-
-```text
-C. Histórico / relatórios consolidados [OFFLINE — sem APIs]
-```
-
-O fluxo seleciona de forma dependente:
-
-1. domínio;
-2. período;
-3. dispositivo;
-4. filtro opcional de URL/caminho;
-5. geração.
-
-Mobile e Desktop permanecem séries separadas.
-
-## Índice analítico
-
-O índice é gravado em:
-
-```text
-audits/.searchgeo/consolidated-index.db
-```
-
-Ele contém somente projeções necessárias para consulta histórica: metadados, domínios, URLs, dispositivos, versões, pontuações, cobertura, confiança, Web Performance/Lighthouse/CrUX, Apdex e ocorrências já persistidas.
-
-Não existe evidência exclusiva no índice. Sua exclusão não perde dados: a próxima atualização o reconstrói a partir dos `audit.db`.
-
-### Atualização incremental
-
-Cada `audit.db` recebe fingerprint técnico. Fontes sem mudança são reaproveitadas; fontes novas/alteradas são reindexadas; entradas removidas do filesystem saem do cache. Um AUD inválido não interrompe os demais.
-
 ## Elegibilidade e filtros
 
-Somente auditorias com `status=COMPLETED` participam.
-
-Data efetiva:
+Somente auditorias concluídas participam. A data efetiva segue:
 
 ```text
 completed_at -> started_at -> created_at
@@ -74,236 +39,128 @@ completed_at -> started_at -> created_at
 
 Os limites de período são inclusivos.
 
-### Filtro por URL
+Web Performance, Apdex e ocorrências page-level podem ser filtrados diretamente por URL. Readiness persistida em nível de auditoria/dispositivo não é recalculada para um subconjunto arbitrário de URLs: quando o universo do score não está contido no filtro, o valor é omitido e a limitação é declarada.
 
-Web Performance, Apdex e ocorrências page-level são filtrados diretamente por URL.
+## SARI-001 e SCORE-GEO-003
 
-A Readiness Search & AI é persistida em nível de auditoria/dispositivo/dimensão. Portanto, um filtro parcial de URL não pode receber uma pontuação originalmente calculada com páginas que ficaram fora do filtro. Nesses casos o score audit-level é omitido; o consolidador nunca reexecuta o scoring para fabricar um valor por URL.
+### Método vigente
 
-## SCORE-GEO no consolidado
+O índice público do RASAI é **SARI-001 — Search & AI Readiness Index**. O motor de scoring vigente para novas auditorias é **`SCORE-GEO-003`**.
 
-### Versão exibida
+`SCORE-GEO-002` permanece **histórico**. Ele pode aparecer em auditorias antigas e em séries históricas, mas não deve ser descrito como baseline vigente nem agregado à mesma série do `SCORE-GEO-003` sem quebra metodológica explícita.
 
-A interface usa o rótulo **Versão do método de pontuação**. O identificador persistido vigente é `SCORE-GEO-002`.
+### Dimensões
 
-`SCORE-GEO-001` não é exibido como métrica concorrente nem recalculado em relatórios atuais. Se uma fonte histórica futura contiver outra versão persistida, a versão será tratada como quebra metodológica e não misturada silenciosamente.
+As dimensões de readiness continuam baseadas em regras aplicáveis, evidência, Coverage, Confidence e estado de consolidação. `PASS`, `WARNING`, `FAIL`, `UNKNOWN`, `ERROR` e `NOT_APPLICABLE` não são tratados como equivalentes. Ausência de aplicabilidade não é convertida em zero.
 
-### Natureza
+### Overall Readiness
 
-`SCORE-GEO-002` é um método interno, determinístico e reproduzível do RASAI. Não é score oficial de Google, OpenAI ou outro mecanismo e não possui validação estabelecida como preditor de ranking, tráfego ou citação por sistemas generativos.
+No `SCORE-GEO-003`, o **Overall** não deve ser fabricado como média simples para contornar a calibração. O Overall só é materializado segundo o contrato vigente do `SCORE-GEO-003` e seu model artifact versionado. Quando o modelo não atende os gates de validação/promoção, o relatório deve expor o estado/limitação em vez de produzir uma nota geral aparentemente validada.
 
-### Aritmética
+A calibração usa outcomes observados separados de readiness. O protocolo atual exige, entre outros gates, diversidade de domínios/engines, cobertura de queries, repetições, cobertura temporal e quantidade mínima de observações; AUC e Brier são avaliados na etapa de fitting/validação. Consulte `docs/SCORE_GEO_003.md` e `docs/SARI_READINESS_INDEX.md`.
 
-No baseline atual:
+### Confidence e Coverage
 
-1. regras aplicáveis produzem `PASS`, `WARNING`, `FAIL`, `UNKNOWN`, `ERROR` ou `NOT_APPLICABLE`;
-2. `PASS` contribui com fator `1`;
-3. `WARNING` usa fator padrão `0,5`;
-4. `FAIL` contribui com fator `0`;
-5. grupos correlacionados evitam dupla penalização da mesma causa;
-6. score da dimensão = `soma(peso × fator) / soma dos pesos avaliados × 100`;
-7. cobertura da dimensão = `peso avaliado / peso aplicável`;
-8. dimensão legitimamente não aplicável não recebe `0` nem `100` e fica fora do denominador geral;
-9. Readiness Search & AI geral = média aritmética simples das dimensões aplicáveis suficientemente consolidadas;
-10. cobertura geral = média das coberturas dessas dimensões.
+`Score`, `Coverage` e `Confidence` têm semânticas diferentes. Confidence qualifica a força da conclusão/evidência; não é sinônimo de qualidade do website. Coverage não pode substituir Score, e dado indisponível não pode ser apresentado como zero.
 
-### Confiança
+## Comparabilidade histórica
 
-A `Confidence` persistida representa força/cobertura da conclusão, não qualidade do website:
+O consolidado deve segmentar ou sinalizar, no mínimo:
 
-- Alta: cobertura >= 90%, evidência completa e nenhum erro;
-- Média: cobertura >= 80% e nenhum erro;
-- Baixa: demais casos mensuráveis;
-- Indisponível: sem cobertura mensurável.
+- `scoring_version`;
+- versão do auditor/ruleset quando materialmente relevante;
+- dispositivo;
+- universo de URLs;
+- perfil/threshold no caso de Apdex;
+- fonte/escopo no caso de dados de campo.
 
-A confiança geral é conservadora e adota o menor nível entre as dimensões aplicáveis.
+Uma mudança de `SCORE-GEO-002` para `SCORE-GEO-003` é quebra metodológica. O HTML deve permitir leitura histórica, mas não sugerir uma evolução numérica contínua entre métodos diferentes.
 
 ## Políticas estatísticas
 
 - dado ausente nunca vira zero;
-- Mobile e Desktop não são combinados silenciosamente;
-- versões metodológicas incompatíveis são segregadas;
-- pontuação histórica usa mesma versão do método e mesmo universo de URLs comparável;
 - não existe interpolação de datas sem auditoria;
-- **nenhum extremo é descartado automaticamente** apenas por ser mínimo, máximo ou distante da média;
-- não há trimming, winsorization, corte por IQR/desvio-padrão ou outro descarte de outliers por valor;
-- média = média aritmética das observações elegíveis;
-- mediana = valor central das observações elegíveis;
-- mínimo e máximo permanecem visíveis.
+- extremos não são descartados automaticamente;
+- não há trimming, winsorization ou remoção por IQR/desvio-padrão apenas por distância da média;
+- média, mediana, mínimo e máximo usam somente observações elegíveis/comparáveis;
+- para métricas page-level, o estado inicial/atual é resolvido por URL antes da agregação transversal, evitando que uma URL auditada mais vezes domine a série.
 
-### Estado inicial e atual em métricas por URL
+### Quantidade de auditorias
 
-Para métricas page-level, o estado inicial usa a primeira observação válida de cada URL e o estado atual usa a última observação válida de cada URL; depois é feita a média transversal. Isso impede uma URL auditada mais vezes de representar sozinha o estado do domínio.
-
-## Modos históricos do HTML
-
-O relatório se adapta à quantidade de auditorias:
-
-| Base | Comportamento |
+| Base | Interpretação |
 |---|---|
-| 1 AUD | **Snapshot**; não sugere tendência e oculta estatísticas redundantes por padrão |
-| 2 AUDs | **Comparação de dois pontos**; mostra variação, mas declara que não caracteriza tendência |
-| 3+ AUDs comparáveis | **Série histórica descritiva**; gráficos podem ser exibidos sem atribuição causal |
-
-Gráficos usam somente observações efetivamente persistidas e compatíveis.
-
-## Visualizações e navegação
-
-O HTML `CONS-2` possui navegação fixa entre:
-
-- Resumo;
-- Evolução;
-- Readiness Search & AI;
-- Desempenho;
-- Apdex;
-- Ocorrências;
-- Confiabilidade;
-- Auditorias;
-- Metodologia.
-
-### Readiness Search & AI e dimensões
-
-A visão principal prioriza:
-
-- valor atual;
-- cobertura;
-- confiança;
-- estado de consolidação;
-- N;
-- versão do método.
-
-Média, mediana, mínimo, máximo e variações ficam em uma área expansível. A tabela possui filtro textual e altura controlada.
-
-Quando há base comparável suficiente, são gerados:
-
-- gráfico de Readiness Search & AI + Cobertura ao longo do tempo;
-- matriz histórica das dimensões.
-
-### Auditorias consideradas
-
-A tabela de proveniência possui:
-
-- pesquisa local;
-- paginação local;
-- 25/50/100 linhas por página;
-- cabeçalho fixo;
-- nenhum acesso a servidor/API para filtrar ou paginar.
-
-### Ocorrências
-
-São exibidos total, páginas afetadas, distribuição por severidade/categoria e evolução do volume bruto quando há pelo menos dois AUDs. O report avisa que quantidade bruta deve ser interpretada junto com o tamanho do universo auditado.
+| 1 AUD | **Snapshot**; não caracteriza tendência |
+| 2 AUDs | **Comparação de dois pontos**; variação não equivale a tendência |
+| 3+ AUDs comparáveis | **Série histórica descritiva**; não atribui causalidade |
 
 ## Web Performance
 
-São consolidados quando persistidos:
+Quando persistidos, permanecem separados por metodologia:
 
 - Lighthouse Performance/Acessibilidade/Boas práticas/SEO;
 - FCP, Speed Index, LCP, TBT e CLS de laboratório;
 - LCP p75, INP p75 e CLS p75 de campo;
 - Core Web Vitals assessment;
-- fonte/escopo dos dados de campo.
+- fonte e escopo do dado de campo.
 
-Dados de laboratório e de campo permanecem separados.
+Lab e field data não são fundidos como se fossem a mesma medição.
 
-## Apdex sintético
+## Apdex
 
-Apdex só é agregado entre mesmo dispositivo, perfil e T compatíveis:
+Synthetic Navigation Apdex e Synthetic User Experience Apdex permanecem domínios próprios. Agregações exigem compatibilidade de dispositivo, perfil e thresholds. Grupos pequenos continuam identificados e não devem ser interpretados como evidência robusta apenas porque o score é alto.
 
-```text
-sum(apdex_score * valid_samples) / sum(valid_samples)
-```
+## Ocorrências
 
-A interface destaca quando existem somente grupos com amostra pequena (`small_group`) e nenhum `final_group`, evitando interpretar `1,000` com poucas amostras como evidência robusta.
+O consolidado pode exibir volume, severidade, categoria, páginas afetadas e evolução bruta. A quantidade de findings deve ser interpretada junto ao universo auditado; mais páginas analisadas podem produzir mais ocorrências sem representar piora proporcional.
 
-## Confiabilidade analítica do consolidado
+## Confiabilidade analítica
 
-O relatório não cria outro score numérico arbitrário. Em vez disso apresenta matriz com:
+O consolidador não cria um novo “score de confiabilidade”. Ele apresenta sinais como:
 
-- fidelidade às fontes;
+- fidelidade à fonte;
 - comparabilidade metodológica;
 - suficiência da base histórica;
-- Confidence/Coverage persistidas;
-- robustez do Apdex;
-- situação da validação externa do SCORE-GEO.
+- Coverage/Confidence persistidas;
+- robustez/amostragem de Apdex;
+- status da calibração do `SCORE-GEO-003`.
 
-Essa matriz diferencia **dados fiéis** de **base estatisticamente suficiente**.
+## Relação com RASAI Monitor
 
-## Metodologia e base técnica no HTML
+`CONS-*` e **RASAI Monitor** possuem propósitos diferentes:
 
-O final do relatório documenta:
+- consolidado: exploração histórica/estatística descritiva;
+- `rasai monitor compare`: comparação explícita baseline → current e classificação de mudança;
+- `rasai monitor gate`: release gate determinístico;
+- `rasai monitor impact`: associação temporal entre regressões e outcomes observados, sem atribuir causalidade.
 
-- fonte dos dados;
-- versão do método;
-- fórmula de Score e Coverage;
-- regra de Confidence;
-- média/mediana/mínimo/máximo;
-- política de outliers/extremos;
-- comparabilidade de URL/versionamento;
-- política Apdex;
-- ausência de interpolação;
-- limitações detectadas;
-- referências técnicas internas e públicas.
+Nenhuma dessas superfícies altera o `audit.db` fonte.
 
-Referência normativa interna principal:
+## Relação com Search & AI Observability
 
-```text
-docs/specification/19_SCORE_APPLICABILITY_GEO_MINIMUMS.md
-```
+Dados coletados após a auditoria (Search Console, URL Inspection, CrUX History e imports observacionais suportados) são armazenados em `observability.db` + `artifacts/observability/`. Eles não entram automaticamente em SARI-001/SCORE-GEO-003 e não são copiados para o consolidado como se fossem evidência original do AUD.
 
-Referências externas apresentadas no HTML incluem documentação oficial do Google Search, Web Vitals e Apdex.
+## Saída estática
 
-## Relatório estático
-
-Cada resultado novo é salvo em:
+Cada snapshot novo é salvo em:
 
 ```text
-audits/consolidated/CONS-YYYYMMDD-HHMMSS-mmm/
+audits/consolidated/CONS-*/
     report.html
     manifest.json
 ```
 
-`report.html` é autocontido quanto aos dados. JavaScript local é usado somente para interação de tabela; abrir o arquivo não relê bancos nem chama APIs.
+O manifest registra filtros, fingerprints, versões metodológicas e limitações relevantes. O HTML não relê bancos nem chama APIs ao ser aberto.
 
-O `manifest.json` registra também:
+## Reversão e segurança
 
-- modo histórico (`Snapshot`, comparação ou série);
-- versões do método encontradas;
-- políticas de agregação;
-- política de dados ausentes;
-- política de extremos;
-- ausência de interpolação.
+A feature é derivada: remover o cache consolidado e/ou os `CONS-*` não remove evidência dos `AUD-*`. Nenhum banco fonte precisa ser migrado ou restaurado.
 
-## Dedupe
+## Gate de integração
 
-Um `CONS-*` existente é reutilizado somente se permanecerem idênticos:
+Antes de integrar mudanças do consolidador/monitoramento em `main`, exigir:
 
-```text
-versão do formato
-+ filtros canônicos
-+ fingerprint do conjunto de AUDs elegíveis
-```
-
-`CONS-2` invalida corretamente snapshots `CONS-1` quando o layout/metodologia muda.
-
-## Reversão segura
-
-Para remover a feature após eventual merge:
-
-1. reverter o commit/PR da feature;
-2. opcionalmente remover `.searchgeo/consolidated-index.db`;
-3. opcionalmente arquivar/remover `consolidated/`;
-4. nenhum `AUD-*/audit.db` precisa ser restaurado ou migrado.
-
-Se o merge for autorizado, recomenda-se `Squash and merge` para materializar toda a feature em um único commit reversível.
-
-## Gate de merge
-
-Não integrar em `main` sem:
-
-- testes específicos verdes;
-- testes existentes de console/configuração verdes;
-- hashes dos bancos fonte inalterados;
-- ausência de import/acoplamento no audit runner, scoring e persistence;
-- diff restrito à feature, documentação, testes, CI e adapter mínimo do console;
-- ausência de chamadas de rede no pacote `consolidation`;
-- smoke humano do HTML em base real.
+- testes específicos e regressão existente verdes;
+- hashes/bancos fonte não alterados por operações read-only;
+- ausência de dependência do audit runner em consolidação/monitoring/observability;
+- HTML reabrível e navegação consistente;
+- smoke humano em pelo menos um par real de auditorias comparáveis.

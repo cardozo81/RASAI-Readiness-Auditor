@@ -2,7 +2,7 @@
 
 Referência operacional da superfície de variáveis reconhecida pelo console do RASAI — Search & AI Readiness Auditor.
 
-Verificação documental: **2026-09-06**. Para credenciais, endpoints externos e conceitos de qualidade de conteúdo, os procedimentos e definições abaixo foram conferidos contra documentação pública oficial dos respectivos provedores e do Google Search Central.
+Verificação documental: **2026-09-07**. Para credenciais, endpoints externos e conceitos de qualidade de conteúdo, os procedimentos e definições abaixo foram conferidos contra documentação pública oficial dos respectivos provedores e do Google Search Central.
 
 ## Como usar esta configuração
 
@@ -30,14 +30,14 @@ Ao selecionar uma variável, o console mostra: finalidade, tipo, domínio aceito
 
 ## Segurança e persistência de credenciais
 
-- API keys e demais secrets aparecem apenas como `[SET]`; o valor nunca é exibido em claro.
+- API keys, OAuth bearer tokens e demais secrets aparecem apenas como `[SET]`; o valor nunca é exibido em claro.
 - Secrets nunca são gravados em `rasai-console.ini`.
 - `S. Setar/alterar sessão` altera o valor usado pelo processo atual.
 - No Windows, `P. Persistência Windows/User` permite persistir ou remover explicitamente a credencial no ambiente **User**; a gravação exige confirmação `SIM`.
 - O console informa a origem do valor efetivamente usado, por exemplo `SESSÃO`, `SO:USER`, `SO:MACHINE` ou combinação equivalente, sem revelar o segredo.
 - A sessão atual prevalece durante a execução atual; valores persistidos no Windows são herdados normalmente por novos processos.
 - Variável de ambiente não é um cofre de segredos. Em ambientes corporativos, use o secret manager adotado pela organização quando necessário.
-- Chave configurada não prova saldo, quota, plano compatível ou acesso ao modelo.
+- Chave/token configurado não prova saldo, quota, plano compatível, escopo OAuth ou permissão sobre o recurso externo.
 
 ## 1. Aplicação e execução
 
@@ -229,9 +229,9 @@ Para site claramente YMYL, prefira configuração explícita.
 
 ### Regras de consistência
 
-- `SEARCHGEO_CONTENT_RISK_PROFILE=standard` não pode ser combinado com uma categoria YMYL explícita diferente de `none`/`auto`.
-- `SEARCHGEO_CONTENT_RISK_PROFILE=ymyl` não pode ser combinado com `SEARCHGEO_YMYL_CATEGORY=none`.
-- contexto editorial não entra diretamente na fórmula de `SCORE-GEO-002`;
+- `SEARCHGEO_CONTENT_RISK_PROFILE=standard` não pode ser combinado com categoria YMYL explícita diferente de `none`/`auto`;
+- `SEARCHGEO_CONTENT_RISK_PROFILE=ymyl` não pode ser combinado com `SEARCHGEO_YMYL_CATEGORY=none`;
+- contexto editorial não entra diretamente em `SARI-001` nem na fórmula vigente de `SCORE-GEO-003`;
 - E-E-A-T não é transformado em percentual proprietário;
 - as variáveis não geram custo externo sozinhas.
 
@@ -266,8 +266,9 @@ Fontes públicas oficiais principais:
 | `SEARCHGEO_LIGHTHOUSE_CATEGORIES` | categorias Lighthouse | CSV de `performance`, `accessibility`, `best-practices`, `seo` | as quatro | categoria desconhecida/duplicada é rejeitada pelo console |
 | `SEARCHGEO_PAGESPEED_API_KEY` | chave PageSpeed | secret | nenhum | opcional em uso ad hoc; recomendada para uso recorrente/gestão de quota |
 | `SEARCHGEO_CRUX_API_KEY` | chave CrUX direta | secret | nenhum | obrigatória para chamada direta à CrUX API |
+| `GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` | bearer OAuth para comandos `rasai observe gsc-*` | secret/token temporário | nenhum | exige escopo Search Console compatível e permissão sobre a property; não é API key |
 
-### Como obter as chaves Google
+### Como obter as chaves Google para PageSpeed/CrUX
 
 O procedimento completo está em [GOOGLE_API_KEYS.md](GOOGLE_API_KEYS.md). Em resumo:
 
@@ -278,6 +279,35 @@ O procedimento completo está em [GOOGLE_API_KEYS.md](GOOGLE_API_KEYS.md). Em re
 5. Para a CLI, não use HTTP referrer apenas para “ter uma restrição”.
 6. Prefira chaves separadas para PageSpeed e CrUX.
 7. Configure `SEARCHGEO_PAGESPEED_API_KEY` e/ou `SEARCHGEO_CRUX_API_KEY` pelo menu.
+
+### `GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`
+
+Essa variável é diferente das API keys acima. Os collectors Search Console usam **OAuth 2.0 bearer token** em runtime.
+
+Uso:
+
+```powershell
+$env:GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN = "<oauth-access-token>"
+rasai observe gsc-sites --audit AUD-...
+```
+
+Requisitos:
+
+- token OAuth válido e não expirado;
+- escopo `https://www.googleapis.com/auth/webmasters.readonly` ou outro escopo Search Console compatível com a operação;
+- usuário/conta do token com acesso à property informada;
+- para `gsc-search`, `gsc-appearance`, `gsc-inspect` e `gsc-sitemaps`, informe a property aceita pelo Search Console, como `sc-domain:example.com` quando aplicável.
+
+O RASAI não implementa fluxo de login/refresh OAuth. Ele recebe um access token atual fornecido pelo operador/ambiente. Access tokens expiram e devem ser renovados pelo mecanismo OAuth adotado pela organização.
+
+Segurança:
+
+- não gravar o token em `rasai-console.ini`;
+- não colocar o token em arquivo de URL;
+- não persistir o token em artifacts, `audit.db`, `observability.db` ou HTML;
+- prefira secret manager/variável efêmera em automação.
+
+Referências oficiais: <https://developers.google.com/webmaster-tools/v1/how-tos/authorizing> e <https://developers.google.com/webmaster-tools/v1/searchanalytics/query>.
 
 ## 7. Synthetic Apdex
 
@@ -341,7 +371,7 @@ max-pages                      = 100
 audits-root                    = audits
 ```
 
-Modelos e reasoning usam os defaults da tabela de IA. Credenciais e `SEARCHGEO_APDEX_THRESHOLD_SECONDS` **não recebem valor inventado**: a primeira porque é segredo externo; a segunda porque T é requisito semântico da medição e precisa ser informado quando Apdex for habilitado.
+Modelos e reasoning usam os defaults da tabela de IA. Credenciais, `GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` e `SEARCHGEO_APDEX_THRESHOLD_SECONDS` **não recebem valor inventado**.
 
 A configuração mínima para uma auditoria local, sem IA e sem APIs externas, é informar o alvo no item **1. Entrada**.
 
@@ -366,6 +396,8 @@ Remove-Item Env:SEARCHGEO_OPENAI_MODEL -ErrorAction SilentlyContinue
 - Google Search Central — E-E-A-T/YMYL/people-first: <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
 - Google Search Quality Rater Guidelines overview: <https://services.google.com/fh/files/misc/hsw-sqrg.pdf>
 - Google — How AI Overviews in Search work: <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf>
+- Google Search Console API authorization: <https://developers.google.com/webmaster-tools/v1/how-tos/authorizing>
+- Google Search Analytics API: <https://developers.google.com/webmaster-tools/v1/searchanalytics/query>
 - OpenAI API keys: <https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key>
 - DeepSeek quick start/API key: <https://api-docs.deepseek.com/>
 - Xiaomi MiMo API key/PAYG/Token Plan: <https://mimo.mi.com/docs/en-US/quick-start/faq/api-integration>

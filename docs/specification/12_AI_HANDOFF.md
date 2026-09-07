@@ -2,7 +2,7 @@
 
 ## 1. Objetivo do produto
 
-Construir um auditor local de Search/GEO Readiness baseado em evidence, regras reproduzíveis, análise semântica opcional e evidências externas complementares explicitamente isoladas do scoring quando aplicável.
+Construir um auditor local de Search & AI Readiness baseado em evidence, regras reproduzíveis, análise semântica opcional e evidências externas complementares explicitamente isoladas do scoring quando aplicável.
 
 ## 2. Fonte de verdade
 
@@ -25,7 +25,7 @@ Antes de qualquer novo trabalho:
 1. confirme o HEAD corrente de `main`;
 2. confirme os marcos efetivamente integrados em `main` por commits e PRs merged;
 3. confirme que não existe branch ou PR de marco anterior com conteúdo exclusivo pendente;
-4. leia também todas as especificações evolutivas registradas em `00_SPEC_INDEX.md`, mesmo quando `09_IMPLEMENTATION_PLAN.md` ainda possuir descrições históricas de marcos anteriores;
+4. leia também todas as especificações evolutivas registradas em `00_SPEC_INDEX.md`;
 5. derive o próximo marco do estado confirmado de `main` + baseline normativa vigente.
 
 `main` é a referência operacional para determinar o que está efetivamente integrado.
@@ -34,26 +34,18 @@ Antes de qualquer novo trabalho:
 
 Cada marco continua sendo unidade independente de implementação, validação, branch, PR, merge e confirmação pós-merge.
 
-O avanço automático ao marco seguinte é permitido somente depois de todos os gates funcionais e de integração do marco anterior terem sido satisfeitos, conforme D-034.
-
-Durante a cascata Extração e evidências → Testes críticos e baseline local estável, a branch encerrada deve ser comparada com `main`, confirmada sem conteúdo exclusivo e registrada na lista acumulada de exclusão manual conforme D-036. A exclusão física diferida não bloqueia o avanço.
-
-Nenhum marco pode ser considerado concluído apenas para permitir avanço.
-
-Bloqueio real interrompe a cascata antes de iniciar o marco seguinte.
+Nenhum marco pode ser considerado concluído apenas para permitir avanço. Bloqueio real interrompe a cascata antes de iniciar o marco seguinte.
 
 ## 5. Restrições principais
 
 - Windows;
-- aplicação local;
-- não web;
-- CLI;
-- uma máquina;
-- um operador;
+- aplicação local, não web;
+- CLI/console interativo;
+- uma máquina e um operador;
 - SQLite embarcado + filesystem;
 - sem database server;
 - sem Docker obrigatório;
-- Git/GitHub utilizados para versionamento do desenvolvimento, sem dependência de runtime;
+- Git/GitHub usados para desenvolvimento, sem dependência de runtime;
 - Desktop/Mobile independentes;
 - RAW + RENDERED;
 - Playwright + Chromium;
@@ -62,30 +54,37 @@ Bloqueio real interrompe a cascata antes de iniciar o marco seguinte.
 - Deterministic First;
 - IA opcional;
 - NoneProvider obrigatório;
-- OpenAI/DeepSeek/MiMo isolados por provider no runtime vigente;
-- `SCORE-GEO-002` permanece scoring baseline enquanto não houver nova decisão/versionamento explícito;
-- Sugestões e remediação de conteúdo por IA textual é opcional/advisory e não altera scoring;
-- Web Performance externo PageSpeed/CrUX é evidência externa complementar, default OFF para rede externa e não altera scoring;
-- Web Performance externo adiciona zero chamadas LLM;
+- providers de IA isolados por provider/registry;
+- `SARI-001` é o índice público de readiness;
+- `SCORE-GEO-003` é o scoring runtime vigente para novas auditorias;
+- `SCORE-GEO-002` permanece apenas histórico e não deve ser descrito como baseline vigente;
+- Sugestões/remediação textual por IA são opcionais/advisory e não alteram scoring por si só;
+- Search Console, URL Inspection, CrUX, PageSpeed, Apdex e demais outcomes observados permanecem metodologias separadas salvo contrato versionado explícito;
 - relatório HTML estático em português;
 - testes mínimos orientados a risco.
 
-## 6. Web Performance externo — regra de continuidade
+## 6. Web Performance e observability externos — regra de continuidade
 
-Ao trabalhar com Core Web Vitals/Lighthouse:
+Ao trabalhar com Core Web Vitals, Lighthouse ou Search/AI Observability:
 
-1. leia `21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md` e D-038;
-2. mantenha Lighthouse lab e CrUX field semanticamente separados;
-3. não converta Lighthouse score, LCP, INP ou CLS em `SCORE-GEO-002` sem nova decisão humana e novo scoring_version;
-4. ausência/erro de CrUX/PageSpeed é limitação de coleta, não finding do website;
-5. preserve `--web-performance` como opt-in de chamadas externas;
-6. preserve limites de páginas, timeout e field source configuráveis;
-7. nunca reutilize automaticamente API key de IA como chave PageSpeed/CrUX ou vice-versa;
-8. não acrescente análise LLM de métricas Web Performance externo implicitamente;
-9. preserve raw response artifacts e telemetria Web Performance externo sem secrets;
-10. mantenha `report/web-performance.html` claramente separado de `ai-usage.html` e do score RASAI.
+1. mantenha Lighthouse lab e CrUX field semanticamente separados;
+2. não converta Lighthouse score, LCP, INP, CLS, Search Performance, URL Inspection ou outros outcomes externos em `SARI-001/SCORE-GEO-003` sem nova decisão metodológica versionada e validação correspondente;
+3. ausência/erro de API externa é limitação de coleta, não finding automático do website;
+4. preserve opt-in, limites, timeout e escopo de coleta quando houver chamada externa;
+5. nunca reutilize automaticamente credencial de IA como chave/token de outro serviço;
+6. não acrescente análise LLM implícita de métricas externas;
+7. preserve raw artifacts/telemetria sem secrets;
+8. mantenha páginas de Web Performance, Observability, Apdex, AI Visibility e AI Usage semanticamente separadas do score RASAI;
+9. monitoramento/observability não migra `audit.db` nem altera a evidência original;
+10. associação temporal entre regressão e outcome observado não autoriza linguagem causal.
 
-## 7. Não reabrir decisões
+## 7. SCORE-GEO-003
+
+A transição de `SCORE-GEO-002` para `SCORE-GEO-003` é quebra metodológica real. Dimensões permanecem evidence-bound; o Overall vigente depende do contrato/model artifact calibrado e dos gates definidos em `SCORE_GEO_003.md`.
+
+`READY_FOR_MODEL_FIT` não significa `VALIDATED`. Validação/promoção continua dependente dos gates pós-fit, inclusive AUC e Brier.
+
+## 8. Não reabrir decisões
 
 Não solicitar decisão humana para:
 
@@ -99,17 +98,17 @@ Não solicitar decisão humana para:
 
 Escolha a solução técnica mais simples compatível com a baseline, corrija falhas solucionáveis, revalide e continue.
 
-## 8. Interromper somente diante de blocker real
+## 9. Interromper somente diante de blocker real
 
-A execução deve interromper quando houver pelo menos uma condição que dependa necessariamente de decisão ou ação humana, incluindo:
+A execução deve interromper quando houver condição que dependa necessariamente de decisão ou ação humana, incluindo:
 
 1. conflito normativo real não solucionável pela precedência documental;
 2. impossibilidade técnica material após investigação;
 3. alteração necessária de escopo ou comportamento funcional aprovado;
-4. mudança material em scoring, priorização ou interpretação oficial — inclusive incorporar Web Performance externo ao `SCORE-GEO-002`;
+4. mudança material em scoring, priorização ou interpretação oficial — inclusive incorporar sinais externos ao `SARI-001/SCORE-GEO-003`;
 5. política ou autorização corporativa necessária;
 6. credencial, segredo ou acesso externo indispensável e indisponível para um gate obrigatório;
-7. ação externa obrigatória que a ferramenta disponível não consiga executar, exceto exclusão física diferida de branches coberta por D-036;
+7. ação externa obrigatória que a ferramenta disponível não consiga executar;
 8. falha persistente de validação obrigatória após diagnóstico e tentativas razoáveis de correção;
 9. inconsistência de `main` que torne inseguro continuar;
 10. risco de operação destrutiva não previamente autorizada;
@@ -117,15 +116,15 @@ A execução deve interromper quando houver pelo menos uma condição que depend
 
 Problemas técnicos ordinários e solucionáveis não constituem blocker.
 
-## 9. Pendências humanas de ambiente/corporativas
+## 10. Pendências humanas de ambiente/corporativas
 
-Permanecem sujeitas às decisões D-028 e D-029, entre elas:
+Podem incluir:
 
-- acesso técnico à OpenAI/provedores IA quando escolhidos;
+- acesso técnico aos providers de IA escolhidos;
 - autorização corporativa de IA externa;
-- provider permitido;
+- provider/modelo permitido;
 - execução de browser/Chromium;
-- autorização/quotas para PageSpeed/CrUX quando Web Performance externo for usado;
+- autorização/quotas para APIs Google/Bing quando usadas;
 - distribuição portátil;
 - filesystem;
 - SQLite;

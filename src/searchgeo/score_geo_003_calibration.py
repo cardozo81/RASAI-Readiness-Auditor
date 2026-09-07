@@ -2,8 +2,9 @@
 
 The calibrator consumes previously persisted RASAI dimension scores and
 Observed Generative Visibility controlled query-runs. Domains, not queries, are
-the holdout unit. The implementation is intentionally small and transparent:
-a regularized logistic model is trained with deterministic gradient descent.
+the holdout unit. Controlled query outcomes currently have no device dimension;
+therefore collected audit features are aggregated across eligible devices before
+fitting so the same target is never duplicated against distinct device vectors.
 """
 from __future__ import annotations
 
@@ -24,7 +25,6 @@ from searchgeo.score_geo_003 import (
     SCORING_VERSION,
     VALIDATED_STATUS,
 )
-
 
 MIN_DOMAINS = 40
 MIN_VALIDATION_DOMAINS = 12
@@ -52,6 +52,7 @@ class CalibrationRow:
     query_count: int
     min_repetitions: int
     observed_days: tuple[str, ...]
+    engine_outcomes: dict[str, tuple[int, int]] | None = None
 
     @property
     def failures(self) -> int:
@@ -105,19 +106,18 @@ def fit_calibration_model(rows: Iterable[CalibrationRow], *, dataset_version: st
     validation_domains = set(domains[split:])
     train_rows = tuple(row for row in materialized if row.domain in train_domains)
     validation_rows = tuple(row for row in materialized if row.domain in validation_domains)
-
     if not validation_rows:
         validation_rows = train_rows
         validation_domains = train_domains
 
     imputation = _imputation_means(train_rows)
     intercept, coefficients = _fit_logistic(train_rows, imputation)
-
     train_predictions = _predictions(train_rows, intercept, coefficients, imputation)
     validation_predictions = _predictions(validation_rows, intercept, coefficients, imputation)
     train_metrics = _metrics(train_rows, train_predictions, baseline_rate=None)
     train_prevalence = float(train_metrics["positive_rate"])
     validation_metrics = _metrics(validation_rows, validation_predictions, baseline_rate=train_prevalence)
+    engine_validation = _engine_validation_metrics(validation_rows, validation_predictions)
 
     engines = sorted({engine for row in materialized for engine in row.engines})
     unique_queries = sum(row.query_count for row in materialized)
@@ -188,6 +188,7 @@ def fit_calibration_model(rows: Iterable[CalibrationRow], *, dataset_version: st
             "observations": _weighted_count(validation_rows),
             **validation_metrics,
         },
+        "engine_validation": engine_validation,
         "dataset": {
             "domains": domain_count,
             "rows": len(materialized),
@@ -197,6 +198,8 @@ def fit_calibration_model(rows: Iterable[CalibrationRow], *, dataset_version: st
         },
         "protocol": {
             "outcome": "CITED_BINARY",
+            "outcome_grain": "ENGINE_QUERY_RUN_NO_DEVICE",
+            "feature_grain": "AUDIT_AGGREGATED_ACROSS_DEVICES",
             "model": "L2_REGULARIZED_LOGISTIC_REGRESSION",
             "split": "DOMAIN_HOLDOUT_70_30_V1",
             "train_fraction": TRAIN_FRACTION,
@@ -210,6 +213,7 @@ def fit_calibration_model(rows: Iterable[CalibrationRow], *, dataset_version: st
             "min_observations": MIN_OBSERVATIONS,
             "min_validation_auc": MIN_VALIDATION_AUC,
             "brier_gate": "MODEL_LT_TRAIN_PREVALENCE_BASELINE",
+            "engine_validation_role": "DIAGNOSTIC_NON_PROMOTIONAL_V1",
         },
         "promotion_reasons": reasons,
     }
@@ -217,8 +221,10 @@ def fit_calibration_model(rows: Iterable[CalibrationRow], *, dataset_version: st
 
 
 def _collect_database(database: Path) -> tuple[CalibrationRow, ...]:
-    connection = sqlite3.connect(database)
+    uri = database.resolve().as_uri() + "?mode=ro"
+    connection = sqlite3.connect(uri, uri=True)
     connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA query_only=ON")
     try:
         tables = {
             str(row[0])
@@ -252,6 +258,11 @@ def _collect_database(database: Path) -> tuple[CalibrationRow, ...]:
 
         successes = sum(bool(row["cited"]) for row in eligible_runs)
         total = len(eligible_runs)
+        engine_outcomes: dict[str, tuple[int, int]] = {}
+        for engine in engines:
+            engine_rows = [row for row in eligible_runs if str(row["engine"]) == engine]
+            engine_outcomes[engine] = (sum(bool(row["cited"]) for row in engine_rows), len(engine_rows))
+
         score_rows = connection.execute(
             """SELECT device,dimension,value,consolidation_status,calculated_at,rowid
                FROM scores WHERE audit_id=? AND dimension!='OVERALL_READINESS'
@@ -261,41 +272,40 @@ def _collect_database(database: Path) -> tuple[CalibrationRow, ...]:
         latest: dict[tuple[str, str], sqlite3.Row] = {}
         for row in score_rows:
             latest[(str(row["device"]), str(row["dimension"]))] = row
-
-        output: list[CalibrationRow] = []
         devices = sorted({device for device, _dimension in latest})
-        for device in devices:
-            features: dict[str, float | None] = {}
-            valid = True
-            for feature in FEATURE_ORDER:
+        if not devices:
+            return ()
+
+        features: dict[str, float | None] = {}
+        for feature in FEATURE_ORDER:
+            values: list[float] = []
+            for device in devices:
                 row = latest.get((device, feature))
                 if row is None:
-                    valid = False
-                    break
+                    return ()
                 status = str(row["consolidation_status"])
                 if status == "NOT_APPLICABLE":
-                    features[feature] = None
-                elif status in {"CONSOLIDATED", "PARTIAL"} and row["value"] is not None:
-                    features[feature] = float(row["value"]) / 100.0
-                else:
-                    valid = False
-                    break
-            if valid:
-                output.append(
-                    CalibrationRow(
-                        domain=domain,
-                        audit_id=audit_id,
-                        device=device,
-                        features=features,
-                        successes=successes,
-                        total=total,
-                        engines=engines,
-                        query_count=query_count,
-                        min_repetitions=min_repetitions,
-                        observed_days=observed_days,
-                    )
-                )
-        return tuple(output)
+                    continue
+                if status not in {"CONSOLIDATED", "PARTIAL"} or row["value"] is None:
+                    return ()
+                values.append(float(row["value"]) / 100.0)
+            features[feature] = (sum(values) / len(values)) if values else None
+
+        return (
+            CalibrationRow(
+                domain=domain,
+                audit_id=audit_id,
+                device="AUDIT_AGGREGATED",
+                features=features,
+                successes=successes,
+                total=total,
+                engines=engines,
+                query_count=query_count,
+                min_repetitions=min_repetitions,
+                observed_days=observed_days,
+                engine_outcomes=engine_outcomes,
+            ),
+        )
     finally:
         connection.close()
 
@@ -426,6 +436,45 @@ def _metrics(rows: tuple[CalibrationRow, ...], predictions: tuple[float, ...], b
         "brier": brier_sum / weighted_total if weighted_total else 1.0,
         "baseline_brier": baseline_brier,
     }
+
+
+def _engine_validation_metrics(rows: tuple[CalibrationRow, ...], predictions: tuple[float, ...]) -> dict[str, dict[str, float]]:
+    engines = sorted({engine for row in rows for engine in (row.engine_outcomes or {})})
+    output: dict[str, dict[str, float]] = {}
+    for engine in engines:
+        weighted_total = 0.0
+        weighted_success = 0.0
+        brier_sum = 0.0
+        positive: list[tuple[float, float]] = []
+        negative: list[tuple[float, float]] = []
+        for row, probability in zip(rows, predictions, strict=True):
+            outcome = (row.engine_outcomes or {}).get(engine)
+            if not outcome:
+                continue
+            successes, total = outcome
+            failures = max(0, total - successes)
+            weighted_total += total
+            weighted_success += successes
+            brier_sum += successes * (1.0 - probability) ** 2 + failures * probability**2
+            if successes:
+                positive.append((probability, float(successes)))
+            if failures:
+                negative.append((probability, float(failures)))
+        if weighted_total <= 0:
+            continue
+        prevalence = weighted_success / weighted_total
+        baseline_brier = (
+            weighted_success * (1.0 - prevalence) ** 2
+            + (weighted_total - weighted_success) * prevalence**2
+        ) / weighted_total
+        output[engine] = {
+            "observations": weighted_total,
+            "positive_rate": prevalence,
+            "auc": _weighted_auc(positive, negative),
+            "brier": brier_sum / weighted_total,
+            "baseline_brier": baseline_brier,
+        }
+    return output
 
 
 def _weighted_auc(positive: list[tuple[float, float]], negative: list[tuple[float, float]]) -> float:
