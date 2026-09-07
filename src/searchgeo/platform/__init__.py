@@ -6,6 +6,24 @@ central SQLite sidecar and keeps storage/execution contracts intentionally
 separate so a future PostgreSQL/API adapter can replace the control plane.
 """
 
+from pathlib import Path
+
+from searchgeo.runtime_paths import CANONICAL_RUNTIME_DIR, runtime_directory
+
+# Keep the stable store module/API while moving the public local sidecar from
+# the legacy .searchgeo directory to .rasai. Setting the module constant before
+# importing CentralPlatformStore also keeps direct store imports compatible.
+from . import store as _store
+
+_store._PLATFORM_DIR = CANONICAL_RUNTIME_DIR
+
+
+def default_platform_database(audits_root: str | Path = "audits") -> Path:
+    return runtime_directory(audits_root) / _store._PLATFORM_DB
+
+
+_store.default_platform_database = default_platform_database
+
 from .models import (
     AlertRule,
     AuditIndexRecord,
@@ -23,7 +41,6 @@ from .models import (
     Workspace,
 )
 from .central_store import CentralPlatformStore, CentralPlatformStore as PlatformStore
-from .store import default_platform_database
 
 __all__ = [
     "AlertRule",
