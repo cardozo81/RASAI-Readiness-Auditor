@@ -1,4 +1,4 @@
-# Synthetic User Experience Apdex — Synthetic User Experience Apdex calibrável
+# Synthetic User Experience Apdex calibrável
 
 **Status:** INTEGRADO E VALIDADO.
 **Escopo:** Web Performance sintética, user-action telemetry e comparabilidade metodológica com RUM/APM.

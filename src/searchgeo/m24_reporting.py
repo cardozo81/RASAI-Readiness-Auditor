@@ -1,4 +1,4 @@
-"""Static report projection for Rastreamento, descoberta e acesso de crawlers Crawling, Discovery & AI Access."""
+"""Static report projection for Rastreamento, descoberta e acesso de crawlers."""
 from __future__ import annotations
 
 from collections import Counter

@@ -1,4 +1,4 @@
-"""Relatório dedicado do Observed Generative Visibility — Observed Generative Visibility."""
+"""Relatório dedicado do Observed Generative Visibility."""
 from __future__ import annotations
 
 from html import escape

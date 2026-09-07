@@ -1,4 +1,4 @@
-# Synthetic Navigation Apdex — Synthetic Navigation Apdex + Lighthouse Traceability
+# Synthetic Navigation Apdex + Lighthouse Traceability
 
 **Status:** INTEGRADO — smoke humano controlado aprovado antes do merge.
 **Escopo:** Web Performance sintética e rastreabilidade de configuração Lighthouse.
@@ -228,7 +228,7 @@ Resultado aprovado:
 - `small_group=*` explícito;
 - `apdex.html` materializado e validado visualmente;
 - menu canônico validado;
-- console com item `11. Synthetic Apdex Synthetic Navigation Apdex` validado;
+- console com item `11. Synthetic Navigation Apdex` validado;
 - nenhum impacto em `SCORE-GEO-002`;
 - 0 chamadas LLM adicionais;
 - 0 chamadas PageSpeed/CrUX adicionadas por Synthetic Navigation Apdex.

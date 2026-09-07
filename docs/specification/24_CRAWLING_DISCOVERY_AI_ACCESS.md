@@ -196,7 +196,7 @@ A página deve usar o menu/camada visual compartilhados e apresentar, conforme d
 - sugestões técnicas de IA quando habilitadas;
 - fontes públicas primárias.
 
-A telemetria de IA Rastreamento, descoberta e acesso de crawlers também pode ser projetada em `report/ai-usage.html`, sem somar artificialmente qualidade do website e consumo de API.
+A telemetria dessa remediação técnica por IA também pode ser projetada em `report/ai-usage.html`, sem somar artificialmente qualidade do website e consumo de API.
 
 ## 13. Source blocker e segurança
 

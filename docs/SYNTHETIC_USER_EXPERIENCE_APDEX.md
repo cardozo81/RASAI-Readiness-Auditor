@@ -1,4 +1,4 @@
-# Synthetic User Experience Apdex — Synthetic User Experience Apdex
+# Synthetic User Experience Apdex
 
 ## 1. Finalidade
 

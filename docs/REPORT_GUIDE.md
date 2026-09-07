@@ -112,7 +112,7 @@ Cada indicador tem uma página analítica canônica:
 | Indicador/domínio | Página canônica | Fonte metodológica |
 | --- | --- | --- |
 | SearchGEO Readiness Index / dimensões | `searchgeo.html` | SearchGEO — SGRI-001 / motor SCORE-GEO-002 |
-| Crawling/Discovery/AI Access | `crawling-discovery.html` | standards/guidance + diagnóstico SearchGEO Rastreamento, descoberta e acesso de crawlers |
+| Rastreamento e descoberta | `crawling-discovery.html` | standards/guidance + diagnóstico SearchGEO Rastreamento, descoberta e acesso de crawlers |
 | Core Web Vitals | `web-performance.html` | Chrome / web.dev |
 | Lighthouse Performance | `web-performance.html` | Chrome Lighthouse |
 | Lighthouse Accessibility | `accessibility.html` | Chrome Lighthouse |
@@ -199,7 +199,7 @@ Observed Generative Visibility: nenhum dataset importado / dataset importado
 
 A causa deve ser persistida e apresentada. Timeout, quota, HTTP, ausência de artifact ou falta de dado da fonte não são convertidos em problema do website.
 
-## Crawling, Discovery & AI Access
+## Rastreamento e descoberta
 
 `crawling-discovery.html` é a página canônica do Rastreamento, descoberta e acesso de crawlers. Ela concentra diagnóstico de robots/crawlers/sitemaps/discovery, `llms.txt` experimental e evidências correlatas sem recalcular o SGRI.
 
@@ -228,7 +228,7 @@ A página não representa certificação WCAG e não deve declarar conformidade 
 
 Synthetic Apdex não deve aparecer nessa página como métrica derivada de Lighthouse. Links para páginas Apdex são permitidos; conteúdo analítico de Apdex pertence aos domínios dedicados.
 
-## Synthetic Navigation Apdex — Synthetic Navigation Apdex
+## Synthetic Navigation Apdex
 
 `apdex.html` apresenta:
 
@@ -243,7 +243,7 @@ Synthetic Apdex não deve aparecer nessa página como métrica derivada de Light
 
 Apdex não é inferido de LCP, INP, CLS, FCP, TBT ou duração da chamada PageSpeed.
 
-## Synthetic User Experience Apdex — Synthetic User Experience Apdex
+## Synthetic User Experience Apdex
 
 `apdex-experience.html` é o domínio sintético calibrável do Synthetic User Experience Apdex. Ele pode usar KPM, thresholds, política de erros, session mode e mix de dispositivos explícitos/importados.
 

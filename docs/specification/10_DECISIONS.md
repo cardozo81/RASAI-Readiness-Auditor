@@ -203,7 +203,7 @@ Rastreamento, descoberta e acesso de crawlers é aprovado como domínio técnico
 
 Decisão aprovada:
 
-1. diagnósticos Rastreamento, descoberta e acesso de crawlers permanecem determinísticos e persistidos com `scoring_impact=NONE`;
+1. diagnósticos de rastreamento e descoberta permanecem determinísticos e persistidos com `scoring_impact=NONE`;
 2. `robots.txt` e sitemaps devem seguir standards/guidance públicos aplicáveis, mas severidades Rastreamento, descoberta e acesso de crawlers continuam metodologia interna do SearchGEO;
 3. uma declaração absoluta `Sitemap:` pode apontar para host diferente; o auditor preserva essa declaração, porém não faz fetch cross-origin automático a partir dela enquanto não existir política explícita de SSRF/DNS/IP/redirect/autorização;
 4. a restrição de fetch cross-origin é limite de segurança/escopo do auditor e não finding do website;
@@ -219,7 +219,7 @@ Decisão aprovada:
 
 D-039 complementa D-037/D-038; não as supersede.
 
-### D-040 — Observed Generative Visibility Observed Generative Visibility separado de readiness
+### D-040 — Observed Generative Visibility separado de readiness
 
 Outcomes observados de Search/AI Search são aprovados como domínio **aditivo, import-first e não-scoring**, separado do `SGRI-001`/`SCORE-GEO-002`.
 
@@ -303,7 +303,7 @@ Essas pendências não bloqueiam desenvolvimento local do MVP.
 - LLM nunca é scoring engine;
 - cascading failures devem ser controladas;
 - métricas PageSpeed/CrUX/Lighthouse não alteram `SCORE-GEO-002` sem nova decisão/versionamento explícito;
-- diagnósticos Rastreamento, descoberta e acesso de crawlers também não alteram `SCORE-GEO-002`/`SGRI-001` sem nova decisão/versionamento explícito;
+- diagnósticos de rastreamento e descoberta também não alteram `SCORE-GEO-002`/`SGRI-001` sem nova decisão/versionamento explícito;
 - outcomes Observed Generative Visibility não alteram `SCORE-GEO-002`/`SGRI-001` e não podem ser apresentados como causalidade/predição sem validação empírica específica.
 
 ### D-041 — Linguagem pública por domínio funcional

@@ -16,22 +16,22 @@ Capacidades integradas:
 - dashboard executivo com síntese final dos indicadores, sem misturar metodologias;
 - análise semântica opcional por IA;
 - remediação textual evidence-bound e revisão/proposta JSON-LD;
-- **Rastreamento, descoberta e acesso de crawlers Crawling, Discovery & AI Access** com diagnóstico determinístico de `robots.txt`, crawlers, sitemaps, discovery, `llms.txt` experimental e remediação técnica opcional por IA;
+- **Rastreamento, descoberta e acesso de crawlers** com diagnóstico determinístico de `robots.txt`, crawlers, sitemaps, discovery, `llms.txt` experimental e remediação técnica opcional por IA;
 - PageSpeed/Lighthouse e Core Web Vitals/CrUX como domínio separado;
 - Acessibilidade automatizada projetada separadamente a partir do artifact Lighthouse;
-- **Synthetic Navigation Apdex Synthetic Navigation Apdex** em Chromium, separado de Lighthouse/CrUX e do SGRI;
-- **Synthetic User Experience Apdex Synthetic User Experience Apdex** calibrável, com população Mobile/Desktop/Tablet, separado do Synthetic Navigation Apdex e explicitamente não-RUM;
+- **Synthetic Navigation Apdex** em Chromium, separado de Lighthouse/CrUX e do SGRI;
+- **Synthetic User Experience Apdex** calibrável, com população Mobile/Desktop/Tablet, separado do Synthetic Navigation Apdex e explicitamente não-RUM;
 - relatórios históricos/consolidados offline sobre múltiplos `AUD-*`, com índice analítico reconstruível e snapshots HTML estáticos;
 - console interativo com preflight, progresso, custo/quota, timeouts, persistência de configuração e abertura de artifacts.
 
-Observed Generative Visibility, sem alterar scoring:
+Observed Generative Visibility (domínio separado do SGRI):
 
 - **Observed Generative Visibility** import-first, com outcomes observados por fonte/período em `report/ai-visibility.html`;
 - suporte inicial ao contrato `OGV-IMPORT-001` para Bing Webmaster Tools AI Performance normalizado e query-runs controlados;
 - preservação do artifact por SHA-256, validação same-origin e Citation Presence Rate somente sobre runs válidos;
 - nenhuma coleta automática por scraping e nenhum endpoint de AI Performance presumido quando não houver API pública documentada.
 
-> O `SGRI-001` é um índice proprietário, evidence-based e reprodutível do SearchGEO. Enquanto a aritmética não mudar, o banco preserva `SCORE-GEO-002` como versão do motor de cálculo. Lighthouse, Core Web Vitals, Acessibilidade automatizada, Synthetic Navigation Apdex/Synthetic User Experience Apdex Apdex, diagnósticos Rastreamento, descoberta e acesso de crawlers e outcomes Observed Generative Visibility possuem metodologias/domínios próprios e não são convertidos silenciosamente no SGRI.
+> O `SGRI-001` é um índice proprietário, evidence-based e reprodutível do SearchGEO. Enquanto a aritmética não mudar, o banco preserva `SCORE-GEO-002` como versão do motor de cálculo. Lighthouse, Core Web Vitals, Acessibilidade automatizada, Synthetic Navigation Apdex e Synthetic User Experience Apdex, diagnósticos de rastreamento e descoberta e outcomes Observed Generative Visibility possuem metodologias/domínios próprios e não são convertidos silenciosamente no SGRI.
 
 ## Instalação rápida — Windows
 
@@ -64,7 +64,7 @@ Compatibilidade principal:
 | SQLite | local/embarcado |
 | IA externa | opcional |
 | PageSpeed/CrUX | opcional |
-| Observed Generative Visibility Observed Visibility | import local; sem credencial externa nesta versão |
+| Observed Generative Visibility | import local; sem credencial externa nesta versão |
 
 Detalhes do bootstrap e fallback manual: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
@@ -111,7 +111,7 @@ A opção `C` é independente do pipeline de auditoria: lê `AUD-*/audit.db` em 
 
 A opção `E` agrupa as variáveis por domínios funcionais. Cada variável mostra finalidade, domínio aceito, default efetivo, dependências, custo/impacto e referência; `D` abre diretamente a documentação detalhada. Veja [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md).
 
-Observed Generative Visibility Observed Generative Visibility é inicialmente uma superfície CLI/import-first separada; não é uma coleta automática executada pelo menu de auditoria.
+Observed Generative Visibility é inicialmente uma superfície CLI/import-first separada; não é uma coleta automática executada pelo menu de auditoria.
 
 ### Configuração persistente
 
@@ -209,9 +209,9 @@ Default de timeout IA:
 180 s por tentativa
 ```
 
-### Remediação técnica Rastreamento, descoberta e acesso de crawlers por IA
+### Remediação técnica de rastreamento e descoberta por IA
 
-Os diagnósticos determinísticos Rastreamento, descoberta e acesso de crawlers executam independentemente de IA. Para habilitar apenas a camada técnica advisory:
+Os diagnósticos determinísticos de rastreamento e descoberta executam independentemente de IA. Para habilitar apenas a camada técnica advisory:
 
 ```powershell
 searchgeo audit https://example.com `
@@ -249,16 +249,16 @@ MiMo PAYG usa credencial `sk-...` no adapter atual. Token Plan `tp-...` pertence
 
 Observed Generative Visibility não exige credencial externa na implementação import-first; ele lê um JSON local normalizado.
 
-## Crawling, Discovery & AI Access — Rastreamento, descoberta e acesso de crawlers
+## Rastreamento e descoberta
 
-Rastreamento, descoberta e acesso de crawlers aprofunda o diagnóstico técnico de descoberta sem criar novo score. Ele cobre, conforme evidência disponível:
+O diagnóstico de rastreamento e descoberta aprofunda a análise técnica de descoberta sem criar novo score. Ele cobre, conforme evidência disponível:
 
 - `robots.txt` e acesso por crawler;
 - Googlebot, OAI-SearchBot, GPTBot e Google-Extended com papéis separados;
 - sitemaps XML, sitemap index, gzip, RSS 2.0, Atom 1.0 e texto plano;
 - limites/sintaxe e cruzamentos com HTTP, `noindex`, canonical e robots na amostra auditada;
 - feeds RSS/Atom observados;
-- `/llms.txt` como proposta comunitária experimental e **non-scoring**;
+- `/llms.txt` como proposta comunitária experimental; sua presença ou ausência **não altera o SearchGEO Readiness Index**;
 - IndexNow como não determinável quando não existir evidência explícita de submissão;
 - remediação técnica opcional por IA, default OFF.
 
@@ -304,7 +304,7 @@ Quando PageSpeed falha, o relatório preserva a causa real (`timeout`, HTTP, quo
 
 O report nunca converte ausência de dado em resultado fictício do website.
 
-## Synthetic Navigation Apdex — Synthetic Navigation Apdex
+## Synthetic Navigation Apdex
 
 Exemplo de smoke controlado:
 
@@ -346,7 +346,7 @@ Grupos com menos de 100 amostras válidas são diagnóstico small-group e recebe
 
 Synthetic Apdex não usa LLM nem chama PageSpeed/CrUX, mas gera navegações reais e tráfego HTTP contra o alvo.
 
-## Synthetic User Experience Apdex — Synthetic User Experience Apdex
+## Synthetic User Experience Apdex
 
 Synthetic User Experience Apdex adiciona um domínio Apdex calibrável para user-action telemetry sintética. Pode usar população explícita Mobile/Desktop/Tablet, session mode, KPM temporal, thresholds e política de erros configurados ou importados.
 
@@ -370,7 +370,7 @@ report/apdex-experience.html
 
 Detalhes: [docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md](docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md).
 
-## Observed Generative Visibility — Observed Generative Visibility
+## Observed Generative Visibility
 
 Observed Generative Visibility mede **outcomes observados/importados**, não readiness. Ele atua depois que já existe um `AUD-*` e não chama mecanismos de busca por conta própria.
 
@@ -507,7 +507,7 @@ A página inicial inclui **Configuração × resultado obtido** quando essa proj
 - não trate key configurada como prova de saldo/quota;
 - Rastreamento, descoberta e acesso de crawlers não segue automaticamente sitemap cross-origin declarado sem política segura de aquisição/autorização;
 - remediação técnica Rastreamento, descoberta e acesso de crawlers não deve automatizar policy de crawler/treinamento sem decisão humana;
-- não execute Synthetic Navigation Apdex/Synthetic User Experience Apdex Apdex em volume relevante contra produção sem autorização;
+- não execute Synthetic Navigation Apdex e Synthetic User Experience Apdex em volume relevante contra produção sem autorização;
 - Observed Generative Visibility rejeita URLs cross-origin e não faz scraping de portal de webmaster.
 
 ## Identificadores internos históricos

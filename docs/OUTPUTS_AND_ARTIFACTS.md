@@ -64,7 +64,7 @@ content_remediation_suggestions
 provider_pricing_catalog
 ```
 
-### Rastreamento, descoberta e acesso de crawlers — crawling/discovery
+### Rastreamento e descoberta
 
 ```text
 m24_runs
@@ -84,7 +84,7 @@ web_performance_observations
 
 Essas tabelas permitem distinguir tentativa, sucesso, falha, HTTP, timeout, artifact e dados efetivamente obtidos.
 
-### Synthetic Apdex Synthetic Navigation Apdex
+### Synthetic Navigation Apdex
 
 ```text
 synthetic_apdex_runs
@@ -95,7 +95,7 @@ lighthouse_execution_profiles
 
 Os nomes internos permanecem estáveis para compatibilidade de schema. A documentação operacional e os relatórios usam nomenclatura funcional.
 
-### Synthetic User Experience Apdex Synthetic User Experience Apdex
+### Synthetic User Experience Apdex
 
 ```text
 synthetic_ux_apdex_runs
@@ -105,7 +105,7 @@ synthetic_ux_apdex_summaries
 
 Synthetic User Experience Apdex é calibrável e separado do Synthetic Navigation Apdex Standard. Seus thresholds/KPM/error policy não reescrevem resultados Synthetic Navigation Apdex nem scoring SearchGEO.
 
-### Observed Generative Visibility Observed Generative Visibility
+### Observed Generative Visibility
 
 ```text
 generative_visibility_imports
@@ -182,7 +182,7 @@ Quando `/llms.txt` same-origin é obtido com sucesso:
 artifacts/m24/llms.txt
 ```
 
-Quando a remediação técnica por IA Rastreamento, descoberta e acesso de crawlers é habilitada e existe saída persistível, o artifact correspondente permanece nesse domínio Rastreamento, descoberta e acesso de crawlers e sua telemetria é separada da qualidade do website.
+Quando a remediação técnica de rastreamento e descoberta por IA é habilitada e existe saída persistível, o artifact correspondente permanece nesse domínio Rastreamento, descoberta e acesso de crawlers e sua telemetria é separada da qualidade do website.
 
 A ausência de `llms.txt` não cria artifact e não reduz score/readiness.
 
@@ -288,7 +288,7 @@ Sugestões textuais e JSON-LD advisory.
 
 Página canônica do Rastreamento, descoberta e acesso de crawlers para robots/crawler policy, sitemaps, discovery, `llms.txt`, feeds, IndexNow não determinável sem evidência explícita e remediação técnica opcional por IA.
 
-Essa página é não-scoring: seus diagnósticos não recalculam `SCORE-GEO-002`/`SGRI-001` e devem distinguir standards/guidance externos de decisões metodológicas internas.
+Essa página é informativa e não altera o SearchGEO Readiness Index: seus diagnósticos não recalculam `SCORE-GEO-002`/`SGRI-001` e devem distinguir standards/guidance externos de decisões metodológicas internas.
 
 ### `accessibility.html`
 
@@ -300,11 +300,11 @@ PageSpeed/Lighthouse/CrUX, Core Web Vitals, tentativas externas e diagnósticos 
 
 ### `apdex.html`
 
-Synthetic Navigation Apdex Synthetic Navigation Apdex Standard.
+Synthetic Navigation Apdex Standard.
 
 ### `apdex-experience.html`
 
-Synthetic User Experience Apdex Synthetic User Experience Apdex calibrável. Não é RUM e não substitui Synthetic Navigation Apdex.
+Synthetic User Experience Apdex calibrável. Não é RUM e não substitui Synthetic Navigation Apdex.
 
 ### `ai-visibility.html`
 
@@ -324,7 +324,7 @@ Não contém nem produz `SGRI-001`, Score GEO ou probabilidade preditiva de cita
 
 ### `ai-usage.html`
 
-Provider/modelo, tentativas, tokens, reasoning e custo estimado quando persistidos. A finalidade Rastreamento, descoberta e acesso de crawlers deve permanecer identificável separadamente da análise semântica e da remediação textual Sugestões e remediação de conteúdo por IA.
+Provider/modelo, tentativas, tokens, reasoning e custo estimado quando persistidos. A finalidade de rastreamento e descoberta deve permanecer identificável separadamente da análise semântica e da remediação textual por IA.
 
 ### `references.html`
 
@@ -350,7 +350,7 @@ Deve permitir rastrear, sem secrets:
 
 - início/fim de etapas;
 - tentativa de provider;
-- Rastreamento, descoberta e acesso de crawlers crawling/discovery e eventuais falhas fail-open;
+- rastreamento e descoberta e eventuais falhas fail-open;
 - PageSpeed/CrUX;
 - timeout/HTTP/quota;
 - progresso Synthetic Apdex;
