@@ -11,11 +11,10 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import re
 import sqlite3
 from typing import Any
 from urllib.parse import urlsplit
-
-from .store import ObservabilityStore, new_dataset
 
 SOURCE_PERFORMANCE = "GOOGLE_SEARCH_CONSOLE_GENERATIVE_AI_PERFORMANCE_EXPORT"
 SOURCE_CONTROL = "GOOGLE_SEARCH_CONSOLE_GENERATIVE_AI_CONTROL"
@@ -38,6 +37,7 @@ def import_google_genai_performance_csv(
     surface_value = surface.strip().upper()
     if surface_value not in {"SEARCH", "DISCOVER"}:
         raise ValueError("surface must be search or discover")
+    source_type = f"{SOURCE_PERFORMANCE}_{surface_value}"
     rows: list[dict[str, Any]] = []
     dates: list[str] = []
     for index, source_row in enumerate(reader, 1):
@@ -53,7 +53,7 @@ def import_google_genai_performance_csv(
         rows.append(
             {
                 "record_id": f"GOOGLE-GENAI-{index:08d}",
-                "source": SOURCE_PERFORMANCE,
+                "source": source_type,
                 "observed_date": observed_date,
                 "query_text": None,
                 "url": url,
@@ -73,7 +73,7 @@ def import_google_genai_performance_csv(
         )
     if not rows:
         raise ValueError("Google GenAI Performance CSV contains no data rows")
-    digest = hashlib.sha256(raw).hexdigest()
+    digest = hashlib.sha256(raw + surface_value.encode("ascii")).hexdigest()
     dataset_id = f"OBS-{digest[:16].upper()}"
     with ObservabilityStore(workspace) as store:
         artifact_path = store.artifacts / f"google-genai-performance-{surface_value.casefold()}-{digest[:16]}.csv"
@@ -81,10 +81,10 @@ def import_google_genai_performance_csv(
             artifact_path.write_bytes(raw)
         dataset = new_dataset(
             dataset_id=dataset_id,
-            source_type=SOURCE_PERFORMANCE,
+            source_type=source_type,
             capture_method="NORMALIZED_EXPORT",
             artifact_path=artifact_path.relative_to(store.workspace).as_posix(),
-            artifact_sha256=digest,
+            artifact_sha256=hashlib.sha256(raw).hexdigest(),
             period_start=min(dates, default=None),
             period_end=max(dates, default=None),
             metadata={
@@ -187,7 +187,12 @@ def _impressions(value: str | None) -> tuple[float | None, bool]:
     text = str(value).strip()
     if text in {"~", "-", "—"}:
         return 0.0, True
+    compact = text.replace(" ", "")
+    if re.fullmatch(r"\d{1,3}(?:[.,]\d{3})+", compact):
+        compact = compact.replace(",", "").replace(".", "")
+    elif "," in compact and "." not in compact:
+        compact = compact.replace(",", ".")
     try:
-        return float(text.replace(" ", "").replace(",", ".")), False
+        return float(compact), False
     except ValueError as exc:
         raise ValueError(f"invalid impressions value: {value}") from exc
