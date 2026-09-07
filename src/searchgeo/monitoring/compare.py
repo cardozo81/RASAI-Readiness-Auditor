@@ -292,6 +292,17 @@ def _event(
 
 def evaluate_release_gate(result: ComparisonResult, policy: GatePolicy | None = None) -> GateResult:
     effective = policy or GatePolicy()
+    if effective.require_comparable and not result.comparable:
+        notes = "; ".join(result.compatibility_notes) or "audit pair marked non-comparable"
+        scope = _gate_scope(effective)
+        return GateResult(
+            False,
+            (),
+            (),
+            effective,
+            f"FAIL: audit pair is not comparable in gate scope [{scope}]: {notes}",
+        )
+
     candidates = [
         event
         for event in result.events
@@ -369,6 +380,7 @@ def _gate_scope(policy: GatePolicy) -> str:
     parts = [
         "deterministic-rules" if policy.deterministic_only else "all-rules",
         "page-state",
+        "comparable-pair-required" if policy.require_comparable else "noncomparable-allowed",
         "new-failures" if policy.block_new_failures else "regressions-only",
     ]
     if policy.include_performance:
