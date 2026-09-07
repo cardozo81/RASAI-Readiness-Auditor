@@ -8,14 +8,15 @@ O RASAI gera um mini-site HTML estático por auditoria. O report é projeção h
 report/index.html
 ```
 
-O dashboard é **multimetodológico**, mas não cria score combinado. Readiness, outcomes observados, Web Performance, acessibilidade e Apdex permanecem domínios diferentes.
+O dashboard é **multimetodológico**, mas não cria score combinado. Readiness, outcomes observados, Quality, Web Performance, acessibilidade e Apdex permanecem domínios diferentes.
 
 Princípios obrigatórios:
 
 - não somar/ponderar metodologias distintas em uma nota comum;
 - mostrar somente dados materializados;
-- ausência de dado permanece `NÃO DISPONÍVEL`, `INCOMPLETO`, `UNKNOWN` ou estado equivalente;
-- cada domínio tem página canônica para detalhes/metodologia;
+- ausência de dado permanece `NÃO DISPONÍVEL`, `INCOMPLETO`, `UNKNOWN`, `NOT_OBSERVED` ou equivalente;
+- `NULL` de fonte externa não vira zero observado;
+- cada domínio tem página canônica;
 - páginas opcionais aparecem no menu somente quando existem;
 - normalização posterior não pode remover do menu uma página opcional já materializada.
 
@@ -30,21 +31,20 @@ report/
 ├─ desktop.html                # condicional
 ├─ remediation.html
 ├─ content-suggestions.html
-├─ crawling-discovery.html     # condicional/materializado
+├─ crawling-discovery.html     # condicional
 ├─ accessibility.html          # condicional
-├─ web-performance.html        # condicional/materializado
+├─ web-performance.html        # condicional
 ├─ apdex.html                  # condicional
 ├─ apdex-experience.html       # condicional
 ├─ ai-visibility.html          # condicional
 ├─ observability.html          # condicional
+├─ quality.html                # condicional
 ├─ ai-usage.html
 ├─ references.html
 └─ css/site.css
 ```
 
 ## SARI-001 / SCORE-GEO-003
-
-Identidade atual:
 
 ```text
 SARI-001       = Search & AI Readiness Index público
@@ -54,19 +54,9 @@ SCORE-GEO-002  = histórico
 
 `readiness.html` apresenta dimensões, Coverage, Confidence, Consolidation e limitações. `score-geo-003.html` apresenta método/model artifact/dataset/gates e o estado do Overall.
 
-A transição `002 -> 003` é quebra metodológica. O Overall atual não deve ser substituído pela antiga média simples do `002` quando o modelo `003` não é validado/elegível. Nesses casos, o report expõe `NOT_CONSOLIDATED`/limitação em vez de inventar nota.
+A transição `002 -> 003` é quebra metodológica. O Overall atual não é substituído pela antiga média simples quando o modelo `003` não é validado/elegível; o report expõe `NOT_CONSOLIDATED`/limitação.
 
-### Groundability
-
-Groundability continua conjunto de sinais, não subscore adicional não calibrado. Answerability, Citation Readiness e Evidence/Trust são apresentados separadamente.
-
-### Limite de validade
-
-SARI-001 é metodologia proprietária, evidence-bound e reprodutível. Não representa nota oficial de Google/Bing/OpenAI, probabilidade estatística de ranking/citação ou certificação GEO/AEO.
-
-## Evidências Mobile/Desktop
-
-`mobile.html` e `desktop.html` mostram snapshots, RuleExecutions, findings e evidências dos contextos efetivamente auditados. Não são a fonte canônica do Overall/dimensões SARI.
+SARI-001 é metodologia proprietária, evidence-bound e reprodutível. Não representa nota oficial Google/Bing/OpenAI, probabilidade de ranking/citação ou certificação GEO/AEO.
 
 ## Propriedade analítica
 
@@ -81,13 +71,14 @@ SARI-001 é metodologia proprietária, evidence-bound e reprodutível. Não repr
 | Synthetic User Experience Apdex | `apdex-experience.html` | sintético calibrável; não RUM |
 | Observed Generative Visibility | `ai-visibility.html` | outcome observado/importado |
 | Search & AI Observability | `observability.html` | outcomes externos + diagnósticos derivados |
+| Quality & decisão | `quality.html` | qualidade da evidência/priorização operacional |
 | Uso/custo de IA | `ai-usage.html` | telemetria operacional |
 
-`index.html` pode repetir apenas síntese necessária à navegação executiva.
+`index.html` pode repetir síntese necessária à navegação executiva, mas não funde metodologias em score comum.
 
 ## Observed Generative Visibility
 
-`ai-visibility.html` é separado de readiness.
+`ai-visibility.html` permanece separado de readiness.
 
 ```text
 Readiness
@@ -97,9 +88,9 @@ Observed Generative Visibility
 = outcomes observados/importados sob fonte/protocolo declarado
 ```
 
-A página pode mostrar source-reported metrics, URL activity, grounding queries, trend e controlled query-runs. Citation Presence Rate é calculada apenas sobre runs `VALID` e, quando aplicável, apresenta `n` e Wilson 95%.
+A página pode mostrar source-reported metrics, URL activity, grounding queries, trend e controlled query-runs. Citation Presence Rate é calculada somente sobre runs válidos conforme contrato.
 
-Observed Generative Visibility **não altera SARI-001/SCORE-GEO-003** e não converte citações em ranking/autoridade/GEO score.
+Observed Generative Visibility **não altera SARI-001/SCORE-GEO-003**.
 
 ## Search & AI Observability
 
@@ -108,31 +99,79 @@ Observed Generative Visibility **não altera SARI-001/SCORE-GEO-003** e não con
 Pode conter:
 
 - datasets/proveniência;
-- Search Console Search Performance;
+- Search Console Search Analytics;
+- Search Appearance;
+- propriedades/sitemaps observados;
 - URL Inspection;
 - Indexability Reality Matrix;
+- Google Generative AI Performance importado;
+- estado GenAI `INCLUDE` / `EXCLUDE` / `INHERIT` observado;
+- Bing imports;
 - CrUX History;
 - Query × Intent Alignment;
-- Potential Search Cannibalization candidates;
-- Structured Data documentation checks;
-- entity consistency;
-- freshness/date conflicts;
-- hreflang;
-- retrieval/chunkability;
+- Potential Search Cannibalization;
+- Structured Data/entity/freshness/hreflang/retrieval diagnostics;
 - template/root-cause clusters.
+
+### Como ler datasets
+
+O sidecar atual é `RASAI-OBS-002`. Cada linha pertence a `(dataset_id, record_id)`, permitindo histórico de coletas independentes sem colisão.
+
+Search/Discover GenAI e Search Analytics/Search Appearance possuem provenance separada. Métrica inexistente na fonte permanece inexistente; por exemplo, um export GenAI de impressões não cria clicks/CTR/position artificiais.
 
 ### Leitura correta
 
 - canonical local diferente do selected canonical externo = **divergência observada**, não prova automática de perda;
-- múltiplas URLs para uma query = **candidato** de cannibalization quando passa o threshold conservador, não erro comprovado;
-- Query × Intent usa matching lexical explicável, não keyword score;
-- checks de Product/Breadcrumb/Organization são checks documentais/advisory, não um Rich Results score;
-- CrUX History é field/RUM aggregate, separado de Lighthouse lab e Apdex;
-- ausência de dado externo é limitação/suficiência, não aprovação nem falha do website.
+- múltiplas URLs para uma query = **candidato** de cannibalization, não erro comprovado;
+- Query × Intent é matching lexical explicável, não keyword score;
+- Product/Breadcrumb/Organization são checks documentais/advisory;
+- CrUX History é field aggregate, separado de Lighthouse lab e Apdex;
+- ausência de dado externo é limitação/suficiência, não aprovação nem falha;
+- `~`/`-` ou zero exportado em GenAI deve ser interpretado com a metadata de supressão/rounding;
+- publisher control `EXCLUDE` muda a interpretação da ausência de visibilidade, mas não é penalidade SARI.
+
+### Freshness reprodutível
+
+Checks de data usam o tempo persistido do AUD (`completed_at`, `started_at`, `created_at` ou snapshot). Regenerar o mesmo HTML meses depois não pode criar um novo conflito apenas porque o relógio da máquina avançou.
+
+## Quality & decisão
+
+`quality.html` responde se a própria evidência RASAI está em condição adequada para apoiar decisões.
+
+### Audit Health
+
+Verifica integridade/completude da coleta e artifacts. **Audit Health não é readiness score.**
+
+### Evidence Confidence
+
+`HIGH`, `MEDIUM` ou `LOW` por finding, com base em provenance, RuleExecution e evidence persistida. É diferente da Confidence das dimensões SARI.
+
+### Operational Priority
+
+`P0`–`P3` orienta ordem de remediação combinando severidade, escopo, confiança da evidência e esforço estimado. Não altera Severity nem SCORE-GEO.
+
+### Coverage Map
+
+Mostra URL/device × domínios de evidência. `NOT_OBSERVED` significa ausência de observação no escopo, não FAIL.
+
+### Search & AI content controls
+
+A página pode registrar:
+
+- `nosnippet`;
+- `max-snippet`;
+- `data-nosnippet`;
+- `X-Robots-Tag`.
+
+São controles do publisher e não penalidades automáticas.
+
+### Recommendation Validation
+
+Valida referência/estado/confiança da recomendação contra a evidência persistida. Não substitui revisão humana da mudança proposta.
 
 ## RASAI Monitor
 
-Monitoring não fica dentro do `report/` de um único AUD. Ele compara dois workspaces e gera:
+Monitoring não fica dentro de um único AUD:
 
 ```text
 audits/monitoring/MON-*/report.html
@@ -142,15 +181,66 @@ audits/monitoring/MON-*/report.html
 
 ### `monitor compare`
 
-Classifica mudanças como regressão, melhoria, mudança neutra, new/resolved, unavailable ou non-comparable conforme o sinal. Device, URL universe e `scoring_version` fazem parte da comparabilidade.
+Classifica regressão, melhoria, mudança neutra, new/resolved, unavailable ou non-comparable. Device, URL universe e `scoring_version` participam da comparabilidade.
 
 ### `monitor gate`
 
-Gate de release determinístico por padrão. Regras semânticas/LLM só bloqueiam se explicitamente incluídas na política.
+Default: regras determinísticas elegíveis + page state.
+
+Somente entram por opt-in:
+
+- regras semânticas/IA;
+- Performance;
+- Synthetic Apdex;
+- aggregates de findings;
+- deltas de score dimensions.
+
+Isso evita que uma família não determinística bloqueie release indiretamente.
 
 ### `monitor impact`
 
-Cruza mudança técnica com outcomes observados. Linguagem correta: **associação temporal/coocorrência**. O report não deve afirmar causalidade sem evidência adicional.
+Seleciona um dataset mais recente por source type em cada AUD; não soma históricos sobrepostos.
+
+Janelas observacionais:
+
+```text
+ALIGNED_WINDOW
+PARTIAL_OVERLAP
+NON_OVERLAPPING
+UNKNOWN_PERIOD
+DATA_UNAVAILABLE
+```
+
+Associação temporal só pode ser emitida para `ALIGNED_WINDOW` ou `PARTIAL_OVERLAP`. Mesmo nesses casos, o relatório diz coocorrência/associação, não causalidade.
+
+## Fix Verification
+
+Saída standalone:
+
+```text
+audits/verification/VER-*/report.html
+```
+
+Estados principais:
+
+```text
+FIXED
+PARTIALLY_FIXED
+NOT_FIXED
+NOT_VERIFIABLE
+```
+
+A leitura correta é “o estado persistido da regra mudou entre os dois AUDs”. Não significa que Search/AI já reagiu à correção.
+
+## Evidence Timeline
+
+Saída standalone:
+
+```text
+audits/quality/TIMELINE-*/report.html
+```
+
+Projeta histórico de AUDs sem regravá-los: data, versões, URL count, FAIL/WARNING, dimensões e page-state conforme evidência disponível.
 
 ## Configuração × resultado obtido
 
@@ -170,7 +260,7 @@ Timeout, quota, HTTP, ausência de artifact ou falta de dado da fonte não são 
 
 ## Crawling/discovery
 
-`crawling-discovery.html` concentra robots/crawler policy, sitemaps, feeds, `llms.txt` experimental e evidências correlatas. `scoring_impact=NONE`; não altera `SCORE-GEO-003`.
+`crawling-discovery.html` concentra robots/crawler policy, sitemaps, feeds, `llms.txt` experimental e evidências correlatas. `scoring_impact=NONE`.
 
 ## Acessibilidade
 
@@ -182,30 +272,23 @@ Timeout, quota, HTTP, ausência de artifact ou falta de dado da fonte não são 
 
 ## Synthetic Navigation Apdex
 
-`apdex.html` apresenta T/4T, classificação Satisfied/Tolerating/Frustrated, samples, score, percentis/dispersão e limitações de small-group quando aplicáveis.
+`apdex.html` apresenta T/4T, classificação Satisfied/Tolerating/Frustrated, samples e limitações.
 
 ## Synthetic User Experience Apdex
 
-`apdex-experience.html` pode usar KPM, thresholds, error policy, session mode e device mix. Mesmo calibrado contra configuração Dynatrace, continua sintético e não RUM.
+`apdex-experience.html` continua sintético e não RUM, mesmo quando calibrado contra configuração Dynatrace.
 
 ## Uso de IA
 
-`ai-usage.html` apresenta provider/modelo, tentativa/status, tokens, reasoning configurado e custo estimado quando persistidos. Custo é estimativa operacional, não invoice nem sinal de qualidade.
+`ai-usage.html` apresenta provider/modelo, tentativa/status, tokens, reasoning configurado e custo estimado. Custo é estimativa operacional, não invoice nem sinal de qualidade.
 
 ## Conteúdo e JSON-LD
 
-`content-suggestions.html` reúne sugestões advisory. Nenhuma proposta textual/JSON-LD deve ser tratada como alteração automática do website ou como fato observado quando não há evidence correspondente.
+`content-suggestions.html` reúne sugestões advisory. Nenhuma proposta textual/JSON-LD vira fato observado ou alteração automática do website.
 
 ## Remediação
 
-`remediation.html` deve preservar diferença entre:
-
-- evidence observada;
-- finding/conclusão;
-- selector/local quando confiável;
-- exemplo/receita de correção.
-
-Selector não deve ser inventado para findings document/set-level.
+`remediation.html` preserva diferença entre evidence, finding/conclusão, selector/local quando confiável e receita de correção. Selector não deve ser inventado para findings document/set-level.
 
 ## Referências
 
@@ -217,10 +300,10 @@ Todas as páginas materializadas devem compartilhar:
 
 - mesma ordem de menu;
 - apenas item atual ativo;
-- largura de conteúdo equilibrada;
+- largura equilibrada;
 - acabamento visual consistente;
 - tabelas legíveis;
-- footer no final do conteúdo principal;
+- footer no final do conteúdo;
 - comportamento responsivo.
 
 Ordem canônica:
@@ -240,6 +323,7 @@ Apdex de navegação
 Apdex de experiência
 Visibilidade em IA
 Search & AI observados
+Quality & decisão
 Uso de IA
 Referências e metodologia
 ```
@@ -255,12 +339,15 @@ audit.db + artifacts
 observability.db + artifacts/observability
 → observability.html
 
+audit.db read-only
+→ quality.html
+
 2 x audit.db read-only
 → MON-*/report.html + manifest/impact
+→ VER-*/report.html
+
+N x audit.db read-only
+→ TIMELINE-*/report.html
 ```
 
-HTML nunca deve se tornar segunda fonte de verdade para score, evidence, outcomes, tokens ou custos.
-
-## Linguagem para o analista
-
-O HTML deve explicar fenômeno, impacto, evidence, fonte e limitação sem exigir conhecimento de Python/SQLite/módulos internos. Termos técnicos públicos podem permanecer quando pertinentes; identificadores internos devem ser rastreabilidade secundária, não leitura principal.
+HTML nunca se torna segunda fonte de verdade para score, evidence, outcomes, tokens ou custos.
