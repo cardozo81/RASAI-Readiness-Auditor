@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date
 from html import escape
-import json
 from pathlib import Path
 import sqlite3
 from typing import Any
@@ -29,11 +29,15 @@ class ImpactAnalysis:
     outcome_changes: tuple[OutcomeChange, ...]
     associations: tuple[dict[str, Any], ...]
     limitations: tuple[str, ...]
+    window_comparability: tuple[dict[str, Any], ...] = ()
 
 
 def analyze_change_impact(result: ComparisonResult) -> ImpactAnalysis:
-    before = _observed_snapshot(result.baseline.workspace)
-    after = _observed_snapshot(result.current.workspace)
+    before, before_datasets = _observed_snapshot(result.baseline.workspace)
+    after, after_datasets = _observed_snapshot(result.current.workspace)
+    windows = _compare_windows(before_datasets, after_datasets)
+    window_by_source = {str(item["source"]): str(item["status"]) for item in windows}
+
     changes: list[OutcomeChange] = []
     for key in sorted(set(before) | set(after)):
         left = before.get(key)
@@ -41,7 +45,17 @@ def analyze_change_impact(result: ComparisonResult) -> ImpactAnalysis:
         if left is None or right is None:
             item = right or left
             assert item is not None
-            changes.append(OutcomeChange(key, item["source"], item["metric"], left["value"] if left else None, right["value"] if right else None, "DATA_UNAVAILABLE", unit=item.get("unit")))
+            changes.append(
+                OutcomeChange(
+                    key,
+                    item["source"],
+                    item["metric"],
+                    left["value"] if left else None,
+                    right["value"] if right else None,
+                    "DATA_UNAVAILABLE",
+                    unit=item.get("unit"),
+                )
+            )
             continue
         old = left["value"]
         new = right["value"]
@@ -58,26 +72,36 @@ def analyze_change_impact(result: ComparisonResult) -> ImpactAnalysis:
                 status = "IMPROVED" if delta < 0 else "REGRESSED"
         changes.append(OutcomeChange(key, right["source"], right["metric"], old, new, status, delta, right.get("unit")))
 
-    technical = [event for event in result.regressions if event.domain in {"RULE", "PAGE", "PERFORMANCE", "APDEX", "UX_APDEX"}]
+    technical = [event for event in result.regressions if event.domain in {"RULE", "PAGE"}]
     outcome_regressions = [change for change in changes if change.status == "REGRESSED"]
     associations: list[dict[str, Any]] = []
-    if technical and outcome_regressions:
-        for change in outcome_regressions:
-            associations.append({
+    for change in outcome_regressions:
+        temporal_status = window_by_source.get(change.source, "UNKNOWN_PERIOD")
+        if not technical or temporal_status not in {"ALIGNED_WINDOW", "PARTIAL_OVERLAP"}:
+            continue
+        associations.append(
+            {
                 "status": "TEMPORAL_ASSOCIATION_ONLY",
+                "window_status": temporal_status,
                 "outcome_key": change.key,
                 "outcome_metric": change.metric,
                 "outcome_source": change.source,
                 "technical_regression_count": len(technical),
                 "technical_examples": [event.rule_id or event.label for event in technical[:8]],
-                "statement": "Technical regression(s) and an observed outcome regression coexist across the same audit pair. Causality is not established.",
-            })
+                "statement": (
+                    "Technical regression(s) and an observed outcome regression coexist across comparable observation "
+                    "windows. Causality is not established."
+                ),
+            }
+        )
+
     limitations = [
-        "Outcome windows may not exactly match audit timestamps; inspect dataset periods before interpretation.",
+        "One latest dataset per source is selected in each AUD; overlapping historical datasets are not summed.",
+        "Temporal association is emitted only for aligned or partially overlapping observation windows.",
         "Search engines, demand, competition, seasonality and measurement coverage can change independently of the website.",
         "This analyzer reports co-occurrence/temporal association only and never causal attribution.",
     ]
-    return ImpactAnalysis(tuple(changes), tuple(associations), tuple(limitations))
+    return ImpactAnalysis(tuple(changes), tuple(associations), tuple(limitations), tuple(windows))
 
 
 def write_impact_report(report_dir: str | Path, result: ComparisonResult, analysis: ImpactAnalysis | None = None) -> Path:
@@ -86,38 +110,81 @@ def write_impact_report(report_dir: str | Path, result: ComparisonResult, analys
     root.mkdir(parents=True, exist_ok=True)
     path = root / "impact.html"
     rows = "".join(_change_row(item) for item in active.outcome_changes) or "<tr><td colspan='7'>Nenhum outcome observacional comparável ou alterado.</td></tr>"
+    window_rows = "".join(
+        "<tr>"
+        f"<td>{escape(str(item['status']))}</td><td>{escape(str(item['source']))}</td>"
+        f"<td>{escape(str(item.get('baseline_period') or '—'))}</td>"
+        f"<td>{escape(str(item.get('current_period') or '—'))}</td>"
+        f"<td>{escape(str(item.get('detail') or ''))}</td></tr>"
+        for item in active.window_comparability
+    ) or "<tr><td colspan='5'>Nenhuma janela observacional comum para comparar.</td></tr>"
     association_rows = "".join(
-        f"<tr><td>{escape(str(item['status']))}</td><td>{escape(str(item['outcome_source']))}</td><td>{escape(str(item['outcome_metric']))}</td><td>{int(item['technical_regression_count'])}</td><td>{escape(', '.join(item['technical_examples']))}</td><td>{escape(str(item['statement']))}</td></tr>"
+        f"<tr><td>{escape(str(item['status']))}</td><td>{escape(str(item.get('window_status') or '—'))}</td>"
+        f"<td>{escape(str(item['outcome_source']))}</td><td>{escape(str(item['outcome_metric']))}</td>"
+        f"<td>{int(item['technical_regression_count'])}</td><td>{escape(', '.join(item['technical_examples']))}</td>"
+        f"<td>{escape(str(item['statement']))}</td></tr>"
         for item in active.associations
-    ) or "<tr><td colspan='6'>Nenhuma coocorrência entre regressão técnica e outcome observado foi detectada neste par.</td></tr>"
+    ) or "<tr><td colspan='7'>Nenhuma associação temporal elegível foi emitida neste par.</td></tr>"
     limitations = "".join(f"<li>{escape(item)}</li>" for item in active.limitations)
-    path.write_text(f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>RASAI Change Impact</title><style>{_CSS}</style></head><body><main><header class='hero'><div class='eyebrow'>RASAI Monitor · Change Impact</div><h1>Mudança técnica × outcomes observados</h1><p>Baseline <code>{escape(result.baseline.audit_id)}</code> → atual <code>{escape(result.current.audit_id)}</code>. Esta página não estabelece causalidade.</p></header><section class='panel'><h2>Outcomes alterados</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Fonte</th><th>Métrica</th><th>Antes</th><th>Depois</th><th>Delta</th><th>Unidade</th></tr></thead><tbody>{rows}</tbody></table></div></section><section class='panel'><h2>Associações temporais</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Fonte</th><th>Outcome</th><th>Regressões técnicas</th><th>Exemplos</th><th>Interpretação</th></tr></thead><tbody>{association_rows}</tbody></table></div></section><section class='panel'><h2>Limitações</h2><ul>{limitations}</ul></section></main></body></html>""", encoding="utf-8", newline="\n")
+    path.write_text(
+        f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>RASAI Change Impact</title><style>{_CSS}</style></head><body><main><header class='hero'><div class='eyebrow'>RASAI Monitor · Change Impact</div><h1>Mudança técnica × outcomes observados</h1><p>Baseline <code>{escape(result.baseline.audit_id)}</code> → atual <code>{escape(result.current.audit_id)}</code>. Esta página não estabelece causalidade.</p></header><section class='panel'><h2>Comparabilidade das janelas</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Fonte</th><th>Baseline</th><th>Atual</th><th>Interpretação</th></tr></thead><tbody>{window_rows}</tbody></table></div></section><section class='panel'><h2>Outcomes alterados</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Fonte</th><th>Métrica</th><th>Antes</th><th>Depois</th><th>Delta</th><th>Unidade</th></tr></thead><tbody>{rows}</tbody></table></div></section><section class='panel'><h2>Associações temporais</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Janela</th><th>Fonte</th><th>Outcome</th><th>Regressões técnicas</th><th>Exemplos</th><th>Interpretação</th></tr></thead><tbody>{association_rows}</tbody></table></div></section><section class='panel'><h2>Limitações</h2><ul>{limitations}</ul></section></main></body></html>""",
+        encoding="utf-8",
+        newline="\n",
+    )
     return path
 
 
-def _observed_snapshot(workspace: Path) -> dict[str, dict[str, Any]]:
+def _observed_snapshot(workspace: Path) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     database = workspace / "observability.db"
     if not database.is_file():
-        return {}
+        return {}, {}
     connection = sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA query_only=ON")
     try:
         tables = {str(row[0]) for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         output: dict[str, dict[str, Any]] = {}
+        selected = _latest_datasets(connection) if "datasets" in tables else {}
         if "search_performance" in tables:
-            _search_signals(connection, output)
+            _search_signals(connection, output, selected)
         if "index_observations" in tables:
-            _index_signals(connection, output)
+            _index_signals(connection, output, selected)
         if "crux_history" in tables:
-            _crux_signals(connection, output)
-        return output
+            _crux_signals(connection, output, selected)
+        return output, selected
     finally:
         connection.close()
 
 
-def _search_signals(connection: sqlite3.Connection, output: dict[str, dict[str, Any]]) -> None:
-    rows = connection.execute("SELECT source,COALESCE(surface,'ALL') surface,clicks,impressions,position FROM search_performance").fetchall()
+def _latest_datasets(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]:
+    rows = connection.execute(
+        "SELECT dataset_id,source_type,period_start,period_end,collected_at FROM datasets ORDER BY collected_at,dataset_id"
+    ).fetchall()
+    latest: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        latest[str(row["source_type"])] = {
+            "dataset_id": str(row["dataset_id"]),
+            "source": str(row["source_type"]),
+            "period_start": row["period_start"],
+            "period_end": row["period_end"],
+            "collected_at": str(row["collected_at"]),
+        }
+    return latest
+
+
+def _selected_ids(selected: dict[str, dict[str, Any]]) -> tuple[str, ...]:
+    return tuple(str(item["dataset_id"]) for item in selected.values())
+
+
+def _search_signals(connection: sqlite3.Connection, output: dict[str, dict[str, Any]], selected: dict[str, dict[str, Any]]) -> None:
+    dataset_ids = _selected_ids(selected)
+    if not dataset_ids:
+        return
+    placeholders = ",".join("?" for _ in dataset_ids)
+    rows = connection.execute(
+        f"SELECT dataset_id,source,COALESCE(surface,'ALL') surface,clicks,impressions,position FROM search_performance WHERE dataset_id IN ({placeholders})",
+        dataset_ids,
+    ).fetchall()
     groups: dict[tuple[str, str], list[sqlite3.Row]] = defaultdict(list)
     for row in rows:
         groups[(str(row["source"]), str(row["surface"]))].append(row)
@@ -127,7 +194,10 @@ def _search_signals(connection: sqlite3.Connection, output: dict[str, dict[str, 
         weighted_position_den = sum(float(row["impressions"] or 0.0) for row in items if row["position"] is not None)
         weighted_position = None
         if weighted_position_den > 0:
-            weighted_position = sum(float(row["position"]) * float(row["impressions"] or 0.0) for row in items if row["position"] is not None) / weighted_position_den
+            weighted_position = sum(
+                float(row["position"]) * float(row["impressions"] or 0.0)
+                for row in items if row["position"] is not None
+            ) / weighted_position_den
         for metric, value, direction, unit in (
             ("impressions", impressions, "HIGHER_BETTER", "count"),
             ("clicks", clicks, "HIGHER_BETTER", "count"),
@@ -137,23 +207,47 @@ def _search_signals(connection: sqlite3.Connection, output: dict[str, dict[str, 
             if value is None:
                 continue
             key = f"SEARCH|{source}|{surface}|{metric}"
-            output[key] = {"source": source, "metric": f"{surface} {metric}", "value": float(value), "direction": direction, "unit": unit}
+            output[key] = {
+                "source": source,
+                "metric": f"{surface} {metric}",
+                "value": float(value),
+                "direction": direction,
+                "unit": unit,
+            }
 
 
-def _index_signals(connection: sqlite3.Connection, output: dict[str, dict[str, Any]]) -> None:
-    rows = connection.execute("SELECT source,url,verdict,indexing_state,selected_canonical FROM index_observations").fetchall()
+def _index_signals(connection: sqlite3.Connection, output: dict[str, dict[str, Any]], selected: dict[str, dict[str, Any]]) -> None:
+    dataset_ids = _selected_ids(selected)
+    if not dataset_ids:
+        return
+    placeholders = ",".join("?" for _ in dataset_ids)
+    rows = connection.execute(
+        f"SELECT dataset_id,source,url,verdict,indexing_state,selected_canonical FROM index_observations WHERE dataset_id IN ({placeholders})",
+        dataset_ids,
+    ).fetchall()
     for row in rows:
         source = str(row["source"])
         url = str(row["url"])
-        for metric, value in (("verdict", row["verdict"]), ("indexing_state", row["indexing_state"]), ("selected_canonical", row["selected_canonical"])):
+        for metric, value in (
+            ("verdict", row["verdict"]),
+            ("indexing_state", row["indexing_state"]),
+            ("selected_canonical", row["selected_canonical"]),
+        ):
             if value is None:
                 continue
             key = f"INDEX|{source}|{url}|{metric}"
             output[key] = {"source": source, "metric": metric, "value": str(value), "direction": "STATE", "unit": None}
 
 
-def _crux_signals(connection: sqlite3.Connection, output: dict[str, dict[str, Any]]) -> None:
-    rows = connection.execute("SELECT * FROM crux_history ORDER BY COALESCE(period_end,''),rowid").fetchall()
+def _crux_signals(connection: sqlite3.Connection, output: dict[str, dict[str, Any]], selected: dict[str, dict[str, Any]]) -> None:
+    dataset_ids = _selected_ids(selected)
+    if not dataset_ids:
+        return
+    placeholders = ",".join("?" for _ in dataset_ids)
+    rows = connection.execute(
+        f"SELECT * FROM crux_history WHERE dataset_id IN ({placeholders}) ORDER BY COALESCE(period_end,''),rowid",
+        dataset_ids,
+    ).fetchall()
     latest: dict[tuple[str, str, str, str], sqlite3.Row] = {}
     for row in rows:
         latest[(str(row["target"]), str(row["target_scope"]), str(row["form_factor"] or "ALL"), str(row["metric"]))] = row
@@ -161,7 +255,72 @@ def _crux_signals(connection: sqlite3.Connection, output: dict[str, dict[str, An
         if row["p75"] is None:
             continue
         key = f"CRUX|{scope}|{target}|{form}|{metric}"
-        output[key] = {"source": "CHROME_UX_REPORT_HISTORY", "metric": f"{metric} p75", "value": float(row["p75"]), "direction": "LOWER_BETTER", "unit": "native"}
+        output[key] = {
+            "source": "CHROME_UX_REPORT_HISTORY",
+            "metric": f"{metric} p75",
+            "value": float(row["p75"]),
+            "direction": "LOWER_BETTER",
+            "unit": "native",
+        }
+
+
+def _compare_windows(before: dict[str, dict[str, Any]], after: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    for source in sorted(set(before) | set(after)):
+        left = before.get(source)
+        right = after.get(source)
+        if left is None or right is None:
+            output.append({
+                "source": source,
+                "status": "DATA_UNAVAILABLE",
+                "baseline_period": _period(left),
+                "current_period": _period(right),
+                "detail": "Source exists on only one side of the audit pair.",
+            })
+            continue
+        start_left, end_left = _period_dates(left)
+        start_right, end_right = _period_dates(right)
+        if None in {start_left, end_left, start_right, end_right}:
+            status = "UNKNOWN_PERIOD"
+            detail = "At least one selected dataset has no complete observation period."
+        elif start_left == start_right and end_left == end_right:
+            status = "ALIGNED_WINDOW"
+            detail = "Observation periods are identical."
+        elif max(start_left, start_right) <= min(end_left, end_right):  # type: ignore[arg-type]
+            status = "PARTIAL_OVERLAP"
+            detail = "Observation periods overlap but are not identical; interpret deltas with caution."
+        else:
+            status = "NON_OVERLAPPING"
+            detail = "Observation periods do not overlap; no temporal association is emitted."
+        output.append({
+            "source": source,
+            "status": status,
+            "baseline_period": _period(left),
+            "current_period": _period(right),
+            "detail": detail,
+        })
+    return output
+
+
+def _period(item: dict[str, Any] | None) -> str | None:
+    if item is None:
+        return None
+    start = item.get("period_start")
+    end = item.get("period_end")
+    if start or end:
+        return f"{start or '?'} → {end or '?'}"
+    return None
+
+
+def _period_dates(item: dict[str, Any]) -> tuple[date | None, date | None]:
+    def parse(value: Any) -> date | None:
+        if not value:
+            return None
+        try:
+            return date.fromisoformat(str(value)[:10])
+        except ValueError:
+            return None
+    return parse(item.get("period_start")), parse(item.get("period_end"))
 
 
 def _change_row(item: OutcomeChange) -> str:
