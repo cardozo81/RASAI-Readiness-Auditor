@@ -1,10 +1,10 @@
 """Canonical report navigation registry for all current RASAi report surfaces.
 
-The report_navigation module owns rendering/polish. This registry only
-installs the complete ordered catalogue so an optional report generated later
-cannot accidentally remove links to previously materialized optional pages.
-Items remain conditional because report_navigation.available_navigation only
-renders files that actually exist (or the current page).
+The report_navigation module owns rendering/polish. This registry installs the
+complete ordered catalogue so an optional report generated later cannot
+accidentally remove links to previously materialized optional pages. Items remain
+conditional because report_navigation.available_navigation only renders files
+that actually exist (or the current page).
 """
 from __future__ import annotations
 
@@ -158,14 +158,21 @@ def _patch_final_branding_normalization() -> None:
             except (OSError, UnicodeError):
                 continue
             updated = html.replace("Search/AI", "Search & AI")
+            updated = updated.replace("SCORE-GEO-003", "SCORE-GEO-004")
+            updated = updated.replace("SCORE-GEO-002", "SCORE-GEO-004")
             updated = updated.replace(
-                "SCORE-GEO-003 é o método de scoring aplicado",
-                "SCORE-GEO-004 é o método de scoring aplicado",
+                "Média simples das dimensões aplicáveis suficientemente consolidadas. Dimensão legitimamente NOT_APPLICABLE não recebe zero.",
+                "Média de igual peso das dimensões aplicáveis com medição suficiente. Dimensão legitimamente NOT_APPLICABLE sai do denominador e não recebe zero.",
             )
             updated = updated.replace(
-                "SCORE-GEO-003 vigente",
-                "SCORE-GEO-004 vigente",
+                "Compatibilidade metodológica:",
+                "Contrato metodológico:",
             )
+            updated = updated.replace(
+                "esta mudança de relatório não recalcula auditorias, não altera pesos e não quebra comparabilidade histórica.",
+                "o resultado é calculado e persistido pelo contrato vigente desta auditoria.",
+            )
+            updated = updated.replace("—", "-").replace("–", "-")
             if updated != html:
                 try:
                     path.write_text(updated, encoding="utf-8", newline="\n")
@@ -184,7 +191,7 @@ def install() -> None:
     report_navigation.NAV_ITEMS = CANONICAL_NAV_ITEMS
     report_navigation._RULE_TOOLTIPS["BR-GEO-054"] = (
         "Integridade do auditor - verifica a reprodutibilidade do scoring persistido; "
-        "SCORE-GEO-004 é o método aplicado a novas auditorias e não depende de artifact de calibração."
+        "SCORE-GEO-004 é o método vigente e não depende de artifact de calibração."
     )
     _patch_apdex_navigation()
     _patch_lighthouse_traceability_message()
