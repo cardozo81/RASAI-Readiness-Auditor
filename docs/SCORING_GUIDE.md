@@ -4,25 +4,15 @@ Guia operacional do **Search & AI Readiness Index `SARI-001`**.
 
 ## Método vigente
 
-Novas auditorias usam por padrão:
+Todas as novas auditorias usam:
 
 ```text
 scoring_version = SCORE-GEO-004
 ```
 
-O `SCORE-GEO-004` mantém as dimensões determinísticas e usa um Overall determinístico, transparente e reproduzível por auditoria. Ele não depende de um model artifact de calibração e não representa probabilidade de citação.
+`SCORE-GEO-004` é determinístico, transparente e reproduzível por auditoria. Não depende de model artifact externo e não representa probabilidade de ranking ou citação.
 
-Consulte [`SCORE_GEO_004.md`](SCORE_GEO_004.md) para o contrato completo.
-
-## Histórico de versões
-
-```text
-SCORE-GEO-002  baseline determinística histórica
-SCORE-GEO-003  Overall calibrado empiricamente; exige model artifact VALIDATED
-SCORE-GEO-004  padrão vigente; Overall determinístico e calibração empírica opcional
-```
-
-Auditorias históricas não são recalculadas silenciosamente entre versões.
+Contrato completo: [`SCORE_GEO_004.md`](SCORE_GEO_004.md).
 
 ## Dimensões
 
@@ -37,7 +27,7 @@ Auditorias históricas não são recalculadas silenciosamente entre versões.
 9. `EVIDENCE_TRUST`
 10. `INTENT_COVERAGE`
 
-Desktop e Mobile permanecem separados. Apenas dispositivos realmente auditados devem ser apresentados como resultado válido.
+Desktop e Mobile permanecem separados. Somente dispositivos efetivamente auditados são publicados como resultado válido.
 
 ## RuleResult
 
@@ -52,7 +42,7 @@ NOT_APPLICABLE
 
 Somente `PASS`, `WARNING` e `FAIL` entram no denominador do score da dimensão.
 
-`UNKNOWN` e `ERROR` reduzem Coverage/capacidade de conclusão; não são `FAIL`.
+`UNKNOWN` e `ERROR` reduzem Coverage e força da conclusão; não são `FAIL`.
 
 `NOT_APPLICABLE` sai do universo aplicável quando legítimo.
 
@@ -66,39 +56,59 @@ FAIL    = 0.00
 Dimension Score = sum(weight x result_factor) / sum(weight evaluated) x 100
 ```
 
-A semântica de grupos correlacionados (`MAX_IMPACT`), pré-requisitos, evidência e aplicabilidade permanece compatível com as versões anteriores.
+Grupos correlacionados, pré-requisitos, evidência e aplicabilidade fazem parte do contrato versionado.
 
 ## Coverage
 
 ```text
-evaluated applicable weight / total applicable weight
+Dimension Coverage = evaluated applicable weight / total applicable weight
+Overall Coverage = média da Coverage das dimensões aplicáveis
 ```
 
 Coverage mede completude da análise, não qualidade do site.
 
-## Confidence da dimensão
+## Confidence
+
+Dimensão:
 
 ```text
 HIGH        Coverage >= 90%, evidência completa, zero errors
 MEDIUM      Coverage >= 80%, zero errors
-LOW         existe avaliação, mas critérios acima não foram satisfeitos
+LOW         existe avaliação abaixo dos critérios acima
 UNAVAILABLE Coverage <= 0
 ```
 
-Esses thresholds são governança interna versionada do RASAi.
+Overall:
 
-## Consolidation da dimensão
+```text
+menor Confidence das dimensões aplicáveis
+```
+
+Confidence descreve força da medição e não probabilidade de outcome externo.
+
+## Consolidation
+
+Dimensão:
 
 ```text
 CONSOLIDATED     Coverage >= 80% e Confidence HIGH/MEDIUM
-PARTIAL          demais estados avaliáveis com Coverage >= 50%
+PARTIAL          estado avaliável com Coverage >= 50% abaixo do gate completo
 NOT_CONSOLIDATED Coverage < 50% ou Confidence UNAVAILABLE
 NOT_APPLICABLE   dimensão legitimamente fora do universo aplicável
 ```
 
-Pré-requisito bloqueado não pode ser promovido a `NOT_APPLICABLE` benigno.
+Overall `CONSOLIDATED` exige:
 
-## Overall no SCORE-GEO-004
+```text
+todas as dimensões aplicáveis possuem valor
+nenhuma dimensão aplicável = NOT_CONSOLIDATED
+Overall Coverage >= 80%
+Overall Confidence = HIGH ou MEDIUM
+```
+
+Resultado calculável abaixo desse gate pode ser `PARTIAL` quando a Coverage é de pelo menos 50% e a Confidence está disponível. Estado insuficiente nunca vira zero.
+
+## Overall
 
 Contrato:
 
@@ -106,132 +116,95 @@ Contrato:
 EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
 ```
 
-Com as dimensões aplicáveis materializadas:
+Fórmula:
 
 ```text
 Overall = soma dos Dimension Scores aplicáveis / quantidade de dimensões aplicáveis
 ```
 
-Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador e não recebe zero.
+Cada dimensão aplicável possui o mesmo peso no Overall.
 
-Uma dimensão aplicável sem valor ou em `NOT_CONSOLIDATED` bloqueia o Overall consolidado.
+Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador e não recebe zero. Uma dimensão aplicável sem valor ou em `NOT_CONSOLIDATED` bloqueia a publicação de Overall consolidado.
 
-### Coverage do Overall
+## Structured Data
 
-```text
-média da Coverage das dimensões aplicáveis
-```
+JSON-LD não é requisito universal para que a auditoria possua Overall.
 
-### Confidence do Overall
+Quando `STRUCTURED_DATA` é legitimamente `NOT_APPLICABLE`, a dimensão sai do denominador sem receber nota artificial.
 
-```text
-menor Confidence das dimensões aplicáveis
-```
+Pré-requisito bloqueado não pode ser tratado como `NOT_APPLICABLE` benigno.
 
-### Gate de consolidação do Overall
+## IA
 
-```text
-todas as dimensões aplicáveis possuem valor
-nenhuma dimensão aplicável = NOT_CONSOLIDATED
-Coverage média >= 80%
-Confidence mínima = HIGH ou MEDIUM
-```
+IA é opcional para o pipeline base. Entretanto, regras semânticas aplicáveis que permaneçam `UNKNOWN` por ausência ou falha da análise podem reduzir Coverage/Confidence.
 
-Quando existe valor calculável, mas a força da medição fica abaixo desse gate, o Overall pode ser `PARTIAL`. Estados insuficientes nunca viram zero.
-
-## Structured Data / NOT_APPLICABLE
-
-JSON-LD não é requisito universal para cálculo.
-
-Quando `STRUCTURED_DATA` é legitimamente `NOT_APPLICABLE`, a dimensão não recebe zero e sai do denominador do Overall.
-
-## Sem IA
-
-IA continua opcional para a auditoria base. Ausência de IA pode reduzir Coverage/Confidence das dimensões que dependem de análise semântica, sem transformar automaticamente ausência de análise em `FAIL`.
-
-O `SCORE-GEO-004` não exige IA para a fórmula do Overall.
+A fórmula do Overall não chama IA e não depende de provider específico.
 
 ## Métricas externas fora do score
 
-Não entram no SARI/SCORE-GEO:
+Não entram no SARI-001/SCORE-GEO-004:
 
 - Lighthouse Performance;
 - Core Web Vitals;
 - Lighthouse Accessibility;
 - Synthetic Navigation Apdex;
-- métricas de tráfego/conversão;
+- Synthetic User Experience Apdex;
+- tráfego e conversão;
 - Observed Generative Visibility.
 
-Indisponibilidade de PageSpeed/Lighthouse, por exemplo, não reduz o Overall RASAi.
-
-## Calibração empírica
-
-O pipeline `SCORE-GEO-003` é preservado como ferramenta histórica de calibração/validação empírica.
-
-Comandos existentes:
-
-```powershell
-rasai scoring calibrate --dataset-version GEO-CAL-001
-rasai scoring inspect
-```
-
-Artifact do `003`:
-
-```text
-.rasai/scoring/score-geo-003-model.json
-```
-
-Override:
-
-```text
-RASAI_SCORE_GEO_003_MODEL
-```
-
-Esse artifact **não é requisito nem input do SCORE-GEO-004**. Pode ser usado para pesquisa, benchmarking e avaliação de associação entre readiness e outcomes observados.
+Indisponibilidade de PageSpeed/Lighthouse não reduz o Overall RASAi.
 
 ## Parametrização
 
-Configuração de coleta é permitida. A matemática oficial do `004` não é variável por auditoria.
-
 Configurável:
 
-- URLs/domínios auditados;
+- URLs/domínios;
 - dispositivos;
-- IA e contexto editorial;
-- Web Performance e Synthetic Apdex, que continuam independentes do score;
+- provider/modelo de IA e contexto editorial;
+- Web Performance;
+- Synthetic Apdex;
 - limites de coleta e execução.
 
-Fixo/versionado no `004`:
+Fixo/versionado no SCORE-GEO-004:
 
 - dimensões;
-- pesos/regras já versionados pelo catálogo;
+- catálogo de regras/pesos;
 - fatores PASS/WARNING/FAIL;
 - Overall de igual peso entre dimensões aplicáveis;
 - thresholds de Coverage/Confidence/Consolidation.
 
+A matemática oficial não é alterada por configuração de uma auditoria.
+
+## CLI
+
+Para inspecionar o contrato vigente:
+
+```powershell
+rasai scoring inspect
+```
+
+O comando não cria model artifact e não executa rede.
+
 ## Reprodutibilidade
 
-`BR-GEO-054` permite reconstrução a partir de:
+`BR-GEO-054` verifica reconstrução a partir de:
 
 - RuleExecutions e versões;
 - ScoreContributions;
-- `SCORE-GEO-004`;
-- evidências persistidas.
+- evidências persistidas;
+- `SCORE-GEO-004` e seu contrato de agregação.
 
-Nenhuma reexecução de website, IA ou calibração deve ser necessária.
+Não é necessário reexecutar website, IA ou APIs externas.
 
-## Relatórios e histórico
+## Relatórios
 
-`readiness.html` é a página canônica do SARI.
+```text
+readiness.html      página canônica do SARI-001
+score-geo-004.html  fórmula, gates e rastreabilidade do método vigente
+```
 
-`score-geo-004.html` expõe o contrato vigente, fórmula e gates de consolidação.
-
-`SCORE_GEO_003.md` continua documentando a versão calibrada histórica.
-
-Relatórios históricos/consolidados preservam `scoring_version` e não misturam versões em uma mesma série comparável sem indicação explícita.
+Relatórios consolidados preservam `scoring_version` como parte da comparabilidade.
 
 ## Limite de validade
 
-O `004` é uma métrica proprietária, transparente e reproduzível. Não é certificação oficial de Google, OpenAI, Microsoft, Anthropic ou outro mantenedor.
-
-O resultado mede readiness segundo o contrato RASAi; não prova causalidade nem garante ranking, tráfego, conversão ou citação futura.
+SCORE-GEO-004 é uma métrica proprietária, transparente e reproduzível. Não é certificação oficial de Google, Microsoft, OpenAI, Anthropic ou outro mantenedor e não garante ranking, tráfego, conversão ou citação futura.
