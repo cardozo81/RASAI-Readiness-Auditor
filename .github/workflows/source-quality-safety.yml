@@ -5,17 +5,17 @@ on:
     branches:
       - main
     paths:
-      - 'src/searchgeo/source_quality.py'
-      - 'src/searchgeo/source_quality_ai.py'
-      - 'src/searchgeo/source_quality_browser.py'
-      - 'src/searchgeo/source_quality_report_summary.py'
-      - 'src/searchgeo/external_metrics_integrity.py'
-      - 'src/searchgeo/browser_identity_renderer.py'
-      - 'src/searchgeo/m3.py'
-      - 'src/searchgeo/m23_apdex_profiles.py'
-      - 'src/searchgeo/audit_runner.py'
-      - 'src/searchgeo/cli_extensions.py'
-      - 'src/searchgeo/console_runtime.py'
+      - 'src/rasai/source_quality.py'
+      - 'src/rasai/source_quality_ai.py'
+      - 'src/rasai/source_quality_browser.py'
+      - 'src/rasai/source_quality_report_summary.py'
+      - 'src/rasai/external_metrics_integrity.py'
+      - 'src/rasai/browser_identity_renderer.py'
+      - 'src/rasai/m3.py'
+      - 'src/rasai/m23_apdex_profiles.py'
+      - 'src/rasai/audit_runner.py'
+      - 'src/rasai/cli_extensions.py'
+      - 'src/rasai/console_runtime.py'
       - 'tests/test_source_quality*.py'
       - 'tests/test_external_metrics_integrity.py'
       - 'docs/SOURCE_QUALITY_AND_REDIRECTS.md'
@@ -24,17 +24,17 @@ on:
     branches:
       - main
     paths:
-      - 'src/searchgeo/source_quality.py'
-      - 'src/searchgeo/source_quality_ai.py'
-      - 'src/searchgeo/source_quality_browser.py'
-      - 'src/searchgeo/source_quality_report_summary.py'
-      - 'src/searchgeo/external_metrics_integrity.py'
-      - 'src/searchgeo/browser_identity_renderer.py'
-      - 'src/searchgeo/m3.py'
-      - 'src/searchgeo/m23_apdex_profiles.py'
-      - 'src/searchgeo/audit_runner.py'
-      - 'src/searchgeo/cli_extensions.py'
-      - 'src/searchgeo/console_runtime.py'
+      - 'src/rasai/source_quality.py'
+      - 'src/rasai/source_quality_ai.py'
+      - 'src/rasai/source_quality_browser.py'
+      - 'src/rasai/source_quality_report_summary.py'
+      - 'src/rasai/external_metrics_integrity.py'
+      - 'src/rasai/browser_identity_renderer.py'
+      - 'src/rasai/m3.py'
+      - 'src/rasai/m23_apdex_profiles.py'
+      - 'src/rasai/audit_runner.py'
+      - 'src/rasai/cli_extensions.py'
+      - 'src/rasai/console_runtime.py'
       - 'tests/test_source_quality*.py'
       - 'tests/test_external_metrics_integrity.py'
       - 'docs/SOURCE_QUALITY_AND_REDIRECTS.md'
@@ -49,39 +49,32 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
           cache: 'pip'
-
       - name: Install package and tests
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e . pytest
-
       - name: Install Playwright Chromium for existing M23 E2E
         run: python -m playwright install --with-deps chromium
-
       - name: Compile changed runtime surface
         run: |
           python -m compileall -q \
-            src/searchgeo/source_quality.py \
-            src/searchgeo/source_quality_ai.py \
-            src/searchgeo/source_quality_browser.py \
-            src/searchgeo/source_quality_report_summary.py \
-            src/searchgeo/external_metrics_integrity.py \
-            src/searchgeo/browser_identity_renderer.py \
-            src/searchgeo/m3.py \
-            src/searchgeo/m23_apdex_profiles.py \
-            src/searchgeo/audit_runner.py \
-            src/searchgeo/cli_extensions.py \
-            src/searchgeo/console_runtime.py
-
+            src/rasai/source_quality.py \
+            src/rasai/source_quality_ai.py \
+            src/rasai/source_quality_browser.py \
+            src/rasai/source_quality_report_summary.py \
+            src/rasai/external_metrics_integrity.py \
+            src/rasai/browser_identity_renderer.py \
+            src/rasai/m3.py \
+            src/rasai/m23_apdex_profiles.py \
+            src/rasai/audit_runner.py \
+            src/rasai/cli_extensions.py \
+            src/rasai/console_runtime.py
       - name: Source-quality regression tests
-        run: |
-          python -m pytest -q tests/test_source_quality*.py tests/test_external_metrics_integrity.py
-
+        run: python -m pytest -q tests/test_source_quality*.py tests/test_external_metrics_integrity.py
       - name: Directly affected subsystem regressions
         run: |
           python -m pytest -q \
@@ -90,6 +83,5 @@ jobs:
             tests/test_m23_integration.py \
             tests/test_console_progress_guidance.py \
             tests/test_m12_stable_baseline.py
-
       - name: Full regression suite
         run: python -m pytest -q
