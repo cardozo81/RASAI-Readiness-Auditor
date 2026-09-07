@@ -23,6 +23,7 @@ CANONICAL_NAV_ITEMS: tuple[tuple[str, str], ...] = (
     ("Apdex de experiência", "apdex-experience.html"),
     ("Visibilidade em IA", "ai-visibility.html"),
     ("Search & AI observados", "observability.html"),
+    ("Quality & decisão", "quality.html"),
     ("Uso de IA", "ai-usage.html"),
     ("Referências e metodologia", "references.html"),
 )
@@ -33,8 +34,6 @@ def install() -> None:
     from searchgeo import report_navigation
 
     report_navigation.NAV_ITEMS = CANONICAL_NAV_ITEMS
-    # BR-GEO-054 validates reproducibility/integrity of the persisted scoring
-    # result. SCORE-GEO-003 is the current runtime; SCORE-GEO-002 is historical.
     report_navigation._RULE_TOOLTIPS["BR-GEO-054"] = (
         "Integridade do auditor · Verifica a reprodutibilidade do scoring persistido; "
         "SCORE-GEO-003 é o método vigente e SCORE-GEO-002 permanece apenas histórico."
