@@ -101,7 +101,7 @@ def _metric_state(page_name: str, label: str, value: str) -> tuple[str | None, s
             number = _first_number(value)
             if number is None:
                 return "neutral", "Sem leitura", True
-            return ("good", "Sem falhas detectadas", True) if number == 0 else ("bad", "Correção necessária", True)
+            return ("neutral", "Nenhuma ocorrência registrada", True) if number == 0 else ("bad", "Correção necessária", True)
         if key == "lighthouse médio":
             return _lighthouse_score_state(value, primary=True)
         if key == "conformidade wcag":
@@ -115,6 +115,8 @@ def _metric_state(page_name: str, label: str, value: str) -> tuple[str | None, s
                 return "good", "Aprovado no p75", True
             if normalized == "fail":
                 return "bad", "Não aprovado no p75", True
+            if normalized in {"unavailable", "incomplete", "—", "-", "n/a", "não disponível", "nao disponivel"}:
+                return "neutral", "Dados de campo indisponíveis", True
         if key == "lcp p75":
             return _threshold_state(value, good=2500.0, needs=4000.0, primary=True)
         if key == "inp p75":
@@ -274,7 +276,7 @@ def _enhance_ai_usage(html: str) -> str:
     note = (
         "<div class='notice m20-no-eligible-note'><strong>NO_ELIGIBLE_FINDINGS é um estado esperado, não erro.</strong> "
         "A remediação textual por IA só é chamada para findings de conteúdo/semântica elegíveis. Findings técnicos, como canonical, "
-        "continuam na remediação determinística e não geram chamada textual nem custo M20.</div>"
+        "continuam na remediação determinística e não geram chamada textual nem custo Sugestões e remediação de conteúdo por IA.</div>"
     )
     marker = "<section id='m20-ai-telemetry'"
     pos = html.find(marker)

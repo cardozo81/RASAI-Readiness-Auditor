@@ -73,7 +73,7 @@ T / samples / attempts / páginas / timeout / delay / concorrência
 
 O contexto editorial YMYL/E-E-A-T é atualmente um **override avançado por variáveis de ambiente**. Ele não é gravado no INI; o valor efetivo usado em cada auditoria é persistido no workspace para manter rastreabilidade do report.
 
-A remediação técnica M24 por IA também não é persistida no INI nesta versão; use `--ai-technical-remediation` ou `SEARCHGEO_AI_TECHNICAL_REMEDIATION`.
+A remediação técnica Rastreamento, descoberta e acesso de crawlers por IA também não é persistida no INI nesta versão; use `--ai-technical-remediation` ou `SEARCHGEO_AI_TECHNICAL_REMEDIATION`.
 
 Não armazena:
 
@@ -258,11 +258,11 @@ SEARCHGEO_AI_CONTENT_REMEDIATION
 
 No console, a opção 5 informa explicitamente que depende da configuração da opção 4.
 
-Quando M20 executa IA, `content-suggestions.html` e `ai-usage.html` expõem a telemetria persistida pertinente: provider, modelo, reasoning, tentativas/status, duração, tokens e custo estimado quando existe base de pricing suportada. Valor monetário não é fabricado quando o adapter não possui base confiável.
+Quando Sugestões e remediação de conteúdo por IA executa IA, `content-suggestions.html` e `ai-usage.html` expõem a telemetria persistida pertinente: provider, modelo, reasoning, tentativas/status, duração, tokens e custo estimado quando existe base de pricing suportada. Valor monetário não é fabricado quando o adapter não possui base confiável.
 
-## M24 — crawling/discovery e remediação técnica por IA
+## Rastreamento, descoberta e acesso de crawlers — crawling/discovery e remediação técnica por IA
 
-Os diagnósticos determinísticos M24 fazem parte do pipeline e não precisam ser habilitados por flag. A opção abaixo controla **somente a camada opcional de IA técnica**:
+Os diagnósticos determinísticos Rastreamento, descoberta e acesso de crawlers fazem parte do pipeline e não precisam ser habilitados por flag. A opção abaixo controla **somente a camada opcional de IA técnica**:
 
 ```text
 --ai-technical-remediation
@@ -291,7 +291,7 @@ Precedência:
 CLI explícito > SEARCHGEO_AI_TECHNICAL_REMEDIATION > false
 ```
 
-Quando habilitada e houver provider compatível/configurado, a IA recebe apenas diagnósticos/evidências M24 e produz orientação advisory com revisão humana obrigatória. Essa finalidade não altera scoring, não escolhe automaticamente política de GPTBot/Google-Extended e não transforma `llms.txt` em requisito.
+Quando habilitada e houver provider compatível/configurado, a IA recebe apenas diagnósticos/evidências Rastreamento, descoberta e acesso de crawlers e produz orientação advisory com revisão humana obrigatória. Essa finalidade não altera scoring, não escolhe automaticamente política de GPTBot/Google-Extended e não transforma `llms.txt` em requisito.
 
 A página canônica é:
 
@@ -410,7 +410,7 @@ Default: `mobile`.
 - logs e relatórios não devem registrar valores de segredo;
 - não assuma que uma credencial configurada implica crédito/quota;
 - variáveis de ambiente persistidas não equivalem a um secret manager;
-- remediação técnica M24 permanece advisory e não deve automatizar policy de crawler/treinamento sem decisão humana.
+- remediação técnica Rastreamento, descoberta e acesso de crawlers permanece advisory e não deve automatizar policy de crawler/treinamento sem decisão humana.
 
 ## Identificadores internos
 

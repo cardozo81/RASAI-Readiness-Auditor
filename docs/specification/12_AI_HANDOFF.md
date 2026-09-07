@@ -36,7 +36,7 @@ Cada marco continua sendo unidade independente de implementação, validação, 
 
 O avanço automático ao marco seguinte é permitido somente depois de todos os gates funcionais e de integração do marco anterior terem sido satisfeitos, conforme D-034.
 
-Durante a cascata M4 → M12, a branch encerrada deve ser comparada com `main`, confirmada sem conteúdo exclusivo e registrada na lista acumulada de exclusão manual conforme D-036. A exclusão física diferida não bloqueia o avanço.
+Durante a cascata Extração e evidências → Testes críticos e baseline local estável, a branch encerrada deve ser comparada com `main`, confirmada sem conteúdo exclusivo e registrada na lista acumulada de exclusão manual conforme D-036. A exclusão física diferida não bloqueia o avanço.
 
 Nenhum marco pode ser considerado concluído apenas para permitir avanço.
 
@@ -64,13 +64,13 @@ Bloqueio real interrompe a cascata antes de iniciar o marco seguinte.
 - NoneProvider obrigatório;
 - OpenAI/DeepSeek/MiMo isolados por provider no runtime vigente;
 - `SCORE-GEO-002` permanece scoring baseline enquanto não houver nova decisão/versionamento explícito;
-- M20 textual é opcional/advisory e não altera scoring;
-- M21 PageSpeed/CrUX é evidência externa complementar, default OFF para rede externa e não altera scoring;
-- M21 adiciona zero chamadas LLM;
+- Sugestões e remediação de conteúdo por IA textual é opcional/advisory e não altera scoring;
+- Web Performance externo PageSpeed/CrUX é evidência externa complementar, default OFF para rede externa e não altera scoring;
+- Web Performance externo adiciona zero chamadas LLM;
 - relatório HTML estático em português;
 - testes mínimos orientados a risco.
 
-## 6. M21 — regra de continuidade
+## 6. Web Performance externo — regra de continuidade
 
 Ao trabalhar com Core Web Vitals/Lighthouse:
 
@@ -81,8 +81,8 @@ Ao trabalhar com Core Web Vitals/Lighthouse:
 5. preserve `--web-performance` como opt-in de chamadas externas;
 6. preserve limites de páginas, timeout e field source configuráveis;
 7. nunca reutilize automaticamente API key de IA como chave PageSpeed/CrUX ou vice-versa;
-8. não acrescente análise LLM de métricas M21 implicitamente;
-9. preserve raw response artifacts e telemetria M21 sem secrets;
+8. não acrescente análise LLM de métricas Web Performance externo implicitamente;
+9. preserve raw response artifacts e telemetria Web Performance externo sem secrets;
 10. mantenha `report/web-performance.html` claramente separado de `ai-usage.html` e do score SearchGEO.
 
 ## 7. Não reabrir decisões
@@ -106,7 +106,7 @@ A execução deve interromper quando houver pelo menos uma condição que depend
 1. conflito normativo real não solucionável pela precedência documental;
 2. impossibilidade técnica material após investigação;
 3. alteração necessária de escopo ou comportamento funcional aprovado;
-4. mudança material em scoring, priorização ou interpretação oficial — inclusive incorporar M21 ao `SCORE-GEO-002`;
+4. mudança material em scoring, priorização ou interpretação oficial — inclusive incorporar Web Performance externo ao `SCORE-GEO-002`;
 5. política ou autorização corporativa necessária;
 6. credencial, segredo ou acesso externo indispensável e indisponível para um gate obrigatório;
 7. ação externa obrigatória que a ferramenta disponível não consiga executar, exceto exclusão física diferida de branches coberta por D-036;
@@ -125,7 +125,7 @@ Permanecem sujeitas às decisões D-028 e D-029, entre elas:
 - autorização corporativa de IA externa;
 - provider permitido;
 - execução de browser/Chromium;
-- autorização/quotas para PageSpeed/CrUX quando M21 for usado;
+- autorização/quotas para PageSpeed/CrUX quando Web Performance externo for usado;
 - distribuição portátil;
 - filesystem;
 - SQLite;

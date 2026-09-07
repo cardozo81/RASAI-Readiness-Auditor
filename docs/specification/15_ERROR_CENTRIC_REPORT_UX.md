@@ -1,10 +1,10 @@
 # ERROR_CENTRIC_REPORT_UX.md
 
-**Status:** APPROVED — M15 historical contract evolved by REPORT-SITE-GEO-001 + M20/M21/M22/M23
+**Status:** APPROVED — Experiência e organização dos relatórios historical contract evolved by REPORT-SITE-GEO-001 + Sugestões e remediação de conteúdo por IA/Web Performance externo/Acessibilidade automatizada e diagnósticos Web/Synthetic Navigation Apdex
 
 ## 1. Objetivo
 
-M15 introduziu uma visão orientada a problemas além da visão orientada a página. A evolução REPORT-SITE-GEO-001 preserva o princípio de separação por domínio, mas substitui o contrato público de dois HTMLs soltos por um mini-site estático.
+Experiência e organização dos relatórios introduziu uma visão orientada a problemas além da visão orientada a página. A evolução REPORT-SITE-GEO-001 preserva o princípio de separação por domínio, mas substitui o contrato público de dois HTMLs soltos por um mini-site estático.
 
 A UX do report deve privilegiar **decisão e interpretação**, não volume de informação. Dados detalhados continuam disponíveis por expansão, atalhos e páginas especializadas sem duplicar telemetria desnecessariamente.
 
@@ -21,7 +21,7 @@ O conjunto efetivamente materializado depende das capacidades executadas, mas se
    ├─ mobile.html                 # quando aplicável
    ├─ desktop.html                # quando aplicável
    ├─ remediation.html
-   ├─ content-suggestions.html    # M20
+   ├─ content-suggestions.html    # Sugestões e remediação de conteúdo por IA
    ├─ ai-usage.html
    ├─ references.html
    ├─ accessibility.html          # quando materializada
@@ -149,11 +149,11 @@ Deve preservar:
 
 Detalhes extensos podem ser colapsados com HTML nativo (`details/summary`) para reduzir ruído sem perder rastreabilidade.
 
-Quando existir M20 para o mesmo audit, a página deve disponibilizar link claro para `content-suggestions.html` sem misturar sugestão editorial auxiliar com finding/scoring.
+Quando existir Sugestões e remediação de conteúdo por IA para o mesmo audit, a página deve disponibilizar link claro para `content-suggestions.html` sem misturar sugestão editorial auxiliar com finding/scoring.
 
 ## 9. Conteúdo, contexto editorial e Structured Data
 
-`content-suggestions.html` é a superfície de M20.
+`content-suggestions.html` é a superfície de Sugestões e remediação de conteúdo por IA.
 
 Deve manter a mesma identidade visual do report e mostrar prioritariamente:
 
@@ -336,4 +336,3 @@ Toda página final deve informar, de forma compacta e visível, a natureza dos i
 Taxonomia pública mínima: `RAW_OBSERVATION`, `EXTERNAL_STANDARD`, `OFFICIAL_PLATFORM_GUIDANCE`, `EXTERNAL_DEFINED_METRIC`, `SEARCHGEO_HEURISTIC`, `OPERATIONAL_TELEMETRY` e `AI_DERIVED_ADVISORY`.
 
 Informação metodológica essencial não pode depender somente de tooltip. Uma fonte oficial valida apenas o fenômeno no seu escopo e nunca deve ser usada para sugerir homologação externa do `SCORE-GEO-002`.
-

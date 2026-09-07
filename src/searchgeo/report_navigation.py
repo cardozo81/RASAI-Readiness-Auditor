@@ -295,9 +295,9 @@ def _enhance_ai_cost_total(report_dir: Path) -> None:
     total = sum(costs, Decimal("0"))
     breakdown = []
     if m18_cost is not None:
-        breakdown.append(f"Análise M18 {_format_cost(m18_cost)} USD")
+        breakdown.append(f"Análise semântica por IA {_format_cost(m18_cost)} USD")
     if m20_cost is not None:
-        breakdown.append(f"Remediação M20 {_format_cost(m20_cost)} USD")
+        breakdown.append(f"Remediação textual por IA {_format_cost(m20_cost)} USD")
     banner = (
         "<section class='notice cost-total' data-api-cost-total='true'>"
         f"<strong>Consumo projetado total de APIs com custo estimado: {_format_cost(total)} USD</strong>"

@@ -1,25 +1,25 @@
-# Synthetic User Experience Apdex — M25
+# Synthetic User Experience Apdex — Synthetic User Experience Apdex
 
 ## 1. Finalidade
 
-O M25 adiciona ao SearchGEO um **Synthetic User Experience Apdex calibrável**, separado do M23 `Synthetic Navigation Apdex` Standard.
+O Synthetic User Experience Apdex adiciona ao SearchGEO um **Synthetic User Experience Apdex calibrável**, separado do Synthetic Navigation Apdex `Synthetic Navigation Apdex` Standard.
 
 A distinção é obrigatória:
 
 | Domínio | Natureza | Task / população | Thresholds |
 |---|---|---|---|
-| M23 | laboratório sintético controlado | `NAVIGATION_LOAD`, por URL/dispositivo | `T` e `4T` conforme Apdex Standard |
-| M25 | laboratório sintético enriquecido/calibrável | `SYNTHETIC_LOAD_ACTION`, mix explícito de dispositivos | Satisfied e Frustrated independentes ou importados |
+| Synthetic Navigation Apdex | laboratório sintético controlado | `NAVIGATION_LOAD`, por URL/dispositivo | `T` e `4T` conforme Apdex Standard |
+| Synthetic User Experience Apdex | laboratório sintético enriquecido/calibrável | `SYNTHETIC_LOAD_ACTION`, mix explícito de dispositivos | Satisfied e Frustrated independentes ou importados |
 | Dynatrace RUM | usuários reais | user actions reais observadas no período | configuração efetiva da aplicação/action |
 
-M25 **não é RUM** e não deve ser usado para prometer igualdade numérica com Dynatrace. Ele reduz diferenças metodológicas controláveis — KPM, thresholds, política de erros, sessão e mix de dispositivos — para tornar o delta restante mais interpretável.
+Synthetic User Experience Apdex **não é RUM** e não deve ser usado para prometer igualdade numérica com Dynatrace. Ele reduz diferenças metodológicas controláveis — KPM, thresholds, política de erros, sessão e mix de dispositivos — para tornar o delta restante mais interpretável.
 
 ## 2. Pré-requisitos
 
 - dependências normais do SearchGEO instaladas;
 - Chromium Playwright disponível;
 - autorização para executar navegações repetidas contra o alvo;
-- M23 habilitado com `T` explícito;
+- Synthetic Navigation Apdex habilitado com `T` explícito;
 - quando houver importação live do Dynatrace, `DYNATRACE_API_TOKEN` definido no ambiente.
 
 O token Dynatrace não possui flag CLI e não é persistido pelo SearchGEO.
@@ -61,7 +61,7 @@ python -m searchgeo audit "https://SEU-ALVO/" `
 
 `1.0`, `2.0` e `6.0` acima são **valores de smoke**, não recomendações universais e não são declarados como defaults do Dynatrace. Para comparação real, substitua-os pela configuração efetiva conhecida da aplicação.
 
-Com 10 amostras M25 e mix `60/30/10`, a alocação esperada é:
+Com 10 amostras Synthetic User Experience Apdex e mix `60/30/10`, a alocação esperada é:
 
 ```text
 MOBILE  = 6
@@ -70,20 +70,20 @@ TABLET  = 1
 TOTAL   = 10
 ```
 
-O M23 com 5 amostras será corretamente marcado como grupo pequeno diagnóstico; isso é esperado no smoke.
+O Synthetic Navigation Apdex com 5 amostras será corretamente marcado como grupo pequeno diagnóstico; isso é esperado no smoke.
 
 ## 4. O que verificar no smoke
 
 Após a execução:
 
-1. a auditoria principal continua concluindo independentemente do M25;
-2. `report/apdex.html` existe e mantém a metodologia M23 `T/4T`;
+1. a auditoria principal continua concluindo independentemente do Synthetic User Experience Apdex;
+2. `report/apdex.html` existe e mantém a metodologia Synthetic Navigation Apdex `T/4T`;
 3. `report/apdex-experience.html` existe;
 4. o menu do report contém `Apdex calibrado` somente quando a página existe;
 5. `apdex-experience.html` mostra KPM, Satisfied/Frustrated, error policy, session mode e mix;
 6. aparecem grupos `POPULATION`, `MOBILE`, `DESKTOP` e `TABLET` conforme o mix;
 7. o total das amostras válidas da população corresponde à soma dos devices;
-8. a página M25 mostra o score M23 Standard quando o contexto equivalente estiver disponível;
+8. a página Synthetic User Experience Apdex mostra o score Synthetic Navigation Apdex Standard quando o contexto equivalente estiver disponível;
 9. XHR/fetch, recursos tardios e erros aparecem somente quando observados;
 10. `console.error` não força `Frustrated` sozinho;
 11. erro qualificável força `Frustrated` quando `errors_affect_apdex=true`;
@@ -91,7 +91,7 @@ Após a execução:
 
 ## 5. Verificação de persistência
 
-No `audit.db`, quando M25 executa, devem existir:
+No `audit.db`, quando Synthetic User Experience Apdex executa, devem existir:
 
 ```text
 synthetic_ux_apdex_runs
@@ -99,7 +99,7 @@ synthetic_ux_apdex_samples
 synthetic_ux_apdex_summaries
 ```
 
-As tabelas M23 continuam separadas em `synthetic_apdex_*`.
+As tabelas Synthetic Navigation Apdex continuam separadas em `synthetic_apdex_*`.
 
 O grupo consolidado por página usa:
 
@@ -165,7 +165,7 @@ python -m searchgeo audit "https://SEU-ALVO/" `
   --apdex-experience-concurrency 1
 ```
 
-Quando o JSON contém KPM/thresholds compatíveis, eles substituem a calibração manual. Se a KPM não puder ser medida pelo M25 com equivalência suficiente, a execução M25 é recusada de forma fail-open; não há fallback silencioso para outra KPM.
+Quando o JSON contém KPM/thresholds compatíveis, eles substituem a calibração manual. Se a KPM não puder ser medida pelo Synthetic User Experience Apdex com equivalência suficiente, a execução Synthetic User Experience Apdex é recusada de forma fail-open; não há fallback silencioso para outra KPM.
 
 ## 8. Importação live pela Configuration API Dynatrace
 
@@ -183,7 +183,7 @@ Depois execute com:
 --dynatrace-application-id APPLICATION-XXXXXXXXXXXX
 ```
 
-O M25 lê apenas dados necessários à calibração e persiste somente metadados sanitizados. O payload integral da configuração não é copiado para o audit workspace.
+O Synthetic User Experience Apdex lê apenas dados necessários à calibração e persiste somente metadados sanitizados. O payload integral da configuração não é copiado para o audit workspace.
 
 ## 9. Cold versus warm
 
@@ -205,7 +205,7 @@ Para comparação com APM/RUM, configure o escopo que melhor represente a polít
 
 ## 11. Grupos de 100 e 1000 amostras
 
-M25 usa 100 amostras totais por página como default. `1000` é suportado, mas deve ser tratado como execução de carga relevante.
+Synthetic User Experience Apdex usa 100 amostras totais por página como default. `1000` é suportado, mas deve ser tratado como execução de carga relevante.
 
 Exemplo de distribuição:
 
@@ -228,7 +228,7 @@ Aumentar N reduz ruído amostral do laboratório. Não transforma o conjunto sin
 
 ## 12. Interpretação do delta para Dynatrace
 
-Antes de interpretar `SearchGEO M25 != Dynatrace`, confira:
+Antes de interpretar `SearchGEO Synthetic User Experience Apdex != Dynatrace`, confira:
 
 - mesma URL/user action;
 - mesma KPM;
@@ -243,4 +243,4 @@ Mesmo com esses itens alinhados, divergência é esperada porque o Dynatrace RUM
 
 ## 13. Referências
 
-A especificação normativa do M25 está em `docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md` e referencia a Apdex Technical Specification, documentação Dynatrace de RUM/Apdex/configuração, Chrome DevTools Protocol e W3C Performance Timeline.
+A especificação normativa do Synthetic User Experience Apdex está em `docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md` e referencia a Apdex Technical Specification, documentação Dynatrace de RUM/Apdex/configuração, Chrome DevTools Protocol e W3C Performance Timeline.

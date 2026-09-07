@@ -308,7 +308,7 @@ desktop
 both
 ```
 
-Somente snapshots selecionados entram em M7. Isso reduz custo de IA quando apenas Mobile é necessário.
+Somente snapshots selecionados entram em Análise semântica e fallback. Isso reduz custo de IA quando apenas Mobile é necessário.
 
 O engine ainda mantém o modelo conceitual de dimensões por dispositivo; o report site evita exibir um contexto não auditado como se fosse resultado válido.
 

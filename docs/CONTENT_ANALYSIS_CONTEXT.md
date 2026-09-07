@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-O SearchGEO pode fornecer à camada de IA um **contexto editorial explícito** para evitar análises genéricas de conteúdo. Esse contexto condiciona a interpretação semântica e as sugestões M20, mas **não altera aritmeticamente o `SCORE-GEO-002`**, não cria um score de E-E-A-T/YMYL e não representa um fator oficial isolado de ranking.
+O SearchGEO pode fornecer à camada de IA um **contexto editorial explícito** para evitar análises genéricas de conteúdo. Esse contexto condiciona a interpretação semântica e as sugestões Sugestões e remediação de conteúdo por IA, mas **não altera aritmeticamente o `SCORE-GEO-002`**, não cria um score de E-E-A-T/YMYL e não representa um fator oficial isolado de ranking.
 
 A configuração é especialmente útil em conteúdo **YMYL (Your Money or Your Life)**, no qual informações imprecisas podem afetar saúde, segurança, estabilidade financeira ou o bem-estar da sociedade.
 
@@ -10,7 +10,7 @@ A configuração é especialmente útil em conteúdo **YMYL (Your Money or Your 
 
 Fontes normativas/conceituais usadas nesta implementação:
 
-1. **Google Search Central — Creating helpful, reliable, people-first content**  
+1. **Google Search Central — Creating helpful, reliable, people-first content**
    <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
 
    A documentação declara, entre outros pontos, que:
@@ -22,12 +22,12 @@ Fontes normativas/conceituais usadas nesta implementação:
    - propósito do site, público existente/pretendido, experiência em primeira mão, completude e atualização são aspectos relevantes de conteúdo people-first;
    - E-E-A-T **não é, por si só, um fator específico de ranking**.
 
-2. **Google — Search Quality Rater Guidelines / overview**  
+2. **Google — Search Quality Rater Guidelines / overview**
    <https://services.google.com/fh/files/misc/hsw-sqrg.pdf>
 
    As diretrizes são referência conceitual para propósito da página, Page Quality e Needs Met. Ratings humanos não são usados diretamente como ranking individual de uma página.
 
-3. **Google — How AI Overviews in Search work**  
+3. **Google — How AI Overviews in Search work**
    <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf>
 
    O Google informa que consultas YMYL recebem uma barra mais alta para informações de suporte provenientes de fontes confiáveis.
@@ -194,7 +194,7 @@ O report `content-suggestions.html` mostra:
 - origem global `MANUAL`, `MIXED` ou `AUTO`;
 - explicações contextuais em tooltip;
 - referências oficiais;
-- telemetria das chamadas M20 quando IA é usada.
+- telemetria das chamadas Sugestões e remediação de conteúdo por IA quando IA é usada.
 
 O objetivo é que a interpretação continue reproduzível mesmo que as variáveis de ambiente sejam alteradas depois da execução.
 

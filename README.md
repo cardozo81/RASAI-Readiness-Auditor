@@ -16,22 +16,22 @@ Capacidades integradas:
 - dashboard executivo com síntese final dos indicadores, sem misturar metodologias;
 - análise semântica opcional por IA;
 - remediação textual evidence-bound e revisão/proposta JSON-LD;
-- **M24 Crawling, Discovery & AI Access** com diagnóstico determinístico de `robots.txt`, crawlers, sitemaps, discovery, `llms.txt` experimental e remediação técnica opcional por IA;
+- **Rastreamento, descoberta e acesso de crawlers Crawling, Discovery & AI Access** com diagnóstico determinístico de `robots.txt`, crawlers, sitemaps, discovery, `llms.txt` experimental e remediação técnica opcional por IA;
 - PageSpeed/Lighthouse e Core Web Vitals/CrUX como domínio separado;
 - Acessibilidade automatizada projetada separadamente a partir do artifact Lighthouse;
-- **M23 Synthetic Navigation Apdex** em Chromium, separado de Lighthouse/CrUX e do SGRI;
-- **M25 Synthetic User Experience Apdex** calibrável, com população Mobile/Desktop/Tablet, separado do M23 e explicitamente não-RUM;
+- **Synthetic Navigation Apdex Synthetic Navigation Apdex** em Chromium, separado de Lighthouse/CrUX e do SGRI;
+- **Synthetic User Experience Apdex Synthetic User Experience Apdex** calibrável, com população Mobile/Desktop/Tablet, separado do Synthetic Navigation Apdex e explicitamente não-RUM;
 - relatórios históricos/consolidados offline sobre múltiplos `AUD-*`, com índice analítico reconstruível e snapshots HTML estáticos;
 - console interativo com preflight, progresso, custo/quota, timeouts, persistência de configuração e abertura de artifacts.
 
-Em implementação no M26, sem alterar scoring:
+Observed Generative Visibility, sem alterar scoring:
 
 - **Observed Generative Visibility** import-first, com outcomes observados por fonte/período em `report/ai-visibility.html`;
 - suporte inicial ao contrato `OGV-IMPORT-001` para Bing Webmaster Tools AI Performance normalizado e query-runs controlados;
 - preservação do artifact por SHA-256, validação same-origin e Citation Presence Rate somente sobre runs válidos;
 - nenhuma coleta automática por scraping e nenhum endpoint de AI Performance presumido quando não houver API pública documentada.
 
-> O `SGRI-001` é um índice proprietário, evidence-based e reprodutível do SearchGEO. Enquanto a aritmética não mudar, o banco preserva `SCORE-GEO-002` como versão do motor de cálculo. Lighthouse, Core Web Vitals, Acessibilidade automatizada, M23/M25 Apdex, diagnósticos M24 e outcomes M26 possuem metodologias/domínios próprios e não são convertidos silenciosamente no SGRI.
+> O `SGRI-001` é um índice proprietário, evidence-based e reprodutível do SearchGEO. Enquanto a aritmética não mudar, o banco preserva `SCORE-GEO-002` como versão do motor de cálculo. Lighthouse, Core Web Vitals, Acessibilidade automatizada, Synthetic Navigation Apdex/Synthetic User Experience Apdex Apdex, diagnósticos Rastreamento, descoberta e acesso de crawlers e outcomes Observed Generative Visibility possuem metodologias/domínios próprios e não são convertidos silenciosamente no SGRI.
 
 ## Instalação rápida — Windows
 
@@ -64,7 +64,7 @@ Compatibilidade principal:
 | SQLite | local/embarcado |
 | IA externa | opcional |
 | PageSpeed/CrUX | opcional |
-| M26 Observed Visibility | import local; sem credencial externa nesta versão |
+| Observed Generative Visibility Observed Visibility | import local; sem credencial externa nesta versão |
 
 Detalhes do bootstrap e fallback manual: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
@@ -111,7 +111,7 @@ A opção `C` é independente do pipeline de auditoria: lê `AUD-*/audit.db` em 
 
 A opção `E` agrupa as variáveis por domínios funcionais. Cada variável mostra finalidade, domínio aceito, default efetivo, dependências, custo/impacto e referência; `D` abre diretamente a documentação detalhada. Veja [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md).
 
-M26 Observed Generative Visibility é inicialmente uma superfície CLI/import-first separada; não é uma coleta automática executada pelo menu de auditoria.
+Observed Generative Visibility Observed Generative Visibility é inicialmente uma superfície CLI/import-first separada; não é uma coleta automática executada pelo menu de auditoria.
 
 ### Configuração persistente
 
@@ -151,6 +151,12 @@ Detalhe
 A atualização usa processo/SQLite/log local e não gera polling HTTP/API adicional.
 
 Detalhes: [docs/INTERACTIVE_CONSOLE.md](docs/INTERACTIVE_CONSOLE.md).
+
+## Operação sem IA
+
+A IA é opcional. Com `--ai-provider none`, o SearchGEO continua executando as análises determinísticas de acesso técnico, redirects/TLS, indexabilidade, extração de conteúdo, crawling/discovery e comparação entre dispositivos. Synthetic Navigation Apdex e Synthetic User Experience Apdex também são independentes de LLM quando habilitados. Lighthouse e Core Web Vitals permanecem independentes de IA, mas dependem das respectivas fontes externas quando configuradas.
+
+As dimensões predominantemente semânticas podem permanecer `UNKNOWN`/`NOT_CONSOLIDATED` sem IA. Isso reduz Coverage e pode impedir o Overall do SGRI-001; não transforma ausência de IA em falha do website e não aplica score zero artificial.
 
 ## IA
 
@@ -203,9 +209,9 @@ Default de timeout IA:
 180 s por tentativa
 ```
 
-### Remediação técnica M24 por IA
+### Remediação técnica Rastreamento, descoberta e acesso de crawlers por IA
 
-Os diagnósticos determinísticos M24 executam independentemente de IA. Para habilitar apenas a camada técnica advisory:
+Os diagnósticos determinísticos Rastreamento, descoberta e acesso de crawlers executam independentemente de IA. Para habilitar apenas a camada técnica advisory:
 
 ```powershell
 searchgeo audit https://example.com `
@@ -241,11 +247,11 @@ Credencial configurada não garante saldo, quota, plano ou acesso ao modelo. O p
 
 MiMo PAYG usa credencial `sk-...` no adapter atual. Token Plan `tp-...` pertence a produto/endpoint diferente.
 
-M26 não exige credencial externa na implementação import-first; ele lê um JSON local normalizado.
+Observed Generative Visibility não exige credencial externa na implementação import-first; ele lê um JSON local normalizado.
 
-## Crawling, Discovery & AI Access — M24
+## Crawling, Discovery & AI Access — Rastreamento, descoberta e acesso de crawlers
 
-M24 aprofunda o diagnóstico técnico de descoberta sem criar novo score. Ele cobre, conforme evidência disponível:
+Rastreamento, descoberta e acesso de crawlers aprofunda o diagnóstico técnico de descoberta sem criar novo score. Ele cobre, conforme evidência disponível:
 
 - `robots.txt` e acesso por crawler;
 - Googlebot, OAI-SearchBot, GPTBot e Google-Extended com papéis separados;
@@ -298,7 +304,7 @@ Quando PageSpeed falha, o relatório preserva a causa real (`timeout`, HTTP, quo
 
 O report nunca converte ausência de dado em resultado fictício do website.
 
-## Synthetic Navigation Apdex — M23
+## Synthetic Navigation Apdex — Synthetic Navigation Apdex
 
 Exemplo de smoke controlado:
 
@@ -340,9 +346,9 @@ Grupos com menos de 100 amostras válidas são diagnóstico small-group e recebe
 
 Synthetic Apdex não usa LLM nem chama PageSpeed/CrUX, mas gera navegações reais e tráfego HTTP contra o alvo.
 
-## Synthetic User Experience Apdex — M25
+## Synthetic User Experience Apdex — Synthetic User Experience Apdex
 
-M25 adiciona um domínio Apdex calibrável para user-action telemetry sintética. Pode usar população explícita Mobile/Desktop/Tablet, session mode, KPM temporal, thresholds e política de erros configurados ou importados.
+Synthetic User Experience Apdex adiciona um domínio Apdex calibrável para user-action telemetry sintética. Pode usar população explícita Mobile/Desktop/Tablet, session mode, KPM temporal, thresholds e política de erros configurados ou importados.
 
 Exemplo manual:
 
@@ -364,9 +370,9 @@ report/apdex-experience.html
 
 Detalhes: [docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md](docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md).
 
-## Observed Generative Visibility — M26
+## Observed Generative Visibility — Observed Generative Visibility
 
-M26 mede **outcomes observados/importados**, não readiness. Ele atua depois que já existe um `AUD-*` e não chama mecanismos de busca por conta própria.
+Observed Generative Visibility mede **outcomes observados/importados**, não readiness. Ele atua depois que já existe um `AUD-*` e não chama mecanismos de busca por conta própria.
 
 Importação:
 
@@ -441,7 +447,7 @@ searchgeo audit `
 audits/<AUD-ID>/
 ├─ audit.db
 ├─ artifacts/
-│  └─ m26/                    # quando houver import M26
+│  └─ m26/                    # quando houver import Observed Generative Visibility
 ├─ logs/
 │  └─ audit.log
 └─ report/
@@ -451,12 +457,12 @@ audits/<AUD-ID>/
    ├─ desktop.html             # evidências/findings; condicional
    ├─ remediation.html
    ├─ content-suggestions.html
-   ├─ crawling-discovery.html  # M24
+   ├─ crawling-discovery.html  # Rastreamento, descoberta e acesso de crawlers
    ├─ accessibility.html       # quando materializado
    ├─ web-performance.html
-   ├─ apdex.html               # M23, quando habilitado/materializado
-   ├─ apdex-experience.html    # M25, quando habilitado/materializado
-   ├─ ai-visibility.html       # M26, após import/report
+   ├─ apdex.html               # Synthetic Navigation Apdex, quando habilitado/materializado
+   ├─ apdex-experience.html    # Synthetic User Experience Apdex, quando habilitado/materializado
+   ├─ ai-visibility.html       # Observed Generative Visibility, após import/report
    ├─ ai-usage.html
    ├─ references.html
    └─ css/site.css
@@ -468,11 +474,11 @@ audits/<AUD-ID>/
 
 `searchgeo.html` é a página exclusiva dos indicadores agregados SearchGEO. Mobile/Desktop não repetem Overall, dimensões, Coverage, Confidence ou Consolidation.
 
-`crawling-discovery.html` é a página exclusiva do domínio M24 e não recalcula o SGRI.
+`crawling-discovery.html` é a página exclusiva do domínio Rastreamento, descoberta e acesso de crawlers e não recalcula o SGRI.
 
-`apdex-experience.html` é o domínio M25 e permanece separado do M23 Standard.
+`apdex-experience.html` é o domínio Synthetic User Experience Apdex e permanece separado do Synthetic Navigation Apdex Standard.
 
-`ai-visibility.html` é o domínio observacional M26. **Readiness e visibilidade observada não são fundidos em um score comum.**
+`ai-visibility.html` é o domínio observacional Observed Generative Visibility. **Readiness e visibilidade observada não são fundidos em um score comum.**
 
 Os relatórios históricos usam uma área separada e não escrevem nos workspaces `AUD-*`:
 
@@ -499,10 +505,10 @@ A página inicial inclui **Configuração × resultado obtido** quando essa proj
 - variáveis de ambiente não substituem um secret manager quando esse nível de proteção for necessário;
 - secrets não devem aparecer em reports/logs;
 - não trate key configurada como prova de saldo/quota;
-- M24 não segue automaticamente sitemap cross-origin declarado sem política segura de aquisição/autorização;
-- remediação técnica M24 não deve automatizar policy de crawler/treinamento sem decisão humana;
-- não execute M23/M25 Apdex em volume relevante contra produção sem autorização;
-- M26 rejeita URLs cross-origin e não faz scraping de portal de webmaster.
+- Rastreamento, descoberta e acesso de crawlers não segue automaticamente sitemap cross-origin declarado sem política segura de aquisição/autorização;
+- remediação técnica Rastreamento, descoberta e acesso de crawlers não deve automatizar policy de crawler/treinamento sem decisão humana;
+- não execute Synthetic Navigation Apdex/Synthetic User Experience Apdex Apdex em volume relevante contra produção sem autorização;
+- Observed Generative Visibility rejeita URLs cross-origin e não faz scraping de portal de webmaster.
 
 ## Identificadores internos históricos
 

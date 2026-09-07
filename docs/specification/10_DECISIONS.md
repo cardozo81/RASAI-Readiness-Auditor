@@ -94,12 +94,12 @@ Relatório destinado ao usuário será prioritariamente em português.
 Termos técnicos oficiais podem permanecer em inglês quando tradução reduzir precisão; glossário/contexto são obrigatórios.
 
 ### D-032
-Git/GitHub são adotados a partir do M0 como controle de versão e repositório de desenvolvimento.
+Git/GitHub são adotados a partir do Bootstrap e fundação do projeto como controle de versão e repositório de desenvolvimento.
 
 Essa adoção não altera o requisito de execução local e não torna GitHub dependência de runtime do produto.
 
 ### D-033
-Quando um escopo ou marco implementado em branch estiver encerrado, validado e aprovado para integração, todo o conteúdo validado deve ser integrado em `main`.
+Quando um escopo ou alteração implementada em branch estiver encerrado, validado e aprovado para integração, todo o conteúdo validado deve ser integrado em `main`.
 
 Após o merge, deve-se confirmar que `main` contém integralmente o resultado aprovado e que a branch de trabalho não possui conteúdo exclusivo pendente.
 
@@ -139,10 +139,10 @@ Se a ferramenta utilizada não permitir excluir a branch remota, deve-se registr
 
 A pendência de limpeza não invalida o código já integrado em `main`. Porém, quando a conclusão integral do marco ou da alteração de governança for gate para avanço em cascata, aplica-se D-036.
 
-Nenhuma branch de marco encerrado deve permanecer no repositório, salvo exceção futura explicitamente justificada e documentada.
+Nenhuma branch de trabalho encerrado deve permanecer no repositório, salvo exceção futura explicitamente justificada e documentada.
 
 ### D-036
-Para a execução automática sequencial M4 → M12, a exclusão física das branches remotas encerradas fica diferida para uma rotina manual única ao final da cascata.
+Para a execução automática sequencial Extração e evidências → Testes críticos e baseline local estável, a exclusão física das branches remotas encerradas fica diferida para uma rotina manual única ao final da cascata.
 
 A exclusão de branch deixa de ser blocker entre marcos, desde que, após cada merge:
 
@@ -153,7 +153,7 @@ A exclusão de branch deixa de ser blocker entre marcos, desde que, após cada m
 
 Branches registradas nessa lista não podem ser reutilizadas para novos marcos nem receber novos commits após o encerramento correspondente.
 
-Ao final da cascata, deve ser apresentada ao humano a lista completa das branches remotas que podem e devem ser excluídas manualmente. A limpeza física continua obrigatória como housekeeping do repositório, mas sua execução diferida não bloqueia o avanço M4 → M12 nem invalida o encerramento funcional de cada marco.
+Ao final da cascata, deve ser apresentada ao humano a lista completa das branches remotas que podem e devem ser excluídas manualmente. A limpeza física continua obrigatória como housekeeping do repositório, mas sua execução diferida não bloqueia o avanço Extração e evidências → Testes críticos e baseline local estável nem invalida o encerramento funcional de cada marco.
 
 A mesma regra de limpeza diferida aplica-se às branches de governança criadas especificamente para viabilizar esta cascata.
 
@@ -178,7 +178,7 @@ JSON-LD/Structured Data é classificado como **OPCIONAL / REFORÇO**, não como 
 
 O foco primário desta classificação é Google Search e seus recursos de IA. Outros mecanismos podem ser documentados como sinais complementares sem alterar a regra de scoring.
 
-### D-038 — M21 Web Performance externo e preservação do SCORE-GEO-002
+### D-038 — Web Performance externo Web Performance externo e preservação do SCORE-GEO-002
 
 Core Web Vitals/CrUX e Lighthouse entram como **evidência externa complementar** e não como substituição, calibração implícita ou nova fórmula do `SCORE-GEO-002`.
 
@@ -188,54 +188,54 @@ Decisão aprovada:
 2. Lighthouse Performance, Accessibility, Best Practices e SEO permanecem scores do Lighthouse e devem ser rotulados como tais;
 3. LCP, INP e CLS de CrUX representam experiência real agregada quando houver amostra suficiente e não constituem automaticamente RuleExecution/ScoreContribution do SearchGEO;
 4. ausência/erro de PageSpeed ou CrUX é limitação de coleta, nunca website FAIL por si só;
-5. coleta externa M21 é default OFF, com limite de páginas e timeout parametrizáveis;
-6. M21 adiciona zero chamadas LLM e não pode aumentar consumo OpenAI/DeepSeek/MiMo por efeito colateral;
+5. coleta externa Web Performance externo é default OFF, com limite de páginas e timeout parametrizáveis;
+6. Web Performance externo adiciona zero chamadas LLM e não pode aumentar consumo OpenAI/DeepSeek/MiMo por efeito colateral;
 7. PageSpeed/CrUX possuem credenciais isoladas e opcionais conforme o serviço;
-8. M21 é enrichment pós-auditoria e fail-open em relação ao resultado principal;
-9. resultados M21 são persistidos em tabelas/artifacts auxiliares e apresentados em `report/web-performance.html`;
-10. qualquer futura incorporação de métrica M21 ao scoring exigirá decisão humana explícita, novo contrato/versionamento de scoring, documentação de fundamento e regressão comparativa; não pode ocorrer silenciosamente.
+8. Web Performance externo é enrichment pós-auditoria e fail-open em relação ao resultado principal;
+9. resultados Web Performance externo são persistidos em tabelas/artifacts auxiliares e apresentados em `report/web-performance.html`;
+10. qualquer futura incorporação de métrica Web Performance externo ao scoring exigirá decisão humana explícita, novo contrato/versionamento de scoring, documentação de fundamento e regressão comparativa; não pode ocorrer silenciosamente.
 
 D-038 complementa D-037; não a supersede.
 
-### D-039 — M24 Crawling/Discovery, políticas de crawler e IA técnica
+### D-039 — Rastreamento, descoberta e acesso de crawlers Crawling/Discovery, políticas de crawler e IA técnica
 
-M24 é aprovado como domínio técnico **aditivo, pós-scoring e não-scoring**. Ele aprofunda evidências de rastreamento/descoberta sem criar um novo índice nem recalibrar `SCORE-GEO-002`/`SGRI-001`.
+Rastreamento, descoberta e acesso de crawlers é aprovado como domínio técnico **aditivo, pós-scoring e não-scoring**. Ele aprofunda evidências de rastreamento/descoberta sem criar um novo índice nem recalibrar `SCORE-GEO-002`/`SGRI-001`.
 
 Decisão aprovada:
 
-1. diagnósticos M24 permanecem determinísticos e persistidos com `scoring_impact=NONE`;
-2. `robots.txt` e sitemaps devem seguir standards/guidance públicos aplicáveis, mas severidades M24 continuam metodologia interna do SearchGEO;
+1. diagnósticos Rastreamento, descoberta e acesso de crawlers permanecem determinísticos e persistidos com `scoring_impact=NONE`;
+2. `robots.txt` e sitemaps devem seguir standards/guidance públicos aplicáveis, mas severidades Rastreamento, descoberta e acesso de crawlers continuam metodologia interna do SearchGEO;
 3. uma declaração absoluta `Sitemap:` pode apontar para host diferente; o auditor preserva essa declaração, porém não faz fetch cross-origin automático a partir dela enquanto não existir política explícita de SSRF/DNS/IP/redirect/autorização;
 4. a restrição de fetch cross-origin é limite de segurança/escopo do auditor e não finding do website;
 5. OAI-SearchBot representa descoberta/surfacing para Search da OpenAI; GPTBot permanece controle relacionado a potencial treinamento. O estado de um não pode ser inferido a partir do outro;
 6. Google-Extended é token de produto em `robots.txt`, não user-agent HTTP Search independente, e não afeta inclusão/ranking na Pesquisa Google conforme documentação pública do Google;
 7. `llms.txt` permanece proposta comunitária experimental: ausência, erro ou não adoção não reduz score/readiness e o arquivo não substitui robots, sitemap, canonical, HTML semântico ou conteúdo acessível;
 8. IndexNow não pode ser declarado configurado/bem-sucedido por auditoria passiva sem evidência explícita, log ou artifact verificável; na ausência disso, o estado é não determinável;
-9. remediação técnica M24 por IA é default OFF, evidence-bound, advisory e exige revisão humana;
-10. IA M24 não pode inventar URLs/policies/canonicals/datas/tokens, decidir unilateralmente política de treinamento/crawler nem alterar RuleExecution, Finding GEO, Recommendation GEO, Score, Coverage, Confidence ou Consolidation;
+9. remediação técnica Rastreamento, descoberta e acesso de crawlers por IA é default OFF, evidence-bound, advisory e exige revisão humana;
+10. IA Rastreamento, descoberta e acesso de crawlers não pode inventar URLs/policies/canonicals/datas/tokens, decidir unilateralmente política de treinamento/crawler nem alterar RuleExecution, Finding GEO, Recommendation GEO, Score, Coverage, Confidence ou Consolidation;
 11. hard source blocker confirmado impede aquisição adicional `/llms.txt` e chamada técnica de IA dependente do corpus;
 12. `report/crawling-discovery.html` é a página canônica desse domínio e deve usar navegação/CSS compartilhados;
-13. qualquer futura incorporação de diagnóstico M24 ao scoring exige decisão explícita, novo versionamento e regressão comparativa; não pode ocorrer implicitamente.
+13. qualquer futura incorporação de diagnóstico Rastreamento, descoberta e acesso de crawlers ao scoring exige decisão explícita, novo versionamento e regressão comparativa; não pode ocorrer implicitamente.
 
 D-039 complementa D-037/D-038; não as supersede.
 
-### D-040 — M26 Observed Generative Visibility separado de readiness
+### D-040 — Observed Generative Visibility Observed Generative Visibility separado de readiness
 
 Outcomes observados de Search/AI Search são aprovados como domínio **aditivo, import-first e não-scoring**, separado do `SGRI-001`/`SCORE-GEO-002`.
 
 Decisão aprovada:
 
 1. `Readiness` e `Observed Generative Visibility` são conceitos distintos e não podem ser fundidos em um score comum sem nova decisão/versionamento/validação;
-2. M26 inicia com contrato local versionado `OGV-IMPORT-001`, sem scraping de portal de webmaster e sem endpoint de API presumido ou não documentado;
+2. Observed Generative Visibility inicia com contrato local versionado `OGV-IMPORT-001`, sem scraping de portal de webmaster e sem endpoint de API presumido ou não documentado;
 3. `BING_WEBMASTER_TOOLS_AI_PERFORMANCE` preserva Total Citations e Average Cited Pages como métricas reportadas pela fonte; o SearchGEO não inventa fórmula equivalente para recalculá-las;
 4. `CONTROLLED_QUERY_RUNS` pode produzir Citation Presence Rate somente sobre runs `VALID`, com runs `INVALID` fora do denominador;
 5. Citation Presence Rate deve ser acompanhado de tamanho amostral e intervalo Wilson 95% quando calculável; isso mede incerteza amostral e não é probabilidade preditiva de citação futura;
 6. contagem de citações não pode ser rotulada como ranking, autoridade ou preferência universal de engine;
-7. toda URL M26 deve pertencer ao `normalized_origin` da auditoria; dados cross-origin são rejeitados;
+7. toda URL Observed Generative Visibility deve pertencer ao `normalized_origin` da auditoria; dados cross-origin são rejeitados;
 8. o artifact importado deve ser preservado com SHA-256 e reimportação do mesmo conteúdo deve ser idempotente;
-9. `report/ai-visibility.html` é a página canônica do domínio M26;
-10. M26 não escreve nem recalcula `Score`, `Coverage`, `Confidence`, `Consolidation`, `RuleExecution`, `Finding` ou `Recommendation`;
-11. correlação/calibração futura entre SGRI e outcomes M26 exige dataset longitudinal, separação por domínio entre treino/calibração/teste e validação fora da amostra antes de qualquer claim preditivo;
+9. `report/ai-visibility.html` é a página canônica do domínio Observed Generative Visibility;
+10. Observed Generative Visibility não escreve nem recalcula `Score`, `Coverage`, `Confidence`, `Consolidation`, `RuleExecution`, `Finding` ou `Recommendation`;
+11. correlação/calibração futura entre SGRI e outcomes Observed Generative Visibility exige dataset longitudinal, separação por domínio entre treino/calibração/teste e validação fora da amostra antes de qualquer claim preditivo;
 12. adapters automáticos para plataformas externas só podem ser introduzidos quando houver contrato público/documentado e política de credenciais/segurança correspondente.
 
 D-040 complementa D-037/D-038/D-039; não as supersede.
@@ -298,10 +298,14 @@ Essas pendências não bloqueiam desenvolvimento local do MVP.
 - `llms.txt` não impacta score automaticamente;
 - GPTBot e OAI-SearchBot possuem papéis distintos;
 - Google-Extended não é crawler Search independente e não afeta ranking/inclusão da Pesquisa Google;
-- sitemap externo declarado não é seguido automaticamente pelo M24 enquanto não houver política segura de aquisição cross-origin;
+- sitemap externo declarado não é seguido automaticamente pelo Rastreamento, descoberta e acesso de crawlers enquanto não houver política segura de aquisição cross-origin;
 - findings devem ser evidence-backed;
 - LLM nunca é scoring engine;
 - cascading failures devem ser controladas;
 - métricas PageSpeed/CrUX/Lighthouse não alteram `SCORE-GEO-002` sem nova decisão/versionamento explícito;
-- diagnósticos M24 também não alteram `SCORE-GEO-002`/`SGRI-001` sem nova decisão/versionamento explícito;
-- outcomes M26 não alteram `SCORE-GEO-002`/`SGRI-001` e não podem ser apresentados como causalidade/predição sem validação empírica específica.
+- diagnósticos Rastreamento, descoberta e acesso de crawlers também não alteram `SCORE-GEO-002`/`SGRI-001` sem nova decisão/versionamento explícito;
+- outcomes Observed Generative Visibility não alteram `SCORE-GEO-002`/`SGRI-001` e não podem ser apresentados como causalidade/predição sem validação empírica específica.
+
+### D-041 — Linguagem pública por domínio funcional
+
+A documentação de produto, o console e os relatórios destinados ao usuário devem nomear capacidades pelo domínio funcional, não por identificadores históricos de etapas de entrega. Termos técnicos na apresentação só são admitidos quando documentados por fonte pública reconhecida e difundidos no domínio; vocabulário de código/runtime deve ficar oculto da leitura principal. O público-alvo primário é o analista de dados/SEO.

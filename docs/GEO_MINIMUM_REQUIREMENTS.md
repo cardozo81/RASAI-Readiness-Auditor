@@ -14,7 +14,7 @@ O SearchGEO não assume que exista uma especificação normativa única denomina
 
 Em 2026, o Google publicou o guia oficial:
 
-**Optimizing your website for generative AI features on Google Search**  
+**Optimizing your website for generative AI features on Google Search**
 <https://developers.google.com/search/docs/fundamentals/ai-optimization-guide>
 
 O guia deixa claro que AEO/GEO são termos utilizados pelo mercado e que, do ponto de vista do Google, otimização para recursos generativos continua baseada em SEO.

@@ -143,7 +143,7 @@ class NoneProvider:
 
     def analyze(self, semantic_input: SemanticInput) -> ProviderCallResult:
         del semantic_input
-        return ProviderCallResult(ProviderState.NOT_CONFIGURED, reason="AI_NOT_CONFIGURED")
+        return ProviderCallResult(ProviderState.NOT_CONFIGURED, reason="AI_DISABLED_BY_CONFIGURATION")
 
 
 Transport = Callable[[str, dict[str, str], bytes, float], dict[str, Any]]

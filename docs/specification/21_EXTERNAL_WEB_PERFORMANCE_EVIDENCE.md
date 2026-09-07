@@ -1,13 +1,13 @@
-# M21 — Evidência Externa de Web Performance: Core Web Vitals + Lighthouse
+# Web Performance externo — Evidência Externa de Web Performance: Core Web Vitals + Lighthouse
 
-**Status:** EVOLUÇÃO APROVADA  
-**Identificador:** `M21`  
-**Dependências:** M18 + M20 + `SCORE-GEO-002` + `REPORT-SITE-GEO-001`  
+**Status:** EVOLUÇÃO APROVADA
+**Domínio:** `Web Performance externo`
+**Dependências:** Análise semântica por IA, roteamento e telemetria + Sugestões e remediação de conteúdo por IA + `SCORE-GEO-002` + `REPORT-SITE-GEO-001`
 **Natureza:** evidência externa aditiva; sem impacto no scoring por padrão
 
 ## 1. Objetivo
 
-O M21 adiciona à auditoria SearchGEO evidências de Web Performance fundamentadas em documentação externa oficial, sem remover, substituir ou recalibrar silenciosamente o `SCORE-GEO-002`.
+O Web Performance externo adiciona à auditoria SearchGEO evidências de Web Performance fundamentadas em documentação externa oficial, sem remover, substituir ou recalibrar silenciosamente o `SCORE-GEO-002`.
 
 Quando explicitamente habilitado, o recurso pode coletar:
 
@@ -19,16 +19,16 @@ Quando explicitamente habilitado, o recurso pode coletar:
 - payloads JSON brutos de respostas bem-sucedidas;
 - log operacional persistente e sanitizado da auditoria.
 
-O M21 responde a uma pergunta diferente daquela respondida pelo `SCORE-GEO-002`:
+O Web Performance externo responde a uma pergunta diferente daquela respondida pelo `SCORE-GEO-002`:
 
 ```text
 SCORE-GEO-002
 → índice heurístico interno de prontidão baseado nas RuleExecutions do SearchGEO
 
-M21 Lighthouse
+Web Performance externo Lighthouse
 → medição e score de laboratório definidos externamente
 
-M21 CrUX / Core Web Vitals
+Web Performance externo CrUX / Core Web Vitals
 → experiência agregada de usuários reais em campo quando existe amostra CrUX suficiente
 ```
 
@@ -36,7 +36,7 @@ Essas saídas devem permanecer distinguíveis na persistência, no HTML, na CLI 
 
 ## 2. Contrato não destrutivo de scoring
 
-O M21 **não altera**:
+O Web Performance externo **não altera**:
 
 - Business Rules;
 - resultados de RuleExecution;
@@ -63,7 +63,7 @@ Referências oficiais:
 - <https://developers.google.com/speed/docs/insights/v5/reference/pagespeedapi/runpagespeed>
 - <https://developers.google.com/speed/docs/insights/v5/get-started>
 
-O SearchGEO usa PageSpeed Insights para executar Lighthouse sobre a URL auditada. Categorias suportadas pelo M21:
+O SearchGEO usa PageSpeed Insights para executar Lighthouse sobre a URL auditada. Categorias suportadas pelo Web Performance externo:
 
 ```text
 performance
@@ -208,7 +208,7 @@ O valor de 120 segundos é default operacional, não garantia de que PageSpeed r
 --web-performance-timeout-seconds 180
 ```
 
-Um timeout PageSpeed com CrUX bem-sucedido deve produzir estado M21 `PARTIAL`, preservando os dados CrUX obtidos.
+Um timeout PageSpeed com CrUX bem-sucedido deve produzir estado Web Performance externo `PARTIAL`, preservando os dados CrUX obtidos.
 
 ### 5.3 Categorias Lighthouse
 
@@ -239,7 +239,7 @@ Obrigatória quando `--web-performance-field-source crux` é utilizado.
 
 ### 6.3 Isolamento
 
-As credenciais M21 são independentes de:
+As credenciais Web Performance externo são independentes de:
 
 ```text
 OPENAI_API_KEY
@@ -290,15 +290,15 @@ Desabilita field data. PageSpeed continua sendo usado para Lighthouse.
 
 ## 8. Política de IA
 
-M21 adiciona **zero** chamadas a LLM.
+Web Performance externo adiciona **zero** chamadas a LLM.
 
-Não chama OpenAI, DeepSeek, MiMo, SemanticProvider M18 nem provider de remediação M20.
+Não chama OpenAI, DeepSeek, MiMo, SemanticProvider Análise semântica por IA, roteamento e telemetria nem provider de remediação Sugestões e remediação de conteúdo por IA.
 
 Qualquer evolução futura que adicione interpretação por IA deverá ser opt-in, contabilizada separadamente e incapaz de alterar medições-fonte ou `SCORE-GEO-002` sem novo contrato explicitamente aprovado.
 
 ## 9. Posicionamento e fail-open
 
-M21 executa após o pipeline principal da auditoria e depois da materialização baseline do report site.
+Web Performance externo executa após o pipeline principal da auditoria e depois da materialização baseline do report site.
 
 Objetivos:
 
@@ -307,9 +307,9 @@ Objetivos:
 - manter a causa atribuída ao serviço externo, não ao website;
 - permitir relatório parcial com evidência disponível.
 
-Uma exceção operacional na camada M21 é capturada pela CLI, registrada quando possível e não invalida o resultado principal já concluído.
+Uma exceção operacional na camada Web Performance externo é capturada pela CLI, registrada quando possível e não invalida o resultado principal já concluído.
 
-## 10. Semântica dos estados operacionais M21
+## 10. Semântica dos estados operacionais Web Performance externo
 
 Estados:
 
@@ -323,11 +323,11 @@ UNAVAILABLE
 
 ### `DISABLED`
 
-M21 não foi habilitado; nenhuma chamada externa foi feita.
+Web Performance externo não foi habilitado; nenhuma chamada externa foi feita.
 
 ### `NO_CONTEXTS`
 
-M21 foi habilitado, mas não existia snapshot/dispositivo elegível para medição externa.
+Web Performance externo foi habilitado, mas não existia snapshot/dispositivo elegível para medição externa.
 
 ### `SUCCESS`
 
@@ -348,7 +348,7 @@ PageSpeed Desktop → TIMEOUT
 CrUX Desktop      → HTTP 200 + field data
 
 contexto          → PARTIAL
-execução M21       → PARTIAL
+execução Web Performance externo       → PARTIAL
 ```
 
 O fato de `successful_contexts == context_attempts` **não autoriza `SUCCESS`** se um ou mais contextos estiverem `PARTIAL`.
@@ -371,7 +371,7 @@ web_performance_attempts
 
 ### `web_performance_runs`
 
-Resumo da execução M21, incluindo enabled, status, field source, page limit, páginas consideradas, contextos tentados, contextos com evidência útil, sucessos PageSpeed, sucessos CrUX, categorias e reason.
+Resumo da execução Web Performance externo, incluindo enabled, status, field source, page limit, páginas consideradas, contextos tentados, contextos com evidência útil, sucessos PageSpeed, sucessos CrUX, categorias e reason.
 
 ### `web_performance_observations`
 
@@ -428,7 +428,7 @@ M21_REPORT_GENERATED
 M21_RUNTIME_FAILURE
 ```
 
-Para M21, o log deve permitir diagnosticar:
+Para Web Performance externo, o log deve permitir diagnosticar:
 
 - PageSpeed versus CrUX;
 - Mobile versus Desktop;
@@ -462,7 +462,7 @@ Nenhuma nova chamada externa é necessária para reabrir os resultados persistid
 
 ## 14. Contrato HTML
 
-M21 materializa:
+Web Performance externo materializa:
 
 ```text
 report/web-performance.html
@@ -478,17 +478,17 @@ A página deve distinguir visivelmente:
 6. política de consumo/credenciais;
 7. separação explícita de `SCORE-GEO-002`.
 
-`report/index.html` pode mostrar resumo M21, mas nunca recalcular Overall Readiness.
+`report/index.html` pode mostrar resumo Web Performance externo, mas nunca recalcular Overall Readiness.
 
 `report/references.html` deve manter referências oficiais às fontes externas.
 
-A navegação do report site segue o core canônico compartilhado do projeto e não deve ser montada independentemente pelo M21.
+A navegação do report site segue o core canônico compartilhado do projeto e não deve ser montada independentemente pelo Web Performance externo.
 
 ## 15. Saída CLI
 
-Quando M21 estiver habilitado, o encerramento da CLI deve expor no mínimo:
+Quando Web Performance externo estiver habilitado, o encerramento da CLI deve expor no mínimo:
 
-- status agregado M21;
+- status agregado Web Performance externo;
 - páginas consideradas;
 - contextos com evidência útil / contextos tentados;
 - sucessos/tentativas PageSpeed;
@@ -500,7 +500,7 @@ Ao existir, o caminho de `logs/audit.log` deve ser apresentado ao operador.
 
 ## 16. Segurança e privacidade
 
-M21 não persiste:
+Web Performance externo não persiste:
 
 - API keys;
 - Authorization headers;
@@ -520,13 +520,13 @@ SEARCHGEO_WEB_PERFORMANCE=false
 
 não existem chamadas PageSpeed/CrUX novas.
 
-O log operacional pode ser criado independentemente do M21 para rastrear o ciclo de vida da auditoria, sem introduzir serviço externo e sem alterar scoring.
+O log operacional pode ser criado independentemente do Web Performance externo para rastrear o ciclo de vida da auditoria, sem introduzir serviço externo e sem alterar scoring.
 
-Com M21 desabilitado, todos os comandos históricos continuam válidos e `SCORE-GEO-002` permanece baseline.
+Com Web Performance externo desabilitado, todos os comandos históricos continuam válidos e `SCORE-GEO-002` permanece baseline.
 
 ## 18. Critérios mínimos de aceitação
 
-A implementação M21 deve provar por regressão que:
+A implementação Web Performance externo deve provar por regressão que:
 
 1. default OFF faz zero chamadas PageSpeed/CrUX;
 2. run desabilitada é persistida;
@@ -540,15 +540,15 @@ A implementação M21 deve provar por regressão que:
 10. credenciais não aparecem no SQLite, HTML ou log;
 11. `web-performance.html` explica separação metodológica;
 12. menu final continua canônico em todas as páginas;
-13. **PageSpeed timeout + CrUX success produz observação `PARTIAL` e run M21 `PARTIAL`;**
+13. **PageSpeed timeout + CrUX success produz observação `PARTIAL` e run Web Performance externo `PARTIAL`;**
 14. `successful_contexts == context_attempts` não mascara componente externo falho;
-15. log operacional registra eventos M21 sem secrets;
+15. log operacional registra eventos Web Performance externo sem secrets;
 16. falha de escrita do log não invalida a auditoria principal;
 17. CLI mostra contadores por serviço e caminho do log;
 18. código/conteúdo `SCORE-GEO-002` não é removido nem recalculado.
 
 ## 19. Evolução futura de scoring
 
-M21 continua sendo camada de evidência e possível insumo de estudos empíricos. Não é `SCORE-GEO-003`.
+Web Performance externo continua sendo camada de evidência e possível insumo de estudos empíricos. Não é `SCORE-GEO-003`.
 
 Qualquer futura incorporação quantitativa de Web Performance ao scoring exige decisão humana explícita, novo contrato/versionamento de scoring, protocolo de validação e preservação do resultado histórico `SCORE-GEO-002` quando tecnicamente viável.

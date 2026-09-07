@@ -1,6 +1,6 @@
 # SCORING_MODEL.md
 
-**Status:** APPROVED  
+**Status:** APPROVED
 **Scoring baseline:** SCORE-GEO-002
 
 ## 0. Natureza metodológica e validade
@@ -56,11 +56,11 @@ As dez dimensões continuam pertencendo ao modelo. `SCORE-GEO-002` distingue dim
 
 ## 3. RuleExecution
 
-PASS = avaliado positivamente  
-WARNING = avaliado com perda parcial  
-FAIL = problema comprovado  
-UNKNOWN = insuficiente para concluir  
-ERROR = auditor não conseguiu executar  
+PASS = avaliado positivamente
+WARNING = avaliado com perda parcial
+FAIL = problema comprovado
+UNKNOWN = insuficiente para concluir
+ERROR = auditor não conseguiu executar
 NOT_APPLICABLE = regra fora do universo aplicável
 
 UNKNOWN, ERROR e NOT_APPLICABLE não são FAIL.
@@ -69,8 +69,8 @@ UNKNOWN, ERROR e NOT_APPLICABLE não são FAIL.
 
 Baseline:
 
-PASS = 1.00  
-WARNING = 0.50 por padrão  
+PASS = 1.00
+WARNING = 0.50 por padrão
 FAIL = 0.00
 
 warning_factor pode ser sobrescrito por regra e é versionado.

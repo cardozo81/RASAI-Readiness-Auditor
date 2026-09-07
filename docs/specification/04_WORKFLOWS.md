@@ -80,7 +80,7 @@ Depois:
 
 Se descobertas > max_pages, registrar total descoberto e total auditado.
 
-O estado necessário para explicar discovery no relatório deve ser persistido como Page, Evidence e Audit limitation; WF-GEO-011 não depende do objeto M2 em memória.
+O estado necessário para explicar discovery no relatório deve ser persistido como Page, Evidence e Audit limitation; WF-GEO-011 não depende do objeto Descoberta e aquisição HTTP em memória.
 
 ## 6. WF-GEO-004 Acquire Page Snapshot
 

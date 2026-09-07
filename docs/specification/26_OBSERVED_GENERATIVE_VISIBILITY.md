@@ -1,18 +1,18 @@
-# M26 — Observed Generative Visibility
+# Observed Generative Visibility — Observed Generative Visibility
 
-**Status:** IMPLEMENTAÇÃO EM BRANCH  
-**Versão do contrato de importação:** `OGV-IMPORT-001`  
+**Status:** INTEGRADO E VALIDADO.
+**Versão do contrato de importação:** `OGV-IMPORT-001`
 **Impacto em scoring:** `NONE`
 
 ## 1. Objetivo
 
-O M26 adiciona ao SearchGEO uma camada de **outcomes observados** de Search/AI Search, rigorosamente separada do readiness inferido pelo `SGRI-001`/`SCORE-GEO-002`.
+O Observed Generative Visibility adiciona ao SearchGEO uma camada de **outcomes observados** de Search/AI Search, rigorosamente separada do readiness inferido pelo `SGRI-001`/`SCORE-GEO-002`.
 
-A pergunta respondida pelo M26 é:
+A pergunta respondida pelo Observed Generative Visibility é:
 
 > O que foi efetivamente observado quanto a participação/citação do conteúdo em uma fonte ou protocolo explicitamente identificado?
 
-O M26 não afirma causalidade entre readiness e visibilidade, não cria um novo GEO Score e não altera pesos, thresholds ou dimensões SearchGEO.
+O Observed Generative Visibility não afirma causalidade entre readiness e visibilidade, não cria um novo GEO Score e não altera pesos, thresholds ou dimensões SearchGEO.
 
 ## 2. Princípio normativo
 
@@ -21,9 +21,9 @@ Readiness inferido != Visibilidade observada
 ```
 
 - `SGRI-001` continua descrevendo readiness técnico/semântico/evidencial.
-- M21/M22/M23/M25 continuam descrevendo seus domínios externos/sintéticos próprios.
-- M26 descreve somente outcomes observados/importados.
-- uma correlação futura entre readiness e M26 exige estudo empírico específico; não pode ser presumida pelo relatório.
+- Web Performance externo/Acessibilidade automatizada e diagnósticos Web/Synthetic Navigation Apdex/Synthetic User Experience Apdex continuam descrevendo seus domínios externos/sintéticos próprios.
+- Observed Generative Visibility descreve somente outcomes observados/importados.
+- uma correlação futura entre readiness e Observed Generative Visibility exige estudo empírico específico; não pode ser presumida pelo relatório.
 
 ## 3. Fontes suportadas em OGV-IMPORT-001
 
@@ -43,7 +43,7 @@ Referência primária:
 
 - https://blogs.bing.com/webmaster/February-2026/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview
 
-O SearchGEO **não possui nem presume uma API oficial para AI Performance**. O M26 não faz scraping do portal. O usuário normaliza uma evidência/exportação observada para `OGV-IMPORT-001`; o arquivo original normalizado é preservado como artifact e identificado por SHA-256.
+O SearchGEO **não possui nem presume uma API oficial para AI Performance**. O Observed Generative Visibility não faz scraping do portal. O usuário normaliza uma evidência/exportação observada para `OGV-IMPORT-001`; o arquivo original normalizado é preservado como artifact e identificado por SHA-256.
 
 `total_citations` e `average_cited_pages` são persistidos como **source-reported metrics**. O SearchGEO não os recalcula para simular equivalência com uma fórmula de produto não publicada.
 
@@ -60,7 +60,7 @@ Dataset produzido por protocolo controlado externo ao scoring SearchGEO. Cada ru
 
 Opcionalmente pode registrar surface, market, language, notes e rank observado.
 
-`rank` só é aceito quando `ranking_semantics` também é informado. O M26 não presume que ordem visual, ordem de referências ou posição de citação sejam equivalentes entre engines.
+`rank` só é aceito quando `ranking_semantics` também é informado. O Observed Generative Visibility não presume que ordem visual, ordem de referências ou posição de citação sejam equivalentes entre engines.
 
 ### 3.3 Método de captura/proveniência
 
@@ -76,7 +76,7 @@ EXTERNAL_AUTOMATION
 Semântica:
 
 - `MANUAL_TRANSCRIPTION`: transcrição humana de uma fonte observada;
-- `NORMALIZED_EXPORT`: exportação/arquivo obtido externamente e normalizado para o contrato M26;
+- `NORMALIZED_EXPORT`: exportação/arquivo obtido externamente e normalizado para o contrato Observed Generative Visibility;
 - `CONTROLLED_PROTOCOL`: dataset produzido por protocolo de query-runs controlados;
 - `EXTERNAL_AUTOMATION`: coleta realizada por automação externa ao SearchGEO.
 
@@ -102,7 +102,7 @@ half = z * sqrt((p(1-p) + z²/(4n))/n) / (1 + z²/n)
 CI95 = [center-half, center+half], limitado a [0,1]
 ```
 
-A escolha de 95% é convenção estatística de apresentação do M26. O intervalo mede incerteza amostral do protocolo informado; não é previsão de citação futura nem validação causal do SGRI.
+A escolha de 95% é convenção estatística de apresentação do Observed Generative Visibility. O intervalo mede incerteza amostral do protocolo informado; não é previsão de citação futura nem validação causal do SGRI.
 
 ## 5. Contrato JSON OGV-IMPORT-001
 
@@ -154,7 +154,7 @@ Arrays não aplicáveis podem ser omitidos. Deve existir ao menos uma observaç�
 
 ## 6. Validação de escopo
 
-Todas as URLs persistidas pelo M26 devem pertencer ao `normalized_origin` da auditoria.
+Todas as URLs persistidas pelo Observed Generative Visibility devem pertencer ao `normalized_origin` da auditoria.
 
 Isso inclui:
 
@@ -162,7 +162,7 @@ Isso inclui:
 - `grounding_queries[].url`, quando informado;
 - `query_runs[].cited_urls`.
 
-O M26 rejeita importação cross-origin em vez de misturar outcomes de propriedades diferentes.
+O Observed Generative Visibility rejeita importação cross-origin em vez de misturar outcomes de propriedades diferentes.
 
 ## 7. Proveniência e idempotência
 
@@ -197,7 +197,7 @@ generative_visibility_trend
 generative_visibility_query_runs
 ```
 
-O M26 não escreve em:
+O Observed Generative Visibility não escreve em:
 
 - `scores`;
 - `score_contributions`;
@@ -244,11 +244,11 @@ Regeneração do report a partir do `audit.db`:
 searchgeo visibility report --audit-id AUD-... --audits-root audits
 ```
 
-O entrypoint `searchgeo` roteia somente o comando `visibility` ao M26. Demais comandos continuam delegados ao pipeline `cli_extensions` existente.
+O entrypoint `searchgeo` roteia somente o comando `visibility` ao Observed Generative Visibility. Demais comandos continuam delegados ao pipeline `cli_extensions` existente.
 
 ## 11. Fronteiras e linguagem proibida
 
-O M26 não deve afirmar:
+O Observed Generative Visibility não deve afirmar:
 
 - “GEO Score oficial”;
 - “probabilidade de citação” a partir de uma taxa histórica simples;
@@ -262,7 +262,7 @@ O M26 não deve afirmar:
 
 A versão seguinte pode adicionar adapters oficiais somente quando houver contrato público/documentado da fonte.
 
-Uma futura calibração do readiness contra outcomes M26 deve usar dataset longitudinal, separação por domínio entre treino/calibração/teste, múltiplas queries/runs/engines, análise de estabilidade e validação fora da amostra antes de qualquer alegação preditiva.
+Uma futura calibração do readiness contra outcomes Observed Generative Visibility deve usar dataset longitudinal, separação por domínio entre treino/calibração/teste, múltiplas queries/runs/engines, análise de estabilidade e validação fora da amostra antes de qualquer alegação preditiva.
 
 ## 13. Critérios de aceite
 
@@ -275,6 +275,6 @@ Uma futura calibração do readiness contra outcomes M26 deve usar dataset longi
 - Wilson 95% reproduzível;
 - report dedicado gerado com proveniência explícita;
 - zero alteração em SGRI/SCORE-GEO;
-- zero chamada de rede causada pelo M26;
+- zero chamada de rede causada pelo Observed Generative Visibility;
 - `searchgeo audit` preserva comportamento anterior;
 - testes automatizados cobrindo fronteiras acima.

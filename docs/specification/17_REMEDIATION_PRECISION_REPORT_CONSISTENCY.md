@@ -1,14 +1,14 @@
-# M17 — Remediation Precision + Report Consistency
+# Precisão e consistência das recomendações — Remediation Precision + Report Consistency
 
-**Status:** APPROVED EVOLUTION  
-**Baseline de entrada:** M16 integrado em `main`  
+**Status:** APPROVED EVOLUTION
+**Baseline de entrada:** Remediação por causa raiz e elemento integrado em `main`
 **Contratos preservados:** `SCORE-GEO-001`, `REPORT-GEO-003`, `REMEDIATION-GEO-001`
 
 ## 1. Objetivo
 
-Corrigir inconsistências observadas em smoke real após M16 sem alterar Business Rules, RuleResult, severity, actionability, prioridade, Score, Coverage, Confidence ou Consolidation.
+Corrigir inconsistências observadas em smoke real após Remediação por causa raiz e elemento sem alterar Business Rules, RuleResult, severity, actionability, prioridade, Score, Coverage, Confidence ou Consolidation.
 
-M17 torna a remediação mais precisa e reduz ambiguidade operacional entre:
+Precisão e consistência das recomendações torna a remediação mais precisa e reduz ambiguidade operacional entre:
 
 - causa genérica da regra e motivo técnico efetivamente persistido;
 - elemento observado e elemento/selector alvo da correção;
@@ -18,7 +18,7 @@ M17 torna a remediação mais precisa e reduz ambiguidade operacional entre:
 
 ## 2. Projeção aditiva de precisão
 
-M17 adiciona a tabela:
+Precisão e consistência das recomendações adiciona a tabela:
 
 ```text
 root_cause_precision
@@ -35,7 +35,7 @@ Ela é derivada de `root_cause_analyses` + Evidence + RemediationRecipe e conté
 - `target_location`;
 - timestamp de materialização.
 
-A tabela M16 não é reescrita destrutivamente.
+A tabela Remediação por causa raiz e elemento não é reescrita destrutivamente.
 
 ## 3. Reason code antes do resumo genérico
 
@@ -60,7 +60,7 @@ Quando não existir mapeamento humano específico para o reason code, o código 
 
 ## 4. Elemento observado versus alvo técnico
 
-M17 separa obrigatoriamente:
+Precisão e consistência das recomendações separa obrigatoriamente:
 
 ### Elemento observado
 
@@ -164,7 +164,7 @@ Divergências devem ser exibidas explicitamente com:
 - device;
 - rule_execution_id.
 
-M17 não cria Finding automaticamente para corrigir uma divergência, pois isso alteraria semântica de regra sem diagnóstico da origem.
+Precisão e consistência das recomendações não cria Finding automaticamente para corrigir uma divergência, pois isso alteraria semântica de regra sem diagnóstico da origem.
 
 ## 9. Multi-URL
 
@@ -177,7 +177,7 @@ O gate de regressão deve incluir ao menos duas páginas do mesmo origin com o m
 
 ## 10. Invariantes
 
-M17 não altera:
+Precisão e consistência das recomendações não altera:
 
 - Business Rules;
 - RuleResult;

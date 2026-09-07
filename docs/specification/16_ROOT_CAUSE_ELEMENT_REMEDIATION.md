@@ -1,7 +1,7 @@
-# M16 — Root Cause + Element-Level Remediation
+# Remediação por causa raiz e elemento — Root Cause + Element-Level Remediation
 
-**Status:** APPROVED EVOLUTION  
-**Baseline de entrada:** M15 + OpenAI provider hardening integrado em `main`  
+**Status:** APPROVED EVOLUTION
+**Baseline de entrada:** Experiência e organização dos relatórios + OpenAI provider hardening integrado em `main`
 **Contratos preservados:** `SCORE-GEO-001`, `REPORT-GEO-003`, `REMEDIATION-GEO-001`
 
 ## 1. Objetivo
@@ -25,7 +25,7 @@ Quando tecnicamente possível, cada problema, alerta ou melhoria deve indicar:
 
 ## 2. Princípio de precisão
 
-M16 não pode criar falsa precisão.
+Remediação por causa raiz e elemento não pode criar falsa precisão.
 
 Há três classes de localização:
 
@@ -43,7 +43,7 @@ A ausência de selector não impede a apresentação da causa raiz quando a caus
 
 ## 3. RootCauseAnalysis
 
-A projeção/persistência M16 deve representar pelo menos:
+A projeção/persistência Remediação por causa raiz e elemento deve representar pelo menos:
 
 - `analysis_id`;
 - `audit_id`;
@@ -65,7 +65,7 @@ A projeção/persistência M16 deve representar pelo menos:
 - `diagnostic_confidence`;
 - timestamp de materialização.
 
-A confiança diagnóstica M16 é uma classificação da precisão da localização/causa e **não participa do Score GEO**.
+A confiança diagnóstica Remediação por causa raiz e elemento é uma classificação da precisão da localização/causa e **não participa do Score GEO**.
 
 ## 4. Elementos afetados
 
@@ -127,13 +127,13 @@ A remediação deve distinguir:
 - exemplo seguro quando disponível;
 - decisão humana obrigatória.
 
-M16 deve preferir alterar um elemento existente quando essa é a correção adequada e não sugerir criar duplicatas artificiais.
+Remediação por causa raiz e elemento deve preferir alterar um elemento existente quando essa é a correção adequada e não sugerir criar duplicatas artificiais.
 
 ## 7. Relatórios
 
 ### `report.html`
 
-Na seção de cada finding, M16 acrescenta bloco **Diagnóstico de causa raiz** antes da recomendação, contendo os elementos e a mudança exata.
+Na seção de cada finding, Remediação por causa raiz e elemento acrescenta bloco **Diagnóstico de causa raiz** antes da recomendação, contendo os elementos e a mudança exata.
 
 ### `remediation.html`
 
@@ -158,7 +158,7 @@ Recurso: /robots.txt
 
 ## 9. Invariantes
 
-M16 não altera:
+Remediação por causa raiz e elemento não altera:
 
 - Business Rules;
 - resultados de RuleExecution;

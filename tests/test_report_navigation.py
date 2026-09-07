@@ -133,7 +133,7 @@ class ReportNavigationTests(unittest.TestCase):
             html = (report_dir / "ai-usage.html").read_text(encoding="utf-8")
             self.assertEqual(html.count("data-api-cost-total='true'"), 1)
             self.assertIn("Consumo projetado total de APIs com custo estimado: 0.01250000 USD", html)
-            self.assertIn("Análise M18 0.01000000 USD + Remediação M20 0.00250000 USD", html)
+            self.assertIn("Análise semântica por IA 0.01000000 USD + Remediação textual por IA 0.00250000 USD", html)
             self.assertIn("não inclui integrações sem estimated_cost persistido", html)
 
 

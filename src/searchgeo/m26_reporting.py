@@ -1,4 +1,4 @@
-"""Relatório dedicado do M26 — Observed Generative Visibility."""
+"""Relatório dedicado do Observed Generative Visibility — Observed Generative Visibility."""
 from __future__ import annotations
 
 from html import escape
@@ -85,7 +85,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     imports = data["imports"]
     if not imports:
         body = """
-        <header class='hero'><div class='eyebrow'>M26 · outcome observado</div><h1>Observed Generative Visibility</h1>
+        <header class='hero'><div class='eyebrow'>Observed Generative Visibility · visibilidade observada</div><h1>Observed Generative Visibility</h1>
         <p class='lead'>Nenhum dataset de visibilidade generativa foi importado para esta auditoria.</p></header>
         <section class='panel'><h2>Readiness ≠ Visibility</h2><p>Esta página é deliberadamente separada do SGRI/SCORE-GEO. Ausência de dados observados não reduz o readiness.</p></section>
         """
@@ -95,7 +95,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     latest = imports[0]
     body = f"""
     <header class='hero'>
-      <div class='eyebrow'>M26 · outcome observado · non-scoring</div>
+      <div class='eyebrow'>Observed Generative Visibility · visibilidade observada · informativo; não altera o índice</div>
       <h1>Observed Generative Visibility</h1>
       <p class='lead'>Resultados observados/importados sobre participação e citação em superfícies de IA. Estes dados <strong>não compõem SGRI-001/SCORE-GEO-002</strong> e não são convertidos em um “GEO Score”.</p>
       <div class='metric-grid'>
@@ -110,11 +110,11 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
       <h2>Readiness ≠ Visibility</h2>
       <p><strong>Readiness</strong> descreve condições técnicas/semânticas inferidas pela auditoria. <strong>Observed Generative Visibility</strong> descreve o que foi efetivamente observado numa fonte ou protocolo. Correlação entre ambos é matéria de validação empírica futura; esta página não presume causalidade.</p>
       <p>Contagem de citações não é ranking, autoridade, posição nem probabilidade de citação futura. Métricas declaradas como reportadas por terceiros são preservadas sem recomputação equivalente.</p>
-      <p><strong>Proveniência:</strong> M26 é import-first. A fonte e o método de captura são declarados no artifact fornecido ao SearchGEO; nesta versão o SearchGEO não autentica o portal externo nem afirma que realizou coleta direta.</p>
+      <p><strong>Proveniência:</strong> Observed Generative Visibility é import-first. A fonte e o método de captura são declarados no artifact fornecido ao SearchGEO; nesta versão o SearchGEO não autentica o portal externo nem afirma que realizou coleta direta.</p>
     </section>
     {sections}
     {_references()}
-    <footer class='footer'>M26 é import-first, auditável e non-scoring. O SearchGEO não faz scraping de portais de webmaster nem inventa endpoint de API para esta coleta.</footer>
+    <footer class='footer'>Observed Generative Visibility é import-first, auditável e informativo; não altera o índice. O SearchGEO não faz scraping de portais de webmaster nem inventa endpoint de API para esta coleta.</footer>
     """
     return _shell(nav, body)
 

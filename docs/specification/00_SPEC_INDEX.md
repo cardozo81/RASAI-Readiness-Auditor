@@ -1,7 +1,7 @@
 # SearchGEO Readiness Auditor — Specification Index
 
-**Status:** APPROVED BASELINE + M14/M15/M16/M17/M18/M20/M21/M22/M23/M24/M25 INTEGRADOS + M26 EM BRANCH + SCORE-GEO-002 + SGRI-001 + REPORT-SITE-GEO-001  
-**Baseline:** MVP Functional Specification  
+**Status:** BASELINE VIGENTE — capacidades integradas e documentação reconciliada com `main`.
+**Baseline:** MVP Functional Specification
 **Idioma normativo:** Português, preservando identificadores e termos técnicos quando necessário.
 
 ## 1. Objetivo
@@ -73,21 +73,21 @@ Nenhuma decisão funcional deve ser alterada silenciosamente durante implementa�
 - `12_AI_HANDOFF.md` — continuidade operacional por IA/desenvolvedor.
 - `13_MODEL_ROUTING_POLICY.md` — política de modelos e esforço.
 
-### Evoluções formalizadas
+### Especificações funcionais complementares
 
-- `14_MULTI_URL_VISUAL_EVIDENCE_REMEDIATION.md` — M14 multi-URL/evidência visual.
-- `15_ERROR_CENTRIC_REPORT_UX.md` — M15 UX de report evoluída pelo report site.
-- `16_ROOT_CAUSE_ELEMENT_REMEDIATION.md` — M16 causa raiz/elemento.
-- `17_REMEDIATION_PRECISION_REPORT_CONSISTENCY.md` — M17 precisão/consistência.
-- `18_MULTI_AI_PROVIDER_ROUTING.md` — M18 multi-provider/failover/telemetria; non-scoring.
+- `14_MULTI_URL_VISUAL_EVIDENCE_REMEDIATION.md` — Auditoria multi-URL e evidência visual multi-URL/evidência visual.
+- `15_ERROR_CENTRIC_REPORT_UX.md` — Experiência e organização dos relatórios UX de report evoluída pelo report site.
+- `16_ROOT_CAUSE_ELEMENT_REMEDIATION.md` — Remediação por causa raiz e elemento causa raiz/elemento.
+- `17_REMEDIATION_PRECISION_REPORT_CONSISTENCY.md` — Precisão e consistência das recomendações precisão/consistência.
+- `18_MULTI_AI_PROVIDER_ROUTING.md` — Análise semântica por IA, roteamento e telemetria multi-provider/failover/telemetria; non-scoring.
 - `19_SCORE_APPLICABILITY_GEO_MINIMUMS.md` — `SCORE-GEO-002`, N/A e premissas mínimas.
-- `20_AI_CONTENT_REMEDIATION.md` — M20 conteúdo/JSON-LD advisory; downstream do score.
-- `21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md` — M21 PageSpeed/Lighthouse/CrUX; non-scoring.
-- `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md` — M22 Accessibility/Performance separados.
-- `23_SYNTHETIC_APDEX_LIGHTHOUSE_TRACEABILITY.md` — M23 Synthetic Navigation Apdex Standard.
-- `24_CRAWLING_DISCOVERY_AI_ACCESS.md` — M24 crawling/discovery/AI access; non-scoring.
-- `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md` — M25 Synthetic User Experience Apdex calibrável; non-RUM/non-scoring.
-- `26_OBSERVED_GENERATIVE_VISIBILITY.md` — M26 outcomes observados/importados de AI Search; import-first/non-scoring.
+- `20_AI_CONTENT_REMEDIATION.md` — Sugestões e remediação de conteúdo por IA conteúdo/JSON-LD advisory; downstream do score.
+- `21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md` — Web Performance externo PageSpeed/Lighthouse/CrUX; non-scoring.
+- `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md` — Acessibilidade automatizada e diagnósticos Web Accessibility/Performance separados.
+- `23_SYNTHETIC_APDEX_LIGHTHOUSE_TRACEABILITY.md` — Synthetic Navigation Apdex Synthetic Navigation Apdex Standard.
+- `24_CRAWLING_DISCOVERY_AI_ACCESS.md` — Rastreamento, descoberta e acesso de crawlers crawling/discovery/AI access; non-scoring.
+- `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md` — Synthetic User Experience Apdex Synthetic User Experience Apdex calibrável; non-RUM/non-scoring.
+- `26_OBSERVED_GENERATIVE_VISIBILITY.md` — Observed Generative Visibility outcomes observados/importados de AI Search; import-first/non-scoring.
 
 ## 5. Baseline vigente de scoring e método público
 
@@ -109,12 +109,12 @@ O contrato final de saída continua condicional pela existência/materializaçã
 <AUD-ID>/report/desktop.html               # condicional
 <AUD-ID>/report/remediation.html
 <AUD-ID>/report/content-suggestions.html
-<AUD-ID>/report/crawling-discovery.html    # M24
-<AUD-ID>/report/accessibility.html         # M22, condicional
-<AUD-ID>/report/web-performance.html       # M21/M22
-<AUD-ID>/report/apdex.html                 # M23, condicional
-<AUD-ID>/report/apdex-experience.html      # M25, condicional
-<AUD-ID>/report/ai-visibility.html         # M26, após import/report
+<AUD-ID>/report/crawling-discovery.html    # Rastreamento, descoberta e acesso de crawlers
+<AUD-ID>/report/accessibility.html         # Acessibilidade automatizada e diagnósticos Web, condicional
+<AUD-ID>/report/web-performance.html       # Web Performance externo/Acessibilidade automatizada e diagnósticos Web
+<AUD-ID>/report/apdex.html                 # Synthetic Navigation Apdex, condicional
+<AUD-ID>/report/apdex-experience.html      # Synthetic User Experience Apdex, condicional
+<AUD-ID>/report/ai-visibility.html         # Observed Generative Visibility, após import/report
 <AUD-ID>/report/ai-usage.html
 <AUD-ID>/report/references.html
 <AUD-ID>/report/css/site.css
@@ -130,22 +130,22 @@ Cada indicador/domínio tem uma página canônica. O `index.html` pode resumir u
 
 ## 7. Fronteiras dos marcos externos/non-scoring
 
-| Marco | Domínio | Regra de fronteira |
+| Domínio | Finalidade | Regra de fronteira |
 |---|---|---|
-| M21 | PageSpeed/Lighthouse/CrUX | evidência externa; não altera Score |
-| M22 | Accessibility/Performance diagnostics | não declara WCAG integral nem infere Apdex |
-| M23 | Synthetic Navigation Apdex | T/4T explícito; não é RUM; não altera Score |
-| M24 | Crawling/Discovery/AI access | standards/guidance técnicos; `llms.txt` experimental; não altera Score |
-| M25 | Synthetic User Experience Apdex | calibrável, non-RUM, separado do M23; não altera Score |
-| M26 | Observed Generative Visibility | outcome importado/observado, separado de readiness; não altera Score |
+| Web Performance externo | PageSpeed/Lighthouse/CrUX | evidência externa; não altera Score |
+| Acessibilidade automatizada e diagnósticos Web | Accessibility/Performance diagnostics | não declara WCAG integral nem infere Apdex |
+| Synthetic Navigation Apdex | Synthetic Navigation Apdex | T/4T explícito; não é RUM; não altera Score |
+| Rastreamento, descoberta e acesso de crawlers | Crawling/Discovery/AI access | standards/guidance técnicos; `llms.txt` experimental; não altera Score |
+| Synthetic User Experience Apdex | Synthetic User Experience Apdex | calibrável, non-RUM, separado do Synthetic Navigation Apdex; não altera Score |
+| Observed Generative Visibility | Observed Generative Visibility | outcome importado/observado, separado de readiness; não altera Score |
 
-## 8. M26 — Observed Generative Visibility
+## 8. Observed Generative Visibility — Observed Generative Visibility
 
 Fonte normativa: `26_OBSERVED_GENERATIVE_VISIBILITY.md`.
 
-M26:
+Observed Generative Visibility:
 
-- está em implementação na branch `m26-observed-generative-visibility`;
+- está integrado à baseline vigente;
 - usa contrato `OGV-IMPORT-001`;
 - começa como **import-first**, sem scraping de portal e sem endpoint não documentado;
 - suporta inicialmente `BING_WEBMASTER_TOOLS_AI_PERFORMANCE` e `CONTROLLED_QUERY_RUNS`;
@@ -163,25 +163,25 @@ M26:
 
 O SearchGEO não deve representar seu score ou thresholds como standard GEO/AEO universal.
 
-Referências primárias atuais incluem Google Search Central/Crawling Infrastructure, OpenAI publisher/help documentation, Schema.org, WHATWG, IETF/RFC, Chrome Developers, PageSpeed Insights, Chrome UX Report, W3C/WAI, Apdex Alliance, documentação pública Dynatrace para comparabilidade M25 e documentação pública Bing Webmaster/Search para M26.
+Referências primárias atuais incluem Google Search Central/Crawling Infrastructure, OpenAI publisher/help documentation, Schema.org, WHATWG, IETF/RFC, Chrome Developers, PageSpeed Insights, Chrome UX Report, W3C/WAI, Apdex Alliance, documentação pública Dynatrace para comparabilidade Synthetic User Experience Apdex e documentação pública Bing Webmaster/Search para Observed Generative Visibility.
 
-Structured Data/JSON-LD é reforço opcional, não requisito universal GEO. Quando M20 propõe/revisa JSON-LD, usa somente conteúdo/evidência persistidos.
+Structured Data/JSON-LD é reforço opcional, não requisito universal GEO. Quando Sugestões e remediação de conteúdo por IA propõe/revisa JSON-LD, usa somente conteúdo/evidência persistidos.
 
-M21 introduz métricas externas documentadas para fenômenos específicos. Lighthouse e Core Web Vitals não homologam `SCORE-GEO-002` e não são combinados silenciosamente com ele.
+Web Performance externo introduz métricas externas documentadas para fenômenos específicos. Lighthouse e Core Web Vitals não homologam `SCORE-GEO-002` e não são combinados silenciosamente com ele.
 
-M22 mantém Acessibilidade e Web Performance independentes do GEO. Acessibilidade automatizada Lighthouse não equivale a conformidade WCAG.
+Acessibilidade automatizada e diagnósticos Web mantém Acessibilidade e Web Performance independentes do GEO. Acessibilidade automatizada Lighthouse não equivale a conformidade WCAG.
 
-M23/M25 usam Apdex em contratos sintéticos próprios; não devem ser derivados de Lighthouse/CrUX nem apresentados como população humana observada.
+Synthetic Navigation Apdex/Synthetic User Experience Apdex usam Apdex em contratos sintéticos próprios; não devem ser derivados de Lighthouse/CrUX nem apresentados como população humana observada.
 
-M24 usa protocolos/guidance públicos para crawling/discovery. `llms.txt` permanece proposta comunitária experimental e sua ausência não é falha de SearchGEO.
+Rastreamento, descoberta e acesso de crawlers usa protocolos/guidance públicos para crawling/discovery. `llms.txt` permanece proposta comunitária experimental e sua ausência não é falha de SearchGEO.
 
-M26 separa source-reported metrics de cálculos SearchGEO sobre query-runs. Contagem de citações não deve ser rotulada como ranking/autoridade.
+Observed Generative Visibility separa source-reported metrics de cálculos SearchGEO sobre query-runs. Contagem de citações não deve ser rotulada como ranking/autoridade.
 
 Heurísticas BR-GEO sem equivalente normativo permanecem identificadas como heurísticas/baseline interna.
 
 ## 10. Continuidade de branches e integração
 
-Branches de marco são temporárias.
+Branches de trabalho são temporárias.
 
 Após validação e merge em `main`:
 
@@ -191,11 +191,11 @@ Após validação e merge em `main`:
 4. excluir fisicamente quando a ferramenta/permissão permitir;
 5. impossibilidade de exclusão pelo conector não bloqueia a continuidade quando a integração já está comprovada, conforme decisões vigentes.
 
-Uma branch ativa de outro trabalho não deve ser modificada ou incorporada por um marco concorrente sem necessidade técnica explícita.
+Uma branch ativa de outro trabalho não deve ser modificada ou incorporada por um alteração concorrente sem necessidade técnica explícita.
 
 ## 11. Regra de mudança
 
-Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context público, conteúdo sugerido por IA, consumo externo M21, fronteiras M22, carga sintética M23/M25, aquisição/política M24, outcomes/import M26 ou requisitos corporativos devem ser reconciliadas nesta baseline antes da conclusão do merge.
+Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context público, conteúdo sugerido por IA, consumo externo Web Performance externo, fronteiras Acessibilidade automatizada e diagnósticos Web, carga sintética Synthetic Navigation Apdex/Synthetic User Experience Apdex, aquisição/política Rastreamento, descoberta e acesso de crawlers, outcomes/import Observed Generative Visibility ou requisitos corporativos devem ser reconciliadas nesta baseline antes da conclusão do merge.
 
 Decisões puramente internas de implementação podem ser tomadas sem aprovação humana quando não alterarem comportamento funcional.
 

@@ -14,7 +14,7 @@ Essa camada é anterior a interpretações GEO, Web Performance e Synthetic Apde
 
 ## Fonte da evidência
 
-A aquisição HTTP de M2 continua sendo a primeira fonte determinística. `HttpClient` mantém validação TLS normal e registra:
+A aquisição HTTP de Descoberta e aquisição HTTP continua sendo a primeira fonte determinística. `HttpClient` mantém validação TLS normal e registra:
 
 - URL solicitada;
 - cada salto de redirecionamento;
@@ -28,7 +28,7 @@ A aquisição HTTP de M2 continua sendo a primeira fonte determinística. `HttpC
 
 O SearchGEO **não desabilita validação TLS** para conseguir auditar um site com certificado inválido.
 
-M2 utiliza um cliente HTTP determinístico e crawler-like. M3 utiliza Chromium com o perfil real do dispositivo auditado. Como CDN, WAF, proxy, regras por `User-Agent` ou outras políticas podem entregar rotas diferentes a esses clientes, um bloqueio técnico observado somente em M2 não encerra mais a auditoria antes de uma confirmação única pelo Chromium.
+Descoberta e aquisição HTTP utiliza um cliente HTTP determinístico e crawler-like. Renderização Desktop e Mobile utiliza Chromium com o perfil real do dispositivo auditado. Como CDN, WAF, proxy, regras por `User-Agent` ou outras políticas podem entregar rotas diferentes a esses clientes, um bloqueio técnico observado somente em Descoberta e aquisição HTTP não encerra mais a auditoria antes de uma confirmação única pelo Chromium.
 
 ## Redirecionamento não é erro por definição
 
@@ -38,7 +38,7 @@ O relatório, portanto, separa:
 
 - **observação:** houve redirecionamento;
 - **fato técnico:** cadeia, status e destino final;
-- **visão HTTP:** rota recebida pelo cliente M2;
+- **visão HTTP:** rota recebida pelo cliente Descoberta e aquisição HTTP;
 - **visão de navegador:** rota efetivamente alcançada pelo Chromium;
 - **avaliação determinística:** se existe bloqueio técnico confirmado;
 - **validação humana:** se a mudança de hostname/domínio é a intenção de negócio correta.
@@ -60,13 +60,13 @@ A política `SOURCE-QUALITY-1` considera sinais fortes de bloqueio, entre outros
 
 ## Confirmação por navegador antes do fail-fast
 
-Quando M2 indica que **todas as páginas do universo auditado** estão bloqueadas por uma condição forte, o SearchGEO não encerra imediatamente.
+Quando Descoberta e aquisição HTTP indica que **todas as páginas do universo auditado** estão bloqueadas por uma condição forte, o SearchGEO não encerra imediatamente.
 
 A sequência obrigatória passa a ser:
 
-1. M2 preserva integralmente a evidência HTTP original;
+1. Descoberta e aquisição HTTP preserva integralmente a evidência HTTP original;
 2. o sinal é registrado como `SOURCE_QUALITY_PREFLIGHT_BLOCKER`;
-3. M3 executa **uma única navegação Chromium normal por contexto de dispositivo**, a mesma navegação que já seria necessária numa auditoria saudável;
+3. Renderização Desktop e Mobile executa **uma única navegação Chromium normal por contexto de dispositivo**, a mesma navegação que já seria necessária numa auditoria saudável;
 4. o resultado HTTP e o resultado Chromium são reconciliados;
 5. somente se o Chromium também não produzir conteúdo utilizável o estado definitivo `SOURCE_QUALITY_BLOCKED` é emitido;
 6. depois da confirmação, PageSpeed/CrUX e a população repetitiva do Synthetic Apdex são interrompidos.
@@ -75,7 +75,7 @@ Essa verificação não é um bypass de TLS e não é uma repetição sintética
 
 ### Quando Chromium recupera a navegação
 
-Se M2 observar, por exemplo, uma cadeia que termina em TLS inválido, mas Chromium alcançar conteúdo válido:
+Se Descoberta e aquisição HTTP observar, por exemplo, uma cadeia que termina em TLS inválido, mas Chromium alcançar conteúdo válido:
 
 - o bloqueio global é revogado;
 - o evento `SOURCE_QUALITY_BROWSER_RECOVERED` é persistido;
@@ -101,10 +101,10 @@ Se Chromium também falhar:
 
 1. o SearchGEO grava limitação explícita;
 2. a análise semântica completa não é chamada sobre conteúdo inexistente;
-3. M20 não tenta remediar texto sem corpus confiável;
+3. Sugestões e remediação de conteúdo por IA não tenta remediar texto sem corpus confiável;
 4. PageSpeed/CrUX não são chamados;
 5. Synthetic Apdex não executa 100/125 navegações redundantes;
-6. M21 e M23 registram `SKIPPED_SOURCE_BLOCKER`, com zero tentativas correspondentes;
+6. Web Performance externo e Synthetic Navigation Apdex registram `SKIPPED_SOURCE_BLOCKER`, com zero tentativas correspondentes;
 7. o audit termina como `COMPLETE_WITH_LIMITATIONS`, preservando o diagnóstico produzido.
 
 Essa política economiza tráfego, tempo e custo de API sem converter a falha do site em sucesso.
@@ -115,17 +115,17 @@ Se somente parte das URLs estiver bloqueada, o SearchGEO não interrompe globalm
 
 ## Synthetic Apdex
 
-A metodologia M23 não foi modificada.
+A metodologia Synthetic Navigation Apdex não foi modificada.
 
 A especificação existente permite classificar uma tentativa de Task como `FRUSTRATED` quando ocorre erro de aplicação, timeout ou erro de navegação após o perfil sintético ter sido aplicado.
 
 A correção de qualidade da origem atua antes da população repetitiva:
 
-- M2 identifica um bloqueio candidato;
+- Descoberta e aquisição HTTP identifica um bloqueio candidato;
 - Chromium confirma ou revoga o bloqueio;
-- somente um bloqueio confirmado impede M23.
+- somente um bloqueio confirmado impede Synthetic Navigation Apdex.
 
-Quando confirmado, M23 persiste:
+Quando confirmado, Synthetic Navigation Apdex persiste:
 
 ```text
 status = SKIPPED_SOURCE_BLOCKER
@@ -135,7 +135,7 @@ valid_samples = 0
 
 Dessa forma, o SearchGEO não produz um Apdex 0,000 baseado em cem repetições da mesma incompatibilidade técnica já confirmada.
 
-Se Chromium alcançar a página normalmente, M23 executa segundo a configuração habitual.
+Se Chromium alcançar a página normalmente, Synthetic Navigation Apdex executa segundo a configuração habitual.
 
 ## Web Performance externo
 
@@ -214,11 +214,11 @@ O bloco apresenta, conforme disponibilidade:
 - recomendações determinísticas;
 - explicação complementar de IA, quando disponível.
 
-O bloco é idempotente e é aplicado após os enriquecimentos M21/M23 para cobrir também as páginas de Web Performance e Apdex.
+O bloco é idempotente e é aplicado após os enriquecimentos Web Performance externo/Synthetic Navigation Apdex para cobrir também as páginas de Web Performance e Apdex.
 
 ## Exemplo que motivou a proteção
 
-A aquisição M2 observada em smoke mostrou:
+A aquisição Descoberta e aquisição HTTP observada em smoke mostrou:
 
 ```text
 https://mdsgroup.com/
@@ -233,12 +233,12 @@ No mesmo ambiente humano, um navegador convencional alcançou:
 https://www.mdsgroup.com/pt/
 ```
 
-Isso demonstrou que encerrar a auditoria somente pela visão M2 era prematuro. O comportamento correto passou a ser **confirmar uma vez com Chromium**.
+Isso demonstrou que encerrar a auditoria somente pela visão Descoberta e aquisição HTTP era prematuro. O comportamento correto passou a ser **confirmar uma vez com Chromium**.
 
 Resultado esperado após a correção:
 
 ```text
-M2/HTTP detecta bloqueio candidato
+Descoberta e aquisição HTTP/HTTP detecta bloqueio candidato
 → Chromium verifica a URL configurada
 → se Chromium chega a conteúdo válido:
      registrar divergência e continuar métricas
@@ -285,8 +285,8 @@ artifacts/source-quality.json            # estado técnico reconciliado usado pe
 artifacts/source-quality-ai.json         # somente quando a camada opcional é executada
 ```
 
-O artefato `source-quality-preflight.json` preserva a evidência M2 original mesmo quando Chromium demonstra que a página é navegável e `source-quality.json` deixa de considerar o caso um bloqueio global.
+O artefato `source-quality-preflight.json` preserva a evidência Descoberta e aquisição HTTP original mesmo quando Chromium demonstra que a página é navegável e `source-quality.json` deixa de considerar o caso um bloqueio global.
 
-M21/M23 utilizam suas tabelas aditivas já existentes para registrar `SKIPPED_SOURCE_BLOCKER` somente quando o bloqueio permanece confirmado.
+Web Performance externo/Synthetic Navigation Apdex utilizam suas tabelas aditivas já existentes para registrar `SKIPPED_SOURCE_BLOCKER` somente quando o bloqueio permanece confirmado.
 
 Não há alteração na fórmula de `SCORE-GEO-002` ou na fórmula Apdex.

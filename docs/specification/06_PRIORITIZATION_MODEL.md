@@ -1,14 +1,14 @@
 # PRIORITIZATION_MODEL.md
 
-**Status:** APPROVED  
+**Status:** APPROVED
 **Baseline:** PRIORITY-GEO-001
 
 ## 1. Conceitos
 
-Severity = gravidade intrínseca  
-Impact = alcance/consequência  
-Confidence = confiabilidade do finding  
-Effort = esforço estimado de correção  
+Severity = gravidade intrínseca
+Impact = alcance/consequência
+Confidence = confiabilidade do finding
+Effort = esforço estimado de correção
 Priority = ordem recomendada
 
 ## 2. Severity
@@ -74,11 +74,11 @@ Effort nunca deve reduzir artificialmente a importância de blocker crítico.
 
 ## 7. Classes
 
-P0 = blocker por regra especial  
-P1 = 75–100  
-P2 = 60–74.9  
-P3 = 40–59.9  
-P4 = <40  
+P0 = blocker por regra especial
+P1 = 75–100
+P2 = 60–74.9
+P3 = 40–59.9
+P4 = <40
 INFO = informacional
 
 ## 8. P0

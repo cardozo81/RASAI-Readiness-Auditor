@@ -1,6 +1,6 @@
 # DOMAIN_MODEL.md
 
-**Status:** APPROVED — extended by M13 Actionable GEO Report
+**Status:** APPROVED — extended by Remediação GEO acionável Actionable GEO Report
 
 ## 1. Objetivo
 

@@ -39,7 +39,7 @@ report/references.html            existe
 report/css/site.css               existe
 ```
 
-Em `content-suggestions.html`, M20 textual deve estar DISABLED e a revisão JSON-LD deve existir.
+Em `content-suggestions.html`, Sugestões e remediação de conteúdo por IA textual deve estar DISABLED e a revisão JSON-LD deve existir.
 
 ## 3. Desktop e Both
 
@@ -58,7 +58,7 @@ Usar página sem JSON-LD. Confirmar proposta `WebPage` somente com valores obser
 
 Confirmar preservação do graph e revisão não destrutiva de parse, duplicações, `@context`, `@type` e propriedades genéricas quando sustentadas.
 
-## 6. M20 com IA
+## 6. Sugestões e remediação de conteúdo por IA com IA
 
 Pré-requisito: chave de API do produto correto.
 
@@ -70,11 +70,11 @@ searchgeo audit https://URL-DE-TESTE `
   --ai-content-remediation
 ```
 
-Validar em `content-suggestions.html`: finding, objetivo, localização, texto proposto, evidence IDs, provider/model, revisão humana. Em `ai-usage.html`, validar telemetria M20.
+Validar em `content-suggestions.html`: finding, objetivo, localização, texto proposto, evidence IDs, provider/model, revisão humana. Em `ai-usage.html`, validar telemetria Sugestões e remediação de conteúdo por IA.
 
-## 7. Falha M20/provider
+## 7. Falha Sugestões e remediação de conteúdo por IA/provider
 
-Sem token ou com provider indisponível, audit deve concluir; M20 registra estado operacional e não altera Score/finding. JSON-LD determinístico permanece.
+Sem token ou com provider indisponível, audit deve concluir; Sugestões e remediação de conteúdo por IA registra estado operacional e não altera Score/finding. JSON-LD determinístico permanece.
 
 ## 8. Segurança
 

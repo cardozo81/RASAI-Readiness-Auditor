@@ -123,7 +123,7 @@ Overrides de reasoning/thinking usam as variáveis específicas do provider expo
 
 Default: OFF. A remediação exige provider de IA apto. É advisory/evidence-bound e não altera automaticamente o Score GEO.
 
-## M24 — remediação técnica de crawling/discovery por IA
+## Rastreamento, descoberta e acesso de crawlers — remediação técnica de crawling/discovery por IA
 
 ```text
 --ai-technical-remediation
@@ -138,7 +138,7 @@ Valores de ambiente aceitos: `true/false`, `1/0`, `yes/no`, `on/off`.
 
 Precedência: argumento CLI explícito > variável de ambiente > OFF.
 
-Essa opção **não habilita o M24 determinístico** — os diagnósticos técnicos de crawling/discovery já são executados no pipeline normal. Ela habilita somente uma camada opcional de explicação/remediação por IA sobre diagnósticos M24 já persistidos.
+Essa opção **não habilita o Rastreamento, descoberta e acesso de crawlers determinístico** — os diagnósticos técnicos de crawling/discovery já são executados no pipeline normal. Ela habilita somente uma camada opcional de explicação/remediação por IA sobre diagnósticos Rastreamento, descoberta e acesso de crawlers já persistidos.
 
 A IA técnica:
 
@@ -148,7 +148,7 @@ A IA técnica:
 - não transforma `llms.txt` em requisito;
 - exige revisão humana.
 
-O relatório correspondente é `report/crawling-discovery.html`; telemetria de IA M24 também pode aparecer em `report/ai-usage.html`.
+O relatório correspondente é `report/crawling-discovery.html`; telemetria de IA Rastreamento, descoberta e acesso de crawlers também pode aparecer em `report/ai-usage.html`.
 
 ## Web Performance / PageSpeed / Lighthouse / CrUX
 
@@ -185,7 +185,7 @@ SEARCHGEO_PAGESPEED_API_KEY
 SEARCHGEO_CRUX_API_KEY
 ```
 
-## Synthetic Navigation Apdex — M23
+## Synthetic Navigation Apdex — Synthetic Navigation Apdex
 
 Habilitação:
 
@@ -219,7 +219,7 @@ SEARCHGEO_APDEX_DELAY_SECONDS
 SEARCHGEO_APDEX_CONCURRENCY
 ```
 
-## Synthetic User Experience Apdex — M25
+## Synthetic User Experience Apdex — Synthetic User Experience Apdex
 
 Habilitação:
 
@@ -228,7 +228,7 @@ Habilitação:
 --no-apdex-experience
 ```
 
-Default: OFF. O M25 é um segundo domínio Apdex, sintético e calibrável. Não substitui o M23 e não representa RUM.
+Default: OFF. O Synthetic User Experience Apdex é um segundo domínio Apdex, sintético e calibrável. Não substitui o Synthetic Navigation Apdex e não representa RUM.
 
 Principais parâmetros:
 
@@ -261,13 +261,13 @@ Quando habilitado, `device-mix` deve representar explicitamente a população si
 
 O import de configuração é usado para alinhar KPM/thresholds/política quando suportado. O resultado produzido continua sintético; não se torna RUM apenas por usar parâmetros derivados do Dynatrace.
 
-Variáveis M25 usam prefixos `SEARCHGEO_APDEX_EXPERIENCE_*` e `SEARCHGEO_APDEX_DYNATRACE_IMPORT`, além das variáveis Dynatrace documentadas em `ENVIRONMENT_VARIABLES.md`.
+Variáveis Synthetic User Experience Apdex usam prefixos `SEARCHGEO_APDEX_EXPERIENCE_*` e `SEARCHGEO_APDEX_DYNATRACE_IMPORT`, além das variáveis Dynatrace documentadas em `ENVIRONMENT_VARIABLES.md`.
 
 Página canônica: `report/apdex-experience.html`.
 
-## Observed Generative Visibility — M26
+## Observed Generative Visibility — Observed Generative Visibility
 
-O M26 não é parte do comando `audit`; ele atua sobre um workspace `AUD-*` já existente e importa outcomes observados em domínio separado do readiness.
+O Observed Generative Visibility não é parte do comando `audit`; ele atua sobre um workspace `AUD-*` já existente e importa outcomes observados em domínio separado do readiness.
 
 ### Importar dataset
 
@@ -308,7 +308,7 @@ Regras relevantes:
 - Citation Presence Rate só é calculado sobre query-runs `VALID`;
 - runs `INVALID` ficam fora do denominador;
 - rank observado exige `ranking_semantics` explícita;
-- nenhum outcome M26 altera `SGRI-001`/`SCORE-GEO-002`.
+- nenhum outcome Observed Generative Visibility altera `SGRI-001`/`SCORE-GEO-002`.
 
 ### Regenerar o report
 
@@ -320,7 +320,7 @@ searchgeo visibility report `
 
 Página canônica: `report/ai-visibility.html`.
 
-O M26 é **import-first**: não faz scraping de Bing Webmaster Tools e não presume endpoint de API de AI Performance sem documentação pública correspondente.
+O Observed Generative Visibility é **import-first**: não faz scraping de Bing Webmaster Tools e não presume endpoint de API de AI Performance sem documentação pública correspondente.
 
 Contrato completo: [specification/26_OBSERVED_GENERATIVE_VISIBILITY.md](specification/26_OBSERVED_GENERATIVE_VISIBILITY.md).
 
@@ -342,7 +342,7 @@ searchgeo audit https://example.com `
   --ai-model gpt-5.6-luna
 ```
 
-### Remediação técnica M24 por IA
+### Remediação técnica Rastreamento, descoberta e acesso de crawlers por IA
 
 ```powershell
 searchgeo audit https://example.com `
@@ -387,8 +387,8 @@ searchgeo-console
 
 O console configura a superfície principal de auditoria e adiciona persistência de parâmetros não sensíveis em `searchgeo-console.ini`, progresso, preflight e atalhos para artifacts. Secrets não são gravados no INI.
 
-O M26 é inicialmente uma superfície CLI/import-first separada; não deve ser presumido como coleta automática ou item persistido do fluxo de auditoria no console enquanto essa integração não existir explicitamente.
+O Observed Generative Visibility é inicialmente uma superfície CLI/import-first separada; não deve ser presumido como coleta automática ou item persistido do fluxo de auditoria no console enquanto essa integração não existir explicitamente.
 
-O parâmetro M24 `--ai-technical-remediation` também permanece documentado como superfície CLI/ambiente nesta versão quando não houver integração explícita correspondente no INI.
+O parâmetro Rastreamento, descoberta e acesso de crawlers `--ai-technical-remediation` também permanece documentado como superfície CLI/ambiente nesta versão quando não houver integração explícita correspondente no INI.
 
 Consulte [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [CONFIGURATION.md](CONFIGURATION.md), [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md), [specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md](specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md) e [specification/26_OBSERVED_GENERATIVE_VISIBILITY.md](specification/26_OBSERVED_GENERATIVE_VISIBILITY.md).

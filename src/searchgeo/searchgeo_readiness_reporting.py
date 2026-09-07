@@ -65,7 +65,7 @@ _SECTION_BY_KICKER = (
 def enrich_searchgeo_reporting(*, audit_id: str, workspace: AuditWorkspace) -> Path:
     """Create/update SearchGEO page and normalize dashboard/device report roles.
 
-    Idempotent by design. It can run after M20, M21/M22, M23 and final report
+    Idempotent by design. It can run after Sugestões e remediação de conteúdo por IA, Web Performance externo/Acessibilidade automatizada e diagnósticos Web, Synthetic Navigation Apdex and final report
     enrichments without changing source measurements.
     """
     report_dir = workspace.root / "report"
@@ -128,9 +128,9 @@ def _register_navigation() -> None:
                 searchgeo_seen = True
             continue
         if filename == "mobile.html":
-            label = "Evidências Mobile"
+            label = "Relatório Mobile"
         elif filename == "desktop.html":
-            label = "Evidências Desktop"
+            label = "Relatório Desktop"
         items.append((label, filename))
     if not searchgeo_seen:
         insertion = next(

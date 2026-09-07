@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-M16/M17 transformam um finding evidence-backed em diagnóstico acionável sem alterar o resultado original da regra.
+Remediação por causa raiz e elemento/Precisão e consistência das recomendações transformam um finding evidence-backed em diagnóstico acionável sem alterar o resultado original da regra.
 
 A projeção final fica em:
 
@@ -20,7 +20,7 @@ report/remediation.html
 
 Nenhum desses conceitos deve ser derivado apenas de `Confidence LOW` do score.
 
-## Dados M16
+## Dados Remediação por causa raiz e elemento
 
 `root_cause_analyses` registra, conforme disponível:
 
@@ -41,9 +41,9 @@ Nenhum desses conceitos deve ser derivado apenas de `Confidence LOW` do score.
 - human decision required;
 - diagnostic confidence.
 
-## Dados M17
+## Dados Precisão e consistência das recomendações
 
-`root_cause_precision` complementa sem reescrever M16:
+`root_cause_precision` complementa sem reescrever Remediação por causa raiz e elemento:
 
 - `reason_code`;
 - `precise_cause_summary`;

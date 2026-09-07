@@ -1,6 +1,6 @@
 # REPORTING_LANGUAGE_GLOSSARY.md
 
-**Status:** APPROVED — extended through M21 Web Performance Evidence
+**Status:** APPROVED — extended through Web Performance externo Web Performance Evidence
 
 ## 1. Regra editorial
 
@@ -318,9 +318,9 @@ Quando IA externa for usada, o relatório deve indicar que análises semânticas
 
 O relatório não deve sugerir que a IA “deu a nota GEO”; score oficial continua determinístico.
 
-M21 não é telemetria de IA. PageSpeed/CrUX devem aparecer como serviços externos de medição e nunca como provider semântico.
+Web Performance externo não é telemetria de IA. PageSpeed/CrUX devem aparecer como serviços externos de medição e nunca como provider semântico.
 
-## 10. Linguagem M21 obrigatória
+## 10. Linguagem Web Performance externo obrigatória
 
 Preferir:
 
@@ -341,7 +341,7 @@ Core Web Vitals determinou a nota GEO
 Sem dados CrUX = site reprovado
 ```
 
-Quando M21 estiver desabilitado:
+Quando Web Performance externo estiver desabilitado:
 
 `A coleta externa de Web Performance foi desabilitada. Nenhuma requisição PageSpeed/CrUX foi realizada. O SCORE-GEO-002 permanece disponível normalmente.`
 
@@ -372,3 +372,8 @@ Nunca recomendar ou afirmar sem base:
 Nunca representar PageSpeed, Lighthouse ou CrUX como certificação GEO/AEO oficial.
 
 O produto mede readiness, oferece remediação evidence-backed e pode apresentar sinais Web Performance externos de forma separada.
+
+
+### Linguagem orientada ao analista
+
+A apresentação HTML é destinada a profissionais de análise de dados e SEO, não a desenvolvedores do SearchGEO. Termos técnicos só devem aparecer na leitura principal quando tiverem fonte pública reconhecida e uso difundido no domínio. Vocabulário interno de implementação deve permanecer fora da interface principal; quando tecnicamente necessário para suporte, deve ficar recolhido em detalhes técnicos e acompanhado de explicação humana. Identificadores históricos de etapas de entrega não fazem parte do vocabulário do produto e não devem aparecer em relatórios, console ou documentação operacional.

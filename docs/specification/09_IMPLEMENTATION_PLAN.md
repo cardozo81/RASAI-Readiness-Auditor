@@ -1,8 +1,8 @@
 # IMPLEMENTATION_PLAN.md
 
-**Status:** APPROVED — extended through M17
+**Status:** APPROVED — extended through Precisão e consistência das recomendações
 
-## M0 — Bootstrap
+## Bootstrap e fundação do projeto — Bootstrap
 
 Objetivo:
 
@@ -17,7 +17,7 @@ Objetivo:
 
 Não implementar módulos futuros vazios.
 
-## M1 — Audit + Persistence
+## Auditoria e persistência — Audit + Persistence
 
 Implementar:
 
@@ -34,7 +34,7 @@ Implementar:
 
 Critério: criar, persistir, encerrar, reabrir e recuperar Audit.
 
-## M2 — Discovery + HTTP
+## Descoberta e aquisição HTTP — Discovery + HTTP
 
 Implementar:
 
@@ -52,7 +52,7 @@ Implementar:
 
 Primeiras regras técnicas.
 
-## M3 — Rendering Desktop/Mobile
+## Renderização Desktop e Mobile — Rendering Desktop/Mobile
 
 Implementar:
 
@@ -64,7 +64,7 @@ Implementar:
 - rendered;
 - PageSnapshot independente.
 
-## M4 — Extraction + Evidence
+## Extração e evidências — Extraction + Evidence
 
 Implementar:
 
@@ -75,7 +75,7 @@ Implementar:
 - Dados Estruturados;
 - Evidence Manager.
 
-## M5 — Deterministic Rules Engine
+## Motor de regras determinísticas — Deterministic Rules Engine
 
 Implementar:
 
@@ -90,7 +90,7 @@ Principalmente BR-GEO-001..018.
 
 Checkpoint: Technical Auditor Alpha funcional sem IA.
 
-## M6 — JavaScript / SPA
+## JavaScript e SPA — JavaScript / SPA
 
 Implementar:
 
@@ -101,7 +101,7 @@ Implementar:
 - lazy loading;
 - crawlable navigation.
 
-## M7 — Semantic Provider + Fallback
+## Análise semântica e fallback — Semantic Provider + Fallback
 
 Implementar:
 
@@ -115,11 +115,11 @@ Implementar:
 
 Teste obrigatório com IA e sem IA.
 
-## M8 — Desktop × Mobile Comparison
+## Comparação Desktop e Mobile — Desktop × Mobile Comparison
 
 Implementar DeviceComparator e BR-GEO-052.
 
-## M9 — Scoring + Reliability
+## Scoring e confiabilidade — Scoring + Reliability
 
 Implementar:
 
@@ -131,7 +131,7 @@ Implementar:
 - scoring groups;
 - Overall por dispositivo.
 
-## M10 — Prioritization + Recommendations
+## Priorização e recomendações — Prioritization + Recommendations
 
 Implementar:
 
@@ -142,7 +142,7 @@ Implementar:
 - deterministic recommendation templates;
 - RemediationGroup.
 
-## M11 — Static HTML Report
+## Relatório HTML estático — Static HTML Report
 
 Implementar:
 
@@ -156,7 +156,7 @@ Implementar:
 - recommendations;
 - limitations.
 
-## M12 — Critical Tests + Stable Local Baseline
+## Testes críticos e baseline local estável — Critical Tests + Stable Local Baseline
 
 Testar minimamente:
 
@@ -168,14 +168,14 @@ Testar minimamente:
 - report;
 - regressões críticas.
 
-## M13 — Actionable GEO Remediation Report
+## Remediação GEO acionável — Actionable GEO Remediation Report
 
 Objetivo: evoluir a Stable Local Baseline de `GEO scoring/reporting` para `GEO scoring + evidence-backed actionable remediation`, sem alterar arbitrariamente o scoring aprovado.
 
 Implementar:
 
 - `RemediationRecipe` determinística por `rule_id` ou família de regras;
-- recomendações M10 específicas por regra sempre que houver recipe;
+- recomendações Priorização e recomendações específicas por regra sempre que houver recipe;
 - fallback explicitamente identificado;
 - `REPORT-GEO-002`;
 - resumo executivo com Compatibilidade GEO, Coverage e Confidence separados;
@@ -202,7 +202,7 @@ Restrições:
 - não inventar HTML observado, canonical, noindex policy, structured data, autor, fonte, data ou fatos;
 - relatório continua estático, autocontido, responsivo e sem dependência externa obrigatória.
 
-## M14 — Multi-URL + Visual/DOM Evidence + Actionability
+## Auditoria multi-URL e evidência visual — Multi-URL + Visual/DOM Evidence + Actionability
 
 Objetivo: permitir auditoria explícita de várias URLs do mesmo origin em um único `audit_id` e melhorar a rastreabilidade visual/técnica das correções.
 
@@ -225,7 +225,7 @@ Restrições:
 - não inventar selector, HTML observado ou referência técnica;
 - recursos de domínio não são findings duplicados por página.
 
-## M15 — Error-Centric Report + Report UX
+## Experiência e organização dos relatórios — Error-Centric Report + Report UX
 
 Objetivo: melhorar navegação, legibilidade e priorização humana sem alterar dados persistidos, scoring ou findings.
 
@@ -267,7 +267,7 @@ Critérios de conclusão:
 9. suíte determinística permanece verde;
 10. diff final não contém workflow temporário nem secrets.
 
-## M16 — Root Cause + Element-Level Remediation
+## Remediação por causa raiz e elemento — Root Cause + Element-Level Remediation
 
 Objetivo: transformar cada finding em diagnóstico técnico por ocorrência, informando a causa raiz, onde ela foi observada e como corrigi-la sem fabricar precisão.
 
@@ -292,7 +292,7 @@ Restrições:
 - não inventar selector, elemento, HTML observado, causa técnica ou conteúdo;
 - `<main>` contextual não deve ser apresentado como elemento defeituoso por si só;
 - regras globais/HTTP/robots/sitemap não recebem selector DOM artificial;
-- diagnóstico M16 não altera Business Rules, severity, actionability, prioridade, Score, Coverage, Confidence ou Consolidation;
+- diagnóstico Remediação por causa raiz e elemento não altera Business Rules, severity, actionability, prioridade, Score, Coverage, Confidence ou Consolidation;
 - `diagnostic_confidence` mede apenas precisão de localização/causa e não participa de `SCORE-GEO-001`;
 - não introduzir chamada adicional de IA para redigir causa raiz.
 
@@ -309,7 +309,7 @@ Critérios de conclusão:
 9. suíte determinística permanece verde;
 10. diff final não contém workflow temporário nem secrets.
 
-## M17 — Remediation Precision + Report Consistency
+## Precisão e consistência das recomendações — Remediation Precision + Report Consistency
 
 Objetivo: tornar o diagnóstico técnico inequívoco para implementação e alinhar os dois relatórios à actionability real, sem alterar regras, scoring ou prioridade.
 
@@ -379,9 +379,9 @@ Critérios:
 - limitações explícitas;
 - testes críticos.
 
-Após M17, a baseline de reporting possui duas projeções complementares, causa raiz por ocorrência e uma camada aditiva de precisão de diagnóstico/remediação sem alterar os contratos de scoring ou regras.
+Após Precisão e consistência das recomendações, a baseline de reporting possui duas projeções complementares, causa raiz por ocorrência e uma camada aditiva de precisão de diagnóstico/remediação sem alterar os contratos de scoring ou regras.
 
-Git/GitHub já são utilizados a partir do M0 para controle de versão e repositório de desenvolvimento. A adoção antecipada de Git/GitHub é uma decisão de processo de desenvolvimento e não torna GitHub dependência de execução do produto.
+Git/GitHub já são utilizados a partir do Bootstrap e fundação do projeto para controle de versão e repositório de desenvolvimento. A adoção antecipada de Git/GitHub é uma decisão de processo de desenvolvimento e não torna GitHub dependência de execução do produto.
 
 ## Regra operacional
 
@@ -407,5 +407,5 @@ A execução deve interromper diante dos blockers reais definidos em D-034 ou em
 Nenhum marco pode ser declarado concluído apenas para permitir avanço, e nenhum escopo do marco seguinte deve ser antecipado materialmente antes do encerramento do marco atual, salvo infraestrutura estritamente necessária e já permitida pela especificação.
 
 <!-- M18_MULTI_AI_PROVIDER_ROUTING -->
-## M18 — Multi-AI Provider Abstraction, Reliability Routing & Usage Telemetry
+## Análise semântica por IA, roteamento e telemetria — Multi-AI Provider Abstraction, Reliability Routing & Usage Telemetry
 Implementar adapters provider-neutral para OpenAI/DeepSeek/MiMo, AUTO determinístico com quarantine e URL provider lock, telemetria persistida, catálogo versionado de preços e projeção operacional nos HTMLs. Preservar NoneProvider/OpenAI compatibility e invariantes de scoring. Testes externos usam mocks/fakes; live smoke é condicionado à presença de tokens.

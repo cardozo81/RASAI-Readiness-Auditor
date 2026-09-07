@@ -1,6 +1,6 @@
 # SearchGEO Readiness Auditor — Project Charter & Scope
 
-**Status:** APPROVED  
+**Status:** APPROVED
 **Versão funcional:** MVP Baseline
 
 ## 1. Visão do Produto
@@ -38,7 +38,7 @@ Fase inicial:
 - sem arquitetura distribuída;
 - sem multiusuário;
 - sem CI/CD obrigatório;
-- Git/GitHub utilizados como controle de versão e repositório de desenvolvimento a partir do M0;
+- Git/GitHub utilizados como controle de versão e repositório de desenvolvimento a partir do Bootstrap e fundação do projeto;
 - GitHub não é dependência obrigatória para execução do produto;
 - testes mínimos orientados a risco.
 

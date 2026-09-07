@@ -111,7 +111,7 @@ Executadas em `pre_scoring_rules.py`; `basis` não é codificado separadamente e
 | Campo | Contrato |
 |---|---|
 | Regra | Material Desktop/Mobile differences must be explicitly detected and classified |
-| Basis materializada | não há `RuleDefinition.basis` separado no executor M8 |
+| Basis materializada | não há `RuleDefinition.basis` separado no executor Comparação Desktop e Mobile |
 | Scope | por Page, compara snapshots Desktop e Mobile |
 | Evidence | `COMPARISON` com estado Desktop/Mobile, campos alterados, materialidade e limitações |
 | Resultado | `PASS`, `WARNING`, `UNKNOWN` ou `NOT_APPLICABLE`; classificação interna SAME/DIFFERENT/UNKNOWN/NOT_APPLICABLE |
@@ -134,7 +134,7 @@ Executada antes do scoring sobre os Findings produzidos até aquele ponto.
 
 ## BR-GEO-054 — Score reproducibility
 
-Executada por M9 após o cálculo/persistência dos scores.
+Executada por Scoring e confiabilidade após o cálculo/persistência dos scores.
 
 | Campo | Contrato |
 |---|---|
@@ -142,7 +142,7 @@ Executada por M9 após o cálculo/persistência dos scores.
 | Scope | global |
 | Evidence | recalcula `SCORE-GEO-002`, reabre scores/contributions e compara resultados |
 | Resultado | PASS quando score é reproduzível; FAIL em inconsistência |
-| Finding | M9 não publica Finding de qualidade do website para esta regra; é integridade do auditor |
+| Finding | Scoring e confiabilidade não publica Finding de qualidade do website para esta regra; é integridade do auditor |
 | Scoring | não pontua diretamente |
 
 ## Dependências e cascading failures
@@ -177,4 +177,3 @@ Consulte [AI_GUIDE.md](AI_GUIDE.md) e [SCORING_GUIDE.md](SCORING_GUIDE.md).
 ## Proveniência metodológica
 
 A classificação `OFFICIAL` / `STANDARD` / `HEURISTIC` de cada BR-GEO deve ser lida junto às fontes exibidas no report. Uma referência externa não promove automaticamente uma heurística a standard. O inventário consolidado está em [INDICATOR_PROVENANCE.md](INDICATOR_PROVENANCE.md) e em `report/references.html#indicator-provenance`.
-

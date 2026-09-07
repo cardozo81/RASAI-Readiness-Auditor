@@ -130,15 +130,15 @@ O Bing disponibiliza dados sobre participação real do conteúdo em respostas g
 
 Essas métricas são particularmente relevantes porque medem **resultado observado**, não apenas prontidão inferida.
 
-O M26 (`Observed Generative Visibility`) materializa esse domínio de forma **import-first** por meio do contrato `OGV-IMPORT-001`. Na baseline atual, o SearchGEO não faz scraping do Bing Webmaster Tools nem presume endpoint público de AI Performance não documentado.
+O Observed Generative Visibility (`Observed Generative Visibility`) materializa esse domínio de forma **import-first** por meio do contrato `OGV-IMPORT-001`. Na baseline atual, o SearchGEO não faz scraping do Bing Webmaster Tools nem presume endpoint público de AI Performance não documentado.
 
-Regras do M26 para dados Bing:
+Regras do Observed Generative Visibility para dados Bing:
 
 - Total Citations e Average Cited Pages permanecem `source-reported`;
 - grounding queries, atividade por URL e tendência são preservadas conforme o dataset normalizado;
 - o artifact importado é preservado com SHA-256;
 - URLs devem pertencer ao `normalized_origin` da auditoria;
-- nenhum valor M26 entra em `SGRI-001`/`SCORE-GEO-002`.
+- nenhum valor Observed Generative Visibility entra em `SGRI-001`/`SCORE-GEO-002`.
 
 Uso recomendado:
 
@@ -162,7 +162,7 @@ Para um conjunto de query-runs controlados:
 Citation Presence Rate = query-runs VALID em que o origin auditado foi citado / total de query-runs VALID
 ```
 
-Essa métrica é um outcome diretamente observável. O M26 já implementa essa fórmula quando o dataset contém `query_runs` controlados.
+Essa métrica é um outcome diretamente observável. O Observed Generative Visibility já implementa essa fórmula quando o dataset contém `query_runs` controlados.
 
 Regras:
 
@@ -170,7 +170,7 @@ Regras:
 - `cited=true` exige ao menos uma URL same-origin;
 - `cited=false` não pode carregar URLs citadas do origin auditado;
 - a taxa é acompanhada do tamanho amostral;
-- o M26 calcula intervalo binomial de Wilson 95% para representar incerteza amostral quando `n > 0`.
+- o Observed Generative Visibility calcula intervalo binomial de Wilson 95% para representar incerteza amostral quando `n > 0`.
 
 A taxa histórica **não é convertida em probabilidade preditiva de citação futura** e não valida causalidade do SGRI.
 
@@ -190,7 +190,7 @@ Uso recomendado:
 - medir quão cedo a fonte aparece quando existe ranking/posição observável;
 - não usar quando a superfície não expõe uma ordenação semanticamente válida.
 
-O M26 aceita `rank` apenas quando o dataset também fornece `ranking_semantics`; nesta baseline ele **não agrega automaticamente MRR**, evitando presumir equivalência de ordenação entre engines/surfaces.
+O Observed Generative Visibility aceita `rank` apenas quando o dataset também fornece `ranking_semantics`; nesta baseline ele **não agrega automaticamente MRR**, evitando presumir equivalência de ordenação entre engines/surfaces.
 
 ### 4.3 nDCG@k
 
@@ -299,7 +299,7 @@ externamente documentado/calibrado para o fenômeno específico
 
 ### 6.3 Observed Generative Visibility
 
-Domínio implementado pelo M26 para outcomes reais/importados:
+Domínio implementado pelo Observed Generative Visibility para outcomes reais/importados:
 
 ```text
 Bing AI Performance source-reported metrics
@@ -316,7 +316,7 @@ Natureza:
 observacional/experimental; separado do readiness
 ```
 
-Métricas como MRR, nDCG e citation-support precision/recall permanecem candidatas para protocolos futuros, não outputs implícitos do M26 atual.
+Métricas como MRR, nDCG e citation-support precision/recall permanecem candidatas para protocolos futuros, não outputs implícitos do Observed Generative Visibility atual.
 
 Essa separação evita que um único número misture prontidão inferida, experiência de página e performance real de citação.
 
@@ -344,7 +344,7 @@ Possível processo para uma futura versão calibrada:
 9. publicar intervalos de confiança e limitações;
 10. versionar o modelo conforme período e superfícies avaliadas.
 
-O M26 passa a fornecer uma infraestrutura de outcomes que pode alimentar esse trabalho no futuro, mas **sua existência não valida por si só o SGRI**. Dataset, desenho experimental, separação de amostras e validação fora da amostra continuam obrigatórios.
+O Observed Generative Visibility passa a fornecer uma infraestrutura de outcomes que pode alimentar esse trabalho no futuro, mas **sua existência não valida por si só o SGRI**. Dataset, desenho experimental, separação de amostras e validação fora da amostra continuam obrigatórios.
 
 Nesse cenário, uma saída poderia ser denominada, por exemplo:
 
@@ -361,8 +361,8 @@ Para `SGRI-001` / `SCORE-GEO-002`:
 - manter a fórmula atual para continuidade e reprodutibilidade;
 - explicitar que pesos/fatores/thresholds são heurísticos;
 - incorporar métricas externas somente nas dimensões em que exista correspondência conceitual válida;
-- não transformar Core Web Vitals, Lighthouse, métricas TREC ou outcomes M26 em “prova” do Overall Readiness;
-- usar M26 como camada observacional independente e como possível fonte futura de dataset de validação;
+- não transformar Core Web Vitals, Lighthouse, métricas TREC ou outcomes Observed Generative Visibility em “prova” do Overall Readiness;
+- usar Observed Generative Visibility como camada observacional independente e como possível fonte futura de dataset de validação;
 - planejar qualquer versão calibrada como projeto empírico, não como simples troca manual de pesos;
 - preferir no report a apresentação conjunta, porém não fundida, de `Readiness`, `Coverage/Confidence`, `External Evidence` e `Observed Generative Visibility` quando disponível.
 
@@ -372,7 +372,7 @@ Permitido:
 
 > O SearchGEO calcula um índice interno e reprodutível de prontidão, fundamentado em evidências técnicas e semânticas. Algumas submétricas podem utilizar padrões ou thresholds externos documentados.
 
-Também permitido para M26:
+Também permitido para Observed Generative Visibility:
 
 > O SearchGEO apresenta outcomes de visibilidade generativa observados/importados separadamente do readiness, preservando fonte, período e tamanho amostral quando aplicável.
 

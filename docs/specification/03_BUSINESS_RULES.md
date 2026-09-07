@@ -1,6 +1,6 @@
 # BUSINESS_RULES.md
 
-**Status:** APPROVED  
+**Status:** APPROVED
 **Ruleset:** BR-GEO-001..054
 
 ## 1. Contrato comum
@@ -41,25 +41,25 @@ Resultados:
 
 Princípios:
 
-UNKNOWN != FAIL  
-ERROR != FAIL  
+UNKNOWN != FAIL
+ERROR != FAIL
 NOT_APPLICABLE != FAIL
 
 ## 2. Acquisition
 
 ### BR-GEO-001 — Audit target must be valid and normalized
 
-Valida target e normalização.  
+Valida target e normalização.
 Global. Determinística. Blocking. Não afeta score.
 
 ### BR-GEO-002 — Every discovered URL must have traceable discovery provenance
 
-Toda Page deve registrar SEED, SITEMAP, INTERNAL_LINK, REDIRECT ou MANUAL.  
+Toda Page deve registrar SEED, SITEMAP, INTERNAL_LINK, REDIRECT ou MANUAL.
 Global. Determinística. Auditor Integrity.
 
 ### BR-GEO-003 — Sitemap resources must be acquired and interpreted when available
 
-Avalia sitemap declarado/encontrado, parsing e URLs.  
+Avalia sitemap declarado/encontrado, parsing e URLs.
 Ausência de sitemap não é automaticamente FAIL.
 
 ### BR-GEO-004 — HTTP acquisition artifacts must be preserved for reproducible analysis

@@ -1,14 +1,14 @@
-# M23 — Synthetic Navigation Apdex + Lighthouse Traceability
+# Synthetic Navigation Apdex — Synthetic Navigation Apdex + Lighthouse Traceability
 
-**Status:** INTEGRADO — smoke humano controlado aprovado antes do merge.  
-**Escopo:** Web Performance sintética e rastreabilidade de configuração Lighthouse.  
+**Status:** INTEGRADO — smoke humano controlado aprovado antes do merge.
+**Escopo:** Web Performance sintética e rastreabilidade de configuração Lighthouse.
 **Não altera:** `BR-GEO-*`, `SCORE-GEO-002`, Coverage, Confidence, Consolidation, findings GEO ou recomendações GEO.
 
 ## 1. Objetivo
 
-M23 adiciona uma medição sintética de Apdex baseada em uma Task explícita de navegação e torna auditável a configuração efetiva de execução Lighthouse já persistida pelo M21.
+Synthetic Navigation Apdex adiciona uma medição sintética de Apdex baseada em uma Task explícita de navegação e torna auditável a configuração efetiva de execução Lighthouse já persistida pelo Web Performance externo.
 
-M23 existe porque M22 corretamente proíbe inferir Apdex de Lighthouse/Core Web Vitals. Um índice Apdex só é calculável quando existe:
+Synthetic Navigation Apdex existe porque Acessibilidade automatizada e diagnósticos Web corretamente proíbe inferir Apdex de Lighthouse/Core Web Vitals. Um índice Apdex só é calculável quando existe:
 
 1. uma Task definida;
 2. threshold `T` explícito;
@@ -25,7 +25,7 @@ M23 existe porque M22 corretamente proíbe inferir Apdex de Lighthouse/Core Web 
 - cada amostra usa BrowserContext novo;
 - cache do browser é explicitamente desabilitado;
 - perfis de CPU/rede são determinísticos e versionados;
-- não há randomização de RTT/throughput/CPU na baseline M23.
+- não há randomização de RTT/throughput/CPU na baseline Synthetic Navigation Apdex.
 
 A Task mede navegação sintética controlada. Ela não deve ser apresentada como RUM, APM, experiência real de usuário ou tempo de transação de negócio.
 
@@ -51,7 +51,7 @@ Falha da ferramenta em iniciar/aplicar browser, CPU ou rede é amostra inválida
 
 ## 4. Threshold T
 
-M23 é default OFF.
+Synthetic Navigation Apdex é default OFF.
 
 Quando habilitado, `T` é obrigatório via CLI ou ambiente. O SearchGEO não inventa T a partir de Lighthouse, LCP, INP, CLS ou tempos históricos.
 
@@ -83,7 +83,7 @@ Perfis sintéticos Mobile/Desktop têm versão explícita. O executor registra:
 - versão do profile;
 - ambiente do host e versão Chromium/Playwright quando disponível.
 
-A implementação não deve afirmar equivalência entre o perfil M23 e o profile efetivo de Lighthouse.
+A implementação não deve afirmar equivalência entre o perfil Synthetic Navigation Apdex e o profile efetivo de Lighthouse.
 
 ## 7. Pacing, concorrência e carga
 
@@ -98,7 +98,7 @@ maximum      = 2 workers
 
 O pacer controla inícios de navegação. Uma navegação pode carregar HTML, CSS, JavaScript, imagens, fontes e terceiros; portanto `N` amostras não equivale a `N` requests HTTP.
 
-O console deve mostrar carga sintética separadamente da exposição financeira. M23:
+O console deve mostrar carga sintética separadamente da exposição financeira. Synthetic Navigation Apdex:
 
 - não chama LLM;
 - não chama PageSpeed/CrUX por si só;
@@ -137,7 +137,7 @@ SEARCHGEO_APDEX_CONCURRENCY
 
 Precedência: CLI > ambiente > defaults seguros.
 
-Variáveis de tuning inválidas não devem quebrar auditorias quando M23 está OFF.
+Variáveis de tuning inválidas não devem quebrar auditorias quando Synthetic Navigation Apdex está OFF.
 
 ## 9. Persistência
 
@@ -156,7 +156,7 @@ Nenhum secret deve ser persistido.
 
 ## 10. Lighthouse traceability
 
-M23 lê exclusivamente artifacts M21 já existentes e extrai `lighthouseResult.configSettings`/environment/timing quando disponíveis.
+Synthetic Navigation Apdex lê exclusivamente artifacts Web Performance externo já existentes e extrai `lighthouseResult.configSettings`/environment/timing quando disponíveis.
 
 Campos não observados permanecem `NULL`/ausentes. É proibido inventar throttling method, RTT/throughput, CPU slowdown, viewport, User-Agent, benchmark index ou duração do Lighthouse.
 
@@ -164,7 +164,7 @@ O tempo total de execução Lighthouse é telemetria do Lighthouse e não entra 
 
 ## 11. Reporting
 
-Quando M23 está habilitado e chega ao estágio de reporting, gera:
+Quando Synthetic Navigation Apdex está habilitado e chega ao estágio de reporting, gera:
 
 ```text
 report/apdex.html
@@ -172,7 +172,7 @@ report/apdex.html
 
 A página deve mostrar:
 
-- estado M23;
+- estado Synthetic Navigation Apdex;
 - `T` e `4T`;
 - tamanho do grupo;
 - Satisfied/Tolerating/Frustrated;
@@ -191,9 +191,9 @@ A página deve mostrar:
 
 ## 12. Fail-open
 
-M23 é downstream da auditoria SearchGEO principal.
+Synthetic Navigation Apdex é downstream da auditoria SearchGEO principal.
 
-Falha de M23:
+Falha de Synthetic Navigation Apdex:
 
 - não transforma o site em FAIL GEO;
 - não altera findings/scoring;
@@ -201,11 +201,11 @@ Falha de M23:
 - deve ser registrada no log operacional;
 - deve produzir status de limitação operacional quando possível.
 
-M21 e M23 são independentes: falha PageSpeed/CrUX não impede, por si só, Synthetic Apdex; falha Synthetic Apdex não invalida M21.
+Web Performance externo e Synthetic Navigation Apdex são independentes: falha PageSpeed/CrUX não impede, por si só, Synthetic Apdex; falha Synthetic Apdex não invalida Web Performance externo.
 
 ## 13. Console
 
-O console expõe M23 como item próprio e mantém:
+O console expõe Synthetic Navigation Apdex como item próprio e mantém:
 
 - uma tela lógica por vez;
 - T obrigatório quando ON;
@@ -218,7 +218,7 @@ O console expõe M23 como item próprio e mantém:
 
 ## 14. Gate de smoke humano — concluído
 
-O gate inicial foi executado antes da integração em `main` com alvo local/controlado, 1 URL, 1 device, `T` explícito, 5 amostras válidas, concorrência 1, IA OFF e M21 externo OFF.
+O gate inicial foi executado antes da integração em `main` com alvo local/controlado, 1 URL, 1 device, `T` explícito, 5 amostras válidas, concorrência 1, IA OFF e Web Performance externo externo OFF.
 
 Resultado aprovado:
 
@@ -228,10 +228,10 @@ Resultado aprovado:
 - `small_group=*` explícito;
 - `apdex.html` materializado e validado visualmente;
 - menu canônico validado;
-- console com item `11. Synthetic Apdex M23` validado;
+- console com item `11. Synthetic Apdex Synthetic Navigation Apdex` validado;
 - nenhum impacto em `SCORE-GEO-002`;
 - 0 chamadas LLM adicionais;
-- 0 chamadas PageSpeed/CrUX adicionadas por M23.
+- 0 chamadas PageSpeed/CrUX adicionadas por Synthetic Navigation Apdex.
 
 O gate funcional pequeno está encerrado. A regra operacional permanece: uma execução de 100 amostras contra ambiente real requer autorização humana específica de carga/capacidade.
 

@@ -1,8 +1,8 @@
-# M18 — Multi-AI Provider Abstraction, Reliability Routing & Usage Telemetry
+# Análise semântica por IA, roteamento e telemetria — Multi-AI Provider Abstraction, Reliability Routing & Usage Telemetry
 
 **Status:** APPROVED — reconciliado com `SCORE-GEO-002`, report site e contexto de dispositivo configurável.
 
-M18 é uma extensão aditiva de infraestrutura de IA. Não transforma LLM em scoring engine, não altera as Business Rules e não converte falha/ausência de IA em defeito do website. O scoring vigente é `SCORE-GEO-002`.
+Análise semântica por IA, roteamento e telemetria é uma extensão aditiva de infraestrutura de IA. Não transforma LLM em scoring engine, não altera as Business Rules e não converte falha/ausência de IA em defeito do website. O scoring vigente é `SCORE-GEO-002`.
 
 ## Providers e contrato
 
@@ -49,7 +49,7 @@ O escopo de dispositivo é definido pelo runtime atual por `SEARCHGEO_DEVICE_CON
 - `desktop` — somente Desktop;
 - `both` — Desktop e Mobile.
 
-A CLI usa `mobile` como default. M18 só pode chamar provider para snapshots/contextos efetivamente produzidos. Portanto um audit Mobile-only não deve gerar chamada Desktop apenas para completar simetria. Essa regra reduz custo sem alterar score retrospectivamente.
+A CLI usa `mobile` como default. Análise semântica por IA, roteamento e telemetria só pode chamar provider para snapshots/contextos efetivamente produzidos. Portanto um audit Mobile-only não deve gerar chamada Desktop apenas para completar simetria. Essa regra reduz custo sem alterar score retrospectivamente.
 
 A comparação BR-GEO-052 só existe quando ambos os dispositivos fazem parte do escopo. Em contexto único, a comparação é `NOT_APPLICABLE` com reason code `DEVICE_COMPARISON_DISABLED_BY_CONTEXT`; isso não representa falha de rendering.
 

@@ -1,4 +1,4 @@
-"""M18 operational AI context for report.html and remediation.html."""
+"""Análise semântica por IA, roteamento e telemetria operational AI context for report.html and remediation.html."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ def enrich_remediation_html(html: str, *, audit_id: str, workspace: AuditWorkspa
 
 
 def enrich_written_reports(*, audit_id: str, workspace: AuditWorkspace) -> None:
-    """Enrich the two static M11 projections after they are materialized."""
+    """Enrich the two static Relatório HTML estático projections after they are materialized."""
 
     report = workspace.root / "report.html"
     remediation = workspace.root / "remediation.html"

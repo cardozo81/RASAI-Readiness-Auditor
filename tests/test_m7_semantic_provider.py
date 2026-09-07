@@ -179,7 +179,7 @@ class M7SemanticProviderTests(unittest.TestCase):
                 self.assertEqual(by_rule["BR-GEO-034"].result, RuleResult.PASS)
                 self.assertEqual(by_rule["BR-GEO-035"].result, RuleResult.PASS)
                 self.assertEqual(by_rule["BR-GEO-038"].result, RuleResult.UNKNOWN)
-                self.assertIn("AI_NOT_CONFIGURED", persistence.audits.get(audit.audit_id).limitations)
+                self.assertIn("AI_DISABLED_BY_CONFIGURATION", persistence.audits.get(audit.audit_id).limitations)
                 finding_rules = {
                     persistence.findings.get(item).rule_id
                     for item in result.finding_ids
