@@ -2,390 +2,158 @@
 
 ## Objetivo
 
-Este documento registra a natureza da validação do `SCORE-GEO-002`, separa métricas internas de métricas externas e define caminhos possíveis para uma futura calibração empírica do SearchGEO.
+Registrar como o `SCORE-GEO-003` é validado e separar claramente:
 
-## 1. Conclusão normativa
+- evidência externa oficial;
+- métricas externas definidas;
+- heurísticas SearchGEO;
+- calibração empírica do Overall.
 
-Não existe, na data desta baseline, um **score universal de GEO/AEO Readiness 0–100 externamente homologado e calibrado de ponta a ponta** por Google, OpenAI, Microsoft, NIST, W3C ou outro mantenedor equivalente.
+## 1. Limite normativo
 
-Consequentemente, o `SCORE-GEO-002` não deve alegar equivalência a um padrão externo inexistente.
+Não existe um score GEO/AEO 0–100 universal homologado por Google, OpenAI, Microsoft, Anthropic, NIST, W3C ou outro mantenedor equivalente.
 
-É possível, porém, aumentar substancialmente o respaldo quantitativo do produto utilizando **métricas externas oficiais ou padronizadas para fenômenos específicos** e mantendo explícito o limite de aplicabilidade de cada uma.
+`SCORE-GEO-003` continua sendo método proprietário do SearchGEO. A calibração melhora respaldo quantitativo, mas não converte o índice em padrão oficial.
 
-## 2. Hierarquia de evidência
+## 2. O que é calibrado
 
-O SearchGEO deve classificar a origem de cada sinal quantitativo em uma das categorias abaixo.
+As dez dimensões continuam determinísticas e evidence-backed.
 
-### A. Requisito oficial do mecanismo
+A mudança do `003` está no `OVERALL_READINESS`:
 
-Regra diretamente documentada por quem opera a superfície avaliada.
+```text
+Overall = 100 × sigmoid(β0 + Σ βi × feature_i)
+```
 
-Exemplos:
+As features são as dimensões normalizadas.
 
-- requisitos técnicos e de indexação do Google Search;
-- elegibilidade para snippets e recursos de IA do Google;
-- controles de crawler documentados por mecanismos/provedores;
-- dados observados fornecidos pelo próprio Bing Webmaster Tools.
+Outcome inicial:
 
-Esse nível possui forte respaldo para responder **elegibilidade/comportamento documentado**, mas normalmente não fornece um score GEO 0–100.
+```text
+CITED = 1
+NOT_CITED = 0
+```
 
-### B. Métrica externa calibrada ou padronizada
+Fonte inicial do outcome: `CONTROLLED_QUERY_RUNS` persistidos pelo domínio Observed Generative Visibility.
 
-Métrica cuja fórmula, thresholds ou curva de scoring possuem metodologia pública e dados externos de referência.
+## 3. Promotion gate
 
-Exemplos:
+O model artifact só recebe `VALIDATED` quando atende simultaneamente:
+
+| Critério | Mínimo |
+|---|---:|
+| Domínios | 40 |
+| Domínios no holdout | 12 |
+| Engines | 2 |
+| Queries/domínio | 10 |
+| Repetições/query/engine | 3 |
+| Observações válidas | 2400 |
+| AUC holdout | 0,60 |
+| Brier | menor que baseline por prevalência de treino |
+
+O split é feito por domínio, aproximadamente 70/30, para evitar leakage entre queries do mesmo site.
+
+Artifact abaixo do gate permanece `EXPERIMENTAL` e não consolida o Overall.
+
+## 4. Métricas de validação
+
+### AUC
+
+Mede capacidade discriminativa no holdout. O gate mínimo interno é `0,60`.
+
+### Brier Score
+
+Mede erro quadrático das probabilidades. O modelo precisa superar um baseline que prevê a prevalência observada no treino.
+
+AUC/Brier são métricas estatísticas conhecidas; os gates usados para promover um model artifact são decisões internas versionadas do SearchGEO.
+
+## 5. Hierarquia de evidência
+
+### Requisito oficial
+
+Exemplos: regras técnicas/indexação do Google, RFC 9110, RFC 9309.
+
+Sustenta o fenômeno específico; não homologa o Overall.
+
+### Métrica externa definida
+
+Exemplos: Core Web Vitals, Lighthouse, métricas NIST/TREC.
+
+Mantém metodologia própria e não entra automaticamente no `SCORE-GEO-003`.
+
+### Heurística SearchGEO
+
+Exemplos: fatores de RuleResult, thresholds de Coverage/Confidence/Consolidation e classificação visual.
+
+Continuam explicitamente internos.
+
+### Modelo SearchGEO calibrado
+
+Coeficientes do Overall `003` são derivados de dataset observacional versionado e só são usados quando o artifact passa o promotion gate.
+
+## 6. Observed Generative Visibility
+
+Observed Generative Visibility permanece uma camada observacional separada do scoring operacional.
+
+Ela fornece, quando importado:
+
+- query;
+- engine/surface;
+- timestamp;
+- `CITED/NOT_CITED`;
+- cited URLs;
+- rank quando sua semântica é explícita;
+- Citation Presence Rate + Wilson 95%.
+
+O calibrador reutiliza somente query-runs controlados elegíveis. Não faz scraping de portal e não presume endpoint não documentado.
+
+## 7. Não entram automaticamente no Overall
+
+Sem evidência empírica específica, o `003` não injeta diretamente no Overall:
 
 - Core Web Vitals;
-- Lighthouse Performance Score;
-- nDCG, MRR, Precision, Recall e métricas relacionadas usadas por NIST/TREC;
-- métricas de suporte/citação empregadas em avaliações de RAG do TREC.
+- Lighthouse Performance;
+- Lighthouse Accessibility/WCAG;
+- Synthetic Apdex;
+- E-E-A-T/YMYL;
+- contagem de Structured Data;
+- métricas Bing source-reported não equivalentes ao outcome binário.
 
-Essas métricas são adequadas ao fenômeno para o qual foram construídas. Elas **não devem ser promovidas automaticamente a score GEO global**.
+Esses domínios continuam independentes ou influenciam apenas as regras/dimensões já documentadas.
 
-### C. Métrica acadêmica experimental
+## 8. Reprodutibilidade
 
-Métrica publicada em benchmark ou estudo científico, porém sem status de padrão operacional do mercado.
+O model artifact registra:
 
-Exemplo:
+- `format_version`;
+- `model_version`;
+- `dataset_version`;
+- data de treinamento;
+- engines;
+- intercept;
+- coeficientes;
+- médias de imputação;
+- métricas de treino/validação;
+- protocolo/gates;
+- SHA-256.
 
-- métricas de visibilidade do GEO-Bench.
+`BR-GEO-054` deve permitir recálculo sem nova chamada a website/IA.
 
-Podem informar desenho experimental e validação, mas exigem cautela de generalização.
+## 9. Histórico
 
-### D. Heurística SearchGEO
+`SCORE-GEO-002` não é removido dos AUDs históricos.
 
-Peso, threshold, fator ou agregação definidos internamente.
+Relatórios consolidados devem segmentar `002` e `003` como versões metodologicamente diferentes.
 
-Exemplos atuais:
+## 10. Interpretação correta
 
-- `PASS = 1.00`;
-- `WARNING = 0.50`;
-- `FAIL = 0.00`;
-- pesos iguais entre dimensões;
-- Coverage 80%/90%;
-- classificação visual 90/75/60/40;
-- média simples das dimensões no Overall.
+O Overall `003` é uma saída calibrada contra outcomes observados no dataset de referência, mas:
 
-Esses valores devem permanecer claramente identificados como internos até calibração empírica.
+- não prova causalidade;
+- não garante citação futura;
+- não garante ranking, tráfego ou conversão;
+- pode degradar quando engines/modelos e comportamento de busca mudarem.
 
-## 3. Métricas externas que podem ser utilizadas
+Recalibração deve produzir novo `dataset_version`/`model_version`; alteração incompatível do contrato exige nova versão de scoring.
 
-### 3.1 Google Search / AI features — elegibilidade técnica
-
-A documentação oficial do Google estabelece que, para aparecer como link de suporte em AI Overviews ou AI Mode, a página precisa estar indexada e elegível para aparecer no Google Search com snippet. O Google também declara que não existem requisitos técnicos adicionais específicos para essas superfícies de IA.
-
-Uso recomendado no SearchGEO:
-
-- tratar requisitos técnicos documentados como **gates de elegibilidade**, não como pesos arbitrários;
-- separar `ELIGIBLE`, `NOT_ELIGIBLE` e `UNKNOWN/UNVERIFIED`;
-- nunca afirmar que elegibilidade garante inclusão/citação.
-
-Referência:
-
-- https://developers.google.com/search/docs/appearance/ai-features
-
-### 3.2 Core Web Vitals — experiência de página
-
-Os Core Web Vitals possuem thresholds documentados pelo Google e usam o percentil 75 das experiências observadas:
-
-- LCP bom: `<= 2.5 s`;
-- INP bom: `<= 200 ms`;
-- CLS bom: `<= 0.1`.
-
-Uso recomendado no SearchGEO:
-
-- substituir thresholds próprios de performance, quando houver, pelos thresholds oficiais de CWV;
-- manter Mobile e Desktop separados;
-- preferir dados de campo quando disponíveis;
-- não converter aprovação em CWV em “probabilidade GEO”.
-
-Referências:
-
-- https://web.dev/articles/vitals
-- https://web.dev/articles/defining-core-web-vitals-thresholds
-
-### 3.3 Lighthouse Performance Score — score externo calibrado de performance
-
-O Lighthouse converte métricas de performance em score 0–100 por curvas log-normais derivadas de dados reais do HTTP Archive. A documentação explica os pontos de controle e os pesos utilizados no score.
-
-Uso recomendado no SearchGEO:
-
-- pode compor ou substituir uma submétrica estritamente ligada à performance técnica;
-- deve ser rotulado como `Lighthouse Performance`, não como `GEO Score`;
-- não deve determinar sozinho compatibilidade GEO.
-
-Referência:
-
-- https://developer.chrome.com/docs/lighthouse/performance/performance-scoring
-
-### 3.4 Bing Webmaster Tools AI Performance — outcome observado
-
-O Bing disponibiliza dados sobre participação real do conteúdo em respostas generativas, incluindo:
-
-- Total Citations;
-- Average Cited Pages;
-- grounding queries;
-- citation activity por URL;
-- tendência temporal de citações.
-
-Essas métricas são particularmente relevantes porque medem **resultado observado**, não apenas prontidão inferida.
-
-O Observed Generative Visibility (`Observed Generative Visibility`) materializa esse domínio de forma **import-first** por meio do contrato `OGV-IMPORT-001`. Na baseline atual, o SearchGEO não faz scraping do Bing Webmaster Tools nem presume endpoint público de AI Performance não documentado.
-
-Regras do Observed Generative Visibility para dados Bing:
-
-- Total Citations e Average Cited Pages permanecem `source-reported`;
-- grounding queries, atividade por URL e tendência são preservadas conforme o dataset normalizado;
-- o artifact importado é preservado com SHA-256;
-- URLs devem pertencer ao `normalized_origin` da auditoria;
-- nenhum valor Observed Generative Visibility entra em `SGRI-001`/`SCORE-GEO-002`.
-
-Uso recomendado:
-
-- manter `Observed Generative Visibility` separado do Readiness;
-- usar citações reais como variável de validação/calibração futura;
-- não interpretar contagem de citações como ranking, autoridade ou posição quando a fonte não fornece essa semântica.
-
-Referência:
-
-- https://blogs.bing.com/webmaster/February-2026/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview
-
-## 4. Métricas de Information Retrieval aplicáveis a testes GEO
-
-NIST/TREC utiliza métricas consolidadas para avaliar recuperação e ranking. Elas podem ser adaptadas a experimentos de visibilidade/citação em engines generativas, desde que o protocolo de coleta seja controlado.
-
-### 4.1 Citation Presence Rate
-
-Para um conjunto de query-runs controlados:
-
-```text
-Citation Presence Rate = query-runs VALID em que o origin auditado foi citado / total de query-runs VALID
-```
-
-Essa métrica é um outcome diretamente observável. O Observed Generative Visibility já implementa essa fórmula quando o dataset contém `query_runs` controlados.
-
-Regras:
-
-- runs `INVALID` ficam fora do numerador e denominador;
-- `cited=true` exige ao menos uma URL same-origin;
-- `cited=false` não pode carregar URLs citadas do origin auditado;
-- a taxa é acompanhada do tamanho amostral;
-- o Observed Generative Visibility calcula intervalo binomial de Wilson 95% para representar incerteza amostral quando `n > 0`.
-
-A taxa histórica **não é convertida em probabilidade preditiva de citação futura** e não valida causalidade do SGRI.
-
-### 4.2 Mean Reciprocal Rank — MRR
-
-Quando a resposta/superfície fornece uma ordenação interpretável de fontes:
-
-```text
-RR(q) = 1 / rank_da_primeira_citação_relevante
-MRR   = média de RR(q)
-```
-
-MRR é métrica tradicional de Information Retrieval e Question Answering utilizada pelo TREC.
-
-Uso recomendado:
-
-- medir quão cedo a fonte aparece quando existe ranking/posição observável;
-- não usar quando a superfície não expõe uma ordenação semanticamente válida.
-
-O Observed Generative Visibility aceita `rank` apenas quando o dataset também fornece `ranking_semantics`; nesta baseline ele **não agrega automaticamente MRR**, evitando presumir equivalência de ordenação entre engines/surfaces.
-
-### 4.3 nDCG@k
-
-Quando existem posições e níveis graduados de relevância/prominência:
-
-```text
-DCG@k = Σ ((2^rel_i - 1) / log2(i + 1))
-nDCG@k = DCG@k / IDCG@k
-```
-
-nDCG é amplamente utilizado pelo NIST/TREC para ranking com relevância graduada.
-
-Uso recomendado:
-
-- comparar qualidade de posicionamento de fontes em experimentos controlados;
-- requer definição explícita e auditável de `rel_i`;
-- não inventar níveis de relevância sem protocolo de julgamento.
-
-### 4.4 Precision / Recall
-
-Podem avaliar recuperação de páginas/fontes esperadas em um conjunto com ground truth.
-
-```text
-Precision = relevantes recuperados / recuperados
-Recall    = relevantes recuperados / relevantes existentes no ground truth
-```
-
-São úteis principalmente em benchmark controlado, não em auditoria isolada de um site sem ground truth.
-
-### 4.5 Weighted Citation Precision / Recall
-
-O TREC RAG 2025 utiliza avaliação de suporte das citações com pesos:
-
-- Full Support = `1.0`;
-- Partial Support = `0.5`;
-- No Support = `0.0`.
-
-Uso recomendado no SearchGEO:
-
-- avaliar se uma engine cita uma página e se a citação realmente sustenta a afirmação produzida;
-- manter essa métrica como avaliação de qualidade/fidelidade de citação, não como peso automático do `SCORE-GEO-002`.
-
-Referências NIST/TREC:
-
-- https://trec.nist.gov/data/qa.html
-- https://trec.nist.gov/pubs/trec34/appendices/trec2025-rag-retrieval.html
-- https://trec.nist.gov/pubs/trec34/papers/Overview_rag.pdf
-
-## 5. GEO-Bench e literatura acadêmica
-
-O trabalho `GEO: Generative Engine Optimization` introduziu o GEO-Bench e métricas experimentais de visibilidade para estudar como alterações de conteúdo afetam sua presença em respostas generativas.
-
-Referência:
-
-- https://arxiv.org/abs/2311.09735
-
-O benchmark é evidência acadêmica relevante, mas não equivale a um padrão oficial de mercado nem demonstra, sozinho, descobribilidade orgânica longitudinal e cross-platform.
-
-Uma revisão crítica de 2026 destaca heterogeneidade de terminologia, métricas e padrões de evidência, além de variabilidade entre engines e execuções.
-
-Referência:
-
-- https://arxiv.org/abs/2607.14035
-
-## 6. Arquitetura recomendada de métricas
-
-Em vez de substituir `SCORE-GEO-002` por outro número arbitrário, a evolução recomendada separa três camadas:
-
-### 6.1 Readiness inferido
-
-Mantém o papel atual do SearchGEO:
-
-- auditabilidade;
-- regras evidence-backed;
-- diagnósticos técnicos/semânticos;
-- Coverage/Confidence/Consolidation.
-
-Saída:
-
-```text
-SearchGEO Readiness Index (SGRI-001)
-```
-
-Natureza:
-
-```text
-interno / heurístico até calibração
-```
-
-### 6.2 External Technical Evidence
-
-Usa métricas e gates externos quando aplicáveis:
-
-```text
-Google eligibility status
-Core Web Vitals
-Lighthouse Performance
-outros requisitos oficiais por engine
-```
-
-Natureza:
-
-```text
-externamente documentado/calibrado para o fenômeno específico
-```
-
-### 6.3 Observed Generative Visibility
-
-Domínio implementado pelo Observed Generative Visibility para outcomes reais/importados:
-
-```text
-Bing AI Performance source-reported metrics
-atividade/citações por URL
-grounding queries
-tendência importada
-Citation Presence Rate em query-runs controlados
-rank observado somente quando sua semântica é explícita
-```
-
-Natureza:
-
-```text
-observacional/experimental; separado do readiness
-```
-
-Métricas como MRR, nDCG e citation-support precision/recall permanecem candidatas para protocolos futuros, não outputs implícitos do Observed Generative Visibility atual.
-
-Essa separação evita que um único número misture prontidão inferida, experiência de página e performance real de citação.
-
-## 7. Se um único score calibrado for exigido
-
-Um novo score único somente terá respaldo empírico se for **calibrado contra um outcome definido**.
-
-Exemplo de outcome binário:
-
-```text
-Y = 1 se a URL/site é citado em uma query-run elegível
-Y = 0 caso contrário
-```
-
-Possível processo para uma futura versão calibrada:
-
-1. coletar grande amostra de sites/páginas e queries;
-2. executar múltiplas engines e múltiplas repetições por query;
-3. extrair as features atuais do SearchGEO;
-4. separar treino, calibração e teste por domínio/site para evitar leakage;
-5. estimar relação entre features e outcome, por exemplo com regressão logística ou outro modelo interpretável;
-6. calibrar probabilidades em conjunto separado quando necessário;
-7. medir discriminação e calibração no conjunto de teste;
-8. verificar estabilidade temporal e por engine;
-9. publicar intervalos de confiança e limitações;
-10. versionar o modelo conforme período e superfícies avaliadas.
-
-O Observed Generative Visibility passa a fornecer uma infraestrutura de outcomes que pode alimentar esse trabalho no futuro, mas **sua existência não valida por si só o SGRI**. Dataset, desenho experimental, separação de amostras e validação fora da amostra continuam obrigatórios.
-
-Nesse cenário, uma saída poderia ser denominada, por exemplo:
-
-```text
-Estimated Citation Probability
-```
-
-somente se a validação demonstrar calibração adequada. Ela não deve substituir o Readiness diagnóstico: probabilidade observada e causa técnica são problemas diferentes.
-
-## 8. Recomendação para o produto atual
-
-Para `SGRI-001` / `SCORE-GEO-002`:
-
-- manter a fórmula atual para continuidade e reprodutibilidade;
-- explicitar que pesos/fatores/thresholds são heurísticos;
-- incorporar métricas externas somente nas dimensões em que exista correspondência conceitual válida;
-- não transformar Core Web Vitals, Lighthouse, métricas TREC ou outcomes Observed Generative Visibility em “prova” do Overall Readiness;
-- usar Observed Generative Visibility como camada observacional independente e como possível fonte futura de dataset de validação;
-- planejar qualquer versão calibrada como projeto empírico, não como simples troca manual de pesos;
-- preferir no report a apresentação conjunta, porém não fundida, de `Readiness`, `Coverage/Confidence`, `External Evidence` e `Observed Generative Visibility` quando disponível.
-
-## 9. Critério de linguagem
-
-Permitido:
-
-> O SearchGEO calcula um índice interno e reprodutível de prontidão, fundamentado em evidências técnicas e semânticas. Algumas submétricas podem utilizar padrões ou thresholds externos documentados.
-
-Também permitido para Observed Generative Visibility:
-
-> O SearchGEO apresenta outcomes de visibilidade generativa observados/importados separadamente do readiness, preservando fonte, período e tamanho amostral quando aplicável.
-
-Não permitido sem validação adicional:
-
-> Score GEO oficial.
-
-> 85 pontos = 85% de chance de citação.
-
-> Certificado pelo Google/OpenAI/Microsoft.
-
-> Score cientificamente validado.
-
-> Threshold GEO universal.
-
-> Citation Presence Rate histórica = probabilidade futura de citação.
+Detalhes: `SCORE_GEO_003.md`.
