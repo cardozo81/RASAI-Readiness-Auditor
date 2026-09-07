@@ -1,0 +1,57 @@
+name: Temporary public language cleanup
+
+on:
+  push:
+    branches:
+      - fix/post-merge-public-language-cleanup
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-materialize:
+    if: github.event.head_commit.message != 'Polish public report and documentation language'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Apply cleanup
+        run: python tools/post_merge_language_cleanup.py
+      - name: Install project and tests
+        run: |
+          python -m pip install -e . pytest
+          python -m playwright install chromium
+      - name: Focused presentation tests
+        run: |
+          python -m pytest -q \
+            tests/test_user_facing_language_contract.py \
+            tests/test_report_semantics.py \
+            tests/test_report_navigation.py \
+            tests/test_searchgeo_readiness_reporting.py \
+            tests/test_console_progress_guidance.py
+      - name: Full regression suite
+        run: python -m pytest -q
+      - name: Static and language guards
+        run: |
+          python -m compileall -q src tests
+          python tools/post_merge_language_cleanup.py
+          git diff --check
+      - name: Commit validated cleanup
+        shell: bash
+        run: |
+          rm -f .github/workflows/post-merge-public-language-cleanup.yml
+          rm -f tools/post_merge_language_cleanup.py
+          git config user.name "SearchGEO automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No cleanup changes to commit"
+          else
+            git commit -m "Polish public report and documentation language"
+            git push origin HEAD:fix/post-merge-public-language-cleanup
+          fi
