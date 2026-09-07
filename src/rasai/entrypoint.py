@@ -43,20 +43,19 @@ def _try_refresh_platform_index(argv: list[str]) -> None:
 
 
 def _run_audit_and_finalize(effective: list[str]) -> int:
-    """Run one audit and materialize SCORE-GEO-003 after every other report.
+    """Run one audit and materialize SCORE-GEO-004 after every other report.
 
     Scoring itself still runs at M9, before recommendations. Only the HTML
-    projection is deferred. This prevents an early method page from presenting
-    a partially materialized report site while keeping score arithmetic and
-    persisted evidence order unchanged.
+    projection is deferred so the method page and canonical navigation reflect
+    the final persisted report site without changing score arithmetic.
     """
     from rasai import m9
     from rasai import report_navigation
     from rasai.persistence import AuditWorkspace
-    from rasai.score_geo_003_reporting import write_score_geo_003_report
+    from rasai.score_geo_004_reporting import write_score_geo_004_report
 
     original_run_audit = cli_extensions._legacy_cli.run_audit
-    original_score_writer = m9.write_score_geo_003_report
+    original_score_writer = m9.write_score_geo_004_report
     captured: list[object] = []
 
     def capture_run(*args, **kwargs):
@@ -65,21 +64,21 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         return result
 
     def defer_score_report(*, audit_id: str, workspace: AuditWorkspace) -> Path:
-        return workspace.root / "report" / "score-geo-003.html"
+        return workspace.root / "report" / "score-geo-004.html"
 
     cli_extensions._legacy_cli.run_audit = capture_run
-    m9.write_score_geo_003_report = defer_score_report
+    m9.write_score_geo_004_report = defer_score_report
     try:
         code = cli_extensions.main(effective)
     finally:
         cli_extensions._legacy_cli.run_audit = original_run_audit
-        m9.write_score_geo_003_report = original_score_writer
+        m9.write_score_geo_004_report = original_score_writer
 
     if code == 0 and captured:
         result = captured[-1]
         try:
             workspace = AuditWorkspace.open(result.audit_root)
-            score_path = write_score_geo_003_report(
+            score_path = write_score_geo_004_report(
                 audit_id=result.audit_id,
                 workspace=workspace,
             )
@@ -87,7 +86,7 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         except Exception:
             # Report finalization is a projection. Never invalidate the already
             # persisted audit because a static method page could not be refreshed.
-            _LOGGER.exception("SCORE-GEO-003 final report projection failed")
+            _LOGGER.exception("SCORE-GEO-004 final report projection failed")
     return code
 
 
@@ -98,6 +97,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.m26_cli import main as visibility_main
         return visibility_main(effective[1:])
     if effective and effective[0] == "scoring":
+        # This specialist command remains the empirical SCORE-GEO-003
+        # calibration/inspection utility. SCORE-GEO-004 runtime scoring does not
+        # require calibration or an additional command.
         from rasai.score_geo_003_cli import main as scoring_main
         return scoring_main(effective[1:])
     if effective and effective[0] == "monitor":
