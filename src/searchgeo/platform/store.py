@@ -1,4 +1,4 @@
-"""Central local control-plane database for RASAI.
+"""Central local control-plane database for RASAi.
 
 ``platform.db`` is a product/portfolio sidecar. It centralizes multi-user,
 multi-workspace, multi-project and multi-domain metadata while keeping every
@@ -92,7 +92,7 @@ def _load(value: str | None, default: Any) -> Any:
 
 
 class PlatformStore:
-    """SQLite implementation of the RASAI product control plane.
+    """SQLite implementation of the RASAi product control plane.
 
     The class exposes domain-level methods rather than leaking SQL to callers.
     WAL, foreign keys, a busy timeout and explicit transactions make concurrent
@@ -421,7 +421,7 @@ class PlatformStore:
         environment_kind: str = "PRODUCTION",
     ) -> tuple[Organization, Workspace, Project, Property, Environment]:
         """Get/create a deterministic local hierarchy for legacy Windows AUDs."""
-        organization = self.get_or_create_organization("Local RASAI", slug="local-rasai")
+        organization = self.get_or_create_organization("Local RASAi", slug="local-rasai")
         workspace = self.get_or_create_workspace(organization.organization_id, "Local", slug="local")
         project = self.get_or_create_project(workspace.workspace_id, project_name or "Default Project")
         normalized_origin = normalize_origin(origin)

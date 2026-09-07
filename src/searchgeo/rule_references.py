@@ -96,7 +96,7 @@ def references_for(rule_id: str) -> tuple[RuleReference, ...]:
     """Return authoritative references when they directly support rule context.
 
     A primary guidance reference does not change ``basis``. In particular,
-    semantic rules remain HEURISTIC where the RASAI evaluator/threshold is
+    semantic rules remain HEURISTIC where the RASAi evaluator/threshold is
     an internal implementation even when the underlying quality concept is
     discussed in official Google documentation.
     """

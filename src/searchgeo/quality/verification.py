@@ -1,4 +1,4 @@
-"""Incremental fix verification across two persisted RASAI audits.
+"""Incremental fix verification across two persisted RASAi audits.
 
 Verification is evidence-bound: it maps persisted rule-state changes and never
 claims a fix when the current audit is unavailable or methodologically

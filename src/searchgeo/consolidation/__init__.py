@@ -1,4 +1,4 @@
-"""Offline historical/consolidated reporting for RASAI.
+"""Offline historical/consolidated reporting for RASAi.
 
 This package is deliberately one-way: it reads completed AUD databases and
 writes only its own rebuildable index and CONS snapshots.

@@ -39,7 +39,7 @@ class Context:
     crux_reason: str
 
 
-# Exact presentation strings emitted by RASAI templates. Deliberately avoid
+# Exact presentation strings emitted by RASAi templates. Deliberately avoid
 # a generic M<number> replacement because audited content may legitimately use
 # such tokens (product names, model numbers, page copy, JSON-LD, code samples).
 
@@ -142,7 +142,7 @@ def _analyst_glossary_html() -> str:
         ("LCP", "Largest Contentful Paint; mede o tempo de renderização do maior conteúdo visível relevante."),
         ("INP", "Interaction to Next Paint; mede responsividade às interações do usuário."),
         ("CLS", "Cumulative Layout Shift; mede instabilidade visual."),
-        ("RUM", "Real User Monitoring; observação de usuários reais, diferente das medições sintéticas do RASAI."),
+        ("RUM", "Real User Monitoring; observação de usuários reais, diferente das medições sintéticas do RASAi."),
         ("TLS", "Protocolo de segurança usado por HTTPS para autenticação e proteção da conexão."),
         ("WCAG", "Web Content Accessibility Guidelines, recomendações do W3C para acessibilidade Web."),
     )

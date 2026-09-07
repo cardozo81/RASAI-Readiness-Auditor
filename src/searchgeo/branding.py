@@ -1,10 +1,11 @@
-"""Public RASAI/SARI identity and compatibility contract."""
+"""Public RASAi/SARI identity and compatibility contract."""
 
-PRODUCT_NAME = "RASAI"
+PRODUCT_ACRONYM = "RASAI"
+PRODUCT_NAME = "RASAi"
 PRODUCT_EXPANSION = "Readiness Assessment for Search & AI"
 PRODUCT_DESCRIPTOR = "Search & AI Readiness Auditor"
 PRODUCT_DISPLAY_NAME = f"{PRODUCT_NAME} — {PRODUCT_DESCRIPTOR}"
-FRAMEWORK_NAME = "RASAI Framework"
+FRAMEWORK_NAME = "RASAi Framework"
 
 PUBLIC_INDEX_NAME = "Search & AI Readiness Index"
 PUBLIC_INDEX_VERSION = "SARI-001"

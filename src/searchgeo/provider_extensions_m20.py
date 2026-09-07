@@ -56,7 +56,7 @@ def _instructions() -> str:
         "Use people-first language improving usefulness, clarity, completeness or trust. Do not write for "
         "search engines or AI systems, keyword-stuff, target word counts, or fabricate claims, dates, prices, "
         "statistics, credentials, experience, guarantees or sources. Do not alter facts. If evidence is "
-        "insufficient for safe exact wording, omit that finding. Do not propose JSON-LD here; RASAI "
+        "insufficient for safe exact wording, omit that finding. Do not propose JSON-LD here; RASAi "
         "handles structured-data guidance deterministically. Human review is mandatory before publication."
     )
 

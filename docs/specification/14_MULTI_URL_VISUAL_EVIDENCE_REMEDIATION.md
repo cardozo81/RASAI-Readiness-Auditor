@@ -3,7 +3,7 @@
 **Status:** NORMATIVE EVOLUTION
 **Capacidade:** Auditoria multi-URL e evidência visual
 **Report contract:** `REPORT-GEO-003`
-**Scoring contract:** `SCORE-GEO-001` — unchanged
+**Scoring contract:** `SCORE-GEO-003` — unchanged by this capability
 
 ## 1. Purpose
 
@@ -149,7 +149,7 @@ Actionability never changes `RuleResult`, scoring contribution, weight, score, C
 
 ## 9. Scoring invariants
 
-Auditoria multi-URL e evidência visual does not change `SCORE-GEO-001`.
+Auditoria multi-URL e evidência visual não altera `SCORE-GEO-003` nem o `SARI-001`.
 
 Mandatory invariants remain:
 

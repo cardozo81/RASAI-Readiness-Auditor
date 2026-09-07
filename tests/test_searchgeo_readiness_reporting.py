@@ -122,8 +122,8 @@ def _workspace(root: Path) -> AuditWorkspace:
     footer = "<footer class='footer'>f</footer>"
     index = (
         "<!doctype html><html><body>" + nav
-        + "<main class='app-main'><header class='hero'><div class='eyebrow'>RASAI — Search & AI Readiness Auditor</div>"
-        + "<h1>Visão geral da auditoria</h1><p class='lead'>Dashboard executivo de readiness. O índice é um modelo interno e reprodutível do RASAI; não é uma nota oficial do Google, OpenAI ou de outro mantenedor.</p>"
+        + "<main class='app-main'><header class='hero'><div class='eyebrow'>RASAi — Search & AI Readiness Auditor</div>"
+        + "<h1>Visão geral da auditoria</h1><p class='lead'>Dashboard executivo de readiness. O índice é um modelo interno e reprodutível do RASAi; não é uma nota oficial do Google, OpenAI ou de outro mantenedor.</p>"
         + "<div class=\"score-grid\"><article class='score-card'><div>82</div></article></div>"
         + "<div class=\"metric-grid\"><div class='metric'><small>Projeto</small><strong>Projeto SARI</strong></div></div></header>"
         + "<section class='panel'><div class='kicker'>Leitura obrigatória</div><h2>Cobertura e confiabilidade</h2><p>legacy</p></section>"
@@ -213,7 +213,7 @@ def test_device_pages_keep_findings_but_not_searchgeo_scorecards() -> None:
             assert "Search & AI Readiness" in html
             assert "<div class=\"score-grid\">" not in html
             assert "<div class='kicker'>Scorecard</div>" not in html
-            assert "Indicadores agregados RASAI ficam exclusivamente" in html
+            assert "Indicadores agregados RASAi ficam exclusivamente" in html
 
 
 def test_dashboard_does_not_average_external_scores_into_fake_site_score() -> None:

@@ -1,4 +1,4 @@
-"""Data contracts for RASAI monitoring.
+"""Data contracts for RASAi monitoring.
 
 Monitoring is intentionally derived from immutable AUD workspaces. It does not
 write to source audit databases and does not change SARI/SCORE-GEO semantics.

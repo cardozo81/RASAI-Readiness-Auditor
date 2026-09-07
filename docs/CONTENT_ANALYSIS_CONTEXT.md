@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-O RASAI pode fornecer à camada de IA um **contexto editorial explícito** para evitar análises genéricas de conteúdo. Esse contexto condiciona a interpretação semântica e as sugestões Sugestões e remediação de conteúdo por IA, mas **não altera aritmeticamente o `SCORE-GEO-002`**, não cria um score de E-E-A-T/YMYL e não representa um fator oficial isolado de ranking.
+O RASAi pode fornecer à camada de IA um **contexto editorial explícito** para evitar análises genéricas de conteúdo. Esse contexto condiciona a interpretação semântica e as sugestões Sugestões e remediação de conteúdo por IA, mas **não altera aritmeticamente o `SARI-001`**, não cria um score de E-E-A-T/YMYL e não representa um fator oficial isolado de ranking.
 
 A configuração é especialmente útil em conteúdo **YMYL (Your Money or Your Life)**, no qual informações imprecisas podem afetar saúde, segurança, estabilidade financeira ou o bem-estar da sociedade.
 
@@ -123,7 +123,7 @@ beneficial
 not-expected
 ```
 
-Diferencia **experiência em primeira mão** de **expertise técnica/profissional**. O RASAI não exige ambos indiscriminadamente.
+Diferencia **experiência em primeira mão** de **expertise técnica/profissional**. O RASAi não exige ambos indiscriminadamente.
 
 Exemplos conceituais:
 
@@ -216,7 +216,7 @@ Quando uma etapa com IA é executada, continuam valendo os contratos já existen
 
 O HTML não deve fabricar custo quando o adapter não possui base confiável para estimá-lo.
 
-## Relação com SCORE-GEO-002
+## Relação com SARI-001
 
 O contexto editorial é **advisory/contextual**.
 

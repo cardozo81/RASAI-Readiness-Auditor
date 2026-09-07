@@ -134,7 +134,7 @@ def _provider_specs() -> tuple[EnvironmentSpec, ...]:
 
 def environment_specs() -> tuple[EnvironmentSpec, ...]:
     known = {spec.name: spec for spec in (*_fixed_specs(), *_provider_specs())}
-    return tuple(known.get(name, EnvironmentSpec(name, "Aplicação e execução", "Variável reconhecida pelo RASAI.", "texto", sensitive=is_secret(name), required_when="Consulte a documentação antes de definir.", impact="Impacto não classificado automaticamente.")) for name in ENV_NAMES)
+    return tuple(known.get(name, EnvironmentSpec(name, "Aplicação e execução", "Variável reconhecida pelo RASAi.", "texto", sensitive=is_secret(name), required_when="Consulte a documentação antes de definir.", impact="Impacto não classificado automaticamente.")) for name in ENV_NAMES)
 
 
 SPECS = environment_specs()

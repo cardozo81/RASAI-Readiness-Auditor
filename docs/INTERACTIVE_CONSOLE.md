@@ -1,6 +1,6 @@
 # Console interativo de execução
 
-O RASAI mantém `rasai audit` como interface estável e oferece o console textual opcional:
+O RASAi mantém `rasai audit` como interface estável e oferece o console textual opcional:
 
 ```powershell
 rasai-console
@@ -87,7 +87,7 @@ D = abrir documentação detalhada
 V = voltar
 ```
 
-A opção `P` exige valor válido na sessão e confirmação explícita `SIM`. A persistência usa o ambiente **User** do Windows, não `Machine`, não exige Administrador e nunca grava o segredo em arquivos RASAI. Remover a persistência `User` não apaga o valor já carregado na sessão atual.
+A opção `P` exige valor válido na sessão e confirmação explícita `SIM`. A persistência usa o ambiente **User** do Windows, não `Machine`, não exige Administrador e nunca grava o segredo em arquivos RASAi. Remover a persistência `User` não apaga o valor já carregado na sessão atual.
 
 Variáveis de ambiente não são um secret manager: processos e ferramentas com acesso ao mesmo perfil podem lê-las.
 
@@ -312,7 +312,7 @@ Default operacional:
 120 segundos
 ```
 
-Esse timeout controla quanto o cliente espera a resposta PageSpeed/CrUX. A API PageSpeed executa Lighthouse remotamente e não expõe ao RASAI parâmetro separado para o timeout interno de carregamento do Lighthouse.
+Esse timeout controla quanto o cliente espera a resposta PageSpeed/CrUX. A API PageSpeed executa Lighthouse remotamente e não expõe ao RASAi parâmetro separado para o timeout interno de carregamento do Lighthouse.
 
 `field_source=crux` exige `SEARCHGEO_CRUX_API_KEY`.
 

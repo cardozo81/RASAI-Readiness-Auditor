@@ -5,7 +5,7 @@
 
 ## 1. Separar dois usos de IA
 
-### A. IA usada para desenvolver o RASAI Auditor
+### A. IA usada para desenvolver o RASAi Auditor
 
 É a IA/agente que:
 
@@ -15,7 +15,7 @@
 - executa testes;
 - diagnostica problemas.
 
-### B. IA usada pelo RASAI Auditor em runtime
+### B. IA usada pelo RASAi Auditor em runtime
 
 É o SemanticAnalysisProvider utilizado para avaliar páginas.
 

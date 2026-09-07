@@ -157,11 +157,9 @@ Ao final da cascata, deve ser apresentada ao humano a lista completa das branche
 
 A mesma regra de limpeza diferida aplica-se às branches de governança criadas especificamente para viabilizar esta cascata.
 
-### D-037 — SCORE-GEO-002 e aplicabilidade de dimensões
+### D-037 — Aplicabilidade de dimensões no SARI
 
-`SCORE-GEO-001` é superseded por `SCORE-GEO-002` quanto à aplicabilidade e agregação das dimensões.
-
-As dez dimensões permanecem no modelo, preservando D-008. Entretanto, uma dimensão cujas RuleExecutions existam e estejam **todas legitimamente `NOT_APPLICABLE`** não pode ser tratada como `NOT_CONSOLIDATED` nem bloquear o Overall.
+As dez dimensões permanecem no modelo, preservando D-008. Uma dimensão cujas RuleExecutions existam e estejam **todas legitimamente `NOT_APPLICABLE`** não pode ser tratada como `NOT_CONSOLIDATED` nem bloquear o Overall.
 
 Regra aprovada:
 
@@ -178,15 +176,15 @@ JSON-LD/Structured Data é classificado como **OPCIONAL / REFORÇO**, não como 
 
 O foco primário desta classificação é Google Search e seus recursos de IA. Outros mecanismos podem ser documentados como sinais complementares sem alterar a regra de scoring.
 
-### D-038 — Web Performance externo Web Performance externo e preservação do SCORE-GEO-002
+### D-038 — Web Performance externo e separação metodológica
 
-Core Web Vitals/CrUX e Lighthouse entram como **evidência externa complementar** e não como substituição, calibração implícita ou nova fórmula do `SCORE-GEO-002`.
+Core Web Vitals/CrUX e Lighthouse entram como **evidência externa complementar** e não como substituição ou calibração implícita do `SARI-001`/`SCORE-GEO-003`.
 
 Decisão aprovada:
 
-1. `SCORE-GEO-002` permanece baseline oficial interna do RASAI para Readiness;
+1. `SARI-001` é o índice de Readiness e `SCORE-GEO-003` é o método de scoring aplicado;
 2. Lighthouse Performance, Accessibility, Best Practices e SEO permanecem scores do Lighthouse e devem ser rotulados como tais;
-3. LCP, INP e CLS de CrUX representam experiência real agregada quando houver amostra suficiente e não constituem automaticamente RuleExecution/ScoreContribution do RASAI;
+3. LCP, INP e CLS de CrUX representam experiência real agregada quando houver amostra suficiente e não constituem automaticamente RuleExecution/ScoreContribution do RASAi;
 4. ausência/erro de PageSpeed ou CrUX é limitação de coleta, nunca website FAIL por si só;
 5. coleta externa Web Performance externo é default OFF, com limite de páginas e timeout parametrizáveis;
 6. Web Performance externo adiciona zero chamadas LLM e não pode aumentar consumo OpenAI/DeepSeek/MiMo por efeito colateral;
@@ -199,12 +197,12 @@ D-038 complementa D-037; não a supersede.
 
 ### D-039 — Rastreamento, descoberta e acesso de crawlers Crawling/Discovery, políticas de crawler e IA técnica
 
-Rastreamento, descoberta e acesso de crawlers é aprovado como domínio técnico **aditivo, pós-scoring e não-scoring**. Ele aprofunda evidências de rastreamento/descoberta sem criar um novo índice nem recalibrar `SCORE-GEO-002`/`SARI-001`.
+Rastreamento, descoberta e acesso de crawlers é aprovado como domínio técnico **aditivo, pós-scoring e não-scoring**. Ele aprofunda evidências de rastreamento/descoberta sem criar um novo índice nem recalibrar `SARI-001`/`SCORE-GEO-003`.
 
 Decisão aprovada:
 
 1. diagnósticos de rastreamento e descoberta permanecem determinísticos e persistidos com `scoring_impact=NONE`;
-2. `robots.txt` e sitemaps devem seguir standards/guidance públicos aplicáveis, mas severidades Rastreamento, descoberta e acesso de crawlers continuam metodologia interna do RASAI;
+2. `robots.txt` e sitemaps devem seguir standards/guidance públicos aplicáveis, mas severidades Rastreamento, descoberta e acesso de crawlers continuam metodologia interna do RASAi;
 3. uma declaração absoluta `Sitemap:` pode apontar para host diferente; o auditor preserva essa declaração, porém não faz fetch cross-origin automático a partir dela enquanto não existir política explícita de SSRF/DNS/IP/redirect/autorização;
 4. a restrição de fetch cross-origin é limite de segurança/escopo do auditor e não finding do website;
 5. OAI-SearchBot representa descoberta/surfacing para Search da OpenAI; GPTBot permanece controle relacionado a potencial treinamento. O estado de um não pode ser inferido a partir do outro;
@@ -221,13 +219,13 @@ D-039 complementa D-037/D-038; não as supersede.
 
 ### D-040 — Observed Generative Visibility separado de readiness
 
-Outcomes observados de Search/AI Search são aprovados como domínio **aditivo, import-first e não-scoring**, separado do `SARI-001`/`SCORE-GEO-002`.
+Outcomes observados de Search/AI Search são aprovados como domínio **aditivo, import-first e não-scoring**, separado do `SARI-001` e sem alterar `SCORE-GEO-003`.
 
 Decisão aprovada:
 
 1. `Readiness` e `Observed Generative Visibility` são conceitos distintos e não podem ser fundidos em um score comum sem nova decisão/versionamento/validação;
 2. Observed Generative Visibility inicia com contrato local versionado `OGV-IMPORT-001`, sem scraping de portal de webmaster e sem endpoint de API presumido ou não documentado;
-3. `BING_WEBMASTER_TOOLS_AI_PERFORMANCE` preserva Total Citations e Average Cited Pages como métricas reportadas pela fonte; o RASAI não inventa fórmula equivalente para recalculá-las;
+3. `BING_WEBMASTER_TOOLS_AI_PERFORMANCE` preserva Total Citations e Average Cited Pages como métricas reportadas pela fonte; o RASAi não inventa fórmula equivalente para recalculá-las;
 4. `CONTROLLED_QUERY_RUNS` pode produzir Citation Presence Rate somente sobre runs `VALID`, com runs `INVALID` fora do denominador;
 5. Citation Presence Rate deve ser acompanhado de tamanho amostral e intervalo Wilson 95% quando calculável; isso mede incerteza amostral e não é probabilidade preditiva de citação futura;
 6. contagem de citações não pode ser rotulada como ranking, autoridade ou preferência universal de engine;
@@ -302,9 +300,9 @@ Essas pendências não bloqueiam desenvolvimento local do MVP.
 - findings devem ser evidence-backed;
 - LLM nunca é scoring engine;
 - cascading failures devem ser controladas;
-- métricas PageSpeed/CrUX/Lighthouse não alteram `SCORE-GEO-002` sem nova decisão/versionamento explícito;
-- diagnósticos de rastreamento e descoberta também não alteram `SCORE-GEO-002`/`SARI-001` sem nova decisão/versionamento explícito;
-- outcomes Observed Generative Visibility não alteram `SCORE-GEO-002`/`SARI-001` e não podem ser apresentados como causalidade/predição sem validação empírica específica.
+- métricas PageSpeed/CrUX/Lighthouse não alteram `SARI-001`/`SCORE-GEO-003` sem decisão e contrato metodológico explícitos;
+- diagnósticos de rastreamento e descoberta também não alteram `SARI-001`/`SCORE-GEO-003` sem decisão e contrato metodológico explícitos;
+- outcomes Observed Generative Visibility não alteram `SARI-001`/`SCORE-GEO-003` e não podem ser apresentados como causalidade/predição sem validação empírica específica.
 
 ### D-041 — Linguagem pública por domínio funcional
 

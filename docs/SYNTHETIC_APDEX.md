@@ -1,8 +1,8 @@
 # Synthetic Navigation Apdex
 
-Guia operacional do Synthetic Navigation Apdex do RASAI.
+Guia operacional do Synthetic Navigation Apdex do RASAi.
 
-> A funcionalidade é **default OFF**. Ela não altera `SCORE-GEO-002`, findings GEO, Coverage ou Confidence. O índice mede uma Task sintética de navegação e não deve ser confundido com RUM/APM de usuários reais.
+> A funcionalidade é **default OFF**. Ela não altera `SARI-001`, findings GEO, Coverage ou Confidence. O índice mede uma Task sintética de navegação e não deve ser confundido com RUM/APM de usuários reais.
 
 ## Fórmula
 
@@ -132,7 +132,7 @@ Lighthouse/CrUX e Synthetic Apdex medem fenômenos distintos e permanecem em pá
 
 ## Rastreamento de Lighthouse
 
-Quando um artifact Lighthouse existe, o RASAI pode extrair metadados de perfil para rastreabilidade. Ausência do artifact não invalida as navegações Synthetic Apdex; apenas impede essa comparação documental.
+Quando um artifact Lighthouse existe, o RASAi pode extrair metadados de perfil para rastreabilidade. Ausência do artifact não invalida as navegações Synthetic Apdex; apenas impede essa comparação documental.
 
 ## Segurança metodológica
 

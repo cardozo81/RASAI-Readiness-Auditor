@@ -31,11 +31,10 @@ Quando `RuleDefinition` materializa `basis`, os valores são `OFFICIAL`, `STANDA
 
 ## Scoring
 
-O guia de regras **não define a versão vigente de cálculo por coluna local**. A referência atual é:
+O guia de regras referencia o método de scoring aplicado:
 
 - índice público: `SARI-001`;
 - scoring vigente para novas auditorias: `SCORE-GEO-003`;
-- histórico: `SCORE-GEO-002`.
 
 Pesos, dimensões, applicability, Coverage, Confidence, model artifact e Overall devem ser lidos em [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SARI_READINESS_INDEX.md`](SARI_READINESS_INDEX.md) e [`SCORE_GEO_003.md`](SCORE_GEO_003.md). Auditorias históricas preservam sua `scoring_version`; o report não deve reinterpretá-las silenciosamente como `003`.
 
@@ -119,7 +118,7 @@ Checks de hreflang adicionados em Observability são diagnósticos complementare
 BR-GEO-054 deve reconstruir/validar o scoring conforme a **versão persistida**:
 
 - nova auditoria: `SCORE-GEO-003`;
-- auditoria histórica: pode conter `SCORE-GEO-002`.
+- cada auditoria expõe o `scoring_version` efetivamente persistido para rastreabilidade.
 
 A regra não deve converter um histórico `002` em `003`, nem recalcular Overall de `003` usando a antiga média simples do `002`.
 

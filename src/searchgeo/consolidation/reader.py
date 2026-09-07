@@ -1,4 +1,4 @@
-"""Read immutable evidence from one RASAI AUD workspace.
+"""Read immutable evidence from one RASAi AUD workspace.
 
 No function in this module opens an audit database in write mode.
 """

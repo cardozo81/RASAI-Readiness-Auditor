@@ -1,6 +1,6 @@
 # Proveniência dos indicadores
 
-Este documento define como o RASAI deve declarar a origem metodológica de cada indicador, cálculo, classificação e recomendação exibidos nos relatórios.
+Este documento define como o RASAi deve declarar a origem metodológica de cada indicador, cálculo, classificação e recomendação exibidos nos relatórios.
 
 ## Objetivo
 
@@ -10,7 +10,7 @@ O usuário do relatório deve conseguir distinguir, sem inferência própria:
 - o que deriva de standard externo;
 - o que deriva de orientação oficial de uma plataforma;
 - o que é métrica definida por terceiro;
-- o que é heurística do RASAI;
+- o que é heurística do RASAi;
 - o que é telemetria operacional;
 - o que foi produzido por IA e exige revisão humana.
 
@@ -24,7 +24,7 @@ Uma referência externa não deve ser usada para sugerir homologação do produt
 | `EXTERNAL_STANDARD` | Standard externo | especificação formal ou Recommendation aplicável ao fenômeno |
 | `OFFICIAL_PLATFORM_GUIDANCE` | Orientação oficial de plataforma | regra, política ou orientação publicada pelo mantenedor da plataforma |
 | `EXTERNAL_DEFINED_METRIC` | Métrica externa definida | fórmula, score, threshold ou curva definidos externamente |
-| `SEARCHGEO_HEURISTIC` | Heurística RASAI | peso, threshold, classificação ou agregação definida internamente |
+| `SEARCHGEO_HEURISTIC` | Heurística RASAi | peso, threshold, classificação ou agregação definida internamente |
 | `OPERATIONAL_TELEMETRY` | Telemetria operacional | tempo, chamadas, tokens, custo estimado, erros de integração e runtime |
 | `AI_DERIVED_ADVISORY` | Análise/sugestão por IA | interpretação semântica ou texto proposto por LLM, sempre evidence-bound e advisory |
 
@@ -39,7 +39,7 @@ A página `references.html` deve possuir uma seção consolidada **De onde vem c
 3. entidade/fonte;
 4. link oficial quando existe fonte externa primária;
 5. regra/fórmula externa aplicável;
-6. parte específica implementada ou decidida pelo RASAI;
+6. parte específica implementada ou decidida pelo RASAi;
 7. aviso quando a fonte não homologa o índice global.
 
 As demais páginas devem mostrar um resumo compacto logo após o cabeçalho e um atalho para essa seção. Tooltip pode complementar a explicação, mas informação essencial não pode depender de hover.
@@ -66,15 +66,15 @@ Para impedir dupla interpretação, cada família possui uma página analítica 
 
 **Classificação:** `SEARCHGEO_HEURISTIC`.
 
-Não existe score GEO/AEO 0–100 universal usado como fonte normativa desta saída. A média normalizada, fatores de resultado, pesos, agregação e faixas visuais são decisões versionadas do RASAI.
+Não existe score GEO/AEO 0–100 universal usado como fonte normativa desta saída. A média normalizada, fatores de resultado, pesos, agregação e faixas visuais são decisões versionadas do RASAi.
 
-`SARI-001` é a identidade pública da metodologia. Enquanto a fórmula não mudar, o banco continua registrando `SCORE-GEO-002` como versão do motor de cálculo persistido para preservar compatibilidade e comparabilidade histórica.
+`SARI-001` é a identidade pública da metodologia e `SCORE-GEO-003` é o método de scoring persistido. Provenance, model artifact, dataset e evidências permanecem rastreáveis.
 
 Essa mudança de nomenclatura não representa recalibração empírica.
 
 Consulte também:
 
-- `SEARCHGEO_READINESS_INDEX.md`;
+- `SARI_READINESS_INDEX.md`;
 - `SCORING_GUIDE.md`;
 - `SCORING_VALIDATION.md`.
 
@@ -99,7 +99,7 @@ Consulte `RULES_GUIDE.md`.
 Fonte oficial: RFC 9110 — HTTP Semantics
 https://www.rfc-editor.org/rfc/rfc9110.html
 
-O RASAI adiciona regras próprias de materialidade, dependência e auditabilidade sobre a observação HTTP.
+O RASAi adiciona regras próprias de materialidade, dependência e auditabilidade sobre a observação HTTP.
 
 ### robots.txt
 
@@ -117,7 +117,7 @@ Para comportamento específico do Google, o catálogo por regra também referenc
 Fonte oficial: Chrome/web.dev — Web Vitals
 https://web.dev/articles/vitals
 
-LCP, INP e CLS de campo, avaliação no percentil 75 e thresholds recomendados são mantidos externamente. O RASAI preserva source/scope e não converte Core Web Vitals em `SARI-001`.
+LCP, INP e CLS de campo, avaliação no percentil 75 e thresholds recomendados são mantidos externamente. O RASAi preserva source/scope e não converte Core Web Vitals em `SARI-001`.
 
 ### Lighthouse Performance
 
@@ -128,7 +128,7 @@ https://developer.chrome.com/docs/lighthouse/performance/performance-scoring
 
 Score, pesos e curvas pertencem ao Lighthouse e podem mudar entre versões. A versão materializada deve permanecer rastreável.
 
-No dashboard, quando existem vários contextos, o RASAI deve preferir faixa/contextos válidos a inventar um único “Lighthouse do site”.
+No dashboard, quando existem vários contextos, o RASAi deve preferir faixa/contextos válidos a inventar um único “Lighthouse do site”.
 
 ### Lighthouse Accessibility
 
@@ -146,7 +146,7 @@ O score automatizado do Lighthouse não é percentual de conformidade WCAG e nã
 Fonte oficial: W3C Recommendation — WCAG 2.2
 https://www.w3.org/TR/WCAG22/
 
-O RASAI pode mapear falhas automatizáveis a critérios aplicáveis, mas uma avaliação automatizada não autoriza declarar conformidade integral WCAG.
+O RASAi pode mapear falhas automatizáveis a critérios aplicáveis, mas uma avaliação automatizada não autoriza declarar conformidade integral WCAG.
 
 ### Synthetic Navigation Apdex
 
@@ -155,7 +155,7 @@ O RASAI pode mapear falhas automatizáveis a critérios aplicáveis, mas uma ava
 Fonte oficial: Apdex Technical Specification v1.1
 https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf
 
-A especificação define a fórmula, Satisfied/Tolerating/Frustrated, reporting qualitativo e tratamento de grupos com menos de 100 amostras. O threshold `T` é configurado pelo operador. Perfil Chromium, limites operacionais, delays e concorrência são configuração/implementação do RASAI e devem permanecer separados da parte normativa Apdex.
+A especificação define a fórmula, Satisfied/Tolerating/Frustrated, reporting qualitativo e tratamento de grupos com menos de 100 amostras. O threshold `T` é configurado pelo operador. Perfil Chromium, limites operacionais, delays e concorrência são configuração/implementação do RASAi e devem permanecer separados da parte normativa Apdex.
 
 ### E-E-A-T / YMYL / people-first
 
@@ -164,13 +164,13 @@ A especificação define a fórmula, Satisfied/Tolerating/Frustrated, reporting 
 Fonte oficial: Google Search Central — Creating helpful, reliable, people-first content
 https://developers.google.com/search/docs/fundamentals/creating-helpful-content
 
-O RASAI usa esses conceitos para contextualizar a análise semântica. Não produz `E-E-A-T Score` oficial nem transforma YMYL em probabilidade de ranking.
+O RASAi usa esses conceitos para contextualizar a análise semântica. Não produz `E-E-A-T Score` oficial nem transforma YMYL em probabilidade de ranking.
 
 ### Groundability
 
-**Classificação atual:** conjunto de sinais RASAI; **não existe subscore próprio no SARI-001**.
+**Classificação atual:** conjunto de sinais RASAi; **não existe subscore próprio no SARI-001**.
 
-Nesta versão, o relatório destaca sem agregação adicional:
+Na implementação atual, o relatório destaca sem agregação adicional:
 
 - Answerability;
 - Citation Readiness;
@@ -187,13 +187,13 @@ Fontes principais:
 - https://developers.google.com/search/docs/appearance/structured-data/sd-policies
 - https://schema.org/docs/documents.html
 
-O RASAI deve preferir omissão a propriedades inventadas e não apresentar markup válido como garantia de rich result ou vantagem GEO.
+O RASAi deve preferir omissão a propriedades inventadas e não apresentar markup válido como garantia de rich result ou vantagem GEO.
 
 ### IA semântica e sugestões de conteúdo
 
 **Classificação:** `AI_DERIVED_ADVISORY`.
 
-Não existe homologação externa da conclusão produzida pelo LLM para uma página específica. O RASAI deve persistir provider, modelo, reasoning, evidências e contrato. Sugestões textuais exigem revisão humana e não alteram automaticamente scoring/findings.
+Não existe homologação externa da conclusão produzida pelo LLM para uma página específica. O RASAi deve persistir provider, modelo, reasoning, evidências e contrato. Sugestões textuais exigem revisão humana e não alteram automaticamente scoring/findings.
 
 ### Tokens, duração e custo estimado de IA
 
@@ -207,7 +207,7 @@ Permitido:
 
 > Core Web Vitals: métrica externa definida pelo programa Web Vitals; valor p75 coletado via CrUX.
 
-> SARI-001: índice heurístico interno, evidence-based e reprodutível do RASAI; motor persistido SCORE-GEO-002.
+> SARI-001: índice proprietário, evidence-based e reprodutível do RASAi; método de scoring persistido SCORE-GEO-003.
 
 > WCAG 2.2: standard W3C; a automação cobre somente critérios tecnicamente verificáveis pela ferramenta.
 

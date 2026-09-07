@@ -1,4 +1,4 @@
-"""Canonical RASAI product control-plane store.
+"""Canonical RASAi product control-plane store.
 
 This extends the local SQLite implementation with cross-entity integrity and
 true multi-property audit scopes. ``audit_index.property_id`` remains the

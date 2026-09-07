@@ -1,10 +1,10 @@
 # TECHNICAL_ARCHITECTURE.md
 
-**Status:** APPROVED — consolidated current architecture for RASAI/SARI-001, SCORE-GEO-003, external evidence, Apdex, AI visibility, monitoring and observability.
+**Status:** APPROVED — consolidated current architecture for RASAi/SARI-001, SCORE-GEO-003, external evidence, Apdex, AI visibility, monitoring and observability.
 
 ## 1. Architectural style
 
-RASAI is a local, modular, CLI-first, single-machine application.
+RASAi is a local, modular, CLI-first, single-machine application.
 
 Baseline runtime does not require a web server, database server, Docker, background daemon, external AI, Google/Bing APIs, CrUX/PageSpeed, `llms.txt` or IndexNow for the primary readiness audit.
 
@@ -44,7 +44,6 @@ The audit pipeline owns the authoritative `AUD-*/audit.db` and audit artifacts.
 
 - public readiness index: `SARI-001`;
 - current scoring runtime for new audits: `SCORE-GEO-003`;
-- `SCORE-GEO-002`: historical only.
 
 Dimension calculations remain evidence-bound and deterministic. The `SCORE-GEO-003` Overall follows the versioned calibrated-model contract and must not be replaced with an arbitrary simple average when the model is not validated/eligible.
 
@@ -107,7 +106,7 @@ Unavailable PageSpeed/CrUX does not invalidate SARI-001 or SCORE-GEO-003. No Lig
 
 ## 9. Synthetic Apdex
 
-RASAI maintains separate Synthetic Navigation Apdex and Synthetic User Experience Apdex methods. They have their own profiles, thresholds, samples and reliability limits. They are not RUM and are not merged with Lighthouse/CrUX or SARI.
+RASAi maintains separate Synthetic Navigation Apdex and Synthetic User Experience Apdex methods. They have their own profiles, thresholds, samples and reliability limits. They are not RUM and are not merged with Lighthouse/CrUX or SARI.
 
 ## 10. Crawling, Discovery & AI Access enrichment
 
@@ -148,7 +147,7 @@ The report may derive evidence-bound diagnostics such as Indexability Reality Ma
 
 These are advisory/observational domains and do not silently become new SARI dimensions.
 
-## 13. RASAI Monitor
+## 13. RASAi Monitor
 
 Monitoring reads two persisted audit workspaces without modifying them:
 
@@ -215,7 +214,7 @@ A failed optional collector may produce a limitation/error state, but cannot ret
 
 ## 18. Methodological invariant
 
-RASAI keeps the following domains separate unless a future explicit, versioned and validated methodology changes the contract:
+RASAi keeps the following domains separate unless a future explicit, versioned and validated methodology changes the contract:
 
 ```text
 Readiness (SARI-001 / SCORE-GEO-003)

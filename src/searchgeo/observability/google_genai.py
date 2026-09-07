@@ -1,6 +1,6 @@
 """Import-first Google Generative AI Search Console observations.
 
-The public product surface is export-driven here: RASAI does not presume a
+The public product surface is export-driven here: RASAi does not presume a
 dedicated API endpoint. Only fields present in the supplied export are stored.
 """
 from __future__ import annotations

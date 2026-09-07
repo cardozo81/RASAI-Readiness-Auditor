@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
-title RASAI — Search & AI Readiness Auditor
+title RASAi — Search & AI Readiness Auditor
 
 set "VENV_DIR=%CD%\.venv"
 set "VENV_PY=%CD%\.venv\Scripts\python.exe"
@@ -10,7 +10,7 @@ set "STAMP_FILE=%CD%\.venv\.searchgeo-pyproject.sha256"
 set "NEED_INSTALL=0"
 set "OPTIONAL_EXTRAS="
 
-echo [RASAI] Verificando ambiente local...
+echo [RASAi] Verificando ambiente local...
 
 if exist "%VENV_DIR%" if not exist "%VENV_PY%" goto :bad_venv
 
@@ -28,7 +28,7 @@ if not exist "%VENV_PY%" (
         if errorlevel 1 goto :python_not_found_after_install
     )
 
-    echo [RASAI] Criando ambiente virtual .venv...
+    echo [RASAi] Criando ambiente virtual .venv...
     "!PYTHON_EXE!" !PYTHON_ARG! -m venv "%VENV_DIR%"
     if errorlevel 1 goto :fail
 )
@@ -51,23 +51,23 @@ if "!NEED_INSTALL!"=="0" (
 
 if "!NEED_INSTALL!"=="1" (
     if defined OPTIONAL_EXTRAS (
-        echo [RASAI] Instalando ou atualizando dependencias obrigatorias e opcionais: !OPTIONAL_EXTRAS!...
+        echo [RASAi] Instalando ou atualizando dependencias obrigatorias e opcionais: !OPTIONAL_EXTRAS!...
         "%VENV_PY%" -m pip install --disable-pip-version-check -e ".[!OPTIONAL_EXTRAS!]"
     ) else (
-        echo [RASAI] Instalando ou atualizando dependencias do projeto...
+        echo [RASAi] Instalando ou atualizando dependencias do projeto...
         "%VENV_PY%" -m pip install --disable-pip-version-check -e .
     )
     if errorlevel 1 goto :fail
 
     "%VENV_PY%" -c "import hashlib,pathlib,sys; pathlib.Path(sys.argv[1]).write_text(hashlib.sha256(pathlib.Path('pyproject.toml').read_bytes()).hexdigest(), encoding='ascii')" "%STAMP_FILE%" >nul 2>&1
-    if errorlevel 1 echo [RASAI] Aviso: nao foi possivel gravar o marcador local de dependencias.
+    if errorlevel 1 echo [RASAi] Aviso: nao foi possivel gravar o marcador local de dependencias.
 )
 
 if not exist "%CONSOLE_EXE%" goto :fail
 
 "%VENV_PY%" -c "from pathlib import Path; from playwright.sync_api import sync_playwright; p=sync_playwright().start(); ok=Path(p.chromium.executable_path).is_file(); p.stop(); raise SystemExit(0 if ok else 1)" >nul 2>&1
 if errorlevel 1 (
-    echo [RASAI] Chromium do Playwright ausente. Instalando...
+    echo [RASAi] Chromium do Playwright ausente. Instalando...
     "%VENV_PY%" -m playwright install chromium
     if errorlevel 1 goto :fail
 )
@@ -119,7 +119,7 @@ if not errorlevel 1 (
 exit /b 1
 
 :install_python
-echo [RASAI] CPython 3.13 nao encontrado.
+echo [RASAi] CPython 3.13 nao encontrado.
 where winget >nul 2>&1
 if errorlevel 1 (
     echo [ERRO] WinGet nao esta disponivel para instalar Python 3.13 automaticamente.
@@ -127,7 +127,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [RASAI] Instalando CPython 3.13 via WinGet...
+echo [RASAi] Instalando CPython 3.13 via WinGet...
 winget install --id Python.Python.3.13 --exact --source winget --accept-package-agreements --accept-source-agreements
 if errorlevel 1 (
     echo [ERRO] A instalacao automatica do Python 3.13 falhou.
@@ -149,7 +149,7 @@ goto :fail_pause
 
 :fail
 echo.
-echo [ERRO] Nao foi possivel preparar ou iniciar o RASAI.
+echo [ERRO] Nao foi possivel preparar ou iniciar o RASAi.
 
 :fail_pause
 pause

@@ -2,7 +2,7 @@
 
 **Status:** APPROVED EVOLUTION
 **Baseline de entrada:** Remediação por causa raiz e elemento integrado em `main`
-**Contratos preservados:** `SCORE-GEO-001`, `REPORT-GEO-003`, `REMEDIATION-GEO-001`
+**Contratos preservados:** `SCORE-GEO-003`, `REPORT-GEO-003`, `REMEDIATION-GEO-001`
 
 ## 1. Objetivo
 
@@ -184,7 +184,7 @@ Precisão e consistência das recomendações não altera:
 - severity;
 - actionability classifier;
 - prioridade/priority score;
-- SCORE-GEO-001;
+- SCORE-GEO-003;
 - weights;
 - Coverage;
 - Confidence;

@@ -14,7 +14,6 @@ from pathlib import Path
 import re
 from zoneinfo import ZoneInfo
 
-from searchgeo import __version__
 from searchgeo.report_semantics import SEMANTIC_CSS, enhance_report_html
 
 
@@ -202,20 +201,18 @@ def render_report_navigation(
     generated_at: datetime | None = None,
     software_version: str | None = None,
 ) -> str:
-    """Render the canonical report menu with version, timestamp and active item."""
+    """Render the canonical report menu with timestamp and active item."""
     links = available_navigation(report_dir, current)
     rendered = "".join(
         f"<a class='{'active' if filename == current else ''}' href='{escape(filename)}'>{escape(label)}</a>"
         for label, filename in links
     )
-    version = software_version or __version__
     generated_label = format_report_generated_at(generated_at)
     return (
         "<aside class='app-nav' aria-label='Navegação do relatório'>"
         "<div class='brand'>"
-        "<small>RASAI Auditor</small>"
+        "<small>RASAi Auditor</small>"
         "<strong>Relatório da auditoria</strong>"
-        f"<small>Versão {escape(version)}</small>"
         f"<small>Gerado em {escape(generated_label)} — Horário de Brasília</small>"
         "</div>"
         f"<nav>{rendered}</nav></aside>"
@@ -230,7 +227,6 @@ def normalize_report_navigation(
 ) -> None:
     """Normalize menu, semantic results, shared presentation, tooltips and API cost."""
     final_generated_at = generated_at or datetime.now(BRASILIA_TIMEZONE)
-    version = software_version or __version__
     _ensure_premium_css(report_dir)
     _enhance_ai_cost_total(report_dir)
     for html_path in sorted(report_dir.glob("*.html")):
@@ -239,7 +235,7 @@ def normalize_report_navigation(
             report_dir,
             html_path.name,
             generated_at=final_generated_at,
-            software_version=version,
+            software_version=software_version,
         )
         normalized, replacements = _NAV_ASIDE_RE.subn(navigation, html, count=1)
         if replacements != 1:
@@ -349,7 +345,7 @@ def _rule_tooltip_markup(match: re.Match[str]) -> str:
     rule_id = match.group(1)
     detail = _RULE_TOOLTIPS.get(
         rule_id,
-        "Business Rule do RASAI. Consulte o bloco atual para resultado, evidência e remediação aplicável.",
+        "Business Rule do RASAi. Consulte o bloco atual para resultado, evidência e remediação aplicável.",
     )
     aria = escape(f"{rule_id}: {detail}", quote=True)
     return (

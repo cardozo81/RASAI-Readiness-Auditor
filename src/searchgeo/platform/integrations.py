@@ -1,4 +1,4 @@
-"""External outcome/log integrations for the RASAI platform control plane.
+"""External outcome/log integrations for the RASAi platform control plane.
 
 These collectors persist observed datasets outside ``audit.db``. They therefore
 cannot silently change SARI/SCORE-GEO results and can be compared around
@@ -107,7 +107,7 @@ def collect_ga4(
 ) -> ExternalDataset:
     """Call the official GA4 Data API ``runReport`` endpoint with a bearer token.
 
-    Authentication stays external to RASAI: the database stores only integration
+    Authentication stays external to RASAi: the database stores only integration
     metadata/environment-variable names, never the bearer token itself.
     """
     date.fromisoformat(start_date)
@@ -131,7 +131,7 @@ def collect_ga4(
         headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
-            "User-Agent": "RASAI/GA4-Collector",
+            "User-Agent": "RASAi/GA4-Collector",
         },
     )
     with urlopen(request, timeout=max(1, timeout_seconds)) as response:

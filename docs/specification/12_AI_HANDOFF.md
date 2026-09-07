@@ -57,7 +57,6 @@ Nenhum marco pode ser considerado concluído apenas para permitir avanço. Bloqu
 - providers de IA isolados por provider/registry;
 - `SARI-001` é o índice público de readiness;
 - `SCORE-GEO-003` é o scoring runtime vigente para novas auditorias;
-- `SCORE-GEO-002` permanece apenas histórico e não deve ser descrito como baseline vigente;
 - Sugestões/remediação textual por IA são opcionais/advisory e não alteram scoring por si só;
 - Search Console, URL Inspection, CrUX, PageSpeed, Apdex e demais outcomes observados permanecem metodologias separadas salvo contrato versionado explícito;
 - relatório HTML estático em português;
@@ -74,13 +73,13 @@ Ao trabalhar com Core Web Vitals, Lighthouse ou Search/AI Observability:
 5. nunca reutilize automaticamente credencial de IA como chave/token de outro serviço;
 6. não acrescente análise LLM implícita de métricas externas;
 7. preserve raw artifacts/telemetria sem secrets;
-8. mantenha páginas de Web Performance, Observability, Apdex, AI Visibility e AI Usage semanticamente separadas do score RASAI;
+8. mantenha páginas de Web Performance, Observability, Apdex, AI Visibility e AI Usage semanticamente separadas do score RASAi;
 9. monitoramento/observability não migra `audit.db` nem altera a evidência original;
 10. associação temporal entre regressão e outcome observado não autoriza linguagem causal.
 
 ## 7. SCORE-GEO-003
 
-A transição de `SCORE-GEO-002` para `SCORE-GEO-003` é quebra metodológica real. Dimensões permanecem evidence-bound; o Overall vigente depende do contrato/model artifact calibrado e dos gates definidos em `SCORE_GEO_003.md`.
+As dimensões permanecem evidence-bound; o Overall depende do contrato/model artifact calibrado e dos gates definidos em `SCORE_GEO_003.md`.
 
 `READY_FOR_MODEL_FIT` não significa `VALIDATED`. Validação/promoção continua dependente dos gates pós-fit, inclusive AUC e Brier.
 

@@ -1,34 +1,44 @@
-# RASAI / SARI — identidade e compatibilidade
+# RASAi / SARI — identidade e compatibilidade
 
 ## Identidade pública
 
-- **Produto:** RASAI
-- **Expansão:** Readiness Assessment for Search & AI
+- **Marca:** RASAi
+- **Acrônimo formal:** RASAI
+- **Fundamento do acrônimo:** Readiness Assessment for Search & AI
 - **Descriptor:** Search & AI Readiness Auditor
-- **Framework:** RASAI Framework
-- **Índice público:** Search & AI Readiness Index — `SARI-001`
-- **Índice público legado:** `SGRI-001`
+- **Framework:** RASAi Framework
+- **Índice:** Search & AI Readiness Index — `SARI-001`
 
-## Mudança pública
+## Fundamento da grafia RASAi
 
-A apresentação, documentação, console, user-agent e relatórios usam RASAI/SARI. A página canônica do índice é `report/readiness.html`. `report/searchgeo.html` permanece como redirect de compatibilidade.
+`RASAI` é a composição formal de **R**eadiness **A**ssessment for **S**earch & **AI**. A marca é apresentada como **RASAi**. O `i` minúsculo é uma decisão tipográfica para dar identidade ao trecho final associado à inteligência artificial e tornar a marca visualmente distinta, sem criar uma segunda expansão do acrônimo.
 
-Os comandos preferenciais são `rasai`, `rasai-console`, `rasai audit`, `rasai visibility` e `rasai scoring`.
+Convenção de escrita:
 
-## Compatibilidade preservada
+- use **RASAi** em UI, console, relatórios, HTML, README e documentação;
+- use **RASAI** quando o texto estiver explicando o acrônimo formal;
+- preserve identificadores técnicos cuja grafia em caixa alta faça parte do contrato, como `RASAI-OBS-*`;
+- comandos e arquivos executáveis permanecem em minúsculas, por exemplo `rasai` e `rasai-console`.
 
-- `searchgeo` e `searchgeo-console` permanecem aliases funcionais;
-- `src/searchgeo/` permanece como namespace Python;
-- `SEARCHGEO_*` permanece como família de variáveis de ambiente;
-- `searchgeo.toml`, `searchgeo-console.ini` e marcadores locais continuam válidos;
-- `searchgeo-readiness-auditor` permanece como nome da distribuição Python nesta etapa;
-- `BR-GEO-*`, `SCORE-GEO-002`, `SCORE-GEO-003` e outros IDs versionados não são renomeados;
-- auditorias e artifacts históricos não são regravados.
+## Superfície operacional
 
-## SARI versus scoring engine
+A página principal do índice é `report/readiness.html`.
 
-`SARI-001` identifica publicamente o Search & AI Readiness Index. Ele não substitui a versão do motor persistido. A troca `SGRI-001` → `SARI-001` é nominal e não altera pesos, fatores, thresholds, fórmula ou calibração.
+Os comandos preferenciais são `rasai`, `rasai-console`, `rasai audit`, `rasai visibility`, `rasai monitoring`, `rasai quality` e `rasai scoring`.
 
-Novas auditorias usam `SCORE-GEO-003`; `SCORE-GEO-002` permanece histórico e não é recalculado. O identificador SARI e o `scoring_version` devem ser apresentados separadamente.
+Por compatibilidade operacional, também são aceitos:
 
-Lighthouse, Core Web Vitals, Acessibilidade, Synthetic Navigation Apdex, Synthetic User Experience Apdex e Observed AI Visibility continuam metodologias independentes e não são combinadas silenciosamente no SARI.
+- `searchgeo` e `searchgeo-console`;
+- namespace Python `src/searchgeo/`;
+- variáveis de ambiente `SEARCHGEO_*`;
+- arquivos de configuração suportados pelo runtime;
+- nome de distribuição Python `searchgeo-readiness-auditor`;
+- IDs normativos e persistidos como `BR-GEO-*`, `SCORE-GEO-*` e `RASAI-OBS-*`.
+
+Esses elementos são contratos técnicos e não definem a marca exibida ao usuário.
+
+## SARI e scoring
+
+`SARI-001` identifica o **Search & AI Readiness Index**. A versão do índice e o `scoring_version` são metadados distintos.
+
+O método de scoring aplicado às auditorias é `SCORE-GEO-003`. Lighthouse, Core Web Vitals, Acessibilidade, Synthetic Navigation Apdex, Synthetic User Experience Apdex e Observed AI Visibility permanecem metodologias independentes e não são combinadas silenciosamente no SARI.

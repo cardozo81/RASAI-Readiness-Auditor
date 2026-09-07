@@ -40,7 +40,7 @@ class ReportNavigationTests(unittest.TestCase):
                 self.assertEqual([(href, label) for _, href, label in links], expected, filename)
                 active = [href for css_class, href, _ in links if css_class == "active"]
                 self.assertEqual(active, [filename], filename)
-                self.assertIn("Versão 9.9.9", html)
+                self.assertNotIn("Versão 9.9.9", html)
                 self.assertIn("Gerado em 03/09/2026 22:30:45 — Horário de Brasília", html)
 
     def test_optional_pages_are_omitted_until_their_files_exist(self) -> None:

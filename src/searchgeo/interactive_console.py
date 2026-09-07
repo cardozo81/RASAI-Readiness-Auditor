@@ -1,4 +1,4 @@
-"""Friendly menu for RASAI audit execution."""
+"""Friendly menu for RASAi audit execution."""
 from __future__ import annotations
 
 from getpass import getpass

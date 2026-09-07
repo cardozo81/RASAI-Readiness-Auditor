@@ -58,7 +58,7 @@ def build_parser():
     ai_action.help = (
         "semantic analysis provider; AUTO remains the homologated "
         "OpenAI/DeepSeek/MiMo chain, extension providers are explicit-only; "
-        "when model/effort are not explicitly configured RASAI uses the "
+        "when model/effort are not explicitly configured RASAi uses the "
         "simplest supported model and lowest supported reasoning effort"
     )
     web_timeout_action = next(
@@ -461,7 +461,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         report_path=str(m24_report_path.relative_to(workspace.root)),
                         scoring_impact="NONE",
                     )
-                    # PR #70 owns RASAI/device labels. Re-run the projection only
+                    # PR #70 owns RASAi/device labels. Re-run the projection only
                     # to normalize every final page after M24 has added its nav item;
                     # persisted measurements remain untouched.
                     enrich_searchgeo_reporting(
@@ -530,7 +530,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif m23_error:
             print(
                 "Synthetic Apdex: INCOMPLETO por erro operacional; "
-                "a auditoria RASAI principal foi preservada"
+                "a auditoria RASAi principal foi preservada"
             )
 
     if m24_config is not None:

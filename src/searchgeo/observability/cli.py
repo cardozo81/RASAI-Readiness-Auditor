@@ -205,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             return _reported(workspace, "CrUX History", dataset)
     except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
-        print(f"RASAI observe error: {exc}")
+        print(f"RASAi observe error: {exc}")
         return 2
     parser.error(f"unsupported observe command: {args.observe_command}")
     return 2

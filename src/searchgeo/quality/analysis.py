@@ -1,6 +1,6 @@
 """Read-only audit quality and decision-support analysis.
 
-This module evaluates the quality/completeness of RASAI evidence and produces
+This module evaluates the quality/completeness of RASAi evidence and produces
 operational prioritization. It never changes BR-GEO findings, SARI-001 or
 SCORE-GEO-003 and must not be interpreted as another readiness score.
 """

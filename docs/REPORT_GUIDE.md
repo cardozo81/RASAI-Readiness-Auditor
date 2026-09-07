@@ -1,6 +1,6 @@
 # Guia de leitura dos relatórios
 
-O RASAI gera um mini-site HTML estático por auditoria. O report é projeção humana derivada da persistência; não recalcula scoring nem inventa dados ausentes.
+O RASAi gera um mini-site HTML estático por auditoria. O report é projeção humana derivada da persistência; não recalcula scoring nem inventa dados ausentes.
 
 ## Entrada principal
 
@@ -49,7 +49,6 @@ report/
 ```text
 SARI-001       = Search & AI Readiness Index público
 SCORE-GEO-003  = motor vigente para novas auditorias
-SCORE-GEO-002  = histórico
 ```
 
 `readiness.html` apresenta dimensões, Coverage, Confidence, Consolidation e limitações. `score-geo-003.html` apresenta método/model artifact/dataset/gates e o estado do Overall.
@@ -136,7 +135,7 @@ Checks de data usam o tempo persistido do AUD (`completed_at`, `started_at`, `cr
 
 ## Quality & decisão
 
-`quality.html` responde se a própria evidência RASAI está em condição adequada para apoiar decisões.
+`quality.html` responde se a própria evidência RASAi está em condição adequada para apoiar decisões.
 
 ### Audit Health
 
@@ -169,7 +168,7 @@ São controles do publisher e não penalidades automáticas.
 
 Valida referência/estado/confiança da recomendação contra a evidência persistida. Não substitui revisão humana da mudança proposta.
 
-## RASAI Monitor
+## RASAi Monitor
 
 Monitoring não fica dentro de um único AUD:
 
@@ -292,7 +291,7 @@ Timeout, quota, HTTP, ausência de artifact ou falta de dado da fonte não são 
 
 ## Referências
 
-`references.html` documenta metodologia/proveniência. Referência oficial sustenta o fenômeno externo; não homologa automaticamente a agregação proprietária RASAI.
+`references.html` documenta metodologia/proveniência. Referência oficial sustenta o fenômeno externo; não homologa automaticamente a agregação proprietária RASAi.
 
 ## Consistência visual e navegação
 

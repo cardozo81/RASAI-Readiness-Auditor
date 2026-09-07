@@ -1,12 +1,12 @@
 # Providers de IA adicionais
 
-Guia operacional dos providers semânticos adicionais integrados ao RASAI por meio do `provider_registry` canônico.
+Guia operacional dos providers semânticos adicionais integrados ao RASAi por meio do `provider_registry` canônico.
 
 ## Estado atual
 
 Os providers abaixo estão implementados, mas permanecem **PROVISIONAL** e **explicit-only**. Eles não participam de `--ai-provider auto` enquanto não houver qualificação humana com credenciais reais de cada provider.
 
-| CLI | Provider | Modelo default público | API usada | Estado RASAI |
+| CLI | Provider | Modelo default público | API usada | Estado RASAi |
 |---|---|---|---|---|
 | `xai` / `grok` | xAI / Grok | `grok-4.6` | Responses API | `PROVISIONAL` |
 | `qwen` | Alibaba Cloud Model Studio / Qwen | `qwen3.8-flash` | OpenAI-compatible Chat Completions | `PROVISIONAL` |

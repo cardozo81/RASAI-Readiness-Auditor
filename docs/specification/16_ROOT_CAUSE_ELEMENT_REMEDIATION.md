@@ -2,7 +2,7 @@
 
 **Status:** APPROVED EVOLUTION
 **Baseline de entrada:** Experiência e organização dos relatórios + OpenAI provider hardening integrado em `main`
-**Contratos preservados:** `SCORE-GEO-001`, `REPORT-GEO-003`, `REMEDIATION-GEO-001`
+**Contratos preservados:** `SCORE-GEO-003`, `REPORT-GEO-003`, `REMEDIATION-GEO-001`
 
 ## 1. Objetivo
 

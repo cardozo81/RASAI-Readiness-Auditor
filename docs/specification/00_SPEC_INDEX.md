@@ -1,4 +1,4 @@
-# RASAI — Search & AI Readiness Auditor — Specification Index
+# RASAi — Search & AI Readiness Auditor — Specification Index
 
 **Status:** BASELINE VIGENTE — capacidades integradas e documentação reconciliada com `main` + candidato PR #82.
 **Baseline:** MVP Functional Specification
@@ -6,7 +6,7 @@
 
 ## 1. Objetivo
 
-Este diretório constitui a fonte normativa do RASAI — Search & AI Readiness Auditor.
+Este diretório constitui a fonte normativa do RASAi — Search & AI Readiness Auditor.
 
 Uma IA, desenvolvedor ou ferramenta que assuma o projeto não deve depender do histórico de chats para descobrir requisitos formalizados. Os documentos presentes neste diretório prevalecem sobre interpretações informais do histórico de conversa.
 
@@ -96,7 +96,6 @@ Nenhuma decisão funcional deve ser alterada silenciosamente durante implementa�
 ## 5. Baseline vigente de scoring e método público
 
 - motor padrão para novas auditorias: `SCORE-GEO-003`;
-- `SCORE-GEO-002` permanece histórico e não é recalculado;
 - identidade pública de readiness: `SARI-001`;
 - dimensões legitimamente `NOT_APPLICABLE` não recebem zero;
 - Coverage, Confidence e Consolidation permanecem métricas distintas do Score;
@@ -152,8 +151,8 @@ O menu final é canônico e condicional à existência dos arquivos; uma projeç
 | Synthetic User Experience Apdex | experiência sintética calibrável | não é RUM; separado de Navigation Apdex e SARI |
 | Observed Generative Visibility | resultados observados/importados de AI Search | domínio observacional; query-runs podem alimentar calibração offline |
 | Search & AI Observability | Search Console, GenAI exports, URL Inspection, CrUX History/imports | `RASAI-OBS-002`; non-scoring; proveniência explícita |
-| RASAI Monitor | comparação baseline/current, release gate e change impact | read-only; não cria score e não presume causalidade |
-| RASAI Quality | qualidade da evidência, priorização operacional e validação | read-only; não cria readiness score |
+| RASAi Monitor | comparação baseline/current, release gate e change impact | read-only; não cria score e não presume causalidade |
+| RASAi Quality | qualidade da evidência, priorização operacional e validação | read-only; não cria readiness score |
 | Fix Verification | transição de regra entre AUDs | prova apenas estado persistido; não prova downstream impact |
 | Evidence Timeline | projeção longitudinal de AUDs | não regrava histórico |
 
@@ -161,7 +160,7 @@ O menu final é canônico e condicional à existência dos arquivos; uma projeç
 
 Fonte normativa: `26_OBSERVED_GENERATIVE_VISIBILITY.md`.
 
-A capacidade usa `OGV-IMPORT-001`, preserva artifact/SHA-256, mantém métricas reportadas pela fonte separadas de cálculos RASAI e não escreve/recalcula scores do AUD fonte. `CONTROLLED_QUERY_RUNS` elegíveis podem ser consumidos posteriormente pela calibração offline `SCORE-GEO-003`.
+A capacidade usa `OGV-IMPORT-001`, preserva artifact/SHA-256, mantém métricas reportadas pela fonte separadas de cálculos RASAi e não escreve/recalcula scores do AUD fonte. `CONTROLLED_QUERY_RUNS` elegíveis podem ser consumidos posteriormente pela calibração offline `SCORE-GEO-003`.
 
 ## 9. SCORE-GEO-003
 
@@ -249,7 +248,7 @@ rasai quality timeline
 
 ## 11. Fontes externas e heurística
 
-O RASAI não representa seu score ou thresholds como standard GEO/AEO universal.
+O RASAi não representa seu score ou thresholds como standard GEO/AEO universal.
 
 Referências primárias podem incluir Google Search Central/Crawling Infrastructure, Google Search Console APIs, Chrome UX Report, OpenAI publisher/help documentation, Schema.org, WHATWG, IETF/RFC, W3C/WAI, Apdex Alliance, Dynatrace e documentação pública Bing Search/Webmaster.
 

@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-O RASAI deve distinguir claramente:
+O RASAi deve distinguir claramente:
 
 1. a URL informada pelo usuário;
 2. a cadeia HTTP efetivamente observada;
@@ -26,7 +26,7 @@ A aquisição HTTP de Descoberta e aquisição HTTP continua sendo a primeira fo
 - classe do erro de rede/transporte;
 - mensagem técnica sanitizada.
 
-O RASAI **não desabilita validação TLS** para conseguir auditar um site com certificado inválido.
+O RASAi **não desabilita validação TLS** para conseguir auditar um site com certificado inválido.
 
 Descoberta e aquisição HTTP utiliza um cliente HTTP determinístico e crawler-like. Renderização Desktop e Mobile utiliza Chromium com o perfil real do dispositivo auditado. Como CDN, WAF, proxy, regras por `User-Agent` ou outras políticas podem entregar rotas diferentes a esses clientes, um bloqueio técnico observado somente em Descoberta e aquisição HTTP não encerra mais a auditoria antes de uma confirmação única pelo Chromium.
 
@@ -60,7 +60,7 @@ A política `SOURCE-QUALITY-1` considera sinais fortes de bloqueio, entre outros
 
 ## Confirmação por navegador antes do fail-fast
 
-Quando Descoberta e aquisição HTTP indica que **todas as páginas do universo auditado** estão bloqueadas por uma condição forte, o RASAI não encerra imediatamente.
+Quando Descoberta e aquisição HTTP indica que **todas as páginas do universo auditado** estão bloqueadas por uma condição forte, o RASAi não encerra imediatamente.
 
 A sequência obrigatória passa a ser:
 
@@ -93,13 +93,13 @@ Esse cenário pode indicar, sem afirmar causalidade automaticamente:
 - canonicalização diferente entre clientes;
 - comportamento transitório ou geograficamente condicionado.
 
-O RASAI registra os fatos; a intenção de negócio precisa ser validada pelo analista responsável.
+O RASAi registra os fatos; a intenção de negócio precisa ser validada pelo analista responsável.
 
 ### Quando Chromium confirma o bloqueio
 
 Se Chromium também falhar:
 
-1. o RASAI grava limitação explícita;
+1. o RASAi grava limitação explícita;
 2. a análise semântica completa não é chamada sobre conteúdo inexistente;
 3. Sugestões e remediação de conteúdo por IA não tenta remediar texto sem corpus confiável;
 4. PageSpeed/CrUX não são chamados;
@@ -111,7 +111,7 @@ Essa política economiza tráfego, tempo e custo de API sem converter a falha do
 
 ### Escopo parcial
 
-Se somente parte das URLs estiver bloqueada, o RASAI não interrompe globalmente o audit. O fail-fast global é aplicado somente quando todo o universo auditado permanece tecnicamente bloqueado após a reconciliação disponível. As URLs problemáticas continuam identificadas individualmente.
+Se somente parte das URLs estiver bloqueada, o RASAi não interrompe globalmente o audit. O fail-fast global é aplicado somente quando todo o universo auditado permanece tecnicamente bloqueado após a reconciliação disponível. As URLs problemáticas continuam identificadas individualmente.
 
 ## Synthetic Apdex
 
@@ -133,7 +133,7 @@ attempted_samples = 0
 valid_samples = 0
 ```
 
-Dessa forma, o RASAI não produz um Apdex 0,000 baseado em cem repetições da mesma incompatibilidade técnica já confirmada.
+Dessa forma, o RASAi não produz um Apdex 0,000 baseado em cem repetições da mesma incompatibilidade técnica já confirmada.
 
 Se Chromium alcançar a página normalmente, Synthetic Navigation Apdex executa segundo a configuração habitual.
 
@@ -152,7 +152,7 @@ Se Chromium recuperar a navegação, Web Performance continua normalmente, respe
 
 ## Explicação opcional por IA
 
-Quando um provider compatível está ativo, o RASAI pode fazer **uma análise complementar de infraestrutura** com base exclusivamente na evidência técnica persistida.
+Quando um provider compatível está ativo, o RASAi pode fazer **uma análise complementar de infraestrutura** com base exclusivamente na evidência técnica persistida.
 
 Contrato atual:
 
@@ -188,7 +188,7 @@ A IA:
 - não pode declarar um certificado inválido como comportamento normal sem considerar a evidência de navegador;
 - não pode recomendar desabilitar validação TLS;
 - não pode inventar CDN, proxy, servidor, SAN/CN ou configuração não observada;
-- não altera SCORE-GEO-002;
+- não altera SARI-001;
 - é fail-open: se indisponível, o diagnóstico determinístico continua completo.
 
 O consumo dessa chamada é persistido em `ai_provider_attempts` com tokens/custo estimado quando o provider fornece telemetria.
@@ -289,4 +289,4 @@ O artefato `source-quality-preflight.json` preserva a evidência Descoberta e aq
 
 Web Performance externo/Synthetic Navigation Apdex utilizam suas tabelas aditivas já existentes para registrar `SKIPPED_SOURCE_BLOCKER` somente quando o bloqueio permanece confirmado.
 
-Não há alteração na fórmula de `SCORE-GEO-002` ou na fórmula Apdex.
+Não há alteração na fórmula de `SARI-001` ou na fórmula Apdex.

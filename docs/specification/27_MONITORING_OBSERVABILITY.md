@@ -1,11 +1,11 @@
-# RASAI Monitor & Search/AI Observability
+# RASAi Monitor & Search/AI Observability
 
 **Status:** IMPLEMENTED CANDIDATE — PR #82; CI obrigatória no head corrente e smoke humano requerido antes do merge.
 **Natureza:** capacidades derivadas/complementares, read-only sobre a evidência de auditoria e non-scoring por padrão.
 
 ## 1. Objetivo
 
-Adicionar ao RASAI observabilidade longitudinal e outcomes externos sem transformar sinais heterogêneos em um score transversal nem alterar silenciosamente `SARI-001`/`SCORE-GEO-003`.
+Adicionar ao RASAi observabilidade longitudinal e outcomes externos sem transformar sinais heterogêneos em um score transversal nem alterar silenciosamente `SARI-001`/`SCORE-GEO-003`.
 
 A capacidade responde separadamente:
 
@@ -19,7 +19,6 @@ A capacidade responde separadamente:
 
 - `SARI-001` permanece o índice público de readiness;
 - `SCORE-GEO-003` permanece o scoring vigente para novas auditorias;
-- `SCORE-GEO-002` permanece histórico;
 - Monitoring não cria novo score;
 - Search/AI Observability não entra automaticamente no SARI;
 - Search Performance, URL Inspection, CrUX History, Bing/AI outcomes e diagnósticos derivados permanecem identificados por fonte/método;
@@ -53,7 +52,7 @@ Regras:
 - artifacts mantêm SHA-256;
 - token OAuth, API key e credencial não podem aparecer em SQLite, artifact, HTML ou log produzido pelos collectors.
 
-## 4. RASAI Monitor
+## 4. RASAi Monitor
 
 ### 4.1 Compare
 
@@ -263,7 +262,7 @@ Podem ser materializados, sem criar nova contribuição automática ao SARI:
 
 Divergência observada não é automaticamente causalidade ou ranking factor.
 
-## 9. RASAI Quality & Verification
+## 9. RASAi Quality & Verification
 
 Contrato detalhado: `28_AUDIT_QUALITY_VERIFICATION.md`.
 

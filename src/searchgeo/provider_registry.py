@@ -1,4 +1,4 @@
-"""Canonical provider registry facade for RASAI consumers.
+"""Canonical provider registry facade for RASAi consumers.
 
 The homologated M18 module remains authoritative for legacy provider behavior and
 provider_extensions remains authoritative for explicit-only adapter internals.
@@ -153,7 +153,7 @@ def _build_registry() -> tuple[ProviderRegistration, ...]:
 
     ids = [registration.id for registration in registrations]
     if len(ids) != len(set(ids)):
-        raise RuntimeError("duplicate canonical provider id in RASAI registry")
+        raise RuntimeError("duplicate canonical provider id in RASAi registry")
 
     selections = [
         selection
@@ -161,7 +161,7 @@ def _build_registry() -> tuple[ProviderRegistration, ...]:
         for selection in registration.cli_selections
     ]
     if len(selections) != len(set(selections)):
-        raise RuntimeError("duplicate provider CLI selection in RASAI registry")
+        raise RuntimeError("duplicate provider CLI selection in RASAi registry")
     return registrations
 
 

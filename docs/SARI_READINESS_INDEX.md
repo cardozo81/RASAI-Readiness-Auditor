@@ -2,21 +2,19 @@
 
 ## 1. Objetivo
 
-O **Search & AI Readiness Index (`SARI-001`)** é a identidade pública da metodologia proprietária do RASAI para consolidar sinais de prontidão relacionados a descoberta, interpretação, recuperação, resposta e uso do conteúdo como evidência em Search e AI Search.
+O **Search & AI Readiness Index (`SARI-001`)** é a identidade pública da metodologia proprietária do RASAi para consolidar sinais de prontidão relacionados a descoberta, interpretação, recuperação, resposta e uso do conteúdo como evidência em Search e AI Search.
 
-O índice é versionado, auditável e reprodutível. Ele não é padrão oficial de GEO/AEO nem nota de Google, Bing, OpenAI ou outro mantenedor.
+O índice é auditável e reprodutível. Ele não é padrão oficial de GEO/AEO nem nota de Google, Bing, OpenAI ou outro mantenedor.
 
-## 2. Motor vigente
+## 2. Método de scoring
 
-Novas auditorias usam:
+As auditorias usam:
 
 ```text
 SCORE-GEO-003
 ```
 
-`SCORE-GEO-002` permanece histórico e não é recalculado.
-
-A transição é uma quebra metodológica real: o cálculo das dimensões permanece determinístico, mas o Overall deixa de ser média simples e passa a exigir modelo calibrado.
+As dez dimensões são calculadas deterministicamente a partir de regras e evidências persistidas. O Overall exige model artifact calibrado com estado `VALIDATED`.
 
 ## 3. Dimensões
 
@@ -49,7 +47,7 @@ FAIL    = 0.00
 
 `UNKNOWN`, `ERROR` e `NOT_APPLICABLE` não são convertidos automaticamente em `FAIL`.
 
-## 5. Overall no SCORE-GEO-003
+## 5. Overall
 
 Com dimensões aplicáveis suficientemente consolidadas e model artifact `VALIDATED`:
 
@@ -57,9 +55,7 @@ Com dimensões aplicáveis suficientemente consolidadas e model artifact `VALIDA
 Overall = 100 × sigmoid(β0 + Σ βi × feature_i)
 ```
 
-As features são as dez dimensões normalizadas.
-
-Sem model artifact validado, o Overall fica `NOT_CONSOLIDATED`; nenhum número é fabricado e não existe fallback silencioso para o `002`.
+As features são as dez dimensões normalizadas. Sem model artifact validado, o Overall fica `NOT_CONSOLIDATED`; nenhum número substituto é fabricado.
 
 ## 6. Calibração
 
@@ -82,21 +78,19 @@ Promotion gate mínimo:
 - AUC holdout >= 0,60;
 - Brier menor que baseline por prevalência de treino.
 
-O split é por domínio para reduzir leakage.
-
-Detalhes: `SCORE_GEO_003.md` e `SCORING_VALIDATION.md`.
+O split é por domínio para reduzir leakage. Detalhes: `SCORE_GEO_003.md` e `SCORING_VALIDATION.md`.
 
 ## 7. Coverage, Confidence e Consolidation
 
 Coverage mede completude do universo aplicável avaliado; não mede qualidade do site.
 
-Confidence das dimensões continua baseada em cobertura/evidência/erros. No Overall, a Confidence é limitada também pela `calibration_confidence` do artifact.
+Confidence das dimensões é baseada em cobertura, evidência e erros. No Overall, a Confidence também é limitada pela `calibration_confidence` do artifact.
 
-Consolidation informa se existe base suficiente para publicar conclusão agregada.
+Consolidation informa se existe base suficiente para publicar uma conclusão agregada.
 
 ## 8. Groundability
 
-Groundability continua exposta como conjunto de sinais, não como novo subscore:
+Groundability é exposta como conjunto de sinais, não como novo subscore:
 
 - `ANSWERABILITY`;
 - `CITATION_READINESS`;
@@ -106,13 +100,13 @@ Não é criada uma segunda agregação sem contrato próprio.
 
 ## 9. YMYL e E-E-A-T
 
-YMYL/E-E-A-T permanecem contexto de rigor da análise e remediação, não score oficial.
+YMYL/E-E-A-T são contexto de rigor da análise e remediação, não scores oficiais.
 
-O RASAI não apresenta “E-E-A-T Score” nem “YMYL Score” como métricas oficiais do Google.
+O RASAi não apresenta “E-E-A-T Score” nem “YMYL Score” como métricas oficiais do Google.
 
 ## 10. Métricas externas
 
-Não entram automaticamente no Overall `003`:
+Não entram automaticamente no Overall:
 
 - Core Web Vitals;
 - Lighthouse Performance;
@@ -121,7 +115,7 @@ Não entram automaticamente no Overall `003`:
 - Synthetic User Experience Apdex;
 - métricas Bing source-reported.
 
-Elas permanecem em seus domínios próprios, salvo se futura calibração demonstrar relação válida e o contrato for versionado.
+Elas permanecem em seus domínios próprios, salvo se uma calibração formal demonstrar relação válida e o contrato metodológico for atualizado.
 
 ## 11. Readiness versus visibilidade observada
 
@@ -133,7 +127,7 @@ Observed Generative Visibility
 = resultado efetivamente observado em engine/query/período
 ```
 
-O `003` usa outcomes observados para calibrar o Overall, mas isso não torna cada auditoria uma garantia de citação futura.
+Outcomes observados podem alimentar a calibração do Overall, mas isso não torna cada auditoria uma garantia de citação futura.
 
 ## 12. Relatórios
 
@@ -150,13 +144,11 @@ apdex-experience.html  -> Synthetic User Experience Apdex
 
 O dashboard não cria agregação transversal entre metodologias.
 
-## 13. Histórico e comparabilidade
+## 13. Rastreabilidade e comparabilidade
 
-Auditorias `SCORE-GEO-002` e `SCORE-GEO-003` não devem ser tratadas como a mesma série sem segmentação por versão.
+Resultados preservam `scoring_version`, `model_version`, `dataset_version`, SHA-256 dos artifacts e demais metadados necessários para reconstrução e comparação válida.
 
-Alterações de model/dataset dentro do `003` permanecem rastreáveis por `model_version`, `dataset_version` e SHA-256 do artifact.
-
-Alteração incompatível de fórmula/features/gates exige nova versão de scoring.
+Mudança incompatível de fórmula, features ou gates exige um identificador metodológico distinto.
 
 ## 14. Estado de validação
 
@@ -165,7 +157,7 @@ Fundamentação conceitual: evidence-based
 Dimensões determinísticas: sim
 Overall empiricamente calibrável: sim
 Holdout por domínio: sim
-Artifact versionado/reprodutível: sim
+Artifact reprodutível: sim
 Homologação externa do índice composto: não
 Garantia causal de citação: não
 ```

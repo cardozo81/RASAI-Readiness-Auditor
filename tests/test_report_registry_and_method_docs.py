@@ -23,8 +23,8 @@ def test_optional_report_navigation_is_complete_stable_and_conditional() -> None
         install()
         assert report_navigation.NAV_ITEMS == CANONICAL_NAV_ITEMS
         assert "SCORE-GEO-003" in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]
-        assert "SCORE-GEO-002" in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]
-        assert "histórico" in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]
+        assert "SCORE-GEO-002" not in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]
+        assert "histórico" not in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]
 
         with tempfile.TemporaryDirectory() as directory:
             report_dir = Path(directory)

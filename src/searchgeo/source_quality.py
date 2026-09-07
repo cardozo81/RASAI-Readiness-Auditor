@@ -30,7 +30,7 @@ SOURCE_QUALITY_AI_ARTIFACT = "artifacts/source-quality-ai.json"
 REPORT_MARKER_START = "<!-- searchgeo-source-quality:start -->"
 REPORT_MARKER_END = "<!-- searchgeo-source-quality:end -->"
 
-# These states are deterministic transport/topology blockers. RASAI must not
+# These states are deterministic transport/topology blockers. RASAi must not
 # spend downstream API/browser budgets trying to measure a page that was not
 # technically reachable under normal certificate/redirect validation.
 HARD_NETWORK_ERRORS = frozenset(
@@ -199,7 +199,7 @@ def _diagnosis(
             (
                 "Corrigir o certificado apresentado pelo hostname final, incluindo correspondência CN/SAN, cadeia e configuração SNI.",
                 "Confirmar que todos os destinos da cadeia de redirecionamento possuem HTTPS válido antes de reexecutar a auditoria.",
-                "Não desabilitar a validação TLS no RASAI como forma de contornar o problema.",
+                "Não desabilitar a validação TLS no RASAi como forma de contornar o problema.",
             ),
         )
     if network_error == NetworkErrorKind.DNS.value:
@@ -678,7 +678,7 @@ def _report_block(assessment: SourceQualityAssessment, ai_payload: dict[str, Any
         REPORT_MARKER_START
         + "<section class='panel source-quality-panel' id='source-quality'>"
         "<h2>Origem, redirecionamentos e integridade de transporte</h2>"
-        "<p>Esta seção distingue a URL configurada no RASAI da URL efetivamente alcançada. "
+        "<p>Esta seção distingue a URL configurada no RASAi da URL efetivamente alcançada. "
         "Redirecionamentos podem ser normais; falhas TLS/DNS/protocolo são limitações técnicas e não são ignoradas.</p>"
         + "".join(cards)
         + ai_html

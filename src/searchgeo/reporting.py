@@ -438,7 +438,7 @@ class ReportBuilder:
         limitation_summary = self._principal_limitations(limitations)
         return f"""
         <header class="hero">
-          <div class="eyebrow">RASAI — Search & AI Readiness Auditor · Actionable Remediation</div>
+          <div class="eyebrow">RASAi — Search & AI Readiness Auditor · Actionable Remediation</div>
           <h1>Readiness Search & AI</h1>
           <div class="compatibility-state state-{headline_state}">{escape(headline)}</div>
           <p class="lead">{escape(explanation)}</p>

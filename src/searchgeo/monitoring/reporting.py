@@ -1,4 +1,4 @@
-"""Static HTML report for RASAI audit-to-audit monitoring."""
+"""Static HTML report for RASAi audit-to-audit monitoring."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -99,11 +99,11 @@ def _html(result: ComparisonResult, gate_passed: bool, gate_reason: str, generat
     status_class = "good" if gate_passed else "bad"
     return f"""<!doctype html>
 <html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
-<title>RASAI Monitor · {escape(result.baseline.audit_id)} → {escape(result.current.audit_id)}</title>
+<title>RASAi Monitor · {escape(result.baseline.audit_id)} → {escape(result.current.audit_id)}</title>
 <style>{_CSS}</style></head><body>
 <main>
 <header class='hero'>
-  <div class='eyebrow'>RASAI Monitor · {FORMAT_VERSION}</div>
+  <div class='eyebrow'>RASAi Monitor · {FORMAT_VERSION}</div>
   <h1>Regressão e mudança entre auditorias</h1>
   <p>Comparação derivada e read-only. O relatório detecta mudanças observáveis; não atribui causalidade a deploys, conteúdo ou mecanismos externos sem evidência adicional.</p>
   <div class='metrics'>
@@ -121,7 +121,7 @@ def _html(result: ComparisonResult, gate_passed: bool, gate_reason: str, generat
 <section class='panel'><h2>Melhorias / resoluções</h2>{_table(improvement_rows)}</section>
 <section class='panel'><h2>Mudanças materiais sem direção comprovada</h2><p>Ex.: canonical alterado é mudança relevante, mas não é chamado de regressão sem regra/evidência que demonstre piora.</p>{_table(change_rows)}</section>
 <section class='panel'><h2>Metodologia</h2><ul><li><code>UNKNOWN</code>, <code>ERROR</code> e <code>NOT_APPLICABLE</code> não viram FAIL.</li><li>SCOREs de versões metodológicas sem sobreposição ficam <code>NOT_COMPARABLE</code>.</li><li>URL universes muito diferentes geram limitação explícita.</li><li>Dados ausentes no audit atual ficam <code>DATA_UNAVAILABLE</code>, não <code>RESOLVED</code>.</li><li>Thresholds numéricos apenas filtram materialidade; não redefinem métricas oficiais.</li></ul></section>
-<footer>Gerado em {escape(generated_at)} · RASAI Monitor · fonte: audit.db read-only.</footer>
+<footer>Gerado em {escape(generated_at)} · RASAi Monitor · fonte: audit.db read-only.</footer>
 </main></body></html>"""
 
 

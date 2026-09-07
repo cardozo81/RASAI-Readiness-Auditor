@@ -1,6 +1,6 @@
-"""Canonical report navigation registry for all current RASAI report surfaces.
+"""Canonical report navigation registry for all current RASAi report surfaces.
 
-The legacy report_navigation module owns rendering/polish. This registry only
+The report_navigation module owns rendering/polish. This registry only
 installs the complete ordered catalogue so an optional report generated later
 cannot accidentally remove links to previously materialized optional pages.
 Items remain conditional because report_navigation.available_navigation only
@@ -36,5 +36,5 @@ def install() -> None:
     report_navigation.NAV_ITEMS = CANONICAL_NAV_ITEMS
     report_navigation._RULE_TOOLTIPS["BR-GEO-054"] = (
         "Integridade do auditor · Verifica a reprodutibilidade do scoring persistido; "
-        "SCORE-GEO-003 é o método vigente e SCORE-GEO-002 permanece apenas histórico."
+        "SCORE-GEO-003 é o método de scoring aplicado e sua reprodutibilidade é verificada contra as evidências persistidas."
     )

@@ -18,7 +18,7 @@ from searchgeo.searchgeo_readiness_reporting import (
 
 
 def test_public_branding_contract() -> None:
-    assert PRODUCT_DISPLAY_NAME == "RASAI — Search & AI Readiness Auditor"
+    assert PRODUCT_DISPLAY_NAME == "RASAi — Search & AI Readiness Auditor"
     assert PUBLIC_INDEX_VERSION == "SARI-001"
     assert LEGACY_PUBLIC_INDEX_VERSION == "SGRI-001"
     assert CANONICAL_READINESS_REPORT == "readiness.html"

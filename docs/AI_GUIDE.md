@@ -1,10 +1,10 @@
 # Guia de IA
 
-O RASAI usa IA apenas em finalidades opcionais e evidence-bound. A auditoria principal continua capaz de executar sem IA.
+O RASAi usa IA apenas em finalidades opcionais e evidence-bound. A auditoria principal continua capaz de executar sem IA.
 
 ## Finalidades
 
-1. **análise semântica**: avalia somente as evidências fornecidas pelo RASAI e deve devolver saída estruturada compatível com o contrato local;
+1. **análise semântica**: avalia somente as evidências fornecidas pelo RASAi e deve devolver saída estruturada compatível com o contrato local;
 2. **remediação textual opcional (Sugestões e remediação de conteúdo por IA)**: produz sugestões exatas somente para findings elegíveis e com evidência suficiente;
 3. **remediação técnica opcional de crawling/discovery (Rastreamento, descoberta e acesso de crawlers)**: explica diagnósticos técnicos Rastreamento, descoberta e acesso de crawlers já determinados pelo runtime e pode sugerir correção evidence-bound, sem alterar scoring ou política editorial automaticamente.
 
@@ -12,7 +12,7 @@ Nenhuma dessas finalidades autoriza inventar fatos, credenciais, preços, datas,
 
 ## Contexto editorial para evitar análise genérica
 
-A mesma evidência textual não deve ser interpretada com a mesma régua em qualquer página. Quando configurado, o RASAI fornece aos providers um contexto editorial explícito:
+A mesma evidência textual não deve ser interpretada com a mesma régua em qualquer página. Quando configurado, o RASAi fornece aos providers um contexto editorial explícito:
 
 ```text
 risk profile: standard | ymyl | auto
@@ -34,7 +34,7 @@ Regras:
 - YMYL eleva a exigência de confiança, atribuição, suporte factual e qualificadores onde material;
 - Trust é tratado como elemento central de E-E-A-T; Experience, Expertise e Authoritativeness são considerados conforme o propósito/tópico, não exigidos mecanicamente em todo conteúdo;
 - a IA não pode inferir como fato credenciais, compliance, revisão profissional, reputação externa, experiência pessoal ou processo editorial oculto;
-- contexto editorial não cria um score E-E-A-T/YMYL e não entra diretamente na aritmética do `SCORE-GEO-002`.
+- contexto editorial não cria um score E-E-A-T/YMYL e não entra diretamente na aritmética do `SARI-001`.
 
 A base conceitual e os valores completos estão em [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md).
 
@@ -253,7 +253,7 @@ A opção 5, **Remediação textual IA**, só fica disponível com provider apto
 
 O grupo **IA — contexto editorial / YMYL** em `E. Variáveis de ambiente / credenciais` expõe os parâmetros contextuais com domínio aceito, default, explicação de impacto e link para a documentação específica.
 
-A remediação técnica Rastreamento, descoberta e acesso de crawlers é uma superfície CLI/ambiente nesta versão. Não deve ser presumida como opção persistida no INI do console até existir integração explícita correspondente.
+A remediação técnica Rastreamento, descoberta e acesso de crawlers é uma superfície CLI/ambiente na implementação atual. Não deve ser presumida como opção persistida no INI do console até existir integração explícita correspondente.
 
 ## Persistência de configuração e secrets
 
@@ -277,7 +277,7 @@ O termo `AUTO` do roteamento de providers é diferente de campos editoriais `aut
 
 ## Telemetria
 
-Quando disponível, o RASAI persiste por tentativa:
+Quando disponível, o RASAi persiste por tentativa:
 
 ```text
 provider

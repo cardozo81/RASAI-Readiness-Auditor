@@ -25,7 +25,7 @@ O launcher foi criado para deixar o ambiente local pronto para **todas as capaci
 2. valida se existe uma `.venv` compatível com CPython 3.13;
 3. se Python 3.13 não estiver disponível, tenta instalá-lo pelo Windows Package Manager (`winget`) usando o pacote `Python.Python.3.13`;
 4. cria `.venv` quando necessário;
-5. verifica se o pacote RASAI e as dependências-base declaradas em `pyproject.toml` estão instalados a partir deste repositório;
+5. verifica se o pacote RASAi e as dependências-base declaradas em `pyproject.toml` estão instalados a partir deste repositório;
 6. lê também todos os grupos existentes em `[project.optional-dependencies]` e, quando existirem, inclui esses extras no comando de instalação para que recursos opcionais declarados pelo projeto também fiquem disponíveis;
 7. compara um hash local de `pyproject.toml` para detectar mudança de dependências, extras ou entrypoints sem reinstalar desnecessariamente a cada abertura;
 8. executa `pip install -e .` — ou `pip install -e ".[extra1,extra2,...]"` quando houver extras — somente quando a instalação local está ausente, inconsistente ou o `pyproject.toml` mudou;

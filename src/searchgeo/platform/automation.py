@@ -1,4 +1,4 @@
-"""Safe local scheduler primitives for RASAI Windows/CLI operation."""
+"""Safe local scheduler primitives for RASAi Windows/CLI operation."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -54,7 +54,7 @@ def run_schedule(
     timeout_seconds: int = 60 * 60,
     extra_env: dict[str, str] | None = None,
 ) -> ScheduleRunResult:
-    """Execute only the RASAI Python module, never an arbitrary shell string."""
+    """Execute only the RASAi Python module, never an arbitrary shell string."""
     if not schedule.enabled:
         raise ValueError(f"schedule is disabled: {schedule.schedule_id}")
     started = utc_now()

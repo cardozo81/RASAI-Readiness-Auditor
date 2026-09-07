@@ -1,7 +1,7 @@
 """Direct Google Search Console collectors using documented REST APIs.
 
 Authentication is supplied as an OAuth bearer token by the caller. Tokens are
-never persisted in RASAI artifacts or the observability sidecar.
+never persisted in RASAi artifacts or the observability sidecar.
 """
 from __future__ import annotations
 

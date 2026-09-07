@@ -1,6 +1,6 @@
 # Guia do usuário
 
-Guia operacional do RASAI — Search & AI Readiness Auditor para execução local e leitura dos resultados.
+Guia operacional do RASAi — Search & AI Readiness Auditor para execução local e leitura dos resultados.
 
 ## Fluxo recomendado
 
@@ -100,7 +100,7 @@ Default de timeout externo:
 120 s por chamada PageSpeed/CrUX
 ```
 
-Se PageSpeed exceder o timeout, o RASAI registra a tentativa como erro operacional. CrUX direto pode continuar disponível. Lighthouse lab e Acessibilidade automatizada ficam indisponíveis quando não há artifact PageSpeed e o report deve informar a causa.
+Se PageSpeed exceder o timeout, o RASAi registra a tentativa como erro operacional. CrUX direto pode continuar disponível. Lighthouse lab e Acessibilidade automatizada ficam indisponíveis quando não há artifact PageSpeed e o report deve informar a causa.
 
 A ausência de dado não é transformada em score artificial.
 

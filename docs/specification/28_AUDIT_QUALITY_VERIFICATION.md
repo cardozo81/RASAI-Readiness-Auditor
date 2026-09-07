@@ -4,7 +4,7 @@
 
 ## 1. Purpose
 
-This specification defines derived, read-only capabilities that assess the quality of RASAI evidence and support remediation decisions without creating another readiness score.
+This specification defines derived, read-only capabilities that assess the quality of RASAi evidence and support remediation decisions without creating another readiness score.
 
 The domain answers:
 

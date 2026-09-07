@@ -26,7 +26,7 @@ entrada/targets
 
 O produto mantém separados:
 
-- Score/Coverage/Confidence de RASAI;
+- Score/Coverage/Confidence de RASAi;
 - análise semântica e remediação por IA;
 - Lighthouse/Core Web Vitals/CrUX;
 - Acessibilidade automatizada;

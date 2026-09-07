@@ -113,9 +113,9 @@ Ocorrências são estatística histórica; não recalculam SCORE-GEO. O gráfico
 
 ## Transparência do SCORE-GEO
 
-O HTML só apresenta versões efetivamente persistidas nas fontes selecionadas. `SCORE-GEO-001` não é exibido como alternativa quando não existe nos AUDs.
+O HTML só apresenta versões efetivamente persistidas nas fontes selecionadas e não inventa alternativas metodológicas ausentes dos AUDs.
 
-Quando `SCORE-GEO-002` está presente, o relatório explica:
+Quando diferentes `scoring_version` estão presentes, o relatório explica:
 
 - PASS = fator 1;
 - WARNING = fator padrão 0,5;
@@ -175,7 +175,7 @@ Executa em CPython 3.13:
 - integração `C` sem interceptar escolhas antigas;
 - falha do consolidado `fail-open`;
 - Snapshot com `N=1` sem falsa tendência;
-- `SCORE-GEO-001` ausente da UI quando não existe nas fontes;
+- versões de scoring ausentes das fontes não são inventadas pela UI;
 - metodologia/política de outliers materializada no HTML/manifest;
 - gráfico histórico com três pontos comparáveis;
 - matriz histórica das dimensões;

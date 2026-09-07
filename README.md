@@ -1,10 +1,16 @@
-# RASAI — Search & AI Readiness Auditor
+# RASAi — Search & AI Readiness Auditor
 
-> **Identidade atual:** **RASAI — Search & AI Readiness Auditor**. O índice público é **SARI-001 — Search & AI Readiness Index**. `searchgeo`, `searchgeo-console`, `SEARCHGEO_*`, o namespace Python `searchgeo` e IDs `SCORE-GEO-*`/`BR-GEO-*` permanecem compatíveis. Veja [docs/BRANDING_AND_COMPATIBILITY.md](docs/BRANDING_AND_COMPATIBILITY.md).
+> **RASAi** é a identidade pública do produto. O acrônimo formal **RASAI** deriva de **R**eadiness **A**ssessment for **S**earch & **AI**. A grafia **RASAi**, com `i` minúsculo, é uma escolha tipográfica de marca para destacar visualmente a ligação do produto com inteligência artificial sem alterar o significado formal do acrônimo.
 
-Auditor local de **Search/GEO Readiness** com evidência persistida, scoring reproduzível, análise semântica opcional por IA, remediação textual advisory, diagnóstico de crawling/discovery, Acessibilidade, Web Performance/Lighthouse/CrUX, Apdex sintético e outcomes observados de AI Search importáveis.
+**Descriptor:** Search & AI Readiness Auditor  
+**Framework:** RASAi Framework  
+**Índice:** `SARI-001` — Search & AI Readiness Index
 
-O produto avalia sinais técnicos e semânticos úteis para Search e sistemas generativos sem prometer ranking, tráfego, citação ou presença em respostas de IA.
+A forma **RASAi** deve ser usada em interfaces, relatórios e documentação. **RASAI** em caixa alta fica restrito à explicação formal do acrônimo ou a identificadores técnicos cuja grafia faça parte do contrato.
+
+RASAi é um auditor de **Search & AI Readiness** com evidência persistida, scoring reproduzível, análise semântica opcional por IA, remediação textual advisory, diagnóstico de crawling/discovery, Acessibilidade, Web Performance/Lighthouse/CrUX, Apdex sintético e outcomes observados de AI Search importáveis.
+
+O produto avalia sinais técnicos e semânticos úteis para Search e sistemas generativos sem prometer ranking, tráfego, citação ou presença em respostas de IA. **Readiness, visibilidade observada, ranking, citação e tráfego são conceitos distintos.**
 
 ## Estado funcional
 
@@ -34,7 +40,7 @@ Observed Generative Visibility (domínio observacional separado):
 - nenhuma coleta automática por scraping e nenhum endpoint de AI Performance presumido quando não houver API pública documentada;
 - `CONTROLLED_QUERY_RUNS` elegíveis podem alimentar posteriormente a calibração offline do `SCORE-GEO-003`, sem recalcular o AUD fonte.
 
-> O `SARI-001` é um índice proprietário e reprodutível. `SCORE-GEO-003` é o método padrão para novas auditorias: as dimensões permanecem determinísticas/evidence-based e o Overall exige modelo calibrado `VALIDATED`. Sem model artifact validado, o Overall fica `NOT_CONSOLIDATED`; nenhum coeficiente é inventado e não há fallback silencioso para `SCORE-GEO-002`. Auditorias `SCORE-GEO-002` permanecem históricas e não são recalculadas. Lighthouse, Core Web Vitals, Acessibilidade automatizada, Apdex e outcomes observados mantêm seus domínios próprios.
+> O `SARI-001` é um índice proprietário e reprodutível. `SCORE-GEO-003` é o método de scoring aplicado às auditorias: as dimensões permanecem determinísticas/evidence-based e o Overall exige model artifact `VALIDATED`. Sem model artifact validado, o Overall fica `NOT_CONSOLIDATED`; nenhum coeficiente ou resultado substituto é inventado. Lighthouse, Core Web Vitals, Acessibilidade automatizada, Apdex e outcomes observados mantêm seus domínios próprios.
 
 ## Instalação rápida — Windows
 
@@ -67,7 +73,7 @@ Compatibilidade principal:
 | SQLite | local/embarcado |
 | IA externa | opcional |
 | PageSpeed/CrUX | opcional |
-| Observed Generative Visibility | import local; sem credencial externa nesta versão |
+| Observed Generative Visibility | import local; sem credencial externa na implementação atual |
 | SCORE-GEO-003 calibration | offline sobre AUDs persistidos; sem chamada externa durante fitting/inference |
 
 Detalhes do bootstrap e fallback manual: [docs/INSTALLATION.md](docs/INSTALLATION.md).
@@ -115,7 +121,7 @@ A opção `C` é independente do pipeline de auditoria: lê `AUD-*/audit.db` em 
 
 A opção `E` agrupa as variáveis por domínios funcionais. Cada variável mostra finalidade, domínio aceito, default efetivo, dependências, custo/impacto e referência; `D` abre diretamente a documentação detalhada. Veja [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md).
 
-Observed Generative Visibility e calibração `SCORE-GEO-003` permanecem superfícies CLI separadas nesta versão; não executam coleta/treinamento automático no menu da auditoria.
+Observed Generative Visibility e calibração `SCORE-GEO-003` permanecem superfícies CLI separadas na implementação atual; não executam coleta/treinamento automático no menu da auditoria.
 
 ### Configuração persistente
 
@@ -127,7 +133,7 @@ rasai-console.ini
 
 Se não existir, é criado com defaults. Parâmetros não sensíveis podem ser salvos e carregados automaticamente na próxima execução.
 
-**API keys, tokens, senhas e outras credenciais não são gravados no INI.** No menu `E. Variáveis de ambiente / credenciais`, o usuário pode alterar uma credencial apenas para a sessão atual ou, mediante confirmação explícita, persistir/remover a credencial no ambiente **User** do Windows. A persistência no Windows não exige privilégio de administrador e não grava o segredo em arquivos do RASAI.
+**API keys, tokens, senhas e outras credenciais não são gravados no INI.** No menu `E. Variáveis de ambiente / credenciais`, o usuário pode alterar uma credencial apenas para a sessão atual ou, mediante confirmação explícita, persistir/remover a credencial no ambiente **User** do Windows. A persistência no Windows não exige privilégio de administrador e não grava o segredo em arquivos do RASAi.
 
 Para cada secret, o console indica a origem do valor efetivamente usado, por exemplo `SO:USER`, `SO:MACHINE`, `SESSÃO` ou `SESSÃO | SO:USER existente`. Se um valor é alterado dentro do console, o valor da **sessão atual prevalece** durante aquela execução; a variável persistida no Windows funciona como valor herdado por novos processos.
 
@@ -158,7 +164,7 @@ Detalhes: [docs/INTERACTIVE_CONSOLE.md](docs/INTERACTIVE_CONSOLE.md).
 
 ## Operação sem IA
 
-A IA é opcional. Com `--ai-provider none`, o RASAI continua executando as análises determinísticas de acesso técnico, redirects/TLS, indexabilidade, extração de conteúdo, crawling/discovery e comparação entre dispositivos. Synthetic Navigation Apdex e Synthetic User Experience Apdex também são independentes de LLM quando habilitados. Lighthouse e Core Web Vitals permanecem independentes de IA, mas dependem das respectivas fontes externas quando configuradas.
+A IA é opcional. Com `--ai-provider none`, o RASAi continua executando as análises determinísticas de acesso técnico, redirects/TLS, indexabilidade, extração de conteúdo, crawling/discovery e comparação entre dispositivos. Synthetic Navigation Apdex e Synthetic User Experience Apdex também são independentes de LLM quando habilitados. Lighthouse e Core Web Vitals permanecem independentes de IA, mas dependem das respectivas fontes externas quando configuradas.
 
 As dimensões predominantemente semânticas podem permanecer `UNKNOWN`/`NOT_CONSOLIDATED` sem IA. Isso reduz Coverage e pode impedir o Overall do SARI-001; não transforma ausência de IA em falha do website e não aplica score zero artificial.
 
@@ -195,7 +201,7 @@ Providers adicionais permanecem explicit-only até promoção de qualificação.
 
 ### Defaults públicos
 
-Sem override explícito, o RASAI privilegia o modelo mais simples disponível na integração e o menor esforço suportado:
+Sem override explícito, o RASAi privilegia o modelo mais simples disponível na integração e o menor esforço suportado:
 
 | Provider | Modelo default | Esforço default |
 |---|---|---|
@@ -304,7 +310,7 @@ SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS
 opção 6 do console
 ```
 
-Esse timeout controla quanto o cliente aguarda a resposta da API externa. PageSpeed executa o Lighthouse remotamente; o endpoint não oferece ao RASAI um parâmetro separado para configurar o timeout interno de carregamento da página usado pelo Lighthouse.
+Esse timeout controla quanto o cliente aguarda a resposta da API externa. PageSpeed executa o Lighthouse remotamente; o endpoint não oferece ao RASAi um parâmetro separado para configurar o timeout interno de carregamento da página usado pelo Lighthouse.
 
 Quando PageSpeed falha, o relatório preserva a causa real (`timeout`, HTTP, quota, etc.). CrUX direto pode ainda produzir dados de campo. Acessibilidade automatizada depende do artifact Lighthouse e fica explicitamente **não obtida** quando esse artifact não foi produzido.
 
@@ -506,7 +512,7 @@ audits/<AUD-ID>/
 │  └─ audit.log
 └─ report/
    ├─ index.html               # dashboard executivo
-   ├─ readiness.html           # SARI-001 e indicadores RASAI
+   ├─ readiness.html           # SARI-001 e indicadores RASAi
    ├─ score-geo-003.html       # método, calibração, dataset e gates
    ├─ mobile.html              # evidências/findings; condicional
    ├─ desktop.html             # evidências/findings; condicional
@@ -535,7 +541,7 @@ Model artifact global/local do projeto:
 
 `index.html` não cria um “score geral de tudo”. Ele resume o resultado final de cada família e aponta para a página canônica correspondente. Quando existem vários contextos Lighthouse, o dashboard prefere faixa por dispositivo/quantidade de contextos válidos a inventar uma média única do site.
 
-`readiness.html` é a página exclusiva dos indicadores agregados RASAI. Mobile/Desktop não repetem Overall, dimensões, Coverage, Confidence ou Consolidation.
+`readiness.html` é a página exclusiva dos indicadores agregados RASAi. Mobile/Desktop não repetem Overall, dimensões, Coverage, Confidence ou Consolidation.
 
 `score-geo-003.html` explica o método vigente, status do model artifact, dataset, AUC/Brier e promotion gate.
 
@@ -559,7 +565,7 @@ audits/consolidated/
 
 Um `CONS-*` já existente é reutilizado quando filtros, versão do formato e fingerprints das fontes elegíveis são idênticos. Um novo `AUD-*` elegível invalida essa reutilização e produz novo snapshot.
 
-Relatórios consolidados devem segmentar séries por `scoring_version`; `SCORE-GEO-002` e `SCORE-GEO-003` não são a mesma série metodológica.
+Relatórios consolidados preservam `scoring_version`, `model_version`, `dataset_version` e demais metadados necessários para comparação metodologicamente válida.
 
 A página inicial inclui **Configuração × resultado obtido** quando essa projeção está disponível, permitindo distinguir o que foi solicitado do que foi realmente materializado e a causa de limitações operacionais.
 
@@ -596,7 +602,7 @@ Nomes internos de módulos, tabelas, eventos e documentos normativos podem mante
 - [docs/GOOGLE_API_KEYS.md](docs/GOOGLE_API_KEYS.md)
 - [docs/REPORT_GUIDE.md](docs/REPORT_GUIDE.md)
 - [docs/OUTPUTS_AND_ARTIFACTS.md](docs/OUTPUTS_AND_ARTIFACTS.md)
-- [docs/SEARCHGEO_READINESS_INDEX.md](docs/SEARCHGEO_READINESS_INDEX.md)
+- [docs/SARI_READINESS_INDEX.md](docs/SARI_READINESS_INDEX.md)
 - [docs/SCORE_GEO_003.md](docs/SCORE_GEO_003.md)
 - [docs/SCORING_GUIDE.md](docs/SCORING_GUIDE.md)
 - [docs/SCORING_VALIDATION.md](docs/SCORING_VALIDATION.md)

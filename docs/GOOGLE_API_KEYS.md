@@ -1,12 +1,12 @@
 # GOOGLE_API_KEYS.md
 
-Guia operacional para criar, restringir e configurar as chaves Google usadas pelo **Web Performance externo — Web Performance externo** do RASAI — Search & AI Readiness Auditor.
+Guia operacional para criar, restringir e configurar as chaves Google usadas pelo **Web Performance externo — Web Performance externo** do RASAi — Search & AI Readiness Auditor.
 
 > Verificado em 2026-09-03 contra a documentação oficial do Google. Nomes de menus podem aparecer em português ou inglês conforme o idioma da conta, mas a estrutura é `APIs e serviços / APIs & Services`.
 
-## O que o RASAI usa
+## O que o RASAi usa
 
-| Serviço Google | Uso no RASAI | Variável de ambiente | Chave obrigatória? |
+| Serviço Google | Uso no RASAi | Variável de ambiente | Chave obrigatória? |
 |---|---|---|---|
 | PageSpeed Insights API | Lighthouse de laboratório e, enquanto o Google ainda fornecer, field data CrUX presente na resposta PageSpeed | `SEARCHGEO_PAGESPEED_API_KEY` | Não para uso ad hoc/baixo volume; recomendada para automação frequente |
 | Chrome UX Report API (CrUX) | Core Web Vitals de campo via consulta direta | `SEARCHGEO_CRUX_API_KEY` | Sim para chamada direta à CrUX API |
@@ -26,7 +26,7 @@ Essas chaves **não são chaves de IA** e não substituem `OPENAI_API_KEY`, `DEE
 
 ## Recomendação de provisionamento
 
-Para o RASAI, prefira **duas chaves independentes**:
+Para o RASAi, prefira **duas chaves independentes**:
 
 ```text
 searchgeo-pagespeed → restrita à PageSpeed Insights API
@@ -68,7 +68,7 @@ Documentação oficial: <https://developers.google.com/speed/docs/insights/rest>
 6. Selecione **PageSpeed Insights API** e nenhuma API adicional para esta chave.
 7. Em **Restrições de aplicativo / Application restrictions**:
    - para execução em servidor ou máquina com **IP público de saída fixo**, prefira **Endereços IP / IP addresses** e cadastre o IP de saída;
-   - para notebook/desktop em rede com IP público dinâmico, uma restrição por IP pode quebrar após a troca do IP. Não use **Websites / HTTP referrers** apenas para “ter uma restrição”: o RASAI é uma CLI, não uma aplicação JavaScript executada no navegador;
+   - para notebook/desktop em rede com IP público dinâmico, uma restrição por IP pode quebrar após a troca do IP. Não use **Websites / HTTP referrers** apenas para “ter uma restrição”: o RASAi é uma CLI, não uma aplicação JavaScript executada no navegador;
    - se não houver uma restrição de aplicativo operacionalmente estável, mantenha ao menos a **restrição por API**, armazene a chave somente no ambiente local e faça rotação se houver suspeita de exposição.
 8. Clique em **Salvar / Save**.
 9. Copie a chave somente para armazenamento seguro. Não a grave em README, issue, commit, screenshot, log ou arquivo versionado.
@@ -127,7 +127,7 @@ Remove-Item Env:SEARCHGEO_PAGESPEED_API_KEY -ErrorAction SilentlyContinue
 Remove-Item Env:SEARCHGEO_CRUX_API_KEY -ErrorAction SilentlyContinue
 ```
 
-## Passo 7 — escolher a forma de uso no RASAI
+## Passo 7 — escolher a forma de uso no RASAi
 
 ### PageSpeed/Lighthouse sem CrUX direto
 
@@ -152,7 +152,7 @@ rasai audit https://example.com `
 
 Em `auto`:
 
-1. o RASAI executa PageSpeed para Lighthouse;
+1. o RASAi executa PageSpeed para Lighthouse;
 2. usa field data CrUX presente na resposta PageSpeed enquanto disponível;
 3. se esse field data não vier e `SEARCHGEO_CRUX_API_KEY` existir, tenta a CrUX API direta;
 4. ausência de amostra CrUX não é transformada em `FAIL` do website.
@@ -176,14 +176,14 @@ rasai audit https://example.com `
   --web-performance-field-source none
 ```
 
-Nesse modo, o RASAI mantém Lighthouse lab e não processa Core Web Vitals de campo.
+Nesse modo, o RASAi mantém Lighthouse lab e não processa Core Web Vitals de campo.
 
 ## PageSpeed sem chave
 
 A documentação oficial permite usar PageSpeed Insights API com ou sem API key, mas recomenda chave para consultas frequentes/automatizadas. Portanto:
 
 - `SEARCHGEO_PAGESPEED_API_KEY` continua opcional;
-- para uso recorrente do RASAI com `--web-performance`, configure a chave para melhor governança de quota e rastreabilidade no projeto Google Cloud;
+- para uso recorrente do RASAi com `--web-performance`, configure a chave para melhor governança de quota e rastreabilidade no projeto Google Cloud;
 - `SEARCHGEO_CRUX_API_KEY` continua necessária quando a CrUX API direta for chamada.
 
 ## Validação após configurar
@@ -229,4 +229,4 @@ O log operacional registra status HTTP, duração e erro sanitizado, mas não de
 - Rotacione a chave se houver suspeita de exposição.
 - Remova chaves que não são mais usadas.
 
-O RASAI mantém `SEARCHGEO_PAGESPEED_API_KEY` e `SEARCHGEO_CRUX_API_KEY` isoladas e não as reutiliza como credenciais de IA.
+O RASAi mantém `SEARCHGEO_PAGESPEED_API_KEY` e `SEARCHGEO_CRUX_API_KEY` isoladas e não as reutiliza como credenciais de IA.

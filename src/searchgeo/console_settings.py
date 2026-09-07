@@ -132,7 +132,7 @@ def save_console_config(state: Any, path: Path | None = None) -> Path:
     destination.parent.mkdir(parents=True, exist_ok=True)
     parser = _parser_for_state(state)
     stream = io.StringIO()
-    stream.write("; RASAI interactive console settings\n")
+    stream.write("; RASAi interactive console settings\n")
     stream.write("; API keys, tokens, passwords and other secrets are intentionally NOT persisted.\n")
     stream.write("; DYNATRACE_API_TOKEN is environment-only and is never persisted here.\n")
     stream.write("; Use environment variables or the console session to provide credentials.\n\n")

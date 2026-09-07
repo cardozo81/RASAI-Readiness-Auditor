@@ -1,4 +1,4 @@
-"""Read-only monitoring and regression analysis for persisted RASAI audits."""
+"""Read-only monitoring and regression analysis for persisted RASAi audits."""
 
 from .compare import compare_audits, evaluate_release_gate
 from .models import ChangeEvent, ComparisonResult, GateResult

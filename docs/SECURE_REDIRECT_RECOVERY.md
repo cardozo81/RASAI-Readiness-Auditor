@@ -53,7 +53,7 @@ Não é possível afirmar, apenas com essa evidência, que um navegador específ
 
 ## Regra de elegibilidade
 
-O RASAI só pode tentar a recuperação quando todas as condições abaixo forem satisfeitas:
+O RASAi só pode tentar a recuperação quando todas as condições abaixo forem satisfeitas:
 
 1. a URL originalmente configurada usa `https://`;
 2. a navegação Chromium normal falhou;
@@ -84,7 +84,7 @@ https://example.com/
   → http://other.example.net/
 ```
 
-O RASAI não deve criar um candidato HTTPS para domínio não equivalente.
+O RASAi não deve criar um candidato HTTPS para domínio não equivalente.
 
 ## Limite de tentativas
 
@@ -98,7 +98,7 @@ Ela não pode gerar:
 - tentativa automática de `/pt/`, `/en/` ou qualquer outra rota que não tenha sido comprovada pelo servidor após o hop HTTPS seguro;
 - bypass de certificado.
 
-No caso MDSGroup, o RASAI testa apenas:
+No caso MDSGroup, o RASAi testa apenas:
 
 ```text
 https://www.mdsgroup.com/
@@ -189,7 +189,7 @@ O report deve mostrar simultaneamente:
 Se a recuperação produz HTML/DOM válido:
 
 - Renderização Desktop e Mobile pode persistir o snapshot renderizado;
-- extração, regras e `SCORE-GEO-002` podem prosseguir;
+- extração, regras e `SCORE-GEO-003` podem prosseguir;
 - Web Performance, se habilitado, pode usar a `final_url` recuperada;
 - Synthetic Apdex, se habilitado, pode usar a `final_url` recuperada;
 - IA, se habilitada, pode analisar os fatos persistidos e complementar a explicação.

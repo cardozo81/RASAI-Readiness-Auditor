@@ -1,4 +1,4 @@
-"""Read immutable evidence from one persisted RASAI audit workspace."""
+"""Read immutable evidence from one persisted RASAi audit workspace."""
 from __future__ import annotations
 
 import hashlib

@@ -1,4 +1,4 @@
-"""Stable data contracts for the RASAI product control plane.
+"""Stable data contracts for the RASAi product control plane.
 
 The control plane is deliberately separate from ``audit.db``. These records
 represent ownership, product organization, milestones, schedules and external

@@ -125,7 +125,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
             groups.append(_group(category, rows))
     return f"""<!doctype html>
 <html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
-<title>Rastreamento e descoberta — RASAI</title><link rel='stylesheet' href='css/site.css'></head>
+<title>Rastreamento e descoberta — RASAi</title><link rel='stylesheet' href='css/site.css'></head>
 <body>{nav}<main class='app-main'>
 <header class='hero'><div class='eyebrow'>Rastreamento, descoberta e acesso de crawlers · diagnóstico técnico não-scoring</div>
 <h1>Rastreamento, descoberta e acesso por IA</h1>

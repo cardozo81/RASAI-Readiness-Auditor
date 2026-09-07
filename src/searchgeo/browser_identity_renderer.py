@@ -5,13 +5,13 @@ Playwright executed a much newer Chromium. Some CDN/WAF/redirect policies inspec
 User-Agent and User-Agent Client Hints together; a version mismatch can therefore
 produce a route that a normal browser would not receive.
 
-This renderer keeps RASAI stateless (no user cookies/profile reuse), preserves TLS
+This renderer keeps RASAi stateless (no user cookies/profile reuse), preserves TLS
 validation, prefers the locally installed Google Chrome when Playwright can launch it,
-and otherwise falls back to bundled Chromium. Desktop and mobile keep RASAI's
+and otherwise falls back to bundled Chromium. Desktop and mobile keep RASAi's
 versioned viewport semantics while borrowing Playwright's current browser descriptors.
 
 When a strict browser navigation fails after an HTTPS -> HTTP redirect on the same
-host/www alias, RASAI may perform one bounded recovery probe against the HTTPS
+host/www alias, RASAi may perform one bounded recovery probe against the HTTPS
 version of that insecure hop. This does not ignore TLS and does not rewrite the original
 redirect evidence: the original chain and the recovery chain are both persisted.
 """
@@ -56,7 +56,7 @@ def realistic_context_options(
     """Return coherent context options plus auditable identity metadata.
 
     Playwright's maintained device descriptors provide a current desktop/mobile browser
-    identity. RASAI preserves its own viewport and device-scale baseline, while the
+    identity. RASAi preserves its own viewport and device-scale baseline, while the
     Chrome version token is aligned to the browser binary actually launched.
     """
 

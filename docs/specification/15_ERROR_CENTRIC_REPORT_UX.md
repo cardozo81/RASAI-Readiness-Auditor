@@ -199,7 +199,7 @@ Configuração contextual de IA que não gera request por si só não deve ser c
 - natureza da base de cada regra;
 - fórmula de Score/Coverage/Confidence/Overall;
 - avisos sobre heurísticas internas;
-- distinção entre recomendações RASAI e requisitos oficiais.
+- distinção entre recomendações RASAi e requisitos oficiais.
 
 Páginas especializadas podem apresentar 2–5 referências diretamente relevantes com links claros e encaminhar ao catálogo global quando houver material adicional.
 
@@ -286,14 +286,14 @@ Confidence devolvida por um LLM para uma avaliação/sugestão individual não �
 
 ## 17. Thresholds
 
-As faixas visuais de score são internas ao RASAI. A UI/metodologia deve evitar linguagem que sugira certificação oficial GEO/AEO.
+As faixas visuais de score são internas ao RASAi. A UI/metodologia deve evitar linguagem que sugira certificação oficial GEO/AEO.
 
 Threshold, target, benchmark ou classificação interna deve expor sua origem quando não for autoexplicativa:
 
 - standard oficial;
 - documentação do fornecedor;
 - parâmetro configurado pelo usuário;
-- heurística/versionamento interno do RASAI.
+- heurística/versionamento interno do RASAi.
 
 ## 18. Fontes externas
 
@@ -331,8 +331,8 @@ Uma nova página HTML ou mudança relevante de report não está concluída enqu
 
 ## 17. Proveniência metodológica dos indicadores
 
-Toda página final deve informar, de forma compacta e visível, a natureza dos indicadores centrais exibidos. `references.html` deve consolidar indicador, classificação metodológica, fonte/entidade, link oficial quando existir, lógica externa aplicável e decisão/transformação específica do RASAI.
+Toda página final deve informar, de forma compacta e visível, a natureza dos indicadores centrais exibidos. `references.html` deve consolidar indicador, classificação metodológica, fonte/entidade, link oficial quando existir, lógica externa aplicável e decisão/transformação específica do RASAi.
 
 Taxonomia pública mínima: `RAW_OBSERVATION`, `EXTERNAL_STANDARD`, `OFFICIAL_PLATFORM_GUIDANCE`, `EXTERNAL_DEFINED_METRIC`, `SEARCHGEO_HEURISTIC`, `OPERATIONAL_TELEMETRY` e `AI_DERIVED_ADVISORY`.
 
-Informação metodológica essencial não pode depender somente de tooltip. Uma fonte oficial valida apenas o fenômeno no seu escopo e nunca deve ser usada para sugerir homologação externa do `SCORE-GEO-002`.
+Informação metodológica essencial não pode depender somente de tooltip. Uma fonte oficial valida apenas o fenômeno no seu escopo e nunca deve ser usada para sugerir homologação externa do `SARI-001`.

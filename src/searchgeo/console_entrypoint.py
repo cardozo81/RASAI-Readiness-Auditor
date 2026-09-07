@@ -1,4 +1,4 @@
-"""Public entrypoint for the interactive RASAI console.
+"""Public entrypoint for the interactive RASAi console.
 
 The established console remains the runtime implementation. This entrypoint
 installs additive UI adapters before delegating to it, avoiding a second

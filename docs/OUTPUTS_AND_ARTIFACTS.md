@@ -47,7 +47,6 @@ O menu final lista somente páginas existentes e preserva ordem canônica.
 ```text
 SARI-001       = índice público de readiness
 SCORE-GEO-003  = scoring vigente para novas auditorias
-SCORE-GEO-002  = histórico
 RASAI-OBS-002  = contrato atual do sidecar observacional
 ```
 
@@ -315,7 +314,7 @@ audits/consolidated/CONS-*/
 
 O consolidador abre AUDs read-only, não chama APIs e não reexecuta scoring.
 
-## RASAI Monitor
+## RASAi Monitor
 
 ```text
 audits/monitoring/MON-*/

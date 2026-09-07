@@ -82,7 +82,7 @@ def _page(bundle: DiagnosticBundle, data: dict[str, list[dict[str, Any]]], repor
 <header class='hero'>
   <div class='eyebrow'>Observed Search & AI · diagnóstico complementar · não altera SARI-001</div>
   <h1>Search & AI Observability</h1>
-  <p class='lead'>Cruza evidência persistida pelo RASAI com outcomes externos observados e diagnósticos derivados. Readiness, visibilidade, indexação observada e experiência de campo permanecem metodologias separadas.</p>
+  <p class='lead'>Cruza evidência persistida pelo RASAi com outcomes externos observados e diagnósticos derivados. Readiness, visibilidade, indexação observada e experiência de campo permanecem metodologias separadas.</p>
   <div class='metric-grid'>
     {_metric('Datasets observados', len(data['datasets']))}
     {_metric('Registros Search Performance', len(data['search']))}
@@ -166,4 +166,4 @@ def _sev(value: str) -> int:
 
 
 def _shell(nav: str, body: str) -> str:
-    return f"<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Search & AI Observability · RASAI</title><link rel='stylesheet' href='css/site.css'></head><body><div class='app-shell'>{nav}<main class='app-main'>{body}</main></div></body></html>"
+    return f"<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Search & AI Observability · RASAi</title><link rel='stylesheet' href='css/site.css'></head><body><div class='app-shell'>{nav}<main class='app-main'>{body}</main></div></body></html>"

@@ -1,6 +1,6 @@
 # FUNCTIONAL_REQUIREMENTS.md
 
-**Status:** APPROVED — Rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance externo + Sugestões e remediação de conteúdo por IA + Análise semântica por IA, roteamento e telemetria + SCORE-GEO-002 + SARI-001 + REPORT-SITE-GEO-001
+**Status:** APPROVED — Rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance externo + Sugestões e remediação de conteúdo por IA + Análise semântica por IA, roteamento e telemetria + SCORE-GEO-003 + SARI-001 + REPORT-SITE-GEO-001
 
 ## Requisitos Funcionais
 
@@ -239,7 +239,7 @@ Todos os HTMLs finais devem usar estrutura de navegação consistente e styleshe
 Explicar explicitamente que Confidence é força da conclusão do auditor e que `LOW` não significa, isoladamente, baixa qualidade ou não aderência do texto.
 
 ### FR-GEO-079
-A fundamentação deve distinguir norma/standard externo de heurística interna e declarar que o RASAI não representa suas faixas de score como standard GEO/AEO oficial.
+A fundamentação deve distinguir norma/standard externo de heurística interna e declarar que o RASAi não representa suas faixas de score como standard GEO/AEO oficial.
 
 ### FR-GEO-080
 Expor remediação textual por IA por `--ai-content-remediation`, `--no-ai-content-remediation` e `SEARCHGEO_AI_CONTENT_REMEDIATION`, com default público `false`.
@@ -284,7 +284,7 @@ Informar explicitamente que JSON-LD é reforço opcional, que não existe markup
 Expor Web Performance externo por `--web-performance`, `--no-web-performance` e `SEARCHGEO_WEB_PERFORMANCE`, com default público `false` e nenhuma chamada PageSpeed/CrUX quando desabilitado.
 
 ### FR-GEO-094
-Quando Web Performance externo estiver habilitado, coletar por página/dispositivo selecionado evidência Lighthouse por PageSpeed Insights API e persistir scores/metricas retornados sem convertê-los em contribuição de `SCORE-GEO-002`.
+Quando Web Performance externo estiver habilitado, coletar por página/dispositivo selecionado evidência Lighthouse por PageSpeed Insights API e persistir scores/metricas retornados sem convertê-los em contribuição de `SCORE-GEO-003`.
 
 ### FR-GEO-095
 Coletar Core Web Vitals de campo LCP, INP e CLS em p75 quando disponíveis, distinguindo explicitamente dados CrUX reais de métricas Lighthouse de laboratório.
@@ -314,13 +314,13 @@ Materializar `report/web-performance.html` com navegação/CSS compartilhados, s
 Projetar no `report/index.html` somente resumo explicitamente rotulado como Web Performance externo, sem substituir ou recalcular Overall Readiness, Coverage ou Confidence.
 
 ### FR-GEO-104
-Adicionar ao `report/references.html` fontes oficiais de PageSpeed Insights, CrUX, Lighthouse e Core Web Vitals e declarar que essas fontes sustentam os fenômenos medidos, não homologam `SCORE-GEO-002` como standard GEO/AEO.
+Adicionar ao `report/references.html` fontes oficiais de PageSpeed Insights, CrUX, Lighthouse e Core Web Vitals e declarar que essas fontes sustentam os fenômenos medidos, não homologam `SCORE-GEO-003` como standard GEO/AEO.
 
 ### FR-GEO-105
 Executar Web Performance externo como enriquecimento pós-auditoria/fail-open: indisponibilidade ou erro do serviço externo não pode invalidar RuleExecution, Finding, Recommendation ou score já concluídos.
 
 ### FR-GEO-106
-Executar Rastreamento, descoberta e acesso de crawlers como enriquecimento técnico não-scoring de crawling/discovery, preservando `scoring_impact=NONE` e sem alterar retrospectivamente RuleExecution, Finding, Recommendation GEO, Score, Coverage, Confidence, Consolidation, `SCORE-GEO-002` ou `SARI-001`.
+Executar Rastreamento, descoberta e acesso de crawlers como enriquecimento técnico não-scoring de crawling/discovery, preservando `scoring_impact=NONE` e sem alterar retrospectivamente RuleExecution, Finding, Recommendation GEO, Score, Coverage, Confidence, Consolidation, `SCORE-GEO-003` ou `SARI-001`.
 
 ### FR-GEO-107
 Aprofundar a interpretação de `robots.txt` com evidência reabrível de grupos crawler, `Allow`, `Disallow`, `Sitemap`, linhas inválidas, tamanho e campos relevantes, sem transformar ausência legítima de robots em bloqueio artificial.
@@ -424,7 +424,7 @@ Sugestões Sugestões e remediação de conteúdo por IA e JSON-LD devem permane
 Web Performance externo deve permanecer opcional, default OFF para rede externa, com limite explícito de páginas e timeout configurável para impedir consumo PageSpeed/CrUX não previsto.
 
 ### NFR-GEO-018
-Web Performance externo deve ser fail-open em relação à auditoria principal e não introduzir dependência obrigatória de PageSpeed, CrUX ou credencial Google para funcionamento de `SCORE-GEO-002`.
+Web Performance externo deve ser fail-open em relação à auditoria principal e não introduzir dependência obrigatória de PageSpeed, CrUX ou credencial Google para funcionamento de `SCORE-GEO-003`.
 
 ### NFR-GEO-019
 Métricas Web Performance externo devem permanecer reabríveis a partir de `audit.db` + artifacts JSON sem nova chamada externa, preservando source, device, URL/origin scope e versão Lighthouse quando disponível.

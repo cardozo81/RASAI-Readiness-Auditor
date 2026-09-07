@@ -1,4 +1,4 @@
-"""Index immutable AUD workspaces into the central RASAI platform catalog."""
+"""Index immutable AUD workspaces into the central RASAi platform catalog."""
 from __future__ import annotations
 
 from dataclasses import dataclass

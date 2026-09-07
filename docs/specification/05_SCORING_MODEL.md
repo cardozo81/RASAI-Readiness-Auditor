@@ -5,11 +5,11 @@
 
 ## 0. Natureza metodológica
 
-`SCORE-GEO-003` é o método proprietário e versionado de scoring do RASAI.
+`SCORE-GEO-003` é o método proprietário e versionado de scoring do RASAi.
 
 `APPROVED` significa aprovado como baseline normativa interna. Não significa homologação por Google, OpenAI, Microsoft, Anthropic, NIST, W3C, schema.org ou outro mantenedor.
 
-A versão `003` introduz calibração empírica somente no `OVERALL_READINESS`. As dimensões permanecem determinísticas, evidence-backed e reprodutíveis.
+O `SCORE-GEO-003` aplica calibração empírica somente no `OVERALL_READINESS`. As dimensões permanecem determinísticas, evidence-backed e reprodutíveis.
 
 O resultado calibrado mede associação observacional no dataset utilizado. Não prova causalidade e não garante ranking, tráfego, conversão ou citação futura.
 
@@ -73,7 +73,7 @@ Fórmula:
 
 Somente `PASS`, `WARNING` e `FAIL` participam do denominador do score.
 
-As regras de `scoring_group`, `MAX_IMPACT`, pré-requisitos, site-level rules e prevenção de cascading failure permanecem compatíveis com a semântica consolidada no `SCORE-GEO-002`.
+As regras de `scoring_group`, `MAX_IMPACT`, pré-requisitos, site-level rules e prevenção de cascading failure fazem parte do contrato determinístico das dimensões.
 
 ## 5. Coverage
 
@@ -177,7 +177,7 @@ Overall.consolidation_status = NOT_CONSOLIDATED
 limitation = CALIBRATION_MODEL_UNAVAILABLE:SCORE-GEO-003
 ```
 
-Não existe fallback silencioso para a média simples do `SCORE-GEO-002`.
+Não existe fallback silencioso para outro cálculo de Overall.
 
 ## 10. Calibração
 
@@ -276,18 +276,18 @@ A reprodução não pode exigir nova execução do website nem nova chamada de I
 
 ## 16. Histórico
 
-`SCORE-GEO-002` permanece histórico. Nenhum AUD antigo é recalculado automaticamente.
+Nenhum AUD persistido é recalculado automaticamente por mudança de model artifact ou geração de relatório.
 
 Relatórios históricos/consolidados devem segmentar pontos por `scoring_version`. A transição `002 → 003` é quebra metodológica e não deve ser apresentada como série contínua sem ressalva explícita.
 
 ## 17. Evidência externa
 
-O RASAI continua separando:
+O RASAi continua separando:
 
 1. requisito/sinal oficial externo;
 2. métrica externa definida/calibrada por terceiros;
-3. regra/heurística RASAI;
-4. modelo RASAI empiricamente calibrado.
+3. regra/heurística RASAi;
+4. modelo RASAi empiricamente calibrado.
 
 A calibração do Overall não transforma Core Web Vitals, Lighthouse, WCAG, E-E-A-T ou qualquer outra referência externa em homologação do índice completo.
 

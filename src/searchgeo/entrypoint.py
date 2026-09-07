@@ -1,4 +1,4 @@
-"""Top-level RASAI command router.
+"""Top-level RASAi command router.
 
 Additive specialist commands are intercepted here. Existing audit commands are
 delegated unchanged to cli_extensions, preserving the current audit pipeline.
@@ -39,7 +39,7 @@ def _try_refresh_platform_index(argv: list[str]) -> None:
         with CentralPlatformStore.open(root) as store:
             index_audits(store, root, strict=False)
     except Exception:
-        _LOGGER.exception("RASAI platform index refresh failed after successful audit")
+        _LOGGER.exception("RASAi platform index refresh failed after successful audit")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

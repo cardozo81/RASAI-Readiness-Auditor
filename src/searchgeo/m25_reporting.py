@@ -232,7 +232,7 @@ def _calibration_note(source: str, metadata: dict[str, Any]) -> str:
         if metadata.get("errors_affect_apdex_observed"):
             return "KPM, thresholds e política de erro foram observados na configuração importada quando disponíveis."
         return "KPM/thresholds vieram do Dynatrace; a política de erro não estava exposta no payload e foi fornecida manualmente pelo Synthetic User Experience Apdex."
-    return "Thresholds e política foram configurados explicitamente no RASAI."
+    return "Thresholds e política foram configurados explicitamente no RASAi."
 
 
 def _json(value: Any) -> dict[str, Any]:
@@ -260,4 +260,4 @@ def _ms(value: Any) -> str:
 
 
 def _shell(nav: str, body: str) -> str:
-    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Apdex calibrado — RASAI</title><link rel='stylesheet' href='css/site.css'><style>.population-card{{padding:1rem;border:1px solid rgba(127,127,127,.25);border-radius:12px;margin:.7rem 0}}.population-score{{font-size:2rem;font-weight:750;margin:.25rem 0}}.mono{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.84em}}</style></head><body>{nav}<main class='app-main'>{body}</main></body></html>\n"""
+    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Apdex calibrado — RASAi</title><link rel='stylesheet' href='css/site.css'><style>.population-card{{padding:1rem;border:1px solid rgba(127,127,127,.25);border-radius:12px;margin:.7rem 0}}.population-score{{font-size:2rem;font-weight:750;margin:.25rem 0}}.mono{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.84em}}</style></head><body>{nav}<main class='app-main'>{body}</main></body></html>\n"""

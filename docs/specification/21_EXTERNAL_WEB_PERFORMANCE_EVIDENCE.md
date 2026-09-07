@@ -2,12 +2,12 @@
 
 **Status:** EVOLUÇÃO APROVADA
 **Domínio:** `Web Performance externo`
-**Dependências:** Análise semântica por IA, roteamento e telemetria + Sugestões e remediação de conteúdo por IA + `SCORE-GEO-002` + `REPORT-SITE-GEO-001`
+**Dependências:** Análise semântica por IA, roteamento e telemetria + Sugestões e remediação de conteúdo por IA + `SCORE-GEO-003` + `REPORT-SITE-GEO-001`
 **Natureza:** evidência externa aditiva; sem impacto no scoring por padrão
 
 ## 1. Objetivo
 
-O Web Performance externo adiciona à auditoria RASAI evidências de Web Performance fundamentadas em documentação externa oficial, sem remover, substituir ou recalibrar silenciosamente o `SCORE-GEO-002`.
+O Web Performance externo adiciona à auditoria RASAi evidências de Web Performance fundamentadas em documentação externa oficial, sem remover, substituir ou recalibrar silenciosamente o `SCORE-GEO-003`.
 
 Quando explicitamente habilitado, o recurso pode coletar:
 
@@ -19,11 +19,11 @@ Quando explicitamente habilitado, o recurso pode coletar:
 - payloads JSON brutos de respostas bem-sucedidas;
 - log operacional persistente e sanitizado da auditoria.
 
-O Web Performance externo responde a uma pergunta diferente daquela respondida pelo `SCORE-GEO-002`:
+O Web Performance externo responde a uma pergunta diferente daquela respondida pelo `SCORE-GEO-003`:
 
 ```text
-SCORE-GEO-002
-→ índice heurístico interno de prontidão baseado nas RuleExecutions do RASAI
+SCORE-GEO-003
+→ índice heurístico interno de prontidão baseado nas RuleExecutions do RASAi
 
 Web Performance externo Lighthouse
 → medição e score de laboratório definidos externamente
@@ -50,9 +50,9 @@ O Web Performance externo **não altera**:
 - Confidence;
 - Consolidation;
 - Overall Readiness;
-- `scoring_version = SCORE-GEO-002`.
+- `scoring_version = SCORE-GEO-003`.
 
-Nenhum valor de Lighthouse, PageSpeed ou Core Web Vitals é convertido automaticamente em contribuição para `SCORE-GEO-002`.
+Nenhum valor de Lighthouse, PageSpeed ou Core Web Vitals é convertido automaticamente em contribuição para `SCORE-GEO-003`.
 
 ## 3. Fundamentação externa oficial
 
@@ -63,7 +63,7 @@ Referências oficiais:
 - <https://developers.google.com/speed/docs/insights/v5/reference/pagespeedapi/runpagespeed>
 - <https://developers.google.com/speed/docs/insights/v5/get-started>
 
-O RASAI usa PageSpeed Insights para executar Lighthouse sobre a URL auditada. Categorias suportadas pelo Web Performance externo:
+O RASAi usa PageSpeed Insights para executar Lighthouse sobre a URL auditada. Categorias suportadas pelo Web Performance externo:
 
 ```text
 performance
@@ -98,8 +98,8 @@ cumulative_layout_shift
 Mapeamento de dispositivo:
 
 ```text
-RASAI MOBILE  → CrUX PHONE
-RASAI DESKTOP → CrUX DESKTOP
+RASAi MOBILE  → CrUX PHONE
+RASAi DESKTOP → CrUX DESKTOP
 ```
 
 ### 3.3 Core Web Vitals
@@ -137,7 +137,7 @@ Referência oficial:
 
 Lighthouse Performance é score externo de 0 a 100. Pesos e curvas são mantidos pelo projeto Lighthouse e podem evoluir entre versões.
 
-O RASAI persiste a versão Lighthouse retornada e nunca apresenta Lighthouse como `GEO Score`.
+O RASAi persiste a versão Lighthouse retornada e nunca apresenta Lighthouse como `GEO Score`.
 
 ## 4. Ativação e política de rede
 
@@ -163,7 +163,7 @@ Quando desabilitado:
 - nenhuma chamada CrUX;
 - nenhuma chamada LLM adicional;
 - estado `DISABLED` persistido para rastreabilidade;
-- `SCORE-GEO-002` continua normal.
+- `SCORE-GEO-003` continua normal.
 
 ## 5. Controles de consumo
 
@@ -294,7 +294,7 @@ Web Performance externo adiciona **zero** chamadas a LLM.
 
 Não chama OpenAI, DeepSeek, MiMo, SemanticProvider Análise semântica por IA, roteamento e telemetria nem provider de remediação Sugestões e remediação de conteúdo por IA.
 
-Qualquer evolução futura que adicione interpretação por IA deverá ser opt-in, contabilizada separadamente e incapaz de alterar medições-fonte ou `SCORE-GEO-002` sem novo contrato explicitamente aprovado.
+Qualquer evolução futura que adicione interpretação por IA deverá ser opt-in, contabilizada separadamente e incapaz de alterar medições-fonte ou `SCORE-GEO-003` sem novo contrato explicitamente aprovado.
 
 ## 9. Posicionamento e fail-open
 
@@ -357,7 +357,7 @@ O fato de `successful_contexts == context_attempts` **não autoriza `SUCCESS`** 
 
 Nenhum contexto selecionado produziu evidência externa útil.
 
-`PARTIAL` e `UNAVAILABLE` qualificam a coleta; não reduzem `SCORE-GEO-002` e não criam Finding do website.
+`PARTIAL` e `UNAVAILABLE` qualificam a coleta; não reduzem `SCORE-GEO-003` e não criam Finding do website.
 
 ## 11. Persistência SQLite
 
@@ -476,7 +476,7 @@ A página deve distinguir visivelmente:
 4. indisponibilidade/incompletude;
 5. telemetria das tentativas externas;
 6. política de consumo/credenciais;
-7. separação explícita de `SCORE-GEO-002`.
+7. separação explícita de `SCORE-GEO-003`.
 
 `report/index.html` pode mostrar resumo Web Performance externo, mas nunca recalcular Overall Readiness.
 
@@ -522,7 +522,7 @@ não existem chamadas PageSpeed/CrUX novas.
 
 O log operacional pode ser criado independentemente do Web Performance externo para rastrear o ciclo de vida da auditoria, sem introduzir serviço externo e sem alterar scoring.
 
-Com Web Performance externo desabilitado, todos os comandos históricos continuam válidos e `SCORE-GEO-002` permanece baseline.
+Com Web Performance externo desabilitado, os demais comandos continuam válidos e `SCORE-GEO-003` permanece baseline.
 
 ## 18. Critérios mínimos de aceitação
 
@@ -545,10 +545,10 @@ A implementação Web Performance externo deve provar por regressão que:
 15. log operacional registra eventos Web Performance externo sem secrets;
 16. falha de escrita do log não invalida a auditoria principal;
 17. CLI mostra contadores por serviço e caminho do log;
-18. código/conteúdo `SCORE-GEO-002` não é removido nem recalculado.
+18. código/conteúdo `SCORE-GEO-003` não é removido nem recalculado.
 
 ## 19. Evolução futura de scoring
 
 Web Performance externo continua sendo camada de evidência e possível insumo de estudos empíricos. Não é `SCORE-GEO-003`.
 
-Qualquer futura incorporação quantitativa de Web Performance ao scoring exige decisão humana explícita, novo contrato/versionamento de scoring, protocolo de validação e preservação do resultado histórico `SCORE-GEO-002` quando tecnicamente viável.
+Qualquer futura incorporação quantitativa de Web Performance ao scoring exige decisão humana explícita, novo contrato/versionamento de scoring, protocolo de validação e preservação do resultado persistido `SCORE-GEO-003` quando tecnicamente viável.

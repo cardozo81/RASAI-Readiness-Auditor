@@ -17,20 +17,20 @@ def _shell() -> str:
 def test_device_page_exposes_evidence_role_not_duplicate_score() -> None:
     html = enrich_indicator_provenance_html(_shell(), page_name="mobile.html")
     assert PROVENANCE_MARKER in html
-    assert "Evidências RASAI por dispositivo" in html
-    assert "Indicadores agregados RASAI ficam exclusivamente" in html
+    assert "Evidências RASAi por dispositivo" in html
+    assert "Indicadores agregados RASAi ficam exclusivamente" in html
     assert "references.html#indicator-provenance" in html
 
 
 def test_central_report_semantics_pipeline_applies_provenance() -> None:
     html = enhance_report_html(_shell(), page_name="mobile.html", report_dir=Path("."))
     assert PROVENANCE_MARKER in html
-    assert "Evidências RASAI por dispositivo" in html
+    assert "Evidências RASAi por dispositivo" in html
 
 
 def test_searchgeo_page_has_explicit_internal_methodological_nature() -> None:
     html = enrich_indicator_provenance_html(_shell(), page_name="readiness.html")
-    assert "Heurística RASAI evidence-based" in html
+    assert "Heurística RASAi evidence-based" in html
     assert "SARI-001" in html
     assert "SCORE-GEO-002" in html
 
@@ -55,7 +55,7 @@ def test_references_panel_contains_source_logic_and_internal_boundary() -> None:
     html = enrich_indicator_provenance_html(_shell(), page_name="references.html")
     assert "De onde vem cada indicador" in html
     assert "Search &amp; AI Readiness Index (SARI-001)" in html
-    assert "Heurística RASAI" in html
+    assert "Heurística RASAi" in html
     assert "https://www.w3.org/TR/WCAG22/" in html
     assert "https://web.dev/articles/vitals" in html
     assert "https://www.rfc-editor.org/rfc/rfc9309.html" in html

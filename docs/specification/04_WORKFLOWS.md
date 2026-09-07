@@ -1,6 +1,6 @@
 # WORKFLOWS.md
 
-**Status:** APPROVED — reconciliado com RASAI/SARI-001, `SCORE-GEO-003`, device context configurável e REPORT-SITE-GEO-001
+**Status:** APPROVED — reconciliado com RASAi/SARI-001, `SCORE-GEO-003`, device context configurável e REPORT-SITE-GEO-001
 
 ## 1. Princípios
 
@@ -196,7 +196,7 @@ Quando o audit for `mobile` ou `desktop`, BR-GEO-052 deve ser `NOT_APPLICABLE` c
 
 Baseline vigente para novas auditorias: `SCORE-GEO-003`.
 
-As dez dimensões continuam com cálculo determinístico baseado em regras. O Overall `SCORE-GEO-003` é calibrado e não possui fallback silencioso para média simples. Sem model artifact `VALIDATED`, o Overall permanece `NOT_CONSOLIDATED`. `SCORE-GEO-002` é histórico e não é recalculado.
+As dez dimensões usam cálculo determinístico baseado em regras. O Overall `SCORE-GEO-003` é calibrado e não possui fallback silencioso para outro cálculo. Sem model artifact `VALIDATED`, o Overall permanece `NOT_CONSOLIDATED`.
 
 Score, Coverage e Confidence têm semânticas diferentes. Confidence baixa qualifica a força da conclusão; não significa, isoladamente, baixa qualidade textual do website.
 
@@ -288,7 +288,7 @@ Para `SCORE-GEO-003`, isso exige model artifact compatível e `VALIDATED`. Quand
 READINESS GERAL: NÃO CONSOLIDADA
 ```
 
-Coverage não pode substituir a nota. Séries `SCORE-GEO-002` e `SCORE-GEO-003` não são misturadas silenciosamente.
+Coverage não pode substituir a nota. Séries com contratos de scoring distintos não são misturadas silenciosamente.
 
 ### Regra de HTML observado
 

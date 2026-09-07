@@ -1,4 +1,4 @@
-"""CLI for the RASAI product-platform control plane.
+"""CLI for the RASAi product-platform control plane.
 
 The command surface is additive and preserves every existing audit/monitor/
 quality/observability command. Windows-local operation remains first-class.
@@ -32,7 +32,7 @@ from .store import PlatformStore, default_platform_database
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="rasai platform",
-        description="RASAI product platform: portfolio, milestones, deploy compare, schedules and external outcomes.",
+        description="RASAi product platform: portfolio, milestones, deploy compare, schedules and external outcomes.",
     )
     parser.add_argument("--audits-root", default="audits", help="root contendo AUD-* e .searchgeo/platform.db")
     parser.add_argument("--platform-db", help="override opcional para platform.db")
@@ -170,7 +170,7 @@ def build_parser() -> argparse.ArgumentParser:
     sch_add.add_argument("--interval-minutes", type=int)
     sch_add.add_argument("--daily-time")
     sch_add.add_argument("--next-run-at")
-    sch_add.add_argument("command", nargs=argparse.REMAINDER, help="argumentos RASAI, ex: audit https://example.com --max-pages 10")
+    sch_add.add_argument("command", nargs=argparse.REMAINDER, help="argumentos RASAi, ex: audit https://example.com --max-pages 10")
     sch_sub.add_parser("list")
     sch_run = sch_sub.add_parser("run-due")
     sch_run.add_argument("--now")
@@ -282,7 +282,7 @@ def main(argv: list[str] | None = None) -> int:
         with PlatformStore(db) as store:
             command = args.platform_command
             if command == "init":
-                print(f"RASAI platform database: {store.database}")
+                print(f"RASAi platform database: {store.database}")
                 print("Schema: OK")
                 return 0
             if command == "index":
@@ -531,6 +531,6 @@ def main(argv: list[str] | None = None) -> int:
                 _print({"audit_id": args.audit, "valid": valid, "indexed_sha256": expected, "current_sha256": actual})
                 return 0 if valid else 1
     except (OSError, ValueError, RuntimeError, KeyError, json.JSONDecodeError) as exc:
-        print(f"RASAI platform error: {exc}", file=sys.stderr)
+        print(f"RASAi platform error: {exc}", file=sys.stderr)
         return 2
     return 2

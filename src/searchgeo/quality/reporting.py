@@ -1,4 +1,4 @@
-"""HTML reporting for RASAI Quality & Verification."""
+"""HTML reporting for RASAi Quality & Verification."""
 from __future__ import annotations
 
 from html import escape
@@ -36,9 +36,9 @@ def write_quality_report(audit_workspace: str | Path) -> Path:
     )
     body = f"""
 <header class='hero'>
-  <div class='eyebrow'>RASAI Quality · derivado · non-scoring</div>
+  <div class='eyebrow'>RASAi Quality · derivado · non-scoring</div>
   <h1>Qualidade da auditoria e decisão</h1>
-  <p class='lead'>Avalia a qualidade da própria evidência RASAI, prioriza findings acionáveis e valida a coerência das recomendações sem alterar SARI-001/SCORE-GEO-003.</p>
+  <p class='lead'>Avalia a qualidade da própria evidência RASAi, prioriza findings acionáveis e valida a coerência das recomendações sem alterar SARI-001/SCORE-GEO-003.</p>
   <div class='metric-grid'>
     {_metric('Audit health', bundle.health_status)}
     {_metric('Findings', len(bundle.finding_assessments))}
@@ -54,7 +54,7 @@ def write_quality_report(audit_workspace: str | Path) -> Path:
 <section class='panel'><div class='kicker'>Executive decision</div><h2>Top prioridades operacionais acionáveis</h2><p>Somente findings não resolvidos/fechados/dispensados entram nesta lista. A prioridade combina severidade, abrangência, confiança da evidência e esforço estimado; orienta ordem de trabalho e não altera scoring.</p><div class='table-wrap'><table><thead><tr><th>Prior.</th><th>Score</th><th>Regra</th><th>Sev.</th><th>Confidence</th><th>Escopo</th><th>Esforço</th><th>URL</th><th>Título</th></tr></thead><tbody>{''.join(_finding_row(x) for x in top_priorities) or '<tr><td colspan=9>Nenhum finding acionável.</td></tr>'}</tbody></table></div></section>
 <section class='panel'><div class='kicker'>Evidence Confidence</div><h2>Confiança por finding</h2><p>Esta tabela preserva também findings históricos/resolvidos para rastreabilidade.</p><div class='table-wrap'><table><thead><tr><th>Status</th><th>Prior.</th><th>Regra</th><th>Sev.</th><th>Confidence</th><th>Proveniência</th><th>Device</th><th>URL</th><th>Razões</th></tr></thead><tbody>{''.join(_confidence_row(x) for x in sorted(bundle.finding_assessments, key=lambda i: (-i.operational_priority, i.rule_id, i.finding_id))) or '<tr><td colspan=9>Nenhum finding.</td></tr>'}</tbody></table></div></section>
 <section class='panel'><div class='kicker'>Coverage Map</div><h2>URL × domínio de evidência</h2><div class='table-wrap'><table><thead><tr><th>URL</th><th>Device</th><th>Technical</th><th>Rendering</th><th>Semantic/entity</th><th>Answer/evidence/intent</th><th>Governance</th></tr></thead><tbody>{''.join(_coverage_row(x) for x in bundle.coverage_map) or '<tr><td colspan=7>Sem cobertura por URL.</td></tr>'}</tbody></table></div></section>
-<section class='panel'><div class='kicker'>Search & AI content controls</div><h2>Controles de snippet e uso direto</h2><p>Diretivas restritivas são decisões do publisher e não penalidades. O RASAI apenas registra sua presença para interpretar corretamente Search/GenAI observados.</p><div class='table-wrap'><table><thead><tr><th>URL</th><th>Device</th><th>Meta robots</th><th>X-Robots-Tag</th><th>nosnippet</th><th>max-snippet</th><th>data-nosnippet</th><th>Interpretação</th></tr></thead><tbody>{''.join(_control_row(x) for x in controls) or '<tr><td colspan=8>Sem snapshots para avaliar.</td></tr>'}</tbody></table></div></section>
+<section class='panel'><div class='kicker'>Search & AI content controls</div><h2>Controles de snippet e uso direto</h2><p>Diretivas restritivas são decisões do publisher e não penalidades. O RASAi apenas registra sua presença para interpretar corretamente Search/GenAI observados.</p><div class='table-wrap'><table><thead><tr><th>URL</th><th>Device</th><th>Meta robots</th><th>X-Robots-Tag</th><th>nosnippet</th><th>max-snippet</th><th>data-nosnippet</th><th>Interpretação</th></tr></thead><tbody>{''.join(_control_row(x) for x in controls) or '<tr><td colspan=8>Sem snapshots para avaliar.</td></tr>'}</tbody></table></div></section>
 <section class='panel'><div class='kicker'>Recommendation Validation</div><h2>Coerência das recomendações persistidas</h2><p>Esta validação verifica referência, estado e confiança contra a evidência atual; não substitui revisão humana do conteúdo da recomendação.</p><div class='table-wrap'><table><thead><tr><th>Status</th><th>ID</th><th>Confidence</th><th>Prior.</th><th>Recomendação</th><th>Motivo</th></tr></thead><tbody>{''.join(_rec_row(x) for x in bundle.recommendation_assessments) or '<tr><td colspan=6>Sem recomendações persistidas.</td></tr>'}</tbody></table></div></section>
 <footer class='footer'>Métodos: {escape(' · '.join(f'{k}={v}' for k, v in bundle.methodology.items()))}</footer>
 """
@@ -78,7 +78,7 @@ def write_verification_report(
         for x in bundle.items
     ) or "<tr><td colspan='8'>Nenhum finding baseline elegível neste escopo.</td></tr>"
     limits = "".join(f"<li>{escape(item)}</li>" for item in bundle.limitations)
-    body = f"""<header class='hero'><div class='eyebrow'>RASAI Fix Verification</div><h1>Validação incremental de correções</h1><p>{escape(bundle.baseline_audit_id)} → {escape(bundle.current_audit_id)}</p><div class='metric-grid'>{''.join(_metric(k, v) for k, v in sorted(bundle.counts.items()))}</div></header><section class='panel'><h2>Resultados</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Sev.</th><th>Regra</th><th>Device</th><th>URL</th><th>Antes</th><th>Depois</th><th>Interpretação</th></tr></thead><tbody>{rows}</tbody></table></div></section><section class='panel'><h2>Limitações</h2><ul>{limits}</ul></section>"""
+    body = f"""<header class='hero'><div class='eyebrow'>RASAi Fix Verification</div><h1>Validação incremental de correções</h1><p>{escape(bundle.baseline_audit_id)} → {escape(bundle.current_audit_id)}</p><div class='metric-grid'>{''.join(_metric(k, v) for k, v in sorted(bundle.counts.items()))}</div></header><section class='panel'><h2>Resultados</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Sev.</th><th>Regra</th><th>Device</th><th>URL</th><th>Antes</th><th>Depois</th><th>Interpretação</th></tr></thead><tbody>{rows}</tbody></table></div></section><section class='panel'><h2>Limitações</h2><ul>{limits}</ul></section>"""
     path = directory / "report.html"
     path.write_text(_shell("", body), encoding="utf-8", newline="\n")
     return path
@@ -97,7 +97,7 @@ def write_timeline_report(
     directory.mkdir(parents=True, exist_ok=True)
     rows = "".join(_timeline_row(x) for x in bundle.points) or "<tr><td colspan='9'>Nenhum AUD compatível com os filtros.</td></tr>"
     skipped = "".join(f"<li>{escape(item)}</li>" for item in bundle.skipped) or "<li>Nenhum workspace ignorado.</li>"
-    body = f"""<header class='hero'><div class='eyebrow'>RASAI Evidence Timeline</div><h1>Linha do tempo de evidência</h1><p>Domínio: {escape(bundle.domain_filter or 'todos')} · URL: {escape(bundle.url_filter or 'todas')}</p><div class='metric-grid'>{_metric('AUDs', len(bundle.points))}{_metric('Ignorados', len(bundle.skipped))}</div></header><section class='panel'><h2>Histórico</h2><div class='table-wrap'><table><thead><tr><th>Data</th><th>AUD</th><th>Versão</th><th>Ruleset</th><th>Scoring</th><th>URLs</th><th>FAIL</th><th>WARNING</th><th>Dimensões/estado</th></tr></thead><tbody>{rows}</tbody></table></div></section><section class='panel'><h2>Workspaces ignorados</h2><ul>{skipped}</ul></section>"""
+    body = f"""<header class='hero'><div class='eyebrow'>RASAi Evidence Timeline</div><h1>Linha do tempo de evidência</h1><p>Domínio: {escape(bundle.domain_filter or 'todos')} · URL: {escape(bundle.url_filter or 'todas')}</p><div class='metric-grid'>{_metric('AUDs', len(bundle.points))}{_metric('Ignorados', len(bundle.skipped))}</div></header><section class='panel'><h2>Histórico</h2><div class='table-wrap'><table><thead><tr><th>Data</th><th>AUD</th><th>Versão</th><th>Ruleset</th><th>Scoring</th><th>URLs</th><th>FAIL</th><th>WARNING</th><th>Dimensões/estado</th></tr></thead><tbody>{rows}</tbody></table></div></section><section class='panel'><h2>Workspaces ignorados</h2><ul>{skipped}</ul></section>"""
     path = directory / "report.html"
     path.write_text(_shell("", body), encoding="utf-8", newline="\n")
     return path
@@ -166,7 +166,7 @@ def _count(values: Any) -> dict[str, int]:
 
 
 def _shell(nav: str, body: str) -> str:
-    return f"<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>RASAI Quality</title><style>{_CSS}</style></head><body>{nav}<main>{body}</main></body></html>"
+    return f"<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>RASAi Quality</title><style>{_CSS}</style></head><body>{nav}<main>{body}</main></body></html>"
 
 
 _CSS = """body{margin:0;background:#f5f7fa;color:#273449;font:14px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:1500px;margin:auto;padding:32px}.hero,.panel{background:#fff;border:1px solid #e1e6ec;border-radius:8px;padding:24px;margin-bottom:16px}.eyebrow,.kicker{font-size:12px;text-transform:uppercase;color:#6d7786;letter-spacing:.08em}.lead{max-width:1000px}.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:18px}.metric{background:#f7f8fb;border-radius:7px;padding:12px}.metric span{display:block;color:#667085}.metric strong{font-size:20px}.table-wrap{overflow:auto;border:1px solid #e1e6ec;border-radius:6px}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:9px 10px;border-bottom:1px solid #e1e6ec;text-align:left;vertical-align:top}th{background:#f7f8fb}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}.notice{background:#fbfcfe}.footer{color:#667085;padding:12px}@media(max-width:700px){main{padding:16px}}"""

@@ -7,7 +7,7 @@
 
 ## 1. Objetivo
 
-Observed Generative Visibility adiciona ao RASAI uma camada de **outcomes observados** de Search/AI Search.
+Observed Generative Visibility adiciona ao RASAi uma camada de **outcomes observados** de Search/AI Search.
 
 A pergunta respondida é:
 
@@ -26,7 +26,7 @@ Readiness medido != Visibilidade observada
 - `SARI-001` descreve readiness técnico/semântico/evidencial.
 - Web Performance, Acessibilidade e Apdex mantêm seus domínios próprios.
 - Observed Generative Visibility descreve outcomes observados/importados.
-- o calibrador do `SCORE-GEO-003` pode estudar associação entre as dimensões RASAI e `CITED/NOT_CITED`;
+- o calibrador do `SCORE-GEO-003` pode estudar associação entre as dimensões RASAi e `CITED/NOT_CITED`;
 - associação observacional não prova causalidade nem garante citação futura.
 
 ## 3. Fontes suportadas em OGV-IMPORT-001
@@ -41,7 +41,7 @@ Referência primária:
 
 - https://blogs.bing.com/webmaster/February-2026/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview
 
-O RASAI não presume API oficial para AI Performance e não faz scraping do portal. O usuário normaliza uma evidência/exportação observada para `OGV-IMPORT-001`; o arquivo normalizado é preservado como artifact com SHA-256.
+O RASAi não presume API oficial para AI Performance e não faz scraping do portal. O usuário normaliza uma evidência/exportação observada para `OGV-IMPORT-001`; o arquivo normalizado é preservado como artifact com SHA-256.
 
 `total_citations` e `average_cited_pages` são persistidos como **source-reported metrics**. Não são convertidos no outcome binário do calibrador.
 
@@ -58,7 +58,7 @@ Dataset produzido por protocolo controlado externo à execução do scoring. Cad
 
 Opcionalmente pode registrar surface, market, language, notes e rank observado.
 
-`rank` só é aceito com `ranking_semantics`. O RASAI não presume equivalência de posição entre engines.
+`rank` só é aceito com `ranking_semantics`. O RASAi não presume equivalência de posição entre engines.
 
 Para calibração do `SCORE-GEO-003`, somente query-runs controlados válidos e que atendam ao promotion gate são elegíveis.
 
@@ -73,7 +73,7 @@ CONTROLLED_PROTOCOL
 EXTERNAL_AUTOMATION
 ```
 
-O valor descreve proveniência declarada. Não implica que o RASAI autenticou ou coletou diretamente o dado no sistema externo.
+O valor descreve proveniência declarada. Não implica que o RASAi autenticou ou coletou diretamente o dado no sistema externo.
 
 ## 4. Citation Presence Rate
 
@@ -83,7 +83,7 @@ Citation Presence Rate = valid runs with cited=true / valid runs
 
 Runs `INVALID` ficam fora do numerador e denominador.
 
-Quando `n > 0`, o RASAI calcula Wilson 95%:
+Quando `n > 0`, o RASAi calcula Wilson 95%:
 
 ```text
 p = x / n

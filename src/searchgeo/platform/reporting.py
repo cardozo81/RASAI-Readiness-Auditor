@@ -1,4 +1,4 @@
-"""HTML/JSON reporting for the RASAI product platform layer."""
+"""HTML/JSON reporting for the RASAi product platform layer."""
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -34,11 +34,11 @@ def _nav(current: str, *, platform_links: bool = True) -> str:
         )
     else:
         content = "<span class='nav-context'>Deployment Impact</span>"
-    return f"<aside class='nav'><div class='brand'><strong>RASAI</strong><small>Product Platform</small></div>{content}</aside>"
+    return f"<aside class='nav'><div class='brand'><strong>RASAi</strong><small>Product Platform</small></div>{content}</aside>"
 
 
 def _shell(title: str, current: str, body: str, *, platform_links: bool = True) -> str:
-    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>{escape(title)} · RASAI</title><style>{_PLATFORM_CSS}</style></head><body><div class='layout'>{_nav(current, platform_links=platform_links)}<main class='main'>{body}<footer class='footer'>RASAI Product Platform · dados gerenciais derivados; AUD workspaces permanecem imutáveis.</footer></main></div></body></html>"""
+    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>{escape(title)} · RASAi</title><style>{_PLATFORM_CSS}</style></head><body><div class='layout'>{_nav(current, platform_links=platform_links)}<main class='main'>{body}<footer class='footer'>RASAi Product Platform · dados gerenciais derivados; AUD workspaces permanecem imutáveis.</footer></main></div></body></html>"""
 
 
 def _metric(label: str, value: Any) -> str:
@@ -61,7 +61,7 @@ def write_platform_site(store: PlatformStore, output_dir: str | Path) -> Path:
         property_rows.append(
             f"<tr><td>{escape(str(hierarchy['workspace_name']))}</td><td>{escape(str(hierarchy['project_name']))}</td><td>{escape(prop.name)}</td><td class='mono'>{escape(prop.canonical_origin)}</td><td>{len(scoped)}</td><td>{escape(last.event_time if last else '—')}</td><td>{escape(last.status if last else '—')}</td></tr>"
         )
-    body = f"""<header class='hero'><div class='eyebrow'>RASAI Portfolio</div><h1>Portfólio Search & AI Readiness</h1><p class='lead'>Visão centralizada de workspaces, projetos, propriedades, ambientes, auditorias e marcos operacionais. Esta camada organiza o produto sem alterar evidências AUD históricas.</p><div class='metric-grid'>{_metric('Workspaces', counts['workspaces'])}{_metric('Projetos', counts['projects'])}{_metric('Propriedades', counts['properties'])}{_metric('Ambientes', counts['environments'])}{_metric('AUDs indexados', counts['audit_index'])}{_metric('Milestones', counts['milestones'])}</div></header><section class='panel'><div class='kicker'>Portfolio</div><h2>Propriedades monitoradas</h2><div class='table-wrap'><table><thead><tr><th>Workspace</th><th>Projeto</th><th>Property</th><th>Origin</th><th>AUDs</th><th>Último AUD</th><th>Status</th></tr></thead><tbody>{''.join(property_rows) or '<tr><td colspan=7>Nenhuma propriedade.</td></tr>'}</tbody></table></div></section><section class='panel'><h2>AUDs recentes</h2><div class='table-wrap'><table><thead><tr><th>Data</th><th>AUD</th><th>Projeto legado</th><th>Status</th><th>URLs</th><th>Devices</th><th>SHA audit.db</th></tr></thead><tbody>{''.join(f"<tr><td>{escape(a.event_time)}</td><td class='mono'>{escape(a.audit_id)}</td><td>{escape(a.project_name)}</td><td>{escape(a.status)}</td><td>{a.url_count}</td><td>{escape(', '.join(a.devices) or '—')}</td><td class='mono'>{escape(a.audit_db_sha256[:16])}…</td></tr>" for a in recent_audits) or '<tr><td colspan=7>Nenhum AUD indexado.</td></tr>'}</tbody></table></div></section>"""
+    body = f"""<header class='hero'><div class='eyebrow'>RASAi Portfolio</div><h1>Portfólio Search & AI Readiness</h1><p class='lead'>Visão centralizada de workspaces, projetos, propriedades, ambientes, auditorias e marcos operacionais. Esta camada organiza o produto sem alterar evidências AUD históricas.</p><div class='metric-grid'>{_metric('Workspaces', counts['workspaces'])}{_metric('Projetos', counts['projects'])}{_metric('Propriedades', counts['properties'])}{_metric('Ambientes', counts['environments'])}{_metric('AUDs indexados', counts['audit_index'])}{_metric('Milestones', counts['milestones'])}</div></header><section class='panel'><div class='kicker'>Portfolio</div><h2>Propriedades monitoradas</h2><div class='table-wrap'><table><thead><tr><th>Workspace</th><th>Projeto</th><th>Property</th><th>Origin</th><th>AUDs</th><th>Último AUD</th><th>Status</th></tr></thead><tbody>{''.join(property_rows) or '<tr><td colspan=7>Nenhuma propriedade.</td></tr>'}</tbody></table></div></section><section class='panel'><h2>AUDs recentes</h2><div class='table-wrap'><table><thead><tr><th>Data</th><th>AUD</th><th>Projeto legado</th><th>Status</th><th>URLs</th><th>Devices</th><th>SHA audit.db</th></tr></thead><tbody>{''.join(f"<tr><td>{escape(a.event_time)}</td><td class='mono'>{escape(a.audit_id)}</td><td>{escape(a.project_name)}</td><td>{escape(a.status)}</td><td>{a.url_count}</td><td>{escape(', '.join(a.devices) or '—')}</td><td class='mono'>{escape(a.audit_db_sha256[:16])}…</td></tr>" for a in recent_audits) or '<tr><td colspan=7>Nenhum AUD indexado.</td></tr>'}</tbody></table></div></section>"""
     (root / "index.html").write_text(_shell("Portfolio", "index.html", body), encoding="utf-8", newline="\n")
 
     timeline_items = sorted(

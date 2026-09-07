@@ -1,4 +1,4 @@
-"""RASAI product-platform layer.
+"""RASAi product-platform layer.
 
 This package adds SaaS-ready, multi-organization product metadata without
 mutating immutable AUD workspaces. The local Windows implementation uses a

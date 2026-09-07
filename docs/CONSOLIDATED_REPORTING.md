@@ -45,9 +45,9 @@ Web Performance, Apdex e ocorrências page-level podem ser filtrados diretamente
 
 ### Método vigente
 
-O índice público do RASAI é **SARI-001 — Search & AI Readiness Index**. O motor de scoring vigente para novas auditorias é **`SCORE-GEO-003`**.
+O índice público do RASAi é **SARI-001 — Search & AI Readiness Index**. O motor de scoring vigente para novas auditorias é **`SCORE-GEO-003`**.
 
-`SCORE-GEO-002` permanece **histórico**. Ele pode aparecer em auditorias antigas e em séries históricas, mas não deve ser descrito como baseline vigente nem agregado à mesma série do `SCORE-GEO-003` sem quebra metodológica explícita.
+Séries com contratos de scoring distintos permanecem segmentadas por `scoring_version` e não são convertidas ou agregadas silenciosamente.
 
 ### Dimensões
 
@@ -74,7 +74,7 @@ O consolidado deve segmentar ou sinalizar, no mínimo:
 - perfil/threshold no caso de Apdex;
 - fonte/escopo no caso de dados de campo.
 
-Uma mudança de `SCORE-GEO-002` para `SCORE-GEO-003` é quebra metodológica. O HTML deve permitir leitura histórica, mas não sugerir uma evolução numérica contínua entre métodos diferentes.
+Uma mudança de `scoring_version`, `model_version` ou `dataset_version` define uma fronteira metodológica. O HTML deve explicitar essa fronteira e não sugerir continuidade numérica sem fundamento.
 
 ## Políticas estatísticas
 
@@ -124,9 +124,9 @@ O consolidador não cria um novo “score de confiabilidade”. Ele apresenta si
 - robustez/amostragem de Apdex;
 - status da calibração do `SCORE-GEO-003`.
 
-## Relação com RASAI Monitor
+## Relação com RASAi Monitor
 
-`CONS-*` e **RASAI Monitor** possuem propósitos diferentes:
+`CONS-*` e **RASAi Monitor** possuem propósitos diferentes:
 
 - consolidado: exploração histórica/estatística descritiva;
 - `rasai monitor compare`: comparação explícita baseline → current e classificação de mudança;

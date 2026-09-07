@@ -1,10 +1,10 @@
-# RASAI Product Platform Architecture
+# RASAi Product Platform Architecture
 
 Status: implemented product-platform architecture. Merge readiness is determined by automated Windows/Linux validation and regression gates.
 
 ## Objective
 
-Evolve RASAI from a single-audit Windows application into a product platform that supports multi-user, multi-client, multi-project and multi-domain operation without breaking the current audit engine or rewriting historical evidence.
+Evolve RASAi from a single-audit Windows application into a product platform that supports multi-user, multi-client, multi-project and multi-domain operation without breaking the current audit engine or rewriting historical evidence.
 
 The architectural rule is explicit:
 
@@ -46,7 +46,7 @@ This is appropriate for the single-machine Windows phase. It is **not** the inte
 
 ## Local data governance and database roles
 
-RASAI can have more than one local SQLite database, but they do **not** have equal authority.
+RASAi can have more than one local SQLite database, but they do **not** have equal authority.
 
 ### Canonical control plane
 
@@ -101,7 +101,7 @@ For SaaS, the recommended operating model is Linux-based container workloads wit
 ```text
 Web UI
   |
-RASAI API / Control Plane
+RASAi API / Control Plane
   |
   +-- PostgreSQL
   |      organization/workspace/project/property/environment
@@ -120,7 +120,7 @@ RASAI API / Control Plane
          immutable AUD bundles / artifacts / reports
 
 Optional Enterprise path:
-RASAI SaaS -> authorized Runner -> Windows/Linux private network
+RASAi SaaS -> authorized Runner -> Windows/Linux private network
 ```
 
 ### Why Linux for SaaS workers
@@ -232,12 +232,12 @@ A deployment may record timestamp, release/version, commit SHA, branch/tag, desc
 
 Default mode: `AUTO`.
 
-RASAI searches the same Property + Environment and selects:
+RASAi searches the same Property + Environment and selects:
 
 1. the closest technically comparable AUD before the milestone;
 2. the first technically comparable AUD after it.
 
-If the nearest pair is not comparable, RASAI does not silently normalize incompatible data. Compatibility notes are retained.
+If the nearest pair is not comparable, RASAi does not silently normalize incompatible data. Compatibility notes are retained.
 
 Alternative modes:
 
@@ -284,7 +284,7 @@ The report does not claim that a later business/Search outcome was caused by the
 
 Property counters resolve through canonical multi-property AUD scopes rather than only the legacy primary property.
 
-These pages use the current RASAI visual language but are intentionally separate from the menu inside a single AUD report.
+These pages use the current RASAi visual language but are intentionally separate from the menu inside a single AUD report.
 
 ## Scheduling
 
@@ -342,7 +342,7 @@ Deployment comparisons can export:
 - SARIF 2.1.0;
 - process exit code (`0=PASS`, `1=gate FAIL`, `2=operational error`).
 
-This supports GitHub Actions, Azure DevOps, Jenkins and other CI/CD products without coupling RASAI to one vendor.
+This supports GitHub Actions, Azure DevOps, Jenkins and other CI/CD products without coupling RASAi to one vendor.
 
 ## External outcomes and crawler observability
 
@@ -352,7 +352,7 @@ Implemented product-platform sources:
 
 ### GA4 Data API
 
-Official `runReport` collection using a bearer token read from an environment variable. RASAI does not persist the bearer token.
+Official `runReport` collection using a bearer token read from an environment variable. RASAi does not persist the bearer token.
 
 ### GA4 CSV
 

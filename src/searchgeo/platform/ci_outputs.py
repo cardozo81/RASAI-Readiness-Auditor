@@ -1,4 +1,4 @@
-"""Machine-readable CI/CD outputs for RASAI release gates."""
+"""Machine-readable CI/CD outputs for RASAi release gates."""
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -40,7 +40,7 @@ def write_gate_junit(path: str | Path, result: ComparisonResult, gate: GateResul
     cases: list[str] = []
     if not gate.blocking_events:
         cases.append(
-            f"<testcase classname='RASAI.ReleaseGate' name='{escape(result.baseline.audit_id)} to {escape(result.current.audit_id)}'/>"
+            f"<testcase classname='RASAi.ReleaseGate' name='{escape(result.baseline.audit_id)} to {escape(result.current.audit_id)}'/>"
         )
     else:
         for event in gate.blocking_events:
@@ -49,11 +49,11 @@ def write_gate_junit(path: str | Path, result: ComparisonResult, gate: GateResul
                 f"{event.status} {event.severity} {event.device or '-'} {event.url or '-'}: {event.before!r} -> {event.after!r}; {event.reason or ''}"
             )
             cases.append(
-                f"<testcase classname='RASAI.ReleaseGate' name='{name}'><failure message='{escape(gate.reason)}'>{detail}</failure></testcase>"
+                f"<testcase classname='RASAi.ReleaseGate' name='{name}'><failure message='{escape(gate.reason)}'>{detail}</failure></testcase>"
             )
     xml = (
         "<?xml version='1.0' encoding='UTF-8'?>\n"
-        f"<testsuite name='RASAI Release Gate' tests='{max(1, len(cases))}' failures='{failures}'>"
+        f"<testsuite name='RASAi Release Gate' tests='{max(1, len(cases))}' failures='{failures}'>"
         + "".join(cases)
         + "</testsuite>"
     )
@@ -99,7 +99,7 @@ def write_gate_sarif(path: str | Path, result: ComparisonResult, gate: GateResul
             {
                 "tool": {
                     "driver": {
-                        "name": "RASAI Release Gate",
+                        "name": "RASAi Release Gate",
                         "informationUri": "https://github.com/cardozo81/SearchGEO-Readiness-Auditor",
                         "rules": list(rules.values()),
                     }

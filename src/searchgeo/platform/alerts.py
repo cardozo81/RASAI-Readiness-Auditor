@@ -1,4 +1,4 @@
-"""Deterministic alert evaluation and local/webhook delivery for RASAI."""
+"""Deterministic alert evaluation and local/webhook delivery for RASAi."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -140,7 +140,7 @@ def deliver_alert_match(
             url,
             data=body,
             method="POST",
-            headers={"Content-Type": "application/json", "User-Agent": "RASAI/PlatformAlert"},
+            headers={"Content-Type": "application/json", "User-Agent": "RASAi/PlatformAlert"},
         )
         opener = build_opener(_NoRedirect())
         with opener.open(request, timeout=max(1, timeout_seconds)) as response:

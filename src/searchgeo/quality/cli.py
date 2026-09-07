@@ -1,4 +1,4 @@
-"""CLI for derived RASAI audit quality and verification."""
+"""CLI for derived RASAi audit quality and verification."""
 from __future__ import annotations
 
 import argparse
@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.quality_command == "report":
             workspace = _workspace(args.audits_root, args.audit)
             path = write_quality_report(workspace)
-            print(f"RASAI Quality: {path}")
+            print(f"RASAi Quality: {path}")
             return 0
         if args.quality_command == "verify":
             baseline = _workspace(args.audits_root, args.baseline)
@@ -67,6 +67,6 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Relatório: {path}")
             return 0
     except (OSError, ValueError, RuntimeError) as exc:
-        print(f"RASAI quality error: {exc}")
+        print(f"RASAi quality error: {exc}")
         return 2
     return 2

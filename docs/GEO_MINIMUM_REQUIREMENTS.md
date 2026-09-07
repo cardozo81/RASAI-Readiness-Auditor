@@ -5,12 +5,12 @@
 Este documento separa:
 
 1. requisitos/práticas suportadas por documentação oficial ou standards;
-2. reforços úteis do RASAI;
+2. reforços úteis do RASAi;
 3. heurísticas internas que não devem ser apresentadas como padrão GEO universal.
 
 ## Não existe um padrão GEO/AEO universal
 
-O RASAI não assume que exista uma especificação normativa única denominada GEO/AEO.
+O RASAi não assume que exista uma especificação normativa única denominada GEO/AEO.
 
 Em 2026, o Google publicou o guia oficial:
 
@@ -35,11 +35,11 @@ Fontes relevantes:
 
 ### Conteúdo útil, confiável e orientado a pessoas
 
-O Google continua recomendando conteúdo útil, confiável e people-first. O RASAI pode medir sinais de clareza, resposta, atribuição e evidência, mas não deve traduzir isso em uma fórmula oficial inexistente.
+O Google continua recomendando conteúdo útil, confiável e people-first. O RASAi pode medir sinais de clareza, resposta, atribuição e evidência, mas não deve traduzir isso em uma fórmula oficial inexistente.
 
 ### Estrutura compreensível
 
-HTML/heading structure, títulos claros e organização lógica ajudam mecanismos e usuários. WHATWG define semântica HTML; o RASAI adiciona heurísticas de legibilidade semântica sobre essa base.
+HTML/heading structure, títulos claros e organização lógica ajudam mecanismos e usuários. WHATWG define semântica HTML; o RASAi adiciona heurísticas de legibilidade semântica sobre essa base.
 
 ### Indexabilidade/canonicalização
 
@@ -51,7 +51,7 @@ Diretivas, canonical e conflitos técnicos continuam relevantes conforme Google 
 
 Structured Data não é requisito universal para recursos generativos do Google. O próprio guia de 2026 não exige marcação especial de IA.
 
-No `SCORE-GEO-002`:
+No `SARI-001`:
 
 - ausência legítima pode resultar em `STRUCTURED_DATA = NOT_APPLICABLE`;
 - a dimensão fica fora do Overall;
@@ -61,7 +61,7 @@ No `SCORE-GEO-002`:
 
 O Google informa que `llms.txt` não é necessário para seus recursos generativos e não é usado como sinal de ranking/visibilidade no Google Search.
 
-O RASAI não deve tratá-lo como blocker obrigatório.
+O RASAi não deve tratá-lo como blocker obrigatório.
 
 ### “GEO schema” especial
 
@@ -73,9 +73,9 @@ Não existe exigência oficial de quebrar o conteúdo em blocos artificiais apen
 
 ### Reescrever conteúdo apenas para IA
 
-O Google não recomenda reescrever conteúdo para “falar com IA” em detrimento de pessoas. O RASAI deve orientar melhoria de clareza/utilidade/evidência quando um finding específico sustentar a necessidade, não produzir conteúdo artificial apenas para elevar uma métrica interna.
+O Google não recomenda reescrever conteúdo para “falar com IA” em detrimento de pessoas. O RASAi deve orientar melhoria de clareza/utilidade/evidência quando um finding específico sustentar a necessidade, não produzir conteúdo artificial apenas para elevar uma métrica interna.
 
-## Heurísticas RASAI
+## Heurísticas RASAi
 
 Dimensões como:
 
@@ -97,7 +97,7 @@ expõe essa distinção por regra.
 
 ## Confidence não é aderência textual
 
-`Confidence LOW` no SCORE-GEO-002 significa baixa força da conclusão do auditor. Não significa que o conteúdo é semanticamente inválido.
+`Confidence LOW` no SARI-001 significa baixa força da conclusão do auditor. Não significa que o conteúdo é semanticamente inválido.
 
 Uma recomendação de conteúdo deve ser motivada por evidência/regra específica, não pela Confidence isolada.
 

@@ -4,7 +4,7 @@
 
 Evitar que disponibilidade de transporte/API seja confundida com disponibilidade ou validade da medição externa.
 
-O RASAI mantém estes domínios separados do `SCORE-GEO-002`. Nenhum erro, ausência, quota ou timeout de PageSpeed/Lighthouse/CrUX reduz automaticamente o Score GEO.
+O RASAi mantém estes domínios separados do `SARI-001`. Nenhum erro, ausência, quota ou timeout de PageSpeed/Lighthouse/CrUX reduz automaticamente o Score GEO.
 
 ## Proveniência
 
@@ -32,7 +32,7 @@ Para a execução ser considerada válida para uma categoria solicitada:
 3. a categoria solicitada deve existir em `lighthouseResult.categories`;
 4. o score da categoria deve ser numérico e estar no intervalo 0..1 esperado pela API.
 
-Quando a própria PageSpeed API retorna `runtimeError`, a documentação oficial classifica esse estado como problema sério o suficiente para que o resultado Lighthouse seja descartado. O RASAI, portanto, remove da observação persistida os valores Lighthouse derivados desse resultado, mantendo o artifact bruto imutável para rastreabilidade.
+Quando a própria PageSpeed API retorna `runtimeError`, a documentação oficial classifica esse estado como problema sério o suficiente para que o resultado Lighthouse seja descartado. O RASAi, portanto, remove da observação persistida os valores Lighthouse derivados desse resultado, mantendo o artifact bruto imutável para rastreabilidade.
 
 ### Categorias parcialmente disponíveis
 
@@ -46,7 +46,7 @@ Se algumas categorias solicitadas forem válidas e outras estiverem ausentes/inv
 
 ## Acessibilidade
 
-O RASAI **não recalcula** o score de Acessibilidade do Lighthouse.
+O RASAi **não recalcula** o score de Acessibilidade do Lighthouse.
 
 O valor 0–100 mostrado em `accessibility.html` é a projeção do score da categoria `lighthouseResult.categories.accessibility.score`, multiplicado por 100 na camada Web Performance externo. A metodologia de ponderação pertence ao Lighthouse; a documentação oficial descreve o score como média ponderada das auditorias automatizadas e informa que auditorias manuais não participam dessa pontuação.
 
@@ -62,7 +62,7 @@ Regras de integridade:
 
 ## Performance Lighthouse
 
-O score de Performance também é fornecido pelo Lighthouse. RASAI não recalcula seus pesos/curvas.
+O score de Performance também é fornecido pelo Lighthouse. RASAi não recalcula seus pesos/curvas.
 
 Quando o gate invalida o Lighthouse:
 

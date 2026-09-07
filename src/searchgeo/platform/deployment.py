@@ -1,4 +1,4 @@
-"""Milestone and before/after deployment resolution for RASAI."""
+"""Milestone and before/after deployment resolution for RASAi."""
 from __future__ import annotations
 
 from datetime import UTC, datetime

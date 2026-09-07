@@ -1,10 +1,10 @@
-# RASAI Monitor, Observability & Quality
+# RASAi Monitor, Observability & Quality
 
 **Status:** IMPLEMENTED CANDIDATE — human smoke required before merge.
 
 ## Purpose
 
-This capability turns isolated RASAI audits into a longitudinal, evidence-bound workflow without changing the audit source of truth or silently adding new signals to `SARI-001`.
+This capability turns isolated RASAi audits into a longitudinal, evidence-bound workflow without changing the audit source of truth or silently adding new signals to `SARI-001`.
 
 It keeps five questions methodologically separate:
 
@@ -14,13 +14,13 @@ It keeps five questions methodologically separate:
 4. **Association:** did an outcome move across a comparable period while a technical regression also existed?
 5. **Decision quality:** is the audit evidence complete/reliable enough to support remediation decisions?
 
-RASAI does not convert temporal coincidence into causality.
+RASAi does not convert temporal coincidence into causality.
 
 ## Architecture
 
 ```text
 AUD-BASELINE/audit.db -----\
-                            > RASAI Monitor -> MON-*/report.html + manifest.json + impact.html
+                            > RASAi Monitor -> MON-*/report.html + manifest.json + impact.html
 AUD-CURRENT/audit.db ------/
 
 AUD-CURRENT/audit.db (read-only)
@@ -50,7 +50,7 @@ Independent collections may legitimately reuse local IDs. OBS-001 sidecars using
 
 Dataset provenance persists source type, capture method, period, artifact path/SHA-256, collection time and source metadata. Secrets are never persisted.
 
-## RASAI Monitor
+## RASAi Monitor
 
 ### Compare
 
@@ -71,7 +71,7 @@ DATA_UNAVAILABLE
 NOT_COMPARABLE
 ```
 
-Different scoring versions are not silently converted. `SCORE-GEO-002` remains historical and is not treated as methodologically equivalent to `SCORE-GEO-003`.
+Different scoring versions are not silently converted or treated as methodologically equivalent.
 
 ### Release gate
 
@@ -119,7 +119,7 @@ This prevents semantic/AI findings, synthetic variance or aggregate counters fro
 rasai monitor impact --audits-root audits --baseline AUD-BASELINE --current AUD-CURRENT
 ```
 
-RASAI selects one latest dataset per source/AUD rather than summing overlapping historical collections.
+RASAi selects one latest dataset per source/AUD rather than summing overlapping historical collections.
 
 Observation windows:
 
@@ -250,14 +250,14 @@ Bing remains import-first where a direct documented contract is not implemented.
 
 ## Google Generative AI Performance — import-first
 
-RASAI does not presume an undocumented API endpoint for these reports.
+RASAi does not presume an undocumented API endpoint for these reports.
 
 ```powershell
 rasai observe google-ai-import --audit AUD-... --file genai-search.csv --surface search
 rasai observe google-ai-import --audit AUD-... --file genai-discover.csv --surface discover
 ```
 
-Search and Discover are distinct source types. RASAI persists only fields actually present and does not invent clicks, CTR, position, query or citation count.
+Search and Discover are distinct source types. RASAi persists only fields actually present and does not invent clicks, CTR, position, query or citation count.
 
 Suppression/rounding/unavailable tokens are retained with explicit metadata. An exported zero is not independently asserted as proof of zero visibility.
 
@@ -301,7 +301,7 @@ Quality reports publisher controls as evidence, not penalties:
 
 Artifact reads are confined to the AUD workspace; path traversal references are not followed.
 
-## RASAI Quality
+## RASAi Quality
 
 ### Per-audit report
 
@@ -388,6 +388,6 @@ Before merge:
 8. with a valid key/eligible origin, test CrUX History;
 9. import Bing and Google GenAI exports when available;
 10. verify canonical navigation/order/current active state;
-11. verify `SCORE-GEO-003` current and `SCORE-GEO-002` historical only;
+11. verify `SCORE-GEO-003` as the scoring method declared by the current pipeline;
 12. verify source `audit.db` SHA-256 unchanged by Monitor/Observability/Quality;
 13. verify bearer tokens/API keys do not appear in sidecar/artifacts/HTML.

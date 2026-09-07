@@ -1,4 +1,4 @@
-"""Comparison and release-gate logic for RASAI monitoring."""
+"""Comparison and release-gate logic for RASAi monitoring."""
 from __future__ import annotations
 
 import math

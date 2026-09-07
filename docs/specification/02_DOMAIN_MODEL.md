@@ -4,7 +4,7 @@
 
 ## 1. Objetivo
 
-Definir entidades, relacionamentos e invariantes do RASAI — Search & AI Readiness Auditor sem acoplar o domínio a banco, ORM ou framework.
+Definir entidades, relacionamentos e invariantes do RASAi — Search & AI Readiness Auditor sem acoplar o domínio a banco, ORM ou framework.
 
 ## 2. Modelo principal
 

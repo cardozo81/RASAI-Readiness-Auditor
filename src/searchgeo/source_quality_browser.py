@@ -214,7 +214,7 @@ def _recovered_issue(
         )
         summary = (
             "A cadeia HTTP publicada rebaixou a navegação de HTTPS para HTTP e a rota "
-            f"original terminou em {preflight_route} com {preflight_error}. O RASAI "
+            f"original terminou em {preflight_route} com {preflight_error}. O RASAi "
             "executou uma única verificação do equivalente HTTPS do mesmo hop, mantendo "
             f"validação TLS ativa ({candidates}), e alcançou conteúdo válido "
             f"({browser_routes}). A auditoria prosseguiu pela rota segura. Este mecanismo "

@@ -1,6 +1,6 @@
 # Configuração operacional
 
-O RASAI pode ser configurado por CLI, console interativo, arquivo INI do console e variáveis de ambiente. Credenciais permanecem fora do arquivo INI.
+O RASAi pode ser configurado por CLI, console interativo, arquivo INI do console e variáveis de ambiente. Credenciais permanecem fora do arquivo INI.
 
 ## Prioridade prática
 
@@ -294,7 +294,7 @@ Valores: `mobile`, `desktop`, `both`. Default: `mobile`.
 
 ## Identificadores internos
 
-Identificadores históricos podem permanecer em tabelas, eventos e documentação normativa por compatibilidade. A interface pública deve preferir nomes funcionais e tratar `SCORE-GEO-002` apenas como histórico.
+Identificadores técnicos persistidos podem permanecer em tabelas e eventos por compatibilidade operacional. A interface pública usa a nomenclatura funcional do RASAi e do SARI.
 
 ## Documentos relacionados
 

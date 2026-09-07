@@ -176,7 +176,7 @@ Estados textuais possíveis incluem:
 | 0–39 | Crítica |
 | sem resultado válido | Não Determinada |
 
-A tabela acima é classificação interna para scores RASAI válidos. Ela não deve ser reutilizada automaticamente para classificar `Lighthouse Performance`, cujo score pertence à metodologia externa do Lighthouse.
+A tabela acima é classificação interna para scores RASAi válidos. Ela não deve ser reutilizada automaticamente para classificar `Lighthouse Performance`, cujo score pertence à metodologia externa do Lighthouse.
 
 A cor do resultado geral deve respeitar também Consolidation. Um valor não consolidável não deve receber apresentação de resultado geral válido.
 
@@ -230,7 +230,7 @@ Deve explicar separadamente:
 
 ### Readiness Search & AI
 
-Quão preparado está o site segundo score consolidado RASAI.
+Quão preparado está o site segundo score consolidado RASAi.
 
 ### Cobertura da Análise
 
@@ -273,7 +273,7 @@ São contextos independentes e podem apresentar resultados diferentes.
 - Lighthouse = laboratório;
 - CrUX/Core Web Vitals = dados de campo agregados quando disponíveis;
 - `PASS` de Core Web Vitals não significa “GEO aprovado”;
-- `FAIL` de Core Web Vitals não substitui `SCORE-GEO-002` nem cria finding RASAI automaticamente;
+- `FAIL` de Core Web Vitals não substitui `SARI-001` nem cria finding RASAi automaticamente;
 - `INCOMPLETE`/`UNAVAILABLE` significa falta de base externa suficiente, não defeito comprovado do site.
 
 ## 8. Linguagem de remediação
@@ -329,7 +329,7 @@ Lighthouse Performance: 91/100
 Core Web Vitals: PASS
 Fonte de campo: CrUX
 Escopo: URL
-SCORE-GEO-002: permanece independente
+SARI-001: permanece independente
 ```
 
 Evitar:
@@ -343,11 +343,11 @@ Sem dados CrUX = site reprovado
 
 Quando Web Performance externo estiver desabilitado:
 
-`A coleta externa de Web Performance foi desabilitada. Nenhuma requisição PageSpeed/CrUX foi realizada. O SCORE-GEO-002 permanece disponível normalmente.`
+`A coleta externa de Web Performance foi desabilitada. Nenhuma requisição PageSpeed/CrUX foi realizada. O SARI-001 permanece disponível normalmente.`
 
 Quando houver falha externa:
 
-`A coleta de Web Performance ficou incompleta por indisponibilidade/erro do serviço externo. Essa limitação não foi convertida em problema do website nem alterou o SCORE-GEO-002.`
+`A coleta de Web Performance ficou incompleta por indisponibilidade/erro do serviço externo. Essa limitação não foi convertida em problema do website nem alterou o SARI-001.`
 
 ## 11. Restrições
 
@@ -376,4 +376,4 @@ O produto mede readiness, oferece remediação evidence-backed e pode apresentar
 
 ### Linguagem orientada ao analista
 
-A apresentação HTML é destinada a profissionais de análise de dados e SEO, não a desenvolvedores do RASAI. Termos técnicos só devem aparecer na leitura principal quando tiverem fonte pública reconhecida e uso difundido no domínio. Vocabulário interno de implementação deve permanecer fora da interface principal; quando tecnicamente necessário para suporte, deve ficar recolhido em detalhes técnicos e acompanhado de explicação humana. Identificadores históricos de etapas de entrega não fazem parte do vocabulário do produto e não devem aparecer em relatórios, console ou documentação operacional.
+A apresentação HTML é destinada a profissionais de análise de dados e SEO, não a desenvolvedores do RASAi. Termos técnicos só devem aparecer na leitura principal quando tiverem fonte pública reconhecida e uso difundido no domínio. Vocabulário interno de implementação deve permanecer fora da interface principal; quando tecnicamente necessário para suporte, deve ficar recolhido em detalhes técnicos e acompanhado de explicação humana. Identificadores históricos de etapas de entrega não fazem parte do vocabulário do produto e não devem aparecer em relatórios, console ou documentação operacional.

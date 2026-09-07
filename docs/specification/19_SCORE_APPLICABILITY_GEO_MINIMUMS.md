@@ -2,11 +2,10 @@
 
 **Status:** APPROVED — current applicability contract.
 **Current scoring runtime:** `SCORE-GEO-003`.
-**Historical predecessor:** `SCORE-GEO-002` introduced the applicability model and remains historical only.
 
 ## 1. Motivação
 
-A evolução iniciada no `SCORE-GEO-002` separou corretamente uma dimensão **não aplicável** de uma dimensão que **não conseguiu consolidar**. Esse princípio permanece válido no `SCORE-GEO-003`, embora o Overall atual não seja mais definido pela antiga média simples do `002`.
+O modelo separa uma dimensão **não aplicável** de uma dimensão que **não conseguiu consolidar**. No `SCORE-GEO-003`, o Overall depende do contrato calibrado e não de média simples das dimensões.
 
 ## 2. Princípio normativo
 
@@ -45,20 +44,20 @@ Para cada dispositivo efetivamente auditado:
 
 Uma dimensão `NOT_APPLICABLE` não recebe 0/100, não reduz artificialmente Coverage e não deve ser imputada como falha.
 
-A antiga regra do `SCORE-GEO-002` de Overall por média aritmética simples é histórica e não deve ser reaplicada a novas auditorias `SCORE-GEO-003`.
+O Overall do `SCORE-GEO-003` depende de model artifact `VALIDATED`; não existe fallback para média aritmética simples das dimensões.
 
 Quando o model artifact não atende os gates de validação/promoção, o runtime deve expor estado/limitação em vez de fabricar um Overall aparentemente validado.
 
 ## 5. Fonte externa sobre GEO/AEO
 
-O RASAI não assume a existência de um standard universal GEO/AEO.
+O RASAi não assume a existência de um standard universal GEO/AEO.
 
 Fonte primária do Google:
 
 **Optimizing your website for generative AI features on Google Search**
 <https://developers.google.com/search/docs/fundamentals/ai-optimization-guide>
 
-Consequências normativas para o RASAI:
+Consequências normativas para o RASAi:
 
 - não apresentar SARI/SCORE-GEO como score oficial de mecanismo;
 - não exigir markup especial GEO/AEO;
@@ -100,7 +99,7 @@ Microdata/RDFa não devem ser declarados como plenamente cobertos até haver imp
 
 ## 8. Premissas mínimas/contextuais
 
-| Tópico | Classe | Efeito RASAI |
+| Tópico | Classe | Efeito RASAi |
 |---|---|---|
 | URL tecnicamente recuperável | MÍNIMO | Falha material compromete readiness técnico. |
 | Documento/conteúdo analisável | MÍNIMO | Sem base utilizável, dimensões dependentes não consolidam. |
@@ -129,7 +128,7 @@ Confidence representa a força da conclusão do auditor, não uma nota da qualid
 
 ## 10. Linguagem de requisitos
 
-Evitar “obrigatório para GEO” quando o item for apenas recomendação de mecanismo, reforço opcional, aplicável a tipo específico de página ou heurística RASAI.
+Evitar “obrigatório para GEO” quando o item for apenas recomendação de mecanismo, reforço opcional, aplicável a tipo específico de página ou heurística RASAi.
 
 Classes preferenciais:
 
@@ -155,7 +154,7 @@ Faixas visuais internas devem ser rotuladas como internas.
 
 ## 12. Reprodutibilidade
 
-BR-GEO-054 valida integridade/reprodutibilidade do scoring persistido. Para novas auditorias, a referência vigente é `SCORE-GEO-003`; `SCORE-GEO-002` deve ser reconhecido somente em fontes históricas.
+BR-GEO-054 valida a integridade e a reprodutibilidade do scoring persistido. A referência metodológica é `SCORE-GEO-003`.
 
 Dadas as mesmas RuleExecutions, metadados e model artifact aplicável, dimensões, Coverage, Confidence, estado do Overall e limitations devem ser reconstruíveis sem reabrir website nem chamar IA.
 
@@ -173,4 +172,4 @@ Validar:
 8. BR-GEO-054 é reproduzível para a versão persistida;
 9. report não apresenta Confidence LOW como baixa qualidade textual;
 10. report distingue heurística interna de fonte oficial;
-11. auditoria `SCORE-GEO-002` histórica não é misturada silenciosamente com `SCORE-GEO-003`.
+11. resultados com `scoring_version` distinto não são misturados silenciosamente.

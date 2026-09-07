@@ -1,4 +1,4 @@
-"""CLI for read-only RASAI monitoring and release gates."""
+"""CLI for read-only RASAi monitoring and release gates."""
 from __future__ import annotations
 
 import argparse
@@ -70,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
         result = compare_audits(baseline, current)
         if args.monitor_command in {"compare", "impact"}:
             report = write_monitoring_report(args.audits_root, result, report_root=args.report_root)
-            print(f"RASAI Monitor: {result.baseline.audit_id} → {result.current.audit_id}")
+            print(f"RASAi Monitor: {result.baseline.audit_id} → {result.current.audit_id}")
             print(f"Regressões materiais: {len(result.regressions)}")
             print(f"Melhorias/resoluções: {len(result.improvements)}")
             print(f"Relatório: {report.report_path}")
@@ -106,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
                 dimension_drop_points=max(0.0, args.dimension_drop_points),
             )
             gate = evaluate_release_gate(result, policy)
-            print(f"RASAI Release Gate: {'PASS' if gate.passed else 'FAIL'}")
+            print(f"RASAi Release Gate: {'PASS' if gate.passed else 'FAIL'}")
             print(gate.reason)
             print(f"Regras: {'determinísticas' if policy.deterministic_only else 'inclui semânticas'}")
             print(f"Comparabilidade: {'obrigatória' if policy.require_comparable else 'override explícito'}")
@@ -123,7 +123,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             return 0 if gate.passed else 1
     except (OSError, ValueError, RuntimeError) as exc:
-        print(f"RASAI monitor error: {exc}")
+        print(f"RASAi monitor error: {exc}")
         return 2
     parser.error(f"unsupported monitor command: {args.monitor_command}")
     return 2

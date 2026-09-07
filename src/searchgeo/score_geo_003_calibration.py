@@ -1,6 +1,6 @@
 """Empirical calibration pipeline for SCORE-GEO-003.
 
-The calibrator consumes previously persisted RASAI dimension scores and
+The calibrator consumes previously persisted RASAi dimension scores and
 Observed Generative Visibility controlled query-runs. Domains, not queries, are
 the holdout unit. Controlled query outcomes currently have no device dimension;
 therefore collected audit features are aggregated across eligible devices before

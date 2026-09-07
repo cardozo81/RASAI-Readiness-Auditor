@@ -1,4 +1,4 @@
-"""Canonical CLI adapter for the RASAI product control plane.
+"""Canonical CLI adapter for the RASAi product control plane.
 
 The original platform CLI remains the broad additive command surface. This
 adapter selects the integrity-hardened/multi-domain store and adds commands that
@@ -119,7 +119,7 @@ def _custom_main(argv: list[str], audits_root: str, platform_db: str | None) -> 
                 _json({**store.data_governance_status(), "counts": store.counts()})
                 return 0
     except (OSError, ValueError, RuntimeError, KeyError) as exc:
-        print(f"RASAI platform error: {exc}", file=sys.stderr)
+        print(f"RASAi platform error: {exc}", file=sys.stderr)
         return 2
     return 2
 

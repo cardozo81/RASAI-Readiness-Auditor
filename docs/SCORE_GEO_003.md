@@ -1,10 +1,10 @@
 # SCORE-GEO-003
 
-`SCORE-GEO-003` é o método padrão de scoring do RASAI.
+`SCORE-GEO-003` é o método padrão de scoring do RASAi.
 
 ## O que muda
 
-As dez dimensões continuam determinísticas, evidence-backed e calculadas com a mesma semântica consolidada no `SCORE-GEO-002`:
+As dez dimensões são determinísticas, evidence-backed e calculadas a partir das regras e evidências persistidas:
 
 ```text
 Dimension Score = Σ(weight × result_factor) / Σ(weight evaluated) × 100
@@ -32,7 +32,7 @@ Overall.consolidation_status = NOT_CONSOLIDATED
 limitation = CALIBRATION_MODEL_UNAVAILABLE:SCORE-GEO-003
 ```
 
-O programa não inventa coeficientes e não faz fallback silencioso para o Overall do `SCORE-GEO-002`.
+O programa não inventa coeficientes e não produz um Overall substituto quando o model artifact não satisfaz o contrato de validação.
 
 As dimensões continuam disponíveis para diagnóstico.
 
@@ -67,11 +67,11 @@ O split é determinístico por **domínio**, aproximadamente 70/30. Queries do m
 
 A cobertura temporal mínima impede promover um artifact sustentado apenas por múltiplas repetições concentradas no mesmo dia. O timestamp `observed_at` dos query-runs elegíveis é reduzido à data civil ISO e cada domínio precisa representar ao menos três datas distintas.
 
-Os números acima são gates internos versionados do RASAI; não são thresholds oficiais de GEO definidos por plataforma externa.
+Os números acima são gates internos versionados do RASAi; não são thresholds oficiais de GEO definidos por plataforma externa.
 
 ## Modelo
 
-Versão inicial:
+Parâmetros do contrato:
 
 ```text
 format_version = SG003-MODEL-001
@@ -167,7 +167,7 @@ SEARCHGEO_SCORE_GEO_003_MODEL
 
 ## Compatibilidade histórica
 
-`SCORE-GEO-002` permanece como versão histórica. Auditorias antigas não são recalculadas.
+Auditorias persistidas não são recalculadas automaticamente pela calibração ou pela geração de relatórios.
 
 Relatórios consolidados devem segmentar séries por `scoring_version`; uma mudança `002 → 003` é quebra metodológica e não deve ser apresentada como evolução contínua sem ressalva.
 
@@ -186,4 +186,4 @@ Cada auditoria gera `report/score-geo-003.html` com:
 
 ## Limite de interpretação
 
-O modelo mede **associação observacional** entre sinais RASAI e presença observada de citação no dataset utilizado. Ele não prova causalidade e não garante ranking, tráfego, conversão ou citação futura em qualquer engine.
+O modelo mede **associação observacional** entre sinais RASAi e presença observada de citação no dataset utilizado. Ele não prova causalidade e não garante ranking, tráfego, conversão ou citação futura em qualquer engine.

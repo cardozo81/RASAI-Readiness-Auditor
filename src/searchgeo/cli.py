@@ -1,4 +1,4 @@
-"""Command-line interface for RASAI — Search & AI Readiness Auditor."""
+"""Command-line interface for RASAi — Search & AI Readiness Auditor."""
 
 from __future__ import annotations
 
@@ -97,7 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", help="path to searchgeo.toml; currently used for application logging settings")
 
     subparsers = parser.add_subparsers(dest="command", required=True)
-    audit_parser = subparsers.add_parser("audit", help="execute a local RASAI readiness audit")
+    audit_parser = subparsers.add_parser("audit", help="execute a local RASAi readiness audit")
     audit_parser.add_argument(
         "target",
         nargs="*",
@@ -444,7 +444,7 @@ def main(argv: list[str] | None = None) -> int:
         elif web_runtime_failed:
             print(
                 "Web Performance externo: HABILITADO (INCOMPLETO por erro operacional do enriquecimento; "
-                "o resultado RASAI principal foi preservado)"
+                "o resultado RASAi principal foi preservado)"
             )
         print(f"Problemas identificados: {result.finding_count}")
         print(f"Recomendações: {result.recommendation_count}")

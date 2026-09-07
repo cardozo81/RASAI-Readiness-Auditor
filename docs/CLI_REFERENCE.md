@@ -1,6 +1,6 @@
 # Referência da CLI
 
-Referência operacional do **RASAI — Search & AI Readiness Auditor**.
+Referência operacional do **RASAi — Search & AI Readiness Auditor**.
 
 ## Entradas públicas
 
@@ -20,7 +20,7 @@ Aliases legados `searchgeo` e `searchgeo-console` permanecem por compatibilidade
 ## Opções globais
 
 - `-h`, `--help` — ajuda da superfície/comando.
-- `--version` — versão do RASAI quando exposta pelo router principal.
+- `--version` — identificador técnico do pacote quando necessário para diagnóstico; não representa uma versão comercial divulgada do produto.
 - `--config PATH` — arquivo de configuração do audit quando suportado pela CLI principal.
 
 ## `audit`
@@ -50,7 +50,7 @@ Default público de dispositivo: `mobile`. Override: `SEARCHGEO_DEVICE_CONTEXT`.
 
 ## SARI-001 / SCORE-GEO-003
 
-Novas auditorias usam `SCORE-GEO-003`; `SCORE-GEO-002` é histórico e não existe fallback silencioso para a aritmética anterior.
+As auditorias usam `SCORE-GEO-003`. Sem model artifact `VALIDATED`, o Overall permanece `NOT_CONSOLIDATED`; nenhum resultado substituto é produzido.
 
 Artifact padrão:
 
@@ -206,7 +206,7 @@ rasai visibility report --audit-id AUD-... --audits-root audits
 
 Página: `report/ai-visibility.html`.
 
-## RASAI Monitor
+## RASAi Monitor
 
 Todos os comandos são read-only sobre os `audit.db` fonte.
 
@@ -309,7 +309,7 @@ Discover:
 rasai observe google-ai-import --audit AUD-... --file genai-discover.csv --surface discover
 ```
 
-RASAI persiste apenas os campos presentes no export. Não inventa clicks, CTR, position, query ou citation count. Search/Discover possuem provenance separada.
+RASAi persiste apenas os campos presentes no export. Não inventa clicks, CTR, position, query ou citation count. Search/Discover possuem provenance separada.
 
 ### Google GenAI control
 
@@ -399,7 +399,7 @@ rasai observe crux-history `
 
 API key default: `SEARCHGEO_CRUX_API_KEY`. Override: `--key-env NAME`.
 
-## RASAI Quality
+## RASAi Quality
 
 Quality é derivado/read-only e não cria outro readiness score.
 
@@ -465,7 +465,7 @@ Tokens/keys são inputs de runtime e não são persistidos em sidecar/report.
 rasai-console
 ```
 
-`rasai-console.ini` armazena somente configuração não sensível. Monitoring, observability, quality e calibração permanecem superfícies especializadas da CLI nesta versão.
+`rasai-console.ini` armazena somente configuração não sensível. Monitoring, observability, quality e calibração permanecem superfícies especializadas da CLI na implementação atual.
 
 ## Referências internas
 

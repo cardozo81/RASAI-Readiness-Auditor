@@ -2,7 +2,7 @@
 
 Guia operacional do **Search & AI Readiness Index `SARI-001`**.
 
-## Versão vigente
+## Método de scoring
 
 Novas auditorias usam por padrão:
 
@@ -10,7 +10,6 @@ Novas auditorias usam por padrão:
 scoring_version = SCORE-GEO-003
 ```
 
-`SCORE-GEO-002` permanece histórico e não é recalculado.
 
 A mudança `002 → 003` é metodológica: as dimensões continuam determinísticas, mas o `OVERALL_READINESS` deixa de ser média simples e passa a depender de modelo empiricamente calibrado.
 
@@ -77,7 +76,7 @@ LOW         existe avaliação, mas critérios acima não foram satisfeitos
 UNAVAILABLE Coverage <= 0
 ```
 
-Esses thresholds continuam sendo governança interna versionada do RASAI.
+Esses thresholds continuam sendo governança interna versionada do RASAi.
 
 ## Consolidation da dimensão
 
@@ -111,7 +110,7 @@ Overall.consolidation_status = NOT_CONSOLIDATED
 limitation = CALIBRATION_MODEL_UNAVAILABLE:SCORE-GEO-003
 ```
 
-O RASAI não inventa coeficientes e não faz fallback silencioso para o Overall `002`.
+O RASAi não inventa coeficientes e não faz fallback silencioso para o Overall `002`.
 
 As dimensões continuam sendo calculadas e persistidas como `SCORE-GEO-003`.
 
@@ -227,7 +226,7 @@ Nenhuma reexecução de website ou IA deve ser necessária para reproduzir o cá
 
 `score-geo-003.html` expõe o contrato e o estado de calibração da auditoria, inclusive o gate temporal vigente.
 
-Relatórios consolidados devem segmentar séries por `scoring_version`. `SCORE-GEO-002` e `SCORE-GEO-003` não devem ser tratados como a mesma série sem ressalva explícita.
+Relatórios consolidados preservam e segmentam resultados por `scoring_version`, `model_version` e `dataset_version`, sem conversão silenciosa entre contratos metodológicos.
 
 ## Limite de validade
 

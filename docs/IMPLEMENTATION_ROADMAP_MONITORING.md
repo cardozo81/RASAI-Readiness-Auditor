@@ -1,4 +1,4 @@
-# RASAI Monitoring, Observability & Quality — Delivery Status
+# RASAi Monitoring, Observability & Quality — Delivery Status
 
 **Status:** IMPLEMENTED CANDIDATE — automated CI is mandatory on the current PR head; human smoke remains required before merge.
 **Branch:** `feat/rasai-monitoring-observability`
@@ -10,7 +10,7 @@
 
 - read-only comparison of persisted AUD workspaces;
 - explicit `REGRESSED`, `IMPROVED`, `CHANGED`, `NEW`, `RESOLVED`, `DATA_UNAVAILABLE` and `NOT_COMPARABLE` semantics;
-- no SCORE-GEO-002↔003 silent conversion;
+- no silent conversion between scoring contracts;
 - materiality thresholds per signal family;
 - deterministic Release Gate;
 - default fail-closed when the audit pair is not comparable;
@@ -109,7 +109,7 @@ The dedicated CI covers, in addition to repository-wide regressions:
 
 - `SARI-001` is the public readiness index;
 - `SCORE-GEO-003` is the current scoring runtime for new audits;
-- `SCORE-GEO-002` is historical;
+- `SCORE-GEO-003` is the scoring method used by the current pipeline;
 - observed outcomes do not automatically enter SARI/scoring;
 - Quality is decision-support, not another readiness score;
 - Monitoring detects change/association and does not infer causality.

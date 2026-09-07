@@ -25,7 +25,7 @@ PARAMETER_HELP: tuple[tuple[str, str, str], ...] = (
 )
 
 SPECIFIC_ENV_HELP: dict[str, tuple[str, str]] = {
-    "SEARCHGEO_CONFIG": ("Caminho/configuração geral consumida pelo RASAI quando aplicável.", COST_NONE),
+    "SEARCHGEO_CONFIG": ("Caminho/configuração geral consumida pelo RASAi quando aplicável.", COST_NONE),
     "SEARCHGEO_LOG_LEVEL": ("Nível de detalhamento do log operacional.", COST_NONE),
     "SEARCHGEO_DEVICE_CONTEXT": ("Default de dispositivo: mobile, desktop ou both.", COST_VOLUME + " quando both."),
     "SEARCHGEO_AI_TIMEOUT_SECONDS": ("Timeout máximo de uma tentativa de IA; não habilita retry automático.", "Não cria custo sozinho; chamada já processada externamente pode ser faturada conforme o provider."),
@@ -88,7 +88,7 @@ def environment_help(name: str) -> tuple[str, str]:
     if upper.endswith("_REASONING_EFFORT"):
         return ("Controla o esforço de reasoning quando suportado.", COST_EXTERNAL + ": custo/processamento pode aumentar com esforço maior conforme o provider.")
     return (
-        "Variável reconhecida pelo RASAI; consulte a referência de configuração para o contrato completo.",
+        "Variável reconhecida pelo RASAi; consulte a referência de configuração para o contrato completo.",
         "Impacto financeiro não classificado automaticamente; valide a integração associada.",
     )
 

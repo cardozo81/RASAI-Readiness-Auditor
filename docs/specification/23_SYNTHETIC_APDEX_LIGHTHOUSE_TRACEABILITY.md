@@ -2,7 +2,7 @@
 
 **Status:** INTEGRADO — smoke humano controlado aprovado antes do merge.
 **Escopo:** Web Performance sintética e rastreabilidade de configuração Lighthouse.
-**Não altera:** `BR-GEO-*`, `SCORE-GEO-002`, Coverage, Confidence, Consolidation, findings GEO ou recomendações GEO.
+**Não altera:** `BR-GEO-*`, `SARI-001`, Coverage, Confidence, Consolidation, findings GEO ou recomendações GEO.
 
 ## 1. Objetivo
 
@@ -53,7 +53,7 @@ Falha da ferramenta em iniciar/aplicar browser, CPU ou rede é amostra inválida
 
 Synthetic Navigation Apdex é default OFF.
 
-Quando habilitado, `T` é obrigatório via CLI ou ambiente. O RASAI não inventa T a partir de Lighthouse, LCP, INP, CLS ou tempos históricos.
+Quando habilitado, `T` é obrigatório via CLI ou ambiente. O RASAi não inventa T a partir de Lighthouse, LCP, INP, CLS ou tempos históricos.
 
 O timeout por amostra deve ser estritamente maior que `4T` para não truncar artificialmente a faixa Frustrated.
 
@@ -185,13 +185,13 @@ A página deve mostrar:
 - rastreabilidade Lighthouse quando existente;
 - ambiente do executor;
 - aviso de carga;
-- separação explícita de SCORE-GEO-002, Lighthouse, CrUX e IA.
+- separação explícita de SARI-001, Lighthouse, CrUX e IA.
 
 `apdex.html` participa do menu canônico somente quando o arquivo existir.
 
 ## 12. Fail-open
 
-Synthetic Navigation Apdex é downstream da auditoria RASAI principal.
+Synthetic Navigation Apdex é downstream da auditoria RASAi principal.
 
 Falha de Synthetic Navigation Apdex:
 
@@ -229,7 +229,7 @@ Resultado aprovado:
 - `apdex.html` materializado e validado visualmente;
 - menu canônico validado;
 - console com item `11. Synthetic Navigation Apdex` validado;
-- nenhum impacto em `SCORE-GEO-002`;
+- nenhum impacto em `SARI-001`;
 - 0 chamadas LLM adicionais;
 - 0 chamadas PageSpeed/CrUX adicionadas por Synthetic Navigation Apdex.
 
