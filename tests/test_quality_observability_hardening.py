@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sqlite3
@@ -189,8 +188,7 @@ def _sidecar_dataset(
 
 def test_obs001_migration_preserves_rows_and_allows_reused_local_record_id() -> None:
     with tempfile.TemporaryDirectory() as directory:
-        root = Path(directory)
-        workspace = root / "AUD-LEGACY"
+        workspace = Path(directory) / "AUD-LEGACY"
         workspace.mkdir()
         (workspace / "audit.db").write_bytes(b"")
         connection = sqlite3.connect(workspace / "observability.db")
@@ -214,7 +212,6 @@ def test_obs001_migration_preserves_rows_and_allows_reused_local_record_id() -> 
             connection.commit()
         finally:
             connection.close()
-
         with ObservabilityStore(workspace) as store:
             pk = [
                 str(row[1])
@@ -245,12 +242,8 @@ def test_gsc_max_rows_is_true_cap_and_search_appearance_is_distinct_source() -> 
             rows = []
             for index in range(int(payload["rowLimit"])):
                 mapping = {
-                    "date": "2026-08-31",
-                    "query": f"q{index}",
-                    "page": "https://example.test/a",
-                    "device": "mobile",
-                    "country": "bra",
-                    "searchAppearance": "AMP_ARTICLE",
+                    "date": "2026-08-31", "query": f"q{index}", "page": "https://example.test/a",
+                    "device": "mobile", "country": "bra", "searchAppearance": "AMP_ARTICLE",
                 }
                 rows.append({
                     "keys": [mapping[name] for name in dimensions],
@@ -308,9 +301,12 @@ def test_gsc_sites_and_sitemaps_are_read_only_and_do_not_persist_token() -> None
             for row in datasets:
                 artifact = workspace / row["artifact_path"]
                 assert "never-store-me" not in artifact.read_text(encoding="utf-8")
-            sitemap_meta = next(json.loads(row["metadata"]) for row in datasets if row["source_type"] == "GOOGLE_SEARCH_CONSOLE_SITEMAPS")
+            sitemap_meta = next(
+                json.loads(row["metadata"])
+                for row in datasets if row["source_type"] == "GOOGLE_SEARCH_CONSOLE_SITEMAPS"
+            )
             assert sitemap_meta["indexed_field_policy"] == "DEPRECATED_FIELD_NOT_USED"
-            assert "indexed" not in json.dumps(sitemap_meta)
+            assert sitemap_meta["sitemaps"][0]["submitted"] == [{"submitted": "10", "type": "web"}]
 
 
 def test_google_genai_import_keeps_missing_metrics_unavailable_and_surfaces_separate() -> None:
@@ -406,7 +402,6 @@ def test_quality_report_content_controls_and_freshness_use_persisted_audit_date(
         assert controls[0].max_snippet == 50
         assert controls[0].data_nosnippet_count == 1
         assert controls[0].interpretation == "DIRECT_SNIPPET_USE_RESTRICTED"
-
         diagnostics = analyze_workspace(workspace)
         future = next(item for item in diagnostics.diagnostics if item.code == "FRESHNESS-FUTURE-DATE")
         assert future.evidence and future.evidence["analysis_date"] == "2026-09-01"
