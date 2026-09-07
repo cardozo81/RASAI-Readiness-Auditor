@@ -40,6 +40,18 @@ def _comparison(baseline: AuditIndexRecord, current: AuditIndexRecord) -> Compar
     return compare_audits(Path(baseline.workspace_path), Path(current.workspace_path))
 
 
+def _belongs_to_scope(
+    store: PlatformStore,
+    audit: AuditIndexRecord,
+    property_id: str,
+    environment_id: str,
+) -> bool:
+    checker = getattr(store, "audit_belongs_to_scope", None)
+    if callable(checker):
+        return bool(checker(audit.audit_id, property_id, environment_id))
+    return audit.property_id == property_id and audit.environment_id == environment_id
+
+
 def resolve_deployment_pair(
     store: PlatformStore,
     milestone: str | Milestone,
@@ -52,7 +64,9 @@ def resolve_deployment_pair(
 
     AUTO searches the closest prior/posterior pair that ``compare_audits`` marks
     comparable. GOLDEN uses the approved baseline and the first compatible
-    post-milestone audit. EXPLICIT requires caller-provided IDs.
+    post-milestone audit. EXPLICIT requires caller-provided IDs. Canonical stores
+    evaluate membership against all property/environment links of multi-domain
+    audits rather than only the legacy primary property.
     """
     item = store.get_milestone(milestone) if isinstance(milestone, str) else milestone
     if item is None:
@@ -65,7 +79,7 @@ def resolve_deployment_pair(
         current = store.get_audit(current_audit_id)
         if current is None:
             raise KeyError(f"current audit not indexed: {current_audit_id}")
-        if current.property_id != item.property_id or current.environment_id != item.environment_id:
+        if not _belongs_to_scope(store, current, item.property_id, item.environment_id):
             raise ValueError("current audit does not belong to milestone property/environment")
         after = [current]
 
@@ -76,11 +90,8 @@ def resolve_deployment_pair(
         current = store.get_audit(current_audit_id)
         if baseline is None or current is None:
             raise KeyError("explicit baseline/current audit must both be indexed")
-        if (
-            baseline.property_id != item.property_id
-            or baseline.environment_id != item.environment_id
-            or current.property_id != item.property_id
-            or current.environment_id != item.environment_id
+        if not _belongs_to_scope(store, baseline, item.property_id, item.environment_id) or not _belongs_to_scope(
+            store, current, item.property_id, item.environment_id
         ):
             raise ValueError("explicit audit pair must belong to milestone property/environment")
         comparison = _comparison(baseline, current)
@@ -108,6 +119,8 @@ def resolve_deployment_pair(
         golden = store.get_audit(golden_id)
         if golden is None:
             raise KeyError(f"golden baseline is not indexed: {golden_id}")
+        if not _belongs_to_scope(store, golden, item.property_id, item.environment_id):
+            raise ValueError("golden baseline does not belong to milestone property/environment")
         for candidate in after:
             comparison = _comparison(golden, candidate)
             if comparison.comparable:
@@ -140,7 +153,7 @@ def resolve_deployment_pair(
         explicit_baseline = store.get_audit(baseline_audit_id)
         if explicit_baseline is None:
             raise KeyError(f"baseline audit not indexed: {baseline_audit_id}")
-        if explicit_baseline.property_id != item.property_id or explicit_baseline.environment_id != item.environment_id:
+        if not _belongs_to_scope(store, explicit_baseline, item.property_id, item.environment_id):
             raise ValueError("baseline audit does not belong to milestone property/environment")
         before = [explicit_baseline]
 
