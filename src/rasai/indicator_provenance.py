@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from html import escape
 
-VERIFIED_ON = "2026-09-06"
+VERIFIED_ON = "2026-09-07"
 PROVENANCE_MARKER = "rasai-indicator-provenance-v1"
 
 
@@ -30,7 +30,6 @@ _CLASS_LABELS = {
     "OFFICIAL_PLATFORM_GUIDANCE": "Orientação oficial de plataforma",
     "EXTERNAL_DEFINED_METRIC": "Métrica externa definida",
     "RASAI_HEURISTIC": "Heurística RASAi",
-    "RASAI_CALIBRATED": "Métrica RASAi calibrada",
     "OPERATIONAL_TELEMETRY": "Telemetria operacional",
     "AI_DERIVED_ADVISORY": "Análise/sugestão por IA",
 }
@@ -40,10 +39,10 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "Search & AI Readiness Index (SARI-001)",
         "RASAI_HEURISTIC",
         "RASAi",
-        "SCORE-GEO-003 vigente / SCORE-GEO-002 histórico / SCORING_GUIDE",
+        "SCORE-GEO-004 / SCORING_GUIDE",
         None,
-        "Não existe score GEO/AEO 0-100 universal homologado usado por esta saída.",
-        "O índice permanece proprietário: SCORE-GEO-003 mantém dimensões determinísticas e calibra o Overall contra presença observada de citação; SCORE-GEO-002 permanece histórico. Sem artifact VALIDATED, o Overall 003 não é consolidado.",
+        "Não existe score GEO/AEO universal homologado usado por esta saída.",
+        "SCORE-GEO-004 calcula dimensões evidence-bound e Overall determinístico de igual peso entre dimensões aplicáveis. Coverage e Confidence qualificam a força da medição; o índice não é probabilidade de ranking ou citação.",
     ),
     IndicatorProvenance(
         "Coverage / Confidence / Consolidation",
@@ -52,7 +51,7 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "SCORING_GUIDE",
         None,
         "Não há thresholds GEO universais externos para estes estados.",
-        "Coverage mede universo aplicável avaliado; Confidence do Overall é limitada pela evidência das dimensões e pela Confidence do artifact de calibração.",
+        "Coverage mede completude do universo aplicável; Confidence mede força da medição; Consolidation informa se os gates internos permitem publicar uma conclusão agregada.",
     ),
     IndicatorProvenance(
         "BR-GEO-001..054",
@@ -61,7 +60,7 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "RULES_GUIDE / referências por BR-GEO",
         None,
         "Cada regra pode ter base OFFICIAL, STANDARD, HEURISTIC ou executor interno; a natureza é individual.",
-        "O report preserva a base e a fonte por regra; uma referência externa não transforma uma heurística em standard.",
+        "O relatório preserva a base e a fonte por regra; uma referência externa não transforma uma heurística RASAi em standard externo.",
     ),
     IndicatorProvenance(
         "HTTP / status / redirects",
@@ -87,8 +86,8 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "Chrome / web.dev",
         "Web Vitals",
         "https://web.dev/articles/vitals",
-        "Métricas, avaliação no percentil 75 e thresholds recomendados são definidos externamente pelo programa Core Web Vitals.",
-        "RASAi coleta PageSpeed/CrUX, preserva source/scope e não os converte diretamente em SCORE-GEO-003.",
+        "Métricas, avaliação no percentil 75 e thresholds recomendados são definidos pelo programa Core Web Vitals.",
+        "RASAi coleta PageSpeed/CrUX, preserva source/scope e não converte esses valores em SCORE-GEO-004.",
     ),
     IndicatorProvenance(
         "Lighthouse Performance",
@@ -97,7 +96,7 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "Performance scoring",
         "https://developer.chrome.com/docs/lighthouse/performance/performance-scoring",
         "Score, pesos e curvas pertencem ao Lighthouse e podem evoluir com a versão da ferramenta.",
-        "RASAi persiste versão/resultado e o apresenta separado do índice RASAi.",
+        "RASAi persiste versão/resultado e apresenta a métrica separada do SARI-001.",
     ),
     IndicatorProvenance(
         "Lighthouse Accessibility",
@@ -123,8 +122,8 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "Apdex Users Group / Apdex Alliance",
         "Apdex Technical Specification",
         "https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf",
-        "Fórmula, zonas Satisfied/Tolerating/Frustrated, faixas qualitativas e tratamento de small groups vêm da especificação Apdex.",
-        "O threshold T é configurado pelo operador; perfil sintético, limites operacionais e coleta Chromium são declarados separadamente pelo RASAi.",
+        "Fórmula, zonas Satisfied/Tolerating/Frustrated e tratamento de small groups vêm da especificação Apdex.",
+        "O threshold T é configurado pelo operador; perfil sintético e coleta Chromium são declarados separadamente pelo RASAi.",
     ),
     IndicatorProvenance(
         "E-E-A-T / YMYL / people-first",
@@ -132,8 +131,8 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "Google Search Central",
         "Creating helpful, reliable, people-first content",
         "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
-        "Google usa E-E-A-T/YMYL como orientação conceitual de qualidade; E-E-A-T não é exposto como fator numérico específico de ranking.",
-        "RASAi usa o contexto para tornar a análise de conteúdo menos generalista, sem criar score E-E-A-T/YMYL oficial.",
+        "Google usa E-E-A-T/YMYL como orientação conceitual de qualidade; não expõe um E-E-A-T Score oficial.",
+        "RASAi usa o contexto para aumentar rigor da análise de conteúdo sem criar score oficial E-E-A-T/YMYL.",
     ),
     IndicatorProvenance(
         "Structured Data / JSON-LD guidance",
@@ -142,16 +141,16 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "General Structured Data Guidelines",
         "https://developers.google.com/search/docs/appearance/structured-data/sd-policies",
         "Políticas de coerência, relevância e elegibilidade são documentadas pelo Google; Schema.org fornece o vocabulário.",
-        "RASAi propõe/revisa marcação de forma conservadora e não promete rich result nem benefício GEO.",
+        "RASAi propõe/revisa marcação de forma conservadora e não promete rich result ou benefício em AI Search.",
     ),
     IndicatorProvenance(
         "IA semântica / sugestões de conteúdo",
         "AI_DERIVED_ADVISORY",
         "RASAi + provider configurado",
-        "Contrato evidence-bound Análise semântica por IA, roteamento e telemetria/Sugestões e remediação de conteúdo por IA",
+        "Contrato evidence-bound da análise semântica e remediação",
         None,
         "Não existe homologação externa da conclusão produzida pelo LLM para a página auditada.",
-        "Provider/model/reasoning/evidências/confiança da sugestão são rastreados; saída é advisory e requer revisão humana.",
+        "Provider/model/evidências/confiança são rastreados; saída é advisory e requer revisão humana.",
     ),
     IndicatorProvenance(
         "Tokens / duração / custo estimado de IA",
@@ -159,7 +158,7 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "Provider + RASAi",
         "Telemetria persistida por tentativa",
         None,
-        "Tokens/duração podem vir do provider/runtime; não medem qualidade do website.",
+        "Tokens/duração podem vir do provider/runtime e não medem qualidade do website.",
         "Custo é estimativa local baseada em pricing versionado quando disponível e nunca é apresentado como invoice.",
     ),
 )
@@ -169,9 +168,13 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
         "Painel multimetodológico",
         "O dashboard resume resultados finais sem fundir metodologias: SARI-001 é proprietário; Core Web Vitals, Lighthouse e Apdex mantêm suas definições externas.",
     ),
-    "score-geo-003.html": (
-        "Metodologia calibrada RASAi",
-        "Esta página expõe modelo, dataset, promotion gate e limites do SCORE-GEO-003 sem alterar medições persistidas.",
+    "readiness.html": (
+        "Heurística RASAi evidence-based",
+        "SARI-001 usa SCORE-GEO-004 com Overall determinístico, Coverage, Confidence e Consolidation explicitamente separados.",
+    ),
+    "score-geo-004.html": (
+        "Metodologia RASAi reproduzível",
+        "A página expõe fórmula, gates e limites do SCORE-GEO-004 sem alterar medições persistidas.",
     ),
     "mobile.html": (
         "Evidências RASAi por dispositivo",
@@ -182,12 +185,12 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
         "Esta página contém findings e evidências Desktop. Indicadores agregados RASAi ficam exclusivamente em Search & AI Readiness; a base de cada BR-GEO é rastreável em Referências e metodologia.",
     ),
     "remediation.html": (
-        "Recomendação derivada de finding evidence-backed",
-        "A origem normativa varia por BR-GEO. A referência oficial aplicável é exibida quando existe; heurística permanece identificada como interna.",
+        "Recomendação derivada de finding evidence-bound",
+        "A origem normativa varia por BR-GEO. A referência aplicável é exibida quando existe; heurística permanece identificada como interna.",
     ),
     "content-suggestions.html": (
         "IA advisory + orientação oficial de conteúdo",
-        "E-E-A-T/YMYL condicionam a análise como contexto oficial do Google; o texto proposto é saída de IA evidence-bound e requer revisão humana.",
+        "E-E-A-T/YMYL condicionam a análise como contexto; texto proposto por IA requer revisão humana.",
     ),
     "accessibility.html": (
         "Standard W3C + métrica automatizada Lighthouse",
@@ -195,11 +198,11 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
     ),
     "web-performance.html": (
         "Métricas externas definidas",
-        "Core Web Vitals e Lighthouse preservam metodologia/thresholds externos. RASAi coleta e contextualiza sem convertê-los em SARI-001; eles não entram diretamente no SCORE-GEO-003.",
+        "Core Web Vitals e Lighthouse preservam metodologia externa. RASAi coleta e contextualiza sem convertê-los em SARI-001 ou SCORE-GEO-004.",
     ),
     "apdex.html": (
         "Método Apdex externo + T configurado pelo operador",
-        "Fórmula/faixas vêm da especificação Apdex; T e o perfil sintético efetivamente usados devem ser lidos junto ao resultado.",
+        "Fórmula/faixas vêm da especificação Apdex; T e perfil sintético efetivamente usados devem ser lidos junto ao resultado.",
     ),
     "ai-usage.html": (
         "Telemetria operacional",
@@ -207,53 +210,24 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
     ),
 }
 
-_LEGACY_RASAI_SUMMARY = (
-    "Heurística RASAi evidence-based",
-    "SARI-001 nesta auditoria usa o SCORE-GEO-002 persistido. Esta apresentação não recalcula auditorias históricas; a aritmética e a interpretação originais permanecem e não são reinterpretadas como SCORE-GEO-003.",
-)
-_CURRENT_RASAI_SUMMARY = (
-    "SCORE-GEO-003 calibrado + dimensões evidence-based",
-    "SARI-001 centraliza Overall, dimensões, Coverage, Confidence e Consolidation. O Overall só consolida com artifact de calibração VALIDATED; SCORE-GEO-002 permanece histórico e não é recalculado.",
-)
-
 
 def enrich_indicator_provenance_html(html: str, *, page_name: str) -> str:
     """Make methodological provenance explicit without changing measured values."""
-    rasai_003 = page_name == "readiness.html" and "SCORE-GEO-003" in html
-    if rasai_003:
-        html = _rewrite_score_geo_003_rasai(html)
     if PROVENANCE_MARKER in html:
         return html
     if page_name == "references.html":
         addition = _reference_panel()
     else:
-        if page_name == "readiness.html":
-            summary = _CURRENT_RASAI_SUMMARY if rasai_003 else _LEGACY_RASAI_SUMMARY
-        else:
-            summary = _PAGE_SUMMARY.get(page_name)
+        summary = _PAGE_SUMMARY.get(page_name)
         if summary is None:
             return html
         label, detail = summary
         addition = (
             f"<section class='notice' data-provenance='{PROVENANCE_MARKER}'>"
             f"<strong>Natureza dos indicadores:</strong> {escape(label)}. {escape(detail)} "
-            "<a href='references.html#indicator-provenance'>Ver fonte, fórmula e parte interna de cada indicador →</a></section>"
+            "<a href='references.html#indicator-provenance'>Ver fonte, fórmula e limite metodológico</a></section>"
         )
     return html.replace("</header>", "</header>" + addition, 1)
-
-
-def _rewrite_score_geo_003_rasai(html: str) -> str:
-    replacements = (
-        ("<small>Natureza</small><strong>Heurística RASAi</strong>", "<small>Natureza</small><strong>Calibrado + determinístico</strong>"),
-        ("<h3>Overall Readiness</h3><p>Média simples das dimensões aplicáveis suficientemente consolidadas. Dimensão legitimamente NOT_APPLICABLE não recebe zero.</p>", "<h3>Overall Readiness</h3><p><code>100 × sigmoid(β0 + Σ βi × feature_i)</code>, usando coeficientes de artifact de calibração VALIDATED. Sem modelo validado, Overall não é consolidado.</p>"),
-        ("<h3>Confidence</h3><p>Qualifica a força da conclusão com thresholds internos versionados. Não é score de conteúdo nem probabilidade estatística.</p>", "<h3>Confidence</h3><p>É limitada pela evidência/cobertura das dimensões e pela Confidence do artifact de calibração. Não é garantia de citação futura.</p>"),
-        ("pesos, fatores WARNING, thresholds de Confidence/Consolidation e faixas visuais são decisões metodológicas do RASAi", "fatores das dimensões e thresholds operacionais continuam versionados; coeficientes do Overall vêm do artifact SCORE-GEO-003 validado"),
-        ("Esta auditoria não transforma readiness em suposta probabilidade de citação.", "O Overall calibrado modela associação com presença observada de citação, mas não constitui garantia nem causalidade de citação futura."),
-        ("esta mudança de relatório não recalcula auditorias, não altera pesos e não quebra comparabilidade histórica", "auditorias SCORE-GEO-002 históricas não são recalculadas; séries entre versões exigem segmentação metodológica"),
-    )
-    for old, new in replacements:
-        html = html.replace(old, new)
-    return html
 
 
 def _reference_panel() -> str:
@@ -263,27 +237,25 @@ def _reference_panel() -> str:
         if item.source_url:
             source = (
                 f"<a href='{escape(item.source_url, quote=True)}' target='_blank' rel='noopener'>"
-                f"{escape(item.authority)} - {escape(item.source_title)} ↗</a>"
+                f"{escape(item.authority)} - {escape(item.source_title)}</a>"
             )
         else:
             source = f"{escape(item.authority)} - {escape(item.source_title)}"
         rows.append(
             "<tr>"
             f"<td><strong>{escape(item.indicator)}</strong></td>"
-            f"<td><span class='badge info' title='Classificação metodológica do indicador'>{escape(label)}</span></td>"
+            f"<td><span class='badge'>{escape(label)}</span></td>"
             f"<td>{source}</td>"
             f"<td>{escape(item.external_logic)}</td>"
             f"<td>{escape(item.rasai_logic)}</td>"
             "</tr>"
         )
-    legend = " · ".join(f"<span class='badge'>{escape(label)}</span>" for label in _CLASS_LABELS.values())
     return (
         f"<section id='indicator-provenance' class='panel' data-provenance='{PROVENANCE_MARKER}'>"
         "<div class='kicker'>Proveniência metodológica</div><h2>De onde vem cada indicador</h2>"
-        "<p class='intro'>Esta tabela separa standard externo, orientação oficial, métrica definida por terceiros, observação, "
-        "heurística/calibração RASAi, IA advisory e telemetria. Uma fonte oficial sustenta apenas o fenômeno indicado; não homologa automaticamente o SARI-001.</p>"
-        f"<p class='intro'><strong>Classificações:</strong> {legend}</p>"
-        f"<div class='notice'><strong>Referências verificadas em:</strong> {VERIFIED_ON}. Links externos apontam para fontes primárias/oficiais quando disponíveis.</div>"
-        "<div class='table-wrap'><table><thead><tr><th>Indicador</th><th>Natureza</th><th>Fonte / entidade</th><th>Lógica externa</th><th>Aplicação RASAi</th></tr></thead>"
-        f"<tbody>{''.join(rows)}</tbody></table></div></section>"
+        "<p class='intro'>Fontes externas sustentam fenômenos, standards ou métricas específicas. "
+        "Elas não homologam automaticamente o SARI-001 nem o SCORE-GEO-004.</p>"
+        "<div class='table-wrap'><table><thead><tr><th>Indicador</th><th>Classe</th><th>Fonte/autoridade</th><th>Parte externa</th><th>Parte RASAi</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+        f"<p class='intro'>Referências verificadas em {VERIFIED_ON}.</p></section>"
     )
