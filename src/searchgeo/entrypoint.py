@@ -32,11 +32,11 @@ def _try_refresh_platform_index(argv: list[str]) -> None:
     audit. Any platform indexing error is therefore logged and kept fail-open.
     """
     try:
+        from searchgeo.platform.central_store import CentralPlatformStore
         from searchgeo.platform.indexing import index_audits
-        from searchgeo.platform.store import PlatformStore
 
         root = _audits_root(argv)
-        with PlatformStore.open(root) as store:
+        with CentralPlatformStore.open(root) as store:
             index_audits(store, root, strict=False)
     except Exception:
         _LOGGER.exception("RASAI platform index refresh failed after successful audit")
@@ -61,7 +61,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         from searchgeo.quality.cli import main as quality_main
         return quality_main(effective[1:])
     if effective and effective[0] == "platform":
-        from searchgeo.platform.cli import main as platform_main
+        from searchgeo.platform.canonical_cli import main as platform_main
         return platform_main(effective[1:])
     code = cli_extensions.main(effective)
     if code == 0 and effective and effective[0] == "audit":
