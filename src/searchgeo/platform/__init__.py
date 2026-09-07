@@ -22,11 +22,13 @@ from .models import (
     User,
     Workspace,
 )
-from .store import PlatformStore, default_platform_database
+from .central_store import CentralPlatformStore, CentralPlatformStore as PlatformStore
+from .store import default_platform_database
 
 __all__ = [
     "AlertRule",
     "AuditIndexRecord",
+    "CentralPlatformStore",
     "DeploymentPair",
     "Environment",
     "Integration",
