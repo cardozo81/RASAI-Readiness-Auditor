@@ -103,7 +103,12 @@ def _max_snippet(text: str) -> int | None:
 def _read(workspace: Path, reference: Any) -> str | None:
     if not reference:
         return None
-    path = workspace / str(reference)
+    try:
+        root = workspace.resolve()
+        path = (workspace / str(reference)).resolve()
+        path.relative_to(root)
+    except (OSError, ValueError):
+        return None
     if not path.is_file():
         return None
     try:
@@ -124,6 +129,8 @@ def _json(value: Any, default: Any) -> Any:
 
 
 def _ro(database: Path) -> sqlite3.Connection:
+    if not database.is_file():
+        raise FileNotFoundError(database)
     connection = sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA query_only=ON")
