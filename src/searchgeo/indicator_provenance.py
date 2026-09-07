@@ -209,7 +209,7 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
 
 _LEGACY_SEARCHGEO_SUMMARY = (
     "Heurística SearchGEO evidence-based",
-    "Esta apresentação não recalcula auditorias históricas. O SCORE-GEO-002 persistido mantém sua aritmética e interpretação originais; ele não é reinterpretado como SCORE-GEO-003.",
+    "SGRI-001 nesta auditoria usa o SCORE-GEO-002 persistido. Esta apresentação não recalcula auditorias históricas; a aritmética e a interpretação originais permanecem e não são reinterpretadas como SCORE-GEO-003.",
 )
 _CURRENT_SEARCHGEO_SUMMARY = (
     "SCORE-GEO-003 calibrado + dimensões evidence-based",
