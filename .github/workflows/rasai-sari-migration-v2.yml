@@ -1,0 +1,339 @@
+name: RASAI SARI migration v2
+
+on:
+  push:
+    branches:
+      - feature/rasai-sari-rebrand
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-and-validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: feature/rasai-sari-rebrand
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Apply compatibility-safe public rebrand
+        shell: bash
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          from pathlib import Path
+          import re
+          import subprocess
+
+          root = Path('.')
+          excluded_workflows = {
+              '.github/workflows/rasai-sari-migration.yml',
+              '.github/workflows/rasai-sari-migration-v2.yml',
+          }
+          tracked = subprocess.check_output(['git', 'ls-files'], text=True).splitlines()
+          text_suffixes = {'.py', '.md', '.cmd', '.toml', '.yml', '.yaml', '.txt', '.html'}
+
+          for name in tracked:
+              if name in excluded_workflows:
+                  continue
+              path = root / name
+              if path.suffix.lower() not in text_suffixes and path.name != 'README.md':
+                  continue
+              try:
+                  text = path.read_bytes().decode('utf-8')
+              except (UnicodeDecodeError, OSError):
+                  continue
+
+              original = text
+              text = text.replace('SearchGEO Readiness Auditor', 'RASAI — Search & AI Readiness Auditor')
+              text = text.replace('SearchGEO Readiness Index', 'Search & AI Readiness Index')
+              text = text.replace('SearchGEO Readiness', 'Search & AI Readiness')
+              text = text.replace('SearchGEO', 'RASAI')
+              text = text.replace('SGRI-001', 'SARI-001')
+              text = re.sub(r'\bSGRI\b', 'SARI', text)
+              text = text.replace('searchgeo.html', 'readiness.html')
+              text = text.replace('Compatibilidade GEO', 'Readiness Search & AI')
+              text = text.replace('compatibilidade GEO', 'readiness Search & AI')
+
+              if path.suffix.lower() in {'.md', '.cmd'} or path.name == 'README.md':
+                  text = text.replace('searchgeo-console', 'rasai-console')
+                  text = re.sub(r'(?<![\w./-])searchgeo(?=\s+(?:audit|visibility|scoring|--version))', 'rasai', text)
+
+              if path.suffix.lower() == '.py':
+                  text = text.replace('prog="searchgeo visibility"', 'prog="rasai visibility"')
+                  text = text.replace('prog="searchgeo scoring"', 'prog="rasai scoring"')
+                  text = text.replace('prog="searchgeo"', 'prog="rasai"')
+                  text = text.replace("prog='searchgeo visibility'", "prog='rasai visibility'")
+                  text = text.replace("prog='searchgeo scoring'", "prog='rasai scoring'")
+                  text = text.replace("prog='searchgeo'", "prog='rasai'")
+
+              if text != original:
+                  path.write_bytes(text.encode('utf-8'))
+
+          pyproject = root / 'pyproject.toml'
+          text = pyproject.read_text(encoding='utf-8')
+          if 'rasai = "searchgeo.entrypoint:main"' not in text:
+              text = text.replace(
+                  '[project.scripts]\n',
+                  '[project.scripts]\nrasai = "searchgeo.entrypoint:main"\nrasai-console = "searchgeo.console_entrypoint:main"\n',
+                  1,
+              )
+          text = re.sub(
+              r'^description = .*$',
+              'description = "RASAI — Search & AI readiness auditor. Legacy Python namespace retained for compatibility."',
+              text,
+              flags=re.MULTILINE,
+          )
+          pyproject.write_text(text, encoding='utf-8', newline='\n')
+
+          (root / 'src/searchgeo/branding.py').write_text(
+              '''"""Public RASAI/SARI identity and compatibility contract."""
+
+          PRODUCT_NAME = "RASAI"
+          PRODUCT_EXPANSION = "Readiness Assessment for Search & AI"
+          PRODUCT_DESCRIPTOR = "Search & AI Readiness Auditor"
+          PRODUCT_DISPLAY_NAME = f"{PRODUCT_NAME} — {PRODUCT_DESCRIPTOR}"
+          FRAMEWORK_NAME = "RASAI Framework"
+
+          PUBLIC_INDEX_NAME = "Search & AI Readiness Index"
+          PUBLIC_INDEX_VERSION = "SARI-001"
+          LEGACY_PUBLIC_INDEX_VERSION = "SGRI-001"
+
+          CANONICAL_READINESS_REPORT = "readiness.html"
+          LEGACY_READINESS_REPORT = "searchgeo.html"
+
+          PRIMARY_CLI = "rasai"
+          PRIMARY_CONSOLE_CLI = "rasai-console"
+          LEGACY_CLI = "searchgeo"
+          LEGACY_CONSOLE_CLI = "searchgeo-console"
+          ''',
+              encoding='utf-8',
+              newline='\n',
+          )
+
+          reporting = root / 'src/searchgeo/searchgeo_readiness_reporting.py'
+          text = reporting.read_text(encoding='utf-8')
+          if 'from searchgeo.branding import (' not in text:
+              text = text.replace(
+                  'from searchgeo import report_navigation\n',
+                  '''from searchgeo import report_navigation
+          from searchgeo.branding import (
+              CANONICAL_READINESS_REPORT,
+              LEGACY_PUBLIC_INDEX_VERSION,
+              LEGACY_READINESS_REPORT,
+              PUBLIC_INDEX_VERSION,
+          )
+          ''',
+                  1,
+              )
+          text = text.replace(
+              'SEARCHGEO_FILE = "readiness.html"\nPUBLIC_METHOD_VERSION = "SARI-001"\n',
+              'SEARCHGEO_FILE = CANONICAL_READINESS_REPORT\nPUBLIC_METHOD_VERSION = PUBLIC_INDEX_VERSION\nLEGACY_SEARCHGEO_FILE = LEGACY_READINESS_REPORT\nLEGACY_PUBLIC_METHOD_VERSION = LEGACY_PUBLIC_INDEX_VERSION\n',
+              1,
+          )
+          text = text.replace('("RASAI Readiness", SEARCHGEO_FILE)', '("SARI Readiness", SEARCHGEO_FILE)')
+          old_tail = '''    report_navigation.normalize_report_navigation(report_dir)
+              _post_normalize_language(report_dir)
+              return searchgeo_path
+          '''
+          new_tail = '''    report_navigation.normalize_report_navigation(report_dir)
+              _post_normalize_language(report_dir)
+
+              legacy_path = report_dir / LEGACY_SEARCHGEO_FILE
+              legacy_path.write_text(
+                  _legacy_readiness_redirect(),
+                  encoding="utf-8",
+                  newline="\\n",
+              )
+              return searchgeo_path
+          '''
+          text = text.replace(old_tail, new_tail, 1)
+          if 'def _legacy_readiness_redirect()' not in text:
+              helper = '''\n\ndef _legacy_readiness_redirect() -> str:
+              """Keep old report bookmarks functional without duplicating analytics."""
+              return f"""<!doctype html>
+              <html lang='pt-BR'><head><meta charset='utf-8'>
+              <meta http-equiv='refresh' content='0; url={SEARCHGEO_FILE}'>
+              <link rel='canonical' href='{SEARCHGEO_FILE}'>
+              <title>RASAI — relatório legado</title></head>
+              <body><p>Este endereço é legado. Abra <a href='{SEARCHGEO_FILE}'>{SEARCHGEO_FILE}</a>.</p></body></html>\\n"""
+          '''
+              text = text.replace('\ndef _register_navigation() -> None:\n', helper + '\ndef _register_navigation() -> None:\n', 1)
+          reporting.write_text(text, encoding='utf-8', newline='\n')
+
+          console_runtime = root / 'src/searchgeo/console_runtime.py'
+          text = console_runtime.read_text(encoding='utf-8')
+          if 'from searchgeo.branding import PRODUCT_DISPLAY_NAME' not in text:
+              text = text.replace(
+                  'from searchgeo import __version__\n',
+                  'from searchgeo import __version__\nfrom searchgeo.branding import PRODUCT_DISPLAY_NAME\n',
+                  1,
+              )
+          text = text.replace(
+              'print(f"RASAI — Search & AI Readiness Auditor | versão {__version__}")',
+              'print(f"{PRODUCT_DISPLAY_NAME} | versão {__version__}")',
+          )
+          console_runtime.write_text(text, encoding='utf-8', newline='\n')
+
+          old_index = root / 'docs/SEARCHGEO_READINESS_INDEX.md'
+          new_index = root / 'docs/SARI_READINESS_INDEX.md'
+          new_index.write_text(old_index.read_text(encoding='utf-8'), encoding='utf-8', newline='\n')
+          old_index.write_text(
+              '''# Documento legado — SearchGEO / SGRI-001
+
+          Este caminho é mantido exclusivamente para compatibilidade de links e histórico.
+
+          A identidade pública atual do produto é **RASAI — Search & AI Readiness Auditor** e o índice público é o **Search & AI Readiness Index `SARI-001`**.
+
+          Consulte [SARI_READINESS_INDEX.md](SARI_READINESS_INDEX.md).
+
+          `SGRI-001` permanece apenas como alias público histórico. IDs persistidos de motor como `SCORE-GEO-002` e `SCORE-GEO-003`, regras `BR-GEO-*`, namespace Python `searchgeo`, variáveis `SEARCHGEO_*` e artifacts históricos não são reescritos por esta migração.
+          ''',
+              encoding='utf-8',
+              newline='\n',
+          )
+
+          (root / 'docs/BRANDING_AND_COMPATIBILITY.md').write_text(
+              '''# RASAI / SARI — identidade e compatibilidade
+
+          ## Identidade pública
+
+          - **Produto:** RASAI
+          - **Expansão:** Readiness Assessment for Search & AI
+          - **Descriptor:** Search & AI Readiness Auditor
+          - **Framework:** RASAI Framework
+          - **Índice público:** Search & AI Readiness Index — `SARI-001`
+          - **Índice público legado:** `SGRI-001`
+
+          ## Mudança pública
+
+          A apresentação, documentação, console, user-agent e relatórios usam RASAI/SARI. A página canônica do índice é `report/readiness.html`. `report/searchgeo.html` permanece como redirect de compatibilidade.
+
+          Os comandos preferenciais são `rasai`, `rasai-console`, `rasai audit`, `rasai visibility` e `rasai scoring`.
+
+          ## Compatibilidade preservada
+
+          - `searchgeo` e `searchgeo-console` permanecem aliases funcionais;
+          - `src/searchgeo/` permanece como namespace Python;
+          - `SEARCHGEO_*` permanece como família de variáveis de ambiente;
+          - `searchgeo.toml`, `searchgeo-console.ini` e marcadores locais continuam válidos;
+          - `searchgeo-readiness-auditor` permanece como nome da distribuição Python nesta etapa;
+          - `BR-GEO-*`, `SCORE-GEO-002`, `SCORE-GEO-003` e outros IDs versionados não são renomeados;
+          - auditorias e artifacts históricos não são regravados.
+
+          ## SARI versus scoring engine
+
+          `SARI-001` identifica publicamente o Search & AI Readiness Index. Ele não substitui a versão do motor persistido. A troca de `SGRI-001` para `SARI-001` é nominal e não altera pesos, fatores, thresholds, fórmula ou calibração.
+
+          Lighthouse, Core Web Vitals, Acessibilidade, Synthetic Navigation Apdex, Synthetic User Experience Apdex e Observed AI Visibility continuam metodologias independentes e não são combinadas silenciosamente no SARI.
+          ''',
+              encoding='utf-8',
+              newline='\n',
+          )
+
+          readme = root / 'README.md'
+          text = readme.read_text(encoding='utf-8')
+          banner = '''\n> **Identidade atual:** **RASAI — Search & AI Readiness Auditor**. O índice público é **SARI-001 — Search & AI Readiness Index**. `searchgeo`, `searchgeo-console`, `SEARCHGEO_*`, o namespace Python `searchgeo` e IDs `SCORE-GEO-*`/`BR-GEO-*` permanecem compatíveis. Veja [docs/BRANDING_AND_COMPATIBILITY.md](docs/BRANDING_AND_COMPATIBILITY.md).\n'''
+          if 'docs/BRANDING_AND_COMPATIBILITY.md' not in text:
+              pos = text.find('\n')
+              text = text[:pos + 1] + banner + text[pos + 1:]
+          readme.write_text(text, encoding='utf-8', newline='\n')
+
+          (root / 'tests/test_rasai_sari_branding.py').write_text(
+              '''from pathlib import Path
+          import tomllib
+
+          from searchgeo.branding import (
+              CANONICAL_READINESS_REPORT,
+              LEGACY_PUBLIC_INDEX_VERSION,
+              LEGACY_READINESS_REPORT,
+              PRODUCT_DISPLAY_NAME,
+              PUBLIC_INDEX_VERSION,
+          )
+          from searchgeo.searchgeo_readiness_reporting import (
+              PUBLIC_METHOD_VERSION,
+              SEARCHGEO_FILE,
+              _legacy_readiness_redirect,
+          )
+
+
+          def test_public_branding_contract() -> None:
+              assert PRODUCT_DISPLAY_NAME == "RASAI — Search & AI Readiness Auditor"
+              assert PUBLIC_INDEX_VERSION == "SARI-001"
+              assert LEGACY_PUBLIC_INDEX_VERSION == "SGRI-001"
+              assert CANONICAL_READINESS_REPORT == "readiness.html"
+              assert LEGACY_READINESS_REPORT == "searchgeo.html"
+              assert PUBLIC_METHOD_VERSION == "SARI-001"
+              assert SEARCHGEO_FILE == "readiness.html"
+
+
+          def test_legacy_report_alias_redirects_to_canonical_readiness() -> None:
+              html = _legacy_readiness_redirect()
+              assert "url=readiness.html" in html
+              assert "href='readiness.html'" in html
+
+
+          def test_primary_and_legacy_cli_entrypoints_coexist() -> None:
+              scripts = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]["scripts"]
+              assert scripts["rasai"] == scripts["searchgeo"] == "searchgeo.entrypoint:main"
+              assert scripts["rasai-console"] == scripts["searchgeo-console"] == "searchgeo.console_entrypoint:main"
+
+
+          def test_public_documentation_and_legacy_document_coexist() -> None:
+              assert Path("docs/SARI_READINESS_INDEX.md").is_file()
+              assert Path("docs/SEARCHGEO_READINESS_INDEX.md").is_file()
+              assert Path("docs/BRANDING_AND_COMPATIBILITY.md").is_file()
+          ''',
+              encoding='utf-8',
+              newline='\n',
+          )
+          PY
+
+      - name: Validate migration invariants
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+          scripts = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))['project']['scripts']
+          assert {'rasai', 'rasai-console', 'searchgeo', 'searchgeo-console'} <= set(scripts)
+          reporting = Path('src/searchgeo/searchgeo_readiness_reporting.py').read_text(encoding='utf-8')
+          for marker in ('CANONICAL_READINESS_REPORT', 'LEGACY_READINESS_REPORT', '_legacy_readiness_redirect', 'legacy_path = report_dir'):
+              assert marker in reporting, marker
+          for path in ('docs/SARI_READINESS_INDEX.md', 'docs/BRANDING_AND_COMPATIBILITY.md', 'src/searchgeo/branding.py'):
+              assert Path(path).is_file(), path
+          PY
+
+      - name: Install package and tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+
+      - name: Compile runtime
+        run: python -m compileall -q src/searchgeo
+
+      - name: Branding and compatibility tests
+        run: python -m pytest -q tests/test_rasai_sari_branding.py tests/test_searchgeo_readiness_reporting.py tests/test_indicator_provenance.py
+
+      - name: Full regression suite
+        run: python -m pytest -q
+
+      - name: Commit validated migration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A ':!.github/workflows/rasai-sari-migration.yml' ':!.github/workflows/rasai-sari-migration-v2.yml'
+          if git diff --cached --quiet; then
+            echo "No migration changes to commit."
+            exit 0
+          fi
+          git commit -m "Rebrand public surface to RASAI and SARI"
+          git push origin HEAD:feature/rasai-sari-rebrand
