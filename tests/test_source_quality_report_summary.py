@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import closing
 import json
 import sqlite3
 from tempfile import TemporaryDirectory
@@ -91,7 +92,7 @@ class SourceQualityReportSummaryTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with sqlite3.connect(workspace.database) as db:
+            with closing(sqlite3.connect(workspace.database)) as db:
                 db.execute(
                     """CREATE TABLE web_performance_runs (
                     status TEXT, context_attempts INTEGER, reason TEXT
@@ -163,7 +164,6 @@ class SourceQualityReportSummaryTests(unittest.TestCase):
                 self.assertIn("source-quality-preflight.json", html)
                 self.assertIn("Observação do navegador utilizada na confirmação", html)
 
-            # Idempotência: o bloco e o evento técnico não se multiplicam.
             enrich_source_quality_blocker_summary(
                 audit_id="AUD-SOURCE-REPORT",
                 workspace=workspace,
