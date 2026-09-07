@@ -3,13 +3,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import sqlite3
 from typing import Iterable
 from urllib.parse import urlsplit
 
 from searchgeo.monitoring.reader import read_audit_snapshot
 
+from .central_store import CentralPlatformStore
 from .models import AuditIndexRecord
-from .store import PlatformStore, file_sha256, normalize_origin, utc_now
+from .store import file_sha256, normalize_origin, utc_now
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,23 +29,44 @@ class AuditIndexSummary:
     issues: tuple[AuditIndexIssue, ...]
 
 
-def _primary_origin(urls: Iterable[str], domains: Iterable[str]) -> str:
-    origins: list[str] = []
+def _target_origins(workspace: Path) -> tuple[str, ...]:
+    """Read persisted target origins without mutating the immutable AUD."""
+    database = workspace / "audit.db"
+    uri = database.resolve().as_uri() + "?mode=ro"
+    connection = sqlite3.connect(uri, uri=True)
+    try:
+        rows = connection.execute(
+            "SELECT normalized_origin FROM audit_targets WHERE normalized_origin IS NOT NULL ORDER BY rowid"
+        ).fetchall()
+        return tuple(
+            dict.fromkeys(
+                normalize_origin(str(row[0])) for row in rows if str(row[0] or "").strip()
+            )
+        )
+    finally:
+        connection.close()
+
+
+def _audit_origins(workspace: Path, urls: Iterable[str], domains: Iterable[str]) -> tuple[str, ...]:
+    origins: list[str] = list(_target_origins(workspace))
     for url in urls:
         parts = urlsplit(url)
         if parts.scheme in {"http", "https"} and parts.hostname:
             port = f":{parts.port}" if parts.port else ""
             origins.append(f"{parts.scheme.lower()}://{parts.hostname.lower()}{port}")
-    if origins:
-        return sorted(set(origins))[0]
-    domain_list = sorted({item.strip().lower() for item in domains if item and item.strip()})
-    if domain_list:
-        return normalize_origin(domain_list[0])
-    raise ValueError("audit has no HTTP(S) URL/origin that can be mapped to a Property")
+    existing_hosts = {urlsplit(origin).hostname for origin in origins}
+    for domain in domains:
+        text = str(domain or "").strip().lower()
+        if text and text not in existing_hosts:
+            origins.append(normalize_origin(text))
+    unique = tuple(sorted(dict.fromkeys(origins)))
+    if not unique:
+        raise ValueError("audit has no HTTP(S) origin that can be mapped to a Property")
+    return unique
 
 
 def index_audit_workspace(
-    store: PlatformStore,
+    store: CentralPlatformStore,
     workspace: str | Path,
     *,
     environment_name: str = "Production",
@@ -51,20 +74,30 @@ def index_audit_workspace(
 ) -> tuple[AuditIndexRecord, bool]:
     root = Path(workspace)
     snapshot = read_audit_snapshot(root)
-    origin = _primary_origin(snapshot.urls, snapshot.domains)
-    _, _, _, prop, environment = store.ensure_local_hierarchy(
-        project_name=snapshot.project_name,
-        origin=origin,
-        environment_name=environment_name,
-        environment_kind=environment_kind,
-    )
+    origins = _audit_origins(root, snapshot.urls, snapshot.domains)
+    scopes: list[tuple[str, str, str]] = []
+    primary_prop = None
+    primary_environment = None
+    for index, origin in enumerate(origins):
+        _, _, _, prop, environment = store.ensure_local_hierarchy(
+            project_name=snapshot.project_name,
+            origin=origin,
+            environment_name=environment_name,
+            environment_kind=environment_kind,
+        )
+        scopes.append((prop.property_id, environment.environment_id, origin))
+        if index == 0:
+            primary_prop = prop
+            primary_environment = environment
+    assert primary_prop is not None and primary_environment is not None
+
     digest = file_sha256(root / "audit.db")
     existing = store.get_audit(snapshot.audit_id)
     unchanged = bool(existing and existing.audit_db_sha256 == digest)
     record = AuditIndexRecord(
         audit_id=snapshot.audit_id,
-        property_id=prop.property_id,
-        environment_id=environment.environment_id,
+        property_id=primary_prop.property_id,
+        environment_id=primary_environment.environment_id,
         workspace_path=str(root.resolve()),
         audit_db_sha256=digest,
         event_time=snapshot.event_time,
@@ -80,6 +113,12 @@ def index_audit_workspace(
         indexed_at=utc_now(),
     )
     store.upsert_audit(record)
+    store.replace_audit_scopes(
+        record.audit_id,
+        scopes,
+        primary_property_id=record.property_id,
+        primary_environment_id=record.environment_id,
+    )
     return record, unchanged
 
 
@@ -95,7 +134,7 @@ def iter_audit_workspaces(audits_root: str | Path) -> Iterable[Path]:
 
 
 def index_audits(
-    store: PlatformStore,
+    store: CentralPlatformStore,
     audits_root: str | Path,
     *,
     strict: bool = False,
@@ -117,7 +156,7 @@ def index_audits(
                 unchanged += 1
             else:
                 indexed += 1
-        except (OSError, ValueError, RuntimeError) as exc:
+        except (OSError, sqlite3.Error, ValueError, RuntimeError) as exc:
             rejected += 1
             issues.append(AuditIndexIssue(str(workspace), str(exc)))
             if strict:
