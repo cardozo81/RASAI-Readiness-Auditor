@@ -97,6 +97,7 @@ class ComparisonResult:
 class GatePolicy:
     # Default gate: deterministic BR rules plus deterministic PAGE state only.
     deterministic_only: bool = True
+    require_comparable: bool = True
     block_new_failures: bool = True
     include_performance: bool = False
     include_synthetic: bool = False
