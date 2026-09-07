@@ -1,25 +1,25 @@
 # SCORE-GEO-004
 
-`SCORE-GEO-004` é o método de scoring padrão para novas auditorias RASAi.
+`SCORE-GEO-004` é o método de scoring vigente do RASAi.
 
-O índice público continua sendo `SARI-001 - Search & AI Readiness Index`.
+O índice público é `SARI-001 - Search & AI Readiness Index`.
 
-## Objetivo da versão 004
+## Objetivo
 
-O `SCORE-GEO-003` introduziu um Overall calibrado empiricamente contra outcomes observados de citação. Esse contrato é metodologicamente defensável para pesquisa, mas exige um dataset multi-domínio `VALIDATED` antes de qualquer auditoria individual poder publicar Overall.
+O método fornece um índice operacional que pode ser calculado, auditado e reproduzido em uma auditoria individual sem depender de corpus externo, modelo estatístico ou artifact de calibração.
 
-Isso criava uma dependência operacional inadequada para o produto: uma auditoria tecnicamente completa podia permanecer com `Overall = null` apenas porque o corpus global de calibração ainda não existia.
+O contrato separa claramente:
 
-O `SCORE-GEO-004` separa os dois problemas:
+- scoring de readiness do website;
+- qualidade e completude da medição;
+- métricas externas independentes;
+- outcomes observados de Search e AI Search.
 
-- **scoring operacional** - determinístico, reproduzível e disponível por auditoria;
-- **validação empírica** - opcional, multi-domínio e independente do score publicado.
-
-Nenhuma probabilidade de ranking ou citação é inferida pelo `004`.
+O Overall não representa probabilidade de ranking, resposta ou citação.
 
 ## Dimensões
 
-As dez dimensões permanecem:
+O método possui dez dimensões:
 
 1. `TECHNICAL_ACCESSIBILITY`
 2. `INDEXABILITY`
@@ -32,7 +32,7 @@ As dez dimensões permanecem:
 9. `EVIDENCE_TRUST`
 10. `INTENT_COVERAGE`
 
-A fórmula de cada dimensão permanece evidence-bound:
+Cada dimensão é calculada a partir de `RuleExecution` e evidências persistidas.
 
 ```text
 PASS    = 1.00
@@ -46,7 +46,7 @@ Dimension Score = sum(weight x result_factor) / sum(weight evaluated) x 100
 
 ## Overall
 
-O Overall usa o contrato versionado:
+O contrato de agregação é:
 
 ```text
 EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
@@ -60,74 +60,109 @@ Overall = soma dos scores das dimensões aplicáveis / quantidade de dimensões 
 
 Regras:
 
-- dimensão legitimamente `NOT_APPLICABLE` sai do denominador e não recebe zero;
-- dimensão aplicável sem valor ou `NOT_CONSOLIDATED` bloqueia a publicação de Overall;
 - cada dimensão aplicável possui o mesmo peso no Overall;
-- o cálculo não depende de IA, Lighthouse, Core Web Vitals, Accessibility ou Synthetic Apdex;
-- nenhuma calibração estatística é usada como input do score.
+- dimensão legitimamente `NOT_APPLICABLE` sai do denominador e não recebe zero;
+- dimensão aplicável sem valor ou em `NOT_CONSOLIDATED` bloqueia a publicação de Overall consolidado;
+- nenhuma métrica externa é usada como contribuição implícita;
+- nenhuma calibração externa é requisito ou input do score.
 
-## Coverage, Confidence e Consolidation
+## Coverage
 
-A Coverage do Overall é a média da Coverage das dimensões aplicáveis.
+Coverage mede completude da análise, não qualidade do site.
+
+Na dimensão:
+
+```text
+Coverage = evaluated applicable weight / total applicable weight
+```
+
+No Overall:
+
+```text
+Overall Coverage = média da Coverage das dimensões aplicáveis
+```
+
+## Confidence
+
+A Confidence de cada dimensão depende de Coverage, presença de evidência e erros de execução.
+
+```text
+HIGH        Coverage >= 90%, evidência completa, zero errors
+MEDIUM      Coverage >= 80%, zero errors
+LOW         existe avaliação, mas os critérios acima não foram satisfeitos
+UNAVAILABLE Coverage <= 0
+```
 
 A Confidence do Overall é a menor Confidence entre as dimensões aplicáveis.
 
-O Overall recebe `CONSOLIDATED` quando:
+## Consolidation
+
+Dimensão:
+
+```text
+CONSOLIDATED     Coverage >= 80% e Confidence HIGH/MEDIUM
+PARTIAL          estado avaliável com Coverage >= 50% abaixo do gate completo
+NOT_CONSOLIDATED Coverage < 50% ou Confidence UNAVAILABLE
+NOT_APPLICABLE   dimensão legitimamente fora do universo aplicável
+```
+
+Overall `CONSOLIDATED` exige simultaneamente:
 
 ```text
 todas as dimensões aplicáveis possuem valor
 nenhuma dimensão aplicável = NOT_CONSOLIDATED
-Coverage média >= 80%
-Confidence mínima = HIGH ou MEDIUM
+Overall Coverage >= 80%
+Overall Confidence = HIGH ou MEDIUM
 ```
 
-Se o Overall é calculável, mas o gate acima não é satisfeito, ele pode ser `PARTIAL` quando existe cobertura suficiente para uma leitura limitada.
+Se existe valor calculável, mas a medição não alcança o gate completo, o Overall pode ser `PARTIAL` quando a Coverage é de pelo menos 50% e a Confidence está disponível.
 
-Estados insuficientes nunca são convertidos em zero.
+Estado insuficiente nunca é transformado em zero.
 
-## Relação com SCORE-GEO-003
+## Structured Data e aplicabilidade
 
-`SCORE-GEO-003` permanece preservado como contrato histórico e pipeline de calibração empírica.
+Structured Data não é requisito universal.
 
-Ele não é recalculado nem reclassificado como `004` em auditorias antigas.
+Se `STRUCTURED_DATA` for legitimamente `NOT_APPLICABLE`, a dimensão sai do denominador do Overall e não recebe nota zero nem nota máxima.
 
-A infraestrutura existente de calibração `003` pode continuar sendo usada para:
+Se a aplicabilidade estiver indefinida por pré-requisito bloqueado, o estado não pode ser promovido a `NOT_APPLICABLE` benigno.
 
-- pesquisa;
-- validação empírica das dimensões;
-- benchmarking;
-- avaliação de associação com outcomes observados;
-- insumo para uma futura versão metodológica, se houver evidência suficiente.
+## IA
 
-Um artifact `VALIDATED` do `003` não altera automaticamente resultados `004`.
+IA é opcional para o pipeline base, mas determinadas regras semânticas podem precisar de análise suficiente para produzir resultado em vez de `UNKNOWN`.
 
-## Independência de métricas externas
+Quando regras aplicáveis permanecem sem avaliação, Coverage e Confidence podem cair e impedir `CONSOLIDATED`.
 
-Os seguintes domínios continuam fora do SARI/SCORE-GEO:
+A fórmula do Overall não chama IA e não depende de provider específico.
+
+## Métricas externas independentes
+
+Não entram no SARI-001/SCORE-GEO-004:
 
 - Core Web Vitals;
 - Lighthouse Performance;
 - Lighthouse Accessibility;
 - Synthetic Navigation Apdex;
-- métricas de tráfego/conversão;
+- Synthetic User Experience Apdex;
+- tráfego, conversão e métricas de negócio;
 - outcomes observados de AI visibility.
 
-Eles possuem páginas e metodologias próprias. Indisponibilidade PageSpeed/Lighthouse, por exemplo, não reduz o SCORE-GEO-004.
+Essas medições possuem metodologias e páginas próprias. Indisponibilidade de PageSpeed/Lighthouse, por exemplo, não reduz o Overall do SARI-001.
 
 ## Reprodutibilidade
 
-`BR-GEO-054` deve reconstruir o resultado a partir de:
+`BR-GEO-054` verifica que o scoring pode ser reconstruído a partir de:
 
 - RuleExecutions e versões;
 - ScoreContributions;
-- fórmula e thresholds versionados do `SCORE-GEO-004`;
-- evidências persistidas no `audit.db`.
+- evidências persistidas;
+- fórmula e thresholds versionados do `SCORE-GEO-004`.
 
-Não é necessário reexecutar website, IA ou calibração.
+Não é necessário reexecutar website, IA ou APIs externas para reproduzir o cálculo persistido.
 
 ## Relatório
 
-Novas auditorias materializam:
+Cada auditoria materializa, quando aplicável:
 
 ```text
 report/readiness.html
@@ -136,10 +171,10 @@ report/score-geo-004.html
 
 `readiness.html` é a página canônica do SARI-001.
 
-`score-geo-004.html` expõe fórmula, gates de consolidação, Coverage, Confidence, estado do Overall e separação explícita em relação ao método calibrado `003`.
+`score-geo-004.html` expõe fórmula, Coverage, Confidence, Consolidation, rastreabilidade do Overall e critérios para interpretação.
 
 ## Limite de validade
 
-O `SCORE-GEO-004` é proprietário, transparente e reproduzível, mas não é um standard oficial de Google, OpenAI, Microsoft, Anthropic ou qualquer outro mantenedor.
+`SCORE-GEO-004` é uma metodologia proprietária, transparente, versionada e reproduzível do RASAi.
 
-O número representa readiness segundo o contrato RASAi. Ele não é probabilidade de ranking, tráfego, conversão, resposta ou citação futura.
+Não é um standard oficial de Google, Microsoft, OpenAI, Anthropic ou outro mantenedor e não garante ranking, tráfego, conversão, resposta ou citação futura.
