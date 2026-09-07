@@ -37,6 +37,19 @@ for old, new in (
 
 replace('docs/specification/16_ROOT_CAUSE_ELEMENT_REMEDIATION.md', '`SCORE-GEO-001`, `REPORT-GEO-003`, `REMEDIATION-GEO-001`', '`SCORE-GEO-003`, `REPORT-GEO-003`, `REMEDIATION-GEO-001`')
 
+# Tests must verify the current public/reporting contract rather than predecessor wording.
+replace(
+    'tests/test_report_registry_and_method_docs.py',
+    '        assert "SCORE-GEO-002" in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]\n        assert "histórico" in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]',
+    '        assert "SCORE-GEO-002" not in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]\n        assert "histórico" not in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]'
+)
+replace(
+    'tests/test_m21_web_performance.py',
+    'def test_report_keeps_external_metrics_separate_from_score_geo_002(self) -> None:',
+    'def test_report_keeps_external_metrics_separate_from_score_geo_003(self) -> None:'
+)
+replace('tests/test_m21_web_performance.py', '            self.assertIn("SCORE-GEO-002", html)', '            self.assertIn("SCORE-GEO-003", html)')
+
 # Final public-documentation gate: no unreleased predecessor naming or supersession narrative.
 banned = ('SCORE-GEO-001', 'SCORE-GEO-002', 'SGRI-001')
 for path in [Path('README.md'), *Path('docs').rglob('*.md')]:
