@@ -40,6 +40,7 @@ Uma IA, desenvolvedor ou ferramenta que assuma o projeto não deve depender do h
 26. `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`
 27. `26_OBSERVED_GENERATIVE_VISIBILITY.md`
 28. `27_MONITORING_OBSERVABILITY.md`
+29. `28_AUDIT_QUALITY_VERIFICATION.md`
 
 ## 3. Precedência documental
 
@@ -90,6 +91,7 @@ Nenhuma decisão funcional deve ser alterada silenciosamente durante implementa�
 - `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md` — Synthetic User Experience Apdex calibrável, separado de RUM.
 - `26_OBSERVED_GENERATIVE_VISIBILITY.md` — visibilidade generativa observada/importada e query-runs controlados.
 - `27_MONITORING_OBSERVABILITY.md` — comparação longitudinal, release gate, outcomes externos, sidecar observacional e diagnósticos complementares.
+- `28_AUDIT_QUALITY_VERIFICATION.md` — Audit Health, Evidence Confidence, operational priority, content-use controls, Fix Verification e Evidence Timeline.
 
 ## 5. Baseline vigente de scoring e método público
 
@@ -102,9 +104,9 @@ Nenhuma decisão funcional deve ser alterada silenciosamente durante implementa�
 - não existe alegação de score GEO/AEO universal ou homologado;
 - métricas externas não são incorporadas silenciosamente ao SARI;
 - outcomes controlados de Observed Generative Visibility podem ser usados pelo processo separado de calibração, sem alterar retroativamente o AUD que os contém;
-- Monitoring e Observability permanecem domínios derivados/complementares e non-scoring por padrão.
+- Monitoring, Observability e Quality permanecem domínios derivados/complementares e non-scoring por padrão.
 
-Detalhes: `../SCORE_GEO_003.md` e `27_MONITORING_OBSERVABILITY.md`.
+Detalhes: `../SCORE_GEO_003.md`, `27_MONITORING_OBSERVABILITY.md` e `28_AUDIT_QUALITY_VERIFICATION.md`.
 
 ## 6. REPORT-SITE-GEO-001
 
@@ -112,19 +114,20 @@ O contrato final de saída é condicional pela existência/materialização do a
 
 ```text
 <AUD-ID>/report/index.html
-<AUD-ID>/report/readiness.html             # SARI-001 / RASAI
-<AUD-ID>/report/score-geo-003.html         # método/modelo/dataset/gates do scoring vigente
-<AUD-ID>/report/mobile.html                # condicional
-<AUD-ID>/report/desktop.html               # condicional
+<AUD-ID>/report/readiness.html
+<AUD-ID>/report/score-geo-003.html
+<AUD-ID>/report/mobile.html
+<AUD-ID>/report/desktop.html
 <AUD-ID>/report/remediation.html
 <AUD-ID>/report/content-suggestions.html
-<AUD-ID>/report/crawling-discovery.html    # rastreamento e descoberta
-<AUD-ID>/report/accessibility.html         # acessibilidade automatizada, condicional
-<AUD-ID>/report/web-performance.html       # Lighthouse/Core Web Vitals, quando habilitados
-<AUD-ID>/report/apdex.html                 # Synthetic Navigation Apdex, condicional
-<AUD-ID>/report/apdex-experience.html      # Synthetic User Experience Apdex, condicional
-<AUD-ID>/report/ai-visibility.html         # visibilidade observada, após importação/regeneração
-<AUD-ID>/report/observability.html         # Search & AI outcomes externos + diagnósticos complementares
+<AUD-ID>/report/crawling-discovery.html
+<AUD-ID>/report/accessibility.html
+<AUD-ID>/report/web-performance.html
+<AUD-ID>/report/apdex.html
+<AUD-ID>/report/apdex-experience.html
+<AUD-ID>/report/ai-visibility.html
+<AUD-ID>/report/observability.html
+<AUD-ID>/report/quality.html
 <AUD-ID>/report/ai-usage.html
 <AUD-ID>/report/references.html
 <AUD-ID>/report/css/site.css
@@ -134,7 +137,7 @@ Default de dispositivo da CLI: `mobile`. `desktop` e `both` são seleções expl
 
 Cada indicador/domínio possui página canônica. `index.html` pode resumir resultados para navegação executiva, mas não deve fundir metodologias em score comum.
 
-`readiness.html` é a página canônica do SARI. `score-geo-003.html` documenta o estado de calibração. Acessibilidade, Web Performance, Apdex, visibilidade generativa e Search & AI Observability permanecem domínios separados.
+`readiness.html` é a página canônica do SARI. `score-geo-003.html` documenta o estado de calibração. Acessibilidade, Web Performance, Apdex, visibilidade generativa, Search & AI Observability e Quality permanecem domínios separados.
 
 O menu final é canônico e condicional à existência dos arquivos; uma projeção opcional gerada posteriormente não pode remover do menu outra página opcional já materializada.
 
@@ -148,8 +151,11 @@ O menu final é canônico e condicional à existência dos arquivos; uma projeç
 | Rastreamento e descoberta | robots.txt, sitemaps, feeds e políticas de crawlers | diagnóstico técnico non-scoring |
 | Synthetic User Experience Apdex | experiência sintética calibrável | não é RUM; separado de Navigation Apdex e SARI |
 | Observed Generative Visibility | resultados observados/importados de AI Search | domínio observacional; query-runs podem alimentar calibração offline |
-| Search & AI Observability | Search Console, URL Inspection, CrUX History/imports e diagnósticos derivados | sidecar separado; non-scoring; proveniência explícita |
+| Search & AI Observability | Search Console, GenAI exports, URL Inspection, CrUX History/imports | `RASAI-OBS-002`; non-scoring; proveniência explícita |
 | RASAI Monitor | comparação baseline/current, release gate e change impact | read-only; não cria score e não presume causalidade |
+| RASAI Quality | qualidade da evidência, priorização operacional e validação | read-only; não cria readiness score |
+| Fix Verification | transição de regra entre AUDs | prova apenas estado persistido; não prova downstream impact |
+| Evidence Timeline | projeção longitudinal de AUDs | não regrava histórico |
 
 ## 8. Observed Generative Visibility e calibração
 
@@ -185,9 +191,9 @@ Sem artifact `VALIDATED`, as dimensões continuam auditáveis, mas `OVERALL_READ
 
 `rasai scoring dataset` avalia gates pré-fit e gera fingerprint/manifest; `READY_FOR_MODEL_FIT` não equivale a `VALIDATED`.
 
-## 10. Monitoring & Observability
+A calibração abre os AUDs de origem em modo read-only e não duplica outcomes sem granularidade por device contra feature vectors separados por device.
 
-Fonte normativa: `27_MONITORING_OBSERVABILITY.md`.
+## 10. Monitoring, Observability & Quality
 
 ### Monitoring
 
@@ -199,9 +205,11 @@ rasai monitor gate
 
 - abre `audit.db` somente leitura;
 - respeita scoring version/device/URL universe;
-- gate default é deterministic-only;
-- impact usa associação temporal sem atribuição causal;
-- saída derivada em `monitoring/MON-*`.
+- gate default = deterministic rules + page-state;
+- Performance, synthetic Apdex, aggregate findings e score dimensions são opt-in;
+- impact seleciona um dataset mais recente por fonte;
+- associação temporal exige janelas alinhadas/parcialmente sobrepostas;
+- `NULL` externo não vira zero.
 
 ### Observability
 
@@ -210,14 +218,34 @@ rasai observe ...
 rasai observability ...
 ```
 
-- sidecar `observability.db`;
+- sidecar `observability.db` no contrato `RASAI-OBS-002`;
+- identidade de linha `(dataset_id, record_id)`;
 - artifacts em `artifacts/observability/`;
-- Search Analytics e URL Inspection via APIs oficiais implementadas;
+- Search Analytics, Search Appearance, propriedades, sitemaps e URL Inspection via APIs oficiais implementadas;
+- Google Generative AI Performance é import-first;
+- Search e Discover GenAI têm proveniência separada;
 - CrUX History via API oficial;
-- Bing/AI outcomes import-first quando não há contrato direto implementado;
+- Bing import-first quando não há contrato direto implementado;
 - `report/observability.html`;
 - não persiste secrets;
 - não altera `audit.db` nem SARI/SCORE-GEO-003.
+
+### Quality
+
+```text
+rasai quality report
+rasai quality verify
+rasai quality timeline
+```
+
+- `report/quality.html`;
+- Audit Health;
+- Evidence Confidence;
+- Operational Priority independente;
+- Coverage Map;
+- Recommendation Validation;
+- `nosnippet`, `max-snippet`, `data-nosnippet`, `X-Robots-Tag`;
+- Fix Verification e Evidence Timeline read-only.
 
 ## 11. Fontes externas e heurística
 
@@ -235,7 +263,7 @@ Branches de trabalho são temporárias. Após validação e merge em `main`, con
 
 ## 13. Regra de mudança
 
-Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context, conteúdo sugerido por IA, Web Performance, acessibilidade, Apdex, crawling/discovery, visibilidade observada, monitoring/observability ou requisitos corporativos devem ser reconciliadas nesta baseline antes do merge.
+Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context, conteúdo sugerido por IA, Web Performance, acessibilidade, Apdex, crawling/discovery, visibilidade observada, monitoring/observability/quality ou requisitos corporativos devem ser reconciliadas nesta baseline antes do merge.
 
 ## 14. Critério de encerramento de alteração
 
