@@ -50,5 +50,5 @@ for path in [Path('README.md'), *Path('docs').rglob('*.md')]:
 # technical identifiers such as RASAI-OBS-* are preserved by design.
 readme = Path('README.md').read_text(encoding='utf-8')
 assert '# RASAi — Search & AI Readiness Auditor' in readme
-assert 'Readiness **A**ssessment for **S**earch & **AI**' in readme
+assert '**R**eadiness **A**ssessment for **S**earch & **AI**' in readme
 assert '**Framework:** RASAi Framework' in readme
