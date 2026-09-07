@@ -16,6 +16,13 @@ patch('src/searchgeo/report_navigation.py', {
     'Remediação Sugestões e remediação de conteúdo por IA': 'Remediação textual por IA',
 })
 
+# Keep the canonical menu labels stable. The SearchGEO readiness enrichment may
+# add its own page, but it must not rename the shared Mobile/Desktop entries.
+patch('src/searchgeo/searchgeo_readiness_reporting.py', {
+    'label = "Evidências Mobile"': 'label = "Relatório Mobile"',
+    'label = "Evidências Desktop"': 'label = "Relatório Desktop"',
+})
+
 # Behavioral wording changed intentionally: explicit provider NONE is not a
 # missing credential/configuration state.
 patch('tests/test_m7_semantic_provider.py', {
