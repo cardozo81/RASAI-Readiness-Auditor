@@ -220,6 +220,13 @@ def _material_threshold(signal: Signal, old: float) -> float:
 def _new_signal_material(signal: Signal) -> bool:
     if signal.domain == "RULE":
         return str(signal.value).upper() in {"FAIL", "WARNING"}
+    if signal.domain == "PAGE":
+        field = str(signal.metadata.get("field") or "")
+        if field == "http_status":
+            return not _http_ok(signal.value)
+        if field == "meta_robots":
+            return _contains_index_block(signal.value)
+        return False
     if signal.domain == "FINDINGS":
         try:
             return int(signal.value) > 0
@@ -285,17 +292,22 @@ def _event(
 
 def evaluate_release_gate(result: ComparisonResult, policy: GatePolicy | None = None) -> GateResult:
     effective = policy or GatePolicy()
-    regressions = [
+    candidates = [
         event
         for event in result.events
-        if event.status == "REGRESSED" and event.material and _gate_eligible(event, effective)
+        if event.material
+        and _gate_eligible(event, effective)
+        and (
+            event.status == "REGRESSED"
+            or (effective.block_new_failures and event.status == "NEW")
+        )
     ]
 
     blocking: list[ChangeEvent] = []
     warnings: list[ChangeEvent] = []
     high_count = 0
     medium_count = 0
-    for event in regressions:
+    for event in candidates:
         severity_rank = _SEVERITY_RANK.get(event.severity.upper(), 0)
         if event.domain == "SCORE" and event.label in effective.fail_dimensions and event.delta is not None:
             if event.delta <= -abs(effective.dimension_drop_points):
@@ -328,9 +340,9 @@ def evaluate_release_gate(result: ComparisonResult, policy: GatePolicy | None = 
     passed = not unique_blocking
     scope = _gate_scope(effective)
     reason = (
-        f"PASS: no blocking regression in gate scope [{scope}]"
+        f"PASS: no blocking deterioration in gate scope [{scope}]"
         if passed
-        else f"FAIL: {len(unique_blocking)} blocking regression(s) in gate scope [{scope}]"
+        else f"FAIL: {len(unique_blocking)} blocking deterioration(s) in gate scope [{scope}]"
     )
     return GateResult(passed, tuple(unique_blocking), tuple(warnings), effective, reason)
 
@@ -354,7 +366,11 @@ def _gate_eligible(event: ChangeEvent, policy: GatePolicy) -> bool:
 
 
 def _gate_scope(policy: GatePolicy) -> str:
-    parts = ["deterministic-rules" if policy.deterministic_only else "all-rules", "page-state"]
+    parts = [
+        "deterministic-rules" if policy.deterministic_only else "all-rules",
+        "page-state",
+        "new-failures" if policy.block_new_failures else "regressions-only",
+    ]
     if policy.include_performance:
         parts.append("performance")
     if policy.include_synthetic:
