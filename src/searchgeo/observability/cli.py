@@ -7,6 +7,7 @@ from pathlib import Path
 import sqlite3
 
 from .crux_history import collect_crux_history
+from .google_genai import import_google_genai_performance_csv, persist_google_genai_control
 from .google_search_console import collect_search_analytics, collect_url_inspection
 from .importers import import_bing_search_performance_csv, import_observability_json
 from .reporting import enrich_observability_report
@@ -37,6 +38,17 @@ def build_parser() -> argparse.ArgumentParser:
     _audit(bing)
     bing.add_argument("--file", required=True)
     bing.add_argument("--surface", help="override opcional de surface/source do CSV")
+
+    google_ai = sub.add_parser("google-ai-import", help="importar export do Google Generative AI Performance")
+    _audit(google_ai)
+    google_ai.add_argument("--file", required=True)
+    google_ai.add_argument("--surface", choices=("search", "discover"), default="search")
+
+    google_ai_control = sub.add_parser("google-ai-control", help="persistir estado observado INCLUDE/EXCLUDE/INHERIT do controle GenAI")
+    _audit(google_ai_control)
+    google_ai_control.add_argument("--state", choices=("INCLUDE", "EXCLUDE", "INHERIT"), required=True)
+    google_ai_control.add_argument("--source-label", default="MANUAL_SEARCH_CONSOLE_OBSERVATION")
+    google_ai_control.add_argument("--observed-at")
 
     gsc = sub.add_parser("gsc-search", help="coletar Search Analytics via API oficial do Search Console")
     _audit(gsc)
@@ -83,7 +95,6 @@ def main(argv: list[str] | None = None) -> int:
             path = enrich_observability_report(audit_workspace=workspace)
             print(f"Search & AI Observability report: {path}")
             return 0
-
         if args.observe_command == "status":
             if not (workspace / "observability.db").is_file():
                 print("Observability: nenhum dataset persistido.")
@@ -92,26 +103,37 @@ def main(argv: list[str] | None = None) -> int:
                 datasets = store.datasets()
                 print(f"Observability datasets: {len(datasets)}")
                 for item in datasets:
-                    print(
-                        f"- {item['dataset_id']} | {item['source_type']} | {item['capture_method']} | "
-                        f"{item['period_start'] or '-'} → {item['period_end'] or '-'}"
-                    )
+                    print(f"- {item['dataset_id']} | {item['source_type']} | {item['capture_method']} | {item['period_start'] or '-'} → {item['period_end'] or '-'}")
             return 0
-
         if args.observe_command == "import":
             dataset = import_observability_json(audit_workspace=workspace, path=args.file)
             report = enrich_observability_report(audit_workspace=workspace)
             print(f"Dataset importado: {dataset}")
             print(f"Relatório: {report}")
             return 0
-
         if args.observe_command == "bing-import":
             dataset = import_bing_search_performance_csv(audit_workspace=workspace, path=args.file, surface=args.surface)
             report = enrich_observability_report(audit_workspace=workspace)
             print(f"Bing Search Performance importado: {dataset}")
             print(f"Relatório: {report}")
             return 0
-
+        if args.observe_command == "google-ai-import":
+            dataset = import_google_genai_performance_csv(audit_workspace=workspace, path=args.file, surface=args.surface)
+            report = enrich_observability_report(audit_workspace=workspace)
+            print(f"Google Generative AI Performance importado: {dataset}")
+            print(f"Relatório: {report}")
+            return 0
+        if args.observe_command == "google-ai-control":
+            dataset = persist_google_genai_control(
+                audit_workspace=workspace,
+                state=args.state,
+                source_label=args.source_label,
+                observed_at=args.observed_at,
+            )
+            report = enrich_observability_report(audit_workspace=workspace)
+            print(f"Google GenAI control observado: {dataset} | {args.state}")
+            print(f"Relatório: {report}")
+            return 0
         if args.observe_command == "gsc-search":
             token = _secret(args.token_env, "Google Search Console OAuth bearer token")
             dataset = collect_search_analytics(
@@ -127,7 +149,6 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Search Console Search Analytics: {dataset}")
             print(f"Relatório: {report}")
             return 0
-
         if args.observe_command == "gsc-inspect":
             token = _secret(args.token_env, "Google Search Console OAuth bearer token")
             urls = _audit_urls(workspace)[: max(1, args.max_urls)]
@@ -142,7 +163,6 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Search Console URL Inspection: {dataset} ({len(urls)} URL(s))")
             print(f"Relatório: {report}")
             return 0
-
         if args.observe_command == "crux-history":
             key = _secret(args.key_env, "CrUX API key")
             dataset = collect_crux_history(
