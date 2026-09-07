@@ -14,8 +14,6 @@ def patch(path: str, replacements: dict[str, str]) -> None:
 patch('src/searchgeo/report_navigation.py', {
     'Análise Análise semântica por IA, roteamento e telemetria': 'Análise semântica por IA',
     'Remediação Sugestões e remediação de conteúdo por IA': 'Remediação textual por IA',
-    '("Relatório Mobile", "mobile.html")': '("Evidências Mobile", "mobile.html")',
-    '("Relatório Desktop", "desktop.html")': '("Evidências Desktop", "desktop.html")',
 })
 
 # Behavioral wording changed intentionally: explicit provider NONE is not a
