@@ -1,28 +1,22 @@
 # Referência da CLI
 
-Referência operacional da linha de comando do RASAI — Search & AI Readiness Auditor.
+Referência operacional do **RASAI — Search & AI Readiness Auditor**.
 
-## Entrada principal
-
-A superfície pública possui três fluxos:
+## Entradas públicas
 
 ```text
-searchgeo [-h] [--version] [--config PATH] audit ...
+rasai audit ...
 rasai visibility import|report ...
-rasai scoring calibrate|inspect ...
+rasai scoring dataset|calibrate|inspect ...
+rasai monitor compare|impact|gate ...
+rasai observe report|status|import|bing-import|gsc-search|gsc-inspect|crux-history ...
+rasai observability ...                 # alias de `observe`
+rasai-console
 ```
 
-O router superior intercepta `visibility` e `scoring`; os demais comandos continuam delegados ao pipeline de auditoria existente.
+Os aliases legados `searchgeo`/`searchgeo-console` permanecem por compatibilidade, mas a identidade pública é RASAI.
 
-Tokens canônicos do contrato público: `-h`, `--help`, `--version`, `--config PATH`.
-
-Ajuda: `-h`, `--help`.
-
-Versão: `--version`.
-
-Configuração geral de aplicação/logging: `--config PATH`.
-
-## Comando `audit`
+## `audit`
 
 Forma geral:
 
@@ -32,42 +26,50 @@ rasai audit target [target ...] [opções]
 
 `target` pode ser domínio ou URL HTTP(S). Também é possível usar `--urls-file PATH`.
 
-## Entrada e contexto
+### Entrada/contexto
 
 | Opção | Uso |
 |---|---|
 | `target` | um ou mais domínios/URLs da mesma origem normalizada |
-| `--urls-file PATH` | TXT UTF-8 com uma URL/domínio por linha |
+| `--urls-file PATH` | TXT UTF-8 com URL/domínio por linha |
 | `--project TEXT` | nome humano do projeto |
-| `--language CODE` | contexto de idioma; default `pt-BR` |
+| `--language CODE` | idioma; default `pt-BR` |
 | `--market CODE` | mercado; default `BR` |
-| `--max-pages N` | máximo determinístico de páginas auditadas |
-| `--audits-root PATH` | diretório raiz dos workspaces; default `audits` |
-| `--device-context` | `mobile`, `desktop` ou `both` |
+| `--max-pages N` | máximo determinístico de páginas |
+| `--audits-root PATH` | raiz dos workspaces; default `audits` |
+| `--device-context mobile|desktop|both` | contexto de dispositivo |
 
-Default de dispositivo: `mobile`.
+Default público de dispositivo: `mobile`. Override de ambiente: `SEARCHGEO_DEVICE_CONTEXT`.
 
-Override por ambiente: `SEARCHGEO_DEVICE_CONTEXT`.
+## SARI-001 / SCORE-GEO-003
 
-## Scoring padrão
+Novas auditorias usam `SCORE-GEO-003`. `SCORE-GEO-002` é histórico e não existe fallback silencioso para ele.
 
-Novas auditorias usam `SCORE-GEO-003` por padrão.
-
-As dimensões continuam determinísticas. O `OVERALL_READINESS` exige um model artifact `VALIDATED`; sem ele, permanece `NOT_CONSOLIDATED` e não existe fallback silencioso para `SCORE-GEO-002`.
-
-Artifact padrão:
+Artifact padrão de modelo:
 
 ```text
 .searchgeo/scoring/score-geo-003-model.json
 ```
 
-Override de localização:
+Override:
 
 ```text
 SEARCHGEO_SCORE_GEO_003_MODEL
 ```
 
-### Calibrar SCORE-GEO-003
+As dimensões permanecem evidence-bound. `OVERALL_READINESS` só é materializado conforme o contrato/model artifact vigente; se os gates não forem atendidos, permanece não consolidado/limitado.
+
+### Dataset pré-fit
+
+```powershell
+rasai scoring dataset `
+  --audits-root audits `
+  --dataset-version GEO-CAL-001
+```
+
+O comando inspeciona a suficiência da base antes do fitting, gera manifest/fingerprint e expõe gates de domínios, engines, queries, repetições, dias e observações. `READY_FOR_MODEL_FIT` não significa `VALIDATED`.
+
+### Calibrar
 
 ```powershell
 rasai scoring calibrate `
@@ -76,33 +78,22 @@ rasai scoring calibrate `
   --output .searchgeo\scoring\score-geo-003-model.json
 ```
 
-`--dataset-version` é obrigatório e identifica o conjunto de calibração de forma versionada.
+O calibrador lê `AUD-*/audit.db` e query-runs observados elegíveis; não chama website nem engine durante o fitting. Dataset insuficiente produz artifact `EXPERIMENTAL`, que não deve consolidar Overall como validado.
 
-O calibrador lê apenas `AUD-*/audit.db`; não chama engines nem websites. Query-runs controlados elegíveis do Observed Generative Visibility fornecem o outcome `CITED/NOT_CITED`.
-
-Se o dataset não atender ao promotion gate, o artifact é gravado como `EXPERIMENTAL` e **não** é usado para consolidar o Overall.
-
-### Inspecionar model artifact
+### Inspecionar modelo
 
 ```powershell
 rasai scoring inspect
-```
-
-Com path explícito:
-
-```powershell
 rasai scoring inspect --model .searchgeo\scoring\score-geo-003-model.json
 ```
 
-O comando informa status, model version, dataset version, engines, Confidence da calibração e SHA-256.
+Exibe status, model/dataset version, engines, Confidence de calibração e SHA-256.
 
-Contrato e gates: [SCORE_GEO_003.md](SCORE_GEO_003.md).
-
-## IA
+## IA no `audit`
 
 Seleção: `--ai-provider`.
 
-Valores aceitos pela superfície pública:
+Valores públicos suportados pelo registry/CLI incluem:
 
 ```text
 none
@@ -118,108 +109,40 @@ anthropic
 claude
 ```
 
-AUTO permanece limitado a:
+AUTO permanece limitado à cadeia configurada para providers elegíveis. Providers adicionais exigem seleção explícita quando assim definido pelo registry.
 
-```text
-OpenAI -> DeepSeek -> MiMo
-```
+Modelo explícito: `--ai-model MODEL_ID`. Não usar `--ai-model` com `auto` quando AUTO resolve modelo por provider.
 
-Providers adicionais são seleção explícita.
+Timeout principal: `SEARCHGEO_AI_TIMEOUT_SECONDS`; default atual `180` segundos por tentativa.
 
-Modelo explícito: `--ai-model MODEL_ID`.
-
-`--ai-model` não deve ser usado com `auto`; AUTO usa configuração por provider.
-
-### Defaults públicos de modelo
-
-Sem override explícito:
-
-```text
-OPENAI     gpt-5.6-luna
-DEEPSEEK   deepseek-v4-flash
-MIMO       mimo-v2.5
-XAI        grok-4.6
-QWEN       qwen3.8-flash
-GEMINI     gemini-3.8-flash
-ANTHROPIC  claude-sonnet-5
-```
-
-### Esforço/profundidade
-
-O produto usa o menor esforço suportado quando o usuário não fornece override:
-
-```text
-OPENAI     NONE
-DEEPSEEK   NONE
-MIMO       NONE
-XAI        LOW
-QWEN       PROVIDER_DEFAULT
-GEMINI     LOW
-ANTHROPIC  LOW
-```
-
-Overrides de reasoning/thinking usam as variáveis específicas do provider expostas pelo registry/console quando suportadas.
-
-### Timeout IA
-
-`SEARCHGEO_AI_TIMEOUT_SECONDS`. Default público: `180` segundos por tentativa.
-
-## Remediação textual por IA
+### Remediação textual por IA
 
 ```text
 --ai-content-remediation
 --no-ai-content-remediation
 ```
 
-Default: OFF. A remediação exige provider de IA apto. É advisory/evidence-bound e não altera automaticamente o Search & AI Readiness Index.
+Default OFF. Advisory/evidence-bound; não altera automaticamente SARI/SCORE-GEO.
 
-## Remediação técnica de rastreamento e descoberta por IA
+### Remediação técnica de crawling por IA
 
 ```text
 --ai-technical-remediation
 --no-ai-technical-remediation
+SEARCHGEO_AI_TECHNICAL_REMEDIATION
 ```
 
-Default: OFF.
+Default OFF. Precedência: CLI explícito > ambiente > OFF. Valores booleanos de ambiente: `true/false`, `1/0`, `yes/no`, `on/off`.
 
-Variável equivalente: `SEARCHGEO_AI_TECHNICAL_REMEDIATION`.
-
-Valores de ambiente aceitos: `true/false`, `1/0`, `yes/no`, `on/off`.
-
-Precedência: argumento CLI explícito > variável de ambiente > OFF.
-
-Essa opção não habilita os diagnósticos determinísticos de rastreamento e descoberta; eles já executam no pipeline normal. Ela habilita somente explicação/remediação opcional por IA sobre diagnósticos persistidos.
-
-A IA técnica:
-
-- exige provider compatível/configurado;
-- não altera `RuleExecution`, Finding, Score, Coverage, Confidence ou Consolidation;
-- não decide automaticamente políticas de treinamento/crawler;
-- não transforma `llms.txt` em requisito;
-- exige revisão humana.
-
-Página: `report/crawling-discovery.html`; telemetria pode aparecer em `report/ai-usage.html`.
-
-## Web Performance / PageSpeed / Lighthouse / CrUX
-
-Habilitação:
+## Web Performance
 
 ```text
---web-performance
---no-web-performance
+--web-performance / --no-web-performance
+--web-performance-max-pages N
+--web-performance-timeout-seconds SECONDS
+--web-performance-field-source auto|pagespeed|crux|none
+--lighthouse-categories performance,accessibility,best-practices,seo
 ```
-
-Default: OFF.
-
-Limite: `--web-performance-max-pages N`. `0` significa todas as páginas auditadas, respeitando o limite geral.
-
-Timeout: `--web-performance-timeout-seconds SECONDS`. Default: `120` segundos.
-
-Variável: `SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS`.
-
-Field data: `--web-performance-field-source auto|pagespeed|crux|none`. Default: `auto`. `crux` direto exige `SEARCHGEO_CRUX_API_KEY`.
-
-Categorias Lighthouse: `--lighthouse-categories performance,accessibility,best-practices,seo`.
 
 Variáveis relacionadas:
 
@@ -233,56 +156,27 @@ SEARCHGEO_PAGESPEED_API_KEY
 SEARCHGEO_CRUX_API_KEY
 ```
 
-Esses indicadores permanecem domínios próprios e não entram diretamente no Overall `SCORE-GEO-003`.
+Default de coleta externa: OFF. Lab e field data permanecem separados e não entram automaticamente em `SCORE-GEO-003`.
 
 ## Synthetic Navigation Apdex
 
-Habilitação:
-
 ```text
---synthetic-apdex
---no-synthetic-apdex
+--synthetic-apdex / --no-synthetic-apdex
+--apdex-threshold-seconds SECONDS
+--apdex-samples-per-context N
+--apdex-max-attempts-per-context N
+--apdex-max-pages N
+--apdex-timeout-seconds SECONDS
+--apdex-delay-seconds SECONDS
+--apdex-concurrency 1|2
 ```
 
-Default: OFF.
-
-Parâmetros:
-
-- `--apdex-threshold-seconds SECONDS`: `T`, obrigatório quando habilitado;
-- `--apdex-samples-per-context N`: default `100`;
-- `--apdex-max-attempts-per-context N`: default `ceil(1.25 × alvo)`;
-- `--apdex-max-pages N`: default `1`; `0` usa todas dentro do limite geral;
-- `--apdex-timeout-seconds SECONDS`: deve ser `> 4T`; default `max(45, 4T + 5)`;
-- `--apdex-delay-seconds SECONDS`: default `1`;
-- `--apdex-concurrency N`: `1` ou `2`, default `1`.
-
-Variáveis equivalentes:
-
-```text
-SEARCHGEO_SYNTHETIC_APDEX
-SEARCHGEO_APDEX_THRESHOLD_SECONDS
-SEARCHGEO_APDEX_SAMPLES_PER_CONTEXT
-SEARCHGEO_APDEX_MAX_ATTEMPTS_PER_CONTEXT
-SEARCHGEO_APDEX_MAX_PAGES
-SEARCHGEO_APDEX_TIMEOUT_SECONDS
-SEARCHGEO_APDEX_DELAY_SECONDS
-SEARCHGEO_APDEX_CONCURRENCY
-```
+Default OFF. `T` é obrigatório quando habilitado. Variáveis equivalentes usam prefixo `SEARCHGEO_APDEX_`/`SEARCHGEO_SYNTHETIC_APDEX` conforme `ENVIRONMENT_VARIABLES.md`.
 
 ## Synthetic User Experience Apdex
 
-Habilitação:
-
 ```text
---apdex-experience
---no-apdex-experience
-```
-
-Default: OFF. É um segundo domínio Apdex, sintético e calibrável. Não substitui Synthetic Navigation Apdex e não representa RUM.
-
-Principais parâmetros:
-
-```text
+--apdex-experience / --no-apdex-experience
 --apdex-experience-samples N
 --apdex-experience-max-attempts N
 --apdex-experience-max-pages N
@@ -298,9 +192,9 @@ Principais parâmetros:
 --apdex-experience-concurrency 1|2
 ```
 
-Quando habilitado, `device-mix` deve somar 100.
+Default OFF. Quando habilitado, `device-mix` deve somar 100. Continua sintético; não se torna RUM.
 
-### Calibração Dynatrace
+Calibração Dynatrace quando suportada:
 
 ```text
 --apdex-dynatrace-import
@@ -309,15 +203,13 @@ Quando habilitado, `device-mix` deve somar 100.
 --apdex-dynatrace-config-json PATH
 ```
 
-O import alinha KPM/thresholds/política quando suportado. O resultado continua sintético; não se torna RUM.
-
 Página: `report/apdex-experience.html`.
 
-## Observed Generative Visibility
+## Observed Generative Visibility (`visibility`)
 
-Observed Generative Visibility não é parte do comando `audit`; atua sobre workspace `AUD-*` existente e importa outcomes observados.
+Atua sobre `AUD-*` existente e não faz parte do scoring automático.
 
-### Importar dataset
+### Importar
 
 ```powershell
 rasai visibility import `
@@ -335,7 +227,7 @@ BING_WEBMASTER_TOOLS_AI_PERFORMANCE
 CONTROLLED_QUERY_RUNS
 ```
 
-`source.capture_method` obrigatório:
+Métodos de captura suportados:
 
 ```text
 MANUAL_TRANSCRIPTION
@@ -344,92 +236,196 @@ CONTROLLED_PROTOCOL
 EXTERNAL_AUTOMATION
 ```
 
-Regras:
+A importação preserva artifact/SHA-256, exige URLs compatíveis com a origem auditada e não recalcula SARI/SCORE-GEO. Query-runs controlados elegíveis podem alimentar calibração posterior.
 
-- JSON UTF-8 válido;
-- URLs do `normalized_origin` da auditoria;
-- artifact preservado com SHA-256;
-- reimport idempotente;
-- métricas Bing permanecem source-reported;
-- Citation Presence Rate somente sobre runs `VALID`;
-- runs `INVALID` fora do denominador;
-- rank exige `ranking_semantics`;
-- a importação não recalcula o SARI nem o score do AUD fonte;
-- `CONTROLLED_QUERY_RUNS` elegíveis podem alimentar posteriormente `rasai scoring calibrate`.
-
-### Regenerar report
+### Report
 
 ```powershell
-rasai visibility report `
-  --audit-id AUD-... `
-  --audits-root audits
+rasai visibility report --audit-id AUD-... --audits-root audits
 ```
 
 Página: `report/ai-visibility.html`.
 
-Observed Generative Visibility é import-first: não faz scraping de Bing Webmaster Tools e não presume endpoint não documentado.
+## RASAI Monitor
 
-Contrato completo: [specification/26_OBSERVED_GENERATIVE_VISIBILITY.md](specification/26_OBSERVED_GENERATIVE_VISIBILITY.md).
+Monitoring é read-only sobre os `audit.db` fonte.
 
-## Exemplos
-
-### Sem IA
+### Compare
 
 ```powershell
-rasai audit https://example.com `
-  --ai-provider none `
-  --device-context mobile
+rasai monitor compare `
+  --audits-root audits `
+  --baseline AUD-BASELINE `
+  --current AUD-CURRENT
 ```
 
-### OpenAI explícito
+Opcional: `--report-root PATH`.
+
+Gera `MON-*/report.html` + `manifest.json`. Classificações incluem `REGRESSED`, `IMPROVED`, `CHANGED`, `NEW`, `RESOLVED`, `UNCHANGED`, `DATA_UNAVAILABLE` e `NOT_COMPARABLE` conforme aplicável.
+
+### Impact
 
 ```powershell
-rasai audit https://example.com `
-  --ai-provider openai `
-  --ai-model gpt-5.6-luna
+rasai monitor impact `
+  --audits-root audits `
+  --baseline AUD-BASELINE `
+  --current AUD-CURRENT
 ```
 
-### Remediação técnica de rastreamento e descoberta por IA
+Gera também `impact.html` quando aplicável. O resultado usa linguagem de **associação temporal**, nunca causalidade automática.
+
+### Release gate
 
 ```powershell
-rasai audit https://example.com `
-  --ai-provider openai `
-  --ai-technical-remediation
+rasai monitor gate `
+  --audits-root audits `
+  --baseline AUD-BASELINE `
+  --current AUD-CURRENT
 ```
 
-### Web Performance
+Opções:
 
-```powershell
-rasai audit https://example.com `
-  --web-performance `
-  --web-performance-timeout-seconds 120 `
-  --web-performance-field-source auto
+```text
+--include-semantic
+--max-high-regressions N          # default 0
+--max-medium-regressions N        # default 3
+--dimension-drop-points POINTS    # default 5.0
 ```
 
-### Synthetic Navigation Apdex de smoke
+Exit codes:
 
-```powershell
-rasai audit https://example.com `
-  --synthetic-apdex `
-  --apdex-threshold-seconds 1.5 `
-  --apdex-samples-per-context 5 `
-  --apdex-max-attempts-per-context 7 `
-  --apdex-max-pages 1 `
-  --apdex-concurrency 1
+```text
+0 PASS
+1 regressão bloqueante
+2 erro de execução/configuração
 ```
 
-### Importar visibilidade observada
+Por padrão o gate é determinístico; regras semânticas/LLM não bloqueiam release sem `--include-semantic`.
 
-```powershell
-rasai visibility import `
-  --audit-id AUD-EXEMPLO `
-  --file .\observed-visibility.json
+## Search & AI Observability (`observe`)
+
+Alias: `rasai observability ...`.
+
+Todas as operações apontam para um AUD existente:
+
+```text
+--audits-root audits
+--audit AUD-...|PATH
 ```
 
-### Calibrar SCORE-GEO-003
+Dados externos ficam em `observability.db` + `artifacts/observability/`; `audit.db` não é migrado.
+
+### Status
 
 ```powershell
-rasai scoring calibrate --dataset-version GEO-CAL-001
+rasai observe status --audit AUD-...
+```
+
+### Gerar report
+
+```powershell
+rasai observe report --audit AUD-...
+```
+
+Página: `report/observability.html`.
+
+### Importar contrato genérico
+
+```powershell
+rasai observe import --audit AUD-... --file observability.json
+```
+
+Contrato: `RASAI-OBS-IMPORT-001`.
+
+### Importar Bing Search Performance
+
+```powershell
+rasai observe bing-import `
+  --audit AUD-... `
+  --file bing-search-performance.csv `
+  [--surface SURFACE]
+```
+
+Import-first: o RASAI não inventa endpoint nem faz scraping do portal quando não existe contrato direto implementado/documentado.
+
+### Google Search Console Search Analytics
+
+```powershell
+rasai observe gsc-search `
+  --audit AUD-... `
+  --site-url "sc-domain:example.com" `
+  --start-date 2026-08-01 `
+  --end-date 2026-08-31 `
+  [--search-type web] `
+  [--max-rows 100000]
+```
+
+Bearer token é lido por default de:
+
+```text
+GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
+```
+
+Override do nome da variável: `--token-env NAME`.
+
+### Google URL Inspection
+
+```powershell
+rasai observe gsc-inspect `
+  --audit AUD-... `
+  --site-url "sc-domain:example.com" `
+  [--max-urls 25] `
+  [--language-code pt-BR]
+```
+
+`--max-urls` protege quota. As URLs vêm do `audit.db` fonte em modo read-only.
+
+### CrUX History
+
+```powershell
+rasai observe crux-history `
+  --audit AUD-... `
+  --target https://example.com/ `
+  --scope url `
+  [--form-factor PHONE|DESKTOP|TABLET] `
+  [--periods 40]
+```
+
+API key é lida de `SEARCHGEO_CRUX_API_KEY` por default; `--key-env NAME` permite outro nome de variável.
+
+## Credenciais de observability
+
+Credenciais nunca são persistidas no sidecar/report.
+
+```text
+GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN   # OAuth bearer token em runtime
+SEARCHGEO_CRUX_API_KEY               # CrUX History/direct CrUX
+```
+
+## Exemplos rápidos
+
+### Auditoria sem IA
+
+```powershell
+rasai audit https://example.com --ai-provider none --device-context mobile
+```
+
+### Monitorar duas auditorias
+
+```powershell
+rasai monitor compare --baseline AUD-OLD --current AUD-NEW
+```
+
+### Gerar observability sem APIs externas
+
+```powershell
+rasai observe report --audit AUD-NEW
+```
+
+### Inspecionar suficiência de calibração
+
+```powershell
+rasai scoring dataset --dataset-version GEO-CAL-001
 ```
 
 ## Console interativo
@@ -438,8 +434,17 @@ rasai scoring calibrate --dataset-version GEO-CAL-001
 rasai-console
 ```
 
-O console configura a superfície principal da auditoria com parâmetros não sensíveis em `rasai-console.ini`, progresso, preflight e atalhos. Secrets não são gravados no INI.
+O console mantém configurações não sensíveis em `rasai-console.ini`. Secrets não são gravados no INI.
 
-Observed Generative Visibility e calibração `SCORE-GEO-003` permanecem superfícies CLI separadas nesta versão; não devem ser presumidas como coleta/treinamento automático no menu da auditoria.
+Monitoring, observability e calibração são superfícies especializadas da CLI nesta versão; não devem ser interpretadas como execução automática em toda auditoria.
 
-Consulte [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [CONFIGURATION.md](CONFIGURATION.md), [SCORE_GEO_003.md](SCORE_GEO_003.md), [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md), [specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md](specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md) e [specification/26_OBSERVED_GENERATIVE_VISIBILITY.md](specification/26_OBSERVED_GENERATIVE_VISIBILITY.md).
+Consulte também:
+
+- `MONITORING_OBSERVABILITY.md`;
+- `CONFIGURATION.md`;
+- `ENVIRONMENT_VARIABLES.md`;
+- `SCORE_GEO_003.md`;
+- `INTERACTIVE_CONSOLE.md`;
+- `specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md`;
+- `specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`;
+- `specification/26_OBSERVED_GENERATIVE_VISIBILITY.md`.
