@@ -5,8 +5,8 @@ on:
     branches:
       - main
     paths:
-      - 'src/searchgeo/platform/**'
-      - 'src/searchgeo/entrypoint.py'
+      - 'src/rasai/platform/**'
+      - 'src/rasai/entrypoint.py'
       - 'tests/test_product_platform_architecture.py'
       - 'docs/PRODUCT_PLATFORM_ARCHITECTURE.md'
       - '.github/workflows/product-platform-ci.yml'
@@ -14,8 +14,8 @@ on:
     branches:
       - main
     paths:
-      - 'src/searchgeo/platform/**'
-      - 'src/searchgeo/entrypoint.py'
+      - 'src/rasai/platform/**'
+      - 'src/rasai/entrypoint.py'
       - 'tests/test_product_platform_architecture.py'
       - 'docs/PRODUCT_PLATFORM_ARCHITECTURE.md'
       - '.github/workflows/product-platform-ci.yml'
@@ -41,7 +41,7 @@ jobs:
       - name: Install package and pytest
         run: python -m pip install -e . pytest
       - name: Compile product platform
-        run: python -m compileall -q src/searchgeo/platform src/searchgeo/entrypoint.py
+        run: python -m compileall -q src/rasai/platform src/rasai/entrypoint.py
       - name: Product platform tests
         run: python -m pytest -q tests/test_product_platform_architecture.py
       - name: Existing monitor/quality regressions
