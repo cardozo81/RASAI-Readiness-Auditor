@@ -20,6 +20,7 @@ from .store import ObservabilityStore, new_dataset
 SEARCH_ANALYTICS_ENDPOINT = "https://www.googleapis.com/webmasters/v3/sites/{site}/searchAnalytics/query"
 URL_INSPECTION_ENDPOINT = "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect"
 SOURCE_SEARCH = "GOOGLE_SEARCH_CONSOLE_SEARCH_ANALYTICS"
+SOURCE_APPEARANCE = "GOOGLE_SEARCH_CONSOLE_SEARCH_APPEARANCE"
 SOURCE_INSPECTION = "GOOGLE_SEARCH_CONSOLE_URL_INSPECTION"
 
 JsonOpener = Callable[..., Any]
@@ -47,6 +48,7 @@ def collect_search_analytics(
         raise ValueError("Google Search Console access token is required")
     if surface_dimension is not None and surface_dimension not in dimensions:
         raise ValueError("surface_dimension must be present in dimensions")
+    source_type = SOURCE_APPEARANCE if surface_dimension == "searchAppearance" else SOURCE_SEARCH
     max_rows = max(1, int(max_rows))
     page_size = max(1, min(int(row_limit), 25_000, max_rows))
     endpoint = SEARCH_ANALYTICS_ENDPOINT.format(site=quote(site_url, safe=""))
@@ -81,7 +83,7 @@ def collect_search_analytics(
             normalized.append(
                 {
                     "record_id": f"GSC-SA-{start_row + offset + 1:08d}",
-                    "source": SOURCE_SEARCH,
+                    "source": source_type,
                     "observed_date": mapping.get("date"),
                     "query_text": mapping.get("query"),
                     "url": mapping.get("page"),
@@ -106,7 +108,7 @@ def collect_search_analytics(
 
     artifact = {
         "format_version": "RASAI-GSC-SA-001",
-        "source": SOURCE_SEARCH,
+        "source": source_type,
         "site_url": site_url,
         "period_start": start_date,
         "period_end": end_date,
@@ -120,7 +122,7 @@ def collect_search_analytics(
     }
     return _persist(
         audit_workspace=audit_workspace,
-        source_type=SOURCE_SEARCH,
+        source_type=source_type,
         capture_method="DIRECT_OFFICIAL_API",
         artifact=artifact,
         period_start=start_date,
