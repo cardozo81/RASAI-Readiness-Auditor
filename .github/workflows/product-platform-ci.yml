@@ -5,21 +5,21 @@ on:
     branches:
       - main
     paths:
-      - 'src/rasai/platform/**'
-      - 'src/rasai/entrypoint.py'
-      - 'tests/test_product_platform_architecture.py'
-      - 'tests/test_rasai_namespace_contract.py'
-      - 'docs/PRODUCT_PLATFORM_ARCHITECTURE.md'
+      - 'src/rasai/**'
+      - 'tests/**'
+      - 'docs/**'
+      - 'README.md'
+      - 'pyproject.toml'
       - '.github/workflows/product-platform-ci.yml'
   push:
     branches:
       - main
     paths:
-      - 'src/rasai/platform/**'
-      - 'src/rasai/entrypoint.py'
-      - 'tests/test_product_platform_architecture.py'
-      - 'tests/test_rasai_namespace_contract.py'
-      - 'docs/PRODUCT_PLATFORM_ARCHITECTURE.md'
+      - 'src/rasai/**'
+      - 'tests/**'
+      - 'docs/**'
+      - 'README.md'
+      - 'pyproject.toml'
       - '.github/workflows/product-platform-ci.yml'
 
 permissions:
@@ -65,7 +65,28 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e . pytest
-      - name: Install Chromium for existing browser regressions
+      - name: Install Chromium for browser regressions
         run: python -m playwright install --with-deps chromium
+      - name: Full regression suite
+        run: python -m pytest -q
+
+  full-regression-windows:
+    name: Full regression suite (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install package and pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+      - name: Install Chromium for browser regressions
+        run: python -m playwright install chromium
+      - name: Compile canonical package
+        run: python -m compileall -q src/rasai
       - name: Full regression suite
         run: python -m pytest -q
