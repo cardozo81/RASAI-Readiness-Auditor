@@ -169,10 +169,6 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
         "Painel multimetodológico",
         "O dashboard resume resultados finais sem fundir metodologias: SGRI-001 é proprietário; Core Web Vitals, Lighthouse e Apdex mantêm suas definições externas.",
     ),
-    "searchgeo.html": (
-        "SCORE-GEO-003 calibrado + dimensões evidence-based",
-        "SGRI-001 centraliza Overall, dimensões, Coverage, Confidence e Consolidation. O Overall só consolida com artifact de calibração VALIDATED; SCORE-GEO-002 permanece histórico e não é recalculado.",
-    ),
     "score-geo-003.html": (
         "Metodologia calibrada SearchGEO",
         "Esta página expõe modelo, dataset, promotion gate e limites do SCORE-GEO-003 sem alterar medições persistidas.",
@@ -211,17 +207,30 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
     ),
 }
 
+_LEGACY_SEARCHGEO_SUMMARY = (
+    "Heurística SearchGEO evidence-based",
+    "Esta auditoria histórica foi persistida com SCORE-GEO-002. Sua aritmética e interpretação permanecem históricas; ela não é recalculada nem reinterpretada como SCORE-GEO-003.",
+)
+_CURRENT_SEARCHGEO_SUMMARY = (
+    "SCORE-GEO-003 calibrado + dimensões evidence-based",
+    "SGRI-001 centraliza Overall, dimensões, Coverage, Confidence e Consolidation. O Overall só consolida com artifact de calibração VALIDATED; SCORE-GEO-002 permanece histórico e não é recalculado.",
+)
+
 
 def enrich_indicator_provenance_html(html: str, *, page_name: str) -> str:
     """Make methodological provenance explicit without changing measured values."""
-    if page_name == "searchgeo.html":
+    searchgeo_003 = page_name == "searchgeo.html" and "SCORE-GEO-003" in html
+    if searchgeo_003:
         html = _rewrite_score_geo_003_searchgeo(html)
     if PROVENANCE_MARKER in html:
         return html
     if page_name == "references.html":
         addition = _reference_panel()
     else:
-        summary = _PAGE_SUMMARY.get(page_name)
+        if page_name == "searchgeo.html":
+            summary = _CURRENT_SEARCHGEO_SUMMARY if searchgeo_003 else _LEGACY_SEARCHGEO_SUMMARY
+        else:
+            summary = _PAGE_SUMMARY.get(page_name)
         if summary is None:
             return html
         label, detail = summary
