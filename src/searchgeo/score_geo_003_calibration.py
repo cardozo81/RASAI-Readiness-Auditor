@@ -51,7 +51,7 @@ class CalibrationRow:
     engines: tuple[str, ...]
     query_count: int
     min_repetitions: int
-    distinct_days: int
+    observed_days: tuple[str, ...]
 
     @property
     def failures(self) -> int:
@@ -124,7 +124,10 @@ def fit_calibration_model(rows: Iterable[CalibrationRow], *, dataset_version: st
     observations = _weighted_count(materialized)
     domain_count = len({row.domain for row in materialized})
     validation_domain_count = len(validation_domains)
-    minimum_distinct_days = min(row.distinct_days for row in materialized)
+    domain_days: dict[str, set[str]] = {}
+    for row in materialized:
+        domain_days.setdefault(row.domain, set()).update(row.observed_days)
+    minimum_distinct_days = min((len(days) for days in domain_days.values()), default=0)
 
     reasons: list[str] = []
     if domain_count < MIN_DOMAINS:
@@ -245,7 +248,7 @@ def _collect_database(database: Path) -> tuple[CalibrationRow, ...]:
         min_repetitions = min(counts.values()) if counts else 0
         if min_repetitions < MIN_REPETITIONS:
             return ()
-        distinct_days = len({day for row in eligible_runs if (day := _observed_day(row["observed_at"]))})
+        observed_days = tuple(sorted({day for row in eligible_runs if (day := _observed_day(row["observed_at"]))}))
 
         successes = sum(bool(row["cited"]) for row in eligible_runs)
         total = len(eligible_runs)
@@ -289,7 +292,7 @@ def _collect_database(database: Path) -> tuple[CalibrationRow, ...]:
                         engines=engines,
                         query_count=query_count,
                         min_repetitions=min_repetitions,
-                        distinct_days=distinct_days,
+                        observed_days=observed_days,
                     )
                 )
         return tuple(output)
