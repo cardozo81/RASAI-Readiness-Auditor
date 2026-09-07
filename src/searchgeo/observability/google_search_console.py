@@ -298,4 +298,4 @@ def _validate_period(start_date: str, end_date: str) -> None:
     except ValueError as exc:
         raise ValueError("start/end date must use YYYY-MM-DD") from exc
     if start > end:
-        raise ValueError("start date cannot be after end date") from exc
+        raise ValueError("start date cannot be after end date")
