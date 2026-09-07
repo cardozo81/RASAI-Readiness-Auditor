@@ -49,7 +49,17 @@ def compare_audits(baseline_workspace: str | Path, current_workspace: str | Path
         before = baseline.signals.get(key)
         after = current.signals.get(key)
         if before is not None and before.domain == "SCORE" and not score_versions_compatible:
-            events.append(_event(before, after, "NOT_COMPARABLE", before.value, after.value if after else None, False, reason="scoring version mismatch"))
+            events.append(
+                _event(
+                    before,
+                    after,
+                    "NOT_COMPARABLE",
+                    before.value,
+                    after.value if after else None,
+                    False,
+                    reason="scoring version mismatch",
+                )
+            )
             continue
         events.append(_compare_signal(before, after))
 
@@ -74,11 +84,18 @@ def _compare_signal(before: Signal | None, after: Signal | None) -> ChangeEvent:
     if before is None and after is not None:
         return _event(None, after, "NEW", None, after.value, _new_signal_material(after), reason="signal did not exist in baseline")
     if before is not None and after is None:
-        return _event(before, None, "DATA_UNAVAILABLE", before.value, None, False, reason="signal unavailable in current audit; absence is not treated as resolution")
+        return _event(
+            before,
+            None,
+            "DATA_UNAVAILABLE",
+            before.value,
+            None,
+            False,
+            reason="signal unavailable in current audit; absence is not treated as resolution",
+        )
     assert before is not None and after is not None
     if _same(before.value, after.value):
         return _event(before, after, "UNCHANGED", before.value, after.value, False)
-
     if after.direction == "RESULT":
         return _compare_result(before, after)
     if after.direction in {"HIGHER_BETTER", "LOWER_BETTER"}:
@@ -92,14 +109,30 @@ def _compare_result(before: Signal, after: Signal) -> ChangeEvent:
     if old in _UNKNOWN_RESULTS or new in _UNKNOWN_RESULTS:
         if old == new:
             return _event(before, after, "UNCHANGED", old, new, False)
-        return _event(before, after, "DATA_UNAVAILABLE", old, new, False, reason="one side is inconclusive; do not convert UNKNOWN/ERROR/N/A into quality change")
+        return _event(
+            before,
+            after,
+            "DATA_UNAVAILABLE",
+            old,
+            new,
+            False,
+            reason="one side is inconclusive; do not convert UNKNOWN/ERROR/N/A into quality change",
+        )
     if old in _RESULT_RANK and new in _RESULT_RANK:
         if _RESULT_RANK[new] < _RESULT_RANK[old]:
             return _event(before, after, "REGRESSED", old, new, True, reason=f"rule result degraded {old} → {new}")
         if _RESULT_RANK[new] > _RESULT_RANK[old]:
             status = "RESOLVED" if new == "PASS" and old in {"FAIL", "WARNING"} else "IMPROVED"
             return _event(before, after, status, old, new, True, reason=f"rule result improved {old} → {new}")
-    return _event(before, after, "CHANGED", old, new, True, reason="rule state changed without an ordered PASS/WARNING/FAIL interpretation")
+    return _event(
+        before,
+        after,
+        "CHANGED",
+        old,
+        new,
+        True,
+        reason="rule state changed without an ordered PASS/WARNING/FAIL interpretation",
+    )
 
 
 def _compare_numeric(before: Signal, after: Signal) -> ChangeEvent:
@@ -115,10 +148,28 @@ def _compare_numeric(before: Signal, after: Signal) -> ChangeEvent:
     threshold = _material_threshold(after, old)
     material = abs(delta) >= threshold
     if not material:
-        return _event(before, after, "CHANGED", old, new, False, delta=delta, delta_percent=delta_percent, reason=f"change below materiality threshold {threshold:g} {after.unit or ''}".strip())
+        return _event(
+            before,
+            after,
+            "CHANGED",
+            old,
+            new,
+            False,
+            delta=delta,
+            delta_percent=delta_percent,
+            reason=f"change below materiality threshold {threshold:g} {after.unit or ''}".strip(),
+        )
     improved = delta > 0 if after.direction == "HIGHER_BETTER" else delta < 0
-    status = "IMPROVED" if improved else "REGRESSED"
-    return _event(before, after, status, old, new, True, delta=delta, delta_percent=delta_percent)
+    return _event(
+        before,
+        after,
+        "IMPROVED" if improved else "REGRESSED",
+        old,
+        new,
+        True,
+        delta=delta,
+        delta_percent=delta_percent,
+    )
 
 
 def _compare_state(before: Signal, after: Signal) -> ChangeEvent:
@@ -139,9 +190,15 @@ def _compare_state(before: Signal, after: Signal) -> ChangeEvent:
             return _event(before, after, "REGRESSED", old, new, True, reason="index-blocking robots directive appeared")
         if old_block and not new_block:
             return _event(before, after, "IMPROVED", old, new, True, reason="index-blocking robots directive disappeared")
-    # Canonical, title and final URL changes are material observations, but are
-    # not called regressions without a directional rule finding.
-    return _event(before, after, "CHANGED", old, new, True, reason="non-directional page state changed; inspect correlated rule events")
+    return _event(
+        before,
+        after,
+        "CHANGED",
+        old,
+        new,
+        True,
+        reason="non-directional page state changed; inspect correlated rule events",
+    )
 
 
 def _material_threshold(signal: Signal, old: float) -> float:
@@ -228,9 +285,11 @@ def _event(
 
 def evaluate_release_gate(result: ComparisonResult, policy: GatePolicy | None = None) -> GateResult:
     effective = policy or GatePolicy()
-    regressions = [event for event in result.events if event.status == "REGRESSED" and event.material]
-    if effective.deterministic_only:
-        regressions = [event for event in regressions if _deterministic(event)]
+    regressions = [
+        event
+        for event in result.events
+        if event.status == "REGRESSED" and event.material and _gate_eligible(event, effective)
+    ]
 
     blocking: list[ChangeEvent] = []
     warnings: list[ChangeEvent] = []
@@ -253,10 +312,13 @@ def evaluate_release_gate(result: ComparisonResult, policy: GatePolicy | None = 
         else:
             warnings.append(event)
     if high_count > effective.max_high_regressions:
-        blocking.extend(event for event in warnings if _SEVERITY_RANK.get(event.severity.upper(), 0) >= _SEVERITY_RANK["HIGH"])
+        blocking.extend(
+            event for event in warnings
+            if _SEVERITY_RANK.get(event.severity.upper(), 0) >= _SEVERITY_RANK["HIGH"]
+        )
     if medium_count > effective.max_medium_regressions:
         blocking.extend(event for event in warnings if event.severity.upper() == "MEDIUM")
-    # stable de-dup preserving order
+
     seen: set[str] = set()
     unique_blocking: list[ChangeEvent] = []
     for event in blocking:
@@ -264,19 +326,41 @@ def evaluate_release_gate(result: ComparisonResult, policy: GatePolicy | None = 
             seen.add(event.key)
             unique_blocking.append(event)
     passed = not unique_blocking
-    reason = "PASS: no blocking deterministic regression" if passed else f"FAIL: {len(unique_blocking)} blocking regression(s)"
+    scope = _gate_scope(effective)
+    reason = (
+        f"PASS: no blocking regression in gate scope [{scope}]"
+        if passed
+        else f"FAIL: {len(unique_blocking)} blocking regression(s) in gate scope [{scope}]"
+    )
     return GateResult(passed, tuple(unique_blocking), tuple(warnings), effective, reason)
 
 
-def _deterministic(event: ChangeEvent) -> bool:
+def _gate_eligible(event: ChangeEvent, policy: GatePolicy) -> bool:
     if event.domain == "RULE":
-        return bool(event.rule_id and event.rule_id in _DETERMINISTIC_RULES)
+        if policy.deterministic_only:
+            return bool(event.rule_id and event.rule_id in _DETERMINISTIC_RULES)
+        return True
     if event.domain == "PAGE":
         return True
-    if event.domain in {"PERFORMANCE", "APDEX", "UX_APDEX"}:
-        return True
+    if event.domain == "PERFORMANCE":
+        return policy.include_performance
+    if event.domain in {"APDEX", "UX_APDEX"}:
+        return policy.include_synthetic
     if event.domain == "FINDINGS":
-        return True
-    # SCORE dimensions can include semantic rules, so deterministic-only gate
-    # does not block on aggregated score deltas.
+        return policy.include_finding_aggregates
+    if event.domain == "SCORE":
+        return policy.include_score_dimensions
     return False
+
+
+def _gate_scope(policy: GatePolicy) -> str:
+    parts = ["deterministic-rules" if policy.deterministic_only else "all-rules", "page-state"]
+    if policy.include_performance:
+        parts.append("performance")
+    if policy.include_synthetic:
+        parts.append("synthetic")
+    if policy.include_finding_aggregates:
+        parts.append("finding-aggregates")
+    if policy.include_score_dimensions:
+        parts.append("score-dimensions")
+    return ",".join(parts)
