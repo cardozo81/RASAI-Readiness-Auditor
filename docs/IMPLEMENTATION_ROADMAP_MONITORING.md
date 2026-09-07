@@ -1,16 +1,37 @@
-# RASAI Monitoring & Observability — Implementation Roadmap
+# RASAI Monitoring & Observability — Delivery Status
 
-Status: IN PROGRESS
+**Status:** IMPLEMENTED — automated validation green; human smoke required before merge.
 
-This roadmap consolidates the implementation scope for continuous monitoring, observed search/AI outcomes, regression analysis, calibration support, structured-data eligibility, internationalization checks, entity consistency, freshness drift, retrieval/chunkability diagnostics, template/root-cause clustering and release quality gates.
+The implementation scope originally tracked by this roadmap is now materialized in PR #82.
 
-The implementation must preserve the methodological separation between SARI readiness, observed outcomes, performance/experience and accessibility. No new signal is allowed to enter SARI-001 or SCORE-GEO-003 without an explicit versioned scoring contract and validation.
+Delivered areas:
 
-## Delivery principles
+- read-only audit comparison and regression classification;
+- deterministic release quality gate;
+- temporal-association Change Impact analysis without causal claims;
+- sidecar `observability.db` and preserved external artifacts;
+- Google Search Console Search Analytics and URL Inspection collectors;
+- CrUX History collector;
+- Bing Search/Chat performance import-first support;
+- Indexability Reality Matrix;
+- Query × Intent Alignment;
+- conservative Potential Search Cannibalization candidates;
+- structured-data documentation checks;
+- hreflang/international-search checks;
+- entity consistency and freshness diagnostics;
+- retrieval/chunkability diagnostics;
+- template/root-cause clustering;
+- `report/observability.html`;
+- canonical optional-page navigation registry;
+- SCORE-GEO-003 calibration dataset manifest/pre-fit gates;
+- dedicated tests and CI.
 
-- Evidence-first and reproducible outputs.
-- Missing data never becomes a synthetic failure.
-- Historical comparability is segmented by scoring/model version, device and audit universe.
-- Monitoring detects change; it does not infer causality without evidence.
-- External integrations use documented APIs only.
-- Deterministic release gates remain independent from optional LLM analysis.
+The methodological separation remains mandatory:
+
+- `SARI-001` is the public readiness index;
+- `SCORE-GEO-003` is the current scoring runtime for new audits;
+- `SCORE-GEO-002` is historical;
+- observed outcomes do not automatically enter SARI/scoring;
+- monitoring detects change and association, not causality.
+
+Operational contract, commands, persistence model and human-smoke procedure are documented in [`MONITORING_OBSERVABILITY.md`](MONITORING_OBSERVABILITY.md).
