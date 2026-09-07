@@ -30,6 +30,7 @@ _CLASS_LABELS = {
     "OFFICIAL_PLATFORM_GUIDANCE": "Orientação oficial de plataforma",
     "EXTERNAL_DEFINED_METRIC": "Métrica externa definida",
     "SEARCHGEO_HEURISTIC": "Heurística SearchGEO",
+    "SEARCHGEO_CALIBRATED": "Métrica SearchGEO calibrada",
     "OPERATIONAL_TELEMETRY": "Telemetria operacional",
     "AI_DERIVED_ADVISORY": "Análise/sugestão por IA",
 }
@@ -37,12 +38,12 @@ _CLASS_LABELS = {
 INDICATORS: tuple[IndicatorProvenance, ...] = (
     IndicatorProvenance(
         "SearchGEO Readiness Index (SGRI-001)",
-        "SEARCHGEO_HEURISTIC",
+        "SEARCHGEO_CALIBRATED",
         "SearchGEO",
-        "SEARCHGEO_READINESS_INDEX / SCORING_GUIDE / SCORING_VALIDATION",
+        "SCORE-GEO-003 / SCORING_GUIDE / SCORE_GEO_003",
         None,
         "Não existe score GEO/AEO 0–100 universal homologado usado por esta saída.",
-        "SGRI-001 é a identidade pública do índice composto. Enquanto a aritmética não mudar, o motor persistido continua SCORE-GEO-002 para preservar comparabilidade histórica.",
+        "SCORE-GEO-003 mantém dimensões determinísticas e usa Overall logisticamente calibrado contra presença observada de citação. Sem artifact VALIDATED, o Overall não é consolidado.",
     ),
     IndicatorProvenance(
         "Coverage / Confidence / Consolidation",
@@ -51,7 +52,7 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "SCORING_GUIDE",
         None,
         "Não há thresholds GEO universais externos para estes estados.",
-        "Coverage mede universo aplicável avaliado; Confidence e Consolidation usam thresholds internos versionados.",
+        "Coverage mede universo aplicável avaliado; Confidence do Overall é limitada pela evidência das dimensões e pela Confidence do artifact de calibração.",
     ),
     IndicatorProvenance(
         "BR-GEO-001..054",
@@ -87,7 +88,7 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "Web Vitals",
         "https://web.dev/articles/vitals",
         "Métricas, avaliação no percentil 75 e thresholds recomendados são definidos externamente pelo programa Core Web Vitals.",
-        "SearchGEO coleta PageSpeed/CrUX, preserva source/scope e não converte CWV em SGRI-001.",
+        "SearchGEO coleta PageSpeed/CrUX, preserva source/scope e não os converte diretamente em SCORE-GEO-003.",
     ),
     IndicatorProvenance(
         "Lighthouse Performance",
@@ -169,8 +170,12 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
         "O dashboard resume resultados finais sem fundir metodologias: SGRI-001 é proprietário; Core Web Vitals, Lighthouse e Apdex mantêm suas definições externas.",
     ),
     "searchgeo.html": (
-        "Heurística SearchGEO evidence-based",
-        "SGRI-001 centraliza Overall, dimensões, Coverage, Confidence e Consolidation. O motor persistido SCORE-GEO-002 é mantido como compatibilidade enquanto a aritmética não muda.",
+        "SCORE-GEO-003 calibrado + dimensões evidence-based",
+        "SGRI-001 centraliza Overall, dimensões, Coverage, Confidence e Consolidation. O Overall só consolida com artifact de calibração VALIDATED; SCORE-GEO-002 permanece histórico e não é recalculado.",
+    ),
+    "score-geo-003.html": (
+        "Metodologia calibrada SearchGEO",
+        "Esta página expõe modelo, dataset, promotion gate e limites do SCORE-GEO-003 sem alterar medições persistidas.",
     ),
     "mobile.html": (
         "Evidências SearchGEO por dispositivo",
@@ -194,7 +199,7 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
     ),
     "web-performance.html": (
         "Métricas externas definidas",
-        "Core Web Vitals e Lighthouse preservam metodologia/thresholds externos. SearchGEO coleta e contextualiza sem convertê-los em SGRI-001.",
+        "Core Web Vitals e Lighthouse preservam metodologia/thresholds externos. SearchGEO coleta e contextualiza sem convertê-los diretamente no SCORE-GEO-003.",
     ),
     "apdex.html": (
         "Método Apdex externo + T configurado pelo operador",
@@ -209,6 +214,8 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
 
 def enrich_indicator_provenance_html(html: str, *, page_name: str) -> str:
     """Make methodological provenance explicit without changing measured values."""
+    if page_name == "searchgeo.html":
+        html = _rewrite_score_geo_003_searchgeo(html)
     if PROVENANCE_MARKER in html:
         return html
     if page_name == "references.html":
@@ -224,6 +231,20 @@ def enrich_indicator_provenance_html(html: str, *, page_name: str) -> str:
             "<a href='references.html#indicator-provenance'>Ver fonte, fórmula e parte interna de cada indicador →</a></section>"
         )
     return html.replace("</header>", "</header>" + addition, 1)
+
+
+def _rewrite_score_geo_003_searchgeo(html: str) -> str:
+    replacements = (
+        ("<small>Natureza</small><strong>Heurística SearchGEO</strong>", "<small>Natureza</small><strong>Calibrado + determinístico</strong>"),
+        ("<h3>Overall Readiness</h3><p>Média simples das dimensões aplicáveis suficientemente consolidadas. Dimensão legitimamente NOT_APPLICABLE não recebe zero.</p>", "<h3>Overall Readiness</h3><p><code>100 × sigmoid(β0 + Σ βi × feature_i)</code>, usando coeficientes de artifact de calibração VALIDATED. Sem modelo validado, Overall não é consolidado.</p>"),
+        ("<h3>Confidence</h3><p>Qualifica a força da conclusão com thresholds internos versionados. Não é score de conteúdo nem probabilidade estatística.</p>", "<h3>Confidence</h3><p>É limitada pela evidência/cobertura das dimensões e pela Confidence do artifact de calibração. Não é garantia de citação futura.</p>"),
+        ("pesos, fatores WARNING, thresholds de Confidence/Consolidation e faixas visuais são decisões metodológicas do SearchGEO", "fatores das dimensões e thresholds operacionais continuam versionados; coeficientes do Overall vêm do artifact SCORE-GEO-003 validado"),
+        ("Esta auditoria não transforma readiness em suposta probabilidade de citação.", "O Overall calibrado modela associação com presença observada de citação, mas não constitui garantia nem causalidade de citação futura."),
+        ("esta mudança de relatório não recalcula auditorias, não altera pesos e não quebra comparabilidade histórica", "auditorias SCORE-GEO-002 históricas não são recalculadas; séries entre versões exigem segmentação metodológica"),
+    )
+    for old, new in replacements:
+        html = html.replace(old, new)
+    return html
 
 
 def _reference_panel() -> str:
@@ -251,7 +272,7 @@ def _reference_panel() -> str:
         f"<section id='indicator-provenance' class='panel' data-provenance='{PROVENANCE_MARKER}'>"
         "<div class='kicker'>Proveniência metodológica</div><h2>De onde vem cada indicador</h2>"
         "<p class='intro'>Esta tabela separa standard externo, orientação oficial, métrica definida por terceiros, observação, "
-        "heurística SearchGEO, IA advisory e telemetria. Uma fonte oficial sustenta apenas o fenômeno indicado; não homologa automaticamente o SGRI-001.</p>"
+        "heurística/calibração SearchGEO, IA advisory e telemetria. Uma fonte oficial sustenta apenas o fenômeno indicado; não homologa automaticamente o SGRI-001.</p>"
         f"<p class='intro'><strong>Classificações:</strong> {legend}</p>"
         f"<div class='notice'><strong>Referências verificadas em:</strong> {VERIFIED_ON}. Links externos apontam para fontes primárias/oficiais quando disponíveis.</div>"
         "<div class='table-wrap'><table><thead><tr><th>Indicador</th><th>Natureza</th><th>Fonte / entidade</th><th>Lógica externa</th><th>Aplicação SearchGEO</th></tr></thead>"
