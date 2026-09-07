@@ -42,6 +42,55 @@ def _try_refresh_platform_index(argv: list[str]) -> None:
         _LOGGER.exception("RASAi platform index refresh failed after successful audit")
 
 
+def _run_audit_and_finalize(effective: list[str]) -> int:
+    """Run one audit and materialize SCORE-GEO-003 after every other report.
+
+    Scoring itself still runs at M9, before recommendations. Only the HTML
+    projection is deferred. This prevents an early method page from presenting
+    a partially materialized report site while keeping score arithmetic and
+    persisted evidence order unchanged.
+    """
+    from searchgeo import m9
+    from searchgeo import report_navigation
+    from searchgeo.persistence import AuditWorkspace
+    from searchgeo.score_geo_003_reporting import write_score_geo_003_report
+
+    original_run_audit = cli_extensions._legacy_cli.run_audit
+    original_score_writer = m9.write_score_geo_003_report
+    captured: list[object] = []
+
+    def capture_run(*args, **kwargs):
+        result = original_run_audit(*args, **kwargs)
+        captured.append(result)
+        return result
+
+    def defer_score_report(*, audit_id: str, workspace: AuditWorkspace) -> Path:
+        return workspace.root / "report" / "score-geo-003.html"
+
+    cli_extensions._legacy_cli.run_audit = capture_run
+    m9.write_score_geo_003_report = defer_score_report
+    try:
+        code = cli_extensions.main(effective)
+    finally:
+        cli_extensions._legacy_cli.run_audit = original_run_audit
+        m9.write_score_geo_003_report = original_score_writer
+
+    if code == 0 and captured:
+        result = captured[-1]
+        try:
+            workspace = AuditWorkspace.open(result.audit_root)
+            score_path = write_score_geo_003_report(
+                audit_id=result.audit_id,
+                workspace=workspace,
+            )
+            report_navigation.normalize_report_navigation(score_path.parent)
+        except Exception:
+            # Report finalization is a projection. Never invalidate the already
+            # persisted audit because a static method page could not be refreshed.
+            _LOGGER.exception("SCORE-GEO-003 final report projection failed")
+    return code
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     install_report_registry()
     effective = list(argv) if argv is not None else list(sys.argv[1:])
@@ -63,7 +112,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] == "platform":
         from searchgeo.platform.canonical_cli import main as platform_main
         return platform_main(effective[1:])
-    code = cli_extensions.main(effective)
-    if code == 0 and effective and effective[0] == "audit":
-        _try_refresh_platform_index(effective)
-    return code
+    if effective and effective[0] == "audit":
+        code = _run_audit_and_finalize(effective)
+        if code == 0:
+            _try_refresh_platform_index(effective)
+        return code
+    return cli_extensions.main(effective)
