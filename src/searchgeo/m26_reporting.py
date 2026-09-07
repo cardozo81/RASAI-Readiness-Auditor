@@ -87,7 +87,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
         body = """
         <header class='hero'><div class='eyebrow'>Observed Generative Visibility · visibilidade observada</div><h1>Observed Generative Visibility</h1>
         <p class='lead'>Nenhum dataset de visibilidade generativa foi importado para esta auditoria.</p></header>
-        <section class='panel'><h2>Readiness ≠ Visibility</h2><p>Esta página é deliberadamente separada do SGRI/SCORE-GEO. Ausência de dados observados não reduz o readiness.</p></section>
+        <section class='panel'><h2>Readiness ≠ Visibility</h2><p>Esta página é deliberadamente separada do SARI/SCORE-GEO. Ausência de dados observados não reduz o readiness.</p></section>
         """
         return _shell(nav, body)
 
@@ -97,7 +97,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     <header class='hero'>
       <div class='eyebrow'>Observed Generative Visibility · visibilidade observada · informativo; não altera o índice</div>
       <h1>Observed Generative Visibility</h1>
-      <p class='lead'>Resultados observados/importados sobre participação e citação em superfícies de IA. Estes dados <strong>não compõem SGRI-001/SCORE-GEO-002</strong> e não são convertidos em um “GEO Score”.</p>
+      <p class='lead'>Resultados observados/importados sobre participação e citação em superfícies de IA. Estes dados <strong>não compõem SARI-001/SCORE-GEO-002</strong> e não são convertidos em um “GEO Score”.</p>
       <div class='metric-grid'>
         {_metric('Datasets importados', len(imports))}
         {_metric('Período mais recente', f"{latest['period_start']} → {latest['period_end']}")}
@@ -110,11 +110,11 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
       <h2>Readiness ≠ Visibility</h2>
       <p><strong>Readiness</strong> descreve condições técnicas/semânticas inferidas pela auditoria. <strong>Observed Generative Visibility</strong> descreve o que foi efetivamente observado numa fonte ou protocolo. Correlação entre ambos é matéria de validação empírica futura; esta página não presume causalidade.</p>
       <p>Contagem de citações não é ranking, autoridade, posição nem probabilidade de citação futura. Métricas declaradas como reportadas por terceiros são preservadas sem recomputação equivalente.</p>
-      <p><strong>Proveniência:</strong> Observed Generative Visibility é import-first. A fonte e o método de captura são declarados no artifact fornecido ao SearchGEO; nesta versão o SearchGEO não autentica o portal externo nem afirma que realizou coleta direta.</p>
+      <p><strong>Proveniência:</strong> Observed Generative Visibility é import-first. A fonte e o método de captura são declarados no artifact fornecido ao RASAI; nesta versão o RASAI não autentica o portal externo nem afirma que realizou coleta direta.</p>
     </section>
     {sections}
     {_references()}
-    <footer class='footer'>Observed Generative Visibility é import-first, auditável e informativo; não altera o índice. O SearchGEO não faz scraping de portais de webmaster nem inventa endpoint de API para esta coleta.</footer>
+    <footer class='footer'>Observed Generative Visibility é import-first, auditável e informativo; não altera o índice. O RASAI não faz scraping de portais de webmaster nem inventa endpoint de API para esta coleta.</footer>
     """
     return _shell(nav, body)
 
@@ -177,7 +177,7 @@ def _import_section(item: sqlite3.Row, data: dict[str, Any]) -> str:
       <h2>{escape(str(item['source_label']))} · {escape(str(item['period_start']))} → {escape(str(item['period_end']))}</h2>
       <div class='metric-grid'>{''.join(metrics)}</div>
       <p class='intro'><strong>Market/language:</strong> {escape(str(item['market'] or '—'))} / {escape(str(item['language'] or '—'))}. <strong>Engines nos query-runs válidos:</strong> {escape(engine_note)}.</p>
-      <div class='notice'><strong>Proveniência declarada:</strong> método <code>{escape(str(item['capture_method']))}</code> · artifact <code>{artifact}</code> · SHA-256 <code>{sha}</code> · importado em {escape(str(item['imported_at']))}. Metadata: <code>{metadata_text}</code>. O SearchGEO preserva esta declaração, mas não a converte em prova de coleta autenticada no sistema externo.</div>
+      <div class='notice'><strong>Proveniência declarada:</strong> método <code>{escape(str(item['capture_method']))}</code> · artifact <code>{artifact}</code> · SHA-256 <code>{sha}</code> · importado em {escape(str(item['imported_at']))}. Metadata: <code>{metadata_text}</code>. O RASAI preserva esta declaração, mas não a converte em prova de coleta autenticada no sistema externo.</div>
       <h3>Atividade por URL</h3>
       <div class='table-wrap'><table><thead><tr><th>URL</th><th>Citações</th><th>Data</th></tr></thead><tbody>{page_rows}</tbody></table></div>
       <h3>Grounding queries</h3>
@@ -240,4 +240,4 @@ def _json_list(value: Any) -> list[str]:
 
 
 def _shell(nav: str, body: str) -> str:
-    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Observed Generative Visibility · SearchGEO</title><link rel='stylesheet' href='css/site.css'></head><body>{nav}<main class='app-main'>{body}</main></body></html>"""
+    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Observed Generative Visibility · RASAI</title><link rel='stylesheet' href='css/site.css'></head><body>{nav}<main class='app-main'>{body}</main></body></html>"""

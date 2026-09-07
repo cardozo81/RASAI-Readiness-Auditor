@@ -6,14 +6,14 @@ Registrar como o `SCORE-GEO-003` é validado e separar claramente:
 
 - evidência externa oficial;
 - métricas externas definidas;
-- heurísticas SearchGEO;
+- heurísticas RASAI;
 - calibração empírica do Overall.
 
 ## 1. Limite normativo
 
 Não existe um score GEO/AEO 0–100 universal homologado por Google, OpenAI, Microsoft, Anthropic, NIST, W3C ou outro mantenedor equivalente.
 
-`SCORE-GEO-003` continua sendo método proprietário do SearchGEO. A calibração melhora respaldo quantitativo, mas não converte o índice em padrão oficial.
+`SCORE-GEO-003` continua sendo método proprietário do RASAI. A calibração melhora respaldo quantitativo, mas não converte o índice em padrão oficial.
 
 ## 2. O que é calibrado
 
@@ -68,7 +68,7 @@ Mede capacidade discriminativa no holdout. O gate mínimo interno é `0,60`.
 
 Mede erro quadrático das probabilidades. O modelo precisa superar um baseline que prevê a prevalência observada no treino.
 
-AUC/Brier são métricas estatísticas conhecidas; os gates usados para promover um model artifact são decisões internas versionadas do SearchGEO.
+AUC/Brier são métricas estatísticas conhecidas; os gates usados para promover um model artifact são decisões internas versionadas do RASAI.
 
 ## 5. Hierarquia de evidência
 
@@ -84,13 +84,13 @@ Exemplos: Core Web Vitals, Lighthouse, métricas NIST/TREC.
 
 Mantém metodologia própria e não entra automaticamente no `SCORE-GEO-003`.
 
-### Heurística SearchGEO
+### Heurística RASAI
 
 Exemplos: fatores de RuleResult, thresholds de Coverage/Confidence/Consolidation e classificação visual.
 
 Continuam explicitamente internos.
 
-### Modelo SearchGEO calibrado
+### Modelo RASAI calibrado
 
 Coeficientes do Overall `003` são derivados de dataset observacional versionado e só são usados quando o artifact passa o promotion gate.
 

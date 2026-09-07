@@ -1,12 +1,12 @@
 # Variáveis de ambiente — referência completa
 
-Referência operacional da superfície de variáveis reconhecida pelo console do SearchGEO Readiness Auditor.
+Referência operacional da superfície de variáveis reconhecida pelo console do RASAI — Search & AI Readiness Auditor.
 
 Verificação documental: **2026-09-06**. Para credenciais, endpoints externos e conceitos de qualidade de conteúdo, os procedimentos e definições abaixo foram conferidos contra documentação pública oficial dos respectivos provedores e do Google Search Central.
 
 ## Como usar esta configuração
 
-Variáveis de ambiente são uma camada de **override avançado**, não uma lista de campos que o usuário precisa preencher antes da primeira auditoria. Quando existe um default seguro, o SearchGEO já o aplica internamente e o console passa a mostrar esse **default efetivo** mesmo que a variável não exista no sistema operacional.
+Variáveis de ambiente são uma camada de **override avançado**, não uma lista de campos que o usuário precisa preencher antes da primeira auditoria. Quando existe um default seguro, o RASAI já o aplica internamente e o console passa a mostrar esse **default efetivo** mesmo que a variável não exista no sistema operacional.
 
 Não materialize todos os defaults no ambiente sem necessidade. Isso criaria configuração redundante e pode mudar sem querer a semântica de parâmetros opcionais. Exemplo: `SEARCHGEO_CONFIG` não precisa existir; sem override, `searchgeo.toml` é opcional. Se `SEARCHGEO_CONFIG` for definido, o arquivo apontado precisa existir.
 
@@ -31,7 +31,7 @@ Ao selecionar uma variável, o console mostra: finalidade, tipo, domínio aceito
 ## Segurança e persistência de credenciais
 
 - API keys e demais secrets aparecem apenas como `[SET]`; o valor nunca é exibido em claro.
-- Secrets nunca são gravados em `searchgeo-console.ini`.
+- Secrets nunca são gravados em `rasai-console.ini`.
 - `S. Setar/alterar sessão` altera o valor usado pelo processo atual.
 - No Windows, `P. Persistência Windows/User` permite persistir ou remover explicitamente a credencial no ambiente **User**; a gravação exige confirmação `SIM`.
 - O console informa a origem do valor efetivamente usado, por exemplo `SESSÃO`, `SO:USER`, `SO:MACHINE` ou combinação equivalente, sem revelar o segredo.
@@ -57,7 +57,7 @@ Exemplo:
 $env:SEARCHGEO_CONFIG = "C:\searchgeo\searchgeo.toml"
 ```
 
-Defina somente se o arquivo já existir. Para o uso normal do console, deixe a variável ausente e use `searchgeo-console.ini` para os parâmetros persistíveis.
+Defina somente se o arquivo já existir. Para o uso normal do console, deixe a variável ausente e use `rasai-console.ini` para os parâmetros persistíveis.
 
 ## 2. IA — credenciais
 
@@ -68,7 +68,7 @@ As credenciais não possuem default.
 | `OPENAI_API_KEY` | OpenAI | provider `openai`; em `auto`, torna OpenAI elegível | uso da API é separado do produto ChatGPT |
 | `DEEPSEEK_API_KEY` | DeepSeek | provider `deepseek`; em `auto`, torna DeepSeek elegível | erro HTTP 402 pode indicar saldo insuficiente |
 | `MIMO_API_KEY` | Xiaomi MiMo | provider `mimo`; em `auto`, torna MiMo elegível | adapter atual aceita PAYG `sk-...`; Token Plan `tp-...` é produto/endpoint diferente |
-| `XAI_API_KEY` | xAI / Grok | provider `xai` ou alias `grok` | explicit-only no SearchGEO atual |
+| `XAI_API_KEY` | xAI / Grok | provider `xai` ou alias `grok` | explicit-only no RASAI atual |
 | `DASHSCOPE_API_KEY` | Alibaba Qwen | provider `qwen` | explicit-only; região/endpoint precisam ser compatíveis com a chave |
 | `GEMINI_API_KEY` | Google Gemini | provider `gemini` | use auth key atual do Gemini API |
 | `ANTHROPIC_API_KEY` | Anthropic Claude | provider `anthropic` ou alias `claude` | Console/API possui billing separado do produto de chat |
@@ -78,13 +78,13 @@ As credenciais não possuem default.
 Fontes oficiais: <https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key> e <https://platform.openai.com/api-keys>.
 
 1. Entre na OpenAI Platform.
-2. Selecione o projeto que deverá concentrar acesso, limites e billing do SearchGEO.
+2. Selecione o projeto que deverá concentrar acesso, limites e billing do RASAI.
 3. Abra **API Keys**.
 4. Selecione **Create new secret key**.
 5. Configure as permissões compatíveis com a chamada ao modelo/endpoint que será usado.
 6. Copie o segredo no momento da criação; a chave completa não é mostrada novamente depois.
 7. Confirme créditos/billing, limites e acesso ao modelo no mesmo projeto.
-8. No SearchGEO: `E > IA — credenciais > OPENAI_API_KEY > S`. Use `P` apenas se quiser persistir no ambiente User do Windows.
+8. No RASAI: `E > IA — credenciais > OPENAI_API_KEY > S`. Use `P` apenas se quiser persistir no ambiente User do Windows.
 
 ### Como obter `DEEPSEEK_API_KEY`
 
@@ -95,14 +95,14 @@ Fontes oficiais: <https://api-docs.deepseek.com/> e <https://platform.deepseek.c
 3. Crie uma chave e armazene-a com segurança.
 4. Confirme saldo/quota antes do primeiro teste.
 5. Configure `DEEPSEEK_API_KEY` no grupo **IA — credenciais**.
-6. Selecione somente modelos aceitos pelo registry do SearchGEO; o menu rejeita nomes fora do domínio atual.
+6. Selecione somente modelos aceitos pelo registry do RASAI; o menu rejeita nomes fora do domínio atual.
 
 ### Como obter `MIMO_API_KEY`
 
 Fonte oficial: <https://mimo.mi.com/docs/en-US/quick-start/faq/api-integration>.
 
 1. Entre na Xiaomi MiMo API Open Platform.
-2. Para o adapter atual do SearchGEO, use **Pay-as-you-go API Calls**.
+2. Para o adapter atual do RASAI, use **Pay-as-you-go API Calls**.
 3. Abra **Console > API Keys** e crie a chave PAYG.
 4. Confirme que a chave começa com `sk-`.
 5. Configure `MIMO_API_KEY`.
@@ -160,7 +160,7 @@ Fontes oficiais: <https://support.claude.com/en/articles/8114521-how-can-i-acces
 
 ## 3. IA — modelos e reasoning
 
-Estas variáveis são overrides. Se ausentes, o SearchGEO usa os defaults públicos abaixo.
+Estas variáveis são overrides. Se ausentes, o RASAI usa os defaults públicos abaixo.
 
 | Variável | Valores aceitos | Default efetivo |
 |---|---|---|
@@ -213,7 +213,7 @@ Todos os defaults são `auto`.
 
 ### Como interpretar `auto`
 
-`auto` não significa que o SearchGEO conhece o contexto com certeza. Significa que a IA pode usar uma **hipótese provisória**, baseada somente nas evidências visíveis fornecidas.
+`auto` não significa que o RASAI conhece o contexto com certeza. Significa que a IA pode usar uma **hipótese provisória**, baseada somente nas evidências visíveis fornecidas.
 
 Quando a classificação inferida for material, a IA deve reduzir confiança e não pode inventar:
 
@@ -302,7 +302,7 @@ Para configuração normal use **11. Synthetic Apdex** no menu principal, que ex
 
 - **Finalidade:** apontar para um Chromium específico.
 - **Tipo:** caminho de arquivo existente.
-- **Default:** nenhum override; Playwright/SearchGEO usa a instalação/descoberta padrão.
+- **Default:** nenhum override; Playwright/RASAI usa a instalação/descoberta padrão.
 - **Quando definir:** somente se houver necessidade de fixar um executável externo.
 - **Validação:** o console rejeita caminho que não exista como arquivo.
 - **Impacto:** execução local; sem custo externo direto.

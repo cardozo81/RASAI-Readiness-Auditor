@@ -174,7 +174,7 @@ Regra aprovada:
 7. a exclusão deve ser persistida/rastreável como `DIMENSION_NOT_APPLICABLE:<DIMENSION>`;
 8. se um tópico opcional passar a existir — por exemplo JSON-LD — suas regras passam a ser aplicáveis e seus resultados entram normalmente no score.
 
-JSON-LD/Structured Data é classificado como **OPCIONAL / REFORÇO**, não como requisito universal para GEO funcional. Sua ausência legítima, isoladamente, não é FAIL nem impedimento para Compatibilidade GEO mensurável. Quando presente, deve ser interpretável e coerente com o conteúdo visível; markup inválido ou contraditório pode reduzir o score.
+JSON-LD/Structured Data é classificado como **OPCIONAL / REFORÇO**, não como requisito universal para GEO funcional. Sua ausência legítima, isoladamente, não é FAIL nem impedimento para Readiness Search & AI mensurável. Quando presente, deve ser interpretável e coerente com o conteúdo visível; markup inválido ou contraditório pode reduzir o score.
 
 O foco primário desta classificação é Google Search e seus recursos de IA. Outros mecanismos podem ser documentados como sinais complementares sem alterar a regra de scoring.
 
@@ -184,9 +184,9 @@ Core Web Vitals/CrUX e Lighthouse entram como **evidência externa complementar*
 
 Decisão aprovada:
 
-1. `SCORE-GEO-002` permanece baseline oficial interna do SearchGEO para Readiness;
+1. `SCORE-GEO-002` permanece baseline oficial interna do RASAI para Readiness;
 2. Lighthouse Performance, Accessibility, Best Practices e SEO permanecem scores do Lighthouse e devem ser rotulados como tais;
-3. LCP, INP e CLS de CrUX representam experiência real agregada quando houver amostra suficiente e não constituem automaticamente RuleExecution/ScoreContribution do SearchGEO;
+3. LCP, INP e CLS de CrUX representam experiência real agregada quando houver amostra suficiente e não constituem automaticamente RuleExecution/ScoreContribution do RASAI;
 4. ausência/erro de PageSpeed ou CrUX é limitação de coleta, nunca website FAIL por si só;
 5. coleta externa Web Performance externo é default OFF, com limite de páginas e timeout parametrizáveis;
 6. Web Performance externo adiciona zero chamadas LLM e não pode aumentar consumo OpenAI/DeepSeek/MiMo por efeito colateral;
@@ -199,12 +199,12 @@ D-038 complementa D-037; não a supersede.
 
 ### D-039 — Rastreamento, descoberta e acesso de crawlers Crawling/Discovery, políticas de crawler e IA técnica
 
-Rastreamento, descoberta e acesso de crawlers é aprovado como domínio técnico **aditivo, pós-scoring e não-scoring**. Ele aprofunda evidências de rastreamento/descoberta sem criar um novo índice nem recalibrar `SCORE-GEO-002`/`SGRI-001`.
+Rastreamento, descoberta e acesso de crawlers é aprovado como domínio técnico **aditivo, pós-scoring e não-scoring**. Ele aprofunda evidências de rastreamento/descoberta sem criar um novo índice nem recalibrar `SCORE-GEO-002`/`SARI-001`.
 
 Decisão aprovada:
 
 1. diagnósticos de rastreamento e descoberta permanecem determinísticos e persistidos com `scoring_impact=NONE`;
-2. `robots.txt` e sitemaps devem seguir standards/guidance públicos aplicáveis, mas severidades Rastreamento, descoberta e acesso de crawlers continuam metodologia interna do SearchGEO;
+2. `robots.txt` e sitemaps devem seguir standards/guidance públicos aplicáveis, mas severidades Rastreamento, descoberta e acesso de crawlers continuam metodologia interna do RASAI;
 3. uma declaração absoluta `Sitemap:` pode apontar para host diferente; o auditor preserva essa declaração, porém não faz fetch cross-origin automático a partir dela enquanto não existir política explícita de SSRF/DNS/IP/redirect/autorização;
 4. a restrição de fetch cross-origin é limite de segurança/escopo do auditor e não finding do website;
 5. OAI-SearchBot representa descoberta/surfacing para Search da OpenAI; GPTBot permanece controle relacionado a potencial treinamento. O estado de um não pode ser inferido a partir do outro;
@@ -221,13 +221,13 @@ D-039 complementa D-037/D-038; não as supersede.
 
 ### D-040 — Observed Generative Visibility separado de readiness
 
-Outcomes observados de Search/AI Search são aprovados como domínio **aditivo, import-first e não-scoring**, separado do `SGRI-001`/`SCORE-GEO-002`.
+Outcomes observados de Search/AI Search são aprovados como domínio **aditivo, import-first e não-scoring**, separado do `SARI-001`/`SCORE-GEO-002`.
 
 Decisão aprovada:
 
 1. `Readiness` e `Observed Generative Visibility` são conceitos distintos e não podem ser fundidos em um score comum sem nova decisão/versionamento/validação;
 2. Observed Generative Visibility inicia com contrato local versionado `OGV-IMPORT-001`, sem scraping de portal de webmaster e sem endpoint de API presumido ou não documentado;
-3. `BING_WEBMASTER_TOOLS_AI_PERFORMANCE` preserva Total Citations e Average Cited Pages como métricas reportadas pela fonte; o SearchGEO não inventa fórmula equivalente para recalculá-las;
+3. `BING_WEBMASTER_TOOLS_AI_PERFORMANCE` preserva Total Citations e Average Cited Pages como métricas reportadas pela fonte; o RASAI não inventa fórmula equivalente para recalculá-las;
 4. `CONTROLLED_QUERY_RUNS` pode produzir Citation Presence Rate somente sobre runs `VALID`, com runs `INVALID` fora do denominador;
 5. Citation Presence Rate deve ser acompanhado de tamanho amostral e intervalo Wilson 95% quando calculável; isso mede incerteza amostral e não é probabilidade preditiva de citação futura;
 6. contagem de citações não pode ser rotulada como ranking, autoridade ou preferência universal de engine;
@@ -235,7 +235,7 @@ Decisão aprovada:
 8. o artifact importado deve ser preservado com SHA-256 e reimportação do mesmo conteúdo deve ser idempotente;
 9. `report/ai-visibility.html` é a página canônica do domínio Observed Generative Visibility;
 10. Observed Generative Visibility não escreve nem recalcula `Score`, `Coverage`, `Confidence`, `Consolidation`, `RuleExecution`, `Finding` ou `Recommendation`;
-11. correlação/calibração futura entre SGRI e outcomes Observed Generative Visibility exige dataset longitudinal, separação por domínio entre treino/calibração/teste e validação fora da amostra antes de qualquer claim preditivo;
+11. correlação/calibração futura entre SARI e outcomes Observed Generative Visibility exige dataset longitudinal, separação por domínio entre treino/calibração/teste e validação fora da amostra antes de qualquer claim preditivo;
 12. adapters automáticos para plataformas externas só podem ser introduzidos quando houver contrato público/documentado e política de credenciais/segurança correspondente.
 
 D-040 complementa D-037/D-038/D-039; não as supersede.
@@ -303,8 +303,8 @@ Essas pendências não bloqueiam desenvolvimento local do MVP.
 - LLM nunca é scoring engine;
 - cascading failures devem ser controladas;
 - métricas PageSpeed/CrUX/Lighthouse não alteram `SCORE-GEO-002` sem nova decisão/versionamento explícito;
-- diagnósticos de rastreamento e descoberta também não alteram `SCORE-GEO-002`/`SGRI-001` sem nova decisão/versionamento explícito;
-- outcomes Observed Generative Visibility não alteram `SCORE-GEO-002`/`SGRI-001` e não podem ser apresentados como causalidade/predição sem validação empírica específica.
+- diagnósticos de rastreamento e descoberta também não alteram `SCORE-GEO-002`/`SARI-001` sem nova decisão/versionamento explícito;
+- outcomes Observed Generative Visibility não alteram `SCORE-GEO-002`/`SARI-001` e não podem ser apresentados como causalidade/predição sem validação empírica específica.
 
 ### D-041 — Linguagem pública por domínio funcional
 

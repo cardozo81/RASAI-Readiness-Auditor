@@ -49,7 +49,7 @@ Uma dimensão `NOT_APPLICABLE` não recebe 0/100, não reduz Score/Coverage e n�
 
 ## 5. Fonte externa atual sobre GEO/AEO
 
-O SearchGEO não assume a existência de um standard universal GEO/AEO.
+O RASAI não assume a existência de um standard universal GEO/AEO.
 
 Fonte primária do Google, verificada em 2026-09-03:
 
@@ -58,9 +58,9 @@ Fonte primária do Google, verificada em 2026-09-03:
 
 O Google explicita nesse guia que AEO/GEO são termos usados pela indústria e que, para os recursos generativos do Google Search, as práticas fundamentais continuam sendo SEO.
 
-Consequências normativas para o SearchGEO:
+Consequências normativas para o RASAI:
 
-- não apresentar o score SearchGEO como score oficial GEO;
+- não apresentar o score RASAI como score oficial GEO;
 - não exigir markup especial GEO/AEO;
 - não exigir `llms.txt` para Google Search;
 - não exigir chunking artificial;
@@ -110,7 +110,7 @@ Microdata/RDFa não devem ser declarados como plenamente cobertos até haver imp
 
 ## 8. Premissas mínimas/contextuais
 
-| Tópico | Classe | Efeito SearchGEO |
+| Tópico | Classe | Efeito RASAI |
 |---|---|---|
 | URL tecnicamente recuperável | MÍNIMO | Falha material compromete readiness técnico. |
 | Documento/conteúdo analisável | MÍNIMO | Sem base utilizável, dimensões dependentes não consolidam. |
@@ -144,7 +144,7 @@ Evitar “obrigatório para GEO” quando o item for apenas:
 - recomendação de mecanismo;
 - reforço opcional;
 - aplicável a tipo específico de página;
-- heurística SearchGEO.
+- heurística RASAI.
 
 Classes preferenciais:
 

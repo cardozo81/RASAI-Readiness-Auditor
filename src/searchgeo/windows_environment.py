@@ -1,6 +1,6 @@
 """Windows user-environment persistence for console secrets.
 
-Secrets are never persisted in SearchGEO configuration files. This module only
+Secrets are never persisted in RASAI configuration files. This module only
 handles an explicit user request to store/remove a secret in the current
 Windows user's environment.
 """

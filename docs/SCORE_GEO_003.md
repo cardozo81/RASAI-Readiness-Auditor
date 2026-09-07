@@ -1,6 +1,6 @@
 # SCORE-GEO-003
 
-`SCORE-GEO-003` é o método padrão de scoring do SearchGEO.
+`SCORE-GEO-003` é o método padrão de scoring do RASAI.
 
 ## O que muda
 
@@ -67,7 +67,7 @@ O split é determinístico por **domínio**, aproximadamente 70/30. Queries do m
 
 A cobertura temporal mínima impede promover um artifact sustentado apenas por múltiplas repetições concentradas no mesmo dia. O timestamp `observed_at` dos query-runs elegíveis é reduzido à data civil ISO e cada domínio precisa representar ao menos três datas distintas.
 
-Os números acima são gates internos versionados do SearchGEO; não são thresholds oficiais de GEO definidos por plataforma externa.
+Os números acima são gates internos versionados do RASAI; não são thresholds oficiais de GEO definidos por plataforma externa.
 
 ## Modelo
 
@@ -135,13 +135,13 @@ Alteração incompatível exige novo contrato/versionamento.
 Calibrar:
 
 ```powershell
-searchgeo scoring calibrate --dataset-version GEO-CAL-001
+rasai scoring calibrate --dataset-version GEO-CAL-001
 ```
 
 Com caminho explícito:
 
 ```powershell
-searchgeo scoring calibrate `
+rasai scoring calibrate `
   --audits-root audits `
   --dataset-version GEO-CAL-001 `
   --output .searchgeo\scoring\score-geo-003-model.json
@@ -150,7 +150,7 @@ searchgeo scoring calibrate `
 Inspecionar:
 
 ```powershell
-searchgeo scoring inspect
+rasai scoring inspect
 ```
 
 Por padrão, auditorias procuram:
@@ -182,8 +182,8 @@ Cada auditoria gera `report/score-geo-003.html` com:
 - promotion gate, incluindo cobertura temporal mínima;
 - regras de parametrização e compatibilidade histórica.
 
-`searchgeo.html` continua sendo a página canônica do SGRI e é reconciliada para explicar que o Overall do `003` é calibrado.
+`readiness.html` continua sendo a página canônica do SARI e é reconciliada para explicar que o Overall do `003` é calibrado.
 
 ## Limite de interpretação
 
-O modelo mede **associação observacional** entre sinais SearchGEO e presença observada de citação no dataset utilizado. Ele não prova causalidade e não garante ranking, tráfego, conversão ou citação futura em qualquer engine.
+O modelo mede **associação observacional** entre sinais RASAI e presença observada de citação no dataset utilizado. Ele não prova causalidade e não garante ranking, tráfego, conversão ou citação futura em qualquer engine.

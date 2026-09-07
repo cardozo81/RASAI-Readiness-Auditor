@@ -1,10 +1,10 @@
 # Guia de IA
 
-O SearchGEO usa IA apenas em finalidades opcionais e evidence-bound. A auditoria principal continua capaz de executar sem IA.
+O RASAI usa IA apenas em finalidades opcionais e evidence-bound. A auditoria principal continua capaz de executar sem IA.
 
 ## Finalidades
 
-1. **análise semântica**: avalia somente as evidências fornecidas pelo SearchGEO e deve devolver saída estruturada compatível com o contrato local;
+1. **análise semântica**: avalia somente as evidências fornecidas pelo RASAI e deve devolver saída estruturada compatível com o contrato local;
 2. **remediação textual opcional (Sugestões e remediação de conteúdo por IA)**: produz sugestões exatas somente para findings elegíveis e com evidência suficiente;
 3. **remediação técnica opcional de crawling/discovery (Rastreamento, descoberta e acesso de crawlers)**: explica diagnósticos técnicos Rastreamento, descoberta e acesso de crawlers já determinados pelo runtime e pode sugerir correção evidence-bound, sem alterar scoring ou política editorial automaticamente.
 
@@ -12,7 +12,7 @@ Nenhuma dessas finalidades autoriza inventar fatos, credenciais, preços, datas,
 
 ## Contexto editorial para evitar análise genérica
 
-A mesma evidência textual não deve ser interpretada com a mesma régua em qualquer página. Quando configurado, o SearchGEO fornece aos providers um contexto editorial explícito:
+A mesma evidência textual não deve ser interpretada com a mesma régua em qualquer página. Quando configurado, o RASAI fornece aos providers um contexto editorial explícito:
 
 ```text
 risk profile: standard | ymyl | auto
@@ -257,7 +257,7 @@ A remediação técnica Rastreamento, descoberta e acesso de crawlers é uma sup
 
 ## Persistência de configuração e secrets
 
-`searchgeo-console.ini` pode persistir provider, modelo, esforço, timeout e demais parâmetros não sensíveis previstos pelo INI.
+`rasai-console.ini` pode persistir provider, modelo, esforço, timeout e demais parâmetros não sensíveis previstos pelo INI.
 
 API keys e outros secrets **não são gravados no INI**. O console permite inseri-los pelo menu de variáveis, usa entrada sem eco e mostra apenas `[SET]`.
 
@@ -277,7 +277,7 @@ O termo `AUTO` do roteamento de providers é diferente de campos editoriais `aut
 
 ## Telemetria
 
-Quando disponível, o SearchGEO persiste por tentativa:
+Quando disponível, o RASAI persiste por tentativa:
 
 ```text
 provider

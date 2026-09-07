@@ -1,6 +1,6 @@
 # TECHNICAL_ARCHITECTURE.md
 
-**Status:** APPROVED — Rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance externo + Sugestões e remediação de conteúdo por IA + SGRI-001 + REPORT-SITE-GEO-001
+**Status:** APPROVED — Rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance externo + Sugestões e remediação de conteúdo por IA + SARI-001 + REPORT-SITE-GEO-001
 
 ## 1. Estilo arquitetural
 
@@ -13,7 +13,7 @@ Não exige:
 - Docker;
 - daemon/background worker;
 - IA externa;
-- PageSpeed Insights ou CrUX para a auditoria SearchGEO principal;
+- PageSpeed Insights ou CrUX para a auditoria RASAI principal;
 - `llms.txt`, IndexNow ou serviço externo de discovery para funcionar.
 
 ## 2. Runtime
@@ -60,14 +60,14 @@ CLI
    → IA técnica opcional/evidence-bound, default OFF
    → m24_* persistence + artifacts/m24/
 → Web Performance externo/Synthetic Navigation Apdex/external-integrity/source-quality report enrichments
-→ SGRI/reporting final por domínio
+→ SARI/reporting final por domínio
 → Rastreamento, descoberta e acesso de crawlers report projection
    → crawling-discovery.html + ai-usage/references enrichment
-→ nova projeção SGRI somente para incorporar o item Rastreamento, descoberta e acesso de crawlers à navegação final
+→ nova projeção SARI somente para incorporar o item Rastreamento, descoberta e acesso de crawlers à navegação final
 → normalização final dos rótulos compartilhados
 ```
 
-A segunda projeção SGRI após Rastreamento, descoberta e acesso de crawlers é **projection-only**: não recalcula score nem métricas. Ela existe para que a página criada por Rastreamento, descoberta e acesso de crawlers participe do mesmo menu canônico e para preservar os rótulos finais de Mobile/Desktop definidos pelo domínio SGRI.
+A segunda projeção SARI após Rastreamento, descoberta e acesso de crawlers é **projection-only**: não recalcula score nem métricas. Ela existe para que a página criada por Rastreamento, descoberta e acesso de crawlers participe do mesmo menu canônico e para preservar os rótulos finais de Mobile/Desktop definidos pelo domínio SARI.
 
 Invariantes:
 
@@ -75,9 +75,9 @@ Invariantes:
 - Web Performance externo ocorre depois da auditoria principal e é fail-open;
 - Web Performance externo não cria RuleExecution, Finding, Recommendation ou ScoreContribution;
 - Web Performance externo não executa LLM;
-- Synthetic Navigation Apdex é separado do scoring SearchGEO e não transforma Lighthouse/CrUX em Apdex;
+- Synthetic Navigation Apdex é separado do scoring RASAI e não transforma Lighthouse/CrUX em Apdex;
 - Rastreamento, descoberta e acesso de crawlers é pós-scoring, aditivo e `scoring_impact=NONE`;
-- Rastreamento, descoberta e acesso de crawlers não cria nem altera RuleExecution, Finding GEO, Recommendation GEO, ScoreContribution, Coverage, Confidence, Consolidation, `SCORE-GEO-002` ou `SGRI-001`;
+- Rastreamento, descoberta e acesso de crawlers não cria nem altera RuleExecution, Finding GEO, Recommendation GEO, ScoreContribution, Coverage, Confidence, Consolidation, `SCORE-GEO-002` ou `SARI-001`;
 - Rastreamento, descoberta e acesso de crawlers AI, quando habilitada, explica somente diagnósticos já determinados e persistidos;
 - as projeções HTML posteriores não fazem aquisição adicional nem chamada de provider;
 - PageSpeed/CrUX, Synthetic Navigation Apdex ou Rastreamento, descoberta e acesso de crawlers indisponíveis não invalidam `SCORE-GEO-002`.
@@ -339,7 +339,7 @@ Sem provider apto, Rastreamento, descoberta e acesso de crawlers permanece deter
 
 ### 10.5 Falha
 
-Rastreamento, descoberta e acesso de crawlers é fail-open. Falha operacional do enrichment/report deve ser registrada sem invalidar a auditoria SearchGEO já concluída.
+Rastreamento, descoberta e acesso de crawlers é fail-open. Falha operacional do enrichment/report deve ser registrada sem invalidar a auditoria RASAI já concluída.
 
 ## 11. Scoring
 
@@ -351,7 +351,7 @@ Sugestões e remediação de conteúdo por IA é estritamente downstream e não 
 
 Web Performance externo também é estritamente externo ao scoring. Nenhum Lighthouse score, LCP/INP/CLS, PageSpeed category score ou estado CWV é automaticamente convertido em peso, RuleResult, ScoreContribution, Coverage, Confidence ou Overall Readiness.
 
-Synthetic Navigation Apdex e Rastreamento, descoberta e acesso de crawlers permanecem igualmente separados do scoring. Diagnósticos de crawling/discovery Rastreamento, descoberta e acesso de crawlers não criam contribuição implícita para `SCORE-GEO-002` ou `SGRI-001`.
+Synthetic Navigation Apdex e Rastreamento, descoberta e acesso de crawlers permanecem igualmente separados do scoring. Diagnósticos de crawling/discovery Rastreamento, descoberta e acesso de crawlers não criam contribuição implícita para `SCORE-GEO-002` ou `SARI-001`.
 
 ## 12. Reporting interno
 
@@ -366,7 +366,7 @@ O contrato final pode materializar:
 ```text
 report/
 ├─ index.html
-├─ searchgeo.html
+├─ readiness.html
 ├─ mobile.html                 # condicional
 ├─ desktop.html                # condicional
 ├─ remediation.html
@@ -387,7 +387,7 @@ report/
 
 `m21_reporting` projeta `web-performance.html` sem reexecutar PageSpeed/CrUX.
 
-`searchgeo_readiness_reporting` projeta `searchgeo.html`/dashboard sem recalcular score.
+`searchgeo_readiness_reporting` projeta `readiness.html`/dashboard sem recalcular score.
 
 `m24_reporting` projeta `crawling-discovery.html`, complementa `ai-usage.html`/`references.html` e normaliza a navegação usando apenas estado Rastreamento, descoberta e acesso de crawlers já persistido; o renderer não chama provider nem faz aquisição de website.
 
@@ -396,7 +396,7 @@ Após Rastreamento, descoberta e acesso de crawlers criar seu arquivo, `enrich_s
 ## 14. Separação de domínio na apresentação
 
 - `index.html`: visão executiva e links para páginas canônicas;
-- `searchgeo.html`: `SGRI-001`, dimensões, Coverage, Confidence e Consolidation;
+- `readiness.html`: `SARI-001`, dimensões, Coverage, Confidence e Consolidation;
 - `mobile.html`: evidência/findings Mobile;
 - `desktop.html`: evidência/findings Desktop;
 - `remediation.html`: causa/prioridade/correção;

@@ -1,6 +1,6 @@
 # Acessibilidade e Web Performance — domínios separados
 
-O SearchGEO apresenta Acessibilidade, Web Performance e Search/GEO readiness como domínios distintos para evitar mistura de métricas e conclusões.
+O RASAI apresenta Acessibilidade, Web Performance e Search/GEO readiness como domínios distintos para evitar mistura de métricas e conclusões.
 
 | Domínio | Finalidade | Fonte principal | Altera Score GEO? |
 |---|---|---|---|
@@ -91,7 +91,7 @@ Frustrated  resposta > 4T
 
 Logo, `Apdex = 1,00` com `T = 8 s` significa que 100% das amostras válidas ficaram dentro do alvo configurado de oito segundos. Isso **não** significa que oito segundos sejam globalmente rápidos ou que Core Web Vitals/Lighthouse devam aprovar a página.
 
-O report destaca conflitos de sinal quando Apdex está alto pelo `T` escolhido, mas CWV/Lighthouse indicam degradação. O usuário deve revisar se `T` representa de fato o objetivo operacional da Task; o SearchGEO não substitui silenciosamente esse threshold por outro valor.
+O report destaca conflitos de sinal quando Apdex está alto pelo `T` escolhido, mas CWV/Lighthouse indicam degradação. O usuário deve revisar se `T` representa de fato o objetivo operacional da Task; o RASAI não substitui silenciosamente esse threshold por outro valor.
 
 O perfil sintético exibido deve ser o perfil persistido para o mesmo URL/dispositivo do card. A normalização final reconcilia essa projeção com `audit.db` para impedir que um card `MOBILE` apresente por engano o perfil Desktop.
 

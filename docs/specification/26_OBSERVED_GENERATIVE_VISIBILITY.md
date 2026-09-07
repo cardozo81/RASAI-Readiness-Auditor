@@ -7,13 +7,13 @@
 
 ## 1. Objetivo
 
-Observed Generative Visibility adiciona ao SearchGEO uma camada de **outcomes observados** de Search/AI Search.
+Observed Generative Visibility adiciona ao RASAI uma camada de **outcomes observados** de Search/AI Search.
 
 A pergunta respondida é:
 
 > O que foi efetivamente observado quanto a participação/citação do conteúdo em uma fonte ou protocolo explicitamente identificado?
 
-A importação não recalcula o SGRI, não cria um novo GEO Score e não altera pesos, thresholds ou dimensões da auditoria fonte.
+A importação não recalcula o SARI, não cria um novo GEO Score e não altera pesos, thresholds ou dimensões da auditoria fonte.
 
 No `SCORE-GEO-003`, query-runs controlados podem ser usados posteriormente por um processo separado de calibração. Isso não elimina a distinção entre readiness medido e visibility observada.
 
@@ -23,10 +23,10 @@ No `SCORE-GEO-003`, query-runs controlados podem ser usados posteriormente por u
 Readiness medido != Visibilidade observada
 ```
 
-- `SGRI-001` descreve readiness técnico/semântico/evidencial.
+- `SARI-001` descreve readiness técnico/semântico/evidencial.
 - Web Performance, Acessibilidade e Apdex mantêm seus domínios próprios.
 - Observed Generative Visibility descreve outcomes observados/importados.
-- o calibrador do `SCORE-GEO-003` pode estudar associação entre as dimensões SearchGEO e `CITED/NOT_CITED`;
+- o calibrador do `SCORE-GEO-003` pode estudar associação entre as dimensões RASAI e `CITED/NOT_CITED`;
 - associação observacional não prova causalidade nem garante citação futura.
 
 ## 3. Fontes suportadas em OGV-IMPORT-001
@@ -41,7 +41,7 @@ Referência primária:
 
 - https://blogs.bing.com/webmaster/February-2026/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview
 
-O SearchGEO não presume API oficial para AI Performance e não faz scraping do portal. O usuário normaliza uma evidência/exportação observada para `OGV-IMPORT-001`; o arquivo normalizado é preservado como artifact com SHA-256.
+O RASAI não presume API oficial para AI Performance e não faz scraping do portal. O usuário normaliza uma evidência/exportação observada para `OGV-IMPORT-001`; o arquivo normalizado é preservado como artifact com SHA-256.
 
 `total_citations` e `average_cited_pages` são persistidos como **source-reported metrics**. Não são convertidos no outcome binário do calibrador.
 
@@ -58,7 +58,7 @@ Dataset produzido por protocolo controlado externo à execução do scoring. Cad
 
 Opcionalmente pode registrar surface, market, language, notes e rank observado.
 
-`rank` só é aceito com `ranking_semantics`. O SearchGEO não presume equivalência de posição entre engines.
+`rank` só é aceito com `ranking_semantics`. O RASAI não presume equivalência de posição entre engines.
 
 Para calibração do `SCORE-GEO-003`, somente query-runs controlados válidos e que atendam ao promotion gate são elegíveis.
 
@@ -73,7 +73,7 @@ CONTROLLED_PROTOCOL
 EXTERNAL_AUTOMATION
 ```
 
-O valor descreve proveniência declarada. Não implica que o SearchGEO autenticou ou coletou diretamente o dado no sistema externo.
+O valor descreve proveniência declarada. Não implica que o RASAI autenticou ou coletou diretamente o dado no sistema externo.
 
 ## 4. Citation Presence Rate
 
@@ -83,7 +83,7 @@ Citation Presence Rate = valid runs with cited=true / valid runs
 
 Runs `INVALID` ficam fora do numerador e denominador.
 
-Quando `n > 0`, o SearchGEO calcula Wilson 95%:
+Quando `n > 0`, o RASAI calcula Wilson 95%:
 
 ```text
 p = x / n
@@ -169,7 +169,7 @@ A operação `visibility import` não escreve em:
 - `findings`;
 - `recommendations`.
 
-O comando separado `searchgeo scoring calibrate` lê dados elegíveis de múltiplos `AUD-*` e grava apenas um model artifact fora dos bancos fonte.
+O comando separado `rasai scoring calibrate` lê dados elegíveis de múltiplos `AUD-*` e grava apenas um model artifact fora dos bancos fonte.
 
 ## 9. Report
 
@@ -186,7 +186,7 @@ Não existe agregação global que combine fontes diferentes em um único score.
 Importação:
 
 ```powershell
-searchgeo visibility import `
+rasai visibility import `
   --audit-id AUD-... `
   --audits-root audits `
   --file observed-visibility.json
@@ -195,13 +195,13 @@ searchgeo visibility import `
 Regeneração:
 
 ```powershell
-searchgeo visibility report --audit-id AUD-... --audits-root audits
+rasai visibility report --audit-id AUD-... --audits-root audits
 ```
 
 Calibração separada:
 
 ```powershell
-searchgeo scoring calibrate --dataset-version GEO-CAL-001
+rasai scoring calibrate --dataset-version GEO-CAL-001
 ```
 
 A calibração não chama engines; ela usa somente outcomes já persistidos.

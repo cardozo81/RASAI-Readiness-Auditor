@@ -77,7 +77,7 @@ mobile
 Para economizar chamadas, mantenha Mobile quando Desktop não for necessário:
 
 ```powershell
-searchgeo audit https://example.com `
+rasai audit https://example.com `
   --device-context mobile `
   --ai-provider openai
 ```

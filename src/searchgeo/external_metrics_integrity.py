@@ -70,7 +70,7 @@ class ExternalMetricsIntegrity:
             "semantics": {
                 "pagespeed_success": "HTTP/API transport success only",
                 "lighthouse_valid": "lighthouseResult exists, has no fatal runtimeError and requested category scores are usable",
-                "accessibility_score": "source score supplied by Lighthouse; SearchGEO does not recalculate it",
+                "accessibility_score": "source score supplied by Lighthouse; RASAI does not recalculate it",
                 "score_geo_dependency": False,
             },
             "contexts": [asdict(item) for item in self.contexts],
@@ -200,14 +200,14 @@ def enrich_external_metrics_integrity_report_site(*, audit_id: str, workspace: A
         "<div class='kicker'>Integridade da evidência externa</div>"
         "<h2>PageSpeed, Lighthouse, CrUX e Acessibilidade: cobertura real</h2>"
         "<div class='notice warn'><strong>PageSpeed HTTP 200 não significa Lighthouse válido.</strong> "
-        "O SearchGEO valida <code>lighthouseResult</code>, descarta métricas Lighthouse quando existe "
+        "O RASAI valida <code>lighthouseResult</code>, descarta métricas Lighthouse quando existe "
         "<code>runtimeError</code> fatal e trata categoria solicitada ausente como evidência incompleta. "
         "Falha/quota/timeout do PageSpeed é indisponibilidade da medição externa, não defeito do website e não reduz SCORE-GEO-002.</div>"
         f"<div class='metric-grid'>{_metric('Contextos externos', total)}"
         f"{_metric('Lighthouse válido', f'{lh_valid}/{total}')}{_metric('Performance válida', f'{perf_valid}/{total}')}"
         f"{_metric('Acessibilidade válida', f'{a11y_valid}/{total}')}{_metric('Field data válido', f'{field_valid}/{total}')}</div>"
         "<p class='intro'><strong>Acessibilidade:</strong> o valor 0–100 é o score fornecido pelo Lighthouse para a categoria "
-        "<code>accessibility</code>. O SearchGEO não recalcula esse score. Médias entre páginas/dispositivos são apenas estatística "
+        "<code>accessibility</code>. O RASAI não recalcula esse score. Médias entre páginas/dispositivos são apenas estatística "
         "descritiva sobre contextos que efetivamente possuem score válido; ausência de categoria/score nunca vira zero.</p>"
         "<div class='table-wrap'><table><thead><tr><th>URL</th><th>Dispositivo</th><th>PageSpeed HTTP</th>"
         "<th>Lighthouse</th><th>Performance</th><th>Acessibilidade</th><th>Categorias ausentes/inválidas</th></tr></thead><tbody>"

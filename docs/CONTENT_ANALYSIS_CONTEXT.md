@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-O SearchGEO pode fornecer à camada de IA um **contexto editorial explícito** para evitar análises genéricas de conteúdo. Esse contexto condiciona a interpretação semântica e as sugestões Sugestões e remediação de conteúdo por IA, mas **não altera aritmeticamente o `SCORE-GEO-002`**, não cria um score de E-E-A-T/YMYL e não representa um fator oficial isolado de ranking.
+O RASAI pode fornecer à camada de IA um **contexto editorial explícito** para evitar análises genéricas de conteúdo. Esse contexto condiciona a interpretação semântica e as sugestões Sugestões e remediação de conteúdo por IA, mas **não altera aritmeticamente o `SCORE-GEO-002`**, não cria um score de E-E-A-T/YMYL e não representa um fator oficial isolado de ranking.
 
 A configuração é especialmente útil em conteúdo **YMYL (Your Money or Your Life)**, no qual informações imprecisas podem afetar saúde, segurança, estabilidade financeira ou o bem-estar da sociedade.
 
@@ -123,7 +123,7 @@ beneficial
 not-expected
 ```
 
-Diferencia **experiência em primeira mão** de **expertise técnica/profissional**. O SearchGEO não exige ambos indiscriminadamente.
+Diferencia **experiência em primeira mão** de **expertise técnica/profissional**. O RASAI não exige ambos indiscriminadamente.
 
 Exemplos conceituais:
 

@@ -36,10 +36,10 @@ class _BaselineHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/":
             html = f"""<!doctype html><html lang='pt-BR'><head>
-<title>Guia SearchGEO</title><meta name='description' content='Guia técnico.'>
-<link rel='canonical' href='{origin}/'><script type='application/ld+json'>{{"@context":"https://schema.org","@type":"Article","headline":"Guia SearchGEO"}}</script>
+<title>Guia RASAI</title><meta name='description' content='Guia técnico.'>
+<link rel='canonical' href='{origin}/'><script type='application/ld+json'>{{"@context":"https://schema.org","@type":"Article","headline":"Guia RASAI"}}</script>
 </head><body><header><nav><a href='/extra'>Conteúdo adicional</a></nav></header>
-<main><h1>Guia SearchGEO</h1><h2>Visão geral</h2><p>Este guia apresenta uma explicação técnica verificável sobre readiness para busca e sistemas generativos.</p><p>Publicado em 2026-09-02 pela Equipe Exemplo.</p></main></body></html>"""
+<main><h1>Guia RASAI</h1><h2>Visão geral</h2><p>Este guia apresenta uma explicação técnica verificável sobre readiness para busca e sistemas generativos.</p><p>Publicado em 2026-09-02 pela Equipe Exemplo.</p></main></body></html>"""
             self._respond(200, "text/html; charset=utf-8", html.encode())
             return
         if self.path == "/extra":
@@ -96,10 +96,10 @@ class _FixtureRenderer:
 class M12StableBaselineTests(unittest.TestCase):
     def test_end_to_end_pipeline_materializes_all_rules_devices_scores_and_report_site(self) -> None:
         with _server() as origin, TemporaryDirectory() as directory:
-            html = f"""<!doctype html><html lang='pt-BR'><head><title>Guia SearchGEO</title>
+            html = f"""<!doctype html><html lang='pt-BR'><head><title>Guia RASAI</title>
 <meta name='description' content='Guia técnico.'><link rel='canonical' href='{origin}/'>
-<script type='application/ld+json'>{{"@context":"https://schema.org","@type":"Article","headline":"Guia SearchGEO"}}</script>
-</head><body><nav><a href='{origin}/extra'>Extra</a></nav><main><h1>Guia SearchGEO</h1><h2>Visão geral</h2><p>Conteúdo principal técnico e verificável para a auditoria.</p><p>Publicado em 2026-09-02 pela Equipe Exemplo.</p></main></body></html>"""
+<script type='application/ld+json'>{{"@context":"https://schema.org","@type":"Article","headline":"Guia RASAI"}}</script>
+</head><body><nav><a href='{origin}/extra'>Extra</a></nav><main><h1>Guia RASAI</h1><h2>Visão geral</h2><p>Conteúdo principal técnico e verificável para a auditoria.</p><p>Publicado em 2026-09-02 pela Equipe Exemplo.</p></main></body></html>"""
             result = run_audit(
                 f"{origin}/",
                 audits_root=Path(directory),

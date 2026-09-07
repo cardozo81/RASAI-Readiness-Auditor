@@ -7,8 +7,8 @@ Smoke mínimo após instalação/merge.
 ```powershell
 .\.venv\Scripts\Activate.ps1
 python --version
-searchgeo --version
-searchgeo audit --help
+rasai --version
+rasai audit --help
 ```
 
 Help deve conter `--device-context`, `--ai-provider` e `--ai-content-remediation`.
@@ -16,7 +16,7 @@ Help deve conter `--device-context`, `--ai-provider` e `--ai-content-remediation
 ## 2. Mobile sem IA — default
 
 ```powershell
-searchgeo audit https://example.com --project "Smoke Mobile" --max-pages 1
+rasai audit https://example.com --project "Smoke Mobile" --max-pages 1
 ```
 
 Esperado:
@@ -44,8 +44,8 @@ Em `content-suggestions.html`, Sugestões e remediação de conteúdo por IA tex
 ## 3. Desktop e Both
 
 ```powershell
-searchgeo audit https://example.com --max-pages 1 --device-context desktop
-searchgeo audit https://example.com --max-pages 1 --device-context both
+rasai audit https://example.com --max-pages 1 --device-context desktop
+rasai audit https://example.com --max-pages 1 --device-context both
 ```
 
 Validar páginas condicionais e BR-GEO-052 somente em `both`.
@@ -63,7 +63,7 @@ Confirmar preservação do graph e revisão não destrutiva de parse, duplicaç�
 Pré-requisito: chave de API do produto correto.
 
 ```powershell
-searchgeo audit https://URL-DE-TESTE `
+rasai audit https://URL-DE-TESTE `
   --max-pages 1 `
   --device-context mobile `
   --ai-provider openai `

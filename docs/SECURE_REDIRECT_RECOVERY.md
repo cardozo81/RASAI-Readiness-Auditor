@@ -53,7 +53,7 @@ Não é possível afirmar, apenas com essa evidência, que um navegador específ
 
 ## Regra de elegibilidade
 
-O SearchGEO só pode tentar a recuperação quando todas as condições abaixo forem satisfeitas:
+O RASAI só pode tentar a recuperação quando todas as condições abaixo forem satisfeitas:
 
 1. a URL originalmente configurada usa `https://`;
 2. a navegação Chromium normal falhou;
@@ -84,7 +84,7 @@ https://example.com/
   → http://other.example.net/
 ```
 
-O SearchGEO não deve criar um candidato HTTPS para domínio não equivalente.
+O RASAI não deve criar um candidato HTTPS para domínio não equivalente.
 
 ## Limite de tentativas
 
@@ -98,7 +98,7 @@ Ela não pode gerar:
 - tentativa automática de `/pt/`, `/en/` ou qualquer outra rota que não tenha sido comprovada pelo servidor após o hop HTTPS seguro;
 - bypass de certificado.
 
-No caso MDSGroup, o SearchGEO testa apenas:
+No caso MDSGroup, o RASAI testa apenas:
 
 ```text
 https://www.mdsgroup.com/

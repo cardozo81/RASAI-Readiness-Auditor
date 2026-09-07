@@ -11,7 +11,7 @@ Ela é deliberadamente independente do pipeline de auditoria.
 - `AUD-*/audit.db` permanece a fonte de verdade;
 - cada banco fonte é aberto com SQLite `mode=ro` e `PRAGMA query_only=ON`;
 - nenhuma API externa é chamada durante indexação, filtro, cálculo ou geração do consolidado;
-- `searchgeo audit`, scoring, persistence, PageSpeed/CrUX, IA e Synthetic Apdex não dependem do consolidador;
+- `rasai audit`, scoring, persistence, PageSpeed/CrUX, IA e Synthetic Apdex não dependem do consolidador;
 - nenhum schema de `audit.db` é migrado ou alterado;
 - falha do consolidador é `fail-open` em relação ao console existente;
 - o índice analítico é derivado, descartável e reconstruível;
@@ -78,7 +78,7 @@ Os limites de período são inclusivos.
 
 Web Performance, Apdex e ocorrências page-level são filtrados diretamente por URL.
 
-A Compatibilidade GEO é persistida em nível de auditoria/dispositivo/dimensão. Portanto, um filtro parcial de URL não pode receber uma pontuação originalmente calculada com páginas que ficaram fora do filtro. Nesses casos o score audit-level é omitido; o consolidador nunca reexecuta o scoring para fabricar um valor por URL.
+A Readiness Search & AI é persistida em nível de auditoria/dispositivo/dimensão. Portanto, um filtro parcial de URL não pode receber uma pontuação originalmente calculada com páginas que ficaram fora do filtro. Nesses casos o score audit-level é omitido; o consolidador nunca reexecuta o scoring para fabricar um valor por URL.
 
 ## SCORE-GEO no consolidado
 
@@ -90,7 +90,7 @@ A interface usa o rótulo **Versão do método de pontuação**. O identificador
 
 ### Natureza
 
-`SCORE-GEO-002` é um método interno, determinístico e reproduzível do SearchGEO. Não é score oficial de Google, OpenAI ou outro mecanismo e não possui validação estabelecida como preditor de ranking, tráfego ou citação por sistemas generativos.
+`SCORE-GEO-002` é um método interno, determinístico e reproduzível do RASAI. Não é score oficial de Google, OpenAI ou outro mecanismo e não possui validação estabelecida como preditor de ranking, tráfego ou citação por sistemas generativos.
 
 ### Aritmética
 
@@ -104,7 +104,7 @@ No baseline atual:
 6. score da dimensão = `soma(peso × fator) / soma dos pesos avaliados × 100`;
 7. cobertura da dimensão = `peso avaliado / peso aplicável`;
 8. dimensão legitimamente não aplicável não recebe `0` nem `100` e fica fora do denominador geral;
-9. Compatibilidade GEO geral = média aritmética simples das dimensões aplicáveis suficientemente consolidadas;
+9. Readiness Search & AI geral = média aritmética simples das dimensões aplicáveis suficientemente consolidadas;
 10. cobertura geral = média das coberturas dessas dimensões.
 
 ### Confiança
@@ -153,7 +153,7 @@ O HTML `CONS-2` possui navegação fixa entre:
 
 - Resumo;
 - Evolução;
-- Compatibilidade GEO;
+- Readiness Search & AI;
 - Desempenho;
 - Apdex;
 - Ocorrências;
@@ -161,7 +161,7 @@ O HTML `CONS-2` possui navegação fixa entre:
 - Auditorias;
 - Metodologia.
 
-### Compatibilidade GEO e dimensões
+### Readiness Search & AI e dimensões
 
 A visão principal prioriza:
 
@@ -176,7 +176,7 @@ Média, mediana, mínimo, máximo e variações ficam em uma área expansível. 
 
 Quando há base comparável suficiente, são gerados:
 
-- gráfico de Compatibilidade GEO + Cobertura ao longo do tempo;
+- gráfico de Readiness Search & AI + Cobertura ao longo do tempo;
 - matriz histórica das dimensões.
 
 ### Auditorias consideradas

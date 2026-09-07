@@ -1,4 +1,6 @@
-# SearchGEO Readiness Auditor
+# RASAI — Search & AI Readiness Auditor
+
+> **Identidade atual:** **RASAI — Search & AI Readiness Auditor**. O índice público é **SARI-001 — Search & AI Readiness Index**. `searchgeo`, `searchgeo-console`, `SEARCHGEO_*`, o namespace Python `searchgeo` e IDs `SCORE-GEO-*`/`BR-GEO-*` permanecem compatíveis. Veja [docs/BRANDING_AND_COMPATIBILITY.md](docs/BRANDING_AND_COMPATIBILITY.md).
 
 Auditor local de **Search/GEO Readiness** com evidência persistida, scoring reproduzível, análise semântica opcional por IA, remediação textual advisory, diagnóstico de crawling/discovery, Acessibilidade, Web Performance/Lighthouse/CrUX, Apdex sintético e outcomes observados de AI Search importáveis.
 
@@ -12,14 +14,14 @@ Capacidades integradas:
 - `mobile`, `desktop` ou `both`;
 - persistência em SQLite + artifacts + log operacional;
 - mini-site HTML com navegação canônica;
-- **SearchGEO Readiness Index `SGRI-001`** com `SCORE-GEO-003` como método padrão, Score, Coverage, Confidence e Consolidation separados;
+- **Search & AI Readiness Index `SARI-001`** com `SCORE-GEO-003` como método padrão, Score, Coverage, Confidence e Consolidation separados;
 - dashboard executivo com síntese final dos indicadores, sem misturar metodologias;
 - análise semântica opcional por IA;
 - remediação textual evidence-bound e revisão/proposta JSON-LD;
 - **Rastreamento, descoberta e acesso de crawlers** com diagnóstico determinístico de `robots.txt`, crawlers, sitemaps, discovery, `llms.txt` experimental e remediação técnica opcional por IA;
 - PageSpeed/Lighthouse e Core Web Vitals/CrUX como domínio separado;
 - Acessibilidade automatizada projetada separadamente a partir do artifact Lighthouse;
-- **Synthetic Navigation Apdex** em Chromium, separado de Lighthouse/CrUX e do SGRI;
+- **Synthetic Navigation Apdex** em Chromium, separado de Lighthouse/CrUX e do SARI;
 - **Synthetic User Experience Apdex** calibrável, com população Mobile/Desktop/Tablet, separado do Synthetic Navigation Apdex e explicitamente não-RUM;
 - relatórios históricos/consolidados offline sobre múltiplos `AUD-*`, com índice analítico reconstruível e snapshots HTML estáticos;
 - console interativo com preflight, progresso, custo/quota, timeouts, persistência de configuração e abertura de artifacts.
@@ -32,7 +34,7 @@ Observed Generative Visibility (domínio observacional separado):
 - nenhuma coleta automática por scraping e nenhum endpoint de AI Performance presumido quando não houver API pública documentada;
 - `CONTROLLED_QUERY_RUNS` elegíveis podem alimentar posteriormente a calibração offline do `SCORE-GEO-003`, sem recalcular o AUD fonte.
 
-> O `SGRI-001` é um índice proprietário e reprodutível. `SCORE-GEO-003` é o método padrão para novas auditorias: as dimensões permanecem determinísticas/evidence-based e o Overall exige modelo calibrado `VALIDATED`. Sem model artifact validado, o Overall fica `NOT_CONSOLIDATED`; nenhum coeficiente é inventado e não há fallback silencioso para `SCORE-GEO-002`. Auditorias `SCORE-GEO-002` permanecem históricas e não são recalculadas. Lighthouse, Core Web Vitals, Acessibilidade automatizada, Apdex e outcomes observados mantêm seus domínios próprios.
+> O `SARI-001` é um índice proprietário e reprodutível. `SCORE-GEO-003` é o método padrão para novas auditorias: as dimensões permanecem determinísticas/evidence-based e o Overall exige modelo calibrado `VALIDATED`. Sem model artifact validado, o Overall fica `NOT_CONSOLIDATED`; nenhum coeficiente é inventado e não há fallback silencioso para `SCORE-GEO-002`. Auditorias `SCORE-GEO-002` permanecem históricas e não são recalculadas. Lighthouse, Core Web Vitals, Acessibilidade automatizada, Apdex e outcomes observados mantêm seus domínios próprios.
 
 ## Instalação rápida — Windows
 
@@ -51,7 +53,7 @@ py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e .
 python -m playwright install chromium
-searchgeo --version
+rasai --version
 ```
 
 Compatibilidade principal:
@@ -81,7 +83,7 @@ iniciar.cmd
 Quando o ambiente já estiver preparado/ativado, o entrypoint direto permanece:
 
 ```powershell
-searchgeo-console
+rasai-console
 ```
 
 O console executa a mesma superfície funcional principal da auditoria e adiciona configuração guiada.
@@ -120,12 +122,12 @@ Observed Generative Visibility e calibração `SCORE-GEO-003` permanecem superf�
 O console usa:
 
 ```text
-searchgeo-console.ini
+rasai-console.ini
 ```
 
 Se não existir, é criado com defaults. Parâmetros não sensíveis podem ser salvos e carregados automaticamente na próxima execução.
 
-**API keys, tokens, senhas e outras credenciais não são gravados no INI.** No menu `E. Variáveis de ambiente / credenciais`, o usuário pode alterar uma credencial apenas para a sessão atual ou, mediante confirmação explícita, persistir/remover a credencial no ambiente **User** do Windows. A persistência no Windows não exige privilégio de administrador e não grava o segredo em arquivos do SearchGEO.
+**API keys, tokens, senhas e outras credenciais não são gravados no INI.** No menu `E. Variáveis de ambiente / credenciais`, o usuário pode alterar uma credencial apenas para a sessão atual ou, mediante confirmação explícita, persistir/remover a credencial no ambiente **User** do Windows. A persistência no Windows não exige privilégio de administrador e não grava o segredo em arquivos do RASAI.
 
 Para cada secret, o console indica a origem do valor efetivamente usado, por exemplo `SO:USER`, `SO:MACHINE`, `SESSÃO` ou `SESSÃO | SO:USER existente`. Se um valor é alterado dentro do console, o valor da **sessão atual prevalece** durante aquela execução; a variável persistida no Windows funciona como valor herdado por novos processos.
 
@@ -156,9 +158,9 @@ Detalhes: [docs/INTERACTIVE_CONSOLE.md](docs/INTERACTIVE_CONSOLE.md).
 
 ## Operação sem IA
 
-A IA é opcional. Com `--ai-provider none`, o SearchGEO continua executando as análises determinísticas de acesso técnico, redirects/TLS, indexabilidade, extração de conteúdo, crawling/discovery e comparação entre dispositivos. Synthetic Navigation Apdex e Synthetic User Experience Apdex também são independentes de LLM quando habilitados. Lighthouse e Core Web Vitals permanecem independentes de IA, mas dependem das respectivas fontes externas quando configuradas.
+A IA é opcional. Com `--ai-provider none`, o RASAI continua executando as análises determinísticas de acesso técnico, redirects/TLS, indexabilidade, extração de conteúdo, crawling/discovery e comparação entre dispositivos. Synthetic Navigation Apdex e Synthetic User Experience Apdex também são independentes de LLM quando habilitados. Lighthouse e Core Web Vitals permanecem independentes de IA, mas dependem das respectivas fontes externas quando configuradas.
 
-As dimensões predominantemente semânticas podem permanecer `UNKNOWN`/`NOT_CONSOLIDATED` sem IA. Isso reduz Coverage e pode impedir o Overall do SGRI-001; não transforma ausência de IA em falha do website e não aplica score zero artificial.
+As dimensões predominantemente semânticas podem permanecer `UNKNOWN`/`NOT_CONSOLIDATED` sem IA. Isso reduz Coverage e pode impedir o Overall do SARI-001; não transforma ausência de IA em falha do website e não aplica score zero artificial.
 
 Mesmo com todas as dimensões consolidadas, o `SCORE-GEO-003` exige um model artifact `VALIDATED` para materializar o Overall calibrado.
 
@@ -193,7 +195,7 @@ Providers adicionais permanecem explicit-only até promoção de qualificação.
 
 ### Defaults públicos
 
-Sem override explícito, o SearchGEO privilegia o modelo mais simples disponível na integração e o menor esforço suportado:
+Sem override explícito, o RASAI privilegia o modelo mais simples disponível na integração e o menor esforço suportado:
 
 | Provider | Modelo default | Esforço default |
 |---|---|---|
@@ -218,7 +220,7 @@ Default de timeout IA:
 Os diagnósticos determinísticos de rastreamento e descoberta executam independentemente de IA. Para habilitar apenas a camada técnica advisory:
 
 ```powershell
-searchgeo audit https://example.com `
+rasai audit https://example.com `
   --ai-provider openai `
   --ai-technical-remediation
 ```
@@ -229,7 +231,7 @@ Equivalente por ambiente:
 SEARCHGEO_AI_TECHNICAL_REMEDIATION=true
 ```
 
-Default: OFF. Essa finalidade não altera Score, Coverage, Confidence, Consolidation ou `SGRI-001`; sugestões exigem revisão humana.
+Default: OFF. Essa finalidade não altera Score, Coverage, Confidence, Consolidation ou `SARI-001`; sugestões exigem revisão humana.
 
 ## Credenciais
 
@@ -262,7 +264,7 @@ O diagnóstico de rastreamento e descoberta aprofunda a análise técnica de des
 - sitemaps XML, sitemap index, gzip, RSS 2.0, Atom 1.0 e texto plano;
 - limites/sintaxe e cruzamentos com HTTP, `noindex`, canonical e robots na amostra auditada;
 - feeds RSS/Atom observados;
-- `/llms.txt` como proposta comunitária experimental; sua presença ou ausência **não altera o SearchGEO Readiness Index**;
+- `/llms.txt` como proposta comunitária experimental; sua presença ou ausência **não altera o Search & AI Readiness Index**;
 - IndexNow como não determinável quando não existir evidência explícita de submissão;
 - remediação técnica opcional por IA, default OFF.
 
@@ -281,7 +283,7 @@ Detalhes: [docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](docs/specifica
 Habilitação pela CLI:
 
 ```powershell
-searchgeo audit https://example.com `
+rasai audit https://example.com `
   --ai-provider none `
   --web-performance
 ```
@@ -302,7 +304,7 @@ SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS
 opção 6 do console
 ```
 
-Esse timeout controla quanto o cliente aguarda a resposta da API externa. PageSpeed executa o Lighthouse remotamente; o endpoint não oferece ao SearchGEO um parâmetro separado para configurar o timeout interno de carregamento da página usado pelo Lighthouse.
+Esse timeout controla quanto o cliente aguarda a resposta da API externa. PageSpeed executa o Lighthouse remotamente; o endpoint não oferece ao RASAI um parâmetro separado para configurar o timeout interno de carregamento da página usado pelo Lighthouse.
 
 Quando PageSpeed falha, o relatório preserva a causa real (`timeout`, HTTP, quota, etc.). CrUX direto pode ainda produzir dados de campo. Acessibilidade automatizada depende do artifact Lighthouse e fica explicitamente **não obtida** quando esse artifact não foi produzido.
 
@@ -315,7 +317,7 @@ Web Performance e Acessibilidade permanecem indicadores próprios e não são in
 Exemplo de smoke controlado:
 
 ```powershell
-searchgeo audit https://example.com `
+rasai audit https://example.com `
   --ai-provider none `
   --no-web-performance `
   --synthetic-apdex `
@@ -359,7 +361,7 @@ Synthetic User Experience Apdex adiciona um domínio Apdex calibrável para user
 Exemplo manual:
 
 ```powershell
-searchgeo audit https://example.com `
+rasai audit https://example.com `
   --apdex-experience `
   --apdex-experience-device-mix mobile=60,desktop=35,tablet=5 `
   --apdex-experience-satisfied-seconds 1.5 `
@@ -399,13 +401,13 @@ O split é feito por domínio, evitando que queries do mesmo site apareçam em t
 Calibrar:
 
 ```powershell
-searchgeo scoring calibrate --dataset-version GEO-CAL-001
+rasai scoring calibrate --dataset-version GEO-CAL-001
 ```
 
 Inspecionar:
 
 ```powershell
-searchgeo scoring inspect
+rasai scoring inspect
 ```
 
 Artifact padrão:
@@ -429,7 +431,7 @@ Observed Generative Visibility mede **outcomes observados/importados**, não rea
 Importação:
 
 ```powershell
-searchgeo visibility import `
+rasai visibility import `
   --audit-id AUD-... `
   --audits-root audits `
   --file observed-visibility.json
@@ -438,7 +440,7 @@ searchgeo visibility import `
 Regeneração do report:
 
 ```powershell
-searchgeo visibility report `
+rasai visibility report `
   --audit-id AUD-... `
   --audits-root audits
 ```
@@ -452,7 +454,7 @@ Citation Presence Rate
 = runs VALID com citação / total de runs VALID
 ```
 
-O relatório mostra tamanho amostral e Wilson 95%. A taxa não é previsão de citação futura. A operação de importação não recalcula o SGRI; query-runs elegíveis podem posteriormente compor um dataset versionado de calibração do `SCORE-GEO-003`.
+O relatório mostra tamanho amostral e Wilson 95%. A taxa não é previsão de citação futura. A operação de importação não recalcula o SARI; query-runs elegíveis podem posteriormente compor um dataset versionado de calibração do `SCORE-GEO-003`.
 
 Página canônica:
 
@@ -467,25 +469,25 @@ Detalhes: [docs/specification/26_OBSERVED_GENERATIVE_VISIBILITY.md](docs/specifi
 ### Mobile, sem IA e sem integrações externas
 
 ```powershell
-searchgeo audit https://example.com --project "Exemplo"
+rasai audit https://example.com --project "Exemplo"
 ```
 
 ### Desktop
 
 ```powershell
-searchgeo audit https://example.com --device-context desktop
+rasai audit https://example.com --device-context desktop
 ```
 
 ### Mobile + desktop
 
 ```powershell
-searchgeo audit https://example.com --device-context both
+rasai audit https://example.com --device-context both
 ```
 
 ### Várias URLs
 
 ```powershell
-searchgeo audit `
+rasai audit `
   https://example.com/ `
   https://example.com/produto `
   https://example.com/faq `
@@ -504,7 +506,7 @@ audits/<AUD-ID>/
 │  └─ audit.log
 └─ report/
    ├─ index.html               # dashboard executivo
-   ├─ searchgeo.html           # SGRI-001 e indicadores SearchGEO
+   ├─ readiness.html           # SARI-001 e indicadores RASAI
    ├─ score-geo-003.html       # método, calibração, dataset e gates
    ├─ mobile.html              # evidências/findings; condicional
    ├─ desktop.html             # evidências/findings; condicional
@@ -533,11 +535,11 @@ Model artifact global/local do projeto:
 
 `index.html` não cria um “score geral de tudo”. Ele resume o resultado final de cada família e aponta para a página canônica correspondente. Quando existem vários contextos Lighthouse, o dashboard prefere faixa por dispositivo/quantidade de contextos válidos a inventar uma média única do site.
 
-`searchgeo.html` é a página exclusiva dos indicadores agregados SearchGEO. Mobile/Desktop não repetem Overall, dimensões, Coverage, Confidence ou Consolidation.
+`readiness.html` é a página exclusiva dos indicadores agregados RASAI. Mobile/Desktop não repetem Overall, dimensões, Coverage, Confidence ou Consolidation.
 
 `score-geo-003.html` explica o método vigente, status do model artifact, dataset, AUC/Brier e promotion gate.
 
-`crawling-discovery.html` é a página exclusiva do domínio Rastreamento, descoberta e acesso de crawlers e não recalcula o SGRI.
+`crawling-discovery.html` é a página exclusiva do domínio Rastreamento, descoberta e acesso de crawlers e não recalcula o SARI.
 
 `apdex-experience.html` é o domínio Synthetic User Experience Apdex e permanece separado do Synthetic Navigation Apdex Standard.
 

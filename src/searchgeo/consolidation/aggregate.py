@@ -1,4 +1,4 @@
-"""Statistical policies for persisted SearchGEO indicators.
+"""Statistical policies for persisted RASAI indicators.
 
 The consolidator summarizes persisted observations; it never re-runs the GEO
 scoring engine or fabricates missing values. Version/profile incompatibilities

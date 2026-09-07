@@ -53,7 +53,7 @@ Falha da ferramenta em iniciar/aplicar browser, CPU ou rede é amostra inválida
 
 Synthetic Navigation Apdex é default OFF.
 
-Quando habilitado, `T` é obrigatório via CLI ou ambiente. O SearchGEO não inventa T a partir de Lighthouse, LCP, INP, CLS ou tempos históricos.
+Quando habilitado, `T` é obrigatório via CLI ou ambiente. O RASAI não inventa T a partir de Lighthouse, LCP, INP, CLS ou tempos históricos.
 
 O timeout por amostra deve ser estritamente maior que `4T` para não truncar artificialmente a faixa Frustrated.
 
@@ -191,7 +191,7 @@ A página deve mostrar:
 
 ## 12. Fail-open
 
-Synthetic Navigation Apdex é downstream da auditoria SearchGEO principal.
+Synthetic Navigation Apdex é downstream da auditoria RASAI principal.
 
 Falha de Synthetic Navigation Apdex:
 

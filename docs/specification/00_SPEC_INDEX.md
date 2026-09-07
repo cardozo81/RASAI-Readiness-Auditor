@@ -1,4 +1,4 @@
-# SearchGEO Readiness Auditor — Specification Index
+# RASAI — Search & AI Readiness Auditor — Specification Index
 
 **Status:** BASELINE VIGENTE — capacidades integradas e documentação reconciliada com `main`.
 **Baseline:** MVP Functional Specification
@@ -6,7 +6,7 @@
 
 ## 1. Objetivo
 
-Este diretório constitui a fonte normativa do SearchGEO Readiness Auditor.
+Este diretório constitui a fonte normativa do RASAI — Search & AI Readiness Auditor.
 
 Uma IA, desenvolvedor ou ferramenta que assuma o projeto não deve depender do histórico de chats para descobrir requisitos formalizados. Os documentos presentes neste diretório prevalecem sobre interpretações informais do histórico de conversa.
 
@@ -83,7 +83,7 @@ Nenhuma decisão funcional deve ser alterada silenciosamente durante implementa�
 - `19_SCORE_APPLICABILITY_GEO_MINIMUMS.md` — semântica de aplicabilidade introduzida no `SCORE-GEO-002` e preservada no `SCORE-GEO-003`.
 - `20_AI_CONTENT_REMEDIATION.md` — sugestões e remediação de conteúdo por IA, sem alteração retroativa do score.
 - `21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md` — PageSpeed, Lighthouse e Core Web Vitals/CrUX como evidência externa complementar.
-- `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md` — acessibilidade automatizada e diagnósticos Web separados do SearchGEO Readiness.
+- `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md` — acessibilidade automatizada e diagnósticos Web separados do Search & AI Readiness.
 - `23_SYNTHETIC_APDEX_LIGHTHOUSE_TRACEABILITY.md` — Synthetic Navigation Apdex.
 - `24_CRAWLING_DISCOVERY_AI_ACCESS.md` — rastreamento, descoberta e políticas de crawlers.
 - `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md` — Synthetic User Experience Apdex calibrável, separado de RUM.
@@ -93,12 +93,12 @@ Nenhuma decisão funcional deve ser alterada silenciosamente durante implementa�
 
 - motor padrão para novas auditorias: `SCORE-GEO-003`;
 - `SCORE-GEO-002` permanece histórico e não é recalculado;
-- identidade pública de readiness: `SGRI-001`;
+- identidade pública de readiness: `SARI-001`;
 - dimensões legitimamente `NOT_APPLICABLE` não recebem zero;
 - Coverage, Confidence e Consolidation permanecem métricas distintas do Score;
 - o Overall `003` exige artifact de calibração `VALIDATED`; sem ele, permanece `NOT_CONSOLIDATED`;
 - não existe alegação de score GEO/AEO universal ou homologado;
-- métricas externas não são incorporadas silenciosamente ao SGRI;
+- métricas externas não são incorporadas silenciosamente ao SARI;
 - outcomes controlados de Observed Generative Visibility podem ser usados pelo processo separado de calibração, sem alterar retroativamente o AUD que os contém.
 
 Detalhes operacionais: `../SCORE_GEO_003.md`.
@@ -109,7 +109,7 @@ O contrato final de saída continua condicional pela existência/materializaçã
 
 ```text
 <AUD-ID>/report/index.html
-<AUD-ID>/report/searchgeo.html             # SGRI-001 / SearchGEO
+<AUD-ID>/report/readiness.html             # SARI-001 / RASAI
 <AUD-ID>/report/score-geo-003.html         # método/modelo/dataset/gates do scoring vigente
 <AUD-ID>/report/mobile.html                # condicional
 <AUD-ID>/report/desktop.html               # condicional
@@ -132,7 +132,7 @@ Default de dispositivo da CLI: `mobile`. `desktop` e `both` são seleções expl
 
 Cada indicador ou domínio possui uma página canônica. O `index.html` pode resumir um resultado final para navegação executiva, mas não deve duplicar metodologia/evidência detalhada nem fundir métricas diferentes em um score comum.
 
-`searchgeo.html` é a página canônica de SGRI/indicadores proprietários. `score-geo-003.html` documenta o estado da calibração. Acessibilidade, Web Performance, Apdex e visibilidade generativa observada permanecem domínios separados.
+`readiness.html` é a página canônica de SARI/indicadores proprietários. `score-geo-003.html` documenta o estado da calibração. Acessibilidade, Web Performance, Apdex e visibilidade generativa observada permanecem domínios separados.
 
 ## 7. Fronteiras dos domínios complementares
 
@@ -142,7 +142,7 @@ Cada indicador ou domínio possui uma página canônica. O `index.html` pode res
 | Acessibilidade automatizada | diagnóstico Lighthouse de acessibilidade | não declara conformidade WCAG integral nem entra diretamente no Overall `003` |
 | Synthetic Navigation Apdex | navegação sintética controlada | T/4T explícito; não é RUM; permanece indicador separado |
 | Rastreamento e descoberta | robots.txt, sitemaps, feeds e políticas de crawlers | diagnóstico técnico; permanece domínio separado |
-| Synthetic User Experience Apdex | experiência sintética calibrável | não é RUM; permanece separado do Synthetic Navigation Apdex e do SGRI |
+| Synthetic User Experience Apdex | experiência sintética calibrável | não é RUM; permanece separado do Synthetic Navigation Apdex e do SARI |
 | Observed Generative Visibility | resultados observados/importados de AI Search | permanece domínio observacional; query-runs controlados podem alimentar calibração offline, sem criar score próprio |
 
 ## 8. Observed Generative Visibility e calibração
@@ -163,7 +163,7 @@ A capacidade:
 - cria `report/ai-visibility.html`;
 - a importação não escreve nem recalcula `scores`, `score_contributions`, `rule_executions`, `findings` ou `recommendations`;
 - não cria GEO Score, ranking, autoridade nem garantia de citação futura;
-- `CONTROLLED_QUERY_RUNS` elegíveis podem ser lidos posteriormente pelo comando `searchgeo scoring calibrate`;
+- `CONTROLLED_QUERY_RUNS` elegíveis podem ser lidos posteriormente pelo comando `rasai scoring calibrate`;
 - a calibração gera artifact separado e versionado; não altera o histórico do AUD fonte.
 
 ## 9. SCORE-GEO-003
@@ -193,7 +193,7 @@ Sem artifact `VALIDATED`, as dimensões continuam auditáveis, mas `OVERALL_READ
 
 ## 10. Fontes externas e heurística
 
-O SearchGEO não deve representar seu score ou thresholds como standard GEO/AEO universal.
+O RASAI não deve representar seu score ou thresholds como standard GEO/AEO universal.
 
 Referências primárias atuais incluem Google Search Central/Crawling Infrastructure, OpenAI publisher/help documentation, Schema.org, WHATWG, IETF/RFC, Chrome Developers, PageSpeed Insights, Chrome UX Report, W3C/WAI, Apdex Alliance, documentação pública Dynatrace para comparabilidade do Synthetic User Experience Apdex e documentação pública Bing Webmaster/Search para visibilidade observada.
 
@@ -205,9 +205,9 @@ Acessibilidade automatizada Lighthouse permanece independente do GEO e não equi
 
 Os dois domínios Synthetic Apdex usam contratos sintéticos próprios; não são derivados de Lighthouse/CrUX e não devem ser apresentados como população humana observada.
 
-Rastreamento e descoberta usam protocolos e orientações públicas aplicáveis. `llms.txt` permanece proposta comunitária experimental e sua ausência não é falha de SearchGEO.
+Rastreamento e descoberta usam protocolos e orientações públicas aplicáveis. `llms.txt` permanece proposta comunitária experimental e sua ausência não é falha de RASAI.
 
-Observed Generative Visibility separa métricas reportadas pela fonte de cálculos SearchGEO sobre query-runs. Contagem de citações não deve ser rotulada como ranking ou autoridade.
+Observed Generative Visibility separa métricas reportadas pela fonte de cálculos RASAI sobre query-runs. Contagem de citações não deve ser rotulada como ranking ou autoridade.
 
 Heurísticas BR-GEO sem equivalente normativo permanecem identificadas como heurísticas/baseline interna.
 

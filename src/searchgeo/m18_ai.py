@@ -267,7 +267,7 @@ def _policy(provider: str, model: str) -> ProviderPolicy:
     try:
         return _POLICY_BY_KEY[(provider, model)]
     except KeyError as exc:
-        raise ValueError(f"unsupported SearchGEO model for {provider}: {model}") from exc
+        raise ValueError(f"unsupported RASAI model for {provider}: {model}") from exc
 
 
 def _pricing_context(provider: str, at: datetime) -> str:
@@ -395,7 +395,7 @@ def _response_error(raw: Mapping[str, Any]) -> ProviderDiagnostic | None:
 
 def _deepseek_semantic_output_schema() -> dict[str, Any]:
     # Provider-wire schema that guarantees all 22 semantic rules without
-    # array cardinality keywords. The SearchGEO canonical model remains an
+    # array cardinality keywords. The RASAI canonical model remains an
     # ordered assessment array after local normalization.
     schema = json.loads(json.dumps(hardened_semantic_output_schema()))
     canonical_assessment = schema["properties"]["assessments"]["items"]
@@ -414,13 +414,13 @@ def _deepseek_semantic_output_schema() -> dict[str, Any]:
         "additionalProperties": False,
     }
     # DeepSeek documents maxItems/minItems as unsupported in its strict schema
-    # subset. Local SearchGEO validation continues to enforce <= 5 intents.
+    # subset. Local RASAI validation continues to enforce <= 5 intents.
     schema["properties"]["secondary_intents"].pop("maxItems", None)
     return schema
 
 
 def _canonicalize_deepseek_wire_payload(payload: Any) -> Any:
-    # Convert the DeepSeek keyed assessment object to the canonical SearchGEO array.
+    # Convert the DeepSeek keyed assessment object to the canonical RASAI array.
     if not isinstance(payload, Mapping):
         return payload
     assessments = payload.get("assessments")
@@ -448,7 +448,7 @@ def _canonicalize_deepseek_wire_payload(payload: Any) -> Any:
 
 
 class ResponsesSemanticProvider(_HardenedOpenAIProvider):
-    """Shared provider adapter using Responses-compatible HTTPS and SearchGEO validation."""
+    """Shared provider adapter using Responses-compatible HTTPS and RASAI validation."""
 
     name = "GENERIC"
     endpoint = ""
@@ -508,7 +508,7 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
             instructions += (
                 "\n\nDeepSeek wire contract: assessments MUST be a JSON object keyed by every "
                 "rule id BR-GEO-028 through BR-GEO-049 exactly once. Each keyed value contains "
-                "the assessment fields except rule_id; SearchGEO derives rule_id from the key."
+                "the assessment fields except rule_id; RASAI derives rule_id from the key."
             )
 
         format_payload: dict[str, Any]
@@ -1074,7 +1074,7 @@ def _resolve_config(provider_name: str, *, model_override: str | None = None, en
     environment = env if env is not None else os.environ
     model = (model_override or environment.get(MODEL_ENV[provider_name]) or DEFAULT_MODELS[provider_name]).strip()
     if model not in SUPPORTED_MODELS[provider_name]:
-        raise ValueError(f"unsupported SearchGEO model for {provider_name}: {model}; allowed: {', '.join(SUPPORTED_MODELS[provider_name])}")
+        raise ValueError(f"unsupported RASAI model for {provider_name}: {model}; allowed: {', '.join(SUPPORTED_MODELS[provider_name])}")
     reasoning = (environment.get(REASONING_ENV[provider_name]) or DEFAULT_REASONING[provider_name]).strip().upper()
     key = environment.get(KEY_ENV[provider_name])
     return model, reasoning, key

@@ -5,12 +5,12 @@
 Este documento separa:
 
 1. requisitos/práticas suportadas por documentação oficial ou standards;
-2. reforços úteis do SearchGEO;
+2. reforços úteis do RASAI;
 3. heurísticas internas que não devem ser apresentadas como padrão GEO universal.
 
 ## Não existe um padrão GEO/AEO universal
 
-O SearchGEO não assume que exista uma especificação normativa única denominada GEO/AEO.
+O RASAI não assume que exista uma especificação normativa única denominada GEO/AEO.
 
 Em 2026, o Google publicou o guia oficial:
 
@@ -35,11 +35,11 @@ Fontes relevantes:
 
 ### Conteúdo útil, confiável e orientado a pessoas
 
-O Google continua recomendando conteúdo útil, confiável e people-first. O SearchGEO pode medir sinais de clareza, resposta, atribuição e evidência, mas não deve traduzir isso em uma fórmula oficial inexistente.
+O Google continua recomendando conteúdo útil, confiável e people-first. O RASAI pode medir sinais de clareza, resposta, atribuição e evidência, mas não deve traduzir isso em uma fórmula oficial inexistente.
 
 ### Estrutura compreensível
 
-HTML/heading structure, títulos claros e organização lógica ajudam mecanismos e usuários. WHATWG define semântica HTML; o SearchGEO adiciona heurísticas de legibilidade semântica sobre essa base.
+HTML/heading structure, títulos claros e organização lógica ajudam mecanismos e usuários. WHATWG define semântica HTML; o RASAI adiciona heurísticas de legibilidade semântica sobre essa base.
 
 ### Indexabilidade/canonicalização
 
@@ -61,7 +61,7 @@ No `SCORE-GEO-002`:
 
 O Google informa que `llms.txt` não é necessário para seus recursos generativos e não é usado como sinal de ranking/visibilidade no Google Search.
 
-O SearchGEO não deve tratá-lo como blocker obrigatório.
+O RASAI não deve tratá-lo como blocker obrigatório.
 
 ### “GEO schema” especial
 
@@ -73,9 +73,9 @@ Não existe exigência oficial de quebrar o conteúdo em blocos artificiais apen
 
 ### Reescrever conteúdo apenas para IA
 
-O Google não recomenda reescrever conteúdo para “falar com IA” em detrimento de pessoas. O SearchGEO deve orientar melhoria de clareza/utilidade/evidência quando um finding específico sustentar a necessidade, não produzir conteúdo artificial apenas para elevar uma métrica interna.
+O Google não recomenda reescrever conteúdo para “falar com IA” em detrimento de pessoas. O RASAI deve orientar melhoria de clareza/utilidade/evidência quando um finding específico sustentar a necessidade, não produzir conteúdo artificial apenas para elevar uma métrica interna.
 
-## Heurísticas SearchGEO
+## Heurísticas RASAI
 
 Dimensões como:
 

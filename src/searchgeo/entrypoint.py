@@ -1,4 +1,4 @@
-"""Top-level SearchGEO command router.
+"""Top-level RASAI command router.
 
 Additive specialist commands are intercepted here. Existing audit commands are
 delegated unchanged to cli_extensions, preserving the current audit pipeline.

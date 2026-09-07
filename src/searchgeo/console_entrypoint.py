@@ -1,4 +1,4 @@
-"""Public entrypoint for the interactive SearchGEO console.
+"""Public entrypoint for the interactive RASAI console.
 
 The established console remains the runtime implementation. This entrypoint
 installs additive UI adapters before delegating to it, avoiding a second

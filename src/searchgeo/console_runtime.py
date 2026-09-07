@@ -13,6 +13,7 @@ import threading
 import time
 
 from searchgeo import __version__
+from searchgeo.branding import PRODUCT_DISPLAY_NAME
 from searchgeo.console_config import State, build_command, environment_summary, preflight, PROVIDERS
 from searchgeo.console_cost import estimate_exposure, persist_execution_projection
 from searchgeo.console_ui import BLUE, CYAN, DIM, GREEN, MAGENTA, RED, YELLOW, clear_screen, paint, status_color
@@ -140,7 +141,7 @@ def _colored_environment_item(item: str) -> str:
 def render_header(state: State) -> None:
     clear_screen()
     print("=" * 100)
-    print(f"SearchGEO Readiness Auditor | versão {__version__}")
+    print(f"{PRODUCT_DISPLAY_NAME} | versão {__version__}")
     print(f"Status      : {paint(state.status, status_color(state.status), bold=True)}")
     print(f"URL         : {state.current_url}")
     print(f"Dispositivo : {paint(state.current_device, CYAN)}")

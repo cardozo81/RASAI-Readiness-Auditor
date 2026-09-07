@@ -233,7 +233,7 @@ def _get_json(url: str, *, token: str, timeout_seconds: float) -> Any:
         headers={
             "Accept": "application/json",
             "Authorization": f"Api-Token {token}",
-            "User-Agent": "SearchGEO-Readiness-Auditor/M25",
+            "User-Agent": "RASAI-Readiness-Auditor/M25",
         },
         method="GET",
     )

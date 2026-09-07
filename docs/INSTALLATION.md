@@ -25,12 +25,12 @@ O launcher foi criado para deixar o ambiente local pronto para **todas as capaci
 2. valida se existe uma `.venv` compatível com CPython 3.13;
 3. se Python 3.13 não estiver disponível, tenta instalá-lo pelo Windows Package Manager (`winget`) usando o pacote `Python.Python.3.13`;
 4. cria `.venv` quando necessário;
-5. verifica se o pacote SearchGEO e as dependências-base declaradas em `pyproject.toml` estão instalados a partir deste repositório;
+5. verifica se o pacote RASAI e as dependências-base declaradas em `pyproject.toml` estão instalados a partir deste repositório;
 6. lê também todos os grupos existentes em `[project.optional-dependencies]` e, quando existirem, inclui esses extras no comando de instalação para que recursos opcionais declarados pelo projeto também fiquem disponíveis;
 7. compara um hash local de `pyproject.toml` para detectar mudança de dependências, extras ou entrypoints sem reinstalar desnecessariamente a cada abertura;
 8. executa `pip install -e .` — ou `pip install -e ".[extra1,extra2,...]"` quando houver extras — somente quando a instalação local está ausente, inconsistente ou o `pyproject.toml` mudou;
 9. verifica o Chromium gerenciado pelo Playwright e executa `python -m playwright install chromium` somente quando o browser está ausente;
-10. abre imediatamente a primeira tela do console interativo pelo entrypoint oficial `searchgeo-console`.
+10. abre imediatamente a primeira tela do console interativo pelo entrypoint oficial `rasai-console`.
 
 O marcador usado para a verificação de dependências fica dentro de `.venv` e não é versionado.
 
@@ -55,7 +55,7 @@ Se Python 3.13 estiver ausente e `winget` não estiver disponível, a instalaç�
 O fluxo manual continua suportado como fallback:
 
 ```powershell
-cd C:\IA-PROJETOS\github\SearchGEO-Readiness-Auditor
+cd C:\IA-PROJETOS\github\RASAI-Readiness-Auditor
 py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e .
@@ -67,15 +67,15 @@ Se `pyproject.toml` passar a possuir extras em `[project.optional-dependencies]`
 Validar:
 
 ```powershell
-searchgeo --version
-searchgeo audit --help
-searchgeo-console
+rasai --version
+rasai audit --help
+rasai-console
 ```
 
 ## Execução mínima pela CLI
 
 ```powershell
-searchgeo audit https://example.com `
+rasai audit https://example.com `
   --project "Smoke" `
   --max-pages 1 `
   --device-context mobile `
@@ -97,10 +97,10 @@ iniciar.cmd
 Forma direta, quando o ambiente já está ativado/preparado:
 
 ```powershell
-searchgeo-console
+rasai-console
 ```
 
-Na primeira abertura, o console cria `searchgeo-console.ini` com defaults não sensíveis. O arquivo é ignorado pelo Git e não armazena API keys/tokens.
+Na primeira abertura, o console cria `rasai-console.ini` com defaults não sensíveis. O arquivo é ignorado pelo Git e não armazena API keys/tokens.
 
 ## Integrações opcionais
 

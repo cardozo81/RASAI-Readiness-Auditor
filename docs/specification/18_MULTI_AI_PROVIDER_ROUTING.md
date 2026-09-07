@@ -19,7 +19,7 @@ Todos os adapters produzem contrato normalizado. A aceitação de uma resposta s
 
 ## Routing default
 
-Ordem de política SearchGEO:
+Ordem de política RASAI:
 
 1. OPENAI / `gpt-5.6-sol` / HIGH-XHIGH / QUALIFIED-A+;
 2. OPENAI / `gpt-5.6-terra` / HIGH / QUALIFIED-A;
@@ -29,7 +29,7 @@ Ordem de política SearchGEO:
 6. DEEPSEEK / `deepseek-v4-flash` / HIGH / PROVISIONAL-B;
 7. MIMO / `mimo-v2.5` / THINKING_ENABLED / PROVISIONAL-B.
 
-A classificação é política interna SearchGEO, não benchmark científico universal. DeepSeek/MiMo permanecem `PROVISIONAL` até benchmark específico com rule agreement, evidence fidelity, completeness, schema compliance, hallucination rate, repeatability, disciplina de UNKNOWN, PT-BR, entity/intent accuracy e operational success rate.
+A classificação é política interna RASAI, não benchmark científico universal. DeepSeek/MiMo permanecem `PROVISIONAL` até benchmark específico com rule agreement, evidence fidelity, completeness, schema compliance, hallucination rate, repeatability, disciplina de UNKNOWN, PT-BR, entity/intent accuracy e operational success rate.
 
 ## Seleção explícita e AUTO
 
@@ -114,12 +114,12 @@ Os HTMLs legados temporários usados durante a composição interna do pipeline 
 
 ## DeepSeek wire contract por chaves obrigatórias
 
-Para DeepSeek via Responses API, o contrato de transporte das 22 avaliações semânticas usa um objeto cujas chaves obrigatórias são `BR-GEO-028` até `BR-GEO-049`. Isso evita depender de `minItems`/`maxItems` para cardinalidade de arrays, restrições que a documentação do DeepSeek declara não suportadas em seu subconjunto estrito de JSON Schema. Antes da persistência, o adapter converte o objeto para o array canônico SearchGEO e reaplica todas as validações locais de schema, evidência, completude e duplicidade. A alteração não muda scoring nem a semântica das regras.
+Para DeepSeek via Responses API, o contrato de transporte das 22 avaliações semânticas usa um objeto cujas chaves obrigatórias são `BR-GEO-028` até `BR-GEO-049`. Isso evita depender de `minItems`/`maxItems` para cardinalidade de arrays, restrições que a documentação do DeepSeek declara não suportadas em seu subconjunto estrito de JSON Schema. Antes da persistência, o adapter converte o objeto para o array canônico RASAI e reaplica todas as validações locais de schema, evidência, completude e duplicidade. A alteração não muda scoring nem a semântica das regras.
 
 
 ## Política de retry e fallback com controle de custo
 
-O SearchGEO trata chamadas de IA como integrações potencialmente tarifadas. Retry não é genérico.
+O RASAI trata chamadas de IA como integrações potencialmente tarifadas. Retry não é genérico.
 
 - cada provider/contexto pode realizar no máximo **2 chamadas**: 1 inicial + 1 retry;
 - AUTO possui teto adicional de **4 chamadas totais por URL/device**, independentemente da quantidade de providers configurados;

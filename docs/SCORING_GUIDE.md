@@ -1,6 +1,6 @@
 # SCORING_GUIDE.md
 
-Guia operacional do **SearchGEO Readiness Index `SGRI-001`**.
+Guia operacional do **Search & AI Readiness Index `SARI-001`**.
 
 ## Versão vigente
 
@@ -77,7 +77,7 @@ LOW         existe avaliação, mas critérios acima não foram satisfeitos
 UNAVAILABLE Coverage <= 0
 ```
 
-Esses thresholds continuam sendo governança interna versionada do SearchGEO.
+Esses thresholds continuam sendo governança interna versionada do RASAI.
 
 ## Consolidation da dimensão
 
@@ -111,7 +111,7 @@ Overall.consolidation_status = NOT_CONSOLIDATED
 limitation = CALIBRATION_MODEL_UNAVAILABLE:SCORE-GEO-003
 ```
 
-O SearchGEO não inventa coeficientes e não faz fallback silencioso para o Overall `002`.
+O RASAI não inventa coeficientes e não faz fallback silencioso para o Overall `002`.
 
 As dimensões continuam sendo calculadas e persistidas como `SCORE-GEO-003`.
 
@@ -192,8 +192,8 @@ Fixo/versionado:
 ## Comandos
 
 ```powershell
-searchgeo scoring calibrate --dataset-version GEO-CAL-001
-searchgeo scoring inspect
+rasai scoring calibrate --dataset-version GEO-CAL-001
+rasai scoring inspect
 ```
 
 Artifact padrão:
@@ -223,7 +223,7 @@ Nenhuma reexecução de website ou IA deve ser necessária para reproduzir o cá
 
 ## Relatórios e histórico
 
-`searchgeo.html` é a página canônica do SGRI.
+`readiness.html` é a página canônica do SARI.
 
 `score-geo-003.html` expõe o contrato e o estado de calibração da auditoria, inclusive o gate temporal vigente.
 

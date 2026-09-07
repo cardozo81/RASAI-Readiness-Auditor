@@ -1,6 +1,6 @@
 # Console — custo, quota e telemetria de execução
 
-Este documento descreve como o `searchgeo-console` apresenta exposição prévia e consumo realmente persistido após uma auditoria.
+Este documento descreve como o `rasai-console` apresenta exposição prévia e consumo realmente persistido após uma auditoria.
 
 ## Regra de fonte única
 
@@ -87,7 +87,7 @@ O console e o report devem explicar qual coleta foi afetada.
 
 ## Configuração INI
 
-`searchgeo-console.ini` persiste somente parâmetros não sensíveis, inclusive modelo, esforço, timeouts e limites. Credenciais não são gravadas no INI.
+`rasai-console.ini` persiste somente parâmetros não sensíveis, inclusive modelo, esforço, timeouts e limites. Credenciais não são gravadas no INI.
 
 ## Segurança
 

@@ -1,4 +1,4 @@
-"""Hardened OpenAI Responses API adapter for SearchGEO semantic analysis.
+"""Hardened OpenAI Responses API adapter for RASAI semantic analysis.
 
 This module deliberately wraps the original provider contract rather than changing
 M7 scoring/fallback semantics.  It adds four operational guarantees:

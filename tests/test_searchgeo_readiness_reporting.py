@@ -9,7 +9,7 @@ from searchgeo.searchgeo_readiness_reporting import enrich_searchgeo_reporting
 
 
 def _workspace(root: Path) -> AuditWorkspace:
-    workspace = AuditWorkspace.create(root, "AUD-SGRI")
+    workspace = AuditWorkspace.create(root, "AUD-SARI")
     connection = sqlite3.connect(workspace.database)
     try:
         connection.executescript(
@@ -18,7 +18,7 @@ def _workspace(root: Path) -> AuditWorkspace:
                 audit_id TEXT PRIMARY KEY,
                 project_name TEXT
             );
-            INSERT INTO audits VALUES ('AUD-SGRI','Projeto SGRI');
+            INSERT INTO audits VALUES ('AUD-SARI','Projeto SARI');
 
             CREATE TABLE scores (
                 score_id TEXT PRIMARY KEY,
@@ -35,15 +35,15 @@ def _workspace(root: Path) -> AuditWorkspace:
             );
 
             INSERT INTO scores VALUES
-              ('S-M-OVER','AUD-SGRI','OVERALL_READINESS','MOBILE',82.5,0.94,'HIGH','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
-              ('S-M-ANS','AUD-SGRI','ANSWERABILITY','MOBILE',75.0,1.0,'HIGH','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
-              ('S-M-CIT','AUD-SGRI','CITATION_READINESS','MOBILE',70.0,0.9,'HIGH','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
-              ('S-M-EVI','AUD-SGRI','EVIDENCE_TRUST','MOBILE',60.0,0.9,'MEDIUM','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
-              ('S-M-TECH','AUD-SGRI','TECHNICAL_ACCESSIBILITY','MOBILE',95.0,1.0,'HIGH','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
-              ('S-D-OVER','AUD-SGRI','OVERALL_READINESS','DESKTOP',88.0,0.91,'HIGH','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
-              ('S-D-ANS','AUD-SGRI','ANSWERABILITY','DESKTOP',80.0,1.0,'HIGH','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
-              ('S-D-CIT','AUD-SGRI','CITATION_READINESS','DESKTOP',78.0,0.9,'HIGH','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
-              ('S-D-EVI','AUD-SGRI','EVIDENCE_TRUST','DESKTOP',72.0,0.9,'MEDIUM','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]');
+              ('S-M-OVER','AUD-SARI','OVERALL_READINESS','MOBILE',82.5,0.94,'HIGH','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
+              ('S-M-ANS','AUD-SARI','ANSWERABILITY','MOBILE',75.0,1.0,'HIGH','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
+              ('S-M-CIT','AUD-SARI','CITATION_READINESS','MOBILE',70.0,0.9,'HIGH','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
+              ('S-M-EVI','AUD-SARI','EVIDENCE_TRUST','MOBILE',60.0,0.9,'MEDIUM','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
+              ('S-M-TECH','AUD-SARI','TECHNICAL_ACCESSIBILITY','MOBILE',95.0,1.0,'HIGH','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
+              ('S-D-OVER','AUD-SARI','OVERALL_READINESS','DESKTOP',88.0,0.91,'HIGH','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
+              ('S-D-ANS','AUD-SARI','ANSWERABILITY','DESKTOP',80.0,1.0,'HIGH','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
+              ('S-D-CIT','AUD-SARI','CITATION_READINESS','DESKTOP',78.0,0.9,'HIGH','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]'),
+              ('S-D-EVI','AUD-SARI','EVIDENCE_TRUST','DESKTOP',72.0,0.9,'MEDIUM','CONSOLIDATED','SCORE-GEO-002','2026-09-06T00:00:00Z','[]');
 
             CREATE TABLE score_contributions (
                 contribution_id TEXT PRIMARY KEY,
@@ -68,15 +68,15 @@ def _workspace(root: Path) -> AuditWorkspace:
                 normalized_url TEXT
             );
             INSERT INTO pages VALUES
-              ('P1','AUD-SGRI','https://example.test/a'),
-              ('P2','AUD-SGRI','https://example.test/b');
+              ('P1','AUD-SARI','https://example.test/a'),
+              ('P2','AUD-SARI','https://example.test/b');
 
             CREATE TABLE web_performance_runs (
                 audit_id TEXT PRIMARY KEY,
                 enabled INTEGER,
                 status TEXT
             );
-            INSERT INTO web_performance_runs VALUES ('AUD-SGRI',1,'SUCCESS');
+            INSERT INTO web_performance_runs VALUES ('AUD-SARI',1,'SUCCESS');
 
             CREATE TABLE web_performance_observations (
                 observation_id TEXT PRIMARY KEY,
@@ -88,15 +88,15 @@ def _workspace(root: Path) -> AuditWorkspace:
                 accessibility_score REAL
             );
             INSERT INTO web_performance_observations VALUES
-              ('W1','AUD-SGRI','P1','MOBILE','PASS',0.81,0.94),
-              ('W2','AUD-SGRI','P2','MOBILE','FAIL',0.88,0.97),
-              ('W3','AUD-SGRI','P1','DESKTOP','PASS',0.95,1.00);
+              ('W1','AUD-SARI','P1','MOBILE','PASS',0.81,0.94),
+              ('W2','AUD-SARI','P2','MOBILE','FAIL',0.88,0.97),
+              ('W3','AUD-SARI','P1','DESKTOP','PASS',0.95,1.00);
 
             CREATE TABLE synthetic_apdex_runs (
                 audit_id TEXT PRIMARY KEY,
                 enabled INTEGER
             );
-            INSERT INTO synthetic_apdex_runs VALUES ('AUD-SGRI',1);
+            INSERT INTO synthetic_apdex_runs VALUES ('AUD-SARI',1);
 
             CREATE TABLE synthetic_apdex_summaries (
                 summary_id TEXT PRIMARY KEY,
@@ -107,8 +107,8 @@ def _workspace(root: Path) -> AuditWorkspace:
                 final_group INTEGER
             );
             INSERT INTO synthetic_apdex_summaries VALUES
-              ('A1','AUD-SGRI','https://example.test/a','MOBILE',0.82,1),
-              ('A2','AUD-SGRI','https://example.test/a','DESKTOP',0.91,1);
+              ('A1','AUD-SARI','https://example.test/a','MOBILE',0.82,1),
+              ('A2','AUD-SARI','https://example.test/a','DESKTOP',0.91,1);
             """
         )
         connection.commit()
@@ -122,10 +122,10 @@ def _workspace(root: Path) -> AuditWorkspace:
     footer = "<footer class='footer'>f</footer>"
     index = (
         "<!doctype html><html><body>" + nav
-        + "<main class='app-main'><header class='hero'><div class='eyebrow'>SearchGEO Readiness Auditor</div>"
-        + "<h1>Visão geral da auditoria</h1><p class='lead'>Dashboard executivo de readiness. O índice é um modelo interno e reprodutível do SearchGEO; não é uma nota oficial do Google, OpenAI ou de outro mantenedor.</p>"
+        + "<main class='app-main'><header class='hero'><div class='eyebrow'>RASAI — Search & AI Readiness Auditor</div>"
+        + "<h1>Visão geral da auditoria</h1><p class='lead'>Dashboard executivo de readiness. O índice é um modelo interno e reprodutível do RASAI; não é uma nota oficial do Google, OpenAI ou de outro mantenedor.</p>"
         + "<div class=\"score-grid\"><article class='score-card'><div>82</div></article></div>"
-        + "<div class=\"metric-grid\"><div class='metric'><small>Projeto</small><strong>Projeto SGRI</strong></div></div></header>"
+        + "<div class=\"metric-grid\"><div class='metric'><small>Projeto</small><strong>Projeto SARI</strong></div></div></header>"
         + "<section class='panel'><div class='kicker'>Leitura obrigatória</div><h2>Cobertura e confiabilidade</h2><p>legacy</p></section>"
         + "<section class='panel'><div class='kicker'>Dimensões</div><h2>Readiness por dispositivo</h2><p>legacy dimensions</p></section>"
         + "<section class='panel'><div class='kicker'>Escopo do produto</div><h2>O que este índice significa</h2><p>legacy scope</p></section>"
@@ -162,11 +162,11 @@ def _workspace(root: Path) -> AuditWorkspace:
 def test_searchgeo_page_is_canonical_home_for_internal_indicators() -> None:
     with tempfile.TemporaryDirectory() as directory:
         workspace = _workspace(Path(directory))
-        path = enrich_searchgeo_reporting(audit_id="AUD-SGRI", workspace=workspace)
-        assert path.name == "searchgeo.html"
+        path = enrich_searchgeo_reporting(audit_id="AUD-SARI", workspace=workspace)
+        assert path.name == "readiness.html"
         html = path.read_text(encoding="utf-8")
-        assert "SearchGEO Readiness Index" in html
-        assert "SGRI-001" in html
+        assert "Search & AI Readiness Index" in html
+        assert "SARI-001" in html
         assert "SCORE-GEO-002" in html
         assert "Dimensões do readiness" in html
         assert "Capacidade de resposta" in html
@@ -179,11 +179,11 @@ def test_searchgeo_page_is_canonical_home_for_internal_indicators() -> None:
 def test_index_is_compact_dashboard_without_legacy_cross_domain_details() -> None:
     with tempfile.TemporaryDirectory() as directory:
         workspace = _workspace(Path(directory))
-        enrich_searchgeo_reporting(audit_id="AUD-SGRI", workspace=workspace)
+        enrich_searchgeo_reporting(audit_id="AUD-SARI", workspace=workspace)
         html = (workspace.root / "report" / "index.html").read_text(encoding="utf-8")
         assert html.count("searchgeo-executive-dashboard:start") == 1
         assert "Resultados finais por indicador" in html
-        assert "SearchGEO Readiness · Mobile" in html
+        assert "Search &amp; AI Readiness · Mobile" in html
         assert "82.5/100" in html
         assert "Core Web Vitals" in html
         assert "2/3 aprovados" in html
@@ -205,40 +205,40 @@ def test_index_is_compact_dashboard_without_legacy_cross_domain_details() -> Non
 def test_device_pages_keep_findings_but_not_searchgeo_scorecards() -> None:
     with tempfile.TemporaryDirectory() as directory:
         workspace = _workspace(Path(directory))
-        enrich_searchgeo_reporting(audit_id="AUD-SGRI", workspace=workspace)
+        enrich_searchgeo_reporting(audit_id="AUD-SARI", workspace=workspace)
         for filename in ("mobile.html", "desktop.html"):
             html = (workspace.root / "report" / filename).read_text(encoding="utf-8")
             assert "finding evidence" in html
             assert "data-searchgeo-device-role='evidence-only'" in html
-            assert "SearchGEO Readiness" in html
+            assert "Search & AI Readiness" in html
             assert "<div class=\"score-grid\">" not in html
             assert "<div class='kicker'>Scorecard</div>" not in html
-            assert "Indicadores agregados SearchGEO ficam exclusivamente" in html
+            assert "Indicadores agregados RASAI ficam exclusivamente" in html
 
 
 def test_dashboard_does_not_average_external_scores_into_fake_site_score() -> None:
     with tempfile.TemporaryDirectory() as directory:
         workspace = _workspace(Path(directory))
-        enrich_searchgeo_reporting(audit_id="AUD-SGRI", workspace=workspace)
+        enrich_searchgeo_reporting(audit_id="AUD-SARI", workspace=workspace)
         html = (workspace.root / "report" / "index.html").read_text(encoding="utf-8")
         assert "faixa, não média inventada" in html
         assert "Lighthouse médio" not in html
-        assert "SGRI-001" in html
+        assert "SARI-001" in html
         assert "Nenhum Lighthouse, Core Web Vitals, Accessibility ou Apdex é convertido" in html
 
 
 def test_enrichment_is_structurally_idempotent_and_navigation_has_single_searchgeo_item() -> None:
     with tempfile.TemporaryDirectory() as directory:
         workspace = _workspace(Path(directory))
-        enrich_searchgeo_reporting(audit_id="AUD-SGRI", workspace=workspace)
-        enrich_searchgeo_reporting(audit_id="AUD-SGRI", workspace=workspace)
+        enrich_searchgeo_reporting(audit_id="AUD-SARI", workspace=workspace)
+        enrich_searchgeo_reporting(audit_id="AUD-SARI", workspace=workspace)
         report = workspace.root / "report"
         index = (report / "index.html").read_text(encoding="utf-8")
         mobile = (report / "mobile.html").read_text(encoding="utf-8")
-        searchgeo = (report / "searchgeo.html").read_text(encoding="utf-8")
+        searchgeo = (report / "readiness.html").read_text(encoding="utf-8")
         assert index.count("searchgeo-executive-dashboard:start") == 1
         assert mobile.count("data-searchgeo-device-role='evidence-only'") == 1
-        assert searchgeo.count("href='searchgeo.html'") == 1
+        assert searchgeo.count("href='readiness.html'") == 1
         assert "Relatório Mobile" in searchgeo
         assert "Relatório Desktop" in searchgeo
 
@@ -246,8 +246,8 @@ def test_enrichment_is_structurally_idempotent_and_navigation_has_single_searchg
 def test_references_use_public_method_name_without_destroying_engine_compatibility() -> None:
     with tempfile.TemporaryDirectory() as directory:
         workspace = _workspace(Path(directory))
-        enrich_searchgeo_reporting(audit_id="AUD-SGRI", workspace=workspace)
+        enrich_searchgeo_reporting(audit_id="AUD-SARI", workspace=workspace)
         references = (workspace.root / "report" / "references.html").read_text(encoding="utf-8")
-        assert "SearchGEO Readiness Index (SGRI-001)" in references
+        assert "Search &amp; AI Readiness Index (SARI-001)" in references
         assert "De onde vem cada indicador" in references
         assert "SCORE-GEO-002" in references

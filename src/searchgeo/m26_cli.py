@@ -12,8 +12,8 @@ from searchgeo.persistence import AuditWorkspace
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="searchgeo visibility",
-        description="Importa outcomes observados de AI Search sem alterar o SearchGEO Readiness Index.",
+        prog="rasai visibility",
+        description="Importa outcomes observados de AI Search sem alterar o Search & AI Readiness Index.",
     )
     subparsers = parser.add_subparsers(dest="visibility_command", required=True)
 
@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             print(f"Artifact preservado: {result.artifact_path}")
             print(f"Relatório: {report}")
-            print("Impacto no SGRI/SCORE-GEO: NENHUM")
+            print("Impacto no SARI/SCORE-GEO: NENHUM")
             return 0
 
         if args.visibility_command == "report":

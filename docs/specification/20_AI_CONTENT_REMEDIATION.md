@@ -162,7 +162,7 @@ Primary conceptual references:
 - Google Search Quality Rater Guidelines: `https://services.google.com/fh/files/misc/hsw-sqrg.pdf`
 - Google — How AI Overviews in Search work: `https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf`
 
-These sources support the conceptual use of E-E-A-T/YMYL and page-purpose/user-needs analysis. SearchGEO must not describe E-E-A-T itself as a standalone official ranking factor or publish a fabricated E-E-A-T/YMYL probability.
+These sources support the conceptual use of E-E-A-T/YMYL and page-purpose/user-needs analysis. RASAI must not describe E-E-A-T itself as a standalone official ranking factor or publish a fabricated E-E-A-T/YMYL probability.
 
 ## 4. Trigger contract
 
@@ -290,7 +290,7 @@ DEGRADED
 
 ## 11. JSON-LD guidance when absent
 
-For each actually audited snapshot/device with no persisted JSON-LD artifact, SearchGEO may materialize a conservative Schema.org `WebPage` baseline using only persisted/observed data.
+For each actually audited snapshot/device with no persisted JSON-LD artifact, RASAI may materialize a conservative Schema.org `WebPage` baseline using only persisted/observed data.
 
 Permitted generic fields include:
 
@@ -334,7 +334,7 @@ Sugestões e remediação de conteúdo por IA must communicate all of the follow
 - required/recommended properties vary by Search feature/type;
 - valid markup does not guarantee that a rich result will be shown;
 - Structured Data/JSON-LD is not a universal requirement for generative Search/GEO;
-- SearchGEO must not invent special GEO/AEO markup.
+- RASAI must not invent special GEO/AEO markup.
 
 Primary references:
 

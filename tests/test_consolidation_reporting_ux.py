@@ -52,9 +52,9 @@ class ConsolidationReportingUXTests(unittest.TestCase):
             result = generate(root, normalize_filter(domains=("example.com",), devices=("MOBILE",)))
             html = result.report_path.read_text(encoding="utf-8")
             self.assertIn("Série histórica descritiva", html)
-            self.assertIn("Evolução da Compatibilidade GEO", html)
+            self.assertIn("Evolução da Readiness Search &amp; AI", html)
             self.assertIn("<svg", html)
-            self.assertIn("Compatibilidade GEO", html)
+            self.assertIn("Readiness Search & AI", html)
             self.assertIn("Cobertura", html)
             self.assertIn("Matriz histórica das dimensões", html)
 

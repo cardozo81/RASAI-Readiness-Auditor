@@ -76,7 +76,7 @@ class HttpClient:
         *,
         timeout: float = 10.0,
         max_redirects: int = 10,
-        user_agent: str = "SearchGEO-Readiness-Auditor/0.1",
+        user_agent: str = "RASAI-Readiness-Auditor/0.1",
     ) -> None:
         if timeout <= 0:
             raise ValueError("timeout must be greater than zero")

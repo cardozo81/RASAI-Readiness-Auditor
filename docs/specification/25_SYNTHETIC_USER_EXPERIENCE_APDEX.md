@@ -2,7 +2,7 @@
 
 **Status:** INTEGRADO E VALIDADO.
 **Escopo:** Web Performance sintética, user-action telemetry e comparabilidade metodológica com RUM/APM.
-**Não altera:** `BR-GEO-*`, `SCORE-GEO-002`, `SGRI-001`, Coverage, Confidence, Consolidation, findings ou recomendações GEO.
+**Não altera:** `BR-GEO-*`, `SCORE-GEO-002`, `SARI-001`, Coverage, Confidence, Consolidation, findings ou recomendações GEO.
 
 ## 1. Objetivo
 
@@ -123,7 +123,7 @@ O mix deve somar exatamente 100%. Exemplo:
 mobile=62,desktop=31,tablet=7
 ```
 
-O SearchGEO não inventa percentuais de população. Para comparação com RUM, prefira proporções observadas no período do Dynatrace.
+O RASAI não inventa percentuais de população. Para comparação com RUM, prefira proporções observadas no período do Dynatrace.
 
 Perfil Tablet baseline Synthetic User Experience Apdex:
 
@@ -293,7 +293,7 @@ A página deve expor:
 Falha Synthetic User Experience Apdex:
 
 - não altera `SCORE-GEO-002`;
-- não altera `SGRI-001`;
+- não altera `SARI-001`;
 - não cria finding;
 - não muda Coverage/Confidence;
 - não invalida Synthetic Navigation Apdex;
