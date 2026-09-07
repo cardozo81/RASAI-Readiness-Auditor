@@ -1,0 +1,49 @@
+name: SCORE-GEO-003 validation
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  score-geo-003:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install package and tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Compile SCORE-GEO-003 surface
+        run: |
+          python -m compileall -q \
+            src/searchgeo/score_geo_003.py \
+            src/searchgeo/score_geo_003_calibration.py \
+            src/searchgeo/score_geo_003_cli.py \
+            src/searchgeo/scoring_v003.py \
+            src/searchgeo/score_geo_003_reporting.py \
+            src/searchgeo/m9.py \
+            src/searchgeo/entrypoint.py
+      - name: SCORE-GEO-003 directed tests
+        run: python -m pytest -q tests/test_score_geo_003.py
+      - name: Scoring and reporting regressions
+        run: |
+          python -m pytest -q \
+            tests/test_m9_scoring.py \
+            tests/test_score_geo_002_applicability.py \
+            tests/test_searchgeo_readiness_reporting.py \
+            tests/test_consolidation_reporting_ux.py \
+            tests/test_m26_observed_generative_visibility.py
+      - name: Full regression suite
+        run: python -m pytest -q
