@@ -46,7 +46,7 @@ def _complete_executions() -> tuple[RuleExecution, ...]:
     return (*base, *structured)
 
 
-def test_score_geo_004_consolidates_without_calibration_artifact() -> None:
+def test_score_geo_004_consolidates_without_external_validation_artifact() -> None:
     result = ScoreGeo004Engine().score(
         audit_id="AUD-004",
         executions=_complete_executions(),
@@ -60,7 +60,7 @@ def test_score_geo_004_consolidates_without_calibration_artifact() -> None:
     assert overall.confidence.value == "HIGH"
     assert overall.consolidation_status == ConsolidationStatus.CONSOLIDATED
     assert f"OVERALL_AGGREGATION:{OVERALL_AGGREGATION_VERSION}" in overall.limitations
-    assert "EMPIRICAL_CALIBRATION:OPTIONAL_NOT_SCORE_INPUT" in overall.limitations
+    assert "EMPIRICAL_VALIDATION:NOT_SCORE_INPUT" in overall.limitations
     assert "DIMENSION_NOT_APPLICABLE:STRUCTURED_DATA" in overall.limitations
 
 
