@@ -12,7 +12,7 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
 from .store import ObservabilityStore, new_dataset
@@ -42,19 +42,25 @@ def collect_search_analytics(
     timeout: float = 60.0,
     opener: JsonOpener = urlopen,
 ) -> str:
+    workspace = Path(audit_workspace)
     _validate_period(start_date, end_date)
     token = access_token.strip()
     if not token:
         raise ValueError("Google Search Console access token is required")
+    if "page" not in dimensions:
+        raise ValueError("Search Analytics collection for an AUD requires the page dimension for scope isolation")
     if surface_dimension is not None and surface_dimension not in dimensions:
         raise ValueError("surface_dimension must be present in dimensions")
+    origins = _audit_origins(workspace)
     source_type = SOURCE_APPEARANCE if surface_dimension == "searchAppearance" else SOURCE_SEARCH
     max_rows = max(1, int(max_rows))
     page_size = max(1, min(int(row_limit), 25_000, max_rows))
     endpoint = SEARCH_ANALYTICS_ENDPOINT.format(site=quote(site_url, safe=""))
-    raw_pages: list[dict[str, Any]] = []
+    stored_pages: list[dict[str, Any]] = []
     normalized: list[dict[str, Any]] = []
     start_row = 0
+    excluded_out_of_scope = 0
+    api_rows_seen = 0
     while start_row < max_rows:
         payload = {
             "startDate": start_date,
@@ -67,10 +73,11 @@ def collect_search_analytics(
             "dataState": data_state,
         }
         response = _post_json(endpoint, payload, token, timeout, opener)
-        raw_pages.append(response)
         rows = response.get("rows") or []
         if not isinstance(rows, list):
             raise ValueError("Search Console response rows must be a list")
+        api_rows_seen += len(rows)
+        retained_rows: list[dict[str, Any]] = []
         for offset, row in enumerate(rows):
             if not isinstance(row, dict):
                 continue
@@ -79,6 +86,11 @@ def collect_search_analytics(
                 dimension: (str(keys[index]) if index < len(keys) else None)
                 for index, dimension in enumerate(dimensions)
             }
+            page_url = mapping.get("page")
+            if not page_url or not _same_audited_origin(page_url, origins):
+                excluded_out_of_scope += 1
+                continue
+            retained_rows.append(row)
             observed_surface = mapping.get(surface_dimension) if surface_dimension else None
             normalized.append(
                 {
@@ -86,7 +98,7 @@ def collect_search_analytics(
                     "source": source_type,
                     "observed_date": mapping.get("date"),
                     "query_text": mapping.get("query"),
-                    "url": mapping.get("page"),
+                    "url": page_url,
                     "device": mapping.get("device"),
                     "country": mapping.get("country"),
                     "surface": observed_surface or search_type,
@@ -102,9 +114,17 @@ def collect_search_analytics(
                     },
                 }
             )
+        sanitized_response = {key: value for key, value in response.items() if key != "rows"}
+        sanitized_response["rows"] = retained_rows
+        stored_pages.append(sanitized_response)
         if len(rows) < payload["rowLimit"] or not rows:
             break
         start_row += len(rows)
+
+    if api_rows_seen and not normalized and excluded_out_of_scope:
+        raise ValueError(
+            "Search Console returned rows, but none belong to the audited origin; verify --site-url/property scope"
+        )
 
     artifact = {
         "format_version": "RASAI-GSC-SA-001",
@@ -118,10 +138,12 @@ def collect_search_analytics(
         "surface_dimension": surface_dimension,
         "requested_max_rows": max_rows,
         "page_size": page_size,
-        "responses": raw_pages,
+        "scope_policy": "AUDITED_ORIGIN_ONLY",
+        "excluded_out_of_scope_rows": excluded_out_of_scope,
+        "responses": stored_pages,
     }
     return _persist(
-        audit_workspace=audit_workspace,
+        audit_workspace=workspace,
         source_type=source_type,
         capture_method="DIRECT_OFFICIAL_API",
         artifact=artifact,
@@ -134,6 +156,9 @@ def collect_search_analytics(
             "search_type": search_type,
             "surface_dimension": surface_dimension,
             "rows": len(normalized),
+            "api_rows_seen": api_rows_seen,
+            "excluded_out_of_scope_rows": excluded_out_of_scope,
+            "scope_policy": "AUDITED_ORIGIN_ONLY",
             "requested_max_rows": max_rows,
             "page_size": page_size,
             "coverage_note": "Search Analytics may return top rows rather than every row available for the property.",
@@ -291,6 +316,8 @@ def _persist(
 
 def _audit_urls(workspace: Path) -> tuple[str, ...]:
     database = workspace / "audit.db"
+    if not database.is_file():
+        raise FileNotFoundError(database)
     uri = database.resolve().as_uri() + "?mode=ro"
     connection = sqlite3.connect(uri, uri=True)
     connection.execute("PRAGMA query_only=ON")
@@ -299,6 +326,43 @@ def _audit_urls(workspace: Path) -> tuple[str, ...]:
         return tuple(str(row[0]) for row in rows)
     finally:
         connection.close()
+
+
+def _audit_origins(workspace: Path) -> set[str]:
+    database = workspace / "audit.db"
+    if not database.is_file():
+        raise FileNotFoundError(database)
+    connection = sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True)
+    connection.execute("PRAGMA query_only=ON")
+    try:
+        origins = {
+            _normalized_origin(str(row[0]))
+            for row in connection.execute("SELECT DISTINCT normalized_origin FROM audit_targets")
+            if row[0]
+        }
+    finally:
+        connection.close()
+    if not origins:
+        raise ValueError("audit contains no normalized origin for Search Console scoping")
+    return origins
+
+
+def _same_audited_origin(url: str, origins: set[str]) -> bool:
+    try:
+        return _normalized_origin(url) in origins
+    except ValueError:
+        return False
+
+
+def _normalized_origin(value: str) -> str:
+    parsed = urlsplit(value)
+    if parsed.scheme.casefold() not in {"http", "https"} or not parsed.hostname:
+        raise ValueError(f"invalid HTTP(S) origin/URL: {value}")
+    default_port = (parsed.scheme.casefold() == "https" and parsed.port == 443) or (
+        parsed.scheme.casefold() == "http" and parsed.port == 80
+    )
+    port = "" if parsed.port is None or default_port else f":{parsed.port}"
+    return f"{parsed.scheme.casefold()}://{parsed.hostname.casefold()}{port}"
 
 
 def _validate_period(start_date: str, end_date: str) -> None:
