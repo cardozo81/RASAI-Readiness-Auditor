@@ -8,7 +8,7 @@
 
 Rastreamento, descoberta e acesso de crawlers aprofunda a análise de rastreamento e descoberta sem alterar a aritmética do RASAI. O marco consolida evidências relacionadas a `robots.txt`, sitemaps, políticas de crawlers, `llms.txt`, feeds e sinais de submissão/discovery, produzindo uma página técnica dedicada e, opcionalmente, explicações/remediações por IA estritamente evidence-bound.
 
-Rastreamento, descoberta e acesso de crawlers não cria um novo score GEO e não recalibra `SCORE-GEO-002`/`SARI-001`.
+Rastreamento, descoberta e acesso de crawlers não cria um novo score GEO, não altera `SARI-001` e não recalibra `SCORE-GEO-003`. `SCORE-GEO-002` permanece somente histórico.
 
 ## 2. Invariantes
 
@@ -230,4 +230,4 @@ Fontes normativas/primárias usadas para os fenômenos externos:
 - IndexNow protocol: <https://www.indexnow.org/documentation>
 - llms.txt proposal v2: <https://llmstxt.org/>
 
-Essas fontes documentam fenômenos e contratos externos. Elas não homologam `SARI-001`, `SCORE-GEO-002`, severidades Rastreamento, descoberta e acesso de crawlers nem qualquer índice proprietário do RASAI.
+Essas fontes documentam fenômenos e contratos externos. Elas não homologam `SARI-001`, `SCORE-GEO-003`, o histórico `SCORE-GEO-002`, severidades Rastreamento, descoberta e acesso de crawlers nem qualquer índice proprietário do RASAI.
