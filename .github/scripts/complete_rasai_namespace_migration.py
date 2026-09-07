@@ -11,10 +11,25 @@ TEXT_SUFFIXES = {
     ".ps1", ".ini", ".cfg", ".html", ".css", ".js", ".xml", ".csv",
 }
 EXCLUDED_DIRS = {".git", ".venv", "node_modules", "__pycache__"}
+TRANSITIONAL_FILES = {
+    Path(".github/scripts/complete_rasai_namespace_migration.py"),
+    Path(".github/workflows/rasai-namespace-migration.yml"),
+}
+
+
+def relative(path: Path) -> Path:
+    return path.resolve().relative_to(ROOT.resolve())
 
 
 def included(path: Path) -> bool:
-    return not any(part in EXCLUDED_DIRS for part in path.parts)
+    rel = relative(path)
+    if any(part in EXCLUDED_DIRS for part in rel.parts):
+        return False
+    if rel in TRANSITIONAL_FILES:
+        return False
+    if len(rel.parts) >= 2 and rel.parts[:2] == (".github", "workflows"):
+        return False
+    return True
 
 
 def rename_path(source: Path, destination: Path) -> None:
@@ -28,7 +43,6 @@ def rename_path(source: Path, destination: Path) -> None:
 
 def migrate_paths() -> None:
     rename_path(ROOT / "src" / "searchgeo", ROOT / "src" / "rasai")
-
     candidates = [p for p in ROOT.rglob("*") if included(p)]
     for path in sorted(candidates, key=lambda p: len(p.parts), reverse=True):
         if not path.exists():
@@ -41,22 +55,10 @@ def migrate_paths() -> None:
         if new_name != path.name:
             rename_path(path, path.with_name(new_name))
 
-    rename_path(
-        ROOT / "src" / "rasai" / "console_config_migration.py",
-        ROOT / "src" / "rasai" / "console_config_path.py",
-    )
-    rename_path(
-        ROOT / "tests" / "test_console_config_migration.py",
-        ROOT / "tests" / "test_console_config_path.py",
-    )
-    rename_path(
-        ROOT / "docs" / "BRANDING_AND_COMPATIBILITY.md",
-        ROOT / "docs" / "BRANDING.md",
-    )
-    rename_path(
-        ROOT / "docs" / "GEO_MINIMUM_REQUIREMENTS.md",
-        ROOT / "docs" / "READINESS_MINIMUM_REQUIREMENTS.md",
-    )
+    rename_path(ROOT / "src" / "rasai" / "console_config_migration.py", ROOT / "src" / "rasai" / "console_config_path.py")
+    rename_path(ROOT / "tests" / "test_console_config_migration.py", ROOT / "tests" / "test_console_config_path.py")
+    rename_path(ROOT / "docs" / "BRANDING_AND_COMPATIBILITY.md", ROOT / "docs" / "BRANDING.md")
+    rename_path(ROOT / "docs" / "GEO_MINIMUM_REQUIREMENTS.md", ROOT / "docs" / "READINESS_MINIMUM_REQUIREMENTS.md")
     rename_path(
         ROOT / "docs" / "specification" / "19_SCORE_APPLICABILITY_GEO_MINIMUMS.md",
         ROOT / "docs" / "specification" / "19_SCORE_APPLICABILITY_READINESS_MINIMUMS.md",
@@ -75,7 +77,6 @@ def transform_text(text: str) -> str:
     text = text.replace("BRANDING_AND_COMPATIBILITY.md", "BRANDING.md")
     text = text.replace("GEO_MINIMUM_REQUIREMENTS.md", "READINESS_MINIMUM_REQUIREMENTS.md")
     text = text.replace("19_SCORE_APPLICABILITY_GEO_MINIMUMS.md", "19_SCORE_APPLICABILITY_READINESS_MINIMUMS.md")
-
     text = text.replace("Search/GEO readiness", "Search & AI Readiness")
     text = text.replace("Search/GEO", "Search & AI")
     text = text.replace("Search / GEO", "Search & AI")
@@ -83,9 +84,7 @@ def transform_text(text: str) -> str:
     text = text.replace("Readiness GEO", "Search & AI Readiness")
     text = text.replace("GEO score universal", "score universal de Search & AI Readiness")
     text = text.replace("universal GEO score", "universal Search & AI Readiness score")
-
-    text = text.replace("—", "-").replace("–", "-")
-    return text
+    return text.replace("—", "-").replace("–", "-")
 
 
 def migrate_text() -> None:
@@ -104,16 +103,14 @@ def migrate_text() -> None:
 
 
 def rewrite_runtime_paths() -> None:
-    path = ROOT / "src" / "rasai" / "runtime_paths.py"
-    path.write_text(
+    (ROOT / "src" / "rasai" / "runtime_paths.py").write_text(
         '''"""Canonical local runtime paths for RASAi."""\nfrom __future__ import annotations\n\nfrom pathlib import Path\n\nCANONICAL_RUNTIME_DIR = ".rasai"\n\n\ndef runtime_directory(root: str | Path) -> Path:\n    """Return the canonical RASAi runtime metadata directory."""\n    return Path(root) / CANONICAL_RUNTIME_DIR\n''',
         encoding="utf-8",
     )
 
 
 def rewrite_console_config_path() -> None:
-    path = ROOT / "src" / "rasai" / "console_config_path.py"
-    path.write_text(
+    (ROOT / "src" / "rasai" / "console_config_path.py").write_text(
         '''"""Canonical interactive-console configuration path for RASAi."""\nfrom __future__ import annotations\n\nimport os\nfrom pathlib import Path\nfrom typing import Mapping, MutableMapping\n\nCONSOLE_INI_ENV = "RASAI_CONSOLE_INI"\nCANONICAL_CONSOLE_INI = "rasai-console.ini"\n\n\ndef prepare_console_config(*, env: MutableMapping[str, str] | None = None, cwd: Path | None = None) -> Path:\n    """Resolve the RASAi console configuration path."""\n    environment = env if env is not None else os.environ\n    base = (cwd if cwd is not None else Path.cwd()).resolve()\n    configured = (environment.get(CONSOLE_INI_ENV) or "").strip()\n    path = Path(configured).expanduser() if configured else Path(CANONICAL_CONSOLE_INI)\n    if not path.is_absolute():\n        path = base / path\n    resolved = path.resolve()\n    environment[CONSOLE_INI_ENV] = str(resolved)\n    return resolved\n\n\ndef canonical_console_config_path(*, env: Mapping[str, str] | None = None, cwd: Path | None = None) -> Path:\n    """Return the effective RASAi console configuration path without filesystem mutation."""\n    environment = env if env is not None else os.environ\n    base = (cwd if cwd is not None else Path.cwd()).resolve()\n    configured = (environment.get(CONSOLE_INI_ENV) or "").strip()\n    path = Path(configured).expanduser() if configured else Path(CANONICAL_CONSOLE_INI)\n    if not path.is_absolute():\n        path = base / path\n    return path.resolve()\n''',
         encoding="utf-8",
     )
@@ -144,8 +141,7 @@ def normalize_pyproject() -> None:
 
 
 def rewrite_branding_document() -> None:
-    path = ROOT / "docs" / "BRANDING.md"
-    path.write_text(
+    (ROOT / "docs" / "BRANDING.md").write_text(
         '''# Identidade do produto\n\n## Nome oficial\n\n**RASAi - Search & AI Readiness Auditor**\n\n## Índice público\n\n**SARI-001 - Search & AI Readiness Index**\n\n## Contratos técnicos\n\n- CLI: `rasai`\n- console interativo: `rasai-console`\n- pacote Python: `rasai`\n- distribuição Python: `rasai-readiness-auditor`\n- configuração do console: `rasai-console.ini`\n- configuração geral opcional: `rasai.toml`\n- diretório operacional local: `.rasai`\n- variáveis próprias do produto: prefixo `RASAI_`\n\nVariáveis de credenciais definidas pelos providers mantêm o nome oficial do provider, por exemplo `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` e `GEMINI_API_KEY`.\n\nIDs metodológicos como `BR-GEO-*`, `FR-GEO-*` e `SCORE-GEO-*` permanecem porque identificam contratos de metodologia, não o nome do produto. GEO pode aparecer como conceito técnico quando o texto realmente discute Generative Engine Optimization; não deve ser usado como marca, namespace ou sinônimo de RASAi.\n''',
         encoding="utf-8",
     )
@@ -167,25 +163,12 @@ def patch_report_normalizer() -> None:
 
 def remove_obsolete_alias_sentences() -> None:
     for path in ROOT.rglob("*.md"):
-        if not included(path):
+        if not path.is_file() or not included(path):
             continue
         text = path.read_text(encoding="utf-8")
         text = re.sub(r"^Aliases legados `rasai` e `rasai-console` permanecem por compatibilidade\.\n+", "", text, flags=re.MULTILINE)
         text = text.replace("menu legado permanece normal", "menu principal permanece normal")
         path.write_text(text, encoding="utf-8")
-
-
-def remove_one_shot_files() -> None:
-    for relative in (
-        ".github/scripts/complete_rasai_namespace_migration.py",
-        ".github/workflows/rasai-namespace-migration.yml",
-    ):
-        target = ROOT / relative
-        if target.exists():
-            target.unlink()
-    scripts_dir = ROOT / ".github" / "scripts"
-    if scripts_dir.exists() and not any(scripts_dir.iterdir()):
-        scripts_dir.rmdir()
 
 
 def validate_no_obsolete_namespace() -> None:
@@ -195,9 +178,9 @@ def validate_no_obsolete_namespace() -> None:
     for path in ROOT.rglob("*"):
         if not included(path):
             continue
-        relative = str(path.relative_to(ROOT))
-        if legacy_pattern.search(relative):
-            violations.append(relative)
+        rel = str(relative(path))
+        if legacy_pattern.search(rel):
+            violations.append(rel)
         if not path.is_file():
             continue
         if path.suffix.lower() not in TEXT_SUFFIXES and path.name not in {"README", "LICENSE"}:
@@ -207,11 +190,11 @@ def validate_no_obsolete_namespace() -> None:
         except UnicodeDecodeError:
             continue
         if legacy_pattern.search(text):
-            violations.append(relative)
+            violations.append(rel)
         if old_product_geo.search(text):
-            violations.append(relative + ":old-product-GEO-label")
+            violations.append(rel + ":old-product-GEO-label")
         if path.suffix.lower() in {".md", ".html"} and ("—" in text or "–" in text):
-            violations.append(relative + ":long-dash")
+            violations.append(rel + ":long-dash")
     if (ROOT / "src" / "searchgeo").exists():
         violations.append("src/searchgeo")
     if violations:
@@ -228,9 +211,8 @@ def main() -> None:
     rewrite_branding_document()
     patch_report_normalizer()
     remove_obsolete_alias_sentences()
-    remove_one_shot_files()
     validate_no_obsolete_namespace()
-    print("RASAi canonical namespace migration completed successfully")
+    print("RASAi canonical core namespace migration completed successfully")
 
 
 if __name__ == "__main__":
