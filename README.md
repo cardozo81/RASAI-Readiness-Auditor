@@ -12,7 +12,7 @@ Capacidades integradas:
 - `mobile`, `desktop` ou `both`;
 - persistência em SQLite + artifacts + log operacional;
 - mini-site HTML com navegação canônica;
-- **SearchGEO Readiness Index `SGRI-001`** com Score, Coverage, Confidence e Consolidation separados;
+- **SearchGEO Readiness Index `SGRI-001`** com `SCORE-GEO-003` como método padrão, Score, Coverage, Confidence e Consolidation separados;
 - dashboard executivo com síntese final dos indicadores, sem misturar metodologias;
 - análise semântica opcional por IA;
 - remediação textual evidence-bound e revisão/proposta JSON-LD;
@@ -24,14 +24,15 @@ Capacidades integradas:
 - relatórios históricos/consolidados offline sobre múltiplos `AUD-*`, com índice analítico reconstruível e snapshots HTML estáticos;
 - console interativo com preflight, progresso, custo/quota, timeouts, persistência de configuração e abertura de artifacts.
 
-Observed Generative Visibility (domínio separado do SGRI):
+Observed Generative Visibility (domínio observacional separado):
 
 - **Observed Generative Visibility** import-first, com outcomes observados por fonte/período em `report/ai-visibility.html`;
 - suporte inicial ao contrato `OGV-IMPORT-001` para Bing Webmaster Tools AI Performance normalizado e query-runs controlados;
 - preservação do artifact por SHA-256, validação same-origin e Citation Presence Rate somente sobre runs válidos;
-- nenhuma coleta automática por scraping e nenhum endpoint de AI Performance presumido quando não houver API pública documentada.
+- nenhuma coleta automática por scraping e nenhum endpoint de AI Performance presumido quando não houver API pública documentada;
+- `CONTROLLED_QUERY_RUNS` elegíveis podem alimentar posteriormente a calibração offline do `SCORE-GEO-003`, sem recalcular o AUD fonte.
 
-> O `SGRI-001` é um índice proprietário, evidence-based e reprodutível do SearchGEO. Enquanto a aritmética não mudar, o banco preserva `SCORE-GEO-002` como versão do motor de cálculo. Lighthouse, Core Web Vitals, Acessibilidade automatizada, Synthetic Navigation Apdex e Synthetic User Experience Apdex, diagnósticos de rastreamento e descoberta e outcomes Observed Generative Visibility possuem metodologias/domínios próprios e não são convertidos silenciosamente no SGRI.
+> O `SGRI-001` é um índice proprietário e reprodutível. `SCORE-GEO-003` é o método padrão para novas auditorias: as dimensões permanecem determinísticas/evidence-based e o Overall exige modelo calibrado `VALIDATED`. Sem model artifact validado, o Overall fica `NOT_CONSOLIDATED`; nenhum coeficiente é inventado e não há fallback silencioso para `SCORE-GEO-002`. Auditorias `SCORE-GEO-002` permanecem históricas e não são recalculadas. Lighthouse, Core Web Vitals, Acessibilidade automatizada, Apdex e outcomes observados mantêm seus domínios próprios.
 
 ## Instalação rápida — Windows
 
@@ -65,6 +66,7 @@ Compatibilidade principal:
 | IA externa | opcional |
 | PageSpeed/CrUX | opcional |
 | Observed Generative Visibility | import local; sem credencial externa nesta versão |
+| SCORE-GEO-003 calibration | offline sobre AUDs persistidos; sem chamada externa durante fitting/inference |
 
 Detalhes do bootstrap e fallback manual: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
@@ -111,7 +113,7 @@ A opção `C` é independente do pipeline de auditoria: lê `AUD-*/audit.db` em 
 
 A opção `E` agrupa as variáveis por domínios funcionais. Cada variável mostra finalidade, domínio aceito, default efetivo, dependências, custo/impacto e referência; `D` abre diretamente a documentação detalhada. Veja [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md).
 
-Observed Generative Visibility é inicialmente uma superfície CLI/import-first separada; não é uma coleta automática executada pelo menu de auditoria.
+Observed Generative Visibility e calibração `SCORE-GEO-003` permanecem superfícies CLI separadas nesta versão; não executam coleta/treinamento automático no menu da auditoria.
 
 ### Configuração persistente
 
@@ -157,6 +159,8 @@ Detalhes: [docs/INTERACTIVE_CONSOLE.md](docs/INTERACTIVE_CONSOLE.md).
 A IA é opcional. Com `--ai-provider none`, o SearchGEO continua executando as análises determinísticas de acesso técnico, redirects/TLS, indexabilidade, extração de conteúdo, crawling/discovery e comparação entre dispositivos. Synthetic Navigation Apdex e Synthetic User Experience Apdex também são independentes de LLM quando habilitados. Lighthouse e Core Web Vitals permanecem independentes de IA, mas dependem das respectivas fontes externas quando configuradas.
 
 As dimensões predominantemente semânticas podem permanecer `UNKNOWN`/`NOT_CONSOLIDATED` sem IA. Isso reduz Coverage e pode impedir o Overall do SGRI-001; não transforma ausência de IA em falha do website e não aplica score zero artificial.
+
+Mesmo com todas as dimensões consolidadas, o `SCORE-GEO-003` exige um model artifact `VALIDATED` para materializar o Overall calibrado.
 
 ## IA
 
@@ -247,7 +251,7 @@ Credencial configurada não garante saldo, quota, plano ou acesso ao modelo. O p
 
 MiMo PAYG usa credencial `sk-...` no adapter atual. Token Plan `tp-...` pertence a produto/endpoint diferente.
 
-Observed Generative Visibility não exige credencial externa na implementação import-first; ele lê um JSON local normalizado.
+Observed Generative Visibility e calibração `SCORE-GEO-003` não exigem credencial externa na implementação import/offline atual.
 
 ## Rastreamento e descoberta
 
@@ -303,6 +307,8 @@ Esse timeout controla quanto o cliente aguarda a resposta da API externa. PageSp
 Quando PageSpeed falha, o relatório preserva a causa real (`timeout`, HTTP, quota, etc.). CrUX direto pode ainda produzir dados de campo. Acessibilidade automatizada depende do artifact Lighthouse e fica explicitamente **não obtida** quando esse artifact não foi produzido.
 
 O report nunca converte ausência de dado em resultado fictício do website.
+
+Web Performance e Acessibilidade permanecem indicadores próprios e não são introduzidos diretamente como features adicionais no Overall `SCORE-GEO-003`.
 
 ## Synthetic Navigation Apdex
 
@@ -370,6 +376,51 @@ report/apdex-experience.html
 
 Detalhes: [docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md](docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md).
 
+## SCORE-GEO-003 — calibração
+
+O `SCORE-GEO-003` mantém as dez dimensões atuais como features e calibra somente o Overall contra outcome binário `CITED/NOT_CITED`.
+
+Promotion gate mínimo:
+
+```text
+40 domínios
+12 domínios no holdout
+2 engines
+10 queries por domínio
+3 repetições por query/engine
+2400 observações válidas
+AUC holdout >= 0,60
+Brier < baseline por prevalência de treino
+```
+
+O split é feito por domínio, evitando que queries do mesmo site apareçam em treino e validação.
+
+Calibrar:
+
+```powershell
+searchgeo scoring calibrate --dataset-version GEO-CAL-001
+```
+
+Inspecionar:
+
+```powershell
+searchgeo scoring inspect
+```
+
+Artifact padrão:
+
+```text
+.searchgeo/scoring/score-geo-003-model.json
+```
+
+Override de path:
+
+```text
+SEARCHGEO_SCORE_GEO_003_MODEL
+```
+
+Artifact abaixo dos gates recebe `EXPERIMENTAL` e não consolida Overall. Detalhes: [docs/SCORE_GEO_003.md](docs/SCORE_GEO_003.md).
+
 ## Observed Generative Visibility
 
 Observed Generative Visibility mede **outcomes observados/importados**, não readiness. Ele atua depois que já existe um `AUD-*` e não chama mecanismos de busca por conta própria.
@@ -400,7 +451,7 @@ Citation Presence Rate
 = runs VALID com citação / total de runs VALID
 ```
 
-O relatório mostra o tamanho amostral e intervalo Wilson 95% quando calculável. A taxa não é previsão de citação futura e não recalibra o SGRI.
+O relatório mostra tamanho amostral e Wilson 95%. A taxa não é previsão de citação futura. A operação de importação não recalcula o SGRI; query-runs elegíveis podem posteriormente compor um dataset versionado de calibração do `SCORE-GEO-003`.
 
 Página canônica:
 
@@ -453,6 +504,7 @@ audits/<AUD-ID>/
 └─ report/
    ├─ index.html               # dashboard executivo
    ├─ searchgeo.html           # SGRI-001 e indicadores SearchGEO
+   ├─ score-geo-003.html       # método, calibração, dataset e gates
    ├─ mobile.html              # evidências/findings; condicional
    ├─ desktop.html             # evidências/findings; condicional
    ├─ remediation.html
@@ -468,17 +520,27 @@ audits/<AUD-ID>/
    └─ css/site.css
 ```
 
+Model artifact global/local do projeto:
+
+```text
+.searchgeo/
+└─ scoring/
+   └─ score-geo-003-model.json
+```
+
 `audit.db` e `artifacts/` são fontes persistidas; o report é projeção humana.
 
 `index.html` não cria um “score geral de tudo”. Ele resume o resultado final de cada família e aponta para a página canônica correspondente. Quando existem vários contextos Lighthouse, o dashboard prefere faixa por dispositivo/quantidade de contextos válidos a inventar uma média única do site.
 
 `searchgeo.html` é a página exclusiva dos indicadores agregados SearchGEO. Mobile/Desktop não repetem Overall, dimensões, Coverage, Confidence ou Consolidation.
 
+`score-geo-003.html` explica o método vigente, status do model artifact, dataset, AUC/Brier e promotion gate.
+
 `crawling-discovery.html` é a página exclusiva do domínio Rastreamento, descoberta e acesso de crawlers e não recalcula o SGRI.
 
 `apdex-experience.html` é o domínio Synthetic User Experience Apdex e permanece separado do Synthetic Navigation Apdex Standard.
 
-`ai-visibility.html` é o domínio observacional Observed Generative Visibility. **Readiness e visibilidade observada não são fundidos em um score comum.**
+`ai-visibility.html` é o domínio observacional Observed Generative Visibility. **Readiness e visibilidade observada não são fundidos em uma métrica observacional única**; outcomes controlados entram apenas no processo explícito/versionado de calibração.
 
 Os relatórios históricos usam uma área separada e não escrevem nos workspaces `AUD-*`:
 
@@ -494,6 +556,8 @@ audits/consolidated/
 
 Um `CONS-*` já existente é reutilizado quando filtros, versão do formato e fingerprints das fontes elegíveis são idênticos. Um novo `AUD-*` elegível invalida essa reutilização e produz novo snapshot.
 
+Relatórios consolidados devem segmentar séries por `scoring_version`; `SCORE-GEO-002` e `SCORE-GEO-003` não são a mesma série metodológica.
+
 A página inicial inclui **Configuração × resultado obtido** quando essa projeção está disponível, permitindo distinguir o que foi solicitado do que foi realmente materializado e a causa de limitações operacionais.
 
 ## Segurança
@@ -508,7 +572,8 @@ A página inicial inclui **Configuração × resultado obtido** quando essa proj
 - Rastreamento, descoberta e acesso de crawlers não segue automaticamente sitemap cross-origin declarado sem política segura de aquisição/autorização;
 - remediação técnica Rastreamento, descoberta e acesso de crawlers não deve automatizar policy de crawler/treinamento sem decisão humana;
 - não execute Synthetic Navigation Apdex e Synthetic User Experience Apdex em volume relevante contra produção sem autorização;
-- Observed Generative Visibility rejeita URLs cross-origin e não faz scraping de portal de webmaster.
+- Observed Generative Visibility rejeita URLs cross-origin e não faz scraping de portal de webmaster;
+- calibração `SCORE-GEO-003` não deve ser promovida a `VALIDATED` sem satisfazer integralmente o promotion gate versionado.
 
 ## Identificadores internos históricos
 
@@ -529,6 +594,7 @@ Nomes internos de módulos, tabelas, eventos e documentos normativos podem mante
 - [docs/REPORT_GUIDE.md](docs/REPORT_GUIDE.md)
 - [docs/OUTPUTS_AND_ARTIFACTS.md](docs/OUTPUTS_AND_ARTIFACTS.md)
 - [docs/SEARCHGEO_READINESS_INDEX.md](docs/SEARCHGEO_READINESS_INDEX.md)
+- [docs/SCORE_GEO_003.md](docs/SCORE_GEO_003.md)
 - [docs/SCORING_GUIDE.md](docs/SCORING_GUIDE.md)
 - [docs/SCORING_VALIDATION.md](docs/SCORING_VALIDATION.md)
 - [docs/INDICATOR_PROVENANCE.md](docs/INDICATOR_PROVENANCE.md)
