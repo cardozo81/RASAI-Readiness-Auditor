@@ -38,12 +38,12 @@ _CLASS_LABELS = {
 INDICATORS: tuple[IndicatorProvenance, ...] = (
     IndicatorProvenance(
         "SearchGEO Readiness Index (SGRI-001)",
-        "SEARCHGEO_CALIBRATED",
+        "SEARCHGEO_HEURISTIC",
         "SearchGEO",
-        "SCORE-GEO-003 / SCORING_GUIDE / SCORE_GEO_003",
+        "SCORE-GEO-003 vigente / SCORE-GEO-002 histórico / SCORING_GUIDE",
         None,
         "Não existe score GEO/AEO 0–100 universal homologado usado por esta saída.",
-        "SCORE-GEO-003 mantém dimensões determinísticas e usa Overall logisticamente calibrado contra presença observada de citação. Sem artifact VALIDATED, o Overall não é consolidado.",
+        "O índice permanece proprietário: SCORE-GEO-003 mantém dimensões determinísticas e calibra o Overall contra presença observada de citação; SCORE-GEO-002 permanece histórico. Sem artifact VALIDATED, o Overall 003 não é consolidado.",
     ),
     IndicatorProvenance(
         "Coverage / Confidence / Consolidation",
@@ -195,7 +195,7 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
     ),
     "web-performance.html": (
         "Métricas externas definidas",
-        "Core Web Vitals e Lighthouse preservam metodologia/thresholds externos. SearchGEO coleta e contextualiza sem convertê-los diretamente no SCORE-GEO-003.",
+        "Core Web Vitals e Lighthouse preservam metodologia/thresholds externos. SearchGEO coleta e contextualiza sem convertê-los em SGRI-001; eles não entram diretamente no SCORE-GEO-003.",
     ),
     "apdex.html": (
         "Método Apdex externo + T configurado pelo operador",
@@ -209,7 +209,7 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
 
 _LEGACY_SEARCHGEO_SUMMARY = (
     "Heurística SearchGEO evidence-based",
-    "Esta auditoria histórica foi persistida com SCORE-GEO-002. Sua aritmética e interpretação permanecem históricas; ela não é recalculada nem reinterpretada como SCORE-GEO-003.",
+    "Esta apresentação não recalcula auditorias históricas. O SCORE-GEO-002 persistido mantém sua aritmética e interpretação originais; ele não é reinterpretado como SCORE-GEO-003.",
 )
 _CURRENT_SEARCHGEO_SUMMARY = (
     "SCORE-GEO-003 calibrado + dimensões evidence-based",
