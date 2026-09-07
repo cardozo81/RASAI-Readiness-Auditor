@@ -29,7 +29,7 @@
 - Search Analytics;
 - Search Appearance as distinct provenance;
 - URL Inspection restricted to URLs persisted in the AUD;
-- systemic URL Inspection failures abort the batch instead of repeating 401/403/429/network/selected 5xx per URL;
+- systemic URL Inspection failures abort the batch instead of repeating authentication/quota/network failures per URL;
 - CrUX History direct collection;
 - direct/imported Search Analytics/CrUX scoped to the audited origin;
 - out-of-scope Search Analytics rows are not persisted in normalized rows or artifacts;
@@ -90,7 +90,7 @@
 
 ## Safety gates implemented
 
-The dedicated CI now covers, in addition to legacy regressions:
+The dedicated CI covers, in addition to repository-wide regressions:
 
 - OBS-001→OBS-002 migration;
 - repeated local record IDs across datasets;
@@ -103,7 +103,7 @@ The dedicated CI now covers, in addition to legacy regressions:
 - Quality actionable priorities;
 - Quality filesystem confinement;
 - SCORE-GEO-003 pre-fit/calibration safety;
-- M24, M25, M26, source-quality and consolidated-reporting regressions through repository workflows.
+- crawling/discovery, Synthetic User Experience Apdex, Observed Generative Visibility, source-quality and consolidated-reporting regression suites.
 
 ## Methodological boundary
 
