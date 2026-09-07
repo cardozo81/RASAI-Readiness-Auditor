@@ -8,9 +8,10 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import sqlite3
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
 from .store import ObservabilityStore, new_dataset
@@ -37,19 +38,34 @@ def collect_crux_history(
     timeout: float = 60.0,
     opener: JsonOpener = urlopen,
 ) -> str:
+    workspace = Path(audit_workspace)
     key = api_key.strip()
     if not key:
         raise ValueError("CrUX API key is required")
     scope = target_scope.strip().lower()
     if scope not in {"url", "origin"}:
         raise ValueError("target_scope must be url or origin")
+    normalized_target = _validate_target(workspace, target, scope)
+    metric_names = tuple(str(metric).strip() for metric in metrics if str(metric).strip())
+    if not metric_names:
+        raise ValueError("at least one CrUX metric is required")
     count = max(1, min(int(collection_period_count), 40))
-    payload: dict[str, Any] = {scope: target, "metrics": list(metrics), "collectionPeriodCount": count}
-    if form_factor:
-        payload["formFactor"] = form_factor.upper()
+    payload: dict[str, Any] = {
+        scope: normalized_target,
+        "metrics": list(metric_names),
+        "collectionPeriodCount": count,
+    }
+    normalized_form_factor = form_factor.upper() if form_factor else None
+    if normalized_form_factor:
+        payload["formFactor"] = normalized_form_factor
     endpoint = f"{ENDPOINT}?key={quote(key, safe='')}"
     response = _post_json(endpoint, payload, timeout, opener)
-    rows = _normalize(response, target=target, target_scope=scope, form_factor=(form_factor.upper() if form_factor else None))
+    rows = _normalize(
+        response,
+        target=normalized_target,
+        target_scope=scope,
+        form_factor=normalized_form_factor,
+    )
     artifact = {
         "format_version": "RASAI-CRUX-HISTORY-001",
         "source": SOURCE,
@@ -60,7 +76,7 @@ def collect_crux_history(
     raw = (json.dumps(artifact, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
     digest = hashlib.sha256(raw).hexdigest()
     dataset_id = f"OBS-{digest[:16].upper()}"
-    with ObservabilityStore(audit_workspace) as store:
+    with ObservabilityStore(workspace) as store:
         artifact_path = store.artifacts / f"crux-history-{digest[:16]}.json"
         artifact_path.write_bytes(raw)
         periods = [row.get("period_end") for row in rows if row.get("period_end")]
@@ -72,10 +88,60 @@ def collect_crux_history(
             artifact_sha256=digest,
             period_start=min((row.get("period_start") for row in rows if row.get("period_start")), default=None),
             period_end=max(periods, default=None),
-            metadata={"target": target, "target_scope": scope, "form_factor": form_factor, "metrics": list(metrics), "points": len(rows)},
+            metadata={
+                "target": normalized_target,
+                "target_scope": scope,
+                "form_factor": normalized_form_factor,
+                "metrics": list(metric_names),
+                "points": len(rows),
+                "scope_policy": "AUDITED_ORIGIN_ONLY",
+            },
         )
         store.replace_dataset_rows(dataset, crux_rows=rows)
     return dataset_id
+
+
+def _validate_target(workspace: Path, target: str, scope: str) -> str:
+    value = str(target).strip()
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("CrUX target must be an absolute HTTP(S) URL")
+    origin = _origin(parsed)
+    allowed = _audit_origins(workspace)
+    if origin.casefold() not in {item.casefold() for item in allowed}:
+        raise ValueError(f"CrUX target is outside audited origin: {value}")
+    if scope == "origin":
+        if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
+            raise ValueError("CrUX origin target must not contain path, query or fragment")
+        return origin
+    return value
+
+
+def _audit_origins(workspace: Path) -> set[str]:
+    database = workspace / "audit.db"
+    if not database.is_file():
+        raise FileNotFoundError(database)
+    connection = sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True)
+    connection.execute("PRAGMA query_only=ON")
+    try:
+        origins = {
+            str(row[0]).rstrip("/")
+            for row in connection.execute("SELECT DISTINCT normalized_origin FROM audit_targets")
+            if row[0]
+        }
+    finally:
+        connection.close()
+    if not origins:
+        raise ValueError("audit contains no normalized origin for CrUX scoping")
+    return origins
+
+
+def _origin(parsed: Any) -> str:
+    default_port = (parsed.scheme.casefold() == "https" and parsed.port == 443) or (
+        parsed.scheme.casefold() == "http" and parsed.port == 80
+    )
+    port = "" if parsed.port is None or default_port else f":{parsed.port}"
+    return f"{parsed.scheme.casefold()}://{str(parsed.hostname).casefold()}{port}"
 
 
 def _post_json(endpoint: str, payload: dict[str, Any], timeout: float, opener: JsonOpener) -> dict[str, Any]:
