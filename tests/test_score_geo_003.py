@@ -66,6 +66,28 @@ def _validated_model() -> CalibrationModel:
     )
 
 
+def _calibration_rows(*, distinct_days: int = 3) -> list[CalibrationRow]:
+    rows: list[CalibrationRow] = []
+    for index in range(40):
+        signal = index / 39
+        cited = 60 if signal >= 0.5 else 0
+        rows.append(
+            CalibrationRow(
+                domain=f"site-{index:02d}.example",
+                audit_id=f"AUD-{index:02d}",
+                device="DESKTOP",
+                features={feature: signal for feature in FEATURE_ORDER},
+                successes=cited,
+                total=60,
+                engines=("ENGINE-A", "ENGINE-B"),
+                query_count=10,
+                min_repetitions=3,
+                distinct_days=distinct_days,
+            )
+        )
+    return rows
+
+
 def test_score_geo_003_blocks_overall_without_validated_model() -> None:
     result = ScoreGeo003Engine().score(
         audit_id="AUD-003",
@@ -123,26 +145,18 @@ def test_model_round_trip_and_strict_contract() -> None:
 
 
 def test_calibration_gate_can_validate_minimum_empirical_dataset() -> None:
-    rows: list[CalibrationRow] = []
-    for index in range(40):
-        signal = index / 39
-        cited = 60 if signal >= 0.5 else 0
-        rows.append(
-            CalibrationRow(
-                domain=f"site-{index:02d}.example",
-                audit_id=f"AUD-{index:02d}",
-                device="DESKTOP",
-                features={feature: signal for feature in FEATURE_ORDER},
-                successes=cited,
-                total=60,
-                engines=("ENGINE-A", "ENGINE-B"),
-                query_count=10,
-                min_repetitions=3,
-            )
-        )
-    fit = fit_calibration_model(rows, dataset_version="GEO-CAL-001")
+    fit = fit_calibration_model(_calibration_rows(), dataset_version="GEO-CAL-001")
     assert fit.validated
     assert fit.payload["status"] == "VALIDATED"
+    assert fit.payload["dataset"]["min_distinct_days"] == 3
+    assert fit.payload["protocol"]["min_distinct_days"] == 3
     assert fit.payload["validation"]["domains"] >= 12
     assert fit.payload["validation"]["auc"] >= 0.60
     assert fit.payload["validation"]["brier"] < fit.payload["validation"]["baseline_brier"]
+
+
+def test_calibration_gate_rejects_insufficient_temporal_spread() -> None:
+    fit = fit_calibration_model(_calibration_rows(distinct_days=2), dataset_version="GEO-CAL-001")
+    assert not fit.validated
+    assert fit.payload["status"] == "EXPERIMENTAL"
+    assert "TEMPORAL_COVERAGE_BELOW_MINIMUM:2<3" in fit.promotion_reasons
