@@ -41,6 +41,7 @@ jobs:
             tests/test_monitoring_observability.py \
             tests/test_observability_collectors.py \
             tests/test_quality_observability_hardening.py \
+            tests/test_release_gate_new_failures.py \
             tests/test_score_geo_003_dataset.py \
             tests/test_report_registry_and_method_docs.py
       - name: Existing scoring and observed visibility regressions
