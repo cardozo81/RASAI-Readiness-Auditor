@@ -134,11 +134,12 @@ Promotion gate:
 | Engines | 2 |
 | Queries/domínio | 10 |
 | Repetições/query/engine | 3 |
+| Dias distintos de observação por domínio | 3 |
 | Observações válidas | 2400 |
 | AUC holdout | 0,60 |
 | Brier | menor que baseline por prevalência |
 
-O split é feito por domínio, não por query, para reduzir leakage.
+O split é feito por domínio, não por query, para reduzir leakage. A cobertura temporal mínima impede que um artifact seja promovido quando as observações de um domínio estão concentradas em menos de três datas distintas.
 
 ## Confidence do Overall
 
@@ -173,7 +174,7 @@ Configurável:
 
 - URLs/domínios auditados;
 - engines/query-runs observados;
-- volume de observações;
+- volume, repetições e distribuição temporal das observações;
 - diretório de AUDs para calibração;
 - `dataset_version`;
 - caminho do model artifact.
@@ -224,7 +225,7 @@ Nenhuma reexecução de website ou IA deve ser necessária para reproduzir o cá
 
 `searchgeo.html` é a página canônica do SGRI.
 
-`score-geo-003.html` expõe o contrato e o estado de calibração da auditoria.
+`score-geo-003.html` expõe o contrato e o estado de calibração da auditoria, inclusive o gate temporal vigente.
 
 Relatórios consolidados devem segmentar séries por `scoring_version`. `SCORE-GEO-002` e `SCORE-GEO-003` não devem ser tratados como a mesma série sem ressalva explícita.
 
