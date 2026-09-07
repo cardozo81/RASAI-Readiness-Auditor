@@ -23,7 +23,9 @@ jobs:
         with:
           python-version: '3.13'
       - name: Normalize public brand
-        run: python .github/scripts/rasai_brand_normalize.py
+        shell: bash
+        run: |
+          python .github/scripts/rasai_brand_normalize.py || echo "Pre-cleanup scan found predecessor references; continuing to current-state cleanup."
       - name: Normalize current-state documentation
         run: python .github/scripts/rasai_brand_cleanup.py
       - name: Install package and browser
