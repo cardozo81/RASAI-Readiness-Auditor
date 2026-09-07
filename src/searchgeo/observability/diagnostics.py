@@ -110,6 +110,7 @@ def analyze_workspace(audit_workspace: str | Path) -> DiagnosticBundle:
         if audit is None:
             raise ValueError("audit metadata unavailable")
         audit_id = str(audit[0])
+        analysis_date = _analysis_date(connection, audit_id)
         pages = {str(row[0]): str(row[1]) for row in connection.execute("SELECT page_id,normalized_url FROM pages WHERE audit_id=?", (audit_id,))}
         snapshots = _latest_snapshots(connection, audit_id)
         diagnostics: list[Diagnostic] = []
@@ -126,7 +127,7 @@ def analyze_workspace(audit_workspace: str | Path) -> DiagnosticBundle:
             entities = _structured_entities(structured)
             structured_entities.extend({"url": url, "device": device, "entity": entity} for entity in entities)
             diagnostics.extend(_structured_diagnostics(url, device, entities))
-            diagnostics.extend(_freshness_diagnostics(url, device, entities))
+            diagnostics.extend(_freshness_diagnostics(url, device, entities, analysis_date))
 
             html = _load_text_artifact(workspace, row["rendered_artifact_ref"] or row["raw_artifact_ref"])
             if html:
@@ -197,9 +198,13 @@ def _structured_diagnostics(url: str, device: str, entities: list[dict[str, Any]
     return out
 
 
-def _freshness_diagnostics(url: str, device: str, entities: list[dict[str, Any]]) -> list[Diagnostic]:
+def _freshness_diagnostics(
+    url: str,
+    device: str,
+    entities: list[dict[str, Any]],
+    analysis_date: date | None,
+) -> list[Diagnostic]:
     out: list[Diagnostic] = []
-    today = date.today()
     for entity in entities:
         published = _parse_date(entity.get("datePublished"))
         modified = _parse_date(entity.get("dateModified"))
@@ -210,12 +215,16 @@ def _freshness_diagnostics(url: str, device: str, entities: list[dict[str, Any]]
                 detail=f"datePublished={published.isoformat()} and dateModified={modified.isoformat()} are chronologically inconsistent.",
                 url=url, device=device, evidence={"datePublished": published.isoformat(), "dateModified": modified.isoformat()},
             ))
+        if analysis_date is None:
+            continue
         for label, parsed in (("datePublished", published), ("dateModified", modified)):
-            if parsed and parsed > today:
+            if parsed and parsed > analysis_date:
                 out.append(Diagnostic(
                     code="FRESHNESS-FUTURE-DATE", domain="FRESHNESS_EVIDENCE", severity="MEDIUM", status="CONFLICT",
-                    title=f"{label} is in the future", detail=f"{label}={parsed.isoformat()} is later than analysis date {today.isoformat()}.",
-                    url=url, device=device, evidence={label: parsed.isoformat()},
+                    title=f"{label} is in the future",
+                    detail=f"{label}={parsed.isoformat()} is later than persisted audit analysis date {analysis_date.isoformat()}.",
+                    url=url, device=device,
+                    evidence={label: parsed.isoformat(), "analysis_date": analysis_date.isoformat(), "analysis_date_source": "AUDIT_PERSISTED_TIME"},
                 ))
     return out
 
@@ -498,6 +507,27 @@ def _latest_snapshots(connection: sqlite3.Connection, audit_id: str) -> list[sql
     for row in rows:
         latest[(str(row["page_id"]), str(row["device"]).upper())] = row
     return list(latest.values())
+
+
+def _analysis_date(connection: sqlite3.Connection, audit_id: str) -> date | None:
+    columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(audits)").fetchall()}
+    for column in ("completed_at", "started_at", "created_at"):
+        if column not in columns:
+            continue
+        row = connection.execute(f"SELECT {column} FROM audits WHERE audit_id=?", (audit_id,)).fetchone()
+        if row is not None and row[0]:
+            parsed = _parse_date(row[0])
+            if parsed is not None:
+                return parsed
+    try:
+        row = connection.execute(
+            """SELECT MAX(s.captured_at) FROM page_snapshots s
+               JOIN pages p ON p.page_id=s.page_id WHERE p.audit_id=?""",
+            (audit_id,),
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return None
+    return _parse_date(row[0]) if row is not None and row[0] else None
 
 
 def _structured_entities(payload: Any) -> list[dict[str, Any]]:
