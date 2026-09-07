@@ -30,4 +30,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] == "quality":
         from searchgeo.quality.cli import main as quality_main
         return quality_main(effective[1:])
+    if effective and effective[0] == "platform":
+        from searchgeo.platform.cli import main as platform_main
+        return platform_main(effective[1:])
     return cli_extensions.main(effective)
