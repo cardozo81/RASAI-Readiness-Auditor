@@ -8,9 +8,9 @@ from pathlib import Path
 from searchgeo.domain import EvidenceType, RuleExecution, RuleResult, new_id, utc_now
 from searchgeo.evidence import EvidenceManager
 from searchgeo.persistence import AuditPersistence, AuditWorkspace
-from searchgeo.score_geo_003 import CalibrationModel, SCORING_VERSION, load_model_for_workspace, resolve_model_path
+from searchgeo.score_geo_003 import CalibrationModel, LEGACY_SCORING_VERSION, SCORING_VERSION, load_model_for_workspace, resolve_model_path
 from searchgeo.score_geo_003_reporting import write_score_geo_003_report
-from searchgeo.scoring import ScoringResult
+from searchgeo.scoring import ScoringEngine as LegacyScoringEngine, ScoringResult
 from searchgeo.scoring_persistence import ScoringPersistence
 from searchgeo.scoring_v003 import ScoreGeo003Engine
 
@@ -109,14 +109,28 @@ def _reproducibility_check(
     executions: tuple[RuleExecution, ...],
     original: ScoringResult,
     scoring: ScoringPersistence,
-    calibration_model: CalibrationModel | None,
-    workspace_root: Path,
+    calibration_model: CalibrationModel | None = None,
+    workspace_root: Path | None = None,
 ) -> dict[str, object]:
-    recalculated = ScoreGeo003Engine(calibration_model=calibration_model).score(
-        audit_id=audit_id,
-        executions=executions,
-        devices=tuple(original.overall_by_device),
-    )
+    original_versions = {
+        score.scoring_version
+        for score in (*original.scores, *original.overall_by_device.values())
+    }
+    if original_versions == {LEGACY_SCORING_VERSION}:
+        recalculated = LegacyScoringEngine().score(
+            audit_id=audit_id,
+            executions=executions,
+            devices=tuple(original.overall_by_device),
+        )
+        effective_version = LEGACY_SCORING_VERSION
+    else:
+        recalculated = ScoreGeo003Engine(calibration_model=calibration_model).score(
+            audit_id=audit_id,
+            executions=executions,
+            devices=tuple(original.overall_by_device),
+        )
+        effective_version = SCORING_VERSION
+
     expected = {
         (score.dimension, score.device.value): (
             score.value, score.coverage, score.confidence.value,
@@ -145,10 +159,10 @@ def _reproducibility_check(
     )
     return {
         "reproducible": expected == actual and persisted_ok and contribution_refs_ok,
-        "scoring_version": SCORING_VERSION,
+        "scoring_version": effective_version,
         "calibration_model": calibration_model.model_version if calibration_model else None,
         "calibration_dataset": calibration_model.dataset_version if calibration_model else None,
-        "calibration_model_path": str(resolve_model_path(workspace_root)),
+        "calibration_model_path": str(resolve_model_path(workspace_root)) if effective_version == SCORING_VERSION else None,
         "score_count": len(expected),
         "persisted_scores_reopenable": persisted_ok,
         "contributions_reopenable": contribution_refs_ok,
