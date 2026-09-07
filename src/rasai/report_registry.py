@@ -15,7 +15,7 @@ import sqlite3
 CANONICAL_NAV_ITEMS: tuple[tuple[str, str], ...] = (
     ("Visão geral", "index.html"),
     ("Readiness SARI", "readiness.html"),
-    ("SCORE-GEO-003", "score-geo-003.html"),
+    ("SCORE-GEO-004", "score-geo-004.html"),
     ("Relatório Mobile", "mobile.html"),
     ("Relatório Desktop", "desktop.html"),
     ("Remediações", "remediation.html"),
@@ -104,9 +104,7 @@ def _patch_lighthouse_traceability_message() -> None:
             return ""
         run = data.get("web_run")
         if run is None:
-            return (
-                "Não disponível nesta execução: não existe estado persistido de Web Performance/Lighthouse."
-            )
+            return "Não disponível nesta execução: não existe estado persistido de Web Performance/Lighthouse."
         if not bool(run["enabled"]):
             return (
                 "Não aplicável nesta execução: Web Performance externo estava desabilitado, "
@@ -136,8 +134,15 @@ def _patch_lighthouse_traceability_message() -> None:
     m23_reporting._rasai_lighthouse_state_patch = True
 
 
+def _patch_current_scoring_projection() -> None:
+    """Keep public SARI projection aligned with the current runtime version."""
+    from rasai import rasai_readiness_reporting
+
+    rasai_readiness_reporting.COMPATIBLE_ENGINE_VERSION = "SCORE-GEO-004"
+
+
 def _patch_final_branding_normalization() -> None:
-    """Prevent legacy product wording from reappearing in generated HTML."""
+    """Prevent obsolete public wording from reappearing in generated HTML."""
     from rasai import report_navigation
 
     if getattr(report_navigation, "_rasai_public_wording_patch", False):
@@ -152,10 +157,15 @@ def _patch_final_branding_normalization() -> None:
                 html = path.read_text(encoding="utf-8")
             except (OSError, UnicodeError):
                 continue
-            updated = html.replace("Search & AI Readiness", "Search & AI Readiness")
-            updated = updated.replace("Search & AI Readiness", "Search & AI Readiness")
-            updated = updated.replace("Search & AI", "Search & AI")
-            updated = updated.replace("Search/AI", "Search & AI")
+            updated = html.replace("Search/AI", "Search & AI")
+            updated = updated.replace(
+                "SCORE-GEO-003 é o método de scoring aplicado",
+                "SCORE-GEO-004 é o método de scoring aplicado",
+            )
+            updated = updated.replace(
+                "SCORE-GEO-003 vigente",
+                "SCORE-GEO-004 vigente",
+            )
             if updated != html:
                 try:
                     path.write_text(updated, encoding="utf-8", newline="\n")
@@ -173,9 +183,10 @@ def install() -> None:
 
     report_navigation.NAV_ITEMS = CANONICAL_NAV_ITEMS
     report_navigation._RULE_TOOLTIPS["BR-GEO-054"] = (
-        "Integridade do auditor · Verifica a reprodutibilidade do scoring persistido; "
-        "SCORE-GEO-003 é o método de scoring aplicado e sua reprodutibilidade é verificada contra as evidências persistidas."
+        "Integridade do auditor - verifica a reprodutibilidade do scoring persistido; "
+        "SCORE-GEO-004 é o método aplicado a novas auditorias e não depende de artifact de calibração."
     )
     _patch_apdex_navigation()
     _patch_lighthouse_traceability_message()
+    _patch_current_scoring_projection()
     _patch_final_branding_normalization()
