@@ -23,6 +23,7 @@ jobs:
         run: |
           python tools/reconcile_report_language.py
           python tools/reconcile_report_language_followup.py
+          python tools/reconcile_report_language_cleanup.py
       - name: Install project and test runner
         run: |
           python -m pip install -e .
@@ -41,18 +42,25 @@ jobs:
         run: python -m pytest -q
       - name: Compile
         run: python -m compileall -q src tests
-      - name: Presentation guards
+      - name: Presentation and documentation guards
         run: |
           python - <<'PY'
           from pathlib import Path
           import re
-          p = re.compile(r'(?<![\w-])M\d{1,2}(?![\w-])')
+
+          milestone = re.compile(r'(?<![\w-])M\d{1,2}(?![\w-])')
+          stale = ('EM BRANCH', 'aguardando smoke humano', '**Milestone:**')
           bad=[]
           for f in [Path('README.md'), *Path('docs').rglob('*.md')]:
-              if p.search(f.read_text(encoding='utf-8')):
-                  bad.append(str(f))
+              text = f.read_text(encoding='utf-8')
+              reasons=[]
+              if milestone.search(text):
+                  reasons.append('delivery label Mxx')
+              reasons.extend(token for token in stale if token in text)
+              if reasons:
+                  bad.append(f"{f}: {', '.join(reasons)}")
           if bad:
-              raise SystemExit('milestone labels remain: ' + ', '.join(bad))
+              raise SystemExit('presentation/documentation guard failed:\n' + '\n'.join(bad))
           PY
       - name: Commit validated changes
         shell: bash
@@ -61,6 +69,7 @@ jobs:
           rm -f .github/workflows/report-language-doc-reconciliation-v2.yml
           rm -f tools/reconcile_report_language.py
           rm -f tools/reconcile_report_language_followup.py
+          rm -f tools/reconcile_report_language_cleanup.py
           git config user.name "SearchGEO automation"
           git config user.email "actions@users.noreply.github.com"
           git add -A
