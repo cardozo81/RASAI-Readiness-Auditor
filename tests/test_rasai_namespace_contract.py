@@ -17,7 +17,7 @@ def _legacy_namespace_tokens() -> tuple[str, ...]:
     return (
         base,
         "Search" + "GEO",
-        ("SEARCH" + "GEO"),
+        "SEARCH" + "GEO",
         "Search/" + "GEO",
         "Search / " + "GEO",
     )
@@ -76,7 +76,9 @@ def test_public_documents_use_ascii_hyphen_instead_of_long_dash() -> None:
 
 
 def test_rasai_owned_environment_variable_names_are_canonical() -> None:
-    pattern = re.compile(r"(?<!RASAI_)(?:PLAYWRIGHT_CHROMIUM_EXECUTABLE|GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN)")
+    old_browser_var = "PLAYWRIGHT" + "_CHROMIUM_EXECUTABLE"
+    old_gsc_var = "GOOGLE_SEARCH_CONSOLE" + "_ACCESS_TOKEN"
+    pattern = re.compile(rf"(?<!RASAI_)(?:{re.escape(old_browser_var)}|{re.escape(old_gsc_var)})")
     violations: list[str] = []
     for path in ROOT.rglob("*"):
         if not path.is_file() or not _included(path):
