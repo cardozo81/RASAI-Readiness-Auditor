@@ -16,6 +16,8 @@ import sqlite3
 from typing import Any
 from urllib.parse import urlsplit
 
+from .store import ObservabilityStore, new_dataset
+
 SOURCE_PERFORMANCE = "GOOGLE_SEARCH_CONSOLE_GENERATIVE_AI_PERFORMANCE_EXPORT"
 SOURCE_CONTROL = "GOOGLE_SEARCH_CONSOLE_GENERATIVE_AI_CONTROL"
 
