@@ -102,9 +102,12 @@ def test_audit_index_preserves_immutable_audit_and_detects_tamper() -> None:
             valid, expected, actual = store.validate_audit_immutability(record.audit_id)
             assert valid is True
             assert expected == actual
-            with sqlite3.connect(workspace / "audit.db") as connection:
+            connection = sqlite3.connect(workspace / "audit.db")
+            try:
                 connection.execute("UPDATE audits SET project_name='TAMPERED'")
                 connection.commit()
+            finally:
+                connection.close()
             valid, expected, actual = store.validate_audit_immutability(record.audit_id)
             assert valid is False
             assert expected != actual
@@ -227,8 +230,11 @@ def test_external_imports_keep_outcomes_outside_audit_db() -> None:
             assert log_dataset.row_count == 1
             log_record = store.external_records(log_dataset.dataset_id)[0]
             assert log_record["dimensions"]["ai_crawler"] == "OpenAI training crawler"
-        with sqlite3.connect(workspace / "audit.db") as connection:
+        connection = sqlite3.connect(workspace / "audit.db")
+        try:
             table_names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        finally:
+            connection.close()
         assert "external_datasets" not in table_names
         assert classify_ai_crawler("Mozilla OAI-SearchBot") == "OpenAI Search crawler"
 
