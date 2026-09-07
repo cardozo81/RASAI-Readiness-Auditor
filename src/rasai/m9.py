@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 from rasai.domain import EvidenceType, RuleExecution, RuleResult, new_id, utc_now
 from rasai.evidence import EvidenceManager
 from rasai.persistence import AuditPersistence, AuditWorkspace
-from rasai.score_geo_003 import (
-    CalibrationModel,
-    SCORING_VERSION as SCORE_GEO_003_VERSION,
-    resolve_model_path,
-)
-from rasai.score_geo_004 import LEGACY_SCORING_VERSION, SCORING_VERSION
+from rasai.score_geo_004 import OVERALL_AGGREGATION_VERSION, SCORING_VERSION
 from rasai.score_geo_004_reporting import write_score_geo_004_report
-from rasai.scoring import ScoringEngine as LegacyScoringEngine, ScoringResult
+from rasai.scoring import ScoringResult
 from rasai.scoring_persistence import ScoringPersistence
-from rasai.scoring_v003 import ScoreGeo003Engine
 from rasai.scoring_v004 import ScoreGeo004Engine
 
 
@@ -71,7 +64,6 @@ def execute_m9(
             executions=tuple(executions),
             original=calculated,
             scoring=scoring,
-            workspace_root=workspace.root,
         )
 
     manager = EvidenceManager(persistence)
@@ -91,7 +83,7 @@ def execute_m9(
         observed_value=integrity,
         expected_condition=(
             f"scores are reconstructible from RuleExecutions, rule versions and {SCORING_VERSION} "
-            "without website/AI re-execution or a calibration artifact"
+            "without website/AI re-execution or external calibration"
         ),
         evidence_ids=(evidence.evidence_id,), executed_at=utc_now(), error=None,
     )
@@ -112,34 +104,12 @@ def _reproducibility_check(
     executions: tuple[RuleExecution, ...],
     original: ScoringResult,
     scoring: ScoringPersistence,
-    calibration_model: CalibrationModel | None = None,
-    workspace_root: Path | None = None,
 ) -> dict[str, object]:
-    original_versions = {
-        score.scoring_version
-        for score in (*original.scores, *original.overall_by_device.values())
-    }
-    if original_versions == {LEGACY_SCORING_VERSION}:
-        recalculated = LegacyScoringEngine().score(
-            audit_id=audit_id,
-            executions=executions,
-            devices=tuple(original.overall_by_device),
-        )
-        effective_version = LEGACY_SCORING_VERSION
-    elif original_versions == {SCORE_GEO_003_VERSION}:
-        recalculated = ScoreGeo003Engine(calibration_model=calibration_model).score(
-            audit_id=audit_id,
-            executions=executions,
-            devices=tuple(original.overall_by_device),
-        )
-        effective_version = SCORE_GEO_003_VERSION
-    else:
-        recalculated = ScoreGeo004Engine().score(
-            audit_id=audit_id,
-            executions=executions,
-            devices=tuple(original.overall_by_device),
-        )
-        effective_version = SCORING_VERSION
+    recalculated = ScoreGeo004Engine().score(
+        audit_id=audit_id,
+        executions=executions,
+        devices=tuple(original.overall_by_device),
+    )
 
     expected = {
         (score.dimension, score.device.value): (
@@ -155,7 +125,10 @@ def _reproducibility_check(
         )
         for score in (*recalculated.scores, *recalculated.overall_by_device.values())
     }
-    persisted_ok = all(scoring.get_score(score.score_id) is not None for score in (*original.scores, *original.overall_by_device.values()))
+    persisted_ok = all(
+        scoring.get_score(score.score_id) is not None
+        for score in (*original.scores, *original.overall_by_device.values())
+    )
     contribution_refs_ok = all(
         scoring.list_contributions(score.score_id) == tuple(sorted(
             (
@@ -169,11 +142,8 @@ def _reproducibility_check(
     )
     return {
         "reproducible": expected == actual and persisted_ok and contribution_refs_ok,
-        "scoring_version": effective_version,
-        "calibration_model": calibration_model.model_version if effective_version == SCORE_GEO_003_VERSION and calibration_model else None,
-        "calibration_dataset": calibration_model.dataset_version if effective_version == SCORE_GEO_003_VERSION and calibration_model else None,
-        "calibration_model_path": str(resolve_model_path(workspace_root)) if effective_version == SCORE_GEO_003_VERSION else None,
-        "overall_aggregation": "EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1" if effective_version == SCORING_VERSION else None,
+        "scoring_version": SCORING_VERSION,
+        "overall_aggregation": OVERALL_AGGREGATION_VERSION,
         "score_count": len(expected),
         "persisted_scores_reopenable": persisted_ok,
         "contributions_reopenable": contribution_refs_ok,
