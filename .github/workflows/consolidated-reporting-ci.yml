@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "src/searchgeo/consolidation/**"
-      - "src/searchgeo/console_entrypoint.py"
+      - "src/rasai/consolidation/**"
+      - "src/rasai/console_entrypoint.py"
       - "tests/test_consolidation*.py"
       - "README.md"
       - "docs/INTERACTIVE_CONSOLE.md"
@@ -15,8 +15,8 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "src/searchgeo/consolidation/**"
-      - "src/searchgeo/console_entrypoint.py"
+      - "src/rasai/consolidation/**"
+      - "src/rasai/console_entrypoint.py"
       - "tests/test_consolidation*.py"
       - "README.md"
       - "docs/INTERACTIVE_CONSOLE.md"
@@ -41,7 +41,7 @@ jobs:
           python -m pip install -e .
           python -m pip install pytest
       - name: Compile changed Python surface
-        run: python -m compileall -q src/searchgeo/consolidation src/searchgeo/console_entrypoint.py tests/test_consolidation*.py
+        run: python -m compileall -q src/rasai/consolidation src/rasai/console_entrypoint.py tests/test_consolidation*.py
       - name: Run consolidation regression tests
         run: python -m unittest discover -v -s tests -p "test_consolidation*.py"
       - name: Run existing console regression tests
