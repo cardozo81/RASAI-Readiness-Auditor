@@ -1,4 +1,4 @@
-name: RASAI monitoring and observability safety
+name: RASAi monitoring and observability safety
 
 on:
   pull_request:
@@ -26,15 +26,15 @@ jobs:
       - name: Compile new surfaces
         run: |
           python -m compileall -q \
-            src/searchgeo/entrypoint.py \
-            src/searchgeo/console_entrypoint.py \
-            src/searchgeo/report_registry.py \
-            src/searchgeo/monitoring \
-            src/searchgeo/observability \
-            src/searchgeo/quality \
-            src/searchgeo/score_geo_003_dataset.py \
-            src/searchgeo/score_geo_003_cli.py \
-            src/searchgeo/score_geo_003_calibration.py
+            src/rasai/entrypoint.py \
+            src/rasai/console_entrypoint.py \
+            src/rasai/report_registry.py \
+            src/rasai/monitoring \
+            src/rasai/observability \
+            src/rasai/quality \
+            src/rasai/score_geo_003_dataset.py \
+            src/rasai/score_geo_003_cli.py \
+            src/rasai/score_geo_003_calibration.py
       - name: Directed monitoring observability and quality tests
         run: |
           python -m pytest -q \
