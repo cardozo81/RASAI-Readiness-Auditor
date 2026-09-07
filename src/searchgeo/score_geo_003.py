@@ -16,12 +16,14 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
+from searchgeo.runtime_paths import CANONICAL_RUNTIME_DIR, runtime_directory
+
 
 SCORING_VERSION = "SCORE-GEO-003"
 LEGACY_SCORING_VERSION = "SCORE-GEO-002"
 MODEL_FORMAT_VERSION = "SG003-MODEL-001"
 DEFAULT_MODEL_VERSION = "GEO-LR-001"
-DEFAULT_MODEL_RELATIVE_PATH = Path(".searchgeo") / "scoring" / "score-geo-003-model.json"
+DEFAULT_MODEL_RELATIVE_PATH = Path(CANONICAL_RUNTIME_DIR) / "scoring" / "score-geo-003-model.json"
 MODEL_PATH_ENV = "SEARCHGEO_SCORE_GEO_003_MODEL"
 
 FEATURE_ORDER = (
@@ -86,11 +88,12 @@ def resolve_model_path(workspace_root: Path | None = None) -> Path:
     override = os.getenv(MODEL_PATH_ENV)
     if override:
         return Path(override).expanduser()
+    base = Path.cwd()
     if workspace_root is not None:
         root = Path(workspace_root)
         if root.parent.name == "audits":
-            return root.parent.parent / DEFAULT_MODEL_RELATIVE_PATH
-    return Path.cwd() / DEFAULT_MODEL_RELATIVE_PATH
+            base = root.parent.parent
+    return runtime_directory(base) / "scoring" / "score-geo-003-model.json"
 
 
 def load_model(path: str | Path, *, require_validated: bool = True) -> CalibrationModel:
