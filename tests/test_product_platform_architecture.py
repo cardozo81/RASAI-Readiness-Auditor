@@ -6,13 +6,13 @@ import sqlite3
 import tempfile
 
 from searchgeo.platform.automation import compute_next_run
+from searchgeo.platform.central_store import CentralPlatformStore
 from searchgeo.platform.deployment import compare_deployment_pair, resolve_deployment_pair
 from searchgeo.platform.indexing import index_audit_workspace
 from searchgeo.platform.integrations import classify_ai_crawler, import_combined_access_log, import_ga4_csv
 from searchgeo.platform.models import Schedule
 from searchgeo.platform.page_compare import compare_pages, write_page_compare_report
 from searchgeo.platform.reporting import write_deployment_report, write_platform_site
-from searchgeo.platform.store import PlatformStore
 
 
 def _audit(
@@ -70,11 +70,35 @@ def _audit(
     return workspace
 
 
+def _add_secondary_domain(workspace: Path, audit_id: str, completed_at: str) -> None:
+    connection = sqlite3.connect(workspace / "audit.db")
+    try:
+        connection.execute(
+            "INSERT INTO audit_targets VALUES (?,?,?,?)",
+            ("T2", audit_id, "https://shop.example.test", "DOMAIN"),
+        )
+        connection.execute(
+            "INSERT INTO pages VALUES (?,?,?)",
+            ("P3", audit_id, "https://shop.example.test/item"),
+        )
+        connection.execute(
+            "INSERT INTO page_snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                "S3", "P3", "MOBILE", completed_at, 200,
+                "https://shop.example.test/item", "https://shop.example.test/item",
+                "index,follow", "Item", None, None, None, None,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
 def test_platform_store_is_central_sidecar_and_hierarchy_is_idempotent() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory) / "Audits With Space"
         database = root / ".searchgeo" / "platform.db"
-        with PlatformStore(database) as store:
+        with CentralPlatformStore(database) as store:
             org1, ws1, project1, prop1, env1 = store.ensure_local_hierarchy(
                 project_name="Loja Brasil", origin="https://www.example.test"
             )
@@ -87,6 +111,7 @@ def test_platform_store_is_central_sidecar_and_hierarchy_is_idempotent() -> None
             assert prop1.property_id == prop2.property_id
             assert env1.environment_id == env2.environment_id
             assert store.counts()["properties"] == 1
+            assert store.data_governance_status()["canonical_schema"] == 2
         assert database.is_file()
 
 
@@ -94,7 +119,7 @@ def test_audit_index_preserves_immutable_audit_and_detects_tamper() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         workspace = _audit(root, "AUD-BASE", completed_at="2026-09-07T10:00:00-03:00")
-        with PlatformStore(root / ".searchgeo" / "platform.db") as store:
+        with CentralPlatformStore(root / ".searchgeo" / "platform.db") as store:
             record, unchanged = index_audit_workspace(store, workspace)
             assert unchanged is False
             _, unchanged_again = index_audit_workspace(store, workspace)
@@ -119,6 +144,81 @@ def test_audit_index_preserves_immutable_audit_and_detects_tamper() -> None:
                 raise AssertionError("tampered AUD must not be silently re-indexed")
 
 
+def test_multidomain_audit_is_linked_to_every_property_scope() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        completed = "2026-09-07T10:00:00-03:00"
+        workspace = _audit(root, "AUD-MULTI", completed_at=completed)
+        _add_secondary_domain(workspace, "AUD-MULTI", completed)
+        with CentralPlatformStore(root / ".searchgeo" / "platform.db") as store:
+            record, _ = index_audit_workspace(store, workspace)
+            scopes = store.audit_scopes(record.audit_id)
+            assert len(scopes) == 2
+            assert {scope["hostname"] for scope in scopes} == {"example.test", "shop.example.test"}
+            secondary = next(scope for scope in scopes if scope["hostname"] == "shop.example.test")
+            secondary_audits = store.list_audits(
+                property_id=str(secondary["property_id"]),
+                environment_id=str(secondary["environment_id"]),
+            )
+            assert [item.audit_id for item in secondary_audits] == ["AUD-MULTI"]
+            store.set_golden_baseline(
+                str(secondary["property_id"]),
+                str(secondary["environment_id"]),
+                record.audit_id,
+            )
+            assert store.get_golden_baseline(
+                str(secondary["property_id"]), str(secondary["environment_id"])
+            ) == record.audit_id
+
+
+def test_multiuser_membership_and_scope_integrity_are_tenant_safe() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        with CentralPlatformStore(Path(directory) / ".searchgeo" / "platform.db") as store:
+            org_a = store.get_or_create_organization("Org A", slug="org-a")
+            org_b = store.get_or_create_organization("Org B", slug="org-b")
+            ws_a = store.get_or_create_workspace(org_a.organization_id, "Client A")
+            ws_b = store.get_or_create_workspace(org_b.organization_id, "Client B")
+            prj_a = store.get_or_create_project(ws_a.workspace_id, "Site A")
+            prj_b = store.get_or_create_project(ws_b.workspace_id, "Site B")
+            prop_a = store.get_or_create_property(prj_a.project_id, "A", "https://a.example.test")
+            env_a = store.get_or_create_environment(prop_a.property_id, "Production", "PRODUCTION", prop_a.canonical_origin)
+            user = store.get_or_create_user("Analyst", email="analyst@example.test")
+            membership = store.add_membership(
+                org_a.organization_id,
+                user.user_id,
+                "ANALYST",
+                workspace_id=ws_a.workspace_id,
+                project_id=prj_a.project_id,
+            )
+            assert membership.startswith("MBR-")
+            assert len(store.list_memberships(organization_id=org_a.organization_id)) == 1
+            try:
+                store.add_membership(
+                    org_a.organization_id,
+                    user.user_id,
+                    "VIEWER",
+                    workspace_id=ws_b.workspace_id,
+                    project_id=prj_b.project_id,
+                )
+            except ValueError as exc:
+                assert "organization" in str(exc)
+            else:
+                raise AssertionError("cross-tenant membership must be rejected")
+            try:
+                store.add_milestone(
+                    project_id=prj_b.project_id,
+                    property_id=prop_a.property_id,
+                    environment_id=env_a.environment_id,
+                    kind="DEPLOYMENT",
+                    occurred_at="2026-09-07T12:00:00-03:00",
+                    title="Invalid cross-project deploy",
+                )
+            except ValueError as exc:
+                assert "project" in str(exc)
+            else:
+                raise AssertionError("cross-project milestone must be rejected")
+
+
 def test_deployment_pair_before_after_gate_and_reports() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
@@ -131,7 +231,7 @@ def test_deployment_pair_before_after_gate_and_reports() -> None:
             canonical_a="https://example.test/b",
             title_a="Produto A novo",
         )
-        with PlatformStore(root / ".searchgeo" / "platform.db") as store:
+        with CentralPlatformStore(root / ".searchgeo" / "platform.db") as store:
             before_record, _ = index_audit_workspace(store, before)
             after_record, _ = index_audit_workspace(store, after)
             hierarchy = store.hierarchy_for_property(before_record.property_id)
@@ -171,7 +271,7 @@ def test_golden_baseline_override_and_page_compare() -> None:
         golden = _audit(root, "AUD-GOLD", completed_at="2026-09-05T10:00:00-03:00")
         before = _audit(root, "AUD-BEFORE", completed_at="2026-09-07T10:00:00-03:00")
         after = _audit(root, "AUD-AFTER", completed_at="2026-09-07T16:00:00-03:00", title_a="Título alterado")
-        with PlatformStore(root / ".searchgeo" / "platform.db") as store:
+        with CentralPlatformStore(root / ".searchgeo" / "platform.db") as store:
             gold_record, _ = index_audit_workspace(store, golden)
             before_record, _ = index_audit_workspace(store, before)
             after_record, _ = index_audit_workspace(store, after)
@@ -212,7 +312,7 @@ def test_external_imports_keep_outcomes_outside_audit_db() -> None:
             '203.0.113.1 - - [07/Sep/2026:10:10:00 -0300] "GET /a HTTP/1.1" 200 1234 "-" "GPTBot/1.0"\n',
             encoding="utf-8",
         )
-        with PlatformStore(root / ".searchgeo" / "platform.db") as store:
+        with CentralPlatformStore(root / ".searchgeo" / "platform.db") as store:
             record, _ = index_audit_workspace(store, workspace)
             ga4_dataset = import_ga4_csv(
                 store,
