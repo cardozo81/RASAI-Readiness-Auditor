@@ -95,7 +95,12 @@ class ComparisonResult:
 
 @dataclass(frozen=True, slots=True)
 class GatePolicy:
+    # Default gate: deterministic BR rules plus deterministic PAGE state only.
     deterministic_only: bool = True
+    include_performance: bool = False
+    include_synthetic: bool = False
+    include_finding_aggregates: bool = False
+    include_score_dimensions: bool = False
     fail_on_critical: bool = True
     max_high_regressions: int = 0
     max_medium_regressions: int = 3
