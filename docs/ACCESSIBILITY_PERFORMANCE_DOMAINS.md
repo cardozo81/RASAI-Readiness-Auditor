@@ -1,10 +1,10 @@
 # Acessibilidade e Web Performance — domínios separados
 
-O RASAi apresenta Acessibilidade, Web Performance e Search/GEO readiness como domínios distintos para evitar mistura de métricas e conclusões.
+O RASAi apresenta Acessibilidade, Web Performance e **Search & AI Readiness** como domínios distintos para evitar mistura de métricas e conclusões.
 
-| Domínio | Finalidade | Fonte principal | Altera Score GEO? |
+| Domínio | Finalidade | Fonte principal | Altera SARI/SCORE-GEO-003? |
 |---|---|---|---|
-| Search/GEO readiness | descoberta, extração, entendimento, answerability e citation readiness | evidências locais, regras e IA opcional | somente pelas regras próprias do score |
+| Search & AI Readiness | descoberta, extração, entendimento, answerability e citation readiness | evidências locais, regras e IA opcional | somente pelas regras próprias do SARI/SCORE-GEO-003 |
 | Acessibilidade automatizada | diagnóstico auxiliar de problemas detectáveis por Lighthouse | categoria `accessibility` do artifact Lighthouse | não |
 | Web Performance | lab Lighthouse + dados de campo CrUX/CWV + diagnósticos técnicos | PageSpeed/Lighthouse e CrUX | não |
 | Synthetic Apdex | experiência sintética de uma Task explícita de navegação | Chromium local e perfis controlados | não |
