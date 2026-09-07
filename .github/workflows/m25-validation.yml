@@ -28,16 +28,16 @@ jobs:
       - name: Compile M23/M25 surface
         run: |
           python -m compileall -q \
-            src/searchgeo/m23_cli.py \
-            src/searchgeo/m23_lighthouse_traceability.py \
-            src/searchgeo/m25_apdex_experience.py \
-            src/searchgeo/m25_cli.py \
-            src/searchgeo/m25_dynatrace.py \
-            src/searchgeo/m25_persistence.py \
-            src/searchgeo/m25_reporting.py \
-            src/searchgeo/m25_runtime.py \
-            src/searchgeo/console_m23.py \
-            src/searchgeo/console_settings.py
+            src/rasai/m23_cli.py \
+            src/rasai/m23_lighthouse_traceability.py \
+            src/rasai/m25_apdex_experience.py \
+            src/rasai/m25_cli.py \
+            src/rasai/m25_dynatrace.py \
+            src/rasai/m25_persistence.py \
+            src/rasai/m25_reporting.py \
+            src/rasai/m25_runtime.py \
+            src/rasai/console_m23.py \
+            src/rasai/console_settings.py
       - name: M25 directed tests
         run: |
           python -m pytest -q \
