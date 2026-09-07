@@ -4,19 +4,17 @@
 
 O **Search & AI Readiness Index (`SARI-001`)** é a identidade pública da metodologia proprietária do RASAi para consolidar sinais de prontidão relacionados a descoberta, interpretação, recuperação, resposta e uso do conteúdo como evidência em Search e AI Search.
 
-O índice é auditável e reprodutível. Ele não é padrão oficial de GEO/AEO nem nota de Google, Bing, OpenAI ou outro mantenedor.
+O índice é auditável e reprodutível. Não é padrão oficial de GEO/AEO nem nota de Google, Bing, OpenAI ou outro mantenedor.
 
-## 2. Método de scoring vigente
+## 2. Método de scoring
 
-Novas auditorias usam:
+O SARI-001 usa:
 
 ```text
 SCORE-GEO-004
 ```
 
-As dez dimensões e o Overall são calculados deterministicamente a partir de regras e evidências persistidas. Uma auditoria individual pode produzir Overall consolidado quando a própria medição alcança os gates de Coverage e Confidence.
-
-`SCORE-GEO-003` permanece preservado como método histórico calibrado empiricamente. Seu model artifact não é requisito para o runtime `004`.
+As dez dimensões e o Overall são calculados deterministicamente a partir de regras e evidências persistidas. Uma auditoria individual pode produzir Overall consolidado quando sua própria medição alcança os gates de Coverage e Confidence.
 
 ## 3. Dimensões
 
@@ -51,13 +49,13 @@ FAIL    = 0.00
 
 ## 5. Overall
 
-Contrato vigente:
+Contrato:
 
 ```text
 EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
 ```
 
-Com dimensões aplicáveis materializadas:
+Fórmula:
 
 ```text
 Overall = soma dos scores das dimensões aplicáveis / quantidade de dimensões aplicáveis
@@ -65,17 +63,17 @@ Overall = soma dos scores das dimensões aplicáveis / quantidade de dimensões 
 
 Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador e não recebe zero.
 
-Uma dimensão aplicável sem valor ou `NOT_CONSOLIDATED` bloqueia a publicação de Overall consolidado.
+Uma dimensão aplicável sem valor ou em `NOT_CONSOLIDATED` bloqueia a publicação de Overall consolidado.
 
-O Overall do `004` é um índice de readiness determinístico. Não é probabilidade de ranking ou citação.
+O Overall é um índice determinístico de readiness. Não é probabilidade de ranking, resposta ou citação.
 
 ## 6. Coverage, Confidence e Consolidation
 
-Coverage mede completude do universo aplicável avaliado; não mede qualidade do site.
+Coverage mede completude do universo aplicável avaliado e não qualidade do site.
 
 Confidence das dimensões é baseada em cobertura, evidência e erros.
 
-No Overall `004`:
+No Overall:
 
 ```text
 Coverage = média da Coverage das dimensões aplicáveis
@@ -91,20 +89,15 @@ Coverage média >= 80%
 Confidence mínima = HIGH ou MEDIUM
 ```
 
-Consolidation informa se existe base suficiente para publicar a conclusão agregada. Resultado calculável abaixo desse gate pode ser `PARTIAL`; ausência de evidência nunca vira zero.
+Resultado calculável abaixo desse gate pode ser `PARTIAL` quando existe evidência suficiente para uma leitura limitada. Ausência de evidência nunca vira zero.
 
-## 7. Calibração empírica
+## 7. Validação empírica
 
-A calibração multi-domínio introduzida em `SCORE-GEO-003` permanece disponível como processo separado para pesquisa e validação empírica.
+Validação empírica é uma atividade separada do scoring operacional.
 
-Ela pode avaliar associação entre dimensões de readiness e outcomes observados de citação, mas:
+Datasets externos podem ser usados para estudar associação entre readiness e outcomes observados, mas não são input automático do SCORE-GEO-004 e não alteram silenciosamente a fórmula publicada.
 
-- não é executada a cada auditoria;
-- não é requisito do `SCORE-GEO-004`;
-- não altera silenciosamente o score `004`;
-- não transforma readiness em garantia de citação futura.
-
-Detalhes históricos: `SCORE_GEO_003.md`.
+Qualquer mudança de fórmula ou gates decorrente de evidência futura exige alteração explícita e versionada do contrato metodológico.
 
 ## 8. Groundability
 
@@ -118,7 +111,7 @@ Não é criada uma segunda agregação sem contrato próprio.
 
 ## 9. YMYL e E-E-A-T
 
-YMYL/E-E-A-T são contexto de rigor da análise e remediação, não scores oficiais.
+YMYL e E-E-A-T são contexto de rigor da análise e remediação, não scores oficiais.
 
 O RASAi não apresenta "E-E-A-T Score" nem "YMYL Score" como métricas oficiais do Google.
 
@@ -132,9 +125,9 @@ Não entram no Overall:
 - Synthetic Navigation Apdex;
 - Synthetic User Experience Apdex;
 - métricas de tráfego/conversão;
-- métricas Bing source-reported.
+- métricas source-reported de mecanismos externos.
 
-Elas permanecem em seus domínios próprios. Indisponibilidade PageSpeed/Lighthouse não reduz o SARI-001.
+Elas permanecem em seus domínios próprios. Indisponibilidade de PageSpeed/Lighthouse não reduz o SARI-001.
 
 ## 11. Readiness versus visibilidade observada
 
@@ -146,14 +139,14 @@ Observed Generative Visibility
 = resultado efetivamente observado em engine/query/período
 ```
 
-Outcomes observados podem ser usados em validação empírica futura, mas não são input do Overall `004`.
+Outcomes observados podem apoiar pesquisas e validações separadas, mas não são input do Overall do SARI-001.
 
 ## 12. Relatórios
 
 ```text
 index.html             -> síntese executiva
 readiness.html         -> SARI-001
-score-geo-004.html     -> fórmula/gates do SCORE-GEO-004
+score-geo-004.html     -> fórmula e gates do SCORE-GEO-004
 ai-visibility.html     -> outcomes observados
 web-performance.html   -> CWV + Lighthouse
 accessibility.html     -> acessibilidade automatizada
@@ -165,9 +158,9 @@ O dashboard não cria agregação transversal entre metodologias.
 
 ## 13. Rastreabilidade e comparabilidade
 
-Resultados preservam `scoring_version` e demais metadados necessários para reconstrução e comparação válida.
+Resultados preservam `scoring_version`, evidências, RuleExecutions e ScoreContributions necessários para reconstrução e comparação válida.
 
-Mudança incompatível de fórmula, features ou gates exige identificador metodológico distinto. Por isso a mudança do contrato calibrado `003` para o contrato determinístico atual foi versionada como `004`.
+Mudança incompatível de fórmula, dimensões ou gates exige identificador metodológico distinto.
 
 ## 14. Estado de validação
 
@@ -176,7 +169,7 @@ Fundamentação conceitual: evidence-based
 Dimensões determinísticas: sim
 Overall operacional determinístico: sim
 Reprodutível por auditoria: sim
-Calibração empírica opcional/histórica: sim
+Validação empírica externa: separada do score
 Homologação externa do índice composto: não
 Garantia causal de citação: não
 ```
