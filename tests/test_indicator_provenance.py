@@ -28,11 +28,11 @@ def test_central_report_semantics_pipeline_applies_provenance() -> None:
     assert "Evidências RASAi por dispositivo" in html
 
 
-def test_rasai_page_has_explicit_internal_methodological_nature() -> None:
+def test_readiness_page_has_explicit_internal_methodological_nature() -> None:
     html = enrich_indicator_provenance_html(_shell(), page_name="readiness.html")
     assert "Heurística RASAi evidence-based" in html
     assert "SARI-001" in html
-    assert "SCORE-GEO-002" in html
+    assert "SCORE-GEO-004" in html
 
 
 def test_external_metric_pages_are_not_presented_as_rasai_score() -> None:
@@ -60,7 +60,7 @@ def test_references_panel_contains_source_logic_and_internal_boundary() -> None:
     assert "https://web.dev/articles/vitals" in html
     assert "https://www.rfc-editor.org/rfc/rfc9309.html" in html
     assert "https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf" in html
-    assert "não homologa automaticamente o SARI-001" in html
+    assert "não homologam automaticamente o SARI-001" in html
 
 
 def test_enrichment_is_idempotent_and_unknown_pages_are_untouched() -> None:
@@ -70,10 +70,10 @@ def test_enrichment_is_idempotent_and_unknown_pages_are_untouched() -> None:
     assert enrich_indicator_provenance_html(_shell(), page_name="other.html") == _shell()
 
 
-def test_inventory_has_explicit_classification_and_no_fake_external_source_for_internal_index() -> None:
+def test_inventory_has_explicit_classification_and_current_score_contract() -> None:
     assert INDICATORS
     score = next(item for item in INDICATORS if item.indicator.startswith("Search & AI Readiness Index"))
     assert score.classification == "RASAI_HEURISTIC"
     assert score.source_url is None
-    assert "SCORE-GEO-002" in score.rasai_logic
+    assert "SCORE-GEO-004" in score.rasai_logic
     assert all(item.classification for item in INDICATORS)
