@@ -1,6 +1,6 @@
 # RASAI Product Platform Architecture
 
-Status: implementation branch `feat/rasai-product-platform-architecture`.
+Status: implemented product-platform architecture. Merge readiness is determined by automated Windows/Linux validation and regression gates.
 
 ## Objective
 
@@ -39,9 +39,60 @@ Windows
 - explicit write transactions;
 - stable opaque IDs;
 - schema version metadata;
-- SHA-256 of every indexed `audit.db`.
+- SHA-256 of every indexed `audit.db`;
+- additive canonical extensions for multi-property AUD scopes.
 
 This is appropriate for the single-machine Windows phase. It is **not** the intended final SaaS SGBD.
+
+## Local data governance and database roles
+
+RASAI can have more than one local SQLite database, but they do **not** have equal authority.
+
+### Canonical control plane
+
+```text
+audits/.searchgeo/platform.db
+```
+
+This is the authoritative product/control-plane database for:
+
+- Organization / Workspace / Project;
+- Property / Environment;
+- users and memberships;
+- audit catalog and multi-property scope links;
+- Milestones / Deployments;
+- Golden Baselines;
+- PageIdentity lineage;
+- comparison records;
+- schedules and alert rules;
+- integration metadata without secrets;
+- external datasets/outcomes;
+- usage ledger.
+
+### Legacy consolidated analytical cache
+
+```text
+audits/.searchgeo/consolidated-index.db
+```
+
+When present, this remains a **derived, rebuildable compatibility/analytical cache** used by the historical consolidated-reporting surface. It is not a second control plane and must not become authoritative for tenancy, milestones, integrations or lifecycle metadata.
+
+Use:
+
+```powershell
+rasai platform --audits-root audits data status
+```
+
+to inspect the local data-governance roles.
+
+### Immutable audit evidence
+
+```text
+audits/AUD-*/audit.db
+audits/AUD-*/artifacts/
+```
+
+These remain the source execution evidence. Product-platform metadata is never written back into historical AUD databases.
 
 ## SaaS target architecture
 
@@ -100,25 +151,44 @@ Organization
                   -> External datasets
 ```
 
-### Organization
+- **Organization** — commercial/security tenant.
+- **Workspace** — client, business unit or portfolio boundary.
+- **Project** — logical Search & AI initiative; may contain multiple properties/domains.
+- **Property** — owned or competitor web property identified by origin/hostname.
+- **Environment** — `PRODUCTION`, `STAGING`, `QA`, `PREVIEW`, `DEVELOPMENT` or `OTHER`.
 
-Commercial/security tenant.
+## Multi-user and tenant integrity
 
-### Workspace
+The Windows-local database already models users, memberships and scoped roles so the domain contracts survive the SaaS migration.
 
-Client, business unit or portfolio boundary. An agency can use one workspace per client; an enterprise can use one per business unit.
+Supported roles:
 
-### Project
+- `OWNER`;
+- `ADMIN`;
+- `ANALYST`;
+- `OPERATOR`;
+- `VIEWER`;
+- `INTEGRATION_MANAGER`;
+- `BILLING`.
 
-Logical Search & AI initiative. It may contain multiple properties/domains.
+Cross-organization memberships and inconsistent Project / Property / Environment writes are rejected at the control-plane boundary.
 
-### Property
+This is data-model readiness, not a claim that the current Windows CLI already implements SaaS authentication or network identity.
 
-Owned or competitor web property, identified by canonical origin/hostname.
+## Multi-domain AUD model
 
-### Environment
+An AUD may contain more than one target origin/domain. For backward compatibility, `audit_index` retains one primary Property/Environment. The canonical relation is additive:
 
-Formal deployment surface: `PRODUCTION`, `STAGING`, `QA`, `PREVIEW`, `DEVELOPMENT` or `OTHER`.
+```text
+AUD
+  -> Property A / Environment
+  -> Property B / Environment
+  -> Property C / Environment
+```
+
+`audit_scope_links` is used by product-platform functions so a multidomain AUD is discoverable from every linked Property/Environment.
+
+Golden Baselines and deploy comparisons validate membership in the requested scope instead of relying only on the legacy primary property.
 
 ## AUD immutability
 
@@ -156,15 +226,7 @@ Supported kinds include:
 - `MANUAL`;
 - `OTHER`.
 
-A deployment may record:
-
-- timestamp;
-- release/version;
-- commit SHA;
-- branch/tag;
-- description;
-- tags;
-- source (`MANUAL`, CI/CD, API in future).
+A deployment may record timestamp, release/version, commit SHA, branch/tag, description, tags and source.
 
 ## Before / after deployment resolution
 
@@ -179,8 +241,8 @@ If the nearest pair is not comparable, RASAI does not silently normalize incompa
 
 Alternative modes:
 
-- `GOLDEN`: approved Golden Baseline versus first compatible post-milestone AUD;
-- `EXPLICIT`: operator-selected baseline/current AUD pair.
+- `GOLDEN` — approved Golden Baseline versus first compatible post-milestone AUD;
+- `EXPLICIT` — operator-selected baseline/current pair.
 
 ## Deployment Impact
 
@@ -196,6 +258,8 @@ It displays:
 - release gate PASS/FAIL;
 - comparability limitations.
 
+Deployment reports are standalone artifacts under their own output directory. They do not emit relative menu links that presume they are stored inside the Portfolio directory.
+
 The report does not claim that a later business/Search outcome was caused by the deploy merely because it occurred afterwards.
 
 ## Page Compare and PageIdentity
@@ -203,20 +267,22 @@ The report does not claim that a later business/Search outcome was caused by the
 `Page Compare` supports:
 
 - same URL before/after;
-- different URL before/after, useful for migration;
+- different URL before/after for migrations;
 - persisted page-level rule/page-state signals.
 
 `PageIdentity` separates a logical page/entity from one specific URL. Multiple historical URLs may be linked to the same page identity for redirects and replatforming.
 
 ## Portfolio HTML
 
-`rasai platform site` generates a product-level HTML set:
+`rasai platform site` generates:
 
 - `index.html` — Portfolio;
 - `timeline.html` — AUD + milestone timeline;
 - `deployments.html` — deployments/releases;
 - `pages.html` — page lineage;
 - `usage.html` — usage/cost ledger.
+
+Property counters resolve through canonical multi-property AUD scopes rather than only the legacy primary property.
 
 These pages use the current RASAI visual language but are intentionally separate from the menu inside a single AUD report.
 
@@ -247,6 +313,15 @@ The local implementation executes due schedules when `rasai platform schedule ru
 ## Alerts
 
 Alert rules evaluate material comparison events by status and minimum severity.
+
+Default statuses when no `--status` is supplied:
+
+```text
+REGRESSED
+NEW
+```
+
+When one or more `--status` values are supplied explicitly, they **replace** the defaults instead of being appended to them.
 
 Current destinations:
 
@@ -338,7 +413,7 @@ Docker should be introduced when at least one of these becomes true:
 4. reproducible cloud-worker images are required;
 5. local developer integration needs a disposable SaaS stack.
 
-At that point, recommended development topology:
+Recommended future development topology:
 
 ```text
 docker compose
@@ -359,9 +434,9 @@ Do not migrate historical AUD evidence into mutable relational tables merely to 
 Suggested SaaS PostgreSQL concerns:
 
 - tenant key on all tenant-owned records;
-- row-level authorization policy at service layer and, where useful, PostgreSQL RLS;
+- row-level authorization at service layer and, where useful, PostgreSQL RLS;
 - connection pooling;
-- migration tool with forward-only schema revisions;
+- forward-only schema revisions;
 - audit trail for control-plane changes;
 - backup/PITR;
 - encrypted storage and TLS;
@@ -376,7 +451,17 @@ Initialize/index:
 rasai platform --audits-root audits init
 rasai platform --audits-root audits index
 rasai platform --audits-root audits status
+rasai platform --audits-root audits data status
 rasai platform --audits-root audits site
+```
+
+Users and memberships:
+
+```powershell
+rasai platform --audits-root audits user add --name "Analyst" --email analyst@example.com
+rasai platform --audits-root audits member add `
+  --organization ORG-... --user USR-... --role ANALYST `
+  --workspace WSP-... --project PRJ-...
 ```
 
 Create a deployment milestone:
@@ -457,6 +542,8 @@ Existing commands remain unchanged:
 - legacy `searchgeo` command aliases.
 
 The new surface is additive under `rasai platform`.
+
+The post-audit platform-index refresh is best-effort and fail-open, so a control-plane indexing problem cannot turn a successfully persisted audit into an audit failure.
 
 ## Methodological boundary
 
