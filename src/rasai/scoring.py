@@ -1,4 +1,4 @@
-"""M9 scoring, coverage, confidence and consolidation (SCORE-GEO-002)."""
+"""RASAi scoring, Coverage, Confidence and Consolidation for SCORE-GEO-004."""
 
 from __future__ import annotations
 
@@ -8,9 +8,12 @@ from enum import StrEnum
 from typing import Iterable
 
 from rasai.domain import DeviceContext, RuleExecution, RuleResult, new_id, utc_now
-
-
-SCORING_VERSION = "SCORE-GEO-002"
+from rasai.score_geo_004 import (
+    MIN_OVERALL_COVERAGE,
+    MIN_PARTIAL_COVERAGE,
+    SCORING_VERSION,
+    method_trace_limitations,
+)
 
 
 class ScoreConfidence(StrEnum):
@@ -87,18 +90,12 @@ class ScoringResult:
 
 
 class ScoringEngine:
-    """Reproducible score calculator; it never executes website or AI analysis.
+    """Reproducible SCORE-GEO-004 calculator with no website or AI execution.
 
-    SCORE-GEO-002 separates three states that SCORE-GEO-001 previously mixed:
-
-    - no RuleExecution exists for a dimension -> evidence/execution gap, blocks Overall;
-    - RuleExecutions exist but applicability cannot be resolved because prerequisites
-      were blocked -> analysis gap, blocks Overall;
-    - RuleExecutions exist and every rule is legitimately NOT_APPLICABLE -> the
-      dimension is outside the applicable universe and is excluded from Overall.
-
-    A dimension that becomes applicable (for example STRUCTURED_DATA after JSON-LD
-    is observed) participates normally in score, coverage and consolidation.
+    The engine distinguishes evidence/execution gaps, unresolved applicability and
+    legitimate NOT_APPLICABLE states. A legitimate NOT_APPLICABLE dimension is
+    excluded from Overall instead of receiving zero. An applicable dimension that
+    is not sufficiently measured blocks a consolidated Overall.
     """
 
     def score(
@@ -165,7 +162,6 @@ class ScoringEngine:
                 (),
             )
 
-        # Correlated rules collapse through MAX_IMPACT within the same page/global scope.
         buckets: dict[tuple[str, str], list[RuleExecution]] = {}
         for execution in executions:
             metadata = _metadata(execution.rule_id)
@@ -264,48 +260,53 @@ class ScoringEngine:
         )
 
     def _overall(self, audit_id: str, device: DeviceContext, dimensions: tuple[Score, ...]) -> Score:
-        applicable_dimensions = tuple(
+        applicable = tuple(
             item for item in dimensions
             if item.consolidation_status is not ConsolidationStatus.NOT_APPLICABLE
         )
-        enough = (
-            len(dimensions) == len(DIMENSIONS)
-            and bool(applicable_dimensions)
-            and all(
-                item.consolidation_status is not ConsolidationStatus.NOT_CONSOLIDATED
-                and item.value is not None
-                for item in applicable_dimensions
-            )
+        limitations: list[str] = [
+            f"DIMENSION_NOT_APPLICABLE:{item.dimension}"
+            for item in dimensions
+            if item.consolidation_status is ConsolidationStatus.NOT_APPLICABLE
+        ]
+        blocking = tuple(
+            item for item in applicable
+            if item.consolidation_status is ConsolidationStatus.NOT_CONSOLIDATED or item.value is None
         )
-        values = [item.value for item in applicable_dimensions if item.value is not None]
-        value = (sum(values) / len(values)) if enough and values else None
-        coverage = (
-            sum(item.coverage for item in applicable_dimensions) / len(applicable_dimensions)
-            if applicable_dimensions else 0.0
-        )
+        limitations.extend(f"DIMENSION_NOT_CONSOLIDATED:{item.dimension}" for item in blocking)
+
+        coverage = sum(item.coverage for item in applicable) / len(applicable) if applicable else 0.0
         confidence = (
-            min((item.confidence for item in applicable_dimensions), key=_confidence_rank)
-            if applicable_dimensions else ScoreConfidence.UNAVAILABLE
+            min((item.confidence for item in applicable), key=_confidence_rank)
+            if applicable else ScoreConfidence.UNAVAILABLE
         )
-        consolidation = ConsolidationStatus.CONSOLIDATED if enough else ConsolidationStatus.NOT_CONSOLIDATED
-        limitations = tuple(
-            [
-                f"DIMENSION_NOT_APPLICABLE:{item.dimension}"
-                for item in dimensions
-                if item.consolidation_status is ConsolidationStatus.NOT_APPLICABLE
-            ]
-            + [
-                f"DIMENSION_NOT_CONSOLIDATED:{item.dimension}"
-                for item in applicable_dimensions
-                if item.consolidation_status is ConsolidationStatus.NOT_CONSOLIDATED
-            ]
-        )
+        complete_contract = len(dimensions) == len(DIMENSIONS) and bool(applicable) and not blocking
+
+        if not complete_contract:
+            return Score(
+                score_id=new_id("SCR"), audit_id=audit_id, dimension="OVERALL_READINESS", device=device,
+                value=None, coverage=round(coverage, 6), confidence=confidence,
+                consolidation_status=ConsolidationStatus.NOT_CONSOLIDATED,
+                scoring_version=SCORING_VERSION, calculated_at=utc_now(),
+                limitations=tuple((*limitations, *method_trace_limitations())),
+            )
+
+        values = [float(item.value) for item in applicable if item.value is not None]
+        value = sum(values) / len(values)
+        if coverage >= MIN_OVERALL_COVERAGE and confidence in {ScoreConfidence.HIGH, ScoreConfidence.MEDIUM}:
+            consolidation = ConsolidationStatus.CONSOLIDATED
+        elif coverage >= MIN_PARTIAL_COVERAGE and confidence is not ScoreConfidence.UNAVAILABLE:
+            consolidation = ConsolidationStatus.PARTIAL
+            limitations.append("OVERALL_MEASUREMENT_BELOW_CONSOLIDATION_GATE")
+        else:
+            consolidation = ConsolidationStatus.NOT_CONSOLIDATED
+            limitations.append("OVERALL_MEASUREMENT_BELOW_MINIMUM_GATE")
+
         return Score(
             score_id=new_id("SCR"), audit_id=audit_id, dimension="OVERALL_READINESS", device=device,
-            value=round(value, 6) if value is not None else None,
-            coverage=round(coverage, 6), confidence=confidence,
+            value=round(value, 6), coverage=round(coverage, 6), confidence=confidence,
             consolidation_status=consolidation, scoring_version=SCORING_VERSION,
-            calculated_at=utc_now(), limitations=limitations,
+            calculated_at=utc_now(), limitations=tuple((*limitations, *method_trace_limitations())),
         )
 
 
@@ -360,7 +361,6 @@ def _metadata(rule_id: str) -> RuleScoringMetadata:
     except (ValueError, IndexError):
         return RuleScoringMetadata(None)
 
-    # Auditor-integrity/acquisition bookkeeping and device-comparison classification do not score website quality directly.
     if number in {1, 2, 4, 52, 53, 54}:
         return RuleScoringMetadata(None)
     if number in {3, 5, 6, 7, 8, 17, 18, 21, 22, 23, 50}:
