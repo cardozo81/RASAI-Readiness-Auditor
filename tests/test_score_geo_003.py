@@ -19,6 +19,7 @@ from searchgeo.scoring import ConsolidationStatus
 from searchgeo.scoring_v003 import ScoreGeo003Engine
 
 _NOW = datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc)
+_DEFAULT_DAYS = ("2026-09-01", "2026-09-02", "2026-09-03")
 
 
 def _execution(rule_id: str, result: RuleResult, *, observed: dict[str, object] | None = None) -> RuleExecution:
@@ -66,7 +67,7 @@ def _validated_model() -> CalibrationModel:
     )
 
 
-def _calibration_rows(*, distinct_days: int = 3) -> list[CalibrationRow]:
+def _calibration_rows(*, observed_days: tuple[str, ...] = _DEFAULT_DAYS) -> list[CalibrationRow]:
     rows: list[CalibrationRow] = []
     for index in range(40):
         signal = index / 39
@@ -82,7 +83,7 @@ def _calibration_rows(*, distinct_days: int = 3) -> list[CalibrationRow]:
                 engines=("ENGINE-A", "ENGINE-B"),
                 query_count=10,
                 min_repetitions=3,
-                distinct_days=distinct_days,
+                observed_days=observed_days,
             )
         )
     return rows
@@ -156,7 +157,54 @@ def test_calibration_gate_can_validate_minimum_empirical_dataset() -> None:
 
 
 def test_calibration_gate_rejects_insufficient_temporal_spread() -> None:
-    fit = fit_calibration_model(_calibration_rows(distinct_days=2), dataset_version="GEO-CAL-001")
+    fit = fit_calibration_model(
+        _calibration_rows(observed_days=("2026-09-01", "2026-09-02")),
+        dataset_version="GEO-CAL-001",
+    )
     assert not fit.validated
     assert fit.payload["status"] == "EXPERIMENTAL"
     assert "TEMPORAL_COVERAGE_BELOW_MINIMUM:2<3" in fit.promotion_reasons
+
+
+def test_temporal_gate_aggregates_multiple_audits_for_same_domain() -> None:
+    rows = _calibration_rows()
+    first = rows[0]
+    rows[0] = CalibrationRow(
+        domain=first.domain,
+        audit_id="AUD-00-A",
+        device=first.device,
+        features=first.features,
+        successes=20,
+        total=20,
+        engines=first.engines,
+        query_count=first.query_count,
+        min_repetitions=first.min_repetitions,
+        observed_days=("2026-09-01",),
+    )
+    rows.append(CalibrationRow(
+        domain=first.domain,
+        audit_id="AUD-00-B",
+        device=first.device,
+        features=first.features,
+        successes=20,
+        total=20,
+        engines=first.engines,
+        query_count=first.query_count,
+        min_repetitions=first.min_repetitions,
+        observed_days=("2026-09-02",),
+    ))
+    rows.append(CalibrationRow(
+        domain=first.domain,
+        audit_id="AUD-00-C",
+        device=first.device,
+        features=first.features,
+        successes=20,
+        total=20,
+        engines=first.engines,
+        query_count=first.query_count,
+        min_repetitions=first.min_repetitions,
+        observed_days=("2026-09-03",),
+    ))
+    fit = fit_calibration_model(rows, dataset_version="GEO-CAL-001")
+    assert "TEMPORAL_COVERAGE_BELOW_MINIMUM" not in "|".join(fit.promotion_reasons)
+    assert fit.payload["dataset"]["min_distinct_days"] == 3
