@@ -10,6 +10,7 @@ from searchgeo.branding import (
     PUBLIC_INDEX_VERSION,
 )
 from searchgeo.searchgeo_readiness_reporting import (
+    COMPATIBLE_ENGINE_VERSION,
     PUBLIC_METHOD_VERSION,
     SEARCHGEO_FILE,
     _legacy_readiness_redirect,
@@ -23,6 +24,7 @@ def test_public_branding_contract() -> None:
     assert CANONICAL_READINESS_REPORT == "readiness.html"
     assert LEGACY_READINESS_REPORT == "searchgeo.html"
     assert PUBLIC_METHOD_VERSION == "SARI-001"
+    assert COMPATIBLE_ENGINE_VERSION == "SCORE-GEO-003"
     assert SEARCHGEO_FILE == "readiness.html"
 
 

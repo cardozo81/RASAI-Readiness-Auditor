@@ -2,8 +2,9 @@
 
 This module is deliberately projection-only. It never recalculates persisted
 scores, Lighthouse/CrUX values or Apdex. ``SARI-001`` is the public methodology
-identifier for the current Search & AI Readiness Index presentation; the persisted
-calculation engine remains ``SCORE-GEO-002`` until the arithmetic itself changes.
+identifier for the current Search & AI Readiness Index presentation. Scoring is
+versioned independently: new audits use ``SCORE-GEO-003`` while historical
+``SCORE-GEO-002`` results remain preserved.
 
 The executive dashboard shows only final/summary outcomes and links to the
 single analytical home of each indicator. Detailed RASAI dimensions live in
@@ -36,7 +37,7 @@ SEARCHGEO_FILE = CANONICAL_READINESS_REPORT
 PUBLIC_METHOD_VERSION = PUBLIC_INDEX_VERSION
 LEGACY_SEARCHGEO_FILE = LEGACY_READINESS_REPORT
 LEGACY_PUBLIC_METHOD_VERSION = LEGACY_PUBLIC_INDEX_VERSION
-COMPATIBLE_ENGINE_VERSION = "SCORE-GEO-002"
+COMPATIBLE_ENGINE_VERSION = "SCORE-GEO-003"
 _DASHBOARD_START = "<!-- searchgeo-executive-dashboard:start -->"
 _DASHBOARD_END = "<!-- searchgeo-executive-dashboard:end -->"
 

@@ -29,4 +29,6 @@ Os comandos preferenciais são `rasai`, `rasai-console`, `rasai audit`, `rasai v
 
 `SARI-001` identifica publicamente o Search & AI Readiness Index. Ele não substitui a versão do motor persistido. A troca `SGRI-001` → `SARI-001` é nominal e não altera pesos, fatores, thresholds, fórmula ou calibração.
 
+Novas auditorias usam `SCORE-GEO-003`; `SCORE-GEO-002` permanece histórico e não é recalculado. O identificador SARI e o `scoring_version` devem ser apresentados separadamente.
+
 Lighthouse, Core Web Vitals, Acessibilidade, Synthetic Navigation Apdex, Synthetic User Experience Apdex e Observed AI Visibility continuam metodologias independentes e não são combinadas silenciosamente no SARI.
