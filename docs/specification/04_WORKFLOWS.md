@@ -1,6 +1,6 @@
 # WORKFLOWS.md
 
-**Status:** APPROVED — reconciliado com SCORE-GEO-002, device context configurável e REPORT-SITE-GEO-001
+**Status:** APPROVED — reconciliado com RASAI/SARI-001, `SCORE-GEO-003`, device context configurável e REPORT-SITE-GEO-001
 
 ## 1. Princípios
 
@@ -11,6 +11,7 @@
 - AI optionality.
 - Reliability disclosure.
 - Actionable remediation must remain evidence-bound.
+- Readiness, outcomes observados, performance/experience e acessibilidade permanecem metodologias separadas.
 
 ## 2. Catálogo
 
@@ -26,6 +27,8 @@
 - WF-GEO-010 Generate Recommendations and Remediation
 - WF-GEO-011 Generate Static Actionable HTML Report Site
 - WF-GEO-012 Complete Audit
+
+Monitoramento histórico e observabilidade externa são workflows derivados, executados sobre um `AUD-*` já persistido, e não fazem parte do pipeline transacional de WF-GEO-001.
 
 ## 3. WF-GEO-001
 
@@ -183,14 +186,17 @@ Quando o audit for `mobile` ou `desktop`, BR-GEO-052 deve ser `NOT_APPLICABLE` c
 
 - validar BR-GEO-053;
 - deduplicar efeitos de causa raiz;
-- calcular contribuições;
-- calcular score;
-- calcular coverage;
-- calcular confidence;
-- resolver consolidation;
+- calcular contribuições determinísticas das dimensões;
+- calcular score das dimensões;
+- calcular Coverage;
+- calcular Confidence;
+- resolver Consolidation;
+- aplicar `SCORE-GEO-003` ao Overall somente quando existir model artifact `VALIDATED` compatível;
 - validar BR-GEO-054.
 
-Baseline vigente: `SCORE-GEO-002`.
+Baseline vigente para novas auditorias: `SCORE-GEO-003`.
+
+As dez dimensões continuam com cálculo determinístico baseado em regras. O Overall `SCORE-GEO-003` é calibrado e não possui fallback silencioso para média simples. Sem model artifact `VALIDATED`, o Overall permanece `NOT_CONSOLIDATED`. `SCORE-GEO-002` é histórico e não é recalculado.
 
 Score, Coverage e Confidence têm semânticas diferentes. Confidence baixa qualifica a força da conclusão; não significa, isoladamente, baixa qualidade textual do website.
 
@@ -235,40 +241,54 @@ Ponto de entrada público:
 
 `report/index.html`
 
-Arquivos públicos complementares:
+Arquivos públicos complementares, conforme aplicabilidade/materialização:
 
 ```text
-report/mobile.html       # somente quando Mobile foi auditado
-report/desktop.html      # somente quando Desktop foi auditado
+report/readiness.html             # SARI-001
+report/score-geo-003.html         # método/modelo/dataset/gates
+report/mobile.html                # quando Mobile foi auditado
+report/desktop.html               # quando Desktop foi auditado
 report/remediation.html
+report/content-suggestions.html
+report/crawling-discovery.html
+report/accessibility.html
+report/web-performance.html
+report/apdex.html
+report/apdex-experience.html
+report/ai-visibility.html         # Observed Generative Visibility
+report/observability.html         # Search/AI outcomes + diagnósticos derivados, quando materializado
 report/ai-usage.html
 report/references.html
 report/css/site.css
 ```
 
-Sem backend, servidor, CDN ou internet obrigatória para leitura local do resultado.
+Sem backend, servidor, CDN ou internet obrigatória para leitura local do resultado já materializado.
 
 A projeção deve separar por domínio:
 
-1. visão executiva, Score/Coverage/Confidence e limitações em `index.html`;
-2. scorecard, findings, evidências e avaliações por dispositivo em `mobile.html` / `desktop.html`;
-3. plano de correção e diagnóstico por ocorrência em `remediation.html`;
-4. telemetria operacional de IA em `ai-usage.html`;
-5. metodologia, classificação de fontes e referências técnicas em `references.html`.
+1. visão executiva e limitações em `index.html`;
+2. SARI, Score/Coverage/Confidence/Consolidation em `readiness.html`;
+3. contrato/calibração do `SCORE-GEO-003` em `score-geo-003.html`;
+4. findings/evidências por dispositivo em `mobile.html` / `desktop.html`;
+5. plano de correção por ocorrência em `remediation.html`;
+6. métricas externas em suas páginas próprias;
+7. outcomes observados em `ai-visibility.html` / `observability.html`, sem fusão automática ao SARI;
+8. telemetria operacional de IA em `ai-usage.html`;
+9. metodologia, classificação de fontes e referências técnicas em `references.html`.
 
-Todos os HTMLs finais compartilham navegação e `report/css/site.css`. CSS inline/embutido não é contrato do report site final.
+Todos os HTMLs finais compartilham navegação e `report/css/site.css`. CSS inline/embutido não é contrato do report site final, exceto páginas derivadas standalone explicitamente documentadas (por exemplo `MON-*`).
 
 ### Regra de compatibilidade
 
-`OVERALL_READINESS` somente é exibido como nota quando o score persistido possui valor consolidável segundo `SCORE-GEO-002`.
+`OVERALL_READINESS` somente é exibido como número quando o score persistido possui valor consolidável segundo a versão do método registrada no próprio AUD.
 
-Quando não for consolidável:
+Para `SCORE-GEO-003`, isso exige model artifact compatível e `VALIDATED`. Quando não for consolidável:
 
 ```text
-COMPATIBILIDADE GEO: NÃO DETERMINADA
+READINESS GERAL: NÃO CONSOLIDADA
 ```
 
-Coverage não pode substituir a nota.
+Coverage não pode substituir a nota. Séries `SCORE-GEO-002` e `SCORE-GEO-003` não são misturadas silenciosamente.
 
 ### Regra de HTML observado
 
@@ -289,7 +309,7 @@ WF-GEO-011 reabre Pages, Audit limitations e Evidence de robots/sitemap/HTTP par
 
 ### Fonte de verdade
 
-O report site é projeção para leitura humana. `audit.db` + artifacts persistidos continuam sendo a fonte de verdade. O gerador não recalcula score/findings nem executa IA.
+O report site é projeção para leitura humana. `audit.db` + artifacts persistidos continuam sendo a fonte de verdade do audit. `observability.db` é sidecar derivado para dados externos coletados/importados posteriormente e nunca reescreve a evidência do AUD.
 
 ## 14. WF-GEO-012 Complete Audit
 
@@ -314,3 +334,27 @@ ou
 COMPLETED + COMPLETE_WITH_LIMITATIONS
 
 FAILED somente quando não foi possível executar auditoria funcional mínima.
+
+## 15. Workflows derivados: Monitor e Observability
+
+Após um AUD concluído, podem ser executados workflows independentes:
+
+```text
+AUD baseline + AUD atual
+→ leitura read-only de audit.db
+→ comparabilidade
+→ ChangeEvents
+→ release gate determinístico opcional
+→ MON-*/report.html
+→ impact.html opcional
+```
+
+```text
+AUD existente
+→ coleta/import de outcome externo documentado
+→ observability.db + artifact preservado
+→ Indexability Reality Matrix / Query × Intent / CrUX History / diagnósticos
+→ report/observability.html
+```
+
+Falha nesses workflows derivados não altera status, scoring ou evidências do audit fonte.
