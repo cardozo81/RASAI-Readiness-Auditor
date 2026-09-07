@@ -38,6 +38,7 @@ class ObservabilityStore:
         self.artifacts.mkdir(parents=True, exist_ok=True)
         self.connection = sqlite3.connect(self.path)
         self.connection.row_factory = sqlite3.Row
+        self.connection.execute("PRAGMA foreign_keys=ON")
         self._initialize()
 
     def __enter__(self) -> "ObservabilityStore":
@@ -128,26 +129,13 @@ class ObservabilityStore:
         index_rows: Iterable[dict[str, Any]] = (),
         crux_rows: Iterable[dict[str, Any]] = (),
     ) -> None:
-        with self.connection:
-            self.connection.execute("DELETE FROM datasets WHERE dataset_id=?", (dataset.dataset_id,))
-            self.connection.execute(
-                "INSERT INTO datasets VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                (
-                    dataset.dataset_id,
-                    FORMAT_VERSION,
-                    dataset.source_type,
-                    dataset.capture_method,
-                    dataset.period_start,
-                    dataset.period_end,
-                    dataset.artifact_path,
-                    dataset.artifact_sha256,
-                    _dump(dataset.metadata),
-                    dataset.collected_at,
-                    # schema includes 10 columns after id? Keep format explicit below.
-                ),
-            )
-            # The INSERT above intentionally uses the exact schema order; this
-            # branch is retained for migration safety by validating count below.
+        """Compatibility alias for the atomic row-aware replacement method."""
+        self.replace_dataset_rows(
+            dataset,
+            search_rows=search_rows,
+            index_rows=index_rows,
+            crux_rows=crux_rows,
+        )
 
     def replace_dataset_rows(
         self,
@@ -157,7 +145,7 @@ class ObservabilityStore:
         index_rows: Iterable[dict[str, Any]] = (),
         crux_rows: Iterable[dict[str, Any]] = (),
     ) -> None:
-        """Atomic dataset replacement used by collectors/importers."""
+        """Atomically replace one dataset and all of its normalized rows."""
         search = tuple(search_rows)
         index = tuple(index_rows)
         crux = tuple(crux_rows)
@@ -169,14 +157,21 @@ class ObservabilityStore:
                     artifact_path,artifact_sha256,metadata,collected_at
                 ) VALUES (?,?,?,?,?,?,?,?,?,?)""",
                 (
-                    dataset.dataset_id, FORMAT_VERSION, dataset.source_type, dataset.capture_method,
-                    dataset.period_start, dataset.period_end, dataset.artifact_path,
-                    dataset.artifact_sha256, _dump(dataset.metadata), dataset.collected_at,
+                    dataset.dataset_id,
+                    FORMAT_VERSION,
+                    dataset.source_type,
+                    dataset.capture_method,
+                    dataset.period_start,
+                    dataset.period_end,
+                    dataset.artifact_path,
+                    dataset.artifact_sha256,
+                    _dump(dataset.metadata),
+                    dataset.collected_at,
                 ),
             )
             for row in search:
                 self.connection.execute(
-                    """INSERT INTO search_performance VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    "INSERT INTO search_performance VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         row["record_id"], dataset.dataset_id, row.get("source") or dataset.source_type,
                         row.get("observed_date"), row.get("query_text"), row.get("url"), row.get("device"),
@@ -187,7 +182,7 @@ class ObservabilityStore:
                 )
             for row in index:
                 self.connection.execute(
-                    """INSERT INTO index_observations VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    "INSERT INTO index_observations VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         row["record_id"], dataset.dataset_id, row.get("source") or dataset.source_type,
                         row["url"], row.get("verdict"), row.get("coverage_state"), row.get("indexing_state"),
@@ -199,7 +194,7 @@ class ObservabilityStore:
                 )
             for row in crux:
                 self.connection.execute(
-                    """INSERT INTO crux_history VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    "INSERT INTO crux_history VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         row["record_id"], dataset.dataset_id, row["target"], row["target_scope"],
                         row.get("form_factor"), row["metric"], row.get("period_start"), row.get("period_end"),
