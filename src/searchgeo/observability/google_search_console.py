@@ -37,6 +37,7 @@ def collect_search_analytics(
     row_limit: int = 25_000,
     max_rows: int = 100_000,
     data_state: str = "final",
+    surface_dimension: str | None = None,
     timeout: float = 60.0,
     opener: JsonOpener = urlopen,
 ) -> str:
@@ -44,6 +45,8 @@ def collect_search_analytics(
     token = access_token.strip()
     if not token:
         raise ValueError("Google Search Console access token is required")
+    if surface_dimension is not None and surface_dimension not in dimensions:
+        raise ValueError("surface_dimension must be present in dimensions")
     max_rows = max(1, int(max_rows))
     page_size = max(1, min(int(row_limit), 25_000, max_rows))
     endpoint = SEARCH_ANALYTICS_ENDPOINT.format(site=quote(site_url, safe=""))
@@ -74,6 +77,7 @@ def collect_search_analytics(
                 dimension: (str(keys[index]) if index < len(keys) else None)
                 for index, dimension in enumerate(dimensions)
             }
+            observed_surface = mapping.get(surface_dimension) if surface_dimension else None
             normalized.append(
                 {
                     "record_id": f"GSC-SA-{start_row + offset + 1:08d}",
@@ -83,13 +87,15 @@ def collect_search_analytics(
                     "url": mapping.get("page"),
                     "device": mapping.get("device"),
                     "country": mapping.get("country"),
-                    "surface": search_type,
+                    "surface": observed_surface or search_type,
                     "clicks": row.get("clicks"),
                     "impressions": row.get("impressions"),
                     "ctr": row.get("ctr"),
                     "position": row.get("position"),
                     "metadata": {
                         "dimensions": mapping,
+                        "search_type": search_type,
+                        "surface_dimension": surface_dimension,
                         "responseAggregationType": response.get("responseAggregationType"),
                     },
                 }
@@ -107,6 +113,7 @@ def collect_search_analytics(
         "dimensions": list(dimensions),
         "type": search_type,
         "data_state": data_state,
+        "surface_dimension": surface_dimension,
         "requested_max_rows": max_rows,
         "page_size": page_size,
         "responses": raw_pages,
@@ -123,6 +130,7 @@ def collect_search_analytics(
             "site_url": site_url,
             "dimensions": list(dimensions),
             "search_type": search_type,
+            "surface_dimension": surface_dimension,
             "rows": len(normalized),
             "requested_max_rows": max_rows,
             "page_size": page_size,
