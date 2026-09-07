@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from searchgeo.runtime_paths import CANONICAL_RUNTIME_DIR
 from searchgeo.score_geo_003 import load_model, write_model
 from searchgeo.score_geo_003_calibration import collect_calibration_rows, fit_calibration_model
 from searchgeo.score_geo_003_dataset import build_dataset_manifest, write_dataset_manifest
@@ -15,13 +16,14 @@ def build_parser() -> argparse.ArgumentParser:
         description="Prepara dataset, calibra e inspeciona o modelo versionado do SCORE-GEO-003.",
     )
     subparsers = parser.add_subparsers(dest="scoring_command", required=True)
+    scoring_dir = Path(CANONICAL_RUNTIME_DIR) / "scoring"
 
     dataset = subparsers.add_parser("dataset", help="materializar dataset elegível e avaliar gates pré-fit")
     dataset.add_argument("--audits-root", default="audits", help="diretório com AUD-*/audit.db")
     dataset.add_argument("--dataset-version", required=True, help="versão imutável do dataset, por exemplo GEO-CAL-001")
     dataset.add_argument(
         "--output",
-        default=str(Path(".searchgeo") / "scoring" / "score-geo-003-dataset.json"),
+        default=str(scoring_dir / "score-geo-003-dataset.json"),
         help="manifest JSON do dataset",
     )
 
@@ -30,14 +32,14 @@ def build_parser() -> argparse.ArgumentParser:
     calibrate.add_argument("--dataset-version", required=True, help="versão imutável do dataset, por exemplo GEO-CAL-001")
     calibrate.add_argument(
         "--output",
-        default=str(Path(".searchgeo") / "scoring" / "score-geo-003-model.json"),
-        help="artifact JSON do modelo; por padrão .searchgeo/scoring/score-geo-003-model.json",
+        default=str(scoring_dir / "score-geo-003-model.json"),
+        help="artifact JSON do modelo; por padrão .rasai/scoring/score-geo-003-model.json",
     )
 
     inspect = subparsers.add_parser("inspect", help="inspecionar artifact SCORE-GEO-003")
     inspect.add_argument(
         "--model",
-        default=str(Path(".searchgeo") / "scoring" / "score-geo-003-model.json"),
+        default=str(scoring_dir / "score-geo-003-model.json"),
         help="artifact JSON do modelo",
     )
     return parser
