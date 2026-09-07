@@ -48,8 +48,6 @@ Credenciais, bearer tokens e API keys não podem ser persistidos.
 
 ### 4.1 Compare
 
-Superfície:
-
 ```text
 rasai monitor compare --baseline AUD-X --current AUD-Y
 ```
@@ -77,15 +75,11 @@ Regras obrigatórias:
 
 ### 4.2 Release gate
 
-Superfície:
-
 ```text
 rasai monitor gate ...
 ```
 
 Default: deterministic-only.
-
-Códigos de saída:
 
 ```text
 0 PASS
@@ -97,37 +91,19 @@ Regras semânticas/LLM somente participam quando o usuário habilita explicitame
 
 ### 4.3 Change Impact
 
-Superfície:
-
 ```text
 rasai monitor impact ...
 ```
 
-Pode comparar mudanças técnicas com:
+Pode comparar mudanças técnicas com Search Performance, estado/canonical observado via URL Inspection, CrUX History e outros outcomes suportados.
 
-- Search Performance;
-- estado/canonical observado via URL Inspection;
-- CrUX History;
-- outros outcomes observacionais suportados.
-
-A saída deve usar formulação de associação temporal/coocorrência e declarar `causality_not_established`/equivalente. Nunca afirmar “X causou Y” apenas porque os sinais mudaram no mesmo período.
+A saída deve usar formulação de associação temporal/coocorrência e declarar `causality_not_established`/equivalente. Nunca afirmar “X causou Y” apenas porque sinais mudaram no mesmo período.
 
 ## 5. Search Console
 
 ### 5.1 Search Analytics
 
-Coleta via API oficial. Registros podem incluir, conforme resposta/dimensões solicitadas:
-
-- date;
-- query;
-- page/URL;
-- device;
-- country;
-- search type/surface;
-- clicks;
-- impressions;
-- CTR;
-- average position.
+Coleta via API oficial. Registros podem incluir date, query, page/URL, device, country, search type/surface, clicks, impressions, CTR e average position conforme resposta/dimensões solicitadas.
 
 Paginação deve ser bounded e `max_rows` configurável.
 
@@ -135,16 +111,7 @@ Paginação deve ser bounded e `max_rows` configurável.
 
 Coleta via API oficial para URLs do audit, bounded por `max_urls`.
 
-Campos observáveis podem incluir:
-
-- verdict/coverage/indexing state;
-- robots state;
-- fetch state;
-- last crawl;
-- crawled-as;
-- user-declared canonical;
-- Google-selected canonical;
-- referring/sitemap URLs quando retornados.
+Campos observáveis podem incluir verdict/coverage/indexing state, robots state, fetch state, last crawl, crawled-as, user-declared canonical, Google-selected canonical e referring/sitemap URLs quando retornados.
 
 URL Inspection representa estado conhecido pelo índice e não deve ser apresentada como live test.
 
@@ -152,12 +119,7 @@ URL Inspection representa estado conhecido pelo índice e não deve ser apresent
 
 A coleta histórica usa o contrato oficial CrUX History quando habilitada.
 
-LCP, INP e CLS permanecem field/RUM aggregate evidence e não devem ser fundidos com:
-
-- Lighthouse lab;
-- Synthetic Navigation Apdex;
-- Synthetic User Experience Apdex;
-- SARI.
+LCP, INP e CLS permanecem field/RUM aggregate evidence e não devem ser fundidos com Lighthouse lab, Synthetic Navigation Apdex, Synthetic User Experience Apdex ou SARI.
 
 Ausência de dados CrUX é indisponibilidade/suficiência de campo, não finding do website.
 
@@ -169,22 +131,13 @@ A importação deve preservar source/capture method, período e artifact SHA-256
 
 ## 8. Indexability Reality Matrix
 
-A projeção pode cruzar:
+A projeção pode cruzar HTTP/local final URL, meta robots, canonical declarado, sitemap/links quando disponíveis, external indexing verdict e external selected canonical.
 
-- HTTP/local final URL;
-- meta robots;
-- canonical declarado;
-- sitemap/links quando disponíveis;
-- external indexing verdict;
-- external selected canonical.
-
-Divergência de canonical é um fato observado. Não se torna automaticamente finding causal de tráfego.
+Divergência de canonical é fato observado. Não se torna automaticamente finding causal de tráfego.
 
 ## 9. Query × Intent Alignment
 
 Queries observadas podem ser comparadas com intents já persistidas pelas regras RASAI. O matching deve ser explicável e conservador.
-
-Estados atuais:
 
 ```text
 ALIGNED
@@ -222,13 +175,11 @@ Regras:
 
 ## 12. Calibration Dataset Manager
 
-Superfície:
-
 ```text
 rasai scoring dataset --dataset-version VERSION
 ```
 
-Objetivo: avaliar suficiência **pré-fit** e produzir manifest/fingerprint determinístico.
+Objetivo: avaliar suficiência pré-fit e produzir manifest/fingerprint determinístico.
 
 Gates mínimos são herdados do contrato SCORE-GEO-003 vigente, incluindo domínio, holdout possível, engines, queries, repetições, dias e observações.
 
@@ -242,17 +193,7 @@ Gates mínimos são herdados do contrato SCORE-GEO-003 vigente, incluindo domín
 report/observability.html
 ```
 
-Deve conter:
-
-- proveniência/datasets;
-- matriz de indexabilidade;
-- diagnósticos complementares;
-- Query × Intent;
-- candidates de cannibalization;
-- clusters;
-- CrUX History;
-- referências públicas;
-- declaração clara de non-scoring/non-causality.
+Deve conter proveniência/datasets, matriz de indexabilidade, diagnósticos complementares, Query × Intent, candidates de cannibalization, clusters, CrUX History, referências públicas e declaração clara de non-scoring/non-causality.
 
 ### Monitoring
 
@@ -264,9 +205,7 @@ monitoring/MON-*/impact.html   # quando solicitado
 
 ## 14. Navegação HTML
 
-O registry final deve ser canônico e condicionado à existência dos arquivos. Uma página opcional gerada depois não pode remover do menu outra página opcional já materializada.
-
-A página corrente deve ser o único item ativo.
+O registry final deve ser canônico e condicionado à existência dos arquivos. Uma página opcional gerada depois não pode remover do menu outra página opcional já materializada. A página corrente deve ser o único item ativo.
 
 ## 15. Failure isolation
 
@@ -294,8 +233,9 @@ A página corrente deve ser o único item ativo.
 - collectors com HTTP mockado;
 - diagnostics evidence-bound;
 - dataset pre-fit;
-- regressão SCORE-GEO-003;
-- regressão M25/M26;
+- regressão do scoring vigente;
+- regressão de Synthetic User Experience Apdex;
+- regressão de Observed Generative Visibility;
 - navegação canônica de páginas opcionais.
 
 ## 18. Critérios de smoke humano
