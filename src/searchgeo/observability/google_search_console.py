@@ -44,8 +44,8 @@ def collect_search_analytics(
     token = access_token.strip()
     if not token:
         raise ValueError("Google Search Console access token is required")
-    row_limit = max(1, min(int(row_limit), 25_000))
-    max_rows = max(row_limit, int(max_rows))
+    max_rows = max(1, int(max_rows))
+    page_size = max(1, min(int(row_limit), 25_000, max_rows))
     endpoint = SEARCH_ANALYTICS_ENDPOINT.format(site=quote(site_url, safe=""))
     raw_pages: list[dict[str, Any]] = []
     normalized: list[dict[str, Any]] = []
@@ -57,7 +57,7 @@ def collect_search_analytics(
             "dimensions": list(dimensions),
             "type": search_type,
             "aggregationType": "auto",
-            "rowLimit": min(row_limit, max_rows - start_row),
+            "rowLimit": min(page_size, max_rows - start_row),
             "startRow": start_row,
             "dataState": data_state,
         }
@@ -70,7 +70,10 @@ def collect_search_analytics(
             if not isinstance(row, dict):
                 continue
             keys = row.get("keys") or []
-            mapping = {dimension: (str(keys[index]) if index < len(keys) else None) for index, dimension in enumerate(dimensions)}
+            mapping = {
+                dimension: (str(keys[index]) if index < len(keys) else None)
+                for index, dimension in enumerate(dimensions)
+            }
             normalized.append(
                 {
                     "record_id": f"GSC-SA-{start_row + offset + 1:08d}",
@@ -85,14 +88,15 @@ def collect_search_analytics(
                     "impressions": row.get("impressions"),
                     "ctr": row.get("ctr"),
                     "position": row.get("position"),
-                    "metadata": {"dimensions": mapping, "responseAggregationType": response.get("responseAggregationType")},
+                    "metadata": {
+                        "dimensions": mapping,
+                        "responseAggregationType": response.get("responseAggregationType"),
+                    },
                 }
             )
-        if len(rows) < payload["rowLimit"]:
+        if len(rows) < payload["rowLimit"] or not rows:
             break
         start_row += len(rows)
-        if not rows:
-            break
 
     artifact = {
         "format_version": "RASAI-GSC-SA-001",
@@ -103,6 +107,8 @@ def collect_search_analytics(
         "dimensions": list(dimensions),
         "type": search_type,
         "data_state": data_state,
+        "requested_max_rows": max_rows,
+        "page_size": page_size,
         "responses": raw_pages,
     }
     return _persist(
@@ -113,7 +119,15 @@ def collect_search_analytics(
         period_start=start_date,
         period_end=end_date,
         search_rows=normalized,
-        metadata={"site_url": site_url, "dimensions": list(dimensions), "search_type": search_type, "rows": len(normalized)},
+        metadata={
+            "site_url": site_url,
+            "dimensions": list(dimensions),
+            "search_type": search_type,
+            "rows": len(normalized),
+            "requested_max_rows": max_rows,
+            "page_size": page_size,
+            "coverage_note": "Search Analytics may return top rows rather than every row available for the property.",
+        },
     )
 
 
@@ -199,7 +213,11 @@ def collect_url_inspection(
         period_start=None,
         period_end=None,
         index_rows=normalized,
-        metadata={"site_url": site_url, "requested_urls": len(requested), "errors": sum(row["verdict"] == "ERROR" for row in normalized)},
+        metadata={
+            "site_url": site_url,
+            "requested_urls": len(requested),
+            "errors": sum(row["verdict"] == "ERROR" for row in normalized),
+        },
     )
 
 
@@ -265,6 +283,7 @@ def _audit_urls(workspace: Path) -> tuple[str, ...]:
     database = workspace / "audit.db"
     uri = database.resolve().as_uri() + "?mode=ro"
     connection = sqlite3.connect(uri, uri=True)
+    connection.execute("PRAGMA query_only=ON")
     try:
         rows = connection.execute("SELECT normalized_url FROM pages ORDER BY normalized_url").fetchall()
         return tuple(str(row[0]) for row in rows)
@@ -279,4 +298,4 @@ def _validate_period(start_date: str, end_date: str) -> None:
     except ValueError as exc:
         raise ValueError("start/end date must use YYYY-MM-DD") from exc
     if start > end:
-        raise ValueError("start date cannot be after end date")
+        raise ValueError("start date cannot be after end date") from exc
