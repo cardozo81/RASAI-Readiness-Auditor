@@ -20,6 +20,10 @@ def _legacy_namespace_tokens() -> tuple[str, ...]:
         "SEARCH" + "GEO",
         "Search/" + "GEO",
         "Search / " + "GEO",
+        "Search " + "GEO",
+        "search_" + "geo",
+        "search-" + "geo",
+        "Search & " + "GEO",
     )
 
 
