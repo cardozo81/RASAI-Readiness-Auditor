@@ -47,13 +47,16 @@ O model artifact só recebe `VALIDATED` quando atende simultaneamente:
 | Engines | 2 |
 | Queries/domínio | 10 |
 | Repetições/query/engine | 3 |
+| Dias distintos de observação por domínio | 3 |
 | Observações válidas | 2400 |
 | AUC holdout | 0,60 |
 | Brier | menor que baseline por prevalência de treino |
 
 O split é feito por domínio, aproximadamente 70/30, para evitar leakage entre queries do mesmo site.
 
-Artifact abaixo do gate permanece `EXPERIMENTAL` e não consolida o Overall.
+A cobertura temporal também é obrigatória: cada domínio precisa ter query-runs elegíveis em pelo menos três datas civis distintas derivadas de `observed_at`. Isso reduz o risco de promover um modelo com falsa estabilidade baseada apenas em repetições concentradas em um único dia.
+
+Artifact abaixo de qualquer gate permanece `EXPERIMENTAL` e não consolida o Overall.
 
 ## 4. Métricas de validação
 
@@ -105,7 +108,7 @@ Ela fornece, quando importado:
 - rank quando sua semântica é explícita;
 - Citation Presence Rate + Wilson 95%.
 
-O calibrador reutiliza somente query-runs controlados elegíveis. Não faz scraping de portal e não presume endpoint não documentado.
+O calibrador reutiliza somente query-runs controlados elegíveis. Além de volume, engines, queries e repetições, o protocolo de calibração verifica distribuição temporal mínima dos timestamps. Não faz scraping de portal e não presume endpoint não documentado.
 
 ## 7. Não entram automaticamente no Overall
 
@@ -134,7 +137,7 @@ O model artifact registra:
 - coeficientes;
 - médias de imputação;
 - métricas de treino/validação;
-- protocolo/gates;
+- protocolo/gates, incluindo `min_distinct_days`;
 - SHA-256.
 
 `BR-GEO-054` deve permitir recálculo sem nova chamada a website/IA.
