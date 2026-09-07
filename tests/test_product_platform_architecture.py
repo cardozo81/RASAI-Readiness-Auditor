@@ -7,6 +7,7 @@ import tempfile
 
 from searchgeo.platform.automation import compute_next_run
 from searchgeo.platform.central_store import CentralPlatformStore
+from searchgeo.platform.cli import build_parser
 from searchgeo.platform.deployment import compare_deployment_pair, resolve_deployment_pair
 from searchgeo.platform.indexing import index_audit_workspace
 from searchgeo.platform.integrations import classify_ai_crawler, import_combined_access_log, import_ga4_csv
@@ -169,6 +170,10 @@ def test_multidomain_audit_is_linked_to_every_property_scope() -> None:
             assert store.get_golden_baseline(
                 str(secondary["property_id"]), str(secondary["environment_id"])
             ) == record.audit_id
+            site = write_platform_site(store, root / "platform-report")
+            html = site.read_text(encoding="utf-8")
+            assert "shop.example.test" in html
+            assert "AUD-MULTI" in html
 
 
 def test_multiuser_membership_and_scope_integrity_are_tenant_safe() -> None:
@@ -258,11 +263,27 @@ def test_deployment_pair_before_after_gate_and_reports() -> None:
             html = report.read_text(encoding="utf-8")
             assert "Deployment Impact" in html
             assert "Release gate" in html
+            assert "href='deployments.html'" not in html
             platform = write_platform_site(store, root / "platform-report")
             assert platform.is_file()
             platform_html = platform.read_text(encoding="utf-8")
             assert "Portfólio Search & AI Readiness" in platform_html
             assert "AUDs recentes" in platform_html
+
+
+def test_alert_status_defaults_do_not_leak_when_user_overrides() -> None:
+    parser = build_parser()
+    base = [
+        "alert", "add",
+        "--project", "PRJ-1",
+        "--property", "PTY-1",
+        "--environment", "ENV-1",
+        "--name", "Alert",
+    ]
+    default_args = parser.parse_args(base)
+    assert default_args.status is None
+    explicit_args = parser.parse_args(base + ["--status", "CHANGED", "--status", "IMPROVED"])
+    assert explicit_args.status == ["CHANGED", "IMPROVED"]
 
 
 def test_golden_baseline_override_and_page_compare() -> None:
