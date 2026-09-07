@@ -47,7 +47,9 @@ jobs:
             tests/test_observability_import_hardening.py \
             tests/test_crux_scope_hardening.py \
             tests/test_gsc_scope_hardening.py \
+            tests/test_gsc_inspection_failure_policy.py \
             tests/test_quality_actionable_priorities.py \
+            tests/test_quality_filesystem_safety.py \
             tests/test_score_geo_003_dataset.py \
             tests/test_report_registry_and_method_docs.py
       - name: Existing scoring and observed visibility regressions
