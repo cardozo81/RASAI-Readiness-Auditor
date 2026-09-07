@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - 'src/searchgeo/m24_*.py'
-      - 'src/searchgeo/cli_extensions.py'
-      - 'src/searchgeo/discovery.py'
-      - 'src/searchgeo/report_navigation.py'
+      - 'src/rasai/m24_*.py'
+      - 'src/rasai/cli_extensions.py'
+      - 'src/rasai/discovery.py'
+      - 'src/rasai/report_navigation.py'
       - 'tests/test_m24_crawling_discovery.py'
       - 'tests/test_m2_discovery_http.py'
       - 'docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md'
@@ -24,10 +24,10 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/searchgeo/m24_*.py'
-      - 'src/searchgeo/cli_extensions.py'
-      - 'src/searchgeo/discovery.py'
-      - 'src/searchgeo/report_navigation.py'
+      - 'src/rasai/m24_*.py'
+      - 'src/rasai/cli_extensions.py'
+      - 'src/rasai/discovery.py'
+      - 'src/rasai/report_navigation.py'
       - 'tests/test_m24_crawling_discovery.py'
       - 'tests/test_m2_discovery_http.py'
       - 'docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md'
@@ -51,43 +51,36 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
           cache: 'pip'
-
       - name: Install package and tests
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e . pytest
-
       - name: Install Playwright Chromium for full regression suite
         run: python -m playwright install --with-deps chromium
-
       - name: Compile M24 runtime surface
         run: |
           python -m compileall -q \
-            src/searchgeo/m24_ai.py \
-            src/searchgeo/m24_cli.py \
-            src/searchgeo/m24_crawling_discovery.py \
-            src/searchgeo/m24_discovery_extensions.py \
-            src/searchgeo/m24_reporting.py \
-            src/searchgeo/cli_extensions.py \
-            src/searchgeo/discovery.py \
-            src/searchgeo/report_navigation.py
-
+            src/rasai/m24_ai.py \
+            src/rasai/m24_cli.py \
+            src/rasai/m24_crawling_discovery.py \
+            src/rasai/m24_discovery_extensions.py \
+            src/rasai/m24_reporting.py \
+            src/rasai/cli_extensions.py \
+            src/rasai/discovery.py \
+            src/rasai/report_navigation.py
       - name: M24 and discovery regression tests
         run: |
           python -m pytest -q \
             tests/test_m24_crawling_discovery.py \
             tests/test_m2_discovery_http.py
-
       - name: Directly affected integration regressions
         run: |
           python -m pytest -q \
             tests/test_m23_integration.py \
             tests/test_m12_stable_baseline.py
-
       - name: Full regression suite
         run: python -m pytest -q
