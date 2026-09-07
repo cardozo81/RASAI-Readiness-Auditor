@@ -31,6 +31,7 @@ MIN_VALIDATION_DOMAINS = 12
 MIN_ENGINES = 2
 MIN_QUERIES_PER_DOMAIN = 10
 MIN_REPETITIONS = 3
+MIN_DISTINCT_DAYS = 3
 MIN_OBSERVATIONS = 2400
 TRAIN_FRACTION = 0.70
 L2_REGULARIZATION = 0.50
@@ -50,6 +51,7 @@ class CalibrationRow:
     engines: tuple[str, ...]
     query_count: int
     min_repetitions: int
+    distinct_days: int
 
     @property
     def failures(self) -> int:
@@ -122,6 +124,7 @@ def fit_calibration_model(rows: Iterable[CalibrationRow], *, dataset_version: st
     observations = _weighted_count(materialized)
     domain_count = len({row.domain for row in materialized})
     validation_domain_count = len(validation_domains)
+    minimum_distinct_days = min(row.distinct_days for row in materialized)
 
     reasons: list[str] = []
     if domain_count < MIN_DOMAINS:
@@ -136,6 +139,8 @@ def fit_calibration_model(rows: Iterable[CalibrationRow], *, dataset_version: st
         reasons.append("QUERY_COVERAGE_BELOW_MINIMUM")
     if any(row.min_repetitions < MIN_REPETITIONS for row in materialized):
         reasons.append("REPETITIONS_BELOW_MINIMUM")
+    if minimum_distinct_days < MIN_DISTINCT_DAYS:
+        reasons.append(f"TEMPORAL_COVERAGE_BELOW_MINIMUM:{minimum_distinct_days}<{MIN_DISTINCT_DAYS}")
     auc = float(validation_metrics["auc"])
     if auc < MIN_VALIDATION_AUC:
         reasons.append(f"VALIDATION_AUC_BELOW_MINIMUM:{auc:.6f}<{MIN_VALIDATION_AUC:.2f}")
@@ -185,6 +190,7 @@ def fit_calibration_model(rows: Iterable[CalibrationRow], *, dataset_version: st
             "rows": len(materialized),
             "observations": observations,
             "query_slots": unique_queries,
+            "min_distinct_days": minimum_distinct_days,
         },
         "protocol": {
             "outcome": "CITED_BINARY",
@@ -197,6 +203,7 @@ def fit_calibration_model(rows: Iterable[CalibrationRow], *, dataset_version: st
             "min_engines": MIN_ENGINES,
             "min_queries_per_domain": MIN_QUERIES_PER_DOMAIN,
             "min_repetitions": MIN_REPETITIONS,
+            "min_distinct_days": MIN_DISTINCT_DAYS,
             "min_observations": MIN_OBSERVATIONS,
             "min_validation_auc": MIN_VALIDATION_AUC,
             "brier_gate": "MODEL_LT_TRAIN_PREVALENCE_BASELINE",
@@ -238,6 +245,7 @@ def _collect_database(database: Path) -> tuple[CalibrationRow, ...]:
         min_repetitions = min(counts.values()) if counts else 0
         if min_repetitions < MIN_REPETITIONS:
             return ()
+        distinct_days = len({day for row in eligible_runs if (day := _observed_day(row["observed_at"]))})
 
         successes = sum(bool(row["cited"]) for row in eligible_runs)
         total = len(eligible_runs)
@@ -281,6 +289,7 @@ def _collect_database(database: Path) -> tuple[CalibrationRow, ...]:
                         engines=engines,
                         query_count=query_count,
                         min_repetitions=min_repetitions,
+                        distinct_days=distinct_days,
                     )
                 )
         return tuple(output)
@@ -291,7 +300,7 @@ def _collect_database(database: Path) -> tuple[CalibrationRow, ...]:
 def _eligible_query_runs(connection: sqlite3.Connection, audit_id: str) -> list[sqlite3.Row]:
     rows = list(
         connection.execute(
-            """SELECT engine,query_text,cited FROM generative_visibility_query_runs
+            """SELECT engine,query_text,cited,observed_at FROM generative_visibility_query_runs
                WHERE audit_id=? AND status='VALID' AND cited IS NOT NULL""",
             (audit_id,),
         ).fetchall()
@@ -302,6 +311,16 @@ def _eligible_query_runs(connection: sqlite3.Connection, audit_id: str) -> list[
         counts[key] = counts.get(key, 0) + 1
     eligible = {key for key, count in counts.items() if count >= MIN_REPETITIONS}
     return [row for row in rows if (str(row["engine"]), str(row["query_text"])) in eligible]
+
+
+def _observed_day(value: object) -> str:
+    text = str(value).strip()
+    if not text:
+        return ""
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).date().isoformat()
+    except ValueError:
+        return ""
 
 
 def _audit_domain(connection: sqlite3.Connection, audit_id: str) -> str:
