@@ -30,8 +30,13 @@ patch('tests/test_m7_semantic_provider.py', {
     'self.assertIn("AI_DISABLED_BY_CONFIGURATION", persistence.audits.get(audit.audit_id).limitations)'
 })
 
-# Public report wording must no longer expose delivery identifiers.
+# Public report wording must no longer expose delivery identifiers and the
+# readiness enrichment must preserve the shared navigation labels.
 patch('tests/test_report_navigation.py', {
     'self.assertIn("Análise M18 0.01000000 USD + Remediação M20 0.00250000 USD", html)':
     'self.assertIn("Análise semântica por IA 0.01000000 USD + Remediação textual por IA 0.00250000 USD", html)'
+})
+patch('tests/test_searchgeo_readiness_reporting.py', {
+    'assert "Evidências Mobile" in searchgeo': 'assert "Relatório Mobile" in searchgeo',
+    'assert "Evidências Desktop" in searchgeo': 'assert "Relatório Desktop" in searchgeo',
 })
