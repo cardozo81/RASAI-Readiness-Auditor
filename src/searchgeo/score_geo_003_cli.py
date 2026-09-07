@@ -1,4 +1,4 @@
-"""CLI for SCORE-GEO-003 calibration and model inspection."""
+"""CLI for SCORE-GEO-003 calibration, dataset readiness and model inspection."""
 from __future__ import annotations
 
 import argparse
@@ -6,14 +6,24 @@ from pathlib import Path
 
 from searchgeo.score_geo_003 import load_model, write_model
 from searchgeo.score_geo_003_calibration import collect_calibration_rows, fit_calibration_model
+from searchgeo.score_geo_003_dataset import build_dataset_manifest, write_dataset_manifest
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="rasai scoring",
-        description="Calibra e inspeciona o modelo versionado do SCORE-GEO-003.",
+        description="Prepara dataset, calibra e inspeciona o modelo versionado do SCORE-GEO-003.",
     )
     subparsers = parser.add_subparsers(dest="scoring_command", required=True)
+
+    dataset = subparsers.add_parser("dataset", help="materializar dataset elegível e avaliar gates pré-fit")
+    dataset.add_argument("--audits-root", default="audits", help="diretório com AUD-*/audit.db")
+    dataset.add_argument("--dataset-version", required=True, help="versão imutável do dataset, por exemplo GEO-CAL-001")
+    dataset.add_argument(
+        "--output",
+        default=str(Path(".searchgeo") / "scoring" / "score-geo-003-dataset.json"),
+        help="manifest JSON do dataset",
+    )
 
     calibrate = subparsers.add_parser("calibrate", help="calibrar modelo a partir de AUDs + query-runs observados")
     calibrate.add_argument("--audits-root", default="audits", help="diretório com AUD-*/audit.db")
@@ -37,6 +47,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.scoring_command == "dataset":
+            collection = collect_calibration_rows(args.audits_root)
+            payload = build_dataset_manifest(collection, dataset_version=args.dataset_version)
+            path = write_dataset_manifest(args.output, payload)
+            print(f"SCORE-GEO-003 dataset manifest: {path}")
+            print(f"Status: {payload['status']}")
+            print(f"Dataset: {payload['dataset_version']}")
+            print(f"SHA-256: {payload['dataset_sha256']}")
+            summary = payload["summary"]
+            print(
+                f"Rows={summary['rows']} domains={summary['domains']} "
+                f"observations={summary['observations']} engines={', '.join(summary['engines']) or '-'}"
+            )
+            print(f"AUDs ignorados: {summary['skipped_audits']}")
+            for name, gate in payload["gates"].items():
+                print(f"{'PASS' if gate['pass'] else 'FAIL'} {name}: {gate['actual']} / mínimo {gate['minimum']}")
+            print("Observação: AUC e Brier só podem ser avaliados após fitting/holdout; READY_FOR_MODEL_FIT != VALIDATED.")
+            return 0
+
         if args.scoring_command == "calibrate":
             collection = collect_calibration_rows(args.audits_root)
             fit = fit_calibration_model(collection.rows, dataset_version=args.dataset_version)
