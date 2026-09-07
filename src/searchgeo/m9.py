@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from searchgeo.domain import EvidenceType, RuleExecution, RuleResult, new_id, utc_now
 from searchgeo.evidence import EvidenceManager
@@ -66,6 +67,7 @@ def execute_m9(
             original=calculated,
             scoring=scoring,
             calibration_model=calibration_model,
+            workspace_root=workspace.root,
         )
 
     manager = EvidenceManager(persistence)
@@ -108,6 +110,7 @@ def _reproducibility_check(
     original: ScoringResult,
     scoring: ScoringPersistence,
     calibration_model: CalibrationModel | None,
+    workspace_root: Path,
 ) -> dict[str, object]:
     recalculated = ScoreGeo003Engine(calibration_model=calibration_model).score(
         audit_id=audit_id,
@@ -145,7 +148,7 @@ def _reproducibility_check(
         "scoring_version": SCORING_VERSION,
         "calibration_model": calibration_model.model_version if calibration_model else None,
         "calibration_dataset": calibration_model.dataset_version if calibration_model else None,
-        "calibration_model_path": str(resolve_model_path()),
+        "calibration_model_path": str(resolve_model_path(workspace_root)),
         "score_count": len(expected),
         "persisted_scores_reopenable": persisted_ok,
         "contributions_reopenable": contribution_refs_ok,
