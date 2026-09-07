@@ -11,6 +11,8 @@ from typing import Any
 
 from .models import ComparisonResult
 
+_GENAI_EXPORT_PREFIX = "GOOGLE_SEARCH_CONSOLE_GENERATIVE_AI_PERFORMANCE_EXPORT"
+
 
 @dataclass(frozen=True, slots=True)
 class OutcomeChange:
@@ -98,6 +100,7 @@ def analyze_change_impact(result: ComparisonResult) -> ImpactAnalysis:
     limitations = [
         "One latest dataset per source is selected in each AUD; overlapping historical datasets are not summed.",
         "Missing metrics stay unavailable; NULL is never converted into an observed zero.",
+        "Google Generative AI Performance exports are treated as non-directional changes because exported zero values can represent unavailable/non-numeric report values.",
         "Temporal association is emitted only for aligned or partially overlapping observation windows.",
         "Search engines, demand, competition, seasonality and measurement coverage can change independently of the website.",
         "This analyzer reports co-occurrence/temporal association only and never causal attribution.",
@@ -207,6 +210,7 @@ def _search_signals(connection: sqlite3.Connection, output: dict[str, dict[str, 
         ctr = None
         if clicks is not None and impressions is not None and impressions > 0:
             ctr = clicks / impressions
+        non_directional = source.startswith(_GENAI_EXPORT_PREFIX)
         for metric, value, direction, unit in (
             ("impressions", impressions, "HIGHER_BETTER", "count"),
             ("clicks", clicks, "HIGHER_BETTER", "count"),
@@ -220,7 +224,7 @@ def _search_signals(connection: sqlite3.Connection, output: dict[str, dict[str, 
                 "source": source,
                 "metric": f"{surface} {metric}",
                 "value": float(value),
-                "direction": direction,
+                "direction": "STATE" if non_directional else direction,
                 "unit": unit,
             }
 
