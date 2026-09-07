@@ -1,56 +1,20 @@
 # SCORING_GUIDE.md
 
-Guia operacional do **SearchGEO Readiness Index `SGRI-001`** e do motor persistido `SCORE-GEO-002`.
+Guia operacional do **SearchGEO Readiness Index `SGRI-001`**.
 
-## Identidade pública × motor persistido
+## Versão vigente
 
-A nomenclatura pública do índice é:
-
-```text
-SGRI-001 — SearchGEO Readiness Index
-```
-
-O banco continua registrando:
+Novas auditorias usam por padrão:
 
 ```text
-scoring_version = SCORE-GEO-002
+scoring_version = SCORE-GEO-003
 ```
 
-porque esta evolução não alterou a aritmética. Manter o identificador técnico anterior preserva comparação com auditorias já persistidas e evita apresentar uma mudança de UI/metodologia pública como se fosse recalibração matemática.
+`SCORE-GEO-002` permanece histórico e não é recalculado.
 
-Quando a fórmula, pesos, fatores, dimensões ou thresholds forem efetivamente alterados, o motor deve receber uma nova versão própria.
+A mudança `002 → 003` é metodológica: as dimensões continuam determinísticas, mas o `OVERALL_READINESS` deixa de ser média simples e passa a depender de modelo empiricamente calibrado.
 
-Consulte também `SEARCHGEO_READINESS_INDEX.md`.
-
-## Princípio
-
-Score, Coverage, Confidence e Consolidation são métricas diferentes. Nenhuma deve ser usada como sinônimo da outra.
-
-O modelo é interno ao SearchGEO e reprodutível a partir das RuleExecutions persistidas. Não é um score oficial de Google, OpenAI, Microsoft ou outro mantenedor.
-
-## Natureza metodológica e validade
-
-`SGRI-001`, calculado atualmente pelo motor `SCORE-GEO-002`, deve ser descrito como **índice proprietário, heurístico, determinístico, evidence-backed e reprodutível**.
-
-O fato de a especificação estar marcada como `APPROVED` significa apenas que ela foi aprovada como baseline normativo interno do projeto. Não significa homologação externa.
-
-As dimensões do modelo são informadas por documentação pública, literatura técnica e práticas consolidadas de Search/Information Retrieval. Porém, os seguintes elementos são decisões internas do SearchGEO e não foram calibrados externamente como um score GEO universal:
-
-- `PASS = 1.00`, `WARNING = 0.50`, `FAIL = 0.00`;
-- pesos iguais entre dimensões aplicáveis;
-- thresholds de Coverage, Confidence e Consolidation;
-- faixas visuais 90/75/60/40;
-- média simples das dimensões para o Overall;
-- interpretação do Overall como escala 0–100.
-
-Consequentemente:
-
-- `80/100` não significa `80% de chance de citação`;
-- `90/100` não garante presença em AI Overviews, AI Mode, ChatGPT, Copilot ou outro mecanismo;
-- diferenças pequenas de score não devem ser tratadas como diferenças estatisticamente significativas sem calibração própria;
-- o índice não deve ser apresentado como certificação GEO/AEO.
-
-O projeto mantém uma referência específica sobre evidência externa, métricas calibradas e alternativas de evolução em `docs/SCORING_VALIDATION.md`.
+Consulte `SCORE_GEO_003.md` para o contrato completo.
 
 ## Dimensões
 
@@ -65,7 +29,7 @@ O projeto mantém uma referência específica sobre evidência externa, métrica
 9. `EVIDENCE_TRUST`
 10. `INTENT_COVERAGE`
 
-O modelo conceitual mantém Desktop e Mobile separados. A CLI pode executar somente o dispositivo selecionado; o report site mostra apenas os contextos realmente auditados.
+Desktop e Mobile permanecem separados. Apenas dispositivos realmente auditados devem ser apresentados como resultado válido.
 
 ## RuleResult
 
@@ -78,296 +42,195 @@ ERROR
 NOT_APPLICABLE
 ```
 
-Somente `PASS`, `WARNING` e `FAIL` participam do denominador do Score.
+Somente `PASS`, `WARNING` e `FAIL` entram no denominador do score da dimensão.
 
-`UNKNOWN` e `ERROR` reduzem capacidade de avaliação/Coverage; não são FAIL.
+`UNKNOWN` e `ERROR` reduzem Coverage/capacidade de conclusão; não são `FAIL`.
 
 `NOT_APPLICABLE` sai do universo aplicável quando legítimo.
 
-## Fatores
-
-Baseline:
+## Fórmula das dimensões
 
 ```text
-PASS    = 1.00
-WARNING = 0.50
-FAIL    = 0.00
+PASS    = 1,00
+WARNING = 0,50 por padrão
+FAIL    = 0,00
+
+Dimension Score = Σ(weight × result_factor) / Σ(weight evaluated) × 100
 ```
 
-O `warning_factor` pode ser específico por regra e deve permanecer versionado.
-
-Esses fatores são heurísticos do SearchGEO; não são coeficientes oficiais ou externamente calibrados de GEO/AEO.
-
-## Fórmula da dimensão
-
-```text
-Σ(weight × result_factor)
-------------------------- × 100
-Σ(weight evaluated)
-```
-
-A média ponderada normalizada é uma forma matemática convencional. Os pesos, fatores e regras que entram nela são específicos do SearchGEO.
+A semântica de grupos correlacionados (`MAX_IMPACT`), pré-requisitos, evidência e aplicabilidade permanece compatível com a baseline `002`.
 
 ## Coverage
 
 ```text
-evaluated applicable weight
----------------------------
-total applicable weight
+evaluated applicable weight / total applicable weight
 ```
 
-`evaluated`:
+Coverage mede completude da análise, não qualidade do site.
+
+## Confidence da dimensão
 
 ```text
-PASS
-WARNING
-FAIL
+HIGH        Coverage >= 90%, evidência completa, zero errors
+MEDIUM      Coverage >= 80%, zero errors
+LOW         existe avaliação, mas critérios acima não foram satisfeitos
+UNAVAILABLE Coverage <= 0
 ```
 
-`applicable`:
+Esses thresholds continuam sendo governança interna versionada do SearchGEO.
+
+## Consolidation da dimensão
 
 ```text
-PASS
-WARNING
-FAIL
-UNKNOWN
-ERROR
+CONSOLIDATED     Coverage >= 80% e Confidence HIGH/MEDIUM
+PARTIAL          demais estados avaliáveis com Coverage >= 50%
+NOT_CONSOLIDATED Coverage < 50% ou Confidence UNAVAILABLE
+NOT_APPLICABLE   dimensão legitimamente fora do universo aplicável
 ```
 
-`NOT_APPLICABLE` fica fora.
+Pré-requisito bloqueado não pode ser promovido a `NOT_APPLICABLE` benigno.
 
-### Interpretação
+## Overall no SCORE-GEO-003
 
-Coverage baixa significa que parte relevante do universo aplicável não pôde ser avaliada. Ela **não significa baixa qualidade do website**.
-
-## Confidence
-
-Estados:
+Com todas as dimensões aplicáveis suficientemente consolidadas e um artifact `VALIDATED`:
 
 ```text
-HIGH
-MEDIUM
-LOW
-UNAVAILABLE
+Overall = 100 × sigmoid(β0 + Σ βi × feature_i)
 ```
 
-No algoritmo atual:
+As dez dimensões normalizadas em `0..1` são as features.
 
-- `HIGH`: Coverage >= 90%, evidência completa e nenhum erro;
-- `MEDIUM`: Coverage >= 80% e nenhum erro;
-- `LOW`: existe alguma avaliação, mas os critérios acima não foram satisfeitos;
-- `UNAVAILABLE`: Coverage <= 0.
+Os coeficientes não são editáveis por auditoria; pertencem ao artifact de calibração versionado.
 
-Os limites 90% e 80% são internos e versionados; não representam thresholds oficiais de GEO/AEO.
-
-### O que Confidence significa
-
-Confidence mede **a força da conclusão do auditor**.
-
-**Confidence LOW não significa que o conteúdo textual está “ruim”, “não aderente a GEO” ou que deve ser reescrito.**
-
-Exemplo:
+### Sem modelo validado
 
 ```text
-Score: 90/100
-Coverage: 55%
-Confidence: LOW
+Overall.value = null
+Overall.confidence = UNAVAILABLE
+Overall.consolidation_status = NOT_CONSOLIDATED
+limitation = CALIBRATION_MODEL_UNAVAILABLE:SCORE-GEO-003
 ```
 
-Interpretação: as regras que puderam ser avaliadas tiveram resultado alto, mas a conclusão geral é fraca porque a cobertura é limitada.
+O SearchGEO não inventa coeficientes e não faz fallback silencioso para o Overall `002`.
 
-Uma recomendação de alteração de conteúdo deve vir de um finding/RuleExecution evidence-backed, especialmente regras semânticas aplicáveis; nunca apenas do estado `LOW`.
+As dimensões continuam sendo calculadas e persistidas como `SCORE-GEO-003`.
 
-A confidence devolvida por um LLM em uma avaliação individual também não é automaticamente a Confidence final do auditor.
+## Calibração mínima
 
-## Consolidation
-
-Baseline:
+O outcome inicial é binário:
 
 ```text
-NOT_CONSOLIDATED: Confidence UNAVAILABLE ou Coverage < 0,50
-CONSOLIDATED:     Coverage >= 0,80 e Confidence HIGH/MEDIUM
-PARTIAL:          demais estados avaliáveis
-NOT_APPLICABLE:   dimensão integralmente e legitimamente fora do universo aplicável
+CITED / NOT_CITED
 ```
 
-Os thresholds de consolidação são governança interna do produto e não standard externo.
+O dataset usa query-runs controlados já persistidos em Observed Generative Visibility.
 
-Uma dimensão com pré-requisito bloqueado não deve ser promovida a `NOT_APPLICABLE` benigno.
+Promotion gate:
 
-## Sem RuleExecution
+| Requisito | Mínimo |
+|---|---:|
+| Domínios | 40 |
+| Domínios de validação | 12 |
+| Engines | 2 |
+| Queries/domínio | 10 |
+| Repetições/query/engine | 3 |
+| Dias distintos de observação por domínio | 3 |
+| Observações válidas | 2400 |
+| AUC holdout | 0,60 |
+| Brier | menor que baseline por prevalência |
 
-Se nenhuma execução da dimensão existe para o dispositivo:
+O split é feito por domínio, não por query, para reduzir leakage. A cobertura temporal mínima impede que um artifact seja promovido quando as observações de um domínio estão concentradas em menos de três datas distintas.
 
-```text
-Value = null
-Coverage = 0
-Confidence = UNAVAILABLE
-Consolidation = NOT_CONSOLIDATED
-limitation = NO_RULE_EXECUTIONS
-```
+## Confidence do Overall
 
-## Dimensão legitimamente não aplicável
+A Confidence final é limitada por:
 
-Quando todas as execuções são legitimamente `NOT_APPLICABLE`:
+- menor Confidence das dimensões aplicáveis;
+- `calibration_confidence` do artifact.
 
-```text
-Value = null
-Coverage = 0 na dimensão isolada
-Confidence = UNAVAILABLE
-Consolidation = NOT_APPLICABLE
-limitation = NO_APPLICABLE_RULES
-```
+Um modelo validado recebe pelo menos `MEDIUM`; `HIGH` exige amostra e desempenho superiores definidos no protocolo.
 
-A dimensão não recebe 0 nem 100 e é excluída do Overall.
+Confidence continua significando força da medição, não garantia de citação futura.
 
-## Pré-requisito bloqueado
+## Structured Data / NOT_APPLICABLE
 
-Reason codes com `PREREQUISITE_BLOCKED` mantêm:
+JSON-LD não é requisito universal para cálculo.
 
-```text
-Value = null
-Consolidation = NOT_CONSOLIDATED
-limitation = APPLICABILITY_UNRESOLVED:PREREQUISITE_BLOCKED
-```
+Quando `STRUCTURED_DATA` é legitimamente `NOT_APPLICABLE`, a dimensão não recebe zero. Na inferência do `003`, usa-se a média de imputação persistida para essa feature no artifact.
 
-## Double counting
-
-Regras correlacionadas usam `scoring_group`. Baseline:
-
-```text
-MAX_IMPACT
-```
-
-Isso evita somar várias vezes o mesmo problema causal dentro do mesmo escopo.
-
-## Overall
-
-`OVERALL_READINESS` é calculado separadamente por dispositivo.
-
-Processo:
-
-1. materializar as dez dimensões no modelo;
-2. excluir somente dimensões `NOT_APPLICABLE` legítimas;
-3. exigir Value e estado diferente de `NOT_CONSOLIDATED` para as dimensões aplicáveis;
-4. calcular média simples dos Values aplicáveis;
-5. calcular Coverage como média das coverages aplicáveis;
-6. usar a menor Confidence entre as dimensões aplicáveis;
-7. persistir limitações de aplicabilidade/consolidação.
-
-Se uma dimensão aplicável necessária está `NOT_CONSOLIDATED`, o Overall não é publicado como consolidado.
-
-O Overall é um índice interno de prontidão. Não representa probabilidade calibrada de citação, ranking, tráfego ou conversão.
-
-## Groundability no SGRI-001
-
-Groundability é exposta como **conjunto de sinais**, não como novo subscore. O report destaca separadamente:
-
-- `ANSWERABILITY`;
-- `CITATION_READINESS`;
-- `EVIDENCE_TRUST`.
-
-Não calcular uma média específica nesta versão evita introduzir uma segunda agregação heurística sem validação. Uma versão futura pode criar um subscore somente com fórmula, versão e validação próprias.
-
-## Structured Data
-
-JSON-LD não é requisito universal para um Overall calculável.
-
-Quando Structured Data está ausente e `BR-GEO-034..037` são legitimamente não aplicáveis:
-
-- `STRUCTURED_DATA = NOT_APPLICABLE`;
-- a dimensão fica fora do Overall;
-- ausência isolada não recebe penalização.
-
-Quando Structured Data existe, a dimensão volta ao universo aplicável e sua qualidade pode influenciar o resultado.
-
-Esse comportamento também evita transformar Structured Data em requisito artificial para recursos generativos, em desacordo com a documentação oficial atual do Google.
+Uma dimensão aplicável `NOT_CONSOLIDATED` bloqueia o Overall.
 
 ## Sem IA
 
-Ausência de IA:
+IA continua opcional para a auditoria base. Ausência de IA pode reduzir Coverage/Confidence das dimensões sem transformar regras semânticas em `FAIL`.
 
-- pode reduzir Coverage;
-- pode reduzir Confidence/Consolidation;
-- não atribui qualidade baixa ao website;
-- não converte regra semantic-only automaticamente em FAIL.
+A calibração do `003` é processo separado e consome outcomes observados persistidos; não cria chamadas externas durante o cálculo normal do score.
 
-## Dispositivo selecionado
+## Parametrização
 
-Default CLI:
+Configuração de coleta é permitida. Matemática oficial não é variável por auditoria.
 
-```text
-mobile
+Configurável:
+
+- URLs/domínios auditados;
+- engines/query-runs observados;
+- volume, repetições e distribuição temporal das observações;
+- diretório de AUDs para calibração;
+- `dataset_version`;
+- caminho do model artifact.
+
+Fixo/versionado:
+
+- features;
+- fórmula;
+- promoção `VALIDATED`;
+- split por domínio;
+- regularização;
+- coeficientes do artifact;
+- thresholds de Coverage/Confidence/Consolidation.
+
+## Comandos
+
+```powershell
+searchgeo scoring calibrate --dataset-version GEO-CAL-001
+searchgeo scoring inspect
 ```
 
-Opções:
+Artifact padrão:
 
 ```text
-mobile
-desktop
-both
+.searchgeo/scoring/score-geo-003-model.json
 ```
 
-Somente snapshots selecionados entram em Análise semântica e fallback. Isso reduz custo de IA quando apenas Mobile é necessário.
-
-O engine ainda mantém o modelo conceitual de dimensões por dispositivo; o report site evita exibir um contexto não auditado como se fosse resultado válido.
-
-## Classificação visual
-
-A UI atual usa thresholds internos para comunicação de um Score consolidado:
+Override de localização:
 
 ```text
->= 90  Excelente
->= 75  Alta
->= 60  Moderada
->= 40  Baixa
-<  40  Crítica
+SEARCHGEO_SCORE_GEO_003_MODEL
 ```
-
-Essas faixas **não são padrão oficial GEO/AEO**. Alterá-las é decisão de produto/calibração do SearchGEO e não mudança em documentação externa.
-
-Não converter essas classes em percentuais de probabilidade ou garantia de performance externa.
-
-## Critical blockers
-
-Blockers críticos são mostrados separadamente. Um score alto não deve ocultar um blocker comprovado.
-
-## Evidência externa
-
-O SearchGEO diferencia:
-
-1. **requisito/sinal oficial externo** — sustentado diretamente por documentação do mantenedor;
-2. **métrica externa calibrada/padronizada** — metodologia quantitativa externa, por exemplo Core Web Vitals, Lighthouse ou métricas NIST/TREC;
-3. **heurística SearchGEO** — peso, fator, threshold ou agregação criados pelo produto.
-
-Uma métrica externa validada para performance web ou Information Retrieval pode fortalecer uma dimensão específica, mas não valida automaticamente o `OVERALL_READINESS`/`SGRI-001` como score GEO universal.
-
-## Calibração futura
-
-Uma versão futura poderá substituir parâmetros heurísticos por parâmetros empiricamente calibrados apenas depois de validação contra outcomes observáveis, como presença/citação em mecanismos generativos.
-
-A calibração deve usar conjunto de queries representativo, múltiplas engines, repetições, separação treino/validação, análise de variabilidade, métricas estatísticas e versionamento temporal das engines/modelos.
-
-Até esse processo existir, a nomenclatura correta permanece `índice interno de prontidão`, não `probabilidade GEO` nem `score científico`.
 
 ## Reprodutibilidade
 
-Persistidos:
+`BR-GEO-054` deve permitir reconstrução a partir de:
 
-- `Score`;
-- `ScoreContribution`;
-- `rule_execution_id`;
-- `rule_id` e versão;
-- pesos/fatores/grupos;
-- limitations;
-- `scoring_version = SCORE-GEO-002`.
+- RuleExecutions e versões;
+- ScoreContributions;
+- `SCORE-GEO-003`;
+- model version;
+- dataset version;
+- SHA-256 do artifact de calibração.
 
-`BR-GEO-054` verifica reprodutibilidade sem reexecutar website ou IA.
+Nenhuma reexecução de website ou IA deve ser necessária para reproduzir o cálculo.
 
-O HTML apenas exibe a projeção; a reprodutibilidade está em `audit.db`.
+## Relatórios e histórico
 
-## Proveniência metodológica dos indicadores
+`searchgeo.html` é a página canônica do SGRI.
 
-O relatório final classifica explicitamente a natureza dos indicadores e separa standards externos, orientação oficial de plataforma, métricas externas definidas, heurísticas SearchGEO, telemetria e saídas de IA. Consulte [INDICATOR_PROVENANCE.md](INDICATOR_PROVENANCE.md).
+`score-geo-003.html` expõe o contrato e o estado de calibração da auditoria, inclusive o gate temporal vigente.
 
-`references.html#indicator-provenance` reproduz essa fronteira no próprio relatório, com fonte/entidade, link oficial quando aplicável e a parte específica implementada pelo SearchGEO.
+Relatórios consolidados devem segmentar séries por `scoring_version`. `SCORE-GEO-002` e `SCORE-GEO-003` não devem ser tratados como a mesma série sem ressalva explícita.
+
+## Limite de validade
+
+O `003` é uma métrica proprietária calibrada contra outcomes observados. Não é certificação oficial de Google, OpenAI, Microsoft, Anthropic ou outro mantenedor.
+
+O resultado mede associação observacional no dataset utilizado; não prova causalidade nem garante ranking, tráfego, conversão ou citação futura.

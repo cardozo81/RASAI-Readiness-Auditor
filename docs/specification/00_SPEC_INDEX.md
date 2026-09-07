@@ -63,7 +63,7 @@ Nenhuma decisão funcional deve ser alterada silenciosamente durante implementa�
 - `02_DOMAIN_MODEL.md` — entidades, relacionamentos, identificadores, estados e invariantes.
 - `03_BUSINESS_RULES.md` — Business Rules `BR-GEO-001` a `BR-GEO-054`.
 - `04_WORKFLOWS.md` — workflows e ordem de execução.
-- `05_SCORING_MODEL.md` — Score, Coverage, Confidence, Consolidation e aplicabilidade. Baseline: `SCORE-GEO-002`.
+- `05_SCORING_MODEL.md` — Score, Coverage, Confidence, Consolidation, aplicabilidade e Overall calibrado. Baseline: `SCORE-GEO-003`.
 - `06_PRIORITIZATION_MODEL.md` — Severity, Impact, Effort, Confidence e Priority.
 - `07_FUNCTIONAL_REQUIREMENTS.md` — requisitos funcionais e não funcionais vigentes.
 - `08_TECHNICAL_ARCHITECTURE.md` — arquitetura local/modular e fronteiras entre domínios.
@@ -80,23 +80,28 @@ Nenhuma decisão funcional deve ser alterada silenciosamente durante implementa�
 - `16_ROOT_CAUSE_ELEMENT_REMEDIATION.md` — remediação por causa raiz e elemento.
 - `17_REMEDIATION_PRECISION_REPORT_CONSISTENCY.md` — precisão e consistência das recomendações.
 - `18_MULTI_AI_PROVIDER_ROUTING.md` — análise semântica por IA, roteamento, fallback e telemetria.
-- `19_SCORE_APPLICABILITY_GEO_MINIMUMS.md` — aplicabilidade, mínimos e regras do `SCORE-GEO-002`.
+- `19_SCORE_APPLICABILITY_GEO_MINIMUMS.md` — semântica de aplicabilidade introduzida no `SCORE-GEO-002` e preservada no `SCORE-GEO-003`.
 - `20_AI_CONTENT_REMEDIATION.md` — sugestões e remediação de conteúdo por IA, sem alteração retroativa do score.
 - `21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md` — PageSpeed, Lighthouse e Core Web Vitals/CrUX como evidência externa complementar.
 - `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md` — acessibilidade automatizada e diagnósticos Web separados do SearchGEO Readiness.
 - `23_SYNTHETIC_APDEX_LIGHTHOUSE_TRACEABILITY.md` — Synthetic Navigation Apdex.
 - `24_CRAWLING_DISCOVERY_AI_ACCESS.md` — rastreamento, descoberta e políticas de crawlers.
 - `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md` — Synthetic User Experience Apdex calibrável, separado de RUM.
-- `26_OBSERVED_GENERATIVE_VISIBILITY.md` — visibilidade generativa observada/importada, separada de readiness.
+- `26_OBSERVED_GENERATIVE_VISIBILITY.md` — visibilidade generativa observada/importada; query-runs controlados podem alimentar a calibração offline do Overall `003`.
 
 ## 5. Baseline vigente de scoring e método público
 
-- motor persistido: `SCORE-GEO-002`;
+- motor padrão para novas auditorias: `SCORE-GEO-003`;
+- `SCORE-GEO-002` permanece histórico e não é recalculado;
 - identidade pública de readiness: `SGRI-001`;
-- dimensões legitimamente `NOT_APPLICABLE` não recebem zero e são excluídas conforme `19_SCORE_APPLICABILITY_GEO_MINIMUMS.md`;
+- dimensões legitimamente `NOT_APPLICABLE` não recebem zero;
 - Coverage, Confidence e Consolidation permanecem métricas distintas do Score;
+- o Overall `003` exige artifact de calibração `VALIDATED`; sem ele, permanece `NOT_CONSOLIDATED`;
 - não existe alegação de score GEO/AEO universal ou homologado;
-- métricas externas ou resultados observados não são incorporados ao SGRI sem nova decisão, nova versão e validação apropriada.
+- métricas externas não são incorporadas silenciosamente ao SGRI;
+- outcomes controlados de Observed Generative Visibility podem ser usados pelo processo separado de calibração, sem alterar retroativamente o AUD que os contém.
+
+Detalhes operacionais: `../SCORE_GEO_003.md`.
 
 ## 6. REPORT-SITE-GEO-001
 
@@ -105,6 +110,7 @@ O contrato final de saída continua condicional pela existência/materializaçã
 ```text
 <AUD-ID>/report/index.html
 <AUD-ID>/report/searchgeo.html             # SGRI-001 / SearchGEO
+<AUD-ID>/report/score-geo-003.html         # método/modelo/dataset/gates do scoring vigente
 <AUD-ID>/report/mobile.html                # condicional
 <AUD-ID>/report/desktop.html               # condicional
 <AUD-ID>/report/remediation.html
@@ -126,20 +132,20 @@ Default de dispositivo da CLI: `mobile`. `desktop` e `both` são seleções expl
 
 Cada indicador ou domínio possui uma página canônica. O `index.html` pode resumir um resultado final para navegação executiva, mas não deve duplicar metodologia/evidência detalhada nem fundir métricas diferentes em um score comum.
 
-`searchgeo.html` é a página canônica de SGRI/indicadores proprietários. Acessibilidade, Web Performance, Apdex e visibilidade generativa observada permanecem domínios separados.
+`searchgeo.html` é a página canônica de SGRI/indicadores proprietários. `score-geo-003.html` documenta o estado da calibração. Acessibilidade, Web Performance, Apdex e visibilidade generativa observada permanecem domínios separados.
 
 ## 7. Fronteiras dos domínios complementares
 
 | Domínio | Finalidade | Regra de fronteira |
 |---|---|---|
-| Web Performance | PageSpeed/Lighthouse/CrUX | evidência externa; não altera o SearchGEO Readiness Index |
-| Acessibilidade automatizada | diagnóstico Lighthouse de acessibilidade | não declara conformidade WCAG integral nem altera o SearchGEO Readiness Index |
-| Synthetic Navigation Apdex | navegação sintética controlada | T/4T explícito; não é RUM; não altera o SearchGEO Readiness Index |
-| Rastreamento e descoberta | robots.txt, sitemaps, feeds e políticas de crawlers | diagnóstico técnico; não altera o SearchGEO Readiness Index |
-| Synthetic User Experience Apdex | experiência sintética calibrável | não é RUM; permanece separado do Synthetic Navigation Apdex e do SearchGEO Readiness Index |
-| Observed Generative Visibility | resultados observados/importados de AI Search | permanece separado de readiness e não cria score GEO próprio |
+| Web Performance | PageSpeed/Lighthouse/CrUX | evidência externa; não entra diretamente no Overall `003` |
+| Acessibilidade automatizada | diagnóstico Lighthouse de acessibilidade | não declara conformidade WCAG integral nem entra diretamente no Overall `003` |
+| Synthetic Navigation Apdex | navegação sintética controlada | T/4T explícito; não é RUM; permanece indicador separado |
+| Rastreamento e descoberta | robots.txt, sitemaps, feeds e políticas de crawlers | diagnóstico técnico; permanece domínio separado |
+| Synthetic User Experience Apdex | experiência sintética calibrável | não é RUM; permanece separado do Synthetic Navigation Apdex e do SGRI |
+| Observed Generative Visibility | resultados observados/importados de AI Search | permanece domínio observacional; query-runs controlados podem alimentar calibração offline, sem criar score próprio |
 
-## 8. Observed Generative Visibility
+## 8. Observed Generative Visibility e calibração
 
 Fonte normativa: `26_OBSERVED_GENERATIVE_VISIBILITY.md`.
 
@@ -155,11 +161,37 @@ A capacidade:
 - calcula Citation Presence Rate apenas sobre runs controlados `VALID`;
 - apresenta `n` e Wilson 95% quando a taxa é calculável;
 - cria `report/ai-visibility.html`;
-- não escreve nem recalcula `scores`, `score_contributions`, `rule_executions`, `findings` ou `recommendations`;
-- não cria GEO Score, ranking, autoridade nem probabilidade de citação futura;
-- não presume causalidade entre SGRI e visibilidade observada.
+- a importação não escreve nem recalcula `scores`, `score_contributions`, `rule_executions`, `findings` ou `recommendations`;
+- não cria GEO Score, ranking, autoridade nem garantia de citação futura;
+- `CONTROLLED_QUERY_RUNS` elegíveis podem ser lidos posteriormente pelo comando `searchgeo scoring calibrate`;
+- a calibração gera artifact separado e versionado; não altera o histórico do AUD fonte.
 
-## 9. Fontes externas e heurística
+## 9. SCORE-GEO-003
+
+Contrato inicial:
+
+```text
+format_version = SG003-MODEL-001
+model_version = GEO-LR-001
+outcome = CITED_BINARY
+model = L2_REGULARIZED_LOGISTIC_REGRESSION
+split = DOMAIN_HOLDOUT_70_30_V1
+```
+
+Promotion gate mínimo:
+
+- 40 domínios;
+- 12 domínios no holdout;
+- 2 engines;
+- 10 queries por domínio;
+- 3 repetições por query/engine;
+- 2400 observações válidas;
+- AUC holdout >= 0,60;
+- Brier menor que baseline por prevalência de treino.
+
+Sem artifact `VALIDATED`, as dimensões continuam auditáveis, mas `OVERALL_READINESS` permanece sem valor consolidado. Não existe fallback silencioso para a aritmética `002`.
+
+## 10. Fontes externas e heurística
 
 O SearchGEO não deve representar seu score ou thresholds como standard GEO/AEO universal.
 
@@ -167,7 +199,7 @@ Referências primárias atuais incluem Google Search Central/Crawling Infrastruc
 
 Structured Data/JSON-LD é reforço opcional, não requisito universal GEO. Quando a remediação de conteúdo por IA propõe ou revisa JSON-LD, usa somente conteúdo/evidência persistidos.
 
-Lighthouse e Core Web Vitals introduzem métricas externas documentadas para fenômenos específicos. Não homologam `SCORE-GEO-002` e não são combinados silenciosamente com ele.
+Lighthouse e Core Web Vitals introduzem métricas externas documentadas para fenômenos específicos. Não homologam `SCORE-GEO-003` e não são combinados silenciosamente com ele.
 
 Acessibilidade automatizada Lighthouse permanece independente do GEO e não equivale a conformidade WCAG integral.
 
@@ -179,7 +211,7 @@ Observed Generative Visibility separa métricas reportadas pela fonte de cálcul
 
 Heurísticas BR-GEO sem equivalente normativo permanecem identificadas como heurísticas/baseline interna.
 
-## 10. Continuidade de branches e integração
+## 11. Continuidade de branches e integração
 
 Branches de trabalho são temporárias.
 
@@ -193,13 +225,13 @@ Após validação e merge em `main`:
 
 Uma branch ativa de outro trabalho não deve ser modificada ou incorporada por uma alteração concorrente sem necessidade técnica explícita.
 
-## 11. Regra de mudança
+## 12. Regra de mudança
 
 Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context público, conteúdo sugerido por IA, consumo de Web Performance, fronteiras de acessibilidade, carga sintética, aquisição/rastreamento, visibilidade observada ou requisitos corporativos devem ser reconciliadas nesta baseline antes da conclusão do merge.
 
 Decisões puramente internas de implementação podem ser tomadas sem aprovação humana quando não alterarem comportamento funcional.
 
-## 12. Critério de encerramento de alteração
+## 13. Critério de encerramento de alteração
 
 Uma alteração só está apta a merge quando:
 
