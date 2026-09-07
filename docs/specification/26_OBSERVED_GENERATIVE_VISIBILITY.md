@@ -2,28 +2,32 @@
 
 **Status:** INTEGRADO E VALIDADO.
 **Versão do contrato de importação:** `OGV-IMPORT-001`
-**Impacto em scoring:** `NONE`
+**Impacto da importação em scoring:** `NONE`
+**Uso posterior permitido:** `CONTROLLED_QUERY_RUNS` elegíveis podem alimentar a calibração offline do `SCORE-GEO-003`.
 
 ## 1. Objetivo
 
-O Observed Generative Visibility adiciona ao SearchGEO uma camada de **outcomes observados** de Search/AI Search, rigorosamente separada do readiness inferido pelo `SGRI-001`/`SCORE-GEO-002`.
+Observed Generative Visibility adiciona ao SearchGEO uma camada de **outcomes observados** de Search/AI Search.
 
-A pergunta respondida pelo Observed Generative Visibility é:
+A pergunta respondida é:
 
 > O que foi efetivamente observado quanto a participação/citação do conteúdo em uma fonte ou protocolo explicitamente identificado?
 
-O Observed Generative Visibility não afirma causalidade entre readiness e visibilidade, não cria um novo GEO Score e não altera pesos, thresholds ou dimensões SearchGEO.
+A importação não recalcula o SGRI, não cria um novo GEO Score e não altera pesos, thresholds ou dimensões da auditoria fonte.
+
+No `SCORE-GEO-003`, query-runs controlados podem ser usados posteriormente por um processo separado de calibração. Isso não elimina a distinção entre readiness medido e visibility observada.
 
 ## 2. Princípio normativo
 
 ```text
-Readiness inferido != Visibilidade observada
+Readiness medido != Visibilidade observada
 ```
 
-- `SGRI-001` continua descrevendo readiness técnico/semântico/evidencial.
-- Web Performance externo/Acessibilidade automatizada e diagnósticos Web/Synthetic Navigation Apdex/Synthetic User Experience Apdex continuam descrevendo seus domínios externos/sintéticos próprios.
-- Observed Generative Visibility descreve somente outcomes observados/importados.
-- uma correlação futura entre readiness e Observed Generative Visibility exige estudo empírico específico; não pode ser presumida pelo relatório.
+- `SGRI-001` descreve readiness técnico/semântico/evidencial.
+- Web Performance, Acessibilidade e Apdex mantêm seus domínios próprios.
+- Observed Generative Visibility descreve outcomes observados/importados.
+- o calibrador do `SCORE-GEO-003` pode estudar associação entre as dimensões SearchGEO e `CITED/NOT_CITED`;
+- associação observacional não prova causalidade nem garante citação futura.
 
 ## 3. Fontes suportadas em OGV-IMPORT-001
 
@@ -31,25 +35,19 @@ Readiness inferido != Visibilidade observada
 
 Fonte observacional correspondente ao AI Performance do Bing Webmaster Tools.
 
-A documentação pública do Bing descreve, entre outros:
-
-- Total Citations;
-- Average Cited Pages;
-- grounding queries;
-- atividade de citação por URL;
-- tendências ao longo do tempo.
+A documentação pública do Bing descreve Total Citations, Average Cited Pages, grounding queries, atividade de citação por URL e tendências.
 
 Referência primária:
 
 - https://blogs.bing.com/webmaster/February-2026/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview
 
-O SearchGEO **não possui nem presume uma API oficial para AI Performance**. O Observed Generative Visibility não faz scraping do portal. O usuário normaliza uma evidência/exportação observada para `OGV-IMPORT-001`; o arquivo original normalizado é preservado como artifact e identificado por SHA-256.
+O SearchGEO não presume API oficial para AI Performance e não faz scraping do portal. O usuário normaliza uma evidência/exportação observada para `OGV-IMPORT-001`; o arquivo normalizado é preservado como artifact com SHA-256.
 
-`total_citations` e `average_cited_pages` são persistidos como **source-reported metrics**. O SearchGEO não os recalcula para simular equivalência com uma fórmula de produto não publicada.
+`total_citations` e `average_cited_pages` são persistidos como **source-reported metrics**. Não são convertidos no outcome binário do calibrador.
 
 ### 3.2 `CONTROLLED_QUERY_RUNS`
 
-Dataset produzido por protocolo controlado externo ao scoring SearchGEO. Cada run registra no mínimo:
+Dataset produzido por protocolo controlado externo à execução do scoring. Cada run registra no mínimo:
 
 - engine;
 - query;
@@ -60,11 +58,13 @@ Dataset produzido por protocolo controlado externo ao scoring SearchGEO. Cada ru
 
 Opcionalmente pode registrar surface, market, language, notes e rank observado.
 
-`rank` só é aceito quando `ranking_semantics` também é informado. O Observed Generative Visibility não presume que ordem visual, ordem de referências ou posição de citação sejam equivalentes entre engines.
+`rank` só é aceito com `ranking_semantics`. O SearchGEO não presume equivalência de posição entre engines.
+
+Para calibração do `SCORE-GEO-003`, somente query-runs controlados válidos e que atendam ao promotion gate são elegíveis.
 
 ### 3.3 Método de captura/proveniência
 
-`source.capture_method` é obrigatório para qualquer fonte. Valores suportados em `OGV-IMPORT-001`:
+`source.capture_method` é obrigatório:
 
 ```text
 MANUAL_TRANSCRIPTION
@@ -73,26 +73,17 @@ CONTROLLED_PROTOCOL
 EXTERNAL_AUTOMATION
 ```
 
-Semântica:
-
-- `MANUAL_TRANSCRIPTION`: transcrição humana de uma fonte observada;
-- `NORMALIZED_EXPORT`: exportação/arquivo obtido externamente e normalizado para o contrato Observed Generative Visibility;
-- `CONTROLLED_PROTOCOL`: dataset produzido por protocolo de query-runs controlados;
-- `EXTERNAL_AUTOMATION`: coleta realizada por automação externa ao SearchGEO.
-
-O valor é **proveniência declarada do dataset**. Ele não significa, por si só, que o SearchGEO autenticou, consultou ou coletou diretamente o dado no sistema externo. O report deve deixar essa fronteira explícita.
+O valor descreve proveniência declarada. Não implica que o SearchGEO autenticou ou coletou diretamente o dado no sistema externo.
 
 ## 4. Citation Presence Rate
-
-Para query-runs controlados:
 
 ```text
 Citation Presence Rate = valid runs with cited=true / valid runs
 ```
 
-Runs `INVALID` são excluídos do numerador e do denominador.
+Runs `INVALID` ficam fora do numerador e denominador.
 
-O relatório deve sempre apresentar o tamanho amostral. Quando `n > 0`, o SearchGEO calcula também intervalo de confiança binomial de Wilson de 95%:
+Quando `n > 0`, o SearchGEO calcula Wilson 95%:
 
 ```text
 p = x / n
@@ -102,7 +93,7 @@ half = z * sqrt((p(1-p) + z²/(4n))/n) / (1 + z²/n)
 CI95 = [center-half, center+half], limitado a [0,1]
 ```
 
-A escolha de 95% é convenção estatística de apresentação do Observed Generative Visibility. O intervalo mede incerteza amostral do protocolo informado; não é previsão de citação futura nem validação causal do SGRI.
+A taxa e seu intervalo descrevem o dataset observado. Não são, isoladamente, previsão de citação futura.
 
 ## 5. Contrato JSON OGV-IMPORT-001
 
@@ -112,33 +103,17 @@ Exemplo:
 {
   "format_version": "OGV-IMPORT-001",
   "source": {
-    "type": "BING_WEBMASTER_TOOLS_AI_PERFORMANCE",
-    "label": "Bing Webmaster Tools AI Performance",
-    "capture_method": "NORMALIZED_EXPORT",
+    "type": "CONTROLLED_QUERY_RUNS",
+    "label": "Controlled query-runs",
+    "capture_method": "CONTROLLED_PROTOCOL",
     "period_start": "2026-08-01",
     "period_end": "2026-08-31",
     "market": "BR",
-    "language": "pt-BR",
-    "reported_metrics": {
-      "total_citations": 120,
-      "average_cited_pages": 1.8
-    },
-    "metadata": {
-      "capture": "normalized-manual-export"
-    }
+    "language": "pt-BR"
   },
-  "page_citations": [
-    {"url": "https://example.com/page", "citations": 12}
-  ],
-  "grounding_queries": [
-    {"query": "example query", "citations": 4, "url": "https://example.com/page"}
-  ],
-  "trend": [
-    {"date": "2026-08-01", "citations": 2}
-  ],
   "query_runs": [
     {
-      "engine": "BING_COPILOT",
+      "engine": "ENGINE_A",
       "surface": "AI answer",
       "query": "example query",
       "observed_at": "2026-08-20T12:00:00-03:00",
@@ -154,40 +129,29 @@ Arrays não aplicáveis podem ser omitidos. Deve existir ao menos uma observaç�
 
 ## 6. Validação de escopo
 
-Todas as URLs persistidas pelo Observed Generative Visibility devem pertencer ao `normalized_origin` da auditoria.
-
-Isso inclui:
+Todas as URLs persistidas devem pertencer ao `normalized_origin` da auditoria, incluindo:
 
 - `page_citations[].url`;
-- `grounding_queries[].url`, quando informado;
+- `grounding_queries[].url`;
 - `query_runs[].cited_urls`.
 
-O Observed Generative Visibility rejeita importação cross-origin em vez de misturar outcomes de propriedades diferentes.
+Importação cross-origin é rejeitada.
 
 ## 7. Proveniência e idempotência
 
-O arquivo JSON é preservado em:
+Artifact:
 
 ```text
 <AUD-ID>/artifacts/m26/observed-generative-visibility-<sha16>.json
 ```
 
-Persistem-se:
+Persistem-se SHA-256, caminho, fonte, `capture_method`, período, market/language, metadata e timestamp de importação.
 
-- SHA-256 completo;
-- caminho relativo do artifact;
-- source type/label;
-- `capture_method`;
-- período;
-- market/language;
-- metadata fornecida;
-- timestamp de importação.
-
-`import_id` é determinístico pelo SHA-256. Reimportar o mesmo arquivo para a mesma auditoria substitui a projeção anterior daquele artifact sem duplicar observações.
+`import_id` é determinístico pelo SHA-256. Reimportar o mesmo arquivo substitui a projeção daquele artifact sem duplicar observações.
 
 ## 8. Persistência
 
-Tabelas aditivas:
+Tabelas:
 
 ```text
 generative_visibility_imports
@@ -197,7 +161,7 @@ generative_visibility_trend
 generative_visibility_query_runs
 ```
 
-O Observed Generative Visibility não escreve em:
+A operação `visibility import` não escreve em:
 
 - `scores`;
 - `score_contributions`;
@@ -205,25 +169,15 @@ O Observed Generative Visibility não escreve em:
 - `findings`;
 - `recommendations`.
 
-## 9. Report
+O comando separado `searchgeo scoring calibrate` lê dados elegíveis de múltiplos `AUD-*` e grava apenas um model artifact fora dos bancos fonte.
 
-Arquivo dedicado:
+## 9. Report
 
 ```text
 <AUD-ID>/report/ai-visibility.html
 ```
 
-A página deve separar visualmente, por dataset/período:
-
-- métricas reportadas pela fonte;
-- atividade por URL;
-- grounding queries;
-- tendência importada;
-- query-runs controlados;
-- Citation Presence Rate + n + Wilson 95%, quando calculável;
-- artifact, SHA-256, período, fonte e método de captura.
-
-O report deve distinguir **fonte declarada** de **método de captura** e não pode sugerir coleta autenticada pelo SearchGEO quando o dataset foi transcrito, exportado ou produzido externamente.
+A página separa métricas reportadas pela fonte, atividade por URL, grounding queries, tendência, query-runs, Citation Presence Rate + n + Wilson 95% e proveniência.
 
 Não existe agregação global que combine fontes diferentes em um único score.
 
@@ -238,43 +192,62 @@ searchgeo visibility import `
   --file observed-visibility.json
 ```
 
-Regeneração do report a partir do `audit.db`:
+Regeneração:
 
 ```powershell
 searchgeo visibility report --audit-id AUD-... --audits-root audits
 ```
 
-O entrypoint `searchgeo` roteia somente o comando `visibility` ao Observed Generative Visibility. Demais comandos continuam delegados ao pipeline `cli_extensions` existente.
+Calibração separada:
 
-## 11. Fronteiras e linguagem proibida
+```powershell
+searchgeo scoring calibrate --dataset-version GEO-CAL-001
+```
 
-O Observed Generative Visibility não deve afirmar:
+A calibração não chama engines; ela usa somente outcomes já persistidos.
+
+## 11. Relação com SCORE-GEO-003
+
+Promotion gate mínimo vigente:
+
+- 40 domínios;
+- 12 domínios de validação;
+- 2 engines;
+- 10 queries por domínio;
+- 3 repetições por query/engine;
+- 2400 observações válidas;
+- AUC holdout >= 0,60;
+- Brier melhor que baseline por prevalência de treino.
+
+O split é por domínio para reduzir leakage.
+
+O artifact gerado permanece `EXPERIMENTAL` até satisfazer todos os gates. Artifact experimental não consolida `OVERALL_READINESS`.
+
+Detalhes: `../SCORE_GEO_003.md` e `../SCORING_VALIDATION.md`.
+
+## 12. Fronteiras e linguagem proibida
+
+Não afirmar:
 
 - “GEO Score oficial”;
-- “probabilidade de citação” a partir de uma taxa histórica simples;
+- garantia/probabilidade universal de citação;
 - que Total Citations representa ranking/autoridade;
-- que uma citação prova qualidade, causalidade ou preferência do engine;
-- que Bing AI Performance possui API oficial enquanto isso não estiver documentado publicamente;
-- que um `capture_method` prova coleta autenticada pelo SearchGEO;
-- que resultados de uma engine são universalmente transferíveis para outra.
-
-## 12. Evolução futura
-
-A versão seguinte pode adicionar adapters oficiais somente quando houver contrato público/documentado da fonte.
-
-Uma futura calibração do readiness contra outcomes Observed Generative Visibility deve usar dataset longitudinal, separação por domínio entre treino/calibração/teste, múltiplas queries/runs/engines, análise de estabilidade e validação fora da amostra antes de qualquer alegação preditiva.
+- que uma citação prova qualidade ou causalidade;
+- que Bing AI Performance possui API oficial sem documentação pública;
+- que um `capture_method` prova coleta autenticada;
+- que resultados de uma engine são universalmente transferíveis.
 
 ## 13. Critérios de aceite
 
-- import JSON validado e same-origin;
-- `source.capture_method` obrigatório e validado;
-- artifact preservado com SHA-256;
+- JSON validado e same-origin;
+- `source.capture_method` obrigatório;
+- artifact com SHA-256;
 - reimport idempotente;
 - source-reported metrics não reinterpretadas;
 - query-runs inválidos excluídos do Citation Presence Rate;
 - Wilson 95% reproduzível;
-- report dedicado gerado com proveniência explícita;
-- zero alteração em SGRI/SCORE-GEO;
+- report dedicado com proveniência explícita;
+- importação sem alteração de score do AUD fonte;
 - zero chamada de rede causada pelo Observed Generative Visibility;
-- `searchgeo audit` preserva comportamento anterior;
-- testes automatizados cobrindo fronteiras acima.
+- query-runs controlados elegíveis disponíveis para calibração offline do `SCORE-GEO-003`;
+- testes automatizados cobrindo as fronteiras acima.
