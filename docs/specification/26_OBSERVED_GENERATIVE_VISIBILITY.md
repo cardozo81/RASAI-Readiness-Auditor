@@ -1,4 +1,4 @@
-# Observed Generative Visibility — Observed Generative Visibility
+# Observed Generative Visibility
 
 **Status:** INTEGRADO E VALIDADO.
 **Versão do contrato de importação:** `OGV-IMPORT-001`

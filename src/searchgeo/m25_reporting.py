@@ -1,4 +1,4 @@
-"""Relatório dedicado do Synthetic User Experience Apdex — Synthetic User Experience Apdex."""
+"""Relatório dedicado do Synthetic User Experience Apdex."""
 from __future__ import annotations
 
 from html import escape

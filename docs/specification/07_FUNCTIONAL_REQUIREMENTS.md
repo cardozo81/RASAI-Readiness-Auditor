@@ -242,7 +242,7 @@ Explicar explicitamente que Confidence é força da conclusão do auditor e que 
 A fundamentação deve distinguir norma/standard externo de heurística interna e declarar que o SearchGEO não representa suas faixas de score como standard GEO/AEO oficial.
 
 ### FR-GEO-080
-Expor remediação textual Sugestões e remediação de conteúdo por IA por `--ai-content-remediation`, `--no-ai-content-remediation` e `SEARCHGEO_AI_CONTENT_REMEDIATION`, com default público `false`.
+Expor remediação textual por IA por `--ai-content-remediation`, `--no-ai-content-remediation` e `SEARCHGEO_AI_CONTENT_REMEDIATION`, com default público `false`.
 
 ### FR-GEO-081
 Executar Sugestões e remediação de conteúdo por IA textual somente depois de findings, scoring e priorização; Sugestões e remediação de conteúdo por IA não pode alterar retrospectivamente RuleExecution, Finding, Recommendation, Score, Coverage, Confidence ou Consolidation.

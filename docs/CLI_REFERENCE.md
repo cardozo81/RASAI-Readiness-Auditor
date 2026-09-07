@@ -123,7 +123,7 @@ Overrides de reasoning/thinking usam as variáveis específicas do provider expo
 
 Default: OFF. A remediação exige provider de IA apto. É advisory/evidence-bound e não altera automaticamente o Score GEO.
 
-## Rastreamento, descoberta e acesso de crawlers — remediação técnica de crawling/discovery por IA
+## Remediação técnica de rastreamento e descoberta por IA
 
 ```text
 --ai-technical-remediation
@@ -138,7 +138,7 @@ Valores de ambiente aceitos: `true/false`, `1/0`, `yes/no`, `on/off`.
 
 Precedência: argumento CLI explícito > variável de ambiente > OFF.
 
-Essa opção **não habilita o Rastreamento, descoberta e acesso de crawlers determinístico** — os diagnósticos técnicos de crawling/discovery já são executados no pipeline normal. Ela habilita somente uma camada opcional de explicação/remediação por IA sobre diagnósticos Rastreamento, descoberta e acesso de crawlers já persistidos.
+Essa opção **não habilita os diagnósticos determinísticos de rastreamento e descoberta** — os diagnósticos técnicos de crawling/discovery já são executados no pipeline normal. Ela habilita somente uma camada opcional de explicação/remediação por IA sobre diagnósticos de rastreamento e descoberta já persistidos.
 
 A IA técnica:
 
@@ -148,7 +148,7 @@ A IA técnica:
 - não transforma `llms.txt` em requisito;
 - exige revisão humana.
 
-O relatório correspondente é `report/crawling-discovery.html`; telemetria de IA Rastreamento, descoberta e acesso de crawlers também pode aparecer em `report/ai-usage.html`.
+O relatório correspondente é `report/crawling-discovery.html`; telemetria dessa remediação técnica por IA também pode aparecer em `report/ai-usage.html`.
 
 ## Web Performance / PageSpeed / Lighthouse / CrUX
 
@@ -185,7 +185,7 @@ SEARCHGEO_PAGESPEED_API_KEY
 SEARCHGEO_CRUX_API_KEY
 ```
 
-## Synthetic Navigation Apdex — Synthetic Navigation Apdex
+## Synthetic Navigation Apdex
 
 Habilitação:
 
@@ -219,7 +219,7 @@ SEARCHGEO_APDEX_DELAY_SECONDS
 SEARCHGEO_APDEX_CONCURRENCY
 ```
 
-## Synthetic User Experience Apdex — Synthetic User Experience Apdex
+## Synthetic User Experience Apdex
 
 Habilitação:
 
@@ -265,7 +265,7 @@ Variáveis Synthetic User Experience Apdex usam prefixos `SEARCHGEO_APDEX_EXPERI
 
 Página canônica: `report/apdex-experience.html`.
 
-## Observed Generative Visibility — Observed Generative Visibility
+## Observed Generative Visibility
 
 O Observed Generative Visibility não é parte do comando `audit`; ele atua sobre um workspace `AUD-*` já existente e importa outcomes observados em domínio separado do readiness.
 
@@ -342,7 +342,7 @@ searchgeo audit https://example.com `
   --ai-model gpt-5.6-luna
 ```
 
-### Remediação técnica Rastreamento, descoberta e acesso de crawlers por IA
+### Remediação técnica de rastreamento e descoberta por IA
 
 ```powershell
 searchgeo audit https://example.com `
@@ -389,6 +389,6 @@ O console configura a superfície principal de auditoria e adiciona persistênci
 
 O Observed Generative Visibility é inicialmente uma superfície CLI/import-first separada; não deve ser presumido como coleta automática ou item persistido do fluxo de auditoria no console enquanto essa integração não existir explicitamente.
 
-O parâmetro Rastreamento, descoberta e acesso de crawlers `--ai-technical-remediation` também permanece documentado como superfície CLI/ambiente nesta versão quando não houver integração explícita correspondente no INI.
+O parâmetro `--ai-technical-remediation` também permanece documentado como superfície CLI/ambiente nesta versão quando não houver integração explícita correspondente no INI.
 
 Consulte [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [CONFIGURATION.md](CONFIGURATION.md), [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md), [specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md](specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md) e [specification/26_OBSERVED_GENERATIVE_VISIBILITY.md](specification/26_OBSERVED_GENERATIVE_VISIBILITY.md).

@@ -52,8 +52,8 @@ CLI
    → PageSpeed Insights/Lighthouse lab
    → CrUX field data quando disponível/configurado
    → persistence + raw JSON artifacts
-→ Synthetic Navigation Apdex Synthetic Navigation Apdex execution quando habilitado
-→ Rastreamento, descoberta e acesso de crawlers crawling/discovery execution
+→ Synthetic Navigation Apdex execution quando habilitado
+→ rastreamento e descoberta execution
    → lê audit.db + artifacts já persistidos
    → diagnósticos determinísticos robots/sitemap/discovery
    → `/llms.txt` same-origin quando origem apta
