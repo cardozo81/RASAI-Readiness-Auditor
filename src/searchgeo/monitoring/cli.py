@@ -27,7 +27,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     gate = sub.add_parser("gate", help="release gate; 0=PASS, 1=regressão bloqueante, 2=erro")
     _pair(gate)
-    gate.add_argument("--include-semantic", action="store_true", help="permitir que regras semânticas/IA participem do gate")
+    gate.add_argument("--include-semantic", action="store_true", help="permitir regras semânticas/IA no gate")
+    gate.add_argument("--include-performance", action="store_true", help="incluir Lighthouse/field performance explicitamente")
+    gate.add_argument("--include-synthetic", action="store_true", help="incluir Synthetic Navigation/UX Apdex explicitamente")
+    gate.add_argument("--include-finding-aggregates", action="store_true", help="incluir contagens agregadas de findings explicitamente")
+    gate.add_argument("--include-score-dimensions", action="store_true", help="incluir deltas de dimensões SCORE-GEO-003 explicitamente")
     gate.add_argument("--max-high-regressions", type=int, default=0)
     gate.add_argument("--max-medium-regressions", type=int, default=3)
     gate.add_argument("--dimension-drop-points", type=float, default=5.0)
@@ -65,7 +69,12 @@ def main(argv: list[str] | None = None) -> int:
                 analysis = analyze_change_impact(result)
                 impact_path = write_impact_report(report.report_dir, result, analysis)
                 print(f"Outcomes alterados: {len(analysis.outcome_changes)}")
-                print(f"Associações temporais: {len(analysis.associations)}")
+                print(f"Associações temporais elegíveis: {len(analysis.associations)}")
+                for item in analysis.window_comparability:
+                    print(
+                        f"Janela {item['source']}: {item['status']} | "
+                        f"{item.get('baseline_period') or '-'} | {item.get('current_period') or '-'}"
+                    )
                 print(f"Change Impact: {impact_path}")
             if result.compatibility_notes:
                 print("Limitações de comparabilidade:")
@@ -76,6 +85,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.monitor_command == "gate":
             policy = GatePolicy(
                 deterministic_only=not args.include_semantic,
+                include_performance=args.include_performance,
+                include_synthetic=args.include_synthetic,
+                include_finding_aggregates=args.include_finding_aggregates,
+                include_score_dimensions=args.include_score_dimensions,
                 max_high_regressions=max(0, args.max_high_regressions),
                 max_medium_regressions=max(0, args.max_medium_regressions),
                 dimension_drop_points=max(0.0, args.dimension_drop_points),
@@ -83,7 +96,12 @@ def main(argv: list[str] | None = None) -> int:
             gate = evaluate_release_gate(result, policy)
             print(f"RASAI Release Gate: {'PASS' if gate.passed else 'FAIL'}")
             print(gate.reason)
-            print(f"Modo: {'determinístico' if policy.deterministic_only else 'inclui semântico'}")
+            print(f"Regras: {'determinísticas' if policy.deterministic_only else 'inclui semânticas'}")
+            print(
+                "Opt-ins: "
+                f"performance={policy.include_performance}, synthetic={policy.include_synthetic}, "
+                f"finding_aggregates={policy.include_finding_aggregates}, score_dimensions={policy.include_score_dimensions}"
+            )
             for event in gate.blocking_events:
                 print(
                     f"BLOCK {event.severity} {event.rule_id or event.label} "
