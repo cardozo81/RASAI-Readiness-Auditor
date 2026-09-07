@@ -7,7 +7,7 @@ import tempfile
 
 from searchgeo.platform.automation import compute_next_run
 from searchgeo.platform.deployment import compare_deployment_pair, resolve_deployment_pair
-from searchgeo.platform.indexing import index_audit_workspace, index_audits
+from searchgeo.platform.indexing import index_audit_workspace
 from searchgeo.platform.integrations import classify_ai_crawler, import_combined_access_log, import_ga4_csv
 from searchgeo.platform.models import Schedule
 from searchgeo.platform.page_compare import compare_pages, write_page_compare_report
@@ -157,7 +157,9 @@ def test_deployment_pair_before_after_gate_and_reports() -> None:
             assert "Release gate" in html
             platform = write_platform_site(store, root / "platform-report")
             assert platform.is_file()
-            assert "Portfólio Search &amp; AI Readiness" in platform.read_text(encoding="utf-8")
+            platform_html = platform.read_text(encoding="utf-8")
+            assert "Portfólio Search & AI Readiness" in platform_html
+            assert "AUDs recentes" in platform_html
 
 
 def test_golden_baseline_override_and_page_compare() -> None:
