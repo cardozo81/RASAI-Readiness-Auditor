@@ -31,13 +31,16 @@ jobs:
             src/searchgeo/report_registry.py \
             src/searchgeo/monitoring \
             src/searchgeo/observability \
+            src/searchgeo/quality \
             src/searchgeo/score_geo_003_dataset.py \
-            src/searchgeo/score_geo_003_cli.py
-      - name: Directed monitoring and observability tests
+            src/searchgeo/score_geo_003_cli.py \
+            src/searchgeo/score_geo_003_calibration.py
+      - name: Directed monitoring observability and quality tests
         run: |
           python -m pytest -q \
             tests/test_monitoring_observability.py \
             tests/test_observability_collectors.py \
+            tests/test_quality_observability_hardening.py \
             tests/test_score_geo_003_dataset.py \
             tests/test_report_registry_and_method_docs.py
       - name: Existing scoring and observed visibility regressions
