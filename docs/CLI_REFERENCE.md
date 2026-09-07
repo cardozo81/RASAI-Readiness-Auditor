@@ -9,8 +9,9 @@ rasai audit ...
 rasai visibility import|report ...
 rasai scoring dataset|calibrate|inspect ...
 rasai monitor compare|impact|gate ...
-rasai observe report|status|import|bing-import|gsc-search|gsc-inspect|crux-history ...
+rasai observe report|status|import|bing-import|google-ai-import|google-ai-control|gsc-sites|gsc-sitemaps|gsc-search|gsc-appearance|gsc-inspect|crux-history ...
 rasai observability ...                 # alias de observe
+rasai quality report|verify|timeline ...
 rasai-console
 ```
 
@@ -76,7 +77,7 @@ rasai scoring calibrate `
   --output .searchgeo\scoring\score-geo-003-model.json
 ```
 
-Fitting é offline sobre AUDs/query-runs elegíveis. Model validation/promotion continua dependente dos gates pós-fit, incluindo AUC/Brier.
+Fitting é offline sobre AUDs/query-runs elegíveis. AUDs são lidos em modo SQLite read-only. Quando o outcome controlado não tem granularidade por dispositivo, o collector gera uma única linha de features por AUD em vez de duplicar o mesmo target contra vetores mobile/desktop distintos.
 
 ### Inspecionar
 
@@ -195,7 +196,7 @@ rasai visibility import `
   --file observed-visibility.json
 ```
 
-Contrato `OGV-IMPORT-001`. Fontes suportadas incluem dataset normalizado de Bing AI Performance e `CONTROLLED_QUERY_RUNS`. O artifact/SHA-256 é preservado; import não recalcula scoring.
+Contrato `OGV-IMPORT-001`. O artifact/SHA-256 é preservado e o import não recalcula scoring.
 
 ### Report
 
@@ -226,7 +227,7 @@ Opcional: `--report-root PATH`. Gera `MON-*/report.html` e `manifest.json`.
 rasai monitor impact --baseline AUD-BASELINE --current AUD-CURRENT
 ```
 
-Gera `impact.html`. Linguagem é associação temporal, nunca causalidade automática.
+Gera `impact.html`. Um único dataset mais recente é selecionado por fonte em cada AUD; históricos sobrepostos não são somados. Janelas são classificadas como alinhadas, parcialmente sobrepostas, não sobrepostas ou desconhecidas. Associação temporal só é emitida para períodos comparáveis e nunca afirma causalidade.
 
 ### Release gate
 
@@ -234,10 +235,14 @@ Gera `impact.html`. Linguagem é associação temporal, nunca causalidade autom�
 rasai monitor gate --baseline AUD-BASELINE --current AUD-CURRENT
 ```
 
-Opções:
+Gate default = BR-GEO determinísticas elegíveis + page state. Demais famílias exigem opt-in explícito:
 
 ```text
 --include-semantic
+--include-performance
+--include-synthetic
+--include-finding-aggregates
+--include-score-dimensions
 --max-high-regressions N          # default 0
 --max-medium-regressions N        # default 3
 --dimension-drop-points POINTS    # default 5.0
@@ -251,8 +256,6 @@ Exit codes:
 2 erro de execução/configuração
 ```
 
-Gate default é deterministic-only.
-
 ## Search & AI Observability
 
 Comando principal: `rasai observe`; alias `rasai observability`.
@@ -264,7 +267,7 @@ Base comum:
 --audit AUD-...|PATH
 ```
 
-Dados externos são persistidos em `observability.db` + `artifacts/observability/`. `audit.db` não é migrado.
+Dados externos são persistidos em `observability.db` + `artifacts/observability/`. O sidecar atual é `RASAI-OBS-002`, cuja identidade de observação é `(dataset_id, record_id)`. `audit.db` não é migrado.
 
 ### Status/report
 
@@ -292,7 +295,56 @@ rasai observe bing-import `
   [--surface SURFACE]
 ```
 
-RASAI não inventa endpoint nem faz scraping do portal quando não existe contrato direto implementado/documentado.
+### Google Generative AI Performance import-first
+
+Search:
+
+```powershell
+rasai observe google-ai-import --audit AUD-... --file genai-search.csv --surface search
+```
+
+Discover:
+
+```powershell
+rasai observe google-ai-import --audit AUD-... --file genai-discover.csv --surface discover
+```
+
+RASAI persiste apenas os campos presentes no export. Não inventa clicks, CTR, position, query ou citation count. Search/Discover possuem provenance separada.
+
+### Google GenAI control
+
+```powershell
+rasai observe google-ai-control --audit AUD-... --state INCLUDE
+rasai observe google-ai-control --audit AUD-... --state EXCLUDE
+rasai observe google-ai-control --audit AUD-... --state INHERIT
+```
+
+Opções adicionais:
+
+```text
+--source-label TEXT
+--observed-at ISO-8601
+```
+
+É evidência observacional/manual e non-scoring.
+
+### Search Console — propriedades
+
+```powershell
+rasai observe gsc-sites --audit AUD-...
+```
+
+Lista/persiste propriedades acessíveis e permission level.
+
+### Search Console — sitemaps
+
+```powershell
+rasai observe gsc-sitemaps `
+  --audit AUD-... `
+  --site-url "sc-domain:example.com"
+```
+
+Persiste path, lastSubmitted, lastDownloaded, pending, warnings/errors e submitted counts. O campo deprecated `contents[].indexed` não é usado.
 
 ### Search Console Search Analytics
 
@@ -306,7 +358,21 @@ rasai observe gsc-search `
   [--max-rows 100000]
 ```
 
-Bearer token default: `GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`. Override do nome: `--token-env NAME`.
+`--max-rows` é teto real da coleta; page size da API é limitado separadamente.
+
+Bearer token default: `GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`. Override: `--token-env NAME`.
+
+### Search Console Search Appearance
+
+```powershell
+rasai observe gsc-appearance `
+  --audit AUD-... `
+  --site-url "sc-domain:example.com" `
+  --start-date 2026-08-01 `
+  --end-date 2026-08-31
+```
+
+Usa a dimensão documentada `searchAppearance` e mantém source provenance separada do Search Analytics convencional.
 
 ### URL Inspection
 
@@ -331,7 +397,58 @@ rasai observe crux-history `
   [--periods 40]
 ```
 
-API key default: `SEARCHGEO_CRUX_API_KEY`. Override do nome: `--key-env NAME`.
+API key default: `SEARCHGEO_CRUX_API_KEY`. Override: `--key-env NAME`.
+
+## RASAI Quality
+
+Quality é derivado/read-only e não cria outro readiness score.
+
+### Audit Health / Evidence Confidence / Coverage / Prioridade
+
+```powershell
+rasai quality report --audit AUD-... --audits-root audits
+```
+
+Gera `report/quality.html` com:
+
+- Audit Health;
+- Evidence Confidence por finding;
+- Operational Priority `P0`–`P3`;
+- Coverage Map;
+- `nosnippet`, `max-snippet`, `data-nosnippet`, `X-Robots-Tag`;
+- Recommendation Validation.
+
+### Fix Verification
+
+```powershell
+rasai quality verify `
+  --baseline AUD-BASELINE `
+  --current AUD-CURRENT `
+  [--url https://example.com/page] `
+  [--rule BR-GEO-011]
+```
+
+Saída: `audits/verification/VER-*/report.html` por default.
+
+Estados principais:
+
+```text
+FIXED
+PARTIALLY_FIXED
+NOT_FIXED
+NOT_VERIFIABLE
+```
+
+### Evidence Timeline
+
+```powershell
+rasai quality timeline `
+  --audits-root audits `
+  [--domain example.com] `
+  [--url https://example.com/page]
+```
+
+Saída: `audits/quality/TIMELINE-*/report.html` por default.
 
 ## Credenciais observacionais
 
@@ -348,7 +465,7 @@ Tokens/keys são inputs de runtime e não são persistidos em sidecar/report.
 rasai-console
 ```
 
-`rasai-console.ini` armazena somente configuração não sensível. Monitoring, observability e calibração permanecem superfícies especializadas da CLI nesta versão.
+`rasai-console.ini` armazena somente configuração não sensível. Monitoring, observability, quality e calibração permanecem superfícies especializadas da CLI nesta versão.
 
 ## Referências internas
 
@@ -361,3 +478,4 @@ rasai-console
 - `specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`
 - `specification/26_OBSERVED_GENERATIVE_VISIBILITY.md`
 - `specification/27_MONITORING_OBSERVABILITY.md`
+- `specification/28_AUDIT_QUALITY_VERIFICATION.md`
