@@ -26,12 +26,15 @@ A página principal do índice é `report/readiness.html`.
 
 Os comandos preferenciais são `rasai`, `rasai-console`, `rasai audit`, `rasai visibility`, `rasai monitor`, `rasai observe`, `rasai quality`, `rasai platform` e `rasai scoring`.
 
+O arquivo canônico de configuração não secreta do console interativo é `rasai-console.ini`. Na primeira execução após a atualização, se `rasai-console.ini` ainda não existir e houver um `searchgeo-console.ini` legado no diretório de trabalho, o entrypoint público renomeia esse arquivo automaticamente para `rasai-console.ini`, preservando seu conteúdo. Se a variável `SEARCHGEO_CONSOLE_INI` estiver explicitamente configurada, seu caminho continua prevalecendo e nenhuma migração automática é feita. Se os dois arquivos existirem, `rasai-console.ini` prevalece e o arquivo legado não é apagado automaticamente, evitando perda de configurações divergentes.
+
 Por compatibilidade operacional, também são aceitos:
 
 - `searchgeo` e `searchgeo-console`;
 - namespace Python `src/searchgeo/`;
 - variáveis de ambiente `SEARCHGEO_*`;
-- arquivos de configuração suportados pelo runtime;
+- `searchgeo-console.ini` somente como entrada de migração do nome legado quando não houver arquivo canônico nem override explícito;
+- outros arquivos de configuração suportados pelo runtime;
 - nome de distribuição Python `searchgeo-readiness-auditor`;
 - IDs normativos e persistidos como `BR-GEO-*`, `SCORE-GEO-*` e `RASAI-OBS-*`.
 
