@@ -11,20 +11,16 @@ Para `rasai-console`:
 1. `rasai-console.ini` fornece parâmetros persistidos não sensíveis;
 2. variáveis de ambiente ficam disponíveis para credenciais e overrides avançados;
 3. alterações de sessão valem imediatamente para o processo atual;
-4. `S. Salvar configuração INI` persiste somente estado não sensível;
-5. no Windows, secrets podem opcionalmente ser persistidos no ambiente **User** somente por ação explícita no menu de credenciais.
+4. salvar INI persiste somente estado não sensível;
+5. no Windows, secrets podem opcionalmente ser persistidos no ambiente User somente por ação explícita.
 
-O console nunca grava API keys, tokens, senhas ou credentials no INI.
+O console nunca grava API keys, OAuth tokens, senhas ou credentials no INI.
 
-## Variáveis de ambiente: referência detalhada
+## Referência detalhada de variáveis
 
-A referência detalhada das variáveis expostas pelo console, incluindo finalidade, tipo, domínio aceito, default efetivo, dependências, custo/impacto, exemplos e passo a passo para obtenção das credenciais, está em:
+Consulte [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) para finalidade, tipo, domínio aceito, default efetivo, dependências, custo/impacto, exemplos e obtenção de credenciais.
 
-- [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
-
-Parâmetros adicionados primeiro como superfície CLI/ambiente e ainda não integrados ao editor do console, como `SEARCHGEO_AI_TECHNICAL_REMEDIATION`, são documentados nesta página e na referência da CLI até existir integração explícita correspondente.
-
-O menu `E. Variáveis de ambiente / credenciais` usa a mesma organização por fronteira funcional:
+O menu de ambiente/credenciais é organizado por fronteira funcional:
 
 ```text
 1. Aplicação e execução
@@ -40,8 +36,6 @@ D. Abrir documentação detalhada
 V. Voltar
 ```
 
-Quando existe um default seguro, o menu mostra o **default efetivo** em vez de induzir o usuário a criar uma variável redundante. Variáveis de segredo e valores semanticamente obrigatórios sem default, como o threshold T do Synthetic Apdex quando a medição é habilitada, continuam exigindo entrada explícita.
-
 ## Arquivo INI do console
 
 Arquivo padrão:
@@ -50,32 +44,9 @@ Arquivo padrão:
 rasai-console.ini
 ```
 
-Se não existir, o console o cria com defaults. O arquivo armazena parâmetros como:
+Pode armazenar entrada, projeto, idioma/mercado, `max-pages`, audits-root, device, configuração não sensível de IA, Web Performance e Synthetic Apdex.
 
-```text
-entrada / arquivo de URLs
-projeto
-idioma / mercado
-max-pages
-raiz de auditorias
-dispositivo
-provider/modelo/esforço de IA
-timeout de IA
-remediação textual
-Web Performance
-WebPerf max-pages
-field source
-timeout PageSpeed/Lighthouse
-categorias Lighthouse
-Synthetic Apdex
-T / samples / attempts / páginas / timeout / delay / concorrência
-```
-
-O contexto editorial YMYL/E-E-A-T é atualmente um **override avançado por variáveis de ambiente**. Ele não é gravado no INI; o valor efetivo usado em cada auditoria é persistido no workspace para manter rastreabilidade do report.
-
-A remediação técnica Rastreamento, descoberta e acesso de crawlers por IA também não é persistida no INI nesta versão; use `--ai-technical-remediation` ou `SEARCHGEO_AI_TECHNICAL_REMEDIATION`.
-
-Não armazena:
+Não armazena secrets como:
 
 ```text
 OPENAI_API_KEY
@@ -87,7 +58,8 @@ GEMINI_API_KEY
 ANTHROPIC_API_KEY
 SEARCHGEO_PAGESPEED_API_KEY
 SEARCHGEO_CRUX_API_KEY
-qualquer variável reconhecida como TOKEN / SECRET / PASSWORD / CREDENTIAL
+GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
+qualquer TOKEN / SECRET / PASSWORD / CREDENTIAL
 ```
 
 ## Defaults gerais
@@ -114,11 +86,11 @@ audits-root               = audits
 Synthetic Apdex           = off
 ```
 
-Esses defaults tornam possível uma primeira auditoria local sem preencher a lista de variáveis: para o cenário sem IA e sem integrações externas, basta informar o alvo.
+Para uma auditoria local sem IA nem integrações externas, basta informar o alvo.
 
 ## IA
 
-Providers concretos suportados pelo registry:
+Providers suportados:
 
 ```text
 openai
@@ -137,15 +109,13 @@ grok   -> xai
 claude -> anthropic
 ```
 
-AUTO permanece:
+AUTO:
 
 ```text
 OpenAI -> DeepSeek -> MiMo
 ```
 
-Providers adicionais permanecem explicit-only até promoção formal de qualificação.
-
-### Credenciais
+Credenciais:
 
 ```text
 OPENAI_API_KEY
@@ -157,11 +127,9 @@ GEMINI_API_KEY
 ANTHROPIC_API_KEY
 ```
 
-A existência da variável não garante saldo, quota, plano compatível ou acesso ao modelo. Consulte [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) para o procedimento de criação de cada chave.
+A existência da variável não garante saldo, quota, plano ou acesso ao modelo. Procedimentos completos estão em [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md).
 
-### Modelos defaults públicos
-
-Sem override explícito:
+### Defaults públicos de modelos
 
 ```text
 OPENAI     gpt-5.6-luna
@@ -173,41 +141,15 @@ GEMINI     gemini-3.8-flash
 ANTHROPIC  claude-sonnet-5
 ```
 
-Os demais modelos declarados pelo registry continuam selecionáveis quando suportados pela conta/provider.
-
-### Esforço / profundidade
-
-Default público: menor nível efetivamente suportado pelo adapter/modelo.
-
-```text
-OPENAI     NONE
-DEEPSEEK   NONE
-MIMO       NONE
-XAI        LOW
-QWEN       PROVIDER_DEFAULT
-GEMINI     LOW
-ANTHROPIC  LOW
-```
-
-Variáveis de reasoning continuam sendo respeitadas como overrides quando o adapter possui controle validado. Qwen permanece `PROVIDER_DEFAULT` porque o adapter atual não expõe um controle de reasoning validado.
-
 ### Timeout de IA
 
 ```text
-SEARCHGEO_AI_TIMEOUT_SECONDS
+SEARCHGEO_AI_TIMEOUT_SECONDS=180
 ```
 
-Default público:
-
-```text
-180 s por tentativa
-```
-
-O timeout limita uma tentativa contra o provider. Não encerra a auditoria inteira.
+É timeout por tentativa, não da auditoria inteira.
 
 ## Contexto editorial da IA — YMYL e E-E-A-T
-
-O RASAI permite informar contexto editorial para que a IA não aplique uma análise genérica a qualquer tipo de página.
 
 Variáveis:
 
@@ -223,46 +165,28 @@ SEARCHGEO_CONTENT_ORIGIN
 
 Todas usam `auto` quando ausentes.
 
-Regra operacional:
+Regras:
 
 - valor explícito = contexto fornecido pelo operador;
-- `auto` = hipótese de trabalho que a IA pode inferir apenas a partir das evidências fornecidas;
-- configuração explícita é preferível quando o site é claramente YMYL;
-- campos `auto` não podem virar fatos sobre autor, expertise, experiência, compliance, reputação ou processo editorial;
-- o contexto não cria um score próprio de E-E-A-T/YMYL e não altera diretamente a fórmula de `SCORE-GEO-002`;
-- configurar essas variáveis não gera custo externo por si só; elas apenas condicionam chamadas de IA que já seriam executadas.
+- `auto` = hipótese provisória inferível apenas das evidências disponíveis;
+- configuração explícita é preferível em YMYL claramente identificado;
+- campos `auto` não podem virar fatos sobre autoria, expertise, experiência, compliance, reputação ou processo editorial;
+- o contexto não cria score próprio de E-E-A-T/YMYL e **não altera diretamente `SARI-001` nem a fórmula vigente de `SCORE-GEO-003`**;
+- essas variáveis não geram custo externo por si só; apenas condicionam chamadas de IA já habilitadas.
 
-Exemplo para conteúdo financeiro:
-
-```powershell
-$env:SEARCHGEO_CONTENT_RISK_PROFILE = "ymyl"
-$env:SEARCHGEO_YMYL_CATEGORY = "financial-security"
-$env:SEARCHGEO_PAGE_PURPOSE = "product-service"
-$env:SEARCHGEO_INTENDED_AUDIENCE = "general"
-$env:SEARCHGEO_EXPERIENCE_REQUIREMENT = "not-expected"
-$env:SEARCHGEO_FRESHNESS_SENSITIVITY = "high"
-$env:SEARCHGEO_CONTENT_ORIGIN = "first-party"
-```
-
-O report persiste e exibe se cada campo foi `CONFIGURADO` ou ficou em `AUTO`, além da origem global `MANUAL`, `MIXED` ou `AUTO`.
-
-Base conceitual pública e domínio completo dos valores: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md).
+Base conceitual: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md).
 
 ## Remediação textual por IA
-
-A remediação textual é OFF por padrão e só pode ser habilitada quando existe provider de IA apto.
 
 ```text
 SEARCHGEO_AI_CONTENT_REMEDIATION
 ```
 
-No console, a opção 5 informa explicitamente que depende da configuração da opção 4.
+OFF por padrão. Quando habilitada e executada, `content-suggestions.html` e `ai-usage.html` expõem provider, modelo, reasoning, tentativas/status, duração, tokens e custo estimado quando existe base suportada.
 
-Quando Sugestões e remediação de conteúdo por IA executa IA, `content-suggestions.html` e `ai-usage.html` expõem a telemetria persistida pertinente: provider, modelo, reasoning, tentativas/status, duração, tokens e custo estimado quando existe base de pricing suportada. Valor monetário não é fabricado quando o adapter não possui base confiável.
+## Rastreamento, descoberta e acesso de crawlers
 
-## Rastreamento, descoberta e acesso de crawlers — crawling/discovery e remediação técnica por IA
-
-Os diagnósticos determinísticos Rastreamento, descoberta e acesso de crawlers fazem parte do pipeline e não precisam ser habilitados por flag. A opção abaixo controla **somente a camada opcional de IA técnica**:
+A camada determinística faz parte do pipeline. A IA técnica opcional usa:
 
 ```text
 --ai-technical-remediation
@@ -270,36 +194,19 @@ Os diagnósticos determinísticos Rastreamento, descoberta e acesso de crawlers 
 SEARCHGEO_AI_TECHNICAL_REMEDIATION
 ```
 
-Default:
-
-```text
-false
-```
-
-Valores aceitos pela variável:
-
-```text
-true / false
-1 / 0
-yes / no
-on / off
-```
-
-Precedência:
+Default `false`; precedência:
 
 ```text
 CLI explícito > SEARCHGEO_AI_TECHNICAL_REMEDIATION > false
 ```
 
-Quando habilitada e houver provider compatível/configurado, a IA recebe apenas diagnósticos/evidências Rastreamento, descoberta e acesso de crawlers e produz orientação advisory com revisão humana obrigatória. Essa finalidade não altera scoring, não escolhe automaticamente política de GPTBot/Google-Extended e não transforma `llms.txt` em requisito.
+Essa finalidade é advisory, não altera scoring e não decide automaticamente política de GPTBot/Google-Extended.
 
-A página canônica é:
+Página canônica:
 
 ```text
 report/crawling-discovery.html
 ```
-
-A especificação normativa está em [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md).
 
 ## Web Performance, Lighthouse e CrUX
 
@@ -313,28 +220,13 @@ SEARCHGEO_PAGESPEED_API_KEY
 SEARCHGEO_CRUX_API_KEY
 ```
 
-### Timeout
-
-Default operacional:
+Default de timeout externo:
 
 ```text
 SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS=120
 ```
 
-Também pode ser configurado diretamente na opção 6 do console.
-
-O valor é o limite de espera do cliente RASAI pela resposta externa PageSpeed/CrUX. A chamada PageSpeed executa Lighthouse remotamente; o endpoint usado pelo RASAI não fornece um parâmetro separado para configurar o timeout interno de carregamento da página dentro do Lighthouse.
-
-Um timeout PageSpeed pode deixar:
-
-- Lighthouse lab indisponível;
-- Acessibilidade automatizada indisponível, pois usa a categoria `accessibility` do mesmo artifact;
-- CrUX direto ainda disponível quando configurado e bem-sucedido;
-- status de Web Performance `PARTIAL` em vez de fabricar dados ausentes.
-
-### Field source
-
-Valores:
+Field source:
 
 ```text
 auto
@@ -345,19 +237,17 @@ none
 
 `crux` direto exige `SEARCHGEO_CRUX_API_KEY`.
 
-### Categorias Lighthouse
+## Search Console / Observability
 
-Default:
+Os comandos `rasai observe gsc-sites`, `gsc-sitemaps`, `gsc-search`, `gsc-appearance` e `gsc-inspect` usam OAuth bearer token em runtime:
 
 ```text
-performance,accessibility,best-practices,seo
+GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
 ```
 
-O editor de variáveis rejeita categorias desconhecidas ou duplicadas. A ausência de uma categoria configurada deve aparecer como **não solicitada**, não como falha do website.
+Esse valor é **token OAuth temporário**, não API key. Não deve ser gravado no INI, artifact, SQLite ou HTML. O token precisa ter escopo Search Console compatível e acesso à propriedade informada. Consulte [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md) e [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md).
 
 ## Synthetic Apdex
-
-Variáveis:
 
 ```text
 SEARCHGEO_SYNTHETIC_APDEX
@@ -382,7 +272,7 @@ delay                  = 1 s
 concorrência           = 1; máximo 2
 ```
 
-O timeout do Synthetic Apdex é distinto do timeout PageSpeed e do timeout de IA. T não recebe um valor arbitrário: ele precisa ser informado quando a feature é habilitada.
+T não recebe valor arbitrário.
 
 ## Dispositivo
 
@@ -390,31 +280,21 @@ O timeout do Synthetic Apdex é distinto do timeout PageSpeed e do timeout de IA
 SEARCHGEO_DEVICE_CONTEXT
 ```
 
-Valores:
-
-```text
-mobile
-desktop
-both
-```
-
-Default: `mobile`.
+Valores: `mobile`, `desktop`, `both`. Default: `mobile`.
 
 ## Segurança
 
-- use variáveis de ambiente ou secret manager apropriado para credenciais;
-- o console permite inserir/remover credenciais sem gravá-las no INI;
-- no Windows, a persistência opcional de secret usa somente o escopo `User` e exige confirmação explícita;
-- a sessão atual prevalece sobre valores herdados do SO durante o processo aberto;
-- secrets são mascarados como `[SET]` e a origem é exibida sem revelar o valor;
-- logs e relatórios não devem registrar valores de segredo;
-- não assuma que uma credencial configurada implica crédito/quota;
-- variáveis de ambiente persistidas não equivalem a um secret manager;
-- remediação técnica Rastreamento, descoberta e acesso de crawlers permanece advisory e não deve automatizar policy de crawler/treinamento sem decisão humana.
+- use variáveis de ambiente ou secret manager apropriado;
+- secrets não entram no INI;
+- persistência Windows/User exige ação explícita;
+- logs e relatórios não devem registrar secrets;
+- credencial configurada não implica crédito/quota;
+- variáveis persistidas não equivalem a secret manager;
+- integrações derivadas não alteram silenciosamente SARI/SCORE-GEO.
 
 ## Identificadores internos
 
-Tabelas, eventos, módulos e documentação normativa podem manter identificadores históricos para compatibilidade e rastreabilidade. A documentação operacional e a interface pública devem preferir nomes funcionais como **Web Performance**, **Acessibilidade**, **Remediação textual**, **Contexto editorial**, **Rastreamento e descoberta** e **Synthetic Apdex**.
+Identificadores históricos podem permanecer em tabelas, eventos e documentação normativa por compatibilidade. A interface pública deve preferir nomes funcionais e tratar `SCORE-GEO-002` apenas como histórico.
 
 ## Documentos relacionados
 
@@ -425,4 +305,5 @@ Tabelas, eventos, módulos e documentação normativa podem manter identificador
 - [AI_GUIDE.md](AI_GUIDE.md)
 - [GOOGLE_API_KEYS.md](GOOGLE_API_KEYS.md)
 - [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md)
+- [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md)
 - [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md)
