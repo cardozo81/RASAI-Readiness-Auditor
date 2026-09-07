@@ -1,0 +1,98 @@
+name: RASAI SARI migration v4
+
+on:
+  push:
+    branches:
+      - feature/rasai-sari-rebrand
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-and-validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: feature/rasai-sari-rebrand
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Apply RASAI SARI migration
+        run: |
+          python tools/rasai_sari_migrate.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/test_consolidation_reporting_ux.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              'Evolução da Readiness Search & AI',
+              'Evolução da Readiness Search &amp; AI',
+          )
+          path.write_text(text, encoding='utf-8', newline='\n')
+          PY
+
+      - name: Install package, tests and Chromium
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+          python -m playwright install chromium
+
+      - name: Compile complete runtime
+        run: python -m compileall -q src/searchgeo
+
+      - name: Validate new and legacy CLI entrypoints
+        run: |
+          rasai --version
+          searchgeo --version
+          rasai --help >/dev/null
+          searchgeo --help >/dev/null
+
+      - name: Branding, reports and compatibility regressions
+        run: |
+          python -m pytest -q \
+            tests/test_rasai_sari_branding.py \
+            tests/test_searchgeo_readiness_reporting.py \
+            tests/test_indicator_provenance.py \
+            tests/test_report_navigation.py \
+            tests/test_consolidation_reporting_ux.py
+
+      - name: Browser and synthetic smoke regressions
+        run: |
+          python -m pytest -q \
+            tests/test_m23_e2e_local.py \
+            tests/test_m25_browser_e2e.py
+
+      - name: Full regression suite
+        run: python -m pytest -q
+
+      - name: Verify preserved methodological identifiers
+        run: |
+          grep -R "SCORE-GEO-003" -n src/searchgeo docs >/dev/null
+          grep -R "BR-GEO-" -n src/searchgeo docs >/dev/null
+          grep -R "SEARCHGEO_" -n src/searchgeo >/dev/null
+          test -f docs/SARI_READINESS_INDEX.md
+          test -f docs/SEARCHGEO_READINESS_INDEX.md
+
+      - name: Commit validated migration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A \
+            ':!.github/workflows/rasai-sari-migration.yml' \
+            ':!.github/workflows/rasai-sari-migration-v2.yml' \
+            ':!.github/workflows/rasai-sari-migration-v3.yml' \
+            ':!.github/workflows/rasai-sari-migration-v4.yml' \
+            ':!tools/rasai_sari_migrate.py'
+          if git diff --cached --quiet; then
+            echo "No migration changes to commit."
+            exit 0
+          fi
+          git commit -m "Rebrand public surface to RASAI and SARI"
+          git push origin HEAD:feature/rasai-sari-rebrand
