@@ -16,8 +16,8 @@ PARAMETER_HELP: tuple[tuple[str, str, str], ...] = (
     ("2. Projeto", "Nome lógico para identificar/organizar a auditoria.", COST_NONE),
     ("3. Dispositivo", "Escolhe mobile, desktop ou both.", COST_VOLUME + ": both pode duplicar contextos e chamadas externas por página."),
     ("4. IA", "Seleciona none, provider explícito ou AUTO. Somente opções aptas podem executar.", COST_EXTERNAL + ": cobrança depende do provider, modelo, tokens e plano."),
-    ("5. Remediação textual IA", "Ativa M20 advisory para findings elegíveis; não altera score/findings.", COST_EXTRA_AI + ": pode acrescentar novas chamadas de IA por contexto elegível."),
-    ("6. Web Performance", "Ativa M21/Lighthouse e a fonte de field data.", COST_QUOTA + ": PageSpeed/CrUX são integrações externas; o console não presume preço monetário quando o serviço não fornece base de custo persistida."),
+    ("5. Remediação textual IA", "Ativa Sugestões e remediação de conteúdo por IA advisory para findings elegíveis; não altera score/findings.", COST_EXTRA_AI + ": pode acrescentar novas chamadas de IA por contexto elegível."),
+    ("6. Web Performance", "Ativa Web Performance externo/Lighthouse e a fonte de field data.", COST_QUOTA + ": PageSpeed/CrUX são integrações externas; o console não presume preço monetário quando o serviço não fornece base de custo persistida."),
     ("7. max-pages", "Teto de páginas da auditoria principal.", COST_VOLUME + ": em URL seed representa o teto potencial de crawl e chamadas relacionadas."),
     ("8. WebPerf max-pages", "Teto de páginas submetidas ao Web Performance.", COST_VOLUME + ": limita diretamente o volume potencial de PageSpeed/CrUX."),
     ("9. Idioma / mercado", "Contexto linguístico e de mercado do auditor.", COST_NONE),
@@ -29,12 +29,12 @@ SPECIFIC_ENV_HELP: dict[str, tuple[str, str]] = {
     "SEARCHGEO_LOG_LEVEL": ("Nível de detalhamento do log operacional.", COST_NONE),
     "SEARCHGEO_DEVICE_CONTEXT": ("Default de dispositivo: mobile, desktop ou both.", COST_VOLUME + " quando both."),
     "SEARCHGEO_AI_TIMEOUT_SECONDS": ("Timeout máximo de uma tentativa de IA; não habilita retry automático.", "Não cria custo sozinho; chamada já processada externamente pode ser faturada conforme o provider."),
-    "SEARCHGEO_AI_CONTENT_REMEDIATION": ("Default do M20 textual.", COST_EXTRA_AI + " quando true e houver provider/casos elegíveis."),
-    "SEARCHGEO_WEB_PERFORMANCE": ("Default para M21.", COST_QUOTA + " quando true."),
+    "SEARCHGEO_AI_CONTENT_REMEDIATION": ("Default do Sugestões e remediação de conteúdo por IA textual.", COST_EXTRA_AI + " quando true e houver provider/casos elegíveis."),
+    "SEARCHGEO_WEB_PERFORMANCE": ("Default para Web Performance externo.", COST_QUOTA + " quando true."),
     "SEARCHGEO_WEB_PERFORMANCE_MAX_PAGES": ("Teto de páginas do Web Performance.", COST_VOLUME),
     "SEARCHGEO_WEB_PERFORMANCE_TIMEOUT_SECONDS": ("Timeout por integração Web Performance.", "Não gera custo sozinho."),
     "SEARCHGEO_WEB_PERFORMANCE_FIELD_SOURCE": ("Fonte de field data: auto, pagespeed, crux ou none.", COST_QUOTA + " quando fonte externa é consultada."),
-    "SEARCHGEO_LIGHTHOUSE_CATEGORIES": ("Categorias Lighthouse solicitadas pelo M21.", "Pode alterar trabalho externo; não representa preço monetário por si só."),
+    "SEARCHGEO_LIGHTHOUSE_CATEGORIES": ("Categorias Lighthouse solicitadas pelo Web Performance externo.", "Pode alterar trabalho externo; não representa preço monetário por si só."),
     "SEARCHGEO_PAGESPEED_API_KEY": ("Credencial Google para PageSpeed Insights API.", COST_QUOTA + "; eventual billing pertence ao projeto Google Cloud."),
     "SEARCHGEO_CRUX_API_KEY": ("Credencial para consulta direta à Chrome UX Report API.", COST_QUOTA + "; eventual billing pertence ao projeto Google Cloud."),
     "PLAYWRIGHT_CHROMIUM_EXECUTABLE": ("Caminho opcional para Chromium local.", COST_NONE),
@@ -53,9 +53,9 @@ def current_cost_summary(state: State) -> tuple[str, ...]:
     else:
         lines.append("IA: nenhuma tentativa externa prevista pela configuração atual.")
     if estimate.max_web_calls:
-        lines.append(f"M21: {estimate.min_web_calls}–{estimate.max_web_calls} chamada(s) PageSpeed/CrUX potenciais; quota externa é exibida separadamente de custo monetário.")
+        lines.append(f"Web Performance externo: {estimate.min_web_calls}–{estimate.max_web_calls} chamada(s) PageSpeed/CrUX potenciais; quota externa é exibida separadamente de custo monetário.")
     else:
-        lines.append("M21: sem chamadas PageSpeed/CrUX configuradas.")
+        lines.append("Web Performance externo: sem chamadas PageSpeed/CrUX configuradas.")
     lines.extend(estimate.pricing_lines)
     lines.extend(estimate.reasons)
     lines.append("A faixa NENHUM/BAIXO/MÉDIO/ALTO/EXCESSIVO é um indicador interno de exposição, não uma previsão de invoice.")

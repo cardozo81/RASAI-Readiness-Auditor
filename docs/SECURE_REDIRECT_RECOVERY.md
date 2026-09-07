@@ -88,7 +88,7 @@ O SearchGEO não deve criar um candidato HTTPS para domínio não equivalente.
 
 ## Limite de tentativas
 
-A recuperação é limitada a **uma única tentativa adicional por navegação M3 que atenda aos critérios**.
+A recuperação é limitada a **uma única tentativa adicional por navegação Renderização Desktop e Mobile que atenda aos critérios**.
 
 Ela não pode gerar:
 
@@ -188,7 +188,7 @@ O report deve mostrar simultaneamente:
 
 Se a recuperação produz HTML/DOM válido:
 
-- M3 pode persistir o snapshot renderizado;
+- Renderização Desktop e Mobile pode persistir o snapshot renderizado;
 - extração, regras e `SCORE-GEO-002` podem prosseguir;
 - Web Performance, se habilitado, pode usar a `final_url` recuperada;
 - Synthetic Apdex, se habilitado, pode usar a `final_url` recuperada;

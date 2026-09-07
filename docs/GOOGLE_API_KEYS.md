@@ -1,6 +1,6 @@
 # GOOGLE_API_KEYS.md
 
-Guia operacional para criar, restringir e configurar as chaves Google usadas pelo **M21 — Web Performance externo** do SearchGEO Readiness Auditor.
+Guia operacional para criar, restringir e configurar as chaves Google usadas pelo **Web Performance externo — Web Performance externo** do SearchGEO Readiness Auditor.
 
 > Verificado em 2026-09-03 contra a documentação oficial do Google. Nomes de menus podem aparecer em português ou inglês conforme o idioma da conta, mas a estrutura é `APIs e serviços / APIs & Services`.
 
@@ -166,7 +166,7 @@ searchgeo audit https://example.com `
   --web-performance-field-source crux
 ```
 
-`--web-performance-field-source crux` exige `SEARCHGEO_CRUX_API_KEY`. PageSpeed continua sendo usado para Lighthouse lab enquanto M21 estiver habilitado.
+`--web-performance-field-source crux` exige `SEARCHGEO_CRUX_API_KEY`. PageSpeed continua sendo usado para Lighthouse lab enquanto Web Performance externo estiver habilitado.
 
 ### Sem field data
 

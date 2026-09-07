@@ -1,4 +1,4 @@
-"""Relatório dedicado do M25 — Synthetic User Experience Apdex."""
+"""Relatório dedicado do Synthetic User Experience Apdex — Synthetic User Experience Apdex."""
 from __future__ import annotations
 
 from html import escape
@@ -16,7 +16,7 @@ _OFFICIAL_REFERENCES = (
     (
         "Apdex Technical Specification v1.1",
         "https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf",
-        "Fórmula Apdex; o M25 mantém a fórmula, mas permite thresholds calibrados independentes.",
+        "Fórmula Apdex; o Synthetic User Experience Apdex mantém a fórmula, mas permite thresholds calibrados independentes.",
     ),
     (
         "Dynatrace — User actions in RUM Classic",
@@ -106,7 +106,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     standard = data["standard"]
     nav = report_navigation.render_report_navigation(report_dir, M25_REPORT_FILE)
     if run is None:
-        return _shell(nav, "<section class='panel'><h1>Synthetic User Experience Apdex</h1><p>Nenhum estado M25 persistido.</p></section>")
+        return _shell(nav, "<section class='panel'><h1>Synthetic User Experience Apdex</h1><p>Nenhum estado Synthetic User Experience Apdex persistido.</p></section>")
 
     mix = _json(run["device_mix"])
     metadata = _json(run["calibration_metadata"])
@@ -136,14 +136,14 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     pop_cards = "".join(_population_card(row) for row in population)
     body = f"""
     <header class='hero'>
-      <div class='eyebrow'>M25 · Web Performance sintética calibrável</div>
+      <div class='eyebrow'>Synthetic User Experience Apdex · Web Performance sintética calibrável</div>
       <h1>Synthetic User Experience Apdex</h1>
       <p class='lead'>Medição sintética enriquecida para aproximar a estrutura de uma <em>user action</em>: navegação, XHR/fetch, recursos tardios, erros JavaScript/request e KPM configurável. <strong>Não é RUM e não representa usuários humanos observados.</strong></p>
       <div class='metric-grid'>{metrics}</div>
     </header>
     <section class='panel notice-critical'>
       <h2>Fronteira metodológica</h2>
-      <p>O M25 não substitui <a href='apdex.html'>Synthetic Navigation Apdex Standard</a>. O M23 continua usando <strong>T/4T</strong> conforme a especificação Apdex. O M25 usa thresholds independentes e uma política de erros calibrável para permitir comparação metodologicamente mais próxima de ferramentas RUM/APM.</p>
+      <p>O Synthetic User Experience Apdex não substitui <a href='apdex.html'>Synthetic Navigation Apdex Standard</a>. O Synthetic Navigation Apdex continua usando <strong>T/4T</strong> conforme a especificação Apdex. O Synthetic User Experience Apdex usa thresholds independentes e uma política de erros calibrável para permitir comparação metodologicamente mais próxima de ferramentas RUM/APM.</p>
       <p>Proximidade numérica com Dynatrace <strong>não é objetivo do algoritmo</strong>. Se os valores convergirem, isso deve decorrer de KPM, thresholds, política de erros e população sintética alinhados — nunca de ajuste forçado do score.</p>
     </section>
     <section class='panel'>
@@ -156,7 +156,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     <section class='panel'>
       <div class='kicker'>Resultado</div><h2>Apdex calibrado por população e dispositivo</h2>
       {pop_cards}
-      <div class='table-wrap'><table><thead><tr><th>URL</th><th>Grupo</th><th>Apdex calibrado</th><th>Válidas</th><th>S/T/F</th><th>Frustrated por erro</th><th>p75</th><th>p95</th><th>JS error samples</th><th>Request error samples</th><th>Standard M23</th></tr></thead><tbody>{rows or '<tr><td colspan="11">Sem resumo calculável.</td></tr>'}</tbody></table></div>
+      <div class='table-wrap'><table><thead><tr><th>URL</th><th>Grupo</th><th>Apdex calibrado</th><th>Válidas</th><th>S/T/F</th><th>Frustrated por erro</th><th>p75</th><th>p95</th><th>JS error samples</th><th>Request error samples</th><th>Standard Synthetic Navigation Apdex</th></tr></thead><tbody>{rows or '<tr><td colspan="11">Sem resumo calculável.</td></tr>'}</tbody></table></div>
     </section>
     <section class='panel'>
       <div class='kicker'>Coleta</div><h2>Sinais observados nas user actions sintéticas</h2>
@@ -170,15 +170,15 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
         {_metric('Network não estabilizou', sample_rollup['unsettled'])}
         {_metric('Amostras', len(samples))}
       </div>
-      <p>Além de User Action Duration, o M25 persiste Navigation Timing (Response Start/End, DOM Interactive, Load Event Start/End), LCP, CLS e contadores de erros/requests quando observáveis. A KPM efetivamente usada no Apdex aparece no cabeçalho.</p>
+      <p>Além de User Action Duration, o Synthetic User Experience Apdex persiste Navigation Timing (Response Start/End, DOM Interactive, Load Event Start/End), LCP, CLS e contadores de erros/requests quando observáveis. A KPM efetivamente usada no Apdex aparece no cabeçalho.</p>
     </section>
     <section class='panel'>
       <div class='kicker'>Dynatrace</div><h2>Importação opcional de configuração</h2>
-      <p>Quando habilitada, a importação usa somente configuração de aplicação/thresholds/KPM. O token vem de <code>DYNATRACE_API_TOKEN</code> e não é persistido. Se a configuração Dynatrace usar uma KPM que o M25 não mede com equivalência suficiente, a execução é recusada em vez de aplicar fallback silencioso.</p>
-      <p>Mesmo com configuração importada, o resultado continua sintético: o Dynatrace RUM observa usuários reais, enquanto o M25 executa Chromium controlado.</p>
+      <p>Quando habilitada, a importação usa somente configuração de aplicação/thresholds/KPM. O token vem de <code>DYNATRACE_API_TOKEN</code> e não é persistido. Se a configuração Dynatrace usar uma KPM que o Synthetic User Experience Apdex não mede com equivalência suficiente, a execução é recusada em vez de aplicar fallback silencioso.</p>
+      <p>Mesmo com configuração importada, o resultado continua sintético: o Dynatrace RUM observa usuários reais, enquanto o Synthetic User Experience Apdex executa Chromium controlado.</p>
     </section>
     <section class='panel'><div class='kicker'>Referências</div><h2>Fundamentação pública</h2><ul>{refs}</ul></section>
-    <footer class='footer'>M25 é evidence-backed, reproduzível e non-scoring. Não altera SCORE-GEO-002, SGRI-001, RuleExecution, findings ou recomendações GEO.</footer>
+    <footer class='footer'>Synthetic User Experience Apdex é evidence-backed, reproduzível e informativo; não altera o índice. Não altera SCORE-GEO-002, SGRI-001, RuleExecution, findings ou recomendações GEO.</footer>
     """
     return _shell(nav, body)
 
@@ -231,7 +231,7 @@ def _calibration_note(source: str, metadata: dict[str, Any]) -> str:
     if source.startswith("DYNATRACE"):
         if metadata.get("errors_affect_apdex_observed"):
             return "KPM, thresholds e política de erro foram observados na configuração importada quando disponíveis."
-        return "KPM/thresholds vieram do Dynatrace; a política de erro não estava exposta no payload e foi fornecida manualmente pelo M25."
+        return "KPM/thresholds vieram do Dynatrace; a política de erro não estava exposta no payload e foi fornecida manualmente pelo Synthetic User Experience Apdex."
     return "Thresholds e política foram configurados explicitamente no SearchGEO."
 
 

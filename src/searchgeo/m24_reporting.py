@@ -1,4 +1,4 @@
-"""Static report projection for M24 Crawling, Discovery & AI Access."""
+"""Static report projection for Rastreamento, descoberta e acesso de crawlers Crawling, Discovery & AI Access."""
 from __future__ import annotations
 
 from collections import Counter
@@ -127,7 +127,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 <html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
 <title>Rastreamento e descoberta — SearchGEO</title><link rel='stylesheet' href='css/site.css'></head>
 <body>{nav}<main class='app-main'>
-<header class='hero'><div class='eyebrow'>M24 · diagnóstico técnico não-scoring</div>
+<header class='hero'><div class='eyebrow'>Rastreamento, descoberta e acesso de crawlers · diagnóstico técnico não-scoring</div>
 <h1>Rastreamento, descoberta e acesso por IA</h1>
 <p class='lead'>Diagnóstico determinístico de robots.txt, sitemaps/feeds, coerência de descoberta e controles de crawlers. Esta página não altera SCORE-GEO-002, SGRI-001, Coverage, Confidence ou Consolidation.</p>
 <div class='metric-grid'>
@@ -144,7 +144,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 <section class='panel'><div class='kicker'>Resumo</div><h2>Universo técnico observado</h2>
 <div class='metric-grid'>{''.join(_metric(key, str(value)) for key,value in sorted(categories.items()))}</div>
 <p class='intro'>A ausência de evidência para IndexNow é reportada como <code>NOT_DETERMINABLE</code>; não é presumida como configuração ausente. Sitemaps declarados em outro origin são preservados, porém não são adquiridos automaticamente para não ampliar o escopo de rede/SSRF da auditoria.</p></section>
-{''.join(groups) if groups else "<section class='panel'><p>Nenhum diagnóstico M24 persistido.</p></section>"}
+{''.join(groups) if groups else "<section class='panel'><p>Nenhum diagnóstico Rastreamento, descoberta e acesso de crawlers persistido.</p></section>"}
 {_ai_block(data)}
 <section class='panel'><div class='kicker'>Referências</div><h2>Fundamentação externa</h2>
 <div class='ref-grid'>
@@ -155,7 +155,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 {_reference("OpenAI Help Center","Publishers and Developers FAQ","https://help.openai.com/en/articles/12627856-publishers-and-developers-faq")}
 {_reference("llms.txt","Proposta comunitária — não web standard","https://llmstxt.org/")}
 </div></section>
-<footer class='footer'>M24-CD-001 · projeção somente de dados persistidos e artifacts; scoring_impact=NONE.</footer>
+<footer class='footer'>M24-CD-001 · projeção somente de dados persistidos e artifacts; sem impacto no SearchGEO Readiness Index.</footer>
 </main></body></html>
 """
 
@@ -181,7 +181,7 @@ def _diagnostic(row: sqlite3.Row) -> str:
     return f"""<article class='page-card'>
 <div class='panel-head'><div><div class='kicker'>{escape(str(row["code"]))}</div><h3>{escape(str(row["title"]))}</h3></div><span class='badge {badge}'>{escape(severity)}</span></div>
 <p class='page-url'>{escape(scope)}</p>
-<div class='notice'><strong>Impacto em scoring:</strong> NENHUM. Este diagnóstico não cria RuleExecution/ScoreContribution.</div>
+<div class='notice'><strong>Impacto em scoring:</strong> NENHUM. Este diagnóstico não altera regras nem o SearchGEO Readiness Index.</div>
 <details><summary>Evidência observada</summary><div class='detail-body'><pre>{escape(observed)}</pre><p><strong>Evidence IDs:</strong> {escape(", ".join(evidence) or "—")}</p></div></details>
 <p><strong>Orientação determinística:</strong> {escape(remediation)}</p>
 </article>"""
@@ -199,7 +199,7 @@ def _ai_block(data: dict[str, Any]) -> str:
     cost = f"{sum(costs):.6f} USD" if costs else "não calculável/zero chamadas"
     return f"""<section class='panel'><div class='kicker'>Remediação técnica opcional por IA</div><h2>Telemetria e limites</h2>
 <div class='metric-grid'>{_metric("Estado",state)}{_metric("Provider",provider)}{_metric("Modelo",model)}{_metric("Tentativas",str(len(attempts)))}{_metric("Tokens",str(total_tokens))}{_metric("Custo estimado",cost)}</div>
-<p class='intro'>A IA recebe apenas diagnósticos/evidence IDs M24 persistidos. Ela não pode criar fatos, decidir política de treinamento do publisher nem alterar scoring. Revisão humana permanece obrigatória.</p>
+<p class='intro'>A IA recebe apenas diagnósticos/evidence IDs Rastreamento, descoberta e acesso de crawlers persistidos. Ela não pode criar fatos, decidir política de treinamento do publisher nem alterar scoring. Revisão humana permanece obrigatória.</p>
 <p><strong>Artifact:</strong> <code>{escape(artifact)}</code></p></section>"""
 
 
@@ -222,7 +222,7 @@ def _inject_references(report_dir: Path) -> None:
     html = _replace_marker(html, _REF_START, _REF_END, "")
     block = f"""{_REF_START}<section class='panel' id='m24-crawling-references'>
 <div class='kicker'>M24-CD-001</div><h2>Rastreamento, descoberta e acesso por IA</h2>
-<p class='intro'>M24 usa referências públicas para os fenômenos técnicos, mas permanece fora do SCORE-GEO-002/SGRI-001. llms.txt é explicitamente identificado como proposta comunitária.</p>
+<p class='intro'>Rastreamento, descoberta e acesso de crawlers usa referências públicas para os fenômenos técnicos, mas permanece fora do SCORE-GEO-002/SGRI-001. llms.txt é explicitamente identificado como proposta comunitária.</p>
 <ul><li><a href='https://www.rfc-editor.org/rfc/rfc9309.html'>RFC 9309 — Robots Exclusion Protocol</a></li>
 <li><a href='https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec'>Google — robots.txt</a></li>
 <li><a href='https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap'>Google — sitemaps</a></li>

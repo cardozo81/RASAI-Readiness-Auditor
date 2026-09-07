@@ -1,7 +1,7 @@
 # SCORE-GEO-002 — Aplicabilidade de Dimensões e Premissas Mínimas GEO
 
-**Status:** APPROVED  
-**Scoring baseline:** `SCORE-GEO-002`  
+**Status:** APPROVED
+**Scoring baseline:** `SCORE-GEO-002`
 **Supersede:** `SCORE-GEO-001` somente quanto à aplicabilidade/agregação de dimensões.
 
 ## 1. Motivação
@@ -53,7 +53,7 @@ O SearchGEO não assume a existência de um standard universal GEO/AEO.
 
 Fonte primária do Google, verificada em 2026-09-03:
 
-**Optimizing your website for generative AI features on Google Search**  
+**Optimizing your website for generative AI features on Google Search**
 <https://developers.google.com/search/docs/fundamentals/ai-optimization-guide>
 
 O Google explicita nesse guia que AEO/GEO são termos usados pela indústria e que, para os recursos generativos do Google Search, as práticas fundamentais continuam sendo SEO.

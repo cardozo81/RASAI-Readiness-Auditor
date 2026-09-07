@@ -96,7 +96,7 @@ Consulte `RULES_GUIDE.md`.
 
 **Classificação:** `EXTERNAL_STANDARD` para a semântica HTTP.
 
-Fonte oficial: RFC 9110 — HTTP Semantics  
+Fonte oficial: RFC 9110 — HTTP Semantics
 https://www.rfc-editor.org/rfc/rfc9110.html
 
 O SearchGEO adiciona regras próprias de materialidade, dependência e auditabilidade sobre a observação HTTP.
@@ -105,7 +105,7 @@ O SearchGEO adiciona regras próprias de materialidade, dependência e auditabil
 
 **Classificação:** `EXTERNAL_STANDARD`.
 
-Fonte oficial: RFC 9309 — Robots Exclusion Protocol  
+Fonte oficial: RFC 9309 — Robots Exclusion Protocol
 https://www.rfc-editor.org/rfc/rfc9309.html
 
 Para comportamento específico do Google, o catálogo por regra também referencia a documentação oficial do Google Crawling Infrastructure.
@@ -114,7 +114,7 @@ Para comportamento específico do Google, o catálogo por regra também referenc
 
 **Classificação:** `EXTERNAL_DEFINED_METRIC`.
 
-Fonte oficial: Chrome/web.dev — Web Vitals  
+Fonte oficial: Chrome/web.dev — Web Vitals
 https://web.dev/articles/vitals
 
 LCP, INP e CLS de campo, avaliação no percentil 75 e thresholds recomendados são mantidos externamente. O SearchGEO preserva source/scope e não converte Core Web Vitals em `SGRI-001`.
@@ -123,7 +123,7 @@ LCP, INP e CLS de campo, avaliação no percentil 75 e thresholds recomendados s
 
 **Classificação:** `EXTERNAL_DEFINED_METRIC`.
 
-Fonte oficial: Chrome for Developers — Performance scoring  
+Fonte oficial: Chrome for Developers — Performance scoring
 https://developer.chrome.com/docs/lighthouse/performance/performance-scoring
 
 Score, pesos e curvas pertencem ao Lighthouse e podem mudar entre versões. A versão materializada deve permanecer rastreável.
@@ -134,7 +134,7 @@ No dashboard, quando existem vários contextos, o SearchGEO deve preferir faixa/
 
 **Classificação:** `EXTERNAL_DEFINED_METRIC`.
 
-Fonte oficial: Chrome for Developers — Accessibility scoring  
+Fonte oficial: Chrome for Developers — Accessibility scoring
 https://developer.chrome.com/docs/lighthouse/accessibility/scoring
 
 O score automatizado do Lighthouse não é percentual de conformidade WCAG e não deve ser apresentado como certificação.
@@ -143,7 +143,7 @@ O score automatizado do Lighthouse não é percentual de conformidade WCAG e nã
 
 **Classificação:** `EXTERNAL_STANDARD`.
 
-Fonte oficial: W3C Recommendation — WCAG 2.2  
+Fonte oficial: W3C Recommendation — WCAG 2.2
 https://www.w3.org/TR/WCAG22/
 
 O SearchGEO pode mapear falhas automatizáveis a critérios aplicáveis, mas uma avaliação automatizada não autoriza declarar conformidade integral WCAG.
@@ -152,7 +152,7 @@ O SearchGEO pode mapear falhas automatizáveis a critérios aplicáveis, mas uma
 
 **Classificação:** `EXTERNAL_STANDARD` para fórmula, zonas e faixas qualitativas.
 
-Fonte oficial: Apdex Technical Specification v1.1  
+Fonte oficial: Apdex Technical Specification v1.1
 https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf
 
 A especificação define a fórmula, Satisfied/Tolerating/Frustrated, reporting qualitativo e tratamento de grupos com menos de 100 amostras. O threshold `T` é configurado pelo operador. Perfil Chromium, limites operacionais, delays e concorrência são configuração/implementação do SearchGEO e devem permanecer separados da parte normativa Apdex.
@@ -161,7 +161,7 @@ A especificação define a fórmula, Satisfied/Tolerating/Frustrated, reporting 
 
 **Classificação:** `OFFICIAL_PLATFORM_GUIDANCE`.
 
-Fonte oficial: Google Search Central — Creating helpful, reliable, people-first content  
+Fonte oficial: Google Search Central — Creating helpful, reliable, people-first content
 https://developers.google.com/search/docs/fundamentals/creating-helpful-content
 
 O SearchGEO usa esses conceitos para contextualizar a análise semântica. Não produz `E-E-A-T Score` oficial nem transforma YMYL em probabilidade de ranking.

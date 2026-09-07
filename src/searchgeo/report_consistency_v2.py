@@ -42,6 +42,15 @@ class Context:
 # Exact presentation strings emitted by SearchGEO templates. Deliberately avoid
 # a generic M<number> replacement because audited content may legitimately use
 # such tokens (product names, model numbers, page copy, JSON-LD, code samples).
+
+_USER_REASON_REPLACEMENTS: tuple[tuple[str, str], ...] = (
+    ("AI_DISABLED_BY_CONFIGURATION", "Análise por IA desabilitada nesta execução"),
+    ("AI_NOT_CONFIGURED", "IA selecionada sem credencial/configuração disponível"),
+    ("LIGHTHOUSE_RESULT_MISSING", "O Lighthouse não retornou um resultado utilizável"),
+    ("RESULT_MISSING", "A fonte externa não retornou o resultado esperado"),
+    ("RESOURCE_EXHAUSTED", "Limite de quota do serviço externo atingido"),
+)
+
 _PRESENTATION_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("M18/M20", "análise semântica e remediação textual"),
     ("M21/M22", "Web Performance e Acessibilidade"),
@@ -114,9 +123,37 @@ def reconcile_report_outputs(*, audit_id: str, workspace: AuditWorkspace) -> Non
             html = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
+        if path.name == "references.html":
+            html = _replace_section(html, "analyst-glossary", _analyst_glossary_html(), "</main>")
         path.write_text(_sanitize_presentation(html), encoding="utf-8", newline="\n")
 
     normalize_report_navigation(report_dir)
+
+
+
+def _analyst_glossary_html() -> str:
+    terms = (
+        ("Apdex", "Índice de satisfação calculado a partir de tempos de resposta e de um limiar T definido para a tarefa medida."),
+        ("canonical", "Sinal que indica a URL preferencial entre páginas equivalentes ou muito semelhantes."),
+        ("Core Web Vitals", "Métricas de experiência do usuário definidas no ecossistema Chrome/Google."),
+        ("CrUX", "Chrome UX Report, fonte de dados agregados de experiência real quando existe amostra suficiente."),
+        ("JSON-LD", "Formato JSON para dados vinculados, amplamente usado para Structured Data."),
+        ("Lighthouse", "Ferramenta automatizada de auditoria de qualidade Web mantida no ecossistema Chrome."),
+        ("LCP", "Largest Contentful Paint; mede o tempo de renderização do maior conteúdo visível relevante."),
+        ("INP", "Interaction to Next Paint; mede responsividade às interações do usuário."),
+        ("CLS", "Cumulative Layout Shift; mede instabilidade visual."),
+        ("RUM", "Real User Monitoring; observação de usuários reais, diferente das medições sintéticas do SearchGEO."),
+        ("TLS", "Protocolo de segurança usado por HTTPS para autenticação e proteção da conexão."),
+        ("WCAG", "Web Content Accessibility Guidelines, recomendações do W3C para acessibilidade Web."),
+    )
+    rows = "".join(f"<dt>{escape(term)}</dt><dd>{escape(description)}</dd>" for term, description in terms)
+    return (
+        "<section id='analyst-glossary' class='panel'>"
+        "<div class='kicker'>Glossário</div><h2>Termos usados nos relatórios</h2>"
+        "<p class='intro'>Definições resumidas para leitura por profissionais de dados e SEO. "
+        "As referências metodológicas completas permanecem nesta página.</p>"
+        f"<dl>{rows}</dl></section>"
+    )
 
 
 def _one(db: sqlite3.Connection, sql: str, audit_id: str) -> sqlite3.Row | None:
@@ -393,6 +430,11 @@ def _strip_apdex_from_web(html: str) -> str:
 def _sanitize_presentation(html: str) -> str:
     for old, new in _PRESENTATION_REPLACEMENTS:
         html = html.replace(old, new)
+    for old, new in _USER_REASON_REPLACEMENTS:
+        html = html.replace(old, new)
+    html = re.sub(r"\s*\(_ssl\.c:\d+\)", "", html)
+    html = re.sub(r"project_number:\s*\d+", "identificador interno do serviço omitido", html, flags=re.IGNORECASE)
+    html = html.replace("ignore_https_errors", "desativação da validação TLS")
     return html
 
 

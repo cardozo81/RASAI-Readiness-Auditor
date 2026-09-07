@@ -147,7 +147,7 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "IA semântica / sugestões de conteúdo",
         "AI_DERIVED_ADVISORY",
         "SearchGEO + provider configurado",
-        "Contrato evidence-bound M18/M20",
+        "Contrato evidence-bound Análise semântica por IA, roteamento e telemetria/Sugestões e remediação de conteúdo por IA",
         None,
         "Não existe homologação externa da conclusão produzida pelo LLM para a página auditada.",
         "Provider/model/reasoning/evidências/confiança da sugestão são rastreados; saída é advisory e requer revisão humana.",

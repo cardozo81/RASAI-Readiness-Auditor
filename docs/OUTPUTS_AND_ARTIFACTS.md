@@ -17,12 +17,12 @@ audits/<AUD-ID>/
    ├─ desktop.html             # evidências/findings; condicional
    ├─ remediation.html
    ├─ content-suggestions.html
-   ├─ crawling-discovery.html  # M24
+   ├─ crawling-discovery.html  # Rastreamento, descoberta e acesso de crawlers
    ├─ accessibility.html       # quando materializado
    ├─ web-performance.html
-   ├─ apdex.html               # M23, quando habilitado/materializado
-   ├─ apdex-experience.html    # M25, quando habilitado/materializado
-   ├─ ai-visibility.html       # M26, quando houver dataset importado/report regenerado
+   ├─ apdex.html               # Synthetic Navigation Apdex, quando habilitado/materializado
+   ├─ apdex-experience.html    # Synthetic User Experience Apdex, quando habilitado/materializado
+   ├─ ai-visibility.html       # Observed Generative Visibility, quando houver dataset importado/report regenerado
    ├─ ai-usage.html
    ├─ references.html
    └─ css/site.css
@@ -64,7 +64,7 @@ content_remediation_suggestions
 provider_pricing_catalog
 ```
 
-### M24 — crawling/discovery
+### Rastreamento, descoberta e acesso de crawlers — crawling/discovery
 
 ```text
 m24_runs
@@ -72,7 +72,7 @@ m24_diagnostics
 m24_ai_results
 ```
 
-Essas tabelas são aditivas. Diagnósticos M24 registram `scoring_impact=NONE` e não substituem `rule_executions`, `findings` ou `scores`.
+Essas tabelas são aditivas. Diagnósticos Rastreamento, descoberta e acesso de crawlers registram `scoring_impact=NONE` e não substituem `rule_executions`, `findings` ou `scores`.
 
 ### Web Performance
 
@@ -84,7 +84,7 @@ web_performance_observations
 
 Essas tabelas permitem distinguir tentativa, sucesso, falha, HTTP, timeout, artifact e dados efetivamente obtidos.
 
-### Synthetic Apdex M23
+### Synthetic Apdex Synthetic Navigation Apdex
 
 ```text
 synthetic_apdex_runs
@@ -95,7 +95,7 @@ lighthouse_execution_profiles
 
 Os nomes internos permanecem estáveis para compatibilidade de schema. A documentação operacional e os relatórios usam nomenclatura funcional.
 
-### Synthetic User Experience Apdex M25
+### Synthetic User Experience Apdex Synthetic User Experience Apdex
 
 ```text
 synthetic_ux_apdex_runs
@@ -103,9 +103,9 @@ synthetic_ux_apdex_samples
 synthetic_ux_apdex_summaries
 ```
 
-M25 é calibrável e separado do M23 Standard. Seus thresholds/KPM/error policy não reescrevem resultados M23 nem scoring SearchGEO.
+Synthetic User Experience Apdex é calibrável e separado do Synthetic Navigation Apdex Standard. Seus thresholds/KPM/error policy não reescrevem resultados Synthetic Navigation Apdex nem scoring SearchGEO.
 
-### Observed Generative Visibility M26
+### Observed Generative Visibility Observed Generative Visibility
 
 ```text
 generative_visibility_imports
@@ -115,7 +115,7 @@ generative_visibility_trend
 generative_visibility_query_runs
 ```
 
-M26 persiste outcomes observados/importados. Essas tabelas não escrevem nem recalculam `scores`, `score_contributions`, `rule_executions`, `findings` ou `recommendations`.
+Observed Generative Visibility persiste outcomes observados/importados. Essas tabelas não escrevem nem recalculam `scores`, `score_contributions`, `rule_executions`, `findings` ou `recommendations`.
 
 Métricas explicitamente fornecidas pela fonte, como Total Citations e Average Cited Pages do Bing AI Performance, permanecem identificadas como **source-reported**. Citation Presence Rate é calculado somente quando existem query-runs controlados válidos e exibe tamanho amostral/intervalo Wilson 95%.
 
@@ -131,7 +131,7 @@ Esse banco contém somente projeções necessárias para filtro e estatística h
 
 Ele **não é fonte de verdade**. Pode ser removido e reconstruído a partir dos `AUD-*/audit.db` sem perda de evidência.
 
-M26 não entra automaticamente no consolidado histórico atual. Uma consolidação futura de visibilidade observada deve preservar fonte, período e comparabilidade de engine/surface antes de agregar datasets.
+Observed Generative Visibility não entra automaticamente no consolidado histórico atual. Uma consolidação futura de visibilidade observada deve preservar fonte, período e comparabilidade de engine/surface antes de agregar datasets.
 
 ## Relatórios consolidados
 
@@ -168,9 +168,9 @@ Exemplos:
 
 Se PageSpeed falhar por timeout/HTTP/quota, não existe artifact Lighthouse correspondente. O banco/log preserva a falha e o report explica quais métricas ficaram indisponíveis.
 
-## Artifacts M24
+## Artifacts Rastreamento, descoberta e acesso de crawlers
 
-M24 pode gravar artifacts próprios em:
+Rastreamento, descoberta e acesso de crawlers pode gravar artifacts próprios em:
 
 ```text
 artifacts/m24/
@@ -182,11 +182,11 @@ Quando `/llms.txt` same-origin é obtido com sucesso:
 artifacts/m24/llms.txt
 ```
 
-Quando a remediação técnica por IA M24 é habilitada e existe saída persistível, o artifact correspondente permanece nesse domínio M24 e sua telemetria é separada da qualidade do website.
+Quando a remediação técnica por IA Rastreamento, descoberta e acesso de crawlers é habilitada e existe saída persistível, o artifact correspondente permanece nesse domínio Rastreamento, descoberta e acesso de crawlers e sua telemetria é separada da qualidade do website.
 
 A ausência de `llms.txt` não cria artifact e não reduz score/readiness.
 
-## Artifacts M26
+## Artifacts Observed Generative Visibility
 
 Cada JSON normalizado `OGV-IMPORT-001` importado é preservado em:
 
@@ -196,7 +196,7 @@ artifacts/m26/observed-generative-visibility-<sha16>.json
 
 O SHA-256 completo e o caminho relativo ficam em `generative_visibility_imports`. Reimportar exatamente o mesmo artifact na mesma auditoria substitui sua projeção persistida, sem duplicar observações.
 
-O M26 é import-first: não faz scraping de Bing Webmaster Tools e não inventa endpoint de API para AI Performance.
+O Observed Generative Visibility é import-first: não faz scraping de Bing Webmaster Tools e não inventa endpoint de API para AI Performance.
 
 ## Acessibilidade
 
@@ -237,7 +237,7 @@ report/apdex.html
 
 Grupos abaixo de 100 amostras válidas são explicitamente identificados como small-group `*`.
 
-M25 possui domínio adicional em `report/apdex-experience.html`; ele é calibrável e não substitui o M23 Standard.
+Synthetic User Experience Apdex possui domínio adicional em `report/apdex-experience.html`; ele é calibrável e não substitui o Synthetic Navigation Apdex Standard.
 
 ## Reports
 
@@ -255,7 +255,7 @@ Ele pode resumir:
 
 Cada card direciona para a página canônica. Quando há múltiplos contextos externos, o dashboard deve preferir faixa/quantidade de contextos válidos a criar uma média de site não definida pela metodologia de origem.
 
-Observed Generative Visibility permanece um domínio separado e não deve ser fundido ao SGRI. Qualquer futura síntese M26 no dashboard deve continuar exibindo-o como outcome observado independente, sem criar score comum.
+Observed Generative Visibility permanece um domínio separado e não deve ser fundido ao SGRI. Qualquer futura síntese Observed Generative Visibility no dashboard deve continuar exibindo-o como outcome observado independente, sem criar score comum.
 
 ### `searchgeo.html`
 
@@ -286,7 +286,7 @@ Sugestões textuais e JSON-LD advisory.
 
 ### `crawling-discovery.html`
 
-Página canônica do M24 para robots/crawler policy, sitemaps, discovery, `llms.txt`, feeds, IndexNow não determinável sem evidência explícita e remediação técnica opcional por IA.
+Página canônica do Rastreamento, descoberta e acesso de crawlers para robots/crawler policy, sitemaps, discovery, `llms.txt`, feeds, IndexNow não determinável sem evidência explícita e remediação técnica opcional por IA.
 
 Essa página é não-scoring: seus diagnósticos não recalculam `SCORE-GEO-002`/`SGRI-001` e devem distinguir standards/guidance externos de decisões metodológicas internas.
 
@@ -300,15 +300,15 @@ PageSpeed/Lighthouse/CrUX, Core Web Vitals, tentativas externas e diagnósticos 
 
 ### `apdex.html`
 
-Synthetic Navigation Apdex M23 Standard.
+Synthetic Navigation Apdex Synthetic Navigation Apdex Standard.
 
 ### `apdex-experience.html`
 
-Synthetic User Experience Apdex M25 calibrável. Não é RUM e não substitui M23.
+Synthetic User Experience Apdex Synthetic User Experience Apdex calibrável. Não é RUM e não substitui Synthetic Navigation Apdex.
 
 ### `ai-visibility.html`
 
-Página canônica do M26 para outcomes de visibilidade generativa observada/importada.
+Página canônica do Observed Generative Visibility para outcomes de visibilidade generativa observada/importada.
 
 Exibe por dataset/período:
 
@@ -324,7 +324,7 @@ Não contém nem produz `SGRI-001`, Score GEO ou probabilidade preditiva de cita
 
 ### `ai-usage.html`
 
-Provider/modelo, tentativas, tokens, reasoning e custo estimado quando persistidos. A finalidade M24 deve permanecer identificável separadamente da análise semântica e da remediação textual M20.
+Provider/modelo, tentativas, tokens, reasoning e custo estimado quando persistidos. A finalidade Rastreamento, descoberta e acesso de crawlers deve permanecer identificável separadamente da análise semântica e da remediação textual Sugestões e remediação de conteúdo por IA.
 
 ### `references.html`
 
@@ -350,13 +350,13 @@ Deve permitir rastrear, sem secrets:
 
 - início/fim de etapas;
 - tentativa de provider;
-- M24 crawling/discovery e eventuais falhas fail-open;
+- Rastreamento, descoberta e acesso de crawlers crawling/discovery e eventuais falhas fail-open;
 - PageSpeed/CrUX;
 - timeout/HTTP/quota;
 - progresso Synthetic Apdex;
-- importação M26 com source/período/contagens e `scoring_impact=NONE`;
+- importação Observed Generative Visibility com source/período/contagens e `scoring_impact=NONE`;
 - falhas fail-open;
-- geração de reports, incluindo as projeções `SGRI-001`, M24 e M26.
+- geração de reports, incluindo as projeções `SGRI-001`, Rastreamento, descoberta e acesso de crawlers e Observed Generative Visibility.
 
 A consolidação não grava eventos em `AUD-*/logs/audit.log`; sua rastreabilidade fica no `manifest.json` do próprio `CONS-*`.
 
@@ -366,6 +366,6 @@ A consolidação não grava eventos em `AUD-*/logs/audit.log`; sua rastreabilida
 - o arquivo `searchgeo-console.ini` também não armazena secrets;
 - request IDs e diagnósticos devem ser sanitizados;
 - custo estimado não é invoice;
-- sitemap cross-origin declarado é evidência, mas M24 não faz fetch externo automático sem uma política de aquisição segura;
-- M26 rejeita URL cross-origin no dataset e não faz scraping de portais de webmaster;
+- sitemap cross-origin declarado é evidência, mas Rastreamento, descoberta e acesso de crawlers não faz fetch externo automático sem uma política de aquisição segura;
+- Observed Generative Visibility rejeita URL cross-origin no dataset e não faz scraping de portais de webmaster;
 - o consolidador não escreve em `AUD-*/audit.db` e não faz chamadas externas.

@@ -48,7 +48,7 @@ Se algumas categorias solicitadas forem válidas e outras estiverem ausentes/inv
 
 O SearchGEO **não recalcula** o score de Acessibilidade do Lighthouse.
 
-O valor 0–100 mostrado em `accessibility.html` é a projeção do score da categoria `lighthouseResult.categories.accessibility.score`, multiplicado por 100 na camada M21. A metodologia de ponderação pertence ao Lighthouse; a documentação oficial descreve o score como média ponderada das auditorias automatizadas e informa que auditorias manuais não participam dessa pontuação.
+O valor 0–100 mostrado em `accessibility.html` é a projeção do score da categoria `lighthouseResult.categories.accessibility.score`, multiplicado por 100 na camada Web Performance externo. A metodologia de ponderação pertence ao Lighthouse; a documentação oficial descreve o score como média ponderada das auditorias automatizadas e informa que auditorias manuais não participam dessa pontuação.
 
 Regras de integridade:
 

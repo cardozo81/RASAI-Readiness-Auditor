@@ -1,13 +1,13 @@
-# M14 — Multi-URL Audit + Visual/DOM Evidence + Actionable Remediation
+# Auditoria multi-URL e evidência visual — Multi-URL Audit + Visual/DOM Evidence + Actionable Remediation
 
-**Status:** NORMATIVE EVOLUTION  
-**Milestone:** M14  
-**Report contract:** `REPORT-GEO-003`  
+**Status:** NORMATIVE EVOLUTION
+**Capacidade:** Auditoria multi-URL e evidência visual
+**Report contract:** `REPORT-GEO-003`
 **Scoring contract:** `SCORE-GEO-001` — unchanged
 
 ## 1. Purpose
 
-M14 evolves the persisted audit chain from score/finding/remediation text to a traceable structure capable of answering, from persisted evidence, what domain and page were audited, which Desktop/Mobile snapshot was used, what DOM element was observed when determinable, what visual evidence exists, what action is justified, how the correction is validated, and which technical authority or internal heuristic supports the recommendation.
+Auditoria multi-URL e evidência visual evolves the persisted audit chain from score/finding/remediation text to a traceable structure capable of answering, from persisted evidence, what domain and page were audited, which Desktop/Mobile snapshot was used, what DOM element was observed when determinable, what visual evidence exists, what action is justified, how the correction is validated, and which technical authority or internal heuristic supports the recommendation.
 
 The report remains a projection. Persisted audit state is the source of truth.
 
@@ -56,7 +56,7 @@ Absence of `robots.txt` or sitemap is not converted automatically into a `FAIL` 
 
 ## 4. Three evidence planes
 
-M14 preserves three distinct evidence planes:
+Auditoria multi-URL e evidência visual preserves three distinct evidence planes:
 
 ```text
 RAW HTTP
@@ -86,7 +86,7 @@ Screenshot capture failure must be represented as a limitation/evidence state an
 
 ## 6. ElementObservation
 
-M14 adds an additive persisted `ElementObservation` concept with at least:
+Auditoria multi-URL e evidência visual adds an additive persisted `ElementObservation` concept with at least:
 
 - `element_observation_id`;
 - `audit_id`;
@@ -149,7 +149,7 @@ Actionability never changes `RuleResult`, scoring contribution, weight, score, C
 
 ## 9. Scoring invariants
 
-M14 does not change `SCORE-GEO-001`.
+Auditoria multi-URL e evidência visual does not change `SCORE-GEO-001`.
 
 Mandatory invariants remain:
 
@@ -188,7 +188,7 @@ No report component may use numeric zero as a fallback for `None`/missing score.
 
 ## 10. Technical references
 
-M14 introduces a versioned rule-reference projection. Primary/authoritative technical sources must be preferred when they directly support a rule, including as applicable:
+Auditoria multi-URL e evidência visual introduces a versioned rule-reference projection. Primary/authoritative technical sources must be preferred when they directly support a rule, including as applicable:
 
 - IETF/RFC Editor;
 - WHATWG;
@@ -207,7 +207,7 @@ Referência interna: BR-GEO-XXX
 
 The auditor must never manufacture external authority.
 
-Official links persisted in the M14 rule-reference catalog were verified on `2026-09-02`.
+Official links persisted in the Auditoria multi-URL e evidência visual rule-reference catalog were verified on `2026-09-02`.
 
 ## 11. OAI-SearchBot and GPTBot
 
@@ -217,7 +217,7 @@ No business recommendation may claim that permitting either crawler guarantees i
 
 ## 12. Report contract — REPORT-GEO-003
 
-The M14 report must visibly contain:
+The Auditoria multi-URL e evidência visual report must visibly contain:
 
 1. executive identification of project, `audit_id`, domain, input mode, raw supplied URL count, audited page count, time, AI provider/model state and limitations;
 2. GEO compatibility, Coverage, Confidence and Consolidation without conflating them;
@@ -230,7 +230,7 @@ The M14 report must visibly contain:
 9. Desktop and Mobile score/readiness projections where methodologically available;
 10. page-by-page sections with URL prominence, snapshot states, viewport screenshots, findings, selectors/DOM observations when deterministic and remediation details;
 11. prioritized correction plan;
-12. semantic/entity/intent and citation/evidence-trust sections from persisted M7/M13 state;
+12. semantic/entity/intent and citation/evidence-trust sections from persisted Análise semântica e fallback/Remediação GEO acionável state;
 13. crawl/URL_SET coverage and limitations;
 14. methodology and glossary.
 
@@ -266,9 +266,9 @@ If original HTML was not persisted, use the exact semantic message:
 
 ## 14. AI invariants
 
-OpenAI remains optional. M14 does not add a free-form LLM call to generate remediation.
+OpenAI remains optional. Auditoria multi-URL e evidência visual does not add a free-form LLM call to generate remediation.
 
-Persisted M7 outputs may be reused. AI:
+Persisted Análise semântica e fallback outputs may be reused. AI:
 
 - does not calculate official score;
 - does not choose weights;
@@ -280,7 +280,7 @@ When OpenAI is enabled, existing provider/model/assessment/reasoning/evidence/en
 
 ## 15. Persistence and backward compatibility
 
-M14 persistence is additive in the existing audit SQLite workspace. Base M1 tables are not rewritten merely to add M14 evidence.
+Auditoria multi-URL e evidência visual persistence is additive in the existing audit SQLite workspace. Base Auditoria e persistência tables are not rewritten merely to add Auditoria multi-URL e evidência visual evidence.
 
 Additional tables may store:
 

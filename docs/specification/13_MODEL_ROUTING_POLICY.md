@@ -1,6 +1,6 @@
 # MODEL_ROUTING_POLICY.md
 
-**Status:** BASELINE OPERACIONAL  
+**Status:** BASELINE OPERACIONAL
 **Objetivo:** escolher IA/modelo de acordo com esforço, risco e necessidade de acesso ao repositório.
 
 ## 1. Separar dois usos de IA

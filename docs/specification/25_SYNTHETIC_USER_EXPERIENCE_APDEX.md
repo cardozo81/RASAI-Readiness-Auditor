@@ -1,20 +1,20 @@
-# M25 — Synthetic User Experience Apdex calibrável
+# Synthetic User Experience Apdex — Synthetic User Experience Apdex calibrável
 
-**Status:** IMPLEMENTADO EM BRANCH — aguardando smoke humano antes de merge.  
-**Escopo:** Web Performance sintética, user-action telemetry e comparabilidade metodológica com RUM/APM.  
+**Status:** INTEGRADO E VALIDADO.
+**Escopo:** Web Performance sintética, user-action telemetry e comparabilidade metodológica com RUM/APM.
 **Não altera:** `BR-GEO-*`, `SCORE-GEO-002`, `SGRI-001`, Coverage, Confidence, Consolidation, findings ou recomendações GEO.
 
 ## 1. Objetivo
 
-M25 adiciona um segundo domínio de Apdex, separado do M23, para medir uma **user action sintética enriquecida** e permitir calibração explícita com ferramentas RUM/APM, inclusive Dynatrace.
+Synthetic User Experience Apdex adiciona um segundo domínio de Apdex, separado do Synthetic Navigation Apdex, para medir uma **user action sintética enriquecida** e permitir calibração explícita com ferramentas RUM/APM, inclusive Dynatrace.
 
 O objetivo é reduzir divergências explicáveis por metodologia de coleta — KPM, thresholds, política de erros, dispositivo e sessão — sem manipular o resultado para fazê-lo coincidir com RUM.
 
-M25 **não é RUM**. Nenhuma execução automatizada deve ser descrita como população de usuários humanos observados.
+Synthetic User Experience Apdex **não é RUM**. Nenhuma execução automatizada deve ser descrita como população de usuários humanos observados.
 
-## 2. Relação com M23
+## 2. Relação com Synthetic Navigation Apdex
 
-M23 permanece normativo e independente:
+Synthetic Navigation Apdex permanece normativo e independente:
 
 ```text
 Synthetic Navigation Apdex — Standard
@@ -24,7 +24,7 @@ Tolerating > T e <= 4T
 Frustrated > 4T ou erro de aplicação/navegação válido
 ```
 
-M25 é aditivo:
+Synthetic User Experience Apdex é aditivo:
 
 ```text
 Synthetic User Experience Apdex — Calibrated
@@ -41,11 +41,11 @@ A fórmula Apdex permanece:
 Apdex = (Satisfied + 0.5 * Tolerating) / N_valid
 ```
 
-M25 nunca reescreve tabelas, summaries ou score do M23.
+Synthetic User Experience Apdex nunca reescreve tabelas, summaries ou score do Synthetic Navigation Apdex.
 
 ## 3. Envelope de user action
 
-Cada amostra M25 observa:
+Cada amostra Synthetic User Experience Apdex observa:
 
 1. início imediatamente antes da navegação;
 2. navegação real Chromium até `load`;
@@ -60,7 +60,7 @@ Cada amostra M25 observa:
 11. LCP e CLS quando observáveis;
 12. término da user action pelo último evento real observado no envelope, sem acrescentar artificialmente o período interno de quietude do `networkidle`.
 
-A janela pós-load é limitada. O M25 não afirma equivalência integral ao algoritmo proprietário de duração de user action de qualquer APM.
+A janela pós-load é limitada. O Synthetic User Experience Apdex não afirma equivalência integral ao algoritmo proprietário de duração de user action de qualquer APM.
 
 ## 4. KPMs
 
@@ -74,13 +74,13 @@ KPMs temporais suportadas para classificação calibrada:
 - `RESPONSE_END`;
 - `LARGEST_CONTENTFUL_PAINT`.
 
-M25 também persiste CLS, mas não o usa como KPM temporal de Apdex.
+Synthetic User Experience Apdex também persiste CLS, mas não o usa como KPM temporal de Apdex.
 
-Se uma configuração Dynatrace importada usar uma KPM que o M25 não consegue medir com equivalência suficiente, a execução é recusada. É proibido substituir silenciosamente a KPM por outra.
+Se uma configuração Dynatrace importada usar uma KPM que o Synthetic User Experience Apdex não consegue medir com equivalência suficiente, a execução é recusada. É proibido substituir silenciosamente a KPM por outra.
 
 ## 5. Thresholds calibrados
 
-M25 não assume `4T`.
+Synthetic User Experience Apdex não assume `4T`.
 
 Quando a calibração é manual, são obrigatórios:
 
@@ -111,7 +111,7 @@ O escopo `first-party` não inventa registrable-domain/public-suffix equivalence
 
 ## 7. Dispositivos
 
-M25 suporta população explícita:
+Synthetic User Experience Apdex suporta população explícita:
 
 - `MOBILE`;
 - `DESKTOP`;
@@ -125,7 +125,7 @@ mobile=62,desktop=31,tablet=7
 
 O SearchGEO não inventa percentuais de população. Para comparação com RUM, prefira proporções observadas no período do Dynatrace.
 
-Perfil Tablet baseline M25:
+Perfil Tablet baseline Synthetic User Experience Apdex:
 
 ```text
 profile     = SEARCHGEO_TABLET_CONTROLLED4G_V1
@@ -158,7 +158,7 @@ A escolha deve aparecer no relatório e na persistência.
 
 ## 9. Amostragem
 
-Default M25:
+Default Synthetic User Experience Apdex:
 
 ```text
 100 amostras válidas totais por página
@@ -183,9 +183,9 @@ Execuções grandes contra produção exigem autorização humana de carga/capac
 
 ## 10. CPU/rede e população
 
-M25 baseline usa perfis controlados e versionados por device. Isso mantém reprodutibilidade.
+Synthetic User Experience Apdex baseline usa perfis controlados e versionados por device. Isso mantém reprodutibilidade.
 
-O mix de dispositivos é populacional; CPU/rede permanecem controlados na baseline M25. Nenhuma distribuição de CPU/rede é inventada quando não há fonte observada.
+O mix de dispositivos é populacional; CPU/rede permanecem controlados na baseline Synthetic User Experience Apdex. Nenhuma distribuição de CPU/rede é inventada quando não há fonte observada.
 
 Uma futura distribuição estratificada de CPU/rede só poderá ser habilitada com pesos explícitos/proveniência documentada; não é permitido randomizar condições e chamar isso de população real sem fonte.
 
@@ -220,11 +220,11 @@ Regras obrigatórias:
 - nunca em logs;
 - nunca em `configuration` serializada.
 
-Quando a configuração não expõe inequivocamente a policy de erro, M25 usa a policy manual explícita e registra `+MANUAL_ERROR_POLICY` na origem da calibração.
+Quando a configuração não expõe inequivocamente a policy de erro, Synthetic User Experience Apdex usa a policy manual explícita e registra `+MANUAL_ERROR_POLICY` na origem da calibração.
 
 ## 12. CLI
 
-M25 depende de M23 habilitado.
+Synthetic User Experience Apdex depende de Synthetic Navigation Apdex habilitado.
 
 Principais flags:
 
@@ -261,11 +261,11 @@ synthetic_ux_apdex_samples
 synthetic_ux_apdex_summaries
 ```
 
-M23 continua em suas próprias tabelas `synthetic_apdex_*`.
+Synthetic Navigation Apdex continua em suas próprias tabelas `synthetic_apdex_*`.
 
 ## 14. Reporting
 
-Quando M25 executa, gera:
+Quando Synthetic User Experience Apdex executa, gera:
 
 ```text
 report/apdex-experience.html
@@ -285,18 +285,18 @@ A página deve expor:
 - Frustrated forçado por erro;
 - p75/p90/p95/p99;
 - contadores XHR/fetch/resources/errors;
-- comparação com M23 Standard quando houver contexto equivalente;
+- comparação com Synthetic Navigation Apdex Standard quando houver contexto equivalente;
 - referências públicas.
 
 ## 15. Fail-open e scoring
 
-Falha M25:
+Falha Synthetic User Experience Apdex:
 
 - não altera `SCORE-GEO-002`;
 - não altera `SGRI-001`;
 - não cria finding;
 - não muda Coverage/Confidence;
-- não invalida M23;
+- não invalida Synthetic Navigation Apdex;
 - é registrada como limitação operacional.
 
 ## 16. Comparabilidade com Dynatrace RUM
@@ -313,15 +313,15 @@ Uma comparação é metodologicamente mais útil quando estiverem alinhados:
 
 Mesmo com alinhamento, igualdade numérica não é esperada porque Dynatrace RUM mede usuários reais, redes, devices, sessões e condições operacionais reais.
 
-O delta entre M25 calibrado e RUM deve ser tratado como evidência, não como defeito automático.
+O delta entre Synthetic User Experience Apdex calibrado e RUM deve ser tratado como evidência, não como defeito automático.
 
 ## 17. Gate de smoke humano
 
 Antes do merge:
 
 1. executar 1 URL autorizada;
-2. M23 Standard ON com T explícito;
-3. M25 ON;
+2. Synthetic Navigation Apdex Standard ON com T explícito;
+3. Synthetic User Experience Apdex ON;
 4. usar inicialmente 6–12 amostras, não 1000;
 5. concorrência 1;
 6. confirmar `apdex.html` inalterado;

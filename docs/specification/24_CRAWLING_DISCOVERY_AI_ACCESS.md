@@ -1,21 +1,21 @@
-# M24 — Crawling, Discovery & AI Access
+# Rastreamento, descoberta e acesso de crawlers — Crawling, Discovery & AI Access
 
-**Status:** INTEGRATED BASELINE  
-**Natureza:** enriquecimento técnico pós-auditoria, determinístico por padrão e não-scoring  
+**Status:** INTEGRATED BASELINE
+**Natureza:** enriquecimento técnico pós-auditoria, determinístico por padrão e não-scoring
 **Runtime:** `src/searchgeo/m24_crawling_discovery.py`, `m24_discovery_extensions.py`, `m24_ai.py`, `m24_reporting.py`, `m24_cli.py`
 
 ## 1. Objetivo
 
-M24 aprofunda a análise de rastreamento e descoberta sem alterar a aritmética do SearchGEO. O marco consolida evidências relacionadas a `robots.txt`, sitemaps, políticas de crawlers, `llms.txt`, feeds e sinais de submissão/discovery, produzindo uma página técnica dedicada e, opcionalmente, explicações/remediações por IA estritamente evidence-bound.
+Rastreamento, descoberta e acesso de crawlers aprofunda a análise de rastreamento e descoberta sem alterar a aritmética do SearchGEO. O marco consolida evidências relacionadas a `robots.txt`, sitemaps, políticas de crawlers, `llms.txt`, feeds e sinais de submissão/discovery, produzindo uma página técnica dedicada e, opcionalmente, explicações/remediações por IA estritamente evidence-bound.
 
-M24 não cria um novo score GEO e não recalibra `SCORE-GEO-002`/`SGRI-001`.
+Rastreamento, descoberta e acesso de crawlers não cria um novo score GEO e não recalibra `SCORE-GEO-002`/`SGRI-001`.
 
 ## 2. Invariantes
 
 1. execução determinística é a fonte de verdade para os diagnósticos técnicos;
 2. LLM nunca decide `RuleExecution`, `Finding`, `Recommendation`, Score, Coverage, Confidence ou Consolidation;
-3. todo diagnóstico M24 é persistido com `scoring_impact=NONE`;
-4. falha M24 é fail-open em relação à auditoria principal;
+3. todo diagnóstico Rastreamento, descoberta e acesso de crawlers é persistido com `scoring_impact=NONE`;
+4. falha Rastreamento, descoberta e acesso de crawlers é fail-open em relação à auditoria principal;
 5. ausência de `llms.txt` não reduz score/readiness;
 6. bloqueio de GPTBot não deve ser interpretado como bloqueio de Search;
 7. OAI-SearchBot, GPTBot e Google-Extended possuem papéis distintos e devem ser apresentados separadamente;
@@ -23,7 +23,7 @@ M24 não cria um novo score GEO e não recalibra `SCORE-GEO-002`/`SGRI-001`.
 
 ## 3. Fontes de dados
 
-M24 reutiliza o estado já persistido pela auditoria principal e somente adiciona aquisição quando explicitamente prevista pelo marco.
+Rastreamento, descoberta e acesso de crawlers reutiliza o estado já persistido pela auditoria principal e somente adiciona aquisição quando explicitamente prevista pelo marco.
 
 Fontes principais:
 
@@ -33,7 +33,7 @@ Fontes principais:
 - canonical e meta robots observados;
 - recursos same-origin referenciados;
 - aquisição same-origin de `/llms.txt`, quando a origem não está em hard source blocker;
-- provider de IA já configurado, somente quando remediação técnica M24 é explicitamente habilitada.
+- provider de IA já configurado, somente quando remediação técnica Rastreamento, descoberta e acesso de crawlers é explicitamente habilitada.
 
 ## 4. robots.txt
 
@@ -48,7 +48,7 @@ A análise deve, no mínimo:
 - verificar acesso de recursos same-origin observados quando houver política aplicável;
 - não transformar ausência legítima de `robots.txt` em bloqueio artificial.
 
-O campo `Sitemap:` pode apontar para host diferente do `robots.txt`. M24 preserva essa declaração como evidência, mas não faz fetch cross-origin automático a partir dela. Essa fronteira é uma decisão de segurança do auditor para evitar expansão SSRF/host não autorizado; não é finding do website.
+O campo `Sitemap:` pode apontar para host diferente do `robots.txt`. Rastreamento, descoberta e acesso de crawlers preserva essa declaração como evidência, mas não faz fetch cross-origin automático a partir dela. Essa fronteira é uma decisão de segurança do auditor para evitar expansão SSRF/host não autorizado; não é finding do website.
 
 ## 5. Crawlers e tokens
 
@@ -70,7 +70,7 @@ Token de produto em `robots.txt`; não possui user-agent HTTP separado. Controla
 
 ## 6. Sitemaps
 
-M24 estende a interpretação para os formatos suportados pelo runtime:
+Rastreamento, descoberta e acesso de crawlers estende a interpretação para os formatos suportados pelo runtime:
 
 - XML `urlset`;
 - sitemap index;
@@ -98,7 +98,7 @@ Sitemap é sinal de descoberta/canonical preference, não garantia de crawl, ind
 
 ## 7. llms.txt
 
-M24 trata `llms.txt` como proposta comunitária experimental, não como web standard nem requisito Google/OpenAI de Search.
+Rastreamento, descoberta e acesso de crawlers trata `llms.txt` como proposta comunitária experimental, não como web standard nem requisito Google/OpenAI de Search.
 
 Política:
 
@@ -117,7 +117,7 @@ Links `rel=alternate` para feeds RSS/Atom observados podem ser registrados como 
 
 Uma auditoria passiva do website não consegue provar, de forma geral, que URLs foram submetidas com sucesso via IndexNow.
 
-Quando não houver evidência explícita do operador, log de submissão ou artifact verificável, M24 deve reportar o estado como não determinável em vez de inferir configuração a partir do conteúdo público do site.
+Quando não houver evidência explícita do operador, log de submissão ou artifact verificável, Rastreamento, descoberta e acesso de crawlers deve reportar o estado como não determinável em vez de inferir configuração a partir do conteúdo público do site.
 
 ## 10. Remediação técnica por IA
 
@@ -149,7 +149,7 @@ on / off
 A IA técnica:
 
 - reutiliza providers compatíveis já configurados;
-- recebe somente diagnósticos/evidências M24 persistidos;
+- recebe somente diagnósticos/evidências Rastreamento, descoberta e acesso de crawlers persistidos;
 - não pode inventar URL, policy, canonical, data ou crawler token;
 - não decide se a organização deve permitir treinamento;
 - não transforma `llms.txt` em requisito;
@@ -161,7 +161,7 @@ Quando não existe provider apto, a finalidade fica `NOT_CONFIGURED`/indisponív
 
 ## 11. Persistência
 
-M24 usa tabelas aditivas próprias no `audit.db`, incluindo:
+Rastreamento, descoberta e acesso de crawlers usa tabelas aditivas próprias no `audit.db`, incluindo:
 
 ```text
 m24_runs
@@ -187,7 +187,7 @@ report/crawling-discovery.html
 
 A página deve usar o menu/camada visual compartilhados e apresentar, conforme disponibilidade:
 
-- resumo do run M24;
+- resumo do run Rastreamento, descoberta e acesso de crawlers;
 - robots e políticas de crawler;
 - sitemaps e formatos observados;
 - diagnósticos técnicos com evidência/remediação;
@@ -196,27 +196,27 @@ A página deve usar o menu/camada visual compartilhados e apresentar, conforme d
 - sugestões técnicas de IA quando habilitadas;
 - fontes públicas primárias.
 
-A telemetria de IA M24 também pode ser projetada em `report/ai-usage.html`, sem somar artificialmente qualidade do website e consumo de API.
+A telemetria de IA Rastreamento, descoberta e acesso de crawlers também pode ser projetada em `report/ai-usage.html`, sem somar artificialmente qualidade do website e consumo de API.
 
 ## 13. Source blocker e segurança
 
-Quando a origem está em hard source blocker confirmado, M24 não deve iniciar aquisição adicional de `/llms.txt` nem chamada técnica de IA dependente do corpus indisponível. O estado deve ser persistido como `SKIPPED_SOURCE_BLOCKER`/equivalente e a auditoria principal deve permanecer íntegra.
+Quando a origem está em hard source blocker confirmado, Rastreamento, descoberta e acesso de crawlers não deve iniciar aquisição adicional de `/llms.txt` nem chamada técnica de IA dependente do corpus indisponível. O estado deve ser persistido como `SKIPPED_SOURCE_BLOCKER`/equivalente e a auditoria principal deve permanecer íntegra.
 
 Sitemaps declarados em host externo são preservados, mas não adquiridos automaticamente. Uma evolução futura só pode alterar essa política com validação explícita de SSRF, DNS/IP, redirects e autorização de escopo.
 
 ## 14. Critérios de aceite
 
-M24 é considerado íntegro quando:
+Rastreamento, descoberta e acesso de crawlers é considerado íntegro quando:
 
 - formatos adicionais de sitemap possuem testes;
 - sitemap externo declarado não dispara fetch externo automático;
 - ausência de robots não cria falso bloqueio;
 - `llms.txt` é claramente experimental e non-scoring;
 - remediação técnica default OFF respeita precedência CLI/ambiente;
-- execução M24 não altera contagem/resultado das entidades de scoring;
+- execução Rastreamento, descoberta e acesso de crawlers não altera contagem/resultado das entidades de scoring;
 - report é idempotente e usa CSS/menu compartilhados;
 - source blocker elimina aquisição adicional dependente da origem;
-- regressões M24 e suíte afetada são cobertas por CI.
+- regressões Rastreamento, descoberta e acesso de crawlers e suíte afetada são cobertas por CI.
 
 ## 15. Referências públicas
 
@@ -230,4 +230,4 @@ Fontes normativas/primárias usadas para os fenômenos externos:
 - IndexNow protocol: <https://www.indexnow.org/documentation>
 - llms.txt proposal v2: <https://llmstxt.org/>
 
-Essas fontes documentam fenômenos e contratos externos. Elas não homologam `SGRI-001`, `SCORE-GEO-002`, severidades M24 nem qualquer índice proprietário do SearchGEO.
+Essas fontes documentam fenômenos e contratos externos. Elas não homologam `SGRI-001`, `SCORE-GEO-002`, severidades Rastreamento, descoberta e acesso de crawlers nem qualquer índice proprietário do SearchGEO.

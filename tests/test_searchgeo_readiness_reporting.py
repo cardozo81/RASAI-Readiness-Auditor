@@ -239,8 +239,8 @@ def test_enrichment_is_structurally_idempotent_and_navigation_has_single_searchg
         assert index.count("searchgeo-executive-dashboard:start") == 1
         assert mobile.count("data-searchgeo-device-role='evidence-only'") == 1
         assert searchgeo.count("href='searchgeo.html'") == 1
-        assert "Evidências Mobile" in searchgeo
-        assert "Evidências Desktop" in searchgeo
+        assert "Relatório Mobile" in searchgeo
+        assert "Relatório Desktop" in searchgeo
 
 
 def test_references_use_public_method_name_without_destroying_engine_compatibility() -> None:

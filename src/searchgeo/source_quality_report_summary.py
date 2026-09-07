@@ -2,7 +2,7 @@
 
 This module does not change acquisition, scoring, TLS validation, or measurement
 policies. It only makes a definitive source blocker explicit and traceable after
-all report pages and downstream M21/M23 states have been materialized.
+all report pages and downstream Web Performance externo/Synthetic Navigation Apdex states have been materialized.
 """
 from __future__ import annotations
 

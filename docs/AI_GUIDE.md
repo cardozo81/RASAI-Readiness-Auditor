@@ -5,8 +5,8 @@ O SearchGEO usa IA apenas em finalidades opcionais e evidence-bound. A auditoria
 ## Finalidades
 
 1. **análise semântica**: avalia somente as evidências fornecidas pelo SearchGEO e deve devolver saída estruturada compatível com o contrato local;
-2. **remediação textual opcional (M20)**: produz sugestões exatas somente para findings elegíveis e com evidência suficiente;
-3. **remediação técnica opcional de crawling/discovery (M24)**: explica diagnósticos técnicos M24 já determinados pelo runtime e pode sugerir correção evidence-bound, sem alterar scoring ou política editorial automaticamente.
+2. **remediação textual opcional (Sugestões e remediação de conteúdo por IA)**: produz sugestões exatas somente para findings elegíveis e com evidência suficiente;
+3. **remediação técnica opcional de crawling/discovery (Rastreamento, descoberta e acesso de crawlers)**: explica diagnósticos técnicos Rastreamento, descoberta e acesso de crawlers já determinados pelo runtime e pode sugerir correção evidence-bound, sem alterar scoring ou política editorial automaticamente.
 
 Nenhuma dessas finalidades autoriza inventar fatos, credenciais, preços, datas, estatísticas, URLs, crawler policies ou evidências.
 
@@ -196,7 +196,7 @@ O timeout limita cada chamada ao provider; não representa tempo máximo da audi
 
 O console permite alterar o timeout diretamente na opção 4.
 
-## Remediação textual M20
+## Remediação textual Sugestões e remediação de conteúdo por IA
 
 Superfície:
 
@@ -208,9 +208,9 @@ SEARCHGEO_AI_CONTENT_REMEDIATION
 
 Default: OFF.
 
-M20 atua sobre conteúdo/findings elegíveis depois do scoring e nunca recalcula o score.
+Sugestões e remediação de conteúdo por IA atua sobre conteúdo/findings elegíveis depois do scoring e nunca recalcula o score.
 
-## Remediação técnica M24
+## Remediação técnica Rastreamento, descoberta e acesso de crawlers
 
 Superfície:
 
@@ -222,9 +222,9 @@ SEARCHGEO_AI_TECHNICAL_REMEDIATION
 
 Default: OFF.
 
-A execução determinística de crawling/discovery M24 não depende dessa opção. O flag habilita somente a camada de IA sobre diagnósticos técnicos já persistidos.
+A execução determinística de crawling/discovery Rastreamento, descoberta e acesso de crawlers não depende dessa opção. O flag habilita somente a camada de IA sobre diagnósticos técnicos já persistidos.
 
-A remediação técnica M24 deve respeitar estas fronteiras:
+A remediação técnica Rastreamento, descoberta e acesso de crawlers deve respeitar estas fronteiras:
 
 - não criar nem alterar `RuleExecution`, Finding, Recommendation GEO, Score, Coverage, Confidence ou Consolidation;
 - não inventar URL, canonical, sitemap, data ou crawler token;
@@ -253,7 +253,7 @@ A opção 5, **Remediação textual IA**, só fica disponível com provider apto
 
 O grupo **IA — contexto editorial / YMYL** em `E. Variáveis de ambiente / credenciais` expõe os parâmetros contextuais com domínio aceito, default, explicação de impacto e link para a documentação específica.
 
-A remediação técnica M24 é uma superfície CLI/ambiente nesta versão. Não deve ser presumida como opção persistida no INI do console até existir integração explícita correspondente.
+A remediação técnica Rastreamento, descoberta e acesso de crawlers é uma superfície CLI/ambiente nesta versão. Não deve ser presumida como opção persistida no INI do console até existir integração explícita correspondente.
 
 ## Persistência de configuração e secrets
 
@@ -295,9 +295,9 @@ diagnóstico sanitizado
 
 O custo é estimativa técnica local, não invoice do provider. Quando não existe base de pricing confiável para aquele adapter/modelo, o HTML deve mostrar custo indisponível em vez de fabricar valor.
 
-Para M20, `content-suggestions.html` mostra um resumo de provider/modelo/reasoning/chamadas/duração/tokens/custo e oferece atalho para o detalhamento em `ai-usage.html`.
+Para Sugestões e remediação de conteúdo por IA, `content-suggestions.html` mostra um resumo de provider/modelo/reasoning/chamadas/duração/tokens/custo e oferece atalho para o detalhamento em `ai-usage.html`.
 
-Para M24, a finalidade técnica deve permanecer identificável em `crawling-discovery.html`/`ai-usage.html` e não ser misturada com o score de qualidade do website.
+Para Rastreamento, descoberta e acesso de crawlers, a finalidade técnica deve permanecer identificável em `crawling-discovery.html`/`ai-usage.html` e não ser misturada com o score de qualidade do website.
 
 ## Segurança
 
@@ -307,7 +307,7 @@ Para M24, a finalidade técnica deve permanecer identificável em `crawling-disc
 - não assuma que key configurada significa crédito disponível;
 - falha de provider não deve ser convertida em finding do website;
 - sugestão textual/técnica exige revisão humana antes de publicação;
-- IA M24 não pode escolher unilateralmente política de treinamento/crawler da organização;
+- IA Rastreamento, descoberta e acesso de crawlers não pode escolher unilateralmente política de treinamento/crawler da organização;
 - contexto YMYL não autoriza inferir responsabilidade legal/regulatória.
 
 ## Documentos relacionados
