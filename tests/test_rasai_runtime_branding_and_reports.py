@@ -10,8 +10,7 @@ from rasai.platform import default_platform_database
 from rasai.report_navigation import render_report_navigation
 from rasai.report_registry import install
 from rasai.runtime_paths import runtime_directory
-from rasai.score_geo_003 import resolve_model_path
-from rasai.score_geo_003_reporting import _score_reason
+from rasai.score_geo_004_reporting import _score_reason
 
 
 class RasaiRuntimeBrandingTests(unittest.TestCase):
@@ -27,14 +26,6 @@ class RasaiRuntimeBrandingTests(unittest.TestCase):
             index = ConsolidationIndex(root)
             self.assertEqual(index.path, root / ".rasai" / "consolidated-index.db")
 
-    def test_score_model_path_uses_rasai_directory(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
-            audit = project / "audits" / "AUD-TEST"
-            audit.mkdir(parents=True)
-            resolved = resolve_model_path(audit)
-            self.assertEqual(resolved, project / ".rasai" / "scoring" / "score-geo-003-model.json")
-
 
 class RasaiReportConsistencyTests(unittest.TestCase):
     def test_apdex_navigation_has_one_item_per_html(self) -> None:
@@ -49,13 +40,16 @@ class RasaiReportConsistencyTests(unittest.TestCase):
         self.assertEqual(apdex, [("Apdex de navegação", "apdex.html")])
         self.assertEqual(experience, [("Apdex de experiência", "apdex-experience.html")])
 
-    def test_score_reason_explains_missing_validated_model(self) -> None:
+    def test_score_reason_explains_consolidated_deterministic_overall(self) -> None:
         connection = sqlite3.connect(":memory:")
         connection.row_factory = sqlite3.Row
         try:
-            row = connection.execute("SELECT NULL AS value, '[\"CALIBRATION_MODEL_UNAVAILABLE:SCORE-GEO-003\"]' AS limitations").fetchone()
-            self.assertIn("VALIDATED", _score_reason(row))
-            self.assertIn("não pode ser consolidado", _score_reason(row))
+            row = connection.execute(
+                "SELECT 81.5 AS value, 0.93 AS coverage, 'HIGH' AS confidence, "
+                "'CONSOLIDATED' AS consolidation_status, "
+                "'[\"OVERALL_AGGREGATION:EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1\"]' AS limitations"
+            ).fetchone()
+            self.assertIn("determinístico consolidado", _score_reason(row))
         finally:
             connection.close()
 
