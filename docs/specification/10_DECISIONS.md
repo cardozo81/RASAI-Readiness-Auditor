@@ -174,6 +174,8 @@ Regra aprovada:
 
 JSON-LD/Structured Data é classificado como **OPCIONAL / REFORÇO**, não como requisito universal para GEO funcional. Sua ausência legítima, isoladamente, não é FAIL nem impedimento para Readiness Search & AI mensurável. Quando presente, deve ser interpretável e coerente com o conteúdo visível; markup inválido ou contraditório pode reduzir o score.
 
+**Refinamento vigente no SCORE-GEO-004:** a ausência de JSON-LD é materializada por `BR-GEO-034` como `WARNING` de baixo impacto (fator 0,80) para tornar a lacuna visível e comparável; `BR-GEO-035..037` permanecem `NOT_APPLICABLE` enquanto não houver JSON-LD. Isso não transforma JSON-LD em requisito universal nem converte ausência em `FAIL`.
+
 O foco primário desta classificação é Google Search e seus recursos de IA. Outros mecanismos podem ser documentados como sinais complementares sem alterar a regra de scoring.
 
 ### D-038 - Web Performance externo e separação metodológica

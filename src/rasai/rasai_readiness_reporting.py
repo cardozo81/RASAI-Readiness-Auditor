@@ -156,7 +156,12 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
         )
         discovery_executions = _many(
             connection,
-            "SELECT * FROM rule_executions WHERE audit_id=? AND rule_id IN ('BR-GEO-003','BR-GEO-017','BR-GEO-018') ORDER BY rule_id,rule_execution_id",
+            "SELECT * FROM rule_executions WHERE audit_id=? AND rule_id IN ('BR-GEO-003','BR-GEO-017','BR-GEO-018','BR-GEO-055','BR-GEO-056') ORDER BY rule_id,rule_execution_id",
+            (audit_id,),
+        )
+        m24_run = _one(
+            connection,
+            "SELECT * FROM m24_runs WHERE audit_id=? ORDER BY completed_at DESC LIMIT 1",
             (audit_id,),
         )
         rule_executions = _many(
@@ -182,6 +187,7 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
             "ai_session": ai_session,
             "ai_attempts": ai_attempts,
             "discovery_executions": discovery_executions,
+            "m24_run": m24_run,
         }
     finally:
         connection.close()
@@ -238,6 +244,7 @@ def _rasai_page(data: dict[str, Any], workspace: AuditWorkspace, report_dir: Pat
 <section class='panel'><div class='kicker'>Indicadores proprietários</div><h2>Dimensões do readiness</h2><p class='intro'>Score, Coverage, Confidence e Consolidation ficam centralizados nesta página. As páginas Mobile/Desktop preservam evidências e findings do respectivo dispositivo.</p>{dimension_tables or "<p class='intro'>Nenhuma dimensão de score persistida.</p>"}</section>
 <section class='panel'><div class='kicker'>Groundability</div><h2>Sinais de capacidade de fundamentação</h2><p class='intro'>SARI-001 não cria um subscore adicional de Groundability. Answerability, Citation Readiness e Evidence & Trust permanecem sinais distintos e rastreáveis.</p>{groundability or "<p class='intro'>Sinais não disponíveis.</p>"}</section>
 {_discovery_scoring_block(data)}
+{_structured_data_scoring_block(data)}
 {_content_context_block(workspace, audit_id)}
 {_provenance_block(data["contributions"])}
 <section class='panel'><div class='kicker'>Fórmula e limites</div><h2>Como interpretar o índice</h2><div class='grid'><article class='ref-card'><h3>Dimension Score</h3><p><code>sum(weight x result_factor) / sum(weight evaluated) x 100</code></p><p>PASS=1; WARNING=0,5 por padrão; FAIL=0. UNKNOWN/ERROR/NOT_APPLICABLE não são convertidos silenciosamente em FAIL.</p></article><article class='ref-card'><h3>Overall Readiness</h3><p>Média de igual peso das dimensões aplicáveis com medição suficiente. Dimensão legitimamente NOT_APPLICABLE sai do denominador e não recebe zero.</p></article><article class='ref-card'><h3>Coverage</h3><p>Mede completude da análise aplicável. O Overall usa a média da Coverage das dimensões aplicáveis.</p></article><article class='ref-card'><h3>Confidence</h3><p>O Overall usa a menor Confidence entre as dimensões aplicáveis. Para consolidar, exige Coverage média de pelo menos 80% e Confidence mínima MEDIUM. A presença de IA não é requisito: uma execução NO_AI pode atingir MEDIUM/HIGH quando Coverage, evidências e integridade da execução forem suficientes.</p></article></div><div class='notice warn'><strong>Limite de validade:</strong> pesos, fatores WARNING e thresholds de Coverage/Confidence/Consolidation são decisões metodológicas versionadas do RASAi. O índice não é homologado por mecanismo de busca ou provedor de IA.</div><p><a href='score-geo-004.html'>Abrir contrato completo do SCORE-GEO-004</a></p><p><a href='references.html#indicator-provenance'>Abrir proveniência, fontes primárias e regras de cálculo</a></p></section>
@@ -583,38 +590,204 @@ def _content_context_block(workspace: AuditWorkspace, audit_id: str) -> str:
     return f"<section class='panel'><div class='kicker'>Content Risk Profile</div><h2>Contexto editorial aplicado</h2><p class='intro'>YMYL e E-E-A-T orientam rigor e interpretação; não são scores oficiais.</p><div class='metric-grid'>{_metric('Risk profile', context.risk_profile.value)}{_metric('YMYL', context.ymyl_category.value)}{_metric('Page purpose', context.page_purpose.value)}{_metric('Audience', context.intended_audience.value)}{_metric('Experience requirement', context.experience_requirement.value)}{_metric('Freshness sensitivity', context.freshness_sensitivity.value)}{_metric('Content origin', context.content_origin.value)}{_metric('Resolução', source_mode)}</div><p><a href='content-suggestions.html'>Abrir análise e sugestões de conteúdo</a></p></section>"
 
 
-def _discovery_scoring_block(data: dict[str, Any]) -> str:
-    labels = {
-        "BR-GEO-003": "Sitemap disponível: aquisição e interpretação",
-        "BR-GEO-017": "robots.txt presente: interpretabilidade",
-        "BR-GEO-018": "Acesso de crawlers configurados",
-    }
-    executions = data.get("discovery_executions", [])
-    contributions = [row for row in data.get("contributions", []) if str(row["rule_id"]) in labels]
-    rows: list[str] = []
-    for rule_id, label in labels.items():
-        rule_execs = [row for row in executions if str(row["rule_id"]) == rule_id]
-        results = sorted({str(row["result"]) for row in rule_execs}) or ["NÃO EXECUTADO"]
-        represented = [row for row in contributions if str(row["rule_id"]) == rule_id]
-        if represented:
-            devices = ", ".join(sorted({str(row["device"]).upper() for row in represented}))
-            factors = ", ".join(sorted({"-" if row["result_factor"] is None else f"{float(row['result_factor']):g}" for row in represented}))
-            role = f"Contribuição persistida no score ({devices}); fator={factors}"
-        elif rule_id in {"BR-GEO-017", "BR-GEO-018"}:
-            role = "Avaliado dentro do grupo ROBOTS; SCORE-GEO-004 persiste como contribuição a regra representativa mais restritiva do grupo por dispositivo."
-        else:
-            role = "Avaliado; sem contribuição representativa persistida neste audit."
-        rows.append(
-            "<tr>"
-            f"<td><code>{rule_id}</code></td><td>{escape(label)}</td>"
-            f"<td>{escape(', '.join(results))}</td><td>Technical Accessibility</td><td>{escape(role)}</td></tr>"
+def _json_object(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if not isinstance(value, str) or not value.strip():
+        return {}
+    try:
+        parsed = json.loads(value)
+    except (TypeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _state_pt(value: Any) -> str:
+    raw = str(value or "UNAVAILABLE").upper()
+    return {
+        "OBTAINED": "OBTIDO",
+        "ABSENT": "AUSENTE",
+        "INVALID": "INVÁLIDO",
+        "HTTP_ERROR": "ERRO HTTP",
+        "NETWORK_ERROR": "ERRO DE REDE",
+        "UNAVAILABLE": "INDISPONÍVEL",
+        "NOT_REQUESTED": "NÃO SOLICITADO",
+        "SKIPPED_SOURCE_BLOCKER": "NÃO CONSULTADO - BLOQUEIO DE FONTE",
+    }.get(raw, raw)
+
+
+def _rule_results(executions: list[sqlite3.Row], rule_id: str) -> str:
+    values = sorted({str(_row_get(row, "result", "NÃO EXECUTADO")) for row in executions if str(_row_get(row, "rule_id", "")) == rule_id})
+    return ", ".join(values) if values else "NÃO EXECUTADO"
+
+
+def _group_trace(contributions: list[sqlite3.Row], group: str) -> str:
+    rows = [row for row in contributions if str(_row_get(row, "scoring_group", "") or "") == group]
+    if not rows:
+        return "<p class='intro'>Nenhuma contribuição representativa persistida para este grupo.</p>"
+    items: list[str] = []
+    for row in sorted(rows, key=lambda item: (str(_row_get(item, "device", "")), str(_row_get(item, "rule_id", "")))):
+        factor_raw = _row_get(row, "result_factor")
+        effective_raw = _row_get(row, "effective_contribution")
+        weight = float(_row_get(row, "weight", 0.0) or 0.0)
+        factor = "-" if factor_raw is None else f"{float(factor_raw):.2f}"
+        effective = "-" if effective_raw is None else f"{float(effective_raw):.3f}"
+        items.append(
+            "<li>"
+            f"<strong>{escape(str(_row_get(row, 'device', '-')).title())}</strong>: "
+            f"representante <code>{escape(str(_row_get(row, 'rule_id', '-')))}</code> = {escape(str(_row_get(row, 'result', '-')))}; "
+            f"peso {weight:g} × fator {factor} = contribuição {effective}."
+            "</li>"
         )
+    return "<ul class='compact-list'>" + "".join(items) + "</ul>"
+
+
+def _sitemap_state(executions: list[sqlite3.Row]) -> str:
+    states: list[str] = []
+    for row in executions:
+        if str(_row_get(row, "rule_id", "")) != "BR-GEO-003":
+            continue
+        observed = _json_object(_row_get(row, "observed_value", ""))
+        for item in observed.get("sitemaps", []):
+            if isinstance(item, dict) and item.get("state"):
+                states.append(_state_pt(item.get("state")))
+    return ", ".join(dict.fromkeys(states)) if states else "NÃO OBSERVADO"
+
+
+def _robots_state(executions: list[sqlite3.Row]) -> str:
+    for row in executions:
+        if str(_row_get(row, "rule_id", "")) == "BR-GEO-017":
+            observed = _json_object(_row_get(row, "observed_value", ""))
+            return _state_pt(observed.get("state"))
+    return "NÃO OBSERVADO"
+
+
+def _crawler_state(executions: list[sqlite3.Row], robots_state: str) -> str:
+    rows = [row for row in executions if str(_row_get(row, "rule_id", "")) == "BR-GEO-018"]
+    if not rows:
+        return "NÃO OBSERVADO"
+    unresolved = 0
+    blocked = 0
+    for row in rows:
+        observed = _json_object(_row_get(row, "observed_value", ""))
+        unresolved += len(observed.get("unresolved", []) if isinstance(observed.get("unresolved"), list) else [])
+        blocked += len(observed.get("blocked_search_crawlers", []) if isinstance(observed.get("blocked_search_crawlers"), list) else [])
+    if unresolved:
+        return f"NÃO RESOLVIDO ({unresolved} combinação(ões))"
+    if blocked:
+        return f"BLOQUEIO SEARCH DETECTADO ({blocked})"
+    if robots_state == "AUSENTE":
+        return "RESOLVIDO POR DEFAULT ALLOW (robots.txt ausente)"
+    return "RESOLVIDO - SEM BLOQUEIO SEARCH"
+
+
+def _discovery_scoring_block(data: dict[str, Any]) -> str:
+    executions = data.get("discovery_executions", [])
+    contributions = data.get("contributions", [])
+    sitemap_state = _sitemap_state(executions)
+    robots_state = _robots_state(executions)
+    crawler_state = _crawler_state(executions, robots_state)
+    llms_state = _state_pt(_row_get(data.get("m24_run"), "llms_state", "UNAVAILABLE"))
+    sitemap_result = _rule_results(executions, "BR-GEO-003")
+    robots_result = _rule_results(executions, "BR-GEO-017")
+    crawler_result = _rule_results(executions, "BR-GEO-018")
+    ai_sitemap = _rule_results(executions, "BR-GEO-055")
+    ai_robots = _rule_results(executions, "BR-GEO-056")
     return (
         "<section class='panel' id='discovery-scoring-inputs'><div class='kicker'>SARI - inputs técnicos de descoberta</div>"
-        "<h2>robots.txt, sitemap e acesso de crawlers no SCORE-GEO-004</h2>"
-        "<p class='intro'>Estes sinais não são apenas diagnóstico do relatório de crawling. BR-GEO-003, BR-GEO-017 e BR-GEO-018 são avaliados deterministicamente e alimentam a dimensão Technical Accessibility. BR-GEO-017/018 compartilham o grupo de scoring ROBOTS para evitar peso duplicado do mesmo fenômeno.</p>"
-        "<div class='table-wrap'><table><thead><tr><th>Regra</th><th>Sinal</th><th>Resultado persistido</th><th>Dimensão</th><th>Papel no score</th></tr></thead><tbody>"
-        + "".join(rows) + "</tbody></table></div><p><a href='crawling-discovery.html'>Abrir diagnóstico aprofundado de rastreamento e descoberta →</a></p></section>"
+        "<h2>O que foi realmente encontrado e como entrou no SARI</h2>"
+        "<p class='intro'>O estado observado é mostrado separadamente do resultado da regra. <strong>AUSENTE não significa encontrado</strong>: sitemap e robots ausentes recebem WARNING com fatores reduzidos. Acesso de crawler pode ser resolvido como default allow quando robots.txt não existe; BR-GEO-017/018/056 compartilham o grupo ROBOTS, portanto o resultado mais restritivo representa o grupo sem bônus duplicado.</p>"
+        "<div class='grid'>"
+        "<article class='ref-card'><h3>Sitemap</h3>"
+        f"<p><strong>Estado observado:</strong> {escape(sitemap_state)}</p>"
+        f"<p><strong>Regra base:</strong> <code>BR-GEO-003</code> = {escape(sitemap_result)}</p>"
+        f"<p><strong>IA técnica bounded:</strong> <code>BR-GEO-055</code> = {escape(ai_sitemap)}</p>"
+        "<p><strong>Grupo:</strong> <code>SITEMAP</code> · peso máximo versionado 0,25.</p>"
+        + _group_trace(contributions, "SITEMAP")
+        + "</article>"
+        "<article class='ref-card'><h3>robots.txt e acesso de crawlers</h3>"
+        f"<p><strong>robots.txt observado:</strong> {escape(robots_state)}</p>"
+        f"<p><strong>BR-GEO-017:</strong> {escape(robots_result)}</p>"
+        f"<p><strong>Acesso efetivo:</strong> {escape(crawler_state)} · <code>BR-GEO-018</code> = {escape(crawler_result)}</p>"
+        f"<p><strong>IA técnica bounded:</strong> <code>BR-GEO-056</code> = {escape(ai_robots)}</p>"
+        "<p><strong>Grupo:</strong> <code>ROBOTS</code> · peso máximo versionado 0,60.</p>"
+        + _group_trace(contributions, "ROBOTS")
+        + "</article></div>"
+        "<div class='notice'><strong>llms.txt:</strong> estado observado nesta camada: "
+        + escape(llms_state)
+        + ". O arquivo é tratado como proposta comunitária experimental e pode enriquecer o diagnóstico de descoberta, mas <strong>peso SARI = 0</strong>. Presença, ausência ou erro de llms.txt não aumenta nem reduz o SCORE-GEO-004.</div>"
+        "<p><a href='crawling-discovery.html'>Abrir diagnóstico aprofundado de rastreamento e descoberta →</a></p></section>"
+    )
+
+
+def _structured_data_state(executions: list[sqlite3.Row]) -> tuple[str, int, int, tuple[str, ...]]:
+    rows = [row for row in executions if str(_row_get(row, "rule_id", "")) == "BR-GEO-034"]
+    if not rows:
+        return "NÃO OBSERVADO", 0, 0, ()
+    present = 0
+    blocks = 0
+    invalid = 0
+    types: list[str] = []
+    for row in rows:
+        observed = _json_object(_row_get(row, "observed_value", ""))
+        if bool(observed.get("present")):
+            present += 1
+        blocks += int(observed.get("blocks") or 0)
+        invalid += int(observed.get("invalid_blocks") or 0)
+        for item in observed.get("types", []) if isinstance(observed.get("types"), list) else []:
+            if isinstance(item, str):
+                types.append(item)
+    if invalid:
+        state = "PRESENTE COM BLOCO(S) INVÁLIDO(S)"
+    elif present:
+        state = "PRESENTE E SINTATICAMENTE INTERPRETÁVEL"
+    else:
+        state = "AUSENTE NO HTML ANALISADO"
+    return state, blocks, invalid, tuple(dict.fromkeys(types))
+
+
+def _structured_score_summary(scores: list[sqlite3.Row]) -> str:
+    rows = [row for row in scores if str(_row_get(row, "dimension", "")) == "STRUCTURED_DATA"]
+    if not rows:
+        return "Não persistido"
+    parts: list[str] = []
+    for row in rows:
+        device = str(_row_get(row, "device", "-")).title()
+        value = _row_get(row, "value")
+        rendered = "N/A" if value is None else f"{float(value):.1f}/100"
+        parts.append(f"{device}: {rendered}")
+    return " · ".join(parts)
+
+
+def _structured_data_scoring_block(data: dict[str, Any]) -> str:
+    executions = data.get("rule_executions", [])
+    contributions = data.get("contributions", [])
+    state, blocks, invalid, types = _structured_data_state(executions)
+    type_text = ", ".join(types) if types else "nenhum @type observado"
+    rule_results = {rule_id: _rule_results(executions, rule_id) for rule_id in ("BR-GEO-034", "BR-GEO-035", "BR-GEO-036", "BR-GEO-037")}
+    absence_note = (
+        "Na ausência de JSON-LD, BR-GEO-034 permanece aplicável como WARNING com fator 0,80; BR-GEO-035..037 ficam NOT_APPLICABLE. Assim a ausência é uma lacuna leve e rastreável, não zero e não N/A para toda a dimensão."
+        if state == "AUSENTE NO HTML ANALISADO"
+        else "Quando JSON-LD existe, sintaxe/tipos e consistência com conteúdo/entidades são avaliados pelos grupos versionados do Structured Data."
+    )
+    return (
+        "<section class='panel' id='structured-data-scoring-inputs'><div class='kicker'>SARI - dados estruturados</div>"
+        "<h2>JSON-LD no cálculo do SCORE-GEO-004</h2>"
+        "<p class='intro'>O RASAi procura blocos <code>script[type=&quot;application/ld+json&quot;]</code> no HTML preservado. A tabela de dimensões mostra o score agregado; este bloco expõe a origem da contribuição para que seja possível verificar se JSON-LD entrou ou não na aritmética.</p>"
+        f"<div class='metric-grid'>{_metric('Estado JSON-LD', state)}{_metric('Blocos observados', blocks)}{_metric('Blocos inválidos', invalid)}{_metric('Tipos', type_text)}{_metric('Structured Data', _structured_score_summary(data.get('scores', [])))}</div>"
+        "<div class='grid'>"
+        "<article class='ref-card'><h3>Presença, sintaxe e tipos</h3>"
+        f"<p><code>BR-GEO-034</code> = {escape(rule_results['BR-GEO-034'])} · <code>BR-GEO-035</code> = {escape(rule_results['BR-GEO-035'])}</p>"
+        "<p><strong>Grupo:</strong> <code>STRUCTURED_DATA_SYNTAX</code>.</p>"
+        + _group_trace(contributions, "STRUCTURED_DATA_SYNTAX")
+        + "</article>"
+        "<article class='ref-card'><h3>Consistência semântica</h3>"
+        f"<p><code>BR-GEO-036</code> = {escape(rule_results['BR-GEO-036'])} · <code>BR-GEO-037</code> = {escape(rule_results['BR-GEO-037'])}</p>"
+        "<p><strong>Grupo:</strong> <code>STRUCTURED_DATA_CONSISTENCY</code>. Quando aplicável, a análise pode usar evidência semântica/IA evidence-bound; o modelo não escolhe pesos.</p>"
+        + _group_trace(contributions, "STRUCTURED_DATA_CONSISTENCY")
+        + "</article></div>"
+        f"<div class='notice'>{escape(absence_note)}</div>"
+        "<p><a href='structured-data.html'>Abrir evidências detalhadas de conteúdo e JSON-LD →</a></p></section>"
     )
 
 

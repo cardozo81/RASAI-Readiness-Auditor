@@ -357,3 +357,11 @@ N x audit.db read-only
 ```
 
 HTML nunca se torna segunda fonte de verdade para score, evidence, outcomes, tokens ou custos.
+
+## Rastreabilidade dos inputs do SARI
+
+A página **Search & AI Readiness** deve distinguir o **estado observado** do nome/objetivo da regra. Um critério como “interpretar sitemap quando disponível” não pode ser apresentado como se o recurso tivesse sido encontrado. Para sitemap, `robots.txt` e JSON-LD o report expõe estado observado, RuleExecution, `scoring_group`, peso, fator e contribuição efetiva persistida.
+
+`llms.txt` continua sendo inspecionado em **Rastreamento e descoberta** como sinal experimental/advisory. Seu peso direto no `SARI-001` é `0`: presença, ausência ou erro não alteram `SCORE-GEO-004`.
+
+JSON-LD é extraído de `script[type="application/ld+json"]`. No SCORE-GEO-004, ausência gera uma lacuna leve via `BR-GEO-034=WARNING`; markup inválido pode ser desfavorável; consistência semântica só é avaliada quando aplicável.
