@@ -2,9 +2,9 @@
 
 O RASAi apresenta Acessibilidade, Web Performance e **Search & AI Readiness** como domínios distintos para evitar mistura de métricas e conclusões.
 
-| Domínio | Finalidade | Fonte principal | Altera SARI/SCORE-GEO-003? |
+| Domínio | Finalidade | Fonte principal | Altera SARI/SCORE-GEO-004? |
 |---|---|---|---|
-| Search & AI Readiness | descoberta, extração, entendimento, answerability e citation readiness | evidências locais, regras e IA opcional | somente pelas regras próprias do SARI/SCORE-GEO-003 |
+| Search & AI Readiness | descoberta, extração, entendimento, answerability e citation readiness | evidências locais, regras e IA opcional | somente pelas regras próprias do SARI/SCORE-GEO-004 |
 | Acessibilidade automatizada | diagnóstico auxiliar de problemas detectáveis por Lighthouse | categoria `accessibility` do artifact Lighthouse | não |
 | Web Performance | lab Lighthouse + dados de campo CrUX/CWV + diagnósticos técnicos | PageSpeed/Lighthouse e CrUX | não |
 | Synthetic Apdex | experiência sintética de uma Task explícita de navegação | Chromium local e perfis controlados | não |
@@ -100,3 +100,5 @@ O perfil sintético exibido deve ser o perfil persistido para o mesmo URL/dispos
 A página inicial do report inclui **Configuração × resultado obtido** para indicar o que foi solicitado, o que foi materializado e o motivo de qualquer ausência.
 
 As cores e tags são semântica de apresentação. Os números, findings, RuleExecutions e artifacts persistidos continuam sendo a fonte de verdade.
+
+`SCORE-GEO-003` permanece histórico; estes domínios externos não são recalculados nem reinterpretados por essa mudança de scoring.
