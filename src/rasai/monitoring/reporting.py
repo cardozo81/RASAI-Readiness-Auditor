@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from rasai.report_presentation import humanize_report_html
+
 from .compare import evaluate_release_gate
 from .models import ChangeEvent, ComparisonResult, MonitoringReportResult
 
@@ -97,7 +99,7 @@ def _html(result: ComparisonResult, gate_passed: bool, gate_reason: str, generat
     change_rows = "".join(_event_row(event) for event in changes) or "<tr><td colspan='9'>Nenhuma mudança material não-direcional.</td></tr>"
     material_total = sum(result.material_counts.values())
     status_class = "good" if gate_passed else "bad"
-    return f"""<!doctype html>
+    html = f"""<!doctype html>
 <html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
 <title>RASAi Monitor · {escape(result.baseline.audit_id)} → {escape(result.current.audit_id)}</title>
 <style>{_CSS}</style></head><body>
@@ -123,6 +125,7 @@ def _html(result: ComparisonResult, gate_passed: bool, gate_reason: str, generat
 <section class='panel'><h2>Metodologia</h2><ul><li><code>UNKNOWN</code>, <code>ERROR</code> e <code>NOT_APPLICABLE</code> não viram FAIL.</li><li>SCOREs de versões metodológicas sem sobreposição ficam <code>NOT_COMPARABLE</code>.</li><li>URL universes muito diferentes geram limitação explícita.</li><li>Dados ausentes no audit atual ficam <code>DATA_UNAVAILABLE</code>, não <code>RESOLVED</code>.</li><li>Thresholds numéricos apenas filtram materialidade; não redefinem métricas oficiais.</li></ul></section>
 <footer>Gerado em {escape(generated_at)} · RASAi Monitor · fonte: audit.db read-only.</footer>
 </main></body></html>"""
+    return humanize_report_html(html, page_name="monitoring-report.html")
 
 
 def _table(rows: str) -> str:
