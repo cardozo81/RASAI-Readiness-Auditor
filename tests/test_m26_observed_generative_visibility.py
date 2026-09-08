@@ -168,7 +168,8 @@ def test_report_keeps_source_metrics_and_computed_presence_separate() -> None:
         assert "NORMALIZED_EXPORT" in html
         assert "não autentica o portal externo" in html
         assert "runs válidos que citaram" in html
-        assert "não compõem SARI-001/SCORE-GEO-002" in html
+        assert "não compõem SARI-001/SCORE-GEO-004" in html
+        assert "SCORE-GEO-003 e SCORE-GEO-002 são contratos históricos" in html
         assert "não faz scraping" in html
         assert "ai-visibility.html" in index
 
