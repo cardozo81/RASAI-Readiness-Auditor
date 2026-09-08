@@ -239,7 +239,9 @@ def _detail_card(row: sqlite3.Row, samples: list[sqlite3.Row], configuration: di
     distribution = _distribution_bar(row)
     trend = _sparkline(valid_samples, float(row["threshold_seconds"]))
     final_badge = "GRUPO FINAL" if bool(row["final_group"]) else "GRUPO PEQUENO *"
-    return f"""<article class='page-card apdex-card'><div class='finding-head'><div><span class='badge'>{escape(device.upper())}</span> <span class='badge info'>{escape(final_badge)}</span></div><span class='badge'>{escape(_rating(score))}</span></div><h3 class='page-url'>{escape(str(row['url']))}</h3><div class='metric-grid'>{_metric('Apdex', _uniform_apdex(score, float(row['threshold_seconds']), bool(row['small_group'])))}{_metric('Satisfied', int(row['satisfied_count']))}{_metric('Tolerating', int(row['tolerating_count']))}{_metric('Frustrated', int(row['frustrated_count']))}{_metric('Média', _ms(row['mean_ms']))}{_metric('Mediana/p50', _ms(row['median_ms']))}{_metric('p75', _ms(row['p75_ms']))}{_metric('p90', _ms(row['p90_ms']))}{_metric('p95', _ms(row['p95_ms']))}{_metric('p99', _ms(row['p99_ms']))}{_metric('Mínimo', _ms(row['min_ms']))}{_metric('Máximo', _ms(row['max_ms']))}{_metric('Desvio-padrão', _ms(row['stddev_ms']))}{_metric('Coef. variação', _percent(row['coefficient_of_variation']))}{_metric('Tendência 2ª/1ª metade', _signed_percent(row['trend_percent']))}{_metric('Amostras excluídas', int(row['invalid_samples']))}</div><h4>Distribuição Apdex</h4>{distribution}<h4>Série temporal das amostras válidas</h4>{trend}<p class='intro'><strong>Perfil sintético:</strong> {escape(profile_text)}</p><div class='analysis-grid'>{''.join(f'<div class="notice"><strong>{escape(title)}</strong><span>{escape(text)}</span></div>' for title, text in diagnostics)}</div><details><summary>Ver todas as {len(samples)} tentativas/amostras persistidas</summary><div class='table-wrap'><table><thead><tr><th>#</th><th>Duração</th><th>Classe</th><th>Status</th><th>HTTP</th><th>Erro</th><th>CPU</th><th>Rede</th></tr></thead><tbody>{table_rows or '<tr><td colspan="8">Sem amostras.</td></tr>'}</tbody></table></div></details></article>"""
+    sensitivity = _apdex_sensitivity_table(valid_samples, float(row["threshold_seconds"]))
+    web_link = "<p><a href='web-performance.html'>Revisar Core Web Vitals e diagnósticos Web Performance deste contexto →</a></p>" if web is not None else ""
+    return f"""<article class='page-card apdex-card'><div class='finding-head'><div><span class='badge'>{escape(device.upper())}</span> <span class='badge info'>{escape(final_badge)}</span></div><span class='badge'>{escape(_rating(score))}</span></div><h3 class='page-url'>{escape(str(row['url']))}</h3><div class='metric-grid'>{_metric('Apdex', _uniform_apdex(score, float(row['threshold_seconds']), bool(row['small_group'])))}{_metric('Satisfied', int(row['satisfied_count']))}{_metric('Tolerating', int(row['tolerating_count']))}{_metric('Frustrated', int(row['frustrated_count']))}{_metric('Média', _ms(row['mean_ms']))}{_metric('Mediana/p50', _ms(row['median_ms']))}{_metric('p75', _ms(row['p75_ms']))}{_metric('p90', _ms(row['p90_ms']))}{_metric('p95', _ms(row['p95_ms']))}{_metric('p99', _ms(row['p99_ms']))}{_metric('Mínimo', _ms(row['min_ms']))}{_metric('Máximo', _ms(row['max_ms']))}{_metric('Desvio-padrão', _ms(row['stddev_ms']))}{_metric('Coef. variação', _percent(row['coefficient_of_variation']))}{_metric('Tendência 2ª/1ª metade', _signed_percent(row['trend_percent']))}{_metric('Amostras excluídas', int(row['invalid_samples']))}</div><h4>Distribuição Apdex</h4>{distribution}<h4>Série temporal das amostras válidas</h4>{trend}<p class='intro'><strong>Perfil sintético:</strong> {escape(profile_text)}</p><h4>Sensibilidade ao threshold T</h4>{sensitivity}<div class='analysis-grid'>{''.join(f'<div class="notice"><strong>{escape(title)}</strong><span>{escape(text)}</span></div>' for title, text in diagnostics)}</div>{web_link}<details><summary>Ver todas as {len(samples)} tentativas/amostras persistidas</summary><div class='table-wrap'><table><thead><tr><th>#</th><th>Duração</th><th>Classe</th><th>Status</th><th>HTTP</th><th>Erro</th><th>CPU</th><th>Rede</th></tr></thead><tbody>{table_rows or '<tr><td colspan="8">Sem amostras.</td></tr>'}</tbody></table></div></details></article>"""
 
 
 def _diagnostic_notes(row: sqlite3.Row, web: sqlite3.Row | None) -> list[tuple[str, str]]:
@@ -251,10 +253,23 @@ def _diagnostic_notes(row: sqlite3.Row, web: sqlite3.Row | None) -> list[tuple[s
     median = float(row["median_ms"]) if row["median_ms"] is not None else None
     p95 = float(row["p95_ms"]) if row["p95_ms"] is not None else None
     trend = float(row["trend_percent"]) if row["trend_percent"] is not None else None
-    if int(row["application_error_count"]):
-        notes.append(("Erros da aplicação", f"{int(row['application_error_count'])} amostra(s) retornaram erro HTTP da aplicação e foram classificadas como Frustrated. Investigue disponibilidade, redirects e respostas 4xx/5xx."))
-    if int(row["timeout_count"]):
-        notes.append(("Timeouts", f"{int(row['timeout_count'])} amostra(s) ultrapassaram o timeout configurado. Investigue cauda longa, recursos bloqueantes, backend e dependências externas."))
+    application_errors = int(row["application_error_count"] or 0)
+    timeouts = int(row["timeout_count"] or 0)
+    navigation_errors = int(row["navigation_error_count"] or 0)
+    invalid = int(row["invalid_samples"] or 0)
+    notes.append((
+        "Erros e integridade da execução",
+        f"application errors={application_errors}; timeouts={timeouts}; navigation errors={navigation_errors}; amostras inválidas/excluídas={invalid}. "
+        + ("Nenhum erro de aplicação/navegação/timeout foi observado; a nota decorre da distribuição temporal em relação a T." if application_errors + timeouts + navigation_errors == 0 else "Erros válidos da aplicação/navegação são tratados como Frustrated; falhas da ferramenta ficam fora do denominador."),
+    ))
+    if application_errors:
+        notes.append(("Erros da aplicação", f"{application_errors} amostra(s) retornaram erro HTTP da aplicação e foram classificadas como Frustrated. Investigue disponibilidade, redirects e respostas 4xx/5xx."))
+    if timeouts:
+        notes.append(("Timeouts", f"{timeouts} amostra(s) ultrapassaram o timeout configurado. Investigue cauda longa, recursos bloqueantes, backend e dependências externas."))
+    if navigation_errors:
+        notes.append(("Erros de navegação", f"{navigation_errors} amostra(s) tiveram erro de navegação com perfil aplicado e foram classificadas como Frustrated. Verifique conectividade, redirects, TLS e falhas de carregamento."))
+    if invalid:
+        notes.append(("Amostras excluídas", f"{invalid} tentativa(s) foram excluídas do denominador por falha/integridade da ferramenta ou perfil. Elas não devem ser confundidas com erro do website."))
     if frustrated_share >= 0.10:
         notes.append(("Fração Frustrated", f"{frustrated_share:.1%} das amostras válidas ficaram em Frustrated. Priorize reduzir a cauda e eliminar falhas antes de otimizações marginais."))
     elif tolerating_share >= 0.20:
@@ -265,11 +280,71 @@ def _diagnostic_notes(row: sqlite3.Row, web: sqlite3.Row | None) -> list[tuple[s
         notes.append(("Cauda longa", f"p95 ({p95:.0f} ms) é pelo menos 2× a mediana ({median:.0f} ms). A média pode ocultar uma parcela relevante de experiências lentas."))
     if trend is not None and trend >= 15:
         notes.append(("Degradação ao longo da sequência", f"A média da segunda metade ficou {trend:.1f}% acima da primeira. Investigue throttling, saturação ou variabilidade temporal; não atribua causa sem evidência adicional."))
-    if web is not None and str(web["cwv_assessment"]) == "FAIL":
-        notes.append(("Correlação com campo", "CrUX/Core Web Vitals também não aprovou neste contexto. Use o diagnóstico Lighthouse/CrUX para separar laboratório sintético de experiência real agregada."))
-    if not notes:
-        notes.append(("Leitura", "Não há um sinal diagnóstico dominante pelas regras conservadoras do Synthetic Navigation Apdex. Use percentis, distribuição e amostras individuais para análise técnica."))
+    if web is not None:
+        def web_value(name: str):
+            try:
+                return web[name]
+            except (IndexError, KeyError):
+                return None
+        cwv = str(web_value("cwv_assessment") or "-")
+        perf = web_value("performance_score")
+        lcp = web_value("lcp_p75_ms")
+        inp = web_value("inp_p75_ms")
+        cls = web_value("cls_p75")
+        if cwv == "FAIL" or (perf is not None and float(perf) < 90):
+            pieces = [f"CWV={cwv}"]
+            if perf is not None:
+                pieces.append(f"Lighthouse Performance={float(perf):.0f}/100")
+            if lcp is not None:
+                pieces.append(f"LCP p75={float(lcp):.0f} ms")
+            if inp is not None:
+                pieces.append(f"INP p75={float(inp):.0f} ms")
+            if cls is not None:
+                pieces.append(f"CLS p75={float(cls):.3f}")
+            notes.append(("Revisar Web Performance", "; ".join(pieces) + ". Estes sinais não são os mesmos erros do Apdex e não entram na sua fórmula; use a página Web Performance para diagnóstico causal."))
     return notes
+
+
+def _apdex_sensitivity_table(samples: list[sqlite3.Row], threshold: float) -> str:
+    if threshold <= 0 or not samples:
+        return "<p class='intro'>Sensibilidade indisponível sem T e amostras válidas.</p>"
+    rows: list[str] = []
+    usable = 0
+    for multiplier in (0.80, 0.90, 1.00, 1.10, 1.20):
+        t_seconds = threshold * multiplier
+        satisfied = tolerating = frustrated = 0
+        for sample in samples:
+            status = str(sample["status"] or "").upper()
+            duration = sample["duration_ms"]
+            if status in {"APPLICATION_ERROR", "TIMEOUT", "NAVIGATION_ERROR"}:
+                frustrated += 1
+                continue
+            if duration is None:
+                continue
+            seconds = float(duration) / 1000.0
+            if seconds <= t_seconds:
+                satisfied += 1
+            elif seconds <= 4 * t_seconds:
+                tolerating += 1
+            else:
+                frustrated += 1
+        total = satisfied + tolerating + frustrated
+        usable = max(usable, total)
+        score = (satisfied + 0.5 * tolerating) / total if total else None
+        marker = " (configurado)" if abs(multiplier - 1.0) < 1e-9 else ""
+        score_text = "-" if score is None else f"{score:.3f}"
+        configured_class = ' class="configured-threshold"' if marker else ''
+        rows.append(
+            f"<tr{configured_class}><td>{t_seconds:.3g} s{marker}</td><td>{satisfied}/{tolerating}/{frustrated}</td><td><strong>{score_text}</strong></td></tr>"
+        )
+    if not usable:
+        return "<p class='intro'>Sensibilidade indisponível sem duração válida.</p>"
+    return (
+        "<div class='notice'><strong>Diagnóstico de sensibilidade, não calibração por resultado.</strong> "
+        "A tabela recalcula somente estas amostras em T±10%/20% para mostrar quanto o índice depende do threshold. Escolha T pelo SLO/KPM/Dynatrace comparável, nunca pelo Apdex que deseja obter.</div>"
+        "<div class='table-wrap'><table><thead><tr><th>T hipotético</th><th>S/T/F</th><th>Apdex</th></tr></thead><tbody>"
+        + "".join(rows) + "</tbody></table></div>"
+    )
 
 
 def _distribution_bar(row: sqlite3.Row) -> str:

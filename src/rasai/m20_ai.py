@@ -37,7 +37,7 @@ from rasai.m18_ai import (
 )
 from rasai.semantic import _extract_json_payload
 
-CONTENT_REMEDIATION_CONTRACT_VERSION = "M20-CONTENT-REMEDIATION-v2"
+CONTENT_REMEDIATION_CONTRACT_VERSION = "M20-CONTENT-REMEDIATION-v3"
 _NUMERIC_TOKEN = re.compile(r"(?<!\w)[+-]?(?:\d[\d.,:/-]*\d|\d)(?!\w)")
 
 
@@ -140,7 +140,24 @@ class ContentRemediationResult:
     reasoning_profile: str | None = None
 
 
-def content_remediation_schema() -> dict[str, Any]:
+class ContentRemediationContractError(ValueError):
+    """Safe, persisted M20 contract failure with no provider response leakage."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+def content_remediation_schema(request: ContentRemediationRequest | None = None) -> dict[str, Any]:
+    finding_id_schema: dict[str, Any] = {"type": "string", "minLength": 1}
+    evidence_id_schema: dict[str, Any] = {"type": "string", "minLength": 1}
+    if request is not None:
+        finding_ids = sorted(request.allowed_finding_ids)
+        evidence_ids = sorted({item for values in request.evidence_by_finding.values() for item in values})
+        if finding_ids:
+            finding_id_schema["enum"] = finding_ids
+        if evidence_ids:
+            evidence_id_schema["enum"] = evidence_ids
     return {
         "type": "object",
         "additionalProperties": False,
@@ -151,7 +168,7 @@ def content_remediation_schema() -> dict[str, Any]:
                     "type": "object",
                     "additionalProperties": False,
                     "properties": {
-                        "finding_id": {"type": "string", "minLength": 1},
+                        "finding_id": finding_id_schema,
                         "objective": {"type": "string", "minLength": 1, "maxLength": 1200},
                         "target_location": {"type": "string", "minLength": 1, "maxLength": 700},
                         "proposed_text": {"type": "string", "minLength": 1, "maxLength": 8000},
@@ -159,7 +176,7 @@ def content_remediation_schema() -> dict[str, Any]:
                             "type": "array",
                             "minItems": 1,
                             "uniqueItems": True,
-                            "items": {"type": "string", "minLength": 1},
+                            "items": evidence_id_schema,
                         },
                         "confidence": {"type": "number", "minimum": 0, "maximum": 1},
                         "review_note": {"type": "string", "minLength": 1, "maxLength": 1200},
@@ -177,35 +194,40 @@ def content_remediation_schema() -> dict[str, Any]:
 
 def _validate_response(payload: Any, request: ContentRemediationRequest) -> tuple[ContentSuggestion, ...]:
     if not isinstance(payload, Mapping) or not isinstance(payload.get("suggestions"), list):
-        raise ValueError("M20 response has invalid root schema")
+        raise ContentRemediationContractError("M20_INVALID_ROOT_SCHEMA", "M20 response has invalid root schema")
     evidence_by_finding = request.evidence_by_finding
     source_corpus = request.source_corpus.casefold()
     seen: set[str] = set()
     output: list[ContentSuggestion] = []
     for raw in payload["suggestions"]:
         if not isinstance(raw, Mapping):
-            raise ValueError("M20 suggestion item must be an object")
+            raise ContentRemediationContractError("M20_INVALID_SUGGESTION_ITEM", "M20 suggestion item must be an object")
         finding_id = str(raw.get("finding_id") or "").strip()
-        if finding_id not in request.allowed_finding_ids or finding_id in seen:
-            raise ValueError("M20 suggestion references invalid/duplicate finding")
+        if finding_id not in request.allowed_finding_ids:
+            raise ContentRemediationContractError("M20_INVALID_FINDING_REFERENCE", "M20 suggestion references unknown finding")
+        if finding_id in seen:
+            raise ContentRemediationContractError("M20_DUPLICATE_FINDING_REFERENCE", "M20 suggestion duplicates finding")
         seen.add(finding_id)
         evidence_raw = raw.get("evidence_ids")
         if not isinstance(evidence_raw, list) or not evidence_raw:
-            raise ValueError("M20 suggestion requires evidence_ids")
+            raise ContentRemediationContractError("M20_MISSING_EVIDENCE_IDS", "M20 suggestion requires evidence_ids")
         evidence_ids = tuple(str(item).strip() for item in evidence_raw if str(item).strip())
         if not evidence_ids or not set(evidence_ids).issubset(evidence_by_finding[finding_id]):
-            raise ValueError("M20 suggestion references evidence outside its finding")
+            raise ContentRemediationContractError("M20_EVIDENCE_OUTSIDE_FINDING", "M20 suggestion references evidence outside its finding")
         proposed_text = str(raw.get("proposed_text") or "").strip()
         objective = str(raw.get("objective") or "").strip()
         target_location = str(raw.get("target_location") or "").strip()
         review_note = str(raw.get("review_note") or "").strip()
         if not proposed_text or not objective or not target_location or not review_note:
-            raise ValueError("M20 suggestion contains empty required text")
-        confidence = float(raw.get("confidence"))
+            raise ContentRemediationContractError("M20_EMPTY_REQUIRED_TEXT", "M20 suggestion contains empty required text")
+        try:
+            confidence = float(raw.get("confidence"))
+        except (TypeError, ValueError) as exc:
+            raise ContentRemediationContractError("M20_INVALID_CONFIDENCE", "M20 confidence is not numeric") from exc
         if not 0 <= confidence <= 1:
-            raise ValueError("M20 confidence must be between 0 and 1")
+            raise ContentRemediationContractError("M20_INVALID_CONFIDENCE", "M20 confidence must be between 0 and 1")
         if any(token.casefold() not in source_corpus for token in _NUMERIC_TOKEN.findall(proposed_text)):
-            raise ValueError("M20 suggestion introduces unsupported numeric claim")
+            raise ContentRemediationContractError("M20_UNSUPPORTED_NUMERIC_CLAIM", "M20 suggestion introduces unsupported numeric claim")
         output.append(ContentSuggestion(
             finding_id=finding_id,
             objective=objective,
@@ -283,7 +305,7 @@ class ContentRemediationProvider:
         if not self.api_key:
             return ContentRemediationResult(ProviderState.NOT_CONFIGURED, reason="AI_NOT_CONFIGURED", provider=self.name, model=self.model, reasoning_profile=self.reasoning_profile)
 
-        schema = content_remediation_schema()
+        schema = content_remediation_schema(request)
         context = configured_content_analysis_context()
         instructions = (
             "You are an evidence-bound website content remediation assistant. Return JSON only. "
@@ -338,8 +360,18 @@ class ContentRemediationProvider:
             return self._failure(request, started_at, started_perf, summary, payload_hash, native_error, AttemptStatus.TECHNICAL_ERROR, usage=usage)
         try:
             suggestions = _validate_response(_extract_json_payload(dict(raw)), request)
+        except ContentRemediationContractError as exc:
+            return self._failure(
+                request, started_at, started_perf, summary, payload_hash,
+                ProviderDiagnostic(ProviderErrorClass.CONTRACT_ERROR, error_type=type(exc).__name__, error_code=exc.code),
+                AttemptStatus.CONTRACT_ERROR, usage=usage,
+            )
         except Exception as exc:
-            return self._failure(request, started_at, started_perf, summary, payload_hash, ProviderDiagnostic(ProviderErrorClass.CONTRACT_ERROR, error_type=type(exc).__name__), AttemptStatus.CONTRACT_ERROR, usage=usage)
+            return self._failure(
+                request, started_at, started_perf, summary, payload_hash,
+                ProviderDiagnostic(ProviderErrorClass.CONTRACT_ERROR, error_type=type(exc).__name__, error_code="M20_UNEXPECTED_CONTRACT_ERROR"),
+                AttemptStatus.CONTRACT_ERROR, usage=usage,
+            )
 
         finished_at = datetime.now(timezone.utc)
         duration_ms = max(0, int((time.perf_counter() - started_perf) * 1000))

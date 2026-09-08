@@ -220,7 +220,7 @@ def _rasai_page(data: dict[str, Any], workspace: AuditWorkspace, report_dir: Pat
 <section class='panel'><div class='kicker'>Groundability</div><h2>Sinais de capacidade de fundamentação</h2><p class='intro'>SARI-001 não cria um subscore adicional de Groundability. Answerability, Citation Readiness e Evidence & Trust permanecem sinais distintos e rastreáveis.</p>{groundability or "<p class='intro'>Sinais não disponíveis.</p>"}</section>
 {_content_context_block(workspace, audit_id)}
 {_provenance_block(data["contributions"])}
-<section class='panel'><div class='kicker'>Fórmula e limites</div><h2>Como interpretar o índice</h2><div class='grid'><article class='ref-card'><h3>Dimension Score</h3><p><code>sum(weight x result_factor) / sum(weight evaluated) x 100</code></p><p>PASS=1; WARNING=0,5 por padrão; FAIL=0. UNKNOWN/ERROR/NOT_APPLICABLE não são convertidos silenciosamente em FAIL.</p></article><article class='ref-card'><h3>Overall Readiness</h3><p>Média de igual peso das dimensões aplicáveis com medição suficiente. Dimensão legitimamente NOT_APPLICABLE sai do denominador e não recebe zero.</p></article><article class='ref-card'><h3>Coverage</h3><p>Mede completude da análise aplicável. O Overall usa a média da Coverage das dimensões aplicáveis.</p></article><article class='ref-card'><h3>Confidence</h3><p>O Overall usa a menor Confidence entre as dimensões aplicáveis. Para consolidar, exige Coverage média de pelo menos 80% e Confidence mínima MEDIUM.</p></article></div><div class='notice warn'><strong>Limite de validade:</strong> pesos, fatores WARNING e thresholds de Coverage/Confidence/Consolidation são decisões metodológicas versionadas do RASAi. O índice não é homologado por mecanismo de busca ou provedor de IA.</div><p><a href='score-geo-004.html'>Abrir contrato completo do SCORE-GEO-004</a></p><p><a href='references.html#indicator-provenance'>Abrir proveniência, fontes primárias e regras de cálculo</a></p></section>
+<section class='panel'><div class='kicker'>Fórmula e limites</div><h2>Como interpretar o índice</h2><div class='grid'><article class='ref-card'><h3>Dimension Score</h3><p><code>sum(weight x result_factor) / sum(weight evaluated) x 100</code></p><p>PASS=1; WARNING=0,5 por padrão; FAIL=0. UNKNOWN/ERROR/NOT_APPLICABLE não são convertidos silenciosamente em FAIL.</p></article><article class='ref-card'><h3>Overall Readiness</h3><p>Média de igual peso das dimensões aplicáveis com medição suficiente. Dimensão legitimamente NOT_APPLICABLE sai do denominador e não recebe zero.</p></article><article class='ref-card'><h3>Coverage</h3><p>Mede completude da análise aplicável. O Overall usa a média da Coverage das dimensões aplicáveis.</p></article><article class='ref-card'><h3>Confidence</h3><p>O Overall usa a menor Confidence entre as dimensões aplicáveis. Para consolidar, exige Coverage média de pelo menos 80% e Confidence mínima MEDIUM. A presença de IA não é requisito: uma execução NO_AI pode atingir MEDIUM/HIGH quando Coverage, evidências e integridade da execução forem suficientes.</p></article></div><div class='notice warn'><strong>Limite de validade:</strong> pesos, fatores WARNING e thresholds de Coverage/Confidence/Consolidation são decisões metodológicas versionadas do RASAi. O índice não é homologado por mecanismo de busca ou provedor de IA.</div><p><a href='score-geo-004.html'>Abrir contrato completo do SCORE-GEO-004</a></p><p><a href='references.html#indicator-provenance'>Abrir proveniência, fontes primárias e regras de cálculo</a></p></section>
 <section class='panel'><div class='kicker'>Observed AI Visibility</div><h2>Separação entre readiness e resultado observado</h2><p class='intro'>Readiness não é convertido em suposta probabilidade de citação. Resultados observados de AI visibility permanecem datasets independentes quando coletados com engine, query e período identificados.</p></section>
 <footer class='footer'>SARI-001 e SCORE-GEO-004 são contratos proprietários, versionados e auditáveis do RASAi. Não garantem ranking, tráfego, conversão ou citação futura.</footer></main></body></html>\n"""
 
@@ -430,45 +430,174 @@ def _dashboard(data: dict[str, Any], report_dir: Path) -> str:
             value = f"{float(row['value']):.1f}/100"
             status = _STATUS_LABELS.get(str(row["consolidation_status"]), str(row["consolidation_status"]))
             detail = f"Coverage {coverage} - Confidence {confidence} - {status}"
-        cards.append(_indicator_card(f"Search & AI Readiness - {label}", value, detail, RASAI_FILE, "RASAi - SARI-001"))
+        condition, condition_label = _sari_condition(row)
+        cards.append(_indicator_card(
+            f"Search & AI Readiness - {label}", value, detail, RASAI_FILE,
+            "RASAi - SARI-001", condition, condition_label,
+        ))
 
     web = data["web"]
     cwv_values = [str(row["cwv_assessment"]) for row in web if str(row["cwv_assessment"]) in {"PASS", "FAIL"}]
     if cwv_values:
-        cwv_value = f"{sum(value == 'PASS' for value in cwv_values)}/{len(cwv_values)} aprovados"
-        cwv_detail = "Contextos com LCP, INP e CLS p75 suficientes"
+        passed = sum(value == "PASS" for value in cwv_values)
+        total = len(cwv_values)
+        cwv_value = f"{passed}/{total} aprovados"
+        cwv_detail = "Aprovação exige LCP, INP e CLS p75 dentro dos limites Core Web Vitals no contexto."
+        cwv_condition, cwv_label = _cwv_condition(passed, total)
     else:
         cwv_value, cwv_detail = "NÃO DISPONÍVEL", _external_status(data["web_run"])
-    cards.append(_indicator_card("Core Web Vitals", cwv_value, cwv_detail, "web-performance.html", "Chrome / web.dev"))
+        cwv_condition, cwv_label = "neutral", "Sem dados suficientes"
+    cards.append(_indicator_card(
+        "Core Web Vitals", cwv_value, cwv_detail, "web-performance.html", "Chrome / web.dev",
+        cwv_condition, cwv_label,
+    ))
 
-    perf = _device_ranges(web, "performance_score", scale=100.0, suffix="/100")
-    cards.append(_indicator_card("Lighthouse Performance", perf[0], perf[1], "web-performance.html", "Chrome Lighthouse"))
-    a11y = _device_ranges(web, "accessibility_score", scale=100.0, suffix="/100")
-    cards.append(_indicator_card("Lighthouse Accessibility", a11y[0], a11y[1], "accessibility.html", "Chrome Lighthouse + WCAG 2.2"))
+    perf = _device_ranges(web, "performance_score", scale=1.0, suffix="/100")
+    perf_condition, perf_label = _lighthouse_condition(web, "performance_score")
+    cards.append(_indicator_card(
+        "Lighthouse Performance", perf[0], perf[1], "web-performance.html", "Chrome Lighthouse",
+        perf_condition, perf_label,
+    ))
+    a11y = _device_ranges(web, "accessibility_score", scale=1.0, suffix="/100")
+    a11y_condition, a11y_label = _lighthouse_condition(web, "accessibility_score")
+    cards.append(_indicator_card(
+        "Lighthouse Accessibility", a11y[0], a11y[1], "accessibility.html", "Chrome Lighthouse + WCAG 2.2",
+        a11y_condition, a11y_label,
+    ))
 
     apdex_run = data["apdex_run"]
-    apdex_rows = [row for row in data["apdex"] if row["apdex_score"] is not None]
-    final_rows = [row for row in apdex_rows if _truthy(row, "final_group")]
-    apdex_rows = final_rows or apdex_rows
+    all_apdex_rows = [row for row in data["apdex"] if row["apdex_score"] is not None]
+    final_rows = [row for row in all_apdex_rows if _truthy(row, "final_group")]
+    apdex_rows = final_rows or all_apdex_rows
+    small_group_only = bool(apdex_rows) and not bool(final_rows)
     if apdex_rows:
         apdex_value, apdex_detail = _device_ranges(apdex_rows, "apdex_score", scale=1.0, suffix="", digits=3)
+        if small_group_only:
+            apdex_detail += "; grupo pequeno (<100 válidas/contexto), leitura diagnóstica"
+        apdex_condition, apdex_label = _apdex_condition(apdex_rows, small_group_only=small_group_only)
     elif apdex_run is not None and not bool(apdex_run["enabled"]):
         apdex_value, apdex_detail = "DESABILITADO", "Medição opcional não executada"
+        apdex_condition, apdex_label = "neutral", "Não executado"
     else:
-        apdex_value, apdex_detail = "NÃO DISPONÍVEL", "Sem grupo Apdex final materializado"
+        apdex_value, apdex_detail = "NÃO DISPONÍVEL", "Sem grupo Apdex materializado"
+        apdex_condition, apdex_label = "neutral", "Sem dados suficientes"
     apdex_link = "apdex.html" if (report_dir / "apdex.html").is_file() else "web-performance.html"
-    cards.append(_indicator_card("Synthetic Navigation Apdex", apdex_value, apdex_detail, apdex_link, "Apdex Technical Specification"))
+    cards.append(_indicator_card(
+        "Synthetic Navigation Apdex", apdex_value, apdex_detail, apdex_link,
+        "Apdex Technical Specification", apdex_condition, apdex_label,
+    ))
 
     return (
         _DASHBOARD_START
-        + "<section id='executive-indicator-dashboard' class='panel'><div class='kicker'>Dashboard executivo</div><h2>Resultados finais por indicador</h2><p class='intro'>O painel resume resultados sem misturar metodologias. Nenhum Lighthouse, Core Web Vitals, Accessibility ou Apdex é convertido no SARI-001; cada card aponta para a página que contém evidência, escopo e fonte.</p>"
-        + f"<div class='grid'>{''.join(cards)}</div></section>"
+        + "<section id='executive-indicator-dashboard' class='panel'><div class='kicker'>Dashboard executivo</div><h2>Resultados finais por indicador</h2><p class='intro'>O painel resume resultados sem misturar metodologias. A condição visual é calculada separadamente para cada indicador; no Lighthouse, a subdivisão de valores Poor abaixo de 25 como crítico é somente severidade visual do RASAi e não uma quarta faixa oficial do Lighthouse. Nenhum Lighthouse, Core Web Vitals, Accessibility ou Apdex é convertido no SARI-001.</p>"
+        + f"<div class='grid indicator-grid'>{''.join(cards)}</div></section>"
         + _DASHBOARD_END
     )
 
 
-def _indicator_card(title: str, value: str, detail: str, href: str, source: str) -> str:
-    return f"<article class='ref-card'><div class='kicker'>{escape(source)}</div><h3>{escape(title)}</h3><div class='score-number'>{escape(value)}</div><p class='intro'>{escape(detail)}</p><p><a href='{escape(href, quote=True)}'>Analisar detalhes</a></p></article>"
+def _indicator_card(
+    title: str,
+    value: str,
+    detail: str,
+    href: str,
+    source: str,
+    condition: str = "neutral",
+    condition_label: str = "Informativo",
+) -> str:
+    value_markup = _indicator_value_markup(value)
+    return (
+        f"<article class='ref-card indicator-card condition-{escape(condition, quote=True)}'>"
+        f"<div class='kicker'>{escape(source)}</div><h3>{escape(title)}</h3>"
+        f"{value_markup}<span class='indicator-condition'>{escape(condition_label)}</span>"
+        f"<p class='intro'>{escape(detail)}</p><p><a href='{escape(href, quote=True)}'>Analisar detalhes</a></p></article>"
+    )
+
+
+def _indicator_value_markup(value: str) -> str:
+    parts = [item.strip() for item in value.split(" - ") if item.strip()]
+    rendered: list[str] = []
+    for part in parts:
+        match = re.fullmatch(r"(Mobile|Desktop|Global)\s+(.+)", part)
+        if match is None:
+            rendered = []
+            break
+        rendered.append(
+            "<span class='indicator-device'>"
+            f"<small>{escape(match.group(1))}</small><strong>{escape(match.group(2))}</strong></span>"
+        )
+    if rendered:
+        return "<div class='indicator-values'>" + "".join(rendered) + "</div>"
+    return f"<div class='score-number indicator-score'>{escape(value)}</div>"
+
+
+def _sari_condition(row: sqlite3.Row) -> tuple[str, str]:
+    value = float(row["value"]) if row["value"] is not None else None
+    consolidation = str(row["consolidation_status"] or "")
+    confidence = str(row["confidence"] or "")
+    if value is None or consolidation == "NOT_CONSOLIDATED" or confidence == "UNAVAILABLE":
+        return "critical", "Crítico - não consolidado"
+    if value < 40:
+        return "critical", "Crítico"
+    if value < 75:
+        return "below", "Abaixo do esperado"
+    if consolidation != "CONSOLIDATED" or confidence == "LOW":
+        return "near", "Quase no esperado - medição parcial"
+    return "expected", "Dentro do esperado"
+
+
+def _cwv_condition(passed: int, total: int) -> tuple[str, str]:
+    if total <= 0:
+        return "neutral", "Sem dados suficientes"
+    if passed == total:
+        return "expected", "Dentro do esperado"
+    if passed == 0:
+        return "critical", "Crítico - nenhum contexto aprovado"
+    ratio = passed / total
+    return ("near", "Quase no esperado") if ratio >= 0.75 else ("below", "Abaixo do esperado")
+
+
+def _numeric_values(rows: list[sqlite3.Row], column: str) -> list[float]:
+    output: list[float] = []
+    for row in rows:
+        try:
+            value = row[column]
+        except (IndexError, KeyError):
+            continue
+        if value is not None:
+            output.append(float(value))
+    return output
+
+
+def _lighthouse_condition(rows: list[sqlite3.Row], column: str) -> tuple[str, str]:
+    values = _numeric_values(rows, column)
+    if not values:
+        return "neutral", "Sem dados suficientes"
+    worst = min(values)
+    if worst >= 90:
+        return "expected", "Dentro do esperado - Good"
+    if worst >= 50:
+        return "near", "Quase no esperado - Needs Improvement"
+    if worst >= 25:
+        return "below", "Abaixo do esperado - Poor"
+    return "critical", "Crítico - Poor (severidade visual RASAi)"
+
+
+def _apdex_condition(rows: list[sqlite3.Row], *, small_group_only: bool) -> tuple[str, str]:
+    values = _numeric_values(rows, "apdex_score")
+    if not values:
+        return "neutral", "Sem dados suficientes"
+    worst = min(values)
+    if worst >= 0.85:
+        condition = ("expected", "Dentro do esperado - Good/Excellent")
+    elif worst >= 0.70:
+        condition = ("near", "Quase no esperado - Fair")
+    elif worst >= 0.50:
+        condition = ("below", "Abaixo do esperado - Poor")
+    else:
+        condition = ("critical", "Crítico - Unacceptable")
+    if small_group_only and condition[0] == "expected":
+        return "near", "Quase no esperado - grupo pequeno"
+    return condition
 
 
 def _device_ranges(rows: list[sqlite3.Row], column: str, *, scale: float, suffix: str, digits: int = 0) -> tuple[str, str]:

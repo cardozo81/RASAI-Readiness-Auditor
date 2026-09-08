@@ -16,6 +16,7 @@ class CollectionCoverage:
     pagespeed_successes: int
     crux_attempts: int
     crux_successes: int
+    crux_via_pagespeed: int
     accessibility_requested: bool
     accessibility_obtained: int
     accessibility_contexts: int
@@ -36,7 +37,7 @@ def load_collection_coverage(workspace: Path | None) -> CollectionCoverage | Non
             if run is None:
                 return None
             attempts = list(db.execute("SELECT service,status FROM web_performance_attempts").fetchall())
-            observations = list(db.execute("SELECT accessibility_score,pagespeed_artifact_reference,error_summary FROM web_performance_observations").fetchall())
+            observations = list(db.execute("SELECT * FROM web_performance_observations").fetchall())
         finally:
             db.close()
     except sqlite3.Error:
@@ -62,6 +63,11 @@ def load_collection_coverage(workspace: Path | None) -> CollectionCoverage | Non
 
     psi = [row for row in attempts if str(row["service"]).upper() == "PAGESPEED_INSIGHTS"]
     crux = [row for row in attempts if str(row["service"]).upper() == "CRUX_API"]
+    crux_via_pagespeed = sum(
+        str(row["field_source"] or "").upper() == "PAGESPEED_CRUX"
+        for row in observations
+        if "field_source" in row.keys()
+    )
     return CollectionCoverage(
         web_enabled=bool(run["enabled"]),
         web_status=str(run["status"]),
@@ -70,6 +76,7 @@ def load_collection_coverage(workspace: Path | None) -> CollectionCoverage | Non
         pagespeed_successes=sum(str(row["status"]) == "SUCCESS" for row in psi),
         crux_attempts=len(crux),
         crux_successes=sum(str(row["status"]) == "SUCCESS" for row in crux),
+        crux_via_pagespeed=crux_via_pagespeed,
         accessibility_requested=a11y_requested,
         accessibility_obtained=a11y_obtained,
         accessibility_contexts=len(observations),

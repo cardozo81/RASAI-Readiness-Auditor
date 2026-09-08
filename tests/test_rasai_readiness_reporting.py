@@ -88,9 +88,9 @@ def _workspace(root: Path) -> AuditWorkspace:
                 accessibility_score REAL
             );
             INSERT INTO web_performance_observations VALUES
-              ('W1','AUD-SARI','P1','MOBILE','PASS',0.81,0.94),
-              ('W2','AUD-SARI','P2','MOBILE','FAIL',0.88,0.97),
-              ('W3','AUD-SARI','P1','DESKTOP','PASS',0.95,1.00);
+              ('W1','AUD-SARI','P1','MOBILE','PASS',81.0,94.0),
+              ('W2','AUD-SARI','P2','MOBILE','FAIL',88.0,97.0),
+              ('W3','AUD-SARI','P1','DESKTOP','PASS',95.0,100.0);
 
             CREATE TABLE synthetic_apdex_runs (
                 audit_id TEXT PRIMARY KEY,
@@ -182,12 +182,12 @@ def test_index_is_compact_dashboard_without_cross_domain_detail_duplication() ->
         assert "Core Web Vitals" in html
         assert "2/3 aprovados" in html
         assert "Lighthouse Performance" in html
-        assert "Mobile 81-88/100" in html
-        assert "Desktop 95/100" in html
+        assert "<small>Mobile</small><strong>81-88/100</strong>" in html
+        assert "<small>Desktop</small><strong>95/100</strong>" in html
         assert "Lighthouse Accessibility" in html
         assert "Synthetic Navigation Apdex" in html
-        assert "Mobile 0.820" in html
-        assert "Desktop 0.910" in html
+        assert "<small>Mobile</small><strong>0.820</strong>" in html
+        assert "<small>Desktop</small><strong>0.910</strong>" in html
         assert "web-performance-summary" not in html
         assert "accessibility-summary" not in html
         assert "rasai-apdex-index-start" not in html

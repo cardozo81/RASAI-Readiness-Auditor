@@ -34,6 +34,7 @@ from rasai.m20_ai import (
     CONTENT_REMEDIATION_CONTRACT_VERSION,
     ContentRemediationRequest,
     ContentRemediationResult,
+    ContentRemediationContractError,
     ContentRemediationRoutingSession,
     build_content_remediation_router as _legacy_build_content_remediation_router,
     content_remediation_schema,
@@ -79,7 +80,7 @@ class ExtensionContentRemediationProvider:
         self._last_attempts: tuple[ProviderAttempt, ...] = ()
 
     def _request_payload(self, request: ContentRemediationRequest) -> dict[str, Any]:
-        schema = content_remediation_schema()
+        schema = content_remediation_schema(request)
         user_text = "Persisted page evidence and findings:\n" + json.dumps(
             request.provider_payload(), ensure_ascii=False
         )
@@ -296,12 +297,24 @@ class ExtensionContentRemediationProvider:
 
         try:
             suggestions = _validate_response(self.base._extract_payload(raw), request)
+        except ContentRemediationContractError as exc:
+            return self._failure(
+                request, started_at, started_perf, summary, payload_hash,
+                ProviderDiagnostic(
+                    ProviderErrorClass.CONTRACT_ERROR,
+                    error_type=type(exc).__name__,
+                    error_code=exc.code,
+                ),
+                AttemptStatus.CONTRACT_ERROR,
+                usage=usage,
+            )
         except Exception as exc:
             return self._failure(
                 request, started_at, started_perf, summary, payload_hash,
                 ProviderDiagnostic(
                     ProviderErrorClass.CONTRACT_ERROR,
                     error_type=type(exc).__name__,
+                    error_code="M20_UNEXPECTED_CONTRACT_ERROR",
                 ),
                 AttemptStatus.CONTRACT_ERROR,
                 usage=usage,

@@ -417,3 +417,15 @@ Fonte configurada que falhou por timeout, quota, HTTP, ausência de artifact ou 
 ### Layout das ações
 
 Cada ação do menu principal é exibida em linha própria. O caractere `|` pode aparecer em metadados/configurações, mas não é usado para agrupar ações selecionáveis. `V. Voltar` permanece o padrão de retorno em submenus; `Q. Sair` é reservado ao encerramento do console.
+
+<!-- rasai-console-crux-ai-separation-20260908 -->
+## Leitura de CrUX e finalidades de IA após a execução
+
+No resumo persistido, o console diferencia:
+
+- `CrUX via PageSpeed`: field data CrUX veio incorporado na resposta PageSpeed;
+- `CrUX API direta`: quantidade de chamadas/sucessos feitos diretamente ao endpoint CrUX.
+
+Assim, `CrUX API direta 0/0` não significa ausência de Core Web Vitals quando a observação persistida informa `PAGESPEED_CRUX`.
+
+Também não confunda `RASAI_AI_CONTENT_REMEDIATION` com `RASAI_AI_TECHNICAL_REMEDIATION`: a primeira controla sugestões de conteúdo e a segunda controla remediação técnica advisory de crawling/discovery.

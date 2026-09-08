@@ -323,3 +323,15 @@ Para Rastreamento, descoberta e acesso de crawlers, a finalidade técnica deve p
 - [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
 - [OPENAI_PROVIDER_DIAGNOSTICS.md](OPENAI_PROVIDER_DIAGNOSTICS.md)
 - [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md)
+
+<!-- rasai-ai-purpose-separation-20260908 -->
+## Separação das remediações por IA
+
+As finalidades são independentes:
+
+- `RASAI_AI_CONTENT_REMEDIATION`: sugestões textuais evidence-bound para findings de conteúdo elegíveis;
+- `RASAI_AI_TECHNICAL_REMEDIATION`: explicação/remediação advisory de crawling, discovery, `robots.txt`, sitemap e controles de crawlers.
+
+`DEGRADED` ou `CONTRACT_ERROR` significa que a finalidade foi habilitada e houve tentativa de provider, mas a resposta não foi aceita pelo contrato; isso não deve ser apresentado como "IA desabilitada". A remediação de conteúdo restringe `finding_id` e `evidence_ids` ao universo enviado e persiste reason codes seguros para falhas contratuais, sem armazenar conteúdo privado da resposta rejeitada.
+
+A IA técnica de crawling/discovery não possui autoridade para elevar Confidence ou SARI por julgamento. Ela permanece advisory; somente evidência válida incorporada por uma regra de scoring pode alterar Coverage/Confidence.

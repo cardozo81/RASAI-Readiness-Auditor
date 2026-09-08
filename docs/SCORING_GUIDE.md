@@ -225,3 +225,18 @@ Relatórios consolidados preservam `scoring_version` como parte da comparabilida
 ## Limite de validade
 
 SCORE-GEO-004 é uma métrica proprietária, transparente e reproduzível. O baseline semântico é igualmente proprietário e não deve ser apresentado como standard GEO/AEO universal. Nenhum deles é certificação oficial de Google, Microsoft, OpenAI, Anthropic ou outro mantenedor e não garante ranking, tráfego, conversão ou citação futura.
+
+<!-- rasai-confidence-ai-robots-20260908 -->
+## Confidence, IA, robots.txt e sitemap
+
+A `Confidence` do SARI-001 **não depende da presença de IA**. O runtime deriva Confidence de Coverage, completude das evidências avaliadas e erros de execução. Uma auditoria `NO_AI` pode atingir `MEDIUM` ou `HIGH` e consolidar normalmente quando as regras aplicáveis possuem evidência suficiente.
+
+A IA pode, em regras explicitamente semânticas, ajudar a transformar uma avaliação que ficaria `UNKNOWN` em uma execução evidence-bound válida. Nesse caso a Confidence pode aumentar como consequência da Coverage/evidência adicional, nunca porque o provider declarou uma confiança subjetiva.
+
+`robots.txt` e sitemap já participam do `SCORE-GEO-004` por regras determinísticas:
+
+- `BR-GEO-003`: aquisição/interpretação de sitemap quando disponível;
+- `BR-GEO-017`: interpretabilidade de `robots.txt` quando presente;
+- `BR-GEO-018`: resolução independente de acesso por crawler.
+
+A ausência isolada de `robots.txt` ou sitemap não recebe `FAIL` automático. Recurso existente porém inválido, não interpretável, inacessível ou com controle de crawler materialmente problemático pode produzir `WARNING`, `UNKNOWN` ou outra conclusão prevista na regra. Os diagnósticos aprofundados de crawling/discovery permanecem advisory e não alteram diretamente Score/Coverage/Confidence.

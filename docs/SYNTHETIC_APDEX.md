@@ -144,3 +144,10 @@ Quando um artifact Lighthouse existe, o RASAi pode extrair metadados de perfil p
 - grupo pequeno é marcado explicitamente;
 - nenhum resultado é adicionado matematicamente ao Score GEO;
 - não há promessa de experiência real de usuários finais.
+
+<!-- rasai-apdex-diagnostics-sensitivity-20260908 -->
+## Diagnóstico de erros e sensibilidade ao T
+
+`apdex.html` separa problemas da própria execução Synthetic Navigation Apdex de sinais relacionados de Web Performance. São mostrados application errors, timeouts, navigation errors, amostras inválidas/excluídas, fração Tolerating/Frustrated, variabilidade e cauda. Core Web Vitals/Lighthouse aparecem como correlação separada e não são duplicados nem entram na fórmula Apdex.
+
+O relatório também apresenta uma análise de sensibilidade em torno do `T` configurado (`T ±10%/20%`) usando as mesmas amostras. Essa tabela é somente diagnóstico metodológico: não deve ser usada para escolher um threshold que produza a nota desejada. O `T` deve representar SLO/KPM ou a configuração comparável do APM/Dynatrace.

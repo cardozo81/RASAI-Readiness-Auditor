@@ -507,7 +507,7 @@ def _render_actual_usage(state: State) -> None:
         else:
             print("Chamadas Web Perf.  : 0")
     if coverage is not None:
-        print(f"Web Performance     : {coverage.web_status} | PageSpeed {coverage.pagespeed_successes}/{coverage.pagespeed_attempts} | CrUX {coverage.crux_successes}/{coverage.crux_attempts}")
+        print(f"Web Performance     : {coverage.web_status} | PageSpeed {coverage.pagespeed_successes}/{coverage.pagespeed_attempts} | CrUX via PageSpeed {coverage.crux_via_pagespeed} | CrUX API direta {coverage.crux_successes}/{coverage.crux_attempts}")
         if coverage.web_reason:
             print(f"Motivo Web Perf.    : {coverage.web_reason}")
         a11y_state = "OBTIDA" if coverage.accessibility_contexts and coverage.accessibility_obtained == coverage.accessibility_contexts else ("PARCIAL" if coverage.accessibility_obtained else "NÃO OBTIDA")

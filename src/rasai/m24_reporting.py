@@ -127,9 +127,9 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 <html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
 <title>Rastreamento e descoberta - RASAi</title><link rel='stylesheet' href='css/site.css'></head>
 <body>{nav}<main class='app-main'>
-<header class='hero'><div class='eyebrow'>Rastreamento, descoberta e acesso de crawlers · diagnóstico técnico não-scoring</div>
+<header class='hero'><div class='eyebrow'>Rastreamento, descoberta e acesso de crawlers · diagnóstico técnico complementar</div>
 <h1>Rastreamento, descoberta e acesso por IA</h1>
-<p class='lead'>Diagnóstico determinístico de robots.txt, sitemaps/feeds, coerência de descoberta e controles de crawlers. Esta página não altera SCORE-GEO-004, SARI-001, Coverage, Confidence ou Consolidation.</p>
+<p class='lead'>Diagnóstico aprofundado de robots.txt, sitemaps/feeds, coerência de descoberta e controles de crawlers. Os diagnósticos aprofundados desta página são advisory/non-scoring; porém as evidências determinísticas básicas de sitemap, robots.txt e acesso de crawlers já alimentam BR-GEO-003, BR-GEO-017 e BR-GEO-018 no SCORE-GEO-004.</p>
 <div class='metric-grid'>
 {_metric("Contrato", M24_VERSION)}
 {_metric("Diagnósticos", str(len(diagnostics)))}
@@ -138,7 +138,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 {_metric("llms.txt", llms_state)}
 {_metric("IA técnica", ai_state)}
 {_metric("Sitemaps externos", str(external_count))}
-{_metric("Impacto no score", "NENHUM")}
+{_metric("Impacto desta camada", "NENHUM direto")}
 </div></header>
 <section class='notice'><strong>Fronteira metodológica:</strong> GPTBot, OAI-SearchBot e Google-Extended possuem finalidades distintas. Bloqueio de GPTBot/Google-Extended não é convertido em penalidade de Search. <code>llms.txt</code> é tratado como proposta comunitária experimental, não como web standard obrigatório.</section>
 <section class='panel'><div class='kicker'>Resumo</div><h2>Universo técnico observado</h2>
@@ -199,7 +199,7 @@ def _ai_block(data: dict[str, Any]) -> str:
     cost = f"{sum(costs):.6f} USD" if costs else "não calculável/zero chamadas"
     return f"""<section class='panel'><div class='kicker'>Remediação técnica opcional por IA</div><h2>Telemetria e limites</h2>
 <div class='metric-grid'>{_metric("Estado",state)}{_metric("Provider",provider)}{_metric("Modelo",model)}{_metric("Tentativas",str(len(attempts)))}{_metric("Tokens",str(total_tokens))}{_metric("Custo estimado",cost)}</div>
-<p class='intro'>A IA recebe apenas diagnósticos/evidence IDs Rastreamento, descoberta e acesso de crawlers persistidos. Ela não pode criar fatos, decidir política de treinamento do publisher nem alterar scoring. Revisão humana permanece obrigatória.</p>
+<p class='intro'>A IA técnica desta página é controlada por <code>RASAI_AI_TECHNICAL_REMEDIATION</code>, independente de <code>RASAI_AI_CONTENT_REMEDIATION</code>. Ela recebe apenas diagnósticos/evidence IDs persistidos, não pode criar fatos nem elevar Confidence por opinião. Qualquer aumento de Confidence só pode ocorrer no pipeline de scoring quando uma regra aplicável passa a ter evidência válida; a remediação técnica desta camada permanece advisory e não altera scoring.</p>
 <p><strong>Artifact:</strong> <code>{escape(artifact)}</code></p></section>"""
 
 

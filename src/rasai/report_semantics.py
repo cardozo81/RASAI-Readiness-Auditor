@@ -34,6 +34,7 @@ tr.result-state-warn{background:var(--soft-amber)}tr.result-state-bad{background
 details.priority-high{border-left:4px solid var(--red);background:var(--soft-red)}details.priority-medium{border-left:4px solid var(--amber);background:var(--soft-amber)}
 .score-confidence-note{margin-top:12px}.score-confidence-note ul{margin:.5rem 0 0;padding-left:1.15rem}.score-confidence-note li+li{margin-top:.22rem}
 .apdex-threshold-note{margin-top:12px}.apdex-threshold-note code{font-weight:650}.apdex-card.apdex-conflict{box-shadow:0 7px 20px rgba(182,138,80,.08),inset 3px 0 0 rgba(182,138,80,.72)}
+.indicator-grid{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));align-items:stretch}.indicator-card{display:flex;flex-direction:column;min-width:0}.indicator-card h3{font-size:1rem;line-height:1.25;min-height:2.5em}.indicator-card .intro{font-size:.88rem}.indicator-score{font-size:clamp(1.35rem,2.3vw,2rem)!important;line-height:1.08;overflow-wrap:normal;word-break:normal;white-space:nowrap}.indicator-values{display:flex;gap:12px;flex-wrap:wrap;margin:.45rem 0}.indicator-device{display:flex;flex-direction:column;gap:2px;min-width:92px}.indicator-device small{color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.04em}.indicator-device strong{font-size:clamp(1.25rem,2vw,1.8rem);line-height:1.05;white-space:nowrap}.indicator-condition{display:inline-flex;width:max-content;max-width:100%;margin:.35rem 0 .2rem;padding:3px 8px;border-radius:999px;font-size:.7rem;font-weight:760;line-height:1.35}.indicator-card.condition-expected{border-top:4px solid var(--green);background:var(--soft-green)}.indicator-card.condition-near{border-top:4px solid var(--amber);background:var(--soft-amber)}.indicator-card.condition-below{border-top:4px solid #a96f38;background:rgba(169,111,56,.08)}.indicator-card.condition-critical{border-top:4px solid var(--red);background:var(--soft-red)}.indicator-card.condition-neutral{border-top:4px solid var(--blue);background:var(--soft-blue)}.condition-expected .indicator-condition{background:rgba(95,150,116,.16);color:#3f7452}.condition-near .indicator-condition{background:rgba(182,138,80,.18);color:#855f2c}.condition-below .indicator-condition{background:rgba(169,111,56,.17);color:#815126}.condition-critical .indicator-condition{background:rgba(191,111,112,.18);color:#98494c}.condition-neutral .indicator-condition{background:rgba(101,127,198,.15);color:#4d65a0}
 @media(max-width:700px){.result-tag,.priority-tag{white-space:normal}.priority-tag{margin-left:0;margin-top:4px}}
 """
 
@@ -93,6 +94,8 @@ def _decorate_metrics(html: str, page_name: str) -> str:
 
 
 def _metric_state(page_name: str, label: str, value: str) -> tuple[str | None, str, bool]:
+    # Only metric labels explicitly listed below receive result semantics. Metadata, provenance,
+    # scopes, sources and integrity counters must remain neutral unless a specific contract says otherwise.
     key = label.casefold().strip()
     normalized = value.casefold().strip()
 
