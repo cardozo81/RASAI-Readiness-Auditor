@@ -10,6 +10,7 @@ from typing import Any
 from rasai import report_navigation
 from rasai.m26_visibility import wilson_interval
 from rasai.persistence import AuditWorkspace
+from rasai.score_geo_004 import SCORING_VERSION
 
 M26_REPORT_FILE = "ai-visibility.html"
 M26_NAV_LABEL = "Visibilidade em IA"
@@ -84,10 +85,10 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     nav = report_navigation.render_report_navigation(report_dir, M26_REPORT_FILE)
     imports = data["imports"]
     if not imports:
-        body = """
+        body = f"""
         <header class='hero'><div class='eyebrow'>Observed Generative Visibility · visibilidade observada</div><h1>Observed Generative Visibility</h1>
         <p class='lead'>Nenhum dataset de visibilidade generativa foi importado para esta auditoria.</p></header>
-        <section class='panel'><h2>Readiness ≠ Visibility</h2><p>Esta página é deliberadamente separada de SARI-001 e do SCORE-GEO-003 vigente. SCORE-GEO-002 permanece histórico. Ausência de dados observados não reduz readiness.</p></section>
+        <section class='panel'><h2>Readiness ≠ Visibility</h2><p>Esta página é deliberadamente separada de SARI-001 e do {SCORING_VERSION} vigente. SCORE-GEO-003 e SCORE-GEO-002 permanecem históricos. Ausência de dados observados não reduz readiness.</p></section>
         """
         return _shell(nav, body)
 
@@ -97,7 +98,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     <header class='hero'>
       <div class='eyebrow'>Observed Generative Visibility · visibilidade observada · informativo; não altera o índice</div>
       <h1>Observed Generative Visibility</h1>
-      <p class='lead'>Resultados observados/importados sobre participação e citação em superfícies de IA. Estes dados <strong>não compõem SARI-001/SCORE-GEO-002 histórico e tampouco SCORE-GEO-003 vigente</strong>; não são convertidos em um “GEO Score”.</p>
+      <p class='lead'>Resultados observados/importados sobre participação e citação em superfícies de IA. Estes dados <strong>não compõem SARI-001/{SCORING_VERSION}</strong>; SCORE-GEO-003 e SCORE-GEO-002 são contratos históricos e também não recebem estes dados retroativamente. Os valores não são convertidos em um “GEO Score”.</p>
       <div class='metric-grid'>
         {_metric('Datasets importados', len(imports))}
         {_metric('Período mais recente', f"{latest['period_start']} → {latest['period_end']}")}
@@ -108,13 +109,14 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     </header>
     <section class='panel notice-critical'>
       <h2>Readiness ≠ Visibility</h2>
-      <p><strong>Readiness</strong> descreve condições técnicas/semânticas inferidas pela auditoria. <strong>Observed Generative Visibility</strong> descreve o que foi efetivamente observado numa fonte ou protocolo. Correlação entre ambos é matéria de validação empírica futura; esta página não presume causalidade.</p>
+      <p><strong>Readiness</strong> descreve condições técnicas/semânticas inferidas pela auditoria. <strong>Observed Generative Visibility</strong> descreve o que foi efetivamente observado numa fonte ou protocolo. Correlação entre ambos é matéria de validação empírica; esta página não presume causalidade.</p>
       <p>Contagem de citações não é ranking, autoridade, posição nem probabilidade de citação futura. Métricas declaradas como reportadas por terceiros são preservadas sem recomputação equivalente.</p>
-      <p><strong>Proveniência:</strong> Observed Generative Visibility é import-first. A fonte e o método de captura são declarados no artifact fornecido ao RASAi; na implementação atual o RASAi não autentica o portal externo nem afirma que realizou coleta direta.</p>
+      <p><strong>Proveniência:</strong> Observed Generative Visibility é import-first. A fonte e o método de captura são declarados no artifact fornecido ao RASAi; o RASAi não converte essa declaração em prova de coleta autenticada no sistema externo.</p>
+      <p><strong>Uso de IA pelo RASAi:</strong> esta superfície não cria respostas artificiais para preencher ausência de observação. O input é o dataset/import persistido; o output é uma projeção e estatística derivada desses registros.</p>
     </section>
     {sections}
     {_references()}
-    <footer class='footer'>Observed Generative Visibility é import-first, auditável e informativo; não altera SARI-001 nem SCORE-GEO-003. O RASAi não faz scraping de portais de webmaster nem inventa endpoint de API para esta coleta.</footer>
+    <footer class='footer'>Observed Generative Visibility é import-first, auditável e informativo; não altera SARI-001 nem {SCORING_VERSION}. O RASAi não inventa dados ausentes nem endpoint de API para esta coleta.</footer>
     """
     return _shell(nav, body)
 
