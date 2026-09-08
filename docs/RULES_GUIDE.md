@@ -34,9 +34,11 @@ Quando `RuleDefinition` materializa `basis`, os valores são `OFFICIAL`, `STANDA
 O guia de regras referencia o método de scoring aplicado:
 
 - índice público: `SARI-001`;
-- scoring vigente para novas auditorias: `SCORE-GEO-003`;
+- scoring vigente para novas auditorias: `SCORE-GEO-004`.
 
-Pesos, dimensões, applicability, Coverage, Confidence, model artifact e Overall devem ser lidos em [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SARI_READINESS_INDEX.md`](SARI_READINESS_INDEX.md) e [`SCORE_GEO_003.md`](SCORE_GEO_003.md). Auditorias históricas preservam sua `scoring_version`; o report não deve reinterpretá-las silenciosamente como `003`.
+Pesos, dimensões, applicability, Coverage, Confidence e Overall devem ser lidos em [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SARI_READINESS_INDEX.md`](SARI_READINESS_INDEX.md) e [`SCORE_GEO_004.md`](SCORE_GEO_004.md).
+
+Auditorias históricas preservam sua `scoring_version`; o report não deve reinterpretá-las silenciosamente como `004`. `SCORE-GEO-003` permanece contrato histórico e não deve ser reescrito quando a referência for necessária à rastreabilidade.
 
 ## Catálogo
 
@@ -117,10 +119,10 @@ Checks de hreflang adicionados em Observability são diagnósticos complementare
 
 BR-GEO-054 deve reconstruir/validar o scoring conforme a **versão persistida**:
 
-- nova auditoria: `SCORE-GEO-003`;
+- nova auditoria: `SCORE-GEO-004`;
 - cada auditoria expõe o `scoring_version` efetivamente persistido para rastreabilidade.
 
-A regra não deve converter um histórico `002` em `003`, nem recalcular Overall de `003` usando a antiga média simples do `002`.
+A regra não converte um histórico `002` ou `003` em `004` e não recalcula uma auditoria antiga segundo o contrato novo.
 
 ## Evidência e remediation
 
