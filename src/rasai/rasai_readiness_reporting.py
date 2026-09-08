@@ -174,6 +174,11 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
             "SELECT * FROM audit_targets WHERE audit_id=? ORDER BY target_id LIMIT 1",
             (audit_id,),
         )
+        page_count_row = _one(
+            connection,
+            "SELECT COUNT(*) AS page_count FROM pages WHERE audit_id=?",
+            (audit_id,),
+        )
         return {
             "audit": audit,
             "target": target,
@@ -188,6 +193,7 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
             "ai_attempts": ai_attempts,
             "discovery_executions": discovery_executions,
             "m24_run": m24_run,
+            "page_count": int(page_count_row["page_count"]) if page_count_row is not None else 0,
         }
     finally:
         connection.close()
@@ -239,6 +245,7 @@ def _rasai_page(data: dict[str, Any], workspace: AuditWorkspace, report_dir: Pat
 <header class='hero'><div class='eyebrow'>RASAi - metodologia proprietária evidence-based</div><h1>Search & AI Readiness Index</h1><p class='lead'>O {PUBLIC_METHOD_VERSION} consolida sinais de prontidão para descoberta, interpretação, recuperação e uso como evidência em Search e AI Search. Não representa probabilidade de ranking, resposta ou citação futura.</p><div class='score-grid'>{overall_cards or "<div class='notice warn'>Readiness geral não disponível com a evidência persistida.</div>"}</div><div class='metric-grid'>{_metric('Metodologia pública', PUBLIC_METHOD_VERSION)}{_metric('Método de scoring', engine_label)}{_metric('Projeto', project)}{_metric('Natureza', 'Heurística RASAi reproduzível')}</div></header>
 <section class='notice'><strong>Contrato metodológico:</strong> novas auditorias usam <code>{escape(COMPATIBLE_ENGINE_VERSION)}</code>. O Overall é determinístico e não depende de model artifact ou calibração externa. Lighthouse, Core Web Vitals, Accessibility e Apdex permanecem indicadores independentes e não entram no SARI-001.</section>
 {_audit_limitations_block(audit)}
+{_scope_coverage_block(data)}
 {_sari_governance_block(data)}
 {_ai_operational_diagnostic(data)}
 <section class='panel'><div class='kicker'>Indicadores proprietários</div><h2>Dimensões do readiness</h2><p class='intro'>Pontuação, Cobertura, Confiança e Consolidação ficam centralizadas nesta página. As páginas Mobile/Desktop preservam evidências e findings do respectivo dispositivo.</p>{dimension_tables or "<p class='intro'>Nenhuma dimensão de score persistida.</p>"}</section>
@@ -247,9 +254,80 @@ def _rasai_page(data: dict[str, Any], workspace: AuditWorkspace, report_dir: Pat
 {_structured_data_scoring_block(data)}
 {_content_context_block(workspace, audit_id)}
 {_provenance_block(data["contributions"])}
-<section class='panel'><div class='kicker'>Fórmula e limites</div><h2>Como interpretar o índice</h2><div class='grid'><article class='ref-card'><h3>Dimension Score</h3><p><code>sum(weight x result_factor) / sum(weight evaluated) x 100</code></p><p>PASS=1; WARNING=0,5 por padrão; FAIL=0. UNKNOWN/ERROR/NOT_APPLICABLE não são convertidos silenciosamente em FAIL.</p></article><article class='ref-card'><h3>Overall Readiness</h3><p>Média de igual peso das dimensões aplicáveis com medição suficiente. Dimensão legitimamente NOT_APPLICABLE sai do denominador e não recebe zero.</p></article><article class='ref-card'><h3>Coverage</h3><p>Mede completude da análise aplicável. O Overall usa a média da Coverage das dimensões aplicáveis.</p></article><article class='ref-card'><h3>Confidence</h3><p>O Overall usa a menor Confidence entre as dimensões aplicáveis. Para consolidar, exige Coverage média de pelo menos 80% e Confidence mínima MEDIUM. A presença de IA não é requisito: uma execução NO_AI pode atingir MEDIUM/HIGH quando Coverage, evidências e integridade da execução forem suficientes.</p></article></div><div class='notice warn'><strong>Limite de validade:</strong> pesos, fatores WARNING e thresholds de Coverage/Confidence/Consolidation são decisões metodológicas versionadas do RASAi. O índice não é homologado por mecanismo de busca ou provedor de IA.</div><p><a href='score-geo-004.html'>Abrir contrato completo do SCORE-GEO-004</a></p><p><a href='references.html#indicator-provenance'>Abrir proveniência, fontes primárias e regras de cálculo</a></p></section>
+<section class='panel'><div class='kicker'>Fórmula e limites</div><h2>Como interpretar o índice</h2><div class='grid'><article class='ref-card'><h3>Dimension Score</h3><p><code>sum(weight x result_factor) / sum(weight evaluated) x 100</code></p><p>PASS=1; WARNING=0,5 por padrão; FAIL=0. UNKNOWN/ERROR/NOT_APPLICABLE não são convertidos silenciosamente em FAIL.</p></article><article class='ref-card'><h3>Overall Readiness</h3><p>Média de igual peso das dimensões aplicáveis com medição suficiente. Dimensão legitimamente NOT_APPLICABLE sai do denominador e não recebe zero.</p></article><article class='ref-card'><h3>Scoring Coverage</h3><p>Mede a completude das regras aplicáveis dentro do universo efetivamente auditado. O Overall usa a média dessa Coverage entre dimensões aplicáveis; ela não representa percentual de URLs do domínio rastreadas ou auditadas.</p></article><article class='ref-card'><h3>Confidence</h3><p>O Overall usa a menor Confidence entre as dimensões aplicáveis. Para consolidar, exige Coverage média de pelo menos 80% e Confidence mínima MEDIUM. A presença de IA não é requisito: uma execução NO_AI pode atingir MEDIUM/HIGH quando Coverage, evidências e integridade da execução forem suficientes.</p></article></div><div class='notice warn'><strong>Limite de validade:</strong> pesos, fatores WARNING e thresholds de Coverage/Confidence/Consolidation são decisões metodológicas versionadas do RASAi. O índice não é homologado por mecanismo de busca ou provedor de IA.</div><p><a href='scoring.html'>Abrir contrato completo do SCORE-GEO-004</a></p><p><a href='references.html#indicator-provenance'>Abrir proveniência, fontes primárias e regras de cálculo</a></p></section>
 <section class='panel'><div class='kicker'>Observed AI Visibility</div><h2>Separação entre readiness e resultado observado</h2><p class='intro'>Readiness não é convertido em suposta probabilidade de citação. Resultados observados de AI visibility permanecem datasets independentes quando coletados com engine, query e período identificados.</p></section>
 <footer class='footer'>SARI-001 e SCORE-GEO-004 são contratos proprietários, versionados e auditáveis do RASAi. Não garantem ranking, tráfego, conversão ou citação futura.</footer></main></body></html>\n"""
+
+
+def _scope_coverage_block(data: dict[str, Any]) -> str:
+    """Explain rule coverage separately from crawl/scope coverage.
+
+    Discovered URL counts are an observed crawl frontier, not a guaranteed exhaustive
+    denominator for the domain. Therefore the report exposes counts and matrix limits
+    without manufacturing a percentage of "domain coverage".
+    """
+    audit = data.get("audit")
+    target = data.get("target")
+    scores = data.get("scores") or []
+    audited_pages = int(data.get("page_count") or 0)
+    target_type = str(target["target_type"]) if target is not None and "target_type" in target.keys() else "-"
+    max_pages = int(audit["max_pages"] or 0) if audit is not None and "max_pages" in audit.keys() else 0
+
+    limitations: list[str] = []
+    if audit is not None and "limitations" in audit.keys() and audit["limitations"]:
+        raw = audit["limitations"]
+        if isinstance(raw, str):
+            try:
+                parsed = json.loads(raw)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                parsed = [raw]
+        else:
+            parsed = raw
+        if isinstance(parsed, list):
+            limitations = [str(item) for item in parsed]
+        elif parsed:
+            limitations = [str(parsed)]
+
+    discovered: int | None = None
+    reported_audited: int | None = None
+    for item in limitations:
+        match = re.search(r"MAX_PAGES_REACHED:discovered=(\d+);audited=(\d+)", item)
+        if match:
+            discovered = int(match.group(1))
+            reported_audited = int(match.group(2))
+            break
+
+    overall_rows = [row for row in scores if str(row["dimension"]) == "OVERALL_READINESS"]
+    scoring = " · ".join(
+        f"{str(row['device']).title()} {float(row['coverage']) * 100:.1f}%"
+        for row in overall_rows
+    ) or "Indisponível"
+    audited_display = reported_audited if reported_audited is not None else audited_pages
+    discovered_display = str(discovered) if discovered is not None else "não consolidado como universo exaustivo"
+
+    warning = ""
+    if target_type.upper() == "DOMAIN" and discovered is not None and audited_display < discovered:
+        warning = (
+            "<div class='notice warn'><strong>Matriz de domínio limitada pela parametrização:</strong> "
+            f"o crawler observou {discovered} URL(s), mas {audited_display} página(s) entraram no universo auditado "
+            f"com <code>max_pages={max_pages}</code>. Isso não é erro do RASAi e não reduz automaticamente o score; "
+            "é uma opção de escopo. Para avaliar o domínio com maior representatividade, aumente max_pages de forma "
+            "conservadora. Se a intenção era avaliar somente a URL informada, use escopo de URL/página.</div>"
+        )
+
+    return (
+        "<section class='panel'><div class='kicker'>Cobertura e escopo</div>"
+        "<h2>Scoring Coverage não é cobertura do domínio</h2>"
+        "<p class='intro'>Scoring Coverage mede quanta evidência/regra aplicável foi concluída no universo auditado. "
+        "A cobertura de escopo descreve quantas páginas efetivamente entraram na matriz. URLs descobertas são uma "
+        "fronteira observada do crawl e não um denominador exaustivo garantido do domínio.</p>"
+        "<div class='metric-grid'>"
+        f"{_metric('Scoring Coverage', scoring)}"
+        f"{_metric('Páginas auditadas', str(audited_display))}"
+        f"{_metric('URLs descobertas no crawl', discovered_display)}"
+        f"{_metric('Target / max_pages', f'{target_type} / {max_pages if max_pages else "-"}')}"
+        "</div>" + warning + "</section>"
+    )
 
 
 def _overall_card(scores: list[sqlite3.Row], device: str) -> str:

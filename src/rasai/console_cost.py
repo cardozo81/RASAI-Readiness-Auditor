@@ -231,7 +231,7 @@ def estimate_exposure(state: State) -> ExposureEstimate:
         )
     if getattr(state, "technical_remediation", False):
         reasons.append(
-            "A remediação técnica de crawling/discovery é audit-level e pode acrescentar tentativas quando houver diagnósticos técnicos elegíveis; permanece advisory/non-scoring."
+            "A remediação técnica de crawling/discovery é audit-level e pode acrescentar tentativas quando houver evidência técnica elegível. Os diagnósticos M24 permanecem advisory; uma avaliação evidence-bound válida pode materializar BR-GEO-055/056 dentro dos grupos SITEMAP/ROBOTS, sem peso extra nem bônus duplicado."
         )
     if state.web_performance:
         reasons.append(

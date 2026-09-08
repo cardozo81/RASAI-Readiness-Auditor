@@ -42,6 +42,90 @@ class M24AiResult:
     reason: str | None = None
 
 
+_RESOURCE_RULES: dict[str, tuple[str, ...]] = {
+    "SITEMAP": ("BR-GEO-003",),
+    "ROBOTS": ("BR-GEO-017", "BR-GEO-018"),
+}
+
+
+def _decode_json_value(value: Any, default: Any) -> Any:
+    if value is None:
+        return default
+    if isinstance(value, (dict, list, tuple)):
+        return value
+    try:
+        return json.loads(str(value))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return default
+
+
+def _resource_context_facts(
+    workspace: AuditWorkspace,
+    audit_id: str,
+) -> tuple[list[dict[str, Any]], dict[str, frozenset[str]]]:
+    """Build non-diagnostic resource facts from persisted scoring inputs.
+
+    A clean/present robots.txt may produce no M24 problem diagnostic; that must not
+    prevent an explicitly enabled technical-AI assessment from reviewing the same
+    deterministic evidence. These facts are provider context only and are not new
+    findings or score contributions by themselves.
+    """
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        rows = list(
+            connection.execute(
+                """SELECT rule_id,result,observed_value,evidence_ids
+                   FROM rule_executions
+                   WHERE audit_id=? AND rule_id IN ('BR-GEO-003','BR-GEO-017','BR-GEO-018')
+                   ORDER BY rule_id,rule_execution_id""",
+                (audit_id,),
+            ).fetchall()
+        )
+    except sqlite3.OperationalError:
+        rows = []
+    finally:
+        connection.close()
+
+    facts: list[dict[str, Any]] = []
+    resource_evidence: dict[str, frozenset[str]] = {}
+    for resource, rule_ids in _RESOURCE_RULES.items():
+        selected = [row for row in rows if str(row["rule_id"]) in rule_ids]
+        evidence_ids: list[str] = []
+        rule_states: list[dict[str, Any]] = []
+        for row in selected:
+            raw_ids = _decode_json_value(row["evidence_ids"], [])
+            if isinstance(raw_ids, (list, tuple)):
+                for evidence_id in raw_ids:
+                    value = str(evidence_id).strip()
+                    if value and value not in evidence_ids:
+                        evidence_ids.append(value)
+            rule_states.append(
+                {
+                    "rule_id": str(row["rule_id"]),
+                    "result": str(row["result"]),
+                    "observed": _decode_json_value(row["observed_value"], row["observed_value"]),
+                }
+            )
+        if not rule_states or not evidence_ids:
+            continue
+        resource_evidence[resource] = frozenset(evidence_ids)
+        facts.append(
+            {
+                "code": f"M24-RESOURCE-{resource}-BASELINE",
+                "category": resource,
+                "severity": "INFO",
+                "title": f"Evidência determinística de {resource.lower()} para avaliação técnica bounded",
+                "scope_url": None,
+                "observed": {"rule_states": rule_states},
+                "evidence_ids": evidence_ids,
+                "deterministic_remediation": "Nenhuma conclusão adicional: avaliar somente a evidência fornecida.",
+                "scoring_role": "BOUNDED_RESOURCE_ASSESSMENT_ELIGIBLE",
+            }
+        )
+    return facts, resource_evidence
+
+
 def maybe_remediate_m24(
     *,
     audit_id: str,
@@ -68,13 +152,20 @@ def maybe_remediate_m24(
         _persist_result(workspace, audit_id, result)
         return result
 
-    allowed_codes = frozenset(item.code for item in diagnostics)
-    allowed_evidence = frozenset(
+    resource_facts, resource_evidence = _resource_context_facts(workspace, audit_id)
+    allowed_codes = frozenset(
+        [item.code for item in diagnostics]
+        + [str(item["code"]) for item in resource_facts]
+    )
+    allowed_evidence_set = {
         evidence_id
         for item in diagnostics
         for evidence_id in item.evidence_ids
         if evidence_id
-    )
+    }
+    for values in resource_evidence.values():
+        allowed_evidence_set.update(values)
+    allowed_evidence = frozenset(allowed_evidence_set)
     facts = [
         {
             "code": item.code,
@@ -89,6 +180,7 @@ def maybe_remediate_m24(
         }
         for item in diagnostics[:40]
     ]
+    facts.extend(resource_facts)
 
     last: M24AiResult | None = None
     for attempt_index, candidate in enumerate(candidates, 1):
@@ -97,6 +189,7 @@ def maybe_remediate_m24(
             facts=facts,
             allowed_codes=allowed_codes,
             allowed_evidence=allowed_evidence,
+            resource_evidence=resource_evidence,
             page_row=page_row,
             attempt_index=attempt_index,
         )
@@ -204,6 +297,7 @@ def _call(
     facts: list[dict[str, Any]],
     allowed_codes: frozenset[str],
     allowed_evidence: frozenset[str],
+    resource_evidence: Mapping[str, frozenset[str]],
     page_row: Mapping[str, Any],
     attempt_index: int,
 ) -> tuple[M24AiResult, ProviderAttempt]:
@@ -285,6 +379,7 @@ def _call(
                 _extract_json_payload(dict(raw)),
                 allowed_codes=allowed_codes,
                 allowed_evidence=allowed_evidence,
+                resource_evidence=resource_evidence,
             )
     except HTTPError as exc:
         diagnostic = _diagnostic_from_http(exc)
@@ -366,6 +461,7 @@ def _validate(
     *,
     allowed_codes: frozenset[str],
     allowed_evidence: frozenset[str],
+    resource_evidence: Mapping[str, frozenset[str]],
 ) -> dict[str, Any]:
     if not isinstance(value, Mapping):
         raise ValueError("M24 AI root must be an object")
@@ -420,8 +516,9 @@ def _validate(
         if not rationale or not isinstance(evidence_raw, list):
             raise ValueError("M24 AI resource assessment contains invalid fields")
         evidence_ids = tuple(str(item).strip() for item in evidence_raw if str(item).strip())
-        if not evidence_ids or not set(evidence_ids).issubset(allowed_evidence):
-            raise ValueError("M24 AI resource assessment references evidence outside supplied universe")
+        allowed_for_resource = resource_evidence.get(resource, frozenset())
+        if not evidence_ids or not set(evidence_ids).issubset(allowed_for_resource):
+            raise ValueError("M24 AI resource assessment references evidence outside its resource universe")
         try:
             confidence = float(raw.get("confidence"))
         except (TypeError, ValueError) as exc:

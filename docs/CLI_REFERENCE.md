@@ -96,7 +96,7 @@ Timeout principal: `RASAI_AI_TIMEOUT_SECONDS`, default atual 180 s por tentativa
 --no-ai-content-remediation
 ```
 
-Default OFF; advisory/non-scoring.
+Default OFF. Os diagnósticos técnicos são advisory; quando habilitada, uma avaliação técnica evidence-bound válida pode materializar BR-GEO-055/056 nos grupos SITEMAP/ROBOTS sem peso adicional.
 
 ### Remediação técnica de crawling
 

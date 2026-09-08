@@ -21,7 +21,7 @@ class ReportPresentationTests(unittest.TestCase):
         self.assertIn("<td>Mobile</td>", rendered)
         self.assertIn("<td>Não consolidado</td>", rendered)
         self.assertIn("<td>Alta</td>", rendered)
-        self.assertIn("<td>Alta (P1)</td>", rendered)
+        self.assertIn("<td>Muito alta (P1)</td>", rendered)
         self.assertIn("<td>Estrutura semântica</td>", rendered)
         self.assertIn("<td>Confiança da evidência</td>", rendered)
         self.assertIn("<strong>Indisponível</strong>", rendered)

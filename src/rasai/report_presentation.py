@@ -97,10 +97,10 @@ _PUBLIC_LABELS: dict[str, str] = {
     "POPULATION": "População",
     # Operational priority. Keep the class visible because it is useful for traceability.
     "P0": "Crítica (P0)",
-    "P1": "Alta (P1)",
-    "P2": "Média (P2)",
-    "P3": "Baixa (P3)",
-    "P4": "Muito baixa (P4)",
+    "P1": "Muito alta (P1)",
+    "P2": "Alta (P2)",
+    "P3": "Média (P3)",
+    "P4": "Baixa (P4)",
     # Change/monitoring states.
     "REGRESSED": "Regrediu",
     "IMPROVED": "Melhorou",
@@ -288,6 +288,16 @@ _PUBLIC_TOKEN_RE = re.compile(
 )
 
 
+def _public_token_replacement(match: re.Match[str]) -> str:
+    value = match.group(1)
+    # Priority labels intentionally retain the canonical Pn token in parentheses.
+    # Keep repeated report-normalization passes idempotent instead of recursively
+    # expanding e.g. P2 -> Alta (P2) -> Alta (Alta (P2)).
+    if value in {"P0", "P1", "P2", "P3", "P4"} and match.start() > 0 and match.string[match.start() - 1] == "(":
+        return value
+    return _PUBLIC_LABELS[value]
+
+
 def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
     """Humanize known machine values without mutating persisted or code content.
 
@@ -320,5 +330,5 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
         if blocked_depth:
             output.append(part)
             continue
-        output.append(_PUBLIC_TOKEN_RE.sub(lambda match: _PUBLIC_LABELS[match.group(1)], part))
+        output.append(_PUBLIC_TOKEN_RE.sub(_public_token_replacement, part))
     return _VISIBLE_VALUE_RE.sub(isolated, "".join(output))
