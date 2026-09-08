@@ -35,6 +35,33 @@ _DIMENSION_LABELS = {
     "INTENT_COVERAGE": "Cobertura de intenções",
 }
 
+# Page-scoped layout: scoring contribution tables need substantially more horizontal
+# space than generic report cards. Keeping this CSS local prevents a scoring-specific
+# readability requirement from changing the layout contract of the other reports.
+_SCORING_LAYOUT_CSS = r"""
+.scoring-weight-groups{display:flex;flex-direction:column;gap:16px;margin-top:16px}
+.scoring-dimension-panel{width:100%;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(47,58,78,.025)}
+.scoring-dimension-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;background:#f7f8fb;border-bottom:1px solid var(--line)}
+.scoring-dimension-heading h4{margin:0;font-size:1rem;line-height:1.3}
+.scoring-dimension-meta{color:var(--muted);font-size:.76rem;white-space:nowrap}
+.scoring-dimension-table{margin:0!important;border:0!important;border-radius:0!important;overflow-x:auto;overflow-y:visible;max-height:none!important}
+.scoring-dimension-table table{width:100%;min-width:940px;table-layout:fixed}
+.scoring-dimension-table th,.scoring-dimension-table td{padding:11px 12px;line-height:1.45}
+.scoring-dimension-table th:nth-child(1),.scoring-dimension-table td:nth-child(1){width:112px}
+.scoring-dimension-table th:nth-child(2),.scoring-dimension-table td:nth-child(2){width:auto;min-width:300px}
+.scoring-dimension-table th:nth-child(3),.scoring-dimension-table td:nth-child(3){width:190px}
+.scoring-dimension-table th:nth-child(4),.scoring-dimension-table td:nth-child(4){width:72px;text-align:center}
+.scoring-dimension-table th:nth-child(5),.scoring-dimension-table td:nth-child(5){width:110px}
+.scoring-dimension-table th:nth-child(6),.scoring-dimension-table td:nth-child(6){width:72px;text-align:center}
+.scoring-dimension-table th:nth-child(7),.scoring-dimension-table td:nth-child(7){width:142px;text-align:right}
+.scoring-dimension-table td:nth-child(2){color:#3f4c60}
+.scoring-dimension-table td:nth-child(3) code{white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+.scoring-dimension-table td:nth-child(4),.scoring-dimension-table td:nth-child(5),.scoring-dimension-table td:nth-child(6),.scoring-dimension-table td:nth-child(7){white-space:nowrap}
+.scoring-dimension-table tbody tr:hover{background:#fafbfc}
+@media(max-width:900px){.scoring-dimension-heading{align-items:flex-start;flex-direction:column;gap:4px}.scoring-dimension-meta{white-space:normal}.scoring-dimension-table table{min-width:900px}}
+@media print{.scoring-dimension-panel{break-inside:avoid;box-shadow:none}.scoring-dimension-table{overflow:visible}.scoring-dimension-table table{min-width:0;table-layout:auto;font-size:.72rem}.scoring-dimension-table th,.scoring-dimension-table td{width:auto!important;min-width:0!important;padding:6px 7px}}
+"""
+
 
 def register_navigation() -> None:
     legacy_files = {"score-geo-003.html", LEGACY_REPORT_FILE, REPORT_FILE}
@@ -58,7 +85,7 @@ def write_score_geo_004_report(*, audit_id: str, workspace: AuditWorkspace) -> P
     if effective_version == "MULTIPLE":
         status_label = "INCONSISTENTE"
 
-    html = f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Metodologia de scoring - {escape(effective_version)}</title><link rel='stylesheet' href='css/site.css'></head><body>{nav}<main class='app-main'>
+    html = f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Metodologia de scoring - {escape(effective_version)}</title><link rel='stylesheet' href='css/site.css'><style>{_SCORING_LAYOUT_CSS}</style></head><body>{nav}<main class='app-main'>
 <header class='hero'><div class='eyebrow'>RASAi - metodologia de pontuação da auditoria</div><h1>{escape(effective_version)}</h1><p class='lead'>{_version_intro(effective_version)}</p><div class='metric-grid'>{_metric('Índice público', SARI_VERSION)}{_metric('scoring_version', effective_version)}{_metric('Estado da metodologia', status_label)}{_metric('Contrato de relatório', REPORT_CONTRACT_VERSION)}</div></header>
 {_version_integrity_notice(versions)}
 <section class='panel'><h2>Resultado Overall persistido</h2><p class='intro'>Esta tabela é projeção read-only de <code>audit.db</code>. Renderizar o HTML não recalcula nem troca a <code>scoring_version</code>.</p><div class='table-wrap'><table><thead><tr><th>Device</th><th>Overall</th><th>Coverage</th><th>Confidence</th><th>Consolidação</th><th>scoring_version</th><th>Motivo / rastreabilidade</th></tr></thead><tbody>{score_rows}</tbody></table></div></section>
@@ -153,12 +180,17 @@ def _method_section(version: str, workspace: AuditWorkspace, audit_id: str) -> s
         for row in weights:
             grouped.setdefault(str(row["dimension"]), []).append(row)
         blocks: list[str] = []
-        for dimension, rows in grouped.items():
+        ordered_dimensions = [dimension for dimension in FEATURE_ORDER if dimension in grouped]
+        ordered_dimensions.extend(dimension for dimension in grouped if dimension not in ordered_dimensions)
+        for dimension in ordered_dimensions:
+            rows = grouped[dimension]
             body: list[str] = []
+            scoring_groups: set[str] = set()
             for row in rows:
                 factor = "-" if row["result_factor"] is None else f"{float(row['result_factor']):.2f}"
                 effective = "-" if row["effective_contribution"] is None else f"{float(row['effective_contribution']):.3f}"
                 group = str(row["scoring_group"] or "regra independente")
+                scoring_groups.add(group)
                 rule_id = str(row["rule_id"])
                 body.append(
                     "<tr>"
@@ -172,14 +204,18 @@ def _method_section(version: str, workspace: AuditWorkspace, audit_id: str) -> s
                     "</tr>"
                 )
             label = _DIMENSION_LABELS.get(dimension, dimension)
+            rule_label = "regra" if len(rows) == 1 else "regras"
+            group_label = "grupo" if len(scoring_groups) == 1 else "grupos"
             blocks.append(
-                f"<article class='ref-card scoring-dimension-group'><h4>{escape(label)}</h4>"
-                "<div class='table-wrap'><table><thead><tr>"
+                "<article class='scoring-dimension-panel'>"
+                f"<div class='scoring-dimension-heading'><h4>{escape(label)}</h4>"
+                f"<span class='scoring-dimension-meta'>{len(rows)} {rule_label} · {len(scoring_groups)} {group_label}</span></div>"
+                "<div class='table-wrap scoring-dimension-table'><table><thead><tr>"
                 "<th>Regra</th><th>Critério</th><th>Grupo</th><th>Peso</th><th>Resultado</th><th>Fator</th><th>Contribuição efetiva</th>"
                 f"</tr></thead><tbody>{''.join(body)}</tbody></table></div></article>"
             )
-        materialized = "<div class='grid scoring-weight-groups'>" + "".join(blocks) + "</div>" if blocks else "<p class='intro'>Nenhuma contribuição persistida disponível para detalhar pesos nesta projeção.</p>"
-        return f"""<section class='panel'><h2>Fórmula e gates do método vigente</h2><p><strong>Dimensão:</strong> <code>sum(weight × result_factor) / sum(weight evaluated) × 100</code>.</p><p><strong>Overall:</strong> média aritmética de igual peso das dimensões aplicáveis que possuem valor e não estão em <code>NOT_CONSOLIDATED</code>. Uma dimensão legitimamente <code>NOT_APPLICABLE</code> sai do denominador.</p><div class='metric-grid'>{_metric('Agregação Overall', OVERALL_AGGREGATION_VERSION)}{_metric('Coverage mínima para consolidar', f'{MIN_OVERALL_COVERAGE*100:.0f}%')}{_metric('Confidence mínima', 'MEDIUM')}{_metric('Coverage mínima para parcial', f'{MIN_PARTIAL_COVERAGE*100:.0f}%')}</div><h3>Contribuições materializadas neste AUD</h3><p class='intro'>A organização abaixo evita repetir visualmente a dimensão em cada linha e mostra o critério humano da regra, o <code>scoring_group</code>, o peso, o fator efetivamente aplicado e a contribuição persistida. Regras do mesmo grupo não somam bônus: o grupo usa o peso máximo configurado e o resultado representativo mais restritivo avaliado.</p>{materialized}<div class='notice'><strong>Governança da leitura:</strong> pesos de regra atuam somente dentro da dimensão. O Overall continua com peso igual entre dimensões aplicáveis. Um Overall numericamente alto pode permanecer <code>PARTIAL</code> quando Coverage/Confidence não alcançam os gates; isso qualifica a força da medição e não invalida a aritmética do score.</div><div class='notice'><strong>Calibração externa:</strong> não é requisito, input ou gate do Overall {SCORING_VERSION}.</div></section>"""
+        materialized = "<div class='scoring-weight-groups'>" + "".join(blocks) + "</div>" if blocks else "<p class='intro'>Nenhuma contribuição persistida disponível para detalhar pesos nesta projeção.</p>"
+        return f"""<section class='panel'><h2>Fórmula e gates do método vigente</h2><p><strong>Dimensão:</strong> <code>sum(weight × result_factor) / sum(weight evaluated) × 100</code>.</p><p><strong>Overall:</strong> média aritmética de igual peso das dimensões aplicáveis que possuem valor e não estão em <code>NOT_CONSOLIDATED</code>. Uma dimensão legitimamente <code>NOT_APPLICABLE</code> sai do denominador.</p><div class='metric-grid'>{_metric('Agregação Overall', OVERALL_AGGREGATION_VERSION)}{_metric('Coverage mínima para consolidar', f'{MIN_OVERALL_COVERAGE*100:.0f}%')}{_metric('Confidence mínima', 'MEDIUM')}{_metric('Coverage mínima para parcial', f'{MIN_PARTIAL_COVERAGE*100:.0f}%')}</div><h3>Contribuições materializadas neste AUD</h3><p class='intro'>Cada dimensão ocupa um painel de largura total, mantendo regra, critério humano, <code>scoring_group</code>, peso, fator aplicado e contribuição persistida na mesma linha de leitura. Regras do mesmo grupo não somam bônus: o grupo usa o peso máximo configurado e o resultado representativo mais restritivo avaliado.</p>{materialized}<div class='notice'><strong>Governança da leitura:</strong> pesos de regra atuam somente dentro da dimensão. O Overall continua com peso igual entre dimensões aplicáveis. Um Overall numericamente alto pode permanecer <code>PARTIAL</code> quando Coverage/Confidence não alcançam os gates; isso qualifica a força da medição e não invalida a aritmética do score.</div><div class='notice'><strong>Calibração externa:</strong> não é requisito, input ou gate do Overall {SCORING_VERSION}.</div></section>"""
     if version == "MULTIPLE":
         return "<section class='panel'><h2>Integridade metodológica</h2><div class='notice bad'><strong>Múltiplas scoring_version foram encontradas no mesmo AUD.</strong> A projeção preserva os registros e não escolhe nem converte silenciosamente uma metodologia. Trate o AUD como não comparável até investigar a origem.</div></section>"
     return f"""<section class='panel'><h2>Metodologia histórica preservada</h2><p>Esta auditoria foi persistida com <strong>{escape(version)}</strong>. O RASAi não recalcula nem converte auditorias históricas para {SCORING_VERSION} durante a abertura do relatório.</p><p>{_historical_method_note(version)}</p><div class='notice'><strong>Regra de comparação:</strong> uma série histórica não pode misturar 002/003/004 como se fossem a mesma metodologia. Monitoring deve marcar versões incompatíveis como <code>NOT_COMPARABLE</code>.</div></section>"""
