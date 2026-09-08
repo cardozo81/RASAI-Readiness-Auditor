@@ -27,3 +27,4 @@ jobs:
           tests.test_report_registry_and_method_docs
           tests.test_rasai_runtime_branding_and_reports
           tests.test_rasai_readiness_reporting
+          tests.test_public_runtime_language
