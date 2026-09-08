@@ -32,6 +32,10 @@ class _RunProgress:
     percent: float | None
     detail: str = ""
     exact: bool = False
+    stage_percent: float | None = None
+    stage_exact: bool = False
+    overall_percent: float | None = None
+    overall_exact: bool = False
 
 
 _RUN_TIMINGS: dict[int, _RunTiming] = {}
@@ -54,11 +58,58 @@ _PHASE_PROGRESS: dict[str, tuple[str, float]] = {
     "COMPLETE_WITH_LIMITATIONS": ("Concluído com limitações", 100.0),
     "FAILED": ("Falha de execução", 100.0),
 }
+_TERMINAL_PROGRESS_STATES = {"SOURCE_BLOCKED", "COMPLETE", "COMPLETE_WITH_LIMITATIONS", "FAILED"}
+
+
+def _bounded_percent(percent: float | None) -> float | None:
+    return None if percent is None else min(max(float(percent), 0.0), 100.0)
+
+
+def _synthetic_progress_projection(state: State, label: str, percent: float | None) -> tuple[float | None, float | None]:
+    """Return (stage, overall) without pretending a measured substage is a measured whole run."""
+    bounded = _bounded_percent(percent)
+    if bounded is None:
+        return None, None
+    normalized = label.casefold()
+    if "m25" in normalized or "apdex calibrado" in normalized:
+        start, end = 92.0, 94.0
+    elif "synthetic apdex" in normalized or state.status.upper() == "SYNTHETIC_APDEX":
+        start = 94.0 if bool(getattr(state, "apdex_experience", False)) else 92.0
+        end = 97.0
+    else:
+        return None, None
+    overall = start + ((end - start) * bounded / 100.0)
+    return bounded, min(max(overall, 0.0), 100.0)
 
 
 def set_runtime_progress(state: State, label: str, percent: float | None, *, detail: str = "", exact: bool = False) -> None:
-    bounded = None if percent is None else min(max(float(percent), 0.0), 100.0)
-    _RUN_PROGRESS[id(state)] = _RunProgress(label=label, percent=bounded, detail=detail, exact=exact)
+    bounded = _bounded_percent(percent)
+    stage_percent, synthetic_overall = _synthetic_progress_projection(state, label, bounded)
+    status = state.status.upper()
+    if stage_percent is not None and synthetic_overall is not None:
+        progress = _RunProgress(
+            label=label,
+            percent=bounded,
+            detail=detail,
+            exact=exact,
+            stage_percent=stage_percent,
+            stage_exact=exact,
+            overall_percent=synthetic_overall,
+            overall_exact=False,
+        )
+    else:
+        terminal = status in _TERMINAL_PROGRESS_STATES and bounded is not None
+        progress = _RunProgress(
+            label=label,
+            percent=bounded,
+            detail=detail,
+            exact=exact,
+            stage_percent=100.0 if terminal and bounded == 100.0 else None,
+            stage_exact=bool(terminal and exact and bounded == 100.0),
+            overall_percent=bounded,
+            overall_exact=bool(terminal and exact),
+        )
+    _RUN_PROGRESS[id(state)] = progress
 
 
 def clear_runtime_progress(state: State) -> None:
@@ -73,20 +124,57 @@ def runtime_progress_summary(state: State) -> _RunProgress | None:
     if phase is None:
         return None
     label, percent = phase
-    return _RunProgress(label=label, percent=percent, exact=False)
+    return _RunProgress(label=label, percent=percent, exact=False, overall_percent=percent, overall_exact=False)
+
+
+def _phase_activity(state: State) -> str:
+    status = state.status.upper()
+    if status == "STARTING":
+        return "validando o preflight e iniciando o processo de auditoria"
+    if status == "INITIALIZING":
+        return "criando workspace, banco e metadados da auditoria"
+    if status == "DISCOVERING":
+        return "descobrindo e normalizando URLs e recursos elegíveis"
+    if status == "ACQUIRING":
+        return "obtendo e renderizando os contextos HTTP selecionados"
+    if status == "ANALYZING":
+        if state.operation.startswith("API:"):
+            return f"executando análise semântica via {state.operation.removeprefix('API:')}"
+        return "executando extração e regras semânticas locais"
+    if status == "COMPARING":
+        return "comparando evidências entre contextos e dispositivos"
+    if status == "SCORING":
+        return "calculando score, cobertura de evidências e confiabilidade"
+    if status == "RECOMMENDING":
+        return "priorizando findings e recomendações acionáveis"
+    if status == "REPORTING":
+        return "materializando o relatório HTML base e seus artefatos"
+    if status == "WEB_PERFORMANCE":
+        return "processando evidências externas de Web Performance"
+    if status == "FINALIZING":
+        return "finalizando enriquecimentos, persistência e relatórios"
+    return ""
 
 
 def _set_phase_progress(state: State, *, detail: str = "") -> None:
     phase = _PHASE_PROGRESS.get(state.status.upper())
     if phase is not None:
         label, percent = phase
-        set_runtime_progress(state, label, percent, detail=detail, exact=False)
+        activity = _phase_activity(state)
+        combined = "; ".join(part for part in (activity, detail) if part)
+        set_runtime_progress(state, label, percent, detail=combined, exact=False)
 
 
 def _start_timing(state: State) -> None:
     _RUN_TIMINGS[id(state)] = _RunTiming(datetime.now().astimezone(), time.monotonic())
     clear_runtime_progress(state)
-    set_runtime_progress(state, "Preparação da execução", 2.0, exact=False)
+    set_runtime_progress(
+        state,
+        "Preparação da execução",
+        2.0,
+        detail="validando o preflight e iniciando o processo de auditoria",
+        exact=False,
+    )
 
 
 def _finish_timing(state: State) -> None:
@@ -163,15 +251,31 @@ def render_header(state: State) -> None:
     progress = runtime_progress_summary(state)
     if progress:
         print(f"Etapa       : {paint(progress.label, CYAN, bold=True)}")
-        if progress.percent is not None:
-            prefix = "" if progress.exact else "~"
-            qualifier = "medido" if progress.exact else "estimativa por etapa"
+        if progress.stage_percent is not None:
+            prefix = "" if progress.stage_exact else "~"
+            qualifier = "medido na etapa" if progress.stage_exact else "estimativa dentro da etapa"
             print(
-                f"Progresso   : {paint(f'{prefix}{progress.percent:.0f}%', GREEN if progress.exact else CYAN, bold=True)} "
+                f"Andamento   : {paint(f'{prefix}{progress.stage_percent:.0f}%', GREEN if progress.stage_exact else CYAN, bold=True)} "
+                f"[{qualifier}]"
+            )
+        elif progress.overall_exact and progress.overall_percent == 100.0:
+            print(f"Andamento   : {paint('concluída', GREEN, bold=True)}")
+        else:
+            print(f"Andamento   : {paint('em execução', CYAN, bold=True)} [sem unidade interna mensurável]")
+        if progress.overall_percent is not None:
+            prefix = "" if progress.overall_exact else "~"
+            if progress.overall_exact:
+                qualifier = "geral medido"
+            elif progress.stage_percent is not None:
+                qualifier = "geral estimado; incorpora o andamento da etapa"
+            else:
+                qualifier = "geral estimado por marcos do pipeline"
+            print(
+                f"Progresso   : {paint(f'{prefix}{progress.overall_percent:.0f}%', GREEN if progress.overall_exact else CYAN, bold=True)} "
                 f"[{qualifier}]"
             )
         if progress.detail:
-            print(f"Detalhe     : {progress.detail}")
+            print(f"Executando  : {progress.detail}")
     if state.error:
         print(f"Erro        : {paint(state.error, RED, bold=True)}")
     print("=" * 100)
@@ -317,7 +421,7 @@ def observe_workspace(workspace: Path, state: State) -> None:
             state,
             "Web Performance externo",
             88.0,
-            detail="coleta externa PageSpeed/CrUX",
+            detail="iniciando coleta externa PageSpeed/CrUX nos contextos elegíveis",
             exact=False,
         )
     elif name == "M21_EXTERNAL_ATTEMPT":
@@ -326,11 +430,12 @@ def observe_workspace(workspace: Path, state: State) -> None:
         state.current_url = str(event.get("url") or state.current_url)
         state.current_device = str(event.get("device") or state.current_device)
         service = str(event.get("service") or "EXTERNAL")
+        event_status = str(event.get("status") or "-")
         set_runtime_progress(
             state,
             "Web Performance externo",
             88.0,
-            detail=f"chamada {service} em {state.current_device}",
+            detail=f"processando contextos externos; último evento {service}={event_status} em {state.current_device}",
             exact=False,
         )
     elif name == "M21_COMPLETED":
@@ -345,10 +450,16 @@ def observe_workspace(workspace: Path, state: State) -> None:
             )
         else:
             state.status, state.operation = "FINALIZING", "LOCAL:REPORT_ENRICHMENT"
-            set_runtime_progress(state, "Enriquecimentos e finalização", 97.0, exact=False)
+            set_runtime_progress(
+                state,
+                "Enriquecimentos e finalização",
+                97.0,
+                detail="Web Performance concluído; consolidando persistência e relatórios",
+                exact=False,
+            )
     elif name == "AUDIT_FAILED":
         state.status, state.operation = "FAILED", "LOCAL:ERROR"
-        set_runtime_progress(state, "Falha de execução", 100.0, exact=True)
+        set_runtime_progress(state, "Falha de execução", 100.0, detail="execução interrompida; consulte o log técnico", exact=True)
 
 
 def apply_runtime_provider_blocks(workspace: Path, state: State) -> None:
