@@ -499,13 +499,13 @@ def run_audit_from_console(state: State) -> int:
 def render_m23_help(state: State) -> None:
     attempts, load = synthetic_load_summary(state)
     print("\n11. Synthetic Apdex")
-    print("  M23 Standard     : NAVIGATION_LOAD; T explícito; Satisfied<=T, Tolerating<=4T, Frustrated>4T.")
-    print("  M25 calibrado    : opcional; user action sintética enriquecida, thresholds independentes, mix Mobile/Desktop/Tablet e política de erros.")
+    print("  Navegação        : NAVIGATION_LOAD; T explícito; Satisfied<=T, Tolerating<=4T, Frustrated>4T.")
+    print("  Experiência      : opcional; user action sintética enriquecida, thresholds independentes, mix Mobile/Desktop/Tablet e política de erros.")
     print("  Custo monetário : sem API paga própria e sem LLM; importação Dynatrace consulta apenas configuração.")
     print("  Carga            : " + load)
-    print("  Governança       : ambos default OFF; M25 exige M23; concorrência máxima 2; grupos grandes exigem autorização do alvo.")
+    print("  Governança       : ambos default OFF; Synthetic User Experience Apdex exige Synthetic Navigation Apdex; concorrência máxima 2; grupos grandes exigem autorização do alvo.")
     if state.apdex_experience:
-        print(f"  M25 efetivo      : samples={state.apdex_experience_samples}; mix={state.apdex_experience_device_mix}; sessão={state.apdex_experience_session_mode}; KPM={state.apdex_experience_kpm}.")
+        print(f"  Experiência atual: samples={state.apdex_experience_samples}; mix={state.apdex_experience_device_mix}; sessão={state.apdex_experience_session_mode}; KPM={state.apdex_experience_kpm}.")
         if state.apdex_dynatrace_import:
             print("  Dynatrace        : token somente em DYNATRACE_API_TOKEN; nunca é serializado no INI/comando/report/SQLite.")
     if state.synthetic_apdex and attempts:

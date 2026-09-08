@@ -49,7 +49,7 @@ DEFAULT_UX_CONCURRENCY = 1
 def register_experience_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--apdex-experience", action=argparse.BooleanOptionalAction, default=None,
-        help=f"enable M25 calibrated Synthetic User Experience Apdex; default OFF or {UX_ENABLED_ENV}",
+        help=f"enable calibrated Synthetic User Experience Apdex; default OFF or {UX_ENABLED_ENV}",
     )
     parser.add_argument("--apdex-experience-samples", type=int, default=None, help=f"total valid samples per page across the configured device population; default {DEFAULT_UX_SAMPLES} or {UX_SAMPLES_ENV}")
     parser.add_argument("--apdex-experience-max-attempts", type=int, default=None, help=f"total attempt budget per page; default ceil(1.25*samples) or {UX_MAX_ATTEMPTS_ENV}")
@@ -59,7 +59,7 @@ def register_experience_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--apdex-experience-kpm", choices=tuple(sorted(SUPPORTED_TIME_KPMS)), default=None, help=f"time KPM used for manual calibrated Apdex; or {UX_KPM_ENV}")
     parser.add_argument("--apdex-experience-satisfied-seconds", type=float, default=None, help=f"manual Satisfied/Tolerating threshold; or {UX_SATISFIED_ENV}")
     parser.add_argument("--apdex-experience-frustrated-seconds", type=float, default=None, help=f"manual Frustrated threshold; independent from 4T; or {UX_FRUSTRATED_ENV}")
-    parser.add_argument("--apdex-experience-errors", action=argparse.BooleanOptionalAction, default=None, help=f"make qualifying errors Frustrated; default true when M25 is enabled; or {UX_ERRORS_ENV}")
+    parser.add_argument("--apdex-experience-errors", action=argparse.BooleanOptionalAction, default=None, help=f"make qualifying errors Frustrated; default true when Synthetic User Experience Apdex is enabled; or {UX_ERRORS_ENV}")
     parser.add_argument("--apdex-experience-error-scope", choices=("navigation", "first-party", "all"), default=None, help=f"which request/JS errors can force Frustrated; or {UX_ERROR_SCOPE_ENV}")
     parser.add_argument("--apdex-experience-settle-seconds", type=float, default=None, help=f"bounded post-load observation window for late XHR/resources; default {DEFAULT_UX_SETTLE_SECONDS:g}s or {UX_SETTLE_ENV}")
     parser.add_argument("--apdex-experience-delay-seconds", type=float, default=None, help=f"minimum interval between sample starts; default {DEFAULT_UX_DELAY_SECONDS:g}s or {UX_DELAY_ENV}")

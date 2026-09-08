@@ -89,36 +89,36 @@ class ExperienceApdexConfig:
         if not self.enabled:
             return self
         if self.target_samples_per_page < 1:
-            raise ValueError("M25 target_samples_per_page deve ser >= 1")
+            raise ValueError("Synthetic User Experience Apdex: target_samples_per_page deve ser >= 1")
         if self.max_attempts_per_page < self.target_samples_per_page:
-            raise ValueError("M25 max_attempts_per_page deve ser >= target_samples_per_page")
+            raise ValueError("Synthetic User Experience Apdex: max_attempts_per_page deve ser >= target_samples_per_page")
         if self.max_pages < 0:
-            raise ValueError("M25 max_pages deve ser >= 0; 0 significa todas")
+            raise ValueError("Synthetic User Experience Apdex: max_pages deve ser >= 0; 0 significa todas")
         mix = self.device_mix_dict()
         if not mix:
-            raise ValueError("M25 exige mix explícito de dispositivos, por exemplo mobile=60,desktop=35,tablet=5")
+            raise ValueError("Synthetic User Experience Apdex exige mix explícito de dispositivos, por exemplo mobile=60,desktop=35,tablet=5")
         if abs(sum(mix.values()) - 100.0) > 1e-6:
-            raise ValueError("M25 device mix deve somar exatamente 100")
+            raise ValueError("Synthetic User Experience Apdex: device mix deve somar exatamente 100")
         if any(value < 0 for value in mix.values()):
-            raise ValueError("M25 device mix não aceita percentuais negativos")
+            raise ValueError("Synthetic User Experience Apdex: device mix não aceita percentuais negativos")
         if self.session_mode not in {"cold", "warm"}:
-            raise ValueError("M25 session_mode deve ser cold ou warm")
+            raise ValueError("Synthetic User Experience Apdex: session_mode deve ser cold ou warm")
         normalized_kpm = self.kpm.strip().upper()
         if not self.dynatrace_import and not self.dynatrace_config_json:
             if normalized_kpm not in SUPPORTED_TIME_KPMS:
-                raise ValueError(f"KPM M25 não suportada para calibração temporal: {normalized_kpm}")
+                raise ValueError(f"KPM não suportada para calibração temporal do Synthetic User Experience Apdex: {normalized_kpm}")
             _validate_thresholds(self.satisfied_threshold_seconds, self.frustrated_threshold_seconds)
         if self.error_scope not in {"navigation", "first-party", "all"}:
-            raise ValueError("M25 error_scope deve ser navigation, first-party ou all")
+            raise ValueError("Synthetic User Experience Apdex: error_scope deve ser navigation, first-party ou all")
         if not math.isfinite(self.settle_seconds) or self.settle_seconds <= 0:
-            raise ValueError("M25 settle_seconds deve ser > 0")
+            raise ValueError("Synthetic User Experience Apdex: settle_seconds deve ser > 0")
         if not math.isfinite(self.delay_seconds) or self.delay_seconds < 0:
-            raise ValueError("M25 delay_seconds deve ser >= 0")
+            raise ValueError("Synthetic User Experience Apdex: delay_seconds deve ser >= 0")
         if self.concurrency < 1 or self.concurrency > MAX_CONCURRENCY:
-            raise ValueError(f"M25 concurrency deve estar entre 1 e {MAX_CONCURRENCY}")
+            raise ValueError(f"Synthetic User Experience Apdex: concurrency deve estar entre 1 e {MAX_CONCURRENCY}")
         if self.dynatrace_import and not self.dynatrace_config_json:
             if not self.dynatrace_base_url or not self.dynatrace_application_id:
-                raise ValueError("M25 importação Dynatrace exige base URL e application ID")
+                raise ValueError("Synthetic User Experience Apdex: importação Dynatrace exige base URL e application ID")
         return self
 
     def device_mix_dict(self) -> dict[str, float]:
@@ -1038,11 +1038,11 @@ def _log_progress(
 
 def _validate_thresholds(satisfied: float | None, frustrated: float | None) -> None:
     if satisfied is None or frustrated is None:
-        raise ValueError("M25 exige thresholds Satisfied/Tolerating e Frustrated ou importação Dynatrace")
+        raise ValueError("Synthetic User Experience Apdex exige thresholds Satisfied/Tolerating e Frustrated ou importação Dynatrace")
     if not math.isfinite(float(satisfied)) or float(satisfied) <= 0:
-        raise ValueError("M25 satisfied threshold deve ser >0")
+        raise ValueError("Synthetic User Experience Apdex: satisfied threshold deve ser >0")
     if not math.isfinite(float(frustrated)) or float(frustrated) <= float(satisfied):
-        raise ValueError("M25 frustrated threshold deve ser maior que o satisfied threshold")
+        raise ValueError("Synthetic User Experience Apdex: frustrated threshold deve ser maior que o satisfied threshold")
 
 
 def _invalid(code: str, exc: Exception, cpu_method: str | None, network_method: str | None) -> UxMeasurement:

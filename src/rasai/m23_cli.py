@@ -123,7 +123,7 @@ def configured_apdex(args: Any, env: dict[str, str] | os._Environ[str] | None = 
     ux_requested = _configured_bool(getattr(args, "apdex_experience", None), UX_ENABLED_ENV, False, environment)
     if not enabled:
         if ux_requested:
-            raise ValueError("M25 Synthetic User Experience Apdex exige --synthetic-apdex/M23 habilitado")
+            raise ValueError("Synthetic User Experience Apdex exige Synthetic Navigation Apdex habilitado (--synthetic-apdex)")
         return SyntheticApdexConfig(enabled=False).validate()
 
     threshold = _optional_positive_float(

@@ -11,7 +11,7 @@ from rasai.m6 import M6ExecutionResult
 from rasai.m7 import execute_m7
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.semantic import NoneProvider
-from test_m7_semantic_provider import _fixture
+from tests.test_m7_semantic_provider import _fixture
 
 
 class M7DependencyTests(unittest.TestCase):
