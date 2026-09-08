@@ -162,16 +162,26 @@ Não é necessário reexecutar website, IA ou APIs externas para reproduzir o c�
 
 ## Relatório
 
-Cada auditoria materializa, quando aplicável:
+Cada nova auditoria materializa, quando aplicável:
 
 ```text
 report/readiness.html
-report/score-geo-004.html
+report/scoring.html
 ```
 
 `readiness.html` é a página canônica do SARI-001.
 
-`score-geo-004.html` expõe fórmula, Coverage, Confidence, Consolidation, rastreabilidade do Overall e critérios para interpretação.
+`scoring.html` é a página canônica estável da metodologia de scoring e expõe a versão efetivamente usada, fórmula, Coverage, Confidence, Consolidation, rastreabilidade do Overall e critérios para interpretação.
+
+A versão metodológica **não faz parte do nome canônico do arquivo**. Ela é persistida em `scoring_version` e exibida no conteúdo. Isso evita quebra de links e contratos de navegação quando uma futura versão substituir o 004.
+
+`report/score-geo-004.html` pode ser materializado como alias de compatibilidade para links produzidos anteriormente; não é a rota recomendada para novas integrações.
+
+## Relação com SCORE-GEO-003
+
+`SCORE-GEO-003` permanece histórico. Seu Overall dependia de model artifact `VALIDATED` e infraestrutura de calibração externa. `SCORE-GEO-004` remove essa dependência operacional e usa um Overall determinístico de igual peso entre dimensões aplicáveis.
+
+Preservar a referência histórica é necessário para comparabilidade e auditoria. Nenhuma normalização de HTML deve reescrever uma ocorrência histórica de `SCORE-GEO-003` como se ela fosse `SCORE-GEO-004`.
 
 ## Limite de validade
 
