@@ -9,7 +9,7 @@ def read(path: str) -> str:
 def write(path: str, text: str) -> None:
     (ROOT / path).write_text(text, encoding='utf-8', newline='\n')
 
-# Keep the current JSON-LD semantics while retaining the established user-facing phrase.
+# Keep the current JSON-LD semantics while retaining the useful user-facing phrase.
 path = 'src/rasai/report_semantics.py'
 text = read(path)
 old = (
@@ -50,6 +50,17 @@ replacement = '''def test_prepublication_scoring_report_has_no_versioned_alias()
 text, count = re.subn(pattern, replacement, text, flags=re.DOTALL)
 if count != 1:
     raise SystemExit(f'legacy alias test replacement count={count}')
+write(path, text)
+
+# The old test treated the whole Structured Data dimension as non-scoring when JSON-LD was absent.
+# Current SCORE-GEO-004 keeps BR-GEO-034 applicable as a modest WARNING, so assert the new contract.
+path = 'tests/test_report_semantics.py'
+text = read(path)
+old_assert = '        self.assertIn("Não aplicável ao score", output)\n'
+new_assert = '        self.assertIn("não significa que a dimensão inteira saiu do SARI", output)\n        self.assertIn("BR-GEO-034", output)\n'
+if old_assert not in text:
+    raise SystemExit('old structured-data semantic assertion not found')
+text = text.replace(old_assert, new_assert, 1)
 write(path, text)
 
 print('visual semantics fixup applied')
