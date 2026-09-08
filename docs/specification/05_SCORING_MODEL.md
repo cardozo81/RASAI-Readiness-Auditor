@@ -1,17 +1,18 @@
 # SCORING_MODEL.md
 
-**Status:** APPROVED
-**Scoring baseline:** `SCORE-GEO-003`
+**Status:** APPROVED / CURRENT
+**Scoring baseline:** `SCORE-GEO-004`
+**Public index:** `SARI-001`
 
 ## 0. Natureza metodológica
 
-`SCORE-GEO-003` é o método proprietário e versionado de scoring do RASAi.
+`SCORE-GEO-004` é o método proprietário e versionado de scoring vigente do RASAi.
 
 `APPROVED` significa aprovado como baseline normativa interna. Não significa homologação por Google, OpenAI, Microsoft, Anthropic, NIST, W3C, schema.org ou outro mantenedor.
 
-O `SCORE-GEO-003` aplica calibração empírica somente no `OVERALL_READINESS`. As dimensões permanecem determinísticas, evidence-backed e reprodutíveis.
+O método é determinístico, evidence-bound e reproduzível por auditoria. O Overall não é probabilidade de ranking, tráfego, conversão, resposta ou citação futura.
 
-O resultado calibrado mede associação observacional no dataset utilizado. Não prova causalidade e não garante ranking, tráfego, conversão ou citação futura.
+Validação empírica externa pode existir como pesquisa independente, mas não é input obrigatório do runtime e não altera silenciosamente o score.
 
 ## 1. Estrutura persistida
 
@@ -24,6 +25,8 @@ Todo Score possui:
 - Contributions;
 - Limitations;
 - Scoring Version.
+
+`scoring_version` é parte do contrato de comparabilidade e deve permanecer persistido mesmo que a rota HTML seja version-neutral.
 
 ## 2. Dimensões
 
@@ -73,7 +76,7 @@ Fórmula:
 
 Somente `PASS`, `WARNING` e `FAIL` participam do denominador do score.
 
-As regras de `scoring_group`, `MAX_IMPACT`, pré-requisitos, site-level rules e prevenção de cascading failure fazem parte do contrato determinístico das dimensões.
+As regras de `scoring_group`, pré-requisitos, site-level rules e prevenção de cascading failure fazem parte do contrato determinístico das dimensões.
 
 ## 5. Coverage
 
@@ -113,13 +116,7 @@ limitation = NO_APPLICABLE_RULES
 
 ### Pré-requisito bloqueado
 
-Reason contendo `PREREQUISITE_BLOCKED` mantém:
-
-```text
-Value = null
-Consolidation = NOT_CONSOLIDATED
-limitation = APPLICABILITY_UNRESOLVED:PREREQUISITE_BLOCKED
-```
+Reason contendo `PREREQUISITE_BLOCKED` mantém estado não consolidado; não pode ser promovido a `NOT_APPLICABLE` benigno apenas para elevar o score.
 
 ## 7. Confidence da dimensão
 
@@ -143,166 +140,147 @@ NOT_CONSOLIDATED Coverage < 50% ou Confidence UNAVAILABLE
 NOT_APPLICABLE   universo legitimamente não aplicável
 ```
 
-## 9. Overall - mudança do SCORE-GEO-003
+## 9. Overall - SCORE-GEO-004
 
 Existem separadamente:
 
 - Overall Readiness - Desktop;
 - Overall Readiness - Mobile.
 
+Contrato de agregação:
+
+```text
+EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
+```
+
 Pré-condições:
 
 1. materializar as dez dimensões;
 2. permitir `NOT_APPLICABLE` legítimo;
 3. exigir Value para toda dimensão aplicável;
-4. bloquear se qualquer dimensão aplicável estiver `NOT_CONSOLIDATED`;
-5. exigir model artifact `VALIDATED`.
+4. bloquear consolidação se qualquer dimensão aplicável estiver `NOT_CONSOLIDATED`.
 
-Com as pré-condições satisfeitas:
-
-```text
-Overall = 100 × sigmoid(β0 + Σ βi × feature_i)
-```
-
-Cada feature é uma dimensão normalizada em `0..1`.
-
-Dimensão legitimamente `NOT_APPLICABLE` usa a média de imputação persistida no model artifact. Ela não recebe zero.
-
-### Sem model artifact validado
+Fórmula:
 
 ```text
-Overall.value = null
-Overall.confidence = UNAVAILABLE
-Overall.consolidation_status = NOT_CONSOLIDATED
-limitation = CALIBRATION_MODEL_UNAVAILABLE:SCORE-GEO-003
+Overall = soma dos scores das dimensões aplicáveis / quantidade de dimensões aplicáveis
 ```
 
-Não existe fallback silencioso para outro cálculo de Overall.
+Cada dimensão aplicável possui o mesmo peso no Overall.
 
-## 10. Calibração
+Dimensão legitimamente `NOT_APPLICABLE` sai do denominador e não recebe zero nem imputação artificial.
 
-Contrato inicial:
+## 10. Gate do Overall
 
 ```text
-format_version = SG003-MODEL-001
-model_version = GEO-LR-001
-outcome = CITED_BINARY
-model = L2_REGULARIZED_LOGISTIC_REGRESSION
-split = DOMAIN_HOLDOUT_70_30_V1
+CONSOLIDATED
+  se todas as dimensões aplicáveis possuem valor
+  e nenhuma está NOT_CONSOLIDATED
+  e Overall Coverage >= 80%
+  e Overall Confidence = HIGH ou MEDIUM
+
+PARTIAL
+  se o Overall é calculável
+  e Coverage >= 50%
+  e Confidence está disponível
+  mas o gate completo não foi atingido
+
+NOT_CONSOLIDATED
+  quando o contrato aplicável está incompleto ou abaixo do mínimo
 ```
 
-Outcome:
+Estado insuficiente nunca é convertido em zero.
+
+## 11. Coverage e Confidence do Overall
 
 ```text
-CITED = 1
-NOT_CITED = 0
+Overall Coverage = média da Coverage das dimensões aplicáveis
+Overall Confidence = menor Confidence das dimensões aplicáveis
 ```
 
-Fonte inicial: `CONTROLLED_QUERY_RUNS` persistidos no domínio Observed Generative Visibility.
-
-### Promotion gate mínimo
-
-| Critério | Mínimo |
-|---|---:|
-| Domínios | 40 |
-| Domínios de validação | 12 |
-| Engines | 2 |
-| Queries por domínio | 10 |
-| Repetições por query/engine | 3 |
-| Observações válidas | 2400 |
-| AUC holdout | 0,60 |
-| Brier | menor que baseline por prevalência de treino |
-
-O split deve ser por domínio para reduzir leakage entre queries do mesmo site.
-
-Artifact abaixo do gate recebe `EXPERIMENTAL` e não pode consolidar Overall.
-
-## 11. Confidence do Overall
-
-A Confidence final é o mínimo entre:
-
-- menor Confidence das dimensões aplicáveis;
-- `calibration_confidence` do artifact.
-
-Artifact validado recebe `MEDIUM` por padrão. `HIGH` exige amostra/desempenho superiores definidos e persistidos no protocolo.
+Não existe `calibration_confidence` obrigatória no runtime 004.
 
 ## 12. Parametrização
 
 Pode variar por operação/coleta:
 
-- AUDs usados na calibração;
-- dataset version;
-- engines/query-runs coletados;
-- volume de observações;
-- localização do artifact.
+- URLs/domínios;
+- dispositivo;
+- IA/provider/modelo;
+- Web Performance;
+- Synthetic Apdex;
+- limites de coleta e execução.
 
-Não varia por auditoria:
+Não varia arbitrariamente por auditoria:
 
-- fórmula;
-- feature set;
-- promotion gate;
-- split por domínio;
-- regularização;
-- coeficientes de um artifact validado;
-- regras de Coverage/Confidence/Consolidation.
+- conjunto de dimensões;
+- pesos/fatores versionados;
+- fórmula do Overall;
+- gates de Coverage/Confidence/Consolidation.
 
-Mudança incompatível exige nova versão de scoring/model contract.
+Mudança incompatível exige nova `scoring_version`.
 
 ## 13. Sem IA
 
 A auditoria base continua podendo executar sem LLM. Ausência de IA pode reduzir Coverage/Confidence de dimensões sem converter regras semânticas em `FAIL`.
 
-O cálculo normal do `003` usa artifact local e não gera chamada externa adicional.
+O cálculo do Overall não chama IA e não depende de provider específico.
 
 ## 14. Structured Data
 
 JSON-LD não é requisito universal.
 
-`STRUCTURED_DATA = NOT_APPLICABLE` legítimo não recebe penalização direta. Se markup existir, a dimensão torna-se aplicável normalmente.
+`STRUCTURED_DATA = NOT_APPLICABLE` legítimo não recebe penalização direta. Se markup existir ou a regra se tornar aplicável, a dimensão é avaliada normalmente.
 
 ## 15. Reprodutibilidade
 
-`BR-GEO-054` deve registrar/reabrir:
+`BR-GEO-054` deve permitir reconstrução a partir de:
 
 - RuleExecutions e versões;
 - ScoreContributions;
-- scoring version `SCORE-GEO-003`;
-- model version;
-- dataset version;
-- SHA-256 do artifact;
-- limitações e estados de aplicabilidade.
+- scoring version `SCORE-GEO-004`;
+- evidências persistidas;
+- limitações e estados de aplicabilidade;
+- contrato de agregação `EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1`.
 
 A reprodução não pode exigir nova execução do website nem nova chamada de IA.
 
-## 16. Histórico
+## 16. Histórico e comparabilidade
 
-Nenhum AUD persistido é recalculado automaticamente por mudança de model artifact ou geração de relatório.
+Nenhum AUD persistido é recalculado automaticamente por geração de relatório ou mudança de versão metodológica.
 
-Relatórios históricos/consolidados devem segmentar pontos por `scoring_version`. A transição `002 → 003` é quebra metodológica e não deve ser apresentada como série contínua sem ressalva explícita.
+Relatórios históricos/consolidados devem segmentar pontos por `scoring_version`.
+
+`SCORE-GEO-003` permanece histórico. Seu Overall usava um model artifact calibrado e dependia de validação externa. `SCORE-GEO-004` substituiu esse requisito por uma agregação determinística de igual peso. A transição é quebra metodológica e não deve ser apresentada como série contínua sem ressalva explícita.
+
+Referências a `SCORE-GEO-003` em artifacts ou documentação histórica devem ser preservadas como histórico, não reescritas cegamente para `004`.
 
 ## 17. Evidência externa
 
-O RASAi continua separando:
+O RASAi separa:
 
 1. requisito/sinal oficial externo;
 2. métrica externa definida/calibrada por terceiros;
 3. regra/heurística RASAi;
-4. modelo RASAi empiricamente calibrado.
+4. outcomes externos observados.
 
-A calibração do Overall não transforma Core Web Vitals, Lighthouse, WCAG, E-E-A-T ou qualquer outra referência externa em homologação do índice completo.
+Core Web Vitals, Lighthouse, WCAG, Apdex, E-E-A-T/YMYL e Observed Generative Visibility não entram automaticamente no Overall `SCORE-GEO-004`.
 
 ## 18. Relatório
 
-`readiness.html` continua sendo a página canônica do SARI.
+`readiness.html` é a página canônica do SARI.
 
-`score-geo-003.html` expõe:
+`scoring.html` é a página canônica estável da metodologia de scoring e expõe:
 
-- model version;
-- dataset version;
-- status de calibração;
-- AUC/Brier;
-- promotion gate;
-- Overall por device;
+- `scoring_version` efetiva;
+- fórmula da dimensão;
+- contrato do Overall;
+- Coverage;
+- Confidence;
+- Consolidation;
+- limitações;
 - compatibilidade histórica.
 
-Detalhes operacionais: `docs/SCORE_GEO_003.md`.
+`score-geo-004.html` é alias de compatibilidade e não é a rota recomendada para novas integrações.
+
+Detalhes operacionais: `docs/SCORE_GEO_004.md` e `docs/SCORING_GUIDE.md`.
