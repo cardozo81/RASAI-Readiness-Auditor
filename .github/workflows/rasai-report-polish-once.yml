@@ -22,7 +22,9 @@ jobs:
         with:
           python-version: '3.13'
       - name: Apply reviewed remediation
-        run: python .github/rasai_report_polish_20260908.py
+        run: |
+          python .github/rasai_report_polish_20260908.py
+          python .github/rasai_report_polish_followup_20260908.py
       - name: Compile changed Python contracts
         run: |
           python -m py_compile \
@@ -30,6 +32,7 @@ jobs:
             src/rasai/report_presentation.py \
             src/rasai/report_semantics.py \
             src/rasai/report_contract.py \
+            src/rasai/report_navigation.py \
             src/rasai/report_registry.py \
             src/rasai/consolidation/reporting.py \
             tests/test_report_polish_20260908.py
@@ -51,6 +54,9 @@ jobs:
             tests/test_consolidation_comparability.py
       - name: Public contract gate
         run: python -m rasai.public_contract_gate
+      - name: Documentation consistency guard
+        run: |
+          ! grep -RniE 'SCORE-GEO-003 permanece histórico|CONS-2|Legacy consolidated analytical cache' README.md docs --include='*.md'
       - name: Install Chromium for browser regressions
         run: python -m playwright install chromium
       - name: Full regression
@@ -59,6 +65,7 @@ jobs:
         if: success()
         run: |
           rm -f .github/rasai_report_polish_20260908.py
+          rm -f .github/rasai_report_polish_followup_20260908.py
           rm -f .github/workflows/rasai-report-polish-once.yml
       - name: Commit validated changes directly to main
         if: success()
