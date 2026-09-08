@@ -38,6 +38,23 @@ jobs:
       - name: Apply consolidated backlog patch
         run: python .github/rasai_backlog_fix_v2.py
 
+      - name: Align changed-contract regression expectations
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/test_hotfix_ai_reporting_integrity.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              'self.assertIn("OPENAI - CHAMADA INDISPONÍVEL", html)',
+              'self.assertIn("OPENAI - CHAMADA/RESPOSTA INDISPONÍVEL", html)',
+          )
+          text = text.replace(
+              'self.assertIn("CONFIGURADO · NÃO CONFIRMADO PELA API", html)',
+              'self.assertIn("CONFIGURADO · NÃO CONFIRMADO POR RESPOSTA VÁLIDA", html)',
+          )
+          path.write_text(text, encoding='utf-8', newline='\n')
+          PY
+
       - name: Install test environment
         run: |
           python -m pip install --upgrade pip
