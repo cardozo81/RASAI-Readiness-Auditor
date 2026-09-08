@@ -84,31 +84,41 @@ def _synthetic_progress_projection(state: State, label: str, percent: float | No
 
 def set_runtime_progress(state: State, label: str, percent: float | None, *, detail: str = "", exact: bool = False) -> None:
     bounded = _bounded_percent(percent)
-    stage_percent, synthetic_overall = _synthetic_progress_projection(state, label, bounded)
     status = state.status.upper()
-    if stage_percent is not None and synthetic_overall is not None:
+    terminal = status in _TERMINAL_PROGRESS_STATES and bounded is not None
+    if terminal:
         progress = _RunProgress(
             label=label,
             percent=bounded,
             detail=detail,
             exact=exact,
-            stage_percent=stage_percent,
-            stage_exact=exact,
-            overall_percent=synthetic_overall,
-            overall_exact=False,
+            stage_percent=100.0 if bounded == 100.0 else None,
+            stage_exact=bool(exact and bounded == 100.0),
+            overall_percent=bounded,
+            overall_exact=exact,
         )
     else:
-        terminal = status in _TERMINAL_PROGRESS_STATES and bounded is not None
-        progress = _RunProgress(
-            label=label,
-            percent=bounded,
-            detail=detail,
-            exact=exact,
-            stage_percent=100.0 if terminal and bounded == 100.0 else None,
-            stage_exact=bool(terminal and exact and bounded == 100.0),
-            overall_percent=bounded,
-            overall_exact=bool(terminal and exact),
-        )
+        stage_percent, synthetic_overall = _synthetic_progress_projection(state, label, bounded)
+        if stage_percent is not None and synthetic_overall is not None:
+            progress = _RunProgress(
+                label=label,
+                percent=bounded,
+                detail=detail,
+                exact=exact,
+                stage_percent=stage_percent,
+                stage_exact=exact,
+                overall_percent=synthetic_overall,
+                overall_exact=False,
+            )
+        else:
+            progress = _RunProgress(
+                label=label,
+                percent=bounded,
+                detail=detail,
+                exact=exact,
+                overall_percent=bounded,
+                overall_exact=False,
+            )
     _RUN_PROGRESS[id(state)] = progress
 
 
