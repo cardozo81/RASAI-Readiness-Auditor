@@ -7,11 +7,12 @@ Referência operacional do **RASAi - Search & AI Readiness Auditor**.
 ```text
 rasai audit ...
 rasai visibility import|report ...
-rasai scoring dataset|calibrate|inspect ...
+rasai scoring inspect
 rasai monitor compare|impact|gate ...
 rasai observe report|status|import|bing-import|google-ai-import|google-ai-control|gsc-sites|gsc-sitemaps|gsc-search|gsc-appearance|gsc-inspect|crux-history ...
 rasai observability ...                 # alias de observe
 rasai quality report|verify|timeline ...
+rasai platform ...
 rasai-console
 ```
 
@@ -46,43 +47,28 @@ rasai audit target [target ...] [opções]
 
 Default público de dispositivo: `mobile`. Override: `RASAI_DEVICE_CONTEXT`.
 
-## SARI-001 / SCORE-GEO-003
+## SARI-001 / SCORE-GEO-004
 
-As auditorias usam `SCORE-GEO-003`. Sem model artifact `VALIDATED`, o Overall permanece `NOT_CONSOLIDATED`; nenhum resultado substituto é produzido.
+As novas auditorias usam `SCORE-GEO-004`. O Overall é determinístico e usa média de igual peso das dimensões aplicáveis, condicionado aos gates de Coverage e Confidence. Não existe model artifact obrigatório no runtime 004.
 
-Artifact padrão:
-
-```text
-.rasai/scoring/score-geo-003-model.json
-```
-
-Override: `RASAI_SCORE_GEO_003_MODEL`.
-
-### Dataset pré-fit
-
-```powershell
-rasai scoring dataset --audits-root audits --dataset-version GEO-CAL-001
-```
-
-Avalia gates pré-fit e gera manifest/fingerprint. `READY_FOR_MODEL_FIT != VALIDATED`.
-
-### Calibrar
-
-```powershell
-rasai scoring calibrate `
-  --audits-root audits `
-  --dataset-version GEO-CAL-001 `
-  --output .rasai\scoring\score-geo-003-model.json
-```
-
-Fitting é offline sobre AUDs/query-runs elegíveis. AUDs são lidos em modo SQLite read-only. Quando o outcome controlado não tem granularidade por dispositivo, o collector gera uma única linha de features por AUD em vez de duplicar o mesmo target contra vetores mobile/desktop distintos.
-
-### Inspecionar
+Para inspecionar o contrato vigente:
 
 ```powershell
 rasai scoring inspect
-rasai scoring inspect --model .rasai\scoring\score-geo-003-model.json
 ```
+
+O comando mostra `scoring_version`, contrato de agregação, número de dimensões e gates. Não acessa rede, não cria dataset e não realiza fitting.
+
+Fluxos `scoring dataset` / `scoring calibrate` e model artifacts `SCORE-GEO-003` pertencem ao método histórico 003 e **não são comandos do entrypoint atual do SCORE-GEO-004**.
+
+Relatórios por AUD:
+
+```text
+report/readiness.html
+report/scoring.html
+```
+
+`report/score-geo-004.html` é alias de compatibilidade; novas integrações devem usar `report/scoring.html`.
 
 ## IA no audit
 
@@ -145,7 +131,7 @@ RASAI_PAGESPEED_API_KEY
 RASAI_CRUX_API_KEY
 ```
 
-Lab e field data permanecem separados e não entram automaticamente em SARI/SCORE-GEO-003.
+Lab e field data permanecem separados e não entram automaticamente em SARI/SCORE-GEO-004.
 
 ## Synthetic Navigation Apdex
 
@@ -245,6 +231,8 @@ Gate default = BR-GEO determinísticas elegíveis + page state. Demais famílias
 --max-medium-regressions N        # default 3
 --dimension-drop-points POINTS    # default 5.0
 ```
+
+`--include-score-dimensions` compara dimensões persistidas e respeita `scoring_version`; contratos diferentes não são convertidos silenciosamente.
 
 Exit codes:
 
@@ -463,15 +451,17 @@ Tokens/keys são inputs de runtime e não são persistidos em sidecar/report.
 rasai-console
 ```
 
-`rasai-console.ini` armazena somente configuração não sensível. Monitoring, observability, quality e calibração permanecem superfícies especializadas da CLI na implementação atual.
+`rasai-console.ini` armazena somente configuração não sensível. Monitoring, observability, quality e platform permanecem superfícies especializadas da CLI na implementação atual.
 
 ## Referências internas
 
 - `MONITORING_OBSERVABILITY.md`
 - `CONFIGURATION.md`
 - `ENVIRONMENT_VARIABLES.md`
-- `SCORE_GEO_003.md`
+- `SCORE_GEO_004.md`
+- `SCORING_GUIDE.md`
 - `INTERACTIVE_CONSOLE.md`
+- `PRODUCT_PLATFORM_ARCHITECTURE.md`
 - `specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md`
 - `specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`
 - `specification/26_OBSERVED_GENERATIVE_VISIBILITY.md`
