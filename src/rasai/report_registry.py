@@ -75,6 +75,7 @@ def _patch_apdex_navigation() -> None:
 
 def _patch_lighthouse_traceability_message() -> None:
     from rasai import m23_reporting
+    from rasai.report_presentation import public_label
 
     if getattr(m23_reporting, "_rasai_lighthouse_state_patch", False):
         return
@@ -110,7 +111,7 @@ def _patch_lighthouse_traceability_message() -> None:
                 "Não aplicável nesta execução: Web Performance externo estava desabilitado, "
                 "portanto nenhum lighthouseResult.configSettings foi coletado."
             )
-        status = str(run["status"] or "INDEFINIDO")
+        status = public_label(str(run["status"] or "INDEFINIDO"))
         reason = str(run["reason"] or "").strip()
         suffix = f" Motivo persistido: {reason}." if reason else ""
         return (
@@ -144,6 +145,7 @@ def _patch_current_scoring_projection() -> None:
 def _patch_final_branding_normalization() -> None:
     """Prevent obsolete public wording from reappearing in generated HTML."""
     from rasai import report_navigation
+    from rasai.report_presentation import humanize_report_html
 
     if getattr(report_navigation, "_rasai_public_wording_patch", False):
         return
@@ -173,6 +175,7 @@ def _patch_final_branding_normalization() -> None:
                 "o resultado é calculado e persistido pelo contrato vigente desta auditoria.",
             )
             updated = updated.replace("—", "-").replace("–", "-")
+            updated = humanize_report_html(updated, page_name=path.name)
             if updated != html:
                 try:
                     path.write_text(updated, encoding="utf-8", newline="\n")
