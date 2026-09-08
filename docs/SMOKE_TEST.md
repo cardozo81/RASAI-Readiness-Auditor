@@ -92,3 +92,15 @@ python -m unittest discover -s tests -v
 ```
 
 Nenhum merge com falha conhecida. A validação de estabilização deve passar em Windows e Linux.
+
+
+## JSON-LD observado na tela e linguagem pública
+
+Em uma auditoria que possua Structured Data/JSON-LD coletado:
+
+1. abrir `content-suggestions.html`;
+2. localizar a URL/dispositivo com JSON-LD existente;
+3. abrir **Visualizar JSON-LD observado nesta auditoria**;
+4. confirmar que o conteúdo persistido aparece no HTML e que o link para o artifact completo funciona;
+5. confirmar que status operacionais aparecem em linguagem humana (por exemplo, **Execução com limitações**) e não como enums como `DEGRADED`;
+6. confirmar que identificadores técnicos necessários, como `BR-GEO-*`, IDs de perfil e valores em blocos `code`/`pre`, permanecem inalterados.

@@ -381,3 +381,16 @@ Correlação: veja [`README.md`](README.md), [`SCORING_GUIDE.md`](SCORING_GUIDE.
 ### Precedência dos estados visuais
 
 Quando uma tabela possui semântica específica de domínio, ela prevalece sobre o decorador genérico de estados. Em `readiness.html`, por exemplo, **Confiança baixa/Cobertura insuficiente** ou **Consolidação parcial** permanece em estado de atenção mesmo quando outra célula da mesma linha contém um valor terminal positivo. O decorador genérico de `Aprovado`, `Alerta`, `Erro`, `Consolidado` etc. só classifica linhas que ainda não receberam um estado semântico específico. Isso evita que um status operacional positivo esconda uma limitação material da medição.
+
+
+### Visualização do JSON-LD persistido
+
+Em `content-suggestions.html`, quando a coleta produziu um `structured_data.json`, o card da respectiva URL/dispositivo oferece **Visualizar JSON-LD observado nesta auditoria**. A tela mostra o conteúdo persistido pelo runtime, com escaping HTML, e mantém um link para abrir o artifact completo. A pré-visualização em HTML é limitada a 1 MiB para não tornar o relatório estático excessivamente pesado; acima desse limite, o truncamento é informado e o arquivo integral continua acessível pelo link.
+
+A visualização distingue claramente três coisas: o JSON-LD efetivamente observado na página, a análise/revisão determinística do RASAi e eventual baseline sugerido. O relatório não deve apresentar uma reconstrução ou sugestão como se fosse o markup coletado.
+
+### Linguagem humana versus identificadores técnicos
+
+Enums e estados internos não constituem linguagem pública. Valores como `DEGRADED`, `SINGLE_PROVIDER`, `INTERNAL_LINKS`, `PAGE_ACCESS`, `SPA_NAVIGATION`, classes de erro e demais estados operacionais são convertidos para rótulos claros em pt-BR quando aparecem como conteúdo de tela. Os valores canônicos continuam persistidos no banco e disponíveis para diagnóstico.
+
+Identificadores que têm função real de rastreabilidade permanecem canônicos quando necessário, especialmente `BR-GEO-*`, IDs de auditoria/evidência, nomes de modelos/providers, IDs de perfis sintéticos e variáveis de ambiente. Exemplos técnicos e payloads dentro de `code`/`pre` também não são traduzidos, para não corromper comandos, contratos ou evidências.

@@ -17,6 +17,7 @@ from rasai.content_context_persistence import (
 )
 from rasai.persistence import AuditWorkspace
 from rasai.report_navigation import normalize_report_navigation, render_report_navigation
+from rasai.report_presentation import public_label
 
 CONTENT_FILE = "content-suggestions.html"
 _GOOGLE_HELPFUL_CONTENT = "https://developers.google.com/search/docs/fundamentals/creating-helpful-content"
@@ -33,6 +34,37 @@ _CONTEXT_LABELS = {
     "freshness_sensitivity": "Sensibilidade temporal",
     "content_origin": "Origem do conteúdo",
 }
+_CONTEXT_VALUE_LABELS = {
+    "auto": "Automático",
+    "standard": "Padrão",
+    "ymyl": "YMYL",
+    "none": "Nenhuma",
+    "health-safety": "Saúde e segurança",
+    "financial-security": "Segurança financeira",
+    "civic-societal": "Cívico e social",
+    "other-significant-welfare": "Outro impacto relevante no bem-estar",
+    "informational": "Informacional",
+    "transactional": "Transacional",
+    "product-service": "Produto ou serviço",
+    "review-comparison": "Avaliação ou comparação",
+    "news-editorial": "Notícia ou editorial",
+    "support-documentation": "Suporte ou documentação",
+    "forum-ugc": "Fórum ou conteúdo de usuário",
+    "other": "Outro",
+    "general": "Público geral",
+    "professional": "Profissional",
+    "mixed": "Misto",
+    "required": "Necessária",
+    "beneficial": "Benéfica",
+    "not-expected": "Não esperada",
+    "low": "Baixa",
+    "medium": "Média",
+    "high": "Alta",
+    "first-party": "Conteúdo próprio",
+    "third-party": "Conteúdo de terceiros",
+    "user-generated": "Conteúdo gerado por usuários",
+}
+
 _CONTEXT_HINTS = {
     "risk_profile": "YMYL eleva a exigência de confiança e suporte factual; STANDARD mantém a régua editorial comum; AUTO é inferência provisória da IA.",
     "ymyl_category": "Contextualiza o tipo de impacto potencial: saúde/segurança, estabilidade financeira, bem-estar social ou outra consequência relevante.",
@@ -96,9 +128,10 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
             WHERE s.audit_id=? ORDER BY p.normalized_url,s.device,f.rule_id,s.suggestion_id
         """, (audit_id,))
         jsonld = _many(connection, """
-            SELECT j.*,p.normalized_url
+            SELECT j.*,p.normalized_url,ps.structured_data_ref
             FROM jsonld_remediation_suggestions j
             JOIN pages p ON p.page_id=j.page_id
+            JOIN page_snapshots ps ON ps.snapshot_id=j.snapshot_id
             WHERE j.audit_id=? ORDER BY p.normalized_url,j.device,j.suggestion_id
         """, (audit_id,))
         attempts = _many(connection, "SELECT * FROM content_remediation_attempts WHERE audit_id=? ORDER BY started_at,attempt_index,attempt_id", (audit_id,))
@@ -135,6 +168,7 @@ def _content_page(data: dict[str, Any], report_dir: Path) -> str:
     run = data["run"]
     nav = _nav(report_dir)
     run_status = str(run["status"]) if run is not None else "UNAVAILABLE"
+    run_status_label = public_label(run_status)
     enabled = bool(run["enabled"]) if run is not None else False
     eligible = int(run["eligible_findings"]) if run is not None else 0
     generated = int(run["generated_suggestions"]) if run is not None else 0
@@ -162,7 +196,10 @@ def _content_page(data: dict[str, Any], report_dir: Path) -> str:
         if row["proposed_json"]:
             proposed_obj = _json_value(row["proposed_json"])
             proposed = f"<h5>JSON-LD baseline sugerido</h5><pre>{escape(json.dumps(proposed_obj, ensure_ascii=False, indent=2, sort_keys=True))}</pre>"
-        jsonld_cards.append(f"""<article class='page-card'><div class='finding-head'><div><span class='badge'>{escape(str(row['device']))}</span> <span class='badge info'>{escape(str(row['status']))}</span></div><span class='badge'>{escape(types)}</span></div><h3 class='page-url'>{escape(str(row['normalized_url']))}</h3>{proposed}<h5>Revisão recomendada</h5><ul>{improvements}</ul></article>""")
+        observed = _structured_data_artifact_html(report_dir.parent, row["structured_data_ref"])
+        device_label = public_label(str(row["device"]))
+        status_label = public_label(str(row["status"]))
+        jsonld_cards.append(f"""<article class='page-card'><div class='finding-head'><div><span class='badge'>{escape(device_label)}</span> <span class='badge info'>{escape(status_label)}</span></div><span class='badge'>{escape(types)}</span></div><h3 class='page-url'>{escape(str(row['normalized_url']))}</h3>{observed}{proposed}<h5>Revisão recomendada</h5><ul>{improvements}</ul></article>""")
 
     if not enabled:
         ai_notice = "<div class='notice'><strong>IA de conteúdo desabilitada.</strong> Ative com <code>RASAI_AI_CONTENT_REMEDIATION=true</code> ou <code>--ai-content-remediation</code>. A revisão JSON-LD determinística permanece independente.</div>"
@@ -170,14 +207,60 @@ def _content_page(data: dict[str, Any], report_dir: Path) -> str:
         ai_notice = "<div class='notice warn'><strong>IA de conteúdo foi habilitada, mas não havia provider saudável/configurado.</strong> A variável <code>RASAI_AI_CONTENT_REMEDIATION</code> controla esta finalidade; ela é independente da IA técnica de crawling.</div>"
     elif run_status == "DEGRADED":
         suffix = f" Motivo persistido: <code>{escape(attempt_error)}</code>." if attempt_error else ""
-        ai_notice = "<div class='notice warn'><strong>IA de conteúdo habilitada e chamada, mas o resultado foi degradado/rejeitado.</strong> Isso não significa que a IA estava desabilitada." + suffix + " Consulte a telemetria abaixo; nenhuma sugestão rejeitada altera score ou finding.</div>"
+        ai_notice = "<div class='notice warn'><strong>IA de conteúdo habilitada e chamada, mas a etapa terminou com limitações ou teve respostas rejeitadas.</strong> Isso não significa que a IA estava desabilitada." + suffix + " Consulte a telemetria abaixo; nenhuma sugestão rejeitada altera score ou finding.</div>"
     else:
         ai_notice = "<div class='notice warn'><strong>Conteúdo sugerido é advisory.</strong> Esta finalidade é controlada por <code>RASAI_AI_CONTENT_REMEDIATION</code>, não por <code>RASAI_AI_TECHNICAL_REMEDIATION</code>. Não altera score/findings e requer validação humana.</div>"
 
     shortcuts = """<div class='notice'><strong>Atalhos:</strong> <a href='#contexto-editorial'>contexto editorial</a> · <a href='#telemetria-ia'>telemetria IA</a> · <a href='#sugestoes-textuais'>sugestões textuais</a> · <a href='#structured-data'>Structured Data</a> · <a href='#referencias-metodo'>referências</a></div>"""
 
-    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Conteúdo e JSON-LD - RASAi - Search & AI Readiness Auditor</title><link rel='stylesheet' href='css/site.css'></head><body>{nav}<main class='app-main'><header class='hero'><div class='eyebrow'>Sugestões e remediação de conteúdo por IA · análise contextual e remediação opcional</div><h1>Conteúdo e JSON-LD</h1><p class='lead'>Avaliação editorial orientada por evidências. Quando IA está ativa, o contexto YMYL/E-E-A-T, propósito, público, experiência, freshness e origem do conteúdo condicionam a análise sem criar um score paralelo nem promessa de ranking/citação.</p><div class='metric-grid'>{_metric('IA de conteúdo','Habilitada' if enabled else 'Desabilitada')}{_metric('Status',run_status)}{_metric('Findings elegíveis',eligible)}{_metric('Contextos chamados',attempted)}{_metric('Sugestões publicadas',generated)}{_metric('Revisões JSON-LD',len(data['jsonld']))}</div></header>{shortcuts}{ai_notice}{context_html}<section id='telemetria-ia' class='panel'><div class='kicker'>Rastreabilidade</div><h2>Uso de IA desta etapa</h2><p class='intro'>Os valores abaixo vêm da telemetria persistida das chamadas Sugestões e remediação de conteúdo por IA. Custo é estimativa baseada na tabela de pricing conhecida pelo adapter; quando não há base confiável, o relatório mostra indisponível em vez de inventar valor.</p><div class='metric-grid'>{_metric('Providers',telemetry['providers'])}{_metric('Modelos',telemetry['models'])}{_metric('Reasoning',telemetry['reasoning'])}{_metric('Chamadas',telemetry['calls'])}{_metric('Tempo acumulado',telemetry['duration'])}{_metric('Tokens totais',telemetry['tokens'])}{_metric('Custo estimado',telemetry['cost'])}</div><p><a href='ai-usage.html#remediation-ai-telemetry'>Abrir detalhamento completo de IA, tentativas, tokens, duração e erros →</a></p></section><section id='sugestoes-textuais' class='panel'><div class='kicker'>People-first</div><h2>Sugestões textuais por finding</h2><p class='intro'>Confidence LOW do score, sozinho, nunca dispara esta etapa. Só findings semânticos/contentuais persistidos entram no input. O contrato bloqueia evidence_ids externos ao finding e rejeita novos tokens numéricos que não existam no conteúdo/evidências fornecidos.</p>{''.join(suggestion_cards) if suggestion_cards else '<p class="intro">Nenhuma sugestão textual persistida.</p>'}</section><section id='structured-data' class='panel'><div class='kicker'>Structured Data</div><h2>JSON-LD por página/dispositivo</h2><p class='intro'>Quando não há JSON-LD, o auditor propõe um baseline <code>WebPage</code> usando somente dados já observados. Quando já existe markup, não o sobrescreve: apresenta revisão segura e rastreável. Para rich results, valide a documentação específica do tipo.</p>{''.join(jsonld_cards) if jsonld_cards else '<p class="intro">Nenhuma revisão JSON-LD persistida.</p>'}</section><section id='referencias-metodo' class='panel'><div class='kicker'>Base conceitual oficial</div><h2>Referências aplicadas</h2><p class='intro'>O RASAi usa E-E-A-T e YMYL como contexto conceitual de avaliação, não como fator individual de ranking nem como percentual proprietário. O Google declara que confiança é o elemento central de E-E-A-T, que nem todo conteúdo precisa demonstrar todos os componentes e que tópicos YMYL recebem uma exigência maior de sinais alinhados a E-E-A-T.</p><div class='ref-grid'><div class='ref-card'><strong>Google Search Central - Helpful, reliable, people-first content</strong><p>Base para E-E-A-T, YMYL, Who/How/Why, propósito, público, experiência e freshness.</p><a href='{_GOOGLE_HELPFUL_CONTENT}' target='_blank' rel='noopener'>Abrir fonte oficial ↗</a></div><div class='ref-card'><strong>Google - Search Quality Rater Guidelines</strong><p>Referência conceitual para propósito da página, Page Quality e necessidades do usuário; avaliações humanas não são fatores diretos de ranking.</p><a href='{_GOOGLE_RATER_GUIDELINES}' target='_blank' rel='noopener'>Abrir fonte oficial ↗</a></div><div class='ref-card'><strong>Google - Structured Data Guidelines</strong><p>Políticas para marcação coerente com o conteúdo visível.</p><a href='{_GOOGLE_STRUCTURED_DATA}' target='_blank' rel='noopener'>Abrir fonte oficial ↗</a></div><div class='ref-card'><strong>Schema.org</strong><p>Vocabulário utilizado na proposta estrutural.</p><a href='{_SCHEMA_ORG}' target='_blank' rel='noopener'>Abrir referência ↗</a></div></div></section><footer class='footer'>Sugestões e remediação de conteúdo por IA é projeção auxiliar. Contexto editorial e sugestões não alteram retrospectivamente RuleExecution, Finding, Score, Coverage ou Confidence.</footer></main></body></html>\n"""
+    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Conteúdo e JSON-LD - RASAi - Search & AI Readiness Auditor</title><link rel='stylesheet' href='css/site.css'></head><body>{nav}<main class='app-main'><header class='hero'><div class='eyebrow'>Sugestões e remediação de conteúdo por IA · análise contextual e remediação opcional</div><h1>Conteúdo e JSON-LD</h1><p class='lead'>Avaliação editorial orientada por evidências. Quando IA está ativa, o contexto YMYL/E-E-A-T, propósito, público, experiência, freshness e origem do conteúdo condicionam a análise sem criar um score paralelo nem promessa de ranking/citação.</p><div class='metric-grid'>{_metric('IA de conteúdo','Habilitada' if enabled else 'Desabilitada')}{_metric('Status',run_status_label)}{_metric('Findings elegíveis',eligible)}{_metric('Contextos chamados',attempted)}{_metric('Sugestões publicadas',generated)}{_metric('Revisões JSON-LD',len(data['jsonld']))}</div></header>{shortcuts}{ai_notice}{context_html}<section id='telemetria-ia' class='panel'><div class='kicker'>Rastreabilidade</div><h2>Uso de IA desta etapa</h2><p class='intro'>Os valores abaixo vêm da telemetria persistida das chamadas Sugestões e remediação de conteúdo por IA. Custo é estimativa baseada na tabela de pricing conhecida pelo adapter; quando não há base confiável, o relatório mostra indisponível em vez de inventar valor.</p><div class='metric-grid'>{_metric('Providers',telemetry['providers'])}{_metric('Modelos',telemetry['models'])}{_metric('Reasoning',telemetry['reasoning'])}{_metric('Chamadas',telemetry['calls'])}{_metric('Tempo acumulado',telemetry['duration'])}{_metric('Tokens totais',telemetry['tokens'])}{_metric('Custo estimado',telemetry['cost'])}</div><p><a href='ai-usage.html#remediation-ai-telemetry'>Abrir detalhamento completo de IA, tentativas, tokens, duração e erros →</a></p></section><section id='sugestoes-textuais' class='panel'><div class='kicker'>People-first</div><h2>Sugestões textuais por finding</h2><p class='intro'>Confidence LOW do score, sozinho, nunca dispara esta etapa. Só findings semânticos/contentuais persistidos entram no input. O contrato bloqueia evidence_ids externos ao finding e rejeita novos tokens numéricos que não existam no conteúdo/evidências fornecidos.</p>{''.join(suggestion_cards) if suggestion_cards else '<p class="intro">Nenhuma sugestão textual persistida.</p>'}</section><section id='structured-data' class='panel'><div class='kicker'>Structured Data</div><h2>JSON-LD por página/dispositivo</h2><p class='intro'>Quando não há JSON-LD, o auditor propõe um baseline <code>WebPage</code> usando somente dados já observados. Quando já existe markup, não o sobrescreve: apresenta revisão segura e rastreável. Para rich results, valide a documentação específica do tipo.</p>{''.join(jsonld_cards) if jsonld_cards else '<p class="intro">Nenhuma revisão JSON-LD persistida.</p>'}</section><section id='referencias-metodo' class='panel'><div class='kicker'>Base conceitual oficial</div><h2>Referências aplicadas</h2><p class='intro'>O RASAi usa E-E-A-T e YMYL como contexto conceitual de avaliação, não como fator individual de ranking nem como percentual proprietário. O Google declara que confiança é o elemento central de E-E-A-T, que nem todo conteúdo precisa demonstrar todos os componentes e que tópicos YMYL recebem uma exigência maior de sinais alinhados a E-E-A-T.</p><div class='ref-grid'><div class='ref-card'><strong>Google Search Central - Helpful, reliable, people-first content</strong><p>Base para E-E-A-T, YMYL, Who/How/Why, propósito, público, experiência e freshness.</p><a href='{_GOOGLE_HELPFUL_CONTENT}' target='_blank' rel='noopener'>Abrir fonte oficial ↗</a></div><div class='ref-card'><strong>Google - Search Quality Rater Guidelines</strong><p>Referência conceitual para propósito da página, Page Quality e necessidades do usuário; avaliações humanas não são fatores diretos de ranking.</p><a href='{_GOOGLE_RATER_GUIDELINES}' target='_blank' rel='noopener'>Abrir fonte oficial ↗</a></div><div class='ref-card'><strong>Google - Structured Data Guidelines</strong><p>Políticas para marcação coerente com o conteúdo visível.</p><a href='{_GOOGLE_STRUCTURED_DATA}' target='_blank' rel='noopener'>Abrir fonte oficial ↗</a></div><div class='ref-card'><strong>Schema.org</strong><p>Vocabulário utilizado na proposta estrutural.</p><a href='{_SCHEMA_ORG}' target='_blank' rel='noopener'>Abrir referência ↗</a></div></div></section><footer class='footer'>Sugestões e remediação de conteúdo por IA é projeção auxiliar. Contexto editorial e sugestões não alteram retrospectivamente RuleExecution, Finding, Score, Coverage ou Confidence.</footer></main></body></html>\n"""
 
+
+
+_MAX_STRUCTURED_DATA_PREVIEW_BYTES = 1024 * 1024
+
+
+def _structured_data_artifact_html(audit_root: Path, reference: Any) -> str:
+    """Render a safe in-report preview of the persisted Structured Data artifact."""
+    ref = str(reference or "").strip()
+    if not ref:
+        return ""
+    root = audit_root.resolve()
+    candidate = (root / ref).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return "<div class='notice warn'><strong>JSON-LD observado:</strong> referência de artifact fora do diretório da auditoria; visualização bloqueada por segurança.</div>"
+    if not candidate.is_file():
+        return "<div class='notice warn'><strong>JSON-LD observado:</strong> o arquivo persistido referenciado não está mais disponível para visualização.</div>"
+    try:
+        payload = candidate.read_bytes()
+    except OSError:
+        return "<div class='notice warn'><strong>JSON-LD observado:</strong> o arquivo persistido não pôde ser lido.</div>"
+
+    truncated = len(payload) > _MAX_STRUCTURED_DATA_PREVIEW_BYTES
+    preview_bytes = payload[:_MAX_STRUCTURED_DATA_PREVIEW_BYTES]
+    preview = preview_bytes.decode("utf-8", errors="replace")
+    if not truncated:
+        try:
+            preview = json.dumps(json.loads(preview), ensure_ascii=False, indent=2, sort_keys=True)
+        except json.JSONDecodeError:
+            pass
+
+    href = "../" + ref.replace("\\", "/").lstrip("/")
+    truncation = (
+        f"<div class='notice warn'><strong>Pré-visualização limitada:</strong> o artifact possui {len(payload):,} bytes; "
+        f"a tela mostra os primeiros {_MAX_STRUCTURED_DATA_PREVIEW_BYTES:,} bytes. Use o link para abrir o arquivo completo.</div>"
+        if truncated else ""
+    )
+    return (
+        "<details class='details jsonld-artifact'><summary>Visualizar JSON-LD observado nesta auditoria</summary>"
+        "<div class='detail-body'><p class='intro'>O conteúdo abaixo vem do artifact de Structured Data persistido durante a coleta; "
+        "não é uma reconstrução feita pelo relatório.</p>"
+        f"<p><strong>Arquivo:</strong> <code>{escape(ref)}</code> · "
+        f"<a href='{escape(href, quote=True)}'>abrir arquivo persistido completo →</a></p>{truncation}"
+        f"<pre>{escape(preview)}</pre></div></details>"
+    )
 
 def _attempt_error_summary(attempts: list[sqlite3.Row]) -> str:
     for row in reversed(attempts):
@@ -203,12 +286,14 @@ def _context_panel(record: tuple[Any, dict[str, Any]] | None) -> str:
     source_label = {"AUTO": "Inferido pela IA quando necessário", "MANUAL": "Configurado explicitamente", "MIXED": "Misto: configuração + inferência"}.get(source_mode, source_mode)
     cards = []
     for field in _CONTEXT_LABELS:
-        value = str(payload[field])
-        origin = "AUTO" if field in set(metadata.get("auto_fields") or ()) else "CONFIGURADO"
+        raw_value = str(payload[field])
+        value = _CONTEXT_VALUE_LABELS.get(raw_value.casefold(), raw_value)
+        inferred = field in set(metadata.get("auto_fields") or ())
+        origin = "Inferido" if inferred else "Configurado"
         cards.append(
             "<div class='metric'>"
             f"<small title='{escape(_CONTEXT_HINTS[field], quote=True)}'>{escape(_CONTEXT_LABELS[field])} ⓘ</small>"
-            f"<strong>{escape(value)}</strong><span class='badge {'unknown' if origin == 'AUTO' else 'info'}'>{origin}</span></div>"
+            f"<strong>{escape(value)}</strong><span class='badge {'unknown' if inferred else 'info'}'>{origin}</span></div>"
         )
     warning = (
         "<div class='notice warn'><strong>Contexto parcialmente ou totalmente AUTO:</strong> classificações automáticas são hipóteses de trabalho baseadas apenas no conteúdo observável. Quando o domínio é conhecido como YMYL, prefira configuração explícita.</div>"

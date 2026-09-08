@@ -397,3 +397,8 @@ Apenas a página atual recebe estado ativo.
 - hash do `audit.db` deve permanecer inalterado após operações `monitor`, `observe` e `quality` pós-auditoria.
 
 Detalhes: [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md), [SCORE_GEO_004.md](SCORE_GEO_004.md) e [specification/28_AUDIT_QUALITY_VERIFICATION.md](specification/28_AUDIT_QUALITY_VERIFICATION.md).
+
+
+### Structured Data / JSON-LD
+
+Quando `artifacts/extraction/.../structured_data.json` existe, `report/content-suggestions.html` oferece visualização inline do artifact Structured Data e link relativo para o arquivo completo. O artifact permanece a fonte persistida; a página HTML é apenas uma projeção segura para leitura humana. A proposta/baseline de JSON-LD, quando existir, deve permanecer visualmente separada do conteúdo efetivamente coletado.

@@ -55,3 +55,40 @@ def test_single_provider_strategy_is_not_exposed_as_raw_enum() -> None:
     rendered = humanize_report_html("<div><span>SINGLE_PROVIDER</span></div>")
     assert "Provedor único" in rendered
     assert ">SINGLE_PROVIDER<" not in rendered
+
+
+
+def test_common_report_machine_values_are_humanized() -> None:
+    from rasai.report_presentation import humanize_report_html
+
+    html = (
+        "<table><tr><td>INTERNAL_LINKS</td><td>PAGE_ACCESS</td><td>SPA_NAVIGATION</td>"
+        "<td>SPA_ROUTE</td><td>DEGRADED</td><td>EXISTING_REVIEW</td>"
+        "<td>AUTH_ERROR</td><td>NAVIGATION_TIMEOUT</td></tr></table>"
+    )
+    rendered = humanize_report_html(html)
+    assert "Links internos" in rendered
+    assert "Acesso à página" in rendered
+    assert "Navegação SPA" in rendered
+    assert "Rota SPA" in rendered
+    assert "Execução com limitações" in rendered
+    assert "Revisão do JSON-LD existente" in rendered
+    assert "Erro de autenticação" in rendered
+    assert "Tempo limite de navegação excedido" in rendered
+    for raw in ("INTERNAL_LINKS", "PAGE_ACCESS", "SPA_NAVIGATION", "SPA_ROUTE", "DEGRADED", "EXISTING_REVIEW"):
+        assert f">{raw}<" not in rendered
+
+
+def test_technical_identifiers_remain_canonical_when_they_are_traceability_data() -> None:
+    from rasai.report_presentation import humanize_report_html
+
+    html = (
+        "<div><code>RASAI_AI_CONTENT_REMEDIATION</code>"
+        "<span>BR-GEO-017</span><strong>RASAI_TABLET_CONTROLLED4G_V1</strong>"
+        "<pre>DEGRADED SINGLE_PROVIDER</pre></div>"
+    )
+    rendered = humanize_report_html(html)
+    assert "RASAI_AI_CONTENT_REMEDIATION" in rendered
+    assert "BR-GEO-017" in rendered
+    assert "RASAI_TABLET_CONTROLLED4G_V1" in rendered
+    assert "<pre>DEGRADED SINGLE_PROVIDER</pre>" in rendered
