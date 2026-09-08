@@ -1,0 +1,28 @@
+name: Full RASAi Regression
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and test runner
+        run: python -m pip install -e . pytest
+      - name: Install Chromium for browser-backed tests
+        run: python -m playwright install --with-deps chromium
+      - name: Public contract gate
+        run: python -m rasai.public_contract_gate
+      - name: Full pytest suite
+        run: pytest -q
