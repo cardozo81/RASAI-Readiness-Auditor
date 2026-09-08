@@ -41,11 +41,11 @@ Os limites de período são inclusivos.
 
 Web Performance, Apdex e ocorrências page-level podem ser filtrados diretamente por URL. Readiness persistida em nível de auditoria/dispositivo não é recalculada para um subconjunto arbitrário de URLs: quando o universo do score não está contido no filtro, o valor é omitido e a limitação é declarada.
 
-## SARI-001 e SCORE-GEO-003
+## SARI-001 e SCORE-GEO-004
 
 ### Método vigente
 
-O índice público do RASAi é **SARI-001 - Search & AI Readiness Index**. O motor de scoring vigente para novas auditorias é **`SCORE-GEO-003`**.
+O índice público do RASAi é **SARI-001 - Search & AI Readiness Index**. O motor de scoring vigente para novas auditorias é **`SCORE-GEO-004`**.
 
 Séries com contratos de scoring distintos permanecem segmentadas por `scoring_version` e não são convertidas ou agregadas silenciosamente.
 
@@ -55,9 +55,11 @@ As dimensões de readiness continuam baseadas em regras aplicáveis, evidência,
 
 ### Overall Readiness
 
-No `SCORE-GEO-003`, o **Overall** não deve ser fabricado como média simples para contornar a calibração. O Overall só é materializado segundo o contrato vigente do `SCORE-GEO-003` e seu model artifact versionado. Quando o modelo não atende os gates de validação/promoção, o relatório deve expor o estado/limitação em vez de produzir uma nota geral aparentemente validada.
+No `SCORE-GEO-004`, o Overall é a média de igual peso das dimensões aplicáveis, desde que o contrato esteja suficientemente materializado. Dimensões legitimamente `NOT_APPLICABLE` saem do denominador; dimensões aplicáveis sem valor ou `NOT_CONSOLIDATED` impedem uma conclusão consolidada.
 
-A calibração usa outcomes observados separados de readiness. O protocolo atual exige, entre outros gates, diversidade de domínios/engines, cobertura de queries, repetições, cobertura temporal e quantidade mínima de observações; AUC e Brier são avaliados na etapa de fitting/validação. Consulte `docs/SCORE_GEO_003.md` e `docs/SARI_READINESS_INDEX.md`.
+O consolidado **não recalcula** esse Overall. Ele lê o valor, Coverage, Confidence, Consolidation e `scoring_version` persistidos no AUD fonte.
+
+`SCORE-GEO-003` permanece histórico e usava um model artifact calibrado. Um ponto 003 e um ponto 004 pertencem a contratos metodológicos distintos e não devem ser tratados como série contínua sem ressalva explícita.
 
 ### Confidence e Coverage
 
@@ -74,7 +76,7 @@ O consolidado deve segmentar ou sinalizar, no mínimo:
 - perfil/threshold no caso de Apdex;
 - fonte/escopo no caso de dados de campo.
 
-Uma mudança de `scoring_version`, `model_version` ou `dataset_version` define uma fronteira metodológica. O HTML deve explicitar essa fronteira e não sugerir continuidade numérica sem fundamento.
+Mudança de `scoring_version` define fronteira metodológica. Campos históricos de `model_version`/`dataset_version` podem existir em auditorias 003, mas não são requisitos do runtime 004.
 
 ## Políticas estatísticas
 
@@ -122,7 +124,7 @@ O consolidador não cria um novo “score de confiabilidade”. Ele apresenta si
 - suficiência da base histórica;
 - Coverage/Confidence persistidas;
 - robustez/amostragem de Apdex;
-- status da calibração do `SCORE-GEO-003`.
+- status de Consolidation persistido.
 
 ## Relação com RASAi Monitor
 
@@ -137,7 +139,7 @@ Nenhuma dessas superfícies altera o `audit.db` fonte.
 
 ## Relação com Search & AI Observability
 
-Dados coletados após a auditoria (Search Console, URL Inspection, CrUX History e imports observacionais suportados) são armazenados em `observability.db` + `artifacts/observability/`. Eles não entram automaticamente em SARI-001/SCORE-GEO-003 e não são copiados para o consolidado como se fossem evidência original do AUD.
+Dados coletados após a auditoria (Search Console, URL Inspection, CrUX History e imports observacionais suportados) são armazenados em `observability.db` + `artifacts/observability/`. Eles não entram automaticamente em SARI-001/SCORE-GEO-004 e não são copiados para o consolidado como se fossem evidência original do AUD.
 
 ## Saída estática
 
@@ -163,4 +165,5 @@ Antes de integrar mudanças do consolidador/monitoramento em `main`, exigir:
 - hashes/bancos fonte não alterados por operações read-only;
 - ausência de dependência do audit runner em consolidação/monitoring/observability;
 - HTML reabrível e navegação consistente;
-- smoke humano em pelo menos um par real de auditorias comparáveis.
+- comparabilidade entre `scoring_version` explícita;
+- smoke humano quando a mudança exigir inspeção visual/operacional.
