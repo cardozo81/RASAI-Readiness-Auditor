@@ -393,7 +393,7 @@ def observe_m23_workspace(workspace: Path, state: State) -> None:
     if name == "M25_UX_STARTED":
         state.status = "SYNTHETIC_UX_APDEX"
         state.operation = "BROWSER:SYNTHETIC_UX_APDEX"
-        set_runtime_progress(state, "Apdex calibrado M25", 0.0, detail="preparando user actions sintéticas", exact=False)
+        set_runtime_progress(state, "Synthetic User Experience Apdex", 0.0, detail="preparando user actions sintéticas", exact=False)
     elif name == "M25_UX_SAMPLE":
         state.status = "SYNTHETIC_UX_APDEX"
         state.operation = "BROWSER:SYNTHETIC_UX_APDEX"
@@ -407,21 +407,21 @@ def observe_m23_workspace(workspace: Path, state: State) -> None:
             f"último={event.get('classification') or event.get('status') or '-'}"
         )
         percent = min((run_index / max(max_attempts, 1)) * 100.0, 99.0)
-        set_runtime_progress(state, "Apdex calibrado M25", percent, detail=detail, exact=False)
+        set_runtime_progress(state, "Synthetic User Experience Apdex", percent, detail=detail, exact=False)
     elif name == "M25_UX_COMPLETED":
         state.status = "SYNTHETIC_APDEX"
         state.operation = "BROWSER:SYNTHETIC_APDEX"
         set_runtime_progress(
             state,
-            "Apdex calibrado M25 concluído",
+            "Synthetic User Experience Apdex concluído",
             100.0,
-            detail=f"válidas={int(event.get('valid_samples') or 0)}; inválidas={int(event.get('invalid_samples') or 0)}; iniciando M23 Standard",
+            detail=f"válidas={int(event.get('valid_samples') or 0)}; inválidas={int(event.get('invalid_samples') or 0)}; iniciando Synthetic Navigation Apdex",
             exact=True,
         )
     elif name in {"M25_UX_RUNTIME_FAILURE", "M25_UX_REPORT_FAILURE", "M25_UX_REPORT_FINALIZATION_FAILURE"}:
         state.status = "SYNTHETIC_LIMITATION"
-        state.operation = "LOCAL:M25_FAIL_OPEN"
-        set_runtime_progress(state, "Limitação operacional M25", 100.0, detail=name, exact=True)
+        state.operation = "LOCAL:SYNTHETIC_UX_FAIL_OPEN"
+        set_runtime_progress(state, "Limitação operacional do Synthetic User Experience Apdex", 100.0, detail=name, exact=True)
     elif name == "M23_STARTED" and event.get("enabled"):
         state.status = "SYNTHETIC_APDEX"
         state.operation = "BROWSER:SYNTHETIC_APDEX"

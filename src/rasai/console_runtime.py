@@ -71,7 +71,10 @@ def _synthetic_progress_projection(state: State, label: str, percent: float | No
     if bounded is None:
         return None, None
     normalized = label.casefold()
-    if "m25" in normalized or "apdex calibrado" in normalized:
+    if (
+        "synthetic user experience apdex" in normalized
+        or state.status.upper() == "SYNTHETIC_UX_APDEX"
+    ):
         start, end = 92.0, 94.0
     elif "synthetic apdex" in normalized or state.status.upper() == "SYNTHETIC_APDEX":
         start = 94.0 if bool(getattr(state, "apdex_experience", False)) else 92.0
