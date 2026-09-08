@@ -48,7 +48,18 @@ Eventos de navegação sintética podem manter identificadores internos históri
 
 ## Progresso do console
 
-O console lê apenas o tail limitado do log e o SQLite em modo read-only, aproximadamente uma vez por segundo, para atualizar etapa/progresso. Essa observação não gera chamada HTTP/API adicional.
+O console lê apenas o tail limitado do log e o SQLite em modo read-only, aproximadamente uma vez por segundo, para atualizar etapa/progresso. Essa observação não gera chamada HTTP/API adicional e não aumenta a frequência de coleta do pipeline.
+
+A apresentação separa conceitos que não devem ser confundidos:
+
+- `Etapa`: fase funcional atualmente observada;
+- `Andamento`: percentual interno da etapa somente quando existe uma unidade mensurável confiável; caso contrário informa `em execução` em vez de fabricar precisão;
+- `Progresso`: posição global do pipeline. Enquanto a execução não termina, o valor usa `~` porque combina marcos de fases heterogêneas e opcionais;
+- `Executando`: descrição textual derivada do estado já persistido e dos eventos operacionais existentes, por exemplo descoberta de URLs, análise semântica, geração de relatório ou último evento de Web Performance.
+
+Quando uma etapa possui medição própria — por exemplo amostras/contextos de Synthetic Apdex — o percentual medido permanece restrito a `Andamento`. O console projeta esse avanço dentro da faixa global reservada à etapa, mas mantém o `Progresso` geral identificado como estimativa. Assim, `40%` de Synthetic Apdex não é apresentado como `40%` da auditoria inteira e o percentual global não regride ao entrar em uma etapa que começa em zero.
+
+Somente estados terminais como conclusão, conclusão com limitações, bloqueio técnico definitivo ou falha podem apresentar `100%` global como medido.
 
 ## Segurança
 
