@@ -25,6 +25,7 @@ jobs:
           sed -i 's/Os diagnósticos M24 são advisory/Os diagnósticos técnicos são advisory/g' docs/CLI_REFERENCE.md docs/CONSOLE_COST_AND_USAGE.md docs/AI_GUIDE.md || true
           sed -i 's/URLs descobertas são uma fronteira observada/fronteira observada do crawl/' tests/test_stability_refinement_20260908.py
           sed -i 's/AuditWorkspace(root=root, database=db)/AuditWorkspace(root)/' tests/test_stability_refinement_20260908.py
+          sed -i 's/<td>Alta (P1)<\/td>/<td>Muito alta (P1)<\/td>/' tests/test_report_presentation.py
           rm -f .github/rasai_stability_refinement.py
           rm -f .github/workflows/rasai-stability-refinement.yml
       - name: Install package and tests
@@ -45,6 +46,7 @@ jobs:
           tests/test_report_semantics.py
           tests/test_report_navigation.py
           tests/test_interactive_console.py
+          tests/test_report_presentation.py
       - name: Full regression
         run: pytest -q
       - name: Commit validated implementation
