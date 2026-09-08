@@ -106,14 +106,14 @@ SURFACE_IMPLEMENTATION_HINTS = {
     "references.html": "src/rasai/reporting.py",
 }
 
-# An older method identifier is legitimate evidence. Only language that promotes
-# it to the current runtime is forbidden.
-_STALE_CURRENT_PATTERNS = (
-    re.compile(r"SCORE-GEO-00[123].{0,80}\b(vigente|atual|runtime|padr[aã]o)\b", re.I | re.S),
-    re.compile(r"\b(vigente|atual|runtime|padr[aã]o)\b.{0,80}SCORE-GEO-00[123]", re.I | re.S),
-    re.compile(r"novas auditorias.{0,80}SCORE-GEO-00[123]", re.I | re.S),
+_OLD_VERSION_RE = re.compile(r"SCORE-GEO-00[123]", re.I)
+_CURRENT_WORD_RE = re.compile(r"\b(vigente|atual|runtime|padr[aã]o|novas auditorias)\b", re.I)
+_HISTORICAL_WORD_RE = re.compile(
+    r"\b(hist[oó]ric|legad|superseded|anterior|não é o runtime|não (?:faz|fazem) parte|não (?:é|são) (?:o )?(?:vigente|atual)|não devem ser anunciados|pertencem ao .*hist[oó]ric)\b",
+    re.I,
 )
 _MILESTONE_PUBLIC_RE = re.compile(r"(?<![A-Za-z0-9_])M\d{1,3}(?![A-Za-z0-9_])")
+_MILESTONE_EVENT_RE = re.compile(r"\bM\d{1,3}_[A-Z][A-Z0-9_]*\b")
 _VERSIONED_CANONICAL_RE = re.compile(r"report/score-geo-\d+\.html")
 
 
@@ -128,6 +128,25 @@ def _read(root: Path, relative: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _stale_current_lines(text: str) -> list[str]:
+    """Return only lines that positively promote an old version as current.
+
+    Historical/current comparisons such as "003 é histórico; 004 é vigente" are
+    allowed. This line-oriented check intentionally avoids crossing paragraph or
+    sentence boundaries and corrupting legitimate method history.
+    """
+    stale: list[str] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or not _OLD_VERSION_RE.search(line):
+            continue
+        if _HISTORICAL_WORD_RE.search(line):
+            continue
+        if _CURRENT_WORD_RE.search(line):
+            stale.append(line)
+    return stale
+
+
 def _check_runtime(errors: list[str]) -> None:
     if SCORING_VERSION != EXPECTED_SCORING_VERSION:
         errors.append(f"runtime SCORING_VERSION={SCORING_VERSION!r}; esperado {EXPECTED_SCORING_VERSION}")
@@ -135,7 +154,8 @@ def _check_runtime(errors: list[str]) -> None:
         errors.append(f"SARI_VERSION={SARI_VERSION!r}; esperado {EXPECTED_SARI_VERSION}")
     if REPORT_FILE != EXPECTED_REPORT_FILE:
         errors.append(f"REPORT_FILE={REPORT_FILE!r}; esperado {EXPECTED_REPORT_FILE}")
-    if LEGACY_REPORT_FILE in dict((filename, label) for label, filename in CANONICAL_NAV_ITEMS):
+    nav_filenames = [filename for _label, filename in CANONICAL_NAV_ITEMS]
+    if LEGACY_REPORT_FILE in nav_filenames:
         errors.append("alias versionado está na navegação canônica")
     if tuple(CANONICAL_FILENAMES) != EXPECTED_CANONICAL_FILENAMES:
         errors.append("lista canônica de report surfaces diverge do contrato público")
@@ -148,7 +168,7 @@ def _check_runtime(errors: list[str]) -> None:
     try:
         with redirect_stdout(output):
             code = scoring_cli_main(["inspect"])
-    except SystemExit as exc:  # argparse errors become a gate failure
+    except SystemExit as exc:
         errors.append(f"rasai scoring inspect abortou: {exc}")
         return
     text = output.getvalue()
@@ -164,32 +184,31 @@ def _check_docs(root: Path, errors: list[str]) -> None:
             continue
         if EXPECTED_SCORING_VERSION not in text:
             errors.append(f"documento corrente não menciona {EXPECTED_SCORING_VERSION}: {relative}")
-        for pattern in _STALE_CURRENT_PATTERNS:
-            if pattern.search(text):
-                errors.append(f"documento trata método antigo como vigente: {relative}")
-                break
+        stale = _stale_current_lines(text)
+        if stale:
+            errors.append(f"documento trata método antigo como vigente: {relative}: {stale[0]}")
         if relative != "docs/SCORE_GEO_003.md" and _VERSIONED_CANONICAL_RE.search(text):
-            # The literal may appear only when explicitly labelled alias/backward
-            # compatibility. Check the nearby line rather than banning history.
             for line in text.splitlines():
                 if _VERSIONED_CANONICAL_RE.search(line) and not re.search(r"alias|compatib|hist[oó]ric", line, re.I):
                     errors.append(f"filename versionado tratado sem qualificação de alias/histórico: {relative}: {line.strip()}")
                     break
 
     readme = _read(root, "README.md")
-    if readme.count("apdex.html") != 1:
-        errors.append("README deve listar apdex.html exatamente uma vez")
-    if readme.count("apdex-experience.html") != 1:
-        errors.append("README deve listar apdex-experience.html exatamente uma vez")
+    nav_apdex = re.findall(r"(?m)^apdex\.html\s+", readme)
+    nav_ux_apdex = re.findall(r"(?m)^apdex-experience\.html\s+", readme)
+    if len(nav_apdex) != 1:
+        errors.append("README deve listar apdex.html uma única vez no inventário canônico")
+    if len(nav_ux_apdex) != 1:
+        errors.append("README deve listar apdex-experience.html uma única vez no inventário canônico")
     if "report-manifest.json" not in readme:
         errors.append("README não documenta report/report-manifest.json")
 
-    # Milestone numbering is an internal implementation concern. Do not expose it
-    # in Markdown prose; internal event identifiers containing underscores are not
-    # matched by this regex and may remain documented only when operationally required.
     docs = [root / "README.md", *(root / "docs").rglob("*.md")]
     for path in docs:
-        if path.is_file() and _MILESTONE_PUBLIC_RE.search(path.read_text(encoding="utf-8")):
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if _MILESTONE_PUBLIC_RE.search(text) or _MILESTONE_EVENT_RE.search(text):
             errors.append(f"marco interno M* exposto na documentação: {path.relative_to(root)}")
 
 
