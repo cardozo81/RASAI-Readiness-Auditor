@@ -1,0 +1,72 @@
+name: Resolve residual documentation milestone labels
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Replace residual public milestone wording and improve diagnostics
+        shell: python
+        run: |
+          from pathlib import Path
+
+          replacements = {
+              'docs/SCORING_GUIDE.md': [
+                  ('Sem provider, o M7 rule version 2 usa `SEMANTIC-BASELINE-001`',
+                   'Sem provider, a camada de regras semânticas na rule version 2 usa `SEMANTIC-BASELINE-001`'),
+              ],
+              'docs/SCORE_GEO_004.md': [
+                  ('A partir do M7 rule version 2, auditorias sem provider utilizam o baseline local versionado:',
+                   'A partir da rule version 2 das regras semânticas, auditorias sem provider utilizam o baseline local versionado:'),
+              ],
+              'docs/specification/03_BUSINESS_RULES.md': [
+                  ('O M7 possui dois caminhos de evidência semântica, preservando a mesma camada posterior de scoring:',
+                   'A camada de avaliação semântica possui dois caminhos de evidência, preservando a mesma camada posterior de scoring:'),
+              ],
+          }
+          for relative, pairs in replacements.items():
+              path = Path(relative)
+              text = path.read_text(encoding='utf-8')
+              for old, new in pairs:
+                  if old not in text and new not in text:
+                      raise SystemExit(f'expected public milestone text missing in {relative}: {old}')
+                  text = text.replace(old, new)
+              path.write_text(text, encoding='utf-8', newline='\n')
+
+          gate = Path('src/rasai/public_contract_gate.py')
+          text = gate.read_text(encoding='utf-8')
+          old = '''        text = path.read_text(encoding="utf-8")
+        if _MILESTONE_PUBLIC_RE.search(text) or _MILESTONE_EVENT_RE.search(text):
+            errors.append(f"marco interno M* exposto na documentação: {path.relative_to(root)}")
+'''
+          new = '''        text = path.read_text(encoding="utf-8")
+        milestone = _MILESTONE_PUBLIC_RE.search(text) or _MILESTONE_EVENT_RE.search(text)
+        if milestone:
+            line_number = text.count("\\n", 0, milestone.start()) + 1
+            errors.append(
+                f"marco interno M* exposto na documentação: {path.relative_to(root)}:"
+                f"{line_number}: {milestone.group(0)}"
+            )
+'''
+          if old not in text and new not in text:
+              raise SystemExit('public-contract milestone diagnostic block not found')
+          gate.write_text(text.replace(old, new), encoding='utf-8', newline='\n')
+      - name: Remove one-shot workflow
+        run: git rm .github/workflows/fix-doc-milestones-and-gate.yml
+      - name: Commit fixes
+        run: |
+          git config user.name "RASAi public-contract bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/SCORING_GUIDE.md docs/SCORE_GEO_004.md docs/specification/03_BUSINESS_RULES.md src/rasai/public_contract_gate.py
+          git commit -m "Resolve residual documentation milestone labels"
+          git push origin HEAD:main
