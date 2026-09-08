@@ -65,6 +65,23 @@ class ConsoleProgressGuidanceTests(unittest.TestCase):
         self.assertIn("válidas 3/5", progress.detail)
         clear_runtime_progress(state)
 
+    def test_terminal_source_blocker_wins_over_synthetic_projection(self) -> None:
+        state = State(status="SOURCE_BLOCKED", operation="LOCAL:APDEX_SKIPPED")
+        set_runtime_progress(
+            state,
+            "Synthetic Apdex não executado",
+            100.0,
+            detail="bloqueio técnico da origem",
+            exact=True,
+        )
+        progress = runtime_progress_summary(state)
+        assert progress is not None
+        self.assertEqual(progress.stage_percent, 100.0)
+        self.assertEqual(progress.overall_percent, 100.0)
+        self.assertTrue(progress.stage_exact)
+        self.assertTrue(progress.overall_exact)
+        clear_runtime_progress(state)
+
     def test_header_keeps_measured_stage_separate_from_estimated_whole_run(self) -> None:
         state = State(status="SYNTHETIC_APDEX", operation="BROWSER:SYNTHETIC_APDEX")
         set_runtime_progress(
