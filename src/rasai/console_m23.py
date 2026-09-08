@@ -317,7 +317,7 @@ def synthetic_load_summary(state: State) -> tuple[int, str]:
     total = m23_attempts + m25_attempts
     extra = f" + experiência sintética até {m25_attempts} ação(ões) de usuário" if m25_attempts else ""
     return total, (
-        f"até {m23_attempts} navegação(ões) M23 "
+        f"até {m23_attempts} navegação(ões) Synthetic Navigation Apdex "
         f"({pages} página(s) × {devices} device(s) × {state.apdex_max_attempts} tentativas/contexto){extra}. "
         "Cada navegação/user action pode gerar múltiplos requests HTTP de subrecursos; isso é carga no site, não custo de API estimado."
     )

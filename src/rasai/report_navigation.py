@@ -14,20 +14,11 @@ from pathlib import Path
 import re
 from zoneinfo import ZoneInfo
 
+from rasai.report_contract import CANONICAL_NAV_ITEMS
 from rasai.report_semantics import SEMANTIC_CSS, enhance_report_html
 
 
-NAV_ITEMS: tuple[tuple[str, str], ...] = (
-    ("Visão geral", "index.html"),
-    ("Relatório Mobile", "mobile.html"),
-    ("Relatório Desktop", "desktop.html"),
-    ("Remediações", "remediation.html"),
-    ("Conteúdo e JSON-LD", "content-suggestions.html"),
-    ("Acessibilidade", "accessibility.html"),
-    ("Web Performance", "web-performance.html"),
-    ("Uso de IA", "ai-usage.html"),
-    ("Referências e metodologia", "references.html"),
-)
+NAV_ITEMS: tuple[tuple[str, str], ...] = CANONICAL_NAV_ITEMS
 
 BRASILIA_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 
@@ -109,7 +100,7 @@ _RULE_TOOLTIPS: dict[str, str] = {
     "BR-GEO-051": "Severidade MEDIUM · Identifica duplicatas e near-duplicates materiais no universo auditado.",
     "BR-GEO-052": "Severidade MEDIUM · Detecta e classifica diferenças materiais entre Desktop e Mobile.",
     "BR-GEO-053": "Severidade CRITICAL · Verifica rastreabilidade e reabertura de Findings, RuleExecutions e Evidences.",
-    "BR-GEO-054": "Integridade do auditor · Verifica a reprodutibilidade do SCORE-GEO-002 persistido.",
+    "BR-GEO-054": "Integridade do auditor · Verifica a reprodutibilidade do SCORE-GEO-004 persistido.",
 }
 
 _PREMIUM_CSS = r"""
