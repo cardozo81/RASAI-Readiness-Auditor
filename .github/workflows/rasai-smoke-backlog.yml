@@ -27,6 +27,33 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Apply consolidated backlog patch
         run: python .github/rasai_smoke_backlog_fix.py
+      - name: Align public wording and layout regression
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          runtime = Path("src/rasai/rasai_readiness_reporting.py")
+          text = runtime.read_text(encoding="utf-8")
+          old = "Nenhum indicador externo é convertido no SARI-001."
+          new = "Nenhum Lighthouse, Core Web Vitals, Accessibility ou Apdex é convertido no SARI-001."
+          if old not in text:
+              raise SystemExit("dashboard methodology wording not found")
+          runtime.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+
+          test = Path("tests/test_rasai_readiness_reporting.py")
+          text = test.read_text(encoding="utf-8")
+          replacements = {
+              'assert "Mobile 81-88/100" in html': 'assert "<small>Mobile</small><strong>81-88/100</strong>" in html',
+              'assert "Desktop 95/100" in html': 'assert "<small>Desktop</small><strong>95/100</strong>" in html',
+              'assert "Mobile 0.820" in html': 'assert "<small>Mobile</small><strong>0.820</strong>" in html',
+              'assert "Desktop 0.910" in html': 'assert "<small>Desktop</small><strong>0.910</strong>" in html',
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f"expected assertion not found: {old}")
+              text = text.replace(old, new, 1)
+          test.write_text(text, encoding="utf-8", newline="\n")
+          PY
       - name: Targeted regression
         run: |
           pytest -q \
