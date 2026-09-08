@@ -9,7 +9,7 @@ def read(path: str) -> str:
 def write(path: str, text: str) -> None:
     (ROOT / path).write_text(text, encoding='utf-8', newline='\n')
 
-# Keep the current JSON-LD semantics while retaining the useful user-facing phrase.
+# Keep the current JSON-LD semantics while retaining useful user-facing wording.
 path = 'src/rasai/report_semantics.py'
 text = read(path)
 old = (
@@ -40,6 +40,40 @@ new = (
 if old not in text:
     raise SystemExit('structured-data insertion fallback not found')
 text = text.replace(old, new, 1)
+
+# The four-state score condition has precedence over a generic terminal-state label.
+# Keep legacy result-state classes only as a CSS/backward-internal hook, mapped from
+# the new condition semantics rather than recalculated from Consolidation alone.
+old = (
+    '        tag = f" <span class=\'score-condition-tag {state}\'>{escape(label)}</span>"\n'
+    '        return (\n'
+    '            f"<tr{attrs} class=\'score-condition-{state}\'><td>{escape(dimension)}</td>"\n'
+)
+new = (
+    '        tag = f" <span class=\'score-condition-tag {state}\'>{escape(label)}</span>"\n'
+    '        legacy_state = {"expected": "good", "near": "warn", "below": "warn", "critical": "bad", "neutral": "neutral"}[state]\n'
+    '        return (\n'
+    '            f"<tr{attrs} class=\'score-condition-{state} result-state-{legacy_state}\'><td>{escape(dimension)}</td>"\n'
+)
+if old not in text:
+    raise SystemExit('score row semantic block not found')
+text = text.replace(old, new, 1)
+write(path, text)
+
+# A stale unpublished alias from an older local audit folder is housekeeping, not
+# a current report surface. Remove it before normalizing navigation.
+path = 'src/rasai/report_navigation.py'
+text = read(path)
+needle = '    _ensure_premium_css(report_dir)\n    _enhance_ai_cost_total(report_dir)\n'
+replacement = (
+    '    _ensure_premium_css(report_dir)\n'
+    '    _enhance_ai_cost_total(report_dir)\n'
+    '    # Pré-publicação: remover alias versionado residual de audits locais antigos.\n'
+    '    (report_dir / "score-geo-004.html").unlink(missing_ok=True)\n'
+)
+if needle not in text:
+    raise SystemExit('navigation normalization insertion point not found')
+text = text.replace(needle, replacement, 1)
 write(path, text)
 
 # Replace the obsolete compatibility-alias test with the pre-publication contract.
@@ -66,6 +100,31 @@ new_wording = '        self.assertIn("ausência é uma lacuna leve, não falha d
 if old_wording not in text:
     raise SystemExit('old structured-data wording assertion not found')
 text = text.replace(old_wording, new_wording, 1)
+write(path, text)
+
+# Historical scoring-version persistence remains testable, but the unpublished
+# versioned HTML URL is no longer generated or advertised.
+path = 'tests/test_historical_scoring_report_contract.py'
+text = read(path)
+pattern = r'def test_current_004_scoring_report_creates_compatibility_alias_only\(\) -> None:.*?(?=\n\ndef test_report_manifest_exposes_version_axes_without_score_or_evidence_payloads)'
+replacement = '''def test_current_004_scoring_report_uses_only_canonical_prepublication_surface() -> None:\n    install()\n    with tempfile.TemporaryDirectory() as directory:\n        workspace = _workspace(Path(directory) / "AUD-CURRENT", "SCORE-GEO-004")\n        before = _sha256(workspace.database)\n        path = write_score_geo_004_report(audit_id="AUD-HIST", workspace=workspace)\n        alias = path.parent / LEGACY_REPORT_FILE\n        after = _sha256(workspace.database)\n        html = path.read_text(encoding="utf-8")\n        assert "SCORE-GEO-004" in html\n        assert "VIGENTE" in html\n        assert "O que entra no score" in html\n        assert "O que não entra automaticamente no score" in html\n        assert not alias.exists()\n        assert before == after\n\n\n'''
+text, count = re.subn(pattern, replacement, text, flags=re.DOTALL)
+if count != 1:
+    raise SystemExit(f'historical current-004 test replacement count={count}')
+old_alias_assert = '        assert payload["aliases"] == {"score-geo-004.html": "scoring.html"}\n'
+if old_alias_assert not in text:
+    raise SystemExit('manifest alias assertion not found')
+text = text.replace(old_alias_assert, '        assert payload["aliases"] == {}\n', 1)
+write(path, text)
+
+# Navigation cleans up the stale development alias instead of trying to normalize it.
+path = 'tests/test_report_navigation.py'
+text = read(path)
+old = '            self.assertEqual(alias.read_text(encoding="utf-8"), alias_html)\n            self.assertIn("<aside class=\'app-nav\'", (report_dir / "index.html").read_text(encoding="utf-8"))\n'
+new = '            self.assertFalse(alias.exists())\n            self.assertIn("<aside class=\'app-nav\'", (report_dir / "index.html").read_text(encoding="utf-8"))\n'
+if old not in text:
+    raise SystemExit('navigation stale alias assertion not found')
+text = text.replace(old, new, 1)
 write(path, text)
 
 print('visual semantics fixup applied')
