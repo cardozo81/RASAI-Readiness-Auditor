@@ -22,6 +22,19 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Normalize remediation script anchor
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/rasai_backlog_fix_v2.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              "anchor = 'Falha de provider não deve ser convertida em finding do website;\\n'",
+              "anchor = '- falha de provider não deve ser convertida em finding do website;\\n'",
+          )
+          path.write_text(text, encoding='utf-8', newline='\n')
+          PY
+
       - name: Apply consolidated backlog patch
         run: python .github/rasai_backlog_fix_v2.py
 
