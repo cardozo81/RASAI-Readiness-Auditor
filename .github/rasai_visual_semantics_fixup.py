@@ -52,8 +52,8 @@ if count != 1:
     raise SystemExit(f'legacy alias test replacement count={count}')
 write(path, text)
 
-# The old test treated the whole Structured Data dimension as non-scoring when JSON-LD was absent.
-# Current SCORE-GEO-004 keeps BR-GEO-034 applicable as a modest WARNING, so assert the new contract.
+# Old assertions described the pre-refinement Structured Data semantics. Current
+# SCORE-GEO-004 keeps BR-GEO-034 applicable as a modest WARNING when JSON-LD is absent.
 path = 'tests/test_report_semantics.py'
 text = read(path)
 old_assert = '        self.assertIn("Não aplicável ao score", output)\n'
@@ -61,6 +61,11 @@ new_assert = '        self.assertIn("não significa que a dimensão inteira saiu
 if old_assert not in text:
     raise SystemExit('old structured-data semantic assertion not found')
 text = text.replace(old_assert, new_assert, 1)
+old_wording = '        self.assertIn("ausência, não falha de coleta", output)\n'
+new_wording = '        self.assertIn("ausência é uma lacuna leve, não falha de coleta", output)\n'
+if old_wording not in text:
+    raise SystemExit('old structured-data wording assertion not found')
+text = text.replace(old_wording, new_wording, 1)
 write(path, text)
 
 print('visual semantics fixup applied')
