@@ -9,6 +9,8 @@ from pathlib import Path
 import sqlite3
 from typing import Any
 
+from rasai.report_presentation import humanize_report_html
+
 from .models import ComparisonResult
 
 _GENAI_EXPORT_PREFIX = "GOOGLE_SEARCH_CONSOLE_GENERATIVE_AI_PERFORMANCE_EXPORT"
@@ -130,8 +132,9 @@ def write_impact_report(report_dir: str | Path, result: ComparisonResult, analys
         for item in active.associations
     ) or "<tr><td colspan='7'>Nenhuma associação temporal elegível foi emitida neste par.</td></tr>"
     limitations = "".join(f"<li>{escape(item)}</li>" for item in active.limitations)
+    html = f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>RASAi Change Impact</title><style>{_CSS}</style></head><body><main><header class='hero'><div class='eyebrow'>RASAi Monitor · Change Impact</div><h1>Mudança técnica × outcomes observados</h1><p>Baseline <code>{escape(result.baseline.audit_id)}</code> → atual <code>{escape(result.current.audit_id)}</code>. Esta página não estabelece causalidade.</p></header><section class='panel'><h2>Comparabilidade das janelas</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Fonte</th><th>Baseline</th><th>Atual</th><th>Interpretação</th></tr></thead><tbody>{window_rows}</tbody></table></div></section><section class='panel'><h2>Outcomes alterados</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Fonte</th><th>Métrica</th><th>Antes</th><th>Depois</th><th>Delta</th><th>Unidade</th></tr></thead><tbody>{rows}</tbody></table></div></section><section class='panel'><h2>Associações temporais</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Janela</th><th>Fonte</th><th>Outcome</th><th>Regressões técnicas</th><th>Exemplos</th><th>Interpretação</th></tr></thead><tbody>{association_rows}</tbody></table></div></section><section class='panel'><h2>Limitações</h2><ul>{limitations}</ul></section></main></body></html>"""
     path.write_text(
-        f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>RASAi Change Impact</title><style>{_CSS}</style></head><body><main><header class='hero'><div class='eyebrow'>RASAi Monitor · Change Impact</div><h1>Mudança técnica × outcomes observados</h1><p>Baseline <code>{escape(result.baseline.audit_id)}</code> → atual <code>{escape(result.current.audit_id)}</code>. Esta página não estabelece causalidade.</p></header><section class='panel'><h2>Comparabilidade das janelas</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Fonte</th><th>Baseline</th><th>Atual</th><th>Interpretação</th></tr></thead><tbody>{window_rows}</tbody></table></div></section><section class='panel'><h2>Outcomes alterados</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Fonte</th><th>Métrica</th><th>Antes</th><th>Depois</th><th>Delta</th><th>Unidade</th></tr></thead><tbody>{rows}</tbody></table></div></section><section class='panel'><h2>Associações temporais</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Janela</th><th>Fonte</th><th>Outcome</th><th>Regressões técnicas</th><th>Exemplos</th><th>Interpretação</th></tr></thead><tbody>{association_rows}</tbody></table></div></section><section class='panel'><h2>Limitações</h2><ul>{limitations}</ul></section></main></body></html>""",
+        humanize_report_html(html, page_name="monitoring-impact.html"),
         encoding="utf-8",
         newline="\n",
     )
