@@ -46,21 +46,7 @@ rasai-console.ini
 
 Pode armazenar entrada, projeto, idioma/mercado, `max-pages`, audits-root, device, configuração não sensível de IA, Web Performance e Synthetic Apdex.
 
-Não armazena secrets como:
-
-```text
-OPENAI_API_KEY
-DEEPSEEK_API_KEY
-MIMO_API_KEY
-XAI_API_KEY
-DASHSCOPE_API_KEY
-GEMINI_API_KEY
-ANTHROPIC_API_KEY
-RASAI_PAGESPEED_API_KEY
-RASAI_CRUX_API_KEY
-RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
-qualquer TOKEN / SECRET / PASSWORD / CREDENTIAL
-```
+Não armazena secrets como chaves de IA, tokens OAuth, passwords ou credentials.
 
 ## Defaults gerais
 
@@ -109,25 +95,9 @@ grok   -> xai
 claude -> anthropic
 ```
 
-AUTO:
+`AUTO` usa a cadeia core OpenAI → DeepSeek → MiMo. Providers de extensão permanecem explicit-only.
 
-```text
-OpenAI -> DeepSeek -> MiMo
-```
-
-Credenciais:
-
-```text
-OPENAI_API_KEY
-DEEPSEEK_API_KEY
-MIMO_API_KEY
-XAI_API_KEY
-DASHSCOPE_API_KEY
-GEMINI_API_KEY
-ANTHROPIC_API_KEY
-```
-
-A existência da variável não garante saldo, quota, plano ou acesso ao modelo. Procedimentos completos estão em [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md).
+Credenciais são lidas das variáveis documentadas em [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md). A existência da variável não garante saldo, quota, plano ou acesso ao modelo.
 
 ### Defaults públicos de modelos
 
@@ -140,6 +110,8 @@ QWEN       qwen3.8-flash
 GEMINI     gemini-3.8-flash
 ANTHROPIC  claude-sonnet-5
 ```
+
+Esses defaults pertencem à política pública de runtime (`provider_runtime_policy`); seleção explícita válida prevalece.
 
 ### Timeout de IA
 
@@ -171,7 +143,7 @@ Regras:
 - `auto` = hipótese provisória inferível apenas das evidências disponíveis;
 - configuração explícita é preferível em YMYL claramente identificado;
 - campos `auto` não podem virar fatos sobre autoria, expertise, experiência, compliance, reputação ou processo editorial;
-- o contexto não cria score próprio de E-E-A-T/YMYL e **não altera diretamente `SARI-001` nem a fórmula vigente de `SCORE-GEO-003`**;
+- o contexto não cria score próprio de E-E-A-T/YMYL e **não altera diretamente `SARI-001` nem a fórmula vigente de `SCORE-GEO-004`**;
 - essas variáveis não geram custo externo por si só; apenas condicionam chamadas de IA já habilitadas.
 
 Base conceitual: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md).
@@ -200,7 +172,7 @@ Default `false`; precedência:
 CLI explícito > RASAI_AI_TECHNICAL_REMEDIATION > false
 ```
 
-Essa finalidade é advisory, não altera scoring e não decide automaticamente política de GPTBot/Google-Extended.
+Essa finalidade é advisory, não altera scoring e não decide automaticamente política de crawler.
 
 Página canônica:
 
@@ -209,6 +181,8 @@ report/crawling-discovery.html
 ```
 
 ## Web Performance, Lighthouse e CrUX
+
+Principais variáveis:
 
 ```text
 RASAI_WEB_PERFORMANCE
@@ -235,19 +209,17 @@ crux
 none
 ```
 
-`crux` direto exige `RASAI_CRUX_API_KEY`.
+`crux` direto exige a credencial documentada para CrUX.
 
 ## Search Console / Observability
 
-Os comandos `rasai observe gsc-sites`, `gsc-sitemaps`, `gsc-search`, `gsc-appearance` e `gsc-inspect` usam OAuth bearer token em runtime:
+Os comandos observacionais do Search Console usam OAuth bearer token em runtime. Esse valor é temporário, não é API key e não deve ser gravado no INI, artifact, SQLite ou HTML.
 
-```text
-RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
-```
-
-Esse valor é **token OAuth temporário**, não API key. Não deve ser gravado no INI, artifact, SQLite ou HTML. O token precisa ter escopo Search Console compatível e acesso à propriedade informada. Consulte [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md) e [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md).
+Consulte [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md) e [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md).
 
 ## Synthetic Apdex
+
+Principais variáveis:
 
 ```text
 RASAI_SYNTHETIC_APDEX
@@ -260,19 +232,7 @@ RASAI_APDEX_DELAY_SECONDS
 RASAI_APDEX_CONCURRENCY
 ```
 
-Quando habilitado:
-
-```text
-T                      = obrigatório
-amostras válidas       = 100
-máximo de tentativas   = ceil(1.25 × alvo)
-máximo de páginas      = 1
-timeout por navegação  = max(45 s, 4T + 5 s)
-delay                  = 1 s
-concorrência           = 1; máximo 2
-```
-
-T não recebe valor arbitrário.
+Quando habilitado, `T` deve ser definido pelo perfil desejado; o RASAi não inventa threshold universal.
 
 ## Dispositivo
 
@@ -290,11 +250,7 @@ Valores: `mobile`, `desktop`, `both`. Default: `mobile`.
 - logs e relatórios não devem registrar secrets;
 - credencial configurada não implica crédito/quota;
 - variáveis persistidas não equivalem a secret manager;
-- integrações derivadas não alteram silenciosamente SARI/SCORE-GEO.
-
-## Identificadores internos
-
-Identificadores técnicos persistidos podem permanecer em tabelas e eventos por compatibilidade operacional. A interface pública usa a nomenclatura funcional do RASAi e do SARI.
+- integrações derivadas não alteram silenciosamente `SARI-001/SCORE-GEO-004`.
 
 ## Documentos relacionados
 
