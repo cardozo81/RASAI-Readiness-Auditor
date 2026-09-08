@@ -38,10 +38,11 @@ jobs:
       - name: Apply consolidated backlog patch
         run: python .github/rasai_backlog_fix_v2.py
 
-      - name: Align changed-contract regression expectations
+      - name: Align current-contract regressions and OGV disclosure
         run: |
           python - <<'PY'
           from pathlib import Path
+
           path = Path('tests/test_hotfix_ai_reporting_integrity.py')
           text = path.read_text(encoding='utf-8')
           text = text.replace(
@@ -53,12 +54,29 @@ jobs:
               'self.assertIn("CONFIGURADO · NÃO CONFIRMADO POR RESPOSTA VÁLIDA", html)',
           )
           path.write_text(text, encoding='utf-8', newline='\n')
+
+          path = Path('tests/test_content_analysis_context.py')
+          text = path.read_text(encoding='utf-8').replace(
+              'assert "SCORE-GEO-002" in html',
+              'assert "SCORE-GEO-004" in html',
+          )
+          path.write_text(text, encoding='utf-8', newline='\n')
+
+          path = Path('src/rasai/m26_reporting.py')
+          text = path.read_text(encoding='utf-8')
+          old = 'o RASAi não autentica o portal externo nem afirma que realizou coleta direta;'
+          new = 'o RASAi não faz scraping, não autentica o portal externo nem afirma que realizou coleta direta;'
+          if old not in text:
+              raise RuntimeError('M26 provenance disclosure anchor not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8', newline='\n')
           PY
 
       - name: Install test environment
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e . pytest
+          python -m playwright install --with-deps chromium
 
       - name: Compile changed runtime modules
         run: |
@@ -76,7 +94,8 @@ jobs:
             src/rasai/m23_reporting.py \
             src/rasai/m23_apdex_profiles.py \
             src/rasai/report_semantics.py \
-            src/rasai/external_metrics_integrity.py
+            src/rasai/external_metrics_integrity.py \
+            src/rasai/m26_reporting.py
 
       - name: Run targeted regressions
         run: |
@@ -88,7 +107,11 @@ jobs:
             tests/test_ai_retry_fallback_observability.py \
             tests/test_report_semantics.py \
             tests/test_hotfix_ai_reporting_integrity.py \
-            tests/test_m21_web_performance.py
+            tests/test_m21_web_performance.py \
+            tests/test_content_analysis_context.py \
+            tests/test_m26_observed_generative_visibility.py \
+            tests/test_m23_e2e_local.py \
+            tests/test_m25_browser_e2e.py
 
       - name: Run full regression suite
         run: python -m pytest -q
