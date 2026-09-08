@@ -1,0 +1,37 @@
+name: Public surface cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/apply_public_surface_cleanup.py'
+      - '.github/workflows/public-surface-cleanup.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Apply contextual cleanup
+        run: python tools/apply_public_surface_cleanup.py
+      - name: Commit cleanup when needed
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No cleanup changes required."
+            exit 0
+          fi
+          git config user.name "RASAi public-contract bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add README.md docs src tests
+          git commit -m "Clean public milestone labels and stale runtime wording"
+          git push origin HEAD:main
