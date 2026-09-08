@@ -45,7 +45,6 @@ jobs:
           tests/test_post_smoke_adherence_20260908.py
           tests/test_reporting_governance_refinement_20260908.py
           tests/test_scoring_report_layout_20260908.py
-          tests/test_m23_reporting.py
       - name: Full regression
         run: pytest -q
       - name: Commit validated implementation
