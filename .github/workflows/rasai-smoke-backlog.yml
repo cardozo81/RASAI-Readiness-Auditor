@@ -12,7 +12,7 @@ permissions:
 jobs:
   implement:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,5 +20,37 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Placeholder
-        run: echo "workflow staged; implementation script will replace this file before trigger"
+      - name: Install runtime and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+          python -m playwright install --with-deps chromium
+      - name: Apply consolidated backlog patch
+        run: python .github/rasai_smoke_backlog_fix.py
+      - name: Targeted regression
+        run: |
+          pytest -q \
+            tests/test_smoke_backlog_20260908.py \
+            tests/test_rasai_readiness_reporting.py \
+            tests/test_m20_content_remediation.py \
+            tests/test_report_semantics.py \
+            tests/test_m23_integration.py
+      - name: Full RASAi regression
+        run: pytest -q
+      - name: Remove temporary implementation artifacts
+        run: |
+          find . -maxdepth 1 -type f -name '.*.tmp' -print0 | xargs -0 -r git rm -f --ignore-unmatch --
+          git rm -f --ignore-unmatch .rasai-smoke-backlog-trigger
+          git rm -f --ignore-unmatch .github/rasai_smoke_backlog_fix.py
+          git rm -f --ignore-unmatch .github/workflows/rasai-smoke-backlog.yml
+      - name: Commit validated implementation to main
+        run: |
+          git config user.name "RASAi CI"
+          git config user.email "rasai-ci@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No validated changes to commit"
+            exit 0
+          fi
+          git commit -m "Fix smoke backlog reporting AI and Apdex diagnostics"
+          git push origin HEAD:main
