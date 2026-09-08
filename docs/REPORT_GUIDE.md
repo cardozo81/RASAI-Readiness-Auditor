@@ -376,3 +376,8 @@ Enums persistidos não são alterados no banco. A camada de apresentação tradu
 A ordem canônica do menu segue a sequência de leitura: visão geral → SARI → metodologia → evidências por dispositivo → crawling/acessibilidade/performance/Apdex → conteúdo/remediação → telemetria e outcomes de IA → quality → referências.
 
 Correlação: veja [`README.md`](README.md), [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`CONSOLIDATED_REPORTING.md`](CONSOLIDATED_REPORTING.md) e [`docs/README.md`](README.md).
+
+
+### Precedência dos estados visuais
+
+Quando uma tabela possui semântica específica de domínio, ela prevalece sobre o decorador genérico de estados. Em `readiness.html`, por exemplo, **Confiança baixa/Cobertura insuficiente** ou **Consolidação parcial** permanece em estado de atenção mesmo quando outra célula da mesma linha contém um valor terminal positivo. O decorador genérico de `Aprovado`, `Alerta`, `Erro`, `Consolidado` etc. só classifica linhas que ainda não receberam um estado semântico específico. Isso evita que um status operacional positivo esconda uma limitação material da medição.

@@ -64,9 +64,11 @@ _ACTIONABLE_BAD = {"fail", "failed", "não aprovado", "reprovado", "error", "err
 def enhance_report_html(html: str, *, page_name: str, report_dir: Path) -> str:
     """Add semantic visual states without changing persisted measurement values."""
     html = _decorate_metrics(html, page_name)
-    html = _decorate_actionable_rows(html)
     html = _translate_readiness_table_headers(html)
-    if page_name in {"mobile.html", "desktop.html"}:
+    # Domain-specific semantics must run before the generic table decorator.
+    # Otherwise a generic terminal state such as "Consolidado" can mask a more
+    # important condition such as low confidence/coverage.
+    if page_name in {"readiness.html", "mobile.html", "desktop.html"}:
         html = _enhance_score_page(html)
     elif page_name == "accessibility.html":
         html = _enhance_accessibility(html)
@@ -76,6 +78,7 @@ def enhance_report_html(html: str, *, page_name: str, report_dir: Path) -> str:
         html = _enhance_apdex(html, report_dir)
     elif page_name == "web-performance.html":
         html = _enhance_web_performance(html)
+    html = _decorate_actionable_rows(html)
     return enrich_indicator_provenance_html(html, page_name=page_name)
 
 
@@ -468,6 +471,10 @@ def _merge_class_attr(attrs: str, class_name: str) -> str:
 def _decorate_actionable_rows(html: str) -> str:
     """Give actionable result cells a consistent semantic state across reports."""
     def replace_row(match: re.Match[str]) -> str:
+        # A domain-specific row state has precedence over generic terminal values.
+        # This keeps e.g. LOW confidence + CONSOLIDATED visually warning, not green.
+        if re.search(r"\bresult-state-(?:good|warn|bad|neutral)\b", match.group("attrs")):
+            return match.group(0)
         body = match.group("body")
         cells = list(_TABLE_CELL_RE.finditer(body))
         if not cells:

@@ -66,3 +66,24 @@ def test_actionable_table_rows_are_idempotent() -> None:
     assert twice.count("result-state-warn") == once.count("result-state-warn")
     assert twice.count("result-cell warn") == once.count("result-cell warn")
     assert twice.count("result-tag warn") == once.count("result-tag warn")
+
+
+def test_readiness_low_confidence_has_precedence_over_consolidated_state() -> None:
+    html = (
+        "<table><tbody><tr><td>Evidências e confiabilidade</td><td>75.0</td>"
+        "<td>67%</td><td>Baixa</td><td>Consolidado</td></tr></tbody></table>"
+    )
+    rendered = enhance_report_html(html, page_name="readiness.html", report_dir=ROOT)
+    assert "result-state-warn" in rendered
+    assert "Cobertura insuficiente" in rendered
+    assert "result-state-good" not in rendered
+
+
+def test_readiness_partial_state_remains_warning_after_global_decoration() -> None:
+    html = (
+        "<table><tbody><tr><td>Evidências e confiabilidade</td><td>75.0</td>"
+        "<td>100%</td><td>Alta</td><td>Parcial</td></tr></tbody></table>"
+    )
+    rendered = enhance_report_html(html, page_name="readiness.html", report_dir=ROOT)
+    assert "result-state-warn" in rendered
+    assert "result-state-good" not in rendered
