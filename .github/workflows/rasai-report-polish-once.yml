@@ -42,9 +42,17 @@ jobs:
             tests/test_user_facing_language_contract.py \
             tests/test_rasai_readiness_reporting.py \
             tests/test_report_registry_and_method_docs.py \
-            tests/test_consolidated_reporting.py
+            tests/test_report_semantics.py \
+            tests/test_report_presentation.py \
+            tests/test_report_navigation.py \
+            tests/test_consolidation.py \
+            tests/test_consolidation_reporting_ux.py \
+            tests/test_consolidated_backlog_regressions.py \
+            tests/test_consolidation_comparability.py
       - name: Public contract gate
         run: python -m rasai.public_contract_gate
+      - name: Install Chromium for browser regressions
+        run: python -m playwright install chromium
       - name: Full regression
         run: pytest -q
       - name: Remove one-shot automation
