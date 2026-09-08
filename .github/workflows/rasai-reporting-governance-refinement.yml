@@ -23,6 +23,16 @@ jobs:
           python-version: '3.13'
       - name: Apply governance refinement
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/rasai_reporting_governance_refinement.py')
+          s = p.read_text(encoding='utf-8')
+          old = '        limits = json.loads(str(audit["limitations"] or "[]"))'
+          new = '        limits_raw = audit["limitations"] if "limitations" in audit.keys() else "[]"\n        limits = json.loads(str(limits_raw or "[]"))'
+          if old not in s:
+              raise SystemExit('governance limitations compatibility target not found')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8', newline='\n')
+          PY
           python .github/rasai_reporting_governance_refinement.py
           rm -f .github/rasai_reporting_governance_refinement.py
           rm -f .github/workflows/rasai-reporting-governance-refinement.yml
@@ -39,6 +49,7 @@ jobs:
         run: |
           pytest -q \
             tests/test_reporting_governance_refinement_20260908.py \
+            tests/test_rasai_readiness_reporting.py \
             tests/test_scoring_discovery_refinement_20260908.py \
             tests/test_post_smoke_adherence_20260908.py \
             tests/test_m24_crawling_discovery.py \
