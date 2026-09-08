@@ -112,8 +112,8 @@ class M9ScoringTests(unittest.TestCase):
         self.assertEqual(overall.coverage, 1.0)
         self.assertEqual(overall.consolidation_status, ConsolidationStatus.CONSOLIDATED)
         self.assertIn("DIMENSION_NOT_APPLICABLE:STRUCTURED_DATA", overall.limitations)
-        self.assertEqual(overall.scoring_version, "SCORE-GEO-002")
-        self.assertEqual(SCORING_VERSION, "SCORE-GEO-002")
+        self.assertEqual(overall.scoring_version, "SCORE-GEO-004")
+        self.assertEqual(SCORING_VERSION, "SCORE-GEO-004")
 
     def test_structured_data_when_present_enters_overall_calculation(self) -> None:
         structured = (
