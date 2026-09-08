@@ -65,6 +65,7 @@ jobs:
               "src/rasai/m24_reporting.py": {
                   "Os diagnósticos M24 desta página são advisory/non-scoring": "Os diagnósticos aprofundados desta página são advisory/non-scoring",
                   '"Impacto M24", "NENHUM direto"': '"Impacto desta camada", "NENHUM direto"',
+                  "a remediação M24 permanece advisory e não altera scoring": "a remediação técnica desta camada permanece advisory e não altera scoring",
               },
           }
           for filename, replacements in language_replacements.items():
