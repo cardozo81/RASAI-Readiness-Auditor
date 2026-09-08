@@ -99,7 +99,6 @@ A ordem e os filenames vêm de um contrato estruturado único (`ReportSurface`).
 
 A versão pertence ao campo persistido `scoring_version` e ao conteúdo da página, não ao filename. Isso evita quebrar bookmarks, integrações, automações e futuras rotas SaaS a cada revisão metodológica.
 
-`score-geo-004.html` pode existir **somente como alias de compatibilidade** em AUDs efetivamente produzidos com `SCORE-GEO-004`; não é item de menu nem contrato público principal. Um AUD histórico 002/003 não recebe esse alias, para não sugerir uma metodologia que não foi usada.
 
 ### Manifest do report
 

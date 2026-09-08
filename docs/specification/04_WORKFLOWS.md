@@ -95,7 +95,6 @@ report/scoring.html
 
 Other domain pages are materialized conditionally, including Mobile/Desktop, remediation, content suggestions, crawling/discovery, accessibility, Web Performance, both Apdex domains, AI visibility, Observability, Quality, AI usage and references.
 
-`report/scoring.html` is version-neutral. The actual method version is persisted in `scoring_version` and shown in page content. `report/score-geo-004.html` is a compatibility alias only.
 
 Opening static HTML does not trigger crawling, AI or external API collection. `audit.db` + artifacts remain source evidence.
 

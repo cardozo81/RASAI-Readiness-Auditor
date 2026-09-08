@@ -23,7 +23,7 @@ from rasai.report_contract import (
 )
 from rasai.score_geo_004 import SCORING_VERSION
 from rasai.score_geo_004_cli import main as scoring_cli_main
-from rasai.score_geo_004_reporting import LEGACY_REPORT_FILE, REPORT_FILE
+from rasai.score_geo_004_reporting import REPORT_FILE
 
 EXPECTED_SCORING_VERSION = "SCORE-GEO-004"
 EXPECTED_SARI_VERSION = "SARI-001"
@@ -157,12 +157,10 @@ def _check_runtime(errors: list[str]) -> None:
     if REPORT_FILE != EXPECTED_REPORT_FILE:
         errors.append(f"REPORT_FILE={REPORT_FILE!r}; esperado {EXPECTED_REPORT_FILE}")
     nav_filenames = [filename for _label, filename in CANONICAL_NAV_ITEMS]
-    if LEGACY_REPORT_FILE in nav_filenames:
-        errors.append("alias versionado está na navegação canônica")
     if tuple(CANONICAL_FILENAMES) != EXPECTED_CANONICAL_FILENAMES:
         errors.append("lista canônica de report surfaces diverge do contrato público")
-    if REPORT_ALIASES.get("score-geo-004.html") != "scoring.html":
-        errors.append("alias score-geo-004.html não aponta para scoring.html")
+    if REPORT_ALIASES:
+        errors.append("build pré-publicação não deve expor aliases históricos de report")
     if not REPORT_CONTRACT_VERSION or not OBSERVABILITY_CONTRACT_VERSION:
         errors.append("versões de contrato de report/observability não estão definidas")
 

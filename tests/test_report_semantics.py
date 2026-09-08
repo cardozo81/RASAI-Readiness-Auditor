@@ -23,8 +23,9 @@ class ReportSemanticTests(unittest.TestCase):
         self.assertIn("Por que a confiança está baixa?", output)
         self.assertIn("Capacidade de indexação", output)
         self.assertIn("Opcional / não detectado", output)
-        self.assertIn("Não aplicável ao score", output)
-        self.assertIn("ausência, não falha de coleta", output)
+        self.assertIn("não significa que a dimensão inteira saiu do SARI", output)
+        self.assertIn("BR-GEO-034", output)
+        self.assertIn("ausência é uma lacuna leve, não falha de coleta", output)
 
     def test_lighthouse_and_cwv_use_documented_threshold_states(self) -> None:
         html = (

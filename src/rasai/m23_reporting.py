@@ -433,11 +433,22 @@ def _sample_browser_diagnostics(row: sqlite3.Row) -> str:
     return f"<details class='browser-diagnostics'><summary>{len(events)} evento(s)</summary><ul>{items}</ul></details>"
 
 
+def _apdex_class_badge(value: Any) -> str:
+    raw = str(value or "EXCLUÍDA").upper()
+    mapping = {
+        "SATISFIED": ("satisfied", "Satisfied"),
+        "TOLERATING": ("tolerating", "Tolerating"),
+        "FRUSTRATED": ("frustrated", "Frustrated"),
+    }
+    css, label = mapping.get(raw, ("excluded", "Excluída"))
+    return f"<span class='apdex-class apdex-class-{css}'>{escape(label)}</span>"
+
+
 def _sample_row(row: sqlite3.Row) -> str:
     return (
         "<tr>"
         f"<td>{int(row['run_index'])}</td><td>{_ms(row['duration_ms'])}</td>"
-        f"<td>{escape(str(row['classification'] or 'EXCLUÍDA'))}</td>"
+        f"<td>{_apdex_class_badge(row['classification'])}</td>"
         f"<td>{escape(str(row['status']))}</td>"
         f"<td>{escape(str(row['http_status'] if row['http_status'] is not None else '-'))}</td>"
         f"<td>{escape(str(row['error_code'] or '-'))}</td>"

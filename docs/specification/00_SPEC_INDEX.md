@@ -88,7 +88,6 @@ Contrato de saída por auditoria, condicionado à materialização:
 <AUD-ID>/report/index.html
 <AUD-ID>/report/readiness.html
 <AUD-ID>/report/scoring.html
-<AUD-ID>/report/score-geo-004.html       # alias de compatibilidade; não canônico
 <AUD-ID>/report/mobile.html
 <AUD-ID>/report/desktop.html
 <AUD-ID>/report/remediation.html

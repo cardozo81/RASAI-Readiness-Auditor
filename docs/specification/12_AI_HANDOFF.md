@@ -118,7 +118,6 @@ A página de metodologia deve ser:
 report/scoring.html
 ```
 
-A versão efetiva é exibida no conteúdo e persistida no banco. `score-geo-004.html` pode existir como alias de compatibilidade, mas não como contrato canônico novo.
 
 Normalização de HTML não pode substituir cegamente `SCORE-GEO-003` por `004`, pois isso corromperia referências históricas legítimas.
 

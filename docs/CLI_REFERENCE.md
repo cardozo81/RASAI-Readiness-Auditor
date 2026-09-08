@@ -68,7 +68,6 @@ report/readiness.html
 report/scoring.html
 ```
 
-`report/score-geo-004.html` é alias de compatibilidade; novas integrações devem usar `report/scoring.html`.
 
 ## IA no audit
 

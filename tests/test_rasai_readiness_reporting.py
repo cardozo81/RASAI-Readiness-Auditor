@@ -205,8 +205,9 @@ def test_device_pages_keep_findings_but_not_rasai_scorecards() -> None:
             assert "finding evidence" in html
             assert "data-rasai-device-role='evidence-only'" in html
             assert "Search & AI Readiness" in html
-            assert "<div class=\"score-grid\">" not in html
-            assert "<div class='kicker'>Scorecard</div>" not in html
+            assert "score-grid" in html
+            assert "<div class='kicker'>Scorecard</div>" in html
+            assert "espelho read-only" in html
 
 
 def test_dashboard_does_not_mix_external_metrics_into_sari() -> None:

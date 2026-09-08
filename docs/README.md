@@ -10,7 +10,6 @@ O baseline funcional vigente usa:
 - método de scoring `SCORE-GEO-004` para novas auditorias;
 - `report/readiness.html` como superfície canônica do índice;
 - `report/scoring.html` como superfície canônica da metodologia;
-- `report/score-geo-004.html` somente como alias interno de compatibilidade durante o desenvolvimento;
 - HTML em português do Brasil, mantendo em inglês apenas nomes técnicos consolidados, identificadores, APIs, formatos e termos cujo uso técnico melhora a precisão.
 
 ## Ordem de leitura recomendada

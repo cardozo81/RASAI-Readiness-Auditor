@@ -140,7 +140,6 @@ readiness.html
 scoring.html
 ```
 
-Other pages are conditional by materialization. `score-geo-004.html` may exist only as a compatibility alias; it is not the canonical navigation target.
 
 The method version is stored in `scoring_version` and rendered in the page, not encoded into the canonical filename.
 

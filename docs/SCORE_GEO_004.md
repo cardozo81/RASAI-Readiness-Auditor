@@ -194,7 +194,6 @@ report/scoring.html
 
 A versão metodológica **não faz parte do nome canônico do arquivo**. Ela é persistida em `scoring_version` e exibida no conteúdo. Isso evita quebra de links e contratos de navegação quando uma futura versão substituir o 004.
 
-`report/score-geo-004.html` pode ser materializado como alias de compatibilidade para links produzidos anteriormente; não é a rota recomendada para novas integrações.
 
 ## Relação com SCORE-GEO-003
 

@@ -18,7 +18,7 @@ from rasai.score_geo_004 import (
 )
 
 # Public URLs are version-neutral. Method versions live in persisted metadata and
-# in the rendered content. The versioned 004 path is compatibility-only.
+# in the rendered content. This pre-publication build exposes only the canonical path.
 REPORT_FILE = "scoring.html"
 LEGACY_REPORT_FILE = "score-geo-004.html"
 
@@ -92,28 +92,15 @@ def write_score_geo_004_report(*, audit_id: str, workspace: AuditWorkspace) -> P
 {_method_section(effective_version, workspace, audit_id)}
 <section class='panel'><h2>O que entra no score</h2><p class='intro'>Entram somente <strong>RuleExecutions aplicáveis</strong> mapeadas às dimensões do contrato e suas evidências persistidas. Para {SCORING_VERSION}, cada dimensão usa pesos e fatores estáticos/versionados persistidos em <code>score_contributions</code>; o Overall usa peso igual entre dimensões aplicáveis que tenham medição suficiente. Sitemap e robots usam peso interno pequeno/moderado e compartilham grupos com eventual avaliação técnica por IA, impedindo bônus duplicado. JSON-LD ausente é uma lacuna leve mensurável; JSON-LD inválido é desfavorável; consistência semântica pode usar IA evidence-bound quando disponível.</p>{_dimension_list(effective_version)}</section>
 <section class='panel'><h2>O que não entra automaticamente no score</h2><ul><li>Lighthouse Performance;</li><li>Core Web Vitals / CrUX;</li><li>Lighthouse Accessibility;</li><li>Synthetic Navigation Apdex;</li><li>Synthetic User Experience Apdex;</li><li>Observed Generative Visibility;</li><li>Search Console e demais outcomes de Observability;</li><li>custos, tokens ou quantidade de chamadas de IA;</li><li>Monitoring, Quality, Fix Verification e Evidence Timeline.</li></ul><div class='notice'><strong>IA e scoring:</strong> IA não escolhe pesos, thresholds ou o Overall. Quando elegível e explicitamente habilitada, uma avaliação evidence-bound pode materializar RuleExecution bounded em regra previamente definida pelo contrato (por exemplo BR-GEO-055/056); essa regra compartilha o scoring_group do sinal determinístico e não cria bônus duplicado. O cálculo final continua determinístico sobre estados/evidências persistidos.</div></section>
-<section class='panel'><h2>Dependências e reprodutibilidade</h2><div class='grid'><div><h3>Inputs</h3><p>RuleExecutions, Evidences, applicability, pesos/fatores persistidos, Coverage e Confidence.</p></div><div><h3>Outputs</h3><p>Scores por dimensão, Overall, Coverage, Confidence e Consolidation.</p></div><div><h3>Dependências obrigatórias</h3><p><code>audit.db</code> íntegro e <code>scoring_version</code> preservada.</p></div><div><h3>IA obrigatória</h3><p>Não para a fórmula. A ausência de IA pode deixar regras semânticas sem evidência suficiente quando aplicável.</p></div><div><h3>Fonte de verdade</h3><p><code>audit.db</code>; HTML é somente projeção.</p></div><div><h3>Comparabilidade histórica</h3><p>Somente séries com metodologia compatível. 002, 003 e 004 não são misturados como se fossem o mesmo método.</p></div></div></section>
+<section class='panel'><h2>Dependências e reprodutibilidade</h2><div class='grid'><div><h3>Inputs</h3><p>RuleExecutions, Evidences, applicability, pesos/fatores persistidos, Coverage e Confidence.</p></div><div><h3>Outputs</h3><p>Scores por dimensão, Overall, Coverage, Confidence e Consolidation.</p></div><div><h3>Dependências obrigatórias</h3><p><code>audit.db</code> íntegro e <code>scoring_version</code> preservada.</p></div><div><h3>IA obrigatória</h3><p>Não para a fórmula. A ausência de IA pode deixar regras semânticas sem evidência suficiente quando aplicável.</p></div><div><h3>Fonte de verdade</h3><p><code>audit.db</code>; HTML é somente projeção.</p></div><div><h3>Contrato vigente</h3><p>Esta build de desenvolvimento publica somente o contrato vigente da auditoria. A versão continua persistida em <code>scoring_version</code>.</p></div></div></section>
 <section class='panel'><h2>Estados de medição</h2><p><code>UNKNOWN</code> não significa FAIL. <code>NOT_APPLICABLE</code> não recebe zero. Ausência de um recurso que o método considera uma melhoria de readiness pode ser <code>WARNING</code> com fator reduzido em vez de PASS ou zero. <code>NOT_CONSOLIDATED</code> indica que a evidência não sustenta consolidação. <code>UNAVAILABLE</code> indica ausência técnica do dado esperado para aquela superfície.</p></section>
-<section class='panel'><h2>Contrato do arquivo</h2><p><code>{REPORT_FILE}</code> é o endereço canônico e estável. A versão metodológica pertence a <code>scoring_version</code>, banco, manifests, metadados e conteúdo. {_alias_explanation(effective_version)}</p></section>
+<section class='panel'><h2>Contrato do arquivo</h2><p><code>{REPORT_FILE}</code> é o único endereço canônico desta build de desenvolvimento. A versão metodológica pertence a <code>scoring_version</code>, banco, manifests, metadados e conteúdo.</p></section>
 <footer class='footer'>{escape(effective_version)} é uma metodologia versionada e auditável do RASAi. O índice não garante ranking, tráfego, conversão ou citação futura.</footer></main></body></html>\n"""
     path = report_dir / REPORT_FILE
     path.write_text(html, encoding="utf-8", newline="\n")
-    if effective_version == SCORING_VERSION:
-        _write_legacy_alias(report_dir)
-    else:
-        # A versioned 004 alias on a historical AUD would falsely imply that
-        # the historical audit was scored with 004. Report files are projections,
-        # so removing only this compatibility alias does not mutate audit evidence.
-        (report_dir / LEGACY_REPORT_FILE).unlink(missing_ok=True)
+    # Pre-publication development contract: keep only the canonical version-neutral surface.
+    (report_dir / LEGACY_REPORT_FILE).unlink(missing_ok=True)
     return path
-
-
-def _write_legacy_alias(report_dir: Path) -> Path:
-    """Keep old 004 links working without making the versioned path canonical."""
-    alias = report_dir / LEGACY_REPORT_FILE
-    html = f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><meta http-equiv='refresh' content='0; url={REPORT_FILE}'><link rel='canonical' href='{REPORT_FILE}'><title>Metodologia de scoring - compatibilidade</title></head><body><main><p>Este endereço é um alias de compatibilidade do SCORE-GEO-004. O contrato público canônico é <a href='{REPORT_FILE}'>{REPORT_FILE}</a>; a versão efetivamente usada é lida do <code>audit.db</code>.</p></main></body></html>\n"""
-    alias.write_text(html, encoding="utf-8", newline="\n")
-    return alias
 
 
 def _scoring_versions(audit_id: str, workspace: AuditWorkspace) -> list[str]:

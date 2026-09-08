@@ -19,7 +19,6 @@ audits/<AUD-ID>/
    ├─ index.html
    ├─ readiness.html
    ├─ scoring.html             # canônico; método vigente e versão persistida
-   ├─ score-geo-004.html       # alias de compatibilidade
    ├─ mobile.html              # condicional
    ├─ desktop.html             # condicional
    ├─ crawling-discovery.html  # condicional
@@ -228,7 +227,6 @@ Página canônica de `SARI-001`.
 
 Página canônica da metodologia de scoring. Exibe `scoring_version`, contrato do Overall, Coverage, Confidence, Consolidation e rastreabilidade. O método vigente é `SCORE-GEO-004`.
 
-### `score-geo-004.html`
 
 Alias de compatibilidade para links produzidos durante o desenvolvimento. Redireciona para `scoring.html` e não deve ser usado como contrato por novas integrações.
 

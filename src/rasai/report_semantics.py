@@ -36,6 +36,12 @@ details.priority-high{border-left:4px solid var(--red);background:var(--soft-red
 .score-confidence-note{margin-top:12px}.score-confidence-note ul{margin:.5rem 0 0;padding-left:1.15rem}.score-confidence-note li+li{margin-top:.22rem}
 .apdex-threshold-note{margin-top:12px}.apdex-threshold-note code{font-weight:650}.apdex-card.apdex-conflict{box-shadow:0 7px 20px rgba(182,138,80,.08),inset 3px 0 0 rgba(182,138,80,.72)}
 .indicator-tier-label{margin:.85rem 0 .45rem;color:var(--muted);font-size:.72rem;font-weight:760;text-transform:uppercase;letter-spacing:.07em}.indicator-tier-supporting{margin-top:1.1rem}.indicator-primary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));gap:12px;align-items:stretch}.indicator-grid{grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch}.indicator-card{display:flex;flex-direction:column;min-width:0}.indicator-card.indicator-primary{min-height:0}.indicator-card h3{font-size:1rem;line-height:1.25;min-height:2.5em}.indicator-primary h3{min-height:auto}.indicator-card .intro{font-size:.88rem;max-width:100%}.indicator-score{font-size:clamp(1.5rem,2vw,1.9rem)!important;line-height:1.06;overflow-wrap:normal;word-break:normal;white-space:nowrap}.indicator-values{display:flex;gap:12px;flex-wrap:wrap;margin:.45rem 0}.indicator-device{display:flex;flex-direction:column;gap:2px;min-width:92px}.indicator-device small{color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.04em}.indicator-device strong{font-size:clamp(1.5rem,2vw,1.9rem);line-height:1.06;white-space:nowrap}.indicator-condition{display:inline-flex;width:max-content;max-width:100%;margin:.35rem 0 .2rem;padding:3px 8px;border-radius:999px;font-size:.7rem;font-weight:760;line-height:1.35}.indicator-card.condition-expected{border-top:4px solid var(--green);background:var(--soft-green)}.indicator-card.condition-near{border-top:4px solid var(--amber);background:var(--soft-amber)}.indicator-card.condition-below{border-top:4px solid #a96f38;background:rgba(169,111,56,.08)}.indicator-card.condition-critical{border-top:4px solid var(--red);background:var(--soft-red)}.indicator-card.condition-neutral{border-top:4px solid var(--blue);background:var(--soft-blue)}.condition-expected .indicator-condition{background:rgba(95,150,116,.16);color:#3f7452}.condition-near .indicator-condition{background:rgba(182,138,80,.18);color:#855f2c}.condition-below .indicator-condition{background:rgba(169,111,56,.17);color:#815126}.condition-critical .indicator-condition{background:rgba(191,111,112,.18);color:#98494c}.condition-neutral .indicator-condition{background:rgba(101,127,198,.15);color:#4d65a0}
+
+.score-condition-tag{display:inline-flex;margin-left:7px;padding:2px 7px;border-radius:999px;font-size:.66rem;font-weight:760;line-height:1.3;vertical-align:middle;white-space:nowrap}.score-condition-tag.expected{background:rgba(95,150,116,.16);color:#3f7452}.score-condition-tag.near{background:rgba(182,138,80,.18);color:#855f2c}.score-condition-tag.below{background:rgba(169,111,56,.18);color:#815126}.score-condition-tag.critical{background:rgba(191,111,112,.18);color:#98494c}.score-condition-tag.neutral{background:rgba(101,127,198,.14);color:#4d65a0}
+tr.score-condition-expected{background:rgba(95,150,116,.06)}tr.score-condition-near{background:rgba(182,138,80,.08)}tr.score-condition-below{background:rgba(169,111,56,.08)}tr.score-condition-critical{background:rgba(191,111,112,.08)}tr.score-condition-neutral{background:rgba(101,127,198,.06)}
+tr.score-condition-expected>td:first-child{box-shadow:inset 4px 0 0 var(--green)}tr.score-condition-near>td:first-child{box-shadow:inset 4px 0 0 var(--amber)}tr.score-condition-below>td:first-child{box-shadow:inset 4px 0 0 #a96f38}tr.score-condition-critical>td:first-child{box-shadow:inset 4px 0 0 var(--red)}tr.score-condition-neutral>td:first-child{box-shadow:inset 4px 0 0 var(--blue)}
+.score-condition-legend{display:flex;gap:8px;flex-wrap:wrap;margin:9px 0 12px}.score-condition-legend .score-condition-tag{margin-left:0}
+.apdex-class{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:.7rem;font-weight:760;white-space:nowrap}.apdex-class-satisfied{background:rgba(95,150,116,.16);color:#3f7452}.apdex-class-tolerating{background:rgba(205,161,60,.18);color:#7b5a10}.apdex-class-frustrated{background:rgba(191,111,112,.18);color:#98494c}.apdex-class-excluded{background:#eef0f3;color:#596274}
 @media(max-width:1120px){.indicator-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.indicator-grid,.indicator-primary-grid{grid-template-columns:1fr}.result-tag,.priority-tag{white-space:normal}.priority-tag{margin-left:0;margin-top:4px}}
 """
@@ -198,6 +204,23 @@ def _threshold_state(value: str, *, good: float, needs: float, primary: bool) ->
     return "bad", "Ruim", primary
 
 
+def _score_condition(score_text: str, confidence: str, consolidation: str) -> tuple[str, str]:
+    consolidation_key = consolidation.casefold().strip()
+    confidence_key = confidence.casefold().strip()
+    if consolidation_key in {"não aplicável", "nao aplicavel"}:
+        return "neutral", "Não aplicável"
+    value = _first_number(score_text)
+    if value is None:
+        return "neutral", "Sem medição conclusiva"
+    if value < 40:
+        return "critical", "Crítico"
+    if value < 75:
+        return "below", "Abaixo do esperado"
+    if consolidation_key != "consolidado" or confidence_key == "baixa":
+        return "near", "Quase no esperado"
+    return "expected", "Dentro do esperado"
+
+
 def _enhance_score_page(html: str) -> str:
     low_rows: list[tuple[str, str]] = []
 
@@ -208,26 +231,35 @@ def _enhance_score_page(html: str) -> str:
         confidence = unescape(match.group("confidence")).strip()
         consolidation = unescape(match.group("consolidation")).strip()
         attrs = _strip_result_state(match.group("attrs"))
-        state = "good"
-        tag = ""
-        if dimension.casefold() == "dados estruturados" and consolidation.casefold() == "não aplicável":
-            state = "neutral"
-            coverage = "-"
-            confidence = "Não detectado"
-            consolidation = "Não aplicável ao score"
-            tag = " <span class='result-tag neutral'>Opcional / não detectado</span>"
-        elif confidence.casefold() == "baixa":
-            state = "warn"
+        state, label = _score_condition(score, confidence, consolidation)
+        if confidence.casefold() == "baixa":
             low_rows.append((dimension, coverage))
-            tag = " <span class='result-tag warn'>Cobertura insuficiente</span>"
-        elif consolidation.casefold() == "parcial":
-            state = "warn"
+        if dimension.casefold() == "dados estruturados" and consolidation.casefold() == "não aplicável":
+            coverage = "-"
+            confidence = "Não aplicável"
+        coverage_number = _first_number(coverage)
+        if state == "near" and coverage_number is not None and coverage_number < 80:
+            label = "Quase no esperado · Cobertura insuficiente"
+        elif state == "near" and confidence.casefold() == "baixa":
+            label = "Quase no esperado · Confiança baixa"
+        tag = f" <span class='score-condition-tag {state}'>{escape(label)}</span>"
+        legacy_state = {"expected": "good", "near": "warn", "below": "warn", "critical": "bad", "neutral": "neutral"}[state]
         return (
-            f"<tr{attrs} class='result-state-{state}'><td>{escape(dimension)}{tag}</td>"
-            f"<td>{score}</td><td>{coverage}</td><td>{escape(confidence)}</td><td>{escape(consolidation)}</td></tr>"
+            f"<tr{attrs} class='score-condition-{state} result-state-{legacy_state}'><td>{escape(dimension)}</td>"
+            f"<td>{score}{tag}</td><td>{coverage}</td><td>{escape(confidence)}</td><td>{escape(consolidation)}</td></tr>"
         )
 
     html = _DIMENSION_ROW_RE.sub(row_replace, html)
+    if "score-condition-legend" not in html:
+        legend = (
+            "<div class='score-condition-legend' aria-label='Legenda de condição do score'>"
+            "<span class='score-condition-tag expected'>Dentro do esperado</span>"
+            "<span class='score-condition-tag near'>Quase no esperado</span>"
+            "<span class='score-condition-tag below'>Abaixo do esperado</span>"
+            "<span class='score-condition-tag critical'>Crítico</span>"
+            "<span class='score-condition-tag neutral'>Sem medição / não aplicável</span></div>"
+        )
+        html = re.sub(r"(<h2>Dimensões[^<]*</h2>)", r"\1" + legend, html, count=1, flags=re.IGNORECASE)
     if "score-confidence-note" not in html and "Confiança baixa" in html:
         items = "".join(f"<li><strong>{escape(name)}</strong>: coverage {escape(coverage)}.</li>" for name, coverage in low_rows)
         detail = (
@@ -240,13 +272,15 @@ def _enhance_score_page(html: str) -> str:
         html = html.replace("</header>", "</header>" + detail, 1)
     if "Dados estruturados" in html and "structured-data-absence-note" not in html:
         note = (
-            "<div class='notice structured-data-absence-note'><strong>Dados estruturados: ausência, não falha de coleta.</strong> "
-            "Quando nenhum Structured Data aplicável é observado no snapshot, a dimensão fica NOT_APPLICABLE e não reduz o Overall. "
-            "Se markup estruturado existir em uma execução futura, as regras correspondentes passam a ser avaliadas.</div>"
+            "<div class='notice structured-data-absence-note'><strong>Dados estruturados: ausência é uma lacuna leve, não falha de coleta.</strong> "
+            "Estado observado <strong>Opcional / não detectado</strong> não significa que a dimensão inteira saiu do SARI: quando nenhum JSON-LD é observado, BR-GEO-034 permanece aplicável e recebe WARNING com fator reduzido; regras de tipos/consistência sem markup podem ficar NOT_APPLICABLE. "
+            "JSON-LD válido e coerente pode melhorar a dimensão; markup inválido ou contraditório pode reduzi-la.</div>"
         )
         scorecard_end = html.find("</section>", html.find("Dimensões"))
         if scorecard_end >= 0:
             html = html[:scorecard_end] + note + html[scorecard_end:]
+        else:
+            html += note
     return html
 
 

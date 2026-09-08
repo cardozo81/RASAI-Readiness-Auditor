@@ -58,7 +58,7 @@ class ReportNavigationTests(unittest.TestCase):
 
             normalize_report_navigation(report_dir)
 
-            self.assertEqual(alias.read_text(encoding="utf-8"), alias_html)
+            self.assertFalse(alias.exists())
             self.assertIn("<aside class='app-nav'", (report_dir / "index.html").read_text(encoding="utf-8"))
 
     def test_optional_pages_are_omitted_until_their_files_exist(self) -> None:

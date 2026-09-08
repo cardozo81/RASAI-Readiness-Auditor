@@ -837,16 +837,13 @@ def _rewrite_index(html: str, data: dict[str, Any], report_dir: Path) -> str:
 
 
 def _rewrite_device_page(html: str, filename: str) -> str:
-    html = re.sub(r"<div class=\"score-grid\">.*?</header>", "</header>", html, count=1, flags=re.DOTALL)
-    html = re.sub(r"<div class='score-grid'>.*?</header>", "</header>", html, count=1, flags=re.DOTALL)
-    html = re.sub(
-        r"<section class=(['\"])panel\1>\s*<div class=(['\"])kicker\2>Scorecard</div>.*?</section>",
-        "", html, count=1, flags=re.DOTALL,
-    )
     label = "Mobile" if filename == "mobile.html" else "Desktop"
     marker = "data-rasai-device-role='evidence-only'"
     if marker not in html:
-        notice = f"<section class='notice' {marker}><strong>Papel desta página:</strong> evidências e findings {label}. Score, Coverage, Confidence e dimensões RASAi estão centralizados em <a href='{RASAI_FILE}'>Search & AI Readiness</a>.</section>"
+        notice = (
+            f"<section class='notice' {marker}><strong>Papel desta página:</strong> evidências e findings {label}. "
+            f"O scorecard é um espelho read-only dos mesmos scores persistidos; a interpretação canônica de SARI, Coverage, Confidence e Consolidation permanece em <a href='{RASAI_FILE}'>Search & AI Readiness</a>.</section>"
+        )
         html = html.replace("</header>", "</header>" + notice, 1)
     html = html.replace("Relatório por dispositivo", "Evidências por dispositivo")
     return html

@@ -187,7 +187,6 @@ ai-usage.html
 references.html
 ```
 
-`score-geo-004.html` can exist as a compatibility alias but is not the canonical menu entry.
 
 ## Validation expectations
 

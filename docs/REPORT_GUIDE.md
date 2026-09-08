@@ -28,7 +28,6 @@ report/
 ├─ index.html
 ├─ readiness.html              # SARI-001
 ├─ scoring.html                # versão, fórmula e gates do scoring vigente
-├─ score-geo-004.html          # alias de compatibilidade; não canônico
 ├─ mobile.html                 # condicional
 ├─ desktop.html                # condicional
 ├─ crawling-discovery.html     # condicional
@@ -55,7 +54,6 @@ SCORE-GEO-004  = motor vigente para novas auditorias
 
 `readiness.html` apresenta dimensões, Coverage, Confidence, Consolidation e limitações. `scoring.html` apresenta a versão efetivamente usada, fórmula, gates, rastreabilidade e interpretação do Overall.
 
-O arquivo da metodologia é version-neutral por decisão de arquitetura. `scoring_version` permanece persistido no banco e visível no conteúdo. `score-geo-004.html` existe somente como alias para links produzidos durante o desenvolvimento; novas integrações devem apontar para `scoring.html`.
 
 `SCORE-GEO-003` é uma proposta anterior de desenvolvimento preservada apenas para rastreabilidade técnica. Seu Overall dependia de model artifact validado e não deve ser confundido com o contrato determinístico vigente. Comparações entre versões preservam `scoring_version` e não normalizam contratos incompatíveis silenciosamente.
 
@@ -394,3 +392,14 @@ A visualização distingue claramente três coisas: o JSON-LD efetivamente obser
 Enums e estados internos não constituem linguagem pública. Valores como `DEGRADED`, `SINGLE_PROVIDER`, `INTERNAL_LINKS`, `PAGE_ACCESS`, `SPA_NAVIGATION`, classes de erro e demais estados operacionais são convertidos para rótulos claros em pt-BR quando aparecem como conteúdo de tela. Os valores canônicos continuam persistidos no banco e disponíveis para diagnóstico.
 
 Identificadores que têm função real de rastreabilidade permanecem canônicos quando necessário, especialmente `BR-GEO-*`, IDs de auditoria/evidência, nomes de modelos/providers, IDs de perfis sintéticos e variáveis de ambiente. Exemplos técnicos e payloads dentro de `code`/`pre` também não são traduzidos, para não corromper comandos, contratos ou evidências.
+
+
+### Semântica visual compartilhada
+
+Scorecards do SARI e das páginas Mobile/Desktop usam a mesma linguagem visual de condição: dentro do esperado, quase no esperado, abaixo do esperado e crítico. A cor nunca substitui o texto, Score, Coverage, Confidence ou Consolidation.
+
+Nas amostras persistidas do Synthetic Navigation Apdex, a coluna Classe usa as três classes do próprio Apdex: Satisfied, Tolerating e Frustrated; tentativas excluídas permanecem neutras. O RASAi não cria uma quarta classe Apdex apenas para completar uma paleta visual.
+
+Os contratos de superfície usam cartões delimitados para separar inputs, outputs, dependências, uso de IA, impacto no score e fonte de verdade.
+
+Durante a fase pré-publicação, `scoring.html` é a única superfície de metodologia. Não são mantidos aliases históricos de HTML que nunca foram publicados externamente.

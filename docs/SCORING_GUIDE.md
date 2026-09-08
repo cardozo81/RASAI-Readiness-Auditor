@@ -218,7 +218,6 @@ scoring.html    fórmula, versão vigente, gates e rastreabilidade do método
 
 O arquivo `scoring.html` é deliberadamente **version-neutral**. A versão efetiva pertence ao campo persistido `scoring_version` e ao conteúdo da página. Assim, uma futura revisão metodológica não quebra bookmarks, links internos, automações ou rotas do produto apenas por mudar de `SCORE-GEO-004` para outra versão.
 
-Para compatibilidade com links produzidos durante a fase atual de desenvolvimento do 004, novas auditorias também materializam `score-geo-004.html` como alias que redireciona para `scoring.html`. O alias não é a página canônica e não deve ser usado por novas integrações.
 
 Relatórios consolidados preservam `scoring_version` como parte da comparabilidade. Auditorias de versões diferentes não devem ser normalizadas silenciosamente como se fossem equivalentes.
 

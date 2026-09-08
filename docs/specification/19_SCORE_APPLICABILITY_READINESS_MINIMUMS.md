@@ -99,7 +99,6 @@ Confidence represents strength of the auditor conclusion, not text quality.
 
 `report/readiness.html` and `report/scoring.html` distinguish Score, Coverage, Confidence, `NOT_APPLICABLE`, `NOT_CONSOLIDATED`, version and limitations.
 
-`report/score-geo-004.html` is only a compatibility alias for `scoring.html`.
 
 ## 8. Reproducibility
 

@@ -224,6 +224,8 @@ def normalize_report_navigation(
     final_generated_at = generated_at or datetime.now(BRASILIA_TIMEZONE)
     _ensure_premium_css(report_dir)
     _enhance_ai_cost_total(report_dir)
+    # Pré-publicação: remover alias versionado residual de audits locais antigos.
+    (report_dir / "score-geo-004.html").unlink(missing_ok=True)
     for html_path in sorted(report_dir.glob("*.html")):
         if html_path.name in REPORT_ALIASES:
             continue

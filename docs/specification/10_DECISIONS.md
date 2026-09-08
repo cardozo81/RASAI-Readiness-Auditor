@@ -320,9 +320,17 @@ Esta decisão registra a evolução metodológica posterior às D-038, D-039 e D
 4. D-038, D-039, D-040 e decisões correlatas são superseded **somente quanto à referência à versão vigente do scoring**; seu conteúdo histórico e suas fronteiras de domínio permanecem preservados.
 5. Auditorias históricas continuam imutáveis e são abertas/comparadas pela respectiva `scoring_version`; o report não converte silenciosamente 002/003 para 004.
 6. Nenhuma série histórica pode misturar `SCORE-GEO-002`, `SCORE-GEO-003` e `SCORE-GEO-004` como se fossem a mesma metodologia. Pares incompatíveis devem ser `NOT_COMPARABLE` para métricas de score.
-7. A superfície pública canônica da metodologia passa a ser `report/scoring.html`, independente da versão. `report/score-geo-004.html` é somente alias de compatibilidade quando o AUD efetivamente usa 004 e não é item de navegação.
 8. A identidade pública do índice permanece `SARI-001`.
 9. Versão do produto, `ruleset_version`, `sari_version`, `scoring_version`, `report_contract_version` e `observability_contract_version` são eixos distintos e não devem ser colapsados em uma única versão.
 
 D-042 não autoriza recalcular auditorias históricas nem alterar evidência persistida.
 
+
+
+### D-043 - Pré-publicação: superfície única e sem aliases históricos
+
+Enquanto o RASAi permanecer em desenvolvimento local e sem publicação externa, a superfície pública de metodologia é somente `report/scoring.html`. Aliases HTML versionados criados apenas durante o desenvolvimento não são preservados como contrato de compatibilidade. `scoring_version` continua obrigatório no banco, manifests, metadados e conteúdo para rastreabilidade metodológica.
+
+A simplificação de aliases não autoriza misturar resultados produzidos por métodos diferentes. Ela apenas remove compatibilidade de URL que nunca foi publicada.
+
+Scorecards SARI/por dispositivo devem usar semântica visual compartilhada e textual, e o Apdex deve colorir suas classes próprias sem inventar novas classes metodológicas.

@@ -188,7 +188,6 @@ verification/VER-*/report.html
 quality/TIMELINE-*/report.html
 ```
 
-O registry HTML é canônico e condicionado à existência das páginas. `score-geo-004.html` é apenas alias de compatibilidade da página `scoring.html`.
 
 ## 10. Segurança e failure isolation
 

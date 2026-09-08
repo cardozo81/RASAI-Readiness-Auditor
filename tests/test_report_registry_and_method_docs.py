@@ -5,7 +5,7 @@ import tempfile
 
 from rasai import report_navigation
 from rasai.report_registry import CANONICAL_NAV_ITEMS, install
-from rasai.score_geo_004_reporting import LEGACY_REPORT_FILE, REPORT_FILE, _write_legacy_alias
+from rasai.score_geo_004_reporting import LEGACY_REPORT_FILE, REPORT_FILE
 
 
 def _page(title: str) -> str:
@@ -68,20 +68,13 @@ def test_optional_report_navigation_is_complete_stable_and_conditional() -> None
         report_navigation._RULE_TOOLTIPS["BR-GEO-054"] = original_tooltip
 
 
-def test_versioned_score_report_is_compatibility_alias_not_canonical_navigation() -> None:
+def test_prepublication_scoring_report_has_no_versioned_alias() -> None:
     assert REPORT_FILE == "scoring.html"
     assert LEGACY_REPORT_FILE == "score-geo-004.html"
     assert REPORT_FILE != LEGACY_REPORT_FILE
     assert not any(filename == LEGACY_REPORT_FILE for _, filename in CANONICAL_NAV_ITEMS)
 
-    with tempfile.TemporaryDirectory() as directory:
-        report_dir = Path(directory)
-        alias = _write_legacy_alias(report_dir)
-        html = alias.read_text(encoding="utf-8")
-        assert alias.name == LEGACY_REPORT_FILE
-        assert f"url={REPORT_FILE}" in html
-        assert f"rel='canonical' href='{REPORT_FILE}'" in html
-        assert f"href='{REPORT_FILE}'" in html
+
 
 
 def test_current_method_documents_use_score_geo_004_without_declaring_003_current() -> None:

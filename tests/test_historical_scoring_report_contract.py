@@ -119,7 +119,7 @@ def test_scoring_report_preserves_historical_003_and_does_not_create_004_alias()
         assert before == after
 
 
-def test_current_004_scoring_report_creates_compatibility_alias_only() -> None:
+def test_current_004_scoring_report_uses_only_canonical_prepublication_surface() -> None:
     install()
     with tempfile.TemporaryDirectory() as directory:
         workspace = _workspace(Path(directory) / "AUD-CURRENT", "SCORE-GEO-004")
@@ -128,14 +128,14 @@ def test_current_004_scoring_report_creates_compatibility_alias_only() -> None:
         alias = path.parent / LEGACY_REPORT_FILE
         after = _sha256(workspace.database)
         html = path.read_text(encoding="utf-8")
-        alias_html = alias.read_text(encoding="utf-8")
         assert "SCORE-GEO-004" in html
         assert "VIGENTE" in html
         assert "O que entra no score" in html
         assert "O que não entra automaticamente no score" in html
-        assert alias.exists()
-        assert "rel='canonical' href='scoring.html'" in alias_html
+        assert not alias.exists()
         assert before == after
+
+
 
 
 def test_report_manifest_exposes_version_axes_without_score_or_evidence_payloads() -> None:
@@ -155,6 +155,6 @@ def test_report_manifest_exposes_version_axes_without_score_or_evidence_payloads
         assert payload["report_contract_version"].startswith("REPORT-CONTRACT-")
         assert payload["source_db"] == "audit.db"
         assert "scoring.html" in payload["generated_pages"]
-        assert payload["aliases"] == {"score-geo-004.html": "scoring.html"}
+        assert payload["aliases"] == {}
         assert "score" not in payload
         assert "evidence" not in payload

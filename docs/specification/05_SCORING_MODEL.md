@@ -281,6 +281,5 @@ Core Web Vitals, Lighthouse, WCAG, Apdex, E-E-A-T/YMYL e Observed Generative Vis
 - limitações;
 - compatibilidade entre dados de desenvolvimento.
 
-`score-geo-004.html` é alias de compatibilidade e não é a rota recomendada para novas integrações.
 
 Detalhes operacionais: `docs/SCORE_GEO_004.md` e `docs/SCORING_GUIDE.md`.
