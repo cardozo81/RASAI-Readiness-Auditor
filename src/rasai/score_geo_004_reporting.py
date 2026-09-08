@@ -201,7 +201,7 @@ def _score_reason(row: sqlite3.Row) -> str:
         return "Dimensão(ões) ainda não consolidada(s): " + ", ".join(missing)
     status = str(row["consolidation_status"])
     if status == "CONSOLIDATED":
-        return "Overall consolidado pelos gates da metodologia persistida."
+        return "Overall determinístico consolidado pelos gates da metodologia persistida."
     if status == "PARTIAL":
         return "Overall calculado, mas a força da medição não alcançou o gate de consolidação da metodologia persistida."
     return "Overall não consolidado; consulte Coverage, Confidence e limitações das dimensões."
