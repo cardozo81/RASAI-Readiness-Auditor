@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from html import escape
 
-VERIFIED_ON = "2026-09-07"
+VERIFIED_ON = "2026-09-08"
 PROVENANCE_MARKER = "rasai-indicator-provenance-v1"
 
 
@@ -172,9 +172,9 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
         "Heurística RASAi evidence-based",
         "SARI-001 usa SCORE-GEO-004 com Overall determinístico, Coverage, Confidence e Consolidation explicitamente separados.",
     ),
-    "score-geo-004.html": (
+    "scoring.html": (
         "Metodologia RASAi reproduzível",
-        "A página expõe fórmula, gates e limites do SCORE-GEO-004 sem alterar medições persistidas.",
+        "A página canônica estável expõe a versão vigente, fórmula, gates e limites do scoring sem alterar medições persistidas.",
     ),
     "mobile.html": (
         "Evidências RASAi por dispositivo",
