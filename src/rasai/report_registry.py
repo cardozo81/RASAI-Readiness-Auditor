@@ -15,7 +15,7 @@ import sqlite3
 CANONICAL_NAV_ITEMS: tuple[tuple[str, str], ...] = (
     ("Visão geral", "index.html"),
     ("Readiness SARI", "readiness.html"),
-    ("SCORE-GEO-004", "score-geo-004.html"),
+    ("Metodologia de scoring", "scoring.html"),
     ("Relatório Mobile", "mobile.html"),
     ("Relatório Desktop", "desktop.html"),
     ("Remediações", "remediation.html"),
@@ -142,6 +142,40 @@ def _patch_current_scoring_projection() -> None:
     rasai_readiness_reporting.COMPATIBLE_ENGINE_VERSION = "SCORE-GEO-004"
 
 
+def _normalize_known_legacy_wording(html: str, *, page_name: str) -> str:
+    """Repair known stale current-method copy without rewriting method history.
+
+    Historical SCORE-GEO identifiers are legitimate evidence. Replacing version
+    strings globally corrupts that evidence, so only known statements that call
+    an obsolete method "current" are normalized here.
+    """
+    replacements = (
+        ("não é convertido em SCORE-GEO-003", "não é convertido em SCORE-GEO-004"),
+        ("SCORE-GEO-003 continua disponível normalmente", "SCORE-GEO-004 continua disponível normalmente"),
+        ("não reduz SCORE-GEO-003", "não reduz SCORE-GEO-004"),
+        ("Overall Readiness do SCORE-GEO-003", "Overall Readiness do SCORE-GEO-004"),
+        ("separadamente do SCORE-GEO-003", "separadamente do SCORE-GEO-004"),
+        ("threshold do SCORE-GEO-003", "threshold do SCORE-GEO-004"),
+        ("SCORE-GEO-003 permanece índice heurístico independente e reprodutível", "SCORE-GEO-004 permanece índice heurístico independente e reprodutível"),
+        ("SARI-001/SCORE-GEO-003", "SARI-001/SCORE-GEO-004"),
+        ("SARI-001 nem SCORE-GEO-003", "SARI-001 nem SCORE-GEO-004"),
+    )
+    updated = html
+    for old, new in replacements:
+        updated = updated.replace(old, new)
+
+    if page_name == "ai-visibility.html":
+        updated = updated.replace(
+            "do SCORE-GEO-003 vigente. SCORE-GEO-002 permanece histórico.",
+            "do SCORE-GEO-004 vigente. SCORE-GEO-003 e SCORE-GEO-002 permanecem históricos.",
+        )
+        updated = updated.replace(
+            "não compõem SARI-001/SCORE-GEO-002 histórico e tampouco SCORE-GEO-003 vigente",
+            "não compõem SARI-001/SCORE-GEO-004 vigente; SCORE-GEO-003 e SCORE-GEO-002 permanecem contratos históricos",
+        )
+    return updated
+
+
 def _patch_final_branding_normalization() -> None:
     """Prevent obsolete public wording from reappearing in generated HTML."""
     from rasai import report_navigation
@@ -160,8 +194,7 @@ def _patch_final_branding_normalization() -> None:
             except (OSError, UnicodeError):
                 continue
             updated = html.replace("Search/AI", "Search & AI")
-            updated = updated.replace("SCORE-GEO-003", "SCORE-GEO-004")
-            updated = updated.replace("SCORE-GEO-002", "SCORE-GEO-004")
+            updated = _normalize_known_legacy_wording(updated, page_name=path.name)
             updated = updated.replace(
                 "Média simples das dimensões aplicáveis suficientemente consolidadas. Dimensão legitimamente NOT_APPLICABLE não recebe zero.",
                 "Média de igual peso das dimensões aplicáveis com medição suficiente. Dimensão legitimamente NOT_APPLICABLE sai do denominador e não recebe zero.",
