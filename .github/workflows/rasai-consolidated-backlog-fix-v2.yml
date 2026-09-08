@@ -38,7 +38,7 @@ jobs:
       - name: Apply consolidated backlog patch
         run: python .github/rasai_backlog_fix_v2.py
 
-      - name: Align current-contract regressions and OGV disclosure
+      - name: Align current-contract regressions and final report semantics
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -68,6 +68,25 @@ jobs:
           new = 'o RASAi não faz scraping, não autentica o portal externo nem afirma que realizou coleta direta;'
           if old not in text:
               raise RuntimeError('M26 provenance disclosure anchor not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8', newline='\n')
+
+          path = Path('src/rasai/m23_reporting.py')
+          text = path.read_text(encoding='utf-8')
+          old = '    notice = _status_notice(enabled, status)'
+          new = '    notice = _status_notice(enabled, status, str(run["reason"] or "") if run is not None else None)'
+          if old not in text:
+              raise RuntimeError('M23 status notice call anchor not found')
+          text = text.replace(old, new, 1)
+          old = 'def _status_notice(enabled: bool, status: str) -> str:'
+          new = 'def _status_notice(enabled: bool, status: str, reason: str | None = None) -> str:'
+          if old not in text:
+              raise RuntimeError('M23 status notice signature anchor not found')
+          text = text.replace(old, new, 1)
+          old = '        if run is not None and str(run["reason"] or "") == "SMALL_GROUP_BELOW_NORMAL_MINIMUM":'
+          new = '        if reason == "SMALL_GROUP_BELOW_NORMAL_MINIMUM":'
+          if old not in text:
+              raise RuntimeError('M23 status notice reason anchor not found')
           text = text.replace(old, new, 1)
           path.write_text(text, encoding='utf-8', newline='\n')
           PY
