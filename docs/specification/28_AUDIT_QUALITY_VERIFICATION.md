@@ -1,39 +1,31 @@
 # 28 - Audit Quality, Verification & Decision Support
 
-**Status:** APPROVED / IMPLEMENTED - candidate for smoke in PR #82.
+**Status:** APPROVED / IMPLEMENTED / INTEGRATED IN `main`
 
 ## 1. Purpose
 
-This specification defines derived, read-only capabilities that assess the quality of RASAi evidence and support remediation decisions without creating another readiness score.
+This domain provides derived, read-only capabilities that assess RASAi evidence quality and support remediation decisions without creating another readiness score.
 
-The domain answers:
+It answers whether the persisted AUD is healthy, how strong finding evidence is, which findings deserve operational attention, whether recommendations still reference valid unresolved evidence, whether a later audit demonstrates a rule-level fix, and how evidence evolved across AUDs.
 
-- is the persisted AUD structurally healthy and sufficiently complete?
-- how strong is the evidence supporting each finding?
-- which findings deserve operational attention first?
-- which evidence domains were actually observed for each URL/device?
-- do persisted recommendations still reference valid unresolved evidence?
-- did a later audit demonstrate that a specific rule-level issue was fixed?
-- how did persisted evidence evolve across multiple AUDs?
-
-None of these questions changes `SARI-001` or `SCORE-GEO-003`.
+None of these capabilities changes `SARI-001` or `SCORE-GEO-004`.
 
 ## 2. Normative boundaries
 
 Quality/Verification MUST:
 
-1. open source `audit.db` in read-only mode;
+1. open source `audit.db` read-only;
 2. treat `observability.db` as derived sidecar evidence;
 3. never mutate findings, recommendations, RuleExecution, scores or historical AUDs;
 4. never convert missing evidence into a failure by default;
-5. distinguish evidence confidence from SARI dimension Confidence;
-6. distinguish operational priority from scoring/severity;
-7. describe fix verification as persisted rule-state evidence only;
+5. distinguish Evidence Confidence from SARI dimension Confidence;
+6. distinguish Operational Priority from scoring/severity;
+7. describe Fix Verification as persisted rule-state evidence only;
 8. never claim that a verified technical fix caused Search/AI outcome changes;
 9. keep publisher content-use controls non-scoring;
-10. use canonical report navigation when `quality.html` is materialized.
+10. preserve source `scoring_version` and comparability boundaries.
 
-## 3. `rasai quality report`
+## 3. Quality report
 
 ```text
 rasai quality report --audit AUD-* [--audits-root audits]
@@ -45,27 +37,11 @@ Output:
 <AUD-ID>/report/quality.html
 ```
 
-### 3.1 Audit Health
+### Audit Health
 
-Audit Health is a collection-quality assessment, not readiness.
+Audit Health evaluates collection/data quality, not website readiness. Checks can include SQLite integrity, completion state, snapshot coverage, inconclusive/error RuleExecutions, score-version availability, artifact existence, report materialization, sidecar integrity and provenance.
 
-Checks may include:
-
-- SQLite integrity of `audit.db`;
-- completion state;
-- URL × device snapshot coverage;
-- inconclusive/error RuleExecutions;
-- score/scoring-version availability;
-- referenced artifact existence;
-- report index materialization;
-- sidecar integrity;
-- OBS-002 composite-key contract;
-- overlapping observed datasets;
-- external artifact SHA/provenance.
-
-The aggregate health state MUST NOT be exposed as SARI or a substitute for SARI.
-
-### 3.2 Evidence Confidence per finding
+### Evidence Confidence
 
 Values:
 
@@ -75,18 +51,11 @@ MEDIUM
 LOW
 ```
 
-Evidence Confidence may use:
+This confidence describes evidence supporting a finding. It is distinct from the dimension-level `Confidence` used by the readiness scoring pipeline.
 
-- deterministic vs semantic/derived rule provenance;
-- resolved RuleExecution;
-- execution error/inconclusive state;
-- explicit persisted evidence IDs.
+### Operational Priority
 
-It is distinct from the dimension-level `Confidence` persisted by the readiness scoring pipeline.
-
-### 3.3 Operational Priority
-
-Operational Priority is an independent remediation heuristic. Current output classes:
+Classes:
 
 ```text
 P0
@@ -95,60 +64,36 @@ P2
 P3
 ```
 
-The calculation combines, transparently:
+Operational Priority combines persisted finding characteristics, affected scope, evidence confidence and remediation effort. It does not alter Severity or SARI/SCORE values.
 
-- finding severity;
-- affected scope;
-- evidence confidence;
-- estimated remediation effort.
+### Coverage Map
 
-It MUST NOT alter finding severity or any SARI/SCORE value.
+`NOT_OBSERVED` means evidence was not available in that URL/device/domain scope; it does not mean FAIL.
 
-### 3.4 Coverage Map
-
-The Coverage Map projects URL/device evidence into domains such as:
-
-- `TECHNICAL_ACCESS`;
-- `CONTENT_RENDERING`;
-- `SEMANTIC_ENTITY`;
-- `ANSWER_EVIDENCE_INTENT`;
-- `GOVERNANCE`.
-
-`NOT_OBSERVED` means evidence was not available in that scope; it does not mean FAIL.
-
-### 3.5 Recommendation Validation
-
-Recommendation Validation checks persisted references/state coherence.
+### Recommendation Validation
 
 Possible states include:
 
-- `SUPPORTED_BY_PERSISTED_EVIDENCE`;
-- `SUPPORTED_BY_GROUP`;
-- `INVALID_REFERENCE`;
-- `STALE_RESOLVED`;
-- `CONFIDENCE_MISMATCH`.
+```text
+SUPPORTED_BY_PERSISTED_EVIDENCE
+SUPPORTED_BY_GROUP
+INVALID_REFERENCE
+STALE_RESOLVED
+CONFIDENCE_MISMATCH
+```
 
-This is structural/evidence validation; it does not guarantee that recommendation wording is universally correct.
+This validates structural/evidence coherence, not universal correctness of recommendation wording.
 
 ## 4. Search & AI content-use controls
 
-The Quality domain records publisher controls as observed facts:
+Quality can record observed publisher controls such as:
 
 - `nosnippet`;
 - `max-snippet`;
 - `data-nosnippet`;
 - `X-Robots-Tag`.
 
-Interpretations may include:
-
-- `DIRECT_SNIPPET_USE_RESTRICTED`;
-- `DIRECT_SNIPPET_USE_LIMITED`;
-- `SELECTIVE_CONTENT_EXCLUSION`;
-- `NO_SNIPPET_RESTRICTION_OBSERVED`.
-
-A restrictive publisher policy MUST NOT be represented as a Search/SARI penalty.
-
-Only `X-Robots-Tag` is retained from the relevant HTTP response-header evidence for this feature; unrelated response headers are not copied merely to support Quality.
+Restrictive publisher policy is not represented as an automatic SARI penalty.
 
 ## 5. Fix Verification
 
@@ -162,14 +107,14 @@ Default output:
 audits/verification/VER-*/report.html
 ```
 
-Rule-level statuses:
+Statuses:
 
-- `FIXED` - baseline FAIL/WARNING reached PASS;
-- `PARTIALLY_FIXED` - rule improved but is not proven fully resolved;
-- `NOT_FIXED` - issue remains or degraded;
-- `NOT_VERIFIABLE` - current evidence is unavailable/incomparable.
+- `FIXED`;
+- `PARTIALLY_FIXED`;
+- `NOT_FIXED`;
+- `NOT_VERIFIABLE`.
 
-Fix Verification MUST use the persisted comparison contract. It cannot assert downstream Search/AI impact.
+Fix Verification uses persisted comparison evidence and cannot assert downstream Search/AI impact.
 
 ## 6. Evidence Timeline
 
@@ -183,71 +128,31 @@ Default output:
 audits/quality/TIMELINE-*/report.html
 ```
 
-The timeline can project:
-
-- AUD event time;
-- auditor/ruleset/scoring versions;
-- URL count;
-- FAIL/WARNING counts;
-- dimension values;
-- selected page state.
-
-Historical workspaces are read-only.
+The timeline can project audit time, auditor/ruleset/scoring versions, URL count, FAIL/WARNING counts, dimension values and selected page state. Historical workspaces remain read-only.
 
 ## 7. Reproducibility
 
-Time-dependent derived checks MUST use persisted audit/observation timestamps whenever the result would otherwise drift over time.
+Time-dependent checks use persisted audit/observation timestamps so regenerating a report later does not change conclusions merely because wall-clock time advanced.
 
-Freshness uses, in order when available:
-
-1. audit `completed_at`;
-2. audit `started_at`;
-3. audit `created_at`;
-4. latest persisted snapshot capture time.
-
-If no persisted time anchor exists, a future-date claim MUST NOT be created merely from the machine wall clock.
+Preferred time anchors are `completed_at`, then `started_at`, `created_at`, then persisted snapshot capture time.
 
 ## 8. Relationship with Observability
 
-Quality may inspect `observability.db` to assess data quality/provenance, but observed outcomes remain separate from SARI.
+Quality may inspect `observability.db` for data-quality/provenance checks, but observed outcomes remain separate from SARI/SCORE-GEO-004.
 
-The current sidecar contract is `RASAI-OBS-002`, whose observation row identity is:
+Current sidecar contract:
 
 ```text
-(dataset_id, record_id)
+RASAI-OBS-002
+identity = (dataset_id, record_id)
 ```
-
-This prevents independent datasets from colliding when they legitimately reuse local record IDs.
 
 ## 9. Reporting language
 
-Reports must prefer precise language such as:
+Prefer terms such as observed, persisted, comparable, supported by evidence, operational priority and not verifiable.
 
-- observed;
-- persisted;
-- comparable/not comparable;
-- supported by evidence;
-- operational priority;
-- candidate;
-- not verifiable.
+Avoid guaranteed ranking gain, causal claims from temporal coincidence, universal Search & AI score claims or compliance claims not established by the method.
 
-Avoid:
+## 10. Automated safety gates
 
-- guaranteed ranking gain;
-- proven causal impact from temporal coincidence;
-- universal Search & AI Readiness score;
-- compliance claims not established by the method.
-
-## 10. Tests / safety gates
-
-Minimum automated coverage includes:
-
-- OBS-001 → OBS-002 migration and row preservation;
-- reused local `record_id` across datasets;
-- no NULL-to-zero outcome conversion;
-- temporal comparability before Change Impact association;
-- default release-gate provenance boundary;
-- content-control detection;
-- persisted-time freshness;
-- Quality report/menu materialization;
-- Fix Verification transition semantics.
+Coverage should include sidecar migration/identity, NULL preservation, temporal comparability, release-gate boundaries, content-control detection, persisted-time freshness, Quality report/menu materialization, Fix Verification semantics and preservation of historical `scoring_version`.
