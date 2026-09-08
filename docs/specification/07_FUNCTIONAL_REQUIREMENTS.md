@@ -1,6 +1,6 @@
 # FUNCTIONAL_REQUIREMENTS.md
 
-**Status:** APPROVED - Rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance externo + Sugestões e remediação de conteúdo por IA + Análise semântica por IA, roteamento e telemetria + SCORE-GEO-003 + SARI-001 + REPORT-SITE-GEO-001
+**Status:** APPROVED - Rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance externo + Sugestões e remediação de conteúdo por IA + Análise semântica por IA, roteamento e telemetria + SCORE-GEO-004 + SARI-001 + REPORT-SITE-GEO-001
 
 ## Requisitos Funcionais
 

@@ -213,7 +213,7 @@ O console expõe Synthetic Navigation Apdex como item próprio e mantém:
 - teto estimado de navegações;
 - aviso de que subresources multiplicam requests;
 - zero custo de API próprio;
-- observabilidade de progresso `M23_APDEX_SAMPLE`;
+- observabilidade de progresso `evento operacional de Synthetic Navigation Apdex (apdex sample)`;
 - totais reais persistidos no resumo final.
 
 ## 14. Gate de smoke humano - concluído

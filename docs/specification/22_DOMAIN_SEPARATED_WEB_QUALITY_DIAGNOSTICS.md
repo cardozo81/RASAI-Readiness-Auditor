@@ -17,7 +17,7 @@ Acessibilidade
 Web Performance
 ```
 
-Interdependências podem ser exibidas por cross-reference de evidência, mas não autorizam conversão automática de finding entre domínios, soma de scores, recalibração de `SCORE-GEO-003`, inferência causal não demonstrada ou promoção de ferramenta automatizada a certificação normativa.
+Interdependências podem ser exibidas por cross-reference de evidência, mas não autorizam conversão automática de finding entre domínios, soma de scores, recalibração de `SCORE-GEO-004`, inferência causal não demonstrada ou promoção de ferramenta automatizada a certificação normativa.
 
 Synthetic Navigation Apdex, integrado posteriormente, adiciona um quarto domínio separado de Web Performance sintética: Synthetic Navigation Apdex. Essa evolução **não altera as fronteiras normativas do Acessibilidade automatizada e diagnósticos Web**.
 
@@ -45,7 +45,7 @@ Acessibilidade automatizada e diagnósticos Web não altera:
 - Finding GEO;
 - Recommendation GEO;
 - severity/priority GEO;
-- `SCORE-GEO-003`;
+- `SCORE-GEO-004`;
 - Coverage;
 - Confidence;
 - Consolidation.
@@ -192,7 +192,7 @@ Web Performance externo/Acessibilidade automatizada e diagnósticos Web -> conti
 Synthetic Navigation Apdex     -> pode calcular Synthetic Navigation Apdex quando explicitamente habilitado
 ```
 
-Synthetic Navigation Apdex não altera `SCORE-GEO-003` e não transforma Apdex em Finding GEO.
+Synthetic Navigation Apdex não altera `SCORE-GEO-004` e não transforma Apdex em Finding GEO.
 
 Referência normativa específica: `23_SYNTHETIC_APDEX_LIGHTHOUSE_TRACEABILITY.md`.
 
@@ -244,7 +244,7 @@ Uso de IA
 8. diagnósticos de performance preservam URL/savings quando fornecidos;
 9. diagnósticos A11Y não vazam para Performance;
 10. Acessibilidade automatizada e diagnósticos Web não calcula Apdex de Lighthouse/CrUX;
-11. nenhuma alteração em `SCORE-GEO-003`;
+11. nenhuma alteração em `SCORE-GEO-004`;
 12. Acessibilidade automatizada e diagnósticos Web não cria chamada LLM ou Google adicional;
 13. referências oficiais acessíveis;
 14. suíte determinística permanece verde.

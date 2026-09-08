@@ -189,7 +189,7 @@ O report deve mostrar simultaneamente:
 Se a recuperação produz HTML/DOM válido:
 
 - Renderização Desktop e Mobile pode persistir o snapshot renderizado;
-- extração, regras e `SCORE-GEO-003` podem prosseguir;
+- extração, regras e `SCORE-GEO-004` podem prosseguir;
 - Web Performance, se habilitado, pode usar a `final_url` recuperada;
 - Synthetic Apdex, se habilitado, pode usar a `final_url` recuperada;
 - IA, se habilitada, pode analisar os fatos persistidos e complementar a explicação.

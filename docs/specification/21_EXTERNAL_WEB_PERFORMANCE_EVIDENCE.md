@@ -2,12 +2,12 @@
 
 **Status:** EVOLUÇÃO APROVADA
 **Domínio:** `Web Performance externo`
-**Dependências:** Análise semântica por IA, roteamento e telemetria + Sugestões e remediação de conteúdo por IA + `SCORE-GEO-003` + `REPORT-SITE-GEO-001`
+**Dependências:** report site + configuração opcional PageSpeed/CrUX; IA não é dependência obrigatória
 **Natureza:** evidência externa aditiva; sem impacto no scoring por padrão
 
 ## 1. Objetivo
 
-O Web Performance externo adiciona à auditoria RASAi evidências de Web Performance fundamentadas em documentação externa oficial, sem remover, substituir ou recalibrar silenciosamente o `SCORE-GEO-003`.
+O Web Performance externo adiciona à auditoria RASAi evidências de Web Performance fundamentadas em documentação externa oficial, sem remover, substituir ou recalibrar silenciosamente o `SCORE-GEO-004`.
 
 Quando explicitamente habilitado, o recurso pode coletar:
 
@@ -19,10 +19,10 @@ Quando explicitamente habilitado, o recurso pode coletar:
 - payloads JSON brutos de respostas bem-sucedidas;
 - log operacional persistente e sanitizado da auditoria.
 
-O Web Performance externo responde a uma pergunta diferente daquela respondida pelo `SCORE-GEO-003`:
+O Web Performance externo responde a uma pergunta diferente daquela respondida pelo `SCORE-GEO-004`:
 
 ```text
-SCORE-GEO-003
+SCORE-GEO-004
 → índice heurístico interno de prontidão baseado nas RuleExecutions do RASAi
 
 Web Performance externo Lighthouse
@@ -50,9 +50,9 @@ O Web Performance externo **não altera**:
 - Confidence;
 - Consolidation;
 - Overall Readiness;
-- `scoring_version = SCORE-GEO-003`.
+- `scoring_version = SCORE-GEO-004`.
 
-Nenhum valor de Lighthouse, PageSpeed ou Core Web Vitals é convertido automaticamente em contribuição para `SCORE-GEO-003`.
+Nenhum valor de Lighthouse, PageSpeed ou Core Web Vitals é convertido automaticamente em contribuição para `SCORE-GEO-004`.
 
 ## 3. Fundamentação externa oficial
 
@@ -163,7 +163,7 @@ Quando desabilitado:
 - nenhuma chamada CrUX;
 - nenhuma chamada LLM adicional;
 - estado `DISABLED` persistido para rastreabilidade;
-- `SCORE-GEO-003` continua normal.
+- `SCORE-GEO-004` continua normal.
 
 ## 5. Controles de consumo
 
@@ -294,7 +294,7 @@ Web Performance externo adiciona **zero** chamadas a LLM.
 
 Não chama OpenAI, DeepSeek, MiMo, SemanticProvider Análise semântica por IA, roteamento e telemetria nem provider de remediação Sugestões e remediação de conteúdo por IA.
 
-Qualquer evolução futura que adicione interpretação por IA deverá ser opt-in, contabilizada separadamente e incapaz de alterar medições-fonte ou `SCORE-GEO-003` sem novo contrato explicitamente aprovado.
+Qualquer evolução futura que adicione interpretação por IA deverá ser opt-in, contabilizada separadamente e incapaz de alterar medições-fonte ou `SCORE-GEO-004` sem novo contrato explicitamente aprovado.
 
 ## 9. Posicionamento e fail-open
 
@@ -357,7 +357,7 @@ O fato de `successful_contexts == context_attempts` **não autoriza `SUCCESS`** 
 
 Nenhum contexto selecionado produziu evidência externa útil.
 
-`PARTIAL` e `UNAVAILABLE` qualificam a coleta; não reduzem `SCORE-GEO-003` e não criam Finding do website.
+`PARTIAL` e `UNAVAILABLE` qualificam a coleta; não reduzem `SCORE-GEO-004` e não criam Finding do website.
 
 ## 11. Persistência SQLite
 
@@ -421,11 +421,11 @@ AI_RUNTIME_RECORDED
 REPORT_SITE_GENERATED
 AUDIT_COMPLETED
 AUDIT_FAILED
-M21_STARTED
-M21_EXTERNAL_ATTEMPT
-M21_COMPLETED
-M21_REPORT_GENERATED
-M21_RUNTIME_FAILURE
+evento operacional de Web Performance (started)
+evento operacional de Web Performance (external attempt)
+evento operacional de Web Performance (completed)
+evento operacional de Web Performance (report generated)
+evento operacional de Web Performance (runtime failure)
 ```
 
 Para Web Performance externo, o log deve permitir diagnosticar:
@@ -476,7 +476,7 @@ A página deve distinguir visivelmente:
 4. indisponibilidade/incompletude;
 5. telemetria das tentativas externas;
 6. política de consumo/credenciais;
-7. separação explícita de `SCORE-GEO-003`.
+7. separação explícita de `SCORE-GEO-004`.
 
 `report/index.html` pode mostrar resumo Web Performance externo, mas nunca recalcular Overall Readiness.
 
@@ -522,7 +522,7 @@ não existem chamadas PageSpeed/CrUX novas.
 
 O log operacional pode ser criado independentemente do Web Performance externo para rastrear o ciclo de vida da auditoria, sem introduzir serviço externo e sem alterar scoring.
 
-Com Web Performance externo desabilitado, os demais comandos continuam válidos e `SCORE-GEO-003` permanece baseline.
+Com Web Performance externo desabilitado, os demais comandos continuam válidos e `SCORE-GEO-004` permanece baseline.
 
 ## 18. Critérios mínimos de aceitação
 
@@ -545,10 +545,10 @@ A implementação Web Performance externo deve provar por regressão que:
 15. log operacional registra eventos Web Performance externo sem secrets;
 16. falha de escrita do log não invalida a auditoria principal;
 17. CLI mostra contadores por serviço e caminho do log;
-18. código/conteúdo `SCORE-GEO-003` não é removido nem recalculado.
+18. código/conteúdo `SCORE-GEO-004` não é removido nem recalculado.
 
 ## 19. Evolução futura de scoring
 
-Web Performance externo continua sendo camada de evidência e possível insumo de estudos empíricos. Não é `SCORE-GEO-003`.
+Web Performance externo continua sendo camada de evidência e possível insumo de estudos empíricos. Não é `SCORE-GEO-004`.
 
-Qualquer futura incorporação quantitativa de Web Performance ao scoring exige decisão humana explícita, novo contrato/versionamento de scoring, protocolo de validação e preservação do resultado persistido `SCORE-GEO-003` quando tecnicamente viável.
+Qualquer futura incorporação quantitativa de Web Performance ao scoring exige decisão humana explícita, novo contrato/versionamento de scoring, protocolo de validação e preservação do resultado persistido `SCORE-GEO-004` quando tecnicamente viável.

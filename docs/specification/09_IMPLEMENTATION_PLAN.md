@@ -194,7 +194,7 @@ Implementar:
 
 Restrições:
 
-- preservar o contrato de scoring `SCORE-GEO-003`;
+- preservar o contrato de scoring vigente `SCORE-GEO-004` e a leitura histórica por `scoring_version`;
 - preservar `PRIORITY-GEO-001`;
 - não converter UNKNOWN/ERROR/NOT_APPLICABLE em FAIL;
 - ausência de IA não penaliza o website;
@@ -220,7 +220,7 @@ Implementar:
 
 Restrições:
 
-- preservar o contrato de scoring `SCORE-GEO-003`;
+- preservar o contrato de scoring vigente `SCORE-GEO-004` e a leitura histórica por `scoring_version`;
 - não expandir silenciosamente URL_SET por links/sitemap;
 - não inventar selector, HTML observado ou referência técnica;
 - recursos de domínio não são findings duplicados por página.
@@ -406,6 +406,6 @@ A execução deve interromper diante dos blockers reais definidos em D-034 ou em
 
 Nenhum marco pode ser declarado concluído apenas para permitir avanço, e nenhum escopo do marco seguinte deve ser antecipado materialmente antes do encerramento do marco atual, salvo infraestrutura estritamente necessária e já permitida pela especificação.
 
-<!-- M18_MULTI_AI_PROVIDER_ROUTING -->
+<!-- evento operacional de análise semântica por IA (multi ai provider routing) -->
 ## Análise semântica por IA, roteamento e telemetria - Multi-AI Provider Abstraction, Reliability Routing & Usage Telemetry
 Implementar adapters provider-neutral para OpenAI/DeepSeek/MiMo, AUTO determinístico com quarantine e URL provider lock, telemetria persistida, catálogo versionado de preços e projeção operacional nos HTMLs. Preservar NoneProvider/OpenAI compatibility e invariantes de scoring. Testes externos usam mocks/fakes; live smoke é condicionado à presença de tokens.

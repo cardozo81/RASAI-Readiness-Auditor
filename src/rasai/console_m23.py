@@ -219,7 +219,7 @@ def experience_from_state(state: State) -> ExperienceApdexConfig:
     if not state.apdex_experience:
         return ExperienceApdexConfig(enabled=False)
     if not state.synthetic_apdex:
-        raise ValueError("M25 Synthetic User Experience Apdex exige M23 Synthetic Apdex habilitado")
+        raise ValueError("Synthetic User Experience Apdex exige Synthetic Navigation Apdex habilitado")
     from rasai.m25_cli import parse_device_mix
 
     return ExperienceApdexConfig(

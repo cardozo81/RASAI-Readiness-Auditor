@@ -68,7 +68,7 @@ Para impedir dupla interpretação, cada família possui uma página analítica 
 
 Não existe score GEO/AEO 0-100 universal usado como fonte normativa desta saída. A média normalizada, fatores de resultado, pesos, agregação e faixas visuais são decisões versionadas do RASAi.
 
-`SARI-001` é a identidade pública da metodologia e `SCORE-GEO-003` é o método de scoring persistido. Provenance, model artifact, dataset e evidências permanecem rastreáveis.
+`SARI-001` é a identidade pública do índice e `SCORE-GEO-004` é o método de scoring vigente para novas auditorias. `SCORE-GEO-003` e versões anteriores permanecem históricas e são preservadas pela `scoring_version` original; model artifact/dataset pertencem ao histórico metodológico quando aplicável, não ao Overall 004.
 
 Essa mudança de nomenclatura não representa recalibração empírica.
 
@@ -207,7 +207,7 @@ Permitido:
 
 > Core Web Vitals: métrica externa definida pelo programa Web Vitals; valor p75 coletado via CrUX.
 
-> SARI-001: índice proprietário, evidence-based e reprodutível do RASAi; método de scoring persistido SCORE-GEO-003.
+> SARI-001: índice proprietário, evidence-based e reprodutível do RASAi; runtime vigente SCORE-GEO-004, com versões históricas preservadas por scoring_version.
 
 > WCAG 2.2: standard W3C; a automação cobre somente critérios tecnicamente verificáveis pela ferramenta.
 

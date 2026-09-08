@@ -300,10 +300,27 @@ Essas pendências não bloqueiam desenvolvimento local do MVP.
 - findings devem ser evidence-backed;
 - LLM nunca é scoring engine;
 - cascading failures devem ser controladas;
-- métricas PageSpeed/CrUX/Lighthouse não alteram `SARI-001`/`SCORE-GEO-003` sem decisão e contrato metodológico explícitos;
-- diagnósticos de rastreamento e descoberta também não alteram `SARI-001`/`SCORE-GEO-003` sem decisão e contrato metodológico explícitos;
-- outcomes Observed Generative Visibility não alteram `SARI-001`/`SCORE-GEO-003` e não podem ser apresentados como causalidade/predição sem validação empírica específica.
+- métricas PageSpeed/CrUX/Lighthouse não alteram `SARI-001`/`SCORE-GEO-004` sem decisão e contrato metodológico explícitos;
+- diagnósticos de rastreamento e descoberta também não alteram `SARI-001`/`SCORE-GEO-004` sem decisão e contrato metodológico explícitos;
+- outcomes Observed Generative Visibility não alteram `SARI-001`/`SCORE-GEO-004` e não podem ser apresentados como causalidade/predição sem validação empírica específica.
 
 ### D-041 - Linguagem pública por domínio funcional
 
 A documentação de produto, o console e os relatórios destinados ao usuário devem nomear capacidades pelo domínio funcional, não por identificadores históricos de etapas de entrega. Termos técnicos na apresentação só são admitidos quando documentados por fonte pública reconhecida e difundidos no domínio; vocabulário de código/runtime deve ficar oculto da leitura principal. O público-alvo primário é o analista de dados/SEO.
+
+### D-042 - SCORE-GEO-004 e contrato público estável
+
+Esta decisão registra a evolução metodológica posterior às D-038, D-039 e D-040 sem reescrever retroativamente o contexto em que elas foram aprovadas.
+
+1. `SCORE-GEO-004` substitui `SCORE-GEO-003` como **runtime de scoring vigente** para novas auditorias.
+2. O Overall do `SCORE-GEO-004` é determinístico e não depende de model artifact, dataset de calibração ou fitting externo para existir.
+3. As decisões anteriores de separação metodológica entre Readiness, Web Performance, Acessibilidade, crawling/discovery e outcomes observacionais continuam válidas.
+4. D-038, D-039, D-040 e decisões correlatas são superseded **somente quanto à referência à versão vigente do scoring**; seu conteúdo histórico e suas fronteiras de domínio permanecem preservados.
+5. Auditorias históricas continuam imutáveis e são abertas/comparadas pela respectiva `scoring_version`; o report não converte silenciosamente 002/003 para 004.
+6. Nenhuma série histórica pode misturar `SCORE-GEO-002`, `SCORE-GEO-003` e `SCORE-GEO-004` como se fossem a mesma metodologia. Pares incompatíveis devem ser `NOT_COMPARABLE` para métricas de score.
+7. A superfície pública canônica da metodologia passa a ser `report/scoring.html`, independente da versão. `report/score-geo-004.html` é somente alias de compatibilidade quando o AUD efetivamente usa 004 e não é item de navegação.
+8. A identidade pública do índice permanece `SARI-001`.
+9. Versão do produto, `ruleset_version`, `sari_version`, `scoring_version`, `report_contract_version` e `observability_contract_version` são eixos distintos e não devem ser colapsados em uma única versão.
+
+D-042 não autoriza recalcular auditorias históricas nem alterar evidência persistida.
+
