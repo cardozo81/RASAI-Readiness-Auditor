@@ -2,7 +2,7 @@
 
 ## Contrato
 
-O M7 possui um baseline semântico local, evidence-bound e versionado:
+A análise semântica possui um baseline local, evidence-bound e versionado:
 
 ```text
 SEMANTIC-BASELINE-001
@@ -34,7 +34,7 @@ O baseline segue estas regras:
 - `NOT_APPLICABLE` somente quando a aplicabilidade pode ser resolvida de forma defensável a partir das evidências;
 - ausência de evidência não vira `FAIL`;
 - ausência de evidência não vira `PASS`;
-- quando o critério não pode ser resolvido com segurança, o M7 mantém `UNKNOWN` se nenhum provider válido o resolver;
+- quando o critério não pode ser resolvido com segurança, a regra permanece `UNKNOWN` se nenhum provider válido a resolver;
 - findings continuam sendo criados somente por `FAIL`/`WARNING` evidence-backed;
 - fatos determinísticos fortes, como ausência de title ou Structured Data inválido, mantêm precedência.
 
@@ -55,7 +55,7 @@ Avaliações produzidas pelo baseline são persistidas com:
 ```text
 provider = DETERMINISTIC_BASELINE
 configuration_version = SEMANTIC-BASELINE-001
-rule_version = 2   # BR-GEO-028..049 no M7 após adoção do baseline
+rule_version = 2   # BR-GEO-028..049 após adoção do baseline
 ```
 
 O audit registra a capability:
