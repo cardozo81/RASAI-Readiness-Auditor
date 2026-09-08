@@ -306,6 +306,9 @@ Para Rastreamento, descoberta e acesso de crawlers, a finalidade técnica deve p
 - não reutilize credencial de um provider em outro endpoint;
 - não assuma que key configurada significa crédito disponível;
 - falha de provider não deve ser convertida em finding do website;
+
+- `evidence_ids` retornados por provider são limitados ao conjunto exato fornecido naquele contexto; referência a ID externo ao input invalida a resposta, não a evidência local;
+- provider configurado/chamado com resposta indisponível ou rejeitada por contrato deve aparecer como execução `DEGRADED`, e não como `NO_AI`;
 - sugestão textual/técnica exige revisão humana antes de publicação;
 - IA Rastreamento, descoberta e acesso de crawlers não pode escolher unilateralmente política de treinamento/crawler da organização;
 - contexto YMYL não autoriza inferir responsabilidade legal/regulatória.

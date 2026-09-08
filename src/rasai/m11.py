@@ -24,34 +24,44 @@ from rasai.reporting import ReportPersistence, _redact, write_report
 from rasai.remediation import recipe_for
 
 # REPORT-GEO-003 remains the page-oriented report contract. M17 tightens the
-# remediation projection; SCORE-GEO-002 only refines applicability aggregation.
+# remediation projection; SCORE-GEO-004 only refines applicability aggregation.
 reporting_module.TEMPLATE_VERSION = TEMPLATE_VERSION
+
+_NON_EXTERNAL_SEMANTIC_PROVIDERS = frozenset({
+    "", "NONE", "FALLBACK", "UNAVAILABLE", "DETERMINISTIC", "DETERMINISTIC_BASELINE"
+})
+
+
+def _external_semantic_providers(semantic: list[sqlite3.Row]) -> set[str]:
+    return {
+        str(row["provider"]).upper()
+        for row in semantic
+        if row["provider"] and str(row["provider"]).upper() not in _NON_EXTERNAL_SEMANTIC_PROVIDERS
+    }
+
 
 
 def _ai_usage_status(semantic: list[sqlite3.Row]) -> str:
     """Return the human state of external semantic AI for this audit report."""
-
     providers = {str(row["provider"]).upper() for row in semantic if row["provider"]}
-    if "OPENAI" in providers:
+    if _external_semantic_providers(semantic):
         return "SIM"
     if "UNAVAILABLE" in providers:
         return "TENTATIVA SEM SUCESSO"
     return "NÃO"
 
-
 def _configured_semantic_provider(audit: sqlite3.Row, semantic: list[sqlite3.Row]) -> str:
     """Resolve provider configuration independently from provider call outcome."""
-
     capabilities = tuple(str(item) for item in _json_list(audit["capabilities"]))
     for capability in capabilities:
         if capability.startswith("semantic_provider:"):
             return capability.split(":", 1)[1].strip().upper() or "NÃO INFORMADO"
-
+    external = _external_semantic_providers(semantic)
+    if external:
+        return ", ".join(sorted(external))
     providers = {str(row["provider"]).upper() for row in semantic if row["provider"]}
-    if "OPENAI" in providers or "UNAVAILABLE" in providers:
-        return "OPENAI"
-    if providers:
-        return ", ".join(sorted(providers))
+    if "UNAVAILABLE" in providers:
+        return "PROVIDER EXTERNO NÃO IDENTIFICADO"
     return "NÃO INFORMADO"
 
 
@@ -133,20 +143,18 @@ class _PersistedInputAwareReportBuilder(M17ReportBuilder):
         usage_status = _ai_usage_status(semantic)
         configured_provider = _configured_semantic_provider(audit, semantic)
 
-        if configured_provider == "OPENAI" and usage_status == "TENTATIVA SEM SUCESSO":
-            provider_display = "OPENAI - CHAMADA INDISPONÍVEL"
-        elif configured_provider == "OPENAI" and usage_status == "SIM" and "UNAVAILABLE" in {item.upper() for item in providers}:
-            provider_display = "OPENAI - SUCESSO PARCIAL"
+        configured_external = configured_provider not in {"NÃO INFORMADO", "NONE", "NÃO", ""}
+        if configured_external and usage_status == "TENTATIVA SEM SUCESSO":
+            provider_display = f"{configured_provider} - CHAMADA/RESPOSTA INDISPONÍVEL"
+        elif configured_external and usage_status == "SIM" and "UNAVAILABLE" in {item.upper() for item in providers}:
+            provider_display = f"{configured_provider} - SUCESSO PARCIAL"
         else:
             provider_display = configured_provider
 
         if models:
             model_display = ", ".join(models)
-        elif configured_provider == "OPENAI":
-            # CLI only constructs OpenAIProvider when a model is configured. A
-            # failed HTTP call, however, has no response model to persist. Do
-            # not mislabel that state as "not applicable".
-            model_display = "CONFIGURADO · NÃO CONFIRMADO PELA API"
+        elif configured_external:
+            model_display = "CONFIGURADO · NÃO CONFIRMADO POR RESPOSTA VÁLIDA"
         else:
             model_display = "NÃO APLICÁVEL"
 

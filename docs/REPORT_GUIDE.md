@@ -95,6 +95,9 @@ A página pode mostrar source-reported metrics, URL activity, grounding queries,
 
 Observed Generative Visibility **não altera SARI-001/SCORE-GEO-004**.
 
+
+Em auditorias de domínio, destinos internos observados apenas após rendering e que ficaram fora do universo auditado são expostos como limitação de cobertura (`RENDERED_DISCOVERY_GAP` ou limite equivalente). O relatório não deve apresentar uma homepage isolada como cobertura implícita de todo o domínio.
+
 ## Search & AI Observability
 
 `observability.html` é a página canônica dos dados externos pós-auditoria e diagnósticos derivados.

@@ -3,7 +3,7 @@
 PageSpeed API transport success is not equivalent to a usable Lighthouse run.
 This module validates persisted PSI artifacts after M21 collection and before
 report projection. It never creates new network calls and never touches
-SCORE-GEO-002.
+SCORE-GEO-004.
 """
 from __future__ import annotations
 
@@ -202,7 +202,7 @@ def enrich_external_metrics_integrity_report_site(*, audit_id: str, workspace: A
         "<div class='notice warn'><strong>PageSpeed HTTP 200 não significa Lighthouse válido.</strong> "
         "O RASAi valida <code>lighthouseResult</code>, descarta métricas Lighthouse quando existe "
         "<code>runtimeError</code> fatal e trata categoria solicitada ausente como evidência incompleta. "
-        "Falha/quota/timeout do PageSpeed é indisponibilidade da medição externa, não defeito do website e não reduz SCORE-GEO-002.</div>"
+        "Falha/quota/timeout do PageSpeed é indisponibilidade da medição externa, não defeito do website e não reduz SCORE-GEO-004.</div>"
         f"<div class='metric-grid'>{_metric('Contextos externos', total)}"
         f"{_metric('Lighthouse válido', f'{lh_valid}/{total}')}{_metric('Performance válida', f'{perf_valid}/{total}')}"
         f"{_metric('Acessibilidade válida', f'{a11y_valid}/{total}')}{_metric('Field data válido', f'{field_valid}/{total}')}</div>"
@@ -384,7 +384,7 @@ def _replace_or_insert(html: str, block: str) -> str:
 
 
 def _metric(label: str, value: Any) -> str:
-    return f"<div class='metric'><span>{escape(str(label))}</span><strong>{escape(str(value))}</strong></div>"
+    return f"<div class='metric result-state-neutral'><span>{escape(str(label))}</span><strong>{escape(str(value))}</strong></div>"
 
 
 def _one(con: sqlite3.Connection, sql: str, audit_id: str) -> sqlite3.Row | None:

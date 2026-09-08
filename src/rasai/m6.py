@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from rasai.domain import (
@@ -26,6 +26,7 @@ from rasai.m5 import M5ExecutionResult
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.rules import DependencyResolver, RuleDefinition, RuleEvaluation, RuleScope
 from rasai.spa_persistence import SnapshotArchitectureWriter
+from rasai.url_utils import normalize_url
 
 
 _RULE_VERSION = "1"
@@ -94,6 +95,8 @@ def execute_m6(
     execution_ids: list[str] = []
     finding_ids: list[str] = []
     architecture: dict[str, ArchitectureClassification] = {}
+    audited_urls = {item.normalized_url for item in m2_result.discovery.pages}
+    rendered_outside_audit: set[str] = set()
 
     for discovered in m2_result.discovery.pages:
         page_id = m2_result.page_ids[discovered.normalized_url]
@@ -116,6 +119,18 @@ def execute_m6(
                 "BR-GEO-022": _evaluate_022(analyzer, rendered_html, snapshot.final_url or snapshot.requested_url, m2_result.discovery.origin),
                 "BR-GEO-023": _evaluate_023(analyzer, rendered_html, acquisition.status),
             }
+
+            nav_observed = evaluations["BR-GEO-022"].observed_value
+            if isinstance(nav_observed, dict):
+                for candidate in nav_observed.get("crawlable_internal_links", ()):
+                    if not isinstance(candidate, str):
+                        continue
+                    try:
+                        normalized_candidate = normalize_url(candidate)
+                    except ValueError:
+                        continue
+                    if normalized_candidate not in audited_urls:
+                        rendered_outside_audit.add(normalized_candidate)
 
             lazy_after: str | None = None
             if rendered_html is not None:
@@ -154,6 +169,18 @@ def execute_m6(
                 finding = _persist_finding(definition, execution, persistence)
                 if finding is not None:
                     finding_ids.append(finding.finding_id)
+
+    if rendered_outside_audit:
+        audit = persistence.audits.get(audit_id)
+        if audit is not None:
+            reason = (
+                f"RENDERED_LINKS_OUTSIDE_AUDIT_UNIVERSE_MAX_PAGES:{len(rendered_outside_audit)}"
+                if m2_result.discovery.limit_reached
+                else f"RENDERED_DISCOVERY_GAP:{len(rendered_outside_audit)}"
+            )
+            persistence.audits.update(
+                replace(audit, limitations=tuple(dict.fromkeys((*audit.limitations, reason))))
+            )
 
     return M6ExecutionResult(tuple(execution_ids), tuple(finding_ids), architecture)
 

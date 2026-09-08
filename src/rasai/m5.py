@@ -22,6 +22,7 @@ from rasai.domain import (
 )
 from rasai.evidence import EvidenceManager
 from rasai.extraction import ContentExtractor
+from rasai.javascript_spa import JavascriptSpaAnalyzer
 from rasai.m2 import M2ExecutionResult
 from rasai.m3 import M3ExecutionResult
 from rasai.m4 import M4ExecutionResult
@@ -197,7 +198,7 @@ def execute_m5(
                 ("BR-GEO-013", _evaluate_canonical(snapshot, workspace)),
                 ("BR-GEO-014", _evaluate_canonical_target(snapshot, m2_result)),
                 ("BR-GEO-015", _evaluate_raw_rendered_indexability(snapshot, workspace)),
-                ("BR-GEO-016", _deferred_soft404()),
+                ("BR-GEO-016", _evaluate_soft404(snapshot, acquisition, workspace)),
             )
             for rule_id, evaluation in snapshot_specs:
                 execution = _execute_new(
@@ -589,14 +590,25 @@ def _evaluate_raw_rendered_indexability(snapshot: Any, workspace: AuditWorkspace
     )
 
 
-def _deferred_soft404() -> RuleEvaluation:
-    return RuleEvaluation(
-        RuleResult.UNKNOWN,
-        {"analysis": "DEFERRED_TO_M6"},
-        "error-like pages do not masquerade as valid indexable pages",
-        reason="SOFT_404_ANALYSIS_PLANNED_FOR_M6",
+def _evaluate_soft404(snapshot: Any, acquisition: Any, workspace: AuditWorkspace) -> RuleEvaluation:
+    rendered = _artifact_text(workspace, snapshot.rendered_artifact_ref)
+    if rendered is None:
+        return RuleEvaluation(
+            RuleResult.UNKNOWN,
+            {"http_status": acquisition.status, "rendered_available": False},
+            "error-like pages do not masquerade as valid indexable pages",
+            reason="RENDERED_UNAVAILABLE",
+        )
+    detected = JavascriptSpaAnalyzer().soft404(
+        http_status=acquisition.status,
+        rendered_html=rendered,
     )
-
+    return RuleEvaluation(
+        RuleResult.FAIL if detected else RuleResult.PASS,
+        {"http_status": acquisition.status, "soft_404": detected, "rendered_available": True},
+        "error-like pages do not masquerade as valid indexable pages",
+        reason="STRONG_SOFT_404_SIGNAL" if detected else None,
+    )
 
 def _evaluate_robots(m2: M2ExecutionResult) -> RuleEvaluation:
     state = m2.discovery.robots.state

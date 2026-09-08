@@ -84,15 +84,20 @@ if tuple(SEMANTIC_RULE_CRITERIA) != SEMANTIC_RULE_IDS:
 _SAFE_DIAGNOSTIC_TOKEN = re.compile(r"[^A-Za-z0-9_.-]+")
 
 
-def hardened_semantic_output_schema() -> dict[str, Any]:
-    """Return the strict semantic schema with a complete 22-rule assessment set."""
+def hardened_semantic_output_schema(
+    allowed_evidence_ids: frozenset[str] | None = None,
+) -> dict[str, Any]:
+    """Return the strict semantic schema, optionally bound to input evidence ids."""
 
     schema = json.loads(json.dumps(semantic_output_schema()))
     assessments = schema["properties"]["assessments"]
     assessments["minItems"] = len(SEMANTIC_RULE_IDS)
     assessments["maxItems"] = len(SEMANTIC_RULE_IDS)
+    if allowed_evidence_ids:
+        allowed = sorted(allowed_evidence_ids)
+        assessments["items"]["properties"]["evidence_ids"]["items"]["enum"] = allowed
+        schema["properties"]["entities"]["items"]["properties"]["evidence_ids"]["items"]["enum"] = allowed
     return schema
-
 
 class OpenAIProvider(_BaseOpenAIProvider):
     """Production CLI adapter with complete-rule and diagnostic hardening.
@@ -206,7 +211,7 @@ class OpenAIProvider(_BaseOpenAIProvider):
                     "type": "json_schema",
                     "name": "rasai_semantic_assessment",
                     "strict": True,
-                    "schema": hardened_semantic_output_schema(),
+                    "schema": hardened_semantic_output_schema(semantic_input.allowed_evidence_ids),
                 }
             },
         }

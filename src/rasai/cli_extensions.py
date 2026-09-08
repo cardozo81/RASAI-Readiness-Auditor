@@ -130,7 +130,7 @@ def _materialize_rasai_fail_open(*, audit_id, workspace, event_prefix: str) -> N
             f"{event_prefix}_RASAI_READINESS_REPORT_GENERATED",
             audit_id=audit_id,
             methodology="SARI-001",
-            compatible_scoring_engine="SCORE-GEO-002",
+            compatible_scoring_engine="SCORE-GEO-004",
             report_path=str(rasai_path.relative_to(workspace.root)),
         )
     except Exception as exc:
@@ -433,7 +433,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "RASAI_READINESS_REPORT_GENERATED",
                     audit_id=audit_id,
                     methodology="SARI-001",
-                    compatible_scoring_engine="SCORE-GEO-002",
+                    compatible_scoring_engine="SCORE-GEO-004",
                     report_path=str(rasai_path.relative_to(workspace.root)),
                 )
             except Exception as exc:
@@ -546,6 +546,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif m24_error:
             print(
                 "Rastreamento e descoberta M24: INCOMPLETO por erro operacional; "
-                "SCORE-GEO-002/SARI-001 foram preservados"
+                "SCORE-GEO-004/SARI-001 foram preservados"
             )
     return code

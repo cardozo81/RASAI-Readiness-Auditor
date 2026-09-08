@@ -874,11 +874,12 @@ class ReportBuilder:
                 f"<tr><td>{escape(_text(url))}</td><td>{escape(_device_label(execution['device']))}</td><td>{escape(_text(primary or 'NÃO DETERMINADO'))}</td><td>{escape(secondary_text or '-')}</td><td>{escape(', '.join(str(v) for v in _json_list(execution['evidence_ids'])))}</td></tr>"
             )
         if not entity_rows and not intents:
-            note = (
-                "Entidades e intenções semânticas não ficaram disponíveis em modo NO_AI; isso é uma limitação da auditoria, não um defeito do site."
-                if audit_mode is AuditMode.NO_AI
-                else "Nenhuma entidade ou intenção persistida está disponível."
-            )
+            if audit_mode is AuditMode.NO_AI:
+                note = "Entidades e intenções semânticas não ficaram disponíveis em modo NO_AI; isso é uma limitação da auditoria, não um defeito do site."
+            elif audit_mode is AuditMode.DEGRADED:
+                note = "O provider externo foi configurado, mas a análise válida não ficou disponível para este contexto; o estado é DEGRADED, não NO_AI."
+            else:
+                note = "Nenhuma entidade ou intenção persistida está disponível."
             return f"<section><h2>Entidades e intenções</h2><div class='notice notice-unknown'>{escape(note)}</div></section>"
         entities_table = (
             f"<h3>Entidades observadas</h3><div class='table-wrap'><table><thead><tr><th>Página</th><th>Dispositivo</th><th>Entidade</th><th>Tipo</th><th>Confiança</th><th>Evidências</th></tr></thead><tbody>{entity_rows}</tbody></table></div>"
@@ -993,10 +994,16 @@ class ReportBuilder:
                 "Algumas avaliações semânticas não foram executadas porque não havia um provedor de inteligência artificial disponível ou configurado. "
                 "Essa limitação reduz a cobertura da auditoria e não representa um problema do website analisado."
             )
-        if audit_mode in {AuditMode.FULL, AuditMode.DEGRADED} and any(
-            "OPENAI" in value.upper() or "AI_PROVIDER" in value.upper()
+        provider_configured = any(
+            value.upper().startswith("SEMANTIC_PROVIDER:") and not value.upper().endswith(":NONE")
             for value in capabilities
-        ):
+        )
+        if audit_mode is AuditMode.DEGRADED and provider_configured:
+            return (
+                "Um provider externo foi configurado e houve tentativa de análise, mas ao menos um contexto ficou indisponível ou teve a resposta rejeitada pelo contrato evidence-bound. "
+                "Somente resultados externos válidos são reutilizados; o baseline determinístico permanece disponível como fallback onde houver evidência suficiente."
+            )
+        if audit_mode is AuditMode.FULL and provider_configured:
             return (
                 "Análises semânticas utilizaram o provider externo configurado. O relatório reutiliza somente resultados normalizados e persistidos; "
                 "credenciais não são incluídas e nenhuma chamada livre adicional é feita para redigir remediações."

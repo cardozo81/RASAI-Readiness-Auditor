@@ -389,7 +389,7 @@ def _profile_text(profile: dict[str, Any]) -> str:
         f"{profile.get('profile_id', '-')} · CPU {profile.get('cpu_slowdown', '-')}× · "
         f"RTT {profile.get('rtt_ms', '-')} ms · down {profile.get('download_kbps', '-')} Kbps · "
         f"up {profile.get('upload_kbps', '-')} Kbps · viewport {viewport.get('width', '-')}×{viewport.get('height', '-')} · "
-        "BrowserContext novo · cache OFF · randomização NONE"
+        "BrowserContext novo · cache OFF · randomização NONE · UA efetivo resolvido em runtime; UA do perfil é template"
     )
 
 

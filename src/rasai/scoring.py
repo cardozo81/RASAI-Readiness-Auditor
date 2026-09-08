@@ -363,9 +363,9 @@ def _metadata(rule_id: str) -> RuleScoringMetadata:
 
     if number in {1, 2, 4, 52, 53, 54}:
         return RuleScoringMetadata(None)
-    if number in {3, 5, 6, 7, 8, 17, 18, 21, 22, 23, 50}:
+    if number in {3, 5, 6, 7, 8, 17, 18, 21, 22, 50}:
         return RuleScoringMetadata("TECHNICAL_ACCESSIBILITY", scoring_group=_technical_group(number))
-    if 11 <= number <= 16:
+    if 11 <= number <= 16 or number == 23:
         return RuleScoringMetadata("INDEXABILITY", scoring_group=_index_group(number))
     if number in {9, 10, 19, 20, 24, 25, 26, 27}:
         return RuleScoringMetadata("CONTENT_EXTRACTABILITY", scoring_group=_content_group(number))
@@ -391,7 +391,7 @@ def _metadata(rule_id: str) -> RuleScoringMetadata:
 def _technical_group(number: int) -> str | None:
     return {
         5: "PAGE_ACCESS", 6: "PAGE_ACCESS", 7: "REDIRECT", 8: "REDIRECT",
-        17: "ROBOTS", 18: "ROBOTS", 21: "SPA_ROUTE", 22: "SPA_NAVIGATION", 23: "SOFT_ERROR", 50: "INTERNAL_LINKS",
+        17: "ROBOTS", 18: "ROBOTS", 21: "SPA_ROUTE", 22: "SPA_NAVIGATION", 50: "INTERNAL_LINKS",
     }.get(number)
 
 

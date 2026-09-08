@@ -393,11 +393,11 @@ def _response_error(raw: Mapping[str, Any]) -> ProviderDiagnostic | None:
     )
 
 
-def _deepseek_semantic_output_schema() -> dict[str, Any]:
+def _deepseek_semantic_output_schema(allowed_evidence_ids: frozenset[str] | None = None) -> dict[str, Any]:
     # Provider-wire schema that guarantees all 22 semantic rules without
     # array cardinality keywords. The RASAi canonical model remains an
     # ordered assessment array after local normalization.
-    schema = json.loads(json.dumps(hardened_semantic_output_schema()))
+    schema = json.loads(json.dumps(hardened_semantic_output_schema(allowed_evidence_ids)))
     canonical_assessment = schema["properties"]["assessments"]["items"]
     assessment_value = json.loads(json.dumps(canonical_assessment))
     assessment_value["properties"].pop("rule_id", None)
@@ -502,9 +502,9 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
             "The assessments array MUST contain exactly one item for every rule listed below, with no "
             "omissions, duplicates or unknown rule ids.\n\nSemantic rule contract:\n" + criteria
         )
-        semantic_schema = hardened_semantic_output_schema()
+        semantic_schema = hardened_semantic_output_schema(semantic_input.allowed_evidence_ids)
         if self.name == "DEEPSEEK":
-            semantic_schema = _deepseek_semantic_output_schema()
+            semantic_schema = _deepseek_semantic_output_schema(semantic_input.allowed_evidence_ids)
             instructions += (
                 "\n\nDeepSeek wire contract: assessments MUST be a JSON object keyed by every "
                 "rule id BR-GEO-028 through BR-GEO-049 exactly once. Each keyed value contains "

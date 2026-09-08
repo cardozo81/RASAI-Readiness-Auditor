@@ -178,7 +178,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
       <p>Mesmo com configuração importada, o resultado continua sintético: o Dynatrace RUM observa usuários reais, enquanto o Synthetic User Experience Apdex executa Chromium controlado.</p>
     </section>
     <section class='panel'><div class='kicker'>Referências</div><h2>Fundamentação pública</h2><ul>{refs}</ul></section>
-    <footer class='footer'>Synthetic User Experience Apdex é evidence-backed, reproduzível e informativo; não altera o índice. Não altera SCORE-GEO-002, SARI-001, RuleExecution, findings ou recomendações GEO.</footer>
+    <footer class='footer'>Synthetic User Experience Apdex é evidence-backed, reproduzível e informativo; não altera o índice. Não altera SCORE-GEO-004, SARI-001, RuleExecution, findings ou recomendações GEO.</footer>
     """
     return _shell(nav, body)
 

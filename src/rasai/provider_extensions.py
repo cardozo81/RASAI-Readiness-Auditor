@@ -620,7 +620,7 @@ class XAIProvider(IsolatedStructuredSemanticProvider):
                 "format": {
                     "type": "json_schema",
                     "name": "rasai_semantic_assessment",
-                    "schema": hardened_semantic_output_schema(),
+                    "schema": hardened_semantic_output_schema(semantic_input.allowed_evidence_ids),
                     "strict": True,
                 }
             },
@@ -690,7 +690,7 @@ class QwenProvider(IsolatedStructuredSemanticProvider):
                 "type": "json_schema",
                 "json_schema": {
                     "name": "rasai_semantic_assessment",
-                    "schema": hardened_semantic_output_schema(),
+                    "schema": hardened_semantic_output_schema(semantic_input.allowed_evidence_ids),
                     "strict": True,
                 },
             },
@@ -754,7 +754,7 @@ class GeminiProvider(IsolatedStructuredSemanticProvider):
             "response_format": {
                 "type": "text",
                 "mime_type": "application/json",
-                "schema": hardened_semantic_output_schema(),
+                "schema": hardened_semantic_output_schema(semantic_input.allowed_evidence_ids),
             },
         }
 
@@ -845,7 +845,7 @@ class AnthropicProvider(IsolatedStructuredSemanticProvider):
             "output_config": {
                 "format": {
                     "type": "json_schema",
-                    "schema": hardened_semantic_output_schema(),
+                    "schema": hardened_semantic_output_schema(semantic_input.allowed_evidence_ids),
                 }
             },
         }

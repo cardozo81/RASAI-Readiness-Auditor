@@ -108,6 +108,11 @@ Overall Confidence = HIGH ou MEDIUM
 
 Resultado calculável abaixo desse gate pode ser `PARTIAL` quando a Coverage é de pelo menos 50% e a Confidence está disponível. Estado insuficiente nunca vira zero.
 
+
+### Soft-404 e Coverage de Indexability
+
+`BR-GEO-016` é avaliada com evidência de estado renderizado quando disponível. Ela não pode permanecer `UNKNOWN` apenas por fronteira interna entre módulos. `BR-GEO-016` e `BR-GEO-023` pertencem ao grupo `INDEXABILITY / SOFT_ERROR`; o agrupamento impede peso duplicado quando ambas observam o mesmo contexto de soft-404.
+
 ## Overall
 
 Contrato:

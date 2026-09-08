@@ -129,7 +129,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 <body>{nav}<main class='app-main'>
 <header class='hero'><div class='eyebrow'>Rastreamento, descoberta e acesso de crawlers · diagnóstico técnico não-scoring</div>
 <h1>Rastreamento, descoberta e acesso por IA</h1>
-<p class='lead'>Diagnóstico determinístico de robots.txt, sitemaps/feeds, coerência de descoberta e controles de crawlers. Esta página não altera SCORE-GEO-002, SARI-001, Coverage, Confidence ou Consolidation.</p>
+<p class='lead'>Diagnóstico determinístico de robots.txt, sitemaps/feeds, coerência de descoberta e controles de crawlers. Esta página não altera SCORE-GEO-004, SARI-001, Coverage, Confidence ou Consolidation.</p>
 <div class='metric-grid'>
 {_metric("Contrato", M24_VERSION)}
 {_metric("Diagnósticos", str(len(diagnostics)))}
@@ -222,7 +222,7 @@ def _inject_references(report_dir: Path) -> None:
     html = _replace_marker(html, _REF_START, _REF_END, "")
     block = f"""{_REF_START}<section class='panel' id='m24-crawling-references'>
 <div class='kicker'>M24-CD-001</div><h2>Rastreamento, descoberta e acesso por IA</h2>
-<p class='intro'>Rastreamento, descoberta e acesso de crawlers usa referências públicas para os fenômenos técnicos, mas permanece fora do SCORE-GEO-002/SARI-001. llms.txt é explicitamente identificado como proposta comunitária.</p>
+<p class='intro'>Rastreamento, descoberta e acesso de crawlers usa referências públicas para os fenômenos técnicos, mas permanece fora do SCORE-GEO-004/SARI-001. llms.txt é explicitamente identificado como proposta comunitária.</p>
 <ul><li><a href='https://www.rfc-editor.org/rfc/rfc9309.html'>RFC 9309 - Robots Exclusion Protocol</a></li>
 <li><a href='https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec'>Google - robots.txt</a></li>
 <li><a href='https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap'>Google - sitemaps</a></li>

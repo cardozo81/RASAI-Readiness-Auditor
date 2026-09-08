@@ -196,7 +196,7 @@ def _context_panel(record: tuple[Any, dict[str, Any]] | None) -> str:
         if source_mode in {"AUTO", "MIXED"}
         else "<div class='notice good'><strong>Contexto explicitamente configurado:</strong> a IA recebeu os parâmetros como contexto da auditoria; ainda assim não pode inventar fatos, credenciais ou conformidade regulatória.</div>"
     )
-    return f"""<section id='contexto-editorial' class='panel'><div class='kicker'>YMYL · E-E-A-T · propósito</div><h2>Contexto editorial aplicado à IA</h2><p class='intro'>Origem: <strong>{escape(source_label)}</strong>. Estes parâmetros tornam a avaliação menos generalista. Eles ajustam a régua de evidência e a interpretação das recomendações, mas não entram aritmeticamente no SCORE-GEO-002.</p><div class='metric-grid'>{''.join(cards)}</div>{warning}</section>"""
+    return f"""<section id='contexto-editorial' class='panel'><div class='kicker'>YMYL · E-E-A-T · propósito</div><h2>Contexto editorial aplicado à IA</h2><p class='intro'>Origem: <strong>{escape(source_label)}</strong>. Estes parâmetros tornam a avaliação menos generalista. Eles ajustam a régua de evidência e a interpretação das recomendações, mas não entram aritmeticamente no SCORE-GEO-004.</p><div class='metric-grid'>{''.join(cards)}</div>{warning}</section>"""
 
 
 def _nav(report_dir: Path) -> str:

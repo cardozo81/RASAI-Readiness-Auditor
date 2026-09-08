@@ -132,7 +132,7 @@ def test_report_context_panel_marks_manual_and_auto_fields() -> None:
     assert "Contexto editorial aplicado à IA" in html
     assert "CONFIGURADO" in html
     assert "AUTO" in html
-    assert "SCORE-GEO-002" in html
+    assert "SCORE-GEO-004" in html
     assert "title=" in html
 
 

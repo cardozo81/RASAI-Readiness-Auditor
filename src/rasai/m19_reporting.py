@@ -1,4 +1,4 @@
-"""SCORE-GEO-002 reporting refinements for dimension applicability."""
+"""SCORE-GEO-004 reporting refinements for dimension applicability."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def refine_score_applicability_html(
 ) -> str:
     """Make NOT_APPLICABLE dimensions explicit in the human report.
 
-    The underlying score state is persisted by SCORE-GEO-002. This projection
+    The underlying score state is persisted by SCORE-GEO-004. This projection
     prevents `value=NULL` for a legitimately non-applicable dimension from being
     presented as "informação insuficiente" and makes the Overall denominator
     visible to the reader.

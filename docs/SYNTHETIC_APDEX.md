@@ -39,6 +39,9 @@ Default normal:
 
 Grupos entre 1 e 99 amostras válidas são diagnóstico small-group e recebem marcador `*`. O objetivo é impedir que um smoke curto pareça uma baseline final.
 
+
+Quando o alvo configurado é menor que 100 e é integralmente atingido sem amostras inválidas, o run permanece `PARTIAL` por `SMALL_GROUP_BELOW_NORMAL_MINIMUM`. Esse estado é diferente de coleta incompleta ou amostra inválida.
+
 ## Configuração
 
 CLI:

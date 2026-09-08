@@ -1,7 +1,7 @@
 """Contexto editorial opcional para tornar análises de IA menos generalistas.
 
 Os valores deste módulo condicionam a interpretação semântica e as sugestões de
-conteúdo. Eles NÃO são fatores oficiais de ranking, não alteram SCORE-GEO-002 e
+conteúdo. Eles NÃO são fatores oficiais de ranking, não alteram SCORE-GEO-004 e
 não transformam conceitos como E-E-A-T/YMYL em um score proprietário.
 """
 

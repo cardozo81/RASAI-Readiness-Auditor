@@ -117,8 +117,8 @@ class HotfixAIReportingIntegrityTests(unittest.TestCase):
 
         self.assertIn("TENTATIVA SEM SUCESSO", html)
         self.assertIn("Provider configurado", html)
-        self.assertIn("OPENAI - CHAMADA INDISPONÍVEL", html)
-        self.assertIn("CONFIGURADO · NÃO CONFIRMADO PELA API", html)
+        self.assertIn("OPENAI - CHAMADA/RESPOSTA INDISPONÍVEL", html)
+        self.assertIn("CONFIGURADO · NÃO CONFIRMADO POR RESPOSTA VÁLIDA", html)
         self.assertIn("HTTP_429", html)
         self.assertNotIn("<small>Modelo</small><strong>NÃO APLICÁVEL", html)
 

@@ -318,26 +318,30 @@ def _load_report_state(
 
 def _ai_disclaimer(rows: list[Any]) -> str:
     providers = {str(row["provider"]).upper() for row in rows if row["provider"]}
-    if "OPENAI" in providers and "UNAVAILABLE" in providers:
+    external = sorted(
+        item for item in providers
+        if item not in {"", "NONE", "FALLBACK", "UNAVAILABLE", "DETERMINISTIC", "DETERMINISTIC_BASELINE"}
+    )
+    unavailable = "UNAVAILABLE" in providers
+    if external and unavailable:
         return (
-            "O provider externo produziu resultados válidos em parte da auditoria, mas também houve chamadas indisponíveis. "
-            "Somente respostas normalizadas e persistidas como OPENAI são consideradas análises externas concluídas."
+            f"Provider(s) externo(s) {', '.join(external)} produziram resultados válidos em parte da auditoria, mas também houve chamadas ou respostas rejeitadas/indisponíveis. "
+            "Somente respostas normalizadas e persistidas são consideradas análises externas concluídas."
         )
-    if "OPENAI" in providers:
+    if external:
         return (
-            "Análises semânticas externas foram concluídas e persistidas com provider OPENAI. "
+            f"Análises semânticas externas foram concluídas e persistidas com provider(s) {', '.join(external)}. "
             "O relatório não realiza chamada livre adicional para redigir remediações."
         )
-    if "UNAVAILABLE" in providers:
+    if unavailable:
         return (
             "O provider externo foi configurado e houve tentativa de uso, mas nenhuma análise semântica externa válida foi concluída nesta auditoria. "
-            "A indisponibilidade reduz cobertura e não representa defeito do website."
+            "A resposta foi indisponível ou rejeitada pelo contrato evidence-bound; o baseline determinístico permanece o fallback quando aplicável."
         )
     return (
         "Nenhuma análise semântica externa concluída foi persistida nesta auditoria. "
         "Ausência de IA pode reduzir cobertura sem penalizar automaticamente o website."
     )
-
 
 def _inject_actionability_metrics(html: str, findings: list[sqlite3.Row]) -> str:
     counts = {action: 0 for action in Actionability}

@@ -196,7 +196,7 @@ def execute_m23_apdex(
             probe.close()
 
     attempted_total = valid_total = invalid_total = 0
-    complete_contexts = small_groups = 0
+    complete_contexts = target_met_contexts = small_groups = 0
     try:
         with M23Persistence(workspace) as store:
             for context_index, row in enumerate(contexts, start=1):
@@ -221,17 +221,19 @@ def execute_m23_apdex(
                 invalid_total += int(outcome["invalid"])
                 if summary.final_group:
                     complete_contexts += 1
+                if summary.valid_samples >= cfg.target_valid_samples:
+                    target_met_contexts += 1
                 if summary.small_group and summary.valid_samples:
                     small_groups += 1
 
-            if not contexts:
-                status, reason = "NO_CONTEXTS", "NO_RENDERED_CONTEXTS"
-            elif complete_contexts == len(contexts) and invalid_total == 0:
-                status, reason = "SUCCESS", None
-            elif valid_total == 0:
-                status, reason = "UNAVAILABLE", "NO_VALID_SYNTHETIC_SAMPLES"
-            else:
-                status, reason = "PARTIAL", "ONE_OR_MORE_CONTEXTS_INCOMPLETE_OR_INVALID"
+            status, reason = _run_status(
+                context_count=len(contexts),
+                final_contexts=complete_contexts,
+                target_met_contexts=target_met_contexts,
+                small_groups=small_groups,
+                valid_total=valid_total,
+                invalid_total=invalid_total,
+            )
 
             pages_considered = len({str(row["page_id"]) for row in contexts})
             store.upsert_run(
@@ -284,6 +286,26 @@ def execute_m23_apdex(
         complete_contexts,
         small_groups,
     )
+
+
+def _run_status(
+    *,
+    context_count: int,
+    final_contexts: int,
+    target_met_contexts: int,
+    small_groups: int,
+    valid_total: int,
+    invalid_total: int,
+) -> tuple[str, str | None]:
+    if context_count == 0:
+        return "NO_CONTEXTS", "NO_RENDERED_CONTEXTS"
+    if final_contexts == context_count and invalid_total == 0:
+        return "SUCCESS", None
+    if valid_total == 0:
+        return "UNAVAILABLE", "NO_VALID_SYNTHETIC_SAMPLES"
+    if target_met_contexts == context_count and invalid_total == 0 and small_groups:
+        return "PARTIAL", "SMALL_GROUP_BELOW_NORMAL_MINIMUM"
+    return "PARTIAL", "ONE_OR_MORE_CONTEXTS_INCOMPLETE_OR_INVALID"
 
 
 def _measure_context(
