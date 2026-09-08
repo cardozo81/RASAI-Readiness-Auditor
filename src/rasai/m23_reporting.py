@@ -14,12 +14,12 @@ from rasai import report_navigation
 from rasai.persistence import AuditWorkspace
 
 APDEX_FILE = "apdex.html"
-_START_INDEX = "<!-- rasai-m23-index-start -->"
-_END_INDEX = "<!-- rasai-m23-index-end -->"
-_START_REFS = "<!-- rasai-m23-references-start -->"
-_END_REFS = "<!-- rasai-m23-references-end -->"
-_START_WEB = "<!-- rasai-m23-web-start -->"
-_END_WEB = "<!-- rasai-m23-web-end -->"
+_START_INDEX = "<!-- rasai-apdex-index-start -->"
+_END_INDEX = "<!-- rasai-apdex-index-end -->"
+_START_REFS = "<!-- rasai-apdex-references-start -->"
+_END_REFS = "<!-- rasai-apdex-references-end -->"
+_START_WEB = "<!-- rasai-apdex-web-start -->"
+_END_WEB = "<!-- rasai-apdex-web-end -->"
 
 _OFFICIAL_REFERENCES = (
     (

@@ -44,7 +44,7 @@ _AI_COST_TOTAL_RE = re.compile(
 _M18_COST_RE = re.compile(
     r"<small>Custo estimado total</small><strong>([0-9]+(?:\.[0-9]+)?) USD</strong>"
 )
-_M20_SECTION_RE = re.compile(r"<section id='m20-ai-telemetry'.*?</section>", flags=re.DOTALL)
+_M20_SECTION_RE = re.compile(r"<section id='remediation-ai-telemetry'.*?</section>", flags=re.DOTALL)
 _M20_COST_RE = re.compile(
     r"<small>Custo estimado</small><strong>([0-9]+(?:\.[0-9]+)?) USD</strong>"
 )
@@ -136,7 +136,7 @@ strong{font-weight:640}.lead,.intro,.hero>p,.panel>p,.page-card>p,.detail-body>p
 .page-card{padding:20px clamp(17px,1.8vw,24px);box-shadow:0 2px 10px rgba(47,58,78,.03)}
 .page-card+.page-card{margin-top:16px}.ref-card{box-shadow:0 2px 9px rgba(47,58,78,.025)}
 .metric-grid{grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:9px}
-#m20-ai-telemetry .table-wrap{margin-top:14px}
+#remediation-ai-telemetry .table-wrap{margin-top:14px}
 .grid{grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));gap:11px}
 .score-grid{grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:11px}
 .metric,.score-meta div,.page-summary div,.remediation-grid>div,.confidence-explain>div{border:0;background:#f7f8fb;border-radius:5px}

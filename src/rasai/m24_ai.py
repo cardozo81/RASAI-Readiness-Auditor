@@ -191,7 +191,7 @@ def _call(
     instructions = (
         "Você é um especialista técnico em crawling, robots.txt, sitemap e controles de crawlers. "
         "Responda em português do Brasil e somente em JSON. Use exclusivamente os diagnósticos "
-        "determinísticos fornecidos. Não altere severidade, scoring, SCORE-GEO-003 ou SARI-001. "
+        "determinísticos fornecidos. Não altere severidade, scoring, SCORE-GEO-004 ou SARI-001. "
         "Não invente URL, status HTTP, configuração, crawler, evidência, causa raiz, política ou fato. "
         "Cada ação deve referenciar um diagnostic_code fornecido e somente evidence_ids fornecidos. "
         "OAI-SearchBot está relacionado à descoberta no ChatGPT Search; GPTBot está relacionado a "
@@ -228,7 +228,7 @@ def _call(
                     {
                         "type": "input_text",
                         "text": (
-                            "Diagnósticos técnicos M24 persistidos:\n"
+                            "Diagnósticos técnicos persistidos:\n"
                             + json.dumps(facts, ensure_ascii=False, separators=(",", ":"))
                         ),
                     }

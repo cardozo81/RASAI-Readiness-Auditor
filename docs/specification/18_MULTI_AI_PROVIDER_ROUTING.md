@@ -7,7 +7,7 @@ IA é uma extensão de análise semântica. LLM não é scoring engine, não sub
 
 ## 1. Providers
 
-Core M18:
+Core análise semântica por IA:
 
 - `OPENAI`;
 - `DEEPSEEK`;

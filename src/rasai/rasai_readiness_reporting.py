@@ -378,9 +378,9 @@ def _rewrite_index(html: str, data: dict[str, Any], report_dir: Path) -> str:
             rf"<section class=(['\"])panel\1>\s*<div class=(['\"])kicker\2>{re.escape(kicker)}</div>.*?</section>",
             "", html, count=1, flags=re.DOTALL,
         )
-    html = re.sub(r"<section id=['\"]m21-performance-summary['\"].*?</section>", "", html, flags=re.DOTALL)
-    html = re.sub(r"<section id=['\"]m22-accessibility-summary['\"].*?</section>", "", html, flags=re.DOTALL)
-    html = re.sub(r"<!-- rasai-m23-index-start -->.*?<!-- rasai-m23-index-end -->", "", html, flags=re.DOTALL)
+    html = re.sub(r"<section id=['\"]web-performance-summary['\"].*?</section>", "", html, flags=re.DOTALL)
+    html = re.sub(r"<section id=['\"]accessibility-summary['\"].*?</section>", "", html, flags=re.DOTALL)
+    html = re.sub(r"<!-- rasai-apdex-index-start -->.*?<!-- rasai-apdex-index-end -->", "", html, flags=re.DOTALL)
     html = re.sub(r"<!-- rasai-external-metrics-integrity:start -->.*?<!-- rasai-external-metrics-integrity:end -->", "", html, flags=re.DOTALL)
     html = re.sub(rf"{re.escape(_DASHBOARD_START)}.*?{re.escape(_DASHBOARD_END)}", "", html, flags=re.DOTALL)
     html = html.replace(

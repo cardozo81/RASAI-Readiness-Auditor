@@ -129,9 +129,9 @@ def _workspace(root: Path) -> AuditWorkspace:
         + "<section class='panel'><div class='kicker'>Leitura obrigatória</div><h2>Cobertura e confiabilidade</h2><p>duplicate</p></section>"
         + "<section class='panel'><div class='kicker'>Dimensões</div><h2>Readiness por dispositivo</h2><p>duplicate dimensions</p></section>"
         + "<section class='panel'><div class='kicker'>Escopo do produto</div><h2>O que este índice significa</h2><p>duplicate scope</p></section>"
-        + "<section id='m21-performance-summary' class='panel'><h2>Web Performance duplicate</h2></section>"
-        + "<section id='m22-accessibility-summary' class='panel'><h2>A11y duplicate</h2></section>"
-        + "<!-- rasai-m23-index-start --><section><h2>Apdex duplicate</h2></section><!-- rasai-m23-index-end -->"
+        + "<section id='web-performance-summary' class='panel'><h2>Web Performance duplicate</h2></section>"
+        + "<section id='accessibility-summary' class='panel'><h2>A11y duplicate</h2></section>"
+        + "<!-- rasai-apdex-index-start --><section><h2>Apdex duplicate</h2></section><!-- rasai-apdex-index-end -->"
         + "<!-- rasai-external-metrics-integrity:start --><section><table><tr><td>detail duplicate</td></tr></table></section><!-- rasai-external-metrics-integrity:end -->"
         + footer + "</main></body></html>"
     )
@@ -188,9 +188,9 @@ def test_index_is_compact_dashboard_without_cross_domain_detail_duplication() ->
         assert "Synthetic Navigation Apdex" in html
         assert "Mobile 0.820" in html
         assert "Desktop 0.910" in html
-        assert "m21-performance-summary" not in html
-        assert "m22-accessibility-summary" not in html
-        assert "rasai-m23-index-start" not in html
+        assert "web-performance-summary" not in html
+        assert "accessibility-summary" not in html
+        assert "rasai-apdex-index-start" not in html
         assert "rasai-external-metrics-integrity:start" not in html
         assert "duplicate dimensions" not in html
         assert "detail duplicate" not in html

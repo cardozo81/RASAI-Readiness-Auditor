@@ -1,7 +1,7 @@
 """Acessibilidade automatizada e diagnósticos Web domain-separated accessibility and performance diagnostics.
 
 Acessibilidade automatizada e diagnósticos Web reuses persisted PageSpeed/Lighthouse artifacts collected by Web Performance externo. It does
-not call external services, does not mutate SCORE-GEO-002, and does not promote
+not call external services, does not mutate SCORE-GEO-004, and does not promote
 an automated Lighthouse accessibility result to a WCAG conformance claim.
 """
 
@@ -193,7 +193,7 @@ def enrich_m22_domain_reports(*, audit_id: str, workspace: AuditWorkspace) -> Pa
     performance_path = report_dir / PERFORMANCE_FILE
     if performance_path.is_file():
         html = performance_path.read_text(encoding="utf-8")
-        if "m22-performance-diagnostics" not in html:
+        if "performance-diagnostics" not in html:
             section = _performance_diagnostics_section(contexts)
             anchor = "<section class='panel'><div class='kicker'>Operação externa</div>"
             html = html.replace(anchor, section + anchor, 1) if anchor in html else html.replace("</main>", section + "</main>", 1)
@@ -202,9 +202,9 @@ def enrich_m22_domain_reports(*, audit_id: str, workspace: AuditWorkspace) -> Pa
     index_path = report_dir / "index.html"
     if index_path.is_file():
         html = index_path.read_text(encoding="utf-8")
-        if "m22-accessibility-summary" not in html:
+        if "accessibility-summary" not in html:
             summary = _accessibility_index_summary(contexts)
-            marker = "<section id='m21-performance-summary'"
+            marker = "<section id='web-performance-summary'"
             position = html.find(marker)
             if position >= 0:
                 html = html[:position] + summary + html[position:]
@@ -215,7 +215,7 @@ def enrich_m22_domain_reports(*, audit_id: str, workspace: AuditWorkspace) -> Pa
     references_path = report_dir / "references.html"
     if references_path.is_file():
         html = references_path.read_text(encoding="utf-8")
-        if "m22-domain-methodology" not in html:
+        if "web-quality-domain-methodology" not in html:
             html = html.replace("</main>", _references_section() + "</main>", 1)
         references_path.write_text(html, encoding="utf-8", newline="\n")
     return accessibility_path
@@ -493,7 +493,7 @@ def _accessibility_page(contexts: tuple[ContextDiagnostics, ...], report_dir: Pa
         for title, url, description in _ACCESSIBILITY_REFERENCES
     )
     nav = render_report_navigation(report_dir, ACCESSIBILITY_FILE)
-    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Acessibilidade - RASAi - Search & AI Readiness Auditor</title><link rel='stylesheet' href='css/site.css'></head><body>{nav}<main class='app-main'><header class='hero'><div class='eyebrow'>Acessibilidade automatizada e diagnósticos Web · domínio independente</div><h1>Acessibilidade automatizada</h1><p class='lead'>Diagnóstico separado do domínio GEO e da Web Performance. Reutiliza somente evidência Lighthouse persistida pelo Web Performance externo; não altera SCORE-GEO-002 e não declara conformidade WCAG.</p><div class='metric-grid'>{_metric('Contextos com artifact', f'{with_artifact}/{len(contexts)}')}{_metric('Falhas automatizadas', total_issues)}{_metric('Lighthouse médio', f'{average:.0f}/100' if average is not None else 'NÃO DISPONÍVEL')}{_metric('Conformidade WCAG', 'NÃO DETERMINADA')}</div></header><section class='panel'><div class='kicker'>Fronteira de domínio</div><h2>Como interpretar</h2><div class='notice warn'><strong>Não é certificação de acessibilidade.</strong> O Lighthouse automatiza parte dos checks. Auditorias manuais e validação humana continuam necessárias para uma conclusão de conformidade WCAG.</div><p class='intro'>Selector e trecho HTML são exibidos somente quando o próprio artifact Lighthouse fornece essa evidência. Ausência de selector é mostrada como “não fornecido pela fonte”; o RASAi não inventa um alvo DOM.</p><p class='intro'>O uso de <code>aria-label</code> não é uma correção universal. Nomes acessíveis podem vir de texto nativo, <code>label</code>, <code>aria-labelledby</code> ou outras relações válidas; a recomendação deve preservar a semântica HTML mais adequada ao controle.</p></section><section class='panel'><div class='kicker'>Resultados</div><h2>Findings automatizados por página e dispositivo</h2>{cards}</section><section class='panel'><div class='kicker'>Referências oficiais</div><h2>Base documental</h2><ul>{references}</ul></section><footer class='footer'>Acessibilidade automatizada e diagnósticos Web Acessibilidade é uma projeção de evidência persistida. Nenhuma falha ou score desta página entra automaticamente no Score GEO.</footer></main></body></html>\n"""
+    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Acessibilidade - RASAi - Search & AI Readiness Auditor</title><link rel='stylesheet' href='css/site.css'></head><body>{nav}<main class='app-main'><header class='hero'><div class='eyebrow'>Acessibilidade automatizada e diagnósticos Web · domínio independente</div><h1>Acessibilidade automatizada</h1><p class='lead'>Diagnóstico separado do domínio GEO e da Web Performance. Reutiliza somente evidência Lighthouse persistida pelo Web Performance externo; não altera SCORE-GEO-004 e não declara conformidade WCAG.</p><div class='metric-grid'>{_metric('Contextos com artifact', f'{with_artifact}/{len(contexts)}')}{_metric('Falhas automatizadas', total_issues)}{_metric('Lighthouse médio', f'{average:.0f}/100' if average is not None else 'NÃO DISPONÍVEL')}{_metric('Conformidade WCAG', 'NÃO DETERMINADA')}</div></header><section class='panel'><div class='kicker'>Fronteira de domínio</div><h2>Como interpretar</h2><div class='notice warn'><strong>Não é certificação de acessibilidade.</strong> O Lighthouse automatiza parte dos checks. Auditorias manuais e validação humana continuam necessárias para uma conclusão de conformidade WCAG.</div><p class='intro'>Selector e trecho HTML são exibidos somente quando o próprio artifact Lighthouse fornece essa evidência. Ausência de selector é mostrada como “não fornecido pela fonte”; o RASAi não inventa um alvo DOM.</p><p class='intro'>O uso de <code>aria-label</code> não é uma correção universal. Nomes acessíveis podem vir de texto nativo, <code>label</code>, <code>aria-labelledby</code> ou outras relações válidas; a recomendação deve preservar a semântica HTML mais adequada ao controle.</p></section><section class='panel'><div class='kicker'>Resultados</div><h2>Findings automatizados por página e dispositivo</h2>{cards}</section><section class='panel'><div class='kicker'>Referências oficiais</div><h2>Base documental</h2><ul>{references}</ul></section><footer class='footer'>Acessibilidade automatizada e diagnósticos Web Acessibilidade é uma projeção de evidência persistida. Nenhuma falha ou score desta página entra automaticamente no Score GEO.</footer></main></body></html>\n"""
 
 
 def _accessibility_context_card(context: ContextDiagnostics) -> str:
@@ -544,7 +544,7 @@ def _performance_diagnostics_section(contexts: tuple[ContextDiagnostics, ...]) -
         f"<li><a href='{escape(url, quote=True)}' target='_blank' rel='noopener'>{escape(title)}</a> - {escape(description)}</li>"
         for title, url, description in _PERFORMANCE_REFERENCES
     )
-    return f"""<section id='m22-performance-diagnostics' class='panel'><div class='kicker'>Acessibilidade automatizada e diagnósticos Web · diagnóstico técnico</div><h2>Recursos, primeira renderização e caminho crítico</h2><p class='intro'>Esta seção permanece no domínio Web Performance. Ela projeta oportunidades/insights já presentes no artifact Lighthouse e preserva URL, selector, snippet e economia estimada somente quando fornecidos pela fonte.</p><div class='metric-grid'>{_metric('Diagnósticos detalhados', total)}{_metric('Apdex', 'NÃO CALCULADO')}</div><div class='notice warn'><strong>Apdex não é inferido de Lighthouse/CrUX.</strong> A especificação Apdex exige um conjunto de amostras de tempo de resposta transacional e um threshold T explícito; PageSpeed request duration, LCP, INP e uma execução lab isolada não são substitutos metodologicamente equivalentes.</div>{cards}<h3>Referências oficiais</h3><ul>{refs}</ul></section>"""
+    return f"""<section id='performance-diagnostics' class='panel'><div class='kicker'>Acessibilidade automatizada e diagnósticos Web · diagnóstico técnico</div><h2>Recursos, primeira renderização e caminho crítico</h2><p class='intro'>Esta seção permanece no domínio Web Performance. Ela projeta oportunidades/insights já presentes no artifact Lighthouse e preserva URL, selector, snippet e economia estimada somente quando fornecidos pela fonte.</p><div class='metric-grid'>{_metric('Diagnósticos detalhados', total)}{_metric('Apdex', 'NÃO CALCULADO')}</div><div class='notice warn'><strong>Apdex não é inferido de Lighthouse/CrUX.</strong> A especificação Apdex exige um conjunto de amostras de tempo de resposta transacional e um threshold T explícito; PageSpeed request duration, LCP, INP e uma execução lab isolada não são substitutos metodologicamente equivalentes.</div>{cards}<h3>Referências oficiais</h3><ul>{refs}</ul></section>"""
 
 
 def _performance_context_card(context: ContextDiagnostics) -> str:
@@ -593,13 +593,13 @@ def _accessibility_index_summary(contexts: tuple[ContextDiagnostics, ...]) -> st
     failures = sum(len(context.accessibility_issues) for context in contexts)
     scored = [context.accessibility_score for context in contexts if context.accessibility_score is not None]
     average = sum(scored) / len(scored) if scored else None
-    return f"""<section id='m22-accessibility-summary' class='panel'><div class='kicker'>Domínio independente</div><h2>Acessibilidade</h2><p class='intro'>Auditoria Lighthouse automatizada, separada do Score GEO e da Web Performance. Não equivale a conformidade WCAG.</p><div class='metric-grid'>{_metric('Falhas automatizadas', failures)}{_metric('Lighthouse médio', f'{average:.0f}/100' if average is not None else 'NÃO DISPONÍVEL')}{_metric('Conformidade WCAG', 'NÃO DETERMINADA')}</div><p><a href='{ACCESSIBILITY_FILE}'>Abrir diagnóstico de acessibilidade →</a></p></section>"""
+    return f"""<section id='accessibility-summary' class='panel'><div class='kicker'>Domínio independente</div><h2>Acessibilidade</h2><p class='intro'>Auditoria Lighthouse automatizada, separada do Score GEO e da Web Performance. Não equivale a conformidade WCAG.</p><div class='metric-grid'>{_metric('Falhas automatizadas', failures)}{_metric('Lighthouse médio', f'{average:.0f}/100' if average is not None else 'NÃO DISPONÍVEL')}{_metric('Conformidade WCAG', 'NÃO DETERMINADA')}</div><p><a href='{ACCESSIBILITY_FILE}'>Abrir diagnóstico de acessibilidade →</a></p></section>"""
 
 
 def _references_section() -> str:
     a11y_rows = "".join(f"<tr><td>Acessibilidade</td><td>{escape(title)}</td><td><a href='{escape(url, quote=True)}' target='_blank' rel='noopener'>abrir fonte</a></td><td>{escape(description)}</td></tr>" for title, url, description in _ACCESSIBILITY_REFERENCES)
     perf_rows = "".join(f"<tr><td>Performance</td><td>{escape(title)}</td><td><a href='{escape(url, quote=True)}' target='_blank' rel='noopener'>abrir fonte</a></td><td>{escape(description)}</td></tr>" for title, url, description in _PERFORMANCE_REFERENCES)
-    return f"""<section id='m22-domain-methodology' class='panel'><div class='kicker'>Acessibilidade automatizada e diagnósticos Web · fronteiras de domínio</div><h2>Acessibilidade × Performance × GEO</h2><p class='intro'>Os três domínios compartilham apenas evidência quando tecnicamente útil. Score, findings e conclusões permanecem separados. Interdependência é mostrada como referência causal/operacional, nunca como soma silenciosa de indicadores.</p><div class='table-wrap'><table><thead><tr><th>Domínio</th><th>Fonte</th><th>Referência</th><th>Uso autorizado</th></tr></thead><tbody>{a11y_rows}{perf_rows}</tbody></table></div><div class='notice'><strong>Apdex:</strong> não é calculado na implementação atual porque Web Performance externo não coleta uma população de tempos de resposta transacionais com threshold T aprovado. Inventar T ou usar duração da API PageSpeed como tempo do usuário violaria a semântica da métrica.</div></section>"""
+    return f"""<section id='web-quality-domain-methodology' class='panel'><div class='kicker'>Acessibilidade automatizada e diagnósticos Web · fronteiras de domínio</div><h2>Acessibilidade × Performance × GEO</h2><p class='intro'>Os três domínios compartilham apenas evidência quando tecnicamente útil. Score, findings e conclusões permanecem separados. Interdependência é mostrada como referência causal/operacional, nunca como soma silenciosa de indicadores.</p><div class='table-wrap'><table><thead><tr><th>Domínio</th><th>Fonte</th><th>Referência</th><th>Uso autorizado</th></tr></thead><tbody>{a11y_rows}{perf_rows}</tbody></table></div><div class='notice'><strong>Apdex:</strong> não é calculado na implementação atual porque Web Performance externo não coleta uma população de tempos de resposta transacionais com threshold T aprovado. Inventar T ou usar duração da API PageSpeed como tempo do usuário violaria a semântica da métrica.</div></section>"""
 
 
 def _metric(label: str, value: Any) -> str:

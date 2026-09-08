@@ -2,7 +2,7 @@
 
 This module evaluates the quality/completeness of RASAi evidence and produces
 operational prioritization. It never changes BR-GEO findings, SARI-001 or
-SCORE-GEO-003 and must not be interpreted as another readiness score.
+SCORE-GEO-004 and must not be interpreted as another readiness score.
 """
 from __future__ import annotations
 

@@ -121,7 +121,7 @@ class ReportNavigationTests(unittest.TestCase):
                 "<html><body><aside class='app-nav'><nav></nav></aside><main>"
                 "<header class='hero'><div class='metric'><small>Custo estimado total</small>"
                 "<strong>0.01000000 USD</strong></div></header>"
-                "<section id='m20-ai-telemetry' class='panel'><div class='metric'>"
+                "<section id='remediation-ai-telemetry' class='panel'><div class='metric'>"
                 "<small>Custo estimado</small><strong>0.00250000 USD</strong></div></section>"
                 "</main></body></html>",
                 encoding="utf-8",

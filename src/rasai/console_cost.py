@@ -225,11 +225,11 @@ def estimate_exposure(state: State) -> ExposureEstimate:
         )
     if state.content_remediation:
         reasons.append(
-            "M20 pode acrescentar tentativas apenas quando houver findings elegíveis."
+            "A remediação de conteúdo por IA pode acrescentar tentativas apenas quando houver findings elegíveis."
         )
     if state.web_performance:
         reasons.append(
-            f"M21: entre {min_web} e {max_web} chamada(s) externas potenciais PageSpeed/CrUX."
+            f"Web Performance: entre {min_web} e {max_web} chamada(s) externas potenciais PageSpeed/CrUX."
         )
 
     if not provider_count:

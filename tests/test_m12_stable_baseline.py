@@ -203,7 +203,7 @@ class M12StableBaselineTests(unittest.TestCase):
             self.assertIn("Structured Data", content_report)
             self.assertIn("css/site.css", content_report)
             self.assertNotIn("<style", content_report.casefold())
-            self.assertIn("m20-ai-telemetry", ai_report)
+            self.assertIn("remediation-ai-telemetry", ai_report)
             self.assertIn("--nav:", css)
 
     def test_cli_audit_command_defaults_to_mobile_and_restores_environment(self) -> None:

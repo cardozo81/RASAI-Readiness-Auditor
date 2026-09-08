@@ -315,7 +315,7 @@ def synthetic_load_summary(state: State) -> tuple[int, str]:
         ux_pages = state.max_pages if state.apdex_experience_max_pages == 0 else min(state.max_pages, state.apdex_experience_max_pages)
         m25_attempts = max(ux_pages, 0) * max(state.apdex_experience_max_attempts, 0)
     total = m23_attempts + m25_attempts
-    extra = f" + M25 até {m25_attempts} user action(s) sintética(s)" if m25_attempts else ""
+    extra = f" + experiência sintética até {m25_attempts} ação(ões) de usuário" if m25_attempts else ""
     return total, (
         f"até {m23_attempts} navegação(ões) M23 "
         f"({pages} página(s) × {devices} device(s) × {state.apdex_max_attempts} tentativas/contexto){extra}. "

@@ -20,7 +20,7 @@ class ReportVisualContractTests(unittest.TestCase):
         self.assertIn(".table-wrap{border-radius:0}", _PREMIUM_CSS)
 
     def test_m20_table_has_visual_breathing_room(self) -> None:
-        self.assertIn("#m20-ai-telemetry .table-wrap{margin-top:14px}", _PREMIUM_CSS)
+        self.assertIn("#remediation-ai-telemetry .table-wrap{margin-top:14px}", _PREMIUM_CSS)
 
     def test_footer_is_last_element_inside_main_after_enrichment(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -29,7 +29,7 @@ class ReportVisualContractTests(unittest.TestCase):
                 "<html><body><aside class='app-nav'><nav></nav></aside><main>"
                 "<header class='hero'>Topo</header>"
                 "<footer class='footer'>Rodapé</footer>"
-                "<section id='m20-ai-telemetry' class='panel'>M20</section>"
+                "<section id='remediation-ai-telemetry' class='panel'>M20</section>"
                 "</main></body></html>",
                 encoding="utf-8",
             )
@@ -43,7 +43,7 @@ class ReportVisualContractTests(unittest.TestCase):
             main = main_match.group(1)
             self.assertEqual(main.count("<footer class='footer'>"), 1)
             self.assertTrue(main.rstrip().endswith("</footer>"))
-            self.assertLess(main.index("m20-ai-telemetry"), main.index("<footer"))
+            self.assertLess(main.index("remediation-ai-telemetry"), main.index("<footer"))
 
 
 if __name__ == "__main__":

@@ -278,7 +278,7 @@ def _enhance_ai_usage(html: str) -> str:
         "A remediação textual por IA só é chamada para findings de conteúdo/semântica elegíveis. Findings técnicos, como canonical, "
         "continuam na remediação determinística e não geram chamada textual nem custo Sugestões e remediação de conteúdo por IA.</div>"
     )
-    marker = "<section id='m20-ai-telemetry'"
+    marker = "<section id='remediation-ai-telemetry'"
     pos = html.find(marker)
     if pos >= 0:
         section_end = html.find("</section>", pos)
