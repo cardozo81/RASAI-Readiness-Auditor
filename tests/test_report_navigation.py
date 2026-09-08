@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from html import unescape
 from pathlib import Path
 import re
 import tempfile
@@ -37,11 +38,27 @@ class ReportNavigationTests(unittest.TestCase):
                 nav_match = _NAV_RE.search(html)
                 self.assertIsNotNone(nav_match, filename)
                 links = _LINK_RE.findall(nav_match.group(1))
-                self.assertEqual([(href, label) for _, href, label in links], expected, filename)
+                self.assertEqual([(href, unescape(label)) for _, href, label in links], expected, filename)
                 active = [href for css_class, href, _ in links if css_class == "active"]
                 self.assertEqual(active, [filename], filename)
                 self.assertNotIn("Versão 9.9.9", html)
                 self.assertIn("Gerado em 03/09/2026 22:30:45 - Horário de Brasília", html)
+
+    def test_versioned_alias_is_not_treated_as_a_canonical_report_page(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_dir = Path(tmp)
+            (report_dir / "index.html").write_text(
+                "<html><body><aside><nav></nav></aside><main>ok</main></body></html>",
+                encoding="utf-8",
+            )
+            alias = report_dir / "score-geo-004.html"
+            alias_html = "<html><head><meta http-equiv='refresh' content='0;url=scoring.html'></head></html>"
+            alias.write_text(alias_html, encoding="utf-8")
+
+            normalize_report_navigation(report_dir)
+
+            self.assertEqual(alias.read_text(encoding="utf-8"), alias_html)
+            self.assertIn("<aside class='app-nav'", (report_dir / "index.html").read_text(encoding="utf-8"))
 
     def test_optional_pages_are_omitted_until_their_files_exist(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
