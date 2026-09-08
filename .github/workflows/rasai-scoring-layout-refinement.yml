@@ -13,7 +13,7 @@ permissions:
 jobs:
   implement-and-validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,6 +29,8 @@ jobs:
           rm -f .rasai-scoring-layout-trigger
       - name: Install package and test runner
         run: python -m pip install -e . pytest
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
       - name: Compile
         run: python -m compileall -q src tests
       - name: Public contract gate
