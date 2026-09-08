@@ -109,7 +109,9 @@ SURFACE_IMPLEMENTATION_HINTS = {
 _OLD_VERSION_RE = re.compile(r"SCORE-GEO-00[123]", re.I)
 _CURRENT_WORD_RE = re.compile(r"\b(vigente|atual|runtime|padr[aã]o|novas auditorias)\b", re.I)
 _HISTORICAL_WORD_RE = re.compile(
-    r"\b(hist[oó]ric|legad|superseded|anterior|não é o runtime|não (?:faz|fazem) parte|não (?:é|são) (?:o )?(?:vigente|atual)|não devem ser anunciados|pertencem ao .*hist[oó]ric)\b",
+    r"(?:hist[oó]ric(?:o|a|os|as)?|legad(?:o|a|os|as)?|superseded|anterior(?:es)?|"
+    r"não é o runtime|não (?:faz|fazem) parte|não (?:é|são) (?:o )?(?:vigente|atual)|"
+    r"não devem ser anunciados|pertencem ao .*hist[oó]ric(?:o|a|os|as)?)",
     re.I,
 )
 _MILESTONE_PUBLIC_RE = re.compile(r"(?<![A-Za-z0-9_])M\d{1,3}(?![A-Za-z0-9_])")
