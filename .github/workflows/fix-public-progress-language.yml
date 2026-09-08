@@ -1,0 +1,54 @@
+name: Align public Apdex progress labels
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Update public progress labels without changing stage weights
+        shell: python
+        run: |
+          from pathlib import Path
+
+          replacements = {
+              'src/rasai/console_m23.py': [
+                  ('"Apdex calibrado M25 concluído"', '"Synthetic User Experience Apdex concluído"'),
+                  ('"Apdex calibrado M25"', '"Synthetic User Experience Apdex"'),
+                  ('iniciando M23 Standard', 'iniciando Synthetic Navigation Apdex'),
+                  ('"LOCAL:M25_FAIL_OPEN"', '"LOCAL:SYNTHETIC_UX_FAIL_OPEN"'),
+                  ('"Limitação operacional M25"', '"Limitação operacional do Synthetic User Experience Apdex"'),
+              ],
+              'src/rasai/console_runtime.py': [
+                  ('if "m25" in normalized or "apdex calibrado" in normalized:', 'if (\n        "synthetic user experience apdex" in normalized\n        or state.status.upper() == "SYNTHETIC_UX_APDEX"\n    ):'),
+              ],
+          }
+
+          for relative, pairs in replacements.items():
+              path = Path(relative)
+              text = path.read_text(encoding='utf-8')
+              updated = text
+              for old, new in pairs:
+                  if old in updated:
+                      updated = updated.replace(old, new)
+                  elif new not in updated:
+                      raise SystemExit(f'expected phrase missing in {relative}: {old}')
+              path.write_text(updated, encoding='utf-8', newline='\n')
+      - name: Remove one-shot workflow
+        run: git rm .github/workflows/fix-public-progress-language.yml
+      - name: Commit fixes
+        run: |
+          git config user.name "RASAi public-language bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/rasai/console_m23.py src/rasai/console_runtime.py
+          git commit -m "Align public Apdex progress labels"
+          git push origin HEAD:main
