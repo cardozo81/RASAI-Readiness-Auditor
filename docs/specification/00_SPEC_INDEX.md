@@ -1,16 +1,17 @@
 # RASAi - Search & AI Readiness Auditor - Specification Index
 
-**Status:** BASELINE VIGENTE - capacidades integradas e documentação reconciliada com `main` + candidato PR #82.
-**Baseline:** MVP Functional Specification
+**Status:** BASELINE VIGENTE - reconciliada com `main`  
+**Scoring vigente:** `SCORE-GEO-004`  
+**Índice público:** `SARI-001`  
 **Idioma normativo:** Português, preservando identificadores e termos técnicos quando necessário.
 
 ## 1. Objetivo
 
-Este diretório constitui a fonte normativa do RASAi - Search & AI Readiness Auditor.
+Este diretório constitui a fonte normativa do RASAi. Histórico de chats não deve ser necessário para descobrir requisitos já formalizados.
 
-Uma IA, desenvolvedor ou ferramenta que assuma o projeto não deve depender do histórico de chats para descobrir requisitos formalizados. Os documentos presentes neste diretório prevalecem sobre interpretações informais do histórico de conversa.
+Quando um documento histórico conflitar com uma especificação marcada como vigente, prevalece o contrato vigente e o histórico deve ser interpretado como contexto de evolução, não como runtime atual.
 
-## 2. Ordem obrigatória de leitura
+## 2. Ordem recomendada de leitura
 
 1. `00_SPEC_INDEX.md`
 2. `12_AI_HANDOFF.md`
@@ -23,98 +24,71 @@ Uma IA, desenvolvedor ou ferramenta que assuma o projeto não deve depender do h
 9. `05_SCORING_MODEL.md`
 10. `06_PRIORITIZATION_MODEL.md`
 11. `08_TECHNICAL_ARCHITECTURE.md`
-12. `09_IMPLEMENTATION_PLAN.md`
-13. `11_REPORTING_LANGUAGE_GLOSSARY.md`
-14. `13_MODEL_ROUTING_POLICY.md`
-15. `14_MULTI_URL_VISUAL_EVIDENCE_REMEDIATION.md`
-16. `15_ERROR_CENTRIC_REPORT_UX.md`
-17. `16_ROOT_CAUSE_ELEMENT_REMEDIATION.md`
-18. `17_REMEDIATION_PRECISION_REPORT_CONSISTENCY.md`
-19. `18_MULTI_AI_PROVIDER_ROUTING.md`
-20. `19_SCORE_APPLICABILITY_READINESS_MINIMUMS.md`
-21. `20_AI_CONTENT_REMEDIATION.md`
-22. `21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md`
-23. `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md`
-24. `23_SYNTHETIC_APDEX_LIGHTHOUSE_TRACEABILITY.md`
-25. `24_CRAWLING_DISCOVERY_AI_ACCESS.md`
-26. `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`
-27. `26_OBSERVED_GENERATIVE_VISIBILITY.md`
-28. `27_MONITORING_OBSERVABILITY.md`
-29. `28_AUDIT_QUALITY_VERIFICATION.md`
+12. `11_REPORTING_LANGUAGE_GLOSSARY.md`
+13. `13_MODEL_ROUTING_POLICY.md`
+14. `14_MULTI_URL_VISUAL_EVIDENCE_REMEDIATION.md`
+15. `15_ERROR_CENTRIC_REPORT_UX.md`
+16. `16_ROOT_CAUSE_ELEMENT_REMEDIATION.md`
+17. `17_REMEDIATION_PRECISION_REPORT_CONSISTENCY.md`
+18. `18_MULTI_AI_PROVIDER_ROUTING.md`
+19. `19_SCORE_APPLICABILITY_READINESS_MINIMUMS.md`
+20. `20_AI_CONTENT_REMEDIATION.md`
+21. `21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md`
+22. `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md`
+23. `23_SYNTHETIC_APDEX_LIGHTHOUSE_TRACEABILITY.md`
+24. `24_CRAWLING_DISCOVERY_AI_ACCESS.md`
+25. `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`
+26. `26_OBSERVED_GENERATIVE_VISIBILITY.md`
+27. `27_MONITORING_OBSERVABILITY.md`
+28. `28_AUDIT_QUALITY_VERIFICATION.md`
+29. `09_IMPLEMENTATION_PLAN.md` - histórico de implementação; não deve sobrescrever contratos vigentes.
 
 ## 3. Precedência documental
 
 Em caso de conflito:
 
-1. decisões explicitamente aprovadas em `10_DECISIONS.md`;
-2. requisitos funcionais em `07_FUNCTIONAL_REQUIREMENTS.md`;
+1. decisões vigentes em `10_DECISIONS.md`;
+2. requisitos funcionais atuais em `07_FUNCTIONAL_REQUIREMENTS.md`;
 3. escopo em `01_PROJECT_CHARTER_SCOPE.md`;
-4. modelos normativos de domínio, regras, workflows, scoring e priorização;
-5. arquitetura técnica;
-6. plano de implementação;
-7. AI handoff e política operacional de modelos;
-8. especificações funcionais complementares, quando não conflitarem com os itens anteriores.
+4. modelos normativos atuais de domínio, regras, workflows, scoring e priorização;
+5. arquitetura técnica atual;
+6. especificações funcionais complementares;
+7. documentos explicitamente históricos, roadmaps e planos de implementação.
 
 Nenhuma decisão funcional deve ser alterada silenciosamente durante implementação.
 
-## 4. Catálogo normativo
+## 4. Baseline vigente de scoring
 
-### Core
+```text
+Public index:        SARI-001
+Runtime scoring:     SCORE-GEO-004
+Overall aggregation: EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
+Canonical HTML:      report/scoring.html
+```
 
-- `01_PROJECT_CHARTER_SCOPE.md` - propósito, escopo, princípios e exclusões.
-- `02_DOMAIN_MODEL.md` - entidades, relacionamentos, identificadores, estados e invariantes.
-- `03_BUSINESS_RULES.md` - Business Rules `BR-GEO-001` a `BR-GEO-054`.
-- `04_WORKFLOWS.md` - workflows e ordem de execução.
-- `05_SCORING_MODEL.md` - Score, Coverage, Confidence, Consolidation, aplicabilidade e Overall calibrado. Baseline: `SCORE-GEO-003`.
-- `06_PRIORITIZATION_MODEL.md` - Severity, Impact, Effort, Confidence e Priority.
-- `07_FUNCTIONAL_REQUIREMENTS.md` - requisitos funcionais e não funcionais vigentes.
-- `08_TECHNICAL_ARCHITECTURE.md` - arquitetura local/modular e fronteiras entre domínios.
-- `09_IMPLEMENTATION_PLAN.md` - histórico e ordem de implementação das capacidades.
-- `10_DECISIONS.md` - decisões humanas consolidadas e pendências corporativas.
-- `11_REPORTING_LANGUAGE_GLOSSARY.md` - linguagem e apresentação do relatório.
-- `12_AI_HANDOFF.md` - continuidade operacional por IA/desenvolvedor.
-- `13_MODEL_ROUTING_POLICY.md` - política de modelos e esforço.
+Princípios:
 
-### Especificações funcionais complementares
-
-- `14_MULTI_URL_VISUAL_EVIDENCE_REMEDIATION.md` - auditoria multi-URL e evidência visual.
-- `15_ERROR_CENTRIC_REPORT_UX.md` - experiência de leitura e organização dos relatórios.
-- `16_ROOT_CAUSE_ELEMENT_REMEDIATION.md` - remediação por causa raiz e elemento.
-- `17_REMEDIATION_PRECISION_REPORT_CONSISTENCY.md` - precisão e consistência das recomendações.
-- `18_MULTI_AI_PROVIDER_ROUTING.md` - análise semântica por IA, roteamento, fallback e telemetria.
-- `19_SCORE_APPLICABILITY_READINESS_MINIMUMS.md` - semântica de aplicabilidade introduzida no histórico `002` e preservada no `003`.
-- `20_AI_CONTENT_REMEDIATION.md` - sugestões e remediação de conteúdo por IA, sem alteração retroativa do score.
-- `21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md` - PageSpeed, Lighthouse e Core Web Vitals/CrUX como evidência externa complementar.
-- `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md` - acessibilidade automatizada e diagnósticos Web separados do Search & AI Readiness.
-- `23_SYNTHETIC_APDEX_LIGHTHOUSE_TRACEABILITY.md` - Synthetic Navigation Apdex.
-- `24_CRAWLING_DISCOVERY_AI_ACCESS.md` - rastreamento, descoberta e políticas de crawlers.
-- `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md` - Synthetic User Experience Apdex calibrável, separado de RUM.
-- `26_OBSERVED_GENERATIVE_VISIBILITY.md` - visibilidade generativa observada/importada e query-runs controlados.
-- `27_MONITORING_OBSERVABILITY.md` - comparação longitudinal, release gate, outcomes externos, sidecar observacional e diagnósticos complementares.
-- `28_AUDIT_QUALITY_VERIFICATION.md` - Audit Health, Evidence Confidence, operational priority, content-use controls, Fix Verification e Evidence Timeline.
-
-## 5. Baseline vigente de scoring e método público
-
-- motor padrão para novas auditorias: `SCORE-GEO-003`;
-- identidade pública de readiness: `SARI-001`;
 - dimensões legitimamente `NOT_APPLICABLE` não recebem zero;
-- Coverage, Confidence e Consolidation permanecem métricas distintas do Score;
-- o Overall `003` exige artifact de calibração `VALIDATED`; sem ele, permanece `NOT_CONSOLIDATED`;
-- não existe alegação de score GEO/AEO universal ou homologado;
-- métricas externas não são incorporadas silenciosamente ao SARI;
-- outcomes controlados de Observed Generative Visibility podem ser usados pelo processo separado de calibração, sem alterar retroativamente o AUD que os contém;
-- Monitoring, Observability e Quality permanecem domínios derivados/complementares e non-scoring por padrão.
+- Coverage, Confidence e Consolidation permanecem distintas do Score;
+- Overall 004 é determinístico e não exige model artifact externo;
+- ausência de evidência suficiente não é transformada em zero;
+- métricas externas não entram silenciosamente no SARI;
+- IA não calcula diretamente o score;
+- mudança incompatível exige nova `scoring_version`.
 
-Detalhes: `../SCORE_GEO_003.md`, `27_MONITORING_OBSERVABILITY.md` e `28_AUDIT_QUALITY_VERIFICATION.md`.
+`SCORE-GEO-003` permanece histórico. Seu Overall dependia de calibração/model artifact. Referências históricas legítimas ao 003 devem ser preservadas para rastreabilidade e nunca reescritas cegamente como 004.
 
-## 6. REPORT-SITE-GEO-001
+Detalhes: `05_SCORING_MODEL.md`, `../SCORE_GEO_004.md` e `../SCORING_GUIDE.md`.
 
-O contrato final de saída é condicional pela existência/materialização do arquivo:
+## 5. REPORT-SITE-GEO-001
+
+Contrato de saída por auditoria, condicionado à materialização:
 
 ```text
 <AUD-ID>/report/index.html
 <AUD-ID>/report/readiness.html
-<AUD-ID>/report/score-geo-003.html
+<AUD-ID>/report/scoring.html
+<AUD-ID>/report/score-geo-004.html       # alias de compatibilidade; não canônico
 <AUD-ID>/report/mobile.html
 <AUD-ID>/report/desktop.html
 <AUD-ID>/report/remediation.html
@@ -132,67 +106,37 @@ O contrato final de saída é condicional pela existência/materialização do a
 <AUD-ID>/report/css/site.css
 ```
 
-Default de dispositivo da CLI: `mobile`. `desktop` e `both` são seleções explícitas/parametrizáveis.
+`readiness.html` é a página canônica do SARI. `scoring.html` é a página canônica estável da metodologia de scoring e deve exibir a versão efetivamente persistida.
 
-Cada indicador/domínio possui página canônica. `index.html` pode resumir resultados para navegação executiva, mas não deve fundir metodologias em score comum.
+O alias versionado existe somente para compatibilidade e não recebe item próprio no menu.
 
-`readiness.html` é a página canônica do SARI. `score-geo-003.html` documenta o estado de calibração. Acessibilidade, Web Performance, Apdex, visibilidade generativa, Search & AI Observability e Quality permanecem domínios separados.
+## 6. Fronteiras metodológicas
 
-O menu final é canônico e condicional à existência dos arquivos; uma projeção opcional gerada posteriormente não pode remover do menu outra página opcional já materializada.
-
-## 7. Fronteiras dos domínios complementares
-
-| Domínio | Finalidade | Regra de fronteira |
+| Domínio | Finalidade | Fronteira |
 |---|---|---|
-| Web Performance | PageSpeed/Lighthouse/CrUX | evidência externa; não entra diretamente no Overall `003` |
-| Acessibilidade automatizada | diagnóstico automatizado | não declara conformidade WCAG integral nem entra diretamente no Overall `003` |
-| Synthetic Navigation Apdex | navegação sintética controlada | T/4T explícito; não é RUM; permanece indicador separado |
-| Rastreamento e descoberta | robots.txt, sitemaps, feeds e políticas de crawlers | diagnóstico técnico non-scoring |
-| Synthetic User Experience Apdex | experiência sintética calibrável | não é RUM; separado de Navigation Apdex e SARI |
-| Observed Generative Visibility | resultados observados/importados de AI Search | domínio observacional; query-runs podem alimentar calibração offline |
-| Search & AI Observability | Search Console, GenAI exports, URL Inspection, CrUX History/imports | `RASAI-OBS-002`; non-scoring; proveniência explícita |
-| RASAi Monitor | comparação baseline/current, release gate e change impact | read-only; não cria score e não presume causalidade |
-| RASAi Quality | qualidade da evidência, priorização operacional e validação | read-only; não cria readiness score |
-| Fix Verification | transição de regra entre AUDs | prova apenas estado persistido; não prova downstream impact |
-| Evidence Timeline | projeção longitudinal de AUDs | não regrava histórico |
+| SARI / SCORE-GEO-004 | readiness | proprietário, determinístico, evidence-bound |
+| Web Performance | PageSpeed/Lighthouse/CrUX | externo; não entra diretamente no Overall |
+| Acessibilidade automatizada | diagnóstico | não certifica WCAG integral; separado do SARI |
+| Synthetic Navigation Apdex | navegação sintética | não é RUM; separado do SARI |
+| Synthetic User Experience Apdex | experiência sintética | não é RUM; separado do Navigation Apdex e SARI |
+| Crawling/discovery | robots, sitemaps, crawler policy | diagnóstico técnico non-scoring |
+| Observed Generative Visibility | outcomes de AI Search | observacional; não entra no score |
+| Search & AI Observability | outcomes e diagnósticos externos | sidecar derivado; non-scoring |
+| Monitoring | baseline/current e release gate | read-only; não cria score |
+| Quality | qualidade da evidência/decisão | read-only; não cria readiness score |
+| Fix Verification | transição de regra entre AUDs | não prova downstream impact |
+| Evidence Timeline | histórico de AUDs | não regrava evidência fonte |
+| Product Platform | tenancy, milestones, deploys, usage | control plane separado; não altera audit.db |
 
-## 8. Observed Generative Visibility e calibração
+## 7. Observed Generative Visibility e validação empírica
 
-Fonte normativa: `26_OBSERVED_GENERATIVE_VISIBILITY.md`.
+`26_OBSERVED_GENERATIVE_VISIBILITY.md` define outcomes observados/importados. Esses dados não recalculam o AUD fonte e não entram automaticamente no `SCORE-GEO-004`.
 
-A capacidade usa `OGV-IMPORT-001`, preserva artifact/SHA-256, mantém métricas reportadas pela fonte separadas de cálculos RASAi e não escreve/recalcula scores do AUD fonte. `CONTROLLED_QUERY_RUNS` elegíveis podem ser consumidos posteriormente pela calibração offline `SCORE-GEO-003`.
+Datasets externos podem ser usados em pesquisa/benchmarking para avaliar associação entre readiness e outcomes. Isso é separado do runtime de scoring e qualquer mudança decorrente exige nova versão metodológica explícita.
 
-## 9. SCORE-GEO-003
+Fluxos históricos de calibração do `SCORE-GEO-003` não devem ser documentados como comandos vigentes do entrypoint 004.
 
-Contrato inicial:
-
-```text
-format_version = SG003-MODEL-001
-model_version = GEO-LR-001
-outcome = CITED_BINARY
-model = L2_REGULARIZED_LOGISTIC_REGRESSION
-split = DOMAIN_HOLDOUT_70_30_V1
-```
-
-Promotion gate mínimo documentado:
-
-- 40 domínios;
-- 12 domínios no holdout;
-- 2 engines;
-- 10 queries por domínio;
-- 3 repetições por query/engine;
-- 3 dias distintos por domínio;
-- 2400 observações válidas;
-- AUC holdout >= 0,60;
-- Brier menor que baseline por prevalência de treino.
-
-Sem artifact `VALIDATED`, as dimensões continuam auditáveis, mas `OVERALL_READINESS` permanece sem valor consolidado. Não existe fallback silencioso para a aritmética `002`.
-
-`rasai scoring dataset` avalia gates pré-fit e gera fingerprint/manifest; `READY_FOR_MODEL_FIT` não equivale a `VALIDATED`.
-
-A calibração abre os AUDs de origem em modo read-only e não duplica outcomes sem granularidade por device contra feature vectors separados por device.
-
-## 10. Monitoring, Observability & Quality
+## 8. Monitoring, Observability & Quality
 
 ### Monitoring
 
@@ -202,13 +146,10 @@ rasai monitor impact
 rasai monitor gate
 ```
 
-- abre `audit.db` somente leitura;
-- respeita scoring version/device/URL universe;
-- gate default = deterministic rules + page-state;
-- Performance, synthetic Apdex, aggregate findings e score dimensions são opt-in;
-- impact seleciona um dataset mais recente por fonte;
-- associação temporal exige janelas alinhadas/parcialmente sobrepostas;
-- `NULL` externo não vira zero.
+- abre AUDs em modo read-only;
+- respeita `scoring_version`, device e universo de URLs;
+- não presume causalidade;
+- dados complementares entram no gate apenas por opt-in quando documentado.
 
 ### Observability
 
@@ -217,17 +158,11 @@ rasai observe ...
 rasai observability ...
 ```
 
-- sidecar `observability.db` no contrato `RASAI-OBS-002`;
-- identidade de linha `(dataset_id, record_id)`;
-- artifacts em `artifacts/observability/`;
-- Search Analytics, Search Appearance, propriedades, sitemaps e URL Inspection via APIs oficiais implementadas;
-- Google Generative AI Performance é import-first;
-- Search e Discover GenAI têm proveniência separada;
-- CrUX History via API oficial;
-- Bing import-first quando não há contrato direto implementado;
-- `report/observability.html`;
-- não persiste secrets;
-- não altera `audit.db` nem SARI/SCORE-GEO-003.
+- sidecar atual `RASAI-OBS-002`;
+- identidade `(dataset_id, record_id)`;
+- provenance explícita;
+- `NULL` externo não vira zero;
+- não altera `audit.db` nem SARI/SCORE-GEO-004.
 
 ### Quality
 
@@ -237,42 +172,48 @@ rasai quality verify
 rasai quality timeline
 ```
 
-- `report/quality.html`;
 - Audit Health;
 - Evidence Confidence;
-- Operational Priority independente;
+- Operational Priority;
 - Coverage Map;
 - Recommendation Validation;
-- `nosnippet`, `max-snippet`, `data-nosnippet`, `X-Robots-Tag`;
-- Fix Verification e Evidence Timeline read-only.
+- content-use controls;
+- Fix Verification e Timeline read-only.
 
-## 11. Fontes externas e heurística
+## 9. Product Platform
+
+O control plane local usa `audits/.rasai/platform.db` e permanece separado do `audit.db` imutável.
+
+Modela multiusuário, multiworkspace, multiprojeto, multidomínio, milestones/deployments, golden baselines, comparação before/after, schedules, alerts, integrations e usage ledger.
+
+A arquitetura alvo SaaS migra o control plane para PostgreSQL e workers Linux/containerizados, preservando a evidência AUD como bundle imutável.
+
+Detalhes: `../PRODUCT_PLATFORM_ARCHITECTURE.md`.
+
+## 10. Fontes externas e heurística
 
 O RASAi não representa seu score ou thresholds como standard GEO/AEO universal.
 
-Referências primárias podem incluir Google Search Central/Crawling Infrastructure, Google Search Console APIs, Chrome UX Report, OpenAI publisher/help documentation, Schema.org, WHATWG, IETF/RFC, W3C/WAI, Apdex Alliance, Dynatrace e documentação pública Bing Search/Webmaster.
+Referências primárias externas sustentam fenômenos específicos. Elas não homologam automaticamente `SARI-001` ou `SCORE-GEO-004`.
 
-Essas fontes sustentam fenômenos externos específicos; não homologam SARI-001/SCORE-GEO-003.
+Heurísticas BR-GEO sem equivalente normativo permanecem identificadas como heurística/baseline interna.
 
-Heurísticas BR-GEO sem equivalente normativo permanecem identificadas como heurísticas/baseline interna.
+## 11. Continuidade de branches e integração
 
-## 12. Continuidade de branches e integração
+Branches de trabalho são temporárias. Após validação e merge em `main`, confirmar que não existe conteúdo exclusivo pendente antes de excluir branch.
 
-Branches de trabalho são temporárias. Após validação e merge em `main`, confirmar que não existe conteúdo exclusivo pendente antes de excluir branch. Uma branch ativa de outro trabalho não deve ser incorporada sem necessidade técnica explícita.
+## 12. Regra de mudança
 
-## 13. Regra de mudança
+Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context, IA, Web Performance, acessibilidade, Apdex, crawling/discovery, visibilidade observada, monitoring/observability/quality ou Product Platform devem reconciliar código, testes, HTML e documentação normativa.
 
-Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context, conteúdo sugerido por IA, Web Performance, acessibilidade, Apdex, crawling/discovery, visibilidade observada, monitoring/observability/quality ou requisitos corporativos devem ser reconciliadas nesta baseline antes do merge.
+## 13. Critério de encerramento de alteração
 
-## 14. Critério de encerramento de alteração
+Uma alteração só está concluída quando:
 
-Uma alteração só está apta a merge quando:
-
-- código e documentação normativa estão consistentes;
-- testes dirigidos passam;
-- regressões relevantes passam;
+- código e documentação vigente estão consistentes;
+- testes dirigidos e regressões relevantes passam;
 - CI está verde;
 - não há conflito material com `main` atualizado;
 - limitações/fail-open estão explícitos;
 - HTML/menu estão coerentes;
-- quando o comportamento exige inspeção visual/operacional, o estado é liberado para smoke humano antes do merge, salvo autorização humana explícita em contrário.
+- referências históricas são preservadas quando materialmente necessárias.
