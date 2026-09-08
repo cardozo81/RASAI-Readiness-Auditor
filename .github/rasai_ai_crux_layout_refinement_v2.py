@@ -16,4 +16,17 @@ if old_gemini not in source:
     raise RuntimeError('Gemini source patch contract not found')
 source = source.replace(old_gemini, new_gemini, 1)
 
+# Keep the new CrUX regression fixture faithful to the production observation
+# schema queried by _contexts (which orders by observation_id).
+fixture_old = '''        CREATE TABLE web_performance_observations(\n          audit_id TEXT,page_id TEXT,snapshot_id TEXT,device TEXT,normalized_url TEXT,\n          accessibility_score REAL,pagespeed_artifact_reference TEXT,error_summary TEXT,field_source TEXT\n        );'''
+fixture_new = '''        CREATE TABLE web_performance_observations(\n          observation_id TEXT,audit_id TEXT,page_id TEXT,snapshot_id TEXT,device TEXT,normalized_url TEXT,\n          accessibility_score REAL,pagespeed_artifact_reference TEXT,error_summary TEXT,field_source TEXT\n        );'''
+if fixture_old not in source:
+    raise RuntimeError('CrUX observation fixture schema not found')
+source = source.replace(fixture_old, fixture_new, 1)
+insert_old = '''        db.execute("INSERT INTO web_performance_observations VALUES (?,?,?,?,?,?,?,?,?)", ("AUD-X","P1","S1","MOBILE","https://example.com/",90,"artifact.json",None,"PAGESPEED_CRUX"))'''
+insert_new = '''        db.execute("INSERT INTO web_performance_observations VALUES (?,?,?,?,?,?,?,?,?,?)", ("O1","AUD-X","P1","S1","MOBILE","https://example.com/",90,"artifact.json",None,"PAGESPEED_CRUX"))'''
+if insert_old not in source:
+    raise RuntimeError('CrUX observation fixture insert not found')
+source = source.replace(insert_old, insert_new, 1)
+
 exec(compile(source, str(path), 'exec'), {'__name__': '__main__', '__file__': str(path)})
