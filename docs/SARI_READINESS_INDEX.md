@@ -146,7 +146,7 @@ Outcomes observados podem apoiar pesquisas e validações separadas, mas não s�
 ```text
 index.html             -> síntese executiva
 readiness.html         -> SARI-001
-score-geo-004.html     -> fórmula e gates do SCORE-GEO-004
+scoring.html           -> versão vigente, fórmula e gates do scoring
 ai-visibility.html     -> outcomes observados
 web-performance.html   -> CWV + Lighthouse
 accessibility.html     -> acessibilidade automatizada
@@ -154,13 +154,15 @@ apdex.html             -> Synthetic Navigation Apdex
 apdex-experience.html  -> Synthetic User Experience Apdex, quando materializado
 ```
 
+`scoring.html` é um path estável. O identificador metodológico permanece versionado em `scoring_version` e no conteúdo da página. O alias `score-geo-004.html` existe somente para compatibilidade com links antigos e não deve ser adotado como contrato novo.
+
 O dashboard não cria agregação transversal entre metodologias.
 
 ## 13. Rastreabilidade e comparabilidade
 
 Resultados preservam `scoring_version`, evidências, RuleExecutions e ScoreContributions necessários para reconstrução e comparação válida.
 
-Mudança incompatível de fórmula, dimensões ou gates exige identificador metodológico distinto.
+Mudança incompatível de fórmula, dimensões ou gates exige identificador metodológico distinto. Comparações entre versões diferentes devem declarar a diferença metodológica em vez de normalizá-la silenciosamente.
 
 ## 14. Estado de validação
 
