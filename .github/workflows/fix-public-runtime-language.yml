@@ -1,0 +1,82 @@
+name: Clean remaining public runtime milestone labels
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply contextual public-language fixes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          replacements = {
+              'tests/test_m7_dependency.py': [
+                  ('from test_m7_semantic_provider import _fixture', 'from tests.test_m7_semantic_provider import _fixture'),
+              ],
+              'src/rasai/m23_cli.py': [
+                  ('M25 Synthetic User Experience Apdex exige --synthetic-apdex/M23 habilitado', 'Synthetic User Experience Apdex exige Synthetic Navigation Apdex habilitado (--synthetic-apdex)'),
+              ],
+              'src/rasai/m25_cli.py': [
+                  ('enable M25 calibrated Synthetic User Experience Apdex', 'enable calibrated Synthetic User Experience Apdex'),
+                  ('default true when M25 is enabled', 'default true when Synthetic User Experience Apdex is enabled'),
+              ],
+              'src/rasai/console_m23.py': [
+                  ('  M23 Standard     : NAVIGATION_LOAD; T explícito; Satisfied<=T, Tolerating<=4T, Frustrated>4T.', '  Navegação        : NAVIGATION_LOAD; T explícito; Satisfied<=T, Tolerating<=4T, Frustrated>4T.'),
+                  ('  M25 calibrado    : opcional; user action sintética enriquecida, thresholds independentes, mix Mobile/Desktop/Tablet e política de erros.', '  Experiência      : opcional; user action sintética enriquecida, thresholds independentes, mix Mobile/Desktop/Tablet e política de erros.'),
+                  ('  Governança       : ambos default OFF; M25 exige M23; concorrência máxima 2; grupos grandes exigem autorização do alvo.', '  Governança       : ambos default OFF; Synthetic User Experience Apdex exige Synthetic Navigation Apdex; concorrência máxima 2; grupos grandes exigem autorização do alvo.'),
+                  ('  M25 efetivo      : samples=', '  Experiência atual: samples='),
+              ],
+              'src/rasai/m25_apdex_experience.py': [
+                  ('M25 target_samples_per_page deve ser >= 1', 'Synthetic User Experience Apdex: target_samples_per_page deve ser >= 1'),
+                  ('M25 max_attempts_per_page deve ser >= target_samples_per_page', 'Synthetic User Experience Apdex: max_attempts_per_page deve ser >= target_samples_per_page'),
+                  ('M25 max_pages deve ser >= 0; 0 significa todas', 'Synthetic User Experience Apdex: max_pages deve ser >= 0; 0 significa todas'),
+                  ('M25 exige mix explícito de dispositivos, por exemplo mobile=60,desktop=35,tablet=5', 'Synthetic User Experience Apdex exige mix explícito de dispositivos, por exemplo mobile=60,desktop=35,tablet=5'),
+                  ('M25 device mix deve somar exatamente 100', 'Synthetic User Experience Apdex: device mix deve somar exatamente 100'),
+                  ('M25 device mix não aceita percentuais negativos', 'Synthetic User Experience Apdex: device mix não aceita percentuais negativos'),
+                  ('M25 session_mode deve ser cold ou warm', 'Synthetic User Experience Apdex: session_mode deve ser cold ou warm'),
+                  ('KPM M25 não suportada para calibração temporal:', 'KPM não suportada para calibração temporal do Synthetic User Experience Apdex:'),
+                  ('M25 error_scope deve ser navigation, first-party ou all', 'Synthetic User Experience Apdex: error_scope deve ser navigation, first-party ou all'),
+                  ('M25 settle_seconds deve ser > 0', 'Synthetic User Experience Apdex: settle_seconds deve ser > 0'),
+                  ('M25 delay_seconds deve ser >= 0', 'Synthetic User Experience Apdex: delay_seconds deve ser >= 0'),
+                  ('M25 concurrency deve estar entre 1 e {MAX_CONCURRENCY}', 'Synthetic User Experience Apdex: concurrency deve estar entre 1 e {MAX_CONCURRENCY}'),
+                  ('M25 importação Dynatrace exige base URL e application ID', 'Synthetic User Experience Apdex: importação Dynatrace exige base URL e application ID'),
+                  ('M25 exige thresholds Satisfied/Tolerating e Frustrated ou importação Dynatrace', 'Synthetic User Experience Apdex exige thresholds Satisfied/Tolerating e Frustrated ou importação Dynatrace'),
+                  ('M25 satisfied threshold deve ser >0', 'Synthetic User Experience Apdex: satisfied threshold deve ser >0'),
+                  ('M25 frustrated threshold deve ser maior que o satisfied threshold', 'Synthetic User Experience Apdex: frustrated threshold deve ser maior que o satisfied threshold'),
+              ],
+          }
+
+          changed = []
+          for relative, pairs in replacements.items():
+              path = Path(relative)
+              text = path.read_text(encoding='utf-8')
+              updated = text
+              for old, new in pairs:
+                  if old in updated:
+                      updated = updated.replace(old, new)
+                  elif new not in updated:
+                      raise SystemExit(f'expected phrase missing in {relative}: {old}')
+              if updated != text:
+                  path.write_text(updated, encoding='utf-8', newline='\n')
+                  changed.append(relative)
+          print('changed:', ', '.join(changed))
+      - name: Remove one-shot workflow
+        run: git rm .github/workflows/fix-public-runtime-language.yml
+      - name: Commit fixes
+        run: |
+          git config user.name "RASAi public-language bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tests/test_m7_dependency.py src/rasai/m23_cli.py src/rasai/m25_cli.py src/rasai/console_m23.py src/rasai/m25_apdex_experience.py
+          git commit -m "Clean public Apdex milestone labels and test import"
+          git push origin HEAD:main
