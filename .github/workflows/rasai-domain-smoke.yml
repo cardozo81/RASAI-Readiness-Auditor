@@ -1,0 +1,129 @@
+name: RASAi domain smoke
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+env:
+  RASAI_SYNTHETIC_APDEX: 'true'
+  RASAI_APDEX_SAMPLES_PER_CONTEXT: '5'
+  RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT: '6'
+  RASAI_APDEX_CONCURRENCY: '1'
+  RASAI_APDEX_DELAY_SECONDS: '1'
+  RASAI_APDEX_THRESHOLD_SECONDS: '2.0'
+  RASAI_APDEX_TIMEOUT_SECONDS: '15'
+  RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS: '120'
+  RASAI_WEB_PERFORMANCE_FIELD_SOURCE: 'auto'
+  RASAI_LIGHTHOUSE_CATEGORIES: 'performance,accessibility,best-practices,seo'
+
+jobs:
+  smoke:
+    if: github.actor != 'rasai-ci'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install
+        run: |
+          python -m pip install -e .
+          python -m playwright install --with-deps chromium
+      - name: Smoke vaza.ai both devices
+        id: vaza
+        run: |
+          set +e
+          rasai audit https://vaza.ai/ \
+            --project 'Smoke vaza.ai' \
+            --max-pages 1 \
+            --audits-root smoke-audits/vaza \
+            --device-context both \
+            --ai-provider none \
+            --no-ai-content-remediation \
+            --no-ai-technical-remediation \
+            --web-performance \
+            --web-performance-max-pages 1 \
+            --web-performance-timeout-seconds 120 \
+            --web-performance-field-source auto \
+            --lighthouse-categories performance,accessibility,best-practices,seo
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Smoke Bradesco both devices
+        id: bradesco
+        run: |
+          set +e
+          rasai audit https://loja.bradescoseguros.com.br/ \
+            --project 'Smoke loja.bradescoseguros.com.br' \
+            --max-pages 1 \
+            --audits-root smoke-audits/bradesco \
+            --device-context both \
+            --ai-provider none \
+            --no-ai-content-remediation \
+            --no-ai-technical-remediation \
+            --web-performance \
+            --web-performance-max-pages 1 \
+            --web-performance-timeout-seconds 120 \
+            --web-performance-field-source auto \
+            --lighthouse-categories performance,accessibility,best-practices,seo
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Summarize persisted results
+        if: always()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json, sqlite3
+
+          def rows(c, sql, params=()):
+              try:
+                  return [dict(r) for r in c.execute(sql, params).fetchall()]
+              except sqlite3.OperationalError:
+                  return []
+
+          for db in sorted(Path('smoke-audits').rglob('audit.db')):
+              c=sqlite3.connect(db); c.row_factory=sqlite3.Row
+              audit=rows(c,"select audit_id,project_name,status,completion_status,max_pages,limitations,started_at,completed_at from audits limit 1")
+              aid=audit[0]['audit_id'] if audit else ''
+              print('\n=== SMOKE',db,'===')
+              print('AUDIT',json.dumps(audit,ensure_ascii=False,default=str))
+              print('PAGES',json.dumps(rows(c,"select count(*) as n from pages where audit_id=?",(aid,)),ensure_ascii=False))
+              print('OVERALL',json.dumps(rows(c,"select device,value,coverage,confidence,consolidation_status,scoring_version,limitations from scores where audit_id=? and dimension='OVERALL_READINESS' order by device",(aid,)),ensure_ascii=False))
+              print('DIMENSIONS',json.dumps(rows(c,"select device,dimension,value,coverage,confidence,consolidation_status from scores where audit_id=? and dimension!='OVERALL_READINESS' order by device,dimension",(aid,)),ensure_ascii=False))
+              print('DISCOVERY_STRUCTURED',json.dumps(rows(c,"select rule_id,device,result,observed_value,error from rule_executions where audit_id=? and rule_id in ('BR-GEO-003','BR-GEO-017','BR-GEO-018','BR-GEO-034','BR-GEO-035','BR-GEO-036','BR-GEO-037','BR-GEO-047') order by rule_id,device",(aid,)),ensure_ascii=False))
+              tables=[r['name'] for r in rows(c,"select name from sqlite_master where type='table' order by name")]
+              for t in tables:
+                  low=t.lower()
+                  if 'web_performance' in low or 'apdex' in low or 'pagespeed' in low or 'crux' in low:
+                      data=rows(c,f'SELECT * FROM "{t}"')
+                      if data:
+                          print('TABLE',t,json.dumps(data,ensure_ascii=False,default=str))
+              c.close()
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rasai-domain-smoke
+          path: smoke-audits
+          retention-days: 3
+      - name: Validate audit exits
+        if: always()
+        run: |
+          echo "vaza=${{ steps.vaza.outputs.code }} bradesco=${{ steps.bradesco.outputs.code }}"
+          test "${{ steps.vaza.outputs.code }}" = "0"
+          test "${{ steps.bradesco.outputs.code }}" = "0"
+      - name: Cleanup temporary smoke workflow
+        if: always()
+        run: |
+          git config user.name 'RASAi CI'
+          git config user.email 'rasai-ci@users.noreply.github.com'
+          git rm -f .github/workflows/rasai-domain-smoke.yml
+          git commit -m 'Remove temporary domain smoke workflow'
+          git push origin HEAD:main
