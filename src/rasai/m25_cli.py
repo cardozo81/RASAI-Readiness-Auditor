@@ -173,7 +173,7 @@ def validate_m25_env_value(name: str, raw: str) -> str:
     elif name == UX_SESSION_MODE_ENV and value.casefold() not in {"cold", "warm"}:
         raise ValueError("session mode deve ser cold ou warm")
     elif name == UX_KPM_ENV and value.upper() not in SUPPORTED_TIME_KPMS:
-        raise ValueError("KPM temporal não suportada pelo M25")
+        raise ValueError("KPM temporal não suportada pelo Synthetic User Experience Apdex")
     elif name == UX_ERROR_SCOPE_ENV and value.casefold() not in {"navigation", "first-party", "all"}:
         raise ValueError("error scope inválido")
     elif name in {UX_SATISFIED_ENV, UX_FRUSTRATED_ENV, UX_SETTLE_ENV}:

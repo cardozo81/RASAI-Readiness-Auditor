@@ -539,7 +539,7 @@ def resolve_calibration(config: ExperienceApdexConfig) -> Calibration:
         )
         if imported.kpm not in SUPPORTED_TIME_KPMS:
             raise ValueError(
-                f"Dynatrace usa KPM {imported.kpm}, ainda não mensurável com equivalência suficiente no M25; "
+                f"Dynatrace usa KPM {imported.kpm}, ainda não mensurável com equivalência suficiente no Synthetic User Experience Apdex; "
                 "nenhum fallback silencioso foi aplicado"
             )
         errors = imported.errors_affect_apdex
@@ -646,7 +646,7 @@ def execute_m25_experience(
     shared_gateway = gateway
     owned_shared = False
     if shared_gateway is not None and cfg.concurrency != 1:
-        raise ValueError("M25 gateway injetado exige concurrency=1")
+        raise ValueError("Synthetic User Experience Apdex: gateway injetado exige concurrency=1")
     if shared_gateway is None and cfg.concurrency == 1:
         shared_gateway = factory()
         owned_shared = True
@@ -981,7 +981,7 @@ def _profile_for_device(device: str) -> SyntheticProfile:
         return DESKTOP_STANDARD_PROFILE
     if device == "TABLET":
         return TABLET_STANDARD_PROFILE
-    raise ValueError(f"device M25 não suportado: {device}")
+    raise ValueError(f"device não suportado pelo Synthetic User Experience Apdex: {device}")
 
 
 def _selected_pages(workspace: AuditWorkspace, audit_id: str, max_pages: int) -> list[dict[str, str]]:

@@ -35,7 +35,7 @@ def register_apdex_arguments(audit_parser: argparse.ArgumentParser) -> None:
         action=argparse.BooleanOptionalAction,
         default=None,
         help=(
-            "enable M23 Synthetic Navigation Apdex; default OFF or "
+            "enable Synthetic Navigation Apdex; default OFF or "
             f"{APDEX_ENABLED_ENV}; requires an explicit T"
         ),
     )
@@ -44,7 +44,7 @@ def register_apdex_arguments(audit_parser: argparse.ArgumentParser) -> None:
         type=float,
         default=None,
         help=(
-            "Apdex target threshold T in seconds; mandatory when M23 is enabled; "
+            "Apdex target threshold T in seconds; mandatory when Synthetic Navigation Apdex is enabled; "
             f"or {APDEX_THRESHOLD_ENV}"
         ),
     )
