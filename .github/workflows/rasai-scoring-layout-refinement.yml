@@ -39,8 +39,7 @@ jobs:
             tests/test_scoring_report_layout_20260908.py \
             tests/test_score_geo_004.py \
             tests/test_score_geo_004_applicability.py \
-            tests/test_reporting_governance_refinement_20260908.py \
-            tests/test_report_public_contract_adherence.py
+            tests/test_reporting_governance_refinement_20260908.py
       - name: Full regression
         run: pytest -q
       - name: Commit validated implementation
