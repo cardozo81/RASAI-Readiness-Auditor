@@ -138,7 +138,7 @@ Pré-requisito bloqueado não pode ser tratado como `NOT_APPLICABLE` benigno.
 
 IA é opcional para o pipeline de scoring. Ela não calcula o score.
 
-Sem provider, o M7 rule version 2 usa `SEMANTIC-BASELINE-001` para resolver somente critérios que possuam evidência local suficiente. O baseline não usa rede e não promove lacunas para resultado favorável.
+Sem provider, a rule version 2 das regras semânticas `BR-GEO-028..049` usa `SEMANTIC-BASELINE-001` para resolver somente critérios que possuam evidência local suficiente. O baseline não usa rede e não promove lacunas para resultado favorável.
 
 Uma execução `NO_AI` pode alcançar `CONSOLIDATED` quando o baseline e as demais regras produzirem Coverage/Confidence suficientes. Se faltarem evidências para regras aplicáveis, `UNKNOWN` continua possível e os gates normais continuam valendo.
 
