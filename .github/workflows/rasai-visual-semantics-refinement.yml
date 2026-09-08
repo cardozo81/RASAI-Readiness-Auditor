@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/rasai_visual_semantics_refinement.py'
+      - '.github/rasai_visual_semantics_fixup.py'
       - '.github/workflows/rasai-visual-semantics-refinement.yml'
       - '.rasai-visual-semantics-trigger'
 
@@ -24,7 +25,9 @@ jobs:
       - name: Apply refinement
         run: |
           python .github/rasai_visual_semantics_refinement.py
+          python .github/rasai_visual_semantics_fixup.py
           rm -f .github/rasai_visual_semantics_refinement.py
+          rm -f .github/rasai_visual_semantics_fixup.py
           rm -f .github/workflows/rasai-visual-semantics-refinement.yml
           rm -f .rasai-visual-semantics-trigger
       - name: Install package and tests
