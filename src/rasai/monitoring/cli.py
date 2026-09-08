@@ -41,7 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     gate.add_argument("--include-performance", action="store_true", help="incluir Lighthouse/field performance explicitamente")
     gate.add_argument("--include-synthetic", action="store_true", help="incluir Synthetic Navigation/UX Apdex explicitamente")
     gate.add_argument("--include-finding-aggregates", action="store_true", help="incluir contagens agregadas de findings explicitamente")
-    gate.add_argument("--include-score-dimensions", action="store_true", help="incluir deltas de dimensões SCORE-GEO-003 explicitamente")
+    gate.add_argument("--include-score-dimensions", action="store_true", help="incluir deltas de dimensões SCORE-GEO-004 explicitamente")
     gate.add_argument("--max-high-regressions", type=int, default=0)
     gate.add_argument("--max-medium-regressions", type=int, default=3)
     gate.add_argument("--dimension-drop-points", type=float, default=5.0)
