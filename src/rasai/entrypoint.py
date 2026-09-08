@@ -43,16 +43,17 @@ def _try_refresh_platform_index(argv: list[str]) -> None:
 
 
 def _run_audit_and_finalize(effective: list[str]) -> int:
-    """Run one audit and materialize SCORE-GEO-004 after every other report.
+    """Run one audit and materialize the current scoring method page last.
 
     Scoring itself still runs at M9, before recommendations. Only the HTML
     projection is deferred so the method page and canonical navigation reflect
-    the final persisted report site without changing score arithmetic.
+    the final persisted report site without changing score arithmetic. The
+    canonical report filename is stable across scoring-version revisions.
     """
     from rasai import m9
     from rasai import report_navigation
     from rasai.persistence import AuditWorkspace
-    from rasai.score_geo_004_reporting import write_score_geo_004_report
+    from rasai.score_geo_004_reporting import REPORT_FILE, write_score_geo_004_report
 
     original_run_audit = cli_extensions._legacy_cli.run_audit
     original_score_writer = m9.write_score_geo_004_report
@@ -64,7 +65,7 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         return result
 
     def defer_score_report(*, audit_id: str, workspace: AuditWorkspace) -> Path:
-        return workspace.root / "report" / "score-geo-004.html"
+        return workspace.root / "report" / REPORT_FILE
 
     cli_extensions._legacy_cli.run_audit = capture_run
     m9.write_score_geo_004_report = defer_score_report
@@ -86,7 +87,7 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         except Exception:
             # Report finalization is a projection. Never invalidate the already
             # persisted audit because a static method page could not be refreshed.
-            _LOGGER.exception("SCORE-GEO-004 final report projection failed")
+            _LOGGER.exception("Current scoring final report projection failed")
     return code
 
 
