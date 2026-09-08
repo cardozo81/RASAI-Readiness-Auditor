@@ -88,6 +88,7 @@ class ConsolidatedBacklogRegressionTests(unittest.TestCase):
             "src/rasai/m20_reporting.py", "src/rasai/m23_reporting.py",
             "src/rasai/m24_reporting.py", "src/rasai/m25_reporting.py",
             "src/rasai/external_metrics_integrity.py", "src/rasai/cli_extensions.py",
+            "src/rasai/report_site.py",
         ]
         root = Path(__file__).resolve().parents[1]
         for relative in selected:
