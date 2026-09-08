@@ -35,6 +35,10 @@ jobs:
               "'''        \"Não invente pesos numéricos nem altere a fórmula do SCORE-GEO-004/SARI-001. \"\\n        \"Além das ações, classifique ROBOTS e/ou SITEMAP somente quando houver evidência fornecida, \"\\n        \"usando POSITIVE, NEUTRAL ou NEGATIVE. O runtime converte essa classe por fatores estáticos/versionados. \"\\n''',",
               "'''        \"determinísticos fornecidos. Não invente pesos numéricos nem altere a fórmula do SCORE-GEO-004/SARI-001. \"\\n        \"Além das ações, classifique ROBOTS e/ou SITEMAP somente quando houver evidência fornecida, \"\\n        \"usando POSITIVE, NEUTRAL ou NEGATIVE. O runtime converte essa classe por fatores estáticos/versionados. \"\\n''',",
           )
+          s = s.replace(
+              "'''{_metric(\"Impacto desta camada\", str(run[\"scoring_impact\"]) if run else \"NONE\")}\\n''',",
+              "'''{_metric(\"Impacto desta camada\", \"NENHUM\" if run and str(run[\"scoring_impact\"]) == \"NONE\" else (str(run[\"scoring_impact\"]) if run else \"NENHUM\"))}\\n''',",
+          )
           p.write_text(s, encoding='utf-8', newline='\n')
           PY
           python .github/rasai_scoring_refinement.py
