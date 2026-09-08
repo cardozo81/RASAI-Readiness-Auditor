@@ -18,7 +18,8 @@ audits/<AUD-ID>/
 └─ report/
    ├─ index.html
    ├─ readiness.html
-   ├─ score-geo-003.html
+   ├─ scoring.html             # canônico; método vigente e versão persistida
+   ├─ score-geo-004.html       # alias de compatibilidade
    ├─ mobile.html              # condicional
    ├─ desktop.html             # condicional
    ├─ remediation.html
@@ -36,7 +37,7 @@ audits/<AUD-ID>/
    └─ css/site.css
 ```
 
-O menu final lista somente páginas existentes e preserva ordem canônica.
+O menu final lista somente páginas canônicas existentes e preserva ordem estável. O alias versionado do scoring não recebe item próprio de navegação.
 
 ## Fonte de verdade
 
@@ -46,7 +47,7 @@ O menu final lista somente páginas existentes e preserva ordem canônica.
 
 ```text
 SARI-001       = índice público de readiness
-SCORE-GEO-003  = scoring vigente para novas auditorias
+SCORE-GEO-004  = scoring vigente para novas auditorias
 RASAI-OBS-002  = contrato atual do sidecar observacional
 ```
 
@@ -223,9 +224,13 @@ Dashboard executivo; não pondera domínios complementares em score comum.
 
 Página canônica de `SARI-001`.
 
-### `score-geo-003.html`
+### `scoring.html`
 
-Contrato/status do `SCORE-GEO-003`.
+Página canônica da metodologia de scoring. Exibe `scoring_version`, contrato do Overall, Coverage, Confidence, Consolidation e rastreabilidade. O método vigente é `SCORE-GEO-004`.
+
+### `score-geo-004.html`
+
+Alias de compatibilidade para links antigos. Redireciona para `scoring.html` e não deve ser usado como contrato por novas integrações.
 
 ### `mobile.html` / `desktop.html`
 
@@ -261,7 +266,7 @@ Synthetic User Experience Apdex calibrável. Não é RUM.
 
 ### `ai-visibility.html`
 
-Observed Generative Visibility import-first; não produz score universal de Search & AI Readiness nem altera `SCORE-GEO-003`.
+Observed Generative Visibility import-first; não produz score universal de Search & AI Readiness nem altera `SCORE-GEO-004`.
 
 ### `observability.html`
 
@@ -343,9 +348,15 @@ audits/quality/TIMELINE-*/
 
 Projeção longitudinal read-only de AUDs existentes.
 
-## Calibration dataset
+## Scoring CLI vigente
 
-`rasai scoring dataset` gera manifest/fingerprint pré-fit. `READY_FOR_MODEL_FIT != VALIDATED`.
+O comando suportado atualmente é:
+
+```text
+rasai scoring inspect
+```
+
+Ele inspeciona versão, fórmula e gates do `SCORE-GEO-004`. Fluxos antigos de dataset/model artifact do `SCORE-GEO-003` são históricos e não fazem parte do runtime de scoring 004.
 
 ## Navegação canônica
 
@@ -354,7 +365,7 @@ Ordem atual, condicionada à existência do arquivo:
 ```text
 Visão geral
 Readiness SARI
-SCORE-GEO-003
+Metodologia de scoring
 Relatório Mobile
 Relatório Desktop
 Remediações
@@ -385,4 +396,4 @@ Apenas a página atual recebe estado ativo.
 - remover `observability.db`, cache consolidado, `MON-*`, `VER-*` ou timeline não remove a evidência original do AUD;
 - hash do `audit.db` deve permanecer inalterado após operações `monitor`, `observe` e `quality` pós-auditoria.
 
-Detalhes: [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md), [SCORE_GEO_003.md](SCORE_GEO_003.md) e [specification/28_AUDIT_QUALITY_VERIFICATION.md](specification/28_AUDIT_QUALITY_VERIFICATION.md).
+Detalhes: [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md), [SCORE_GEO_004.md](SCORE_GEO_004.md) e [specification/28_AUDIT_QUALITY_VERIFICATION.md](specification/28_AUDIT_QUALITY_VERIFICATION.md).
