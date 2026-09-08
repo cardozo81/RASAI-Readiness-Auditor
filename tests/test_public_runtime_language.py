@@ -4,7 +4,10 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 import re
+from types import SimpleNamespace
 import unittest
+
+from rasai.console_runtime import _synthetic_progress_projection
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -78,6 +81,25 @@ class PublicRuntimeLanguageTests(unittest.TestCase):
                                 )
 
         self.assertEqual([], violations, "\n".join(violations))
+
+    def test_public_relabeling_preserves_synthetic_progress_weights(self) -> None:
+        experience = SimpleNamespace(status="SYNTHETIC_UX_APDEX", apdex_experience=True)
+        stage, overall = _synthetic_progress_projection(
+            experience,
+            "Synthetic User Experience Apdex",
+            50.0,
+        )
+        self.assertEqual(stage, 50.0)
+        self.assertEqual(overall, 93.0)
+
+        navigation = SimpleNamespace(status="SYNTHETIC_APDEX", apdex_experience=True)
+        stage, overall = _synthetic_progress_projection(
+            navigation,
+            "Synthetic Apdex",
+            50.0,
+        )
+        self.assertEqual(stage, 50.0)
+        self.assertEqual(overall, 95.5)
 
 
 if __name__ == "__main__":
