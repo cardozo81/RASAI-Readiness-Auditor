@@ -1,0 +1,54 @@
+name: Resolve public runtime language guard findings
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve all current guard findings
+        shell: python
+        run: |
+          from pathlib import Path
+
+          replacements = {
+              'src/rasai/m23_cli.py': [
+                  ('enable M23 Synthetic Navigation Apdex', 'enable Synthetic Navigation Apdex'),
+                  ('mandatory when M23 is enabled', 'mandatory when Synthetic Navigation Apdex is enabled'),
+              ],
+              'src/rasai/m25_cli.py': [
+                  ('KPM temporal não suportada pelo M25', 'KPM temporal não suportada pelo Synthetic User Experience Apdex'),
+              ],
+              'src/rasai/m25_apdex_experience.py': [
+                  ('ainda não mensurável com equivalência suficiente no M25', 'ainda não mensurável com equivalência suficiente no Synthetic User Experience Apdex'),
+                  ('M25 gateway injetado exige concurrency=1', 'Synthetic User Experience Apdex: gateway injetado exige concurrency=1'),
+                  ('device M25 não suportado:', 'device não suportado pelo Synthetic User Experience Apdex:'),
+              ],
+          }
+
+          for relative, pairs in replacements.items():
+              path = Path(relative)
+              text = path.read_text(encoding='utf-8')
+              for old, new in pairs:
+                  if old not in text and new not in text:
+                      raise SystemExit(f'expected guard finding missing in {relative}: {old}')
+                  text = text.replace(old, new)
+              path.write_text(text, encoding='utf-8', newline='\n')
+      - name: Remove one-shot workflow
+        run: git rm .github/workflows/fix-public-runtime-guard.yml
+      - name: Commit fixes
+        run: |
+          git config user.name "RASAi public-language bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/rasai/m23_cli.py src/rasai/m25_cli.py src/rasai/m25_apdex_experience.py
+          git commit -m "Resolve public runtime milestone guard findings"
+          git push origin HEAD:main
