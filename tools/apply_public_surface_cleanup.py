@@ -1,7 +1,7 @@
 """One-shot contextual cleanup for public RASAi surfaces.
 
 This script deliberately does NOT perform global scoring-version replacement.
-It only removes obsolete milestone labels from user-facing surfaces and fixes
+It removes obsolete milestone labels from user-facing surfaces and fixes only
 known current-runtime strings whose context is unambiguously current.
 """
 from __future__ import annotations
@@ -46,9 +46,18 @@ EXACT_REPLACEMENTS: dict[str, tuple[tuple[str, str], ...]] = {
         ("m20-ai-telemetry", "remediation-ai-telemetry"),
         ("ai-usage.html#m20-ai-telemetry", "ai-usage.html#remediation-ai-telemetry"),
         ("Confidence global do SCORE-GEO-002", "Confidence global do SCORE-GEO-004"),
+        (
+            "<h5>Texto proposto</h5><pre>{escape(str(row['proposed_text']))}</pre>",
+            "<div class='notice ai-provenance'><strong>Output gerado por IA.</strong> "
+            "Este texto foi produzido pelo provider/modelo identificado abaixo a partir do finding/regra persistidos, "
+            "da URL e dispositivo desta ocorrência, dos evidence_ids exibidos e do contexto editorial persistido quando aplicável. "
+            "O RASAi valida o contrato da resposta, mas o conteúdo continua advisory e exige revisão humana.</div>"
+            "<h5>Texto proposto pela IA</h5><pre>{escape(str(row['proposed_text']))}</pre>",
+        ),
     ),
     "src/rasai/report_navigation.py": (
         ("m20-ai-telemetry", "remediation-ai-telemetry"),
+        ("Verifica a reprodutibilidade do SCORE-GEO-002 persistido.", "Verifica a reprodutibilidade do SCORE-GEO-004 persistido."),
     ),
     "src/rasai/report_semantics.py": (
         ("m20-ai-telemetry", "remediation-ai-telemetry"),
@@ -60,6 +69,7 @@ EXACT_REPLACEMENTS: dict[str, tuple[tuple[str, str], ...]] = {
     ),
     "src/rasai/console_m23.py": (
         (" + M25 até {m25_attempts} user action(s) sintética(s)", " + experiência sintética até {m25_attempts} ação(ões) de usuário"),
+        ("navegação(ões) M23 ", "navegação(ões) Synthetic Navigation Apdex "),
     ),
     "tests/test_report_visual_contract.py": (
         ("m20-ai-telemetry", "remediation-ai-telemetry"),
@@ -89,14 +99,10 @@ DOC_STAGE_NAMES = {
     "M26": "Observed Generative Visibility",
 }
 
-# Most documentation before the named domain stages only needs to stop exposing
-# internal milestone numbering. Unknown milestone numbers are intentionally
-# rendered as a neutral implementation-stage term rather than guessed.
 _MILESTONE_RE = re.compile(r"(?<![A-Za-z0-9_])M\d{1,3}(?![A-Za-z0-9_])")
 
 
 def _clean_doc(text: str) -> str:
-    # Replace compound labels first so wording remains readable.
     text = text.replace("M18/M20", "análise semântica/remediação de conteúdo por IA")
     text = text.replace("M21/M22", "Web Performance/Acessibilidade")
     text = text.replace("M21 + M22", "Web Performance e Acessibilidade")
@@ -104,10 +110,21 @@ def _clean_doc(text: str) -> str:
     text = text.replace("M23/M25", "Synthetic Navigation/Synthetic User Experience Apdex")
 
     def repl(match: re.Match[str]) -> str:
-        token = match.group(0)
-        return DOC_STAGE_NAMES.get(token, "etapa interna de implementação")
+        return DOC_STAGE_NAMES.get(match.group(0), "etapa interna de implementação")
 
     return _MILESTONE_RE.sub(repl, text)
+
+
+def _centralize_navigation(text: str) -> str:
+    import_line = "from rasai.report_contract import CANONICAL_NAV_ITEMS\n"
+    if import_line not in text:
+        marker = "from rasai.report_semantics import SEMANTIC_CSS, enhance_report_html\n"
+        text = text.replace(marker, import_line + marker, 1)
+    pattern = re.compile(
+        r"NAV_ITEMS: tuple\[tuple\[str, str\], \.\.\.\] = \(.*?\n\)\n\nBRASILIA_TIMEZONE",
+        re.DOTALL,
+    )
+    return pattern.sub("NAV_ITEMS: tuple[tuple[str, str], ...] = CANONICAL_NAV_ITEMS\n\nBRASILIA_TIMEZONE", text, count=1)
 
 
 def main() -> int:
@@ -120,6 +137,8 @@ def main() -> int:
         updated = text
         for old, new in replacements:
             updated = updated.replace(old, new)
+        if relative == "src/rasai/report_navigation.py":
+            updated = _centralize_navigation(updated)
         if updated != text:
             path.write_text(updated, encoding="utf-8", newline="\n")
             changed.append(relative)
