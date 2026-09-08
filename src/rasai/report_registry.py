@@ -1,10 +1,9 @@
-"""Canonical report navigation registry for all current RASAi report surfaces.
+"""Install the stable public report contract into legacy/current generators.
 
-The report_navigation module owns rendering/polish. This registry installs the
-complete ordered catalogue so an optional report generated later cannot
-accidentally remove links to previously materialized optional pages. Items remain
-conditional because report_navigation.available_navigation only renders files
-that actually exist (or the current page).
+Report generators remain responsible for their domain content. This module owns
+cross-cutting presentation invariants that must be identical on every page:
+canonical navigation, public dependency metadata, version-neutral filenames,
+manifest projection and defensive normalization of known stale wording.
 """
 from __future__ import annotations
 
@@ -12,24 +11,11 @@ from html import escape
 from pathlib import Path
 import sqlite3
 
-CANONICAL_NAV_ITEMS: tuple[tuple[str, str], ...] = (
-    ("Visão geral", "index.html"),
-    ("Readiness SARI", "readiness.html"),
-    ("Metodologia de scoring", "scoring.html"),
-    ("Relatório Mobile", "mobile.html"),
-    ("Relatório Desktop", "desktop.html"),
-    ("Remediações", "remediation.html"),
-    ("Conteúdo e JSON-LD", "content-suggestions.html"),
-    ("Rastreamento e descoberta", "crawling-discovery.html"),
-    ("Acessibilidade", "accessibility.html"),
-    ("Web Performance", "web-performance.html"),
-    ("Apdex de navegação", "apdex.html"),
-    ("Apdex de experiência", "apdex-experience.html"),
-    ("Visibilidade em IA", "ai-visibility.html"),
-    ("Search & AI observados", "observability.html"),
-    ("Quality & decisão", "quality.html"),
-    ("Uso de IA", "ai-usage.html"),
-    ("Referências e metodologia", "references.html"),
+from rasai.report_contract import (
+    CANONICAL_NAV_ITEMS,
+    REPORT_ALIASES,
+    REPORT_SURFACES,
+    surface_by_filename,
 )
 
 
@@ -138,17 +124,13 @@ def _patch_lighthouse_traceability_message() -> None:
 def _patch_current_scoring_projection() -> None:
     """Keep public SARI projection aligned with the current runtime version."""
     from rasai import rasai_readiness_reporting
+    from rasai.score_geo_004 import SCORING_VERSION
 
-    rasai_readiness_reporting.COMPATIBLE_ENGINE_VERSION = "SCORE-GEO-004"
+    rasai_readiness_reporting.COMPATIBLE_ENGINE_VERSION = SCORING_VERSION
 
 
 def _normalize_known_legacy_wording(html: str, *, page_name: str) -> str:
-    """Repair known stale current-method copy without rewriting method history.
-
-    Historical SCORE-GEO identifiers are legitimate evidence. Replacing version
-    strings globally corrupts that evidence, so only known statements that call
-    an obsolete method "current" are normalized here.
-    """
+    """Defensively repair stale current-method copy without rewriting history."""
     replacements = (
         ("não é convertido em SCORE-GEO-003", "não é convertido em SCORE-GEO-004"),
         ("SCORE-GEO-003 continua disponível normalmente", "SCORE-GEO-004 continua disponível normalmente"),
@@ -176,17 +158,74 @@ def _normalize_known_legacy_wording(html: str, *, page_name: str) -> str:
     return updated
 
 
+def _contract_section(page_name: str) -> str:
+    if page_name in REPORT_ALIASES:
+        return ""
+    try:
+        surface = surface_by_filename(page_name)
+    except KeyError:
+        return ""
+
+    def list_text(values: tuple[str, ...], fallback: str = "Nenhuma") -> str:
+        return "; ".join(values) if values else fallback
+
+    return (
+        "<section id='public-report-contract' class='panel' data-report-contract='true'>"
+        "<div class='kicker'>Contrato desta superfície</div>"
+        f"<h2>{escape(surface.label)}: inputs, outputs e dependências</h2>"
+        "<div class='grid'>"
+        f"<div><h3>Inputs</h3><p>{escape(list_text(surface.inputs))}</p></div>"
+        f"<div><h3>Outputs</h3><p>{escape(list_text(surface.outputs))}</p></div>"
+        f"<div><h3>Dependências obrigatórias</h3><p>{escape(list_text(surface.required_dependencies))}</p></div>"
+        f"<div><h3>Dependências opcionais</h3><p>{escape(list_text(surface.optional_dependencies))}</p></div>"
+        f"<div><h3>Uso de IA</h3><p>{escape(surface.ai_usage)}</p></div>"
+        f"<div><h3>Impacto no SARI/SCORE</h3><p>{escape(surface.score_impact)}</p></div>"
+        f"<div><h3>Fonte de verdade</h3><p>{escape(surface.source_of_truth)}</p></div>"
+        "</div></section>"
+    )
+
+
+def _dependency_map() -> str:
+    return (
+        "<section id='report-dependency-map' class='panel' data-report-dependency-map='true'>"
+        "<div class='kicker'>Arquitetura da auditoria</div><h2>Como as evidências alimentam as superfícies</h2>"
+        "<p class='intro'>As setas abaixo representam fluxo de evidência/projeção, não causalidade entre métricas. "
+        "Somente regras pertencentes ao contrato SARI/SCORE entram no readiness.</p>"
+        "<div class='notice'><strong>Audit Evidence</strong><br>"
+        "├─&gt; <strong>SARI / SCORE-GEO-004</strong> <span class='badge'>participa do score</span><br>"
+        "├─&gt; Remediação <span class='badge'>read-only derivado</span><br>"
+        "├─&gt; Web Performance ─&gt; Acessibilidade <span class='badge'>integração externa / complementar</span><br>"
+        "├─&gt; Synthetic Apdex <span class='badge'>complementar</span><br>"
+        "├─&gt; Observability <span class='badge'>observacional / integração externa</span><br>"
+        "├─&gt; Quality <span class='badge'>read-only derivado</span><br>"
+        "└─&gt; AI Usage <span class='badge'>telemetria de IA</span></div>"
+        "<p class='intro'>Resultados gerados por IA devem ser identificados no próprio output e vinculados aos inputs/evidências usados; "
+        "custos/tokens e telemetria de IA não entram no SCORE-GEO-004.</p></section>"
+    )
+
+
+def _inject_shared_contract(html: str, *, page_name: str) -> str:
+    if page_name == "index.html" and "data-report-dependency-map='true'" not in html:
+        html = html.replace("</main>", _dependency_map() + "</main>", 1)
+    if "data-report-contract='true'" not in html:
+        section = _contract_section(page_name)
+        if section:
+            html = html.replace("</main>", section + "</main>", 1)
+    return html
+
+
 def _patch_final_branding_normalization() -> None:
-    """Prevent obsolete public wording from reappearing in generated HTML."""
+    """Apply shared public contract and keep a defensive final consistency pass."""
     from rasai import report_navigation
+    from rasai.report_manifest import write_report_manifest
     from rasai.report_presentation import humanize_report_html
 
     if getattr(report_navigation, "_rasai_public_wording_patch", False):
         return
     original = report_navigation.normalize_report_navigation
 
-    def normalize_with_current_wording(report_dir):
-        result = original(report_dir)
+    def normalize_with_current_wording(report_dir, *args, **kwargs):
+        result = original(report_dir, *args, **kwargs)
         root = Path(report_dir)
         for path in root.glob("*.html"):
             try:
@@ -199,14 +238,12 @@ def _patch_final_branding_normalization() -> None:
                 "Média simples das dimensões aplicáveis suficientemente consolidadas. Dimensão legitimamente NOT_APPLICABLE não recebe zero.",
                 "Média de igual peso das dimensões aplicáveis com medição suficiente. Dimensão legitimamente NOT_APPLICABLE sai do denominador e não recebe zero.",
             )
-            updated = updated.replace(
-                "Compatibilidade metodológica:",
-                "Contrato metodológico:",
-            )
+            updated = updated.replace("Compatibilidade metodológica:", "Contrato metodológico:")
             updated = updated.replace(
                 "esta mudança de relatório não recalcula auditorias, não altera pesos e não quebra comparabilidade histórica.",
                 "o resultado é calculado e persistido pelo contrato vigente desta auditoria.",
             )
+            updated = _inject_shared_contract(updated, page_name=path.name)
             updated = updated.replace("—", "-").replace("–", "-")
             updated = humanize_report_html(updated, page_name=path.name)
             if updated != html:
@@ -214,6 +251,7 @@ def _patch_final_branding_normalization() -> None:
                     path.write_text(updated, encoding="utf-8", newline="\n")
                 except OSError:
                     continue
+        write_report_manifest(root)
         return result
 
     report_navigation.normalize_report_navigation = normalize_with_current_wording
@@ -221,7 +259,7 @@ def _patch_final_branding_normalization() -> None:
 
 
 def install() -> None:
-    """Install the current catalogue and report consistency adapters idempotently."""
+    """Install the canonical public report contract idempotently."""
     from rasai import report_navigation
 
     report_navigation.NAV_ITEMS = CANONICAL_NAV_ITEMS
