@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from rasai import report_navigation
+from rasai.report_presentation import humanize_report_html
 from rasai.report_registry import install as install_report_registry
 from .analysis import QualityBundle, analyze_quality
 from .content_controls import analyze_content_controls
@@ -166,7 +167,8 @@ def _count(values: Any) -> dict[str, int]:
 
 
 def _shell(nav: str, body: str) -> str:
-    return f"<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>RASAi Quality</title><style>{_CSS}</style></head><body>{nav}<main>{body}</main></body></html>"
+    html = f"<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>RASAi Quality</title><style>{_CSS}</style></head><body>{nav}<main>{body}</main></body></html>"
+    return humanize_report_html(html, page_name="quality.html")
 
 
 _CSS = """body{margin:0;background:#f5f7fa;color:#273449;font:14px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:1500px;margin:auto;padding:32px}.hero,.panel{background:#fff;border:1px solid #e1e6ec;border-radius:8px;padding:24px;margin-bottom:16px}.eyebrow,.kicker{font-size:12px;text-transform:uppercase;color:#6d7786;letter-spacing:.08em}.lead{max-width:1000px}.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:18px}.metric{background:#f7f8fb;border-radius:7px;padding:12px}.metric span{display:block;color:#667085}.metric strong{font-size:20px}.table-wrap{overflow:auto;border:1px solid #e1e6ec;border-radius:6px}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:9px 10px;border-bottom:1px solid #e1e6ec;text-align:left;vertical-align:top}th{background:#f7f8fb}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}.notice{background:#fbfcfe}.footer{color:#667085;padding:12px}@media(max-width:700px){main{padding:16px}}"""
