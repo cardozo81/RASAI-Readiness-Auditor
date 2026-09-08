@@ -10,6 +10,7 @@ class ReportPresentationTests(unittest.TestCase):
         html = (
             "<table><tr>"
             "<td>MOBILE</td><td>NOT_CONSOLIDATED</td><td>HIGH</td><td>P1</td>"
+            "<td>SEMANTIC_STRUCTURE</td><td>EVIDENCE_TRUST</td>"
             "</tr></table>"
             "<div class='metric'><span>Status</span><strong>UNAVAILABLE</strong></div>"
             "<span class='badge'>SUCCESS</span>"
@@ -21,6 +22,8 @@ class ReportPresentationTests(unittest.TestCase):
         self.assertIn("<td>Não consolidado</td>", rendered)
         self.assertIn("<td>Alta</td>", rendered)
         self.assertIn("<td>Alta (P1)</td>", rendered)
+        self.assertIn("<td>Estrutura semântica</td>", rendered)
+        self.assertIn("<td>Confiança da evidência</td>", rendered)
         self.assertIn("<strong>Indisponível</strong>", rendered)
         self.assertIn("<span class='badge'>Concluído</span>", rendered)
 
