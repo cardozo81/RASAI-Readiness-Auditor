@@ -1,0 +1,29 @@
+name: Public Contract Consistency
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Validate public contract
+        run: python -m rasai.public_contract_gate
+      - name: Contract-focused tests
+        run: >-
+          python -m unittest
+          tests.test_report_registry_and_method_docs
+          tests.test_rasai_runtime_branding_and_reports
+          tests.test_rasai_readiness_reporting
