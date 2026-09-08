@@ -48,7 +48,6 @@ jobs:
           tests/test_m18_timeout_and_report_layout.py
           tests/test_m24_crawling_discovery.py
           tests/test_report_semantics.py
-          tests/test_report_navigation_normalization.py
           tests/test_consolidated_backlog_regressions.py
       - name: Full regression
         run: pytest -q
