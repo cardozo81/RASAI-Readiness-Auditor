@@ -1,0 +1,47 @@
+name: Hide internal Apdex event IDs from console
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Replace event IDs with functional failure detail
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('src/rasai/console_m23.py')
+          text = path.read_text(encoding='utf-8')
+          replacements = [
+              (
+                  'set_runtime_progress(state, "Limitação operacional do Synthetic User Experience Apdex", 100.0, detail=name, exact=True)',
+                  'set_runtime_progress(\n            state,\n            "Limitação operacional do Synthetic User Experience Apdex",\n            100.0,\n            detail="falha operacional registrada no log; execução segue fail-open",\n            exact=True,\n        )',
+              ),
+              (
+                  'set_runtime_progress(state, "Limitação operacional Synthetic Apdex", 100.0, detail=name, exact=True)',
+                  'set_runtime_progress(\n            state,\n            "Limitação operacional do Synthetic Navigation Apdex",\n            100.0,\n            detail="falha operacional registrada no log; execução segue fail-open",\n            exact=True,\n        )',
+              ),
+          ]
+          for old, new in replacements:
+              if old not in text and new not in text:
+                  raise SystemExit(f'expected public failure projection missing: {old}')
+              text = text.replace(old, new)
+          path.write_text(text, encoding='utf-8', newline='\n')
+      - name: Remove one-shot workflow
+        run: git rm .github/workflows/fix-public-failure-detail.yml
+      - name: Commit fixes
+        run: |
+          git config user.name "RASAi public-language bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/rasai/console_m23.py
+          git commit -m "Hide internal Apdex event IDs from console"
+          git push origin HEAD:main
