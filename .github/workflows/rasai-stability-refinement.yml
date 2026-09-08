@@ -22,6 +22,7 @@ jobs:
       - name: Apply refinement
         run: |
           python .github/rasai_stability_refinement.py
+          sed -i 's/Os diagnósticos M24 são advisory/Os diagnósticos técnicos são advisory/g' docs/CLI_REFERENCE.md docs/CONSOLE_COST_AND_USAGE.md docs/AI_GUIDE.md || true
           rm -f .github/rasai_stability_refinement.py
           rm -f .github/workflows/rasai-stability-refinement.yml
       - name: Install package and tests
@@ -41,9 +42,7 @@ jobs:
           tests/test_rasai_readiness_reporting.py
           tests/test_report_semantics.py
           tests/test_report_navigation.py
-          tests/test_console_cost.py
-          tests/test_m24_crawling_discovery.py
-          tests/test_m24_ai.py
+          tests/test_interactive_console.py
       - name: Full regression
         run: pytest -q
       - name: Commit validated implementation
