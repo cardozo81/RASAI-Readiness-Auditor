@@ -23,6 +23,20 @@ jobs:
           python-version: '3.13'
       - name: Apply refinement
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/rasai_scoring_refinement.py')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace(
+              "'''        \"Não altere severidade, scoring, SCORE-GEO-004 ou SARI-001. \"\\n''',",
+              "'''        \"determinísticos fornecidos. Não altere severidade, scoring, SCORE-GEO-004 ou SARI-001. \"\\n''',",
+          )
+          s = s.replace(
+              "'''        \"Não invente pesos numéricos nem altere a fórmula do SCORE-GEO-004/SARI-001. \"\\n        \"Além das ações, classifique ROBOTS e/ou SITEMAP somente quando houver evidência fornecida, \"\\n        \"usando POSITIVE, NEUTRAL ou NEGATIVE. O runtime converte essa classe por fatores estáticos/versionados. \"\\n''',",
+              "'''        \"determinísticos fornecidos. Não invente pesos numéricos nem altere a fórmula do SCORE-GEO-004/SARI-001. \"\\n        \"Além das ações, classifique ROBOTS e/ou SITEMAP somente quando houver evidência fornecida, \"\\n        \"usando POSITIVE, NEUTRAL ou NEGATIVE. O runtime converte essa classe por fatores estáticos/versionados. \"\\n''',",
+          )
+          p.write_text(s, encoding='utf-8', newline='\n')
+          PY
           python .github/rasai_scoring_refinement.py
           rm -f .github/rasai_scoring_refinement.py
           rm -f .github/workflows/rasai-scoring-refinement.yml
