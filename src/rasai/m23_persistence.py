@@ -58,6 +58,7 @@ class SyntheticApdexSample:
     error_message: str | None
     cpu_method: str | None
     network_method: str | None
+    browser_diagnostics: dict[str, Any]
     cache_policy: str
     captured_at: str
 
@@ -194,6 +195,7 @@ class M23Persistence:
                     error_message TEXT,
                     cpu_method TEXT,
                     network_method TEXT,
+                    browser_diagnostics TEXT NOT NULL DEFAULT '{}',
                     cache_policy TEXT NOT NULL,
                     captured_at TEXT NOT NULL,
                     UNIQUE(audit_id,snapshot_id,run_index)
@@ -275,6 +277,9 @@ class M23Persistence:
                     ON lighthouse_execution_profiles(audit_id,device);
                 """
             )
+            columns = {row[1] for row in self.connection.execute("PRAGMA table_info(synthetic_apdex_samples)")}
+            if "browser_diagnostics" not in columns:
+                self.connection.execute("ALTER TABLE synthetic_apdex_samples ADD COLUMN browser_diagnostics TEXT NOT NULL DEFAULT '{}'")
 
     def upsert_run(self, item: SyntheticApdexRun) -> None:
         with self.connection:
@@ -294,13 +299,18 @@ class M23Persistence:
     def add_sample(self, item: SyntheticApdexSample) -> None:
         with self.connection:
             self.connection.execute(
-                "INSERT OR REPLACE INTO synthetic_apdex_samples VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                """INSERT OR REPLACE INTO synthetic_apdex_samples(
+                    sample_id,audit_id,page_id,snapshot_id,device,url,run_index,task_id,profile_id,
+                    profile_version,status,classification,duration_ms,http_status,final_url,error_code,
+                    error_message,cpu_method,network_method,browser_diagnostics,cache_policy,captured_at
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     item.sample_id, item.audit_id, item.page_id, item.snapshot_id,
                     item.device, item.url, item.run_index, item.task_id, item.profile_id,
                     item.profile_version, item.status, item.classification, item.duration_ms,
                     item.http_status, item.final_url, item.error_code, item.error_message,
-                    item.cpu_method, item.network_method, item.cache_policy, item.captured_at,
+                    item.cpu_method, item.network_method, _dump(item.browser_diagnostics),
+                    item.cache_policy, item.captured_at,
                 ),
             )
 

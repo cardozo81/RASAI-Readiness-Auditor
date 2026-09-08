@@ -263,3 +263,12 @@ Valores: `mobile`, `desktop`, `both`. Default: `mobile`.
 - [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md)
 - [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md)
 - [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md)
+
+## Persistência do console e precedência de configuração
+
+O console usa `rasai-console.ini` (ou o caminho indicado por `RASAI_CONSOLE_INI`) como contrato persistente de parâmetros não sensíveis. Ao salvar, o RASAi grava o estado operacional e uma seção `[environment]` com variáveis reconhecidas não secretas. Chaves, tokens, passwords e credenciais continuam fora do INI.
+
+Na inicialização, a ordem é: valor já presente no processo/Windows > valor persistido em `[environment]` > valor persistido nas seções funcionais do INI > default. O INI é lido antes da execução e seus valores não secretos são projetados novamente para o ambiente dos adapters. Assim, `RASAI_AI_CONTENT_REMEDIATION`, `RASAI_AI_TECHNICAL_REMEDIATION`, Web Performance, timeouts, modelo/reasoning selecionados e Synthetic Navigation Apdex sobrevivem a Save -> fechar -> reabrir.
+
+`RASAI_AI_CONTENT_REMEDIATION` controla conteúdo. `RASAI_AI_TECHNICAL_REMEDIATION` controla somente a remediação técnica advisory de crawling/discovery. Nenhuma das duas eleva SARI/Confidence por opinião da IA.
+

@@ -23,7 +23,7 @@ from rasai.provider_runtime_policy import (
 
 CONSOLE_INI_ENV = "RASAI_CONSOLE_INI"
 DEFAULT_CONSOLE_INI = "rasai-console.ini"
-CONFIG_VERSION = "1"
+CONFIG_VERSION = "2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +54,65 @@ def _optional(value: Any) -> str:
     return "" if value is None else str(value)
 
 
+def _known_nonsecret_environment_names() -> tuple[str, ...]:
+    # Imports are deliberately lazy: console_config imports this module indirectly
+    # through the interactive console, so the persistence layer must not create a
+    # module-import cycle.
+    from rasai.console_config import ENV_NAMES as CONSOLE_ENV_NAMES, is_secret
+    from rasai.console_m23 import M23_ENV_NAMES
+
+    names = tuple(dict.fromkeys((*CONSOLE_ENV_NAMES, *M23_ENV_NAMES, "RASAI_AI_TECHNICAL_REMEDIATION")))
+    return tuple(name for name in names if not is_secret(name))
+
+
+def _runtime_environment_projection(state: Any) -> dict[str, str]:
+    values = {
+        "RASAI_DEVICE_CONTEXT": str(state.device),
+        AI_TIMEOUT_ENV: f"{float(state.ai_timeout):g}",
+        "RASAI_AI_CONTENT_REMEDIATION": _bool_text(bool(state.content_remediation)),
+        "RASAI_AI_TECHNICAL_REMEDIATION": _bool_text(bool(getattr(state, "technical_remediation", False))),
+        "RASAI_WEB_PERFORMANCE": _bool_text(bool(state.web_performance)),
+        "RASAI_WEB_PERFORMANCE_MAX_PAGES": str(int(state.web_max_pages)),
+        WEB_PERFORMANCE_TIMEOUT_ENV: f"{float(state.web_timeout):g}",
+        "RASAI_WEB_PERFORMANCE_FIELD_SOURCE": str(state.field_source),
+        "RASAI_LIGHTHOUSE_CATEGORIES": str(state.lighthouse_categories),
+    }
+    if hasattr(state, "synthetic_apdex"):
+        values.update({
+            "RASAI_SYNTHETIC_APDEX": _bool_text(bool(state.synthetic_apdex)),
+            "RASAI_APDEX_SAMPLES_PER_CONTEXT": str(int(state.apdex_samples)),
+            "RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT": str(int(state.apdex_max_attempts)),
+            "RASAI_APDEX_MAX_PAGES": str(int(state.apdex_max_pages)),
+            "RASAI_APDEX_TIMEOUT_SECONDS": f"{float(state.apdex_timeout):g}",
+            "RASAI_APDEX_DELAY_SECONDS": f"{float(state.apdex_delay):g}",
+            "RASAI_APDEX_CONCURRENCY": str(int(state.apdex_concurrency)),
+        })
+        if state.apdex_threshold is not None:
+            values["RASAI_APDEX_THRESHOLD_SECONDS"] = f"{float(state.apdex_threshold):g}"
+        else:
+            values.pop("RASAI_APDEX_THRESHOLD_SECONDS", None)
+    registration = get_provider_registration(str(state.ai_provider))
+    if registration is not None:
+        if getattr(state, "ai_model", None):
+            values[registration.model_env] = str(state.ai_model)
+        if getattr(state, "ai_reasoning", None):
+            variable = provider_reasoning_env(registration.provider_name)
+            if variable:
+                values[variable] = str(state.ai_reasoning).upper()
+    return values
+
+
+def _persisted_environment_values(state: Any) -> dict[str, str]:
+    allowed = set(_known_nonsecret_environment_names())
+    projected = _runtime_environment_projection(state)
+    result: dict[str, str] = {}
+    for name in allowed:
+        value = (os.environ.get(name) or projected.get(name) or "").strip()
+        if value:
+            result[name] = value
+    return dict(sorted(result.items()))
+
+
 def _state_values(state: Any) -> dict[str, dict[str, str]]:
     """Return only persistable, non-secret settings."""
     return {
@@ -74,6 +133,7 @@ def _state_values(state: Any) -> dict[str, dict[str, str]]:
             "reasoning_effort": _optional(getattr(state, "ai_reasoning", None)),
             "timeout_seconds": f"{float(state.ai_timeout):g}",
             "content_remediation": _bool_text(bool(state.content_remediation)),
+            "technical_remediation": _bool_text(bool(getattr(state, "technical_remediation", False))),
         },
         "web_performance": {
             "enabled": _bool_text(bool(state.web_performance)),
@@ -117,17 +177,22 @@ def _state_values(state: Any) -> dict[str, dict[str, str]]:
 
 def configuration_fingerprint(state: Any) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
     values = _state_values(state)
-    return tuple((section, tuple(sorted(items.items()))) for section, items in sorted(values.items()))
+    sections = [(section, tuple(sorted(items.items()))) for section, items in sorted(values.items())]
+    sections.append(("environment", tuple(sorted(_persisted_environment_values(state).items()))))
+    return tuple(sections)
 
 
 def _parser_for_state(state: Any) -> ConfigParser:
     parser = ConfigParser(interpolation=None)
+    parser.optionxform = str
     for section, values in _state_values(state).items():
         parser[section] = values
+    parser["environment"] = _persisted_environment_values(state)
     return parser
 
 
 def save_console_config(state: Any, path: Path | None = None) -> Path:
+    sync_nonsecret_runtime_environment(state)
     destination = path or resolve_config_path()
     destination.parent.mkdir(parents=True, exist_ok=True)
     parser = _parser_for_state(state)
@@ -188,6 +253,7 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
     elif key == ("ai", "timeout_seconds"):
         state.ai_timeout = _positive_float(raw, label="ai.timeout_seconds")
     elif key == ("ai", "content_remediation"): state.content_remediation = _parse_bool(raw)
+    elif key == ("ai", "technical_remediation"): state.technical_remediation = _parse_bool(raw)
     elif key == ("web_performance", "enabled"): state.web_performance = _parse_bool(raw)
     elif key == ("web_performance", "max_pages"):
         value = int(raw)
@@ -289,12 +355,23 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
         save_console_config(state, source)
         return ConfigLoadResult(source, True, ())
     parser = ConfigParser(interpolation=None)
+    parser.optionxform = str
     try:
         with source.open("r", encoding="utf-8") as stream:
             parser.read_file(stream)
     except (OSError, UnicodeError) as exc:
         return ConfigLoadResult(source, False, (f"não foi possível ler {source}: {type(exc).__name__}",))
     warnings: list[str] = []
+    # Existing process/Windows values have higher precedence than the INI. The INI
+    # fills only missing non-secret variables, making Save -> close -> reopen stable.
+    if parser.has_section("environment"):
+        allowed = set(_known_nonsecret_environment_names())
+        for name, raw in parser.items("environment", raw=True):
+            if name not in allowed:
+                warnings.append(f"environment.{name}: variável não reconhecida ou não persistível")
+                continue
+            if not (os.environ.get(name) or "").strip() and raw.strip():
+                os.environ[name] = raw.strip()
     for section, values in _state_values(state).items():
         if not parser.has_section(section):
             continue
@@ -314,11 +391,10 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
 
 
 def sync_nonsecret_runtime_environment(state: Any) -> None:
-    """Project effective non-secret console settings into adapter environment."""
-    os.environ[AI_TIMEOUT_ENV] = f"{float(state.ai_timeout):g}"
-    os.environ[WEB_PERFORMANCE_TIMEOUT_ENV] = f"{float(state.web_timeout):g}"
-    registration = get_provider_registration(str(state.ai_provider))
-    if registration is not None and getattr(state, "ai_reasoning", None):
-        variable = provider_reasoning_env(registration.provider_name)
-        if variable:
-            os.environ[variable] = str(state.ai_reasoning).upper()
+    """Project all effective non-secret console settings into adapter environment."""
+    projection = _runtime_environment_projection(state)
+    for name, value in projection.items():
+        if value:
+            os.environ[name] = value
+        else:
+            os.environ.pop(name, None)

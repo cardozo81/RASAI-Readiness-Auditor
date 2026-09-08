@@ -34,7 +34,7 @@ PROVIDER_MENU_CHOICES = ("none", *(item.id for item in _REGISTRATIONS), "auto")
 
 _BASE_ENV_NAMES = (
     "RASAI_CONFIG", "RASAI_LOG_LEVEL", "RASAI_DEVICE_CONTEXT", AI_TIMEOUT_ENV,
-    "RASAI_AI_CONTENT_REMEDIATION", *CONTENT_CONTEXT_ENV_NAMES,
+    "RASAI_AI_CONTENT_REMEDIATION", "RASAI_AI_TECHNICAL_REMEDIATION", *CONTENT_CONTEXT_ENV_NAMES,
     "RASAI_WEB_PERFORMANCE",
     "RASAI_WEB_PERFORMANCE_MAX_PAGES", WEB_PERFORMANCE_TIMEOUT_ENV,
     "RASAI_WEB_PERFORMANCE_FIELD_SOURCE", "RASAI_LIGHTHOUSE_CATEGORIES",
@@ -66,6 +66,7 @@ class State:
     ai_reasoning: str | None = None
     ai_timeout: float = DEFAULT_AI_TIMEOUT_SECONDS
     content_remediation: bool = False
+    technical_remediation: bool = False
     web_performance: bool = False
     web_max_pages: int = 10
     web_timeout: float = DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS
@@ -106,6 +107,7 @@ def apply_environment_defaults(state: State, env: Mapping[str, str] | None = Non
             if state.ai_timeout <= 0: raise ValueError
         except ValueError: issues.append(f"{AI_TIMEOUT_ENV}: use número > 0")
     if active("RASAI_AI_CONTENT_REMEDIATION"): state.content_remediation = boolean("RASAI_AI_CONTENT_REMEDIATION", False)
+    if active("RASAI_AI_TECHNICAL_REMEDIATION"): state.technical_remediation = boolean("RASAI_AI_TECHNICAL_REMEDIATION", False)
     if active("RASAI_WEB_PERFORMANCE"): state.web_performance = boolean("RASAI_WEB_PERFORMANCE", False)
     if active("RASAI_WEB_PERFORMANCE_MAX_PAGES"):
         raw = (environment.get("RASAI_WEB_PERFORMANCE_MAX_PAGES") or "").strip()
@@ -209,7 +211,7 @@ def validate_env_value(name: str, value: str) -> str:
         candidate[name] = value.casefold()
         configured_content_analysis_context(candidate)
         return value.casefold()
-    if name in {"RASAI_AI_CONTENT_REMEDIATION", "RASAI_WEB_PERFORMANCE"} and value.casefold() not in {"true", "false", "1", "0", "yes", "no", "on", "off"}: raise ValueError("booleano inválido")
+    if name in {"RASAI_AI_CONTENT_REMEDIATION", "RASAI_AI_TECHNICAL_REMEDIATION", "RASAI_WEB_PERFORMANCE"} and value.casefold() not in {"true", "false", "1", "0", "yes", "no", "on", "off"}: raise ValueError("booleano inválido")
     if name == "RASAI_DEVICE_CONTEXT":
         value = value.casefold()
         if value not in {"mobile", "desktop", "both"}: raise ValueError("use mobile, desktop ou both")
@@ -241,7 +243,7 @@ def preflight(state: State, env: Mapping[str, str] | None = None) -> tuple[str, 
     if state.input_mode == "file" and len(normalized) > state.max_pages: raise ValueError(f"TXT possui {len(normalized)} URLs únicas e max-pages={state.max_pages}")
     capability = provider_capabilities(environment, state.runtime_blocks).get(get_provider_registration(state.ai_provider).id if get_provider_registration(state.ai_provider) else state.ai_provider)
     if not capability or not capability.available: raise ValueError(f"provider {state.ai_provider} indisponível: {capability.reason if capability else 'inválido'}")
-    if state.ai_provider == "none" and state.content_remediation: raise ValueError("remediação textual exige provider de IA apto")
+    if state.ai_provider == "none" and (state.content_remediation or state.technical_remediation): raise ValueError("remediações de IA exigem provider de IA apto")
     if state.ai_provider == "auto" and state.ai_model: raise ValueError("AUTO não aceita --ai-model")
     if state.web_performance and state.field_source == "crux" and not (environment.get("RASAI_CRUX_API_KEY") or "").strip(): raise ValueError("field source crux exige RASAI_CRUX_API_KEY")
     browser = (environment.get("RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE") or "").strip()
@@ -256,6 +258,7 @@ def build_command(state: State) -> list[str]:
     command += ["--language", state.language, "--market", state.market, "--max-pages", str(state.max_pages), "--audits-root", state.audits_root, "--device-context", state.device, "--ai-provider", state.ai_provider]
     if get_provider_registration(state.ai_provider) is not None and state.ai_model: command += ["--ai-model", state.ai_model]
     command += ["--ai-content-remediation" if state.content_remediation else "--no-ai-content-remediation"]
+    command += ["--ai-technical-remediation" if state.technical_remediation else "--no-ai-technical-remediation"]
     command += ["--web-performance" if state.web_performance else "--no-web-performance"]
     if state.web_performance: command += ["--web-performance-max-pages", str(state.web_max_pages), "--web-performance-timeout-seconds", str(state.web_timeout), "--web-performance-field-source", state.field_source, "--lighthouse-categories", state.lighthouse_categories]
     return command

@@ -342,6 +342,7 @@ def _configure(state: State, choice: str) -> None:
             state.ai_provider, state.ai_model, state.ai_reasoning = value, None, None
             if value == "none":
                 state.content_remediation = False
+                state.technical_remediation = False
             elif value in PROVIDERS:
                 provider = PROVIDERS[value]
                 default = os.environ.get(MODEL_ENV[provider], DEFAULT_MODELS[provider])
@@ -364,9 +365,11 @@ def _configure(state: State, choice: str) -> None:
         capability = provider_capabilities(blocks=state.runtime_blocks)[state.ai_provider]
         if state.ai_provider == "none" or not capability.available:
             state.content_remediation = False
+            state.technical_remediation = False
             state.error = "opção 5 requer uma IA configurada e ativa no item 4"
         else:
-            state.content_remediation = input("Remediação textual IA? Pode gerar chamadas/custo adicionais [s/N]: ").strip().casefold() == "s"
+            state.content_remediation = input("Remediação de conteúdo por IA? Pode gerar chamadas/custo adicionais [s/N]: ").strip().casefold() == "s"
+            state.technical_remediation = input("Remediação técnica de crawling/discovery por IA? Advisory, pode gerar chamadas/custo adicionais [s/N]: ").strip().casefold() == "s"
             state.error = ""
     elif choice == "6":
         state.web_performance = input("Web Performance? Usa API/quota externa PageSpeed/CrUX [s/N]: ").strip().casefold() == "s"
@@ -412,6 +415,7 @@ def _execution_readiness(state: State) -> tuple[bool, str]:
 
 def _save_configuration(state: State) -> bool:
     try:
+        sync_nonsecret_runtime_environment(state)
         path = save_console_config(state, get_config_path(state))
         set_config_path(state, path)
         mark_dirty(state, False)
@@ -575,9 +579,9 @@ def _menu(state: State) -> str:
     effort = state.ai_reasoning or (LOWEST_REASONING.get(PROVIDERS.get(state.ai_provider, ''), '-') if state.ai_provider in PROVIDERS else '-')
     print(f"4. IA                    : {state.ai_provider} [{availability_badge(capability.available)}] | modelo={state.ai_model or '<default mínimo>'} | esforço={effort} | timeout={state.ai_timeout:g}s{badges['ai']}")
     if remediation_available:
-        print(f"5. Remediação textual IA : {bool_badge(state.content_remediation)} [DISPONÍVEL - IA ativa no item 4]{badges['remediation']}")
+        print(f"5. Remediações IA        : conteúdo={bool_badge(state.content_remediation)} | técnica crawling={bool_badge(state.technical_remediation)} [DISPONÍVEL - IA ativa no item 4]{badges['remediation']}")
     else:
-        print("5. Remediação textual IA : " + paint("INDISPONÍVEL", RED, bold=True) + " [REQUER IA CONFIGURADA E ATIVA NO ITEM 4]")
+        print("5. Remediações IA        : " + paint("INDISPONÍVEL", RED, bold=True) + " [REQUER IA CONFIGURADA E ATIVA NO ITEM 4]")
     print(f"6. Web Performance       : {bool_badge(state.web_performance)} | field={state.field_source} | timeout={state.web_timeout:g}s{badges['web']}")
     print(f"7. max-pages             : {state.max_pages}{badges['max_pages']}")
     print(f"8. WebPerf max-pages     : {state.web_max_pages}{badges['web_max_pages']}")

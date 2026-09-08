@@ -8,7 +8,7 @@ from rasai.console_environment import CATEGORIES, ENV_NAMES, SPEC_BY_NAME, SPECS
 
 
 def test_every_exposed_environment_variable_has_one_spec() -> None:
-    assert len(ENV_NAMES) == 52
+    assert len(ENV_NAMES) == 53
     assert len(SPECS) == len(ENV_NAMES)
     assert {spec.name for spec in SPECS} == set(ENV_NAMES)
     assert len({spec.name for spec in SPECS}) == len(SPECS)

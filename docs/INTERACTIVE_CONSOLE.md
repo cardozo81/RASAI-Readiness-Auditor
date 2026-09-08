@@ -429,3 +429,10 @@ No resumo persistido, o console diferencia:
 Assim, `CrUX API direta 0/0` não significa ausência de Core Web Vitals quando a observação persistida informa `PAGESPEED_CRUX`.
 
 Também não confunda `RASAI_AI_CONTENT_REMEDIATION` com `RASAI_AI_TECHNICAL_REMEDIATION`: a primeira controla sugestões de conteúdo e a segunda controla remediação técnica advisory de crawling/discovery.
+
+## Save, fechamento e restauração
+
+Salvar a configuração materializa todos os parâmetros não sensíveis reconhecidos no INI. A seção `[environment]` preserva overrides editados pelo menu de variáveis; secrets permanecem exclusivamente na sessão/Windows User. Ao reabrir, o console lê o INI antes de montar o estado efetivo e reaplica os parâmetros aos adapters. Uma variável exibida como ligada durante a sessão não deve voltar ao default após reinício quando ela é persistível e o usuário executou **Salvar configuração INI**.
+
+O item de remediações IA mostra separadamente **conteúdo** (`RASAI_AI_CONTENT_REMEDIATION`) e **técnica crawling/discovery** (`RASAI_AI_TECHNICAL_REMEDIATION`).
+

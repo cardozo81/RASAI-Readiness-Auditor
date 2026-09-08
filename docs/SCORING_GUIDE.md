@@ -240,3 +240,8 @@ A IA pode, em regras explicitamente semânticas, ajudar a transformar uma avalia
 - `BR-GEO-018`: resolução independente de acesso por crawler.
 
 A ausência isolada de `robots.txt` ou sitemap não recebe `FAIL` automático. Recurso existente porém inválido, não interpretável, inacessível ou com controle de crawler materialmente problemático pode produzir `WARNING`, `UNKNOWN` ou outra conclusão prevista na regra. Os diagnósticos aprofundados de crawling/discovery permanecem advisory e não alteram diretamente Score/Coverage/Confidence.
+
+### Transparência de robots.txt e sitemap no SARI
+
+A página canônica **Search & AI Readiness** expõe uma seção `SARI - inputs técnicos de descoberta` com BR-GEO-003, BR-GEO-017 e BR-GEO-018, seus resultados persistidos e o papel efetivo no score. BR-GEO-017 e BR-GEO-018 compartilham o grupo `ROBOTS`, portanto o SCORE-GEO-004 usa a regra representativa mais restritiva do grupo por dispositivo para evitar peso duplicado. Os diagnósticos aprofundados de crawling/discovery continuam advisory/non-scoring; isso não remove a participação das regras determinísticas básicas no SARI.
+

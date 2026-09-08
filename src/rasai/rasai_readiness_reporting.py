@@ -154,6 +154,11 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
             "SELECT * FROM ai_provider_attempts WHERE audit_id=? ORDER BY started_at,attempt_index,attempt_id",
             (audit_id,),
         )
+        discovery_executions = _many(
+            connection,
+            "SELECT * FROM rule_executions WHERE audit_id=? AND rule_id IN ('BR-GEO-003','BR-GEO-017','BR-GEO-018') ORDER BY rule_id,rule_execution_id",
+            (audit_id,),
+        )
         return {
             "audit": audit,
             "scores": scores,
@@ -164,6 +169,7 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
             "apdex": apdex,
             "ai_session": ai_session,
             "ai_attempts": ai_attempts,
+            "discovery_executions": discovery_executions,
         }
     finally:
         connection.close()
@@ -218,6 +224,7 @@ def _rasai_page(data: dict[str, Any], workspace: AuditWorkspace, report_dir: Pat
 {_ai_operational_diagnostic(data)}
 <section class='panel'><div class='kicker'>Indicadores proprietários</div><h2>Dimensões do readiness</h2><p class='intro'>Score, Coverage, Confidence e Consolidation ficam centralizados nesta página. As páginas Mobile/Desktop preservam evidências e findings do respectivo dispositivo.</p>{dimension_tables or "<p class='intro'>Nenhuma dimensão de score persistida.</p>"}</section>
 <section class='panel'><div class='kicker'>Groundability</div><h2>Sinais de capacidade de fundamentação</h2><p class='intro'>SARI-001 não cria um subscore adicional de Groundability. Answerability, Citation Readiness e Evidence & Trust permanecem sinais distintos e rastreáveis.</p>{groundability or "<p class='intro'>Sinais não disponíveis.</p>"}</section>
+{_discovery_scoring_block(data)}
 {_content_context_block(workspace, audit_id)}
 {_provenance_block(data["contributions"])}
 <section class='panel'><div class='kicker'>Fórmula e limites</div><h2>Como interpretar o índice</h2><div class='grid'><article class='ref-card'><h3>Dimension Score</h3><p><code>sum(weight x result_factor) / sum(weight evaluated) x 100</code></p><p>PASS=1; WARNING=0,5 por padrão; FAIL=0. UNKNOWN/ERROR/NOT_APPLICABLE não são convertidos silenciosamente em FAIL.</p></article><article class='ref-card'><h3>Overall Readiness</h3><p>Média de igual peso das dimensões aplicáveis com medição suficiente. Dimensão legitimamente NOT_APPLICABLE sai do denominador e não recebe zero.</p></article><article class='ref-card'><h3>Coverage</h3><p>Mede completude da análise aplicável. O Overall usa a média da Coverage das dimensões aplicáveis.</p></article><article class='ref-card'><h3>Confidence</h3><p>O Overall usa a menor Confidence entre as dimensões aplicáveis. Para consolidar, exige Coverage média de pelo menos 80% e Confidence mínima MEDIUM. A presença de IA não é requisito: uma execução NO_AI pode atingir MEDIUM/HIGH quando Coverage, evidências e integridade da execução forem suficientes.</p></article></div><div class='notice warn'><strong>Limite de validade:</strong> pesos, fatores WARNING e thresholds de Coverage/Confidence/Consolidation são decisões metodológicas versionadas do RASAi. O índice não é homologado por mecanismo de busca ou provedor de IA.</div><p><a href='score-geo-004.html'>Abrir contrato completo do SCORE-GEO-004</a></p><p><a href='references.html#indicator-provenance'>Abrir proveniência, fontes primárias e regras de cálculo</a></p></section>
@@ -346,6 +353,41 @@ def _content_context_block(workspace: AuditWorkspace, audit_id: str) -> str:
     return f"<section class='panel'><div class='kicker'>Content Risk Profile</div><h2>Contexto editorial aplicado</h2><p class='intro'>YMYL e E-E-A-T orientam rigor e interpretação; não são scores oficiais.</p><div class='metric-grid'>{_metric('Risk profile', context.risk_profile.value)}{_metric('YMYL', context.ymyl_category.value)}{_metric('Page purpose', context.page_purpose.value)}{_metric('Audience', context.intended_audience.value)}{_metric('Experience requirement', context.experience_requirement.value)}{_metric('Freshness sensitivity', context.freshness_sensitivity.value)}{_metric('Content origin', context.content_origin.value)}{_metric('Resolução', source_mode)}</div><p><a href='content-suggestions.html'>Abrir análise e sugestões de conteúdo</a></p></section>"
 
 
+def _discovery_scoring_block(data: dict[str, Any]) -> str:
+    labels = {
+        "BR-GEO-003": "Sitemap disponível: aquisição e interpretação",
+        "BR-GEO-017": "robots.txt presente: interpretabilidade",
+        "BR-GEO-018": "Acesso de crawlers configurados",
+    }
+    executions = data.get("discovery_executions", [])
+    contributions = [row for row in data.get("contributions", []) if str(row["rule_id"]) in labels]
+    rows: list[str] = []
+    for rule_id, label in labels.items():
+        rule_execs = [row for row in executions if str(row["rule_id"]) == rule_id]
+        results = sorted({str(row["result"]) for row in rule_execs}) or ["NÃO EXECUTADO"]
+        represented = [row for row in contributions if str(row["rule_id"]) == rule_id]
+        if represented:
+            devices = ", ".join(sorted({str(row["device"]).upper() for row in represented}))
+            factors = ", ".join(sorted({"-" if row["result_factor"] is None else f"{float(row['result_factor']):g}" for row in represented}))
+            role = f"Contribuição persistida no score ({devices}); fator={factors}"
+        elif rule_id in {"BR-GEO-017", "BR-GEO-018"}:
+            role = "Avaliado dentro do grupo ROBOTS; SCORE-GEO-004 persiste como contribuição a regra representativa mais restritiva do grupo por dispositivo."
+        else:
+            role = "Avaliado; sem contribuição representativa persistida neste audit."
+        rows.append(
+            "<tr>"
+            f"<td><code>{rule_id}</code></td><td>{escape(label)}</td>"
+            f"<td>{escape(', '.join(results))}</td><td>Technical Accessibility</td><td>{escape(role)}</td></tr>"
+        )
+    return (
+        "<section class='panel' id='discovery-scoring-inputs'><div class='kicker'>SARI - inputs técnicos de descoberta</div>"
+        "<h2>robots.txt, sitemap e acesso de crawlers no SCORE-GEO-004</h2>"
+        "<p class='intro'>Estes sinais não são apenas diagnóstico do relatório de crawling. BR-GEO-003, BR-GEO-017 e BR-GEO-018 são avaliados deterministicamente e alimentam a dimensão Technical Accessibility. BR-GEO-017/018 compartilham o grupo de scoring ROBOTS para evitar peso duplicado do mesmo fenômeno.</p>"
+        "<div class='table-wrap'><table><thead><tr><th>Regra</th><th>Sinal</th><th>Resultado persistido</th><th>Dimensão</th><th>Papel no score</th></tr></thead><tbody>"
+        + "".join(rows) + "</tbody></table></div><p><a href='crawling-discovery.html'>Abrir diagnóstico aprofundado de rastreamento e descoberta →</a></p></section>"
+    )
+
+
 def _provenance_block(contributions: list[sqlite3.Row]) -> str:
     rule_ids = sorted({str(row["rule_id"]) for row in contributions if row["rule_id"]})
     counts: Counter[str] = Counter()
@@ -408,6 +450,7 @@ def _rewrite_device_page(html: str, filename: str) -> str:
 
 
 def _dashboard(data: dict[str, Any], report_dir: Path) -> str:
+    sari_cards: list[str] = []
     cards: list[str] = []
     scores = data["scores"]
     for device in ("MOBILE", "DESKTOP"):
@@ -431,9 +474,9 @@ def _dashboard(data: dict[str, Any], report_dir: Path) -> str:
             status = _STATUS_LABELS.get(str(row["consolidation_status"]), str(row["consolidation_status"]))
             detail = f"Coverage {coverage} - Confidence {confidence} - {status}"
         condition, condition_label = _sari_condition(row)
-        cards.append(_indicator_card(
+        sari_cards.append(_indicator_card(
             f"Search & AI Readiness - {label}", value, detail, RASAI_FILE,
-            "RASAi - SARI-001", condition, condition_label,
+            "RASAi - SARI-001", condition, condition_label, primary=True,
         ))
 
     web = data["web"]
@@ -490,7 +533,10 @@ def _dashboard(data: dict[str, Any], report_dir: Path) -> str:
     return (
         _DASHBOARD_START
         + "<section id='executive-indicator-dashboard' class='panel'><div class='kicker'>Dashboard executivo</div><h2>Resultados finais por indicador</h2><p class='intro'>O painel resume resultados sem misturar metodologias. A condição visual é calculada separadamente para cada indicador; no Lighthouse, a subdivisão de valores Poor abaixo de 25 como crítico é somente severidade visual do RASAi e não uma quarta faixa oficial do Lighthouse. Nenhum Lighthouse, Core Web Vitals, Accessibility ou Apdex é convertido no SARI-001.</p>"
-        + f"<div class='grid indicator-grid'>{''.join(cards)}</div></section>"
+        + "<div class='indicator-tier-label'>Índice proprietário de readiness</div>"
+        + f"<div class='indicator-primary-grid'>{''.join(sari_cards) if sari_cards else "<div class='notice warn'>SARI-001 não disponível.</div>"}</div>"
+        + "<div class='indicator-tier-label indicator-tier-supporting'>Indicadores complementares - independentes do SARI-001</div>"
+        + f"<div class='grid indicator-grid indicator-supporting-grid'>{''.join(cards)}</div></section>"
         + _DASHBOARD_END
     )
 
@@ -503,10 +549,11 @@ def _indicator_card(
     source: str,
     condition: str = "neutral",
     condition_label: str = "Informativo",
+    primary: bool = False,
 ) -> str:
     value_markup = _indicator_value_markup(value)
     return (
-        f"<article class='ref-card indicator-card condition-{escape(condition, quote=True)}'>"
+        f"<article class='ref-card indicator-card {'indicator-primary' if primary else 'indicator-supporting'} condition-{escape(condition, quote=True)}'>"
         f"<div class='kicker'>{escape(source)}</div><h3>{escape(title)}</h3>"
         f"{value_markup}<span class='indicator-condition'>{escape(condition_label)}</span>"
         f"<p class='intro'>{escape(detail)}</p><p><a href='{escape(href, quote=True)}'>Analisar detalhes</a></p></article>"

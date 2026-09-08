@@ -155,7 +155,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 {_reference("OpenAI Help Center","Publishers and Developers FAQ","https://help.openai.com/en/articles/12627856-publishers-and-developers-faq")}
 {_reference("llms.txt","Proposta comunitária - não web standard","https://llmstxt.org/")}
 </div></section>
-<footer class='footer'>M24-CD-001 · projeção somente de dados persistidos e artifacts; sem impacto no Search & AI Readiness Index.</footer>
+<footer class='footer'>M24-CD-001 · os diagnósticos aprofundados desta página são advisory/non-scoring. As regras determinísticas BR-GEO-003, BR-GEO-017 e BR-GEO-018 permanecem inputs do SARI-001 via SCORE-GEO-004.</footer>
 </main></body></html>
 """
 
@@ -197,10 +197,10 @@ def _ai_block(data: dict[str, Any]) -> str:
     total_tokens = sum(int(row["total_tokens"] or 0) for row in attempts)
     costs = [float(row["estimated_cost"]) for row in attempts if row["estimated_cost"] is not None]
     cost = f"{sum(costs):.6f} USD" if costs else "não calculável/zero chamadas"
-    return f"""<section class='panel'><div class='kicker'>Remediação técnica opcional por IA</div><h2>Telemetria e limites</h2>
+    return f"""<section class='panel'><div class='kicker'>IA técnica de crawling/discovery (opcional)</div><h2>Telemetria e limites da remediação técnica</h2>
 <div class='metric-grid'>{_metric("Estado",state)}{_metric("Provider",provider)}{_metric("Modelo",model)}{_metric("Tentativas",str(len(attempts)))}{_metric("Tokens",str(total_tokens))}{_metric("Custo estimado",cost)}</div>
 <p class='intro'>A IA técnica desta página é controlada por <code>RASAI_AI_TECHNICAL_REMEDIATION</code>, independente de <code>RASAI_AI_CONTENT_REMEDIATION</code>. Ela recebe apenas diagnósticos/evidence IDs persistidos, não pode criar fatos nem elevar Confidence por opinião. Qualquer aumento de Confidence só pode ocorrer no pipeline de scoring quando uma regra aplicável passa a ter evidência válida; a remediação técnica desta camada permanece advisory e não altera scoring.</p>
-<p><strong>Artifact:</strong> <code>{escape(artifact)}</code></p></section>"""
+<p><strong>Artifact:</strong> <code>{escape(artifact)}</code></p><p><a href='content-suggestions.html'>Ver separadamente a remediação de conteúdo por IA →</a></p></section>"""
 
 
 def _inject_ai_usage(report_dir: Path, data: dict[str, Any]) -> None:
@@ -222,7 +222,7 @@ def _inject_references(report_dir: Path) -> None:
     html = _replace_marker(html, _REF_START, _REF_END, "")
     block = f"""{_REF_START}<section class='panel' id='m24-crawling-references'>
 <div class='kicker'>M24-CD-001</div><h2>Rastreamento, descoberta e acesso por IA</h2>
-<p class='intro'>Rastreamento, descoberta e acesso de crawlers usa referências públicas para os fenômenos técnicos, mas permanece fora do SCORE-GEO-004/SARI-001. llms.txt é explicitamente identificado como proposta comunitária.</p>
+<p class='intro'>Os diagnósticos aprofundados de crawling/discovery permanecem advisory/non-scoring. Separadamente, as regras determinísticas BR-GEO-003, BR-GEO-017 e BR-GEO-018 já alimentam SCORE-GEO-004/SARI-001. llms.txt é explicitamente identificado como proposta comunitária.</p>
 <ul><li><a href='https://www.rfc-editor.org/rfc/rfc9309.html'>RFC 9309 - Robots Exclusion Protocol</a></li>
 <li><a href='https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec'>Google - robots.txt</a></li>
 <li><a href='https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap'>Google - sitemaps</a></li>

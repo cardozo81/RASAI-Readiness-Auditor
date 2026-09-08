@@ -102,6 +102,7 @@ class NavigationMeasurement:
     profile_applied: bool
     cpu_method: str | None
     network_method: str | None
+    browser_diagnostics: tuple[dict[str, str], ...] = ()
 
 
 class SyntheticNavigationGateway(Protocol):
@@ -187,10 +188,12 @@ class PlaywrightSyntheticNavigationGateway:
                 profile_applied=False,
                 cpu_method=None,
                 network_method=None,
+                browser_diagnostics=(),
             )
 
         context = page = session = None
         cpu_method = network_method = None
+        browser_diagnostics: list[dict[str, str]] = []
         try:
             # Every sample gets a new BrowserContext: no cookie, local/session storage,
             # service-worker storage, or browser-session reuse from another sample.
@@ -209,6 +212,18 @@ class PlaywrightSyntheticNavigationGateway:
             context_options["has_touch"] = profile.browser_profile.has_touch
             context = self._browser.new_context(**context_options)
             page = context.new_page()
+
+            def record(kind: str, message: str | None, url_value: str | None = None) -> None:
+                if len(browser_diagnostics) >= 60:
+                    return
+                item = {"type": kind, "message": _bounded(message or "", 512) or "-"}
+                if url_value:
+                    item["url"] = _bounded(url_value, 512) or "-"
+                browser_diagnostics.append(item)
+
+            page.on("console", lambda message: record("CONSOLE_ERROR", message.text) if str(message.type).lower() == "error" else None)
+            page.on("pageerror", lambda error: record("PAGE_ERROR", str(error)))
+            page.on("requestfailed", lambda request: record("REQUEST_FAILED", str(request.failure or "request failed"), request.url))
             session = context.new_cdp_session(page)
             session.send("Network.enable")
             session.send("Network.setCacheDisabled", {"cacheDisabled": True})
@@ -235,6 +250,7 @@ class PlaywrightSyntheticNavigationGateway:
                     profile_applied=True,
                     cpu_method=cpu_method,
                     network_method=network_method,
+                    browser_diagnostics=tuple(browser_diagnostics),
                 )
             except PlaywrightTimeoutError:
                 duration_ms = int((time.monotonic() - started) * 1000.0)
@@ -248,6 +264,7 @@ class PlaywrightSyntheticNavigationGateway:
                     profile_applied=True,
                     cpu_method=cpu_method,
                     network_method=network_method,
+                    browser_diagnostics=tuple(browser_diagnostics),
                 )
             except PlaywrightError as exc:
                 duration_ms = int((time.monotonic() - started) * 1000.0)
@@ -261,6 +278,7 @@ class PlaywrightSyntheticNavigationGateway:
                     profile_applied=True,
                     cpu_method=cpu_method,
                     network_method=network_method,
+                    browser_diagnostics=tuple(browser_diagnostics),
                 )
         except PlaywrightError as exc:
             return _invalid_profile("PROFILE_SETUP_ERROR", exc, cpu_method, network_method)

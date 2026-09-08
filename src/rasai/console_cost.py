@@ -182,6 +182,8 @@ def estimate_exposure(state: State) -> ExposureEstimate:
         max_ai = max_pages * devices * per_context_max
         if state.content_remediation:
             max_ai += max_pages * devices * per_context_max
+        if getattr(state, "technical_remediation", False):
+            max_ai += per_context_max
 
     min_web = 0
     max_web = 0
@@ -226,6 +228,10 @@ def estimate_exposure(state: State) -> ExposureEstimate:
     if state.content_remediation:
         reasons.append(
             "A remediação de conteúdo por IA pode acrescentar tentativas apenas quando houver findings elegíveis."
+        )
+    if getattr(state, "technical_remediation", False):
+        reasons.append(
+            "A remediação técnica de crawling/discovery é audit-level e pode acrescentar tentativas quando houver diagnósticos técnicos elegíveis; permanece advisory/non-scoring."
         )
     if state.web_performance:
         reasons.append(

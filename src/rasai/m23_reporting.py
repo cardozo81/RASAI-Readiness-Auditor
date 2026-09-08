@@ -174,6 +174,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     )
 
     comparison_rows = "".join(_comparison_row(row, web_by_context) for row in summaries)
+    browser_diagnostics = _browser_diagnostics_overview(samples)
     details = "".join(
         _detail_card(
             row,
@@ -197,7 +198,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
         if value
     ) or "não disponível"
 
-    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Apdex - RASAi - Search & AI Readiness Auditor</title><link rel='stylesheet' href='css/site.css'><style>{_local_css()}</style></head><body>{nav}<main class='app-main'><header class='hero'><div class='eyebrow'>Synthetic Navigation Apdex · domínio Web Performance</div><h1>Synthetic Navigation Apdex</h1><p class='lead'>Mede repetidamente a Task de navegação sob perfis Mobile/Desktop controlados. O índice é independente de SCORE-GEO-004, Lighthouse, CrUX e IA.</p><div class='metric-grid'>{metrics}</div></header>{notice}<section class='panel'><div class='kicker'>Como o RASAi calcula</div><h2>Fórmula e regras aplicadas</h2><p class='intro'><strong>Task:</strong> início imediatamente antes de <code>page.goto</code> → término quando <code>wait_until=load</code> conclui. Cada amostra usa <strong>BrowserContext novo</strong>, sem cookies/storage reutilizados, e cache do browser explicitamente desabilitado.</p><div class='formula-box'><strong>Apdex = (Satisfied + 0,5 × Tolerating) / Total de amostras válidas</strong><span>Satisfied ≤ T · Tolerating &gt; T e ≤ 4T · Frustrated &gt; 4T</span></div><p class='intro'>Erro de aplicação/servidor observável, timeout ou erro de navegação com perfil aplicado é classificado como <strong>Frustrated</strong>. Falha da própria ferramenta ao aplicar browser/CPU/rede é excluída do denominador e permanece auditável como amostra inválida.</p><p class='intro'>O baseline não sorteia CPU, RTT ou throughput. Os perfis são determinísticos e versionados; variações aleatórias sem distribuição empiricamente justificada reduziriam a reprodutibilidade. O delay controla o intervalo mínimo entre inícios das amostras e a concorrência é limitada a 2 workers.</p><div class='notice'><strong>Tamanho do grupo:</strong> o RASAi usa 100 amostras válidas por URL/dispositivo como default. Grupos com 1-99 válidas recebem <code>*</code> e são diagnósticos de grupo pequeno; somente grupos com ≥100 válidas podem ser rotulados como grupo final normal.</div></section><section class='panel'><div class='kicker'>Visão executiva</div><h2>Comparação por URL e dispositivo</h2><div class='table-wrap'><table><thead><tr><th>URL</th><th>Device</th><th>Apdex</th><th>Faixa</th><th>Válidas</th><th>S/T/F</th><th>p75</th><th>p95</th><th>p99</th><th>CV</th><th>Tendência</th><th>CWV</th><th>Lighthouse</th></tr></thead><tbody>{comparison_rows or '<tr><td colspan="13">Nenhum grupo Apdex calculável.</td></tr>'}</tbody></table></div></section><section class='panel'><div class='kicker'>Diagnóstico aprofundado</div><h2>Distribuição, estabilidade e evidência amostral</h2>{details or '<p class="intro">Nenhuma amostra persistida.</p>'}</section><section class='panel'><div class='kicker'>Rastreabilidade de laboratório</div><h2>Configuração efetiva do Lighthouse</h2><p class='intro'>Extraída de <code>lighthouseResult.configSettings</code> do artefato PageSpeed já persistido. O RASAi não presume que o perfil Lighthouse seja igual ao perfil Apdex e não inventa campos ausentes.</p><div class='table-wrap'><table><thead><tr><th>URL</th><th>Device</th><th>Form factor</th><th>Throttling</th><th>RTT</th><th>Throughput</th><th>CPU</th><th>Viewport</th><th>Benchmark</th><th>Tempo Lighthouse</th></tr></thead><tbody>{profile_rows or '<tr><td colspan="10">Nenhum configSettings Lighthouse disponível.</td></tr>'}</tbody></table></div><div class='notice'><strong>Não confundir:</strong> o tempo total do Lighthouse é telemetria do auditor Lighthouse. Ele não entra na fórmula Apdex.</div></section><section class='panel'><div class='kicker'>Executor</div><h2>Ambiente e governança de consumo</h2><p class='intro'>{escape(host_label)}</p><p class='intro'>Synthetic Navigation Apdex não chama OpenAI, DeepSeek, MiMo ou qualquer LLM: <strong>0 tokens de IA</strong>. Também não depende de PageSpeed/CrUX. O consumo é local (CPU/RAM/tempo) mais tráfego HTTP real contra o site, incluindo subrecursos carregados pelo browser.</p><div class='notice warn'><strong>Carga no servidor:</strong> 100 amostras de navegação não equivalem a apenas 100 requests HTTP; cada navegação pode carregar HTML, CSS, JavaScript, imagens e terceiros. Use <code>delay</code>, limite de páginas e concorrência conservadora de acordo com a autorização e capacidade do ambiente auditado.</div></section><footer class='footer'>Synthetic Navigation Apdex é evidência sintética controlada. Para Apdex de usuários reais é necessária telemetria RUM/APM da aplicação.</footer></main></body></html>\n"""
+    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Apdex - RASAi - Search & AI Readiness Auditor</title><link rel='stylesheet' href='css/site.css'><style>{_local_css()}</style></head><body>{nav}<main class='app-main'><header class='hero'><div class='eyebrow'>Synthetic Navigation Apdex · domínio Web Performance</div><h1>Synthetic Navigation Apdex</h1><p class='lead'>Mede repetidamente a Task de navegação sob perfis Mobile/Desktop controlados. O índice é independente de SCORE-GEO-004, Lighthouse, CrUX e IA.</p><div class='metric-grid'>{metrics}</div></header>{notice}<section class='panel'><div class='kicker'>Como o RASAi calcula</div><h2>Fórmula e regras aplicadas</h2><p class='intro'><strong>Task:</strong> início imediatamente antes de <code>page.goto</code> → término quando <code>wait_until=load</code> conclui. Cada amostra usa <strong>BrowserContext novo</strong>, sem cookies/storage reutilizados, e cache do browser explicitamente desabilitado.</p><div class='formula-box'><strong>Apdex = (Satisfied + 0,5 × Tolerating) / Total de amostras válidas</strong><span>Satisfied ≤ T · Tolerating &gt; T e ≤ 4T · Frustrated &gt; 4T</span></div><p class='intro'>Erro de aplicação/servidor observável, timeout ou erro de navegação com perfil aplicado é classificado como <strong>Frustrated</strong>. Falha da própria ferramenta ao aplicar browser/CPU/rede é excluída do denominador e permanece auditável como amostra inválida.</p><p class='intro'>O baseline não sorteia CPU, RTT ou throughput. Os perfis são determinísticos e versionados; variações aleatórias sem distribuição empiricamente justificada reduziriam a reprodutibilidade. O delay controla o intervalo mínimo entre inícios das amostras e a concorrência é limitada a 2 workers.</p><div class='notice'><strong>Tamanho do grupo:</strong> o RASAi usa 100 amostras válidas por URL/dispositivo como default. Grupos com 1-99 válidas recebem <code>*</code> e são diagnósticos de grupo pequeno; somente grupos com ≥100 válidas podem ser rotulados como grupo final normal.</div></section><section class='panel'><div class='kicker'>Visão executiva</div><h2>Comparação por URL e dispositivo</h2><div class='table-wrap'><table><thead><tr><th>URL</th><th>Device</th><th>Apdex</th><th>Faixa</th><th>Válidas</th><th>S/T/F</th><th>p75</th><th>p95</th><th>p99</th><th>CV</th><th>Tendência</th><th>CWV</th><th>Lighthouse</th></tr></thead><tbody>{comparison_rows or '<tr><td colspan="13">Nenhum grupo Apdex calculável.</td></tr>'}</tbody></table></div></section>{browser_diagnostics}<section class='panel'><div class='kicker'>Diagnóstico aprofundado</div><h2>Distribuição, estabilidade e evidência amostral</h2>{details or '<p class="intro">Nenhuma amostra persistida.</p>'}</section><section class='panel'><div class='kicker'>Rastreabilidade de laboratório</div><h2>Configuração efetiva do Lighthouse</h2><p class='intro'>Extraída de <code>lighthouseResult.configSettings</code> do artefato PageSpeed já persistido. O RASAi não presume que o perfil Lighthouse seja igual ao perfil Apdex e não inventa campos ausentes.</p><div class='table-wrap'><table><thead><tr><th>URL</th><th>Device</th><th>Form factor</th><th>Throttling</th><th>RTT</th><th>Throughput</th><th>CPU</th><th>Viewport</th><th>Benchmark</th><th>Tempo Lighthouse</th></tr></thead><tbody>{profile_rows or '<tr><td colspan="10">Nenhum configSettings Lighthouse disponível.</td></tr>'}</tbody></table></div><div class='notice'><strong>Não confundir:</strong> o tempo total do Lighthouse é telemetria do auditor Lighthouse. Ele não entra na fórmula Apdex.</div></section><section class='panel'><div class='kicker'>Executor</div><h2>Ambiente e governança de consumo</h2><p class='intro'>{escape(host_label)}</p><p class='intro'>Synthetic Navigation Apdex não chama OpenAI, DeepSeek, MiMo ou qualquer LLM: <strong>0 tokens de IA</strong>. Também não depende de PageSpeed/CrUX. O consumo é local (CPU/RAM/tempo) mais tráfego HTTP real contra o site, incluindo subrecursos carregados pelo browser.</p><div class='notice warn'><strong>Carga no servidor:</strong> 100 amostras de navegação não equivalem a apenas 100 requests HTTP; cada navegação pode carregar HTML, CSS, JavaScript, imagens e terceiros. Use <code>delay</code>, limite de páginas e concorrência conservadora de acordo com a autorização e capacidade do ambiente auditado.</div></section><footer class='footer'>Synthetic Navigation Apdex é evidência sintética controlada. Para Apdex de usuários reais é necessária telemetria RUM/APM da aplicação.</footer></main></body></html>\n"""
 
 
 def _comparison_row(row: sqlite3.Row, web_by_context: dict[tuple[str, str], sqlite3.Row]) -> str:
@@ -241,7 +242,7 @@ def _detail_card(row: sqlite3.Row, samples: list[sqlite3.Row], configuration: di
     final_badge = "GRUPO FINAL" if bool(row["final_group"]) else "GRUPO PEQUENO *"
     sensitivity = _apdex_sensitivity_table(valid_samples, float(row["threshold_seconds"]))
     web_link = "<p><a href='web-performance.html'>Revisar Core Web Vitals e diagnósticos Web Performance deste contexto →</a></p>" if web is not None else ""
-    return f"""<article class='page-card apdex-card'><div class='finding-head'><div><span class='badge'>{escape(device.upper())}</span> <span class='badge info'>{escape(final_badge)}</span></div><span class='badge'>{escape(_rating(score))}</span></div><h3 class='page-url'>{escape(str(row['url']))}</h3><div class='metric-grid'>{_metric('Apdex', _uniform_apdex(score, float(row['threshold_seconds']), bool(row['small_group'])))}{_metric('Satisfied', int(row['satisfied_count']))}{_metric('Tolerating', int(row['tolerating_count']))}{_metric('Frustrated', int(row['frustrated_count']))}{_metric('Média', _ms(row['mean_ms']))}{_metric('Mediana/p50', _ms(row['median_ms']))}{_metric('p75', _ms(row['p75_ms']))}{_metric('p90', _ms(row['p90_ms']))}{_metric('p95', _ms(row['p95_ms']))}{_metric('p99', _ms(row['p99_ms']))}{_metric('Mínimo', _ms(row['min_ms']))}{_metric('Máximo', _ms(row['max_ms']))}{_metric('Desvio-padrão', _ms(row['stddev_ms']))}{_metric('Coef. variação', _percent(row['coefficient_of_variation']))}{_metric('Tendência 2ª/1ª metade', _signed_percent(row['trend_percent']))}{_metric('Amostras excluídas', int(row['invalid_samples']))}</div><h4>Distribuição Apdex</h4>{distribution}<h4>Série temporal das amostras válidas</h4>{trend}<p class='intro'><strong>Perfil sintético:</strong> {escape(profile_text)}</p><h4>Sensibilidade ao threshold T</h4>{sensitivity}<div class='analysis-grid'>{''.join(f'<div class="notice"><strong>{escape(title)}</strong><span>{escape(text)}</span></div>' for title, text in diagnostics)}</div>{web_link}<details><summary>Ver todas as {len(samples)} tentativas/amostras persistidas</summary><div class='table-wrap'><table><thead><tr><th>#</th><th>Duração</th><th>Classe</th><th>Status</th><th>HTTP</th><th>Erro</th><th>CPU</th><th>Rede</th></tr></thead><tbody>{table_rows or '<tr><td colspan="8">Sem amostras.</td></tr>'}</tbody></table></div></details></article>"""
+    return f"""<article class='page-card apdex-card'><div class='finding-head'><div><span class='badge'>{escape(device.upper())}</span> <span class='badge info'>{escape(final_badge)}</span></div><span class='badge'>{escape(_rating(score))}</span></div><h3 class='page-url'>{escape(str(row['url']))}</h3><div class='metric-grid'>{_metric('Apdex', _uniform_apdex(score, float(row['threshold_seconds']), bool(row['small_group'])))}{_metric('Satisfied', int(row['satisfied_count']))}{_metric('Tolerating', int(row['tolerating_count']))}{_metric('Frustrated', int(row['frustrated_count']))}{_metric('Média', _ms(row['mean_ms']))}{_metric('Mediana/p50', _ms(row['median_ms']))}{_metric('p75', _ms(row['p75_ms']))}{_metric('p90', _ms(row['p90_ms']))}{_metric('p95', _ms(row['p95_ms']))}{_metric('p99', _ms(row['p99_ms']))}{_metric('Mínimo', _ms(row['min_ms']))}{_metric('Máximo', _ms(row['max_ms']))}{_metric('Desvio-padrão', _ms(row['stddev_ms']))}{_metric('Coef. variação', _percent(row['coefficient_of_variation']))}{_metric('Tendência 2ª/1ª metade', _signed_percent(row['trend_percent']))}{_metric('Amostras excluídas', int(row['invalid_samples']))}</div><h4>Distribuição Apdex</h4>{distribution}<h4>Série temporal das amostras válidas</h4>{trend}<p class='intro'><strong>Perfil sintético:</strong> {escape(profile_text)}</p><h4>Sensibilidade ao threshold T</h4>{sensitivity}<div class='analysis-grid'>{''.join(f'<div class="notice"><strong>{escape(title)}</strong><span>{escape(text)}</span></div>' for title, text in diagnostics)}</div>{web_link}<details><summary>Ver todas as {len(samples)} tentativas/amostras persistidas</summary><div class='table-wrap'><table><thead><tr><th>#</th><th>Duração</th><th>Classe</th><th>Status</th><th>HTTP</th><th>Erro</th><th>Browser/console observado</th><th>CPU</th><th>Rede</th></tr></thead><tbody>{table_rows or '<tr><td colspan="9">Sem amostras.</td></tr>'}</tbody></table></div></details></article>"""
 
 
 def _diagnostic_notes(row: sqlite3.Row, web: sqlite3.Row | None) -> list[tuple[str, str]]:
@@ -371,6 +372,67 @@ def _sparkline(samples: list[sqlite3.Row], threshold: float) -> str:
     return f"""<svg class='apdex-chart' viewBox='0 0 {width:.0f} {height:.0f}' role='img' aria-label='Série temporal das durações das amostras'><line x1='{pad}' y1='{t_y:.1f}' x2='{width-pad}' y2='{t_y:.1f}' class='threshold-t'/><line x1='{pad}' y1='{f_y:.1f}' x2='{width-pad}' y2='{f_y:.1f}' class='threshold-f'/><polyline points='{points}' fill='none' class='sample-line'/><text x='{pad+4}' y='{max(t_y-4,12):.1f}'>T</text><text x='{pad+4}' y='{max(f_y-4,12):.1f}'>4T</text></svg>"""
 
 
+def _browser_events(row: sqlite3.Row) -> list[dict[str, str]]:
+    try:
+        raw = row["browser_diagnostics"]
+    except (IndexError, KeyError):
+        return []
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(str(raw))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return []
+    events = parsed.get("events", []) if isinstance(parsed, dict) else []
+    return [item for item in events if isinstance(item, dict)]
+
+
+def _browser_diagnostic_key(item: dict[str, str]) -> tuple[str, str, str]:
+    return (str(item.get("type") or "OTHER"), str(item.get("message") or "-"), str(item.get("url") or ""))
+
+
+def _browser_diagnostic_severity(kind: str) -> str:
+    return {"PAGE_ERROR": "ALTA", "REQUEST_FAILED": "MÉDIA", "CONSOLE_ERROR": "REVISÃO"}.get(kind, "REVISÃO")
+
+
+def _browser_diagnostics_overview(samples: list[sqlite3.Row]) -> str:
+    grouped: dict[tuple[str, str, str], set[int]] = defaultdict(set)
+    for row in samples:
+        for item in _browser_events(row):
+            grouped[_browser_diagnostic_key(item)].add(int(row["run_index"]))
+    if not grouped:
+        return "<section class='panel'><div class='kicker'>Browser diagnostics</div><h2>Console e falhas observadas durante as navegações</h2><p class='intro'>Nenhum console.error, page error ou requestfailed foi persistido nas amostras deste teste.</p></section>"
+    rows: list[str] = []
+    for (kind, message, url), runs in sorted(grouped.items(), key=lambda item: (-len(item[1]), item[0][0], item[0][1])):
+        location = url or "-"
+        rows.append(
+            f"<tr><td>{escape(kind)}</td><td>{escape(_browser_diagnostic_severity(kind))}</td><td>{len(runs)}</td>"
+            f"<td>{escape(', '.join(str(value) for value in sorted(runs)))}</td><td class='mono'>{escape(message)}</td><td class='mono'>{escape(location)}</td></tr>"
+        )
+    return (
+        "<section class='panel'><div class='kicker'>Browser diagnostics · teste completo</div><h2>Erros de console e browser agrupados</h2>"
+        "<p class='intro'>Os eventos abaixo são associados temporalmente à amostra em que ocorreram. Eles ajudam a investigação de experiência, mas não são tratados como causa comprovada da duração nem derrubam o Apdex por si só. Apenas application error, timeout e navigation error continuam alterando a classificação Apdex.</p>"
+        "<div class='table-wrap'><table><thead><tr><th>Tipo</th><th>Criticidade diagnóstica</th><th>Amostras afetadas</th><th># amostras</th><th>Mensagem</th><th>URL/recurso</th></tr></thead><tbody>"
+        + "".join(rows) + "</tbody></table></div></section>"
+    )
+
+
+def _sample_browser_diagnostics(row: sqlite3.Row) -> str:
+    events = _browser_events(row)
+    if not events:
+        return "-"
+    grouped: dict[tuple[str, str, str], int] = {}
+    for item in events:
+        key = _browser_diagnostic_key(item)
+        grouped[key] = grouped.get(key, 0) + 1
+    items = "".join(
+        f"<li><strong>{escape(kind)}</strong> ×{count}: {escape(message)}"
+        + (f" <span class='mono'>{escape(url)}</span>" if url else "") + "</li>"
+        for (kind, message, url), count in grouped.items()
+    )
+    return f"<details class='browser-diagnostics'><summary>{len(events)} evento(s)</summary><ul>{items}</ul></details>"
+
+
 def _sample_row(row: sqlite3.Row) -> str:
     return (
         "<tr>"
@@ -379,6 +441,7 @@ def _sample_row(row: sqlite3.Row) -> str:
         f"<td>{escape(str(row['status']))}</td>"
         f"<td>{escape(str(row['http_status'] if row['http_status'] is not None else '-'))}</td>"
         f"<td>{escape(str(row['error_code'] or '-'))}</td>"
+        f"<td>{_sample_browser_diagnostics(row)}</td>"
         f"<td>{escape(str(row['cpu_method'] or '-'))}</td>"
         f"<td>{escape(str(row['network_method'] or '-'))}</td>"
         "</tr>"
@@ -526,5 +589,5 @@ def _local_css() -> str:
 .apdex-distribution{display:flex;height:16px;overflow:hidden;border-radius:999px;background:var(--soft-slate);margin:8px 0}.apdex-s{background:var(--green)}.apdex-t{background:var(--amber)}.apdex-f{background:var(--red)}
 .apdex-legend{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:.82rem;margin-bottom:14px}.apdex-chart{width:100%;height:auto;max-height:220px;border:1px solid var(--line);border-radius:12px;background:#fbfbfc}.apdex-chart .sample-line{stroke:var(--blue);stroke-width:2}.apdex-chart .threshold-t{stroke:var(--amber);stroke-width:1;stroke-dasharray:5 4}.apdex-chart .threshold-f{stroke:var(--red);stroke-width:1;stroke-dasharray:5 4}.apdex-chart text{font-size:10px;fill:var(--muted)}
 .analysis-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin:14px 0}.analysis-grid .notice{margin:0}.analysis-grid .notice strong,.analysis-grid .notice span{display:block}.analysis-grid .notice span{margin-top:5px;color:var(--muted)}
-.apdex-card{margin-bottom:18px}.apdex-card details{margin-top:14px}
+.apdex-card{margin-bottom:18px}.apdex-card details{margin-top:14px}.browser-diagnostics{margin:0;min-width:220px}.browser-diagnostics summary{padding:5px 7px}.browser-diagnostics ul{margin:.4rem 0;padding-left:1rem;max-width:none}
 """

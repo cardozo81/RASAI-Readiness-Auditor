@@ -151,3 +151,8 @@ Quando um artifact Lighthouse existe, o RASAi pode extrair metadados de perfil p
 `apdex.html` separa problemas da própria execução Synthetic Navigation Apdex de sinais relacionados de Web Performance. São mostrados application errors, timeouts, navigation errors, amostras inválidas/excluídas, fração Tolerating/Frustrated, variabilidade e cauda. Core Web Vitals/Lighthouse aparecem como correlação separada e não são duplicados nem entram na fórmula Apdex.
 
 O relatório também apresenta uma análise de sensibilidade em torno do `T` configurado (`T ±10%/20%`) usando as mesmas amostras. Essa tabela é somente diagnóstico metodológico: não deve ser usada para escolher um threshold que produza a nota desejada. O `T` deve representar SLO/KPM ou a configuração comparável do APM/Dynatrace.
+
+## Console/browser diagnostics por amostra
+
+Synthetic Navigation Apdex persiste, de forma limitada e sem response bodies, `console.error`, `pageerror` e `requestfailed` observados durante cada navegação. O HTML lista esses eventos por amostra e também os agrupa para o teste completo por tipo/mensagem/recurso e quantidade de amostras afetadas. Essa associação é temporal e diagnóstica: um console error não é tratado automaticamente como causa da duração e não reduz o Apdex por si só. Somente application error, timeout e navigation error continuam alterando a classificação Apdex.
+

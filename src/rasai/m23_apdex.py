@@ -382,6 +382,7 @@ def _measure_context(
             error_message=_bounded(item.measurement.error_message, 256),
             cpu_method=item.measurement.cpu_method,
             network_method=item.measurement.network_method,
+            browser_diagnostics={"events": list(item.measurement.browser_diagnostics)},
             cache_policy="COLD_CONTEXT",
             captured_at=_utc_now(),
         )
