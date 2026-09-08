@@ -16,7 +16,7 @@ class ReportPresentationTests(unittest.TestCase):
             "<span class='badge'>SUCCESS</span>"
         )
 
-        rendered = humanize_report_html(html, page_name="score-geo-004.html")
+        rendered = humanize_report_html(html, page_name="scoring.html")
 
         self.assertIn("<td>Mobile</td>", rendered)
         self.assertIn("<td>Não consolidado</td>", rendered)
