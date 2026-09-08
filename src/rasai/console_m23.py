@@ -421,7 +421,13 @@ def observe_m23_workspace(workspace: Path, state: State) -> None:
     elif name in {"M25_UX_RUNTIME_FAILURE", "M25_UX_REPORT_FAILURE", "M25_UX_REPORT_FINALIZATION_FAILURE"}:
         state.status = "SYNTHETIC_LIMITATION"
         state.operation = "LOCAL:SYNTHETIC_UX_FAIL_OPEN"
-        set_runtime_progress(state, "Limitação operacional do Synthetic User Experience Apdex", 100.0, detail=name, exact=True)
+        set_runtime_progress(
+            state,
+            "Limitação operacional do Synthetic User Experience Apdex",
+            100.0,
+            detail="falha operacional registrada no log; execução segue fail-open",
+            exact=True,
+        )
     elif name == "M23_STARTED" and event.get("enabled"):
         state.status = "SYNTHETIC_APDEX"
         state.operation = "BROWSER:SYNTHETIC_APDEX"
@@ -471,7 +477,13 @@ def observe_m23_workspace(workspace: Path, state: State) -> None:
     elif name in {"M23_RUNTIME_FAILURE", "M23_REPORT_FAILURE"}:
         state.status = "SYNTHETIC_LIMITATION"
         state.operation = "LOCAL:APDEX_FAIL_OPEN"
-        set_runtime_progress(state, "Limitação operacional Synthetic Apdex", 100.0, detail=name, exact=True)
+        set_runtime_progress(
+            state,
+            "Limitação operacional do Synthetic Navigation Apdex",
+            100.0,
+            detail="falha operacional registrada no log; execução segue fail-open",
+            exact=True,
+        )
 
 
 def run_audit_from_console(state: State) -> int:
