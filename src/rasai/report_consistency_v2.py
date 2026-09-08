@@ -207,10 +207,20 @@ def _coverage(audit_id: str, workspace: AuditWorkspace) -> tuple[Coverage, ...]:
         if web is not None:
             enabled = bool(web["enabled"])
             status = str(web["status"])
-            reason = "Coleta PageSpeed/CrUX desabilitada por configuração." if not enabled else (
-                "Todos os contextos configurados obtiveram evidência utilizável." if status == "SUCCESS"
-                else str(web["reason"] or "Uma ou mais fontes não produziram evidência utilizável; consulte as tentativas de Web Performance.")
-            )
+            if not enabled:
+                reason = "Coleta PageSpeed/CrUX desabilitada por configuração."
+            elif status == "SUCCESS":
+                observations = _many(db, "SELECT field_source FROM web_performance_observations WHERE audit_id=?", audit_id)
+                attempts = _many(db, "SELECT service,status FROM web_performance_attempts WHERE audit_id=?", audit_id)
+                embedded = sum(str(row["field_source"] or "").upper() == "PAGESPEED_CRUX" for row in observations)
+                direct_attempts = sum(str(row["service"] or "").upper() == "CRUX_API" for row in attempts)
+                direct_successes = sum(str(row["service"] or "").upper() == "CRUX_API" and str(row["status"] or "") == "SUCCESS" for row in attempts)
+                reason = (
+                    f"Todos os contextos configurados obtiveram evidência utilizável. Field data CrUX via resposta PageSpeed: {embedded}; "
+                    f"CrUX API direta (fallback): {direct_successes}/{direct_attempts} sucesso(s)/tentativa(s)."
+                )
+            else:
+                reason = str(web["reason"] or "Uma ou mais fontes não produziram evidência utilizável; consulte as tentativas de Web Performance.")
             rows.append(Coverage("Web Performance externo", "Sim" if enabled else "Não", status, reason))
 
         rows.append(_a11y_coverage(db, audit_id))
@@ -276,6 +286,7 @@ def _contexts(audit_id: str, workspace: AuditWorkspace) -> tuple[Context, ...]:
     try:
         run = _one(db, "SELECT * FROM web_performance_runs WHERE audit_id=?", audit_id)
         categories = _json_list(run["categories"]) if run is not None else []
+        configured_field_source = str(run["field_source"] or "auto").casefold() if run is not None else "auto"
         observations = _many(
             db,
             """SELECT o.*,p.normalized_url FROM web_performance_observations o
@@ -317,12 +328,22 @@ def _contexts(audit_id: str, workspace: AuditWorkspace) -> tuple[Context, ...]:
                 a11y_reason = f"Lighthouse accessibility score {float(observation['accessibility_score']):.0f}/100 persistido."
 
             if crux is None:
-                crux_status = "NÃO EXECUTADO"
-                crux_reason = (
-                    "Dados de campo vieram do PageSpeed."
-                    if str(observation["field_source"] or "") == "PAGESPEED_CRUX"
-                    else "CrUX direto não foi necessário/configurado ou não havia credencial elegível."
-                )
+                effective_field_source = str(observation["field_source"] or "").upper()
+                if effective_field_source == "PAGESPEED_CRUX":
+                    crux_status = "NÃO NECESSÁRIO"
+                    crux_reason = "Field data CrUX foi obtido na própria resposta PageSpeed; a CrUX API direta é fallback e por isso não foi chamada."
+                elif configured_field_source == "none":
+                    crux_status = "DESABILITADO POR CONFIGURAÇÃO"
+                    crux_reason = "Field data foi explicitamente desabilitado; somente Lighthouse lab era elegível."
+                elif configured_field_source == "pagespeed":
+                    crux_status = "NÃO SOLICITADO POR CONFIGURAÇÃO"
+                    crux_reason = "A configuração restringiu field data ao PageSpeed e não habilitou fallback direto CrUX."
+                elif configured_field_source == "crux":
+                    crux_status = "NÃO MATERIALIZADO"
+                    crux_reason = "A configuração solicitou CrUX direto, mas nenhuma tentativa CRUX_API foi persistida; revisar elegibilidade da credencial e o fluxo de coleta."
+                else:
+                    crux_status = "NÃO MATERIALIZADO"
+                    crux_reason = "Modo auto não obteve field data via PageSpeed e nenhuma tentativa direta CrUX foi persistida; revisar credencial/elegibilidade ou fluxo."
             else:
                 crux_status, crux_reason = str(crux["status"]), _attempt_reason(crux)
 
@@ -403,7 +424,7 @@ def _web_html(coverage: tuple[Coverage, ...], contexts: tuple[Context, ...]) -> 
         "<p class='intro'>Valores ausentes permanecem indisponíveis. HTTP 4xx/5xx, quota, timeout e "
         "ausência de amostra CrUX não são substituídos por valores de outra métrica.</p>"
         "<div class='table-wrap'><table><thead><tr><th>URL</th><th>Device</th><th>PageSpeed</th><th>HTTP</th>"
-        f"<th>Erro/limitação</th><th>CrUX direto</th><th>Motivo CrUX</th></tr></thead><tbody>{body}</tbody></table></div></section>"
+        f"<th>Erro/limitação</th><th>CrUX API direta (fallback)</th><th>Motivo / origem do field data</th></tr></thead><tbody>{body}</tbody></table></div></section>"
     )
 
 

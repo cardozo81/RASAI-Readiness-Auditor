@@ -478,7 +478,7 @@ def _sari_dashboard_explanation(data: dict[str, Any]) -> str:
         label = "Mobile" if device == "MOBILE" else "Desktop"
         blocks.append(
             f"<div class='notice warn sari-governance-summary'><strong>Por que {label} está {escape(_STATUS_LABELS.get(str(overall['consolidation_status']), str(overall['consolidation_status'])))}:</strong> "
-            f"o score {float(overall['value']):.1f}/100 descreve a qualidade dos grupos efetivamente avaliados; a Confidence qualifica a força da medição. "
+            f"{('o score ' + format(float(overall['value']), '.1f') + '/100 descreve a qualidade dos grupos efetivamente avaliados' if overall['value'] is not None else 'o score numérico não foi consolidado porque a evidência aplicável ficou insuficiente')}; a Confidence qualifica a força da medição. "
             f"Neste AUD, o bloqueador é {escape(blocker_text)}. Para consolidar, é preciso tornar esses grupos conclusivos; não basta aumentar o score numérico. "
             "<a href='readiness.html#sari-governance'>Ver causa, regra e ação necessária</a>.</div>"
         )

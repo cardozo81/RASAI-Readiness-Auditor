@@ -109,6 +109,47 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> tuple[sqlite3.Row | None,
         connection.close()
 
 
+def _failure_origin(row: Any) -> tuple[str, str]:
+    status = str(_row_value(row, "status", "") or "").upper()
+    error_class = str(_row_value(row, "error_class", "") or "").upper()
+    error_code = str(_row_value(row, "error_code", "") or "").casefold()
+    http_status = _row_value(row, "http_status")
+    if status == "NOT_CONFIGURED" or error_class in {"AUTH_ERROR", "PERMISSION_ERROR", "MODEL_ERROR"}:
+        return "CONFIGURAÇÃO", "Revisar credencial, permissão, modelo e endpoint selecionados."
+    if error_class in {"CONTRACT_ERROR", "INVALID_RESPONSE", "EMPTY_RESPONSE"} or http_status == 400 or "invalid_request" in error_code:
+        return "CONTRATO / INTEGRAÇÃO", "A chamada chegou ao provider, mas request/response não satisfez o contrato esperado. Revisar adapter/schema/modelo; não atribuir ao website."
+    if error_class in {"QUOTA_ERROR", "CREDIT_ERROR", "RATE_LIMIT_ERROR", "SERVER_ERROR", "TIMEOUT_ERROR", "NETWORK_ERROR"}:
+        return "SERVIÇO EXTERNO", "Revisar quota/saldo, disponibilidade, rede e timeout conforme a classe persistida."
+    if status in {"QUARANTINED", "QUARANTINED_FOR_AUDIT"}:
+        return "DERIVADO DE FALHA ANTERIOR", "O provider foi isolado para evitar repetição de uma falha já observada neste AUD."
+    return "OPERACIONAL / NÃO CLASSIFICADO", "Consultar HTTP, error class/code e logs sanitizados; não inferir falha do website."
+
+
+def _failure_origin_summary(failures: list[sqlite3.Row]) -> str:
+    if not failures:
+        return ""
+    rows = []
+    for row in failures[:8]:
+        origin, guidance = _failure_origin(row)
+        provider = f"{_row_value(row, 'provider', '-')}/{_row_value(row, 'model', '-')}"
+        detail = " · ".join(
+            item for item in (
+                f"HTTP {_row_value(row, 'http_status')}" if _row_value(row, "http_status") is not None else "",
+                str(_row_value(row, "error_class", "") or ""),
+                f"code={_row_value(row, 'error_code')}" if _row_value(row, "error_code") else "",
+            ) if item
+        ) or str(_row_value(row, "status", "-") or "-")
+        rows.append(
+            f"<tr><td>{escape(provider)}</td><td><strong>{escape(origin)}</strong></td><td>{escape(detail)}</td><td>{escape(guidance)}</td></tr>"
+        )
+    return (
+        "<div class='notice warn ai-failure-origin'><strong>Diagnóstico operacional das falhas de IA</strong>"
+        "<p>Esta classificação explica onde investigar. Falha de provider/adapter não é finding do website e não recebe peso negativo no SARI.</p>"
+        "<div class='table-wrap'><table><thead><tr><th>Provider</th><th>Origem</th><th>Evidência persistida</th><th>O que revisar</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div></div>"
+    )
+
+
 def _report_section(session: sqlite3.Row, attempts: list[sqlite3.Row], snapshot_count: int) -> str:
     enabled = bool(session["enabled"])
     configured = _provider_configured(session)
@@ -149,6 +190,7 @@ def _report_section(session: sqlite3.Row, attempts: list[sqlite3.Row], snapshot_
     ) or "NENHUMA IA ELEGÍVEL"
     failover = _failover_summary(attempts)
     failure_detail = _failure_detail(attempts)
+    failure_origin = _failure_origin_summary(failures)
     rows = "".join(_attempt_row(row) for row in attempts)
     if not rows:
         rows = "<tr><td colspan='19'>Nenhuma chamada externa foi realizada.</td></tr>"
@@ -162,6 +204,7 @@ def _report_section(session: sqlite3.Row, attempts: list[sqlite3.Row], snapshot_
         f"<p><strong>Cobertura semântica externa:</strong> {escape(coverage)}</p>"
         f"<p><strong>Fallback:</strong> {failover}</p>"
         f"{failure_detail}"
+        f"{failure_origin}"
         "<h3>Relatório detalhado de uso da IA</h3><div class='m18-table-wrap'><table>"
         "<thead><tr><th>URL</th><th>Device</th><th>Operação</th><th>Tentativa</th><th>Provider</th><th>Model</th><th>Status</th><th>Error class</th><th>Error type</th><th>HTTP</th><th>Error code</th><th>Request ID</th><th>Retryable</th><th>Decisão</th><th>Fallback de</th><th>Tokens input</th><th>Tokens output</th><th>Estimated cost</th><th>Duration</th></tr></thead>"
         f"<tbody>{rows}</tbody></table></div>"

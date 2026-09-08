@@ -153,6 +153,8 @@ def _classify_http_error(status: int, error_type: str | None, error_code: str | 
         return ProviderErrorClass.RATE_LIMIT_ERROR
     if status == 404 or "model" in token:
         return ProviderErrorClass.MODEL_ERROR
+    if status == 400 or "invalid_request" in token or "invalid argument" in token:
+        return ProviderErrorClass.CONTRACT_ERROR
     if status >= 500:
         return ProviderErrorClass.SERVER_ERROR
     return ProviderErrorClass.UNKNOWN_PROVIDER_ERROR
@@ -732,6 +734,39 @@ class QwenProvider(IsolatedStructuredSemanticProvider):
         )
 
 
+_GEMINI_SCHEMA_KEYWORDS = frozenset({
+    "$id", "$defs", "$ref", "$anchor", "type", "format", "title", "description",
+    "enum", "items", "prefixItems", "minItems", "maxItems", "minimum", "maximum",
+    "anyOf", "oneOf", "properties", "additionalProperties", "required", "propertyOrdering",
+})
+
+
+def gemini_wire_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Project the canonical local schema to Gemini's documented JSON-Schema subset.
+
+    The RASAi local validator remains the source of truth. Unsupported wire-only
+    keywords are removed rather than weakening post-response validation.
+    """
+    def walk(value: Any, parent: str | None = None) -> Any:
+        if isinstance(value, list):
+            return [walk(item) for item in value]
+        if not isinstance(value, Mapping):
+            return value
+        if parent in {"properties", "$defs"}:
+            return {str(key): walk(item) for key, item in value.items()}
+        output: dict[str, Any] = {}
+        for key, item in value.items():
+            if key not in _GEMINI_SCHEMA_KEYWORDS:
+                continue
+            output[str(key)] = walk(item, str(key))
+        return output
+
+    projected = walk(schema)
+    if not isinstance(projected, dict):
+        raise TypeError("Gemini wire schema must remain an object")
+    return projected
+
+
 class GeminiProvider(IsolatedStructuredSemanticProvider):
     name = "GEMINI"
     endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
@@ -754,7 +789,7 @@ class GeminiProvider(IsolatedStructuredSemanticProvider):
             "response_format": {
                 "type": "text",
                 "mime_type": "application/json",
-                "schema": hardened_semantic_output_schema(semantic_input.allowed_evidence_ids),
+                "schema": gemini_wire_schema(hardened_semantic_output_schema(semantic_input.allowed_evidence_ids)),
             },
         }
 

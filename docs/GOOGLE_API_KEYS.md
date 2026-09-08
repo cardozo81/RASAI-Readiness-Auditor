@@ -230,3 +230,10 @@ O log operacional registra status HTTP, duração e erro sanitizado, mas não de
 - Remova chaves que não são mais usadas.
 
 O RASAi mantém `RASAI_PAGESPEED_API_KEY` e `RASAI_CRUX_API_KEY` isoladas e não as reutiliza como credenciais de IA.
+
+## CrUX via PageSpeed versus CrUX API direta
+
+Em `field_source=auto`, `CrUX` pode ser materializado sem uma chamada `CRUX_API`: o PageSpeed Insights pode retornar field data CrUX no mesmo payload usado pelo Lighthouse. Nesse caso o report deve apresentar `PAGESPEED_CRUX` como fonte efetiva e `CrUX API direta: NÃO NECESSÁRIO`, porque a chamada direta é apenas fallback. `crux_attempts=0` sozinho, portanto, não significa que Core Web Vitals não foram coletados.
+
+Quando não houver field data no PageSpeed, o report diferencia explicitamente: desabilitado por configuração, não solicitado pelo modo escolhido, tentativa direta com erro/quota/HTTP, ou ausência inesperada de tentativa que requer revisão do fluxo/configuração. Ausência de field data permanece indisponibilidade de medição e não é transformada em falha do website.
+

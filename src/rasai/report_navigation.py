@@ -128,6 +128,16 @@ strong{font-weight:640}.lead,.intro,.hero>p,.panel>p,.page-card>p,.detail-body>p
 .panel{padding:22px clamp(18px,2vw,26px);box-shadow:0 3px 12px rgba(47,58,78,.035)}
 .page-card{padding:20px clamp(17px,1.8vw,24px);box-shadow:0 2px 10px rgba(47,58,78,.03)}
 .page-card+.page-card{margin-top:16px}.ref-card{box-shadow:0 2px 9px rgba(47,58,78,.025)}
+.panel>.metric-grid,.panel>.grid,.panel>.score-grid,.panel>.table-wrap,.panel>.notice,.panel>.page-card,.panel>details{margin-block:14px}
+.panel>:is(.metric-grid,.grid,.score-grid,.table-wrap,.notice,.page-card,details)+:is(.metric-grid,.grid,.score-grid,.table-wrap,.notice,.page-card,details){margin-top:16px}
+.metric,.score-meta div,.page-summary div,.remediation-grid>div,.confidence-explain>div,.ref-card{overflow-wrap:anywhere;word-break:normal}
+.config-accordion-stack{display:grid;grid-template-columns:1fr;gap:10px;margin:14px 0 18px}
+.config-accordion{display:block;width:100%;min-width:0;margin:0!important;border:1px solid var(--line);border-radius:7px;background:#fbfbfc;overflow:hidden}
+.config-accordion>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 15px;cursor:pointer;background:#f5f6f8;font-size:.9rem;font-weight:680;list-style:none}
+.config-accordion>summary::-webkit-details-marker{display:none}.config-accordion>summary::after{content:'+';font-size:1.05rem;color:var(--muted);font-weight:500}.config-accordion[open]>summary::after{content:'−'}
+.config-accordion-body{padding:14px 15px 16px;background:#fff}.config-accordion-body>:first-child{margin-top:0}.config-accordion-body>:last-child{margin-bottom:0}
+.config-accordion-body .metric-grid,.config-accordion-body .grid{margin-block:10px;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}
+.config-accordion-body code,.config-accordion-body strong,.config-accordion-body span{overflow-wrap:anywhere}
 .metric-grid{grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:9px}
 #remediation-ai-telemetry .table-wrap{margin-top:14px}
 .grid{grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr));gap:11px}
@@ -166,6 +176,66 @@ pre{background:#2f394a;color:#edf1f7;border-radius:9px}.footer{max-width:100%;wi
 @media(max-width:700px){.app-main{padding-left:12px;padding-right:12px}.page-summary{grid-template-columns:1fr 1fr}.page-summary>div:nth-child(2),.page-summary>div:nth-child(4){grid-column:1/-1}.snapshot{grid-template-columns:1fr}.snapshot>figure{grid-column:1;grid-row:1;margin-bottom:2px}.snapshot>div{grid-column:1;grid-row:2}.snapshot>figure img{max-height:none}.metric-grid,.score-grid,.grid,.ref-grid{grid-template-columns:1fr}.table-wrap{border-radius:0}}
 @media print{.br-rule-tooltip{color:inherit;border:0}.br-rule-tooltip__content{display:none}.cost-total{box-shadow:none}.snapshot{grid-template-columns:minmax(0,1fr) 280px}.snapshot>figure{position:static}}
 """
+
+
+_CONFIG_PANEL_RE = re.compile(
+    r"<section(?P<attrs>[^>]*\bclass=(?P<q>['\"])[^'\"]*\bpanel\b[^'\"]*(?P=q)[^>]*)>(?P<body>.*?)</section>",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_CONFIG_CARD_RE = re.compile(
+    r"<article(?P<attrs>[^>]*\bclass=(?P<q>['\"])[^'\"]*\bref-card\b[^'\"]*(?P=q)[^>]*)>(?P<body>.*?)</article>",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_CONFIG_TITLE_RE = re.compile(r"<h3[^>]*>(?P<title>.*?)</h3>", flags=re.IGNORECASE | re.DOTALL)
+_CONFIG_HEADING_HINTS = (
+    "auditoria", "ia semântica", "ia semantica", "remediação", "remediacao",
+    "web performance", "apdex", "contexto editorial", "pagespeed", "crux",
+)
+
+
+def _plain_html(value: str) -> str:
+    return re.sub(r"<[^>]+>", " ", value).replace("&nbsp;", " ").strip()
+
+
+def _enhance_configuration_accordions(html: str) -> str:
+    def replace_panel(match: re.Match[str]) -> str:
+        body = match.group("body")
+        cards = list(_CONFIG_CARD_RE.finditer(body))
+        if len(cards) < 3:
+            return match.group(0)
+        titles: list[str] = []
+        for card in cards:
+            title_match = _CONFIG_TITLE_RE.search(card.group("body"))
+            titles.append(_plain_html(title_match.group("title")) if title_match else "")
+        recognized = sum(any(hint in title.casefold() for hint in _CONFIG_HEADING_HINTS) for title in titles)
+        panel_text = _plain_html(body).casefold()
+        if recognized < 2 or "configura" not in panel_text:
+            return match.group(0)
+
+        def replace_card(card_match: re.Match[str]) -> str:
+            card_body = card_match.group("body")
+            title_match = _CONFIG_TITLE_RE.search(card_body)
+            if title_match is None:
+                return card_match.group(0)
+            title_html = title_match.group("title")
+            remainder = card_body[:title_match.start()] + card_body[title_match.end():]
+            return (
+                "<details class='config-accordion'>"
+                f"<summary>{title_html}</summary>"
+                f"<div class='config-accordion-body'>{remainder}</div></details>"
+            )
+
+        converted = _CONFIG_CARD_RE.sub(replace_card, body)
+        converted = re.sub(
+            r"<div\s+class=(['\"])grid\1>",
+            "<div class='config-accordion-stack'>",
+            converted,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+        return f"<section{match.group('attrs')}>{converted}</section>"
+
+    return _CONFIG_PANEL_RE.sub(replace_panel, html)
 
 
 def available_navigation(report_dir: Path, current: str | None = None) -> tuple[tuple[str, str], ...]:
@@ -240,6 +310,7 @@ def normalize_report_navigation(
         if replacements != 1:
             raise ValueError(f"report page has no replaceable navigation: {html_path}")
         normalized = enhance_report_html(normalized, page_name=html_path.name, report_dir=report_dir)
+        normalized = _enhance_configuration_accordions(normalized)
         normalized = _enhance_rule_tooltips(normalized)
         normalized = _move_footer_to_end_of_main(normalized)
         normalized = normalized.replace("—", "-").replace("–", "-")

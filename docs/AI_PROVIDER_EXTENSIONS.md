@@ -213,3 +213,12 @@ Selecionar explicitamente um provider sem sua key resulta em `NOT_CONFIGURED`, z
 ## Segurança
 
 Credenciais podem ser alteradas pelo console, mas não são gravadas em `rasai-console.ini`. A presença da chave não garante saldo, quota ou acesso ao modelo.
+
+## Diagnóstico operacional de providers estendidos
+
+Uma chave configurada e uma tentativa HTTP persistida provam que o provider foi chamado; não provam que o request foi aceito. HTTP 400/`invalid_request` é classificado como erro de contrato/integração do request, não como ausência de credencial e nunca como finding do website. O provider pode ser isolado (`QUARANTINED_FOR_AUDIT`) para evitar repetição da mesma falha no AUD.
+
+As finalidades técnicas de crawling/discovery aceitam os providers estendidos explícitos quando o adapter possui contrato wire compatível. Se um provider já foi isolado pela análise semântica, a finalidade técnica o apresenta como indisponível/quarantined, não como `NOT_CONFIGURED`.
+
+Para Gemini, o schema enviado pela Interactions API é projetado para o subconjunto JSON Schema aceito no wire; a validação local completa do RASAi continua obrigatória após a resposta.
+

@@ -28,6 +28,7 @@ from rasai.m18_ai import (
 from rasai.m18_persistence import M18Persistence
 from rasai.m24_crawling_discovery import M24Diagnostic, persist_ai_result
 from rasai.persistence import AuditWorkspace
+from rasai.provider_extensions import IsolatedStructuredSemanticProvider, gemini_wire_schema
 from rasai.semantic import _extract_json_payload
 
 CONTRACT_VERSION = "M24-TECHNICAL-REMEDIATION-v2"
@@ -136,10 +137,17 @@ def maybe_remediate_m24(
     """Explain deterministic M24 diagnostics without changing technical conclusions."""
     candidates = _candidates(provider)
     if not candidates:
-        result = M24AiResult(
-            state=ProviderState.NOT_CONFIGURED,
-            reason="AI_NOT_CONFIGURED_OR_UNSUPPORTED_FOR_M24",
-        )
+        configured_state = _configured_provider_state(provider)
+        if configured_state is not None:
+            result = M24AiResult(
+                state=ProviderState.UNAVAILABLE,
+                reason=f"M24_AI_PROVIDER_{configured_state}",
+            )
+        else:
+            result = M24AiResult(
+                state=ProviderState.NOT_CONFIGURED,
+                reason="AI_NOT_CONFIGURED_FOR_M24",
+            )
         _persist_result(workspace, audit_id, result)
         return result
 
@@ -212,25 +220,41 @@ def maybe_remediate_m24(
     return final
 
 
-def _candidates(provider: Any) -> tuple[ResponsesSemanticProvider, ...]:
+def _candidate_items(provider: Any) -> tuple[Any, ...]:
     routed = getattr(provider, "providers", None)
     if isinstance(routed, tuple):
-        output = []
-        for item in routed:
-            if not isinstance(item, ResponsesSemanticProvider):
-                continue
-            if not bool(getattr(item, "api_key", None)):
-                continue
-            state = getattr(item, "_runtime_state", RuntimeProviderState.ACTIVE)
-            if state is RuntimeProviderState.QUARANTINED_FOR_AUDIT:
-                continue
-            output.append(item)
-        return tuple(output)
-    if isinstance(provider, ResponsesSemanticProvider) and bool(getattr(provider, "api_key", None)):
-        state = getattr(provider, "_runtime_state", RuntimeProviderState.ACTIVE)
-        if state is not RuntimeProviderState.QUARANTINED_FOR_AUDIT:
-            return (provider,)
-    return ()
+        return tuple(routed)
+    return (provider,) if provider is not None else ()
+
+
+def _supported_candidate(candidate: Any) -> bool:
+    return isinstance(candidate, (ResponsesSemanticProvider, IsolatedStructuredSemanticProvider))
+
+
+def _configured_provider_state(provider: Any) -> str | None:
+    configured = [
+        item for item in _candidate_items(provider)
+        if _supported_candidate(item) and bool(getattr(item, "api_key", None))
+    ]
+    if not configured:
+        return None
+    if any(getattr(item, "_runtime_state", RuntimeProviderState.ACTIVE) is RuntimeProviderState.QUARANTINED_FOR_AUDIT for item in configured):
+        return "QUARANTINED_FOR_AUDIT"
+    return "UNAVAILABLE"
+
+
+def _candidates(provider: Any) -> tuple[Any, ...]:
+    output: list[Any] = []
+    for item in _candidate_items(provider):
+        if not _supported_candidate(item):
+            continue
+        if not bool(getattr(item, "api_key", None)):
+            continue
+        state = getattr(item, "_runtime_state", RuntimeProviderState.ACTIVE)
+        if state is RuntimeProviderState.QUARANTINED_FOR_AUDIT:
+            continue
+        output.append(item)
+    return tuple(output)
 
 
 def _schema() -> dict[str, Any]:
@@ -291,8 +315,86 @@ def _schema() -> dict[str, Any]:
     }
 
 
+def _candidate_payload(candidate: Any, *, schema: dict[str, Any], instructions: str, facts: list[dict[str, Any]]) -> dict[str, Any]:
+    facts_json = json.dumps(facts, ensure_ascii=False, separators=(",", ":"))
+    name = str(getattr(candidate, "name", "")).upper()
+    if isinstance(candidate, IsolatedStructuredSemanticProvider):
+        if name == "GEMINI":
+            return {
+                "model": candidate.model,
+                "input": instructions + "\n\nDiagnósticos técnicos persistidos:\n" + facts_json,
+                "response_format": {
+                    "type": "text",
+                    "mime_type": "application/json",
+                    "schema": gemini_wire_schema(schema),
+                },
+            }
+        if name == "QWEN":
+            return {
+                "model": candidate.model,
+                "messages": [
+                    {"role": "system", "content": instructions},
+                    {"role": "user", "content": "Diagnósticos técnicos persistidos:\n" + facts_json},
+                ],
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {"name": "rasai_m24_technical_remediation", "schema": schema, "strict": True},
+                },
+            }
+        if name == "ANTHROPIC":
+            return {
+                "model": candidate.model,
+                "max_tokens": 8192,
+                "system": instructions,
+                "messages": [{"role": "user", "content": "Diagnósticos técnicos persistidos:\n" + facts_json}],
+                "output_config": {"format": {"type": "json_schema", "schema": schema}},
+            }
+        # XAI uses the Responses-style contract.
+        return {
+            "model": candidate.model,
+            "instructions": instructions,
+            "input": [{"role": "user", "content": [{"type": "input_text", "text": "Diagnósticos técnicos persistidos:\n" + facts_json}]}],
+            "reasoning": {"effort": str(getattr(candidate, "reasoning_profile", "HIGH")).casefold()},
+            "text": {"format": {"type": "json_schema", "name": "rasai_m24_technical_remediation", "schema": schema, "strict": True}},
+        }
+
+    if candidate.structured_mode == "json_object":
+        local_instructions = instructions + "\nSchema local obrigatório:\n" + json.dumps(schema, ensure_ascii=False, separators=(",", ":"))
+        fmt: dict[str, Any] = {"type": "json_object"}
+    else:
+        local_instructions = instructions
+        fmt = {"type": "json_schema", "name": "rasai_m24_technical_remediation", "schema": schema}
+        if candidate.name == "OPENAI":
+            fmt["strict"] = True
+    return {
+        "model": candidate.model,
+        "instructions": local_instructions,
+        "input": [{"role": "user", "content": [{"type": "input_text", "text": "Diagnósticos técnicos persistidos:\n" + facts_json}]}],
+        "reasoning": {"effort": candidate.requested_reasoning_effort.casefold()},
+        "text": {"format": fmt},
+    }
+
+
+def _candidate_usage(candidate: Any, raw: Mapping[str, Any]):
+    if isinstance(candidate, IsolatedStructuredSemanticProvider):
+        return candidate._usage(raw)
+    return _usage_from_native(raw)
+
+
+def _candidate_native_error(candidate: Any, raw: Mapping[str, Any]):
+    if isinstance(candidate, IsolatedStructuredSemanticProvider):
+        return candidate._native_error(raw)
+    return _response_error(raw)
+
+
+def _candidate_extract_payload(candidate: Any, raw: Mapping[str, Any]) -> Any:
+    if isinstance(candidate, IsolatedStructuredSemanticProvider):
+        return candidate._extract_payload(raw)
+    return _extract_json_payload(dict(raw))
+
+
 def _call(
-    candidate: ResponsesSemanticProvider,
+    candidate: Any,
     *,
     facts: list[dict[str, Any]],
     allowed_codes: frozenset[str],
@@ -318,42 +420,7 @@ def _call(
         "Não apresente sua ausência como defeito nem como requisito GEO. "
         "Quando a evidência não permitir uma mudança exata e segura, recomende validação humana."
     )
-    if candidate.structured_mode == "json_object":
-        instructions += "\nSchema local obrigatório:\n" + json.dumps(
-            schema,
-            ensure_ascii=False,
-            separators=(",", ":"),
-        )
-        fmt: dict[str, Any] = {"type": "json_object"}
-    else:
-        fmt = {
-            "type": "json_schema",
-            "name": "rasai_m24_technical_remediation",
-            "schema": schema,
-        }
-        if candidate.name == "OPENAI":
-            fmt["strict"] = True
-
-    payload = {
-        "model": candidate.model,
-        "instructions": instructions,
-        "input": [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": (
-                            "Diagnósticos técnicos persistidos:\n"
-                            + json.dumps(facts, ensure_ascii=False, separators=(",", ":"))
-                        ),
-                    }
-                ],
-            }
-        ],
-        "reasoning": {"effort": candidate.requested_reasoning_effort.casefold()},
-        "text": {"format": fmt},
-    }
+    payload = _candidate_payload(candidate, schema=schema, instructions=instructions, facts=facts)
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     payload_hash = hashlib.sha256(body).hexdigest()
     started_at = datetime.now(timezone.utc)
@@ -368,15 +435,15 @@ def _call(
         raw = candidate._transport(candidate.endpoint, candidate._headers(), body, candidate.timeout)
         if not isinstance(raw, Mapping):
             raise ValueError("provider envelope is not an object")
-        usage = _usage_from_native(raw)
-        native_error = _response_error(raw)
+        usage = _candidate_usage(candidate, raw)
+        native_error = _candidate_native_error(candidate, raw)
         if native_error is not None:
             diagnostic = native_error
             status = AttemptStatus.TECHNICAL_ERROR
             reason = native_error.reason
         else:
             explanation = _validate(
-                _extract_json_payload(dict(raw)),
+                _candidate_extract_payload(candidate, raw),
                 allowed_codes=allowed_codes,
                 allowed_evidence=allowed_evidence,
                 resource_evidence=resource_evidence,
