@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from html import unescape
 import re
 from pathlib import Path
 import tempfile
@@ -27,7 +28,7 @@ class BaseReportNavigationCoreTests(unittest.TestCase):
             self.assertIsNotNone(nav_match)
             links = _LINK_RE.findall(nav_match.group(1))
             self.assertEqual(
-                [(href, label) for _, href, label in links],
+                [(href, unescape(label)) for _, href, label in links],
                 [(filename, label) for label, filename in NAV_ITEMS],
             )
             self.assertEqual([href for css_class, href, _ in links if css_class == "active"], [current])
