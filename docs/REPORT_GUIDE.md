@@ -18,7 +18,8 @@ Princípios obrigatórios:
 - `NULL` de fonte externa não vira zero observado;
 - cada domínio tem página canônica;
 - páginas opcionais aparecem no menu somente quando existem;
-- normalização posterior não pode remover do menu uma página opcional já materializada.
+- normalização posterior não pode remover do menu uma página opcional já materializada;
+- identificadores históricos de scoring não podem ser reescritos como se fossem a versão vigente.
 
 ## Estrutura atual
 
@@ -26,7 +27,8 @@ Princípios obrigatórios:
 report/
 ├─ index.html
 ├─ readiness.html              # SARI-001
-├─ score-geo-003.html          # modelo/dataset/gates do scoring vigente
+├─ scoring.html                # versão, fórmula e gates do scoring vigente
+├─ score-geo-004.html          # alias de compatibilidade; não canônico
 ├─ mobile.html                 # condicional
 ├─ desktop.html                # condicional
 ├─ remediation.html
@@ -44,16 +46,18 @@ report/
 └─ css/site.css
 ```
 
-## SARI-001 / SCORE-GEO-003
+## SARI-001 / SCORE-GEO-004
 
 ```text
 SARI-001       = Search & AI Readiness Index público
-SCORE-GEO-003  = motor vigente para novas auditorias
+SCORE-GEO-004  = motor vigente para novas auditorias
 ```
 
-`readiness.html` apresenta dimensões, Coverage, Confidence, Consolidation e limitações. `score-geo-003.html` apresenta método/model artifact/dataset/gates e o estado do Overall.
+`readiness.html` apresenta dimensões, Coverage, Confidence, Consolidation e limitações. `scoring.html` apresenta a versão efetivamente usada, fórmula, gates, rastreabilidade e interpretação do Overall.
 
-A transição `002 -> 003` é quebra metodológica. O Overall atual não é substituído pela antiga média simples quando o modelo `003` não é validado/elegível; o report expõe `NOT_CONSOLIDATED`/limitação.
+O arquivo da metodologia é version-neutral por decisão de arquitetura. `scoring_version` permanece persistido no banco e visível no conteúdo. `score-geo-004.html` existe somente como alias para links antigos; novas integrações devem apontar para `scoring.html`.
+
+`SCORE-GEO-003` permanece histórico. Seu Overall dependia de model artifact validado e não deve ser confundido com o contrato determinístico vigente. Comparações entre versões preservam `scoring_version` e não normalizam contratos incompatíveis silenciosamente.
 
 SARI-001 é metodologia proprietária, evidence-bound e reprodutível. Não representa nota oficial Google/Bing/OpenAI, probabilidade de ranking/citação ou certificação GEO/AEO.
 
@@ -62,7 +66,7 @@ SARI-001 é metodologia proprietária, evidence-bound e reprodutível. Não repr
 | Domínio | Página canônica | Natureza |
 |---|---|---|
 | SARI-001 / dimensões | `readiness.html` | readiness proprietário |
-| SCORE-GEO-003 | `score-geo-003.html` | scoring/model calibration |
+| metodologia de scoring | `scoring.html` | contrato versionado; vigente `SCORE-GEO-004` |
 | Crawling/discovery | `crawling-discovery.html` | diagnóstico técnico non-scoring |
 | Core Web Vitals / Lighthouse | `web-performance.html` | lab + field data separados |
 | Acessibilidade automatizada | `accessibility.html` | diagnóstico; não certificação WCAG |
@@ -89,7 +93,7 @@ Observed Generative Visibility
 
 A página pode mostrar source-reported metrics, URL activity, grounding queries, trend e controlled query-runs. Citation Presence Rate é calculada somente sobre runs válidos conforme contrato.
 
-Observed Generative Visibility **não altera SARI-001/SCORE-GEO-003**.
+Observed Generative Visibility **não altera SARI-001/SCORE-GEO-004**.
 
 ## Search & AI Observability
 
@@ -310,7 +314,7 @@ Ordem canônica:
 ```text
 Visão geral
 Readiness SARI
-SCORE-GEO-003
+Metodologia de scoring
 Relatório Mobile
 Relatório Desktop
 Remediações
