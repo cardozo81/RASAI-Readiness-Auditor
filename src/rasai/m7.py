@@ -727,7 +727,7 @@ def _deterministic_outcome(
 
     if rule_id == "BR-GEO-034":
         if not structured["present"]:
-            result = RuleResult.NOT_APPLICABLE
+            result = RuleResult.WARNING
             reason = "STRUCTURED_DATA_ABSENT"
         elif structured["invalid_blocks"]:
             result = RuleResult.FAIL
@@ -746,7 +746,10 @@ def _deterministic_outcome(
             source_evidence_ids=(context_evidence_id,),
             metadata=replace(
                 metadata,
-                reasoning_summary="Structured Data syntax is evaluated deterministically from preserved parsed blocks.",
+                reasoning_summary=(
+                    "Structured Data presence/syntax is evaluated deterministically from preserved JSON-LD blocks; "
+                    "absence is a modest readiness gap, not a hard failure."
+                ),
             ),
         )
 

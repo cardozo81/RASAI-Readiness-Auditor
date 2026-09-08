@@ -266,7 +266,7 @@ Timeout, quota, HTTP, ausência de artifact ou falta de dado da fonte não são 
 
 ## Crawling/discovery
 
-`crawling-discovery.html` concentra robots/crawler policy, sitemaps, feeds, `llms.txt` experimental e evidências correlatas. `scoring_impact=NONE`.
+`crawling-discovery.html` concentra robots/crawler policy, sitemaps, feeds, `llms.txt` experimental e evidências correlatas. Os diagnósticos auxiliares continuam advisory. Quando a IA técnica estiver habilitada e produzir avaliação evidence-bound válida de robots/sitemap, somente a classe bounded do recurso pode compartilhar o grupo de scoring correspondente, com fatores estáticos e sem bônus duplicado.
 
 ## Acessibilidade
 

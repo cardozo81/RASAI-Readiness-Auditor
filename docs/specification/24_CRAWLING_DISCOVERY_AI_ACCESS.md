@@ -6,7 +6,7 @@
 
 ## 1. Objetivo
 
-Aprofundar evidências de `robots.txt`, sitemaps, políticas de crawlers, feeds, `llms.txt` experimental e sinais de discovery sem alterar a aritmética de readiness.
+Aprofundar evidências de `robots.txt`, sitemaps, políticas de crawlers, feeds, `llms.txt` experimental e sinais de discovery sem permitir pesos arbitrários: robots/sitemap usam fatores estáticos do método e a IA opcional só pode corroborar/rebaixar esses mesmos grupos por evidência validada.
 
 Esta capacidade não cria novo score, não altera `SARI-001` e não recalcula `SCORE-GEO-004`.
 

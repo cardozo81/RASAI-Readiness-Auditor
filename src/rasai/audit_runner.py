@@ -35,6 +35,8 @@ from rasai.m18_persistence import persist_provider_runtime
 from rasai.m18_reporting import enrich_written_reports
 from rasai.m20 import execute_m20
 from rasai.m20_reporting import enrich_m20_report_site
+from rasai.m24_crawling_discovery import execute_m24
+from rasai.m24_scoring import persist_m24_scoring_assessments
 from rasai.operational_log import try_append_operational_event
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.pre_scoring_rules import execute_pre_scoring_rules
@@ -74,6 +76,7 @@ def run_audit(
     max_pages: int = 100,
     semantic_provider: SemanticAnalysisProvider | None = None,
     content_remediation: bool = False,
+    technical_remediation: bool = False,
     discovery_engine: Any | None = None,
     renderer: Any | None = None,
     lazy_probe: Any | None = None,
@@ -128,6 +131,7 @@ def run_audit(
         normalized_targets=len(normalized_targets),
         max_pages=max_pages,
         content_remediation=content_remediation,
+        technical_remediation=technical_remediation,
         auditor_version=__version__,
     )
 
@@ -143,6 +147,8 @@ def run_audit(
     ]
     if content_remediation:
         capabilities.append("optional_ai_content_remediation")
+    if technical_remediation:
+        capabilities.append("optional_ai_technical_discovery_assessment")
     if target_type is TargetType.URL_SET:
         capabilities.append("url_set")
     audit = Audit(
@@ -377,12 +383,28 @@ def run_audit(
                 workspace=workspace,
             )
 
+            m24 = execute_m24(
+                audit_id=audit_id,
+                workspace=workspace,
+                technical_ai=technical_remediation,
+                semantic_provider=configured_provider,
+                allow_network=not source_blocked,
+            )
+            m24_scoring = persist_m24_scoring_assessments(
+                audit_id=audit_id,
+                persistence=persistence,
+                ai_state=m24.ai_state,
+                provider=m24.ai_provider,
+                model=m24.ai_model,
+                assessments=m24.ai_assessments,
+            )
             findings_before_integrity = _unique(
                 m5.finding_ids,
                 m6.finding_ids,
                 content.finding_ids,
                 m7.finding_ids,
                 m8.finding_ids,
+                m24_scoring.finding_ids,
             )
             pre_scoring = execute_pre_scoring_rules(
                 audit_id=audit_id,
@@ -400,6 +422,7 @@ def run_audit(
                 content.rule_execution_ids,
                 m7.rule_execution_ids,
                 m8.rule_execution_ids,
+                m24_scoring.rule_execution_ids,
                 pre_scoring.rule_execution_ids,
             )
             execute_m9(

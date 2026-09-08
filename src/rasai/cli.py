@@ -19,6 +19,7 @@ from rasai.device_context import DEVICE_CONTEXT_ENV, configured_device_context
 from rasai.logging_config import configure_logging
 from rasai.m18_ai import build_semantic_provider
 from rasai.m21_reporting import enrich_m21_report_site
+from rasai.m24_cli import configured_m24, register_m24_arguments
 from rasai.m21_web_performance import DEFAULT_CATEGORIES, WebPerformanceConfig, execute_m21
 from rasai.operational_log import try_append_operational_event
 from rasai.persistence import AuditWorkspace
@@ -176,6 +177,7 @@ def build_parser() -> argparse.ArgumentParser:
             "pagespeed uses only PageSpeed field data; crux requires RASAI_CRUX_API_KEY; none disables field data"
         ),
     )
+    register_m24_arguments(audit_parser)
     audit_parser.add_argument(
         "--lighthouse-categories",
         default=None,
@@ -355,6 +357,7 @@ def main(argv: list[str] | None = None) -> int:
 
             device_context = configured_device_context(cli_value=args.device_context, default="mobile")
             content_remediation = _configured_content_remediation(args.ai_content_remediation)
+            technical_remediation = configured_m24(args).technical_ai
             web_performance = _configured_web_performance(args)
             previous_device_context = os.environ.get(DEVICE_CONTEXT_ENV)
             os.environ[DEVICE_CONTEXT_ENV] = device_context
@@ -374,6 +377,7 @@ def main(argv: list[str] | None = None) -> int:
                     max_pages=args.max_pages,
                     semantic_provider=provider,
                     content_remediation=content_remediation,
+                    technical_remediation=technical_remediation,
                 )
                 # Real audit workspaces materialize the M21 state even when
                 # external collection is OFF, so the report can explain the

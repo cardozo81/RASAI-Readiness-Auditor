@@ -76,7 +76,7 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
             connection,
             """
             SELECT * FROM ai_provider_attempts
-            WHERE audit_id=? AND semantic_contract_version='M24-TECHNICAL-REMEDIATION-v1'
+            WHERE audit_id=? AND semantic_contract_version='M24-TECHNICAL-REMEDIATION-v2'
             ORDER BY started_at,attempt_index
             """,
             (audit_id,),
@@ -129,7 +129,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 <body>{nav}<main class='app-main'>
 <header class='hero'><div class='eyebrow'>Rastreamento, descoberta e acesso de crawlers · diagnóstico técnico complementar</div>
 <h1>Rastreamento, descoberta e acesso por IA</h1>
-<p class='lead'>Diagnóstico aprofundado de robots.txt, sitemaps/feeds, coerência de descoberta e controles de crawlers. Os diagnósticos aprofundados desta página são advisory/non-scoring; porém as evidências determinísticas básicas de sitemap, robots.txt e acesso de crawlers já alimentam BR-GEO-003, BR-GEO-017 e BR-GEO-018 no SCORE-GEO-004.</p>
+<p class='lead'>Diagnóstico aprofundado de robots.txt, sitemaps/feeds, coerência de descoberta e controles de crawlers. As regras determinísticas BR-GEO-003, BR-GEO-017 e BR-GEO-018 alimentam o SARI. Quando a IA técnica é explicitamente habilitada, ela pode apenas corroborar ou rebaixar os mesmos grupos de sitemap/robots por classes evidence-bound convertidas em fatores estáticos; nunca escolhe pesos numéricos.</p>
 <div class='metric-grid'>
 {_metric("Contrato", M24_VERSION)}
 {_metric("Diagnósticos", str(len(diagnostics)))}
@@ -138,7 +138,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 {_metric("llms.txt", llms_state)}
 {_metric("IA técnica", ai_state)}
 {_metric("Sitemaps externos", str(external_count))}
-{_metric("Impacto desta camada", "NENHUM direto")}
+{_metric("Impacto desta camada", "NENHUM" if run and str(run["scoring_impact"]) == "NONE" else (str(run["scoring_impact"]) if run else "NENHUM"))}
 </div></header>
 <section class='notice'><strong>Fronteira metodológica:</strong> GPTBot, OAI-SearchBot e Google-Extended possuem finalidades distintas. Bloqueio de GPTBot/Google-Extended não é convertido em penalidade de Search. <code>llms.txt</code> é tratado como proposta comunitária experimental, não como web standard obrigatório.</section>
 <section class='panel'><div class='kicker'>Resumo</div><h2>Universo técnico observado</h2>
@@ -181,7 +181,7 @@ def _diagnostic(row: sqlite3.Row) -> str:
     return f"""<article class='page-card'>
 <div class='panel-head'><div><div class='kicker'>{escape(str(row["code"]))}</div><h3>{escape(str(row["title"]))}</h3></div><span class='badge {badge}'>{escape(severity)}</span></div>
 <p class='page-url'>{escape(scope)}</p>
-<div class='notice'><strong>Impacto em scoring:</strong> NENHUM. Este diagnóstico não altera regras nem o Search & AI Readiness Index.</div>
+<div class='notice'><strong>Impacto em scoring:</strong> o diagnóstico determinístico isolado é advisory; BR-GEO-003/017/018 são os inputs técnicos de base. Se IA técnica estiver habilitada e produzir classificação válida, somente a avaliação bounded do mesmo recurso pode compartilhar o grupo de scoring correspondente, sem bônus duplicado.</div>
 <details><summary>Evidência observada</summary><div class='detail-body'><pre>{escape(observed)}</pre><p><strong>Evidence IDs:</strong> {escape(", ".join(evidence) or "-")}</p></div></details>
 <p><strong>Orientação determinística:</strong> {escape(remediation)}</p>
 </article>"""
@@ -199,7 +199,7 @@ def _ai_block(data: dict[str, Any]) -> str:
     cost = f"{sum(costs):.6f} USD" if costs else "não calculável/zero chamadas"
     return f"""<section class='panel'><div class='kicker'>IA técnica de crawling/discovery (opcional)</div><h2>Telemetria e limites da remediação técnica</h2>
 <div class='metric-grid'>{_metric("Estado",state)}{_metric("Provider",provider)}{_metric("Modelo",model)}{_metric("Tentativas",str(len(attempts)))}{_metric("Tokens",str(total_tokens))}{_metric("Custo estimado",cost)}</div>
-<p class='intro'>A IA técnica desta página é controlada por <code>RASAI_AI_TECHNICAL_REMEDIATION</code>, independente de <code>RASAI_AI_CONTENT_REMEDIATION</code>. Ela recebe apenas diagnósticos/evidence IDs persistidos, não pode criar fatos nem elevar Confidence por opinião. Qualquer aumento de Confidence só pode ocorrer no pipeline de scoring quando uma regra aplicável passa a ter evidência válida; a remediação técnica desta camada permanece advisory e não altera scoring.</p>
+<p class='intro'>A IA técnica desta página é controlada por <code>RASAI_AI_TECHNICAL_REMEDIATION</code>, independente de <code>RASAI_AI_CONTENT_REMEDIATION</code>. Ela recebe apenas diagnósticos/evidence IDs persistidos e não pode criar fatos, pesos ou elevar Confidence por opinião. Para sitemap/robots, uma classificação válida pode gerar somente PASS/WARNING/FAIL em regras auxiliares bounded que compartilham o mesmo grupo das regras determinísticas; resultado positivo não soma bônus e resultado neutro/negativo pode rebaixar o grupo.</p>
 <p><strong>Artifact:</strong> <code>{escape(artifact)}</code></p><p><a href='content-suggestions.html'>Ver separadamente a remediação de conteúdo por IA →</a></p></section>"""
 
 

@@ -17,7 +17,7 @@ from rasai.m23_cli import SyntheticApdexConfig, configured_apdex, register_apdex
 from rasai.m23_lighthouse_traceability import extract_lighthouse_execution_profiles
 from rasai.m23_reporting import enrich_m23_report_site
 from rasai.m24_cli import M24Config, configured_m24, register_m24_arguments
-from rasai.m24_crawling_discovery import M24ExecutionResult, execute_m24
+from rasai.m24_crawling_discovery import M24ExecutionResult, execute_m24, load_m24_result
 from rasai.m24_discovery_extensions import install_discovery_extensions
 from rasai.m24_reporting import enrich_m24_report_site
 from rasai.operational_log import try_append_operational_event
@@ -260,13 +260,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             assessment is not None and assessment.all_pages_hard_blocked
         )
         try:
-            m24_result = execute_m24(
-                audit_id=audit_id,
-                workspace=workspace,
-                technical_ai=m24_config.technical_ai,
-                semantic_provider=configured_provider_for_m24,
-                allow_network=allow_network,
-            )
+            m24_result = load_m24_result(audit_id=audit_id, workspace=workspace)
+            if m24_result is None:
+                m24_result = execute_m24(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    technical_ai=m24_config.technical_ai,
+                    semantic_provider=configured_provider_for_m24,
+                    allow_network=allow_network,
+                )
             try_append_operational_event(
                 workspace,
                 "M24_CRAWLING_DISCOVERY_COMPLETED",
@@ -539,7 +541,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "Rastreamento e descoberta M24: "
                 f"{m24_result.status} (diagnósticos {m24_result.diagnostics_count}; "
                 f"llms.txt {m24_result.llms_state}; IA técnica {m24_result.ai_state}; "
-                "impacto no score NENHUM)"
+                f"impacto no score {m24_result.scoring_impact})"
             )
             if m24_report_path is not None:
                 print(f"Relatório de rastreamento e descoberta: {m24_report_path}")

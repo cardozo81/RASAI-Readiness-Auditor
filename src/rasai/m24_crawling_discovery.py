@@ -64,6 +64,9 @@ class M24ExecutionResult:
     ai_state: str
     external_sitemaps: tuple[str, ...]
     scoring_impact: str = SCORING_IMPACT
+    ai_provider: str | None = None
+    ai_model: str | None = None
+    ai_assessments: tuple[dict[str, Any], ...] = ()
 
 
 class _AssetParser(HTMLParser):
@@ -218,6 +221,9 @@ def execute_m24(
         _persist_diagnostics(connection, audit_id, diagnostics)
 
         ai_state = "DISABLED"
+        ai_provider = None
+        ai_model = None
+        ai_assessments: tuple[dict[str, Any], ...] = ()
         if technical_ai:
             try:
                 from rasai.m24_ai import maybe_remediate_m24
@@ -229,6 +235,12 @@ def execute_m24(
                     diagnostics=tuple(diagnostics),
                 )
                 ai_state = ai_result.state.value
+                ai_provider = ai_result.provider
+                ai_model = ai_result.model
+                if ai_result.explanation and isinstance(ai_result.explanation.get("resource_assessments"), list):
+                    ai_assessments = tuple(
+                        dict(item) for item in ai_result.explanation["resource_assessments"] if isinstance(item, dict)
+                    )
             except Exception as exc:
                 ai_state = "UNAVAILABLE"
                 _persist_ai_state(
@@ -259,6 +271,9 @@ def execute_m24(
         elif medium:
             status = "REVIEW_RECOMMENDED"
 
+        run_scoring_impact = (
+            "BOUNDED_AI_RESOURCE_ASSESSMENT" if ai_assessments else "NONE"
+        )
         with connection:
             connection.execute(
                 """
@@ -277,7 +292,7 @@ def execute_m24(
                     audit_id,
                     M24_VERSION,
                     status,
-                    SCORING_IMPACT,
+                    run_scoring_impact,
                     llms_state,
                     1 if technical_ai else 0,
                     ai_state,
@@ -293,6 +308,58 @@ def execute_m24(
             ai_enabled=technical_ai,
             ai_state=ai_state,
             external_sitemaps=external_sitemaps,
+            scoring_impact=run_scoring_impact,
+            ai_provider=ai_provider,
+            ai_model=ai_model,
+            ai_assessments=ai_assessments,
+        )
+    finally:
+        connection.close()
+
+
+def load_m24_result(*, audit_id: str, workspace: AuditWorkspace) -> M24ExecutionResult | None:
+    """Reopen a completed crawling/discovery run without repeating network or AI calls."""
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        try:
+            row = connection.execute("SELECT * FROM m24_runs WHERE audit_id=?", (audit_id,)).fetchone()
+        except sqlite3.OperationalError:
+            return None
+        if row is None:
+            return None
+        ai_row = connection.execute("SELECT * FROM m24_ai_results WHERE audit_id=?", (audit_id,)).fetchone()
+        assessments: tuple[dict[str, Any], ...] = ()
+        provider = model = None
+        if ai_row is not None:
+            provider = str(ai_row["provider"]) if ai_row["provider"] else None
+            model = str(ai_row["model"]) if ai_row["model"] else None
+            reference = ai_row["artifact_reference"]
+            if reference:
+                path = workspace.root / str(reference)
+                if path.is_file():
+                    try:
+                        payload = json.loads(path.read_text(encoding="utf-8"))
+                        raw = (payload.get("explanation") or {}).get("resource_assessments")
+                        if isinstance(raw, list):
+                            assessments = tuple(dict(item) for item in raw if isinstance(item, dict))
+                    except (OSError, ValueError, json.JSONDecodeError):
+                        assessments = ()
+        try:
+            external = tuple(str(item) for item in json.loads(str(row["external_sitemaps"])))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            external = ()
+        return M24ExecutionResult(
+            status=str(row["status"]),
+            diagnostics_count=int(row["diagnostics_count"]),
+            llms_state=str(row["llms_state"]),
+            ai_enabled=bool(row["ai_enabled"]),
+            ai_state=str(row["ai_state"]),
+            external_sitemaps=external,
+            scoring_impact=str(row["scoring_impact"]),
+            ai_provider=provider,
+            ai_model=model,
+            ai_assessments=assessments,
         )
     finally:
         connection.close()

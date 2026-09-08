@@ -90,7 +90,7 @@ m24_diagnostics
 m24_ai_results
 ```
 
-`scoring_impact=NONE`.
+Os diagnósticos auxiliares continuam advisory. Quando a IA técnica estiver habilitada e produzir avaliação evidence-bound válida de robots/sitemap, somente a classe bounded do recurso pode compartilhar o grupo de scoring correspondente, com fatores estáticos e sem bônus duplicado.
 
 ### Web Performance
 

@@ -33,6 +33,9 @@ _CRUX_METRICS = (
     "interaction_to_next_paint",
     "cumulative_layout_shift",
 )
+_TRANSIENT_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504})
+_PAGESPEED_MAX_ATTEMPTS = 2
+
 _CWV_THRESHOLDS = {
     "largest_contentful_paint": 2500.0,
     "interaction_to_next_paint": 200.0,
@@ -111,11 +114,23 @@ class PageSpeedInsightsClient:
         if self._api_key:
             query.append(("key", self._api_key))
         endpoint = f"{PAGESPEED_ENDPOINT}?{urlencode(query)}"
-        return _request_json(
-            service="PAGESPEED_INSIGHTS",
-            request=Request(endpoint, headers={"Accept": "application/json"}),
-            timeout_seconds=timeout_seconds,
-        )
+        request = Request(endpoint, headers={"Accept": "application/json"})
+        last_error: ExternalServiceError | None = None
+        for attempt in range(1, _PAGESPEED_MAX_ATTEMPTS + 1):
+            try:
+                return _request_json(
+                    service="PAGESPEED_INSIGHTS",
+                    request=request,
+                    timeout_seconds=timeout_seconds,
+                )
+            except ExternalServiceError as exc:
+                last_error = exc
+                transient = exc.http_status in _TRANSIENT_HTTP_STATUSES or exc.error_code in {"TIMEOUTERROR", "URLERROR"}
+                if attempt >= _PAGESPEED_MAX_ATTEMPTS or not transient:
+                    raise
+                time.sleep(0.75)
+        assert last_error is not None
+        raise last_error
 
 
 class CruxApiClient:
@@ -161,7 +176,7 @@ def execute_m21(
     pagespeed_client: PageSpeedGateway | None = None,
     crux_client: CruxGateway | None = None,
 ) -> M21ExecutionResult:
-    """Collect external lab/field performance evidence without changing SCORE-GEO-002."""
+    """Collect external lab/field performance evidence without changing SARI/SCORE-GEO-004."""
     cfg = (config or WebPerformanceConfig()).validate()
     now = _utc_now()
     try_append_operational_event(

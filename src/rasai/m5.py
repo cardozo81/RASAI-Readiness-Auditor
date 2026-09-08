@@ -359,16 +359,25 @@ def _evaluate_sitemaps(m2: M2ExecutionResult) -> RuleEvaluation:
     if any(state is SitemapState.NETWORK_ERROR for state in states):
         result = RuleResult.UNKNOWN
         reason = "SITEMAP_NETWORK_ERROR"
-    elif any(state in {SitemapState.INVALID, SitemapState.HTTP_ERROR} for state in states):
+    elif any(state is SitemapState.INVALID for state in states):
+        result = RuleResult.FAIL
+        reason = "SITEMAP_INVALID"
+    elif any(state is SitemapState.HTTP_ERROR for state in states):
         result = RuleResult.WARNING
-        reason = "SITEMAP_AVAILABLE_BUT_NOT_INTERPRETABLE"
-    else:
+        reason = "SITEMAP_HTTP_ERROR"
+    elif any(state is SitemapState.OBTAINED for state in states):
         result = RuleResult.PASS
         reason = None
+    else:
+        result = RuleResult.WARNING
+        reason = "SITEMAP_ABSENT"
     return RuleEvaluation(
         result=result,
         observed_value={"sitemaps": [{"url": item.url, "state": item.state.value, "error": item.error} for item in m2.discovery.sitemaps]},
-        expected_condition="available sitemap resources are acquired and interpretable; absence alone is not failure",
+        expected_condition=(
+            "a usable sitemap is a modest positive discovery signal; absence is a small readiness gap, "
+            "and an invalid published sitemap is materially unfavorable"
+        ),
         reason=reason,
     )
 
@@ -612,16 +621,22 @@ def _evaluate_soft404(snapshot: Any, acquisition: Any, workspace: AuditWorkspace
 
 def _evaluate_robots(m2: M2ExecutionResult) -> RuleEvaluation:
     state = m2.discovery.robots.state
-    if state in {RobotsState.OBTAINED, RobotsState.ABSENT}:
+    if state is RobotsState.OBTAINED:
         result = RuleResult.PASS
         reason = None
+    elif state is RobotsState.ABSENT:
+        result = RuleResult.WARNING
+        reason = "ROBOTS_ABSENT"
     else:
         result = RuleResult.UNKNOWN
         reason = f"ROBOTS_{state.value}"
     return RuleEvaluation(
         result=result,
         observed_value={"state": state.value, "url": m2.discovery.robots.url},
-        expected_condition="robots.txt is interpretable when present; absence alone is not failure",
+        expected_condition=(
+            "robots.txt is interpretable when present; absence is not a crawling failure, "
+            "but it does not receive the same positive readiness factor as an explicit usable policy"
+        ),
         reason=reason,
     )
 

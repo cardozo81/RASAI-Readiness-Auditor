@@ -30,7 +30,7 @@ from rasai.m24_crawling_discovery import M24Diagnostic, persist_ai_result
 from rasai.persistence import AuditWorkspace
 from rasai.semantic import _extract_json_payload
 
-CONTRACT_VERSION = "M24-TECHNICAL-REMEDIATION-v1"
+CONTRACT_VERSION = "M24-TECHNICAL-REMEDIATION-v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,7 +85,7 @@ def maybe_remediate_m24(
             "observed": item.observed,
             "evidence_ids": list(item.evidence_ids),
             "deterministic_remediation": item.remediation,
-            "scoring_impact": "NONE",
+            "scoring_role": "BOUNDED_RESOURCE_ASSESSMENT_ELIGIBLE",
         }
         for item in diagnostics[:40]
     ]
@@ -172,9 +172,29 @@ def _schema() -> dict[str, Any]:
                     ],
                 },
             },
+            "resource_assessments": {
+                "type": "array",
+                "maxItems": 2,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "resource": {"type": "string", "enum": ["ROBOTS", "SITEMAP"]},
+                        "verdict": {"type": "string", "enum": ["POSITIVE", "NEUTRAL", "NEGATIVE"]},
+                        "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                        "evidence_ids": {
+                            "type": "array",
+                            "uniqueItems": True,
+                            "items": {"type": "string", "minLength": 1},
+                        },
+                        "rationale_pt": {"type": "string", "minLength": 1, "maxLength": 1600},
+                    },
+                    "required": ["resource", "verdict", "confidence", "evidence_ids", "rationale_pt"],
+                },
+            },
             "policy_note_pt": {"type": "string", "minLength": 1, "maxLength": 1600},
         },
-        "required": ["summary_pt", "actions", "policy_note_pt"],
+        "required": ["summary_pt", "actions", "resource_assessments", "policy_note_pt"],
     }
 
 
@@ -191,7 +211,9 @@ def _call(
     instructions = (
         "Você é um especialista técnico em crawling, robots.txt, sitemap e controles de crawlers. "
         "Responda em português do Brasil e somente em JSON. Use exclusivamente os diagnósticos "
-        "determinísticos fornecidos. Não altere severidade, scoring, SCORE-GEO-004 ou SARI-001. "
+        "determinísticos fornecidos. Não invente pesos numéricos nem altere a fórmula do SCORE-GEO-004/SARI-001. "
+        "Além das ações, classifique ROBOTS e/ou SITEMAP somente quando houver evidência fornecida, "
+        "usando POSITIVE, NEUTRAL ou NEGATIVE. O runtime converte essa classe por fatores estáticos/versionados. "
         "Não invente URL, status HTTP, configuração, crawler, evidência, causa raiz, política ou fato. "
         "Cada ação deve referenciar um diagnostic_code fornecido e somente evidence_ids fornecidos. "
         "OAI-SearchBot está relacionado à descoberta no ChatGPT Search; GPTBot está relacionado a "
@@ -311,7 +333,7 @@ def _call(
         pricing_version=pricing_version,
         request_message_summary=(
             f"contract={CONTRACT_VERSION};diagnostics={len(facts)};"
-            "scoring_impact=NONE"
+            "scoring_impact=BOUNDED_STATIC_FACTORS"
         ),
         request_payload_hash=payload_hash,
         provider_qualification=candidate.policy.qualification,
@@ -350,7 +372,8 @@ def _validate(
     summary = str(value.get("summary_pt") or "").strip()
     policy_note = str(value.get("policy_note_pt") or "").strip()
     actions = value.get("actions")
-    if not summary or not policy_note or not isinstance(actions, list):
+    resource_assessments = value.get("resource_assessments")
+    if not summary or not policy_note or not isinstance(actions, list) or not isinstance(resource_assessments, list):
         raise ValueError("M24 AI response misses required fields")
     output_actions: list[dict[str, Any]] = []
     seen_codes: set[str] = set()
@@ -380,9 +403,42 @@ def _validate(
                 "human_validation_required": bool(raw.get("human_validation_required")),
             }
         )
+    output_resources: list[dict[str, Any]] = []
+    seen_resources: set[str] = set()
+    for raw in resource_assessments[:2]:
+        if not isinstance(raw, Mapping):
+            raise ValueError("M24 AI resource assessment must be an object")
+        resource = str(raw.get("resource") or "").strip().upper()
+        verdict = str(raw.get("verdict") or "").strip().upper()
+        if resource not in {"ROBOTS", "SITEMAP"} or verdict not in {"POSITIVE", "NEUTRAL", "NEGATIVE"}:
+            raise ValueError("M24 AI resource assessment contains invalid classification")
+        if resource in seen_resources:
+            raise ValueError("M24 AI resource assessment duplicates a resource")
+        seen_resources.add(resource)
+        rationale = str(raw.get("rationale_pt") or "").strip()
+        evidence_raw = raw.get("evidence_ids")
+        if not rationale or not isinstance(evidence_raw, list):
+            raise ValueError("M24 AI resource assessment contains invalid fields")
+        evidence_ids = tuple(str(item).strip() for item in evidence_raw if str(item).strip())
+        if not evidence_ids or not set(evidence_ids).issubset(allowed_evidence):
+            raise ValueError("M24 AI resource assessment references evidence outside supplied universe")
+        try:
+            confidence = float(raw.get("confidence"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("M24 AI resource assessment confidence is invalid") from exc
+        if not 0.0 <= confidence <= 1.0:
+            raise ValueError("M24 AI resource assessment confidence is outside 0..1")
+        output_resources.append({
+            "resource": resource,
+            "verdict": verdict,
+            "confidence": confidence,
+            "evidence_ids": list(evidence_ids),
+            "rationale_pt": rationale[:1600],
+        })
     return {
         "summary_pt": summary[:2000],
         "actions": output_actions,
+        "resource_assessments": output_resources,
         "policy_note_pt": policy_note[:1600],
     }
 
@@ -441,7 +497,7 @@ def _persist_result(
         "model": result.model,
         "reason": result.reason,
         "explanation": result.explanation,
-        "scoring_impact": "NONE",
+        "scoring_impact": "BOUNDED_STATIC_FACTORS" if result.explanation and result.explanation.get("resource_assessments") else "NONE",
     }
     path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",

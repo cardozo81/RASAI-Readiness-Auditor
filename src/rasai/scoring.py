@@ -363,7 +363,19 @@ def _metadata(rule_id: str) -> RuleScoringMetadata:
 
     if number in {1, 2, 4, 52, 53, 54}:
         return RuleScoringMetadata(None)
-    if number in {3, 5, 6, 7, 8, 17, 18, 21, 22, 50}:
+    if number in {3, 55}:
+        return RuleScoringMetadata(
+            "TECHNICAL_ACCESSIBILITY", weight=0.25, warning_factor=0.80, scoring_group="SITEMAP"
+        )
+    if number in {17, 18, 56}:
+        return RuleScoringMetadata(
+            "TECHNICAL_ACCESSIBILITY", weight=0.60, warning_factor=0.60, scoring_group="ROBOTS"
+        )
+    if number in {5, 6}:
+        return RuleScoringMetadata(
+            "TECHNICAL_ACCESSIBILITY", weight=1.25, scoring_group="PAGE_ACCESS"
+        )
+    if number in {7, 8, 21, 22, 50}:
         return RuleScoringMetadata("TECHNICAL_ACCESSIBILITY", scoring_group=_technical_group(number))
     if 11 <= number <= 16 or number == 23:
         return RuleScoringMetadata("INDEXABILITY", scoring_group=_index_group(number))
@@ -374,7 +386,11 @@ def _metadata(rule_id: str) -> RuleScoringMetadata:
     if 31 <= number <= 33:
         return RuleScoringMetadata("ENTITY_CLARITY", scoring_group={31:"ENTITY_PRIMARY",32:"ENTITY_CONTEXT",33:"ENTITY_AMBIGUITY"}[number])
     if 34 <= number <= 37:
-        return RuleScoringMetadata("STRUCTURED_DATA", scoring_group="STRUCTURED_DATA_SYNTAX" if number in {34,35} else "STRUCTURED_DATA_CONSISTENCY")
+        return RuleScoringMetadata(
+            "STRUCTURED_DATA",
+            warning_factor=0.80 if number == 34 else 0.50,
+            scoring_group="STRUCTURED_DATA_SYNTAX" if number in {34,35} else "STRUCTURED_DATA_CONSISTENCY",
+        )
     if 38 <= number <= 40:
         return RuleScoringMetadata("ANSWERABILITY", scoring_group="PRIMARY_INTENT" if number == 38 else "PRIMARY_ANSWERS")
     if 41 <= number <= 44:

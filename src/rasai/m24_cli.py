@@ -14,6 +14,8 @@ class M24Config:
 
 
 def register_m24_arguments(audit_parser: argparse.ArgumentParser) -> None:
+    if any(getattr(action, "dest", None) == "ai_technical_remediation" for action in audit_parser._actions):
+        return
     audit_parser.add_argument(
         "--ai-technical-remediation",
         action=argparse.BooleanOptionalAction,
