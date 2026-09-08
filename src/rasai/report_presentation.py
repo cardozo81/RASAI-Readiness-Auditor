@@ -69,8 +69,14 @@ _PUBLIC_LABELS: dict[str, str] = {
     "INTENT_NOT_AVAILABLE": "Intenção indisponível",
     "ALIGNED_WINDOW": "Janelas alinhadas",
     "PARTIAL_OVERLAP": "Sobreposição parcial",
+    "NON_OVERLAPPING": "Janelas sem sobreposição",
     "UNKNOWN_PERIOD": "Período indeterminado",
     "TEMPORAL_ASSOCIATION_ONLY": "Apenas associação temporal",
+    # Fix verification states.
+    "FIXED": "Corrigido",
+    "PARTIALLY_FIXED": "Parcialmente corrigido",
+    "NOT_FIXED": "Não corrigido",
+    "NOT_VERIFIABLE": "Não verificável",
     # Quality/recommendation states.
     "ADVISORY": "Informativo",
     "COMPLETE_FOR_TOP_LEVEL_REQUIREMENTS": "Requisitos principais atendidos",
