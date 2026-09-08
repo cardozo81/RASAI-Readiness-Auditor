@@ -131,7 +131,7 @@ Se a aplicabilidade estiver indefinida por pré-requisito bloqueado, o estado n�
 
 A fórmula do `SCORE-GEO-004` não chama IA e não depende de provider específico. O `ScoringEngine` calcula Score, Coverage, Confidence e Consolidation exclusivamente a partir de `RuleExecution` e evidências persistidas.
 
-A partir do M7 rule version 2, auditorias sem provider utilizam o baseline local versionado:
+A partir da rule version 2 das regras semânticas `BR-GEO-028..049`, auditorias sem provider utilizam o baseline local versionado:
 
 ```text
 SEMANTIC-BASELINE-001
