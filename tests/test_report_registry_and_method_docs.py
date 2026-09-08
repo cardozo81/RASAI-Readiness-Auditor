@@ -22,7 +22,8 @@ def test_optional_report_navigation_is_complete_stable_and_conditional() -> None
     try:
         install()
         assert report_navigation.NAV_ITEMS == CANONICAL_NAV_ITEMS
-        assert "SCORE-GEO-003" in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]
+        assert "SCORE-GEO-004" in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]
+        assert "SCORE-GEO-003" not in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]
         assert "SCORE-GEO-002" not in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]
         assert "histórico" not in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]
 
@@ -33,7 +34,7 @@ def test_optional_report_navigation_is_complete_stable_and_conditional() -> None
             materialized = (
                 "index.html",
                 "readiness.html",
-                "score-geo-003.html",
+                "score-geo-004.html",
                 "crawling-discovery.html",
                 "apdex.html",
                 "apdex-experience.html",
