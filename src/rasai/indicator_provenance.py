@@ -54,7 +54,7 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "Coverage mede completude do universo aplicável; Confidence mede força da medição; Consolidation informa se os gates internos permitem publicar uma conclusão agregada.",
     ),
     IndicatorProvenance(
-        "BR-GEO-001..054",
+        "BR-GEO-001..056",
         "RASAI_HEURISTIC",
         "RASAi + fontes primárias por regra",
         "RULES_GUIDE / referências por BR-GEO",

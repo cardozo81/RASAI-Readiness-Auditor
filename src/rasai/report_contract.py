@@ -62,7 +62,7 @@ REPORT_SURFACES: tuple[ReportSurface, ...] = (
         inputs=("scoring_version persistido", "scores", "Coverage", "Confidence", "Consolidation"),
         outputs=("fórmula", "dimensões", "pesos", "gates", "limitações", "reprodutibilidade"),
         required_dependencies=("audit.db",),
-        ai_usage="Nenhum para o cálculo do SCORE-GEO-004.",
+        ai_usage="A fórmula e os pesos não dependem de IA. Quando habilitada, a IA técnica pode materializar somente avaliações evidence-bound bounded em BR-GEO-055/056, compartilhando os grupos determinísticos SITEMAP/ROBOTS sem escolher pesos nem criar bônus duplicado.",
         score_impact="Define e explica o contrato de scoring aplicado à auditoria; não recalcula o score ao renderizar HTML.",
     ),
     ReportSurface(
@@ -115,7 +115,7 @@ REPORT_SURFACES: tuple[ReportSurface, ...] = (
         outputs=("diagnóstico de crawling/discovery",),
         optional_dependencies=("análise por IA explicitamente habilitada",),
         ai_usage="A IA, quando habilitada, interpreta somente diagnósticos/evidências fornecidos e o resultado deve ser marcado como gerado por IA.",
-        score_impact="Somente regras explicitamente pertencentes ao SARI/SCORE podem contribuir; diagnósticos auxiliares permanecem separados.",
+        score_impact="BR-GEO-003/017/018 e, quando houver avaliação técnica evidence-bound válida, BR-GEO-055/056 podem contribuir pelos grupos SITEMAP/ROBOTS; demais diagnósticos desta superfície permanecem advisory/non-scoring.",
     ),
     ReportSurface(
         id="accessibility",
@@ -207,7 +207,7 @@ REPORT_SURFACES: tuple[ReportSurface, ...] = (
         filename="references.html",
         label="Referências e metodologia",
         optional=False,
-        inputs=("fontes metodológicas e referências públicas"),
+        inputs=("fontes metodológicas e referências públicas",),
         outputs=("proveniência metodológica", "glossário"),
         ai_usage="Nenhum.",
         score_impact="Nenhum; documenta fundamentos e fronteiras.",

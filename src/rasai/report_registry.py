@@ -181,6 +181,11 @@ def _contract_section(page_name: str) -> str:
         f"<div><h3>Uso de IA</h3><p>{escape(surface.ai_usage)}</p></div>"
         f"<div><h3>Impacto no SARI/SCORE</h3><p>{escape(surface.score_impact)}</p></div>"
         f"<div><h3>Fonte de verdade</h3><p>{escape(surface.source_of_truth)}</p></div>"
+        "</div>"
+        "<div class='notice report-reading-governance' data-report-reading-governance='true'>"
+        "<strong>Como interpretar e melhorar:</strong> um score alto e uma Confidence baixa não são resultados contraditórios: o score descreve a qualidade do que foi efetivamente avaliado, enquanto Coverage/Confidence descrevem a força e a completude da medição. "
+        "WARNING/FAIL devem ser tratados pela evidência e pelo critério exibidos na própria página; UNKNOWN/UNAVAILABLE/PARTIAL indicam dado não conclusivo ou cobertura insuficiente, salvo quando a superfície disser explicitamente o contrário. "
+        "Quando amostra, escopo, max_pages, timeout, integração opcional ou número mínimo de execuções limitarem a medição, o relatório deve sinalizar parametrização/cobertura e não converter isso em falha do website. Aumentar parâmetros amplia a matriz de medição; não corrige o site e não deve ser usado apenas para buscar uma nota melhor. Consulte a Visão geral para configuração × resultado obtido."
         "</div></section>"
     )
 

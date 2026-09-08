@@ -218,3 +218,7 @@ Não é um standard oficial de Google, Microsoft, OpenAI, Anthropic ou outro man
 - A IA técnica não escolhe pesos. Ela só pode emitir classes contratadas e referenciadas por evidência; o runtime converte essas classes em `PASS/WARNING/FAIL` com fatores estáticos/versionados no mesmo `scoring_group`, sem bônus duplicado.
 - Lighthouse, Core Web Vitals, Accessibility e Apdex continuam independentes da aritmética do SARI. Indisponibilidade de uma API externa não é tratada como falha do website.
 - Faixas de interpretação e pesos do método são estáticos por versão. Não existe parâmetro por auditoria para alterar o conceito de excelência, preservando comparabilidade temporal.
+
+## Regra de explicabilidade da medição
+
+Toda projeção do SCORE-GEO-004 deve tornar auditável a diferença entre qualidade medida e força da medição. `PARTIAL` com score alto é válido quando o gate de Confidence não foi satisfeito; o relatório deve nomear a dimensão bloqueante, as RuleExecutions UNKNOWN/ERROR relevantes e a condição esperada para tornar a medição conclusiva. Limitações de configuração devem ser apresentadas como limites do escopo/amostra, sem conversão automática em falha do website.

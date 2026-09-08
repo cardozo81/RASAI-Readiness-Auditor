@@ -1,9 +1,10 @@
 """M24 - Crawling, Discovery & AI Access diagnostics.
 
-This module is additive and non-scoring. It reads persisted audit evidence/artifacts,
-adds deterministic technical diagnostics, optionally fetches same-origin /llms.txt,
-and persists a reopenable M24 projection. It never creates RuleExecution, Finding,
-ScoreContribution, Score, Coverage, Confidence or Consolidation changes.
+The deterministic M24 diagnostics are advisory/non-scoring and remain fail-open.
+When technical AI is explicitly enabled, a separate bounded bridge may materialize
+evidence-bound BR-GEO-055/056 RuleExecutions for the existing SITEMAP/ROBOTS
+scoring groups. The model never chooses weights, never creates an independent bonus,
+and cannot directly set Score, Coverage, Confidence or Consolidation.
 """
 from __future__ import annotations
 

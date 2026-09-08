@@ -184,3 +184,13 @@ Garantia causal de citação: não
 - A IA técnica não escolhe pesos. Ela só pode emitir classes contratadas e referenciadas por evidência; o runtime converte essas classes em `PASS/WARNING/FAIL` com fatores estáticos/versionados no mesmo `scoring_group`, sem bônus duplicado.
 - Lighthouse, Core Web Vitals, Accessibility e Apdex continuam independentes da aritmética do SARI. Indisponibilidade de uma API externa não é tratada como falha do website.
 - Faixas de interpretação e pesos do método são estáticos por versão. Não existe parâmetro por auditoria para alterar o conceito de excelência, preservando comparabilidade temporal.
+
+## Governança explicável do resultado
+
+A projeção pública deve permitir ao analista distinguir:
+
+- **dedução de qualidade**: PASS/WARNING/FAIL avaliado, com peso/fator e condição esperada;
+- **lacuna de medição**: UNKNOWN/ERROR/coverage insuficiente, que afeta Confidence/Consolidation sem ser convertido em FAIL;
+- **limitação de parametrização**: escopo, `max_pages`, amostra mínima, timeout ou integração opcional que restringem a matriz coletada.
+
+O relatório deve explicar por que um SARI numericamente alto pode ser `PARTIAL/LOW` e indicar a dimensão/regra que precisa de evidência conclusiva. Ajustar parâmetros amplia a observação e não deve ser usado para fabricar melhora de score.

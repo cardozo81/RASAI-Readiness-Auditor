@@ -86,7 +86,7 @@ Coverage mede a parcela aplicável efetivamente avaliada. Os thresholds que prod
 
 Esses três indicadores aparecem analiticamente em `readiness.html` e não devem ser repetidos em `mobile.html`/`desktop.html`.
 
-### BR-GEO-001..054
+### BR-GEO-001..056
 
 A natureza é individual por regra. Uma BR pode ser `OFFICIAL`, `STANDARD`, `HEURISTIC` ou executor interno de integridade. Quando existe referência primária aplicável, o relatório deve ligá-la à BR; a presença de uma fonte conceitual não promove automaticamente uma heurística a standard.
 
@@ -239,3 +239,7 @@ Ao adicionar um novo indicador, o desenvolvimento deve atualizar simultaneamente
 8. testes que garantem que a classificação não desapareça do report e não seja duplicada em outra página analítica.
 
 Referências externas deste catálogo foram revisadas em **2026-09-06**.
+
+### Governança de Score, Coverage e Confidence
+
+Um score relativamente alto não implica automaticamente Confidence alta. Score mede a qualidade dos grupos efetivamente avaliados; Coverage mede completude; Confidence mede força da medição e o Overall herda a menor Confidence entre as dimensões aplicáveis. Por isso `PARTIAL` deve ser acompanhado da dimensão/regra bloqueante e da condição necessária para tornar a evidência conclusiva. Limitações de escopo ou parametrização (`max_pages`, amostra mínima, timeout, integração opcional) devem ser identificadas como limites da matriz de medição, não como falhas arbitrárias do website ou do auditor.

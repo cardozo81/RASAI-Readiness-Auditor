@@ -83,6 +83,11 @@ def _parse_extended_args(argv: list[str]):
     return parser, parser.parse_args(argv)
 
 
+def _m24_scoring_impact(*, audit_id: str, workspace) -> str:
+    result = load_m24_result(audit_id=audit_id, workspace=workspace)
+    return result.scoring_impact if result is not None else "NONE"
+
+
 def _resolve_m23_config(argv: list[str]) -> SyntheticApdexConfig | None:
     parsed = _parse_extended_args(argv)
     if parsed is None:
@@ -461,7 +466,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "M24_REPORT_GENERATED",
                         audit_id=audit_id,
                         report_path=str(m24_report_path.relative_to(workspace.root)),
-                        scoring_impact="NONE",
+                        scoring_impact=_m24_scoring_impact(audit_id=audit_id, workspace=workspace),
                     )
                     # PR #70 owns RASAi/device labels. Re-run the projection only
                     # to normalize every final page after M24 has added its nav item;

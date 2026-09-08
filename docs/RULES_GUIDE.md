@@ -1,4 +1,4 @@
-# Guia das Business Rules - BR-GEO-001..054
+# Guia das Business Rules - BR-GEO-001..056
 
 A definição normativa prevalente está em [`docs/specification/03_BUSINESS_RULES.md`](specification/03_BUSINESS_RULES.md). Este guia explica a finalidade operacional das regras sem duplicar pesos/fórmulas de scoring.
 
@@ -113,7 +113,7 @@ Os diagnósticos adicionais de `report/observability.html` sobre Product/Breadcr
 
 ## International Search / hreflang
 
-Checks de hreflang adicionados em Observability são diagnósticos complementares. Eles não foram inseridos retroativamente em BR-GEO-001..054 nem no SARI sem novo contrato de versionamento.
+Checks de hreflang adicionados em Observability são diagnósticos complementares. Eles não foram inseridos retroativamente em BR-GEO-001..056 nem no SARI sem novo contrato de versionamento.
 
 ## BR-GEO-054 e versionamento
 
@@ -134,3 +134,7 @@ O report deve distinguir sempre:
 - exemplo/receita de correção.
 
 Exemplo de correção não é evidência observada. Selectors só devem ser exibidos como causa/local quando houver correspondência confiável; relações document-level/set-level não devem receber selector arbitrário apenas para preencher a UI.
+
+### BR-GEO-055 / BR-GEO-056 - avaliação técnica bounded por IA
+
+Quando `RASAI_AI_TECHNICAL_REMEDIATION=true`, o RASAi pode usar uma saída evidence-bound para qualificar tecnicamente sitemap e robots.txt. Essas regras são HEURISTIC e opcionais: o provider não escolhe pesos, não altera thresholds e não cria um score paralelo. BR-GEO-055 compartilha `SITEMAP` com BR-GEO-003; BR-GEO-056 compartilha `ROBOTS` com BR-GEO-017/018. O scoring group usa o resultado representativo mais restritivo e impede bônus duplicado. Falha/ausência do provider permanece explícita e não vira FAIL do website.

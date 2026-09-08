@@ -254,3 +254,7 @@ A página canônica **Search & AI Readiness** expõe uma seção `SARI - inputs 
 - A IA técnica não escolhe pesos. Ela só pode emitir classes contratadas e referenciadas por evidência; o runtime converte essas classes em `PASS/WARNING/FAIL` com fatores estáticos/versionados no mesmo `scoring_group`, sem bônus duplicado.
 - Lighthouse, Core Web Vitals, Accessibility e Apdex continuam independentes da aritmética do SARI. Indisponibilidade de uma API externa não é tratada como falha do website.
 - Faixas de interpretação e pesos do método são estáticos por versão. Não existe parâmetro por auditoria para alterar o conceito de excelência, preservando comparabilidade temporal.
+
+## Explicabilidade operacional
+
+`scoring.html` materializa, por dimensão, regra representativa, critério, `scoring_group`, peso, resultado, fator e contribuição efetiva. Regras do mesmo grupo não recebem pesos cumulativos. A leitura operacional deve separar itens que reduzem score de itens que apenas reduzem Coverage/Confidence. O Overall usa peso igual entre dimensões aplicáveis; os pesos exibidos atuam apenas dentro de cada dimensão.

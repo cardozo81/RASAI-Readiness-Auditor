@@ -1,7 +1,7 @@
 # BUSINESS_RULES.md
 
 **Status:** APPROVED
-**Ruleset:** BR-GEO-001..054
+**Ruleset:** BR-GEO-001..056
 
 ## 1. Contrato comum
 
@@ -329,6 +329,14 @@ Finding inválido sem RuleExecution, Rule e Evidence.
 ### BR-GEO-054 - Every score must be reproducible and reliability-aware
 
 Todo score deve ser reconstruível com ruleset e scoring version.
+
+### BR-GEO-055 - Evidence-bound sitemap quality assessment may refine the SITEMAP scoring group
+
+Regra opcional, HEURISTIC e dependente de IA técnica explicitamente habilitada. Recebe somente evidence IDs persistidos do recurso sitemap, produz verdict POSITIVE/NEUTRAL/NEGATIVE e nunca escolhe peso numérico. Compartilha o grupo `SITEMAP` e o peso da BR-GEO-003; resultado positivo não soma bônus e baixa confiança do provider não pode produzir PASS/FAIL duro.
+
+### BR-GEO-056 - Evidence-bound robots quality assessment may refine the ROBOTS scoring group
+
+Regra opcional, HEURISTIC e dependente de IA técnica explicitamente habilitada. Recebe somente evidence IDs persistidos de robots.txt, produz verdict POSITIVE/NEUTRAL/NEGATIVE e nunca escolhe peso numérico. Compartilha o grupo `ROBOTS` e o peso das BR-GEO-017/018; resultado positivo não soma bônus e baixa confiança do provider não pode produzir PASS/FAIL duro.
 
 ## 18. Dependency / Blocking
 

@@ -101,6 +101,8 @@ _RULE_TOOLTIPS: dict[str, str] = {
     "BR-GEO-052": "Severidade MEDIUM · Detecta e classifica diferenças materiais entre Desktop e Mobile.",
     "BR-GEO-053": "Severidade CRITICAL · Verifica rastreabilidade e reabertura de Findings, RuleExecutions e Evidences.",
     "BR-GEO-054": "Integridade do auditor · Verifica a reprodutibilidade do SCORE-GEO-004 persistido.",
+    "BR-GEO-055": "Severidade dinâmica · Avalia, de forma evidence-bound e opcional por IA, a qualidade técnica do sitemap sem criar peso adicional no grupo SITEMAP.",
+    "BR-GEO-056": "Severidade dinâmica · Avalia, de forma evidence-bound e opcional por IA, a qualidade técnica de robots.txt sem criar peso adicional no grupo ROBOTS.",
 }
 
 _PREMIUM_CSS = r"""

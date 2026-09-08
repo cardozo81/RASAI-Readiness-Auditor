@@ -159,10 +159,22 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
             "SELECT * FROM rule_executions WHERE audit_id=? AND rule_id IN ('BR-GEO-003','BR-GEO-017','BR-GEO-018') ORDER BY rule_id,rule_execution_id",
             (audit_id,),
         )
+        rule_executions = _many(
+            connection,
+            "SELECT rule_execution_id,rule_id,page_id,device,result,observed_value,expected_condition,error,evidence_ids FROM rule_executions WHERE audit_id=? ORDER BY rule_id,rule_execution_id",
+            (audit_id,),
+        )
+        target = _one(
+            connection,
+            "SELECT * FROM audit_targets WHERE audit_id=? ORDER BY target_id LIMIT 1",
+            (audit_id,),
+        )
         return {
             "audit": audit,
+            "target": target,
             "scores": scores,
             "contributions": contributions,
+            "rule_executions": rule_executions,
             "web_run": web_run,
             "web": web,
             "apdex_run": apdex_run,
@@ -221,6 +233,7 @@ def _rasai_page(data: dict[str, Any], workspace: AuditWorkspace, report_dir: Pat
 <header class='hero'><div class='eyebrow'>RASAi - metodologia proprietária evidence-based</div><h1>Search & AI Readiness Index</h1><p class='lead'>O {PUBLIC_METHOD_VERSION} consolida sinais de prontidão para descoberta, interpretação, recuperação e uso como evidência em Search e AI Search. Não representa probabilidade de ranking, resposta ou citação futura.</p><div class='score-grid'>{overall_cards or "<div class='notice warn'>Readiness geral não disponível com a evidência persistida.</div>"}</div><div class='metric-grid'>{_metric('Metodologia pública', PUBLIC_METHOD_VERSION)}{_metric('Método de scoring', engine_label)}{_metric('Projeto', project)}{_metric('Natureza', 'Heurística RASAi reproduzível')}</div></header>
 <section class='notice'><strong>Contrato metodológico:</strong> novas auditorias usam <code>{escape(COMPATIBLE_ENGINE_VERSION)}</code>. O Overall é determinístico e não depende de model artifact ou calibração externa. Lighthouse, Core Web Vitals, Accessibility e Apdex permanecem indicadores independentes e não entram no SARI-001.</section>
 {_audit_limitations_block(audit)}
+{_sari_governance_block(data)}
 {_ai_operational_diagnostic(data)}
 <section class='panel'><div class='kicker'>Indicadores proprietários</div><h2>Dimensões do readiness</h2><p class='intro'>Score, Coverage, Confidence e Consolidation ficam centralizados nesta página. As páginas Mobile/Desktop preservam evidências e findings do respectivo dispositivo.</p>{dimension_tables or "<p class='intro'>Nenhuma dimensão de score persistida.</p>"}</section>
 <section class='panel'><div class='kicker'>Groundability</div><h2>Sinais de capacidade de fundamentação</h2><p class='intro'>SARI-001 não cria um subscore adicional de Groundability. Answerability, Citation Readiness e Evidence & Trust permanecem sinais distintos e rastreáveis.</p>{groundability or "<p class='intro'>Sinais não disponíveis.</p>"}</section>
@@ -309,6 +322,223 @@ def _audit_limitations_block(audit: sqlite3.Row | None) -> str:
         return ""
     rows = "".join(f"<li>{escape(item)}</li>" for item in items)
     return f"<section class='notice warn' data-audit-limitations='true'><strong>Limitações da auditoria:</strong><ul>{rows}</ul><p>Essas condições podem reduzir Coverage ou Consolidation; não são convertidas automaticamente em falha do website.</p></section>"
+
+
+def _governance_rule_description(rule_id: str) -> str:
+    text = report_navigation._RULE_TOOLTIPS.get(rule_id, "")
+    if " · " in text:
+        return text.split(" · ", 1)[1]
+    return text or "Critério versionado do RASAi."
+
+
+def _governance_json(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    try:
+        parsed = json.loads(str(value or "{}"))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _governance_execution(data: dict[str, Any], execution_id: str) -> sqlite3.Row | None:
+    return next(
+        (row for row in data.get("rule_executions", []) if str(row["rule_execution_id"]) == execution_id),
+        None,
+    )
+
+
+def _governance_action(data: dict[str, Any], contribution: sqlite3.Row) -> str:
+    execution = _governance_execution(data, str(contribution["rule_execution_id"]))
+    if execution is not None:
+        expected = str(execution["expected_condition"] or "").strip()
+        if expected:
+            return expected
+    return _governance_rule_description(str(contribution["rule_id"]))
+
+
+def _governance_observed_reason(data: dict[str, Any], contribution: sqlite3.Row) -> str:
+    execution = _governance_execution(data, str(contribution["rule_execution_id"]))
+    if execution is None:
+        return ""
+    observed = _governance_json(execution["observed_value"])
+    for key in ("reason", "status", "state", "error"):
+        value = observed.get(key)
+        if value not in (None, "", [], {}):
+            return f"{key}={value}"
+    error = str(execution["error"] or "").strip()
+    return error
+
+
+def _sari_dashboard_explanation(data: dict[str, Any]) -> str:
+    scores = data.get("scores", [])
+    blocks: list[str] = []
+    for device in ("MOBILE", "DESKTOP"):
+        overall = next(
+            (row for row in scores if str(row["device"]).upper() == device and str(row["dimension"]) == "OVERALL_READINESS"),
+            None,
+        )
+        if overall is None or str(overall["consolidation_status"]) == "CONSOLIDATED":
+            continue
+        blockers = [
+            row for row in scores
+            if str(row["device"]).upper() == device
+            and str(row["dimension"]) != "OVERALL_READINESS"
+            and (str(row["confidence"]) in {"LOW", "UNAVAILABLE"} or str(row["consolidation_status"]) != "CONSOLIDATED")
+        ]
+        blocker_text = ", ".join(
+            f"{_DIMENSION_LABELS.get(str(row['dimension']), str(row['dimension']))} ({float(row['coverage'])*100:.0f}% Coverage / {_STATUS_LABELS.get(str(row['confidence']), str(row['confidence']))})"
+            for row in blockers
+        ) or "uma ou mais dimensões não atingiram os gates de medição"
+        label = "Mobile" if device == "MOBILE" else "Desktop"
+        blocks.append(
+            f"<div class='notice warn sari-governance-summary'><strong>Por que {label} está {escape(_STATUS_LABELS.get(str(overall['consolidation_status']), str(overall['consolidation_status'])))}:</strong> "
+            f"o score {float(overall['value']):.1f}/100 descreve a qualidade dos grupos efetivamente avaliados; a Confidence qualifica a força da medição. "
+            f"Neste AUD, o bloqueador é {escape(blocker_text)}. Para consolidar, é preciso tornar esses grupos conclusivos; não basta aumentar o score numérico. "
+            "<a href='readiness.html#sari-governance'>Ver causa, regra e ação necessária</a>.</div>"
+        )
+    return "".join(blocks)
+
+
+def _sari_parameterization_note(data: dict[str, Any]) -> str:
+    audit = data.get("audit")
+    target = data.get("target")
+    if audit is None:
+        return ""
+    try:
+        limits_raw = audit["limitations"] if "limitations" in audit.keys() else "[]"
+        limits = json.loads(str(limits_raw or "[]"))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        limits = []
+    items = [str(item) for item in limits] if isinstance(limits, list) else []
+    rendered_gap = next((item for item in items if item.startswith("RENDERED_DISCOVERY_GAP:")), None)
+    if rendered_gap is None:
+        return ""
+    count = rendered_gap.split(":", 1)[1] if ":" in rendered_gap else "?"
+    target_type = str(target["target_type"] or "-") if target is not None and "target_type" in target.keys() else "-"
+    max_pages = int(audit["max_pages"] or 0) if "max_pages" in audit.keys() else 0
+    specific = ""
+    if target_type.upper() == "DOMAIN" and max_pages <= 1:
+        specific = (
+            f" Neste AUD o target é DOMAIN com max_pages={max_pages}; isso é uma matriz mínima para um domínio. "
+            "Se o objetivo for medir o domínio, aumente max_pages de forma conservadora. Se o objetivo for somente uma URL, prefira target de URL única."
+        )
+    return (
+        "<div class='notice' data-parameterization-guidance='true'><strong>Parametrização e escopo:</strong> "
+        f"o rendering encontrou {escape(count)} destino(s) same-origin fora do universo efetivamente auditado. "
+        "Isso é uma limitação de cobertura do escopo escolhido, não um erro do RASAi e não é convertido automaticamente em FAIL do website."
+        + escape(specific)
+        + " Alterar parâmetros amplia a matriz de medição; não deve ser usado apenas para buscar uma nota maior.</div>"
+    )
+
+
+def _sari_governance_block(data: dict[str, Any]) -> str:
+    scores = data.get("scores", [])
+    contributions = data.get("contributions", [])
+    sections: list[str] = []
+    for device in ("MOBILE", "DESKTOP"):
+        overall = next(
+            (row for row in scores if str(row["device"]).upper() == device and str(row["dimension"]) == "OVERALL_READINESS"),
+            None,
+        )
+        if overall is None:
+            continue
+        label = "Mobile" if device == "MOBILE" else "Desktop"
+        dimensions = [
+            row for row in scores
+            if str(row["device"]).upper() == device and str(row["dimension"]) != "OVERALL_READINESS"
+        ]
+        blockers = [
+            row for row in dimensions
+            if str(row["confidence"]) in {"LOW", "UNAVAILABLE"} or str(row["consolidation_status"]) != "CONSOLIDATED"
+        ]
+        blocker_cards: list[str] = []
+        for dimension in blockers:
+            dim_name = str(dimension["dimension"])
+            unresolved = [
+                row for row in contributions
+                if str(row["device"]).upper() == device
+                and str(row["dimension"]) == dim_name
+                and (str(row["result"]) in {"UNKNOWN", "ERROR"} or row["result_factor"] is None)
+            ]
+            details: list[str] = []
+            for contribution in unresolved:
+                rule_id = str(contribution["rule_id"])
+                reason = _governance_observed_reason(data, contribution)
+                action = _governance_action(data, contribution)
+                details.append(
+                    f"<li><strong>{escape(rule_id)}</strong> - {escape(_governance_rule_description(rule_id))}. "
+                    + (f"<span class='muted'>Evidência atual: {escape(reason)}.</span> " if reason else "")
+                    + f"<strong>Para tornar a medição conclusiva:</strong> {escape(action)}.</li>"
+                )
+            why = (
+                f"Coverage {float(dimension['coverage'])*100:.1f}% · Confidence {_STATUS_LABELS.get(str(dimension['confidence']), str(dimension['confidence']))} · "
+                f"Consolidação {_STATUS_LABELS.get(str(dimension['consolidation_status']), str(dimension['consolidation_status']))}"
+            )
+            blocker_cards.append(
+                f"<article class='ref-card'><h4>{escape(_DIMENSION_LABELS.get(dim_name, dim_name))}</h4><p>{escape(why)}</p>"
+                + (f"<ul>{''.join(details)}</ul>" if details else "<p>A dimensão não atingiu o gate; consulte suas RuleExecutions/evidências para a causa persistida.</p>")
+                + "</article>"
+            )
+
+        deductions = [
+            row for row in contributions
+            if str(row["device"]).upper() == device
+            and row["result_factor"] is not None
+            and float(row["result_factor"]) < 1.0
+        ]
+        deduction_rows: list[str] = []
+        for contribution in deductions[:16]:
+            rule_id = str(contribution["rule_id"])
+            dim_name = str(contribution["dimension"])
+            deduction_rows.append(
+                "<tr>"
+                f"<td>{escape(_DIMENSION_LABELS.get(dim_name, dim_name))}</td>"
+                f"<td><strong>{escape(rule_id)}</strong><br><small>{escape(_governance_rule_description(rule_id))}</small></td>"
+                f"<td>{escape(str(contribution['result']))}</td>"
+                f"<td>{float(contribution['weight']):g}</td>"
+                f"<td>{float(contribution['result_factor']):.2f}</td>"
+                f"<td>{escape(_governance_action(data, contribution))}</td>"
+                "</tr>"
+            )
+        deductions_html = (
+            "<h4>O que reduz o score e pode ser melhorado</h4><p class='intro'>Estes itens foram avaliados conclusivamente; portanto afetam a nota, mas não são necessariamente a causa de Confidence baixa. Corrigi-los melhora a qualidade medida. Não altere parâmetros apenas para mascarar esses resultados.</p>"
+            "<div class='table-wrap'><table><thead><tr><th>Dimensão</th><th>Regra / critério</th><th>Resultado</th><th>Peso</th><th>Fator</th><th>Condição esperada</th></tr></thead>"
+            f"<tbody>{''.join(deduction_rows)}</tbody></table></div>"
+            if deduction_rows else "<p class='intro'>Nenhuma dedução conclusiva materializada neste dispositivo.</p>"
+        )
+        status = str(overall["consolidation_status"])
+        confidence = str(overall["confidence"])
+        summary_class = "good" if status == "CONSOLIDATED" else "warn"
+        summary = (
+            f"<div class='notice {summary_class}'><strong>Leitura de governança - {label}:</strong> "
+            f"Overall {('-' if overall['value'] is None else format(float(overall['value']), '.1f') + '/100')} · Coverage {float(overall['coverage'])*100:.1f}% · "
+            f"Confidence {_STATUS_LABELS.get(confidence, confidence)} · Consolidação {_STATUS_LABELS.get(status, status)}. "
+        )
+        if status != "CONSOLIDATED":
+            summary += (
+                "O gate de consolidação exige Coverage Overall de pelo menos 80% e Confidence mínima MEDIUM. "
+                "O Overall herda a menor Confidence entre as dimensões aplicáveis; por isso uma nota relativamente alta pode permanecer parcial sem contradição."
+            )
+        else:
+            summary += "Os gates mínimos de Coverage e Confidence foram atendidos para esta medição."
+        summary += "</div>"
+        blocker_html = (
+            "<h4>Por que Confidence/Consolidação não chegaram ao ideal</h4>"
+            + ("<div class='grid'>" + "".join(blocker_cards) + "</div>" if blocker_cards else "<p>Nenhuma dimensão bloqueante.</p>")
+        )
+        sections.append(f"<section class='sari-governance-device'>{summary}{blocker_html}{deductions_html}</section>")
+
+    if not sections:
+        return ""
+    return (
+        "<section id='sari-governance' class='panel'><div class='kicker'>Governança da medição</div>"
+        "<h2>Por que o SARI chegou a este resultado e como melhorar</h2>"
+        "<p class='intro'>O RASAi separa três perguntas: <strong>qualidade medida</strong> (Score), <strong>quanto do universo aplicável foi realmente avaliado</strong> (Coverage) e <strong>força da medição</strong> (Confidence). Consolidation aplica gates sobre Coverage/Confidence. Essa separação evita transformar ausência de evidência em falsa qualidade ou falsa falha.</p>"
+        + "".join(sections)
+        + _sari_parameterization_note(data)
+        + "</section>"
+    )
 
 
 def _ai_operational_diagnostic(data: dict[str, Any]) -> str:
@@ -535,6 +765,7 @@ def _dashboard(data: dict[str, Any], report_dir: Path) -> str:
         + "<section id='executive-indicator-dashboard' class='panel'><div class='kicker'>Dashboard executivo</div><h2>Resultados finais por indicador</h2><p class='intro'>O painel resume resultados sem misturar metodologias. A condição visual é calculada separadamente para cada indicador; no Lighthouse, a subdivisão de valores Poor abaixo de 25 como crítico é somente severidade visual do RASAi e não uma quarta faixa oficial do Lighthouse. Nenhum Lighthouse, Core Web Vitals, Accessibility ou Apdex é convertido no SARI-001.</p>"
         + "<div class='indicator-tier-label'>Índice proprietário de readiness</div>"
         + f"<div class='indicator-primary-grid'>{''.join(sari_cards) if sari_cards else "<div class='notice warn'>SARI-001 não disponível.</div>"}</div>"
+        + _sari_dashboard_explanation(data)
         + "<div class='indicator-tier-label indicator-tier-supporting'>Indicadores complementares - independentes do SARI-001</div>"
         + f"<div class='grid indicator-grid indicator-supporting-grid'>{''.join(cards)}</div></section>"
         + _DASHBOARD_END

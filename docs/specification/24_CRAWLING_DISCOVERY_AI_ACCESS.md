@@ -13,8 +13,8 @@ Esta capacidade não cria novo score, não altera `SARI-001` e não recalcula `S
 ## 2. Invariantes
 
 1. execução determinística é fonte de verdade dos diagnósticos técnicos;
-2. LLM não decide RuleExecution, Finding, Score, Coverage, Confidence ou Consolidation;
-3. diagnósticos próprios persistem `scoring_impact=NONE`;
+2. LLM não escolhe pesos, thresholds, Score, Coverage, Confidence ou Consolidation; somente uma saída evidence-bound válida pode ser convertida pelo runtime nas regras bounded BR-GEO-055/056;
+3. diagnósticos próprios permanecem advisory com `scoring_impact=NONE`; quando BR-GEO-055/056 são materializadas, `m24_runs.scoring_impact=BOUNDED_AI_RESOURCE_ASSESSMENT`;
 4. falha desta camada é fail-open em relação ao audit principal;
 5. ausência de `llms.txt` não reduz readiness;
 6. políticas de crawlers com finalidades diferentes não são tratadas como equivalentes;

@@ -59,7 +59,7 @@ Avaliar problemas materiais de JavaScript e SPA.
 Detectar e validar Dados Estruturados quando presentes.
 
 ### FR-GEO-019
-Executar BR-GEO-001..054.
+Executar BR-GEO-001..056.
 
 ### FR-GEO-020
 Padronizar resultados PASS, FAIL, WARNING, UNKNOWN, NOT_APPLICABLE, ERROR.
@@ -320,7 +320,7 @@ Adicionar ao `report/references.html` fontes oficiais de PageSpeed Insights, CrU
 Executar Web Performance externo como enriquecimento pós-auditoria/fail-open: indisponibilidade ou erro do serviço externo não pode invalidar RuleExecution, Finding, Recommendation ou score já concluídos.
 
 ### FR-GEO-106
-Executar Rastreamento, descoberta e acesso de crawlers como enriquecimento técnico não-scoring de crawling/discovery, preservando `scoring_impact=NONE` e sem alterar retrospectivamente RuleExecution, Finding, Recommendation GEO, Score, Coverage, Confidence, Consolidation, `SCORE-GEO-003` ou `SARI-001`.
+Executar Rastreamento, descoberta e acesso de crawlers com diagnósticos determinísticos advisory/non-scoring. Quando IA técnica estiver explicitamente habilitada e produzir saída evidence-bound válida, permitir somente BR-GEO-055/056 bounded nos grupos SITEMAP/ROBOTS, sem escolha de pesos pelo provider, sem bônus duplicado e sem alteração direta de Coverage, Confidence ou Consolidation. O runtime vigente permanece SCORE-GEO-004/SARI-001.
 
 ### FR-GEO-107
 Aprofundar a interpretação de `robots.txt` com evidência reabrível de grupos crawler, `Allow`, `Disallow`, `Sitemap`, linhas inválidas, tamanho e campos relevantes, sem transformar ausência legítima de robots em bloqueio artificial.

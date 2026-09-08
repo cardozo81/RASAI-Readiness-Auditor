@@ -201,7 +201,7 @@ Rastreamento, descoberta e acesso de crawlers é aprovado como domínio técnico
 
 Decisão aprovada:
 
-1. diagnósticos de rastreamento e descoberta permanecem determinísticos e persistidos com `scoring_impact=NONE`;
+1. diagnósticos determinísticos de rastreamento e descoberta permanecem advisory e persistidos com `scoring_impact=NONE`; avaliações técnicas evidence-bound explicitamente habilitadas podem materializar somente BR-GEO-055/056 bounded, registrando `BOUNDED_AI_RESOURCE_ASSESSMENT` no run sem criar peso adicional;
 2. `robots.txt` e sitemaps devem seguir standards/guidance públicos aplicáveis, mas severidades Rastreamento, descoberta e acesso de crawlers continuam metodologia interna do RASAi;
 3. uma declaração absoluta `Sitemap:` pode apontar para host diferente; o auditor preserva essa declaração, porém não faz fetch cross-origin automático a partir dela enquanto não existir política explícita de SSRF/DNS/IP/redirect/autorização;
 4. a restrição de fetch cross-origin é limite de segurança/escopo do auditor e não finding do website;

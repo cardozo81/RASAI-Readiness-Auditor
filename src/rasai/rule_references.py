@@ -82,6 +82,7 @@ _HEURISTIC_RULES = frozenset({
     "BR-GEO-036", "BR-GEO-037", "BR-GEO-038", "BR-GEO-039", "BR-GEO-040",
     "BR-GEO-041", "BR-GEO-042", "BR-GEO-043", "BR-GEO-044", "BR-GEO-045",
     "BR-GEO-046", "BR-GEO-047", "BR-GEO-048", "BR-GEO-049",
+    "BR-GEO-055", "BR-GEO-056",
 })
 _STANDARD_RULES = frozenset({
     "BR-GEO-003", "BR-GEO-005", "BR-GEO-006", "BR-GEO-007", "BR-GEO-009",
@@ -122,6 +123,15 @@ def references_for(rule_id: str) -> tuple[RuleReference, ...]:
             (
                 (*_RFC_9309, "robots.txt crawler policy protocol"),
                 (*_OPENAI_PUBLISHERS, "OAI-SearchBot search access and GPTBot training controls"),
+            )
+        )
+    elif rule_id == "BR-GEO-055":
+        rows.append((*_GOOGLE_SITEMAP, "contexto técnico do recurso sitemap; o verdict bounded continua heurística RASAi"))
+    elif rule_id == "BR-GEO-056":
+        rows.extend(
+            (
+                (*_RFC_9309, "contexto normativo de robots.txt para a avaliação bounded"),
+                (*_GOOGLE_ROBOTS, "interpretação técnica de robots.txt; o verdict bounded continua heurística RASAi"),
             )
         )
     elif rule_id in {"BR-GEO-025", "BR-GEO-028", "BR-GEO-029", "BR-GEO-030"}:
