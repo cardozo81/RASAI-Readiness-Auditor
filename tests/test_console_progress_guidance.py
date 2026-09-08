@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from rasai.console_m23 import State, observe_m23_workspace
-from rasai.console_runtime import clear_runtime_progress, runtime_progress_summary, set_runtime_progress
+from rasai.console_runtime import clear_runtime_progress, render_header, runtime_progress_summary, set_runtime_progress
 from rasai.interactive_console import _configure, _configure_apdex, _menu
 from rasai.report_consistency_v2 import _sanitize_presentation
 
@@ -21,6 +21,8 @@ class ConsoleProgressGuidanceTests(unittest.TestCase):
         assert progress is not None
         self.assertEqual(progress.label, "Extração, regras e análise semântica")
         self.assertFalse(progress.exact)
+        self.assertEqual(progress.overall_percent, 42.0)
+        self.assertIsNone(progress.stage_percent)
         set_runtime_progress(state, "Etapa mensurada", 37.5, detail="3/8", exact=True)
         progress = runtime_progress_summary(state)
         assert progress is not None
@@ -55,8 +57,35 @@ class ConsoleProgressGuidanceTests(unittest.TestCase):
         self.assertTrue(progress.exact)
         self.assertEqual(progress.label, "Synthetic Apdex")
         self.assertAlmostEqual(progress.percent or 0.0, 40.0)
+        self.assertAlmostEqual(progress.stage_percent or 0.0, 40.0)
+        self.assertAlmostEqual(progress.overall_percent or 0.0, 94.0)
+        self.assertTrue(progress.stage_exact)
+        self.assertFalse(progress.overall_exact)
         self.assertIn("contexto 2/4", progress.detail)
         self.assertIn("válidas 3/5", progress.detail)
+        clear_runtime_progress(state)
+
+    def test_header_keeps_measured_stage_separate_from_estimated_whole_run(self) -> None:
+        state = State(status="SYNTHETIC_APDEX", operation="BROWSER:SYNTHETIC_APDEX")
+        set_runtime_progress(
+            state,
+            "Synthetic Apdex",
+            40.0,
+            detail="contexto 2/4; válidas 3/5",
+            exact=True,
+        )
+        output = io.StringIO()
+        with patch("rasai.console_runtime.clear_screen"), patch("rasai.console_runtime.environment_summary", return_value=[]), redirect_stdout(output):
+            render_header(state)
+        rendered = output.getvalue()
+        self.assertIn("Andamento", rendered)
+        self.assertIn("40%", rendered)
+        self.assertIn("medido na etapa", rendered)
+        self.assertIn("Progresso", rendered)
+        self.assertIn("~94%", rendered)
+        self.assertIn("geral estimado", rendered)
+        self.assertIn("Executando", rendered)
+        self.assertIn("contexto 2/4", rendered)
         clear_runtime_progress(state)
 
     def test_option_5_explains_dependency_on_item_4(self) -> None:
