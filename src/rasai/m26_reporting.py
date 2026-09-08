@@ -111,7 +111,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
       <h2>Readiness ≠ Visibility</h2>
       <p><strong>Readiness</strong> descreve condições técnicas/semânticas inferidas pela auditoria. <strong>Observed Generative Visibility</strong> descreve o que foi efetivamente observado numa fonte ou protocolo. Correlação entre ambos é matéria de validação empírica; esta página não presume causalidade.</p>
       <p>Contagem de citações não é ranking, autoridade, posição nem probabilidade de citação futura. Métricas declaradas como reportadas por terceiros são preservadas sem recomputação equivalente.</p>
-      <p><strong>Proveniência:</strong> Observed Generative Visibility é import-first. A fonte e o método de captura são declarados no artifact fornecido ao RASAi; o RASAi não converte essa declaração em prova de coleta autenticada no sistema externo.</p>
+      <p><strong>Proveniência:</strong> Observed Generative Visibility é import-first. A fonte e o método de captura são declarados no artifact fornecido ao RASAi; o RASAi não autentica o portal externo nem afirma que realizou coleta direta; a declaração de origem não é convertida em prova de coleta autenticada no sistema externo.</p>
       <p><strong>Uso de IA pelo RASAi:</strong> esta superfície não cria respostas artificiais para preencher ausência de observação. O input é o dataset/import persistido; o output é uma projeção e estatística derivada desses registros.</p>
     </section>
     {sections}

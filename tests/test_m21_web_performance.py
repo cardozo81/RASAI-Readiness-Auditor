@@ -264,7 +264,7 @@ class M21WebPerformanceTests(unittest.TestCase):
             finally:
                 connection.close()
 
-    def test_report_keeps_external_metrics_separate_from_score_geo_003(self) -> None:
+    def test_report_keeps_external_metrics_separate_from_score_geo_004(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace = self._fixture(Path(directory))
             execute_m21(
@@ -282,7 +282,7 @@ class M21WebPerformanceTests(unittest.TestCase):
             (report / "ai-usage.html").write_text(shell, encoding="utf-8")
             path = enrich_m21_report_site(audit_id="AUD-M21", workspace=workspace)
             html = path.read_text(encoding="utf-8")
-            self.assertIn("SCORE-GEO-003", html)
+            self.assertIn("SCORE-GEO-004", html)
             self.assertIn("Core Web Vitals", html)
             self.assertIn("Lighthouse", html)
             self.assertIn("não é convertido", html)

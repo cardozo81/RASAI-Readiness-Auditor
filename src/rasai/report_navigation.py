@@ -14,7 +14,7 @@ from pathlib import Path
 import re
 from zoneinfo import ZoneInfo
 
-from rasai.report_contract import CANONICAL_NAV_ITEMS
+from rasai.report_contract import CANONICAL_NAV_ITEMS, REPORT_ALIASES
 from rasai.report_semantics import SEMANTIC_CSS, enhance_report_html
 
 
@@ -221,6 +221,8 @@ def normalize_report_navigation(
     _ensure_premium_css(report_dir)
     _enhance_ai_cost_total(report_dir)
     for html_path in sorted(report_dir.glob("*.html")):
+        if html_path.name in REPORT_ALIASES:
+            continue
         html = html_path.read_text(encoding="utf-8")
         navigation = render_report_navigation(
             report_dir,
