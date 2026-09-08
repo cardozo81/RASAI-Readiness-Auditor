@@ -57,7 +57,7 @@ A apresentação separa conceitos que não devem ser confundidos:
 - `Progresso`: posição global do pipeline. Enquanto a execução não termina, o valor usa `~` porque combina marcos de fases heterogêneas e opcionais;
 - `Executando`: descrição textual derivada do estado já persistido e dos eventos operacionais existentes, por exemplo descoberta de URLs, análise semântica, geração de relatório ou último evento de Web Performance.
 
-Quando uma etapa possui medição própria — por exemplo amostras/contextos de Synthetic Apdex — o percentual medido permanece restrito a `Andamento`. O console projeta esse avanço dentro da faixa global reservada à etapa, mas mantém o `Progresso` geral identificado como estimativa. Assim, `40%` de Synthetic Apdex não é apresentado como `40%` da auditoria inteira e o percentual global não regride ao entrar em uma etapa que começa em zero.
+Quando uma etapa possui medição própria, por exemplo amostras/contextos de Synthetic Apdex, o percentual medido permanece restrito a `Andamento`. O console projeta esse avanço dentro da faixa global reservada à etapa, mas mantém o `Progresso` geral identificado como estimativa. Assim, `40%` de Synthetic Apdex não é apresentado como `40%` da auditoria inteira e o percentual global não regride ao entrar em uma etapa que começa em zero.
 
 Somente estados terminais como conclusão, conclusão com limitações, bloqueio técnico definitivo ou falha podem apresentar `100%` global como medido.
 
