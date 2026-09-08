@@ -1,0 +1,24 @@
+name: RASAi smoke backlog implementation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .rasai-smoke-backlog-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Placeholder
+        run: echo "workflow staged; implementation script will replace this file before trigger"
