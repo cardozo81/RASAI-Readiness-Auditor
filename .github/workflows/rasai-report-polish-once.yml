@@ -25,6 +25,7 @@ jobs:
         run: |
           python .github/rasai_report_polish_20260908.py
           python .github/rasai_report_polish_followup_20260908.py
+          python .github/rasai_report_polish_gatefix_20260908.py
       - name: Compile changed Python contracts
         run: |
           python -m py_compile \
@@ -34,6 +35,7 @@ jobs:
             src/rasai/report_contract.py \
             src/rasai/report_navigation.py \
             src/rasai/report_registry.py \
+            src/rasai/public_contract_gate.py \
             src/rasai/consolidation/reporting.py \
             tests/test_report_polish_20260908.py
       - name: Install package and test runner
@@ -66,6 +68,7 @@ jobs:
         run: |
           rm -f .github/rasai_report_polish_20260908.py
           rm -f .github/rasai_report_polish_followup_20260908.py
+          rm -f .github/rasai_report_polish_gatefix_20260908.py
           rm -f .github/workflows/rasai-report-polish-once.yml
       - name: Commit validated changes directly to main
         if: success()
