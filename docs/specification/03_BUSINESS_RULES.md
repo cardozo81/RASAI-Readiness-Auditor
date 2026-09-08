@@ -355,7 +355,7 @@ HTTP 500 + sem entidade + sem resposta + sem intent + baixa citation readiness.
 
 ## 19. IA e fallback
 
-O M7 possui dois caminhos de evidência semântica, preservando a mesma camada posterior de scoring:
+A análise semântica possui dois caminhos de evidência, preservando a mesma camada posterior de scoring:
 
 ```text
 baseline local: SEMANTIC-BASELINE-001
