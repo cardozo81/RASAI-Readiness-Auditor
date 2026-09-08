@@ -53,6 +53,28 @@ jobs:
                   raise SystemExit(f"expected assertion not found: {old}")
               text = text.replace(old, new, 1)
           test.write_text(text, encoding="utf-8", newline="\n")
+
+          language_replacements = {
+              "docs/AI_GUIDE.md": {
+                  "O M20 restringe `finding_id` e `evidence_ids` ao universo enviado": "A remediação de conteúdo restringe `finding_id` e `evidence_ids` ao universo enviado",
+                  "A IA técnica M24 não possui autoridade para elevar Confidence ou SARI por julgamento.": "A IA técnica de crawling/discovery não possui autoridade para elevar Confidence ou SARI por julgamento.",
+              },
+              "docs/SCORING_GUIDE.md": {
+                  "Os diagnósticos aprofundados M24 permanecem advisory": "Os diagnósticos aprofundados de crawling/discovery permanecem advisory",
+              },
+              "src/rasai/m24_reporting.py": {
+                  "Os diagnósticos M24 desta página são advisory/non-scoring": "Os diagnósticos aprofundados desta página são advisory/non-scoring",
+                  '"Impacto M24", "NENHUM direto"': '"Impacto desta camada", "NENHUM direto"',
+              },
+          }
+          for filename, replacements in language_replacements.items():
+              path = Path(filename)
+              text = path.read_text(encoding="utf-8")
+              for old, new in replacements.items():
+                  if old not in text:
+                      raise SystemExit(f"public-language source not found in {filename}: {old}")
+                  text = text.replace(old, new, 1)
+              path.write_text(text, encoding="utf-8", newline="\n")
           PY
       - name: Targeted regression
         run: |
@@ -61,7 +83,8 @@ jobs:
             tests/test_rasai_readiness_reporting.py \
             tests/test_m20_content_remediation.py \
             tests/test_report_semantics.py \
-            tests/test_m23_integration.py
+            tests/test_m23_integration.py \
+            tests/test_user_facing_language_contract.py
       - name: Full RASAi regression
         run: pytest -q
       - name: Remove temporary implementation artifacts
