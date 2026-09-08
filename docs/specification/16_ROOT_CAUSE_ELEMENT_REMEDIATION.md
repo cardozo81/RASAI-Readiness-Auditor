@@ -1,6 +1,6 @@
 # Remediação por causa raiz e elemento - Root Cause + Element-Level Remediation
 
-**Status:** APPROVED EVOLUTION
+**Estado no baseline de desenvolvimento:** APPROVED EVOLUTION
 **Baseline de entrada:** Experiência e organização dos relatórios + OpenAI provider hardening integrado em `main`
 **Contratos preservados:** `SCORE-GEO-003`, `REPORT-GEO-003`, `REMEDIATION-GEO-001`
 

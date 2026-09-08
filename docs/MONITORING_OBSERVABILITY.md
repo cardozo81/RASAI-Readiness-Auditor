@@ -1,6 +1,6 @@
 # RASAi Monitor, Observability & Quality
 
-**Status:** IMPLEMENTED / INTEGRATED IN `main`
+**Estado no baseline de desenvolvimento:** IMPLEMENTED / INTEGRATED IN `main`
 
 ## Purpose
 

@@ -30,6 +30,7 @@ SEMANTIC_CSS = r"""
 tr.result-state-good>td:first-child{box-shadow:inset 3px 0 0 var(--green)}tr.result-state-warn>td:first-child{box-shadow:inset 3px 0 0 var(--amber)}tr.result-state-bad>td:first-child{box-shadow:inset 3px 0 0 var(--red)}tr.result-state-neutral>td:first-child{box-shadow:inset 3px 0 0 var(--blue)}
 tr.result-state-warn{background:var(--soft-amber)}tr.result-state-bad{background:var(--soft-red)}tr.result-state-neutral{background:var(--soft-blue)}
 .semantic-legend{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px;color:var(--muted);font-size:.76rem}.semantic-legend .result-tag{margin:0}
+.result-cell{font-weight:650}.result-cell .result-tag{margin-top:0}.result-cell.good{background:rgba(95,150,116,.08)}.result-cell.warn{background:rgba(182,138,80,.10)}.result-cell.bad{background:rgba(191,111,112,.10)}
 .priority-tag{display:inline-flex;align-items:center;margin-left:7px;padding:2px 7px;border-radius:999px;font-size:.66rem;font-weight:720;letter-spacing:.015em;text-transform:uppercase;vertical-align:middle}.priority-tag.high{background:var(--soft-red);color:#98494c}.priority-tag.medium{background:var(--soft-amber);color:#855f2c}.priority-tag.review{background:var(--soft-blue);color:#4d65a0}
 details.priority-high{border-left:4px solid var(--red);background:var(--soft-red)}details.priority-medium{border-left:4px solid var(--amber);background:var(--soft-amber)}
 .score-confidence-note{margin-top:12px}.score-confidence-note ul{margin:.5rem 0 0;padding-left:1.15rem}.score-confidence-note li+li{margin-top:.22rem}
@@ -53,11 +54,18 @@ _DIMENSION_ROW_RE = re.compile(
 _DETAILS_RE = re.compile(r"<details(?P<attrs>[^>]*)><summary>(?P<summary>.*?)</summary>(?P<body>.*?)</details>", flags=re.IGNORECASE | re.DOTALL)
 _ARTICLE_RE = re.compile(r"<article\s+class=(?P<q>['\"])(?P<classes>[^'\"]*\bapdex-card\b[^'\"]*)(?P=q)>(?P<body>.*?)</article>", flags=re.IGNORECASE | re.DOTALL)
 _PROFILE_RE = re.compile(r"<p class=['\"]intro['\"]><strong>Perfil sintético:</strong>.*?</p>", flags=re.IGNORECASE | re.DOTALL)
+_TABLE_ROW_RE = re.compile(r"<tr(?P<attrs>[^>]*)>(?P<body>.*?)</tr>", flags=re.IGNORECASE | re.DOTALL)
+_TABLE_CELL_RE = re.compile(r"<td(?P<attrs>[^>]*)>(?P<body>.*?)</td>", flags=re.IGNORECASE | re.DOTALL)
+_ACTIONABLE_GOOD = {"pass", "aprovado", "success", "concluído", "consolidado"}
+_ACTIONABLE_WARN = {"warning", "alerta", "partial", "parcial", "degraded", "degradado", "not_consolidated", "não consolidado", "concluído com limitações", "complete_with_limitations"}
+_ACTIONABLE_BAD = {"fail", "failed", "não aprovado", "reprovado", "error", "erro", "falhou", "blocked", "bloqueado"}
 
 
 def enhance_report_html(html: str, *, page_name: str, report_dir: Path) -> str:
     """Add semantic visual states without changing persisted measurement values."""
     html = _decorate_metrics(html, page_name)
+    html = _decorate_actionable_rows(html)
+    html = _translate_readiness_table_headers(html)
     if page_name in {"mobile.html", "desktop.html"}:
         html = _enhance_score_page(html)
     elif page_name == "accessibility.html":
@@ -147,7 +155,7 @@ def _metric_state(page_name: str, label: str, value: str) -> tuple[str | None, s
         if key == "coef. variação":
             number = _first_number(value)
             if number is not None and number >= 25:
-                return "warn", "Alta variabilidade", False
+                return "warn", "Variabilidade elevada no teste", False
 
     if page_name == "ai-usage.html":
         if key == "status" and normalized == "no_eligible_findings":
@@ -443,6 +451,63 @@ def _largest_ms(text: str) -> float | None:
     values = [float(item) for item in re.findall(r"([0-9]+(?:\.[0-9]+)?)\s*ms\b", _plain(text), flags=re.IGNORECASE)]
     return max(values) if values else None
 
+
+
+def _merge_class_attr(attrs: str, class_name: str) -> str:
+    match = re.search(r"\sclass=(?P<q>['\"])(?P<classes>[^'\"]*)(?P=q)", attrs, flags=re.IGNORECASE)
+    if match is None:
+        return attrs.rstrip() + f" class='{class_name}'"
+    classes = match.group("classes").split()
+    for requested in class_name.split():
+        if requested not in classes:
+            classes.append(requested)
+    replacement = f" class={match.group('q')}{' '.join(classes)}{match.group('q')}"
+    return attrs[: match.start()] + replacement + attrs[match.end() :]
+
+
+def _decorate_actionable_rows(html: str) -> str:
+    """Give actionable result cells a consistent semantic state across reports."""
+    def replace_row(match: re.Match[str]) -> str:
+        body = match.group("body")
+        cells = list(_TABLE_CELL_RE.finditer(body))
+        if not cells:
+            return match.group(0)
+        selected: tuple[re.Match[str], str] | None = None
+        rank = {"good": 1, "warn": 2, "bad": 3}
+        current_rank = 0
+        for cell in cells:
+            value = _plain(cell.group("body")).casefold().strip()
+            state = None
+            if value in _ACTIONABLE_BAD:
+                state = "bad"
+            elif value in _ACTIONABLE_WARN:
+                state = "warn"
+            elif value in _ACTIONABLE_GOOD:
+                state = "good"
+            if state is not None and rank[state] > current_rank:
+                selected = (cell, state)
+                current_rank = rank[state]
+        if selected is None:
+            return match.group(0)
+        cell, state = selected
+        cell_body = cell.group("body")
+        cell_attrs = _merge_class_attr(cell.group("attrs"), f"result-cell {state}")
+        if "result-tag" not in cell_body:
+            cell_body = f"<span class='result-tag {state}'>{cell_body}</span>"
+        replacement = f"<td{cell_attrs}>{cell_body}</td>"
+        body = body[: cell.start()] + replacement + body[cell.end() :]
+        row_attrs = _strip_result_state(match.group("attrs"))
+        row_attrs = _merge_class_attr(row_attrs, f"result-state-{state}")
+        return f"<tr{row_attrs}>{body}</tr>"
+
+    return _TABLE_ROW_RE.sub(replace_row, html)
+
+
+def _translate_readiness_table_headers(html: str) -> str:
+    return html.replace(
+        "<th>Dimensão</th><th>Score</th><th>Coverage</th><th>Confidence</th><th>Consolidação</th>",
+        "<th>Dimensão</th><th>Pontuação</th><th>Cobertura</th><th>Confiança</th><th>Consolidação</th>",
+    )
 
 def _plain(value: str) -> str:
     return unescape(_TAG_RE.sub("", value)).strip()

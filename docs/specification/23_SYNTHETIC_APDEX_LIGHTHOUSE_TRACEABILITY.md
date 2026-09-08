@@ -1,6 +1,6 @@
 # Synthetic Navigation Apdex + Lighthouse Traceability
 
-**Status:** INTEGRADO - smoke humano controlado aprovado antes do merge.
+**Estado no baseline de desenvolvimento:** INTEGRADO - smoke humano controlado aprovado antes do merge.
 **Escopo:** Web Performance sintética e rastreabilidade de configuração Lighthouse.
 **Não altera:** `BR-GEO-*`, `SARI-001`, Coverage, Confidence, Consolidation, findings GEO ou recomendações GEO.
 

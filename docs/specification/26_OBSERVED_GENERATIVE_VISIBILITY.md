@@ -1,6 +1,6 @@
 # Observed Generative Visibility
 
-**Status:** INTEGRATED / VALIDATED  
+**Estado no baseline de desenvolvimento:** INTEGRATED / VALIDATED  
 **Import contract:** `OGV-IMPORT-001`  
 **Scoring impact:** `NONE`
 

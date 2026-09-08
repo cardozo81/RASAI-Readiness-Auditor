@@ -1,8 +1,8 @@
 """Automated consistency gate for RASAi public contracts.
 
-The gate validates public/runtime invariants without rewriting files. Historical
-method references remain allowed when clearly marked as historical; current
-surfaces may not present an older method as the active runtime.
+The gate validates public/runtime invariants without rewriting files. References
+to earlier development proposals remain allowed when clearly qualified; current
+surfaces may not present an earlier proposal as the active runtime.
 """
 from __future__ import annotations
 
@@ -34,17 +34,17 @@ EXPECTED_CANONICAL_FILENAMES = (
     "scoring.html",
     "mobile.html",
     "desktop.html",
-    "remediation.html",
-    "content-suggestions.html",
     "crawling-discovery.html",
     "accessibility.html",
     "web-performance.html",
     "apdex.html",
     "apdex-experience.html",
+    "content-suggestions.html",
+    "remediation.html",
+    "ai-usage.html",
     "ai-visibility.html",
     "observability.html",
     "quality.html",
-    "ai-usage.html",
     "references.html",
 )
 

@@ -1,6 +1,6 @@
 # DECISIONS.md
 
-**Status:** CURRENT
+**Estado no baseline de desenvolvimento:** CURRENT
 
 ## DECIDED
 

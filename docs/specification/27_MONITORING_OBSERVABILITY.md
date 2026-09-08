@@ -1,6 +1,6 @@
 # RASAi Monitor & Search/AI Observability
 
-**Status:** APPROVED / IMPLEMENTED / INTEGRATED IN `main`  
+**Estado no baseline de desenvolvimento:** APPROVED / IMPLEMENTED / INTEGRATED IN `main`  
 **Natureza:** capacidades derivadas, read-only sobre a evidência fonte e non-scoring por padrão.
 
 ## 1. Objetivo
@@ -19,7 +19,7 @@ A capacidade responde separadamente:
 
 - `SARI-001` é o índice público de readiness;
 - `SCORE-GEO-004` é o scoring vigente para novas auditorias;
-- `SCORE-GEO-003` permanece histórico;
+- `SCORE-GEO-003` é uma proposta anterior de desenvolvimento preservada apenas para rastreabilidade técnica;
 - Monitoring não cria novo score;
 - Observability não entra automaticamente no SARI;
 - Search Performance, URL Inspection, CrUX History, Bing/AI outcomes e diagnósticos derivados permanecem identificados por fonte/método;

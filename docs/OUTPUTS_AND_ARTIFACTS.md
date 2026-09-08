@@ -22,17 +22,17 @@ audits/<AUD-ID>/
    ├─ score-geo-004.html       # alias de compatibilidade
    ├─ mobile.html              # condicional
    ├─ desktop.html             # condicional
-   ├─ remediation.html
-   ├─ content-suggestions.html
    ├─ crawling-discovery.html  # condicional
    ├─ accessibility.html       # condicional
    ├─ web-performance.html     # condicional
    ├─ apdex.html               # condicional
    ├─ apdex-experience.html    # condicional
+   ├─ content-suggestions.html
+   ├─ remediation.html
+   ├─ ai-usage.html
    ├─ ai-visibility.html       # condicional
    ├─ observability.html       # condicional
    ├─ quality.html             # condicional
-   ├─ ai-usage.html
    ├─ references.html
    └─ css/site.css
 ```
@@ -51,7 +51,7 @@ SCORE-GEO-004  = scoring vigente para novas auditorias
 RASAI-OBS-002  = contrato atual do sidecar observacional
 ```
 
-Nenhuma projeção recalcula silenciosamente auditoria histórica para outra `scoring_version`.
+Nenhuma projeção recalcula silenciosamente uma auditoria persistida para outra `scoring_version`.
 
 ## `audit.db`
 
@@ -230,7 +230,7 @@ Página canônica da metodologia de scoring. Exibe `scoring_version`, contrato d
 
 ### `score-geo-004.html`
 
-Alias de compatibilidade para links antigos. Redireciona para `scoring.html` e não deve ser usado como contrato por novas integrações.
+Alias de compatibilidade para links produzidos durante o desenvolvimento. Redireciona para `scoring.html` e não deve ser usado como contrato por novas integrações.
 
 ### `mobile.html` / `desktop.html`
 

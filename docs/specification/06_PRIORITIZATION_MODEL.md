@@ -1,6 +1,6 @@
 # PRIORITIZATION_MODEL.md
 
-**Status:** APPROVED
+**Estado no baseline de desenvolvimento:** APPROVED
 **Baseline:** PRIORITY-GEO-001
 
 ## 1. Conceitos

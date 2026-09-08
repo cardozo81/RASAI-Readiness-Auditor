@@ -1,6 +1,6 @@
 # RASAi - Search & AI Readiness Auditor - Project Charter & Scope
 
-**Status:** APPROVED
+**Estado no baseline de desenvolvimento:** APPROVED
 **Versão funcional:** MVP Baseline
 
 ## 1. Visão do Produto

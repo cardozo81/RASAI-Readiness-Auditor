@@ -1,6 +1,6 @@
 # DOMAIN_MODEL.md
 
-**Status:** APPROVED - extended by Remediação GEO acionável Actionable GEO Report
+**Estado no baseline de desenvolvimento:** APPROVED - extended by Remediação GEO acionável Actionable GEO Report
 
 ## 1. Objetivo
 

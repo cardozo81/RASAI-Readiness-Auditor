@@ -1,6 +1,6 @@
 # BUSINESS_RULES.md
 
-**Status:** APPROVED
+**Estado no baseline de desenvolvimento:** APPROVED
 **Ruleset:** BR-GEO-001..056
 
 ## 1. Contrato comum

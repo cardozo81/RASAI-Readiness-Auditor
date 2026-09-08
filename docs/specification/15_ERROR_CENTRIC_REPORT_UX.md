@@ -1,6 +1,6 @@
 # ERROR_CENTRIC_REPORT_UX.md
 
-**Status:** APPROVED - Experiência e organização dos relatórios historical contract evolved by REPORT-SITE-GEO-001 + Sugestões e remediação de conteúdo por IA/Web Performance externo/Acessibilidade automatizada e diagnósticos Web/Synthetic Navigation Apdex
+**Estado no baseline de desenvolvimento:** APPROVED - Experiência e organização dos relatórios historical contract evolved by REPORT-SITE-GEO-001 + Sugestões e remediação de conteúdo por IA/Web Performance externo/Acessibilidade automatizada e diagnósticos Web/Synthetic Navigation Apdex
 
 ## 1. Objetivo
 

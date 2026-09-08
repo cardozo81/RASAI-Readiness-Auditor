@@ -1,6 +1,6 @@
 # Acessibilidade automatizada e diagnósticos Web - Diagnósticos de Qualidade Web com Fronteiras de Domínio
 
-**Status:** INTEGRADO
+**Estado no baseline de desenvolvimento:** INTEGRADO
 **Domínio:** `Acessibilidade automatizada e diagnósticos Web`
 **Dependências:** Web Performance externo + REPORT-SITE-GEO-001
 **Natureza:** projeção aditiva de evidência; sem alteração de scoring GEO

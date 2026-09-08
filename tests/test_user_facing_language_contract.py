@@ -49,3 +49,9 @@ def test_legacy_milestone_chrome_is_sanitized_without_touching_audited_copy() ->
     rendered = _sanitize_presentation(html)
     assert "Produto M20 com motor M23 permanece conteúdo auditado." in rendered
     assert "Diagnóstico técnico" in rendered
+
+def test_single_provider_strategy_is_not_exposed_as_raw_enum() -> None:
+    from rasai.report_presentation import humanize_report_html
+    rendered = humanize_report_html("<div><span>SINGLE_PROVIDER</span></div>")
+    assert "Provedor único" in rendered
+    assert ">SINGLE_PROVIDER<" not in rendered

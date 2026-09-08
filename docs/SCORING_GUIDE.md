@@ -218,7 +218,7 @@ scoring.html    fórmula, versão vigente, gates e rastreabilidade do método
 
 O arquivo `scoring.html` é deliberadamente **version-neutral**. A versão efetiva pertence ao campo persistido `scoring_version` e ao conteúdo da página. Assim, uma futura revisão metodológica não quebra bookmarks, links internos, automações ou rotas do produto apenas por mudar de `SCORE-GEO-004` para outra versão.
 
-Para compatibilidade com links produzidos durante a adoção inicial do 004, novas auditorias também materializam `score-geo-004.html` como alias que redireciona para `scoring.html`. O alias não é a página canônica e não deve ser usado por novas integrações.
+Para compatibilidade com links produzidos durante a fase atual de desenvolvimento do 004, novas auditorias também materializam `score-geo-004.html` como alias que redireciona para `scoring.html`. O alias não é a página canônica e não deve ser usado por novas integrações.
 
 Relatórios consolidados preservam `scoring_version` como parte da comparabilidade. Auditorias de versões diferentes não devem ser normalizadas silenciosamente como se fossem equivalentes.
 
@@ -258,3 +258,10 @@ A página canônica **Search & AI Readiness** expõe uma seção `SARI - inputs 
 ## Explicabilidade operacional
 
 `scoring.html` materializa, por dimensão, regra representativa, critério, `scoring_group`, peso, resultado, fator e contribuição efetiva. Regras do mesmo grupo não recebem pesos cumulativos. A leitura operacional deve separar itens que reduzem score de itens que apenas reduzem Coverage/Confidence. O Overall usa peso igual entre dimensões aplicáveis; os pesos exibidos atuam apenas dentro de cada dimensão.
+
+<!-- rasai-readiness-canonical-fix-20260908 -->
+## Projeção canônica do readiness
+
+`readiness.html` é a superfície que centraliza SARI, pontuação por dimensão, Cobertura, Confiança e Consolidação. `mobile.html` e `desktop.html` preservam evidências/findings por dispositivo e não devem duplicar a função de página canônica do índice.
+
+A projeção deve consultar o schema efetivamente persistido de cada módulo. Em particular, `m24_runs` possui uma linha por `audit_id` e usa `updated_at`; a geração do SARI não depende de uma coluna `completed_at` inexistente. Uma falha de projeção não pode ser confundida com falha de scoring: o score já persistido continua sendo a fonte de verdade, mas a auditoria deve sinalizar a falha operacional até que o HTML seja materializado corretamente.

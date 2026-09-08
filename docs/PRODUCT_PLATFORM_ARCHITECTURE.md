@@ -69,7 +69,7 @@ This is the authoritative product/control-plane database for:
 - external datasets/outcomes;
 - usage ledger.
 
-### Legacy consolidated analytical cache
+### Cache analítico consolidado anterior de desenvolvimento
 
 ```text
 audits/.rasai/consolidated-index.db

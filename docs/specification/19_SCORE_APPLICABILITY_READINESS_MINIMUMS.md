@@ -1,6 +1,6 @@
 # Aplicabilidade de Dimensões e Premissas Mínimas - SARI-001 / SCORE-GEO-004
 
-**Status:** APPROVED / CURRENT  
+**Estado no baseline de desenvolvimento:** APPROVED / CURRENT  
 **Current scoring runtime:** `SCORE-GEO-004`
 
 ## 1. Principle

@@ -1,6 +1,6 @@
 # REPORTING_LANGUAGE_GLOSSARY.md
 
-**Status:** APPROVED - extended through Web Performance externo Web Performance Evidence
+**Estado no baseline de desenvolvimento:** APPROVED - extended through Web Performance externo Web Performance Evidence
 
 ## 1. Regra editorial
 

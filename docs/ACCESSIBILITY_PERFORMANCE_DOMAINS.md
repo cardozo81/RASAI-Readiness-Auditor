@@ -101,4 +101,4 @@ A página inicial do report inclui **Configuração × resultado obtido** para i
 
 As cores e tags são semântica de apresentação. Os números, findings, RuleExecutions e artifacts persistidos continuam sendo a fonte de verdade.
 
-`SCORE-GEO-003` permanece histórico; estes domínios externos não são recalculados nem reinterpretados por essa mudança de scoring.
+`SCORE-GEO-003` é uma proposta anterior de desenvolvimento preservada apenas para rastreabilidade técnica; estes domínios externos não são recalculados nem reinterpretados por essa mudança de scoring.

@@ -1,6 +1,6 @@
 # IMPLEMENTATION_PLAN.md
 
-**Status:** APPROVED - extended through Precisão e consistência das recomendações
+**Estado no baseline de desenvolvimento:** APPROVED - extended through Precisão e consistência das recomendações
 
 ## Bootstrap e fundação do projeto - Bootstrap
 

@@ -172,7 +172,7 @@ def available_navigation(report_dir: Path, current: str | None = None) -> tuple[
     """Return canonical menu items available in the current report projection."""
     return tuple(
         (label, filename)
-        for label, filename in NAV_ITEMS
+        for label, filename in CANONICAL_NAV_ITEMS
         if (report_dir / filename).is_file() or filename == current
     )
 
@@ -219,6 +219,8 @@ def normalize_report_navigation(
     software_version: str | None = None,
 ) -> None:
     """Normalize menu, semantic results, shared presentation, tooltips and API cost."""
+    global NAV_ITEMS
+    NAV_ITEMS = CANONICAL_NAV_ITEMS
     final_generated_at = generated_at or datetime.now(BRASILIA_TIMEZONE)
     _ensure_premium_css(report_dir)
     _enhance_ai_cost_total(report_dir)

@@ -154,7 +154,7 @@ apdex.html             -> Synthetic Navigation Apdex
 apdex-experience.html  -> Synthetic User Experience Apdex, quando materializado
 ```
 
-`scoring.html` é um path estável. O identificador metodológico permanece versionado em `scoring_version` e no conteúdo da página. O alias `score-geo-004.html` existe somente para compatibilidade com links antigos e não deve ser adotado como contrato novo.
+`scoring.html` é um path estável. O identificador metodológico permanece versionado em `scoring_version` e no conteúdo da página. O alias `score-geo-004.html` existe somente para compatibilidade com links produzidos durante o desenvolvimento e não deve ser adotado como contrato novo.
 
 O dashboard não cria agregação transversal entre metodologias.
 

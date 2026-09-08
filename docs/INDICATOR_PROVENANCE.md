@@ -207,7 +207,7 @@ Permitido:
 
 > Core Web Vitals: métrica externa definida pelo programa Web Vitals; valor p75 coletado via CrUX.
 
-> SARI-001: índice proprietário, evidence-based e reprodutível do RASAi; runtime vigente SCORE-GEO-004, com versões históricas preservadas por scoring_version.
+> SARI-001: índice proprietário, evidence-based e reprodutível do RASAi; runtime vigente SCORE-GEO-004, com versões anteriores de desenvolvimento preservadas por scoring_version.
 
 > WCAG 2.2: standard W3C; a automação cobre somente critérios tecnicamente verificáveis pela ferramenta.
 

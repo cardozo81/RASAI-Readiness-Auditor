@@ -1,6 +1,6 @@
 # RASAi - Search & AI Readiness Auditor - Specification Index
 
-**Status:** BASELINE VIGENTE - reconciliada com `main`  
+**Estado no baseline de desenvolvimento:** BASELINE VIGENTE - reconciliada com `main`  
 **Scoring vigente:** `SCORE-GEO-004`  
 **Índice público:** `SARI-001`  
 **Idioma normativo:** Português, preservando identificadores e termos técnicos quando necessário.
@@ -76,7 +76,7 @@ Princípios:
 - IA não calcula diretamente o score;
 - mudança incompatível exige nova `scoring_version`.
 
-`SCORE-GEO-003` permanece histórico. Seu Overall dependia de calibração/model artifact. Referências históricas legítimas ao 003 devem ser preservadas para rastreabilidade e nunca reescritas cegamente como 004.
+`SCORE-GEO-003` é uma proposta anterior de desenvolvimento preservada apenas para rastreabilidade técnica. Seu Overall dependia de calibração/model artifact. Referências históricas legítimas ao 003 devem ser preservadas para rastreabilidade e nunca reescritas cegamente como 004.
 
 Detalhes: `05_SCORING_MODEL.md`, `../SCORE_GEO_004.md` e `../SCORING_GUIDE.md`.
 

@@ -1,6 +1,6 @@
 # Web Performance externo - Evidência Externa de Web Performance: Core Web Vitals + Lighthouse
 
-**Status:** EVOLUÇÃO APROVADA
+**Estado no baseline de desenvolvimento:** EVOLUÇÃO APROVADA
 **Domínio:** `Web Performance externo`
 **Dependências:** report site + configuração opcional PageSpeed/CrUX; IA não é dependência obrigatória
 **Natureza:** evidência externa aditiva; sem impacto no scoring por padrão

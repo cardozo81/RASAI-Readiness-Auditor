@@ -1,6 +1,6 @@
 # SCORING_MODEL.md
 
-**Status:** APPROVED / CURRENT
+**Estado no baseline de desenvolvimento:** APPROVED / CURRENT
 **Scoring baseline:** `SCORE-GEO-004`
 **Public index:** `SARI-001`
 
@@ -251,7 +251,7 @@ Nenhum AUD persistido é recalculado automaticamente por geração de relatório
 
 Relatórios históricos/consolidados devem segmentar pontos por `scoring_version`.
 
-`SCORE-GEO-003` permanece histórico. Seu Overall usava um model artifact calibrado e dependia de validação externa. `SCORE-GEO-004` substituiu esse requisito por uma agregação determinística de igual peso. A transição é quebra metodológica e não deve ser apresentada como série contínua sem ressalva explícita.
+`SCORE-GEO-003` é uma proposta anterior de desenvolvimento preservada apenas para rastreabilidade técnica. Seu Overall usava um model artifact calibrado e dependia de validação externa. `SCORE-GEO-004` substituiu esse requisito por uma agregação determinística de igual peso. A transição é quebra metodológica e não deve ser apresentada como série contínua sem ressalva explícita.
 
 Referências a `SCORE-GEO-003` em artifacts ou documentação histórica devem ser preservadas como histórico, não reescritas cegamente para `004`.
 
@@ -279,7 +279,7 @@ Core Web Vitals, Lighthouse, WCAG, Apdex, E-E-A-T/YMYL e Observed Generative Vis
 - Confidence;
 - Consolidation;
 - limitações;
-- compatibilidade histórica.
+- compatibilidade entre dados de desenvolvimento.
 
 `score-geo-004.html` é alias de compatibilidade e não é a rota recomendada para novas integrações.
 

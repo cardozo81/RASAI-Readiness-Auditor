@@ -130,7 +130,7 @@ def _patch_current_scoring_projection() -> None:
 
 
 def _normalize_known_legacy_wording(html: str, *, page_name: str) -> str:
-    """Defensively repair stale current-method copy without rewriting history."""
+    """Defensively repair stale current-method copy without presenting development iterations as public releases."""
     replacements = (
         ("não é convertido em SCORE-GEO-003", "não é convertido em SCORE-GEO-004"),
         ("SCORE-GEO-003 continua disponível normalmente", "SCORE-GEO-004 continua disponível normalmente"),
@@ -148,8 +148,8 @@ def _normalize_known_legacy_wording(html: str, *, page_name: str) -> str:
 
     if page_name == "ai-visibility.html":
         updated = updated.replace(
-            "do SCORE-GEO-003 vigente. SCORE-GEO-002 permanece histórico.",
-            "do SCORE-GEO-004 vigente. SCORE-GEO-003 e SCORE-GEO-002 permanecem históricos.",
+            "do SCORE-GEO-003 vigente. SCORE-GEO-002 é preservado como referência de desenvolvimento anterior.",
+            "do SCORE-GEO-004 vigente. SCORE-GEO-003 e SCORE-GEO-002 são preservados como referências de desenvolvimento anteriores.",
         )
         updated = updated.replace(
             "não compõem SARI-001/SCORE-GEO-002 histórico e tampouco SCORE-GEO-003 vigente",

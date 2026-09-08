@@ -1,6 +1,6 @@
 # TECHNICAL_ARCHITECTURE.md
 
-**Status:** APPROVED / CURRENT  
+**Estado no baseline de desenvolvimento:** APPROVED / CURRENT  
 **Readiness:** `SARI-001`  
 **Scoring runtime:** `SCORE-GEO-004`
 

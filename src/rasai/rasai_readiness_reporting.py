@@ -161,7 +161,7 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
         )
         m24_run = _one(
             connection,
-            "SELECT * FROM m24_runs WHERE audit_id=? ORDER BY completed_at DESC LIMIT 1",
+            "SELECT * FROM m24_runs WHERE audit_id=? LIMIT 1",
             (audit_id,),
         )
         rule_executions = _many(
@@ -241,7 +241,7 @@ def _rasai_page(data: dict[str, Any], workspace: AuditWorkspace, report_dir: Pat
 {_audit_limitations_block(audit)}
 {_sari_governance_block(data)}
 {_ai_operational_diagnostic(data)}
-<section class='panel'><div class='kicker'>Indicadores proprietários</div><h2>Dimensões do readiness</h2><p class='intro'>Score, Coverage, Confidence e Consolidation ficam centralizados nesta página. As páginas Mobile/Desktop preservam evidências e findings do respectivo dispositivo.</p>{dimension_tables or "<p class='intro'>Nenhuma dimensão de score persistida.</p>"}</section>
+<section class='panel'><div class='kicker'>Indicadores proprietários</div><h2>Dimensões do readiness</h2><p class='intro'>Pontuação, Cobertura, Confiança e Consolidação ficam centralizadas nesta página. As páginas Mobile/Desktop preservam evidências e findings do respectivo dispositivo.</p>{dimension_tables or "<p class='intro'>Nenhuma dimensão de score persistida.</p>"}</section>
 <section class='panel'><div class='kicker'>Groundability</div><h2>Sinais de capacidade de fundamentação</h2><p class='intro'>SARI-001 não cria um subscore adicional de Groundability. Answerability, Citation Readiness e Evidence & Trust permanecem sinais distintos e rastreáveis.</p>{groundability or "<p class='intro'>Sinais não disponíveis.</p>"}</section>
 {_discovery_scoring_block(data)}
 {_structured_data_scoring_block(data)}
@@ -272,7 +272,7 @@ def _overall_card(scores: list[sqlite3.Row], device: str) -> str:
     value = float(row["value"])
     css = "good" if consolidation == "CONSOLIDATED" and value >= 75 else "warn" if value >= 40 else "bad"
     status = _STATUS_LABELS.get(consolidation, consolidation)
-    return f"<article class='score-card {css}'><div class='label'>{label} - {PUBLIC_METHOD_VERSION}</div><div class='score-number'>{value:.1f}<span>/100</span></div><div class='score-meta'><div><small>Coverage</small><strong>{coverage}</strong></div><div><small>Confidence</small><strong>{escape(confidence)}</strong></div><div><small>Consolidação</small><strong>{escape(status)}</strong></div></div></article>"
+    return f"<article class='score-card {css}'><div class='label'>{label} - {PUBLIC_METHOD_VERSION}</div><div class='score-number'>{value:.1f}<span>/100</span></div><div class='score-meta'><div><small>Cobertura</small><strong>{coverage}</strong></div><div><small>Confiança</small><strong>{escape(confidence)}</strong></div><div><small>Consolidação</small><strong>{escape(status)}</strong></div></div></article>"
 
 
 def _dimension_table(scores: list[sqlite3.Row], device: str) -> str:
@@ -295,7 +295,7 @@ def _dimension_table(scores: list[sqlite3.Row], device: str) -> str:
             "</tr>"
         )
     label = "Mobile" if device == "MOBILE" else "Desktop"
-    return f"<h3>{label}</h3><div class='table-wrap'><table><thead><tr><th>Dimensão</th><th>Score</th><th>Coverage</th><th>Confidence</th><th>Consolidação</th></tr></thead><tbody>{''.join(body)}</tbody></table></div>"
+    return f"<h3>{label}</h3><div class='table-wrap'><table><thead><tr><th>Dimensão</th><th>Pontuação</th><th>Cobertura</th><th>Confiança</th><th>Consolidação</th></tr></thead><tbody>{''.join(body)}</tbody></table></div>"
 
 
 def _groundability_block(scores: list[sqlite3.Row], device: str) -> str:

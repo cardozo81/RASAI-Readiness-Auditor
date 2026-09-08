@@ -1,6 +1,6 @@
 # WORKFLOWS.md
 
-**Status:** APPROVED / CURRENT  
+**Estado no baseline de desenvolvimento:** APPROVED / CURRENT  
 **Scoring:** `SCORE-GEO-004`
 
 ## 1. Primary audit workflow

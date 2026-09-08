@@ -1,6 +1,6 @@
 # Análise semântica por IA, roteamento e telemetria
 
-**Status:** APPROVED / CURRENT  
+**Estado no baseline de desenvolvimento:** APPROVED / CURRENT  
 **Scoring boundary:** `SARI-001` / `SCORE-GEO-004`
 
 IA é uma extensão de análise semântica. LLM não é scoring engine, não substitui Business Rules e falha/ausência de provider não é defeito do website.

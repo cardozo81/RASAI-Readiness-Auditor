@@ -156,3 +156,17 @@ O relatório também apresenta uma análise de sensibilidade em torno do `T` con
 
 Synthetic Navigation Apdex persiste, de forma limitada e sem response bodies, `console.error`, `pageerror` e `requestfailed` observados durante cada navegação. O HTML lista esses eventos por amostra e também os agrupa para o teste completo por tipo/mensagem/recurso e quantidade de amostras afetadas. Essa associação é temporal e diagnóstica: um console error não é tratado automaticamente como causa da duração e não reduz o Apdex por si só. Somente application error, timeout e navigation error continuam alterando a classificação Apdex.
 
+<!-- rasai-apdex-cv-20260908 -->
+## Coeficiente de variação e estabilidade das amostras
+
+O relatório apresenta o **coeficiente de variação (CV)** das durações válidas:
+
+```text
+CV (%) = desvio padrão das durações / média das durações × 100
+```
+
+O CV mede a dispersão relativa das navegações sintéticas. Em um mesmo perfil, origem e alvo, valor menor indica tempos mais consistentes; valor maior indica maior oscilação. Ele pode refletir, em conjunto, máquina executora, rede local, rota, DNS/TCP/TLS, CDN, servidor, terceiros e comportamento da própria aplicação. O CV **não identifica sozinho a causa** e um CV baixo não significa página rápida: uma página pode ser lenta e estável.
+
+A UI pode marcar CV elevado como **sinal de atenção do RASAi**. Esse destaque é heurística de apresentação, não limiar universal do Apdex nem norma estatística externa. O CV não entra na fórmula do Apdex. Para diagnóstico, deve ser lido junto com média/mediana, percentis/cauda, erros, perfil, `T` e quantidade de amostras.
+
+Uma futura execução distribuída por regiões não deve misturar indiscriminadamente todas as origens em um único CV: estabilidade **intrarregional** e dispersão **entre regiões** respondem perguntas diferentes e devem permanecer separadas.

@@ -19,7 +19,7 @@ Princípios obrigatórios:
 - cada domínio tem página canônica;
 - páginas opcionais aparecem no menu somente quando existem;
 - normalização posterior não pode remover do menu uma página opcional já materializada;
-- identificadores históricos de scoring não podem ser reescritos como se fossem a versão vigente.
+- identificadores de propostas anteriores de scoring usadas durante o desenvolvimento não podem ser reescritos como se fossem a versão vigente.
 
 ## Estrutura atual
 
@@ -31,17 +31,17 @@ report/
 ├─ score-geo-004.html          # alias de compatibilidade; não canônico
 ├─ mobile.html                 # condicional
 ├─ desktop.html                # condicional
-├─ remediation.html
-├─ content-suggestions.html
 ├─ crawling-discovery.html     # condicional
 ├─ accessibility.html          # condicional
 ├─ web-performance.html        # condicional
 ├─ apdex.html                  # condicional
 ├─ apdex-experience.html       # condicional
+├─ content-suggestions.html
+├─ remediation.html
+├─ ai-usage.html
 ├─ ai-visibility.html          # condicional
 ├─ observability.html          # condicional
 ├─ quality.html                # condicional
-├─ ai-usage.html
 ├─ references.html
 └─ css/site.css
 ```
@@ -55,9 +55,9 @@ SCORE-GEO-004  = motor vigente para novas auditorias
 
 `readiness.html` apresenta dimensões, Coverage, Confidence, Consolidation e limitações. `scoring.html` apresenta a versão efetivamente usada, fórmula, gates, rastreabilidade e interpretação do Overall.
 
-O arquivo da metodologia é version-neutral por decisão de arquitetura. `scoring_version` permanece persistido no banco e visível no conteúdo. `score-geo-004.html` existe somente como alias para links antigos; novas integrações devem apontar para `scoring.html`.
+O arquivo da metodologia é version-neutral por decisão de arquitetura. `scoring_version` permanece persistido no banco e visível no conteúdo. `score-geo-004.html` existe somente como alias para links produzidos durante o desenvolvimento; novas integrações devem apontar para `scoring.html`.
 
-`SCORE-GEO-003` permanece histórico. Seu Overall dependia de model artifact validado e não deve ser confundido com o contrato determinístico vigente. Comparações entre versões preservam `scoring_version` e não normalizam contratos incompatíveis silenciosamente.
+`SCORE-GEO-003` é uma proposta anterior de desenvolvimento preservada apenas para rastreabilidade técnica. Seu Overall dependia de model artifact validado e não deve ser confundido com o contrato determinístico vigente. Comparações entre versões preservam `scoring_version` e não normalizam contratos incompatíveis silenciosamente.
 
 SARI-001 é metodologia proprietária, evidence-bound e reprodutível. Não representa nota oficial Google/Bing/OpenAI, probabilidade de ranking/citação ou certificação GEO/AEO.
 
@@ -365,3 +365,14 @@ A página **Search & AI Readiness** deve distinguir o **estado observado** do no
 `llms.txt` continua sendo inspecionado em **Rastreamento e descoberta** como sinal experimental/advisory. Seu peso direto no `SARI-001` é `0`: presença, ausência ou erro não alteram `SCORE-GEO-004`.
 
 JSON-LD é extraído de `script[type="application/ld+json"]`. No SCORE-GEO-004, ausência gera uma lacuna leve via `BR-GEO-034=WARNING`; markup inválido pode ser desfavorável; consistência semântica só é avaliada quando aplicável.
+
+<!-- rasai-global-result-semantics-20260908 -->
+## Semântica visual e linguagem pública
+
+A normalização final dos relatórios aplica o mesmo contrato a todas as superfícies HTML. Estados conclusivos que aparecem em tabelas/listas recebem uma tag na célula e uma indicação discreta na linha: aprovado/consolidado em verde, alerta/parcial em amarelo, falha/erro em vermelho. Estados neutros não são promovidos artificialmente a erro.
+
+Enums persistidos não são alterados no banco. A camada de apresentação traduz valores de máquina conhecidos para PT-BR e preserva identificadores dentro de `code`/`pre`. Isso evita expor ao usuário termos como `SINGLE_PROVIDER` ou `NOT_DETERMINABLE` sem perder rastreabilidade técnica.
+
+A ordem canônica do menu segue a sequência de leitura: visão geral → SARI → metodologia → evidências por dispositivo → crawling/acessibilidade/performance/Apdex → conteúdo/remediação → telemetria e outcomes de IA → quality → referências.
+
+Correlação: veja [`README.md`](README.md), [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`CONSOLIDATED_REPORTING.md`](CONSOLIDATED_REPORTING.md) e [`docs/README.md`](README.md).

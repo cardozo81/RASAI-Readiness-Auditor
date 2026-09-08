@@ -34,7 +34,7 @@ class ConsolidationReportingUXTests(unittest.TestCase):
             self.assertNotIn('{&quot;HIGH&quot;', html)
 
             manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
-            self.assertEqual(manifest["report_format_version"], "CONS-2")
+            self.assertEqual(manifest["report_format_version"], "CONS-3")
             self.assertEqual(manifest["summary"]["historical_mode"], "Snapshot")
             self.assertEqual(manifest["aggregation_policy"]["outliers"], "no_automatic_removal")
 

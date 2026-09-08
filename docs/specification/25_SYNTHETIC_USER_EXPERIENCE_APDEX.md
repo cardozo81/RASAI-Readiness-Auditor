@@ -1,6 +1,6 @@
 # Synthetic User Experience Apdex calibrável
 
-**Status:** INTEGRADO E VALIDADO.
+**Estado no baseline de desenvolvimento:** INTEGRADO E VALIDADO.
 **Escopo:** Web Performance sintética, user-action telemetry e comparabilidade metodológica com RUM/APM.
 **Não altera:** `BR-GEO-*`, `SARI-001`, Coverage, Confidence, Consolidation, findings ou recomendações GEO.
 

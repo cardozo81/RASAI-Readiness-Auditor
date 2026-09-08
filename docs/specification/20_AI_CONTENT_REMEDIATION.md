@@ -1,6 +1,6 @@
 # Sugestões e remediação de conteúdo por IA - Optional AI Content Remediation + JSON-LD Guidance
 
-**Status:** APPROVED FOR IMPLEMENTATION
+**Estado no baseline de desenvolvimento:** APPROVED FOR IMPLEMENTATION
 **Domínio:** `Sugestões e remediação de conteúdo por IA`
 **Dependency:** Análise semântica por IA, roteamento e telemetria + SCORE-GEO-003 + REPORT-SITE-GEO-001
 

@@ -1,6 +1,6 @@
 # RASAi Monitoring, Observability & Quality - Delivery Status
 
-**Status:** IMPLEMENTED CANDIDATE - automated CI is mandatory on the current PR head; human smoke remains required before merge.
+**Estado no baseline de desenvolvimento:** IMPLEMENTED CANDIDATE - automated CI is mandatory on the current PR head; human smoke remains required before merge.
 **Branch:** `feat/rasai-monitoring-observability`
 **PR:** #82
 

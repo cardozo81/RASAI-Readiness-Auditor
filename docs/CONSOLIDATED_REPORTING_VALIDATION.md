@@ -1,48 +1,22 @@
 # Validação e reversibilidade - relatórios consolidados
 
-## Escopo da mudança
+## Estado atual
 
-Branch:
+O relatório consolidado faz parte do baseline de desenvolvimento em `main`. Este documento descreve o contrato que deve permanecer verdadeiro antes da aprovação de uma versão publicável do RASAi; referências a branches/PRs usados durante a implementação não definem o comportamento do produto.
 
-```text
-feature/consolidated-reporting
-```
-
-PR:
+Formato atual:
 
 ```text
-#67
+CONS-3
 ```
 
-A mudança permanece aditiva e isolada. O único arquivo de runtime preexistente alterado é `src/rasai/console_entrypoint.py`, usado apenas para instalar o adapter da opção `C` antes de delegar ao mesmo console existente.
-
-Não há alteração em:
-
-- `audit_runner.py`;
-- `persistence.py`;
-- `scoring.py` / `scoring_persistence.py`;
-- acquisition/rendering;
-- providers de IA;
-- PageSpeed/CrUX;
-- Synthetic Apdex;
-- schemas dos `AUD-*/audit.db`.
+A alteração do identificador de formato invalida dedupe de snapshots produzidos com estruturas anteriores de desenvolvimento quando a semântica do HTML/manifest não é equivalente. Isso é controle interno de reprodutibilidade, não histórico de releases públicas.
 
 ## Fonte de verdade e escrita
 
-Fonte de verdade:
+As fontes são os `AUD-*/audit.db`, abertos em modo somente leitura (`SQLite mode=ro` e `PRAGMA query_only=ON`). A consolidação não recalcula auditorias e não grava nos bancos fonte.
 
-```text
-AUD-*/audit.db
-```
-
-Leitura:
-
-```text
-SQLite mode=ro
-PRAGMA query_only=ON
-```
-
-A feature só escreve em:
+Artefatos derivados:
 
 ```text
 .rasai/consolidated-index.db
@@ -50,35 +24,30 @@ consolidated/CONS-*/report.html
 consolidated/CONS-*/manifest.json
 ```
 
-O índice é derivado e reconstruível.
+O índice consolidado é reconstruível.
 
-## Formato atual do relatório
+## Contrato comportamental CONS-3
 
-```text
-CONS-2
-```
+- resumo executivo de SARI informa pontuação, Cobertura, Confiança e estado de Consolidação;
+- score não consolidado é identificado como pontuação parcial, não como SARI consolidado;
+- a dimensão atual mais fraca é lida do mesmo `audit_id` do Overall atual;
+- séries SARI exigem mesma `scoring_version` e mesmo fingerprint do universo completo de URLs;
+- filtro parcial de URL não recebe score calculado com URLs que ficaram fora do filtro;
+- mudança de método de scoring permanece segmentada e não é normalizada silenciosamente;
+- Lighthouse/lab e Core Web Vitals/field continuam domínios distintos;
+- Apdex só é agregado entre mesmo perfil e mesmo `T`, ponderado por amostras válidas;
+- grupos `small_group` sem grupo final permanecem diagnósticos de base insuficiente;
+- evolução de findings usa **ocorrências por URL auditada** como série comportamental; contagem bruta é apenas contexto;
+- dado ausente não vira zero;
+- extremos não são eliminados automaticamente por valor;
+- estados acionáveis seguem a mesma semântica visual dos relatórios individuais;
+- métodos anteriores encontrados em bases de teste são referências de desenvolvimento não comparáveis ao `SCORE-GEO-004`, salvo quando o próprio contrato de comparabilidade provar o contrário.
 
-O bump de `CONS-1` para `CONS-2` foi intencional para invalidar o dedupe de snapshots antigos após a evolução de layout/metodologia.
-
-`CONS-2` inclui:
-
-- leitura executiva;
-- navegação fixa;
-- modo adaptativo Snapshot / comparação de dois pontos / série histórica;
-- gráfico de Readiness Search & AI + Cobertura quando há 2+ pontos comparáveis;
-- matriz histórica das dimensões quando há base comparável;
-- estatísticas avançadas expansíveis;
-- destaque de amostra pequena de Apdex;
-- evolução do volume de ocorrências;
-- matriz de confiabilidade analítica sem inventar novo score;
-- pesquisa/paginação das auditorias consideradas;
-- metodologia, fórmulas, política de extremos e referências técnicas no próprio HTML.
-
-## Comparabilidade estatística
+## Estatística e comparabilidade
 
 ### Readiness Search & AI
 
-Uma série numérica só é agregada dentro da combinação mais recente de:
+Uma série numérica é agregada somente na combinação compatível mais recente de:
 
 ```text
 scoring_version
@@ -86,48 +55,33 @@ scoring_version
 fingerprint do conjunto completo de URLs da auditoria
 ```
 
-O HTML traduz `scoring_version` para **Versão do método de pontuação**.
-
-Filtro parcial de URL nunca recebe uma pontuação calculada sobre páginas fora do filtro. O consolidado não reexecuta scoring.
+`scoring_version` é apresentado ao usuário como **Versão do método de pontuação**.
 
 ### Média, mediana e extremos
 
 - média = média aritmética das observações elegíveis;
 - mediana = valor central das observações elegíveis;
 - mínimo/máximo são preservados;
-- nenhum extremo é eliminado automaticamente apenas por seu valor;
-- não há trimming, winsorization ou descarte por IQR/desvio-padrão;
-- dado ausente não vira zero.
+- não há trimming, winsorization nem descarte automático por IQR/desvio-padrão;
+- `NULL`/ausência de dado não é imputado como zero.
 
 ### Desempenho Web
 
-Para `Inicial`/`Atual` em métricas por URL, usa-se a média transversal da observação válida mais antiga/recente de cada URL. Isso evita que a URL com maior frequência de auditoria represente sozinha o domínio.
+Para estados Inicial/Atual de métricas por URL, a consolidação usa a média transversal da observação válida mais antiga/recente de cada URL elegível, evitando que a URL mais frequentemente auditada represente sozinha o domínio.
 
 ### Apdex
 
-Somente mesmo perfil + T são compatíveis. O consolidado pondera o Apdex por amostras válidas e destaca `small_group` sem `final_group` como base insuficiente para conclusão robusta.
+O agregado exige mesmo perfil sintético e mesmo limiar `T`. O valor é ponderado por amostras válidas. Coeficiente de variação é diagnóstico de estabilidade e não entra na fórmula Apdex. Consulte [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md).
 
 ### Ocorrências
 
-Ocorrências são estatística histórica; não recalculam SCORE-GEO. O gráfico de volume bruto contém aviso para interpretação junto com o tamanho do universo auditado.
+Findings não recalculam SCORE-GEO. Para comparar auditorias de escopos diferentes, o gráfico comportamental usa `quantidade de findings / quantidade de URLs auditadas`. A contagem absoluta permanece disponível para dimensionar volume operacional.
 
-## Transparência do SCORE-GEO
+## Metodologia e transparência
 
-O HTML só apresenta versões efetivamente persistidas nas fontes selecionadas e não inventa alternativas metodológicas ausentes dos AUDs.
+O HTML mostra somente versões realmente persistidas nas fontes selecionadas. `SCORE-GEO-004` é o contrato vigente para novas auditorias. Dados criados por propostas anteriores durante o desenvolvimento permanecem identificados por sua `scoring_version` e não são apresentados como versões públicas anteriormente lançadas.
 
-Quando diferentes `scoring_version` estão presentes, o relatório explica:
-
-- PASS = fator 1;
-- WARNING = fator padrão 0,5;
-- FAIL = fator 0;
-- agrupamento de regras correlacionadas;
-- fórmula da dimensão;
-- fórmula da Coverage;
-- exclusão de `NOT_APPLICABLE` legítimo;
-- média aritmética das dimensões aplicáveis no Overall;
-- thresholds de Confidence;
-- natureza interna/reproduzível do método;
-- ausência de validação externa estabelecida como preditor de ranking/citação.
+O consolidado não deve afirmar validação externa do SARI/SCORE-GEO como preditor de ranking/citação. Fontes públicas sustentam métricas/domínios específicos, não homologam o índice proprietário.
 
 ## Dedupe
 
@@ -139,100 +93,53 @@ report_format_version
 + conjunto/fingerprint dos AUDs elegíveis
 ```
 
-Portanto:
+Assim:
 
-- mesma requisição + mesmas fontes: reutiliza;
+- mesma requisição + mesmas fontes: pode reutilizar;
 - novo AUD elegível: novo snapshot;
 - mudança de filtro: novo snapshot;
 - mudança de formato: novo snapshot.
 
-## Testes automatizados
+## Gates automatizados
 
-Workflow:
+Workflow principal da feature consolidada:
 
 ```text
 .github/workflows/consolidated-reporting-ci.yml
 ```
 
-Executa em CPython 3.13:
-
-1. instalação do pacote;
-2. `compileall` do pacote da feature/entrypoint/testes;
-3. `test_consolidation*.py`;
-4. regressões existentes de console/configuração.
-
-### Cobertura específica
+O gate deve cobrir, no mínimo:
 
 - geração read-only e hash dos `audit.db` inalterado;
-- dedupe da mesma requisição;
-- invalidação por novo AUD;
-- filtro parcial de URL sem contaminação do Score;
-- segregação de versão do método;
-- segregação de universo de URLs;
-- estado atual de Web Performance por URL;
-- isolamento de banco inválido;
-- período inclusivo;
-- integração `C` sem interceptar escolhas antigas;
-- falha do consolidado `fail-open`;
+- dedupe e invalidação por novo AUD/filtro/formato;
+- segregação de método e universo de URLs;
 - Snapshot com `N=1` sem falsa tendência;
-- versões de scoring ausentes das fontes não são inventadas pela UI;
-- metodologia/política de outliers materializada no HTML/manifest;
-- gráfico histórico com três pontos comparáveis;
-- matriz histórica das dimensões;
-- dedupe preservado no formato `CONS-2`.
+- série histórica somente quando comparável;
+- Apdex com regra de perfil + `T`;
+- findings normalizados por URL;
+- HTML/manifest com metodologia e limitações;
+- regressões do console/configuração;
+- contrato público de relatórios.
 
-### Último gate de código antes desta atualização documental
+## Smoke humano
 
-```text
-14 testes da consolidação: OK
-44 testes existentes do console/configuração: OK
-58 testes executados: 58 OK
-compileall: OK
-merge-ref PR #67 x main: OK
-```
-
-A documentação final também deve passar pelo mesmo workflow antes do smoke humano.
-
-## Smoke humano obrigatório antes de qualquer merge
-
-Executar na branch `feature/consolidated-reporting` com AUDs reais:
+Após atualizar o checkout local de `main`:
 
 1. abrir `iniciar.cmd`;
-2. confirmar que menu principal permanece normal;
-3. entrar em `C`;
-4. gerar um consolidado com 1 AUD e confirmar modo **Snapshot**;
-5. gerar com 2 AUDs comparáveis e confirmar aviso de variação, não tendência;
-6. gerar com 3+ AUDs comparáveis e validar gráfico/matriz;
-7. verificar Readiness Search & AI, Coverage e Confidence contra pelo menos um `audit.db` fonte;
-8. conferir Apdex small-group quando aplicável;
-9. testar pesquisa/paginação de **Auditorias consideradas**;
-10. conferir seção de metodologia/cálculos;
-11. repetir mesmos filtros e confirmar dedupe;
-12. comparar hash de `audit.db` antes/depois;
-13. abrir HTML com console fechado e confirmar funcionamento estático.
+2. confirmar navegação normal do console;
+3. gerar consolidado com 1 AUD e confirmar **Snapshot**;
+4. gerar com 2 AUDs comparáveis e confirmar comparação sem afirmar tendência robusta;
+5. gerar com 3+ AUDs comparáveis e validar gráfico/matriz;
+6. conferir SARI, Cobertura, Confiança e Consolidação contra pelo menos um `audit.db`;
+7. validar Apdex e indicação de amostra pequena quando aplicável;
+8. validar evolução de ocorrências por URL e conferir o volume bruto contextual;
+9. testar pesquisa/paginação das auditorias consideradas;
+10. repetir mesmos filtros e confirmar dedupe;
+11. comparar hash do `audit.db` antes/depois;
+12. abrir o HTML com o console fechado e confirmar funcionamento estático.
 
-## Gate de merge
+## Reversibilidade
 
-O PR deve permanecer sem merge se qualquer condição não estiver comprovada:
+O consolidado é derivado. Em caso de falha, a reversão não exige migração dos `AUD-*`: os artefatos `consolidated/CONS-*` e o índice derivado podem ser reconstruídos a partir das fontes.
 
-- CI verde no HEAD final;
-- smoke humano concluído;
-- branch revisada contra `main` corrente;
-- diff sem alteração dos motores de auditoria/scoring/persistência;
-- nenhum `AUD-*/audit.db` escrito;
-- nenhuma chamada de rede no pacote `consolidation`;
-- integração do console preservando escolhas anteriores;
-- diff final sem arquivo inesperado.
-
-Testes verdes reduzem risco; não autorizam afirmar risco matematicamente zero.
-
-## Rollback
-
-Se futuramente integrado, usar preferencialmente **Squash and merge** para manter a feature como um único commit funcional em `main`.
-
-Rollback:
-
-1. reverter o commit squash do PR #67;
-2. opcionalmente apagar `.rasai/consolidated-index.db`;
-3. opcionalmente arquivar/remover `consolidated/CONS-*`;
-4. não restaurar/migrar `AUD-*`, pois a feature nunca grava neles.
+Veja também [`CONSOLIDATED_REPORTING.md`](CONSOLIDATED_REPORTING.md), [`REPORT_GUIDE.md`](REPORT_GUIDE.md), [`SCORING_GUIDE.md`](SCORING_GUIDE.md) e [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md).

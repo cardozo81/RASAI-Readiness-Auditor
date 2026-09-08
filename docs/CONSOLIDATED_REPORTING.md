@@ -59,7 +59,7 @@ No `SCORE-GEO-004`, o Overall é a média de igual peso das dimensões aplicáve
 
 O consolidado **não recalcula** esse Overall. Ele lê o valor, Coverage, Confidence, Consolidation e `scoring_version` persistidos no AUD fonte.
 
-`SCORE-GEO-003` permanece histórico e usava um model artifact calibrado. Um ponto 003 e um ponto 004 pertencem a contratos metodológicos distintos e não devem ser tratados como série contínua sem ressalva explícita.
+`SCORE-GEO-003` é uma proposta anterior de desenvolvimento preservada apenas para rastreabilidade técnica e usava um model artifact calibrado. Um ponto 003 e um ponto 004 pertencem a contratos metodológicos distintos e não devem ser tratados como série contínua sem ressalva explícita.
 
 ### Confidence e Coverage
 
@@ -167,3 +167,19 @@ Antes de integrar mudanças do consolidador/monitoramento em `main`, exigir:
 - HTML reabrível e navegação consistente;
 - comparabilidade entre `scoring_version` explícita;
 - smoke humano quando a mudança exigir inspeção visual/operacional.
+
+<!-- rasai-consolidated-cons3-20260908 -->
+## Leitura comportamental do formato CONS-3
+
+O consolidado prioriza dados úteis para decisão e evita criar tendência artificial:
+
+- o resumo de SARI informa pontuação, Cobertura, Confiança **e estado de consolidação**; pontuação parcial não é apresentada como SARI consolidado;
+- a dimensão de menor pontuação no estado atual é obtida do **mesmo AUD** do Overall atual, evitando misturar snapshots de datas diferentes;
+- séries de score continuam restritas à mesma `scoring_version` e ao mesmo universo de URLs comparável;
+- evolução de findings usa **ocorrências por URL auditada** para reduzir o viés de mudanças de escopo; volume bruto permanece apenas como contexto;
+- Apdex só é agregado entre mesmo perfil e mesmo `T`, ponderado por amostras válidas e com indicação explícita de grupos pequenos/finais;
+- Lighthouse/lab e Core Web Vitals/field permanecem separados;
+- estados acionáveis usam o mesmo padrão visual dos relatórios individuais;
+- métodos anteriores encontrados em bases de teste são preservados como dados de desenvolvimento não comparáveis ao `SCORE-GEO-004`, sem narrativa de release legado.
+
+O formato não recalcula auditorias e não transforma ausência de dado em zero. Veja também [`CONSOLIDATED_REPORTING_VALIDATION.md`](CONSOLIDATED_REPORTING_VALIDATION.md), [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md) e [`REPORT_GUIDE.md`](REPORT_GUIDE.md).

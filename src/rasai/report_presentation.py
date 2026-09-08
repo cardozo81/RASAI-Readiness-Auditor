@@ -102,6 +102,78 @@ _PUBLIC_LABELS: dict[str, str] = {
     # Synthetic UX session mode. Preserve the canonical technical term in parentheses.
     "COLD": "Fria (cold)",
     "WARM": "Aquecida (warm)",
+    # AI routing and provider states.
+    "SINGLE_PROVIDER": "Provedor único",
+    "AUTO": "Automática",
+    "NONE": "Nenhuma",
+    "CHAIN_EXHAUSTED": "Cadeia de provedores esgotada",
+    "PROVIDER_UNAVAILABLE": "Provedor indisponível",
+    "CONTRACT_ERROR": "Erro no contrato de evidências",
+    "QUARANTINED_FOR_AUDIT": "Indisponível nesta auditoria",
+    # Crawling/discovery and content-remediation machine values.
+    "ABSENT": "Ausente",
+    "PRESENT": "Presente",
+    "AVAILABLE": "Disponível",
+    "AI_ACCESS": "Acesso por sistemas de IA",
+    "BOUNDED_AI_RESOURCE_ASSESSMENT": "Avaliação por IA com escopo limitado",
+    "MISSING_PROPOSED": "Proposta não gerada",
+    "INTERNAL_BASELINE": "Referência interna",
+    "RULES_GUIDE": "Guia de regras",
+    "SCORING_GUIDE": "Guia de pontuação",
+    "ADD_ATTRIBUTION": "Adicionar atribuição",
+    "ADD_FACTUAL_CONTEXT": "Adicionar contexto factual",
+    "ADD_OR_CORRECT": "Adicionar ou corrigir",
+    "ADD_OR_RESTRUCTURE_ANSWER": "Adicionar ou reestruturar resposta",
+    "ADD_QUALIFIERS": "Adicionar qualificadores",
+    "CANONICAL_ABSENT": "Canonical ausente",
+    "CLOSE_INTENT_GAPS": "Fechar lacunas de intenção",
+    "CONTENT_REGION": "Região de conteúdo",
+    "CORRECT_RESOURCE": "Corrigir recurso",
+    "CORRECT_STRUCTURED_DATA": "Corrigir dados estruturados",
+    "DOCUMENT_OR_CONTENT": "Documento ou conteúdo",
+    "DOMAIN_RESOURCE": "Recurso do domínio",
+    "REVIEW_AND_CORRECT": "Revisar e corrigir",
+    "ROBOTS_ABSENT": "robots.txt ausente",
+    "SITEMAP_ABSENT": "Sitemap ausente",
+    "VERY_HIGH": "Muito alta",
+    # Rule groups/dimensions that may appear in technical tables.
+    "CONTENT_EXTRACTION": "Extração de conteúdo",
+    "DUPLICATE_CONTENT": "Conteúdo duplicado",
+    "ENTITY_AMBIGUITY": "Ambiguidade de entidade",
+    "ENTITY_CONTEXT": "Contexto de entidade",
+    "ENTITY_PRIMARY": "Entidade principal",
+    "EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1": "Peso igual entre dimensões aplicáveis",
+    "FACTUAL_CLAIMS": "Afirmações factuais",
+    "FACTUAL_CONTEXT": "Contexto factual",
+    "INDEX_DIRECTIVES": "Diretivas de indexação",
+    "INFERENCE_LOAD": "Carga de inferência",
+    "INTENT_GAPS": "Lacunas de intenção",
+    "INTENT_SET": "Conjunto de intenções",
+    "INTERNAL_LINKS": "Links internos",
+    "JS_CONTENT": "Conteúdo por JavaScript",
+    "PAGE_ACCESS": "Acesso à página",
+    "PRIMARY_ANSWERS": "Respostas principais",
+    "PRIMARY_INTENT": "Intenção principal",
+    "REDIRECT": "Redirecionamentos",
+    "RENDER_ACCESS": "Acesso após renderização",
+    "ROBOTS": "robots.txt",
+    "SEMANTIC_HIERARCHY": "Hierarquia semântica",
+    "SEMANTIC_TITLE": "Título semântico",
+    "SEMANTIC_TOPIC": "Tópico semântico",
+    "SITEMAP": "Sitemap",
+    "SOFT_ERROR": "Erro aparente",
+    "SPA_NAVIGATION": "Navegação SPA",
+    "SPA_ROUTE": "Rota SPA",
+    "STRUCTURED_DATA_SYNTAX": "Sintaxe de dados estruturados",
+    # Web Performance diagnostic categories.
+    "CRITICAL_PATH": "Caminho crítico",
+    "JAVASCRIPT_MAIN_THREAD": "Thread principal de JavaScript",
+    "LAYOUT_STABILITY": "Estabilidade de layout",
+    "PAGESPEED_CRUX": "PageSpeed / CrUX",
+    "PAGESPEED_INSIGHTS": "PageSpeed Insights",
+    "RENDER_BLOCKING": "Bloqueio de renderização",
+    "SERVER_DOCUMENT": "Documento do servidor",
+    "THIRD_PARTY": "Terceiros",
 }
 
 # Exact, isolated visible values only. Nested markup is deliberately excluded.
@@ -115,19 +187,45 @@ def public_label(value: str) -> str:
     return _PUBLIC_LABELS.get(value, value)
 
 
-def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
-    """Humanize only isolated primary values in generated HTML.
+_TAG_SPLIT_RE = re.compile(r"(<[^>]+>)", flags=re.DOTALL)
+_PUBLIC_TOKEN_RE = re.compile(
+    r"(?<![A-Z0-9_])(" + "|".join(
+        re.escape(value) for value in sorted(_PUBLIC_LABELS, key=len, reverse=True)
+    ) + r")(?![A-Z0-9_])"
+)
 
-    ``page_name`` is accepted for future domain-specific refinements, but the
-    current contract intentionally uses only conservative cross-report states.
+
+def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
+    """Humanize known machine values without mutating persisted or code content.
+
+    Values are translated both when isolated in primary cells and when embedded
+    in normal visible prose. ``code``, ``pre``, ``script`` and ``style`` remain
+    untouched so technical identifiers, environment variables and examples keep
+    their canonical representation.
     """
     del page_name
 
-    def replace(match: re.Match[str]) -> str:
+    def isolated(match: re.Match[str]) -> str:
         value = match.group("value")
         label = _PUBLIC_LABELS.get(value)
         if label is None:
             return match.group(0)
         return f"{match.group(1)}{label}{match.group(4)}"
 
-    return _VISIBLE_VALUE_RE.sub(replace, html)
+    parts = _TAG_SPLIT_RE.split(html)
+    blocked_depth = 0
+    output: list[str] = []
+    for part in parts:
+        if part.startswith("<"):
+            lowered = part.lower()
+            if re.match(r"<(script|style|pre|code)\b", lowered):
+                blocked_depth += 1
+            elif re.match(r"</(script|style|pre|code)\b", lowered):
+                blocked_depth = max(0, blocked_depth - 1)
+            output.append(part)
+            continue
+        if blocked_depth:
+            output.append(part)
+            continue
+        output.append(_PUBLIC_TOKEN_RE.sub(lambda match: _PUBLIC_LABELS[match.group(1)], part))
+    return _VISIBLE_VALUE_RE.sub(isolated, "".join(output))

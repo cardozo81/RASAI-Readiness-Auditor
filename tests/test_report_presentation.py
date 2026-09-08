@@ -39,7 +39,12 @@ class ReportPresentationTests(unittest.TestCase):
 
         rendered = humanize_report_html(html, page_name="references.html")
 
-        self.assertEqual(rendered, html)
+        self.assertIn("<p>Estado persistido: Indisponível.</p>", rendered)
+        self.assertIn("<code>NOT_CONSOLIDATED</code>", rendered)
+        self.assertIn('<pre>{"status": "FAILED", "reason_code": "HTTP_429"}</pre>', rendered)
+        self.assertIn("<td>BR-GEO-054</td>", rendered)
+        self.assertIn("<td>HTTP_429</td>", rendered)
+        self.assertIn("<td>SCORE-GEO-004</td>", rendered)
 
     def test_humanizes_monitoring_and_quality_states_without_losing_priority_code(self) -> None:
         html = (

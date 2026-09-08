@@ -1,6 +1,6 @@
 # 28 - Audit Quality, Verification & Decision Support
 
-**Status:** APPROVED / IMPLEMENTED / INTEGRATED IN `main`
+**Estado no baseline de desenvolvimento:** APPROVED / IMPLEMENTED / INTEGRATED IN `main`
 
 ## 1. Purpose
 

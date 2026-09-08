@@ -12,8 +12,10 @@ import json
 import math
 
 from .models import ConsolidatedData, GenerationResult, NumericSummary, RefreshResult
+from rasai.report_presentation import humanize_report_html
+from rasai.report_semantics import enhance_report_html
 
-REPORT_FORMAT_VERSION = "CONS-2"
+REPORT_FORMAT_VERSION = "CONS-3"
 
 _DIMENSIONS = {
     "OVERALL_READINESS": "Readiness Search & AI geral",
@@ -279,13 +281,18 @@ def _render_executive(data: ConsolidatedData) -> str:
     for device in sorted({str(row.get('device') or '') for row in data.score_history if row.get('device')}):
         overall = _latest_score_row(data, device, "OVERALL_READINESS")
         if overall and _number(overall.get("value")) is not None:
+            state = _consolidation(overall.get("consolidation_status"))
+            score_label = "Readiness Search & AI" if str(overall.get("consolidation_status") or "").upper() == "CONSOLIDATED" else "pontuação parcial de readiness"
             bullets.append(
-                f"<li><strong>{escape(_device(device))}:</strong> Readiness Search & AI {_fmt(_number(overall.get('value')))} / 100, "
-                f"cobertura {_pct(_number(overall.get('coverage')))} e confiança {escape(_confidence(overall.get('confidence')))}.</li>"
+                f"<li><strong>{escape(_device(device))}:</strong> {escape(score_label)} {_fmt(_number(overall.get('value')))} / 100, "
+                f"cobertura {_pct(_number(overall.get('coverage')))}, confiança {escape(_confidence(overall.get('confidence')))} e estado {escape(state)}.</li>"
             )
+        latest_audit_id = str(overall.get("audit_id") or "") if overall else ""
         dimensions = [
             row for row in data.score_history
-            if str(row.get("device") or "").upper() == device.upper()
+            if overall is not None
+            and str(row.get("audit_id") or "") == latest_audit_id
+            and str(row.get("device") or "").upper() == device.upper()
             and str(row.get("dimension") or "") != "OVERALL_READINESS"
             and _number(row.get("value")) is not None
         ]
@@ -313,6 +320,11 @@ def _render_executive(data: ConsolidatedData) -> str:
             bullets.append(
                 f"<li><strong>Apdex {escape(_device(apdex.device))}:</strong> {_fmt(apdex.weighted_apdex, 3)} com {apdex.valid_samples} amostras válidas, "
                 "mas somente grupos classificados como amostra pequena; resultado diagnóstico, não conclusão robusta.</li>"
+            )
+        elif apdex.final_groups:
+            bullets.append(
+                f"<li><strong>Apdex {escape(_device(apdex.device))}:</strong> {_fmt(apdex.weighted_apdex, 3)} com {apdex.valid_samples} amostras válidas em grupo(s) final(is); "
+                "a leitura permanece condicionada ao mesmo perfil sintético e ao mesmo limiar T.</li>"
             )
     return f"<section id='summary'><h2>Leitura para decisão</h2><ul class='decision-list'>{''.join(bullets)}</ul></section>"
 
@@ -501,6 +513,7 @@ def _finding_trend_rows(data: ConsolidatedData) -> list[dict[str, Any]]:
             "value": len(rows),
             "url_count": int(audit.get("url_count") or 0),
             "affected": len({str(row.get("page_id")) for row in rows if row.get("page_id")}),
+            "per_url": (len(rows) / int(audit.get("url_count") or 0)) if int(audit.get("url_count") or 0) > 0 else None,
         })
     output.sort(key=lambda row: str(row.get("event_time") or ""))
     return output
@@ -510,12 +523,12 @@ def _render_findings(data: ConsolidatedData) -> str:
     finding = data.findings
     trend = _finding_trend_rows(data)
     chart = _svg_line_chart(
-        title="Evolução do volume de ocorrências",
+        title="Evolução de ocorrências por URL auditada",
         rows=trend,
-        primary_field="value",
-        primary_label="Ocorrências",
+        primary_field="per_url",
+        primary_label="Ocorrências por URL",
     ) if len(trend) >= 2 else ""
-    caution = "<p class='subtle'>O volume bruto de ocorrências deve ser interpretado junto com a quantidade de URLs auditadas; escopos maiores podem produzir mais ocorrências sem representar piora proporcional.</p>" if trend else ""
+    caution = "<p class='subtle'>A série usa ocorrências por URL auditada para reduzir o viés de mudança de escopo. O volume bruto continua disponível como contexto e não deve ser comparado isoladamente entre auditorias com universos diferentes.</p>" if trend else ""
     return f"""
     <section id='findings'><h2>Ocorrências persistidas</h2>
     <p>As contagens descrevem o histórico observado e não recalculam a Readiness Search & AI.</p>
@@ -547,7 +560,7 @@ def _render_reliability(data: ConsolidatedData) -> str:
       <div><small>Fidelidade às fontes</small><strong>Alta</strong><p>Dados lidos dos SQLite persistidos em modo somente leitura; a consolidação não reexecuta APIs nem o motor de pontuação.</p></div>
       <div><small>Comparabilidade metodológica</small><strong>{'Alta' if comparable else 'Limitada'}</strong><p>{escape('Uma única versão de método/regras no universo selecionado.' if comparable else 'Há mais de uma versão de método ou conjunto de regras; séries incompatíveis são segmentadas/excluídas da agregação.')}</p></div>
       <div><small>Base histórica</small><strong>{escape(mode)}</strong><p>{escape(mode_note)}</p></div>
-      <div><small>Confiança da medição GEO</small><strong>{escape(' · '.join(confidence_items) or 'Indisponível')}</strong><p>É a Confidence persistida pelo RASAi; representa força/cobertura da conclusão, não qualidade do website.</p></div>
+      <div><small>Confiança da readiness</small><strong>{escape(' · '.join(confidence_items) or 'Indisponível')}</strong><p>É a Confidence persistida pelo RASAi; representa força/cobertura da conclusão, não qualidade do website.</p></div>
       <div><small>Robustez do Apdex</small><strong>{escape(apdex_text)}</strong><p>Apdex só é agregado entre perfil e T compatíveis.</p></div>
       <div><small>Validação externa do SCORE-GEO</small><strong>Não estabelecida como preditor</strong><p>O método é interno e reproduzível, mas não é uma métrica oficial de Google/OpenAI nem prova ranking, tráfego ou citação por sistemas generativos.</p></div>
     </div></section>
@@ -558,22 +571,30 @@ def _render_methodology(data: ConsolidatedData) -> str:
     methods = sorted({str(row.get("scoring_version") or "UNKNOWN") for row in data.score_history})
     method_value = ", ".join(methods) or "Não disponível"
     limitations = "".join(f"<li>{escape(item)}</li>" for item in data.limitations) or "<li>Nenhuma limitação adicional registrada pelo consolidador.</li>"
-    score002 = "SCORE-GEO-002" in methods
-    score_explanation = ""
-    if score002:
+    current_method = "SCORE-GEO-004" in methods
+    prior_development_methods = [method for method in methods if method not in {"SCORE-GEO-004", "UNKNOWN"}]
+    if current_method:
         score_explanation = """
-        <h3>Como o SCORE-GEO-002 é calculado</h3>
+        <h3>Como o SCORE-GEO-004 é interpretado</h3>
         <ol>
-          <li>As regras aplicáveis produzem resultados como PASS, WARNING e FAIL. No baseline atual, PASS contribui com fator 1, WARNING usa fator padrão 0,5 e FAIL fator 0; regras correlacionadas podem compartilhar um grupo para evitar dupla penalização da mesma causa.</li>
-          <li>A pontuação da dimensão é <code>soma(peso × fator) / soma dos pesos efetivamente avaliados × 100</code>.</li>
-          <li>A cobertura da dimensão é <code>peso avaliado / peso aplicável</code>. UNKNOWN/ERROR não viram zero automaticamente; reduzem a cobertura/confiabilidade quando aplicável.</li>
-          <li>Dimensão legitimamente não aplicável não recebe 0 nem 100 e fica fora do denominador geral.</li>
-          <li>A Readiness Search & AI geral é a média aritmética simples das dimensões aplicáveis suficientemente consolidadas. A cobertura geral é a média das coberturas dessas dimensões.</li>
-          <li>A confiança é Alta quando cobertura ≥ 90%, evidência está completa e não há erro; Média quando cobertura ≥ 80% e não há erro; nos demais casos mensuráveis é Baixa. A confiança geral é conservadora e adota o menor nível entre as dimensões aplicáveis.</li>
+          <li>Regras aplicáveis produzem resultados persistidos e fatores versionados; ausência de evidência não é convertida silenciosamente em falha.</li>
+          <li>A pontuação de cada dimensão usa <code>soma(peso × fator) / soma dos pesos efetivamente avaliados × 100</code>.</li>
+          <li>Cobertura mede a fração aplicável efetivamente avaliada; Confiança qualifica a força/completude da medição.</li>
+          <li>Dimensão legitimamente não aplicável sai do denominador. Dimensão aplicável sem medição suficiente pode bloquear a consolidação do Overall.</li>
+          <li>O Overall usa igual peso entre dimensões aplicáveis com medição suficiente e não incorpora Lighthouse, Core Web Vitals, Acessibilidade ou Apdex.</li>
         </ol>
         """
+        if prior_development_methods:
+            score_explanation += (
+                "<p class='notice warning'><strong>Dados de desenvolvimento não comparáveis:</strong> o universo selecionado também contém "
+                + escape(", ".join(prior_development_methods))
+                + ". Esses contratos anteriores de desenvolvimento são preservados por rastreabilidade e não são tratados como série equivalente ao SCORE-GEO-004.</p>"
+            )
     else:
-        score_explanation = f"<p>Versão(ões) persistida(s) encontrada(s): <strong>{escape(method_value)}</strong>. O consolidador não recalcula versões históricas nem presume que fórmulas distintas sejam equivalentes.</p>"
+        score_explanation = (
+            f"<p>Versão(ões) persistida(s) encontrada(s): <strong>{escape(method_value)}</strong>. "
+            "O consolidado preserva esses dados de desenvolvimento sem recalcular e sem presumir equivalência com o contrato vigente SCORE-GEO-004.</p>"
+        )
     return f"""
     <section id='method'><h2>Metodologia, cálculos e base técnica</h2>
     <div class='method-grid'>
@@ -636,10 +657,10 @@ def _render_html(data: ConsolidatedData, generated_at: str, request_fingerprint:
 <title>RASAi - Relatório Consolidado</title>
 <style>
 :root{{--bg:#f5f7fb;--surface:#fffefd;--ink:#26354a;--muted:#6e7a8c;--line:rgba(91,108,132,.17);--blue:#637fc2;--blue2:#9ab0df;--green:#6f9f82;--green-soft:#edf6f0;--amber:#b2864f;--amber-soft:#fbf4e8;--red:#b96c70;--red-soft:#faeeee;--soft:#eef2f8;--nav:#2f3a4d}}
-*{{box-sizing:border-box}}html{{scroll-behavior:smooth}}body{{margin:0;background:var(--bg);color:var(--ink);font:14.5px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}}a{{color:#496ba8}}header{{background:var(--nav);color:white;padding:24px 28px}}header h1{{margin:0;font-size:1.6rem}}header p{{margin:.35rem 0 0;color:#d7dfeb}}nav{{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:9px max(18px,calc((100% - 1500px)/2 + 18px));display:flex;gap:7px;overflow:auto}}nav a{{white-space:nowrap;text-decoration:none;color:var(--ink);padding:6px 9px;border-radius:6px}}nav a:hover{{background:var(--soft)}}main{{max-width:1500px;margin:auto;padding:26px}}section,.panel,.chart-card{{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:20px;margin:0 0 18px;box-shadow:0 3px 14px rgba(47,58,78,.035)}}.panel,.chart-card{{margin-top:14px}}h2{{margin:0 0 8px;font-size:1.25rem}}h3{{margin:16px 0 8px}}p{{margin:.4rem 0 1rem}}.subtle,.empty{{color:var(--muted)}}.metric-grid,.reliability-grid,.method-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}}.metric-grid>div,.reliability-grid>div,.method-grid>div{{background:#f7f9fc;border:1px solid rgba(91,108,132,.08);border-radius:7px;padding:12px}}.reliability-grid>div p,.method-grid>div p{{font-size:.92rem;color:var(--muted);margin:.35rem 0 0}}small{{display:block;color:var(--muted);margin-bottom:5px}}strong{{overflow-wrap:anywhere}}.section-title{{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}}.method-badge{{min-width:220px;background:var(--soft);border-radius:7px;padding:10px 12px}}.table-wrap{{overflow:auto;margin-top:12px}}.bounded{{max-height:570px;border:1px solid var(--line);border-radius:7px}}table{{border-collapse:collapse;width:100%;min-width:760px}}th,td{{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}}thead th{{background:#f0f3f8;position:sticky;top:0;z-index:2}}tbody tr:hover{{background:#fafbfe}}.table-tools{{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:12px 0 4px}}.table-tools label{{font-size:.9rem;color:var(--muted)}}input,select,button{{font:inherit;border:1px solid var(--line);border-radius:6px;padding:7px 9px;background:white;color:var(--ink)}}input[type=search]{{min-width:240px}}button{{cursor:pointer}}button:disabled{{opacity:.45;cursor:default}}.pager{{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}}.notice{{background:var(--amber-soft);border-left:4px solid var(--amber);padding:10px 12px;border-radius:4px}}.notice.info{{background:var(--soft);border-color:var(--blue)}}.notice.warning{{background:var(--amber-soft)}}.notes{{padding-left:20px}}.decision-list{{padding-left:20px}}.decision-list li{{margin:.45rem 0}}.chips{{display:flex;gap:5px;flex-wrap:wrap}}.chip{{display:inline-flex;gap:5px;align-items:center;background:var(--soft);border-radius:999px;padding:3px 8px;font-size:.86rem}}.details{{margin-top:13px;border-top:1px solid var(--line);padding-top:11px}}.details summary{{cursor:pointer;font-weight:650}}code{{word-break:break-all;background:#f3f5f8;padding:1px 4px;border-radius:4px}}.chart-card{{padding:14px 16px}}.chart-heading{{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}}.chart-heading h3{{margin:0}}.chart-heading p{{color:var(--muted);margin:.25rem 0 0}}.chart-scroll{{overflow:auto}}svg{{width:100%;min-width:720px;height:auto}}.grid-line{{stroke:#e2e7ef;stroke-width:1}}.axis-label{{fill:#718096;font-size:11px}}.trend-line{{fill:none;stroke-width:2.5}}.primary-line{{stroke:var(--blue)}}.secondary-line{{stroke:var(--green)}}.dot{{stroke:white;stroke-width:1.5}}.primary-dot{{fill:var(--blue)}}.secondary-dot{{fill:var(--green)}}.legend-row{{display:flex;gap:12px;flex-wrap:wrap}}.legend:before{{content:'';display:inline-block;width:18px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}}.primary-legend:before{{background:var(--blue)}}.secondary-legend:before{{background:var(--green)}}.matrix th small{{font-weight:400;margin-top:2px}}.heat{{text-align:center;font-variant-numeric:tabular-nums}}.heat.high{{background:var(--green-soft)}}.heat.mid{{background:#fff8e9}}.heat.low{{background:var(--red-soft)}}.heat.na{{color:var(--muted);background:#f7f8fa}}.references li{{margin:.35rem 0}}footer{{color:var(--muted);padding:0 4px 30px;font-size:.9rem}}@media(max-width:760px){{main{{padding:16px}}header{{padding:18px}}.section-title,.chart-heading{{display:block}}.method-badge{{margin-top:10px}}input[type=search]{{min-width:180px;width:100%}}}}
+*{{box-sizing:border-box}}html{{scroll-behavior:smooth}}body{{margin:0;background:var(--bg);color:var(--ink);font:14.5px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}}a{{color:#496ba8}}header{{background:var(--nav);color:white;padding:24px 28px}}header h1{{margin:0;font-size:1.6rem}}header p{{margin:.35rem 0 0;color:#d7dfeb}}nav{{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:9px max(18px,calc((100% - 1500px)/2 + 18px));display:flex;gap:7px;overflow:auto}}nav a{{white-space:nowrap;text-decoration:none;color:var(--ink);padding:6px 9px;border-radius:6px}}nav a:hover{{background:var(--soft)}}main{{max-width:1500px;margin:auto;padding:26px}}section,.panel,.chart-card{{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:20px;margin:0 0 18px;box-shadow:0 3px 14px rgba(47,58,78,.035)}}.panel,.chart-card{{margin-top:14px}}h2{{margin:0 0 8px;font-size:1.25rem}}h3{{margin:16px 0 8px}}p{{margin:.4rem 0 1rem}}.subtle,.empty{{color:var(--muted)}}.metric-grid,.reliability-grid,.method-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}}.metric-grid>div,.reliability-grid>div,.method-grid>div{{background:#f7f9fc;border:1px solid rgba(91,108,132,.08);border-radius:7px;padding:12px}}.reliability-grid>div p,.method-grid>div p{{font-size:.92rem;color:var(--muted);margin:.35rem 0 0}}small{{display:block;color:var(--muted);margin-bottom:5px}}strong{{overflow-wrap:anywhere}}.section-title{{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}}.method-badge{{min-width:220px;background:var(--soft);border-radius:7px;padding:10px 12px}}.table-wrap{{overflow:auto;margin-top:12px}}.bounded{{max-height:570px;border:1px solid var(--line);border-radius:7px}}table{{border-collapse:collapse;width:100%;min-width:760px}}th,td{{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}}thead th{{background:#f0f3f8;position:sticky;top:0;z-index:2}}tbody tr:hover{{background:#fafbfe}}.table-tools{{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:12px 0 4px}}.table-tools label{{font-size:.9rem;color:var(--muted)}}input,select,button{{font:inherit;border:1px solid var(--line);border-radius:6px;padding:7px 9px;background:white;color:var(--ink)}}input[type=search]{{min-width:240px}}button{{cursor:pointer}}button:disabled{{opacity:.45;cursor:default}}.pager{{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}}.notice{{background:var(--amber-soft);border-left:4px solid var(--amber);padding:10px 12px;border-radius:4px}}.notice.info{{background:var(--soft);border-color:var(--blue)}}.notice.warning{{background:var(--amber-soft)}}.notes{{padding-left:20px}}.decision-list{{padding-left:20px}}.decision-list li{{margin:.45rem 0}}.chips{{display:flex;gap:5px;flex-wrap:wrap}}.chip{{display:inline-flex;gap:5px;align-items:center;background:var(--soft);border-radius:999px;padding:3px 8px;font-size:.86rem}}.details{{margin-top:13px;border-top:1px solid var(--line);padding-top:11px}}.details summary{{cursor:pointer;font-weight:650}}code{{word-break:break-all;background:#f3f5f8;padding:1px 4px;border-radius:4px}}.chart-card{{padding:14px 16px}}.chart-heading{{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}}.chart-heading h3{{margin:0}}.chart-heading p{{color:var(--muted);margin:.25rem 0 0}}.chart-scroll{{overflow:auto}}svg{{width:100%;min-width:720px;height:auto}}.grid-line{{stroke:#e2e7ef;stroke-width:1}}.axis-label{{fill:#718096;font-size:11px}}.trend-line{{fill:none;stroke-width:2.5}}.primary-line{{stroke:var(--blue)}}.secondary-line{{stroke:var(--green)}}.dot{{stroke:white;stroke-width:1.5}}.primary-dot{{fill:var(--blue)}}.secondary-dot{{fill:var(--green)}}.legend-row{{display:flex;gap:12px;flex-wrap:wrap}}.legend:before{{content:'';display:inline-block;width:18px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}}.primary-legend:before{{background:var(--blue)}}.secondary-legend:before{{background:var(--green)}}.matrix th small{{font-weight:400;margin-top:2px}}.heat{{text-align:center;font-variant-numeric:tabular-nums}}.heat.high{{background:var(--green-soft)}}.heat.mid{{background:#fff8e9}}.heat.low{{background:var(--red-soft)}}.heat.na{{color:var(--muted);background:#f7f8fa}}.result-tag{{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:.72rem;font-weight:700}}.result-tag.good{{background:var(--green-soft);color:#3f7452}}.result-tag.warn{{background:var(--amber-soft);color:#855f2c}}.result-tag.bad{{background:var(--red-soft);color:#98494c}}tr.result-state-warn{{background:var(--amber-soft)}}tr.result-state-bad{{background:var(--red-soft)}}tr.result-state-good>td:first-child{{box-shadow:inset 3px 0 0 var(--green)}}tr.result-state-warn>td:first-child{{box-shadow:inset 3px 0 0 var(--amber)}}tr.result-state-bad>td:first-child{{box-shadow:inset 3px 0 0 var(--red)}}.references li{{margin:.35rem 0}}footer{{color:var(--muted);padding:0 4px 30px;font-size:.9rem}}@media(max-width:760px){{main{{padding:16px}}header{{padding:18px}}.section-title,.chart-heading{{display:block}}.method-badge{{margin-top:10px}}input[type=search]{{min-width:180px;width:100%}}}}
 </style></head><body>
 <header><h1>RASAi - Relatório Consolidado</h1><p>Snapshot estático e offline de indicadores persistidos · {escape(mode)}</p></header>
-<nav aria-label='Navegação do relatório'><a href='#summary'>Resumo</a><a href='#evolution'>Evolução</a><a href='#scores'>Readiness Search & AI</a><a href='#performance'>Desempenho</a><a href='#apdex'>Apdex</a><a href='#findings'>Ocorrências</a><a href='#reliability'>Confiabilidade</a><a href='#sources'>Auditorias</a><a href='#method'>Metodologia</a></nav>
+<nav aria-label='Navegação do relatório'><a href='#summary'>Resumo</a><a href='#scores'>Readiness Search & AI</a><a href='#evolution'>Evolução</a><a href='#performance'>Desempenho</a><a href='#apdex'>Apdex</a><a href='#findings'>Ocorrências</a><a href='#reliability'>Confiabilidade</a><a href='#sources'>Auditorias</a><a href='#method'>Metodologia</a></nav>
 <main>
 <section id='scope'><h2>Escopo observado</h2><div class='metric-grid'>
 <div><small>Auditorias consideradas</small><strong>{len(data.audits)}</strong></div><div><small>URLs únicas</small><strong>{data.unique_urls}</strong></div>
@@ -648,8 +669,8 @@ def _render_html(data: ConsolidatedData, generated_at: str, request_fingerprint:
 <div><small>Período solicitado</small><strong>{escape(str(filters['date_from'] or 'início'))} → {escape(str(filters['date_to'] or 'fim'))}</strong></div><div><small>URLs filtradas explicitamente</small><strong>{len(filters['urls']) if filters['urls'] else 'todas as elegíveis'}</strong></div>
 </div></section>
 {_render_executive(data)}
-{_render_score_trends(data)}
 {_render_scores(data)}
+{_render_score_trends(data)}
 {_render_dimension_matrix(data)}
 {_render_performance(data)}
 {_render_apdex(data)}
@@ -752,7 +773,10 @@ def write_report(*, audits_root: Path, data: ConsolidatedData, refresh: RefreshR
             "issues": [asdict(item) for item in refresh.issues],
         },
     }
-    report_path.write_text(_render_html(data, generated_at, fingerprint), encoding="utf-8")
+    rendered = _render_html(data, generated_at, fingerprint)
+    rendered = enhance_report_html(rendered, page_name="consolidated.html", report_dir=output)
+    rendered = humanize_report_html(rendered, page_name="consolidated.html")
+    report_path.write_text(rendered, encoding="utf-8")
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
     return GenerationResult(
         report_dir=output,

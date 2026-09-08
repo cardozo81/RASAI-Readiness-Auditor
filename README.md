@@ -51,7 +51,7 @@ EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
 
 As dimensões são calculadas deterministicamente a partir de `RuleExecution` e evidências persistidas. Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador. Estados insuficientes não são convertidos em zero.
 
-`SCORE-GEO-004` **não depende de model artifact externo**. `SCORE-GEO-003`, `SCORE-GEO-002` e versões anteriores são metodologias históricas e permanecem identificadas pela `scoring_version` original de cada AUD.
+`SCORE-GEO-004` **não depende de model artifact externo**. `SCORE-GEO-003`, `SCORE-GEO-002` e versões anteriores são propostas metodológicas anteriores de desenvolvimento e permanecem identificadas pela `scoring_version` original de cada AUD.
 
 Para inspecionar o contrato atual:
 
@@ -59,7 +59,7 @@ Para inspecionar o contrato atual:
 rasai scoring inspect
 ```
 
-Fluxos de dataset/calibração associados ao método histórico 003 não são requisitos do runtime 004.
+Fluxos de dataset/calibração associados ao método anterior de desenvolvimento 003 não são requisitos do runtime 004.
 
 Documentação: [docs/SCORE_GEO_004.md](docs/SCORE_GEO_004.md), [docs/SCORING_GUIDE.md](docs/SCORING_GUIDE.md) e [docs/SARI_READINESS_INDEX.md](docs/SARI_READINESS_INDEX.md).
 
@@ -347,3 +347,8 @@ Princípios:
 ## Limite de validade
 
 RASAi fornece auditoria técnica/semântica, evidência, heurísticas proprietárias, métricas externas separadas e suporte à decisão. Não garante ranking, citação, tráfego, conversão, conformidade integral ou causalidade de resultado externo.
+
+<!-- rasai-doc-index-20260908 -->
+## Contrato da documentação
+
+A documentação está organizada em [`docs/README.md`](docs/README.md). O projeto está em desenvolvimento e validação; referências a métodos anteriores significam propostas/baselines de desenvolvimento preservados para rastreabilidade, não releases públicas anteriores.

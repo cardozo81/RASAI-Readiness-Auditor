@@ -1,6 +1,6 @@
 # Rastreamento, descoberta e acesso de crawlers
 
-**Status:** INTEGRATED BASELINE  
+**Estado no baseline de desenvolvimento:** INTEGRATED BASELINE  
 **Natureza:** diagnóstico técnico determinístico por padrão e non-scoring  
 **Scoring boundary:** `SARI-001` / `SCORE-GEO-004`
 

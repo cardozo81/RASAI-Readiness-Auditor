@@ -7,7 +7,8 @@ import re
 import tempfile
 import unittest
 
-from rasai.report_navigation import NAV_ITEMS, normalize_report_navigation
+from rasai.report_contract import CANONICAL_NAV_ITEMS
+from rasai.report_navigation import normalize_report_navigation
 
 
 _LINK_RE = re.compile(r"<a class='([^']*)' href='([^']+)'>([^<]+)</a>")
@@ -18,7 +19,7 @@ class ReportNavigationTests(unittest.TestCase):
     def test_all_generated_pages_share_canonical_order_current_item_and_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report_dir = Path(tmp)
-            filenames = [filename for _, filename in NAV_ITEMS]
+            filenames = [filename for _, filename in CANONICAL_NAV_ITEMS]
             for index, filename in enumerate(filenames):
                 old_links = "".join(f"<a href='{name}'>{name}</a>" for name in reversed(filenames[: index + 1]))
                 (report_dir / filename).write_text(
@@ -32,7 +33,7 @@ class ReportNavigationTests(unittest.TestCase):
                 software_version="9.9.9",
             )
 
-            expected = [(filename, label) for label, filename in NAV_ITEMS]
+            expected = [(filename, label) for label, filename in CANONICAL_NAV_ITEMS]
             for filename in filenames:
                 html = (report_dir / filename).read_text(encoding="utf-8")
                 nav_match = _NAV_RE.search(html)
@@ -128,8 +129,8 @@ class ReportNavigationTests(unittest.TestCase):
             normalize_report_navigation(report_dir)
             html = (report_dir / "index.html").read_text(encoding="utf-8")
             hrefs = [href for _, href, _ in _LINK_RE.findall(_NAV_RE.search(html).group(1))]
-            self.assertLess(hrefs.index("content-suggestions.html"), hrefs.index("accessibility.html"))
             self.assertLess(hrefs.index("accessibility.html"), hrefs.index("web-performance.html"))
+            self.assertLess(hrefs.index("web-performance.html"), hrefs.index("content-suggestions.html"))
 
     def test_ai_cost_total_sums_m18_and_m20_without_double_counting(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

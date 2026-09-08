@@ -1,6 +1,6 @@
 # Auditoria multi-URL e evidência visual - Multi-URL Audit + Visual/DOM Evidence + Actionable Remediation
 
-**Status:** NORMATIVE EVOLUTION
+**Estado no baseline de desenvolvimento:** NORMATIVE EVOLUTION
 **Capacidade:** Auditoria multi-URL e evidência visual
 **Report contract:** `REPORT-GEO-003`
 **Scoring contract:** `SCORE-GEO-003` - unchanged by this capability
