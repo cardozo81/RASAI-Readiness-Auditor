@@ -41,6 +41,18 @@ _PUBLIC_LABELS: dict[str, str] = {
     "NOT_APPLICABLE": "Não aplicável",
     "VALID": "Válido",
     "INVALID": "Inválido",
+    # SCORE-GEO/SARI dimensions when rendered as isolated user-facing values.
+    "TECHNICAL_ACCESSIBILITY": "Acessibilidade técnica",
+    "INDEXABILITY": "Capacidade de indexação",
+    "CONTENT_EXTRACTABILITY": "Extração de conteúdo",
+    "SEMANTIC_STRUCTURE": "Estrutura semântica",
+    "ENTITY_CLARITY": "Clareza de entidades",
+    "STRUCTURED_DATA": "Dados estruturados",
+    "ANSWERABILITY": "Capacidade de resposta",
+    "CITATION_READINESS": "Prontidão para citação",
+    "EVIDENCE_TRUST": "Confiança da evidência",
+    "INTENT_COVERAGE": "Cobertura de intenção",
+    "OVERALL_READINESS": "Readiness geral",
     # Severity and confidence.
     "CRITICAL": "Crítica",
     "HIGH": "Alta",
