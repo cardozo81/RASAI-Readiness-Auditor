@@ -127,13 +127,30 @@ Se `STRUCTURED_DATA` for legitimamente `NOT_APPLICABLE`, a dimensão sai do deno
 
 Se a aplicabilidade estiver indefinida por pré-requisito bloqueado, o estado não pode ser promovido a `NOT_APPLICABLE` benigno.
 
-## IA
+## IA e baseline semântico determinístico
 
-IA é opcional para o pipeline base, mas determinadas regras semânticas podem precisar de análise suficiente para produzir resultado em vez de `UNKNOWN`.
+A fórmula do `SCORE-GEO-004` não chama IA e não depende de provider específico. O `ScoringEngine` calcula Score, Coverage, Confidence e Consolidation exclusivamente a partir de `RuleExecution` e evidências persistidas.
 
-Quando regras aplicáveis permanecem sem avaliação, Coverage e Confidence podem cair e impedir `CONSOLIDATED`.
+A partir do M7 rule version 2, auditorias sem provider utilizam o baseline local versionado:
 
-A fórmula do Overall não chama IA e não depende de provider específico.
+```text
+SEMANTIC-BASELINE-001
+```
+
+Esse baseline é evidence-bound e conservador:
+
+- usa apenas title, headings, conteúdo principal, links, Structured Data e demais evidências já persistidas no mesmo snapshot;
+- não chama serviço externo;
+- produz `PASS` somente quando existe evidência positiva suficiente;
+- produz `NOT_APPLICABLE` somente quando a aplicabilidade pode ser resolvida de forma defensável;
+- não converte ausência de evidência em `PASS`, `FAIL` ou `NOT_APPLICABLE` artificial;
+- quando o critério continua irresolvido e não existe provider válido, o resultado permanece `UNKNOWN`.
+
+Assim, **a ausência de IA deixa de bloquear mecanicamente a consolidação**. Uma auditoria `NO_AI` pode ser `CONSOLIDATED` quando todas as dimensões aplicáveis atingem os mesmos gates normais de Coverage e Confidence. Isso não significa que toda auditoria sem IA será consolidada.
+
+Quando um provider semântico válido é configurado, ele pode aprofundar regras que exigem interpretação mais rica. A provenance da medição diferencia `DETERMINISTIC_BASELINE` de providers externos. Falha operacional de provider explicitamente configurado continua visível como degradação e não é atribuída ao website.
+
+Detalhes: [`SEMANTIC_BASELINE.md`](SEMANTIC_BASELINE.md).
 
 ## Métricas externas independentes
 
@@ -157,6 +174,8 @@ Essas medições possuem metodologias e páginas próprias. Indisponibilidade de
 - ScoreContributions;
 - evidências persistidas;
 - fórmula e thresholds versionados do `SCORE-GEO-004`.
+
+Quando o baseline semântico é usado, sua provenance também é persistida por `provider=DETERMINISTIC_BASELINE`, `configuration_version=SEMANTIC-BASELINE-001` e capability de auditoria correspondente.
 
 Não é necessário reexecutar website, IA ou APIs externas para reproduzir o cálculo persistido.
 
@@ -186,5 +205,7 @@ Preservar a referência histórica é necessário para comparabilidade e auditor
 ## Limite de validade
 
 `SCORE-GEO-004` é uma metodologia proprietária, transparente, versionada e reproduzível do RASAi.
+
+O baseline semântico também é proprietário e inclui heurísticas internas para critérios sem standard GEO/AEO universal. Ele não transforma essas heurísticas em recomendações oficiais de terceiros.
 
 Não é um standard oficial de Google, Microsoft, OpenAI, Anthropic ou outro mantenedor e não garante ranking, tráfego, conversão, resposta ou citação futura.

@@ -134,11 +134,17 @@ Quando `STRUCTURED_DATA` é legitimamente `NOT_APPLICABLE`, a dimensão sai do d
 
 Pré-requisito bloqueado não pode ser tratado como `NOT_APPLICABLE` benigno.
 
-## IA
+## IA e baseline determinístico
 
-IA é opcional para o pipeline base. Entretanto, regras semânticas aplicáveis que permaneçam `UNKNOWN` por ausência ou falha da análise podem reduzir Coverage/Confidence.
+IA é opcional para o pipeline de scoring. Ela não calcula o score.
 
-A fórmula do Overall não chama IA e não depende de provider específico.
+Sem provider, o M7 rule version 2 usa `SEMANTIC-BASELINE-001` para resolver somente critérios que possuam evidência local suficiente. O baseline não usa rede e não promove lacunas para resultado favorável.
+
+Uma execução `NO_AI` pode alcançar `CONSOLIDATED` quando o baseline e as demais regras produzirem Coverage/Confidence suficientes. Se faltarem evidências para regras aplicáveis, `UNKNOWN` continua possível e os gates normais continuam valendo.
+
+Provider semântico válido pode aprofundar avaliações. Auditorias com e sem provider não devem ser consideradas medições semanticamente idênticas sem observar `audit_mode`, rule version e provenance; o cálculo matemático do `SCORE-GEO-004`, porém, é o mesmo.
+
+Detalhes: [`SEMANTIC_BASELINE.md`](SEMANTIC_BASELINE.md).
 
 ## Métricas externas fora do score
 
@@ -194,6 +200,8 @@ O comando não cria model artifact e não executa rede.
 - evidências persistidas;
 - `SCORE-GEO-004` e seu contrato de agregação.
 
+Avaliações `DETERMINISTIC_BASELINE` registram também `SEMANTIC-BASELINE-001` como configuration version/capability.
+
 Não é necessário reexecutar website, IA ou APIs externas.
 
 ## Relatórios e versionamento do path
@@ -211,4 +219,4 @@ Relatórios consolidados preservam `scoring_version` como parte da comparabilida
 
 ## Limite de validade
 
-SCORE-GEO-004 é uma métrica proprietária, transparente e reproduzível. Não é certificação oficial de Google, Microsoft, OpenAI, Anthropic ou outro mantenedor e não garante ranking, tráfego, conversão ou citação futura.
+SCORE-GEO-004 é uma métrica proprietária, transparente e reproduzível. O baseline semântico é igualmente proprietário e não deve ser apresentado como standard GEO/AEO universal. Nenhum deles é certificação oficial de Google, Microsoft, OpenAI, Anthropic ou outro mantenedor e não garante ranking, tráfego, conversão ou citação futura.

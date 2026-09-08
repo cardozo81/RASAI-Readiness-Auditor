@@ -355,17 +355,46 @@ HTTP 500 + sem entidade + sem resposta + sem intent + baixa citation readiness.
 
 ## 19. IA e fallback
 
-Semantic-only + IA indisponível:
+O M7 possui dois caminhos de evidência semântica, preservando a mesma camada posterior de scoring:
 
-UNKNOWN
-reason = AI_NOT_CONFIGURED ou AI_PROVIDER_UNAVAILABLE
+```text
+baseline local: SEMANTIC-BASELINE-001
+provider externo: opcional
+```
 
-Hybrid:
+### NO_AI / provider não configurado
 
-executa componentes determinísticos/heurísticos seguros;
-componente semântico fica UNKNOWN.
+O baseline determinístico executa primeiro os critérios que podem ser sustentados por evidência persistida do snapshot, como title, headings, conteúdo principal, links e Structured Data.
 
-Ausência de IA nunca gera penalidade do website.
+Política:
+
+- `PASS` somente com evidência positiva suficiente;
+- `NOT_APPLICABLE` somente quando a aplicabilidade puder ser resolvida de forma defensável;
+- ausência de evidência não vira `PASS`;
+- ausência de evidência não vira `FAIL`;
+- critério não resolvido permanece `UNKNOWN`.
+
+Portanto, `NO_AI` **não significa automaticamente baixa Coverage**. A auditoria pode ser consolidada sem IA quando os grupos aplicáveis forem suficientemente avaliados e os gates normais do `SCORE-GEO-004` forem satisfeitos.
+
+### Provider configurado
+
+Uma resposta válida e evidence-bound do provider pode aprofundar a avaliação semântica. Fatos determinísticos fortes continuam tendo precedência.
+
+Falha de provider explicitamente configurado permanece visível como degradação (`AI_PROVIDER_UNAVAILABLE`) quando o critério não possui resultado válido; essa falha nunca é convertida em `FAIL` do website.
+
+### Provenance
+
+Avaliações do baseline são persistidas com:
+
+```text
+provider = DETERMINISTIC_BASELINE
+configuration_version = SEMANTIC-BASELINE-001
+rule_version = 2
+```
+
+A capability `semantic_baseline:SEMANTIC-BASELINE-001` identifica auditorias em que o baseline foi efetivamente utilizado.
+
+Ausência de IA nunca gera penalidade do website e deixa de ser, por si só, bloqueador mecânico de consolidação.
 
 ## 20. Basis Type
 

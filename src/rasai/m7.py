@@ -1,4 +1,4 @@
-"""M7 - provider-independent semantic analysis, fallback and BR-GEO-028..049."""
+"""M7 - provider-independent semantic analysis, deterministic baseline and BR-GEO-028..049."""
 
 from __future__ import annotations
 
@@ -37,10 +37,17 @@ from rasai.semantic import (
     SemanticProviderResponse,
     SemanticRuleAssessment,
 )
+from rasai.semantic_baseline import (
+    BASELINE_VERSION,
+    BaselineAssessment,
+    evaluate_semantic_baseline,
+)
 from rasai.semantic_persistence import EntityObservation, SemanticAssessment, SemanticPersistence
 
 
-_RULE_VERSION = "1"
+# M7 rule semantics changed because deterministic evidence can now resolve a
+# conservative no-AI baseline. The SCORE-GEO-004 aggregation contract is unchanged.
+_RULE_VERSION = "2"
 
 _RULE_SPECS = (
     (28, "Page title must be present and semantically representative", "SEMANTIC_STRUCTURE", Severity.HIGH, "SEMANTIC_TITLE"),
@@ -169,7 +176,7 @@ def execute_m7(
     workspace: AuditWorkspace,
     provider: SemanticAnalysisProvider | None = None,
 ) -> M7ExecutionResult:
-    """Execute provider/fallback semantic analysis independently for every snapshot."""
+    """Execute semantic analysis with a deterministic no-AI baseline per snapshot."""
 
     active_provider = provider or NoneProvider()
     audit = persistence.audits.get(audit_id)
@@ -194,6 +201,7 @@ def execute_m7(
     entity_ids: list[str] = []
     provider_states: dict[str, ProviderState] = {}
     limitations = list(audit.limitations)
+    baseline_used = False
 
     with SemanticPersistence(workspace) as semantic_store:
         for page_id, per_device in m3_result.snapshot_ids.items():
@@ -215,6 +223,7 @@ def execute_m7(
                     workspace,
                     evidence_manager,
                 )
+                baseline_by_rule = evaluate_semantic_baseline(semantic_input)
                 call = _safe_provider_call(active_provider, semantic_input)
                 if call.response is not None and not _normalized_response_is_valid(
                     call.response,
@@ -272,7 +281,9 @@ def execute_m7(
                             call,
                             context_evidence_id,
                             response,
+                            baseline_by_rule.get(definition.rule_id),
                         )
+                    baseline_used = baseline_used or outcome.metadata.provider == "DETERMINISTIC_BASELINE"
 
                     semantic_assessment = SemanticAssessment(
                         assessment_id=new_id("SMA"),
@@ -339,13 +350,14 @@ def execute_m7(
     refreshed = persistence.audits.get(audit_id)
     if refreshed is None:
         raise ValueError(f"audit disappeared: {audit_id}")
+    baseline_capabilities = (f"semantic_baseline:{BASELINE_VERSION}",) if baseline_used else ()
     persistence.audits.update(
         replace(
             refreshed,
             audit_mode=mode,
             capabilities=tuple(
                 dict.fromkeys(
-                    (*refreshed.capabilities, f"semantic_provider:{active_provider.name}")
+                    (*refreshed.capabilities, f"semantic_provider:{active_provider.name}", *baseline_capabilities)
                 )
             ),
             limitations=tuple(dict.fromkeys(limitations)),
@@ -541,8 +553,8 @@ def _blocked_outcome(
             provider="FALLBACK",
             model=None,
             prompt_id="deterministic-m7",
-            prompt_version="1",
-            configuration_version="1",
+            prompt_version="2",
+            configuration_version="2",
             reasoning_summary="Prerequisite technical/content rule blocked semantic evaluation.",
         ),
         provider_used=False,
@@ -557,7 +569,9 @@ def _evaluate(
     call: ProviderCallResult,
     context_evidence_id: str,
     response: SemanticProviderResponse | None,
+    baseline_assessment: BaselineAssessment | None,
 ) -> _Outcome:
+    # Hard deterministic facts are authoritative in every mode.
     deterministic = _deterministic_outcome(
         rule_id,
         title,
@@ -581,68 +595,102 @@ def _evaluate(
                 provider="DETERMINISTIC",
                 model=None,
                 prompt_id="deterministic-m7",
-                prompt_version="1",
-                configuration_version="1",
+                prompt_version="2",
+                configuration_version="2",
                 reasoning_summary="Structured Data is absent; the consistency rule is not applicable.",
             ),
             provider_used=False,
         )
 
-    if provider_assessment is None or response is None:
-        reason = call.reason or (
-            "AI_OUTPUT_MISSING_RULE"
-            if call.state is ProviderState.AVAILABLE
-            else "AI_NOT_CONFIGURED"
-        )
+    # Preserve provider behavior when a valid semantic assessment exists. The
+    # deterministic baseline is the fallback for NO_AI / missing provider output,
+    # not a silent override of a configured semantic provider.
+    if provider_assessment is not None and response is not None:
+        observed = provider_assessment.observed_value
+        if rule_id == "BR-GEO-048":
+            observed = {
+                "provider_observed": provider_assessment.observed_value,
+                "primary_intent": response.primary_intent,
+                "secondary_intents": list(response.secondary_intents),
+            }
         return _Outcome(
             evaluation=RuleEvaluation(
-                RuleResult.UNKNOWN,
-                {"reason": reason, "provider_state": call.state.value},
+                provider_assessment.result,
+                observed,
                 _EXPECTED[rule_id],
-                reason=reason,
+                reason=(
+                    provider_assessment.reasoning_summary
+                    if provider_assessment.result is RuleResult.UNKNOWN
+                    else None
+                ),
             ),
-            confidence=0.0,
-            source_evidence_ids=(context_evidence_id,),
+            confidence=provider_assessment.confidence,
+            source_evidence_ids=provider_assessment.evidence_ids,
             metadata=_AssessmentMetadata(
-                provider="NONE" if call.state is ProviderState.NOT_CONFIGURED else "UNAVAILABLE",
-                model=None,
-                prompt_id="semantic-fallback",
-                prompt_version="1",
-                configuration_version="1",
-                reasoning_summary=reason,
+                provider=response.provider,
+                model=response.model,
+                prompt_id=response.prompt_id,
+                prompt_version=response.prompt_version,
+                configuration_version=response.configuration_version,
+                reasoning_summary=provider_assessment.reasoning_summary,
             ),
-            provider_used=False,
+            provider_used=True,
         )
 
-    observed = provider_assessment.observed_value
-    if rule_id == "BR-GEO-048":
-        observed = {
-            "provider_observed": provider_assessment.observed_value,
-            "primary_intent": response.primary_intent,
-            "secondary_intents": list(response.secondary_intents),
-        }
+    # A deliberately unavailable/invalid configured provider remains visible as
+    # degradation. Explicit NO_AI and valid-but-incomplete provider responses may
+    # use the local evidence-bound baseline instead.
+    if (
+        baseline_assessment is not None
+        and call.state in {ProviderState.NOT_CONFIGURED, ProviderState.AVAILABLE}
+    ):
+        return _baseline_outcome(baseline_assessment)
+
+    reason = call.reason or (
+        "AI_OUTPUT_MISSING_RULE"
+        if call.state is ProviderState.AVAILABLE
+        else "AI_NOT_CONFIGURED"
+    )
     return _Outcome(
         evaluation=RuleEvaluation(
-            provider_assessment.result,
-            observed,
+            RuleResult.UNKNOWN,
+            {"reason": reason, "provider_state": call.state.value},
             _EXPECTED[rule_id],
-            reason=(
-                provider_assessment.reasoning_summary
-                if provider_assessment.result is RuleResult.UNKNOWN
-                else None
-            ),
+            reason=reason,
         ),
-        confidence=provider_assessment.confidence,
-        source_evidence_ids=provider_assessment.evidence_ids,
+        confidence=0.0,
+        source_evidence_ids=(context_evidence_id,),
         metadata=_AssessmentMetadata(
-            provider=response.provider,
-            model=response.model,
-            prompt_id=response.prompt_id,
-            prompt_version=response.prompt_version,
-            configuration_version=response.configuration_version,
-            reasoning_summary=provider_assessment.reasoning_summary,
+            provider="NONE" if call.state is ProviderState.NOT_CONFIGURED else "UNAVAILABLE",
+            model=None,
+            prompt_id="semantic-fallback",
+            prompt_version="2",
+            configuration_version="2",
+            reasoning_summary=reason,
         ),
-        provider_used=True,
+        provider_used=False,
+    )
+
+
+def _baseline_outcome(assessment: BaselineAssessment) -> _Outcome:
+    return _Outcome(
+        evaluation=RuleEvaluation(
+            assessment.result,
+            assessment.observed_value,
+            _EXPECTED[assessment.rule_id],
+            reason=assessment.reason,
+        ),
+        confidence=assessment.confidence,
+        source_evidence_ids=assessment.evidence_ids,
+        metadata=_AssessmentMetadata(
+            provider="DETERMINISTIC_BASELINE",
+            model=None,
+            prompt_id="deterministic-semantic-baseline",
+            prompt_version="1",
+            configuration_version=BASELINE_VERSION,
+            reasoning_summary=assessment.reasoning_summary,
+        ),
+        provider_used=False,
     )
 
 
@@ -656,8 +704,8 @@ def _deterministic_outcome(
         provider="DETERMINISTIC",
         model=None,
         prompt_id="deterministic-m7",
-        prompt_version="1",
-        configuration_version="1",
+        prompt_version="2",
+        configuration_version="2",
         reasoning_summary="",
     )
 
