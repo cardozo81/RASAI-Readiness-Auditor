@@ -44,8 +44,7 @@ jobs:
             tests/test_m24_crawling_discovery.py \
             tests/test_m9_scoring.py \
             tests/test_score_geo_004.py \
-            tests/test_score_geo_004_applicability.py \
-            tests/test_report_public_contract_adherence.py
+            tests/test_score_geo_004_applicability.py
       - name: Full regression
         run: pytest -q
       - name: Commit validated implementation
