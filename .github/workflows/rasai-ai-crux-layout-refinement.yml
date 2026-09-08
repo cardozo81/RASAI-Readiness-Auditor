@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/rasai_ai_crux_layout_refinement.py'
+      - '.github/rasai_ai_crux_layout_refinement_v2.py'
       - '.github/workflows/rasai-ai-crux-layout-refinement.yml'
   workflow_dispatch:
 
@@ -32,7 +33,7 @@ jobs:
       - name: Install Chromium
         run: python -m playwright install --with-deps chromium
       - name: Apply refinement
-        run: python .github/rasai_ai_crux_layout_refinement.py
+        run: python .github/rasai_ai_crux_layout_refinement_v2.py
       - name: Compile changed runtime
         run: python -m compileall -q src/rasai
       - name: Public contract gate
@@ -56,7 +57,7 @@ jobs:
         run: |
           git config user.name 'RASAi CI'
           git config user.email 'rasai-ci@users.noreply.github.com'
-          git rm -f .github/rasai_ai_crux_layout_refinement.py .github/workflows/rasai-ai-crux-layout-refinement.yml
+          git rm -f .github/rasai_ai_crux_layout_refinement.py .github/rasai_ai_crux_layout_refinement_v2.py .github/workflows/rasai-ai-crux-layout-refinement.yml
           git add -A
           if git diff --cached --quiet; then
             echo 'No validated changes to commit.'
