@@ -39,7 +39,7 @@ def write_quality_report(audit_workspace: str | Path) -> Path:
 <header class='hero'>
   <div class='eyebrow'>RASAi Quality · derivado · non-scoring</div>
   <h1>Qualidade da auditoria e decisão</h1>
-  <p class='lead'>Avalia a qualidade da própria evidência RASAi, prioriza findings acionáveis e valida a coerência das recomendações sem alterar SARI-001/SCORE-GEO-003.</p>
+  <p class='lead'>Avalia a qualidade da própria evidência RASAi, prioriza findings acionáveis e valida a coerência das recomendações sem alterar SARI-001/SCORE-GEO-004.</p>
   <div class='metric-grid'>
     {_metric('Audit health', bundle.health_status)}
     {_metric('Findings', len(bundle.finding_assessments))}
