@@ -51,13 +51,15 @@ EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
 
 As dimensões são calculadas deterministicamente a partir de `RuleExecution` e evidências persistidas. Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador. Estados insuficientes não são convertidos em zero.
 
-`SCORE-GEO-004` **não depende de model artifact externo**. `SCORE-GEO-003` permanece histórico e não é o runtime vigente.
+`SCORE-GEO-004` **não depende de model artifact externo**. `SCORE-GEO-003`, `SCORE-GEO-002` e versões anteriores são metodologias históricas e permanecem identificadas pela `scoring_version` original de cada AUD.
 
 Para inspecionar o contrato atual:
 
 ```powershell
 rasai scoring inspect
 ```
+
+Fluxos de dataset/calibração associados ao método histórico 003 não são requisitos do runtime 004.
 
 Documentação: [docs/SCORE_GEO_004.md](docs/SCORE_GEO_004.md), [docs/SCORING_GUIDE.md](docs/SCORING_GUIDE.md) e [docs/SARI_READINESS_INDEX.md](docs/SARI_READINESS_INDEX.md).
 
@@ -69,14 +71,14 @@ Entrada principal por auditoria:
 report/index.html
 ```
 
-Páginas centrais:
+Páginas canônicas, materializadas quando aplicáveis:
 
 ```text
 index.html               síntese executiva
 readiness.html           SARI-001
 scoring.html             metodologia de scoring e versão efetiva
-mobile.html              findings/evidências Mobile, quando aplicável
-desktop.html             findings/evidências Desktop, quando aplicável
+mobile.html              findings/evidências Mobile
+desktop.html             findings/evidências Desktop
 remediation.html         remediação
 content-suggestions.html conteúdo/JSON-LD advisory
 crawling-discovery.html  crawling/discovery
@@ -91,11 +93,83 @@ ai-usage.html            uso/custo estimado de IA
 references.html          referências e metodologia
 ```
 
-### Por que `scoring.html` não tem a versão no nome?
+A ordem e os filenames vêm de um contrato estruturado único (`ReportSurface`). Páginas opcionais só entram no menu quando materializadas. O item ativo é único e o mesmo catálogo é usado para navegação, testes, aliases, manifest e validação de completude.
 
-O path canônico é propositalmente estável. A versão pertence ao campo persistido `scoring_version` e ao conteúdo da página. Isso evita quebrar bookmarks, integrações, automações e futuras rotas SaaS a cada revisão metodológica.
+### `scoring.html` é estável
 
-`score-geo-004.html` pode ser gerado como **alias de compatibilidade** para links antigos, mas novas integrações devem usar `scoring.html`.
+A versão pertence ao campo persistido `scoring_version` e ao conteúdo da página, não ao filename. Isso evita quebrar bookmarks, integrações, automações e futuras rotas SaaS a cada revisão metodológica.
+
+`score-geo-004.html` pode existir **somente como alias de compatibilidade** em AUDs efetivamente produzidos com `SCORE-GEO-004`; não é item de menu nem contrato público principal. Um AUD histórico 002/003 não recebe esse alias, para não sugerir uma metodologia que não foi usada.
+
+### Manifest do report
+
+Após a normalização do mini-site, o RASAi materializa:
+
+```text
+report/report-manifest.json
+```
+
+O manifest é **metadado de projeção**, não segunda fonte de verdade. Ele registra, quando disponível:
+
+```text
+audit_id
+auditor_version
+ruleset_version
+sari_version
+scoring_version
+report_contract_version
+observability_contract_version
+generated_pages
+aliases
+generated_at
+source_db
+```
+
+Ele não duplica score, findings ou evidence. É produzido a partir de `audit.db` em modo read-only e facilita debugging, completude, API/SaaS e abertura de auditorias históricas.
+
+## Como os reports se relacionam
+
+O fluxo abaixo representa dependência de evidência/projeção, **não causalidade entre métricas**:
+
+```text
+Audit Evidence
+   |
+   +--> SARI / SCORE-GEO-004        participa do readiness
+   |
+   +--> Remediation                 derivado read-only
+   |
+   +--> Web Performance
+   |      +--> Accessibility        usa o artifact Lighthouse disponível
+   |
+   +--> Synthetic Navigation Apdex  complementar
+   |
+   +--> Synthetic UX Apdex          complementar
+   |
+   +--> Observed AI Visibility      observacional/import-first
+   |
+   +--> Observability               resultados externos pós-auditoria
+   |
+   +--> Quality                     derivado read-only
+   |
+   +--> AI Usage                    telemetria de IA
+```
+
+Cada página HTML declara **Inputs, Outputs, dependências obrigatórias/opcionais, uso de IA, impacto no SARI/SCORE e fonte de verdade**. Isso evita inferir, por exemplo, que Lighthouse, Acessibilidade ou Apdex alterem o `SCORE-GEO-004`.
+
+## Versões e contratos são conceitos diferentes
+
+O RASAi não trata toda evolução como uma única “versão”. Os eixos relevantes são:
+
+| Conceito | Finalidade | Exemplo atual |
+|---|---|---|
+| `auditor_version` | versão do produto/runtime | versão do pacote RASAi |
+| `ruleset_version` | versão do conjunto de regras | persistida no AUD |
+| `sari_version` | identidade pública do índice | `SARI-001` |
+| `scoring_version` | fórmula/contrato de scoring | `SCORE-GEO-004` |
+| `report_contract_version` | contrato das superfícies HTML/manifest | `REPORT-CONTRACT-001` |
+| `observability_contract_version` | contrato do sidecar observacional | `OBSERVABILITY-CONTRACT-001` |
+
+A comparação longitudinal deve respeitar essas fronteiras. Uma série não pode misturar 002/003/004 como se fossem a mesma metodologia.
 
 ## Instalação rápida - Windows
 
@@ -141,7 +215,7 @@ rasai audit --urls-file urls.txt --device-context both --ai-provider none
 
 A IA é opcional. Ausência de IA não transforma regras semânticas em `FAIL`; pode reduzir Coverage/Confidence quando evidência semântica aplicável não for obtida.
 
-## IA
+## IA e proveniência do output
 
 Providers concretos/aliases são definidos pelo registry atual e documentados em:
 
@@ -151,7 +225,16 @@ Providers concretos/aliases são definidos pelo registry atual e documentados em
 
 Credencial configurada não comprova saldo, quota, acesso ao modelo ou disponibilidade do provider.
 
-Remediações por IA são advisory e não alteram Score, Coverage, Confidence ou Consolidation por si só.
+Quando um conteúdo exibido foi produzido por IA, a superfície deve deixar isso explícito e, quando os dados persistidos permitirem, mostrar:
+
+- provider e modelo efetivamente usados;
+- finalidade da chamada;
+- regra/finding e URL/dispositivo associados;
+- evidências ou `evidence_ids` usados como input;
+- contexto editorial/YMYL quando ele participou do prompt;
+- telemetria de tentativas, tokens e custo estimado em `ai-usage.html`.
+
+Uma resposta da IA continua **advisory/evidence-bound**. O RASAi valida o contrato do retorno e sua associação às evidências permitidas, mas não transforma texto gerado por IA em fato observado. Remediações por IA não alteram Score, Coverage, Confidence ou Consolidation por si só.
 
 ## Web Performance e Acessibilidade
 
@@ -161,9 +244,9 @@ Exemplo:
 rasai audit https://example.com --ai-provider none --web-performance
 ```
 
-Lighthouse é medição de laboratório; CrUX é dado agregado de campo quando disponível. Acessibilidade automatizada usa evidência disponível e não equivale a certificação WCAG integral.
+Lighthouse é medição de laboratório; CrUX é dado agregado de campo quando disponível. Acessibilidade automatizada reutiliza o artifact Lighthouse persistido e não equivale a certificação WCAG integral.
 
-Esses indicadores permanecem separados do `SARI-001/SCORE-GEO-004`.
+Esses indicadores permanecem separados do `SARI-001/SCORE-GEO-004`. Web Performance e Acessibilidade não exigem IA.
 
 ## Apdex
 
@@ -172,7 +255,7 @@ RASAi possui dois domínios sintéticos separados:
 - **Synthetic Navigation Apdex** - navegação sintética controlada;
 - **Synthetic User Experience Apdex** - população sintética configurável, inclusive Mobile/Desktop/Tablet.
 
-Nenhum deles é RUM. A configuração deve ser comparada com o perfil do sistema de referência antes de interpretar divergências com Dynatrace ou outra plataforma real-user monitoring.
+Os dois têm URLs canônicas distintas (`apdex.html` e `apdex-experience.html`) e não aparecem duplicados no menu. Nenhum deles é RUM ou depende de IA. A configuração deve ser comparada com o perfil do sistema de referência antes de interpretar divergências com Dynatrace ou outra plataforma de real-user monitoring.
 
 ## Observed Generative Visibility e Observability
 
@@ -209,7 +292,7 @@ rasai quality verify --baseline AUD-A --current AUD-B
 rasai quality timeline --audits-root audits
 ```
 
-Essas superfícies são read-only sobre a evidência fonte e não criam um segundo readiness score.
+Essas superfícies são read-only sobre a evidência fonte e não criam um segundo readiness score. Quando `scoring_version` é incompatível entre baseline/current, a comparação de score deve permanecer `NOT_COMPARABLE`; nenhum conversor silencioso é permitido.
 
 ## Product Platform - Windows first, SaaS ready
 
@@ -230,7 +313,7 @@ rasai platform --audits-root audits status
 rasai platform --audits-root audits site
 ```
 
-A arquitetura alvo para SaaS usa control plane PostgreSQL e workers Linux/containerizados, mantendo compatibilidade com o runtime Windows local.
+A arquitetura alvo para SaaS usa control plane PostgreSQL e workers Linux/containerizados, mantendo compatibilidade com o runtime Windows local. A preparação atual concentra-se em IDs/filenames estáveis, manifests, schemas versionados, persistência histórica imutável e metadados API-friendly; não introduz infraestrutura SaaS pesada no runtime desktop.
 
 Detalhes: [docs/PRODUCT_PLATFORM_ARCHITECTURE.md](docs/PRODUCT_PLATFORM_ARCHITECTURE.md).
 
@@ -239,7 +322,7 @@ Detalhes: [docs/PRODUCT_PLATFORM_ARCHITECTURE.md](docs/PRODUCT_PLATFORM_ARCHITEC
 Princípios:
 
 - `audit.db` + artifacts são evidência imutável da auditoria;
-- HTML é projeção humana, não segunda fonte de verdade;
+- HTML e `report-manifest.json` são projeções, não segunda fonte de verdade;
 - sidecars e índices consolidados são derivados/reconstruíveis;
 - secrets não devem ser persistidos em reports, SQLite, INI ou logs;
 - resultados externos `NULL` não viram zero;
