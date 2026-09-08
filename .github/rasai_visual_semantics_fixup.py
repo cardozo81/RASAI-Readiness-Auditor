@@ -42,14 +42,20 @@ if old not in text:
 text = text.replace(old, new, 1)
 
 # The four-state score condition has precedence over a generic terminal-state label.
-# Keep legacy result-state classes only as a CSS/backward-internal hook, mapped from
-# the new condition semantics rather than recalculated from Consolidation alone.
+# Keep legacy result-state classes only as an internal CSS hook, mapped from the
+# new condition semantics rather than recalculated from Consolidation alone.
+# When the near state is caused by insufficient Coverage, say so explicitly.
 old = (
     '        tag = f" <span class=\'score-condition-tag {state}\'>{escape(label)}</span>"\n'
     '        return (\n'
     '            f"<tr{attrs} class=\'score-condition-{state}\'><td>{escape(dimension)}</td>"\n'
 )
 new = (
+    '        coverage_number = _first_number(coverage)\n'
+    '        if state == "near" and coverage_number is not None and coverage_number < 80:\n'
+    '            label = "Quase no esperado · Cobertura insuficiente"\n'
+    '        elif state == "near" and confidence.casefold() == "baixa":\n'
+    '            label = "Quase no esperado · Confiança baixa"\n'
     '        tag = f" <span class=\'score-condition-tag {state}\'>{escape(label)}</span>"\n'
     '        legacy_state = {"expected": "good", "near": "warn", "below": "warn", "critical": "bad", "neutral": "neutral"}[state]\n'
     '        return (\n'
