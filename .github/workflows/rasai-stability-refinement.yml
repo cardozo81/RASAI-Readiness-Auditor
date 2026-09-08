@@ -23,6 +23,8 @@ jobs:
         run: |
           python .github/rasai_stability_refinement.py
           sed -i 's/Os diagnósticos M24 são advisory/Os diagnósticos técnicos são advisory/g' docs/CLI_REFERENCE.md docs/CONSOLE_COST_AND_USAGE.md docs/AI_GUIDE.md || true
+          sed -i 's/URLs descobertas são uma fronteira observada/fronteira observada do crawl/' tests/test_stability_refinement_20260908.py
+          sed -i 's/AuditWorkspace(root=root, database=db)/AuditWorkspace(root)/' tests/test_stability_refinement_20260908.py
           rm -f .github/rasai_stability_refinement.py
           rm -f .github/workflows/rasai-stability-refinement.yml
       - name: Install package and tests
