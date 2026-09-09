@@ -12,7 +12,7 @@ from .config import SERPAPI_KEY_ENV, SerpRuntimeConfig
 from .evidence import FilesystemSerpEvidenceSink, SerpEvidenceSink
 from .models import DomainMatchStatus, SearchIntelligenceResult, SerpQueryRequest
 from .persistence import SerpObservationRepository
-from .providers import FixtureSerpProvider, SerpApiProvider
+from .providers import FixtureSerpProvider, SerpApiBingProvider, SerpApiProvider
 from .service import SearchIntelligenceService
 
 
@@ -28,6 +28,7 @@ class SearchExecution:
 
 _LIVE_PROVIDER_BUILDERS = {
     "serpapi": SerpApiProvider,
+    "serpapi-bing": SerpApiBingProvider,
 }
 
 
@@ -50,6 +51,19 @@ def _refresh_search_intelligence_report(workspace_root: Path | None) -> None:
         write_search_intelligence_report(workspace_root)
     except (OSError, ValueError, sqlite3.Error):
         return
+
+
+def _projected_request_ceiling(
+    items: tuple[SerpQueryRequest, ...], config: SerpRuntimeConfig
+) -> int:
+    if config.mode != "live" or not items:
+        return 0
+    if config.provider == "serpapi-bing":
+        # Bing exposes provider-driven variable pagination. The global hard request budget
+        # is therefore the only safe preflight ceiling; the adapter stops when that budget
+        # cannot continue the requested depth.
+        return config.max_requests
+    return sum(config.worst_case_http_requests(1, depth=item.depth) for item in items)
 
 
 def execute_search(
@@ -81,10 +95,8 @@ def execute_search(
                 f"requested SERP depth {item.depth} exceeds configured max_depth {config.max_depth}"
             )
 
-    projected = sum(
-        config.worst_case_http_requests(1, depth=item.depth) for item in items
-    )
-    if projected > config.max_requests:
+    projected = _projected_request_ceiling(items, config)
+    if config.provider != "serpapi-bing" and projected > config.max_requests:
         raise ValueError(
             f"worst-case SERP HTTP requests {projected} exceed configured max_requests {config.max_requests}; "
             "reduce queries/depth/retries or raise the explicit limit"
