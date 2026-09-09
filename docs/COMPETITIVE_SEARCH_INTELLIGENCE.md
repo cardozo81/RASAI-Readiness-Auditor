@@ -1,16 +1,16 @@
 # Competitive Search & Content Intelligence
 
-Status: **implemented deterministic POC**.
-
-This milestone extends the provider-neutral SERP foundation with bounded result classification and an optional public-page content comparison. It remains non-scoring and does not use AI.
+Status: **implemented deterministic layer with optional evidence-bound AI extension**.
 
 ## 1. Purpose
 
-The feature answers a narrower and safer question than "why does competitor X rank?":
+Competitive Search Intelligence answers:
 
-> For one observed query, which kinds of results appear ahead of the customer, which of those are reasonable Search competitor candidates, and which deterministic content differences can be observed between the customer page and a bounded sample of those pages?
+> For an observed query, which result types appear ahead of the customer, which are reasonable Search competitor candidates, what deterministic content differences are observable, and - when explicitly requested - what evidence-bound improvement opportunities can an AI provider propose?
 
-RASAI does not infer causality from these differences. Ranking position and content features are observations in the same query context, not proof that one caused the other.
+The deterministic layer remains authoritative for observations. AI is downstream and optional.
+
+RASAI does not infer ranking causality from content differences or AI recommendations.
 
 ## 2. Flow
 
@@ -24,9 +24,10 @@ query
 -> deterministic HTML/content feature extraction
 -> customer vs observed-leaders comparison
 -> evidence-backed correlational differences
+-> optional Competitive AI using closed evidence_ids
 ```
 
-AI semantic comparison is deliberately not part of this milestone. It can be layered later on top of the deterministic evidence contract.
+The optional semantic layer is documented in `COMPETITIVE_AI_INTELLIGENCE.md`.
 
 ## 3. Result classification
 
@@ -43,31 +44,19 @@ Current classes:
 - `MARKETPLACE`
 - `NON_ORGANIC`
 
-Classification is explicitly heuristic. It is used to decide which observed Search results are sensible candidates for bounded content inspection; it is not a claim that two organizations are commercial competitors.
+Classification is heuristic. It selects candidates for bounded inspection; it is not a declaration that two organizations are commercial competitors.
 
-When the customer is `FOUND`, only observed results ahead of the first matching customer result participate in the competitive selection. Results after the customer are not used as "leaders" for that query observation.
+When the customer is `FOUND`, only results ahead of the first matching customer result are considered. When the customer is `NOT_FOUND_WITHIN_DEPTH`, the observed result set may still be classified, but content comparison requires an explicit `--customer-url`.
 
-When the customer is `NOT_FOUND_WITHIN_DEPTH`, the observed result set can still be classified. Content comparison then requires `--customer-url`, because RASAI must not invent which customer page should represent the query.
+Candidate selection is de-duplicated by normalized domain and bounded by `--max-content-pages` plus `RASAI_SERP_MAX_COMPETITORS`.
 
-Candidate selection is de-duplicated by normalized domain and bounded by `--max-content-pages` as well as the existing `RASAI_SERP_MAX_COMPETITORS` ceiling.
+## 4. Explicit acquisition modes
 
-## 4. Content comparison is explicit opt-in
+`--competitive` performs classification only and adds no content request.
 
-`--competitive` performs classification only. It makes no additional content request.
-
-`--compare-content` enables public-page acquisition for the customer page plus the bounded selected candidate set.
+`--compare-content` explicitly enables public-page acquisition for the customer page plus the bounded candidate set.
 
 Example:
-
-```powershell
-rasai search "seguro auto online" `
-  --domain cliente.example `
-  --mode fixture `
-  --fixture tests\fixtures\serp\canonical_google.json `
-  --competitive
-```
-
-Content comparison:
 
 ```powershell
 rasai search "seguro auto online" `
@@ -78,7 +67,7 @@ rasai search "seguro auto online" `
   --max-content-pages 3
 ```
 
-If the customer is not found within the requested depth:
+If the customer is not found:
 
 ```powershell
 rasai search "seguro auto online" `
@@ -89,77 +78,70 @@ rasai search "seguro auto online" `
   --customer-url https://cliente.example/seguro-auto
 ```
 
-An explicit `--customer-url` is supported for a single query per command, avoiding an ambiguous mapping between multiple queries and one page.
+An explicit `--customer-url` is supported for one query per command.
 
 ## 5. Bounded public-web acquisition
 
-The content fetcher is isolated from the generic SERP provider adapter and from the existing audit acquisition client.
-
 Default bounds:
 
-- content pages per query: `3` competitor candidates plus one customer page;
+- competitor pages per query: `3`, plus one customer page;
 - timeout per attempt: `10` seconds;
 - maximum response body: `2,000,000` bytes;
 - maximum redirects: `5`;
-- HTTP methods: GET only;
-- accepted inspection ports: 80 and 443;
-- TLS verification remains enabled.
+- method: GET;
+- accepted ports: 80/443;
+- TLS verification enabled.
 
-The CLI exposes:
+CLI controls:
 
 - `--max-content-pages`
 - `--content-timeout`
 - `--content-max-bytes`
 - `--content-max-redirects`
 
-`--dry-run --compare-content` shows a worst-case content HTTP-attempt ceiling separately from the SERP provider request ceiling. Direct content acquisition does not consume SerpApi quota.
+`--dry-run --compare-content` shows the worst-case direct HTTP-attempt ceiling separately from SERP quota.
 
 ## 6. SSRF / network boundary
 
-SERP result URLs are untrusted external input. Before every direct request and every redirect target, the POC fetcher:
+SERP URLs are untrusted external input. Before every request and redirect, the fetcher:
 
-- requires HTTP or HTTPS;
-- rejects credentials in URLs through canonical URL validation;
-- rejects localhost and `.localhost`, `.local` and `.internal` names;
+- requires HTTP/HTTPS;
+- rejects credentials in URLs;
+- rejects localhost and local/internal suffixes;
 - rejects non-standard public-web ports;
-- rejects non-global IPv4/IPv6 literals;
-- resolves hostnames and rejects destinations resolving to non-global addresses;
-- validates a redirect target before issuing the next request.
+- rejects non-global IP literals;
+- resolves hostnames and rejects non-global destinations;
+- validates redirect targets before following them.
 
-This is intentionally stricter than blindly feeding a provider-returned URL to the generic audit `HttpClient`.
+Application validation does not eliminate DNS-rebinding/TOCTOU risk. A multi-tenant SaaS deployment must additionally use network egress controls or a hardened outbound proxy.
 
-The application-level preflight substantially reduces accidental SSRF exposure, but DNS resolution followed by a separate HTTP connection still has a DNS-rebinding/TOCTOU limitation. A future multi-tenant SaaS deployment must additionally enforce network-layer egress controls or a hardened outbound proxy. The POC does not claim that application validation alone is a complete server-side SSRF sandbox.
+## 7. Deterministic features
 
-## 7. Extracted deterministic features
-
-RASAI currently extracts only bounded features needed for explainable comparison:
+RASAI extracts bounded features:
 
 - final URL and HTTP status;
 - content type;
-- response byte count;
-- SHA-256 of the received body;
-- HTML title;
+- response size;
+- content SHA-256;
+- title;
 - meta description;
-- H1-H3 text;
+- H1-H3;
 - approximate visible-text word count;
-- normalized meaningful query terms;
-- query-term presence in title;
-- query-term presence in meta description;
-- query-term presence in H1-H3;
-- query-term presence in visible body text;
+- meaningful query terms;
+- query-term presence in title, description, headings and body;
 - JSON-LD `@type` values.
 
-Script/style/template/noscript content is excluded from normal visible-text extraction. JSON-LD is parsed separately only for structured-data type observation.
+Raw HTML is not persisted by this feature.
 
-The lexical comparison is accent-insensitive and uses a small deterministic stopword set. This is not semantic understanding and is not presented as such.
+The lexical comparison is accent-insensitive and deterministic. It is not semantic understanding.
 
-## 8. Current comparison signals
+## 8. Deterministic comparison
 
-The methodology identifier is:
+Methodology:
 
 `DETERMINISTIC-CORRELATIONAL-001`
 
-Current informational gap codes include:
+Current informational gaps include:
 
 - `QUERY_BODY_COVERAGE_LOWER_THAN_OBSERVED_LEADERS`
 - `TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS`
@@ -167,102 +149,126 @@ Current informational gap codes include:
 - `CONTENT_WORD_COUNT_LOWER_THAN_OBSERVED_LEADERS`
 - `STRUCTURED_DATA_TYPES_DIFFER_FROM_OBSERVED_LEADERS`
 
-Numeric references use the median of successfully observed selected pages ahead. Failed/blocked content acquisitions do not become zero-valued measurements.
+References use the median of successfully observed selected pages. Failed or blocked acquisitions are excluded instead of becoming zero.
 
-Word count is explicitly treated as observed content volume, not content quality. Structured-data differences are not automatic recommendations to add markup. Every signal is informational and non-scoring.
+Word count is content volume, not content quality. Structured-data differences are not automatic markup recommendations. Signals are informational and non-scoring.
 
 ## 9. Comparison statuses
 
-- `CONTENT_COMPARISON_DISABLED`: classification was requested without content acquisition.
-- `SERP_OBSERVATION_UNAVAILABLE`: no usable observed SERP exists; content is not fetched.
-- `CUSTOMER_URL_REQUIRED`: customer was not observed and no explicit customer page was supplied.
-- `CUSTOMER_CONTENT_UNAVAILABLE`: the selected customer page could not be observed safely.
-- `NO_ELIGIBLE_COMPETITOR_CANDIDATES`: no bounded candidate page exists after classification.
-- `COMPETITOR_CONTENT_UNAVAILABLE`: candidates exist but none produced usable observed HTML.
-- `CONSOLIDATED`: customer content and at least one selected page ahead were observed and compared.
+- `CONTENT_COMPARISON_DISABLED`
+- `SERP_OBSERVATION_UNAVAILABLE`
+- `CUSTOMER_URL_REQUIRED`
+- `CUSTOMER_CONTENT_UNAVAILABLE`
+- `NO_ELIGIBLE_COMPETITOR_CANDIDATES`
+- `COMPETITOR_CONTENT_UNAVAILABLE`
+- `CONSOLIDATED`
 
-Failure is fail-open for Search Intelligence and never changes SCORE-GEO-004 or SARI-001.
+Only `CONSOLIDATED` is eligible for Competitive AI.
 
-## 10. Evidence and persistence
+## 10. Optional Competitive AI
 
-When `--audit-workspace` is supplied, the feature remains inside the existing audit workspace and `audit.db`.
+`--ai-competitive` is a separate explicit opt-in and requires `--compare-content`.
 
-Additive tables:
+Example:
+
+```powershell
+rasai search "seguro auto online" `
+  --domain cliente.example `
+  --mode live `
+  --compare-content `
+  --ai-competitive `
+  --ai-provider openai `
+  --ymyl-mode AUTO
+```
+
+Competitive AI receives only structured deterministic evidence with closed IDs:
+
+- `CE-QUERY`
+- `CE-CUSTOMER`
+- `CE-COMP-###`
+- `CE-GAP-###`
+
+Unknown evidence IDs invalidate the provider response. AI cannot repair missing deterministic evidence.
+
+Current live adapter: `openai`. `fixture` validates the contract without network. Default: `none`.
+
+See `COMPETITIVE_AI_INTELLIGENCE.md`.
+
+## 11. Evidence and persistence
+
+When `--audit-workspace` is supplied, all layers remain inside the existing audit workspace and `audit.db`.
+
+Deterministic additive tables:
 
 - `serp_competitive_analyses`
 - `serp_competitive_results`
 - `serp_competitive_pages`
 
-They reference the existing `serp_observations` row. No parallel database is introduced and no scoring table is modified.
+Competitive AI additive table:
 
-Evidence artifacts are written under:
+- `serp_competitive_ai_analyses`
+
+Deterministic artifacts:
 
 ```text
 artifacts/search-intelligence/competitive/<observation_id>.json
 ```
 
-The artifact has its own SHA-256 and records classification, selected candidates, extracted page features, content hashes, gaps and interpretation policy.
+Competitive AI artifacts:
 
-**Raw competitor/customer HTML is not persisted by this feature.** This reduces storage volume and the chance of retaining unrelated page secrets or personalized markup. The body SHA-256 provides content identity for the observed extraction without storing the body itself.
+```text
+artifacts/search-intelligence/competitive-ai/<observation_id>.json
+```
 
-## 11. Cost and performance semantics
+No parallel database is introduced. No scoring table is modified.
 
-Competitive classification adds no network cost.
+## 12. Cost and performance
 
-Content comparison uses direct public HTTP requests and therefore has infrastructure/runtime cost but no SERP-provider API quota cost. Redirect attempts count as HTTP attempts and are exposed by the CLI.
+- classification: no additional network;
+- content comparison: direct public HTTP, no SERP-provider quota;
+- Competitive AI: provider call only when explicitly enabled and deterministic context is `CONSOLIDATED`;
+- `--dry-run` shows separate ceilings for SERP, content acquisition and AI.
 
-The feature is deliberately opt-in so an ordinary `rasai search` command retains the prior SERP-only behavior.
+Provider credentials are not persisted in these artifacts.
 
-## 12. Compatibility
+## 13. Compatibility
 
-When neither `--competitive` nor `--compare-content` is supplied:
+Without `--competitive`, `--compare-content` or `--ai-competitive`, ordinary SERP behavior is unchanged.
 
-- existing SERP behavior remains unchanged;
-- no competitor page is fetched;
-- no competitive table is initialized unless the feature is invoked with a workspace;
-- existing audit/report/scoring flows remain independent;
-- no IA provider is required.
+Without `--ai-competitive`:
 
-No new HTML report is introduced in this milestone. CLI + additive evidence/persistence remain the public POC surface until the comparison contract is exercised sufficiently to stabilize a report UX.
+- no AI provider is instantiated;
+- no Competitive AI call is made;
+- deterministic Search Intelligence remains fully usable.
 
-## 13. Test policy
+Competitive AI failure does not rewrite SERP or deterministic comparison evidence.
 
-Automated tests use controlled `SerpObservation` objects, fake HTML and injected fake network/resolver functions.
+`SARI-001` and `SCORE-GEO-004` are independent.
+
+## 14. Test policy
+
+CI uses fixtures, fake HTML and injected transports/resolvers.
 
 CI must not:
 
 - call SerpApi live;
-- consume a customer API key;
-- crawl a real competitor site;
-- depend on public DNS or internet availability.
+- consume customer keys;
+- crawl public competitor sites;
+- call an AI provider live;
+- depend on public DNS/internet.
 
-Tests cover result classification, candidate bounding, lexical extraction, JSON-LD type extraction, private-address blocking, redirect blocking, `NOT_FOUND_WITHIN_DEPTH` handling, comparison gaps and additive persistence.
+Tests cover classification, bounds, extraction, public-address blocking, comparison gaps, evidence-ID closure, AI contract validation and additive persistence.
 
-## 14. Known limitations
+## 15. Current limitations
 
-- result-classification domain lists are intentionally small heuristics, not an industry taxonomy;
-- no entity/business-equivalence model yet;
-- content extraction is static HTTP HTML, not browser-rendered DOM;
-- no robots.txt policy interpretation for competitor pages in this POC;
+- result classification remains a small heuristic taxonomy;
+- no entity/business-equivalence graph yet;
+- content extraction uses static HTTP HTML, not rendered browser DOM;
 - no canonical/hreflang/link-graph comparison yet;
-- no E-E-A-T/YMYL semantic comparison yet;
-- no AI semantic comparison yet;
-- no historical trend or before/after competitive comparison yet;
-- no multi-region distributed content probes;
-- application-level public-IP validation must be reinforced by network egress controls before multi-tenant SaaS exposure;
-- no Search Intelligence HTML report yet.
+- Competitive AI live support starts with OpenAI; other adapters can be added behind the same contract;
+- AI sees extracted features rather than full raw HTML;
+- no Search Intelligence-specific HTML report yet;
+- no semantic historical comparison of two Search Intelligence observations yet;
+- public-IP validation still requires network-layer reinforcement before multi-tenant SaaS.
 
-## 15. Next phase
-
-The recommended next phase is **Evidence-bound Semantic Competitive Analysis** on top of this deterministic layer:
-
-```text
-query + canonical SERP evidence
-+ extracted customer/candidate page evidence
--> bounded semantic comparison
--> query-intent/content coverage assessment
--> evidence IDs attached to every AI claim
--> hypotheses/recommendations, never fabricated ranking causality
-```
-
-Historical rank tracking / before-after comparison can proceed in parallel once query identity, market/device context and observation persistence are treated as stable contracts.
+The product platform already has deployment markers and before/after audit resolution. Search Intelligence historical comparison should extend that existing platform instead of creating a parallel marker model.
