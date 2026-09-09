@@ -203,6 +203,7 @@ def redact_text(value: str) -> str:
     text = _HEADER_RE.sub(lambda match: match.group(1) + REDACTED, text)
     text = _BEARER_RE.sub("Bearer " + REDACTED, text)
     text = _URI_WITH_AUTH_RE.sub(lambda match: redact_url(match.group(0)), text)
+    text = _KNOWN_SECRET_RE.sub(REDACTED, text)
 
     def quoted_assignment(match: re.Match[str]) -> str:
         name, quote_char, raw = match.group(1), match.group(2), match.group(3)
@@ -320,6 +321,9 @@ def detect_secret_exposures(
 
     for match in _PRIVATE_KEY_BLOCK_RE.finditer(text):
         findings.append(SecretExposure(path, _line_number(text, match.start()), "PRIVATE_KEY", "private key material"))
+
+    for match in _KNOWN_SECRET_RE.finditer(text):
+        findings.append(SecretExposure(path, _line_number(text, match.start()), "KNOWN_SECRET_PATTERN", "known credential token pattern"))
 
     for match in _URI_WITH_AUTH_RE.finditer(text):
         candidate = match.group(0)
