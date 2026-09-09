@@ -54,7 +54,7 @@ def _render_result(result) -> None:
     observation = result.observation
     print(f"Query: {request.query}")
     print(f"Engine/market/device: {request.engine} / {request.country} / {request.device}")
-    print(f"Depth observada: {request.depth}")
+    print(f"Depth solicitada: {request.depth}")
     print(f"Domínio de interesse: {request.domain_of_interest}")
     print(f"Status: {result.domain_status.value}")
     if observation is None:
@@ -64,18 +64,27 @@ def _render_result(result) -> None:
     print(f"Data mode: {observation.data_mode.value}")
     print(f"Coletado em: {observation.collected_at.isoformat()}")
     print(f"Resultados normalizados: {observation.result_count}")
+    quality = observation.quality_metadata
+    if quality.get("pages_collected") is not None:
+        print(
+            "Páginas provider coletadas: "
+            f"{quality.get('pages_collected')}/{quality.get('pages_requested_ceiling')}"
+        )
+    if quality.get("pagination_ended_before_requested_depth"):
+        print("Observação: o provider encerrou a paginação antes da depth solicitada.")
     if observation.raw_evidence_ref:
         print(f"Evidência raw: {observation.raw_evidence_ref}")
     if result.domain_status is DomainMatchStatus.FOUND:
         print(f"Posição observada: {result.customer_position}")
         print(f"Resultados acima: {len(result.results_ahead)}")
         for item in result.results_ahead:
-            print(f"  #{item.position} {item.domain} — {item.url}")
+            print(f"  #{item.position} {item.domain} - {item.url}")
         if result.competitor_domains_ahead:
             print("Domínios Search acima: " + ", ".join(result.competitor_domains_ahead))
     elif result.domain_status is DomainMatchStatus.NOT_FOUND_WITHIN_DEPTH:
         print(
-            "Interpretação: domínio não encontrado dentro da depth observada; isso NÃO significa que o domínio não ranqueia."
+            "Interpretação: domínio não encontrado nos resultados coletados dentro da depth solicitada; "
+            "isso NÃO significa que o domínio não ranqueia."
         )
     elif result.error_message:
         print(f"Erro: {result.error_code}: {result.error_message}")
