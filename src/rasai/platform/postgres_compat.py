@@ -1,6 +1,6 @@
 """Small PostgreSQL compatibility layer for the RASAi control plane.
 
-The product store was intentionally written against a narrow DB-API surface.  This
+The product store was intentionally written against a narrow DB-API surface. This
 module adapts Psycopg 3 to that surface so domain methods can be reused without
 sprinkling database-engine checks throughout product logic.
 
@@ -16,6 +16,10 @@ from urllib.parse import quote, urlsplit, urlunsplit
 
 class PostgreSQLDependencyError(RuntimeError):
     """Raised when the optional PostgreSQL runtime dependency is unavailable."""
+
+
+class PostgreSQLRuntimeError(RuntimeError):
+    """Sanitized database failure that never embeds credentials or a connection URL."""
 
 
 class PostgreSQLConfigurationError(ValueError):
@@ -110,17 +114,26 @@ def _qmark_to_pyformat(sql: str) -> str:
     return "".join(output)
 
 
+def _safe_database_error(exc: BaseException, *, operation: str) -> PostgreSQLRuntimeError:
+    sqlstate = getattr(exc, "sqlstate", None)
+    code = f":sqlstate={sqlstate}" if sqlstate else ""
+    return PostgreSQLRuntimeError(
+        f"PostgreSQL {operation} failed:type={type(exc).__name__}{code}"
+    )
+
+
 class PostgresConnectionAdapter:
     """Psycopg connection exposing the subset consumed by product stores.
 
-    The underlying Psycopg connection runs in autocommit mode.  ``with
+    The underlying Psycopg connection runs in autocommit mode. ``with
     connection:`` explicitly starts one transaction, matching the write blocks used
     by the SQLite store without leaving read-only SELECT statements in idle
     transactions.
     """
 
-    def __init__(self, connection: Any) -> None:
+    def __init__(self, connection: Any, *, error_type: type[BaseException]) -> None:
         self._connection = connection
+        self._error_type = error_type
         self._transaction_depth = 0
 
     @property
@@ -129,20 +142,29 @@ class PostgresConnectionAdapter:
 
     def execute(self, sql: str, params: Sequence[Any] | None = None) -> PostgresCursorAdapter:
         translated = _qmark_to_pyformat(sql)
-        cursor = self._connection.cursor()
-        if params is None:
-            cursor.execute(translated)
-        else:
-            cursor.execute(translated, tuple(params))
-        return PostgresCursorAdapter(cursor)
+        try:
+            cursor = self._connection.cursor()
+            if params is None:
+                cursor.execute(translated)
+            else:
+                cursor.execute(translated, tuple(params))
+            return PostgresCursorAdapter(cursor)
+        except self._error_type as exc:
+            raise _safe_database_error(exc, operation="statement") from exc
 
     def commit(self) -> None:
         if not self._connection.autocommit:
-            self._connection.commit()
+            try:
+                self._connection.commit()
+            except self._error_type as exc:
+                raise _safe_database_error(exc, operation="commit") from exc
 
     def rollback(self) -> None:
         if not self._connection.autocommit:
-            self._connection.rollback()
+            try:
+                self._connection.rollback()
+            except self._error_type as exc:
+                raise _safe_database_error(exc, operation="rollback") from exc
 
     def close(self) -> None:
         self._connection.close()
@@ -204,7 +226,14 @@ def connect_postgres(database_url: str) -> PostgresConnectionAdapter:
         raise PostgreSQLDependencyError(
             'PostgreSQL support requires the optional dependency: pip install -e ".[postgresql]"'
         ) from exc
-    connection = psycopg.connect(url, autocommit=True)
-    adapter = PostgresConnectionAdapter(connection)
-    adapter.execute("SET TIME ZONE 'UTC'")
+    try:
+        connection = psycopg.connect(url, autocommit=True)
+    except psycopg.Error as exc:
+        raise _safe_database_error(exc, operation="connection") from exc
+    adapter = PostgresConnectionAdapter(connection, error_type=psycopg.Error)
+    try:
+        adapter.execute("SET TIME ZONE 'UTC'")
+    except Exception:
+        adapter.close()
+        raise
     return adapter
