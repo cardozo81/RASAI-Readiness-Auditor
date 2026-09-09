@@ -92,7 +92,10 @@ def test_search_monitor_public_cli_uses_postgresql_registry(
             "--environment", environment.environment_id,
             "--query", "seguro auto",
             "--domain", "client.example",
-            "--mode", "fixture",
+            # A dry-run estimates request ceilings but never calls the provider. Use
+            # live here so the parity test does not require a fixture file unrelated
+            # to the PostgreSQL registry behavior under test.
+            "--mode", "live",
             "--provider", "serpapi",
         ]) == 0
         add_output = capsys.readouterr().out
