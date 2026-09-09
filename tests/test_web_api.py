@@ -3,6 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 import tempfile
 
+import pytest
+
+pytest.importorskip("fastapi")
+pytest.importorskip("httpx")
 from fastapi.testclient import TestClient
 
 from rasai.platform.secure_store import SecurePlatformStore
@@ -224,3 +228,20 @@ def test_execution_api_is_idempotent_role_scoped_and_secret_safe() -> None:
             )
             assert cancelled.status_code == 200
             assert cancelled.json()["status"] == "CANCELLED"
+
+
+def test_ready_error_detail_redacts_database_credentials() -> None:
+    class BrokenStore:
+        def __enter__(self):
+            raise RuntimeError("postgresql://rasai:TEST_ONLY_NOT_A_REAL_SECRET@db.example.test/control")
+
+        def __exit__(self, *_args):
+            return None
+
+    settings = ApiSettings(auth=ApiAuthSettings(mode="deny"))
+    app = create_app(settings, store_factory=BrokenStore)
+    with TestClient(app) as client:
+        response = client.get("/health/ready")
+        assert response.status_code == 503
+        assert "TEST_ONLY_NOT_A_REAL_SECRET" not in response.text
+        assert "db.example.test" in response.text
