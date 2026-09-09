@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
@@ -56,7 +57,10 @@ class LighthouseWebQualityReportingTests(unittest.TestCase):
             index = (report / "index.html").read_text(encoding="utf-8")
             references = (report / "references.html").read_text(encoding="utf-8")
 
-            with sqlite3.connect(workspace.database) as db:
+            # sqlite3.Connection.__exit__ commits/rolls back but does not close the
+            # handle. Explicit closing keeps the test portable to Windows, where an
+            # open audit.db handle prevents TemporaryDirectory cleanup.
+            with closing(sqlite3.connect(workspace.database)) as db:
                 row = db.execute(
                     """
                     SELECT performance_score,accessibility_score,best_practices_score,seo_score
