@@ -338,7 +338,7 @@ Expor separadamente Googlebot, OAI-SearchBot, GPTBot e Google-Extended de acordo
 Tratar Google-Extended como token de produto em robots.txt sem user-agent HTTP separado e declarar que ele não afeta inclusão/ranking na Pesquisa Google conforme documentação pública do Google.
 
 ### FR-GEO-114
-Tentar `/llms.txt` somente same-origin quando a origem estiver tecnicamente apta; ausência ou erro deve ser informativo/non-scoring e presença deve ser persistível em `artifacts/m24/llms.txt`.
+Tentar `/llms.txt` somente same-origin quando a origem estiver tecnicamente apta; ausência ou erro deve ser informativo/non-scoring e presença deve ser persistível como artifact de Crawling & Discovery no workspace da auditoria, sem depender do nome físico do subdiretório interno.
 
 ### FR-GEO-115
 Tratar `llms.txt` como proposta comunitária experimental, não como web standard nem requisito universal de Search & AI, e nunca usá-lo como substituto de robots, sitemap, canonical, HTML semântico ou conteúdo acessível.
