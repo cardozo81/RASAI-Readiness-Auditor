@@ -36,19 +36,30 @@ _SENSITIVE_FIELD_PATTERN = (
 _QUOTED_ASSIGNMENT_RE = re.compile(
     rf"(?im)\b({_SENSITIVE_FIELD_PATTERN})\b\s*[:=]\s*([\"'])([^\"'\n]+)\2"
 )
-_ENV_ASSIGNMENT_RE = re.compile(rf"(?im)^\s*({_SENSITIVE_FIELD_PATTERN})\s*=\s*([^\s#]+)\s*$")
+_UNQUOTED_ASSIGNMENT_RE = re.compile(
+    rf"(?im)\b({_SENSITIVE_FIELD_PATTERN})\b\s*[:=]\s*([^\s\"'#,;}}]+)"
+)
 _PRIVATE_KEY_BEGIN = "-----BEGIN " + "PRIVATE KEY-----"
 _PRIVATE_KEY_END = "-----END " + "PRIVATE KEY-----"
 _PRIVATE_KEY_BLOCK_RE = re.compile(re.escape(_PRIVATE_KEY_BEGIN) + r".*?" + re.escape(_PRIVATE_KEY_END), re.DOTALL)
+_KNOWN_SECRET_RE = re.compile(
+    r"(?:sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9_]{12,}|AIza[A-Za-z0-9_-]{20,}|"
+    r"xox[baprs]-[A-Za-z0-9-]{12,}|AKIA[A-Z0-9]{16})"
+)
 
 _SAFE_PLACEHOLDER_WORDS = (
     "change_me", "changeme", "replace_me", "example", "placeholder", "redacted",
     "dummy", "fake", "test_only", "test-password", "test_password", "rasai_test_",
+    "seu-token", "your-token", "your_token", "seu-password", "sua-senha",
 )
-_SAFE_EXACT_PLACEHOLDERS = frozenset({"token", "password", "secret", "credential", "value", "key"})
+_SAFE_EXACT_PLACEHOLDERS = frozenset({
+    "token", "tokens", "password", "pass", "passwd", "secret", "secrets",
+    "credential", "credentials", "value", "key", "senha",
+})
 _SENSITIVE_ARG_NAMES = frozenset({
     "DATABASE_URL", "DB_URL", "DSN", "CONNECTION_STRING", "CONNECTION_URL",
 })
+_CONFIG_LIKE_SUFFIXES = frozenset({".toml", ".ini", ".json", ".yml", ".yaml", ".cmd", ".ps1", ".env"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,8 +87,12 @@ def validate_environment_reference(value: str) -> str:
     return text
 
 
+def _placeholder_candidate(value: str) -> str:
+    return value.strip().strip("\"'`*_.,:;()")
+
+
 def is_safe_placeholder(value: str) -> bool:
-    text = value.strip().strip("\"'")
+    text = _placeholder_candidate(value)
     if not text:
         return True
     lowered = text.casefold()
@@ -96,6 +111,31 @@ def is_safe_placeholder(value: str) -> bool:
     if _ENV_NAME_RE.fullmatch(text) and is_sensitive_name(text):
         return True
     return any(word in lowered for word in _SAFE_PLACEHOLDER_WORDS)
+
+
+def _looks_high_confidence_secret(value: str) -> bool:
+    text = _placeholder_candidate(value)
+    if not text or is_safe_placeholder(text):
+        return False
+    if _KNOWN_SECRET_RE.search(text):
+        return True
+    if len(text) < 24 or any(ch.isspace() for ch in text):
+        return False
+    classes = sum((
+        any(ch.islower() for ch in text),
+        any(ch.isupper() for ch in text),
+        any(ch.isdigit() for ch in text),
+        any(not ch.isalnum() for ch in text),
+    ))
+    return classes >= 2
+
+
+def _is_config_like_path(path: str) -> bool:
+    candidate = Path(path)
+    lowered_name = candidate.name.casefold()
+    if lowered_name == ".env" or lowered_name.startswith(".env."):
+        return True
+    return candidate.suffix.casefold() in _CONFIG_LIKE_SUFFIXES
 
 
 def redact_url(value: str) -> str:
@@ -123,6 +163,12 @@ def redact_url(value: str) -> str:
 
 
 def redact_text(value: str) -> str:
+    """Scrub credential material from arbitrary runtime text.
+
+    Runtime redaction is intentionally stricter than repository leak detection:
+    even documentation/test-looking values are removed once they enter logs,
+    exceptions, reports or persisted textual evidence.
+    """
     text = _PRIVATE_KEY_BLOCK_RE.sub(PRIVATE_KEY_REDACTED, value)
     text = _HEADER_RE.sub(lambda match: match.group(1) + REDACTED, text)
     text = _BEARER_RE.sub("Bearer " + REDACTED, text)
@@ -130,19 +176,20 @@ def redact_text(value: str) -> str:
 
     def quoted_assignment(match: re.Match[str]) -> str:
         name, quote_char, raw = match.group(1), match.group(2), match.group(3)
-        if is_secret_reference_name(name) or is_safe_placeholder(raw):
+        if is_secret_reference_name(name):
             return match.group(0)
         prefix = match.group(0)[: match.group(0).find(quote_char) + 1]
         return prefix + REDACTED + quote_char
 
-    def env_assignment(match: re.Match[str]) -> str:
+    def unquoted_assignment(match: re.Match[str]) -> str:
         name, raw = match.group(1), match.group(2)
-        if is_secret_reference_name(name) or is_safe_placeholder(raw):
+        if is_secret_reference_name(name):
             return match.group(0)
-        return f"{name}={REDACTED}"
+        prefix = match.group(0)[: match.group(0).rfind(raw)]
+        return prefix + REDACTED
 
     text = _QUOTED_ASSIGNMENT_RE.sub(quoted_assignment, text)
-    return _ENV_ASSIGNMENT_RE.sub(env_assignment, text)
+    return _UNQUOTED_ASSIGNMENT_RE.sub(unquoted_assignment, text)
 
 
 def redact_value(value: Any, *, field_name: str | None = None) -> Any:
@@ -189,7 +236,7 @@ def validate_secret_free_mapping(value: Mapping[str, Any], *, context: str = "co
                 visit(child, f"{path}[{index}]", key)
             return
         if isinstance(node, str) and not (key and is_secret_reference_name(key)):
-            if detect_secret_exposures(node, path=path or context):
+            if detect_secret_exposures(node, path=path or context, strict=True):
                 raise ValueError(
                     f"{context} contains inline credential-like material at {path or '<root>'}; store the value outside persistence and reference it instead"
                 )
@@ -201,18 +248,18 @@ def validate_command_argv_secret_free(command_argv: Sequence[str], *, context: s
     """Reject secrets/DSNs embedded in durable command arguments."""
     values = tuple(str(item) for item in command_argv)
     for index, item in enumerate(values):
-        if detect_secret_exposures(item, path=context):
+        if detect_secret_exposures(item, path=context, strict=True):
             raise ValueError(f"{context} contains credential material in argument {index}; use environment/secret references")
         if not item.startswith("-"):
             continue
         option, separator, inline_value = item.partition("=")
         normalized = option.lstrip("-").upper().replace("-", "_").replace(".", "_")
         sensitive_option = is_sensitive_name(normalized) or normalized in _SENSITIVE_ARG_NAMES
-        if sensitive_option:
+        if sensitive_option and not is_secret_reference_name(normalized):
             raise ValueError(
                 f"{context} must not persist credential-bearing option {option!r}; inject the secret through environment/secret management at runtime"
             )
-        if separator and inline_value and detect_secret_exposures(inline_value, path=context):
+        if separator and inline_value and detect_secret_exposures(inline_value, path=context, strict=True):
             raise ValueError(f"{context} contains credential material in argument {index}")
 
 
@@ -220,10 +267,25 @@ def _line_number(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
-def detect_secret_exposures(text: str, *, path: str = "<memory>") -> tuple[SecretExposure, ...]:
+def detect_secret_exposures(
+    text: str,
+    *,
+    path: str = "<memory>",
+    strict: bool = True,
+) -> tuple[SecretExposure, ...]:
+    """Find raw secret material.
+
+    ``strict=True`` is used at runtime/configuration boundaries and intentionally
+    treats any credential-like literal as unsafe. Repository scanning uses
+    ``strict=False`` so source code, tests and prose are only rejected when the
+    value itself is high-confidence secret material or appears in a config-like file.
+    """
     findings: list[SecretExposure] = []
+    config_like = _is_config_like_path(path)
+
     for match in _PRIVATE_KEY_BLOCK_RE.finditer(text):
         findings.append(SecretExposure(path, _line_number(text, match.start()), "PRIVATE_KEY", "private key material"))
+
     for match in _URI_WITH_AUTH_RE.finditer(text):
         candidate = match.group(0)
         try:
@@ -231,21 +293,25 @@ def detect_secret_exposures(text: str, *, path: str = "<memory>") -> tuple[Secre
         except ValueError:
             password = ""
         if password and not is_safe_placeholder(password):
-            findings.append(SecretExposure(path, _line_number(text, match.start()), "CREDENTIAL_URL", "URL/DSN contains inline password"))
+            if strict or config_like or _looks_high_confidence_secret(password):
+                findings.append(SecretExposure(path, _line_number(text, match.start()), "CREDENTIAL_URL", "URL/DSN contains inline password"))
+
     for match in _BEARER_RE.finditer(text):
         token = match.group(1)
-        if not is_safe_placeholder(token):
+        if is_safe_placeholder(token):
+            continue
+        if strict or config_like or _looks_high_confidence_secret(token):
             findings.append(SecretExposure(path, _line_number(text, match.start()), "BEARER_TOKEN", "Bearer token value"))
 
-    # Generic assignment scanning is valuable in configuration and documentation,
-    # but Python source legitimately manipulates variables named password/token.
-    if not str(path).casefold().endswith(".py"):
-        for pattern, value_group in ((_QUOTED_ASSIGNMENT_RE, 3), (_ENV_ASSIGNMENT_RE, 2)):
+    python_source = str(path).casefold().endswith(".py")
+    if not python_source:
+        for pattern, value_group in ((_QUOTED_ASSIGNMENT_RE, 3), (_UNQUOTED_ASSIGNMENT_RE, 2)):
             for match in pattern.finditer(text):
                 name, raw = match.group(1), match.group(value_group)
                 if is_secret_reference_name(name) or is_safe_placeholder(raw):
                     continue
-                findings.append(SecretExposure(path, _line_number(text, match.start()), "SECRET_ASSIGNMENT", f"inline value for {name}"))
+                if strict or config_like or _looks_high_confidence_secret(raw):
+                    findings.append(SecretExposure(path, _line_number(text, match.start()), "SECRET_ASSIGNMENT", f"inline value for {name}"))
 
     unique: dict[tuple[str, int, str], SecretExposure] = {}
     for item in findings:
@@ -256,6 +322,7 @@ def detect_secret_exposures(text: str, *, path: str = "<memory>") -> tuple[Secre
 _SCAN_SUFFIXES = frozenset({".py", ".md", ".txt", ".toml", ".ini", ".json", ".yml", ".yaml", ".cmd", ".ps1"})
 _SCAN_NAMES = frozenset({".gitignore", "Dockerfile"})
 _SCAN_EXCLUSIONS = frozenset({"src/rasai/secret_safety.py", "tests/test_secret_safety.py"})
+_SAFE_ENV_EXAMPLE_NAMES = frozenset({".env.example", ".env.sample", ".env.template"})
 
 
 def _tracked_files(root: Path) -> tuple[Path, ...]:
@@ -291,11 +358,15 @@ def scan_repository(root: str | Path) -> tuple[SecretExposure, ...]:
             continue
         if not _should_scan(file_path):
             continue
+        lowered_name = file_path.name.casefold()
+        if (lowered_name == ".env" or lowered_name.startswith(".env.")) and lowered_name not in _SAFE_ENV_EXAMPLE_NAMES:
+            findings.append(SecretExposure(relative, 1, "VERSIONED_ENV_FILE", "runtime environment files must not be versioned"))
+            continue
         try:
             text = file_path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        findings.extend(detect_secret_exposures(text, path=relative))
+        findings.extend(detect_secret_exposures(text, path=relative, strict=False))
     return tuple(findings)
 
 
