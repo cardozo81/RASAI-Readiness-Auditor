@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import replace
+import os
 from pathlib import Path
 from typing import Sequence
 
+from .competitive_ai import CompetitiveAiState, build_competitive_ai_provider
+from .competitive_ai_runtime import execute_competitive_ai
 from .competitive_runtime import execute_competitive_intelligence
 from .config import SerpRuntimeConfig
 from .content import ContentFetchStatus, PublicWebFetcher
@@ -85,6 +88,39 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=5,
         help="maximum redirects for explicit content inspection (default 5)",
+    )
+    parser.add_argument(
+        "--ai-competitive",
+        action="store_true",
+        help="run evidence-bound AI recommendations after deterministic content comparison; requires --compare-content",
+    )
+    parser.add_argument(
+        "--ai-provider",
+        choices=("none", "openai", "fixture"),
+        help="Competitive AI provider; defaults to RASAI_SEARCH_AI_PROVIDER or none",
+    )
+    parser.add_argument(
+        "--ai-fixture",
+        type=Path,
+        help="fixture JSON for Competitive AI contract validation; no AI network call",
+    )
+    parser.add_argument("--ai-model", help="optional provider model override for Competitive AI")
+    parser.add_argument(
+        "--ai-reasoning-effort",
+        choices=("none", "low", "medium", "high", "xhigh", "max"),
+        help="OpenAI reasoning effort override for Competitive AI",
+    )
+    parser.add_argument(
+        "--ai-timeout",
+        type=float,
+        default=45.0,
+        help="Competitive AI provider timeout in seconds (default 45)",
+    )
+    parser.add_argument(
+        "--ymyl-mode",
+        choices=("AUTO", "ON", "OFF"),
+        default="AUTO",
+        help="YMYL handling for Competitive AI: AUTO, ON or OFF",
     )
     return parser
 
@@ -197,6 +233,70 @@ def _render_competitive(analysis) -> None:
         )
 
 
+def _render_competitive_ai(result) -> None:
+    print(f"Competitive AI: {result.state.value}")
+    if result.reason:
+        print(f"  Motivo: {result.reason}")
+    assessment = result.assessment
+    if assessment is None:
+        return
+    print(f"  Provider/model: {assessment.provider} / {assessment.model or 'n/a'}")
+    print(f"  Intenção da query: {assessment.query_intent}")
+    print(f"  YMYL: {assessment.ymyl_assessment}")
+    print(f"  Resumo: {assessment.summary}")
+    if not assessment.opportunities:
+        print("  Nenhuma oportunidade adicional foi proposta pela IA.")
+        return
+    print("  Oportunidades evidenciadas:")
+    for item in assessment.opportunities:
+        evidence = ", ".join(item.evidence_ids)
+        print(
+            f"    - [{item.priority.value}] {item.category.value}: {item.title} "
+            f"(confiança={item.confidence:.2f}; evidências={evidence})"
+        )
+        print(f"      Recomendação: {item.recommendation}")
+        print(f"      Racional: {item.rationale}")
+        print(f"      Limite causal: {item.causality_note}")
+
+
+def _validate_args(parser: argparse.ArgumentParser, args, config: SerpRuntimeConfig) -> str:
+    del parser
+    if args.depth <= 0:
+        raise ValueError("--depth must be greater than zero")
+    if args.max_content_pages < 0:
+        raise ValueError("--max-content-pages must be >= 0")
+    if args.max_content_pages > config.max_competitors:
+        raise ValueError(
+            f"--max-content-pages {args.max_content_pages} exceeds configured "
+            f"max_competitors {config.max_competitors}"
+        )
+    if args.customer_url and not args.compare_content:
+        raise ValueError("--customer-url requires --compare-content")
+    if args.compare_content and len(args.query) > 1 and args.customer_url:
+        raise ValueError(
+            "--customer-url with --compare-content is supported for one query at a time"
+        )
+    if args.ai_competitive and not args.compare_content:
+        raise ValueError("--ai-competitive requires --compare-content")
+    if args.ai_timeout <= 0:
+        raise ValueError("--ai-timeout must be greater than zero")
+    if args.ai_fixture and not args.ai_competitive:
+        raise ValueError("--ai-fixture requires --ai-competitive")
+    if args.ai_provider and not args.ai_competitive:
+        raise ValueError("--ai-provider requires --ai-competitive")
+    provider_name = (
+        args.ai_provider
+        or os.environ.get("RASAI_SEARCH_AI_PROVIDER", "none")
+    ).strip().casefold()
+    if provider_name not in {"none", "openai", "fixture"}:
+        raise ValueError(
+            "RASAI_SEARCH_AI_PROVIDER must be one of: none, openai, fixture"
+        )
+    if provider_name == "fixture" and args.ai_competitive and args.ai_fixture is None:
+        raise ValueError("--ai-provider fixture requires --ai-fixture")
+    return provider_name
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
@@ -209,21 +309,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.fixture is not None:
             config = replace(config, fixture_path=args.fixture)
         config = config.validate()
-        if args.depth <= 0:
-            raise ValueError("--depth must be greater than zero")
-        if args.max_content_pages < 0:
-            raise ValueError("--max-content-pages must be >= 0")
-        if args.max_content_pages > config.max_competitors:
-            raise ValueError(
-                f"--max-content-pages {args.max_content_pages} exceeds configured "
-                f"max_competitors {config.max_competitors}"
-            )
-        if args.customer_url and not args.compare_content:
-            raise ValueError("--customer-url requires --compare-content")
-        if args.compare_content and len(args.query) > 1 and args.customer_url:
-            raise ValueError(
-                "--customer-url with --compare-content is supported for one query at a time"
-            )
+        ai_provider_name = _validate_args(parser, args, config)
 
         content_fetcher = PublicWebFetcher(
             timeout_seconds=args.content_timeout,
@@ -254,12 +340,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 for item in requests
             )
             if len(requests) > config.max_queries:
-                raise ValueError(f"SERP query count {len(requests)} exceeds configured max_queries {config.max_queries}")
+                raise ValueError(
+                    f"SERP query count {len(requests)} exceeds configured max_queries {config.max_queries}"
+                )
             if any(item.depth > config.max_depth for item in requests):
-                raise ValueError(f"requested SERP depth exceeds configured max_depth {config.max_depth}")
+                raise ValueError(
+                    f"requested SERP depth exceeds configured max_depth {config.max_depth}"
+                )
             if projected > config.max_requests:
-                raise ValueError(f"worst-case SERP HTTP requests {projected} exceed configured max_requests {config.max_requests}")
-            print(f"SERP dry-run: mode={config.mode} provider={config.provider} queries={len(requests)} depth={args.depth}")
+                raise ValueError(
+                    f"worst-case SERP HTTP requests {projected} exceed configured max_requests {config.max_requests}"
+                )
+            print(
+                f"SERP dry-run: mode={config.mode} provider={config.provider} "
+                f"queries={len(requests)} depth={args.depth}"
+            )
             print(f"SERP HTTP request ceiling: {projected}/{config.max_requests}")
             if args.compare_content:
                 documents = len(requests) * (1 + args.max_content_pages)
@@ -273,8 +368,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "Content comparison is direct public-web acquisition; "
                     "it consumes no SERP provider quota."
                 )
-            print("No provider or content call executed.")
+            if args.ai_competitive:
+                print(
+                    "Competitive AI call ceiling: "
+                    f"{len(requests)} provider={ai_provider_name}; "
+                    "actual calls require consolidated deterministic content evidence."
+                )
+            print("No provider, content or AI call executed.")
             return 0
+
         execution = execute_search(
             requests,
             config=config,
@@ -291,27 +393,69 @@ def main(argv: Sequence[str] | None = None) -> int:
                 workspace_root=args.audit_workspace,
                 fetcher=content_fetcher if args.compare_content else None,
             )
+
+        ai_execution = None
+        if args.ai_competitive:
+            if competitive_execution is None:
+                raise ValueError("competitive execution is required for Competitive AI")
+            ai_provider = build_competitive_ai_provider(
+                ai_provider_name,
+                fixture_path=args.ai_fixture,
+                model=args.ai_model,
+                reasoning_effort=args.ai_reasoning_effort,
+                timeout=args.ai_timeout,
+            )
+            ai_execution = execute_competitive_ai(
+                execution,
+                competitive_execution,
+                provider=ai_provider,
+                market=args.country,
+                language=args.language,
+                ymyl_mode=args.ymyl_mode,
+                workspace_root=args.audit_workspace,
+            )
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
 
     print(f"SERP mode: {execution.mode}")
     print(f"Provider: {execution.provider}")
-    print(f"HTTP requests: {execution.actual_http_requests} (teto projetado {execution.projected_http_request_ceiling})")
-    print(f"Persistência: {'audit.db + artifacts' if execution.persisted else 'não solicitada'}")
+    print(
+        f"HTTP requests: {execution.actual_http_requests} "
+        f"(teto projetado {execution.projected_http_request_ceiling})"
+    )
+    print(
+        f"Persistência: {'audit.db + artifacts' if execution.persisted else 'não solicitada'}"
+    )
     for index, result in enumerate(execution.results, 1):
         if index > 1:
             print("-" * 72)
         _render_result(result)
         if competitive_execution is not None:
             _render_competitive(competitive_execution.analyses[index - 1])
+        if ai_execution is not None:
+            _render_competitive_ai(ai_execution.results[index - 1])
     if competitive_execution is not None and competitive_execution.content_enabled:
         print(
             "Content HTTP requests: "
             f"{competitive_execution.content_http_requests}"
         )
+    if ai_execution is not None:
+        print(
+            f"Competitive AI provider calls: {ai_execution.provider_calls}; "
+            f"eligible analyses: {ai_execution.eligible_analyses}"
+        )
+
     if any(
         result.domain_status in {DomainMatchStatus.ERROR, DomainMatchStatus.UNAVAILABLE}
         for result in execution.results
+    ):
+        return 1
+    if ai_execution is not None and any(
+        result.state in {
+            CompetitiveAiState.UNAVAILABLE,
+            CompetitiveAiState.NOT_CONFIGURED,
+        }
+        for result in ai_execution.results
     ):
         return 1
     return 0
