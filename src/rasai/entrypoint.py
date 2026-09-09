@@ -32,11 +32,11 @@ def _try_refresh_platform_index(argv: list[str]) -> None:
     audit. Any platform indexing error is therefore logged and kept fail-open.
     """
     try:
-        from rasai.platform.central_store import CentralPlatformStore
+        from rasai.platform.database import open_platform_store
         from rasai.platform.indexing import index_audits
 
         root = _audits_root(argv)
-        with CentralPlatformStore.open(root) as store:
+        with open_platform_store(audits_root=root) as store:
             index_audits(store, root, strict=False)
     except Exception:
         _LOGGER.exception("RASAi platform index refresh failed after successful audit")
