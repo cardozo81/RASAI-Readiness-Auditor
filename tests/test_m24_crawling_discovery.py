@@ -126,10 +126,10 @@ def _server():
 def _fixture(origin: str, root: str):
     audit = Audit(
         audit_id=new_id("AUD"),
-        project_name="M24 fixture",
+        project_name="Crawling discovery fixture",
         max_pages=2,
         auditor_version="0.1.0",
-        ruleset_version="M24",
+        ruleset_version="TEST",
     )
     target = AuditTarget(
         target_id=new_id("TGT"),
