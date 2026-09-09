@@ -57,7 +57,42 @@ RASAI_PLATFORM_DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<databa
 
 `--platform-db` is SQLite-only. A configured PostgreSQL backend requires `RASAI_PLATFORM_DATABASE_URL` and never falls back to SQLite if the URL is absent or the server is unavailable. This prevents split authority.
 
-The database password is not emitted by backend status output. Display URLs are redacted to retain user/host/database while removing the password.
+The database password is not emitted by backend status output. Display URLs are redacted to retain user/host/database while removing the password and connection query parameters.
+
+## Connection targets: Docker or hosted PostgreSQL
+
+The PostgreSQL adapter is endpoint-neutral. The same runtime can connect to a local Docker container, a PostgreSQL server on another machine, a managed database service or a hosting provider that exposes a standards-compatible PostgreSQL TCP endpoint.
+
+Local Docker development example:
+
+```text
+RASAI_PLATFORM_DB_BACKEND=postgresql
+RASAI_PLATFORM_DATABASE_URL=postgresql://rasai_app:<password>@127.0.0.1:5432/rasai_control_plane
+```
+
+Hosted/remote example:
+
+```text
+RASAI_PLATFORM_DB_BACKEND=postgresql
+RASAI_PLATFORM_DATABASE_URL=postgresql://rasai_app:<password>@db.example-host.net:5432/rasai_control_plane?sslmode=require&connect_timeout=10&application_name=rasai
+```
+
+A provider-specific pooler endpoint on another port is also acceptable when it presents a PostgreSQL-compatible connection contract, for example port `6543`.
+
+Connection query parameters are preserved and passed to Psycopg/libpq. This allows provider-required options such as `sslmode`, `connect_timeout`, `application_name` and certificate parameters without adding provider-specific logic to RASAi.
+
+For remote or hosted databases:
+
+- TLS should be enabled; `sslmode=require` is the minimum practical remote profile, while `sslmode=verify-full` is preferred when the provider exposes a trusted CA and hostname verification;
+- the provider must permit inbound PostgreSQL connectivity from the RASAi execution environment, including IP allowlisting/firewall rules when applicable;
+- the database/user must have the permissions required by the explicit RASAi schema migrations;
+- credentials remain runtime secrets and must not be committed to Git;
+- special characters in URL usernames/passwords must be percent-encoded;
+- a generic web-hosting plan that does not expose remote PostgreSQL TCP access cannot be used as a RASAi control-plane endpoint merely because it offers PostgreSQL internally to hosted applications.
+
+RASAi does not detect Docker versus hosting and does not branch behavior by provider. Database location is an operational concern represented solely by the connection URL and network/TLS configuration.
+
+If a hosted PostgreSQL endpoint is unavailable while PostgreSQL is explicitly selected, RASAi fails closed. The operator may explicitly select `sqlite` to return to portable local operation; there is no automatic PostgreSQL-to-SQLite fallback.
 
 ## Schema migrations
 
@@ -157,11 +192,12 @@ PostgreSQL support is validated against a real PostgreSQL 18 service container i
 - schedules and usage persistence;
 - transaction rollback;
 - Query Registry and Search monitoring run history;
+- local-Docker and hosted/TLS connection URL profiles;
 - no creation or mutation of `AUD-*/audit.db` by recurring Search monitoring;
 - explicit backend selection and lack of silent fallback;
 - credential redaction.
 
-SQLite regressions remain part of the normal full Product Platform and repository regression suites.
+SQLite regressions remain part of the normal full Product Platform and repository regression suites. A separate portable safety gate runs without Psycopg or a PostgreSQL service so PostgreSQL support cannot become a hidden dependency of the local SQLite runtime.
 
 ## Production boundary not implemented here
 
