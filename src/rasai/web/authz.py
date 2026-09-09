@@ -43,10 +43,13 @@ def accessible_workspace_ids(store: Any, principal: Principal) -> set[str]:
     for membership in memberships:
         if membership.get("project_id"):
             project = project_by_id.get(str(membership["project_id"]))
-            if project is not None:
+            if project is not None and project.status == "ACTIVE":
                 workspace_ids.add(project.workspace_id)
         elif membership.get("workspace_id"):
-            workspace_ids.add(str(membership["workspace_id"]))
+            workspace_id = str(membership["workspace_id"])
+            workspace = next((item for item in workspaces if item.workspace_id == workspace_id), None)
+            if workspace is not None and workspace.status == "ACTIVE":
+                workspace_ids.add(workspace_id)
         else:
             organization_id = str(membership["organization_id"])
             workspace_ids.update(
@@ -62,6 +65,7 @@ def accessible_project_ids(store: Any, principal: Principal) -> set[str]:
     workspaces = list(store.list_workspaces())
     projects = list(store.list_projects())
     workspace_by_id = {item.workspace_id: item for item in workspaces}
+    project_by_id = {item.project_id: item for item in projects}
     project_ids: set[str] = set()
     for membership in memberships:
         if membership.get("project_id"):
@@ -89,8 +93,10 @@ def accessible_project_ids(store: Any, principal: Principal) -> set[str]:
     return {
         project_id
         for project_id in project_ids
-        if project_id in {item.project_id for item in projects if item.status == "ACTIVE"}
-        and workspace_by_id.get(next(item.workspace_id for item in projects if item.project_id == project_id), None) is not None
+        if (project := project_by_id.get(project_id)) is not None
+        and project.status == "ACTIVE"
+        and (workspace := workspace_by_id.get(project.workspace_id)) is not None
+        and workspace.status == "ACTIVE"
     }
 
 
