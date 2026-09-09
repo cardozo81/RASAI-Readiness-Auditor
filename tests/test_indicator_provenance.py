@@ -35,6 +35,32 @@ def test_readiness_page_has_explicit_internal_methodological_nature() -> None:
     assert "SCORE-GEO-004" in html
 
 
+def test_readiness_normalization_removes_pre_recalibration_methodology() -> None:
+    legacy = (
+        "<html><body><header class='hero'><h1>Teste</h1></header><main>"
+        "<p>Média de igual peso das dimensões aplicáveis com medição suficiente. "
+        "Dimensão legitimamente NOT_APPLICABLE sai do denominador e não recebe zero.</p>"
+        "<p>O Overall usa a média dessa Coverage entre dimensões aplicáveis; ela não representa percentual de URLs do domínio rastreadas ou auditadas.</p>"
+        "<p>O Overall usa a menor Confidence entre as dimensões aplicáveis. Para consolidar, exige Coverage média de pelo menos 80% e Confidence mínima MEDIUM. "
+        "A presença de IA não é requisito: uma execução NO_AI pode atingir MEDIUM/HIGH quando Coverage, evidências e integridade da execução forem suficientes.</p>"
+        "<p>Grupo SITEMAP · peso máximo versionado 0,25.</p>"
+        "<p>Grupo ROBOTS · peso máximo versionado 0,60.</p>"
+        "<table><tr><td>DISCOVERY_ACCESS</td></tr><tr><td>CONTENT_VALUE</td></tr></table>"
+        "</main></body></html>"
+    )
+    html = enrich_indicator_provenance_html(legacy, page_name="readiness.html")
+    assert "Média de igual peso" not in html
+    assert "média dessa Coverage" not in html
+    assert "menor Confidence" not in html
+    assert "peso máximo versionado 0,25" not in html
+    assert "peso máximo versionado 0,60" not in html
+    assert "Média ponderada pelos pesos versionados" in html
+    assert "peso versionado 0,05 dentro de DISCOVERY_ACCESS" in html
+    assert "peso versionado 0,15 dentro de DISCOVERY_ACCESS" in html
+    assert ">Acesso e descoberta<" in html
+    assert ">Valor do conteúdo<" in html
+
+
 def test_external_metric_pages_are_not_presented_as_rasai_score() -> None:
     html = enrich_indicator_provenance_html(_shell(), page_name="web-performance.html")
     assert "Métricas externas definidas" in html
