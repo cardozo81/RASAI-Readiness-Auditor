@@ -10,9 +10,8 @@ audits/<AUD-ID>/
 ├─ observability.db            # condicional; sidecar RASAI-OBS-002
 ├─ artifacts/
 │  ├─ web-performance/         # condicional
-│  ├─ m24/                     # condicional
-│  ├─ m26/                     # condicional
-│  └─ observability/           # condicional
+│  ├─ observability/           # condicional
+│  └─ outros artifacts internos por capacidade, quando aplicável
 ├─ logs/
 │  └─ audit.log                # quando logging persistente estiver ativo
 └─ report/
@@ -35,6 +34,8 @@ audits/<AUD-ID>/
    ├─ references.html
    └─ css/site.css
 ```
+
+Os nomes físicos de subdiretórios ou tabelas usados internamente por capacidades específicas não fazem parte do contrato público. Integrações devem consumir os manifests, relatórios, contratos e campos documentados, não depender de identificadores internos de implementação.
 
 O menu final lista somente páginas canônicas existentes e preserva ordem estável. O alias versionado do scoring não recebe item próprio de navegação.
 
@@ -83,11 +84,7 @@ Telemetria/custo não participa do score.
 
 ### Crawling/discovery
 
-```text
-m24_runs
-m24_diagnostics
-m24_ai_results
-```
+A persistência inclui execução, diagnósticos e, quando habilitada, resultados técnicos de IA para Crawling & Discovery. Os nomes físicos dessas tabelas são detalhe interno e não constituem contrato público.
 
 Os diagnósticos auxiliares continuam advisory. Quando a IA técnica estiver habilitada e produzir avaliação evidence-bound válida de robots/sitemap, somente a classe bounded do recurso pode compartilhar o grupo de scoring correspondente, com fatores estáticos e sem bônus duplicado.
 
@@ -192,18 +189,13 @@ artifacts/web-performance/*.crux.json
 
 ### Crawling/discovery
 
-```text
-artifacts/m24/
-artifacts/m24/llms.txt          # somente se obtido
-```
+Artifacts de Crawling & Discovery são armazenados em subdiretório interno da auditoria quando materializados. `llms.txt`, quando obtido, é preservado como evidência da capacidade. O nome físico desse subdiretório é detalhe de implementação e não integra o contrato público.
 
 Ausência de `llms.txt` não gera penalidade/readiness failure.
 
 ### Observed Generative Visibility
 
-```text
-artifacts/m26/observed-generative-visibility-<sha16>.json
-```
+A importação preserva artifact JSON com SHA-256 em subdiretório interno da capacidade. Integrações devem usar a proveniência persistida e o relatório `ai-visibility.html`, sem depender do nome físico do diretório interno.
 
 ### Search & AI Observability
 
