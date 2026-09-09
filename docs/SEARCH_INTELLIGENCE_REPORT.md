@@ -232,7 +232,7 @@ The Search runtime performs a best-effort report refresh after a persisted obser
 
 A report rendering problem must not convert a successfully persisted SERP observation or competitive comparison into a provider/runtime failure. The HTML can be regenerated later from `audit.db`.
 
-The Competitive AI runtime should follow the same contract: after semantic evidence is persisted, refresh the report from persisted state rather than passing an in-memory AI object directly into the renderer.
+The Competitive AI runtime follows the same contract: after semantic evidence is persisted, it refreshes the report from persisted state rather than passing an in-memory AI object directly into the renderer.
 
 This keeps the HTML reproducible from its persisted sources of truth.
 

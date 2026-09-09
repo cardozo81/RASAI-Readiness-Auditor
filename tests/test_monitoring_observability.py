@@ -60,7 +60,7 @@ def _workspace(
                 score_id TEXT PRIMARY KEY,audit_id TEXT,dimension TEXT,device TEXT,value REAL,coverage REAL,
                 confidence TEXT,consolidation_status TEXT,scoring_version TEXT,calculated_at TEXT
             );
-            INSERT INTO scores VALUES ('SC1','{audit_id}','INDEXABILITY','MOBILE',{score},1.0,'HIGH','CONSOLIDATED','SCORE-GEO-003','2026-09-01T10:03:00Z');
+            INSERT INTO scores VALUES ('SC1','{audit_id}','INDEXABILITY','MOBILE',{score},1.0,'HIGH','CONSOLIDATED','SCORE-GEO-004','2026-09-01T10:03:00Z');
             """
         )
         connection.commit()

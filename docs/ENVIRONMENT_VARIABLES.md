@@ -405,3 +405,27 @@ Remove-Item Env:RASAI_OPENAI_MODEL -ErrorAction SilentlyContinue
 - Gemini API keys: <https://ai.google.dev/gemini-api/docs/api-key>
 - Anthropic API access: <https://support.claude.com/en/articles/8114521-how-can-i-access-the-claude-api>
 - PageSpeed/CrUX: [GOOGLE_API_KEYS.md](GOOGLE_API_KEYS.md)
+
+
+## Search Intelligence / SERP
+
+As variáveis abaixo são reconhecidas pela superfície `rasai search`. Search Intelligence é opt-in e permanece independente do scoring: nenhuma delas altera `SARI-001` ou `SCORE-GEO-004`.
+
+| Variável | Valores / tipo | Default efetivo | Finalidade |
+|---|---|---:|---|
+| `RASAI_SERP_MODE` | `disabled`, `live`, `fixture` | `disabled` | habilita explicitamente observação SERP |
+| `RASAI_SERP_PROVIDER` | provider ID | `serpapi` | adapter live; atualmente SerpApi/Google |
+| `RASAI_SERPAPI_API_KEY` | segredo BYOK | sem default | credencial SerpApi no modo live |
+| `RASAI_SERP_FIXTURE_PATH` | caminho | sem default | fixture canônica no modo fixture |
+| `RASAI_SERP_MAX_QUERIES` | inteiro `>0` | `10` | teto de queries por execução |
+| `RASAI_SERP_MAX_REQUESTS` | inteiro `>0` | `10` | orçamento máximo de tentativas HTTP do provider |
+| `RASAI_SERP_MAX_DEPTH` | inteiro `>0` | `20` | profundidade máxima observável solicitada |
+| `RASAI_SERP_MAX_COMPETITORS` | inteiro `>=0` | `10` | teto de candidatos derivados |
+| `RASAI_SERP_TIMEOUT_SECONDS` | número finito `>0` | `20` | timeout por tentativa do provider |
+| `RASAI_SERP_RETRIES` | inteiro `>=0` | `1` | retries limitados do provider |
+| `RASAI_SERP_MIN_INTERVAL_SECONDS` | número finito `>=0` | `1` | intervalo mínimo entre inícios de requests |
+| `RASAI_SEARCH_AI_PROVIDER` | `none`, `fixture`, `openai` | `none` | provider da camada Competitive AI opt-in |
+
+`RASAI_SERPAPI_API_KEY` e `OPENAI_API_KEY` são segredos e não devem ser persistidos em `audit.db`, artifacts ou HTML. `--dry-run` valida orçamento sem chamar Search provider, páginas ou Competitive AI. Conteúdo competitivo e IA exigem flags explícitas (`--compare-content`, `--ai-competitive`).
+
+O cálculo de pior caso do provider live permanece limitado por profundidade, paginação e retries; o runtime bloqueia a execução quando o teto projetado excede `RASAI_SERP_MAX_REQUESTS`.

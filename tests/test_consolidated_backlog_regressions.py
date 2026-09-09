@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import re
 import unittest
 
 from rasai.m11 import _ai_usage_status
@@ -83,7 +84,7 @@ class ConsolidatedBacklogRegressionTests(unittest.TestCase):
         self.assertNotIn("<small>Escopo</small><strong>URL</strong><span class='result-tag bad'>", output)
         self.assertNotIn("<small>Fonte</small><strong>PAGESPEED_CRUX</strong><span class='result-tag bad'>", output)
 
-    def test_current_runtime_files_do_not_claim_score_geo_002(self) -> None:
+    def test_current_runtime_files_expose_only_score_geo_004(self) -> None:
         selected = [
             "src/rasai/m20_reporting.py", "src/rasai/m23_reporting.py",
             "src/rasai/m24_reporting.py", "src/rasai/m25_reporting.py",
@@ -93,7 +94,7 @@ class ConsolidatedBacklogRegressionTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         for relative in selected:
             with self.subTest(relative=relative):
-                self.assertNotIn("SCORE-GEO-002", (root / relative).read_text(encoding="utf-8"))
+                self.assertIsNone(re.search(r"SCORE-GEO-(?!004)\d{3}", (root / relative).read_text(encoding="utf-8")))
 
 
 if __name__ == "__main__":

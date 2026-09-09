@@ -2,12 +2,12 @@
 
 ## Estado do produto
 
-O RASAi está em **desenvolvimento e validação**. Nenhuma combinação anterior de `SARI`, `SCORE-GEO`, relatório ou contrato interno deve ser descrita como uma versão pública legada, obsoleta ou anteriormente lançada. Quando dados de testes anteriores precisam ser preservados para reprodutibilidade, eles são tratados como **referências de desenvolvimento anteriores** e permanecem identificados pela versão persistida que efetivamente os produziu.
+O RASAi está em **desenvolvimento e validação**. O único contrato de scoring válido no produto, no runtime, nos testes e na documentação é `SCORE-GEO-004`. Não há suporte documental ou operacional a versões anteriores de cálculo.
 
 O baseline funcional vigente usa:
 
 - índice público `SARI-001`;
-- método de scoring `SCORE-GEO-004` para novas auditorias;
+- método de scoring `SCORE-GEO-004`;
 - `report/readiness.html` como superfície canônica do índice;
 - `report/scoring.html` como superfície canônica da metodologia;
 - HTML em português do Brasil, mantendo em inglês apenas nomes técnicos consolidados, identificadores, APIs, formatos e termos cujo uso técnico melhora a precisão.

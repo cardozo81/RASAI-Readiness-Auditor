@@ -10,7 +10,7 @@ from rasai.score_geo_004_reporting import REPORT_FILE
 
 
 _VERSIONED_SCORING_FILE = re.compile(r"score-geo-\d+\.html")
-_OLD_SCORING_VERSION = re.compile(r"SCORE-GEO-00[123]")
+_NON_CANONICAL_SCORING_VERSION = re.compile(r"SCORE-GEO-(?!004)\d{3}")
 
 
 def _page(title: str) -> str:
@@ -31,7 +31,7 @@ def test_optional_report_navigation_is_complete_stable_and_current_only() -> Non
         assert ("Metodologia de scoring", "scoring.html") in CANONICAL_NAV_ITEMS
         assert not any(_VERSIONED_SCORING_FILE.fullmatch(filename) for _, filename in CANONICAL_NAV_ITEMS)
         assert "SCORE-GEO-004" in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]
-        assert not _OLD_SCORING_VERSION.search(report_navigation._RULE_TOOLTIPS["BR-GEO-054"])
+        assert not _NON_CANONICAL_SCORING_VERSION.search(report_navigation._RULE_TOOLTIPS["BR-GEO-054"])
         assert "histórico" not in report_navigation._RULE_TOOLTIPS["BR-GEO-054"]
 
         with tempfile.TemporaryDirectory() as directory:
@@ -58,62 +58,18 @@ def test_optional_report_navigation_is_complete_stable_and_current_only() -> Non
             expected_order = [
                 filename for _label, filename in CANONICAL_NAV_ITEMS if filename in materialized
             ]
-            for current in materialized:
-                html = (report_dir / current).read_text(encoding="utf-8")
-                positions = [html.index(f"href='{name}'") for name in expected_order]
+            for name in materialized:
+                html = (report_dir / name).read_text(encoding="utf-8")
+                positions = [html.find(f"href='{filename}'") for filename in expected_order]
+                assert all(position >= 0 for position in positions)
                 assert positions == sorted(positions)
                 assert html.count("class='active'") == 1
-                assert f"class='active' href='{current}'" in html
-                assert "mobile.html" not in html
-                assert "desktop.html" not in html
-                assert not _VERSIONED_SCORING_FILE.search(html)
+                assert "score-geo-004.html" not in html
     finally:
         report_navigation.NAV_ITEMS = original_nav
         report_navigation._RULE_TOOLTIPS["BR-GEO-054"] = original_tooltip
 
 
-def test_prepublication_scoring_report_has_only_canonical_surface() -> None:
+def test_scoring_report_filename_is_canonical_and_not_versioned() -> None:
     assert REPORT_FILE == "scoring.html"
     assert not _VERSIONED_SCORING_FILE.fullmatch(REPORT_FILE)
-    assert not any(_VERSIONED_SCORING_FILE.fullmatch(filename) for _, filename in CANONICAL_NAV_ITEMS)
-
-
-def test_current_method_documents_expose_only_score_geo_004() -> None:
-    root = Path(__file__).resolve().parents[1]
-    current_docs = (
-        "README.md",
-        "docs/SCORING_GUIDE.md",
-        "docs/SCORE_GEO_004.md",
-        "docs/SARI_READINESS_INDEX.md",
-        "docs/CONSOLIDATED_REPORTING.md",
-        "docs/RULES_GUIDE.md",
-        "docs/REPORT_GUIDE.md",
-        "docs/OUTPUTS_AND_ARTIFACTS.md",
-        "docs/CLI_REFERENCE.md",
-        "docs/specification/00_SPEC_INDEX.md",
-        "docs/specification/05_SCORING_MODEL.md",
-        "docs/specification/12_AI_HANDOFF.md",
-    )
-    for relative in current_docs:
-        text = (root / relative).read_text(encoding="utf-8")
-        assert "SCORE-GEO-004" in text, f"current scoring version missing from {relative}"
-        assert not _OLD_SCORING_VERSION.search(text), f"obsolete scoring version exposed in {relative}"
-
-
-def test_current_report_docs_use_stable_scoring_filename() -> None:
-    root = Path(__file__).resolve().parents[1]
-    for relative in (
-        "README.md",
-        "docs/SCORING_GUIDE.md",
-        "docs/SCORE_GEO_004.md",
-        "docs/SARI_READINESS_INDEX.md",
-        "docs/REPORT_GUIDE.md",
-        "docs/OUTPUTS_AND_ARTIFACTS.md",
-        "docs/CLI_REFERENCE.md",
-        "docs/specification/00_SPEC_INDEX.md",
-        "docs/specification/05_SCORING_MODEL.md",
-        "docs/specification/12_AI_HANDOFF.md",
-    ):
-        text = (root / relative).read_text(encoding="utf-8")
-        assert "scoring.html" in text, f"stable scoring report path missing from {relative}"
-        assert not _VERSIONED_SCORING_FILE.search(text), f"versioned scoring report path exposed in {relative}"

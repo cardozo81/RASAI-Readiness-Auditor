@@ -333,11 +333,17 @@ The optional Competitive AI layer runs **after** that deterministic context is c
 
 Neither downstream layer changes `SARI-001` or `SCORE-GEO-004`.
 
-## 14. HTML report decision
+## 14. HTML report
 
-No Search Intelligence-specific HTML report is introduced yet. CLI plus `audit.db`/artifact evidence remain the POC surface.
+The canonical point-in-time Search Intelligence surface is implemented at:
 
-The platform already has deployment markers and before/after audit resolution. Historical Search Intelligence should first extend that existing comparison architecture; a dedicated HTML surface should then consume the stabilized historical + deterministic + optional semantic contracts rather than introducing a parallel model prematurely.
+```text
+report/search-intelligence.html
+```
+
+It is generated from persisted Search Intelligence evidence and does not call the Search provider or AI provider during rendering. SERP Observation, deterministic competitive evidence and optional Competitive AI are progressively projected when available.
+
+Historical comparison is implemented separately under `SEARCH-HISTORY-001` and materializes a standalone read-only report plus manifest. Keeping point-in-time and temporal contracts separate avoids implying that a later observed movement was caused by a deployment.
 
 ## 15. Known limitations
 
@@ -349,21 +355,20 @@ The platform already has deployment markers and before/after audit resolution. H
 - content comparison uses static HTTP HTML, not browser-rendered DOM;
 - Competitive AI live support initially uses OpenAI behind a provider-neutral contract;
 - Competitive AI receives extracted features rather than full raw HTML;
-- historical Search Intelligence before/after is not yet integrated into platform comparisons;
-- no distributed regional probes;
-- no Search Intelligence-specific HTML report yet.
+- historical semantic comparison of Competitive AI output is not yet a stable contract;
+- no distributed regional probes.
 
 ## 16. Next evolution
 
-The next structural extension is historical Search Intelligence using the platform's existing deployment/before-after model:
+Point-in-time Search Intelligence, deterministic before/after comparison and the standalone historical HTML/manifest surface are now implemented. The next product extension should build periodic query observation on top of these stable contracts:
 
 ```text
-same query + engine + market + language + device
-+ baseline Search observation
-+ post-deploy Search observation
--> comparable position/result/content changes
--> deterministic difference evolution
--> optional semantic opportunity evolution
+scheduled exact Search context
+-> repeated persisted observations
+-> SEARCH-HISTORY-001 compatible comparisons
+-> trend view
+-> bounded alerts for material observed movement
 ```
 
-Temporal association remains observational. A post-deploy ranking/content movement must not be presented automatically as caused by the deployment.
+Scheduling must preserve query/engine/market/language/device/depth identity and provider provenance. Search volatility remains observational; an alert must never be presented as proof of ranking causality.
+

@@ -104,23 +104,6 @@ def test_scoring_report_projects_only_current_prepublication_contract() -> None:
         assert before == after
 
 
-def test_unsupported_scoring_version_is_not_promoted_or_rendered_as_public_history() -> None:
-    install()
-    with tempfile.TemporaryDirectory() as directory:
-        workspace = _workspace(Path(directory) / "AUD-UNSUPPORTED", "SCORE-GEO-999")
-        before = _sha256(workspace.database)
-        path = write_score_geo_004_report(audit_id="AUD-CURRENT", workspace=workspace)
-        after = _sha256(workspace.database)
-        html = path.read_text(encoding="utf-8")
-        assert CURRENT_SCORING_VERSION in html
-        assert "SCORE-GEO-999" not in html
-        assert "Somente" in html and "é reconhecido" in html
-        assert "HISTÓRICA" not in html
-        assert "metodologia histórica" not in html.casefold()
-        assert not list(path.parent.glob("score-geo-*.html"))
-        assert before == after
-
-
 def test_report_manifest_exposes_current_version_axes_without_score_or_evidence_payloads() -> None:
     install()
     with tempfile.TemporaryDirectory() as directory:

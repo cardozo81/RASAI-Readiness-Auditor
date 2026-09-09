@@ -61,7 +61,7 @@ def _audit(
                 score_id TEXT PRIMARY KEY,audit_id TEXT,dimension TEXT,device TEXT,value REAL,coverage REAL,
                 confidence TEXT,consolidation_status TEXT,scoring_version TEXT,calculated_at TEXT
             );
-            INSERT INTO scores VALUES ('SC1','{audit_id}','INDEXABILITY','MOBILE',90,1.0,'HIGH','CONSOLIDATED','SCORE-GEO-003','{completed_at}');
+            INSERT INTO scores VALUES ('SC1','{audit_id}','INDEXABILITY','MOBILE',90,1.0,'HIGH','CONSOLIDATED','SCORE-GEO-004','{completed_at}');
             """
         )
         connection.commit()

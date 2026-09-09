@@ -293,8 +293,8 @@ Neither the point-in-time report nor the history layer establishes ranking causa
 - no canonical/hreflang/link-graph comparison yet;
 - Competitive AI live support starts with OpenAI; other adapters can be added behind the same contract;
 - AI sees extracted features rather than full raw HTML;
-- historical comparison is deterministic; semantic before/after comparison of Competitive AI output is not yet a stable contract;
-- no dedicated historical HTML report is generated yet;
+- historical comparison and its standalone HTML/manifest are deterministic; semantic before/after comparison of Competitive AI output is not yet a stable contract;
 - public-IP validation still requires network-layer reinforcement before multi-tenant SaaS.
 
 The product platform milestone and before/after audit model is reused by Search Intelligence History. No parallel deployment-marker model is introduced.
+

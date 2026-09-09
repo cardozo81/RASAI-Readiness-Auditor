@@ -252,8 +252,10 @@ Nenhum teste deve consumir uma chave real ou fazer chamada de IA ao vivo.
 - não há comparação semântica histórica entre duas execuções nesta camada;
 - não há entity/business-equivalence graph;
 - não há browser-rendered competitive content;
-- não há Search Intelligence HTML específico;
+- `report/search-intelligence.html` projeta a evidência semântica persistida, mas não executa IA durante o rendering;
+- `SEARCH-HISTORY-001` e seu relatório histórico comparam evidência determinística; não transformam recomendações de IA em score temporal;
 - a IA não recebe o corpo integral da página, apenas features determinísticas;
 - não existe garantia de ganho de ranking a partir das recomendações.
 
-A arquitetura de plataforma já possui marcos de deploy e resolução before/after para auditorias. A extensão de comparações históricas para observações Search Intelligence deve reutilizar essa estrutura, em vez de criar um segundo sistema de marcos.
+A arquitetura de plataforma reutiliza os marcos de deploy e a resolução before/after existentes. Não existe um segundo sistema de marcos para Search Intelligence.
+

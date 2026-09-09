@@ -190,6 +190,8 @@ rasai search-history `
   --current-workspace audits/AUD-CURRENT
 ```
 
+Por padrão, uma execução bem-sucedida gera `audits/search-history/SH-*/report.html` e `manifest.json`. Use `--report-root PATH` para alterar a raiz dessa saída standalone.
+
 Com saída JSON opcional:
 
 ```powershell
@@ -231,7 +233,7 @@ Mudanças `FOUND` <-> `NOT_FOUND_WITHIN_DEPTH` são apresentadas como entrada ou
 
 Quando ambas as observações possuem comparação competitiva determinística consolidada, o histórico também pode descrever mudanças de cobertura lexical, volume observado, tipos JSON-LD e gaps determinísticos. A cronologia de um milestone não é apresentada como causalidade de ranking.
 
-O comando é read-only sobre `audit.db` e não chama Search provider, AI provider ou páginas públicas.
+O comando é read-only sobre `audit.db`, não chama Search provider, AI provider ou páginas públicas e nunca altera `SARI-001`/`SCORE-GEO-004`.
 
 ## Synthetic Navigation Apdex
 

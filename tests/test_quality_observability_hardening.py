@@ -129,7 +129,7 @@ def _audit_workspace(
                 confidence TEXT,consolidation_status TEXT,scoring_version TEXT,calculated_at TEXT
             );
             INSERT INTO scores VALUES (
-                'SC1','{audit_id}','INDEXABILITY','MOBILE',90,1.0,'HIGH','CONSOLIDATED','SCORE-GEO-003','2026-09-01T10:03:00Z'
+                'SC1','{audit_id}','INDEXABILITY','MOBILE',90,1.0,'HIGH','CONSOLIDATED','SCORE-GEO-004','2026-09-01T10:03:00Z'
             );
             """
         )
@@ -373,7 +373,7 @@ def test_change_impact_uses_latest_dataset_without_double_sum_and_requires_tempo
 def test_release_gate_excludes_non_deterministic_families_until_opt_in() -> None:
     snapshot = AuditSnapshot(
         audit_id="AUD", workspace=Path("."), project_name="P", event_time="2026-09-01", status="COMPLETED",
-        completion_status="COMPLETE", auditor_version="1", ruleset_version="1", scoring_versions=("SCORE-GEO-003",),
+        completion_status="COMPLETE", auditor_version="1", ruleset_version="1", scoring_versions=("SCORE-GEO-004",),
         domains=("example.test",), devices=("MOBILE",), urls=("https://example.test/a",), signals={},
     )
     perf = ChangeEvent(

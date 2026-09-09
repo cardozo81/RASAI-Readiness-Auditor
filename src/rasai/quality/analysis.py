@@ -15,6 +15,8 @@ from pathlib import Path
 import sqlite3
 from typing import Any
 
+from rasai.score_geo_004 import SCORING_VERSION
+
 _DETERMINISTIC_RULES = frozenset(
     [f"BR-GEO-{number:03d}" for number in range(1, 28)]
     + ["BR-GEO-050", "BR-GEO-051", "BR-GEO-052", "BR-GEO-053", "BR-GEO-054"]
@@ -196,7 +198,7 @@ def _health_checks(
         versions = sorted({str(row["scoring_version"]) for row in rows if row["scoring_version"]})
         coverages = [float(row["coverage"]) for row in rows if row["coverage"] is not None and str(row["dimension"]) != "OVERALL_READINESS"]
         minimum = min(coverages, default=0.0)
-        current_only = bool(versions) and all(version == "SCORE-GEO-003" for version in versions)
+        current_only = bool(versions) and all(version == SCORING_VERSION for version in versions)
         status = "PASS" if current_only and minimum >= 0.8 else "WARNING"
         out.append(_health(
             "AUDIT-SCORING-COVERAGE", status, "MEDIUM", "Cobertura e versão de scoring",

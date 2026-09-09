@@ -16,7 +16,7 @@ def _snapshot(audit_id: str) -> AuditSnapshot:
         completion_status="COMPLETE",
         auditor_version="test",
         ruleset_version="test",
-        scoring_versions=("SCORE-GEO-003",),
+        scoring_versions=("SCORE-GEO-004",),
         domains=("example.test",),
         devices=("MOBILE",),
         urls=("https://example.test/new",),

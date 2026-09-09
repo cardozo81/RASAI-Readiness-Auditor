@@ -33,6 +33,7 @@ report/
 ├─ crawling-discovery.html     # condicional
 ├─ accessibility.html          # condicional
 ├─ web-performance.html        # condicional
+├─ search-intelligence.html    # condicional
 ├─ apdex.html                  # condicional
 ├─ apdex-experience.html       # condicional
 ├─ content-suggestions.html
@@ -64,6 +65,7 @@ SARI-001 é metodologia proprietária, evidence-bound e reprodutível. Não repr
 | metodologia de scoring | `scoring.html` | contrato versionado; vigente `SCORE-GEO-004` |
 | Crawling/discovery | `crawling-discovery.html` | diagnóstico técnico non-scoring |
 | Core Web Vitals / Lighthouse | `web-performance.html` | lab + field data separados |
+| Search Intelligence | `search-intelligence.html` | SERP observado + comparação determinística + IA evidence-bound opcional; non-scoring |
 | Acessibilidade automatizada | `accessibility.html` | diagnóstico; não certificação WCAG |
 | Synthetic Navigation Apdex | `apdex.html` | sintético |
 | Synthetic User Experience Apdex | `apdex-experience.html` | sintético calibrável; não RUM |
@@ -168,6 +170,19 @@ São controles do publisher e não penalidades automáticas.
 ### Recommendation Validation
 
 Valida referência/estado/confiança da recomendação contra a evidência persistida. Não substitui revisão humana da mudança proposta.
+
+## Search Intelligence History
+
+Comparações entre dois AUDs são superfícies standalone, porque pertencem ao par e não a um único workspace:
+
+```text
+audits/search-history/SH-*/report.html
+                            manifest.json
+```
+
+`SEARCH-HISTORY-001` exige identidade exata de query, engine, país, região, idioma, device, profundidade e domínio, além de provider/data mode compatíveis. `NOT_FOUND_WITHIN_DEPTH` nunca é convertido em posição numérica artificial.
+
+O relatório pode mostrar posição antes/depois, entrada/saída da profundidade observada, mudanças determinísticas de conteúdo, JSON-LD e gaps adicionados/resolvidos. Milestone/deploy estabelece cronologia, não causalidade. A superfície é read-only e não altera `SARI-001`/`SCORE-GEO-004`.
 
 ## RASAi Monitor
 
@@ -319,6 +334,7 @@ Conteúdo e JSON-LD
 Rastreamento e descoberta
 Acessibilidade
 Web Performance
+Search Intelligence
 Apdex de navegação
 Apdex de experiência
 Visibilidade em IA
@@ -343,6 +359,7 @@ audit.db read-only
 → quality.html
 
 2 x audit.db read-only
+→ SH-*/report.html + manifest.json
 → MON-*/report.html + manifest/impact
 → VER-*/report.html
 

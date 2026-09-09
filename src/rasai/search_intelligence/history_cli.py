@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 
 from .history import compare_search_deployment_pair, compare_search_workspaces
+from .history_reporting import write_search_history_report
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -27,6 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--audits-root", default="audits")
     parser.add_argument("--platform-db")
     parser.add_argument("--json", dest="json_path", help="optional output JSON file")
+    parser.add_argument("--report-root", help="optional root for SH-*; default <audits-root>/search-history")
     return parser
 
 
@@ -73,7 +75,21 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(
                 "provide --baseline-workspace/--current-workspace or --milestone"
             )
-        _write(_payload(result), args.json_path)
+        report = write_search_history_report(
+            args.audits_root,
+            result,
+            report_root=args.report_root,
+            milestone_id=args.milestone if milestone else None,
+            baseline_mode=args.baseline_mode if milestone else None,
+        )
+        payload = _payload(result)
+        payload["report"] = {
+            "report_dir": str(report.report_dir),
+            "report_path": str(report.report_path),
+            "manifest_path": str(report.manifest_path),
+        }
+        _write(payload, args.json_path)
+        print(f"RASAi Search history report: {report.report_path}")
         return 0
     except (OSError, ValueError, RuntimeError, KeyError) as exc:
         print(f"RASAI Search history error: {exc}", file=sys.stderr)
