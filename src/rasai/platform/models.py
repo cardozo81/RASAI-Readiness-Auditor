@@ -34,6 +34,8 @@ MilestoneKind = Literal[
 ]
 ScheduleKind = Literal["INTERVAL", "DAILY", "MANUAL", "DEPLOYMENT_TRIGGERED", "API_TRIGGERED"]
 AlertDestination = Literal["NONE", "WEBHOOK", "JSON"]
+ExecutionJobType = Literal["AUDIT", "SEARCH_MONITOR", "REPORT_REFRESH"]
+ExecutionJobStatus = Literal["QUEUED", "CLAIMED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"]
 
 
 def _safe_mapping(value: dict[str, Any]) -> dict[str, Any]:
@@ -283,3 +285,42 @@ class ExternalDataset:
         if self.artifact_path is not None:
             object.__setattr__(self, "artifact_path", redact_text(self.artifact_path))
         object.__setattr__(self, "metadata", _safe_mapping(self.metadata))
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionJob:
+    """Durable execution request owned by the control plane, not by HTTP workers."""
+
+    job_id: str
+    organization_id: str
+    project_id: str
+    property_id: str
+    environment_id: str
+    job_type: ExecutionJobType
+    payload: dict[str, Any]
+    status: ExecutionJobStatus
+    requested_by: str | None
+    idempotency_key: str | None
+    priority: int
+    attempts: int
+    max_attempts: int
+    available_at: str
+    created_at: str
+    updated_at: str
+    claimed_at: str | None = None
+    claimed_by: str | None = None
+    lease_until: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    result_ref: str | None = None
+    result_metadata: dict[str, Any] = field(default_factory=dict)
+    last_error: str | None = None
+
+    def __post_init__(self) -> None:
+        validate_secret_free_mapping(self.payload, context="execution job payload")
+        object.__setattr__(self, "payload", _safe_mapping(self.payload))
+        object.__setattr__(self, "result_metadata", _safe_mapping(self.result_metadata))
+        if self.result_ref is not None:
+            object.__setattr__(self, "result_ref", redact_text(self.result_ref))
+        if self.last_error is not None:
+            object.__setattr__(self, "last_error", redact_text(self.last_error))
