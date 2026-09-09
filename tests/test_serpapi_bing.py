@@ -9,7 +9,7 @@ from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 from rasai.search_intelligence.budget import RequestBudget
-from rasai.search_intelligence.cli import main as search_main
+from rasai.search_intelligence.cli import _render_result, main as search_main
 from rasai.search_intelligence.config import SerpRuntimeConfig
 from rasai.search_intelligence.models import DomainMatchStatus, QueryOrigin, SerpQueryRequest
 from rasai.search_intelligence.monitoring import SearchMonitorQuery
@@ -147,6 +147,31 @@ class SerpApiBingTests(unittest.TestCase):
             result.observation.quality_metadata["request_budget_ended_before_requested_depth"]
         )
         self.assertEqual(1, budget.used)
+
+    def test_variable_pagination_console_output_never_renders_none_ceiling(self):
+        payload = {
+            "search_metadata": {"id": "bing-console"},
+            "organic_results": [
+                {"position": 1, "link": "https://leader.example/"},
+                {"position": 2, "link": "https://client.example/page"},
+                {"position": 3, "link": "https://other.example/"},
+                {"position": 4, "link": "https://another.example/"},
+            ],
+        }
+
+        def opener(req, timeout):
+            return FakeResponse(json.dumps(payload).encode("utf-8"))
+
+        provider = SerpApiBingProvider(
+            api_key="x", retries=0, min_interval_seconds=0, opener=opener
+        )
+        result = SearchIntelligenceService(provider=provider).observe(request(depth=4))
+        output = io.StringIO()
+        with redirect_stdout(output):
+            _render_result(result)
+        rendered = output.getvalue()
+        self.assertIn("Páginas provider coletadas: 1 (paginação variável)", rendered)
+        self.assertNotIn("/None", rendered)
 
     def test_bing_adapter_rejects_google_before_network(self):
         calls = []
