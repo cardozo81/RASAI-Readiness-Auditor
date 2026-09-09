@@ -1,0 +1,63 @@
+name: RASAi current scoring contract cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.rasai-current-score-cleanup-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install runtime and Chromium
+        run: |
+          python -m pip install -e .
+          python -m playwright install --with-deps chromium
+      - name: Apply current-only scoring cleanup
+        run: python .github/rasai_current_score_cleanup.py
+      - name: Compile
+        run: python -m compileall -q src tests
+      - name: Public contract gate
+        run: python -m rasai.public_contract_gate
+      - name: Assert public docs and report generators expose only SCORE-GEO-004
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE 'SCORE-GEO-00[123]' README.md docs src/rasai/*report*.py src/rasai/report_registry.py src/rasai/report_contract.py src/rasai/report_navigation.py 2>/dev/null; then
+            echo 'Obsolete SCORE-GEO reference remains in a public surface.' >&2
+            exit 1
+          fi
+      - name: Targeted regressions
+        run: |
+          python -m pytest -q \
+            tests/test_report_registry_and_method_docs.py \
+            tests/test_consolidation_reporting_ux.py \
+            tests/test_m26_observed_generative_visibility.py \
+            tests/test_consolidated_backlog_regressions.py
+      - name: Full regression
+        run: python -m pytest -q
+      - name: Commit cleanup to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'RASAi CI'
+          git config user.email 'rasai-ci@users.noreply.github.com'
+          git rm -f .github/rasai_current_score_cleanup.py .github/workflows/rasai-current-score-cleanup.yml .rasai-current-score-cleanup-trigger
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Make SCORE-GEO-004 the sole public scoring contract'
+          git push origin HEAD:main
