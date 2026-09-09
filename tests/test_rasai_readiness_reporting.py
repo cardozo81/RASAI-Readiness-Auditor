@@ -166,7 +166,8 @@ def test_rasai_page_is_canonical_home_for_current_indicators() -> None:
         assert "Capacidade de resposta" in html
         assert "Preparação para citação" in html
         assert "Evidências e confiabilidade" in html
-        assert "Média ponderada das dimensões aplicáveis" in html
+        assert "HIERARCHICAL_WEIGHTED_READINESS_V1" in html
+        assert "O Overall deixou de ser uma média 10 x 10" in html
         assert "calibração externa" in html
 
 
