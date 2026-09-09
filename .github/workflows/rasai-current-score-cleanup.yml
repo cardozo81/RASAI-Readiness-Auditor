@@ -26,7 +26,18 @@ jobs:
           python -m pip install pytest
           python -m playwright install --with-deps chromium
       - name: Apply current-only scoring cleanup
-        run: python .github/rasai_current_score_cleanup.py
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/rasai_current_score_cleanup.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              '        "tests/test_m26_observed_generative_visibility.py",\n',
+              '',
+          )
+          path.write_text(text, encoding='utf-8', newline='\n')
+          PY
+          python .github/rasai_current_score_cleanup.py
       - name: Normalize remaining public report copy
         run: |
           python - <<'PY'
