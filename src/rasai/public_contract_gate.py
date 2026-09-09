@@ -59,6 +59,7 @@ CURRENT_METHOD_DOCS = (
     "docs/ACCESSIBILITY_PERFORMANCE_DOMAINS.md",
     "docs/MONITORING_OBSERVABILITY.md",
     "docs/SEARCH_INTELLIGENCE_REPORT.md",
+    "docs/SEARCH_INTELLIGENCE_HISTORY.md",
     "docs/SECURE_REDIRECT_RECOVERY.md",
     "docs/specification/00_SPEC_INDEX.md",
     "docs/specification/05_SCORING_MODEL.md",
@@ -191,6 +192,8 @@ def _check_cli_docs(root: Path, errors: list[str]) -> None:
     cli_doc = _read(root, "docs/CLI_REFERENCE.md")
     required = (
         "rasai audit",
+        "rasai search",
+        "rasai search-history",
         "rasai scoring inspect",
         "rasai visibility import",
         "rasai visibility report",
