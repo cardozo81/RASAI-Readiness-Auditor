@@ -147,12 +147,16 @@ def _render_result(result) -> None:
     print(f"Resultados normalizados: {observation.result_count}")
     quality = observation.quality_metadata
     if quality.get("pages_collected") is not None:
-        print(
-            "Páginas provider coletadas: "
-            f"{quality.get('pages_collected')}/{quality.get('pages_requested_ceiling')}"
-        )
+        pages_collected = quality.get("pages_collected")
+        pages_ceiling = quality.get("pages_requested_ceiling")
+        if pages_ceiling is None:
+            print(f"Páginas provider coletadas: {pages_collected} (paginação variável)")
+        else:
+            print(f"Páginas provider coletadas: {pages_collected}/{pages_ceiling}")
     if quality.get("pagination_ended_before_requested_depth"):
         print("Observação: o provider encerrou a paginação antes da depth solicitada.")
+    if quality.get("request_budget_ended_before_requested_depth"):
+        print("Observação: o orçamento de requests encerrou a coleta antes da depth solicitada.")
     if observation.raw_evidence_ref:
         print(f"Evidência raw: {observation.raw_evidence_ref}")
     if result.domain_status is DomainMatchStatus.FOUND:
