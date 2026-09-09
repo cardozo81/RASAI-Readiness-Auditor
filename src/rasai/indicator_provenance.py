@@ -46,6 +46,45 @@ _ROLE_LABELS = {
     "OPERATIONAL_TELEMETRY": "Telemetria; não pontua",
 }
 
+# Exact RASAi-owned presentation strings from development iterations. A generic
+# M<number> replacement is intentionally forbidden because audited page content
+# may legitimately contain model/product names such as M3 or M25. These exact
+# phrases are safe to normalize because they were emitted by RASAi templates.
+_PUBLIC_PRESENTATION_REPLACEMENTS: tuple[tuple[str, str], ...] = (
+    ("M18/M20", "análise semântica e remediação textual"),
+    ("M21/M22", "Web Performance e Acessibilidade"),
+    ("M21 + M22 · domínio Web Performance", "Domínio Web Performance"),
+    ("M23 · domínio Web Performance", "Domínio Synthetic Apdex"),
+    ("Web Performance · M23", "Synthetic Apdex"),
+    ("M23 · performance sintética transacional", "Performance sintética transacional"),
+    ("M23 · metodologia", "Metodologia Synthetic Apdex"),
+    ("M22 · domínio independente", "Domínio independente"),
+    ("M22 · diagnóstico técnico", "Diagnóstico técnico"),
+    ("M22 · fronteiras de domínio", "Fronteiras de domínio"),
+    ("M20 · remediação opcional", "Remediação opcional"),
+    ("Estado M23", "Estado"),
+    ("Synthetic Apdex M23", "Synthetic Apdex"),
+    ("M23 não chama", "Synthetic Apdex não chama"),
+    ("regras conservadoras do M23", "regras conservadoras do Synthetic Apdex"),
+    ("M20 é projeção auxiliar", "A remediação textual é uma projeção auxiliar"),
+    ("Nenhuma chamada M20.", "Nenhuma chamada de remediação textual."),
+    ("análise semântica M18", "análise semântica principal"),
+    ("pelo M21", "pela coleta de Web Performance"),
+    ("M22 Acessibilidade", "Acessibilidade automatizada"),
+    ("M21/M23", "Web Performance/Synthetic Apdex"),
+    ("M18 análise semântica", "Análise semântica por IA"),
+    ("M20 remediação textual", "Remediação textual por IA"),
+    ("M24-CD-001", "CRAWLING-DISCOVERY-001"),
+    ("Rastreamento e descoberta M24", "Rastreamento e descoberta"),
+)
+
+
+def _normalize_public_owned_wording(html: str) -> str:
+    for old, new in _PUBLIC_PRESENTATION_REPLACEMENTS:
+        html = html.replace(old, new)
+    return html
+
+
 INDICATORS: tuple[IndicatorProvenance, ...] = (
     IndicatorProvenance(
         "Search & AI Readiness Index (SARI-001)",
@@ -321,6 +360,10 @@ def _normalize_current_sari_wording(html: str, *, page_name: str) -> str:
 
 
 def enrich_indicator_provenance_html(html: str, *, page_name: str) -> str:
+    # This function is in the shared report-semantics path. Normalize public
+    # delivery labels before the idempotence marker check so newly injected blocks
+    # are also cleaned on subsequent report passes.
+    html = _normalize_public_owned_wording(html)
     html = _normalize_current_sari_wording(html, page_name=page_name)
     if PROVENANCE_MARKER in html:
         return html
