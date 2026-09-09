@@ -6,7 +6,6 @@ audits inside the request process; execution endpoints only enqueue durable jobs
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 import os
 from pathlib import Path
@@ -17,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from rasai.platform.database import open_platform_store, resolve_platform_database_config
 from rasai.search_intelligence.monitoring_database import open_search_monitoring_repository
-from rasai.secret_safety import redact_value
+from rasai.secret_safety import redact_text, redact_value
 
 from .auth import ApiAuthSettings, PrincipalResolver, build_principal_resolver
 from .authz import (
@@ -63,8 +62,11 @@ SearchRepositoryFactory = Callable[[], Any]
 
 
 def _safe(value: Any) -> Any:
-    sanitized = redact_value(value)
-    return sanitized
+    return redact_value(value)
+
+
+def _detail(value: Any) -> str:
+    return redact_text(str(value))
 
 
 def _model(item: Any) -> dict[str, Any]:
@@ -139,7 +141,7 @@ def create_app(
     @app.exception_handler(AuthorizationError)
     async def authorization_error_handler(_request: Request, exc: AuthorizationError):
         from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": str(exc)})
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": _detail(exc)})
 
     @app.get("/health/live")
     def live() -> dict[str, str]:
@@ -162,10 +164,9 @@ def create_app(
                     },
                 }
         except Exception as exc:
-            from rasai.secret_safety import redact_text
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=redact_text(str(exc)),
+                detail=_detail(exc),
             ) from exc
 
     @app.get("/api/v1/me")
@@ -324,7 +325,7 @@ def create_app(
                 max_attempts=request.max_attempts,
             )
         except (KeyError, ValueError) as exc:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_detail(exc)) from exc
         return _model(item)
 
     @app.get("/api/v1/execution-jobs/{job_id}")
@@ -352,7 +353,7 @@ def create_app(
         try:
             return _model(store.cancel_execution_job(job_id))
         except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_detail(exc)) from exc
 
     return app
 
