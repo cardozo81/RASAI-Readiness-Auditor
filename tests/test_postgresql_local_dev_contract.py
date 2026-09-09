@@ -14,7 +14,7 @@ def test_local_postgresql_compose_is_pinned_private_and_persistent() -> None:
     assert "rasai_postgres_data:/var/lib/postgresql" in compose
     assert "name: rasai_postgres_data" in compose
     assert "pg_isready" in compose
-    assert "POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:" in compose
+    assert 'POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:' in compose
     assert "platform database migrate" not in compose
     assert "docker-entrypoint-initdb.d" not in compose
 
