@@ -176,7 +176,7 @@ O score representa o conjunto automatizado de auditorias SEO suportadas pelo Lig
 - competitividade de uma consulta;
 - E-E-A-T como score;
 - desempenho comercial;
-- AI/GEO readiness;
+- Search & AI readiness;
 - probabilidade de ser citado por um LLM ou mecanismo generativo.
 
 Quando o artifact contém `auditRefs` e `audits`, `web-performance.html` pode detalhar checks reprovados exatamente como evidência Lighthouse, sem promovê-los a finding proprietário do RASAi.
