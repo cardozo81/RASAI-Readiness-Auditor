@@ -45,10 +45,10 @@ def _try_refresh_platform_index(argv: list[str]) -> None:
 def _run_audit_and_finalize(effective: list[str]) -> int:
     """Run one audit and materialize the current scoring method page last.
 
-    Scoring itself still runs at M9, before recommendations. Only the HTML
-    projection is deferred so the method page and canonical navigation reflect
-    the final persisted report site without changing score arithmetic. The
-    canonical report filename is stable across scoring-version revisions.
+    Scoring itself still runs before recommendations. Only the HTML projection is
+    deferred so the method page and canonical navigation reflect the final persisted
+    report site without changing score arithmetic. The canonical report filename is
+    stable across scoring-version revisions.
     """
     from rasai import m9
     from rasai import report_navigation
@@ -85,8 +85,6 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
             )
             report_navigation.normalize_report_navigation(score_path.parent)
         except Exception:
-            # Report finalization is a projection. Never invalidate the already
-            # persisted audit because a static method page could not be refreshed.
             _LOGGER.exception("Current scoring final report projection failed")
     return code
 
@@ -112,6 +110,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         except ImportError as exc:
             raise SystemExit("RASAi web dependencies are not installed; install with: pip install -e '.[web]'") from exc
         return api_main(effective[1:])
+    if effective and effective[0] == "worker":
+        from rasai.worker_cli import main as worker_main
+        return worker_main(effective[1:])
     if effective and effective[0] == "visibility":
         from rasai.m26_cli import main as visibility_main
         return visibility_main(effective[1:])
