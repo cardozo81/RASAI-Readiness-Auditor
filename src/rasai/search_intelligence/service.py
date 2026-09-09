@@ -70,6 +70,17 @@ def analyze_observation(
         None,
     )
     if customer_result is None:
+        if observation.quality_metadata.get("requested_depth_complete") is False:
+            return SearchIntelligenceResult(
+                request=request,
+                observation=observation,
+                domain_status=DomainMatchStatus.UNAVAILABLE,
+                customer_position=None,
+                error_code="SERP_REQUESTED_DEPTH_INCOMPLETE",
+                error_message=(
+                    "requested SERP depth was not fully observed within the bounded provider request budget"
+                ),
+            )
         return SearchIntelligenceResult(
             request=request,
             observation=observation,

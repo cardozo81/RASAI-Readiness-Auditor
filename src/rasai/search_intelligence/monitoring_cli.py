@@ -15,6 +15,7 @@ from .config import SerpRuntimeConfig
 from .monitoring import execute_registered_query, new_query
 from .monitoring_database import open_search_monitoring_repository
 from .monitoring_reporting import write_search_monitoring_report
+from .runtime import projected_http_request_ceiling, validate_live_provider_engine
 
 
 def _repository(args):
@@ -118,6 +119,8 @@ def _validate_schedule_args(args) -> None:
             raise ValueError("--daily-time must use HH:MM in 00:00-23:59")
     if (args.interval_minutes is not None or args.daily_time) and args.mode != "live":
         raise ValueError("scheduled Search monitoring requires --mode live; fixture/disabled remain manual")
+    if args.mode == "live":
+        validate_live_provider_engine(args.provider, args.engine)
     if args.ai_competitive and not args.compare_content:
         raise ValueError("--ai-competitive requires --compare-content")
     if args.ai_provider == "fixture" and (args.interval_minutes is not None or args.daily_time):
@@ -218,7 +221,11 @@ def _estimate(item) -> tuple[int, int, int]:
         mode=item.mode,
         provider=item.provider,
     ).validate()
-    serp = config.worst_case_http_requests(1, depth=item.requested_depth) if item.mode != "disabled" else 0
+    if item.mode == "live":
+        validate_live_provider_engine(item.provider, item.engine)
+    serp = projected_http_request_ceiling(
+        config, depths=(item.requested_depth,)
+    )
     content = (1 + item.max_content_pages) * 6 if item.compare_content else 0
     ai = 1 if item.ai_competitive else 0
     return serp, content, ai

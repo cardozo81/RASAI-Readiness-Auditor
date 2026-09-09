@@ -12,7 +12,7 @@ from .config import SERPAPI_KEY_ENV, SerpRuntimeConfig
 from .evidence import FilesystemSerpEvidenceSink, SerpEvidenceSink
 from .models import DomainMatchStatus, SearchIntelligenceResult, SerpQueryRequest
 from .persistence import SerpObservationRepository
-from .providers import FixtureSerpProvider, SerpApiProvider
+from .providers import FixtureSerpProvider, SerpApiBingProvider, SerpApiProvider
 from .service import SearchIntelligenceService
 
 
@@ -28,11 +28,51 @@ class SearchExecution:
 
 _LIVE_PROVIDER_BUILDERS = {
     "serpapi": SerpApiProvider,
+    "serpapi-bing": SerpApiBingProvider,
 }
 
 
 def live_provider_ids() -> tuple[str, ...]:
     return tuple(_LIVE_PROVIDER_BUILDERS)
+
+
+def live_provider_supported_engines(provider_id: str) -> tuple[str, ...]:
+    builder = _LIVE_PROVIDER_BUILDERS.get(provider_id.strip().casefold())
+    if builder is None:
+        available = ", ".join(live_provider_ids())
+        raise ValueError(
+            f"unsupported live SERP provider {provider_id!r}; available: {available}"
+        )
+    return tuple(str(item).casefold() for item in builder.supported_engines)
+
+
+def validate_live_provider_engine(provider_id: str, engine: str) -> None:
+    supported = live_provider_supported_engines(provider_id)
+    normalized = engine.strip().casefold()
+    if supported and normalized not in supported:
+        raise ValueError(
+            f"live SERP provider {provider_id!r} does not support engine {engine!r}; "
+            f"supported: {', '.join(supported)}"
+        )
+
+
+def projected_http_request_ceiling(
+    config: SerpRuntimeConfig, *, depths: Iterable[int]
+) -> int:
+    """Return a conservative provider-aware HTTP-attempt ceiling.
+
+    Google pagination has a deterministic 10-position page contract in the current
+    adapter. Bing pagination is provider-driven and variable, so the configured global
+    hard budget is the only safe preflight ceiling for a live Bing execution.
+    """
+    values = tuple(int(depth) for depth in depths)
+    if any(depth <= 0 for depth in values):
+        raise ValueError("SERP requested depths must be > 0")
+    if config.mode != "live" or not values:
+        return 0
+    if config.provider == "serpapi-bing":
+        return config.max_requests
+    return sum(config.worst_case_http_requests(1, depth=depth) for depth in values)
 
 
 def _refresh_search_intelligence_report(workspace_root: Path | None) -> None:
@@ -80,11 +120,13 @@ def execute_search(
             raise ValueError(
                 f"requested SERP depth {item.depth} exceeds configured max_depth {config.max_depth}"
             )
+        if config.mode == "live":
+            validate_live_provider_engine(config.provider, item.engine)
 
-    projected = sum(
-        config.worst_case_http_requests(1, depth=item.depth) for item in items
+    projected = projected_http_request_ceiling(
+        config, depths=(item.depth for item in items)
     )
-    if projected > config.max_requests:
+    if config.provider != "serpapi-bing" and projected > config.max_requests:
         raise ValueError(
             f"worst-case SERP HTTP requests {projected} exceed configured max_requests {config.max_requests}; "
             "reduce queries/depth/retries or raise the explicit limit"

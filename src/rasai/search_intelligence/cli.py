@@ -13,7 +13,12 @@ from .competitive_runtime import execute_competitive_intelligence
 from .config import SerpRuntimeConfig
 from .content import ContentFetchStatus, PublicWebFetcher
 from .models import DomainMatchStatus, QueryOrigin, SerpQueryRequest, new_identifier
-from .runtime import execute_search, live_provider_ids
+from .runtime import (
+    execute_search,
+    live_provider_ids,
+    projected_http_request_ceiling,
+    validate_live_provider_engine,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -142,12 +147,16 @@ def _render_result(result) -> None:
     print(f"Resultados normalizados: {observation.result_count}")
     quality = observation.quality_metadata
     if quality.get("pages_collected") is not None:
-        print(
-            "Páginas provider coletadas: "
-            f"{quality.get('pages_collected')}/{quality.get('pages_requested_ceiling')}"
-        )
+        pages_collected = quality.get("pages_collected")
+        pages_ceiling = quality.get("pages_requested_ceiling")
+        if pages_ceiling is None:
+            print(f"Páginas provider coletadas: {pages_collected} (paginação variável)")
+        else:
+            print(f"Páginas provider coletadas: {pages_collected}/{pages_ceiling}")
     if quality.get("pagination_ended_before_requested_depth"):
         print("Observação: o provider encerrou a paginação antes da depth solicitada.")
+    if quality.get("request_budget_ended_before_requested_depth"):
+        print("Observação: o orçamento de requests encerrou a coleta antes da depth solicitada.")
     if observation.raw_evidence_ref:
         print(f"Evidência raw: {observation.raw_evidence_ref}")
     if result.domain_status is DomainMatchStatus.FOUND:
@@ -284,6 +293,8 @@ def _validate_args(parser: argparse.ArgumentParser, args, config: SerpRuntimeCon
         raise ValueError("--ai-fixture requires --ai-competitive")
     if args.ai_provider and not args.ai_competitive:
         raise ValueError("--ai-provider requires --ai-competitive")
+    if config.mode == "live":
+        validate_live_provider_engine(config.provider, args.engine)
     provider_name = (
         args.ai_provider
         or os.environ.get("RASAI_SEARCH_AI_PROVIDER", "none")
@@ -335,10 +346,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             for query in args.query
         )
         if args.dry_run:
-            projected = sum(
-                config.worst_case_http_requests(1, depth=item.depth)
-                for item in requests
-            )
             if len(requests) > config.max_queries:
                 raise ValueError(
                     f"SERP query count {len(requests)} exceeds configured max_queries {config.max_queries}"
@@ -347,7 +354,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise ValueError(
                     f"requested SERP depth exceeds configured max_depth {config.max_depth}"
                 )
-            if projected > config.max_requests:
+            projected = projected_http_request_ceiling(
+                config, depths=(item.depth for item in requests)
+            )
+            if config.provider != "serpapi-bing" and projected > config.max_requests:
                 raise ValueError(
                     f"worst-case SERP HTTP requests {projected} exceed configured max_requests {config.max_requests}"
                 )
