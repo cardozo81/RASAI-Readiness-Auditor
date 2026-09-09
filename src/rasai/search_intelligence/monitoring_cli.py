@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Sequence
@@ -203,11 +204,11 @@ def _set_enabled(args, enabled: bool) -> int:
 
 
 def _estimate(item) -> tuple[int, int, int]:
-    config = SerpRuntimeConfig.from_environment(validate=False)
-    config = config.__class__(**{**config.__dict__, "mode": item.mode, "provider": item.provider}) if hasattr(config, "__dict__") else config
-    # Dataclass uses slots in some runtimes; use replace in the caller-safe path.
-    from dataclasses import replace
-    config = replace(SerpRuntimeConfig.from_environment(validate=False), mode=item.mode, provider=item.provider).validate()
+    config = replace(
+        SerpRuntimeConfig.from_environment(validate=False),
+        mode=item.mode,
+        provider=item.provider,
+    ).validate()
     serp = config.worst_case_http_requests(1, depth=item.requested_depth) if item.mode != "disabled" else 0
     content = (1 + item.max_content_pages) * 6 if item.compare_content else 0
     ai = 1 if item.ai_competitive else 0
