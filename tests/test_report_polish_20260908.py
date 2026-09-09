@@ -107,12 +107,16 @@ def test_public_report_pipeline_removes_known_internal_delivery_labels() -> None
             "Estado M23",
             "M24-CD-001",
             "Rastreamento e descoberta M24",
+            "m20-no-eligible-note",
+            "m23-apdex-summary",
         )
     )
     html = f"<html><body><header class='hero'><h1>Teste</h1></header><main><p>{owned_labels}</p></main></body></html>"
     rendered = enhance_report_html(html, page_name="index.html", report_dir=ROOT)
     assert _MILESTONE_RE.search(rendered) is None
     assert "CRAWLING-DISCOVERY-001" in rendered
+    assert "content-remediation-no-eligible-note" in rendered
+    assert "apdex-summary" in rendered
 
 
 def test_public_report_normalization_does_not_rewrite_audited_model_names() -> None:
