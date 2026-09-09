@@ -6,6 +6,7 @@ import sqlite3
 
 from rasai.entrypoint import main as rasai_main
 from rasai.search_intelligence.history import compare_search_workspaces
+from rasai.search_intelligence.history_reporting import write_search_history_report
 
 
 def _workspace(
@@ -196,6 +197,7 @@ def test_search_history_cli_direct_mode_writes_json(tmp_path: Path, capsys) -> N
     baseline = _workspace(tmp_path, "baseline", position=9, domain_status="FOUND")
     current = _workspace(tmp_path, "current", position=6, domain_status="FOUND")
     output = tmp_path / "history.json"
+    reports = tmp_path / "reports"
 
     code = rasai_main(
         [
@@ -206,6 +208,8 @@ def test_search_history_cli_direct_mode_writes_json(tmp_path: Path, capsys) -> N
             str(current),
             "--json",
             str(output),
+            "--report-root",
+            str(reports),
         ]
     )
 
@@ -213,4 +217,33 @@ def test_search_history_cli_direct_mode_writes_json(tmp_path: Path, capsys) -> N
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["method"] == "SEARCH-HISTORY-001"
     assert payload["events"][0]["status"] == "POSITION_IMPROVED"
+    assert Path(payload["report"]["report_path"]).is_file()
+    assert Path(payload["report"]["manifest_path"]).is_file()
     assert "SEARCH-HISTORY-001" in capsys.readouterr().out
+
+
+
+def test_search_history_html_and_manifest_preserve_non_causal_boundary(tmp_path: Path) -> None:
+    baseline = _workspace(tmp_path, "baseline-report", position=8, domain_status="FOUND")
+    current = _workspace(tmp_path, "current-report", position=4, domain_status="FOUND")
+    result = compare_search_workspaces(baseline, current)
+
+    output = write_search_history_report(
+        tmp_path,
+        result,
+        report_root=tmp_path / "search-history",
+        milestone_id="DEPLOY-2026-09",
+        baseline_mode="AUTO",
+    )
+
+    html = output.report_path.read_text(encoding="utf-8")
+    manifest = json.loads(output.manifest_path.read_text(encoding="utf-8"))
+    assert output.report_dir.name.startswith("SH-")
+    assert "Evolução observada de Search Intelligence" in html
+    assert "não demonstra causalidade" in html
+    assert "SCORE-GEO-004" in html
+    assert manifest["methodology"] == "SEARCH-HISTORY-001"
+    assert manifest["milestone_id"] == "DEPLOY-2026-09"
+    assert manifest["baseline_mode"] == "AUTO"
+    assert "read-only" in manifest["source_policy"]
+    assert "SCORE-GEO-004" in manifest["scoring_boundary"]

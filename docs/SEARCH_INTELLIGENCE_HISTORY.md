@@ -126,6 +126,8 @@ rasai search-history `
   --current-workspace audits/AUD-CURRENT
 ```
 
+Every successful comparison also materializes a standalone HTML report and manifest under `audits/search-history/SH-*/`. Use `--report-root PATH` to override that output root.
+
 Optional JSON output:
 
 ```powershell
@@ -174,6 +176,16 @@ The JSON/console output includes:
 - event list;
 - interpretation policy.
 
+Standalone output:
+
+```text
+audits/search-history/SH-*/
+├─ report.html
+└─ manifest.json
+```
+
+The pair-level manifest records baseline/current audit IDs, methodology, milestone metadata when supplied, comparability, event counts, events, source policy, scoring boundary and causality policy.
+
 Each event can contain:
 
 - exact context key;
@@ -192,7 +204,7 @@ Each event can contain:
 
 `SEARCH-HISTORY-001` is a separate temporal comparison contract. Keeping the contracts separate prevents the point-in-time HTML from silently implying that a later observation was caused by a deployment.
 
-A future historical HTML surface can render this persisted/computed comparison contract without changing its semantics.
+`audits/search-history/SH-*/report.html` renders this comparison contract, while `manifest.json` preserves machine-readable provenance and methodological boundaries. The standalone surface belongs to the pair, not to either source AUD.
 
 ## Scoring boundary
 
@@ -232,5 +244,5 @@ This makes historical comparison reproducible from already persisted evidence.
 - comparison currently uses the latest persisted observation for each exact context inside each audit workspace;
 - provider or data-mode changes invalidate numeric rank comparison for that context;
 - historical semantic comparison of Competitive AI recommendations is not yet a stable contract;
-- no dedicated historical HTML page is generated yet;
+- the historical HTML is deterministic and pair-level; it does not yet provide multi-run trend charts across three or more observations;
 - Search volatility and personalization remain external factors that must be considered when interpreting observed changes.

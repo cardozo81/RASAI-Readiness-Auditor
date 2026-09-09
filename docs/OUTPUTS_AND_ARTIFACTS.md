@@ -23,6 +23,7 @@ audits/<AUD-ID>/
    ├─ crawling-discovery.html  # condicional
    ├─ accessibility.html       # condicional
    ├─ web-performance.html     # condicional
+   ├─ search-intelligence.html # condicional
    ├─ apdex.html               # condicional
    ├─ apdex-experience.html    # condicional
    ├─ content-suggestions.html
@@ -245,6 +246,10 @@ Diagnóstico automatizado; não equivale a certificação WCAG integral.
 
 Lighthouse/PageSpeed/CrUX. Separado de SARI/Apdex.
 
+### `search-intelligence.html`
+
+Superfície point-in-time de SERP Observation, classificação competitiva, evidência determinística de conteúdo e Competitive AI persistida quando habilitada. Non-scoring; não altera `SARI-001`/`SCORE-GEO-004`.
+
 ### `apdex.html`
 
 Synthetic Navigation Apdex.
@@ -308,6 +313,16 @@ audits/consolidated/CONS-*/
 
 O consolidador abre AUDs read-only, não chama APIs e não reexecuta scoring.
 
+## Search Intelligence History
+
+```text
+audits/search-history/SH-*/
+├─ report.html
+└─ manifest.json
+```
+
+Comparação pair-level `SEARCH-HISTORY-001`, determinística e read-only. O manifest preserva baseline/current, milestone quando informado, comparabilidade, eventos e fronteiras de causalidade/scoring. Não chama Search provider, páginas públicas ou IA.
+
 ## RASAi Monitor
 
 ```text
@@ -360,6 +375,7 @@ Conteúdo e JSON-LD
 Rastreamento e descoberta
 Acessibilidade
 Web Performance
+Search Intelligence
 Apdex de navegação
 Apdex de experiência
 Visibilidade em IA
@@ -377,7 +393,7 @@ Apenas a página atual recebe estado ativo.
 - custo estimado não é invoice;
 - cross-origin acquisition exige política explícita segura;
 - Observed Generative Visibility/Observability preservam proveniência e não fazem scraping de portais sem contrato;
-- Monitoring, Quality, Timeline, Verification e consolidation abrem bancos fonte read-only;
+- Search Intelligence History, Monitoring, Quality, Timeline, Verification e consolidation abrem bancos fonte read-only;
 - `NULL` de fonte externa não vira zero observado;
 - publisher controls não são penalidades SARI;
 - remover `observability.db`, cache consolidado, `MON-*`, `VER-*` ou timeline não remove a evidência original do AUD;

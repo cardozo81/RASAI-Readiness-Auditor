@@ -55,6 +55,10 @@ CURRENT_METHOD_DOCS = (
     "docs/SCORE_GEO_004.md",
     "docs/SARI_READINESS_INDEX.md",
     "docs/CLI_REFERENCE.md",
+    "docs/COMPETITIVE_AI_INTELLIGENCE.md",
+    "docs/COMPETITIVE_SEARCH_INTELLIGENCE.md",
+    "docs/SERP_OBSERVATION.md",
+    "docs/ENVIRONMENT_VARIABLES.md",
     "docs/INDICATOR_PROVENANCE.md",
     "docs/ACCESSIBILITY_PERFORMANCE_DOMAINS.md",
     "docs/MONITORING_OBSERVABILITY.md",
@@ -83,6 +87,7 @@ PUBLIC_GENERATOR_FILES = (
     "src/rasai/rasai_readiness_reporting.py",
     "src/rasai/score_geo_004_reporting.py",
     "src/rasai/search_intelligence/reporting.py",
+    "src/rasai/search_intelligence/history_reporting.py",
     "src/rasai/observability/reporting.py",
     "src/rasai/quality/reporting.py",
     "src/rasai/monitoring/reporting.py",
@@ -210,9 +215,8 @@ def _check_cli_docs(root: Path, errors: list[str]) -> None:
         if command not in cli_doc:
             errors.append(f"CLI pública sem documentação: {command}")
     for obsolete in ("rasai scoring dataset", "rasai scoring calibrate"):
-        for line in cli_doc.splitlines():
-            if obsolete in line and not re.search(r"hist[oó]ric|legad|003", line, re.I):
-                errors.append(f"CLI histórica anunciada como corrente: {line.strip()}")
+        if obsolete in cli_doc:
+            errors.append(f"CLI de scoring não suportada exposta na documentação: {obsolete}")
 
 
 def _check_surfaces(root: Path, errors: list[str]) -> None:
@@ -243,6 +247,47 @@ def _check_generators(root: Path, errors: list[str]) -> None:
             errors.append(f"gerador público expõe scoring descontinuado: {relative}")
 
 
+_SCORING_SCAN_SUFFIXES = frozenset({
+    ".py", ".md", ".txt", ".toml", ".yml", ".yaml", ".json", ".ini", ".cmd", ".ps1"
+})
+
+
+def _check_single_scoring_contract(root: Path, errors: list[str]) -> None:
+    """Only SCORE-GEO-004 may be named as a concrete scoring contract."""
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in _SCORING_SCAN_SUFFIXES:
+            continue
+        if any(part in {".git", ".venv", "venv", "__pycache__"} for part in path.parts):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        match = _OLD_VERSION_RE.search(text)
+        if match:
+            errors.append(
+                f"contrato de scoring inválido {match.group(0)!r}: {path.relative_to(root)}; "
+                f"somente {EXPECTED_SCORING_VERSION} é válido"
+            )
+
+    stale_reporting_claims = (
+        "No Search Intelligence-specific HTML report is introduced yet",
+        "no Search Intelligence-specific HTML report yet",
+        "não há Search Intelligence HTML específico",
+        "no dedicated historical HTML report is generated yet",
+    )
+    for relative in (
+        "docs/SERP_OBSERVATION.md",
+        "docs/COMPETITIVE_SEARCH_INTELLIGENCE.md",
+        "docs/COMPETITIVE_AI_INTELLIGENCE.md",
+        "docs/SEARCH_INTELLIGENCE_HISTORY.md",
+    ):
+        text = _read(root, relative)
+        for claim in stale_reporting_claims:
+            if claim in text:
+                errors.append(f"documentação anuncia limitação já implementada em {relative}: {claim}")
+
+
 def validate_public_contract(root: str | Path | None = None) -> tuple[str, ...]:
     repository = _root(root)
     errors: list[str] = []
@@ -251,6 +296,7 @@ def validate_public_contract(root: str | Path | None = None) -> tuple[str, ...]:
     _check_cli_docs(repository, errors)
     _check_surfaces(repository, errors)
     _check_generators(repository, errors)
+    _check_single_scoring_contract(repository, errors)
     return tuple(errors)
 
 
