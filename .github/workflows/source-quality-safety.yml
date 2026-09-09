@@ -58,7 +58,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e . pytest
       - name: Install Playwright Chromium for existing M23 E2E
-        run: python -m playwright install --with-deps chromium
+        run: python -m playwright install chromium
       - name: Compile changed runtime surface
         run: |
           python -m compileall -q \

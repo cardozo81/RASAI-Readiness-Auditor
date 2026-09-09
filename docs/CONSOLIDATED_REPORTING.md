@@ -55,13 +55,13 @@ As dimensões de readiness continuam baseadas em regras aplicáveis, evidência,
 
 ### Overall Readiness
 
-No `SCORE-GEO-004`, o Overall é a média de igual peso das dimensões aplicáveis, desde que o contrato esteja suficientemente materializado. Dimensões legitimamente `NOT_APPLICABLE` saem do denominador; dimensões aplicáveis sem valor ou `NOT_CONSOLIDATED` impedem uma conclusão consolidada.
+No `SCORE-GEO-004`, o Overall é uma agregação hierárquica e ponderada pelos pesos fixos/versionados das dimensões medidas e aplicáveis. Dimensões legitimamente `NOT_APPLICABLE` saem do denominador e os pesos restantes são normalizados. Dimensões aplicáveis sem medição suficiente reduzem Coverage/Confidence; ausência de medição suficiente em dimensão crítica pode impedir a consolidação, sem fabricar zero para o website.
 
-O consolidado **não recalcula** esse Overall. Ele lê o valor, Coverage, Confidence, Consolidation e `scoring_version` persistidos no AUD fonte.
+O consolidado **não recalcula** esse Overall. Ele lê o valor, Coverage, Confidence, Consolidation, Critical Gates e `scoring_version` persistidos no AUD fonte.
 
 ### Confidence e Coverage
 
-`Score`, `Coverage` e `Confidence` têm semânticas diferentes. Confidence qualifica a força da conclusão/evidência; não é sinônimo de qualidade do website. Coverage não pode substituir Score, e dado indisponível não pode ser apresentado como zero.
+`Score`, `Coverage` e `Confidence` têm semânticas diferentes. Coverage do Overall é ponderada pelos pesos das dimensões aplicáveis. Confidence também é agregada de forma ponderada, com rigor adicional para Discovery, Indexability e Extraction; Critical Gates permanecem separados do valor numérico. Confidence qualifica a força da conclusão/evidência e não é sinônimo de qualidade do website. Dado indisponível não pode ser apresentado como zero.
 
 ## Comparabilidade histórica
 

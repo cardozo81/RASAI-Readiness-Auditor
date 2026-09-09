@@ -39,7 +39,7 @@ def _workspace(root: Path) -> AuditWorkspace:
               ('S-M-ANS','AUD-SARI','ANSWERABILITY','MOBILE',75.0,1.0,'HIGH','CONSOLIDATED','SCORE-GEO-004','2026-09-07T00:00:00Z','[]'),
               ('S-M-CIT','AUD-SARI','CITATION_READINESS','MOBILE',70.0,0.9,'HIGH','CONSOLIDATED','SCORE-GEO-004','2026-09-07T00:00:00Z','[]'),
               ('S-M-EVI','AUD-SARI','EVIDENCE_TRUST','MOBILE',60.0,0.9,'MEDIUM','CONSOLIDATED','SCORE-GEO-004','2026-09-07T00:00:00Z','[]'),
-              ('S-M-TECH','AUD-SARI','TECHNICAL_ACCESSIBILITY','MOBILE',95.0,1.0,'HIGH','CONSOLIDATED','SCORE-GEO-004','2026-09-07T00:00:00Z','[]'),
+              ('S-M-DISC','AUD-SARI','DISCOVERY_ACCESS','MOBILE',95.0,1.0,'HIGH','CONSOLIDATED','SCORE-GEO-004','2026-09-07T00:00:00Z','[]'),
               ('S-D-OVER','AUD-SARI','OVERALL_READINESS','DESKTOP',88.0,0.91,'HIGH','CONSOLIDATED','SCORE-GEO-004','2026-09-07T00:00:00Z','[]'),
               ('S-D-ANS','AUD-SARI','ANSWERABILITY','DESKTOP',80.0,1.0,'HIGH','CONSOLIDATED','SCORE-GEO-004','2026-09-07T00:00:00Z','[]'),
               ('S-D-CIT','AUD-SARI','CITATION_READINESS','DESKTOP',78.0,0.9,'HIGH','CONSOLIDATED','SCORE-GEO-004','2026-09-07T00:00:00Z','[]'),
@@ -59,8 +59,8 @@ def _workspace(root: Path) -> AuditWorkspace:
                 scoring_group TEXT
             );
             INSERT INTO score_contributions VALUES
-              ('C1','S-M-TECH','BR-GEO-005','R1','TECHNICAL_ACCESSIBILITY','MOBILE',1,'PASS',1,1,NULL),
-              ('C2','S-M-ANS','BR-GEO-039','R2','ANSWERABILITY','MOBILE',1,'WARNING',0.5,0.5,NULL);
+              ('C1','S-M-DISC','BR-GEO-005','R1','DISCOVERY_ACCESS','MOBILE',0.30,'PASS',1,0.30,'PAGE_ACCESS'),
+              ('C2','S-M-ANS','BR-GEO-039','R2','ANSWERABILITY','MOBILE',0.65,'WARNING',0.5,0.325,'PRIMARY_ANSWERS');
 
             CREATE TABLE pages (
                 page_id TEXT PRIMARY KEY,
@@ -166,7 +166,7 @@ def test_rasai_page_is_canonical_home_for_current_indicators() -> None:
         assert "Capacidade de resposta" in html
         assert "Preparação para citação" in html
         assert "Evidências e confiabilidade" in html
-        assert "Média de igual peso" in html
+        assert "Média de igual peso" not in html
         assert "calibração externa" in html
 
 

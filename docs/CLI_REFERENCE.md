@@ -52,7 +52,7 @@ Default público de dispositivo: `mobile`. Override: `RASAI_DEVICE_CONTEXT`.
 
 ## SARI-001 / SCORE-GEO-004
 
-As novas auditorias usam `SCORE-GEO-004`. O Overall é determinístico e usa média de igual peso das dimensões aplicáveis, condicionado aos gates de Coverage e Confidence. Não existe model artifact obrigatório no runtime 004.
+As novas auditorias usam `SCORE-GEO-004`. O Overall é determinístico, hierárquico e ponderado pelos pesos fixos/versionados das dimensões medidas e aplicáveis. Coverage e Confidence também são agregadas de forma ponderada; Discovery, Indexability e Extraction recebem rigor adicional nos gates de medição. Critical Gates permanecem separados do valor 0-100. Não existe model artifact obrigatório no runtime 004.
 
 Para inspecionar o contrato vigente:
 

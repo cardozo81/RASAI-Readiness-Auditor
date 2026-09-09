@@ -30,7 +30,7 @@ def _execution(
 
 
 def _baseline_dimensions_without_structured_data() -> tuple[RuleExecution, ...]:
-    """One fully evaluated representative scoring group for every non-Structured-Data dimension."""
+    """One evaluated scoring group for every non-Structured-Data dimension."""
 
     return (
         _execution("BR-GEO-005", RuleResult.PASS),
@@ -42,11 +42,12 @@ def _baseline_dimensions_without_structured_data() -> tuple[RuleExecution, ...]:
         _execution("BR-GEO-041", RuleResult.PASS),
         _execution("BR-GEO-045", RuleResult.PASS),
         _execution("BR-GEO-048", RuleResult.PASS),
+        _execution("BR-GEO-057", RuleResult.PASS),
     )
 
 
 class M9ScoringTests(unittest.TestCase):
-    def test_unknown_reduces_coverage_without_reducing_quality_factor(self) -> None:
+    def test_unknown_reduces_weighted_coverage_without_reducing_quality_factor(self) -> None:
         result = ScoringEngine().score(
             audit_id="AUD-1",
             executions=(
@@ -55,9 +56,14 @@ class M9ScoringTests(unittest.TestCase):
                 _execution("BR-GEO-030", RuleResult.PASS),
             ),
         )
-        score = next(item for item in result.scores if item.device is DeviceContext.DESKTOP and item.dimension == "SEMANTIC_STRUCTURE")
+        score = next(
+            item for item in result.scores
+            if item.device is DeviceContext.DESKTOP and item.dimension == "SEMANTIC_STRUCTURE"
+        )
         self.assertEqual(score.value, 100.0)
-        self.assertAlmostEqual(score.coverage, 2 / 3, places=6)
+        # SEMANTIC_TITLE=0.30 and SEMANTIC_TOPIC=0.40 are evaluated;
+        # SEMANTIC_HIERARCHY=0.30 remains applicable but unknown.
+        self.assertAlmostEqual(score.coverage, 0.70, places=6)
         self.assertEqual(score.consolidation_status, ConsolidationStatus.PARTIAL)
 
     def test_max_impact_collapses_correlated_fail_and_pass_once(self) -> None:
@@ -69,20 +75,27 @@ class M9ScoringTests(unittest.TestCase):
                 _execution("BR-GEO-015", RuleResult.PASS),
             ),
         )
-        score = next(item for item in result.scores if item.device is DeviceContext.DESKTOP and item.dimension == "INDEXABILITY")
+        score = next(
+            item for item in result.scores
+            if item.device is DeviceContext.DESKTOP and item.dimension == "INDEXABILITY"
+        )
         contributions = [item for item in result.contributions if item.score_id == score.score_id]
         self.assertEqual(len(contributions), 1)
         self.assertEqual(contributions[0].result, RuleResult.FAIL)
         self.assertEqual(score.value, 0.0)
 
-    def test_overall_remains_not_consolidated_when_required_dimensions_missing(self) -> None:
+    def test_overall_keeps_measured_value_but_does_not_consolidate_when_critical_dimensions_missing(self) -> None:
         result = ScoringEngine().score(
             audit_id="AUD-1",
             executions=(_execution("BR-GEO-005", RuleResult.PASS),),
         )
         overall = result.overall_by_device[DeviceContext.DESKTOP]
-        self.assertIsNone(overall.value)
+        # SCORE-GEO-004 separates observed quality from measurement strength.
+        self.assertEqual(overall.value, 100.0)
+        self.assertLess(overall.coverage, 0.50)
         self.assertEqual(overall.consolidation_status, ConsolidationStatus.NOT_CONSOLIDATED)
+        self.assertIn("CRITICAL_DIMENSION_NOT_CONSOLIDATED:INDEXABILITY", overall.limitations)
+        self.assertIn("CRITICAL_DIMENSION_NOT_CONSOLIDATED:CONTENT_EXTRACTABILITY", overall.limitations)
         structured = next(
             item for item in result.scores
             if item.device is DeviceContext.DESKTOP and item.dimension == "STRUCTURED_DATA"
@@ -136,9 +149,10 @@ class M9ScoringTests(unittest.TestCase):
         self.assertEqual(structured_score.coverage, 1.0)
         self.assertEqual(structured_score.consolidation_status, ConsolidationStatus.CONSOLIDATED)
         self.assertEqual(overall.value, 100.0)
+        self.assertEqual(overall.coverage, 1.0)
         self.assertNotIn("DIMENSION_NOT_APPLICABLE:STRUCTURED_DATA", overall.limitations)
 
-    def test_applicable_structured_data_failure_changes_overall_score(self) -> None:
+    def test_applicable_structured_data_failure_changes_overall_by_its_fixed_weight(self) -> None:
         result = ScoringEngine().score(
             audit_id="AUD-1",
             executions=(
@@ -158,9 +172,11 @@ class M9ScoringTests(unittest.TestCase):
 
         self.assertEqual(structured.value, 0.0)
         self.assertEqual(structured.consolidation_status, ConsolidationStatus.CONSOLIDATED)
-        self.assertEqual(overall.value, 90.0)
+        # STRUCTURED_DATA has a fixed 5% dimension weight in SARI_DIMENSION_WEIGHTS_V1.
+        self.assertEqual(overall.value, 95.0)
+        self.assertEqual(overall.coverage, 1.0)
 
-    def test_prerequisite_blocked_not_applicable_dimension_still_blocks_overall(self) -> None:
+    def test_prerequisite_blocked_noncritical_dimension_reduces_measurement_without_erasing_score(self) -> None:
         blocked = tuple(
             _execution(
                 f"BR-GEO-{number:03d}",
@@ -181,16 +197,24 @@ class M9ScoringTests(unittest.TestCase):
 
         self.assertEqual(structured.consolidation_status, ConsolidationStatus.NOT_CONSOLIDATED)
         self.assertIn("APPLICABILITY_UNRESOLVED:PREREQUISITE_BLOCKED", structured.limitations)
-        self.assertIsNone(overall.value)
-        self.assertIn("DIMENSION_NOT_CONSOLIDATED:STRUCTURED_DATA", overall.limitations)
+        self.assertEqual(overall.value, 100.0)
+        self.assertEqual(overall.coverage, 0.95)
+        self.assertEqual(overall.consolidation_status, ConsolidationStatus.CONSOLIDATED)
+        self.assertIn("DIMENSION_MEASUREMENT_LIMITED:STRUCTURED_DATA", overall.limitations)
 
     def test_device_independent_execution_contributes_once_to_each_device(self) -> None:
         result = ScoringEngine().score(
             audit_id="AUD-1",
             executions=(_execution("BR-GEO-005", RuleResult.PASS, device=None),),
         )
-        desktop = next(item for item in result.scores if item.device is DeviceContext.DESKTOP and item.dimension == "TECHNICAL_ACCESSIBILITY")
-        mobile = next(item for item in result.scores if item.device is DeviceContext.MOBILE and item.dimension == "TECHNICAL_ACCESSIBILITY")
+        desktop = next(
+            item for item in result.scores
+            if item.device is DeviceContext.DESKTOP and item.dimension == "DISCOVERY_ACCESS"
+        )
+        mobile = next(
+            item for item in result.scores
+            if item.device is DeviceContext.MOBILE and item.dimension == "DISCOVERY_ACCESS"
+        )
         self.assertEqual(desktop.value, 100.0)
         self.assertEqual(mobile.value, 100.0)
 

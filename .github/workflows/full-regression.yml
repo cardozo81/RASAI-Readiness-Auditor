@@ -21,7 +21,11 @@ jobs:
       - name: Install package and test runner
         run: python -m pip install -e . pytest
       - name: Install Chromium for browser-backed tests
-        run: python -m playwright install --with-deps chromium
+        # GitHub's Ubuntu image already carries the browser runtime libraries used by
+        # this suite. Avoid --with-deps here: it runs apt against unrelated third-party
+        # repositories preconfigured on the hosted image and can fail before tests on
+        # transient mirror/hash inconsistencies.
+        run: python -m playwright install chromium
       - name: Public contract gate
         run: python -m rasai.public_contract_gate
       - name: Full pytest suite

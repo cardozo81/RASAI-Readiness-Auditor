@@ -37,15 +37,19 @@ def test_invalid_sitemap_is_materially_unfavorable() -> None:
     assert _evaluate_sitemaps(m2).result is RuleResult.FAIL
 
 
-def test_discovery_weights_are_small_static_and_ai_shares_group() -> None:
+def test_discovery_weights_are_static_and_ai_shares_deterministic_group() -> None:
     sitemap = _metadata("BR-GEO-003")
     sitemap_ai = _metadata("BR-GEO-055")
     robots = _metadata("BR-GEO-017")
     robots_ai = _metadata("BR-GEO-056")
-    assert sitemap.weight == sitemap_ai.weight == pytest.approx(0.25)
+    assert sitemap.dimension == sitemap_ai.dimension == "DISCOVERY_ACCESS"
+    assert sitemap.weight == sitemap_ai.weight == pytest.approx(0.05)
     assert sitemap.scoring_group == sitemap_ai.scoring_group == "SITEMAP"
-    assert robots.weight == robots_ai.weight == pytest.approx(0.60)
+    assert robots.dimension == robots_ai.dimension == "DISCOVERY_ACCESS"
+    assert robots.weight == robots_ai.weight == pytest.approx(0.15)
     assert robots.scoring_group == robots_ai.scoring_group == "ROBOTS"
+    assert sitemap.evidence_role != sitemap_ai.evidence_role
+    assert robots.evidence_role != robots_ai.evidence_role
 
 
 def test_missing_jsonld_is_measured_as_modest_warning() -> None:

@@ -1,10 +1,8 @@
-# Guia das Business Rules - BR-GEO-001..056
+# Guia das Business Rules - BR-GEO-001..059
 
-A definição normativa prevalente está em [`docs/specification/03_BUSINESS_RULES.md`](specification/03_BUSINESS_RULES.md). Este guia explica a finalidade operacional das regras sem duplicar pesos/fórmulas de scoring.
+A definição normativa prevalente está em [`docs/specification/03_BUSINESS_RULES.md`](specification/03_BUSINESS_RULES.md). Este guia explica a finalidade operacional das regras sem duplicar a fórmula completa do scoring.
 
 ## Contrato comum
-
-Resultados possíveis:
 
 ```text
 PASS
@@ -23,20 +21,21 @@ ERROR != FAIL
 NOT_APPLICABLE != FAIL
 ```
 
-Finding exige RuleExecution + Evidence rastreável. Falha de pré-requisito deve bloquear conclusões derivadas em vez de produzir cascading failures.
+Finding exige RuleExecution + Evidence rastreável. Falha de pré-requisito bloqueia conclusões derivadas em vez de produzir cascading failures.
 
 ## Basis
 
-Quando `RuleDefinition` materializa `basis`, os valores são `OFFICIAL`, `STANDARD` ou `HEURISTIC`. Regras executoras/integridade podem não possuir `basis` separado; ausência desse campo não autoriza inventar uma fonte externa.
+Regras podem declarar `OFFICIAL`, `STANDARD` ou `HEURISTIC`. Regras de integridade podem representar contratos internos do auditor. Uma referência externa sustenta somente o fenômeno específico; não homologa o SARI composto.
 
 ## Scoring
 
-O guia de regras referencia o método de scoring aplicado:
-
 - índice público: `SARI-001`;
-- scoring vigente para novas auditorias: `SCORE-GEO-004`.
+- scoring vigente: `SCORE-GEO-004`;
+- agregação: `HIERARCHICAL_WEIGHTED_READINESS_V1`.
 
-Pesos, dimensões, applicability, Coverage, Confidence e Overall devem ser lidos em [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SARI_READINESS_INDEX.md`](SARI_READINESS_INDEX.md) e [`SCORE_GEO_004.md`](SCORE_GEO_004.md).
+O manifesto vigente mapeia explicitamente regra → dimensão → `scoring_group` → papel de evidência. O peso de um grupo é fixo e distribuído entre páginas/escopos aplicáveis; quantidade de páginas não multiplica o peso metodológico.
+
+Detalhes: [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SARI_READINESS_INDEX.md`](SARI_READINESS_INDEX.md) e [`SCORE_GEO_004.md`](SCORE_GEO_004.md).
 
 ## Catálogo
 
@@ -75,12 +74,12 @@ Pesos, dimensões, applicability, Coverage, Confidence e Overall devem ser lidos
 | BR-GEO-031 | MEDIUM | identificar entidade principal quando aplicável |
 | BR-GEO-032 | MEDIUM | verificar contexto de tipos/relações de entidades |
 | BR-GEO-033 | MEDIUM | detectar ambiguidade material de entidade |
-| BR-GEO-034 | MEDIUM | verificar Structured Data sintaticamente interpretável |
+| BR-GEO-034 | MEDIUM | verificar Structured Data sintaticamente interpretável quando presente |
 | BR-GEO-035 | LOW | identificar tipos/propriedades presentes em Structured Data |
 | BR-GEO-036 | MEDIUM | verificar consistência Structured Data × conteúdo visível |
 | BR-GEO-037 | MEDIUM | verificar consistência entre entidades estruturadas/observadas |
 | BR-GEO-038 | HIGH | identificar intenção primária |
-| BR-GEO-039 | MEDIUM | verificar resposta explícita a perguntas primárias relevantes |
+| BR-GEO-039 | MEDIUM | verificar resposta explícita a perguntas relevantes |
 | BR-GEO-040 | MEDIUM | verificar contexto suficiente das respostas |
 | BR-GEO-041 | LOW | identificar claims factuais materiais |
 | BR-GEO-042 | MEDIUM | verificar contexto dos claims |
@@ -94,45 +93,129 @@ Pesos, dimensões, applicability, Coverage, Confidence e Overall devem ser lidos
 | BR-GEO-050 | MEDIUM | verificar destinos tecnicamente utilizáveis em links internos |
 | BR-GEO-051 | MEDIUM | identificar duplicatas/near-duplicates materiais |
 | BR-GEO-052 | MEDIUM | detectar/classificar diferenças Desktop × Mobile |
-| BR-GEO-053 | CRITICAL | verificar rastreabilidade/reabertura de Finding, RuleExecution e Evidence |
-| BR-GEO-054 | CRITICAL de integridade | verificar reprodutibilidade/integridade do scoring persistido para a `scoring_version` da auditoria |
+| BR-GEO-053 | CRITICAL | verificar rastreabilidade de Finding, RuleExecution e Evidence |
+| BR-GEO-054 | CRITICAL de integridade | verificar reprodutibilidade do scoring persistido |
+| BR-GEO-055 | MEDIUM | avaliação IA evidence-bound corroborativa de sitemap |
+| BR-GEO-056 | MEDIUM | avaliação IA evidence-bound corroborativa de robots.txt |
+| BR-GEO-057 | MEDIUM | avaliar sinais de utilidade/especificidade não trivial do conteúdo |
+| BR-GEO-058 | MEDIUM | avaliar diferenciação/experiência/análise/dado próprio explicitamente demonstrado |
+| BR-GEO-059 | MEDIUM | avaliar profundidade/contexto proporcionais ao conteúdo e propósito observável |
+
+## Dimensão Discovery & Crawler Access
+
+As regras antes associadas internamente a `TECHNICAL_ACCESSIBILITY` que realmente medem discovery/crawler access passam a usar:
+
+```text
+DISCOVERY_ACCESS
+```
+
+Isso evita conflito semântico com Accessibility/WCAG.
+
+Principais grupos:
+
+- `PAGE_ACCESS`;
+- `ROBOTS`;
+- `SITEMAP`;
+- `REDIRECT`;
+- `SPA_ROUTE`;
+- `SPA_NAVIGATION`;
+- `INTERNAL_LINKS`.
 
 ## Regras semânticas e IA
 
-Uma regra pode ser semanticamente avaliada com provider de IA quando o contrato permitir, mas o provider não é a Business Rule. Resultado aceito continua sujeito a schema, evidence IDs, applicability e validações locais.
+BR-GEO-028..049 podem receber avaliação de provider quando o contrato permitir, mas o provider não é a Business Rule. A saída permanece sujeita a schema, evidence IDs, applicability e validações locais.
 
-Falha/ausência de IA não é evidência de baixa qualidade do website. Quando não existe base suficiente, o resultado deve permanecer `UNKNOWN`/limitado conforme a regra.
+Falha/ausência de IA não é evidência de baixa qualidade do website. Sem base suficiente, o estado permanece `UNKNOWN`.
+
+## BR-GEO-055 / BR-GEO-056 - IA técnica corroborativa
+
+Essas regras são opcionais e `AI_CORROBORATIVE`.
+
+```text
+BR-GEO-055 → SITEMAP
+BR-GEO-056 → ROBOTS
+```
+
+O provider não escolhe pesos, thresholds ou Overall.
+
+No mesmo escopo/grupo:
+
+```text
+DETERMINISTIC_PRIMARY > AI_CORROBORATIVE
+```
+
+Logo, uma conclusão determinística PASS/WARNING/FAIL não pode ser sobrescrita arbitrariamente por um verdict IA mais pessimista ou mais otimista.
+
+## BR-GEO-057..059 - Content Value
+
+Classificação: `RASAI_HEURISTIC`.
+
+Baseline vigente:
+
+```text
+CONTENT-VALUE-BASELINE-001
+```
+
+### BR-GEO-057 - Content usefulness
+
+Avalia sinais locais de conteúdo útil, específico e não trivial. A baseline utiliza apenas o conteúdo principal persistido. Conteúdo muito limitado pode produzir WARNING; input indisponível produz UNKNOWN.
+
+### BR-GEO-058 - Content differentiation
+
+Busca sinais **explícitos** de experiência, pesquisa, análise, metodologia, teste ou dados próprios.
+
+Regra conservadora:
+
+```text
+sem evidência explícita de diferenciação → UNKNOWN
+```
+
+Nunca presumir falta de originalidade como FAIL apenas porque o auditor não consegue prová-la.
+
+### BR-GEO-059 - Content depth
+
+Avalia se a profundidade/contexto observáveis são suficientes para uma conclusão baseline. Quando a evidência local não permite julgar adequação ao propósito, o resultado permanece UNKNOWN.
 
 ## Structured Data
 
-BR-GEO-034..037 avaliam **o que foi observado**. Ausência legítima de Structured Data pode ser `NOT_APPLICABLE`; não deve receber zero apenas por estar ausente. Quando presente, sintaxe, tipos/propriedades e consistência podem ser avaliados.
+BR-GEO-034..037 avaliam markup quando aplicável.
 
-Os diagnósticos adicionais de `report/observability.html` sobre Product/Breadcrumb/Organization são checks documentais/advisory e não criam novas BR-GEO nem um “Rich Results score”.
+Na aritmética vigente do SARI, ausência confirmada de Structured Data não é requisito universal e é tratada como `NOT_APPLICABLE` para o grupo de scoring. Markup existente inválido/contraditório continua avaliável.
+
+Structured Data representa no máximo 5% do contrato SARI quando aplicável.
+
+## Lighthouse
+
+Category scores Lighthouse não são Business Rules SARI.
+
+Um audit individual do Lighthouse pode futuramente ser mapeado como `CORROBORATIVE_EVIDENCE` de uma BR-GEO que avalie a mesma condição técnica. Esse mapeamento precisa ser explícito e não pode criar dupla pontuação.
 
 ## International Search / hreflang
 
-Checks de hreflang adicionados em Observability são diagnósticos complementares. Eles não foram inseridos retroativamente em BR-GEO-001..056 nem no SARI sem novo contrato de versionamento.
+Checks de hreflang em Observability continuam diagnósticos complementares. Não são promovidos ao SARI apenas por existirem; uma futura inclusão exige regra, applicability e peso explicitamente contratados.
 
-## BR-GEO-054 e versionamento
+## BR-GEO-054 e reprodutibilidade
 
-BR-GEO-054 deve reconstruir/validar o scoring conforme a **versão persistida**:
+BR-GEO-054 reconstrói o método vigente a partir de:
 
-- nova auditoria: `SCORE-GEO-004`;
-- cada auditoria expõe o `scoring_version` efetivamente persistido para rastreabilidade.
+- RuleExecutions;
+- evidências;
+- manifesto de regras;
+- pesos de dimensão/grupo;
+- ScoreContributions;
+- Coverage/Confidence/Consolidation;
+- Critical Gates.
 
-A regra não converte um histórico `002` ou `003` em `004` e não recalcula uma auditoria antiga segundo o contrato novo.
+O contrato ativo permanece `SCORE-GEO-004`. Como o produto está em pré-produção, resultados experimentais anteriores ao contrato `HIERARCHICAL_WEIGHTED_READINESS_V1` devem ser regenerados em vez de mantidos como versão ativa.
 
 ## Evidência e remediation
 
-O report deve distinguir sempre:
+O report deve distinguir:
 
 - valor observado/evidência;
 - conclusão da regra;
-- finding materializado;
+- finding;
+- contribuição no score, quando existir;
 - exemplo/receita de correção.
 
-Exemplo de correção não é evidência observada. Selectors só devem ser exibidos como causa/local quando houver correspondência confiável; relações document-level/set-level não devem receber selector arbitrário apenas para preencher a UI.
-
-### BR-GEO-055 / BR-GEO-056 - avaliação técnica bounded por IA
-
-Quando `RASAI_AI_TECHNICAL_REMEDIATION=true`, o RASAi pode usar uma saída evidence-bound para qualificar tecnicamente sitemap e robots.txt. Essas regras são HEURISTIC e opcionais: o provider não escolhe pesos, não altera thresholds e não cria um score paralelo. BR-GEO-055 compartilha `SITEMAP` com BR-GEO-003; BR-GEO-056 compartilha `ROBOTS` com BR-GEO-017/018. O scoring group usa o resultado representativo mais restritivo e impede bônus duplicado. Falha/ausência do provider permanece explícita e não vira FAIL do website.
+Exemplo de correção não é evidência observada. Selectors só devem ser exibidos quando houver correspondência confiável.

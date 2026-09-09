@@ -138,4 +138,5 @@ def test_apdex_sensitivity_marks_configured_threshold() -> None:
 def test_robots_and_sitemap_are_already_score_inputs_without_ai_dependency() -> None:
     for rule_id in ("BR-GEO-003", "BR-GEO-017", "BR-GEO-018"):
         metadata = _metadata(rule_id)
-        assert metadata.dimension == "TECHNICAL_ACCESSIBILITY"
+        assert metadata.dimension == "DISCOVERY_ACCESS"
+        assert metadata.scoring_group in {"SITEMAP", "ROBOTS"}

@@ -2,12 +2,13 @@
 
 Report generators remain responsible for their domain content. This module owns
 cross-cutting presentation invariants that must be identical on every page:
-canonical navigation, public dependency metadata, version-neutral filenames,
-manifest projection and defensive normalization of known stale wording.
+canonical navigation, dependency metadata, SARI method projection, version-neutral
+filenames, manifest projection and defensive normalization of stale wording.
 """
 from __future__ import annotations
 
 from html import escape
+import json
 from pathlib import Path
 import re
 import sqlite3
@@ -18,10 +19,40 @@ from rasai.report_contract import (
     REPORT_SURFACES,
     surface_by_filename,
 )
+from rasai.score_geo_004 import (
+    DIMENSION_WEIGHTS,
+    MACRO_COMPONENTS,
+    OVERALL_AGGREGATION_VERSION,
+    SCORING_VERSION,
+)
+
+
+_DIMENSION_PUBLIC_LABELS = {
+    "DISCOVERY_ACCESS": "Discovery & Crawler Access",
+    "INDEXABILITY": "Indexability & Canonicalization",
+    "CONTENT_EXTRACTABILITY": "Rendering & Extractability",
+    "SEMANTIC_STRUCTURE": "Semantic Structure",
+    "ENTITY_CLARITY": "Entity Clarity",
+    "STRUCTURED_DATA": "Structured Data",
+    "ANSWERABILITY": "Answerability",
+    "CITATION_READINESS": "Citation Readiness",
+    "EVIDENCE_TRUST": "Evidence & Trust",
+    "INTENT_COVERAGE": "Intent Coverage",
+    "CONTENT_VALUE": "Content Value",
+}
+
+_MACRO_PUBLIC_LABELS = {
+    "DISCOVERY_AND_CRAWLER_ACCESS": "Discovery & Crawler Access",
+    "INDEXABILITY_AND_CANONICALIZATION": "Indexability & Canonicalization",
+    "RENDERING_AND_EXTRACTABILITY": "Rendering & Extractability",
+    "SEMANTIC_UNDERSTANDABILITY": "Semantic Understandability",
+    "CONTENT_UTILITY_AND_INTENT": "Content Utility & Intent",
+    "EVIDENCE_TRUST_AND_CITATION": "Evidence, Trust & Citation",
+    "STRUCTURED_DATA": "Structured Data",
+}
 
 
 def _ensure_single_filename(label: str, filename: str) -> None:
-    """Keep exactly one navigation entry for a report filename."""
     from rasai import report_navigation
 
     items: list[tuple[str, str]] = []
@@ -123,38 +154,33 @@ def _patch_lighthouse_traceability_message() -> None:
 
 
 def _patch_current_scoring_projection() -> None:
-    """Keep public SARI projection aligned with the current runtime version."""
     from rasai import rasai_readiness_reporting
-    from rasai.score_geo_004 import SCORING_VERSION
-
     rasai_readiness_reporting.COMPATIBLE_ENGINE_VERSION = SCORING_VERSION
 
 
 def _normalize_known_legacy_wording(html: str, *, page_name: str) -> str:
-    """Enforce the single pre-publication scoring contract on every HTML surface."""
     del page_name
-    from rasai.score_geo_004 import SCORING_VERSION
-
-    # Development iterations were never public releases. A final report must never
-    # expose them as a supported history or competing methodological truth.
     updated = re.sub(r"SCORE-GEO-(?!004)\d{3}", SCORING_VERSION, html, flags=re.I)
     replacements = (
+        ("TECHNICAL_ACCESSIBILITY", "DISCOVERY_ACCESS"),
+        ("Acessibilidade Técnica", "Discovery & Crawler Access"),
+        ("Acessibilidade técnica", "Discovery & Crawler Access"),
+        ("EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1", OVERALL_AGGREGATION_VERSION),
+        ("Peso igual entre dimensões aplicáveis", "Agregação hierárquica ponderada"),
+        ("peso igual entre dimensões aplicáveis", "agregação hierárquica ponderada"),
+        ("Média simples das dimensões aplicáveis suficientemente consolidadas.", "Média ponderada das dimensões aplicáveis e efetivamente medidas."),
+        ("Média de igual peso das dimensões aplicáveis com medição suficiente.", "Média ponderada das dimensões aplicáveis com medição suficiente."),
         ("contratos históricos", "contrato vigente"),
         ("contrato histórico", "contrato vigente"),
         ("histórico metodológico", "contrato metodológico vigente"),
         ("metodologia histórica", "metodologia vigente"),
-        ("referências de desenvolvimento anteriores", "contrato vigente"),
-        ("referência de desenvolvimento anterior", "contrato vigente"),
-        ("auditorias da versão vigente", "auditorias da versão vigente"),
-        ("comparabilidade entre auditorias da versão vigente", "comparabilidade entre auditorias da versão vigente"),
     )
     for old, replacement in replacements:
         updated = updated.replace(old, replacement)
-    updated = re.sub(
-        rf"(?:{re.escape(SCORING_VERSION)}[;, ]+)+{re.escape(SCORING_VERSION)}",
-        SCORING_VERSION,
-        updated,
-    )
+    # Raw fallback labels must not leak when a legacy generator does not know the
+    # newly introduced dimension yet.
+    updated = updated.replace(">DISCOVERY_ACCESS<", ">Discovery & Crawler Access<")
+    updated = updated.replace(">CONTENT_VALUE<", ">Content Value<")
     return updated
 
 
@@ -183,9 +209,7 @@ def _contract_section(page_name: str) -> str:
         f"<div class='report-contract-item'><h3>Fonte de verdade</h3><p>{escape(surface.source_of_truth)}</p></div>"
         "</div>"
         "<div class='notice report-reading-governance' data-report-reading-governance='true'>"
-        "<strong>Como interpretar e melhorar:</strong> um score alto e uma Confidence baixa não são resultados contraditórios: o score descreve a qualidade do que foi efetivamente avaliado, enquanto Coverage/Confidence descrevem a força e a completude da medição. "
-        "WARNING/FAIL devem ser tratados pela evidência e pelo critério exibidos na própria página; UNKNOWN/UNAVAILABLE/PARTIAL indicam dado não conclusivo ou cobertura insuficiente, salvo quando a superfície disser explicitamente o contrário. "
-        "Quando amostra, escopo, max_pages, timeout, integração opcional ou número mínimo de execuções limitarem a medição, o relatório deve sinalizar parametrização/cobertura e não converter isso em falha do website. Aumentar parâmetros amplia a matriz de medição; não corrige o site e não deve ser usado apenas para buscar uma nota melhor. Consulte a Visão geral para configuração × resultado obtido."
+        "<strong>Como interpretar:</strong> score mede a qualidade do universo avaliado; Coverage e Confidence medem força/completude da medição; Critical Gates informam bloqueios fundamentais de readiness. Um gate BLOCKED não é escondido por uma média alta, e UNKNOWN não é convertido em FAIL."
         "</div></section>"
     )
 
@@ -194,25 +218,119 @@ def _dependency_map() -> str:
     return (
         "<section id='report-dependency-map' class='panel' data-report-dependency-map='true'>"
         "<div class='kicker'>Arquitetura da auditoria</div><h2>Como as evidências alimentam as superfícies</h2>"
-        "<p class='intro'>As setas abaixo representam fluxo de evidência/projeção, não causalidade entre métricas. "
-        "Somente regras pertencentes ao contrato SARI/SCORE entram no readiness.</p>"
+        "<p class='intro'>As setas representam fluxo de evidência/projeção, não causalidade entre métricas.</p>"
         "<div class='notice'><strong>Audit Evidence</strong><br>"
-        "├─&gt; <strong>SARI / SCORE-GEO-004</strong> <span class='badge'>participa do score</span><br>"
-        "├─&gt; Remediação <span class='badge'>read-only derivado</span><br>"
-        "├─&gt; Web Performance ─&gt; Acessibilidade <span class='badge'>integração externa / complementar</span><br>"
-        "├─&gt; Search Intelligence <span class='badge'>observacional / Search provider + RASAi</span><br>"
-        "├─&gt; Synthetic Apdex <span class='badge'>complementar</span><br>"
-        "├─&gt; Observability <span class='badge'>observacional / integração externa</span><br>"
-        "├─&gt; Quality <span class='badge'>read-only derivado</span><br>"
-        "└─&gt; AI Usage <span class='badge'>telemetria de IA</span></div>"
-        "<p class='intro'>Resultados gerados por IA devem ser identificados no próprio output e vinculados aos inputs/evidências usados; "
-        "custos/tokens e telemetria de IA não entram no SCORE-GEO-004.</p></section>"
+        "├-&gt; <strong>SARI / SCORE-GEO-004</strong> <span class='badge'>regras contratadas</span><br>"
+        "├-&gt; Web Performance / Accessibility <span class='badge'>métricas externas</span><br>"
+        "├-&gt; Search Intelligence / AI Visibility <span class='badge'>outcomes observados</span><br>"
+        "├-&gt; Synthetic Apdex <span class='badge'>complementar</span><br>"
+        "└-&gt; AI Usage <span class='badge'>telemetria</span></div>"
+        "<p class='intro'>Scores Lighthouse, Core Web Vitals, Apdex, SERP e telemetria não entram diretamente no SARI. Audit-level evidence externa só pode corroborar regra equivalente por mapeamento explícito e sem dupla pontuação.</p></section>"
     )
 
 
-def _inject_shared_contract(html: str, *, page_name: str) -> str:
+def _macro_weight_rows() -> str:
+    rows: list[str] = []
+    for macro, dimensions in MACRO_COMPONENTS.items():
+        weight = sum(DIMENSION_WEIGHTS[item] for item in dimensions)
+        detail = ", ".join(
+            f"{_DIMENSION_PUBLIC_LABELS[item]} {DIMENSION_WEIGHTS[item] * 100:.0f}%"
+            for item in dimensions
+        )
+        rows.append(
+            f"<tr><td><strong>{escape(_MACRO_PUBLIC_LABELS[macro])}</strong></td>"
+            f"<td>{weight * 100:.0f}%</td><td>{escape(detail)}</td></tr>"
+        )
+    return "".join(rows)
+
+
+def _latest_sari_states(report_dir: Path) -> list[dict[str, str]]:
+    database = report_dir.parent / "audit.db"
+    if not database.is_file():
+        return []
+    connection = sqlite3.connect(database)
+    connection.row_factory = sqlite3.Row
+    try:
+        try:
+            rows = connection.execute(
+                """SELECT device,value,limitations,calculated_at
+                   FROM scores
+                   WHERE dimension='OVERALL_READINESS' AND scoring_version=?
+                   ORDER BY calculated_at""",
+                (SCORING_VERSION,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+    finally:
+        connection.close()
+
+    latest: dict[str, dict[str, str]] = {}
+    for row in rows:
+        device = str(row["device"])
+        raw = row["limitations"]
+        try:
+            limitations = json.loads(raw) if isinstance(raw, str) else list(raw or ())
+        except (TypeError, ValueError, json.JSONDecodeError):
+            limitations = []
+        gates = {"DISCOVERY": "-", "INDEXABILITY": "-", "EXTRACTION": "-"}
+        status = "-"
+        for item in limitations:
+            text = str(item)
+            if text.startswith("CRITICAL_GATE:"):
+                parts = text.split(":", 2)
+                if len(parts) == 3 and parts[1] in gates:
+                    gates[parts[1]] = parts[2]
+            elif text.startswith("READINESS_STATUS:"):
+                status = text.split(":", 1)[1]
+        latest[device] = {
+            "device": device,
+            "value": "-" if row["value"] is None else f"{float(row['value']):.1f}",
+            "status": status,
+            **gates,
+        }
+    return list(latest.values())
+
+
+def _sari_method_panel(report_dir: Path, page_name: str) -> str:
+    if page_name not in {"readiness.html", "scoring.html"}:
+        return ""
+    state_rows = _latest_sari_states(report_dir)
+    state_table = ""
+    if state_rows:
+        body = "".join(
+            "<tr>"
+            f"<td>{escape(item['device'])}</td><td>{escape(item['value'])}</td>"
+            f"<td><strong>{escape(item['status'])}</strong></td>"
+            f"<td>{escape(item['DISCOVERY'])}</td><td>{escape(item['INDEXABILITY'])}</td><td>{escape(item['EXTRACTION'])}</td>"
+            "</tr>"
+            for item in state_rows
+        )
+        state_table = (
+            "<h3>Critical readiness gates desta auditoria</h3>"
+            "<div class='table-wrap'><table><thead><tr><th>Device</th><th>SARI</th><th>Status</th><th>Discovery</th><th>Indexability</th><th>Extraction</th></tr></thead>"
+            f"<tbody>{body}</tbody></table></div>"
+            "<p class='intro'>O status é separado do número: uma medição pode ser CONSOLIDATED e ainda estar BLOCKED por uma condição crítica do website.</p>"
+        )
+    return (
+        "<section id='sari-hierarchical-contract' class='panel' data-sari-hierarchical-contract='true'>"
+        "<div class='kicker'>SARI-001 - contrato vigente</div>"
+        f"<h2>{escape(OVERALL_AGGREGATION_VERSION)}</h2>"
+        "<p class='intro'>O Overall deixou de ser uma média 10 x 10. RuleExecutions são resolvidas por página/escopo, agregadas em scoring groups de peso fixo e só então nas dimensões. A quantidade de páginas não multiplica o peso de um grupo global como robots.txt ou sitemap.</p>"
+        "<div class='table-wrap'><table><thead><tr><th>Macrocomponente</th><th>Peso no SARI</th><th>Dimensões</th></tr></thead>"
+        f"<tbody>{_macro_weight_rows()}</tbody></table></div>"
+        "<div class='notice'><strong>Precedência de evidência:</strong> fato determinístico conclusivo prevalece sobre avaliação IA corroborativa no mesmo scoring_group. IA pode aprofundar ou resolver um estado sem evidência suficiente, mas não sobrescrever um hard fact avaliado.</div>"
+        "<div class='notice'><strong>Lighthouse:</strong> Performance, Accessibility, Best Practices e SEO continuam métricas externas. Os category scores não entram na aritmética SARI; apenas audit-level evidence explicitamente mapeada pode corroborar a mesma condição técnica, sem bônus duplicado.</div>"
+        f"{state_table}</section>"
+    )
+
+
+def _inject_shared_contract(html: str, *, page_name: str, report_dir: Path) -> str:
     if page_name == "index.html" and "data-report-dependency-map='true'" not in html:
         html = html.replace("</main>", _dependency_map() + "</main>", 1)
+    if "data-sari-hierarchical-contract='true'" not in html:
+        panel = _sari_method_panel(report_dir, page_name)
+        if panel:
+            html = html.replace("</main>", panel + "</main>", 1)
     if "data-report-contract='true'" not in html:
         section = _contract_section(page_name)
         if section:
@@ -221,7 +339,6 @@ def _inject_shared_contract(html: str, *, page_name: str) -> str:
 
 
 def _patch_final_branding_normalization() -> None:
-    """Apply shared public contract and keep a defensive final consistency pass."""
     from rasai import report_navigation
     from rasai.report_manifest import write_report_manifest
     from rasai.report_presentation import humanize_report_html
@@ -240,16 +357,8 @@ def _patch_final_branding_normalization() -> None:
                 continue
             updated = html.replace("Search/AI", "Search & AI")
             updated = _normalize_known_legacy_wording(updated, page_name=path.name)
-            updated = updated.replace(
-                "Média simples das dimensões aplicáveis suficientemente consolidadas. Dimensão legitimamente NOT_APPLICABLE não recebe zero.",
-                "Média de igual peso das dimensões aplicáveis com medição suficiente. Dimensão legitimamente NOT_APPLICABLE sai do denominador e não recebe zero.",
-            )
             updated = updated.replace("Compatibilidade metodológica:", "Contrato metodológico:")
-            updated = updated.replace(
-                "esta mudança de relatório não recalcula auditorias, não altera pesos e não quebra comparabilidade entre auditorias da versão vigente.",
-                "o resultado é calculado e persistido pelo contrato vigente desta auditoria.",
-            )
-            updated = _inject_shared_contract(updated, page_name=path.name)
+            updated = _inject_shared_contract(updated, page_name=path.name, report_dir=root)
             updated = updated.replace("—", "-").replace("–", "-")
             updated = humanize_report_html(updated, page_name=path.name)
             if updated != html:
@@ -272,6 +381,15 @@ def install() -> None:
     report_navigation._RULE_TOOLTIPS["BR-GEO-054"] = (
         "Integridade do auditor - verifica a reprodutibilidade do scoring persistido; "
         "SCORE-GEO-004 é o método vigente e não depende de artifact de calibração."
+    )
+    report_navigation._RULE_TOOLTIPS["BR-GEO-057"] = (
+        "Content Value - avalia sinais evidence-bound de utilidade e especificidade; heurística RASAi."
+    )
+    report_navigation._RULE_TOOLTIPS["BR-GEO-058"] = (
+        "Content Value - diferenciação/experiência própria só é concluída com sinal explícito; ausência de prova fica UNKNOWN."
+    )
+    report_navigation._RULE_TOOLTIPS["BR-GEO-059"] = (
+        "Content Value - avalia profundidade/contexto por baseline conservadora; heurística RASAi."
     )
     _patch_apdex_navigation()
     _patch_lighthouse_traceability_message()

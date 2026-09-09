@@ -10,14 +10,20 @@ import sqlite3
 from typing import Any
 
 from rasai import report_navigation
-from rasai.m24_crawling_discovery import M24_VERSION
 from rasai.persistence import AuditWorkspace
 
 M24_FILE = "crawling-discovery.html"
-_AI_START = "<!-- m24-ai-usage:start -->"
-_AI_END = "<!-- m24-ai-usage:end -->"
-_REF_START = "<!-- m24-references:start -->"
-_REF_END = "<!-- m24-references:end -->"
+PUBLIC_CONTRACT = "CRAWLING-DISCOVERY-001"
+_AI_START = "<!-- crawling-discovery-ai-usage:start -->"
+_AI_END = "<!-- crawling-discovery-ai-usage:end -->"
+_REF_START = "<!-- crawling-discovery-references:start -->"
+_REF_END = "<!-- crawling-discovery-references:end -->"
+# Backward cleanup only: old generated reports may still contain these internal
+# markers. They are removed before inserting the neutral public markers above.
+_LEGACY_AI_START = "<!-- m24-ai-usage:start -->"
+_LEGACY_AI_END = "<!-- m24-ai-usage:end -->"
+_LEGACY_REF_START = "<!-- m24-references:start -->"
+_LEGACY_REF_END = "<!-- m24-references:end -->"
 
 
 def enrich_m24_report_site(*, audit_id: str, workspace: AuditWorkspace) -> Path:
@@ -131,7 +137,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 <h1>Rastreamento, descoberta e acesso por IA</h1>
 <p class='lead'>Diagnóstico aprofundado de robots.txt, sitemaps/feeds, coerência de descoberta e controles de crawlers. As regras determinísticas BR-GEO-003, BR-GEO-017 e BR-GEO-018 alimentam o SARI. Quando a IA técnica é explicitamente habilitada, ela pode apenas corroborar ou rebaixar os mesmos grupos de sitemap/robots por classes evidence-bound convertidas em fatores estáticos; nunca escolhe pesos numéricos.</p>
 <div class='metric-grid'>
-{_metric("Contrato", M24_VERSION)}
+{_metric("Contrato", PUBLIC_CONTRACT)}
 {_metric("Diagnósticos", str(len(diagnostics)))}
 {_metric("Alta severidade", str(counts.get("HIGH",0)))}
 {_metric("Média severidade", str(counts.get("MEDIUM",0)))}
@@ -155,7 +161,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 {_reference("OpenAI Help Center","Publishers and Developers FAQ","https://help.openai.com/en/articles/12627856-publishers-and-developers-faq")}
 {_reference("llms.txt","Proposta comunitária - não web standard","https://llmstxt.org/")}
 </div></section>
-<footer class='footer'>M24-CD-001 · os diagnósticos aprofundados desta página são advisory/non-scoring. As regras determinísticas BR-GEO-003, BR-GEO-017 e BR-GEO-018 permanecem inputs do SARI-001 via SCORE-GEO-004.</footer>
+<footer class='footer'>{PUBLIC_CONTRACT} · os diagnósticos aprofundados desta página são advisory/non-scoring. As regras determinísticas BR-GEO-003, BR-GEO-017 e BR-GEO-018 permanecem inputs do SARI-001 via SCORE-GEO-004.</footer>
 </main></body></html>
 """
 
@@ -171,6 +177,11 @@ def _group(category: str, rows: list[sqlite3.Row]) -> str:
     return f"<section class='panel'><div class='kicker'>{escape(category)}</div><h2>{escape(labels.get(category,category))}</h2>{cards}</section>"
 
 
+def _public_diagnostic_code(code: str) -> str:
+    """Project an internal diagnostic code without its development milestone prefix."""
+    return code[4:] if code.upper().startswith("M24-") else code
+
+
 def _diagnostic(row: sqlite3.Row) -> str:
     severity = str(row["severity"])
     badge = "bad" if severity == "HIGH" else "warn" if severity == "MEDIUM" else "info"
@@ -178,8 +189,9 @@ def _diagnostic(row: sqlite3.Row) -> str:
     evidence = _json_list(row["evidence_ids"])
     scope = str(row["scope_url"] or "Escopo da auditoria")
     remediation = str(row["remediation"] or "Nenhuma ação determinística adicional.")
+    public_code = _public_diagnostic_code(str(row["code"]))
     return f"""<article class='page-card'>
-<div class='panel-head'><div><div class='kicker'>{escape(str(row["code"]))}</div><h3>{escape(str(row["title"]))}</h3></div><span class='badge {badge}'>{escape(severity)}</span></div>
+<div class='panel-head'><div><div class='kicker'>{escape(public_code)}</div><h3>{escape(str(row["title"]))}</h3></div><span class='badge {badge}'>{escape(severity)}</span></div>
 <p class='page-url'>{escape(scope)}</p>
 <div class='notice'><strong>Impacto em scoring:</strong> o diagnóstico determinístico isolado é advisory; BR-GEO-003/017/018 são os inputs técnicos de base. Se IA técnica estiver habilitada e produzir classificação válida, somente a avaliação bounded do mesmo recurso pode compartilhar o grupo de scoring correspondente, sem bônus duplicado.</div>
 <details><summary>Evidência observada</summary><div class='detail-body'><pre>{escape(observed)}</pre><p><strong>Evidence IDs:</strong> {escape(", ".join(evidence) or "-")}</p></div></details>
@@ -208,6 +220,7 @@ def _inject_ai_usage(report_dir: Path, data: dict[str, Any]) -> None:
     if not path.is_file():
         return
     html = path.read_text(encoding="utf-8")
+    html = _replace_marker(html, _LEGACY_AI_START, _LEGACY_AI_END, "")
     html = _replace_marker(html, _AI_START, _AI_END, "")
     block = _AI_START + _ai_block(data) + _AI_END
     html = _before_footer(html, block)
@@ -219,9 +232,10 @@ def _inject_references(report_dir: Path) -> None:
     if not path.is_file():
         return
     html = path.read_text(encoding="utf-8")
+    html = _replace_marker(html, _LEGACY_REF_START, _LEGACY_REF_END, "")
     html = _replace_marker(html, _REF_START, _REF_END, "")
-    block = f"""{_REF_START}<section class='panel' id='m24-crawling-references'>
-<div class='kicker'>M24-CD-001</div><h2>Rastreamento, descoberta e acesso por IA</h2>
+    block = f"""{_REF_START}<section class='panel' id='crawling-discovery-references'>
+<div class='kicker'>{PUBLIC_CONTRACT}</div><h2>Rastreamento, descoberta e acesso por IA</h2>
 <p class='intro'>Os diagnósticos aprofundados de crawling/discovery permanecem advisory/non-scoring. Separadamente, as regras determinísticas BR-GEO-003, BR-GEO-017 e BR-GEO-018 já alimentam SCORE-GEO-004/SARI-001. llms.txt é explicitamente identificado como proposta comunitária.</p>
 <ul><li><a href='https://www.rfc-editor.org/rfc/rfc9309.html'>RFC 9309 - Robots Exclusion Protocol</a></li>
 <li><a href='https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec'>Google - robots.txt</a></li>

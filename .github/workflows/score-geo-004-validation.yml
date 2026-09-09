@@ -42,6 +42,6 @@ jobs:
           python -m compileall -q src/rasai/score_geo_004.py src/rasai/scoring.py src/rasai/scoring_v004.py src/rasai/score_geo_004_cli.py src/rasai/score_geo_004_reporting.py src/rasai/rasai_readiness_reporting.py src/rasai/m9.py src/rasai/entrypoint.py
       - name: SCORE-GEO-004 directed tests
         run: |
-          python -m pytest -q tests/test_score_geo_004.py tests/test_score_geo_004_applicability.py tests/test_m9_scoring.py tests/test_rasai_readiness_reporting.py tests/test_rasai_runtime_branding_and_reports.py tests/test_rasai_sari_branding.py
+          python -m pytest -q tests/test_score_geo_004.py tests/test_score_geo_004_applicability.py tests/test_score_geo_004_reopenability.py tests/test_m9_scoring.py tests/test_rasai_readiness_reporting.py tests/test_rasai_runtime_branding_and_reports.py tests/test_rasai_sari_branding.py
       - name: Current scoring inspection
         run: python -m rasai scoring inspect

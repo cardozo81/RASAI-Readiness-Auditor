@@ -18,7 +18,7 @@ def test_device_page_exposes_evidence_role_not_duplicate_score() -> None:
     html = enrich_indicator_provenance_html(_shell(), page_name="mobile.html")
     assert PROVENANCE_MARKER in html
     assert "Evidências RASAi por dispositivo" in html
-    assert "Indicadores agregados RASAi ficam exclusivamente" in html
+    assert "a agregação SARI fica em Search &amp; AI Readiness" in html
     assert "references.html#indicator-provenance" in html
 
 
@@ -35,20 +35,47 @@ def test_readiness_page_has_explicit_internal_methodological_nature() -> None:
     assert "SCORE-GEO-004" in html
 
 
+def test_readiness_normalization_removes_pre_recalibration_methodology() -> None:
+    legacy = (
+        "<html><body><header class='hero'><h1>Teste</h1></header><main>"
+        "<p>Média de igual peso das dimensões aplicáveis com medição suficiente. "
+        "Dimensão legitimamente NOT_APPLICABLE sai do denominador e não recebe zero.</p>"
+        "<p>O Overall usa a média dessa Coverage entre dimensões aplicáveis; ela não representa percentual de URLs do domínio rastreadas ou auditadas.</p>"
+        "<p>O Overall usa a menor Confidence entre as dimensões aplicáveis. Para consolidar, exige Coverage média de pelo menos 80% e Confidence mínima MEDIUM. "
+        "A presença de IA não é requisito: uma execução NO_AI pode atingir MEDIUM/HIGH quando Coverage, evidências e integridade da execução forem suficientes.</p>"
+        "<p>Grupo SITEMAP · peso máximo versionado 0,25.</p>"
+        "<p>Grupo ROBOTS · peso máximo versionado 0,60.</p>"
+        "<table><tr><td>DISCOVERY_ACCESS</td></tr><tr><td>CONTENT_VALUE</td></tr></table>"
+        "</main></body></html>"
+    )
+    html = enrich_indicator_provenance_html(legacy, page_name="readiness.html")
+    assert "Média de igual peso" not in html
+    assert "média dessa Coverage" not in html
+    assert "menor Confidence" not in html
+    assert "peso máximo versionado 0,25" not in html
+    assert "peso máximo versionado 0,60" not in html
+    assert "Média ponderada pelos pesos versionados" in html
+    assert "peso versionado 0,05 dentro de DISCOVERY_ACCESS" in html
+    assert "peso versionado 0,15 dentro de DISCOVERY_ACCESS" in html
+    assert ">Acesso e descoberta<" in html
+    assert ">Valor do conteúdo<" in html
+
+
 def test_external_metric_pages_are_not_presented_as_rasai_score() -> None:
     html = enrich_indicator_provenance_html(_shell(), page_name="web-performance.html")
     assert "Métricas externas definidas" in html
-    assert "sem convertê-los em SARI-001" in html
+    assert "Scores Lighthouse e Core Web Vitals permanecem independentes" in html
+    assert "Audit-level evidence só pode corroborar regra equivalente" in html
 
     accessibility = enrich_indicator_provenance_html(_shell(), page_name="accessibility.html")
-    assert "WCAG 2.2 é standard externo" in accessibility
-    assert "não equivale a certificação" in accessibility
+    assert "Standard W3C + métrica Lighthouse" in accessibility
+    assert "WCAG 2.2 e Lighthouse Accessibility permanecem fora da aritmética SARI" in accessibility
 
 
 def test_apdex_separates_external_method_from_operator_threshold() -> None:
     html = enrich_indicator_provenance_html(_shell(), page_name="apdex.html")
-    assert "Método Apdex externo + T configurado pelo operador" in html
-    assert "perfil sintético" in html
+    assert "Método Apdex externo + T configurado" in html
+    assert "Apdex é complementar e não entra no SARI" in html
 
 
 def test_references_panel_contains_source_logic_and_internal_boundary() -> None:

@@ -1,38 +1,54 @@
-"""Runtime engine for SCORE-GEO-004.
-
-The dimension calculator remains deterministic and evidence-bound. SCORE-GEO-004
-uses a transparent deterministic Overall so normal audits can publish a
-consolidated readiness result without pretending that an empirical citation
-model exists.
-"""
+"""Runtime engine for the canonical SCORE-GEO-004 contract."""
 from __future__ import annotations
 
 from dataclasses import replace
 
-from rasai.domain import DeviceContext, RuleExecution, new_id, utc_now
-from rasai.score_geo_004 import (
-    FEATURE_ORDER,
-    MIN_OVERALL_COVERAGE,
-    MIN_PARTIAL_COVERAGE,
-    SCORING_VERSION,
-    method_trace_limitations,
-)
-from rasai.scoring import (
-    ConsolidationStatus,
-    DIMENSIONS,
-    Score,
-    ScoreConfidence,
-    ScoringEngine as LegacyScoringEngine,
-    ScoringResult,
-)
+from rasai.domain import DeviceContext, RuleExecution, RuleResult
+from rasai.score_geo_004 import FEATURE_ORDER, SCORING_VERSION
+from rasai.scoring import DIMENSIONS, ScoringEngine, ScoringResult
 
 
 if DIMENSIONS != FEATURE_ORDER:
     raise RuntimeError("SCORE-GEO-004 dimension contract must match scoring dimensions")
 
 
+def _effective_v004_execution(execution: RuleExecution) -> RuleExecution:
+    """Apply version-owned applicability policy to a persisted RuleExecution.
+
+    The source RuleExecution remains immutable evidence. SCORE-GEO-004 owns the
+    interpretation that absence of Structured Data is not a universal readiness
+    requirement, so BR-GEO-034 becomes NOT_APPLICABLE for scoring when its own
+    persisted observation explicitly says Structured Data is absent.
+
+    Keeping this policy in the version adapter is essential for reopenability:
+    scoring the same persisted RuleExecutions later must reproduce the same result
+    without relying on an in-memory transformation performed by the audit runner.
+    """
+    if execution.rule_id != "BR-GEO-034" or execution.result is RuleResult.NOT_APPLICABLE:
+        return execution
+    observed = execution.observed_value
+    if not isinstance(observed, dict) or observed.get("present") is not False:
+        return execution
+    return replace(
+        execution,
+        result=RuleResult.NOT_APPLICABLE,
+        observed_value={
+            **observed,
+            "reason": "STRUCTURED_DATA_ABSENT_NOT_UNIVERSAL_SARI_REQUIREMENT",
+            "source_rule_result": execution.result.value,
+        },
+    )
+
+
 class ScoreGeo004Engine:
-    """Deterministic operational scoring engine for new audits."""
+    """Version-aware adapter over the single canonical scoring engine.
+
+    SCORE-GEO-004 used to duplicate the Overall calculation in this module and in
+    ``scoring.py``. The pre-release recalibration intentionally removes that
+    split-brain risk: dimension, Overall, Coverage, Confidence and critical-gate
+    behavior comes from ``ScoringEngine`` while version-specific applicability
+    interpretation remains here so persisted RuleExecutions are reopenable.
+    """
 
     def score(
         self,
@@ -41,101 +57,18 @@ class ScoreGeo004Engine:
         executions: tuple[RuleExecution, ...] | list[RuleExecution],
         devices: tuple[DeviceContext, ...] | list[DeviceContext] | None = None,
     ) -> ScoringResult:
-        base = LegacyScoringEngine().score(
+        effective_executions = tuple(_effective_v004_execution(item) for item in executions)
+        calculated = ScoringEngine().score(
             audit_id=audit_id,
-            executions=executions,
+            executions=effective_executions,
             devices=devices,
         )
-        dimensions = tuple(replace(score, scoring_version=SCORING_VERSION) for score in base.scores)
+        dimensions = tuple(
+            replace(score, scoring_version=SCORING_VERSION)
+            for score in calculated.scores
+        )
         overall = {
-            device: self._overall(
-                audit_id,
-                device,
-                tuple(score for score in dimensions if score.device is device),
-            )
-            for device in base.overall_by_device
+            device: replace(score, scoring_version=SCORING_VERSION)
+            for device, score in calculated.overall_by_device.items()
         }
-        return ScoringResult(dimensions, base.contributions, overall)
-
-    def _overall(self, audit_id: str, device: DeviceContext, dimensions: tuple[Score, ...]) -> Score:
-        applicable = tuple(
-            item
-            for item in dimensions
-            if item.consolidation_status is not ConsolidationStatus.NOT_APPLICABLE
-        )
-        limitations: list[str] = [
-            f"DIMENSION_NOT_APPLICABLE:{item.dimension}"
-            for item in dimensions
-            if item.consolidation_status is ConsolidationStatus.NOT_APPLICABLE
-        ]
-        blocking = tuple(
-            item
-            for item in applicable
-            if item.consolidation_status is ConsolidationStatus.NOT_CONSOLIDATED
-            or item.value is None
-        )
-        limitations.extend(f"DIMENSION_NOT_CONSOLIDATED:{item.dimension}" for item in blocking)
-
-        coverage = (
-            sum(item.coverage for item in applicable) / len(applicable)
-            if applicable
-            else 0.0
-        )
-        confidence = (
-            min((item.confidence for item in applicable), key=_confidence_rank)
-            if applicable
-            else ScoreConfidence.UNAVAILABLE
-        )
-        complete_contract = len(dimensions) == len(DIMENSIONS) and bool(applicable) and not blocking
-
-        if not complete_contract:
-            return Score(
-                score_id=new_id("SCR"),
-                audit_id=audit_id,
-                dimension="OVERALL_READINESS",
-                device=device,
-                value=None,
-                coverage=round(coverage, 6),
-                confidence=confidence,
-                consolidation_status=ConsolidationStatus.NOT_CONSOLIDATED,
-                scoring_version=SCORING_VERSION,
-                calculated_at=utc_now(),
-                limitations=tuple((*limitations, *method_trace_limitations())),
-            )
-
-        values = [float(item.value) for item in applicable if item.value is not None]
-        value = sum(values) / len(values)
-        if coverage >= MIN_OVERALL_COVERAGE and confidence in {
-            ScoreConfidence.HIGH,
-            ScoreConfidence.MEDIUM,
-        }:
-            consolidation = ConsolidationStatus.CONSOLIDATED
-        elif coverage >= MIN_PARTIAL_COVERAGE and confidence is not ScoreConfidence.UNAVAILABLE:
-            consolidation = ConsolidationStatus.PARTIAL
-            limitations.append("OVERALL_MEASUREMENT_BELOW_CONSOLIDATION_GATE")
-        else:
-            consolidation = ConsolidationStatus.NOT_CONSOLIDATED
-            limitations.append("OVERALL_MEASUREMENT_BELOW_MINIMUM_GATE")
-
-        return Score(
-            score_id=new_id("SCR"),
-            audit_id=audit_id,
-            dimension="OVERALL_READINESS",
-            device=device,
-            value=round(value, 6),
-            coverage=round(coverage, 6),
-            confidence=confidence,
-            consolidation_status=consolidation,
-            scoring_version=SCORING_VERSION,
-            calculated_at=utc_now(),
-            limitations=tuple((*limitations, *method_trace_limitations())),
-        )
-
-
-def _confidence_rank(value: ScoreConfidence) -> int:
-    return {
-        ScoreConfidence.UNAVAILABLE: 0,
-        ScoreConfidence.LOW: 1,
-        ScoreConfidence.MEDIUM: 2,
-        ScoreConfidence.HIGH: 3,
-    }[value]
+        return ScoringResult(dimensions, calculated.contributions, overall)

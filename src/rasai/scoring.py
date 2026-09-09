@@ -9,10 +9,17 @@ from typing import Iterable
 
 from rasai.domain import DeviceContext, RuleExecution, RuleResult, new_id, utc_now
 from rasai.score_geo_004 import (
+    CRITICAL_DIMENSIONS,
+    CRITICAL_GATES,
+    DIMENSION_WEIGHTS,
+    EVIDENCE_ROLE_DETERMINISTIC_PRIMARY,
+    FEATURE_ORDER,
+    GROUP_WEIGHTS,
     MIN_OVERALL_COVERAGE,
     MIN_PARTIAL_COVERAGE,
     SCORING_VERSION,
     method_trace_limitations,
+    rule_contract,
 )
 
 
@@ -30,18 +37,7 @@ class ConsolidationStatus(StrEnum):
     NOT_APPLICABLE = "NOT_APPLICABLE"
 
 
-DIMENSIONS = (
-    "TECHNICAL_ACCESSIBILITY",
-    "INDEXABILITY",
-    "CONTENT_EXTRACTABILITY",
-    "SEMANTIC_STRUCTURE",
-    "ENTITY_CLARITY",
-    "STRUCTURED_DATA",
-    "ANSWERABILITY",
-    "CITATION_READINESS",
-    "EVIDENCE_TRUST",
-    "INTENT_COVERAGE",
-)
+DIMENSIONS = FEATURE_ORDER
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +46,7 @@ class RuleScoringMetadata:
     weight: float = 1.0
     warning_factor: float = 0.5
     scoring_group: str | None = None
+    evidence_role: str = EVIDENCE_ROLE_DETERMINISTIC_PRIMARY
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,12 +87,16 @@ class ScoringResult:
 
 
 class ScoringEngine:
-    """Reproducible SCORE-GEO-004 calculator with no website or AI execution.
+    """Reproducible hierarchical SCORE-GEO-004 calculator.
 
-    The engine distinguishes evidence/execution gaps, unresolved applicability and
-    legitimate NOT_APPLICABLE states. A legitimate NOT_APPLICABLE dimension is
-    excluded from Overall instead of receiving zero. An applicable dimension that
-    is not sufficiently measured blocks a consolidated Overall.
+    Rule executions are first resolved inside one page/global scope, then each
+    scoring-group weight is divided across its applicable scopes.  Therefore a
+    group keeps the same relative importance when an audit grows from a few pages
+    to hundreds of pages.
+
+    Deterministic facts have precedence over AI-correlative executions in the
+    same scope/group.  AI may resolve an otherwise unevaluated group, but it may
+    not override an evaluated deterministic PASS/WARNING/FAIL.
     """
 
     def score(
@@ -106,18 +107,25 @@ class ScoringEngine:
         devices: Iterable[DeviceContext] | None = None,
     ) -> ScoringResult:
         execution_list = tuple(executions)
-        selected_devices = tuple(dict.fromkeys(devices or (DeviceContext.DESKTOP, DeviceContext.MOBILE)))
+        selected_devices = tuple(
+            dict.fromkeys(devices or (DeviceContext.DESKTOP, DeviceContext.MOBILE))
+        )
         if not selected_devices:
             raise ValueError("scoring requires at least one device")
+
         scores: list[Score] = []
         contributions: list[ScoreContribution] = []
         for device in selected_devices:
+            device_executions = tuple(
+                execution
+                for execution in execution_list
+                if execution.device is None or execution.device is device
+            )
             for dimension in DIMENSIONS:
                 dimension_executions = tuple(
                     execution
-                    for execution in execution_list
+                    for execution in device_executions
                     if _metadata(execution.rule_id).dimension == dimension
-                    and (execution.device is None or execution.device is device)
                 )
                 score, score_contributions = self._dimension_score(
                     audit_id=audit_id,
@@ -129,7 +137,16 @@ class ScoringEngine:
                 contributions.extend(score_contributions)
 
         overall = {
-            device: self._overall(audit_id, device, tuple(score for score in scores if score.device is device))
+            device: self._overall(
+                audit_id,
+                device,
+                tuple(score for score in scores if score.device is device),
+                tuple(
+                    execution
+                    for execution in execution_list
+                    if execution.device is None or execution.device is device
+                ),
+            )
             for device in selected_devices
         }
         return ScoringResult(tuple(scores), tuple(contributions), overall)
@@ -162,12 +179,16 @@ class ScoringEngine:
                 (),
             )
 
-        buckets: dict[tuple[str, str], list[RuleExecution]] = {}
+        # group -> scope -> executions.  Scope is page-level whenever possible;
+        # GLOBAL is used for resources such as robots/sitemap.
+        grouped: dict[str, dict[str, list[RuleExecution]]] = {}
         for execution in executions:
             metadata = _metadata(execution.rule_id)
-            scope = execution.page_id or "GLOBAL"
+            if metadata.dimension != dimension:
+                continue
             group = metadata.scoring_group or f"RULE:{execution.rule_id}"
-            buckets.setdefault((scope, group), []).append(execution)
+            scope = execution.page_id or "GLOBAL"
+            grouped.setdefault(group, {}).setdefault(scope, []).append(execution)
 
         applicable_weight = 0.0
         evaluated_weight = 0.0
@@ -177,40 +198,51 @@ class ScoringEngine:
         errors = 0
         unknowns = 0
 
-        for (_scope, group), items in buckets.items():
-            applicable_items = [item for item in items if item.result is not RuleResult.NOT_APPLICABLE]
-            if not applicable_items:
+        for group, scopes in grouped.items():
+            group_weight = GROUP_WEIGHTS.get(dimension, {}).get(group)
+            if group_weight is None:
+                # Contracted scoring groups must have a fixed weight.  Unknown
+                # groups are excluded rather than receiving an accidental weight.
                 continue
-            weight = max(_metadata(item.rule_id).weight for item in applicable_items)
-            applicable_weight += weight
-            evaluated = [item for item in applicable_items if item.result in {RuleResult.PASS, RuleResult.WARNING, RuleResult.FAIL}]
-            errors += sum(item.result is RuleResult.ERROR for item in applicable_items)
-            unknowns += sum(item.result is RuleResult.UNKNOWN for item in applicable_items)
-            evidence_complete = evidence_complete and all(bool(item.evidence_ids) for item in evaluated)
 
-            representative: RuleExecution
-            factor: float | None
-            if evaluated:
-                representative = min(evaluated, key=lambda item: _factor(item.result, _metadata(item.rule_id).warning_factor) or 0.0)
-                factor = _factor(representative.result, _metadata(representative.rule_id).warning_factor)
-                assert factor is not None
-                evaluated_weight += weight
-                numerator += weight * factor
-            else:
-                representative = applicable_items[0]
-                factor = None
+            applicable_scopes: list[tuple[str, list[RuleExecution]]] = []
+            for scope, items in scopes.items():
+                applicable_items = [
+                    item for item in items if item.result is not RuleResult.NOT_APPLICABLE
+                ]
+                if applicable_items:
+                    applicable_scopes.append((scope, applicable_items))
 
-            contribution_rows.append(
-                ScoreContribution(
-                    contribution_id=new_id("SCN"), score_id=score_id,
-                    rule_id=representative.rule_id,
-                    rule_execution_id=representative.rule_execution_id,
-                    dimension=dimension, device=device, weight=weight,
-                    result=representative.result, result_factor=factor,
-                    effective_contribution=(weight * factor) if factor is not None else None,
-                    scoring_group=None if group.startswith("RULE:") else group,
+            if not applicable_scopes:
+                continue
+
+            applicable_weight += group_weight
+            scope_weight = group_weight / len(applicable_scopes)
+
+            for _scope, applicable_items in applicable_scopes:
+                errors += sum(item.result is RuleResult.ERROR for item in applicable_items)
+                unknowns += sum(item.result is RuleResult.UNKNOWN for item in applicable_items)
+                representative, factor = _representative(applicable_items)
+                if factor is not None:
+                    evaluated_weight += scope_weight
+                    numerator += scope_weight * factor
+                    evidence_complete = evidence_complete and bool(representative.evidence_ids)
+
+                contribution_rows.append(
+                    ScoreContribution(
+                        contribution_id=new_id("SCN"),
+                        score_id=score_id,
+                        rule_id=representative.rule_id,
+                        rule_execution_id=representative.rule_execution_id,
+                        dimension=dimension,
+                        device=device,
+                        weight=scope_weight,
+                        result=representative.result,
+                        result_factor=factor,
+                        effective_contribution=(scope_weight * factor) if factor is not None else None,
+                        scoring_group=group,
+                    )
                 )
-            )
 
         limitations: list[str] = []
         if applicable_weight == 0:
@@ -250,18 +282,31 @@ class ScoringEngine:
 
         return (
             Score(
-                score_id=score_id, audit_id=audit_id, dimension=dimension, device=device,
+                score_id=score_id,
+                audit_id=audit_id,
+                dimension=dimension,
+                device=device,
                 value=round(value, 6) if value is not None else None,
-                coverage=round(coverage, 6), confidence=confidence,
-                consolidation_status=consolidation, scoring_version=SCORING_VERSION,
-                calculated_at=utc_now(), limitations=tuple(limitations),
+                coverage=round(coverage, 6),
+                confidence=confidence,
+                consolidation_status=consolidation,
+                scoring_version=SCORING_VERSION,
+                calculated_at=utc_now(),
+                limitations=tuple(limitations),
             ),
             tuple(contribution_rows),
         )
 
-    def _overall(self, audit_id: str, device: DeviceContext, dimensions: tuple[Score, ...]) -> Score:
+    def _overall(
+        self,
+        audit_id: str,
+        device: DeviceContext,
+        dimensions: tuple[Score, ...],
+        executions: tuple[RuleExecution, ...],
+    ) -> Score:
         applicable = tuple(
-            item for item in dimensions
+            item
+            for item in dimensions
             if item.consolidation_status is not ConsolidationStatus.NOT_APPLICABLE
         )
         limitations: list[str] = [
@@ -269,31 +314,62 @@ class ScoringEngine:
             for item in dimensions
             if item.consolidation_status is ConsolidationStatus.NOT_APPLICABLE
         ]
-        blocking = tuple(
-            item for item in applicable
-            if item.consolidation_status is ConsolidationStatus.NOT_CONSOLIDATED or item.value is None
-        )
-        limitations.extend(f"DIMENSION_NOT_CONSOLIDATED:{item.dimension}" for item in blocking)
 
-        coverage = sum(item.coverage for item in applicable) / len(applicable) if applicable else 0.0
-        confidence = (
-            min((item.confidence for item in applicable), key=_confidence_rank)
-            if applicable else ScoreConfidence.UNAVAILABLE
-        )
-        complete_contract = len(dimensions) == len(DIMENSIONS) and bool(applicable) and not blocking
+        if len(dimensions) != len(DIMENSIONS):
+            limitations.append("INCOMPLETE_DIMENSION_CONTRACT")
 
-        if not complete_contract:
-            return Score(
-                score_id=new_id("SCR"), audit_id=audit_id, dimension="OVERALL_READINESS", device=device,
-                value=None, coverage=round(coverage, 6), confidence=confidence,
-                consolidation_status=ConsolidationStatus.NOT_CONSOLIDATED,
-                scoring_version=SCORING_VERSION, calculated_at=utc_now(),
-                limitations=tuple((*limitations, *method_trace_limitations())),
+        total_weight = sum(DIMENSION_WEIGHTS[item.dimension] for item in applicable)
+        measured = tuple(item for item in applicable if item.value is not None)
+        measured_weight = sum(DIMENSION_WEIGHTS[item.dimension] for item in measured)
+
+        coverage = (
+            sum(DIMENSION_WEIGHTS[item.dimension] * item.coverage for item in applicable)
+            / total_weight
+            if total_weight
+            else 0.0
+        )
+        value = (
+            sum(DIMENSION_WEIGHTS[item.dimension] * float(item.value) for item in measured)
+            / measured_weight
+            if measured_weight
+            else None
+        )
+        confidence = _overall_confidence(applicable)
+
+        critical_measurement_blockers = tuple(
+            item
+            for item in applicable
+            if item.dimension in CRITICAL_DIMENSIONS
+            and (
+                item.value is None
+                or item.consolidation_status is ConsolidationStatus.NOT_CONSOLIDATED
             )
+        )
+        for item in critical_measurement_blockers:
+            limitations.append(f"CRITICAL_DIMENSION_NOT_CONSOLIDATED:{item.dimension}")
 
-        values = [float(item.value) for item in applicable if item.value is not None]
-        value = sum(values) / len(values)
-        if coverage >= MIN_OVERALL_COVERAGE and confidence in {ScoreConfidence.HIGH, ScoreConfidence.MEDIUM}:
+        for item in applicable:
+            if item.dimension in CRITICAL_DIMENSIONS:
+                continue
+            if item.value is None or item.consolidation_status is ConsolidationStatus.NOT_CONSOLIDATED:
+                limitations.append(f"DIMENSION_MEASUREMENT_LIMITED:{item.dimension}")
+
+        gate_states = _critical_gate_states(executions)
+        for gate, state in gate_states.items():
+            limitations.append(f"CRITICAL_GATE:{gate}:{state}")
+        readiness_status = _readiness_status(gate_states)
+        limitations.append(f"READINESS_STATUS:{readiness_status}")
+
+        if value is None:
+            consolidation = ConsolidationStatus.NOT_CONSOLIDATED
+            limitations.append("OVERALL_HAS_NO_EVALUATED_DIMENSION")
+        elif critical_measurement_blockers:
+            consolidation = ConsolidationStatus.NOT_CONSOLIDATED
+            limitations.append("CRITICAL_MEASUREMENT_GATE_NOT_SATISFIED")
+        elif coverage >= MIN_OVERALL_COVERAGE and confidence in {
+            ScoreConfidence.HIGH,
+            ScoreConfidence.MEDIUM,
+        }:
             consolidation = ConsolidationStatus.CONSOLIDATED
         elif coverage >= MIN_PARTIAL_COVERAGE and confidence is not ScoreConfidence.UNAVAILABLE:
             consolidation = ConsolidationStatus.PARTIAL
@@ -303,11 +379,114 @@ class ScoringEngine:
             limitations.append("OVERALL_MEASUREMENT_BELOW_MINIMUM_GATE")
 
         return Score(
-            score_id=new_id("SCR"), audit_id=audit_id, dimension="OVERALL_READINESS", device=device,
-            value=round(value, 6), coverage=round(coverage, 6), confidence=confidence,
-            consolidation_status=consolidation, scoring_version=SCORING_VERSION,
-            calculated_at=utc_now(), limitations=tuple((*limitations, *method_trace_limitations())),
+            score_id=new_id("SCR"),
+            audit_id=audit_id,
+            dimension="OVERALL_READINESS",
+            device=device,
+            value=round(value, 6) if value is not None else None,
+            coverage=round(coverage, 6),
+            confidence=confidence,
+            consolidation_status=consolidation,
+            scoring_version=SCORING_VERSION,
+            calculated_at=utc_now(),
+            limitations=tuple((*limitations, *method_trace_limitations())),
         )
+
+
+def _representative(
+    applicable_items: list[RuleExecution] | tuple[RuleExecution, ...],
+) -> tuple[RuleExecution, float | None]:
+    evaluated = [
+        item
+        for item in applicable_items
+        if item.result in {RuleResult.PASS, RuleResult.WARNING, RuleResult.FAIL}
+    ]
+    deterministic = [
+        item
+        for item in evaluated
+        if _metadata(item.rule_id).evidence_role == EVIDENCE_ROLE_DETERMINISTIC_PRIMARY
+    ]
+    candidates = deterministic or evaluated
+    if candidates:
+        representative = min(
+            candidates,
+            key=lambda item: _factor(
+                item.result,
+                _metadata(item.rule_id).warning_factor,
+            )
+            if _factor(item.result, _metadata(item.rule_id).warning_factor) is not None
+            else 2.0,
+        )
+        return representative, _factor(
+            representative.result,
+            _metadata(representative.rule_id).warning_factor,
+        )
+
+    deterministic_unresolved = [
+        item
+        for item in applicable_items
+        if _metadata(item.rule_id).evidence_role == EVIDENCE_ROLE_DETERMINISTIC_PRIMARY
+    ]
+    representative = deterministic_unresolved[0] if deterministic_unresolved else applicable_items[0]
+    return representative, None
+
+
+def _critical_gate_states(executions: tuple[RuleExecution, ...]) -> dict[str, str]:
+    states: dict[str, str] = {}
+    for gate, (dimension, groups) in CRITICAL_GATES.items():
+        selected = [
+            item
+            for item in executions
+            if _metadata(item.rule_id).dimension == dimension
+            and _metadata(item.rule_id).scoring_group in groups
+        ]
+        if not selected:
+            states[gate] = "UNKNOWN"
+            continue
+
+        scoped: dict[tuple[str, str], list[RuleExecution]] = {}
+        for item in selected:
+            group = _metadata(item.rule_id).scoring_group or item.rule_id
+            scoped.setdefault((item.page_id or "GLOBAL", group), []).append(item)
+
+        saw_applicable = False
+        saw_warning = False
+        saw_unresolved = False
+        blocked = False
+        for items in scoped.values():
+            applicable = [item for item in items if item.result is not RuleResult.NOT_APPLICABLE]
+            if not applicable:
+                continue
+            saw_applicable = True
+            _representative_execution, factor = _representative(applicable)
+            if factor is None:
+                saw_unresolved = True
+            elif factor <= 0.0:
+                blocked = True
+                break
+            elif factor < 1.0:
+                saw_warning = True
+
+        if blocked:
+            states[gate] = "BLOCKED"
+        elif not saw_applicable or saw_unresolved:
+            states[gate] = "UNKNOWN"
+        elif saw_warning:
+            states[gate] = "WARNING"
+        else:
+            states[gate] = "PASS"
+    return states
+
+
+def _readiness_status(gates: dict[str, str]) -> str:
+    values = set(gates.values())
+    if "BLOCKED" in values:
+        return "BLOCKED"
+    if "UNKNOWN" in values:
+        return "UNKNOWN"
+    if "WARNING" in values:
+        return "ATTENTION"
+    return "READY"
 
 
 def _not_applicable_is_prerequisite_blocked(execution: RuleExecution) -> bool:
@@ -338,6 +517,40 @@ def _confidence(coverage: float, *, evidence_complete: bool, errors: int) -> Sco
     return ScoreConfidence.LOW
 
 
+def _overall_confidence(dimensions: tuple[Score, ...]) -> ScoreConfidence:
+    if not dimensions:
+        return ScoreConfidence.UNAVAILABLE
+    measured = tuple(item for item in dimensions if item.value is not None)
+    if not measured:
+        return ScoreConfidence.UNAVAILABLE
+
+    critical = tuple(item for item in dimensions if item.dimension in CRITICAL_DIMENSIONS)
+    if any(item.confidence in {ScoreConfidence.UNAVAILABLE, ScoreConfidence.LOW} for item in critical):
+        return ScoreConfidence.LOW
+
+    total_weight = sum(DIMENSION_WEIGHTS[item.dimension] for item in dimensions)
+    if total_weight <= 0:
+        return ScoreConfidence.UNAVAILABLE
+    weighted = sum(
+        DIMENSION_WEIGHTS[item.dimension] * _confidence_value(item.confidence)
+        for item in dimensions
+    ) / total_weight
+    if weighted >= 0.90:
+        return ScoreConfidence.HIGH
+    if weighted >= 0.70:
+        return ScoreConfidence.MEDIUM
+    return ScoreConfidence.LOW
+
+
+def _confidence_value(value: ScoreConfidence) -> float:
+    return {
+        ScoreConfidence.UNAVAILABLE: 0.0,
+        ScoreConfidence.LOW: 0.40,
+        ScoreConfidence.MEDIUM: 0.75,
+        ScoreConfidence.HIGH: 1.0,
+    }[value]
+
+
 def _consolidation(coverage: float, confidence: ScoreConfidence) -> ConsolidationStatus:
     if confidence is ScoreConfidence.UNAVAILABLE or coverage < 0.50:
         return ConsolidationStatus.NOT_CONSOLIDATED
@@ -356,74 +569,13 @@ def _confidence_rank(value: ScoreConfidence) -> int:
 
 
 def _metadata(rule_id: str) -> RuleScoringMetadata:
-    try:
-        number = int(rule_id.rsplit("-", 1)[1])
-    except (ValueError, IndexError):
+    contract = rule_contract(rule_id)
+    if contract is None:
         return RuleScoringMetadata(None)
-
-    if number in {1, 2, 4, 52, 53, 54}:
-        return RuleScoringMetadata(None)
-    if number in {3, 55}:
-        return RuleScoringMetadata(
-            "TECHNICAL_ACCESSIBILITY", weight=0.25, warning_factor=0.80, scoring_group="SITEMAP"
-        )
-    if number in {17, 18, 56}:
-        return RuleScoringMetadata(
-            "TECHNICAL_ACCESSIBILITY", weight=0.60, warning_factor=0.60, scoring_group="ROBOTS"
-        )
-    if number in {5, 6}:
-        return RuleScoringMetadata(
-            "TECHNICAL_ACCESSIBILITY", weight=1.25, scoring_group="PAGE_ACCESS"
-        )
-    if number in {7, 8, 21, 22, 50}:
-        return RuleScoringMetadata("TECHNICAL_ACCESSIBILITY", scoring_group=_technical_group(number))
-    if 11 <= number <= 16 or number == 23:
-        return RuleScoringMetadata("INDEXABILITY", scoring_group=_index_group(number))
-    if number in {9, 10, 19, 20, 24, 25, 26, 27}:
-        return RuleScoringMetadata("CONTENT_EXTRACTABILITY", scoring_group=_content_group(number))
-    if 28 <= number <= 30:
-        return RuleScoringMetadata("SEMANTIC_STRUCTURE", scoring_group={28:"SEMANTIC_TITLE",29:"SEMANTIC_HIERARCHY",30:"SEMANTIC_TOPIC"}[number])
-    if 31 <= number <= 33:
-        return RuleScoringMetadata("ENTITY_CLARITY", scoring_group={31:"ENTITY_PRIMARY",32:"ENTITY_CONTEXT",33:"ENTITY_AMBIGUITY"}[number])
-    if 34 <= number <= 37:
-        return RuleScoringMetadata(
-            "STRUCTURED_DATA",
-            warning_factor=0.80 if number == 34 else 0.50,
-            scoring_group="STRUCTURED_DATA_SYNTAX" if number in {34,35} else "STRUCTURED_DATA_CONSISTENCY",
-        )
-    if 38 <= number <= 40:
-        return RuleScoringMetadata("ANSWERABILITY", scoring_group="PRIMARY_INTENT" if number == 38 else "PRIMARY_ANSWERS")
-    if 41 <= number <= 44:
-        return RuleScoringMetadata("CITATION_READINESS", scoring_group={41:"FACTUAL_CLAIMS",42:"FACTUAL_CONTEXT",43:"FACTUAL_CONTEXT",44:"INFERENCE_LOAD"}[number])
-    if 45 <= number <= 47:
-        return RuleScoringMetadata("EVIDENCE_TRUST", scoring_group={45:"ATTRIBUTION",46:"RESPONSIBILITY",47:"FRESHNESS"}[number])
-    if number in {48, 49}:
-        return RuleScoringMetadata("INTENT_COVERAGE", scoring_group="INTENT_SET" if number == 48 else "INTENT_GAPS")
-    if number == 51:
-        return RuleScoringMetadata("CONTENT_EXTRACTABILITY", scoring_group="DUPLICATE_CONTENT")
-    return RuleScoringMetadata(None)
-
-
-def _technical_group(number: int) -> str | None:
-    return {
-        5: "PAGE_ACCESS", 6: "PAGE_ACCESS", 7: "REDIRECT", 8: "REDIRECT",
-        17: "ROBOTS", 18: "ROBOTS", 21: "SPA_ROUTE", 22: "SPA_NAVIGATION", 50: "INTERNAL_LINKS",
-    }.get(number)
-
-
-def _index_group(number: int) -> str:
-    if number in {11, 12, 15}:
-        return "INDEX_DIRECTIVES"
-    if number in {13, 14}:
-        return "CANONICAL"
-    return "SOFT_ERROR"
-
-
-def _content_group(number: int) -> str | None:
-    if number in {9, 10}:
-        return "RENDER_ACCESS"
-    if number in {19, 20, 24}:
-        return "JS_CONTENT"
-    if number in {25, 26, 27}:
-        return "CONTENT_EXTRACTION"
-    return None
+    return RuleScoringMetadata(
+        dimension=contract.dimension,
+        weight=contract.group_weight,
+        warning_factor=contract.warning_factor,
+        scoring_group=contract.scoring_group,
+        evidence_role=contract.evidence_role,
+    )

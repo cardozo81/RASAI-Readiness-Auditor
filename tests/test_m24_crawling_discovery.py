@@ -1,10 +1,11 @@
-"""Risk-oriented tests for M24 Crawling, Discovery & AI Access."""
+"""Risk-oriented tests for Crawling, Discovery & AI Access."""
 from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+import re
 import sqlite3
 from tempfile import TemporaryDirectory
 from threading import Thread
@@ -19,6 +20,9 @@ from rasai.m24_crawling_discovery import execute_m24
 from rasai.m24_discovery_extensions import install_discovery_extensions
 from rasai.m24_reporting import enrich_m24_report_site
 from rasai.persistence import AuditPersistence, AuditWorkspace
+
+
+_MILESTONE_PUBLIC_RE = re.compile(r"(?i)(?<![A-Za-z0-9])m\d{1,3}")
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -122,10 +126,10 @@ def _server():
 def _fixture(origin: str, root: str):
     audit = Audit(
         audit_id=new_id("AUD"),
-        project_name="M24 fixture",
+        project_name="Crawling discovery fixture",
         max_pages=2,
         auditor_version="0.1.0",
-        ruleset_version="M24",
+        ruleset_version="TEST",
     )
     target = AuditTarget(
         target_id=new_id("TGT"),
@@ -227,10 +231,19 @@ class M24Tests(unittest.TestCase):
             self.assertNotIn("<style", html.casefold())
             self.assertIn("NENHUM", html)
             self.assertIn("Rastreamento, descoberta e acesso por IA", html)
+            self.assertIn("CRAWLING-DISCOVERY-001", html)
+            self.assertIn("ROBOTS-EXTERNAL-SITEMAP", html)
+            self.assertNotIn("M24-ROBOTS-EXTERNAL-SITEMAP", html)
+            self.assertIsNone(_MILESTONE_PUBLIC_RE.search(html))
+
             ai_html = (report / "ai-usage.html").read_text(encoding="utf-8")
             refs_html = (report / "references.html").read_text(encoding="utf-8")
-            self.assertEqual(ai_html.count("<!-- m24-ai-usage:start -->"), 1)
-            self.assertEqual(refs_html.count("<!-- m24-references:start -->"), 1)
+            self.assertEqual(ai_html.count("<!-- crawling-discovery-ai-usage:start -->"), 1)
+            self.assertEqual(refs_html.count("<!-- crawling-discovery-references:start -->"), 1)
+            self.assertNotIn("<!-- m24-ai-usage:start -->", ai_html)
+            self.assertNotIn("<!-- m24-references:start -->", refs_html)
+            self.assertIsNone(_MILESTONE_PUBLIC_RE.search(ai_html))
+            self.assertIsNone(_MILESTONE_PUBLIC_RE.search(refs_html))
 
     def test_m24_ai_enabled_without_provider_is_not_configured_not_site_failure(self) -> None:
         with _server() as origin, TemporaryDirectory() as directory:

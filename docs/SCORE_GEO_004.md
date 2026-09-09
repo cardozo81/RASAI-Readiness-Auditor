@@ -1,216 +1,394 @@
 # SCORE-GEO-004
 
-`SCORE-GEO-004` é o método de scoring vigente do RASAi.
+`SCORE-GEO-004` é o método de scoring vigente do RASAi e alimenta o índice público `SARI-001 - Search & AI Readiness Index`.
 
-O índice público é `SARI-001 - Search & AI Readiness Index`.
+## Estado do contrato
+
+O RASAi permanece em desenvolvimento/pré-produção. Esta recalibração substitui a implementação experimental anterior do mesmo identificador `SCORE-GEO-004`; não existe compatibilidade ativa com o antigo Overall de peso igual.
+
+Auditorias de desenvolvimento produzidas pelo contrato antigo devem ser regeneradas quando precisarem ser comparadas. O histórico técnico permanece no Git.
+
+Contrato vigente:
+
+```text
+SCORING_VERSION              SCORE-GEO-004
+OVERALL_AGGREGATION_VERSION HIERARCHICAL_WEIGHTED_READINESS_V1
+DIMENSION_WEIGHT_VERSION     SARI_DIMENSION_WEIGHTS_V1
+GROUP_WEIGHT_VERSION         SARI_GROUP_WEIGHTS_V1
+CRITICAL_GATE_VERSION        SARI_CRITICAL_GATES_V1
+MEASUREMENT_CONFIDENCE       WEIGHTED_MEASUREMENT_CONFIDENCE_V1
+```
 
 ## Objetivo
 
-O método fornece um índice operacional que pode ser calculado, auditado e reproduzido em uma auditoria individual sem depender de corpus externo, modelo estatístico ou artifact de calibração.
+O método produz um índice operacional que pode ser calculado, auditado e reproduzido em uma auditoria individual sem depender de corpus externo ou artifact de calibração.
 
-O contrato separa claramente:
+O contrato separa:
 
-- scoring de readiness do website;
-- qualidade e completude da medição;
+- qualidade/readiness do website;
+- Coverage, Confidence e Consolidation da medição;
+- Critical Readiness Gates;
 - métricas externas independentes;
 - outcomes observados de Search e AI Search.
 
-O Overall não representa probabilidade de ranking, resposta ou citação.
+O Overall não é probabilidade de ranking, tráfego, resposta ou citação.
 
-## Dimensões
+## Hierarquia de agregação
 
-O método possui dez dimensões:
+```text
+RuleExecution
+→ page/global scope
+→ scoring_group
+→ dimension
+→ weighted Overall (SARI)
+```
 
-1. `TECHNICAL_ACCESSIBILITY`
-2. `INDEXABILITY`
-3. `CONTENT_EXTRACTABILITY`
-4. `SEMANTIC_STRUCTURE`
-5. `ENTITY_CLARITY`
-6. `STRUCTURED_DATA`
-7. `ANSWERABILITY`
-8. `CITATION_READINESS`
-9. `EVIDENCE_TRUST`
-10. `INTENT_COVERAGE`
+O peso de um `scoring_group` é fixo dentro da dimensão. Para grupos executados em múltiplas páginas:
 
-Cada dimensão é calculada a partir de `RuleExecution` e evidências persistidas.
+```text
+Scope Weight = Group Weight / número de escopos aplicáveis
+```
+
+Consequência: o peso metodológico de `ROBOTS`, `SITEMAP` ou qualquer outro grupo não depende do número total de páginas auditadas.
+
+## Dimensões e pesos
+
+| Dimensão | Peso |
+|---|---:|
+| `DISCOVERY_ACCESS` | 0.15 |
+| `INDEXABILITY` | 0.15 |
+| `CONTENT_EXTRACTABILITY` | 0.15 |
+| `SEMANTIC_STRUCTURE` | 0.07 |
+| `ENTITY_CLARITY` | 0.08 |
+| `STRUCTURED_DATA` | 0.05 |
+| `ANSWERABILITY` | 0.07 |
+| `CITATION_READINESS` | 0.07 |
+| `EVIDENCE_TRUST` | 0.08 |
+| `INTENT_COVERAGE` | 0.05 |
+| `CONTENT_VALUE` | 0.08 |
+
+Os pesos totalizam 1.0 e não são configuráveis pelo operador.
+
+## Pesos dos scoring groups
+
+### DISCOVERY_ACCESS
+
+```text
+PAGE_ACCESS      0.30
+ROBOTS           0.15
+SITEMAP          0.05
+REDIRECT         0.10
+SPA_ROUTE        0.10
+SPA_NAVIGATION   0.10
+INTERNAL_LINKS   0.20
+```
+
+### INDEXABILITY
+
+```text
+INDEX_DIRECTIVES 0.35
+CANONICAL        0.30
+SOFT_ERROR       0.35
+```
+
+### CONTENT_EXTRACTABILITY
+
+```text
+RENDER_ACCESS       0.30
+JS_CONTENT          0.25
+CONTENT_EXTRACTION  0.35
+DUPLICATE_CONTENT   0.10
+```
+
+### SEMANTIC_STRUCTURE
+
+```text
+SEMANTIC_TITLE      0.30
+SEMANTIC_HIERARCHY  0.30
+SEMANTIC_TOPIC      0.40
+```
+
+### ENTITY_CLARITY
+
+```text
+ENTITY_PRIMARY      0.35
+ENTITY_CONTEXT      0.40
+ENTITY_AMBIGUITY    0.25
+```
+
+### STRUCTURED_DATA
+
+```text
+STRUCTURED_DATA_SYNTAX       0.40
+STRUCTURED_DATA_CONSISTENCY  0.60
+```
+
+### ANSWERABILITY
+
+```text
+PRIMARY_INTENT   0.35
+PRIMARY_ANSWERS  0.65
+```
+
+### CITATION_READINESS
+
+```text
+FACTUAL_CLAIMS   0.20
+FACTUAL_CONTEXT  0.45
+INFERENCE_LOAD   0.35
+```
+
+### EVIDENCE_TRUST
+
+```text
+ATTRIBUTION      0.40
+RESPONSIBILITY   0.35
+FRESHNESS        0.25
+```
+
+### INTENT_COVERAGE
+
+```text
+INTENT_SET       0.45
+INTENT_GAPS      0.55
+```
+
+### CONTENT_VALUE
+
+```text
+CONTENT_USEFULNESS        0.40
+CONTENT_DIFFERENTIATION   0.30
+CONTENT_DEPTH             0.30
+```
+
+Cada conjunto de grupos de uma dimensão totaliza 1.0.
+
+## RuleResult e fatores
 
 ```text
 PASS    = 1.00
 WARNING = 0.50 por padrão
 FAIL    = 0.00
-
-Dimension Score = sum(weight x result_factor) / sum(weight evaluated) x 100
 ```
 
-`UNKNOWN`, `ERROR` e `NOT_APPLICABLE` não são convertidos silenciosamente em `FAIL`.
+Fatores WARNING específicos permanecem estáticos/versionados quando necessários, por exemplo nos grupos de sitemap/robots.
+
+`UNKNOWN`, `ERROR` e `NOT_APPLICABLE` não são tratados como zero.
+
+## Dimension Score
+
+```text
+Dimension Score =
+  sum(scope_weight × result_factor avaliados)
+  / sum(scope_weight avaliados)
+  × 100
+```
+
+```text
+Dimension Coverage =
+  evaluated applicable weight
+  / total applicable weight
+```
+
+Uma execução `UNKNOWN`/`ERROR` mantém o peso no universo aplicável, mas não no universo avaliado, reduzindo Coverage.
 
 ## Overall
 
-O contrato de agregação é:
-
 ```text
-EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
+Overall =
+  sum(dimension_weight × dimension_score medido)
+  / sum(dimension_weight medido e aplicável)
 ```
 
-Fórmula:
+Dimensão legitimamente `NOT_APPLICABLE` sai do denominador. Uma dimensão não crítica insuficientemente medida reduz Coverage/Confidence; dimensões críticas insuficientemente medidas bloqueiam Consolidation.
+
+## Overall Coverage
 
 ```text
-Overall = soma dos scores das dimensões aplicáveis / quantidade de dimensões aplicáveis
-```
-
-Regras:
-
-- cada dimensão aplicável possui o mesmo peso no Overall;
-- dimensão legitimamente `NOT_APPLICABLE` sai do denominador e não recebe zero;
-- dimensão aplicável sem valor ou em `NOT_CONSOLIDATED` bloqueia a publicação de Overall consolidado;
-- nenhuma métrica externa é usada como contribuição implícita;
-- nenhuma calibração externa é requisito ou input do score.
-
-## Coverage
-
-Coverage mede completude da análise, não qualidade do site.
-
-Na dimensão:
-
-```text
-Coverage = evaluated applicable weight / total applicable weight
-```
-
-No Overall:
-
-```text
-Overall Coverage = média da Coverage das dimensões aplicáveis
+Overall Coverage =
+  sum(dimension_weight × dimension_coverage)
+  / sum(dimension_weight aplicável)
 ```
 
 ## Confidence
 
-A Confidence de cada dimensão depende de Coverage, presença de evidência e erros de execução.
+Dimensão:
 
 ```text
-HIGH        Coverage >= 90%, evidência completa, zero errors
-MEDIUM      Coverage >= 80%, zero errors
-LOW         existe avaliação, mas os critérios acima não foram satisfeitos
-UNAVAILABLE Coverage <= 0
+HIGH        coverage >= 0.90, evidência completa, zero errors
+MEDIUM      coverage >= 0.80, zero errors
+LOW         avaliação abaixo dos critérios acima
+UNAVAILABLE coverage <= 0
 ```
 
-A Confidence do Overall é a menor Confidence entre as dimensões aplicáveis.
+Overall usa `WEIGHTED_MEASUREMENT_CONFIDENCE_V1`:
+
+- qualquer dimensão crítica `LOW`/`UNAVAILABLE` mantém Overall Confidence `LOW`;
+- demais dimensões contribuem proporcionalmente aos próprios pesos;
+- ausência de uma dimensão pequena não domina sozinha toda a Confidence.
 
 ## Consolidation
 
 Dimensão:
 
 ```text
-CONSOLIDATED     Coverage >= 80% e Confidence HIGH/MEDIUM
-PARTIAL          estado avaliável com Coverage >= 50% abaixo do gate completo
-NOT_CONSOLIDATED Coverage < 50% ou Confidence UNAVAILABLE
-NOT_APPLICABLE   dimensão legitimamente fora do universo aplicável
+CONSOLIDATED     coverage >= 0.80 e confidence HIGH/MEDIUM
+PARTIAL          coverage >= 0.50 abaixo do gate completo
+NOT_CONSOLIDATED coverage < 0.50 ou confidence UNAVAILABLE
+NOT_APPLICABLE   fora do universo aplicável
 ```
 
-Overall `CONSOLIDATED` exige simultaneamente:
+Overall:
+
+- `CONSOLIDATED` quando Coverage >= 0.80, Confidence HIGH/MEDIUM e nenhuma dimensão crítica aplicável está sem medição suficiente;
+- `PARTIAL` quando existe leitura útil com Coverage >= 0.50 mas o gate completo não foi atingido;
+- `NOT_CONSOLIDATED` quando a medição não sustenta a conclusão.
+
+Um score baixo pode ser `CONSOLIDATED`: isso significa que a baixa qualidade foi medida com força suficiente.
+
+## Critical Readiness Gates
+
+### DISCOVERY
 
 ```text
-todas as dimensões aplicáveis possuem valor
-nenhuma dimensão aplicável = NOT_CONSOLIDATED
-Overall Coverage >= 80%
-Overall Confidence = HIGH ou MEDIUM
+DISCOVERY_ACCESS:
+PAGE_ACCESS
+ROBOTS
+REDIRECT
 ```
 
-Se existe valor calculável, mas a medição não alcança o gate completo, o Overall pode ser `PARTIAL` quando a Coverage é de pelo menos 50% e a Confidence está disponível.
+### INDEXABILITY
 
-Estado insuficiente nunca é transformado em zero.
+```text
+INDEXABILITY:
+INDEX_DIRECTIVES
+CANONICAL
+SOFT_ERROR
+```
 
-## Structured Data e aplicabilidade
+### EXTRACTION
 
-Structured Data não é requisito universal.
+```text
+CONTENT_EXTRACTABILITY:
+RENDER_ACCESS
+JS_CONTENT
+CONTENT_EXTRACTION
+```
 
-Se `STRUCTURED_DATA` for legitimamente `NOT_APPLICABLE`, a dimensão sai do denominador do Overall e não recebe nota zero nem nota máxima.
+Estados:
 
-Se a aplicabilidade estiver indefinida por pré-requisito bloqueado, o estado não pode ser promovido a `NOT_APPLICABLE` benigno.
+```text
+PASS
+WARNING
+BLOCKED
+UNKNOWN
+```
 
-## IA e baseline semântico determinístico
+O estado geral é `READY`, `ATTENTION`, `BLOCKED` ou `UNKNOWN`.
 
-A fórmula do `SCORE-GEO-004` não chama IA e não depende de provider específico. O `ScoringEngine` calcula Score, Coverage, Confidence e Consolidation exclusivamente a partir de `RuleExecution` e evidências persistidas.
+Critical Gates qualificam readiness e **não truncam artificialmente o valor 0-100**. São persistidos em `limitations` do Overall para manter compatibilidade com o contrato de persistência vigente.
 
-A partir da rule version 2 das regras semânticas `BR-GEO-028..049`, auditorias sem provider utilizam o baseline local versionado:
+## Precedência de evidência
+
+No mesmo page/global scope e `scoring_group`:
+
+```text
+DETERMINISTIC_PRIMARY > AI_CORROBORATIVE
+```
+
+Se existe PASS/WARNING/FAIL determinístico conclusivo, uma avaliação IA corroborativa não o substitui.
+
+Se não existe resultado determinístico avaliado, uma execução IA evidence-bound contratada pode resolver o grupo quando aplicável.
+
+A IA nunca define peso, fator, threshold ou Overall.
+
+## Content Value
+
+Regras:
+
+```text
+BR-GEO-057 CONTENT_USEFULNESS
+BR-GEO-058 CONTENT_DIFFERENTIATION
+BR-GEO-059 CONTENT_DEPTH
+```
+
+Baseline:
+
+```text
+CONTENT-VALUE-BASELINE-001
+```
+
+A baseline usa conteúdo principal persistido e só conclui dentro do que pode ser sustentado localmente. Diferenciação/originalidade não demonstrada permanece `UNKNOWN`, não `FAIL`.
+
+## Structured Data
+
+Structured Data representa 5% do SARI quando aplicável e não é requisito universal.
+
+- ausência legitimamente não aplicável não deve receber zero;
+- markup existente inválido/contraditório pode ser desfavorável;
+- consistência pode usar avaliação evidence-bound quando há evidência suficiente;
+- nenhum markup especial de GEO/AI é presumido obrigatório.
+
+## Lighthouse e demais métricas externas
+
+Não entram diretamente no Overall:
+
+- Lighthouse Performance;
+- Lighthouse Accessibility;
+- Lighthouse Best Practices;
+- Lighthouse SEO;
+- Core Web Vitals / CrUX;
+- Synthetic Navigation Apdex;
+- Synthetic User Experience Apdex;
+- Search Console;
+- SERP e concorrentes;
+- Observed Generative Visibility;
+- tráfego/conversão;
+- tokens/custos de IA.
+
+Um audit individual do Lighthouse pode ser classificado como `CORROBORATIVE_EVIDENCE` somente quando existir mapeamento explícito para a mesma condição técnica de uma BR-GEO. O category score nunca é input direto.
+
+## IA e baseline semântico
+
+Regras `BR-GEO-028..049` continuam podendo usar:
 
 ```text
 SEMANTIC-BASELINE-001
 ```
 
-Esse baseline é evidence-bound e conservador:
+ou provider semântico evidence-bound quando configurado.
 
-- usa apenas title, headings, conteúdo principal, links, Structured Data e demais evidências já persistidas no mesmo snapshot;
-- não chama serviço externo;
-- produz `PASS` somente quando existe evidência positiva suficiente;
-- produz `NOT_APPLICABLE` somente quando a aplicabilidade pode ser resolvida de forma defensável;
-- não converte ausência de evidência em `PASS`, `FAIL` ou `NOT_APPLICABLE` artificial;
-- quando o critério continua irresolvido e não existe provider válido, o resultado permanece `UNKNOWN`.
-
-Assim, **a ausência de IA deixa de bloquear mecanicamente a consolidação**. Uma auditoria `NO_AI` pode ser `CONSOLIDATED` quando todas as dimensões aplicáveis atingem os mesmos gates normais de Coverage e Confidence. Isso não significa que toda auditoria sem IA será consolidada.
-
-Quando um provider semântico válido é configurado, ele pode aprofundar regras que exigem interpretação mais rica. A provenance da medição diferencia `DETERMINISTIC_BASELINE` de providers externos. Falha operacional de provider explicitamente configurado continua visível como degradação e não é atribuída ao website.
-
-Detalhes: [`SEMANTIC_BASELINE.md`](SEMANTIC_BASELINE.md).
-
-## Métricas externas independentes
-
-Não entram no SARI-001/SCORE-GEO-004:
-
-- Core Web Vitals;
-- Lighthouse Performance;
-- Lighthouse Accessibility;
-- Synthetic Navigation Apdex;
-- Synthetic User Experience Apdex;
-- tráfego, conversão e métricas de negócio;
-- outcomes observados de AI visibility.
-
-Essas medições possuem metodologias e páginas próprias. Indisponibilidade de PageSpeed/Lighthouse, por exemplo, não reduz o Overall do SARI-001.
+Falha de provider não é falha do website. Quando a regra não pode ser concluída defensavelmente, o resultado permanece `UNKNOWN`.
 
 ## Reprodutibilidade
 
-`BR-GEO-054` verifica que o scoring pode ser reconstruído a partir de:
+`BR-GEO-054` verifica que o resultado pode ser reconstruído a partir de:
 
 - RuleExecutions e versões;
-- ScoreContributions;
 - evidências persistidas;
-- fórmula e thresholds versionados do `SCORE-GEO-004`.
-
-Quando o baseline semântico é usado, sua provenance também é persistida por `provider=DETERMINISTIC_BASELINE`, `configuration_version=SEMANTIC-BASELINE-001` e capability de auditoria correspondente.
+- manifesto rule → dimension → scoring_group;
+- pesos fixos de grupo/dimensão;
+- ScoreContributions;
+- Coverage/Confidence/Consolidation;
+- contrato dos Critical Gates.
 
 Não é necessário reexecutar website, IA ou APIs externas para reproduzir o cálculo persistido.
 
-## Relatório
-
-Cada nova auditoria materializa, quando aplicável:
+## Relatórios
 
 ```text
 report/readiness.html
 report/scoring.html
 ```
 
-`readiness.html` é a página canônica do SARI-001.
+`readiness.html` é a superfície analítica do SARI-001.
 
-`scoring.html` é a página canônica estável da metodologia de scoring e expõe a versão efetivamente usada, fórmula, Coverage, Confidence, Consolidation, rastreabilidade do Overall e critérios para interpretação.
+`scoring.html` expõe o contrato vigente, pesos, RuleExecutions representativas, contribuições, gates e rastreabilidade.
 
-A versão metodológica **não faz parte do nome canônico do arquivo**. Ela é persistida em `scoring_version` e exibida no conteúdo. Isso evita quebra de links e contratos de navegação quando uma futura versão substituir o 004.
+O filename é version-neutral; a versão pertence a `scoring_version` e ao conteúdo.
 
 ## Limite de validade
 
-`SCORE-GEO-004` é uma metodologia proprietária, transparente, versionada e reproduzível do RASAi.
+`SCORE-GEO-004` é metodologia proprietária do RASAi, transparente e reproduzível. Os pesos são decisões metodológicas pré-produção, não coeficientes causais empiricamente provados.
 
-O baseline semântico também é proprietário e inclui heurísticas internas para critérios sem standard GEO/AEO universal. Ele não transforma essas heurísticas em recomendações oficiais de terceiros.
-
-Não é um standard oficial de Google, Microsoft, OpenAI, Anthropic ou outro mantenedor e não garante ranking, tráfego, conversão, resposta ou citação futura.
-
-## Refinamento pré-publicação: discovery, JSON-LD e fatores estáticos
-
-- `robots.txt` e sitemap ausentes não recebem o mesmo fator de um recurso encontrado e utilizável; a ausência é uma lacuna pequena, não uma falha dura de crawling.
-- Sitemap publicado porém inválido é desfavorável; falha de rede que impede avaliação continua `UNKNOWN` e reduz Coverage.
-- `script[type="application/ld+json"]` é extraído do HTML. Ausência de JSON-LD é uma lacuna leve mensurável; JSON-LD inválido é desfavorável; consistência com conteúdo/entidades pode usar IA evidence-bound quando habilitada.
-- A IA técnica não escolhe pesos. Ela só pode emitir classes contratadas e referenciadas por evidência; o runtime converte essas classes em `PASS/WARNING/FAIL` com fatores estáticos/versionados no mesmo `scoring_group`, sem bônus duplicado.
-- Lighthouse, Core Web Vitals, Accessibility e Apdex continuam independentes da aritmética do SARI. Indisponibilidade de uma API externa não é tratada como falha do website.
-- Faixas de interpretação e pesos do método são estáticos por versão. Não existe parâmetro por auditoria para alterar o conceito de excelência, preservando comparabilidade temporal.
-
-## Regra de explicabilidade da medição
-
-Toda projeção do SCORE-GEO-004 deve tornar auditável a diferença entre qualidade medida e força da medição. `PARTIAL` com score alto é válido quando o gate de Confidence não foi satisfeito; o relatório deve nomear a dimensão bloqueante, as RuleExecutions UNKNOWN/ERROR relevantes e a condição esperada para tornar a medição conclusiva. Limitações de configuração devem ser apresentadas como limites do escopo/amostra, sem conversão automática em falha do website.
+Validação futura com outcomes externos poderá sustentar nova calibração. Após entrada em produção ou existência de série histórica contratual, uma mudança incompatível deverá receber versionamento explícito em vez de sobrescrever silenciosamente o método.

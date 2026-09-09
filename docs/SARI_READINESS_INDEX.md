@@ -2,11 +2,11 @@
 
 ## 1. Objetivo
 
-O **Search & AI Readiness Index (`SARI-001`)** é a identidade pública da metodologia proprietária do RASAi para consolidar sinais de prontidão relacionados a descoberta, interpretação, recuperação, resposta e uso do conteúdo como evidência em Search e AI Search.
+O **Search & AI Readiness Index (`SARI-001`)** é a identidade pública da metodologia proprietária do RASAi para consolidar sinais de prontidão relacionados a descoberta, acesso por crawlers, indexabilidade, recuperação, interpretação, utilidade, resposta, confiança e uso do conteúdo como evidência em Search e AI Search.
 
-O índice é auditável e reprodutível. Não é padrão oficial de GEO/AEO nem nota de Google, Bing, OpenAI ou outro mantenedor.
+O índice é auditável e reprodutível. Não é padrão oficial de GEO/AEO, não é nota de Google, Bing, OpenAI ou outro mantenedor e não representa probabilidade de ranking ou citação futura.
 
-## 2. Método de scoring
+## 2. Método vigente
 
 O SARI-001 usa:
 
@@ -14,182 +14,344 @@ O SARI-001 usa:
 SCORE-GEO-004
 ```
 
-As dez dimensões e o Overall são calculados deterministicamente a partir de regras e evidências persistidas. Uma auditoria individual pode produzir Overall consolidado quando sua própria medição alcança os gates de Coverage e Confidence.
+O RASAi ainda está em fase de desenvolvimento/pré-produção. A recalibração descrita neste documento substitui a formulação experimental anterior do mesmo `SCORE-GEO-004`; não foi criada uma versão comercial adicional porque não existe série histórica de produção ou contrato externo que precise ser preservado.
 
-## 3. Dimensões
+Auditorias de desenvolvimento produzidas antes desta recalibração, identificadas pelo contrato antigo de agregação, devem ser consideradas **não comparáveis** e regeneradas quando precisarem ser reutilizadas. O histórico de engenharia permanece no Git, não como metodologia ativa do produto.
 
-1. `TECHNICAL_ACCESSIBILITY`
-2. `INDEXABILITY`
-3. `CONTENT_EXTRACTABILITY`
-4. `SEMANTIC_STRUCTURE`
-5. `ENTITY_CLARITY`
-6. `STRUCTURED_DATA`
-7. `ANSWERABILITY`
-8. `CITATION_READINESS`
-9. `EVIDENCE_TRUST`
-10. `INTENT_COVERAGE`
-
-Desktop e Mobile permanecem separados.
-
-## 4. Score das dimensões
+Contrato de agregação vigente:
 
 ```text
-Dimension Score = sum(weight x result_factor) / sum(weight evaluated) x 100
+HIERARCHICAL_WEIGHTED_READINESS_V1
 ```
 
-Fatores padrão:
+## 3. Princípio de cálculo
+
+O SARI não soma RuleExecutions diretamente. A hierarquia é:
+
+```text
+RuleExecution
+   ↓
+página/escopo global
+   ↓
+Scoring Group
+   ↓
+Dimension Score
+   ↓
+Macrocomponente
+   ↓
+SARI Overall
+```
+
+Um `scoring_group` possui peso fixo dentro de sua dimensão. Quando o mesmo grupo é avaliado em várias páginas, seu peso é distribuído entre os escopos aplicáveis. Portanto, aumentar uma auditoria de 10 para 500 páginas **não reduz artificialmente a importância de sinais globais**, como `robots.txt` ou sitemap, nem multiplica o peso de uma regra apenas porque ela executou mais vezes.
+
+## 4. Dimensões e pesos
+
+Os pesos são parte fixa do contrato. Não são configuráveis por auditoria.
+
+| Dimensão | Peso no SARI |
+|---|---:|
+| `DISCOVERY_ACCESS` | 15% |
+| `INDEXABILITY` | 15% |
+| `CONTENT_EXTRACTABILITY` | 15% |
+| `SEMANTIC_STRUCTURE` | 7% |
+| `ENTITY_CLARITY` | 8% |
+| `STRUCTURED_DATA` | 5% |
+| `ANSWERABILITY` | 7% |
+| `CITATION_READINESS` | 7% |
+| `EVIDENCE_TRUST` | 8% |
+| `INTENT_COVERAGE` | 5% |
+| `CONTENT_VALUE` | 8% |
+| **Total** | **100%** |
+
+`DISCOVERY_ACCESS` substitui a denominação interna anterior `TECHNICAL_ACCESSIBILITY`. O novo nome evita confusão com Accessibility/WCAG e representa melhor o conteúdo real da dimensão: acesso, crawler controls, redirects, SPA/navigation e internal links.
+
+## 5. Macrocomponentes
+
+Para leitura executiva, as dimensões são agrupadas em macrocomponentes:
+
+| Macrocomponente | Peso | Composição |
+|---|---:|---|
+| Discovery & Crawler Access | 15% | `DISCOVERY_ACCESS` |
+| Indexability & Canonicalization | 15% | `INDEXABILITY` |
+| Rendering & Extractability | 15% | `CONTENT_EXTRACTABILITY` |
+| Semantic Understandability | 15% | `SEMANTIC_STRUCTURE` 7% + `ENTITY_CLARITY` 8% |
+| Content Utility & Intent | 20% | `ANSWERABILITY` 7% + `INTENT_COVERAGE` 5% + `CONTENT_VALUE` 8% |
+| Evidence, Trust & Citation | 15% | `CITATION_READINESS` 7% + `EVIDENCE_TRUST` 8% |
+| Structured Data | 5% | `STRUCTURED_DATA` |
+
+Os macrocomponentes são uma projeção explicativa; não criam uma segunda aritmética paralela.
+
+## 6. Resultados das regras
+
+Estados possíveis:
+
+```text
+PASS
+WARNING
+FAIL
+UNKNOWN
+ERROR
+NOT_APPLICABLE
+```
+
+Fatores de qualidade:
 
 ```text
 PASS    = 1.00
-WARNING = 0.50
+WARNING = 0.50 por padrão
 FAIL    = 0.00
 ```
 
-`UNKNOWN`, `ERROR` e `NOT_APPLICABLE` não são convertidos automaticamente em `FAIL`.
+Alguns grupos possuem `warning_factor` específico e versionado.
 
-## 5. Overall
+`UNKNOWN`, `ERROR` e `NOT_APPLICABLE` nunca são convertidos silenciosamente em `FAIL`.
 
-Contrato:
+## 7. Score de uma dimensão
 
-```text
-EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
-```
-
-Fórmula:
+Dentro de cada dimensão:
 
 ```text
-Overall = soma dos scores das dimensões aplicáveis / quantidade de dimensões aplicáveis
+Group Weight = peso fixo do scoring_group
+Scope Weight = Group Weight / quantidade de escopos aplicáveis do grupo
+
+Dimension Score =
+  sum(Scope Weight × Result Factor avaliados)
+  / sum(Scope Weight avaliados)
+  × 100
 ```
 
-Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador e não recebe zero.
+A Coverage da dimensão mede quanto do peso aplicável foi efetivamente avaliado:
 
-Uma dimensão aplicável sem valor ou em `NOT_CONSOLIDATED` bloqueia a publicação de Overall consolidado.
+```text
+Dimension Coverage = evaluated applicable weight / total applicable weight
+```
 
-O Overall é um índice determinístico de readiness. Não é probabilidade de ranking, resposta ou citação.
+## 8. Overall
 
-## 6. Coverage, Confidence e Consolidation
+O Overall usa os pesos fixos das dimensões:
 
-Coverage mede completude do universo aplicável avaliado e não qualidade do site.
+```text
+SARI =
+  sum(Dimension Weight × Dimension Score medido)
+  / sum(Dimension Weight medido e aplicável)
+```
 
-Confidence das dimensões é baseada em cobertura, evidência e erros.
+Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador e não recebe zero nem 100.
+
+Uma dimensão não crítica sem medição suficiente pode reduzir Coverage/Confidence sem apagar automaticamente o valor numérico das demais dimensões. Já as dimensões críticas possuem gates adicionais de suficiência da medição.
+
+## 9. Coverage
+
+Coverage mede **completude**, não qualidade do website.
 
 No Overall:
 
 ```text
-Coverage = média da Coverage das dimensões aplicáveis
-Confidence = menor Confidence das dimensões aplicáveis
+Overall Coverage =
+  sum(Dimension Weight × Dimension Coverage)
+  / sum(Dimension Weight aplicável)
 ```
 
-O Overall recebe `CONSOLIDATED` quando:
+A quantidade de páginas não cria peso extra por si só.
+
+## 10. Confidence
+
+Na dimensão:
 
 ```text
-todas as dimensões aplicáveis possuem valor
-nenhuma dimensão aplicável = NOT_CONSOLIDATED
-Coverage média >= 80%
-Confidence mínima = HIGH ou MEDIUM
+HIGH        Coverage >= 90%, evidência completa, zero errors
+MEDIUM      Coverage >= 80%, zero errors
+LOW         existe avaliação, mas os critérios acima não foram satisfeitos
+UNAVAILABLE Coverage <= 0
 ```
 
-Resultado calculável abaixo desse gate pode ser `PARTIAL` quando existe evidência suficiente para uma leitura limitada. Ausência de evidência nunca vira zero.
+No Overall, Confidence deixa de ser simplesmente a pior Confidence de qualquer dimensão. O contrato vigente combina:
 
-## 7. Validação empírica
+1. **rigor crítico** para `DISCOVERY_ACCESS`, `INDEXABILITY` e `CONTENT_EXTRACTABILITY`;
+2. **confiança ponderada** pelas participações das dimensões aplicáveis.
 
-Validação empírica é uma atividade separada do scoring operacional.
+Uma dimensão crítica LOW/UNAVAILABLE mantém Overall Confidence LOW. Para as demais dimensões, a influência acompanha o peso metodológico e evita que uma dimensão pequena domine sozinha a conclusão de toda a auditoria.
 
-Datasets externos podem ser usados para estudar associação entre readiness e outcomes observados, mas não são input automático do SCORE-GEO-004 e não alteram silenciosamente a fórmula publicada.
+## 11. Consolidation
 
-Qualquer mudança de fórmula ou gates decorrente de evidência futura exige alteração explícita e versionada do contrato metodológico.
+Consolidation responde se a **medição é forte o suficiente para publicação analítica**, não se o website está bom.
 
-## 8. Groundability
+Dimensão:
 
-Groundability é exposta como conjunto de sinais, não como novo subscore:
+```text
+CONSOLIDATED     Coverage >= 80% e Confidence HIGH/MEDIUM
+PARTIAL          avaliação disponível com Coverage >= 50% abaixo do gate completo
+NOT_CONSOLIDATED Coverage < 50% ou Confidence UNAVAILABLE
+NOT_APPLICABLE   dimensão legitimamente fora do universo aplicável
+```
 
-- `ANSWERABILITY`;
-- `CITATION_READINESS`;
-- `EVIDENCE_TRUST`.
+Overall:
 
-Não é criada uma segunda agregação sem contrato próprio.
+- Coverage >= 80%;
+- Confidence HIGH/MEDIUM;
+- nenhuma dimensão crítica aplicável sem medição suficiente.
 
-## 9. YMYL e E-E-A-T
+A qualidade do website e a qualidade da medição permanecem separadas. Um website pode ter score baixo e `CONSOLIDATED`, pois uma conclusão ruim pode estar fortemente medida.
 
-YMYL e E-E-A-T são contexto de rigor da análise e remediação, não scores oficiais.
+## 12. Critical Readiness Gates
 
-O RASAi não apresenta "E-E-A-T Score" nem "YMYL Score" como métricas oficiais do Google.
+Além do número SARI existem três gates operacionais:
 
-## 10. Métricas externas
+### Discovery Gate
 
-Não entram no Overall:
+Grupos principais:
 
-- Core Web Vitals;
+- `PAGE_ACCESS`;
+- `ROBOTS`;
+- `REDIRECT`.
+
+### Indexability Gate
+
+- `INDEX_DIRECTIVES`;
+- `CANONICAL`;
+- `SOFT_ERROR`.
+
+### Extraction Gate
+
+- `RENDER_ACCESS`;
+- `JS_CONTENT`;
+- `CONTENT_EXTRACTION`.
+
+Estados:
+
+```text
+PASS
+WARNING
+BLOCKED
+UNKNOWN
+```
+
+O resultado geral de readiness é projetado como:
+
+```text
+READY
+ATTENTION
+BLOCKED
+UNKNOWN
+```
+
+Esse estado **não altera artificialmente o SARI numérico**. Exemplo válido:
+
+```text
+SARI: 82
+Measurement: CONSOLIDATED
+Readiness status: BLOCKED
+Gate: INDEXABILITY
+```
+
+Isso significa: a medição é conclusiva, a qualidade agregada é 82 no universo medido, mas existe uma condição crítica que impede interpretar 82 como prontidão operacional plena.
+
+## 13. Content Value
+
+`CONTENT_VALUE` acrescenta três regras proprietárias:
+
+- `BR-GEO-057`: utilidade e especificidade não trivial;
+- `BR-GEO-058`: diferenciação, experiência, análise ou dado próprio explicitamente sustentado quando alegado;
+- `BR-GEO-059`: profundidade/contexto proporcionais ao propósito e à evidência disponível.
+
+Classificação: `RASAI_HEURISTIC`.
+
+A baseline vigente é:
+
+```text
+CONTENT-VALUE-BASELINE-001
+```
+
+Ela usa somente conteúdo principal já persistido e é conservadora. Em especial, **ausência de prova de diferenciação/originalidade fica `UNKNOWN`**, nunca `FAIL` inventado.
+
+## 14. Structured Data
+
+Structured Data possui peso máximo de **5% quando aplicável**.
+
+Não existe requisito universal de JSON-LD para Search ou recursos generativos. Portanto:
+
+- dimensão legitimamente não aplicável sai do denominador;
+- markup existente e válido pode ser avaliado favoravelmente;
+- markup inválido ou contraditório pode ser desfavorável;
+- ausência não deve ser tratada como bloqueio universal de readiness.
+
+## 15. Precedência de evidência e IA
+
+O scoring final permanece determinístico sobre RuleExecutions persistidas.
+
+Contrato:
+
+```text
+fato determinístico conclusivo
+    >
+avaliação IA corroborativa
+```
+
+BR-GEO-055/056, por exemplo, podem aprofundar sitemap/robots quando IA técnica evidence-bound está habilitada, mas compartilham os mesmos `scoring_group` das regras determinísticas e não criam bônus duplicado. Uma avaliação IA não pode sobrescrever arbitrariamente um hard fact determinístico PASS/WARNING/FAIL da mesma condição.
+
+O provider nunca escolhe pesos, thresholds, fatores ou o Overall.
+
+## 16. Lighthouse, Core Web Vitals, Accessibility e Apdex
+
+Os **scores de categoria** permanecem independentes do SARI:
+
 - Lighthouse Performance;
-- Lighthouse Accessibility/WCAG;
+- Lighthouse Accessibility;
+- Lighthouse Best Practices;
+- Lighthouse SEO;
+- Core Web Vitals / CrUX;
 - Synthetic Navigation Apdex;
-- Synthetic User Experience Apdex;
-- métricas de tráfego/conversão;
-- métricas source-reported de mecanismos externos.
+- Synthetic User Experience Apdex.
 
-Elas permanecem em seus domínios próprios. Indisponibilidade de PageSpeed/Lighthouse não reduz o SARI-001.
+Nenhum desses scores é multiplicado por um peso SARI.
 
-## 11. Readiness versus visibilidade observada
+Um **audit individual do Lighthouse** pode futuramente corroborar uma BR-GEO que avalie exatamente a mesma condição técnica, desde que exista mapeamento explícito e sem dupla pontuação. O category score nunca é usado como atalho para o SARI.
 
-```text
-Readiness
-= sinais medidos no site
+## 17. Outcomes observados
 
-Observed Generative Visibility
-= resultado efetivamente observado em engine/query/período
-```
+Continuam fora do Overall operacional:
 
-Outcomes observados podem apoiar pesquisas e validações separadas, mas não são input do Overall do SARI-001.
+- posição SERP;
+- concorrentes observados;
+- impressões, cliques e CTR;
+- Search Console;
+- menções/citações em mecanismos generativos;
+- Observed Generative Visibility.
 
-## 12. Relatórios
+Esses dados são outcomes. Servem para observabilidade e para futura validação/calibração empírica do SARI, sem tornar o índice circular.
+
+## 18. Relatórios
 
 ```text
 index.html             -> síntese executiva
-readiness.html         -> SARI-001
-scoring.html           -> versão vigente, fórmula e gates do scoring
-ai-visibility.html     -> outcomes observados
-web-performance.html   -> CWV + Lighthouse
+readiness.html         -> SARI-001, macrocomponentes, dimensões e gates
+scoring.html           -> fórmula, pesos, grupos, Coverage, Confidence e rastreabilidade
+web-performance.html   -> Lighthouse + Core Web Vitals/CrUX
 accessibility.html     -> acessibilidade automatizada
 apdex.html             -> Synthetic Navigation Apdex
-apdex-experience.html  -> Synthetic User Experience Apdex, quando materializado
+ai-visibility.html     -> outcomes observados de AI Search
+search-intelligence.html -> SERP/Search Intelligence quando materializado
+references.html        -> proveniência e função de cada indicador no SARI
 ```
 
+## 19. Rastreabilidade
 
-O dashboard não cria agregação transversal entre metodologias.
+Resultados preservam:
 
-## 13. Rastreabilidade e comparabilidade
+- `scoring_version = SCORE-GEO-004`;
+- `OVERALL_AGGREGATION:HIERARCHICAL_WEIGHTED_READINESS_V1`;
+- versão dos pesos de dimensão/grupo;
+- versão de Critical Gates e Confidence;
+- RuleExecutions;
+- evidências;
+- ScoreContributions;
+- limitações de Coverage/Confidence;
+- estado dos Critical Gates.
 
-Resultados preservam `scoring_version`, evidências, RuleExecutions e ScoreContributions necessários para reconstrução e comparação válida.
+A mesma entrada persistida deve produzir o mesmo resultado sem reexecutar website, IA ou APIs externas.
 
-Mudança incompatível de fórmula, dimensões ou gates exige identificador metodológico distinto. Comparações entre versões diferentes devem declarar a diferença metodológica em vez de normalizá-la silenciosamente.
+## 20. Limite de validade
 
-## 14. Estado de validação
+O SARI-001 é uma metodologia proprietária, transparente e reproduzível do RASAi. Os pesos atuais são decisões metodológicas pré-produção fundamentadas na arquitetura do problema; **não são pesos estatisticamente provados como causais**.
 
-```text
-Fundamentação conceitual: evidence-based
-Dimensões determinísticas: sim
-Overall operacional determinístico: sim
-Reprodutível por auditoria: sim
-Validação empírica externa: separada do score
-Homologação externa do índice composto: não
-Garantia causal de citação: não
-```
-
-## Refinamento pré-publicação: discovery, JSON-LD e fatores estáticos
-
-- `robots.txt` e sitemap ausentes não recebem o mesmo fator de um recurso encontrado e utilizável; a ausência é uma lacuna pequena, não uma falha dura de crawling.
-- Sitemap publicado porém inválido é desfavorável; falha de rede que impede avaliação continua `UNKNOWN` e reduz Coverage.
-- `script[type="application/ld+json"]` é extraído do HTML. Ausência de JSON-LD é uma lacuna leve mensurável; JSON-LD inválido é desfavorável; consistência com conteúdo/entidades pode usar IA evidence-bound quando habilitada.
-- A IA técnica não escolhe pesos. Ela só pode emitir classes contratadas e referenciadas por evidência; o runtime converte essas classes em `PASS/WARNING/FAIL` com fatores estáticos/versionados no mesmo `scoring_group`, sem bônus duplicado.
-- Lighthouse, Core Web Vitals, Accessibility e Apdex continuam independentes da aritmética do SARI. Indisponibilidade de uma API externa não é tratada como falha do website.
-- Faixas de interpretação e pesos do método são estáticos por versão. Não existe parâmetro por auditoria para alterar o conceito de excelência, preservando comparabilidade temporal.
-
-## Governança explicável do resultado
-
-A projeção pública deve permitir ao analista distinguir:
-
-- **dedução de qualidade**: PASS/WARNING/FAIL avaliado, com peso/fator e condição esperada;
-- **lacuna de medição**: UNKNOWN/ERROR/coverage insuficiente, que afeta Confidence/Consolidation sem ser convertido em FAIL;
-- **limitação de parametrização**: escopo, `max_pages`, amostra mínima, timeout ou integração opcional que restringem a matriz coletada.
-
-O relatório deve explicar por que um SARI numericamente alto pode ser `PARTIAL/LOW` e indicar a dimensão/regra que precisa de evidência conclusiva. Ajustar parâmetros amplia a observação e não deve ser usado para fabricar melhora de score.
+A validação empírica futura deve estudar associação entre readiness e outcomes reais de Search/AI Search. Qualquer recalibração após existência de contrato público ou série histórica de produção deverá ser versionada explicitamente.
