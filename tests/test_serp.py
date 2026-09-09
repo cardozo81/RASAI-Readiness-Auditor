@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from contextlib import redirect_stdout
 from datetime import datetime, timezone
-import io
 import json
 from pathlib import Path
 import sqlite3
@@ -10,6 +8,7 @@ import socket
 import tempfile
 import unittest
 from urllib.error import URLError
+from urllib.parse import parse_qs, urlsplit
 
 from rasai.search_intelligence.budget import RequestBudget
 from rasai.search_intelligence.config import SerpRuntimeConfig
@@ -155,6 +154,71 @@ class SerpApiTests(unittest.TestCase):
         self.assertEqual(1, len(calls))
         self.assertEqual(1, result.observation.quality_metadata['dropped_results'])
         self.assertFalse(hasattr(result.observation, 'provider_json'))
+        params = parse_qs(urlsplit(calls[0][0]).query)
+        self.assertNotIn('num', params)
+        self.assertNotIn('start', params)
+
+    def test_depth_20_paginates_and_normalizes_positions_across_pages(self):
+        first = {
+            'search_metadata': {'id':'page-1','created_at':'2026-09-08 20:00:00 UTC'},
+            'organic_results': [
+                {'position':1,'link':'https://leader-1.example/'},
+                {'position':2,'link':'https://leader-2.example/'},
+            ],
+            'serpapi_pagination': {'next':'https://serpapi.com/search?start=10'},
+        }
+        second = {
+            'search_metadata': {'id':'page-2','created_at':'2026-09-08 20:00:01 UTC'},
+            'organic_results': [
+                {'position':1,'link':'https://leader-11.example/'},
+                {'position':3,'link':'https://client.example/'},
+            ],
+        }
+        calls=[]
+        def opener(req, timeout):
+            params = parse_qs(urlsplit(req.full_url).query)
+            calls.append(params)
+            payload = second if params.get('start') == ['10'] else first
+            return FakeResponse(json.dumps(payload).encode())
+        provider = SerpApiProvider(api_key='SECRETKEY', retries=0, min_interval_seconds=0, opener=opener)
+        response = provider.observe(request(depth=20))
+        result = SearchIntelligenceService(provider=FixtureSerpProvider({'results':[]}))
+        self.assertEqual((1,2,11,13), tuple(item.position for item in response.observation.results))
+        self.assertEqual(2, response.observation.quality_metadata['pages_collected'])
+        self.assertEqual(('page-1','page-2'), response.observation.quality_metadata['provider_request_ids'])
+        self.assertIsNone(response.observation.provider_request_id)
+        self.assertEqual(datetime(2026,9,8,20,0,0,tzinfo=timezone.utc), response.observation.collected_at)
+        self.assertEqual(2, len(calls))
+        self.assertNotIn('start', calls[0])
+        self.assertEqual(['10'], calls[1]['start'])
+        raw = json.loads(response.raw_evidence.decode('utf-8'))
+        self.assertEqual(2, len(raw['pages']))
+
+    def test_service_finds_customer_on_second_serpapi_page(self):
+        first = {
+            'organic_results': [{'position':1,'link':'https://leader.example/'}],
+            'serpapi_pagination': {'next':'x'},
+        }
+        second = {
+            'organic_results': [{'position':4,'link':'https://client.example/'}],
+        }
+        def opener(req, timeout):
+            params = parse_qs(urlsplit(req.full_url).query)
+            return FakeResponse(json.dumps(second if params.get('start') else first).encode())
+        provider = SerpApiProvider(api_key='x', retries=0, min_interval_seconds=0, opener=opener)
+        result = SearchIntelligenceService(provider=provider, max_depth=20).observe(request(depth=20))
+        self.assertEqual(DomainMatchStatus.FOUND, result.domain_status)
+        self.assertEqual(14, result.customer_position)
+
+    def test_missing_provider_pagination_stops_early_without_false_depth_claim(self):
+        payload = {'organic_results':[{'position':1,'link':'https://leader.example/'}]}
+        calls=[]
+        def opener(req, timeout): calls.append(1); return FakeResponse(json.dumps(payload).encode())
+        provider = SerpApiProvider(api_key='x', retries=0, min_interval_seconds=0, opener=opener)
+        result = SearchIntelligenceService(provider=provider, max_depth=20).observe(request(depth=20))
+        self.assertEqual(DomainMatchStatus.NOT_FOUND_WITHIN_DEPTH, result.domain_status)
+        self.assertEqual(1, len(calls))
+        self.assertTrue(result.observation.quality_metadata['pagination_ended_before_requested_depth'])
 
     def test_timeout_or_network_error_becomes_unavailable(self):
         def opener(req, timeout): raise URLError('offline')
@@ -254,10 +318,16 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual('fixture', execution.mode)
             self.assertEqual(0, execution.actual_http_requests)
 
+    def test_depth_aware_worst_case_request_projection(self):
+        config=SerpRuntimeConfig(mode='live',retries=1).validate()
+        self.assertEqual(2, config.worst_case_http_requests(1, depth=10))
+        self.assertEqual(4, config.worst_case_http_requests(1, depth=20))
+        self.assertEqual(6, config.worst_case_http_requests(1, depth=21))
+
     def test_worst_case_limit_blocks_before_network(self):
-        config=SerpRuntimeConfig(mode='live',max_requests=1,retries=1).validate()
+        config=SerpRuntimeConfig(mode='live',max_requests=3,retries=1,max_depth=20).validate()
         with self.assertRaisesRegex(ValueError,'worst-case'):
-            execute_search((request(),),config=config,environment={'RASAI_SERPAPI_API_KEY':'x'})
+            execute_search((request(depth=20),),config=config,environment={'RASAI_SERPAPI_API_KEY':'x'})
 
 
 if __name__ == '__main__': unittest.main()
