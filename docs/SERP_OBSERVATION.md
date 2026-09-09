@@ -1,4 +1,4 @@
-# SERP Observation — Search Intelligence foundation
+# SERP Observation - Search Intelligence foundation
 
 Status: **implemented foundation / POC**.
 
@@ -11,7 +11,7 @@ SERP means **Search Engine Results Page**. The model is intentionally not Google
 Traditional Search and AI observation remain separate concepts:
 
 - Search Observation: Google, Bing and other traditional search engines.
-- AI Observation: ChatGPT, Gemini, Claude, Perplexity, Copilot and similar answer engines — **not implemented by this SERP module**.
+- AI Observation: ChatGPT, Gemini, Claude, Perplexity, Copilot and similar answer engines - **not implemented by this SERP module**.
 
 The SERP layer never executes IA and does not infer causality. It observes results, normalizes them and derives only bounded facts such as whether the configured domain was found within the requested depth and which observed results precede it.
 
@@ -58,6 +58,8 @@ Fixtures must never be presented as observed live data.
 
 Builds the configured live adapter. The first implementation is `serpapi`, currently supporting `engine=google`, `device=mobile|desktop` and organic results. Unsupported engines/devices fail explicitly rather than being silently coerced.
 
+For Google through SerpApi, the adapter collects results in provider pages of up to 10 organic positions. Depths above 10 are requested by advancing the provider `start` offset in increments of 10. Pagination stops early when the provider response does not expose a next page.
+
 ## 4. Canonical model
 
 ### `SerpQueryRequest`
@@ -93,6 +95,8 @@ Builds the configured live adapter. The first implementation is `serpapi`, curre
 - optional raw evidence reference + SHA-256
 - configuration and quality metadata
 
+When a live observation spans more than one provider page, `provider_request_id` is intentionally left unset as a singular field. The complete set of provider request IDs is preserved in `quality_metadata.provider_request_ids`; the same metadata records pages collected and collection-window timestamps.
+
 ### `SerpResult`
 
 - `position`
@@ -121,6 +125,8 @@ This milestone actively emits `OBSERVED_API` for SerpApi and `FIXTURE` for fixtu
 
 Raw JSON evidence is stored under the existing audit workspace `artifacts/serp/<observation>/` only when an existing audit workspace is supplied. JSON evidence is recursively scrubbed for field names that look like API keys, tokens, passwords, credentials, authorization values or secrets before persistence.
 
+For multi-page SerpApi observations, raw evidence contains a provider-neutral wrapper with the requested depth and the individual provider page payloads. This preserves the evidence used to derive absolute positions while keeping vendor JSON outside canonical domain models.
+
 ## 6. Domain matching and depth semantics
 
 The domain matcher normalizes case, IDN hostnames and the presentation-only `www.` prefix. A configured root domain also matches its subdomains. A configured subdomain does not automatically claim its parent domain.
@@ -136,7 +142,9 @@ Statuses are explicit:
 - `DISABLED`: SERP mode is disabled.
 - `NOT_REQUESTED`: canonical observation exists but no domain was requested for matching.
 
-**`NOT_FOUND_WITHIN_DEPTH` does not mean “the domain does not rank”.** If depth is 10 and the domain is at position 37, the correct result remains `NOT_FOUND_WITHIN_DEPTH` for that observation.
+**`NOT_FOUND_WITHIN_DEPTH` does not mean "the domain does not rank".** If depth is 10 and the domain is at position 37, the correct result remains `NOT_FOUND_WITHIN_DEPTH` for that observation.
+
+If the provider indicates that pagination ended before the requested depth, the observation records `pagination_ended_before_requested_depth=true` in quality metadata. Result count, provider page count and normalized positions remain available so downstream consumers can distinguish the requested ceiling from the actual response material collected.
 
 ## 7. Persistence
 
@@ -169,7 +177,15 @@ Environment defaults are conservative:
 | `RASAI_SERP_RETRIES` | `1` | bounded retries after first attempt |
 | `RASAI_SERP_MIN_INTERVAL_SECONDS` | `1` | minimum interval between live request starts |
 
-Before provider construction, the runtime computes the **worst-case HTTP request ceiling** as `queries × (retries + 1)` for live mode. If this exceeds `RASAI_SERP_MAX_REQUESTS`, execution is blocked before any external request.
+The SerpApi Google adapter uses a 10-result provider page size. Before provider construction, the runtime computes a depth-aware **worst-case HTTP request ceiling** for each query as:
+
+```text
+ceil(depth / 10) * (retries + 1)
+```
+
+For multiple queries, the ceilings are summed. For example, one query at depth 20 with the default one retry has a worst-case ceiling of four HTTP attempts: two provider pages, each with up to two attempts. If the projected ceiling exceeds `RASAI_SERP_MAX_REQUESTS`, execution is blocked before any external request.
+
+The hard request budget is also consumed at HTTP-attempt time, so retries and additional pages cannot exceed the configured ceiling even after execution starts.
 
 `--dry-run` validates the same query/depth/request ceilings without provider construction and without consuming quota.
 
@@ -211,6 +227,8 @@ rasai search "seguro residencial cobre enchente" `
   --depth 20 `
   --dry-run
 ```
+
+With the default `RASAI_SERP_RETRIES=1`, depth 20 projects a maximum of four HTTP attempts for this single query.
 
 ### Live SerpApi / Google
 
@@ -289,6 +307,7 @@ A dedicated Search Intelligence report is appropriate in the next milestone once
 
 - live adapter currently implements Google through SerpApi only;
 - normalization currently focuses on organic results; rich/non-organic SERP features are not yet modeled as standalone result rows;
+- provider pagination is adapter-specific; the current Google adapter uses 10-position pages and `start` offsets;
 - no provider-account quota/billing endpoint is queried;
 - no historical scheduler/rank tracker yet;
 - no Search Console/Bing Webmaster ingestion yet;
@@ -304,14 +323,14 @@ Recommended next milestone: **Competitive Search & Content Intelligence**.
 
 ```text
 query
-→ SERP observation
-→ customer ranking
-→ selected results ahead
-→ public-page crawl using existing RASAi controls
-→ structured technical/content comparison
-→ evidence-backed gaps
-→ optional semantic analysis
-→ recommendations expressed as correlations/hypotheses, not causal claims
+-> SERP observation
+-> customer ranking
+-> selected results ahead
+-> public-page crawl using existing RASAi controls
+-> structured technical/content comparison
+-> evidence-backed gaps
+-> optional semantic analysis
+-> recommendations expressed as correlations/hypotheses, not causal claims
 ```
 
 Historical SERP/rank tracking and before/after measurement should follow after the observation and comparison contracts are stable.
