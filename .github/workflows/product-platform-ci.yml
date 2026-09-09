@@ -66,7 +66,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e . pytest
       - name: Install Chromium for browser regressions
-        run: python -m playwright install --with-deps chromium
+        # Keep browser acquisition independent from apt metadata on unrelated
+        # third-party repositories preconfigured in the hosted Ubuntu image.
+        run: python -m playwright install chromium
       - name: Full regression suite
         run: python -m pytest -q
 
