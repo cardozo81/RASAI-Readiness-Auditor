@@ -200,6 +200,7 @@ def _dependency_map() -> str:
         "├─&gt; <strong>SARI / SCORE-GEO-004</strong> <span class='badge'>participa do score</span><br>"
         "├─&gt; Remediação <span class='badge'>read-only derivado</span><br>"
         "├─&gt; Web Performance ─&gt; Acessibilidade <span class='badge'>integração externa / complementar</span><br>"
+        "├─&gt; Search Intelligence <span class='badge'>observacional / Search provider + RASAi</span><br>"
         "├─&gt; Synthetic Apdex <span class='badge'>complementar</span><br>"
         "├─&gt; Observability <span class='badge'>observacional / integração externa</span><br>"
         "├─&gt; Quality <span class='badge'>read-only derivado</span><br>"
