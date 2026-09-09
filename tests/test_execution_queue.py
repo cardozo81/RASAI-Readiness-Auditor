@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 import tempfile
 
@@ -98,3 +99,47 @@ def test_execution_queue_cancel_only_applies_before_running() -> None:
             assert cancelled.status == "CANCELLED"
             with pytest.raises(ValueError):
                 store.cancel_execution_job(item.job_id)
+
+
+def test_expired_worker_lease_is_requeued_until_max_attempts() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        database = Path(directory) / "platform.db"
+        with SecurePlatformStore(database) as store:
+            _organization, _workspace, project, prop, environment, user = _scope(store)
+            item = store.enqueue_execution_job(
+                project_id=project.project_id,
+                property_id=prop.property_id,
+                environment_id=environment.environment_id,
+                job_type="REPORT_REFRESH",
+                requested_by=user.user_id,
+                max_attempts=2,
+            )
+            first = store.claim_execution_job("worker-a", lease_seconds=30)
+            assert first is not None and first.attempts == 1
+            past = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
+            store._connection.execute(
+                "UPDATE execution_jobs SET lease_until=? WHERE job_id=?",
+                (past, item.job_id),
+            )
+            store._connection.commit()
+
+            requeued, failed = store.recover_expired_execution_jobs()
+            assert (requeued, failed) == (1, 0)
+            queued = store.get_execution_job(item.job_id)
+            assert queued is not None and queued.status == "QUEUED"
+
+            second = store.claim_execution_job("worker-b", lease_seconds=30)
+            assert second is not None and second.attempts == 2
+            store._connection.execute(
+                "UPDATE execution_jobs SET lease_until=? WHERE job_id=?",
+                (past, item.job_id),
+            )
+            store._connection.commit()
+            requeued, failed = store.recover_expired_execution_jobs()
+            assert (requeued, failed) == (0, 1)
+            terminal = store.get_execution_job(item.job_id)
+            assert terminal is not None
+            assert terminal.status == "FAILED"
+            assert terminal.claimed_by is None
+            assert terminal.lease_until is None
+            assert terminal.last_error == "worker lease expired after maximum attempts"
