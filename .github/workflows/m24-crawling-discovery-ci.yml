@@ -8,7 +8,9 @@ on:
       - 'src/rasai/cli_extensions.py'
       - 'src/rasai/discovery.py'
       - 'src/rasai/report_navigation.py'
+      - 'src/rasai/public_report_safety.py'
       - 'tests/test_m24_crawling_discovery.py'
+      - 'tests/test_public_crawling_report_contract.py'
       - 'tests/test_m2_discovery_http.py'
       - 'docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md'
       - 'docs/specification/00_SPEC_INDEX.md'
@@ -28,7 +30,9 @@ on:
       - 'src/rasai/cli_extensions.py'
       - 'src/rasai/discovery.py'
       - 'src/rasai/report_navigation.py'
+      - 'src/rasai/public_report_safety.py'
       - 'tests/test_m24_crawling_discovery.py'
+      - 'tests/test_public_crawling_report_contract.py'
       - 'tests/test_m2_discovery_http.py'
       - 'docs/specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md'
       - 'docs/specification/00_SPEC_INDEX.md'
@@ -69,6 +73,7 @@ jobs:
             src/rasai/m24_crawling_discovery.py \
             src/rasai/m24_discovery_extensions.py \
             src/rasai/m24_reporting.py \
+            src/rasai/public_report_safety.py \
             src/rasai/cli_extensions.py \
             src/rasai/discovery.py \
             src/rasai/report_navigation.py
@@ -76,6 +81,7 @@ jobs:
         run: |
           python -m pytest -q \
             tests/test_m24_crawling_discovery.py \
+            tests/test_public_crawling_report_contract.py \
             tests/test_m2_discovery_http.py
       - name: Directly affected integration regressions
         run: |
