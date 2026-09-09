@@ -18,7 +18,7 @@ def test_device_page_exposes_evidence_role_not_duplicate_score() -> None:
     html = enrich_indicator_provenance_html(_shell(), page_name="mobile.html")
     assert PROVENANCE_MARKER in html
     assert "Evidências RASAi por dispositivo" in html
-    assert "Indicadores agregados RASAi ficam exclusivamente" in html
+    assert "a agregação SARI fica em Search &amp; AI Readiness" in html
     assert "references.html#indicator-provenance" in html
 
 
@@ -38,17 +38,18 @@ def test_readiness_page_has_explicit_internal_methodological_nature() -> None:
 def test_external_metric_pages_are_not_presented_as_rasai_score() -> None:
     html = enrich_indicator_provenance_html(_shell(), page_name="web-performance.html")
     assert "Métricas externas definidas" in html
-    assert "sem convertê-los em SARI-001" in html
+    assert "Scores Lighthouse e Core Web Vitals permanecem independentes" in html
+    assert "Audit-level evidence só pode corroborar regra equivalente" in html
 
     accessibility = enrich_indicator_provenance_html(_shell(), page_name="accessibility.html")
-    assert "WCAG 2.2 é standard externo" in accessibility
-    assert "não equivale a certificação" in accessibility
+    assert "Standard W3C + métrica Lighthouse" in accessibility
+    assert "WCAG 2.2 e Lighthouse Accessibility permanecem fora da aritmética SARI" in accessibility
 
 
 def test_apdex_separates_external_method_from_operator_threshold() -> None:
     html = enrich_indicator_provenance_html(_shell(), page_name="apdex.html")
-    assert "Método Apdex externo + T configurado pelo operador" in html
-    assert "perfil sintético" in html
+    assert "Método Apdex externo + T configurado" in html
+    assert "Apdex é complementar e não entra no SARI" in html
 
 
 def test_references_panel_contains_source_logic_and_internal_boundary() -> None:
