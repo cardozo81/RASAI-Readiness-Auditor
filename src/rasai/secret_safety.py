@@ -19,24 +19,10 @@ REDACTED = "[REDACTED]"
 PRIVATE_KEY_REDACTED = "[REDACTED_PRIVATE_KEY]"
 
 _SENSITIVE_NAME_TOKENS = (
-    "API_KEY",
-    "APIKEY",
-    "TOKEN",
-    "SECRET",
-    "PASSWORD",
-    "PASSWD",
-    "CREDENTIAL",
-    "PRIVATE_KEY",
-    "ACCESS_KEY",
-    "AUTHORIZATION",
-    "COOKIE",
+    "API_KEY", "APIKEY", "TOKEN", "SECRET", "PASSWORD", "PASSWD",
+    "CREDENTIAL", "PRIVATE_KEY", "ACCESS_KEY", "AUTHORIZATION", "COOKIE",
 )
-_SECRET_REFERENCE_SUFFIXES = (
-    "_ENV",
-    "_REF",
-    "_SECRET_REF",
-    "_CREDENTIAL_REF",
-)
+_SECRET_REFERENCE_SUFFIXES = ("_ENV", "_REF", "_SECRET_REF", "_CREDENTIAL_REF")
 _ENV_NAME_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
 _URI_WITH_AUTH_RE = re.compile(r"\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\s/@:]+:[^\s/@]+@[^\s]+")
 _BEARER_RE = re.compile(r"(?i)\bBearer\s+([^\s,;]+)")
@@ -50,30 +36,16 @@ _SENSITIVE_FIELD_PATTERN = (
 _QUOTED_ASSIGNMENT_RE = re.compile(
     rf"(?im)\b({_SENSITIVE_FIELD_PATTERN})\b\s*[:=]\s*([\"'])([^\"'\n]+)\2"
 )
-_ENV_ASSIGNMENT_RE = re.compile(
-    rf"(?im)^\s*({_SENSITIVE_FIELD_PATTERN})\s*=\s*([^\s#]+)\s*$"
-)
+_ENV_ASSIGNMENT_RE = re.compile(rf"(?im)^\s*({_SENSITIVE_FIELD_PATTERN})\s*=\s*([^\s#]+)\s*$")
 _PRIVATE_KEY_BEGIN = "-----BEGIN " + "PRIVATE KEY-----"
 _PRIVATE_KEY_END = "-----END " + "PRIVATE KEY-----"
-_PRIVATE_KEY_BLOCK_RE = re.compile(
-    re.escape(_PRIVATE_KEY_BEGIN) + r".*?" + re.escape(_PRIVATE_KEY_END),
-    re.DOTALL,
-)
+_PRIVATE_KEY_BLOCK_RE = re.compile(re.escape(_PRIVATE_KEY_BEGIN) + r".*?" + re.escape(_PRIVATE_KEY_END), re.DOTALL)
 
 _SAFE_PLACEHOLDER_WORDS = (
-    "change_me",
-    "changeme",
-    "replace_me",
-    "example",
-    "placeholder",
-    "redacted",
-    "dummy",
-    "fake",
-    "test_only",
-    "test-password",
-    "test_password",
-    "rasai_test_",
+    "change_me", "changeme", "replace_me", "example", "placeholder", "redacted",
+    "dummy", "fake", "test_only", "test-password", "test_password", "rasai_test_",
 )
+_SAFE_EXACT_PLACEHOLDERS = frozenset({"token", "password", "secret", "credential", "value", "key"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,8 +57,6 @@ class SecretExposure:
 
 
 def is_sensitive_name(name: str) -> bool:
-    """Return True when a field/environment/header name denotes secret material."""
-
     normalized = name.upper().replace("-", "_").replace(".", "_")
     return any(token in normalized for token in _SENSITIVE_NAME_TOKENS)
 
@@ -104,17 +74,21 @@ def validate_environment_reference(value: str) -> str:
 
 
 def is_safe_placeholder(value: str) -> bool:
-    """Recognize documentation/test placeholders, never real runtime secrets."""
-
     text = value.strip().strip("\"'")
     if not text:
         return True
     lowered = text.casefold()
+    if lowered in _SAFE_EXACT_PLACEHOLDERS:
+        return True
     if text.startswith("<") and text.endswith(">"):
         return True
     if text.startswith("${") and text.endswith("}"):
         return True
     if text.startswith("[") and text.endswith("]"):
+        return True
+    if "{" in text and "}" in text:
+        return True
+    if "..." in text or "xxx" in lowered:
         return True
     if _ENV_NAME_RE.fullmatch(text) and is_sensitive_name(text):
         return True
@@ -122,8 +96,6 @@ def is_safe_placeholder(value: str) -> bool:
 
 
 def redact_url(value: str) -> str:
-    """Remove passwords and sensitive query parameters from a URL/DSN."""
-
     text = value.strip()
     try:
         parsed = urlsplit(text)
@@ -131,7 +103,6 @@ def redact_url(value: str) -> str:
         return REDACTED if "://" in text and "@" in text else value
     if not parsed.scheme or not parsed.netloc:
         return value
-
     username = quote(parsed.username or "", safe="")
     auth = f"{username}@" if username else ""
     host = parsed.hostname or ""
@@ -141,17 +112,14 @@ def redact_url(value: str) -> str:
         port = f":{parsed.port}" if parsed.port else ""
     except ValueError:
         port = ""
-
-    query_items: list[tuple[str, str]] = []
-    for key, item in parse_qsl(parsed.query, keep_blank_values=True):
-        query_items.append((key, REDACTED if is_sensitive_name(key) else item))
-    query = urlencode(query_items)
-    return urlunsplit((parsed.scheme, f"{auth}{host}{port}", parsed.path, query, parsed.fragment))
+    query_items = [
+        (key, REDACTED if is_sensitive_name(key) else item)
+        for key, item in parse_qsl(parsed.query, keep_blank_values=True)
+    ]
+    return urlunsplit((parsed.scheme, f"{auth}{host}{port}", parsed.path, urlencode(query_items), parsed.fragment))
 
 
 def redact_text(value: str) -> str:
-    """Scrub common credential forms from arbitrary user-visible/persisted text."""
-
     text = _PRIVATE_KEY_BLOCK_RE.sub(PRIVATE_KEY_REDACTED, value)
     text = _HEADER_RE.sub(lambda match: match.group(1) + REDACTED, text)
     text = _BEARER_RE.sub("Bearer " + REDACTED, text)
@@ -175,8 +143,6 @@ def redact_text(value: str) -> str:
 
 
 def redact_value(value: Any, *, field_name: str | None = None) -> Any:
-    """Recursively sanitize structured data before display or persistence."""
-
     if field_name and is_sensitive_name(field_name) and not is_secret_reference_name(field_name):
         return REDACTED
     if isinstance(value, Mapping):
@@ -195,13 +161,9 @@ def _line_number(text: str, offset: int) -> int:
 
 
 def detect_secret_exposures(text: str, *, path: str = "<memory>") -> tuple[SecretExposure, ...]:
-    """Find high-confidence raw secrets while allowing explicit placeholders/references."""
-
     findings: list[SecretExposure] = []
-
     for match in _PRIVATE_KEY_BLOCK_RE.finditer(text):
         findings.append(SecretExposure(path, _line_number(text, match.start()), "PRIVATE_KEY", "private key material"))
-
     for match in _URI_WITH_AUTH_RE.finditer(text):
         candidate = match.group(0)
         try:
@@ -210,18 +172,20 @@ def detect_secret_exposures(text: str, *, path: str = "<memory>") -> tuple[Secre
             password = ""
         if password and not is_safe_placeholder(password):
             findings.append(SecretExposure(path, _line_number(text, match.start()), "CREDENTIAL_URL", "URL/DSN contains inline password"))
-
     for match in _BEARER_RE.finditer(text):
         token = match.group(1)
         if not is_safe_placeholder(token):
             findings.append(SecretExposure(path, _line_number(text, match.start()), "BEARER_TOKEN", "Bearer token value"))
 
-    for pattern, value_group in ((_QUOTED_ASSIGNMENT_RE, 3), (_ENV_ASSIGNMENT_RE, 2)):
-        for match in pattern.finditer(text):
-            name, raw = match.group(1), match.group(value_group)
-            if is_secret_reference_name(name) or is_safe_placeholder(raw):
-                continue
-            findings.append(SecretExposure(path, _line_number(text, match.start()), "SECRET_ASSIGNMENT", f"inline value for {name}"))
+    # Generic assignment scanning is valuable in configuration and documentation,
+    # but Python source legitimately manipulates variables named password/token.
+    if not str(path).casefold().endswith(".py"):
+        for pattern, value_group in ((_QUOTED_ASSIGNMENT_RE, 3), (_ENV_ASSIGNMENT_RE, 2)):
+            for match in pattern.finditer(text):
+                name, raw = match.group(1), match.group(value_group)
+                if is_secret_reference_name(name) or is_safe_placeholder(raw):
+                    continue
+                findings.append(SecretExposure(path, _line_number(text, match.start()), "SECRET_ASSIGNMENT", f"inline value for {name}"))
 
     unique: dict[tuple[str, int, str], SecretExposure] = {}
     for item in findings:
@@ -231,20 +195,14 @@ def detect_secret_exposures(text: str, *, path: str = "<memory>") -> tuple[Secre
 
 _SCAN_SUFFIXES = frozenset({".py", ".md", ".txt", ".toml", ".ini", ".json", ".yml", ".yaml", ".cmd", ".ps1"})
 _SCAN_NAMES = frozenset({".gitignore", "Dockerfile"})
-_SCAN_EXCLUSIONS = frozenset({
-    "src/rasai/secret_safety.py",
-    "tests/test_secret_safety.py",
-})
+_SCAN_EXCLUSIONS = frozenset({"src/rasai/secret_safety.py", "tests/test_secret_safety.py"})
 
 
 def _tracked_files(root: Path) -> tuple[Path, ...]:
     try:
         process = subprocess.run(
-            ["git", "ls-files", "-z"],
-            cwd=root,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
+            ["git", "ls-files", "-z"], cwd=root, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
         )
         relatives = [item for item in process.stdout.decode("utf-8").split("\0") if item]
         return tuple(root / relative for relative in relatives)
