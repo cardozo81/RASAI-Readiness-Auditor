@@ -40,7 +40,7 @@ def _workspace(root: Path) -> AuditWorkspace:
                 consolidation_status TEXT,
                 scoring_version TEXT
             );
-            INSERT INTO scores VALUES ('S1','AUD-M26','OVERALL_READINESS','MOBILE',81,1,'HIGH','CONSOLIDATED','SCORE-GEO-002');
+            INSERT INTO scores VALUES ('S1','AUD-M26','OVERALL_READINESS','MOBILE',81,1,'HIGH','CONSOLIDATED','SCORE-GEO-004');
             """
         )
         connection.commit()
@@ -146,7 +146,7 @@ def test_import_is_same_origin_idempotent_and_non_scoring() -> None:
             score = connection.execute("SELECT value,scoring_version FROM scores WHERE score_id='S1'").fetchone()
         finally:
             connection.close()
-        assert score == (81.0, "SCORE-GEO-002")
+        assert score == (81.0, "SCORE-GEO-004")
 
 
 def test_report_keeps_source_metrics_and_computed_presence_separate() -> None:
@@ -169,7 +169,10 @@ def test_report_keeps_source_metrics_and_computed_presence_separate() -> None:
         assert "não autentica o portal externo" in html
         assert "runs válidos que citaram" in html
         assert "não compõem SARI-001/SCORE-GEO-004" in html
-        assert "SCORE-GEO-003 e SCORE-GEO-002 são contratos históricos" in html
+        assert "SCORE-GEO-001" not in html
+        assert "SCORE-GEO-002" not in html
+        assert "SCORE-GEO-003" not in html
+        assert "contratos históricos" not in html
         assert "não faz scraping" in html
         assert "ai-visibility.html" in index
 
