@@ -1,8 +1,8 @@
 """Safety boundary for RASAi-owned public report presentation.
 
 Internal delivery identifiers are valid implementation details but are not part of
-the public report contract.  This module normalizes only exact strings previously
-emitted by RASAi itself.  It deliberately avoids a generic milestone regex so
+the public report contract. This module normalizes only exact strings previously
+emitted by RASAi itself. It deliberately avoids a generic milestone regex so
 content collected from an audited website is never rewritten merely because it
 resembles an internal identifier.
 """
@@ -35,6 +35,7 @@ _OWNED_PRESENTATION_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("M20 remediação textual", "Remediação textual por IA"),
     ("M24-CD-001", "CRAWLING-DISCOVERY-001"),
     ("Rastreamento e descoberta M24", "Rastreamento e descoberta"),
+    ("artifacts/m24/", ""),
     ("m20-no-eligible-note", "content-remediation-no-eligible-note"),
     ("m23-apdex-summary", "apdex-summary"),
 )
@@ -46,6 +47,8 @@ def normalize_owned_public_report_text(html: str) -> str:
     The function intentionally does not replace arbitrary ``M<number>`` tokens.
     Website evidence and customer-provided content therefore remain byte-for-byte
     unchanged unless they exactly equal a historical RASAi presentation fragment.
+    Internal artifact paths may be shortened to their public basename while the
+    canonical reference remains preserved in ``audit.db``.
     """
     for old, new in _OWNED_PRESENTATION_REPLACEMENTS:
         html = html.replace(old, new)
