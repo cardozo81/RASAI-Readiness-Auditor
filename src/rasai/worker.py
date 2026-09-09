@@ -156,8 +156,12 @@ def _run_report_refresh(store: Any, job: Any, audits_root: Path) -> WorkerResult
     if surface != "portfolio" or set(job.payload) - {"surface"}:
         raise ValueError("REPORT_REFRESH currently supports only payload.surface=portfolio")
     report = write_platform_site(store, audits_root / "platform-report")
+    try:
+        result_ref = report.relative_to(audits_root).as_posix()
+    except ValueError:
+        result_ref = report.name
     return WorkerResult(
-        result_ref=str(report),
+        result_ref=result_ref,
         metadata={"surface": "portfolio"},
     )
 
