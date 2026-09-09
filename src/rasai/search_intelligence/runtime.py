@@ -34,6 +34,23 @@ def live_provider_ids() -> tuple[str, ...]:
     return tuple(_LIVE_PROVIDER_BUILDERS)
 
 
+def _refresh_search_intelligence_report(workspace_root: Path | None) -> None:
+    """Best-effort projection of already-persisted Search Intelligence evidence.
+
+    Report rendering is ancillary to observation persistence. A presentation failure must
+    not turn a successfully persisted SERP observation into a provider/runtime failure.
+    The report can always be regenerated from audit.db later.
+    """
+    if workspace_root is None:
+        return
+    try:
+        from .reporting import write_search_intelligence_report
+
+        write_search_intelligence_report(workspace_root)
+    except (OSError, ValueError):
+        return
+
+
 def execute_search(
     requests: Iterable[SerpQueryRequest],
     *,
@@ -137,6 +154,7 @@ def execute_search(
     finally:
         if repository is not None:
             repository.close()
+    _refresh_search_intelligence_report(workspace_root)
     return SearchExecution(
         mode=config.mode,
         provider=provider_name,
