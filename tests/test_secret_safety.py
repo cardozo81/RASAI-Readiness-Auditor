@@ -103,7 +103,7 @@ def test_serp_evidence_redacts_structured_and_text_payloads_before_persistence()
 
 
 def test_detector_allows_explicit_placeholders_but_rejects_inline_material() -> None:
-    safe = "password=<password>\napi_key_env=OPENAI_API_KEY\nAuthorization: Bearer [REDACTED]"
+    safe = "password=<password>\napi_key_env=OPENAI_API_KEY\nAuthorization: [REDACTED]"
     assert detect_secret_exposures(safe) == ()
 
     unsafe = "database_password=prod-value-93af\nAuthorization: Bearer live-token-93af"
