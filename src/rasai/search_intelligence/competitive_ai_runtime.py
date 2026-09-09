@@ -27,6 +27,19 @@ class CompetitiveAiExecution:
     persisted: bool
 
 
+def _actual_provider_call_delta(provider: CompetitiveAiProvider, before: object) -> int:
+    """Return observed network-call delta when the adapter exposes a call counter.
+
+    Built-in live adapters expose ``calls`` and increment it only when a provider request is
+    actually attempted. Provider-neutral third-party adapters without that surface are counted
+    conservatively after analyze unless they report NOT_CONFIGURED.
+    """
+    after = getattr(provider, "calls", None)
+    if isinstance(before, int) and not isinstance(before, bool) and isinstance(after, int):
+        return max(after - before, 0)
+    return -1
+
+
 def execute_competitive_ai(
     search_execution: SearchExecution,
     competitive_execution: CompetitiveExecution,
@@ -95,9 +108,16 @@ def execute_competitive_ai(
                     ymyl_mode=ymyl_mode,
                     artifact_reference=artifact_ref,
                 )
-                if provider.name not in {"NONE", "FIXTURE"}:
-                    provider_calls += 1
+                calls_before = getattr(provider, "calls", None)
                 result = provider.analyze(competitive_input)
+                delta = _actual_provider_call_delta(provider, calls_before)
+                if delta >= 0:
+                    provider_calls += delta
+                elif (
+                    provider.name not in {"NONE", "FIXTURE"}
+                    and result.state is not CompetitiveAiState.NOT_CONFIGURED
+                ):
+                    provider_calls += 1
 
             outputs.append(result)
             if repository is not None:
