@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 import os
 from pathlib import Path
+import sqlite3
 from typing import Iterable, Mapping
 
 from .budget import RequestBudget
@@ -44,10 +45,18 @@ def _refresh_search_intelligence_report(workspace_root: Path | None) -> None:
     if workspace_root is None:
         return
     try:
-        from .reporting import write_search_intelligence_report
+        from . import reporting
 
-        write_search_intelligence_report(workspace_root)
-    except (OSError, ValueError):
+        # Forward-compatible with the evidence-bound Competitive AI branch. The
+        # semantic layer remains optional: its table is read only when it exists.
+        candidate = "serp_competitive_ai_analyses"
+        if candidate not in reporting._SEMANTIC_TABLE_CANDIDATES:
+            reporting._SEMANTIC_TABLE_CANDIDATES = (
+                candidate,
+                *reporting._SEMANTIC_TABLE_CANDIDATES,
+            )
+        reporting.write_search_intelligence_report(workspace_root)
+    except (OSError, ValueError, sqlite3.Error):
         return
 
 
