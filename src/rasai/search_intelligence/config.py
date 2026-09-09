@@ -18,6 +18,7 @@ SERP_MAX_COMPETITORS_ENV = "RASAI_SERP_MAX_COMPETITORS"
 SERP_TIMEOUT_ENV = "RASAI_SERP_TIMEOUT_SECONDS"
 SERP_RETRIES_ENV = "RASAI_SERP_RETRIES"
 SERP_MIN_INTERVAL_ENV = "RASAI_SERP_MIN_INTERVAL_SECONDS"
+SERP_RESULTS_PER_PAGE = 10
 
 SERP_ENV_NAMES = (
     SERP_MODE_ENV,
@@ -127,9 +128,12 @@ class SerpRuntimeConfig:
         )
         return config.validate() if validate else config
 
-    def worst_case_http_requests(self, query_count: int) -> int:
+    def worst_case_http_requests(self, query_count: int, *, depth: int = 10) -> int:
         if query_count < 0:
             raise ValueError("query_count must be >= 0")
+        if depth <= 0:
+            raise ValueError("depth must be > 0")
         if self.mode != "live":
             return 0
-        return query_count * (self.retries + 1)
+        pages_per_query = math.ceil(depth / SERP_RESULTS_PER_PAGE)
+        return query_count * pages_per_query * (self.retries + 1)
