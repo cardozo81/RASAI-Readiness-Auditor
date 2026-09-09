@@ -1,8 +1,8 @@
 """Central secret classification, redaction and repository leak detection.
 
-The module is intentionally provider-neutral. Secrets may be consumed from environment
-variables or a future secret manager, but their values must never become product
-configuration, reports, manifests, logs, exceptions or versioned repository content.
+The module is provider-neutral. Secrets may be consumed from environment variables
+or a future secret manager, but their values must never become product configuration,
+reports, manifests, logs, exceptions or versioned repository content.
 """
 from __future__ import annotations
 
@@ -18,11 +18,19 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 REDACTED = "[REDACTED]"
 PRIVATE_KEY_REDACTED = "[REDACTED_PRIVATE_KEY]"
 
-_SENSITIVE_NAME_TOKENS = (
-    "API_KEY", "APIKEY", "TOKEN", "SECRET", "PASSWORD", "PASSWD",
-    "CREDENTIAL", "PRIVATE_KEY", "ACCESS_KEY", "AUTHORIZATION", "COOKIE",
+_SECRET_REFERENCE_SUFFIXES = ("_SECRET_REF", "_CREDENTIAL_REF", "_ENV", "_REF")
+_SENSITIVE_EXACT_NAMES = frozenset({
+    "API_KEY", "APIKEY", "TOKEN", "SECRET", "PASSWORD", "PASSWD", "CREDENTIAL",
+    "PRIVATE_KEY", "ACCESS_KEY", "AUTHORIZATION", "PROXY_AUTHORIZATION", "COOKIE",
+    "SET_COOKIE", "X_API_KEY",
+})
+_SENSITIVE_NAME_SUFFIXES = (
+    "_API_KEY", "_APIKEY", "_TOKEN", "_SECRET", "_PASSWORD", "_PASSWD",
+    "_CREDENTIAL", "_PRIVATE_KEY", "_ACCESS_KEY", "_AUTHORIZATION", "_COOKIE",
 )
-_SECRET_REFERENCE_SUFFIXES = ("_ENV", "_REF", "_SECRET_REF", "_CREDENTIAL_REF")
+_SENSITIVE_ARG_NAMES = frozenset({
+    "DATABASE_URL", "DB_URL", "DSN", "CONNECTION_STRING", "CONNECTION_URL",
+})
 _ENV_NAME_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
 _URI_WITH_AUTH_RE = re.compile(r"\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\s/@:]+:[^\s/@]+@[^\s]+")
 _BEARER_RE = re.compile(r"(?i)\bBearer\s+([^\s,;]+)")
@@ -31,7 +39,7 @@ _HEADER_RE = re.compile(
 )
 _SENSITIVE_FIELD_PATTERN = (
     r"[A-Za-z0-9_.-]*(?:api[_-]?key|token|secret|password|passwd|credential|"
-    r"private[_-]?key|access[_-]?key)[A-Za-z0-9_.-]*"
+    r"private[_-]?key|access[_-]?key|authorization|cookie)[A-Za-z0-9_.-]*"
 )
 _QUOTED_ASSIGNMENT_RE = re.compile(
     rf"(?im)\b({_SENSITIVE_FIELD_PATTERN})\b\s*[:=]\s*([\"'])([^\"'\n]+)\2"
@@ -41,7 +49,9 @@ _UNQUOTED_ASSIGNMENT_RE = re.compile(
 )
 _PRIVATE_KEY_BEGIN = "-----BEGIN " + "PRIVATE KEY-----"
 _PRIVATE_KEY_END = "-----END " + "PRIVATE KEY-----"
-_PRIVATE_KEY_BLOCK_RE = re.compile(re.escape(_PRIVATE_KEY_BEGIN) + r".*?" + re.escape(_PRIVATE_KEY_END), re.DOTALL)
+_PRIVATE_KEY_BLOCK_RE = re.compile(
+    re.escape(_PRIVATE_KEY_BEGIN) + r".*?" + re.escape(_PRIVATE_KEY_END), re.DOTALL
+)
 _KNOWN_SECRET_RE = re.compile(
     r"(?:sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9_]{12,}|AIza[A-Za-z0-9_-]{20,}|"
     r"xox[baprs]-[A-Za-z0-9-]{12,}|AKIA[A-Z0-9]{16})"
@@ -56,10 +66,15 @@ _SAFE_EXACT_PLACEHOLDERS = frozenset({
     "token", "tokens", "password", "pass", "passwd", "secret", "secrets",
     "credential", "credentials", "value", "key", "senha",
 })
-_SENSITIVE_ARG_NAMES = frozenset({
-    "DATABASE_URL", "DB_URL", "DSN", "CONNECTION_STRING", "CONNECTION_URL",
+_CONFIG_LIKE_SUFFIXES = frozenset({
+    ".toml", ".ini", ".json", ".yml", ".yaml", ".cmd", ".ps1", ".env",
 })
-_CONFIG_LIKE_SUFFIXES = frozenset({".toml", ".ini", ".json", ".yml", ".yaml", ".cmd", ".ps1", ".env"})
+_SCAN_SUFFIXES = frozenset({
+    ".py", ".md", ".txt", ".toml", ".ini", ".json", ".yml", ".yaml", ".cmd", ".ps1",
+})
+_SCAN_NAMES = frozenset({".gitignore", "Dockerfile"})
+_SCAN_EXCLUSIONS = frozenset({"src/rasai/secret_safety.py", "tests/test_secret_safety.py"})
+_SAFE_ENV_EXAMPLE_NAMES = frozenset({".env.example", ".env.sample", ".env.template"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,14 +85,27 @@ class SecretExposure:
     detail: str
 
 
-def is_sensitive_name(name: str) -> bool:
-    normalized = name.upper().replace("-", "_").replace(".", "_")
-    return any(token in normalized for token in _SENSITIVE_NAME_TOKENS)
+def _normalize_name(name: str) -> str:
+    return name.upper().replace("-", "_").replace(".", "_")
 
 
 def is_secret_reference_name(name: str) -> bool:
-    normalized = name.upper().replace("-", "_").replace(".", "_")
+    normalized = _normalize_name(name)
     return normalized.endswith(_SECRET_REFERENCE_SUFFIXES)
+
+
+def _secret_name_core(name: str) -> str:
+    normalized = _normalize_name(name)
+    for suffix in _SECRET_REFERENCE_SUFFIXES:
+        if normalized.endswith(suffix):
+            return normalized[: -len(suffix)]
+    return normalized
+
+
+def is_sensitive_name(name: str) -> bool:
+    """Classify credential-bearing field names without misclassifying token metrics."""
+    core = _secret_name_core(name)
+    return core in _SENSITIVE_EXACT_NAMES or core.endswith(_SENSITIVE_NAME_SUFFIXES)
 
 
 def validate_environment_reference(value: str) -> str:
@@ -139,6 +167,7 @@ def _is_config_like_path(path: str) -> bool:
 
 
 def redact_url(value: str) -> str:
+    """Remove URL userinfo passwords and sensitive query parameters."""
     text = value.strip()
     try:
         parsed = urlsplit(text)
@@ -165,9 +194,8 @@ def redact_url(value: str) -> str:
 def redact_text(value: str) -> str:
     """Scrub credential material from arbitrary runtime text.
 
-    Runtime redaction is intentionally stricter than repository leak detection:
-    even documentation/test-looking values are removed once they enter logs,
-    exceptions, reports or persisted textual evidence.
+    Runtime redaction is stricter than repository leak detection: placeholder-looking
+    values are still removed once they enter logs, exceptions, reports or evidence.
     """
     text = _PRIVATE_KEY_BLOCK_RE.sub(PRIVATE_KEY_REDACTED, value)
     text = _HEADER_RE.sub(lambda match: match.group(1) + REDACTED, text)
@@ -176,14 +204,14 @@ def redact_text(value: str) -> str:
 
     def quoted_assignment(match: re.Match[str]) -> str:
         name, quote_char, raw = match.group(1), match.group(2), match.group(3)
-        if is_secret_reference_name(name):
+        if not is_sensitive_name(name) or is_secret_reference_name(name):
             return match.group(0)
         prefix = match.group(0)[: match.group(0).find(quote_char) + 1]
         return prefix + REDACTED + quote_char
 
     def unquoted_assignment(match: re.Match[str]) -> str:
         name, raw = match.group(1), match.group(2)
-        if is_secret_reference_name(name):
+        if not is_sensitive_name(name) or is_secret_reference_name(name):
             return match.group(0)
         prefix = match.group(0)[: match.group(0).rfind(raw)]
         return prefix + REDACTED
@@ -208,12 +236,7 @@ def redact_value(value: Any, *, field_name: str | None = None) -> Any:
 
 
 def validate_secret_free_mapping(value: Mapping[str, Any], *, context: str = "configuration") -> None:
-    """Reject inline secrets in configuration-like mappings.
-
-    Reference fields such as ``api_key_env`` or ``credential_ref`` are allowed;
-    credential-bearing value fields are not. Arbitrary strings are also checked for
-    embedded bearer tokens, credential URLs and private-key material.
-    """
+    """Reject inline secrets in durable configuration while allowing references."""
 
     def visit(node: Any, path: str, key: str | None = None) -> None:
         if isinstance(node, Mapping):
@@ -227,7 +250,7 @@ def validate_secret_free_mapping(value: Mapping[str, Any], *, context: str = "co
                 if is_secret_reference_name(child_key):
                     if not isinstance(child, str):
                         raise ValueError(f"secret reference {child_path!r} must be a string")
-                    if child_key.upper().replace("-", "_").endswith("_ENV"):
+                    if _normalize_name(child_key).endswith("_ENV"):
                         validate_environment_reference(child)
                 visit(child, child_path, child_key)
             return
@@ -245,15 +268,24 @@ def validate_secret_free_mapping(value: Mapping[str, Any], *, context: str = "co
 
 
 def validate_command_argv_secret_free(command_argv: Sequence[str], *, context: str = "schedule command") -> None:
-    """Reject secrets/DSNs embedded in durable command arguments."""
+    """Reject raw secrets/DSNs in durable scheduler command arguments."""
     values = tuple(str(item) for item in command_argv)
+    previous_option: str | None = None
     for index, item in enumerate(values):
+        if previous_option is not None:
+            normalized_previous = _normalize_name(previous_option.lstrip("-"))
+            if (is_sensitive_name(normalized_previous) or normalized_previous in _SENSITIVE_ARG_NAMES) and not is_secret_reference_name(normalized_previous):
+                raise ValueError(
+                    f"{context} must not persist a value for credential-bearing option {previous_option!r}; use environment/secret references"
+                )
+            previous_option = None
+
         if detect_secret_exposures(item, path=context, strict=True):
             raise ValueError(f"{context} contains credential material in argument {index}; use environment/secret references")
         if not item.startswith("-"):
             continue
         option, separator, inline_value = item.partition("=")
-        normalized = option.lstrip("-").upper().replace("-", "_").replace(".", "_")
+        normalized = _normalize_name(option.lstrip("-"))
         sensitive_option = is_sensitive_name(normalized) or normalized in _SENSITIVE_ARG_NAMES
         if sensitive_option and not is_secret_reference_name(normalized):
             raise ValueError(
@@ -261,6 +293,8 @@ def validate_command_argv_secret_free(command_argv: Sequence[str], *, context: s
             )
         if separator and inline_value and detect_secret_exposures(inline_value, path=context, strict=True):
             raise ValueError(f"{context} contains credential material in argument {index}")
+        if not separator:
+            previous_option = option
 
 
 def _line_number(text: str, offset: int) -> int:
@@ -275,10 +309,9 @@ def detect_secret_exposures(
 ) -> tuple[SecretExposure, ...]:
     """Find raw secret material.
 
-    ``strict=True`` is used at runtime/configuration boundaries and intentionally
-    treats any credential-like literal as unsafe. Repository scanning uses
-    ``strict=False`` so source code, tests and prose are only rejected when the
-    value itself is high-confidence secret material or appears in a config-like file.
+    ``strict=True`` is used at runtime/configuration boundaries. Repository scanning
+    uses ``strict=False`` so source code, tests and prose fail only for high-confidence
+    secret material or credential literals in config-like files.
     """
     findings: list[SecretExposure] = []
     config_like = _is_config_like_path(path)
@@ -308,7 +341,7 @@ def detect_secret_exposures(
         for pattern, value_group in ((_QUOTED_ASSIGNMENT_RE, 3), (_UNQUOTED_ASSIGNMENT_RE, 2)):
             for match in pattern.finditer(text):
                 name, raw = match.group(1), match.group(value_group)
-                if is_secret_reference_name(name) or is_safe_placeholder(raw):
+                if not is_sensitive_name(name) or is_secret_reference_name(name) or is_safe_placeholder(raw):
                     continue
                 if strict or config_like or _looks_high_confidence_secret(raw):
                     findings.append(SecretExposure(path, _line_number(text, match.start()), "SECRET_ASSIGNMENT", f"inline value for {name}"))
@@ -317,12 +350,6 @@ def detect_secret_exposures(
     for item in findings:
         unique[(item.path, item.line, item.kind)] = item
     return tuple(unique.values())
-
-
-_SCAN_SUFFIXES = frozenset({".py", ".md", ".txt", ".toml", ".ini", ".json", ".yml", ".yaml", ".cmd", ".ps1"})
-_SCAN_NAMES = frozenset({".gitignore", "Dockerfile"})
-_SCAN_EXCLUSIONS = frozenset({"src/rasai/secret_safety.py", "tests/test_secret_safety.py"})
-_SAFE_ENV_EXAMPLE_NAMES = frozenset({".env.example", ".env.sample", ".env.template"})
 
 
 def _tracked_files(root: Path) -> tuple[Path, ...]:
