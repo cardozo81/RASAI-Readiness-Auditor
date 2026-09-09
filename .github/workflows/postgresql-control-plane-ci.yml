@@ -59,4 +59,4 @@ jobs:
       - name: Public contract gate
         run: python -m rasai.public_contract_gate
       - name: PostgreSQL control-plane parity
-        run: python -m pytest -q tests/test_postgresql_control_plane.py tests/test_postgresql_audit_catalog_parity.py
+        run: python -m pytest -q tests/test_postgresql_*.py
