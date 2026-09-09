@@ -105,8 +105,9 @@ SURFACE_IMPLEMENTATION_HINTS = {
 }
 
 _OLD_VERSION_RE = re.compile(r"SCORE-GEO-(?!004)\d{3}", re.I)
-_MILESTONE_PUBLIC_RE = re.compile(r"(?<![A-Za-z0-9_])M\d{1,3}(?![A-Za-z0-9_])")
-_MILESTONE_EVENT_RE = re.compile(r"\bM\d{1,3}_[A-Z][A-Z0-9_]*\b")
+# Documentation must never expose internal delivery/milestone identifiers, including
+# embedded implementation paths, artifact directories or contract labels.
+_MILESTONE_PUBLIC_RE = re.compile(r"(?i)(?<![A-Za-z0-9])m\d{1,3}")
 _VERSIONED_CANONICAL_RE = re.compile(r"report/score-geo-\d+\.html")
 
 
@@ -178,8 +179,8 @@ def _check_docs(root: Path, errors: list[str]) -> None:
         text = path.read_text(encoding="utf-8")
         if _OLD_VERSION_RE.search(text):
             errors.append(f"scoring descontinuado exposto na documentação: {path.relative_to(root)}")
-        if _MILESTONE_PUBLIC_RE.search(text) or _MILESTONE_EVENT_RE.search(text):
-            errors.append(f"marco interno M* exposto na documentação: {path.relative_to(root)}")
+        if _MILESTONE_PUBLIC_RE.search(text):
+            errors.append(f"identificador interno de entrega exposto na documentação: {path.relative_to(root)}")
 
 
 def _check_cli_docs(root: Path, errors: list[str]) -> None:
