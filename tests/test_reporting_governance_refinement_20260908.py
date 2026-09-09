@@ -41,15 +41,18 @@ def test_scoring_report_materializes_human_rule_criterion_and_group() -> None:
 def test_readiness_report_has_explainable_governance_and_parameterization_language() -> None:
     text = Path("src/rasai/rasai_readiness_reporting.py").read_text(encoding="utf-8")
     assert "Por que o SARI chegou a este resultado e como melhorar" in text
-    assert "O Overall herda a menor Confidence" in text
+    assert "a Confidence qualifica a força da medição" in text
     assert "não um erro do RASAi" in text
     assert "O que reduz o score e pode ser melhorado" in text
+    assert "Alterar parâmetros amplia a matriz de medição" in text
 
 
 def test_all_report_contracts_receive_operational_reading_governance() -> None:
     text = Path("src/rasai/report_registry.py").read_text(encoding="utf-8")
     assert "data-report-reading-governance" in text
-    assert "Aumentar parâmetros amplia a matriz de medição" in text
+    assert "score mede a qualidade do universo avaliado" in text
+    assert "Coverage e Confidence medem força/completude da medição" in text
+    assert "UNKNOWN não é convertido em FAIL" in text
 
 
 def test_ruleset_documentation_includes_055_056() -> None:
