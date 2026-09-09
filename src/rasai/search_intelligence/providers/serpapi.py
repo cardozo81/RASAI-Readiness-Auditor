@@ -1,7 +1,6 @@
 """SerpApi adapter. All vendor-specific request/response details stay here."""
 from __future__ import annotations
 
-from dataclasses import replace
 from datetime import datetime, timezone
 import json
 import socket
@@ -34,13 +33,14 @@ from ..provider import (
 )
 
 _OpenUrl = Callable[..., Any]
+_GOOGLE_PAGE_SIZE = 10
 
 
 class SerpApiProvider(SerpProvider):
     provider_id = "serpapi"
     data_mode = SerpDataMode.OBSERVED_API
     supported_engines = ("google",)
-    endpoint = "https://serpapi.com/search.json"
+    endpoint = "https://serpapi.com/search"
 
     def __init__(
         self,
@@ -85,7 +85,7 @@ class SerpApiProvider(SerpProvider):
                     now = self._monotonic()
             self._last_started = now
 
-    def _request_url(self, request: SerpQueryRequest) -> str:
+    def _request_url(self, request: SerpQueryRequest, *, start: int) -> str:
         engine = request.engine.strip().casefold()
         if not self.supports_engine(engine):
             raise SerpUnsupportedEngine(
@@ -104,14 +104,15 @@ class SerpApiProvider(SerpProvider):
             "gl": request.country.strip().casefold(),
             "hl": language,
             "device": device,
-            "num": request.depth,
         }
+        if start:
+            params["start"] = start
         if request.region and request.region.strip():
             params["location"] = request.region.strip()
         return self.endpoint + "?" + urlencode(params)
 
-    def _fetch(self, request: SerpQueryRequest) -> bytes:
-        url = self._request_url(request)
+    def _fetch(self, request: SerpQueryRequest, *, start: int) -> bytes:
+        url = self._request_url(request, start=start)
         last_error: Exception | None = None
         for attempt in range(self._retries + 1):
             if self._budget is not None:
@@ -142,13 +143,29 @@ class SerpApiProvider(SerpProvider):
             raise SerpProviderUnavailable(f"SerpApi HTTP {last_error.code}") from last_error
         raise SerpProviderUnavailable("SerpApi request unavailable") from last_error
 
+    def _decode_payload(self, raw: bytes) -> dict[str, Any]:
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise SerpMalformedResponse("SerpApi returned invalid JSON") from exc
+        if not isinstance(payload, dict):
+            raise SerpMalformedResponse("SerpApi response root must be an object")
+        if payload.get("error"):
+            message = str(payload["error"]).replace(self._api_key, "[REDACTED]")
+            raise SerpProviderError(f"SerpApi returned provider error: {message[:240]}")
+        return payload
+
     @staticmethod
     def _parse_collected_at(payload: dict[str, Any]) -> datetime:
         metadata = payload.get("search_metadata")
         if isinstance(metadata, dict):
             created_at = metadata.get("created_at")
             if created_at:
-                text = str(created_at).replace("Z", "+00:00")
+                text = str(created_at).strip()
+                if text.endswith(" UTC"):
+                    text = text[:-4] + "+00:00"
+                else:
+                    text = text.replace("Z", "+00:00")
                 try:
                     parsed = datetime.fromisoformat(text)
                 except ValueError:
@@ -160,7 +177,9 @@ class SerpApiProvider(SerpProvider):
         return utc_now()
 
     @staticmethod
-    def _normalize_results(payload: dict[str, Any]) -> tuple[tuple[SerpResult, ...], dict[str, Any]]:
+    def _normalize_results(
+        payload: dict[str, Any], *, position_offset: int
+    ) -> tuple[tuple[SerpResult, ...], dict[str, Any]]:
         organic = payload.get("organic_results", [])
         if organic is None:
             organic = []
@@ -179,13 +198,14 @@ class SerpApiProvider(SerpProvider):
                 dropped += 1
                 continue
             try:
-                position = int(item.get("position", index))
+                local_position = int(item.get("position", index))
             except (TypeError, ValueError):
                 dropped += 1
                 continue
-            if position <= 0:
+            if local_position <= 0:
                 dropped += 1
                 continue
+            position = position_offset + local_position
             key = (position, url)
             if key in seen:
                 dropped += 1
@@ -219,21 +239,74 @@ class SerpApiProvider(SerpProvider):
             "dropped_results": dropped,
         }
 
+    @staticmethod
+    def _has_next_page(payload: dict[str, Any]) -> bool:
+        pagination = payload.get("serpapi_pagination")
+        if not isinstance(pagination, dict):
+            return False
+        return bool(pagination.get("next") or pagination.get("next_link"))
+
     def observe(self, request: SerpQueryRequest) -> ProviderObservation:
         request.validate()
-        raw = self._fetch(request)
-        try:
-            payload = json.loads(raw.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise SerpMalformedResponse("SerpApi returned invalid JSON") from exc
-        if not isinstance(payload, dict):
-            raise SerpMalformedResponse("SerpApi response root must be an object")
-        if payload.get("error"):
-            message = str(payload["error"]).replace(self._api_key, "[REDACTED]")
-            raise SerpProviderError(f"SerpApi returned provider error: {message[:240]}")
-        results, quality = self._normalize_results(payload)
-        metadata = payload.get("search_metadata")
-        request_id = str(metadata.get("id")) if isinstance(metadata, dict) and metadata.get("id") else None
+        pages: list[dict[str, Any]] = []
+        results: list[SerpResult] = []
+        request_ids: list[str] = []
+        collected_at_values: list[datetime] = []
+        raw_organic_count = 0
+        dropped_results = 0
+        pagination_ended = False
+        page_offsets = tuple(range(0, request.depth, _GOOGLE_PAGE_SIZE))
+
+        for page_number, start in enumerate(page_offsets, 1):
+            raw = self._fetch(request, start=start)
+            payload = self._decode_payload(raw)
+            pages.append(payload)
+            page_results, page_quality = self._normalize_results(
+                payload, position_offset=start
+            )
+            results.extend(
+                item for item in page_results if item.position <= request.depth
+            )
+            raw_organic_count += int(page_quality["raw_organic_result_count"])
+            dropped_results += int(page_quality["dropped_results"])
+
+            metadata = payload.get("search_metadata")
+            if isinstance(metadata, dict) and metadata.get("id"):
+                request_ids.append(str(metadata["id"]))
+            collected_at_values.append(self._parse_collected_at(payload))
+
+            if page_number < len(page_offsets) and not self._has_next_page(payload):
+                pagination_ended = True
+                break
+
+        results.sort(key=lambda result: result.position)
+        quality: dict[str, Any] = {
+            "page_size": _GOOGLE_PAGE_SIZE,
+            "pages_requested_ceiling": len(page_offsets),
+            "pages_collected": len(pages),
+            "raw_organic_result_count": raw_organic_count,
+            "dropped_results": dropped_results,
+            "pagination_ended_before_requested_depth": pagination_ended,
+        }
+        if request_ids:
+            quality["provider_request_ids"] = tuple(request_ids)
+        if collected_at_values:
+            quality["collection_window_start"] = min(collected_at_values).isoformat()
+            quality["collection_window_end"] = max(collected_at_values).isoformat()
+
+        raw_evidence = json.dumps(
+            {
+                "provider": self.provider_id,
+                "engine": request.engine.strip().casefold(),
+                "requested_depth": request.depth,
+                "pages": pages,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        provider_request_id = request_ids[0] if len(request_ids) == 1 else None
+        collected_at = min(collected_at_values) if collected_at_values else utc_now()
         observation = SerpObservation(
             observation_id=new_identifier("SERP"),
             run_id=request.run_id,
@@ -244,15 +317,15 @@ class SerpApiProvider(SerpProvider):
             region=request.region,
             language=request.language,
             device=request.device.strip().casefold(),
-            collected_at=self._parse_collected_at(payload),
+            collected_at=collected_at,
             provider=self.provider_id,
-            provider_request_id=request_id,
+            provider_request_id=provider_request_id,
             requested_depth=request.depth,
             result_count=len(results),
-            results=results,
+            results=tuple(results),
             data_mode=self.data_mode,
             status=SerpObservationStatus.OBSERVED,
             config_metadata=dict(request.config_metadata),
             quality_metadata=quality,
         )
-        return ProviderObservation(observation=observation, raw_evidence=raw)
+        return ProviderObservation(observation=observation, raw_evidence=raw_evidence)
