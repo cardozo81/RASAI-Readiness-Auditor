@@ -14,7 +14,7 @@ Esta capacidade não cria novo score, não altera `SARI-001` e não recalcula `S
 
 1. execução determinística é fonte de verdade dos diagnósticos técnicos;
 2. LLM não escolhe pesos, thresholds, Score, Coverage, Confidence ou Consolidation; somente uma saída evidence-bound válida pode ser convertida pelo runtime nas regras bounded BR-GEO-055/056;
-3. diagnósticos próprios permanecem advisory com `scoring_impact=NONE`; quando BR-GEO-055/056 são materializadas, `m24_runs.scoring_impact=BOUNDED_AI_RESOURCE_ASSESSMENT`;
+3. diagnósticos próprios permanecem advisory com `scoring_impact=NONE`; quando BR-GEO-055/056 são materializadas, o estado persistido registra `BOUNDED_AI_RESOURCE_ASSESSMENT` sem expor o nome físico da tabela interna como contrato público;
 4. falha desta camada é fail-open em relação ao audit principal;
 5. ausência de `llms.txt` não reduz readiness;
 6. políticas de crawlers com finalidades diferentes não são tratadas como equivalentes;
@@ -72,15 +72,7 @@ A IA recebe apenas diagnóstico/evidence persistidos, não inventa URL/policy/ca
 
 ## 8. Persistence and report
 
-Tabelas aditivas próprias incluem:
-
-```text
-m24_runs
-m24_diagnostics
-m24_ai_results
-```
-
-Artifacts podem ser persistidos em `artifacts/m24/`.
+A capacidade usa persistência aditiva no `audit.db` para execução, diagnósticos e resultados técnicos opcionais de IA. Os nomes físicos das tabelas e dos subdiretórios de artifacts são detalhes internos e não constituem contrato público.
 
 Página canônica:
 
