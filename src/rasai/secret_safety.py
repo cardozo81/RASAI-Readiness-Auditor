@@ -67,14 +67,16 @@ _SAFE_EXACT_PLACEHOLDERS = frozenset({
     "credential", "credentials", "value", "key", "senha",
 })
 _CONFIG_LIKE_SUFFIXES = frozenset({
-    ".toml", ".ini", ".json", ".yml", ".yaml", ".cmd", ".ps1", ".env",
+    ".toml", ".ini", ".json", ".yml", ".yaml", ".env",
 })
 _SCAN_SUFFIXES = frozenset({
     ".py", ".md", ".txt", ".toml", ".ini", ".json", ".yml", ".yaml", ".cmd", ".ps1",
 })
 _SCAN_NAMES = frozenset({".gitignore", "Dockerfile"})
 _SCAN_EXCLUSIONS = frozenset({"src/rasai/secret_safety.py", "tests/test_secret_safety.py"})
-_SAFE_ENV_EXAMPLE_NAMES = frozenset({".env.example", ".env.sample", ".env.template"})
+_SAFE_ENV_EXAMPLE_NAMES = frozenset({
+    ".env.example", ".env.sample", ".env.template", ".env.postgres.example",
+})
 
 
 @dataclass(frozen=True, slots=True)
