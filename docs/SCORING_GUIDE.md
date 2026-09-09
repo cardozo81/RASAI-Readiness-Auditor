@@ -108,7 +108,6 @@ Overall Confidence = HIGH ou MEDIUM
 
 Resultado calculável abaixo desse gate pode ser `PARTIAL` quando a Coverage é de pelo menos 50% e a Confidence está disponível. Estado insuficiente nunca vira zero.
 
-
 ### Soft-404 e Coverage de Indexability
 
 `BR-GEO-016` é avaliada com evidência de estado renderizado quando disponível. Ela não pode permanecer `UNKNOWN` apenas por fronteira interna entre módulos. `BR-GEO-016` e `BR-GEO-023` pertencem ao grupo `INDEXABILITY / SOFT_ERROR`; o agrupamento impede peso duplicado quando ambas observam o mesmo contexto de soft-404.
@@ -218,7 +217,6 @@ scoring.html    fórmula, versão vigente, gates e rastreabilidade do método
 
 O arquivo `scoring.html` é deliberadamente **version-neutral**. A versão efetiva pertence ao campo persistido `scoring_version` e ao conteúdo da página. Assim, uma futura revisão metodológica não quebra bookmarks, links internos, automações ou rotas do produto apenas por mudar de `SCORE-GEO-004` para outra versão.
 
-
 Relatórios consolidados preservam `scoring_version` como parte da comparabilidade. Auditorias de versões diferentes não devem ser normalizadas silenciosamente como se fossem equivalentes.
 
 ## Limite de validade
@@ -244,7 +242,6 @@ A ausência isolada de `robots.txt` ou sitemap não recebe `FAIL` automático. R
 
 A página canônica **Search & AI Readiness** expõe uma seção `SARI - inputs técnicos de descoberta` com BR-GEO-003, BR-GEO-017 e BR-GEO-018, seus resultados persistidos e o papel efetivo no score. BR-GEO-017 e BR-GEO-018 compartilham o grupo `ROBOTS`, portanto o SCORE-GEO-004 usa a regra representativa mais restritiva do grupo por dispositivo para evitar peso duplicado. Os diagnósticos aprofundados de crawling/discovery continuam advisory/non-scoring; isso não remove a participação das regras determinísticas básicas no SARI.
 
-
 ## Refinamento pré-publicação: discovery, JSON-LD e fatores estáticos
 
 - `robots.txt` e sitemap ausentes não recebem o mesmo fator de um recurso encontrado e utilizável; a ausência é uma lacuna pequena, não uma falha dura de crawling.
@@ -263,4 +260,4 @@ A página canônica **Search & AI Readiness** expõe uma seção `SARI - inputs 
 
 `readiness.html` é a superfície que centraliza SARI, pontuação por dimensão, Cobertura, Confiança e Consolidação. `mobile.html` e `desktop.html` preservam evidências/findings por dispositivo e não devem duplicar a função de página canônica do índice.
 
-A projeção deve consultar o schema efetivamente persistido de cada módulo. Em particular, `m24_runs` possui uma linha por `audit_id` e usa `updated_at`; a geração do SARI não depende de uma coluna `completed_at` inexistente. Uma falha de projeção não pode ser confundida com falha de scoring: o score já persistido continua sendo a fonte de verdade, mas a auditoria deve sinalizar a falha operacional até que o HTML seja materializado corretamente.
+A projeção deve consultar o schema efetivamente persistido de cada capacidade. Para Crawling & Discovery, a execução persistida possui uma linha por `audit_id` e usa `updated_at`; a geração do SARI não depende de uma coluna `completed_at` inexistente. O nome físico da tabela é detalhe interno e não integra o contrato documental. Uma falha de projeção não pode ser confundida com falha de scoring: o score já persistido continua sendo a fonte de verdade, mas a auditoria deve sinalizar a falha operacional até que o HTML seja materializado corretamente.

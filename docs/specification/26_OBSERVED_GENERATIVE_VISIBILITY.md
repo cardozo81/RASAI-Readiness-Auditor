@@ -40,7 +40,7 @@ Invalid runs stay outside numerator and denominator. Sample size and Wilson 95% 
 
 URLs subject to same-origin validation must belong to an audited `normalized_origin`.
 
-Artifacts are preserved under `artifacts/m26/` with SHA-256 and declared capture/source metadata. Reimport is idempotent under the deterministic import identity.
+Artifacts are preserved in the audit workspace under the internal artifact area for Observed Generative Visibility, with SHA-256 and declared capture/source metadata. The physical subdirectory name is an implementation detail and is not part of the public contract. Reimport is idempotent under the deterministic import identity.
 
 Tables include:
 

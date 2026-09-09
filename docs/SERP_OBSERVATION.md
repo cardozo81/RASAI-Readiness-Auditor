@@ -1,21 +1,25 @@
 # SERP Observation - Search Intelligence foundation
 
-Status: **implemented foundation / POC**.
+Status: **implemented provider-neutral foundation / POC**.
 
-This milestone adds a provider-neutral SERP observation layer to RASAi. It does **not** implement Competitive Content Intelligence, AI Search observation, historical rank tracking, Search Console ingestion, investment recommendations, or a new HTML report.
+SERP Observation is the evidence layer beneath RASAI Competitive Search & Content Intelligence. The provider contract remains independent from content analysis: SERP adapters observe and normalize Search results; downstream modules classify and compare those canonical results without importing vendor response semantics.
+
+For the deterministic competitive layer, see `docs/COMPETITIVE_SEARCH_INTELLIGENCE.md`.
 
 ## 1. Scope and semantics
 
-SERP means **Search Engine Results Page**. The model is intentionally not Google-specific. `engine` is part of the canonical request and observation contract. The first live adapter currently implemented is **SerpApi for Google organic results**; future adapters can add Bing, Brave or other traditional Search engines without changing Search Intelligence analysis code.
+SERP means **Search Engine Results Page**. The model is not Google-specific. `engine` is part of the canonical request/observation contract. The first live adapter is **SerpApi for Google organic results**; future adapters can support other traditional Search providers without changing analysis code.
 
 Traditional Search and AI observation remain separate concepts:
 
 - Search Observation: Google, Bing and other traditional search engines.
-- AI Observation: ChatGPT, Gemini, Claude, Perplexity, Copilot and similar answer engines - **not implemented by this SERP module**.
+- AI Observation: ChatGPT, Gemini, Claude, Perplexity, Copilot and similar answer engines - not implemented by this SERP module.
 
-The SERP layer never executes IA and does not infer causality. It observes results, normalizes them and derives only bounded facts such as whether the configured domain was found within the requested depth and which observed results precede it.
+SERP Observation never executes IA and never infers ranking causality. It records bounded facts: result ordering, whether the configured domain was found within the requested depth, and which observed results precede it.
 
-## 2. Implemented architecture
+The next implemented downstream layer can additionally classify those results and, only with explicit opt-in, compare deterministic content features. That downstream capability remains non-scoring and provider-neutral.
+
+## 2. Architecture
 
 ```text
 CMD / future Web API
@@ -26,93 +30,93 @@ Search Intelligence application service
         v
 SerpProvider contract
         |
-        +-- FixtureSerpProvider   (implemented)
-        +-- SerpApiProvider      (implemented; Google live)
-        +-- future adapters      (Bing/DataForSEO/distributed probes/...)
+        +-- FixtureSerpProvider
+        +-- SerpApiProvider (Google live)
+        +-- future adapters
         |
         v
 canonical SerpObservation / SerpResult
         |
         +-- domain position / results-ahead analysis
-        +-- additive audit.db persistence (when an audit workspace is supplied)
-        +-- raw evidence artifact (when available)
+        +-- audit.db persistence + raw evidence
+        |
+        +--> optional Competitive Search Intelligence
+             +-- deterministic result classification
+             +-- bounded candidate selection
+             +-- optional public-page comparison
 ```
 
-`SearchIntelligenceService` depends only on the `SerpProvider` abstraction. Vendor request parameters, response keys, retries and normalization details are confined to the concrete adapter. There is no `if provider == "serpapi"` logic inside the Search Intelligence service.
-
-Provider construction lives in the runtime/composition layer. This is the only layer that knows which concrete adapters are installed.
+`SearchIntelligenceService` depends only on `SerpProvider`. Vendor request parameters, response keys, retries and normalization stay in concrete adapters. Provider construction lives in the runtime/composition layer.
 
 ## 3. Modes
 
 ### disabled
 
-Default. No provider is built, no external request is executed and no SERP observation is persisted. Existing RASAi audits, SCORE-GEO-004, SARI-001, reports, IA-off mode, Lighthouse/CrUX and current CLI behavior remain independent of SERP.
+Default. No provider is built, no external request is executed and no SERP observation is persisted. Existing audit, SCORE-GEO-004, SARI-001, reports and other integrations remain independent.
 
 ### fixture
 
-Reads a canonical JSON fixture from disk. It performs **zero network requests** and marks the observation as `FIXTURE`. This mode is intended for tests, CI, regression, local development and demos without quota consumption.
+Reads canonical JSON from disk, performs zero network requests and emits `Data mode: FIXTURE`. Intended for tests, CI, local development and demos without provider quota.
 
-Fixtures must never be presented as observed live data.
+Fixture data must never masquerade as live evidence.
 
 ### live
 
-Builds the configured live adapter. The first implementation is `serpapi`, currently supporting `engine=google`, `device=mobile|desktop` and organic results. Unsupported engines/devices fail explicitly rather than being silently coerced.
+Builds the configured provider adapter. Current implementation supports `serpapi` with Google organic results and mobile/desktop device context.
 
-For Google through SerpApi, the adapter collects results in provider pages of up to 10 organic positions. Depths above 10 are requested by advancing the provider `start` offset in increments of 10. Pagination stops early when the provider response does not expose a next page.
+For Google through SerpApi, provider pages contain up to 10 organic positions. Depth above 10 advances `start` by 10. Pagination stops if the provider exposes no next page.
 
-## 4. Canonical model
+## 4. Canonical contracts
 
 ### `SerpQueryRequest`
 
-- `query`
-- `engine`
-- `country`
-- `region`
-- `language`
-- `device`
-- `depth`
-- `requested_at`
-- `domain_of_interest` (optional in the model; required by the current `rasai search` ranking command)
-- `run_id`
-- `query_origin`
-- provider-independent configuration metadata
+- query
+- engine
+- country
+- region
+- language
+- device
+- depth
+- requested timestamp
+- domain of interest
+- run id
+- query origin
+- provider-independent metadata
 
-`query_origin` currently supports `MANUAL`, `SEARCH_CONSOLE`, `BING_WEBMASTER`, `PAGE_CONTENT`, `AI_HYPOTHESIS`, `SERP_RELATED`, `COMPETITOR_DISCOVERY` and `EXTERNAL`. These values describe provenance only; they do not imply those integrations are implemented.
+`query_origin` supports `MANUAL`, `SEARCH_CONSOLE`, `BING_WEBMASTER`, `PAGE_CONTENT`, `AI_HYPOTHESIS`, `SERP_RELATED`, `COMPETITOR_DISCOVERY` and `EXTERNAL`. These describe provenance only.
 
 ### `SerpObservation`
 
-- `observation_id`
-- `run_id`
-- query and query origin
-- engine / country / region / language / device
+- observation id
+- run id and query provenance
+- engine/market/language/device
 - collection timestamp
 - provider and optional provider request id
 - requested depth
-- normalized result count
-- normalized `results[]`
+- normalized results
 - data mode
-- observation status
-- optional raw evidence reference + SHA-256
-- configuration and quality metadata
+- status
+- raw evidence reference + SHA-256 when persisted
+- config/quality metadata
 
-When a live observation spans more than one provider page, `provider_request_id` is intentionally left unset as a singular field. The complete set of provider request IDs is preserved in `quality_metadata.provider_request_ids`; the same metadata records pages collected and collection-window timestamps.
+For multi-page observations, the singular `provider_request_id` is left unset and the complete request-id list is preserved in `quality_metadata.provider_request_ids`.
 
 ### `SerpResult`
 
-- `position`
+- absolute position
 - normalized domain
 - URL
 - title
 - snippet
 - result type
-- provider-independent SERP feature names when mapped
-- provider-independent metadata when useful
+- normalized SERP feature names
+- provider-independent metadata
 
-The vendor JSON is **not** embedded in canonical model objects. When available it is stored only as opaque raw evidence.
+Vendor JSON does not enter canonical model objects.
 
-## 5. Data provenance
+## 5. Provenance
 
-Supported canonical data modes are:
+Canonical data modes:
 
 - `OBSERVED_API`
 - `OBSERVED_SYNTHETIC`
@@ -121,116 +125,105 @@ Supported canonical data modes are:
 - `MODELED`
 - `AI_INFERRED`
 
-This milestone actively emits `OBSERVED_API` for SerpApi and `FIXTURE` for fixture mode. The other values reserve explicit provenance semantics for future sources; they are not claims that those sources already exist.
+Current providers actively emit `OBSERVED_API` and `FIXTURE`. The remaining modes reserve explicit provenance semantics for future sources.
 
-Raw JSON evidence is stored under the existing audit workspace `artifacts/serp/<observation>/` only when an existing audit workspace is supplied. JSON evidence is recursively scrubbed for field names that look like API keys, tokens, passwords, credentials, authorization values or secrets before persistence.
+Raw provider evidence is stored only when an existing audit workspace is supplied. Secret-looking fields such as API keys, tokens, passwords, credentials and authorization values are recursively redacted before persistence.
 
-For multi-page SerpApi observations, raw evidence contains a provider-neutral wrapper with the requested depth and the individual provider page payloads. This preserves the evidence used to derive absolute positions while keeping vendor JSON outside canonical domain models.
+## 6. Domain/depth semantics
 
-## 6. Domain matching and depth semantics
+Domain matching normalizes case, IDN hostnames and presentation-only `www.`. A configured root domain matches its subdomains; configuring a subdomain does not claim its parent domain.
 
-The domain matcher normalizes case, IDN hostnames and the presentation-only `www.` prefix. A configured root domain also matches its subdomains. A configured subdomain does not automatically claim its parent domain.
+Statuses:
 
-The first matching result determines the observed customer position. Multiple results from the same domain remain valid SERP rows. The derived list of competitor domains ahead is de-duplicated while preserving observed order.
+- `FOUND`
+- `NOT_FOUND_WITHIN_DEPTH`
+- `NOT_REQUESTED`
+- `UNAVAILABLE`
+- `ERROR`
+- `DISABLED`
 
-Statuses are explicit:
+**`NOT_FOUND_WITHIN_DEPTH` does not mean that the domain does not rank.** It states only that the domain was absent from the results actually observed within the requested ceiling.
 
-- `FOUND`: the domain was found inside the requested depth.
-- `NOT_FOUND_WITHIN_DEPTH`: the domain was not present in the observed results up to the requested depth.
-- `UNAVAILABLE`: the provider/request was unavailable.
-- `ERROR`: provider payload/configuration could not be interpreted safely.
-- `DISABLED`: SERP mode is disabled.
-- `NOT_REQUESTED`: canonical observation exists but no domain was requested for matching.
-
-**`NOT_FOUND_WITHIN_DEPTH` does not mean "the domain does not rank".** If depth is 10 and the domain is at position 37, the correct result remains `NOT_FOUND_WITHIN_DEPTH` for that observation.
-
-If the provider indicates that pagination ended before the requested depth, the observation records `pagination_ended_before_requested_depth=true` in quality metadata. Result count, provider page count and normalized positions remain available so downstream consumers can distinguish the requested ceiling from the actual response material collected.
+If provider pagination ends early, quality metadata records `pagination_ended_before_requested_depth=true`.
 
 ## 7. Persistence
 
-When `--audit-workspace` is supplied, SERP uses the existing workspace database (`audit.db`) and artifacts directory. It does not create a parallel database.
+With `--audit-workspace`, SERP uses the existing `audit.db` and artifacts directory.
 
-Additive tables:
+SERP foundation tables:
 
 - `serp_observations`
 - `serp_results`
 
-The tables keep audit/run/query/engine/market/device/timestamp/provider/depth/data-mode/status/raw-evidence provenance and normalized results. Existing audit/scoring tables are not modified by SERP analysis.
+Competitive Search Intelligence adds separate additive tables only when invoked:
 
-Without `--audit-workspace`, the command returns/prints the observation but does not invent a second persistence location.
+- `serp_competitive_analyses`
+- `serp_competitive_results`
+- `serp_competitive_pages`
 
-## 8. POC safeguards and cost control
+No Search Intelligence table changes SCORE-GEO-004 or SARI-001.
 
-Environment defaults are conservative:
+## 8. Provider safeguards and cost control
 
 | Variable | Default | Purpose |
 |---|---:|---|
-| `RASAI_SERP_MODE` | `disabled` | global opt-in mode |
+| `RASAI_SERP_MODE` | `disabled` | global opt-in |
 | `RASAI_SERP_PROVIDER` | `serpapi` | live adapter id |
-| `RASAI_SERPAPI_API_KEY` | unset | BYOK SerpApi key; secret |
-| `RASAI_SERP_FIXTURE_PATH` | unset | canonical fixture path |
-| `RASAI_SERP_MAX_QUERIES` | `10` | max queries in one execution |
-| `RASAI_SERP_MAX_REQUESTS` | `10` | hard HTTP request budget |
-| `RASAI_SERP_MAX_DEPTH` | `20` | max requested depth |
-| `RASAI_SERP_MAX_COMPETITORS` | `10` | max unique derived competitor domains |
-| `RASAI_SERP_TIMEOUT_SECONDS` | `20` | timeout per live HTTP attempt |
-| `RASAI_SERP_RETRIES` | `1` | bounded retries after first attempt |
-| `RASAI_SERP_MIN_INTERVAL_SECONDS` | `1` | minimum interval between live request starts |
+| `RASAI_SERPAPI_API_KEY` | unset | BYOK SerpApi key |
+| `RASAI_SERP_FIXTURE_PATH` | unset | fixture path |
+| `RASAI_SERP_MAX_QUERIES` | `10` | query ceiling |
+| `RASAI_SERP_MAX_REQUESTS` | `10` | provider HTTP-attempt budget |
+| `RASAI_SERP_MAX_DEPTH` | `20` | requested depth ceiling |
+| `RASAI_SERP_MAX_COMPETITORS` | `10` | derived competitor/candidate ceiling |
+| `RASAI_SERP_TIMEOUT_SECONDS` | `20` | provider timeout |
+| `RASAI_SERP_RETRIES` | `1` | bounded retries |
+| `RASAI_SERP_MIN_INTERVAL_SECONDS` | `1` | minimum request-start interval |
 
-The SerpApi Google adapter uses a 10-result provider page size. Before provider construction, the runtime computes a depth-aware **worst-case HTTP request ceiling** for each query as:
+Worst-case provider HTTP attempts per query:
 
 ```text
 ceil(depth / 10) * (retries + 1)
 ```
 
-For multiple queries, the ceilings are summed. For example, one query at depth 20 with the default one retry has a worst-case ceiling of four HTTP attempts: two provider pages, each with up to two attempts. If the projected ceiling exceeds `RASAI_SERP_MAX_REQUESTS`, execution is blocked before any external request.
+The runtime blocks before provider construction if projected attempts exceed `RASAI_SERP_MAX_REQUESTS`, and the hard request budget is also consumed per actual attempt.
 
-The hard request budget is also consumed at HTTP-attempt time, so retries and additional pages cannot exceed the configured ceiling even after execution starts.
+`--dry-run` validates these limits without external provider calls.
 
-`--dry-run` validates the same query/depth/request ceilings without provider construction and without consuming quota.
-
-RASAi does not invent a monetary SerpApi price. Actual cost depends on the customer's provider plan and quota. This milestone tracks/limits request count; provider account/billing telemetry is not yet integrated.
+RASAI does not invent monetary provider pricing. Provider plan/quota determines actual API cost.
 
 ## 9. Security
 
-- no provider API key is hardcoded;
-- `RASAI_SERPAPI_API_KEY` is read from the process environment/BYOK configuration;
-- the key is never printed by the SERP CLI;
-- vendor-specific URLs containing the key are not propagated into canonical models or error messages;
-- raw JSON evidence is secret-scrubbed before disk persistence;
-- external payloads are treated as untrusted and validated;
-- result URLs with unsupported schemes, credentials or invalid hostnames are dropped from normalized results and counted in quality metadata;
-- tests use fixtures/mocks and never require a real provider key or network.
+- BYOK only; no provider key is hardcoded.
+- Provider key is never printed.
+- Vendor URLs containing secrets are not propagated to canonical objects/errors.
+- Raw JSON evidence is secret-scrubbed before disk persistence.
+- External payloads are untrusted and validated.
+- Invalid result URLs/schemes/credentials are rejected by normalization.
+- CI uses fixtures/mocks and no live provider/network.
+- Optional competitor-page acquisition has a separate public-web safety boundary documented in `COMPETITIVE_SEARCH_INTELLIGENCE.md`.
 
-## 10. CLI / CMD usage
+## 10. CLI
 
-The top-level RASAi router exposes both `search` and the technical alias `serp`.
+The top-level router exposes `search` and technical alias `serp`.
 
-### Default / disabled
+Default/disabled:
 
 ```powershell
 rasai search "seguro residencial cobre enchente" --domain loja.exemplo.com.br
 ```
 
-With default configuration this returns `DISABLED` and performs zero external requests.
-
-### Dry-run before live usage
+Dry-run:
 
 ```powershell
 $env:RASAI_SERP_MODE="live"
 $env:RASAI_SERPAPI_API_KEY="<BYOK>"
 rasai search "seguro residencial cobre enchente" `
   --domain loja.exemplo.com.br `
-  --country BR `
-  --region "Porto Alegre, RS, Brazil" `
-  --device mobile `
   --depth 20 `
   --dry-run
 ```
 
-With the default `RASAI_SERP_RETRIES=1`, depth 20 projects a maximum of four HTTP attempts for this single query.
-
-### Live SerpApi / Google
+Live:
 
 ```powershell
 $env:RASAI_SERP_MODE="live"
@@ -245,7 +238,7 @@ rasai search "seguro residencial cobre enchente" `
   --depth 20
 ```
 
-### Fixture mode
+Fixture:
 
 ```powershell
 $env:RASAI_SERP_MODE="fixture"
@@ -254,21 +247,32 @@ rasai search "seguro residencial cobre enchente" `
   --fixture tests\fixtures\serp\canonical_google.json
 ```
 
-Fixture output is marked `Data mode: FIXTURE`.
+Deterministic competitive classification, no extra network:
 
-### Persist into an existing RASAi audit workspace
+```powershell
+rasai search "seguro residencial cobre enchente" `
+  --domain cliente.example `
+  --mode fixture `
+  --fixture tests\fixtures\serp\canonical_google.json `
+  --competitive
+```
+
+Optional content comparison:
 
 ```powershell
 rasai search "seguro residencial cobre enchente" `
   --domain loja.exemplo.com.br `
-  --mode fixture `
-  --fixture tests\fixtures\serp\canonical_google.json `
-  --audit-workspace audits\<AUDIT_ID>
+  --mode live `
+  --depth 20 `
+  --compare-content `
+  --max-content-pages 3
 ```
 
-This writes to that workspace's `audit.db` and `artifacts/`; it does not modify scoring.
+Persist to an existing workspace by adding `--audit-workspace audits\<AUDIT_ID>`.
 
-## 11. Canonical fixture format
+## 11. Fixture contract
+
+Canonical fixture example:
 
 ```json
 {
@@ -289,48 +293,59 @@ This writes to that workspace's `audit.db` and `artifacts/`; it does not modify 
 }
 ```
 
-Context fields present in a fixture must match the corresponding request. Omitting an optional context field makes the fixture reusable for that field; it does not turn fixture data into live evidence.
+Context values present in a fixture must match the request. Omitting an optional context field makes the fixture reusable for that field.
 
 ## 12. Search Console is not SERP
 
-Future Search Console ingestion will represent aggregated historical first-party metrics such as impressions, clicks, CTR and average position. SERP observation is a point-in-time controlled observation of a specific query/engine/market/device/depth.
+Future Search Console ingestion represents aggregated historical first-party metrics such as impressions, clicks, CTR and average position. SERP Observation is a point-in-time controlled query/engine/market/device/depth observation.
 
-A future difference between Search Console average position and a current SERP observation is therefore not inherently an error.
+A difference between Search Console average position and one current SERP observation is not inherently an error.
 
-## 13. HTML report decision for this milestone
+## 13. Competitive layer relationship
 
-No new HTML report is introduced yet. The foundation persists canonical observations and exposes them via the CLI. This avoids presenting Competitive Content Intelligence, content gaps or recommendations before those capabilities exist.
+Competitive Search & Content Intelligence is now implemented as an optional downstream consumer of canonical SERP evidence.
 
-A dedicated Search Intelligence report is appropriate in the next milestone once result selection, competitive comparison and historical/before-after views have a stable public contract.
+It adds:
 
-## 14. Known limitations
+- heuristic result-type classification;
+- bounded candidate selection;
+- optional public-page acquisition;
+- deterministic title/meta/H1-H3/body-query/JSON-LD feature extraction;
+- median-based observed-leader comparisons;
+- content SHA-256 evidence without raw HTML persistence;
+- explicit correlation-only interpretation.
 
-- live adapter currently implements Google through SerpApi only;
-- normalization currently focuses on organic results; rich/non-organic SERP features are not yet modeled as standalone result rows;
-- provider pagination is adapter-specific; the current Google adapter uses 10-position pages and `start` offsets;
-- no provider-account quota/billing endpoint is queried;
-- no historical scheduler/rank tracker yet;
-- no Search Console/Bing Webmaster ingestion yet;
-- no automatic business-competitor classification; observed domains are Search/query competitors only;
-- no Competitive Content Intelligence or AI semantic gap analysis yet;
+It does **not** add ranking causality, AI semantic judgment or scoring impact.
+
+## 14. HTML report decision
+
+No new Search Intelligence HTML report is introduced yet. CLI plus `audit.db`/artifact evidence remain the POC surface while the competitive comparison contract is exercised.
+
+A dedicated report becomes appropriate after historical/before-after and semantic evidence contracts are stable enough to avoid premature UI coupling.
+
+## 15. Known limitations
+
+- live adapter is currently Google via SerpApi;
+- normalized rows focus on organic results;
+- no provider billing/quota endpoint integration;
+- no Search Console/Bing Webmaster ingestion;
+- no historical rank tracker yet;
+- competitive classification is a bounded heuristic, not a commercial entity graph;
+- content comparison is static HTML and non-semantic;
 - no AI Search observation in this package;
-- no distributed regional probes yet;
-- no HTML Search Intelligence report yet.
+- no evidence-bound AI semantic competitive analysis yet;
+- no distributed regional probes;
+- no Search Intelligence HTML report yet.
 
-## 15. Next milestone
+## 16. Next milestones
 
-Recommended next milestone: **Competitive Search & Content Intelligence**.
+The deterministic competitive layer is now the base for **Evidence-bound Semantic Competitive Analysis**:
 
 ```text
-query
--> SERP observation
--> customer ranking
--> selected results ahead
--> public-page crawl using existing RASAi controls
--> structured technical/content comparison
--> evidence-backed gaps
--> optional semantic analysis
--> recommendations expressed as correlations/hypotheses, not causal claims
+query + SERP evidence
++ extracted customer/candidate evidence
+-> bounded semantic comparison
+-> evidence-linked hypotheses/recommendations
 ```
 
-Historical SERP/rank tracking and before/after measurement should follow after the observation and comparison contracts are stable.
+Historical rank tracking and before/after comparison should also follow using the stable query/market/device/observation identity already persisted by Search Intelligence.
