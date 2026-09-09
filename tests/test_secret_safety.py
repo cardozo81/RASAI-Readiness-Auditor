@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 import textwrap
 
 import pytest
 
+from rasai.logging_config import SecretSafeFormatter
 from rasai.property_config import PROPERTY_CONFIG_CONTRACT, load_property_config
 from rasai.secret_safety import (
     PRIVATE_KEY_REDACTED,
@@ -58,6 +60,26 @@ def test_text_and_url_redaction_scrub_headers_tokens_credentials_and_private_key
     assert "TEST_ONLY_COOKIE" not in sanitized
     assert "TEST_ONLY_PRIVATE_KEY_DATA" not in sanitized
     assert PRIVATE_KEY_REDACTED in sanitized
+
+
+def test_logging_formatter_redacts_message_and_exception_material() -> None:
+    formatter = SecretSafeFormatter("%(levelname)s %(message)s")
+    try:
+        raise RuntimeError("database_password=prod-value-93af")
+    except RuntimeError:
+        record = logging.LogRecord(
+            name="rasai.test",
+            level=logging.ERROR,
+            pathname=__file__,
+            lineno=1,
+            msg="Authorization: Bearer live-token-93af",
+            args=(),
+            exc_info=__import__("sys").exc_info(),
+        )
+    rendered = formatter.format(record)
+    assert "live-token-93af" not in rendered
+    assert "prod-value-93af" not in rendered
+    assert REDACTED in rendered
 
 
 def test_detector_allows_explicit_placeholders_but_rejects_inline_material() -> None:
