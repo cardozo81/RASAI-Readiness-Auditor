@@ -19,7 +19,7 @@ O baseline funcional vigente usa:
 3. [`SCORING_GUIDE.md`](SCORING_GUIDE.md) e [`SCORE_GEO_004.md`](SCORE_GEO_004.md) - fórmula, Coverage/Cobertura, Confidence/Confiança e gates.
 4. [`RULES_GUIDE.md`](RULES_GUIDE.md) - regras BR-GEO, evidências e aplicabilidade.
 5. [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md) e [`SYNTHETIC_USER_EXPERIENCE_APDEX.md`](SYNTHETIC_USER_EXPERIENCE_APDEX.md) - experiência sintética independente do SARI.
-6. [`ACCESSIBILITY_PERFORMANCE_DOMAINS.md`](ACCESSIBILITY_PERFORMANCE_DOMAINS.md) - fronteiras entre performance, acessibilidade e readiness.
+6. [`ACCESSIBILITY_PERFORMANCE_DOMAINS.md`](ACCESSIBILITY_PERFORMANCE_DOMAINS.md) e [`LIGHTHOUSE_WEB_QUALITY.md`](LIGHTHOUSE_WEB_QUALITY.md) - fronteiras entre Performance, Accessibility, Best Practices, SEO técnico, Core Web Vitals e readiness.
 7. [`CONSOLIDATED_REPORTING.md`](CONSOLIDATED_REPORTING.md) e [`CONSOLIDATED_REPORTING_VALIDATION.md`](CONSOLIDATED_REPORTING_VALIDATION.md) - séries, comparabilidade e relatório histórico.
 8. [`AI_GUIDE.md`](AI_GUIDE.md), [`AI_PROVIDER_EXTENSIONS.md`](AI_PROVIDER_EXTENSIONS.md) e [`CONTENT_ANALYSIS_CONTEXT.md`](CONTENT_ANALYSIS_CONTEXT.md) - uso de IA, contexto e limites.
 9. [`TECHNICAL_GUIDE.md`](TECHNICAL_GUIDE.md), [`CONFIGURATION.md`](CONFIGURATION.md), [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md) e [`CLI_REFERENCE.md`](CLI_REFERENCE.md) - operação e implantação.
@@ -61,6 +61,10 @@ As referências abaixo sustentam domínios específicos; nenhuma delas homologa 
 - Sitemap protocol: https://www.sitemaps.org/protocol.html
 - Schema.org: https://schema.org/
 - Chrome Lighthouse: https://developer.chrome.com/docs/lighthouse/
+- Lighthouse Performance: https://developer.chrome.com/docs/lighthouse/performance/performance-scoring
+- Lighthouse Accessibility: https://developer.chrome.com/docs/lighthouse/accessibility/scoring
+- Lighthouse Best Practices: https://developer.chrome.com/docs/lighthouse/best-practices/
+- Lighthouse SEO: https://developer.chrome.com/docs/lighthouse/seo/
 - Web Vitals: https://web.dev/vitals/
 - W3C WCAG 2.2: https://www.w3.org/TR/WCAG22/
 - Apdex: https://www.apdex.org/
