@@ -4,30 +4,58 @@ Guia operacional do **Search & AI Readiness Index `SARI-001`**.
 
 ## Método vigente
 
-Todas as novas auditorias usam:
-
 ```text
 scoring_version = SCORE-GEO-004
+overall_aggregation = HIERARCHICAL_WEIGHTED_READINESS_V1
 ```
 
-`SCORE-GEO-004` é determinístico, transparente e reproduzível por auditoria. Não depende de model artifact externo e não representa probabilidade de ranking ou citação.
+O método é determinístico sobre RuleExecutions/evidências persistidas e não representa probabilidade de ranking ou citação.
+
+O produto ainda está em pré-produção. A implementação experimental anterior do mesmo `SCORE-GEO-004` não é contrato ativo; auditorias antigas com o antigo Overall devem ser regeneradas se precisarem ser comparadas.
 
 Contrato completo: [`SCORE_GEO_004.md`](SCORE_GEO_004.md).
 
-## Dimensões
+## Dimensões e pesos
 
-1. `TECHNICAL_ACCESSIBILITY`
-2. `INDEXABILITY`
-3. `CONTENT_EXTRACTABILITY`
-4. `SEMANTIC_STRUCTURE`
-5. `ENTITY_CLARITY`
-6. `STRUCTURED_DATA`
-7. `ANSWERABILITY`
-8. `CITATION_READINESS`
-9. `EVIDENCE_TRUST`
-10. `INTENT_COVERAGE`
+| Dimensão | Peso |
+|---|---:|
+| `DISCOVERY_ACCESS` | 15% |
+| `INDEXABILITY` | 15% |
+| `CONTENT_EXTRACTABILITY` | 15% |
+| `SEMANTIC_STRUCTURE` | 7% |
+| `ENTITY_CLARITY` | 8% |
+| `STRUCTURED_DATA` | 5% |
+| `ANSWERABILITY` | 7% |
+| `CITATION_READINESS` | 7% |
+| `EVIDENCE_TRUST` | 8% |
+| `INTENT_COVERAGE` | 5% |
+| `CONTENT_VALUE` | 8% |
 
-Desktop e Mobile permanecem separados. Somente dispositivos efetivamente auditados são publicados como resultado válido.
+Desktop e Mobile permanecem separados.
+
+`DISCOVERY_ACCESS` é a denominação vigente da dimensão antes conhecida internamente como `TECHNICAL_ACCESSIBILITY`; o objetivo é evitar confusão com Accessibility/WCAG.
+
+## Como o peso é aplicado
+
+A hierarquia é:
+
+```text
+RuleExecution
+→ página/escopo global
+→ scoring_group
+→ dimensão
+→ Overall ponderado
+```
+
+O peso do grupo não é multiplicado pelo número de páginas.
+
+Exemplo conceitual:
+
+```text
+ROBOTS = 15% de DISCOVERY_ACCESS
+```
+
+continua representando essa participação relativa em uma auditoria de 5, 50 ou 500 páginas. Quando o grupo existe em várias páginas, seu peso é dividido pelos escopos aplicáveis.
 
 ## RuleResult
 
@@ -40,32 +68,52 @@ ERROR
 NOT_APPLICABLE
 ```
 
-Somente `PASS`, `WARNING` e `FAIL` entram no denominador do score da dimensão.
-
-`UNKNOWN` e `ERROR` reduzem Coverage e força da conclusão; não são `FAIL`.
-
-`NOT_APPLICABLE` sai do universo aplicável quando legítimo.
-
-## Fórmula das dimensões
+Qualidade:
 
 ```text
 PASS    = 1.00
 WARNING = 0.50 por padrão
 FAIL    = 0.00
-
-Dimension Score = sum(weight x result_factor) / sum(weight evaluated) x 100
 ```
 
-Grupos correlacionados, pré-requisitos, evidência e aplicabilidade fazem parte do contrato versionado.
+`UNKNOWN`/`ERROR` reduzem Coverage; não viram FAIL.
+
+`NOT_APPLICABLE` sai do universo aplicável quando legítimo.
+
+## Dimension Score
+
+```text
+Scope Weight = Group Weight / escopos aplicáveis do grupo
+
+Dimension Score =
+  sum(Scope Weight × Result Factor avaliados)
+  / sum(Scope Weight avaliados)
+  × 100
+```
 
 ## Coverage
 
 ```text
 Dimension Coverage = evaluated applicable weight / total applicable weight
-Overall Coverage = média da Coverage das dimensões aplicáveis
+
+Overall Coverage =
+  sum(Dimension Weight × Dimension Coverage)
+  / sum(Dimension Weight aplicável)
 ```
 
 Coverage mede completude da análise, não qualidade do site.
+
+## Overall
+
+```text
+Overall =
+  sum(Dimension Weight × Dimension Score medido)
+  / sum(Dimension Weight medido e aplicável)
+```
+
+Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador sem receber nota artificial.
+
+Uma dimensão não crítica sem medição suficiente pode reduzir Coverage/Confidence sem apagar automaticamente a nota das dimensões efetivamente medidas. Uma dimensão crítica sem medição suficiente bloqueia Consolidation.
 
 ## Confidence
 
@@ -74,17 +122,17 @@ Dimensão:
 ```text
 HIGH        Coverage >= 90%, evidência completa, zero errors
 MEDIUM      Coverage >= 80%, zero errors
-LOW         existe avaliação abaixo dos critérios acima
+LOW         medição abaixo desses critérios
 UNAVAILABLE Coverage <= 0
 ```
 
 Overall:
 
-```text
-menor Confidence das dimensões aplicáveis
-```
+- `DISCOVERY_ACCESS`, `INDEXABILITY` e `CONTENT_EXTRACTABILITY` são dimensões críticas;
+- qualquer uma delas LOW/UNAVAILABLE mantém Overall Confidence LOW;
+- as demais dimensões influenciam Confidence proporcionalmente aos próprios pesos.
 
-Confidence descreve força da medição e não probabilidade de outcome externo.
+Confidence é força da medição, não chance de outcome externo.
 
 ## Consolidation
 
@@ -92,172 +140,185 @@ Dimensão:
 
 ```text
 CONSOLIDATED     Coverage >= 80% e Confidence HIGH/MEDIUM
-PARTIAL          estado avaliável com Coverage >= 50% abaixo do gate completo
+PARTIAL          Coverage >= 50% abaixo do gate completo
 NOT_CONSOLIDATED Coverage < 50% ou Confidence UNAVAILABLE
-NOT_APPLICABLE   dimensão legitimamente fora do universo aplicável
+NOT_APPLICABLE   fora do universo aplicável
 ```
 
 Overall `CONSOLIDATED` exige:
 
-```text
-todas as dimensões aplicáveis possuem valor
-nenhuma dimensão aplicável = NOT_CONSOLIDATED
-Overall Coverage >= 80%
-Overall Confidence = HIGH ou MEDIUM
-```
+- Overall Coverage >= 80%;
+- Overall Confidence HIGH/MEDIUM;
+- nenhuma dimensão crítica aplicável sem medição suficiente.
 
-Resultado calculável abaixo desse gate pode ser `PARTIAL` quando a Coverage é de pelo menos 50% e a Confidence está disponível. Estado insuficiente nunca vira zero.
+Uma conclusão ruim pode ser `CONSOLIDATED`. Isso significa que o website foi medido com força suficiente e apresentou resultado ruim; Consolidation não é selo de qualidade.
 
-### Soft-404 e Coverage de Indexability
+## Critical Readiness Gates
 
-`BR-GEO-016` é avaliada com evidência de estado renderizado quando disponível. Ela não pode permanecer `UNKNOWN` apenas por fronteira interna entre módulos. `BR-GEO-016` e `BR-GEO-023` pertencem ao grupo `INDEXABILITY / SOFT_ERROR`; o agrupamento impede peso duplicado quando ambas observam o mesmo contexto de soft-404.
+Além do score existem três gates:
 
-## Overall
+| Gate | Principais grupos |
+|---|---|
+| Discovery | `PAGE_ACCESS`, `ROBOTS`, `REDIRECT` |
+| Indexability | `INDEX_DIRECTIVES`, `CANONICAL`, `SOFT_ERROR` |
+| Extraction | `RENDER_ACCESS`, `JS_CONTENT`, `CONTENT_EXTRACTION` |
 
-Contrato:
-
-```text
-EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
-```
-
-Fórmula:
+Estados:
 
 ```text
-Overall = soma dos Dimension Scores aplicáveis / quantidade de dimensões aplicáveis
+PASS
+WARNING
+BLOCKED
+UNKNOWN
 ```
 
-Cada dimensão aplicável possui o mesmo peso no Overall.
+Readiness geral:
 
-Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador e não recebe zero. Uma dimensão aplicável sem valor ou em `NOT_CONSOLIDATED` bloqueia a publicação de Overall consolidado.
+```text
+READY
+ATTENTION
+BLOCKED
+UNKNOWN
+```
+
+Os gates **não truncam o SARI**. O relatório pode mostrar, por exemplo:
+
+```text
+SARI 82
+Consolidation CONSOLIDATED
+Readiness BLOCKED
+Indexability Gate BLOCKED
+```
+
+## Precedência IA × determinístico
+
+No mesmo `scoring_group` e escopo:
+
+```text
+DETERMINISTIC_PRIMARY > AI_CORROBORATIVE
+```
+
+Se existe fato determinístico conclusivo, uma avaliação IA corroborativa não o substitui.
+
+BR-GEO-055/056 compartilham os grupos de sitemap/robots e nunca criam bônus duplicado. IA não escolhe pesos, fatores ou thresholds.
+
+## Content Value
+
+A dimensão `CONTENT_VALUE` usa:
+
+```text
+BR-GEO-057  utilidade/especificidade
+BR-GEO-058  diferenciação/experiência/dado próprio explícito
+BR-GEO-059  profundidade/contexto
+```
+
+Baseline:
+
+```text
+CONTENT-VALUE-BASELINE-001
+```
+
+A baseline é local e evidence-bound. Ela é deliberadamente conservadora: diferenciação não demonstrada fica `UNKNOWN`, não `FAIL`.
 
 ## Structured Data
 
-JSON-LD não é requisito universal para que a auditoria possua Overall.
+Structured Data representa 5% do SARI quando aplicável e não é requisito universal.
 
-Quando `STRUCTURED_DATA` é legitimamente `NOT_APPLICABLE`, a dimensão sai do denominador sem receber nota artificial.
+- N/A legítimo sai do denominador;
+- ausência não deve ser tratada como blocker universal;
+- markup existente inválido/contraditório pode ser desfavorável;
+- propriedades ou “GEO schema” inexistentes não devem ser inventados.
 
-Pré-requisito bloqueado não pode ser tratado como `NOT_APPLICABLE` benigno.
+## Lighthouse / Core Web Vitals
 
-## IA e baseline determinístico
+Os category scores não entram diretamente no SARI:
 
-IA é opcional para o pipeline de scoring. Ela não calcula o score.
+```text
+Lighthouse Performance
+Lighthouse Accessibility
+Lighthouse Best Practices
+Lighthouse SEO
+Core Web Vitals / CrUX
+```
 
-Sem provider, a rule version 2 das regras semânticas `BR-GEO-028..049` usa `SEMANTIC-BASELINE-001` para resolver somente critérios que possuam evidência local suficiente. O baseline não usa rede e não promove lacunas para resultado favorável.
+Um audit individual do Lighthouse só pode ser `CORROBORATIVE_EVIDENCE` quando existir mapeamento explícito para a mesma condição de uma BR-GEO. A nota da categoria nunca é usada como atalho.
 
-Uma execução `NO_AI` pode alcançar `CONSOLIDATED` quando o baseline e as demais regras produzirem Coverage/Confidence suficientes. Se faltarem evidências para regras aplicáveis, `UNKNOWN` continua possível e os gates normais continuam valendo.
+Indisponibilidade de PageSpeed/Lighthouse não reduz o SARI por si só.
 
-Provider semântico válido pode aprofundar avaliações. Auditorias com e sem provider não devem ser consideradas medições semanticamente idênticas sem observar `audit_mode`, rule version e provenance; o cálculo matemático do `SCORE-GEO-004`, porém, é o mesmo.
+## Outcomes externos
 
-Detalhes: [`SEMANTIC_BASELINE.md`](SEMANTIC_BASELINE.md).
+Ficam fora do Overall:
 
-## Métricas externas fora do score
+- SERP/posição;
+- concorrentes;
+- Search Console;
+- impressões/cliques/CTR;
+- Observed Generative Visibility;
+- tráfego e conversão.
 
-Não entram no SARI-001/SCORE-GEO-004:
-
-- Lighthouse Performance;
-- Core Web Vitals;
-- Lighthouse Accessibility;
-- Synthetic Navigation Apdex;
-- Synthetic User Experience Apdex;
-- tráfego e conversão;
-- Observed Generative Visibility.
-
-Indisponibilidade de PageSpeed/Lighthouse não reduz o Overall RASAi.
+Esses resultados servem à Observability e à futura validação empírica dos pesos.
 
 ## Parametrização
 
-Configurável:
+Configurável pelo operador:
 
 - URLs/domínios;
 - dispositivos;
-- provider/modelo de IA e contexto editorial;
+- provider/modelo de IA;
+- contexto editorial/YMYL quando aplicável;
 - Web Performance;
 - Synthetic Apdex;
-- limites de coleta e execução.
+- limites de coleta/execução.
 
-Fixo/versionado no SCORE-GEO-004:
+Fixo no `SCORE-GEO-004`:
 
-- dimensões;
-- catálogo de regras/pesos;
-- fatores PASS/WARNING/FAIL;
-- Overall de igual peso entre dimensões aplicáveis;
-- thresholds de Coverage/Confidence/Consolidation.
+- dimensões e pesos;
+- scoring groups e pesos;
+- fatores RuleResult;
+- manifesto regra → dimensão → grupo;
+- thresholds de Coverage/Confidence/Consolidation;
+- Critical Gates;
+- precedência de evidência.
 
-A matemática oficial não é alterada por configuração de uma auditoria.
+O usuário não pode alterar pesos para fabricar uma nota melhor.
 
 ## CLI
-
-Para inspecionar o contrato vigente:
 
 ```powershell
 rasai scoring inspect
 ```
 
-O comando não cria model artifact e não executa rede.
+O comando deve refletir o contrato vigente e não executar rede.
 
 ## Reprodutibilidade
 
 `BR-GEO-054` verifica reconstrução a partir de:
 
-- RuleExecutions e versões;
+- RuleExecutions/versões;
+- evidências;
 - ScoreContributions;
-- evidências persistidas;
-- `SCORE-GEO-004` e seu contrato de agregação.
-
-Avaliações `DETERMINISTIC_BASELINE` registram também `SEMANTIC-BASELINE-001` como configuration version/capability.
+- manifesto e pesos estáticos;
+- `SCORE-GEO-004`;
+- `HIERARCHICAL_WEIGHTED_READINESS_V1`.
 
 Não é necessário reexecutar website, IA ou APIs externas.
 
-## Relatórios e versionamento do path
+## Relatórios
 
 ```text
-readiness.html  página canônica do SARI-001
-scoring.html    fórmula, versão vigente, gates e rastreabilidade do método
+readiness.html  SARI, dimensões, macrocomponentes, Coverage/Confidence e Critical Gates
+scoring.html    fórmula, pesos, grupos, RuleExecutions representativas e contribuições
+references.html proveniência e função de cada indicador no SARI
 ```
 
-O arquivo `scoring.html` é deliberadamente **version-neutral**. A versão efetiva pertence ao campo persistido `scoring_version` e ao conteúdo da página. Assim, uma futura revisão metodológica não quebra bookmarks, links internos, automações ou rotas do produto apenas por mudar de `SCORE-GEO-004` para outra versão.
+Os filenames são version-neutral. A versão metodológica pertence ao banco, manifests, metadados e conteúdo.
 
-Relatórios consolidados preservam `scoring_version` como parte da comparabilidade. Auditorias de versões diferentes não devem ser normalizadas silenciosamente como se fossem equivalentes.
+## Comparabilidade pré-produção
+
+A formulação experimental de peso igual anterior a esta recalibração não é uma versão suportada do produto. Seus resultados devem ser regenerados.
+
+Após entrada em produção, qualquer mudança incompatível que altere pesos, dimensões ou gates deverá ser versionada explicitamente para preservar séries históricas de clientes.
 
 ## Limite de validade
 
-SCORE-GEO-004 é uma métrica proprietária, transparente e reproduzível. O baseline semântico é igualmente proprietário e não deve ser apresentado como standard GEO/AEO universal. Nenhum deles é certificação oficial de Google, Microsoft, OpenAI, Anthropic ou outro mantenedor e não garante ranking, tráfego, conversão ou citação futura.
-
-<!-- rasai-confidence-ai-robots-20260908 -->
-## Confidence, IA, robots.txt e sitemap
-
-A `Confidence` do SARI-001 **não depende da presença de IA**. O runtime deriva Confidence de Coverage, completude das evidências avaliadas e erros de execução. Uma auditoria `NO_AI` pode atingir `MEDIUM` ou `HIGH` e consolidar normalmente quando as regras aplicáveis possuem evidência suficiente.
-
-A IA pode, em regras explicitamente semânticas, ajudar a transformar uma avaliação que ficaria `UNKNOWN` em uma execução evidence-bound válida. Nesse caso a Confidence pode aumentar como consequência da Coverage/evidência adicional, nunca porque o provider declarou uma confiança subjetiva.
-
-`robots.txt` e sitemap já participam do `SCORE-GEO-004` por regras determinísticas:
-
-- `BR-GEO-003`: aquisição/interpretação de sitemap quando disponível;
-- `BR-GEO-017`: interpretabilidade de `robots.txt` quando presente;
-- `BR-GEO-018`: resolução independente de acesso por crawler.
-
-A ausência isolada de `robots.txt` ou sitemap não recebe `FAIL` automático. Recurso existente porém inválido, não interpretável, inacessível ou com controle de crawler materialmente problemático pode produzir `WARNING`, `UNKNOWN` ou outra conclusão prevista na regra. Os diagnósticos aprofundados de crawling/discovery permanecem advisory e não alteram diretamente Score/Coverage/Confidence.
-
-### Transparência de robots.txt e sitemap no SARI
-
-A página canônica **Search & AI Readiness** expõe uma seção `SARI - inputs técnicos de descoberta` com BR-GEO-003, BR-GEO-017 e BR-GEO-018, seus resultados persistidos e o papel efetivo no score. BR-GEO-017 e BR-GEO-018 compartilham o grupo `ROBOTS`, portanto o SCORE-GEO-004 usa a regra representativa mais restritiva do grupo por dispositivo para evitar peso duplicado. Os diagnósticos aprofundados de crawling/discovery continuam advisory/non-scoring; isso não remove a participação das regras determinísticas básicas no SARI.
-
-## Refinamento pré-publicação: discovery, JSON-LD e fatores estáticos
-
-- `robots.txt` e sitemap ausentes não recebem o mesmo fator de um recurso encontrado e utilizável; a ausência é uma lacuna pequena, não uma falha dura de crawling.
-- Sitemap publicado porém inválido é desfavorável; falha de rede que impede avaliação continua `UNKNOWN` e reduz Coverage.
-- `script[type="application/ld+json"]` é extraído do HTML. Ausência de JSON-LD é uma lacuna leve mensurável; JSON-LD inválido é desfavorável; consistência com conteúdo/entidades pode usar IA evidence-bound quando habilitada.
-- A IA técnica não escolhe pesos. Ela só pode emitir classes contratadas e referenciadas por evidência; o runtime converte essas classes em `PASS/WARNING/FAIL` com fatores estáticos/versionados no mesmo `scoring_group`, sem bônus duplicado.
-- Lighthouse, Core Web Vitals, Accessibility e Apdex continuam independentes da aritmética do SARI. Indisponibilidade de uma API externa não é tratada como falha do website.
-- Faixas de interpretação e pesos do método são estáticos por versão. Não existe parâmetro por auditoria para alterar o conceito de excelência, preservando comparabilidade temporal.
-
-## Explicabilidade operacional
-
-`scoring.html` materializa, por dimensão, regra representativa, critério, `scoring_group`, peso, resultado, fator e contribuição efetiva. Regras do mesmo grupo não recebem pesos cumulativos. A leitura operacional deve separar itens que reduzem score de itens que apenas reduzem Coverage/Confidence. O Overall usa peso igual entre dimensões aplicáveis; os pesos exibidos atuam apenas dentro de cada dimensão.
-
-<!-- rasai-readiness-canonical-fix-20260908 -->
-## Projeção canônica do readiness
-
-`readiness.html` é a superfície que centraliza SARI, pontuação por dimensão, Cobertura, Confiança e Consolidação. `mobile.html` e `desktop.html` preservam evidências/findings por dispositivo e não devem duplicar a função de página canônica do índice.
-
-A projeção deve consultar o schema efetivamente persistido de cada capacidade. Para Crawling & Discovery, a execução persistida possui uma linha por `audit_id` e usa `updated_at`; a geração do SARI não depende de uma coluna `completed_at` inexistente. O nome físico da tabela é detalhe interno e não integra o contrato documental. Uma falha de projeção não pode ser confundida com falha de scoring: o score já persistido continua sendo a fonte de verdade, mas a auditoria deve sinalizar a falha operacional até que o HTML seja materializado corretamente.
+SARI-001/SCORE-GEO-004 são metodologias proprietárias do RASAi. Os pesos vigentes são decisões metodológicas pré-produção e não coeficientes causais homologados por Google, Microsoft, OpenAI ou outro mantenedor.
