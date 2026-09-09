@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-rasai_control_plane}
       POSTGRES_USER: ${POSTGRES_USER:-rasai_app}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env.postgres.local}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env.postgres.local}"
       TZ: UTC
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
