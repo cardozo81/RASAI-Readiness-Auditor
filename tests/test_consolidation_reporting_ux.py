@@ -18,14 +18,13 @@ class ConsolidationReportingUXTests(unittest.TestCase):
                 "AUD-001",
                 when="2026-09-05T10:00:00-03:00",
                 score=97.22,
-                scoring_version="SCORE-GEO-002",
+                scoring_version="SCORE-GEO-004",
             )
             result = generate(root, normalize_filter(domains=("example.com",), devices=("MOBILE",)))
             html = result.report_path.read_text(encoding="utf-8")
             self.assertIn("Snapshot", html)
             self.assertIn("Versão do método de pontuação", html)
-            self.assertIn("SCORE-GEO-002", html)
-            self.assertNotIn("SCORE-GEO-001", html)
+            self.assertIn("SCORE-GEO-004", html)
             self.assertIn("Nenhuma observação é removida apenas", html)
             self.assertIn("Validação externa do SCORE-GEO", html)
             self.assertIn("Pesquisar", html)
@@ -47,7 +46,7 @@ class ConsolidationReportingUXTests(unittest.TestCase):
                     f"AUD-00{index}",
                     when=f"2026-0{6 + index}-01T10:00:00-03:00",
                     score=score,
-                    scoring_version="SCORE-GEO-002",
+                    scoring_version="SCORE-GEO-004",
                 )
             result = generate(root, normalize_filter(domains=("example.com",), devices=("MOBILE",)))
             html = result.report_path.read_text(encoding="utf-8")
@@ -61,7 +60,7 @@ class ConsolidationReportingUXTests(unittest.TestCase):
     def test_identical_request_still_reuses_cons2_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            _make_audit(root, "AUD-001", when="2026-09-05T10:00:00-03:00", scoring_version="SCORE-GEO-002")
+            _make_audit(root, "AUD-001", when="2026-09-05T10:00:00-03:00", scoring_version="SCORE-GEO-004")
             filters = normalize_filter(domains=("example.com",))
             first = generate(root, filters)
             second = generate(root, filters)

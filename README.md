@@ -32,7 +32,7 @@ Capacidades integradas em `main`:
 - Quality, Fix Verification e Evidence Timeline;
 - Monitoring, comparação baseline/current e release gate;
 - control plane local para multiusuário, multiprojeto, multidomínio, milestones/deployments e comparação before/after;
-- relatórios consolidados/históricos read-only;
+- relatórios consolidados read-only;
 - console interativo Windows com preflight, custos/quota e persistência de configuração não sensível.
 
 ## Scoring vigente
@@ -50,8 +50,6 @@ EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
 ```
 
 As dimensões são calculadas deterministicamente a partir de `RuleExecution` e evidências persistidas. Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador. Estados insuficientes não são convertidos em zero.
-
-`SCORE-GEO-004` **não depende de model artifact externo**. `SCORE-GEO-003`, `SCORE-GEO-002` e versões anteriores são propostas metodológicas anteriores de desenvolvimento e permanecem identificadas pela `scoring_version` original de cada AUD.
 
 Para inspecionar o contrato atual:
 
@@ -99,7 +97,6 @@ A ordem e os filenames vêm de um contrato estruturado único (`ReportSurface`).
 
 A versão pertence ao campo persistido `scoring_version` e ao conteúdo da página, não ao filename. Isso evita quebrar bookmarks, integrações, automações e futuras rotas SaaS a cada revisão metodológica.
 
-
 ### Manifest do report
 
 Após a normalização do mini-site, o RASAi materializa:
@@ -124,7 +121,7 @@ generated_at
 source_db
 ```
 
-Ele não duplica score, findings ou evidence. É produzido a partir de `audit.db` em modo read-only e facilita debugging, completude, API/SaaS e abertura de auditorias históricas.
+Ele não duplica score, findings ou evidence. É produzido a partir de `audit.db` em modo read-only e facilita debugging, completude e evolução para API/SaaS.
 
 ## Como os reports se relacionam
 
@@ -168,7 +165,7 @@ O RASAi não trata toda evolução como uma única “versão”. Os eixos relev
 | `report_contract_version` | contrato das superfícies HTML/manifest | `REPORT-CONTRACT-001` |
 | `observability_contract_version` | contrato do sidecar observacional | `OBSERVABILITY-CONTRACT-001` |
 
-A comparação longitudinal deve respeitar essas fronteiras. Uma série não pode misturar 002/003/004 como se fossem a mesma metodologia.
+A comparação longitudinal deve manter `scoring_version` compatível entre baseline e current. Nesta fase de desenvolvimento, a única metodologia de scoring suportada é `SCORE-GEO-004`.
 
 ## Instalação rápida - Windows
 
@@ -327,7 +324,7 @@ Princípios:
 - resultados externos `NULL` não viram zero;
 - nenhuma referência externa homologa automaticamente o SARI completo;
 - nenhuma temporalidade isolada prova causalidade;
-- relatórios históricos preservam `scoring_version` e diferenças metodológicas.
+- relatórios preservam `scoring_version`; nesta fase de desenvolvimento, a única metodologia suportada é `SCORE-GEO-004`.
 
 ## Documentação principal
 
@@ -350,4 +347,4 @@ RASAi fornece auditoria técnica/semântica, evidência, heurísticas proprietá
 <!-- rasai-doc-index-20260908 -->
 ## Contrato da documentação
 
-A documentação está organizada em [`docs/README.md`](docs/README.md). O projeto está em desenvolvimento e validação; referências a métodos anteriores significam propostas/baselines de desenvolvimento preservados para rastreabilidade, não releases públicas anteriores.
+A documentação está organizada em [`docs/README.md`](docs/README.md). O projeto está em desenvolvimento e validação; `SCORE-GEO-004` é a única metodologia de scoring vigente e reconhecida nesta fase.

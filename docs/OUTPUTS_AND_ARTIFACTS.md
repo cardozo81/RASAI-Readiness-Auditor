@@ -227,7 +227,6 @@ Página canônica de `SARI-001`.
 
 Página canônica da metodologia de scoring. Exibe `scoring_version`, contrato do Overall, Coverage, Confidence, Consolidation e rastreabilidade. O método vigente é `SCORE-GEO-004`.
 
-
 Alias de compatibilidade para links produzidos durante o desenvolvimento. Redireciona para `scoring.html` e não deve ser usado como contrato por novas integrações.
 
 ### `mobile.html` / `desktop.html`
@@ -354,8 +353,6 @@ O comando suportado atualmente é:
 rasai scoring inspect
 ```
 
-Ele inspeciona versão, fórmula e gates do `SCORE-GEO-004`. Fluxos antigos de dataset/model artifact do `SCORE-GEO-003` são históricos e não fazem parte do runtime de scoring 004.
-
 ## Navegação canônica
 
 Ordem atual, condicionada à existência do arquivo:
@@ -395,7 +392,6 @@ Apenas a página atual recebe estado ativo.
 - hash do `audit.db` deve permanecer inalterado após operações `monitor`, `observe` e `quality` pós-auditoria.
 
 Detalhes: [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md), [SCORE_GEO_004.md](SCORE_GEO_004.md) e [specification/28_AUDIT_QUALITY_VERIFICATION.md](specification/28_AUDIT_QUALITY_VERIFICATION.md).
-
 
 ### Structured Data / JSON-LD
 

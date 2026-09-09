@@ -20,7 +20,6 @@ from rasai.score_geo_004 import (
 # Public URLs are version-neutral. Method versions live in persisted metadata and
 # in the rendered content. This pre-publication build exposes only the canonical path.
 REPORT_FILE = "scoring.html"
-LEGACY_REPORT_FILE = "score-geo-004.html"
 
 _DIMENSION_LABELS = {
     "TECHNICAL_ACCESSIBILITY": "Acessibilidade técnica",
@@ -64,26 +63,29 @@ _SCORING_LAYOUT_CSS = r"""
 
 
 def register_navigation() -> None:
-    legacy_files = {"score-geo-003.html", LEGACY_REPORT_FILE, REPORT_FILE}
-    items = [item for item in report_navigation.NAV_ITEMS if item[1] not in legacy_files]
+    # Pre-publication contract: there is one version-neutral scoring surface only.
+    items = [
+        item
+        for item in report_navigation.NAV_ITEMS
+        if item[1] == REPORT_FILE or not item[1].startswith("score-geo-")
+    ]
+    items = [item for item in items if item[1] != REPORT_FILE]
     pos = next((i + 1 for i, item in enumerate(items) if item[1] == "readiness.html"), 2)
     items.insert(pos, ("Metodologia de scoring", REPORT_FILE))
     report_navigation.NAV_ITEMS = tuple(items)
 
 
 def write_score_geo_004_report(*, audit_id: str, workspace: AuditWorkspace) -> Path:
-    """Render the stable scoring surface without rewriting historical methodology."""
+    """Render the single scoring surface supported by this pre-publication build."""
     register_navigation()
     report_dir = workspace.root / "report"
     report_dir.mkdir(parents=True, exist_ok=True)
     nav = report_navigation.render_report_navigation(report_dir, REPORT_FILE)
     versions = _scoring_versions(audit_id, workspace)
-    effective_version = versions[0] if len(versions) == 1 else (SCORING_VERSION if not versions else "MULTIPLE")
-    scores = _scores(audit_id, workspace, effective_version if effective_version != "MULTIPLE" else None)
-    score_rows = "".join(_score_row(row) for row in scores) or "<tr><td colspan='7'>Overall não persistido para esta versão.</td></tr>"
-    status_label = "VIGENTE" if effective_version == SCORING_VERSION else "HISTÓRICA"
-    if effective_version == "MULTIPLE":
-        status_label = "INCONSISTENTE"
+    effective_version = SCORING_VERSION
+    scores = _scores(audit_id, workspace, SCORING_VERSION)
+    score_rows = "".join(_score_row(row) for row in scores) or "<tr><td colspan='7'>Overall vigente não persistido para esta auditoria.</td></tr>"
+    status_label = "VIGENTE"
 
     html = f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Metodologia de scoring - {escape(effective_version)}</title><link rel='stylesheet' href='css/site.css'><style>{_SCORING_LAYOUT_CSS}</style></head><body>{nav}<main class='app-main'>
 <header class='hero'><div class='eyebrow'>RASAi - metodologia de pontuação da auditoria</div><h1>{escape(effective_version)}</h1><p class='lead'>{_version_intro(effective_version)}</p><div class='metric-grid'>{_metric('Índice público', SARI_VERSION)}{_metric('scoring_version', effective_version)}{_metric('Estado da metodologia', status_label)}{_metric('Contrato de relatório', REPORT_CONTRACT_VERSION)}</div></header>
@@ -98,8 +100,9 @@ def write_score_geo_004_report(*, audit_id: str, workspace: AuditWorkspace) -> P
 <footer class='footer'>{escape(effective_version)} é uma metodologia versionada e auditável do RASAi. O índice não garante ranking, tráfego, conversão ou citação futura.</footer></main></body></html>\n"""
     path = report_dir / REPORT_FILE
     path.write_text(html, encoding="utf-8", newline="\n")
-    # Pre-publication development contract: keep only the canonical version-neutral surface.
-    (report_dir / LEGACY_REPORT_FILE).unlink(missing_ok=True)
+    # Pre-publication development contract: remove any obsolete version-named surface.
+    for obsolete in report_dir.glob('score-geo-*.html'):
+        obsolete.unlink(missing_ok=True)
     return path
 
 
@@ -203,45 +206,28 @@ def _method_section(version: str, workspace: AuditWorkspace, audit_id: str) -> s
             )
         materialized = "<div class='scoring-weight-groups'>" + "".join(blocks) + "</div>" if blocks else "<p class='intro'>Nenhuma contribuição persistida disponível para detalhar pesos nesta projeção.</p>"
         return f"""<section class='panel'><h2>Fórmula e gates do método vigente</h2><p><strong>Dimensão:</strong> <code>sum(weight × result_factor) / sum(weight evaluated) × 100</code>.</p><p><strong>Overall:</strong> média aritmética de igual peso das dimensões aplicáveis que possuem valor e não estão em <code>NOT_CONSOLIDATED</code>. Uma dimensão legitimamente <code>NOT_APPLICABLE</code> sai do denominador.</p><div class='metric-grid'>{_metric('Agregação Overall', OVERALL_AGGREGATION_VERSION)}{_metric('Coverage mínima para consolidar', f'{MIN_OVERALL_COVERAGE*100:.0f}%')}{_metric('Confidence mínima', 'MEDIUM')}{_metric('Coverage mínima para parcial', f'{MIN_PARTIAL_COVERAGE*100:.0f}%')}</div><h3>Contribuições materializadas neste AUD</h3><p class='intro'>Cada dimensão ocupa um painel de largura total, mantendo regra, critério humano, <code>scoring_group</code>, peso, fator aplicado e contribuição persistida na mesma linha de leitura. Regras do mesmo grupo não somam bônus: o grupo usa o peso máximo configurado e o resultado representativo mais restritivo avaliado.</p>{materialized}<div class='notice'><strong>Governança da leitura:</strong> pesos de regra atuam somente dentro da dimensão. O Overall continua com peso igual entre dimensões aplicáveis. Um Overall numericamente alto pode permanecer <code>PARTIAL</code> quando Coverage/Confidence não alcançam os gates; isso qualifica a força da medição e não invalida a aritmética do score.</div><div class='notice'><strong>Calibração externa:</strong> não é requisito, input ou gate do Overall {SCORING_VERSION}.</div></section>"""
-    if version == "MULTIPLE":
-        return "<section class='panel'><h2>Integridade metodológica</h2><div class='notice bad'><strong>Múltiplas scoring_version foram encontradas no mesmo AUD.</strong> A projeção preserva os registros e não escolhe nem converte silenciosamente uma metodologia. Trate o AUD como não comparável até investigar a origem.</div></section>"
-    return f"""<section class='panel'><h2>Metodologia histórica preservada</h2><p>Esta auditoria foi persistida com <strong>{escape(version)}</strong>. O RASAi não recalcula nem converte auditorias históricas para {SCORING_VERSION} durante a abertura do relatório.</p><p>{_historical_method_note(version)}</p><div class='notice'><strong>Regra de comparação:</strong> uma série histórica não pode misturar 002/003/004 como se fossem a mesma metodologia. Monitoring deve marcar versões incompatíveis como <code>NOT_COMPARABLE</code>.</div></section>"""
 
 
 def _dimension_list(version: str) -> str:
-    if version != SCORING_VERSION:
-        return "<p class='intro'>As dimensões e valores exibidos permanecem exatamente os persistidos pelo método histórico; esta projeção não aplica a lista 004 retroativamente.</p>"
+    del version
     items = "".join(f"<li><code>{escape(name)}</code></li>" for name in FEATURE_ORDER)
     return f"<ul>{items}</ul><p class='intro'>No Overall 004, cada dimensão aplicável consolidável recebe peso igual; pesos internos de regras são os persistidos nas contribuições da respectiva dimensão.</p>"
 
 
 def _version_intro(version: str) -> str:
-    if version == SCORING_VERSION:
-        return "Método operacional vigente do SARI-001. O Overall é determinístico, reproduzível e baseado nas evidências persistidas da auditoria; não depende de model artifact externo."
-    if version == "MULTIPLE":
-        return "Foram encontradas múltiplas versões de scoring no mesmo AUD. O relatório não mistura nem converte essas metodologias e expõe o estado para investigação."
-    return f"Este AUD preserva a metodologia histórica {escape(version)}. O relatório é read-only em relação ao score e não promove essa versão a runtime vigente."
-
-
-def _historical_method_note(version: str) -> str:
-    if version == "SCORE-GEO-003":
-        return "SCORE-GEO-003 pertence ao histórico metodológico e usava fluxo de dataset/calibração/model artifact para o Overall. Esses requisitos não pertencem ao runtime 004."
-    if version == "SCORE-GEO-002":
-        return "SCORE-GEO-002 pertence ao histórico metodológico anterior. Seus resultados continuam identificados pela scoring_version original e não são reinterpretados pela fórmula 004."
-    return "A versão não é o runtime atual. Consulte a documentação histórica correspondente antes de interpretar fórmula, pesos ou comparabilidade."
+    del version
+    return "Método operacional vigente do SARI-001. O Overall é determinístico, reproduzível e baseado nas evidências persistidas da auditoria; não depende de model artifact externo."
 
 
 def _version_integrity_notice(versions: list[str]) -> str:
-    if len(versions) <= 1:
+    unsupported = [version for version in versions if version != SCORING_VERSION]
+    if not unsupported:
         return ""
-    joined = ", ".join(escape(item) for item in versions)
-    return f"<section class='notice bad'><strong>Atenção:</strong> o AUD contém mais de uma <code>scoring_version</code>: {joined}. Nenhuma delas foi sobrescrita pelo relatório.</section>"
-
-
-def _alias_explanation(version: str) -> str:
-    if version == SCORING_VERSION:
-        return f"<code>{LEGACY_REPORT_FILE}</code> pode existir apenas como alias de compatibilidade e não aparece no menu."
-    return f"Como este AUD usa {escape(version)}, o alias <code>{LEGACY_REPORT_FILE}</code> não é materializado para evitar falsa atribuição metodológica."
+    return (
+        "<section class='notice bad'><strong>Integridade metodológica:</strong> esta auditoria contém "
+        "uma scoring_version que não pertence ao contrato suportado por esta build pré-publicação. "
+        f"Somente <code>{SCORING_VERSION}</code> é reconhecido e nenhuma versão descontinuada é projetada ou convertida.</section>"
+    )
 
 
 def _score_row(row: sqlite3.Row) -> str:

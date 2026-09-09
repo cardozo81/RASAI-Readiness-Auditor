@@ -52,7 +52,6 @@ Planos/roadmaps históricos não prevalecem sobre contratos atuais.
 - `SARI-001` é o índice público de readiness;
 - `SCORE-GEO-004` é o scoring runtime vigente para novas auditorias;
 - Overall 004 é determinístico e não exige model artifact externo;
-- `SCORE-GEO-003` é histórico e não deve ser promovido novamente a runtime vigente por documentação antiga;
 - Sugestões/remediação textual por IA são opcionais/advisory e não alteram scoring por si só;
 - Search Console, URL Inspection, CrUX, PageSpeed, Apdex e outcomes observados permanecem metodologias separadas salvo contrato versionado explícito;
 - relatório HTML estático em português;
@@ -108,8 +107,6 @@ EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
 
 `rasai scoring inspect` é a superfície atual de inspeção do contrato.
 
-Fluxos históricos `SCORE-GEO-003` de dataset/calibration/model artifact não devem ser anunciados como comandos correntes se não existirem no entrypoint atual.
-
 ## 8. HTML/reporting
 
 A página de metodologia deve ser:
@@ -117,9 +114,6 @@ A página de metodologia deve ser:
 ```text
 report/scoring.html
 ```
-
-
-Normalização de HTML não pode substituir cegamente `SCORE-GEO-003` por `004`, pois isso corromperia referências históricas legítimas.
 
 ## 9. Não reabrir decisões sem necessidade
 

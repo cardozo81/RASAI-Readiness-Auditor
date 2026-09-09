@@ -112,5 +112,3 @@ Invariantes:
 7. contexto de dispositivo limita chamadas ao escopo solicitado;
 8. telemetria é separada de findings e score;
 9. outcomes externos não entram em `SARI-001/SCORE-GEO-004` sem nova metodologia explícita/versionada.
-
-`SCORE-GEO-003` é histórico e não deve ser usado como identificação do runtime atual em prompts, relatórios ou documentação operacional.

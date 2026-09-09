@@ -76,8 +76,6 @@ Princípios:
 - IA não calcula diretamente o score;
 - mudança incompatível exige nova `scoring_version`.
 
-`SCORE-GEO-003` é uma proposta anterior de desenvolvimento preservada apenas para rastreabilidade técnica. Seu Overall dependia de calibração/model artifact. Referências históricas legítimas ao 003 devem ser preservadas para rastreabilidade e nunca reescritas cegamente como 004.
-
 Detalhes: `05_SCORING_MODEL.md`, `../SCORE_GEO_004.md` e `../SCORING_GUIDE.md`.
 
 ## 5. REPORT-SITE-GEO-001
@@ -132,8 +130,6 @@ O alias versionado existe somente para compatibilidade e não recebe item própr
 `26_OBSERVED_GENERATIVE_VISIBILITY.md` define outcomes observados/importados. Esses dados não recalculam o AUD fonte e não entram automaticamente no `SCORE-GEO-004`.
 
 Datasets externos podem ser usados em pesquisa/benchmarking para avaliar associação entre readiness e outcomes. Isso é separado do runtime de scoring e qualquer mudança decorrente exige nova versão metodológica explícita.
-
-Fluxos históricos de calibração do `SCORE-GEO-003` não devem ser documentados como comandos vigentes do entrypoint 004.
 
 ## 8. Monitoring, Observability & Quality
 

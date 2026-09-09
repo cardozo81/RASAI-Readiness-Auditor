@@ -231,7 +231,6 @@ Para site claramente YMYL, prefira configuração explícita.
 
 - `RASAI_CONTENT_RISK_PROFILE=standard` não pode ser combinado com categoria YMYL explícita diferente de `none`/`auto`;
 - `RASAI_CONTENT_RISK_PROFILE=ymyl` não pode ser combinado com `RASAI_YMYL_CATEGORY=none`;
-- contexto editorial não entra diretamente em `SARI-001` nem na fórmula vigente de `SCORE-GEO-003`;
 - E-E-A-T não é transformado em percentual proprietário;
 - as variáveis não geram custo externo sozinhas.
 

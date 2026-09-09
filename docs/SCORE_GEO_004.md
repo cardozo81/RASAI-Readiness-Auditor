@@ -194,13 +194,6 @@ report/scoring.html
 
 A versão metodológica **não faz parte do nome canônico do arquivo**. Ela é persistida em `scoring_version` e exibida no conteúdo. Isso evita quebra de links e contratos de navegação quando uma futura versão substituir o 004.
 
-
-## Relação com SCORE-GEO-003
-
-`SCORE-GEO-003` é uma proposta anterior de desenvolvimento preservada apenas para rastreabilidade técnica. Seu Overall dependia de model artifact `VALIDATED` e infraestrutura de calibração externa. `SCORE-GEO-004` remove essa dependência operacional e usa um Overall determinístico de igual peso entre dimensões aplicáveis.
-
-Preservar a referência histórica é necessário para comparabilidade e auditoria. Nenhuma normalização de HTML deve reescrever uma ocorrência histórica de `SCORE-GEO-003` como se ela fosse `SCORE-GEO-004`.
-
 ## Limite de validade
 
 `SCORE-GEO-004` é uma metodologia proprietária, transparente, versionada e reproduzível do RASAi.

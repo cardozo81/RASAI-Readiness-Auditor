@@ -55,8 +55,6 @@ EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
 
 Dimension calculations remain deterministic and evidence-bound. The Overall is the equal-weight mean of applicable dimension scores, qualified by Coverage, Confidence and Consolidation gates.
 
-No model artifact is required by the 004 runtime. `SCORE-GEO-003` is historical and used a calibrated-model Overall.
-
 No downstream enrichment may silently create ScoreContribution or enter SARI/SCORE-GEO-004.
 
 ## 5. Device context
@@ -139,7 +137,6 @@ index.html
 readiness.html
 scoring.html
 ```
-
 
 The method version is stored in `scoring_version` and rendered in the page, not encoded into the canonical filename.
 

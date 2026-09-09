@@ -38,8 +38,6 @@ O guia de regras referencia o método de scoring aplicado:
 
 Pesos, dimensões, applicability, Coverage, Confidence e Overall devem ser lidos em [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SARI_READINESS_INDEX.md`](SARI_READINESS_INDEX.md) e [`SCORE_GEO_004.md`](SCORE_GEO_004.md).
 
-Auditorias históricas preservam sua `scoring_version`; o report não deve reinterpretá-las silenciosamente como `004`. `SCORE-GEO-003` permanece contrato histórico e não deve ser reescrito quando a referência for necessária à rastreabilidade.
-
 ## Catálogo
 
 | Regra | Severidade operacional | Finalidade resumida |

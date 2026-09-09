@@ -72,8 +72,6 @@ Rules:
 - a calculable result may be PARTIAL when Coverage >= 50% and Confidence is available;
 - insufficient evidence never becomes zero.
 
-`SCORE-GEO-003` remains historical and used a different calibrated-model Overall. Its model-artifact requirement does not apply to 004.
-
 ## 6. Recommendations and remediation
 
 Recommendations are derived from persisted findings/evidence and approved remediation recipes. Proposed examples are not observed evidence. Remediation does not alter the score by itself.
@@ -94,7 +92,6 @@ report/scoring.html
 ```
 
 Other domain pages are materialized conditionally, including Mobile/Desktop, remediation, content suggestions, crawling/discovery, accessibility, Web Performance, both Apdex domains, AI visibility, Observability, Quality, AI usage and references.
-
 
 Opening static HTML does not trigger crawling, AI or external API collection. `audit.db` + artifacts remain source evidence.
 

@@ -2,7 +2,7 @@
 
 The page-oriented REPORT-GEO-003 remains the primary human report. M15 adds a
 second, derived view (REMEDIATION-GEO-001) and improves navigation/typography
-without changing persisted findings or SCORE-GEO-001.
+without changing persisted findings or SCORE-GEO-004.
 """
 
 from __future__ import annotations
@@ -195,7 +195,7 @@ class M15ReportBuilder(M14ReportBuilder):
         return (
             "<section id='guia-score-geo'><div class='section-kicker'>REFERÊNCIA DE LEITURA</div>"
             "<h2>O que cada dimensão do Score GEO mede</h2>"
-            "<p class='section-intro'>As dez dimensões abaixo são as dimensões oficiais de SCORE-GEO-001. "
+            "<p class='section-intro'>As dez dimensões abaixo são as dimensões oficiais de SCORE-GEO-004. "
             "As orientações indicam como melhorar a evidência avaliada; não representam promessa de ranking, citação ou tráfego.</p>"
             f"<div class='m15-guide-grid'>{''.join(cards)}</div></section>"
         )
@@ -211,7 +211,7 @@ class M15ReportBuilder(M14ReportBuilder):
             <dt>Coverage</dt><dd>Quanto do universo aplicável pôde ser avaliado. Coverage baixa reduz a força da conclusão; não equivale a qualidade baixa do site.</dd>
             <dt>Confiabilidade</dt><dd>Segurança da conclusão considerando cobertura, evidências e erros de execução. HIGH/MEDIUM/LOW/UNAVAILABLE não substitui o score.</dd>
             <dt>Consolidação</dt><dd>Indica se há base suficiente para tratar a dimensão como consolidada, parcial ou não consolidada.</dd>
-            <dt>Actionability</dt><dd>Indica o que fazer: ação necessária, revisão recomendada, melhoria opcional, nenhuma ação ou ação não determinada. Não altera SCORE-GEO-001.</dd>
+            <dt>Actionability</dt><dd>Indica o que fazer: ação necessária, revisão recomendada, melhoria opcional, nenhuma ação ou ação não determinada. Não altera SCORE-GEO-004.</dd>
             <dt>Desktop × Mobile</dt><dd>São contextos independentes. Compare os dois antes de concluir que um problema é global ao website.</dd>
             <dt>Sem IA</dt><dd>A ausência de provider pode reduzir Coverage e Consolidação de análises semânticas; não atribui automaticamente nota zero ao website.</dd>
           </dl>

@@ -28,8 +28,6 @@ Observed outcomes can support **separate offline validation research** that stud
 
 Such research must not change persisted `SCORE-GEO-004` results. Any future production formula derived from empirical work requires a new explicit scoring version.
 
-`SCORE-GEO-003` used a historical calibration/model-artifact workflow. Those commands and promotion gates are not the current 004 runtime contract.
-
 ## 4. Citation Presence Rate
 
 ```text
@@ -76,8 +74,6 @@ Current scoring inspection is:
 ```powershell
 rasai scoring inspect
 ```
-
-Historical `SCORE-GEO-003` calibration commands are not current production scoring commands.
 
 ## 7. Interpretation limits
 

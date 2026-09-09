@@ -59,15 +59,12 @@ rasai scoring inspect
 
 O comando mostra `scoring_version`, contrato de agregação, número de dimensões e gates. Não acessa rede, não cria dataset e não realiza fitting.
 
-Fluxos `scoring dataset` / `scoring calibrate` e model artifacts `SCORE-GEO-003` pertencem ao método anterior de desenvolvimento 003 e **não são comandos do entrypoint atual do SCORE-GEO-004**.
-
 Relatórios por AUD:
 
 ```text
 report/readiness.html
 report/scoring.html
 ```
-
 
 ## IA no audit
 

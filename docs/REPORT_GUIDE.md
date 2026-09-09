@@ -54,9 +54,6 @@ SCORE-GEO-004  = motor vigente para novas auditorias
 
 `readiness.html` apresenta dimensões, Coverage, Confidence, Consolidation e limitações. `scoring.html` apresenta a versão efetivamente usada, fórmula, gates, rastreabilidade e interpretação do Overall.
 
-
-`SCORE-GEO-003` é uma proposta anterior de desenvolvimento preservada apenas para rastreabilidade técnica. Seu Overall dependia de model artifact validado e não deve ser confundido com o contrato determinístico vigente. Comparações entre versões preservam `scoring_version` e não normalizam contratos incompatíveis silenciosamente.
-
 SARI-001 é metodologia proprietária, evidence-bound e reprodutível. Não representa nota oficial Google/Bing/OpenAI, probabilidade de ranking/citação ou certificação GEO/AEO.
 
 ## Propriedade analítica
@@ -92,7 +89,6 @@ Observed Generative Visibility
 A página pode mostrar source-reported metrics, URL activity, grounding queries, trend e controlled query-runs. Citation Presence Rate é calculada somente sobre runs válidos conforme contrato.
 
 Observed Generative Visibility **não altera SARI-001/SCORE-GEO-004**.
-
 
 Em auditorias de domínio, destinos internos observados apenas após rendering e que ficaram fora do universo auditado são expostos como limitação de cobertura (`RENDERED_DISCOVERY_GAP` ou limite equivalente). O relatório não deve apresentar uma homepage isolada como cobertura implícita de todo o domínio.
 
@@ -375,11 +371,9 @@ A ordem canônica do menu segue a sequência de leitura: visão geral → SARI �
 
 Correlação: veja [`README.md`](README.md), [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`CONSOLIDATED_REPORTING.md`](CONSOLIDATED_REPORTING.md) e [`docs/README.md`](README.md).
 
-
 ### Precedência dos estados visuais
 
 Quando uma tabela possui semântica específica de domínio, ela prevalece sobre o decorador genérico de estados. Em `readiness.html`, por exemplo, **Confiança baixa/Cobertura insuficiente** ou **Consolidação parcial** permanece em estado de atenção mesmo quando outra célula da mesma linha contém um valor terminal positivo. O decorador genérico de `Aprovado`, `Alerta`, `Erro`, `Consolidado` etc. só classifica linhas que ainda não receberam um estado semântico específico. Isso evita que um status operacional positivo esconda uma limitação material da medição.
-
 
 ### Visualização do JSON-LD persistido
 
@@ -392,7 +386,6 @@ A visualização distingue claramente três coisas: o JSON-LD efetivamente obser
 Enums e estados internos não constituem linguagem pública. Valores como `DEGRADED`, `SINGLE_PROVIDER`, `INTERNAL_LINKS`, `PAGE_ACCESS`, `SPA_NAVIGATION`, classes de erro e demais estados operacionais são convertidos para rótulos claros em pt-BR quando aparecem como conteúdo de tela. Os valores canônicos continuam persistidos no banco e disponíveis para diagnóstico.
 
 Identificadores que têm função real de rastreabilidade permanecem canônicos quando necessário, especialmente `BR-GEO-*`, IDs de auditoria/evidência, nomes de modelos/providers, IDs de perfis sintéticos e variáveis de ambiente. Exemplos técnicos e payloads dentro de `code`/`pre` também não são traduzidos, para não corromper comandos, contratos ou evidências.
-
 
 ### Semântica visual compartilhada
 

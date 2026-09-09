@@ -48,8 +48,6 @@ A legitimate `NOT_APPLICABLE` dimension leaves the denominator and receives neit
 
 An applicable dimension without value or in `NOT_CONSOLIDATED` prevents publication of a consolidated Overall. No external model artifact is required by 004.
 
-`SCORE-GEO-003` remains historical and used a different calibrated-model contract.
-
 ## 4. Structured Data / JSON-LD
 
 JSON-LD is optional/contextual in the general baseline. Absence alone is not a universal readiness failure.
@@ -98,7 +96,6 @@ Confidence represents strength of the auditor conclusion, not text quality.
 ## 7. Reporting
 
 `report/readiness.html` and `report/scoring.html` distinguish Score, Coverage, Confidence, `NOT_APPLICABLE`, `NOT_CONSOLIDATED`, version and limitations.
-
 
 ## 8. Reproducibility
 

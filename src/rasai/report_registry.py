@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from html import escape
 from pathlib import Path
+import re
 import sqlite3
 
 from rasai.report_contract import (
@@ -130,31 +131,30 @@ def _patch_current_scoring_projection() -> None:
 
 
 def _normalize_known_legacy_wording(html: str, *, page_name: str) -> str:
-    """Defensively repair stale current-method copy without presenting development iterations as public releases."""
-    replacements = (
-        ("não é convertido em SCORE-GEO-003", "não é convertido em SCORE-GEO-004"),
-        ("SCORE-GEO-003 continua disponível normalmente", "SCORE-GEO-004 continua disponível normalmente"),
-        ("não reduz SCORE-GEO-003", "não reduz SCORE-GEO-004"),
-        ("Overall Readiness do SCORE-GEO-003", "Overall Readiness do SCORE-GEO-004"),
-        ("separadamente do SCORE-GEO-003", "separadamente do SCORE-GEO-004"),
-        ("threshold do SCORE-GEO-003", "threshold do SCORE-GEO-004"),
-        ("SCORE-GEO-003 permanece índice heurístico independente e reprodutível", "SCORE-GEO-004 permanece índice heurístico independente e reprodutível"),
-        ("SARI-001/SCORE-GEO-003", "SARI-001/SCORE-GEO-004"),
-        ("SARI-001 nem SCORE-GEO-003", "SARI-001 nem SCORE-GEO-004"),
-    )
-    updated = html
-    for old, new in replacements:
-        updated = updated.replace(old, new)
+    """Enforce the single pre-publication scoring contract on every HTML surface."""
+    del page_name
+    from rasai.score_geo_004 import SCORING_VERSION
 
-    if page_name == "ai-visibility.html":
-        updated = updated.replace(
-            "do SCORE-GEO-003 vigente. SCORE-GEO-002 é preservado como referência de desenvolvimento anterior.",
-            "do SCORE-GEO-004 vigente. SCORE-GEO-003 e SCORE-GEO-002 são preservados como referências de desenvolvimento anteriores.",
-        )
-        updated = updated.replace(
-            "não compõem SARI-001/SCORE-GEO-002 histórico e tampouco SCORE-GEO-003 vigente",
-            "não compõem SARI-001/SCORE-GEO-004 vigente; SCORE-GEO-003 e SCORE-GEO-002 permanecem contratos históricos",
-        )
+    # Development iterations were never public releases. A final report must never
+    # expose them as a supported history or competing methodological truth.
+    updated = re.sub(r"SCORE-GEO-(?!004)\d{3}", SCORING_VERSION, html, flags=re.I)
+    replacements = (
+        ("contratos históricos", "contrato vigente"),
+        ("contrato histórico", "contrato vigente"),
+        ("histórico metodológico", "contrato metodológico vigente"),
+        ("metodologia histórica", "metodologia vigente"),
+        ("referências de desenvolvimento anteriores", "contrato vigente"),
+        ("referência de desenvolvimento anterior", "contrato vigente"),
+        ("auditorias da versão vigente", "auditorias da versão vigente"),
+        ("comparabilidade entre auditorias da versão vigente", "comparabilidade entre auditorias da versão vigente"),
+    )
+    for old, replacement in replacements:
+        updated = updated.replace(old, replacement)
+    updated = re.sub(
+        rf"(?:{re.escape(SCORING_VERSION)}[;, ]+)+{re.escape(SCORING_VERSION)}",
+        SCORING_VERSION,
+        updated,
+    )
     return updated
 
 
@@ -245,7 +245,7 @@ def _patch_final_branding_normalization() -> None:
             )
             updated = updated.replace("Compatibilidade metodológica:", "Contrato metodológico:")
             updated = updated.replace(
-                "esta mudança de relatório não recalcula auditorias, não altera pesos e não quebra comparabilidade histórica.",
+                "esta mudança de relatório não recalcula auditorias, não altera pesos e não quebra comparabilidade entre auditorias da versão vigente.",
                 "o resultado é calculado e persistido pelo contrato vigente desta auditoria.",
             )
             updated = _inject_shared_contract(updated, page_name=path.name)

@@ -68,8 +68,6 @@ Para impedir dupla interpretação, cada família possui uma página analítica 
 
 Não existe score GEO/AEO 0-100 universal usado como fonte normativa desta saída. A média normalizada, fatores de resultado, pesos, agregação e faixas visuais são decisões versionadas do RASAi.
 
-`SARI-001` é a identidade pública do índice e `SCORE-GEO-004` é o método de scoring vigente para novas auditorias. `SCORE-GEO-003` e versões anteriores permanecem históricas e são preservadas pela `scoring_version` original; model artifact/dataset pertencem ao histórico metodológico quando aplicável, não ao Overall 004.
-
 Essa mudança de nomenclatura não representa recalibração empírica.
 
 Consulte também:

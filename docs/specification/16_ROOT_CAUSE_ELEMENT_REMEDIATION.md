@@ -1,9 +1,5 @@
 # Remediação por causa raiz e elemento - Root Cause + Element-Level Remediation
 
-**Estado no baseline de desenvolvimento:** APPROVED EVOLUTION
-**Baseline de entrada:** Experiência e organização dos relatórios + OpenAI provider hardening integrado em `main`
-**Contratos preservados:** `SCORE-GEO-003`, `REPORT-GEO-003`, `REMEDIATION-GEO-001`
-
 ## 1. Objetivo
 
 Elevar findings acionáveis de orientação genérica por regra para diagnóstico técnico por ocorrência, mantendo rastreabilidade até a evidência observada.

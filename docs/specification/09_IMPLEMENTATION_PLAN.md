@@ -235,7 +235,6 @@ Implementar:
 - menu lateral fixo em desktop com paths/query das URLs auditadas;
 - navegação compacta em viewport estreita;
 - tipografia e grid de Score GEO reequilibrados;
-- guia das dez dimensões do `SARI-001` e do contrato `SCORE-GEO-003`;
 - seção final explicando Score, Coverage, Confidence, Consolidation e Actionability;
 - `remediation.html` no mesmo nível do `report.html`;
 - contrato `REMEDIATION-GEO-001`;
@@ -248,7 +247,6 @@ Implementar:
 Restrições:
 
 - preservar `REPORT-GEO-003` para a projeção principal;
-- preservar `SCORE-GEO-003`, Coverage, Confidence, Consolidation e actionability;
 - `remediation.html` não recalcula regras, findings ou prioridades;
 - não promover repetição em páginas a finding global;
 - não introduzir nova chamada de IA;
@@ -293,7 +291,6 @@ Restrições:
 - `<main>` contextual não deve ser apresentado como elemento defeituoso por si só;
 - regras globais/HTTP/robots/sitemap não recebem selector DOM artificial;
 - diagnóstico Remediação por causa raiz e elemento não altera Business Rules, severity, actionability, prioridade, Score, Coverage, Confidence ou Consolidation;
-- `diagnostic_confidence` mede apenas precisão de localização/causa e não participa do `SARI-001`/`SCORE-GEO-003`;
 - não introduzir chamada adicional de IA para redigir causa raiz.
 
 Critérios de conclusão:
@@ -333,7 +330,6 @@ Implementar:
 Restrições:
 
 - preservar Business Rules e RuleResult;
-- preservar `SCORE-GEO-003`, `PRIORITY-GEO-001`, severity, actionability, Coverage, Confidence e Consolidation;
 - não criar Finding automaticamente para corrigir divergência de integridade;
 - não apresentar selector alvo como selector observado;
 - não inventar HTML ou causa técnica;

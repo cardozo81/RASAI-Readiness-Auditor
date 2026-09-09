@@ -40,12 +40,6 @@ AUD-* collection
 
 ## Methodological boundary
 
-```text
-SARI-001      public readiness index
-SCORE-GEO-004 current runtime scoring contract
-SCORE-GEO-003 historical scoring contract
-```
-
 Monitoring, Observability and Quality do not create another readiness score. External outcomes, Lighthouse/CrUX and synthetic metrics are not added to the Overall implicitly.
 
 ## Observability sidecar
@@ -161,8 +155,6 @@ Current runtime:
 rasai scoring inspect
 ```
 
-The command inspects `SCORE-GEO-004`. Historical `SCORE-GEO-003` dataset/calibration/model-artifact flows are not current commands of the 004 entrypoint.
-
 ## HTML surfaces
 
 Canonical per-AUD navigation is conditional on file existence:
@@ -186,7 +178,6 @@ quality.html
 ai-usage.html
 references.html
 ```
-
 
 ## Validation expectations
 

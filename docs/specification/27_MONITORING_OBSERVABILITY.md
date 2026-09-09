@@ -19,7 +19,6 @@ A capacidade responde separadamente:
 
 - `SARI-001` é o índice público de readiness;
 - `SCORE-GEO-004` é o scoring vigente para novas auditorias;
-- `SCORE-GEO-003` é uma proposta anterior de desenvolvimento preservada apenas para rastreabilidade técnica;
 - Monitoring não cria novo score;
 - Observability não entra automaticamente no SARI;
 - Search Performance, URL Inspection, CrUX History, Bing/AI outcomes e diagnósticos derivados permanecem identificados por fonte/método;
@@ -166,8 +165,6 @@ rasai scoring inspect
 
 Ela inspeciona o contrato `SCORE-GEO-004` e não executa fitting.
 
-Fluxos de dataset/calibration/model artifact pertencem ao `SCORE-GEO-003` histórico e não devem ser documentados como comandos vigentes do entrypoint 004.
-
 ## 9. Reporting
 
 Per-AUD:
@@ -187,7 +184,6 @@ monitoring/MON-*/impact.html
 verification/VER-*/report.html
 quality/TIMELINE-*/report.html
 ```
-
 
 ## 10. Segurança e failure isolation
 

@@ -59,8 +59,6 @@ No `SCORE-GEO-004`, o Overall é a média de igual peso das dimensões aplicáve
 
 O consolidado **não recalcula** esse Overall. Ele lê o valor, Coverage, Confidence, Consolidation e `scoring_version` persistidos no AUD fonte.
 
-`SCORE-GEO-003` é uma proposta anterior de desenvolvimento preservada apenas para rastreabilidade técnica e usava um model artifact calibrado. Um ponto 003 e um ponto 004 pertencem a contratos metodológicos distintos e não devem ser tratados como série contínua sem ressalva explícita.
-
 ### Confidence e Coverage
 
 `Score`, `Coverage` e `Confidence` têm semânticas diferentes. Confidence qualifica a força da conclusão/evidência; não é sinônimo de qualidade do website. Coverage não pode substituir Score, e dado indisponível não pode ser apresentado como zero.

@@ -180,26 +180,11 @@ O foco primário desta classificação é Google Search e seus recursos de IA. O
 
 ### D-038 - Web Performance externo e separação metodológica
 
-Core Web Vitals/CrUX e Lighthouse entram como **evidência externa complementar** e não como substituição ou calibração implícita do `SARI-001`/`SCORE-GEO-003`.
-
 Decisão aprovada:
-
-1. `SARI-001` é o índice de Readiness e `SCORE-GEO-003` é o método de scoring aplicado;
-2. Lighthouse Performance, Accessibility, Best Practices e SEO permanecem scores do Lighthouse e devem ser rotulados como tais;
-3. LCP, INP e CLS de CrUX representam experiência real agregada quando houver amostra suficiente e não constituem automaticamente RuleExecution/ScoreContribution do RASAi;
-4. ausência/erro de PageSpeed ou CrUX é limitação de coleta, nunca website FAIL por si só;
-5. coleta externa Web Performance externo é default OFF, com limite de páginas e timeout parametrizáveis;
-6. Web Performance externo adiciona zero chamadas LLM e não pode aumentar consumo OpenAI/DeepSeek/MiMo por efeito colateral;
-7. PageSpeed/CrUX possuem credenciais isoladas e opcionais conforme o serviço;
-8. Web Performance externo é enrichment pós-auditoria e fail-open em relação ao resultado principal;
-9. resultados Web Performance externo são persistidos em tabelas/artifacts auxiliares e apresentados em `report/web-performance.html`;
-10. qualquer futura incorporação de métrica Web Performance externo ao scoring exigirá decisão humana explícita, novo contrato/versionamento de scoring, documentação de fundamento e regressão comparativa; não pode ocorrer silenciosamente.
 
 D-038 complementa D-037; não a supersede.
 
 ### D-039 - Rastreamento, descoberta e acesso de crawlers Crawling/Discovery, políticas de crawler e IA técnica
-
-Rastreamento, descoberta e acesso de crawlers é aprovado como domínio técnico **aditivo, pós-scoring e não-scoring**. Ele aprofunda evidências de rastreamento/descoberta sem criar um novo índice nem recalibrar `SARI-001`/`SCORE-GEO-003`.
 
 Decisão aprovada:
 
@@ -220,8 +205,6 @@ Decisão aprovada:
 D-039 complementa D-037/D-038; não as supersede.
 
 ### D-040 - Observed Generative Visibility separado de readiness
-
-Outcomes observados de Search/AI Search são aprovados como domínio **aditivo, import-first e não-scoring**, separado do `SARI-001` e sem alterar `SCORE-GEO-003`.
 
 Decisão aprovada:
 
@@ -314,18 +297,7 @@ A documentação de produto, o console e os relatórios destinados ao usuário d
 
 Esta decisão registra a evolução metodológica posterior às D-038, D-039 e D-040 sem reescrever retroativamente o contexto em que elas foram aprovadas.
 
-1. `SCORE-GEO-004` substitui `SCORE-GEO-003` como **runtime de scoring vigente** para novas auditorias.
-2. O Overall do `SCORE-GEO-004` é determinístico e não depende de model artifact, dataset de calibração ou fitting externo para existir.
-3. As decisões anteriores de separação metodológica entre Readiness, Web Performance, Acessibilidade, crawling/discovery e outcomes observacionais continuam válidas.
-4. D-038, D-039, D-040 e decisões correlatas são superseded **somente quanto à referência à versão vigente do scoring**; seu conteúdo histórico e suas fronteiras de domínio permanecem preservados.
-5. Auditorias históricas continuam imutáveis e são abertas/comparadas pela respectiva `scoring_version`; o report não converte silenciosamente 002/003 para 004.
-6. Nenhuma série histórica pode misturar `SCORE-GEO-002`, `SCORE-GEO-003` e `SCORE-GEO-004` como se fossem a mesma metodologia. Pares incompatíveis devem ser `NOT_COMPARABLE` para métricas de score.
-8. A identidade pública do índice permanece `SARI-001`.
-9. Versão do produto, `ruleset_version`, `sari_version`, `scoring_version`, `report_contract_version` e `observability_contract_version` são eixos distintos e não devem ser colapsados em uma única versão.
-
 D-042 não autoriza recalcular auditorias históricas nem alterar evidência persistida.
-
-
 
 ### D-043 - Pré-publicação: superfície única e sem aliases históricos
 

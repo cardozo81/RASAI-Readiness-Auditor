@@ -1,8 +1,6 @@
 """Automated consistency gate for RASAi public contracts.
 
-The gate validates public/runtime invariants without rewriting files. References
-to earlier development proposals remain allowed when clearly qualified; current
-surfaces may not present an earlier proposal as the active runtime.
+The gate validates the single pre-publication public/runtime scoring contract without rewriting files.
 """
 from __future__ import annotations
 
@@ -106,14 +104,7 @@ SURFACE_IMPLEMENTATION_HINTS = {
     "references.html": "src/rasai/reporting.py",
 }
 
-_OLD_VERSION_RE = re.compile(r"SCORE-GEO-00[123]", re.I)
-_CURRENT_WORD_RE = re.compile(r"\b(vigente|atual|runtime|padr[aã]o|novas auditorias)\b", re.I)
-_HISTORICAL_WORD_RE = re.compile(
-    r"(?:hist[oó]ric(?:o|a|os|as)?|legad(?:o|a|os|as)?|superseded|anterior(?:es)?|"
-    r"não é o runtime|não (?:faz|fazem) parte|não (?:é|são) (?:o )?(?:vigente|atual)|"
-    r"não devem ser anunciados|pertencem ao .*hist[oó]ric(?:o|a|os|as)?)",
-    re.I,
-)
+_OLD_VERSION_RE = re.compile(r"SCORE-GEO-(?!004)\d{3}", re.I)
 _MILESTONE_PUBLIC_RE = re.compile(r"(?<![A-Za-z0-9_])M\d{1,3}(?![A-Za-z0-9_])")
 _MILESTONE_EVENT_RE = re.compile(r"\bM\d{1,3}_[A-Z][A-Z0-9_]*\b")
 _VERSIONED_CANONICAL_RE = re.compile(r"report/score-geo-\d+\.html")
@@ -128,25 +119,6 @@ def _read(root: Path, relative: str) -> str:
     if not path.is_file():
         return ""
     return path.read_text(encoding="utf-8")
-
-
-def _stale_current_lines(text: str) -> list[str]:
-    """Return only lines that positively promote an old version as current.
-
-    Historical/current comparisons such as "003 é histórico; 004 é vigente" are
-    allowed. This line-oriented check intentionally avoids crossing paragraph or
-    sentence boundaries and corrupting legitimate method history.
-    """
-    stale: list[str] = []
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or not _OLD_VERSION_RE.search(line):
-            continue
-        if _HISTORICAL_WORD_RE.search(line):
-            continue
-        if _CURRENT_WORD_RE.search(line):
-            stale.append(line)
-    return stale
 
 
 def _check_runtime(errors: list[str]) -> None:
@@ -184,14 +156,10 @@ def _check_docs(root: Path, errors: list[str]) -> None:
             continue
         if EXPECTED_SCORING_VERSION not in text:
             errors.append(f"documento corrente não menciona {EXPECTED_SCORING_VERSION}: {relative}")
-        stale = _stale_current_lines(text)
-        if stale:
-            errors.append(f"documento trata método antigo como vigente: {relative}: {stale[0]}")
-        if relative != "docs/SCORE_GEO_003.md" and _VERSIONED_CANONICAL_RE.search(text):
-            for line in text.splitlines():
-                if _VERSIONED_CANONICAL_RE.search(line) and not re.search(r"alias|compatib|hist[oó]ric", line, re.I):
-                    errors.append(f"filename versionado tratado sem qualificação de alias/histórico: {relative}: {line.strip()}")
-                    break
+        if _OLD_VERSION_RE.search(text):
+            errors.append(f"documento corrente expõe scoring descontinuado: {relative}")
+        if _VERSIONED_CANONICAL_RE.search(text):
+            errors.append(f"documento corrente expõe filename versionado de scoring: {relative}")
 
     readme = _read(root, "README.md")
     nav_apdex = re.findall(r"(?m)^apdex\.html\s+", readme)
@@ -208,6 +176,8 @@ def _check_docs(root: Path, errors: list[str]) -> None:
         if not path.is_file():
             continue
         text = path.read_text(encoding="utf-8")
+        if _OLD_VERSION_RE.search(text):
+            errors.append(f"scoring descontinuado exposto na documentação: {path.relative_to(root)}")
         if _MILESTONE_PUBLIC_RE.search(text) or _MILESTONE_EVENT_RE.search(text):
             errors.append(f"marco interno M* exposto na documentação: {path.relative_to(root)}")
 
@@ -256,22 +226,13 @@ def _check_surfaces(root: Path, errors: list[str]) -> None:
 
 
 def _check_generators(root: Path, errors: list[str]) -> None:
-    forbidden_current_literals = (
-        "SCORE-GEO-003 vigente",
-        "SCORE-GEO-002 vigente",
-        "não reduz SCORE-GEO-003",
-        "não altera SCORE-GEO-003",
-        "Overall Readiness do SCORE-GEO-003",
-        "SCORE-GEO-003 continua disponível normalmente",
-    )
     for relative in PUBLIC_GENERATOR_FILES:
         text = _read(root, relative)
         if not text:
             errors.append(f"gerador público ausente: {relative}")
             continue
-        for phrase in forbidden_current_literals:
-            if phrase in text:
-                errors.append(f"string pública obsoleta em {relative}: {phrase}")
+        if _OLD_VERSION_RE.search(text):
+            errors.append(f"gerador público expõe scoring descontinuado: {relative}")
 
 
 def validate_public_contract(root: str | Path | None = None) -> tuple[str, ...]:

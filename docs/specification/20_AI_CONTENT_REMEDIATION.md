@@ -1,9 +1,5 @@
 # Sugestões e remediação de conteúdo por IA - Optional AI Content Remediation + JSON-LD Guidance
 
-**Estado no baseline de desenvolvimento:** APPROVED FOR IMPLEMENTATION
-**Domínio:** `Sugestões e remediação de conteúdo por IA`
-**Dependency:** Análise semântica por IA, roteamento e telemetria + SCORE-GEO-003 + REPORT-SITE-GEO-001
-
 ## 1. Objective
 
 Sugestões e remediação de conteúdo por IA adds an optional, downstream remediation layer that may propose exact website copy for evidence-backed content/semantic findings and may provide deterministic JSON-LD guidance per audited page/device.

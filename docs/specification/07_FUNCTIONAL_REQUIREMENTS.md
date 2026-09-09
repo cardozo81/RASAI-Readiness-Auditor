@@ -283,9 +283,6 @@ Informar explicitamente que JSON-LD é reforço opcional, que não existe markup
 ### FR-GEO-093
 Expor Web Performance externo por `--web-performance`, `--no-web-performance` e `RASAI_WEB_PERFORMANCE`, com default público `false` e nenhuma chamada PageSpeed/CrUX quando desabilitado.
 
-### FR-GEO-094
-Quando Web Performance externo estiver habilitado, coletar por página/dispositivo selecionado evidência Lighthouse por PageSpeed Insights API e persistir scores/metricas retornados sem convertê-los em contribuição de `SCORE-GEO-003`.
-
 ### FR-GEO-095
 Coletar Core Web Vitals de campo LCP, INP e CLS em p75 quando disponíveis, distinguindo explicitamente dados CrUX reais de métricas Lighthouse de laboratório.
 
@@ -312,9 +309,6 @@ Materializar `report/web-performance.html` com navegação/CSS compartilhados, s
 
 ### FR-GEO-103
 Projetar no `report/index.html` somente resumo explicitamente rotulado como Web Performance externo, sem substituir ou recalcular Overall Readiness, Coverage ou Confidence.
-
-### FR-GEO-104
-Adicionar ao `report/references.html` fontes oficiais de PageSpeed Insights, CrUX, Lighthouse e Core Web Vitals e declarar que essas fontes sustentam os fenômenos medidos, não homologam `SCORE-GEO-003` como standard GEO/AEO.
 
 ### FR-GEO-105
 Executar Web Performance externo como enriquecimento pós-auditoria/fail-open: indisponibilidade ou erro do serviço externo não pode invalidar RuleExecution, Finding, Recommendation ou score já concluídos.
@@ -423,9 +417,6 @@ Sugestões Sugestões e remediação de conteúdo por IA e JSON-LD devem permane
 ### NFR-GEO-017
 Web Performance externo deve permanecer opcional, default OFF para rede externa, com limite explícito de páginas e timeout configurável para impedir consumo PageSpeed/CrUX não previsto.
 
-### NFR-GEO-018
-Web Performance externo deve ser fail-open em relação à auditoria principal e não introduzir dependência obrigatória de PageSpeed, CrUX ou credencial Google para funcionamento de `SCORE-GEO-003`.
-
 ### NFR-GEO-019
 Métricas Web Performance externo devem permanecer reabríveis a partir de `audit.db` + artifacts JSON sem nova chamada externa, preservando source, device, URL/origin scope e versão Lighthouse quando disponível.
 
@@ -443,7 +434,6 @@ Resultados Rastreamento, descoberta e acesso de crawlers devem ser reabríveis a
 
 ### NFR-GEO-024
 CI permanente deve cobrir compile da superfície Rastreamento, descoberta e acesso de crawlers, testes específicos de discovery/Rastreamento, descoberta e acesso de crawlers, regressões de integração afetadas e suíte completa antes de considerar mudanças Rastreamento, descoberta e acesso de crawlers homologadas.
-
 
 ### FR-GEO-173
 A camada de apresentação não deve expor identificadores históricos de etapas de entrega; capacidades devem ser nomeadas pelo domínio funcional.

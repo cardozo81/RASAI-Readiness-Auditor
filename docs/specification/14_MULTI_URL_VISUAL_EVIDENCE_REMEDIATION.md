@@ -1,10 +1,5 @@
 # Auditoria multi-URL e evidência visual - Multi-URL Audit + Visual/DOM Evidence + Actionable Remediation
 
-**Estado no baseline de desenvolvimento:** NORMATIVE EVOLUTION
-**Capacidade:** Auditoria multi-URL e evidência visual
-**Report contract:** `REPORT-GEO-003`
-**Scoring contract:** `SCORE-GEO-003` - unchanged by this capability
-
 ## 1. Purpose
 
 Auditoria multi-URL e evidência visual evolves the persisted audit chain from score/finding/remediation text to a traceable structure capable of answering, from persisted evidence, what domain and page were audited, which Desktop/Mobile snapshot was used, what DOM element was observed when determinable, what visual evidence exists, what action is justified, how the correction is validated, and which technical authority or internal heuristic supports the recommendation.
@@ -148,8 +143,6 @@ Baseline deterministic projection:
 Actionability never changes `RuleResult`, scoring contribution, weight, score, Coverage, Confidence or Consolidation.
 
 ## 9. Scoring invariants
-
-Auditoria multi-URL e evidência visual não altera `SCORE-GEO-003` nem o `SARI-001`.
 
 Mandatory invariants remain:
 

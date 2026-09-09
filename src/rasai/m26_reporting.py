@@ -88,7 +88,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
         body = f"""
         <header class='hero'><div class='eyebrow'>Observed Generative Visibility · visibilidade observada</div><h1>Observed Generative Visibility</h1>
         <p class='lead'>Nenhum dataset de visibilidade generativa foi importado para esta auditoria.</p></header>
-        <section class='panel'><h2>Readiness ≠ Visibility</h2><p>Esta página é deliberadamente separada de SARI-001 e do {SCORING_VERSION} vigente. SCORE-GEO-003 e SCORE-GEO-002 permanecem históricos. Ausência de dados observados não reduz readiness.</p></section>
+        <section class='panel'><h2>Readiness ≠ Visibility</h2><p>Esta página é deliberadamente separada de SARI-001 e do {SCORING_VERSION} vigente. Ausência de dados observados não reduz readiness.</p></section>
         """
         return _shell(nav, body)
 
@@ -98,7 +98,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     <header class='hero'>
       <div class='eyebrow'>Observed Generative Visibility · visibilidade observada · informativo; não altera o índice</div>
       <h1>Observed Generative Visibility</h1>
-      <p class='lead'>Resultados observados/importados sobre participação e citação em superfícies de IA. Estes dados <strong>não compõem SARI-001/{SCORING_VERSION}</strong>; SCORE-GEO-003 e SCORE-GEO-002 são contratos históricos e também não recebem estes dados retroativamente. Os valores não são convertidos em um “GEO Score”.</p>
+      <p class='lead'>Resultados observados/importados sobre participação e citação em superfícies de IA. Estes dados <strong>não compõem SARI-001/{SCORING_VERSION}</strong>. Os valores não são convertidos em um “GEO Score”.</p>
       <div class='metric-grid'>
         {_metric('Datasets importados', len(imports))}
         {_metric('Período mais recente', f"{latest['period_start']} → {latest['period_end']}")}

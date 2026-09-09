@@ -109,5 +109,3 @@ Hard source blockers impedem aquisição adicional dependente do corpus. Cross-o
 ## 11. Methodological limit
 
 Fontes externas sustentam fenômenos específicos de crawling/discovery; elas não homologam `SARI-001`, `SCORE-GEO-004`, severidades internas ou qualquer índice proprietário RASAi.
-
-`SCORE-GEO-003` permanece apenas como identificador histórico de auditorias antigas e não deve ser descrito como scoring vigente nesta especificação.

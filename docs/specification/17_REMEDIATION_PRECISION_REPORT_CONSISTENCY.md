@@ -1,9 +1,5 @@
 # Precisão e consistência das recomendações - Remediation Precision + Report Consistency
 
-**Estado no baseline de desenvolvimento:** APPROVED EVOLUTION
-**Baseline de entrada:** Remediação por causa raiz e elemento integrado em `main`
-**Contratos preservados:** `SCORE-GEO-003`, `REPORT-GEO-003`, `REMEDIATION-GEO-001`
-
 ## 1. Objetivo
 
 Corrigir inconsistências observadas em smoke real após Remediação por causa raiz e elemento sem alterar Business Rules, RuleResult, severity, actionability, prioridade, Score, Coverage, Confidence ou Consolidation.
@@ -184,7 +180,6 @@ Precisão e consistência das recomendações não altera:
 - severity;
 - actionability classifier;
 - prioridade/priority score;
-- SCORE-GEO-003;
 - weights;
 - Coverage;
 - Confidence;
