@@ -9,6 +9,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from rasai.secret_safety import (
+    redact_text,
+    redact_value,
+    validate_command_argv_secret_free,
+    validate_environment_reference,
+    validate_secret_free_mapping,
+)
+
 Role = Literal["OWNER", "ADMIN", "ANALYST", "OPERATOR", "VIEWER", "INTEGRATION_MANAGER", "BILLING"]
 EnvironmentKind = Literal["PRODUCTION", "STAGING", "QA", "PREVIEW", "DEVELOPMENT", "OTHER"]
 MilestoneKind = Literal[
@@ -26,6 +34,11 @@ MilestoneKind = Literal[
 ]
 ScheduleKind = Literal["INTERVAL", "DAILY", "MANUAL", "DEPLOYMENT_TRIGGERED", "API_TRIGGERED"]
 AlertDestination = Literal["NONE", "WEBHOOK", "JSON"]
+
+
+def _safe_mapping(value: dict[str, Any]) -> dict[str, Any]:
+    sanitized = redact_value(value)
+    return dict(sanitized) if isinstance(sanitized, dict) else {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,6 +152,12 @@ class Milestone:
     tags: tuple[str, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "title", redact_text(self.title))
+        if self.description is not None:
+            object.__setattr__(self, "description", redact_text(self.description))
+        object.__setattr__(self, "metadata", _safe_mapping(self.metadata))
+
 
 @dataclass(frozen=True, slots=True)
 class DeploymentPair:
@@ -160,6 +179,9 @@ class PageIdentity:
     status: str = "ACTIVE"
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", _safe_mapping(self.metadata))
+
 
 @dataclass(frozen=True, slots=True)
 class Schedule:
@@ -178,6 +200,9 @@ class Schedule:
     last_run_at: str | None = None
     last_status: str | None = None
 
+    def __post_init__(self) -> None:
+        validate_command_argv_secret_free(self.command_argv, context="schedule command")
+
 
 @dataclass(frozen=True, slots=True)
 class AlertRule:
@@ -193,6 +218,10 @@ class AlertRule:
     destination_env: str | None
     created_at: str
 
+    def __post_init__(self) -> None:
+        if self.destination_env:
+            validate_environment_reference(self.destination_env)
+
 
 @dataclass(frozen=True, slots=True)
 class Integration:
@@ -207,6 +236,11 @@ class Integration:
     configuration: dict[str, Any]
     created_at: str
     status: str = "ACTIVE"
+
+    def __post_init__(self) -> None:
+        if self.secret_env:
+            validate_environment_reference(self.secret_env)
+        validate_secret_free_mapping(self.configuration, context="integration configuration")
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,6 +259,9 @@ class UsageEvent:
     provider: str | None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", _safe_mapping(self.metadata))
+
 
 @dataclass(frozen=True, slots=True)
 class ExternalDataset:
@@ -241,3 +278,8 @@ class ExternalDataset:
     artifact_sha256: str | None
     row_count: int
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.artifact_path is not None:
+            object.__setattr__(self, "artifact_path", redact_text(self.artifact_path))
+        object.__setattr__(self, "metadata", _safe_mapping(self.metadata))
