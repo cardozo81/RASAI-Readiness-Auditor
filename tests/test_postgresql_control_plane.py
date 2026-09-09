@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from contextlib import closing
 import json
 import os
 from pathlib import Path
@@ -8,14 +7,16 @@ import tempfile
 
 import pytest
 
+from rasai.platform.canonical_cli import main as platform_main
 from rasai.platform.database import (
     PLATFORM_BACKEND_ENV,
     PLATFORM_DATABASE_URL_ENV,
     open_platform_store,
     resolve_platform_database_config,
 )
+from rasai.platform.postgres_admin import migrate_postgres, postgres_schema_status
 from rasai.platform.postgres_compat import PostgreSQLConfigurationError, redact_postgres_url
-from rasai.platform.postgres_migrations import POSTGRES_SCHEMA_VERSION, apply_postgres_migrations
+from rasai.platform.postgres_migrations import POSTGRES_SCHEMA_VERSION
 from rasai.platform.postgres_store import PostgreSQLPlatformStore
 from rasai.search_intelligence.monitoring import execute_registered_query, new_query
 from rasai.search_intelligence.monitoring_database import open_search_monitoring_repository
@@ -23,6 +24,14 @@ from rasai.search_intelligence.monitoring_database import open_search_monitoring
 
 POSTGRES_URL = os.getenv("RASAI_TEST_POSTGRES_URL")
 pytestmark = pytest.mark.skipif(not POSTGRES_URL, reason="RASAI_TEST_POSTGRES_URL is not configured")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _postgres_schema() -> None:
+    if POSTGRES_URL:
+        status, _applied = migrate_postgres(POSTGRES_URL)
+        assert status.state == "CURRENT"
+        assert status.current_version == POSTGRES_SCHEMA_VERSION
 
 
 def _truncate(store: PostgreSQLPlatformStore) -> None:
@@ -61,8 +70,13 @@ def _scope(store: PostgreSQLPlatformStore):
     )
 
 
-def test_postgresql_migrations_are_idempotent_and_server_contract_is_healthy() -> None:
+def test_postgresql_migrations_are_explicit_idempotent_and_server_contract_is_healthy() -> None:
     assert POSTGRES_URL is not None
+    status_before = postgres_schema_status(POSTGRES_URL)
+    assert status_before.state == "CURRENT"
+    status_after, applied = migrate_postgres(POSTGRES_URL)
+    assert applied == ()
+    assert status_after.current_version == POSTGRES_SCHEMA_VERSION
     with PostgreSQLPlatformStore(POSTGRES_URL) as store:
         _truncate(store)
         health = store.health()
@@ -70,11 +84,32 @@ def test_postgresql_migrations_are_idempotent_and_server_contract_is_healthy() -
         assert health["schema_version"] == POSTGRES_SCHEMA_VERSION
         assert health["server_encoding"].upper() == "UTF8"
         assert health["timezone"].upper() in {"UTC", "ETC/UTC"}
-        assert apply_postgres_migrations(store._connection) == ()
         versions = [int(row[0]) for row in store._connection.execute(
             "SELECT version FROM platform_schema_migrations ORDER BY version"
         )]
         assert versions == list(range(1, POSTGRES_SCHEMA_VERSION + 1))
+
+
+def test_postgresql_database_cli_reports_and_migrates_without_exposing_secret(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert POSTGRES_URL is not None
+    monkeypatch.setenv(PLATFORM_BACKEND_ENV, "postgresql")
+    monkeypatch.setenv(PLATFORM_DATABASE_URL_ENV, POSTGRES_URL)
+    assert platform_main(["database", "status"]) == 0
+    status_text = capsys.readouterr().out
+    assert '"backend": "postgresql"' in status_text
+    assert '"state": "CURRENT"' in status_text
+    password = url_password(POSTGRES_URL)
+    if password:
+        assert password not in status_text
+
+    assert platform_main(["database", "migrate"]) == 0
+    migrate_text = capsys.readouterr().out
+    assert '"applied_migrations": []' in migrate_text
+    if password:
+        assert password not in migrate_text
 
 
 def test_postgresql_control_plane_reuses_canonical_domain_contracts() -> None:
