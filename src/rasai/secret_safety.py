@@ -43,8 +43,15 @@ _BEARER_RE = re.compile(r"(?i)\bBearer\s+([^\s,;]+)")
 _HEADER_RE = re.compile(
     r"(?im)^(\s*(?:authorization|proxy-authorization|cookie|set-cookie|x-api-key|api-key)\s*:\s*)(.+)$"
 )
-_ASSIGNMENT_RE = re.compile(
-    r"(?im)\b([A-Za-z0-9_.-]*(?:api[_-]?key|token|secret|password|passwd|credential|private[_-]?key|access[_-]?key)[A-Za-z0-9_.-]*)\b\s*[:=]\s*[\"']?([^\s\"'#,;}]+)"
+_SENSITIVE_FIELD_PATTERN = (
+    r"[A-Za-z0-9_.-]*(?:api[_-]?key|token|secret|password|passwd|credential|"
+    r"private[_-]?key|access[_-]?key)[A-Za-z0-9_.-]*"
+)
+_QUOTED_ASSIGNMENT_RE = re.compile(
+    rf"(?im)\b({_SENSITIVE_FIELD_PATTERN})\b\s*[:=]\s*([\"'])([^\"'\n]+)\2"
+)
+_ENV_ASSIGNMENT_RE = re.compile(
+    rf"(?im)^\s*({_SENSITIVE_FIELD_PATTERN})\s*=\s*([^\s#]+)\s*$"
 )
 _PRIVATE_KEY_BEGIN = "-----BEGIN " + "PRIVATE KEY-----"
 _PRIVATE_KEY_END = "-----END " + "PRIVATE KEY-----"
@@ -150,14 +157,21 @@ def redact_text(value: str) -> str:
     text = _BEARER_RE.sub("Bearer " + REDACTED, text)
     text = _URI_WITH_AUTH_RE.sub(lambda match: redact_url(match.group(0)), text)
 
-    def assignment(match: re.Match[str]) -> str:
+    def quoted_assignment(match: re.Match[str]) -> str:
+        name, quote_char, raw = match.group(1), match.group(2), match.group(3)
+        if is_secret_reference_name(name) or is_safe_placeholder(raw):
+            return match.group(0)
+        prefix = match.group(0)[: match.group(0).find(quote_char) + 1]
+        return prefix + REDACTED + quote_char
+
+    def env_assignment(match: re.Match[str]) -> str:
         name, raw = match.group(1), match.group(2)
         if is_secret_reference_name(name) or is_safe_placeholder(raw):
             return match.group(0)
-        prefix = match.group(0)[: match.group(0).rfind(raw)]
-        return prefix + REDACTED
+        return f"{name}={REDACTED}"
 
-    return _ASSIGNMENT_RE.sub(assignment, text)
+    text = _QUOTED_ASSIGNMENT_RE.sub(quoted_assignment, text)
+    return _ENV_ASSIGNMENT_RE.sub(env_assignment, text)
 
 
 def redact_value(value: Any, *, field_name: str | None = None) -> Any:
@@ -202,20 +216,20 @@ def detect_secret_exposures(text: str, *, path: str = "<memory>") -> tuple[Secre
         if not is_safe_placeholder(token):
             findings.append(SecretExposure(path, _line_number(text, match.start()), "BEARER_TOKEN", "Bearer token value"))
 
-    for match in _ASSIGNMENT_RE.finditer(text):
-        name, raw = match.group(1), match.group(2)
-        if is_secret_reference_name(name) or is_safe_placeholder(raw):
-            continue
-        findings.append(SecretExposure(path, _line_number(text, match.start()), "SECRET_ASSIGNMENT", f"inline value for {name}"))
+    for pattern, value_group in ((_QUOTED_ASSIGNMENT_RE, 3), (_ENV_ASSIGNMENT_RE, 2)):
+        for match in pattern.finditer(text):
+            name, raw = match.group(1), match.group(value_group)
+            if is_secret_reference_name(name) or is_safe_placeholder(raw):
+                continue
+            findings.append(SecretExposure(path, _line_number(text, match.start()), "SECRET_ASSIGNMENT", f"inline value for {name}"))
 
-    # De-duplicate findings that match more than one representation on the same line.
     unique: dict[tuple[str, int, str], SecretExposure] = {}
     for item in findings:
         unique[(item.path, item.line, item.kind)] = item
     return tuple(unique.values())
 
 
-_SCAN_SUFFIXES = frozenset({".py", ".md", ".txt", ".toml", ".ini", ".json", ".yml", ".yaml", ".cmd", ".ps1", ".env"})
+_SCAN_SUFFIXES = frozenset({".py", ".md", ".txt", ".toml", ".ini", ".json", ".yml", ".yaml", ".cmd", ".ps1"})
 _SCAN_NAMES = frozenset({".gitignore", "Dockerfile"})
 _SCAN_EXCLUSIONS = frozenset({
     "src/rasai/secret_safety.py",
@@ -238,6 +252,15 @@ def _tracked_files(root: Path) -> tuple[Path, ...]:
         return tuple(path for path in root.rglob("*") if path.is_file())
 
 
+def _should_scan(file_path: Path) -> bool:
+    return (
+        file_path.suffix.lower() in _SCAN_SUFFIXES
+        or file_path.name in _SCAN_NAMES
+        or file_path.name == ".env"
+        or file_path.name.startswith(".env.")
+    )
+
+
 def scan_repository(root: str | Path) -> tuple[SecretExposure, ...]:
     repository = Path(root).resolve()
     findings: list[SecretExposure] = []
@@ -248,7 +271,7 @@ def scan_repository(root: str | Path) -> tuple[SecretExposure, ...]:
             continue
         if relative in _SCAN_EXCLUSIONS or any(part in {".git", ".venv", "venv", "__pycache__", "audits"} for part in file_path.parts):
             continue
-        if file_path.suffix.lower() not in _SCAN_SUFFIXES and file_path.name not in _SCAN_NAMES:
+        if not _should_scan(file_path):
             continue
         try:
             text = file_path.read_text(encoding="utf-8")
