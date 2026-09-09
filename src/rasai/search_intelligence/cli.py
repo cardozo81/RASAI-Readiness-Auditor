@@ -113,7 +113,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             for query in args.query
         )
         if args.dry_run:
-            projected = config.worst_case_http_requests(len(requests))
+            projected = sum(
+                config.worst_case_http_requests(1, depth=item.depth)
+                for item in requests
+            )
             if len(requests) > config.max_queries:
                 raise ValueError(f"SERP query count {len(requests)} exceeds configured max_queries {config.max_queries}")
             if any(item.depth > config.max_depth for item in requests):
