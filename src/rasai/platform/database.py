@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Literal
 
 from .central_store import CentralPlatformStore
-from .postgres_compat import require_postgres_url, redact_postgres_url
 from .store import default_platform_database
 
 
@@ -26,6 +25,8 @@ class PlatformDatabaseConfig:
     def display(self) -> str:
         if self.backend == "sqlite":
             return str(self.sqlite_database)
+        from .postgres_compat import redact_postgres_url
+
         return redact_postgres_url(str(self.database_url))
 
 
@@ -53,6 +54,8 @@ def resolve_platform_database_config(
         raise ValueError(
             "--platform-db is SQLite-only; PostgreSQL uses RASAI_PLATFORM_DATABASE_URL and never falls back to SQLite"
         )
+    from .postgres_compat import require_postgres_url
+
     url = require_postgres_url(database_url if database_url is not None else os.getenv(PLATFORM_DATABASE_URL_ENV))
     return PlatformDatabaseConfig("postgresql", database_url=url)
 
