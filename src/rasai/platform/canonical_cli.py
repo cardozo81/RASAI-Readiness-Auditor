@@ -12,9 +12,9 @@ import json
 import sys
 from typing import Any
 
-from .central_store import CentralPlatformStore
 from .database import open_platform_store, resolve_platform_database_config
 from .postgres_admin import migrate_postgres, postgres_schema_status
+from .secure_store import SecurePlatformStore
 from . import cli as _cli
 
 
@@ -162,7 +162,7 @@ def main(argv: list[str] | None = None) -> int:
     if remaining and remaining[0] in {"database", "user", "member", "scope", "data"}:
         return _custom_main(remaining, audits_root, platform_db)
     if config.backend == "sqlite":
-        _cli.PlatformStore = CentralPlatformStore  # type: ignore[attr-defined]
+        _cli.PlatformStore = SecurePlatformStore  # type: ignore[attr-defined]
     else:
         # The broad legacy parser still derives a SQLite-shaped path before store
         # construction. Ignore that derived path when PostgreSQL is explicitly selected;
