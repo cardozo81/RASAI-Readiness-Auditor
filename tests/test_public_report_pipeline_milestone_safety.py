@@ -53,11 +53,14 @@ def test_final_public_report_pipeline_normalizes_known_internal_markup_prefixes(
     evidence = "Produto M25 industrial observado na página auditada."
     source = (
         "<html><head><style>"
-        ".m16-root{display:block}.m17-link{display:block}.m18-ai{display:block}"
+        ".m14-nav{display:block}.m15-sidebar{display:block}.m16-root{display:block}"
+        ".m17-link{display:block}.m18-ai{display:block}"
+        ".page.m15-main{margin-left:var(--m15-sidebar)}"
         "</style></head><body><header><h1>RASAi</h1></header><main>"
         "<!-- rasai-m23-report-start -->"
         "<section id='m23-apdex-summary' "
-        "class='panel m16-root m17-link m18-ai' data-module='m18-analysis'>"
+        "class='panel m14-nav m15-main m16-root m17-link m18-ai' "
+        "data-module='m18-analysis'>"
         f"<p>{evidence}</p></section>"
         "<!-- rasai-m23-report-end -->"
         "</main></body></html>"
@@ -65,11 +68,14 @@ def test_final_public_report_pipeline_normalizes_known_internal_markup_prefixes(
 
     rendered = enhance_report_html(source, page_name=page_name, report_dir=tmp_path)
 
-    for prefix in ("m16-", "m17-", "m18-", "m23-"):
+    for prefix in ("m14-", "m15-", "m16-", "m17-", "m18-", "m23-"):
         assert prefix not in rendered.casefold()
+    assert ".evidence-linking-nav" in rendered
+    assert ".report-layout-sidebar" in rendered
     assert ".root-cause-root" in rendered
     assert ".remediation-link" in rendered
     assert ".ai-analysis-ai" in rendered
+    assert "var(--report-layout-sidebar)" in rendered
     assert "id='apdex-apdex-summary'" in rendered
     assert "data-module='ai-analysis-analysis'" in rendered
     assert evidence in rendered
