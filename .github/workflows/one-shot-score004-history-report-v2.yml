@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
       - name: Apply implementation
         run: python tools/one_shot_score004_history_report.py
       - name: Remove bootstrap files before contract validation
@@ -49,7 +49,7 @@ jobs:
       - name: Verify sole scoring contract
         shell: bash
         run: |
-          if git grep -n -E 'SCORE-GEO-(001|002|003|[0-9]{3})' -- ':!*.pyc' | grep -v 'SCORE-GEO-004'; then
+          if git grep -n -E 'SCORE-GEO-[0-9]{3}' -- ':!*.pyc' | grep -v 'SCORE-GEO-004'; then
             echo 'A non-canonical SCORE-GEO identifier remains.' >&2
             exit 1
           fi
