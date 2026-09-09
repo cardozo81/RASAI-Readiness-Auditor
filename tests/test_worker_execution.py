@@ -69,6 +69,7 @@ def test_audit_job_builds_only_canonical_arguments() -> None:
 def test_report_refresh_job_executes_outside_http_process() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
+        audits_root = root / "audits"
         with SecurePlatformStore(root / "platform.db") as store:
             project, prop, environment, user = _scope(store)
             job = store.enqueue_execution_job(
@@ -79,9 +80,10 @@ def test_report_refresh_job_executes_outside_http_process() -> None:
                 requested_by=user.user_id,
                 payload={"surface": "portfolio"},
             )
-            result = execute_job(store, job, audits_root=root / "audits")
+            result = execute_job(store, job, audits_root=audits_root)
             assert result.result_ref is not None
-            assert Path(result.result_ref).is_file()
+            assert not Path(result.result_ref).is_absolute()
+            assert (audits_root / result.result_ref).is_file()
             assert result.metadata == {"surface": "portfolio"}
 
 
