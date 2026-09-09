@@ -60,7 +60,7 @@ def test_page_identity_alert_notification_and_integration_parity() -> None:
         page = store.create_page_identity(
             prop.property_id,
             "Auto Insurance Landing",
-            metadata={"password": "must-not-persist", "max_tokens": 512, "kind": "landing"},
+            metadata={"password": "TEST_ONLY_PAGE_PASSWORD", "max_tokens": 512, "kind": "landing"},
         )
         assert page.metadata["password"] == "[REDACTED]"
         assert page.metadata["max_tokens"] == 512
@@ -110,12 +110,12 @@ def test_page_identity_alert_notification_and_integration_parity() -> None:
             milestone_id=None,
             status="PENDING",
             payload={
-                "authorization": "Bearer runtime-value-must-not-persist",
+                "authorization": "Bearer TEST_ONLY_BEARER_VALUE",
                 "max_tokens": 256,
                 "message": "regression detected",
             },
             destination="WEBHOOK",
-            delivery_error="password=runtime-error-secret",
+            delivery_error="password=TEST_ONLY_ERROR_PASSWORD",
         )
         notification = store._connection.execute(
             "SELECT payload_json,delivery_error,destination FROM notifications WHERE notification_id=?",
@@ -125,8 +125,8 @@ def test_page_identity_alert_notification_and_integration_parity() -> None:
         payload = json.loads(str(notification["payload_json"]))
         assert payload["authorization"] == "[REDACTED]"
         assert payload["max_tokens"] == 256
-        assert "runtime-value-must-not-persist" not in str(notification["payload_json"])
-        assert "runtime-error-secret" not in str(notification["delivery_error"])
+        assert "TEST_ONLY_BEARER_VALUE" not in str(notification["payload_json"])
+        assert "TEST_ONLY_ERROR_PASSWORD" not in str(notification["delivery_error"])
 
         integration = store.add_integration(
             organization_id=org.organization_id,
@@ -153,7 +153,7 @@ def test_page_identity_alert_notification_and_integration_parity() -> None:
                 property_id=prop.property_id,
                 provider="unsafe",
                 name="Provider-unsafe",
-                configuration={"api_key": "real-value-must-not-persist"},
+                configuration={"api_key": "TEST_ONLY_INLINE_KEY"},
             )
 
 
@@ -177,7 +177,7 @@ def test_external_dataset_usage_and_schedule_secret_safety_parity() -> None:
             artifact_path=None,
             artifact_sha256=None,
             row_count=1,
-            metadata={"password": "dataset-secret", "max_tokens": 64},
+            metadata={"password": "TEST_ONLY_DATASET_PASSWORD", "max_tokens": 64},
         )
         store.add_external_dataset(
             dataset,
@@ -187,7 +187,7 @@ def test_external_dataset_usage_and_schedule_secret_safety_parity() -> None:
                 "normalized_url": "https://client.example/a",
                 "dimensions": {"device": "desktop"},
                 "metrics": {"requests": 1},
-                "metadata": {"access_token": "record-secret", "note": "safe"},
+                "metadata": {"access_token": "TEST_ONLY_RECORD_TOKEN", "note": "safe"},
             }],
         )
         persisted_dataset = store.list_external_datasets(property_id=prop.property_id)[0]
@@ -205,7 +205,7 @@ def test_external_dataset_usage_and_schedule_secret_safety_parity() -> None:
             quantity=1,
             unit="call",
             provider="fixture",
-            metadata={"api_key": "usage-secret", "input_tokens": 100, "output_tokens": 20},
+            metadata={"api_key": "TEST_ONLY_USAGE_KEY", "input_tokens": 100, "output_tokens": 20},
         )
         assert usage.metadata["api_key"] == "[REDACTED]"
         assert usage.metadata["input_tokens"] == 100
@@ -229,6 +229,6 @@ def test_external_dataset_usage_and_schedule_secret_safety_parity() -> None:
                 environment_id=environment.environment_id,
                 name="unsafe-secret-value",
                 kind="INTERVAL",
-                command_argv=("integration-run", "--api-key", "real-value-must-not-persist"),
+                command_argv=("integration-run", "--api-key", "TEST_ONLY_RAW_API_KEY"),
                 interval_minutes=60,
             )
