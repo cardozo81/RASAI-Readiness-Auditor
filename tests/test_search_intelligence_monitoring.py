@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import closing
 import json
 from pathlib import Path
 import sqlite3
@@ -142,7 +143,10 @@ class SearchMonitoringTests(unittest.TestCase):
                 self.assertIn("POSITION_IMPROVED", html)
 
             self.assertFalse(any(root.glob("AUD-*/audit.db")))
-            with sqlite3.connect(database) as connection:
+            # sqlite3.Connection context managers commit/rollback but do not close the
+            # connection. Explicit closing is required so Windows can remove the
+            # TemporaryDirectory immediately after this verification.
+            with closing(sqlite3.connect(database)) as connection:
                 self.assertEqual(1, connection.execute("SELECT COUNT(*) FROM search_monitor_queries").fetchone()[0])
                 self.assertEqual(2, connection.execute("SELECT COUNT(*) FROM search_monitor_runs").fetchone()[0])
 
