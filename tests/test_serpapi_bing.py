@@ -1,14 +1,25 @@
 from __future__ import annotations
 
+from contextlib import redirect_stdout
+import io
 import json
+import os
 import unittest
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 from rasai.search_intelligence.budget import RequestBudget
+from rasai.search_intelligence.cli import main as search_main
 from rasai.search_intelligence.config import SerpRuntimeConfig
 from rasai.search_intelligence.models import DomainMatchStatus, QueryOrigin, SerpQueryRequest
+from rasai.search_intelligence.monitoring import SearchMonitorQuery
+from rasai.search_intelligence.monitoring_cli import _estimate
 from rasai.search_intelligence.providers.serpapi_bing import SerpApiBingProvider
-from rasai.search_intelligence.runtime import _projected_request_ceiling, live_provider_ids
+from rasai.search_intelligence.runtime import (
+    live_provider_ids,
+    projected_http_request_ceiling,
+    validate_live_provider_engine,
+)
 from rasai.search_intelligence.service import SearchIntelligenceService
 
 
@@ -161,11 +172,63 @@ class SerpApiBingTests(unittest.TestCase):
         self.assertEqual("SERP_UNSUPPORTED_ENGINE", result.error_code)
         self.assertEqual([], calls)
 
-    def test_bing_dry_run_ceiling_is_global_hard_budget(self):
+    def test_bing_dry_run_ceiling_is_one_global_hard_budget_for_multiple_queries(self):
         config = SerpRuntimeConfig(
             mode="live", provider="serpapi-bing", max_requests=13, retries=1
         ).validate()
-        self.assertEqual(13, _projected_request_ceiling((request(depth=20),), config))
+        self.assertEqual(
+            13,
+            projected_http_request_ceiling(config, depths=(20, 20, 10)),
+        )
+
+    def test_provider_engine_preflight_rejects_mismatch_without_network(self):
+        validate_live_provider_engine("serpapi-bing", "bing")
+        validate_live_provider_engine("serpapi", "google")
+        with self.assertRaisesRegex(ValueError, "does not support engine"):
+            validate_live_provider_engine("serpapi-bing", "google")
+        with self.assertRaisesRegex(ValueError, "does not support engine"):
+            validate_live_provider_engine("serpapi", "bing")
+
+    def test_point_in_time_cli_bing_dry_run_uses_global_budget(self):
+        output = io.StringIO()
+        with patch.dict(os.environ, {"RASAI_SERP_MAX_REQUESTS": "13"}, clear=True):
+            with redirect_stdout(output):
+                result = search_main(
+                    [
+                        "seguro residencial",
+                        "--domain",
+                        "client.example",
+                        "--engine",
+                        "bing",
+                        "--provider",
+                        "serpapi-bing",
+                        "--mode",
+                        "live",
+                        "--depth",
+                        "20",
+                        "--dry-run",
+                    ]
+                )
+        self.assertEqual(0, result)
+        self.assertIn("SERP HTTP request ceiling: 13/13", output.getvalue())
+        self.assertIn("No provider, content or AI call executed.", output.getvalue())
+
+    def test_search_monitor_dry_run_estimate_uses_same_global_budget(self):
+        item = SearchMonitorQuery(
+            query_id="SQRY-BING",
+            project_id="PROJ-1",
+            property_id="PROP-1",
+            environment_id="ENV-1",
+            query="seguro residencial",
+            domain_of_interest="client.example",
+            engine="bing",
+            requested_depth=20,
+            mode="live",
+            provider="serpapi-bing",
+        )
+        with patch.dict(os.environ, {"RASAI_SERP_MAX_REQUESTS": "11"}, clear=True):
+            serp, content, ai = _estimate(item)
+        self.assertEqual((11, 0, 0), (serp, content, ai))
 
 
 if __name__ == "__main__":
