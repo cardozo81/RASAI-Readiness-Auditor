@@ -1,7 +1,9 @@
 """User-facing provenance for indicators projected into RASAi reports.
 
-This module classifies methodology and the role each signal has in SARI.  It does
-not recalculate persisted measurements, findings or scores.
+This module classifies methodology and the role each signal has in SARI. It also
+normalizes known legacy presentation wording so final HTML cannot contradict the
+active SCORE-GEO-004 contract. It never recalculates persisted measurements,
+findings or scores.
 """
 from __future__ import annotations
 
@@ -275,7 +277,51 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
 }
 
 
+def _normalize_current_sari_wording(html: str, *, page_name: str) -> str:
+    """Remove presentation remnants from the pre-recalibration SCORE-GEO-004 contract."""
+    if page_name not in {"readiness.html", "scoring.html", "mobile.html", "desktop.html"}:
+        return html
+
+    replacements = (
+        (
+            "Média de igual peso das dimensões aplicáveis com medição suficiente. Dimensão legitimamente NOT_APPLICABLE sai do denominador e não recebe zero.",
+            "Média ponderada pelos pesos versionados das dimensões medidas e aplicáveis. Dimensão legitimamente NOT_APPLICABLE sai do denominador e os pesos restantes são normalizados.",
+        ),
+        (
+            "O Overall usa a média dessa Coverage entre dimensões aplicáveis; ela não representa percentual de URLs do domínio rastreadas ou auditadas.",
+            "O Overall Coverage é ponderado pelos pesos das dimensões aplicáveis; ele não representa percentual de URLs do domínio rastreadas ou auditadas.",
+        ),
+        (
+            "O Overall usa a menor Confidence entre as dimensões aplicáveis. Para consolidar, exige Coverage média de pelo menos 80% e Confidence mínima MEDIUM. A presença de IA não é requisito: uma execução NO_AI pode atingir MEDIUM/HIGH quando Coverage, evidências e integridade da execução forem suficientes.",
+            "O Overall usa Confidence ponderada, com rigor adicional para Discovery, Indexability e Extraction. Para consolidar, exige Coverage ponderada de pelo menos 80%, Confidence HIGH/MEDIUM e ausência de bloqueador crítico de medição. A presença de IA não é requisito.",
+        ),
+        (
+            "O gate de consolidação exige Coverage Overall de pelo menos 80% e Confidence mínima MEDIUM. O Overall herda a menor Confidence entre as dimensões aplicáveis; por isso uma nota relativamente alta pode permanecer parcial sem contradição.",
+            "O gate de consolidação exige Coverage Overall ponderada de pelo menos 80%, Confidence HIGH/MEDIUM e nenhuma dimensão crítica aplicável sem medição suficiente. Por isso uma nota relativamente alta pode permanecer parcial ou não consolidada sem contradição.",
+        ),
+        (
+            "Os gates mínimos de Coverage e Confidence foram atendidos para esta medição.",
+            "Os gates ponderados de Coverage, Confidence e medição crítica foram atendidos para esta medição.",
+        ),
+        (
+            "peso máximo versionado 0,25",
+            "peso versionado 0,05 dentro de DISCOVERY_ACCESS",
+        ),
+        (
+            "peso máximo versionado 0,60",
+            "peso versionado 0,15 dentro de DISCOVERY_ACCESS",
+        ),
+    )
+    for old, new in replacements:
+        html = html.replace(old, new)
+
+    html = html.replace(">DISCOVERY_ACCESS<", ">Acesso e descoberta<")
+    html = html.replace(">CONTENT_VALUE<", ">Valor do conteúdo<")
+    return html
+
+
 def enrich_indicator_provenance_html(html: str, *, page_name: str) -> str:
+    html = _normalize_current_sari_wording(html, page_name=page_name)
     if PROVENANCE_MARKER in html:
         return html
     if page_name == "references.html":
