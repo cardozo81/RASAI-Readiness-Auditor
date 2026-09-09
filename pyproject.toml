@@ -25,7 +25,6 @@ web = [
 [project.scripts]
 rasai = "rasai.entrypoint:main"
 rasai-console = "rasai.console_entrypoint:main"
-rasai-api = "rasai.web.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
