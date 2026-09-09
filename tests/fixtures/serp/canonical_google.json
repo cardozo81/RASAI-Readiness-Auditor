@@ -1,0 +1,31 @@
+{
+  "fixture_version": "SERP-FIXTURE-001",
+  "observation_id": "SERP-FIXTURE-DEMO-001",
+  "provider_request_id": "fixture-demo-001",
+  "query": "seguro residencial cobre enchente",
+  "engine": "google",
+  "country": "BR",
+  "language": "pt-BR",
+  "device": "desktop",
+  "collected_at": "2026-09-08T20:00:00Z",
+  "results": [
+    {
+      "position": 1,
+      "url": "https://leader-a.example/seguro-residencial",
+      "title": "Controlled leader A",
+      "snippet": "Fixture only — not live SERP data."
+    },
+    {
+      "position": 2,
+      "url": "https://portal.example/guia-enchente",
+      "title": "Controlled portal",
+      "snippet": "Fixture only — not live SERP data."
+    },
+    {
+      "position": 3,
+      "url": "https://cliente.example/seguro-residencial",
+      "title": "Controlled customer result",
+      "snippet": "Fixture only — not live SERP data."
+    }
+  ]
+}
