@@ -76,7 +76,7 @@ def test_final_public_report_pipeline_normalizes_known_internal_markup_prefixes(
     assert ".remediation-link" in rendered
     assert ".ai-analysis-ai" in rendered
     assert "var(--report-layout-sidebar)" in rendered
-    assert "id='apdex-apdex-summary'" in rendered
+    assert "id='apdex-summary'" in rendered
     assert "data-module='ai-analysis-analysis'" in rendered
     assert evidence in rendered
 
