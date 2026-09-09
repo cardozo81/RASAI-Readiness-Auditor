@@ -10,7 +10,7 @@ Instale as dependências opcionais:
 pip install -e ".[web]"
 ```
 
-Inicialização pelo router principal:
+Inicialização local pelo router principal:
 
 ```powershell
 rasai api --host 127.0.0.1 --port 8000
@@ -21,6 +21,18 @@ Entrada dedicada equivalente:
 ```powershell
 rasai-api --host 127.0.0.1 --port 8000
 ```
+
+Um bind fora de loopback é recusado por padrão. Em implantação controlada atrás de gateway/reverse proxy com TLS e autenticação, a exposição precisa ser assumida explicitamente:
+
+```powershell
+rasai api `
+  --host 0.0.0.0 `
+  --port 8000 `
+  --allow-public-bind `
+  --auth-mode trusted-header
+```
+
+`--allow-public-bind` apenas reconhece a intenção operacional; ele não substitui TLS, firewall, autenticação ou proteção contra spoofing do header de identidade.
 
 Variáveis relevantes:
 
