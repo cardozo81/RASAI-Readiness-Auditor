@@ -8,6 +8,7 @@ Referência operacional do **RASAi - Search & AI Readiness Auditor**.
 rasai audit ...
 rasai search ...
 rasai search-history ...
+rasai search-monitor ...
 rasai visibility import|report ...
 rasai scoring inspect
 rasai monitor compare|impact|gate ...
@@ -234,6 +235,106 @@ Mudanças `FOUND` <-> `NOT_FOUND_WITHIN_DEPTH` são apresentadas como entrada ou
 Quando ambas as observações possuem comparação competitiva determinística consolidada, o histórico também pode descrever mudanças de cobertura lexical, volume observado, tipos JSON-LD e gaps determinísticos. A cronologia de um milestone não é apresentada como causalidade de ranking.
 
 O comando é read-only sobre `audit.db`, não chama Search provider, AI provider ou páginas públicas e nunca altera `SARI-001`/`SCORE-GEO-004`.
+
+### Monitoramento recorrente de Search Intelligence
+
+Contrato atual:
+
+```text
+SEARCH-MONITOR-001
+```
+
+A superfície `rasai search-monitor` registra queries no control plane e executa observações longitudinais sem anexar novos dados a `AUD-*/audit.db` históricos.
+
+Registrar uma query manual:
+
+```powershell
+rasai search-monitor --audits-root audits query add `
+  --project <project-id> `
+  --property <property-id> `
+  --environment <environment-id> `
+  --query "seguro auto" `
+  --domain cliente.example `
+  --country BR `
+  --language pt-BR `
+  --device desktop `
+  --depth 20
+```
+
+Listar e controlar queries:
+
+```powershell
+rasai search-monitor --audits-root audits query list
+rasai search-monitor --audits-root audits query enable --query-id <query-id>
+rasai search-monitor --audits-root audits query disable --query-id <query-id>
+```
+
+Executar agora:
+
+```powershell
+rasai search-monitor --audits-root audits run --query-id <query-id>
+```
+
+Projetar limites sem chamadas externas:
+
+```powershell
+rasai search-monitor --audits-root audits run --query-id <query-id> --dry-run
+```
+
+Consultar histórico:
+
+```powershell
+rasai search-monitor --audits-root audits history --query-id <query-id> --limit 20
+```
+
+Gerar a superfície longitudinal:
+
+```powershell
+rasai search-monitor --audits-root audits report
+```
+
+Saída default:
+
+```text
+audits/platform-report/search-intelligence.html
+```
+
+Agendamento intervalado pode ser configurado na criação da query:
+
+```text
+--mode live
+--provider serpapi
+--interval-minutes N
+```
+
+O intervalo mínimo desta superfície é 60 minutos. Alternativamente, use:
+
+```text
+--daily-time HH:MM
+```
+
+Executar apenas schedules Search-monitor vencidos:
+
+```powershell
+rasai search-monitor --audits-root audits run-due
+```
+
+O scheduler reutiliza a Product Platform e executa `python -m rasai` com argv estruturado e `shell=False`. Credenciais BYOK não são gravadas em schedules.
+
+Para comparação de conteúdo e Competitive AI, a query pode ser registrada com:
+
+```text
+--compare-content
+--max-content-pages N
+--ai-competitive
+--ai-provider openai
+--ai-model MODEL_ID
+--ymyl-mode AUTO|ON|OFF
+```
+
+Raw Search evidence e manifests ficam em `audits/.rasai/search-monitoring/`; o resumo longitudinal fica no `platform.db`. A superfície é non-scoring e nunca altera `SARI-001`/`SCORE-GEO-004`.
+
+Consulte `SEARCH_INTELLIGENCE_MONITORING.md` para o contrato completo, semântica de comparabilidade e fronteira de persistência.
 
 ## Synthetic Navigation Apdex
 
@@ -564,8 +665,10 @@ rasai-console
 - `SCORING_GUIDE.md`
 - `INTERACTIVE_CONSOLE.md`
 - `PRODUCT_PLATFORM_ARCHITECTURE.md`
+- `POSTGRESQL_MIGRATION_STRATEGY.md`
 - `SEARCH_INTELLIGENCE_REPORT.md`
 - `SEARCH_INTELLIGENCE_HISTORY.md`
+- `SEARCH_INTELLIGENCE_MONITORING.md`
 - `specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md`
 - `specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`
 - `specification/26_OBSERVED_GENERATIVE_VISIBILITY.md`
