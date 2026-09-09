@@ -9,12 +9,11 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict
 import json
-from pathlib import Path
 import sys
 from typing import Any
 
 from .central_store import CentralPlatformStore
-from .store import default_platform_database
+from .database import open_platform_store, resolve_platform_database_config
 from . import cli as _cli
 
 
@@ -90,9 +89,8 @@ def _custom_parser() -> argparse.ArgumentParser:
 
 def _custom_main(argv: list[str], audits_root: str, platform_db: str | None) -> int:
     args = _custom_parser().parse_args(argv)
-    database = Path(platform_db) if platform_db else default_platform_database(audits_root)
     try:
-        with CentralPlatformStore(database) as store:
+        with open_platform_store(audits_root=audits_root, platform_db=platform_db) as store:
             if args.canonical_command == "user":
                 if args.user_command == "add":
                     _json(asdict(store.get_or_create_user(args.name, email=args.email)))
@@ -127,7 +125,21 @@ def _custom_main(argv: list[str], audits_root: str, platform_db: str | None) -> 
 def main(argv: list[str] | None = None) -> int:
     effective = list(argv or [])
     audits_root, platform_db, remaining = _global_options(effective)
+    try:
+        config = resolve_platform_database_config(audits_root=audits_root, platform_db=platform_db)
+    except (ValueError, RuntimeError) as exc:
+        print(f"RASAi platform error: {exc}", file=sys.stderr)
+        return 2
     if remaining and remaining[0] in {"user", "member", "scope", "data"}:
         return _custom_main(remaining, audits_root, platform_db)
-    _cli.PlatformStore = CentralPlatformStore  # type: ignore[attr-defined]
+    if config.backend == "sqlite":
+        _cli.PlatformStore = CentralPlatformStore  # type: ignore[attr-defined]
+    else:
+        # The broad legacy parser still derives a SQLite-shaped path before store
+        # construction. Ignore that derived path when PostgreSQL is explicitly selected;
+        # authority comes only from RASAI_PLATFORM_DATABASE_URL.
+        _cli.PlatformStore = lambda _database: open_platform_store(  # type: ignore[attr-defined]
+            audits_root=audits_root,
+            backend="postgresql",
+        )
     return _cli.main(effective)
