@@ -97,6 +97,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] in {"search", "serp"}:
         from rasai.search_intelligence.cli import main as search_main
         return search_main(effective[1:])
+    if effective and effective[0] in {"search-history", "search_history"}:
+        from rasai.search_intelligence.history_cli import main as search_history_main
+        return search_history_main(effective[1:])
     if effective and effective[0] == "visibility":
         from rasai.m26_cli import main as visibility_main
         return visibility_main(effective[1:])

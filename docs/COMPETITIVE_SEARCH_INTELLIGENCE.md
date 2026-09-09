@@ -25,9 +25,13 @@ query
 -> customer vs observed-leaders comparison
 -> evidence-backed correlational differences
 -> optional Competitive AI using closed evidence_ids
+-> point-in-time Search Intelligence HTML
+-> optional deterministic historical comparison
 ```
 
 The optional semantic layer is documented in `COMPETITIVE_AI_INTELLIGENCE.md`.
+The point-in-time HTML contract is documented in `SEARCH_INTELLIGENCE_REPORT.md`.
+The temporal comparison contract is documented in `SEARCH_INTELLIGENCE_HISTORY.md`.
 
 ## 3. Result classification
 
@@ -227,6 +231,8 @@ No parallel database is introduced. No scoring table is modified.
 - classification: no additional network;
 - content comparison: direct public HTTP, no SERP-provider quota;
 - Competitive AI: provider call only when explicitly enabled and deterministic context is `CONSOLIDATED`;
+- point-in-time HTML rendering: persisted-data projection only;
+- historical comparison: persisted-data read only, with no Search, content or AI provider call;
 - `--dry-run` shows separate ceilings for SERP, content acquisition and AI.
 
 Provider credentials are not persisted in these artifacts.
@@ -257,9 +263,29 @@ CI must not:
 - call an AI provider live;
 - depend on public DNS/internet.
 
-Tests cover classification, bounds, extraction, public-address blocking, comparison gaps, evidence-ID closure, AI contract validation and additive persistence.
+Tests cover classification, bounds, extraction, public-address blocking, comparison gaps, evidence-ID closure, AI contract validation, additive persistence, HTML projection and deterministic history comparison.
 
-## 15. Current limitations
+## 15. Current reporting and history
+
+The canonical point-in-time report is:
+
+```text
+report/search-intelligence.html
+```
+
+It renders persisted evidence and does not call Search or AI providers.
+
+Deterministic temporal comparison is available under:
+
+```text
+SEARCH-HISTORY-001
+```
+
+The history layer compares only exact Search contexts with compatible provider/data-mode provenance. It can describe observed position changes, entry/exit from the requested result depth, deterministic customer-content changes and added/resolved competitive gap codes.
+
+Neither the point-in-time report nor the history layer establishes ranking causality.
+
+## 16. Current limitations
 
 - result classification remains a small heuristic taxonomy;
 - no entity/business-equivalence graph yet;
@@ -267,8 +293,8 @@ Tests cover classification, bounds, extraction, public-address blocking, compari
 - no canonical/hreflang/link-graph comparison yet;
 - Competitive AI live support starts with OpenAI; other adapters can be added behind the same contract;
 - AI sees extracted features rather than full raw HTML;
-- no Search Intelligence-specific HTML report yet;
-- no semantic historical comparison of two Search Intelligence observations yet;
+- historical comparison is deterministic; semantic before/after comparison of Competitive AI output is not yet a stable contract;
+- no dedicated historical HTML report is generated yet;
 - public-IP validation still requires network-layer reinforcement before multi-tenant SaaS.
 
-The product platform already has deployment markers and before/after audit resolution. Search Intelligence historical comparison should extend that existing platform instead of creating a parallel marker model.
+The product platform milestone and before/after audit model is reused by Search Intelligence History. No parallel deployment-marker model is introduced.
