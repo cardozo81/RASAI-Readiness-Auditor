@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from rasai.content_value import materialize_content_value_executions
 from rasai.domain import EvidenceType, RuleExecution, RuleResult, new_id, utc_now
@@ -37,12 +37,12 @@ def execute_m9(
             raise ValueError(f"RuleExecution is not re-openable for scoring: {execution_id}")
         if execution.audit_id != audit_id:
             raise ValueError(f"RuleExecution belongs to another audit: {execution_id}")
-        executions.append(execution)
+        executions.append(_effective_scoring_execution(execution))
 
     # CONTENT_VALUE is intentionally materialized immediately before scoring from
-    # already-preserved main-content evidence.  This keeps the rule evidence-bound,
-    # deterministic and independent from an optional LLM provider.  Unknown local
-    # evidence reduces Coverage instead of being converted into a website failure.
+    # already-preserved main-content evidence. This keeps the rules deterministic
+    # and provider-independent. Unknown local evidence reduces Coverage instead of
+    # being converted into a website failure.
     content_value = materialize_content_value_executions(
         audit_id=audit_id,
         source_executions=tuple(executions),
@@ -115,6 +115,31 @@ def execute_m9(
     )
 
 
+def _effective_scoring_execution(execution: RuleExecution) -> RuleExecution:
+    """Apply scoring applicability without rewriting source evidence.
+
+    BR-GEO-034 historically surfaced JSON-LD absence as WARNING so the semantic
+    report could mention the opportunity. For the recalibrated SARI this is not a
+    universal requirement: when the persisted observation itself says Structured
+    Data is absent, the syntax group is non-applicable for the score. Existing
+    invalid markup still remains evaluable and can reduce the score.
+    """
+    if execution.rule_id != "BR-GEO-034":
+        return execution
+    observed = execution.observed_value
+    if not isinstance(observed, dict) or observed.get("present") is not False:
+        return execution
+    return replace(
+        execution,
+        result=RuleResult.NOT_APPLICABLE,
+        observed_value={
+            **observed,
+            "reason": "STRUCTURED_DATA_ABSENT_NOT_UNIVERSAL_SARI_REQUIREMENT",
+            "source_rule_result": execution.result.value,
+        },
+    )
+
+
 def _reproducibility_check(
     *,
     audit_id: str,
@@ -166,4 +191,5 @@ def _reproducibility_check(
         "contributions_reopenable": contribution_refs_ok,
         "recalculation_equal": expected == actual,
         "content_value_baseline": "CONTENT-VALUE-BASELINE-001",
+        "structured_data_absence_policy": "NOT_APPLICABLE_WHEN_ABSENT",
     }
