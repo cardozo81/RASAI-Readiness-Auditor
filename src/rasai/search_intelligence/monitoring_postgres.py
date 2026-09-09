@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Any
 
+from rasai.platform.postgres_admin import require_current_postgres_schema
 from rasai.platform.postgres_compat import connect_postgres, redact_postgres_url
-from rasai.platform.postgres_migrations import apply_postgres_migrations
 
 from .monitoring import SearchMonitorQuery, SQLiteSearchMonitoringRepository, _now
 
@@ -14,8 +13,9 @@ class PostgreSQLSearchMonitoringRepository(SQLiteSearchMonitoringRepository):
     """PostgreSQL implementation of the existing SearchMonitoringRepository contract.
 
     The inherited mapping/read/write methods intentionally reuse the same serialized
-    domain contract.  Only connection/bootstrap and PostgreSQL-specific NULL equality
-    are overridden.
+    domain contract. Only connection validation and PostgreSQL-specific NULL equality
+    are overridden. Schema migration is explicit at the Product Platform deployment
+    boundary and never occurs as a side effect of Search monitoring startup.
     """
 
     backend = "postgresql"
@@ -25,7 +25,7 @@ class PostgreSQLSearchMonitoringRepository(SQLiteSearchMonitoringRepository):
         self.database = redact_postgres_url(database_url)
         self.connection = connect_postgres(database_url)
         try:
-            apply_postgres_migrations(self.connection)
+            require_current_postgres_schema(self.connection)
             self._validate_schema()
         except Exception:
             self.connection.close()
