@@ -5,10 +5,11 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from .monitoring import SQLiteSearchMonitoringRepository
+from .monitoring import SearchMonitoringRepository
 
 
 REPORT_FILE = "search-intelligence.html"
+_INDEX_MARKER = "<section id='search-monitoring-summary'"
 
 
 def _metric(label: str, value: Any) -> str:
@@ -72,8 +73,41 @@ def _changes(run) -> str:
     return "".join(rendered)
 
 
+def _enrich_platform_index(root: Path, *, query_count: int, active: int, run_count: int) -> None:
+    """Add one idempotent navigation panel when Product Platform index already exists."""
+    index = root / "index.html"
+    if not index.is_file():
+        return
+    html = index.read_text(encoding="utf-8")
+    if _INDEX_MARKER in html:
+        start = html.index(_INDEX_MARKER)
+        end = html.find("</section>", start)
+        if end >= 0:
+            html = html[:start] + html[end + len("</section>"):]
+    section = (
+        "<section id='search-monitoring-summary' class='panel'>"
+        "<div class='eyebrow'>Search Intelligence Monitoring</div>"
+        "<h2>Queries observadas longitudinalmente</h2>"
+        "<p>Superfície operacional do control plane, separada dos AUDs imutáveis e do scoring.</p>"
+        "<div class='metrics'>"
+        + _metric("Queries registradas", query_count)
+        + _metric("Queries ativas", active)
+        + _metric("Execuções exibidas", run_count)
+        + "</div>"
+        f"<p><a href='{REPORT_FILE}'>Abrir Search Intelligence Monitoring</a></p>"
+        "</section>"
+    )
+    if "</main>" in html:
+        html = html.replace("</main>", section + "</main>", 1)
+    elif "</body>" in html:
+        html = html.replace("</body>", section + "</body>", 1)
+    else:
+        html += section
+    index.write_text(html, encoding="utf-8", newline="\n")
+
+
 def write_search_monitoring_report(
-    repository: SQLiteSearchMonitoringRepository,
+    repository: SearchMonitoringRepository,
     output_dir: str | Path,
     *,
     property_id: str | None = None,
@@ -129,4 +163,5 @@ def write_search_monitoring_report(
 {body}
 </main></body></html>"""
     path.write_text(html, encoding="utf-8", newline="\n")
+    _enrich_platform_index(root, query_count=len(queries), active=active, run_count=total_runs)
     return path
