@@ -16,11 +16,7 @@ Inicialização local pelo router principal:
 rasai api --host 127.0.0.1 --port 8000
 ```
 
-Entrada dedicada equivalente:
-
-```powershell
-rasai-api --host 127.0.0.1 --port 8000
-```
+A API permanece deliberadamente sob o entrypoint canônico `rasai`; não é instalado um segundo executável público específico para a API.
 
 Um bind fora de loopback é recusado por padrão. Em implantação controlada atrás de gateway/reverse proxy com TLS e autenticação, a exposição precisa ser assumida explicitamente:
 
