@@ -20,9 +20,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install runtime and Chromium
+      - name: Install runtime test dependencies and Chromium
         run: |
           python -m pip install -e .
+          python -m pip install pytest
           python -m playwright install --with-deps chromium
       - name: Apply current-only scoring cleanup
         run: python .github/rasai_current_score_cleanup.py
