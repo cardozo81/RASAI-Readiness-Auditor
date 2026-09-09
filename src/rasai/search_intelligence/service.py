@@ -175,6 +175,20 @@ class SearchIntelligenceService:
         try:
             provider_response = self._provider.observe(request)
             observation = provider_response.observation
+            bounded_results = tuple(
+                item for item in observation.results if item.position <= request.depth
+            )
+            if len(bounded_results) != len(observation.results):
+                quality = dict(observation.quality_metadata)
+                quality["results_outside_requested_depth_dropped"] = (
+                    len(observation.results) - len(bounded_results)
+                )
+                observation = replace(
+                    observation,
+                    results=bounded_results,
+                    result_count=len(bounded_results),
+                    quality_metadata=quality,
+                )
             if provider_response.raw_evidence is not None and self._evidence_sink is not None:
                 stored = self._evidence_sink.store(
                     observation.observation_id,
