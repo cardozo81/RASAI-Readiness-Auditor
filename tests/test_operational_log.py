@@ -24,10 +24,13 @@ class OperationalLogTests(unittest.TestCase):
                 nested={"access_token": secret, "safe": "visible"},
                 pagespeed_api_key_configured=True,
                 ordinary="value",
+                request_url="https://user:TEST_ONLY_PASSWORD@example.test/path",
+                error_message="Authorization: Bearer TEST_ONLY_BEARER",
             )
 
             self.assertEqual(path, operational_log_path(workspace))
-            payload = json.loads(path.read_text(encoding="utf-8").strip())
+            rendered = path.read_text(encoding="utf-8")
+            payload = json.loads(rendered.strip())
             self.assertEqual(payload["event"], "TEST_EVENT")
             self.assertEqual(payload["api_key"], "[REDACTED]")
             self.assertEqual(payload["authorization"], "[REDACTED]")
@@ -35,7 +38,9 @@ class OperationalLogTests(unittest.TestCase):
             self.assertEqual(payload["nested"]["safe"], "visible")
             self.assertTrue(payload["pagespeed_api_key_configured"])
             self.assertEqual(payload["ordinary"], "value")
-            self.assertNotIn(secret, path.read_text(encoding="utf-8"))
+            self.assertNotIn(secret, rendered)
+            self.assertNotIn("TEST_ONLY_PASSWORD", rendered)
+            self.assertNotIn("TEST_ONLY_BEARER", rendered)
 
     def test_try_append_is_fail_open_on_log_io_error(self) -> None:
         workspace = AuditWorkspace(Path("unused-audit-root"))

@@ -32,11 +32,11 @@ def _try_refresh_platform_index(argv: list[str]) -> None:
     audit. Any platform indexing error is therefore logged and kept fail-open.
     """
     try:
-        from rasai.platform.central_store import CentralPlatformStore
+        from rasai.platform.database import open_platform_store
         from rasai.platform.indexing import index_audits
 
         root = _audits_root(argv)
-        with CentralPlatformStore.open(root) as store:
+        with open_platform_store(audits_root=root) as store:
             index_audits(store, root, strict=False)
     except Exception:
         _LOGGER.exception("RASAi platform index refresh failed after successful audit")
@@ -103,6 +103,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] in {"search-monitor", "search_monitor"}:
         from rasai.search_intelligence.monitoring_cli import main as search_monitor_main
         return search_monitor_main(effective[1:])
+    if effective and effective[0] in {"property-config", "property_config"}:
+        from rasai.property_config_cli import main as property_config_main
+        return property_config_main(effective[1:])
     if effective and effective[0] == "visibility":
         from rasai.m26_cli import main as visibility_main
         return visibility_main(effective[1:])

@@ -1,0 +1,62 @@
+name: PostgreSQL control-plane validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/rasai/platform/**'
+      - 'src/rasai/search_intelligence/**'
+      - 'tests/test_postgresql_*.py'
+      - 'pyproject.toml'
+      - '.github/workflows/postgresql-control-plane-ci.yml'
+      - 'docs/**'
+      - 'README.md'
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/platform/**'
+      - 'src/rasai/search_intelligence/**'
+      - 'tests/test_postgresql_*.py'
+      - 'pyproject.toml'
+      - '.github/workflows/postgresql-control-plane-ci.yml'
+      - 'docs/**'
+      - 'README.md'
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: rasai_control_plane
+          POSTGRES_USER: rasai_app
+          POSTGRES_PASSWORD: rasai_test_password
+          TZ: UTC
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rasai_app -d rasai_control_plane"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      RASAI_TEST_POSTGRES_URL: postgresql://rasai_app:rasai_test_password@127.0.0.1:5432/rasai_control_plane
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - name: Install RASAi with PostgreSQL support
+        run: python -m pip install -e ".[postgresql]" pytest
+      - name: Compile PostgreSQL integration
+        run: python -m compileall -q src/rasai/platform src/rasai/search_intelligence
+      - name: Public contract gate
+        run: python -m rasai.public_contract_gate
+      - name: PostgreSQL control-plane parity
+        run: python -m pytest -q tests/test_postgresql_*.py

@@ -8,16 +8,27 @@ from pathlib import Path
 from typing import Sequence
 
 from rasai.platform.automation import run_schedule
-from rasai.platform.central_store import CentralPlatformStore
-from rasai.platform.store import default_platform_database, utc_now
+from rasai.platform.database import open_platform_store
+from rasai.platform.store import utc_now
 
 from .config import SerpRuntimeConfig
-from .monitoring import SQLiteSearchMonitoringRepository, execute_registered_query, new_query
+from .monitoring import execute_registered_query, new_query
+from .monitoring_database import open_search_monitoring_repository
 from .monitoring_reporting import write_search_monitoring_report
 
 
-def _database(args) -> Path:
-    return Path(args.platform_db) if args.platform_db else default_platform_database(args.audits_root)
+def _repository(args):
+    return open_search_monitoring_repository(
+        audits_root=args.audits_root,
+        platform_db=args.platform_db,
+    )
+
+
+def _store(args):
+    return open_platform_store(
+        audits_root=args.audits_root,
+        platform_db=args.platform_db,
+    )
 
 
 def _initial_next_run(*, interval_minutes: int | None, daily_time: str | None) -> str | None:
@@ -39,7 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Register and execute recurring Search Intelligence without mutating immutable AUD evidence.",
     )
     parser.add_argument("--audits-root", type=Path, default=Path("audits"))
-    parser.add_argument("--platform-db", type=Path, help="override audits/.rasai/platform.db")
+    parser.add_argument("--platform-db", type=Path, help="SQLite-only override for audits/.rasai/platform.db")
     sub = parser.add_subparsers(dest="command", required=True)
 
     query = sub.add_parser("query", help="manage registered query contexts")
@@ -115,8 +126,7 @@ def _validate_schedule_args(args) -> None:
 
 def _add_query(args) -> int:
     _validate_schedule_args(args)
-    database = _database(args)
-    with SQLiteSearchMonitoringRepository(database) as repository:
+    with _repository(args) as repository:
         item = repository.register_query(
             new_query(
                 project_id=args.project,
@@ -155,7 +165,7 @@ def _add_query(args) -> int:
             if args.platform_db:
                 command.extend(("--platform-db", str(Path(args.platform_db).resolve())))
             command.extend(("run", "--query-id", item.query_id))
-            with CentralPlatformStore(database) as store:
+            with _store(args) as store:
                 schedule = store.add_schedule(
                     project_id=item.project_id,
                     property_id=item.property_id,
@@ -177,7 +187,7 @@ def _add_query(args) -> int:
 
 
 def _list_queries(args) -> int:
-    with SQLiteSearchMonitoringRepository(_database(args)) as repository:
+    with _repository(args) as repository:
         for item in repository.list_queries():
             print(
                 f"{item.query_id}\t{'ENABLED' if item.enabled else 'DISABLED'}\t"
@@ -188,12 +198,11 @@ def _list_queries(args) -> int:
 
 
 def _set_enabled(args, enabled: bool) -> int:
-    database = _database(args)
-    with SQLiteSearchMonitoringRepository(database) as repository:
+    with _repository(args) as repository:
         repository.set_query_enabled(args.query_id, enabled)
         item = repository.get_query(args.query_id)
         if item and item.schedule_id:
-            with CentralPlatformStore(database) as store:
+            with _store(args) as store:
                 with store.transaction() as connection:
                     connection.execute(
                         "UPDATE schedules SET enabled=? WHERE schedule_id=?",
@@ -216,8 +225,7 @@ def _estimate(item) -> tuple[int, int, int]:
 
 
 def _run_query(args) -> int:
-    database = _database(args)
-    with SQLiteSearchMonitoringRepository(database) as repository:
+    with _repository(args) as repository:
         item = repository.get_query(args.query_id)
         if item is None:
             raise KeyError(f"Search monitor query not found: {args.query_id}")
@@ -254,7 +262,7 @@ def _run_query(args) -> int:
 
 
 def _history(args) -> int:
-    with SQLiteSearchMonitoringRepository(_database(args)) as repository:
+    with _repository(args) as repository:
         item = repository.get_query(args.query_id)
         if item is None:
             raise KeyError(f"Search monitor query not found: {args.query_id}")
@@ -267,7 +275,7 @@ def _history(args) -> int:
 
 
 def _report(args) -> int:
-    with SQLiteSearchMonitoringRepository(_database(args)) as repository:
+    with _repository(args) as repository:
         target = args.output or Path(args.audits_root) / "platform-report"
         print(write_search_monitoring_report(
             repository,
@@ -279,9 +287,8 @@ def _report(args) -> int:
 
 
 def _run_due(args) -> int:
-    database = _database(args)
     results = []
-    with CentralPlatformStore(database) as store:
+    with _store(args) as store:
         schedules = [
             item for item in store.list_schedules(due_before=utc_now(), enabled_only=True)
             if len(item.command_argv) >= 2 and item.command_argv[0] == "search-monitor" and item.command_argv[-2] == "--query-id"

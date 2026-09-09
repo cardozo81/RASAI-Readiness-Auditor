@@ -1,0 +1,41 @@
+# Versionable PROPERTY-CONFIG-001 example. Never place credentials in this file.
+
+[property]
+id = "example"
+name = "Example Property"
+origin = "https://www.example.com"
+
+[execution]
+language = "pt-BR"
+market = "BR"
+device = "mobile"
+max_pages = 100
+
+[search]
+engine = "google"
+country = "BR"
+language = "pt-BR"
+device = "desktop"
+requested_depth = 20
+
+[database]
+# SQLite remains the portable default. For PostgreSQL, set backend="postgresql"
+# and keep the DSN only in the referenced environment variable.
+backend = "sqlite"
+database_url_env = "RASAI_PLATFORM_DATABASE_URL"
+
+[providers.openai]
+enabled = false
+api_key_env = "OPENAI_API_KEY"
+
+[providers.serpapi]
+enabled = false
+api_key_env = "RASAI_SERPAPI_API_KEY"
+
+[providers.pagespeed]
+enabled = false
+api_key_env = "RASAI_PAGESPEED_API_KEY"
+
+[providers.crux]
+enabled = false
+api_key_env = "RASAI_CRUX_API_KEY"

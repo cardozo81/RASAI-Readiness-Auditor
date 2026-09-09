@@ -2,7 +2,7 @@
 
 The log is JSON Lines so it remains human-readable while also being easy to parse.
 It is intentionally separate from audit evidence/scoring and from the process
-console logger. Callers must never pass credential values as event fields.
+console logger. Secret values are sanitized centrally before persistence.
 """
 
 from __future__ import annotations
@@ -13,20 +13,11 @@ from pathlib import Path
 from typing import Any
 
 from rasai.persistence import AuditWorkspace
+from rasai.secret_safety import REDACTED, is_secret_reference_name, is_sensitive_name, redact_text
 
 
 LOG_DIRECTORY = "logs"
 LOG_FILE = "audit.log"
-_REDACTED = "[REDACTED]"
-_SENSITIVE_KEY_PARTS = (
-    "api_key",
-    "apikey",
-    "authorization",
-    "credential",
-    "password",
-    "secret",
-    "token",
-)
 
 
 def operational_log_path(workspace: AuditWorkspace) -> Path:
@@ -43,17 +34,17 @@ def append_operational_event(
 ) -> Path:
     """Append one sanitized JSONL event and return the log path.
 
-    The writer redacts values whose field name looks credential-bearing. It does
-    not log environment variables, HTTP request URLs containing API keys, or
-    authorization headers. External-service callers should log the audited URL,
-    service name, status and sanitized error metadata instead.
+    Field-name classification removes direct credential values, while all string
+    values also pass through text/URL redaction. This protects logs even when a
+    credential appears in a nominally non-secret field such as an error message or
+    request URL.
     """
     path = operational_log_path(workspace)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "level": str(level).upper(),
-        "event": str(event),
+        "event": redact_text(str(event)),
         **_sanitize_mapping(details),
     }
     with path.open("a", encoding="utf-8", newline="\n") as stream:
@@ -81,19 +72,19 @@ def _sanitize_mapping(values: dict[str, Any]) -> dict[str, Any]:
 
 
 def _sanitize_value(key: str, value: Any) -> Any:
-    normalized = key.casefold().replace("-", "_")
-    if any(part in normalized for part in _SENSITIVE_KEY_PARTS):
-        if isinstance(value, bool):
+    if is_sensitive_name(key) and not is_secret_reference_name(key):
+        # Existence flags are operational state rather than secret material.
+        if isinstance(value, bool) or value is None:
             return value
-        if value is None:
-            return None
-        return _REDACTED
+        return REDACTED
     if isinstance(value, dict):
         return _sanitize_mapping({str(item_key): item_value for item_key, item_value in value.items()})
     if isinstance(value, (list, tuple, set, frozenset)):
         return [_sanitize_value(key, item) for item in value]
     if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, (str, int, float, bool)) or value is None:
+        return redact_text(str(value))
+    if isinstance(value, str):
+        return redact_text(value)
+    if isinstance(value, (int, float, bool)) or value is None:
         return value
-    return str(value)
+    return redact_text(str(value))

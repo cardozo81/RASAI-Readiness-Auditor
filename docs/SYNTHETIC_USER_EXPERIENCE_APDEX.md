@@ -127,9 +127,9 @@ O RASAi não deve gravar o token em INI, SQLite, HTML, logs ou argumentos CLI.
 Para procurar acidentalmente pelo **valor real** do token nos artefatos de uma auditoria:
 
 ```powershell
-$token = $env:DYNATRACE_API_TOKEN
+$dynatraceSecretValue = $env:DYNATRACE_API_TOKEN
 Get-ChildItem ".\audits\AUD-SEU-ID" -Recurse -File |
-  Select-String -SimpleMatch $token
+  Select-String -SimpleMatch $dynatraceSecretValue
 ```
 
 Resultado esperado: **nenhuma ocorrência**.

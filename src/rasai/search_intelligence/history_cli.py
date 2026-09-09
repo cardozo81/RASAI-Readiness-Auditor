@@ -26,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--baseline-audit")
     parser.add_argument("--current-audit")
     parser.add_argument("--audits-root", default="audits")
-    parser.add_argument("--platform-db")
+    parser.add_argument("--platform-db", help="SQLite-only override for the control-plane database")
     parser.add_argument("--json", dest="json_path", help="optional output JSON file")
     parser.add_argument("--report-root", help="optional root for SH-*; default <audits-root>/search-history")
     return parser
@@ -57,12 +57,13 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("direct mode requires --baseline-workspace and --current-workspace")
             result = compare_search_workspaces(args.baseline_workspace, args.current_workspace)
         elif milestone:
-            from rasai.platform.central_store import CentralPlatformStore
+            from rasai.platform.database import open_platform_store
             from rasai.platform.deployment import resolve_deployment_pair
-            from rasai.platform.store import default_platform_database
 
-            database = Path(args.platform_db) if args.platform_db else default_platform_database(args.audits_root)
-            with CentralPlatformStore(database) as store:
+            with open_platform_store(
+                audits_root=args.audits_root,
+                platform_db=args.platform_db,
+            ) as store:
                 pair = resolve_deployment_pair(
                     store,
                     args.milestone,

@@ -1,6 +1,6 @@
 # Search Intelligence Monitoring
 
-Status: implemented local control-plane monitoring contract.
+Status: implemented control-plane monitoring contract with SQLite local/default and PostgreSQL explicit opt-in adapters.
 
 Current contract:
 
@@ -36,14 +36,14 @@ The registered context is the unit of longitudinal comparison. RASAi does not si
 
 Recurring Search monitoring must not append observations to historical audit databases.
 
-The authority split is:
+The authority split in local/default mode is:
 
 ```text
 AUD-*/audit.db
   immutable point-in-time audit evidence
 
 .rasai/platform.db
-  product/control-plane metadata
+  SQLite product/control-plane metadata
   registered Search queries
   longitudinal Search run summaries
   schedules
@@ -53,11 +53,25 @@ AUD-*/audit.db
   run manifests and SHA-256 integrity metadata
 ```
 
-This preserves the existing product-platform rule that an indexed `AUD-*/audit.db` is immutable evidence. Monitoring therefore does not change an audit hash, baseline or deployment evidence after the fact.
+When PostgreSQL is explicitly selected, the relational portion changes to:
 
-## Local persistence
+```text
+PostgreSQL control plane
+  Product Platform relational state
+  registered Search queries
+  longitudinal Search run summaries
+  schedules
 
-The Windows/local implementation uses additive control-plane tables in `audits/.rasai/platform.db`:
+.rasai/search-monitoring/ or future object storage
+  raw Search provider evidence
+  run manifests and SHA-256 integrity metadata
+```
+
+PostgreSQL does not change the immutable `AUD-*/audit.db` evidence contract.
+
+## Control-plane persistence
+
+The relational Search monitoring tables are:
 
 ```text
 search_monitor_queries
@@ -84,7 +98,25 @@ search_monitor_runs
 - run manifest reference and SHA-256;
 - error state when applicable.
 
-The runtime is behind the `SearchMonitoringRepository` contract. SQLite is the current adapter; a SaaS PostgreSQL adapter must implement the same domain behavior instead of leaking database-specific SQL into the monitoring runtime.
+The runtime is behind the `SearchMonitoringRepository` contract. SQLite is the default local adapter and PostgreSQL implements the same domain behavior for the centralized control plane. Backend selection occurs at composition time rather than through database-engine checks scattered through monitoring logic.
+
+## Backend selection
+
+Default local operation remains SQLite. PostgreSQL is an explicit opt-in through:
+
+```text
+RASAI_PLATFORM_DB_BACKEND=postgresql
+RASAI_PLATFORM_DATABASE_URL=postgresql://...
+```
+
+PostgreSQL requires its versioned schema to be current before Search monitoring starts. Schema changes are never triggered by a Search monitoring command. Use:
+
+```powershell
+rasai platform database status
+rasai platform database migrate
+```
+
+There is no silent PostgreSQL-to-SQLite fallback.
 
 ## Raw evidence
 
@@ -101,6 +133,8 @@ audits/.rasai/search-monitoring/runs/
 ```
 
 Evidence payloads use the existing Search evidence sanitizer. Provider credentials are not persisted in the control-plane tables, manifests or reports.
+
+For hosted SaaS, immutable evidence/manifests are expected to move to object storage while PostgreSQL retains relational ownership, references and hashes.
 
 ## Query registry CLI
 
@@ -206,7 +240,7 @@ Execute only due Search-monitor schedules:
 rasai search-monitor --audits-root audits run-due
 ```
 
-The current local scheduler invokes only the RASAi Python module with structured argv and `shell=False`.
+The current scheduler is still a single-machine execution mechanism. Persisting schedules in PostgreSQL does not by itself make dispatch horizontally safe; durable queue/claim semantics belong to the hosted execution-plane phase.
 
 ## Competitive content and Competitive AI
 
@@ -290,7 +324,7 @@ This is deliberately separate from the point-in-time audit report:
 audits/AUD-*/report/search-intelligence.html
 ```
 
-The audit report projects immutable evidence belonging to one audit workspace. The platform report projects recurring operational observations from the central control plane. The longitudinal report must not rewrite historical audit HTML or `audit.db`.
+The audit report projects immutable evidence belonging to one audit workspace. The platform report projects recurring operational observations from the selected control-plane backend. The longitudinal report must not rewrite historical audit HTML or `audit.db`.
 
 ## Relationship to deployment history
 
@@ -302,33 +336,35 @@ The two surfaces can be correlated by time in a future product dashboard, but ne
 
 ## PostgreSQL boundary
 
-The monitoring registry establishes a concrete storage seam for the SaaS control plane:
+The monitoring storage seam is now concrete:
 
 ```text
 Search monitoring domain/runtime
         |
 SearchMonitoringRepository
         |
-        +-- SQLite adapter: local Windows
-        +-- PostgreSQL adapter: hosted SaaS
+        +-- SQLite adapter: local/default
+        +-- PostgreSQL adapter: centralized control plane
 ```
 
-PostgreSQL should replace the control-plane persistence when the hosted multi-user execution plane is introduced. It should not replace or mutate the immutable audit evidence contract.
+The PostgreSQL adapter uses the same Project/Property/Environment and schedule authority as the rest of Product Platform. It does not replace or mutate immutable audit evidence.
 
-The deployment and migration plan is specified in `POSTGRESQL_MIGRATION_STRATEGY.md`.
+Runtime details are documented in `POSTGRESQL_CONTROL_PLANE.md`; deployment strategy remains in `POSTGRESQL_MIGRATION_STRATEGY.md`.
 
 ## Test and CI policy
 
 Automated tests must not consume customer Search or AI credentials and must not crawl public competitor sites.
 
-CI uses fixtures and injected/fake acquisition paths. Required regression properties include:
+Fixture-based Search execution remains mandatory for repository parity tests. PostgreSQL-specific persistence tests run against a real PostgreSQL 18 service container.
+
+Required regression properties include:
 
 - Project/Property/Environment scope integrity;
 - duplicate query-context rejection;
 - exact rank-change semantics;
 - observed-depth boundary semantics;
 - provider/data-mode comparability protection;
-- central control-plane persistence;
+- control-plane persistence on both supported backends;
 - raw evidence and run manifest integrity;
 - no recurring write into historical `AUD-*/audit.db`;
 - report generation;

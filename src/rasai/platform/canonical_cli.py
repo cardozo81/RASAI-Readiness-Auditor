@@ -9,12 +9,12 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict
 import json
-from pathlib import Path
 import sys
 from typing import Any
 
-from .central_store import CentralPlatformStore
-from .store import default_platform_database
+from .database import open_platform_store, resolve_platform_database_config
+from .postgres_admin import migrate_postgres, postgres_schema_status
+from .secure_store import SecurePlatformStore
 from . import cli as _cli
 
 
@@ -54,6 +54,11 @@ def _custom_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="rasai platform")
     sub = parser.add_subparsers(dest="canonical_command", required=True)
 
+    database = sub.add_parser("database", help="status e migrations explícitas do control plane")
+    database_sub = database.add_subparsers(dest="database_command", required=True)
+    database_sub.add_parser("status")
+    database_sub.add_parser("migrate")
+
     user = sub.add_parser("user", help="usuários do control plane local/SaaS-ready")
     user_sub = user.add_subparsers(dest="user_command", required=True)
     user_add = user_sub.add_parser("add")
@@ -90,9 +95,31 @@ def _custom_parser() -> argparse.ArgumentParser:
 
 def _custom_main(argv: list[str], audits_root: str, platform_db: str | None) -> int:
     args = _custom_parser().parse_args(argv)
-    database = Path(platform_db) if platform_db else default_platform_database(audits_root)
     try:
-        with CentralPlatformStore(database) as store:
+        config = resolve_platform_database_config(audits_root=audits_root, platform_db=platform_db)
+        if args.canonical_command == "database":
+            if config.backend == "sqlite":
+                if args.database_command == "migrate":
+                    raise ValueError(
+                        "explicit 'platform database migrate' is PostgreSQL-only; SQLite schema remains managed by the local store"
+                    )
+                _json({
+                    "backend": "sqlite",
+                    "database": config.display,
+                    "state": "LOCAL_DEFAULT",
+                    "migration_required": False,
+                })
+                return 0
+            assert config.database_url is not None
+            if args.database_command == "migrate":
+                status, applied = migrate_postgres(config.database_url)
+                _json({**status.as_dict(), "backend": "postgresql", "applied_migrations": list(applied)})
+            else:
+                status = postgres_schema_status(config.database_url)
+                _json({**status.as_dict(), "backend": "postgresql", "migration_required": status.state != "CURRENT"})
+            return 0
+
+        with open_platform_store(audits_root=audits_root, platform_db=platform_db) as store:
             if args.canonical_command == "user":
                 if args.user_command == "add":
                     _json(asdict(store.get_or_create_user(args.name, email=args.email)))
@@ -127,7 +154,21 @@ def _custom_main(argv: list[str], audits_root: str, platform_db: str | None) -> 
 def main(argv: list[str] | None = None) -> int:
     effective = list(argv or [])
     audits_root, platform_db, remaining = _global_options(effective)
-    if remaining and remaining[0] in {"user", "member", "scope", "data"}:
+    try:
+        config = resolve_platform_database_config(audits_root=audits_root, platform_db=platform_db)
+    except (ValueError, RuntimeError) as exc:
+        print(f"RASAi platform error: {exc}", file=sys.stderr)
+        return 2
+    if remaining and remaining[0] in {"database", "user", "member", "scope", "data"}:
         return _custom_main(remaining, audits_root, platform_db)
-    _cli.PlatformStore = CentralPlatformStore  # type: ignore[attr-defined]
+    if config.backend == "sqlite":
+        _cli.PlatformStore = SecurePlatformStore  # type: ignore[attr-defined]
+    else:
+        # The broad legacy parser still derives a SQLite-shaped path before store
+        # construction. Ignore that derived path when PostgreSQL is explicitly selected;
+        # authority comes only from RASAI_PLATFORM_DATABASE_URL.
+        _cli.PlatformStore = lambda _database: open_platform_store(  # type: ignore[attr-defined]
+            audits_root=audits_root,
+            backend="postgresql",
+        )
     return _cli.main(effective)
