@@ -206,7 +206,7 @@ class ScoreGeo004ApplicabilityTests(unittest.TestCase):
             self.assertIn("Dados Estruturados", html)
             self.assertIn("NÃO APLICÁVEL", html)
             self.assertIn("Fora do universo aplicável", html)
-            self.assertIn("Dimensões aplicáveis:</strong> 9 de 10", html)
+            self.assertIn("Dimensões aplicáveis:</strong> 10 de 11", html)
             self.assertIn("A exclusão não atribui nota zero nem nota máxima", html)
 
 
