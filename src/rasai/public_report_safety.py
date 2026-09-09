@@ -37,6 +37,8 @@ _OWNED_PRESENTATION_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("M20 remediação textual", "Remediação textual por IA"),
     ("M24-CD-001", "CRAWLING-DISCOVERY-001"),
     ("Rastreamento e descoberta M24", "Rastreamento e descoberta"),
+    ("m20-no-eligible-note", "content-remediation-no-eligible-note"),
+    ("m23-apdex-summary", "apdex-summary"),
     ("artifacts/m24/", ""),
 )
 
