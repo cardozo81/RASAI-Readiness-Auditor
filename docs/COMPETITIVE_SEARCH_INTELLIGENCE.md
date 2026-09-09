@@ -6,7 +6,7 @@ Status: **implemented deterministic layer with optional evidence-bound AI extens
 
 Competitive Search Intelligence answers:
 
-> For an observed query, which result types appear ahead of the customer, which are reasonable Search competitor candidates, what deterministic content differences are observable, and—when explicitly requested—what evidence-bound improvement opportunities can an AI provider propose?
+> For an observed query, which result types appear ahead of the customer, which are reasonable Search competitor candidates, what deterministic content differences are observable, and - when explicitly requested - what evidence-bound improvement opportunities can an AI provider propose?
 
 The deterministic layer remains authoritative for observations. AI is downstream and optional.
 
