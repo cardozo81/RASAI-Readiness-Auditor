@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from rasai.content_value import materialize_content_value_executions
 from rasai.domain import EvidenceType, RuleExecution, RuleResult, new_id, utc_now
 from rasai.evidence import EvidenceManager
 from rasai.persistence import AuditPersistence, AuditWorkspace
@@ -36,6 +37,22 @@ def execute_m9(
             raise ValueError(f"RuleExecution is not re-openable for scoring: {execution_id}")
         if execution.audit_id != audit_id:
             raise ValueError(f"RuleExecution belongs to another audit: {execution_id}")
+        executions.append(execution)
+
+    # CONTENT_VALUE is intentionally materialized immediately before scoring from
+    # already-preserved main-content evidence.  This keeps the rule evidence-bound,
+    # deterministic and independent from an optional LLM provider.  Unknown local
+    # evidence reduces Coverage instead of being converted into a website failure.
+    content_value = materialize_content_value_executions(
+        audit_id=audit_id,
+        source_executions=tuple(executions),
+        persistence=persistence,
+        workspace=workspace,
+    )
+    for execution_id in content_value.rule_execution_ids:
+        execution = persistence.rule_executions.get(execution_id)
+        if execution is None:
+            raise ValueError(f"Content Value RuleExecution is not re-openable: {execution_id}")
         executions.append(execution)
 
     engine = ScoreGeo004Engine()
@@ -77,7 +94,7 @@ def execute_m9(
         observed_value=integrity,
     )
     integrity_execution = RuleExecution(
-        rule_execution_id=new_id("REX"), audit_id=audit_id, rule_id="BR-GEO-054", rule_version="3",
+        rule_execution_id=new_id("REX"), audit_id=audit_id, rule_id="BR-GEO-054", rule_version="4",
         page_id=None, snapshot_id=None, device=None,
         result=RuleResult.PASS if integrity["reproducible"] else RuleResult.FAIL,
         observed_value=integrity,
@@ -148,4 +165,5 @@ def _reproducibility_check(
         "persisted_scores_reopenable": persisted_ok,
         "contributions_reopenable": contribution_refs_ok,
         "recalculation_equal": expected == actual,
+        "content_value_baseline": "CONTENT-VALUE-BASELINE-001",
     }
