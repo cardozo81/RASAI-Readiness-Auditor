@@ -318,6 +318,44 @@ class SecurePlatformStore(CentralPlatformStore):
         assert item is not None
         return item
 
+    def recover_expired_execution_jobs(self) -> tuple[int, int]:
+        """Requeue expired active leases and fail jobs that exhausted attempts.
+
+        Returns ``(requeued, failed)``. Recovery is deliberately idempotent and runs
+        inside one control-plane transaction so crashed workers cannot leave durable
+        jobs permanently stranded in CLAIMED/RUNNING.
+        """
+        now = utc_now()
+        requeued = 0
+        failed = 0
+        with self.transaction() as connection:
+            rows = connection.execute(
+                """SELECT job_id,attempts,max_attempts FROM execution_jobs
+                   WHERE status IN ('CLAIMED','RUNNING') AND lease_until IS NOT NULL AND lease_until<?""",
+                (now,),
+            ).fetchall()
+            for row in rows:
+                job_id = str(row["job_id"])
+                attempts = int(row["attempts"])
+                max_attempts = int(row["max_attempts"])
+                if attempts >= max_attempts:
+                    cursor = connection.execute(
+                        """UPDATE execution_jobs SET status='FAILED',completed_at=?,claimed_at=NULL,
+                           claimed_by=NULL,lease_until=NULL,last_error=?,updated_at=?
+                           WHERE job_id=? AND status IN ('CLAIMED','RUNNING') AND lease_until<?""",
+                        (now, "worker lease expired after maximum attempts", now, job_id, now),
+                    )
+                    failed += int(cursor.rowcount == 1)
+                else:
+                    cursor = connection.execute(
+                        """UPDATE execution_jobs SET status='QUEUED',available_at=?,claimed_at=NULL,
+                           claimed_by=NULL,lease_until=NULL,started_at=NULL,updated_at=?
+                           WHERE job_id=? AND status IN ('CLAIMED','RUNNING') AND lease_until<?""",
+                        (now, now, job_id, now),
+                    )
+                    requeued += int(cursor.rowcount == 1)
+        return requeued, failed
+
     def claim_execution_job(
         self,
         worker_id: str,
@@ -334,10 +372,11 @@ class SecurePlatformStore(CentralPlatformStore):
         invalid = sorted(set(types) - _ALLOWED_EXECUTION_JOB_TYPES)
         if invalid:
             raise ValueError("unsupported execution job type(s): " + ", ".join(invalid))
+        self.recover_expired_execution_jobs()
         now_dt = datetime.now(UTC)
         now = now_dt.isoformat()
         lease_until = (now_dt + timedelta(seconds=lease_seconds)).isoformat()
-        clauses = ["status='QUEUED'", "available_at<=?"]
+        clauses = ["status='QUEUED'", "available_at<=?", "attempts<max_attempts"]
         values: list[Any] = [now]
         if types:
             clauses.append("job_type IN (" + ",".join("?" for _ in types) + ")")
@@ -353,7 +392,7 @@ class SecurePlatformStore(CentralPlatformStore):
                 cursor = connection.execute(
                     """UPDATE execution_jobs
                        SET status='CLAIMED',claimed_at=?,claimed_by=?,lease_until=?,attempts=attempts+1,updated_at=?
-                       WHERE job_id=? AND status='QUEUED'""",
+                       WHERE job_id=? AND status='QUEUED' AND attempts<max_attempts""",
                     (now, worker, lease_until, now, job_id),
                 )
                 if cursor.rowcount == 1:
