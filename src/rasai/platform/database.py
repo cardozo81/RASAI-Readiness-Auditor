@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Literal
 
-from .central_store import CentralPlatformStore
+from .secure_store import SecurePlatformStore
 from .store import default_platform_database
 
 
@@ -75,7 +75,7 @@ def open_platform_store(
     )
     if config.backend == "sqlite":
         assert config.sqlite_database is not None
-        return CentralPlatformStore(config.sqlite_database)
+        return SecurePlatformStore(config.sqlite_database)
     from .postgres_store import PostgreSQLPlatformStore
 
     assert config.database_url is not None
