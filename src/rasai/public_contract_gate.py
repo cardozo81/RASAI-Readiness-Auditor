@@ -56,6 +56,7 @@ CURRENT_METHOD_DOCS = (
     "docs/SCORE_GEO_004.md",
     "docs/SARI_READINESS_INDEX.md",
     "docs/CLI_REFERENCE.md",
+    "docs/CONSOLIDATED_REPORTING.md",
     "docs/COMPETITIVE_AI_INTELLIGENCE.md",
     "docs/COMPETITIVE_SEARCH_INTELLIGENCE.md",
     "docs/SERP_OBSERVATION.md",
@@ -123,6 +124,7 @@ _OLD_VERSION_RE = re.compile(r"SCORE-GEO-(?!004)\d{3}", re.I)
 # embedded implementation paths, artifact directories or contract labels.
 _MILESTONE_PUBLIC_RE = re.compile(r"(?i)(?<![A-Za-z0-9])m\d{1,3}")
 _VERSIONED_CANONICAL_RE = re.compile(r"report/score-geo-\d+\.html")
+_STALE_EQUAL_WEIGHT_RE = re.compile(r"m[eé]dia\s+de\s+igual\s+peso", re.I)
 
 # Representative RASAi-owned labels from historical report templates. The public
 # normalizer must remove every one without applying a generic regex to audited
@@ -190,6 +192,8 @@ def _check_docs(root: Path, errors: list[str]) -> None:
             errors.append(f"documento corrente expõe scoring descontinuado: {relative}")
         if _VERSIONED_CANONICAL_RE.search(text):
             errors.append(f"documento corrente expõe filename versionado de scoring: {relative}")
+        if _STALE_EQUAL_WEIGHT_RE.search(text):
+            errors.append(f"documento corrente descreve Overall com peso igual descontinuado: {relative}")
 
     readme = _read(root, "README.md")
     nav_apdex = re.findall(r"(?m)^apdex\.html\s+", readme)
@@ -210,6 +214,8 @@ def _check_docs(root: Path, errors: list[str]) -> None:
             errors.append(f"scoring descontinuado exposto na documentação: {path.relative_to(root)}")
         if _MILESTONE_PUBLIC_RE.search(text):
             errors.append(f"identificador interno de entrega exposto na documentação: {path.relative_to(root)}")
+        if EXPECTED_SCORING_VERSION in text and _STALE_EQUAL_WEIGHT_RE.search(text):
+            errors.append(f"fórmula antiga de peso igual exposta na documentação: {path.relative_to(root)}")
 
 
 def _check_cli_docs(root: Path, errors: list[str]) -> None:
