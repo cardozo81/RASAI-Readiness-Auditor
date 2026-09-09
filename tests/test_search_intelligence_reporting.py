@@ -7,7 +7,6 @@ import unittest
 
 from rasai.report_contract import surface_by_id
 from rasai.search_intelligence.reporting import write_search_intelligence_report
-from rasai.search_intelligence.runtime import _refresh_search_intelligence_report
 
 
 class SearchIntelligenceReportingTests(unittest.TestCase):
@@ -23,10 +22,8 @@ class SearchIntelligenceReportingTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            # Runtime registration is intentionally forward-compatible with the
-            # Competitive AI persistence contract evolving in a parallel branch.
-            _refresh_search_intelligence_report(root)
-            path = report / "search-intelligence.html"
+            path = write_search_intelligence_report(root)
+            self.assertEqual(path, report / "search-intelligence.html")
             self.assertTrue(path.is_file())
             html = path.read_text(encoding="utf-8")
 
@@ -62,7 +59,7 @@ class SearchIntelligenceReportingTests(unittest.TestCase):
             self.assertIn("Search Intelligence", index)
             self.assertIn("search-intelligence.html", index)
             self.assertEqual(index.count("search-intelligence-summary"), 1)
-            _refresh_search_intelligence_report(root)
+            write_search_intelligence_report(root)
             index = (report / "index.html").read_text(encoding="utf-8")
             self.assertEqual(index.count("search-intelligence-summary"), 1)
 
