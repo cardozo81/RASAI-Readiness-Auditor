@@ -46,6 +46,36 @@ def test_final_public_report_pipeline_removes_owned_internal_delivery_labels(
 
 
 @pytest.mark.parametrize("page_name", _PUBLIC_PAGE_NAMES)
+def test_final_public_report_pipeline_normalizes_known_internal_markup_prefixes(
+    tmp_path: Path,
+    page_name: str,
+) -> None:
+    evidence = "Produto M25 industrial observado na página auditada."
+    source = (
+        "<html><head><style>"
+        ".m16-root{display:block}.m17-link{display:block}.m18-ai{display:block}"
+        "</style></head><body><header><h1>RASAi</h1></header><main>"
+        "<!-- rasai-m23-report-start -->"
+        "<section id='m23-apdex-summary' "
+        "class='panel m16-root m17-link m18-ai' data-module='m18-analysis'>"
+        f"<p>{evidence}</p></section>"
+        "<!-- rasai-m23-report-end -->"
+        "</main></body></html>"
+    )
+
+    rendered = enhance_report_html(source, page_name=page_name, report_dir=tmp_path)
+
+    for prefix in ("m16-", "m17-", "m18-", "m23-"):
+        assert prefix not in rendered.casefold()
+    assert ".root-cause-root" in rendered
+    assert ".remediation-link" in rendered
+    assert ".ai-analysis-ai" in rendered
+    assert "id='apdex-apdex-summary'" in rendered
+    assert "data-module='ai-analysis-analysis'" in rendered
+    assert evidence in rendered
+
+
+@pytest.mark.parametrize("page_name", _PUBLIC_PAGE_NAMES)
 def test_final_public_report_pipeline_rejects_unknown_internal_delivery_markup(
     tmp_path: Path,
     page_name: str,
@@ -54,6 +84,20 @@ def test_final_public_report_pipeline_rejects_unknown_internal_delivery_markup(
         "<html><body><header><h1>RASAi</h1></header><main>"
         "<section id='m42-internal-delivery'>conteúdo público</section>"
         "</main></body></html>"
+    )
+
+    with pytest.raises(PublicReportSafetyError, match="M42"):
+        enhance_report_html(source, page_name=page_name, report_dir=tmp_path)
+
+
+@pytest.mark.parametrize("page_name", _PUBLIC_PAGE_NAMES)
+def test_final_public_report_pipeline_rejects_unknown_internal_delivery_css(
+    tmp_path: Path,
+    page_name: str,
+) -> None:
+    source = (
+        "<html><head><style>.m42-private{display:block}</style></head>"
+        "<body><header><h1>RASAi</h1></header><main>conteúdo público</main></body></html>"
     )
 
     with pytest.raises(PublicReportSafetyError, match="M42"):
