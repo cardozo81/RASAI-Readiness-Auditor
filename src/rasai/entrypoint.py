@@ -106,6 +106,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] in {"property-config", "property_config"}:
         from rasai.property_config_cli import main as property_config_main
         return property_config_main(effective[1:])
+    if effective and effective[0] == "api":
+        try:
+            from rasai.web.cli import main as api_main
+        except ImportError as exc:
+            raise SystemExit("RASAi web dependencies are not installed; install with: pip install -e '.[web]'") from exc
+        return api_main(effective[1:])
     if effective and effective[0] == "visibility":
         from rasai.m26_cli import main as visibility_main
         return visibility_main(effective[1:])
