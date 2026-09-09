@@ -26,6 +26,18 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Apply current-only scoring cleanup
         run: python .github/rasai_current_score_cleanup.py
+      - name: Normalize remaining public report copy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/rasai/observability/reporting.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              '<strong>Estes dados não entram automaticamente em SARI-001/SCORE-GEO-003.</strong>',
+              '<strong>Estes dados não entram automaticamente em SARI-001/SCORE-GEO-004.</strong>',
+          )
+          path.write_text(text, encoding='utf-8', newline='\n')
+          PY
       - name: Compile
         run: python -m compileall -q src tests
       - name: Public contract gate
@@ -34,7 +46,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE 'SCORE-GEO-00[123]' README.md docs src/rasai/*report*.py src/rasai/report_registry.py src/rasai/report_contract.py src/rasai/report_navigation.py 2>/dev/null; then
+          if grep -RInE 'SCORE-GEO-00[123]' README.md docs src/rasai/*report*.py src/rasai/report_registry.py src/rasai/report_contract.py src/rasai/report_navigation.py src/rasai/observability/reporting.py src/rasai/quality/reporting.py src/rasai/monitoring/reporting.py 2>/dev/null; then
             echo 'Obsolete SCORE-GEO reference remains in a public surface.' >&2
             exit 1
           fi
