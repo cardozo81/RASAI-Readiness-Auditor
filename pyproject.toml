@@ -12,6 +12,11 @@ dependencies = [
     "tzdata>=2026.1",
 ]
 
+[project.optional-dependencies]
+postgresql = [
+    "psycopg[binary]>=3.2,<4",
+]
+
 [project.scripts]
 rasai = "rasai.entrypoint:main"
 rasai-console = "rasai.console_entrypoint:main"
