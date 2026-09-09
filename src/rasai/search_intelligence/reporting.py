@@ -18,10 +18,10 @@ from rasai.report_navigation import normalize_report_navigation, render_report_n
 
 REPORT_FILE = "search-intelligence.html"
 
-# This list is deliberately additive. The semantic implementation is evolving in a
-# separate feature branch. The report can expose a compatible persisted table as soon
-# as it lands without making that table a hard dependency of SERP Observation.
+# The evidence-bound Competitive AI persistence table is the canonical semantic source.
+# Additional names remain accepted only as compatible optional semantic projections.
 _SEMANTIC_TABLE_CANDIDATES = (
+    "serp_competitive_ai_analyses",
     "serp_competitive_semantic_analyses",
     "serp_semantic_competitive_analyses",
     "search_intelligence_semantic_analyses",
