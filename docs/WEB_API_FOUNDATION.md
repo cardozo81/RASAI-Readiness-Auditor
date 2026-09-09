@@ -46,13 +46,9 @@ A stack opcional inclui FastAPI, Uvicorn e HTTPX. PostgreSQL continua opcional s
 rasai api --host 127.0.0.1 --port 8000
 ```
 
-ou:
+A superfície Web permanece sob o entrypoint público canônico `rasai`; a instalação não adiciona um executável público separado para a API.
 
-```powershell
-rasai-api --host 127.0.0.1 --port 8000
-```
-
-O bind padrão é `127.0.0.1`. Exposição em interface pública deve ocorrer somente atrás de infraestrutura de autenticação, TLS e reverse proxy/gateway apropriada.
+O bind padrão é `127.0.0.1`. Um bind fora de loopback exige `--allow-public-bind` e deve ocorrer somente atrás de infraestrutura de autenticação, TLS e reverse proxy/gateway apropriada.
 
 A documentação OpenAPI fica desativada por padrão. Para desenvolvimento controlado:
 
