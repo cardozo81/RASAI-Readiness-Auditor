@@ -55,7 +55,7 @@ class SearchIntelligenceReportingTests(unittest.TestCase):
                 "SCORE-GEO-004",
             ):
                 self.assertIn(expected, html)
-            self.assertIn("não altera SARI-001", html)
+            self.assertIn("Nenhum indicador desta página altera SARI-001 ou SCORE-GEO-004", html)
             self.assertIn("correlação", html.casefold())
 
             index = (report / "index.html").read_text(encoding="utf-8")
