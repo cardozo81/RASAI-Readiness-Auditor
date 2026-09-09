@@ -42,6 +42,8 @@ def execute_search(
     workspace_root: Path | None = None,
     fixture_path: Path | None = None,
 ) -> SearchExecution:
+    if fixture_path is not None:
+        config = replace(config, fixture_path=fixture_path)
     config = config.validate()
     items = tuple(requests)
     if len(items) > config.max_queries:
