@@ -6,6 +6,8 @@ Referência operacional do **RASAi - Search & AI Readiness Auditor**.
 
 ```text
 rasai audit ...
+rasai search ...
+rasai search-history ...
 rasai visibility import|report ...
 rasai scoring inspect
 rasai monitor compare|impact|gate ...
@@ -128,6 +130,108 @@ RASAI_CRUX_API_KEY
 ```
 
 Lab e field data permanecem separados e não entram automaticamente em SARI/SCORE-GEO-004.
+
+## Search Intelligence
+
+### Observação Search
+
+Forma geral:
+
+```powershell
+rasai search "termo de busca" --domain cliente.example [opções]
+```
+
+A superfície observa Search tradicional por provider configurado e preserva query, engine, mercado, região, idioma, device, profundidade, timestamp e proveniência. `NOT_FOUND_WITHIN_DEPTH` significa apenas que o domínio não foi observado dentro da profundidade solicitada; não representa posição zero, posição infinita ou ausência absoluta de ranking.
+
+Opções relevantes incluem:
+
+```text
+--mode disabled|live|fixture
+--provider PROVIDER
+--depth N
+--country CODE
+--region TEXT
+--language CODE
+--device desktop|mobile
+--competitive
+--compare-content
+--customer-url URL
+--max-content-pages N
+--ai-competitive
+--ai-provider PROVIDER
+--ymyl-mode AUTO|ON|OFF
+--audit-workspace PATH
+--dry-run
+```
+
+`--competitive` classifica resultados de forma determinística. `--compare-content` habilita aquisição pública limitada de páginas. `--ai-competitive` é opt-in explícito e somente opera sobre evidências determinísticas consolidadas.
+
+Quando houver persistência no workspace, a superfície canônica point-in-time é:
+
+```text
+report/search-intelligence.html
+```
+
+Search Intelligence não altera automaticamente `SARI-001` ou `SCORE-GEO-004`.
+
+### Histórico Search Intelligence
+
+Metodologia atual:
+
+```text
+SEARCH-HISTORY-001
+```
+
+Comparação direta entre dois workspaces:
+
+```powershell
+rasai search-history `
+  --baseline-workspace audits/AUD-BASELINE `
+  --current-workspace audits/AUD-CURRENT
+```
+
+Com saída JSON opcional:
+
+```powershell
+rasai search-history `
+  --baseline-workspace audits/AUD-BASELINE `
+  --current-workspace audits/AUD-CURRENT `
+  --json search-history.json
+```
+
+Comparação vinculada a milestone existente no control plane:
+
+```powershell
+rasai search-history `
+  --milestone <milestone-id> `
+  --audits-root audits
+```
+
+Seleção explícita de baseline/current:
+
+```powershell
+rasai search-history `
+  --milestone <milestone-id> `
+  --baseline-mode EXPLICIT `
+  --baseline-audit <audit-id> `
+  --current-audit <audit-id>
+```
+
+Modos de baseline aceitos:
+
+```text
+AUTO
+GOLDEN
+EXPLICIT
+```
+
+Um delta numérico de posição só é produzido quando os dois lados possuem o mesmo contexto de query, engine, país, região, idioma, device, profundidade e domínio, além de provider/data mode compatíveis e status `OBSERVED`.
+
+Mudanças `FOUND` <-> `NOT_FOUND_WITHIN_DEPTH` são apresentadas como entrada ou saída da profundidade observada. O RASAI não inventa a posição absoluta fora dessa janela.
+
+Quando ambas as observações possuem comparação competitiva determinística consolidada, o histórico também pode descrever mudanças de cobertura lexical, volume observado, tipos JSON-LD e gaps determinísticos. A cronologia de um milestone não é apresentada como causalidade de ranking.
+
+O comando é read-only sobre `audit.db` e não chama Search provider, AI provider ou páginas públicas.
 
 ## Synthetic Navigation Apdex
 
@@ -458,6 +562,8 @@ rasai-console
 - `SCORING_GUIDE.md`
 - `INTERACTIVE_CONSOLE.md`
 - `PRODUCT_PLATFORM_ARCHITECTURE.md`
+- `SEARCH_INTELLIGENCE_REPORT.md`
+- `SEARCH_INTELLIGENCE_HISTORY.md`
 - `specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md`
 - `specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`
 - `specification/26_OBSERVED_GENERATIVE_VISIBILITY.md`
