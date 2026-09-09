@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import sys
 
+from rasai.indicator_provenance import enrich_indicator_provenance_html
 from rasai.report_contract import (
     CANONICAL_FILENAMES,
     CANONICAL_NAV_ITEMS,
@@ -84,6 +85,7 @@ PUBLIC_GENERATOR_FILES = (
     "src/rasai/m21_reporting.py",
     "src/rasai/m22_quality_domains.py",
     "src/rasai/m23_reporting.py",
+    "src/rasai/m24_reporting.py",
     "src/rasai/m25_reporting.py",
     "src/rasai/m26_reporting.py",
     "src/rasai/rasai_readiness_reporting.py",
@@ -121,6 +123,21 @@ _OLD_VERSION_RE = re.compile(r"SCORE-GEO-(?!004)\d{3}", re.I)
 # embedded implementation paths, artifact directories or contract labels.
 _MILESTONE_PUBLIC_RE = re.compile(r"(?i)(?<![A-Za-z0-9])m\d{1,3}")
 _VERSIONED_CANONICAL_RE = re.compile(r"report/score-geo-\d+\.html")
+
+# Representative RASAi-owned labels from historical report templates. The public
+# normalizer must remove every one without applying a generic regex to audited
+# evidence, where a token such as a product/model name may be legitimate.
+_PUBLIC_HTML_MILESTONE_FIXTURES = (
+    "M18/M20",
+    "M21/M22",
+    "M21 + M22 · domínio Web Performance",
+    "M23 · domínio Web Performance",
+    "Web Performance · M23",
+    "M23 · metodologia",
+    "Estado M23",
+    "M24-CD-001",
+    "Rastreamento e descoberta M24",
+)
 
 
 def _root(root: str | Path | None) -> Path:
@@ -249,6 +266,35 @@ def _check_generators(root: Path, errors: list[str]) -> None:
         if _OLD_VERSION_RE.search(text):
             errors.append(f"gerador público expõe scoring descontinuado: {relative}")
 
+    crawling = _read(root, "src/rasai/m24_reporting.py")
+    if "CRAWLING-DISCOVERY-001" not in crawling:
+        errors.append("relatório de rastreamento não expõe contrato público funcional")
+    for fragment in (
+        '_metric("Contrato", M24_VERSION)',
+        "<footer class='footer'>M24-",
+        "<div class='kicker'>M24-",
+        "id='m24-crawling-references'",
+    ):
+        if fragment in crawling:
+            errors.append(f"relatório de rastreamento ainda expõe identificador interno: {fragment}")
+
+
+def _check_public_html_normalization(errors: list[str]) -> None:
+    owned = " | ".join(_PUBLIC_HTML_MILESTONE_FIXTURES)
+    source = f"<html><body><header><h1>Contrato</h1></header><main><p>{owned}</p></main></body></html>"
+    rendered = enrich_indicator_provenance_html(source, page_name="index.html")
+    if _MILESTONE_PUBLIC_RE.search(rendered):
+        errors.append("normalizador comum de HTML permite identificador interno de entrega")
+    if "CRAWLING-DISCOVERY-001" not in rendered:
+        errors.append("normalizador comum de HTML não projeta contrato funcional de rastreamento")
+
+    # Guard against a dangerous generic replacement: audited content may contain
+    # a legitimate model/product name that resembles an internal delivery token.
+    evidence = "<html><body><p>Produto M25 industrial observado na página.</p></body></html>"
+    preserved = enrich_indicator_provenance_html(evidence, page_name="other.html")
+    if "Produto M25 industrial observado na página." not in preserved:
+        errors.append("normalizador comum de HTML altera conteúdo auditado legítimo")
+
 
 _SCORING_SCAN_SUFFIXES = frozenset({
     ".py", ".md", ".txt", ".toml", ".yml", ".yaml", ".json", ".ini", ".cmd", ".ps1"
@@ -299,6 +345,7 @@ def validate_public_contract(root: str | Path | None = None) -> tuple[str, ...]:
     _check_cli_docs(repository, errors)
     _check_surfaces(repository, errors)
     _check_generators(repository, errors)
+    _check_public_html_normalization(errors)
     _check_single_scoring_contract(repository, errors)
     return tuple(errors)
 
