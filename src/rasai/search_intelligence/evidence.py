@@ -5,9 +5,9 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
-_SENSITIVE_TOKENS = ("api_key", "apikey", "token", "secret", "password", "authorization", "credential")
+from rasai.secret_safety import redact_text, redact_value
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,31 +20,29 @@ class SerpEvidenceSink(Protocol):
     def store(self, observation_id: str, payload: bytes, content_type: str) -> StoredEvidence: ...
 
 
-def _redact(value: Any) -> Any:
-    if isinstance(value, dict):
-        result: dict[str, Any] = {}
-        for key, item in value.items():
-            lowered = str(key).casefold().replace("-", "_")
-            if any(token in lowered for token in _SENSITIVE_TOKENS):
-                result[str(key)] = "[REDACTED]"
-            else:
-                result[str(key)] = _redact(item)
-        return result
-    if isinstance(value, list):
-        return [_redact(item) for item in value]
-    return value
-
-
 def sanitize_raw_evidence(payload: bytes, content_type: str) -> bytes:
-    if "json" not in content_type.casefold():
-        return payload
+    """Sanitize provider evidence before persistence without changing opaque binary data.
+
+    JSON receives structured recursive redaction. Any other UTF-8 textual payload is
+    scrubbed as text. Truly opaque binary payloads are left byte-identical because
+    decoding/re-encoding them would corrupt evidence; providers used by the SERP
+    contract are expected to return JSON/text and are covered by the safe paths.
+    """
+
+    if "json" in content_type.casefold():
+        try:
+            parsed = json.loads(payload.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            pass
+        else:
+            return json.dumps(
+                redact_value(parsed), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            ).encode("utf-8")
     try:
-        parsed = json.loads(payload.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError:
         return payload
-    return json.dumps(
-        _redact(parsed), ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    return redact_text(text).encode("utf-8")
 
 
 class FilesystemSerpEvidenceSink:
