@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 import textwrap
@@ -8,6 +9,7 @@ import pytest
 
 from rasai.logging_config import SecretSafeFormatter
 from rasai.property_config import PROPERTY_CONFIG_CONTRACT, load_property_config
+from rasai.search_intelligence.evidence import sanitize_raw_evidence
 from rasai.secret_safety import (
     PRIVATE_KEY_REDACTED,
     REDACTED,
@@ -80,6 +82,24 @@ def test_logging_formatter_redacts_message_and_exception_material() -> None:
     assert "live-token-93af" not in rendered
     assert "prod-value-93af" not in rendered
     assert REDACTED in rendered
+
+
+def test_serp_evidence_redacts_structured_and_text_payloads_before_persistence() -> None:
+    raw_json = json.dumps({
+        "query": "seguro auto",
+        "api_key": "TEST_ONLY_PROVIDER_KEY",
+        "request_url": "https://user:TEST_ONLY_PASSWORD@example.test/search",
+    }).encode("utf-8")
+    safe_json = sanitize_raw_evidence(raw_json, "application/json")
+    assert b"TEST_ONLY_PROVIDER_KEY" not in safe_json
+    assert b"TEST_ONLY_PASSWORD" not in safe_json
+    parsed = json.loads(safe_json)
+    assert parsed["api_key"] == REDACTED
+
+    raw_text = b"Authorization: Bearer TEST_ONLY_BEARER\npassword='TEST_ONLY_PASSWORD'"
+    safe_text = sanitize_raw_evidence(raw_text, "text/plain")
+    assert b"TEST_ONLY_BEARER" not in safe_text
+    assert b"TEST_ONLY_PASSWORD" not in safe_text
 
 
 def test_detector_allows_explicit_placeholders_but_rejects_inline_material() -> None:
