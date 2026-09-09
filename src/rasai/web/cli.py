@@ -3,11 +3,22 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import replace
+import ipaddress
 from pathlib import Path
 from typing import Sequence
 
 from .app import ApiSettings, create_app
 from .auth import ApiAuthSettings
+
+
+def _is_loopback_host(value: str) -> bool:
+    host = value.strip().casefold()
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -18,6 +29,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--auth-mode", choices=("deny", "trusted-header"), default=None)
     parser.add_argument("--trusted-user-header", default=None)
     parser.add_argument("--docs", action="store_true", help="Expose /docs and /openapi.json")
+    parser.add_argument(
+        "--allow-public-bind",
+        action="store_true",
+        help="explicitly acknowledge binding beyond localhost; use only behind trusted TLS/auth gateway infrastructure",
+    )
     return parser
 
 
@@ -25,6 +41,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(list(argv) if argv is not None else None)
     if not 1 <= args.port <= 65535:
         raise SystemExit("--port must be between 1 and 65535")
+    if not _is_loopback_host(args.host) and not args.allow_public_bind:
+        raise SystemExit(
+            "non-loopback API bind requires --allow-public-bind and trusted gateway/TLS deployment controls"
+        )
     try:
         import uvicorn
     except ImportError as exc:
