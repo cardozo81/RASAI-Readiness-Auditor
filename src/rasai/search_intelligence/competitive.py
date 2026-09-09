@@ -41,8 +41,8 @@ class CompetitiveSelection:
     selected_candidates: tuple[ClassifiedSerpResult, ...]
 
 
-_PUBLIC_SUFFIXES = (
-    ".gov.br", ".gov", ".gob", ".gov.uk", ".gc.ca", ".gouv.fr",
+_PUBLIC_DOMAINS = (
+    "gov.br", "gov", "gob", "gov.uk", "gc.ca", "gouv.fr",
 )
 _KNOWLEDGE_DOMAINS = (
     "wikipedia.org", "wikidata.org", "britannica.com",
@@ -87,7 +87,7 @@ def classify_result(
         )
 
     domain = canonical_hostname(result.domain)
-    if any(domain.endswith(suffix) for suffix in _PUBLIC_SUFFIXES):
+    if _is_domain_or_subdomain(domain, _PUBLIC_DOMAINS):
         return ClassifiedSerpResult(
             result=result,
             classification=SearchResultClass.PUBLIC_AUTHORITY,
