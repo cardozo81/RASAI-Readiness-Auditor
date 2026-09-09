@@ -45,6 +45,7 @@ _OWNED_PRESENTATION_REPLACEMENTS: tuple[tuple[str, str], ...] = (
 # comments and CSS selectors; ordinary visible evidence text is not touched.
 _MARKUP_PREFIX_MAP: dict[str, str] = {
     "m14": "evidence-linking",
+    "m15": "report-layout",
     "m16": "root-cause",
     "m17": "remediation",
     "m18": "ai-analysis",
