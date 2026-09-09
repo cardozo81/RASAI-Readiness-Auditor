@@ -46,6 +46,9 @@ _SAFE_PLACEHOLDER_WORDS = (
     "dummy", "fake", "test_only", "test-password", "test_password", "rasai_test_",
 )
 _SAFE_EXACT_PLACEHOLDERS = frozenset({"token", "password", "secret", "credential", "value", "key"})
+_SENSITIVE_ARG_NAMES = frozenset({
+    "DATABASE_URL", "DB_URL", "DSN", "CONNECTION_STRING", "CONNECTION_URL",
+})
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,6 +146,7 @@ def redact_text(value: str) -> str:
 
 
 def redact_value(value: Any, *, field_name: str | None = None) -> Any:
+    """Recursively sanitize structured data before display or persistence."""
     if field_name and is_sensitive_name(field_name) and not is_secret_reference_name(field_name):
         return REDACTED
     if isinstance(value, Mapping):
@@ -154,6 +158,62 @@ def redact_value(value: Any, *, field_name: str | None = None) -> Any:
     if isinstance(value, str):
         return redact_text(value)
     return value
+
+
+def validate_secret_free_mapping(value: Mapping[str, Any], *, context: str = "configuration") -> None:
+    """Reject inline secrets in configuration-like mappings.
+
+    Reference fields such as ``api_key_env`` or ``credential_ref`` are allowed;
+    credential-bearing value fields are not. Arbitrary strings are also checked for
+    embedded bearer tokens, credential URLs and private-key material.
+    """
+
+    def visit(node: Any, path: str, key: str | None = None) -> None:
+        if isinstance(node, Mapping):
+            for raw_key, child in node.items():
+                child_key = str(raw_key)
+                child_path = f"{path}.{child_key}" if path else child_key
+                if is_sensitive_name(child_key) and not is_secret_reference_name(child_key):
+                    raise ValueError(
+                        f"{context} must not persist inline secret field {child_path!r}; use an *_env or *_ref reference"
+                    )
+                if is_secret_reference_name(child_key):
+                    if not isinstance(child, str):
+                        raise ValueError(f"secret reference {child_path!r} must be a string")
+                    if child_key.upper().replace("-", "_").endswith("_ENV"):
+                        validate_environment_reference(child)
+                visit(child, child_path, child_key)
+            return
+        if isinstance(node, (list, tuple)):
+            for index, child in enumerate(node):
+                visit(child, f"{path}[{index}]", key)
+            return
+        if isinstance(node, str) and not (key and is_secret_reference_name(key)):
+            if detect_secret_exposures(node, path=path or context):
+                raise ValueError(
+                    f"{context} contains inline credential-like material at {path or '<root>'}; store the value outside persistence and reference it instead"
+                )
+
+    visit(value, context)
+
+
+def validate_command_argv_secret_free(command_argv: Sequence[str], *, context: str = "schedule command") -> None:
+    """Reject secrets/DSNs embedded in durable command arguments."""
+    values = tuple(str(item) for item in command_argv)
+    for index, item in enumerate(values):
+        if detect_secret_exposures(item, path=context):
+            raise ValueError(f"{context} contains credential material in argument {index}; use environment/secret references")
+        if not item.startswith("-"):
+            continue
+        option, separator, inline_value = item.partition("=")
+        normalized = option.lstrip("-").upper().replace("-", "_").replace(".", "_")
+        sensitive_option = is_sensitive_name(normalized) or normalized in _SENSITIVE_ARG_NAMES
+        if sensitive_option:
+            raise ValueError(
+                f"{context} must not persist credential-bearing option {option!r}; inject the secret through environment/secret management at runtime"
+            )
+        if separator and inline_value and detect_secret_exposures(inline_value, path=context):
+            raise ValueError(f"{context} contains credential material in argument {index}")
 
 
 def _line_number(text: str, offset: int) -> int:
