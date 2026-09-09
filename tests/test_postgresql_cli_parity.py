@@ -101,7 +101,9 @@ def test_search_monitor_public_cli_uses_postgresql_registry(
             for line in add_output.splitlines()
             if line.startswith("query_id=")
         )
-        assert query_id.startswith("SMQ-")
+        # Preserve the public SEARCH-MONITOR-001 identifier contract already used
+        # by the SQLite implementation; PostgreSQL must not introduce a new ID family.
+        assert query_id.startswith("SQRY-")
 
         assert search_monitor_main([
             "--audits-root", str(audits_root),
