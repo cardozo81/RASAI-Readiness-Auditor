@@ -9,7 +9,7 @@ from typing import Iterable, Mapping
 
 from .budget import RequestBudget
 from .config import SERPAPI_KEY_ENV, SerpRuntimeConfig
-from .evidence import FilesystemSerpEvidenceSink
+from .evidence import FilesystemSerpEvidenceSink, SerpEvidenceSink
 from .models import DomainMatchStatus, SearchIntelligenceResult, SerpQueryRequest
 from .persistence import SerpObservationRepository
 from .providers import FixtureSerpProvider, SerpApiProvider
@@ -59,7 +59,14 @@ def execute_search(
     environment: Mapping[str, str] | None = None,
     workspace_root: Path | None = None,
     fixture_path: Path | None = None,
+    evidence_sink: SerpEvidenceSink | None = None,
 ) -> SearchExecution:
+    """Execute provider-neutral Search observation.
+
+    ``workspace_root`` retains the legacy per-audit persistence behavior. ``evidence_sink``
+    is an additive operational seam used by recurring monitoring so raw provider evidence
+    can be stored without mutating immutable ``AUD-*/audit.db`` workspaces.
+    """
     if fixture_path is not None:
         config = replace(config, fixture_path=fixture_path)
     config = config.validate()
@@ -103,15 +110,16 @@ def execute_search(
         )
 
     repository = None
-    evidence_sink = None
     audit_id = None
+    selected_evidence_sink = evidence_sink
     if workspace_root is not None:
         repository = SerpObservationRepository.from_workspace(workspace_root)
         audit_id = repository.audit_id
-        evidence_sink = FilesystemSerpEvidenceSink(
-            workspace_root=workspace_root,
-            artifacts_root=workspace_root / "artifacts",
-        )
+        if selected_evidence_sink is None:
+            selected_evidence_sink = FilesystemSerpEvidenceSink(
+                workspace_root=workspace_root,
+                artifacts_root=workspace_root / "artifacts",
+            )
 
     budget = RequestBudget(config.max_requests)
     if config.mode == "fixture":
@@ -147,7 +155,7 @@ def execute_search(
         max_queries=config.max_queries,
         max_depth=config.max_depth,
         max_competitors=config.max_competitors,
-        evidence_sink=evidence_sink,
+        evidence_sink=selected_evidence_sink,
         repository=_BoundRepository() if repository is not None else None,
     )
     try:
