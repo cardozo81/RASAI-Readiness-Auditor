@@ -107,7 +107,7 @@ class GatePolicy:
     max_high_regressions: int = 0
     max_medium_regressions: int = 3
     dimension_drop_points: float = 5.0
-    fail_dimensions: tuple[str, ...] = ("TECHNICAL_ACCESSIBILITY", "INDEXABILITY", "CONTENT_EXTRACTABILITY")
+    fail_dimensions: tuple[str, ...] = ("DISCOVERY_ACCESS", "INDEXABILITY", "CONTENT_EXTRACTABILITY")
 
 
 @dataclass(frozen=True, slots=True)
