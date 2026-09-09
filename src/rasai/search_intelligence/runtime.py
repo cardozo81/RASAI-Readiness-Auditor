@@ -56,11 +56,13 @@ def execute_search(
                 f"requested SERP depth {item.depth} exceeds configured max_depth {config.max_depth}"
             )
 
-    projected = config.worst_case_http_requests(len(items))
+    projected = sum(
+        config.worst_case_http_requests(1, depth=item.depth) for item in items
+    )
     if projected > config.max_requests:
         raise ValueError(
             f"worst-case SERP HTTP requests {projected} exceed configured max_requests {config.max_requests}; "
-            "reduce queries/retries or raise the explicit limit"
+            "reduce queries/depth/retries or raise the explicit limit"
         )
 
     if config.mode == "disabled":
