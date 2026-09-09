@@ -5,16 +5,19 @@ from contextlib import contextmanager
 from typing import Any, Iterator
 
 from .central_store import CentralPlatformStore
+from .postgres_admin import require_current_postgres_schema
 from .postgres_compat import PostgresConnectionAdapter, connect_postgres, redact_postgres_url
-from .postgres_migrations import POSTGRES_SCHEMA_VERSION, apply_postgres_migrations
+from .postgres_migrations import POSTGRES_SCHEMA_VERSION
 
 
 class PostgreSQLPlatformStore(CentralPlatformStore):
     """Canonical control-plane store backed by PostgreSQL.
 
     Domain behavior is inherited from :class:`CentralPlatformStore`; only database
-    composition, transaction semantics, migrations and backend-specific governance
-    metadata live here.  Immutable audit evidence remains in ``AUD-*/audit.db``.
+    composition, transaction semantics and backend-specific governance metadata live
+    here. Schema changes are never applied implicitly by normal application startup;
+    run ``rasai platform database migrate`` as an explicit deployment operation.
+    Immutable audit evidence remains in ``AUD-*/audit.db``.
     """
 
     backend = "postgresql"
@@ -24,7 +27,7 @@ class PostgreSQLPlatformStore(CentralPlatformStore):
         self.database = redact_postgres_url(database_url)
         self._connection: PostgresConnectionAdapter = connect_postgres(database_url)
         try:
-            apply_postgres_migrations(self._connection)
+            require_current_postgres_schema(self._connection)
             self._validate_server_contract()
         except Exception:
             self._connection.close()
