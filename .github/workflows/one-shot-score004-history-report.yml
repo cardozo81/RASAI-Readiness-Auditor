@@ -1,0 +1,678 @@
+name: One-shot SCORE-GEO-004 cleanup and Search History report
+
+on:
+  push:
+    branches:
+      - feat/score-geo-004-cleanup-search-history-report
+    paths:
+      - .github/workflows/one-shot-score004-history-report.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/score-geo-004-cleanup-search-history-report
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply focused repository changes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          from pathlib import Path
+          import re
+          import subprocess
+          import textwrap
+
+          ROOT = Path('.')
+
+          def read(path: str) -> str:
+              return (ROOT / path).read_text(encoding='utf-8')
+
+          def write(path: str, text: str) -> None:
+              (ROOT / path).write_text(text, encoding='utf-8', newline='\n')
+
+          def replace_required(path: str, old: str, new: str) -> None:
+              text = read(path)
+              if old not in text:
+                  raise RuntimeError(f'expected text not found in {path}: {old[:100]!r}')
+              write(path, text.replace(old, new))
+
+          def replace_section(path: str, heading: str, replacement: str) -> None:
+              text = read(path)
+              pattern = re.compile(rf'(?ms)^## {re.escape(heading)}\n.*?(?=^## |\Z)')
+              if not pattern.search(text):
+                  raise RuntimeError(f'section not found in {path}: {heading}')
+              write(path, pattern.sub(replacement.rstrip() + '\n\n', text, count=1))
+
+          # Single valid scoring contract: eliminate explicit obsolete SCORE-GEO versions
+          # from tracked text, then harden the runtime to consume the canonical constant.
+          tracked = subprocess.check_output(['git', 'ls-files', '-z']).split(b'\0')
+          text_suffixes = {'.py', '.md', '.txt', '.toml', '.yml', '.yaml', '.json', '.ini', '.cmd', '.ps1'}
+          for raw in tracked:
+              if not raw:
+                  continue
+              path = ROOT / raw.decode('utf-8')
+              if path.suffix.lower() not in text_suffixes or not path.is_file():
+                  continue
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except UnicodeDecodeError:
+                  continue
+              updated = re.sub(r'SCORE-GEO-(?:001|002|003)', 'SCORE-GEO-004', text)
+              if updated != text:
+                  path.write_text(updated, encoding='utf-8', newline='\n')
+
+          quality = read('src/rasai/quality/analysis.py')
+          if 'from rasai.score_geo_004 import SCORING_VERSION' not in quality:
+              quality = quality.replace(
+                  'from typing import Any\n',
+                  'from typing import Any\n\nfrom rasai.score_geo_004 import SCORING_VERSION\n',
+                  1,
+              )
+          quality = quality.replace(
+              'all(version == "SCORE-GEO-004" for version in versions)',
+              'all(version == SCORING_VERSION for version in versions)',
+          )
+          write('src/rasai/quality/analysis.py', quality)
+
+          # Remove obsolete-version assertions now made meaningless by the single-contract policy.
+          m26 = read('tests/test_m26_observed_generative_visibility.py')
+          m26 = re.sub(r'(?m)^\s*assert "SCORE-GEO-004" not in html\n', '', m26)
+          write('tests/test_m26_observed_generative_visibility.py', m26)
+
+          backlog = read('tests/test_consolidated_backlog_regressions.py')
+          old_block = '''    def test_current_runtime_files_do_not_claim_score_geo_002(self) -> None:\n        selected = [\n            "src/rasai/m20_reporting.py", "src/rasai/m23_reporting.py",\n            "src/rasai/m24_reporting.py", "src/rasai/m25_reporting.py",\n            "src/rasai/external_metrics_integrity.py", "src/rasai/cli_extensions.py",\n            "src/rasai/report_site.py",\n        ]\n        root = Path(__file__).resolve().parents[1]\n        for relative in selected:\n            with self.subTest(relative=relative):\n                self.assertNotIn("SCORE-GEO-004", (root / relative).read_text(encoding="utf-8"))\n'''
+          new_block = '''    def test_current_runtime_files_expose_only_score_geo_004(self) -> None:\n        selected = [\n            "src/rasai/m20_reporting.py", "src/rasai/m23_reporting.py",\n            "src/rasai/m24_reporting.py", "src/rasai/m25_reporting.py",\n            "src/rasai/external_metrics_integrity.py", "src/rasai/cli_extensions.py",\n            "src/rasai/report_site.py",\n        ]\n        root = Path(__file__).resolve().parents[1]\n        obsolete = re.compile(r"SCORE-GEO-(?!004)\\d{3}")\n        for relative in selected:\n            with self.subTest(relative=relative):\n                text = (root / relative).read_text(encoding="utf-8")\n                self.assertIsNone(obsolete.search(text))\n'''
+          if old_block not in backlog:
+              raise RuntimeError('expected obsolete scoring regression test block not found')
+          backlog = backlog.replace(old_block, new_block)
+          if 'import re\n' not in backlog:
+              backlog = backlog.replace('from tempfile import TemporaryDirectory\n', 'from tempfile import TemporaryDirectory\nimport re\n', 1)
+          write('tests/test_consolidated_backlog_regressions.py', backlog)
+
+          # Public contract gate: SCORE-GEO-004 is the only accepted scoring identifier
+          # anywhere in tracked product/docs/tests text. No legacy exception exists.
+          gate = read('src/rasai/public_contract_gate.py')
+          gate = gate.replace(
+              '    "src/rasai/search_intelligence/reporting.py",\n',
+              '    "src/rasai/search_intelligence/reporting.py",\n    "src/rasai/search_intelligence/history_reporting.py",\n',
+              1,
+          )
+          gate = gate.replace(
+              '    for obsolete in ("rasai scoring dataset", "rasai scoring calibrate"):\n        for line in cli_doc.splitlines():\n            if obsolete in line and not re.search(r"hist[oó]ric|legad|003", line, re.I):\n                errors.append(f"CLI histórica anunciada como corrente: {line.strip()}")\n',
+              '    for obsolete in ("rasai scoring dataset", "rasai scoring calibrate"):\n        if obsolete in cli_doc:\n            errors.append(f"CLI de scoring não suportada exposta na documentação: {obsolete}")\n',
+              1,
+          )
+          marker = '\n\ndef validate_public_contract(root: str | Path | None = None) -> tuple[str, ...]:\n'
+          if marker not in gate:
+              raise RuntimeError('public contract validation marker not found')
+          repo_scan = r'''
+
+          _SCORING_SCAN_SUFFIXES = frozenset({
+              ".py", ".md", ".txt", ".toml", ".yml", ".yaml", ".json", ".ini", ".cmd", ".ps1"
+          })
+
+
+          def _check_single_scoring_contract(root: Path, errors: list[str]) -> None:
+              """Reject every explicit SCORE-GEO version except the canonical runtime contract."""
+              for path in root.rglob("*"):
+                  if not path.is_file() or path.suffix.lower() not in _SCORING_SCAN_SUFFIXES:
+                      continue
+                  if any(part in {".git", ".venv", "venv", "__pycache__"} for part in path.parts):
+                      continue
+                  try:
+                      text = path.read_text(encoding="utf-8")
+                  except UnicodeDecodeError:
+                      continue
+                  match = _OLD_VERSION_RE.search(text)
+                  if match:
+                      errors.append(
+                          f"contrato de scoring inválido {match.group(0)!r}: {path.relative_to(root)}; "
+                          f"somente {EXPECTED_SCORING_VERSION} é válido"
+                      )
+
+              stale_reporting_claims = (
+                  "No Search Intelligence-specific HTML report is introduced yet",
+                  "no Search Intelligence-specific HTML report yet",
+                  "não há Search Intelligence HTML específico",
+                  "no dedicated historical HTML report is generated yet",
+              )
+              for relative in (
+                  "docs/SERP_OBSERVATION.md",
+                  "docs/COMPETITIVE_SEARCH_INTELLIGENCE.md",
+                  "docs/COMPETITIVE_AI_INTELLIGENCE.md",
+                  "docs/SEARCH_INTELLIGENCE_HISTORY.md",
+              ):
+                  text = _read(root, relative)
+                  for claim in stale_reporting_claims:
+                      if claim in text:
+                          errors.append(f"documentação anuncia limitação já implementada em {relative}: {claim}")
+          '''
+          gate = gate.replace(marker, textwrap.dedent(repo_scan) + marker, 1)
+          gate = gate.replace(
+              '    _check_generators(repository, errors)\n    return tuple(errors)\n',
+              '    _check_generators(repository, errors)\n    _check_single_scoring_contract(repository, errors)\n    return tuple(errors)\n',
+              1,
+          )
+          write('src/rasai/public_contract_gate.py', gate)
+
+          # Standalone read-only Search Intelligence History report + manifest.
+          history_reporting = r'''"""Standalone HTML and manifest projection for Search Intelligence History."""
+          from __future__ import annotations
+
+          from collections import Counter
+          from dataclasses import dataclass
+          from datetime import datetime, timezone
+          from html import escape
+          import hashlib
+          import json
+          from pathlib import Path
+          from typing import Any
+
+          from rasai.report_presentation import humanize_report_html
+          from rasai.score_geo_004 import SCORING_VERSION
+
+          from .history import SearchHistoryComparison, SearchHistoryEvent
+
+          FORMAT_VERSION = "RASAI-SEARCH-HISTORY-REPORT-001"
+
+
+          @dataclass(frozen=True, slots=True)
+          class SearchHistoryReportResult:
+              report_dir: Path
+              report_path: Path
+              manifest_path: Path
+
+
+          def _event_dict(event: SearchHistoryEvent) -> dict[str, Any]:
+              return {
+                  "context_key": event.context_key,
+                  "query": event.query,
+                  "status": event.status,
+                  "label": event.label,
+                  "before": event.before,
+                  "after": event.after,
+                  "delta": event.delta,
+                  "unit": event.unit,
+                  "note": event.note,
+              }
+
+
+          def write_search_history_report(
+              audits_root: str | Path,
+              result: SearchHistoryComparison,
+              *,
+              report_root: str | Path | None = None,
+              milestone_id: str | None = None,
+              baseline_mode: str | None = None,
+          ) -> SearchHistoryReportResult:
+              """Materialize a deterministic standalone report without mutating either AUD."""
+              root = Path(audits_root)
+              output_root = Path(report_root) if report_root is not None else root / "search-history"
+              material_payload = {
+                  "format": FORMAT_VERSION,
+                  "method": result.method,
+                  "baseline": result.baseline_audit_id,
+                  "current": result.current_audit_id,
+                  "milestone_id": milestone_id,
+                  "baseline_mode": baseline_mode,
+                  "events": [_event_dict(event) for event in result.events],
+                  "compatibility_notes": list(result.compatibility_notes),
+              }
+              material = json.dumps(
+                  material_payload,
+                  ensure_ascii=False,
+                  sort_keys=True,
+                  separators=(",", ":"),
+                  default=str,
+              ).encode("utf-8")
+              digest = hashlib.sha256(material).hexdigest()
+              report_dir = output_root / f"SH-{digest[:16].upper()}"
+              report_dir.mkdir(parents=True, exist_ok=True)
+              report_path = report_dir / "report.html"
+              manifest_path = report_dir / "manifest.json"
+              generated_at = datetime.now(timezone.utc).isoformat()
+              counts = Counter(event.status for event in result.events)
+              manifest = {
+                  "format_version": FORMAT_VERSION,
+                  "generated_at": generated_at,
+                  "methodology": result.method,
+                  "baseline_audit_id": result.baseline_audit_id,
+                  "current_audit_id": result.current_audit_id,
+                  "milestone_id": milestone_id,
+                  "baseline_mode": baseline_mode,
+                  "comparable_contexts": result.comparable_contexts,
+                  "non_comparable_contexts": result.non_comparable_contexts,
+                  "compatibility_notes": list(result.compatibility_notes),
+                  "event_counts": dict(sorted(counts.items())),
+                  "events": [_event_dict(event) for event in result.events],
+                  "source_policy": "AUD-*/audit.db opened read-only; no Search/content/AI provider calls",
+                  "causality_policy": result.interpretation_policy,
+                  "scoring_boundary": f"Search History is non-scoring and does not modify SARI-001/{SCORING_VERSION}",
+              }
+              manifest_path.write_text(
+                  json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True, default=str) + "\n",
+                  encoding="utf-8",
+              )
+              report_path.write_text(
+                  _html(result, generated_at, counts, milestone_id=milestone_id, baseline_mode=baseline_mode),
+                  encoding="utf-8",
+                  newline="\n",
+              )
+              return SearchHistoryReportResult(report_dir, report_path, manifest_path)
+
+
+          def _status_label(status: str) -> str:
+              return {
+                  "POSITION_IMPROVED": "Posição melhorou",
+                  "POSITION_REGRESSED": "Posição piorou",
+                  "POSITION_UNCHANGED": "Posição estável",
+                  "ENTERED_OBSERVED_DEPTH": "Entrou na profundidade observada",
+                  "LEFT_OBSERVED_DEPTH": "Saiu da profundidade observada",
+                  "OBSERVED_DEPTH_STATE_UNCHANGED": "Estado de profundidade estável",
+                  "DOMAIN_STATUS_CHANGED": "Estado do domínio mudou",
+                  "CONTENT_SIGNAL_CHANGED": "Sinal determinístico mudou",
+                  "CONTENT_VOLUME_CHANGED": "Volume observado mudou",
+                  "STRUCTURED_DATA_CHANGED": "Dados estruturados mudaram",
+                  "DETERMINISTIC_GAP_ADDED": "Gap determinístico adicionado",
+                  "DETERMINISTIC_GAP_RESOLVED": "Gap determinístico resolvido",
+                  "NEW_CONTEXT": "Novo contexto",
+                  "MISSING_CURRENT_CONTEXT": "Contexto ausente no atual",
+                  "NOT_COMPARABLE": "Não comparável",
+              }.get(status, status)
+
+
+          def _status_class(status: str) -> str:
+              if status in {"POSITION_IMPROVED", "ENTERED_OBSERVED_DEPTH", "DETERMINISTIC_GAP_RESOLVED"}:
+                  return "good"
+              if status in {"POSITION_REGRESSED", "LEFT_OBSERVED_DEPTH", "DETERMINISTIC_GAP_ADDED"}:
+                  return "bad"
+              if status in {"NOT_COMPARABLE", "NEW_CONTEXT", "MISSING_CURRENT_CONTEXT"}:
+                  return "warn"
+              return "neutral"
+
+
+          def _value(value: Any, unit: str | None = None) -> str:
+              if value is None:
+                  return "—"
+              if isinstance(value, (tuple, list)):
+                  text = ", ".join(str(item) for item in value) or "—"
+              elif isinstance(value, dict):
+                  text = json.dumps(value, ensure_ascii=False, sort_keys=True)
+              elif isinstance(value, float):
+                  text = f"{value:.4f}".rstrip("0").rstrip(".")
+              else:
+                  text = str(value)
+              if not unit:
+                  return text
+              unit_label = {"positions": "posições", "words": "palavras", "ratio": "proporção"}.get(unit, unit)
+              return f"{text} {unit_label}"
+
+
+          def _delta(event: SearchHistoryEvent) -> str:
+              if event.delta is None:
+                  return "—"
+              prefix = "+" if event.delta > 0 else ""
+              value = f"{event.delta:.4f}".rstrip("0").rstrip(".")
+              unit = {"positions": "posições", "words": "palavras", "ratio": "proporção"}.get(event.unit or "", event.unit or "")
+              return f"{prefix}{value} {unit}".strip()
+
+
+          def _event_row(event: SearchHistoryEvent) -> str:
+              css = _status_class(event.status)
+              return "".join((
+                  "<tr>",
+                  f"<td><span class='badge {css}'>{escape(_status_label(event.status))}</span></td>",
+                  f"<td>{escape(event.query)}</td>",
+                  f"<td>{escape(event.label)}</td>",
+                  f"<td>{escape(_value(event.before, event.unit))}</td>",
+                  f"<td>{escape(_value(event.after, event.unit))}</td>",
+                  f"<td>{escape(_delta(event))}</td>",
+                  f"<td>{escape(event.note or '—')}</td>",
+                  f"<td class='mono'>{escape(event.context_key)}</td>",
+                  "</tr>",
+              ))
+
+
+          def _metric(label: str, value: Any, css: str = "") -> str:
+              return f"<div class='metric {css}'><span>{escape(label)}</span><strong>{escape(str(value))}</strong></div>"
+
+
+          def _html(
+              result: SearchHistoryComparison,
+              generated_at: str,
+              counts: Counter[str],
+              *,
+              milestone_id: str | None,
+              baseline_mode: str | None,
+          ) -> str:
+              rows = "".join(_event_row(event) for event in result.events) or "<tr><td colspan='8'>Nenhum evento comparável materializado.</td></tr>"
+              notes = "".join(f"<li>{escape(note)}</li>" for note in result.compatibility_notes) or "<li>Nenhuma limitação adicional de comparabilidade detectada.</li>"
+              milestone = escape(milestone_id or "não informado")
+              selection = escape(baseline_mode or "comparação direta")
+              positive = counts.get("POSITION_IMPROVED", 0) + counts.get("ENTERED_OBSERVED_DEPTH", 0)
+              negative = counts.get("POSITION_REGRESSED", 0) + counts.get("LEFT_OBSERVED_DEPTH", 0)
+              html = f"""<!doctype html>
+          <html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
+          <title>RASAi · Histórico de Search Intelligence</title><style>{_CSS}</style></head><body><main>
+          <header class='hero'>
+            <div class='eyebrow'>Search Intelligence History · {escape(result.method)}</div>
+            <h1>Evolução observada de Search Intelligence</h1>
+            <p>Comparação determinística e read-only entre duas auditorias. Variações de posição, conteúdo e gaps são observações temporais; proximidade com deploy ou alteração de conteúdo não demonstra causalidade.</p>
+            <div class='metrics'>
+              {_metric('Baseline', result.baseline_audit_id)}
+              {_metric('Atual', result.current_audit_id)}
+              {_metric('Contextos comparáveis', result.comparable_contexts, 'good' if result.comparable_contexts else 'neutral')}
+              {_metric('Não comparáveis', result.non_comparable_contexts, 'warn' if result.non_comparable_contexts else 'neutral')}
+              {_metric('Melhoras/entradas', positive, 'good')}
+              {_metric('Pioras/saídas', negative, 'bad' if negative else 'neutral')}
+            </div>
+          </header>
+          <section class='panel'><h2>Contexto da comparação</h2>
+            <p><strong>Milestone/deploy:</strong> {milestone} · <strong>modo de seleção:</strong> {selection}</p>
+            <p>Delta numérico de posição só existe quando query, engine, país, região, idioma, device, profundidade, domínio, provider, data mode e estado observacional são compatíveis.</p>
+          </section>
+          <section class='panel'><h2>Eventos observados</h2><div class='table-wrap'><table><thead><tr>
+            <th>Estado</th><th>Query</th><th>Sinal</th><th>Antes</th><th>Depois</th><th>Delta</th><th>Interpretação</th><th>Contexto exato</th>
+          </tr></thead><tbody>{rows}</tbody></table></div></section>
+          <section class='panel'><h2>Comparabilidade e limitações</h2><ul>{notes}</ul>
+            <ul><li><code>NOT_FOUND_WITHIN_DEPTH</code> nunca vira posição artificial.</li><li>Search é volátil e pode variar por tempo, localização, personalização e provider.</li><li>Word count é volume, não qualidade.</li><li>Mudança de JSON-LD é evidência de diferença, não recomendação automática.</li><li>Gaps determinísticos são correlacionais.</li></ul>
+          </section>
+          <section class='panel'><h2>Fronteira metodológica</h2>
+            <p><strong>{escape(result.method)}</strong> não altera <strong>SARI-001</strong> nem <strong>{escape(SCORING_VERSION)}</strong>. O relatório não chama Search provider, páginas públicas ou IA e não regrava os <code>audit.db</code> fonte.</p>
+            <p>{escape(result.interpretation_policy)}</p>
+          </section>
+          <footer>Gerado em {escape(generated_at)} · fonte: dois audit.db abertos read-only · RASAi Search Intelligence.</footer>
+          </main></body></html>"""
+              return humanize_report_html(html, page_name="search-history-report.html")
+
+
+          _CSS = """
+          :root{--bg:#f5f7fa;--surface:#fff;--ink:#273449;--muted:#6d7786;--line:#e1e6ec;--good:#eaf5ee;--bad:#faecec;--warn:#faf3e7;--neutral:#eef2fb}
+          *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:1500px;margin:auto;padding:34px}.hero,.panel{background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:24px;margin-bottom:16px}.hero{box-shadow:0 8px 24px rgba(39,52,73,.05)}h1{font-size:30px;margin:.2rem 0 1rem}h2{font-size:20px;margin-top:0}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:9px;margin-top:18px}.metric{background:#f7f8fb;border-radius:6px;padding:11px}.metric span{display:block;color:var(--muted);font-size:12px}.metric strong{font-size:16px}.metric.good,.badge.good{background:var(--good)}.metric.bad,.badge.bad{background:var(--bad)}.metric.warn,.badge.warn{background:var(--warn)}.metric.neutral,.badge.neutral{background:var(--neutral)}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:6px}table{width:100%;border-collapse:collapse;min-width:1200px}th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}th{background:#f7f8fb;position:sticky;top:0}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;max-width:360px;word-break:break-word}.badge{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700}code{background:#f1f3f6;padding:1px 4px;border-radius:4px}footer{color:var(--muted);padding:12px 4px 24px}@media(max-width:700px){main{padding:16px}.hero,.panel{padding:17px}}
+          """
+          '''
+          write('src/rasai/search_intelligence/history_reporting.py', textwrap.dedent(history_reporting))
+
+          # CLI now materializes report.html + manifest.json for every successful comparison.
+          history_cli = read('src/rasai/search_intelligence/history_cli.py')
+          history_cli = history_cli.replace(
+              'from .history import compare_search_deployment_pair, compare_search_workspaces\n',
+              'from .history import compare_search_deployment_pair, compare_search_workspaces\nfrom .history_reporting import write_search_history_report\n',
+              1,
+          )
+          history_cli = history_cli.replace(
+              '    parser.add_argument("--json", dest="json_path", help="optional output JSON file")\n',
+              '    parser.add_argument("--json", dest="json_path", help="optional output JSON file")\n    parser.add_argument("--report-root", help="optional root for SH-*; default <audits-root>/search-history")\n',
+              1,
+          )
+          history_cli = history_cli.replace(
+              '        _write(_payload(result), args.json_path)\n        return 0\n',
+              '''        report = write_search_history_report(\n            args.audits_root,\n            result,\n            report_root=args.report_root,\n            milestone_id=args.milestone if milestone else None,\n            baseline_mode=args.baseline_mode if milestone else None,\n        )\n        payload = _payload(result)\n        payload["report"] = {\n            "report_dir": str(report.report_dir),\n            "report_path": str(report.report_path),\n            "manifest_path": str(report.manifest_path),\n        }\n        _write(payload, args.json_path)\n        print(f"RASAi Search history report: {report.report_path}")\n        return 0\n''',
+              1,
+          )
+          write('src/rasai/search_intelligence/history_cli.py', history_cli)
+
+          # Extend existing history tests with HTML/manifest assertions and keep CLI side effects bounded.
+          history_test = read('tests/test_search_intelligence_history.py')
+          history_test = history_test.replace(
+              'from rasai.search_intelligence.history import compare_search_workspaces\n',
+              'from rasai.search_intelligence.history import compare_search_workspaces\nfrom rasai.search_intelligence.history_reporting import write_search_history_report\n',
+              1,
+          )
+          history_test = history_test.replace(
+              '    output = tmp_path / "history.json"\n',
+              '    output = tmp_path / "history.json"\n    reports = tmp_path / "reports"\n',
+              1,
+          )
+          history_test = history_test.replace(
+              '            "--json",\n            str(output),\n',
+              '            "--json",\n            str(output),\n            "--report-root",\n            str(reports),\n',
+              1,
+          )
+          history_test = history_test.replace(
+              '    assert payload["events"][0]["status"] == "POSITION_IMPROVED"\n    assert "SEARCH-HISTORY-001" in capsys.readouterr().out\n',
+              '''    assert payload["events"][0]["status"] == "POSITION_IMPROVED"\n    report_path = Path(payload["report"]["report_path"])\n    manifest_path = Path(payload["report"]["manifest_path"])\n    assert report_path.is_file()\n    assert manifest_path.is_file()\n    assert "SEARCH-HISTORY-001" in capsys.readouterr().out\n''',
+              1,
+          )
+          history_test += r'''
+
+          def test_search_history_html_and_manifest_preserve_non_causal_boundary(tmp_path: Path) -> None:
+              baseline = _workspace(tmp_path, "baseline-report", position=8, domain_status="FOUND")
+              current = _workspace(tmp_path, "current-report", position=4, domain_status="FOUND")
+              result = compare_search_workspaces(baseline, current)
+
+              output = write_search_history_report(
+                  tmp_path,
+                  result,
+                  report_root=tmp_path / "search-history",
+                  milestone_id="DEPLOY-2026-09",
+                  baseline_mode="AUTO",
+              )
+
+              html = output.report_path.read_text(encoding="utf-8")
+              manifest = json.loads(output.manifest_path.read_text(encoding="utf-8"))
+              assert output.report_dir.name.startswith("SH-")
+              assert "Evolução observada de Search Intelligence" in html
+              assert "não demonstra causalidade" in html
+              assert "SCORE-GEO-004" in html
+              assert "POSITION_IMPROVED" not in html or "Posição melhorou" in html
+              assert manifest["methodology"] == "SEARCH-HISTORY-001"
+              assert manifest["milestone_id"] == "DEPLOY-2026-09"
+              assert manifest["baseline_mode"] == "AUTO"
+              assert "read-only" in manifest["source_policy"]
+              assert "SCORE-GEO-004" in manifest["scoring_boundary"]
+          '''
+          write('tests/test_search_intelligence_history.py', history_test)
+
+          # Documentation: baseline policy now has no legacy scoring contract.
+          docs_readme = read('docs/README.md')
+          docs_readme = re.sub(
+              r'(?ms)^## Estado do produto\n.*?(?=^## Ordem de leitura recomendada)',
+              '''## Estado do produto\n\nO RASAi está em **desenvolvimento e validação**. O único contrato de scoring válido no produto, no runtime, nos testes e na documentação é `SCORE-GEO-004`. Não há suporte documental ou operacional a versões anteriores de cálculo.\n\nO baseline funcional vigente usa:\n\n- índice público `SARI-001`;\n- método de scoring `SCORE-GEO-004`;\n- `report/readiness.html` como superfície canônica do índice;\n- `report/scoring.html` como superfície canônica da metodologia;\n- HTML em português do Brasil, mantendo em inglês apenas nomes técnicos consolidados, identificadores, APIs, formatos e termos cujo uso técnico melhora a precisão.\n\n''',
+              docs_readme,
+              count=1,
+          )
+          write('docs/README.md', docs_readme)
+
+          replace_section('docs/SERP_OBSERVATION.md', '14. HTML report decision', '''## 14. HTML report\n\nThe canonical point-in-time Search Intelligence surface is implemented at:\n\n```text\nreport/search-intelligence.html\n```\n\nIt is generated from persisted Search Intelligence evidence and does not call the Search provider or AI provider during rendering. SERP Observation, deterministic competitive evidence and optional Competitive AI are progressively projected when available.\n\nHistorical comparison is implemented separately under `SEARCH-HISTORY-001` and materializes a standalone read-only report plus manifest. Keeping point-in-time and temporal contracts separate avoids implying that a later observed movement was caused by a deployment.''')
+
+          replace_section('docs/SERP_OBSERVATION.md', '15. Known limitations', '''## 15. Known limitations\n\n- current live SERP adapter is Google via SerpApi;\n- normalized SERP rows focus on organic results;\n- no SERP-provider billing/quota endpoint integration;\n- Search Console/Bing Webmaster ingestion remains separate from this provider adapter;\n- competitive classification is a bounded heuristic, not a commercial entity graph;\n- content comparison uses static HTTP HTML, not browser-rendered DOM;\n- Competitive AI live support initially uses OpenAI behind a provider-neutral contract;\n- Competitive AI receives extracted features rather than full raw HTML;\n- historical semantic comparison of Competitive AI output is not yet a stable contract;\n- no distributed regional probes.''')
+
+          replace_section('docs/SERP_OBSERVATION.md', '16. Next evolution', '''## 16. Next evolution\n\nPoint-in-time Search Intelligence, deterministic before/after comparison and the standalone historical HTML/manifest surface are now implemented. The next product extension should build periodic query observation on top of these stable contracts:\n\n```text\nscheduled exact Search context\n-> repeated persisted observations\n-> SEARCH-HISTORY-001 compatible comparisons\n-> trend view\n-> bounded alerts for material observed movement\n```\n\nScheduling must preserve query/engine/market/language/device/depth identity and provider provenance. Search volatility remains observational; an alert must never be presented as proof of ranking causality.''')
+
+          replace_section('docs/COMPETITIVE_SEARCH_INTELLIGENCE.md', '16. Current limitations', '''## 16. Current limitations\n\n- result classification remains a small heuristic taxonomy;\n- no entity/business-equivalence graph yet;\n- content extraction uses static HTTP HTML, not rendered browser DOM;\n- no canonical/hreflang/link-graph comparison yet;\n- Competitive AI live support starts with OpenAI; other adapters can be added behind the same contract;\n- AI sees extracted features rather than full raw HTML;\n- historical comparison and its standalone HTML/manifest are deterministic; semantic before/after comparison of Competitive AI output is not yet a stable contract;\n- public-IP validation still requires network-layer reinforcement before multi-tenant SaaS.\n\nThe product platform milestone and before/after audit model is reused by Search Intelligence History. No parallel deployment-marker model is introduced.''')
+
+          replace_section('docs/COMPETITIVE_AI_INTELLIGENCE.md', '13. Limitações atuais', '''## 13. Limitações atuais\n\n- adapter de Competitive AI ao vivo disponível inicialmente para OpenAI;\n- não há comparação semântica histórica entre duas execuções nesta camada;\n- não há entity/business-equivalence graph;\n- não há browser-rendered competitive content;\n- `report/search-intelligence.html` projeta a evidência semântica persistida, mas não executa IA durante o rendering;\n- `SEARCH-HISTORY-001` e seu relatório histórico comparam evidência determinística; não transformam recomendações de IA em score temporal;\n- a IA não recebe o corpo integral da página, apenas features determinísticas;\n- não existe garantia de ganho de ranking a partir das recomendações.\n\nA arquitetura de plataforma reutiliza os marcos de deploy e a resolução before/after existentes. Não existe um segundo sistema de marcos para Search Intelligence.''')
+
+          replace_required(
+              'docs/SEARCH_INTELLIGENCE_REPORT.md',
+              'The Competitive AI runtime should follow the same contract: after semantic evidence is persisted, refresh the report from persisted state rather than passing an in-memory AI object directly into the renderer.',
+              'The Competitive AI runtime follows the same contract: after semantic evidence is persisted, it refreshes the report from persisted state rather than passing an in-memory AI object directly into the renderer.',
+          )
+
+          history_doc = read('docs/SEARCH_INTELLIGENCE_HISTORY.md')
+          history_doc = history_doc.replace(
+              'Optional JSON output:\n\n```powershell\nrasai search-history `\n  --baseline-workspace audits/AUD-BASELINE `\n  --current-workspace audits/AUD-CURRENT `\n  --json search-history.json\n```',
+              'Optional JSON output:\n\n```powershell\nrasai search-history `\n  --baseline-workspace audits/AUD-BASELINE `\n  --current-workspace audits/AUD-CURRENT `\n  --json search-history.json\n```\n\nEvery successful comparison also materializes `report.html` and `manifest.json`. Override the output root when needed:\n\n```powershell\nrasai search-history `\n  --baseline-workspace audits/AUD-BASELINE `\n  --current-workspace audits/AUD-CURRENT `\n  --report-root audits/search-history\n```',
+              1,
+          )
+          history_doc = history_doc.replace(
+              'Each event can contain:\n',
+              'Standalone output:\n\n```text\naudits/search-history/SH-*/\n├─ report.html\n└─ manifest.json\n```\n\nThe directory identifier is derived deterministically from the compared evidence/context. The manifest records baseline/current audit IDs, methodology, milestone metadata when supplied, comparability, event counts, events, source policy, scoring boundary and causality policy.\n\nEach event can contain:\n',
+              1,
+          )
+          history_doc = history_doc.replace(
+              'A future historical HTML surface can render this persisted/computed comparison contract without changing its semantics.',
+              '`audits/search-history/SH-*/report.html` now renders this comparison contract, while `manifest.json` preserves machine-readable provenance and methodological boundaries. The standalone surface does not live inside either source AUD because it belongs to the pair, not to one audit.',
+              1,
+          )
+          history_doc = history_doc.replace(
+              '- no dedicated historical HTML page is generated yet;\n',
+              '- the historical HTML is deterministic and pair-level; it does not yet provide multi-run trend charts across three or more observations;\n',
+              1,
+          )
+          write('docs/SEARCH_INTELLIGENCE_HISTORY.md', history_doc)
+
+          report_guide = read('docs/REPORT_GUIDE.md')
+          report_guide = report_guide.replace(
+              '├─ web-performance.html        # condicional\n├─ apdex.html',
+              '├─ web-performance.html        # condicional\n├─ search-intelligence.html    # condicional\n├─ apdex.html',
+              1,
+          )
+          report_guide = report_guide.replace(
+              '| Core Web Vitals / Lighthouse | `web-performance.html` | lab + field data separados |\n',
+              '| Core Web Vitals / Lighthouse | `web-performance.html` | lab + field data separados |\n| Search Intelligence | `search-intelligence.html` | SERP observado + comparação determinística + IA evidence-bound opcional; non-scoring |\n',
+              1,
+          )
+          history_section = '''## Search Intelligence History\n\nComparações entre dois AUDs são superfícies standalone, porque pertencem ao par e não a um único workspace:\n\n```text\naudits/search-history/SH-*/report.html\n                            manifest.json\n```\n\n`SEARCH-HISTORY-001` exige identidade exata de query, engine, país, região, idioma, device, profundidade e domínio, além de provider/data mode compatíveis. `NOT_FOUND_WITHIN_DEPTH` nunca é convertido em posição numérica artificial.\n\nO relatório pode mostrar posição antes/depois, entrada/saída da profundidade observada, mudanças determinísticas de conteúdo, JSON-LD e gaps adicionados/resolvidos. Milestone/deploy estabelece cronologia, não causalidade. A superfície é read-only e não altera `SARI-001`/`SCORE-GEO-004`.\n\n'''
+          if '## Search Intelligence History\n' not in report_guide:
+              report_guide = report_guide.replace('## RASAi Monitor\n', history_section + '## RASAi Monitor\n', 1)
+          report_guide = report_guide.replace(
+              'Web Performance\nApdex de navegação',
+              'Web Performance\nSearch Intelligence\nApdex de navegação',
+              1,
+          )
+          report_guide = report_guide.replace(
+              '2 x audit.db read-only\n→ MON-*/report.html + manifest/impact\n→ VER-*/report.html\n',
+              '2 x audit.db read-only\n→ SH-*/report.html + manifest.json\n→ MON-*/report.html + manifest/impact\n→ VER-*/report.html\n',
+              1,
+          )
+          write('docs/REPORT_GUIDE.md', report_guide)
+
+          outputs = read('docs/OUTPUTS_AND_ARTIFACTS.md')
+          outputs = outputs.replace(
+              '   ├─ web-performance.html     # condicional\n   ├─ apdex.html',
+              '   ├─ web-performance.html     # condicional\n   ├─ search-intelligence.html # condicional\n   ├─ apdex.html',
+              1,
+          )
+          outputs = outputs.replace(
+              '### `apdex.html`\n',
+              '### `search-intelligence.html`\n\nSuperfície point-in-time de SERP Observation, classificação competitiva, evidência determinística de conteúdo e Competitive AI persistida quando habilitada. Non-scoring; não altera `SARI-001`/`SCORE-GEO-004`.\n\n### `apdex.html`\n',
+              1,
+          )
+          standalone = '''## Search Intelligence History\n\n```text\naudits/search-history/SH-*/\n├─ report.html\n└─ manifest.json\n```\n\nComparação pair-level `SEARCH-HISTORY-001`, determinística e read-only. O manifest preserva baseline/current, milestone quando informado, comparabilidade, eventos e fronteiras de causalidade/scoring. Não chama Search provider, páginas públicas ou IA.\n\n'''
+          if '## Search Intelligence History\n' not in outputs:
+              outputs = outputs.replace('## RASAi Monitor\n', standalone + '## RASAi Monitor\n', 1)
+          outputs = outputs.replace(
+              'Web Performance\nApdex de navegação',
+              'Web Performance\nSearch Intelligence\nApdex de navegação',
+              1,
+          )
+          outputs = outputs.replace(
+              '- Monitoring, Quality, Timeline, Verification e consolidation abrem bancos fonte read-only;\n',
+              '- Search Intelligence History, Monitoring, Quality, Timeline, Verification e consolidation abrem bancos fonte read-only;\n',
+              1,
+          )
+          write('docs/OUTPUTS_AND_ARTIFACTS.md', outputs)
+
+          cli_doc = read('docs/CLI_REFERENCE.md')
+          cli_doc = cli_doc.replace(
+              '  --current-workspace audits/AUD-CURRENT\n```\n\nCom saída JSON opcional:',
+              '  --current-workspace audits/AUD-CURRENT\n```\n\nPor padrão, uma execução bem-sucedida gera `audits/search-history/SH-*/report.html` e `manifest.json`. Use `--report-root PATH` para alterar apenas a raiz dessa saída standalone.\n\nCom saída JSON opcional:',
+              1,
+          )
+          cli_doc = cli_doc.replace(
+              'O comando é read-only sobre `audit.db` e não chama Search provider, AI provider ou páginas públicas.',
+              'O comando é read-only sobre `audit.db`, não chama Search provider, AI provider ou páginas públicas e nunca altera `SARI-001`/`SCORE-GEO-004`.',
+              1,
+          )
+          write('docs/CLI_REFERENCE.md', cli_doc)
+
+          env_doc = read('docs/ENVIRONMENT_VARIABLES.md')
+          if '## Search Intelligence / SERP' not in env_doc:
+              env_doc += r'''
+
+          ## Search Intelligence / SERP
+
+          As variáveis abaixo são reconhecidas pela superfície `rasai search`. Search Intelligence é opt-in e permanece independente do scoring: nenhuma delas altera `SARI-001` ou `SCORE-GEO-004`.
+
+          | Variável | Valores / tipo | Default efetivo | Finalidade |
+          |---|---|---:|---|
+          | `RASAI_SERP_MODE` | `disabled`, `live`, `fixture` | `disabled` | habilita explicitamente observação SERP |
+          | `RASAI_SERP_PROVIDER` | provider ID | `serpapi` | adapter live; atualmente SerpApi/Google |
+          | `RASAI_SERPAPI_API_KEY` | segredo BYOK | sem default | credencial SerpApi no modo live |
+          | `RASAI_SERP_FIXTURE_PATH` | caminho | sem default | fixture canônica no modo fixture |
+          | `RASAI_SERP_MAX_QUERIES` | inteiro `>0` | `10` | teto de queries por execução |
+          | `RASAI_SERP_MAX_REQUESTS` | inteiro `>0` | `10` | orçamento máximo de tentativas HTTP do provider |
+          | `RASAI_SERP_MAX_DEPTH` | inteiro `>0` | `20` | profundidade máxima observável solicitada |
+          | `RASAI_SERP_MAX_COMPETITORS` | inteiro `>=0` | `10` | teto de candidatos derivados |
+          | `RASAI_SERP_TIMEOUT_SECONDS` | número finito `>0` | `20` | timeout por tentativa do provider |
+          | `RASAI_SERP_RETRIES` | inteiro `>=0` | `1` | retries limitados do provider |
+          | `RASAI_SERP_MIN_INTERVAL_SECONDS` | número finito `>=0` | `1` | intervalo mínimo entre inícios de requests |
+          | `RASAI_SEARCH_AI_PROVIDER` | `none`, `fixture`, `openai` | `none` | provider da camada Competitive AI opt-in |
+
+          `RASAI_SERPAPI_API_KEY` e `OPENAI_API_KEY` são segredos e não devem ser persistidos em `audit.db`, artifacts ou HTML. `--dry-run` valida orçamento sem chamar Search provider, páginas ou Competitive AI. Conteúdo competitivo e IA exigem flags explícitas (`--compare-content`, `--ai-competitive`).
+
+          O cálculo de pior caso do provider live permanece limitado por profundidade, paginação e retries; o runtime bloqueia a execução quando o teto projetado excede `RASAI_SERP_MAX_REQUESTS`.
+          '''
+          env_doc = env_doc.replace('          ## Search Intelligence / SERP', '## Search Intelligence / SERP')
+          env_doc = env_doc.replace('\n          As variáveis abaixo', '\nAs variáveis abaixo')
+          env_doc = env_doc.replace('\n          |', '\n|').replace('\n          `RASAI_', '\n`RASAI_').replace('\n          O cálculo', '\nO cálculo')
+          write('docs/ENVIRONMENT_VARIABLES.md', env_doc)
+
+          # Public contract explicitly checks the env and Search docs as current contracts.
+          gate = read('src/rasai/public_contract_gate.py')
+          gate = gate.replace(
+              '    "docs/CLI_REFERENCE.md",\n',
+              '    "docs/CLI_REFERENCE.md",\n    "docs/ENVIRONMENT_VARIABLES.md",\n    "docs/SERP_OBSERVATION.md",\n    "docs/COMPETITIVE_SEARCH_INTELLIGENCE.md",\n    "docs/COMPETITIVE_AI_INTELLIGENCE.md",\n',
+              1,
+          )
+          write('src/rasai/public_contract_gate.py', gate)
+
+          # Guard the final repository state before tests.
+          invalid = []
+          obsolete_pattern = re.compile(r'SCORE-GEO-(?!004)\d{3}', re.I)
+          for raw in subprocess.check_output(['git', 'ls-files', '-z']).split(b'\0'):
+              if not raw:
+                  continue
+              path = ROOT / raw.decode('utf-8')
+              if path.name == 'one-shot-score004-history-report.yml' or not path.is_file():
+                  continue
+              if path.suffix.lower() not in text_suffixes:
+                  continue
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except UnicodeDecodeError:
+                  continue
+              match = obsolete_pattern.search(text)
+              if match:
+                  invalid.append(f'{path}: {match.group(0)}')
+          if invalid:
+              raise RuntimeError('obsolete scoring identifiers remain:\n' + '\n'.join(invalid))
+          PY
+      - name: Install test dependencies
+        run: python -m pip install -e . pytest
+      - name: Targeted validation
+        run: |
+          python -m compileall -q src/rasai
+          python -m pytest -q \
+            tests/test_search_intelligence_history.py \
+            tests/test_release_gate_comparability.py \
+            tests/test_release_gate_new_failures.py \
+            tests/test_monitoring_observability.py \
+            tests/test_quality_observability_hardening.py \
+            tests/test_product_platform_architecture.py \
+            tests/test_m26_observed_generative_visibility.py \
+            tests/test_consolidated_backlog_regressions.py
+          python -m rasai.public_contract_gate
+      - name: Commit implementation and remove bootstrap workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/one-shot-score004-history-report.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Enforce SCORE-GEO-004 and add Search History HTML reporting"
+          git push origin HEAD:feat/score-geo-004-cleanup-search-history-report
