@@ -14,7 +14,7 @@ from .content import (
     PublicWebFetcher,
     analyze_competitive_content,
 )
-from .runtime import SearchExecution
+from .runtime import SearchExecution, _refresh_search_intelligence_report
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +106,9 @@ def execute_competitive_intelligence(
         if repository is not None:
             repository.close()
 
+    # Refresh only from persisted evidence. A reporting failure is deliberately
+    # fail-open and cannot change the Search/competitive execution result.
+    _refresh_search_intelligence_report(workspace_root)
     return CompetitiveExecution(
         analyses=tuple(analyses),
         content_enabled=content_enabled,
