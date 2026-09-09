@@ -113,6 +113,19 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(DomainMatchStatus.NOT_FOUND_WITHIN_DEPTH, result.domain_status)
         self.assertEqual(0, result.observation.result_count)
 
+    def test_results_beyond_requested_depth_are_not_used_for_ranking(self):
+        provider = FixtureSerpProvider({
+            'query':request().query,
+            'results':[
+                {'position':1,'url':'https://leader.example/'},
+                {'position':11,'url':'https://client.example/'},
+            ],
+        })
+        result = SearchIntelligenceService(provider=provider, max_depth=20).observe(request(depth=10))
+        self.assertEqual(DomainMatchStatus.NOT_FOUND_WITHIN_DEPTH, result.domain_status)
+        self.assertEqual((1,), tuple(item.position for item in result.observation.results))
+        self.assertEqual(1, result.observation.quality_metadata['results_outside_requested_depth_dropped'])
+
     def test_fixture_mismatch_is_error_result_not_crash(self):
         provider = FixtureSerpProvider({'query':'other','results':[]})
         service = SearchIntelligenceService(provider=provider)
@@ -231,6 +244,15 @@ class RuntimeTests(unittest.TestCase):
         execution=execute_search((request(),),config=config)
         self.assertEqual(0,execution.actual_http_requests)
         self.assertEqual(DomainMatchStatus.DISABLED,execution.results[0].domain_status)
+
+    def test_fixture_argument_can_supply_path_to_programmatic_runtime(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'fixture.json'
+            path.write_text(json.dumps({'query':request().query,'results':[]}), encoding='utf-8')
+            config=SerpRuntimeConfig(mode='fixture')
+            execution=execute_search((request(),),config=config,fixture_path=path)
+            self.assertEqual('fixture', execution.mode)
+            self.assertEqual(0, execution.actual_http_requests)
 
     def test_worst_case_limit_blocks_before_network(self):
         config=SerpRuntimeConfig(mode='live',max_requests=1,retries=1).validate()
