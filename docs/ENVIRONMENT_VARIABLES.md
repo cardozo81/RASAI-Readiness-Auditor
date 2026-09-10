@@ -10,6 +10,7 @@ Variáveis de ambiente são overrides avançados. Quando existe default seguro, 
 
 | Variável | Default / domínio | Finalidade |
 |---|---|---|
+| `RASAI_CONSOLE_INI` | `rasai-console.ini` | caminho do arquivo INI persistente do console |
 | `RASAI_CONFIG` | opcional | TOML geral |
 | `RASAI_CONSOLE_MODE` | `local` | console local ou cliente remoto |
 | `RASAI_LOG_LEVEL` | `INFO` | verbosidade |
@@ -136,9 +137,23 @@ Default de `RASAI_APDEX_EXPERIENCE` é `false`. Consulte [SYNTHETIC_USER_EXPERIE
 
 ## 9. Search Intelligence / Observability
 
-Superfícies de Search podem usar variáveis `RASAI_SERP_*`, `RASAI_SEARCH_AI_PROVIDER` e integrações específicas como Google Search Console. O modo SERP default é `disabled`; Search Intelligence permanece separado de SARI-001/SCORE-GEO-004.
+| Variável | Default / regra | Finalidade |
+|---|---|---|
+| `RASAI_SERP_MODE` | `disabled` | modo global de observação SERP |
+| `RASAI_SERP_PROVIDER` | `serpapi` | adapter de Search live |
+| `RASAI_SERPAPI_API_KEY` | secret; sem default | credencial BYOK SerpApi |
+| `RASAI_SERP_FIXTURE_PATH` | sem default | fixture quando o modo é `fixture` |
+| `RASAI_SERP_MAX_QUERIES` | `10` | teto de queries por execução |
+| `RASAI_SERP_MAX_REQUESTS` | `10` | orçamento máximo de tentativas do provider |
+| `RASAI_SERP_MAX_DEPTH` | `20` | profundidade máxima observada |
+| `RASAI_SERP_MAX_COMPETITORS` | `10` | teto de concorrentes derivados |
+| `RASAI_SERP_TIMEOUT_SECONDS` | `20` | timeout por request Search |
+| `RASAI_SERP_RETRIES` | `1` | retries do Search provider |
+| `RASAI_SERP_MIN_INTERVAL_SECONDS` | `1` | intervalo mínimo entre requests |
+| `RASAI_SEARCH_AI_PROVIDER` | `none` | provider da análise competitiva por IA |
+| `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` | secret; sem default | OAuth bearer temporário do Google Search Console |
 
-Consulte [SERP_OBSERVATION.md](SERP_OBSERVATION.md), [SEARCH_INTELLIGENCE_HISTORY.md](SEARCH_INTELLIGENCE_HISTORY.md) e [SEARCH_INTELLIGENCE_MONITORING.md](SEARCH_INTELLIGENCE_MONITORING.md).
+Search Intelligence permanece separado de SARI-001/SCORE-GEO-004. Consulte [SERP_OBSERVATION.md](SERP_OBSERVATION.md), [SEARCH_INTELLIGENCE_HISTORY.md](SEARCH_INTELLIGENCE_HISTORY.md) e [SEARCH_INTELLIGENCE_MONITORING.md](SEARCH_INTELLIGENCE_MONITORING.md).
 
 ## 10. Control plane / SaaS
 
@@ -151,11 +166,23 @@ SQLite permanece disponível para operação local. PostgreSQL é o backend cent
 
 ## 11. Web API / Identity
 
-A API usa variáveis `RASAI_API_*` e `RASAI_OIDC_*` para docs, raiz de auditorias, modo de autenticação, issuer/client/audience, redirect, algoritmos, scopes e sessão. O modo de autenticação default é `deny`.
+| Variável | Default / regra | Finalidade |
+|---|---|---|
+| `RASAI_API_DOCS_ENABLED` | `false` | habilita documentação interativa da API |
+| `RASAI_API_AUDITS_ROOT` | `audits` | raiz de auditorias usada pela Web API |
+| `RASAI_API_AUTH_MODE` | `deny` | `deny`, `trusted-header` ou `oidc` |
+| `RASAI_API_TRUSTED_USER_HEADER` | `x-rasai-user-id` | header de identidade no modo trusted-header |
+| `RASAI_OIDC_ISSUER` | requerido no modo OIDC | issuer HTTPS |
+| `RASAI_OIDC_CLIENT_ID` | requerido no modo OIDC | client ID |
+| `RASAI_OIDC_AUDIENCE` | client ID configurado | audience esperada do JWT |
+| `RASAI_OIDC_REDIRECT_URI` | requerido no fluxo OIDC web | redirect URI |
+| `RASAI_OIDC_SESSION_SECRET` | secret; requerido no OIDC web | HMAC da sessão |
+| `RASAI_OIDC_CLIENT_SECRET_ENV` | opcional | nome da variável que contém o client secret real |
+| `RASAI_OIDC_ALGORITHMS` | `RS256,ES256` | algoritmos JWT aceitos |
+| `RASAI_OIDC_SCOPES` | `openid,profile,email` | scopes solicitados |
+| `RASAI_OIDC_SESSION_TTL_SECONDS` | `28800` | TTL da sessão web |
 
-Valores terminados em `_ENV` que representam referência de segredo persistem o nome da variável, não o segredo em si.
-
-Consulte [WEB_API.md](WEB_API.md) e [WEB_API_CLI.md](WEB_API_CLI.md).
+Valores terminados em `_ENV` que representam referência de segredo persistem o nome da variável, não o segredo em si. Consulte [WEB_API.md](WEB_API.md) e [WEB_API_CLI.md](WEB_API_CLI.md).
 
 ## 12. Remote control plane
 
