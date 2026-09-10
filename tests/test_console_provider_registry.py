@@ -52,6 +52,7 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
             "RASAI_QWEN_ENDPOINT",
             "RASAI_GEMINI_ENDPOINT",
             "RASAI_ANTHROPIC_ENDPOINT",
+            "RASAI_AI_EXCHANGE_LOG_MAX_BYTES",
         ):
             self.assertIn(name, ENV_NAMES)
 
@@ -62,9 +63,9 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
                 self.assertFalse(capabilities[provider_id].available)
                 self.assertIn("não configurada", capabilities[provider_id].reason)
                 self.assertIn("PROVISIONAL", capabilities[provider_id].reason)
-                self.assertIn("explicit-only", capabilities[provider_id].reason)
+                self.assertNotIn("explicit-only", capabilities[provider_id].reason)
 
-    def test_extensions_become_explicitly_available_with_credentials(self) -> None:
+    def test_extensions_become_auto_eligible_with_credentials(self) -> None:
         environment = {
             "XAI_API_KEY": "x",
             "DASHSCOPE_API_KEY": "x",
@@ -76,20 +77,23 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
             with self.subTest(provider=provider_id):
                 self.assertTrue(capabilities[provider_id].available)
                 self.assertIn("PROVISIONAL", capabilities[provider_id].reason)
-                self.assertIn("explicit-only", capabilities[provider_id].reason)
-        self.assertFalse(capabilities["auto"].available)
+                self.assertNotIn("explicit-only", capabilities[provider_id].reason)
+        self.assertTrue(capabilities["auto"].available)
 
-    def test_auto_never_promotes_extension_providers(self) -> None:
-        self.assertEqual(auto_provider_ids(), ("openai", "deepseek", "mimo"))
+    def test_auto_pool_includes_every_registry_provider_marked_eligible(self) -> None:
+        self.assertEqual(
+            auto_provider_ids(),
+            ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic"),
+        )
         extension_only = {
             "XAI_API_KEY": "x",
             "DASHSCOPE_API_KEY": "x",
             "GEMINI_API_KEY": "x",
             "ANTHROPIC_API_KEY": "x",
         }
-        self.assertFalse(provider_capabilities(extension_only)["auto"].available)
+        self.assertTrue(provider_capabilities(extension_only)["auto"].available)
 
-    def test_auto_exposure_counts_only_eligible_legacy_chain(self) -> None:
+    def test_auto_exposure_counts_every_configured_eligible_provider(self) -> None:
         import os
         previous = {
             key: os.environ.get(key)
@@ -117,8 +121,8 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
                 ai_provider="auto",
             )
             estimate = estimate_exposure(state)
-            self.assertEqual((estimate.min_ai_attempts, estimate.max_ai_attempts), (1, 4))
-            self.assertTrue(any("PROVISIONAL explicit-only" in reason for reason in estimate.reasons))
+            self.assertEqual((estimate.min_ai_attempts, estimate.max_ai_attempts), (1, 10))
+            self.assertTrue(any("5 provider" in reason for reason in estimate.reasons))
         finally:
             for key, value in previous.items():
                 if value is None:
