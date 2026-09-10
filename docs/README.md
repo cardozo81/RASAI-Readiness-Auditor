@@ -2,9 +2,9 @@
 
 ## Estado do produto
 
-O RASAi está em **desenvolvimento e validação**. O único contrato de scoring válido no produto, no runtime, nos testes e na documentação é `SCORE-GEO-004`. Não há suporte documental ou operacional a versões anteriores de cálculo.
+O RASAi está em **desenvolvimento e validação pré-publicação**. A documentação descreve exclusivamente o contrato vigente do produto; histórico de branches, PRs, nomes substituídos, aliases transitórios e comportamentos descartados durante o desenvolvimento não fazem parte do contrato documental.
 
-O baseline funcional vigente usa:
+O contrato funcional vigente usa:
 
 - índice público `SARI-001`;
 - método de scoring `SCORE-GEO-004`;
@@ -12,7 +12,22 @@ O baseline funcional vigente usa:
 - `report/scoring.html` como superfície canônica da metodologia;
 - HTML em português do Brasil, mantendo em inglês apenas nomes técnicos consolidados, identificadores, APIs, formatos e termos cujo uso técnico melhora a precisão.
 
-A evolução de produto já possui Product Platform, backend PostgreSQL opt-in, API/worker, uma primeira superfície **SaaS Pilot Web** zero-build e uma fundação de **Identity & Access** baseada em OIDC/JWT com vínculo explícito entre identidade externa e `USR-*`. Essas camadas não alteram scoring, evidência ou Search Intelligence.
+A arquitetura de produto inclui Product Platform, SQLite local, PostgreSQL centralizado opt-in, Web API, workers, SaaS Pilot Web, Scheduling Management, Consumption Analytics, acesso remoto ao control plane e Identity & Access baseada em OIDC/JWT com vínculo explícito entre identidade externa e `USR-*`. Essas camadas preservam a separação entre control plane, scoring e evidência imutável de auditoria.
+
+## Regra documental de pré-publicação
+
+A documentação normativa deve representar **o produto como ele existe agora**.
+
+Não documentar como contrato público:
+
+- branches ou PRs usados para implementar uma capacidade;
+- nomenclaturas internas de etapas de entrega;
+- caminhos/aliases descartados durante desenvolvimento;
+- defaults substituídos;
+- comportamento mantido apenas para acomodar artefatos de desenvolvimento;
+- versões de scoring que não sejam o contrato vigente.
+
+Histórico é documentado somente quando é uma **funcionalidade do produto**, por exemplo séries temporais, Evidence Timeline, Search Intelligence History e comparações before/after. Isso é diferente de manter histórico de implementação.
 
 ## Ordem de leitura recomendada
 
@@ -23,7 +38,7 @@ A evolução de produto já possui Product Platform, backend PostgreSQL opt-in, 
 5. [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md) e [`SYNTHETIC_USER_EXPERIENCE_APDEX.md`](SYNTHETIC_USER_EXPERIENCE_APDEX.md) - experiência sintética independente do SARI.
 6. [`ACCESSIBILITY_PERFORMANCE_DOMAINS.md`](ACCESSIBILITY_PERFORMANCE_DOMAINS.md), [`LIGHTHOUSE_WEB_QUALITY.md`](LIGHTHOUSE_WEB_QUALITY.md) e [`LIGHTHOUSE_CATEGORIES.md`](LIGHTHOUSE_CATEGORIES.md) - fronteiras entre Performance, Accessibility, Best Practices, SEO técnico, Agentic Browsing experimental, Core Web Vitals e readiness.
 7. [`SERP_OBSERVATION.md`](SERP_OBSERVATION.md), [`COMPETITIVE_SEARCH_INTELLIGENCE.md`](COMPETITIVE_SEARCH_INTELLIGENCE.md), [`COMPETITIVE_AI_INTELLIGENCE.md`](COMPETITIVE_AI_INTELLIGENCE.md), [`SEARCH_INTELLIGENCE_REPORT.md`](SEARCH_INTELLIGENCE_REPORT.md), [`SEARCH_INTELLIGENCE_HISTORY.md`](SEARCH_INTELLIGENCE_HISTORY.md) e [`SEARCH_INTELLIGENCE_MONITORING.md`](SEARCH_INTELLIGENCE_MONITORING.md) - observação SERP, comparação determinística, recomendações semânticas evidence-bound, superfície HTML, comparação temporal before/after e monitoramento recorrente por query registrada.
-8. [`CONSOLIDATED_REPORTING.md`](CONSOLIDATED_REPORTING.md) e [`CONSOLIDATED_REPORTING_VALIDATION.md`](CONSOLIDATED_REPORTING_VALIDATION.md) - séries, comparabilidade e relatório histórico.
+8. [`CONSOLIDATED_REPORTING.md`](CONSOLIDATED_REPORTING.md) e [`CONSOLIDATED_REPORTING_VALIDATION.md`](CONSOLIDATED_REPORTING_VALIDATION.md) - séries, comparabilidade e relatório longitudinal.
 9. [`AI_GUIDE.md`](AI_GUIDE.md), [`AI_PROVIDER_EXTENSIONS.md`](AI_PROVIDER_EXTENSIONS.md) e [`CONTENT_ANALYSIS_CONTEXT.md`](CONTENT_ANALYSIS_CONTEXT.md) - uso de IA, contexto e limites.
 10. [`TECHNICAL_GUIDE.md`](TECHNICAL_GUIDE.md), [`CONFIGURATION.md`](CONFIGURATION.md), [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md), [`CLI_REFERENCE.md`](CLI_REFERENCE.md), [`PRODUCT_PLATFORM_ARCHITECTURE.md`](PRODUCT_PLATFORM_ARCHITECTURE.md), [`POSTGRESQL_MIGRATION_STRATEGY.md`](POSTGRESQL_MIGRATION_STRATEGY.md), [`POSTGRESQL_LOCAL_DEVELOPMENT.md`](POSTGRESQL_LOCAL_DEVELOPMENT.md), [`WEB_API_FOUNDATION.md`](WEB_API_FOUNDATION.md), [`WEB_API_CLI.md`](WEB_API_CLI.md), [`SAAS_PILOT_WEB.md`](SAAS_PILOT_WEB.md) e [`IDENTITY_AND_ACCESS.md`](IDENTITY_AND_ACCESS.md) - operação, arquitetura do control plane, implantação, desenvolvimento local, estratégia PostgreSQL, evolução Web/API/worker e identidade SaaS.
 11. [`specification/00_SPEC_INDEX.md`](specification/00_SPEC_INDEX.md) - especificação técnica detalhada.
@@ -74,4 +89,4 @@ As referências abaixo sustentam domínios específicos; nenhuma delas homologa 
 - Apdex: https://www.apdex.org/
 - llms.txt community proposal: https://llmstxt.org/
 
-Consulte também `report/references.html` de cada auditoria: ele deve materializar a proveniência aplicável à execução, enquanto estes documentos descrevem o contrato do produto.
+Consulte também `report/references.html` de cada auditoria: ele materializa a proveniência aplicável à execução, enquanto estes documentos descrevem o contrato do produto.
