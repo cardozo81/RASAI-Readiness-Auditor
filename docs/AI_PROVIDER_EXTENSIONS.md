@@ -4,7 +4,7 @@ Guia operacional dos providers semânticos adicionais integrados ao RASAi por me
 
 ## Estado atual
 
-Os providers abaixo estão implementados, mas permanecem **PROVISIONAL** e **explicit-only**. Eles não participam de `--ai-provider auto` enquanto não houver qualificação humana com credenciais reais de cada provider.
+Os providers adicionais abaixo estão implementados e mantêm sua qualificação própria no registry. A qualificação (`QUALIFIED`, `PROVISIONAL` etc.) continua sendo informação de governança; a participação em `--ai-provider auto` é controlada explicitamente pelo atributo `auto_eligible` do registry e pela aptidão de configuração da execução.
 
 | CLI | Provider | Modelo default público | API usada | Estado RASAi |
 |---|---|---|---|---|
@@ -13,17 +13,17 @@ Os providers abaixo estão implementados, mas permanecem **PROVISIONAL** e **exp
 | `gemini` | Google Gemini | `gemini-3.8-flash` | Gemini Interactions API | `PROVISIONAL` |
 | `anthropic` / `claude` | Anthropic Claude | `claude-sonnet-5` | Messages API | `PROVISIONAL` |
 
-O contrato semântico exige exatamente as regras BR-GEO-028..049 previstas pela implementação, validação local de schema, proibição de `evidence_id` inventado e fail-closed em saída incompleta ou inválida.
+O contrato semântico exige o conjunto de regras previsto pela implementação, validação local de schema, proibição de `evidence_id` inventado e fail-closed em saída incompleta ou inválida.
 
 ## AUTO
 
-A cadeia homologada não foi ampliada:
+AUTO não usa mais uma cadeia fixa limitada aos providers históricos. O runtime consulta o registry e inclui todos os providers com `auto_eligible=true` que estejam aptos naquela execução.
 
-```text
-OpenAI -> DeepSeek -> MiMo
-```
+Aptidão exige credencial configurada, modelo aceito e demais parâmetros válidos. Providers sem configuração suficiente são excluídos antes de chamadas externas.
 
-Mesmo com credenciais dos providers adicionais configuradas, eles não entram em AUTO enquanto permanecerem provisórios.
+A seleção usa round-robin compartilhado entre necessidades de IA. Em uma mesma necessidade, cada provider é tentado no máximo uma vez. Falha temporária avança para o próximo e pode manter o provider elegível para necessidades futuras; falha terminal o remove do restante da auditoria. O circuit breaker abre com três falhas nas últimas cinco observações daquele provider.
+
+Contrato completo: [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
 
 ## Defaults de esforço
 
@@ -38,17 +38,11 @@ Anthropic LOW
 
 Qwen permanece `PROVIDER_DEFAULT` porque o adapter atual não expõe controle de reasoning validado.
 
-## Evidência de smoke disponível
+## Evidência de smoke e qualificação
 
-- `none`: aprovado;
-- OpenAI explícito: aprovado com chamada real;
-- DeepSeek explícito: aprovado com chamada real;
-- `auto`: aprovado com chamada real e parada no primeiro sucesso;
-- xAI/Qwen/Gemini/Anthropic: fail-closed sem key aprovado;
-- aliases `grok -> xai` e `claude -> anthropic`: aprovados sem key, zero chamada;
-- MiMo: não qualificado nesta máquina por ausência de credencial PAYG compatível.
+A existência de adapter e testes fail-closed não equivale a homologação comercial irrestrita do provider. O runtime pode considerar um provider elegível para AUTO quando o registry assim determinar, mas a classificação de qualificação continua visível e deve ser levada em conta em governança/observabilidade.
 
-O caminho de sucesso real dos providers adicionais permanece dependente de credencial externa válida e não deve ser presumido a partir do teste fail-closed.
+Sem chave, o provider permanece `NOT_CONFIGURED`, com zero chamada externa. Com chave válida, uma chamada HTTP prova comunicação com o serviço; não prova que o request foi aceito pelo contrato do provider ou pelo contrato local do RASAi.
 
 ## xAI / Grok
 
@@ -210,15 +204,24 @@ Referências oficiais:
 
 Selecionar explicitamente um provider sem sua key resulta em `NOT_CONFIGURED`, zero chamada externa e zero custo. Não existe fallback para credencial de outro provider.
 
+Em AUTO, ausência de credencial apenas impede a entrada daquele provider no pool; os demais aptos continuam elegíveis.
+
+## Structured output e diferenças de wire
+
+A validação local completa do RASAi continua sendo a fonte de verdade. Schemas podem ser projetados no limite do transport quando uma API aceita apenas um subconjunto do JSON Schema.
+
+Gemini mantém sua projeção específica. OpenAI também recebe projeção de constraints incompatíveis nos payloads estruturados, sem remover a validação local mais estrita. Esse comportamento abrange as finalidades que reutilizam o transport do provider, inclusive remediações compatíveis.
+
+Falha `invalid_json_schema`/`invalid_request` é erro técnico de integração, não finding do website.
+
+## Diagnóstico e telemetria
+
+Uma chave configurada e uma tentativa HTTP registrada provam que o provider foi chamado; não provam que o request foi aceito. O runtime registra tentativas, diagnósticos, consumo/custo quando disponíveis e exchanges sanitizados de request/response em `ai_exchange_log`.
+
+No AUTO, uma quarentena interna legada do adapter após falha temporária não é suficiente para retirar definitivamente o provider: o coordenador da execução decide elegibilidade e pode reativá-lo até o limiar do circuit breaker. Condições terminais continuam removendo-o imediatamente.
+
 ## Segurança
 
 Credenciais podem ser alteradas pelo console, mas não são gravadas em `rasai-console.ini`. A presença da chave não garante saldo, quota ou acesso ao modelo.
 
-## Diagnóstico operacional de providers estendidos
-
-Uma chave configurada e uma tentativa HTTP persistida provam que o provider foi chamado; não provam que o request foi aceito. HTTP 400/`invalid_request` é classificado como erro de contrato/integração do request, não como ausência de credencial e nunca como finding do website. O provider pode ser isolado (`QUARANTINED_FOR_AUDIT`) para evitar repetição da mesma falha no AUD.
-
-As finalidades técnicas de crawling/discovery aceitam os providers estendidos explícitos quando o adapter possui contrato wire compatível. Se um provider já foi isolado pela análise semântica, a finalidade técnica o apresenta como indisponível/quarantined, não como `NOT_CONFIGURED`.
-
-Para Gemini, o schema enviado pela Interactions API é projetado para o subconjunto JSON Schema aceito no wire; a validação local completa do RASAi continua obrigatória após a resposta.
-
+Headers de autenticação e secrets são excluídos da telemetria de exchanges. Consulte [AI_RUNTIME_SECURITY.md](AI_RUNTIME_SECURITY.md).
