@@ -12,7 +12,7 @@ O baseline funcional vigente usa:
 - `report/scoring.html` como superfície canônica da metodologia;
 - HTML em português do Brasil, mantendo em inglês apenas nomes técnicos consolidados, identificadores, APIs, formatos e termos cujo uso técnico melhora a precisão.
 
-A evolução de produto já possui Product Platform, backend PostgreSQL opt-in, API/worker e uma primeira superfície **SaaS Pilot Web** zero-build. Essa UI é uma projeção sobre contratos existentes e não altera scoring, evidência ou Search Intelligence.
+A evolução de produto já possui Product Platform, backend PostgreSQL opt-in, API/worker, uma primeira superfície **SaaS Pilot Web** zero-build e uma fundação de **Identity & Access** baseada em OIDC/JWT com vínculo explícito entre identidade externa e `USR-*`. Essas camadas não alteram scoring, evidência ou Search Intelligence.
 
 ## Ordem de leitura recomendada
 
@@ -25,7 +25,7 @@ A evolução de produto já possui Product Platform, backend PostgreSQL opt-in, 
 7. [`SERP_OBSERVATION.md`](SERP_OBSERVATION.md), [`COMPETITIVE_SEARCH_INTELLIGENCE.md`](COMPETITIVE_SEARCH_INTELLIGENCE.md), [`COMPETITIVE_AI_INTELLIGENCE.md`](COMPETITIVE_AI_INTELLIGENCE.md), [`SEARCH_INTELLIGENCE_REPORT.md`](SEARCH_INTELLIGENCE_REPORT.md), [`SEARCH_INTELLIGENCE_HISTORY.md`](SEARCH_INTELLIGENCE_HISTORY.md) e [`SEARCH_INTELLIGENCE_MONITORING.md`](SEARCH_INTELLIGENCE_MONITORING.md) - observação SERP, comparação determinística, recomendações semânticas evidence-bound, superfície HTML, comparação temporal before/after e monitoramento recorrente por query registrada.
 8. [`CONSOLIDATED_REPORTING.md`](CONSOLIDATED_REPORTING.md) e [`CONSOLIDATED_REPORTING_VALIDATION.md`](CONSOLIDATED_REPORTING_VALIDATION.md) - séries, comparabilidade e relatório histórico.
 9. [`AI_GUIDE.md`](AI_GUIDE.md), [`AI_PROVIDER_EXTENSIONS.md`](AI_PROVIDER_EXTENSIONS.md) e [`CONTENT_ANALYSIS_CONTEXT.md`](CONTENT_ANALYSIS_CONTEXT.md) - uso de IA, contexto e limites.
-10. [`TECHNICAL_GUIDE.md`](TECHNICAL_GUIDE.md), [`CONFIGURATION.md`](CONFIGURATION.md), [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md), [`CLI_REFERENCE.md`](CLI_REFERENCE.md), [`PRODUCT_PLATFORM_ARCHITECTURE.md`](PRODUCT_PLATFORM_ARCHITECTURE.md), [`POSTGRESQL_MIGRATION_STRATEGY.md`](POSTGRESQL_MIGRATION_STRATEGY.md), [`POSTGRESQL_LOCAL_DEVELOPMENT.md`](POSTGRESQL_LOCAL_DEVELOPMENT.md), [`WEB_API_FOUNDATION.md`](WEB_API_FOUNDATION.md), [`WEB_API_CLI.md`](WEB_API_CLI.md) e [`SAAS_PILOT_WEB.md`](SAAS_PILOT_WEB.md) - operação, arquitetura do control plane, implantação, desenvolvimento local, estratégia PostgreSQL e evolução Web/API/worker/SaaS pilot.
+10. [`TECHNICAL_GUIDE.md`](TECHNICAL_GUIDE.md), [`CONFIGURATION.md`](CONFIGURATION.md), [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md), [`CLI_REFERENCE.md`](CLI_REFERENCE.md), [`PRODUCT_PLATFORM_ARCHITECTURE.md`](PRODUCT_PLATFORM_ARCHITECTURE.md), [`POSTGRESQL_MIGRATION_STRATEGY.md`](POSTGRESQL_MIGRATION_STRATEGY.md), [`POSTGRESQL_LOCAL_DEVELOPMENT.md`](POSTGRESQL_LOCAL_DEVELOPMENT.md), [`WEB_API_FOUNDATION.md`](WEB_API_FOUNDATION.md), [`WEB_API_CLI.md`](WEB_API_CLI.md), [`SAAS_PILOT_WEB.md`](SAAS_PILOT_WEB.md) e [`IDENTITY_AND_ACCESS.md`](IDENTITY_AND_ACCESS.md) - operação, arquitetura do control plane, implantação, desenvolvimento local, estratégia PostgreSQL, evolução Web/API/worker e identidade SaaS.
 11. [`specification/00_SPEC_INDEX.md`](specification/00_SPEC_INDEX.md) - especificação técnica detalhada.
 
 ## Convenção de linguagem de relatório
