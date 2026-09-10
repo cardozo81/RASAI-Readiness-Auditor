@@ -1,169 +1,177 @@
-# RASAi Product Platform Architecture
+# Arquitetura da RASAi Product Platform
 
-Status: implemented product-platform architecture with SQLite local/default persistence and an explicit PostgreSQL 18 control-plane backend under cross-platform regression validation.
+**Estado:** arquitetura de Product Platform implementada, com persistência local/padrão em SQLite e backend PostgreSQL 18 explícito para o control plane centralizado, sob validação de regressão multiplataforma.
 
-## Objective
+## Objetivo
 
-RASAi is structured as a product platform supporting multi-user, multi-client, multi-project and multi-domain operation while preserving immutable audit evidence as a separate concern.
+O RASAi é estruturado como plataforma de produto para operação multiusuário, multicliente, multiprojeto e multidomínio, preservando a evidência imutável das auditorias como responsabilidade separada.
 
-The architectural rule is explicit:
+A regra arquitetural é explícita:
 
-> `AUD-*/audit.db` is immutable execution evidence. Product, tenant, milestone, schedule, integration, cost and longitudinal metadata live in a separate control-plane database.
+> `AUD-*/audit.db` é evidência imutável da execução. Metadados de produto, tenant, milestone, schedule, integração, custo e histórico longitudinal pertencem a um banco separado de control plane.
 
-Neither control-plane backend changes `SARI-001` or `SCORE-GEO-004`.
+Nenhum backend do control plane altera `SARI-001` ou `SCORE-GEO-004`.
 
-## Supported persistence modes
+## Modos de persistência suportados
 
 ```text
 RASAi Product Platform
         |
         +-- SQLite
-        |     local/default
+        |     local/padrão
         |     audits/.rasai/platform.db
         |
         +-- PostgreSQL 18
-              explicit centralized/hosted target
+              alvo centralizado/hospedado explícito
 ```
 
-SQLite is selected when no backend is configured.
+Configuração:
 
-PostgreSQL is selected explicitly with:
+| Item | Default efetivo | Valores permitidos | Recomendado |
+|---|---|---|---|
+| `RASAI_PLATFORM_DB_BACKEND` | `sqlite` | `sqlite`, `postgresql`; aliases de runtime `postgres` e `pg` | `sqlite` em uso local de máquina única; `postgresql` no control plane centralizado |
+| `RASAI_PLATFORM_DATABASE_URL` | sem default | DSN PostgreSQL válida quando backend=`postgresql` | secret/env; TLS em ambiente remoto |
+| `--platform-db` | `audits/.rasai/platform.db` no fluxo padrão | caminho SQLite; incompatível com PostgreSQL | omitir no uso normal |
+
+SQLite é selecionado quando nenhum backend é configurado.
+
+PostgreSQL é selecionado explicitamente com:
 
 ```text
 RASAI_PLATFORM_DB_BACKEND=postgresql
 RASAI_PLATFORM_DATABASE_URL=postgresql://...
 ```
 
-A configured PostgreSQL backend never falls back silently to SQLite. `--platform-db` is a SQLite-only path override.
+Um backend PostgreSQL configurado nunca faz fallback silencioso para SQLite. `--platform-db` é override de caminho exclusivo de SQLite.
 
-## Local Windows architecture
+## Arquitetura local Windows
 
-The local runtime is native Windows/Python. Docker is not required for SQLite operation.
+O runtime local é Windows/Python nativo. Docker não é necessário para operação SQLite.
 
 ```text
 Windows
   rasai / rasai-console
         |
-        +-- Audit / Quality / Monitor / Observability engine
+        +-- engine Audit / Quality / Monitor / Observability
         |      |
-        |      +-- audits/AUD-*/audit.db      immutable evidence
-        |      +-- audits/AUD-*/artifacts/    persisted evidence
+        |      +-- audits/AUD-*/audit.db      evidência imutável
+        |      +-- audits/AUD-*/artifacts/    evidência persistida
         |
         +-- Product Platform
                |
-               +-- audits/.rasai/platform.db  SQLite default
+               +-- audits/.rasai/platform.db  SQLite padrão
                +-- audits/platform-report/
                +-- audits/deployments/
 ```
 
-The SQLite control plane uses foreign keys, WAL journaling, bounded busy timeout, explicit write transactions, stable opaque IDs, schema metadata, SHA-256 validation of indexed `audit.db` files and canonical multi-property scope links.
+O control plane SQLite usa foreign keys, journaling WAL, busy timeout limitado, transações explícitas de escrita, IDs opacos estáveis, metadados de schema, validação SHA-256 dos `audit.db` indexados e vínculos canônicos de escopo multipropriedade.
 
-This mode is appropriate for single-machine/offline operation.
+Esse modo é apropriado para operação offline/em uma única máquina.
 
-## PostgreSQL architecture
+## Arquitetura PostgreSQL
 
-PostgreSQL 18 is the centralized control-plane backend. Local development can use a PostgreSQL 18 Docker container; the application itself consumes only the database connection contract.
+PostgreSQL 18 é o backend centralizado do control plane. Desenvolvimento local pode usar container PostgreSQL 18 em Docker; a aplicação consome apenas o contrato de conexão do banco.
 
 ```text
-RASAi application
+aplicação RASAi
         |
 RASAI_PLATFORM_DATABASE_URL
         |
 PostgreSQL 18
 ```
 
-PostgreSQL schema migration is explicit:
+Migration de schema PostgreSQL é explícita:
 
 ```powershell
 rasai platform database status
 rasai platform database migrate
 ```
 
-Normal Product Platform/Search Monitoring startup does not create or upgrade PostgreSQL tables.
+Startup normal de Product Platform/Search Monitoring não cria nem atualiza tabelas PostgreSQL.
 
-See `POSTGRESQL_CONTROL_PLANE.md` and `POSTGRESQL_MIGRATION_STRATEGY.md`.
+Consulte `POSTGRESQL_CONTROL_PLANE.md` e `POSTGRESQL_MIGRATION_STRATEGY.md`.
 
-## Data governance and authority
+## Governança e autoridade dos dados
 
 ### Control plane
 
-The selected relational backend is authoritative for:
+O backend relacional selecionado é autoritativo para:
 
 - Organization / Workspace / Project;
 - Property / Environment;
-- users and memberships;
-- external identity links;
-- audit catalog and multi-property scope links;
+- users e memberships;
+- vínculos de identidade externa;
+- catálogo de auditorias e vínculos de escopo multipropriedade;
 - Milestones / Deployments;
 - Golden Baselines;
-- PageIdentity lineage;
-- comparison records;
-- schedules and alert rules;
-- integration metadata without secrets;
-- external datasets/outcomes;
-- usage ledger and consumption analytics;
+- linhagem de PageIdentity;
+- registros de comparação;
+- schedules e alert rules;
+- metadados de integração sem segredos;
+- datasets/outcomes externos;
+- usage ledger e consumption analytics;
 - Search Query Registry;
-- Search monitoring run summaries;
-- durable execution jobs.
+- resumos de execuções de Search Monitoring;
+- execution jobs duráveis.
 
-In local mode this authority is `audits/.rasai/platform.db`. In PostgreSQL mode it is the configured PostgreSQL database.
+No modo local, essa autoridade é `audits/.rasai/platform.db`. No modo PostgreSQL, é o banco PostgreSQL configurado.
 
-### Derived analytical cache
+### Cache analítico derivado
 
 ```text
 audits/.rasai/consolidated-index.db
 ```
 
-When present, this is derived/rebuildable analytical state. It is not a second control plane and is not authoritative for tenancy, milestones, integrations, Query Registry or lifecycle state.
+Quando presente, esse arquivo é estado analítico derivado e reconstruível. Não é um segundo control plane e não é autoritativo para tenancy, milestones, integrações, Query Registry ou estado de ciclo de vida.
 
-### Immutable audit evidence
+### Evidência imutável da auditoria
 
 ```text
 audits/AUD-*/audit.db
 audits/AUD-*/artifacts/
 ```
 
-These are source execution evidence regardless of the selected control-plane backend. Product metadata is not written back into an indexed AUD.
+Esses elementos permanecem a evidência de origem da execução, independentemente do backend do control plane. Metadados de produto não são gravados de volta em um `AUD-*` já indexado.
 
-## Hosted SaaS target
+## Alvo SaaS hospedado
 
-The hosted operating model uses Linux/container workloads, managed PostgreSQL, durable scheduling/queueing and object storage.
+O modelo hospedado usa workloads Linux/container, PostgreSQL gerenciado, scheduling/fila duráveis e object storage.
 
 ```text
 Web UI
   |
 RASAi API / Control Plane
   |
-  +-- managed PostgreSQL
+  +-- PostgreSQL gerenciado
   |      organization/workspace/project/property/environment
-  |      memberships/RBAC metadata
-  |      identity links
+  |      metadados memberships/RBAC
+  |      vínculos de identidade
   |      milestones/deployments
   |      schedules/alerts/integrations
   |      Query Registry / monitoring runs
   |      usage ledger / audit catalog
   |      execution jobs
   |
-  +-- durable Queue / Scheduler
+  +-- Queue / Scheduler durável
   |      |
   |      +-- Linux audit workers
   |      +-- Search monitoring workers
   |      +-- integration workers
   |
   +-- Object Storage
-         immutable AUD bundles / artifacts / reports / provider evidence
+         bundles AUD imutáveis / artefatos / relatórios / evidência de provider
 
-Optional enterprise path:
-RASAi SaaS -> authorized Runner -> private Windows/Linux network
+caminho enterprise opcional:
+RASAi SaaS -> Runner autorizado -> rede privada Windows/Linux
 ```
 
-Linux is preferred for hosted workers because it provides predictable container packaging, Chromium/Playwright support, worker density, orchestration and broad cloud support. Native Windows remains the local/runner execution mode.
+Linux é preferível para workers hospedados por oferecer empacotamento previsível em containers, suporte Chromium/Playwright, maior densidade de workers, orquestração e amplo suporte em nuvens. Windows nativo permanece o modo local/runner.
 
-SQLite is appropriate for a local single-machine authority. SaaS requires centralized tenant state and concurrent transactional coordination, for which PostgreSQL is the production SGBD target.
+SQLite é adequado como autoridade em uma única máquina. SaaS exige estado centralizado de tenants e coordenação transacional concorrente; PostgreSQL é o SGBD alvo de produção.
 
-The database transition boundary is the control plane, not the `AUD-*` evidence format.
+O limite da transição de banco é o control plane, não o formato de evidência `AUD-*`.
 
-## Product hierarchy
+## Hierarquia do produto
 
 ```text
 Organization
@@ -171,25 +179,25 @@ Organization
       -> Project
           -> Property
               -> Environment
-                  -> AuditRun references
+                  -> referências de AuditRun
                   -> Milestones
-                  -> External datasets
-                  -> Search monitoring contexts
+                  -> datasets externos
+                  -> contextos de Search Monitoring
 ```
 
-- **Organization** - commercial/security tenant.
-- **Workspace** - client, business unit or portfolio boundary.
-- **Project** - logical Search & AI initiative; may contain multiple properties/domains.
-- **Property** - owned or competitor web property identified by origin/hostname.
-- **Environment** - `PRODUCTION`, `STAGING`, `QA`, `PREVIEW`, `DEVELOPMENT` or `OTHER`.
+- **Organization** — tenant comercial/de segurança.
+- **Workspace** — limite de cliente, unidade de negócio ou portfólio.
+- **Project** — iniciativa lógica de Search & AI; pode conter múltiplas propriedades/domínios.
+- **Property** — propriedade web própria ou concorrente, identificada por origem/hostname.
+- **Environment** — `PRODUCTION`, `STAGING`, `QA`, `PREVIEW`, `DEVELOPMENT` ou `OTHER`.
 
-Stable opaque IDs are shared across SQLite/PostgreSQL domain contracts.
+IDs opacos estáveis são compartilhados pelos contratos de domínio SQLite/PostgreSQL.
 
-## Multi-user and tenant integrity
+## Multiusuário e integridade de tenant
 
-The control-plane model supports users, memberships and scoped roles.
+O modelo do control plane suporta users, memberships e roles com escopo.
 
-Supported roles:
+Roles suportadas:
 
 - `OWNER`;
 - `ADMIN`;
@@ -199,15 +207,15 @@ Supported roles:
 - `INTEGRATION_MANAGER`;
 - `BILLING`.
 
-Cross-organization memberships and inconsistent Project / Property / Environment writes are rejected at the control-plane boundary and backed by relational constraints.
+Memberships entre organizations distintas e gravações inconsistentes de Project/Property/Environment são rejeitadas no limite do control plane e reforçadas por constraints relacionais.
 
-Hosted identity is resolved through the Web/API authentication layer; control-plane persistence alone does not authenticate a request.
+Identidade hospedada é resolvida pela camada de autenticação Web/API; persistência no control plane, isoladamente, não autentica uma requisição.
 
-## Multi-domain AUD model
+## Modelo AUD multidomínio
 
-An AUD may contain more than one target origin/domain.
+Um `AUD-*` pode conter mais de uma origem/domínio alvo.
 
-`audit_index` records the primary Property/Environment reference for the audit catalog, while `audit_scope_links` is the canonical many-to-many relation that makes the same AUD discoverable from every Property/Environment included in its scope.
+`audit_index` registra a referência principal de Property/Environment no catálogo, enquanto `audit_scope_links` é a relação canônica muitos-para-muitos que torna o mesmo `AUD-*` localizável por toda Property/Environment incluída em seu escopo.
 
 ```text
 AUD
@@ -216,31 +224,31 @@ AUD
   -> Property C / Environment
 ```
 
-Golden Baselines and deployment comparisons validate membership in the requested scope rather than relying only on the primary catalog reference.
+Golden Baselines e comparações de deployment validam pertencimento ao escopo solicitado, em vez de depender apenas da referência principal do catálogo.
 
-## AUD immutability
+## Imutabilidade de AUD
 
-The control-plane catalog stores the SHA-256 of every indexed `audit.db`.
+O catálogo do control plane armazena o SHA-256 de cada `audit.db` indexado.
 
-Re-indexing an AUD with a different database hash is rejected. This prevents an indexed audit from being silently rewritten after it becomes a baseline or deployment evidence source.
+Reindexar um `AUD-*` com hash diferente é rejeitado. Isso impede que uma auditoria indexada seja silenciosamente reescrita depois de se tornar baseline ou fonte de evidência de deployment.
 
-PostgreSQL integration tests index SQLite `AUD-*/audit.db` files, perform Product Platform comparisons and verify the source audit bytes remain unchanged.
+Testes de integração PostgreSQL indexam arquivos SQLite `AUD-*/audit.db`, executam comparações da Product Platform e verificam que os bytes da auditoria de origem permanecem inalterados.
 
-## Automatic indexing
+## Indexação automática
 
-A successful `rasai audit` triggers a best-effort refresh through the selected control-plane backend.
+Um `rasai audit` bem-sucedido dispara uma atualização *best effort* pelo backend selecionado do control plane.
 
-- the persisted AUD is authoritative evidence;
-- product indexing cannot turn a successful audit into an audit failure;
-- an indexing error is logged and can be repaired with `rasai platform index`.
+- o `AUD-*` persistido é a evidência autoritativa;
+- falha de indexação de produto não transforma auditoria bem-sucedida em falha da auditoria;
+- erro de indexação é registrado e pode ser reparado com `rasai platform index`.
 
-When PostgreSQL is selected, its schema must already be current; automatic indexing never performs schema migration.
+Quando PostgreSQL é selecionado, seu schema deve estar previamente atualizado; a indexação automática nunca executa migration de schema.
 
-## Milestones and deployments
+## Milestones e deployments
 
-`Milestone` is a first-class product entity.
+`Milestone` é uma entidade de produto de primeira classe.
 
-Supported kinds include:
+Tipos suportados incluem:
 
 - `DEPLOYMENT`;
 - `RELEASE`;
@@ -254,61 +262,61 @@ Supported kinds include:
 - `MANUAL`;
 - `OTHER`.
 
-A milestone may record timestamp, release/version, commit SHA, branch/tag, description, tags and source.
+Um milestone pode registrar timestamp, release/versão, commit SHA, branch/tag, descrição, tags e origem.
 
-## Before / after deployment resolution
+## Resolução before/after de deployment
 
-Default mode: `AUTO`.
+Modo default: `AUTO`.
 
-RASAi searches the same Property + Environment and selects:
+O RASAi pesquisa a mesma Property + Environment e seleciona:
 
-1. the closest technically comparable AUD before the milestone;
-2. the first technically comparable AUD after it.
+1. o `AUD-*` tecnicamente comparável mais próximo antes do milestone;
+2. o primeiro `AUD-*` tecnicamente comparável depois dele.
 
-If the nearest pair is not comparable, RASAi does not silently normalize incompatible data. Comparability limitations are retained.
+Se o par mais próximo não for comparável, o RASAi não normaliza silenciosamente dados incompatíveis. As limitações de comparabilidade são preservadas.
 
-Alternative modes:
+Modos alternativos:
 
-- `GOLDEN` - approved Golden Baseline versus first compatible post-milestone AUD;
-- `EXPLICIT` - operator-selected baseline/current pair.
+- `GOLDEN` — Golden Baseline aprovado × primeiro `AUD-*` compatível posterior ao milestone;
+- `EXPLICIT` — par baseline/current selecionado pelo operador.
 
-Deployment Impact can display selected before/after AUDs, baseline resolution reason, material regressions, improvements/resolutions, changed page state, release gate result and comparability limitations.
+Deployment Impact pode exibir `AUD-*` before/after selecionados, motivo da resolução de baseline, regressões materiais, melhorias/resoluções, estado alterado de páginas, resultado do release gate e limitações de comparabilidade.
 
-Temporal ordering is not presented as causal proof.
+Ordenação temporal não é apresentada como prova causal.
 
-## Page Compare and PageIdentity
+## Page Compare e PageIdentity
 
-`Page Compare` supports same-URL and migration/different-URL before/after analysis using persisted page-level signals.
+`Page Compare` suporta análise before/after da mesma URL e de migração/URLs diferentes, usando sinais persistidos em nível de página.
 
-`PageIdentity` separates a logical page/entity from one specific URL. Multiple observed URLs may be linked to the same identity for redirects, URL changes and replatforming.
+`PageIdentity` separa uma página/entidade lógica de uma URL específica. Múltiplas URLs observadas podem ser vinculadas à mesma identidade para redirects, mudanças de URL e replatforming.
 
-## Portfolio HTML
+## HTML de portfólio
 
-`rasai platform site` generates Product Platform projections including:
+`rasai platform site` gera projeções da Product Platform, incluindo:
 
-- Portfolio index;
+- índice de portfólio;
 - timeline;
 - deployments;
-- page lineage;
-- usage/cost views.
+- linhagem de páginas;
+- visões de uso/custo.
 
-Property counters resolve through canonical multi-property AUD scopes.
+Contadores de Property são resolvidos pelos escopos canônicos multipropriedade dos `AUD-*`.
 
-These pages remain separate from the report site contained inside one immutable AUD.
+Essas páginas permanecem separadas do site de relatório contido dentro de um `AUD-*` imutável.
 
 ## Scheduling
 
-Schedules store argument arrays, never raw shell strings.
+Schedules armazenam arrays de argumentos, nunca strings de shell brutas.
 
-Execution uses:
+A execução usa:
 
 ```text
 <current-python> -m rasai <argv...>
 ```
 
-with `shell=False`.
+com `shell=False`.
 
-Supported schedule semantics include:
+Semânticas de schedule suportadas incluem:
 
 - `INTERVAL`;
 - `DAILY`;
@@ -316,104 +324,104 @@ Supported schedule semantics include:
 - `DEPLOYMENT_TRIGGERED`;
 - `API_TRIGGERED`.
 
-Local execution is single-machine. PostgreSQL-backed scheduling is centralized, while horizontally distributed execution additionally requires atomic occurrence claiming, leases/locks, idempotency, retry/dead-letter state and per-tenant/provider limits.
+Execução local ocorre em uma única máquina. Scheduling respaldado por PostgreSQL é centralizado; execução horizontal distribuída exige adicionalmente claim atômico da ocorrência, leases/locks, idempotência, estado de retry/dead-letter e limites por tenant/provider.
 
-## Search monitoring
+## Search Monitoring
 
-`SEARCH-MONITOR-001` uses the selected Product Platform control-plane authority.
+`SEARCH-MONITOR-001` usa a autoridade selecionada do control plane da Product Platform.
 
 ```text
 Query Registry
   -> schedule
-  -> Search observation
-  -> deterministic/optional AI intelligence
-  -> longitudinal run summary
-  -> change detection
+  -> observação Search
+  -> intelligence determinística/IA opcional
+  -> resumo longitudinal da execução
+  -> detecção de mudança
 ```
 
-SQLite is the local adapter. PostgreSQL is the centralized adapter. Raw provider evidence and hashed manifests remain outside relational rows and move naturally to object storage in hosted operation.
+SQLite é o adapter local. PostgreSQL é o adapter centralizado. Evidência bruta do provider e manifests com hash permanecem fora das linhas relacionais e migram naturalmente para object storage na operação hospedada.
 
-Search monitoring is non-scoring.
+Search Monitoring não participa do scoring.
 
 ## Alerts
 
-Alert rules evaluate material comparison events by status and minimum severity.
+Alert rules avaliam eventos materiais de comparação por status e severidade mínima.
 
-Default statuses when no `--status` is supplied:
+Status default quando `--status` não é informado:
 
 ```text
 REGRESSED
 NEW
 ```
 
-Explicit `--status` values replace the defaults.
+Valores `--status` explícitos substituem os defaults.
 
-Destinations:
+Destinos:
 
-- `NONE` - persist notification only;
-- `JSON` - persist structured notification;
-- `WEBHOOK` - POST structured JSON.
+- `NONE` — apenas persiste a notificação;
+- `JSON` — persiste notificação estruturada;
+- `WEBHOOK` — faz POST de JSON estruturado.
 
-Webhook secrets are not stored as ordinary product metadata. Hosted delivery requires managed secrets and SSRF/egress controls.
+Segredos de webhook não são armazenados como metadados comuns do produto. Entrega hospedada exige segredos gerenciados e controles SSRF/egress.
 
-## CI/CD release-gate outputs
+## Saídas de release gate para CI/CD
 
-Deployment comparisons can export JSON, JUnit XML and SARIF, with process exit semantics suitable for CI/CD integration.
+Comparações de deployment podem exportar JSON, JUnit XML e SARIF, com semântica de exit code adequada à integração CI/CD.
 
-The contract is vendor-neutral.
+O contrato é independente de fornecedor.
 
-## External outcomes and crawler observability
+## Outcomes externos e observabilidade de crawlers
 
-External observations remain outside SARI/SCORE-GEO.
+Observações externas permanecem fora de SARI/SCORE-GEO.
 
-Sources include:
+Fontes incluem:
 
-- GA4 Data API using bearer token from runtime environment;
-- GA4 CSV import;
-- Cloudflare Logpush import;
-- common/combined Apache/nginx-compatible access logs;
-- explicit User-Agent marker classification for known AI crawler markers.
+- GA4 Data API usando bearer token do ambiente de runtime;
+- importação CSV do GA4;
+- importação Cloudflare Logpush;
+- access logs comuns/combinados compatíveis com Apache/nginx;
+- classificação explícita de marcadores User-Agent conhecidos de crawlers de IA.
 
-Crawler classification is evidence classification, not proof of verified bot identity. Verified provider/CDN bot-management signals should supersede heuristic identity where available.
+Classificação de crawler é classificação de evidência, não prova de identidade verificada de bot. Sinais verificados de bot management do provider/CDN devem prevalecer sobre identidade heurística quando disponíveis.
 
-## Usage ledger and consumption analytics
+## Usage ledger e consumption analytics
 
-Product consumption is stored separately from technical findings, including categories such as:
+Consumo de produto é armazenado separadamente de findings técnicos, incluindo categorias como:
 
-- URLs crawled;
-- browser executions;
-- API calls;
-- LLM/provider consumption;
-- worker/storage units when implemented;
-- estimated cost/currency.
+- URLs rastreadas;
+- execuções de browser;
+- chamadas de API;
+- consumo de LLM/provider;
+- unidades de worker/storage, quando implementadas;
+- custo/moeda estimados.
 
-The same ledger supports consumption analytics and future SaaS metering while preserving provenance/BYOK attribution.
+O mesmo ledger sustenta consumption analytics e metering SaaS futuro, preservando proveniência/atribuição BYOK.
 
-## Secrets
+## Segredos
 
-No API token, webhook secret or provider password is stored as plain product metadata.
+Nenhum API token, webhook secret ou senha de provider é armazenado como metadado de produto em texto puro.
 
-Local operation uses environment variables and persists only non-secret configuration or secret-reference names.
+Operação local usa variáveis de ambiente e persiste apenas configuração não secreta ou nomes de referências a segredos.
 
-Hosted operation uses managed secret storage/KMS-backed services, tenant-scoped authorization and rotation/audit controls.
+Operação hospedada usa secret storage gerenciado/serviços respaldados por KMS, autorização com escopo de tenant e controles de rotação/auditoria.
 
-`RASAI_PLATFORM_DATABASE_URL` is secret-bearing and must be redacted from status/error output.
+`RASAI_PLATFORM_DATABASE_URL` pode conter segredo e deve ser redigida nas saídas de status/erro.
 
-## Docker decision
+## Decisão sobre Docker
 
-Docker is not required for normal SQLite Windows operation. It is used for local PostgreSQL 18 development/integration and PostgreSQL CI.
+Docker não é necessário para operação normal SQLite no Windows. É usado no desenvolvimento/integração PostgreSQL 18 local e no CI PostgreSQL.
 
-For hosted deployment, API/workers may be containerized; production PostgreSQL should normally be managed rather than coupled to one application container host.
+No deployment hospedado, API/workers podem ser containerizados; PostgreSQL de produção deve normalmente ser gerenciado, e não acoplado ao host de um container da aplicação.
 
-## PostgreSQL schema strategy
+## Estratégia de schema PostgreSQL
 
-The PostgreSQL schema uses the domain representation expected by current repository contracts. Representation changes are explicit schema migrations and are validated for semantic parity.
+O schema PostgreSQL usa a representação de domínio esperada pelos contratos atuais de repository. Mudanças de representação são migrations explícitas e validadas quanto à paridade semântica.
 
-Development SQLite data is test/pilot state and is not a required migration source for a clean PostgreSQL authority.
+Dados SQLite de desenvolvimento são estado de teste/piloto e não constituem fonte de migration obrigatória para uma autoridade PostgreSQL limpa.
 
-## Primary CLI examples
+## Exemplos principais de CLI
 
-SQLite initialization/index:
+Inicialização/indexação SQLite:
 
 ```powershell
 rasai platform --audits-root audits init
@@ -423,7 +431,7 @@ rasai platform --audits-root audits data status
 rasai platform --audits-root audits site
 ```
 
-PostgreSQL administration:
+Administração PostgreSQL:
 
 ```powershell
 rasai platform database status
@@ -431,7 +439,7 @@ rasai platform database migrate
 rasai platform database status
 ```
 
-Users and memberships:
+Users e memberships:
 
 ```powershell
 rasai platform --audits-root audits user add --name "Analyst" --email analyst@example.com
@@ -440,7 +448,7 @@ rasai platform --audits-root audits member add `
   --workspace WSP-... --project PRJ-...
 ```
 
-Create a deployment milestone:
+Criar milestone de deployment:
 
 ```powershell
 rasai platform --audits-root audits milestone add `
@@ -454,7 +462,7 @@ rasai platform --audits-root audits milestone add `
   --commit abc123
 ```
 
-Resolve/compare:
+Resolver/comparar:
 
 ```powershell
 rasai platform --audits-root audits deploy pair --milestone MLS-...
@@ -466,7 +474,7 @@ rasai platform --audits-root audits deploy compare `
   --sarif artifacts/gate.sarif
 ```
 
-Golden baseline:
+Golden Baseline:
 
 ```powershell
 rasai platform --audits-root audits baseline set `
@@ -483,14 +491,14 @@ rasai platform --audits-root audits page compare `
   --output page-compare.html
 ```
 
-## Operational boundary
+## Limite operacional
 
-Audit, Monitor, Quality, Observability and Visibility use the same immutable-evidence boundary regardless of the selected Product Platform backend.
+Audit, Monitor, Quality, Observability e Visibility usam o mesmo limite de evidência imutável, independentemente do backend selecionado da Product Platform.
 
-Post-audit platform indexing is best-effort and fail-open, so a control-plane indexing problem cannot invalidate an already persisted audit.
+Indexação pós-auditoria na plataforma é *best effort* e fail-open: um problema no control plane não pode invalidar uma auditoria já persistida.
 
-## Methodological boundary
+## Limite metodológico
 
-Product/portfolio data, Search monitoring, GA4, logs, milestones, deployment markers, schedules and usage do not alter SARI/SCORE-GEO by default.
+Dados de produto/portfólio, Search Monitoring, GA4, logs, milestones, marcadores de deployment, schedules e usage não alteram SARI/SCORE-GEO por default.
 
-Temporal association is not causal inference. The platform may state that a technical change and an observed outcome occurred in a defined temporal relationship; it must not claim the deployment caused the outcome unless a separate validated causal method establishes that conclusion.
+Associação temporal não é inferência causal. A plataforma pode afirmar que uma mudança técnica e um outcome observado ocorreram em relação temporal definida; não deve afirmar que o deployment causou o outcome, salvo se uma metodologia causal separada e validada estabelecer essa conclusão.
