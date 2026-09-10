@@ -71,7 +71,7 @@ class State:
     web_max_pages: int = 10
     web_timeout: float = DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS
     field_source: str = "auto"
-    lighthouse_categories: str = "performance,accessibility,best-practices,seo"
+    lighthouse_categories: str = "performance,accessibility,best-practices,seo,agentic-browsing"
     status: str = "READY"
     current_url: str = "-"
     current_device: str = "MOBILE"
@@ -127,7 +127,7 @@ def apply_environment_defaults(state: State, env: Mapping[str, str] | None = Non
         elif raw in {"auto", "pagespeed", "crux", "none"}: state.field_source = raw
         else: issues.append("RASAI_WEB_PERFORMANCE_FIELD_SOURCE: valor inválido")
     if active("RASAI_LIGHTHOUSE_CATEGORIES"):
-        state.lighthouse_categories = (environment.get("RASAI_LIGHTHOUSE_CATEGORIES") or "").strip() or "performance,accessibility,best-practices,seo"
+        state.lighthouse_categories = (environment.get("RASAI_LIGHTHOUSE_CATEGORIES") or "").strip() or "performance,accessibility,best-practices,seo,agentic-browsing"
     if any(active(name) for name in CONTENT_CONTEXT_ENV_NAMES):
         try:
             configured_content_analysis_context(environment)
