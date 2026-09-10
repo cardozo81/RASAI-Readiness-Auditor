@@ -133,7 +133,7 @@ Os valores permitidos de reasoning são publicados em `ENVIRONMENT_VARIABLES.md`
 
 O timeout vale por tentativa de provider, não para a auditoria inteira.
 
-## Contexto editorial da IA — YMYL e E-E-A-T
+## Contexto editorial da IA - YMYL e E-E-A-T
 
 Variáveis:
 
