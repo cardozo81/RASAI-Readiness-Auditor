@@ -1,6 +1,7 @@
 from contextlib import redirect_stdout
 import io
 import json
+import os
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
@@ -9,8 +10,9 @@ from unittest.mock import patch
 
 from rasai.console_m23 import State, observe_m23_workspace
 from rasai.console_runtime import clear_runtime_progress, render_header, runtime_progress_summary, set_runtime_progress
-from rasai.interactive_console import _configure, _configure_apdex, _menu
+from rasai.interactive_console import _configure, _configure_apdex, _configure_timezone, _menu
 from rasai.report_consistency_v2 import _sanitize_presentation
+from rasai.time_contract import PRESENTATION_TIMEZONE_ENV, configured_presentation_timezone
 
 
 class ConsoleProgressGuidanceTests(unittest.TestCase):
@@ -142,13 +144,44 @@ class ConsoleProgressGuidanceTests(unittest.TestCase):
         ):
             self.assertIn(expected, rendered)
 
+    def test_timezone_menu_uses_iana_and_shows_numeric_offset_as_guidance(self) -> None:
+        state = State()
+        output = io.StringIO()
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(PRESENTATION_TIMEZONE_ENV, None)
+            with patch("builtins.input", return_value="2"), redirect_stdout(output):
+                _configure_timezone(state)
+            self.assertEqual(configured_presentation_timezone(), "UTC")
+        rendered = output.getvalue()
+        self.assertIn("America/Sao_Paulo", rendered)
+        self.assertIn("UTC-03:00", rendered)
+        self.assertIn("offset numérico", rendered)
+        self.assertIn("valor salvo é IANA", rendered)
+
+    def test_timezone_menu_accepts_valid_custom_iana_and_rejects_fixed_offset(self) -> None:
+        state = State()
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(PRESENTATION_TIMEZONE_ENV, None)
+            answers = iter(["C", "Pacific/Auckland"])
+            with patch("builtins.input", side_effect=lambda _prompt="": next(answers)), redirect_stdout(io.StringIO()):
+                _configure_timezone(state)
+            self.assertEqual(configured_presentation_timezone(), "Pacific/Auckland")
+            answers = iter(["C", "-03:00"])
+            with patch("builtins.input", side_effect=lambda _prompt="": next(answers)), redirect_stdout(io.StringIO()):
+                _configure_timezone(state)
+            self.assertIn("timezone IANA inválido", state.error)
+            self.assertEqual(configured_presentation_timezone(), "Pacific/Auckland")
+
     def test_public_menu_does_not_expose_milestone_labels(self) -> None:
         state = State()
         output = io.StringIO()
-        with patch("builtins.input", return_value="Q"), redirect_stdout(output):
-            _menu(state)
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(PRESENTATION_TIMEZONE_ENV, None)
+            with patch("builtins.input", return_value="Q"), redirect_stdout(output):
+                _menu(state)
         rendered = output.getvalue()
         self.assertIn("11. Synthetic Apdex", rendered)
+        self.assertIn("12. Timezone apresentação: America/Sao_Paulo", rendered)
         self.assertIsNone(re.search(r"\bM(?:18|20|21|22|23)\b", rendered))
 
     def test_report_label_sanitizer_does_not_rewrite_arbitrary_page_content(self) -> None:

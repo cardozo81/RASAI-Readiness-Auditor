@@ -13,6 +13,10 @@ from rasai.console_settings import (
     load_console_config,
     save_console_config,
 )
+from rasai.time_contract import (
+    PRESENTATION_TIMEZONE_ENV,
+    configured_presentation_timezone,
+)
 
 
 class ConsoleSettingsTests(unittest.TestCase):
@@ -22,6 +26,7 @@ class ConsoleSettingsTests(unittest.TestCase):
             {"OPENAI_API_KEY": "super-secret-value", "RASAI_PAGESPEED_API_KEY": "page-secret"},
             clear=False,
         ):
+            os.environ.pop(PRESENTATION_TIMEZONE_ENV, None)
             path = Path(directory) / "rasai-console.ini"
             state = State()
             result = load_console_config(state, path)
@@ -29,6 +34,8 @@ class ConsoleSettingsTests(unittest.TestCase):
             self.assertTrue(path.is_file())
             text = path.read_text(encoding="utf-8")
             self.assertIn("[console]", text)
+            self.assertIn("[presentation]", text)
+            self.assertIn("timezone = America/Sao_Paulo", text)
             self.assertIn("[synthetic_apdex]", text)
             self.assertNotIn("super-secret-value", text)
             self.assertNotIn("page-secret", text)
@@ -37,6 +44,7 @@ class ConsoleSettingsTests(unittest.TestCase):
 
     def test_round_trip_persists_console_operational_parameters(self) -> None:
         with TemporaryDirectory() as directory:
+            os.environ[PRESENTATION_TIMEZONE_ENV] = "Europe/London"
             path = Path(directory) / "settings.ini"
             state = State()
             state.target = "https://example.test/"
@@ -55,6 +63,7 @@ class ConsoleSettingsTests(unittest.TestCase):
             state.apdex_max_attempts = 7
             save_console_config(state, path)
 
+            os.environ.pop(PRESENTATION_TIMEZONE_ENV, None)
             restored = State()
             result = load_console_config(restored, path)
             self.assertFalse(result.created)
@@ -73,16 +82,52 @@ class ConsoleSettingsTests(unittest.TestCase):
             self.assertEqual(restored.apdex_threshold, 2.0)
             self.assertEqual(restored.apdex_samples, 5)
             self.assertEqual(restored.apdex_max_attempts, 7)
+            self.assertEqual(configured_presentation_timezone(), "Europe/London")
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("[presentation]", text)
+            self.assertIn("timezone = Europe/London", text)
+            # Preserve the historical console-test projection of non-timezone runtime
+            # settings while preventing the new presentation preference from leaking
+            # into unrelated report tests.
+            os.environ.pop(PRESENTATION_TIMEZONE_ENV, None)
+
+    def test_environment_override_wins_over_ini_timezone(self) -> None:
+        with TemporaryDirectory() as directory, patch.dict(os.environ, {}, clear=False):
+            path = Path(directory) / "settings.ini"
+            path.write_text(
+                "[console]\nconfig_version = 4\n\n[presentation]\ntimezone = America/Sao_Paulo\n",
+                encoding="utf-8",
+            )
+            os.environ[PRESENTATION_TIMEZONE_ENV] = "Asia/Tokyo"
+            result = load_console_config(State(), path)
+            self.assertEqual(result.warnings, ())
+            self.assertEqual(configured_presentation_timezone(), "Asia/Tokyo")
+
+    def test_invalid_timezone_in_ini_warns_and_keeps_safe_default(self) -> None:
+        with TemporaryDirectory() as directory, patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(PRESENTATION_TIMEZONE_ENV, None)
+            path = Path(directory) / "settings.ini"
+            path.write_text(
+                "[console]\nconfig_version = 4\n\n[presentation]\ntimezone = -03:00\n",
+                encoding="utf-8",
+            )
+            result = load_console_config(State(), path)
+            self.assertTrue(any("presentation.timezone" in warning for warning in result.warnings))
+            self.assertEqual(configured_presentation_timezone(), "America/Sao_Paulo")
 
     def test_fingerprint_changes_only_with_persistable_state(self) -> None:
-        state = State()
-        first = configuration_fingerprint(state)
-        state.project = "mudou"
-        self.assertNotEqual(first, configuration_fingerprint(state))
-        state.status = "ANALYZING"
-        second = configuration_fingerprint(state)
-        state.status = "COMPLETE"
-        self.assertEqual(second, configuration_fingerprint(state))
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(PRESENTATION_TIMEZONE_ENV, None)
+            state = State()
+            first = configuration_fingerprint(state)
+            state.project = "mudou"
+            self.assertNotEqual(first, configuration_fingerprint(state))
+            state.status = "ANALYZING"
+            second = configuration_fingerprint(state)
+            state.status = "COMPLETE"
+            self.assertEqual(second, configuration_fingerprint(state))
+            os.environ[PRESENTATION_TIMEZONE_ENV] = "UTC"
+            self.assertNotEqual(second, configuration_fingerprint(state))
 
     def test_session_dirty_metadata_is_independent_from_state_schema(self) -> None:
         state = State()
