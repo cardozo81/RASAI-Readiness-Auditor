@@ -33,6 +33,16 @@ Disponibilizar uma interface Web utilizável sobre o control plane e a execution
 
 `WEB-PILOT-012` - Search Intelligence, Usage, Milestones e Deployment Pair devem permanecer projeções dos contratos existentes, sem segunda persistência Web.
 
+`WEB-PILOT-013` - `/app`, `/app/operations`, a API de execution jobs, managed schedules e o worker devem derivar a configuração `AUDIT` do mesmo contrato canônico. A camada Web não pode manter um allowlist reduzido independente do runtime.
+
+`WEB-PILOT-014` - durable payloads devem ser validados antes da persistência. Opção desconhecida, combinação inválida ou segredo inline não pode ser aceita para falhar apenas no worker.
+
+`WEB-PILOT-015` - defaults de Synthetic User Experience Apdex expostos pelo SaaS devem ser os mesmos defaults do CLI/runtime. Omissão de thresholds padrão não pode ser interpretada como configuração inválida ou customização do usuário.
+
+`WEB-PILOT-016` - configuração/credencial de provider externo que seja secret deve permanecer fora de `payload_json`. Em ambiente multi-tenant, eventual importação Dynatrace ou integração equivalente deve ser resolvida por referência tenant-scoped no worker autorizado.
+
+`WEB-PILOT-017` - mudanças em contratos de auditoria, worker, Web ou runtime compartilhado devem acionar regressão de paridade PostgreSQL e SaaS/runtime no CI.
+
 ## 3. Superfícies mínimas
 
 A primeira versão deve permitir:
@@ -40,11 +50,13 @@ A primeira versão deve permitir:
 - selecionar Organization, Workspace, Project, Property e Environment;
 - visualizar auditorias do Project;
 - abrir reports materializados de um AUD autorizado;
-- criar `AUDIT` job com payload permitido pelo worker;
+- criar `AUDIT` job com o payload canônico permitido pelo worker;
+- editar a configuração não secreta completa exposta por `GET /api/v1/audit-job-options`;
 - visualizar Query Registry e criar `SEARCH_MONITOR` job;
 - acompanhar/cancelar execution jobs conforme role;
 - visualizar milestones e resolver pair before/after;
-- visualizar usage/cost agregado da Organization autorizada.
+- criar e administrar managed schedules;
+- visualizar usage/cost e Consumption Analytics da Organization autorizada com filtros tenant-aware.
 
 ## 4. Autorização
 
@@ -52,7 +64,7 @@ A UI não é authority de tenancy.
 
 Qualquer filtro visual é somente conveniência. A decisão de acesso ocorre novamente na API com `Principal` e memberships do control plane.
 
-A enumeração de ID de outro tenant deve resultar em recusa, inclusive para milestones, usage e report assets.
+A enumeração de ID de outro tenant deve resultar em recusa, inclusive para milestones, usage, consumption, schedules e report assets.
 
 ## 5. Report boundary
 
@@ -72,11 +84,15 @@ A UI pode solicitar `AUTO` ou `GOLDEN` para resolução do pair, reutilizando `r
 
 A camada Web não deve inferir causalidade. Milestone estabelece cronologia; comparabilidade e limitações continuam vindo do contrato Product Platform/Monitoring.
 
-## 7. Execution jobs
+## 7. Execution jobs e schedules
 
-A criação de auditoria pela UI deve usar o mesmo endpoint de execution jobs e o mesmo allowlist de payload do worker.
+A criação de auditoria pela UI deve usar o mesmo contrato de execution jobs e o mesmo allowlist de payload do worker. `GET /api/v1/audit-job-options` é a projeção autenticada desse contrato para interfaces Web.
 
 O destino deriva da Property/Environment registrada; shell command/argv arbitrário não faz parte do contrato HTTP.
+
+Execution jobs e managed schedules devem preservar somente escolhas não secretas do usuário em `payload_json`. Defaults do runtime podem ser materializados na execução, mas sua origem não pode ser falsamente apresentada como customização do usuário.
+
+O contrato de validação deve ser aplicado tanto ao backend SQLite quanto ao PostgreSQL antes da gravação do job/schedule.
 
 ## 8. Segurança de frontend
 
@@ -93,13 +109,14 @@ A página do piloto deve:
 
 Não fazem parte desta especificação:
 
-- OIDC/SSO definitivo;
+- Identity Provider obrigatório/específico;
 - billing;
 - object storage definitivo;
 - Kubernetes;
 - queue externa obrigatória;
 - multi-region/hubs;
 - runner privado remoto;
+- importação Dynatrace hosted sem vínculo de integração tenant-scoped;
 - migração de `audit.db` para PostgreSQL;
 - design system ou framework de frontend definitivo.
 
@@ -112,6 +129,9 @@ O contrato deve possuir regressão automatizada para:
 - autorização do report boundary;
 - bloqueio de tentativa de acesso fora de `report/`;
 - preservação da API/execution queue já existente;
+- igualdade dos defaults compartilhados entre CLI/runtime e SaaS;
+- rejeição antecipada de payloads inválidos;
+- paridade de persistência e comportamento sobre PostgreSQL real;
 - regressão integral do produto via CI.
 
 Documentação operacional: `../SAAS_PILOT_WEB.md`, `../WEB_API_FOUNDATION.md` e `../WEB_API_CLI.md`.
