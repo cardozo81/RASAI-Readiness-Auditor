@@ -8,7 +8,7 @@
 
 Synthetic User Experience Apdex é um domínio aditivo e separado do Synthetic Navigation Apdex. Mede uma `SYNTHETIC_LOAD_ACTION` controlada e permite calibração explícita ou importada.
 
-É proibido descrever M25 como RUM. É igualmente proibido implementar uma aproximação e rotulá-la como uma KPM Dynatrace equivalente quando essa equivalência não existe.
+É proibido descrever Synthetic User Experience Apdex como RUM. É igualmente proibido implementar uma aproximação e rotulá-la como uma KPM Dynatrace equivalente quando essa equivalência não existe.
 
 ## 2. Relação com Synthetic Navigation Apdex
 
@@ -69,9 +69,9 @@ Classificação de origem:
 
 ## 4. KPM Dynatrace e viabilidade técnica
 
-Dynatrace documenta `VISUALLY_COMPLETE` como KPM padrão para Load/XHR em documentação atual. M25 não implementa Dynatrace Visually Complete com equivalência de fornecedor.
+Dynatrace documenta `VISUALLY_COMPLETE` como KPM padrão para Load/XHR em documentação atual. Synthetic User Experience Apdex não implementa Dynatrace Visually Complete com equivalência de fornecedor.
 
-KPMs temporais diretamente mensuráveis pelo M25:
+KPMs temporais diretamente mensuráveis pelo Synthetic User Experience Apdex:
 
 - `USER_ACTION_DURATION`;
 - `DOM_INTERACTIVE`;
@@ -125,7 +125,7 @@ A importação Dynatrace deve preservar, de forma sanitizada, os contratos dispo
 - XHR Action;
 - Custom Action.
 
-A execução M25 atual possui os seguintes limites:
+A execução Synthetic User Experience Apdex atual possui os seguintes limites:
 
 ```text
 Load Action    = EXECUTÁVEL
@@ -214,8 +214,8 @@ Grupos menores são diagnósticos. `1000` é suportado, mas representa carga sig
 
 Modos:
 
-1. JSON exportado — preferido para reprodutibilidade;
-2. Configuration API — configuração live.
+1. JSON exportado - preferido para reprodutibilidade;
+2. Configuration API - configuração live.
 
 A importação deve extrair/persistir apenas dados sanitizados necessários:
 
@@ -360,7 +360,7 @@ Para interpretar delta:
 7. sessão/cache;
 8. condições CPU/rede/geografia.
 
-Mesmo alinhando o que é controlável, igualdade numérica não é esperada porque RUM observa usuários reais e M25 é laboratório sintético.
+Mesmo alinhando o que é controlável, igualdade numérica não é esperada porque RUM observa usuários reais e Synthetic User Experience Apdex é laboratório sintético.
 
 ## 19. Gate de validação
 
@@ -379,10 +379,10 @@ Antes de integrar mudanças neste domínio:
 
 ## 20. Referências públicas
 
-- Apdex Technical Specification v1.1 — `https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf`
-- Dynatrace — Apdex configuration for load actions — `https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions`
-- Dynatrace — Work with key performance metrics — `https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/analyze-and-use/work-with-key-performance-metrics`
-- Dynatrace — Apdex ratings — `https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/scores-and-ratings/apdex-ratings`
-- Dynatrace — Web application configuration API — `https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application`
-- Chrome DevTools Protocol — Network / Emulation
+- Apdex Technical Specification v1.1 - `https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf`
+- Dynatrace - Apdex configuration for load actions - `https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions`
+- Dynatrace - Work with key performance metrics - `https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/analyze-and-use/work-with-key-performance-metrics`
+- Dynatrace - Apdex ratings - `https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/scores-and-ratings/apdex-ratings`
+- Dynatrace - Web application configuration API - `https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application`
+- Chrome DevTools Protocol - Network / Emulation
 - W3C Performance Timeline
