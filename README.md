@@ -46,10 +46,10 @@ SCORE-GEO-004
 O Overall usa o contrato:
 
 ```text
-EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
+HIERARCHICAL_WEIGHTED_READINESS_V1
 ```
 
-As dimensões são calculadas deterministicamente a partir de `RuleExecution` e evidências persistidas. Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador. Estados insuficientes não são convertidos em zero.
+O cálculo é hierárquico e ponderado por grupos/dimensões conforme o contrato vigente. As dimensões são calculadas deterministicamente a partir de `RuleExecution` e evidências persistidas. Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador. Estados insuficientes não são convertidos em zero.
 
 Para inspecionar o contrato atual:
 
@@ -69,29 +69,46 @@ Entrada principal por auditoria:
 report/index.html
 ```
 
-Páginas canônicas, materializadas quando aplicáveis:
+### Páginas pertencentes a uma execução `rasai audit`
+
+Uma análise de URLs concluída com sucesso deve terminar com as páginas audit-owned abaixo fisicamente materializadas. Quando uma página esperada não puder ser criada nem reparada a partir do `audit.db`, o comando retorna status de processo não-zero em vez de declarar silenciosamente que o mini-site está completo.
 
 ```text
 index.html               síntese executiva
 readiness.html           SARI-001
 scoring.html             metodologia de scoring e versão efetiva
-mobile.html              findings/evidências Mobile
-desktop.html             findings/evidências Desktop
-remediation.html         remediação
-content-suggestions.html conteúdo/JSON-LD advisory
+content-suggestions.html estado/sugestões de conteúdo e JSON-LD
 crawling-discovery.html  crawling/discovery
-accessibility.html       acessibilidade automatizada
-web-performance.html     Lighthouse/Core Web Vitals
-apdex.html               Synthetic Navigation Apdex
-apdex-experience.html    Synthetic User Experience Apdex
-ai-visibility.html       Observed Generative Visibility
-observability.html       Search & AI Observability
-quality.html             qualidade da evidência/decisão
-ai-usage.html            uso/custo estimado de IA
+accessibility.html       acessibilidade automatizada ou estado da coleta
+web-performance.html     Lighthouse/Core Web Vitals ou estado da coleta
+remediation.html         remediação
+ai-usage.html            uso/custo estimado de IA ou estado sem IA
 references.html          referências e metodologia
 ```
 
-A ordem e os filenames vêm de um contrato estruturado único (`ReportSurface`). Páginas opcionais só entram no menu quando materializadas. O item ativo é único e o mesmo catálogo é usado para navegação, testes, aliases, manifest e validação de completude.
+Páginas adicionais da própria auditoria são condicionais àquilo que foi efetivamente executado:
+
+```text
+mobile.html              quando existem snapshots Mobile
+desktop.html             quando existem snapshots Desktop
+apdex.html               quando Synthetic Navigation Apdex foi habilitado/executado
+apdex-experience.html    quando Synthetic User Experience Apdex foi habilitado/executado
+```
+
+### Páginas especialistas pós-auditoria
+
+As superfícies abaixo são canônicas, mas **não são prometidas por uma execução simples de `rasai audit`**. Elas aparecem no mesmo mini-site somente depois que a capacidade especializada correspondente tiver materializado dados para aquele AUD:
+
+```text
+search-intelligence.html Search Intelligence / SERP observado
+ai-visibility.html       Observed Generative Visibility
+observability.html       Search & AI Observability
+quality.html             qualidade da evidência/decisão
+```
+
+Portanto, a ausência desses quatro arquivos em um `AUD-*` recém-gerado não é, por si só, falha do relatório base.
+
+A ordem e os filenames vêm de um contrato estruturado único (`ReportSurface`). O menu contém somente páginas que existem fisicamente. O item ativo é único e o mesmo catálogo é usado para navegação, testes, manifest e validação de completude.
 
 ### `scoring.html` é estável
 
@@ -116,12 +133,17 @@ scoring_version
 report_contract_version
 observability_contract_version
 generated_pages
+audit_expected_pages
+audit_missing_pages
+audit_report_complete
 aliases
 generated_at
 source_db
 ```
 
-Ele não duplica score, findings ou evidence. É produzido a partir de `audit.db` em modo read-only e facilita debugging, completude e evolução para API/SaaS.
+`generated_pages` descreve o que existe fisicamente. `audit_expected_pages` descreve o conjunto exigido para aquela execução de auditoria, considerando os devices persistidos e os Apdex efetivamente habilitados. `audit_missing_pages` deve ficar vazio ao final de uma execução bem-sucedida.
+
+O manifest não duplica score, findings ou evidence. É produzido a partir de `audit.db` em modo read-only e facilita debugging, completude e evolução para API/SaaS.
 
 ## Como os reports se relacionam
 
@@ -135,17 +157,19 @@ Audit Evidence
    +--> Remediation                 derivado read-only
    |
    +--> Web Performance
-   |      +--> Accessibility        usa o artifact Lighthouse disponível
+   |      +--> Accessibility        usa o artifact Lighthouse quando disponível
    |
-   +--> Synthetic Navigation Apdex  complementar
+   +--> Synthetic Navigation Apdex  complementar e opt-in
    |
-   +--> Synthetic UX Apdex          complementar
+   +--> Synthetic UX Apdex          complementar e opt-in
    |
-   +--> Observed AI Visibility      observacional/import-first
+   +--> Search Intelligence         especialista/observacional
+   |
+   +--> Observed AI Visibility      especialista/import-first
    |
    +--> Observability               resultados externos pós-auditoria
    |
-   +--> Quality                     derivado read-only
+   +--> Quality                     derivado read-only pós-auditoria
    |
    +--> AI Usage                    telemetria de IA
 ```
@@ -162,7 +186,7 @@ O RASAi não trata toda evolução como uma única “versão”. Os eixos relev
 | `ruleset_version` | versão do conjunto de regras | persistida no AUD |
 | `sari_version` | identidade pública do índice | `SARI-001` |
 | `scoring_version` | fórmula/contrato de scoring | `SCORE-GEO-004` |
-| `report_contract_version` | contrato das superfícies HTML/manifest | `REPORT-CONTRACT-001` |
+| `report_contract_version` | contrato das superfícies HTML/manifest | `REPORT-CONTRACT-002` |
 | `observability_contract_version` | contrato do sidecar observacional | `OBSERVABILITY-CONTRACT-001` |
 
 A comparação longitudinal deve manter `scoring_version` compatível entre baseline e current. Nesta fase de desenvolvimento, a única metodologia de scoring suportada é `SCORE-GEO-004`.
@@ -242,7 +266,7 @@ rasai audit https://example.com --ai-provider none --web-performance
 
 Lighthouse é medição de laboratório; CrUX é dado agregado de campo quando disponível. Acessibilidade automatizada reutiliza o artifact Lighthouse persistido e não equivale a certificação WCAG integral.
 
-Esses indicadores permanecem separados do `SARI-001/SCORE-GEO-004`. Web Performance e Acessibilidade não exigem IA.
+Esses indicadores permanecem separados do `SARI-001/SCORE-GEO-004`. Web Performance e Acessibilidade não exigem IA. As páginas `web-performance.html` e `accessibility.html` são materializadas mesmo quando a coleta externa está desabilitada, para registrar explicitamente o estado `DESABILITADO/INDISPONÍVEL` em vez de deixar a ausência de arquivo ambígua.
 
 ## Apdex
 
@@ -251,7 +275,9 @@ RASAi possui dois domínios sintéticos separados:
 - **Synthetic Navigation Apdex** - navegação sintética controlada;
 - **Synthetic User Experience Apdex** - população sintética configurável, inclusive Mobile/Desktop/Tablet.
 
-Os dois têm URLs canônicas distintas (`apdex.html` e `apdex-experience.html`) e não aparecem duplicados no menu. Nenhum deles é RUM ou depende de IA. A configuração deve ser comparada com o perfil do sistema de referência antes de interpretar divergências com Dynatrace ou outra plataforma de real-user monitoring.
+Os dois têm URLs canônicas distintas (`apdex.html` e `apdex-experience.html`) e não aparecem duplicados no menu. Nenhum deles é RUM ou depende de IA. O Experience Apdex permite distribuir percentualmente as amostras sintéticas entre Mobile/Desktop/Tablet; a soma deve ser exatamente 100%. Esse mix representa a população de user actions/amostras, não o número bruto de subrequests HTTP disparados por cada página.
+
+A configuração deve ser comparada com o perfil do sistema de referência antes de interpretar divergências com Dynatrace ou outra plataforma de real-user monitoring.
 
 ## Observed Generative Visibility e Observability
 
@@ -319,6 +345,7 @@ Princípios:
 
 - `audit.db` + artifacts são evidência imutável da auditoria;
 - HTML e `report-manifest.json` são projeções, não segunda fonte de verdade;
+- uma execução `rasai audit` só é considerada completa no nível de processo quando todas as páginas audit-owned esperadas foram materializadas;
 - sidecars e índices consolidados são derivados/reconstruíveis;
 - secrets não devem ser persistidos em reports, SQLite, INI ou logs;
 - resultados externos `NULL` não viram zero;

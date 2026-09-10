@@ -15,6 +15,7 @@ from rasai.report_registry import install as install_report_registry
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 
 _LOGGER = logging.getLogger(__name__)
+_REPORT_PROJECTION_INCOMPLETE_EXIT = 3
 
 
 def _audits_root(argv: list[str]) -> Path:
@@ -44,17 +45,18 @@ def _try_refresh_platform_index(argv: list[str]) -> None:
 
 
 def _run_audit_and_finalize(effective: list[str]) -> int:
-    """Run one audit and materialize the current scoring method page last.
+    """Run one audit and validate its canonical HTML projection before success.
 
-    Scoring itself still runs before recommendations. Only the HTML projection is
-    deferred so the method page and canonical navigation reflect the final persisted
-    report site without changing score arithmetic. The canonical report filename is
-    stable across scoring-version revisions.
+    Scoring still runs before recommendations and audit evidence remains immutable.
+    The final pass only rebuilds HTML/CSS/manifest from already persisted evidence.
+    A command that completed the audit evidence but still cannot materialize an
+    expected audit-owned HTML page returns a distinct non-zero process status instead
+    of silently reporting a fully successful URL analysis.
     """
     from rasai import m9
-    from rasai import report_navigation
     from rasai.persistence import AuditWorkspace
-    from rasai.score_geo_004_reporting import REPORT_FILE, write_score_geo_004_report
+    from rasai.report_completion import finalize_audit_report_site
+    from rasai.score_geo_004_reporting import REPORT_FILE
 
     original_run_audit = cli_extensions._legacy_cli.run_audit
     original_score_writer = m9.write_score_geo_004_report
@@ -76,17 +78,45 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         cli_extensions._legacy_cli.run_audit = original_run_audit
         m9.write_score_geo_004_report = original_score_writer
 
-    if code == 0 and captured:
-        result = captured[-1]
-        try:
-            workspace = AuditWorkspace.open(result.audit_root)
-            score_path = write_score_geo_004_report(
-                audit_id=result.audit_id,
-                workspace=workspace,
-            )
-            report_navigation.normalize_report_navigation(score_path.parent)
-        except Exception:
-            _LOGGER.exception("Current scoring final report projection failed")
+    if code != 0 or not captured:
+        return code
+
+    result = captured[-1]
+    try:
+        workspace = AuditWorkspace.open(result.audit_root)
+        completion = finalize_audit_report_site(
+            audit_id=result.audit_id,
+            workspace=workspace,
+        )
+    except Exception:
+        _LOGGER.exception("Final audit report materialization gate failed")
+        print(
+            "Relatórios HTML: INCOMPLETOS - falha ao validar/materializar o mini-site final. "
+            "O audit.db já persistido foi preservado; consulte logs/audit.log."
+        )
+        return _REPORT_PROJECTION_INCOMPLETE_EXIT
+
+    for issue in completion.renderer_errors:
+        _LOGGER.warning("Audit report renderer issue during final repair: %s", issue)
+
+    if completion.missing_pages:
+        missing = ", ".join(completion.missing_pages)
+        _LOGGER.error("Expected audit report pages were not materialized: %s", missing)
+        print(
+            "Relatórios HTML: INCOMPLETOS - páginas esperadas não foram materializadas: "
+            f"{missing}. O audit.db foi preservado."
+        )
+        return _REPORT_PROJECTION_INCOMPLETE_EXIT
+
+    print(
+        "Relatórios HTML: COMPLETOS "
+        f"({len(completion.expected_pages)} página(s) esperada(s) para esta execução)."
+    )
+    if completion.renderer_errors:
+        print(
+            "Relatórios HTML: houve falha de enriquecimento reparável em um ou mais renderizadores; "
+            "as páginas canônicas esperadas existem e o detalhe foi registrado no log."
+        )
     return code
 
 
