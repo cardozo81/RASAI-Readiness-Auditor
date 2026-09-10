@@ -18,7 +18,7 @@ O usuário deve encontrar o resultado executivo antes da metodologia detalhada.
 Quando for necessário reproduzir trecho externo não pt-BR, usar o padrão:
 
 ```text
-Disclaimer — texto original da fonte
+Disclaimer - texto original da fonte
 <trecho estritamente necessário e fiel ao original>
 
 Tradução/adaptação pt-BR
@@ -59,9 +59,9 @@ Links para fontes externas não exigem reprodução de seu conteúdo. Não copia
 | `FAIL` | Problema identificado |
 | `NOT_APPLICABLE` | Não aplicável |
 | `ERROR` | Erro de execução da análise |
-| Core Web Vitals | Core Web Vitals — métricas de experiência real; preservar nome oficial |
-| Lighthouse Performance | Lighthouse Performance — score de laboratório; não traduzir como Score GEO |
-| CrUX / Chrome UX Report | CrUX / Chrome UX Report — dados agregados de usuários reais |
+| Core Web Vitals | Core Web Vitals - métricas de experiência real; preservar nome oficial |
+| Lighthouse Performance | Lighthouse Performance - score de laboratório; não traduzir como Score GEO |
+| CrUX / Chrome UX Report | CrUX / Chrome UX Report - dados agregados de usuários reais |
 | Field data | Dados de campo / experiência real agregada |
 | Lab data | Dados de laboratório |
 | LCP | Largest Contentful Paint (LCP) |
@@ -112,11 +112,11 @@ Estados textuais possíveis incluem:
 
 | Faixa | Termo | Natureza | Recomendado |
 |---:|---|---|---|
-| 90–100 | Excelente | classificação interna RASAi | usar somente em score RASAi válido/consolidável conforme a tela |
-| 75–89 | Alta | classificação interna RASAi | idem |
-| 60–74 | Moderada | classificação interna RASAi | idem |
-| 40–59 | Baixa | classificação interna RASAi | idem |
-| 0–39 | Crítica | classificação interna RASAi | idem |
+| 90-100 | Excelente | classificação interna RASAi | usar somente em score RASAi válido/consolidável conforme a tela |
+| 75-89 | Alta | classificação interna RASAi | idem |
+| 60-74 | Moderada | classificação interna RASAi | idem |
+| 40-59 | Baixa | classificação interna RASAi | idem |
+| 0-39 | Crítica | classificação interna RASAi | idem |
 | sem resultado válido | Não Determinada | ausência/insuficiência | não substituir por zero |
 
 Essas faixas são internas ao RASAi e não são parâmetros configuráveis da auditoria. Não devem ser reutilizadas automaticamente para classificar `Lighthouse Performance`, cujo score pertence à metodologia externa do Lighthouse.
@@ -155,8 +155,8 @@ Na primeira ocorrência, quando útil à leitura humana, pode-se usar:
 
 - Canonical (URL canônica);
 - Soft 404 (página com semântica de erro sem status HTTP apropriado);
-- Client-Side Rendering — CSR (renderização no navegador);
-- CrUX (Chrome UX Report — dados agregados de usuários reais);
+- Client-Side Rendering - CSR (renderização no navegador);
+- CrUX (Chrome UX Report - dados agregados de usuários reais);
 - Lighthouse Performance (score de laboratório do Lighthouse).
 
 ## 7. Seção de interpretação
