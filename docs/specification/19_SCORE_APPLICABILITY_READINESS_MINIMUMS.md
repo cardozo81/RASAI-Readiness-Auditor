@@ -1,4 +1,4 @@
-# Aplicabilidade de dimensões e premissas mínimas — SARI-001 / SCORE-GEO-004
+# Aplicabilidade de dimensões e premissas mínimas - SARI-001 / SCORE-GEO-004
 
 **Estado no baseline de desenvolvimento:** aprovado / vigente  
 **Scoring vigente em runtime:** `SCORE-GEO-004`  
