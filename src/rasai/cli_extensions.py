@@ -1,11 +1,11 @@
-"""CLI shim for additive providers, M23 Synthetic Apdex and M24 crawling diagnostics."""
+"""CLI composition for providers, Synthetic Apdex and crawling diagnostics."""
 from __future__ import annotations
 
 import os
 import sys
 from typing import Sequence
 
-from rasai import cli as _legacy_cli
+from rasai import cli as _audit_cli
 from rasai import m20 as _m20
 from rasai import report_navigation as _report_navigation
 from rasai.external_metrics_integrity import (
@@ -38,12 +38,12 @@ from rasai.source_quality import (
 )
 from rasai.source_quality_report_summary import enrich_source_quality_blocker_summary
 
-_LEGACY_BUILD_PARSER = _legacy_cli.build_parser
+_BASE_BUILD_PARSER = _audit_cli.build_parser
 
 
 def build_parser():
-    """Return a fresh legacy parser with additive provider/M23/M24 extensions."""
-    parser = _LEGACY_BUILD_PARSER()
+    """Return the audit parser with the current provider and diagnostic extensions."""
+    parser = _BASE_BUILD_PARSER()
     subparsers = next(
         action
         for action in parser._actions
@@ -51,15 +51,14 @@ def build_parser():
     )
     audit_parser = subparsers.choices["audit"]
     ai_action = next(action for action in audit_parser._actions if action.dest == "ai_provider")
-    legacy_choices = tuple(ai_action.choices or ())
-    ai_action.choices = legacy_choices + tuple(
-        item for item in extension_cli_choices() if item not in legacy_choices
+    base_choices = tuple(ai_action.choices or ())
+    ai_action.choices = base_choices + tuple(
+        item for item in extension_cli_choices() if item not in base_choices
     )
     ai_action.help = (
-        "semantic analysis provider; AUTO remains the homologated "
-        "OpenAI/DeepSeek/MiMo chain, extension providers are explicit-only; "
-        "when model/effort are not explicitly configured RASAi uses the "
-        "simplest supported model and lowest supported reasoning effort"
+        "semantic analysis provider; AUTO uses the configured OpenAI/DeepSeek/MiMo chain, "
+        "other registered providers are explicit-only; when model/effort are not explicitly "
+        "configured RASAi uses the simplest supported model and lowest supported reasoning effort"
     )
     web_timeout_action = next(
         action for action in audit_parser._actions
@@ -152,7 +151,7 @@ def _materialize_rasai_fail_open(*, audit_id, workspace, event_prefix: str) -> N
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run legacy CLI with additive provider, M23 and fail-open M24 enrichment."""
+    """Run the audit CLI with current provider and fail-open enrichment composition."""
     effective_argv = list(argv) if argv is not None else list(sys.argv[1:])
     install_discovery_extensions()
     os.environ.setdefault(
@@ -162,11 +161,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     m23_config = _resolve_m23_config(effective_argv)
     m24_config = _resolve_m24_config(effective_argv)
 
-    original_build_parser = _legacy_cli.build_parser
-    original_provider_builder = _legacy_cli.build_semantic_provider
+    original_build_parser = _audit_cli.build_parser
+    original_provider_builder = _audit_cli.build_semantic_provider
     original_m20_router = _m20.build_content_remediation_router
-    original_execute_m21 = _legacy_cli.execute_m21
-    original_enrich_m21 = _legacy_cli.enrich_m21_report_site
+    original_execute_m21 = _audit_cli.execute_m21
+    original_enrich_m21 = _audit_cli.enrich_m21_report_site
 
     configured_provider_for_m24 = None
     m23_result: M23ExecutionResult | None = None
@@ -409,7 +408,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     error_message=str(exc)[:512],
                 )
             try:
-                # Run before the final SARI/M24 projection so every already-created
+                # Run before the final SARI/crawling projection so every already-created
                 # domain page receives the same deterministic origin/redirect/TLS context.
                 enrich_source_quality_report_site(
                     audit_id=audit_id,
@@ -429,8 +428,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     error_message=str(exc)[:512],
                 )
             try:
-                # Preserve PR #70 ownership: SARI is finalized before M24 adds a
-                # separate non-scoring technical page and then normalizes navigation.
+                # Finalize SARI before the separate non-scoring crawling/discovery page.
                 rasai_path = enrich_rasai_reporting(
                     audit_id=audit_id,
                     workspace=workspace,
@@ -468,9 +466,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                         report_path=str(m24_report_path.relative_to(workspace.root)),
                         scoring_impact=_m24_scoring_impact(audit_id=audit_id, workspace=workspace),
                     )
-                    # PR #70 owns RASAi/device labels. Re-run the projection only
-                    # to normalize every final page after M24 has added its nav item;
-                    # persisted measurements remain untouched.
+                    # Re-run the SARI projection only to normalize every final page after
+                    # crawling/discovery has added its navigation item; persisted
+                    # measurements remain untouched.
                     enrich_rasai_reporting(
                         audit_id=audit_id,
                         workspace=workspace,
@@ -490,18 +488,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         return result
 
     try:
-        _legacy_cli.build_parser = build_parser
-        _legacy_cli.build_semantic_provider = capture_build_semantic_provider
+        _audit_cli.build_parser = build_parser
+        _audit_cli.build_semantic_provider = capture_build_semantic_provider
         _m20.build_content_remediation_router = build_content_remediation_router
-        _legacy_cli.execute_m21 = execute_m21_and_m23
-        _legacy_cli.enrich_m21_report_site = enrich_m21_and_m23
-        code = _legacy_cli.main(effective_argv)
+        _audit_cli.execute_m21 = execute_m21_and_m23
+        _audit_cli.enrich_m21_report_site = enrich_m21_and_m23
+        code = _audit_cli.main(effective_argv)
     finally:
-        _legacy_cli.build_parser = original_build_parser
-        _legacy_cli.build_semantic_provider = original_provider_builder
+        _audit_cli.build_parser = original_build_parser
+        _audit_cli.build_semantic_provider = original_provider_builder
         _m20.build_content_remediation_router = original_m20_router
-        _legacy_cli.execute_m21 = original_execute_m21
-        _legacy_cli.enrich_m21_report_site = original_enrich_m21
+        _audit_cli.execute_m21 = original_execute_m21
+        _audit_cli.enrich_m21_report_site = original_enrich_m21
 
     if source_quality_skip:
         print(
@@ -543,7 +541,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if m24_config is not None:
         if m24_result is not None:
             print(
-                "Rastreamento e descoberta M24: "
+                "Rastreamento e descoberta: "
                 f"{m24_result.status} (diagnósticos {m24_result.diagnostics_count}; "
                 f"llms.txt {m24_result.llms_state}; IA técnica {m24_result.ai_state}; "
                 f"impacto no score {m24_result.scoring_impact})"
@@ -552,7 +550,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"Relatório de rastreamento e descoberta: {m24_report_path}")
         elif m24_error:
             print(
-                "Rastreamento e descoberta M24: INCOMPLETO por erro operacional; "
+                "Rastreamento e descoberta: INCOMPLETO por erro operacional; "
                 "SCORE-GEO-004/SARI-001 foram preservados"
             )
     return code
