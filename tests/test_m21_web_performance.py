@@ -86,7 +86,10 @@ class M21WebPerformanceTests(unittest.TestCase):
         self.assertFalse(config.enabled)
         self.assertEqual(config.max_pages, 10)
         self.assertEqual(config.field_source, "auto")
-        self.assertEqual(config.categories, ("performance", "accessibility", "best-practices", "seo"))
+        self.assertEqual(
+            config.categories,
+            ("performance", "accessibility", "best-practices", "seo", "agentic-browsing"),
+        )
 
     def test_pagespeed_persists_lighthouse_and_cwv_without_touching_score(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -104,7 +107,10 @@ class M21WebPerformanceTests(unittest.TestCase):
             self.assertEqual(result.partial_contexts, 0)
             self.assertEqual(len(psi.calls), 1)
             self.assertEqual(psi.calls[0][1], "mobile")
-            self.assertEqual(psi.calls[0][2], ("performance", "accessibility", "best-practices", "seo"))
+            self.assertEqual(
+                psi.calls[0][2],
+                ("performance", "accessibility", "best-practices", "seo", "agentic-browsing"),
+            )
 
             connection = sqlite3.connect(workspace.database)
             connection.row_factory = sqlite3.Row
@@ -112,6 +118,7 @@ class M21WebPerformanceTests(unittest.TestCase):
                 row = connection.execute("SELECT * FROM web_performance_observations").fetchone()
                 self.assertAlmostEqual(row["performance_score"], 91.0)
                 self.assertAlmostEqual(row["accessibility_score"], 88.0)
+                self.assertAlmostEqual(row["agentic_browsing_score"], 84.0)
                 self.assertAlmostEqual(row["lcp_p75_ms"], 2400.0)
                 self.assertAlmostEqual(row["inp_p75_ms"], 180.0)
                 self.assertAlmostEqual(row["cls_p75"], 0.08)
@@ -285,7 +292,8 @@ class M21WebPerformanceTests(unittest.TestCase):
             self.assertIn("SCORE-GEO-004", html)
             self.assertIn("Core Web Vitals", html)
             self.assertIn("Lighthouse", html)
-            self.assertIn("não é convertido", html)
+            self.assertIn("Nenhum desses scores é convertido automaticamente", html)
+            self.assertIn("Agentic Browsing", html)
             self.assertIn("web-performance.html", (report / "index.html").read_text(encoding="utf-8"))
             self.assertIn("PageSpeed Insights API v5", (report / "references.html").read_text(encoding="utf-8"))
 
@@ -322,6 +330,7 @@ class M21WebPerformanceTests(unittest.TestCase):
                 "categories": {
                     "performance": {"score": 0.91}, "accessibility": {"score": 0.88},
                     "best-practices": {"score": 0.95}, "seo": {"score": 1.0},
+                    "agentic-browsing": {"score": 0.84},
                 },
                 "audits": {
                     "first-contentful-paint": {"numericValue": 900}, "speed-index": {"numericValue": 1200},
