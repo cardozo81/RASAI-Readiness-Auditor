@@ -189,13 +189,13 @@ class InteractiveConsoleTests(unittest.TestCase):
             state.audit_id = ""
             self.assertIsNone(audit_workspace(state))
 
-    def test_report_entrypoint_supports_legacy_fallback_without_hiding_current_layout(self) -> None:
+    def test_report_entrypoint_requires_canonical_layout(self) -> None:
         with TemporaryDirectory() as directory:
             workspace = Path(directory) / "AUD-X"
             (workspace / "report").mkdir(parents=True)
-            legacy = workspace / "report.html"
-            legacy.write_text("legacy", encoding="utf-8")
-            self.assertEqual(report_entrypoint(workspace), legacy.resolve())
+            noncanonical = workspace / "report.html"
+            noncanonical.write_text("noncanonical", encoding="utf-8")
+            self.assertIsNone(report_entrypoint(workspace))
             current = workspace / "report" / "index.html"
             current.write_text("current", encoding="utf-8")
             self.assertEqual(report_entrypoint(workspace), current.resolve())
