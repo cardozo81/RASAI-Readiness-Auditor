@@ -23,16 +23,20 @@ def test_external_identity_is_explicit_stable_and_non_provisioning() -> None:
                 subject="external-subject-123",
                 email="A@EXAMPLE.TEST",
             )
-            assert linked.issuer == "https://login.example.test"
+            assert linked.issuer == "https://login.example.test/"
             assert linked.email == "a@example.test"
+            assert identities.resolve_user_id(
+                issuer="https://login.example.test/",
+                subject="external-subject-123",
+            ) == user_a.user_id
             assert identities.resolve_user_id(
                 issuer="https://login.example.test",
                 subject="external-subject-123",
-            ) == user_a.user_id
+            ) is None
 
             same = identities.link(
                 user_id=user_a.user_id,
-                issuer="https://login.example.test",
+                issuer="https://login.example.test/",
                 subject="external-subject-123",
                 email="a@example.test",
             )
@@ -41,17 +45,24 @@ def test_external_identity_is_explicit_stable_and_non_provisioning() -> None:
             with pytest.raises(ValueError, match="different RASAi user"):
                 identities.link(
                     user_id=user_b.user_id,
-                    issuer="https://login.example.test",
+                    issuer="https://login.example.test/",
                     subject="external-subject-123",
                 )
 
-            assert identities.resolve_user_id(
+            distinct_issuer = identities.link(
+                user_id=user_b.user_id,
                 issuer="https://login.example.test",
+                subject="external-subject-123",
+            )
+            assert distinct_issuer.user_id == user_b.user_id
+
+            assert identities.resolve_user_id(
+                issuer="https://login.example.test/",
                 subject="unknown",
             ) is None
             assert identities.unlink(linked.external_identity_id)
             assert identities.resolve_user_id(
-                issuer="https://login.example.test",
+                issuer="https://login.example.test/",
                 subject="external-subject-123",
             ) is None
         finally:
@@ -61,5 +72,7 @@ def test_external_identity_is_explicit_stable_and_non_provisioning() -> None:
 def test_external_identity_validation_fails_closed() -> None:
     with pytest.raises(ValueError, match="HTTPS"):
         normalize_issuer("http://idp.example.test")
+    with pytest.raises(ValueError, match="query"):
+        normalize_issuer("https://idp.example.test?tenant=a")
     with pytest.raises(ValueError, match="control"):
         normalize_subject("subject\nwith-control")
