@@ -20,6 +20,7 @@ _LIGHTHOUSE_CATEGORY_LABELS = {
     "accessibility": "Accessibility",
     "best-practices": "Best Practices",
     "seo": "SEO técnico",
+    "agentic-browsing": "Agentic Browsing",
 }
 
 _OFFICIAL_REFERENCES = (
@@ -57,6 +58,11 @@ _OFFICIAL_REFERENCES = (
         "Lighthouse SEO",
         "https://developer.chrome.com/docs/lighthouse/seo/",
         "Auditorias automatizadas de fundamentos técnicos de SEO; não representa uma avaliação integral de SEO ou ranking.",
+    ),
+    (
+        "Lighthouse Agentic Browsing",
+        "https://github.com/GoogleChrome/lighthouse/blob/main/core/config/agentic-browsing-config.js",
+        "Categoria experimental do Lighthouse voltada a práticas que afetam a interação e compreensão por agentes de IA.",
     ),
     (
         "Chrome UX Report API",
@@ -200,12 +206,12 @@ def _performance_page(data: dict[str, Any], report_dir: Path) -> str:
     nav = _nav(report_dir)
     ownership = _ownership_section(categories)
     return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Web Performance - RASAi - Search & AI Readiness Auditor</title><link rel='stylesheet' href='css/site.css'></head><body>{nav}<main class='app-main'>
-<header class='hero'><div class='eyebrow'>Web Performance · evidência externa Lighthouse + CrUX</div><h1>Qualidade Web, Lighthouse e Core Web Vitals</h1><p class='lead'>O RASAi coleta, persiste e contextualiza evidências externas sem assumir autoria sobre os scores do Lighthouse. Performance, Accessibility, Best Practices e SEO técnico são categorias do Google Chrome Lighthouse; Core Web Vitals de campo pertencem ao CrUX. Lighthouse/CrUX não é convertido em SARI-001 ou {SCORING_VERSION}; cada metodologia permanece independente.</p><div class='metric-grid'>{_metric('Coleta externa', 'Habilitada' if enabled else 'Desabilitada')}{_metric('Status', status)}{_metric('Páginas consideradas', pages)}{_metric('Contextos', f'{successes}/{contexts}')}{_metric('Limite configurado', limit_label)}{_metric('Field source', field_source)}</div></header>
+<header class='hero'><div class='eyebrow'>Web Performance · evidência externa Lighthouse + CrUX</div><h1>Qualidade Web, Lighthouse e Core Web Vitals</h1><p class='lead'>O RASAi coleta, persiste e contextualiza evidências externas sem assumir autoria sobre os scores do Lighthouse. Performance, Accessibility, Best Practices e SEO técnico são categorias consolidadas do Google Chrome Lighthouse; Agentic Browsing é uma categoria experimental do Lighthouse. Core Web Vitals de campo pertencem ao CrUX. Nenhum desses scores é convertido automaticamente em SARI-001 ou {SCORING_VERSION}; cada metodologia permanece independente.</p><div class='metric-grid'>{_metric('Coleta externa', 'Habilitada' if enabled else 'Desabilitada')}{_metric('Status', status)}{_metric('Páginas consideradas', pages)}{_metric('Contextos', f'{successes}/{contexts}')}{_metric('Limite configurado', limit_label)}{_metric('Field source', field_source)}</div></header>
 {notice}
 {ownership}
 <section class='panel'><div class='kicker'>Resultados</div><h2>Por página e dispositivo</h2>{''.join(cards) if cards else '<p class="intro">Nenhuma observação externa persistida.</p>'}</section>
 <section class='panel'><div class='kicker'>Operação externa</div><h2>Tentativas de coleta</h2><p class='intro'>Esta telemetria é de serviços de medição, não de IA. Chaves de API nunca são persistidas nem exibidas.</p><div class='table-wrap'><table><thead><tr><th>URL</th><th>Device</th><th>Serviço</th><th>Status</th><th>HTTP</th><th>Duração</th><th>Erro</th></tr></thead><tbody>{''.join(attempt_rows) if attempt_rows else '<tr><td colspan="7">Nenhuma chamada externa.</td></tr>'}</tbody></table></div></section>
-<section class='panel'><div class='kicker'>Governança de consumo</div><h2>Custos, quota e IA</h2><p class='intro'>Web Performance e Acessibilidade não criam chamadas a LLM. OpenAI, DeepSeek e MiMo permanecem restritos às finalidades de IA explicitamente configuradas. O consumo desta camada é PageSpeed/CrUX e ocorre apenas quando habilitado.</p><p class='intro'>PageSpeed pode ser chamado sem chave em baixo volume, mas uma chave é recomendada para automação frequente. CrUX API direta exige chave. O limite de páginas e o timeout são configuráveis para controlar quota e duração.</p></section>
+<section class='panel'><div class='kicker'>Governança de consumo</div><h2>Custos, quota e IA</h2><p class='intro'>Web Performance e Acessibilidade não criam chamadas a LLM. O consumo desta camada é PageSpeed/CrUX e ocorre apenas quando habilitado.</p><p class='intro'>PageSpeed pode ser chamado sem chave em baixo volume, mas uma chave é recomendada para automação frequente. CrUX API direta exige chave. O limite de páginas e o timeout são configuráveis para controlar quota e duração.</p></section>
 <footer class='footer'>Web Performance é evidência complementar. SARI-001 e {SCORING_VERSION} permanecem metodologicamente independentes.</footer></main></body></html>
 """
 
@@ -216,9 +222,10 @@ def _ownership_section(categories: str) -> str:
 <tr><td><strong>Accessibility</strong></td><td>Google Chrome Lighthouse</td><td><code>lighthouseResult.categories.accessibility.score</code></td><td>Auditorias automatizadas de acessibilidade. Não equivale a conformidade WCAG completa.</td><td>O score é espelhado aqui para completar o conjunto Lighthouse e detalhado em <a href='accessibility.html'>Acessibilidade</a>.</td></tr>
 <tr><td><strong>Best Practices</strong></td><td>Google Chrome Lighthouse</td><td><code>lighthouseResult.categories.best-practices.score</code></td><td>Checks automatizados de qualidade técnica, segurança e práticas modernas suportadas pelo Lighthouse.</td><td>Indicador complementar; não recebe peso automático no SARI-001/{SCORING_VERSION}.</td></tr>
 <tr><td><strong>SEO técnico</strong></td><td>Google Chrome Lighthouse</td><td><code>lighthouseResult.categories.seo.score</code></td><td>Fundamentos técnicos automatizáveis de SEO/indexabilidade. Não mede ranking, tráfego, autoridade, conteúdo integral, SERP ou probabilidade de citação por IA.</td><td>Indicador complementar. Search Intelligence/SERP e Search & AI Readiness permanecem domínios separados.</td></tr>
+<tr><td><strong>Agentic Browsing</strong></td><td>Google Chrome Lighthouse · experimental</td><td><code>lighthouseResult.categories.agentic-browsing.score</code></td><td>Checks experimentais voltados à capacidade de agentes automatizados compreenderem e operarem a página. A composição pode evoluir com versões do Lighthouse.</td><td>Indicador complementar e experimental; não é tratado como score proprietário nem entra automaticamente no SARI-001/{SCORING_VERSION}.</td></tr>
 <tr><td><strong>Core Web Vitals</strong></td><td>Google Chrome UX Report (CrUX)</td><td>LCP, INP e CLS no percentil 75</td><td>Experiência agregada de usuários reais quando há amostra suficiente.</td><td>RASAi preserva a fonte/escopo e não transforma ausência de amostra em falha.</td></tr>
 <tr><td><strong>Diagnósticos exibidos</strong></td><td>Lighthouse + projeção RASAi</td><td><code>auditRefs</code> e <code>audits</code> do artifact PageSpeed</td><td>O RASAi seleciona e apresenta checks reprovados/diagnósticos sem alterar o resultado-fonte.</td><td>Camada explicativa e de rastreabilidade, não um novo score.</td></tr>
-</tbody></table></div><div class='notice'><strong>Regra de leitura:</strong> um score Lighthouse alto significa bom resultado apenas no conjunto de auditorias automatizadas daquela categoria e daquela execução. Não deve ser renomeado como score proprietário do RASAi.</div><p class='intro'>Categorias solicitadas nesta execução: <code>{escape(categories)}</code>.</p></section>"""
+</tbody></table></div><div class='notice'><strong>Regra de leitura:</strong> um score Lighthouse alto significa bom resultado apenas no conjunto de auditorias automatizadas daquela categoria e daquela execução. Agentic Browsing deve ser lido como experimental e version-dependent. Nenhum deles deve ser renomeado como score proprietário do RASAi.</div><p class='intro'>Categorias solicitadas nesta execução: <code>{escape(categories)}</code>.</p></section>"""
 
 
 def _observation_card(row: dict[str, Any]) -> str:
@@ -227,15 +234,16 @@ def _observation_card(row: dict[str, Any]) -> str:
         + _metric("Accessibility · Lighthouse", _score(row.get("accessibility_score")))
         + _metric("Best Practices · Lighthouse", _score(row.get("best_practices_score")))
         + _metric("SEO técnico · Lighthouse", _score(row.get("seo_score")))
+        + _metric("Agentic Browsing · Lighthouse experimental", _score(row.get("agentic_browsing_score")))
     )
     diagnostics = row.get("lighthouse_category_diagnostics")
     return f"""<article class='page-card'><div class='finding-head'><div><span class='badge'>{escape(str(row.get('device') or '-'))}</span> <span class='badge info'>{escape(str(row.get('status') or '-'))}</span></div><span class='badge'>{escape(str(row.get('field_source') or 'SEM FIELD DATA'))}</span></div>
 <h3 class='page-url'>{escape(str(row.get('normalized_url') or row.get('url') or '-'))}</h3>
-<h4>Lighthouse · quatro categorias oficiais coletadas</h4><div class='metric-grid'>{category_scores}</div>
-<p class='intro'>Os quatro valores acima vêm diretamente das categorias do <code>lighthouseResult</code> e são persistidos em escala 0-100. O RASAi multiplica o valor 0..1 retornado pela API por 100 apenas para apresentação; não repondera, não combina e não recalcula a metodologia Lighthouse. <strong>SEO técnico</strong> não deve ser interpretado como “SEO total”.</p>
+<h4>Lighthouse · scores por categoria</h4><div class='metric-grid'>{category_scores}</div>
+<p class='intro'>Os valores acima vêm diretamente das categorias presentes no <code>lighthouseResult</code> e são persistidos em escala 0-100. O RASAi multiplica o valor 0..1 retornado pela API por 100 apenas para apresentação; não repondera, não combina e não recalcula a metodologia Lighthouse. <strong>SEO técnico</strong> não representa “SEO total”; <strong>Agentic Browsing</strong> é experimental.</p>
 {_category_checks(diagnostics)}
 <h4>Performance · métricas de laboratório associadas ao Lighthouse</h4><div class='metric-grid'>{_metric('FCP lab', _ms(row.get('fcp_lab_ms')))}{_metric('Speed Index', _ms(row.get('speed_index_lab_ms')))}{_metric('LCP lab', _ms(row.get('lcp_lab_ms')))}{_metric('TBT lab', _ms(row.get('tbt_lab_ms')))}{_metric('CLS lab', _number(row.get('cls_lab'), 3))}</div>
-<p class='intro'>FCP, Speed Index, LCP lab, TBT e CLS lab pertencem ao diagnóstico de <strong>Performance Lighthouse</strong>. Eles não são detalhes de Accessibility, Best Practices ou SEO. Diagnósticos adicionais de performance extraídos do artifact são apresentados nesta página pelo módulo de qualidade Web.</p>
+<p class='intro'>FCP, Speed Index, LCP lab, TBT e CLS lab pertencem ao diagnóstico de <strong>Performance Lighthouse</strong>. Eles não são detalhes de Accessibility, Best Practices, SEO ou Agentic Browsing.</p>
 <h4>Core Web Vitals · dados reais CrUX</h4><div class='metric-grid'>{_metric('CWV', str(row.get('cwv_assessment') or '-'))}{_metric('LCP p75', _ms(row.get('lcp_p75_ms')))}{_metric('INP p75', _ms(row.get('inp_p75_ms')))}{_metric('CLS p75', _number(row.get('cls_p75'), 3))}{_metric('Escopo', str(row.get('field_scope') or '-'))}{_metric('Fonte', str(row.get('field_source') or '-'))}</div>
 {_cwv_explanation(row)}{_technical_details(row)}</article>"""
 
@@ -244,7 +252,7 @@ def _category_checks(diagnostics: Any) -> str:
     if not isinstance(diagnostics, dict):
         return "<div class='notice'><strong>Detalhes de checks Lighthouse:</strong> artifact bruto indisponível para projeção. Os scores persistidos permanecem sujeitos ao gate de integridade externo.</div>"
     blocks = []
-    for category_id in ("best-practices", "seo"):
+    for category_id in ("best-practices", "seo", "agentic-browsing"):
         detail = diagnostics.get(category_id)
         if not isinstance(detail, dict):
             continue
@@ -279,12 +287,13 @@ def _category_checks(diagnostics: Any) -> str:
             + ("".join(rows) if rows else "<tr><td colspan='5'>Nenhum check reprovado com detalhe estruturado neste artifact.</td></tr>")
             + "</tbody></table></div>"
         )
+        experimental = " Categoria experimental; sua composição pode mudar entre versões do Lighthouse." if category_id == "agentic-browsing" else ""
         blocks.append(
             f"<details><summary>{escape(label)} · checks Lighthouse ({escape(summary)})</summary>"
             f"<div class='detail-body'><p class='intro'>Resumo calculado pelo RASAi a partir dos <code>auditRefs</code> da categoria. "
-            f"O score da categoria continua sendo o valor oficial fornecido pelo Lighthouse.</p>{failure_table}</div></details>"
+            f"O score da categoria continua sendo o valor fornecido pelo Lighthouse.{escape(experimental)}</p>{failure_table}</div></details>"
         )
-    return "".join(blocks) if blocks else "<p class='intro'>O artifact não trouxe <code>auditRefs</code> detalhados para Best Practices/SEO.</p>"
+    return "".join(blocks) if blocks else "<p class='intro'>O artifact não trouxe <code>auditRefs</code> detalhados para Best Practices, SEO ou Agentic Browsing.</p>"
 
 
 def _load_lighthouse_category_diagnostics(
@@ -387,15 +396,16 @@ def _index_summary(data: dict[str, Any]) -> str:
     accessibility = _average_score(observations, "accessibility_score")
     best_practices = _average_score(observations, "best_practices_score")
     seo = _average_score(observations, "seo_score")
-    return f"""<section id='web-performance-summary' class='panel'><div class='kicker'>Qualidade Web · evidência externa</div><h2>Web Performance e Lighthouse</h2><p class='intro'>Os scores Lighthouse são evidências externas: Performance, Accessibility, Best Practices e SEO técnico. O RASAi coleta e contextualiza esses valores sem convertê-los em {SCORING_VERSION}. Core Web Vitals permanecem field data CrUX.</p><div class='metric-grid'>{_metric('Coleta', 'Habilitada' if enabled else 'Desabilitada')}{_metric('Status', status)}{_metric('CWV aprovados', f'{cwv_pass}/{cwv_valid}' if cwv_valid else 'NÃO DISPONÍVEL')}{_metric('Performance Lighthouse · média', _score(performance))}{_metric('Accessibility Lighthouse · média', _score(accessibility))}{_metric('Best Practices Lighthouse · média', _score(best_practices))}{_metric('SEO técnico Lighthouse · média', _score(seo))}</div><p><a href='{PERFORMANCE_FILE}'>Abrir Web Performance →</a></p></section>"""
+    agentic = _average_score(observations, "agentic_browsing_score")
+    return f"""<section id='web-performance-summary' class='panel'><div class='kicker'>Qualidade Web · evidência externa</div><h2>Web Performance e Lighthouse</h2><p class='intro'>Os scores Lighthouse são evidências externas: Performance, Accessibility, Best Practices, SEO técnico e Agentic Browsing experimental. O RASAi coleta e contextualiza esses valores sem convertê-los em {SCORING_VERSION}. Core Web Vitals permanecem field data CrUX.</p><div class='metric-grid'>{_metric('Coleta', 'Habilitada' if enabled else 'Desabilitada')}{_metric('Status', status)}{_metric('CWV aprovados', f'{cwv_pass}/{cwv_valid}' if cwv_valid else 'NÃO DISPONÍVEL')}{_metric('Performance Lighthouse · média', _score(performance))}{_metric('Accessibility Lighthouse · média', _score(accessibility))}{_metric('Best Practices Lighthouse · média', _score(best_practices))}{_metric('SEO técnico Lighthouse · média', _score(seo))}{_metric('Agentic Browsing Lighthouse · média experimental', _score(agentic))}</div><p><a href='{PERFORMANCE_FILE}'>Abrir Web Performance →</a></p></section>"""
 
 
 def _references_section() -> str:
     rows = "".join(
-        f"<tr><td>{escape(name)}</td><td>OFICIAL</td><td>{escape(description)}</td><td><a href='{escape(url)}' target='_blank' rel='noopener'>abrir fonte</a></td></tr>"
+        f"<tr><td>{escape(name)}</td><td>OFICIAL/PRIMÁRIA</td><td>{escape(description)}</td><td><a href='{escape(url)}' target='_blank' rel='noopener'>abrir fonte</a></td></tr>"
         for name, url, description in _OFFICIAL_REFERENCES
     )
-    return f"""<section id='web-performance-methodology' class='panel'><div class='kicker'>Qualidade Web externa · fontes oficiais</div><h2>Lighthouse, Core Web Vitals e limites de interpretação</h2><p class='intro'>Estas fontes sustentam somente os fenômenos que documentam. As quatro categorias Lighthouse - Performance, Accessibility, Best Practices e SEO técnico - permanecem métricas externas distintas. Elas não homologam SARI-001 nem o Overall Readiness do RASAi.</p><div class='table-wrap'><table><thead><tr><th>Fonte</th><th>Base</th><th>Uso</th><th>Referência</th></tr></thead><tbody>{rows}</tbody></table></div><div class='notice'><strong>Regra de interpretação:</strong> field data CrUX é experiência agregada de usuários reais; Lighthouse é auditoria automatizada/laboratório. Performance, Accessibility, Best Practices e SEO são categorias Lighthouse distintas. Nenhuma delas é convertida silenciosamente em peso, fator ou threshold do {SCORING_VERSION}.</div></section>"""
+    return f"""<section id='web-performance-methodology' class='panel'><div class='kicker'>Qualidade Web externa · fontes primárias</div><h2>Lighthouse, Core Web Vitals e limites de interpretação</h2><p class='intro'>Performance, Accessibility, Best Practices e SEO técnico são categorias Lighthouse consolidadas nesta integração; Agentic Browsing é uma categoria experimental do próprio Lighthouse. Todas permanecem métricas externas distintas e não homologam SARI-001 nem o Overall Readiness do RASAi.</p><div class='table-wrap'><table><thead><tr><th>Fonte</th><th>Base</th><th>Uso</th><th>Referência</th></tr></thead><tbody>{rows}</tbody></table></div><div class='notice'><strong>Regra de interpretação:</strong> field data CrUX é experiência agregada de usuários reais; Lighthouse é auditoria automatizada/laboratório. Nenhuma categoria é convertida silenciosamente em peso, fator ou threshold do {SCORING_VERSION}.</div></section>"""
 
 
 def _nav(report_dir: Path) -> str:
@@ -414,7 +424,7 @@ def _cwv_explanation(row: dict[str, Any]) -> str:
 
 
 def _technical_details(row: dict[str, Any]) -> str:
-    return f"""<details><summary>Rastreabilidade técnica</summary><div class='detail-body'><p><strong>Lighthouse version:</strong> {escape(str(row.get('lighthouse_version') or '-'))} · <strong>fetch time:</strong> {escape(str(row.get('lighthouse_fetch_time') or '-'))}</p><p><strong>Origem dos scores:</strong> <code>lighthouseResult.categories.performance.score</code> · <code>accessibility.score</code> · <code>best-practices.score</code> · <code>seo.score</code>. Persistência RASAi: <code>performance_score</code>, <code>accessibility_score</code>, <code>best_practices_score</code>, <code>seo_score</code>.</p><p><strong>PageSpeed artifact:</strong> <code>{escape(str(row.get('pagespeed_artifact_reference') or '-'))}</code></p><p><strong>CrUX artifact:</strong> <code>{escape(str(row.get('crux_artifact_reference') or '-'))}</code></p><p><strong>Erros/limitações:</strong> {escape(str(row.get('error_summary') or '-'))}</p><p><strong>Separação metodológica:</strong> Lighthouse/CrUX não dependem de LLM e não alteram SARI-001/{SCORING_VERSION}. Search Intelligence/SERP também não é inferido destes scores.</p></div></details>"""
+    return f"""<details><summary>Rastreabilidade técnica</summary><div class='detail-body'><p><strong>Lighthouse version:</strong> {escape(str(row.get('lighthouse_version') or '-'))} · <strong>fetch time:</strong> {escape(str(row.get('lighthouse_fetch_time') or '-'))}</p><p><strong>Origem dos scores:</strong> <code>lighthouseResult.categories.performance.score</code> · <code>accessibility.score</code> · <code>best-practices.score</code> · <code>seo.score</code> · <code>agentic-browsing.score</code>. Persistência RASAi: <code>performance_score</code>, <code>accessibility_score</code>, <code>best_practices_score</code>, <code>seo_score</code>, <code>agentic_browsing_score</code>.</p><p><strong>PageSpeed artifact:</strong> <code>{escape(str(row.get('pagespeed_artifact_reference') or '-'))}</code></p><p><strong>CrUX artifact:</strong> <code>{escape(str(row.get('crux_artifact_reference') or '-'))}</code></p><p><strong>Erros/limitações:</strong> {escape(str(row.get('error_summary') or '-'))}</p><p><strong>Separação metodológica:</strong> Lighthouse/CrUX não dependem de LLM e não alteram SARI-001/{SCORING_VERSION}. Search Intelligence/SERP também não é inferido destes scores.</p></div></details>"""
 
 
 def _average_score(observations: list[dict[str, Any]], key: str) -> float | None:
