@@ -55,13 +55,14 @@ def test_auto_exclusion_rejects_unknown_provider() -> None:
         parse_auto_exclusions("does-not-exist")
 
 
-def test_current_pagespeed_contract_accepts_agentic_and_defaults_to_it() -> None:
+def test_current_pagespeed_contract_accepts_agentic_and_defaults_to_it(monkeypatch) -> None:
     from rasai import cli, m21_web_performance
 
+    monkeypatch.delenv("RASAI_LIGHTHOUSE_CATEGORIES", raising=False)
     _install_current_pagespeed_categories()
     config = m21_web_performance.WebPerformanceConfig(enabled=True).validate()
     assert config.categories == _CURRENT_PSI_CATEGORIES
-    assert "agentic-browsing" in cli._configured_lighthouse_categories(None)
+    assert cli._configured_lighthouse_categories(None) == _CURRENT_PSI_CATEGORIES
     explicit = m21_web_performance.WebPerformanceConfig(
         enabled=True,
         categories=("agentic-browsing",),
@@ -151,4 +152,5 @@ def test_search_report_explains_disabled_content_comparison() -> None:
     }
     html = reporting._competitive_section(analysis, [], [])
     assert "Por que as listas estão vazias" in html
-    assert "somente classificação SERP" in html
+    assert "classificação determinística dos resultados SERP" in html
+    assert "Nenhuma página concorrente/cliente foi adquirida" in html
