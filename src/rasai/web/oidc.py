@@ -41,19 +41,54 @@ class OidcTokenError(ValueError):
     pass
 
 
-def _absolute_https(value: str, *, field: str) -> str:
+def _issuer_url(value: str, *, field: str) -> str:
+    """Validate an issuer while preserving its exact security identifier."""
+
     text = value.strip()
     parts = urlsplit(text)
-    if parts.scheme != "https" or not parts.hostname or parts.fragment:
-        raise OidcConfigurationError(f"{field} must be an absolute HTTPS URL without fragment")
+    if (
+        parts.scheme != "https"
+        or not parts.hostname
+        or parts.query
+        or parts.fragment
+        or parts.username is not None
+        or parts.password is not None
+    ):
+        raise OidcConfigurationError(
+            f"{field} must be an absolute HTTPS URL without userinfo, query or fragment"
+        )
+    return text
+
+
+def _https_endpoint(value: str, *, field: str) -> str:
+    text = value.strip()
+    parts = urlsplit(text)
+    if (
+        parts.scheme != "https"
+        or not parts.hostname
+        or parts.fragment
+        or parts.username is not None
+        or parts.password is not None
+    ):
+        raise OidcConfigurationError(
+            f"{field} must be an absolute HTTPS URL without userinfo or fragment"
+        )
     return text
 
 
 def _redirect_uri(value: str) -> str:
     text = value.strip()
     parts = urlsplit(text)
-    if not parts.hostname or parts.fragment or parts.scheme not in {"https", "http"}:
-        raise OidcConfigurationError("RASAI_OIDC_REDIRECT_URI must be an absolute HTTP(S) URL without fragment")
+    if (
+        not parts.hostname
+        or parts.fragment
+        or parts.scheme not in {"https", "http"}
+        or parts.username is not None
+        or parts.password is not None
+    ):
+        raise OidcConfigurationError(
+            "RASAI_OIDC_REDIRECT_URI must be an absolute HTTP(S) URL without userinfo or fragment"
+        )
     if parts.scheme == "http" and parts.hostname not in {"localhost", "127.0.0.1", "::1"}:
         raise OidcConfigurationError("HTTP OIDC redirect URI is allowed only for loopback development")
     return text
@@ -82,7 +117,7 @@ class OidcSettings:
 
     @classmethod
     def from_environment(cls) -> "OidcSettings":
-        issuer = _absolute_https(os.getenv(OIDC_ISSUER_ENV, ""), field=OIDC_ISSUER_ENV).rstrip("/")
+        issuer = _issuer_url(os.getenv(OIDC_ISSUER_ENV, ""), field=OIDC_ISSUER_ENV)
         client_id = os.getenv(OIDC_CLIENT_ID_ENV, "").strip()
         if not client_id:
             raise OidcConfigurationError(f"{OIDC_CLIENT_ID_ENV} is required for oidc auth mode")
@@ -126,6 +161,12 @@ class OidcSettings:
     def public_origin(self) -> str:
         parts = urlsplit(self.redirect_uri)
         return f"{parts.scheme}://{parts.netloc}"
+
+    @property
+    def discovery_url(self) -> str:
+        # OIDC Discovery removes a terminating slash before appending the
+        # well-known suffix, but the issuer identifier itself remains exact.
+        return self.issuer.rstrip("/") + "/.well-known/openid-configuration"
 
 
 JsonGetter = Callable[[str], Awaitable[Mapping[str, Any]]]
@@ -195,12 +236,11 @@ class OidcRuntime:
             now = time.monotonic()
             if not force_refresh and self._discovery and self._discovery[0] > now:
                 return dict(self._discovery[1])
-            url = self.settings.issuer + "/.well-known/openid-configuration"
-            document = dict(await self._json_getter(url))
-            if str(document.get("issuer", "")).rstrip("/") != self.settings.issuer:
-                raise OidcUnavailableError("OIDC discovery issuer does not match configured issuer")
+            document = dict(await self._json_getter(self.settings.discovery_url))
+            if document.get("issuer") != self.settings.issuer:
+                raise OidcUnavailableError("OIDC discovery issuer does not exactly match configured issuer")
             for key in ("authorization_endpoint", "token_endpoint", "jwks_uri"):
-                document[key] = _absolute_https(str(document.get(key, "")), field=f"OIDC {key}")
+                document[key] = _https_endpoint(str(document.get(key, "")), field=f"OIDC {key}")
             self._discovery = (now + self._cache_ttl, document)
             return dict(document)
 
@@ -287,7 +327,8 @@ class OidcRuntime:
             "code_challenge": code_challenge,
             "code_challenge_method": "S256",
         }
-        return str(document["authorization_endpoint"]) + "?" + urlencode(parameters)
+        separator = "&" if "?" in str(document["authorization_endpoint"]) else "?"
+        return str(document["authorization_endpoint"]) + separator + urlencode(parameters)
 
     async def exchange_code(self, *, code: str, code_verifier: str) -> dict[str, Any]:
         document = await self.discovery()
