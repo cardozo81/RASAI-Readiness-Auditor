@@ -29,6 +29,7 @@ from rasai.provider_extensions import (
 )
 from rasai.provider_extensions_m20 import ExtensionContentRemediationProvider
 from rasai.provider_registry import get_provider_registration, provider_registrations
+from rasai.provider_wire_schema import project_provider_request_body
 
 SIMPLE_DEFAULT_MODELS: dict[str, str] = {
     "OPENAI": "gpt-5.6-luna",
@@ -129,10 +130,33 @@ def _patch_extension_semantic_reasoning(provider: IsolatedStructuredSemanticProv
     provider._request_payload = MethodType(request_payload, provider)
 
 
+def _install_provider_wire_projection(provider: Any) -> None:
+    """Project provider-specific schemas immediately before the external transport.
+
+    The wrapper is deliberately installed outside the exchange logger. The logger
+    therefore receives and persists the exact sanitized body that is actually sent
+    after projection, while local RASAi validators keep the canonical stricter
+    contract.
+    """
+    if getattr(provider, "_rasai_wire_projection_installed", False):
+        return
+    original = getattr(provider, "_transport", None)
+    if not callable(original):
+        return
+    provider._rasai_wire_projection_installed = True
+
+    def projected(url: str, headers: dict[str, str], body: bytes, timeout: float):
+        wire_body = project_provider_request_body(str(getattr(provider, "name", "")), body)
+        return original(url, headers, wire_body, timeout)
+
+    provider._transport = projected
+
+
 def _prepare_concrete_provider(provider: Any, *, effective_env: Mapping[str, str], recorder: AiExchangeRecorder, context: Any) -> Any:
     if isinstance(provider, IsolatedStructuredSemanticProvider):
         _patch_extension_semantic_reasoning(provider, configured_reasoning(provider.name, effective_env))
     prepare_provider_for_execution(provider, recorder=recorder, context=context)
+    _install_provider_wire_projection(provider)
     return provider
 
 
