@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from rasai.monitoring.models import ComparisonResult, GateResult
+from rasai.report_presentation import humanize_report_html
+from rasai.time_contract import normalize_timestamp_values
 
 from .models import DeploymentPair
 from .store import PlatformStore
@@ -38,7 +40,8 @@ def _nav(current: str, *, platform_links: bool = True) -> str:
 
 
 def _shell(title: str, current: str, body: str, *, platform_links: bool = True) -> str:
-    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>{escape(title)} · RASAi</title><style>{_PLATFORM_CSS}</style></head><body><div class='layout'>{_nav(current, platform_links=platform_links)}<main class='main'>{body}<footer class='footer'>RASAi Product Platform · dados gerenciais derivados; AUD workspaces permanecem imutáveis.</footer></main></div></body></html>"""
+    html = f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>{escape(title)} · RASAi</title><style>{_PLATFORM_CSS}</style></head><body><div class='layout'>{_nav(current, platform_links=platform_links)}<main class='main'>{body}<footer class='footer'>RASAi Product Platform · dados gerenciais derivados; AUD workspaces permanecem imutáveis.</footer></main></div></body></html>"""
+    return humanize_report_html(html, page_name=current)
 
 
 def _metric(label: str, value: Any) -> str:
@@ -133,7 +136,7 @@ def write_deployment_report(
     # This report is stored under audits/deployments/<milestone>/, not inside
     # the portfolio directory. Avoid emitting dead relative navigation links.
     path.write_text(_shell("Deployment Impact", "deployments.html", body, platform_links=False), encoding="utf-8", newline="\n")
-    manifest = {
+    manifest = normalize_timestamp_values({
         "schema": "RASAI-DEPLOYMENT-IMPACT-001",
         "milestone": asdict(pair.milestone),
         "pair": {
@@ -152,6 +155,6 @@ def write_deployment_report(
             "blocking": [asdict(event) for event in gate.blocking_events],
         },
         "changes": [asdict(event) for event in changes],
-    }
+    })
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8", newline="\n")
     return path, manifest_path
