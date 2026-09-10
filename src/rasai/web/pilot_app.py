@@ -1,7 +1,8 @@
 """Composition root for the zero-build SaaS pilot browser surface.
 
 The canonical API remains implemented in :mod:`rasai.web.app`. This module composes
-additive browser/read-projection routes without moving or duplicating API behavior.
+additive browser/read-projection and identity routes without moving or duplicating
+API behavior.
 """
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ from fastapi import Request
 from .app import ApiSettings, SearchRepositoryFactory, StoreFactory, create_app as create_api_app
 from .auth import PrincipalResolver
 from .authz import Principal
+from .identity_routes import install_identity_routes
 from .pilot import install_pilot_routes
 
 
@@ -39,6 +41,7 @@ def create_app(
     async def principal_dependency(request: Request) -> Principal:
         return await request.app.state.principal_resolver(request)
 
+    install_identity_routes(app, app.state.settings.auth)
     install_pilot_routes(
         app,
         store_dependency=store_dependency,
