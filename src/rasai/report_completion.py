@@ -76,6 +76,7 @@ def finalize_audit_report_site(*, audit_id: str, workspace: AuditWorkspace, cont
     from rasai.m21_reporting import enrich_m21_report_site
     from rasai.m23_reporting import enrich_m23_report_site
     from rasai.m24_reporting import enrich_m24_report_site
+    from rasai.m25_overview_reporting import enrich_m25_overview_summary
     from rasai.m25_reporting import enrich_m25_report_site
     from rasai.rasai_readiness_reporting import enrich_rasai_reporting
     from rasai.report_ai_runtime_enrichment import enrich_ai_runtime_report
@@ -102,6 +103,7 @@ def finalize_audit_report_site(*, audit_id: str, workspace: AuditWorkspace, cont
         run("apdex", lambda: enrich_m23_report_site(audit_id=audit_id, workspace=workspace))
     if "apdex-experience.html" in expected_before:
         run("apdex-experience", lambda: enrich_m25_report_site(audit_id=audit_id, workspace=workspace))
+        run("apdex-experience-overview", lambda: enrich_m25_overview_summary(audit_id=audit_id, workspace=workspace))
     run("scoring", lambda: write_score_geo_004_report(audit_id=audit_id, workspace=workspace))
     report_dir = workspace.root / "report"
     run("consistency", lambda: reconcile_report_outputs(audit_id=audit_id, workspace=workspace))
