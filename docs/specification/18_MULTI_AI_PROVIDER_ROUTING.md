@@ -1,58 +1,96 @@
 # Análise semântica por IA, roteamento e telemetria
 
-**Estado no baseline de desenvolvimento:** APPROVED / CURRENT  
-**Scoring boundary:** `SARI-001` / `SCORE-GEO-004`
+**Estado no baseline de desenvolvimento:** aprovado / vigente  
+**Limite de scoring:** `SARI-001` / `SCORE-GEO-004`
 
-IA é uma extensão de análise semântica. LLM não é scoring engine, não substitui Business Rules e falha/ausência de provider não é defeito do website.
+IA é uma extensão de análise semântica. LLM não é engine de scoring, não substitui Business Rules e falha/ausência de provider não é defeito do website.
 
 ## 1. Providers
 
-Core análise semântica por IA:
+Providers reconhecidos pela superfície atual de IA:
 
 - `OPENAI`;
 - `DEEPSEEK`;
 - `MIMO`;
-- `NONE`;
-- `AUTO` sobre a cadeia core.
-
-Extensões explícitas atuais:
-
 - `XAI` / alias `grok`;
 - `QWEN`;
 - `GEMINI`;
-- `ANTHROPIC` / alias `claude`.
+- `ANTHROPIC` / alias `claude`;
+- `NONE`;
+- `AUTO`.
 
-Providers de extensão permanecem explicit-only enquanto sua qualificação é provisória. `AUTO` delega ao core e considera somente OpenAI, DeepSeek e MiMo.
+A qualificação de um provider (`QUALIFIED`, `PROVISIONAL` etc.) é informação de governança. A participação em `AUTO` é uma propriedade separada do `provider_registry`, expressa por `auto_eligible`, e ainda exige credencial/configuração válida na execução.
 
-## 2. Core routing policy
+Providers de extensão podem permanecer `PROVISIONAL` e, ainda assim, participar de `AUTO` quando o registry vigente os marcar como `auto_eligible=true` e a configuração da execução estiver apta. Portanto, qualificação e elegibilidade AUTO não devem ser tratadas como sinônimos.
 
-A política versionada do core inclui, em ordem:
+## 2. Defaults públicos de modelo
 
-1. OpenAI `gpt-5.6-sol`;
-2. OpenAI `gpt-5.6-terra`;
-3. DeepSeek `deepseek-v4-pro`;
-4. MiMo `mimo-v2.5-pro`;
-5. OpenAI `gpt-5.6-luna`;
-6. DeepSeek `deepseek-v4-flash`;
-7. MiMo `mimo-v2.5`.
+Os defaults públicos efetivamente aplicados pelo runtime são:
 
-Ranks, reasoning profiles, qualification/reliability labels e finalidade pertencem à política interna RASAi. Eles não são benchmark científico universal.
+| Provider | Default efetivo | Valores permitidos | Recomendado |
+|---|---|---|---|
+| OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `gpt-5.6-luna` para custo/volume; `gpt-5.6-sol` quando a prioridade for máxima qualidade |
+| DeepSeek | `deepseek-v4-flash` | `deepseek-v4-pro`, `deepseek-v4-flash` | `deepseek-v4-flash` no uso normal |
+| MiMo | `mimo-v2.5` | `mimo-v2.5-pro`, `mimo-v2.5` | `mimo-v2.5` no uso normal |
+| xAI | `grok-4.6` | `grok-4.6` | default |
+| Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `qwen3.8-flash` |
+| Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | default |
+| Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | default |
 
-## 3. Selection and fallback
+Esses são os defaults públicos de `provider_runtime_policy`. Defaults internos antigos de classes/qualificação não devem ser apresentados como defaults efetivos da CLI/console.
 
-Provider explícito não faz failover cruzado para outro fornecedor. Credenciais ausentes de providers não selecionados não podem invalidar um provider explícito funcional.
+Referência normativa consolidada: `../ENVIRONMENT_VARIABLES.md`.
 
-`AUTO` resolve providers utilizáveis e tenta sequencialmente conforme a política. O primeiro resultado válido encerra a cadeia naquele contexto; um provider posterior não pode sobrescrever o resultado aceito.
+## 3. Política `AUTO`
 
-Falhas qualificadoras podem permitir retry/fallback conforme política de resiliência. Falha de integração nunca vira finding do website.
+`AUTO` **não é uma cadeia fixa**.
 
-## 4. URL/device consistency
+O runtime atual:
+
+1. consulta o `provider_registry`;
+2. considera providers com `auto_eligible=true`;
+3. remove providers sem credencial, modelo ou configuração válidos para a execução;
+4. remove os providers explicitamente listados em `RASAI_AI_AUTO_EXCLUDE`;
+5. distribui a preferência inicial entre necessidades de IA usando round-robin compartilhado;
+6. em uma mesma necessidade, tenta cada provider elegível no máximo uma vez;
+7. encerra aquela necessidade na primeira resposta válida;
+8. aplica circuit breaker e classificação de falhas para decidir se um provider continua elegível em necessidades posteriores.
+
+`RASAI_AI_AUTO_EXCLUDE` tem default vazio. Os valores permitidos são uma lista CSV ou separada por `;` de IDs/aliases de providers elegíveis. O recomendado é manter vazio e excluir somente providers que devam continuar configurados para seleção explícita, mas não participar do pool AUTO.
+
+Excluir um provider de `AUTO` não apaga sua credencial e não impede seleção explícita.
+
+## 4. Provider explícito
+
+Provider selecionado explicitamente não faz failover cruzado silencioso para outro fornecedor.
+
+Credenciais ausentes de providers não selecionados não podem invalidar um provider explícito funcional.
+
+Selecionar explicitamente um provider sem configuração/credencial suficiente resulta em estado operacional correspondente, com zero chamada externa para aquele provider; não existe fallback automático para usar a chave de outro fornecedor.
+
+## 5. Falhas, retry e circuit breaker
+
+Falhas são classificadas para separar indisponibilidade temporária de condição terminal.
+
+Regras vigentes do coordenador AUTO incluem:
+
+- uma falha temporária pode avançar para o próximo provider na necessidade atual e ainda permitir que o provider volte a participar de necessidades posteriores;
+- condição terminal remove o provider imediatamente do restante da execução;
+- o circuit breaker abre quando o provider acumula **três falhas entre as últimas cinco observações** da execução;
+- uma quarentena interna legada do adapter, isoladamente, não possui autoridade para retirar definitivamente o provider do pool AUTO; a decisão final pertence ao coordenador/registry da execução;
+- retries/fallbacks permanecem limitados para evitar chamadas/custo duplicados.
+
+Falhas de rede, timeout, servidor, rate limit ou resposta vazia podem ser tratadas como temporárias conforme o classificador vigente. Auth, permission, crédito/quota, modelo, contrato ou resposta inválida podem ser terminais conforme a classificação produzida pelo runtime.
+
+`Retry-After`, quando aplicável, é tratado de forma limitada pelo contrato de resiliência; não autoriza espera ilimitada.
+
+## 6. Consistência URL/dispositivo
 
 O escopo público de dispositivo é `mobile`, `desktop` ou `both`. Somente contextos materializados podem disparar chamada de IA.
 
-Quando a política fixa provider por URL, a consistência entre contextos da mesma URL deve ser preservada conforme o runtime. A comparação BR-GEO-052 só existe quando ambos os dispositivos fazem parte do escopo.
+Quando a política fixa provider por URL ou reutiliza preferência contextual, essa consistência deve seguir o runtime vigente. A comparação `BR-GEO-052` só existe quando ambos os dispositivos fazem parte do escopo.
 
-## 5. Contract validation
+## 7. Validação do contrato
 
 Todos os adapters convergem para um contrato normalizado. Uma resposta semântica só é aceita após validação local de:
 
@@ -65,31 +103,45 @@ Todos os adapters convergem para um contrato normalizado. Uma resposta semântic
 
 HTTP 200 ou JSON parseável isoladamente não significam resultado válido.
 
-## 6. Retry and cost control
+Uma resposta que referencia evidência inexistente ou viola o schema deve ser rejeitada como erro de integração/contrato, não convertida em finding do website.
 
-A política de resiliência limita chamadas e distingue erros elegíveis/não elegíveis a retry. Network/timeout/server/rate-limit/empty-response podem ser elegíveis; auth, permission, credit/quota, model, contract e invalid-response não devem ser repetidos indiscriminadamente.
+## 8. Reasoning
 
-Retry/fallback e limites existem também para evitar custo duplicado. `Retry-After` é tratado de forma bounded conforme a implementação.
+Defaults públicos:
 
-## 7. Telemetry
+| Provider | Default efetivo | Valores permitidos | Recomendado |
+|---|---|---|---|
+| OpenAI | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `NONE` no baseline |
+| DeepSeek | `NONE` | `NONE`, `LOW`, `HIGH`, `MAX` | `NONE` no baseline |
+| MiMo | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH` | `NONE` no baseline |
+| xAI | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH` | `LOW` |
+| Qwen | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` na superfície vigente | não criar variável de reasoning inexistente |
+| Gemini | `LOW` | `LOW`, `MEDIUM`, `HIGH` | `LOW` |
+| Anthropic | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` |
+
+Aumentar reasoning pode elevar latência, tokens e custo. Esses valores não participam do scoring.
+
+## 9. Telemetria
 
 `ai_provider_attempts` pode registrar:
 
-- URL/device/tentativa;
-- provider/model/rank/reasoning;
+- URL/dispositivo/tentativa;
+- provider/modelo/rank/reasoning;
 - timestamps/duração;
 - status e diagnóstico sanitizado;
-- usage reportado;
+- uso reportado;
 - custo estimado e versão de pricing;
-- hashes/summaries bounded;
+- hashes/resumos limitados;
 - versão do contrato semântico;
-- decisão de retry/fallback/success quando aplicável.
+- decisão de retry/fallback/sucesso quando aplicável.
 
-Secrets, headers de autorização, payload sensível integral e private reasoning não são persistidos.
+`ai_exchange_log` pode preservar intercâmbios sanitizados conforme a política de segurança e limite configurado.
+
+Segredos, headers de autorização, payload sensível integral e raciocínio privado não são persistidos.
 
 Tokens ausentes permanecem `NULL`. Custo estimado é telemetria operacional, não invoice e não participa do score.
 
-## 8. Reporting
+## 10. Relatório
 
 Página pública de telemetria:
 
@@ -97,9 +149,9 @@ Página pública de telemetria:
 report/ai-usage.html
 ```
 
-O report deve distinguir configuração, tentativa, sucesso, provider previsto/efetivo, fallback, status, tokens e custo estimado sem converter falha de IA em finding do website.
+O relatório deve distinguir configuração, tentativa, sucesso, provider previsto/efetivo, fallback, status, tokens e custo estimado sem converter falha de IA em finding do website.
 
-## 9. Scoring boundary
+## 11. Limite de scoring
 
 Invariantes:
 
@@ -111,4 +163,5 @@ Invariantes:
 6. resultado válido não pode ser sobrescrito por tentativa posterior;
 7. contexto de dispositivo limita chamadas ao escopo solicitado;
 8. telemetria é separada de findings e score;
-9. outcomes externos não entram em `SARI-001/SCORE-GEO-004` sem nova metodologia explícita/versionada.
+9. outcomes externos não entram em `SARI-001`/`SCORE-GEO-004` sem nova metodologia explícita/versionada;
+10. o conjunto `AUTO` é derivado do registry vigente, não de uma lista histórica fixa escrita nesta especificação.
