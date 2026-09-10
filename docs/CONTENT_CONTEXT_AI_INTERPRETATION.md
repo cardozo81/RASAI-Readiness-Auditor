@@ -36,7 +36,7 @@ A saída transitória é retirada da resposta antes da normalização semântica
 
 ```text
 Configuração: AUTO
-Interpretação da IA: YMYL — Finanças e segurança econômica
+Interpretação da IA: YMYL - Finanças e segurança econômica
 Confiança: 87%
 Justificativa: o conteúdo orienta uma decisão com possível impacto financeiro relevante.
 ```
