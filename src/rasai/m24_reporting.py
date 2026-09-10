@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections import Counter
 from html import escape
+import gzip
 import json
 from pathlib import Path
 import re
@@ -24,6 +25,7 @@ _LEGACY_AI_START = "<!-- m24-ai-usage:start -->"
 _LEGACY_AI_END = "<!-- m24-ai-usage:end -->"
 _LEGACY_REF_START = "<!-- m24-references:start -->"
 _LEGACY_REF_END = "<!-- m24-references:end -->"
+_RESOURCE_PREVIEW_BYTES = 512 * 1024
 
 
 def enrich_m24_report_site(*, audit_id: str, workspace: AuditWorkspace) -> Path:
@@ -87,7 +89,24 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
             """,
             (audit_id,),
         )
-        return {"run": run, "diagnostics": diagnostics, "ai": ai, "attempts": attempts}
+        resource_rows = _many(
+            connection,
+            """
+            SELECT evidence_id,evidence_type,source,observed_value,artifact_reference,captured_at
+            FROM evidence
+            WHERE audit_id=? AND evidence_type IN ('ROBOTS_RULE','SITEMAP_ENTRY')
+            ORDER BY captured_at,evidence_id
+            """,
+            (audit_id,),
+        )
+        resources = _captured_resources(workspace, resource_rows, diagnostics)
+        return {
+            "run": run,
+            "diagnostics": diagnostics,
+            "ai": ai,
+            "attempts": attempts,
+            "resources": resources,
+        }
     finally:
         connection.close()
 
@@ -150,6 +169,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 <section class='panel'><div class='kicker'>Resumo</div><h2>Universo técnico observado</h2>
 <div class='metric-grid'>{''.join(_metric(key, str(value)) for key,value in sorted(categories.items()))}</div>
 <p class='intro'>A ausência de evidência para IndexNow é reportada como <code>NOT_DETERMINABLE</code>; não é presumida como configuração ausente. Sitemaps declarados em outro origin são preservados, porém não são adquiridos automaticamente para não ampliar o escopo de rede/SSRF da auditoria.</p></section>
+{_captured_resources_block(data.get('resources', []))}
 {''.join(groups) if groups else "<section class='panel'><p>Nenhum diagnóstico Rastreamento, descoberta e acesso de crawlers persistido.</p></section>"}
 {_ai_block(data)}
 <section class='panel'><div class='kicker'>Referências</div><h2>Fundamentação externa</h2>
@@ -162,7 +182,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
 {_reference("llms.txt","Proposta comunitária - não web standard","https://llmstxt.org/")}
 </div></section>
 <footer class='footer'>{PUBLIC_CONTRACT} · os diagnósticos aprofundados desta página são advisory/non-scoring. As regras determinísticas BR-GEO-003, BR-GEO-017 e BR-GEO-018 permanecem inputs do SARI-001 via SCORE-GEO-004.</footer>
-</main></body></html>
+</main>{_copy_script()}</body></html>
 """
 
 
@@ -199,20 +219,126 @@ def _diagnostic(row: sqlite3.Row) -> str:
 </article>"""
 
 
+def _captured_resources(
+    workspace: AuditWorkspace,
+    rows: list[sqlite3.Row],
+    diagnostics: list[sqlite3.Row],
+) -> list[dict[str, Any]]:
+    resources: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in rows:
+        reference = str(row["artifact_reference"] or "").strip()
+        if not reference or reference in seen:
+            continue
+        content = _read_artifact_preview(workspace, reference)
+        if content is None:
+            continue
+        text, truncated = content
+        evidence_type = str(row["evidence_type"])
+        observed = _json_object(row["observed_value"])
+        state = str(observed.get("state") or "CAPTURADO")
+        resources.append({
+            "kind": "robots.txt" if evidence_type == "ROBOTS_RULE" else "Sitemap/feed",
+            "source": str(row["source"] or "-"),
+            "state": state,
+            "content": text,
+            "truncated": truncated,
+        })
+        seen.add(reference)
+
+    for row in diagnostics:
+        if str(row["code"]).upper() != "M24-LLMS-PRESENT":
+            continue
+        observed = _json_object(row["observed_value"])
+        reference = str(observed.get("artifact_reference") or "").strip()
+        if not reference or reference in seen:
+            continue
+        content = _read_artifact_preview(workspace, reference)
+        if content is None:
+            continue
+        text, truncated = content
+        resources.append({
+            "kind": "llms.txt",
+            "source": str(row["scope_url"] or "-"),
+            "state": str(observed.get("state") or "PRESENT"),
+            "content": text,
+            "truncated": truncated,
+        })
+        seen.add(reference)
+    return resources
+
+
+def _read_artifact_preview(workspace: AuditWorkspace, reference: str) -> tuple[str, bool] | None:
+    path = workspace.root / reference
+    if not path.is_file():
+        return None
+    try:
+        if path.suffix.casefold() == ".gz":
+            with gzip.open(path, "rb") as stream:
+                raw = stream.read(_RESOURCE_PREVIEW_BYTES + 1)
+        else:
+            with path.open("rb") as stream:
+                raw = stream.read(_RESOURCE_PREVIEW_BYTES + 1)
+    except (OSError, EOFError):
+        return None
+    truncated = len(raw) > _RESOURCE_PREVIEW_BYTES
+    raw = raw[:_RESOURCE_PREVIEW_BYTES]
+    return raw.decode("utf-8-sig", errors="replace"), truncated
+
+
+def _captured_resources_block(resources: list[dict[str, Any]]) -> str:
+    if not resources:
+        return (
+            "<section class='panel' id='captured-discovery-resources'><div class='kicker'>Conteúdo capturado</div>"
+            "<h2>robots.txt, sitemaps e llms.txt observados</h2>"
+            "<p class='intro'>Nenhum artifact textual capturado está disponível para exibição nesta auditoria.</p></section>"
+        )
+    cards = "".join(_captured_resource_card(resource, index) for index, resource in enumerate(resources, 1))
+    return (
+        "<section class='panel' id='captured-discovery-resources'><div class='kicker'>Conteúdo capturado</div>"
+        "<h2>robots.txt, sitemaps e llms.txt observados</h2>"
+        "<p class='intro'>Conteúdo read-only dos arquivos efetivamente preservados pela auditoria. Abrir um item não executa nova coleta. Use “Copiar conteúdo” para levar o texto exibido à área de transferência.</p>"
+        + cards
+        + "</section>"
+    )
+
+
+def _captured_resource_card(resource: dict[str, Any], index: int) -> str:
+    target = f"captured-resource-{index}"
+    truncated = bool(resource.get("truncated"))
+    note = (
+        f"<p class='intro'><strong>Visualização limitada:</strong> são exibidos os primeiros {_RESOURCE_PREVIEW_BYTES // 1024} KiB para manter o relatório responsivo; o artifact original preservado não é alterado.</p>"
+        if truncated else ""
+    )
+    return (
+        "<details class='config-accordion captured-resource'>"
+        f"<summary>{escape(str(resource.get('kind') or 'Arquivo'))} · {escape(str(resource.get('source') or '-'))}</summary>"
+        "<div class='config-accordion-body'>"
+        f"<p><strong>Estado observado:</strong> {escape(str(resource.get('state') or '-'))}</p>{note}"
+        f"<p><button type='button' data-copy-target='{target}'>Copiar conteúdo</button></p>"
+        f"<pre id='{target}'>{escape(str(resource.get('content') or ''))}</pre>"
+        "</div></details>"
+    )
+
+
+def _copy_script() -> str:
+    return """<script>(function(){document.addEventListener('click',function(event){var button=event.target.closest('[data-copy-target]');if(!button){return;}var target=document.getElementById(button.getAttribute('data-copy-target'));if(!target){return;}var text=target.innerText||target.textContent||'';var done=function(){var old=button.textContent;button.textContent='Copiado';setTimeout(function(){button.textContent=old;},1400);};if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done).catch(function(){fallback(text,done);});}else{fallback(text,done);}});function fallback(text,done){var area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();try{document.execCommand('copy');done();}finally{document.body.removeChild(area);}}})();</script>"""
+
+
 def _ai_block(data: dict[str, Any]) -> str:
     ai = data["ai"]
     attempts = data["attempts"]
     state = str(ai["state"]) if ai else "DISABLED"
     provider = str(ai["provider"] or "-") if ai else "-"
     model = str(ai["model"] or "-") if ai else "-"
-    artifact = str(ai["artifact_reference"] or "-") if ai else "-"
+    artifact_available = bool(ai and ai["artifact_reference"])
     total_tokens = sum(int(row["total_tokens"] or 0) for row in attempts)
     costs = [float(row["estimated_cost"]) for row in attempts if row["estimated_cost"] is not None]
     cost = f"{sum(costs):.6f} USD" if costs else "não calculável/zero chamadas"
     return f"""<section class='panel'><div class='kicker'>IA técnica de crawling/discovery (opcional)</div><h2>Telemetria e limites da remediação técnica</h2>
 <div class='metric-grid'>{_metric("Estado",state)}{_metric("Provider",provider)}{_metric("Modelo",model)}{_metric("Tentativas",str(len(attempts)))}{_metric("Tokens",str(total_tokens))}{_metric("Custo estimado",cost)}</div>
 <p class='intro'>A IA técnica desta página é controlada por <code>RASAI_AI_TECHNICAL_REMEDIATION</code>, independente de <code>RASAI_AI_CONTENT_REMEDIATION</code>. Ela recebe apenas diagnósticos/evidence IDs persistidos e não pode criar fatos, pesos ou elevar Confidence por opinião. Para sitemap/robots, uma classificação válida pode gerar somente PASS/WARNING/FAIL em regras auxiliares bounded que compartilham o mesmo grupo das regras determinísticas; resultado positivo não soma bônus e resultado neutro/negativo pode rebaixar o grupo.</p>
-<p><strong>Artifact:</strong> <code>{escape(artifact)}</code></p><p><a href='content-suggestions.html'>Ver separadamente a remediação de conteúdo por IA →</a></p></section>"""
+<p><strong>Evidência técnica de IA:</strong> {"artifact preservado" if artifact_available else "não materializada"}.</p><p><a href='content-suggestions.html'>Ver separadamente a remediação de conteúdo por IA →</a></p></section>"""
 
 
 def _inject_ai_usage(report_dir: Path, data: dict[str, Any]) -> None:
@@ -276,6 +402,14 @@ def _pretty_json(raw: Any) -> str:
     except (TypeError, ValueError, json.JSONDecodeError):
         return str(raw)
     return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True)
+
+
+def _json_object(raw: Any) -> dict[str, Any]:
+    try:
+        value = json.loads(str(raw))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
 
 
 def _json_list(raw: Any) -> list[str]:
