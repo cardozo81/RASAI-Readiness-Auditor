@@ -58,6 +58,9 @@ def normalize_recurrence(value: dict[str, Any]) -> dict[str, Any]:
     """
     if not isinstance(value, dict):
         raise ValueError("recurrence must be an object")
+    version = value.get("version")
+    if version is not None and version != "CALENDAR_V1":
+        raise ValueError(f"unsupported recurrence version: {version}")
     times = sorted(set(_hhmm(item, field="recurrence.times") for item in value.get("times", []) or []))
     raw_interval = value.get("every_minutes")
     every_minutes: int | None = None
@@ -84,7 +87,7 @@ def normalize_recurrence(value: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("recurrence requires fixed times or every_minutes")
     unknown = sorted(
         set(value)
-        - {"times", "every_minutes", "window_start", "window_end", "weekdays", "month_days", "last_day"}
+        - {"version", "times", "every_minutes", "window_start", "window_end", "weekdays", "month_days", "last_day"}
     )
     if unknown:
         raise ValueError("unsupported recurrence field(s): " + ", ".join(unknown))
@@ -151,7 +154,7 @@ def next_occurrences(
     after: str | datetime | None = None,
     count: int = 1,
 ) -> tuple[str, ...]:
-    normalized = normalize_recurrence({key: value for key, value in recurrence.items() if key != "version"})
+    normalized = normalize_recurrence(recurrence)
     zone_name = normalize_timezone(timezone)
     if count < 1 or count > MAX_NEXT_OCCURRENCES:
         raise ValueError(f"count must be between 1 and {MAX_NEXT_OCCURRENCES}")
