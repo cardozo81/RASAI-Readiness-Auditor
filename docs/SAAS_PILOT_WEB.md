@@ -1,12 +1,12 @@
 # RASAi SaaS Pilot Web
 
-Status: **implementado como piloto local/arquitetural** sobre a fundação Web/API, Product Platform e Identity & Access existentes.
+**Estado:** implementado como piloto local/arquitetural sobre a fundação Web/API, Product Platform e Identity & Access existentes.
 
 ## Objetivo
 
-O SaaS Pilot Web cria a primeira superfície de navegador do RASAi sem transformar o piloto em uma infraestrutura SaaS completa e sem duplicar lógica do core.
+O SaaS Pilot Web cria a superfície de navegador do RASAi sem transformar o piloto em uma infraestrutura SaaS completa e sem duplicar lógica do core.
 
-A composição é:
+Composição:
 
 ```text
 Browser / API client
@@ -18,17 +18,17 @@ Identity & Access
 /app + RASAi HTTP API
   |
 Control plane
-  |-- SQLite                       local/default
-  |-- PostgreSQL                   opt-in/hosted target
+  |-- SQLite       local/default
+  |-- PostgreSQL   opt-in/hosted target
   |
-Execution jobs
+Execution jobs / managed schedules
   |
 Workers separados
   |
 Audit / Search Monitoring / report refresh
 ```
 
-O browser não calcula `SARI-001`, não executa `SCORE-GEO-004`, não faz crawling e não implementa novamente Search Intelligence. Ele projeta dados autorizados e cria comandos duráveis por meio dos contratos já existentes.
+O browser não calcula `SARI-001`, não executa `SCORE-GEO-004`, não faz crawling e não reimplementa Search Intelligence. Ele projeta dados autorizados e cria comandos duráveis pelos contratos existentes.
 
 ## Princípios preservados
 
@@ -36,56 +36,36 @@ O browser não calcula `SARI-001`, não executa `SCORE-GEO-004`, não faz crawli
 - `SCORE-GEO-004` continua sendo o método de scoring vigente;
 - `AUD-*/audit.db` e artifacts continuam sendo evidência imutável de execução;
 - o control plane continua separado da evidência do AUD;
-- SQLite continua sendo o backend local/default;
-- PostgreSQL continua opt-in e é o alvo de autoridade centralizada;
+- SQLite continua backend local/default;
+- PostgreSQL continua opt-in e alvo de autoridade centralizada;
 - Search Intelligence permanece non-scoring;
 - HTTP nunca executa auditoria/crawling dentro da request;
 - nenhuma credencial de provider de auditoria é armazenada pela UI;
-- OIDC não cria password database próprio;
+- OIDC não cria banco de senhas próprio;
 - autenticação externa não concede membership automaticamente;
-- a UI não introduz Node, npm, bundler, CDN, framework JavaScript ou serviço externo obrigatório ao runtime CLI.
+- UI não introduz Node, npm, bundler, CDN, framework JavaScript ou serviço externo obrigatório ao runtime CLI.
 
 ## Superfície de usuário
 
-Em desenvolvimento local a aplicação pode ser aberta em:
+Em desenvolvimento local:
 
 ```text
 http://127.0.0.1:8000/app
 ```
 
-O piloto oferece:
+O piloto oferece, conforme autorização:
 
-1. **Visão geral**
-   - contagem de auditorias;
-   - queries registradas;
-   - execution jobs ativos;
-   - milestones;
-   - estado operacional do escopo selecionado.
-2. **Auditorias**
-   - histórico do Project;
-   - status e versão de scoring persistida;
-   - quantidade de URLs;
-   - abertura do mini-site HTML já materializado no AUD;
-   - criação de durable `AUDIT` job.
-3. **Search Intelligence**
-   - Query Registry do Project;
-   - provider/engine e domínio de interesse quando materializados;
-   - criação de `SEARCH_MONITOR` job para query registrada.
-4. **Deployments**
-   - milestones do Project;
-   - resolução determinística do par before/after usando o contrato Product Platform existente.
-5. **Execuções**
-   - jobs `QUEUED`, `CLAIMED`, `RUNNING`, `SUCCEEDED`, `FAILED` e `CANCELLED`;
-   - attempts/max attempts;
-   - cancelamento conforme role.
-6. **Uso e custo**
-   - agregação do usage ledger persistido no control plane;
-   - quantidade/unidade/provider;
-   - custo estimado e moeda quando existentes.
+- visão geral do escopo selecionado;
+- histórico de auditorias do Project e abertura de reports materializados;
+- criação de durable `AUDIT` jobs pelo contrato canônico do runtime;
+- Query Registry e criação de `SEARCH_MONITOR` jobs;
+- milestones e resolução before/after;
+- acompanhamento/cancelamento de execution jobs conforme role;
+- usage ledger e Consumption Analytics;
+- criação, edição, pausa, retomada, duplicação e desativação de managed schedules;
+- configuração `AUDIT` derivada do mesmo contrato usado pelo worker.
 
 ## Hierarquia e tenancy
-
-A UI navega a hierarquia canônica:
 
 ```text
 Organization
@@ -95,46 +75,25 @@ Organization
               -> Environment
 ```
 
-Ela não filtra tenant apenas no browser. Todo dado vem de endpoints que voltam a validar o `Principal` no servidor.
-
-Conhecer `organization_id`, `project_id`, `audit_id` ou `milestone_id` de outro tenant não concede leitura do recurso.
+A UI não filtra tenant apenas no browser. Todo endpoint volta a validar o `Principal` no servidor. Conhecer IDs de outro tenant não concede acesso.
 
 ## Identity & Access
 
-O piloto não cria usuário/senha próprio nem formato proprietário de bearer token.
-
 Modos vigentes:
 
-```text
-deny            fail-closed/default
-trusted-header  desenvolvimento local ou gateway autenticado
-oidc            login Web + JWT direto
-```
+| Modo | Default | Permitido | Recomendado |
+|---|---|---|---|
+| `deny` | sim | sim | estado fail-closed enquanto autenticação não estiver configurada |
+| `trusted-header` | não | sim | somente desenvolvimento local ou gateway autenticado confiável |
+| `oidc` | não | sim | recomendado para implantação hospedada |
 
-### OIDC
+Com `RASAI_API_AUTH_MODE=oidc`, `/app` exige sessão válida. O fluxo usa OIDC discovery por issuer HTTPS, Authorization Code, PKCE S256, `state`, `nonce`, validação de `id_token` por JWKS, sessão Web curta e vínculo explícito `(issuer, sub) -> USR-*`.
 
-Com `RASAI_API_AUTH_MODE=oidc`, `/app` exige sessão válida. Um browser não autenticado é redirecionado para `/auth/login`.
+Bearer JWT pode autenticar diretamente a API quando atende ao contrato configurado. Autenticar no Identity Provider não cria `USR-*`, membership ou role.
 
-O fluxo usa:
+Detalhes: `IDENTITY_AND_ACCESS.md`.
 
-- OIDC discovery por issuer HTTPS;
-- Authorization Code;
-- PKCE S256;
-- `state`;
-- `nonce`;
-- validação de `id_token` por JWKS;
-- sessão Web curta cifrada/autenticada;
-- vínculo explícito `(issuer, sub) -> USR-*`.
-
-Bearer JWT também pode autenticar diretamente a API quando atende a issuer, audience, assinatura, algoritmo e validade configurados.
-
-Autenticar no Identity Provider não cria `USR-*`, membership ou role.
-
-Detalhes completos: `IDENTITY_AND_ACCESS.md`.
-
-### Desenvolvimento local com trusted-header
-
-Para exercício manual em loopback:
+## Desenvolvimento local com `trusted-header`
 
 ```powershell
 rasai api `
@@ -143,19 +102,13 @@ rasai api `
   --auth-mode trusted-header
 ```
 
-Quando não existe gateway local, a tela permite informar temporariamente um `USR-*` já existente. O valor fica somente no `sessionStorage` da aba e é enviado no header `x-rasai-user-id`.
+Sem gateway local, a tela pode usar temporariamente um `USR-*` já existente no `sessionStorage` da aba e enviá-lo no header `x-rasai-user-id`. Isso é conveniência de desenvolvimento em loopback, não autenticação de produção.
 
-Esse mecanismo é somente conveniência de desenvolvimento em loopback. Não deve ser confundido com autenticação de produção.
-
-### Gateway autenticado
-
-`trusted-header` permanece compatível com ambientes em que um gateway externo é a autoridade de autenticação. Nesse caso o gateway deve remover o header recebido do cliente, injetá-lo somente após autenticar a requisição e impedir acesso direto ao Uvicorn.
-
-Para implantação SaaS nova com IdP compatível, `oidc` é preferível porque o RASAi valida a identidade diretamente.
+Em gateway autenticado, o gateway deve remover qualquer header equivalente recebido do cliente, injetar identidade somente após autenticação e impedir acesso direto ao processo RASAi.
 
 ## Provisionamento de identidade
 
-O modelo atual é administrado e fail-closed:
+Modelo atual:
 
 ```text
 1. criar/identificar USR-*
@@ -173,33 +126,31 @@ rasai platform identity link `
   --subject 00u123456789
 ```
 
-O e-mail pode ser armazenado como metadado operacional do vínculo, mas não substitui `issuer + subject` como chave de identidade.
+E-mail pode ser metadado informativo, mas não substitui `issuer + subject` como chave de identidade.
 
 ## Reports no browser
 
-O catálogo HTTP continua omitindo `workspace_path`.
-
-O SaaS Pilot possui boundary específico para o report público de um AUD autorizado:
+Endpoints:
 
 ```text
 GET /api/v1/audits/{audit_id}/reports
 GET /api/v1/audits/{audit_id}/reports/{asset_path}
 ```
 
-Regras de segurança:
+Regras:
 
 - o AUD é autorizado novamente no servidor;
 - somente arquivos sob `AUD-*/report/` podem ser servidos;
-- `..` e saída por symlink/resolve são recusados;
-- extensões permitidas são limitadas a assets de apresentação Web;
-- `audit.db`, artifacts privados e paths internos não ficam disponíveis nesse boundary;
-- respostas usam `no-store`.
+- `..`, traversal e saída por symlink/resolve são recusados;
+- extensões ficam limitadas a assets de apresentação Web;
+- `audit.db`, artifacts privados e paths internos não são expostos;
+- respostas usam `Cache-Control: no-store`.
 
-O HTML continua sendo somente projeção; a fonte de verdade segue `audit.db + artifacts`.
+O HTML continua sendo projeção; a fonte de verdade é `audit.db + artifacts`.
 
-## Endpoints do piloto e identidade
+## Endpoints e contratos aditivos
 
-Identity bootstrap/login:
+Identidade:
 
 ```text
 GET  /auth/config
@@ -208,71 +159,79 @@ GET  /auth/callback
 POST /auth/logout
 ```
 
-Projeções aditivas:
+Superfícies de produto:
 
 ```text
+GET /api/v1/audit-job-options
 GET /api/v1/projects/{project_id}/milestones
 GET /api/v1/milestones/{milestone_id}/deployment-pair
 GET /api/v1/organizations/{organization_id}/usage
+GET /api/v1/organizations/{organization_id}/consumption
 GET /api/v1/audits/{audit_id}/reports
 GET /api/v1/audits/{audit_id}/reports/{asset_path}
 ```
 
-Os endpoints existentes de Organizations, Workspaces, Projects, Properties, Environments, Audits, Search Queries e Execution Jobs continuam reutilizados sem contrato paralelo.
+`GET /api/v1/audit-job-options` é a superfície canônica, autenticada e não secreta para materializar na Web defaults e opções aceitos por durable `AUDIT` jobs. A UI não mantém uma segunda lista independente desses parâmetros.
 
-## Criar auditoria pela UI
+## Criação de auditoria e schedules
 
-A tela cria `AUDIT` execution job com payload estruturado dentro do allowlist que o worker já aceita, incluindo:
+A UI cria `AUDIT` execution job com payload estruturado dentro do contrato canônico aceito pelo worker. O contrato cobre, quando aplicável:
 
-- `max_pages`;
-- `device_context`;
-- `ai_provider`;
-- `web_performance`.
+- idioma, mercado, limite de páginas e device context;
+- provider/modelo de IA e opções não secretas de remediação;
+- Web Performance e categorias Lighthouse;
+- Synthetic Navigation Apdex;
+- Synthetic User Experience Apdex, incluindo KPM, device mix, error scope e thresholds;
+- contexto de conteúdo/YMYL e demais opções expostas pelo runtime.
+
+Defaults de Synthetic User Experience Apdex são os mesmos do CLI/runtime. Omissão de valores padrão não deve ser tratada como customização.
+
+Payloads de execution jobs e managed schedules são validados **antes da persistência**. Opção desconhecida, combinação inválida ou segredo inline falha antes de entrar na fila.
 
 Nenhum shell command/argv arbitrário é enviado pelo browser.
 
-O job somente progride se existir worker executando separadamente, por exemplo:
+O job só progride quando existe worker separado, por exemplo:
 
 ```powershell
 rasai worker run-once --worker-id worker-01 --audits-root audits
 ```
 
-Request HTTP e execução pesada permanecem desacopladas.
+## Dynatrace no SaaS
+
+O runtime local pode importar configuração Dynatrace pelas opções próprias do CLI. O worker SaaS genérico não deve habilitar importação a partir de secrets process-wide, porque ambiente multi-tenant precisa resolver configuração/credencial por integração vinculada ao tenant.
+
+Credencial Dynatrace não pertence a `payload_json`. Uma implantação hosted deve usar referência segura de Integration/secret e resolver o segredo somente no worker autorizado.
 
 ## Compatibilidade SQLite/PostgreSQL
 
-Nenhuma rota do piloto acessa SQLite diretamente.
-
-As rotas usam `app.state.store_factory`, a mesma composição de backend da API:
+As rotas usam `app.state.store_factory`, não SQLite diretamente:
 
 ```text
 SQLite       -> piloto local/default
 PostgreSQL   -> piloto centralizado/hosted
 ```
 
-O vínculo externo de identidade também pertence ao control plane e não ao `audit.db`.
+O contrato de payload é validado antes da persistência e independe do backend. Opções não secretas podem permanecer em `payload_json` sem exigir migration relacional por cada nova opção.
 
-No PostgreSQL, a extensão de identidade exige migration explícita:
+Vínculo externo de identidade pertence ao control plane, não ao `audit.db`.
+
+PostgreSQL exige migration explícita para a extensão de identidade:
 
 ```powershell
 rasai platform database migrate
 ```
 
-O piloto não executa auto-DDL no backend hospedado.
-
 ## Dependências
-
-Continua válido:
 
 ```powershell
 pip install -e ".[web]"
 ```
 
-A extra Web inclui as dependências necessárias à API e à validação OIDC/JWT. Não são adicionadas dependências obrigatórias ao runtime CLI padrão.
+A extra Web contém dependências da API e validação OIDC/JWT. Não adiciona dependência obrigatória ao runtime CLI padrão.
 
 ## Limites desta fase
 
-O SaaS Pilot Web ainda não afirma prontidão completa de produção SaaS. Permanecem fora deste marco:
+O piloto não afirma prontidão completa de produção SaaS. Permanecem fora deste marco:
 
 - Identity Provider obrigatório/específico;
 - SCIM;
@@ -282,43 +241,45 @@ O SaaS Pilot Web ainda não afirma prontidão completa de produção SaaS. Perma
 - CDN;
 - queue externa obrigatória;
 - Kubernetes;
-- multi-region;
-- hubs regionais;
+- multi-region/hubs regionais;
 - runners privados remotos;
+- importação Dynatrace hosted sem vínculo de integração tenant-scoped;
 - migração dos `AUD-*/audit.db` para PostgreSQL;
 - frontend framework/build pipeline dedicado.
 
-Esses itens devem ser introduzidos somente quando houver necessidade funcional/operacional comprovada.
+Identity & Access OIDC/JWT já é contrato funcional; o item “Identity Provider obrigatório/específico” significa apenas que o produto não está preso a um fornecedor concreto.
 
 ## Critério técnico vigente
 
-A superfície é considerada aderente quando:
+A superfície é aderente quando:
 
-- `/app` abre sem dependência externa de frontend;
+- `/app` abre sem dependência externa obrigatória de frontend;
 - em OIDC, `/app` exige login e sessão válida;
 - JWT inválido/expirado falha fechado;
 - identidade externa não provisionada não recebe acesso;
-- tenancy continua sendo revalidada no servidor;
-- auditorias e Search Query Registry podem ser consultados;
-- `AUDIT` e `SEARCH_MONITOR` podem ser enfileirados pela API existente;
-- execution jobs podem ser acompanhados e, quando autorizado, cancelados;
+- tenancy é revalidada no servidor;
+- auditorias e Query Registry podem ser consultados;
+- `/app` e `/app/operations` consomem o contrato canônico de configuração `AUDIT`;
+- `AUDIT` e `SEARCH_MONITOR` podem ser enfileirados;
+- managed schedules rejeitam payload inválido antes da persistência;
+- execution jobs podem ser acompanhados/cancelados conforme autorização;
 - milestones podem resolver before/after;
-- usage ledger pode ser projetado;
-- reports HTML autorizados podem ser abertos sem exposição de `workspace_path`/`audit.db`;
+- usage ledger e Consumption Analytics suportam filtros tenant-aware;
+- reports autorizados podem ser abertos sem expor `workspace_path`/`audit.db`;
+- paridade PostgreSQL e SaaS/runtime permanece coberta pelo CI;
 - regressões de tenancy, identity, report traversal e produto permanecem verdes.
 
 ## Próxima evolução recomendada
-
-Com a fundação de Identity & Access implementada, a sequência arquitetural passa a ser:
 
 ```text
 SaaS Pilot Web + OIDC/JWT
   -> object storage para bundles/artifacts
   -> scheduler/queue hospedado mantendo leases/idempotência/retry
+  -> integração tenant-scoped de secrets/providers externos
   -> deploy Linux do API/worker
   -> observabilidade operacional
   -> quotas/billing
-  -> SCIM/JIT somente quando demanda enterprise justificar
+  -> SCIM/JIT quando demanda enterprise justificar
   -> runners privados e distribuição regional quando necessário
 ```
 
