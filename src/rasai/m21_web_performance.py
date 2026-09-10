@@ -25,7 +25,7 @@ from rasai.persistence import AuditWorkspace
 
 PAGESPEED_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
 CRUX_ENDPOINT = "https://chromeuxreport.googleapis.com/v1/records:queryRecord"
-DEFAULT_CATEGORIES = ("performance", "accessibility", "best-practices", "seo")
+DEFAULT_CATEGORIES = ("performance", "accessibility", "best-practices", "seo", "agentic-browsing")
 ALLOWED_CATEGORIES = frozenset(DEFAULT_CATEGORIES)
 FIELD_SOURCES = frozenset({"auto", "pagespeed", "crux", "none"})
 _CRUX_METRICS = (
@@ -388,7 +388,13 @@ def execute_m21(
 
             lab = _parse_lighthouse(psi_payload)
             cwv = _assess_cwv(field_data)
-            has_lab = any(lab.get(key) is not None for key in ("performance_score", "fcp_lab_ms", "lcp_lab_ms", "tbt_lab_ms", "cls_lab"))
+            has_lab = any(
+                lab.get(key) is not None
+                for key in (
+                    "performance_score", "accessibility_score", "best_practices_score", "seo_score",
+                    "agentic_browsing_score", "fcp_lab_ms", "lcp_lab_ms", "tbt_lab_ms", "cls_lab",
+                )
+            )
             has_field = field_data is not None and any(field_data.get(key) is not None for key in ("lcp_p75_ms", "inp_p75_ms", "cls_p75"))
             if has_lab or has_field:
                 successes += 1
@@ -404,6 +410,7 @@ def execute_m21(
                 lighthouse_version=lab.get("lighthouse_version"), lighthouse_fetch_time=lab.get("lighthouse_fetch_time"),
                 performance_score=lab.get("performance_score"), accessibility_score=lab.get("accessibility_score"),
                 best_practices_score=lab.get("best_practices_score"), seo_score=lab.get("seo_score"),
+                agentic_browsing_score=lab.get("agentic_browsing_score"),
                 fcp_lab_ms=lab.get("fcp_lab_ms"), speed_index_lab_ms=lab.get("speed_index_lab_ms"),
                 lcp_lab_ms=lab.get("lcp_lab_ms"), tbt_lab_ms=lab.get("tbt_lab_ms"), cls_lab=lab.get("cls_lab"),
                 field_source=field_source, field_scope=field_scope,
@@ -541,6 +548,7 @@ def _parse_lighthouse(payload: dict[str, Any] | None) -> dict[str, Any]:
         "accessibility_score": category_score("accessibility"),
         "best_practices_score": category_score("best-practices"),
         "seo_score": category_score("seo"),
+        "agentic_browsing_score": category_score("agentic-browsing"),
         "fcp_lab_ms": numeric("first-contentful-paint"),
         "speed_index_lab_ms": numeric("speed-index"),
         "lcp_lab_ms": numeric("largest-contentful-paint"),

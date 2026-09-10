@@ -47,6 +47,7 @@ class WebPerformanceObservation:
     accessibility_score: float | None
     best_practices_score: float | None
     seo_score: float | None
+    agentic_browsing_score: float | None
     fcp_lab_ms: float | None
     speed_index_lab_ms: float | None
     lcp_lab_ms: float | None
@@ -138,6 +139,7 @@ class M21Persistence:
                     accessibility_score REAL,
                     best_practices_score REAL,
                     seo_score REAL,
+                    agentic_browsing_score REAL,
                     fcp_lab_ms REAL,
                     speed_index_lab_ms REAL,
                     lcp_lab_ms REAL,
@@ -184,6 +186,16 @@ class M21Persistence:
                     ON web_performance_attempts(audit_id,created_at,service);
                 """
             )
+            observation_columns = {
+                str(row["name"])
+                for row in self._connection.execute(
+                    "PRAGMA table_info(web_performance_observations)"
+                ).fetchall()
+            }
+            if "agentic_browsing_score" not in observation_columns:
+                self._connection.execute(
+                    "ALTER TABLE web_performance_observations ADD COLUMN agentic_browsing_score REAL"
+                )
 
     def upsert_run(self, run: WebPerformanceRun) -> None:
         with self._connection:
@@ -222,49 +234,57 @@ class M21Persistence:
             )
 
     def add_observation(self, item: WebPerformanceObservation) -> None:
+        columns = (
+            "observation_id", "audit_id", "page_id", "snapshot_id", "device", "url", "strategy", "status",
+            "lighthouse_version", "lighthouse_fetch_time", "performance_score", "accessibility_score",
+            "best_practices_score", "seo_score", "agentic_browsing_score", "fcp_lab_ms", "speed_index_lab_ms",
+            "lcp_lab_ms", "tbt_lab_ms", "cls_lab", "field_source", "field_scope", "lcp_p75_ms", "inp_p75_ms",
+            "cls_p75", "lcp_assessment", "inp_assessment", "cls_assessment", "cwv_assessment",
+            "pagespeed_http_status", "crux_http_status", "pagespeed_artifact_reference", "crux_artifact_reference",
+            "error_summary", "captured_at",
+        )
+        values = (
+            item.observation_id,
+            item.audit_id,
+            item.page_id,
+            item.snapshot_id,
+            item.device,
+            item.url,
+            item.strategy,
+            item.status,
+            item.lighthouse_version,
+            item.lighthouse_fetch_time,
+            item.performance_score,
+            item.accessibility_score,
+            item.best_practices_score,
+            item.seo_score,
+            item.agentic_browsing_score,
+            item.fcp_lab_ms,
+            item.speed_index_lab_ms,
+            item.lcp_lab_ms,
+            item.tbt_lab_ms,
+            item.cls_lab,
+            item.field_source,
+            item.field_scope,
+            item.lcp_p75_ms,
+            item.inp_p75_ms,
+            item.cls_p75,
+            item.lcp_assessment,
+            item.inp_assessment,
+            item.cls_assessment,
+            item.cwv_assessment,
+            item.pagespeed_http_status,
+            item.crux_http_status,
+            item.pagespeed_artifact_reference,
+            item.crux_artifact_reference,
+            item.error_summary,
+            item.captured_at,
+        )
+        placeholders = ",".join("?" for _ in columns)
         with self._connection:
             self._connection.execute(
-                """
-                INSERT OR REPLACE INTO web_performance_observations VALUES (
-                    ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
-                )
-                """,
-                (
-                    item.observation_id,
-                    item.audit_id,
-                    item.page_id,
-                    item.snapshot_id,
-                    item.device,
-                    item.url,
-                    item.strategy,
-                    item.status,
-                    item.lighthouse_version,
-                    item.lighthouse_fetch_time,
-                    item.performance_score,
-                    item.accessibility_score,
-                    item.best_practices_score,
-                    item.seo_score,
-                    item.fcp_lab_ms,
-                    item.speed_index_lab_ms,
-                    item.lcp_lab_ms,
-                    item.tbt_lab_ms,
-                    item.cls_lab,
-                    item.field_source,
-                    item.field_scope,
-                    item.lcp_p75_ms,
-                    item.inp_p75_ms,
-                    item.cls_p75,
-                    item.lcp_assessment,
-                    item.inp_assessment,
-                    item.cls_assessment,
-                    item.cwv_assessment,
-                    item.pagespeed_http_status,
-                    item.crux_http_status,
-                    item.pagespeed_artifact_reference,
-                    item.crux_artifact_reference,
-                    item.error_summary,
-                    item.captured_at,
-                ),
+                f"INSERT OR REPLACE INTO web_performance_observations ({','.join(columns)}) VALUES ({placeholders})",
+                values,
             )
 
     def add_attempt(self, item: WebPerformanceAttempt) -> None:
