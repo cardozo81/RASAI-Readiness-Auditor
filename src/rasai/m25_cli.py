@@ -8,6 +8,11 @@ from typing import Any, Mapping
 
 from rasai.m25_apdex_experience import ExperienceApdexConfig
 from rasai.m25_dynatrace import SUPPORTED_TIME_KPMS
+from rasai.m25_dynatrace_defaults import (
+    RASAI_DYNATRACE_COMPAT_FRUSTRATED_SECONDS,
+    RASAI_DYNATRACE_COMPAT_KPM,
+    RASAI_DYNATRACE_COMPAT_SATISFIED_SECONDS,
+)
 
 UX_ENABLED_ENV = "RASAI_APDEX_EXPERIENCE"
 UX_SAMPLES_ENV = "RASAI_APDEX_EXPERIENCE_SAMPLES"
@@ -40,7 +45,9 @@ DEFAULT_UX_SAMPLES = 100
 DEFAULT_UX_MAX_PAGES = 1
 DEFAULT_UX_DEVICE_MIX = "mobile=60,desktop=35,tablet=5"
 DEFAULT_UX_SESSION_MODE = "cold"
-DEFAULT_UX_KPM = "USER_ACTION_DURATION"
+DEFAULT_UX_KPM = RASAI_DYNATRACE_COMPAT_KPM
+DEFAULT_UX_SATISFIED_SECONDS = RASAI_DYNATRACE_COMPAT_SATISFIED_SECONDS
+DEFAULT_UX_FRUSTRATED_SECONDS = RASAI_DYNATRACE_COMPAT_FRUSTRATED_SECONDS
 DEFAULT_UX_ERROR_SCOPE = "first-party"
 DEFAULT_UX_SETTLE_SECONDS = 5.0
 DEFAULT_UX_DELAY_SECONDS = 1.0
@@ -56,16 +63,16 @@ def register_experience_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--apdex-experience-max-attempts", type=int, default=None, help=f"total attempt budget per page; default ceil(1.25*samples) or {UX_MAX_ATTEMPTS_ENV}")
     parser.add_argument("--apdex-experience-max-pages", type=int, default=None, help=f"maximum pages; 0=all; default {DEFAULT_UX_MAX_PAGES} or {UX_MAX_PAGES_ENV}")
     parser.add_argument("--apdex-experience-device-mix", default=None, help=f"percentage distribution of synthetic user-action samples; must total 100; default {DEFAULT_UX_DEVICE_MIX} or {UX_DEVICE_MIX_ENV}")
-    parser.add_argument("--apdex-experience-session-mode", choices=("cold", "warm"), default=None, help=f"cold=fresh context/cache; warm=reused context/cache/cookies; or {UX_SESSION_MODE_ENV}")
-    parser.add_argument("--apdex-experience-kpm", choices=tuple(sorted(SUPPORTED_TIME_KPMS)), default=None, help=f"time KPM used for manual calibrated Apdex; or {UX_KPM_ENV}")
-    parser.add_argument("--apdex-experience-satisfied-seconds", type=float, default=None, help=f"manual Satisfied/Tolerating threshold; or {UX_SATISFIED_ENV}")
-    parser.add_argument("--apdex-experience-frustrated-seconds", type=float, default=None, help=f"manual Frustrated threshold; independent from 4T; or {UX_FRUSTRATED_ENV}")
+    parser.add_argument("--apdex-experience-session-mode", choices=("cold", "warm"), default=None, help=f"cold=fresh context/cache; warm=reused context/cache/cookies; default {DEFAULT_UX_SESSION_MODE} or {UX_SESSION_MODE_ENV}")
+    parser.add_argument("--apdex-experience-kpm", choices=tuple(sorted(SUPPORTED_TIME_KPMS)), default=None, help=f"executable time KPM; default {DEFAULT_UX_KPM} (Dynatrace load fallback metric because vendor-equivalent VISUALLY_COMPLETE is unavailable) or {UX_KPM_ENV}")
+    parser.add_argument("--apdex-experience-satisfied-seconds", type=float, default=None, help=f"Satisfied/Tolerating threshold; default {DEFAULT_UX_SATISFIED_SECONDS:g}s from Dynatrace load fallback/reference or {UX_SATISFIED_ENV}")
+    parser.add_argument("--apdex-experience-frustrated-seconds", type=float, default=None, help=f"Frustrated threshold; default {DEFAULT_UX_FRUSTRATED_SECONDS:g}s from Dynatrace load fallback/reference, independent from 4T, or {UX_FRUSTRATED_ENV}")
     parser.add_argument("--apdex-experience-errors", action=argparse.BooleanOptionalAction, default=None, help=f"make qualifying errors Frustrated; default true when Synthetic User Experience Apdex is enabled; or {UX_ERRORS_ENV}")
-    parser.add_argument("--apdex-experience-error-scope", choices=("navigation", "first-party", "all"), default=None, help=f"which request/JS errors can force Frustrated; or {UX_ERROR_SCOPE_ENV}")
+    parser.add_argument("--apdex-experience-error-scope", choices=("navigation", "first-party", "all"), default=None, help=f"which request/JS errors can force Frustrated; default {DEFAULT_UX_ERROR_SCOPE} or {UX_ERROR_SCOPE_ENV}")
     parser.add_argument("--apdex-experience-settle-seconds", type=float, default=None, help=f"bounded post-load observation window for late XHR/resources; default {DEFAULT_UX_SETTLE_SECONDS:g}s or {UX_SETTLE_ENV}")
     parser.add_argument("--apdex-experience-delay-seconds", type=float, default=None, help=f"minimum interval between sample starts; default {DEFAULT_UX_DELAY_SECONDS:g}s or {UX_DELAY_ENV}")
     parser.add_argument("--apdex-experience-concurrency", type=int, default=None, help=f"parallel workers 1-2; default {DEFAULT_UX_CONCURRENCY} or {UX_CONCURRENCY_ENV}")
-    parser.add_argument("--apdex-dynatrace-import", action=argparse.BooleanOptionalAction, default=None, help=f"import load-action KPM/thresholds from Dynatrace configuration; or {DYNATRACE_IMPORT_ENV}")
+    parser.add_argument("--apdex-dynatrace-import", action=argparse.BooleanOptionalAction, default=None, help=f"import load-action KPM/thresholds/fallback thresholds from Dynatrace configuration; or {DYNATRACE_IMPORT_ENV}")
     parser.add_argument("--dynatrace-base-url", default=None, help=f"Dynatrace environment URL, HTTPS only; or {DYNATRACE_BASE_URL_ENV}")
     parser.add_argument("--dynatrace-application-id", default=None, help=f"Dynatrace web application ID; or {DYNATRACE_APPLICATION_ID_ENV}")
     parser.add_argument("--apdex-dynatrace-config-json", default=None, help=f"offline exported Dynatrace application config JSON; preferred for reproducibility; or {DYNATRACE_CONFIG_JSON_ENV}")
@@ -96,8 +103,8 @@ def configured_experience(
     mix = parse_device_mix(mix_raw)
     session = (_text(getattr(args, "apdex_experience_session_mode", None), UX_SESSION_MODE_ENV, environment) or DEFAULT_UX_SESSION_MODE).casefold()
     kpm = (_text(getattr(args, "apdex_experience_kpm", None), UX_KPM_ENV, environment) or DEFAULT_UX_KPM).upper()
-    satisfied = _optional_positive_float(getattr(args, "apdex_experience_satisfied_seconds", None), UX_SATISFIED_ENV, environment)
-    frustrated = _optional_positive_float(getattr(args, "apdex_experience_frustrated_seconds", None), UX_FRUSTRATED_ENV, environment)
+    satisfied = _positive_float(getattr(args, "apdex_experience_satisfied_seconds", None), UX_SATISFIED_ENV, DEFAULT_UX_SATISFIED_SECONDS, environment)
+    frustrated = _positive_float(getattr(args, "apdex_experience_frustrated_seconds", None), UX_FRUSTRATED_ENV, DEFAULT_UX_FRUSTRATED_SECONDS, environment)
     errors = _bool(getattr(args, "apdex_experience_errors", None), UX_ERRORS_ENV, True, environment)
     error_scope = (_text(getattr(args, "apdex_experience_error_scope", None), UX_ERROR_SCOPE_ENV, environment) or DEFAULT_UX_ERROR_SCOPE).casefold()
     settle = _positive_float(getattr(args, "apdex_experience_settle_seconds", None), UX_SETTLE_ENV, DEFAULT_UX_SETTLE_SECONDS, environment)
