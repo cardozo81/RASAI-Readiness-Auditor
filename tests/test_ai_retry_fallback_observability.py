@@ -128,7 +128,7 @@ class AiRetryFallbackTests(unittest.TestCase):
         self.assertEqual(attempts[1].fallback_from_provider, "OPENAI")
         self.assertIn("AUTH_ERROR", attempts[1].fallback_reason or "")
 
-    def test_auto_global_budget_prevents_loop(self) -> None:
+    def test_legacy_auto_router_is_bounded_even_when_every_provider_times_out(self) -> None:
         calls = 0
         def timeout(*_):
             nonlocal calls
@@ -142,8 +142,12 @@ class AiRetryFallbackTests(unittest.TestCase):
         with patch("rasai.m18_ai.time.sleep", return_value=None):
             result = router.analyze(semantic_input())
         self.assertEqual(result.state, ProviderState.UNAVAILABLE)
-        self.assertEqual(calls, MAX_AUTO_ATTEMPTS_PER_CONTEXT)
-        self.assertEqual(len(router.consume_attempts()), MAX_AUTO_ATTEMPTS_PER_CONTEXT)
+        # This legacy router retries each concrete provider once, therefore six
+        # calls are sufficient and the historical eight-call global ceiling is
+        # only an upper bound. Public AI=auto uses DynamicProviderRoutingSession.
+        self.assertEqual(calls, 6)
+        self.assertLessEqual(calls, MAX_AUTO_ATTEMPTS_PER_CONTEXT)
+        self.assertEqual(len(router.consume_attempts()), calls)
 
     def test_report_row_exposes_diagnostic_and_fallback(self) -> None:
         row = {
