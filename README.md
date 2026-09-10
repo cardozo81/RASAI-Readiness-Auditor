@@ -57,8 +57,6 @@ Para inspecionar o contrato atual:
 rasai scoring inspect
 ```
 
-Fluxos de dataset/calibração associados ao método anterior de desenvolvimento 003 não são requisitos do runtime 004.
-
 Documentação: [docs/SCORE_GEO_004.md](docs/SCORE_GEO_004.md), [docs/SCORING_GUIDE.md](docs/SCORING_GUIDE.md) e [docs/SARI_READINESS_INDEX.md](docs/SARI_READINESS_INDEX.md).
 
 ## Relatórios HTML
@@ -136,7 +134,6 @@ generated_pages
 audit_expected_pages
 audit_missing_pages
 audit_report_complete
-aliases
 generated_at
 source_db
 ```
@@ -237,7 +234,7 @@ A IA é opcional. Ausência de IA não transforma regras semânticas em `FAIL`; 
 
 ## IA e proveniência do output
 
-Providers concretos/aliases são definidos pelo registry atual e documentados em:
+Providers concretos e seleções aceitas são definidos pelo registry atual e documentados em:
 
 - [docs/AI_GUIDE.md](docs/AI_GUIDE.md)
 - [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
@@ -335,7 +332,7 @@ rasai platform --audits-root audits status
 rasai platform --audits-root audits site
 ```
 
-A arquitetura alvo para SaaS usa control plane PostgreSQL e workers Linux/containerizados, mantendo compatibilidade com o runtime Windows local. A preparação atual concentra-se em IDs/filenames estáveis, manifests, schemas versionados, persistência histórica imutável e metadados API-friendly; não introduz infraestrutura SaaS pesada no runtime desktop.
+A arquitetura alvo para SaaS usa control plane PostgreSQL e workers Linux/containerizados. O runtime Windows local permanece um alvo operacional do produto, enquanto IDs/filenames estáveis, manifests, schemas versionados, persistência histórica imutável e metadados API-friendly sustentam a evolução para operação centralizada sem introduzir infraestrutura SaaS pesada no runtime desktop.
 
 Detalhes: [docs/PRODUCT_PLATFORM_ARCHITECTURE.md](docs/PRODUCT_PLATFORM_ARCHITECTURE.md).
 

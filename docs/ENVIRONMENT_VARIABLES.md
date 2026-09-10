@@ -31,6 +31,7 @@ Categorias do menu de ambiente:
 
 | Variável | Tipo / valores | Default efetivo | Finalidade |
 |---|---|---|---|
+| `RASAI_CONSOLE_INI` | caminho | `rasai-console.ini` | seleciona o arquivo INI persistente do console |
 | `RASAI_CONFIG` | caminho de arquivo existente | nenhum override obrigatório | aponta para TOML geral quando necessário |
 | `RASAI_CONSOLE_MODE` | `local`, `remote` | `local` | seleciona console local ou cliente do control plane remoto |
 | `RASAI_LOG_LEVEL` | `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG` | `INFO` | verbosidade do log |
@@ -38,6 +39,8 @@ Categorias do menu de ambiente:
 | `RASAI_AI_TIMEOUT_SECONDS` | número finito `>0` | `180` | timeout por tentativa de IA |
 | `RASAI_AI_CONTENT_REMEDIATION` | booleano | `false` | habilita remediação textual por IA |
 | `RASAI_AI_TECHNICAL_REMEDIATION` | booleano | `false` | habilita remediação técnica evidence-bound de crawling/discovery |
+
+`RASAI_CONSOLE_INI` altera somente o caminho do arquivo de parâmetros não sensíveis. Secrets não são gravados nesse arquivo.
 
 `RASAI_CONSOLE_MODE=remote` não cria outro audit engine. O console remoto atua como cliente HTTP do control plane.
 
@@ -178,7 +181,7 @@ Consulte [LIGHTHOUSE_CATEGORIES.md](LIGHTHOUSE_CATEGORIES.md), [LIGHTHOUSE_WEB_Q
 | `RASAI_DYNATRACE_CONFIG_JSON` | caminho de arquivo | nenhum |
 | `DYNATRACE_API_TOKEN` | secret | nenhum |
 
-Synthetic User Experience Apdex exige Synthetic Navigation Apdex habilitado. Consulte [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md) e [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md).
+Synthetic User Experience Apdex exige Synthetic Navigation Apdex habilitado. O `device mix` distribui a população de amostras/user actions e deve somar exatamente 100%; não representa quantidade de subrequests HTTP. Consulte [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md) e [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md).
 
 ## 8. Search Intelligence / Observability
 
@@ -254,6 +257,7 @@ O locale pode alterar conteúdo entregue por sites que negociam idioma/região n
 Uma configuração local sem IA e sem integrações externas pode iniciar apenas com o target. Defaults relevantes:
 
 ```text
+console ini                    = rasai-console.ini
 console mode                   = local
 device                         = mobile
 ai provider                    = none
@@ -267,6 +271,7 @@ field source                   = auto
 lighthouse categories          = performance,accessibility,best-practices,seo,agentic-browsing
 synthetic navigation apdex     = false
 synthetic experience apdex     = false
+experience device mix          = mobile=60,desktop=35,tablet=5
 SERP mode                      = disabled
 platform DB backend            = sqlite
 API docs                       = false

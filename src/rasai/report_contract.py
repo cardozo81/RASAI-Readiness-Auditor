@@ -1,9 +1,9 @@
 """Stable public report-surface contract for RASAi.
 
-Public report URLs are intentionally version-neutral. Method and product versions
-belong to persisted metadata and report content, never to the canonical filename.
-This module is the single source of truth for navigation, aliases, completeness
-checks, report manifests and future SaaS/API projection.
+Public report URLs are version-neutral. Method and product versions belong to
+persisted metadata and report content, never to the canonical filename. This module
+is the single source of truth for navigation, completeness checks, report manifests
+and SaaS/API projection.
 """
 from __future__ import annotations
 
@@ -20,7 +20,6 @@ class ReportSurface:
     filename: str
     label: str
     optional: bool
-    aliases: tuple[str, ...] = ()
     inputs: tuple[str, ...] = ()
     outputs: tuple[str, ...] = ()
     required_dependencies: tuple[str, ...] = ()
@@ -58,7 +57,6 @@ REPORT_SURFACES: tuple[ReportSurface, ...] = (
         filename="scoring.html",
         label="Metodologia de scoring",
         optional=False,
-        aliases=(),
         inputs=("scoring_version persistido", "scores", "Coverage", "Confidence", "Consolidation"),
         outputs=("fórmula", "dimensões", "pesos", "gates", "limitações", "reprodutibilidade"),
         required_dependencies=("audit.db",),
@@ -244,11 +242,8 @@ CANONICAL_NAV_ITEMS: tuple[tuple[str, str], ...] = tuple(
     (surface.label, surface.filename) for surface in REPORT_SURFACES
 )
 CANONICAL_FILENAMES: tuple[str, ...] = tuple(surface.filename for surface in REPORT_SURFACES)
-REPORT_ALIASES: dict[str, str] = {
-    alias: surface.filename
-    for surface in REPORT_SURFACES
-    for alias in surface.aliases
-}
+# Pre-publication contract: canonical filenames only; this remains empty by design.
+REPORT_ALIASES: dict[str, str] = {}
 
 
 def surface_by_id(surface_id: str) -> ReportSurface:
@@ -259,8 +254,7 @@ def surface_by_id(surface_id: str) -> ReportSurface:
 
 
 def surface_by_filename(filename: str) -> ReportSurface:
-    canonical = REPORT_ALIASES.get(filename, filename)
     for surface in REPORT_SURFACES:
-        if surface.filename == canonical:
+        if surface.filename == filename:
             return surface
     raise KeyError(filename)

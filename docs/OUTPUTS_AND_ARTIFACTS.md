@@ -69,7 +69,7 @@ quality.html
 
 Portanto, a ausência desses quatro arquivos dentro de um `AUD-*` recém-criado não representa, por si só, auditoria incompleta.
 
-O menu final contém apenas páginas canônicas que existem fisicamente e preserva a ordem definida pelo contrato `ReportSurface`. Durante a fase pré-publicação, `scoring.html` é a única URL canônica da metodologia; não existe alias HTML versionado público a manter.
+O menu final contém apenas páginas canônicas que existem fisicamente e preserva a ordem definida pelo contrato `ReportSurface`. `scoring.html` é a única URL canônica da metodologia.
 
 ## `report/report-manifest.json`
 
@@ -87,7 +87,6 @@ generated_pages
 audit_expected_pages
 audit_missing_pages
 audit_report_complete
-aliases
 generated_at
 source_db
 ```
