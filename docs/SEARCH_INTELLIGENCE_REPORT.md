@@ -1,297 +1,297 @@
-# Search Intelligence HTML Report
+# Relatório HTML de Search Intelligence
 
-## Objective
+## Objetivo
 
-`report/search-intelligence.html` is the canonical audit-level HTML surface for persisted Search Intelligence evidence.
+`report/search-intelligence.html` é a superfície HTML canônica da auditoria para evidências persistidas de Search Intelligence.
 
-The report is intentionally observational and advisory. It consolidates multiple evidence layers without merging their methodologies or changing their ownership.
+O relatório é intencionalmente observacional e consultivo. Ele consolida várias camadas de evidência sem fundir suas metodologias nem alterar a propriedade de cada dado.
 
-The page can show, when available:
+Quando disponível, a página pode mostrar:
 
-- observed Search result context and customer-domain position;
-- normalized SERP results returned by the configured Search provider;
-- deterministic RASAi result classification;
-- bounded public-page content evidence;
-- deterministic customer-versus-observed-leader differences;
-- persisted evidence-bound Competitive AI analysis;
-- source, provider, model, artifact reference, hashes and technical limitations.
+- contexto observado do resultado de Search e posição do domínio do cliente;
+- resultados SERP normalizados retornados pelo provider de Search configurado;
+- classificação determinística de resultados pelo RASAi;
+- evidência limitada de conteúdo de páginas públicas;
+- diferenças determinísticas entre o cliente e líderes observados;
+- análise persistida de Competitive AI vinculada a evidências;
+- origem, provider, modelo, referência de artefato, hashes e limitações técnicas.
 
-The page does not create a new score and does not alter `SARI-001` or `SCORE-GEO-004`.
+A página não cria novo score e não altera `SARI-001` nem `SCORE-GEO-004`.
 
-## Canonical filename and navigation
+## Nome canônico do arquivo e navegação
 
-Canonical filename:
+Arquivo canônico:
 
 ```text
 report/search-intelligence.html
 ```
 
-The page is optional. It is generated only when the audit workspace contains at least one persisted SERP observation.
+A página é opcional. Ela só é gerada quando o workspace da auditoria contém pelo menos uma observação SERP persistida.
 
-When the file exists, the shared report navigation includes `Search Intelligence`. If no Search Intelligence evidence exists, the page and navigation item remain absent.
+Quando o arquivo existe, a navegação compartilhada dos relatórios inclui `Search Intelligence`. Se não houver evidência de Search Intelligence, a página e o item de navegação permanecem ausentes.
 
-This avoids showing an empty product surface for audits that did not execute Search Intelligence.
+Isso evita mostrar uma superfície de produto vazia em auditorias que não executaram Search Intelligence.
 
-## Provenance model
+## Modelo de proveniência
 
-The report must preserve ownership for every layer.
+O relatório deve preservar a propriedade de cada camada.
 
 ### SERP Observation
 
-Origin:
+Origem:
 
-- configured Search provider for the observed result set;
-- RASAi for normalization, persistence, integrity metadata and contextual presentation.
+- provider de Search configurado para o conjunto de resultados observado;
+- RASAi para normalização, persistência, metadados de integridade e apresentação contextual.
 
-Persisted sources:
+Fontes persistidas:
 
 ```text
 serp_observations
 serp_results
 ```
 
-Fields such as provider, engine, query, country, region, language, device, requested depth, collection timestamp and data mode are part of the measurement context.
+Campos como provider, mecanismo, query, país, região, idioma, dispositivo, profundidade solicitada, timestamp de coleta e modo de dados fazem parte do contexto da medição.
 
-A position is not a timeless property of a domain. It is an observation under one defined context.
+Uma posição não é propriedade permanente de um domínio. É uma observação em um contexto definido.
 
-### Domain status
+### Status do domínio
 
-`FOUND` means the configured domain of interest matched a normalized result within the collected depth.
+`FOUND` significa que o domínio de interesse configurado correspondeu a um resultado normalizado dentro da profundidade coletada.
 
-`NOT_FOUND_WITHIN_DEPTH` means only that the domain was not observed inside the effective result depth. It must not be translated to:
+`NOT_FOUND_WITHIN_DEPTH` significa apenas que o domínio não foi observado dentro da profundidade efetiva de resultados. Não deve ser traduzido como:
 
-- "the site does not rank";
-- position zero;
-- infinite position;
-- failure of the website;
-- negative readiness score.
+- “o site não ranqueia”;
+- posição zero;
+- posição infinita;
+- falha do website;
+- score de readiness negativo.
 
-### Competitive result classification
+### Classificação competitiva de resultados
 
-Origin:
+Origem:
 
-- deterministic RASAi heuristics applied to the persisted SERP observation.
+- heurísticas determinísticas do RASAi aplicadas à observação SERP persistida.
 
-Persisted source:
+Fonte persistida:
 
 ```text
 serp_competitive_results
 ```
 
-Classification exists to select reasonable candidates for bounded content inspection. It does not establish that two organizations are business competitors.
+A classificação existe para selecionar candidatos razoáveis para inspeção limitada de conteúdo. Ela não estabelece que duas organizações sejam concorrentes comerciais.
 
-When the customer domain is found, only eligible observed results ahead of the first matching customer result can be presented as observed leaders for that query context.
+Quando o domínio do cliente é encontrado, apenas resultados observados elegíveis que estejam à frente da primeira correspondência do cliente podem ser apresentados como líderes observados naquele contexto de query.
 
-### Public content evidence
+### Evidência de conteúdo público
 
-Origin:
+Origem:
 
-- public website response observed by the bounded RASAi content collector.
+- resposta pública do website observada pelo coletor limitado de conteúdo do RASAi.
 
-Persisted source:
+Fonte persistida:
 
 ```text
 serp_competitive_pages
 ```
 
-The report can expose persisted deterministic features including:
+O relatório pode expor features determinísticas persistidas, incluindo:
 
-- requested and final URL;
-- fetch status and HTTP status;
-- content type;
-- received-byte count when persisted;
-- title;
+- URL solicitada e URL final;
+- status de fetch e status HTTP;
+- tipo de conteúdo;
+- quantidade de bytes recebidos, quando persistida;
+- título;
 - meta description;
-- extracted H1-H3 text;
-- approximate visible-text word count;
-- normalized query terms;
-- query-term presence in title, description, headings and body;
-- JSON-LD types;
-- content SHA-256;
-- fetch errors and redirect metadata when persisted.
+- texto extraído de H1–H3;
+- contagem aproximada de palavras do texto visível;
+- termos normalizados da query;
+- presença dos termos da query em título, descrição, headings e corpo;
+- tipos JSON-LD;
+- SHA-256 do conteúdo;
+- erros de fetch e metadados de redirect, quando persistidos.
 
-Raw customer or competitor HTML is not required by this report and must not be reconstructed or fabricated from the extracted features.
+HTML bruto do cliente ou de concorrentes não é necessário para este relatório e não deve ser reconstruído nem fabricado a partir das features extraídas.
 
-### Deterministic competitive gaps
+### Gaps competitivos determinísticos
 
-Origin:
+Origem:
 
-- RASAi deterministic comparison.
+- comparação determinística do RASAi.
 
-Current methodology identifier:
+Identificador metodológico atual:
 
 ```text
 DETERMINISTIC-CORRELATIONAL-001
 ```
 
-Persisted source:
+Fonte persistida:
 
 ```text
 serp_competitive_analyses
 ```
 
-These gaps are observed differences, not ranking factors. A lower lexical query coverage, different content volume or different structured-data types can be reported as a difference without claiming that the difference caused the observed ranking order.
+Esses gaps são diferenças observadas, não fatores de ranking. Cobertura lexical menor da query, volume de conteúdo diferente ou tipos diferentes de dados estruturados podem ser reportados como diferença sem afirmar que a diferença causou a ordem observada no ranking.
 
-## Evidence-bound Competitive AI
+## Competitive AI vinculada a evidências
 
-Competitive AI is a separate optional semantic layer. The HTML does not call an AI provider by itself. It only projects a persisted result produced by the Search Intelligence runtime.
+Competitive AI é uma camada semântica opcional e separada. O HTML não chama um provider de IA por conta própria; apenas projeta um resultado persistido produzido pelo runtime de Search Intelligence.
 
-The report supports the current persistence contract:
+O relatório suporta o contrato de persistência atual:
 
 ```text
 serp_competitive_ai_analyses
 ```
 
-When available, the page can expose:
+Quando disponível, a página pode expor:
 
-- state/status;
-- reason for skipped or unavailable execution;
-- AI provider;
-- model;
-- contract version;
-- prompt identifier and version;
-- provider request ID when available;
-- query intent assessment;
-- YMYL assessment;
-- semantic summary;
-- number of opportunities;
-- persisted opportunity payload;
-- evidence artifact reference;
-- evidence SHA-256.
+- estado/status;
+- motivo de execução ignorada ou indisponível;
+- provider de IA;
+- modelo;
+- versão do contrato;
+- identificador e versão do prompt;
+- request ID do provider, quando disponível;
+- avaliação de intenção da query;
+- avaliação YMYL;
+- resumo semântico;
+- quantidade de oportunidades;
+- payload persistido das oportunidades;
+- referência do artefato de evidência;
+- SHA-256 da evidência.
 
-An AI opportunity must remain evidence-bound. Evidence IDs referenced by the semantic output belong to the closed evidence set produced by the competitive evidence contract. The report must not replace evidence IDs with invented facts.
+Uma oportunidade de IA deve permanecer vinculada a evidências. IDs de evidência citados pela saída semântica pertencem ao conjunto fechado produzido pelo contrato de evidência competitiva. O relatório não deve substituir IDs de evidência por fatos inventados.
 
-## AI interpretation boundary
+## Limite de interpretação da IA
 
-Competitive AI can produce hypotheses and recommendations. It cannot establish private Search-engine causality.
+Competitive AI pode produzir hipóteses e recomendações. Ela não pode estabelecer causalidade privada do mecanismo de busca.
 
-Valid language includes:
+Linguagem válida inclui:
 
 ```text
-Observed leaders contain broader coverage of topic X than the customer page.
-Consider evaluating whether topic X is relevant to the customer's search intent and product scope.
-Evidence: CE-CUSTOMER, CE-COMP-001.
+Os líderes observados apresentam cobertura mais ampla do tópico X do que a página do cliente.
+Considere avaliar se o tópico X é relevante para a intenção de busca e para o escopo do produto do cliente.
+Evidência: CE-CUSTOMER, CE-COMP-001.
 ```
 
-Invalid language includes:
+Linguagem inválida inclui:
 
 ```text
-Google ranks the competitor higher because topic X is present.
-Adding topic X will increase the customer to position 1.
+O Google posiciona o concorrente acima porque o tópico X está presente.
+Adicionar o tópico X levará o cliente à posição 1.
 ```
 
-The second form claims access to a causal mechanism that the evidence does not establish.
+A segunda forma afirma acesso a um mecanismo causal que a evidência não estabelece.
 
-## Separation from readiness scoring
+## Separação do scoring de readiness
 
-Search Intelligence remains separate from the proprietary readiness indices.
+Search Intelligence permanece separado dos índices proprietários de readiness.
 
 ```text
-Search provider evidence
+evidência do provider de Search
         |
         v
 SERP Observation
         |
-        +--> RASAi deterministic competitive evidence
+        +--> evidência competitiva determinística do RASAi
         |          |
-        |          +--> optional bounded content evidence
+        |          +--> evidência opcional e limitada de conteúdo
         |                     |
-        |                     +--> optional evidence-bound Competitive AI
+        |                     +--> Competitive AI opcional vinculada a evidências
         |
-        +--> Search Intelligence HTML
+        +--> HTML de Search Intelligence
 
 SARI-001 / SCORE-GEO-004
         |
-        +--> separate scoring contract and separate evidence set
+        +--> contrato de scoring e conjunto de evidências separados
 ```
 
-No observed position, competitor classification, content difference or Competitive AI recommendation receives automatic score weight.
+Nenhuma posição observada, classificação de concorrente, diferença de conteúdo ou recomendação de Competitive AI recebe peso automático no score.
 
-Any future attempt to introduce Search Intelligence into scoring requires a new explicit methodological contract, documented validation and compatibility policy. It must not happen implicitly in report rendering.
+Qualquer tentativa futura de introduzir Search Intelligence no scoring exige novo contrato metodológico explícito, validação documentada e política de compatibilidade. Isso não pode acontecer implicitamente durante a renderização do relatório.
 
-## Separation from Lighthouse and CrUX
+## Separação de Lighthouse e CrUX
 
-`search-intelligence.html` must not present Lighthouse or CrUX metrics as Search Intelligence indicators.
+`search-intelligence.html` não deve apresentar métricas Lighthouse ou CrUX como indicadores de Search Intelligence.
 
-The ownership boundaries are:
+Os limites de propriedade são:
 
-- Lighthouse Performance, Accessibility, Best Practices and SEO technical scores belong to Google Chrome Lighthouse;
-- field Core Web Vitals belong to CrUX/Web Vitals;
-- SERP observations belong to the configured Search provider observation;
-- deterministic competitive classification and comparison belong to RASAi;
-- semantic competitive output belongs to the RASAi AI workflow plus its explicitly identified provider/model;
-- SARI-001 and SCORE-GEO-004 belong to their RASAi scoring contracts.
+- scores técnicos de Lighthouse Performance, Accessibility, Best Practices e SEO pertencem ao Google Chrome Lighthouse;
+- Core Web Vitals de campo pertencem a CrUX/Web Vitals;
+- observações SERP pertencem à observação do provider de Search configurado;
+- classificação e comparação competitivas determinísticas pertencem ao RASAi;
+- saída competitiva semântica pertence ao workflow de IA do RASAi e ao provider/modelo explicitamente identificado;
+- `SARI-001` e `SCORE-GEO-004` pertencem aos respectivos contratos de scoring do RASAi.
 
-Cross-links are acceptable. Methodological fusion without an explicit contract is not.
+Links cruzados são aceitáveis. Fusão metodológica sem contrato explícito não é.
 
-## Report refresh behavior
+## Atualização do relatório
 
-When an audit workspace is supplied, Search Intelligence persistence is authoritative. Report generation is ancillary.
+Quando um workspace de auditoria é fornecido, a persistência de Search Intelligence é a fonte autoritativa. A geração de relatório é acessória.
 
-The Search runtime performs a best-effort report refresh after a persisted observation. The deterministic competitive runtime also performs a best-effort refresh after its additive evidence is persisted.
+O runtime de Search tenta atualizar o relatório após persistir uma observação. O runtime competitivo determinístico também tenta atualizar o relatório após persistir sua evidência aditiva.
 
-A report rendering problem must not convert a successfully persisted SERP observation or competitive comparison into a provider/runtime failure. The HTML can be regenerated later from `audit.db`.
+Um problema de renderização não deve converter uma observação SERP ou comparação competitiva persistida com sucesso em falha de provider/runtime. O HTML pode ser regenerado posteriormente a partir de `audit.db`.
 
-The Competitive AI runtime follows the same contract: after semantic evidence is persisted, it refreshes the report from persisted state rather than passing an in-memory AI object directly into the renderer.
+Competitive AI segue o mesmo contrato: depois de persistir a evidência semântica, atualiza o relatório a partir do estado persistido, em vez de passar diretamente ao renderer um objeto de IA que exista apenas em memória.
 
-This keeps the HTML reproducible from its persisted sources of truth.
+Isso mantém o HTML reproduzível a partir de suas fontes de verdade persistidas.
 
-## Executive summary
+## Resumo executivo
 
-When `report/index.html` already exists, Search Intelligence reporting can add an idempotent summary panel containing:
+Quando `report/index.html` já existe, Search Intelligence pode adicionar um painel idempotente com:
 
-- persisted observation count;
-- number of observations where the domain was found;
-- latest observation timestamp;
-- link to `search-intelligence.html`.
+- quantidade de observações persistidas;
+- quantidade de observações em que o domínio foi encontrado;
+- timestamp da observação mais recente;
+- link para `search-intelligence.html`.
 
-The summary is descriptive only. It must not be presented as an average ranking score or site-wide Search score.
+O resumo é apenas descritivo. Não deve ser apresentado como score médio de ranking nem como score de Search para o site inteiro.
 
-## Integrity and traceability
+## Integridade e rastreabilidade
 
-Where available, expose:
+Quando disponíveis, devem ser expostos:
 
-- observation ID;
-- Search run ID;
-- provider request ID;
-- raw evidence artifact reference;
-- raw artifact SHA-256;
-- competitive artifact reference and SHA-256;
-- Competitive AI artifact reference and SHA-256;
-- provider/model identifiers;
-- errors and unavailable states.
+- ID da observação;
+- ID da execução Search;
+- request ID do provider;
+- referência do artefato bruto de evidência;
+- SHA-256 do artefato bruto;
+- referência e SHA-256 do artefato competitivo;
+- referência e SHA-256 do artefato de Competitive AI;
+- identificadores de provider/modelo;
+- erros e estados indisponíveis.
 
-An unavailable layer stays unavailable. The report must never fill a missing provider result, content feature or AI interpretation with a zero-valued synthetic result.
+Uma camada indisponível permanece indisponível. O relatório nunca deve preencher um resultado de provider, feature de conteúdo ou interpretação de IA ausente com um resultado sintético de valor zero.
 
-## Security and privacy
+## Segurança e privacidade
 
-The HTML does not display API secrets.
+O HTML não exibe segredos de API.
 
-Provider keys remain outside persisted report data. Public-page inspection continues to use the Search Intelligence network-safety policy, including bounded acquisition and SSRF-oriented validation.
+Chaves de provider permanecem fora dos dados persistidos do relatório. A inspeção de páginas públicas continua sujeita à política de segurança de rede de Search Intelligence, incluindo aquisição limitada e validação orientada a SSRF.
 
-Competitive AI receives the bounded evidence contract rather than raw competitor HTML. This reduces unnecessary content disclosure and keeps the semantic request tied to reproducible extracted evidence.
+Competitive AI recebe o contrato limitado de evidências, e não o HTML bruto de concorrentes. Isso reduz divulgação desnecessária de conteúdo e mantém a requisição semântica vinculada a evidência extraída e reproduzível.
 
-## Compatibility
+## Comportamento aditivo
 
-The Search Intelligence report is additive.
+O relatório de Search Intelligence é aditivo.
 
-Without persisted SERP observations:
+Sem observações SERP persistidas:
 
-- no `search-intelligence.html` is produced;
-- existing audit reports remain unchanged;
-- existing scoring remains unchanged.
+- `search-intelligence.html` não é produzido;
+- relatórios de auditoria existentes permanecem inalterados;
+- o scoring existente permanece inalterado.
 
-With SERP Observation only:
+Somente com SERP Observation:
 
-- the report can show the observed SERP and domain position;
-- competitive and AI sections remain explicitly unavailable rather than fabricated.
+- o relatório pode mostrar a SERP observada e a posição do domínio;
+- seções competitivas e de IA permanecem explicitamente indisponíveis, e não são fabricadas.
 
-With deterministic competitive evidence:
+Com evidência competitiva determinística:
 
-- the report adds classification, content evidence and deterministic gaps.
+- o relatório adiciona classificação, evidência de conteúdo e gaps determinísticos.
 
-With Competitive AI evidence:
+Com evidência de Competitive AI:
 
-- the report additionally projects the persisted semantic result with provider/model/evidence provenance.
+- o relatório também projeta o resultado semântico persistido, com proveniência de provider/modelo/evidência.
 
-This progressive disclosure allows Search Intelligence to evolve independently while keeping one stable public HTML surface.
+Essa divulgação progressiva permite que Search Intelligence evolua de forma independente, mantendo uma única superfície HTML pública estável.
