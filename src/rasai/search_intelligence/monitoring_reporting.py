@@ -5,7 +5,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from rasai.report_presentation import humanize_report_html
+from rasai.time_contract import localize_html_timestamps
 
 from .monitoring import SearchMonitoringRepository
 
@@ -164,7 +164,7 @@ def write_search_monitoring_report(
 <div class='notice'><strong>Separação de evidência:</strong> esta página é uma projeção longitudinal do control plane. Ela não reescreve <code>AUD-*/audit.db</code> nem altera SARI-001/SCORE-GEO-004. Raw SERP evidence e manifests de execução ficam no evidence root de monitoring.</div>
 {body}
 </main></body></html>"""
-    html = humanize_report_html(html, page_name=REPORT_FILE)
+    html = localize_html_timestamps(html)
     path.write_text(html, encoding="utf-8", newline="\n")
     _enrich_platform_index(root, query_count=len(queries), active=active, run_count=total_runs)
     return path
