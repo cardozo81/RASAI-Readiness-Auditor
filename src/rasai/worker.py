@@ -1,7 +1,8 @@
 """Execution worker for durable RASAi control-plane jobs.
 
 Workers are separate from the HTTP process. Jobs use structured, secret-free payloads;
-no persisted shell command or arbitrary argv is accepted.
+no persisted shell command or arbitrary argv is accepted. SaaS schedules materialize
+into the same durable queue before a worker claims work.
 """
 from __future__ import annotations
 
@@ -12,6 +13,8 @@ from typing import Any, Mapping
 
 from rasai.platform.database import open_platform_store
 from rasai.platform.reporting import write_platform_site
+from rasai.platform.saas_scheduling import normalize_scheduled_urls
+from rasai.platform.usage_ingestion import ingest_audit_usage, record_search_monitor_usage
 from rasai.search_intelligence.monitoring import execute_registered_query
 from rasai.search_intelligence.monitoring_database import open_search_monitoring_repository
 from rasai.secret_safety import redact_text
@@ -76,9 +79,21 @@ def _audit_arguments(store: Any, job: Any, audits_root: Path) -> list[str]:
     web_performance = _boolean(payload, "web_performance", False)
     content_remediation = _boolean(payload, "ai_content_remediation", False)
 
+    raw_urls = payload.get("urls")
+    if raw_urls is None:
+        targets = (environment.base_origin,)
+    else:
+        if not isinstance(raw_urls, list) or any(not isinstance(item, str) for item in raw_urls):
+            raise ValueError("execution payload urls must be an array of strings")
+        targets = normalize_scheduled_urls(
+            raw_urls,
+            property_hostname=prop.hostname,
+            environment_origin=environment.base_origin,
+        )
+
     allowed = {
         "language", "market", "max_pages", "device_context", "ai_provider", "ai_model",
-        "web_performance", "ai_content_remediation",
+        "web_performance", "ai_content_remediation", "urls",
     }
     unknown = sorted(set(payload) - allowed)
     if unknown:
@@ -86,7 +101,7 @@ def _audit_arguments(store: Any, job: Any, audits_root: Path) -> list[str]:
 
     argv = [
         "audit",
-        environment.base_origin,
+        *targets,
         "--project", project.name,
         "--language", language,
         "--market", market,
@@ -106,18 +121,37 @@ def _audit_arguments(store: Any, job: Any, audits_root: Path) -> list[str]:
 def _run_audit(store: Any, job: Any, audits_root: Path) -> WorkerResult:
     from rasai.entrypoint import main as rasai_main
 
+    previous_ids = {
+        item.audit_id
+        for item in store.list_audits(property_id=job.property_id, environment_id=job.environment_id)
+    }
     code = rasai_main(_audit_arguments(store, job, audits_root))
     if code != 0:
         raise RuntimeError(f"RASAi audit execution returned exit code {code}")
     audits = store.list_audits(property_id=job.property_id, environment_id=job.environment_id)
-    latest = max(audits, key=lambda item: item.event_time) if audits else None
-    return WorkerResult(
-        result_ref=(latest.audit_id if latest is not None else None),
-        metadata={"audit_id": latest.audit_id if latest is not None else None},
-    )
+    new_audits = [item for item in audits if item.audit_id not in previous_ids]
+    latest = max(new_audits or audits, key=lambda item: item.event_time) if audits else None
+    metadata: dict[str, Any] = {"audit_id": latest.audit_id if latest is not None else None}
+    if latest is not None and hasattr(store, "record_usage_once"):
+        try:
+            ingest_audit_usage(
+                store,
+                latest,
+                organization_id=job.organization_id,
+                project_id=job.project_id,
+                property_id=job.property_id,
+                environment_id=job.environment_id,
+                user_id=job.requested_by,
+                job_id=job.job_id,
+            )
+        except Exception as exc:
+            # Usage projection is derived. It must never invalidate successful audit
+            # evidence, and can be replayed idempotently later.
+            metadata["usage_projection_warning"] = redact_text(str(exc))
+    return WorkerResult(result_ref=(latest.audit_id if latest is not None else None), metadata=metadata)
 
 
-def _run_search_monitor(job: Any, audits_root: Path) -> WorkerResult:
+def _run_search_monitor(store: Any, job: Any, audits_root: Path) -> WorkerResult:
     query_id = _text(job.payload, "query_id")
     if not query_id:
         raise ValueError("SEARCH_MONITOR execution requires payload.query_id")
@@ -141,14 +175,17 @@ def _run_search_monitor(job: Any, audits_root: Path) -> WorkerResult:
         )
     if run.status == "FAILED":
         raise RuntimeError(run.error_message or run.error_code or "Search monitor execution failed")
-    return WorkerResult(
-        result_ref=run.manifest_ref,
-        metadata={
-            "monitor_run_id": run.monitor_run_id,
-            "query_id": query_id,
-            "status": run.status,
-        },
-    )
+    metadata: dict[str, Any] = {
+        "monitor_run_id": run.monitor_run_id,
+        "query_id": query_id,
+        "status": run.status,
+    }
+    if hasattr(store, "record_usage_once"):
+        try:
+            record_search_monitor_usage(store, job, run)
+        except Exception as exc:
+            metadata["usage_projection_warning"] = redact_text(str(exc))
+    return WorkerResult(result_ref=run.manifest_ref, metadata=metadata)
 
 
 def _run_report_refresh(store: Any, job: Any, audits_root: Path) -> WorkerResult:
@@ -160,10 +197,28 @@ def _run_report_refresh(store: Any, job: Any, audits_root: Path) -> WorkerResult
         result_ref = report.relative_to(audits_root).as_posix()
     except ValueError:
         result_ref = report.name
-    return WorkerResult(
-        result_ref=result_ref,
-        metadata={"surface": "portfolio"},
-    )
+    if hasattr(store, "record_usage_once"):
+        try:
+            store.record_usage_once(
+                source_key=f"job:{job.job_id}:report-refresh",
+                organization_id=job.organization_id,
+                project_id=job.project_id,
+                property_id=job.property_id,
+                category="REPORT_REFRESH",
+                quantity=1,
+                unit="execution",
+                metadata={
+                    "environment_id": job.environment_id,
+                    "user_id": job.requested_by,
+                    "job_id": job.job_id,
+                    "operation": "REPORT_REFRESH",
+                    "resource_type": "REPORT",
+                    "status": "SUCCESS",
+                },
+            )
+        except Exception:
+            pass
+    return WorkerResult(result_ref=result_ref, metadata={"surface": "portfolio"})
 
 
 def execute_job(store: Any, job: Any, *, audits_root: str | Path = "audits") -> WorkerResult:
@@ -171,10 +226,22 @@ def execute_job(store: Any, job: Any, *, audits_root: str | Path = "audits") -> 
     if job.job_type == "AUDIT":
         return _run_audit(store, job, root)
     if job.job_type == "SEARCH_MONITOR":
-        return _run_search_monitor(job, root)
+        return _run_search_monitor(store, job, root)
     if job.job_type == "REPORT_REFRESH":
         return _run_report_refresh(store, job, root)
     raise ValueError(f"unsupported execution job type: {job.job_type}")
+
+
+def _finish(store: Any, job_id: str, worker_id: str, **kwargs: Any) -> Any:
+    final = store.finish_execution_job(job_id, worker_id, **kwargs)
+    if hasattr(store, "reconcile_schedule_job"):
+        try:
+            store.reconcile_schedule_job(job_id)
+        except Exception:
+            # Occurrence reconciliation is derived from the durable job and may be
+            # retried; it never rewrites the execution result.
+            pass
+    return final
 
 
 def run_one(
@@ -183,8 +250,10 @@ def run_one(
     audits_root: str | Path = "audits",
     lease_seconds: int = 900,
 ) -> Any | None:
-    """Claim and execute one job, returning the final durable job record."""
+    """Materialize due schedules, claim and execute one durable job."""
     with open_platform_store(audits_root=audits_root) as store:
+        if hasattr(store, "materialize_due_schedules"):
+            store.materialize_due_schedules(limit=100)
         job = store.claim_execution_job(worker_id, lease_seconds=lease_seconds)
         if job is None:
             return None
@@ -192,13 +261,15 @@ def run_one(
         try:
             result = execute_job(store, job, audits_root=audits_root)
         except Exception as exc:
-            return store.finish_execution_job(
+            return _finish(
+                store,
                 job.job_id,
                 worker_id,
                 succeeded=False,
                 error=redact_text(str(exc)),
             )
-        return store.finish_execution_job(
+        return _finish(
+            store,
             job.job_id,
             worker_id,
             succeeded=True,

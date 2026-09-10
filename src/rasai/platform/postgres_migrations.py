@@ -15,7 +15,7 @@ from typing import Iterable
 from .postgres_compat import PostgresConnectionAdapter
 
 
-POSTGRES_SCHEMA_VERSION = 3
+POSTGRES_SCHEMA_VERSION = 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -383,6 +383,59 @@ MIGRATIONS: tuple[PostgreSQLMigration, ...] = (
             "CREATE INDEX IF NOT EXISTS idx_search_monitor_runs_query_time ON search_monitor_runs(query_id,completed_at DESC)",
             "CREATE INDEX IF NOT EXISTS idx_search_monitor_runs_observation ON search_monitor_runs(observation_id)",
             """INSERT INTO platform_extension_meta(key,value) VALUES('search_monitor_schema','1')
+               ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value""",
+        ),
+    ),
+    PostgreSQLMigration(
+        4,
+        "saas_scheduling_consumption",
+        (
+            """CREATE TABLE IF NOT EXISTS schedule_definitions (
+                schedule_id TEXT PRIMARY KEY REFERENCES schedules(schedule_id) ON DELETE CASCADE,
+                organization_id TEXT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+                job_type TEXT NOT NULL CHECK (job_type IN ('AUDIT','SEARCH_MONITOR','REPORT_REFRESH')),
+                payload_json TEXT NOT NULL DEFAULT '{}',
+                recurrence_json TEXT NOT NULL,
+                timezone TEXT NOT NULL,
+                overlap_policy TEXT NOT NULL DEFAULT 'SKIP' CHECK (overlap_policy IN ('SKIP','QUEUE')),
+                urls_json TEXT NOT NULL DEFAULT '[]',
+                status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','PAUSED','DISABLED','COMPLETED','ERROR')),
+                priority INTEGER NOT NULL DEFAULT 100 CHECK (priority BETWEEN 0 AND 1000),
+                max_attempts INTEGER NOT NULL DEFAULT 3 CHECK (max_attempts BETWEEN 1 AND 100),
+                next_run_at TEXT,
+                created_by TEXT REFERENCES users(user_id) ON DELETE SET NULL,
+                updated_by TEXT REFERENCES users(user_id) ON DELETE SET NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_schedule_definitions_due ON schedule_definitions(status,next_run_at,schedule_id)",
+            """CREATE TABLE IF NOT EXISTS schedule_occurrences (
+                occurrence_id TEXT PRIMARY KEY,
+                schedule_id TEXT NOT NULL REFERENCES schedules(schedule_id) ON DELETE CASCADE,
+                scheduled_for TEXT NOT NULL,
+                status TEXT NOT NULL,
+                job_id TEXT,
+                reason TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(schedule_id,scheduled_for)
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_schedule_occurrences_schedule ON schedule_occurrences(schedule_id,scheduled_for DESC)",
+            """CREATE TABLE IF NOT EXISTS schedule_events (
+                event_id TEXT PRIMARY KEY,
+                schedule_id TEXT NOT NULL REFERENCES schedules(schedule_id) ON DELETE CASCADE,
+                action TEXT NOT NULL,
+                actor_user_id TEXT REFERENCES users(user_id) ON DELETE SET NULL,
+                details_json TEXT NOT NULL DEFAULT '{}',
+                occurred_at TEXT NOT NULL
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_schedule_events_schedule ON schedule_events(schedule_id,occurred_at DESC)",
+            """CREATE TABLE IF NOT EXISTS usage_import_keys (
+                source_key TEXT PRIMARY KEY,
+                usage_event_id TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )""",
+            """INSERT INTO platform_extension_meta(key,value) VALUES('saas_management_schema','1')
                ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value""",
         ),
     ),

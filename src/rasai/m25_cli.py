@@ -38,6 +38,7 @@ M25_ENV_NAMES = (
 
 DEFAULT_UX_SAMPLES = 100
 DEFAULT_UX_MAX_PAGES = 1
+DEFAULT_UX_DEVICE_MIX = "mobile=60,desktop=35,tablet=5"
 DEFAULT_UX_SESSION_MODE = "cold"
 DEFAULT_UX_KPM = "USER_ACTION_DURATION"
 DEFAULT_UX_ERROR_SCOPE = "first-party"
@@ -54,7 +55,7 @@ def register_experience_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--apdex-experience-samples", type=int, default=None, help=f"total valid samples per page across the configured device population; default {DEFAULT_UX_SAMPLES} or {UX_SAMPLES_ENV}")
     parser.add_argument("--apdex-experience-max-attempts", type=int, default=None, help=f"total attempt budget per page; default ceil(1.25*samples) or {UX_MAX_ATTEMPTS_ENV}")
     parser.add_argument("--apdex-experience-max-pages", type=int, default=None, help=f"maximum pages; 0=all; default {DEFAULT_UX_MAX_PAGES} or {UX_MAX_PAGES_ENV}")
-    parser.add_argument("--apdex-experience-device-mix", default=None, help=f"required explicit population mix, e.g. mobile=60,desktop=35,tablet=5; or {UX_DEVICE_MIX_ENV}")
+    parser.add_argument("--apdex-experience-device-mix", default=None, help=f"percentage distribution of synthetic user-action samples; must total 100; default {DEFAULT_UX_DEVICE_MIX} or {UX_DEVICE_MIX_ENV}")
     parser.add_argument("--apdex-experience-session-mode", choices=("cold", "warm"), default=None, help=f"cold=fresh context/cache; warm=reused context/cache/cookies; or {UX_SESSION_MODE_ENV}")
     parser.add_argument("--apdex-experience-kpm", choices=tuple(sorted(SUPPORTED_TIME_KPMS)), default=None, help=f"time KPM used for manual calibrated Apdex; or {UX_KPM_ENV}")
     parser.add_argument("--apdex-experience-satisfied-seconds", type=float, default=None, help=f"manual Satisfied/Tolerating threshold; or {UX_SATISFIED_ENV}")
@@ -91,7 +92,7 @@ def configured_experience(
         getattr(args, "apdex_experience_max_pages", None), UX_MAX_PAGES_ENV,
         standard_max_pages if standard_max_pages >= 0 else DEFAULT_UX_MAX_PAGES, environment,
     )
-    mix_raw = _text(getattr(args, "apdex_experience_device_mix", None), UX_DEVICE_MIX_ENV, environment)
+    mix_raw = _text(getattr(args, "apdex_experience_device_mix", None), UX_DEVICE_MIX_ENV, environment) or DEFAULT_UX_DEVICE_MIX
     mix = parse_device_mix(mix_raw)
     session = (_text(getattr(args, "apdex_experience_session_mode", None), UX_SESSION_MODE_ENV, environment) or DEFAULT_UX_SESSION_MODE).casefold()
     kpm = (_text(getattr(args, "apdex_experience_kpm", None), UX_KPM_ENV, environment) or DEFAULT_UX_KPM).upper()

@@ -12,6 +12,7 @@ from pathlib import Path
 import sqlite3
 from typing import Any
 
+from rasai.persistence import AuditWorkspace
 from rasai.report_contract import (
     OBSERVABILITY_CONTRACT_VERSION,
     REPORT_ALIASES,
@@ -19,6 +20,7 @@ from rasai.report_contract import (
     SARI_VERSION,
     REPORT_SURFACES,
 )
+from rasai.report_completion import expected_audit_report_pages
 
 MANIFEST_FILE = "report-manifest.json"
 
@@ -40,8 +42,26 @@ def write_report_manifest(report_dir: str | Path) -> Path | None:
         for alias, canonical in REPORT_ALIASES.items()
         if (root / alias).is_file()
     }
+
+    expected_pages: list[str] = []
+    missing_pages: list[str] = []
+    audit_id = metadata.get("audit_id")
+    if audit_id:
+        try:
+            workspace = AuditWorkspace.open(root.parent)
+            expected_pages = list(
+                expected_audit_report_pages(audit_id=str(audit_id), workspace=workspace)
+            )
+            generated_set = set(generated_pages)
+            missing_pages = [name for name in expected_pages if name not in generated_set]
+        except (OSError, ValueError, sqlite3.Error):
+            # Manifest generation remains fail-open for legacy/incomplete workspaces.
+            # The final URL-audit completion gate performs the authoritative check.
+            expected_pages = []
+            missing_pages = []
+
     manifest: dict[str, Any] = {
-        "audit_id": metadata.get("audit_id"),
+        "audit_id": audit_id,
         "auditor_version": metadata.get("auditor_version"),
         "ruleset_version": metadata.get("ruleset_version"),
         "sari_version": SARI_VERSION,
@@ -51,6 +71,9 @@ def write_report_manifest(report_dir: str | Path) -> Path | None:
             OBSERVABILITY_CONTRACT_VERSION if "observability.html" in generated_pages else None
         ),
         "generated_pages": generated_pages,
+        "audit_expected_pages": expected_pages,
+        "audit_missing_pages": missing_pages,
+        "audit_report_complete": (not missing_pages) if expected_pages else None,
         "aliases": aliases,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source_db": "audit.db",

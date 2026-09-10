@@ -33,13 +33,13 @@ REASONING_ENV = {item.provider_name: provider_reasoning_env(item.provider_name) 
 PROVIDER_MENU_CHOICES = ("none", *(item.id for item in _REGISTRATIONS), "auto")
 
 _BASE_ENV_NAMES = (
-    "RASAI_CONFIG", "RASAI_LOG_LEVEL", "RASAI_DEVICE_CONTEXT", AI_TIMEOUT_ENV,
+    "RASAI_CONFIG", "RASAI_CONSOLE_MODE", "RASAI_LOG_LEVEL", "RASAI_DEVICE_CONTEXT", AI_TIMEOUT_ENV,
     "RASAI_AI_CONTENT_REMEDIATION", "RASAI_AI_TECHNICAL_REMEDIATION", *CONTENT_CONTEXT_ENV_NAMES,
     "RASAI_WEB_PERFORMANCE",
     "RASAI_WEB_PERFORMANCE_MAX_PAGES", WEB_PERFORMANCE_TIMEOUT_ENV,
     "RASAI_WEB_PERFORMANCE_FIELD_SOURCE", "RASAI_LIGHTHOUSE_CATEGORIES",
     "RASAI_PAGESPEED_API_KEY", "RASAI_CRUX_API_KEY",
-    *EXTENSION_REASONING_ENV.values(), "RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE",
+    *EXTENSION_REASONING_ENV.values(), "RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE", "RASAI_BROWSER_LOCALE",
 )
 ENV_NAMES = tuple(dict.fromkeys((*_BASE_ENV_NAMES, *provider_environment_names())))
 SECRET_NAMES = frozenset({*(item.key_env for item in _REGISTRATIONS), "RASAI_PAGESPEED_API_KEY", "RASAI_CRUX_API_KEY"})
@@ -212,6 +212,9 @@ def validate_env_value(name: str, value: str) -> str:
         configured_content_analysis_context(candidate)
         return value.casefold()
     if name in {"RASAI_AI_CONTENT_REMEDIATION", "RASAI_AI_TECHNICAL_REMEDIATION", "RASAI_WEB_PERFORMANCE"} and value.casefold() not in {"true", "false", "1", "0", "yes", "no", "on", "off"}: raise ValueError("booleano inválido")
+    if name == "RASAI_CONSOLE_MODE":
+        value = value.casefold()
+        if value not in {"local", "remote"}: raise ValueError("use local ou remote")
     if name == "RASAI_DEVICE_CONTEXT":
         value = value.casefold()
         if value not in {"mobile", "desktop", "both"}: raise ValueError("use mobile, desktop ou both")
