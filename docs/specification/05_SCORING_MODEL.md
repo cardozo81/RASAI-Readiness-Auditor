@@ -1,17 +1,17 @@
 # SCORING_MODEL.md
 
-**Estado no baseline de desenvolvimento:** APPROVED / CURRENT  
-**Scoring baseline:** `SCORE-GEO-004`  
-**Public index:** `SARI-001`  
-**Aggregation contract:** `HIERARCHICAL_WEIGHTED_READINESS_V1`
+**Estado no baseline de desenvolvimento:** aprovado / vigente  
+**Scoring vigente:** `SCORE-GEO-004`  
+**Índice público:** `SARI-001`  
+**Contrato de agregação:** `HIERARCHICAL_WEIGHTED_READINESS_V1`
 
 ## 0. Natureza metodológica
 
 `SCORE-GEO-004` é o método proprietário e versionado de scoring vigente do RASAi.
 
-`APPROVED` significa aprovado como baseline normativa interna. Não significa homologação por Google, OpenAI, Microsoft, Anthropic, NIST, W3C, schema.org ou outro mantenedor.
+“Aprovado” significa aprovado como baseline normativa interna. Não significa homologação por Google, OpenAI, Microsoft, Anthropic, NIST, W3C, Schema.org ou outro mantenedor.
 
-O método é determinístico, evidence-bound e reproduzível por auditoria. O Overall não é probabilidade de ranking, tráfego, conversão, resposta ou citação futura.
+O método é determinístico, vinculado a evidências e reproduzível por auditoria. Overall não é probabilidade de ranking, tráfego, conversão, resposta ou citação futura.
 
 Validação empírica externa pode existir como pesquisa independente, mas não é input obrigatório do runtime e não altera silenciosamente o score.
 
@@ -29,7 +29,9 @@ Todo Score possui:
 - Limitations;
 - Scoring Version.
 
-`scoring_version` é parte do contrato de comparabilidade e deve permanecer persistido mesmo que a rota HTML seja version-neutral.
+Os nomes acima permanecem em inglês porque correspondem aos campos/conceitos técnicos persistidos pelo contrato.
+
+`scoring_version` é parte do contrato de comparabilidade e deve permanecer persistido mesmo que a rota HTML seja neutra quanto à versão.
 
 O runtime registra ainda identificadores metodológicos do contrato ativo, incluindo agregação, pesos de dimensão/grupo, Confidence e Critical Gates.
 
@@ -37,28 +39,30 @@ O runtime registra ainda identificadores metodológicos do contrato ativo, inclu
 
 O contrato vigente possui onze dimensões:
 
-| Dimensão | Peso no Overall |
-|---|---:|
-| `DISCOVERY_ACCESS` | 15% |
-| `INDEXABILITY` | 15% |
-| `CONTENT_EXTRACTABILITY` | 15% |
-| `SEMANTIC_STRUCTURE` | 7% |
-| `ENTITY_CLARITY` | 8% |
-| `STRUCTURED_DATA` | 5% |
-| `ANSWERABILITY` | 7% |
-| `CITATION_READINESS` | 7% |
-| `EVIDENCE_TRUST` | 8% |
-| `INTENT_COVERAGE` | 5% |
-| `CONTENT_VALUE` | 8% |
-| **Total** | **100%** |
+| Dimensão | Valor vigente | Valores permitidos | Recomendado |
+|---|---:|---|---|
+| `DISCOVERY_ACCESS` | 15% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `INDEXABILITY` | 15% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `CONTENT_EXTRACTABILITY` | 15% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `SEMANTIC_STRUCTURE` | 7% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `ENTITY_CLARITY` | 8% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `STRUCTURED_DATA` | 5% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `ANSWERABILITY` | 7% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `CITATION_READINESS` | 7% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `EVIDENCE_TRUST` | 8% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `INTENT_COVERAGE` | 5% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `CONTENT_VALUE` | 8% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| **Total** | **100%** | contrato fixo | preservar |
 
-`DISCOVERY_ACCESS` substitui a antiga denominação interna `TECHNICAL_ACCESSIBILITY`, evitando confusão com Accessibility/WCAG.
+`DISCOVERY_ACCESS` substitui a denominação histórica interna `TECHNICAL_ACCESSIBILITY`, evitando confusão com Accessibility/WCAG. A referência histórica existe somente para explicar compatibilidade conceitual; o nome vigente é `DISCOVERY_ACCESS`.
 
 Desktop e Mobile permanecem separados. Um dispositivo não auditado não pode ser projetado como resultado válido.
 
 Os pesos são fixos no contrato e não configuráveis por auditoria.
 
 ## 3. RuleResult
+
+Valores permitidos:
 
 ```text
 PASS
@@ -71,15 +75,15 @@ NOT_APPLICABLE
 
 `UNKNOWN`, `ERROR` e `NOT_APPLICABLE` não são `FAIL`.
 
-Fatores default de qualidade:
+Fatores vigentes de qualidade:
 
-```text
-PASS    = 1.00
-WARNING = 0.50
-FAIL    = 0.00
-```
+| Resultado | Valor vigente | Valores permitidos | Recomendado |
+|---|---:|---|---|
+| `PASS` | `1.00` | fixo pelo contrato do scoring | preservar |
+| `WARNING` | `0.50` | default do contrato; alguns grupos podem possuir `warning_factor` específico e versionado | usar somente o valor versionado do grupo |
+| `FAIL` | `0.00` | fixo pelo contrato do scoring | preservar |
 
-Alguns grupos possuem `warning_factor` específico e versionado.
+Esses fatores não são parâmetros livres do usuário.
 
 ## 4. Hierarquia de cálculo
 
@@ -140,16 +144,22 @@ Dimension Coverage =
   evaluated applicable weight / total applicable weight
 ```
 
-Evaluated:
+Resultados considerados avaliados:
 
 ```text
-PASS, WARNING, FAIL
+PASS
+WARNING
+FAIL
 ```
 
-Applicable:
+Resultados pertencentes ao universo aplicável:
 
 ```text
-PASS, WARNING, FAIL, UNKNOWN, ERROR
+PASS
+WARNING
+FAIL
+UNKNOWN
+ERROR
 ```
 
 `NOT_APPLICABLE` legítimo fica fora do universo aplicável.
@@ -172,7 +182,7 @@ limitation = NO_RULE_EXECUTIONS
 
 Ausência total de execução não é `NOT_APPLICABLE`.
 
-### Todas legitimamente NOT_APPLICABLE
+### Todas legitimamente `NOT_APPLICABLE`
 
 ```text
 Value = null
@@ -188,32 +198,32 @@ Reason contendo `PREREQUISITE_BLOCKED` mantém o universo afetado não consolida
 
 ## 9. Confidence da dimensão
 
-```text
-HIGH        Coverage >= 90%, evidência completa, zero errors
-MEDIUM      Coverage >= 80%, zero errors
-LOW         existe avaliação, mas os critérios acima não foram satisfeitos
-UNAVAILABLE Coverage <= 0
-```
+| Estado | Critério vigente | Valores permitidos | Recomendado |
+|---|---|---|---|
+| `HIGH` | Coverage >= 90%, evidência completa e zero errors | fixo no contrato | preservar |
+| `MEDIUM` | Coverage >= 80% e zero errors | fixo no contrato | preservar |
+| `LOW` | existe avaliação, mas os critérios anteriores não foram satisfeitos | fixo no contrato | interpretar como força limitada da medição, não como qualidade baixa automática |
+| `UNAVAILABLE` | Coverage <= 0 | fixo no contrato | preservar ausência |
 
-Os thresholds são governança interna versionada.
+Os thresholds são governança interna versionada e não configuráveis por auditoria.
 
 `Confidence LOW` isoladamente não gera finding nem ordem de reescrita.
 
 ## 10. Consolidation da dimensão
 
-```text
-CONSOLIDATED     Coverage >= 80% e Confidence HIGH/MEDIUM
-PARTIAL          avaliação disponível com Coverage >= 50% abaixo do gate completo
-NOT_CONSOLIDATED Coverage < 50% ou Confidence UNAVAILABLE
-NOT_APPLICABLE   dimensão legitimamente fora do universo aplicável
-```
+| Estado | Critério vigente | Valores permitidos | Recomendado |
+|---|---|---|---|
+| `CONSOLIDATED` | Coverage >= 80% e Confidence `HIGH`/`MEDIUM` | fixo no contrato | preservar |
+| `PARTIAL` | avaliação disponível com Coverage >= 50% abaixo do gate completo | fixo no contrato | preservar |
+| `NOT_CONSOLIDATED` | Coverage < 50% ou Confidence `UNAVAILABLE` | fixo no contrato | preservar |
+| `NOT_APPLICABLE` | dimensão legitimamente fora do universo aplicável | fixo no contrato | não imputar score |
 
-## 11. Overall - SCORE-GEO-004
+## 11. Overall — SCORE-GEO-004
 
 Existem separadamente:
 
-- Overall Readiness - Desktop;
-- Overall Readiness - Mobile.
+- Overall Readiness — Desktop;
+- Overall Readiness — Mobile.
 
 Contrato de agregação vigente:
 
@@ -231,7 +241,7 @@ SARI =
 
 Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador e não recebe zero nem 100.
 
-Uma dimensão aplicável sem valor não recebe imputação numérica. Seu peso ausente reduz a qualidade da medição através de Coverage/Confidence e dos gates de consolidação.
+Uma dimensão aplicável sem valor não recebe imputação numérica. Seu peso ausente reduz a qualidade da medição por meio de Coverage/Confidence e dos gates de consolidação.
 
 ## 12. Coverage do Overall
 
@@ -247,12 +257,12 @@ Uma dimensão não crítica incompleta não apaga automaticamente o valor numér
 
 ## 13. Confidence do Overall
 
-O Overall combina:
+Overall combina:
 
 1. rigor crítico para `DISCOVERY_ACCESS`, `INDEXABILITY` e `CONTENT_EXTRACTABILITY`;
 2. Confidence ponderada pelos pesos das dimensões aplicáveis.
 
-Se uma dimensão crítica aplicável estiver `LOW` ou `UNAVAILABLE`, o Overall Confidence permanece `LOW`.
+Se uma dimensão crítica aplicável estiver `LOW` ou `UNAVAILABLE`, Overall Confidence permanece `LOW`.
 
 Para dimensões não críticas, a influência acompanha o peso metodológico, evitando que uma dimensão pequena domine isoladamente a confiança global.
 
@@ -275,7 +285,7 @@ PARTIAL
 
 NOT_CONSOLIDATED
   quando não existe valor mensurável,
-  existe blocker de medição crítica,
+  existe bloqueador de medição crítica,
   ou Coverage/Confidence ficam abaixo do mínimo
 ```
 
@@ -293,7 +303,7 @@ Gates vigentes:
 - `INDEXABILITY`: grupos `INDEX_DIRECTIVES`, `CANONICAL`, `SOFT_ERROR`;
 - `EXTRACTION`: grupos `RENDER_ACCESS`, `JS_CONTENT`, `CONTENT_EXTRACTION`.
 
-Estados de gate:
+Estados permitidos de gate:
 
 ```text
 PASS
@@ -302,7 +312,7 @@ BLOCKED
 UNKNOWN
 ```
 
-Estado agregado de readiness:
+Estados agregados permitidos de readiness:
 
 ```text
 READY
@@ -315,7 +325,7 @@ Um `FAIL` em condição crítica pode produzir `BLOCKED` sem alterar artificialm
 
 ## 16. Content Value
 
-`CONTENT_VALUE` possui peso de 8% e é uma família `RASAI_HEURISTIC`.
+`CONTENT_VALUE` possui peso vigente de 8% e é uma família `RASAI_HEURISTIC`.
 
 Regras atuais:
 
@@ -351,9 +361,9 @@ Não varia arbitrariamente por auditoria:
 - gates de Coverage/Confidence/Consolidation;
 - Critical Readiness Gates.
 
-O RASAi está em desenvolvimento/pré-produção. A recalibração corrente permanece sob `SCORE-GEO-004` e é distinguida pelo contrato de agregação `HIERARCHICAL_WEIGHTED_READINESS_V1`; dados de desenvolvimento gerados pelo contrato anterior de agregação são não comparáveis e devem ser regenerados quando reutilizados.
+Defaults e valores permitidos de parâmetros operacionais pertencem às referências canônicas `../ENVIRONMENT_VARIABLES.md`, `../CONFIGURATION.md` e `../CLI_REFERENCE.md`; esta especificação não redefine valores operacionais livres.
 
-Após existência de série histórica/contrato externo estável, mudança metodológica incompatível deve criar nova versão de scoring em vez de reinterpretar dados persistidos.
+Mudança metodológica incompatível deve criar nova versão explícita de scoring, em vez de reinterpretar dados persistidos.
 
 ## 19. Sem IA
 
@@ -377,9 +387,9 @@ A reprodução não pode exigir nova execução do website nem nova chamada de I
 
 ## 21. Histórico e comparabilidade
 
-Nenhum AUD persistido é recalculado automaticamente por geração de relatório ou mudança metodológica.
+Nenhum `AUD-*` persistido é recalculado automaticamente por geração de relatório ou mudança metodológica.
 
-Comparação longitudinal deve exigir compatibilidade metodológica. Durante a fase pré-produção, auditorias 004 produzidas sob o contrato experimental anterior de agregação não devem ser comparadas numericamente com `HIERARCHICAL_WEIGHTED_READINESS_V1` sem regeneração explícita.
+Comparação longitudinal exige compatibilidade metodológica. Auditorias persistidas com `scoring_version` ou contrato de agregação incompatível não devem ser comparadas numericamente como se fossem equivalentes; a superfície consumidora deve declarar não comparabilidade/limitação correspondente.
 
 ## 22. Evidência externa
 
@@ -407,6 +417,6 @@ Core Web Vitals, Lighthouse, WCAG, Apdex, E-E-A-T/YMYL e Observed Generative Vis
 - Consolidation;
 - Critical Readiness Gates;
 - limitações;
-- compatibilidade entre dados de desenvolvimento.
+- compatibilidade metodológica dos dados persistidos.
 
 Detalhes operacionais: `docs/SCORE_GEO_004.md`, `docs/SCORING_GUIDE.md` e `docs/SARI_READINESS_INDEX.md`.
