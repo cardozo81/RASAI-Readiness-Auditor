@@ -19,18 +19,11 @@ def audit_workspace(state: State) -> Path | None:
 
 
 def report_entrypoint(workspace: Path | None) -> Path | None:
-    """Resolve the current report entrypoint with backward-compatible fallbacks."""
+    """Resolve the canonical report entrypoint."""
     if workspace is None:
         return None
-    candidates = (
-        workspace / "report" / "index.html",
-        workspace / "report.html",
-        workspace / "index.html",
-    )
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate.resolve()
-    return None
+    candidate = workspace / "report" / "index.html"
+    return candidate.resolve() if candidate.is_file() else None
 
 
 def open_external_path(path: Path) -> tuple[bool, str]:
