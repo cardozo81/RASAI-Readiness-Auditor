@@ -213,17 +213,19 @@ Finding somente quando a ambiguidade puder ser sustentada por evidência materia
 
 Avalia parsing, `@context`, `@type` e estrutura observada.
 
+Quando o estado-fonte registra explicitamente `present=false`, a observação continua persistida e reabrível, mas o adapter de scoring `SCORE-GEO-004` aplica a política versionada de aplicabilidade e projeta essa execução como `NOT_APPLICABLE` **somente para scoring**, com `reason=STRUCTURED_DATA_ABSENT_NOT_UNIVERSAL_SARI_REQUIREMENT` e preservação de `source_rule_result`. Portanto, ausência legítima de JSON-LD não reduz o SARI e não deve ser apresentada como requisito universal.
+
 ### BR-GEO-035 - Tipos e propriedades relevantes de Dados Estruturados devem ser identificáveis
 
-Identifica tipos e propriedades persistidos.
+Identifica tipos e propriedades persistidos quando existe Structured Data aplicável. Sem markup observável, permanece fora do universo efetivamente mensurável conforme o contrato de aplicabilidade.
 
 ### BR-GEO-036 - Dados Estruturados devem permanecer coerentes com o conteúdo visível
 
-Compara markup com valores e conteúdo observável na página.
+Compara markup com valores e conteúdo observável na página. Sem Structured Data, não existe coerência de markup a avaliar e não se fabrica `FAIL`.
 
 ### BR-GEO-037 - Entidades dos Dados Estruturados devem ser coerentes com as entidades observadas
 
-Compara entidades declaradas e observadas. Ausência de Dados Estruturados não implica `FAIL` automático.
+Compara entidades declaradas e observadas. Ausência de Dados Estruturados não implica `FAIL` automático nem penalização numérica.
 
 ## 11. Capacidade de resposta
 
