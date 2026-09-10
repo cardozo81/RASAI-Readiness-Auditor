@@ -12,8 +12,8 @@ rasai search-monitor ...
 rasai visibility import|report ...
 rasai scoring inspect
 rasai monitor compare|impact|gate ...
-rasai observe report|status|import|bing-import|google-ai-import|google-ai-control|gsc-sites|gsc-sitemaps|gsc-search|gsc-appearance|gsc-inspect|crux-history ...
-rasai observability ...                 # alias de observe
+rasai observe ...
+rasai observability ...
 rasai quality report|verify|timeline ...
 rasai platform ...
 rasai-console
@@ -22,8 +22,8 @@ rasai-console
 ## Opções globais
 
 - `-h`, `--help` - ajuda da superfície/comando.
-- `--version` - identificador técnico do pacote quando necessário para diagnóstico; não representa uma versão comercial divulgada do produto.
-- `--config PATH` - arquivo de configuração do audit quando suportado pela CLI principal.
+- `--version` - identificador técnico do pacote.
+- `--config PATH` - arquivo TOML quando suportado pela superfície.
 
 ## `audit`
 
@@ -33,7 +33,7 @@ Forma geral:
 rasai audit target [target ...] [opções]
 ```
 
-### Entrada/contexto
+### Entrada e contexto
 
 | Opção | Uso |
 |---|---|
@@ -43,26 +43,24 @@ rasai audit target [target ...] [opções]
 | `--language CODE` | idioma; default `pt-BR` |
 | `--market CODE` | mercado; default `BR` |
 | `--max-pages N` | máximo determinístico de páginas |
-| `--audits-root PATH` | raiz de workspaces; default `audits` |
-| `--device-context` | seleciona `mobile`, `desktop` ou `both` |
-| `--ai-provider` | provider semântico: `none`, provider explícito ou `auto` |
-| `--ai-model MODEL_ID` | modelo explícito quando compatível |
+| `--audits-root PATH` | raiz dos workspaces; default `audits` |
+| `--device-context` | `mobile`, `desktop` ou `both` |
+| `--ai-provider` | `none`, provider explícito ou `auto` |
+| `--ai-model MODEL_ID` | override de modelo para provider explícito |
 
-Default público de dispositivo: `mobile`. Override: `RASAI_DEVICE_CONTEXT`.
+Default de dispositivo: `mobile`. Override: `RASAI_DEVICE_CONTEXT`.
 
 ## SARI-001 / SCORE-GEO-004
 
-As auditorias usam `SCORE-GEO-004`. O Overall é determinístico, hierárquico e ponderado pelos pesos fixos/versionados das dimensões medidas e aplicáveis. Coverage e Confidence também são agregadas de forma ponderada; Discovery, Indexability e Extraction recebem rigor adicional nos gates de medição. Critical Gates permanecem separados do valor 0-100. Não existe model artifact obrigatório no runtime 004.
+A metodologia vigente é `SCORE-GEO-004`; a identidade pública do índice é `SARI-001`.
 
-Para inspecionar o contrato vigente:
+Inspeção local do contrato:
 
 ```powershell
 rasai scoring inspect
 ```
 
-O comando mostra `scoring_version`, contrato de agregação, número de dimensões e gates. Não acessa rede, não cria dataset e não realiza fitting.
-
-Relatórios por AUD:
+Relatórios canônicos:
 
 ```text
 report/readiness.html
@@ -71,34 +69,35 @@ report/scoring.html
 
 ## IA no audit
 
-Providers expostos pelo registry/CLI incluem:
+Providers do registry:
 
 ```text
 none
 openai
 deepseek
 mimo
-auto
-xai/grok
+xai / grok
 qwen
 gemini
-anthropic/claude
+anthropic / claude
+auto
 ```
 
-`AUTO` permanece limitado à cadeia habilitada/configurada. Provider explícito não deve ser invalidado por credencial ausente de provider não selecionado.
+`AI=auto` considera todos os providers registrados como elegíveis para AUTO que estejam aptos na execução. Aptidão exige credencial e configuração válidas. O runtime usa round-robin compartilhado entre necessidades, tenta cada provider no máximo uma vez por necessidade, remove imediatamente condições terminais e aplica circuit breaker para falhas temporárias.
 
-Timeout principal: `RASAI_AI_TIMEOUT_SECONDS`, default atual 180 s por tentativa.
+O timeout principal é `RASAI_AI_TIMEOUT_SECONDS`, default 180 segundos por tentativa.
 
 ### Remediação textual
 
 ```text
 --ai-content-remediation
 --no-ai-content-remediation
+RASAI_AI_CONTENT_REMEDIATION
 ```
 
-Default OFF. Os diagnósticos técnicos são advisory; quando habilitada, uma avaliação técnica evidence-bound válida pode materializar BR-GEO-055/056 nos grupos SITEMAP/ROBOTS sem peso adicional.
+Default OFF. A camada gera sugestões evidence-bound e não recalcula score.
 
-### Remediação técnica de crawling
+### Remediação técnica
 
 ```text
 --ai-technical-remediation
@@ -106,19 +105,54 @@ Default OFF. Os diagnósticos técnicos são advisory; quando habilitada, uma av
 RASAI_AI_TECHNICAL_REMEDIATION
 ```
 
-Default OFF. Precedência: CLI explícito > ambiente > OFF.
+Default OFF. A IA técnica explica/remedia diagnósticos já determinados pelo runtime e permanece advisory.
+
+### Contexto editorial / YMYL / E-E-A-T
+
+Os campos `RASAI_CONTENT_*`, `RASAI_YMYL_CATEGORY`, `RASAI_PAGE_PURPOSE`, `RASAI_INTENDED_AUDIENCE`, `RASAI_EXPERIENCE_REQUIREMENT` e `RASAI_FRESHNESS_SENSITIVITY` aceitam configuração editorial contextual.
+
+Quando um campo está em `auto` e IA está ligada, a configuração persistida continua `AUTO`. A IA pode produzir interpretação transitória para o relatório, baseada apenas no conteúdo/evidências fornecidos. Essa leitura não sobrescreve banco, não vira evidência determinística e não altera diretamente SARI/SCORE-GEO-004.
+
+### Telemetria de IA
+
+Cada chamada externa pode ser auditada em `report/ai-usage.html`. O runtime registra request/response sanitizados, provider/modelo, finalidade, duração, status, hashes e truncamento. Secrets e raciocínio privado do provider não são persistidos.
+
+Controle de tamanho:
+
+```text
+RASAI_AI_EXCHANGE_LOG_MAX_BYTES
+```
+
+Default: 524288 bytes por lado da comunicação; faixa aceita pelo runtime: 4096 a 4194304.
+
+Documentos:
+
+- [AI_GUIDE.md](AI_GUIDE.md)
+- [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
+- [AI_RUNTIME_SECURITY.md](AI_RUNTIME_SECURITY.md)
+- [CONTENT_CONTEXT_AI_INTERPRETATION.md](CONTENT_CONTEXT_AI_INTERPRETATION.md)
 
 ## Web Performance
 
 ```text
---web-performance / --no-web-performance
+--web-performance
+--no-web-performance
 --web-performance-max-pages N
 --web-performance-timeout-seconds SECONDS
 --web-performance-field-source auto|pagespeed|crux|none
---lighthouse-categories performance,accessibility,best-practices,seo,agentic-browsing
+--lighthouse-categories performance,accessibility,best-practices,seo
 ```
 
-O default solicita as cinco categorias na mesma chamada PageSpeed por contexto. `agentic-browsing` é experimental e sua ausência isolada não invalida Performance, Accessibility, Best Practices ou SEO válidos.
+O adapter PageSpeed vigente aceita no RASAi as categorias:
+
+```text
+performance
+accessibility
+best-practices
+seo
+```
+
+`agentic-browsing` não é enviado ao PageSpeed. Um eventual score Agentic depende de fonte/adaptador Lighthouse direto separado. Ausência de Agentic não é score zero e não invalida as categorias PageSpeed coletadas.
 
 Variáveis principais:
 
@@ -134,19 +168,54 @@ RASAI_CRUX_API_KEY
 
 Lab e field data permanecem separados e não entram automaticamente em SARI/SCORE-GEO-004.
 
-## Search Intelligence
+## Synthetic Navigation Apdex
 
-### Observação Search
-
-Forma geral:
-
-```powershell
-rasai search "termo de busca" --domain cliente.example [opções]
+```text
+--synthetic-apdex
+--no-synthetic-apdex
+--apdex-threshold-seconds SECONDS
+--apdex-samples-per-context N
+--apdex-max-attempts-per-context N
+--apdex-max-pages N
+--apdex-timeout-seconds SECONDS
+--apdex-delay-seconds SECONDS
+--apdex-concurrency 1|2
 ```
 
-A superfície observa Search tradicional por provider configurado e preserva query, engine, mercado, região, idioma, device, profundidade, timestamp e proveniência. `NOT_FOUND_WITHIN_DEPTH` significa apenas que o domínio não foi observado dentro da profundidade solicitada; não representa posição zero, posição infinita ou ausência absoluta de ranking.
+Default OFF. O threshold `T` é obrigatório quando habilitado.
 
-Opções relevantes incluem:
+## Synthetic User Experience Apdex
+
+```text
+--apdex-experience
+--no-apdex-experience
+--apdex-experience-samples N
+--apdex-experience-max-attempts N
+--apdex-experience-max-pages N
+--apdex-experience-device-mix mobile=60,desktop=35,tablet=5
+--apdex-experience-session-mode cold|warm
+--apdex-experience-kpm KPM
+--apdex-experience-satisfied-seconds SECONDS
+--apdex-experience-frustrated-seconds SECONDS
+--apdex-experience-errors
+--no-apdex-experience-errors
+--apdex-experience-error-scope navigation|first-party|all
+--apdex-experience-settle-seconds SECONDS
+--apdex-experience-delay-seconds SECONDS
+--apdex-experience-concurrency 1|2
+```
+
+A superfície continua sintética, inclusive quando calibrada contra configuração Dynatrace.
+
+## Search Intelligence
+
+### Observação pontual
+
+```powershell
+rasai search "termo" --domain cliente.example [opções]
+```
+
+Opções relevantes:
 
 ```text
 --mode disabled|live|fixture
@@ -167,279 +236,64 @@ Opções relevantes incluem:
 --dry-run
 ```
 
-`--competitive` classifica resultados de forma determinística. `--compare-content` habilita aquisição pública limitada de páginas. `--ai-competitive` é opt-in explícito e somente opera sobre evidências determinísticas consolidadas.
+`NOT_FOUND_WITHIN_DEPTH` significa apenas que o domínio não foi observado na profundidade solicitada. Search Intelligence é non-scoring.
 
-Quando houver persistência no workspace, a superfície canônica point-in-time é:
+### Histórico
+
+```powershell
+rasai search-history --baseline-workspace audits/AUD-BASELINE --current-workspace audits/AUD-CURRENT
+```
+
+Também pode operar por milestone e modos `AUTO`, `GOLDEN` ou `EXPLICIT`. Comparações só produzem delta numérico quando o contexto observado é compatível.
+
+### Monitoramento recorrente
 
 ```text
-report/search-intelligence.html
+rasai search-monitor query add ...
+rasai search-monitor query list
+rasai search-monitor query enable --query-id ID
+rasai search-monitor query disable --query-id ID
+rasai search-monitor run --query-id ID
+rasai search-monitor run-due
+rasai search-monitor history --query-id ID
+rasai search-monitor report
 ```
 
-Search Intelligence não altera automaticamente `SARI-001` ou `SCORE-GEO-004`.
+O scheduler usa a Product Platform. Credenciais BYOK não são gravadas em schedules.
 
-### Histórico Search Intelligence
+Documentos:
 
-Metodologia atual:
-
-```text
-SEARCH-HISTORY-001
-```
-
-Comparação direta entre dois workspaces:
-
-```powershell
-rasai search-history `
-  --baseline-workspace audits/AUD-BASELINE `
-  --current-workspace audits/AUD-CURRENT
-```
-
-Por padrão, uma execução bem-sucedida gera `audits/search-history/SH-*/report.html` e `manifest.json`. Use `--report-root PATH` para alterar a raiz dessa saída standalone.
-
-Com saída JSON opcional:
-
-```powershell
-rasai search-history `
-  --baseline-workspace audits/AUD-BASELINE `
-  --current-workspace audits/AUD-CURRENT `
-  --json search-history.json
-```
-
-Comparação vinculada a milestone existente no control plane:
-
-```powershell
-rasai search-history `
-  --milestone <milestone-id> `
-  --audits-root audits
-```
-
-Seleção explícita de baseline/current:
-
-```powershell
-rasai search-history `
-  --milestone <milestone-id> `
-  --baseline-mode EXPLICIT `
-  --baseline-audit <audit-id> `
-  --current-audit <audit-id>
-```
-
-Modos de baseline aceitos:
-
-```text
-AUTO
-GOLDEN
-EXPLICIT
-```
-
-Um delta numérico de posição só é produzido quando os dois lados possuem o mesmo contexto de query, engine, país, região, idioma, device, profundidade e domínio, além de provider/data mode compatíveis e status `OBSERVED`.
-
-Mudanças `FOUND` <-> `NOT_FOUND_WITHIN_DEPTH` são apresentadas como entrada ou saída da profundidade observada. O RASAI não inventa a posição absoluta fora dessa janela.
-
-Quando ambas as observações possuem comparação competitiva determinística consolidada, o histórico também pode descrever mudanças de cobertura lexical, volume observado, tipos JSON-LD e gaps determinísticos. A cronologia de um milestone não é apresentada como causalidade de ranking.
-
-O comando é read-only sobre `audit.db`, não chama Search provider, AI provider ou páginas públicas e nunca altera `SARI-001`/`SCORE-GEO-004`.
-
-### Monitoramento recorrente de Search Intelligence
-
-Contrato atual:
-
-```text
-SEARCH-MONITOR-001
-```
-
-A superfície `rasai search-monitor` registra queries no control plane e executa observações longitudinais sem anexar novos dados a `AUD-*/audit.db` históricos.
-
-Registrar uma query manual:
-
-```powershell
-rasai search-monitor --audits-root audits query add `
-  --project <project-id> `
-  --property <property-id> `
-  --environment <environment-id> `
-  --query "seguro auto" `
-  --domain cliente.example `
-  --country BR `
-  --language pt-BR `
-  --device desktop `
-  --depth 20
-```
-
-Listar e controlar queries:
-
-```powershell
-rasai search-monitor --audits-root audits query list
-rasai search-monitor --audits-root audits query enable --query-id <query-id>
-rasai search-monitor --audits-root audits query disable --query-id <query-id>
-```
-
-Executar agora:
-
-```powershell
-rasai search-monitor --audits-root audits run --query-id <query-id>
-```
-
-Projetar limites sem chamadas externas:
-
-```powershell
-rasai search-monitor --audits-root audits run --query-id <query-id> --dry-run
-```
-
-Consultar histórico:
-
-```powershell
-rasai search-monitor --audits-root audits history --query-id <query-id> --limit 20
-```
-
-Gerar a superfície longitudinal:
-
-```powershell
-rasai search-monitor --audits-root audits report
-```
-
-Saída default:
-
-```text
-audits/platform-report/search-intelligence.html
-```
-
-Agendamento intervalado pode ser configurado na criação da query:
-
-```text
---mode live
---provider serpapi
---interval-minutes N
-```
-
-O intervalo mínimo desta superfície é 60 minutos. Alternativamente, use:
-
-```text
---daily-time HH:MM
-```
-
-Executar apenas schedules Search-monitor vencidos:
-
-```powershell
-rasai search-monitor --audits-root audits run-due
-```
-
-O scheduler reutiliza a Product Platform e executa `python -m rasai` com argv estruturado e `shell=False`. Credenciais BYOK não são gravadas em schedules.
-
-Para comparação de conteúdo e Competitive AI, a query pode ser registrada com:
-
-```text
---compare-content
---max-content-pages N
---ai-competitive
---ai-provider openai
---ai-model MODEL_ID
---ymyl-mode AUTO|ON|OFF
-```
-
-Raw Search evidence e manifests ficam em `audits/.rasai/search-monitoring/`; o resumo longitudinal fica no `platform.db`. A superfície é non-scoring e nunca altera `SARI-001`/`SCORE-GEO-004`.
-
-Consulte `SEARCH_INTELLIGENCE_MONITORING.md` para o contrato completo, semântica de comparabilidade e fronteira de persistência.
-
-## Synthetic Navigation Apdex
-
-```text
---synthetic-apdex / --no-synthetic-apdex
---apdex-threshold-seconds SECONDS
---apdex-samples-per-context N
---apdex-max-attempts-per-context N
---apdex-max-pages N
---apdex-timeout-seconds SECONDS
---apdex-delay-seconds SECONDS
---apdex-concurrency 1|2
-```
-
-Default OFF. `T` é obrigatório quando habilitado.
-
-## Synthetic User Experience Apdex
-
-```text
---apdex-experience / --no-apdex-experience
---apdex-experience-samples N
---apdex-experience-max-attempts N
---apdex-experience-max-pages N
---apdex-experience-device-mix mobile=60,desktop=35,tablet=5
---apdex-experience-session-mode cold|warm
---apdex-experience-kpm KPM
---apdex-experience-satisfied-seconds SECONDS
---apdex-experience-frustrated-seconds SECONDS
---apdex-experience-errors / --no-apdex-experience-errors
---apdex-experience-error-scope navigation|first-party|all
---apdex-experience-settle-seconds SECONDS
---apdex-experience-delay-seconds SECONDS
---apdex-experience-concurrency 1|2
-```
-
-Continua sintético, inclusive quando calibrado contra configuração Dynatrace.
+- [SERP_OBSERVATION.md](SERP_OBSERVATION.md)
+- [SEARCH_INTELLIGENCE_HISTORY.md](SEARCH_INTELLIGENCE_HISTORY.md)
+- [SEARCH_INTELLIGENCE_MONITORING.md](SEARCH_INTELLIGENCE_MONITORING.md)
 
 ## Observed Generative Visibility
 
-### Import
+Import:
 
 ```powershell
-rasai visibility import `
-  --audit-id AUD-... `
-  --audits-root audits `
-  --file observed-visibility.json
+rasai visibility import --audit-id AUD-... --audits-root audits --file observed-visibility.json
 ```
 
-Contrato `OGV-IMPORT-001`. O artifact/SHA-256 é preservado e o import não recalcula scoring.
-
-### Report
+Report:
 
 ```powershell
 rasai visibility report --audit-id AUD-... --audits-root audits
 ```
 
-Página: `report/ai-visibility.html`.
+A importação preserva provenance/artifact e não recalcula scoring.
 
 ## RASAi Monitor
 
-Todos os comandos são read-only sobre os `audit.db` fonte.
-
-### Compare
-
-```powershell
-rasai monitor compare `
-  --audits-root audits `
-  --baseline AUD-BASELINE `
-  --current AUD-CURRENT
-```
-
-Opcional: `--report-root PATH`. Gera `MON-*/report.html` e `manifest.json`.
-
-### Impact
-
-```powershell
-rasai monitor impact --baseline AUD-BASELINE --current AUD-CURRENT
-```
-
-Gera `impact.html`. Um único dataset mais recente é selecionado por fonte em cada AUD; históricos sobrepostos não são somados. Janelas são classificadas como alinhadas, parcialmente sobrepostas, não sobrepostas ou desconhecidas. Associação temporal só é emitida para períodos comparáveis e nunca afirma causalidade.
-
-### Release gate
-
-```powershell
-rasai monitor gate --baseline AUD-BASELINE --current AUD-CURRENT
-```
-
-Gate default = BR-GEO determinísticas elegíveis + page state. Demais famílias exigem opt-in explícito:
-
 ```text
---include-semantic
---include-performance
---include-synthetic
---include-finding-aggregates
---include-score-dimensions
---max-high-regressions N          # default 0
---max-medium-regressions N        # default 3
---dimension-drop-points POINTS    # default 5.0
+rasai monitor compare ...
+rasai monitor impact ...
+rasai monitor gate ...
 ```
 
-`--include-score-dimensions` compara dimensões persistidas e respeita `scoring_version`; contratos diferentes não são convertidos silenciosamente.
+`compare` compara dois AUDs; `impact` descreve mudanças observadas em janelas compatíveis sem afirmar causalidade; `gate` aplica critérios de regressão configuráveis.
 
-Exit codes:
+Exit codes do gate:
 
 ```text
 0 PASS
@@ -449,230 +303,63 @@ Exit codes:
 
 ## Search & AI Observability
 
-Comando principal: `rasai observe`; alias `rasai observability`.
-
-Base comum:
+Comando principal:
 
 ```text
---audits-root audits
---audit AUD-...|PATH
+rasai observe ...
 ```
 
-Dados externos são persistidos em `observability.db` + `artifacts/observability/`. O sidecar atual é `RASAI-OBS-002`, cuja identidade de observação é `(dataset_id, record_id)`. `audit.db` não é migrado.
-
-### Status/report
-
-```powershell
-rasai observe status --audit AUD-...
-rasai observe report --audit AUD-...
-```
-
-Página: `report/observability.html`.
-
-### Import genérico
-
-```powershell
-rasai observe import --audit AUD-... --file observability.json
-```
-
-Contrato: `RASAI-OBS-IMPORT-001`.
-
-### Bing import-first
-
-```powershell
-rasai observe bing-import `
-  --audit AUD-... `
-  --file bing-search-performance.csv `
-  [--surface SURFACE]
-```
-
-### Google Generative AI Performance import-first
-
-Search:
-
-```powershell
-rasai observe google-ai-import --audit AUD-... --file genai-search.csv --surface search
-```
-
-Discover:
-
-```powershell
-rasai observe google-ai-import --audit AUD-... --file genai-discover.csv --surface discover
-```
-
-RASAi persiste apenas os campos presentes no export. Não inventa clicks, CTR, position, query ou citation count. Search/Discover possuem provenance separada.
-
-### Google GenAI control
-
-```powershell
-rasai observe google-ai-control --audit AUD-... --state INCLUDE
-rasai observe google-ai-control --audit AUD-... --state EXCLUDE
-rasai observe google-ai-control --audit AUD-... --state INHERIT
-```
-
-Opções adicionais:
+Alias:
 
 ```text
---source-label TEXT
---observed-at ISO-8601
+rasai observability ...
 ```
 
-É evidência observacional/manual e non-scoring.
+Subsuperfícies incluem `status`, `report`, `import`, `bing-import`, `google-ai-import`, `google-ai-control`, `gsc-sites`, `gsc-sitemaps`, `gsc-search`, `gsc-appearance`, `gsc-inspect` e `crux-history`.
 
-### Search Console - propriedades
+Dados externos ficam em `observability.db` + `artifacts/observability/`; o `audit.db` histórico não é reescrito por essa camada.
 
-```powershell
-rasai observe gsc-sites --audit AUD-...
-```
-
-Lista/persiste propriedades acessíveis e permission level.
-
-### Search Console - sitemaps
-
-```powershell
-rasai observe gsc-sitemaps `
-  --audit AUD-... `
-  --site-url "sc-domain:example.com"
-```
-
-Persiste path, lastSubmitted, lastDownloaded, pending, warnings/errors e submitted counts. O campo deprecated `contents[].indexed` não é usado.
-
-### Search Console Search Analytics
-
-```powershell
-rasai observe gsc-search `
-  --audit AUD-... `
-  --site-url "sc-domain:example.com" `
-  --start-date 2026-08-01 `
-  --end-date 2026-08-31 `
-  [--search-type web] `
-  [--max-rows 100000]
-```
-
-`--max-rows` é teto real da coleta; page size da API é limitado separadamente.
-
-Bearer token default: `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`. Override: `--token-env NAME`.
-
-### Search Console Search Appearance
-
-```powershell
-rasai observe gsc-appearance `
-  --audit AUD-... `
-  --site-url "sc-domain:example.com" `
-  --start-date 2026-08-01 `
-  --end-date 2026-08-31
-```
-
-Usa a dimensão documentada `searchAppearance` e mantém source provenance separada do Search Analytics convencional.
-
-### URL Inspection
-
-```powershell
-rasai observe gsc-inspect `
-  --audit AUD-... `
-  --site-url "sc-domain:example.com" `
-  [--max-urls 25] `
-  [--language-code pt-BR]
-```
-
-URLs vêm do audit fonte; `--max-urls` protege quota.
-
-### CrUX History
-
-```powershell
-rasai observe crux-history `
-  --audit AUD-... `
-  --target https://example.com/ `
-  --scope url `
-  [--form-factor PHONE|DESKTOP|TABLET] `
-  [--periods 40]
-```
-
-API key default: `RASAI_CRUX_API_KEY`. Override: `--key-env NAME`.
-
-## RASAi Quality
-
-Quality é derivado/read-only e não cria outro readiness score.
-
-### Audit Health / Evidence Confidence / Coverage / Prioridade
-
-```powershell
-rasai quality report --audit AUD-... --audits-root audits
-```
-
-Gera `report/quality.html` com:
-
-- Audit Health;
-- Evidence Confidence por finding;
-- Operational Priority `P0`-`P3`;
-- Coverage Map;
-- `nosnippet`, `max-snippet`, `data-nosnippet`, `X-Robots-Tag`;
-- Recommendation Validation.
-
-### Fix Verification
-
-```powershell
-rasai quality verify `
-  --baseline AUD-BASELINE `
-  --current AUD-CURRENT `
-  [--url https://example.com/page] `
-  [--rule BR-GEO-011]
-```
-
-Saída: `audits/verification/VER-*/report.html` por default.
-
-Estados principais:
+## Quality timeline / verification
 
 ```text
-FIXED
-PARTIALLY_FIXED
-NOT_FIXED
-NOT_VERIFIABLE
+rasai quality report ...
+rasai quality verify ...
+rasai quality timeline ...
 ```
 
-### Evidence Timeline
+Use as superfícies de quality para projeções e verificações que não devem modificar evidência histórica.
 
-```powershell
-rasai quality timeline `
-  --audits-root audits `
-  [--domain example.com] `
-  [--url https://example.com/page]
-```
-
-Saída: `audits/quality/TIMELINE-*/report.html` por default.
-
-## Credenciais observacionais
+## Product Platform / SaaS
 
 ```text
-RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
-RASAI_CRUX_API_KEY
+rasai platform ...
 ```
 
-Tokens/keys são inputs de runtime e não são persistidos em sidecar/report.
+A Product Platform gerencia Organization, Workspace, Project, Property, Environment, memberships/RBAC, jobs, schedules, milestones e usage ledger conforme o backend configurado.
 
-## Console
+SQLite continua disponível para operação local; PostgreSQL é o backend centralizado do control plane quando configurado.
 
-```powershell
+## Console interativo
+
+```text
 rasai-console
 ```
 
-`rasai-console.ini` armazena somente configuração não sensível. Monitoring, observability, quality e platform permanecem superfícies especializadas da CLI na implementação atual.
+O console monta os mesmos argumentos públicos da CLI, apresenta capacidade dos providers, exposição pré-execução, configuração editorial, Web Performance e demais opções suportadas. Secrets não são gravados no INI.
 
-## Referências internas
+## API / execução remota
 
-- `MONITORING_OBSERVABILITY.md`
-- `CONFIGURATION.md`
-- `ENVIRONMENT_VARIABLES.md`
-- `SCORE_GEO_004.md`
-- `SCORING_GUIDE.md`
-- `INTERACTIVE_CONSOLE.md`
-- `PRODUCT_PLATFORM_ARCHITECTURE.md`
-- `POSTGRESQL_MIGRATION_STRATEGY.md`
-- `SEARCH_INTELLIGENCE_REPORT.md`
-- `SEARCH_INTELLIGENCE_HISTORY.md`
-- `SEARCH_INTELLIGENCE_MONITORING.md`
-- `specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md`
-- `specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`
-- `specification/26_OBSERVED_GENERATIVE_VISIBILITY.md`
-- `specification/27_MONITORING_OBSERVABILITY.md`
-- `specification/28_AUDIT_QUALITY_VERIFICATION.md`
+A Web/API e o console remoto possuem documentação própria porque autenticação, OIDC, control plane, jobs e workers são contratos de deployment diferentes da CLI local:
+
+- [WEB_API_CLI.md](WEB_API_CLI.md)
+- [WEB_API.md](WEB_API.md)
+- [SAAS_CONTROL_PLANE.md](SAAS_CONTROL_PLANE.md)
+
+## Princípios de segurança da CLI
+
+- não materializar API keys ou bearer tokens em argumentos/documentação/logs;
+- não transformar falha de provider externo em finding do website;
+- não recalcular evidência histórica para apresentar dado externo novo;
+- não misturar métricas externas com SARI sem contrato metodológico versionado;
+- manter retries/fallbacks limitados e observáveis;
+- exigir revisão humana para remediações de conteúdo ou crawling sugeridas por IA.
