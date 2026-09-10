@@ -1,8 +1,9 @@
 """M24 additive discovery extensions.
 
 Installed by ``cli_extensions`` before the legacy audit starts. The extension keeps
-M2's public dataclasses stable while expanding sitemap formats and preserving
-cross-origin sitemap declarations without fetching arbitrary origins.
+M2's public dataclasses stable while expanding sitemap formats, preserving
+cross-origin sitemap declarations without fetching arbitrary origins, and installing
+bounded llms.txt v2 discovery for root/scoped files explicitly advertised by the site.
 """
 from __future__ import annotations
 
@@ -24,12 +25,18 @@ MAX_SITEMAP_URLS = 50_000
 
 
 def install_discovery_extensions() -> None:
-    """Install M24 behavior once for every DiscoveryEngine instance."""
-    if getattr(DiscoveryEngine, "_m24_extensions_installed", False):
-        return
-    DiscoveryEngine._interpret_robots = _interpret_robots_m24  # type: ignore[method-assign]
-    DiscoveryEngine._acquire_sitemap = _acquire_sitemap_m24  # type: ignore[method-assign]
-    DiscoveryEngine._m24_extensions_installed = True  # type: ignore[attr-defined]
+    """Install sitemap and llms.txt discovery extensions idempotently."""
+    if not getattr(DiscoveryEngine, "_m24_extensions_installed", False):
+        DiscoveryEngine._interpret_robots = _interpret_robots_m24  # type: ignore[method-assign]
+        DiscoveryEngine._acquire_sitemap = _acquire_sitemap_m24  # type: ignore[method-assign]
+        DiscoveryEngine._m24_extensions_installed = True  # type: ignore[attr-defined]
+
+    # Keep this outside the guard above. Test/process ordering can leave the
+    # DiscoveryEngine patch installed while the separate M24 analyzer has not yet
+    # been imported. The llms installer has its own idempotency guard.
+    from rasai.m24_llms_discovery import install_llms_discovery_patch
+
+    install_llms_discovery_patch()
 
 
 def _interpret_robots_m24(
