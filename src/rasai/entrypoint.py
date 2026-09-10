@@ -12,6 +12,7 @@ from typing import Sequence
 
 from rasai import cli_extensions
 from rasai.report_registry import install as install_report_registry
+from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -91,6 +92,7 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
 
 def main(argv: Sequence[str] | None = None) -> int:
     install_report_registry()
+    install_runtime_completion_extensions()
     effective = list(argv) if argv is not None else list(sys.argv[1:])
     if effective and effective[0] in {"search", "serp"}:
         from rasai.search_intelligence.cli import main as search_main
