@@ -1,7 +1,7 @@
 """Small runtime extensions that close additive reporting/provider gaps.
 
 The project already uses installation-time report/provider shims to preserve the
-stable core.  These patches remain presentation/telemetry-only: they do not change
+stable core. These patches remain presentation/telemetry-only: they do not change
 SARI arithmetic, scoring weights or evaluated website facts.
 """
 from __future__ import annotations
@@ -12,10 +12,41 @@ from typing import Any
 
 def install_runtime_completion_extensions() -> None:
     """Install all additive completion patches idempotently."""
+    _install_cli_help()
     _install_dashboard_metrics()
     _install_monitoring_metrics()
     _install_agentic_provenance()
     _install_gemini_diagnostics()
+
+
+def _install_cli_help() -> None:
+    from rasai import cli_extensions
+
+    if getattr(cli_extensions, "_rasai_extended_lighthouse_help", False):
+        return
+    original = cli_extensions.build_parser
+
+    def build_parser_with_current_lighthouse_help():
+        parser = original()
+        subparsers = next(
+            action
+            for action in parser._actions
+            if getattr(action, "choices", None) and "audit" in action.choices
+        )
+        audit_parser = subparsers.choices["audit"]
+        action = next(
+            item for item in audit_parser._actions
+            if item.dest == "lighthouse_categories"
+        )
+        action.help = (
+            "comma-separated Lighthouse categories: performance,accessibility,"
+            "best-practices,seo,agentic-browsing; default requests all five in one "
+            "PageSpeed call. Agentic Browsing is experimental and remains outside SARI-001"
+        )
+        return parser
+
+    cli_extensions.build_parser = build_parser_with_current_lighthouse_help
+    cli_extensions._rasai_extended_lighthouse_help = True
 
 
 def _install_dashboard_metrics() -> None:
