@@ -1,11 +1,11 @@
-# RASAi — Search & AI Readiness Auditor — visão e escopo do produto
+# RASAi - Search & AI Readiness Auditor - visão e escopo do produto
 
 **Estado no baseline de desenvolvimento:** aprovado e vigente para o estado atual do produto.  
 **Fase do produto:** piloto/POC com operação local preservada e fundação SaaS já implementada em componentes incrementais.
 
 ## 1. Visão do produto
 
-O RASAi — Search & AI Readiness Auditor avalia a preparação de websites para mecanismos tradicionais de busca e sistemas generativos baseados em IA, preservando separação metodológica entre **readiness medido**, **desempenho/observabilidade externa** e **visibilidade observada**.
+O RASAi - Search & AI Readiness Auditor avalia a preparação de websites para mecanismos tradicionais de busca e sistemas generativos baseados em IA, preservando separação metodológica entre **readiness medido**, **desempenho/observabilidade externa** e **visibilidade observada**.
 
 O produto transforma evidências técnicas, estruturais e semânticas em:
 
