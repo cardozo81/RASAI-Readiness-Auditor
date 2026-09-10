@@ -10,7 +10,7 @@ Synthetic User Experience Apdex adiciona ao RASAi uma medição sintética calib
 | Synthetic User Experience Apdex | laboratório sintético enriquecido/calibrável | `SYNTHETIC_LOAD_ACTION`, mix explícito de dispositivos | limites Satisfied/Frustrated independentes, com baseline compatível com referências Dynatrace ou importação |
 | Dynatrace RUM | usuários reais | Load/XHR/Custom actions observadas no período | configuração efetiva da aplicação/ação |
 
-Synthetic User Experience Apdex **não é RUM**. O objetivo é reduzir diferenças metodológicas controláveis — KPM, thresholds, política de erros, sessão e mix de dispositivos — sem manipular o score para coincidir com Dynatrace.
+Synthetic User Experience Apdex **não é RUM**. O objetivo é reduzir diferenças metodológicas controláveis - KPM, thresholds, política de erros, sessão e mix de dispositivos - sem manipular o score para coincidir com Dynatrace.
 
 ## 2. Baseline padrão compatível com referências Dynatrace
 
@@ -34,21 +34,21 @@ Quando `--apdex-experience` é habilitado e o usuário não fornece calibração
 
 > **Nota de direitos autorais, citação e tradução:** o material externo citado nesta seção permanece de titularidade de seu respectivo autor/mantenedor. Quando necessário para precisão técnica, o RASAi reproduz apenas o trecho estritamente necessário no idioma original, identificado como citação, seguido de tradução/adaptação para pt-BR. A tradução é informativa e não substitui o texto oficial; em caso de divergência, prevalece a fonte primária vinculada.
 
-**Disclaimer — texto original da fonte Dynatrace:**
+**Disclaimer - texto original da fonte Dynatrace:**
 
 > “Visually complete is the default metric for load and XHR actions.”
 
 **Tradução/adaptação pt-BR:** o Dynatrace documenta **Visually Complete** como métrica padrão para ações Load e XHR no contrato de KPM correspondente. O RASAi não declara equivalência de fornecedor para essa métrica.
 
-Fonte: Dynatrace — Key performance metrics (`builtin:synthetic.browser.kpms`): <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-synthetic-browser-kpms>
+Fonte: Dynatrace - Key performance metrics (`builtin:synthetic.browser.kpms`): <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-synthetic-browser-kpms>
 
-**Disclaimer — texto original da fonte Dynatrace:**
+**Disclaimer - texto original da fonte Dynatrace:**
 
 > “If the selected key performance metric is not detected, the User action duration metric is used instead.”
 
 **Tradução/adaptação pt-BR:** quando a KPM selecionada não é detectada, a documentação do Dynatrace define **User action duration** como fallback. Essa regra sustenta a escolha do RASAi de manter a KPM solicitada e registrar explicitamente `USER_ACTION_DURATION` como KPM efetiva quando o fallback for necessário e tecnicamente válido.
 
-Fonte: Dynatrace — Apdex configuration for load actions: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions>
+Fonte: Dynatrace - Apdex configuration for load actions: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions>
 
 O modelo público da Web Application Configuration API do Dynatrace expõe valores de 3.000 ms e 12.000 ms para os thresholds e fallback thresholds de Load Action. O RASAi converte esses valores explicitamente para `3.0 s` e `12.0 s` em seu baseline compatível.
 
@@ -265,12 +265,12 @@ Mesmo alinhando os itens controláveis, divergência continua esperada porque Dy
 A nota de direitos autorais da seção 2 aplica-se a qualquer trecho externo reproduzido neste documento. As referências abaixo são fontes primárias; os textos completos permanecem em seus respectivos sites e sob seus próprios termos/licenças.
 
 - Apdex Technical Specification v1.1: <https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf>
-- Dynatrace — Apdex configuration for load actions: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions>
-- Dynatrace — Key performance metrics: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-synthetic-browser-kpms>
-- Dynatrace — Work with key performance metrics: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/analyze-and-use/work-with-key-performance-metrics>
-- Dynatrace — Apdex ratings: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/scores-and-ratings/apdex-ratings>
-- Dynatrace — Web application configuration API: <https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application>
-- Chrome DevTools Protocol — Network / Emulation
+- Dynatrace - Apdex configuration for load actions: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions>
+- Dynatrace - Key performance metrics: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-synthetic-browser-kpms>
+- Dynatrace - Work with key performance metrics: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/analyze-and-use/work-with-key-performance-metrics>
+- Dynatrace - Apdex ratings: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/scores-and-ratings/apdex-ratings>
+- Dynatrace - Web application configuration API: <https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application>
+- Chrome DevTools Protocol - Network / Emulation
 - W3C Performance Timeline
 
 A especificação normativa está em [`specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`](specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md).
