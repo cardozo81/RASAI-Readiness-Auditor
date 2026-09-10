@@ -1,72 +1,103 @@
-# RASAi - Search & AI Readiness Auditor - Project Charter & Scope
+# RASAi — Search & AI Readiness Auditor — visão e escopo do produto
 
-**Estado no baseline de desenvolvimento:** APPROVED
-**Versão funcional:** MVP Baseline
+**Estado no baseline de desenvolvimento:** aprovado e vigente para o estado atual do produto.  
+**Fase do produto:** piloto/POC com operação local preservada e fundação SaaS já implementada em componentes incrementais.
 
-## 1. Visão do Produto
+## 1. Visão do produto
 
-O RASAi - Search & AI Readiness Auditor é uma ferramenta local destinada a avaliar a preparação de websites para mecanismos tradicionais de busca e sistemas generativos baseados em IA.
+O RASAi — Search & AI Readiness Auditor avalia a preparação de websites para mecanismos tradicionais de busca e sistemas generativos baseados em IA, preservando separação metodológica entre **readiness medido**, **desempenho/observabilidade externa** e **visibilidade observada**.
 
 O produto transforma evidências técnicas, estruturais e semânticas em:
 
 - findings verificáveis;
 - scores por dimensão;
-- resultados separados para Desktop e Mobile;
-- riscos;
-- oportunidades;
-- recomendações;
-- backlog priorizado;
-- relatório HTML profissional.
+- índice público `SARI-001`;
+- scoring vigente `SCORE-GEO-004`;
+- resultados por contexto Desktop/Mobile quando esses contextos existem;
+- riscos e oportunidades;
+- recomendações e remediações priorizadas;
+- relatórios HTML estáticos;
+- comparações longitudinais e before/after;
+- observabilidade externa separada do scoring;
+- Search Intelligence pontual e recorrente;
+- superfícies locais, Web/API e de Product Platform.
 
-O produto mede:
+O produto mede prioritariamente:
 
-`READINESS`
+```text
+READINESS
+```
 
-e não garante:
+Ele **não garante**:
 
-`VISIBILITY`
+```text
+RANKING
+VISIBILITY
+CITATION
+CAUSALIDADE
+```
 
-## 2. Contexto Operacional
+Resultados externos observados podem ser armazenados e comparados, mas não são convertidos automaticamente em peso de `SARI-001`/`SCORE-GEO-004`.
 
-Fase inicial:
+## 2. Contexto operacional atual
 
-- uma máquina;
-- um operador/desenvolvedor;
-- Windows;
-- execução local;
-- sem aplicação web;
-- sem arquitetura distribuída;
-- sem multiusuário;
-- sem CI/CD obrigatório;
-- Git/GitHub utilizados como controle de versão e repositório de desenvolvimento a partir do Bootstrap e fundação do projeto;
-- GitHub não é dependência obrigatória para execução do produto;
-- testes mínimos orientados a risco.
+O produto preserva operação local e, paralelamente, possui fundações para evolução SaaS.
 
-## 3. Objetivos mínimos da auditoria
+### Operação local
 
-A auditoria deverá responder:
+- Windows/Python nativo continua suportado;
+- console interativo e CLI continuam disponíveis;
+- SQLite permanece o backend padrão do control plane local;
+- `AUD-*/audit.db` permanece a evidência imutável da execução;
+- Docker não é requisito para operação local SQLite;
+- providers externos são opcionais e seguem BYOK/configuração explícita quando aplicável.
 
-1. O conteúdo pode ser descoberto e acessado?
-2. As páginas estão tecnicamente aptas a serem indexadas?
-3. O conteúdo principal pode ser recuperado?
-4. A página apresenta estrutura semântica adequada?
-5. As entidades relevantes estão claras?
-6. Dados Estruturados estão presentes e coerentes quando aplicáveis?
-7. O conteúdo responde aos intents relevantes?
-8. As informações possuem características favoráveis à recuperação e citação?
-9. Existem sinais adequados de evidência, autoria e confiança?
-10. Existem diferenças materiais entre Desktop e Mobile?
-11. O que deve ser corrigido primeiro?
+### Fundação de plataforma/SaaS existente
+
+O código atual também contém:
+
+- Product Platform;
+- hierarquia `Organization -> Workspace -> Project -> Property -> Environment`;
+- users, memberships e RBAC;
+- PostgreSQL 18 como backend explícito do control plane centralizado;
+- Web API tenant-aware;
+- SaaS Pilot Web;
+- execution jobs e workers desacoplados;
+- scheduling e run-due;
+- Identity & Access em evolução OIDC/JWT, com modo default fail-closed;
+- usage ledger e consumption analytics;
+- Search Monitoring longitudinal;
+- milestones, golden baselines e comparação before/after;
+- Monitor, Observability, Quality e Fix Verification.
+
+A existência dessas fundações **não significa** que toda infraestrutura SaaS de produção esteja implantada. Object storage gerenciado, fila externa definitiva, deployment multi-região, secret manager de produção, billing completo e demais componentes de operação em escala permanecem decisões/etapas de infraestrutura.
+
+## 3. Objetivos da auditoria
+
+A auditoria deve responder, conforme aplicabilidade e evidência disponível:
+
+1. o conteúdo pode ser descoberto e acessado?
+2. as páginas estão tecnicamente aptas à indexação?
+3. o conteúdo principal pode ser recuperado de forma confiável?
+4. a página apresenta estrutura semântica adequada?
+5. as entidades relevantes estão claras?
+6. dados estruturados estão presentes e coerentes quando aplicáveis?
+7. o conteúdo responde às intenções relevantes?
+8. as informações possuem características favoráveis à recuperação e citação?
+9. existem sinais adequados de evidência, autoria e confiabilidade?
+10. existem diferenças materiais entre Desktop e Mobile, quando ambos os contextos foram coletados?
+11. quais problemas devem ser tratados primeiro?
+12. qual é a qualidade/cobertura da evidência que sustenta cada conclusão?
 
 ## 4. Princípios
 
-### Evidence First
+### Evidência primeiro
 
 Nenhum finding válido pode existir sem evidência rastreável.
 
-### Deterministic First
+### Determinismo primeiro
 
-Condições objetivamente verificáveis devem ser resolvidas deterministicamente.
+Condições objetivamente verificáveis devem ser resolvidas de forma determinística sempre que possível.
 
 Exemplos:
 
@@ -74,14 +105,14 @@ Exemplos:
 - redirects;
 - canonical;
 - robots;
-- noindex;
-- JSON-LD parsing;
+- `noindex`;
+- parsing JSON-LD;
 - links;
 - sitemap.
 
-### AI for Semantic Analysis
+### IA para análise semântica
 
-IA será utilizada para interpretação semântica quando necessário.
+IA é opcional e usada para interpretação semântica ou remediação consultiva quando a execução correspondente estiver habilitada.
 
 Exemplos:
 
@@ -90,59 +121,74 @@ Exemplos:
 - claims;
 - intenção;
 - contexto;
-- evidência textual.
+- evidência textual;
+- análise competitiva vinculada a evidências.
 
-IA não calcula diretamente o score oficial.
+IA não escolhe arbitrariamente o score oficial e não pode substituir evidência ausente por fatos inventados.
 
-### Explainable Scoring
+### Scoring explicável
 
-Todo score deve ser reconstruível a partir de regras e contribuições versionadas.
+Todo score deve ser reconstruível a partir de regras, contribuições e versões metodológicas persistidas.
 
-### Desktop e Mobile independentes
+### Contextos de dispositivo independentes
 
-Desktop e Mobile são contextos de auditoria distintos.
+Desktop e Mobile são contextos independentes. Comparação Desktop × Mobile só é aplicável quando ambos existem; a ausência deliberada de um contexto não deve ser convertida automaticamente em falha do website.
 
-## 5. MVP
+### Separação entre readiness e outcomes
 
-### Entrada
+Lighthouse, CrUX, Search Console, SERP Observation, Observed Generative Visibility e outros outcomes externos mantêm proveniência/metodologia próprias. Sua existência não autoriza fusão automática com `SARI-001`/`SCORE-GEO-004`.
+
+### Imutabilidade da auditoria
+
+`AUD-*/audit.db` e seus artefatos são evidência da execução. Estado mutável de produto, agendamento, identidade, consumo e monitoramento longitudinal pertence ao control plane separado.
+
+## 5. Entrada e configuração da auditoria
+
+Entradas mínimas dependem da superfície usada, mas podem incluir:
 
 - domínio ou URL inicial;
-- nome do projeto;
+- projeto/contexto de Product Platform;
 - idioma;
 - mercado;
-- limite de páginas.
+- limite de páginas;
+- contexto(s) de dispositivo;
+- providers externos opcionais;
+- controles de Web Performance, Apdex, IA e Search Intelligence quando deliberadamente habilitados.
 
-### Limite padrão
+### Limite de páginas
 
-`max_pages = 100`
+O estado do console mantém `max_pages = 100` como valor inicial do fluxo interativo, sujeito à configuração explícita da execução. Quando um documento publicar variáveis/limites operacionais, deve distinguir **default efetivo**, **valores permitidos** e **recomendado**.
 
-Configurável.
+Referência central: `../ENVIRONMENT_VARIABLES.md` e `../CONFIGURATION.md`.
 
-### Descoberta
+## 6. Descoberta e aquisição
+
+A descoberta pode considerar:
 
 - seed;
 - links internos;
-- sitemap.
+- sitemap;
+- fontes adicionais explicitamente suportadas pelo runtime.
 
-### Aquisição
-
-Para cada página e dispositivo:
+Para páginas e dispositivos aplicáveis, a aquisição pode preservar/derivar:
 
 - HTTP;
 - redirects;
 - headers;
-- RAW HTML;
-- rendered DOM;
+- HTML bruto, conforme contrato do módulo;
+- DOM renderizado, conforme contrato do módulo;
 - canonical;
 - robots;
-- title;
-- description;
+- title e description;
 - headings;
 - links;
-- Dados Estruturados;
-- conteúdo principal.
+- dados estruturados;
+- conteúdo principal;
+- artefatos e evidências necessários à reprodutibilidade.
 
-### Crawlers baseline
+## 7. Crawlers e acesso de agentes
+
+O ruleset possui tratamento separado para crawlers/agentes configurados. O baseline documentado inclui, entre outros:
 
 - Googlebot;
 - Googlebot Smartphone;
@@ -150,11 +196,11 @@ Para cada página e dispositivo:
 - OAI-SearchBot;
 - GPTBot.
 
-Os resultados devem ser interpretados separadamente.
+OAI-SearchBot e GPTBot não são equivalentes. Bloqueio de um crawler específico deve ser interpretado conforme finalidade, regra e aplicabilidade; não pode ser convertido automaticamente em penalidade genérica de Search readiness.
 
-### Arquiteturas web
+## 8. Arquiteturas web
 
-O auditor deverá suportar:
+O auditor deve tratar, sem penalização pelo framework em si:
 
 - HTML tradicional;
 - SSR;
@@ -162,107 +208,104 @@ O auditor deverá suportar:
 - hydration;
 - CSR;
 - SPA;
-- híbridos.
+- arquiteturas híbridas.
 
-Nenhuma arquitetura é penalizada por si só.
+O que importa é o resultado observável e recuperável, não a tecnologia escolhida isoladamente.
 
-### IA
+## 9. IA e modos degradados
 
-IA é opcional.
+IA é opcional. O sistema deve continuar operacional sem provider de IA.
 
-Modos:
+O contrato de avaliação semântica inclui baseline determinístico/local e providers externos opcionais. Ausência ou indisponibilidade do provider não é falha do website e não deve ser convertida automaticamente em `FAIL`.
 
-- `FULL`;
-- `DEGRADED`;
-- `NO_AI`.
+Estados e nomenclaturas específicos são definidos nos contratos vigentes de IA/runtime, especialmente `18_AI_RUNTIME_ORCHESTRATION.md`, `20_AI_CONTENT_REMEDIATION.md` e documentação operacional correspondente.
 
-O sistema deve continuar funcionando sem provider de IA.
+## 10. Relatórios
 
-### Relatório
+O formato principal de publicação de auditoria é HTML estático, com navegação canônica e páginas opcionais condicionadas à existência de evidência.
 
-Formato oficial:
+Características esperadas:
 
-`HTML`
-
-Características:
-
-- estático;
-- autocontido sempre que possível;
+- estático e reprodutível a partir de dados persistidos sempre que o contrato permitir;
 - responsivo;
-- profissional;
 - navegável;
-- português;
-- adequado a público técnico e não técnico.
+- texto contextual em pt-BR;
+- termos técnicos/identificadores preservados quando sua tradução comprometer o contrato;
+- adequado a público técnico e executivo sem esconder limitações metodológicas;
+- proveniência explícita de métricas externas.
 
-## 6. Dimensões
+## 11. Dimensões de readiness
 
-1. Acessibilidade Técnica
-2. Capacidade de Indexação
-3. Extração de Conteúdo
-4. Estrutura Semântica
-5. Clareza de Entidades
-6. Dados Estruturados
-7. Capacidade de Resposta
-8. Preparação para Citação
-9. Evidências e Confiabilidade
-10. Cobertura de Intenções
+O modelo vigente mantém dimensões metodológicas próprias do `SCORE-GEO-004`. A definição normativa dos pesos, aplicabilidade, cobertura, confiança e consolidação pertence a `05_SCORING_MODEL.md` e à documentação canônica `../SCORE_GEO_004.md`.
 
-Desktop e Mobile terão scores separados.
+Nenhuma lista resumida neste charter deve substituir o contrato de scoring versionado.
 
-## 7. Fora do MVP
+## 12. Capacidades adjacentes já implementadas
 
-- alteração automática do website;
-- publicação automática em CMS;
-- geração automática de artigos;
-- backlink crawler próprio;
-- rank tracker;
+Além da auditoria pontual, o estado atual do produto possui capacidades independentes/aditivas, incluindo:
+
+- Synthetic Navigation Apdex;
+- Synthetic User Experience Apdex;
+- Web Performance/Lighthouse/CrUX;
+- Observed Generative Visibility;
+- SERP Observation;
+- Competitive Search & Content Intelligence;
+- Competitive AI opcional;
+- Search Intelligence History;
+- Search Monitoring recorrente;
+- Monitoring/Release Gate/Change Impact;
+- Observability;
+- Quality/Fix Verification/Evidence Timeline;
+- Product Platform e relatórios de portfólio;
+- Web API e SaaS Pilot Web;
+- PostgreSQL control plane;
+- Identity & Access foundation.
+
+Cada capacidade mantém seu próprio limite metodológico e de persistência conforme as respectivas especificações.
+
+## 13. Fora do contrato atual de garantia
+
+O RASAi não promete:
+
+- alteração automática do website sem ação/autorização externa explícita;
 - garantia de ranking;
-- garantia de citação;
-- previsão matemática de citação;
-- benchmark de concorrentes;
-- monitoramento contínuo;
-- cloud obrigatória;
-- multiusuário;
-- autenticação corporativa;
-- CI/CD;
-- dependência obrigatória de GitHub para execução do produto.
+- garantia de citação por mecanismos de IA;
+- previsão causal privada de algoritmos de Search/IA;
+- equivalência perfeita entre sintético e RUM;
+- identidade comprovada de crawler baseada apenas em User-Agent;
+- que persistir schedules em PostgreSQL torne a execução horizontal automaticamente segura;
+- que a existência da fundação Web/SaaS represente uma infraestrutura SaaS de produção completa.
 
-Benchmark de concorrentes fica para V1.
+## 14. Testes e validação
 
-## 8. Testes
+A estratégia atual não se limita ao conjunto mínimo do MVP antigo. Regressões automatizadas protegem contratos críticos, incluindo:
 
-Obrigatórios somente para comportamentos críticos:
-
-- parsing;
-- Rules Engine;
-- scoring;
-- severity;
+- parsing e Rules Engine;
+- scoring e aplicabilidade;
 - finding → evidence;
-- Desktop × Mobile;
-- HTML report;
-- regressões críticas.
+- contexto de dispositivo;
+- relatórios HTML;
+- persistência/imutabilidade de `AUD-*`;
+- Product Platform e tenant scope;
+- PostgreSQL/SQLite parity nas superfícies cobertas;
+- Search Intelligence;
+- observabilidade/quality;
+- Web/API e Identity & Access nas superfícies implementadas;
+- segurança e ausência de segredos em artefatos públicos/persistidos.
 
-Não existe meta elevada de cobertura de código no MVP.
+Testes que exigiriam credenciais reais, quota externa ou crawling público devem usar fixtures/mocks no CI, deixando smoke ambiental explícito para cenários autorizados.
 
-## 9. Critério de aceite funcional
+## 15. Critério de consistência do produto
 
-O MVP deve:
+Uma mudança é aceitável quando preserva, conforme aplicabilidade:
 
-1. receber target válido;
-2. descobrir URLs;
-3. respeitar `max_pages`;
-4. criar snapshots Desktop e Mobile;
-5. preservar RAW e rendered;
-6. armazenar evidências;
-7. executar regras;
-8. suportar SPA e não-SPA;
-9. operar com ou sem IA;
-10. criar findings rastreáveis;
-11. calcular scores reproduzíveis;
-12. informar coverage;
-13. informar confidence;
-14. informar consolidation;
-15. priorizar recomendações;
-16. produzir HTML estático em português;
-17. explicar limitações;
-18. executar novamente de forma consistente, salvo análises explicitamente não determinísticas.
+1. rastreabilidade da evidência;
+2. imutabilidade do `AUD-*` como fonte de evidência;
+3. reprodutibilidade do scoring versionado;
+4. separação entre readiness e outcomes externos;
+5. isolamento de falhas de providers externos;
+6. escopo/tenancy do control plane;
+7. ausência de exposição de segredos;
+8. documentação aderente ao runtime atual;
+9. relatórios e CLI coerentes com os contratos persistidos;
+10. operação local sem dependências SaaS obrigatórias.
