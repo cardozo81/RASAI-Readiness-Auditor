@@ -1,4 +1,4 @@
-# 28 — Audit Quality, Verification & Decision Support
+# 28 - Audit Quality, Verification & Decision Support
 
 **Estado no baseline de desenvolvimento:** aprovado / implementado / integrado à `main`.
 
