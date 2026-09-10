@@ -1,4 +1,4 @@
-# Web Performance externo — Core Web Vitals e Lighthouse
+# Web Performance externo - Core Web Vitals e Lighthouse
 
 **Estado:** IMPLEMENTADO / VIGENTE  
 **Domínio:** Web Performance externo  
