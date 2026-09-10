@@ -1,8 +1,7 @@
 """Public runtime defaults for provider model/effort selection.
 
-This module intentionally sits above the historical provider adapters. It keeps
-backward-compatible adapters untouched while defining the product-level default
-policy used by the public CLI and interactive console:
+This module composes the current provider adapters and defines the product-level
+default policy used by the public CLI and interactive console:
 
 * choose the simplest/lowest-cost supported model when the user did not select
   a model explicitly;

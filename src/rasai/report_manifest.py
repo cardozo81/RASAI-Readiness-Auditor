@@ -55,7 +55,7 @@ def write_report_manifest(report_dir: str | Path) -> Path | None:
             generated_set = set(generated_pages)
             missing_pages = [name for name in expected_pages if name not in generated_set]
         except (OSError, ValueError, sqlite3.Error):
-            # Manifest generation remains fail-open for legacy/incomplete workspaces.
+            # Manifest generation remains fail-open for incomplete local workspaces.
             # The final URL-audit completion gate performs the authoritative check.
             expected_pages = []
             missing_pages = []

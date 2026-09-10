@@ -13,7 +13,6 @@ import sqlite3
 from typing import Any, Iterable
 
 FORMAT_VERSION = "RASAI-OBS-002"
-_LEGACY_FORMAT_VERSION = "RASAI-OBS-001"
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,12 +67,12 @@ class ObservabilityStore:
         self.connection.close()
 
     def _initialize(self) -> None:
-        # OBS-001 used record_id as a global PK even though collectors intentionally
-        # restart local record numbering for every dataset. Upgrade in place before
-        # enabling foreign-key checks so repeated collections can coexist safely.
+        # Normalize any locally created sidecar whose observation tables use a
+        # global record_id primary key. The current contract scopes record IDs by
+        # dataset because collectors may restart local numbering for each dataset.
         self.connection.execute("PRAGMA foreign_keys=OFF")
         self._create_datasets_table()
-        self._migrate_legacy_primary_keys()
+        self._normalize_record_primary_keys()
         with self.connection:
             self.connection.executescript(_OBSERVATION_SCHEMA)
         self.connection.execute("PRAGMA foreign_keys=ON")
@@ -95,7 +94,7 @@ class ObservabilityStore:
                 )"""
             )
 
-    def _migrate_legacy_primary_keys(self) -> None:
+    def _normalize_record_primary_keys(self) -> None:
         existing = {
             str(row[0])
             for row in self.connection.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
@@ -103,15 +102,15 @@ class ObservabilityStore:
         for table, columns in _TABLE_COLUMNS.items():
             if table not in existing or not _has_global_record_pk(self.connection, table):
                 continue
-            legacy = f"{table}_obs001_legacy"
+            source_table = f"{table}_record_pk_rebuild_source"
             column_list = ",".join(columns)
             with self.connection:
-                self.connection.execute(f"ALTER TABLE {table} RENAME TO {legacy}")
+                self.connection.execute(f"ALTER TABLE {table} RENAME TO {source_table}")
                 self.connection.executescript(_table_schema(table))
                 self.connection.execute(
-                    f"INSERT INTO {table} ({column_list}) SELECT {column_list} FROM {legacy}"
+                    f"INSERT INTO {table} ({column_list}) SELECT {column_list} FROM {source_table}"
                 )
-                self.connection.execute(f"DROP TABLE {legacy}")
+                self.connection.execute(f"DROP TABLE {source_table}")
 
     def replace_dataset(
         self,
@@ -121,7 +120,7 @@ class ObservabilityStore:
         index_rows: Iterable[dict[str, Any]] = (),
         crux_rows: Iterable[dict[str, Any]] = (),
     ) -> None:
-        """Compatibility alias for the atomic row-aware replacement method."""
+        """Replace one dataset through the row-aware atomic persistence path."""
         self.replace_dataset_rows(
             dataset,
             search_rows=search_rows,

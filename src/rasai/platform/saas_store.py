@@ -1,4 +1,4 @@
-"""Composition adapters that add SaaS management without changing legacy stores."""
+"""Composition adapters for SaaS management, scheduling and usage analytics."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -43,7 +43,7 @@ class _SaaSRuntimeMixin:
 
 
 class SaaSSecurePlatformStore(_SaaSRuntimeMixin, SaaSManagementMixin, SecurePlatformStore):
-    """SQLite control plane with additive SaaS scheduling/analytics schema."""
+    """SQLite control plane with SaaS scheduling and analytics schema."""
 
     def __init__(self, database: str | Path) -> None:
         super().__init__(database)

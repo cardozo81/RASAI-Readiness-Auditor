@@ -8,10 +8,12 @@ import shutil
 from tempfile import TemporaryDirectory
 from threading import Thread
 import unittest
+from unittest.mock import patch
 
 from playwright.sync_api import sync_playwright
 
 from rasai.acquisition import HttpClient
+from rasai.device_context import DEVICE_CONTEXT_ENV
 from rasai.discovery import DiscoveryEngine
 from rasai.domain import Audit, AuditTarget, DeviceContext, TargetType, new_id
 from rasai.m2 import execute_m2
@@ -181,12 +183,13 @@ class M3RenderingTests(unittest.TestCase):
         with _server() as origin, TemporaryDirectory() as temp_dir:
             workspace, persistence, m2_result = _build_m2(origin, temp_dir)
             page_id = next(iter(m2_result.page_ids.values()))
-            result = execute_m3(
-                m2_result,
-                persistence,
-                workspace,
-                renderer=_LocalizedFailureRenderer(),
-            )
+            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "both"}):
+                result = execute_m3(
+                    m2_result,
+                    persistence,
+                    workspace,
+                    renderer=_LocalizedFailureRenderer(),
+                )
             desktop_id = result.snapshot_ids[page_id][DeviceContext.DESKTOP]
             mobile_id = result.snapshot_ids[page_id][DeviceContext.MOBILE]
             self.assertNotEqual(desktop_id, mobile_id)
@@ -223,12 +226,13 @@ class M3RenderingTests(unittest.TestCase):
             page_id = next(iter(m2_result.page_ids.values()))
             raw_ref = m2_result.raw_artifact_refs[f"{origin}/"]
             raw = (workspace.root / raw_ref).read_text(encoding="utf-8")
-            result = execute_m3(
-                m2_result,
-                persistence,
-                workspace,
-                renderer=_ControlledHtmlPlaywrightRenderer(raw, executable),
-            )
+            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "both"}):
+                result = execute_m3(
+                    m2_result,
+                    persistence,
+                    workspace,
+                    renderer=_ControlledHtmlPlaywrightRenderer(raw, executable),
+                )
             self.assertEqual(result.failures, ())
             desktop = persistence.snapshots.get(result.snapshot_ids[page_id][DeviceContext.DESKTOP])
             mobile = persistence.snapshots.get(result.snapshot_ids[page_id][DeviceContext.MOBILE])
