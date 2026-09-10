@@ -89,7 +89,7 @@ Flags correspondentes:
 
 O alvo padrão é `100` amostras válidas por URL/dispositivo.
 
-Grupos com 1–99 amostras válidas podem ser calculados para diagnóstico, mas são marcados como `small_group=*` e não representam o grupo final normal.
+Grupos com 1-99 amostras válidas podem ser calculados para diagnóstico, mas são marcados como `small_group=*` e não representam o grupo final normal.
 
 O runtime tenta substituir amostras inválidas até `max_attempts_per_context`; quando não configurado, o orçamento é `ceil(1.25 × target_valid_samples)`.
 
@@ -230,7 +230,7 @@ A regressão deve cobrir:
 Este arquivo não reproduz integralmente os documentos abaixo; usa apenas conceitos e valores técnicos necessários ao contrato. Quando um trecho literal for acrescentado futuramente, deve seguir a regra acima.
 
 - Apdex Technical Specification v1.1: <https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf>
-- Chrome DevTools Protocol — Emulation: <https://chromedevtools.github.io/devtools-protocol/tot/Emulation/>
-- Chrome DevTools Protocol — Network: <https://chromedevtools.github.io/devtools-protocol/tot/Network/>
-- Lighthouse — Understanding results: <https://github.com/GoogleChrome/lighthouse/blob/main/docs/understanding-results.md>
-- Lighthouse — Emulation: <https://github.com/GoogleChrome/lighthouse/blob/main/docs/emulation.md>
+- Chrome DevTools Protocol - Emulation: <https://chromedevtools.github.io/devtools-protocol/tot/Emulation/>
+- Chrome DevTools Protocol - Network: <https://chromedevtools.github.io/devtools-protocol/tot/Network/>
+- Lighthouse - Understanding results: <https://github.com/GoogleChrome/lighthouse/blob/main/docs/understanding-results.md>
+- Lighthouse - Emulation: <https://github.com/GoogleChrome/lighthouse/blob/main/docs/emulation.md>
