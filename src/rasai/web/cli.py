@@ -9,6 +9,7 @@ from typing import Sequence
 
 from .app import ApiSettings
 from .auth import ApiAuthSettings
+from .oidc import OidcSettings
 from .pilot_app import create_app
 
 
@@ -58,17 +59,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     auth = settings.auth
     if args.auth_mode is not None and args.auth_mode != auth.mode:
         if args.auth_mode == "oidc":
-            # Re-read the complete OIDC contract from environment instead of
-            # constructing a partially configured auth object from CLI flags.
-            previous = __import__("os").environ.get("RASAI_API_AUTH_MODE")
-            __import__("os").environ["RASAI_API_AUTH_MODE"] = "oidc"
-            try:
-                auth = ApiAuthSettings.from_environment()
-            finally:
-                if previous is None:
-                    __import__("os").environ.pop("RASAI_API_AUTH_MODE", None)
-                else:
-                    __import__("os").environ["RASAI_API_AUTH_MODE"] = previous
+            auth = ApiAuthSettings(
+                mode="oidc",
+                trusted_user_header=auth.trusted_user_header,
+                oidc=OidcSettings.from_environment(),
+            )
         else:
             auth = replace(auth, mode=args.auth_mode, oidc=None)
     if args.trusted_user_header is not None:
