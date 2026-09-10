@@ -1,4 +1,4 @@
-"""Explicit launcher for the optional RASAi ASGI API."""
+"""Explicit launcher for the optional RASAi ASGI API and SaaS pilot UI."""
 from __future__ import annotations
 
 import argparse
@@ -7,8 +7,9 @@ import ipaddress
 from pathlib import Path
 from typing import Sequence
 
-from .app import ApiSettings, create_app
+from .app import ApiSettings
 from .auth import ApiAuthSettings
+from .pilot_app import create_app
 
 
 def _is_loopback_host(value: str) -> bool:
@@ -22,7 +23,10 @@ def _is_loopback_host(value: str) -> bool:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="rasai api", description="Run the optional RASAi control-plane API")
+    parser = argparse.ArgumentParser(
+        prog="rasai api",
+        description="Run the optional RASAi control-plane API and zero-build SaaS pilot UI",
+    )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--audits-root", default="audits")
