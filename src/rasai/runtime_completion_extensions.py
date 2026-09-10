@@ -7,12 +7,24 @@ SARI arithmetic, scoring weights or evaluated website facts.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any
+
+
+_LIGHTHOUSE_CATEGORIES = (
+    "performance",
+    "accessibility",
+    "best-practices",
+    "seo",
+    "agentic-browsing",
+)
+_LIGHTHOUSE_CATEGORIES_CSV = ",".join(_LIGHTHOUSE_CATEGORIES)
 
 
 def install_runtime_completion_extensions() -> None:
     """Install all additive completion patches idempotently."""
     _install_cli_help()
+    _install_console_environment()
     _install_dashboard_metrics()
     _install_monitoring_metrics()
     _install_agentic_provenance()
@@ -39,14 +51,44 @@ def _install_cli_help() -> None:
             if item.dest == "lighthouse_categories"
         )
         action.help = (
-            "comma-separated Lighthouse categories: performance,accessibility,"
-            "best-practices,seo,agentic-browsing; default requests all five in one "
-            "PageSpeed call. Agentic Browsing is experimental and remains outside SARI-001"
+            "comma-separated Lighthouse categories: "
+            + _LIGHTHOUSE_CATEGORIES_CSV
+            + "; default requests all five in one PageSpeed call. Agentic Browsing "
+            "is experimental and remains outside SARI-001"
         )
         return parser
 
     cli_extensions.build_parser = build_parser_with_current_lighthouse_help
     cli_extensions._rasai_extended_lighthouse_help = True
+
+
+def _install_console_environment() -> None:
+    """Keep the interactive environment editor aligned with M21 defaults."""
+    from rasai import console_environment
+
+    if getattr(console_environment, "_rasai_extended_lighthouse_environment", False):
+        return
+    original = console_environment._fixed_specs
+
+    def fixed_specs_with_agentic():
+        items = []
+        for spec in original():
+            if spec.name == "RASAI_LIGHTHOUSE_CATEGORIES":
+                spec = replace(
+                    spec,
+                    accepted=_LIGHTHOUSE_CATEGORIES,
+                    default=_LIGHTHOUSE_CATEGORIES_CSV,
+                    example=f"RASAI_LIGHTHOUSE_CATEGORIES={_LIGHTHOUSE_CATEGORIES_CSV}",
+                    notes=(
+                        "Uma ou mais categorias, separadas por vírgula, sem duplicar. "
+                        "Agentic Browsing é experimental e permanece fora do SARI-001."
+                    ),
+                )
+            items.append(spec)
+        return tuple(items)
+
+    console_environment._fixed_specs = fixed_specs_with_agentic
+    console_environment._rasai_extended_lighthouse_environment = True
 
 
 def _install_dashboard_metrics() -> None:
