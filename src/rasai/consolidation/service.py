@@ -2,8 +2,12 @@
 from __future__ import annotations
 
 from datetime import date
+import json
 from pathlib import Path
 from typing import Iterable
+
+from rasai.report_presentation import humanize_report_html
+from rasai.time_contract import normalize_timestamp_values
 
 from .aggregate import summarize_apdex, summarize_findings, summarize_performance, summarize_scores
 from .comparability import annotate_score_url_universes
@@ -85,6 +89,30 @@ def build_data(index: ConsolidationIndex, filters: ConsolidationFilter) -> Conso
     )
 
 
+def _normalize_derivative_output(result: GenerationResult) -> None:
+    """Apply the timezone contract to rebuildable consolidated artifacts only."""
+    try:
+        html = result.report_path.read_text(encoding="utf-8")
+    except OSError:
+        html = ""
+    if html:
+        rendered = humanize_report_html(html, page_name="consolidated.html")
+        if rendered != html:
+            result.report_path.write_text(rendered, encoding="utf-8", newline="\n")
+
+    try:
+        manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    normalized = normalize_timestamp_values(manifest)
+    if normalized != manifest:
+        result.manifest_path.write_text(
+            json.dumps(normalized, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+
+
 def generate(
     audits_root: str | Path,
     filters: ConsolidationFilter,
@@ -113,4 +141,6 @@ def generate(
             score_history=data.score_history,
             finding_history=data.finding_history,
         )
-    return write_report(audits_root=root, data=data, refresh=refresh)
+    result = write_report(audits_root=root, data=data, refresh=refresh)
+    _normalize_derivative_output(result)
+    return result
