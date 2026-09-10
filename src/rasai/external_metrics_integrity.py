@@ -27,7 +27,9 @@ _CATEGORY_COLUMNS = {
     "accessibility": "accessibility_score",
     "best-practices": "best_practices_score",
     "seo": "seo_score",
+    "agentic-browsing": "agentic_browsing_score",
 }
+_OPTIONAL_EXPERIMENTAL_CATEGORIES = frozenset({"agentic-browsing"})
 _LIGHTHOUSE_PERFORMANCE_COLUMNS = (
     "performance_score",
     "fcp_lab_ms",
@@ -69,7 +71,7 @@ class ExternalMetricsIntegrity:
             "audit_id": self.audit_id,
             "semantics": {
                 "pagespeed_success": "HTTP/API transport success only",
-                "lighthouse_valid": "lighthouseResult exists, has no fatal runtimeError and requested category scores are usable",
+                "lighthouse_valid": "lighthouseResult exists, has no fatal runtimeError and consolidated requested category scores are usable; experimental optional categories may be unavailable",
                 "accessibility_score": "source score supplied by Lighthouse; RASAi does not recalculate it",
                 "score_geo_dependency": False,
             },
@@ -87,8 +89,10 @@ def reconcile_external_metrics_integrity(
 
     A PSI HTTP 200 remains an API-attempt success for telemetry, but Lighthouse
     values are discarded when the LHR is absent/fatally errored. Missing
-    requested categories make the observation PARTIAL when other evidence is
-    still usable. Raw PSI artifacts are never modified.
+    consolidated requested categories make the observation PARTIAL when other
+    evidence is still usable. Experimental optional categories are captured when
+    available but do not downgrade an otherwise valid Lighthouse run. Raw PSI
+    artifacts are never modified.
     """
 
     if not workspace.database.is_file():
@@ -201,7 +205,8 @@ def enrich_external_metrics_integrity_report_site(*, audit_id: str, workspace: A
         "<h2>PageSpeed, Lighthouse, CrUX e Acessibilidade: cobertura real</h2>"
         "<div class='notice warn'><strong>PageSpeed HTTP 200 não significa Lighthouse válido.</strong> "
         "O RASAi valida <code>lighthouseResult</code>, descarta métricas Lighthouse quando existe "
-        "<code>runtimeError</code> fatal e trata categoria solicitada ausente como evidência incompleta. "
+        "<code>runtimeError</code> fatal e trata categoria consolidada solicitada ausente como evidência incompleta. "
+        "Categoria experimental opcional, como Agentic Browsing, é aproveitada quando disponível sem degradar por si só uma execução consolidada válida. "
         "Falha/quota/timeout do PageSpeed é indisponibilidade da medição externa, não defeito do website e não reduz SCORE-GEO-004.</div>"
         f"<div class='metric-grid'>{_metric('Contextos externos', total)}"
         f"{_metric('Lighthouse válido', f'{lh_valid}/{total}')}{_metric('Performance válida', f'{perf_valid}/{total}')}"
@@ -210,7 +215,7 @@ def enrich_external_metrics_integrity_report_site(*, audit_id: str, workspace: A
         "<code>accessibility</code>. O RASAi não recalcula esse score. Médias entre páginas/dispositivos são apenas estatística "
         "descritiva sobre contextos que efetivamente possuem score válido; ausência de categoria/score nunca vira zero.</p>"
         "<div class='table-wrap'><table><thead><tr><th>URL</th><th>Dispositivo</th><th>PageSpeed HTTP</th>"
-        "<th>Lighthouse</th><th>Performance</th><th>Acessibilidade</th><th>Categorias ausentes/inválidas</th></tr></thead><tbody>"
+        "<th>Lighthouse</th><th>Performance</th><th>Acessibilidade</th><th>Categorias consolidadas ausentes/inválidas</th></tr></thead><tbody>"
         + rows
         + "</tbody></table></div>"
         f"<p class='intro'>Evidência estruturada: <a href='../{ARTIFACT}'><code>{ARTIFACT}</code></a>.</p>"
@@ -280,11 +285,14 @@ def _validate_observation(
                 score = _number(item.get("score")) if isinstance(item, dict) else None
                 if score is not None and 0.0 <= score <= 1.0:
                     valid_categories.append(category)
-                else:
+                elif category not in _OPTIONAL_EXPERIMENTAL_CATEGORIES:
                     invalid_categories.append(category)
             lighthouse_status = "VALID" if not invalid_categories else "CATEGORY_INCOMPLETE"
     else:
-        invalid_categories.extend(requested_categories)
+        invalid_categories.extend(
+            category for category in requested_categories
+            if category not in _OPTIONAL_EXPERIMENTAL_CATEGORIES
+        )
 
     updates: dict[str, Any] = {}
     if lighthouse_status in {"RUNTIME_ERROR", "RESULT_MISSING"}:
@@ -345,7 +353,7 @@ def _apply_updates(con: sqlite3.Connection, observation_id: str, updates: dict[s
     if not updates:
         return
     allowed = {
-        "status", "error_summary", "performance_score", "accessibility_score", "best_practices_score", "seo_score",
+        "status", "error_summary", "performance_score", "accessibility_score", "best_practices_score", "seo_score", "agentic_browsing_score",
         "fcp_lab_ms", "speed_index_lab_ms", "lcp_lab_ms", "tbt_lab_ms", "cls_lab",
     }
     items = [(key, value) for key, value in updates.items() if key in allowed]
