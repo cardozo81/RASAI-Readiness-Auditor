@@ -14,7 +14,7 @@ class RuntimeCompletionExtensionTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         install_runtime_completion_extensions()
 
-    def test_interactive_environment_lists_all_lighthouse_categories(self) -> None:
+    def test_interactive_environment_lists_pagespeed_supported_lighthouse_categories(self) -> None:
         from rasai import console_environment
 
         spec = next(
@@ -29,14 +29,13 @@ class RuntimeCompletionExtensionTests(unittest.TestCase):
                 "accessibility",
                 "best-practices",
                 "seo",
-                "agentic-browsing",
             ),
         )
         self.assertEqual(
             spec.default,
-            "performance,accessibility,best-practices,seo,agentic-browsing",
+            "performance,accessibility,best-practices,seo",
         )
-        self.assertIn("experimental", spec.notes)
+        self.assertIn("adaptador Lighthouse separado", spec.notes)
 
     def test_executive_dashboard_contains_all_lighthouse_category_cards(self) -> None:
         from rasai import rasai_readiness_reporting as reporting
