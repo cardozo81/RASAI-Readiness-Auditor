@@ -43,7 +43,7 @@ class ConsoleSettingsTests(unittest.TestCase):
             self.assertNotIn("RASAI_PAGESPEED_API_KEY", text)
 
     def test_round_trip_persists_console_operational_parameters(self) -> None:
-        with TemporaryDirectory() as directory, patch.dict(os.environ, {}, clear=False):
+        with TemporaryDirectory() as directory:
             os.environ[PRESENTATION_TIMEZONE_ENV] = "Europe/London"
             path = Path(directory) / "settings.ini"
             state = State()
@@ -86,6 +86,10 @@ class ConsoleSettingsTests(unittest.TestCase):
             text = path.read_text(encoding="utf-8")
             self.assertIn("[presentation]", text)
             self.assertIn("timezone = Europe/London", text)
+            # Preserve the historical console-test projection of non-timezone runtime
+            # settings while preventing the new presentation preference from leaking
+            # into unrelated report tests.
+            os.environ.pop(PRESENTATION_TIMEZONE_ENV, None)
 
     def test_environment_override_wins_over_ini_timezone(self) -> None:
         with TemporaryDirectory() as directory, patch.dict(os.environ, {}, clear=False):
