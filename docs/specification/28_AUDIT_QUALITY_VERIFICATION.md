@@ -1,37 +1,37 @@
-# 28 - Audit Quality, Verification & Decision Support
+# 28 — Audit Quality, Verification & Decision Support
 
-**Estado no baseline de desenvolvimento:** APPROVED / IMPLEMENTED / INTEGRATED IN `main`
+**Estado no baseline de desenvolvimento:** aprovado / implementado / integrado à `main`.
 
-## 1. Purpose
+## 1. Objetivo
 
-This domain provides derived, read-only capabilities that assess RASAi evidence quality and support remediation decisions without creating another readiness score.
+Este domínio fornece capacidades derivadas e somente leitura que avaliam a qualidade da evidência do RASAi e apoiam decisões de remediação sem criar outro score de readiness.
 
-It answers whether the persisted AUD is healthy, how strong finding evidence is, which findings deserve operational attention, whether recommendations still reference valid unresolved evidence, whether a later audit demonstrates a rule-level fix, and how evidence evolved across AUDs.
+Ele responde se o `AUD-*` persistido está saudável, qual é a força da evidência de cada finding, quais findings merecem atenção operacional, se recomendações ainda referenciam evidências válidas e não resolvidas, se uma auditoria posterior demonstra correção no nível de regra e como a evidência evoluiu entre `AUD-*`.
 
-None of these capabilities changes `SARI-001` or `SCORE-GEO-004`.
+Nenhuma dessas capacidades altera `SARI-001` ou `SCORE-GEO-004`.
 
-## 2. Normative boundaries
+## 2. Limites normativos
 
-Quality/Verification MUST:
+Quality/Verification deve:
 
-1. open source `audit.db` read-only;
-2. treat `observability.db` as derived sidecar evidence;
-3. never mutate findings, recommendations, RuleExecution, scores or historical AUDs;
-4. never convert missing evidence into a failure by default;
-5. distinguish Evidence Confidence from SARI dimension Confidence;
-6. distinguish Operational Priority from scoring/severity;
-7. describe Fix Verification as persisted rule-state evidence only;
-8. never claim that a verified technical fix caused Search/AI outcome changes;
-9. keep publisher content-use controls non-scoring;
-10. preserve source `scoring_version` and comparability boundaries.
+1. abrir o `audit.db` de origem somente leitura;
+2. tratar `observability.db` como evidência sidecar derivada;
+3. nunca modificar findings, recommendations, RuleExecution, scores ou `AUD-*` históricos;
+4. nunca converter evidência ausente em falha por default;
+5. distinguir Evidence Confidence da Confidence de dimensão usada pelo SARI;
+6. distinguir Operational Priority de scoring/severity;
+7. descrever Fix Verification apenas como evidência persistida do estado da regra;
+8. nunca afirmar que uma correção técnica verificada causou mudança de outcome em Search/IA;
+9. manter controles do publicador sobre uso de conteúdo fora do scoring;
+10. preservar `scoring_version` da origem e limites de comparabilidade.
 
-## 3. Quality report
+## 3. Relatório Quality
 
 ```text
 rasai quality report --audit AUD-* [--audits-root audits]
 ```
 
-Output:
+Saída:
 
 ```text
 <AUD-ID>/report/quality.html
@@ -39,11 +39,11 @@ Output:
 
 ### Audit Health
 
-Audit Health evaluates collection/data quality, not website readiness. Checks can include SQLite integrity, completion state, snapshot coverage, inconclusive/error RuleExecutions, score-version availability, artifact existence, report materialization, sidecar integrity and provenance.
+Audit Health avalia qualidade de coleta/dados, não readiness do website. As verificações podem incluir integridade SQLite, estado de conclusão, cobertura de snapshots, RuleExecutions inconclusivas/com erro, disponibilidade da versão de scoring, existência de artefatos, materialização de relatórios, integridade do sidecar e proveniência.
 
 ### Evidence Confidence
 
-Values:
+Valores permitidos:
 
 ```text
 HIGH
@@ -51,11 +51,11 @@ MEDIUM
 LOW
 ```
 
-This confidence describes evidence supporting a finding. It is distinct from the dimension-level `Confidence` used by the readiness scoring pipeline.
+Essa confiança descreve a evidência que sustenta um finding. É distinta da `Confidence` em nível de dimensão usada pelo pipeline de scoring de readiness.
 
 ### Operational Priority
 
-Classes:
+Classes permitidas:
 
 ```text
 P0
@@ -64,15 +64,15 @@ P2
 P3
 ```
 
-Operational Priority combines persisted finding characteristics, affected scope, evidence confidence and remediation effort. It does not alter Severity or SARI/SCORE values.
+Operational Priority combina características persistidas do finding, escopo afetado, Evidence Confidence e esforço de remediação. Não altera Severity nem valores SARI/SCORE.
 
 ### Coverage Map
 
-`NOT_OBSERVED` means evidence was not available in that URL/device/domain scope; it does not mean FAIL.
+`NOT_OBSERVED` significa que evidência não estava disponível naquele escopo de URL/dispositivo/domínio; não significa `FAIL`.
 
 ### Recommendation Validation
 
-Possible states include:
+Estados possíveis incluem:
 
 ```text
 SUPPORTED_BY_PERSISTED_EVIDENCE
@@ -82,18 +82,18 @@ STALE_RESOLVED
 CONFIDENCE_MISMATCH
 ```
 
-This validates structural/evidence coherence, not universal correctness of recommendation wording.
+Essa validação verifica coerência estrutural/de evidência, não correção universal do texto da recomendação.
 
-## 4. Search & AI content-use controls
+## 4. Controles de uso de conteúdo em Search & AI
 
-Quality can record observed publisher controls such as:
+Quality pode registrar controles observados do publicador, como:
 
 - `nosnippet`;
 - `max-snippet`;
 - `data-nosnippet`;
 - `X-Robots-Tag`.
 
-Restrictive publisher policy is not represented as an automatic SARI penalty.
+Política restritiva do publicador não é representada como penalidade automática no SARI.
 
 ## 5. Fix Verification
 
@@ -101,20 +101,20 @@ Restrictive publisher policy is not represented as an automatic SARI penalty.
 rasai quality verify --baseline AUD-A --current AUD-B [--url URL] [--rule BR-GEO-NNN]
 ```
 
-Default output:
+Saída default:
 
 ```text
 audits/verification/VER-*/report.html
 ```
 
-Statuses:
+Status permitidos:
 
 - `FIXED`;
 - `PARTIALLY_FIXED`;
 - `NOT_FIXED`;
 - `NOT_VERIFIABLE`.
 
-Fix Verification uses persisted comparison evidence and cannot assert downstream Search/AI impact.
+Fix Verification usa evidência de comparação persistida e não pode afirmar impacto downstream em Search/IA.
 
 ## 6. Evidence Timeline
 
@@ -122,37 +122,37 @@ Fix Verification uses persisted comparison evidence and cannot assert downstream
 rasai quality timeline [--audits-root audits] [--domain DOMAIN] [--url URL]
 ```
 
-Default output:
+Saída default:
 
 ```text
 audits/quality/TIMELINE-*/report.html
 ```
 
-The timeline can project audit time, auditor/ruleset/scoring versions, URL count, FAIL/WARNING counts, dimension values and selected page state. Historical workspaces remain read-only.
+A timeline pode projetar horário da auditoria, versões do auditor/ruleset/scoring, quantidade de URLs, contagens `FAIL`/`WARNING`, valores das dimensões e estado selecionado de páginas. Workspaces históricos permanecem somente leitura.
 
-## 7. Reproducibility
+## 7. Reprodutibilidade
 
-Time-dependent checks use persisted audit/observation timestamps so regenerating a report later does not change conclusions merely because wall-clock time advanced.
+Verificações dependentes de tempo usam timestamps persistidos da auditoria/observação para que regenerar o relatório mais tarde não altere conclusões apenas porque o relógio avançou.
 
-Preferred time anchors are `completed_at`, then `started_at`, `created_at`, then persisted snapshot capture time.
+Âncoras de tempo preferidas são, nesta ordem: `completed_at`, `started_at`, `created_at` e timestamp persistido de captura do snapshot.
 
-## 8. Relationship with Observability
+## 8. Relação com Observability
 
-Quality may inspect `observability.db` for data-quality/provenance checks, but observed outcomes remain separate from SARI/SCORE-GEO-004.
+Quality pode inspecionar `observability.db` para verificações de qualidade/proveniência, mas outcomes observados permanecem separados de SARI/SCORE-GEO-004.
 
-Current sidecar contract:
+Contrato sidecar atual:
 
 ```text
 RASAI-OBS-002
 identity = (dataset_id, record_id)
 ```
 
-## 9. Reporting language
+## 9. Linguagem dos relatórios
 
-Prefer terms such as observed, persisted, comparable, supported by evidence, operational priority and not verifiable.
+Prefira termos como observado, persistido, comparável, sustentado por evidência, prioridade operacional e não verificável.
 
-Avoid guaranteed ranking gain, causal claims from temporal coincidence, universal Search & AI score claims or compliance claims not established by the method.
+Evite garantia de ganho de ranking, alegações causais derivadas de coincidência temporal, scores universais de Search & AI ou alegações de conformidade não estabelecidas pelo método.
 
-## 10. Automated safety gates
+## 10. Gates automatizados de segurança
 
-Coverage should include sidecar migration/identity, NULL preservation, temporal comparability, release-gate boundaries, content-control detection, persisted-time freshness, Quality report/menu materialization, Fix Verification semantics and preservation of historical `scoring_version`.
+A cobertura deve incluir migration/identidade do sidecar, preservação de `NULL`, comparabilidade temporal, limites do release gate, detecção de controles de conteúdo, avaliação de atualização baseada em horário persistido, materialização do relatório/menu Quality, semântica de Fix Verification e preservação histórica de `scoring_version`.
