@@ -6,11 +6,16 @@ into the same durable queue before a worker claims work.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 import os
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterator, Mapping
 
+from rasai.audit_execution_contract import (
+    audit_job_environment_overrides,
+    normalize_audit_job_payload,
+)
 from rasai.platform.database import open_platform_store
 from rasai.platform.reporting import write_platform_site
 from rasai.platform.saas_scheduling import normalize_scheduled_urls
@@ -44,11 +49,20 @@ def _integer(payload: Mapping[str, Any], name: str, default: int, *, minimum: in
     return value
 
 
-def _boolean(payload: Mapping[str, Any], name: str, default: bool = False) -> bool:
-    value = payload.get(name, default)
-    if not isinstance(value, bool):
-        raise ValueError(f"execution payload field {name} must be boolean")
-    return value
+@contextmanager
+def _temporary_environment(overrides: Mapping[str, str]) -> Iterator[None]:
+    """Apply one job's non-secret environment-only settings and restore the worker."""
+    previous = {name: os.environ.get(name) for name in overrides}
+    try:
+        for name, value in overrides.items():
+            os.environ[name] = value
+        yield
+    finally:
+        for name, value in previous.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
 
 
 def _audit_arguments(store: Any, job: Any, audits_root: Path) -> list[str]:
@@ -65,56 +79,75 @@ def _audit_arguments(store: Any, job: Any, audits_root: Path) -> list[str]:
     if project is None:
         raise KeyError(f"execution project not found: {job.project_id}")
 
-    payload = job.payload
-    language = _text(payload, "language", "pt-BR") or "pt-BR"
-    market = _text(payload, "market", "BR") or "BR"
-    max_pages = _integer(payload, "max_pages", 100, minimum=1, maximum=100000)
-    device = _text(payload, "device_context")
-    if device is not None and device not in {"mobile", "desktop", "both"}:
-        raise ValueError("execution payload device_context must be mobile, desktop or both")
-    ai_provider = _text(payload, "ai_provider", "none") or "none"
-    if ai_provider not in {"none", "openai", "deepseek", "mimo", "auto"}:
-        raise ValueError("execution payload contains unsupported ai_provider")
-    ai_model = _text(payload, "ai_model")
-    web_performance = _boolean(payload, "web_performance", False)
-    content_remediation = _boolean(payload, "ai_content_remediation", False)
-
+    payload = normalize_audit_job_payload(job.payload)
     raw_urls = payload.get("urls")
     if raw_urls is None:
         targets = (environment.base_origin,)
     else:
-        if not isinstance(raw_urls, list) or any(not isinstance(item, str) for item in raw_urls):
-            raise ValueError("execution payload urls must be an array of strings")
         targets = normalize_scheduled_urls(
             raw_urls,
             property_hostname=prop.hostname,
             environment_origin=environment.base_origin,
         )
 
-    allowed = {
-        "language", "market", "max_pages", "device_context", "ai_provider", "ai_model",
-        "web_performance", "ai_content_remediation", "urls",
-    }
-    unknown = sorted(set(payload) - allowed)
-    if unknown:
-        raise ValueError("unsupported AUDIT execution payload field(s): " + ", ".join(unknown))
-
     argv = [
         "audit",
         *targets,
         "--project", project.name,
-        "--language", language,
-        "--market", market,
-        "--max-pages", str(max_pages),
+        "--language", payload["language"],
+        "--market", payload["market"],
+        "--max-pages", str(payload["max_pages"]),
         "--audits-root", str(audits_root),
-        "--ai-provider", ai_provider,
+        "--device-context", payload["device_context"],
+        "--ai-provider", payload["ai_provider"],
     ]
-    if device is not None:
-        argv.extend(("--device-context", device))
-    if ai_model is not None:
-        argv.extend(("--ai-model", ai_model))
-    argv.append("--ai-content-remediation" if content_remediation else "--no-ai-content-remediation")
-    argv.append("--web-performance" if web_performance else "--no-web-performance")
+    if payload["ai_model"]:
+        argv.extend(("--ai-model", payload["ai_model"]))
+
+    argv.append("--ai-content-remediation" if payload["ai_content_remediation"] else "--no-ai-content-remediation")
+    argv.append("--ai-technical-remediation" if payload["ai_technical_remediation"] else "--no-ai-technical-remediation")
+    argv.append("--web-performance" if payload["web_performance"] else "--no-web-performance")
+    argv.extend((
+        "--web-performance-max-pages", str(payload["web_performance_max_pages"]),
+        "--web-performance-timeout-seconds", f"{payload['web_performance_timeout_seconds']:g}",
+        "--web-performance-field-source", payload["web_performance_field_source"],
+        "--lighthouse-categories", payload["lighthouse_categories"],
+    ))
+
+    if payload["synthetic_apdex"]:
+        argv.extend((
+            "--synthetic-apdex",
+            "--apdex-threshold-seconds", f"{payload['apdex_threshold_seconds']:g}",
+            "--apdex-samples-per-context", str(payload["apdex_samples_per_context"]),
+            "--apdex-max-attempts-per-context", str(payload["apdex_max_attempts_per_context"]),
+            "--apdex-max-pages", str(payload["apdex_max_pages"]),
+            "--apdex-delay-seconds", f"{payload['apdex_delay_seconds']:g}",
+            "--apdex-concurrency", str(payload["apdex_concurrency"]),
+        ))
+        if payload["apdex_timeout_seconds"] is not None:
+            argv.extend(("--apdex-timeout-seconds", f"{payload['apdex_timeout_seconds']:g}"))
+        if payload["apdex_experience"]:
+            argv.extend((
+                "--apdex-experience",
+                "--apdex-experience-samples", str(payload["apdex_experience_samples"]),
+                "--apdex-experience-max-attempts", str(payload["apdex_experience_max_attempts"]),
+                "--apdex-experience-max-pages", str(payload["apdex_experience_max_pages"]),
+                "--apdex-experience-device-mix", payload["apdex_experience_device_mix"],
+                "--apdex-experience-session-mode", payload["apdex_experience_session_mode"],
+                "--apdex-experience-kpm", payload["apdex_experience_kpm"],
+                "--apdex-experience-satisfied-seconds", f"{payload['apdex_experience_satisfied_seconds']:g}",
+                "--apdex-experience-frustrated-seconds", f"{payload['apdex_experience_frustrated_seconds']:g}",
+                "--apdex-experience-error-scope", payload["apdex_experience_error_scope"],
+                "--apdex-experience-settle-seconds", f"{payload['apdex_experience_settle_seconds']:g}",
+                "--apdex-experience-delay-seconds", f"{payload['apdex_experience_delay_seconds']:g}",
+                "--apdex-experience-concurrency", str(payload["apdex_experience_concurrency"]),
+                "--no-apdex-dynatrace-import",
+            ))
+            argv.append("--apdex-experience-errors" if payload["apdex_experience_errors"] else "--no-apdex-experience-errors")
+        else:
+            argv.append("--no-apdex-experience")
+    else:
+        argv.extend(("--no-synthetic-apdex", "--no-apdex-experience"))
     return argv
 
 
@@ -125,7 +158,10 @@ def _run_audit(store: Any, job: Any, audits_root: Path) -> WorkerResult:
         item.audit_id
         for item in store.list_audits(property_id=job.property_id, environment_id=job.environment_id)
     }
-    code = rasai_main(_audit_arguments(store, job, audits_root))
+    argv = _audit_arguments(store, job, audits_root)
+    environment_overrides = audit_job_environment_overrides(job.payload)
+    with _temporary_environment(environment_overrides):
+        code = rasai_main(argv)
     if code != 0:
         raise RuntimeError(f"RASAi audit execution returned exit code {code}")
     audits = store.list_audits(property_id=job.property_id, environment_id=job.environment_id)
