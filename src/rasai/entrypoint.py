@@ -1,7 +1,7 @@
 """Top-level RASAi command router.
 
-Additive specialist commands are intercepted here. Existing audit commands are
-delegated unchanged to cli_extensions, preserving the current audit pipeline.
+Specialist commands are intercepted here. Audit commands are delegated to the
+current audit CLI composition and finalized through the canonical report gate.
 """
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
     from rasai.report_completion import finalize_audit_report_site
     from rasai.score_geo_004_reporting import REPORT_FILE
 
-    original_run_audit = cli_extensions._legacy_cli.run_audit
+    original_run_audit = cli_extensions._audit_cli.run_audit
     original_score_writer = m9.write_score_geo_004_report
     captured: list[object] = []
 
@@ -70,12 +70,12 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
     def defer_score_report(*, audit_id: str, workspace: AuditWorkspace) -> Path:
         return workspace.root / "report" / REPORT_FILE
 
-    cli_extensions._legacy_cli.run_audit = capture_run
+    cli_extensions._audit_cli.run_audit = capture_run
     m9.write_score_geo_004_report = defer_score_report
     try:
         code = cli_extensions.main(effective)
     finally:
-        cli_extensions._legacy_cli.run_audit = original_run_audit
+        cli_extensions._audit_cli.run_audit = original_run_audit
         m9.write_score_geo_004_report = original_score_writer
 
     if code != 0 or not captured:
