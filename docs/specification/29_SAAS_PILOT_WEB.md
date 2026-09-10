@@ -9,29 +9,29 @@ Disponibilizar uma interface Web utilizável sobre o control plane e a execution
 
 ## 2. Requisitos normativos
 
-`WEB-PILOT-001` — o browser deve consumir a API tenant-aware; nenhuma regra de negócio relevante pode existir apenas em JavaScript.
+`WEB-PILOT-001` - o browser deve consumir a API tenant-aware; nenhuma regra de negócio relevante pode existir apenas em JavaScript.
 
-`WEB-PILOT-002` — `SARI-001` e `SCORE-GEO-004` não podem ser recalculados, ajustados ou reinterpretados pela UI.
+`WEB-PILOT-002` - `SARI-001` e `SCORE-GEO-004` não podem ser recalculados, ajustados ou reinterpretados pela UI.
 
-`WEB-PILOT-003` — requests HTTP de execução somente podem criar durable execution jobs. Crawling/auditoria permanecem em worker separado.
+`WEB-PILOT-003` - requests HTTP de execução somente podem criar durable execution jobs. Crawling/auditoria permanecem em worker separado.
 
-`WEB-PILOT-004` — a navegação deve respeitar `Organization -> Workspace -> Project -> Property -> Environment` e todo endpoint deve revalidar autorização no servidor.
+`WEB-PILOT-004` - a navegação deve respeitar `Organization -> Workspace -> Project -> Property -> Environment` e todo endpoint deve revalidar autorização no servidor.
 
-`WEB-PILOT-005` — o catálogo HTTP de auditorias não pode expor `workspace_path`.
+`WEB-PILOT-005` - o catálogo HTTP de auditorias não pode expor `workspace_path`.
 
-`WEB-PILOT-006` — quando reports forem servidos via HTTP, somente a árvore `AUD-*/report/**` do AUD autorizado pode ser disponibilizada. `audit.db`, secrets e artifacts fora da superfície pública não podem ser acessíveis pelo route boundary.
+`WEB-PILOT-006` - quando reports forem servidos via HTTP, somente a árvore `AUD-*/report/**` do AUD autorizado pode ser disponibilizada. `audit.db`, secrets e artifacts fora da superfície pública não podem ser acessíveis pelo route boundary.
 
-`WEB-PILOT-007` — traversal, symlink escape e extensão fora do allowlist de apresentação Web devem falhar fechado.
+`WEB-PILOT-007` - traversal, symlink escape e extensão fora do allowlist de apresentação Web devem falhar fechado.
 
-`WEB-PILOT-008` — o piloto não deve criar banco de senhas, token proprietário ou mecanismo de autenticação que seja apresentado como produção. O modo `trusted-header` continua exigindo gateway confiável quando houver exposição pública.
+`WEB-PILOT-008` - o piloto não deve criar banco de senhas, token proprietário ou mecanismo de autenticação que seja apresentado como produção. O modo `trusted-header` continua exigindo gateway confiável quando houver exposição pública.
 
-`WEB-PILOT-009` — conveniência de identidade no browser somente pode ser documentada como desenvolvimento em loopback; não deve ser usada como defesa de ambiente hospedado.
+`WEB-PILOT-009` - conveniência de identidade no browser somente pode ser documentada como desenvolvimento em loopback; não deve ser usada como defesa de ambiente hospedado.
 
-`WEB-PILOT-010` — a UI deve operar contra a mesma `store_factory` usada pela API e portanto deve preservar SQLite local/default e PostgreSQL opt-in.
+`WEB-PILOT-010` - a UI deve operar contra a mesma `store_factory` usada pela API e portanto deve preservar SQLite local/default e PostgreSQL opt-in.
 
-`WEB-PILOT-011` — a instalação CLI local sem `.[web]` continua funcional. A UI não pode adicionar Node/npm/bundler como dependência obrigatória.
+`WEB-PILOT-011` - a instalação CLI local sem `.[web]` continua funcional. A UI não pode adicionar Node/npm/bundler como dependência obrigatória.
 
-`WEB-PILOT-012` — Search Intelligence, Usage, Milestones e Deployment Pair devem permanecer projeções dos contratos existentes, sem segunda persistência Web.
+`WEB-PILOT-012` - Search Intelligence, Usage, Milestones e Deployment Pair devem permanecer projeções dos contratos existentes, sem segunda persistência Web.
 
 ## 3. Superfícies mínimas
 
