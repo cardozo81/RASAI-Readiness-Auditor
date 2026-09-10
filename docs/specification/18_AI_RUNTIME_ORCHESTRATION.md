@@ -1,4 +1,4 @@
-# 18 — Orquestração do runtime de IA
+# 18 - Orquestração do runtime de IA
 
 **Estado:** vigente para o runtime multi-provider de IA.
 
