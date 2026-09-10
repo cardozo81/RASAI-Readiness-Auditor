@@ -1,50 +1,109 @@
 # Outputs e artifacts
 
-## Workspace de auditoria
+## Contrato de workspace da auditoria
 
-Cada auditoria materializa, conforme as capacidades executadas:
+Cada execução de `rasai audit` persiste a evidência no workspace `audits/<AUD-ID>/`. O banco `audit.db` e os artifacts coletados são a fonte de verdade; HTML, CSS e manifests são projeções reconstruíveis para leitura e integração.
 
 ```text
 audits/<AUD-ID>/
 ├─ audit.db
-├─ observability.db            # condicional; sidecar RASAI-OBS-002
+├─ observability.db            # somente quando operações observacionais persistirem dados externos
 ├─ artifacts/
-│  ├─ web-performance/         # condicional
-│  ├─ observability/           # condicional
+│  ├─ web-performance/         # quando houver coleta externa
+│  ├─ observability/           # quando houver observabilidade
 │  └─ outros artifacts internos por capacidade, quando aplicável
 ├─ logs/
 │  └─ audit.log                # quando logging persistente estiver ativo
 └─ report/
    ├─ index.html
    ├─ readiness.html
-   ├─ scoring.html             # canônico; método vigente e versão persistida
-   ├─ mobile.html              # condicional
-   ├─ desktop.html             # condicional
-   ├─ crawling-discovery.html  # condicional
-   ├─ accessibility.html       # condicional
-   ├─ web-performance.html     # condicional
-   ├─ search-intelligence.html # condicional
-   ├─ apdex.html               # condicional
-   ├─ apdex-experience.html    # condicional
+   ├─ scoring.html
    ├─ content-suggestions.html
+   ├─ crawling-discovery.html
+   ├─ accessibility.html
+   ├─ web-performance.html
    ├─ remediation.html
    ├─ ai-usage.html
-   ├─ ai-visibility.html       # condicional
-   ├─ observability.html       # condicional
-   ├─ quality.html             # condicional
    ├─ references.html
+   ├─ mobile.html              # quando houver snapshot Mobile
+   ├─ desktop.html             # quando houver snapshot Desktop
+   ├─ apdex.html               # quando Synthetic Navigation Apdex tiver execução habilitada
+   ├─ apdex-experience.html    # quando Synthetic User Experience Apdex tiver execução habilitada
+   ├─ report-manifest.json
    └─ css/site.css
 ```
 
-Os nomes físicos de subdiretórios ou tabelas usados internamente por capacidades específicas não fazem parte do contrato público. Integrações devem consumir os manifests, relatórios, contratos e campos documentados, não depender de identificadores internos de implementação.
+### Páginas que uma auditoria normal deve materializar
 
-O menu final lista somente páginas canônicas existentes e preserva ordem estável. O alias versionado do scoring não recebe item próprio de navegação.
+O término bem-sucedido de uma análise de URLs exige que existam fisicamente as seguintes superfícies pertencentes à própria auditoria:
 
-## Fonte de verdade
+```text
+index.html
+readiness.html
+scoring.html
+content-suggestions.html
+crawling-discovery.html
+accessibility.html
+web-performance.html
+remediation.html
+ai-usage.html
+references.html
+```
 
-`audit.db` + artifacts originais da auditoria são a fonte de verdade do AUD. HTML é projeção humana.
+Essas páginas existem mesmo quando uma capacidade opcional está desabilitada ou sem dado externo. Nesse caso, a página deve representar explicitamente estados como desabilitado, indisponível, não solicitado ou não observado; ausência de coleta não deve ser mascarada pela ausência do HTML.
 
-`observability.db` é um sidecar derivado/reconstruível para outcomes coletados/importados após a auditoria. Ele não substitui nem migra `audit.db`.
+`mobile.html` e `desktop.html` são esperados somente para os contextos efetivamente materializados em `page_snapshots`. `apdex.html` e `apdex-experience.html` são esperados somente quando as respectivas execuções sintéticas estiverem habilitadas e persistidas.
+
+Ao final de `rasai audit`, o runtime reconstrói as projeções audit-owned a partir do workspace persistido, compara o conjunto esperado com os arquivos físicos e retorna status não zero se alguma página obrigatória daquela execução continuar ausente. O `audit.db` não é descartado em caso de falha exclusiva de projeção.
+
+### Superfícies especializadas pós-auditoria
+
+Os arquivos abaixo pertencem ao catálogo canônico de reports, mas **não são outputs obrigatórios de toda execução `rasai audit`**. Eles são materializados por capacidades/comandos especializados quando houver dados correspondentes:
+
+```text
+search-intelligence.html
+ai-visibility.html
+observability.html
+quality.html
+```
+
+Portanto, a ausência desses quatro arquivos dentro de um `AUD-*` recém-criado não representa, por si só, auditoria incompleta.
+
+O menu final contém apenas páginas canônicas que existem fisicamente e preserva a ordem definida pelo contrato `ReportSurface`. Durante a fase pré-publicação, `scoring.html` é a única URL canônica da metodologia; não existe alias HTML versionado público a manter.
+
+## `report/report-manifest.json`
+
+O manifest é metadado de projeção, não segunda fonte de verdade. Além das versões e páginas materializadas, o contrato atual registra a completude da projeção pertencente à auditoria:
+
+```text
+audit_id
+auditor_version
+ruleset_version
+sari_version
+scoring_version
+report_contract_version
+observability_contract_version
+generated_pages
+audit_expected_pages
+audit_missing_pages
+audit_report_complete
+aliases
+generated_at
+source_db
+```
+
+Para uma auditoria íntegra quanto à projeção HTML:
+
+```json
+{
+  "audit_report_complete": true,
+  "audit_missing_pages": []
+}
+```
+
+`generated_pages` pode conter também uma superfície especializada já criada posteriormente. Isso não altera o conjunto `audit_expected_pages` da execução de URL.
+
+## Fonte de verdade e versões
 
 ```text
 SARI-001       = índice público de readiness
@@ -52,11 +111,13 @@ SCORE-GEO-004  = scoring vigente para novas auditorias
 RASAI-OBS-002  = contrato atual do sidecar observacional
 ```
 
-Nenhuma projeção recalcula silenciosamente uma auditoria persistida para outra `scoring_version`.
+Nenhuma projeção recalcula silenciosamente uma auditoria para outra `scoring_version`. HTML e manifest podem ser regenerados, mas `audit.db` + artifacts originais permanecem a evidência fonte.
 
-## `audit.db`
+`observability.db` é sidecar derivado/reconstruível para outcomes coletados ou importados após a auditoria. Ele não substitui nem migra `audit.db`.
 
-Grupos relevantes, conforme materialização:
+## Conteúdo relevante do `audit.db`
+
+A presença física de tabelas varia conforme capacidades e migrações, mas os grupos abaixo representam os principais dados persistidos.
 
 ### Evidência, regras e scoring
 
@@ -81,13 +142,13 @@ content_remediation_suggestions
 provider_pricing_catalog
 ```
 
-Telemetria/custo não participa do score.
+Telemetria e custo estimado de IA não participam do score.
 
-### Crawling/discovery
+### Crawling e descoberta
 
-A persistência inclui execução, diagnósticos e, quando habilitada, resultados técnicos de IA para Crawling & Discovery. Os nomes físicos dessas tabelas são detalhe interno e não constituem contrato público.
+A persistência inclui diagnósticos, evidências e, quando habilitada, análise técnica de IA vinculada a evidências. Robots, sitemap, feeds e `llms.txt` efetivamente capturados podem ser preservados como artifacts e projetados em `crawling-discovery.html` sem nova coleta.
 
-Os diagnósticos auxiliares continuam advisory. Quando a IA técnica estiver habilitada e produzir avaliação evidence-bound válida de robots/sitemap, somente a classe bounded do recurso pode compartilhar o grupo de scoring correspondente, com fatores estáticos e sem bônus duplicado.
+Diagnósticos auxiliares permanecem advisory. Quando uma avaliação técnica evidence-bound válida de robots/sitemap participa do scoring, ela usa somente o grupo e os fatores estáticos definidos pelo método; a IA não escolhe peso nem cria bônus duplicado.
 
 ### Web Performance
 
@@ -114,7 +175,7 @@ synthetic_ux_apdex_samples
 synthetic_ux_apdex_summaries
 ```
 
-Ambos os Apdex são sintéticos e não são RUM/SARI.
+Os dois Apdex são sintéticos e não são RUM nem SARI.
 
 ### Observed Generative Visibility
 
@@ -126,13 +187,11 @@ generative_visibility_trend
 generative_visibility_query_runs
 ```
 
-Essas tabelas preservam outcomes observados/importados e não recalculam `scores`, `rule_executions` ou `findings`.
+Esses dados preservam outcomes observados/importados e não recalculam `scores`, `rule_executions` ou `findings`.
 
 ## `observability.db` - `RASAI-OBS-002`
 
-Criado somente quando uma operação observacional persiste dataset externo.
-
-Tabelas atuais:
+Criado somente quando uma operação observacional persiste dataset externo. Tabelas atuais incluem:
 
 ```text
 datasets
@@ -141,43 +200,9 @@ index_observations
 crux_history
 ```
 
-Identidade de uma linha observacional:
+A identidade de uma linha observacional é `(dataset_id, record_id)`, permitindo históricos independentes sem colisão de IDs locais. Proveniência deve preservar fonte, método de captura, período, artifact/SHA-256, metadata e timestamp. Bearer token e API key nunca são persistidos.
 
-```text
-(dataset_id, record_id)
-```
-
-Isso permite que coletas independentes reutilizem IDs locais como `GSC-SA-00000001` sem colisão. Sidecars OBS-001 são migrados automaticamente preservando linhas.
-
-Proveniência inclui:
-
-- source type;
-- capture method;
-- período;
-- artifact path/SHA-256;
-- metadata;
-- timestamp de coleta/importação.
-
-Bearer token/API key nunca deve ser persistido.
-
-### Source types observacionais relevantes
-
-Conforme uso, podem existir datasets de:
-
-```text
-GOOGLE_SEARCH_CONSOLE_SEARCH_ANALYTICS
-GOOGLE_SEARCH_CONSOLE_SEARCH_APPEARANCE
-GOOGLE_SEARCH_CONSOLE_URL_INSPECTION
-GOOGLE_SEARCH_CONSOLE_PROPERTIES
-GOOGLE_SEARCH_CONSOLE_SITEMAPS
-GOOGLE_SEARCH_CONSOLE_GENERATIVE_AI_PERFORMANCE_EXPORT_SEARCH
-GOOGLE_SEARCH_CONSOLE_GENERATIVE_AI_PERFORMANCE_EXPORT_DISCOVER
-GOOGLE_SEARCH_CONSOLE_GENERATIVE_AI_CONTROL
-CHROME_UX_REPORT_HISTORY
-Bing/imports normalizados
-```
-
-Search/Discover GenAI permanecem fontes distintas. O export GenAI não recebe clicks/CTR/position/query artificiais quando esses campos não existem na fonte.
+Fontes observacionais suportadas podem incluir Search Console, URL Inspection, sitemaps/properties, exports de desempenho generativo, controles do publisher, CrUX History e imports Bing normalizados. Métricas inexistentes na fonte não são fabricadas.
 
 ## Artifacts
 
@@ -188,15 +213,9 @@ artifacts/web-performance/*.pagespeed.json
 artifacts/web-performance/*.crux.json
 ```
 
-### Crawling/discovery
+### Crawling e descoberta
 
-Artifacts de Crawling & Discovery são armazenados em subdiretório interno da auditoria quando materializados. `llms.txt`, quando obtido, é preservado como evidência da capacidade. O nome físico desse subdiretório é detalhe de implementação e não integra o contrato público.
-
-Ausência de `llms.txt` não gera penalidade/readiness failure.
-
-### Observed Generative Visibility
-
-A importação preserva artifact JSON com SHA-256 em subdiretório interno da capacidade. Integrações devem usar a proveniência persistida e o relatório `ai-visibility.html`, sem depender do nome físico do diretório interno.
+Artifacts textuais capturados podem incluir robots, sitemap/feed e `llms.txt`. O nome físico dos subdiretórios internos não é contrato público; consumidores devem usar referências persistidas, manifest e reports. Ausência de `llms.txt` não constitui penalidade de readiness.
 
 ### Search & AI Observability
 
@@ -204,157 +223,103 @@ A importação preserva artifact JSON com SHA-256 em subdiretório interno da ca
 artifacts/observability/
 ```
 
-Pode conter responses JSON oficiais, CSVs importados e fatos observacionais normalizados. Esses artifacts são untrusted external input e não se tornam evidence original do AUD.
+Pode conter responses JSON oficiais, CSVs importados e fatos observacionais normalizados. Esses artifacts são input externo não confiável e não se tornam automaticamente evidência original da auditoria.
 
 ## Relatórios por domínio
 
 ### `index.html`
 
-Dashboard executivo; não pondera domínios complementares em score comum.
+Dashboard executivo; não agrega metodologias complementares em uma nota comum.
 
 ### `readiness.html`
 
-Página canônica de `SARI-001`.
+Página canônica do `SARI-001`, com Score, Coverage, Confidence, Consolidation e limitações persistidas.
 
 ### `scoring.html`
 
-Página canônica da metodologia de scoring. Exibe `scoring_version`, contrato do Overall, Coverage, Confidence, Consolidation e rastreabilidade. O método vigente é `SCORE-GEO-004`.
-
-Alias de compatibilidade para links produzidos durante o desenvolvimento. Redireciona para `scoring.html` e não deve ser usado como contrato por novas integrações.
+Página canônica da metodologia vigente. Expõe `scoring_version`, pesos, grupos, gates e rastreabilidade. Para novas auditorias, o motor atual é `SCORE-GEO-004` com agregação hierárquica ponderada.
 
 ### `mobile.html` / `desktop.html`
 
-Evidências/findings por contexto materializado.
-
-### `remediation.html`
-
-Plano de correção evidence-bound.
+Evidências e findings dos contextos de dispositivo efetivamente auditados.
 
 ### `content-suggestions.html`
 
-Sugestões textuais/JSON-LD advisory.
+Estado e sugestões textuais/JSON-LD advisory. Se IA estiver desabilitada, a página continua existindo e deixa esse estado explícito.
 
 ### `crawling-discovery.html`
 
-Robots, sitemaps, crawler policies, feeds/`llms.txt` e remediação técnica opcional. Non-scoring.
+Robots, sitemaps, crawler policies, feeds/`llms.txt`, conteúdo capturado disponível e remediação técnica opcional.
 
 ### `accessibility.html`
 
-Diagnóstico automatizado; não equivale a certificação WCAG integral.
+Diagnóstico automatizado ou estado explícito de ausência/desabilitação da fonte. Lighthouse accessibility não equivale a certificação WCAG integral.
 
 ### `web-performance.html`
 
-Lighthouse/PageSpeed/CrUX. Separado de SARI/Apdex.
+Estado da integração e, quando coletados, Lighthouse/PageSpeed/CrUX. Permanece separado do SARI e do Apdex.
 
-### `search-intelligence.html`
+### `remediation.html`
 
-Superfície point-in-time de SERP Observation, classificação competitiva, evidência determinística de conteúdo e Competitive AI persistida quando habilitada. Non-scoring; não altera `SARI-001`/`SCORE-GEO-004`.
-
-### `apdex.html`
-
-Synthetic Navigation Apdex.
-
-### `apdex-experience.html`
-
-Synthetic User Experience Apdex calibrável. Não é RUM.
-
-### `ai-visibility.html`
-
-Observed Generative Visibility import-first; não produz score universal de Search & AI Readiness nem altera `SCORE-GEO-004`.
-
-### `observability.html`
-
-Pode conter:
-
-- datasets/proveniência;
-- Indexability Reality Matrix;
-- Search Performance / Search Appearance;
-- URL Inspection;
-- CrUX History;
-- Google/Bing/GenAI imports;
-- Query × Intent;
-- Potential Search Cannibalization;
-- structured-data/entity/freshness/hreflang/retrieval diagnostics;
-- template/root-cause clusters.
-
-Non-scoring e non-causal.
-
-### `quality.html`
-
-Pode conter:
-
-- Audit Health / Data Quality;
-- Evidence Confidence por finding;
-- Operational Priority `P0`-`P3`;
-- Coverage Map;
-- `nosnippet`, `max-snippet`, `data-nosnippet`, `X-Robots-Tag`;
-- Recommendation Validation;
-- top prioridades executivas.
-
-Quality não é um novo readiness score.
+Plano de correção evidence-bound derivado dos findings persistidos.
 
 ### `ai-usage.html`
 
-Provider/model/tentativas/tokens/custo estimado. Telemetria operacional.
+Estado de uso de IA, provider/modelo, tentativas, tokens e custo estimado quando aplicável. Não gera nova chamada de IA.
 
 ### `references.html`
 
 Metodologia, natureza das fontes e referências públicas.
 
-## Relatórios históricos/consolidados
+### `search-intelligence.html`
+
+Superfície especializada de SERP Observation, classificação competitiva e análises associadas. É observacional/advisory e não altera automaticamente `SARI-001`/`SCORE-GEO-004`.
+
+### `apdex.html`
+
+Synthetic Navigation Apdex quando habilitado.
+
+### `apdex-experience.html`
+
+Synthetic User Experience Apdex calibrável quando habilitado. Não é RUM.
+
+### `ai-visibility.html`
+
+Observed Generative Visibility import-first. Não produz score universal nem altera o scoring da auditoria.
+
+### `observability.html`
+
+Superfície especializada de datasets/proveniência e outcomes externos pós-auditoria, incluindo Search Console, URL Inspection, CrUX History e diagnósticos derivados. É non-scoring e não prova causalidade.
+
+### `quality.html`
+
+Superfície especializada de qualidade da evidência e apoio à decisão. Não cria um segundo readiness score.
+
+## Relatórios históricos e consolidados
+
+Essas saídas não pertencem ao diretório `report/` de um único AUD:
 
 ```text
 audits/.rasai/consolidated-index.db
 
-audits/consolidated/CONS-*/
-├─ report.html
-└─ manifest.json
+audits/consolidated/CONS-*/report.html
+audits/consolidated/CONS-*/manifest.json
+
+audits/search-history/SH-*/report.html
+audits/search-history/SH-*/manifest.json
+
+audits/monitoring/MON-*/report.html
+audits/monitoring/MON-*/manifest.json
+audits/monitoring/MON-*/impact.html        # quando solicitado
+
+audits/verification/VER-*/report.html
+
+audits/quality/TIMELINE-*/report.html
 ```
 
-O consolidador abre AUDs read-only, não chama APIs e não reexecuta scoring.
-
-## Search Intelligence History
-
-```text
-audits/search-history/SH-*/
-├─ report.html
-└─ manifest.json
-```
-
-Comparação pair-level `SEARCH-HISTORY-001`, determinística e read-only. O manifest preserva baseline/current, milestone quando informado, comparabilidade, eventos e fronteiras de causalidade/scoring. Não chama Search provider, páginas públicas ou IA.
-
-## RASAi Monitor
-
-```text
-audits/monitoring/MON-*/
-├─ report.html
-├─ manifest.json
-└─ impact.html                 # quando solicitado
-```
-
-`impact.html` seleciona um dataset mais recente por fonte, não soma históricos sobrepostos e só emite associação temporal para janelas elegíveis.
-
-## Fix Verification
-
-```text
-audits/verification/VER-*/
-└─ report.html
-```
-
-Compara transições persistidas de regras entre dois AUDs. Não prova downstream Search/AI impact.
-
-## Evidence Timeline
-
-```text
-audits/quality/TIMELINE-*/
-└─ report.html
-```
-
-Projeção longitudinal read-only de AUDs existentes.
+Essas projeções abrem os AUDs fonte em modo read-only quando aplicável e não reexecutam scoring por conta própria.
 
 ## Scoring CLI vigente
-
-O comando suportado atualmente é:
 
 ```text
 rasai scoring inspect
@@ -362,7 +327,7 @@ rasai scoring inspect
 
 ## Navegação canônica
 
-Ordem atual, condicionada à existência do arquivo:
+A ordem do catálogo é estável; itens sem arquivo materializado são omitidos do menu:
 
 ```text
 Visão geral
@@ -370,14 +335,14 @@ Readiness SARI
 Metodologia de scoring
 Relatório Mobile
 Relatório Desktop
-Remediações
-Conteúdo e JSON-LD
 Rastreamento e descoberta
 Acessibilidade
 Web Performance
 Search Intelligence
 Apdex de navegação
 Apdex de experiência
+Conteúdo e JSON-LD
+Remediações
 Visibilidade em IA
 Search & AI observados
 Quality & decisão
@@ -389,18 +354,12 @@ Apenas a página atual recebe estado ativo.
 
 ## Segurança e integridade
 
-- secrets não devem aparecer em SQLite, artifacts, report, INI ou log;
+- secrets não devem aparecer em SQLite, artifacts, HTML, INI ou logs;
 - custo estimado não é invoice;
-- cross-origin acquisition exige política explícita segura;
-- Observed Generative Visibility/Observability preservam proveniência e não fazem scraping de portais sem contrato;
-- Search Intelligence History, Monitoring, Quality, Timeline, Verification e consolidation abrem bancos fonte read-only;
-- `NULL` de fonte externa não vira zero observado;
-- publisher controls não são penalidades SARI;
-- remover `observability.db`, cache consolidado, `MON-*`, `VER-*` ou timeline não remove a evidência original do AUD;
-- hash do `audit.db` deve permanecer inalterado após operações `monitor`, `observe` e `quality` pós-auditoria.
+- cross-origin acquisition exige política explícita e segura;
+- dados externos ausentes não viram zero observado;
+- controles do publisher não são penalidades automáticas do SARI;
+- apagar sidecars ou projeções derivadas não remove a evidência original do AUD;
+- operações pós-auditoria não devem alterar o hash do `audit.db` fonte.
 
-Detalhes: [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md), [SCORE_GEO_004.md](SCORE_GEO_004.md) e [specification/28_AUDIT_QUALITY_VERIFICATION.md](specification/28_AUDIT_QUALITY_VERIFICATION.md).
-
-### Structured Data / JSON-LD
-
-Quando `artifacts/extraction/.../structured_data.json` existe, `report/content-suggestions.html` oferece visualização inline do artifact Structured Data e link relativo para o arquivo completo. O artifact permanece a fonte persistida; a página HTML é apenas uma projeção segura para leitura humana. A proposta/baseline de JSON-LD, quando existir, deve permanecer visualmente separada do conteúdo efetivamente coletado.
+Detalhes: [REPORT_GUIDE.md](REPORT_GUIDE.md), [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md) e [SCORE_GEO_004.md](SCORE_GEO_004.md).
