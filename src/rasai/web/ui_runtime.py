@@ -1,6 +1,8 @@
 """Runtime adaptation of the zero-build pilot shell for the selected auth mode."""
 from __future__ import annotations
 
+import re
+
 from .ui import PILOT_UI_HTML
 
 
@@ -19,8 +21,10 @@ def render_pilot_ui(auth_mode: str) -> str:
         "sessionStorage.removeItem('rasai-dev-user');\nconst state=",
         1,
     )
-    return html.replace(
-        "function renderDevLogin(err){",
-        "function renderDevLogin(err){sessionStorage.removeItem('rasai-dev-user');location.assign('/auth/login');return;",
-        1,
+    return re.sub(
+        r"function renderDevLogin\(err\)\{.*?\}\nasync function chooseOrganization",
+        "function renderDevLogin(err){sessionStorage.removeItem('rasai-dev-user');location.assign('/auth/login')}\nasync function chooseOrganization",
+        html,
+        count=1,
+        flags=re.DOTALL,
     )
