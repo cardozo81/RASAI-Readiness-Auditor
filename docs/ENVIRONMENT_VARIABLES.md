@@ -112,31 +112,33 @@ Default OFF. O threshold `T` é obrigatório quando habilitado. Consulte [SYNTHE
 
 ## 8. Synthetic User Experience Apdex
 
-Variáveis principais:
+O recurso permanece default OFF. Quando habilitado sem override manual ou importação Dynatrace, o runtime aplica um baseline Dynatrace-compatible apenas onde existe mapeamento tecnicamente defensável.
 
-```text
-RASAI_APDEX_EXPERIENCE
-RASAI_APDEX_EXPERIENCE_SAMPLES
-RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS
-RASAI_APDEX_EXPERIENCE_MAX_PAGES
-RASAI_APDEX_EXPERIENCE_DEVICE_MIX
-RASAI_APDEX_EXPERIENCE_SESSION_MODE
-RASAI_APDEX_EXPERIENCE_KPM
-RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS
-RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS
-RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT
-RASAI_APDEX_EXPERIENCE_ERROR_SCOPE
-RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS
-RASAI_APDEX_EXPERIENCE_DELAY_SECONDS
-RASAI_APDEX_EXPERIENCE_CONCURRENCY
-RASAI_APDEX_DYNATRACE_IMPORT
-RASAI_DYNATRACE_BASE_URL
-RASAI_DYNATRACE_APPLICATION_ID
-RASAI_DYNATRACE_CONFIG_JSON
-DYNATRACE_API_TOKEN
-```
+| Variável | Default / regra | Origem |
+|---|---|---|
+| `RASAI_APDEX_EXPERIENCE` | `false` | RASAi |
+| `RASAI_APDEX_EXPERIENCE_SAMPLES` | `100` | RASAi sintético |
+| `RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS` | `ceil(1.25 × samples)` | RASAi derivado |
+| `RASAI_APDEX_EXPERIENCE_MAX_PAGES` | `1` | RASAi sintético |
+| `RASAI_APDEX_EXPERIENCE_DEVICE_MIX` | `mobile=60,desktop=35,tablet=5` | RASAi; sem default equivalente em RUM |
+| `RASAI_APDEX_EXPERIENCE_SESSION_MODE` | `cold` | RASAi; sem equivalente 1:1 em RUM |
+| `RASAI_APDEX_EXPERIENCE_KPM` | `USER_ACTION_DURATION` | fallback executável compatível; Dynatrace Load prefere `VISUALLY_COMPLETE` |
+| `RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS` | `3.0` | referência/fallback Dynatrace Load |
+| `RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS` | `12.0` | referência/fallback Dynatrace Load |
+| `RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT` | `true` | alinhado à semântica Dynatrace de erros frustrantes |
+| `RASAI_APDEX_EXPERIENCE_ERROR_SCOPE` | `first-party` | RASAi conservador; Dynatrace usa regras mais granulares |
+| `RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS` | `5` | RASAi sintético |
+| `RASAI_APDEX_EXPERIENCE_DELAY_SECONDS` | `1` | RASAi sintético |
+| `RASAI_APDEX_EXPERIENCE_CONCURRENCY` | `1` | RASAi sintético |
+| `RASAI_APDEX_DYNATRACE_IMPORT` | `false` | RASAi |
+| `RASAI_DYNATRACE_BASE_URL` | sem default | somente importação live |
+| `RASAI_DYNATRACE_APPLICATION_ID` | sem default | somente importação live |
+| `RASAI_DYNATRACE_CONFIG_JSON` | sem default | importação offline/reproduzível |
+| `DYNATRACE_API_TOKEN` | secret; sem default | somente ambiente; nunca persistido |
 
-Default de `RASAI_APDEX_EXPERIENCE` é `false`. Consulte [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md).
+O Dynatrace documenta `VISUALLY_COMPLETE` como KPM primária para Load Action, mas o RASAi não declara equivalência de fornecedor para essa métrica. O baseline executável usa `USER_ACTION_DURATION` com 3 s / 12 s, também utilizado como fallback quando a configuração Dynatrace importada fornece thresholds de fallback. XHR e Custom Actions autônomas exigiriam scripted journeys/clickpaths e não são inventadas a partir da navegação do crawler.
+
+Consulte [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md).
 
 ## 9. Search Intelligence / Observability
 
@@ -235,6 +237,14 @@ field source                   = auto
 lighthouse categories          = performance,accessibility,best-practices,seo,agentic-browsing
 synthetic navigation apdex     = false
 synthetic experience apdex     = false
+experience kpm                 = USER_ACTION_DURATION
+experience satisfied           = 3.0 s
+experience frustrated          = 12.0 s
+experience errors affect       = true
+experience error scope         = first-party
+experience samples             = 100
+experience device mix          = mobile=60,desktop=35,tablet=5
+experience session             = cold
 SERP mode                      = disabled
 platform DB backend            = sqlite
 API auth mode                  = deny
