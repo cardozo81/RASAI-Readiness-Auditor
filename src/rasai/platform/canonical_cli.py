@@ -13,6 +13,7 @@ import sys
 from typing import Any
 
 from .database import open_platform_store, resolve_platform_database_config
+from .identity_directory import IdentityDirectory
 from .postgres_admin import migrate_postgres, postgres_schema_status
 from .secure_store import SecurePlatformStore
 from . import cli as _cli
@@ -65,6 +66,18 @@ def _custom_parser() -> argparse.ArgumentParser:
     user_add.add_argument("--name", required=True)
     user_add.add_argument("--email")
     user_sub.add_parser("list")
+
+    identity = sub.add_parser("identity", help="vínculos OIDC issuer+subject para usuários internos")
+    identity_sub = identity.add_subparsers(dest="identity_command", required=True)
+    identity_link = identity_sub.add_parser("link")
+    identity_link.add_argument("--user", required=True)
+    identity_link.add_argument("--issuer", required=True)
+    identity_link.add_argument("--subject", required=True)
+    identity_link.add_argument("--email")
+    identity_list = identity_sub.add_parser("list")
+    identity_list.add_argument("--user")
+    identity_unlink = identity_sub.add_parser("unlink")
+    identity_unlink.add_argument("--identity", required=True)
 
     member = sub.add_parser("member", help="memberships e roles com escopo")
     member_sub = member.add_subparsers(dest="member_command", required=True)
@@ -126,6 +139,22 @@ def _custom_main(argv: list[str], audits_root: str, platform_db: str | None) -> 
                 else:
                     _json(store.list_users())
                 return 0
+            if args.canonical_command == "identity":
+                directory = IdentityDirectory(store)
+                if args.identity_command == "link":
+                    _json(directory.link(
+                        user_id=args.user,
+                        issuer=args.issuer,
+                        subject=args.subject,
+                        email=args.email,
+                    ).as_dict())
+                elif args.identity_command == "list":
+                    _json([item.as_dict() for item in directory.list(user_id=args.user)])
+                else:
+                    if not directory.unlink(args.identity):
+                        raise KeyError(f"external identity not found: {args.identity}")
+                    _json({"external_identity_id": args.identity, "unlinked": True})
+                return 0
             if args.canonical_command == "member":
                 if args.member_command == "add":
                     membership_id = store.add_membership(
@@ -159,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
     except (ValueError, RuntimeError) as exc:
         print(f"RASAi platform error: {exc}", file=sys.stderr)
         return 2
-    if remaining and remaining[0] in {"database", "user", "member", "scope", "data"}:
+    if remaining and remaining[0] in {"database", "user", "identity", "member", "scope", "data"}:
         return _custom_main(remaining, audits_root, platform_db)
     if config.backend == "sqlite":
         _cli.PlatformStore = SecurePlatformStore  # type: ignore[attr-defined]
