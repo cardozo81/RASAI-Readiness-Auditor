@@ -503,7 +503,7 @@ def _normalize_context_interpretation(
         if not isinstance(evidence_raw, list):
             return None
         evidence_ids = tuple(str(value).strip() for value in evidence_raw if str(value).strip())
-        if allowed_evidence_ids and not set(evidence_ids).issubset(allowed_evidence_ids):
+        if not set(evidence_ids).issubset(allowed_evidence_ids):
             return None
         output[field] = {
             "status": status,
