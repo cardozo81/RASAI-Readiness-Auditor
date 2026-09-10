@@ -207,7 +207,7 @@ Default OFF. O threshold `T` é obrigatório quando habilitado.
 
 A superfície continua sintética, inclusive quando calibrada contra configuração Dynatrace.
 
-O mix acima descreve a população sintética disponível no M25, mas uma execução iniciada por `rasai audit` ou `rasai-console` é sempre limitada pelo `--device-context` do audit. `mobile` executa M25 como 100% MOBILE; `desktop`, 100% DESKTOP; `both` usa somente MOBILE e DESKTOP e renormaliza os pesos configurados, descartando TABLET para essa execução. TABLET continua disponível como perfil sintético M25, mas ainda não é um `DeviceContext` canônico do core; portanto não deve ser tratado como mobile nem solicitado implicitamente por um audit mobile-only.
+O mix acima descreve a população sintética disponível no Synthetic User Experience Apdex, mas uma execução iniciada por `rasai audit` ou `rasai-console` é sempre limitada pelo `--device-context` do audit. `mobile` executa essa experiência sintética como 100% MOBILE; `desktop`, 100% DESKTOP; `both` usa somente MOBILE e DESKTOP e renormaliza os pesos configurados, descartando TABLET para essa execução. TABLET continua disponível como perfil sintético da experiência, mas ainda não é um `DeviceContext` canônico do core; portanto não deve ser tratado como mobile nem solicitado implicitamente por um audit mobile-only.
 
 ## Search Intelligence
 
