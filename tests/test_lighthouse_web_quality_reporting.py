@@ -33,7 +33,7 @@ class _PageSpeed:
 
 
 class LighthouseWebQualityReportingTests(unittest.TestCase):
-    def test_web_performance_exposes_four_lighthouse_categories_with_provenance(self) -> None:
+    def test_web_performance_exposes_consolidated_and_experimental_lighthouse_categories_with_provenance(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace = self._fixture(Path(directory))
             execute_m21(
@@ -63,21 +63,23 @@ class LighthouseWebQualityReportingTests(unittest.TestCase):
             with closing(sqlite3.connect(workspace.database)) as db:
                 row = db.execute(
                     """
-                    SELECT performance_score,accessibility_score,best_practices_score,seo_score
+                    SELECT performance_score,accessibility_score,best_practices_score,seo_score,agentic_browsing_score
                     FROM web_performance_observations
                     """
                 ).fetchone()
-            self.assertEqual(row, (91.0, 88.0, 95.0, 90.0))
+            self.assertEqual(row, (91.0, 88.0, 95.0, 90.0, None))
 
             self.assertIn("Performance · Lighthouse", html)
             self.assertIn("Accessibility · Lighthouse", html)
             self.assertIn("Best Practices · Lighthouse", html)
             self.assertIn("SEO técnico · Lighthouse", html)
+            self.assertIn("Agentic Browsing · Lighthouse experimental", html)
             self.assertIn("Google Chrome Lighthouse", html)
             self.assertIn("lighthouseResult.categories.performance.score", html)
             self.assertIn("lighthouseResult.categories.accessibility.score", html)
             self.assertIn("lighthouseResult.categories.best-practices.score", html)
             self.assertIn("lighthouseResult.categories.seo.score", html)
+            self.assertIn("lighthouseResult.categories.agentic-browsing.score", html)
             self.assertIn("errors-in-console", html)
             self.assertIn("meta-description", html)
             self.assertIn("Não mede ranking", html)
@@ -93,7 +95,8 @@ class LighthouseWebQualityReportingTests(unittest.TestCase):
 
             self.assertIn("Lighthouse Best Practices", references)
             self.assertIn("Lighthouse SEO", references)
-            self.assertIn("quatro categorias Lighthouse", references)
+            self.assertIn("Agentic Browsing", references)
+            self.assertIn("categoria experimental", references)
 
     @staticmethod
     def _fixture(root: Path) -> AuditWorkspace:
