@@ -1,9 +1,8 @@
 """Canonical provider registry facade for RASAi consumers.
 
-The homologated M18 module remains authoritative for legacy provider behavior and
-provider_extensions remains authoritative for explicit-only adapter internals.
-This module normalizes both sources into one public registry consumed by CLI,
-interactive console, preflight/help and future orchestration surfaces.
+The homologated core provider module and the explicit-provider extension module are
+normalized into one registry consumed by CLI, interactive console, preflight/help
+and orchestration surfaces.
 
 Consumers MUST use this module instead of maintaining independent provider lists.
 """
@@ -66,8 +65,8 @@ _DISPLAY_NAMES = {
     "ANTHROPIC": "Anthropic Claude",
 }
 
-_LEGACY_PROVIDER_ORDER = ("OPENAI", "DEEPSEEK", "MIMO")
-_LEGACY_REASONING_VALUES = {
+_AUTO_PROVIDER_ORDER = ("OPENAI", "DEEPSEEK", "MIMO")
+_CORE_REASONING_VALUES = {
     "OPENAI": ("NONE", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
     "DEEPSEEK": ("NONE", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
     "MIMO": ("NONE", "LOW", "MEDIUM", "HIGH"),
@@ -99,7 +98,7 @@ def _extension_aliases(provider_name: str) -> tuple[str, ...]:
     )
 
 
-def _legacy_registration(provider_name: str) -> ProviderRegistration:
+def _core_registration(provider_name: str) -> ProviderRegistration:
     provider_id = provider_name.casefold()
     return ProviderRegistration(
         id=provider_id,
@@ -115,7 +114,7 @@ def _legacy_registration(provider_name: str) -> ProviderRegistration:
         qualification=_qualification(provider_name, extension=False),
         explicit_only=False,
         auto_eligible=True,
-        reasoning_values=_LEGACY_REASONING_VALUES[provider_name],
+        reasoning_values=_CORE_REASONING_VALUES[provider_name],
         required_key_prefixes=("sk-",) if provider_name == "MIMO" else (),
     )
 
@@ -146,10 +145,10 @@ def _extension_registration(provider_name: str) -> ProviderRegistration:
 
 
 def _build_registry() -> tuple[ProviderRegistration, ...]:
-    legacy = tuple(_legacy_registration(name) for name in _LEGACY_PROVIDER_ORDER)
+    core = tuple(_core_registration(name) for name in _AUTO_PROVIDER_ORDER)
     extension_names = tuple(dict.fromkeys(_PROVIDER_ALIASES.values()))
     extensions = tuple(_extension_registration(name) for name in extension_names)
-    registrations = legacy + extensions
+    registrations = core + extensions
 
     ids = [registration.id for registration in registrations]
     if len(ids) != len(set(ids)):
@@ -190,17 +189,17 @@ def extension_cli_choices() -> tuple[str, ...]:
 
 
 def cli_provider_choices() -> tuple[str, ...]:
-    """Return the complete public CLI surface while preserving legacy order."""
+    """Return the complete public CLI surface in canonical product order."""
     return (
         "none",
-        *tuple(name.casefold() for name in _LEGACY_PROVIDER_ORDER),
+        *tuple(name.casefold() for name in _AUTO_PROVIDER_ORDER),
         "auto",
         *extension_cli_choices(),
     )
 
 
 def auto_provider_ids() -> tuple[str, ...]:
-    """Return the homologated AUTO chain candidates; extensions stay excluded."""
+    """Return the homologated AUTO chain candidates; explicit providers stay excluded."""
     return tuple(
         registration.id
         for registration in PROVIDER_REGISTRY
