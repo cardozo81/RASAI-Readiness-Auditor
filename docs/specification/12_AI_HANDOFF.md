@@ -51,7 +51,7 @@ Planos/roadmaps históricos não prevalecem sobre contratos atuais.
 - providers de IA isolados por provider/registry;
 - `SARI-001` é o índice público de readiness;
 - `SCORE-GEO-004` é o scoring runtime vigente para novas auditorias;
-- Overall 004 é determinístico e não exige model artifact externo;
+- Overall 004 é determinístico e usa agregação hierárquica ponderada versionada;
 - Sugestões/remediação textual por IA são opcionais/advisory e não alteram scoring por si só;
 - Search Console, URL Inspection, CrUX, PageSpeed, Apdex e outcomes observados permanecem metodologias separadas salvo contrato versionado explícito;
 - relatório HTML estático em português;
@@ -89,25 +89,42 @@ Ao trabalhar com Core Web Vitals, Lighthouse ou Search/AI Observability:
 9. monitoring/observability não migra `audit.db` nem altera a evidência original;
 10. associação temporal entre regressão e outcome observado não autoriza linguagem causal.
 
+O PageSpeed Insights API vigente aceita `agentic-browsing` como categoria Lighthouse. Quando Web Performance estiver habilitado e nenhuma lista explícita de categorias for configurada, o RASAi solicita `performance`, `accessibility`, `best-practices`, `seo` e `agentic-browsing`. O score Agentic é experimental, permanece externo e não entra automaticamente no SARI.
+
 ## 7. SCORE-GEO-004
 
-As dez dimensões permanecem evidence-bound.
+As onze dimensões permanecem evidence-bound.
 
 Overall:
 
 ```text
-EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
+HIERARCHICAL_WEIGHTED_READINESS_V1
 ```
 
-- dimensões aplicáveis têm igual peso;
+- pesos de dimensão/grupo são fixos e versionados no contrato;
+- o Overall pondera as dimensões aplicáveis e efetivamente medidas e renormaliza o denominador pelos pesos participantes;
 - `NOT_APPLICABLE` legítimo sai do denominador;
-- dimensão aplicável `NOT_CONSOLIDATED` bloqueia Overall consolidado;
+- dimensão aplicável sem valor não recebe zero artificial e reduz Coverage/Confidence;
+- dimensões críticas têm gates de medição mais rigorosos conforme `05_SCORING_MODEL.md`;
 - Coverage e Confidence qualificam a medição;
 - calibração externa não é requisito nem input do runtime.
 
 `rasai scoring inspect` é a superfície atual de inspeção do contrato.
 
-## 8. HTML/reporting
+## 8. AI=AUTO e seleção do pool
+
+`APTA` significa que credencial, modelo e configuração do provider estão válidos para uso. Isso é diferente de participação no pool `AUTO`.
+
+O usuário pode manter a chave vinculada e excluir um provider do AUTO por `RASAI_AI_AUTO_EXCLUDE` ou pelo seletor do console. A exclusão:
+
+- não apaga nem altera a chave;
+- não impede seleção explícita do provider;
+- apenas retira esse provider do pool AUTO;
+- deve permanecer visível na projeção operacional da execução.
+
+Com quatro providers aptos, por exemplo, o usuário pode executar `AI=AUTO` com apenas três incluídos e manter o quarto apto para uso explícito posterior.
+
+## 9. HTML/reporting
 
 A página de metodologia deve ser:
 
@@ -115,7 +132,9 @@ A página de metodologia deve ser:
 report/scoring.html
 ```
 
-## 9. Não reabrir decisões sem necessidade
+Totais monetários em `ai-usage.html` devem derivar de `estimated_cost`/`cost_currency` persistidos nas tentativas. Uma chamada que falhou antes de retornar usage pode ter custo real no billing do provider, mas o RASAi não deve inventar esse valor; o relatório deve explicitar que o total é estimativa técnica e não invoice.
+
+## 10. Não reabrir decisões sem necessidade
 
 Não solicitar decisão humana para:
 
@@ -129,7 +148,7 @@ Não solicitar decisão humana para:
 
 Escolha a solução técnica mais simples compatível com a baseline, corrija falhas solucionáveis, revalide e continue.
 
-## 10. Interromper somente diante de blocker real
+## 11. Interromper somente diante de blocker real
 
 A execução deve interromper quando houver condição que dependa necessariamente de decisão ou ação humana, incluindo:
 
@@ -147,7 +166,7 @@ A execução deve interromper quando houver condição que dependa necessariamen
 
 Problemas técnicos ordinários e solucionáveis não constituem blocker.
 
-## 11. Pendências humanas de ambiente/corporativas
+## 12. Pendências humanas de ambiente/corporativas
 
 Podem incluir:
 
