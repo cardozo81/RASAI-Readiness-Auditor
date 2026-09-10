@@ -1,8 +1,8 @@
 """Device-context selection for user-facing audits.
 
-The CLI default is MOBILE to minimize unnecessary rendering and semantic-provider
-cost. Direct internal API/test calls remain backward compatible when the env
-variable is absent because M3 falls back to both devices.
+The canonical default is MOBILE to minimize unnecessary rendering, traffic and
+semantic-provider cost. Callers that need multiple devices must select ``both``
+explicitly.
 """
 
 from __future__ import annotations
@@ -36,12 +36,5 @@ def devices_from_context(value: str) -> tuple[DeviceContext, ...]:
     return (DeviceContext.DESKTOP, DeviceContext.MOBILE)
 
 
-def runtime_devices(*, legacy_default_both: bool = True) -> tuple[DeviceContext, ...]:
-    raw = os.environ.get(DEVICE_CONTEXT_ENV)
-    if raw is None:
-        return (
-            (DeviceContext.DESKTOP, DeviceContext.MOBILE)
-            if legacy_default_both
-            else (DeviceContext.MOBILE,)
-        )
-    return devices_from_context(raw)
+def runtime_devices() -> tuple[DeviceContext, ...]:
+    return devices_from_context(os.environ.get(DEVICE_CONTEXT_ENV, "mobile"))
