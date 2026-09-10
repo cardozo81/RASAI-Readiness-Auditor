@@ -99,7 +99,7 @@ def install_pilot_routes(
 ) -> None:
     """Install the browser pilot and additive API projections on ``app``."""
 
-    @app.get("/app", response_class=HTMLResponse, include_in_schema=False)
+    @app.get("/app", response_class=HTMLResponse, response_model=None, include_in_schema=False)
     async def pilot_ui(request: Request) -> HTMLResponse | RedirectResponse:
         auth_mode = request.app.state.settings.auth.mode
         if auth_mode == "oidc":
