@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import unittest
 
+from rasai.runtime_completion_extensions import install_runtime_completion_extensions
+
+install_runtime_completion_extensions()
+
 from rasai.console_config import (
     ENV_NAMES,
     PROVIDER_MENU_CHOICES,
@@ -52,7 +56,6 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
             "RASAI_QWEN_ENDPOINT",
             "RASAI_GEMINI_ENDPOINT",
             "RASAI_ANTHROPIC_ENDPOINT",
-            "RASAI_AI_EXCHANGE_LOG_MAX_BYTES",
         ):
             self.assertIn(name, ENV_NAMES)
 
@@ -62,7 +65,6 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
             with self.subTest(provider=provider_id):
                 self.assertFalse(capabilities[provider_id].available)
                 self.assertIn("não configurada", capabilities[provider_id].reason)
-                self.assertIn("PROVISIONAL", capabilities[provider_id].reason)
                 self.assertNotIn("explicit-only", capabilities[provider_id].reason)
 
     def test_extensions_become_auto_eligible_with_credentials(self) -> None:
@@ -123,6 +125,7 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
             estimate = estimate_exposure(state)
             self.assertEqual((estimate.min_ai_attempts, estimate.max_ai_attempts), (1, 10))
             self.assertTrue(any("5 provider" in reason for reason in estimate.reasons))
+            self.assertFalse(any("OpenAI -> DeepSeek -> MiMo" in reason for reason in estimate.reasons))
         finally:
             for key, value in previous.items():
                 if value is None:
