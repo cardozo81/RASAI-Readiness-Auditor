@@ -312,7 +312,7 @@ def _web_specs() -> tuple[EnvironmentSpec, ...]:
         EnvironmentSpec("RASAI_WEB_PERFORMANCE_MAX_PAGES", "Web Performance / Google APIs", "Máximo de páginas enviadas às integrações externas; 0=todas.", "inteiro >= 0", default="10"),
         EnvironmentSpec(WEB_PERFORMANCE_TIMEOUT_ENV, "Web Performance / Google APIs", "Timeout por request PageSpeed/CrUX.", "número > 0 (segundos)", default="120"),
         EnvironmentSpec("RASAI_WEB_PERFORMANCE_FIELD_SOURCE", "Web Performance / Google APIs", "Política de dados de campo CrUX.", "enum", ("auto", "pagespeed", "crux", "none"), "auto", required_when="`crux` exige RASAI_CRUX_API_KEY."),
-        EnvironmentSpec("RASAI_LIGHTHOUSE_CATEGORIES", "Web Performance / Google APIs", "Categorias Lighthouse solicitadas.", "lista CSV", ("performance", "accessibility", "best-practices", "seo"), "performance,accessibility,best-practices,seo"),
+        EnvironmentSpec("RASAI_LIGHTHOUSE_CATEGORIES", "Web Performance / Google APIs", "Categorias Lighthouse solicitadas; Agentic Browsing é experimental e opcional na resposta.", "lista CSV", ("performance", "accessibility", "best-practices", "seo", "agentic-browsing"), "performance,accessibility,best-practices,seo,agentic-browsing"),
         EnvironmentSpec("RASAI_PAGESPEED_API_KEY", "Web Performance / Google APIs", "Chave PageSpeed Insights API.", "segredo/API key", sensitive=True, source="docs/GOOGLE_API_KEYS.md"),
         EnvironmentSpec("RASAI_CRUX_API_KEY", "Web Performance / Google APIs", "Chave Chrome UX Report API.", "segredo/API key", sensitive=True, source="docs/GOOGLE_API_KEYS.md"),
     )
@@ -414,6 +414,14 @@ def _fixed_specs() -> tuple[EnvironmentSpec, ...]:
             "Caminho opcional para um executável Chromium específico.",
             "caminho de arquivo existente",
             required_when="Somente para substituir a descoberta/instalação padrão do Playwright.",
+        ),
+        EnvironmentSpec(
+            "RASAI_BROWSER_LOCALE",
+            "Browser / Playwright",
+            "Locale do contexto Playwright/browser usado na aquisição renderizada.",
+            "locale BCP 47",
+            default="pt-BR",
+            impact="Pode alterar idioma ou variante entregue por sites que negociam conteúdo pelo locale.",
         ),
     )
 
@@ -573,7 +581,7 @@ def _validate(name: str, raw: str) -> str:
             raise ValueError("arquivo TOML configurado não existe")
         value = str(path)
     elif name == "RASAI_LIGHTHOUSE_CATEGORIES":
-        allowed = ("performance", "accessibility", "best-practices", "seo")
+        allowed = ("performance", "accessibility", "best-practices", "seo", "agentic-browsing")
         items = [item.strip().casefold() for item in value.split(",") if item.strip()]
         if not items or any(item not in allowed for item in items):
             raise ValueError("categorias suportadas: " + ", ".join(allowed))
