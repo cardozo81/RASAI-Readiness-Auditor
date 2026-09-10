@@ -35,15 +35,15 @@ O runtime atual não está limitado a OpenAI. O registry canônico inclui:
 
 | Seleção canônica | Provider | Aliases CLI relevantes | Participação possível em `AUTO` |
 |---|---|---|---|
-| `openai` | OpenAI | — | sim, se configurado e apto |
-| `deepseek` | DeepSeek | — | sim, se configurado e apto |
-| `mimo` | Xiaomi MiMo | — | sim, se configurado e apto |
+| `openai` | OpenAI | - | sim, se configurado e apto |
+| `deepseek` | DeepSeek | - | sim, se configurado e apto |
+| `mimo` | Xiaomi MiMo | - | sim, se configurado e apto |
 | `xai` | xAI / Grok | `grok` | sim, se configurado e apto |
-| `qwen` | Alibaba Qwen | — | sim, se configurado e apto |
-| `gemini` | Google Gemini | — | sim, se configurado e apto |
+| `qwen` | Alibaba Qwen | - | sim, se configurado e apto |
+| `gemini` | Google Gemini | - | sim, se configurado e apto |
 | `anthropic` | Anthropic Claude | `claude` | sim, se configurado e apto |
-| `none` | nenhum provider externo | — | não se aplica |
-| `auto` | coordenador dinâmico | — | usa o pool elegível |
+| `none` | nenhum provider externo | - | não se aplica |
+| `auto` | coordenador dinâmico | - | usa o pool elegível |
 
 A propriedade `auto_eligible` pertence ao registry; participação efetiva exige também credencial e configuração válidas e ausência de exclusão explícita pelo usuário.
 
