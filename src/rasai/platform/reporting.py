@@ -8,8 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from rasai.monitoring.models import ComparisonResult, GateResult
-from rasai.report_presentation import humanize_report_html
-from rasai.time_contract import normalize_timestamp_values
+from rasai.time_contract import localize_html_timestamps, normalize_timestamp_values
 
 from .models import DeploymentPair
 from .store import PlatformStore
@@ -41,7 +40,7 @@ def _nav(current: str, *, platform_links: bool = True) -> str:
 
 def _shell(title: str, current: str, body: str, *, platform_links: bool = True) -> str:
     html = f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>{escape(title)} · RASAi</title><style>{_PLATFORM_CSS}</style></head><body><div class='layout'>{_nav(current, platform_links=platform_links)}<main class='main'>{body}<footer class='footer'>RASAi Product Platform · dados gerenciais derivados; AUD workspaces permanecem imutáveis.</footer></main></div></body></html>"""
-    return humanize_report_html(html, page_name=current)
+    return localize_html_timestamps(html)
 
 
 def _metric(label: str, value: Any) -> str:
