@@ -58,17 +58,18 @@ The scoring workflow:
 Overall contract:
 
 ```text
-EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
+HIERARCHICAL_WEIGHTED_READINESS_V1
 ```
 
 Rules:
 
-- applicable dimensions have equal Overall weight;
+- dimension and scoring-group weights are fixed/versioned by the scoring contract;
 - legitimate `NOT_APPLICABLE` dimensions leave the denominator;
-- an applicable dimension without value or `NOT_CONSOLIDATED` prevents consolidated Overall;
-- Overall Coverage is the mean Coverage of applicable dimensions;
-- Overall Confidence is the minimum Confidence of applicable dimensions;
-- consolidated Overall requires Coverage >= 80% and Confidence HIGH/MEDIUM;
+- the Overall value is `sum(Dimension Weight × measured Dimension Score) / sum(measured applicable Dimension Weight)`;
+- an applicable dimension without value is not imputed as zero; its missing measurement reduces Overall Coverage/Confidence and may limit Consolidation;
+- Overall Coverage is the dimension-weighted Coverage over the applicable universe;
+- critical dimensions (`DISCOVERY_ACCESS`, `INDEXABILITY`, `CONTENT_EXTRACTABILITY`) retain stricter Confidence/Consolidation gates;
+- consolidated Overall requires Coverage >= 80%, Confidence HIGH/MEDIUM and no critical measurement blocker;
 - a calculable result may be PARTIAL when Coverage >= 50% and Confidence is available;
 - insufficient evidence never becomes zero.
 
@@ -91,7 +92,7 @@ report/readiness.html
 report/scoring.html
 ```
 
-Other domain pages are materialized conditionally, including Mobile/Desktop, remediation, content suggestions, crawling/discovery, accessibility, Web Performance, both Apdex domains, AI visibility, Observability, Quality, AI usage and references.
+Other domain pages are materialized conditionally, including Mobile/Desktop, remediation, content suggestions, crawling/discovery, accessibility, Web Performance, Search Intelligence, both Apdex domains, AI visibility, Observability, Quality, AI usage and references.
 
 Opening static HTML does not trigger crawling, AI or external API collection. `audit.db` + artifacts remain source evidence.
 
