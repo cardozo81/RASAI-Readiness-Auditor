@@ -1,39 +1,20 @@
 """Canonical provider registry facade for RASAi consumers.
 
-The core provider module and explicit adapter extensions are normalized into one
-public registry consumed by CLI, interactive console, preflight/help and
-orchestration surfaces.
-
-Consumers MUST use this module instead of maintaining independent provider lists.
+The core provider module and adapter extensions are normalized into one public
+registry consumed by CLI, interactive console, preflight/help and orchestration.
+AUTO eligibility is a registry property; runtime still requires valid credentials
+and configuration before a provider can enter an execution.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from rasai.m18_ai import (
-    DEFAULT_MODELS,
-    KEY_ENV,
-    MODEL_ENV,
-    REASONING_ENV,
-    ROUTING_POLICY,
-    SUPPORTED_MODELS,
-)
-from rasai.provider_extensions import (
-    EXTENDED_DEFAULT_MODELS,
-    EXTENDED_ENDPOINT_ENV,
-    EXTENDED_KEY_ENV,
-    EXTENDED_MODEL_ENV,
-    EXTENDED_SUPPORTED_MODELS,
-    EXTENSION_POLICIES,
-    _PROVIDER_ALIASES,
-)
+from rasai.m18_ai import DEFAULT_MODELS, KEY_ENV, MODEL_ENV, REASONING_ENV, ROUTING_POLICY, SUPPORTED_MODELS
+from rasai.provider_extensions import EXTENDED_DEFAULT_MODELS, EXTENDED_ENDPOINT_ENV, EXTENDED_KEY_ENV, EXTENDED_MODEL_ENV, EXTENDED_SUPPORTED_MODELS, EXTENSION_POLICIES, _PROVIDER_ALIASES
 
 
 @dataclass(frozen=True, slots=True)
 class ProviderRegistration:
-    """Normalized metadata required by user-facing provider consumers."""
-
     id: str
     provider_name: str
     display_name: str
@@ -56,16 +37,11 @@ class ProviderRegistration:
 
 
 _DISPLAY_NAMES = {
-    "OPENAI": "OpenAI",
-    "DEEPSEEK": "DeepSeek",
-    "MIMO": "Xiaomi MiMo",
-    "XAI": "xAI / Grok",
-    "QWEN": "Alibaba Qwen",
-    "GEMINI": "Google Gemini",
+    "OPENAI": "OpenAI", "DEEPSEEK": "DeepSeek", "MIMO": "Xiaomi MiMo",
+    "XAI": "xAI / Grok", "QWEN": "Alibaba Qwen", "GEMINI": "Google Gemini",
     "ANTHROPIC": "Anthropic Claude",
 }
-
-_AUTO_PROVIDER_ORDER = ("OPENAI", "DEEPSEEK", "MIMO")
+_CORE_PROVIDER_ORDER = ("OPENAI", "DEEPSEEK", "MIMO")
 _CORE_REASONING_VALUES = {
     "OPENAI": ("NONE", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
     "DEEPSEEK": ("NONE", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
@@ -74,15 +50,7 @@ _CORE_REASONING_VALUES = {
 
 
 def _qualification(provider_name: str, *, extension: bool) -> str:
-    policies = (
-        tuple(
-            policy
-            for (provider, _model), policy in EXTENSION_POLICIES.items()
-            if provider == provider_name
-        )
-        if extension
-        else tuple(policy for policy in ROUTING_POLICY if policy.provider == provider_name)
-    )
+    policies = tuple(policy for (provider, _model), policy in EXTENSION_POLICIES.items() if provider == provider_name) if extension else tuple(policy for policy in ROUTING_POLICY if policy.provider == provider_name)
     values = tuple(dict.fromkeys(policy.qualification for policy in policies))
     if not values:
         return "UNQUALIFIED"
@@ -91,132 +59,75 @@ def _qualification(provider_name: str, *, extension: bool) -> str:
 
 def _extension_aliases(provider_name: str) -> tuple[str, ...]:
     canonical = provider_name.casefold()
-    return tuple(
-        alias.casefold()
-        for alias, target in _PROVIDER_ALIASES.items()
-        if target == provider_name and alias.casefold() != canonical
-    )
+    return tuple(alias.casefold() for alias, target in _PROVIDER_ALIASES.items() if target == provider_name and alias.casefold() != canonical)
 
 
 def _core_registration(provider_name: str) -> ProviderRegistration:
-    provider_id = provider_name.casefold()
     return ProviderRegistration(
-        id=provider_id,
-        provider_name=provider_name,
-        display_name=_DISPLAY_NAMES[provider_name],
-        aliases=(),
-        key_env=KEY_ENV[provider_name],
-        model_env=MODEL_ENV[provider_name],
-        endpoint_env=None,
-        reasoning_env=REASONING_ENV[provider_name],
-        supported_models=tuple(SUPPORTED_MODELS[provider_name]),
-        default_model=DEFAULT_MODELS[provider_name],
-        qualification=_qualification(provider_name, extension=False),
-        explicit_only=False,
-        auto_eligible=True,
-        reasoning_values=_CORE_REASONING_VALUES[provider_name],
+        id=provider_name.casefold(), provider_name=provider_name, display_name=_DISPLAY_NAMES[provider_name], aliases=(),
+        key_env=KEY_ENV[provider_name], model_env=MODEL_ENV[provider_name], endpoint_env=None,
+        reasoning_env=REASONING_ENV[provider_name], supported_models=tuple(SUPPORTED_MODELS[provider_name]),
+        default_model=DEFAULT_MODELS[provider_name], qualification=_qualification(provider_name, extension=False),
+        explicit_only=False, auto_eligible=True, reasoning_values=_CORE_REASONING_VALUES[provider_name],
         required_key_prefixes=("sk-",) if provider_name == "MIMO" else (),
     )
 
 
 def _extension_registration(provider_name: str) -> ProviderRegistration:
-    policies = tuple(
-        policy
-        for (provider, _model), policy in EXTENSION_POLICIES.items()
-        if provider == provider_name
-    )
+    policies = tuple(policy for (provider, _model), policy in EXTENSION_POLICIES.items() if provider == provider_name)
     reasoning_values = tuple(dict.fromkeys(policy.recommended_depth for policy in policies))
     return ProviderRegistration(
-        id=provider_name.casefold(),
-        provider_name=provider_name,
-        display_name=_DISPLAY_NAMES.get(provider_name, provider_name.title()),
-        aliases=_extension_aliases(provider_name),
-        key_env=EXTENDED_KEY_ENV[provider_name],
-        model_env=EXTENDED_MODEL_ENV[provider_name],
-        endpoint_env=EXTENDED_ENDPOINT_ENV.get(provider_name),
-        reasoning_env=None,
-        supported_models=tuple(EXTENDED_SUPPORTED_MODELS[provider_name]),
-        default_model=EXTENDED_DEFAULT_MODELS[provider_name],
-        qualification=_qualification(provider_name, extension=True),
-        explicit_only=True,
-        auto_eligible=False,
+        id=provider_name.casefold(), provider_name=provider_name,
+        display_name=_DISPLAY_NAMES.get(provider_name, provider_name.title()), aliases=_extension_aliases(provider_name),
+        key_env=EXTENDED_KEY_ENV[provider_name], model_env=EXTENDED_MODEL_ENV[provider_name],
+        endpoint_env=EXTENDED_ENDPOINT_ENV.get(provider_name), reasoning_env=None,
+        supported_models=tuple(EXTENDED_SUPPORTED_MODELS[provider_name]), default_model=EXTENDED_DEFAULT_MODELS[provider_name],
+        qualification=_qualification(provider_name, extension=True), explicit_only=False, auto_eligible=True,
         reasoning_values=reasoning_values or ("PROVIDER_DEFAULT",),
     )
 
 
 def _build_registry() -> tuple[ProviderRegistration, ...]:
-    core = tuple(_core_registration(name) for name in _AUTO_PROVIDER_ORDER)
+    core = tuple(_core_registration(name) for name in _CORE_PROVIDER_ORDER)
     extension_names = tuple(dict.fromkeys(_PROVIDER_ALIASES.values()))
-    extensions = tuple(_extension_registration(name) for name in extension_names)
-    registrations = core + extensions
-
+    registrations = core + tuple(_extension_registration(name) for name in extension_names)
     ids = [registration.id for registration in registrations]
     if len(ids) != len(set(ids)):
         raise RuntimeError("duplicate canonical provider id in RASAi registry")
-
-    selections = [
-        selection
-        for registration in registrations
-        for selection in registration.cli_selections
-    ]
+    selections = [selection for registration in registrations for selection in registration.cli_selections]
     if len(selections) != len(set(selections)):
         raise RuntimeError("duplicate provider CLI selection in RASAi registry")
     return registrations
 
 
 PROVIDER_REGISTRY: tuple[ProviderRegistration, ...] = _build_registry()
-_PROVIDER_BY_ID = {registration.id: registration for registration in PROVIDER_REGISTRY}
-_PROVIDER_BY_SELECTION = {
-    selection: registration
-    for registration in PROVIDER_REGISTRY
-    for selection in registration.cli_selections
-}
+_PROVIDER_BY_SELECTION = {selection: registration for registration in PROVIDER_REGISTRY for selection in registration.cli_selections}
 
 
 def provider_registrations() -> tuple[ProviderRegistration, ...]:
-    """Return all concrete providers in stable public order."""
     return PROVIDER_REGISTRY
 
 
 def get_provider_registration(selection: str) -> ProviderRegistration | None:
-    """Resolve a canonical provider id or alias; NONE/AUTO return None."""
     return _PROVIDER_BY_SELECTION.get(selection.strip().casefold())
 
 
 def extension_cli_choices() -> tuple[str, ...]:
-    """Return explicit-only CLI selections in adapter-declared alias order."""
     return tuple(alias.casefold() for alias in _PROVIDER_ALIASES)
 
 
 def cli_provider_choices() -> tuple[str, ...]:
-    """Return the complete public CLI surface in stable provider order."""
-    return (
-        "none",
-        *tuple(name.casefold() for name in _AUTO_PROVIDER_ORDER),
-        "auto",
-        *extension_cli_choices(),
-    )
+    return ("none", *tuple(name.casefold() for name in _CORE_PROVIDER_ORDER), "auto", *extension_cli_choices())
 
 
 def auto_provider_ids() -> tuple[str, ...]:
-    """Return the AUTO chain candidates; explicit-only adapters stay excluded."""
-    return tuple(
-        registration.id
-        for registration in PROVIDER_REGISTRY
-        if registration.auto_eligible
-    )
+    return tuple(registration.id for registration in PROVIDER_REGISTRY if registration.auto_eligible)
 
 
 def provider_environment_names() -> tuple[str, ...]:
-    """Return all registry-owned environment variable names without values."""
     names: list[str] = []
     for registration in PROVIDER_REGISTRY:
-        for name in (
-            registration.key_env,
-            registration.model_env,
-            registration.endpoint_env,
-            registration.reasoning_env,
-        ):
+        for name in (registration.key_env, registration.model_env, registration.endpoint_env, registration.reasoning_env):
             if name and name not in names:
                 names.append(name)
     return tuple(names)
