@@ -21,6 +21,7 @@ _PAGESPEED_LIGHTHOUSE_CATEGORIES = (
 )
 _PAGESPEED_LIGHTHOUSE_CATEGORIES_CSV = ",".join(_PAGESPEED_LIGHTHOUSE_CATEGORIES)
 _AI_EXCHANGE_LOG_MAX_BYTES_ENV = "RASAI_AI_EXCHANGE_LOG_MAX_BYTES"
+_PRESENTATION_TIMEZONE_ENV = "RASAI_PRESENTATION_TIMEZONE"
 
 
 def install_runtime_completion_extensions() -> None:
@@ -87,8 +88,9 @@ def _install_console_environment() -> None:
     original_fixed_specs = console_environment._fixed_specs
     original_validate = console_environment._validate
 
-    if _AI_EXCHANGE_LOG_MAX_BYTES_ENV not in console_environment.ENV_NAMES:
-        console_environment.ENV_NAMES = (*console_environment.ENV_NAMES, _AI_EXCHANGE_LOG_MAX_BYTES_ENV)
+    for name in (_AI_EXCHANGE_LOG_MAX_BYTES_ENV, _PRESENTATION_TIMEZONE_ENV):
+        if name not in console_environment.ENV_NAMES:
+            console_environment.ENV_NAMES = (*console_environment.ENV_NAMES, name)
 
     def fixed_specs_with_current_pagespeed_contract():
         items = []
@@ -105,6 +107,20 @@ def _install_console_environment() -> None:
                     ),
                 )
             items.append(spec)
+        if not any(spec.name == _PRESENTATION_TIMEZONE_ENV for spec in items):
+            items.append(
+                console_environment.EnvironmentSpec(
+                    _PRESENTATION_TIMEZONE_ENV,
+                    "Aplicação e execução",
+                    "Timezone IANA usado apenas na camada de apresentação dos relatórios e do console.",
+                    "timezone IANA",
+                    default="America/Sao_Paulo",
+                    required_when="Opcional; use somente para substituir o timezone padrão de apresentação.",
+                    impact="Sem efeito no instante canônico UTC, scoring, coleta ou audit.db.",
+                    example="RASAI_PRESENTATION_TIMEZONE=Europe/London",
+                    notes="Use identificador IANA. Offsets fixos como -03:00 não são aceitos como preferência persistida.",
+                )
+            )
         return tuple(items)
 
     def validate_with_current_contract(name: str, raw: str) -> str:
@@ -129,6 +145,10 @@ def _install_console_environment() -> None:
             if not 4096 <= parsed <= 4194304:
                 raise ValueError("use inteiro entre 4096 e 4194304")
             return str(parsed)
+        if name == _PRESENTATION_TIMEZONE_ENV:
+            from rasai.time_contract import validate_presentation_timezone
+
+            return validate_presentation_timezone(raw)
         return original_validate(name, raw)
 
     console_environment._fixed_specs = fixed_specs_with_current_pagespeed_contract
