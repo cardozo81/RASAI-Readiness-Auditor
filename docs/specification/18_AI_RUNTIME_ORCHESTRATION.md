@@ -1,4 +1,4 @@
-# 18 — AI Runtime Orchestration
+# 18 - AI Runtime Orchestration
 
 Status: **vigente** para o runtime multi-provider de IA.
 
