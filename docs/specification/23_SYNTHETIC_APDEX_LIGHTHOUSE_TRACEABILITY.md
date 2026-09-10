@@ -1,23 +1,25 @@
-# Synthetic Navigation Apdex + Lighthouse Traceability
+# Synthetic Navigation Apdex e rastreabilidade Lighthouse
 
-**Estado no baseline de desenvolvimento:** INTEGRADO - smoke humano controlado aprovado antes do merge.
-**Escopo:** Web Performance sintética e rastreabilidade de configuração Lighthouse.
+**Estado:** INTEGRADO / VIGENTE  
+**Escopo:** Web Performance sintética e rastreabilidade da configuração Lighthouse.  
 **Não altera:** `BR-GEO-*`, `SARI-001`, Coverage, Confidence, Consolidation, findings GEO ou recomendações GEO.
 
 ## 1. Objetivo
 
-Synthetic Navigation Apdex adiciona uma medição sintética de Apdex baseada em uma Task explícita de navegação e torna auditável a configuração efetiva de execução Lighthouse já persistida pelo Web Performance externo.
+Synthetic Navigation Apdex adiciona uma medição sintética baseada em uma Task explícita de navegação e torna auditável a configuração efetiva de execução Lighthouse já persistida pelo domínio Web Performance.
 
-Synthetic Navigation Apdex existe porque Acessibilidade automatizada e diagnósticos Web corretamente proíbe inferir Apdex de Lighthouse/Core Web Vitals. Um índice Apdex só é calculável quando existe:
+A capacidade existe porque Lighthouse/Core Web Vitals não são substitutos de Apdex. Um índice Apdex só é calculável quando existem:
 
-1. uma Task definida;
+1. Task definida;
 2. threshold `T` explícito;
 3. população de tempos de resposta dessa Task;
-4. classificação Satisfied/Tolerating/Frustrated segundo a especificação Apdex.
+4. classificação Satisfied/Tolerating/Frustrated segundo o contrato Apdex adotado.
 
 ## 2. Task medida
 
-`TASK_ID = NAVIGATION_LOAD`.
+```text
+TASK_ID = NAVIGATION_LOAD
+```
 
 - início: imediatamente antes de `page.goto`;
 - término: conclusão de `page.goto(..., wait_until="load")`;
@@ -25,11 +27,11 @@ Synthetic Navigation Apdex existe porque Acessibilidade automatizada e diagnóst
 - cada amostra usa BrowserContext novo;
 - cache do browser é explicitamente desabilitado;
 - perfis de CPU/rede são determinísticos e versionados;
-- não há randomização de RTT/throughput/CPU na baseline Synthetic Navigation Apdex.
+- não existe randomização de RTT/throughput/CPU no baseline.
 
-A Task mede navegação sintética controlada. Ela não deve ser apresentada como RUM, APM, experiência real de usuário ou tempo de transação de negócio.
+A Task mede navegação sintética controlada. Não deve ser apresentada como RUM, APM, experiência real de usuário ou tempo de transação de negócio.
 
-## 3. Fórmula
+## 3. Fórmula e classificação
 
 Para `N` amostras válidas:
 
@@ -47,69 +49,30 @@ Frustrated: duração > 4T
 
 Erros de aplicação/servidor, timeout e erro de navegação são `FRUSTRATED` quando o perfil sintético foi aplicado e a tentativa representa uma execução válida da Task.
 
-Falha da ferramenta em iniciar/aplicar browser, CPU ou rede é amostra inválida e fica fora do denominador. A exclusão precisa permanecer persistida e auditável.
+Falha da ferramenta em iniciar/aplicar browser, CPU ou rede é amostra inválida e fica fora do denominador. A exclusão deve permanecer persistida e auditável.
 
-## 4. Threshold T
+## 4. Configuração pública
 
-Synthetic Navigation Apdex é default OFF.
+Synthetic Navigation Apdex é desabilitado por padrão. `T` não possui default deliberadamente: deve representar o objetivo/SLO da Task e não pode ser inventado a partir de Lighthouse, LCP, INP, CLS ou dados históricos.
 
-Quando habilitado, `T` é obrigatório via CLI ou ambiente. O RASAi não inventa T a partir de Lighthouse, LCP, INP, CLS ou tempos históricos.
+| Parâmetro / variável | Default efetivo | Valores permitidos | Recomendado |
+|---|---|---|---|
+| `RASAI_SYNTHETIC_APDEX` | `false` | booleano | `false`; habilitar somente quando houver objetivo e autorização de carga |
+| `RASAI_APDEX_THRESHOLD_SECONDS` | sem default | número finito `> 0` | usar threshold da Task/SLO definido pela organização |
+| `RASAI_APDEX_SAMPLES_PER_CONTEXT` | `100` | inteiro `>= 1` | `100`; reduzir somente em smoke controlado |
+| `RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT` | `ceil(1.25 × samples)` | inteiro positivo validado pelo runtime | default derivado |
+| `RASAI_APDEX_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` como baseline seguro de carga |
+| `RASAI_APDEX_TIMEOUT_SECONDS` | `max(45, 4T + 5)` | número finito positivo e, no contrato efetivo, maior que `4T` | default derivado |
+| `RASAI_APDEX_DELAY_SECONDS` | `1.0` | número finito `>= 0` | `1.0` ou maior conforme sensibilidade do alvo |
+| `RASAI_APDEX_CONCURRENCY` | `1` | `1`, `2` | `1`; usar `2` apenas quando a carga paralela for aceitável |
 
-O timeout por amostra deve ser estritamente maior que `4T` para não truncar artificialmente a faixa Frustrated.
-
-## 5. Tamanho do grupo
-
-Default operacional:
-
-```text
-100 amostras válidas por URL/dispositivo
-```
-
-Grupos com 1-99 amostras válidas podem ser calculados para diagnóstico, mas são marcados como `small_group=*` e não constituem o grupo final normal.
-
-A baseline tenta substituir amostras inválidas até o orçamento `max_attempts_per_context`. O default desse orçamento é `ceil(1.25 × target_valid_samples)`.
-
-## 6. Perfis e reprodutibilidade
-
-Perfis sintéticos Mobile/Desktop têm versão explícita. O executor registra:
-
-- viewport e device properties;
-- User-Agent;
-- CPU slowdown;
-- RTT;
-- download/upload throughput;
-- connection type;
-- cache policy;
-- versão do profile;
-- ambiente do host e versão Chromium/Playwright quando disponível.
-
-A implementação não deve afirmar equivalência entre o perfil Synthetic Navigation Apdex e o profile efetivo de Lighthouse.
-
-## 7. Pacing, concorrência e carga
-
-Default:
+Precedência:
 
 ```text
-max_pages    = 1
-delay        = 1 s entre inícios
-concurrency  = 1
-maximum      = 2 workers
+CLI explícito > variável de ambiente > default seguro
 ```
 
-O pacer controla inícios de navegação. Uma navegação pode carregar HTML, CSS, JavaScript, imagens, fontes e terceiros; portanto `N` amostras não equivale a `N` requests HTTP.
-
-O console deve mostrar carga sintética separadamente da exposição financeira. Synthetic Navigation Apdex:
-
-- não chama LLM;
-- não chama PageSpeed/CrUX por si só;
-- não tem preço monetário de API próprio;
-- usa CPU/RAM/tempo local e tráfego HTTP real contra o alvo.
-
-Execução de grupo grande em produção depende de autorização e capacidade do ambiente auditado.
-
-## 8. CLI
-
-Flags:
+Flags correspondentes:
 
 ```text
 --synthetic-apdex / --no-synthetic-apdex
@@ -122,24 +85,54 @@ Flags:
 --apdex-concurrency
 ```
 
-Variáveis:
+## 5. Tamanho do grupo
+
+O alvo padrão é `100` amostras válidas por URL/dispositivo.
+
+Grupos com 1–99 amostras válidas podem ser calculados para diagnóstico, mas são marcados como `small_group=*` e não representam o grupo final normal.
+
+O runtime tenta substituir amostras inválidas até `max_attempts_per_context`; quando não configurado, o orçamento é `ceil(1.25 × target_valid_samples)`.
+
+## 6. Perfis e reprodutibilidade
+
+Perfis sintéticos Mobile/Desktop possuem versão explícita. O executor registra, quando disponível:
+
+- viewport e propriedades do device;
+- User-Agent;
+- CPU slowdown;
+- RTT;
+- download/upload throughput;
+- connection type;
+- cache policy;
+- versão do profile;
+- ambiente do host;
+- versão Chromium/Playwright.
+
+A implementação não deve afirmar equivalência entre o perfil Synthetic Navigation Apdex e o profile efetivo do Lighthouse.
+
+## 7. Pacing, concorrência e carga
+
+Defaults de carga:
 
 ```text
-RASAI_SYNTHETIC_APDEX
-RASAI_APDEX_THRESHOLD_SECONDS
-RASAI_APDEX_SAMPLES_PER_CONTEXT
-RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT
-RASAI_APDEX_MAX_PAGES
-RASAI_APDEX_TIMEOUT_SECONDS
-RASAI_APDEX_DELAY_SECONDS
-RASAI_APDEX_CONCURRENCY
+max_pages   = 1
+delay       = 1 s entre inícios
+concurrency = 1
+maximum     = 2 workers
 ```
 
-Precedência: CLI > ambiente > defaults seguros.
+O pacer controla inícios de navegação. Uma navegação pode carregar HTML, CSS, JavaScript, imagens, fontes e terceiros; portanto, `N` amostras não equivale a `N` requests HTTP.
 
-Variáveis de tuning inválidas não devem quebrar auditorias quando Synthetic Navigation Apdex está OFF.
+Synthetic Navigation Apdex:
 
-## 9. Persistência
+- não chama LLM;
+- não chama PageSpeed/CrUX por si só;
+- não possui preço monetário de API próprio;
+- consome CPU/RAM/tempo local e tráfego HTTP real contra o alvo.
+
+Execução de grupo grande contra produção exige autorização e avaliação de capacidade do ambiente auditado.
+
+## 8. Persistência
 
 Tabelas aditivas:
 
@@ -150,21 +143,21 @@ synthetic_apdex_summaries
 lighthouse_execution_profiles
 ```
 
-Cada amostra mantém status, classificação, duração, HTTP status, URL final, profile, métodos CPU/rede, cache policy, erro sanitizado e timestamp.
+Cada amostra mantém status, classificação, duração, HTTP status, URL final, profile, métodos CPU/rede, cache policy, erro sanitizado e timestamp conforme disponibilidade.
 
 Nenhum secret deve ser persistido.
 
-## 10. Lighthouse traceability
+## 9. Rastreabilidade Lighthouse
 
-Synthetic Navigation Apdex lê exclusivamente artifacts Web Performance externo já existentes e extrai `lighthouseResult.configSettings`/environment/timing quando disponíveis.
+Synthetic Navigation Apdex lê exclusivamente artifacts de Web Performance já existentes e extrai `lighthouseResult.configSettings`, environment e timing quando disponíveis.
 
 Campos não observados permanecem `NULL`/ausentes. É proibido inventar throttling method, RTT/throughput, CPU slowdown, viewport, User-Agent, benchmark index ou duração do Lighthouse.
 
-O tempo total de execução Lighthouse é telemetria do Lighthouse e não entra no Apdex.
+Tempo total de execução Lighthouse é telemetria do Lighthouse e não entra no cálculo Apdex.
 
-## 11. Reporting
+## 10. Relatório
 
-Quando Synthetic Navigation Apdex está habilitado e chega ao estágio de reporting, gera:
+Quando a capacidade é habilitada e chega ao estágio de reporting, gera:
 
 ```text
 report/apdex.html
@@ -172,12 +165,12 @@ report/apdex.html
 
 A página deve mostrar:
 
-- estado Synthetic Navigation Apdex;
+- estado da execução;
 - `T` e `4T`;
 - tamanho do grupo;
 - Satisfied/Tolerating/Frustrated;
 - Apdex;
-- min/max/mean/median;
+- min/max/média/mediana;
 - p75/p90/p95/p99;
 - desvio padrão/CV;
 - tendência entre metades da amostra;
@@ -187,58 +180,57 @@ A página deve mostrar:
 - aviso de carga;
 - separação explícita de SARI-001, Lighthouse, CrUX e IA.
 
-`apdex.html` participa do menu canônico somente quando o arquivo existir.
+`apdex.html` participa do menu canônico somente quando o arquivo existe.
 
-## 12. Fail-open
+## 11. Fail-open
 
-Synthetic Navigation Apdex é downstream da auditoria RASAi principal.
+Falha do Synthetic Navigation Apdex:
 
-Falha de Synthetic Navigation Apdex:
-
-- não transforma o site em FAIL GEO;
+- não transforma o site em `FAIL` GEO;
 - não altera findings/scoring;
 - não invalida o audit principal;
-- deve ser registrada no log operacional;
-- deve produzir status de limitação operacional quando possível.
+- deve ser registrada como estado operacional quando possível.
 
-Web Performance externo e Synthetic Navigation Apdex são independentes: falha PageSpeed/CrUX não impede, por si só, Synthetic Apdex; falha Synthetic Apdex não invalida Web Performance externo.
+Web Performance e Synthetic Navigation Apdex são independentes: falha PageSpeed/CrUX não impede, por si só, Synthetic Navigation Apdex; falha Synthetic Navigation Apdex não invalida Web Performance.
 
-## 13. Console
+## 12. Console interativo
 
-O console expõe Synthetic Navigation Apdex como item próprio e mantém:
+O console deve expor:
 
-- uma tela lógica por vez;
-- T obrigatório quando ON;
+- habilitação da capacidade;
+- `T` obrigatório quando ON;
 - amostras/tentativas/páginas/timeout/delay/concorrência;
+- default e valor efetivo;
+- indicação `PADRÃO`/`CUSTOMIZADO` quando aplicável;
 - teto estimado de navegações;
 - aviso de que subresources multiplicam requests;
 - zero custo de API próprio;
-- observabilidade de progresso `evento operacional de Synthetic Navigation Apdex (apdex sample)`;
+- progresso por amostra;
 - totais reais persistidos no resumo final.
 
-## 14. Gate de smoke humano - concluído
+## 13. Validação mínima
 
-O gate inicial foi executado antes da integração em `main` com alvo local/controlado, 1 URL, 1 device, `T` explícito, 5 amostras válidas, concorrência 1, IA OFF e Web Performance externo externo OFF.
+A regressão deve cobrir:
 
-Resultado aprovado:
+- configuração default OFF;
+- erro quando ON sem `T`;
+- validação de `samples`, `max_attempts`, `max_pages`, timeout, delay e concorrência;
+- classificação Satisfied/Tolerating/Frustrated;
+- exclusão de falha de ferramenta do denominador;
+- grupos pequenos marcados explicitamente;
+- persistência e reabertura;
+- `apdex.html` e navegação canônica;
+- ausência de alteração em `SARI-001/SCORE-GEO-004`;
+- ausência de chamadas LLM/PageSpeed/CrUX criadas exclusivamente por esta capacidade.
 
-- execução sem traceback;
-- 5/5 amostras válidas;
-- `PARTIAL` por small group, conforme contrato;
-- `small_group=*` explícito;
-- `apdex.html` materializado e validado visualmente;
-- menu canônico validado;
-- console com item `11. Synthetic Navigation Apdex` validado;
-- nenhum impacto em `SARI-001`;
-- 0 chamadas LLM adicionais;
-- 0 chamadas PageSpeed/CrUX adicionadas por Synthetic Navigation Apdex.
+## 14. Referências e direitos autorais
 
-O gate funcional pequeno está encerrado. A regra operacional permanece: uma execução de 100 amostras contra ambiente real requer autorização humana específica de carga/capacidade.
+> **Nota de direitos autorais, citação e tradução:** o material externo citado nesta seção permanece de titularidade de seu respectivo autor/mantenedor. Quando necessário para precisão técnica, o RASAi reproduz apenas o trecho estritamente necessário no idioma original, identificado como citação, seguido de tradução/adaptação para pt-BR. A tradução é informativa e não substitui o texto oficial; em caso de divergência, prevalece a fonte primária vinculada.
 
-## 15. Referências
+Este arquivo não reproduz integralmente os documentos abaixo; usa apenas conceitos e valores técnicos necessários ao contrato. Quando um trecho literal for acrescentado futuramente, deve seguir a regra acima.
 
-- Apdex Technical Specification v1.1: https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf
-- Chrome DevTools Protocol - Emulation: https://chromedevtools.github.io/devtools-protocol/tot/Emulation/
-- Chrome DevTools Protocol - Network: https://chromedevtools.github.io/devtools-protocol/tot/Network/
-- Lighthouse - Understanding results: https://github.com/GoogleChrome/lighthouse/blob/main/docs/understanding-results.md
-- Lighthouse - Emulation: https://github.com/GoogleChrome/lighthouse/blob/main/docs/emulation.md
+- Apdex Technical Specification v1.1: <https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf>
+- Chrome DevTools Protocol — Emulation: <https://chromedevtools.github.io/devtools-protocol/tot/Emulation/>
+- Chrome DevTools Protocol — Network: <https://chromedevtools.github.io/devtools-protocol/tot/Network/>
+- Lighthouse — Understanding results: <https://github.com/GoogleChrome/lighthouse/blob/main/docs/understanding-results.md>
+- Lighthouse — Emulation: <https://github.com/GoogleChrome/lighthouse/blob/main/docs/emulation.md>
