@@ -16,6 +16,12 @@ from .postgres_execution_migration import (
     current_execution_schema_version,
     require_current_execution_schema,
 )
+from .postgres_identity_migration import (
+    IDENTITY_SCHEMA_VERSION,
+    apply_identity_migrations,
+    current_identity_schema_version,
+    require_current_identity_schema,
+)
 from .postgres_migrations import POSTGRES_SCHEMA_VERSION, apply_postgres_migrations
 
 
@@ -27,6 +33,8 @@ class PostgreSQLSchemaStatus:
     state: str
     execution_current_version: int = 0
     execution_supported_version: int = EXECUTION_SCHEMA_VERSION
+    identity_current_version: int = 0
+    identity_supported_version: int = IDENTITY_SCHEMA_VERSION
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -35,6 +43,8 @@ class PostgreSQLSchemaStatus:
             "supported_version": self.supported_version,
             "execution_current_version": self.execution_current_version,
             "execution_supported_version": self.execution_supported_version,
+            "identity_current_version": self.identity_current_version,
+            "identity_supported_version": self.identity_supported_version,
             "state": self.state,
         }
 
@@ -61,15 +71,19 @@ def schema_state(version: int) -> str:
     return "NEWER_THAN_RUNTIME"
 
 
-def combined_schema_state(core_version: int, execution_version: int) -> str:
+def combined_schema_state(
+    core_version: int,
+    execution_version: int,
+    identity_version: int = IDENTITY_SCHEMA_VERSION,
+) -> str:
     core = schema_state(core_version)
     if core != "CURRENT":
         return core
-    if execution_version == EXECUTION_SCHEMA_VERSION:
-        return "CURRENT"
-    if execution_version == 0 or execution_version < EXECUTION_SCHEMA_VERSION:
+    if execution_version > EXECUTION_SCHEMA_VERSION or identity_version > IDENTITY_SCHEMA_VERSION:
+        return "NEWER_THAN_RUNTIME"
+    if execution_version < EXECUTION_SCHEMA_VERSION or identity_version < IDENTITY_SCHEMA_VERSION:
         return "MIGRATION_REQUIRED"
-    return "NEWER_THAN_RUNTIME"
+    return "CURRENT"
 
 
 def require_current_postgres_schema(connection: Any) -> int:
@@ -86,6 +100,7 @@ def require_current_postgres_schema(connection: Any) -> int:
             "run 'rasai platform database migrate' before starting the PostgreSQL backend"
         )
     require_current_execution_schema(connection)
+    require_current_identity_schema(connection)
     return version
 
 
@@ -94,13 +109,16 @@ def postgres_schema_status(database_url: str) -> PostgreSQLSchemaStatus:
     try:
         version = current_postgres_schema_version(connection)
         execution_version = current_execution_schema_version(connection)
+        identity_version = current_identity_schema_version(connection)
         return PostgreSQLSchemaStatus(
             database=redact_postgres_url(database_url),
             current_version=version,
             supported_version=POSTGRES_SCHEMA_VERSION,
             execution_current_version=execution_version,
             execution_supported_version=EXECUTION_SCHEMA_VERSION,
-            state=combined_schema_state(version, execution_version),
+            identity_current_version=identity_version,
+            identity_supported_version=IDENTITY_SCHEMA_VERSION,
+            state=combined_schema_state(version, execution_version, identity_version),
         )
     finally:
         connection.close()
@@ -113,8 +131,10 @@ def migrate_postgres(database_url: str) -> tuple[PostgreSQLSchemaStatus, tuple[i
     try:
         applied = apply_postgres_migrations(connection)
         apply_execution_migrations(connection)
+        apply_identity_migrations(connection)
         version = require_current_postgres_schema(connection)
         execution_version = current_execution_schema_version(connection)
+        identity_version = current_identity_schema_version(connection)
         return (
             PostgreSQLSchemaStatus(
                 database=redact_postgres_url(database_url),
@@ -122,6 +142,8 @@ def migrate_postgres(database_url: str) -> tuple[PostgreSQLSchemaStatus, tuple[i
                 supported_version=POSTGRES_SCHEMA_VERSION,
                 execution_current_version=execution_version,
                 execution_supported_version=EXECUTION_SCHEMA_VERSION,
+                identity_current_version=identity_version,
+                identity_supported_version=IDENTITY_SCHEMA_VERSION,
                 state="CURRENT",
             ),
             applied,

@@ -7,6 +7,7 @@ from typing import Any, Iterator
 from .postgres_admin import require_current_postgres_schema
 from .postgres_compat import PostgresConnectionAdapter, connect_postgres, redact_postgres_url
 from .postgres_execution_migration import EXECUTION_SCHEMA_VERSION, current_execution_schema_version
+from .postgres_identity_migration import IDENTITY_SCHEMA_VERSION, current_identity_schema_version
 from .postgres_migrations import POSTGRES_SCHEMA_VERSION
 from .secure_store import SecurePlatformStore
 
@@ -83,6 +84,8 @@ class PostgreSQLPlatformStore(SecurePlatformStore):
             "supported_schema_version": POSTGRES_SCHEMA_VERSION,
             "execution_schema_version": current_execution_schema_version(self._connection),
             "supported_execution_schema_version": EXECUTION_SCHEMA_VERSION,
+            "identity_schema_version": current_identity_schema_version(self._connection),
+            "supported_identity_schema_version": IDENTITY_SCHEMA_VERSION,
         }
 
     def data_governance_status(self) -> dict[str, Any]:
@@ -93,6 +96,8 @@ class PostgreSQLPlatformStore(SecurePlatformStore):
             "postgres_schema_version": POSTGRES_SCHEMA_VERSION,
             "execution_schema_version": current_execution_schema_version(self._connection),
             "supported_execution_schema_version": EXECUTION_SCHEMA_VERSION,
+            "identity_schema_version": current_identity_schema_version(self._connection),
+            "supported_identity_schema_version": IDENTITY_SCHEMA_VERSION,
             "legacy_analytical_cache": None,
             "legacy_analytical_cache_exists": False,
             "legacy_cache_role": "NOT_APPLICABLE_TO_POSTGRESQL_AUTHORITY",

@@ -9,6 +9,7 @@ from typing import Sequence
 
 from .app import ApiSettings
 from .auth import ApiAuthSettings
+from .oidc import OidcSettings
 from .pilot_app import create_app
 
 
@@ -30,13 +31,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--audits-root", default="audits")
-    parser.add_argument("--auth-mode", choices=("deny", "trusted-header"), default=None)
+    parser.add_argument("--auth-mode", choices=("deny", "trusted-header", "oidc"), default=None)
     parser.add_argument("--trusted-user-header", default=None)
     parser.add_argument("--docs", action="store_true", help="Expose /docs and /openapi.json")
     parser.add_argument(
         "--allow-public-bind",
         action="store_true",
-        help="explicitly acknowledge binding beyond localhost; use only behind trusted TLS/auth gateway infrastructure",
+        help="explicitly acknowledge binding beyond localhost; use only behind trusted TLS/auth infrastructure",
     )
     return parser
 
@@ -47,7 +48,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit("--port must be between 1 and 65535")
     if not _is_loopback_host(args.host) and not args.allow_public_bind:
         raise SystemExit(
-            "non-loopback API bind requires --allow-public-bind and trusted gateway/TLS deployment controls"
+            "non-loopback API bind requires --allow-public-bind and trusted TLS/auth deployment controls"
         )
     try:
         import uvicorn
@@ -56,13 +57,20 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     settings = ApiSettings.from_environment()
     auth = settings.auth
-    if args.auth_mode is not None:
-        auth = replace(auth, mode=args.auth_mode)
+    if args.auth_mode is not None and args.auth_mode != auth.mode:
+        if args.auth_mode == "oidc":
+            auth = ApiAuthSettings(
+                mode="oidc",
+                trusted_user_header=auth.trusted_user_header,
+                oidc=OidcSettings.from_environment(),
+            )
+        else:
+            auth = replace(auth, mode=args.auth_mode, oidc=None)
     if args.trusted_user_header is not None:
         header = args.trusted_user_header.strip().casefold()
         if not header or any(character.isspace() for character in header):
             raise SystemExit("--trusted-user-header must be a valid non-empty header name")
-        auth = ApiAuthSettings(mode=auth.mode, trusted_user_header=header)
+        auth = replace(auth, trusted_user_header=header)
     settings = ApiSettings(
         audits_root=Path(args.audits_root),
         docs_enabled=bool(args.docs or settings.docs_enabled),

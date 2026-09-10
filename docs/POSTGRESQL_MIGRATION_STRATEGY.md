@@ -1,6 +1,6 @@
 # PostgreSQL Migration Strategy
 
-Status: PostgreSQL 18 control-plane backend is implemented as an explicit opt-in path and is being validated before merge. SQLite remains the default local backend.
+Status: PostgreSQL 18 control-plane backend is implemented as an explicit opt-in path. SQLite remains the default local backend.
 
 The current scoring contract remains `SCORE-GEO-004`. This strategy changes product persistence architecture only; it does not redefine scoring, `SARI-001`, audit evidence or report methodology.
 
@@ -13,6 +13,7 @@ It includes product and longitudinal state such as:
 - Organization / Workspace / Project;
 - Property / Environment;
 - users, memberships and roles;
+- external identity links `(issuer, subject) -> USR-*`;
 - audit catalog and audit scope links;
 - milestones and deployment metadata;
 - golden baselines;
@@ -22,7 +23,8 @@ It includes product and longitudinal state such as:
 - external dataset catalog;
 - usage ledger;
 - registered Search monitoring queries;
-- Search monitoring run summaries.
+- Search monitoring run summaries;
+- durable execution jobs.
 
 The transition does **not** move mutable product state into historical `AUD-*/audit.db` files and does not make PostgreSQL a replacement evidence format.
 
@@ -53,6 +55,7 @@ Recommended hosted authority model:
 ```text
 PostgreSQL
   authoritative product/control-plane relational state
+  users, memberships and external identity links
 
 Object Storage
   immutable AUD bundles
@@ -105,7 +108,7 @@ When the backend is not configured, SQLite remains the default. `--platform-db` 
 
 A PostgreSQL selection without a database URL, or a PostgreSQL connection failure, is an error. The runtime never silently falls back to SQLite because that would create split authority.
 
-Search Query Registry and Search monitoring history use the same selected control-plane backend as Product Platform. There is no separate Search authority database.
+Search Query Registry, Search monitoring history, execution jobs and external identity links use the same selected control-plane backend. Não existe autoridade paralela específica para identidade ou Search.
 
 ## Driver and database compatibility layer
 
@@ -127,24 +130,47 @@ Connection pooling is intentionally deferred to the hosted API/service layer. A 
 
 ## Schema migrations
 
-PostgreSQL uses ordered, versioned schema migrations recorded in:
-
-```text
-platform_schema_migrations
-```
-
-Schema mutation is explicit:
+PostgreSQL schema mutation is explicit:
 
 ```powershell
 rasai platform database status
 rasai platform database migrate
 ```
 
-Normal application startup does not create or upgrade PostgreSQL schema. If the database is empty or behind the runtime-supported schema, PostgreSQL operation fails closed and instructs the operator to run the migration command. A schema newer than the running application is also rejected.
+The control plane uses independent migration tracks where this reduces coupling:
+
+```text
+platform_schema_migrations              core Product Platform
+platform_execution_schema_migrations    durable execution queue
+platform_identity_schema_migrations     Identity & Access links
+```
+
+Normal application startup does not create or upgrade PostgreSQL schema. If any required migration track is behind the runtime-supported version, PostgreSQL operation fails closed and instructs the operator to run the migration command. A schema newer than the running application is also rejected.
 
 Each migration is applied transactionally and migration execution is idempotent.
 
 This makes schema evolution an auditable deployment step rather than a request-time side effect.
+
+## Identity & Access persistence
+
+OIDC passwords/tokens/secrets are not persisted in PostgreSQL.
+
+The relational identity extension stores only the durable mapping required to connect an externally authenticated identity to the authorization model:
+
+```text
+external_identity_id
+user_id
+issuer
+subject
+email                 optional/informational
+created_at
+```
+
+`UNIQUE(issuer, subject)` prevents one external identity from resolving to multiple users.
+
+Authorization still derives from the `users` and `memberships` tables. A valid OIDC identity without a RASAi link/membership receives no tenant access.
+
+Client secrets, session secrets, access tokens, ID tokens and refresh tokens remain outside these rows.
 
 ## Compatibility-first schema representation
 
@@ -158,7 +184,7 @@ Several existing Product Platform values remain represented exactly as the appli
 
 This prevents a database-engine change from simultaneously changing Python/domain semantics and makes SQLite/PostgreSQL comparison much more direct.
 
-PostgreSQL-native `jsonb`, `boolean` and `timestamptz` can be introduced later through explicit migrations once repository APIs are independent of the legacy representation and dedicated semantic-parity tests exist. The migration audit timestamp already uses `TIMESTAMPTZ`.
+PostgreSQL-native `jsonb`, `boolean` and `timestamptz` can be introduced later through explicit migrations once repository APIs are independent of the legacy representation and dedicated semantic-parity tests exist. Migration audit timestamps already use `TIMESTAMPTZ`.
 
 Large immutable evidence payloads remain outside the relational control plane regardless of JSON representation.
 
@@ -171,11 +197,14 @@ Do not regenerate identifiers merely because a different database engine is sele
 - organization IDs;
 - workspace IDs;
 - project/property/environment IDs;
+- user IDs;
+- external identity IDs;
 - audit IDs;
 - milestone IDs;
 - schedule IDs;
 - registered Search query IDs;
 - Search monitoring run IDs;
+- execution job IDs;
 - other externally referenced control-plane IDs.
 
 This ensures reports, manifests, lifecycle references and future object-storage keys remain stable.
@@ -191,25 +220,36 @@ Critical relationships include:
 - Property -> Project;
 - Environment -> Property;
 - memberships -> valid organization/user and optional workspace/project scope;
+- external identities -> valid internal user and unique issuer/subject;
 - audit scope links -> indexed audit + Property/Environment;
 - milestones/schedules -> valid Project/Property/Environment scope;
 - Search monitor query -> valid Project/Property/Environment;
-- Search monitor run -> registered query.
+- Search monitor run -> registered query;
+- execution jobs -> valid Organization/Project/Property/Environment scope.
 
 PostgreSQL-specific tests execute against a real PostgreSQL 18 service container rather than a mocked SQL layer.
 
-## Tenant isolation
+## Tenant isolation and authentication
 
-The PostgreSQL backend provides relational scope integrity but does not by itself constitute hosted authentication/authorization.
+The PostgreSQL backend provides relational scope integrity but does not substitute for authentication/authorization.
 
-The first hosted release should add:
+The Web/API baseline now includes provider-neutral OIDC/JWT identity resolution:
 
-1. authenticated organization/workspace context at the API boundary;
-2. repository/service methods requiring explicit scope where appropriate;
-3. database roles with least privilege;
-4. optional PostgreSQL Row Level Security as defense in depth after policy behavior has dedicated tests.
+```text
+OIDC issuer + subject
+        |
+external identity link
+        |
+USR-* Principal
+        |
+membership / role
+        |
+tenant-scoped repository/API access
+```
 
-Row Level Security must not substitute for explicit authenticated tenant context.
+`trusted-header` remains compatibility for trusted gateway/local development. OIDC validation and database integrity are complementary controls.
+
+Future defense in depth may add PostgreSQL Row Level Security after policy behavior has dedicated parity tests. RLS must not substitute for explicit authenticated tenant context in the application.
 
 ## Scheduler deployment
 
@@ -240,21 +280,22 @@ The hosted scheduler phase must add:
 - per-tenant/provider concurrency and rate limits;
 - usage accounting.
 
-`FOR UPDATE SKIP LOCKED` is one viable database-driven claiming mechanism, but durable queue design is a later execution-plane decision and is not implied by the current PostgreSQL persistence backend.
+`FOR UPDATE SKIP LOCKED` is one viable database-driven claiming mechanism, but durable queue design remains an execution-plane decision and is not implied by PostgreSQL persistence alone.
 
-## Search provider and AI credentials
+## Search provider, AI and identity credentials
 
-BYOK secrets remain outside ordinary database rows.
+BYOK provider secrets and identity secrets remain outside ordinary database rows.
 
 Hosted deployments should use a secret manager or encrypted credential service and persist only credential references/metadata required for authorization and rotation.
 
-Provider credentials must not appear in:
+Secrets must not appear in:
 
 - Query Registry rows;
 - schedules;
 - run manifests;
 - reports;
 - usage records;
+- external identity rows;
 - database status output.
 
 ## Object storage
@@ -274,17 +315,17 @@ PostgreSQL stores ownership, references, hashes, lifecycle metadata and relation
 
 ## No current SQLite data migration requirement
 
-Because current local control-plane data is test-only, the PostgreSQL implementation does not spend complexity on importing it.
+Because current local control-plane data is test/pilot state, the PostgreSQL implementation does not require a generic import pipeline before the SaaS architecture can progress.
 
-This is distinct from the schema migration mechanism: PostgreSQL **schema** migrations are mandatory and implemented, while **data** migration from the current SQLite test database is unnecessary.
+This is distinct from schema migration: PostgreSQL **schema** migrations are mandatory and implemented, while **data** migration from a local SQLite test database is unnecessary unless that installation becomes authoritative.
 
-If a future production local installation must be promoted to hosted operation, a separate controlled import process can be added. It should then validate IDs, row counts, foreign keys, serialized values and audit hashes before authority cutover.
+If a future production local installation must be promoted to hosted operation, a separate controlled import process should validate IDs, row counts, foreign keys, serialized values, identity links and audit hashes before authority cutover.
 
 ## Cutover strategy
 
 Do not use uncontrolled dual-write as the normal authority transition.
 
-For the future production cutover, the preferred approach remains:
+For a future production cutover, prefer:
 
 ```text
 freeze old control-plane writes
@@ -293,24 +334,25 @@ initialize / validate PostgreSQL authority
         |
 import authoritative data only if required
         |
-validate scope and integrity
+validate scope, identity and integrity
         |
 switch application authority
         |
 retain previous source read-only for rollback evidence
 ```
 
-For the current development/test state there is no data import step: PostgreSQL starts clean.
+For the current development/pilot state there is no mandatory data import step: PostgreSQL may start clean.
 
 ## Hosted deployment baseline
 
 Recommended initial SaaS topology:
 
 ```text
-HTTPS Load Balancer
+HTTPS Load Balancer / Reverse Proxy
         |
 RASAi Web/API instances
         |
+        +-- OIDC Identity Provider
         +-- managed PostgreSQL
         +-- managed queue
         +-- object storage

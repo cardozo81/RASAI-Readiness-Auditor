@@ -10,14 +10,14 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Callable
 
-from fastapi import Depends, HTTPException, Query, status
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import Depends, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from rasai.platform.deployment import resolve_deployment_pair
 from rasai.secret_safety import redact_value
 
 from .authz import AuthorizationError, Principal, accessible_organization_ids, require_project_read
-from .ui import PILOT_UI_HTML
+from .ui_runtime import render_pilot_ui
 
 _ALLOWED_REPORT_EXTENSIONS = {
     ".html",
@@ -99,10 +99,18 @@ def install_pilot_routes(
 ) -> None:
     """Install the browser pilot and additive API projections on ``app``."""
 
-    @app.get("/app", response_class=HTMLResponse, include_in_schema=False)
-    def pilot_ui() -> HTMLResponse:
+    @app.get("/app", response_class=HTMLResponse, response_model=None, include_in_schema=False)
+    async def pilot_ui(request: Request) -> HTMLResponse | RedirectResponse:
+        auth_mode = request.app.state.settings.auth.mode
+        if auth_mode == "oidc":
+            try:
+                await request.app.state.principal_resolver(request)
+            except HTTPException as exc:
+                if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+                    return RedirectResponse("/auth/login", status_code=status.HTTP_302_FOUND)
+                raise
         return HTMLResponse(
-            PILOT_UI_HTML,
+            render_pilot_ui(auth_mode),
             headers={
                 "Cache-Control": "no-store",
                 "X-Content-Type-Options": "nosniff",

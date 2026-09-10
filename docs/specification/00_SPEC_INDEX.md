@@ -42,7 +42,8 @@ Quando um documento histórico conflitar com uma especificação marcada como vi
 27. `27_MONITORING_OBSERVABILITY.md`
 28. `28_AUDIT_QUALITY_VERIFICATION.md`
 29. `29_SAAS_PILOT_WEB.md`
-30. `09_IMPLEMENTATION_PLAN.md` - histórico de implementação; não deve sobrescrever contratos vigentes.
+30. `30_IDENTITY_AND_ACCESS.md`
+31. `09_IMPLEMENTATION_PLAN.md` - histórico de implementação; não deve sobrescrever contratos vigentes.
 
 ## 3. Precedência documental
 
@@ -126,6 +127,7 @@ O alias versionado existe somente para compatibilidade e não recebe item própr
 | Evidence Timeline | histórico de AUDs | não regrava evidência fonte |
 | Product Platform | tenancy, milestones, deploys, usage | control plane separado; não altera audit.db |
 | Web/API/SaaS Pilot | browser, API e durable execution jobs | projeção tenant-aware; não altera scoring nem executa crawling em request |
+| Identity & Access | autenticação externa, vínculo e sessão | termina em `Principal`; autorização continua em memberships; não altera audit.db |
 
 ## 7. Observed Generative Visibility e validação empírica
 
@@ -177,7 +179,7 @@ rasai quality timeline
 - content-use controls;
 - Fix Verification e Timeline read-only.
 
-## 9. Product Platform e SaaS Pilot Web
+## 9. Product Platform, SaaS Pilot Web e Identity & Access
 
 O control plane local usa `audits/.rasai/platform.db` e permanece separado do `audit.db` imutável.
 
@@ -187,7 +189,9 @@ A arquitetura alvo SaaS migra o control plane para PostgreSQL e workers Linux/co
 
 O SaaS Pilot Web adiciona a primeira UI de navegador, sem segunda persistência e sem mover regra de negócio para o frontend. Reports de um AUD podem ser projetados via HTTP somente após autorização e apenas dentro da árvore pública `report/`.
 
-Detalhes: `../PRODUCT_PLATFORM_ARCHITECTURE.md`, `29_SAAS_PILOT_WEB.md` e `../SAAS_PILOT_WEB.md`.
+Identity & Access adiciona OIDC/JWT provider-neutral, Authorization Code + PKCE para browser, sessão Web curta e vínculo explícito `(issuer, subject) -> USR-*`. Autenticação não cria memberships e não substitui as regras de tenancy.
+
+Detalhes: `../PRODUCT_PLATFORM_ARCHITECTURE.md`, `29_SAAS_PILOT_WEB.md`, `30_IDENTITY_AND_ACCESS.md`, `../SAAS_PILOT_WEB.md` e `../IDENTITY_AND_ACCESS.md`.
 
 ## 10. Fontes externas e heurística
 
@@ -203,7 +207,7 @@ Branches de trabalho são temporárias. Após validação e merge em `main`, con
 
 ## 12. Regra de mudança
 
-Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context, IA, Web Performance, acessibilidade, Apdex, crawling/discovery, visibilidade observada, monitoring/observability/quality, Product Platform ou Web/API/SaaS Pilot devem reconciliar código, testes, HTML e documentação normativa.
+Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context, IA, Web Performance, acessibilidade, Apdex, crawling/discovery, visibilidade observada, monitoring/observability/quality, Product Platform, Web/API/SaaS Pilot ou Identity & Access devem reconciliar código, testes, HTML e documentação normativa.
 
 ## 13. Critério de encerramento de alteração
 
@@ -213,6 +217,6 @@ Uma alteração só está concluída quando:
 - testes dirigidos e regressões relevantes passam;
 - CI está verde;
 - não há conflito material com `main` atualizado;
-- limitações/fail-open estão explícitos;
-- HTML/menu estão coerentes;
+- limitações e comportamento fail-closed estão explícitos;
+- HTML/menu estão coerentes quando afetados;
 - referências históricas são preservadas quando materialmente necessárias.

@@ -7,9 +7,15 @@ A camada Web/API transforma o control plane já existente em uma superfície uti
 A arquitetura atual é:
 
 ```text
+Browser / API client
+  |
+Identity & Access
+  |-- OIDC/JWT direto
+  |-- trusted-header compatível
+  |
 Web UI zero-build (/app)
   |
-RASAi API
+RASAi API tenant-aware
   |
 Control plane
   |-- SQLite local
@@ -24,7 +30,7 @@ Audit / Search Monitoring / report refresh
 
 O processo HTTP nunca executa crawling ou auditoria diretamente. Requisições de execução criam jobs duráveis; workers separados reivindicam e executam esses jobs.
 
-A primeira superfície de navegador está documentada em `SAAS_PILOT_WEB.md`. Ela é uma projeção sobre esta API e não redefine contratos de domínio.
+A primeira superfície de navegador está documentada em `SAAS_PILOT_WEB.md`. A identidade Web está documentada em `IDENTITY_AND_ACCESS.md`. Essas camadas são projeções sobre contratos existentes e não redefinem scoring ou evidência.
 
 ## Dependências opcionais
 
@@ -34,13 +40,13 @@ A instalação local padrão não depende da stack Web:
 pip install -e .
 ```
 
-Para habilitar API e SaaS Pilot Web:
+Para habilitar API, SaaS Pilot Web e OIDC/JWT:
 
 ```powershell
 pip install -e ".[web]"
 ```
 
-A stack opcional inclui FastAPI, Uvicorn e HTTPX. PostgreSQL continua opcional separadamente por `.[postgresql]`.
+A stack opcional inclui FastAPI, Uvicorn, HTTPX e bibliotecas de validação JWT/criptografia. PostgreSQL continua opcional separadamente por `.[postgresql]`.
 
 A UI do piloto não adiciona Node, npm, bundler, CDN ou framework JavaScript obrigatório.
 
@@ -54,6 +60,7 @@ Superfícies principais:
 
 ```text
 /app             SaaS Pilot Web
+/auth/...        OIDC browser flow quando habilitado
 /health/live     liveness
 /health/ready    readiness do control plane
 /api/v1/...      API tenant-aware
@@ -61,7 +68,7 @@ Superfícies principais:
 
 A superfície Web permanece sob o entrypoint público canônico `rasai`; a instalação não adiciona um executável público separado para a API.
 
-O bind padrão é `127.0.0.1`. Um bind fora de loopback exige `--allow-public-bind` e deve ocorrer somente atrás de infraestrutura de autenticação, TLS e reverse proxy/gateway apropriada.
+O bind padrão é `127.0.0.1`. Um bind fora de loopback exige `--allow-public-bind` e deve ocorrer somente atrás de infraestrutura de TLS/firewall/reverse proxy apropriada.
 
 A documentação OpenAPI fica desativada por padrão. Para desenvolvimento controlado:
 
@@ -71,40 +78,76 @@ RASAI_API_DOCS_ENABLED=1
 
 ## Autenticação
 
-O RASAi não cria um banco próprio de senhas nem um formato proprietário de token.
+O RASAi não cria banco próprio de senhas e não define bearer token proprietário.
 
-O modo padrão é:
+O default permanece fail-closed:
 
 ```text
 RASAI_API_AUTH_MODE=deny
 ```
 
-Nesse estado, endpoints protegidos falham fechado.
+Os modos vigentes são:
 
-A fundação também suporta:
+```text
+deny
+trusted-header
+oidc
+```
+
+### OIDC/JWT
+
+`oidc` é a fundação recomendada para evolução SaaS. O RASAi:
+
+- descobre metadata OIDC a partir de issuer HTTPS;
+- usa Authorization Code + PKCE S256 para login Web;
+- valida `state` e `nonce`;
+- valida JWT com assinatura JWKS;
+- aceita somente algoritmos assimétricos explicitamente permitidos;
+- valida `iss`, `aud`, `exp` e `sub`;
+- tenta refresh de JWKS quando ocorre rotação de `kid`;
+- cria sessão Web curta cifrada/autenticada;
+- não persiste ID token, access token ou refresh token;
+- resolve `issuer + sub` para um `USR-*` provisionado no control plane.
+
+A identidade externa válida não cria usuário, membership ou role automaticamente.
+
+O vínculo administrativo é feito por:
+
+```powershell
+rasai platform identity link `
+  --user USR-EXISTENTE `
+  --issuer https://login.example.com `
+  --subject 00u123456789
+```
+
+Detalhes e variáveis: `IDENTITY_AND_ACCESS.md`.
+
+### trusted-header
+
+O modo de compatibilidade continua disponível:
 
 ```text
 RASAI_API_AUTH_MODE=trusted-header
 RASAI_API_TRUSTED_USER_HEADER=x-rasai-user-id
 ```
 
-`trusted-header` deve ser usado somente quando um gateway/reverse proxy autenticado:
+Ele é seguro somente quando um gateway/reverse proxy autenticado:
 
 - autentica o usuário;
 - remove qualquer header de identidade recebido do cliente externo;
-- injeta o header de identidade somente após autenticação bem-sucedida;
+- injeta o header somente depois da autenticação;
 - protege o tráfego entre gateway e RASAi;
 - impede acesso direto do cliente ao processo Uvicorn.
 
-Sem essas garantias, `trusted-header` não é seguro para exposição pública.
+Para smoke humano estritamente local em loopback, `/app` pode manter temporariamente um `USR-*` existente em `sessionStorage` e enviá-lo no trusted header. Essa conveniência não constitui autenticação para ambiente hospedado.
 
-Para smoke humano estritamente local em loopback, `/app` permite manter temporariamente um `USR-*` existente em `sessionStorage` e enviá-lo no trusted header. Essa conveniência é somente de desenvolvimento e não constitui autenticação para ambiente hospedado.
-
-OIDC/JWT pode ser adicionado posteriormente implementando o mesmo resolvedor de principal, sem alterar as regras de tenancy.
+Não existe fallback automático de `oidc` para `trusted-header`.
 
 ## Tenancy e autorização
 
-A fonte de verdade continua sendo o control plane:
+A autenticação termina em um `Principal(user_id)`. A autorização continua independente do mecanismo de login.
+
+A fonte de verdade é o control plane:
 
 ```text
 Organization
@@ -139,7 +182,16 @@ GET /health/live
 GET /health/ready
 ```
 
-Identidade e portfólio:
+Identity bootstrap/login:
+
+```text
+GET  /auth/config
+GET  /auth/login              # somente quando oidc está ativo
+GET  /auth/callback           # somente quando oidc está ativo
+POST /auth/logout             # somente quando oidc está ativo
+```
+
+Identidade autenticada e portfólio:
 
 ```text
 GET /api/v1/me
@@ -234,7 +286,7 @@ Um worker executa no máximo um job com:
 rasai worker run-once --worker-id worker-01 --audits-root audits
 ```
 
-O worker não depende da stack FastAPI.
+O worker não depende da stack FastAPI nem valida tokens OIDC.
 
 O processo:
 
@@ -272,9 +324,17 @@ A leitura é limitada a:
 
 Traversal, saída do diretório resolvido e extensões fora do allowlist Web são recusados. `audit.db` e artifacts que não pertencem à superfície pública não são servidos por esse endpoint.
 
+## Sessão Web e CSRF
+
+A sessão OIDC contém apenas `issuer + sub` e metadados temporais cifrados/autenticados. Ela não contém access token, ID token ou client secret.
+
+Cookies de sessão são `HttpOnly` e `SameSite=Lax`; em implantação HTTPS também são `Secure`.
+
+Para chamadas mutáveis autenticadas por cookie, o servidor exige `Origin` igual à origem configurada no redirect OIDC. Bearer JWT não depende do cookie e não usa essa verificação de origem.
+
 ## PostgreSQL
 
-A tabela de execution jobs é uma extensão PostgreSQL versionada e aplicada apenas pela operação explícita:
+Execution jobs e Identity & Access são extensões PostgreSQL versionadas e aplicadas apenas pela operação explícita:
 
 ```powershell
 rasai platform database migrate
@@ -282,9 +342,9 @@ rasai platform database migrate
 
 Não existe auto-DDL no startup da API ou do worker.
 
-`/health/ready` e o health do store informam tanto a versão principal do schema quanto a versão da extensão de execution jobs.
+`/health/ready` e o health do store informam a versão principal do schema e as versões das extensões de execution e identity.
 
-As rotas aditivas do SaaS Pilot usam a mesma `store_factory`; não criam dependência direta com SQLite e portanto preservam a paridade de backend.
+As rotas do SaaS Pilot usam a mesma `store_factory`; não criam dependência direta com SQLite e preservam a paridade de backend.
 
 ## SQLite portátil
 
@@ -297,7 +357,9 @@ RASAi local
   -> worker local
 ```
 
-A existência da API/UI no código não transforma a stack Web em requisito do programa portátil.
+A extensão de vínculo de identidade é aditiva no control plane local e não altera nenhum `AUD-*/audit.db`.
+
+A existência da API/UI/OIDC no código não transforma a stack Web em requisito do programa portátil.
 
 ## Secrets
 
@@ -311,17 +373,21 @@ Nenhum endpoint, exception handler, job, worker ou tela deve expor:
 - cookies de sessão;
 - private keys;
 - webhook secrets;
-- client secrets.
+- client secrets;
+- session secrets.
 
 Mensagens HTTP derivadas de exceptions passam pela mesma política central de redaction usada por logs e persistência.
 
-O campo local de `USR-*` usado no smoke do browser não é credencial e fica somente em `sessionStorage`; ainda assim ele não deve ser tratado como autenticação real fora de loopback.
+O campo local de `USR-*` usado no smoke trusted-header não é credencial e fica somente em `sessionStorage`; ainda assim ele não deve ser tratado como autenticação real fora de loopback.
 
 ## Limites desta fundação
 
-A camada agora possui uma primeira UI de piloto, mas ainda não define:
+A camada já possui UI de piloto e identidade OIDC/JWT provider-neutral. Ainda não define:
 
-- provedor definitivo de identidade/OIDC;
+- Identity Provider obrigatório;
+- SCIM;
+- Just-In-Time provisioning;
+- SAML direto;
 - cobrança;
 - object storage definitivo;
 - orquestração Kubernetes;
@@ -330,4 +396,4 @@ A camada agora possui uma primeira UI de piloto, mas ainda não define:
 - migração de `AUD-*/audit.db` para PostgreSQL;
 - design system/frontend framework definitivo.
 
-Essas decisões podem evoluir sem substituir os contratos de tenancy, execution job, worker, report projection e scoring definidos aqui.
+Essas decisões podem evoluir sem substituir os contratos de tenancy, identity mapping, execution job, worker, report projection e scoring definidos aqui.
