@@ -102,7 +102,7 @@ O relatório pode expor features determinísticas persistidas, incluindo:
 - quantidade de bytes recebidos, quando persistida;
 - título;
 - meta description;
-- texto extraído de H1–H3;
+- texto extraído de H1-H3;
 - contagem aproximada de palavras do texto visível;
 - termos normalizados da query;
 - presença dos termos da query em título, descrição, headings e corpo;
