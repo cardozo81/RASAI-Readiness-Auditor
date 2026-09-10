@@ -52,7 +52,7 @@ Default público de dispositivo: `mobile`. Override: `RASAI_DEVICE_CONTEXT`.
 
 ## SARI-001 / SCORE-GEO-004
 
-As novas auditorias usam `SCORE-GEO-004`. O Overall é determinístico, hierárquico e ponderado pelos pesos fixos/versionados das dimensões medidas e aplicáveis. Coverage e Confidence também são agregadas de forma ponderada; Discovery, Indexability e Extraction recebem rigor adicional nos gates de medição. Critical Gates permanecem separados do valor 0-100. Não existe model artifact obrigatório no runtime 004.
+As auditorias usam `SCORE-GEO-004`. O Overall é determinístico, hierárquico e ponderado pelos pesos fixos/versionados das dimensões medidas e aplicáveis. Coverage e Confidence também são agregadas de forma ponderada; Discovery, Indexability e Extraction recebem rigor adicional nos gates de medição. Critical Gates permanecem separados do valor 0-100. Não existe model artifact obrigatório no runtime 004.
 
 Para inspecionar o contrato vigente:
 
@@ -115,8 +115,10 @@ Default OFF. Precedência: CLI explícito > ambiente > OFF.
 --web-performance-max-pages N
 --web-performance-timeout-seconds SECONDS
 --web-performance-field-source auto|pagespeed|crux|none
---lighthouse-categories performance,accessibility,best-practices,seo
+--lighthouse-categories performance,accessibility,best-practices,seo,agentic-browsing
 ```
+
+O default solicita as cinco categorias na mesma chamada PageSpeed por contexto. `agentic-browsing` é experimental e sua ausência isolada não invalida Performance, Accessibility, Best Practices ou SEO válidos.
 
 Variáveis principais:
 

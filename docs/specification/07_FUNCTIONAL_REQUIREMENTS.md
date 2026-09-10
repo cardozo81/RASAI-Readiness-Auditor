@@ -1,6 +1,6 @@
 # FUNCTIONAL_REQUIREMENTS.md
 
-**Estado no baseline de desenvolvimento:** APPROVED - Rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance externo + Sugestões e remediação de conteúdo por IA + Análise semântica por IA, roteamento e telemetria + SCORE-GEO-004 + SARI-001 + REPORT-SITE-GEO-001
+**Estado:** APPROVED - Rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance externo + Sugestões e remediação de conteúdo por IA + Análise semântica por IA, roteamento e telemetria + SCORE-GEO-004 + SARI-001 + REPORT-SITE-GEO-001
 
 ## Requisitos Funcionais
 
@@ -338,7 +338,7 @@ Expor separadamente Googlebot, OAI-SearchBot, GPTBot e Google-Extended de acordo
 Tratar Google-Extended como token de produto em robots.txt sem user-agent HTTP separado e declarar que ele não afeta inclusão/ranking na Pesquisa Google conforme documentação pública do Google.
 
 ### FR-GEO-114
-Tentar `/llms.txt` somente same-origin quando a origem estiver tecnicamente apta; ausência ou erro deve ser informativo/non-scoring e presença deve ser persistível como artifact de Crawling & Discovery no workspace da auditoria, sem depender do nome físico do subdiretório interno.
+Descobrir e adquirir `llms.txt` same-origin como recurso múltiplo e scoped: tentar `/llms.txt` e seguir candidatos explicitamente anunciados por HTML `link rel="describedby"`, HTTP `Link: ...; rel="describedby"` e hints `LLMS:`/`LLMS-TXT:` observados em `robots.txt`. Hints de `robots.txt` para `llms.txt` devem ser identificados como não padronizados; não realizar brute force de diretórios. Cada arquivo adquirido deve preservar URL, scope, origem da descoberta e artifact próprio. Ausência ou erro permanece informativo/non-scoring.
 
 ### FR-GEO-115
 Tratar `llms.txt` como proposta comunitária experimental, não como web standard nem requisito universal de Search & AI, e nunca usá-lo como substituto de robots, sitemap, canonical, HTML semântico ou conteúdo acessível.
@@ -359,10 +359,10 @@ Restringir a IA Rastreamento, descoberta e acesso de crawlers a diagnósticos/ev
 Persistir estado/telemetria Rastreamento, descoberta e acesso de crawlers em tabelas auxiliares próprias, mantendo separação entre qualidade do website, diagnósticos técnicos e consumo de provider.
 
 ### FR-GEO-121
-Materializar `report/crawling-discovery.html` com navegação/CSS compartilhados, robots/crawler policy, sitemaps/discovery, `llms.txt`, feeds, IndexNow, limitações de segurança, referências e eventual orientação técnica por IA.
+Materializar `report/crawling-discovery.html` com navegação/CSS compartilhados, robots/crawler policy, múltiplos sitemaps, múltiplos `llms.txt` raiz/scoped, feeds, IndexNow, conteúdo capturado reabrível/copiável, limitações de segurança, referências e eventual orientação técnica por IA.
 
 ### FR-GEO-122
-Quando houver hard source blocker confirmado, Rastreamento, descoberta e acesso de crawlers deve evitar aquisição adicional de `/llms.txt` e chamada técnica de IA dependente do corpus, persistindo estado de skip/fail-open sem invalidar a auditoria principal.
+Quando houver hard source blocker confirmado, Rastreamento, descoberta e acesso de crawlers deve evitar aquisição adicional de `llms.txt` e chamada técnica de IA dependente do corpus, persistindo estado de skip/fail-open sem invalidar a auditoria principal.
 
 ## Requisitos Não Funcionais
 
@@ -436,7 +436,7 @@ Resultados Rastreamento, descoberta e acesso de crawlers devem ser reabríveis a
 CI permanente deve cobrir compile da superfície Rastreamento, descoberta e acesso de crawlers, testes específicos de discovery/Rastreamento, descoberta e acesso de crawlers, regressões de integração afetadas e suíte completa antes de considerar mudanças Rastreamento, descoberta e acesso de crawlers homologadas.
 
 ### FR-GEO-173
-A camada de apresentação não deve expor identificadores históricos de etapas de entrega; capacidades devem ser nomeadas pelo domínio funcional.
+A camada de apresentação não deve expor identificadores internos de etapas de entrega; capacidades devem ser nomeadas pelo domínio funcional.
 
 ### FR-GEO-174
 O HTML deve ser compreensível por analista de dados/SEO sem conhecimento do código, preservando apenas termos técnicos externamente documentados e difundidos, com contexto/glossário quando necessário.

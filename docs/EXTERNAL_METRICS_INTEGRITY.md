@@ -16,6 +16,7 @@ Referências oficiais:
 - PageSpeed Insights - Get Started: https://developers.google.com/speed/docs/insights/v5/get-started
 - Lighthouse Accessibility scoring: https://developer.chrome.com/docs/lighthouse/accessibility/scoring
 - Lighthouse Performance scoring: https://developer.chrome.com/docs/lighthouse/performance/performance-scoring
+- Lighthouse Agentic Browsing config: https://github.com/GoogleChrome/lighthouse/blob/main/core/config/agentic-browsing-config.js
 
 ## Regra central
 
@@ -36,13 +37,17 @@ Quando a própria PageSpeed API retorna `runtimeError`, a documentação oficial
 
 ### Categorias parcialmente disponíveis
 
-Se algumas categorias solicitadas forem válidas e outras estiverem ausentes/inválidas:
+As categorias estáveis são `performance`, `accessibility`, `best-practices` e `seo`. `agentic-browsing` é solicitada por default, mas permanece experimental.
+
+Se uma categoria estável solicitada estiver ausente ou inválida:
 
 - as categorias válidas são preservadas;
 - as ausentes/inválidas permanecem `NULL`/não obtidas;
-- a observação passa a `PARTIAL`;
+- a observação pode passar a `PARTIAL`;
 - ausência nunca vira zero;
 - o report informa explicitamente a cobertura por contexto.
+
+Se somente `agentic-browsing` estiver ausente ou inválida, a ausência fica registrada como indisponibilidade do sinal experimental e **não degrada, isoladamente, uma execução válida das categorias estáveis para `PARTIAL`**.
 
 ## Acessibilidade
 
@@ -72,6 +77,18 @@ Quando o gate invalida o Lighthouse:
 - se CrUX permanecer válido, a observação fica `PARTIAL`, preservando somente field data;
 - se nenhum dado externo utilizável restar, fica `UNAVAILABLE`.
 
+## Agentic Browsing
+
+`agentic-browsing` é um score externo experimental do Lighthouse e é persistido separadamente em `agentic_browsing_score` quando materializado.
+
+Regras de integridade:
+
+- ausência não vira zero;
+- ausência isolada não invalida Performance, Accessibility, Best Practices ou SEO válidos;
+- o score não é convertido em `SARI-001` ou `SCORE-GEO-004`;
+- o report deve identificar explicitamente a natureza experimental do indicador;
+- Monitoring pode comparar o valor somente quando houver observações válidas e comparáveis.
+
 ## CrUX
 
 CrUX é tratado como fonte de experiência real/field data e permanece separado de Lighthouse/laboratório.
@@ -83,7 +100,7 @@ Assim, é possível existir legitimamente:
 - CrUX válido;
 - observação geral `PARTIAL`.
 
-Nesse cenário o report pode apresentar LCP/INP/CLS p75 válidos, mas deve mostrar Lighthouse e Accessibility como não obtidos.
+Nesse cenário o report pode apresentar LCP/INP/CLS p75 válidos, mas deve mostrar as categorias Lighthouse como não obtidas.
 
 ## Artefatos e auditoria
 
@@ -112,7 +129,7 @@ Os reports devem distinguir quatro perguntas:
 
 1. **A API respondeu?** - telemetria PageSpeed/CrUX.
 2. **O Lighthouse é válido?** - validação de `lighthouseResult`/`runtimeError`/categorias.
-3. **A categoria necessária foi obtida?** - Performance, Accessibility, Best Practices, SEO.
+3. **A categoria necessária foi obtida?** - Performance, Accessibility, Best Practices, SEO e, quando materializado, Agentic Browsing experimental.
 4. **Há field data válido?** - CrUX e cobertura LCP/INP/CLS.
 
 Somente dados que passam pelo gate correspondente podem alimentar médias e indicadores apresentados como efetivamente obtidos.

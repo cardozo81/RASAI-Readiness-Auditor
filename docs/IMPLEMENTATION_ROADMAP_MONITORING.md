@@ -1,8 +1,8 @@
-# RASAi Monitoring, Observability & Quality - Delivery Status
+# RASAi Monitoring, Observability & Quality - Current Capability Status
 
-**Estado no baseline de desenvolvimento:** IMPLEMENTED CANDIDATE - automated CI is mandatory on the current PR head; human smoke remains required before merge.
-**Branch:** `feat/rasai-monitoring-observability`
-**PR:** #82
+**Estado:** IMPLEMENTED / INTEGRATED
+
+This document summarizes the capabilities present in the current RASAi contract. It is not a branch/PR delivery log.
 
 ## Delivered product areas
 
@@ -22,8 +22,7 @@
 ### Search & AI Observability
 
 - `RASAI-OBS-002` sidecar with composite `(dataset_id, record_id)` observation identity;
-- automatic OBS-001 PK migration without modifying `audit.db` or rewriting historical dataset format provenance;
-- preserved artifacts + SHA-256;
+- persisted source artifacts + SHA-256;
 - Search Console property discovery;
 - Search Console Sitemaps read-only;
 - Search Analytics;
@@ -41,8 +40,8 @@
 ### Outcome interpretation hardening
 
 - missing metrics remain missing; `NULL` is never synthesized as zero;
-- Google Generative AI Performance exports remain non-directional in Change Impact because downloaded zero may represent report values that were unavailable/non-numeric;
-- latest dataset selection avoids double-summing overlapping historical collections;
+- Google Generative AI Performance exports remain non-directional in Change Impact when source values do not support a directional conclusion;
+- latest compatible dataset selection avoids double-summing overlapping collections;
 - temporal association requires aligned or partially overlapping periods.
 
 ### Diagnostics
@@ -65,11 +64,10 @@
 - Coverage Map;
 - Recommendation Validation;
 - publisher controls (`nosnippet`, `max-snippet`, `data-nosnippet`, `X-Robots-Tag`);
-- actionable Operational Priority P0-P3, excluding `RESOLVED`/`CLOSED`/`DISMISSED` from the executive work queue while retaining their historical evidence;
+- actionable Operational Priority P0-P3, excluding `RESOLVED`/`CLOSED`/`DISMISSED` from the executive work queue while retaining evidence needed for timeline/comparison;
 - Fix Verification;
 - Evidence Timeline;
-- artifact reads confined to the AUD workspace.
-
+- artifact reads confined to the AUD workspace;
 - calibration dataset manager;
 - deterministic dataset fingerprint/manifest;
 - pre-fit sufficiency gates;
@@ -86,12 +84,11 @@
 - `TIMELINE-*/report.html`;
 - canonical optional-page navigation registry that preserves ordering and active-page state.
 
-## Safety gates implemented
+## Safety gates
 
-The dedicated CI covers, in addition to repository-wide regressions:
+Dedicated automated coverage includes:
 
-- OBS-001→OBS-002 migration;
-- repeated local record IDs across datasets;
+- composite observation identity `(dataset_id, record_id)`;
 - Search Analytics hard caps and origin scoping;
 - CrUX direct/imported origin scoping;
 - URL Inspection systemic failure isolation;
@@ -109,9 +106,9 @@ The dedicated CI covers, in addition to repository-wide regressions:
 - Quality is decision-support, not another readiness score;
 - Monitoring detects change/association and does not infer causality.
 
-## Remaining acceptance step
+## Operational validation
 
-No implementation item in this roadmap is intentionally deferred to a new coding phase. The remaining pre-merge acceptance step is **human smoke on real persisted AUDs and, where credentials/data are available, real external integrations**.
+Automated regression is mandatory for changes in these domains. Human smoke on representative persisted AUDs and real external integrations is used when credentials/network access are available and the change requires environmental validation.
 
 Operational commands and smoke procedure: [`MONITORING_OBSERVABILITY.md`](MONITORING_OBSERVABILITY.md).
 Normative contracts: [`specification/27_MONITORING_OBSERVABILITY.md`](specification/27_MONITORING_OBSERVABILITY.md) and [`specification/28_AUDIT_QUALITY_VERIFICATION.md`](specification/28_AUDIT_QUALITY_VERIFICATION.md).
