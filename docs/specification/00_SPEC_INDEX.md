@@ -62,13 +62,16 @@ Nenhuma decisão funcional deve ser alterada silenciosamente durante implementa�
 ```text
 Public index:        SARI-001
 Runtime scoring:     SCORE-GEO-004
-Overall aggregation: EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
+Overall aggregation: HIERARCHICAL_WEIGHTED_READINESS_V1
 Canonical HTML:      report/scoring.html
 ```
 
 Princípios:
 
 - dimensões legitimamente `NOT_APPLICABLE` não recebem zero;
+- pesos de dimensão e de grupo são versionados pelo contrato e não configuráveis por auditoria;
+- o Overall pondera as dimensões aplicáveis e efetivamente medidas e renormaliza o denominador pelos pesos participantes;
+- dimensão aplicável sem valor não recebe imputação numérica e reduz Coverage/Confidence conforme o contrato;
 - Coverage, Confidence e Consolidation permanecem distintas do Score;
 - Overall é determinístico e não exige model artifact externo;
 - ausência de evidência suficiente não é transformada em zero;
@@ -93,6 +96,7 @@ Contrato de saída por auditoria, condicionado à materialização:
 <AUD-ID>/report/crawling-discovery.html
 <AUD-ID>/report/accessibility.html
 <AUD-ID>/report/web-performance.html
+<AUD-ID>/report/search-intelligence.html
 <AUD-ID>/report/apdex.html
 <AUD-ID>/report/apdex-experience.html
 <AUD-ID>/report/ai-visibility.html
@@ -117,6 +121,7 @@ Não existe filename público versionado alternativo para a metodologia. A vers�
 | Synthetic Navigation Apdex | navegação sintética | não é RUM; separado do SARI |
 | Synthetic User Experience Apdex | experiência sintética | não é RUM; separado do Navigation Apdex e SARI |
 | Crawling/discovery | robots, sitemaps, crawler policy | diagnóstico técnico non-scoring |
+| Search Intelligence | SERP e comparação competitiva opcional | observacional/advisory; non-scoring |
 | Observed Generative Visibility | outcomes de AI Search | observacional; não entra no score |
 | Search & AI Observability | outcomes e diagnósticos externos | sidecar derivado; non-scoring |
 | Monitoring | baseline/current e release gate | read-only; não cria score |
