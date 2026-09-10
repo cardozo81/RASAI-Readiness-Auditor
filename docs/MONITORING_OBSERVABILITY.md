@@ -1,4 +1,4 @@
-# RASAi — Monitoramento, observabilidade e qualidade
+# RASAi - Monitoramento, observabilidade e qualidade
 
 **Estado no baseline de desenvolvimento:** implementado e integrado à `main`.
 
