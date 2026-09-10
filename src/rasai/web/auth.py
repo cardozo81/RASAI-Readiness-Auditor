@@ -125,8 +125,8 @@ def build_principal_resolver(settings: ApiAuthSettings) -> PrincipalResolver:
                     detail="OIDC authentication is required",
                 )
             ticket = session_codec_for_app(request.app, oidc).decode(session)
-            if str(ticket.get("issuer", "")).rstrip("/") != oidc.issuer:
-                raise OidcTokenError("browser session issuer does not match configured issuer")
+            if ticket.get("issuer") != oidc.issuer:
+                raise OidcTokenError("browser session issuer does not exactly match configured issuer")
             subject = ticket.get("sub")
             if not isinstance(subject, str) or not subject:
                 raise OidcTokenError("browser session subject is missing")
