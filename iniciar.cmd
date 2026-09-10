@@ -7,13 +7,10 @@ set "VENV_DIR=%CD%\.venv"
 set "VENV_PY=%CD%\.venv\Scripts\python.exe"
 set "CONSOLE_EXE=%CD%\.venv\Scripts\rasai-console.exe"
 set "STAMP_FILE=%CD%\.venv\.rasai-pyproject.sha256"
-set "LEGACY_STAMP_FILE=%CD%\.venv\.rasai-pyproject.sha256"
 set "NEED_INSTALL=0"
 set "OPTIONAL_EXTRAS="
 
 echo [RASAi] Verificando ambiente local...
-
-if not exist "%STAMP_FILE%" if exist "%LEGACY_STAMP_FILE%" move /Y "%LEGACY_STAMP_FILE%" "%STAMP_FILE%" >nul 2>&1
 
 if exist "%VENV_DIR%" if not exist "%VENV_PY%" goto :bad_venv
 
