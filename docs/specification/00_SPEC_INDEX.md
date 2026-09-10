@@ -41,7 +41,8 @@ Quando um documento histórico conflitar com uma especificação marcada como vi
 26. `26_OBSERVED_GENERATIVE_VISIBILITY.md`
 27. `27_MONITORING_OBSERVABILITY.md`
 28. `28_AUDIT_QUALITY_VERIFICATION.md`
-29. `09_IMPLEMENTATION_PLAN.md` - histórico de implementação; não deve sobrescrever contratos vigentes.
+29. `29_SAAS_PILOT_WEB.md`
+30. `09_IMPLEMENTATION_PLAN.md` - histórico de implementação; não deve sobrescrever contratos vigentes.
 
 ## 3. Precedência documental
 
@@ -124,6 +125,7 @@ O alias versionado existe somente para compatibilidade e não recebe item própr
 | Fix Verification | transição de regra entre AUDs | não prova downstream impact |
 | Evidence Timeline | histórico de AUDs | não regrava evidência fonte |
 | Product Platform | tenancy, milestones, deploys, usage | control plane separado; não altera audit.db |
+| Web/API/SaaS Pilot | browser, API e durable execution jobs | projeção tenant-aware; não altera scoring nem executa crawling em request |
 
 ## 7. Observed Generative Visibility e validação empírica
 
@@ -175,7 +177,7 @@ rasai quality timeline
 - content-use controls;
 - Fix Verification e Timeline read-only.
 
-## 9. Product Platform
+## 9. Product Platform e SaaS Pilot Web
 
 O control plane local usa `audits/.rasai/platform.db` e permanece separado do `audit.db` imutável.
 
@@ -183,7 +185,9 @@ Modela multiusuário, multiworkspace, multiprojeto, multidomínio, milestones/de
 
 A arquitetura alvo SaaS migra o control plane para PostgreSQL e workers Linux/containerizados, preservando a evidência AUD como bundle imutável.
 
-Detalhes: `../PRODUCT_PLATFORM_ARCHITECTURE.md`.
+O SaaS Pilot Web adiciona a primeira UI de navegador, sem segunda persistência e sem mover regra de negócio para o frontend. Reports de um AUD podem ser projetados via HTTP somente após autorização e apenas dentro da árvore pública `report/`.
+
+Detalhes: `../PRODUCT_PLATFORM_ARCHITECTURE.md`, `29_SAAS_PILOT_WEB.md` e `../SAAS_PILOT_WEB.md`.
 
 ## 10. Fontes externas e heurística
 
@@ -199,7 +203,7 @@ Branches de trabalho são temporárias. Após validação e merge em `main`, con
 
 ## 12. Regra de mudança
 
-Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context, IA, Web Performance, acessibilidade, Apdex, crawling/discovery, visibilidade observada, monitoring/observability/quality ou Product Platform devem reconciliar código, testes, HTML e documentação normativa.
+Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context, IA, Web Performance, acessibilidade, Apdex, crawling/discovery, visibilidade observada, monitoring/observability/quality, Product Platform ou Web/API/SaaS Pilot devem reconciliar código, testes, HTML e documentação normativa.
 
 ## 13. Critério de encerramento de alteração
 
