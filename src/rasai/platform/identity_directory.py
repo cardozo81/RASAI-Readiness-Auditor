@@ -31,13 +31,28 @@ class ExternalIdentity:
 
 
 def normalize_issuer(value: str) -> str:
+    """Validate but do not canonicalize an OIDC issuer identifier.
+
+    Issuer comparison is a security-sensitive exact string comparison. In particular,
+    a terminating slash is preserved instead of being normalized away.
+    """
+
     issuer = value.strip()
     if not issuer or len(issuer) > 2048:
         raise ValueError("identity issuer must be a non-empty URL")
     parts = urlsplit(issuer)
-    if parts.scheme != "https" or not parts.hostname or parts.fragment:
-        raise ValueError("identity issuer must be an absolute HTTPS URL without fragment")
-    return issuer.rstrip("/")
+    if (
+        parts.scheme != "https"
+        or not parts.hostname
+        or parts.query
+        or parts.fragment
+        or parts.username is not None
+        or parts.password is not None
+    ):
+        raise ValueError(
+            "identity issuer must be an absolute HTTPS URL without userinfo, query or fragment"
+        )
+    return issuer
 
 
 def normalize_subject(value: str) -> str:
@@ -102,6 +117,8 @@ class IdentityDirectory:
         normalized_issuer = normalize_issuer(issuer)
         normalized_subject = normalize_subject(subject)
         normalized_email = email.strip().casefold() if email and email.strip() else None
+        if normalized_email is not None and len(normalized_email) > 320:
+            raise ValueError("external identity email cannot exceed 320 characters")
         user = self.connection.execute(
             "SELECT user_id,status FROM users WHERE user_id=?", (user_id,)
         ).fetchone()
