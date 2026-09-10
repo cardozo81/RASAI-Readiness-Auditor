@@ -1,99 +1,72 @@
 # Web Performance externo - Evidência Externa de Web Performance: Core Web Vitals + Lighthouse
 
-**Estado:** IMPLEMENTADO
-**Domínio:** `Web Performance externo`
-**Dependências:** report site + configuração opcional PageSpeed/CrUX; IA não é dependência obrigatória
+**Estado:** IMPLEMENTADO  
+**Domínio:** `Web Performance externo`  
+**Dependências:** report site + configuração opcional PageSpeed/CrUX; IA não é dependência obrigatória  
 **Natureza:** evidência externa aditiva; sem impacto no scoring por padrão
 
 ## 1. Objetivo
 
-O Web Performance externo adiciona à auditoria RASAi evidências de Web Performance fundamentadas em documentação externa oficial, sem remover, substituir ou recalibrar silenciosamente o `SCORE-GEO-004`.
+O Web Performance externo adiciona à auditoria RASAi evidências de Web Performance fundamentadas em fontes externas, sem remover, substituir ou recalibrar silenciosamente `SCORE-GEO-004`.
 
 Quando explicitamente habilitado, o recurso pode coletar:
 
-- scores de laboratório do Lighthouse por meio da PageSpeed Insights API v5;
-- categorias Performance, Accessibility, Best Practices, SEO e Agentic Browsing experimental;
+- scores Lighthouse por meio da PageSpeed Insights API;
+- categorias `performance`, `accessibility`, `best-practices` e `seo`;
 - métricas de laboratório FCP, Speed Index, LCP, Total Blocking Time e CLS;
 - Core Web Vitals de campo provenientes do CrUX quando disponíveis;
-- LCP, INP e CLS no percentil 75 (`p75`);
-- telemetria de cada chamada externa;
-- payloads JSON brutos de respostas bem-sucedidas;
-- log operacional persistente e sanitizado da auditoria.
+- LCP, INP e CLS p75;
+- telemetria de chamadas externas;
+- payloads JSON das respostas externas bem-sucedidas.
 
-O Web Performance externo responde a uma pergunta diferente daquela respondida pelo `SCORE-GEO-004`:
+Esses dados são externos e complementares. Nenhum valor Lighthouse/PageSpeed/CrUX é convertido automaticamente em contribuição para `SCORE-GEO-004` ou `SARI-001`.
 
-```text
-SCORE-GEO-004
-→ índice heurístico interno de prontidão baseado nas RuleExecutions do RASAi
+## 2. Contrato PageSpeed/Lighthouse
 
-Web Performance externo Lighthouse
-→ medição e scores de laboratório definidos externamente
-
-Web Performance externo CrUX / Core Web Vitals
-→ experiência agregada de usuários reais em campo quando existe amostra CrUX suficiente
-```
-
-Essas saídas devem permanecer distinguíveis na persistência, no HTML, na CLI e na documentação.
-
-## 2. Contrato não destrutivo de scoring
-
-O Web Performance externo **não altera**:
-
-- Business Rules;
-- resultados de RuleExecution;
-- Findings;
-- Recommendations;
-- prioridade;
-- pesos das regras;
-- `PASS = 1.00`, `WARNING = 0.50`, `FAIL = 0.00`;
-- scores das dimensões;
-- Coverage;
-- Confidence;
-- Consolidation;
-- Overall Readiness;
-- `scoring_version = SCORE-GEO-004`.
-
-Nenhum valor de Lighthouse, PageSpeed ou Core Web Vitals é convertido automaticamente em contribuição para `SCORE-GEO-004`.
-
-## 3. Fundamentação externa oficial
-
-### 3.1 PageSpeed Insights API v5
-
-Referências oficiais:
-
-- <https://developers.google.com/speed/docs/insights/v5/reference/pagespeedapi/runpagespeed>
-- <https://developers.google.com/speed/docs/insights/v5/get-started>
-
-O RASAi usa PageSpeed Insights para executar Lighthouse sobre a URL auditada. Categorias solicitadas por default pelo Web Performance externo:
+O adapter PageSpeed Insights vigente solicita somente:
 
 ```text
 performance
 accessibility
 best-practices
 seo
-agentic-browsing
 ```
 
-As cinco categorias são solicitadas na mesma chamada PageSpeed de cada contexto. `agentic-browsing` é tratada como categoria experimental; sua ausência isolada não transforma em falha as categorias estáveis válidas da mesma execução.
+Configuração:
 
-Referência primária do Agentic Browsing no Lighthouse:
+```text
+--lighthouse-categories performance,accessibility,best-practices,seo
+RASAI_LIGHTHOUSE_CATEGORIES=performance,accessibility,best-practices,seo
+```
 
-- <https://github.com/GoogleChrome/lighthouse/blob/main/core/config/agentic-browsing-config.js>
+As categorias configuradas são solicitadas na mesma chamada PageSpeed de cada contexto.
 
-### 3.2 Chrome UX Report API
+### Agentic Browsing
 
-Referências oficiais:
+`agentic-browsing` não faz parte do request do adapter PageSpeed vigente. O campo `agentic_browsing_score` pode permanecer na persistência e em leitores por compatibilidade/evolução, mas só pode receber valor de uma fonte Lighthouse direta compatível.
 
-- <https://developer.chrome.com/docs/crux/api/>
-- <https://developer.chrome.com/docs/crux/guides/crux-api>
+Enquanto essa fonte separada não existir:
 
-Endpoint direto utilizado:
+- o score deve permanecer indisponível/`NULL`;
+- indisponibilidade não pode ser convertida em zero;
+- as quatro categorias PageSpeed válidas permanecem independentes;
+- Agentic Browsing permanece fora de `SARI-001`/`SCORE-GEO-004`.
+
+Referências:
+
+- PageSpeed Insights API: <https://developers.google.com/speed/docs/insights/v5/reference/pagespeedapi/runpagespeed>
+- PageSpeed getting started: <https://developers.google.com/speed/docs/insights/v5/get-started>
+- configuração experimental Agentic no Lighthouse: <https://github.com/GoogleChrome/lighthouse/blob/main/core/config/agentic-browsing-config.js>
+
+## 3. Core Web Vitals / CrUX
+
+A API CrUX direta pode ser usada em:
 
 ```text
 POST https://chromeuxreport.googleapis.com/v1/records:queryRecord
 ```
 
-Métricas solicitadas:
+Métricas de interesse:
 
 ```text
 largest_contentful_paint
@@ -104,17 +77,11 @@ cumulative_layout_shift
 Mapeamento de dispositivo:
 
 ```text
-RASAi MOBILE  → CrUX PHONE
-RASAi DESKTOP → CrUX DESKTOP
+RASAi MOBILE  -> CrUX PHONE
+RASAi DESKTOP -> CrUX DESKTOP
 ```
 
-### 3.3 Core Web Vitals
-
-Referência oficial:
-
-- <https://web.dev/articles/vitals>
-
-Thresholds de boa experiência utilizados pela implementação:
+Thresholds de boa experiência usados pelo runtime:
 
 ```text
 LCP <= 2500 ms
@@ -122,9 +89,7 @@ INP <= 200 ms
 CLS <= 0.10
 ```
 
-A avaliação usa valores p75 devolvidos pela fonte externa.
-
-Estados da avaliação CWV por contexto:
+Estados CWV:
 
 ```text
 PASS
@@ -133,23 +98,17 @@ INCOMPLETE
 UNAVAILABLE
 ```
 
-`INCOMPLETE` significa que existe field data utilizável, mas uma ou mais métricas requeridas não estão presentes. `UNAVAILABLE` significa ausência de field data utilizável. Nenhum dos dois estados representa automaticamente falha do website.
+`INCOMPLETE` e `UNAVAILABLE` descrevem cobertura/ausência de field data; não representam automaticamente falha do website.
 
-### 3.4 Lighthouse Performance
+Referências:
 
-Referência oficial:
+- <https://developer.chrome.com/docs/crux/api/>
+- <https://developer.chrome.com/docs/crux/guides/crux-api>
+- <https://web.dev/articles/vitals>
 
-- <https://developer.chrome.com/docs/lighthouse/performance/performance-scoring>
+## 4. Ativação e consumo
 
-Lighthouse Performance é score externo de 0 a 100. Pesos e curvas são mantidos pelo projeto Lighthouse e podem evoluir entre versões.
-
-O RASAi persiste a versão Lighthouse retornada e nunca apresenta Lighthouse como `GEO Score`.
-
-## 4. Ativação e política de rede
-
-A coleta externa é **OFF por padrão**.
-
-Controles:
+A coleta é OFF por padrão:
 
 ```text
 --web-performance
@@ -163,104 +122,42 @@ Precedência:
 2. variável de ambiente;
 3. `false`.
 
-Quando desabilitado:
+Quando desabilitado não existe chamada PageSpeed, CrUX ou LLM adicional para esta finalidade.
 
-- nenhuma chamada PageSpeed;
-- nenhuma chamada CrUX;
-- nenhuma chamada LLM adicional;
-- estado `DISABLED` persistido para rastreabilidade;
-- `SCORE-GEO-004` continua normal.
-
-## 5. Controles de consumo
-
-### 5.1 Limite de páginas
+### Limite de páginas
 
 ```text
 --web-performance-max-pages N
 RASAI_WEB_PERFORMANCE_MAX_PAGES
 ```
 
-Default:
+Default: `10`.
 
-```text
-10
-```
+- `N > 0`: primeiras N páginas, em ordem determinística;
+- `0`: todas as páginas auditadas elegíveis;
+- `--device-context both` pode gerar contextos Mobile e Desktop para a mesma página.
 
-Regras:
-
-- `N > 0`: primeiras N páginas auditadas, em ordem determinística;
-- `0`: todas as páginas auditadas são elegíveis;
-- o limite é aplicado a páginas lógicas;
-- com `--device-context both`, cada página pode gerar uma chamada PageSpeed Mobile e uma Desktop.
-
-### 5.2 Timeout
+### Timeout
 
 ```text
 --web-performance-timeout-seconds SECONDS
 RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS
 ```
 
-Default:
+Default: `120` segundos por request externo. Não há retry automático do mesmo request Web Performance após timeout.
 
-```text
-120
-```
-
-O timeout vale por requisição externa. Não há retry automático após timeout, evitando consumo implícito duplicado quando o estado real da primeira chamada é desconhecido.
-
-O valor de 120 segundos é default operacional, não garantia de que PageSpeed responderá nesse intervalo. Em sites ou condições de rede mais lentas, o operador pode elevar explicitamente o limite, por exemplo:
-
-```powershell
---web-performance-timeout-seconds 180
-```
-
-Um timeout PageSpeed com CrUX bem-sucedido deve produzir estado Web Performance externo `PARTIAL`, preservando os dados CrUX obtidos.
-
-### 5.3 Categorias Lighthouse
-
-```text
---lighthouse-categories performance,accessibility,best-practices,seo,agentic-browsing
-RASAI_LIGHTHOUSE_CATEGORIES=performance,accessibility,best-practices,seo,agentic-browsing
-```
-
-O default solicita as cinco categorias na mesma chamada PageSpeed por contexto. Agentic Browsing permanece experimental e não entra no `SARI-001`/`SCORE-GEO-004`.
-
-## 6. Credenciais
-
-### 6.1 PageSpeed
+## 5. Credenciais
 
 ```text
 RASAI_PAGESPEED_API_KEY
-```
-
-Opcional para PageSpeed conforme política/quota do serviço.
-
-### 6.2 CrUX
-
-```text
 RASAI_CRUX_API_KEY
 ```
 
-Obrigatória quando `--web-performance-field-source crux` é utilizado.
+A chave CrUX é obrigatória quando `field_source=crux`. Credenciais Web Performance são independentes das credenciais de IA.
 
-### 6.3 Isolamento
+Chaves nunca devem ser persistidas em SQLite, artifacts, HTML ou logs, nem registradas em URL com query string de credencial. Telemetria pode registrar apenas o fato de a chave estar configurada.
 
-As credenciais Web Performance externo são independentes das credenciais dos providers de IA.
-
-Chaves não podem ser:
-
-- persistidas em SQLite;
-- escritas nos artifacts de resposta;
-- mostradas no HTML;
-- registradas no log operacional;
-- registradas como parte de URL com query string de credencial;
-- reutilizadas como credencial de IA.
-
-O log pode registrar apenas booleanos como `pagespeed_api_key_configured=true` e `crux_api_key_configured=true`.
-
-## 7. Política de field data
-
-Controle:
+## 6. Política de field data
 
 ```text
 --web-performance-field-source auto|pagespeed|crux|none
@@ -269,49 +166,12 @@ RASAI_WEB_PERFORMANCE_FIELD_SOURCE
 
 Default: `auto`.
 
-### `auto`
+- `auto`: usa field data da resposta PageSpeed e, quando ausente e houver configuração, tenta CrUX direto;
+- `pagespeed`: usa somente field data PageSpeed;
+- `crux`: usa CrUX direto para field data e PageSpeed para Lighthouse;
+- `none`: desabilita field data e mantém Lighthouse PageSpeed.
 
-1. PageSpeed é chamado para Lighthouse;
-2. se a resposta contiver field data CrUX utilizável, ele é usado;
-3. se field data estiver ausente e houver chave CrUX, a API CrUX direta é chamada;
-4. se nenhuma fonte produzir field data, o resultado permanece `UNAVAILABLE`/`INCOMPLETE` sem penalidade ao website.
-
-### `pagespeed`
-
-Usa somente field data presente na resposta PageSpeed. Não faz chamada CrUX direta.
-
-### `crux`
-
-Field data é obtido pela CrUX API direta. Exige `RASAI_CRUX_API_KEY`. PageSpeed continua sendo chamado para Lighthouse de laboratório.
-
-### `none`
-
-Desabilita field data. PageSpeed continua sendo usado para Lighthouse.
-
-## 8. Política de IA
-
-Web Performance externo adiciona **zero** chamadas a LLM.
-
-Não chama provider de IA para produzir os scores Lighthouse/CrUX nem para alterar a medição-fonte.
-
-Qualquer interpretação futura por IA deverá ser opt-in, contabilizada separadamente e incapaz de alterar medições-fonte ou `SCORE-GEO-004` sem novo contrato explicitamente aprovado.
-
-## 9. Posicionamento e fail-open
-
-Web Performance externo executa após o pipeline principal da auditoria e depois da materialização do report site.
-
-Objetivos:
-
-- não bloquear RuleExecution/scoring por indisponibilidade Google;
-- preservar a auditoria principal se PageSpeed/CrUX falhar;
-- manter a causa atribuída ao serviço externo, não ao website;
-- permitir relatório parcial com evidência disponível.
-
-Uma exceção operacional na camada Web Performance externo é capturada pela CLI, registrada quando possível e não invalida o resultado principal já concluído.
-
-## 10. Semântica dos estados operacionais Web Performance externo
-
-Estados:
+## 7. Estados da execução
 
 ```text
 DISABLED
@@ -321,45 +181,13 @@ PARTIAL
 UNAVAILABLE
 ```
 
-### `DISABLED`
+`SUCCESS` exige evidência útil nos contextos selecionados sem falha de componente solicitado. A ausência de Agentic Browsing não afeta esse estado porque Agentic não é componente solicitado pelo adapter PageSpeed.
 
-Web Performance externo não foi habilitado; nenhuma chamada externa foi feita.
+`PARTIAL` indica evidência útil combinada com uma ou mais falhas/indisponibilidades de componentes configurados. `UNAVAILABLE` indica que nenhum contexto selecionado produziu evidência externa útil.
 
-### `NO_CONTEXTS`
+Esses estados qualificam a coleta e não reduzem `SCORE-GEO-004`.
 
-Web Performance externo foi habilitado, mas não existia snapshot/dispositivo elegível para medição externa.
-
-### `SUCCESS`
-
-Todos os contextos selecionados possuem evidência externa útil e nenhum componente estável solicitado falhou naquele contexto. A ausência isolada de Agentic Browsing experimental não invalida `SUCCESS` quando as categorias estáveis requeridas e os demais componentes configurados são válidos.
-
-### `PARTIAL`
-
-Existe pelo menos um contexto com evidência útil, porém:
-
-- um componente externo estável solicitado falhou; ou
-- um contexto ficou sem evidência útil; ou
-- houve timeout, erro HTTP ou indisponibilidade de uma das fontes enquanto outra fonte retornou resultado.
-
-Exemplo normativo:
-
-```text
-PageSpeed Desktop → TIMEOUT
-CrUX Desktop      → HTTP 200 + field data
-
-contexto          → PARTIAL
-execução Web Performance externo → PARTIAL
-```
-
-O fato de `successful_contexts == context_attempts` **não autoriza `SUCCESS`** se um ou mais contextos estiverem `PARTIAL`.
-
-### `UNAVAILABLE`
-
-Nenhum contexto selecionado produziu evidência externa útil.
-
-`PARTIAL` e `UNAVAILABLE` qualificam a coleta; não reduzem `SCORE-GEO-004` e não criam Finding do website.
-
-## 11. Persistência SQLite
+## 8. Persistência
 
 Tabelas:
 
@@ -369,178 +197,55 @@ web_performance_observations
 web_performance_attempts
 ```
 
-### `web_performance_runs`
+`web_performance_runs` resume a execução. `web_performance_observations` preserva os scores Lighthouse, métricas de laboratório, field data/CWV, status e proveniência. `web_performance_attempts` registra cada chamada externa tentada, com serviço, contexto, status, HTTP/duração e erro sanitizado.
 
-Resumo da execução Web Performance externo, incluindo enabled, status, field source, page limit, páginas consideradas, contextos tentados, contextos com evidência útil, sucessos PageSpeed, sucessos CrUX, categorias e reason.
+`agentic_browsing_score` permanece como campo de compatibilidade e deve ficar `NULL` em coleta exclusivamente PageSpeed.
 
-### `web_performance_observations`
+Respostas externas bem-sucedidas podem ser materializadas em `artifacts/web-performance/`, permitindo reabrir resultados sem nova chamada externa.
 
-Uma observação por snapshot/dispositivo selecionado, com:
+## 9. Reporting
 
-- URL/device/strategy;
-- status do contexto;
-- versão/fetch time Lighthouse;
-- `performance_score`;
-- `accessibility_score`;
-- `best_practices_score`;
-- `seo_score`;
-- `agentic_browsing_score` quando materializado;
-- métricas lab;
-- field source/scope;
-- LCP/INP/CLS p75;
-- assessments CWV;
-- HTTP status;
-- referências a artifacts;
-- resumo sanitizado de erro.
-
-### `web_performance_attempts`
-
-Uma linha por chamada externa efetivamente tentada, com:
-
-- serviço;
-- URL auditada;
-- device/snapshot;
-- `SUCCESS`/`ERROR`;
-- HTTP status quando existente;
-- duração;
-- error code/message sanitizados;
-- referência de artifact quando existente.
-
-## 12. Log operacional persistente
-
-Cada auditoria mantém um log operacional independente de scoring e de evidência:
-
-```text
-audits/<AUD-ID>/logs/audit.log
-```
-
-Formato: **JSON Lines (JSONL)**, uma ocorrência por linha.
-
-Eventos produzidos devem permitir rastrear o ciclo de vida da auditoria e da coleta Web Performance, incluindo início, tentativa externa, conclusão, geração do report e falha de runtime quando aplicável.
-
-Para Web Performance externo, o log deve permitir diagnosticar:
-
-- PageSpeed versus CrUX;
-- Mobile versus Desktop;
-- sucesso versus erro;
-- HTTP status quando disponível;
-- duração;
-- timeout/error code sanitizado;
-- artifact produzido;
-- status agregado final.
-
-O log é **fail-open**: falha de escrita do próprio log não pode mudar o resultado da auditoria.
-
-O log nunca pode conter API keys, Authorization headers, tokens, passwords, credentials ou request URLs com chave.
-
-## 13. Artefatos brutos
-
-Respostas externas bem-sucedidas são gravadas em:
-
-```text
-artifacts/web-performance/
-```
-
-Exemplos:
-
-```text
-WPE-....pagespeed.json
-WPE-....crux.json
-```
-
-Nenhuma nova chamada externa é necessária para reabrir os resultados persistidos.
-
-## 14. Contrato HTML
-
-Web Performance externo materializa:
+A superfície principal é:
 
 ```text
 report/web-performance.html
 ```
 
-A página deve distinguir visivelmente:
+O relatório deve distinguir claramente:
 
-1. as categorias Lighthouse de laboratório, incluindo Agentic Browsing como experimental;
-2. CrUX/Core Web Vitals de campo;
-3. source e URL/origin scope;
-4. indisponibilidade/incompletude;
-5. telemetria das tentativas externas;
-6. política de consumo/credenciais;
-7. separação explícita de `SCORE-GEO-004`.
+- Lighthouse de laboratório;
+- CrUX/Core Web Vitals de campo;
+- source e scope URL/origin;
+- indisponibilidade/incompletude;
+- telemetria de tentativas externas;
+- separação de `SARI-001`/`SCORE-GEO-004`;
+- Agentic Browsing como indisponível via provider atual enquanto não houver adapter Lighthouse direto.
 
-`report/index.html` pode mostrar resumo Web Performance externo, incluindo Performance, Accessibility, Best Practices, SEO técnico e Agentic Browsing experimental, mas nunca recalcular Overall Readiness.
+`report/index.html` pode resumir Web Performance, mas nunca recalcula Overall Readiness a partir dessas métricas.
 
-`report/references.html` deve manter referências às fontes externas utilizadas.
+## 10. Fail-open
 
-A navegação do report site segue o core canônico compartilhado do projeto e não deve ser montada independentemente pelo Web Performance externo.
+Indisponibilidade PageSpeed/CrUX não invalida RuleExecution/scoring já concluídos. A causa deve permanecer atribuída ao serviço externo, não ao website.
 
-## 15. Saída CLI
+Erro da camada Web Performance é capturado e registrado quando possível. O audit principal permanece utilizável e pode apresentar resultado parcial.
 
-Quando Web Performance externo estiver habilitado, o encerramento da CLI deve expor no mínimo:
+## 11. Segurança e observabilidade
 
-- status agregado Web Performance externo;
-- páginas consideradas;
-- contextos com evidência útil / contextos tentados;
-- sucessos/tentativas PageSpeed;
-- sucessos/tentativas CrUX.
+O log operacional deve distinguir PageSpeed/CrUX, Mobile/Desktop, sucesso/erro, HTTP status, duração e artifact produzido, sempre de forma sanitizada.
 
-Quando o status for `PARTIAL`, a CLI deve avisar que houve falha ou indisponibilidade de componente externo e indicar o relatório/log operacional como fonte de diagnóstico.
+Falha na escrita do log é fail-open e não muda o resultado da auditoria.
 
-Ao existir, o caminho de `logs/audit.log` deve ser apresentado ao operador.
+A página e os artifacts não podem conter API keys, Authorization headers, tokens ou passwords.
 
-## 16. Segurança e privacidade
+## 12. Relação com IA
 
-Web Performance externo não persiste:
+Web Performance externo adiciona zero chamadas a LLM. Scores Lighthouse/CrUX nunca são produzidos ou recalculados por IA.
 
-- API keys;
-- Authorization headers;
-- cookies do website auditado para serviços Google;
-- request URLs contendo chaves;
-- secrets do ambiente local.
+Qualquer interpretação futura por IA exige finalidade explícita, telemetria própria e contrato que preserve a medição-fonte.
 
-Somente URL alvo, resposta externa permitida, telemetria sanitizada, métricas derivadas e indicadores booleanos de configuração são persistidos/logados.
+## 13. Referências adicionais
 
-## 17. Comportamento com o recurso desabilitado
-
-Com:
-
-```text
-RASAI_WEB_PERFORMANCE=false
-```
-
-não existem chamadas PageSpeed/CrUX.
-
-O log operacional pode ser criado independentemente do Web Performance externo para rastrear o ciclo de vida da auditoria, sem introduzir serviço externo e sem alterar scoring.
-
-Com Web Performance externo desabilitado, os demais comandos continuam válidos e `SCORE-GEO-004` permanece como contrato vigente de scoring.
-
-## 18. Critérios mínimos de aceitação
-
-A implementação Web Performance externo deve provar por regressão que:
-
-1. default OFF faz zero chamadas PageSpeed/CrUX;
-2. run desabilitada é persistida;
-3. PageSpeed bem-sucedido persiste Lighthouse;
-4. as cinco categorias Lighthouse configuradas são solicitadas na mesma chamada por contexto;
-5. Agentic Browsing é persistido separadamente quando materializado e sua ausência isolada não degrada categorias estáveis válidas;
-6. field data persistido mantém source/scope;
-7. CrUX direto funciona no modo `crux`/fallback aplicável;
-8. Mobile→PHONE e Desktop→DESKTOP são determinísticos;
-9. métrica CWV ausente produz `INCOMPLETE`, não website FAIL;
-10. ausência de field data não altera scoring;
-11. resposta externa bem-sucedida gera artifact bruto;
-12. credenciais não aparecem no SQLite, HTML ou log;
-13. `web-performance.html` explica separação metodológica;
-14. menu final continua canônico em todas as páginas;
-15. **PageSpeed timeout + CrUX success produz observação `PARTIAL` e run Web Performance externo `PARTIAL`;**
-16. `successful_contexts == context_attempts` não mascara componente externo falho;
-17. log operacional registra eventos Web Performance externo sem secrets;
-18. falha de escrita do log não invalida a auditoria principal;
-19. CLI mostra contadores por serviço e caminho do log;
-20. `SCORE-GEO-004` não é removido nem recalculado por esta camada.
-
-## 19. Evolução futura de scoring
-
-Web Performance externo continua sendo camada de evidência e possível insumo de estudos empíricos. Não é `SCORE-GEO-004`.
-
-Qualquer futura incorporação quantitativa de Web Performance ao scoring exige decisão humana explícita, novo contrato/versionamento de scoring e protocolo de validação.
+- [../LIGHTHOUSE_CATEGORIES.md](../LIGHTHOUSE_CATEGORIES.md)
+- [../LIGHTHOUSE_PAGESPEED_TRANSPORT.md](../LIGHTHOUSE_PAGESPEED_TRANSPORT.md)
+- [../GOOGLE_API_KEYS.md](../GOOGLE_API_KEYS.md)
+- [../EXTERNAL_METRICS_INTEGRITY.md](../EXTERNAL_METRICS_INTEGRITY.md)
