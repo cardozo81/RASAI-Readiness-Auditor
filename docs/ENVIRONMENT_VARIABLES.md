@@ -214,7 +214,7 @@ Locale default: `pt-BR`.
 
 A interpretação editorial transitória de campos `auto` também é removida do exchange log persistido e materializada apenas na seção interpretativa do HTML final.
 
-Detalhes: [AI_RUNTIME_SECURITY.md](AI_RUNTIME_RUNTIME_SECURITY.md) e [REPORTING_AI_USAGE.md](REPORTING_AI_USAGE.md).
+Detalhes: [AI_RUNTIME_SECURITY.md](AI_RUNTIME_SECURITY.md) e [REPORTING_AI_USAGE.md](REPORTING_AI_USAGE.md).
 
 ## Defaults operacionais principais
 
