@@ -19,6 +19,7 @@ _PAGESPEED_LIGHTHOUSE_CATEGORIES = (
     "seo",
 )
 _PAGESPEED_LIGHTHOUSE_CATEGORIES_CSV = ",".join(_PAGESPEED_LIGHTHOUSE_CATEGORIES)
+_AI_EXCHANGE_LOG_MAX_BYTES_ENV = "RASAI_AI_EXCHANGE_LOG_MAX_BYTES"
 
 
 def install_runtime_completion_extensions() -> None:
@@ -82,11 +83,15 @@ def _install_console_environment() -> None:
 
     if getattr(console_environment, "_rasai_pagespeed_categories_current", False):
         return
-    original = console_environment._fixed_specs
+    original_fixed_specs = console_environment._fixed_specs
+    original_validate = console_environment._validate
+
+    if _AI_EXCHANGE_LOG_MAX_BYTES_ENV not in console_environment.ENV_NAMES:
+        console_environment.ENV_NAMES = (*console_environment.ENV_NAMES, _AI_EXCHANGE_LOG_MAX_BYTES_ENV)
 
     def fixed_specs_with_current_pagespeed_contract():
         items = []
-        for spec in original():
+        for spec in original_fixed_specs():
             if spec.name == "RASAI_LIGHTHOUSE_CATEGORIES":
                 spec = replace(
                     spec,
@@ -101,7 +106,37 @@ def _install_console_environment() -> None:
             items.append(spec)
         return tuple(items)
 
+    def validate_with_current_contract(name: str, raw: str) -> str:
+        if name == "RASAI_LIGHTHOUSE_CATEGORIES":
+            value = raw.strip()
+            if not value:
+                raise ValueError("valor vazio; remova a variável em vez de gravar vazio")
+            items = [item.strip().casefold() for item in value.split(",") if item.strip()]
+            if not items or any(item not in _PAGESPEED_LIGHTHOUSE_CATEGORIES for item in items):
+                raise ValueError(
+                    "categorias PageSpeed suportadas: " + ", ".join(_PAGESPEED_LIGHTHOUSE_CATEGORIES)
+                    + "; Agentic Browsing exige adaptador Lighthouse separado"
+                )
+            if len(items) != len(set(items)):
+                raise ValueError("não duplique categorias Lighthouse")
+            return ",".join(items)
+        if name == _AI_EXCHANGE_LOG_MAX_BYTES_ENV:
+            value = raw.strip()
+            try:
+                parsed = int(value)
+            except ValueError as exc:
+                raise ValueError("use inteiro entre 4096 e 4194304") from exc
+            if not 4096 <= parsed <= 4194304:
+                raise ValueError("use inteiro entre 4096 e 4194304")
+            return str(parsed)
+        return original_validate(name, raw)
+
     console_environment._fixed_specs = fixed_specs_with_current_pagespeed_contract
+    console_environment._validate = validate_with_current_contract
+    # SPECS is materialized at import time. Rebuild it after patching the source
+    # factories so the actual interactive UI, tests and ENV_NAMES stay coherent.
+    console_environment.SPECS = console_environment.environment_specs()
+    console_environment.SPEC_BY_NAME = {spec.name: spec for spec in console_environment.SPECS}
     console_environment._rasai_pagespeed_categories_current = True
 
 
