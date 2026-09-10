@@ -4,17 +4,15 @@ Status: implemented product-platform architecture with SQLite local/default pers
 
 ## Objective
 
-Evolve RASAi from a single-audit Windows application into a product platform that supports multi-user, multi-client, multi-project and multi-domain operation without breaking the audit engine or rewriting historical evidence.
+RASAi is structured as a product platform supporting multi-user, multi-client, multi-project and multi-domain operation while preserving immutable audit evidence as a separate concern.
 
 The architectural rule is explicit:
 
-> `AUD-*/audit.db` remains immutable execution evidence. Product, tenant, milestone, schedule, integration, cost and longitudinal metadata live in a separate control-plane database.
+> `AUD-*/audit.db` is immutable execution evidence. Product, tenant, milestone, schedule, integration, cost and longitudinal metadata live in a separate control-plane database.
 
 Neither control-plane backend changes `SARI-001` or `SCORE-GEO-004`.
 
 ## Supported persistence modes
-
-The control plane now has two persistence implementations behind one composition boundary:
 
 ```text
 RASAi Product Platform
@@ -24,11 +22,10 @@ RASAi Product Platform
         |     audits/.rasai/platform.db
         |
         +-- PostgreSQL 18
-              explicit opt-in
-              centralized / hosted target
+              explicit centralized/hosted target
 ```
 
-SQLite remains the default when no backend is configured. Existing Windows/local operation therefore keeps its current installation and runtime behavior.
+SQLite is selected when no backend is configured.
 
 PostgreSQL is selected explicitly with:
 
@@ -37,13 +34,11 @@ RASAI_PLATFORM_DB_BACKEND=postgresql
 RASAI_PLATFORM_DATABASE_URL=postgresql://...
 ```
 
-A configured PostgreSQL backend never falls back silently to SQLite.
-
-`--platform-db` remains a SQLite-only path override.
+A configured PostgreSQL backend never falls back silently to SQLite. `--platform-db` is a SQLite-only path override.
 
 ## Local Windows architecture
 
-The supported local runtime remains native Windows/Python. Docker is not required to run RASAi in its default SQLite mode.
+The local runtime is native Windows/Python. Docker is not required for SQLite operation.
 
 ```text
 Windows
@@ -63,21 +58,19 @@ Windows
 
 The SQLite control plane uses foreign keys, WAL journaling, bounded busy timeout, explicit write transactions, stable opaque IDs, schema metadata, SHA-256 validation of indexed `audit.db` files and canonical multi-property scope links.
 
-This remains appropriate for single-machine/offline operation.
+This mode is appropriate for single-machine/offline operation.
 
-## PostgreSQL development architecture
+## PostgreSQL architecture
 
-PostgreSQL 18 is the centralized control-plane backend. Local development uses a PostgreSQL 18 Docker container; the application itself is not coupled to Docker and only consumes the database connection contract.
+PostgreSQL 18 is the centralized control-plane backend. Local development can use a PostgreSQL 18 Docker container; the application itself consumes only the database connection contract.
 
 ```text
-Windows/Python RASAi
+RASAi application
         |
 RASAI_PLATFORM_DATABASE_URL
         |
 PostgreSQL 18
 ```
-
-Docker is therefore a **developer integration dependency for PostgreSQL work**, not a new requirement for users who remain on the default SQLite runtime.
 
 PostgreSQL schema migration is explicit:
 
@@ -99,6 +92,7 @@ The selected relational backend is authoritative for:
 - Organization / Workspace / Project;
 - Property / Environment;
 - users and memberships;
+- external identity links;
 - audit catalog and multi-property scope links;
 - Milestones / Deployments;
 - Golden Baselines;
@@ -107,19 +101,20 @@ The selected relational backend is authoritative for:
 - schedules and alert rules;
 - integration metadata without secrets;
 - external datasets/outcomes;
-- usage ledger;
+- usage ledger and consumption analytics;
 - Search Query Registry;
-- Search monitoring run summaries.
+- Search monitoring run summaries;
+- durable execution jobs.
 
-In local/default mode this authority is `audits/.rasai/platform.db`. In PostgreSQL mode the configured PostgreSQL database is the authority.
+In local mode this authority is `audits/.rasai/platform.db`. In PostgreSQL mode it is the configured PostgreSQL database.
 
-### Historical analytical cache
+### Derived analytical cache
 
 ```text
 audits/.rasai/consolidated-index.db
 ```
 
-When present, this remains a derived/rebuildable compatibility cache for historical consolidated reporting. It is not a second control plane and must not become authoritative for tenancy, milestones, integrations, Query Registry or lifecycle state.
+When present, this is derived/rebuildable analytical state. It is not a second control plane and is not authoritative for tenancy, milestones, integrations, Query Registry or lifecycle state.
 
 ### Immutable audit evidence
 
@@ -128,11 +123,11 @@ audits/AUD-*/audit.db
 audits/AUD-*/artifacts/
 ```
 
-These remain source execution evidence regardless of the selected control-plane backend. Product metadata is never written back into an indexed historical AUD.
+These are source execution evidence regardless of the selected control-plane backend. Product metadata is not written back into an indexed AUD.
 
 ## Hosted SaaS target
 
-The recommended hosted operating model remains Linux/container workloads with managed PostgreSQL, durable scheduling/queueing and object storage.
+The hosted operating model uses Linux/container workloads, managed PostgreSQL, durable scheduling/queueing and object storage.
 
 ```text
 Web UI
@@ -142,10 +137,12 @@ RASAi API / Control Plane
   +-- managed PostgreSQL
   |      organization/workspace/project/property/environment
   |      memberships/RBAC metadata
+  |      identity links
   |      milestones/deployments
   |      schedules/alerts/integrations
   |      Query Registry / monitoring runs
   |      usage ledger / audit catalog
+  |      execution jobs
   |
   +-- durable Queue / Scheduler
   |      |
@@ -156,24 +153,15 @@ RASAi API / Control Plane
   +-- Object Storage
          immutable AUD bundles / artifacts / reports / provider evidence
 
-Optional Enterprise path:
+Optional enterprise path:
 RASAi SaaS -> authorized Runner -> private Windows/Linux network
 ```
 
-### Why Linux for hosted workers
+Linux is preferred for hosted workers because it provides predictable container packaging, Chromium/Playwright support, worker density, orchestration and broad cloud support. Native Windows remains the local/runner execution mode.
 
-Linux is preferred for the hosted execution plane because it provides predictable container packaging, Chromium/Playwright support, worker density, orchestration and broad cloud support.
+SQLite is appropriate for a local single-machine authority. SaaS requires centralized tenant state and concurrent transactional coordination, for which PostgreSQL is the production SGBD target.
 
-This does not replace Windows local support. The product keeps distinct execution modes:
-
-1. native Windows Desktop/CLI/Runner;
-2. Linux container workers for hosted workloads.
-
-### Why PostgreSQL for the hosted control plane
-
-SQLite remains correct for a local single-machine authority. SaaS requires concurrency, centralized tenant state, transactional coordination, backup/restore, connection management and operational observability. PostgreSQL is the production SGBD target.
-
-The migration boundary is the control plane, not the `AUD-*` evidence format.
+The database transition boundary is the control plane, not the `AUD-*` evidence format.
 
 ## Product hierarchy
 
@@ -199,7 +187,7 @@ Stable opaque IDs are shared across SQLite/PostgreSQL domain contracts.
 
 ## Multi-user and tenant integrity
 
-The control-plane model supports users, memberships and scoped roles so the same domain contracts can be used by a future authenticated SaaS API.
+The control-plane model supports users, memberships and scoped roles.
 
 Supported roles:
 
@@ -213,11 +201,13 @@ Supported roles:
 
 Cross-organization memberships and inconsistent Project / Property / Environment writes are rejected at the control-plane boundary and backed by relational constraints.
 
-This is data-model readiness, not a claim that the current CLI already provides hosted authentication/network identity.
+Hosted identity is resolved through the Web/API authentication layer; control-plane persistence alone does not authenticate a request.
 
 ## Multi-domain AUD model
 
-An AUD may contain more than one target origin/domain. For backward compatibility, `audit_index` retains one primary Property/Environment. The canonical relation is additive:
+An AUD may contain more than one target origin/domain.
+
+`audit_index` records the primary Property/Environment reference for the audit catalog, while `audit_scope_links` is the canonical many-to-many relation that makes the same AUD discoverable from every Property/Environment included in its scope.
 
 ```text
 AUD
@@ -226,29 +216,25 @@ AUD
   -> Property C / Environment
 ```
 
-`audit_scope_links` makes a multidomain AUD discoverable from every linked Property/Environment.
-
-Golden Baselines and deployment comparisons validate membership in the requested scope rather than relying only on the legacy primary property.
+Golden Baselines and deployment comparisons validate membership in the requested scope rather than relying only on the primary catalog reference.
 
 ## AUD immutability
 
 The control-plane catalog stores the SHA-256 of every indexed `audit.db`.
 
-Re-indexing an AUD with a different database hash is rejected. This prevents a historical audit from being silently rewritten after it becomes a baseline or deployment evidence source.
+Re-indexing an AUD with a different database hash is rejected. This prevents an indexed audit from being silently rewritten after it becomes a baseline or deployment evidence source.
 
-PostgreSQL integration tests explicitly index SQLite `AUD-*/audit.db` files, perform Product Platform comparisons and verify the source audit bytes are unchanged.
+PostgreSQL integration tests index SQLite `AUD-*/audit.db` files, perform Product Platform comparisons and verify the source audit bytes remain unchanged.
 
 ## Automatic indexing
 
 A successful `rasai audit` triggers a best-effort refresh through the selected control-plane backend.
 
-This remains intentionally fail-open relative to successful audit persistence:
-
 - the persisted AUD is authoritative evidence;
 - product indexing cannot turn a successful audit into an audit failure;
 - an indexing error is logged and can be repaired with `rasai platform index`.
 
-When PostgreSQL is selected, the PostgreSQL schema must already be current; automatic indexing is not allowed to perform schema migration.
+When PostgreSQL is selected, its schema must already be current; automatic indexing never performs schema migration.
 
 ## Milestones and deployments
 
@@ -279,34 +265,22 @@ RASAi searches the same Property + Environment and selects:
 1. the closest technically comparable AUD before the milestone;
 2. the first technically comparable AUD after it.
 
-If the nearest pair is not comparable, RASAi does not silently normalize incompatible data. Compatibility notes are retained.
+If the nearest pair is not comparable, RASAi does not silently normalize incompatible data. Comparability limitations are retained.
 
 Alternative modes:
 
 - `GOLDEN` - approved Golden Baseline versus first compatible post-milestone AUD;
 - `EXPLICIT` - operator-selected baseline/current pair.
 
-## Deployment Impact
+Deployment Impact can display selected before/after AUDs, baseline resolution reason, material regressions, improvements/resolutions, changed page state, release gate result and comparability limitations.
 
-Deployment Impact reuses deterministic monitoring comparison and release-gate contracts.
-
-It can display:
-
-- selected before/after AUDs;
-- baseline resolution reason;
-- material regressions;
-- improvements/resolutions;
-- changed page state;
-- release gate PASS/FAIL;
-- comparability limitations.
-
-Deployment reports are standalone artifacts. They do not claim that a later Search/business outcome was caused by the deployment merely because it occurred afterwards.
+Temporal ordering is not presented as causal proof.
 
 ## Page Compare and PageIdentity
 
 `Page Compare` supports same-URL and migration/different-URL before/after analysis using persisted page-level signals.
 
-`PageIdentity` separates a logical page/entity from one specific URL. Multiple historical URLs may be linked to the same identity for redirects and replatforming.
+`PageIdentity` separates a logical page/entity from one specific URL. Multiple observed URLs may be linked to the same identity for redirects, URL changes and replatforming.
 
 ## Portfolio HTML
 
@@ -318,13 +292,13 @@ Deployment reports are standalone artifacts. They do not claim that a later Sear
 - page lineage;
 - usage/cost views.
 
-Property counters resolve through canonical multi-property AUD scopes rather than only the legacy primary property.
+Property counters resolve through canonical multi-property AUD scopes.
 
-These pages remain separate from the menu inside one immutable AUD report.
+These pages remain separate from the report site contained inside one immutable AUD.
 
 ## Scheduling
 
-The local scheduler stores argument arrays, never raw shell strings.
+Schedules store argument arrays, never raw shell strings.
 
 Execution uses:
 
@@ -342,13 +316,11 @@ Supported schedule semantics include:
 - `DEPLOYMENT_TRIGGERED`;
 - `API_TRIGGERED`.
 
-Local execution remains single-machine. Persisting schedules in PostgreSQL does not automatically make scheduling horizontally safe.
-
-The future hosted scheduler/queue must add atomic occurrence claiming, leases/locks, idempotency, retry/dead-letter state and per-tenant/provider limits before multiple scheduler/worker replicas are used.
+Local execution is single-machine. PostgreSQL-backed scheduling is centralized, while horizontally distributed execution additionally requires atomic occurrence claiming, leases/locks, idempotency, retry/dead-letter state and per-tenant/provider limits.
 
 ## Search monitoring
 
-`SEARCH-MONITOR-001` uses the same selected control-plane authority as Product Platform.
+`SEARCH-MONITOR-001` uses the selected Product Platform control-plane authority.
 
 ```text
 Query Registry
@@ -359,9 +331,9 @@ Query Registry
   -> change detection
 ```
 
-SQLite remains the local/default adapter. PostgreSQL provides the centralized adapter. Raw provider evidence and hashed manifests remain outside relational rows and can move to object storage in hosted operation.
+SQLite is the local adapter. PostgreSQL is the centralized adapter. Raw provider evidence and hashed manifests remain outside relational rows and move naturally to object storage in hosted operation.
 
-Search monitoring remains non-scoring.
+Search monitoring is non-scoring.
 
 ## Alerts
 
@@ -376,35 +348,35 @@ NEW
 
 Explicit `--status` values replace the defaults.
 
-Current destinations:
+Destinations:
 
 - `NONE` - persist notification only;
 - `JSON` - persist structured notification;
 - `WEBHOOK` - POST structured JSON.
 
-Webhook URLs are not stored as ordinary control-plane values; only the environment-variable reference is persisted locally. Hosted delivery still requires managed secrets and SSRF/egress controls.
+Webhook secrets are not stored as ordinary product metadata. Hosted delivery requires managed secrets and SSRF/egress controls.
 
 ## CI/CD release-gate outputs
 
 Deployment comparisons can export JSON, JUnit XML and SARIF, with process exit semantics suitable for CI/CD integration.
 
-This remains vendor-neutral and does not couple RASAi to one CI system.
+The contract is vendor-neutral.
 
 ## External outcomes and crawler observability
 
 External observations remain outside SARI/SCORE-GEO.
 
-Implemented sources include:
+Sources include:
 
 - GA4 Data API using bearer token from runtime environment;
-- GA4 CSV import-first path;
+- GA4 CSV import;
 - Cloudflare Logpush import;
 - common/combined Apache/nginx-compatible access logs;
 - explicit User-Agent marker classification for known AI crawler markers.
 
 Crawler classification is evidence classification, not proof of verified bot identity. Verified provider/CDN bot-management signals should supersede heuristic identity where available.
 
-## Usage ledger
+## Usage ledger and consumption analytics
 
 Product consumption is stored separately from technical findings, including categories such as:
 
@@ -412,50 +384,36 @@ Product consumption is stored separately from technical findings, including cate
 - browser executions;
 - API calls;
 - LLM/provider consumption;
-- future worker/storage units;
+- worker/storage units when implemented;
 - estimated cost/currency.
 
-This supports future SaaS metering while preserving provenance/BYOK attribution.
+The same ledger supports consumption analytics and future SaaS metering while preserving provenance/BYOK attribution.
 
 ## Secrets
 
-No API token, webhook secret or provider password should be stored as plain product metadata.
+No API token, webhook secret or provider password is stored as plain product metadata.
 
-Local phase:
+Local operation uses environment variables and persists only non-secret configuration or secret-reference names.
 
-- environment variables;
-- database rows persist only non-secret configuration or secret-reference names.
+Hosted operation uses managed secret storage/KMS-backed services, tenant-scoped authorization and rotation/audit controls.
 
-Hosted phase:
-
-- managed secret store / KMS-backed service;
-- tenant-scoped authorization;
-- rotation/audit trail.
-
-`RASAI_PLATFORM_DATABASE_URL` is also a secret-bearing runtime value. Status/error output must redact its password.
+`RASAI_PLATFORM_DATABASE_URL` is secret-bearing and must be redacted from status/error output.
 
 ## Docker decision
 
-Docker has two distinct roles:
+Docker is not required for normal SQLite Windows operation. It is used for local PostgreSQL 18 development/integration and PostgreSQL CI.
 
-1. **not required** for the normal SQLite Windows runtime;
-2. **used** for local PostgreSQL 18 integration/development and PostgreSQL CI.
-
-The local PostgreSQL container is development infrastructure, not the intended production database.
-
-The future hosted environment may use containerized API/workers, but production PostgreSQL should normally be a managed service rather than a database container tied to one application host.
+For hosted deployment, API/workers may be containerized; production PostgreSQL should normally be managed rather than coupled to one application container host.
 
 ## PostgreSQL schema strategy
 
-The initial PostgreSQL schema is compatibility-first. It preserves current domain serialization where changing representation at the same time as the database engine would add unnecessary migration risk.
+The PostgreSQL schema uses the domain representation expected by current repository contracts. Representation changes are explicit schema migrations and are validated for semantic parity.
 
-PostgreSQL-native JSON/boolean/time types can be introduced later through versioned migrations and parity tests. See `POSTGRESQL_CONTROL_PLANE.md` for the current schema contract.
-
-Existing SQLite data is test-only and is not a required migration source for the first PostgreSQL authority.
+Development SQLite data is test/pilot state and is not a required migration source for a clean PostgreSQL authority.
 
 ## Primary CLI examples
 
-SQLite/default initialization/index:
+SQLite initialization/index:
 
 ```powershell
 rasai platform --audits-root audits init
@@ -465,15 +423,13 @@ rasai platform --audits-root audits data status
 rasai platform --audits-root audits site
 ```
 
-PostgreSQL schema administration after setting the PostgreSQL backend environment:
+PostgreSQL administration:
 
 ```powershell
 rasai platform database status
 rasai platform database migrate
 rasai platform database status
 ```
-
-The same Product Platform commands then operate against PostgreSQL through backend composition.
 
 Users and memberships:
 
@@ -527,13 +483,11 @@ rasai platform --audits-root audits page compare `
   --output page-compare.html
 ```
 
-GA4/log imports continue through the same `rasai platform collect ...` surface.
+## Operational boundary
 
-## Compatibility contract
+Audit, Monitor, Quality, Observability and Visibility use the same immutable-evidence boundary regardless of the selected Product Platform backend.
 
-Existing audit/monitor/quality/observability/visibility behavior remains unchanged. The Product Platform database choice is a control-plane concern.
-
-The post-audit platform-index refresh remains best-effort and fail-open, so control-plane indexing problems cannot invalidate a successfully persisted audit.
+Post-audit platform indexing is best-effort and fail-open, so a control-plane indexing problem cannot invalidate an already persisted audit.
 
 ## Methodological boundary
 
