@@ -37,7 +37,7 @@ class RuntimeCompletionExtensionTests(unittest.TestCase):
         )
         self.assertIn("adaptador Lighthouse separado", spec.notes)
 
-    def test_executive_dashboard_contains_all_lighthouse_category_cards(self) -> None:
+    def test_executive_dashboard_contains_pagespeed_categories_but_not_unproven_agentic_score(self) -> None:
         from rasai import rasai_readiness_reporting as reporting
 
         data = {
@@ -51,6 +51,8 @@ class RuntimeCompletionExtensionTests(unittest.TestCase):
                     "accessibility_score": 91.0,
                     "best_practices_score": 92.0,
                     "seo_score": 93.0,
+                    # Compatibility column alone is not sufficient provenance for
+                    # publishing Agentic Browsing as PageSpeed evidence.
                     "agentic_browsing_score": 94.0,
                 },
                 {
@@ -71,10 +73,9 @@ class RuntimeCompletionExtensionTests(unittest.TestCase):
         self.assertIn("Lighthouse Accessibility", html)
         self.assertIn("Lighthouse Best Practices", html)
         self.assertIn("Lighthouse SEO técnico", html)
-        self.assertIn("Lighthouse Agentic Browsing", html)
-        self.assertIn("experimental", html)
+        self.assertNotIn("Lighthouse Agentic Browsing", html)
 
-    def test_monitoring_reads_best_practices_and_agentic_scores(self) -> None:
+    def test_monitoring_reads_best_practices_but_not_agentic_compatibility_column(self) -> None:
         from rasai.monitoring import reader
 
         connection = sqlite3.connect(":memory:")
@@ -111,8 +112,7 @@ class RuntimeCompletionExtensionTests(unittest.TestCase):
         best = "PERF|MOBILE|https://example.test/|best_practices_score"
         agentic = "PERF|MOBILE|https://example.test/|agentic_browsing_score"
         self.assertEqual(signals[best].value, 92.0)
-        self.assertEqual(signals[agentic].value, 94.0)
-        self.assertEqual(signals[agentic].label, "Lighthouse Agentic Browsing")
+        self.assertNotIn(agentic, signals)
 
     def test_agentic_browsing_has_explicit_external_provenance(self) -> None:
         from rasai import indicator_provenance
