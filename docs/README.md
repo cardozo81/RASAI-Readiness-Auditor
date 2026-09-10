@@ -11,6 +11,7 @@ O contrato funcional vigente usa:
 - `report/readiness.html` como superfície canônica do índice;
 - `report/scoring.html` como superfície canônica da metodologia;
 - `report/index.html` como visão executiva;
+- UTC como referência temporal canônica de persistência/processamento e `America/Sao_Paulo` como timezone padrão de apresentação, conforme [`TIMEZONE_CONTRACT.md`](TIMEZONE_CONTRACT.md);
 - HTML e documentação contextual em português do Brasil, mantendo em inglês apenas nomes técnicos consolidados, identificadores, APIs, formatos, comandos, enums e termos cuja tradução reduziria precisão ou quebraria rastreabilidade.
 
 A arquitetura de produto inclui Product Platform, SQLite local, PostgreSQL centralizado opt-in, Web API, workers, SaaS Pilot Web, Scheduling Management, Consumption Analytics, acesso remoto ao control plane e Identity & Access baseada em OIDC/JWT com vínculo explícito entre identidade externa e `USR-*`. Essas camadas preservam a separação entre control plane, scoring e evidência imutável de auditoria.
@@ -46,6 +47,25 @@ Podem permanecer em inglês quando correspondem ao valor ou termo técnico real:
 - termos de engenharia amplamente usados quando a tradução prejudicar precisão, desde que o contexto ao redor permaneça em pt-BR.
 
 Títulos descritivos, status editoriais e explicações **não** devem permanecer integralmente em inglês apenas por tratarem de tema técnico. Quando um nome técnico persistido em inglês precisar ser mostrado, o texto em pt-BR deve esclarecer seu significado sem alterar o valor canônico.
+
+## Direitos autorais, citações e traduções de fontes externas
+
+Conteúdo externo permanece de titularidade de seu respectivo autor, mantenedor ou entidade publicadora. Uma referência do RASAi a Google, W3C, IETF, OpenAI, Microsoft, Dynatrace, Apdex, Schema.org ou qualquer outra fonte **não transfere autoria, licença ou propriedade intelectual** ao projeto.
+
+Quando a documentação precisar reproduzir texto externo protegido para preservar precisão técnica:
+
+1. reproduzir **somente o trecho estritamente necessário** para sustentar a explicação;
+2. identificar claramente a fonte e fornecer o link primário quando disponível;
+3. apresentar o trecho original como citação, sem alterá-lo;
+4. imediatamente após a citação, fornecer **tradução/adaptação pt-BR** contextualizada para o RASAi;
+5. informar que a tradução é explicativa e que, em caso de divergência, prevalece o texto oficial da fonte;
+6. não reproduzir obra, página, manual, artigo ou documentação integral quando um excerto suficiente atender à finalidade documental, salvo quando a licença da fonte permitir explicitamente e houver necessidade técnica concreta.
+
+Quando houver reprodução, tradução ou adaptação específica de texto protegido em uma seção, essa seção deve conter o seguinte aviso, ou redação equivalente com o mesmo sentido:
+
+> **Nota de direitos autorais, citação e tradução:** o material externo citado nesta seção permanece de titularidade de seu respectivo autor/mantenedor. Quando necessário para precisão técnica, o RASAi reproduz apenas o trecho estritamente necessário no idioma original, identificado como citação, seguido de tradução/adaptação para pt-BR. A tradução é informativa e não substitui o texto oficial; em caso de divergência, prevalece a fonte primária vinculada.
+
+Uma simples lista de links, nomes de APIs, nomes de padrões, títulos de documentos ou valores técnicos não exige esse bloco local por si só. O bloco é obrigatório quando houver **texto externo efetivamente reproduzido ou traduzido/adaptado**.
 
 ### Referências externas em outro idioma
 
@@ -85,7 +105,7 @@ A referência central consolidada de variáveis é [`ENVIRONMENT_VARIABLES.md`](
 7. [`SERP_OBSERVATION.md`](SERP_OBSERVATION.md), [`CONSOLE_SEARCH_INTELLIGENCE.md`](CONSOLE_SEARCH_INTELLIGENCE.md), [`COMPETITIVE_SEARCH_INTELLIGENCE.md`](COMPETITIVE_SEARCH_INTELLIGENCE.md), [`COMPETITIVE_AI_INTELLIGENCE.md`](COMPETITIVE_AI_INTELLIGENCE.md), [`SEARCH_INTELLIGENCE_REPORT.md`](SEARCH_INTELLIGENCE_REPORT.md), [`SEARCH_INTELLIGENCE_HISTORY.md`](SEARCH_INTELLIGENCE_HISTORY.md) e [`SEARCH_INTELLIGENCE_MONITORING.md`](SEARCH_INTELLIGENCE_MONITORING.md) — observação SERP, entrada de termos no console, comparação determinística, recomendações semânticas vinculadas a evidências, superfície HTML, comparação temporal before/after e monitoramento recorrente por query registrada.
 8. [`CONSOLIDATED_REPORTING.md`](CONSOLIDATED_REPORTING.md) e [`CONSOLIDATED_REPORTING_VALIDATION.md`](CONSOLIDATED_REPORTING_VALIDATION.md) — séries, comparabilidade e relatório longitudinal.
 9. [`AI_GUIDE.md`](AI_GUIDE.md), [`AI_PROVIDER_EXTENSIONS.md`](AI_PROVIDER_EXTENSIONS.md) e [`CONTENT_ANALYSIS_CONTEXT.md`](CONTENT_ANALYSIS_CONTEXT.md) — uso de IA, contexto e limites.
-10. [`TECHNICAL_GUIDE.md`](TECHNICAL_GUIDE.md), [`CONFIGURATION.md`](CONFIGURATION.md), [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md), [`CLI_REFERENCE.md`](CLI_REFERENCE.md), [`PRODUCT_PLATFORM_ARCHITECTURE.md`](PRODUCT_PLATFORM_ARCHITECTURE.md), [`POSTGRESQL_MIGRATION_STRATEGY.md`](POSTGRESQL_MIGRATION_STRATEGY.md), [`POSTGRESQL_LOCAL_DEVELOPMENT.md`](POSTGRESQL_LOCAL_DEVELOPMENT.md), [`WEB_API_FOUNDATION.md`](WEB_API_FOUNDATION.md), [`WEB_API_CLI.md`](WEB_API_CLI.md), [`SAAS_PILOT_WEB.md`](SAAS_PILOT_WEB.md) e [`IDENTITY_AND_ACCESS.md`](IDENTITY_AND_ACCESS.md) — operação, arquitetura do control plane, implantação, desenvolvimento local, estratégia PostgreSQL, evolução Web/API/worker e identidade SaaS.
+10. [`TECHNICAL_GUIDE.md`](TECHNICAL_GUIDE.md), [`CONFIGURATION.md`](CONFIGURATION.md), [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md), [`CLI_REFERENCE.md`](CLI_REFERENCE.md), [`TIMEZONE_CONTRACT.md`](TIMEZONE_CONTRACT.md), [`PRODUCT_PLATFORM_ARCHITECTURE.md`](PRODUCT_PLATFORM_ARCHITECTURE.md), [`POSTGRESQL_MIGRATION_STRATEGY.md`](POSTGRESQL_MIGRATION_STRATEGY.md), [`POSTGRESQL_LOCAL_DEVELOPMENT.md`](POSTGRESQL_LOCAL_DEVELOPMENT.md), [`WEB_API_FOUNDATION.md`](WEB_API_FOUNDATION.md), [`WEB_API_CLI.md`](WEB_API_CLI.md), [`SAAS_PILOT_WEB.md`](SAAS_PILOT_WEB.md) e [`IDENTITY_AND_ACCESS.md`](IDENTITY_AND_ACCESS.md) — operação, tempo/timezone, arquitetura do control plane, implantação, desenvolvimento local, estratégia PostgreSQL, evolução Web/API/worker e identidade SaaS.
 11. [`specification/00_SPEC_INDEX.md`](specification/00_SPEC_INDEX.md) — especificação técnica detalhada.
 
 ## Convenção de linguagem de relatório
