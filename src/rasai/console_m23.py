@@ -1,8 +1,7 @@
-"""Synthetic Apdex integration helpers for the optional interactive console.
+"""Synthetic Apdex integration helpers for the interactive console.
 
-Internal event/table identifiers retain their historical M23/M25 names for
-schema compatibility. User-facing text keeps Standard M23 and calibrated M25
-explicitly separated without changing the pre-M25 public M23 labels/env catalog.
+The public UI uses product-level names while the internal event/table identifiers
+remain implementation details of the current storage and runtime modules.
 """
 from __future__ import annotations
 
@@ -34,14 +33,21 @@ from rasai.m23_cli import (
 )
 from rasai.m25_apdex_experience import ExperienceApdexConfig
 from rasai.m25_cli import (
+    DEFAULT_UX_CONCURRENCY,
+    DEFAULT_UX_DELAY_SECONDS,
+    DEFAULT_UX_DEVICE_MIX,
+    DEFAULT_UX_ERROR_SCOPE,
+    DEFAULT_UX_KPM,
+    DEFAULT_UX_MAX_PAGES,
+    DEFAULT_UX_SAMPLES,
+    DEFAULT_UX_SESSION_MODE,
+    DEFAULT_UX_SETTLE_SECONDS,
     M25_ENV_NAMES,
     configured_experience,
     validate_m25_env_value,
 )
 from rasai.m25_dynatrace import DYNATRACE_API_TOKEN_ENV
 
-# Public console environment catalog remains backward-compatible. M25 has its
-# own CLI/environment contract and is persisted as non-secret INI settings.
 M23_ENV_NAMES = (
     APDEX_ENABLED_ENV,
     APDEX_THRESHOLD_ENV,
@@ -67,19 +73,19 @@ class State(BaseState):
     apdex_concurrency: int = DEFAULT_APDEX_CONCURRENCY
 
     apdex_experience: bool = False
-    apdex_experience_samples: int = 100
+    apdex_experience_samples: int = DEFAULT_UX_SAMPLES
     apdex_experience_max_attempts: int = 125
-    apdex_experience_max_pages: int = 1
-    apdex_experience_device_mix: str = ""
-    apdex_experience_session_mode: str = "cold"
-    apdex_experience_kpm: str = "USER_ACTION_DURATION"
+    apdex_experience_max_pages: int = DEFAULT_UX_MAX_PAGES
+    apdex_experience_device_mix: str = DEFAULT_UX_DEVICE_MIX
+    apdex_experience_session_mode: str = DEFAULT_UX_SESSION_MODE
+    apdex_experience_kpm: str = DEFAULT_UX_KPM
     apdex_experience_satisfied: float | None = None
     apdex_experience_frustrated: float | None = None
     apdex_experience_errors: bool = True
-    apdex_experience_error_scope: str = "first-party"
-    apdex_experience_settle: float = 5.0
-    apdex_experience_delay: float = 1.0
-    apdex_experience_concurrency: int = 1
+    apdex_experience_error_scope: str = DEFAULT_UX_ERROR_SCOPE
+    apdex_experience_settle: float = DEFAULT_UX_SETTLE_SECONDS
+    apdex_experience_delay: float = DEFAULT_UX_DELAY_SECONDS
+    apdex_experience_concurrency: int = DEFAULT_UX_CONCURRENCY
     apdex_dynatrace_import: bool = False
     dynatrace_base_url: str = ""
     dynatrace_application_id: str = ""
@@ -107,6 +113,24 @@ def _blank_args() -> SimpleNamespace:
         apdex_timeout_seconds=None,
         apdex_delay_seconds=None,
         apdex_concurrency=None,
+        apdex_experience=None,
+        apdex_experience_samples=None,
+        apdex_experience_max_attempts=None,
+        apdex_experience_max_pages=None,
+        apdex_experience_device_mix=None,
+        apdex_experience_session_mode=None,
+        apdex_experience_kpm=None,
+        apdex_experience_satisfied_seconds=None,
+        apdex_experience_frustrated_seconds=None,
+        apdex_experience_errors=None,
+        apdex_experience_error_scope=None,
+        apdex_experience_settle_seconds=None,
+        apdex_experience_delay_seconds=None,
+        apdex_experience_concurrency=None,
+        apdex_dynatrace_import=None,
+        dynatrace_base_url=None,
+        dynatrace_application_id=None,
+        apdex_dynatrace_config_json=None,
     )
 
 
@@ -115,7 +139,7 @@ def _apply_experience_state(state: State, cfg: ExperienceApdexConfig) -> None:
     state.apdex_experience_samples = cfg.target_samples_per_page
     state.apdex_experience_max_attempts = cfg.max_attempts_per_page
     state.apdex_experience_max_pages = cfg.max_pages
-    state.apdex_experience_device_mix = _mix_text(cfg)
+    state.apdex_experience_device_mix = _mix_text(cfg) or DEFAULT_UX_DEVICE_MIX
     state.apdex_experience_session_mode = cfg.session_mode
     state.apdex_experience_kpm = cfg.kpm
     state.apdex_experience_satisfied = cfg.satisfied_threshold_seconds
@@ -136,7 +160,7 @@ def apply_m23_environment_defaults(
     env: Mapping[str, str] | None = None,
     names: set[str] | None = None,
 ) -> tuple[str, ...]:
-    """Resolve M23 and, when present, M25 environment defaults."""
+    """Resolve the complete Navigation and User Experience Apdex environment state."""
     if names is not None and not (set(_ALL_APDEX_ENV_NAMES) & names):
         return ()
     environment = env if env is not None else os.environ
@@ -148,7 +172,7 @@ def apply_m23_environment_defaults(
             standard_max_pages=cfg.max_pages,
             standard_delay_seconds=cfg.delay_seconds,
             standard_concurrency=cfg.concurrency,
-        ) if cfg.enabled else ExperienceApdexConfig(enabled=False)
+        )
     except ValueError as exc:
         return (str(exc),)
     state.synthetic_apdex = cfg.enabled
@@ -383,7 +407,7 @@ def _latest_synthetic_event(path: Path) -> dict[str, object] | None:
 
 
 def observe_m23_workspace(workspace: Path, state: State) -> None:
-    """Project the latest M23/M25 synthetic event into the single-screen runtime header."""
+    """Project the latest synthetic event into the single-screen runtime header."""
     event = _latest_synthetic_event(workspace / "logs" / "audit.log")
     if event is None:
         return
@@ -487,7 +511,7 @@ def observe_m23_workspace(workspace: Path, state: State) -> None:
 
 
 def run_audit_from_console(state: State) -> int:
-    """Run the base console runtime with M23/M25 command/observation extension."""
+    """Run the base console runtime with both Synthetic Apdex domains."""
     from rasai import console_runtime
     original_build = console_runtime.build_command
     original_observe = console_runtime.observe_workspace
@@ -516,8 +540,9 @@ def render_m23_help(state: State) -> None:
     print("  Custo monetário : sem API paga própria e sem LLM; importação Dynatrace consulta apenas configuração.")
     print("  Carga            : " + load)
     print("  Governança       : ambos default OFF; Synthetic User Experience Apdex exige Synthetic Navigation Apdex; concorrência máxima 2; grupos grandes exigem autorização do alvo.")
+    print(f"  Mix Experience   : {state.apdex_experience_device_mix} (default {DEFAULT_UX_DEVICE_MIX}; soma obrigatória 100%).")
     if state.apdex_experience:
-        print(f"  Experiência atual: samples={state.apdex_experience_samples}; mix={state.apdex_experience_device_mix}; sessão={state.apdex_experience_session_mode}; KPM={state.apdex_experience_kpm}.")
+        print(f"  Experiência atual: samples={state.apdex_experience_samples}; sessão={state.apdex_experience_session_mode}; KPM={state.apdex_experience_kpm}.")
         if state.apdex_dynatrace_import:
             print("  Dynatrace        : token somente em DYNATRACE_API_TOKEN; nunca é serializado no INI/comando/report/SQLite.")
     if state.synthetic_apdex and attempts:
