@@ -137,7 +137,7 @@ Essa distinção é especialmente importante em páginas que agora existem sempr
 
 `crawling-discovery.html` concentra robots/crawler policy, sitemaps, feeds, `llms.txt` experimental e evidências correlatas. Quando artifacts textuais foram efetivamente capturados, o relatório pode exibir uma pré-visualização read-only sem fazer nova requisição de rede.
 
-`llms.txt` permanece sinal experimental/advisory. Sua presença, ausência ou erro não é convertido diretamente em penalidade do `SARI-001`.
+O peso direto de `llms.txt` no `SARI-001` é `0`: presença, ausência ou erro não alteram `SCORE-GEO-004`. O arquivo permanece um sinal experimental/advisory, não um requisito normativo de Search ou de sistemas generativos.
 
 Diagnósticos auxiliares permanecem advisory. Quando IA técnica estiver habilitada e produzir avaliação evidence-bound válida de robots/sitemap, somente a classe bounded do mesmo recurso pode compartilhar o grupo de scoring correspondente, com fatores estáticos e sem bônus duplicado.
 
