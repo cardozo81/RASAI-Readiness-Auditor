@@ -40,6 +40,8 @@ Exemplos:
 - `depth=10`: Top 10;
 - `depth=20`: Top 20.
 
+Se o domínio auditado não aparecer, a interpretação é limitada pela profundidade escolhida. Com `depth=10`, por exemplo, o resultado significa **“domínio não observado no Top 10”**; não significa que o domínio não esteja ranqueado em posições posteriores.
+
 No provider Google/SerpApi vigente, a paginação usada pelo adapter trabalha em blocos de 10 posições. Portanto, posições `1-10` pertencem ao primeiro bloco/página consultado e posições `11-20` exigem um segundo bloco/página. Aumentar a profundidade amplia a chance de localizar o domínio auditado e identificar concorrentes fora do Top 10, mas pode aumentar quota e duração.
 
 O teto conservador de requests para Google/SerpApi considera quantidade de termos, blocos de 10 posições e tentativas incluindo retries. Com `retries=1`, por exemplo:
