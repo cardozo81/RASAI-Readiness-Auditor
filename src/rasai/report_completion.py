@@ -120,8 +120,10 @@ def finalize_audit_report_site(*, audit_id: str, workspace: AuditWorkspace) -> A
     from rasai.m24_reporting import enrich_m24_report_site
     from rasai.m25_reporting import enrich_m25_report_site
     from rasai.rasai_readiness_reporting import enrich_rasai_reporting
+    from rasai.report_consistency_v2 import reconcile_report_outputs
     from rasai.report_manifest import write_report_manifest
     from rasai.report_site import materialize_report_site
+    from rasai.report_validation_reconciliation import reconcile_validated_report_details
     from rasai.score_geo_004_reporting import write_score_geo_004_report
 
     errors: list[str] = []
@@ -147,11 +149,14 @@ def finalize_audit_report_site(*, audit_id: str, workspace: AuditWorkspace) -> A
     if "apdex-experience.html" in expected_before:
         run("apdex-experience", lambda: enrich_m25_report_site(audit_id=audit_id, workspace=workspace))
 
-    # Scoring and final navigation/manifest are last so every page receives the same
-    # canonical navigation and the manifest observes the final filesystem state.
+    # Scoring is rendered before the final semantic consistency pass. The consistency
+    # pass must be last among report-domain enrichers because earlier renderers may
+    # re-introduce legacy placeholders (for example Apdex inside Web Performance).
     run("scoring", lambda: write_score_geo_004_report(audit_id=audit_id, workspace=workspace))
     report_dir = workspace.root / "report"
+    run("consistency", lambda: reconcile_report_outputs(audit_id=audit_id, workspace=workspace))
     run("navigation", lambda: report_navigation.normalize_report_navigation(report_dir))
+    run("validated-presentation", lambda: reconcile_validated_report_details(audit_id=audit_id, workspace=workspace))
     run("manifest", lambda: write_report_manifest(report_dir))
 
     inspected = inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
