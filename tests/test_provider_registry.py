@@ -42,7 +42,7 @@ class ProviderRegistryTests(unittest.TestCase):
             self.assertTrue(registration.auto_eligible)
             self.assertFalse(registration.explicit_only)
 
-    def test_extension_metadata_is_derived_from_adapter_sources(self) -> None:
+    def test_extension_metadata_is_derived_from_adapter_sources_and_auto_eligible(self) -> None:
         provider_names = tuple(dict.fromkeys(_PROVIDER_ALIASES.values()))
         for provider_name in provider_names:
             registration = get_provider_registration(provider_name)
@@ -53,8 +53,8 @@ class ProviderRegistryTests(unittest.TestCase):
             self.assertEqual(registration.endpoint_env, EXTENDED_ENDPOINT_ENV[provider_name])
             self.assertEqual(registration.supported_models, EXTENDED_SUPPORTED_MODELS[provider_name])
             self.assertEqual(registration.default_model, EXTENDED_DEFAULT_MODELS[provider_name])
-            self.assertFalse(registration.auto_eligible)
-            self.assertTrue(registration.explicit_only)
+            self.assertTrue(registration.auto_eligible)
+            self.assertFalse(registration.explicit_only)
 
     def test_extension_aliases_and_cli_choices_are_registry_driven(self) -> None:
         self.assertEqual(
@@ -71,8 +71,11 @@ class ProviderRegistryTests(unittest.TestCase):
             ),
         )
 
-    def test_auto_chain_remains_legacy_only(self) -> None:
-        self.assertEqual(auto_provider_ids(), ("openai", "deepseek", "mimo"))
+    def test_auto_pool_is_registry_driven(self) -> None:
+        self.assertEqual(
+            auto_provider_ids(),
+            ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic"),
+        )
 
     def test_mimo_payg_key_constraint_is_exposed_to_consumers(self) -> None:
         registration = get_provider_registration("mimo")
