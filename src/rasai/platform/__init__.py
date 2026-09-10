@@ -10,9 +10,8 @@ from pathlib import Path
 
 from rasai.runtime_paths import CANONICAL_RUNTIME_DIR, runtime_directory
 
-# Keep the stable store module/API while moving the public local sidecar from
-# the legacy .rasai directory to .rasai. Setting the module constant before
-# importing CentralPlatformStore also keeps direct store imports compatible.
+# Bind the store module to the canonical runtime directory before importing
+# CentralPlatformStore so every supported import path resolves the same sidecar.
 from . import store as _store
 
 _store._PLATFORM_DIR = CANONICAL_RUNTIME_DIR
