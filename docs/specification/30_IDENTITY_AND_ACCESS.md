@@ -1,11 +1,11 @@
 # 30 - Identity & SaaS Access
 
-**Estado:** vigente para a fundação de identidade da camada Web/SaaS.  
+**Estado:** VIGENTE para a fundação de identidade da camada Web/SaaS.  
 **Natureza:** autenticação, vínculo de identidade e sessão Web; não altera scoring.
 
 ## 1. Objetivo
 
-Definir uma fronteira de autenticação adequada à evolução SaaS sem criar password database próprio, sem transformar o Identity Provider em fonte de autorização RASAi e sem alterar `SARI-001`, `SCORE-GEO-004`, Search Intelligence ou a evidência imutável dos AUDs.
+Definir uma fronteira de autenticação adequada à evolução SaaS sem criar banco de senhas próprio, sem transformar o Identity Provider em fonte de autorização RASAi e sem alterar `SARI-001`, `SCORE-GEO-004`, Search Intelligence ou a evidência imutável dos AUDs.
 
 ## 2. Separação normativa
 
@@ -24,7 +24,7 @@ Uma identidade autenticada não recebe acesso sem vínculo interno e membership 
 
 ## 3. Requisitos normativos
 
-`IAM-001` - o RASAi não deve possuir password database próprio como requisito da fundação SaaS.
+`IAM-001` - o RASAi não deve possuir banco de senhas próprio como requisito da fundação SaaS.
 
 `IAM-002` - o mecanismo preferencial de autenticação Web hospedada deve ser provider-neutral e baseado em OIDC/JWT, sem vincular o produto a um Identity Provider específico.
 
@@ -72,13 +72,12 @@ Uma identidade autenticada não recebe acesso sem vínculo interno e membership 
 
 `IAM-024` - o runtime CLI sem `.[web]` deve continuar utilizável; dependências JWT/crypto pertencem à extra Web.
 
-## 4. Modos de autenticação
+## 4. Configuração dos modos de autenticação
 
-```text
-deny
-trusted-header
-oidc
-```
+| Variável | Default efetivo | Valores permitidos | Recomendado |
+|---|---|---|---|
+| `RASAI_API_AUTH_MODE` | `deny` | `deny`, `trusted-header`, `oidc` | `deny` enquanto não configurado; `oidc` para hospedagem; `trusted-header` somente atrás de gateway confiável ou em desenvolvimento local |
+| `RASAI_API_TRUSTED_USER_HEADER` | `x-rasai-user-id` | nome de header não vazio e sem espaços | manter default, salvo contrato explícito com gateway |
 
 ### `deny`
 
@@ -95,7 +94,7 @@ O gateway precisa remover o header recebido externamente, injetar identidade som
 
 ### `oidc`
 
-O RASAi valida identidade diretamente por OIDC/JWT e converte o resultado para `Principal` somente após resolver o vínculo explícito no control plane.
+É o modo recomendado para uma implantação hospedada. O RASAi valida identidade diretamente por OIDC/JWT e converte o resultado para `Principal` somente após resolver o vínculo explícito no control plane.
 
 ## 5. External Identity Link
 
@@ -123,7 +122,7 @@ rasai platform identity unlink
 
 Um `(issuer, subject)` não pode apontar simultaneamente para dois usuários RASAi.
 
-## 6. Browser flow
+## 6. Fluxo no navegador
 
 ```text
 /app
@@ -145,9 +144,9 @@ O callback somente estabelece sessão se o vínculo resolver para usuário inter
 
 ## 7. Bearer API
 
-Clientes não-browser podem enviar JWT via `Authorization: Bearer`.
+Clientes que não usam browser podem enviar JWT via `Authorization: Bearer`.
 
-O token deve ser validado antes do lookup de identidade. Um token criptograficamente válido mas não vinculado ao control plane resulta em recusa de autorização de identidade, não em provisionamento automático.
+O token deve ser validado antes do lookup de identidade. Token criptograficamente válido, mas não vinculado ao control plane, resulta em recusa; não existe provisionamento automático implícito.
 
 ## 8. Sessão e CSRF
 
@@ -174,13 +173,13 @@ platform_identity_schema_migrations
 external_identities
 ```
 
-Migration:
+Migration explícita:
 
 ```text
 rasai platform database migrate
 ```
 
-O health/status deve reportar versão corrente e versão suportada da extensão de identidade.
+O health/status deve reportar versão corrente e suportada da extensão de identidade.
 
 SQLite continua sendo o backend default do piloto local e cria a extensão de forma aditiva.
 
@@ -194,11 +193,11 @@ Estados mínimos esperados:
 403  identidade válida mas não provisionada ou acesso fora do membership
 ```
 
-Os detalhes de erro não devem revelar tokens, cookies, secrets ou conteúdo sensível recebido do IdP.
+Detalhes de erro não devem revelar tokens, cookies, secrets ou conteúdo sensível recebido do IdP.
 
-## 11. Fora de escopo
+## 11. Fora de escopo desta fundação
 
-Não fazem parte desta fundação:
+Não fazem parte desta especificação:
 
 - SCIM;
 - Just-In-Time provisioning;
