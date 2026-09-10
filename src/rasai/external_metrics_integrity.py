@@ -27,7 +27,15 @@ _CATEGORY_COLUMNS = {
     "accessibility": "accessibility_score",
     "best-practices": "best_practices_score",
     "seo": "seo_score",
+    "agentic-browsing": "agentic_browsing_score",
 }
+# Agentic Browsing is intentionally requested by default, but remains an
+# experimental Lighthouse category. PageSpeed/Lighthouse deployments can expose
+# the category unevenly while it is rolling out. Its absence is therefore
+# recorded and its score cleared, but it must not downgrade an otherwise valid
+# core Lighthouse context to PARTIAL. If/when the category becomes stable this
+# exception can be removed in a versioned change.
+_OPTIONAL_EXPERIMENTAL_CATEGORIES = frozenset({"agentic-browsing"})
 _LIGHTHOUSE_PERFORMANCE_COLUMNS = (
     "performance_score",
     "fcp_lab_ms",
@@ -69,7 +77,12 @@ class ExternalMetricsIntegrity:
             "audit_id": self.audit_id,
             "semantics": {
                 "pagespeed_success": "HTTP/API transport success only",
-                "lighthouse_valid": "lighthouseResult exists, has no fatal runtimeError and requested category scores are usable",
+                "lighthouse_valid": (
+                    "lighthouseResult exists, has no fatal runtimeError and stable requested "
+                    "category scores are usable; missing experimental Agentic Browsing is recorded "
+                    "but does not downgrade the context"
+                ),
+                "experimental_optional_categories": sorted(_OPTIONAL_EXPERIMENTAL_CATEGORIES),
                 "accessibility_score": "source score supplied by Lighthouse; RASAi does not recalculate it",
                 "score_geo_dependency": False,
             },
@@ -86,9 +99,11 @@ def reconcile_external_metrics_integrity(
     """Validate PSI/Lighthouse artifacts and remove invalid derived values.
 
     A PSI HTTP 200 remains an API-attempt success for telemetry, but Lighthouse
-    values are discarded when the LHR is absent/fatally errored. Missing
+    values are discarded when the LHR is absent/fatally errored. Missing stable
     requested categories make the observation PARTIAL when other evidence is
-    still usable. Raw PSI artifacts are never modified.
+    still usable. Missing experimental Agentic Browsing is preserved as an
+    integrity fact without downgrading a valid core Lighthouse run. Raw PSI
+    artifacts are never modified.
     """
 
     if not workspace.database.is_file():
@@ -146,7 +161,7 @@ def reconcile_external_metrics_integrity(
         con.close()
 
     integrity = ExternalMetricsIntegrity(
-        version="EXTERNAL-METRICS-INTEGRITY-1",
+        version="EXTERNAL-METRICS-INTEGRITY-2",
         audit_id=audit_id,
         contexts=tuple(contexts),
     )
@@ -159,6 +174,10 @@ def reconcile_external_metrics_integrity(
     )
     valid_lighthouse = sum(item.lighthouse_status == "VALID" for item in contexts)
     valid_accessibility = sum(item.accessibility_valid for item in contexts)
+    experimental_missing = sum(
+        bool(set(item.missing_or_invalid_categories) & _OPTIONAL_EXPERIMENTAL_CATEGORIES)
+        for item in contexts
+    )
     try_append_operational_event(
         workspace,
         "EXTERNAL_METRICS_INTEGRITY_RECONCILED",
@@ -167,6 +186,7 @@ def reconcile_external_metrics_integrity(
         lighthouse_valid_contexts=valid_lighthouse,
         accessibility_valid_contexts=valid_accessibility,
         lighthouse_invalid_contexts=len(contexts) - valid_lighthouse,
+        experimental_category_missing_contexts=experimental_missing,
         policy="PAGESPEED_TRANSPORT_IS_NOT_LIGHTHOUSE_VALIDITY",
         artifact=ARTIFACT,
     )
@@ -193,6 +213,10 @@ def enrich_external_metrics_integrity_report_site(*, audit_id: str, workspace: A
     a11y_valid = sum(bool(item.get("accessibility_valid")) for item in contexts)
     perf_valid = sum(bool(item.get("performance_valid")) for item in contexts)
     field_valid = sum(bool(item.get("field_data_valid")) for item in contexts)
+    experimental_missing = sum(
+        "agentic-browsing" in (item.get("missing_or_invalid_categories") or [])
+        for item in contexts
+    )
     rows = "".join(_context_row(item) for item in contexts) or "<tr><td colspan='7'>Nenhum contexto externo materializado.</td></tr>"
     block = (
         REPORT_MARKER_START
@@ -201,11 +225,14 @@ def enrich_external_metrics_integrity_report_site(*, audit_id: str, workspace: A
         "<h2>PageSpeed, Lighthouse, CrUX e Acessibilidade: cobertura real</h2>"
         "<div class='notice warn'><strong>PageSpeed HTTP 200 não significa Lighthouse válido.</strong> "
         "O RASAi valida <code>lighthouseResult</code>, descarta métricas Lighthouse quando existe "
-        "<code>runtimeError</code> fatal e trata categoria solicitada ausente como evidência incompleta. "
-        "Falha/quota/timeout do PageSpeed é indisponibilidade da medição externa, não defeito do website e não reduz SCORE-GEO-004.</div>"
+        "<code>runtimeError</code> fatal e trata categoria estável solicitada ausente como evidência incompleta. "
+        "<strong>Agentic Browsing é experimental:</strong> ausência isolada dessa categoria é registrada, mas não "
+        "rebaixa um contexto Lighthouse estável válido. Falha/quota/timeout do PageSpeed é indisponibilidade da "
+        "medição externa, não defeito do website e não reduz SCORE-GEO-004.</div>"
         f"<div class='metric-grid'>{_metric('Contextos externos', total)}"
         f"{_metric('Lighthouse válido', f'{lh_valid}/{total}')}{_metric('Performance válida', f'{perf_valid}/{total}')}"
-        f"{_metric('Acessibilidade válida', f'{a11y_valid}/{total}')}{_metric('Field data válido', f'{field_valid}/{total}')}</div>"
+        f"{_metric('Acessibilidade válida', f'{a11y_valid}/{total}')}{_metric('Field data válido', f'{field_valid}/{total}')}"
+        f"{_metric('Agentic ausente/invalid', f'{experimental_missing}/{total}')}</div>"
         "<p class='intro'><strong>Acessibilidade:</strong> o valor 0-100 é o score fornecido pelo Lighthouse para a categoria "
         "<code>accessibility</code>. O RASAi não recalcula esse score. Médias entre páginas/dispositivos são apenas estatística "
         "descritiva sobre contextos que efetivamente possuem score válido; ausência de categoria/score nunca vira zero.</p>"
@@ -282,7 +309,11 @@ def _validate_observation(
                     valid_categories.append(category)
                 else:
                     invalid_categories.append(category)
-            lighthouse_status = "VALID" if not invalid_categories else "CATEGORY_INCOMPLETE"
+            blocking_invalid = [
+                item for item in invalid_categories
+                if item not in _OPTIONAL_EXPERIMENTAL_CATEGORIES
+            ]
+            lighthouse_status = "VALID" if not blocking_invalid else "CATEGORY_INCOMPLETE"
     else:
         invalid_categories.extend(requested_categories)
 
@@ -312,7 +343,11 @@ def _validate_observation(
     elif lighthouse_status == "RESULT_MISSING":
         integrity_errors.append("LIGHTHOUSE_RESULT_MISSING")
     elif invalid_categories:
-        integrity_errors.extend(f"LIGHTHOUSE_CATEGORY_INVALID:{item}" for item in invalid_categories)
+        integrity_errors.extend(
+            f"LIGHTHOUSE_CATEGORY_INVALID:{item}"
+            for item in invalid_categories
+            if item not in _OPTIONAL_EXPERIMENTAL_CATEGORIES
+        )
     merged_errors = tuple(dict.fromkeys((*old_errors, *integrity_errors)))
 
     usable = any_lighthouse_valid or field_valid
@@ -346,7 +381,7 @@ def _apply_updates(con: sqlite3.Connection, observation_id: str, updates: dict[s
         return
     allowed = {
         "status", "error_summary", "performance_score", "accessibility_score", "best_practices_score", "seo_score",
-        "fcp_lab_ms", "speed_index_lab_ms", "lcp_lab_ms", "tbt_lab_ms", "cls_lab",
+        "agentic_browsing_score", "fcp_lab_ms", "speed_index_lab_ms", "lcp_lab_ms", "tbt_lab_ms", "cls_lab",
     }
     items = [(key, value) for key, value in updates.items() if key in allowed]
     if not items:
