@@ -16,7 +16,7 @@ O scoring é determinístico, evidence-bound e usa as **11 dimensões** definida
 
 Dimensões integralmente e legitimamente `NOT_APPLICABLE` são excluídas do denominador aplicável e não recebem score artificial 0 ou 100. Ausência de evidência suficiente não é convertida em falha.
 
-JSON-LD permanece `OPCIONAL / REFORÇO`. A ausência de JSON-LD é materializada por `BR-GEO-034` como `WARNING` de baixo impacto para tornar a lacuna observável e comparável; `BR-GEO-035..037` permanecem `NOT_APPLICABLE` enquanto não houver JSON-LD. Essa materialização não transforma JSON-LD em requisito universal nem converte ausência em `FAIL`.
+JSON-LD permanece `OPCIONAL / REFORÇO`. O contrato distingue a **observação persistida pela regra** da **interpretação efetiva do scoring**: quando `BR-GEO-034` registra explicitamente que Structured Data está ausente, o `SCORE-GEO-004` aplica sua política versionada de aplicabilidade e trata essa execução como `NOT_APPLICABLE` para scoring, com `reason=STRUCTURED_DATA_ABSENT_NOT_UNIVERSAL_SARI_REQUIREMENT`, preservando o resultado-fonte no estado observado. `BR-GEO-035..037` também permanecem `NOT_APPLICABLE` quando não existe Structured Data a avaliar. Assim, ausência legítima de JSON-LD não reduz o SARI, não recebe score artificial e não é apresentada como requisito universal.
 
 ## D-003 - Evidência de auditoria imutável
 
