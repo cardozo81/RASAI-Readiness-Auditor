@@ -45,7 +45,7 @@ Quando uma variável permanece `auto`, **a configuração oficial continua sendo
 - não substitui configuração humana quando o contexto do domínio é conhecido;
 - não é evidência determinística e não entra diretamente em `SARI-001`/`SCORE-GEO-004`.
 
-A finalidade dessa leitura é comparativa: o usuário pode considerar humanamente uma página não-YMYL, por exemplo, e ainda enxergar que o conteúdo fornecido levou um modelo a interpretá-la como relacionado a finanças, saúde, segurança ou outro contexto material — acompanhado de justificativa e confiança quando disponíveis.
+A finalidade dessa leitura é comparativa: o usuário pode considerar humanamente uma página não-YMYL, por exemplo, e ainda enxergar que o conteúdo fornecido levou um modelo a interpretá-la como relacionado a finanças, saúde, segurança ou outro contexto material - acompanhado de justificativa e confiança quando disponíveis.
 
 ## Variáveis
 
