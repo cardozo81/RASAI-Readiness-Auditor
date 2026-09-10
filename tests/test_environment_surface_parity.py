@@ -3,6 +3,10 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from rasai.runtime_completion_extensions import install_runtime_completion_extensions
+
+install_runtime_completion_extensions()
+
 from rasai.console_environment import ENV_NAMES, SPEC_BY_NAME
 from rasai.m25_cli import DEFAULT_UX_DEVICE_MIX, parse_device_mix
 from rasai.provider_registry import provider_environment_names
@@ -102,6 +106,11 @@ def test_every_exposed_environment_variable_has_metadata() -> None:
     assert set(SPEC_BY_NAME) == set(ENV_NAMES)
     assert all(SPEC_BY_NAME[name].purpose for name in ENV_NAMES)
     assert all(SPEC_BY_NAME[name].value_type for name in ENV_NAMES)
+
+
+def test_exchange_log_limit_is_exposed_in_console_catalog() -> None:
+    assert "RASAI_AI_EXCHANGE_LOG_MAX_BYTES" in ENV_NAMES
+    assert "RASAI_AI_EXCHANGE_LOG_MAX_BYTES" in SPEC_BY_NAME
 
 
 def test_experience_apdex_has_a_valid_default_device_distribution() -> None:
