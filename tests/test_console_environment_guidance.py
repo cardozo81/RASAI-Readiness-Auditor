@@ -43,8 +43,8 @@ def test_known_domains_and_effective_defaults_are_exposed() -> None:
     assert field.default == "auto"
 
     lighthouse = SPEC_BY_NAME["RASAI_LIGHTHOUSE_CATEGORIES"]
-    assert lighthouse.accepted == ("performance", "accessibility", "best-practices", "seo")
-    assert lighthouse.default == "performance,accessibility,best-practices,seo"
+    assert lighthouse.accepted == ("performance", "accessibility", "best-practices", "seo", "agentic-browsing")
+    assert lighthouse.default == "performance,accessibility,best-practices,seo,agentic-browsing"
 
     concurrency = SPEC_BY_NAME["RASAI_APDEX_CONCURRENCY"]
     assert concurrency.accepted == ("1", "2")
@@ -84,6 +84,7 @@ def test_known_domains_and_effective_defaults_are_exposed() -> None:
     assert SPEC_BY_NAME["RASAI_OPENAI_REASONING_EFFORT"].default == "NONE"
     assert "RASAI_QWEN_REASONING_EFFORT" not in SPEC_BY_NAME
     assert "RASAI_AI_EXCHANGE_LOG_MAX_BYTES" in SPEC_BY_NAME
+    assert "RASAI_AI_AUTO_EXCLUDE" in SPEC_BY_NAME
 
 
 def test_additional_console_validation_rejects_invalid_values(tmp_path) -> None:
@@ -95,9 +96,12 @@ def test_additional_console_validation_rejects_invalid_values(tmp_path) -> None:
         _validate("RASAI_LIGHTHOUSE_CATEGORIES", "performance,unknown")
     with pytest.raises(ValueError):
         _validate("RASAI_LIGHTHOUSE_CATEGORIES", "seo,seo")
-    with pytest.raises(ValueError):
-        _validate("RASAI_LIGHTHOUSE_CATEGORIES", "agentic-browsing")
+    assert _validate("RASAI_LIGHTHOUSE_CATEGORIES", "agentic-browsing") == "agentic-browsing"
     assert _validate("RASAI_LIGHTHOUSE_CATEGORIES", "performance, seo") == "performance,seo"
+
+    assert _validate("RASAI_AI_AUTO_EXCLUDE", "GEMINI, openai") == "gemini,openai"
+    with pytest.raises(ValueError):
+        _validate("RASAI_AI_AUTO_EXCLUDE", "not-a-provider")
 
     with pytest.raises(ValueError):
         _validate("RASAI_AI_EXCHANGE_LOG_MAX_BYTES", "4095")
