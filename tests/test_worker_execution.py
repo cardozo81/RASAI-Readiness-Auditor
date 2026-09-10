@@ -5,6 +5,7 @@ import tempfile
 
 import pytest
 
+from rasai.m25_cli import DEFAULT_UX_FRUSTRATED_SECONDS, DEFAULT_UX_SATISFIED_SECONDS
 from rasai.platform.secure_store import SecurePlatformStore
 from rasai.worker import _audit_arguments, execute_job
 from rasai.worker_cli import main as worker_main
@@ -54,16 +55,39 @@ def test_audit_job_builds_only_canonical_arguments() -> None:
             assert "--no-ai-content-remediation" in argv
             assert not any(value in {"cmd", "powershell", "bash", "sh"} for value in argv)
 
-            invalid = store.enqueue_execution_job(
+            with pytest.raises(ValueError, match="unsupported AUDIT execution payload"):
+                store.enqueue_execution_job(
+                    project_id=project.project_id,
+                    property_id=prop.property_id,
+                    environment_id=environment.environment_id,
+                    job_type="AUDIT",
+                    requested_by=user.user_id,
+                    payload={"language": "pt-BR", "argv": ["--unsafe"]},
+                )
+
+
+def test_experience_apdex_job_uses_same_default_thresholds_as_cli_runtime() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        with SecurePlatformStore(Path(directory) / "platform.db") as store:
+            project, prop, environment, user = _scope(store)
+            job = store.enqueue_execution_job(
                 project_id=project.project_id,
                 property_id=prop.property_id,
                 environment_id=environment.environment_id,
                 job_type="AUDIT",
                 requested_by=user.user_id,
-                payload={"language": "pt-BR", "argv": ["--unsafe"]},
+                payload={
+                    "synthetic_apdex": True,
+                    "apdex_threshold_seconds": 1.0,
+                    "apdex_experience": True,
+                },
             )
-            with pytest.raises(ValueError, match="unsupported AUDIT execution payload"):
-                _audit_arguments(store, invalid, Path(directory) / "audits")
+            argv = _audit_arguments(store, job, Path(directory) / "audits")
+            satisfied_index = argv.index("--apdex-experience-satisfied-seconds") + 1
+            frustrated_index = argv.index("--apdex-experience-frustrated-seconds") + 1
+            assert argv[satisfied_index] == f"{DEFAULT_UX_SATISFIED_SECONDS:g}"
+            assert argv[frustrated_index] == f"{DEFAULT_UX_FRUSTRATED_SECONDS:g}"
+            assert "--no-apdex-dynatrace-import" in argv
 
 
 def test_report_refresh_job_executes_outside_http_process() -> None:

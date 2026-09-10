@@ -4,6 +4,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from rasai.execution_contract import validate_execution_job_payload
+
 from .consumption import usage_analytics as aggregate_usage
 from .saas_management import SaaSManagementMixin
 from .saas_scheduler_runtime import materialize_due_schedules
@@ -11,6 +13,18 @@ from .secure_store import SecurePlatformStore
 
 
 class _SaaSRuntimeMixin:
+    def create_managed_schedule(self, **kwargs: Any) -> dict[str, Any]:
+        validate_execution_job_payload(kwargs.get("job_type", ""), kwargs.get("payload") or {})
+        return super().create_managed_schedule(**kwargs)  # type: ignore[misc]
+
+    def update_managed_schedule(self, schedule_id: str, **kwargs: Any) -> dict[str, Any]:
+        if kwargs.get("payload") is not None:
+            current = self.get_managed_schedule(schedule_id)
+            if current is None:
+                raise KeyError(f"schedule not found: {schedule_id}")
+            validate_execution_job_payload(current["job_type"], kwargs["payload"])
+        return super().update_managed_schedule(schedule_id, **kwargs)  # type: ignore[misc]
+
     def materialize_due_schedules(self, *, now: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         return materialize_due_schedules(self, now=now, limit=limit)
 

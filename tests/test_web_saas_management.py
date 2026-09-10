@@ -9,6 +9,7 @@ pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
 from fastapi.testclient import TestClient
 
+from rasai.m25_cli import DEFAULT_UX_FRUSTRATED_SECONDS, DEFAULT_UX_SATISFIED_SECONDS
 from rasai.platform.saas_store import SaaSSecurePlatformStore
 from rasai.web.app import ApiSettings
 from rasai.web.auth import ApiAuthSettings
@@ -96,6 +97,14 @@ def test_schedule_api_crud_rbac_tenant_isolation_and_preview() -> None:
         database = Path(directory) / "platform.db"
         seed = _seed(database)
         with TestClient(_app(database)) as client:
+            options = client.get("/api/v1/audit-job-options", headers=_h(seed["operator"]))
+            assert options.status_code == 200, options.text
+            defaults = options.json()["defaults"]
+            assert defaults["apdex_experience_satisfied_seconds"] == DEFAULT_UX_SATISFIED_SECONDS
+            assert defaults["apdex_experience_frustrated_seconds"] == DEFAULT_UX_FRUSTRATED_SECONDS
+            assert "lighthouse_categories" in defaults
+            assert "ai_provider" in defaults
+
             created = client.post(
                 f"/api/v1/projects/{seed['project_a'].project_id}/schedules",
                 headers=_h(seed["operator"]),
@@ -105,6 +114,13 @@ def test_schedule_api_crud_rbac_tenant_isolation_and_preview() -> None:
             schedule = created.json()
             assert schedule["urls"] == ["https://a.example.test/a", "https://a.example.test/b"]
             schedule_id = schedule["schedule_id"]
+
+            invalid_payload = client.post(
+                f"/api/v1/projects/{seed['project_a'].project_id}/schedules",
+                headers=_h(seed["operator"]),
+                json={**_body(seed), "name": "Invalid payload", "payload": {"unsupported_runtime_option": True}},
+            )
+            assert invalid_payload.status_code == 422
 
             listed = client.get(
                 f"/api/v1/projects/{seed['project_a'].project_id}/schedules",
@@ -147,6 +163,13 @@ def test_schedule_api_crud_rbac_tenant_isolation_and_preview() -> None:
             assert patched.status_code == 200, patched.text
             assert patched.json()["recurrence"]["month_days"] == [1, 15]
 
+            bad_patch = client.patch(
+                f"/api/v1/schedules/{schedule_id}",
+                headers=_h(seed["operator"]),
+                json={"payload": {"synthetic_apdex": True}},
+            )
+            assert bad_patch.status_code == 422
+
             paused = client.post(f"/api/v1/schedules/{schedule_id}/pause", headers=_h(seed["operator"]))
             assert paused.status_code == 200 and paused.json()["status"] == "PAUSED"
             resumed = client.post(f"/api/v1/schedules/{schedule_id}/resume", headers=_h(seed["operator"]))
@@ -164,6 +187,13 @@ def test_schedule_api_crud_rbac_tenant_isolation_and_preview() -> None:
             assert operations.status_code == 200
             assert "Scheduling Management" in operations.text
             assert "Consumption Analytics" in operations.text
+            assert "Configuração AUDIT canônica" in operations.text
+            assert "/api/v1/audit-job-options" in operations.text
+
+            pilot = client.get("/app")
+            assert pilot.status_code == 200
+            assert 'id="audit-config"' in pilot.text
+            assert "/api/v1/audit-job-options" in pilot.text
 
 
 def test_consumption_api_filters_groups_and_never_invents_missing_cost() -> None:
@@ -175,9 +205,11 @@ def test_consumption_api_filters_groups_and_never_invents_missing_cost() -> None
                 f"/api/v1/organizations/{seed['org_a'].organization_id}/consumption",
                 headers=_h(seed["operator"]),
                 params={
+                    "workspace_id": seed["ws_a"].workspace_id,
                     "project_id": seed["project_a"].project_id,
                     "property_id": seed["prop_a"].property_id,
                     "environment_id": seed["env_a"].environment_id,
+                    "domain": "a.example.test",
                     "user_id": seed["operator"].user_id,
                     "start": "2026-09-10T00:00:00-03:00",
                     "end": "2026-09-11T00:00:00-03:00",
@@ -190,6 +222,21 @@ def test_consumption_api_filters_groups_and_never_invents_missing_cost() -> None
             assert data["summary"]["cost_by_currency"] == {"USD": 0.10}
             assert data["summary"]["total_tokens"] == 50
             assert data["coverage"]["with_url"] == 1
+            assert data["coverage"]["with_workspace"] == 1
+
+            period = client.get(
+                f"/api/v1/organizations/{seed['org_a'].organization_id}/consumption",
+                headers=_h(seed["operator"]),
+                params={"period": "LAST_30_DAYS", "timezone": "America/Sao_Paulo"},
+            )
+            assert period.status_code == 200, period.text
+
+            invalid_period = client.get(
+                f"/api/v1/organizations/{seed['org_a'].organization_id}/consumption",
+                headers=_h(seed["operator"]),
+                params={"period": "TODAY", "start": "2026-09-10T00:00:00-03:00"},
+            )
+            assert invalid_period.status_code == 422
 
             foreign = client.get(
                 f"/api/v1/organizations/{seed['org_a'].organization_id}/consumption",

@@ -66,7 +66,7 @@ O piloto oferece:
    - status e versão de scoring persistida;
    - quantidade de URLs;
    - abertura do mini-site HTML já materializado no AUD;
-   - criação de durable `AUDIT` job.
+   - criação de durable `AUDIT` job usando o contrato canônico de configuração do runtime.
 3. **Search Intelligence**
    - Query Registry do Project;
    - provider/engine e domínio de interesse quando materializados;
@@ -82,6 +82,10 @@ O piloto oferece:
    - agregação do usage ledger persistido no control plane;
    - quantidade/unidade/provider;
    - custo estimado e moeda quando existentes.
+7. **Operações SaaS**
+   - criação, edição, pausa, retomada, duplicação e desativação de managed schedules;
+   - configuração `AUDIT` completa derivada do mesmo contrato usado pelo worker;
+   - Consumption Analytics com filtros tenant-aware por escopo, domínio, URL, usuário, execução, provider, integração, operação, status, modelo e recurso.
 
 ## Hierarquia e tenancy
 
@@ -208,26 +212,36 @@ GET  /auth/callback
 POST /auth/logout
 ```
 
-Projeções aditivas:
+Projeções e contratos aditivos:
 
 ```text
+GET /api/v1/audit-job-options
 GET /api/v1/projects/{project_id}/milestones
 GET /api/v1/milestones/{milestone_id}/deployment-pair
 GET /api/v1/organizations/{organization_id}/usage
+GET /api/v1/organizations/{organization_id}/consumption
 GET /api/v1/audits/{audit_id}/reports
 GET /api/v1/audits/{audit_id}/reports/{asset_path}
 ```
 
 Os endpoints existentes de Organizations, Workspaces, Projects, Properties, Environments, Audits, Search Queries e Execution Jobs continuam reutilizados sem contrato paralelo.
 
+`GET /api/v1/audit-job-options` é a superfície canônica, autenticada e não secreta para materializar na Web os defaults e opções aceitos por durable `AUDIT` jobs. A UI não mantém uma segunda lista independente desses parâmetros.
+
 ## Criar auditoria pela UI
 
-A tela cria `AUDIT` execution job com payload estruturado dentro do allowlist que o worker já aceita, incluindo:
+A tela cria `AUDIT` execution job com payload estruturado dentro do allowlist canônico aceito pelo worker. Esse contrato abrange, quando aplicável:
 
-- `max_pages`;
-- `device_context`;
-- `ai_provider`;
-- `web_performance`.
+- idioma, mercado, limite de páginas e device context;
+- seleção de provider/modelo de IA e opções não secretas de remediação;
+- Web Performance e categorias Lighthouse;
+- Synthetic Navigation Apdex;
+- Synthetic User Experience Apdex, incluindo KPM, device mix, error scope e thresholds;
+- contexto de conteúdo/YMYL e demais dimensões de análise expostas pelo contrato.
+
+Defaults do Synthetic User Experience Apdex são os mesmos usados pelo CLI/runtime. O usuário não precisa materializar thresholds manualmente quando aceita o padrão; valores explicitamente customizados continuam validados pelo mesmo contrato.
+
+Payloads são validados antes de serem persistidos tanto em execution jobs quanto em managed schedules. Opção desconhecida, combinação inválida ou segredo inline falha antes de entrar na fila.
 
 Nenhum shell command/argv arbitrário é enviado pelo browser.
 
@@ -239,6 +253,12 @@ rasai worker run-once --worker-id worker-01 --audits-root audits
 
 Request HTTP e execução pesada permanecem desacopladas.
 
+### Dynatrace no SaaS
+
+O runtime local continua podendo importar configuração Dynatrace pelas opções próprias do CLI. O worker SaaS genérico não habilita essa importação a partir de secrets process-wide, porque um ambiente multi-tenant precisa resolver a configuração/credencial a partir de uma integração vinculada ao tenant da execução.
+
+Credencial Dynatrace não pertence a `payload_json`. A habilitação hosted deve usar referência segura de Integration/secret por Organization/Project/Property e resolver o segredo somente no worker autorizado.
+
 ## Compatibilidade SQLite/PostgreSQL
 
 Nenhuma rota do piloto acessa SQLite diretamente.
@@ -249,6 +269,8 @@ As rotas usam `app.state.store_factory`, a mesma composição de backend da API:
 SQLite       -> piloto local/default
 PostgreSQL   -> piloto centralizado/hosted
 ```
+
+O contrato de payload é compartilhado antes da persistência e independe do backend. Novas opções não secretas de auditoria permanecem em `payload_json`; portanto não exigem migration relacional apenas por adicionar uma opção de runtime.
 
 O vínculo externo de identidade também pertence ao control plane e não ao `audit.db`.
 
@@ -285,6 +307,7 @@ O SaaS Pilot Web ainda não afirma prontidão completa de produção SaaS. Perma
 - multi-region;
 - hubs regionais;
 - runners privados remotos;
+- importação Dynatrace hosted sem vínculo de integração tenant-scoped;
 - migração dos `AUD-*/audit.db` para PostgreSQL;
 - frontend framework/build pipeline dedicado.
 
@@ -300,11 +323,14 @@ A superfície é considerada aderente quando:
 - identidade externa não provisionada não recebe acesso;
 - tenancy continua sendo revalidada no servidor;
 - auditorias e Search Query Registry podem ser consultados;
+- `/app` e `/app/operations` consomem o contrato canônico de configuração `AUDIT`;
 - `AUDIT` e `SEARCH_MONITOR` podem ser enfileirados pela API existente;
+- managed schedules rejeitam payload inválido antes da persistência;
 - execution jobs podem ser acompanhados e, quando autorizado, cancelados;
 - milestones podem resolver before/after;
-- usage ledger pode ser projetado;
+- usage ledger e Consumption Analytics podem ser projetados com filtros tenant-aware;
 - reports HTML autorizados podem ser abertos sem exposição de `workspace_path`/`audit.db`;
+- PostgreSQL parity e SaaS/runtime contract parity permanecem verdes no CI;
 - regressões de tenancy, identity, report traversal e produto permanecem verdes.
 
 ## Próxima evolução recomendada
@@ -315,6 +341,7 @@ Com a fundação de Identity & Access implementada, a sequência arquitetural pa
 SaaS Pilot Web + OIDC/JWT
   -> object storage para bundles/artifacts
   -> scheduler/queue hospedado mantendo leases/idempotência/retry
+  -> integração tenant-scoped de secrets/providers externos
   -> deploy Linux do API/worker
   -> observabilidade operacional
   -> quotas/billing
