@@ -13,6 +13,7 @@ on:
       - 'tests/test_web_pilot.py'
       - 'tests/test_web_identity.py'
       - 'tests/test_web_ui_auth_mode.py'
+      - 'tests/test_oidc_contract.py'
       - 'tests/test_identity_directory.py'
       - 'tests/test_worker_execution.py'
       - 'tests/test_execution_queue.py'
@@ -32,6 +33,7 @@ on:
       - 'tests/test_web_pilot.py'
       - 'tests/test_web_identity.py'
       - 'tests/test_web_ui_auth_mode.py'
+      - 'tests/test_oidc_contract.py'
       - 'tests/test_identity_directory.py'
       - 'tests/test_worker_execution.py'
       - 'tests/test_execution_queue.py'
@@ -67,6 +69,7 @@ jobs:
           tests/test_web_pilot.py
           tests/test_web_identity.py
           tests/test_web_ui_auth_mode.py
+          tests/test_oidc_contract.py
           tests/test_identity_directory.py
           tests/test_execution_queue.py
           tests/test_worker_execution.py
