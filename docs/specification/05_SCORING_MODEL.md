@@ -218,12 +218,12 @@ Os thresholds são governança interna versionada e não configuráveis por audi
 | `NOT_CONSOLIDATED` | Coverage < 50% ou Confidence `UNAVAILABLE` | fixo no contrato | preservar |
 | `NOT_APPLICABLE` | dimensão legitimamente fora do universo aplicável | fixo no contrato | não imputar score |
 
-## 11. Overall — SCORE-GEO-004
+## 11. Overall - SCORE-GEO-004
 
 Existem separadamente:
 
-- Overall Readiness — Desktop;
-- Overall Readiness — Mobile.
+- Overall Readiness - Desktop;
+- Overall Readiness - Mobile.
 
 Contrato de agregação vigente:
 
