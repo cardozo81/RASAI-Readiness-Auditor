@@ -121,6 +121,6 @@ def test_report_manifest_exposes_current_version_axes_without_score_or_evidence_
         assert payload["report_contract_version"].startswith("REPORT-CONTRACT-")
         assert payload["source_db"] == "audit.db"
         assert "scoring.html" in payload["generated_pages"]
-        assert payload["aliases"] == {}
+        assert "aliases" not in payload
         assert "score" not in payload
         assert "evidence" not in payload
