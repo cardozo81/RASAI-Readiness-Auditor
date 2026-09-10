@@ -7,12 +7,14 @@ conversion never mutates persisted source evidence.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import os
 import re
-from typing import Any
-from zoneinfo import ZoneInfo
+from typing import Any, Mapping
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 UTC = timezone.utc
 DEFAULT_PRESENTATION_TIMEZONE = "America/Sao_Paulo"
+PRESENTATION_TIMEZONE_ENV = "RASAI_PRESENTATION_TIMEZONE"
 
 _AWARE_ISO_TIMESTAMP_PATTERN = (
     r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})"
@@ -75,30 +77,77 @@ def normalize_timestamp_values(value: Any) -> Any:
     return value
 
 
+def validate_presentation_timezone(value: str) -> str:
+    """Validate and normalize one IANA timezone identifier."""
+    candidate = str(value).strip()
+    if not candidate:
+        raise ValueError("timezone vazio; use um identificador IANA como America/Sao_Paulo")
+    try:
+        ZoneInfo(candidate)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ValueError(
+            f"timezone IANA inválido: {candidate}; exemplo válido: America/Sao_Paulo"
+        ) from exc
+    return candidate
+
+
+def configured_presentation_timezone(env: Mapping[str, str] | None = None) -> str:
+    """Return the effective presentation timezone from environment or product default."""
+    environment = env if env is not None else os.environ
+    raw = (environment.get(PRESENTATION_TIMEZONE_ENV) or "").strip()
+    return validate_presentation_timezone(raw or DEFAULT_PRESENTATION_TIMEZONE)
+
+
+def timezone_offset_label(
+    timezone_name: str,
+    *,
+    instant: datetime | None = None,
+) -> str:
+    """Return the current UTC offset label for an IANA timezone, e.g. ``UTC-03:00``."""
+    zone_name = validate_presentation_timezone(timezone_name)
+    reference = to_utc(instant or utc_now()).astimezone(ZoneInfo(zone_name))
+    offset = reference.utcoffset()
+    total_minutes = int((offset.total_seconds() if offset else 0) // 60)
+    sign = "+" if total_minutes >= 0 else "-"
+    absolute = abs(total_minutes)
+    hours, minutes = divmod(absolute, 60)
+    return f"UTC{sign}{hours:02d}:{minutes:02d}"
+
+
+def _resolve_presentation_timezone(timezone_name: str | None) -> str:
+    return (
+        configured_presentation_timezone()
+        if timezone_name is None
+        else validate_presentation_timezone(timezone_name)
+    )
+
+
 def format_presentation_timestamp(
     value: str | datetime,
     *,
-    timezone_name: str = DEFAULT_PRESENTATION_TIMEZONE,
+    timezone_name: str | None = None,
 ) -> str:
     """Render a timestamp in the selected user-facing IANA timezone."""
     instant = parse_timestamp(value) if isinstance(value, str) else to_utc(value)
-    zone = ZoneInfo(timezone_name)
-    local = instant.astimezone(zone)
-    return f"{local.strftime('%d/%m/%Y %H:%M:%S')} ({timezone_name})"
+    resolved = _resolve_presentation_timezone(timezone_name)
+    local = instant.astimezone(ZoneInfo(resolved))
+    return f"{local.strftime('%d/%m/%Y %H:%M:%S')} ({resolved})"
 
 
 def localize_visible_timestamps(
     text: str,
     *,
-    timezone_name: str = DEFAULT_PRESENTATION_TIMEZONE,
+    timezone_name: str | None = None,
 ) -> str:
     """Convert aware ISO timestamps embedded in visible report text.
 
     Date-only values are deliberately not changed because a calendar date has no
     timezone semantics without an associated instant.
     """
+    resolved = _resolve_presentation_timezone(timezone_name)
+
     def replace(match: re.Match[str]) -> str:
-        return format_presentation_timestamp(match.group("value"), timezone_name=timezone_name)
+        return format_presentation_timestamp(match.group("value"), timezone_name=resolved)
 
     return _AWARE_ISO_TIMESTAMP_RE.sub(replace, text)
 
@@ -106,9 +155,10 @@ def localize_visible_timestamps(
 def localize_html_timestamps(
     html: str,
     *,
-    timezone_name: str = DEFAULT_PRESENTATION_TIMEZONE,
+    timezone_name: str | None = None,
 ) -> str:
     """Localize visible HTML timestamps without changing tags or technical blocks."""
+    resolved = _resolve_presentation_timezone(timezone_name)
     parts = _TAG_SPLIT_RE.split(html)
     blocked_depth = 0
     output: list[str] = []
@@ -124,5 +174,5 @@ def localize_html_timestamps(
         if blocked_depth:
             output.append(part)
             continue
-        output.append(localize_visible_timestamps(part, timezone_name=timezone_name))
+        output.append(localize_visible_timestamps(part, timezone_name=resolved))
     return "".join(output)
