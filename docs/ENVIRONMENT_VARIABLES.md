@@ -182,7 +182,7 @@ SQLite permanece disponível para operação local. PostgreSQL é o backend cent
 | `RASAI_OIDC_SCOPES` | `openid,profile,email` | scopes solicitados |
 | `RASAI_OIDC_SESSION_TTL_SECONDS` | `28800` | TTL da sessão web |
 
-Valores terminados em `_ENV` que representam referência de segredo persistem o nome da variável, não o segredo em si. Consulte [WEB_API.md](WEB_API.md) e [WEB_API_CLI.md](WEB_API_CLI.md).
+Valores terminados em `_ENV` que representam referência de segredo persistem o nome da variável, não o segredo em si. Consulte [WEB_API_FOUNDATION.md](WEB_API_FOUNDATION.md) e [WEB_API_CLI.md](WEB_API_CLI.md).
 
 ## 12. Remote control plane
 
