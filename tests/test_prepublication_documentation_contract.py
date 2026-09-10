@@ -7,12 +7,14 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 DOC_FILES = (ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md")))
 
-# RASAi has not been publicly released. Documentation is therefore a current-state
-# contract, not a compatibility/migration log for discarded development surfaces.
+# RASAi has not been publicly released. Documentation is a current-state contract,
+# not a migration log for discarded development surfaces.
 FORBIDDEN_IMPLEMENTATION_HISTORY = (
     re.compile(r"\blegacy\b", re.IGNORECASE),
     re.compile(r"\bbackwards? compatibility\b", re.IGNORECASE),
     re.compile(r"\bcompatibilidade retroativa\b", re.IGNORECASE),
+    re.compile(r"\bSUPERSEDED\b", re.IGNORECASE),
+    re.compile(r"09_IMPLEMENTATION_PLAN\.md", re.IGNORECASE),
 )
 
 STALE_DELIVERY_METADATA = (
