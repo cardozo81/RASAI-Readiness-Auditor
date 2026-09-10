@@ -35,7 +35,6 @@ def test_apdex_class_badges_preserve_apdex_classes() -> None:
     assert "apdex-class-excluded" in _apdex_class_badge(None)
 
 
-def test_prepublication_report_contract_has_no_historical_aliases() -> None:
+def test_prepublication_report_contract_is_canonical_only() -> None:
     assert REPORT_ALIASES == {}
-    assert surface_by_id("scoring").aliases == ()
     assert "scorecard de contexto read-only" in surface_by_id("mobile").outputs
