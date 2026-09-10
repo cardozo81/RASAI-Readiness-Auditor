@@ -15,11 +15,14 @@ Variáveis de ambiente são overrides avançados. Quando existe default seguro, 
 | `RASAI_CONSOLE_MODE` | `local` | console local ou cliente remoto |
 | `RASAI_LOG_LEVEL` | `INFO` | verbosidade |
 | `RASAI_DEVICE_CONTEXT` | `mobile` | `mobile`, `desktop`, `both` |
+| `RASAI_PRESENTATION_TIMEZONE` | `America/Sao_Paulo` | override avançado do timezone IANA usado somente na apresentação; offsets fixos como `-03:00` não são aceitos |
 | `RASAI_AI_TIMEOUT_SECONDS` | `180` | timeout por tentativa de IA |
 | `RASAI_AI_AUTO_EXCLUDE` | vazio | providers que permanecem configurados, mas ficam fora do pool `AI=auto`; lista CSV |
 | `RASAI_AI_CONTENT_REMEDIATION` | `false` | remediação de conteúdo por IA |
 | `RASAI_AI_TECHNICAL_REMEDIATION` | `false` | remediação técnica por IA |
 | `RASAI_AI_EXCHANGE_LOG_MAX_BYTES` | `524288` | limite por request/response sanitizado; faixa 4096..4194304 |
+
+No console local, a preferência normal deve ser configurada pelo item **Timezone apresentação** e persistida em `[presentation] timezone = ...` no `rasai-console.ini`. `RASAI_PRESENTATION_TIMEZONE` existe como override avançado para automação/processos; não altera timestamps canônicos UTC. O console mostra o offset corrente, como `UTC-03:00`, apenas como orientação e persiste o identificador IANA.
 
 ## 2. IA - credenciais
 
@@ -224,6 +227,7 @@ Detalhes: [AI_RUNTIME_SECURITY.md](AI_RUNTIME_SECURITY.md) e [REPORTING_AI_USAGE
 ```text
 console mode                   = local
 device                         = mobile
+presentation timezone          = America/Sao_Paulo
 ai provider                    = none
 ai timeout                     = 180 s
 ai auto exclusions             = vazio
