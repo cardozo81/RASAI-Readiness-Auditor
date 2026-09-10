@@ -1,4 +1,4 @@
-# RASAi — Monitoramento, observabilidade e qualidade — estado atual das capacidades
+# RASAi - Monitoramento, observabilidade e qualidade - estado atual das capacidades
 
 **Estado:** implementado e integrado à `main`.
 
@@ -16,7 +16,7 @@ Este documento resume as capacidades presentes no contrato atual do RASAi. Ele n
 - comportamento padrão *fail-closed* quando o par de auditorias não é comparável;
 - novas falhas materiais (`NEW`) bloqueiam por padrão;
 - sobrescritas operacionais explícitas `--allow-noncomparable` e `--allow-new-failures`;
-- famílias opcionais — regras semânticas, performance, métricas sintéticas, agregados de findings e dimensões de score — somente entram mediante opção explícita;
+- famílias opcionais - regras semânticas, performance, métricas sintéticas, agregados de findings e dimensões de score - somente entram mediante opção explícita;
 - Change Impact com validação da comparabilidade das janelas e uso de `TEMPORAL_ASSOCIATION_ONLY`, sem atribuição causal.
 
 ### Observabilidade de Search & AI
@@ -66,7 +66,7 @@ Os nomes acima permanecem em inglês quando correspondem ao nome técnico da cap
 - Coverage Map;
 - Recommendation Validation;
 - controles do publicador (`nosnippet`, `max-snippet`, `data-nosnippet`, `X-Robots-Tag`);
-- Operational Priority acionável em P0–P3, excluindo `RESOLVED`/`CLOSED`/`DISMISSED` da fila executiva de trabalho e preservando as evidências necessárias à linha do tempo e às comparações;
+- Operational Priority acionável em P0-P3, excluindo `RESOLVED`/`CLOSED`/`DISMISSED` da fila executiva de trabalho e preservando as evidências necessárias à linha do tempo e às comparações;
 - Fix Verification;
 - Evidence Timeline;
 - leituras de artefatos confinadas ao workspace `AUD-*`;
