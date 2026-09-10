@@ -218,8 +218,8 @@ Carga relevante contra produção depende de autorização e avaliação de capa
 
 Modos:
 
-1. JSON exportado — recomendado para reprodutibilidade;
-2. Configuration API — leitura live de configuração.
+1. JSON exportado - recomendado para reprodutibilidade;
+2. Configuration API - leitura live de configuração.
 
 A importação deve extrair/persistir somente dados sanitizados necessários:
 
@@ -330,9 +330,9 @@ A regressão deve cobrir:
 Os excertos originais necessários para justificar a KPM padrão/fallback Dynatrace e os thresholds de referência estão documentados, com tradução pt-BR, em `../SYNTHETIC_USER_EXPERIENCE_APDEX.md`. Esta especificação não repete os trechos para evitar reprodução redundante.
 
 - Apdex Technical Specification v1.1: <https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf>
-- Dynatrace — Apdex configuration for load actions: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions>
-- Dynatrace — Key performance metrics: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-synthetic-browser-kpms>
-- Dynatrace — Work with key performance metrics: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/analyze-and-use/work-with-key-performance-metrics>
-- Dynatrace — Web application configuration API: <https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application>
-- Chrome DevTools Protocol — Network / Emulation
+- Dynatrace - Apdex configuration for load actions: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions>
+- Dynatrace - Key performance metrics: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-synthetic-browser-kpms>
+- Dynatrace - Work with key performance metrics: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/analyze-and-use/work-with-key-performance-metrics>
+- Dynatrace - Web application configuration API: <https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application>
+- Chrome DevTools Protocol - Network / Emulation
 - W3C Performance Timeline
