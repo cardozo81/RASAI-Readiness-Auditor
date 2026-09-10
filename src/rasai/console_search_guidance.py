@@ -36,6 +36,7 @@ def depth_guidance(state: Any, config: SerpRuntimeConfig) -> tuple[str, ...]:
     lines = [
         "Profundidade define até qual posição orgânica será observada para cada termo.",
         "Ex.: depth=1 olha somente a posição 1; 10 observa o Top 10; 20 observa o Top 20.",
+        "Se o domínio não aparecer, a conclusão é somente 'não observado dentro do Top N consultado'; não significa que ele não ranqueia além dessa profundidade.",
     ]
 
     if config.provider == "serpapi":
@@ -107,8 +108,8 @@ def competitive_guidance() -> tuple[str, ...]:
 
 def _print_guidance(lines: tuple[str, ...]) -> None:
     print()
-    for line in lines:
-        print(f"  Para que serve: {line}" if line == lines[0] else f"                  {line}")
+    for index, line in enumerate(lines):
+        print(f"  Para que serve: {line}" if index == 0 else f"                  {line}")
 
 
 def install(search_module: ModuleType) -> None:
