@@ -29,6 +29,7 @@ _KPM_MAP = {
     "VISUALLY_COMPLETE": "VISUALLY_COMPLETE",
     "SPEED_INDEX": "SPEED_INDEX",
     "CUMULATIVE_LAYOUT_SHIFT": "CUMULATIVE_LAYOUT_SHIFT",
+    "FIRST_INPUT_DELAY": "FIRST_INPUT_DELAY",
 }
 
 SUPPORTED_TIME_KPMS = frozenset({
@@ -98,16 +99,7 @@ def load_dynatrace_calibration(
             token=token,
             timeout_seconds=timeout_seconds,
         )
-        if isinstance(rules, list):
-            error_rules_summary = {"retrieved": True, "rule_count": len(rules)}
-        elif isinstance(rules, dict):
-            values = rules.get("values") or rules.get("rules") or []
-            error_rules_summary = {
-                "retrieved": True,
-                "rule_count": len(values) if isinstance(values, list) else None,
-            }
-        else:
-            error_rules_summary = {"retrieved": True, "rule_count": None}
+        error_rules_summary = _summarize_error_rules(rules)
     except (ValueError, OSError):
         error_rules_summary = {"retrieved": False, "rule_count": None}
 
@@ -126,23 +118,50 @@ def load_dynatrace_calibration(
 
 
 def parse_dynatrace_configuration(payload: dict[str, Any], *, source: str) -> DynatraceCalibration:
-    settings = payload.get("loadActionApdexSettings")
-    if not isinstance(settings, dict):
-        settings = _find_dict(payload, "loadActionApdexSettings") or {}
+    """Parse the complete web Apdex contract while executing only load semantics.
 
-    raw_kpm = payload.get("loadActionKeyPerformanceMetric")
-    if isinstance(raw_kpm, dict):
-        raw_kpm = raw_kpm.get("metric") or raw_kpm.get("value") or raw_kpm.get("keyPerformanceMetric")
-    if raw_kpm is None:
-        raw_kpm = _find_value(payload, "loadActionKeyPerformanceMetric")
-    kpm = _KPM_MAP.get(str(raw_kpm or "ACTION_DURATION").strip().upper(), str(raw_kpm or "ACTION_DURATION").strip().upper())
+    RASAi M25 is a synthetic load-action envelope. XHR/custom action settings are
+    retained as sanitized metadata for auditability, but are not executed as
+    standalone actions because that would require a scripted clickpath/action
+    definition. When Dynatrace selects a KPM not measurable by M25 and exposes
+    fallback thresholds, M25 transparently uses User Action Duration, matching
+    Dynatrace's documented fallback metric semantics without claiming to measure
+    the unavailable primary KPM.
+    """
+    load = _action_contract(payload, "loadActionApdexSettings", "loadActionKeyPerformanceMetric")
+    xhr = _action_contract(payload, "xhrActionApdexSettings", "xhrActionKeyPerformanceMetric")
+    custom = _action_contract(payload, "customActionApdexSettings", None, fixed_kpm="USER_ACTION_DURATION")
 
-    satisfied, sat_source = _threshold(settings, payload, "toleratedThresholdSeconds", "toleratedThreshold")
-    frustrated, fr_source = _threshold(settings, payload, "frustratingThresholdSeconds", "frustratingThreshold")
+    raw_kpm = load.get("raw_kpm") or "ACTION_DURATION"
+    kpm = _normalize_kpm(raw_kpm)
+    satisfied = load.get("satisfied_threshold_seconds")
+    frustrated = load.get("frustrated_threshold_seconds")
     if satisfied is None or frustrated is None:
         raise ValueError("configuração Dynatrace não contém thresholds de Load Action suficientes")
     if satisfied <= 0 or frustrated <= satisfied:
         raise ValueError("thresholds Dynatrace inválidos: Frustrated deve ser maior que Satisfied/Tolerating")
+
+    metadata = {
+        "raw_kpm": raw_kpm,
+        "requested_kpm": kpm,
+        "kpm_supported_by_m25": kpm in SUPPORTED_TIME_KPMS,
+        "satisfied_threshold_source": load.get("satisfied_threshold_source"),
+        "frustrated_threshold_source": load.get("frustrated_threshold_source"),
+        "fallback_satisfied_threshold_source": load.get("fallback_satisfied_threshold_source"),
+        "fallback_frustrated_threshold_source": load.get("fallback_frustrated_threshold_source"),
+        "errors_affect_apdex_observed": False,
+        "raw_configuration_persisted": False,
+        "standalone_action_support": {
+            "load": "EXECUTABLE",
+            "xhr": "OBSERVED_INSIDE_LOAD_ONLY_NOT_STANDALONE",
+            "custom": "NOT_EXECUTABLE_WITHOUT_SCRIPTED_ACTION",
+        },
+        "dynatrace_apdex_contract": {
+            "load": load,
+            "xhr": xhr,
+            "custom": custom,
+        },
+    }
 
     errors = _find_bool(
         payload,
@@ -152,22 +171,105 @@ def parse_dynatrace_configuration(payload: dict[str, Any], *, source: str) -> Dy
             "considerErrors",
         ),
     )
-    metadata = {
-        "raw_kpm": raw_kpm,
-        "kpm_supported_by_m25": kpm in SUPPORTED_TIME_KPMS,
-        "satisfied_threshold_source": sat_source,
-        "frustrated_threshold_source": fr_source,
-        "errors_affect_apdex_observed": errors is not None,
-        "raw_configuration_persisted": False,
-    }
+    metadata["errors_affect_apdex_observed"] = errors is not None
+
+    if kpm not in SUPPORTED_TIME_KPMS:
+        fallback_satisfied = load.get("fallback_satisfied_threshold_seconds")
+        fallback_frustrated = load.get("fallback_frustrated_threshold_seconds")
+        if fallback_satisfied is None or fallback_frustrated is None:
+            raise ValueError(
+                f"Dynatrace usa KPM {kpm}, não mensurável com equivalência suficiente no Synthetic User Experience Apdex, "
+                "e a configuração não fornece thresholds de fallback para User Action Duration"
+            )
+        if fallback_satisfied <= 0 or fallback_frustrated <= fallback_satisfied:
+            raise ValueError("thresholds Dynatrace de fallback inválidos")
+        metadata["rasai_capability_fallback_applied"] = True
+        metadata["fallback_reason"] = f"PRIMARY_KPM_NOT_VENDOR_EQUIVALENT:{kpm}"
+        metadata["effective_kpm"] = "USER_ACTION_DURATION"
+        kpm = "USER_ACTION_DURATION"
+        satisfied = float(fallback_satisfied)
+        frustrated = float(fallback_frustrated)
+        source += "+RASAI_CAPABILITY_FALLBACK"
+    else:
+        metadata["rasai_capability_fallback_applied"] = False
+        metadata["effective_kpm"] = kpm
+
     return DynatraceCalibration(
         source=source,
         kpm=kpm,
-        satisfied_threshold_seconds=satisfied,
-        frustrated_threshold_seconds=frustrated,
+        satisfied_threshold_seconds=float(satisfied),
+        frustrated_threshold_seconds=float(frustrated),
         errors_affect_apdex=errors,
         metadata=metadata,
     )
+
+
+def _action_contract(
+    payload: dict[str, Any],
+    settings_key: str,
+    kpm_key: str | None,
+    *,
+    fixed_kpm: str | None = None,
+) -> dict[str, Any]:
+    settings = payload.get(settings_key)
+    if not isinstance(settings, dict):
+        settings = _find_dict(payload, settings_key) or {}
+
+    raw_kpm: Any = fixed_kpm
+    if kpm_key:
+        raw_kpm = payload.get(kpm_key)
+        if isinstance(raw_kpm, dict):
+            raw_kpm = raw_kpm.get("metric") or raw_kpm.get("value") or raw_kpm.get("keyPerformanceMetric")
+        if raw_kpm is None:
+            raw_kpm = _find_value(payload, kpm_key)
+
+    satisfied, sat_source = _threshold_local(settings, "toleratedThresholdSeconds", "toleratedThreshold")
+    frustrated, fr_source = _threshold_local(settings, "frustratingThresholdSeconds", "frustratingThreshold")
+    fallback_satisfied, fallback_sat_source = _threshold_local(
+        settings, "toleratedFallbackThresholdSeconds", "toleratedFallbackThreshold"
+    )
+    fallback_frustrated, fallback_fr_source = _threshold_local(
+        settings, "frustratingFallbackThresholdSeconds", "frustratingFallbackThreshold"
+    )
+    return {
+        "raw_kpm": raw_kpm,
+        "normalized_kpm": _normalize_kpm(raw_kpm) if raw_kpm else None,
+        "satisfied_threshold_seconds": satisfied,
+        "frustrated_threshold_seconds": frustrated,
+        "fallback_kpm": "USER_ACTION_DURATION" if fallback_satisfied is not None or fallback_frustrated is not None else None,
+        "fallback_satisfied_threshold_seconds": fallback_satisfied,
+        "fallback_frustrated_threshold_seconds": fallback_frustrated,
+        "satisfied_threshold_source": sat_source,
+        "frustrated_threshold_source": fr_source,
+        "fallback_satisfied_threshold_source": fallback_sat_source,
+        "fallback_frustrated_threshold_source": fallback_fr_source,
+    }
+
+
+def _normalize_kpm(value: Any) -> str:
+    raw = str(value or "ACTION_DURATION").strip().upper()
+    return _KPM_MAP.get(raw, raw)
+
+
+def _threshold_local(
+    settings: dict[str, Any],
+    seconds_name: str,
+    milliseconds_name: str,
+) -> tuple[float | None, str | None]:
+    value = settings.get(seconds_name)
+    if value is not None:
+        try:
+            return float(value), f"{seconds_name}:seconds"
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"threshold Dynatrace {seconds_name} inválido") from exc
+
+    value = settings.get(milliseconds_name)
+    if value is None:
+        return None, None
+    try:
+        return float(value) / 1000.0, f"{milliseconds_name}:milliseconds"
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"threshold Dynatrace {milliseconds_name} inválido") from exc
 
 
 def _threshold(
@@ -196,6 +298,28 @@ def _threshold(
     except (TypeError, ValueError) as exc:
         raise ValueError(f"threshold Dynatrace {milliseconds_name} inválido") from exc
     return result, f"{milliseconds_name}:milliseconds"
+
+
+def _summarize_error_rules(rules: Any) -> dict[str, Any]:
+    if isinstance(rules, list):
+        return {"retrieved": True, "rule_count": len(rules)}
+    if not isinstance(rules, dict):
+        return {"retrieved": True, "rule_count": None}
+    values = rules.get("values") or rules.get("rules") or []
+    summary: dict[str, Any] = {
+        "retrieved": True,
+        "rule_count": len(values) if isinstance(values, list) else None,
+    }
+    for key in (
+        "ignoreCustomErrorsInApdexCalculation",
+        "ignoreHttpErrorsInApdexCalculation",
+        "ignoreJavaScriptErrorsInApdexCalculation",
+        "ignoreRequestErrorsInApdexCalculation",
+    ):
+        value = rules.get(key)
+        if isinstance(value, bool):
+            summary[key] = value
+    return summary
 
 
 def _find_dict(value: Any, key: str) -> dict[str, Any] | None:
