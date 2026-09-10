@@ -1,108 +1,108 @@
 # WORKFLOWS.md
 
-**Estado no baseline de desenvolvimento:** APPROVED / CURRENT  
+**Estado no baseline de desenvolvimento:** aprovado / vigente  
 **Scoring:** `SCORE-GEO-004`
 
-## 1. Primary audit workflow
+## 1. Fluxo principal da auditoria
 
 ```text
-Initialize
-→ Resolve Device Context
-→ Discover
-→ Acquire/Render selected contexts
-→ Technical analysis
-→ Extract evidence/content
-→ Semantic analysis or fallback
-→ Compare Desktop × Mobile when applicable
+Inicializar
+→ Resolver contexto de dispositivo
+→ Descobrir
+→ Adquirir/renderizar contextos selecionados
+→ Análise técnica
+→ Extrair evidência/conteúdo
+→ Análise semântica ou fallback
+→ Comparar Desktop × Mobile quando aplicável
 → Findings
-→ Dimension scores
-→ SCORE-GEO-004 Overall
-→ Priority / remediation
-→ Static report site
-→ Complete
+→ Scores por dimensão
+→ Overall SCORE-GEO-004
+→ Prioridade / remediação
+→ Site estático de relatório
+→ Concluir
 ```
 
-Core principles are Evidence First, failure isolation, explicit device scope, optional AI and separation between readiness, observed outcomes, Web Performance, accessibility and Apdex.
+Os princípios centrais são Evidence First, isolamento de falhas, escopo explícito de dispositivo, IA opcional e separação entre readiness, outcomes observados, Web Performance, acessibilidade e Apdex.
 
-## 2. Device context
+## 2. Contexto de dispositivo
 
-Public scope is `mobile`, `desktop` or `both`. Only selected/materialized contexts may trigger downstream rendering, analysis or external calls.
+O escopo público é `mobile`, `desktop` ou `both`. Somente contextos selecionados/materializados podem disparar renderização downstream, análise ou chamadas externas.
 
-Desktop × Mobile comparison is applicable only when both contexts exist. A single-context audit does not treat the missing comparison context as a rendering failure.
+A comparação Desktop × Mobile só é aplicável quando ambos os contextos existem. Uma auditoria de contexto único não trata a ausência do outro contexto como falha de renderização.
 
-## 3. Discovery, acquisition and evidence
+## 3. Descoberta, aquisição e evidência
 
-Discovery normalizes/deduplicates input and discovered URLs, applies origin/scope policy and `max_pages`, and persists enough provenance to explain the audited universe.
+A descoberta normaliza e remove duplicatas de URLs de entrada/descobertas, aplica política de origem/escopo e `max_pages`, e persiste proveniência suficiente para explicar o universo auditado.
 
-Each selected page/device context preserves the evidence required by the pipeline, including HTTP state, RAW/rendered content and extracted technical/semantic facts as applicable.
+Cada contexto selecionado de página/dispositivo preserva a evidência exigida pelo pipeline, incluindo estado HTTP, conteúdo RAW/renderizado e fatos técnicos/semânticos extraídos conforme aplicabilidade.
 
-Failure of an extractor, browser, provider or optional service is distinguished from a website failure.
+Falha de extractor, browser, provider ou serviço opcional é distinguida de falha do website.
 
-## 4. Semantic analysis
+## 4. Análise semântica
 
-AI is optional. When available, semantic output is accepted only after local contract/schema/evidence validation. When unavailable or insufficient, semantic-only rules may remain `UNKNOWN` rather than becoming `FAIL`.
+IA é opcional. Quando disponível, saída semântica só é aceita após validação local de contrato/schema/evidência. Quando indisponível ou insuficiente, regras exclusivamente semânticas podem permanecer `UNKNOWN`, em vez de se tornarem `FAIL`.
 
-Provider failure is operational state, not a website finding. Business Rules remain provider-neutral.
+Falha de provider é estado operacional, não finding do website. Business Rules permanecem independentes de provider.
 
-## 5. Findings and scoring
+## 5. Findings e scoring
 
-The scoring workflow:
+O fluxo de scoring:
 
-- validates evidence/finding integrity;
-- computes deterministic dimension contributions;
-- computes dimension Score and Coverage;
-- derives Confidence and Consolidation;
-- computes Overall under `SCORE-GEO-004`;
-- validates BR-GEO-054 reproducibility.
+- valida integridade de evidência/finding;
+- calcula contribuições determinísticas das dimensões;
+- calcula Score e Coverage por dimensão;
+- deriva Confidence e Consolidation;
+- calcula Overall segundo `SCORE-GEO-004`;
+- valida a reprodutibilidade de BR-GEO-054.
 
-Overall contract:
+Contrato Overall:
 
 ```text
 HIERARCHICAL_WEIGHTED_READINESS_V1
 ```
 
-Rules:
+Regras:
 
-- dimension and scoring-group weights are fixed/versioned by the scoring contract;
-- legitimate `NOT_APPLICABLE` dimensions leave the denominator;
-- the Overall value is `sum(Dimension Weight × measured Dimension Score) / sum(measured applicable Dimension Weight)`;
-- an applicable dimension without value is not imputed as zero; its missing measurement reduces Overall Coverage/Confidence and may limit Consolidation;
-- Overall Coverage is the dimension-weighted Coverage over the applicable universe;
-- critical dimensions (`DISCOVERY_ACCESS`, `INDEXABILITY`, `CONTENT_EXTRACTABILITY`) retain stricter Confidence/Consolidation gates;
-- consolidated Overall requires Coverage >= 80%, Confidence HIGH/MEDIUM and no critical measurement blocker;
-- a calculable result may be PARTIAL when Coverage >= 50% and Confidence is available;
-- insufficient evidence never becomes zero.
+- pesos de dimensão e grupos de scoring são fixos/versionados pelo contrato de scoring;
+- dimensões legitimamente `NOT_APPLICABLE` saem do denominador;
+- o valor Overall é `sum(Dimension Weight × measured Dimension Score) / sum(measured applicable Dimension Weight)`;
+- uma dimensão aplicável sem valor não é imputada como zero; a medição ausente reduz Overall Coverage/Confidence e pode limitar Consolidation;
+- Overall Coverage é a Coverage ponderada pelo peso das dimensões no universo aplicável;
+- dimensões críticas (`DISCOVERY_ACCESS`, `INDEXABILITY`, `CONTENT_EXTRACTABILITY`) mantêm gates mais rígidos de Confidence/Consolidation;
+- Overall consolidado exige Coverage >= 80%, Confidence `HIGH`/`MEDIUM` e nenhum bloqueador crítico de medição;
+- um resultado calculável pode ser `PARTIAL` quando Coverage >= 50% e Confidence está disponível;
+- evidência insuficiente nunca vira zero.
 
-## 6. Recommendations and remediation
+## 6. Recomendações e remediação
 
-Recommendations are derived from persisted findings/evidence and approved remediation recipes. Proposed examples are not observed evidence. Remediation does not alter the score by itself.
+Recomendações derivam de findings/evidências persistidos e receitas aprovadas de remediação. Exemplos propostos não são evidência observada. Remediação não altera score por si só.
 
-## 7. Static report site
+## 7. Site estático de relatório
 
-Canonical entry:
+Entrada canônica:
 
 ```text
 report/index.html
 ```
 
-Canonical method pages:
+Páginas canônicas de método:
 
 ```text
 report/readiness.html
 report/scoring.html
 ```
 
-Other domain pages are materialized conditionally, including Mobile/Desktop, remediation, content suggestions, crawling/discovery, accessibility, Web Performance, Search Intelligence, both Apdex domains, AI visibility, Observability, Quality, AI usage and references.
+Outras páginas de domínio são materializadas condicionalmente, incluindo Mobile/Desktop, remediation, content suggestions, crawling/discovery, accessibility, Web Performance, Search Intelligence, os dois domínios Apdex, AI visibility, Observability, Quality, AI usage e references.
 
-Opening static HTML does not trigger crawling, AI or external API collection. `audit.db` + artifacts remain source evidence.
+Abrir HTML estático não dispara crawling, IA nem coleta de API externa. `audit.db` + artefatos permanecem a evidência de origem.
 
-## 8. Completion and derived workflows
+## 8. Conclusão e fluxos derivados
 
-A completed audit can subsequently feed read-only/derived workflows:
+Uma auditoria concluída pode alimentar posteriormente workflows derivados/somente leitura:
 
 - Monitoring (`compare`, `gate`, `impact`);
-- Observability/imports;
+- Observability/importações;
 - Quality/Fix Verification/Timeline;
-- Product Platform indexing and deployment comparisons.
+- indexação na Product Platform e comparações de deployment.
 
-These workflows preserve the source `audit.db` and do not silently recalculate historical scoring.
+Esses workflows preservam o `audit.db` de origem e não recalculam silenciosamente scoring histórico.
