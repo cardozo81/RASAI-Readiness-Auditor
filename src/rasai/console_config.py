@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 from typing import Mapping
 
+from rasai.ai_exchange_log import MAX_CAPTURE_BYTES_ENV
 from rasai.cli import validate_target
 from rasai.content_context import CONTENT_CONTEXT_ENV_NAMES, configured_content_analysis_context
 from rasai.provider_registry import auto_provider_ids, get_provider_registration, provider_environment_names, provider_registrations
@@ -34,6 +35,7 @@ PROVIDER_MENU_CHOICES = ("none", *(item.id for item in _REGISTRATIONS), "auto")
 
 _BASE_ENV_NAMES = (
     "RASAI_CONFIG", "RASAI_CONSOLE_MODE", "RASAI_LOG_LEVEL", "RASAI_DEVICE_CONTEXT", AI_TIMEOUT_ENV,
+    MAX_CAPTURE_BYTES_ENV,
     "RASAI_AI_CONTENT_REMEDIATION", "RASAI_AI_TECHNICAL_REMEDIATION", *CONTENT_CONTEXT_ENV_NAMES,
     "RASAI_WEB_PERFORMANCE",
     "RASAI_WEB_PERFORMANCE_MAX_PAGES", WEB_PERFORMANCE_TIMEOUT_ENV,
@@ -218,6 +220,14 @@ def validate_env_value(name: str, value: str) -> str:
     if name == "RASAI_DEVICE_CONTEXT":
         value = value.casefold()
         if value not in {"mobile", "desktop", "both"}: raise ValueError("use mobile, desktop ou both")
+    if name == MAX_CAPTURE_BYTES_ENV:
+        try:
+            size = int(value)
+        except ValueError as exc:
+            raise ValueError("use inteiro entre 4096 e 4194304 bytes") from exc
+        if size < 4096 or size > 4 * 1024 * 1024:
+            raise ValueError("use inteiro entre 4096 e 4194304 bytes")
+        return str(size)
     if name in {AI_TIMEOUT_ENV, WEB_PERFORMANCE_TIMEOUT_ENV} and float(value) <= 0: raise ValueError("valor deve ser > 0")
     if name == "RASAI_WEB_PERFORMANCE_MAX_PAGES" and int(value) < 0: raise ValueError("valor deve ser >= 0")
     if name == "RASAI_WEB_PERFORMANCE_FIELD_SOURCE":
