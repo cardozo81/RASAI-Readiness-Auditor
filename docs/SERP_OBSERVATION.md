@@ -77,7 +77,7 @@ Current live adapter IDs:
 | `serpapi` | Google | SerpApi | Google `start`, bounded 10-position pages |
 | `serpapi-bing` | Bing | SerpApi | provider-reported Bing `first` cursor |
 
-Both adapters use the same BYOK credential variable `RASAI_SERPAPI_API_KEY`. Keeping distinct adapter IDs preserves backward compatibility for the existing Google `serpapi` contract while allowing engine-specific pagination rules.
+Both adapters use the same BYOK credential variable `RASAI_SERPAPI_API_KEY`. Distinct adapter IDs make engine-specific request, pagination and normalization rules explicit.
 
 ## 4. Google adapter
 
@@ -215,7 +215,7 @@ Current live SERP adapters emit `OBSERVED_API`; fixtures emit `FIXTURE`.
 Raw provider evidence has two persistence paths:
 
 - point-in-time Search Intelligence can persist inside an existing `AUD-*` workspace;
-- recurring Search Monitoring uses a dedicated `.rasai/search-monitoring/` evidence root without mutating historical `AUD-*/audit.db` files.
+- recurring Search Monitoring uses a dedicated `.rasai/search-monitoring/` evidence root without mutating `AUD-*/audit.db` files.
 
 Secret-looking fields are redacted before evidence persistence.
 
@@ -322,7 +322,7 @@ rasai search "seguro residencial" `
   --dry-run
 ```
 
-Fixture, Competitive Search, content comparison and Competitive AI continue to use the existing provider-neutral downstream contracts.
+Fixture, Competitive Search, content comparison and Competitive AI use the provider-neutral downstream contracts.
 
 Recurring observation is exposed through `rasai search-monitor` and stores the selected adapter/engine in the registered query context so incompatible provider changes are never silently compared.
 
@@ -366,7 +366,7 @@ All are persisted-evidence projections. Rendering does not call Search or AI pro
 - competitor content comparison uses static HTTP HTML rather than rendered browser DOM;
 - no canonical/hreflang/link-graph competitive comparison contract yet;
 - Competitive AI live support currently starts with OpenAI;
-- historical semantic comparison of Competitive AI output is not yet a stable contract;
+- semantic longitudinal comparison of Competitive AI output is not yet a stable contract;
 - recurring monitoring detects changes but does not yet expose a complete external notification product surface;
 - no distributed regional Search probes;
 - portable recurring schedule execution remains single-machine; hosted horizontal execution depends on the durable worker/queue deployment model.

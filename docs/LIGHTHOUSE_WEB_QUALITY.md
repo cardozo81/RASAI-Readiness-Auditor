@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Este documento define o contrato público do RASAi para as quatro categorias coletadas do Google Chrome Lighthouse e para os Core Web Vitals provenientes de CrUX.
+Este documento define o contrato público do RASAi para as cinco categorias solicitadas do Google Chrome Lighthouse e para os Core Web Vitals provenientes de CrUX.
 
 O objetivo é impedir três ambiguidades:
 
@@ -27,10 +27,11 @@ A camada RASAi:
 A camada RASAi **não**:
 
 - recalcula pesos ou curvas do Lighthouse;
-- combina as quatro categorias em um novo score;
+- combina as categorias Lighthouse em um novo score;
 - transforma Lighthouse em `SARI-001` ou `SCORE-GEO-004`;
 - transforma `SEO` Lighthouse em ranking, tráfego, autoridade, posição SERP ou probabilidade de citação por IA;
 - transforma Lighthouse Accessibility em declaração de conformidade WCAG;
+- transforma Agentic Browsing em requisito universal de Search & AI readiness;
 - transforma ausência de categoria, runtime error ou indisponibilidade de API em score zero.
 
 ## Categorias Lighthouse coletadas
@@ -42,6 +43,7 @@ performance
 accessibility
 best-practices
 seo
+agentic-browsing
 ```
 
 A origem técnica é:
@@ -51,6 +53,7 @@ lighthouseResult.categories.performance.score
 lighthouseResult.categories.accessibility.score
 lighthouseResult.categories.best-practices.score
 lighthouseResult.categories.seo.score
+lighthouseResult.categories["agentic-browsing"].score
 ```
 
 A API fornece score de categoria em escala `0..1`. O RASAi persiste a projeção `0..100` nas colunas:
@@ -60,9 +63,12 @@ performance_score
 accessibility_score
 best_practices_score
 seo_score
+agentic_browsing_score
 ```
 
 Multiplicar por 100 é apenas normalização de apresentação. Não existe reponderação ou fórmula RASAi aplicada ao score Lighthouse.
+
+As cinco categorias são solicitadas na mesma chamada PageSpeed por contexto. A categoria `agentic-browsing` é tratada como experimental; se o provider/versão da execução não a materializar, a ausência permanece como evidência indisponível e não como score zero.
 
 ## Performance · Lighthouse
 
@@ -86,7 +92,7 @@ Métricas de laboratório associadas à leitura de Performance:
 - Total Blocking Time (`TBT lab`);
 - Cumulative Layout Shift de laboratório (`CLS lab`).
 
-Essas métricas não devem aparecer como detalhes técnicos de Accessibility, Best Practices ou SEO.
+Essas métricas não devem aparecer como detalhes técnicos de Accessibility, Best Practices, SEO ou Agentic Browsing.
 
 Referência oficial:
 
@@ -100,7 +106,7 @@ Referência oficial:
 
 **Página analítica detalhada:** `report/accessibility.html`.
 
-**Resumo também visível:** `report/web-performance.html`, para que o conjunto das quatro categorias Lighthouse seja reconhecível e comparável no mesmo contexto URL/dispositivo.
+**Resumo também visível:** `report/web-performance.html`, para que o conjunto das categorias Lighthouse seja reconhecível e comparável no mesmo contexto URL/dispositivo.
 
 O score vem de:
 
@@ -187,6 +193,34 @@ Referência oficial:
 
 - https://developer.chrome.com/docs/lighthouse/seo/
 
+## Agentic Browsing · Lighthouse (experimental)
+
+**Proprietário/metodologia:** Google Chrome Lighthouse.
+
+**Classificação RASAi:** `EXTERNAL_DEFINED_METRIC` experimental.
+
+**Página principal:** `report/web-performance.html`.
+
+O score vem de:
+
+```text
+lighthouseResult.categories["agentic-browsing"].score
+```
+
+O RASAi persiste esse valor em `agentic_browsing_score`, quando presente, e o apresenta separadamente. O sinal é complementar e experimental. Ele não representa, isoladamente:
+
+- capacidade universal de qualquer agente ou LLM navegar no site;
+- conformidade com um padrão web obrigatório;
+- indexabilidade ou ranking em Search;
+- probabilidade de citação por IA;
+- SARI-001 ou SCORE-GEO-004.
+
+Ausência da categoria em uma execução válida não é convertida em zero e pode coexistir com as demais categorias Lighthouse válidas.
+
+Referência primária do código Lighthouse:
+
+- https://github.com/GoogleChrome/lighthouse/blob/main/core/config/agentic-browsing-config.js
+
 ## Core Web Vitals · CrUX
 
 **Proprietário/metodologia:** Google Chrome / Web Vitals e Chrome UX Report.
@@ -227,7 +261,8 @@ Para categoria ausente/inválida:
 - o score interpretável permanece ausente/`NULL`;
 - ausência não vira zero;
 - categorias válidas do mesmo contexto podem ser preservadas;
-- o contexto pode ficar `PARTIAL`;
+- o contexto pode ficar `PARTIAL` quando a ausência afeta uma categoria estável requerida;
+- a ausência isolada de Agentic Browsing experimental não invalida as categorias estáveis obtidas;
 - o artifact bruto permanece disponível para auditoria.
 
 Consulte também `EXTERNAL_METRICS_INTEGRITY.md`.
@@ -236,21 +271,21 @@ Consulte também `EXTERNAL_METRICS_INTEGRITY.md`.
 
 `report/web-performance.html` deve deixar explícito, no mesmo contexto URL/dispositivo:
 
-1. os quatro scores Lighthouse quando válidos;
+1. os cinco scores Lighthouse quando válidos, com Agentic Browsing identificado como experimental;
 2. o proprietário/metodologia de cada categoria;
 3. a origem técnica do dado;
 4. a diferença entre score de categoria e detalhes técnicos;
 5. as métricas lab que pertencem a Performance;
 6. os Core Web Vitals que pertencem ao CrUX/field data;
 7. a página detalhada de Accessibility;
-8. os checks reprovados de Best Practices e SEO quando existentes no artifact;
+8. os checks reprovados de Best Practices, SEO e Agentic Browsing quando existentes no artifact;
 9. Lighthouse version, fetch time e artifact de origem;
 10. erros/limitações da coleta;
 11. independência em relação a `SARI-001`, `SCORE-GEO-004` e Search Intelligence/SERP.
 
-`report/index.html` pode resumir a média descritiva dos contextos válidos para cada uma das quatro categorias. Essa média não deve ser renomeada como “score do site” nem usada para produzir score composto.
+`report/index.html` pode resumir a média descritiva dos contextos válidos para cada categoria disponível. Essa média não deve ser renomeada como “score do site” nem usada para produzir score composto. Agentic Browsing deve continuar explicitamente marcado como experimental.
 
-`report/references.html` deve incluir referências oficiais específicas de Performance, Accessibility, Best Practices, SEO, PageSpeed, CrUX e Core Web Vitals.
+`report/references.html` deve incluir referências específicas de Performance, Accessibility, Best Practices, SEO, Agentic Browsing, PageSpeed, CrUX e Core Web Vitals.
 
 ## Relação com Search Intelligence / SERP
 
@@ -260,6 +295,9 @@ A integração de Search Intelligence/SERP é arquiteturalmente independente des
 Lighthouse SEO técnico
 = checks automatizados do documento/execução Lighthouse
 
+Lighthouse Agentic Browsing
+= categoria experimental externa de qualidade para navegação agentic
+
 Search Intelligence / SERP
 = observação externa de resultados, posições, concorrentes e evidências de busca conforme provider/protocolo
 
@@ -267,13 +305,13 @@ SARI-001 / SCORE-GEO-004
 = readiness proprietário do RASAi
 ```
 
-Não existe conversão automática entre os três domínios.
+Não existe conversão automática entre esses domínios.
 
-## Persistência e compatibilidade
+## Persistência
 
-Esta evolução não exige migração de banco: `web_performance_observations` já persiste as quatro colunas de score. O pacote amplia a projeção/reporting e a explicabilidade, preservando o contrato existente de Performance, Accessibility e CrUX.
+`web_performance_observations` persiste as cinco colunas de score, incluindo `agentic_browsing_score`. Valor ausente permanece `NULL` e é tratado como evidência não materializada.
 
-Nenhuma chamada externa adicional é necessária para obter Best Practices e SEO quando essas categorias já fazem parte da mesma execução PageSpeed/Lighthouse configurada.
+Nenhuma chamada externa adicional por categoria é necessária quando Performance, Accessibility, Best Practices, SEO e Agentic Browsing fazem parte da mesma execução PageSpeed/Lighthouse configurada.
 
 ## Referências primárias
 
@@ -282,6 +320,7 @@ Nenhuma chamada externa adicional é necessária para obter Best Practices e SEO
 - Lighthouse Accessibility: https://developer.chrome.com/docs/lighthouse/accessibility/scoring
 - Lighthouse Best Practices: https://developer.chrome.com/docs/lighthouse/best-practices/
 - Lighthouse SEO: https://developer.chrome.com/docs/lighthouse/seo/
+- Lighthouse Agentic Browsing config: https://github.com/GoogleChrome/lighthouse/blob/main/core/config/agentic-browsing-config.js
 - PageSpeed Insights API v5: https://developers.google.com/speed/docs/insights/v5/reference/pagespeedapi/runpagespeed
 - Chrome UX Report API: https://developer.chrome.com/docs/crux/api/
 - Core Web Vitals: https://web.dev/articles/vitals

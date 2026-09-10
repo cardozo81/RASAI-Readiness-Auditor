@@ -8,7 +8,7 @@ The report remains a projection. Persisted audit state is the source of truth.
 
 ## 2. URL_SET input
 
-A single positional target remains backward compatible.
+A single positional target and explicit multi-target input are both supported.
 
 An explicit sequence of targets or `--urls-file` creates `TargetType.URL_SET`, even if normalization/deduplication results in one unique URL. The explicit page universe must not silently fall back to ordinary discovery expansion.
 
@@ -70,7 +70,7 @@ Visual evidence never replaces RAW or rendered evidence.
 
 For each valid rendered `PageSnapshot`, Chromium attempts to persist a PNG viewport screenshot under the audit workspace using a relative path.
 
-Baseline profiles remain:
+Viewport profiles:
 
 - Desktop: `1440 × 900`;
 - Mobile: `412 × 915`.
@@ -132,7 +132,7 @@ Normative actionability values:
 | `NO_ACTION` | NENHUMA AÇÃO NECESSÁRIA | Passed or not applicable. |
 | `INSUFFICIENT_EVIDENCE` | AÇÃO NO SITE NÃO DETERMINADA | Auditor/tool lacks sufficient evidence; remediation must target evidence/audit conditions, not invent a site fix. |
 
-Baseline deterministic projection:
+Deterministic projection:
 
 - `PASS` / `NOT_APPLICABLE` → `NO_ACTION`;
 - `UNKNOWN` / analysis/tool `ERROR` → `INSUFFICIENT_EVIDENCE`;
@@ -204,7 +204,7 @@ Official links persisted in the Auditoria multi-URL e evidência visual rule-ref
 
 ## 11. OAI-SearchBot and GPTBot
 
-Crawler policy reporting must keep `OAI-SearchBot` and `GPTBot` separate. Their purposes and controls are not interchangeable. The crawler matrix may also include the existing baseline crawlers such as Googlebot, Googlebot Smartphone and Bingbot.
+Crawler policy reporting must keep `OAI-SearchBot` and `GPTBot` separate. Their purposes and controls are not interchangeable. The crawler matrix may also include crawlers such as Googlebot, Googlebot Smartphone and Bingbot.
 
 No business recommendation may claim that permitting either crawler guarantees indexing, ranking, citation or inclusion in generated answers.
 
@@ -269,11 +269,11 @@ Persisted Análise semântica e fallback outputs may be reused. AI:
 - does not create selector/HTML/evidence/source/fact/claim not present in persisted state;
 - does not create author, date, price, product coverage or structured data as facts.
 
-When OpenAI is enabled, existing provider/model/assessment/reasoning/evidence/entity/intent traceability remains mandatory.
+When OpenAI is enabled, provider/model/assessment/reasoning/evidence/entity/intent traceability remains mandatory.
 
-## 15. Persistence and backward compatibility
+## 15. Persistence
 
-Auditoria multi-URL e evidência visual persistence is additive in the existing audit SQLite workspace. Base Auditoria e persistência tables are not rewritten merely to add Auditoria multi-URL e evidência visual evidence.
+Auditoria multi-URL e evidência visual persistence is additive in the audit SQLite workspace. Audit persistence tables are extended only through explicit schema contracts required by the current feature set.
 
 Additional tables may store:
 
@@ -281,7 +281,7 @@ Additional tables may store:
 - `ElementObservation`;
 - finding-to-element linkage.
 
-Existing single-target CLI options remain supported:
+Single-target CLI options supported include:
 
 - `--project`;
 - `--language`;
@@ -295,11 +295,11 @@ Existing single-target CLI options remain supported:
 
 Focused regression coverage must include:
 
-- classic single URL input;
+- single URL input;
 - same-origin multi-URL input;
 - normalization/deduplication;
 - incompatible-origin rejection before acquisition;
-- `--urls-file` when implemented;
+- `--urls-file`;
 - one audit workspace for an explicit set;
 - one robots acquisition and one acquisition per sitemap URL/domain resource;
 - Desktop/Mobile screenshot artifacts and snapshot linkage;
@@ -311,4 +311,4 @@ Focused regression coverage must include:
 - report presence of domain, audit ID, URL inventory, page URL prominence, visual/DOM evidence, references, robots, sitemap and responsive wrapping;
 - regression against invented canonical, author, date, structured data, claim, commercial fact, selector and observed HTML.
 
-A real smoke may use the Bradesco Seguros store homologation domain when environment/connectivity permits. External websites are never unit-test fixtures.
+A real smoke may use a controlled homologation domain when environment/connectivity permits. External websites are never unit-test fixtures.

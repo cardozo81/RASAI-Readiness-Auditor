@@ -1,17 +1,15 @@
 # PostgreSQL Control Plane
 
-Status: PostgreSQL 18 backend implemented behind an explicit opt-in configuration. SQLite remains the default local control-plane backend.
+Status: PostgreSQL 18 backend implemented behind explicit configuration. SQLite is the default local control-plane backend.
 
 This capability changes product persistence only. It does not alter `SARI-001`, `SCORE-GEO-004`, audit collection, scoring arithmetic or immutable `AUD-*/audit.db` evidence.
 
 ## Storage boundary
 
-The RASAi persistence boundary is:
-
 ```text
 Product/control-plane relational state
   SQLite      local/default
-  PostgreSQL  explicit opt-in / hosted target
+  PostgreSQL  centralized/hosted target
 
 Immutable audit evidence
   AUD-*/audit.db
@@ -20,83 +18,85 @@ Immutable audit evidence
   provider evidence
 ```
 
-PostgreSQL is not a replacement format for historical `audit.db` evidence. The control plane stores catalog, scope, lifecycle and longitudinal product state; audit evidence remains independently verifiable.
+PostgreSQL is the centralized relational authority for product/control-plane state when selected. `AUD-*/audit.db` remains the immutable execution-evidence format and is not replaced by PostgreSQL.
 
 ## Installation
 
-PostgreSQL support is optional so a normal Windows/local installation does not acquire a database-driver dependency it does not use.
+PostgreSQL support is optional so a normal local installation does not acquire a database-driver dependency it does not use.
 
 ```powershell
 python -m pip install -e ".[postgresql]"
 ```
 
-The adapter uses Psycopg 3. Application code does not depend on a specific Docker or cloud provider.
+The adapter uses Psycopg 3. Application code is not coupled to Docker or to a specific cloud provider.
 
 ## Backend selection
 
-Default behavior is unchanged:
+SQLite:
 
 ```text
 RASAI_PLATFORM_DB_BACKEND=sqlite
 ```
 
-When `RASAI_PLATFORM_DB_BACKEND` is absent, SQLite is selected and the canonical local database remains:
+When the backend variable is absent, SQLite is selected and the local control-plane database is:
 
 ```text
 audits/.rasai/platform.db
 ```
 
-PostgreSQL is explicit:
+PostgreSQL:
 
 ```text
 RASAI_PLATFORM_DB_BACKEND=postgresql
 RASAI_PLATFORM_DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<database>
 ```
 
-`postgres` and `pg` are accepted as backend-name aliases, but the documented value is `postgresql`.
+`postgres` and `pg` are accepted backend-name aliases, while `postgresql` is the documented value.
 
-`--platform-db` is SQLite-only. A configured PostgreSQL backend requires `RASAI_PLATFORM_DATABASE_URL` and never falls back to SQLite if the URL is absent or the server is unavailable. This prevents split authority.
+`--platform-db` is SQLite-only. A configured PostgreSQL backend requires `RASAI_PLATFORM_DATABASE_URL` and never falls back silently to SQLite. This prevents split authority.
 
-The database password is not emitted by backend status output. Display URLs are redacted to retain user/host/database while removing the password and connection query parameters.
+The database password is not emitted by backend status output. Display URLs are redacted to retain user/host/database while removing password and sensitive connection parameters.
 
-## Connection targets: Docker or hosted PostgreSQL
+## Connection targets
 
-The PostgreSQL adapter is endpoint-neutral. The same runtime can connect to a local Docker container, a PostgreSQL server on another machine, a managed database service or a hosting provider that exposes a standards-compatible PostgreSQL TCP endpoint.
+The PostgreSQL adapter is endpoint-neutral. The same runtime can connect to:
 
-Local Docker development example:
+- a local PostgreSQL 18 Docker container for development;
+- a PostgreSQL server on another machine;
+- a managed PostgreSQL service;
+- a hosting provider that exposes a standards-compatible PostgreSQL TCP endpoint.
+
+Local development example:
 
 ```text
 RASAI_PLATFORM_DB_BACKEND=postgresql
 RASAI_PLATFORM_DATABASE_URL=postgresql://rasai_app:<password>@127.0.0.1:5432/rasai_control_plane
 ```
 
-Hosted/remote example:
+Hosted example:
 
 ```text
 RASAI_PLATFORM_DB_BACKEND=postgresql
 RASAI_PLATFORM_DATABASE_URL=postgresql://rasai_app:<password>@db.example-host.net:5432/rasai_control_plane?sslmode=require&connect_timeout=10&application_name=rasai
 ```
 
-A provider-specific pooler endpoint on another port is also acceptable when it presents a PostgreSQL-compatible connection contract, for example port `6543`.
+Provider-specific pooler endpoints are acceptable when they expose a PostgreSQL-compatible connection contract.
 
-Connection query parameters are preserved and passed to Psycopg/libpq. This allows provider-required options such as `sslmode`, `connect_timeout`, `application_name` and certificate parameters without adding provider-specific logic to RASAi.
+For remote/hosted databases:
 
-For remote or hosted databases:
+- TLS should be enabled; `sslmode=require` is the minimum practical profile and `sslmode=verify-full` is preferred when hostname/CA verification is available;
+- inbound connectivity must be allowed from the RASAi execution environment;
+- the database user must have permissions required by explicit schema migrations;
+- credentials remain runtime secrets and must not be committed;
+- special characters in URL credentials must be percent-encoded.
 
-- TLS should be enabled; `sslmode=require` is the minimum practical remote profile, while `sslmode=verify-full` is preferred when the provider exposes a trusted CA and hostname verification;
-- the provider must permit inbound PostgreSQL connectivity from the RASAi execution environment, including IP allowlisting/firewall rules when applicable;
-- the database/user must have the permissions required by the explicit RASAi schema migrations;
-- credentials remain runtime secrets and must not be committed to Git;
-- special characters in URL usernames/passwords must be percent-encoded;
-- a generic web-hosting plan that does not expose remote PostgreSQL TCP access cannot be used as a RASAi control-plane endpoint merely because it offers PostgreSQL internally to hosted applications.
+RASAi does not detect Docker versus hosting and does not branch behavior by provider. Database location is represented by the connection URL and network/TLS configuration.
 
-RASAi does not detect Docker versus hosting and does not branch behavior by provider. Database location is an operational concern represented solely by the connection URL and network/TLS configuration.
-
-If a hosted PostgreSQL endpoint is unavailable while PostgreSQL is explicitly selected, RASAi fails closed. The operator may explicitly select `sqlite` to return to portable local operation; there is no automatic PostgreSQL-to-SQLite fallback.
+If PostgreSQL is explicitly selected and unavailable, the control plane fails closed. Returning to SQLite requires an explicit backend selection.
 
 ## Schema migrations
 
-PostgreSQL schema mutation is an explicit operation. Normal application startup and Search monitoring do not create or upgrade schema.
+PostgreSQL schema mutation is explicit. Normal application startup and Search monitoring do not create or upgrade schema.
 
 Inspect schema state:
 
@@ -110,19 +110,13 @@ Apply pending migrations:
 rasai platform database migrate
 ```
 
-Application startup requires the database schema to match the runtime-supported version. If the database is empty or behind, startup fails with an instruction to run the migration command. A database newer than the running RASAi build is also rejected.
+Application startup requires the database schema to match the runtime-supported version. Empty, behind or newer-than-supported schema state is rejected with an explicit diagnostic.
 
-Migrations are ordered and recorded in:
+Migrations are ordered, transactional and recorded in migration tables. Re-running migration against a current schema is idempotent.
 
-```text
-platform_schema_migrations
-```
+## Current PostgreSQL scope
 
-Each migration is applied in its own transaction. Re-running the migration command when the schema is current is idempotent.
-
-## Current PostgreSQL schema scope
-
-The PostgreSQL control plane covers the product-domain entities already authoritative in the local control plane, including:
+The PostgreSQL control plane covers the product-domain entities required by the current architecture, including:
 
 - organizations, users, memberships and workspaces;
 - projects, properties and environments;
@@ -133,74 +127,67 @@ The PostgreSQL control plane covers the product-domain entities already authorit
 - schedules, alert rules and notifications;
 - integration metadata;
 - external dataset catalog/records;
-- usage events;
-- Search monitoring query registry;
-- Search monitoring run summaries.
+- usage events and consumption analytics;
+- Search monitoring query registry and run summaries;
+- durable execution jobs;
+- external identity links for OIDC/JWT identity resolution.
 
-Search monitoring uses the same control-plane database as Product Platform. It does not open a second PostgreSQL database for Search state.
+Search monitoring, scheduling, usage accounting, identity and execution jobs use the same selected control-plane authority.
 
-## Compatibility-first representation
+## Current relational representation
 
-The first PostgreSQL schema intentionally preserves several existing application serialization contracts:
+The PostgreSQL schema preserves the domain representation expected by the current application contracts:
 
-- operational ISO-8601 values remain canonical text where Product Platform currently treats them as strings;
-- JSON domain payloads remain canonical JSON text;
-- application booleans remain constrained `0/1` integer values in parity-sensitive tables.
+- operational ISO-8601 values use canonical text where APIs expose strings;
+- structured domain payloads use canonical JSON text where required by repository contracts;
+- parity-sensitive booleans use constrained `0/1` values where that is the current schema contract;
+- migration audit timestamps use `TIMESTAMPTZ`.
 
-This is deliberate. The first database-engine transition proves behavioral parity without simultaneously changing the application data model.
+Representation changes such as broader adoption of `jsonb`, PostgreSQL `boolean` or `timestamptz` require explicit schema migrations and parity validation. They are not coupled implicitly to backend selection.
 
-PostgreSQL-native `jsonb`, `boolean` and `timestamptz` conversions can be introduced later as explicit versioned migrations after repository APIs stop depending on the legacy serialized representation. The migration-history timestamp itself already uses `TIMESTAMPTZ`.
-
-This compatibility choice does not change the server requirements: PostgreSQL uses UTF8 and the RASAi session timezone is UTC.
+PostgreSQL uses UTF8 and the RASAi session timezone is UTC.
 
 ## Transaction behavior
 
-The PostgreSQL adapter uses parameterized statements only. Existing control-plane domain methods reuse their established transaction boundaries through a narrow DB-API compatibility layer.
+The PostgreSQL adapter uses parameterized statements only.
 
-Normal read operations use an autocommit connection so read-only traffic does not remain in idle transactions. Domain write blocks explicitly open transactions and commit or roll back as a unit. Nested transaction blocks use savepoints.
-
-Database errors exposed to the CLI/runtime are sanitized. They may include the exception type and SQLSTATE for diagnosis, but not the connection URL, password or raw SQL statement.
+- normal read operations use autocommit so read-only traffic does not remain in idle transactions;
+- domain writes use explicit transactions;
+- nested transaction scopes use savepoints;
+- failures roll back the affected transaction;
+- database errors exposed to CLI/runtime are sanitized and may include exception type/SQLSTATE, never password, raw connection URL or raw SQL statement.
 
 ## Local development and hosted operation
 
-A local PostgreSQL 18 Docker container is appropriate for development and parity testing. The application connects through the same `RASAI_PLATFORM_DATABASE_URL` contract that a hosted deployment will use.
+A local PostgreSQL 18 Docker container is appropriate for development and parity testing. The application connects through the same `RASAI_PLATFORM_DATABASE_URL` contract used by a hosted deployment.
 
-The hosted SaaS target should use managed PostgreSQL rather than treating a developer Docker container as production infrastructure. Provider selection remains an operational deployment decision; the application repository contract does not depend on AWS, Azure, Google Cloud or a specialized PostgreSQL provider.
+For SaaS operation, managed PostgreSQL is the recommended production target. Provider selection remains a deployment decision; the repository contract is cloud-neutral.
 
-## Existing SQLite test data
+## Development/test data
 
-The current SQLite control-plane content and historical reports are development/test data and do not need to be imported into the first PostgreSQL control plane.
+Local SQLite control-plane content created during development is not treated as production authority. A clean PostgreSQL database may therefore be initialized through explicit schema migrations and populated through normal application contracts.
 
-The recommended current transition is therefore:
-
-```text
-new PostgreSQL database
-  -> explicit schema migration
-  -> empty canonical control plane
-  -> controlled test/real data created through application contracts
-```
-
-A generic SQLite-to-PostgreSQL import utility is not a prerequisite for this implementation. Such a tool should be introduced only if a future real local installation needs to preserve authoritative control-plane state during promotion to hosted operation.
+A SQLite-to-PostgreSQL data import utility is required only when an installation contains authoritative data that must be promoted. Such a process must validate identifiers, foreign keys, row counts, hashes and tenant scope before cutover.
 
 ## CI contract
 
-PostgreSQL support is validated against a real PostgreSQL 18 service container in GitHub Actions. The integration suite verifies at least:
+PostgreSQL support is validated against PostgreSQL 18 in GitHub Actions. The integration suite verifies at least:
 
 - schema migration and idempotence;
-- UTF8/UTC server contract;
-- hierarchy and tenant-scope domain behavior;
-- schedules and usage persistence;
+- UTF8/UTC contract;
+- hierarchy and tenant-scope behavior;
+- schedules, usage and execution-job persistence;
 - transaction rollback;
-- Query Registry and Search monitoring run history;
-- local-Docker and hosted/TLS connection URL profiles;
-- no creation or mutation of `AUD-*/audit.db` by recurring Search monitoring;
-- explicit backend selection and lack of silent fallback;
+- Query Registry and Search monitoring history;
+- local and hosted/TLS connection profiles;
+- no mutation of `AUD-*/audit.db` by recurring Search monitoring;
+- explicit backend selection and absence of silent fallback;
 - credential redaction.
 
-SQLite regressions remain part of the normal full Product Platform and repository regression suites. A separate portable safety gate runs without Psycopg or a PostgreSQL service so PostgreSQL support cannot become a hidden dependency of the local SQLite runtime.
+SQLite regressions remain in the normal Product Platform regression suites. A portable safety gate runs without Psycopg/PostgreSQL so centralized support cannot become a hidden dependency of local SQLite operation.
 
-## Production boundary not implemented here
+## SaaS boundary
 
-The PostgreSQL control-plane backend does not by itself implement the full hosted SaaS runtime. Later phases still include authenticated tenant context, hosted API/services, durable queue/scheduler claim semantics, object storage, secret management and stateless workers.
+PostgreSQL is the control-plane database foundation. A complete hosted SaaS deployment additionally requires authenticated tenant context, Web/API services, durable queue/scheduler claim semantics, object storage, secret management and stateless/short-lived workers.
 
-Until that hosted execution plane exists, the current local scheduler remains a single-machine execution mechanism even when PostgreSQL persistence is being tested.
+Persisting schedules in PostgreSQL does not by itself make a multi-replica scheduler horizontally safe; distributed execution requires atomic claims, leases/locks, idempotency, bounded retries and tenant/provider concurrency controls.

@@ -50,8 +50,8 @@ Referência primária do código Lighthouse:
 
 https://github.com/GoogleChrome/lighthouse/blob/main/core/config/agentic-browsing-config.js
 
-## Compatibilidade histórica
+## Persistência
 
-Workspaces antigos podem não possuir `agentic_browsing_score`. A persistência faz migração aditiva do campo quando a camada Web Performance é aberta. Relatórios e Monitoring devem continuar funcionando quando o campo não existir ou não possuir valor.
+`web_performance_observations` mantém `agentic_browsing_score` como campo separado. Quando a categoria não estiver presente na resposta do provider, o valor permanece indisponível/`NULL`; não é convertido em zero e não invalida as demais categorias válidas da mesma execução.
 
-A adição da categoria não altera auditorias históricas nem recalcula `audit.db` imutável sem uma nova execução.
+A categoria Agentic Browsing não altera `SARI-001` nem `SCORE-GEO-004`.
