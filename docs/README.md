@@ -10,6 +10,7 @@ O contrato funcional vigente usa:
 - método de scoring `SCORE-GEO-004`;
 - `report/readiness.html` como superfície canônica do índice;
 - `report/scoring.html` como superfície canônica da metodologia;
+- `report/index.html` como visão executiva; quando Synthetic Navigation Apdex e Synthetic User Experience Apdex são materializados, seus resumos são exibidos separadamente, com acesso aos respectivos relatórios e sem composição, média ou substituição entre os resultados;
 - HTML em português do Brasil, mantendo em inglês apenas nomes técnicos consolidados, identificadores, APIs, formatos e termos cujo uso técnico melhora a precisão.
 
 A arquitetura de produto inclui Product Platform, SQLite local, PostgreSQL centralizado opt-in, Web API, workers, SaaS Pilot Web, Scheduling Management, Consumption Analytics, acesso remoto ao control plane e Identity & Access baseada em OIDC/JWT com vínculo explícito entre identidade externa e `USR-*`. Essas camadas preservam a separação entre control plane, scoring e evidência imutável de auditoria.
