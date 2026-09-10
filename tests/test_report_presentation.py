@@ -62,6 +62,25 @@ class ReportPresentationTests(unittest.TestCase):
         self.assertIn("<td>Não observado</td>", rendered)
         self.assertIn("<strong>Crítica (P0)</strong>", rendered)
 
+    def test_localizes_visible_aware_timestamps_but_preserves_technical_blocks(self) -> None:
+        html = (
+            "<p>Gerado em 2026-09-10T22:02:15+00:00.</p>"
+            "<td>2026-09-10T21:02:15Z</td>"
+            "<code>2026-09-10T22:02:15+00:00</code>"
+            "<pre>2026-09-10T22:02:15+00:00</pre>"
+            "<span data-created='2026-09-10T22:02:15+00:00'>2026-09-10</span>"
+        )
+
+        rendered = humanize_report_html(html)
+
+        self.assertIn("Gerado em 10/09/2026 19:02:15 (America/Sao_Paulo).", rendered)
+        self.assertIn("<td>10/09/2026 18:02:15 (America/Sao_Paulo)</td>", rendered)
+        self.assertIn("<code>2026-09-10T22:02:15+00:00</code>", rendered)
+        self.assertIn("<pre>2026-09-10T22:02:15+00:00</pre>", rendered)
+        self.assertIn("data-created='2026-09-10T22:02:15+00:00'", rendered)
+        self.assertIn(">2026-09-10</span>", rendered)
+        self.assertEqual(rendered, humanize_report_html(rendered))
+
     def test_public_label_is_conservative_for_unknown_values(self) -> None:
         self.assertEqual(public_label("NOT_CONFIGURED"), "Não configurado")
         self.assertEqual(public_label("LIGHTHOUSE_ARTIFACT"), "LIGHTHOUSE_ARTIFACT")
