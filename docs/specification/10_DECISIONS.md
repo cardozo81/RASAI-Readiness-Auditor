@@ -1,308 +1,180 @@
 # DECISIONS.md
 
-**Estado no baseline de desenvolvimento:** CURRENT
+**Contrato vigente:** CURRENT
 
-## DECIDED
+Este documento registra somente decisões atualmente válidas para o produto. Decisões abandonadas, etapas de implementação concluídas e regras transitórias de branch/merge não integram a especificação normativa.
 
-### D-001
-Desktop e Mobile serão avaliados separadamente.
+## D-001 - Readiness por dispositivo
 
-### D-002
-Relatório oficial será HTML estruturado e profissional.
+Desktop e Mobile são contextos independentes. Scores, Coverage, Confidence e Consolidation são calculados e apresentados por dispositivo. Um contexto não executado não pode ser apresentado como defeito do website.
 
-### D-003
-Testes mínimos orientados a risco.
+## D-002 - Índice e scoring
 
-### D-004
-Decisão original: GitHub somente após baseline local estável.
+O índice público é `SARI-001` e o método de scoring vigente é `SCORE-GEO-004`.
 
-Status: **SUPERSEDED por D-032**.
+O scoring é determinístico, evidence-bound e usa as dez dimensões definidas pelo contrato atual. IA não escolhe pesos nem calcula unilateralmente o score. Coverage e Confidence não substituem Score.
 
-### D-005
-Uma máquina e um operador humano no MVP.
+Dimensões integralmente e legitimamente `NOT_APPLICABLE` são excluídas do denominador aplicável e não recebem score artificial 0 ou 100. Ausência de evidência suficiente não é convertida em falha.
 
-### D-006
-Arquitetura distribuída não é requisito inicial.
+JSON-LD permanece `OPCIONAL / REFORÇO`. A ausência de JSON-LD é materializada por `BR-GEO-034` como `WARNING` de baixo impacto para tornar a lacuna observável e comparável; `BR-GEO-035..037` permanecem `NOT_APPLICABLE` enquanto não houver JSON-LD. Essa materialização não transforma JSON-LD em requisito universal nem converte ausência em `FAIL`.
 
-### D-007
-Multiusuário não é requisito inicial.
+## D-003 - Evidência de auditoria imutável
 
-### D-008
-As 10 dimensões permanecem no MVP.
+Cada `AUD-*` preserva `audit.db`, artifacts e relatórios como evidência reabrível da execução. Estado de produto, tenancy, schedules, milestones, usage, integrações e dados longitudinais pertencem ao control plane e não são gravados retroativamente em `AUD-*/audit.db`.
 
-### D-009
-Existirá Overall Readiness separado para Desktop e Mobile, somente quando consolidável.
+## D-004 - Persistência do control plane
 
-### D-010
-`max_pages` padrão = 100, configurável.
+SQLite é suportado para operação local de autoridade única. PostgreSQL é o backend centralizado do control plane para execução hospedada e cenários que exigem concorrência e autoridade compartilhada.
 
-### D-011
-Intent analysis entra no MVP de forma controlada: 1 primary + até 5 secondary intents.
+Quando PostgreSQL estiver explicitamente selecionado, falha de conexão/configuração não provoca fallback silencioso para SQLite.
 
-### D-012
-Benchmark de concorrentes fica para V1.
+## D-005 - Hierarquia de produto
 
-### D-013
-Interface inicial será CLI, não aplicação web.
+A hierarquia canônica é:
 
-### D-014
-Rendering baseline será Playwright + Chromium.
+```text
+Organization
+  -> Workspace
+      -> Project
+          -> Property
+              -> Environment
+```
 
-### D-015
-Organização conceitual/física: Audit → Page → Device Context. Dados estruturados em SQLite embarcado; artefatos grandes em filesystem.
+Usuários e memberships/RBAC são avaliados dentro dessa hierarquia. Um projeto pode possuir múltiplas propriedades/domínios e uma auditoria pode abranger múltiplas propriedades quando seu escopo persistido assim determinar.
 
-### D-016
-Nenhum database server ou serviço externo de banco será obrigatório.
+## D-006 - Web/API e workers
 
-### D-017
-IA é opcional. Auditor deve funcionar sem provider.
+A Web API e o SaaS Pilot Web são superfícies do mesmo domínio de produto e não mantêm uma segunda regra de negócio ou uma segunda persistência.
 
-### D-018
-Resultados relevantes devem informar Coverage, Confidence e Consolidation Status.
+Execuções potencialmente longas, crawling, Search Monitoring e integrações não devem bloquear o processo HTTP. O control plane cria/coordena jobs e workers desacoplados realizam o trabalho autorizado.
 
-### D-019
-Ausência de IA nunca representa baixa qualidade do website.
+## D-007 - Identity & Access
 
-### D-020
-Camada semântica será independente de fornecedor/modelo.
+OIDC/JWT é a direção de autenticação do produto hospedado. Identidade autenticada resolve para um `Principal`/usuário interno; autorização continua baseada em memberships e escopo de tenant.
 
-### D-021
-MVP implementará NoneProvider e pelo menos um provider real; baseline real inicial: OpenAI.
+Autenticação válida não cria membership automaticamente. Secrets, access tokens, ID tokens e refresh tokens não são persistidos como metadados ordinários do control plane.
 
-### D-022
-Score oficial deve conter Value, Coverage, Confidence e Consolidation.
+## D-008 - IA opcional e provider-neutral
 
-### D-023
-Ausência de IA reduz cobertura/consolidação, nunca score do website diretamente.
+O auditor deve funcionar sem provider de IA. Integrações de IA são provider-neutral no domínio e provider-specific apenas nos adapters.
 
-### D-024
-Pesos iguais entre dimensões no MVP.
+Saídas de IA relevantes ao audit devem ser validadas contra schema e `evidence_ids`. Indisponibilidade de provider não constitui baixa qualidade do website.
 
-### D-025
-Scoring groups impedem dupla penalização de causa correlacionada.
+Remediação textual e técnica por IA são opt-in, evidence-bound, advisory e não podem alterar retrospectivamente RuleExecution, Finding, Recommendation, Score, Coverage, Confidence ou Consolidation já persistidos.
 
-### D-026
-Na máquina de desenvolvimento/MVP, uso de API externa de IA é permitido.
+## D-009 - Web Performance externo
 
-### D-027
-OpenAI é o provider inicial previsto para o MVP, sem dependência arquitetural.
+Web Performance é enriquecimento externo e fail-open em relação ao audit principal.
 
-### D-030
-Relatório destinado ao usuário será prioritariamente em português.
+O default Lighthouse solicitado pelo RASAi contém:
 
-### D-031
-Termos técnicos oficiais podem permanecer em inglês quando tradução reduzir precisão; glossário/contexto são obrigatórios.
+```text
+performance
+accessibility
+best-practices
+seo
+agentic-browsing
+```
 
-### D-032
-Git/GitHub são adotados a partir do Bootstrap e fundação do projeto como controle de versão e repositório de desenvolvimento.
+Performance, Accessibility, Best Practices e SEO são categorias Lighthouse externas. Agentic Browsing é tratado como categoria experimental e contexto adicional. Sua ausência isolada não invalida uma coleta estável e seu score não entra automaticamente em `SARI-001`/`SCORE-GEO-004`.
 
-Essa adoção não altera o requisito de execução local e não torna GitHub dependência de runtime do produto.
+Core Web Vitals de campo e métricas Lighthouse de laboratório permanecem semanticamente separados.
 
-### D-033
-Quando um escopo ou alteração implementada em branch estiver encerrado, validado e aprovado para integração, todo o conteúdo validado deve ser integrado em `main`.
+## D-010 - Acessibilidade
 
-Após o merge, deve-se confirmar que `main` contém integralmente o resultado aprovado e que a branch de trabalho não possui conteúdo exclusivo pendente.
+Diagnósticos automatizados de acessibilidade são auxiliares e não constituem certificação de conformidade WCAG integral. O relatório deve distinguir evidência automatizada, limitação de cobertura e necessidade de validação humana quando aplicável.
 
-A regra anterior de contingência que permitia manter branch sincronizada com `main` quando a ferramenta não pudesse removê-la foi **SUPERSEDED por D-035**.
+## D-011 - Synthetic Apdex
 
-### D-034
-Após um marco ser implementado, validado, comparado com seus critérios, integrado integralmente em `main` e encerrado sem pendências bloqueantes, fica autorizado o avanço automático ao marco seguinte previsto em `09_IMPLEMENTATION_PLAN.md`, sem necessidade de nova aprovação humana.
+Synthetic Navigation Apdex e Synthetic User Experience Apdex são medições sintéticas separadas do SARI e de RUM real.
 
-Cada marco continua sendo unidade independente de implementação, validação, branch, PR, merge e encerramento.
+O User Experience Apdex pode ser calibrado com configuração externa observável, inclusive Dynatrace, mas continua identificado como medição sintética do RASAi.
 
-O avanço automático deve interromper somente diante de conflito normativo não solucionável pela precedência documental, impossibilidade técnica relevante, alteração material de escopo ou comportamento funcional, falha persistente de validação obrigatória, necessidade de credencial/segredo indisponível, ação externa indispensável que a ferramenta não possa executar, impacto de política corporativa ou outra decisão/ação que dependa necessariamente de humano.
+## D-012 - Crawling e discovery
 
-Problemas técnicos ordinários e solucionáveis não constituem motivo para solicitar aprovação humana. A execução deve diagnosticar, corrigir, revalidar e continuar automaticamente quando possível.
+`robots.txt` é adquirido no caminho padrão da origem e interpretado conforme o Robots Exclusion Protocol aplicável.
 
-Nenhum marco pode ser considerado concluído apenas para permitir avanço. Todos os respectivos critérios e gates obrigatórios permanecem válidos.
+Sitemaps podem existir em múltiplos arquivos e em caminhos diferentes da raiz. O discovery deve preservar múltiplas declarações `Sitemap:` de `robots.txt`, seguir sitemap indexes dentro dos limites de segurança e suportar os formatos documentados pelo contrato atual.
 
-### D-035
-Status: **SUPERSEDED parcialmente por D-036 quanto ao momento da exclusão física e ao caráter bloqueante da limpeza de branch durante a cascata.**
+Declarações cross-origin podem ser registradas como evidência, mas não são seguidas automaticamente sem política explícita de segurança/autorização.
 
-Toda branch criada especificamente para implementação de um marco ou alteração de governança é temporária.
+## D-013 - llms.txt
 
-Após o merge em `main`, é obrigatório:
+`llms.txt` é uma proposta comunitária experimental e não um requisito universal de Search & AI readiness.
 
-1. confirmar que o merge foi concluído;
-2. confirmar que `main` contém integralmente todo o conteúdo aprovado;
-3. comparar a branch com `main`;
-4. confirmar que a branch não contém commits, arquivos ou alterações exclusivas pendentes;
-5. excluir a branch remota do GitHub;
-6. quando aplicável, excluir também a branch local;
-7. somente então considerar concluída a limpeza Git do marco ou alteração de governança.
+O RASAi pode observar múltiplos arquivos `llms.txt` same-origin:
 
-Uma branch já integrada em `main` não deve permanecer existente apenas por estar sincronizada. O estado `identical / 0 ahead / 0 behind` comprova que a exclusão é segura, mas não constitui estado final aceitável.
+- `/llms.txt` na raiz;
+- arquivos scoped em subdiretórios explicitamente descobertos por HTML `<link rel="describedby">`;
+- arquivos scoped explicitamente descobertos por HTTP `Link` com `rel="describedby"`;
+- URLs explicitamente declaradas em hints `LLMS:`/`LLMS-TXT:` de `robots.txt`, sempre identificados como convenção não padronizada.
 
-Sincronizar a branch com `main` após o merge não substitui sua exclusão.
+Não é permitido brute-force de diretórios para adivinhar arquivos `llms.txt`. A presença ou ausência desses arquivos não substitui robots, sitemap, canonical, HTML semântico ou conteúdo acessível e não altera automaticamente o SARI.
 
-Se a ferramenta utilizada não permitir excluir a branch remota, deve-se registrar explicitamente a limitação e informar a ação manual necessária. Enquanto a branch permanecer existente, a limpeza Git fica pendente e o ciclo Git não pode ser apresentado como completamente encerrado.
+## D-014 - Crawlers e controles de IA
 
-A pendência de limpeza não invalida o código já integrado em `main`. Porém, quando a conclusão integral do marco ou da alteração de governança for gate para avanço em cascata, aplica-se D-036.
+OAI-SearchBot, GPTBot, Googlebot e Google-Extended devem ser apresentados conforme suas finalidades públicas e sem inferência indevida entre controles distintos.
 
-Nenhuma branch de trabalho encerrado deve permanecer no repositório, salvo exceção futura explicitamente justificada e documentada.
+Bloquear GPTBot não equivale automaticamente a bloquear Search. Google-Extended é um token de produto em `robots.txt`, não um user-agent HTTP separado da Pesquisa Google.
 
-### D-036
-Para a execução automática sequencial Extração e evidências → Testes críticos e baseline local estável, a exclusão física das branches remotas encerradas fica diferida para uma rotina manual única ao final da cascata.
+## D-015 - Search Intelligence
 
-A exclusão de branch deixa de ser blocker entre marcos, desde que, após cada merge:
+SERP Observation é provider-neutral e registra observação limitada de Search tradicional. Google, Bing e futuros engines permanecem adapters do mesmo contrato canônico.
 
-1. `main` contenha integralmente o conteúdo aprovado;
-2. a branch seja comparada com `main`;
-3. fique comprovado que a branch não possui commits, arquivos ou alterações exclusivas pendentes;
-4. a branch seja registrada em uma lista acumulada de exclusão manual.
+`NOT_FOUND_WITHIN_DEPTH` somente pode ser emitido quando a profundidade solicitada tiver sido suficientemente observada. Orçamento esgotado antes dessa comprovação produz estado de indisponibilidade/parcialidade, não uma posição inventada.
 
-Branches registradas nessa lista não podem ser reutilizadas para novos marcos nem receber novos commits após o encerramento correspondente.
+Search Intelligence, Competitive Search, Search History e Search Monitoring são non-scoring por default e não alteram automaticamente `SARI-001` ou `SCORE-GEO-004`.
 
-Ao final da cascata, deve ser apresentada ao humano a lista completa das branches remotas que podem e devem ser excluídas manualmente. A limpeza física continua obrigatória como housekeeping do repositório, mas sua execução diferida não bloqueia o avanço Extração e evidências → Testes críticos e baseline local estável nem invalida o encerramento funcional de cada marco.
+## D-016 - Monitoring, observability e outcomes
 
-A mesma regra de limpeza diferida aplica-se às branches de governança criadas especificamente para viabilizar esta cascata.
+Comparações before/after, milestones, release gates e timelines usam evidência persistida e devem declarar limitações de comparabilidade.
 
-### D-037 - Aplicabilidade de dimensões no SARI
+Associação temporal não é causalidade. Observed Generative Visibility, Search Console, Bing, CrUX, GA4, logs e demais outcomes externos não entram automaticamente no score de readiness.
 
-As dez dimensões permanecem no modelo, preservando D-008. Uma dimensão cujas RuleExecutions existam e estejam **todas legitimamente `NOT_APPLICABLE`** não pode ser tratada como `NOT_CONSOLIDATED` nem bloquear o Overall.
+Dados ausentes permanecem ausentes; `NULL` externo não é convertido em zero.
 
-Regra aprovada:
+## D-017 - Multi-URL e recursos de domínio
 
-1. ausência completa de RuleExecutions continua `NOT_CONSOLIDATED`;
-2. `NOT_APPLICABLE` provocado apenas por pré-requisito bloqueado continua `NOT_CONSOLIDATED`;
-3. dimensão integralmente e legitimamente `NOT_APPLICABLE` recebe estado de consolidação `NOT_APPLICABLE`;
-4. dimensão `NOT_APPLICABLE` não recebe score 0 nem 100;
-5. dimensão `NOT_APPLICABLE` é excluída do denominador do Overall e de sua Coverage;
-6. todas as dimensões aplicáveis restantes precisam estar suficientemente consolidadas para existir Overall;
-7. a exclusão deve ser persistida/rastreável como `DIMENSION_NOT_APPLICABLE:<DIMENSION>`;
-8. se um tópico opcional passar a existir - por exemplo JSON-LD - suas regras passam a ser aplicáveis e seus resultados entram normalmente no score.
+Uma auditoria pode receber múltiplas URLs/targets conforme o contrato da CLI/API e preservar um único `audit_id` quando o escopo for válido.
 
-JSON-LD/Structured Data é classificado como **OPCIONAL / REFORÇO**, não como requisito universal para GEO funcional. Sua ausência legítima, isoladamente, não é FAIL nem impedimento para Readiness Search & AI mensurável. Quando presente, deve ser interpretável e coerente com o conteúdo visível; markup inválido ou contraditório pode reduzir o score.
+`robots.txt`, sitemaps, feeds e demais recursos de domínio são evidências de domínio e não devem ser artificialmente duplicados como findings por página.
 
-**Refinamento vigente no SCORE-GEO-004:** a ausência de JSON-LD é materializada por `BR-GEO-034` como `WARNING` de baixo impacto (fator 0,80) para tornar a lacuna visível e comparável; `BR-GEO-035..037` permanecem `NOT_APPLICABLE` enquanto não houver JSON-LD. Isso não transforma JSON-LD em requisito universal nem converte ausência em `FAIL`.
+RAW HTTP, DOM renderizado e visual snapshot são planos de evidência distintos.
 
-O foco primário desta classificação é Google Search e seus recursos de IA. Outros mecanismos podem ser documentados como sinais complementares sem alterar a regra de scoring.
+## D-018 - Remediação e segurança factual
 
-### D-038 - Web Performance externo e separação metodológica
+Recomendações devem ser sustentadas por evidência persistida. O RASAi não inventa canonical preferencial, selector, HTML observado, autor, data, credencial, preço, claim, structured data ou fonte ausente.
 
-Decisão aprovada:
+Quando uma decisão não puder ser determinada pelas evidências, o relatório deve declarar a necessidade de decisão humana em vez de fabricar um valor.
 
-D-038 complementa D-037; não a supersede.
+## D-019 - Contrato público de relatório
 
-### D-039 - Rastreamento, descoberta e acesso de crawlers Crawling/Discovery, políticas de crawler e IA técnica
+O report site é HTML estático, navegável, responsivo e reabrível a partir do workspace persistido.
 
-Decisão aprovada:
+`report/readiness.html` é a superfície canônica do SARI. `report/scoring.html` é a superfície canônica da metodologia. A versão metodológica pertence a `scoring_version`, banco, manifests, metadados e conteúdo do relatório; não a um filename público alternativo.
 
-1. diagnósticos determinísticos de rastreamento e descoberta permanecem advisory e persistidos com `scoring_impact=NONE`; avaliações técnicas evidence-bound explicitamente habilitadas podem materializar somente BR-GEO-055/056 bounded, registrando `BOUNDED_AI_RESOURCE_ASSESSMENT` no run sem criar peso adicional;
-2. `robots.txt` e sitemaps devem seguir standards/guidance públicos aplicáveis, mas severidades Rastreamento, descoberta e acesso de crawlers continuam metodologia interna do RASAi;
-3. uma declaração absoluta `Sitemap:` pode apontar para host diferente; o auditor preserva essa declaração, porém não faz fetch cross-origin automático a partir dela enquanto não existir política explícita de SSRF/DNS/IP/redirect/autorização;
-4. a restrição de fetch cross-origin é limite de segurança/escopo do auditor e não finding do website;
-5. OAI-SearchBot representa descoberta/surfacing para Search da OpenAI; GPTBot permanece controle relacionado a potencial treinamento. O estado de um não pode ser inferido a partir do outro;
-6. Google-Extended é token de produto em `robots.txt`, não user-agent HTTP Search independente, e não afeta inclusão/ranking na Pesquisa Google conforme documentação pública do Google;
-7. `llms.txt` permanece proposta comunitária experimental: ausência, erro ou não adoção não reduz score/readiness e o arquivo não substitui robots, sitemap, canonical, HTML semântico ou conteúdo acessível;
-8. IndexNow não pode ser declarado configurado/bem-sucedido por auditoria passiva sem evidência explícita, log ou artifact verificável; na ausência disso, o estado é não determinável;
-9. remediação técnica Rastreamento, descoberta e acesso de crawlers por IA é default OFF, evidence-bound, advisory e exige revisão humana;
-10. IA Rastreamento, descoberta e acesso de crawlers não pode inventar URLs/policies/canonicals/datas/tokens, decidir unilateralmente política de treinamento/crawler nem alterar RuleExecution, Finding GEO, Recommendation GEO, Score, Coverage, Confidence ou Consolidation;
-11. hard source blocker confirmado impede aquisição adicional `/llms.txt` e chamada técnica de IA dependente do corpus;
-12. `report/crawling-discovery.html` é a página canônica desse domínio e deve usar navegação/CSS compartilhados;
-13. qualquer futura incorporação de diagnóstico Rastreamento, descoberta e acesso de crawlers ao scoring exige decisão explícita, novo versionamento e regressão comparativa; não pode ocorrer implicitamente.
+Páginas opcionais são materializadas quando o respectivo domínio possui estado a apresentar e devem compartilhar navegação e CSS do report site.
 
-D-039 complementa D-037/D-038; não as supersede.
+## D-020 - Linguagem e semântica de apresentação
 
-### D-040 - Observed Generative Visibility separado de readiness
+A camada de apresentação é prioritariamente em português do Brasil. Termos técnicos consolidados, enums, IDs, APIs e formatos podem permanecer em inglês quando isso melhora precisão e rastreabilidade.
 
-Decisão aprovada:
+Estados de indisponibilidade, ausência de evidência, coleta não executada e `NOT_APPLICABLE` devem ser visualmente e semanticamente distintos de falha ou score zero.
 
-1. `Readiness` e `Observed Generative Visibility` são conceitos distintos e não podem ser fundidos em um score comum sem nova decisão/versionamento/validação;
-2. Observed Generative Visibility inicia com contrato local versionado `OGV-IMPORT-001`, sem scraping de portal de webmaster e sem endpoint de API presumido ou não documentado;
-3. `BING_WEBMASTER_TOOLS_AI_PERFORMANCE` preserva Total Citations e Average Cited Pages como métricas reportadas pela fonte; o RASAi não inventa fórmula equivalente para recalculá-las;
-4. `CONTROLLED_QUERY_RUNS` pode produzir Citation Presence Rate somente sobre runs `VALID`, com runs `INVALID` fora do denominador;
-5. Citation Presence Rate deve ser acompanhado de tamanho amostral e intervalo Wilson 95% quando calculável; isso mede incerteza amostral e não é probabilidade preditiva de citação futura;
-6. contagem de citações não pode ser rotulada como ranking, autoridade ou preferência universal de engine;
-7. toda URL Observed Generative Visibility deve pertencer ao `normalized_origin` da auditoria; dados cross-origin são rejeitados;
-8. o artifact importado deve ser preservado com SHA-256 e reimportação do mesmo conteúdo deve ser idempotente;
-9. `report/ai-visibility.html` é a página canônica do domínio Observed Generative Visibility;
-10. Observed Generative Visibility não escreve nem recalcula `Score`, `Coverage`, `Confidence`, `Consolidation`, `RuleExecution`, `Finding` ou `Recommendation`;
-11. correlação/calibração futura entre SARI e outcomes Observed Generative Visibility exige dataset longitudinal, separação por domínio entre treino/calibração/teste e validação fora da amostra antes de qualquer claim preditivo;
-12. adapters automáticos para plataformas externas só podem ser introduzidos quando houver contrato público/documentado e política de credenciais/segurança correspondente.
+## D-021 - Segurança de secrets e rede
 
-D-040 complementa D-037/D-038/D-039; não as supersede.
+Secrets não devem ser incluídos em documentação de exemplo real, banco de evidência, artifacts, reports, schedules ou logs.
 
-## PENDING ENVIRONMENT VALIDATION
+Aquisição de URLs externas deve respeitar controles de escopo, redirects, DNS/IP, same-origin e SSRF definidos pela superfície correspondente. Hosted execution requer também controles de egress e secret management apropriados ao ambiente.
 
-### D-028
-Verificar acesso técnico à API OpenAI na máquina/rede corporativa.
+## D-022 - Uso e consumo
 
-Validar:
+O usage ledger é separado de findings/scoring e registra consumo operacional necessário para analytics, limites, custo e futura medição SaaS, preservando provider/source provenance e sem transformar consumo em indicador de qualidade do website.
 
-- DNS;
-- TLS;
-- proxy;
-- firewall;
-- endpoint API;
-- authentication;
-- timeout;
-- políticas de saída.
+## D-023 - Regra documental de pré-publicação
 
-Acessibilidade técnica não significa autorização corporativa.
+O RASAi ainda está em desenvolvimento e validação. A documentação normativa descreve somente o contrato vigente do produto.
 
-## PENDING CORPORATE VALIDATION
+Não devem permanecer na documentação pública/normativa decisões descartadas, nomes de branches de entrega, números de PR usados como status de implementação, planos concluídos ou superfícies removidas. Git continua responsável pelo histórico técnico dessas mudanças.
 
-### D-029
-Identificar provider de IA permitido/preferido corporativamente.
-
-Possibilidades arquiteturais:
-
-- OpenAI;
-- Azure OpenAI;
-- Google;
-- Anthropic;
-- AWS Bedrock;
-- modelo local;
-- nenhum.
-
-Também validar corporativamente:
-
-- autorização para envio de conteúdo a IA externa;
-- execução de Chromium/browser;
-- executável portátil;
-- escrita em filesystem;
-- SQLite embarcado;
-- antivírus/EDR;
-- políticas de execução.
-
-Essas pendências não bloqueiam desenvolvimento local do MVP.
-
-## Restrições aprovadas adicionais
-
-- aplicação local Windows;
-- não web;
-- sem Docker obrigatório;
-- sem admin como objetivo de distribuição;
-- relatório estático;
-- SQLite não é considerado dependência de database server;
-- RAW + RENDERED sempre preservados no baseline;
-- arquitetura do site não gera penalidade por si só;
-- `llms.txt` não impacta score automaticamente;
-- GPTBot e OAI-SearchBot possuem papéis distintos;
-- Google-Extended não é crawler Search independente e não afeta ranking/inclusão da Pesquisa Google;
-- sitemap externo declarado não é seguido automaticamente pelo Rastreamento, descoberta e acesso de crawlers enquanto não houver política segura de aquisição cross-origin;
-- findings devem ser evidence-backed;
-- LLM nunca é scoring engine;
-- cascading failures devem ser controladas;
-- métricas PageSpeed/CrUX/Lighthouse não alteram `SARI-001`/`SCORE-GEO-004` sem decisão e contrato metodológico explícitos;
-- diagnósticos de rastreamento e descoberta também não alteram `SARI-001`/`SCORE-GEO-004` sem decisão e contrato metodológico explícitos;
-- outcomes Observed Generative Visibility não alteram `SARI-001`/`SCORE-GEO-004` e não podem ser apresentados como causalidade/predição sem validação empírica específica.
-
-### D-041 - Linguagem pública por domínio funcional
-
-A documentação de produto, o console e os relatórios destinados ao usuário devem nomear capacidades pelo domínio funcional, não por identificadores históricos de etapas de entrega. Termos técnicos na apresentação só são admitidos quando documentados por fonte pública reconhecida e difundidos no domínio; vocabulário de código/runtime deve ficar oculto da leitura principal. O público-alvo primário é o analista de dados/SEO.
-
-### D-042 - SCORE-GEO-004 e contrato público estável
-
-Esta decisão registra a evolução metodológica posterior às D-038, D-039 e D-040 sem reescrever retroativamente o contexto em que elas foram aprovadas.
-
-D-042 não autoriza recalcular auditorias históricas nem alterar evidência persistida.
-
-### D-043 - Pré-publicação: superfície única e sem aliases históricos
-
-Enquanto o RASAi permanecer em desenvolvimento local e sem publicação externa, a superfície pública de metodologia é somente `report/scoring.html`. Aliases HTML versionados criados apenas durante o desenvolvimento não são preservados como contrato de compatibilidade. `scoring_version` continua obrigatório no banco, manifests, metadados e conteúdo para rastreabilidade metodológica.
-
-A simplificação de aliases não autoriza misturar resultados produzidos por métodos diferentes. Ela apenas remove compatibilidade de URL que nunca foi publicada.
-
-Scorecards SARI/por dispositivo devem usar semântica visual compartilhada e textual, e o Apdex deve colorir suas classes próprias sem inventar novas classes metodológicas.
+Toda alteração funcional deve manter código, testes, HTML, CLI/API e documentação aderentes ao mesmo contrato.
