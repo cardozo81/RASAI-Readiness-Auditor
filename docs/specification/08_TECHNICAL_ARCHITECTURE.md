@@ -50,16 +50,18 @@ Current method:
 
 ```text
 SCORE-GEO-004
-EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1
+HIERARCHICAL_WEIGHTED_READINESS_V1
 ```
 
-Dimension calculations remain deterministic and evidence-bound. The Overall is the equal-weight mean of applicable dimension scores, qualified by Coverage, Confidence and Consolidation gates.
+Dimension calculations remain deterministic and evidence-bound. The Overall is the weighted mean of measured applicable dimension scores using versioned dimension weights, with denominator renormalization over participating dimensions. Applicable dimensions without value are not imputed as zero; they reduce Coverage/Confidence and may constrain Consolidation. Critical readiness dimensions retain the stricter gates defined in `05_SCORING_MODEL.md`.
 
 No downstream enrichment may silently create ScoreContribution or enter SARI/SCORE-GEO-004.
 
 ## 5. Device context
 
 Public device scope is `mobile`, `desktop` or `both`. Only selected/materialized contexts may trigger downstream analysis or optional calls. Desktop × Mobile comparison is applicable only when both contexts exist.
+
+Synthetic User Experience Apdex may model TABLET as a synthetic profile, but TABLET is not a canonical core `DeviceContext`; a mobile-only audit cannot silently execute desktop or tablet contexts.
 
 ## 6. Persistence boundaries
 
@@ -107,18 +109,20 @@ Invariants:
 - unavailable providers do not overwrite valid evidence;
 - provider/model/usage/cost is operational telemetry, not scoring;
 - secrets and private reasoning are not persisted;
-- AI remediation is advisory and evidence-bound.
+- AI remediation is advisory and evidence-bound;
+- `AI=AUTO` separates capacidade configurada de participação no pool: excluir um provider do AUTO não remove sua credencial nem impede seleção explícita posterior.
 
 ## 8. External domains
 
 The following remain independent of SARI unless a future explicit versioned method changes the contract:
 
-- PageSpeed/Lighthouse lab metrics;
+- PageSpeed/Lighthouse lab metrics, including experimental Agentic Browsing when requested/supported;
 - CrUX field metrics;
 - Accessibility automation;
 - Synthetic Navigation Apdex;
 - Synthetic User Experience Apdex;
 - crawling/discovery enrichments;
+- Search Intelligence / Competitive Search;
 - Observed Generative Visibility;
 - Search & AI Observability;
 - Monitoring/Change Impact;
@@ -139,6 +143,8 @@ scoring.html
 ```
 
 The method version is stored in `scoring_version` and rendered in the page, not encoded into the canonical filename.
+
+Report totals for AI consumption are derived from persisted attempt telemetry, not from scraping presentation labels. Calls whose provider did not return usage remain without invented monetary cost.
 
 ## 10. Monitoring / Observability / Quality
 
