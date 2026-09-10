@@ -1,193 +1,200 @@
-# PostgreSQL Migration Strategy
+# Estratégia de migração para PostgreSQL
 
-Status: PostgreSQL 18 control-plane backend is implemented as an explicit opt-in path. SQLite remains the default local backend.
+**Estado:** backend PostgreSQL 18 do control plane implementado como opção explícita. SQLite permanece o backend local padrão.
 
-The scoring contract is `SCORE-GEO-004`. This strategy changes product persistence architecture only; it does not redefine scoring, `SARI-001`, audit evidence or report methodology.
+O contrato de scoring é `SCORE-GEO-004`. Esta estratégia altera apenas a arquitetura de persistência do produto; não redefine scoring, `SARI-001`, evidência de auditoria nem metodologia de relatório.
 
-## Decision
+## Decisão
 
-The PostgreSQL boundary is the **product control plane**.
+O limite PostgreSQL é o **control plane do produto**.
 
-It includes product and longitudinal state such as:
+Ele inclui estado de produto e longitudinal, como:
 
 - Organization / Workspace / Project;
 - Property / Environment;
-- users, memberships and roles;
-- external identity links `(issuer, subject) -> USR-*`;
-- audit catalog and audit scope links;
-- milestones and deployment metadata;
+- users, memberships e roles;
+- vínculos de identidade externa `(issuer, subject) -> USR-*`;
+- catálogo de auditorias e vínculos de escopo;
+- milestones e metadados de deployment;
 - golden baselines;
 - page identities;
-- schedules and alert rules;
-- integration metadata;
-- external dataset catalog;
-- usage ledger and consumption analytics;
-- registered Search monitoring queries;
-- Search monitoring run summaries;
-- durable execution jobs.
+- schedules e alert rules;
+- metadados de integrações;
+- catálogo de datasets externos;
+- usage ledger e consumption analytics;
+- queries registradas de Search Monitoring;
+- resumos das execuções de Search Monitoring;
+- execution jobs duráveis.
 
-Mutable product state is not written into `AUD-*/audit.db`, and PostgreSQL is not an alternative audit-evidence format.
+Estado mutável de produto não é gravado em `AUD-*/audit.db`, e PostgreSQL não é um formato alternativo de evidência de auditoria.
 
-## Development and deployment model
+## Modelo de desenvolvimento e deployment
 
-The local PostgreSQL development target is PostgreSQL 18 in Docker. The application is database-location agnostic and connects through the control-plane configuration contract; hosted deployment uses the same repository/domain boundary against a managed PostgreSQL endpoint.
+O alvo local de desenvolvimento PostgreSQL é PostgreSQL 18 em Docker. A aplicação é independente da localização do banco e conecta pelo contrato de configuração do control plane; o deployment hospedado usa o mesmo limite de repository/domínio contra endpoint PostgreSQL gerenciado.
 
-Development SQLite content is not treated as production authority. A clean PostgreSQL database can therefore be initialized as:
+Conteúdo SQLite de desenvolvimento não é tratado como autoridade de produção. Portanto, um banco PostgreSQL limpo pode ser inicializado assim:
 
 ```text
-empty PostgreSQL database
+banco PostgreSQL vazio
         |
-explicit versioned migrations
+migrations versionadas explícitas
         |
-application-created control-plane data
+dados de control plane criados pela aplicação
         |
-parity / regression validation
+validação de paridade / regressão
 ```
 
-A SQLite-to-PostgreSQL data-import utility is necessary only when an installation contains authoritative data that must be promoted to PostgreSQL.
+Uma ferramenta de importação SQLite → PostgreSQL só é necessária quando uma instalação contém dados autoritativos que precisam ser promovidos para PostgreSQL.
 
-## Authority model
+## Modelo de autoridade
 
-Hosted authority model:
+Modelo hospedado de autoridade:
 
 ```text
 PostgreSQL
-  authoritative product/control-plane relational state
-  users, memberships and external identity links
+  estado relacional autoritativo do produto/control plane
+  users, memberships e vínculos de identidade externa
 
 Object Storage
-  immutable AUD bundles
-  audit.db files
-  evidence artifacts
-  generated reports
-  Search-monitor raw evidence/manifests
+  bundles AUD imutáveis
+  arquivos audit.db
+  artefatos de evidência
+  relatórios gerados
+  evidência/manifests brutos de Search Monitoring
 
 Queue / Scheduler
-  execution dispatch and retry state
+  dispatch da execução e estado de retry
 
 Workers
-  stateless or short-lived audit/integration/Search execution
+  execuções stateless ou de vida curta de audit/integration/Search
 ```
 
-`AUD-*/audit.db` remains a self-contained execution-evidence format. In hosted operation it can be stored as an immutable object rather than becoming the central transactional database.
+`AUD-*/audit.db` permanece um formato autocontido de evidência da execução. Em operação hospedada, pode ser armazenado como objeto imutável, em vez de se tornar o banco transacional central.
 
-This separation prevents the SaaS database from becoming a second interpretation of audit evidence.
+Essa separação evita que o banco SaaS se torne uma segunda interpretação da evidência de auditoria.
 
-## Adapter architecture
+## Arquitetura de adapters
 
-Database selection occurs at the control-plane composition boundary, not inside business logic.
+A seleção do banco ocorre no limite de composição do control plane, não dentro da lógica de negócio.
 
 ```text
-Product/API services
+serviços Product/API
         |
-control-plane store / repository contracts
+contratos de store/repository do control plane
         |
         +-- SQLite
-        |     local/default
+        |     local/padrão
         |
         +-- PostgreSQL
-              explicit centralized/hosted target
+              alvo centralizado/hospedado explícito
 ```
 
-Backend configuration:
+Configuração do backend:
+
+| Variável | Default efetivo | Valores permitidos | Recomendado |
+|---|---|---|---|
+| `RASAI_PLATFORM_DB_BACKEND` | `sqlite` | `sqlite`, `postgresql`; aliases de runtime `postgres`, `pg` | usar os valores canônicos `sqlite` ou `postgresql` |
+| `RASAI_PLATFORM_DATABASE_URL` | sem default | DSN PostgreSQL válida; necessária quando backend=`postgresql` | manter como segredo; usar conexão TLS no ambiente hospedado |
+
+SQLite:
 
 ```text
 RASAI_PLATFORM_DB_BACKEND=sqlite
 ```
 
-or:
+PostgreSQL:
 
 ```text
 RASAI_PLATFORM_DB_BACKEND=postgresql
 RASAI_PLATFORM_DATABASE_URL=postgresql://...
 ```
 
-When the backend is not configured, SQLite is the default. `--platform-db` is a SQLite-only override.
+Quando o backend não é configurado, SQLite é o default. `--platform-db` é override exclusivo de SQLite.
 
-A PostgreSQL selection without a database URL, or a PostgreSQL connection failure, is an error. The runtime never silently falls back to SQLite because that would create split authority.
+Selecionar PostgreSQL sem URL do banco, ou ocorrer falha de conexão PostgreSQL, é erro. O runtime nunca faz fallback silencioso para SQLite, porque isso criaria autoridade dividida.
 
-Search Query Registry, Search monitoring, scheduling, execution jobs and external identity links use the same selected control-plane backend. Não existe autoridade paralela específica para identidade ou Search.
+Search Query Registry, Search Monitoring, scheduling, execution jobs e vínculos de identidade externa usam o mesmo backend de control plane selecionado. Não existe autoridade paralela específica para identidade ou Search.
 
-## Driver and database boundary
+## Driver e limite do banco
 
-The PostgreSQL implementation uses Psycopg 3 as an optional dependency.
+A implementação PostgreSQL usa Psycopg 3 como dependência opcional.
 
-The adapter exposes the DB-API behavior consumed by Product Platform repository/domain methods, while database composition and migrations remain backend-specific.
+O adapter expõe o comportamento DB-API consumido pelos métodos de repository/domínio da Product Platform, enquanto composição do banco e migrations permanecem específicas de backend.
 
-Requirements include:
+Requisitos incluem:
 
-- parameterized SQL;
-- explicit write transactions;
-- savepoints for nested transaction scopes;
-- UTC session timezone;
-- UTF8 server encoding;
-- password-redacted database identity;
-- sanitized database failures that expose diagnostic type/SQLSTATE without exposing credentials or raw SQL.
+- SQL parametrizado;
+- transações explícitas de escrita;
+- savepoints para escopos transacionais aninhados;
+- timezone UTC da sessão;
+- encoding UTF8 do servidor;
+- identidade do banco com senha redigida;
+- falhas de banco sanitizadas, expondo tipo diagnóstico/SQLSTATE sem expor credenciais nem SQL bruto.
 
-Connection pooling belongs to the hosted API/service deployment layer. Local CLI operation does not require a process-wide request pool.
+Connection pooling pertence à camada de deployment do serviço/API hospedado. Operação local via CLI não exige pool de requests no processo inteiro.
 
-## Schema migrations
+## Migrations de schema
 
-PostgreSQL schema mutation is explicit:
+Mutação de schema PostgreSQL é explícita:
 
 ```powershell
 rasai platform database status
 rasai platform database migrate
 ```
 
-The control plane uses migration tracks for separated concerns:
+O control plane usa trilhas de migration para responsabilidades separadas:
 
 ```text
-platform_schema_migrations              core Product Platform
-platform_execution_schema_migrations    durable execution queue
-platform_identity_schema_migrations     Identity & Access links
+platform_schema_migrations              core da Product Platform
+platform_execution_schema_migrations    fila durável de execução
+platform_identity_schema_migrations     vínculos de Identity & Access
 ```
 
-Normal application startup does not create or upgrade PostgreSQL schema. If a required migration track is behind the runtime-supported version, PostgreSQL operation fails closed and instructs the operator to run migration. A schema newer than the running application is also rejected.
+Startup normal da aplicação não cria nem atualiza schema PostgreSQL. Se uma trilha obrigatória estiver atrás da versão suportada pelo runtime, a operação PostgreSQL falha de forma fechada e orienta o operador a executar migration. Schema mais novo do que a aplicação em execução também é rejeitado.
 
-Each migration is applied transactionally and migration execution is idempotent.
+Cada migration é aplicada transacionalmente, e a execução é idempotente.
 
-## Identity & Access persistence
+## Persistência de Identity & Access
 
-OIDC passwords/tokens/secrets are not persisted in PostgreSQL.
+Senhas/tokens/segredos OIDC não são persistidos em PostgreSQL.
 
-The relational identity extension stores only the durable mapping required to connect an externally authenticated identity to the authorization model:
+A extensão relacional de identidade armazena somente o mapeamento durável necessário para conectar uma identidade autenticada externamente ao modelo de autorização:
 
 ```text
 external_identity_id
 user_id
 issuer
 subject
-email                 optional/informational
+email                 opcional/informativo
 created_at
 ```
 
-`UNIQUE(issuer, subject)` prevents one external identity from resolving to multiple users.
+`UNIQUE(issuer, subject)` impede que uma identidade externa resolva para múltiplos usuários.
 
-Authorization derives from `users` and `memberships`. A valid OIDC identity without a RASAi link/membership receives no tenant access.
+A autorização deriva de `users` e `memberships`. Uma identidade OIDC válida sem vínculo/membership RASAi não recebe acesso a tenant.
 
-Client secrets, session secrets, access tokens, ID tokens and refresh tokens remain outside these rows.
+Client secrets, session secrets, access tokens, ID tokens e refresh tokens permanecem fora dessas linhas.
 
-## Current schema representation
+## Representação atual do schema
 
-The PostgreSQL implementation separates **database-engine selection** from **domain-representation changes**.
+A implementação PostgreSQL separa **seleção do engine de banco** de **mudanças na representação de domínio**.
 
-Current application contracts use:
+Contratos atuais da aplicação usam:
 
-- canonical ISO-8601 text where APIs expose operational timestamps as strings;
-- canonical JSON text where repository contracts require serialized structured payloads;
-- constrained `0/1` integers in parity-sensitive boolean columns;
-- `TIMESTAMPTZ` for migration audit timestamps.
+- texto ISO-8601 canônico quando APIs expõem timestamps operacionais como strings;
+- texto JSON canônico quando contratos de repository exigem payload estruturado serializado;
+- inteiros `0/1` com constraint em colunas booleanas sensíveis à paridade;
+- `TIMESTAMPTZ` para timestamps de auditoria das migrations.
 
-PostgreSQL-native representation changes such as broader use of `jsonb`, `boolean` and `timestamptz` require explicit migrations and semantic-parity tests. They are not implicit side effects of selecting PostgreSQL.
+Mudanças para representações nativas PostgreSQL, como uso mais amplo de `jsonb`, `boolean` e `timestamptz`, exigem migrations explícitas e testes de paridade semântica. Não são efeitos colaterais implícitos da seleção de PostgreSQL.
 
-Large immutable evidence payloads remain outside the relational control plane.
+Payloads grandes e imutáveis de evidência permanecem fora do control plane relacional.
 
-## Identifiers
+## Identificadores
 
-Stable opaque IDs are part of the cross-backend contract.
+IDs opacos e estáveis fazem parte do contrato entre backends.
 
-Do not regenerate identifiers merely because a different database engine is selected, including:
+Não regenere identificadores apenas porque outro engine de banco foi selecionado, incluindo:
 
 - organization IDs;
 - workspace IDs;
@@ -197,174 +204,174 @@ Do not regenerate identifiers merely because a different database engine is sele
 - audit IDs;
 - milestone IDs;
 - schedule IDs;
-- registered Search query IDs;
-- Search monitoring run IDs;
+- IDs de queries registradas de Search;
+- IDs de execuções de Search Monitoring;
 - execution job IDs;
-- other externally referenced control-plane IDs.
+- outros IDs do control plane referenciados externamente.
 
-This keeps reports, manifests, lifecycle references and object-storage keys stable.
+Isso mantém estáveis relatórios, manifests, referências de ciclo de vida e chaves de object storage.
 
-## Foreign keys and uniqueness
+## Foreign keys e unicidade
 
-Tenant/scope integrity is enforced both in application validation and PostgreSQL constraints.
+A integridade de tenant/escopo é aplicada tanto pela validação da aplicação quanto por constraints PostgreSQL.
 
-Critical relationships include:
+Relações críticas incluem:
 
-- Workspace -> Organization;
-- Project -> Workspace;
-- Property -> Project;
-- Environment -> Property;
-- memberships -> valid organization/user and optional workspace/project scope;
-- external identities -> valid internal user and unique issuer/subject;
-- audit scope links -> indexed audit + Property/Environment;
-- milestones/schedules -> valid Project/Property/Environment scope;
-- Search monitor query -> valid Project/Property/Environment;
-- Search monitor run -> registered query;
-- execution jobs -> valid Organization/Project/Property/Environment scope.
+- Workspace → Organization;
+- Project → Workspace;
+- Property → Project;
+- Environment → Property;
+- memberships → organization/user válidos e escopo opcional de workspace/project;
+- identidades externas → user interno válido e issuer/subject único;
+- vínculos de escopo da auditoria → audit indexado + Property/Environment;
+- milestones/schedules → escopo Project/Property/Environment válido;
+- query de Search Monitor → Project/Property/Environment válidos;
+- execução Search Monitor → query registrada;
+- execution jobs → escopo Organization/Project/Property/Environment válido.
 
-PostgreSQL-specific tests execute against a real PostgreSQL 18 service container rather than a mocked SQL layer.
+Testes específicos de PostgreSQL executam contra um service container PostgreSQL 18 real, não contra camada SQL simulada.
 
-## Tenant isolation and authentication
+## Isolamento de tenant e autenticação
 
-The PostgreSQL backend provides relational scope integrity but does not substitute for authentication/authorization.
+O backend PostgreSQL fornece integridade relacional de escopo, mas não substitui autenticação/autorização.
 
-The Web/API includes provider-neutral OIDC/JWT identity resolution:
+A Web/API inclui resolução de identidade OIDC/JWT independente de provider:
 
 ```text
 OIDC issuer + subject
         |
-external identity link
+vínculo de identidade externa
         |
-USR-* Principal
+Principal USR-*
         |
 membership / role
         |
-tenant-scoped repository/API access
+acesso de repository/API limitado ao tenant
 ```
 
-`trusted-header` is available for trusted gateway/local development scenarios. OIDC validation and database integrity are complementary controls.
+`trusted-header` está disponível para gateway confiável/cenários de desenvolvimento local. Validação OIDC e integridade do banco são controles complementares.
 
-Defense in depth may add PostgreSQL Row Level Security after policy behavior has dedicated parity tests. RLS must not substitute for explicit authenticated tenant context in the application.
+Defense in depth pode adicionar PostgreSQL Row Level Security depois que o comportamento de política possuir testes dedicados de paridade. RLS não deve substituir contexto autenticado de tenant explícito na aplicação.
 
-## Scheduler deployment
+## Deployment do scheduler
 
-Persisting schedule state in PostgreSQL does not by itself make scheduling horizontally safe.
+Persistir estado de schedule em PostgreSQL, isoladamente, não torna scheduling horizontalmente seguro.
 
-Hosted model:
+Modelo hospedado:
 
 ```text
-PostgreSQL schedule/query state
+estado schedule/query no PostgreSQL
         |
-Scheduler service
+serviço Scheduler
         |
-Durable queue
+fila durável
         |
-regional/standard workers
+workers regionais/padrão
         |
-result persistence + object evidence
+persistência de resultado + evidência em objeto
 ```
 
-Distributed scheduling requires:
+Scheduling distribuído exige:
 
-- single logical claim of a due occurrence;
-- lease/lock semantics;
-- idempotency keys;
-- bounded retries;
-- failed/dead-letter state;
-- UTC scheduling state with user/project timezone only for intended wall-clock schedules;
-- per-tenant/provider concurrency and rate limits;
-- usage accounting.
+- claim lógico único de uma ocorrência vencida;
+- semântica de lease/lock;
+- chaves de idempotência;
+- retries limitados;
+- estado de falha/dead-letter;
+- estado de agendamento em UTC, usando timezone de usuário/projeto apenas para schedules que dependem do horário civil;
+- limites de concorrência e rate limit por tenant/provider;
+- contabilização de uso.
 
-`FOR UPDATE SKIP LOCKED` is one viable database-driven claiming mechanism, but durable queue design remains an execution-plane decision and is not implied by PostgreSQL persistence alone.
+`FOR UPDATE SKIP LOCKED` é um mecanismo viável de claim dirigido pelo banco, mas o desenho de fila durável permanece uma decisão do execution plane e não é implícito à persistência PostgreSQL.
 
-## Search provider, AI and identity credentials
+## Credenciais de Search, IA e identidade
 
-BYOK provider secrets and identity secrets remain outside ordinary database rows.
+Segredos BYOK de providers e segredos de identidade permanecem fora de linhas normais do banco.
 
-Hosted deployments should use a secret manager or encrypted credential service and persist only credential references/metadata required for authorization and rotation.
+Deployments hospedados devem usar secret manager ou serviço de credenciais criptografado, persistindo apenas referências/metadados necessários à autorização e rotação.
 
-Secrets must not appear in:
+Segredos não devem aparecer em:
 
-- Query Registry rows;
+- linhas do Query Registry;
 - schedules;
-- run manifests;
-- reports;
-- usage records;
-- external identity rows;
-- database status output.
+- manifests de execução;
+- relatórios;
+- registros de uso;
+- linhas de identidade externa;
+- saída de status do banco.
 
 ## Object storage
 
-Hosted object storage is the destination for immutable execution payloads:
+Object storage hospedado é o destino de payloads imutáveis de execução:
 
 ```text
-AUD bundles
-raw provider evidence
-competitive artifacts
-Competitive AI evidence artifacts
-Search monitoring manifests
-static report sites
+bundles AUD
+evidência bruta de providers
+artefatos competitivos
+artefatos de evidência de Competitive AI
+manifests de Search Monitoring
+sites estáticos de relatório
 ```
 
-PostgreSQL stores ownership, references, hashes, lifecycle metadata and relational indexes required to locate these objects.
+PostgreSQL armazena propriedade, referências, hashes, metadados de ciclo de vida e índices relacionais necessários para localizar esses objetos.
 
-## Data promotion
+## Promoção de dados
 
-Schema migration and data promotion are distinct operations.
+Migration de schema e promoção de dados são operações distintas.
 
-PostgreSQL **schema** migrations are mandatory for PostgreSQL operation. **Data** import from SQLite is needed only when the SQLite source contains authoritative state that must be preserved.
+Migrations de **schema** PostgreSQL são obrigatórias para operar PostgreSQL. Importação de **dados** vindos de SQLite é necessária somente quando a origem SQLite contém estado autoritativo que precisa ser preservado.
 
-A controlled promotion process must validate IDs, row counts, foreign keys, serialized values, identity links, tenant scope and audit hashes before authority cutover.
+Um processo controlado de promoção deve validar IDs, contagens de linhas, foreign keys, valores serializados, vínculos de identidade, escopo de tenant e hashes das auditorias antes do cutover de autoridade.
 
-Recommended cutover pattern when authoritative SQLite state exists:
+Padrão recomendado de cutover quando existe estado SQLite autoritativo:
 
 ```text
-freeze source control-plane writes
+congelar gravações no control plane de origem
         |
-initialize / validate PostgreSQL authority
+inicializar / validar autoridade PostgreSQL
         |
-import authoritative data
+importar dados autoritativos
         |
-validate scope, identity and integrity
+validar escopo, identidade e integridade
         |
-switch application authority
+trocar autoridade da aplicação
         |
-retain source read-only until rollback window closes
+manter origem somente leitura até encerrar janela de rollback
 ```
 
-During the current pre-publication development state, PostgreSQL may start clean because local data is test/pilot data rather than production authority.
+No estado atual de desenvolvimento pré-publicação, PostgreSQL pode iniciar limpo porque dados locais são de teste/piloto, e não autoridade de produção.
 
-## Hosted deployment topology
+## Topologia de deployment hospedado
 
-Recommended SaaS topology:
+Topologia SaaS recomendada:
 
 ```text
 HTTPS Load Balancer / Reverse Proxy
         |
-RASAi Web/API instances
+instâncias RASAi Web/API
         |
         +-- OIDC Identity Provider
-        +-- managed PostgreSQL
-        +-- managed queue
+        +-- PostgreSQL gerenciado
+        +-- fila gerenciada
         +-- object storage
         +-- secret manager
         |
-worker pool
+pool de workers
         +-- audit workers
         +-- Search monitoring workers
         +-- integration workers
 ```
 
-Operational requirements for hosted PostgreSQL include:
+Requisitos operacionais para PostgreSQL hospedado incluem:
 
-- private network access where supported;
+- acesso por rede privada quando suportado;
 - TLS;
-- automated backups;
+- backups automatizados;
 - point-in-time recovery;
-- encryption at rest;
-- monitoring of connection saturation, locks, slow queries and storage;
-- separate migration/application credentials where practical;
-- tested restore procedure;
-- controlled migrations during deployments.
+- criptografia em repouso;
+- monitoramento de saturação de conexões, locks, queries lentas e storage;
+- credenciais separadas para migration/aplicação quando viável;
+- procedimento de restore testado;
+- migrations controladas durante deployments.
 
-Managed PostgreSQL is preferred over self-hosting the production database. The local Docker container is a development target.
+PostgreSQL gerenciado é recomendado em vez de auto-hospedar o banco de produção. O container Docker local é alvo de desenvolvimento.
