@@ -10,7 +10,7 @@ O Synthetic User Experience Apdex adiciona ao RASAi uma medição sintética cal
 | Synthetic User Experience Apdex | laboratório sintético enriquecido/calibrável | `SYNTHETIC_LOAD_ACTION`, mix explícito de dispositivos | Satisfied e Frustrated independentes, com baseline Dynatrace-compatible ou importação |
 | Dynatrace RUM | usuários reais | Load/XHR/Custom actions observadas no período | configuração efetiva da aplicação/action |
 
-Synthetic User Experience Apdex **não é RUM**. O objetivo é reduzir diferenças metodológicas controláveis — KPM, thresholds, política de erros, sessão e mix de dispositivos — sem manipular o score para coincidir com Dynatrace.
+Synthetic User Experience Apdex **não é RUM**. O objetivo é reduzir diferenças metodológicas controláveis - KPM, thresholds, política de erros, sessão e mix de dispositivos - sem manipular o score para coincidir com Dynatrace.
 
 ## 2. Baseline default Dynatrace-compatible
 
@@ -58,7 +58,7 @@ O RASAi executa uma Load Action sintética. A cobertura é:
 | regras de request/JavaScript errors | parcial | erros observáveis são coletados; a política Dynatrace pode ser mais granular do que `navigation/first-party/all` |
 | população real de devices/redes/sessões | não | RASAi usa perfis sintéticos controlados |
 
-Essa limitação é estrutural, não um gap simples de configuração. Implementar XHR/Custom Actions autônomas exigiria uma camada de scripted journeys/clickpaths com definição de ações e correlação de requests. Implementar `VISUALLY_COMPLETE` com equivalência Dynatrace exigiria reproduzir semântica proprietária/fornecedor; o RASAi não declara essa equivalência.
+Essa limitação é estrutural, não um gap simples de configuração. Implementar XHR/Custom Actions autônomas exigiria uma camada de scripted journeys/clickpaths com definição de ações e correlação de requests. Implementar `VISUALLY_COMPLETE` com equivalência Dynatrace exigiria reproduzir semântica de fornecedor; o RASAi não declara essa equivalência.
 
 ## 4. Fallback de KPM importada
 
@@ -196,7 +196,7 @@ python -m rasai audit "https://SEU-ALVO/" `
   --dynatrace-application-id APPLICATION-XXXXXXXXXXXX
 ```
 
-A importação registra contrato sanitizado de Load/XHR/Custom quando presente. Somente Load Action é executada pelo M25 atual.
+A importação registra contrato sanitizado de Load/XHR/Custom quando presente. Somente Load Action é executada pelo Synthetic User Experience Apdex atual.
 
 ## 10. Erros
 
@@ -235,11 +235,11 @@ Mesmo alinhando os itens disponíveis, divergência continua esperada porque Dyn
 ## 13. Referências
 
 - Apdex Technical Specification v1.1: `https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf`
-- Dynatrace — Apdex configuration for load actions: `https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions`
-- Dynatrace — Work with key performance metrics: `https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/analyze-and-use/work-with-key-performance-metrics`
-- Dynatrace — Apdex ratings: `https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/scores-and-ratings/apdex-ratings`
-- Dynatrace — Web application configuration API: `https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application`
-- Chrome DevTools Protocol — Network / Emulation
+- Dynatrace - Apdex configuration for load actions: `https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions`
+- Dynatrace - Work with key performance metrics: `https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/analyze-and-use/work-with-key-performance-metrics`
+- Dynatrace - Apdex ratings: `https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/scores-and-ratings/apdex-ratings`
+- Dynatrace - Web application configuration API: `https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application`
+- Chrome DevTools Protocol - Network / Emulation
 - W3C Performance Timeline
 
 A especificação normativa está em `docs/specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`.
