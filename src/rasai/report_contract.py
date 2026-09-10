@@ -242,6 +242,8 @@ CANONICAL_NAV_ITEMS: tuple[tuple[str, str], ...] = tuple(
     (surface.label, surface.filename) for surface in REPORT_SURFACES
 )
 CANONICAL_FILENAMES: tuple[str, ...] = tuple(surface.filename for surface in REPORT_SURFACES)
+# Pre-publication contract: canonical filenames only; this remains empty by design.
+REPORT_ALIASES: dict[str, str] = {}
 
 
 def surface_by_id(surface_id: str) -> ReportSurface:
