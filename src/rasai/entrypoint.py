@@ -11,10 +11,10 @@ import sys
 from typing import Sequence
 
 from rasai import cli_extensions
-from rasai.documented_contract_reconciliation import install_documented_contract_reconciliation
 from rasai.report_registry import install as install_report_registry
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
+from rasai.runtime_contract_compatibility import install_runtime_contract_compatibility
 
 _LOGGER = logging.getLogger(__name__)
 _REPORT_PROJECTION_INCOMPLETE_EXIT = 3
@@ -110,7 +110,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     install_report_registry()
     install_runtime_completion_extensions()
     install_runtime_adherence_extensions()
-    install_documented_contract_reconciliation()
+    install_runtime_contract_compatibility()
     effective = list(argv) if argv is not None else list(sys.argv[1:])
     if effective and effective[0] in {"search", "serp"}:
         from rasai.search_intelligence.cli import main as search_main
