@@ -1,19 +1,21 @@
 # RASAi SaaS Pilot Web
 
-Status: **implementado como piloto local/arquitetural** sobre a fundação Web/API e o Product Platform existentes.
+Status: **implementado como piloto local/arquitetural** sobre a fundação Web/API, Product Platform e Identity & Access existentes.
 
 ## Objetivo
 
-O SaaS Pilot Web cria a primeira superfície de navegador do RASAi sem transformar o piloto em uma infraestrutura SaaS de produção e sem duplicar lógica do core.
+O SaaS Pilot Web cria a primeira superfície de navegador do RASAi sem transformar o piloto em uma infraestrutura SaaS completa e sem duplicar lógica do core.
 
 A composição é:
 
 ```text
-Browser
+Browser / API client
   |
-  +-- /app                         zero-build UI
+Identity & Access
+  |-- OIDC/JWT
+  |-- trusted-header compatível
   |
-RASAi HTTP API                     tenant-aware
+/app + RASAi HTTP API
   |
 Control plane
   |-- SQLite                       local/default
@@ -26,7 +28,7 @@ Workers separados
 Audit / Search Monitoring / report refresh
 ```
 
-O browser não calcula `SARI-001`, não executa `SCORE-GEO-004`, não faz crawling e não implementa novamente Search Intelligence. Ele apenas projeta dados autorizados e cria comandos duráveis por meio dos contratos já existentes.
+O browser não calcula `SARI-001`, não executa `SCORE-GEO-004`, não faz crawling e não implementa novamente Search Intelligence. Ele projeta dados autorizados e cria comandos duráveis por meio dos contratos já existentes.
 
 ## Princípios preservados
 
@@ -38,18 +40,20 @@ O browser não calcula `SARI-001`, não executa `SCORE-GEO-004`, não faz crawli
 - PostgreSQL continua opt-in e é o alvo de autoridade centralizada;
 - Search Intelligence permanece non-scoring;
 - HTTP nunca executa auditoria/crawling dentro da request;
-- nenhuma credencial é armazenada pela UI;
-- a UI não introduz Node, npm, bundler, CDN, framework JavaScript ou serviço externo obrigatório.
+- nenhuma credencial de provider de auditoria é armazenada pela UI;
+- OIDC não cria password database próprio;
+- autenticação externa não concede membership automaticamente;
+- a UI não introduz Node, npm, bundler, CDN, framework JavaScript ou serviço externo obrigatório ao runtime CLI.
 
 ## Superfície de usuário
 
-A aplicação é aberta em:
+Em desenvolvimento local a aplicação pode ser aberta em:
 
 ```text
 http://127.0.0.1:8000/app
 ```
 
-O primeiro piloto oferece:
+O piloto oferece:
 
 1. **Visão geral**
    - contagem de auditorias;
@@ -62,11 +66,11 @@ O primeiro piloto oferece:
    - status e versão de scoring persistida;
    - quantidade de URLs;
    - abertura do mini-site HTML já materializado no AUD;
-   - criação de um durable `AUDIT` job.
+   - criação de durable `AUDIT` job.
 3. **Search Intelligence**
    - Query Registry do Project;
    - provider/engine e domínio de interesse quando materializados;
-   - criação de `SEARCH_MONITOR` job para uma query registrada.
+   - criação de `SEARCH_MONITOR` job para query registrada.
 4. **Deployments**
    - milestones do Project;
    - resolução determinística do par before/after usando o contrato Product Platform existente.
@@ -75,13 +79,13 @@ O primeiro piloto oferece:
    - attempts/max attempts;
    - cancelamento conforme role.
 6. **Uso e custo**
-   - agregação do usage ledger já persistido no control plane;
+   - agregação do usage ledger persistido no control plane;
    - quantidade/unidade/provider;
    - custo estimado e moeda quando existentes.
 
 ## Hierarquia e tenancy
 
-A UI navega a hierarquia já canônica:
+A UI navega a hierarquia canônica:
 
 ```text
 Organization
@@ -93,22 +97,44 @@ Organization
 
 Ela não filtra tenant apenas no browser. Todo dado vem de endpoints que voltam a validar o `Principal` no servidor.
 
-Conhecer um `organization_id`, `project_id`, `audit_id` ou `milestone_id` de outro tenant não concede leitura do recurso.
+Conhecer `organization_id`, `project_id`, `audit_id` ou `milestone_id` de outro tenant não concede leitura do recurso.
 
-## Autenticação
+## Identity & Access
 
-O piloto não cria usuário/senha próprio e não introduz token proprietário.
+O piloto não cria usuário/senha próprio nem formato proprietário de bearer token.
 
-O contrato continua sendo o definido em `WEB_API_FOUNDATION.md`:
+Modos vigentes:
 
 ```text
-default        RASAI_API_AUTH_MODE=deny
-hosted target  trusted gateway agora / OIDC-JWT posteriormente
+deny            fail-closed/default
+trusted-header  desenvolvimento local ou gateway autenticado
+oidc            login Web + JWT direto
 ```
 
-### Desenvolvimento local
+### OIDC
 
-Para exercício manual em loopback pode ser usado:
+Com `RASAI_API_AUTH_MODE=oidc`, `/app` exige sessão válida. Um browser não autenticado é redirecionado para `/auth/login`.
+
+O fluxo usa:
+
+- OIDC discovery por issuer HTTPS;
+- Authorization Code;
+- PKCE S256;
+- `state`;
+- `nonce`;
+- validação de `id_token` por JWKS;
+- sessão Web curta cifrada/autenticada;
+- vínculo explícito `(issuer, sub) -> USR-*`.
+
+Bearer JWT também pode autenticar diretamente a API quando atende a issuer, audience, assinatura, algoritmo e validade configurados.
+
+Autenticar no Identity Provider não cria `USR-*`, membership ou role.
+
+Detalhes completos: `IDENTITY_AND_ACCESS.md`.
+
+### Desenvolvimento local com trusted-header
+
+Para exercício manual em loopback:
 
 ```powershell
 rasai api `
@@ -117,27 +143,43 @@ rasai api `
   --auth-mode trusted-header
 ```
 
-Em seguida abra `/app`. Quando não existe gateway local injetando identidade, a tela permite informar temporariamente um `USR-*` já existente. O valor é mantido somente em `sessionStorage` do browser e enviado no header `x-rasai-user-id` durante aquela sessão.
+Quando não existe gateway local, a tela permite informar temporariamente um `USR-*` já existente. O valor fica somente no `sessionStorage` da aba e é enviado no header `x-rasai-user-id`.
 
-Este mecanismo é **somente conveniência de desenvolvimento em loopback**. Não é autenticação de produção e não deve ser usado com bind público.
+Esse mecanismo é somente conveniência de desenvolvimento em loopback. Não deve ser confundido com autenticação de produção.
 
-### Ambiente hospedado
+### Gateway autenticado
 
-Quando houver exposição pública, o browser não deve fornecer livremente o header de identidade. Um gateway autenticado deve:
+`trusted-header` permanece compatível com ambientes em que um gateway externo é a autoridade de autenticação. Nesse caso o gateway deve remover o header recebido do cliente, injetá-lo somente após autenticar a requisição e impedir acesso direto ao Uvicorn.
 
-- autenticar a identidade real;
-- remover qualquer identity header vindo do cliente externo;
-- injetar o header confiável para o RASAi;
-- usar TLS;
-- bloquear acesso direto ao processo Uvicorn.
+Para implantação SaaS nova com IdP compatível, `oidc` é preferível porque o RASAi valida a identidade diretamente.
 
-OIDC/JWT permanece a evolução recomendada para o piloto hospedado sem alterar os contratos de tenancy.
+## Provisionamento de identidade
+
+O modelo atual é administrado e fail-closed:
+
+```text
+1. criar/identificar USR-*
+2. criar membership/role
+3. vincular issuer + subject
+4. habilitar oidc
+```
+
+Exemplo:
+
+```powershell
+rasai platform identity link `
+  --user USR-EXISTENTE `
+  --issuer https://login.example.com `
+  --subject 00u123456789
+```
+
+O e-mail pode ser armazenado como metadado operacional do vínculo, mas não substitui `issuer + subject` como chave de identidade.
 
 ## Reports no browser
 
 O catálogo HTTP continua omitindo `workspace_path`.
 
-O SaaS Pilot adiciona um boundary específico para o report público de um AUD autorizado:
+O SaaS Pilot possui boundary específico para o report público de um AUD autorizado:
 
 ```text
 GET /api/v1/audits/{audit_id}/reports
@@ -153,11 +195,20 @@ Regras de segurança:
 - `audit.db`, artifacts privados e paths internos não ficam disponíveis nesse boundary;
 - respostas usam `no-store`.
 
-A UI de desenvolvimento recupera o HTML/CSS usando a mesma identidade da API e abre uma projeção navegável no browser. O HTML continua sendo somente uma projeção; a fonte de verdade segue sendo `audit.db + artifacts`.
+O HTML continua sendo somente projeção; a fonte de verdade segue `audit.db + artifacts`.
 
-## Endpoints aditivos do piloto
+## Endpoints do piloto e identidade
 
-Além da API inicial, o piloto usa:
+Identity bootstrap/login:
+
+```text
+GET  /auth/config
+GET  /auth/login
+GET  /auth/callback
+POST /auth/logout
+```
+
+Projeções aditivas:
 
 ```text
 GET /api/v1/projects/{project_id}/milestones
@@ -167,11 +218,11 @@ GET /api/v1/audits/{audit_id}/reports
 GET /api/v1/audits/{audit_id}/reports/{asset_path}
 ```
 
-Os endpoints existentes de Organizations, Workspaces, Projects, Properties, Environments, Audits, Search Queries e Execution Jobs continuam sendo reutilizados sem contrato paralelo.
+Os endpoints existentes de Organizations, Workspaces, Projects, Properties, Environments, Audits, Search Queries e Execution Jobs continuam reutilizados sem contrato paralelo.
 
 ## Criar auditoria pela UI
 
-A tela cria um `AUDIT` execution job com payload estruturado dentro do allowlist que o worker já aceita, incluindo:
+A tela cria `AUDIT` execution job com payload estruturado dentro do allowlist que o worker já aceita, incluindo:
 
 - `max_pages`;
 - `device_context`;
@@ -186,20 +237,28 @@ O job somente progride se existir worker executando separadamente, por exemplo:
 rasai worker run-once --worker-id worker-01 --audits-root audits
 ```
 
-Isso é intencional: request HTTP e execução pesada permanecem desacopladas.
+Request HTTP e execução pesada permanecem desacopladas.
 
 ## Compatibilidade SQLite/PostgreSQL
 
 Nenhuma rota do piloto acessa SQLite diretamente.
 
-As rotas usam `app.state.store_factory`, isto é, a mesma composição de backend da API. Portanto:
+As rotas usam `app.state.store_factory`, a mesma composição de backend da API:
 
 ```text
 SQLite       -> piloto local/default
 PostgreSQL   -> piloto centralizado/hosted
 ```
 
-O piloto não altera a estratégia de migrations e não executa auto-DDL.
+O vínculo externo de identidade também pertence ao control plane e não ao `audit.db`.
+
+No PostgreSQL, a extensão de identidade exige migration explícita:
+
+```powershell
+rasai platform database migrate
+```
+
+O piloto não executa auto-DDL no backend hospedado.
 
 ## Dependências
 
@@ -209,13 +268,15 @@ Continua válido:
 pip install -e ".[web]"
 ```
 
-Não são adicionadas dependências obrigatórias ao runtime CLI padrão.
+A extra Web inclui as dependências necessárias à API e à validação OIDC/JWT. Não são adicionadas dependências obrigatórias ao runtime CLI padrão.
 
 ## Limites desta fase
 
-O SaaS Pilot Web **não** afirma prontidão de produção SaaS. Permanecem fora deste marco:
+O SaaS Pilot Web ainda não afirma prontidão completa de produção SaaS. Permanecem fora deste marco:
 
-- provedor definitivo OIDC/SSO;
+- Identity Provider obrigatório/específico;
+- SCIM;
+- Just-In-Time provisioning;
 - billing/checkout;
 - object storage definitivo;
 - CDN;
@@ -229,33 +290,35 @@ O SaaS Pilot Web **não** afirma prontidão de produção SaaS. Permanecem fora 
 
 Esses itens devem ser introduzidos somente quando houver necessidade funcional/operacional comprovada.
 
-## Critério de conclusão deste marco
+## Critério técnico vigente
 
-O marco é considerado tecnicamente concluído quando:
+A superfície é considerada aderente quando:
 
 - `/app` abre sem dependência externa de frontend;
-- a hierarquia tenant-aware pode ser navegada;
+- em OIDC, `/app` exige login e sessão válida;
+- JWT inválido/expirado falha fechado;
+- identidade externa não provisionada não recebe acesso;
+- tenancy continua sendo revalidada no servidor;
 - auditorias e Search Query Registry podem ser consultados;
-- um `AUDIT` e um `SEARCH_MONITOR` podem ser enfileirados pela API existente;
+- `AUDIT` e `SEARCH_MONITOR` podem ser enfileirados pela API existente;
 - execution jobs podem ser acompanhados e, quando autorizado, cancelados;
 - milestones podem resolver before/after;
 - usage ledger pode ser projetado;
 - reports HTML autorizados podem ser abertos sem exposição de `workspace_path`/`audit.db`;
-- testes de tenancy/report traversal permanecem verdes;
-- regressão completa do RASAi permanece verde.
+- regressões de tenancy, identity, report traversal e produto permanecem verdes.
 
 ## Próxima evolução recomendada
 
-Após validar esta superfície com uso humano, a sequência recomendada é:
+Com a fundação de Identity & Access implementada, a sequência arquitetural passa a ser:
 
 ```text
-SaaS Pilot Web
-  -> identidade OIDC/JWT + sessão Web real
+SaaS Pilot Web + OIDC/JWT
   -> object storage para bundles/artifacts
-  -> scheduler/queue hospedado com leases/idempotência/retry
+  -> scheduler/queue hospedado mantendo leases/idempotência/retry
   -> deploy Linux do API/worker
   -> observabilidade operacional
   -> quotas/billing
+  -> SCIM/JIT somente quando demanda enterprise justificar
   -> runners privados e distribuição regional quando necessário
 ```
 
