@@ -12,7 +12,7 @@ O Web Performance externo adiciona à auditoria RASAi evidências de Web Perform
 Quando explicitamente habilitado, o recurso pode coletar:
 
 - scores Lighthouse por meio da PageSpeed Insights API;
-- categorias `performance`, `accessibility`, `best-practices` e `seo`;
+- categorias `performance`, `accessibility`, `best-practices`, `seo` e `agentic-browsing`;
 - métricas de laboratório FCP, Speed Index, LCP, Total Blocking Time e CLS;
 - Core Web Vitals de campo provenientes do CrUX quando disponíveis;
 - LCP, INP e CLS p75;
@@ -23,38 +23,41 @@ Esses dados são externos e complementares. Nenhum valor Lighthouse/PageSpeed/Cr
 
 ## 2. Contrato PageSpeed/Lighthouse
 
-O adapter PageSpeed Insights vigente solicita somente:
+O adapter PageSpeed Insights vigente solicita por default:
 
 ```text
 performance
 accessibility
 best-practices
 seo
+agentic-browsing
 ```
 
 Configuração:
 
 ```text
---lighthouse-categories performance,accessibility,best-practices,seo
-RASAI_LIGHTHOUSE_CATEGORIES=performance,accessibility,best-practices,seo
+--lighthouse-categories performance,accessibility,best-practices,seo,agentic-browsing
+RASAI_LIGHTHOUSE_CATEGORIES=performance,accessibility,best-practices,seo,agentic-browsing
 ```
 
 As categorias configuradas são solicitadas na mesma chamada PageSpeed de cada contexto.
 
 ### Agentic Browsing
 
-`agentic-browsing` não faz parte do request do adapter PageSpeed vigente. O campo `agentic_browsing_score` pode permanecer na persistência e em leitores por compatibilidade/evolução, mas só pode receber valor de uma fonte Lighthouse direta compatível.
+A API PageSpeed Insights v5 expõe atualmente `AGENTIC_BROWSING` entre os valores aceitos do parâmetro `category`. O RASAi usa o identificador normalizado `agentic-browsing` no request e pode persistir `agentic_browsing_score` quando a resposta PageSpeed/Lighthouse materializa essa categoria.
 
-Enquanto essa fonte separada não existir:
+Agentic Browsing continua experimental no Lighthouse. Consequentemente:
 
-- o score deve permanecer indisponível/`NULL`;
+- sua composição pode mudar entre versões;
+- ausência da categoria na resposta deixa o score indisponível/`NULL`;
 - indisponibilidade não pode ser convertida em zero;
-- as quatro categorias PageSpeed válidas permanecem independentes;
+- Performance, Accessibility, Best Practices e SEO válidos permanecem independentes e utilizáveis;
 - Agentic Browsing permanece fora de `SARI-001`/`SCORE-GEO-004`.
 
 Referências:
 
 - PageSpeed Insights API: <https://developers.google.com/speed/docs/insights/v5/reference/pagespeedapi/runpagespeed>
+- cliente Google API para PageSpeed v5, incluindo enum `AGENTIC_BROWSING`: <https://googleapis.github.io/google-api-python-client/docs/dyn/pagespeedonline_v5.pagespeedapi.html>
 - PageSpeed getting started: <https://developers.google.com/speed/docs/insights/v5/get-started>
 - configuração experimental Agentic no Lighthouse: <https://github.com/GoogleChrome/lighthouse/blob/main/core/config/agentic-browsing-config.js>
 
@@ -144,7 +147,7 @@ Default: `10`.
 RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS
 ```
 
-Default: `120` segundos por request externo. Não há retry automático do mesmo request Web Performance após timeout.
+Default: `120` segundos por request externo. O adapter PageSpeed pode repetir uma tentativa quando a falha é transitória dentro do limite interno documentado; o timeout continua sendo aplicado a cada tentativa externa.
 
 ## 5. Credenciais
 
@@ -181,7 +184,7 @@ PARTIAL
 UNAVAILABLE
 ```
 
-`SUCCESS` exige evidência útil nos contextos selecionados sem falha de componente solicitado. A ausência de Agentic Browsing não afeta esse estado porque Agentic não é componente solicitado pelo adapter PageSpeed.
+`SUCCESS` exige evidência útil nos contextos selecionados sem falha de componente solicitado. A ausência isolada de Agentic Browsing na resposta não transforma a coleta em falha quando as demais evidências solicitadas permanecem válidas; trata-se de indisponibilidade daquela categoria experimental.
 
 `PARTIAL` indica evidência útil combinada com uma ou mais falhas/indisponibilidades de componentes configurados. `UNAVAILABLE` indica que nenhum contexto selecionado produziu evidência externa útil.
 
@@ -199,7 +202,7 @@ web_performance_attempts
 
 `web_performance_runs` resume a execução. `web_performance_observations` preserva os scores Lighthouse, métricas de laboratório, field data/CWV, status e proveniência. `web_performance_attempts` registra cada chamada externa tentada, com serviço, contexto, status, HTTP/duração e erro sanitizado.
 
-`agentic_browsing_score` permanece como campo de compatibilidade e deve ficar `NULL` em coleta exclusivamente PageSpeed.
+`agentic_browsing_score` é persistido quando fornecido pela resposta PageSpeed/Lighthouse e permanece `NULL` quando a categoria não é materializada.
 
 Respostas externas bem-sucedidas podem ser materializadas em `artifacts/web-performance/`, permitindo reabrir resultados sem nova chamada externa.
 
@@ -219,7 +222,7 @@ O relatório deve distinguir claramente:
 - indisponibilidade/incompletude;
 - telemetria de tentativas externas;
 - separação de `SARI-001`/`SCORE-GEO-004`;
-- Agentic Browsing como indisponível via provider atual enquanto não houver adapter Lighthouse direto.
+- Agentic Browsing como categoria experimental, sem transformar ausência de resposta em zero.
 
 `report/index.html` pode resumir Web Performance, mas nunca recalcula Overall Readiness a partir dessas métricas.
 

@@ -32,10 +32,11 @@ DEFAULT_MODELS = dict(SIMPLE_DEFAULT_MODELS)
 SUPPORTED_MODELS = {item.provider_name: item.supported_models for item in _REGISTRATIONS}
 REASONING_ENV = {item.provider_name: provider_reasoning_env(item.provider_name) for item in _REGISTRATIONS if provider_reasoning_env(item.provider_name)}
 PROVIDER_MENU_CHOICES = ("none", *(item.id for item in _REGISTRATIONS), "auto")
+AUTO_EXCLUDE_ENV = "RASAI_AI_AUTO_EXCLUDE"
 
 _BASE_ENV_NAMES = (
     "RASAI_CONFIG", "RASAI_CONSOLE_MODE", "RASAI_LOG_LEVEL", "RASAI_DEVICE_CONTEXT", AI_TIMEOUT_ENV,
-    MAX_CAPTURE_BYTES_ENV,
+    MAX_CAPTURE_BYTES_ENV, AUTO_EXCLUDE_ENV,
     "RASAI_AI_CONTENT_REMEDIATION", "RASAI_AI_TECHNICAL_REMEDIATION", *CONTENT_CONTEXT_ENV_NAMES,
     "RASAI_WEB_PERFORMANCE",
     "RASAI_WEB_PERFORMANCE_MAX_PAGES", WEB_PERFORMANCE_TIMEOUT_ENV,
@@ -73,7 +74,7 @@ class State:
     web_max_pages: int = 10
     web_timeout: float = DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS
     field_source: str = "auto"
-    lighthouse_categories: str = "performance,accessibility,best-practices,seo"
+    lighthouse_categories: str = "performance,accessibility,best-practices,seo,agentic-browsing"
     status: str = "READY"
     current_url: str = "-"
     current_device: str = "MOBILE"
@@ -129,7 +130,7 @@ def apply_environment_defaults(state: State, env: Mapping[str, str] | None = Non
         elif raw in {"auto", "pagespeed", "crux", "none"}: state.field_source = raw
         else: issues.append("RASAI_WEB_PERFORMANCE_FIELD_SOURCE: valor inválido")
     if active("RASAI_LIGHTHOUSE_CATEGORIES"):
-        state.lighthouse_categories = (environment.get("RASAI_LIGHTHOUSE_CATEGORIES") or "").strip() or "performance,accessibility,best-practices,seo"
+        state.lighthouse_categories = (environment.get("RASAI_LIGHTHOUSE_CATEGORIES") or "").strip() or "performance,accessibility,best-practices,seo,agentic-browsing"
     if any(active(name) for name in CONTENT_CONTEXT_ENV_NAMES):
         try:
             configured_content_analysis_context(environment)
@@ -195,6 +196,20 @@ def _registration_by_env(name: str):
 def validate_env_value(name: str, value: str) -> str:
     value = value.strip()
     if not value: raise ValueError("valor vazio; remova a variável em vez de gravar vazio")
+    if name == AUTO_EXCLUDE_ENV:
+        normalized: list[str] = []
+        for raw in value.replace(";", ",").split(","):
+            token = raw.strip().casefold()
+            if not token:
+                continue
+            registration = get_provider_registration(token)
+            if registration is None or not registration.auto_eligible:
+                raise ValueError(f"provider não elegível para AUTO: {raw.strip()}")
+            if registration.id not in normalized:
+                normalized.append(registration.id)
+        if not normalized:
+            raise ValueError("informe ao menos um provider AUTO ou remova a variável")
+        return ",".join(normalized)
     registration = _registration_by_env(name)
     if registration is not None:
         if name == registration.key_env:
@@ -236,9 +251,9 @@ def validate_env_value(name: str, value: str) -> str:
         if value == "crux" and not (os.environ.get("RASAI_CRUX_API_KEY") or "").strip(): raise ValueError("crux exige RASAI_CRUX_API_KEY")
     if name == "RASAI_LIGHTHOUSE_CATEGORIES":
         values = tuple(dict.fromkeys(item.strip().casefold() for item in value.split(",") if item.strip()))
-        allowed = {"performance", "accessibility", "best-practices", "seo"}
+        allowed = {"performance", "accessibility", "best-practices", "seo", "agentic-browsing"}
         if not values or any(item not in allowed for item in values):
-            raise ValueError("use performance, accessibility, best-practices e/ou seo; agentic-browsing exige adapter Lighthouse separado")
+            raise ValueError("use performance, accessibility, best-practices, seo e/ou agentic-browsing")
         return ",".join(values)
     if name == "RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE" and not Path(value).is_file(): raise ValueError("arquivo Chromium configurado não existe")
     return value

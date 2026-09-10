@@ -29,13 +29,14 @@ class RuntimeCompletionExtensionTests(unittest.TestCase):
                 "accessibility",
                 "best-practices",
                 "seo",
+                "agentic-browsing",
             ),
         )
         self.assertEqual(
             spec.default,
-            "performance,accessibility,best-practices,seo",
+            "performance,accessibility,best-practices,seo,agentic-browsing",
         )
-        self.assertIn("adaptador Lighthouse separado", spec.notes)
+        self.assertIn("experimental", spec.notes)
 
     def test_executive_dashboard_contains_pagespeed_categories_but_not_unproven_agentic_score(self) -> None:
         from rasai import rasai_readiness_reporting as reporting
@@ -51,8 +52,8 @@ class RuntimeCompletionExtensionTests(unittest.TestCase):
                     "accessibility_score": 91.0,
                     "best_practices_score": 92.0,
                     "seo_score": 93.0,
-                    # Compatibility column alone is not sufficient provenance for
-                    # publishing Agentic Browsing as PageSpeed evidence.
+                    # A compatibility column alone is not sufficient provenance for
+                    # publishing Agentic Browsing on the executive dashboard.
                     "agentic_browsing_score": 94.0,
                 },
                 {

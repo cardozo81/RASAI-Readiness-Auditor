@@ -22,11 +22,11 @@ STALE_DELIVERY_METADATA = (
     re.compile(r"^\*\*PR:\*\*\s*#\d+", re.IGNORECASE | re.MULTILINE),
 )
 
-PAGESPEED_DEFAULT_WITH_AGENTIC = re.compile(
-    r"performance,accessibility,best-practices,seo,agentic-browsing",
-    re.IGNORECASE,
+FIVE_CATEGORY_PAGESPEED_DEFAULT = "performance,accessibility,best-practices,seo,agentic-browsing"
+STALE_AGENTIC_TRANSPORT_WORDING = (
+    re.compile(r"agentic-browsing[^\n]{0,160}não (?:é|deve ser) enviado[^\n]{0,80}PageSpeed", re.IGNORECASE),
+    re.compile(r"Agentic Browsing[^\n]{0,160}(?:fonte|adapter) Lighthouse diret[oa] separad[oa]", re.IGNORECASE),
 )
-FOUR_CATEGORY_PAGESPEED_DEFAULT = "performance,accessibility,best-practices,seo"
 
 
 def test_documentation_does_not_publish_discarded_implementation_history() -> None:
@@ -39,21 +39,29 @@ def test_documentation_does_not_publish_discarded_implementation_history() -> No
     assert not violations, "pre-publication documentation contains implementation-history framing:\n" + "\n".join(violations)
 
 
-def test_documented_pagespeed_default_does_not_include_agentic_browsing() -> None:
-    violations: list[str] = []
-    for path in DOC_FILES:
-        text = path.read_text(encoding="utf-8")
-        if PAGESPEED_DEFAULT_WITH_AGENTIC.search(text):
-            violations.append(str(path.relative_to(ROOT)))
-    assert not violations, "PageSpeed documentation still publishes Agentic Browsing in the category CSV:\n" + "\n".join(violations)
-
-
-def test_canonical_pagespeed_documents_publish_four_category_default() -> None:
+def test_canonical_pagespeed_documents_publish_current_five_category_default() -> None:
     for relative in (
         "docs/LIGHTHOUSE_CATEGORIES.md",
         "docs/LIGHTHOUSE_PAGESPEED_TRANSPORT.md",
         "docs/specification/21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md",
     ):
         text = (ROOT / relative).read_text(encoding="utf-8")
-        assert FOUR_CATEGORY_PAGESPEED_DEFAULT in text, f"missing PageSpeed category contract in {relative}"
-        assert "Agentic" in text and "separ" in text.casefold(), f"missing Agentic source separation in {relative}"
+        assert FIVE_CATEGORY_PAGESPEED_DEFAULT in text, f"missing current PageSpeed category contract in {relative}"
+        assert "Agentic" in text and "experiment" in text.casefold(), f"missing Agentic experimental qualification in {relative}"
+
+
+def test_canonical_pagespeed_documents_do_not_publish_stale_agentic_transport_separation() -> None:
+    violations: list[str] = []
+    for relative in (
+        "docs/LIGHTHOUSE_CATEGORIES.md",
+        "docs/LIGHTHOUSE_PAGESPEED_TRANSPORT.md",
+        "docs/specification/21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md",
+        "docs/CLI_REFERENCE.md",
+        "docs/ENVIRONMENT_VARIABLES.md",
+        "docs/AI_RUNTIME_ORCHESTRATION.md",
+    ):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        for pattern in STALE_AGENTIC_TRANSPORT_WORDING:
+            if pattern.search(text):
+                violations.append(f"{relative}: {pattern.pattern}")
+    assert not violations, "PageSpeed documentation contains stale Agentic transport separation:\n" + "\n".join(violations)

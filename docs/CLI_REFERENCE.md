@@ -85,6 +85,8 @@ auto
 
 `AI=auto` considera todos os providers registrados como elegíveis para AUTO que estejam aptos na execução. Aptidão exige credencial e configuração válidas. O runtime usa round-robin compartilhado entre necessidades, tenta cada provider no máximo uma vez por necessidade, remove imediatamente condições terminais e aplica circuit breaker para falhas temporárias.
 
+A presença de uma credencial não obriga o provider a participar do AUTO. `RASAI_AI_AUTO_EXCLUDE` aceita uma lista CSV de providers a manter fora do pool AUTO daquela configuração, preservando suas chaves/modelos para seleção explícita posterior. Exemplo: `RASAI_AI_AUTO_EXCLUDE=gemini` mantém Gemini apto para uso explícito, mas fora do round-robin AUTO.
+
 O timeout principal é `RASAI_AI_TIMEOUT_SECONDS`, default 180 segundos por tentativa.
 
 ### Remediação textual
@@ -140,19 +142,20 @@ Documentos:
 --web-performance-max-pages N
 --web-performance-timeout-seconds SECONDS
 --web-performance-field-source auto|pagespeed|crux|none
---lighthouse-categories performance,accessibility,best-practices,seo
+--lighthouse-categories performance,accessibility,best-practices,seo,agentic-browsing
 ```
 
-O adapter PageSpeed vigente aceita no RASAi as categorias:
+O adapter PageSpeed vigente aceita e solicita por default no RASAi as categorias:
 
 ```text
 performance
 accessibility
 best-practices
 seo
+agentic-browsing
 ```
 
-`agentic-browsing` não é enviado ao PageSpeed. Um eventual score Agentic depende de fonte/adaptador Lighthouse direto separado. Ausência de Agentic não é score zero e não invalida as categorias PageSpeed coletadas.
+A API PageSpeed Insights v5 expõe `AGENTIC_BROWSING` entre os valores aceitos para `category`. No RASAi, Agentic Browsing permanece uma categoria Lighthouse experimental e externa: sua ausência na resposta não é score zero, não invalida as demais categorias coletadas e seu valor não entra automaticamente em SARI/SCORE-GEO-004.
 
 Variáveis principais:
 
@@ -241,6 +244,8 @@ Opções relevantes:
 `NOT_FOUND_WITHIN_DEPTH` significa apenas que o domínio não foi observado na profundidade solicitada. Search Intelligence é non-scoring.
 
 No `rasai-console`, quando termos SERP fazem parte da sessão, a etapa Search Intelligence integra o mesmo relógio de duração e o progresso global até a consolidação dos relatórios. As consultas são acompanhadas por termo. Erros do provider permanecem fail-open para a auditoria principal: o diagnóstico original é persistido e categorizado como limitação técnica ou de conta/negócio quando identificável (por exemplo crédito, autenticação/permissão ou quota/plano), o relatório geral é disponibilizado e sinaliza a limitação. O relatório Search destaca explicitamente a posição quando o domínio derivado da URL principal é encontrado.
+
+A comparação de conteúdo competitivo é opt-in porque baixa páginas públicas adicionais. Quando não habilitada, a classificação SERP pode existir sem listas de diferenças de conteúdo; o relatório deve explicar essa ausência em vez de apresentar listas vazias como se fossem uma conclusão analítica. Recomendações competitivas por IA exigem comparação determinística consolidada e permanecem evidence-bound e não causais.
 
 ### Histórico
 
@@ -349,7 +354,7 @@ SQLite continua disponível para operação local; PostgreSQL é o backend centr
 rasai-console
 ```
 
-O console monta os mesmos argumentos públicos da CLI, apresenta capacidade dos providers, exposição pré-execução, configuração editorial, Web Performance e demais opções suportadas. Secrets não são gravados no INI.
+O console monta os mesmos argumentos públicos da CLI, apresenta capacidade dos providers, exposição pré-execução, configuração editorial, Web Performance e demais opções suportadas. Secrets não são gravados no INI. Em `AI=auto`, o usuário pode excluir providers aptos do pool sem apagar ou alterar suas credenciais.
 
 ## API / execução remota
 

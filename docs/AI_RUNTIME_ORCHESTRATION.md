@@ -9,11 +9,12 @@ A lógica deste documento é operacional. Ela não altera a identidade pública 
 1. A configuração humana/original é preservada.
 2. Telemetria de IA é separada de evidência de scoring.
 3. Uma falha de provider não pode produzir loop infinito.
-4. `AI=auto` deve distribuir chamadas entre os providers aptos na execução, em vez de consumir sempre o primeiro da lista.
-5. Falhas terminais retiram o provider do restante daquela execução.
-6. Falhas temporárias permitem novas oportunidades, mas são limitadas por circuit breaker.
-7. Requests e responses externos são auditáveis, com sanitização de segredos.
-8. Interpretações YMYL/E-E-A-T de campos `auto` são informativas e transitórias: não sobrescrevem configuração nem entram no cálculo do SARI.
+4. `AI=auto` deve distribuir chamadas entre os providers aptos **e incluídos no pool AUTO** da execução, em vez de consumir sempre o primeiro da lista.
+5. Capacidade (`APTA`) e participação no AUTO são estados diferentes: um provider pode permanecer apto e explicitamente selecionável mesmo quando o usuário o exclui do AUTO.
+6. Falhas terminais retiram o provider do restante daquela execução.
+7. Falhas temporárias permitem novas oportunidades, mas são limitadas por circuit breaker.
+8. Requests e responses externos são auditáveis, com sanitização de segredos.
+9. Interpretações YMYL/E-E-A-T de campos `auto` são informativas e transitórias: não sobrescrevem configuração nem entram no cálculo do SARI.
 
 ## 2. Elegibilidade em `AI=auto`
 
@@ -22,9 +23,12 @@ Ao iniciar uma auditoria com provider `auto`, o RASAi consulta o registry canôn
 - está marcado como elegível para AUTO no registry;
 - possui credencial configurada;
 - o modelo configurado é aceito pelo adapter;
-- as demais configurações obrigatórias são válidas.
+- as demais configurações obrigatórias são válidas;
+- não foi explicitamente excluído do AUTO pelo usuário.
 
-Providers sem credencial ou com configuração inválida são registrados como excluídos da execução e não recebem chamadas externas.
+`RASAI_AI_AUTO_EXCLUDE` contém IDs/aliases de providers separados por vírgula ou ponto e vírgula. O console oferece a mesma decisão por seleção interativa. Essa configuração é não secreta e não remove a variável de API key correspondente.
+
+Providers sem credencial, com configuração inválida ou excluídos pelo usuário são registrados como fora da execução e não recebem chamadas externas via AUTO. Um provider excluído pelo usuário continua `APTA` quando sua chave/modelo permanecem válidos e continua disponível para seleção explícita em outra execução.
 
 A elegibilidade é específica da execução. Uma exclusão causada por falha não altera a configuração global nem impede o uso em auditorias futuras.
 
@@ -32,14 +36,14 @@ A elegibilidade é específica da execução. Uma exclusão causada por falha n�
 
 O coordenador mantém um cursor compartilhado durante a auditoria. Cada nova necessidade de IA começa pelo próximo provider elegível após o último provider efetivamente tentado.
 
-Exemplo com `A`, `B`, `C`, `D`:
+Exemplo com `A`, `B`, `C`, `D`, sendo `D` apto porém excluído pelo usuário do AUTO:
 
 ```text
+pool efetivo -> A, B, C
 necessidade 1 -> A
 necessidade 2 -> B
 necessidade 3 -> C
-necessidade 4 -> D
-necessidade 5 -> A
+necessidade 4 -> A
 ```
 
 Se `B` falhar temporariamente na necessidade 2, a mesma necessidade continua em `C`. O cursor avança depois de cada tentativa; `B` não recebe retry imediato dentro daquela necessidade e poderá voltar a ser considerado em uma necessidade posterior se continuar elegível.
@@ -71,7 +75,7 @@ Uma tentativa com sucesso entra na mesma janela e reduz naturalmente a densidade
 
 ### 4.3 Provider explicitamente selecionado
 
-Quando o usuário escolhe um provider específico em vez de `auto`, permanecem válidas as regras de retry do adapter daquele provider. A política round-robin é exclusiva do AUTO.
+Quando o usuário escolhe um provider específico em vez de `auto`, permanecem válidas as regras de retry do adapter daquele provider. A política round-robin e `RASAI_AI_AUTO_EXCLUDE` são exclusivas do AUTO.
 
 ## 5. Compartilhamento da política entre módulos
 
@@ -82,7 +86,7 @@ O estado do coordenador AUTO é de execução, não de módulo. Sempre que o ada
 - remediação técnica;
 - explicações especializadas integradas ao runtime.
 
-Isso evita que cada módulo reinicie a cadeia pelo primeiro provider e concentre consumo em um único serviço.
+Isso evita que cada módulo reinicie a cadeia pelo primeiro provider e concentre consumo em um único serviço. Tentativas que prosseguem para outro provider devem preservar `FALLBACK`/`fallback_from_provider`/`fallback_reason` na telemetria, inclusive em fluxos especializados.
 
 ## 6. Log de comunicação com IA
 
@@ -130,6 +134,8 @@ Uma chamada externa pode ter sido concluída pelo provider e ainda assim ser rej
 - **Resposta aceita:** a resposta passou pela validação local e foi utilizada para a finalidade permitida.
 
 A telemetria deve preservar essa distinção. Uma resposta rejeitada pelo contrato não deve ser rotulada genericamente como “provider indisponível” quando o provider de fato respondeu.
+
+Custos em `ai-usage.html` são somados a partir de `estimated_cost` e `cost_currency` persistidos nas tentativas. Uma chamada sem usage retornado pelo provider não recebe custo inventado, mesmo que o billing externo possa posteriormente registrar cobrança.
 
 ## 8. Projeção de JSON Schema no wire
 
@@ -186,6 +192,7 @@ Para garantir essa separação, o campo transitório é removido da resposta ant
 Deve apresentar:
 
 - resumo de uso/custo existente;
+- total de custo derivado da telemetria persistida de todas as finalidades de IA suportadas;
 - estado final de elegibilidade por provider;
 - tentativas, sucessos, falhas temporárias e terminais;
 - motivo de exclusão/circuit breaker;
@@ -199,28 +206,42 @@ A seção deve declarar explicitamente que a interpretação é contextual, não
 
 ## 11. PageSpeed, Lighthouse e Agentic Browsing
 
-O adapter atual de PageSpeed Insights transporta apenas as categorias configuráveis pelo contrato usado pelo RASAi:
+O PageSpeed Insights API v5 passou a expor `AGENTIC_BROWSING` como categoria aceita pelo parâmetro repetível `category`. O contrato atual do RASAi solicita por default:
 
 ```text
-performance,accessibility,best-practices,seo
+performance,accessibility,best-practices,seo,agentic-browsing
 ```
 
-`agentic-browsing` não deve ser enviado como categoria ao PageSpeed Insights. O campo `agentic_browsing_score` pode permanecer no modelo persistido por compatibilidade/evolução futura, mas um valor Agentic exige uma fonte/adaptador Lighthouse direto separado. Enquanto essa fonte não existir, o relatório deve mostrar indisponibilidade via provider atual, e não score zero.
+O parser já preserva `lighthouseResult.categories.agentic-browsing.score` quando presente. A categoria continua experimental no Lighthouse; ausência isolada do score não deve ser transformada em zero nem invalidar as quatro categorias estáveis retornadas.
 
-Agentic Browsing permanece fora de SARI-001.
+Agentic Browsing permanece evidência externa e fora de SARI-001/SCORE-GEO-004.
 
-## 12. Critérios de regressão
+Referência operacional primária: discovery/API client atual do Google PageSpeed Insights v5, cujo enum de `category` inclui `AGENTIC_BROWSING` desde junho de 2026.
+
+## 12. Search Intelligence competitivo
+
+`--competitive` classifica deterministicamente resultados SERP sem adquirir páginas adicionais. Portanto, listas de gaps de conteúdo permanecem vazias quando `comparison_status=CONTENT_COMPARISON_DISABLED`.
+
+`--compare-content` é opt-in e acrescenta aquisição HTTP limitada do domínio de interesse e dos candidatos selecionados. Somente depois de uma comparação `CONSOLIDATED` existe evidência para gaps de title, meta description, headings, cobertura dos termos no corpo, volume de conteúdo e structured data.
+
+A análise semântica competitiva por IA é outro opt-in separado. Ela pode sugerir oportunidades de conteúdo apenas sobre evidências persistidas e deve evitar keyword stuffing, conteúdo search-engine-first e qualquer afirmação de que uma alteração específica causará ganho de ranking.
+
+## 13. Critérios de regressão
 
 A suíte deve cobrir no mínimo:
 
 - round-robin entre necessidades;
+- exclusão voluntária de provider do AUTO sem apagar sua credencial e sem impedir seleção explícita;
 - fallback no mesmo contexto sem repetir provider;
+- telemetria de fallback também nos fluxos especializados;
 - permanência após falha temporária abaixo do limiar;
 - circuit breaker com três falhas nas últimas cinco observações;
 - exclusão imediata por erro terminal/HTTP 404;
 - ausência de loop quando todos falham;
 - sanitização de segredos no exchange log;
 - truncamento/hash;
+- custo agregado derivado de telemetria persistida e ausência de custo inventado sem usage;
 - não persistência do contexto editorial transitório;
 - projeção de schema OpenAI sem alterar o validador local;
-- rejeição de `agentic-browsing` no transporte PageSpeed.
+- aceitação/transporte de `agentic-browsing` no PageSpeed v5 atual;
+- Search content comparison desabilitada por default e explícita quando ativada.

@@ -88,7 +88,7 @@ class M21WebPerformanceTests(unittest.TestCase):
         self.assertEqual(config.field_source, "auto")
         self.assertEqual(
             config.categories,
-            ("performance", "accessibility", "best-practices", "seo"),
+            ("performance", "accessibility", "best-practices", "seo", "agentic-browsing"),
         )
 
     def test_pagespeed_persists_lighthouse_and_cwv_without_touching_score(self) -> None:
@@ -109,7 +109,7 @@ class M21WebPerformanceTests(unittest.TestCase):
             self.assertEqual(psi.calls[0][1], "mobile")
             self.assertEqual(
                 psi.calls[0][2],
-                ("performance", "accessibility", "best-practices", "seo"),
+                ("performance", "accessibility", "best-practices", "seo", "agentic-browsing"),
             )
 
             connection = sqlite3.connect(workspace.database)
@@ -330,9 +330,8 @@ class M21WebPerformanceTests(unittest.TestCase):
                 "categories": {
                     "performance": {"score": 0.91}, "accessibility": {"score": 0.88},
                     "best-practices": {"score": 0.95}, "seo": {"score": 1.0},
-                    # Kept as a compatibility fixture: the parser may preserve an
-                    # Agentic score if a future/direct Lighthouse source supplies it,
-                    # but the PageSpeed request itself never asks for this category.
+                    # PageSpeed v5 currently accepts the experimental Agentic Browsing
+                    # category; the parser preserves the score when the response supplies it.
                     "agentic-browsing": {"score": 0.84},
                 },
                 "audits": {

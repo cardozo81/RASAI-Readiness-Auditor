@@ -10,13 +10,14 @@ from dataclasses import replace
 from typing import Any
 
 
-# Current RASAi PageSpeed transport can request only the categories accepted by
-# PageSpeed Insights v5. Agentic Browsing remains a separate/future Lighthouse source.
+# Current PageSpeed Insights v5 accepts Agentic Browsing together with the stable
+# Lighthouse categories. Agentic remains experimental and outside SARI-001.
 _PAGESPEED_LIGHTHOUSE_CATEGORIES = (
     "performance",
     "accessibility",
     "best-practices",
     "seo",
+    "agentic-browsing",
 )
 _PAGESPEED_LIGHTHOUSE_CATEGORIES_CSV = ",".join(_PAGESPEED_LIGHTHOUSE_CATEGORIES)
 _AI_EXCHANGE_LOG_MAX_BYTES_ENV = "RASAI_AI_EXCHANGE_LOG_MAX_BYTES"
@@ -35,7 +36,7 @@ def install_runtime_completion_extensions() -> None:
 
 
 def _install_m21_runtime_contract() -> None:
-    """Prevent stale imports/config surfaces from sending Agentic to PSI."""
+    """Keep stale imports/config surfaces aligned with current PageSpeed categories."""
     from rasai import m21_web_performance as m21
 
     m21.DEFAULT_CATEGORIES = _PAGESPEED_LIGHTHOUSE_CATEGORIES
@@ -63,8 +64,7 @@ def _install_cli_help() -> None:
                 action.help = (
                     "comma-separated PageSpeed/Lighthouse categories: "
                     + _PAGESPEED_LIGHTHOUSE_CATEGORIES_CSV
-                    + "; Agentic Browsing is not transported by the current PageSpeed adapter "
-                    "and remains outside SARI-001"
+                    + "; Agentic Browsing is experimental and remains outside SARI-001"
                 )
             elif action.dest in {"ai_provider", "semantic_provider"}:
                 action.help = (
@@ -101,7 +101,7 @@ def _install_console_environment() -> None:
                     example=f"RASAI_LIGHTHOUSE_CATEGORIES={_PAGESPEED_LIGHTHOUSE_CATEGORIES_CSV}",
                     notes=(
                         "Uma ou mais categorias aceitas pelo provider PageSpeed, separadas por vírgula, "
-                        "sem duplicar. Agentic Browsing exige fonte/adaptador Lighthouse separado."
+                        "sem duplicar. Agentic Browsing é experimental e pode ficar indisponível na resposta."
                     ),
                 )
             items.append(spec)
@@ -116,7 +116,6 @@ def _install_console_environment() -> None:
             if not items or any(item not in _PAGESPEED_LIGHTHOUSE_CATEGORIES for item in items):
                 raise ValueError(
                     "categorias PageSpeed suportadas: " + ", ".join(_PAGESPEED_LIGHTHOUSE_CATEGORIES)
-                    + "; Agentic Browsing exige adaptador Lighthouse separado"
                 )
             if len(items) != len(set(items)):
                 raise ValueError("não duplique categorias Lighthouse")
@@ -267,13 +266,13 @@ def _install_agentic_provenance() -> None:
             "Lighthouse Agentic Browsing - experimental category score",
             "EXTERNAL_DEFINED_METRIC",
             "CONTEXT_ONLY",
-            "Google Chrome Lighthouse",
-            "Agentic Browsing configuration",
-            "https://github.com/GoogleChrome/lighthouse/blob/main/core/config/agentic-browsing-config.js",
+            "Google Chrome Lighthouse via PageSpeed Insights",
+            "PageSpeed v5 category + Lighthouse Agentic Browsing configuration",
+            "https://googleapis.github.io/google-api-python-client/docs/dyn/pagespeedonline_v5.pagespeedapi.html",
             "Categoria experimental do Lighthouse; sua composição pode mudar entre versões.",
             (
-                "O adapter PageSpeed atual do RASAi não solicita esta categoria. O campo de compatibilidade "
-                "pode ser materializado apenas por uma fonte Lighthouse direta/futura e permanece fora do SARI-001."
+                "O adapter PageSpeed atual do RASAi solicita a categoria. O valor só é materializado quando "
+                "a resposta a fornece; ausência permanece indisponível e o indicador fica fora do SARI-001."
             ),
         ),
     )

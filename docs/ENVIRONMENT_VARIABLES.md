@@ -16,6 +16,7 @@ Variáveis de ambiente são overrides avançados. Quando existe default seguro, 
 | `RASAI_LOG_LEVEL` | `INFO` | verbosidade |
 | `RASAI_DEVICE_CONTEXT` | `mobile` | `mobile`, `desktop`, `both` |
 | `RASAI_AI_TIMEOUT_SECONDS` | `180` | timeout por tentativa de IA |
+| `RASAI_AI_AUTO_EXCLUDE` | vazio | providers que permanecem configurados, mas ficam fora do pool `AI=auto`; lista CSV |
 | `RASAI_AI_CONTENT_REMEDIATION` | `false` | remediação de conteúdo por IA |
 | `RASAI_AI_TECHNICAL_REMEDIATION` | `false` | remediação técnica por IA |
 | `RASAI_AI_EXCHANGE_LOG_MAX_BYTES` | `524288` | limite por request/response sanitizado; faixa 4096..4194304 |
@@ -24,7 +25,9 @@ Variáveis de ambiente são overrides avançados. Quando existe default seguro, 
 
 Cada provider usa sua própria credencial: `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `MIMO_API_KEY`, `XAI_API_KEY`, `DASHSCOPE_API_KEY`, `GEMINI_API_KEY` ou `ANTHROPIC_API_KEY`.
 
-A presença da credencial não prova crédito, quota, plano ou acesso ao modelo. Em `AI=auto`, somente providers registrados como elegíveis e com configuração válida entram no pool daquela execução.
+A presença da credencial não prova crédito, quota, plano ou acesso ao modelo. Em `AI=auto`, somente providers registrados como elegíveis, com configuração válida e não excluídos pelo usuário entram no pool daquela execução.
+
+`RASAI_AI_AUTO_EXCLUDE` não remove nem altera credenciais. Exemplo: `RASAI_AI_AUTO_EXCLUDE=gemini` mantém a chave/modelo Gemini disponíveis para seleção explícita, mas impede chamadas Gemini durante `AI=auto`.
 
 ## 3. IA - modelos e reasoning
 
@@ -48,7 +51,7 @@ Qwen usa `PROVIDER_DEFAULT` para reasoning no adapter vigente.
 
 ### Política AUTO
 
-`AI=auto` não é uma cadeia fixa. O runtime consulta o provider registry e usa todos os providers `auto_eligible` aptos. A seleção usa round-robin entre necessidades de IA, uma tentativa por provider por necessidade e circuit breaker por execução. Falhas terminais retiram o provider imediatamente; falhas temporárias abrem o breaker ao atingir três falhas entre as últimas cinco observações.
+`AI=auto` não é uma cadeia fixa. O runtime consulta o provider registry e usa os providers `auto_eligible` aptos que não estejam listados em `RASAI_AI_AUTO_EXCLUDE`. A seleção usa round-robin entre necessidades de IA, uma tentativa por provider por necessidade e circuit breaker por execução. Falhas terminais retiram o provider imediatamente; falhas temporárias abrem o breaker ao atingir três falhas entre as últimas cinco observações.
 
 Detalhes: [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
 
@@ -82,11 +85,11 @@ Detalhes: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md) e [CONTENT_
 | `RASAI_WEB_PERFORMANCE_MAX_PAGES` | `10` | teto de páginas; `0=todas` |
 | `RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS` | `120` | timeout por request |
 | `RASAI_WEB_PERFORMANCE_FIELD_SOURCE` | `auto` | `auto`, `pagespeed`, `crux`, `none` |
-| `RASAI_LIGHTHOUSE_CATEGORIES` | `performance,accessibility,best-practices,seo` | categorias solicitadas ao PageSpeed |
+| `RASAI_LIGHTHOUSE_CATEGORIES` | `performance,accessibility,best-practices,seo,agentic-browsing` | categorias solicitadas ao PageSpeed |
 | `RASAI_PAGESPEED_API_KEY` | sem default | PageSpeed Insights |
 | `RASAI_CRUX_API_KEY` | sem default | CrUX direto |
 
-O transporte PageSpeed vigente aceita somente `performance`, `accessibility`, `best-practices` e `seo`. `agentic-browsing` exige fonte Lighthouse direta separada e não deve ser enviado no request PageSpeed. O campo compatível pode permanecer `NULL` enquanto não existir fonte apropriada.
+O transporte PageSpeed v5 aceita as categorias `performance`, `accessibility`, `best-practices`, `seo` e `agentic-browsing`. Agentic Browsing permanece experimental no Lighthouse: sua ausência na resposta mantém o campo como `NULL`, não vira zero e não invalida as demais categorias recebidas.
 
 Detalhes: [LIGHTHOUSE_CATEGORIES.md](LIGHTHOUSE_CATEGORIES.md) e [LIGHTHOUSE_PAGESPEED_TRANSPORT.md](LIGHTHOUSE_PAGESPEED_TRANSPORT.md).
 
@@ -223,6 +226,7 @@ console mode                   = local
 device                         = mobile
 ai provider                    = none
 ai timeout                     = 180 s
+ai auto exclusions             = vazio
 ai content remediation         = false
 ai technical remediation       = false
 ai exchange log max bytes      = 524288
@@ -230,7 +234,7 @@ web performance                = false
 web performance max pages      = 10
 web performance timeout        = 120 s
 field source                   = auto
-lighthouse categories          = performance,accessibility,best-practices,seo
+lighthouse categories          = performance,accessibility,best-practices,seo,agentic-browsing
 synthetic navigation apdex     = false
 synthetic experience apdex     = false
 experience kpm                 = USER_ACTION_DURATION

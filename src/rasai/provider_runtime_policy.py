@@ -1,8 +1,9 @@
 """Public runtime defaults and execution-wide AI provider selection policy.
 
 Explicit provider selections keep provider-specific retry semantics. AUTO builds every
-configured registry provider, uses round-robin routing, and shares one execution
-coordinator across semantic analysis, remediation and compatible specialist AI calls.
+configured registry provider that is not explicitly excluded by the user, uses
+round-robin routing, and shares one execution coordinator across semantic analysis,
+remediation and compatible specialist AI calls.
 """
 from __future__ import annotations
 
@@ -61,6 +62,7 @@ REASONING_OPTIONS: dict[str, tuple[str, ...]] = {
 DEFAULT_AI_TIMEOUT_SECONDS = 180.0
 DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS = 120.0
 AI_TIMEOUT_ENV = "RASAI_AI_TIMEOUT_SECONDS"
+AUTO_EXCLUDE_ENV = "RASAI_AI_AUTO_EXCLUDE"
 WEB_PERFORMANCE_TIMEOUT_ENV = "RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS"
 
 
@@ -81,6 +83,29 @@ def configured_reasoning(provider_name: str, env: Mapping[str, str] | None = Non
     if value not in allowed:
         raise ValueError(f"reasoning effort inválido para {name}: {value}; use {', '.join(allowed)}")
     return value
+
+
+def configured_auto_exclusions(env: Mapping[str, str] | None = None) -> tuple[str, ...]:
+    """Return canonical provider IDs explicitly excluded from AUTO.
+
+    This changes AUTO membership only. Provider credentials/models remain untouched and
+    the same provider can still be selected explicitly.
+    """
+    environment = env if env is not None else os.environ
+    raw = (environment.get(AUTO_EXCLUDE_ENV) or "").strip()
+    if not raw:
+        return ()
+    exclusions: list[str] = []
+    for item in raw.replace(";", ",").split(","):
+        token = item.strip()
+        if not token:
+            continue
+        registration = get_provider_registration(token)
+        if registration is None or not registration.auto_eligible:
+            raise ValueError(f"provider não elegível para AUTO em {AUTO_EXCLUDE_ENV}: {token}")
+        if registration.id not in exclusions:
+            exclusions.append(registration.id)
+    return tuple(exclusions)
 
 
 def configured_simple_model(provider_name: str, env: Mapping[str, str] | None = None) -> str:
@@ -165,8 +190,12 @@ def _build_auto_provider(*, effective_env: Mapping[str, str]) -> DynamicProvider
     recorder = AiExchangeRecorder()
     providers: list[Any] = []
     excluded: list[str] = []
+    user_exclusions = set(configured_auto_exclusions(effective_env))
     for registration in provider_registrations():
         if not registration.auto_eligible:
+            continue
+        if registration.id in user_exclusions:
+            excluded.append(f"{registration.provider_name}:USER_EXCLUDED_FROM_AUTO")
             continue
         if not (effective_env.get(registration.key_env) or "").strip():
             excluded.append(f"{registration.provider_name}:NOT_CONFIGURED")
