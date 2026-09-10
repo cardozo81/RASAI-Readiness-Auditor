@@ -28,6 +28,39 @@ Ao selecionar `T`, o console permite:
 5. informar uma região/localidade opcional;
 6. habilitar a classificação competitiva determinística dos resultados à frente.
 
+O console exibe orientação contextual antes dos campos de profundidade, dispositivo, região e classificação competitiva. A ajuda é apenas de apresentação: não modifica o contrato de execução nem o scoring.
+
+### O que significa profundidade SERP
+
+`depth=N` define até qual **posição orgânica** o RASAi tentará observar para cada termo.
+
+Exemplos:
+
+- `depth=1`: somente a posição orgânica 1;
+- `depth=10`: Top 10;
+- `depth=20`: Top 20.
+
+Se o domínio auditado não aparecer, a interpretação é limitada pela profundidade escolhida. Com `depth=10`, por exemplo, o resultado significa **“domínio não observado no Top 10”**; não significa que o domínio não esteja ranqueado em posições posteriores.
+
+No provider Google/SerpApi vigente, a paginação usada pelo adapter trabalha em blocos de 10 posições. Portanto, posições `1-10` pertencem ao primeiro bloco/página consultado e posições `11-20` exigem um segundo bloco/página. Aumentar a profundidade amplia a chance de localizar o domínio auditado e identificar concorrentes fora do Top 10, mas pode aumentar quota e duração.
+
+O teto conservador de requests para Google/SerpApi considera quantidade de termos, blocos de 10 posições e tentativas incluindo retries. Com `retries=1`, por exemplo:
+
+```text
+3 termos × depth 10 -> até 6 requests
+3 termos × depth 20 -> até 12 requests
+```
+
+Assim, com `RASAI_SERP_MAX_REQUESTS=10`, três termos em `depth=20` não cabem no orçamento conservador atual. O console passa a sinalizar isso no momento do preenchimento e informa uma profundidade compatível quando possível.
+
+Para Bing, a paginação é provider-driven; `depth` continua significando o máximo de posições observadas, enquanto `RASAI_SERP_MAX_REQUESTS` permanece como limite rígido global.
+
+### Dispositivo e região
+
+`mobile` e `desktop` representam contextos de busca distintos e podem produzir ordenações diferentes. Essa escolha vale para a observação SERP e não altera automaticamente o dispositivo das demais etapas da auditoria.
+
+A região/localidade deve ser informada quando o ranking tiver componente geográfico relevante, por exemplo `Porto Alegre, RS, Brazil`. Deixar vazio preserva o contexto de país/mercado já configurado sem adicionar localização mais específica.
+
 A classificação competitiva usa a SERP já observada e não cria uma chamada adicional ao provider de Search. Comparação de conteúdo de páginas e Competitive AI continuam fora deste input básico e exigem as superfícies explícitas correspondentes.
 
 ## Execução vinculada ao AUD
