@@ -100,18 +100,19 @@ class M12StableBaselineTests(unittest.TestCase):
 <meta name='description' content='Guia técnico.'><link rel='canonical' href='{origin}/'>
 <script type='application/ld+json'>{{"@context":"https://schema.org","@type":"Article","headline":"Guia RASAi"}}</script>
 </head><body><nav><a href='{origin}/extra'>Extra</a></nav><main><h1>Guia RASAi</h1><h2>Visão geral</h2><p>Conteúdo principal técnico e verificável para a auditoria.</p><p>Publicado em 2026-09-02 pela Equipe Exemplo.</p></main></body></html>"""
-            result = run_audit(
-                f"{origin}/",
-                audits_root=Path(directory),
-                project_name="Baseline M12",
-                language="pt-BR",
-                market="BR",
-                max_pages=1,
-                semantic_provider=NoneProvider(),
-                discovery_engine=DiscoveryEngine(HttpClient(timeout=1)),
-                renderer=_FixtureRenderer(html),
-                lazy_probe=lambda url, device: None,
-            )
+            with patch.dict(os.environ, {DEVICE_CONTEXT_ENV: "both"}):
+                result = run_audit(
+                    f"{origin}/",
+                    audits_root=Path(directory),
+                    project_name="Baseline M12",
+                    language="pt-BR",
+                    market="BR",
+                    max_pages=1,
+                    semantic_provider=NoneProvider(),
+                    discovery_engine=DiscoveryEngine(HttpClient(timeout=1)),
+                    renderer=_FixtureRenderer(html),
+                    lazy_probe=lambda url, device: None,
+                )
 
             self.assertTrue(result.report_path.is_file())
             self.assertEqual(result.report_path, result.audit_root / "report" / "index.html")
