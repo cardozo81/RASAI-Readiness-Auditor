@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from rasai.execution_contract import SUPPORTED_EXECUTION_JOB_TYPES, validate_execution_job_payload
 from rasai.secret_safety import (
     redact_text,
     redact_value,
@@ -25,7 +26,7 @@ from .central_store import CentralPlatformStore
 from .models import ExecutionJob, ExternalDataset, Integration, Milestone, PageIdentity, Schedule, UsageEvent
 from .store import new_id, utc_now
 
-_ALLOWED_EXECUTION_JOB_TYPES = {"AUDIT", "SEARCH_MONITOR", "REPORT_REFRESH"}
+_ALLOWED_EXECUTION_JOB_TYPES = set(SUPPORTED_EXECUTION_JOB_TYPES)
 _ALLOWED_EXECUTION_JOB_STATUSES = {"QUEUED", "CLAIMED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"}
 
 
@@ -231,6 +232,7 @@ class SecurePlatformStore(CentralPlatformStore):
             raise ValueError("execution job payload must be a mapping")
         validate_secret_free_mapping(safe_payload, context="execution job payload")
         safe_payload = _safe_mapping(safe_payload)
+        validate_execution_job_payload(normalized_type, safe_payload)
         if requested_by is not None:
             user = self._connection.execute("SELECT 1 FROM users WHERE user_id=?", (requested_by,)).fetchone()
             if user is None:
