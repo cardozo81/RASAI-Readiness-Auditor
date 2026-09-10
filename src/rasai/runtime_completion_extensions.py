@@ -27,6 +27,7 @@ def install_runtime_completion_extensions() -> None:
     _install_m21_runtime_contract()
     _install_cli_help()
     _install_console_environment()
+    _install_console_cost()
     _install_dashboard_metrics()
     _install_monitoring_metrics()
     _install_agentic_provenance()
@@ -138,6 +139,42 @@ def _install_console_environment() -> None:
     console_environment.SPECS = console_environment.environment_specs()
     console_environment.SPEC_BY_NAME = {spec.name: spec for spec in console_environment.SPECS}
     console_environment._rasai_pagespeed_categories_current = True
+
+
+def _install_console_cost() -> None:
+    """Keep the pre-run exposure explanation consistent with dynamic AUTO routing."""
+    from rasai import console_cost
+
+    if getattr(console_cost, "_rasai_dynamic_auto_exposure_current", False):
+        return
+    original = console_cost.estimate_exposure
+
+    def estimate_exposure_with_dynamic_auto(state):
+        estimate = original(state)
+        if state.ai_provider != "auto":
+            return estimate
+        provider_count = len(console_cost._selected_provider_models(state))
+        reasons: list[str] = []
+        for reason in estimate.reasons:
+            if reason.startswith("IA ativa:"):
+                reasons.append(
+                    f"IA AUTO ativa: até {estimate.max_ai_attempts} chamada(s) potenciais no pior caso "
+                    f"da configuração atual. Cada necessidade visita no máximo {provider_count} provider(s) "
+                    "e cada provider é tentado no máximo uma vez naquela necessidade; remediações opcionais "
+                    "podem criar necessidades adicionais."
+                )
+                continue
+            if reason.startswith("AUTO considera somente a cadeia homologada"):
+                continue
+            reasons.append(reason)
+        reasons.append(
+            f"AUTO possui {provider_count} provider(s) apto(s) na projeção atual; a ordem efetiva usa "
+            "round-robin e pode encolher durante a execução por falha terminal ou circuit breaker."
+        )
+        return replace(estimate, reasons=tuple(reasons))
+
+    console_cost.estimate_exposure = estimate_exposure_with_dynamic_auto
+    console_cost._rasai_dynamic_auto_exposure_current = True
 
 
 def _install_dashboard_metrics() -> None:
