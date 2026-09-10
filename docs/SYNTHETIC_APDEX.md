@@ -2,7 +2,7 @@
 
 Guia operacional do Synthetic Navigation Apdex do RASAi.
 
-> A funcionalidade é **default OFF**. Ela não altera `SARI-001`, findings GEO, Coverage ou Confidence. O índice mede uma Task sintética de navegação e não deve ser confundido com RUM/APM de usuários reais.
+> A funcionalidade é **desabilitada por padrão**. Ela não altera `SARI-001`, findings GEO, Coverage ou Confidence. O índice mede uma Task sintética de navegação e não deve ser confundido com RUM/APM de usuários reais.
 
 ## Fórmula
 
@@ -14,11 +14,11 @@ Tolerating > T e <= 4T
 Frustrated > 4T
 ```
 
-`T` é configurado explicitamente pelo usuário.
+`T` é configurado explicitamente pelo usuário e não possui default universal.
 
 ## Task medida
 
-Cada amostra executa uma navegação real em Chromium até o evento de load previsto pela implementação, usando perfil sintético controlado, BrowserContext novo e cache desabilitado.
+Cada amostra executa uma navegação real em Chromium até o evento `load` previsto pela implementação, usando perfil sintético controlado, BrowserContext novo e cache desabilitado.
 
 Uma amostra pode ser:
 
@@ -27,18 +27,11 @@ Uma amostra pode ser:
 - `FRUSTRATED`;
 - inválida/excluída quando a ferramenta/profile não conseguiu produzir uma medição válida.
 
-Timeout ou erro de navegação/aplicação conta como Frustrated quando o profile foi efetivamente aplicado e a amostra é observável como execução válida.
+Timeout ou erro de navegação/aplicação conta como `FRUSTRATED` quando o profile foi efetivamente aplicado e a amostra é observável como execução válida.
 
 ## Grupos
 
-Default normal:
-
-```text
-100 amostras válidas por URL/device
-```
-
-Grupos entre 1 e 99 amostras válidas são diagnóstico small-group e recebem marcador `*`. O objetivo é impedir que um smoke curto pareça uma baseline final.
-
+O alvo normal é `100` amostras válidas por URL/device. Grupos entre 1 e 99 amostras válidas são diagnósticos de grupo pequeno e recebem marcador específico. O objetivo é impedir que um smoke curto pareça uma baseline final.
 
 Quando o alvo configurado é menor que 100 e é integralmente atingido sem amostras inválidas, o run permanece `PARTIAL` por `SMALL_GROUP_BELOW_NORMAL_MINIMUM`. Esse estado é diferente de coleta incompleta ou amostra inválida.
 
@@ -70,70 +63,42 @@ RASAI_APDEX_DELAY_SECONDS
 RASAI_APDEX_CONCURRENCY
 ```
 
-Defaults quando habilitado:
-
-```text
-T                      = obrigatório
-amostras válidas       = 100
-max attempts           = ceil(1.25 × alvo)
-max pages              = 1
-timeout por navegação  = max(45 s, 4T + 5 s)
-delay                   = 1 s
-concorrência            = 1; máximo 2
-```
+| Parâmetro | Default efetivo | Valores permitidos | Recomendado |
+|---|---|---|---|
+| habilitação | `false` | booleano | `false`; habilitar deliberadamente |
+| `T` | sem default | número finito `> 0` | usar SLO/KPM definido para a Task |
+| amostras válidas | `100` | inteiro `>= 1` | `100`; reduzir apenas em smoke controlado |
+| máximo de tentativas | `ceil(1.25 × alvo)` | inteiro compatível com a validação do runtime | default derivado |
+| máximo de páginas | `1` | inteiro `>= 0`; `0=todas` | `1` como baseline seguro |
+| timeout por navegação | `max(45 s, 4T + 5 s)` | número finito positivo e maior que `4T` | default derivado |
+| delay | `1 s` | número `>= 0` | `1 s` ou maior conforme sensibilidade do alvo |
+| concorrência | `1` | `1`, `2` | `1` |
 
 ## Console interativo
 
-Item:
-
-```text
-11. Synthetic Apdex
-```
-
-O console explica a finalidade de cada valor antes da entrada e mostra a carga máxima projetada em quantidade de navegações iniciadas.
+O console expõe Synthetic Apdex junto das demais configurações de auditoria, explica a finalidade de cada valor e mostra a carga máxima projetada em quantidade de navegações iniciadas.
 
 O timeout de Apdex é independente do timeout de IA e do timeout PageSpeed/Lighthouse.
 
 ## Carga operacional
 
-Synthetic Apdex não possui API paga própria e não chama LLM/PageSpeed/CrUX, mas gera:
+Synthetic Apdex não possui API paga própria e não chama LLM/PageSpeed/CrUX, mas gera CPU/tempo local, Chromium, tráfego HTTP real contra o alvo e múltiplos requests de subrecursos por navegação.
 
-- CPU/tempo local;
-- Chromium;
-- tráfego HTTP real contra a URL alvo;
-- múltiplos requests de subrecursos por navegação.
-
-Não interprete `100 amostras` como `100 requests HTTP`. Cada navegação pode carregar muitos recursos.
-
-Para smoke, prefira 1 URL, 1 device, 3-5 amostras, concorrência 1 e alvo controlado. Não execute volume relevante contra produção sem autorização.
+Não interprete `100 amostras` como `100 requests HTTP`. Para smoke, prefira 1 URL, 1 device, 3–5 amostras, concorrência 1 e alvo controlado. Não execute volume relevante contra produção sem autorização.
 
 ## Persistência
 
-Dados são persistidos em tabelas dedicadas e o relatório é materializado em:
+Os dados são persistidos em tabelas dedicadas e o relatório é materializado em:
 
 ```text
 report/apdex.html
 ```
 
-Os identificadores internos históricos de tabela/evento podem permanecer por compatibilidade de schema; a UI e a documentação operacional usam nomenclatura funcional.
+Identificadores internos históricos de tabela/evento podem permanecer por compatibilidade de schema; a UI e a documentação operacional usam nomenclatura funcional.
 
 ## Relação com Lighthouse e CrUX
 
-Apdex não é inferido de:
-
-```text
-LCP
-INP
-CLS
-FCP
-TBT
-Speed Index
-duração da chamada PageSpeed
-```
-
-Lighthouse/CrUX e Synthetic Apdex medem fenômenos distintos e permanecem em páginas separadas do report.
-
-## Rastreamento de Lighthouse
+Apdex não é inferido de LCP, INP, CLS, FCP, TBT, Speed Index ou duração da chamada PageSpeed. Lighthouse/CrUX e Synthetic Apdex medem fenômenos distintos e permanecem em páginas separadas do report.
 
 Quando um artifact Lighthouse existe, o RASAi pode extrair metadados de perfil para rastreabilidade. Ausência do artifact não invalida as navegações Synthetic Apdex; apenas impede essa comparação documental.
 
@@ -145,28 +110,34 @@ Quando um artifact Lighthouse existe, o RASAi pode extrair metadados de perfil p
 - nenhum resultado é adicionado matematicamente ao Score GEO;
 - não há promessa de experiência real de usuários finais.
 
-<!-- rasai-apdex-diagnostics-sensitivity-20260908 -->
-## Diagnóstico de erros e sensibilidade ao T
+## Diagnóstico de erros e sensibilidade ao `T`
 
-`apdex.html` separa problemas da própria execução Synthetic Navigation Apdex de sinais relacionados de Web Performance. São mostrados application errors, timeouts, navigation errors, amostras inválidas/excluídas, fração Tolerating/Frustrated, variabilidade e cauda. Core Web Vitals/Lighthouse aparecem como correlação separada e não são duplicados nem entram na fórmula Apdex.
+`apdex.html` separa problemas da própria execução Synthetic Navigation Apdex de sinais relacionados de Web Performance. São mostrados application errors, timeouts, navigation errors, amostras inválidas/excluídas, fração Tolerating/Frustrated, variabilidade e cauda. Core Web Vitals/Lighthouse aparecem como correlação separada e não entram na fórmula Apdex.
 
-O relatório também apresenta uma análise de sensibilidade em torno do `T` configurado (`T ±10%/20%`) usando as mesmas amostras. Essa tabela é somente diagnóstico metodológico: não deve ser usada para escolher um threshold que produza a nota desejada. O `T` deve representar SLO/KPM ou a configuração comparável do APM/Dynatrace.
+O relatório apresenta análise de sensibilidade em torno do `T` configurado (`T ±10%/20%`) usando as mesmas amostras. Essa tabela é apenas diagnóstico metodológico: não deve ser usada para escolher threshold que produza a nota desejada. `T` deve representar SLO/KPM ou configuração comparável do APM.
 
-## Console/browser diagnostics por amostra
+## Diagnósticos de console/browser por amostra
 
-Synthetic Navigation Apdex persiste, de forma limitada e sem response bodies, `console.error`, `pageerror` e `requestfailed` observados durante cada navegação. O HTML lista esses eventos por amostra e também os agrupa para o teste completo por tipo/mensagem/recurso e quantidade de amostras afetadas. Essa associação é temporal e diagnóstica: um console error não é tratado automaticamente como causa da duração e não reduz o Apdex por si só. Somente application error, timeout e navigation error continuam alterando a classificação Apdex.
+Synthetic Navigation Apdex persiste, de forma limitada e sem response bodies, `console.error`, `pageerror` e `requestfailed` observados durante cada navegação. O HTML lista e agrupa esses eventos. A associação é temporal e diagnóstica: um console error não é automaticamente a causa da duração e não reduz Apdex por si só.
 
-<!-- rasai-apdex-cv-20260908 -->
-## Coeficiente de variação e estabilidade das amostras
-
-O relatório apresenta o **coeficiente de variação (CV)** das durações válidas:
+## Coeficiente de variação e estabilidade
 
 ```text
 CV (%) = desvio padrão das durações / média das durações × 100
 ```
 
-O CV mede a dispersão relativa das navegações sintéticas. Em um mesmo perfil, origem e alvo, valor menor indica tempos mais consistentes; valor maior indica maior oscilação. Ele pode refletir, em conjunto, máquina executora, rede local, rota, DNS/TCP/TLS, CDN, servidor, terceiros e comportamento da própria aplicação. O CV **não identifica sozinho a causa** e um CV baixo não significa página rápida: uma página pode ser lenta e estável.
+O CV mede dispersão relativa das navegações sintéticas. Valor menor indica maior consistência no mesmo perfil/origem/alvo; valor maior indica maior oscilação. O CV não identifica sozinho a causa e um CV baixo não significa página rápida.
 
-A UI pode marcar CV elevado como **sinal de atenção do RASAi**. Esse destaque é heurística de apresentação, não limiar universal do Apdex nem norma estatística externa. O CV não entra na fórmula do Apdex. Para diagnóstico, deve ser lido junto com média/mediana, percentis/cauda, erros, perfil, `T` e quantidade de amostras.
+A UI pode marcar CV elevado como **sinal de atenção do RASAi**. Esse destaque é heurística interna de apresentação, não threshold universal do Apdex nem norma estatística externa. O CV não entra na fórmula do Apdex.
 
-Uma futura execução distribuída por regiões não deve misturar indiscriminadamente todas as origens em um único CV: estabilidade **intrarregional** e dispersão **entre regiões** respondem perguntas diferentes e devem permanecer separadas.
+Uma futura execução distribuída por regiões deve separar estabilidade intrarregional de dispersão entre regiões.
+
+## Referências e direitos autorais
+
+> **Nota de direitos autorais, citação e tradução:** o material externo citado nesta seção permanece de titularidade de seu respectivo autor/mantenedor. Quando necessário para precisão técnica, o RASAi reproduz apenas o trecho estritamente necessário no idioma original, identificado como citação, seguido de tradução/adaptação para pt-BR. A tradução é informativa e não substitui o texto oficial; em caso de divergência, prevalece a fonte primária vinculada.
+
+A fórmula e a nomenclatura Apdex são baseadas na especificação pública do Apdex. Este arquivo não reproduz integralmente a especificação externa.
+
+- Apdex Technical Specification v1.1: <https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf>
+- Chrome DevTools Protocol — Emulation: <https://chromedevtools.github.io/devtools-protocol/tot/Emulation/>
+- Chrome DevTools Protocol — Network: <https://chromedevtools.github.io/devtools-protocol/tot/Network/>
