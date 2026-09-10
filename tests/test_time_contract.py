@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import unittest
 
+from rasai.platform.reporting import _shell
 from rasai.time_contract import (
     DEFAULT_PRESENTATION_TIMEZONE,
     format_presentation_timestamp,
@@ -43,6 +44,15 @@ class TimeContractTests(unittest.TestCase):
         self.assertEqual(normalized["source"][0]["event_time"], "2026-09-10T22:02:15+00:00")
         self.assertEqual(normalized["source"][0]["date"], "2026-09-10")
         self.assertEqual(normalized["note"], payload["note"])
+
+    def test_product_platform_shell_uses_presentation_timezone(self) -> None:
+        rendered = _shell(
+            "Timeline",
+            "timeline.html",
+            "<p>Evento 2026-09-10T22:02:15+00:00</p><code>2026-09-10T22:02:15+00:00</code>",
+        )
+        self.assertIn("Evento 10/09/2026 19:02:15 (America/Sao_Paulo)", rendered)
+        self.assertIn("<code>2026-09-10T22:02:15+00:00</code>", rendered)
 
 
 if __name__ == "__main__":
