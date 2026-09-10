@@ -2,7 +2,7 @@
 
 Esta referência complementa `CLI_REFERENCE.md` durante a evolução da camada SaaS.
 
-## API
+## API + SaaS Pilot Web
 
 Instale as dependências opcionais:
 
@@ -16,7 +16,32 @@ Inicialização local pelo router principal:
 rasai api --host 127.0.0.1 --port 8000
 ```
 
-A API permanece deliberadamente sob o entrypoint canônico `rasai`; não é instalado um segundo executável público específico para a API.
+O comando inicia a API tenant-aware e a superfície zero-build do SaaS Pilot Web. A interface fica disponível em:
+
+```text
+http://127.0.0.1:8000/app
+```
+
+A API permanece deliberadamente sob o entrypoint canônico `rasai`; não é instalado um segundo executável público específico para API ou Web UI.
+
+## Autenticação local para exercício do piloto
+
+O modo default continua sendo `deny`.
+
+Para smoke humano em loopback, sem um gateway local, pode-se iniciar:
+
+```powershell
+rasai api `
+  --host 127.0.0.1 `
+  --port 8000 `
+  --auth-mode trusted-header
+```
+
+Ao abrir `/app`, informe um `USR-*` existente quando a tela solicitar. A identidade de desenvolvimento fica somente no `sessionStorage` da aba e é enviada como `x-rasai-user-id` nas chamadas da API.
+
+Isso é uma conveniência **exclusivamente de desenvolvimento em loopback**. Não é um mecanismo de autenticação para Internet, não cria senha própria e não substitui gateway/OIDC.
+
+## Bind público
 
 Um bind fora de loopback é recusado por padrão. Em implantação controlada atrás de gateway/reverse proxy com TLS e autenticação, a exposição precisa ser assumida explicitamente:
 
@@ -29,6 +54,8 @@ rasai api `
 ```
 
 `--allow-public-bind` apenas reconhece a intenção operacional; ele não substitui TLS, firewall, autenticação ou proteção contra spoofing do header de identidade.
+
+Em exposição pública, o gateway deve remover qualquer `x-rasai-user-id` recebido do cliente e injetar a identidade somente após autenticação bem-sucedida. O campo de identidade local da UI não deve ser usado nesse cenário.
 
 Variáveis relevantes:
 
@@ -60,6 +87,8 @@ Resultado quando não há trabalho:
 {"status":"IDLE"}
 ```
 
+A UI cria durable execution jobs; ela não processa crawling dentro do processo HTTP. Para um piloto interativo contínuo, execute workers em processo separado usando a estratégia operacional adequada ao ambiente.
+
 O worker usa o mesmo backend de control plane selecionado para a aplicação. PostgreSQL é selecionado explicitamente pelas variáveis de backend; SQLite permanece default.
 
 O worker não requer `.[web]`.
@@ -73,3 +102,7 @@ rasai platform database migrate
 ```
 
 Normal startup não aplica migrations automaticamente.
+
+## Referência detalhada
+
+Consulte `SAAS_PILOT_WEB.md` para arquitetura, endpoints aditivos, boundary dos HTML reports, tenancy e limites desta fase.
