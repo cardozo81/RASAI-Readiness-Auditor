@@ -84,7 +84,7 @@ O timeout de Apdex é independente do timeout de IA e do timeout PageSpeed/Light
 
 Synthetic Apdex não possui API paga própria e não chama LLM/PageSpeed/CrUX, mas gera CPU/tempo local, Chromium, tráfego HTTP real contra o alvo e múltiplos requests de subrecursos por navegação.
 
-Não interprete `100 amostras` como `100 requests HTTP`. Para smoke, prefira 1 URL, 1 device, 3–5 amostras, concorrência 1 e alvo controlado. Não execute volume relevante contra produção sem autorização.
+Não interprete `100 amostras` como `100 requests HTTP`. Para smoke, prefira 1 URL, 1 device, 3-5 amostras, concorrência 1 e alvo controlado. Não execute volume relevante contra produção sem autorização.
 
 ## Persistência
 
@@ -139,5 +139,5 @@ Uma futura execução distribuída por regiões deve separar estabilidade intrar
 A fórmula e a nomenclatura Apdex são baseadas na especificação pública do Apdex. Este arquivo não reproduz integralmente a especificação externa.
 
 - Apdex Technical Specification v1.1: <https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf>
-- Chrome DevTools Protocol — Emulation: <https://chromedevtools.github.io/devtools-protocol/tot/Emulation/>
-- Chrome DevTools Protocol — Network: <https://chromedevtools.github.io/devtools-protocol/tot/Network/>
+- Chrome DevTools Protocol - Emulation: <https://chromedevtools.github.io/devtools-protocol/tot/Emulation/>
+- Chrome DevTools Protocol - Network: <https://chromedevtools.github.io/devtools-protocol/tot/Network/>
