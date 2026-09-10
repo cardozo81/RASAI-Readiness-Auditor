@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import re
 
+from rasai.time_contract import localize_visible_timestamps
+
 
 # Keep this map intentionally conservative. Add only values whose machine form is
 # materially harder to read when used as a primary user-facing value.
@@ -299,12 +301,13 @@ def _public_token_replacement(match: re.Match[str]) -> str:
 
 
 def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
-    """Humanize known machine values without mutating persisted or code content.
+    """Humanize visible report values without mutating persisted or code content.
 
-    Values are translated both when isolated in primary cells and when embedded
-    in normal visible prose. ``code``, ``pre``, ``script`` and ``style`` remain
-    untouched so technical identifiers, environment variables and examples keep
-    their canonical representation.
+    Known machine values are translated and timezone-aware ISO timestamps are
+    converted to the default report presentation timezone (America/Sao_Paulo).
+    ``code``, ``pre``, ``script`` and ``style`` remain untouched so technical
+    identifiers, environment variables and canonical timestamps used as examples
+    keep their original representation.
     """
     del page_name
 
@@ -330,5 +333,6 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
         if blocked_depth:
             output.append(part)
             continue
-        output.append(_PUBLIC_TOKEN_RE.sub(_public_token_replacement, part))
+        visible = localize_visible_timestamps(part)
+        output.append(_PUBLIC_TOKEN_RE.sub(_public_token_replacement, visible))
     return _VISIBLE_VALUE_RE.sub(isolated, "".join(output))

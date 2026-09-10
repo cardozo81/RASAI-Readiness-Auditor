@@ -6,7 +6,18 @@ on:
     paths:
       - 'src/rasai/platform/**'
       - 'src/rasai/search_intelligence/**'
+      - 'src/rasai/web/**'
+      - 'src/rasai/audit_execution_contract.py'
+      - 'src/rasai/execution_contract.py'
+      - 'src/rasai/worker.py'
+      - 'src/rasai/m25_cli.py'
+      - 'src/rasai/m25_dynatrace_defaults.py'
+      - 'src/rasai/provider_registry.py'
+      - 'src/rasai/provider_runtime_policy.py'
       - 'tests/test_postgresql_*.py'
+      - 'tests/test_worker_execution.py'
+      - 'tests/test_web_saas_management.py'
+      - 'tests/test_saas_runtime_parity.py'
       - 'pyproject.toml'
       - '.github/workflows/postgresql-control-plane-ci.yml'
       - 'docs/**'
@@ -16,7 +27,18 @@ on:
     paths:
       - 'src/rasai/platform/**'
       - 'src/rasai/search_intelligence/**'
+      - 'src/rasai/web/**'
+      - 'src/rasai/audit_execution_contract.py'
+      - 'src/rasai/execution_contract.py'
+      - 'src/rasai/worker.py'
+      - 'src/rasai/m25_cli.py'
+      - 'src/rasai/m25_dynatrace_defaults.py'
+      - 'src/rasai/provider_registry.py'
+      - 'src/rasai/provider_runtime_policy.py'
       - 'tests/test_postgresql_*.py'
+      - 'tests/test_worker_execution.py'
+      - 'tests/test_web_saas_management.py'
+      - 'tests/test_saas_runtime_parity.py'
       - 'pyproject.toml'
       - '.github/workflows/postgresql-control-plane-ci.yml'
       - 'docs/**'
@@ -52,11 +74,24 @@ jobs:
         with:
           python-version: '3.13'
           cache: 'pip'
-      - name: Install RASAi with PostgreSQL support
-        run: python -m pip install -e ".[postgresql]" pytest
-      - name: Compile PostgreSQL integration
-        run: python -m compileall -q src/rasai/platform src/rasai/search_intelligence
+      - name: Install RASAi with PostgreSQL and Web support
+        run: python -m pip install -e ".[postgresql,web]" pytest
+      - name: Compile PostgreSQL, SaaS and execution integration
+        run: >-
+          python -m compileall -q
+          src/rasai/platform
+          src/rasai/search_intelligence
+          src/rasai/web
+          src/rasai/audit_execution_contract.py
+          src/rasai/execution_contract.py
+          src/rasai/worker.py
       - name: Public contract gate
         run: python -m rasai.public_contract_gate
       - name: PostgreSQL control-plane parity
         run: python -m pytest -q tests/test_postgresql_*.py
+      - name: SaaS and runtime contract parity
+        run: >-
+          python -m pytest -q
+          tests/test_worker_execution.py
+          tests/test_web_saas_management.py
+          tests/test_saas_runtime_parity.py

@@ -69,6 +69,12 @@ from rasai.provider_runtime_policy import (
     apply_console_reasoning_environment,
     configured_reasoning,
 )
+from rasai.time_contract import (
+    PRESENTATION_TIMEZONE_ENV,
+    configured_presentation_timezone,
+    timezone_offset_label,
+    validate_presentation_timezone,
+)
 from rasai.windows_environment import (
     current_matches_persisted,
     environment_origin,
@@ -79,6 +85,22 @@ from rasai.windows_environment import (
 )
 
 ENV_NAMES = tuple(dict.fromkeys((*BASE_ENV_NAMES, *M23_ENV_NAMES)))
+
+_TIMEZONE_PRESETS = (
+    ("America/Sao_Paulo", "Brasil - São Paulo"),
+    ("UTC", "UTC / timezone 0"),
+    ("America/New_York", "EUA - Nova York"),
+    ("America/Chicago", "EUA - Chicago"),
+    ("America/Los_Angeles", "EUA - Los Angeles"),
+    ("America/Mexico_City", "México - Cidade do México"),
+    ("America/Argentina/Buenos_Aires", "Argentina - Buenos Aires"),
+    ("Europe/London", "Reino Unido - Londres"),
+    ("Europe/Berlin", "Europa Central - Berlim"),
+    ("Asia/Tokyo", "Japão - Tóquio"),
+    ("Asia/Shanghai", "China - Xangai"),
+    ("Asia/Kolkata", "Índia - Calcutá"),
+    ("Australia/Sydney", "Austrália - Sydney"),
+)
 
 
 def _select(state: State, title: str, options: list[tuple[str, bool, str]]) -> str | None:
@@ -277,6 +299,32 @@ def _number(prompt: str, current: float, *, minimum: float = 0.0, integer: bool 
     return int(value) if integer else float(value)
 
 
+def _configure_timezone(state: State) -> None:
+    render_header(state)
+    current = configured_presentation_timezone()
+    print("TIMEZONE DE APRESENTAÇÃO\n")
+    print(f"Atual: {current} ({timezone_offset_label(current)})")
+    print("\nO RASAi continua persistindo e processando timestamps em UTC.")
+    print("O offset numérico abaixo é apenas referência; o valor salvo é IANA para preservar regras de horário de verão e histórico.\n")
+    for index, (timezone_name, label) in enumerate(_TIMEZONE_PRESETS, 1):
+        marker = " (PADRÃO)" if timezone_name == "America/Sao_Paulo" else ""
+        print(f"{index:2d}. {label:<34} {timezone_name:<32} {timezone_offset_label(timezone_name)}{marker}")
+    print("\n C. Informar outro timezone IANA")
+    print(" V. Voltar")
+    raw = input("Escolha: ").strip().upper()
+    if raw == "V":
+        return
+    try:
+        if raw == "C":
+            candidate = input("Timezone IANA (ex.: Pacific/Auckland): ").strip()
+        else:
+            candidate = _TIMEZONE_PRESETS[int(raw) - 1][0]
+        os.environ[PRESENTATION_TIMEZONE_ENV] = validate_presentation_timezone(candidate)
+        state.error = ""
+    except (ValueError, IndexError) as exc:
+        state.error = str(exc) if isinstance(exc, ValueError) else "opção de timezone inválida"
+
+
 def _configure_apdex(state: State) -> None:
     print("Synthetic Apdex mede repetidamente a navegação real em Chromium e gera carga HTTP contra o alvo.")
     print("Cada parâmetro abaixo controla precisão, duração ou volume da medição.\n")
@@ -402,10 +450,13 @@ def _configure(state: State, choice: str) -> None:
         state.audits_root = input(f"Raiz [{state.audits_root}]: ").strip() or state.audits_root
     elif choice == "11":
         _configure_apdex(state)
+    elif choice == "12":
+        _configure_timezone(state)
 
 
 def _execution_readiness(state: State) -> tuple[bool, str]:
     try:
+        configured_presentation_timezone()
         preflight(state)
         validate_m23_state(state)
     except (OSError, ValueError, UnicodeError) as exc:
@@ -591,6 +642,8 @@ def _menu(state: State) -> str:
         print(f"11. Synthetic Apdex      : {bool_badge(True)} [CARGA SINTÉTICA] | T={state.apdex_threshold}s | válidas={state.apdex_samples} | tentativas={state.apdex_max_attempts} | páginas={state.apdex_max_pages} | timeout={state.apdex_timeout:g}s | delay={state.apdex_delay:g}s | concorrência={state.apdex_concurrency}")
     else:
         print(f"11. Synthetic Apdex      : {bool_badge(False)} [SEM CUSTO API PRÓPRIO]")
+    presentation_timezone = configured_presentation_timezone()
+    print(f"12. Timezone apresentação: {presentation_timezone} ({timezone_offset_label(presentation_timezone)})")
     ready, reason = _execution_readiness(state)
     marker = availability_badge(ready)
     reason_text = paint(reason, GREEN if ready else RED)

@@ -41,10 +41,16 @@ from rasai.provider_runtime_policy import (
     WEB_PERFORMANCE_TIMEOUT_ENV,
     provider_reasoning_env,
 )
+from rasai.time_contract import (
+    DEFAULT_PRESENTATION_TIMEZONE,
+    PRESENTATION_TIMEZONE_ENV,
+    configured_presentation_timezone,
+    validate_presentation_timezone,
+)
 
 CONSOLE_INI_ENV = "RASAI_CONSOLE_INI"
 DEFAULT_CONSOLE_INI = "rasai-console.ini"
-CONFIG_VERSION = "3"
+CONFIG_VERSION = "4"
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +106,7 @@ def _runtime_environment_projection(state: Any) -> dict[str, str]:
         WEB_PERFORMANCE_TIMEOUT_ENV: f"{float(state.web_timeout):g}",
         "RASAI_WEB_PERFORMANCE_FIELD_SOURCE": str(state.field_source),
         "RASAI_LIGHTHOUSE_CATEGORIES": str(state.lighthouse_categories),
+        PRESENTATION_TIMEZONE_ENV: configured_presentation_timezone(),
     }
     if hasattr(state, "synthetic_apdex"):
         values.update({
@@ -176,6 +183,9 @@ def _state_values(state: Any) -> dict[str, dict[str, str]]:
             "max_pages": str(int(state.max_pages)),
             "audits_root": str(state.audits_root),
             "device": str(state.device),
+        },
+        "presentation": {
+            "timezone": configured_presentation_timezone(),
         },
         "ai": {
             "provider": str(state.ai_provider),
@@ -294,6 +304,8 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
         value = raw.strip().casefold()
         if value not in {"mobile", "desktop", "both"}: raise ValueError("use mobile, desktop ou both")
         state.device, state.current_device = value, value.upper()
+    elif key == ("presentation", "timezone"):
+        os.environ[PRESENTATION_TIMEZONE_ENV] = validate_presentation_timezone(raw)
     elif key == ("ai", "provider"): state.ai_provider = raw.strip().casefold() or "none"
     elif key == ("ai", "model"): state.ai_model = raw.strip() or None
     elif key == ("ai", "reasoning_effort"): state.ai_reasoning = raw.strip().upper() or None
@@ -383,16 +395,24 @@ def _assign(state: Any, section: str, option: str, raw: str) -> None:
 
 def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResult:
     source = path or resolve_config_path()
+    warnings: list[str] = []
+    external_timezone = (os.environ.get(PRESENTATION_TIMEZONE_ENV) or "").strip()
+    if external_timezone:
+        try:
+            validate_presentation_timezone(external_timezone)
+        except ValueError as exc:
+            warnings.append(f"{PRESENTATION_TIMEZONE_ENV}: {exc}; usando INI/default")
+            os.environ.pop(PRESENTATION_TIMEZONE_ENV, None)
+            external_timezone = ""
     if not source.exists():
         save_console_config(state, source)
-        return ConfigLoadResult(source, True, ())
+        return ConfigLoadResult(source, True, tuple(warnings))
     parser = ConfigParser(interpolation=None)
     parser.optionxform = str
     try:
         with source.open("r", encoding="utf-8") as stream: parser.read_file(stream)
     except (OSError, UnicodeError) as exc:
         return ConfigLoadResult(source, False, (f"não foi possível ler {source}: {type(exc).__name__}",))
-    warnings: list[str] = []
     if parser.has_section("environment"):
         allowed = set(_known_nonsecret_environment_names())
         for name, raw in parser.items("environment", raw=True):
@@ -404,9 +424,13 @@ def load_console_config(state: Any, path: Path | None = None) -> ConfigLoadResul
         if not parser.has_section(section): continue
         for option in values:
             if option == "config_version" or not parser.has_option(section, option): continue
+            if section == "presentation" and option == "timezone" and external_timezone:
+                continue
             raw = parser.get(section, option, raw=True)
             try: _assign(state, section, option, raw)
             except (ValueError, TypeError) as exc: warnings.append(f"{section}.{option}: {exc}")
+    if not (os.environ.get(PRESENTATION_TIMEZONE_ENV) or "").strip():
+        os.environ[PRESENTATION_TIMEZONE_ENV] = DEFAULT_PRESENTATION_TIMEZONE
     if hasattr(state, "config_path"): state.config_path = str(source)
     if hasattr(state, "config_dirty"): state.config_dirty = False
     return ConfigLoadResult(source, False, tuple(warnings))

@@ -6,12 +6,13 @@ source of truth and are never modified by this module.
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import datetime
 from pathlib import Path
 import hashlib
 import json
 import sqlite3
 from typing import Any, Iterable
+
+from rasai.time_contract import utc_now_iso
 
 from .models import ConsolidationFilter, RefreshIssue, RefreshResult
 from .reader import read_audit_bundle, source_file_fingerprint
@@ -226,7 +227,7 @@ class ConsolidationIndex:
     @staticmethod
     def _replace_bundle(connection: sqlite3.Connection, rel: str, bundle: Any) -> None:
         src = bundle.source
-        now = datetime.now().astimezone().isoformat()
+        now = utc_now_iso()
         with connection:
             connection.execute("DELETE FROM source_audits WHERE audit_id=? OR db_path=?", (src.audit_id, rel))
             connection.execute(

@@ -33,9 +33,11 @@ from rasai.m25_cli import (
     DEFAULT_UX_DELAY_SECONDS,
     DEFAULT_UX_DEVICE_MIX,
     DEFAULT_UX_ERROR_SCOPE,
+    DEFAULT_UX_FRUSTRATED_SECONDS,
     DEFAULT_UX_KPM,
     DEFAULT_UX_MAX_PAGES,
     DEFAULT_UX_SAMPLES,
+    DEFAULT_UX_SATISFIED_SECONDS,
     DEFAULT_UX_SESSION_MODE,
     DEFAULT_UX_SETTLE_SECONDS,
     parse_device_mix,
@@ -128,8 +130,18 @@ def audit_job_options() -> tuple[AuditJobOption, ...]:
         AuditJobOption("apdex_experience_device_mix", DEFAULT_UX_DEVICE_MIX, "text", required_when="Percentuais Mobile/Desktop/Tablet devem totalizar 100%."),
         AuditJobOption("apdex_experience_session_mode", DEFAULT_UX_SESSION_MODE, "enum", ("cold", "warm")),
         AuditJobOption("apdex_experience_kpm", DEFAULT_UX_KPM, "enum", tuple(sorted(SUPPORTED_TIME_KPMS))),
-        AuditJobOption("apdex_experience_satisfied_seconds", None, "number", required_when="Obrigatório no modo manual de Experience Apdex."),
-        AuditJobOption("apdex_experience_frustrated_seconds", None, "number", required_when="Obrigatório no modo manual de Experience Apdex e deve ser maior que Satisfied."),
+        AuditJobOption(
+            "apdex_experience_satisfied_seconds",
+            DEFAULT_UX_SATISFIED_SECONDS,
+            "number",
+            description="Threshold Satisfied padrão compatível com a referência Dynatrace; pode ser customizado.",
+        ),
+        AuditJobOption(
+            "apdex_experience_frustrated_seconds",
+            DEFAULT_UX_FRUSTRATED_SECONDS,
+            "number",
+            description="Threshold Frustrated padrão compatível com a referência Dynatrace; pode ser customizado e deve ser maior que Satisfied.",
+        ),
         AuditJobOption("apdex_experience_errors", True, "boolean"),
         AuditJobOption("apdex_experience_error_scope", DEFAULT_UX_ERROR_SCOPE, "enum", ("navigation", "first-party", "all")),
         AuditJobOption("apdex_experience_settle_seconds", DEFAULT_UX_SETTLE_SECONDS, "number"),
@@ -263,8 +275,18 @@ def normalize_audit_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     normalized["apdex_experience_kpm"] = _text(payload, "apdex_experience_kpm", DEFAULT_UX_KPM).upper()
     if normalized["apdex_experience_kpm"] not in SUPPORTED_TIME_KPMS:
         raise ValueError("AUDIT payload apdex_experience_kpm is not supported")
-    normalized["apdex_experience_satisfied_seconds"] = _optional_positive_number(payload, "apdex_experience_satisfied_seconds")
-    normalized["apdex_experience_frustrated_seconds"] = _optional_positive_number(payload, "apdex_experience_frustrated_seconds")
+    normalized["apdex_experience_satisfied_seconds"] = _number(
+        payload,
+        "apdex_experience_satisfied_seconds",
+        DEFAULT_UX_SATISFIED_SECONDS,
+        minimum=0.000001,
+    )
+    normalized["apdex_experience_frustrated_seconds"] = _number(
+        payload,
+        "apdex_experience_frustrated_seconds",
+        DEFAULT_UX_FRUSTRATED_SECONDS,
+        minimum=0.000001,
+    )
     normalized["apdex_experience_errors"] = _bool(payload, "apdex_experience_errors", True)
     normalized["apdex_experience_error_scope"] = _text(payload, "apdex_experience_error_scope", DEFAULT_UX_ERROR_SCOPE, choices=("navigation", "first-party", "all"))
     normalized["apdex_experience_settle_seconds"] = _number(payload, "apdex_experience_settle_seconds", DEFAULT_UX_SETTLE_SECONDS, minimum=0.000001)
@@ -275,8 +297,6 @@ def normalize_audit_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     if normalized["apdex_experience"]:
         satisfied = normalized["apdex_experience_satisfied_seconds"]
         frustrated = normalized["apdex_experience_frustrated_seconds"]
-        if satisfied is None or frustrated is None:
-            raise ValueError("AUDIT payload manual Experience Apdex requires satisfied and frustrated thresholds")
         if frustrated <= satisfied:
             raise ValueError("AUDIT payload apdex_experience_frustrated_seconds must be greater than satisfied")
 
