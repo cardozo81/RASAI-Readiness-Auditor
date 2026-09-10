@@ -9,6 +9,7 @@ from rasai.console_m23 import State, apply_m23_environment_defaults
 from rasai.console_settings import (
     _known_nonsecret_environment_names,
     _persisted_environment_values,
+    _runtime_environment_projection,
 )
 from rasai.m25_cli import DEFAULT_UX_DEVICE_MIX, configured_experience, parse_device_mix
 
@@ -60,9 +61,14 @@ def test_all_safe_console_environment_variables_are_ini_persistable() -> None:
 
 
 def test_saved_configuration_contains_runtime_and_experience_defaults(monkeypatch) -> None:
-    monkeypatch.setenv("RASAI_REMOTE_TIMEOUT_SECONDS", "45")
     state = State()
     state.apdex_experience_device_mix = DEFAULT_UX_DEVICE_MIX
+    # The helper also preserves advanced environment-only overrides. Isolate all
+    # state-owned projections so this test cannot inherit mutable process state from
+    # another test or from a developer shell.
+    for name in _runtime_environment_projection(state):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("RASAI_REMOTE_TIMEOUT_SECONDS", "45")
     values = _persisted_environment_values(state)
     assert values["RASAI_DEVICE_CONTEXT"] == "mobile"
     assert values["RASAI_SYNTHETIC_APDEX"] == "false"
