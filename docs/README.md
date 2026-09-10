@@ -19,9 +19,9 @@ A evolução de produto já possui Product Platform, backend PostgreSQL opt-in, 
 1. [`REPORT_GUIDE.md`](REPORT_GUIDE.md) - contrato dos relatórios e como interpretar os indicadores.
 2. [`SARI_READINESS_INDEX.md`](SARI_READINESS_INDEX.md) - identidade pública e limites do SARI.
 3. [`SCORING_GUIDE.md`](SCORING_GUIDE.md) e [`SCORE_GEO_004.md`](SCORE_GEO_004.md) - fórmula, Coverage/Cobertura, Confidence/Confiança e gates.
-4. [`RULES_GUIDE.md`](RULES_GUIDE.md) - regras BR-GEO, evidências e aplicabilidade.
+4. [`RULES_GUIDE.md`](RULES_GUIDE.md) e [`DISCOVERY_RESOURCES.md`](DISCOVERY_RESOURCES.md) - regras BR-GEO, evidências, aplicabilidade e topologia de `robots.txt`, múltiplos sitemaps e `llms.txt` raiz/scoped.
 5. [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md) e [`SYNTHETIC_USER_EXPERIENCE_APDEX.md`](SYNTHETIC_USER_EXPERIENCE_APDEX.md) - experiência sintética independente do SARI.
-6. [`ACCESSIBILITY_PERFORMANCE_DOMAINS.md`](ACCESSIBILITY_PERFORMANCE_DOMAINS.md) e [`LIGHTHOUSE_WEB_QUALITY.md`](LIGHTHOUSE_WEB_QUALITY.md) - fronteiras entre Performance, Accessibility, Best Practices, SEO técnico, Core Web Vitals e readiness.
+6. [`ACCESSIBILITY_PERFORMANCE_DOMAINS.md`](ACCESSIBILITY_PERFORMANCE_DOMAINS.md), [`LIGHTHOUSE_WEB_QUALITY.md`](LIGHTHOUSE_WEB_QUALITY.md) e [`LIGHTHOUSE_CATEGORIES.md`](LIGHTHOUSE_CATEGORIES.md) - fronteiras entre Performance, Accessibility, Best Practices, SEO técnico, Agentic Browsing experimental, Core Web Vitals e readiness.
 7. [`SERP_OBSERVATION.md`](SERP_OBSERVATION.md), [`COMPETITIVE_SEARCH_INTELLIGENCE.md`](COMPETITIVE_SEARCH_INTELLIGENCE.md), [`COMPETITIVE_AI_INTELLIGENCE.md`](COMPETITIVE_AI_INTELLIGENCE.md), [`SEARCH_INTELLIGENCE_REPORT.md`](SEARCH_INTELLIGENCE_REPORT.md), [`SEARCH_INTELLIGENCE_HISTORY.md`](SEARCH_INTELLIGENCE_HISTORY.md) e [`SEARCH_INTELLIGENCE_MONITORING.md`](SEARCH_INTELLIGENCE_MONITORING.md) - observação SERP, comparação determinística, recomendações semânticas evidence-bound, superfície HTML, comparação temporal before/after e monitoramento recorrente por query registrada.
 8. [`CONSOLIDATED_REPORTING.md`](CONSOLIDATED_REPORTING.md) e [`CONSOLIDATED_REPORTING_VALIDATION.md`](CONSOLIDATED_REPORTING_VALIDATION.md) - séries, comparabilidade e relatório histórico.
 9. [`AI_GUIDE.md`](AI_GUIDE.md), [`AI_PROVIDER_EXTENSIONS.md`](AI_PROVIDER_EXTENSIONS.md) e [`CONTENT_ANALYSIS_CONTEXT.md`](CONTENT_ANALYSIS_CONTEXT.md) - uso de IA, contexto e limites.
@@ -68,8 +68,10 @@ As referências abaixo sustentam domínios específicos; nenhuma delas homologa 
 - Lighthouse Accessibility: https://developer.chrome.com/docs/lighthouse/accessibility/scoring
 - Lighthouse Best Practices: https://developer.chrome.com/docs/lighthouse/best-practices/
 - Lighthouse SEO: https://developer.chrome.com/docs/lighthouse/seo/
+- Lighthouse Agentic Browsing (experimental source/config): https://github.com/GoogleChrome/lighthouse/blob/main/core/config/agentic-browsing-config.js
 - Web Vitals: https://web.dev/vitals/
 - W3C WCAG 2.2: https://www.w3.org/TR/WCAG22/
 - Apdex: https://www.apdex.org/
+- llms.txt community proposal: https://llmstxt.org/
 
 Consulte também `report/references.html` de cada auditoria: ele deve materializar a proveniência aplicável à execução, enquanto estes documentos descrevem o contrato do produto.
