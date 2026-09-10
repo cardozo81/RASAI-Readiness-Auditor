@@ -134,7 +134,11 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
             self.assertEqual(state.search_last_status, "COMPLETE")
             self.assertTrue(Path(state.search_last_report).is_file())
             self.assertEqual(captured[captured.index("--domain") + 1], "loja.example.com.br")
-            self.assertEqual(captured[captured.index("--audit-workspace") + 1], str(workspace))
+            captured_workspace = captured[captured.index("--audit-workspace") + 1]
+            self.assertEqual(
+                os.path.normcase(os.path.realpath(captured_workspace)),
+                os.path.normcase(os.path.realpath(workspace)),
+            )
 
     def test_search_failure_is_recorded_as_optional_limitation(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
