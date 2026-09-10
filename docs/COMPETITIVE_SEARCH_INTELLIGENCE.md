@@ -1,66 +1,66 @@
 # Competitive Search & Content Intelligence
 
-Status: **implemented deterministic layer with optional evidence-bound AI extension**.
+**Estado:** camada determinística implementada, com extensão opcional de IA vinculada a evidências.
 
-## 1. Purpose
+## 1. Objetivo
 
-Competitive Search Intelligence answers:
+Competitive Search Intelligence responde à seguinte pergunta:
 
-> For an observed query, which result types appear ahead of the customer, which are reasonable Search competitor candidates, what deterministic content differences are observable, and - when explicitly requested - what evidence-bound improvement opportunities can an AI provider propose?
+> Para uma query observada, quais tipos de resultado aparecem à frente do cliente, quais são candidatos razoáveis a concorrentes em Search, quais diferenças determinísticas de conteúdo são observáveis e — quando solicitado explicitamente — quais oportunidades de melhoria vinculadas a evidências um provider de IA pode propor?
 
-The deterministic layer remains authoritative for observations. AI is downstream and optional.
+A camada determinística permanece autoritativa para as observações. IA é downstream e opcional.
 
-RASAI does not infer ranking causality from content differences or AI recommendations.
+O RASAi não infere causalidade de ranking a partir de diferenças de conteúdo nem de recomendações de IA.
 
-## 2. Flow
+## 2. Fluxo
 
 ```text
 query
--> provider-neutral SERP observation
--> customer position / NOT_FOUND_WITHIN_DEPTH
--> deterministic result classification
--> bounded candidate selection
--> optional public-web content acquisition
--> deterministic HTML/content feature extraction
--> customer vs observed-leaders comparison
--> evidence-backed correlational differences
--> optional Competitive AI using closed evidence_ids
--> point-in-time Search Intelligence HTML
--> optional deterministic historical comparison
+-> observação SERP independente de provider
+-> posição do cliente / NOT_FOUND_WITHIN_DEPTH
+-> classificação determinística dos resultados
+-> seleção limitada de candidatos
+-> aquisição opcional de conteúdo da web pública
+-> extração determinística de features HTML/conteúdo
+-> comparação cliente × líderes observados
+-> diferenças correlacionais sustentadas por evidências
+-> Competitive AI opcional usando evidence_ids fechados
+-> HTML pontual de Search Intelligence
+-> comparação histórica determinística opcional
 ```
 
-The optional semantic layer is documented in `COMPETITIVE_AI_INTELLIGENCE.md`.
-The point-in-time HTML contract is documented in `SEARCH_INTELLIGENCE_REPORT.md`.
-The temporal comparison contract is documented in `SEARCH_INTELLIGENCE_HISTORY.md`.
+A camada semântica opcional está documentada em `COMPETITIVE_AI_INTELLIGENCE.md`.
+O contrato HTML pontual está documentado em `SEARCH_INTELLIGENCE_REPORT.md`.
+O contrato de comparação temporal está documentado em `SEARCH_INTELLIGENCE_HISTORY.md`.
 
-## 3. Result classification
+## 3. Classificação de resultados
 
-Classification is local and consumes no additional network or provider quota.
+A classificação é local e não consome rede adicional nem quota de provider.
 
-Current classes:
+Classes atuais:
 
-- `CUSTOMER`
-- `ORGANIC_CANDIDATE`
-- `PUBLIC_AUTHORITY`
-- `KNOWLEDGE_REFERENCE`
-- `SOCIAL_PLATFORM`
-- `VIDEO_PLATFORM`
-- `MARKETPLACE`
-- `NON_ORGANIC`
+- `CUSTOMER`;
+- `ORGANIC_CANDIDATE`;
+- `PUBLIC_AUTHORITY`;
+- `KNOWLEDGE_REFERENCE`;
+- `SOCIAL_PLATFORM`;
+- `VIDEO_PLATFORM`;
+- `MARKETPLACE`;
+- `NON_ORGANIC`.
 
-Classification is heuristic. It selects candidates for bounded inspection; it is not a declaration that two organizations are commercial competitors.
+A classificação é heurística. Ela seleciona candidatos para inspeção limitada; não declara que duas organizações sejam concorrentes comerciais.
 
-When the customer is `FOUND`, only results ahead of the first matching customer result are considered. When the customer is `NOT_FOUND_WITHIN_DEPTH`, the observed result set may still be classified, but content comparison requires an explicit `--customer-url`.
+Quando o cliente está `FOUND`, somente resultados à frente da primeira correspondência do cliente são considerados. Quando está `NOT_FOUND_WITHIN_DEPTH`, o conjunto observado de resultados ainda pode ser classificado, mas a comparação de conteúdo exige `--customer-url` explícita.
 
-Candidate selection is de-duplicated by normalized domain and bounded by `--max-content-pages` plus `RASAI_SERP_MAX_COMPETITORS`.
+A seleção de candidatos remove duplicatas por domínio normalizado e é limitada por `--max-content-pages` e `RASAI_SERP_MAX_COMPETITORS`.
 
-## 4. Explicit acquisition modes
+## 4. Modos explícitos de aquisição
 
-`--competitive` performs classification only and adds no content request.
+`--competitive` executa apenas a classificação e não adiciona request de conteúdo.
 
-`--compare-content` explicitly enables public-page acquisition for the customer page plus the bounded candidate set.
+`--compare-content` habilita explicitamente a aquisição de páginas públicas para a página do cliente e para o conjunto limitado de candidatos.
 
-Example:
+Exemplo:
 
 ```powershell
 rasai search "seguro auto online" `
@@ -71,7 +71,7 @@ rasai search "seguro auto online" `
   --max-content-pages 3
 ```
 
-If the customer is not found:
+Se o cliente não for encontrado:
 
 ```powershell
 rasai search "seguro auto online" `
@@ -82,98 +82,102 @@ rasai search "seguro auto online" `
   --customer-url https://cliente.example/seguro-auto
 ```
 
-An explicit `--customer-url` is supported for one query per command.
+Uma `--customer-url` explícita é suportada para uma query por comando.
 
-## 5. Bounded public-web acquisition
+## 5. Aquisição limitada da web pública
 
-Default bounds:
+Defaults operacionais:
 
-- competitor pages per query: `3`, plus one customer page;
-- timeout per attempt: `10` seconds;
-- maximum response body: `2,000,000` bytes;
-- maximum redirects: `5`;
-- method: GET;
-- accepted ports: 80/443;
-- TLS verification enabled.
+| Parâmetro | Default | Valores permitidos/limite | Recomendado |
+|---|---:|---|---|
+| páginas concorrentes por query | `3`, além de uma página do cliente | limitado pelos controles da CLI/runtime | manter `3` no uso normal; ampliar somente com justificativa de cobertura/carga |
+| timeout por tentativa | `10` s | valor positivo aceito pelo parâmetro correspondente | `10` s |
+| corpo máximo da resposta | `2.000.000` bytes | limite positivo configurável | manter o default salvo necessidade comprovada |
+| redirects máximos | `5` | limite não negativo configurável | `5` |
+| método | `GET` | `GET` nesta capacidade | default |
+| portas públicas aceitas | `80`, `443` | `80`, `443` | `443` quando o destino oferecer HTTPS |
+| verificação TLS | habilitada | não deve ser desabilitada no fluxo normal | habilitada |
 
-CLI controls:
+Controles de CLI:
 
-- `--max-content-pages`
-- `--content-timeout`
-- `--content-max-bytes`
-- `--content-max-redirects`
+- `--max-content-pages`;
+- `--content-timeout`;
+- `--content-max-bytes`;
+- `--content-max-redirects`.
 
-`--dry-run --compare-content` shows the worst-case direct HTTP-attempt ceiling separately from SERP quota.
+`--dry-run --compare-content` mostra o teto de tentativas HTTP diretas no pior caso, separado da quota SERP.
 
-## 6. SSRF / network boundary
+## 6. Limite SSRF / rede
 
-SERP URLs are untrusted external input. Before every request and redirect, the fetcher:
+URLs da SERP são entrada externa não confiável. Antes de cada request e redirect, o fetcher:
 
-- requires HTTP/HTTPS;
-- rejects credentials in URLs;
-- rejects localhost and local/internal suffixes;
-- rejects non-standard public-web ports;
-- rejects non-global IP literals;
-- resolves hostnames and rejects non-global destinations;
-- validates redirect targets before following them.
+- exige HTTP/HTTPS;
+- rejeita credenciais em URLs;
+- rejeita localhost e sufixos locais/internos;
+- rejeita portas fora do padrão da web pública;
+- rejeita literais IP não globais;
+- resolve hostnames e rejeita destinos não globais;
+- valida destinos de redirect antes de segui-los.
 
-Application validation does not eliminate DNS-rebinding/TOCTOU risk. A multi-tenant SaaS deployment must additionally use network egress controls or a hardened outbound proxy.
+A validação na aplicação não elimina risco de DNS rebinding/TOCTOU. Um deployment SaaS multi-tenant deve adicionar controles de egress de rede ou proxy de saída endurecido.
 
-## 7. Deterministic features
+## 7. Features determinísticas
 
-RASAI extracts bounded features:
+O RASAi extrai features limitadas:
 
-- final URL and HTTP status;
-- content type;
-- response size;
-- content SHA-256;
-- title;
+- URL final e status HTTP;
+- tipo de conteúdo;
+- tamanho da resposta;
+- SHA-256 do conteúdo;
+- título;
 - meta description;
-- H1-H3;
-- approximate visible-text word count;
-- meaningful query terms;
-- query-term presence in title, description, headings and body;
-- JSON-LD `@type` values.
+- H1–H3;
+- contagem aproximada de palavras do texto visível;
+- termos significativos da query;
+- presença dos termos da query em título, descrição, headings e corpo;
+- valores `@type` de JSON-LD.
 
-Raw HTML is not persisted by this feature.
+HTML bruto não é persistido por esta capacidade.
 
-The lexical comparison is accent-insensitive and deterministic. It is not semantic understanding.
+A comparação lexical ignora acentos e é determinística. Ela não representa compreensão semântica.
 
-## 8. Deterministic comparison
+## 8. Comparação determinística
 
-Methodology:
+Metodologia:
 
-`DETERMINISTIC-CORRELATIONAL-001`
+```text
+DETERMINISTIC-CORRELATIONAL-001
+```
 
-Current informational gaps include:
+Gaps informativos atuais incluem:
 
-- `QUERY_BODY_COVERAGE_LOWER_THAN_OBSERVED_LEADERS`
-- `TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS`
-- `HEADING_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS`
-- `CONTENT_WORD_COUNT_LOWER_THAN_OBSERVED_LEADERS`
-- `STRUCTURED_DATA_TYPES_DIFFER_FROM_OBSERVED_LEADERS`
+- `QUERY_BODY_COVERAGE_LOWER_THAN_OBSERVED_LEADERS`;
+- `TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS`;
+- `HEADING_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS`;
+- `CONTENT_WORD_COUNT_LOWER_THAN_OBSERVED_LEADERS`;
+- `STRUCTURED_DATA_TYPES_DIFFER_FROM_OBSERVED_LEADERS`.
 
-References use the median of successfully observed selected pages. Failed or blocked acquisitions are excluded instead of becoming zero.
+As referências usam a mediana das páginas selecionadas observadas com sucesso. Aquisições que falharam ou foram bloqueadas são excluídas, em vez de serem convertidas em zero.
 
-Word count is content volume, not content quality. Structured-data differences are not automatic markup recommendations. Signals are informational and non-scoring.
+Contagem de palavras mede volume de conteúdo, não qualidade. Diferenças de dados estruturados não são recomendações automáticas de markup. Os sinais são informativos e não participam do scoring.
 
-## 9. Comparison statuses
+## 9. Status da comparação
 
-- `CONTENT_COMPARISON_DISABLED`
-- `SERP_OBSERVATION_UNAVAILABLE`
-- `CUSTOMER_URL_REQUIRED`
-- `CUSTOMER_CONTENT_UNAVAILABLE`
-- `NO_ELIGIBLE_COMPETITOR_CANDIDATES`
-- `COMPETITOR_CONTENT_UNAVAILABLE`
-- `CONSOLIDATED`
+- `CONTENT_COMPARISON_DISABLED`;
+- `SERP_OBSERVATION_UNAVAILABLE`;
+- `CUSTOMER_URL_REQUIRED`;
+- `CUSTOMER_CONTENT_UNAVAILABLE`;
+- `NO_ELIGIBLE_COMPETITOR_CANDIDATES`;
+- `COMPETITOR_CONTENT_UNAVAILABLE`;
+- `CONSOLIDATED`.
 
-Only `CONSOLIDATED` is eligible for Competitive AI.
+Somente `CONSOLIDATED` é elegível para Competitive AI.
 
-## 10. Optional Competitive AI
+## 10. Competitive AI opcional
 
-`--ai-competitive` is a separate explicit opt-in and requires `--compare-content`.
+`--ai-competitive` é um opt-in explícito separado e exige `--compare-content`.
 
-Example:
+Exemplo:
 
 ```powershell
 rasai search "seguro auto online" `
@@ -185,116 +189,115 @@ rasai search "seguro auto online" `
   --ymyl-mode AUTO
 ```
 
-Competitive AI receives only structured deterministic evidence with closed IDs:
+Competitive AI recebe apenas evidência determinística estruturada com IDs fechados:
 
-- `CE-QUERY`
-- `CE-CUSTOMER`
-- `CE-COMP-###`
-- `CE-GAP-###`
+- `CE-QUERY`;
+- `CE-CUSTOMER`;
+- `CE-COMP-###`;
+- `CE-GAP-###`.
 
-Unknown evidence IDs invalidate the provider response. AI cannot repair missing deterministic evidence.
+IDs de evidência desconhecidos invalidam a resposta do provider. IA não pode reparar evidência determinística ausente.
 
-Current live adapter: `openai`. `fixture` validates the contract without network. Default: `none`.
+Adapter live atual: `openai`. `fixture` valida o contrato sem rede. Default: `none`.
 
-See `COMPETITIVE_AI_INTELLIGENCE.md`.
+Consulte `COMPETITIVE_AI_INTELLIGENCE.md`.
 
-## 11. Evidence and persistence
+## 11. Evidência e persistência
 
-When `--audit-workspace` is supplied, all layers remain inside the existing audit workspace and `audit.db`.
+Quando `--audit-workspace` é fornecido, todas as camadas permanecem dentro do workspace de auditoria existente e de `audit.db`.
 
-Deterministic additive tables:
+Tabelas determinísticas aditivas:
 
-- `serp_competitive_analyses`
-- `serp_competitive_results`
-- `serp_competitive_pages`
+- `serp_competitive_analyses`;
+- `serp_competitive_results`;
+- `serp_competitive_pages`.
 
-Competitive AI additive table:
+Tabela aditiva de Competitive AI:
 
-- `serp_competitive_ai_analyses`
+- `serp_competitive_ai_analyses`.
 
-Deterministic artifacts:
+Artefatos determinísticos:
 
 ```text
 artifacts/search-intelligence/competitive/<observation_id>.json
 ```
 
-Competitive AI artifacts:
+Artefatos de Competitive AI:
 
 ```text
 artifacts/search-intelligence/competitive-ai/<observation_id>.json
 ```
 
-No parallel database is introduced. No scoring table is modified.
+Nenhum banco paralelo é introduzido. Nenhuma tabela de scoring é modificada.
 
-## 12. Cost and performance
+## 12. Custo e desempenho
 
-- classification: no additional network;
-- content comparison: direct public HTTP, no SERP-provider quota;
-- Competitive AI: provider call only when explicitly enabled and deterministic context is `CONSOLIDATED`;
-- point-in-time HTML rendering: persisted-data projection only;
-- historical comparison: persisted-data read only, with no Search, content or AI provider call;
-- `--dry-run` shows separate ceilings for SERP, content acquisition and AI.
+- classificação: nenhuma rede adicional;
+- comparação de conteúdo: HTTP direto para web pública, sem quota do provider SERP;
+- Competitive AI: chamada ao provider apenas quando explicitamente habilitada e o contexto determinístico está `CONSOLIDATED`;
+- renderização do HTML pontual: somente projeção de dados persistidos;
+- comparação histórica: somente leitura de dados persistidos, sem chamada a Search, conteúdo ou provider de IA;
+- `--dry-run`: mostra tetos separados para SERP, aquisição de conteúdo e IA.
 
-Provider credentials are not persisted in these artifacts.
+Credenciais dos providers não são persistidas nesses artefatos.
 
-## 13. Compatibility
+## 13. Comportamento aditivo
 
-Without `--competitive`, `--compare-content` or `--ai-competitive`, ordinary SERP behavior is unchanged.
+Sem `--competitive`, `--compare-content` ou `--ai-competitive`, o comportamento SERP comum permanece inalterado.
 
-Without `--ai-competitive`:
+Sem `--ai-competitive`:
 
-- no AI provider is instantiated;
-- no Competitive AI call is made;
-- deterministic Search Intelligence remains fully usable.
+- nenhum provider de IA é instanciado;
+- nenhuma chamada de Competitive AI é feita;
+- Search Intelligence determinística permanece totalmente utilizável.
 
-Competitive AI failure does not rewrite SERP or deterministic comparison evidence.
+Falha de Competitive AI não reescreve evidência SERP nem evidência da comparação determinística.
 
-`SARI-001` and `SCORE-GEO-004` are independent.
+`SARI-001` e `SCORE-GEO-004` são independentes.
 
-## 14. Test policy
+## 14. Política de testes
 
-CI uses fixtures, fake HTML and injected transports/resolvers.
+CI usa fixtures, HTML falso e transports/resolvers injetados.
 
-CI must not:
+CI não deve:
 
-- call SerpApi live;
-- consume customer keys;
-- crawl public competitor sites;
-- call an AI provider live;
-- depend on public DNS/internet.
+- chamar SerpApi live;
+- consumir chaves de clientes;
+- fazer crawl de sites públicos de concorrentes;
+- chamar provider de IA live;
+- depender de DNS/internet públicos.
 
-Tests cover classification, bounds, extraction, public-address blocking, comparison gaps, evidence-ID closure, AI contract validation, additive persistence, HTML projection and deterministic history comparison.
+Os testes cobrem classificação, limites, extração, bloqueio de endereços não públicos, gaps de comparação, fechamento de evidence IDs, validação do contrato de IA, persistência aditiva, projeção HTML e comparação histórica determinística.
 
-## 15. Current reporting and history
+## 15. Relatório e histórico atuais
 
-The canonical point-in-time report is:
+O relatório pontual canônico é:
 
 ```text
 report/search-intelligence.html
 ```
 
-It renders persisted evidence and does not call Search or AI providers.
+Ele renderiza evidência persistida e não chama providers de Search ou IA.
 
-Deterministic temporal comparison is available under:
+A comparação temporal determinística está disponível em:
 
 ```text
 SEARCH-HISTORY-001
 ```
 
-The history layer compares only exact Search contexts with compatible provider/data-mode provenance. It can describe observed position changes, entry/exit from the requested result depth, deterministic customer-content changes and added/resolved competitive gap codes.
+A camada histórica compara apenas contextos Search exatos com proveniência compatível de provider/modo de dados. Pode descrever mudanças de posição observada, entrada/saída da profundidade solicitada de resultados, mudanças determinísticas de conteúdo do cliente e códigos de gaps competitivos adicionados/resolvidos.
 
-Neither the point-in-time report nor the history layer establishes ranking causality.
+Nem o relatório pontual nem a camada histórica estabelecem causalidade de ranking.
 
-## 16. Current limitations
+## 16. Limitações atuais
 
-- result classification remains a small heuristic taxonomy;
-- no entity/business-equivalence graph yet;
-- content extraction uses static HTTP HTML, not rendered browser DOM;
-- no canonical/hreflang/link-graph comparison yet;
-- Competitive AI live support starts with OpenAI; other adapters can be added behind the same contract;
-- AI sees extracted features rather than full raw HTML;
-- historical comparison and its standalone HTML/manifest are deterministic; semantic before/after comparison of Competitive AI output is not yet a stable contract;
-- public-IP validation still requires network-layer reinforcement before multi-tenant SaaS.
+- a classificação de resultados permanece uma taxonomia heurística pequena;
+- ainda não existe grafo de equivalência de entidades/empresas;
+- extração de conteúdo usa HTML estático por HTTP, não DOM renderizado em browser;
+- ainda não existe comparação de canonical/`hreflang`/link graph;
+- suporte live de Competitive AI começa por OpenAI; outros adapters podem ser adicionados por trás do mesmo contrato;
+- a IA recebe features extraídas, não HTML bruto completo;
+- comparação histórica e seu HTML/manifest independente são determinísticos; comparação semântica before/after da saída de Competitive AI ainda não é contrato estável;
+- validação de IP público ainda exige reforço na camada de rede antes de SaaS multi-tenant.
 
-The product platform milestone and before/after audit model is reused by Search Intelligence History. No parallel deployment-marker model is introduced.
-
+O modelo de milestone e auditoria before/after da Product Platform é reutilizado por Search Intelligence History. Nenhum modelo paralelo de marcador de deployment é introduzido.
