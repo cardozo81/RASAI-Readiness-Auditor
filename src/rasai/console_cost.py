@@ -176,7 +176,7 @@ def estimate_exposure(state: State) -> ExposureEstimate:
         min_ai = min_pages * devices
         per_context_max = (
             max_attempts_for_auto(provider_count)
-            if state.ai_provider == 'auto'
+            if state.ai_provider == "auto"
             else MAX_PROVIDER_ATTEMPTS_PER_CONTEXT
         )
         max_ai = max_pages * devices * per_context_max
@@ -215,16 +215,26 @@ def estimate_exposure(state: State) -> ExposureEstimate:
     if devices == 2:
         reasons.append("BOTH duplica os contextos potenciais mobile/desktop.")
     if provider_count:
-        reasons.append(
-            f"IA ativa: até {max_ai} chamada(s) potenciais considerando M18, retry transitório limitado, "
-            "fallback AUTO e M20 quando habilitado. Cada provider/contexto tem no máximo 2 chamadas "
-            "(1 inicial + 1 retry); AUTO possui teto global de 4 chamadas por contexto."
-        )
-    if state.ai_provider == "auto":
-        reasons.append(
-            "AUTO considera somente a cadeia homologada OpenAI -> DeepSeek -> MiMo; "
-            "providers PROVISIONAL explicit-only não entram na projeção AUTO."
-        )
+        if state.ai_provider == "auto":
+            reasons.append(
+                f"IA AUTO ativa: {provider_count} provider(s) configurado(s) e elegível(is); "
+                f"até {max_ai} chamada(s) potenciais considerando as finalidades habilitadas. "
+                f"Cada necessidade percorre no máximo {max_attempts_for_auto(provider_count)} provider(s), "
+                "com uma tentativa por provider nessa necessidade; o cursor round-robin e o circuit breaker "
+                "são compartilhados durante a execução."
+            )
+            pool = ", ".join(provider for provider, _ in provider_models)
+            reasons.append(
+                f"Pool AUTO projetado nesta configuração: {pool}. Providers sem credencial, modelo/configuração "
+                "válida ou elegibilidade de contexto ficam fora da projeção; falhas durante a execução podem "
+                "reduzir o pool pelo circuit breaker."
+            )
+        else:
+            reasons.append(
+                f"IA ativa: até {max_ai} chamada(s) potenciais considerando as finalidades habilitadas. "
+                f"Provider explícito mantém no máximo {MAX_PROVIDER_ATTEMPTS_PER_CONTEXT} tentativa(s) por contexto "
+                "quando a política de retry permitir."
+            )
     if state.content_remediation:
         reasons.append(
             "A remediação de conteúdo por IA pode acrescentar tentativas apenas quando houver findings elegíveis."

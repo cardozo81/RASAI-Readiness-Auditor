@@ -4,6 +4,10 @@ import os
 
 import pytest
 
+from rasai.runtime_completion_extensions import install_runtime_completion_extensions
+
+install_runtime_completion_extensions()
+
 from rasai.console_environment import CATEGORIES, ENV_NAMES, SPEC_BY_NAME, SPECS, _validate
 from rasai.m25_cli import DEFAULT_UX_DEVICE_MIX
 
@@ -37,6 +41,10 @@ def test_known_domains_and_effective_defaults_are_exposed() -> None:
     field = SPEC_BY_NAME["RASAI_WEB_PERFORMANCE_FIELD_SOURCE"]
     assert field.accepted == ("auto", "pagespeed", "crux", "none")
     assert field.default == "auto"
+
+    lighthouse = SPEC_BY_NAME["RASAI_LIGHTHOUSE_CATEGORIES"]
+    assert lighthouse.accepted == ("performance", "accessibility", "best-practices", "seo")
+    assert lighthouse.default == "performance,accessibility,best-practices,seo"
 
     concurrency = SPEC_BY_NAME["RASAI_APDEX_CONCURRENCY"]
     assert concurrency.accepted == ("1", "2")
@@ -75,6 +83,7 @@ def test_known_domains_and_effective_defaults_are_exposed() -> None:
     assert SPEC_BY_NAME["RASAI_OPENAI_MODEL"].default == "gpt-5.6-luna"
     assert SPEC_BY_NAME["RASAI_OPENAI_REASONING_EFFORT"].default == "NONE"
     assert "RASAI_QWEN_REASONING_EFFORT" not in SPEC_BY_NAME
+    assert "RASAI_AI_EXCHANGE_LOG_MAX_BYTES" in SPEC_BY_NAME
 
 
 def test_additional_console_validation_rejects_invalid_values(tmp_path) -> None:
@@ -86,7 +95,13 @@ def test_additional_console_validation_rejects_invalid_values(tmp_path) -> None:
         _validate("RASAI_LIGHTHOUSE_CATEGORIES", "performance,unknown")
     with pytest.raises(ValueError):
         _validate("RASAI_LIGHTHOUSE_CATEGORIES", "seo,seo")
+    with pytest.raises(ValueError):
+        _validate("RASAI_LIGHTHOUSE_CATEGORIES", "agentic-browsing")
     assert _validate("RASAI_LIGHTHOUSE_CATEGORIES", "performance, seo") == "performance,seo"
+
+    with pytest.raises(ValueError):
+        _validate("RASAI_AI_EXCHANGE_LOG_MAX_BYTES", "4095")
+    assert _validate("RASAI_AI_EXCHANGE_LOG_MAX_BYTES", "524288") == "524288"
 
     with pytest.raises(ValueError):
         _validate("RASAI_XAI_ENDPOINT", "not-a-url")

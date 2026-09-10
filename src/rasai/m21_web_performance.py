@@ -25,7 +25,7 @@ from rasai.persistence import AuditWorkspace
 
 PAGESPEED_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
 CRUX_ENDPOINT = "https://chromeuxreport.googleapis.com/v1/records:queryRecord"
-DEFAULT_CATEGORIES = ("performance", "accessibility", "best-practices", "seo", "agentic-browsing")
+DEFAULT_CATEGORIES = ("performance", "accessibility", "best-practices", "seo")
 ALLOWED_CATEGORIES = frozenset(DEFAULT_CATEGORIES)
 FIELD_SOURCES = frozenset({"auto", "pagespeed", "crux", "none"})
 _CRUX_METRICS = (

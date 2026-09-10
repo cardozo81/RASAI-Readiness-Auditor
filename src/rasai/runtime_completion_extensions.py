@@ -1,8 +1,7 @@
 """Small runtime extensions that close additive reporting/provider gaps.
 
-The project already uses installation-time report/provider shims to preserve the
-stable core. These patches remain presentation/telemetry-only: they do not change
-SARI arithmetic, scoring weights or evaluated website facts.
+These patches keep public console/help and report surfaces aligned with the canonical
+runtime contracts without changing SARI arithmetic or evaluated website facts.
 """
 from __future__ import annotations
 
@@ -11,34 +10,46 @@ from dataclasses import replace
 from typing import Any
 
 
-_LIGHTHOUSE_CATEGORIES = (
+# Current RASAi PageSpeed transport can request only the categories accepted by
+# PageSpeed Insights v5. Agentic Browsing remains a separate/future Lighthouse source.
+_PAGESPEED_LIGHTHOUSE_CATEGORIES = (
     "performance",
     "accessibility",
     "best-practices",
     "seo",
-    "agentic-browsing",
 )
-_LIGHTHOUSE_CATEGORIES_CSV = ",".join(_LIGHTHOUSE_CATEGORIES)
+_PAGESPEED_LIGHTHOUSE_CATEGORIES_CSV = ",".join(_PAGESPEED_LIGHTHOUSE_CATEGORIES)
+_AI_EXCHANGE_LOG_MAX_BYTES_ENV = "RASAI_AI_EXCHANGE_LOG_MAX_BYTES"
 
 
 def install_runtime_completion_extensions() -> None:
     """Install all additive completion patches idempotently."""
+    _install_m21_runtime_contract()
     _install_cli_help()
     _install_console_environment()
+    _install_console_cost()
     _install_dashboard_metrics()
     _install_monitoring_metrics()
     _install_agentic_provenance()
     _install_gemini_diagnostics()
 
 
+def _install_m21_runtime_contract() -> None:
+    """Prevent stale imports/config surfaces from sending Agentic to PSI."""
+    from rasai import m21_web_performance as m21
+
+    m21.DEFAULT_CATEGORIES = _PAGESPEED_LIGHTHOUSE_CATEGORIES
+    m21.ALLOWED_CATEGORIES = frozenset(_PAGESPEED_LIGHTHOUSE_CATEGORIES)
+
+
 def _install_cli_help() -> None:
     from rasai import cli_extensions
 
-    if getattr(cli_extensions, "_rasai_extended_lighthouse_help", False):
+    if getattr(cli_extensions, "_rasai_runtime_help_current", False):
         return
     original = cli_extensions.build_parser
 
-    def build_parser_with_current_lighthouse_help():
+    def build_parser_with_current_help():
         parser = original()
         subparsers = next(
             action
@@ -46,49 +57,124 @@ def _install_cli_help() -> None:
             if getattr(action, "choices", None) and "audit" in action.choices
         )
         audit_parser = subparsers.choices["audit"]
-        action = next(
-            item for item in audit_parser._actions
-            if item.dest == "lighthouse_categories"
-        )
-        action.help = (
-            "comma-separated Lighthouse categories: "
-            + _LIGHTHOUSE_CATEGORIES_CSV
-            + "; default requests all five in one PageSpeed call. Agentic Browsing "
-            "is experimental and remains outside SARI-001"
-        )
+        for action in audit_parser._actions:
+            if action.dest == "lighthouse_categories":
+                action.default = _PAGESPEED_LIGHTHOUSE_CATEGORIES_CSV
+                action.help = (
+                    "comma-separated PageSpeed/Lighthouse categories: "
+                    + _PAGESPEED_LIGHTHOUSE_CATEGORIES_CSV
+                    + "; Agentic Browsing is not transported by the current PageSpeed adapter "
+                    "and remains outside SARI-001"
+                )
+            elif action.dest in {"ai_provider", "semantic_provider"}:
+                action.help = (
+                    "semantic analysis provider; AUTO considers every registered provider with "
+                    "valid credentials/configuration, rotates eligible providers round-robin across "
+                    "AI needs, uses at most one attempt per provider per need, and applies an "
+                    "execution-wide circuit breaker; explicit provider selection keeps its own retry policy"
+                )
         return parser
 
-    cli_extensions.build_parser = build_parser_with_current_lighthouse_help
-    cli_extensions._rasai_extended_lighthouse_help = True
+    cli_extensions.build_parser = build_parser_with_current_help
+    cli_extensions._rasai_runtime_help_current = True
 
 
 def _install_console_environment() -> None:
-    """Keep the interactive environment editor aligned with M21 defaults."""
     from rasai import console_environment
 
-    if getattr(console_environment, "_rasai_extended_lighthouse_environment", False):
+    if getattr(console_environment, "_rasai_pagespeed_categories_current", False):
         return
-    original = console_environment._fixed_specs
+    original_fixed_specs = console_environment._fixed_specs
+    original_validate = console_environment._validate
 
-    def fixed_specs_with_agentic():
+    if _AI_EXCHANGE_LOG_MAX_BYTES_ENV not in console_environment.ENV_NAMES:
+        console_environment.ENV_NAMES = (*console_environment.ENV_NAMES, _AI_EXCHANGE_LOG_MAX_BYTES_ENV)
+
+    def fixed_specs_with_current_pagespeed_contract():
         items = []
-        for spec in original():
+        for spec in original_fixed_specs():
             if spec.name == "RASAI_LIGHTHOUSE_CATEGORIES":
                 spec = replace(
                     spec,
-                    accepted=_LIGHTHOUSE_CATEGORIES,
-                    default=_LIGHTHOUSE_CATEGORIES_CSV,
-                    example=f"RASAI_LIGHTHOUSE_CATEGORIES={_LIGHTHOUSE_CATEGORIES_CSV}",
+                    accepted=_PAGESPEED_LIGHTHOUSE_CATEGORIES,
+                    default=_PAGESPEED_LIGHTHOUSE_CATEGORIES_CSV,
+                    example=f"RASAI_LIGHTHOUSE_CATEGORIES={_PAGESPEED_LIGHTHOUSE_CATEGORIES_CSV}",
                     notes=(
-                        "Uma ou mais categorias, separadas por vírgula, sem duplicar. "
-                        "Agentic Browsing é experimental e permanece fora do SARI-001."
+                        "Uma ou mais categorias aceitas pelo provider PageSpeed, separadas por vírgula, "
+                        "sem duplicar. Agentic Browsing exige fonte/adaptador Lighthouse separado."
                     ),
                 )
             items.append(spec)
         return tuple(items)
 
-    console_environment._fixed_specs = fixed_specs_with_agentic
-    console_environment._rasai_extended_lighthouse_environment = True
+    def validate_with_current_contract(name: str, raw: str) -> str:
+        if name == "RASAI_LIGHTHOUSE_CATEGORIES":
+            value = raw.strip()
+            if not value:
+                raise ValueError("valor vazio; remova a variável em vez de gravar vazio")
+            items = [item.strip().casefold() for item in value.split(",") if item.strip()]
+            if not items or any(item not in _PAGESPEED_LIGHTHOUSE_CATEGORIES for item in items):
+                raise ValueError(
+                    "categorias PageSpeed suportadas: " + ", ".join(_PAGESPEED_LIGHTHOUSE_CATEGORIES)
+                    + "; Agentic Browsing exige adaptador Lighthouse separado"
+                )
+            if len(items) != len(set(items)):
+                raise ValueError("não duplique categorias Lighthouse")
+            return ",".join(items)
+        if name == _AI_EXCHANGE_LOG_MAX_BYTES_ENV:
+            value = raw.strip()
+            try:
+                parsed = int(value)
+            except ValueError as exc:
+                raise ValueError("use inteiro entre 4096 e 4194304") from exc
+            if not 4096 <= parsed <= 4194304:
+                raise ValueError("use inteiro entre 4096 e 4194304")
+            return str(parsed)
+        return original_validate(name, raw)
+
+    console_environment._fixed_specs = fixed_specs_with_current_pagespeed_contract
+    console_environment._validate = validate_with_current_contract
+    # SPECS is materialized at import time. Rebuild it after patching the source
+    # factories so the actual interactive UI, tests and ENV_NAMES stay coherent.
+    console_environment.SPECS = console_environment.environment_specs()
+    console_environment.SPEC_BY_NAME = {spec.name: spec for spec in console_environment.SPECS}
+    console_environment._rasai_pagespeed_categories_current = True
+
+
+def _install_console_cost() -> None:
+    """Keep the pre-run exposure explanation consistent with dynamic AUTO routing."""
+    from rasai import console_cost
+
+    if getattr(console_cost, "_rasai_dynamic_auto_exposure_current", False):
+        return
+    original = console_cost.estimate_exposure
+
+    def estimate_exposure_with_dynamic_auto(state):
+        estimate = original(state)
+        if state.ai_provider != "auto":
+            return estimate
+        provider_count = len(console_cost._selected_provider_models(state))
+        reasons: list[str] = []
+        for reason in estimate.reasons:
+            if reason.startswith("IA ativa:"):
+                reasons.append(
+                    f"IA AUTO ativa: até {estimate.max_ai_attempts} chamada(s) potenciais no pior caso "
+                    f"da configuração atual. Cada necessidade visita no máximo {provider_count} provider(s) "
+                    "e cada provider é tentado no máximo uma vez naquela necessidade; remediações opcionais "
+                    "podem criar necessidades adicionais."
+                )
+                continue
+            if reason.startswith("AUTO considera somente a cadeia homologada"):
+                continue
+            reasons.append(reason)
+        reasons.append(
+            f"AUTO possui {provider_count} provider(s) apto(s) na projeção atual; a ordem efetiva usa "
+            "round-robin e pode encolher durante a execução por falha terminal ou circuit breaker."
+        )
+        return replace(estimate, reasons=tuple(reasons))
+
+    console_cost.estimate_exposure = estimate_exposure_with_dynamic_auto
+    console_cost._rasai_dynamic_auto_exposure_current = True
 
 
 def _install_dashboard_metrics() -> None:
@@ -102,49 +188,16 @@ def _install_dashboard_metrics() -> None:
         html = original_dashboard(data, report_dir)
         web = data.get("web", [])
         specifications = (
-            (
-                "Lighthouse Best Practices",
-                "best_practices_score",
-                "Chrome Lighthouse",
-                "web-performance.html",
-            ),
-            (
-                "Lighthouse SEO técnico",
-                "seo_score",
-                "Chrome Lighthouse",
-                "web-performance.html",
-            ),
-            (
-                "Lighthouse Agentic Browsing",
-                "agentic_browsing_score",
-                "Chrome Lighthouse · experimental",
-                "web-performance.html",
-            ),
+            ("Lighthouse Best Practices", "best_practices_score", "Chrome Lighthouse via PageSpeed", "web-performance.html"),
+            ("Lighthouse SEO técnico", "seo_score", "Chrome Lighthouse via PageSpeed", "web-performance.html"),
         )
         additions: list[str] = []
         for title, column, source, href in specifications:
             if f"<h3>{title}</h3>" in html:
                 continue
-            value, detail = reporting._device_ranges(
-                web,
-                column,
-                scale=1.0,
-                suffix="/100",
-            )
+            value, detail = reporting._device_ranges(web, column, scale=1.0, suffix="/100")
             condition, condition_label = reporting._lighthouse_condition(web, column)
-            if column == "agentic_browsing_score":
-                detail += "; categoria experimental do Lighthouse, fora do SARI-001"
-            additions.append(
-                reporting._indicator_card(
-                    title,
-                    value,
-                    detail,
-                    href,
-                    source,
-                    condition,
-                    condition_label,
-                )
-            )
+            additions.append(reporting._indicator_card(title, value, detail, href, source, condition, condition_label))
         if not additions:
             return html
         target = "</div></section>" + reporting._DASHBOARD_END
@@ -163,27 +216,12 @@ def _install_monitoring_metrics() -> None:
         return
     original = reader._read_performance
 
-    def read_performance_with_extended_categories(
-        connection,
-        tables: set[str],
-        audit_id: str,
-        signals: dict[str, Any],
-    ) -> None:
+    def read_performance_with_extended_categories(connection, tables: set[str], audit_id: str, signals: dict[str, Any]) -> None:
         original(connection, tables, audit_id, signals)
         if "web_performance_observations" not in tables:
             return
-        columns = {
-            str(row[1])
-            for row in connection.execute(
-                "PRAGMA table_info(web_performance_observations)"
-            ).fetchall()
-        }
-        specifications = (
-            ("best_practices_score", "Lighthouse Best Practices"),
-            ("agentic_browsing_score", "Lighthouse Agentic Browsing"),
-        )
-        available = tuple(item for item in specifications if item[0] in columns)
-        if not available:
+        columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(web_performance_observations)").fetchall()}
+        if "best_practices_score" not in columns:
             return
         rows = connection.execute(
             "SELECT * FROM web_performance_observations WHERE audit_id=? ORDER BY captured_at,rowid",
@@ -193,29 +231,27 @@ def _install_monitoring_metrics() -> None:
         for row in rows:
             latest[(str(row["device"]).upper(), str(row["url"]))] = row
         for (device, url), row in latest.items():
+            value = row["best_practices_score"]
+            if value is None:
+                continue
             names = set(row.keys())
-            metadata = {
-                "field_source": row["field_source"] if "field_source" in names else None,
-                "field_scope": row["field_scope"] if "field_scope" in names else None,
-                "captured_at": row["captured_at"] if "captured_at" in names else None,
-            }
-            for field, label in available:
-                value = row[field]
-                if value is None:
-                    continue
-                key = f"PERF|{device}|{url}|{field}"
-                signals[key] = reader.Signal(
-                    key=key,
-                    domain="PERFORMANCE",
-                    label=label,
-                    value=float(value),
-                    device=device,
-                    url=url,
-                    severity="MEDIUM",
-                    direction="HIGHER_BETTER",
-                    unit="score",
-                    metadata=metadata,
-                )
+            key = f"PERF|{device}|{url}|best_practices_score"
+            signals[key] = reader.Signal(
+                key=key,
+                domain="PERFORMANCE",
+                label="Lighthouse Best Practices",
+                value=float(value),
+                device=device,
+                url=url,
+                severity="MEDIUM",
+                direction="HIGHER_BETTER",
+                unit="score",
+                metadata={
+                    "field_source": row["field_source"] if "field_source" in names else None,
+                    "field_scope": row["field_scope"] if "field_scope" in names else None,
+                    "captured_at": row["captured_at"] if "captured_at" in names else None,
+                },
+            )
 
     reader._read_performance = read_performance_with_extended_categories
     reader._rasai_extended_lighthouse_monitoring = True
@@ -234,23 +270,13 @@ def _install_agentic_provenance() -> None:
             "Google Chrome Lighthouse",
             "Agentic Browsing configuration",
             "https://github.com/GoogleChrome/lighthouse/blob/main/core/config/agentic-browsing-config.js",
+            "Categoria experimental do Lighthouse; sua composição pode mudar entre versões.",
             (
-                "Categoria experimental do Lighthouse com auditorias voltadas à capacidade de agentes "
-                "automatizados compreenderem e operarem páginas Web. Sua composição pode mudar entre versões."
-            ),
-            (
-                "RASAi coleta e persiste o score e seus audit-level diagnostics como evidência complementar. "
-                "O valor não é renomeado como indicador proprietário e não entra automaticamente no SARI-001."
+                "O adapter PageSpeed atual do RASAi não solicita esta categoria. O campo de compatibilidade "
+                "pode ser materializado apenas por uma fonte Lighthouse direta/futura e permanece fora do SARI-001."
             ),
         ),
     )
-    summary = provenance._PAGE_SUMMARY.get("web-performance.html")
-    if summary is not None and "Agentic" not in summary[1]:
-        provenance._PAGE_SUMMARY["web-performance.html"] = (
-            summary[0],
-            summary[1].rstrip(".")
-            + "; Agentic Browsing permanece identificado como categoria experimental do Lighthouse.",
-        )
 
 
 def _install_gemini_diagnostics() -> None:
@@ -268,7 +294,6 @@ def _install_gemini_diagnostics() -> None:
         error = raw.get("error")
         if not isinstance(error, Mapping):
             return None
-
         raw_status = error.get("code")
         try:
             http_status = int(raw_status) if raw_status is not None else None
@@ -279,11 +304,7 @@ def _install_gemini_diagnostics() -> None:
         error_code = extensions._safe_token(raw_code)
         classified_status = http_status if http_status is not None else 400
         return extensions.ProviderDiagnostic(
-            error_class=extensions._classify_http_error(
-                classified_status,
-                error_type,
-                error_code,
-            ),
+            error_class=extensions._classify_http_error(classified_status, error_type, error_code),
             http_status=http_status,
             error_type=error_type,
             error_code=error_code,
