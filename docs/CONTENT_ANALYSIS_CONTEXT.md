@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-O RASAi pode fornecer à camada de IA um **contexto editorial explícito** para evitar análises genéricas de conteúdo. Esse contexto condiciona a interpretação semântica e as sugestões Sugestões e remediação de conteúdo por IA, mas **não altera aritmeticamente o `SARI-001`**, não cria um score de E-E-A-T/YMYL e não representa um fator oficial isolado de ranking.
+O RASAi pode fornecer à camada de IA um **contexto editorial explícito** para evitar análises genéricas de conteúdo. Esse contexto condiciona a interpretação semântica e as sugestões por IA, mas **não altera aritmeticamente o `SARI-001`**, não cria um score de E-E-A-T/YMYL e não representa um fator oficial isolado de ranking.
 
 A configuração é especialmente útil em conteúdo **YMYL (Your Money or Your Life)**, no qual informações imprecisas podem afetar saúde, segurança, estabilidade financeira ou o bem-estar da sociedade.
 
@@ -34,14 +34,18 @@ Fontes normativas/conceituais usadas nesta implementação:
 
 ## Princípio de segurança
 
-Configuração explícita tem precedência conceitual sobre inferência automática.
+Configuração explícita tem precedência conceitual sobre interpretação automática.
 
-Quando uma variável permanece `auto`, a IA pode usar apenas uma **hipótese de trabalho** baseada no conteúdo visível e nas evidências fornecidas. Essa inferência:
+Quando uma variável permanece `auto`, **a configuração oficial continua sendo `AUTO`**. Se IA estiver habilitada, o modelo pode produzir separadamente uma interpretação contextual baseada apenas no conteúdo visível e nas evidências fornecidas. Essa interpretação:
 
-- não se torna fato persistido sobre a organização;
+- não se torna fato persistido sobre a organização ou a página;
+- não sobrescreve o valor `AUTO` em `content_analysis_contexts`;
 - não autoriza inventar credenciais, certificações, revisão profissional, reputação externa, compliance, experiência pessoal ou processo editorial;
-- deve reduzir confiança quando a classificação inferida for material para a conclusão;
-- não substitui configuração humana quando o contexto do domínio é conhecido.
+- deve usar `Não determinável` quando a evidência não sustenta uma classificação segura;
+- não substitui configuração humana quando o contexto do domínio é conhecido;
+- não é evidência determinística e não entra diretamente em `SARI-001`/`SCORE-GEO-004`.
+
+A finalidade dessa leitura é comparativa: o usuário pode considerar humanamente uma página não-YMYL, por exemplo, e ainda enxergar que o conteúdo fornecido levou um modelo a interpretá-la como relacionado a finanças, saúde, segurança ou outro contexto material — acompanhado de justificativa e confiança quando disponíveis.
 
 ## Variáveis
 
@@ -59,7 +63,7 @@ ymyl
 
 Use `ymyl` quando o conteúdo analisado puder afetar materialmente saúde, segurança, estabilidade financeira ou bem-estar social.
 
-`auto` permite classificação provisória pela IA. Para sites claramente YMYL, prefira `ymyl` explícito.
+`auto` mantém a configuração em aberto; quando IA estiver habilitada, o relatório pode mostrar separadamente a interpretação transitória feita pelo modelo. Para sites claramente YMYL, prefira `ymyl` explícito.
 
 ### `RASAI_YMYL_CATEGORY`
 
@@ -174,35 +178,39 @@ $env:RASAI_CONTENT_ORIGIN = "first-party"
 
 Efeito esperado: a IA deve elevar a exigência de confiança, atribuição e suporte factual, prestar atenção especial a claims financeiros, datas, condições e qualificadores e evitar recomendações que criem promessas, garantias ou fatos não sustentados.
 
-## Exemplo - conteúdo comum com inferência parcial
+## Exemplo - conteúdo comum com interpretação parcial
 
 ```powershell
 $env:RASAI_CONTENT_RISK_PROFILE = "standard"
 $env:RASAI_CONTENT_ORIGIN = "first-party"
 ```
 
-Os demais campos permanecem `auto`. O report classificará a origem do contexto como **MIXED**: parte configurada e parte inferível.
+Os demais campos permanecem `auto`. A configuração persistida continua distinguindo os valores explícitos daqueles mantidos em `AUTO`. Quando IA for usada, `readiness.html` pode apresentar separadamente a leitura transitória dos campos `AUTO`, sem resolver esses campos no banco.
 
 ## Persistência e rastreabilidade
 
-O contexto efetivo é persistido no workspace da auditoria em `content_analysis_contexts`.
+`content_analysis_contexts` persiste **a configuração efetiva usada como input** da auditoria. Valores explícitos permanecem explícitos; valores `auto` permanecem `AUTO`.
 
-O report `content-suggestions.html` mostra:
+A interpretação transitória de IA **não é persistida nessa tabela nem em outra classificação canônica**. Ela é capturada em memória durante a chamada e inserida na projeção HTML final depois que os renderizadores persistidos terminam.
 
-- valor de cada contexto;
-- se foi `CONFIGURADO` ou `AUTO`;
-- origem global `MANUAL`, `MIXED` ou `AUTO`;
-- explicações contextuais em tooltip;
-- referências oficiais;
-- telemetria das chamadas Sugestões e remediação de conteúdo por IA quando IA é usada.
+O report `content-suggestions.html` continua mostrando a configuração editorial usada. O report `readiness.html`, quando aplicável, mostra separadamente:
 
-O objetivo é que a interpretação continue reproduzível mesmo que as variáveis de ambiente sejam alteradas depois da execução.
+- configuração `AUTO`;
+- interpretação feita pela IA naquela execução;
+- confiança/qualificador;
+- justificativa curta;
+- IDs de evidência usados;
+- `Não determinável` quando não houver suporte suficiente.
+
+O HTML materializa a leitura daquela execução para inspeção humana, mas não transforma a classificação em verdade reutilizável em uma nova auditoria.
+
+Detalhamento: [CONTENT_CONTEXT_AI_INTERPRETATION.md](CONTENT_CONTEXT_AI_INTERPRETATION.md).
 
 ## IA, custo e telemetria
 
 Configurar contexto editorial **não gera chamada por si só**.
 
-Quando uma etapa com IA é executada, continuam valendo os contratos já existentes de telemetria:
+Quando uma etapa com IA é executada, continuam valendo os contratos de telemetria:
 
 - provider;
 - modelo;
@@ -212,7 +220,10 @@ Quando uma etapa com IA é executada, continuam valendo os contratos já existen
 - tokens de entrada, cache, saída, reasoning e total quando disponibilizados pelo provider;
 - custo estimado e moeda quando existe tabela de pricing suportada;
 - versão da tabela de pricing;
-- falhas técnicas/contratuais sem exposição de credenciais.
+- falhas técnicas/contratuais sem exposição de credenciais;
+- exchange sanitizado de request/response quando a chamada externa efetivamente ocorre.
+
+A interpretação editorial transitória é redigida do exchange log persistido e aparece legível somente na seção interpretativa do HTML, preservando a regra de não persistência canônica.
 
 O HTML não deve fabricar custo quando o adapter não possui base confiável para estimá-lo.
 
