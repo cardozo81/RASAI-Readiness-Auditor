@@ -1,13 +1,13 @@
 """Grouped and guided environment-variable configuration for the console.
 
-The catalog deliberately covers the whole product configuration surface that is known
-at build time: local audit runtime, optional Search/observability integrations,
-control-plane/SaaS deployment, Web API/Identity and remote-client settings.
+The catalog covers the complete product configuration surface known at build time:
+local audit runtime, Search/observability integrations, control-plane/SaaS deployment,
+Web API/Identity and remote-client settings.
 
 Secrets may be edited for the current process (and optionally persisted in the Windows
 User environment after explicit confirmation), but are never written to the console
-INI. Variables whose *value is the name of another secret environment variable* are
-configuration references, not secrets themselves, and may be persisted normally.
+INI. Variables whose value names another secret environment variable are configuration
+references, not secrets themselves, and may be persisted normally.
 """
 from __future__ import annotations
 
@@ -247,6 +247,15 @@ def _application_specs() -> tuple[EnvironmentSpec, ...]:
             required_when="Somente para apontar explicitamente para outro TOML.",
         ),
         EnvironmentSpec(
+            "RASAI_CONSOLE_MODE",
+            "Aplicação e execução",
+            "Seleciona o console local de auditoria ou o cliente do control plane remoto.",
+            "enum",
+            ("local", "remote"),
+            "local",
+            required_when="Use `remote` somente quando um control plane remoto estiver configurado.",
+        ),
+        EnvironmentSpec(
             "RASAI_LOG_LEVEL",
             "Aplicação e execução",
             "Controla a verbosidade do log operacional.",
@@ -393,7 +402,7 @@ def _platform_specs() -> tuple[EnvironmentSpec, ...]:
         EnvironmentSpec(OIDC_ALGORITHMS_ENV, "Web API / Identity", "Algoritmos JWT aceitos.", "lista CSV", default="RS256,ES256"),
         EnvironmentSpec(OIDC_SCOPES_ENV, "Web API / Identity", "Scopes OIDC solicitados.", "lista CSV", default="openid,profile,email"),
         EnvironmentSpec(OIDC_SESSION_TTL_ENV, "Web API / Identity", "TTL da sessão web em segundos.", "inteiro 300..86400", default="28800"),
-        EnvironmentSpec(REMOTE_BASE_URL_ENV, "Remote control plane", "URL do control plane remoto.", "URL HTTPS; HTTP apenas loopback", required_when="Modo remoto.", notes="Contrato da evolução SaaS em integração."),
+        EnvironmentSpec(REMOTE_BASE_URL_ENV, "Remote control plane", "URL do control plane remoto.", "URL HTTPS; HTTP apenas loopback", required_when="Modo remoto.", notes="Configuração do cliente do control plane SaaS."),
         EnvironmentSpec(REMOTE_TOKEN_ENV_REF, "Remote control plane", "Nome da variável que contém o bearer token remoto.", "referência de variável", required_when="Autenticação bearer remota.", notes="O token real não é persistido; apenas a referência pode ser salva."),
         EnvironmentSpec(REMOTE_USER_ID_ENV, "Remote control plane", "User ID trusted-header apenas para desenvolvimento loopback.", "texto", required_when="Somente loopback; proibido para host remoto."),
         EnvironmentSpec(REMOTE_TIMEOUT_ENV, "Remote control plane", "Timeout do cliente remoto.", "número > 0 e <= 300", default="30"),
@@ -493,7 +502,7 @@ def environment_specs() -> tuple[EnvironmentSpec, ...]:
                 "Variável reconhecida pelo RASAi.",
                 "texto",
                 sensitive=(is_secret(name) and not is_secret_reference_name(name)),
-                required_when="Consulte a documentação antes de definir.",
+                required_when="Sem default seguro; consulte a documentação antes de definir.",
                 impact="Impacto não classificado automaticamente.",
             ),
         )
@@ -532,7 +541,7 @@ def _status(spec: EnvironmentSpec) -> str:
             return paint(f"<não ativa> [{origin}]", DIM)
     if spec.default is not None:
         return paint(f"<default efetivo: {spec.default}>", DIM)
-    return paint("<não definida>", DIM)
+    return paint("<sem default; condicional>", DIM)
 
 
 def _docs_path() -> Path | None:

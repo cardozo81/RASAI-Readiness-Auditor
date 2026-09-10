@@ -15,7 +15,6 @@ from typing import Any
 from rasai.persistence import AuditWorkspace
 from rasai.report_contract import (
     OBSERVABILITY_CONTRACT_VERSION,
-    REPORT_ALIASES,
     REPORT_CONTRACT_VERSION,
     SARI_VERSION,
     REPORT_SURFACES,
@@ -37,11 +36,6 @@ def write_report_manifest(report_dir: str | Path) -> Path | None:
         for surface in REPORT_SURFACES
         if (root / surface.filename).is_file()
     ]
-    aliases = {
-        alias: canonical
-        for alias, canonical in REPORT_ALIASES.items()
-        if (root / alias).is_file()
-    }
 
     expected_pages: list[str] = []
     missing_pages: list[str] = []
@@ -55,8 +49,8 @@ def write_report_manifest(report_dir: str | Path) -> Path | None:
             generated_set = set(generated_pages)
             missing_pages = [name for name in expected_pages if name not in generated_set]
         except (OSError, ValueError, sqlite3.Error):
-            # Manifest generation remains fail-open for incomplete local workspaces.
-            # The final URL-audit completion gate performs the authoritative check.
+            # The final URL-audit completion gate performs the authoritative check;
+            # manifest projection remains non-destructive when a workspace is incomplete.
             expected_pages = []
             missing_pages = []
 
@@ -74,7 +68,6 @@ def write_report_manifest(report_dir: str | Path) -> Path | None:
         "audit_expected_pages": expected_pages,
         "audit_missing_pages": missing_pages,
         "audit_report_complete": (not missing_pages) if expected_pages else None,
-        "aliases": aliases,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source_db": "audit.db",
     }

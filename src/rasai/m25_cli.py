@@ -81,9 +81,9 @@ def configured_experience(
 ) -> ExperienceApdexConfig:
     environment = env if env is not None else os.environ
     enabled = _bool(getattr(args, "apdex_experience", None), UX_ENABLED_ENV, False, environment)
-    if not enabled:
-        return ExperienceApdexConfig(enabled=False)
 
+    # Resolve the complete configuration even while disabled so console/SaaS surfaces
+    # can display, edit and persist coherent values before measurement is enabled.
     samples = _positive_int(getattr(args, "apdex_experience_samples", None), UX_SAMPLES_ENV, DEFAULT_UX_SAMPLES, environment)
     max_attempts = _optional_positive_int(getattr(args, "apdex_experience_max_attempts", None), UX_MAX_ATTEMPTS_ENV, environment)
     if max_attempts is None:
@@ -111,7 +111,7 @@ def configured_experience(
         dynatrace_import = True
 
     return ExperienceApdexConfig(
-        enabled=True,
+        enabled=enabled,
         target_samples_per_page=samples,
         max_attempts_per_page=max_attempts,
         max_pages=max_pages,
