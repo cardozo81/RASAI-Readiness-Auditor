@@ -1,18 +1,17 @@
 """RASAi product-platform layer.
 
-This package adds SaaS-ready, multi-organization product metadata without
-mutating immutable AUD workspaces. The local Windows implementation uses a
-central SQLite sidecar and keeps storage/execution contracts intentionally
-separate so a future PostgreSQL/API adapter can replace the control plane.
+This package provides multi-organization product metadata without mutating
+immutable AUD workspaces. SQLite is the local control-plane backend and
+PostgreSQL is available through the centralized control-plane composition.
+Storage and execution contracts remain separate.
 """
 
 from pathlib import Path
 
 from rasai.runtime_paths import CANONICAL_RUNTIME_DIR, runtime_directory
 
-# Keep the stable store module/API while moving the public local sidecar from
-# the legacy .rasai directory to .rasai. Setting the module constant before
-# importing CentralPlatformStore also keeps direct store imports compatible.
+# Bind the store module to the canonical local runtime directory before exposing
+# the composed product-platform API.
 from . import store as _store
 
 _store._PLATFORM_DIR = CANONICAL_RUNTIME_DIR
