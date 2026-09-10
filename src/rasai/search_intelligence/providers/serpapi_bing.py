@@ -25,8 +25,8 @@ from .serpapi import SerpApiProvider
 class SerpApiBingProvider(SerpApiProvider):
     """Live Bing organic-result adapter using SerpApi.
 
-    ``provider_id`` is intentionally distinct from the existing Google adapter so the
-    established ``serpapi`` runtime contract remains backward compatible.
+    ``provider_id`` is distinct from the Google adapter because pagination and
+    engine-specific request semantics are different.
     """
 
     provider_id = "serpapi-bing"
