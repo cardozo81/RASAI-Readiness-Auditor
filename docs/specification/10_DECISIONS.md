@@ -4,11 +4,11 @@
 
 Este documento registra somente decisões atualmente válidas para o produto. Decisões abandonadas, etapas de implementação concluídas e regras transitórias de branch/merge não integram a especificação normativa.
 
-## D-001 — Readiness por dispositivo
+## D-001 - Readiness por dispositivo
 
 Desktop e Mobile são contextos independentes. Scores, Coverage, Confidence e Consolidation são calculados e apresentados por dispositivo. Um contexto não executado não pode ser apresentado como defeito do website.
 
-## D-002 — Índice e scoring
+## D-002 - Índice e scoring
 
 O índice público é `SARI-001` e o método de scoring vigente é `SCORE-GEO-004`.
 
@@ -16,17 +16,19 @@ O scoring é determinístico, evidence-bound e usa as dez dimensões definidas p
 
 Dimensões integralmente e legitimamente `NOT_APPLICABLE` são excluídas do denominador aplicável e não recebem score artificial 0 ou 100. Ausência de evidência suficiente não é convertida em falha.
 
-## D-003 — Evidência de auditoria imutável
+JSON-LD permanece `OPCIONAL / REFORÇO`. A ausência de JSON-LD é materializada por `BR-GEO-034` como `WARNING` de baixo impacto para tornar a lacuna observável e comparável; `BR-GEO-035..037` permanecem `NOT_APPLICABLE` enquanto não houver JSON-LD. Essa materialização não transforma JSON-LD em requisito universal nem converte ausência em `FAIL`.
+
+## D-003 - Evidência de auditoria imutável
 
 Cada `AUD-*` preserva `audit.db`, artifacts e relatórios como evidência reabrível da execução. Estado de produto, tenancy, schedules, milestones, usage, integrações e dados longitudinais pertencem ao control plane e não são gravados retroativamente em `AUD-*/audit.db`.
 
-## D-004 — Persistência do control plane
+## D-004 - Persistência do control plane
 
 SQLite é suportado para operação local de autoridade única. PostgreSQL é o backend centralizado do control plane para execução hospedada e cenários que exigem concorrência e autoridade compartilhada.
 
 Quando PostgreSQL estiver explicitamente selecionado, falha de conexão/configuração não provoca fallback silencioso para SQLite.
 
-## D-005 — Hierarquia de produto
+## D-005 - Hierarquia de produto
 
 A hierarquia canônica é:
 
@@ -40,19 +42,19 @@ Organization
 
 Usuários e memberships/RBAC são avaliados dentro dessa hierarquia. Um projeto pode possuir múltiplas propriedades/domínios e uma auditoria pode abranger múltiplas propriedades quando seu escopo persistido assim determinar.
 
-## D-006 — Web/API e workers
+## D-006 - Web/API e workers
 
 A Web API e o SaaS Pilot Web são superfícies do mesmo domínio de produto e não mantêm uma segunda regra de negócio ou uma segunda persistência.
 
 Execuções potencialmente longas, crawling, Search Monitoring e integrações não devem bloquear o processo HTTP. O control plane cria/coordena jobs e workers desacoplados realizam o trabalho autorizado.
 
-## D-007 — Identity & Access
+## D-007 - Identity & Access
 
 OIDC/JWT é a direção de autenticação do produto hospedado. Identidade autenticada resolve para um `Principal`/usuário interno; autorização continua baseada em memberships e escopo de tenant.
 
 Autenticação válida não cria membership automaticamente. Secrets, access tokens, ID tokens e refresh tokens não são persistidos como metadados ordinários do control plane.
 
-## D-008 — IA opcional e provider-neutral
+## D-008 - IA opcional e provider-neutral
 
 O auditor deve funcionar sem provider de IA. Integrações de IA são provider-neutral no domínio e provider-specific apenas nos adapters.
 
@@ -60,7 +62,7 @@ Saídas de IA relevantes ao audit devem ser validadas contra schema e `evidence_
 
 Remediação textual e técnica por IA são opt-in, evidence-bound, advisory e não podem alterar retrospectivamente RuleExecution, Finding, Recommendation, Score, Coverage, Confidence ou Consolidation já persistidos.
 
-## D-009 — Web Performance externo
+## D-009 - Web Performance externo
 
 Web Performance é enriquecimento externo e fail-open em relação ao audit principal.
 
@@ -78,17 +80,17 @@ Performance, Accessibility, Best Practices e SEO são categorias Lighthouse exte
 
 Core Web Vitals de campo e métricas Lighthouse de laboratório permanecem semanticamente separados.
 
-## D-010 — Acessibilidade
+## D-010 - Acessibilidade
 
 Diagnósticos automatizados de acessibilidade são auxiliares e não constituem certificação de conformidade WCAG integral. O relatório deve distinguir evidência automatizada, limitação de cobertura e necessidade de validação humana quando aplicável.
 
-## D-011 — Synthetic Apdex
+## D-011 - Synthetic Apdex
 
 Synthetic Navigation Apdex e Synthetic User Experience Apdex são medições sintéticas separadas do SARI e de RUM real.
 
 O User Experience Apdex pode ser calibrado com configuração externa observável, inclusive Dynatrace, mas continua identificado como medição sintética do RASAi.
 
-## D-012 — Crawling e discovery
+## D-012 - Crawling e discovery
 
 `robots.txt` é adquirido no caminho padrão da origem e interpretado conforme o Robots Exclusion Protocol aplicável.
 
@@ -96,7 +98,7 @@ Sitemaps podem existir em múltiplos arquivos e em caminhos diferentes da raiz. 
 
 Declarações cross-origin podem ser registradas como evidência, mas não são seguidas automaticamente sem política explícita de segurança/autorização.
 
-## D-013 — llms.txt
+## D-013 - llms.txt
 
 `llms.txt` é uma proposta comunitária experimental e não um requisito universal de Search & AI readiness.
 
@@ -109,13 +111,13 @@ O RASAi pode observar múltiplos arquivos `llms.txt` same-origin:
 
 Não é permitido brute-force de diretórios para adivinhar arquivos `llms.txt`. A presença ou ausência desses arquivos não substitui robots, sitemap, canonical, HTML semântico ou conteúdo acessível e não altera automaticamente o SARI.
 
-## D-014 — Crawlers e controles de IA
+## D-014 - Crawlers e controles de IA
 
 OAI-SearchBot, GPTBot, Googlebot e Google-Extended devem ser apresentados conforme suas finalidades públicas e sem inferência indevida entre controles distintos.
 
 Bloquear GPTBot não equivale automaticamente a bloquear Search. Google-Extended é um token de produto em `robots.txt`, não um user-agent HTTP separado da Pesquisa Google.
 
-## D-015 — Search Intelligence
+## D-015 - Search Intelligence
 
 SERP Observation é provider-neutral e registra observação limitada de Search tradicional. Google, Bing e futuros engines permanecem adapters do mesmo contrato canônico.
 
@@ -123,7 +125,7 @@ SERP Observation é provider-neutral e registra observação limitada de Search 
 
 Search Intelligence, Competitive Search, Search History e Search Monitoring são non-scoring por default e não alteram automaticamente `SARI-001` ou `SCORE-GEO-004`.
 
-## D-016 — Monitoring, observability e outcomes
+## D-016 - Monitoring, observability e outcomes
 
 Comparações before/after, milestones, release gates e timelines usam evidência persistida e devem declarar limitações de comparabilidade.
 
@@ -131,7 +133,7 @@ Associação temporal não é causalidade. Observed Generative Visibility, Searc
 
 Dados ausentes permanecem ausentes; `NULL` externo não é convertido em zero.
 
-## D-017 — Multi-URL e recursos de domínio
+## D-017 - Multi-URL e recursos de domínio
 
 Uma auditoria pode receber múltiplas URLs/targets conforme o contrato da CLI/API e preservar um único `audit_id` quando o escopo for válido.
 
@@ -139,13 +141,13 @@ Uma auditoria pode receber múltiplas URLs/targets conforme o contrato da CLI/AP
 
 RAW HTTP, DOM renderizado e visual snapshot são planos de evidência distintos.
 
-## D-018 — Remediação e segurança factual
+## D-018 - Remediação e segurança factual
 
 Recomendações devem ser sustentadas por evidência persistida. O RASAi não inventa canonical preferencial, selector, HTML observado, autor, data, credencial, preço, claim, structured data ou fonte ausente.
 
 Quando uma decisão não puder ser determinada pelas evidências, o relatório deve declarar a necessidade de decisão humana em vez de fabricar um valor.
 
-## D-019 — Contrato público de relatório
+## D-019 - Contrato público de relatório
 
 O report site é HTML estático, navegável, responsivo e reabrível a partir do workspace persistido.
 
@@ -153,23 +155,23 @@ O report site é HTML estático, navegável, responsivo e reabrível a partir do
 
 Páginas opcionais são materializadas quando o respectivo domínio possui estado a apresentar e devem compartilhar navegação e CSS do report site.
 
-## D-020 — Linguagem e semântica de apresentação
+## D-020 - Linguagem e semântica de apresentação
 
 A camada de apresentação é prioritariamente em português do Brasil. Termos técnicos consolidados, enums, IDs, APIs e formatos podem permanecer em inglês quando isso melhora precisão e rastreabilidade.
 
 Estados de indisponibilidade, ausência de evidência, coleta não executada e `NOT_APPLICABLE` devem ser visualmente e semanticamente distintos de falha ou score zero.
 
-## D-021 — Segurança de secrets e rede
+## D-021 - Segurança de secrets e rede
 
 Secrets não devem ser incluídos em documentação de exemplo real, banco de evidência, artifacts, reports, schedules ou logs.
 
 Aquisição de URLs externas deve respeitar controles de escopo, redirects, DNS/IP, same-origin e SSRF definidos pela superfície correspondente. Hosted execution requer também controles de egress e secret management apropriados ao ambiente.
 
-## D-022 — Uso e consumo
+## D-022 - Uso e consumo
 
 O usage ledger é separado de findings/scoring e registra consumo operacional necessário para analytics, limites, custo e futura medição SaaS, preservando provider/source provenance e sem transformar consumo em indicador de qualidade do website.
 
-## D-023 — Regra documental de pré-publicação
+## D-023 - Regra documental de pré-publicação
 
 O RASAi ainda está em desenvolvimento e validação. A documentação normativa descreve somente o contrato vigente do produto.
 
