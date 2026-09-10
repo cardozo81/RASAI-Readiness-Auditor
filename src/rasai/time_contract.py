@@ -21,6 +21,7 @@ _AWARE_ISO_TIMESTAMP_RE = re.compile(
     rf"(?<!\d)(?P<value>{_AWARE_ISO_TIMESTAMP_PATTERN})(?!\d)"
 )
 _FULL_AWARE_ISO_TIMESTAMP_RE = re.compile(rf"^{_AWARE_ISO_TIMESTAMP_PATTERN}$")
+_TAG_SPLIT_RE = re.compile(r"(<[^>]+>)", flags=re.DOTALL)
 
 
 def utc_now() -> datetime:
@@ -100,3 +101,28 @@ def localize_visible_timestamps(
         return format_presentation_timestamp(match.group("value"), timezone_name=timezone_name)
 
     return _AWARE_ISO_TIMESTAMP_RE.sub(replace, text)
+
+
+def localize_html_timestamps(
+    html: str,
+    *,
+    timezone_name: str = DEFAULT_PRESENTATION_TIMEZONE,
+) -> str:
+    """Localize visible HTML timestamps without changing tags or technical blocks."""
+    parts = _TAG_SPLIT_RE.split(html)
+    blocked_depth = 0
+    output: list[str] = []
+    for part in parts:
+        if part.startswith("<"):
+            lowered = part.lower()
+            if re.match(r"<(script|style|pre|code)\b", lowered):
+                blocked_depth += 1
+            elif re.match(r"</(script|style|pre|code)\b", lowered):
+                blocked_depth = max(0, blocked_depth - 1)
+            output.append(part)
+            continue
+        if blocked_depth:
+            output.append(part)
+            continue
+        output.append(localize_visible_timestamps(part, timezone_name=timezone_name))
+    return "".join(output)
