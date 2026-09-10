@@ -71,7 +71,7 @@ class State:
     web_max_pages: int = 10
     web_timeout: float = DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS
     field_source: str = "auto"
-    lighthouse_categories: str = "performance,accessibility,best-practices,seo,agentic-browsing"
+    lighthouse_categories: str = "performance,accessibility,best-practices,seo"
     status: str = "READY"
     current_url: str = "-"
     current_device: str = "MOBILE"
@@ -127,7 +127,7 @@ def apply_environment_defaults(state: State, env: Mapping[str, str] | None = Non
         elif raw in {"auto", "pagespeed", "crux", "none"}: state.field_source = raw
         else: issues.append("RASAI_WEB_PERFORMANCE_FIELD_SOURCE: valor inválido")
     if active("RASAI_LIGHTHOUSE_CATEGORIES"):
-        state.lighthouse_categories = (environment.get("RASAI_LIGHTHOUSE_CATEGORIES") or "").strip() or "performance,accessibility,best-practices,seo,agentic-browsing"
+        state.lighthouse_categories = (environment.get("RASAI_LIGHTHOUSE_CATEGORIES") or "").strip() or "performance,accessibility,best-practices,seo"
     if any(active(name) for name in CONTENT_CONTEXT_ENV_NAMES):
         try:
             configured_content_analysis_context(environment)
@@ -180,7 +180,7 @@ def provider_capabilities(env: Mapping[str, str] | None = None, blocks: Mapping[
         for alias in registration.aliases: result[alias] = capability
         if registration.auto_eligible and capability.available: auto_ready.append(provider_id)
     chain = " -> ".join(item.upper() for item in auto_provider_ids())
-    result["auto"] = Capability(bool(auto_ready), f"{len(auto_ready)} provider(s) elegível(is); cadeia homologada {chain}" if auto_ready else f"nenhum provider AUTO elegível; cadeia homologada {chain}")
+    result["auto"] = Capability(bool(auto_ready), f"{len(auto_ready)} provider(s) elegível(is); pool AUTO {chain}" if auto_ready else f"nenhum provider AUTO elegível; registry {chain}")
     return result
 
 
@@ -224,6 +224,12 @@ def validate_env_value(name: str, value: str) -> str:
         value = value.casefold()
         if value not in {"auto", "pagespeed", "crux", "none"}: raise ValueError("use auto, pagespeed, crux ou none")
         if value == "crux" and not (os.environ.get("RASAI_CRUX_API_KEY") or "").strip(): raise ValueError("crux exige RASAI_CRUX_API_KEY")
+    if name == "RASAI_LIGHTHOUSE_CATEGORIES":
+        values = tuple(dict.fromkeys(item.strip().casefold() for item in value.split(",") if item.strip()))
+        allowed = {"performance", "accessibility", "best-practices", "seo"}
+        if not values or any(item not in allowed for item in values):
+            raise ValueError("use performance, accessibility, best-practices e/ou seo; agentic-browsing exige adapter Lighthouse separado")
+        return ",".join(values)
     if name == "RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE" and not Path(value).is_file(): raise ValueError("arquivo Chromium configurado não existe")
     return value
 
