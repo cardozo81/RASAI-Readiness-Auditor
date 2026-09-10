@@ -1,20 +1,16 @@
 # Synthetic User Experience Apdex calibrável
 
-**Estado no baseline de desenvolvimento:** INTEGRADO E VALIDADO.
-**Escopo:** Web Performance sintética, user-action telemetry e comparabilidade metodológica com RUM/APM.
-**Não altera:** `BR-GEO-*`, `SARI-001`, Coverage, Confidence, Consolidation, findings ou recomendações GEO.
+**Estado:** INTEGRADO; baseline Dynatrace-compatible revisado em 2026-09-10.  
+**Escopo:** Web Performance sintética, user-action telemetry e comparabilidade metodológica com RUM/APM.  
+**Não altera:** `BR-GEO-*`, `SARI-001`, SCORE-GEO-004, Coverage, Confidence, Consolidation, findings ou recomendações GEO.
 
 ## 1. Objetivo
 
-Synthetic User Experience Apdex adiciona um segundo domínio de Apdex, separado do Synthetic Navigation Apdex, para medir uma **user action sintética enriquecida** e permitir calibração explícita com ferramentas RUM/APM, inclusive Dynatrace.
+Synthetic User Experience Apdex é um domínio aditivo e separado do Synthetic Navigation Apdex. Mede uma `SYNTHETIC_LOAD_ACTION` controlada e permite calibração explícita ou importada.
 
-O objetivo é reduzir divergências explicáveis por metodologia de coleta - KPM, thresholds, política de erros, dispositivo e sessão - sem manipular o resultado para fazê-lo coincidir com RUM.
-
-Synthetic User Experience Apdex **não é RUM**. Nenhuma execução automatizada deve ser descrita como população de usuários humanos observados.
+É proibido descrever M25 como RUM. É igualmente proibido implementar uma aproximação e rotulá-la como uma KPM Dynatrace equivalente quando essa equivalência não existe.
 
 ## 2. Relação com Synthetic Navigation Apdex
-
-Synthetic Navigation Apdex permanece normativo e independente:
 
 ```text
 Synthetic Navigation Apdex - Standard
@@ -24,10 +20,8 @@ Tolerating > T e <= 4T
 Frustrated > 4T ou erro de aplicação/navegação válido
 ```
 
-Synthetic User Experience Apdex é aditivo:
-
 ```text
-Synthetic User Experience Apdex - Calibrated
+Synthetic User Experience Apdex
 Task       = SYNTHETIC_LOAD_ACTION
 KPM        = configurável/importada
 Satisfied  <= threshold_satisfied
@@ -35,36 +29,49 @@ Tolerating > threshold_satisfied e <= threshold_frustrated
 Frustrated > threshold_frustrated ou erro qualificável quando policy=ON
 ```
 
-A fórmula Apdex permanece:
+Fórmula:
 
 ```text
 Apdex = (Satisfied + 0.5 * Tolerating) / N_valid
 ```
 
-Synthetic User Experience Apdex nunca reescreve tabelas, summaries ou score do Synthetic Navigation Apdex.
+Os dois domínios possuem persistência e relatórios independentes.
 
-## 3. Envelope de user action
+## 3. Baseline default
 
-Cada amostra Synthetic User Experience Apdex observa:
+Quando Experience está habilitado e não há override CLI/ambiente nem importação Dynatrace, o runtime deve resolver:
 
-1. início imediatamente antes da navegação;
-2. navegação real Chromium até `load`;
-3. atividade de rede e recursos posterior ao `load`, limitada por janela de settle;
-4. XHR/fetch;
-5. recursos iniciados após o load;
-6. falhas de request;
-7. respostas HTTP >= 400;
-8. JavaScript runtime errors;
-9. `console.error` apenas como telemetria;
-10. Navigation Timing;
-11. LCP e CLS quando observáveis;
-12. término da user action pelo último evento real observado no envelope, sem acrescentar artificialmente o período interno de quietude do `networkidle`.
+```text
+kpm                            = USER_ACTION_DURATION
+satisfied_threshold_seconds    = 3.0
+frustrated_threshold_seconds   = 12.0
+errors_affect_apdex             = true
+error_scope                     = first-party
+target_samples_per_page         = 100
+max_attempts_per_page           = ceil(1.25 * target_samples_per_page)
+max_pages                       = 1
+device_mix                      = mobile=60,desktop=35,tablet=5
+session_mode                    = cold
+settle_seconds                  = 5.0
+delay_seconds                   = 1.0
+concurrency                     = 1
+```
 
-A janela pós-load é limitada. O Synthetic User Experience Apdex não afirma equivalência integral ao algoritmo proprietário de duração de user action de qualquer APM.
+Classificação de origem:
 
-## 4. KPMs
+| Parâmetro | Origem normativa |
+|---|---|
+| `USER_ACTION_DURATION` | fallback executável compatível com a regra de fallback Dynatrace; não é apresentado como KPM primária Dynatrace |
+| 3 s / 12 s | referência/fallback de Load Action no contrato público Dynatrace usado pelo RASAi |
+| `errors_affect_apdex=true` | alinhamento semântico: erro qualificável pode frustrar uma ação; regras Dynatrace podem ser mais granulares |
+| `first-party` | default conservador RASAi; sem enum Dynatrace equivalente 1:1 |
+| samples/max attempts/max pages/device mix/session/settle/delay/concurrency | defaults operacionais sintéticos RASAi; não devem ser atribuídos ao Dynatrace RUM |
 
-KPMs temporais suportadas para classificação calibrada:
+## 4. KPM Dynatrace e viabilidade técnica
+
+Dynatrace documenta `VISUALLY_COMPLETE` como KPM padrão para Load/XHR em documentação atual. M25 não implementa Dynatrace Visually Complete com equivalência de fornecedor.
+
+KPMs temporais diretamente mensuráveis pelo M25:
 
 - `USER_ACTION_DURATION`;
 - `DOM_INTERACTIVE`;
@@ -74,159 +81,169 @@ KPMs temporais suportadas para classificação calibrada:
 - `RESPONSE_END`;
 - `LARGEST_CONTENTFUL_PAINT`.
 
-Synthetic User Experience Apdex também persiste CLS, mas não o usa como KPM temporal de Apdex.
+CLS pode ser persistido como telemetria, mas não é KPM temporal de Apdex. `VISUALLY_COMPLETE`, `SPEED_INDEX`, `CUMULATIVE_LAYOUT_SHIFT` e métricas sem equivalência suficiente não podem ser substituídas silenciosamente por outra KPM.
 
-Se uma configuração Dynatrace importada usar uma KPM que o Synthetic User Experience Apdex não consegue medir com equivalência suficiente, a execução é recusada. É proibido substituir silenciosamente a KPM por outra.
+### 4.1 Fallback importado
 
-## 5. Thresholds calibrados
-
-Synthetic User Experience Apdex não assume `4T`.
-
-Quando a calibração é manual, são obrigatórios:
-
-- `satisfied_threshold_seconds > 0`;
-- `frustrated_threshold_seconds > satisfied_threshold_seconds`.
-
-Quando a calibração vem do Dynatrace, os thresholds observados são usados conforme a unidade identificada. Payloads legados em milissegundos são convertidos para segundos de forma explícita.
-
-## 6. Política de erros
-
-`errors_affect_apdex=true` permite que uma ação rápida seja `FRUSTRATED` quando houver erro qualificável.
-
-Escopos:
-
-- `navigation`: apenas falha da navegação/documento principal;
-- `first-party`: navegação + JavaScript runtime error + request/HTTP error do mesmo host, tolerando apenas diferença `www.`;
-- `all`: inclui falhas de terceiros observadas durante a ação.
-
-Regras deliberadas:
-
-- timeout e navigation error são `FRUSTRATED` quando o perfil foi aplicado;
-- HTTP >=400 do documento principal é erro de aplicação;
-- JavaScript runtime error pode forçar `FRUSTRATED` conforme policy;
-- `console.error` **não** força `FRUSTRATED` por si só;
-- falha da ferramenta em iniciar/aplicar perfil permanece amostra inválida e fora do denominador.
-
-O escopo `first-party` não inventa registrable-domain/public-suffix equivalence; usa host explícito com normalização conservadora de `www.`.
-
-## 7. Dispositivos
-
-Synthetic User Experience Apdex suporta população explícita:
-
-- `MOBILE`;
-- `DESKTOP`;
-- `TABLET`.
-
-O mix deve somar exatamente 100%. Exemplo:
+Se a configuração Dynatrace solicitar uma KPM não mensurável e fornecer os fallback thresholds de User Action Duration:
 
 ```text
-mobile=62,desktop=31,tablet=7
+requested_kpm = KPM Dynatrace original
+effective_kpm = USER_ACTION_DURATION
+thresholds    = fallback thresholds importados
+source        += RASAI_CAPABILITY_FALLBACK
 ```
 
-O RASAi não inventa percentuais de população. Para comparação com RUM, prefira proporções observadas no período do Dynatrace.
+O relatório deve exibir a ocorrência do fallback.
 
-Perfil Tablet baseline Synthetic User Experience Apdex:
+Se os fallback thresholds necessários não existirem ou forem inválidos, a execução Experience deve falhar de forma fail-open, sem alterar o audit core.
+
+## 5. Envelope de Load Action sintética
+
+Cada amostra observa:
+
+1. início antes da navegação;
+2. Chromium até `load`;
+3. atividade posterior ao load dentro da janela limitada;
+4. XHR/fetch;
+5. recursos tardios;
+6. request failures;
+7. HTTP >= 400;
+8. JavaScript runtime errors;
+9. `console.error` como telemetria;
+10. Navigation Timing;
+11. LCP e CLS quando observáveis;
+12. fim pelo último evento real observado no envelope.
+
+A janela de settle não é acrescentada artificialmente à duração da ação.
+
+## 6. Load, XHR e Custom Action
+
+A importação Dynatrace deve preservar, de forma sanitizada, os contratos disponíveis de:
+
+- Load Action;
+- XHR Action;
+- Custom Action.
+
+A execução M25 atual possui os seguintes limites:
 
 ```text
-profile     = RASAI_TABLET_CONTROLLED4G_V1
-viewport    = 1024x1366
-DSF         = 2
-has_touch   = true
-CPU         = 2x slowdown
-RTT         = 100 ms
-download    = 4096 kbps
-upload      = 2048 kbps
+Load Action    = EXECUTÁVEL
+XHR Action     = XHR/fetch observado dentro do Load; não autônomo
+Custom Action  = NÃO EXECUTÁVEL sem roteiro/clickpath explícito
 ```
 
-O perfil é controlado/reprodutível; não é declarado como distribuição real de tablets.
+Standalone XHR/Custom exigem uma futura camada de scripted journeys que defina a ação, interação, início/fim e correlação dos requests. Não é correto inferir essas ações apenas pela navegação do crawler.
 
-## 8. Cold e warm session
+## 7. Thresholds
 
-`cold`:
+Experience não aplica `4T`. Os thresholds são independentes.
 
-- novo BrowserContext por sample;
-- cache explicitamente desabilitado;
-- cookies/storage não atravessam samples.
+Sem customização/importação:
 
-`warm`:
+```text
+Satisfied <= 3.0 s
+Tolerating > 3.0 s e <= 12.0 s
+Frustrated > 12.0 s
+```
 
-- BrowserContext é reutilizado no mesmo worker/perfil;
-- cache, cookies e storage podem ser reaproveitados;
-- cada sample cria uma nova Page dentro do contexto.
+Overrides CLI/ambiente continuam permitidos, desde que:
 
-A escolha deve aparecer no relatório e na persistência.
+```text
+satisfied > 0
+frustrated > satisfied
+```
 
-## 9. Amostragem
+Na importação, valores em milissegundos são convertidos explicitamente para segundos.
 
-Default Synthetic User Experience Apdex:
+## 8. Política de erros
+
+`errors_affect_apdex=true` permite que uma ação rápida seja `FRUSTRATED` quando há erro qualificável.
+
+Escopos RASAi:
+
+- `navigation`;
+- `first-party`;
+- `all`.
+
+Regras:
+
+- timeout/navigation error => `FRUSTRATED` quando o perfil foi aplicado;
+- HTTP >= 400 do documento principal => application error;
+- JavaScript runtime error pode frustrar conforme policy;
+- request/HTTP errors podem frustrar conforme scope;
+- `console.error` sozinho não força `FRUSTRATED`;
+- falha da ferramenta/perfil fica fora do denominador.
+
+Dynatrace admite regras de erro mais granulares. A importação deve registrar metadados sanitizados dessas regras quando disponíveis, sem reduzir toda a configuração a uma equivalência falsa com `navigation|first-party|all`.
+
+## 9. Dispositivos e perfis
+
+O mix default RASAi é:
+
+```text
+mobile=60,desktop=35,tablet=5
+```
+
+Esse valor **não é um default Dynatrace**. Dynatrace RUM observa a distribuição real. Para comparações com uma aplicação específica, o usuário deve substituir o mix pelos percentuais observados no período de referência, quando conhecidos.
+
+Perfis CPU/rede continuam sintéticos, controlados e versionados. Não representam distribuição real de usuários.
+
+## 10. Cold/warm
+
+`cold` é default RASAi:
+
+- novo BrowserContext por amostra;
+- cache desabilitado;
+- sem cookies/storage entre amostras.
+
+`warm` reutiliza contexto por worker/perfil. Não existe equivalência 1:1 entre esse seletor e população RUM.
+
+## 11. Amostragem e carga
+
+Default:
 
 ```text
 100 amostras válidas totais por página
+max attempts = ceil(1.25 * samples)
 ```
 
-`1000` é suportado, mas não é default.
+Grupos menores são diagnósticos. `1000` é suportado, mas representa carga significativa. Uma amostra é uma navegação com múltiplos subrequests.
 
-As amostras são alocadas exatamente conforme o mix. Exemplo:
+## 12. Importação Dynatrace
 
-```text
-Total = 1000
-Mobile 62%  => 620
-Desktop 31% => 310
-Tablet 7%   => 70
-```
+Modos:
 
-O orçamento de tentativas default é `ceil(1.25 * target_samples)`.
+1. JSON exportado — preferido para reprodutibilidade;
+2. Configuration API — configuração live.
 
-Aumentar N melhora estabilidade estatística do sintético; não transforma o laboratório em RUM.
+A importação deve extrair/persistir apenas dados sanitizados necessários:
 
-Execuções grandes contra produção exigem autorização humana de carga/capacidade.
+- KPM solicitada;
+- KPM efetiva;
+- thresholds primários;
+- fallback thresholds;
+- contrato Load/XHR/Custom quando presente;
+- indicador/política de erros quando observável;
+- resumo de error rules;
+- ocorrência/motivo de fallback.
 
-## 10. CPU/rede e população
+O payload integral não é persistido.
 
-Synthetic User Experience Apdex baseline usa perfis controlados e versionados por device. Isso mantém reprodutibilidade.
+`DYNATRACE_API_TOKEN`:
 
-O mix de dispositivos é populacional; CPU/rede permanecem controlados na baseline Synthetic User Experience Apdex. Nenhuma distribuição de CPU/rede é inventada quando não há fonte observada.
+- somente ambiente;
+- nunca CLI;
+- nunca SQLite;
+- nunca HTML;
+- nunca logs;
+- nunca `configuration` serializada.
 
-Uma futura distribuição estratificada de CPU/rede só poderá ser habilitada com pesos explícitos/proveniência documentada; não é permitido randomizar condições e chamar isso de população real sem fonte.
+Quando a configuração não expõe inequivocamente a policy de erro equivalente, o RASAi usa sua policy efetiva e registra a origem em vez de inventar equivalência.
 
-## 11. Importação Dynatrace
+## 13. CLI e variáveis de ambiente
 
-Há dois modos:
-
-1. **JSON exportado** - preferido para reprodutibilidade/offline;
-2. **Configuration API** - consulta HTTPS da configuração de aplicação.
-
-A importação extrai apenas o necessário para calibração:
-
-- KPM;
-- thresholds;
-- indicador de impacto de erros quando observável;
-- resumo sanitizado de regras de erro.
-
-O payload integral da configuração Dynatrace não é persistido.
-
-Token:
-
-```text
-DYNATRACE_API_TOKEN
-```
-
-Regras obrigatórias:
-
-- token somente por ambiente;
-- nunca em CLI;
-- nunca em SQLite;
-- nunca em report;
-- nunca em logs;
-- nunca em `configuration` serializada.
-
-Quando a configuração não expõe inequivocamente a policy de erro, Synthetic User Experience Apdex usa a policy manual explícita e registra `+MANUAL_ERROR_POLICY` na origem da calibração.
-
-## 12. CLI
-
-Synthetic User Experience Apdex depende de Synthetic Navigation Apdex habilitado.
-
-Principais flags:
+Flags principais:
 
 ```text
 --apdex-experience / --no-apdex-experience
@@ -234,12 +251,12 @@ Principais flags:
 --apdex-experience-max-attempts
 --apdex-experience-max-pages
 --apdex-experience-device-mix
---apdex-experience-session-mode cold|warm
+--apdex-experience-session-mode
 --apdex-experience-kpm
 --apdex-experience-satisfied-seconds
 --apdex-experience-frustrated-seconds
 --apdex-experience-errors / --no-apdex-experience-errors
---apdex-experience-error-scope navigation|first-party|all
+--apdex-experience-error-scope
 --apdex-experience-settle-seconds
 --apdex-experience-delay-seconds
 --apdex-experience-concurrency
@@ -249,11 +266,44 @@ Principais flags:
 --apdex-dynatrace-config-json
 ```
 
-`DYNATRACE_API_TOKEN` não possui flag correspondente.
+Variáveis correspondentes:
 
-## 13. Persistência
+```text
+RASAI_APDEX_EXPERIENCE
+RASAI_APDEX_EXPERIENCE_SAMPLES
+RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS
+RASAI_APDEX_EXPERIENCE_MAX_PAGES
+RASAI_APDEX_EXPERIENCE_DEVICE_MIX
+RASAI_APDEX_EXPERIENCE_SESSION_MODE
+RASAI_APDEX_EXPERIENCE_KPM
+RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS
+RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS
+RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT
+RASAI_APDEX_EXPERIENCE_ERROR_SCOPE
+RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS
+RASAI_APDEX_EXPERIENCE_DELAY_SECONDS
+RASAI_APDEX_EXPERIENCE_CONCURRENCY
+RASAI_APDEX_DYNATRACE_IMPORT
+RASAI_DYNATRACE_BASE_URL
+RASAI_DYNATRACE_APPLICATION_ID
+RASAI_DYNATRACE_CONFIG_JSON
+DYNATRACE_API_TOKEN
+```
 
-Tabelas aditivas:
+## 14. Console interativo
+
+O console é parte do contrato público e deve:
+
+1. permitir configurar todas as variáveis não secretas de Experience;
+2. mostrar o nome das variáveis de ambiente e seus defaults;
+3. diferenciar valores `PADRÃO` e `CUSTOMIZADO`;
+4. identificar valores com origem Dynatrace-compatible e valores apenas operacionais RASAi;
+5. indicar `DYNATRACE IMPORT` quando a calibração é importada;
+6. nunca mostrar/persistir o valor do token Dynatrace.
+
+## 15. Persistência
+
+Tabelas:
 
 ```text
 synthetic_ux_apdex_runs
@@ -261,83 +311,78 @@ synthetic_ux_apdex_samples
 synthetic_ux_apdex_summaries
 ```
 
-Synthetic Navigation Apdex continua em suas próprias tabelas `synthetic_apdex_*`.
+A execução deve persistir configuração efetiva e metadados sanitizados suficientes para o relatório determinar proveniência. Synthetic Navigation Apdex permanece em `synthetic_apdex_*`.
 
-## 14. Reporting
+## 16. Reporting
 
-Quando Synthetic User Experience Apdex executa, gera:
-
-```text
-report/apdex-experience.html
-```
-
-A página deve expor:
+`report/apdex-experience.html` deve expor:
 
 - fronteira Synthetic vs RUM;
-- KPM;
-- thresholds;
+- KPM efetiva;
+- KPM Dynatrace solicitada, quando importada;
+- thresholds efetivos;
+- fallback aplicado, quando houver;
 - policy/escopo de erros;
 - origem da calibração;
-- mix de devices;
-- session mode;
-- população e grupos por device;
+- tabela por parâmetro com `Efetivo`, `Padrão/referência`, `Origem` e observação;
+- marcação `PADRÃO`, `CUSTOMIZADO` ou `DYNATRACE IMPORT`;
+- parâmetros sem equivalente RUM identificados como RASAi;
+- contrato Load/XHR/Custom importado quando disponível;
+- mix, session mode, população e grupos por device;
 - Satisfied/Tolerating/Frustrated;
 - Frustrated forçado por erro;
-- p75/p90/p95/p99;
+- p75/p90/p95/p99 quando disponíveis;
 - contadores XHR/fetch/resources/errors;
-- comparação com Synthetic Navigation Apdex Standard quando houver contexto equivalente;
+- comparação com Synthetic Navigation Apdex quando houver contexto equivalente;
 - referências públicas.
 
-## 15. Fail-open e scoring
+## 17. Fail-open e scoring
 
-Falha Synthetic User Experience Apdex:
+Falha do Experience:
 
 - não altera `SARI-001`;
-- não altera `SARI-001`;
-- não cria finding;
+- não altera SCORE-GEO-004;
+- não cria finding GEO;
 - não muda Coverage/Confidence;
 - não invalida Synthetic Navigation Apdex;
-- é registrada como limitação operacional.
+- deve ser registrada como limitação operacional.
 
-## 16. Comparabilidade com Dynatrace RUM
+## 18. Comparabilidade com Dynatrace RUM
 
-Uma comparação é metodologicamente mais útil quando estiverem alinhados:
+Para interpretar delta:
 
-1. URL/user action;
-2. KPM;
-3. thresholds;
+1. mesma URL/ação;
+2. KPM solicitada e efetiva;
+3. thresholds e fallback;
 4. error policy;
-5. período de referência;
+5. período;
 6. device mix;
-7. origem e escopo dos erros.
+7. sessão/cache;
+8. condições CPU/rede/geografia.
 
-Mesmo com alinhamento, igualdade numérica não é esperada porque Dynatrace RUM mede usuários reais, redes, devices, sessões e condições operacionais reais.
+Mesmo alinhando o que é controlável, igualdade numérica não é esperada porque RUM observa usuários reais e M25 é laboratório sintético.
 
-O delta entre Synthetic User Experience Apdex calibrado e RUM deve ser tratado como evidência, não como defeito automático.
+## 19. Gate de validação
 
-## 17. Gate de smoke humano
+Antes de integrar mudanças neste domínio:
 
-Antes do merge:
-
-1. executar 1 URL autorizada;
-2. Synthetic Navigation Apdex Standard ON com T explícito;
-3. Synthetic User Experience Apdex ON;
-4. usar inicialmente 6-12 amostras, não 1000;
-5. concorrência 1;
+1. testar resolução default `USER_ACTION_DURATION`, 3 s / 12 s;
+2. testar overrides CLI/ambiente;
+3. testar importação com KPM suportada;
+4. testar `VISUALLY_COMPLETE` + fallback thresholds;
+5. testar unsupported KPM sem fallback => fail-open;
 6. confirmar `apdex.html` inalterado;
-7. confirmar `apdex-experience.html`;
-8. inspecionar Mobile/Desktop/Tablet/Population;
-9. confirmar erro conhecido como `Frustrated` quando policy=ON;
-10. confirmar ausência de token em SQLite/report/log;
-11. repetir com calibração Dynatrace manual ou importada;
-12. somente depois autorizar grupo grande (100/1000) contra ambiente real.
+7. confirmar tabela de proveniência em `apdex-experience.html`;
+8. confirmar console com todas as variáveis/defaults;
+9. confirmar ausência do token em artefatos;
+10. executar suíte automatizada antes do merge.
 
-## 18. Referências públicas
+## 20. Referências públicas
 
-- Apdex Technical Specification v1.1 - https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf
-- Dynatrace - User actions in RUM Classic - https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-actions
-- Dynatrace - Apdex ratings - https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/scores-and-ratings/apdex-ratings
-- Dynatrace - Web application configuration API - https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration
-- Chrome DevTools Protocol - Network - https://chromedevtools.github.io/devtools-protocol/tot/Network/
-- Chrome DevTools Protocol - Emulation - https://chromedevtools.github.io/devtools-protocol/tot/Emulation/
-- W3C Performance Timeline - https://www.w3.org/TR/performance-timeline/
+- Apdex Technical Specification v1.1 — `https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf`
+- Dynatrace — Apdex configuration for load actions — `https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions`
+- Dynatrace — Work with key performance metrics — `https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/analyze-and-use/work-with-key-performance-metrics`
+- Dynatrace — Apdex ratings — `https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/scores-and-ratings/apdex-ratings`
+- Dynatrace — Web application configuration API — `https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application`
+- Chrome DevTools Protocol — Network / Emulation
+- W3C Performance Timeline
