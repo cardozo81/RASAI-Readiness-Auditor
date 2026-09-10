@@ -6,7 +6,7 @@
 
 Competitive Search Intelligence responde à seguinte pergunta:
 
-> Para uma query observada, quais tipos de resultado aparecem à frente do cliente, quais são candidatos razoáveis a concorrentes em Search, quais diferenças determinísticas de conteúdo são observáveis e — quando solicitado explicitamente — quais oportunidades de melhoria vinculadas a evidências um provider de IA pode propor?
+> Para uma query observada, quais tipos de resultado aparecem à frente do cliente, quais são candidatos razoáveis a concorrentes em Search, quais diferenças determinísticas de conteúdo são observáveis e - quando solicitado explicitamente - quais oportunidades de melhoria vinculadas a evidências um provider de IA pode propor?
 
 A camada determinística permanece autoritativa para as observações. IA é downstream e opcional.
 
@@ -131,7 +131,7 @@ O RASAi extrai features limitadas:
 - SHA-256 do conteúdo;
 - título;
 - meta description;
-- H1–H3;
+- H1-H3;
 - contagem aproximada de palavras do texto visível;
 - termos significativos da query;
 - presença dos termos da query em título, descrição, headings e corpo;
