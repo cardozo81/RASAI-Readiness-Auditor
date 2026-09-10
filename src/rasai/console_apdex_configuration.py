@@ -6,8 +6,40 @@ from pathlib import Path
 
 from rasai.console_m23 import State, config_from_state, experience_from_state, synthetic_load_summary
 from rasai.console_ui import DIM, YELLOW, paint
-from rasai.m25_cli import DEFAULT_UX_DEVICE_MIX, parse_device_mix
+from rasai.m25_cli import (
+    DEFAULT_UX_CONCURRENCY,
+    DEFAULT_UX_DELAY_SECONDS,
+    DEFAULT_UX_DEVICE_MIX,
+    DEFAULT_UX_ERROR_SCOPE,
+    DEFAULT_UX_FRUSTRATED_SECONDS,
+    DEFAULT_UX_KPM,
+    DEFAULT_UX_MAX_PAGES,
+    DEFAULT_UX_SAMPLES,
+    DEFAULT_UX_SATISFIED_SECONDS,
+    DEFAULT_UX_SESSION_MODE,
+    DEFAULT_UX_SETTLE_SECONDS,
+    DYNATRACE_APPLICATION_ID_ENV,
+    DYNATRACE_BASE_URL_ENV,
+    DYNATRACE_CONFIG_JSON_ENV,
+    DYNATRACE_IMPORT_ENV,
+    UX_CONCURRENCY_ENV,
+    UX_DELAY_ENV,
+    UX_DEVICE_MIX_ENV,
+    UX_ENABLED_ENV,
+    UX_ERRORS_ENV,
+    UX_ERROR_SCOPE_ENV,
+    UX_FRUSTRATED_ENV,
+    UX_KPM_ENV,
+    UX_MAX_ATTEMPTS_ENV,
+    UX_MAX_PAGES_ENV,
+    UX_SAMPLES_ENV,
+    UX_SATISFIED_ENV,
+    UX_SESSION_MODE_ENV,
+    UX_SETTLE_ENV,
+    parse_device_mix,
+)
 from rasai.m25_dynatrace import SUPPORTED_TIME_KPMS
+from rasai.m25_dynatrace_defaults import DYNATRACE_LOAD_PRIMARY_KPM
 
 
 def _number(
@@ -57,6 +89,7 @@ def _device_mix(current: str) -> str:
     tablet = float(parsed.get("TABLET", 0.0))
     print(paint("  Distribuição da população sintética por dispositivo. A soma deve ser exatamente 100%.", DIM))
     print(paint("  O percentual distribui user actions/amostras; não representa a quantidade bruta de subrequests HTTP da página.", DIM))
+    print(paint("  Não há device mix default no Dynatrace RUM; este é um default operacional do RASAi.", DIM))
     mobile = float(_number("Mobile %", mobile, minimum=0.0))
     desktop = float(_number("Desktop %", desktop, minimum=0.0))
     tablet = float(_number("Tablet %", tablet, minimum=0.0))
@@ -77,6 +110,64 @@ def _required_positive(prompt: str, current: float | None) -> float:
     if not math.isfinite(value) or value <= 0:
         raise ValueError(f"{prompt} deve ser número > 0")
     return value
+
+
+def _origin(value: object, default: object) -> str:
+    return "PADRÃO" if value == default else "CUSTOMIZADO"
+
+
+def _show_experience_defaults() -> None:
+    print(paint("\n  Defaults e variáveis do Synthetic User Experience Apdex:", DIM))
+    rows = (
+        (UX_ENABLED_ENV, "false", "RASAi"),
+        (UX_SAMPLES_ENV, DEFAULT_UX_SAMPLES, "RASAi"),
+        (UX_MAX_ATTEMPTS_ENV, "ceil(1.25 × samples)", "RASAi derivado"),
+        (UX_MAX_PAGES_ENV, DEFAULT_UX_MAX_PAGES, "RASAi"),
+        (UX_DEVICE_MIX_ENV, DEFAULT_UX_DEVICE_MIX, "RASAi; sem equivalente Dynatrace RUM"),
+        (UX_SESSION_MODE_ENV, DEFAULT_UX_SESSION_MODE, "RASAi; sem equivalente RUM"),
+        (UX_KPM_ENV, DEFAULT_UX_KPM, f"fallback compatível; Dynatrace Load prefere {DYNATRACE_LOAD_PRIMARY_KPM}"),
+        (UX_SATISFIED_ENV, f"{DEFAULT_UX_SATISFIED_SECONDS:g}s", "Dynatrace Load fallback/reference"),
+        (UX_FRUSTRATED_ENV, f"{DEFAULT_UX_FRUSTRATED_SECONDS:g}s", "Dynatrace Load fallback/reference"),
+        (UX_ERRORS_ENV, "true", "alinhado à semântica Dynatrace de erros frustrantes"),
+        (UX_ERROR_SCOPE_ENV, DEFAULT_UX_ERROR_SCOPE, "RASAi conservador; Dynatrace usa regras por erro"),
+        (UX_SETTLE_ENV, f"{DEFAULT_UX_SETTLE_SECONDS:g}s", "RASAi"),
+        (UX_DELAY_ENV, f"{DEFAULT_UX_DELAY_SECONDS:g}s", "RASAi"),
+        (UX_CONCURRENCY_ENV, DEFAULT_UX_CONCURRENCY, "RASAi"),
+        (DYNATRACE_IMPORT_ENV, "false", "RASAi"),
+        (DYNATRACE_BASE_URL_ENV, "vazio", "somente importação live"),
+        (DYNATRACE_APPLICATION_ID_ENV, "vazio", "somente importação live"),
+        (DYNATRACE_CONFIG_JSON_ENV, "vazio", "importação offline/reproduzível"),
+    )
+    for name, default, source in rows:
+        print(paint(f"    {name} = {default}  [{source}]", DIM))
+    print(paint("    DYNATRACE_API_TOKEN = secret de ambiente; nunca persistido no INI/report.", DIM))
+
+
+def _show_effective_experience(state: State) -> None:
+    derived_attempts = max(
+        state.apdex_experience_samples,
+        int(math.ceil(state.apdex_experience_samples * 1.25)),
+    )
+    values = (
+        ("Amostras", state.apdex_experience_samples, DEFAULT_UX_SAMPLES),
+        ("Máx. tentativas", state.apdex_experience_max_attempts, derived_attempts),
+        ("Máx. páginas", state.apdex_experience_max_pages, DEFAULT_UX_MAX_PAGES),
+        ("Device mix", state.apdex_experience_device_mix, DEFAULT_UX_DEVICE_MIX),
+        ("Sessão", state.apdex_experience_session_mode, DEFAULT_UX_SESSION_MODE),
+        ("KPM executável", state.apdex_experience_kpm, DEFAULT_UX_KPM),
+        ("Satisfied", state.apdex_experience_satisfied, DEFAULT_UX_SATISFIED_SECONDS),
+        ("Frustrated", state.apdex_experience_frustrated, DEFAULT_UX_FRUSTRATED_SECONDS),
+        ("Erros afetam", state.apdex_experience_errors, True),
+        ("Escopo erro", state.apdex_experience_error_scope, DEFAULT_UX_ERROR_SCOPE),
+        ("Settle", state.apdex_experience_settle, DEFAULT_UX_SETTLE_SECONDS),
+        ("Delay", state.apdex_experience_delay, DEFAULT_UX_DELAY_SECONDS),
+        ("Concorrência", state.apdex_experience_concurrency, DEFAULT_UX_CONCURRENCY),
+    )
+    print(paint("\n  Configuração efetiva:", DIM))
+    for label, value, default in values:
+        print(paint(f"    {label}: {value} [{_origin(value, default)}]", DIM))
+    if state.apdex_dynatrace_import:
+        print(paint("    Calibração: IMPORTADA DO DYNATRACE (sobrepõe KPM/thresholds quando suportados; fallback explícito quando necessário)", DIM))
 
 
 def _configure_navigation(state: State) -> None:
@@ -126,13 +217,20 @@ def _configure_navigation(state: State) -> None:
 
 def _configure_experience(state: State) -> None:
     print("\nSynthetic User Experience Apdex")
-    print("Gera apdex-experience.html quando habilitado e executado. Usa população Mobile/Desktop/Tablet configurável.\n")
+    print("Gera apdex-experience.html quando habilitado e executado. Usa população Mobile/Desktop/Tablet configurável.")
+    print("O baseline usa thresholds Dynatrace Load 3s/12s com USER_ACTION_DURATION como fallback executável; VISUALLY_COMPLETE não é falsamente emulado.\n")
+    _show_experience_defaults()
     enabled = _yes_no("Habilitar Synthetic User Experience Apdex", state.apdex_experience)
     state.apdex_experience = enabled
     if not enabled:
         return
     if not state.synthetic_apdex:
         raise ValueError("Synthetic User Experience Apdex exige Synthetic Navigation Apdex habilitado")
+
+    if state.apdex_experience_satisfied is None:
+        state.apdex_experience_satisfied = DEFAULT_UX_SATISFIED_SECONDS
+    if state.apdex_experience_frustrated is None:
+        state.apdex_experience_frustrated = DEFAULT_UX_FRUSTRATED_SECONDS
 
     state.apdex_experience_samples = int(_number(
         "Amostras válidas totais por página", state.apdex_experience_samples, minimum=1, integer=True,
@@ -158,7 +256,7 @@ def _configure_experience(state: State) -> None:
         "Modo de sessão", state.apdex_experience_session_mode, ("cold", "warm")
     )
     state.apdex_experience_kpm = _choice(
-        "KPM temporal", state.apdex_experience_kpm, tuple(sorted(SUPPORTED_TIME_KPMS))
+        "KPM temporal executável", state.apdex_experience_kpm, tuple(sorted(SUPPORTED_TIME_KPMS))
     )
     state.apdex_experience_errors = _yes_no(
         "Erros qualificáveis forçam Frustrated", state.apdex_experience_errors
@@ -208,15 +306,18 @@ def _configure_experience(state: State) -> None:
         state.dynatrace_base_url = ""
         state.dynatrace_application_id = ""
         state.apdex_experience_satisfied = _required_positive(
-            "Threshold Satisfied em segundos", state.apdex_experience_satisfied
+            f"Threshold Satisfied em segundos (default Dynatrace-compatible {DEFAULT_UX_SATISFIED_SECONDS:g}s)",
+            state.apdex_experience_satisfied,
         )
         state.apdex_experience_frustrated = _required_positive(
-            "Threshold Frustrated em segundos", state.apdex_experience_frustrated
+            f"Threshold Frustrated em segundos (default Dynatrace-compatible {DEFAULT_UX_FRUSTRATED_SECONDS:g}s)",
+            state.apdex_experience_frustrated,
         )
         if state.apdex_experience_frustrated <= state.apdex_experience_satisfied:
             raise ValueError("Threshold Frustrated deve ser maior que o threshold Satisfied")
 
     experience_from_state(state)
+    _show_effective_experience(state)
 
 
 def configure_apdex(state: State) -> None:
