@@ -2,7 +2,7 @@
 
 ## 1. Objetivo
 
-A auditoria multi-URL com evidência visual evolui a cadeia persistida de auditoria — score, finding e remediação — para uma estrutura rastreável capaz de responder, a partir da evidência persistida: qual domínio e página foram auditados, qual snapshot Desktop/Mobile foi usado, qual elemento DOM foi observado quando determinável, qual evidência visual existe, qual ação é justificável, como a correção deve ser validada e qual autoridade técnica ou heurística interna sustenta a recomendação.
+A auditoria multi-URL com evidência visual evolui a cadeia persistida de auditoria - score, finding e remediação - para uma estrutura rastreável capaz de responder, a partir da evidência persistida: qual domínio e página foram auditados, qual snapshot Desktop/Mobile foi usado, qual elemento DOM foi observado quando determinável, qual evidência visual existe, qual ação é justificável, como a correção deve ser validada e qual autoridade técnica ou heurística interna sustenta a recomendação.
 
 O relatório permanece uma projeção. O estado persistido da auditoria é a fonte de verdade.
 
@@ -204,7 +204,7 @@ Referência interna: BR-GEO-XXX
 
 O auditor nunca pode fabricar autoridade externa.
 
-Quando um trecho externo em idioma diferente de pt-BR precisar ser reproduzido na documentação, deve seguir a convenção de `docs/README.md`: **Disclaimer — texto original da fonte** seguido de **Tradução/adaptação pt-BR**. O trecho original deve ser limitado ao necessário para a referência; o RASAi não deve copiar integralmente uma obra externa apenas para documentar uma regra.
+Quando um trecho externo em idioma diferente de pt-BR precisar ser reproduzido na documentação, deve seguir a convenção de `docs/README.md`: **Disclaimer - texto original da fonte** seguido de **Tradução/adaptação pt-BR**. O trecho original deve ser limitado ao necessário para a referência; o RASAi não deve copiar integralmente uma obra externa apenas para documentar uma regra.
 
 Links oficiais do catálogo de referências desta capacidade foram verificados na data registrada pelo respectivo contrato de referência persistido. Datas fixas de verificação não devem ser tratadas como garantia permanente de disponibilidade externa.
 
@@ -214,7 +214,7 @@ O relatório de política de crawlers deve manter `OAI-SearchBot` e `GPTBot` sep
 
 Nenhuma recomendação de negócio pode afirmar que permitir qualquer desses crawlers garante indexação, ranking, citação ou inclusão em respostas geradas.
 
-## 12. Contrato de relatório — `REPORT-GEO-003`
+## 12. Contrato de relatório - `REPORT-GEO-003`
 
 O relatório deve conter visivelmente:
 
