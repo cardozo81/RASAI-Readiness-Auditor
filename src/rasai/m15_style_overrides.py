@@ -1,8 +1,8 @@
-"""Final M15 layout overrides for the legacy six-cell Score row."""
+"""Final M15 layout overrides for the six-cell Score row."""
 
 SCORE_LAYOUT_CSS = r"""
-/* M15 score grid: legacy row has dimension, score, classification, coverage,
-   confidence and consolidation. Keep short status tokens readable. */
+/* Score grid: dimension, score, classification, coverage, confidence and
+   consolidation. Keep short status tokens readable. */
 .score-row{
   grid-template-columns:minmax(210px,1.45fr) minmax(150px,.72fr) minmax(125px,.72fr) minmax(86px,.48fr) minmax(125px,.68fr) minmax(145px,.78fr)!important;
   gap:10px!important;
