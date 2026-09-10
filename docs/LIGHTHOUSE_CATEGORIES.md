@@ -11,16 +11,17 @@ performance
 accessibility
 best-practices
 seo
+agentic-browsing
 ```
 
 A configuração equivalente é:
 
 ```text
---lighthouse-categories performance,accessibility,best-practices,seo
-RASAI_LIGHTHOUSE_CATEGORIES=performance,accessibility,best-practices,seo
+--lighthouse-categories performance,accessibility,best-practices,seo,agentic-browsing
+RASAI_LIGHTHOUSE_CATEGORIES=performance,accessibility,best-practices,seo,agentic-browsing
 ```
 
-As quatro categorias são solicitadas na mesma chamada PageSpeed por contexto. Isso não cria uma chamada adicional por categoria.
+As cinco categorias são solicitadas na mesma chamada PageSpeed por contexto. Isso não cria uma chamada adicional por categoria.
 
 ## Proveniência
 
@@ -30,28 +31,31 @@ As quatro categorias são solicitadas na mesma chamada PageSpeed por contexto. I
 | Accessibility | Google Chrome Lighthouse via PageSpeed Insights | métrica externa complementar; não equivale a certificação WCAG |
 | Best Practices | Google Chrome Lighthouse via PageSpeed Insights | métrica externa complementar |
 | SEO | Google Chrome Lighthouse via PageSpeed Insights | SEO técnico automatizável; não equivale a SEO total ou ranking |
-| Agentic Browsing | Google Chrome Lighthouse, fonte separada/futura | métrica externa experimental e complementar quando houver fonte compatível |
+| Agentic Browsing | Google Chrome Lighthouse via PageSpeed Insights | categoria experimental complementar; composição pode mudar entre versões |
 
 O RASAi persiste os category scores recebidos em escala 0-100 e pode projetar os audit-level diagnostics disponíveis no artifact. Ele não recalcula a metodologia Lighthouse.
 
 ## Agentic Browsing
 
-`agentic-browsing` não é enviado pelo adapter PageSpeed vigente. Por isso o RASAi:
+A API PageSpeed Insights v5 expõe atualmente `AGENTIC_BROWSING` entre os valores aceitos para `category`. O RASAi usa o identificador HTTP normalizado `agentic-browsing` e mantém o sinal estritamente fora do SARI/SCORE-GEO-004.
 
-- não inclui a categoria no default nem na lista aceita do transporte PageSpeed;
-- mantém `agentic_browsing_score` como campo de compatibilidade/evolução para uma fonte Lighthouse direta separada;
-- identifica explicitamente a natureza experimental quando a métrica existir;
-- disponibiliza o sinal para Monitoring/compare somente quando houver dado persistido por uma fonte compatível;
-- não converte esse score automaticamente em SARI-001 ou SCORE-GEO-004;
-- trata ausência do score como indisponibilidade de evidência, nunca como score zero ou falha do website.
+Como a categoria continua experimental no Lighthouse:
 
-Referência primária do código Lighthouse para a configuração experimental:
+- sua composição deve ser tratada como sujeita a mudança entre versões;
+- ausência da categoria na resposta não é convertida em score zero ou falha do website;
+- Performance, Accessibility, Best Practices e SEO válidos da mesma coleta permanecem utilizáveis;
+- Monitoring/compare só usa o sinal quando houver valor persistido e contexto comparável;
+- o score não é convertido automaticamente em `SARI-001` ou `SCORE-GEO-004`.
 
-https://github.com/GoogleChrome/lighthouse/blob/main/core/config/agentic-browsing-config.js
+Referências primárias:
+
+- PageSpeed Insights API v5 / `runpagespeed`: <https://developers.google.com/speed/docs/insights/v5/reference/pagespeedapi/runpagespeed>
+- cliente Google API para PageSpeed v5, enum `AGENTIC_BROWSING`: <https://googleapis.github.io/google-api-python-client/docs/dyn/pagespeedonline_v5.pagespeedapi.html>
+- configuração Agentic no Lighthouse: <https://github.com/GoogleChrome/lighthouse/blob/main/core/config/agentic-browsing-config.js>
 
 ## Persistência
 
-`web_performance_observations` mantém `agentic_browsing_score` como campo separado por compatibilidade. Na execução atual via PageSpeed, o valor permanece indisponível/`NULL`; isso não invalida Performance, Accessibility, Best Practices ou SEO válidos da mesma execução.
+`web_performance_observations` mantém `agentic_browsing_score` separado. O valor é persistido quando a resposta PageSpeed/Lighthouse o fornece. Se a categoria estiver ausente na resposta, permanece indisponível/`NULL`; isso não invalida outras categorias válidas da mesma execução.
 
 A categoria Agentic Browsing não altera `SARI-001` nem `SCORE-GEO-004`.
 
