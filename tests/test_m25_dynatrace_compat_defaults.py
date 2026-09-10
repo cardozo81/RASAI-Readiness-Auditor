@@ -3,12 +3,15 @@ from __future__ import annotations
 import argparse
 import unittest
 
+from rasai.console_environment import SPEC_BY_NAME
 from rasai.m25_cli import (
     DEFAULT_UX_ERROR_SCOPE,
     DEFAULT_UX_FRUSTRATED_SECONDS,
     DEFAULT_UX_KPM,
     DEFAULT_UX_SATISFIED_SECONDS,
     UX_ENABLED_ENV,
+    UX_FRUSTRATED_ENV,
+    UX_SATISFIED_ENV,
     configured_experience,
     register_experience_arguments,
 )
@@ -34,6 +37,17 @@ class M25DynatraceCompatibilityDefaultsTests(unittest.TestCase):
         self.assertTrue(cfg.errors_affect_apdex)
         self.assertEqual(cfg.error_scope, DEFAULT_UX_ERROR_SCOPE)
         self.assertEqual(cfg.error_scope, "first-party")
+
+    def test_console_catalog_matches_runtime_threshold_defaults(self) -> None:
+        satisfied = SPEC_BY_NAME[UX_SATISFIED_ENV]
+        frustrated = SPEC_BY_NAME[UX_FRUSTRATED_ENV]
+
+        self.assertEqual(satisfied.default, f"{DEFAULT_UX_SATISFIED_SECONDS:g}")
+        self.assertEqual(frustrated.default, f"{DEFAULT_UX_FRUSTRATED_SECONDS:g}")
+        self.assertNotIn("Sem default universal seguro", satisfied.notes)
+        self.assertNotIn("Sem default universal seguro", frustrated.notes)
+        self.assertIn("PADRÃO", satisfied.notes)
+        self.assertIn("PADRÃO", frustrated.notes)
 
     def test_user_can_override_default_thresholds_and_kpm(self) -> None:
         cfg = configured_experience(
