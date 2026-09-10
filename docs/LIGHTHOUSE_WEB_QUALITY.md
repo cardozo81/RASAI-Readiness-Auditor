@@ -261,7 +261,8 @@ Para categoria ausente/inválida:
 - o score interpretável permanece ausente/`NULL`;
 - ausência não vira zero;
 - categorias válidas do mesmo contexto podem ser preservadas;
-- o contexto pode ficar `PARTIAL`;
+- o contexto pode ficar `PARTIAL` quando a ausência afeta uma categoria estável requerida;
+- a ausência isolada de Agentic Browsing experimental não invalida as categorias estáveis obtidas;
 - o artifact bruto permanece disponível para auditoria.
 
 Consulte também `EXTERNAL_METRICS_INTEGRITY.md`.
@@ -306,9 +307,9 @@ SARI-001 / SCORE-GEO-004
 
 Não existe conversão automática entre esses domínios.
 
-## Persistência e compatibilidade
+## Persistência
 
-`web_performance_observations` persiste as cinco colunas de score, incluindo `agentic_browsing_score`. Workspaces históricos podem não possuir esse campo; a persistência aditiva e o reporting devem manter compatibilidade e tratar valor ausente como indisponível.
+`web_performance_observations` persiste as cinco colunas de score, incluindo `agentic_browsing_score`. Valor ausente permanece `NULL` e é tratado como evidência não materializada.
 
 Nenhuma chamada externa adicional por categoria é necessária quando Performance, Accessibility, Best Practices, SEO e Agentic Browsing fazem parte da mesma execução PageSpeed/Lighthouse configurada.
 
