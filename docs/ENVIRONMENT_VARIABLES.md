@@ -1,16 +1,16 @@
 # Variáveis de ambiente - referência completa
 
-Referência operacional da superfície de variáveis reconhecida pelo console do RASAi - Search & AI Readiness Auditor.
+Referência operacional da superfície de variáveis reconhecida pelo RASAi - Search & AI Readiness Auditor.
 
-Verificação documental: **2026-09-07**. Para credenciais, endpoints externos e conceitos de qualidade de conteúdo, os procedimentos e definições abaixo foram conferidos contra documentação pública oficial dos respectivos provedores e do Google Search Central.
+Verificação documental: **2026-09-10**.
 
-## Como usar esta configuração
+## Regra de uso
 
-Variáveis de ambiente são uma camada de **override avançado**, não uma lista de campos que o usuário precisa preencher antes da primeira auditoria. Quando existe um default seguro, o RASAi já o aplica internamente e o console passa a mostrar esse **default efetivo** mesmo que a variável não exista no sistema operacional.
+Variáveis de ambiente são uma camada de override avançado. Quando existe default seguro, o runtime o aplica sem exigir que a variável seja materializada no sistema operacional.
 
-Não materialize todos os defaults no ambiente sem necessidade. Isso criaria configuração redundante e pode mudar sem querer a semântica de parâmetros opcionais. Exemplo: `RASAI_CONFIG` não precisa existir; sem override, `rasai.toml` é opcional. Se `RASAI_CONFIG` for definido, o arquivo apontado precisa existir.
+Não grave secrets em `rasai-console.ini`, arquivos de URL, artifacts, HTML, `audit.db`, `observability.db` ou logs. O console deve mostrar secrets apenas como `[SET]` e pode indicar a origem do valor sem revelar seu conteúdo.
 
-O menu `E. Variáveis de ambiente / credenciais` é organizado por fronteira funcional:
+Categorias do menu de ambiente:
 
 ```text
 1. Aplicação e execução
@@ -20,415 +20,272 @@ O menu `E. Variáveis de ambiente / credenciais` é organizado por fronteira fun
 5. IA - contexto editorial / YMYL
 6. Web Performance / Google APIs
 7. Synthetic Apdex
-8. Browser / Playwright
-A. Todas as variáveis
-D. Abrir documentação detalhada
-V. Voltar
+8. Search Intelligence / Observability
+9. Control plane / SaaS
+10. Web API / Identity
+11. Remote control plane
+12. Browser / Playwright
 ```
-
-Ao selecionar uma variável, o console mostra: finalidade, tipo, domínio aceito, default efetivo, dependências, sensibilidade, custo/impacto, valor/origem atual, exemplo e referência para obtenção do dado. Valores de enum e booleanos são escolhidos por menu, evitando digitação livre desnecessária.
-
-## Segurança e persistência de credenciais
-
-- API keys, OAuth bearer tokens e demais secrets aparecem apenas como `[SET]`; o valor nunca é exibido em claro.
-- Secrets nunca são gravados em `rasai-console.ini`.
-- `S. Setar/alterar sessão` altera o valor usado pelo processo atual.
-- No Windows, `P. Persistência Windows/User` permite persistir ou remover explicitamente a credencial no ambiente **User**; a gravação exige confirmação `SIM`.
-- O console informa a origem do valor efetivamente usado, por exemplo `SESSÃO`, `SO:USER`, `SO:MACHINE` ou combinação equivalente, sem revelar o segredo.
-- A sessão atual prevalece durante a execução atual; valores persistidos no Windows são herdados normalmente por novos processos.
-- Variável de ambiente não é um cofre de segredos. Em ambientes corporativos, use o secret manager adotado pela organização quando necessário.
-- Chave/token configurado não prova saldo, quota, plano compatível, escopo OAuth ou permissão sobre o recurso externo.
 
 ## 1. Aplicação e execução
 
-| Variável | Para que serve | Tipo / valores | Default efetivo | Quando definir | Impacto |
-|---|---|---|---|---|---|
-| `RASAI_CONFIG` | força um TOML geral, usado principalmente para logging | caminho de arquivo existente | `rasai.toml` é opcional quando não há override | somente para apontar um TOML específico | sem custo; override inválido bloqueia a configuração |
-| `RASAI_LOG_LEVEL` | verbosidade do log | `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG` | `INFO` | para alterar detalhamento | `DEBUG` aumenta volume de log local |
-| `RASAI_DEVICE_CONTEXT` | dispositivo default | `mobile`, `desktop`, `both` | `mobile` | quando não quiser configurar pela CLI/menu principal | `both` multiplica contextos e pode aumentar tempo/chamadas externas |
-| `RASAI_AI_TIMEOUT_SECONDS` | timeout por tentativa de IA | número finito `>0` em segundos | `180` | override de timeout | não cria chamadas; timeout local não garante ausência de processamento/faturamento externo |
-| `RASAI_AI_CONTENT_REMEDIATION` | default da remediação textual por IA | `true`, `false` | `false` | para habilitar por ambiente | `true` pode gerar chamadas adicionais de IA |
+| Variável | Tipo / valores | Default efetivo | Finalidade |
+|---|---|---|---|
+| `RASAI_CONFIG` | caminho de arquivo existente | nenhum override obrigatório | aponta para TOML geral quando necessário |
+| `RASAI_CONSOLE_MODE` | `local`, `remote` | `local` | seleciona console local ou cliente do control plane remoto |
+| `RASAI_LOG_LEVEL` | `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG` | `INFO` | verbosidade do log |
+| `RASAI_DEVICE_CONTEXT` | `mobile`, `desktop`, `both` | `mobile` | contexto de dispositivo |
+| `RASAI_AI_TIMEOUT_SECONDS` | número finito `>0` | `180` | timeout por tentativa de IA |
+| `RASAI_AI_CONTENT_REMEDIATION` | booleano | `false` | habilita remediação textual por IA |
+| `RASAI_AI_TECHNICAL_REMEDIATION` | booleano | `false` | habilita remediação técnica evidence-bound de crawling/discovery |
 
-### `RASAI_CONFIG`
-
-Exemplo:
-
-```powershell
-$env:RASAI_CONFIG = "C:\rasai\rasai.toml"
-```
-
-Defina somente se o arquivo já existir. Para o uso normal do console, deixe a variável ausente e use `rasai-console.ini` para os parâmetros persistíveis.
+`RASAI_CONSOLE_MODE=remote` não cria outro audit engine. O console remoto atua como cliente HTTP do control plane.
 
 ## 2. IA - credenciais
 
-As credenciais não possuem default.
+Nenhuma credencial possui default.
 
-| Variável | Provider | Obrigatória quando | Observação |
-|---|---|---|---|
-| `OPENAI_API_KEY` | OpenAI | provider `openai`; em `auto`, torna OpenAI elegível | uso da API é separado do produto ChatGPT |
-| `DEEPSEEK_API_KEY` | DeepSeek | provider `deepseek`; em `auto`, torna DeepSeek elegível | erro HTTP 402 pode indicar saldo insuficiente |
-| `MIMO_API_KEY` | Xiaomi MiMo | provider `mimo`; em `auto`, torna MiMo elegível | adapter atual aceita PAYG `sk-...`; Token Plan `tp-...` é produto/endpoint diferente |
-| `XAI_API_KEY` | xAI / Grok | provider `xai` ou alias `grok` | explicit-only no RASAi atual |
-| `DASHSCOPE_API_KEY` | Alibaba Qwen | provider `qwen` | explicit-only; região/endpoint precisam ser compatíveis com a chave |
-| `GEMINI_API_KEY` | Google Gemini | provider `gemini` | use auth key atual do Gemini API |
-| `ANTHROPIC_API_KEY` | Anthropic Claude | provider `anthropic` ou alias `claude` | Console/API possui billing separado do produto de chat |
+| Variável | Provider / finalidade |
+|---|---|
+| `OPENAI_API_KEY` | OpenAI |
+| `DEEPSEEK_API_KEY` | DeepSeek |
+| `MIMO_API_KEY` | Xiaomi MiMo; o adapter usa chave PAYG compatível |
+| `XAI_API_KEY` | xAI / Grok |
+| `DASHSCOPE_API_KEY` | Alibaba Qwen |
+| `GEMINI_API_KEY` | Google Gemini |
+| `ANTHROPIC_API_KEY` | Anthropic Claude |
+| `DYNATRACE_API_TOKEN` | importação live de configuração Dynatrace para Synthetic User Experience Apdex |
+| `RASAI_PAGESPEED_API_KEY` | PageSpeed Insights API |
+| `RASAI_CRUX_API_KEY` | Chrome UX Report API |
+| `RASAI_SERPAPI_API_KEY` | SerpApi para Search Intelligence live |
+| `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` | bearer OAuth do Google Search Console |
+| `RASAI_PLATFORM_DATABASE_URL` | DSN PostgreSQL do control plane; pode conter credenciais e é tratado como secret |
+| `RASAI_OIDC_SESSION_SECRET` | segredo HMAC da sessão Web/OIDC |
 
-### Como obter `OPENAI_API_KEY`
+Referências de obtenção/configuração:
 
-Fontes oficiais: <https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key> e <https://platform.openai.com/api-keys>.
-
-1. Entre na OpenAI Platform.
-2. Selecione o projeto que deverá concentrar acesso, limites e billing do RASAi.
-3. Abra **API Keys**.
-4. Selecione **Create new secret key**.
-5. Configure as permissões compatíveis com a chamada ao modelo/endpoint que será usado.
-6. Copie o segredo no momento da criação; a chave completa não é mostrada novamente depois.
-7. Confirme créditos/billing, limites e acesso ao modelo no mesmo projeto.
-8. No RASAi: `E > IA - credenciais > OPENAI_API_KEY > S`. Use `P` apenas se quiser persistir no ambiente User do Windows.
-
-### Como obter `DEEPSEEK_API_KEY`
-
-Fontes oficiais: <https://api-docs.deepseek.com/> e <https://platform.deepseek.com/api_keys>.
-
-1. Entre na DeepSeek Platform.
-2. Abra **API Keys**.
-3. Crie uma chave e armazene-a com segurança.
-4. Confirme saldo/quota antes do primeiro teste.
-5. Configure `DEEPSEEK_API_KEY` no grupo **IA - credenciais**.
-6. Selecione somente modelos aceitos pelo registry do RASAi; o menu rejeita nomes fora do domínio atual.
-
-### Como obter `MIMO_API_KEY`
-
-Fonte oficial: <https://mimo.mi.com/docs/en-US/quick-start/faq/api-integration>.
-
-1. Entre na Xiaomi MiMo API Open Platform.
-2. Para o adapter atual do RASAi, use **Pay-as-you-go API Calls**.
-3. Abra **Console > API Keys** e crie a chave PAYG.
-4. Confirme que a chave começa com `sk-`.
-5. Configure `MIMO_API_KEY`.
-6. Não use Token Plan `tp-...` nessa integração. A documentação MiMo declara que PAYG e Token Plan são independentes, possuem formatos/base URLs próprios e não podem ser misturados.
-
-O adapter atual usa `https://api.xiaomimimo.com/v1/responses`.
-
-### Como obter `XAI_API_KEY`
-
-Fonte oficial: <https://docs.x.ai/developers/quickstart>.
-
-1. Crie/acesse sua conta em <https://console.x.ai/>.
-2. Carregue créditos na conta/equipe quando necessário.
-3. Abra a página **API Keys**.
-4. Crie e copie a chave.
-5. Configure `XAI_API_KEY` no console.
-
-O endpoint default do adapter é `https://api.x.ai/v1/responses`.
-
-### Como obter `DASHSCOPE_API_KEY` para Qwen
-
-Fonte oficial: <https://www.alibabacloud.com/help/en/model-studio/first-api-call-to-qwen>.
-
-1. Crie/acesse uma conta Alibaba Cloud.
-2. Abra **Alibaba Cloud Model Studio** e ative o serviço/aceite os termos quando solicitado.
-3. Abra a página **API Key**.
-4. Selecione **Create API key**; o modelo não precisa ser escolhido durante a criação da chave.
-5. Quando aplicável, restrinja o escopo de modelos conforme a política da conta.
-6. Copie a chave e configure `DASHSCOPE_API_KEY`.
-7. O adapter atual usa por default o endpoint US `https://dashscope-us.aliyuncs.com/compatible-mode/v1/chat/completions`. Chaves/regiões Alibaba não são necessariamente intercambiáveis; use `RASAI_QWEN_ENDPOINT` somente se houver necessidade regional validada.
-
-### Como obter `GEMINI_API_KEY`
-
-Fonte oficial: <https://ai.google.dev/gemini-api/docs/api-key> e <https://aistudio.google.com/apikey>.
-
-1. Entre no Google AI Studio.
-2. Abra a área de projetos e selecione/importe o projeto que deve concentrar o Gemini API.
-3. Abra **API Keys**.
-4. Clique em **Create API key**.
-5. Copie a nova chave e configure `GEMINI_API_KEY`.
-6. Confirme quota/billing do projeto conforme o tier usado.
-
-A documentação atual informa que novas chaves criadas no AI Studio são **auth keys** e que Standard keys deixam de ser aceitas em setembro de 2026. Para uma instalação atual, use uma auth key nova/compatível.
-
-### Como obter `ANTHROPIC_API_KEY`
-
-Fontes oficiais: <https://support.claude.com/en/articles/8114521-how-can-i-access-the-claude-api> e <https://console.anthropic.com/>.
-
-1. Crie/acesse uma organização no Anthropic Console.
-2. Garanta uma função com permissão para gerenciar API keys conforme a governança da organização.
-3. Configure billing/créditos do Console quando necessário.
-4. Abra a área de API keys e crie a chave.
-5. Copie e configure `ANTHROPIC_API_KEY`.
-6. Não assuma que uma assinatura paga do produto Claude de chat inclui créditos de API; o Console/API possui cobrança própria.
+- OpenAI: <https://platform.openai.com/api-keys>
+- DeepSeek: <https://api-docs.deepseek.com/>
+- Xiaomi MiMo: <https://mimo.mi.com/docs/en-US/quick-start/faq/api-integration>
+- xAI: <https://docs.x.ai/developers/quickstart>
+- Alibaba Qwen: <https://www.alibabacloud.com/help/en/model-studio/first-api-call-to-qwen>
+- Gemini: <https://ai.google.dev/gemini-api/docs/api-key>
+- Anthropic: <https://console.anthropic.com/>
+- PageSpeed/CrUX: [GOOGLE_API_KEYS.md](GOOGLE_API_KEYS.md)
+- Search Console OAuth: <https://developers.google.com/webmaster-tools/v1/how-tos/authorizing>
 
 ## 3. IA - modelos e reasoning
 
-Estas variáveis são overrides. Se ausentes, o RASAi usa os defaults públicos abaixo.
-
-| Variável | Valores aceitos | Default efetivo |
+| Variável | Valores aceitos / papel | Default efetivo |
 |---|---|---|
-| `RASAI_OPENAI_MODEL` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `gpt-5.6-luna` |
+| `RASAI_OPENAI_MODEL` | modelo OpenAI suportado pelo registry | `gpt-5.6-luna` |
 | `RASAI_OPENAI_REASONING_EFFORT` | `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `NONE` |
-| `RASAI_DEEPSEEK_MODEL` | `deepseek-v4-pro`, `deepseek-v4-flash` | `deepseek-v4-flash` |
-| `RASAI_DEEPSEEK_REASONING_EFFORT` | `NONE`, `LOW`, `HIGH`, `MAX` | `NONE` |
-| `RASAI_MIMO_MODEL` | `mimo-v2.5-pro`, `mimo-v2.5` | `mimo-v2.5` |
+| `RASAI_DEEPSEEK_MODEL` | modelo DeepSeek suportado pelo registry | `deepseek-v4-flash` |
+| `RASAI_DEEPSEEK_REASONING_EFFORT` | esforço suportado pelo runtime | `NONE` |
+| `RASAI_MIMO_MODEL` | modelo MiMo suportado pelo registry | `mimo-v2.5` |
 | `RASAI_MIMO_REASONING_EFFORT` | `NONE`, `LOW`, `MEDIUM`, `HIGH` | `NONE` |
-| `RASAI_XAI_MODEL` | `grok-4.6` | `grok-4.6` |
+| `RASAI_XAI_MODEL` | modelo xAI suportado pelo registry | `grok-4.6` |
 | `RASAI_XAI_REASONING_EFFORT` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH` | `LOW` |
-| `RASAI_QWEN_MODEL` | `qwen3.8-max`, `qwen3.8-flash` | `qwen3.8-flash` |
-| `RASAI_GEMINI_MODEL` | `gemini-3.8-flash` | `gemini-3.8-flash` |
+| `RASAI_QWEN_MODEL` | modelo Qwen suportado pelo registry | `qwen3.8-flash` |
+| `RASAI_GEMINI_MODEL` | modelo Gemini suportado pelo registry | `gemini-3.8-flash` |
 | `RASAI_GEMINI_REASONING_EFFORT` | `LOW`, `MEDIUM`, `HIGH` | `LOW` |
-| `RASAI_ANTHROPIC_MODEL` | `claude-sonnet-5` | `claude-sonnet-5` |
+| `RASAI_ANTHROPIC_MODEL` | modelo Anthropic suportado pelo registry | `claude-sonnet-5` |
 | `RASAI_ANTHROPIC_REASONING_EFFORT` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` |
 
-Qwen não possui `RASAI_QWEN_REASONING_EFFORT`: o adapter atual mantém `PROVIDER_DEFAULT`. Não crie variável inexistente.
-
-Para uso normal, prefira **4. IA** no menu principal. Use variáveis de modelo/reasoning para AUTO, automação ou override avançado. Esforço maior pode elevar latência, tokens e custo.
+Qwen não expõe `RASAI_QWEN_REASONING_EFFORT`; não crie variável que não exista no contrato do runtime.
 
 ## 4. IA - endpoints avançados
 
-No uso normal, deixe estas variáveis ausentes.
+No uso normal, mantenha os endpoints default.
 
-| Variável | Default embutido | Tipo | Quando alterar |
-|---|---|---|---|
-| `RASAI_XAI_ENDPOINT` | `https://api.x.ai/v1/responses` | URL HTTP(S) absoluta | somente proxy/endpoint xAI comprovadamente compatível |
-| `RASAI_QWEN_ENDPOINT` | `https://dashscope-us.aliyuncs.com/compatible-mode/v1/chat/completions` | URL HTTP(S) absoluta | região/endpoint Qwen compatível |
-| `RASAI_GEMINI_ENDPOINT` | `https://generativelanguage.googleapis.com/v1beta/interactions` | URL HTTP(S) absoluta | endpoint Gemini Interactions compatível |
-| `RASAI_ANTHROPIC_ENDPOINT` | `https://api.anthropic.com/v1/messages` | URL HTTP(S) absoluta | endpoint Messages compatível |
+| Variável | Default |
+|---|---|
+| `RASAI_XAI_ENDPOINT` | `https://api.x.ai/v1/responses` |
+| `RASAI_QWEN_ENDPOINT` | `https://dashscope-us.aliyuncs.com/compatible-mode/v1/chat/completions` |
+| `RASAI_GEMINI_ENDPOINT` | `https://generativelanguage.googleapis.com/v1beta/interactions` |
+| `RASAI_ANTHROPIC_ENDPOINT` | `https://api.anthropic.com/v1/messages` |
 
-O console valida que o override seja uma URL absoluta `http://` ou `https://`, mas não pode provar que um endpoint arbitrário implementa o contrato esperado. Endpoint incorreto pode causar falha, encaminhar dados a destino indevido ou gerar cobrança em serviço diferente.
+Overrides devem ser URLs absolutas compatíveis com o adapter correspondente. Endpoint incorreto pode causar falha, envio de dados ao destino errado ou cobrança inesperada.
 
 ## 5. IA - contexto editorial / YMYL
 
-Estas variáveis não ligam uma integração externa por si só. Elas condicionam a análise semântica e as sugestões de conteúdo **quando uma etapa de IA já está habilitada**.
-
 Todos os defaults são `auto`.
 
-| Variável | Valores aceitos | Default | Finalidade / impacto |
-|---|---|---|---|
-| `RASAI_CONTENT_RISK_PROFILE` | `auto`, `standard`, `ymyl` | `auto` | define se a IA deve aplicar uma régua editorial comum ou uma exigência YMYL mais alta |
-| `RASAI_YMYL_CATEGORY` | `auto`, `none`, `health-safety`, `financial-security`, `civic-societal`, `other-significant-welfare` | `auto` | contextualiza o tipo de risco; não cria score YMYL |
-| `RASAI_PAGE_PURPOSE` | `auto`, `informational`, `transactional`, `product-service`, `review-comparison`, `news-editorial`, `support-documentation`, `forum-ugc`, `other` | `auto` | evita aplicar a mesma expectativa editorial a finalidades distintas |
-| `RASAI_INTENDED_AUDIENCE` | `auto`, `general`, `professional`, `mixed` | `auto` | calibra profundidade e explicação para o público pretendido |
-| `RASAI_EXPERIENCE_REQUIREMENT` | `auto`, `required`, `beneficial`, `not-expected` | `auto` | distingue experiência em primeira mão de expertise técnica/profissional |
-| `RASAI_FRESHNESS_SENSITIVITY` | `auto`, `low`, `medium`, `high` | `auto` | aumenta o rigor sobre datas e qualificadores temporais quando necessário |
-| `RASAI_CONTENT_ORIGIN` | `auto`, `first-party`, `third-party`, `user-generated`, `mixed` | `auto` | diferencia criador/origem do conteúdo e publicador/host para atribuição e responsabilidade |
+| Variável | Valores principais |
+|---|---|
+| `RASAI_CONTENT_RISK_PROFILE` | `auto`, `standard`, `ymyl` |
+| `RASAI_YMYL_CATEGORY` | `auto`, `none`, `health-safety`, `financial-security`, `civic-societal`, `other-significant-welfare` |
+| `RASAI_PAGE_PURPOSE` | `auto`, `informational`, `transactional`, `product-service`, `review-comparison`, `news-editorial`, `support-documentation`, `forum-ugc`, `other` |
+| `RASAI_INTENDED_AUDIENCE` | `auto`, `general`, `professional`, `mixed` |
+| `RASAI_EXPERIENCE_REQUIREMENT` | `auto`, `required`, `beneficial`, `not-expected` |
+| `RASAI_FRESHNESS_SENSITIVITY` | `auto`, `low`, `medium`, `high` |
+| `RASAI_CONTENT_ORIGIN` | `auto`, `first-party`, `third-party`, `user-generated`, `mixed` |
 
-### Como interpretar `auto`
-
-`auto` não significa que o RASAi conhece o contexto com certeza. Significa que a IA pode usar uma **hipótese provisória**, baseada somente nas evidências visíveis fornecidas.
-
-Quando a classificação inferida for material, a IA deve reduzir confiança e não pode inventar:
-
-- credenciais ou certificações;
-- autoria/revisão profissional não observada;
-- experiência pessoal;
-- reputação externa;
-- conformidade legal/regulatória;
-- processo editorial oculto;
-- fontes ou fatos não presentes nas evidências.
-
-Para site claramente YMYL, prefira configuração explícita.
-
-### Regras de consistência
-
-- `RASAI_CONTENT_RISK_PROFILE=standard` não pode ser combinado com categoria YMYL explícita diferente de `none`/`auto`;
-- `RASAI_CONTENT_RISK_PROFILE=ymyl` não pode ser combinado com `RASAI_YMYL_CATEGORY=none`;
-- E-E-A-T não é transformado em percentual proprietário;
-- as variáveis não geram custo externo sozinhas.
-
-### Exemplo financeiro/YMYL
-
-```powershell
-$env:RASAI_CONTENT_RISK_PROFILE = "ymyl"
-$env:RASAI_YMYL_CATEGORY = "financial-security"
-$env:RASAI_PAGE_PURPOSE = "product-service"
-$env:RASAI_INTENDED_AUDIENCE = "general"
-$env:RASAI_EXPERIENCE_REQUIREMENT = "not-expected"
-$env:RASAI_FRESHNESS_SENSITIVITY = "high"
-$env:RASAI_CONTENT_ORIGIN = "first-party"
-```
-
-Referência completa e base conceitual: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md).
-
-Fontes públicas oficiais principais:
-
-- Google Search Central - helpful, reliable, people-first content: <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
-- Google Search Quality Rater Guidelines overview: <https://services.google.com/fh/files/misc/hsw-sqrg.pdf>
-- Google - How AI Overviews in Search work: <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf>
+Essas variáveis não fazem chamada externa sozinhas. Elas condicionam a análise quando uma etapa de IA está habilitada. Consulte [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md).
 
 ## 6. Web Performance / Google APIs
 
-| Variável | Finalidade | Tipo / domínio | Default | Dependência / impacto |
-|---|---|---|---|---|
-| `RASAI_WEB_PERFORMANCE` | habilita PageSpeed/Lighthouse/CrUX | `true`, `false` | `false` | `true` consome integração/quota externa |
-| `RASAI_WEB_PERFORMANCE_MAX_PAGES` | teto de páginas enviadas | inteiro `>=0`; `0=todas` | `10` | multiplica chamadas potenciais |
-| `RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS` | timeout por request | número `>0` | `120` | não cria request adicional |
-| `RASAI_WEB_PERFORMANCE_FIELD_SOURCE` | política de field data | `auto`, `pagespeed`, `crux`, `none` | `auto` | `crux` exige `RASAI_CRUX_API_KEY` |
-| `RASAI_LIGHTHOUSE_CATEGORIES` | categorias Lighthouse | CSV de `performance`, `accessibility`, `best-practices`, `seo` | as quatro | categoria desconhecida/duplicada é rejeitada pelo console |
-| `RASAI_PAGESPEED_API_KEY` | chave PageSpeed | secret | nenhum | opcional em uso ad hoc; recomendada para uso recorrente/gestão de quota |
-| `RASAI_CRUX_API_KEY` | chave CrUX direta | secret | nenhum | obrigatória para chamada direta à CrUX API |
-| `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` | bearer OAuth para comandos `rasai observe gsc-*` | secret/token temporário | nenhum | exige escopo Search Console compatível e permissão sobre a property; não é API key |
+| Variável | Tipo / valores | Default | Finalidade |
+|---|---|---|---|
+| `RASAI_WEB_PERFORMANCE` | booleano | `false` | habilita PageSpeed/Lighthouse/CrUX |
+| `RASAI_WEB_PERFORMANCE_MAX_PAGES` | inteiro `>=0`; `0=todas` | `10` | teto de páginas enviadas |
+| `RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS` | número `>0` | `120` | timeout por request externo |
+| `RASAI_WEB_PERFORMANCE_FIELD_SOURCE` | `auto`, `pagespeed`, `crux`, `none` | `auto` | política de field data |
+| `RASAI_LIGHTHOUSE_CATEGORIES` | CSV de `performance`, `accessibility`, `best-practices`, `seo`, `agentic-browsing` | `performance,accessibility,best-practices,seo,agentic-browsing` | categorias Lighthouse solicitadas |
+| `RASAI_PAGESPEED_API_KEY` | secret | nenhum | chave PageSpeed |
+| `RASAI_CRUX_API_KEY` | secret | nenhum | chave CrUX direta |
 
-### Como obter as chaves Google para PageSpeed/CrUX
+As cinco categorias Lighthouse são solicitadas na mesma chamada PageSpeed por contexto. `agentic-browsing` é experimental; ausência isolada desse score não invalida as quatro categorias estáveis obtidas. Nenhuma categoria Lighthouse entra automaticamente no `SARI-001`/`SCORE-GEO-004`.
 
-O procedimento completo está em [GOOGLE_API_KEYS.md](GOOGLE_API_KEYS.md). Em resumo:
-
-1. Abra <https://console.cloud.google.com/> e selecione/crie o projeto.
-2. Em **APIs & Services > Library**, habilite **PageSpeed Insights API** e/ou **Chrome UX Report API**.
-3. Em **APIs & Services > Credentials**, crie a API key.
-4. Restrinja a chave à API necessária e, quando operacionalmente estável, aplique restrição de aplicação adequada.
-5. Para a CLI, não use HTTP referrer apenas para “ter uma restrição”.
-6. Prefira chaves separadas para PageSpeed e CrUX.
-7. Configure `RASAI_PAGESPEED_API_KEY` e/ou `RASAI_CRUX_API_KEY` pelo menu.
-
-### `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`
-
-Essa variável é diferente das API keys acima. Os collectors Search Console usam **OAuth 2.0 bearer token** em runtime.
-
-Uso:
-
-```powershell
-$env:RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN = "<oauth-access-token>"
-rasai observe gsc-sites --audit AUD-...
-```
-
-Requisitos:
-
-- token OAuth válido e não expirado;
-- escopo `https://www.googleapis.com/auth/webmasters.readonly` ou outro escopo Search Console compatível com a operação;
-- usuário/conta do token com acesso à property informada;
-- para `gsc-search`, `gsc-appearance`, `gsc-inspect` e `gsc-sitemaps`, informe a property aceita pelo Search Console, como `sc-domain:example.com` quando aplicável.
-
-O RASAi não implementa fluxo de login/refresh OAuth. Ele recebe um access token atual fornecido pelo operador/ambiente. Access tokens expiram e devem ser renovados pelo mecanismo OAuth adotado pela organização.
-
-Segurança:
-
-- não gravar o token em `rasai-console.ini`;
-- não colocar o token em arquivo de URL;
-- não persistir o token em artifacts, `audit.db`, `observability.db` ou HTML;
-- prefira secret manager/variável efêmera em automação.
-
-Referências oficiais: <https://developers.google.com/webmaster-tools/v1/how-tos/authorizing> e <https://developers.google.com/webmaster-tools/v1/searchanalytics/query>.
+Consulte [LIGHTHOUSE_CATEGORIES.md](LIGHTHOUSE_CATEGORIES.md), [LIGHTHOUSE_WEB_QUALITY.md](LIGHTHOUSE_WEB_QUALITY.md) e [EXTERNAL_METRICS_INTEGRITY.md](EXTERNAL_METRICS_INTEGRITY.md).
 
 ## 7. Synthetic Apdex
 
-Synthetic Apdex é OFF por default; tuning só é necessário quando habilitado.
+### 7.1 Synthetic Navigation Apdex
 
-| Variável | Finalidade | Tipo / domínio | Default quando ativo | Impacto |
-|---|---|---|---|---|
-| `RASAI_SYNTHETIC_APDEX` | habilita medição | booleano | `false` | gera navegações reais contra o alvo |
-| `RASAI_APDEX_THRESHOLD_SECONDS` | threshold T | número `>0` | **sem default** | obrigatório quando Apdex está ON |
-| `RASAI_APDEX_SAMPLES_PER_CONTEXT` | amostras válidas por URL/device | inteiro `>=1` | `100` | maior valor aumenta carga/duração |
-| `RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT` | teto de reposição | inteiro `>= samples` | `ceil(1.25 × samples)` | teto direto de navegações |
-| `RASAI_APDEX_MAX_PAGES` | páginas medidas | inteiro `>=0`; `0=todas` | `1` | multiplica contextos |
-| `RASAI_APDEX_TIMEOUT_SECONDS` | timeout por navegação | número `>0` e efetivamente `>4T` | `max(45, 4T+5)` | baixo demais trunca a faixa Frustrated |
-| `RASAI_APDEX_DELAY_SECONDS` | intervalo mínimo entre inícios | número `>=0` | `1` | maior delay reduz pressão e aumenta duração |
-| `RASAI_APDEX_CONCURRENCY` | workers simultâneos | `1`, `2` | `1` | `2` aumenta carga concorrente |
+| Variável | Tipo / valores | Default quando aplicável |
+|---|---|---|
+| `RASAI_SYNTHETIC_APDEX` | booleano | `false` |
+| `RASAI_APDEX_THRESHOLD_SECONDS` | número `>0` | sem default metodológico; obrigatório quando habilitado |
+| `RASAI_APDEX_SAMPLES_PER_CONTEXT` | inteiro `>=1` | `100` |
+| `RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT` | inteiro `>= samples` | `ceil(1.25 × samples)` |
+| `RASAI_APDEX_MAX_PAGES` | inteiro `>=0`; `0=todas` | `1` |
+| `RASAI_APDEX_TIMEOUT_SECONDS` | número `>0` e efetivamente `>4T` | `max(45, 4T+5)` |
+| `RASAI_APDEX_DELAY_SECONDS` | número `>=0` | `1` |
+| `RASAI_APDEX_CONCURRENCY` | `1`, `2` | `1` |
 
-Para configuração normal use **11. Synthetic Apdex** no menu principal, que explica T, calcula defaults derivados e mostra a carga projetada. Use variáveis de ambiente para automação/override.
+### 7.2 Synthetic User Experience Apdex
 
-## 8. Browser / Playwright
+| Variável | Tipo / valores | Default quando aplicável |
+|---|---|---|
+| `RASAI_APDEX_EXPERIENCE` | booleano | `false` |
+| `RASAI_APDEX_EXPERIENCE_SAMPLES` | inteiro `>=1` | `100` |
+| `RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS` | inteiro `>= samples` | `ceil(1.25 × samples)` |
+| `RASAI_APDEX_EXPERIENCE_MAX_PAGES` | inteiro `>=0`; `0=todas` | `1` |
+| `RASAI_APDEX_EXPERIENCE_DEVICE_MIX` | percentuais CSV somando 100% | `mobile=60,desktop=35,tablet=5` |
+| `RASAI_APDEX_EXPERIENCE_SESSION_MODE` | `cold`, `warm` | `cold` |
+| `RASAI_APDEX_EXPERIENCE_KPM` | KPM suportada | `USER_ACTION_DURATION` |
+| `RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS` | número `>0` | calibração explícita quando não importada |
+| `RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS` | número `>0` | calibração explícita quando não importada |
+| `RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT` | booleano | `true` quando Experience está ativo |
+| `RASAI_APDEX_EXPERIENCE_ERROR_SCOPE` | `navigation`, `first-party`, `all` | `first-party` |
+| `RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS` | número `>0` | `5` |
+| `RASAI_APDEX_EXPERIENCE_DELAY_SECONDS` | número `>=0` | `1` |
+| `RASAI_APDEX_EXPERIENCE_CONCURRENCY` | `1`, `2` | `1` |
+| `RASAI_APDEX_DYNATRACE_IMPORT` | booleano | `false` |
+| `RASAI_DYNATRACE_BASE_URL` | URL HTTPS | nenhum |
+| `RASAI_DYNATRACE_APPLICATION_ID` | texto | nenhum |
+| `RASAI_DYNATRACE_CONFIG_JSON` | caminho de arquivo | nenhum |
+| `DYNATRACE_API_TOKEN` | secret | nenhum |
 
-### `RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE`
+Synthetic User Experience Apdex exige Synthetic Navigation Apdex habilitado. Consulte [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md) e [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md).
 
-- **Finalidade:** apontar para um Chromium específico.
-- **Tipo:** caminho de arquivo existente.
-- **Default:** nenhum override; Playwright/RASAi usa a instalação/descoberta padrão.
-- **Quando definir:** somente se houver necessidade de fixar um executável externo.
-- **Validação:** o console rejeita caminho que não exista como arquivo.
-- **Impacto:** execução local; sem custo externo direto.
+## 8. Search Intelligence / Observability
 
-Exemplo:
+| Variável | Tipo / valores | Default |
+|---|---|---|
+| `RASAI_SERP_MODE` | `disabled`, `live`, `fixture` | `disabled` |
+| `RASAI_SERP_PROVIDER` | `serpapi`, `serpapi-bing` | `serpapi` |
+| `RASAI_SERPAPI_API_KEY` | secret | nenhum |
+| `RASAI_SERP_FIXTURE_PATH` | caminho de arquivo | nenhum |
+| `RASAI_SERP_MAX_QUERIES` | inteiro `>0` | `10` |
+| `RASAI_SERP_MAX_REQUESTS` | inteiro `>0` | `10` |
+| `RASAI_SERP_MAX_DEPTH` | inteiro `>0` | `20` |
+| `RASAI_SERP_MAX_COMPETITORS` | inteiro `>=0` | `10` |
+| `RASAI_SERP_TIMEOUT_SECONDS` | número `>0` | `20` |
+| `RASAI_SERP_RETRIES` | inteiro `>=0` | `1` |
+| `RASAI_SERP_MIN_INTERVAL_SECONDS` | número `>=0` | `1` |
+| `RASAI_SEARCH_AI_PROVIDER` | `none`, `fixture`, `openai` | `none` |
+| `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` | secret/token OAuth | nenhum |
 
-```powershell
-$env:RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE = "C:\Program Files\Chromium\chrome.exe"
-```
+Search Intelligence/Observability permanece separado de `SARI-001`/`SCORE-GEO-004`. Consulte [SEARCH_INTELLIGENCE_MONITORING.md](SEARCH_INTELLIGENCE_MONITORING.md) e [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md).
 
-## Defaults para primeiro uso
+## 9. Control plane / SaaS
 
-Uma instalação nova não precisa preencher as variáveis. O console/INI/runtime já fornece defaults seguros:
+| Variável | Tipo / valores | Default | Regra |
+|---|---|---|---|
+| `RASAI_PLATFORM_DB_BACKEND` | `sqlite`, `postgresql` | `sqlite` | seleciona backend do control plane |
+| `RASAI_PLATFORM_DATABASE_URL` | secret/DSN PostgreSQL | nenhum | obrigatória quando backend=`postgresql`; nunca deve ser gravada no INI |
+
+SQLite permanece disponível para operação local. PostgreSQL é o backend centralizado do control plane quando explicitamente configurado. Consulte [POSTGRESQL_MIGRATION_STRATEGY.md](POSTGRESQL_MIGRATION_STRATEGY.md) e [PRODUCT_PLATFORM_ARCHITECTURE.md](PRODUCT_PLATFORM_ARCHITECTURE.md).
+
+## 10. Web API / Identity
+
+| Variável | Tipo / valores | Default |
+|---|---|---|
+| `RASAI_API_DOCS_ENABLED` | booleano | `false` |
+| `RASAI_API_AUDITS_ROOT` | caminho | `audits` |
+| `RASAI_API_AUTH_MODE` | `deny`, `trusted-header`, `oidc` | `deny` |
+| `RASAI_API_TRUSTED_USER_HEADER` | nome de header HTTP | `x-rasai-user-id` |
+| `RASAI_OIDC_ISSUER` | URL HTTPS | nenhum; requerida no modo `oidc` |
+| `RASAI_OIDC_CLIENT_ID` | texto | nenhum; requerido no modo `oidc` |
+| `RASAI_OIDC_AUDIENCE` | texto | client ID configurado |
+| `RASAI_OIDC_REDIRECT_URI` | URL HTTPS; HTTP somente loopback | nenhum; requerida no fluxo OIDC web |
+| `RASAI_OIDC_SESSION_SECRET` | secret | nenhum; requerido no modo OIDC web |
+| `RASAI_OIDC_CLIENT_SECRET_ENV` | nome da variável que contém o client secret | nenhum |
+| `RASAI_OIDC_ALGORITHMS` | CSV | `RS256,ES256` |
+| `RASAI_OIDC_SCOPES` | CSV | `openid,profile,email` |
+| `RASAI_OIDC_SESSION_TTL_SECONDS` | inteiro `300..86400` | `28800` |
+
+`RASAI_OIDC_CLIENT_SECRET_ENV` persiste apenas o **nome** da variável que contém o segredo; o client secret real permanece fora do INI. Consulte [IDENTITY_AND_ACCESS.md](IDENTITY_AND_ACCESS.md) e [WEB_API_FOUNDATION.md](WEB_API_FOUNDATION.md).
+
+## 11. Remote control plane
+
+| Variável | Tipo / valores | Default / regra |
+|---|---|---|
+| `RASAI_REMOTE_BASE_URL` | URL HTTPS; HTTP somente loopback | requerida no modo remoto |
+| `RASAI_REMOTE_TOKEN_ENV` | nome da variável que contém o bearer token | nenhuma; o token real não é persistido |
+| `RASAI_REMOTE_USER_ID` | texto | somente trusted-header em desenvolvimento loopback; proibido para host remoto |
+| `RASAI_REMOTE_TIMEOUT_SECONDS` | número `>0` e `<=300` | `30` |
+
+Para usar o cliente remoto, configure `RASAI_CONSOLE_MODE=remote`. A superfície remota chama a Web API e não reimplementa o core de auditoria.
+
+## 12. Browser / Playwright
+
+| Variável | Tipo | Default |
+|---|---|---|
+| `RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE` | caminho de arquivo existente | descoberta/instalação padrão do Playwright |
+| `RASAI_BROWSER_LOCALE` | locale BCP 47 | `pt-BR` |
+
+O locale pode alterar conteúdo entregue por sites que negociam idioma/região no browser.
+
+## Defaults operacionais principais
+
+Uma configuração local sem IA e sem integrações externas pode iniciar apenas com o target. Defaults relevantes:
 
 ```text
+console mode                   = local
 device                         = mobile
-ai-provider                    = none
+ai provider                    = none
 ai timeout                     = 180 s
 ai content remediation         = false
-content risk profile           = auto
-ymyl category                  = auto
-page purpose                   = auto
-intended audience              = auto
-experience requirement         = auto
-freshness sensitivity          = auto
-content origin                 = auto
+ai technical remediation       = false
 web performance                = false
 web performance max pages      = 10
 web performance timeout        = 120 s
 field source                   = auto
-lighthouse categories          = performance,accessibility,best-practices,seo
-synthetic apdex                = false
+lighthouse categories          = performance,accessibility,best-practices,seo,agentic-browsing
+synthetic navigation apdex     = false
+synthetic experience apdex     = false
+SERP mode                      = disabled
+platform DB backend            = sqlite
+API docs                       = false
+API auth mode                  = deny
+remote timeout                 = 30 s
+browser locale                 = pt-BR
 language                       = pt-BR
 market                         = BR
 max-pages                      = 100
 audits-root                    = audits
 ```
 
-Modelos e reasoning usam os defaults da tabela de IA. Credenciais, `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` e `RASAI_APDEX_THRESHOLD_SECONDS` **não recebem valor inventado**.
+Credenciais, thresholds metodológicos sem default e URLs/identificadores exigidos somente em modos específicos permanecem ausentes até configuração explícita.
 
-A configuração mínima para uma auditoria local, sem IA e sem APIs externas, é informar o alvo no item **1. Entrada**.
+## Segurança
 
-## Exemplos PowerShell
-
-Sessão atual:
-
-```powershell
-$env:OPENAI_API_KEY = "<chave>"
-$env:RASAI_OPENAI_MODEL = "gpt-5.6-luna"
-$env:RASAI_OPENAI_REASONING_EFFORT = "NONE"
-```
-
-Remover override e voltar ao default interno:
-
-```powershell
-Remove-Item Env:RASAI_OPENAI_MODEL -ErrorAction SilentlyContinue
-```
-
-## Fontes oficiais externas verificadas
-
-- Google Search Central - E-E-A-T/YMYL/people-first: <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
-- Google Search Quality Rater Guidelines overview: <https://services.google.com/fh/files/misc/hsw-sqrg.pdf>
-- Google - How AI Overviews in Search work: <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf>
-- Google Search Console API authorization: <https://developers.google.com/webmaster-tools/v1/how-tos/authorizing>
-- Google Search Analytics API: <https://developers.google.com/webmaster-tools/v1/searchanalytics/query>
-- OpenAI API keys: <https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key>
-- DeepSeek quick start/API key: <https://api-docs.deepseek.com/>
-- Xiaomi MiMo API key/PAYG/Token Plan: <https://mimo.mi.com/docs/en-US/quick-start/faq/api-integration>
-- xAI quickstart: <https://docs.x.ai/developers/quickstart>
-- Alibaba Cloud Model Studio/Qwen: <https://www.alibabacloud.com/help/en/model-studio/first-api-call-to-qwen>
-- Gemini API keys: <https://ai.google.dev/gemini-api/docs/api-key>
-- Anthropic API access: <https://support.claude.com/en/articles/8114521-how-can-i-access-the-claude-api>
-- PageSpeed/CrUX: [GOOGLE_API_KEYS.md](GOOGLE_API_KEYS.md)
-- SerpApi Google Search API: <https://serpapi.com/search-api>
-- SerpApi Bing Search API: <https://serpapi.com/bing-search-api>
-
-## Search Intelligence / SERP
-
-As variáveis abaixo são reconhecidas pela superfície `rasai search`. Search Intelligence é opt-in e permanece independente do scoring: nenhuma delas altera `SARI-001` ou `SCORE-GEO-004`.
-
-| Variável | Valores / tipo | Default efetivo | Finalidade |
-|---|---|---:|---|
-| `RASAI_SERP_MODE` | `disabled`, `live`, `fixture` | `disabled` | habilita explicitamente observação SERP |
-| `RASAI_SERP_PROVIDER` | `serpapi`, `serpapi-bing` | `serpapi` | adapter live: Google via `serpapi`; Bing via `serpapi-bing` |
-| `RASAI_SERPAPI_API_KEY` | segredo BYOK | sem default | credencial SerpApi compartilhada pelos adapters Google/Bing no modo live |
-| `RASAI_SERP_FIXTURE_PATH` | caminho | sem default | fixture canônica no modo fixture |
-| `RASAI_SERP_MAX_QUERIES` | inteiro `>0` | `10` | teto de queries por execução |
-| `RASAI_SERP_MAX_REQUESTS` | inteiro `>0` | `10` | orçamento máximo global de tentativas HTTP do provider |
-| `RASAI_SERP_MAX_DEPTH` | inteiro `>0` | `20` | profundidade máxima observável solicitada |
-| `RASAI_SERP_MAX_COMPETITORS` | inteiro `>=0` | `10` | teto de candidatos derivados |
-| `RASAI_SERP_TIMEOUT_SECONDS` | número finito `>0` | `20` | timeout por tentativa do provider |
-| `RASAI_SERP_RETRIES` | inteiro `>=0` | `1` | retries limitados do provider |
-| `RASAI_SERP_MIN_INTERVAL_SECONDS` | número finito `>=0` | `1` | intervalo mínimo entre inícios de requests |
-| `RASAI_SEARCH_AI_PROVIDER` | `none`, `fixture`, `openai` | `none` | provider da camada Competitive AI opt-in |
-
-`RASAI_SERPAPI_API_KEY` e `OPENAI_API_KEY` são segredos e não devem ser persistidos em `audit.db`, artifacts ou HTML. `--dry-run` valida orçamento sem chamar Search provider, páginas ou Competitive AI. Conteúdo competitivo e IA exigem flags explícitas (`--compare-content`, `--ai-competitive`).
-
-Para Google, o teto determinístico de requests considera `ceil(depth / 10) × (retries + 1)` e o runtime bloqueia antes da chamada quando esse pior caso excede `RASAI_SERP_MAX_REQUESTS`.
-
-Para Bing, a paginação orgânica retornada pela SerpApi é variável e usa cursor `first`; por isso `--dry-run` reporta `RASAI_SERP_MAX_REQUESTS` como teto conservador. O adapter continua limitado pelo mesmo hard budget em runtime. Se esse orçamento terminar antes de a profundidade solicitada estar comprovadamente observada e o domínio não tiver sido encontrado, o resultado é `UNAVAILABLE / SERP_REQUESTED_DEPTH_INCOMPLETE`, não um `NOT_FOUND_WITHIN_DEPTH` artificial.
+- variável de ambiente não é um cofre de segredos;
+- secrets não devem ser materializados em arquivos versionados;
+- DSN PostgreSQL pode conter credenciais e deve ser tratado como secret;
+- variáveis terminadas em `_ENV` que referenciam outro secret armazenam somente o nome da variável, não o valor do segredo;
+- bearer tokens e API keys nunca devem aparecer em HTML, logs, SQLite ou artifacts;
+- credencial configurada não prova quota, saldo, plano, permissão ou escopo válido.
