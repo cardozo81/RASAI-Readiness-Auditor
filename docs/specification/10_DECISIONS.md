@@ -18,6 +18,8 @@ Dimensões integralmente e legitimamente `NOT_APPLICABLE` são excluídas do den
 
 JSON-LD permanece `OPCIONAL / REFORÇO`. O contrato distingue a **observação persistida pela regra** da **interpretação efetiva do scoring**: quando `BR-GEO-034` registra explicitamente que Structured Data está ausente, o `SCORE-GEO-004` aplica sua política versionada de aplicabilidade e trata essa execução como `NOT_APPLICABLE` para scoring, com `reason=STRUCTURED_DATA_ABSENT_NOT_UNIVERSAL_SARI_REQUIREMENT`, preservando o resultado-fonte no estado observado. `BR-GEO-035..037` também permanecem `NOT_APPLICABLE` quando não existe Structured Data a avaliar. Assim, ausência legítima de JSON-LD não reduz o SARI, não recebe score artificial e não é apresentada como requisito universal.
 
+Para rastreabilidade, a ausência de JSON-LD é materializada na observação persistida da regra quando efetivamente detectada; a camada de scoring então aplica a política de aplicabilidade descrita acima, sem transformar ausência legítima em penalidade.
+
 ## D-003 - Evidência de auditoria imutável
 
 Cada `AUD-*` preserva `audit.db`, artifacts e relatórios como evidência reabrível da execução. Estado de produto, tenancy, schedules, milestones, usage, integrações e dados longitudinais pertencem ao control plane e não são gravados retroativamente em `AUD-*/audit.db`.
