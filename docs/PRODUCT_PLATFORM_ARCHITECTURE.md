@@ -185,11 +185,11 @@ Organization
                   -> contextos de Search Monitoring
 ```
 
-- **Organization** — tenant comercial/de segurança.
-- **Workspace** — limite de cliente, unidade de negócio ou portfólio.
-- **Project** — iniciativa lógica de Search & AI; pode conter múltiplas propriedades/domínios.
-- **Property** — propriedade web própria ou concorrente, identificada por origem/hostname.
-- **Environment** — `PRODUCTION`, `STAGING`, `QA`, `PREVIEW`, `DEVELOPMENT` ou `OTHER`.
+- **Organization** - tenant comercial/de segurança.
+- **Workspace** - limite de cliente, unidade de negócio ou portfólio.
+- **Project** - iniciativa lógica de Search & AI; pode conter múltiplas propriedades/domínios.
+- **Property** - propriedade web própria ou concorrente, identificada por origem/hostname.
+- **Environment** - `PRODUCTION`, `STAGING`, `QA`, `PREVIEW`, `DEVELOPMENT` ou `OTHER`.
 
 IDs opacos estáveis são compartilhados pelos contratos de domínio SQLite/PostgreSQL.
 
@@ -277,8 +277,8 @@ Se o par mais próximo não for comparável, o RASAi não normaliza silenciosame
 
 Modos alternativos:
 
-- `GOLDEN` — Golden Baseline aprovado × primeiro `AUD-*` compatível posterior ao milestone;
-- `EXPLICIT` — par baseline/current selecionado pelo operador.
+- `GOLDEN` - Golden Baseline aprovado × primeiro `AUD-*` compatível posterior ao milestone;
+- `EXPLICIT` - par baseline/current selecionado pelo operador.
 
 Deployment Impact pode exibir `AUD-*` before/after selecionados, motivo da resolução de baseline, regressões materiais, melhorias/resoluções, estado alterado de páginas, resultado do release gate e limitações de comparabilidade.
 
@@ -358,9 +358,9 @@ Valores `--status` explícitos substituem os defaults.
 
 Destinos:
 
-- `NONE` — apenas persiste a notificação;
-- `JSON` — persiste notificação estruturada;
-- `WEBHOOK` — faz POST de JSON estruturado.
+- `NONE` - apenas persiste a notificação;
+- `JSON` - persiste notificação estruturada;
+- `WEBHOOK` - faz POST de JSON estruturado.
 
 Segredos de webhook não são armazenados como metadados comuns do produto. Entrega hospedada exige segredos gerenciados e controles SSRF/egress.
 
