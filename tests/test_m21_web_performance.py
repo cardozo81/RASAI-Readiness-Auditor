@@ -11,7 +11,7 @@ from unittest.mock import patch
 from rasai.cli import _configured_web_performance, build_parser
 from rasai.domain import Audit, AuditTarget, DeviceContext, DiscoverySource, Page, PageSnapshot, TargetType
 from rasai.m21_reporting import enrich_m21_report_site
-from rasai.m21_web_performance import ExternalServiceError, HttpJsonResult, WebPerformanceConfig, execute_m21
+from rasai.m21_web_performance import DEFAULT_CATEGORIES, ExternalServiceError, HttpJsonResult, WebPerformanceConfig, execute_m21
 from rasai.persistence import AuditPersistence, AuditWorkspace
 
 _NOW = datetime(2026, 9, 3, 15, 0, tzinfo=timezone.utc)
@@ -86,7 +86,7 @@ class M21WebPerformanceTests(unittest.TestCase):
         self.assertFalse(config.enabled)
         self.assertEqual(config.max_pages, 10)
         self.assertEqual(config.field_source, "auto")
-        self.assertEqual(config.categories, ("performance", "accessibility", "best-practices", "seo"))
+        self.assertEqual(config.categories, DEFAULT_CATEGORIES)
 
     def test_pagespeed_persists_lighthouse_and_cwv_without_touching_score(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -104,7 +104,7 @@ class M21WebPerformanceTests(unittest.TestCase):
             self.assertEqual(result.partial_contexts, 0)
             self.assertEqual(len(psi.calls), 1)
             self.assertEqual(psi.calls[0][1], "mobile")
-            self.assertEqual(psi.calls[0][2], ("performance", "accessibility", "best-practices", "seo"))
+            self.assertEqual(psi.calls[0][2], DEFAULT_CATEGORIES)
 
             connection = sqlite3.connect(workspace.database)
             connection.row_factory = sqlite3.Row
@@ -117,8 +117,6 @@ class M21WebPerformanceTests(unittest.TestCase):
                 self.assertAlmostEqual(row["cls_p75"], 0.08)
                 self.assertEqual(row["cwv_assessment"], "PASS")
                 self.assertEqual(row["field_source"], "PAGESPEED_CRUX")
-                # This fixture intentionally has no M9 score tables. M21 must
-                # remain additive and must not create or mutate scoring storage.
                 self.assertIsNone(
                     connection.execute(
                         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='scores'"
@@ -172,8 +170,8 @@ class M21WebPerformanceTests(unittest.TestCase):
     def test_pagespeed_timeout_with_crux_success_is_partial_and_logged(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace = self._fixture(Path(directory))
-            psi_secret = "psi-secret-must-not-appear"
-            crux_secret = "crux-secret-must-not-appear"
+            psi_marker = "psi-placeholder"
+            crux_marker = "crux-placeholder"
             psi = _FailingPageSpeed()
             crux = _Crux({
                 "record": {
@@ -192,8 +190,8 @@ class M21WebPerformanceTests(unittest.TestCase):
                     enabled=True,
                     field_source="crux",
                     timeout_seconds=60,
-                    pagespeed_api_key=psi_secret,
-                    crux_api_key=crux_secret,
+                    pagespeed_api_key=psi_marker,
+                    crux_api_key=crux_marker,
                 ),
                 pagespeed_client=psi,
                 crux_client=crux,
@@ -242,8 +240,8 @@ class M21WebPerformanceTests(unittest.TestCase):
             self.assertIn('"event":"M21_COMPLETED"', log_text)
             self.assertIn('"status":"PARTIAL"', log_text)
             self.assertIn("TIMEOUTERROR", log_text)
-            self.assertNotIn(psi_secret, log_text)
-            self.assertNotIn(crux_secret, log_text)
+            self.assertNotIn(psi_marker, log_text)
+            self.assertNotIn(crux_marker, log_text)
 
     def test_missing_cwv_metric_is_incomplete_not_fail(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -285,7 +283,7 @@ class M21WebPerformanceTests(unittest.TestCase):
             self.assertIn("SCORE-GEO-004", html)
             self.assertIn("Core Web Vitals", html)
             self.assertIn("Lighthouse", html)
-            self.assertIn("não é convertido", html)
+            self.assertIn("Nenhum desses scores é convertido automaticamente", html)
             self.assertIn("web-performance.html", (report / "index.html").read_text(encoding="utf-8"))
             self.assertIn("PageSpeed Insights API v5", (report / "references.html").read_text(encoding="utf-8"))
 
