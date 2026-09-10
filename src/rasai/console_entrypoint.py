@@ -12,6 +12,7 @@ from rasai import interactive_console
 from rasai.console_apdex_configuration import configure_apdex
 from rasai.console_config_path import prepare_console_config
 from rasai.console_environment import environment_menu
+from rasai.console_search_intelligence import install as install_search_intelligence
 from rasai.consolidation.integration import install as install_consolidation
 from rasai.report_registry import install as install_report_registry
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
@@ -30,6 +31,7 @@ def main() -> int:
     install_runtime_completion_extensions()
     interactive_console._environment_menu = environment_menu
     interactive_console._configure_apdex = configure_apdex
+    install_search_intelligence(interactive_console)
     install_consolidation(interactive_console)
     return interactive_console.main()
 
