@@ -137,7 +137,7 @@ def build_parser() -> argparse.ArgumentParser:
         action=argparse.BooleanOptionalAction,
         default=None,
         help=(
-            "enable M20 evidence-bound exact-text content suggestions; default OFF, "
+            "enable evidence-bound exact-text content suggestions; default OFF, "
             f"or {_CONTENT_REMEDIATION_ENV} when configured. JSON-LD guidance is generated deterministically regardless"
         ),
     )
@@ -182,8 +182,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--lighthouse-categories",
         default=None,
         help=(
-            "comma-separated Lighthouse categories: performance,accessibility,best-practices,seo; "
-            "default requests all four in one PageSpeed call"
+            "comma-separated Lighthouse categories: performance,accessibility,best-practices,seo,agentic-browsing; "
+            "default requests all five in one PageSpeed call; agentic-browsing is experimental"
         ),
     )
 
@@ -382,7 +382,7 @@ def main(argv: list[str] | None = None) -> int:
                 # Real audit workspaces materialize the M21 state even when
                 # external collection is OFF, so the report can explain the
                 # opt-in status. Mocked/internal callers that return no actual
-                # workspace retain the legacy default-OFF path without failure.
+                # workspace retain the default-OFF path without failure.
                 # Any M21 problem after core completion remains fail-open.
                 if web_performance.enabled or result.audit_root.is_dir():
                     try:
