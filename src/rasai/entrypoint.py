@@ -28,15 +28,9 @@ def _audits_root(argv: list[str]) -> Path:
 
 
 def _try_refresh_platform_index(argv: list[str]) -> None:
-    """Best-effort post-audit control-plane indexing.
-
-    Product metadata must never turn a successfully persisted AUD into a failed
-    audit. Any platform indexing error is therefore logged and kept fail-open.
-    """
     try:
         from rasai.platform.database import open_platform_store
         from rasai.platform.indexing import index_audits
-
         root = _audits_root(argv)
         with open_platform_store(audits_root=root) as store:
             index_audits(store, root, strict=False)
@@ -45,15 +39,10 @@ def _try_refresh_platform_index(argv: list[str]) -> None:
 
 
 def _run_audit_and_finalize(effective: list[str]) -> int:
-    """Run one audit and validate its canonical HTML projection before success.
-
-    Scoring still runs before recommendations and audit evidence remains immutable.
-    The final pass only rebuilds HTML/CSS/manifest from already persisted evidence.
-    A command that completed the audit evidence but still cannot materialize an
-    expected audit-owned HTML page returns a distinct non-zero process status instead
-    of silently reporting a fully successful URL analysis.
-    """
     from rasai import m9
+    from rasai.ai_exchange_log import persist_ai_exchange_log
+    from rasai.ai_execution_state import consume_current_ai_execution
+    from rasai.m18_ai import provider_session_snapshot
     from rasai.persistence import AuditWorkspace
     from rasai.report_completion import finalize_audit_report_site
     from rasai.score_geo_004_reporting import REPORT_FILE
@@ -78,45 +67,40 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         cli_extensions._audit_cli.run_audit = original_run_audit
         m9.write_score_geo_004_report = original_score_writer
 
+    execution = consume_current_ai_execution()
     if code != 0 or not captured:
         return code
 
     result = captured[-1]
     try:
         workspace = AuditWorkspace.open(result.audit_root)
+        context_interpretations = ()
+        routing_snapshot = None
+        if execution is not None:
+            persist_ai_exchange_log(audit_id=result.audit_id, workspace=workspace, recorder=execution.recorder)
+            context_interpretations = execution.recorder.context_interpretations
+            routing_snapshot = provider_session_snapshot(execution.provider)
         completion = finalize_audit_report_site(
             audit_id=result.audit_id,
             workspace=workspace,
+            context_interpretations=context_interpretations,
+            routing_snapshot=routing_snapshot,
         )
     except Exception:
         _LOGGER.exception("Final audit report materialization gate failed")
-        print(
-            "Relatórios HTML: INCOMPLETOS - falha ao validar/materializar o mini-site final. "
-            "O audit.db já persistido foi preservado; consulte logs/audit.log."
-        )
+        print("Relatórios HTML: INCOMPLETOS - falha ao validar/materializar o mini-site final. O audit.db já persistido foi preservado; consulte logs/audit.log.")
         return _REPORT_PROJECTION_INCOMPLETE_EXIT
 
     for issue in completion.renderer_errors:
         _LOGGER.warning("Audit report renderer issue during final repair: %s", issue)
-
     if completion.missing_pages:
         missing = ", ".join(completion.missing_pages)
         _LOGGER.error("Expected audit report pages were not materialized: %s", missing)
-        print(
-            "Relatórios HTML: INCOMPLETOS - páginas esperadas não foram materializadas: "
-            f"{missing}. O audit.db foi preservado."
-        )
+        print(f"Relatórios HTML: INCOMPLETOS - páginas esperadas não foram materializadas: {missing}. O audit.db foi preservado.")
         return _REPORT_PROJECTION_INCOMPLETE_EXIT
-
-    print(
-        "Relatórios HTML: COMPLETOS "
-        f"({len(completion.expected_pages)} página(s) esperada(s) para esta execução)."
-    )
+    print(f"Relatórios HTML: COMPLETOS ({len(completion.expected_pages)} página(s) esperada(s) para esta execução).")
     if completion.renderer_errors:
-        print(
-            "Relatórios HTML: houve falha de enriquecimento reparável em um ou mais renderizadores; "
-            "as páginas canônicas esperadas existem e o detalhe foi registrado no log."
-        )
+        print("Relatórios HTML: houve falha de enriquecimento reparável em um ou mais renderizadores; as páginas canônicas esperadas existem e o detalhe foi registrado no log.")
     return code
 
 
