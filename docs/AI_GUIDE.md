@@ -6,7 +6,7 @@ O RASAi usa IA apenas em finalidades opcionais e evidence-bound. A auditoria pri
 
 1. **análise semântica**: avalia somente as evidências fornecidas pelo RASAi e deve devolver saída estruturada compatível com o contrato local;
 2. **remediação textual opcional (Sugestões e remediação de conteúdo por IA)**: produz sugestões exatas somente para findings elegíveis e com evidência suficiente;
-3. **remediação técnica opcional de crawling/discovery (Rastreamento, descoberta e acesso de crawlers)**: explica diagnósticos técnicos Rastreamento, descoberta e acesso de crawlers já determinados pelo runtime e pode sugerir correção evidence-bound, sem alterar scoring ou política editorial automaticamente.
+3. **remediação técnica opcional de crawling/discovery (Rastreamento, descoberta e acesso de crawlers)**: explica diagnósticos técnicos já determinados pelo runtime e pode sugerir correção evidence-bound, sem alterar scoring ou política editorial automaticamente.
 
 Nenhuma dessas finalidades autoriza inventar fatos, credenciais, preços, datas, estatísticas, URLs, crawler policies ou evidências.
 
@@ -28,15 +28,18 @@ Esses valores vêm das variáveis `RASAI_CONTENT_*`, `RASAI_YMYL_CATEGORY`, `RAS
 
 Regras:
 
-- valor explícito é contexto fornecido pelo operador;
-- `auto` é somente hipótese provisória baseada nas evidências visíveis;
-- quando o conteúdo é claramente YMYL, prefira configuração explícita;
+- valor explícito é contexto fornecido pelo operador e permanece como configuração oficial;
+- quando um campo está em `auto` e IA está ligada, o provider pode produzir uma **interpretação transitória** baseada somente nas evidências/conteúdo enviados;
+- essa interpretação é mostrada separadamente em `readiness.html`, sem substituir o valor `AUTO`;
+- a interpretação transitória não sobrescreve `content_analysis_contexts`, não vira evidência determinística e não altera diretamente `SARI-001`/`SCORE-GEO-004`;
+- quando a evidência não sustenta uma classificação, o relatório deve mostrar `Não determinável`;
+- quando o conteúdo é claramente YMYL e a organização já conhece sua classificação, configuração explícita continua preferível;
 - YMYL eleva a exigência de confiança, atribuição, suporte factual e qualificadores onde material;
 - Trust é tratado como elemento central de E-E-A-T; Experience, Expertise e Authoritativeness são considerados conforme o propósito/tópico, não exigidos mecanicamente em todo conteúdo;
 - a IA não pode inferir como fato credenciais, compliance, revisão profissional, reputação externa, experiência pessoal ou processo editorial oculto;
 - contexto editorial não cria um score E-E-A-T/YMYL e não entra diretamente na aritmética do `SARI-001`.
 
-A base conceitual e os valores completos estão em [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md).
+A base conceitual e os valores completos estão em [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md) e o comportamento transitório está em [CONTENT_CONTEXT_AI_INTERPRETATION.md](CONTENT_CONTEXT_AI_INTERPRETATION.md).
 
 Fontes oficiais principais:
 
@@ -65,13 +68,7 @@ grok   -> xai
 claude -> anthropic
 ```
 
-AUTO permanece:
-
-```text
-OpenAI -> DeepSeek -> MiMo
-```
-
-xAI, Qwen, Gemini e Anthropic permanecem explicit-only enquanto não houver promoção formal de qualificação.
+Em `AI=auto`, todos os providers registrados como elegíveis para AUTO que possuam credencial e configuração válidas participam do pool da execução. O registry é a fonte de verdade; não existe uma cadeia fixa limitada aos três providers históricos.
 
 ## Credenciais
 
@@ -222,9 +219,9 @@ RASAI_AI_TECHNICAL_REMEDIATION
 
 Default: OFF.
 
-A execução determinística de crawling/discovery Rastreamento, descoberta e acesso de crawlers não depende dessa opção. O flag habilita somente a camada de IA sobre diagnósticos técnicos já persistidos.
+A execução determinística de crawling/discovery não depende dessa opção. O flag habilita somente a camada de IA sobre diagnósticos técnicos já persistidos.
 
-A remediação técnica Rastreamento, descoberta e acesso de crawlers deve respeitar estas fronteiras:
+A remediação técnica deve respeitar estas fronteiras:
 
 - não criar nem alterar `RuleExecution`, Finding, Recommendation GEO, Score, Coverage, Confidence ou Consolidation;
 - não inventar URL, canonical, sitemap, data ou crawler token;
@@ -249,11 +246,11 @@ esforço/profundidade, quando suportado
 timeout por tentativa
 ```
 
-A opção 5, **Remediação textual IA**, só fica disponível com provider apto. Com IA=`none` ou provider indisponível, o console informa que a opção depende da configuração da opção 4.
+A opção 5, **Remediação textual IA**, só fica disponível com provider apto. Com IA=`none` ou nenhum provider AUTO elegível, o console informa a indisponibilidade sem transformar isso em finding do site.
 
 O grupo **IA - contexto editorial / YMYL** em `E. Variáveis de ambiente / credenciais` expõe os parâmetros contextuais com domínio aceito, default, explicação de impacto e link para a documentação específica.
 
-A remediação técnica Rastreamento, descoberta e acesso de crawlers é uma superfície CLI/ambiente na implementação atual. Não deve ser presumida como opção persistida no INI do console até existir integração explícita correspondente.
+A remediação técnica é uma superfície CLI/ambiente na implementação atual. Não deve ser presumida como opção persistida no INI do console até existir integração explícita correspondente.
 
 ## Persistência de configuração e secrets
 
@@ -261,19 +258,29 @@ A remediação técnica Rastreamento, descoberta e acesso de crawlers é uma sup
 
 API keys e outros secrets **não são gravados no INI**. O console permite inseri-los pelo menu de variáveis, usa entrada sem eco e mostra apenas `[SET]`.
 
-O contexto editorial avançado é lido das variáveis de ambiente e o valor efetivo usado na auditoria é persistido em `content_analysis_contexts`, permitindo reabrir o report sem depender do estado atual do ambiente.
+O contexto editorial configurado é persistido em `content_analysis_contexts` para que o relatório conheça a configuração efetiva usada na auditoria. Quando o valor configurado é `auto`, continua persistido como `AUTO`; a interpretação produzida pela IA não sobrescreve esse valor nem cria uma classificação canônica paralela no banco.
 
-## AUTO e fallback
+## AUTO, rotação e fallback
 
-AUTO considera somente:
+AUTO constrói dinamicamente o pool de providers registrados como elegíveis e configurados corretamente na execução.
 
-```text
-OpenAI -> DeepSeek -> MiMo
-```
+A seleção usa round-robin compartilhado entre necessidades de IA. Em uma mesma necessidade, cada provider pode ser tentado no máximo uma vez. Se um provider falhar temporariamente, o fallback segue para o próximo; esse provider pode voltar ao pool em uma necessidade futura enquanto não atingir o circuit breaker.
 
-Cada provider mantém sua própria configuração de modelo/esforço. O primeiro resultado válido encerra a cadeia para aquele contexto. Configurações ausentes ou inválidas são excluídas; erro operacional pode colocar o provider em quarantine para a auditoria.
+Condições terminais como autenticação, crédito, quota terminal, permissão, modelo inválido/inexistente e HTTP 401/403/404/410 retiram o provider do restante da execução. Falhas temporárias abrem o circuit breaker quando três falhas aparecem entre as últimas cinco observações daquele provider.
 
-O termo `AUTO` do roteamento de providers é diferente de campos editoriais `auto`: o primeiro escolhe provider; o segundo permite inferência provisória do contexto editorial.
+A exclusão é somente da auditoria atual e não altera a configuração global.
+
+O termo `AUTO` do roteamento de providers é diferente de campos editoriais `auto`: o primeiro escolhe dinamicamente um provider; o segundo mantém a configuração editorial indefinida e permite apenas uma interpretação transitória para apresentação.
+
+Contrato detalhado: [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
+
+## Structured output e validação local
+
+O schema local do RASAi permanece normativo. Quando o wire format do provider aceita apenas um subconjunto do JSON Schema, o runtime projeta o schema imediatamente antes do transporte e mantém as validações locais mais estritas depois da resposta.
+
+Na integração OpenAI isso evita enviar constraints incompatíveis em contratos estruturados de análise/remediação sem relaxar os invariantes que o RASAi valida localmente.
+
+Erro de schema/request é erro técnico de integração, não defeito do website auditado.
 
 ## Telemetria
 
@@ -293,9 +300,15 @@ versão de pricing
 diagnóstico sanitizado
 ```
 
+Além da telemetria agregada, `ai_exchange_log` registra os envelopes externos sanitizados de request e response, com finalidade, página/snapshot, endpoint sanitizado, duração, resultado, hashes e truncamento. A projeção principal desse log está em `ai-usage.html`.
+
+Headers de autenticação, API keys, tokens, passwords/client secrets e campos reconhecidos como raciocínio privado não são persistidos. O log pode conter conteúdo/evidência da página enviados ao provider e deve receber a mesma proteção de acesso/retenção do workspace da auditoria.
+
+Uma resposta recebida e posteriormente rejeitada pelo contrato local continua sendo uma chamada externa e pode ter consumo/custo. O relatório deve distingui-la de falha de transporte e de resposta aceita.
+
 O custo é estimativa técnica local, não invoice do provider. Quando não existe base de pricing confiável para aquele adapter/modelo, o HTML deve mostrar custo indisponível em vez de fabricar valor.
 
-Para Sugestões e remediação de conteúdo por IA, `content-suggestions.html` mostra um resumo de provider/modelo/reasoning/chamadas/duração/tokens/custo e oferece atalho para o detalhamento em `ai-usage.html`.
+Para Sugestões e remediação de conteúdo por IA, `content-suggestions.html` mostra um resumo e oferece atalho para o detalhamento em `ai-usage.html`.
 
 Para Rastreamento, descoberta e acesso de crawlers, a finalidade técnica deve permanecer identificável em `crawling-discovery.html`/`ai-usage.html` e não ser misturada com o score de qualidade do website.
 
@@ -306,15 +319,20 @@ Para Rastreamento, descoberta e acesso de crawlers, a finalidade técnica deve p
 - não reutilize credencial de um provider em outro endpoint;
 - não assuma que key configurada significa crédito disponível;
 - falha de provider não deve ser convertida em finding do website;
-
 - `evidence_ids` retornados por provider são limitados ao conjunto exato fornecido naquele contexto; referência a ID externo ao input invalida a resposta, não a evidência local;
-- provider configurado/chamado com resposta indisponível ou rejeitada por contrato deve aparecer como execução `DEGRADED`, e não como `NO_AI`;
+- provider configurado/chamado com resposta indisponível ou rejeitada por contrato deve aparecer como execução degradada, e não como `NO_AI`;
 - sugestão textual/técnica exige revisão humana antes de publicação;
-- IA Rastreamento, descoberta e acesso de crawlers não pode escolher unilateralmente política de treinamento/crawler da organização;
+- IA de crawling/discovery não pode escolher unilateralmente política de treinamento/crawler da organização;
 - contexto YMYL não autoriza inferir responsabilidade legal/regulatória.
+
+Detalhamento de retenção/sanitização: [AI_RUNTIME_SECURITY.md](AI_RUNTIME_SECURITY.md).
 
 ## Documentos relacionados
 
+- [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
+- [AI_RUNTIME_SECURITY.md](AI_RUNTIME_SECURITY.md)
+- [REPORTING_AI_USAGE.md](REPORTING_AI_USAGE.md)
+- [CONTENT_CONTEXT_AI_INTERPRETATION.md](CONTENT_CONTEXT_AI_INTERPRETATION.md)
 - [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md)
 - [CONFIGURATION.md](CONFIGURATION.md)
 - [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
@@ -322,6 +340,7 @@ Para Rastreamento, descoberta e acesso de crawlers, a finalidade técnica deve p
 - [AI_PROVIDER_EXTENSIONS.md](AI_PROVIDER_EXTENSIONS.md)
 - [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
 - [OPENAI_PROVIDER_DIAGNOSTICS.md](OPENAI_PROVIDER_DIAGNOSTICS.md)
+- [specification/18_AI_RUNTIME_ORCHESTRATION.md](specification/18_AI_RUNTIME_ORCHESTRATION.md)
 - [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md)
 
 <!-- rasai-ai-purpose-separation-20260908 -->
@@ -332,6 +351,6 @@ As finalidades são independentes:
 - `RASAI_AI_CONTENT_REMEDIATION`: sugestões textuais evidence-bound para findings de conteúdo elegíveis;
 - `RASAI_AI_TECHNICAL_REMEDIATION`: explicação/remediação advisory de crawling, discovery, `robots.txt`, sitemap e controles de crawlers.
 
-`DEGRADED` ou `CONTRACT_ERROR` significa que a finalidade foi habilitada e houve tentativa de provider, mas a resposta não foi aceita pelo contrato; isso não deve ser apresentado como "IA desabilitada". A remediação de conteúdo restringe `finding_id` e `evidence_ids` ao universo enviado e persiste reason codes seguros para falhas contratuais, sem armazenar conteúdo privado da resposta rejeitada.
+Execução degradada ou `CONTRACT_ERROR` significa que a finalidade foi habilitada e houve tentativa de provider, mas a resposta não foi aceita pelo contrato; isso não deve ser apresentado como "IA desabilitada". A remediação de conteúdo restringe `finding_id` e `evidence_ids` ao universo enviado e persiste reason codes seguros para falhas contratuais.
 
 A IA técnica de crawling/discovery não possui autoridade para elevar Confidence ou SARI por julgamento. Ela permanece advisory; somente evidência válida incorporada por uma regra de scoring pode alterar Coverage/Confidence.
