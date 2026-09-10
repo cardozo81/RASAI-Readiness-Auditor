@@ -22,10 +22,11 @@ STALE_DELIVERY_METADATA = (
     re.compile(r"^\*\*PR:\*\*\s*#\d+", re.IGNORECASE | re.MULTILINE),
 )
 
-FOUR_CATEGORY_LIGHTHOUSE = re.compile(
-    r"performance,accessibility,best-practices,seo(?!,agentic-browsing)",
+PAGESPEED_DEFAULT_WITH_AGENTIC = re.compile(
+    r"performance,accessibility,best-practices,seo,agentic-browsing",
     re.IGNORECASE,
 )
+FOUR_CATEGORY_PAGESPEED_DEFAULT = "performance,accessibility,best-practices,seo"
 
 
 def test_documentation_does_not_publish_discarded_implementation_history() -> None:
@@ -38,10 +39,21 @@ def test_documentation_does_not_publish_discarded_implementation_history() -> No
     assert not violations, "pre-publication documentation contains implementation-history framing:\n" + "\n".join(violations)
 
 
-def test_documented_lighthouse_default_includes_agentic_browsing() -> None:
+def test_documented_pagespeed_default_does_not_include_agentic_browsing() -> None:
     violations: list[str] = []
     for path in DOC_FILES:
         text = path.read_text(encoding="utf-8")
-        if FOUR_CATEGORY_LIGHTHOUSE.search(text):
+        if PAGESPEED_DEFAULT_WITH_AGENTIC.search(text):
             violations.append(str(path.relative_to(ROOT)))
-    assert not violations, "stale four-category Lighthouse contract found in:\n" + "\n".join(violations)
+    assert not violations, "PageSpeed documentation still publishes Agentic Browsing in the category CSV:\n" + "\n".join(violations)
+
+
+def test_canonical_pagespeed_documents_publish_four_category_default() -> None:
+    for relative in (
+        "docs/LIGHTHOUSE_CATEGORIES.md",
+        "docs/LIGHTHOUSE_PAGESPEED_TRANSPORT.md",
+        "docs/specification/21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md",
+    ):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        assert FOUR_CATEGORY_PAGESPEED_DEFAULT in text, f"missing PageSpeed category contract in {relative}"
+        assert "Agentic" in text and "separ" in text.casefold(), f"missing Agentic source separation in {relative}"
