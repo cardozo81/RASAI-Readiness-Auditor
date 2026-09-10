@@ -12,12 +12,12 @@ src/rasai/provider_registry.py
 
 | ID canônico | Provider | Aliases CLI | Credencial | Elegível para `AUTO` no registry vigente |
 |---|---|---|---|---|
-| `openai` | OpenAI | — | `OPENAI_API_KEY` | sim |
-| `deepseek` | DeepSeek | — | `DEEPSEEK_API_KEY` | sim |
-| `mimo` | Xiaomi MiMo | — | `MIMO_API_KEY` | sim |
+| `openai` | OpenAI | - | `OPENAI_API_KEY` | sim |
+| `deepseek` | DeepSeek | - | `DEEPSEEK_API_KEY` | sim |
+| `mimo` | Xiaomi MiMo | - | `MIMO_API_KEY` | sim |
 | `xai` | xAI / Grok | `grok` | `XAI_API_KEY` | sim |
-| `qwen` | Alibaba Qwen | — | `DASHSCOPE_API_KEY` | sim |
-| `gemini` | Google Gemini | — | `GEMINI_API_KEY` | sim |
+| `qwen` | Alibaba Qwen | - | `DASHSCOPE_API_KEY` | sim |
+| `gemini` | Google Gemini | - | `GEMINI_API_KEY` | sim |
 | `anthropic` | Anthropic Claude | `claude` | `ANTHROPIC_API_KEY` | sim |
 
 `none` representa ausência deliberada de provider externo. `auto` representa a política de composição/orquestração e não um provider físico.
