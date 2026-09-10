@@ -1,15 +1,15 @@
 # RASAi - Search & AI Readiness Auditor - Specification Index
 
-**Estado no baseline de desenvolvimento:** BASELINE VIGENTE - reconciliada com `main`  
-**Scoring vigente:** `SCORE-GEO-004`  
+**Contrato vigente:** CURRENT  
+**Scoring:** `SCORE-GEO-004`  
 **Índice público:** `SARI-001`  
 **Idioma normativo:** Português, preservando identificadores e termos técnicos quando necessário.
 
 ## 1. Objetivo
 
-Este diretório constitui a fonte normativa do RASAi. Histórico de chats não deve ser necessário para descobrir requisitos já formalizados.
+Este diretório constitui a fonte normativa do RASAi. A especificação deve permitir compreender o produto e seus contratos atuais sem depender de chats, branches, pull requests, planos de entrega ou estados anteriores de implementação.
 
-Quando um documento histórico conflitar com uma especificação marcada como vigente, prevalece o contrato vigente e o histórico deve ser interpretado como contexto de evolução, não como runtime atual.
+A documentação normativa descreve somente o comportamento vigente. Decisões descartadas e superfícies removidas não integram o contrato do produto.
 
 ## 2. Ordem recomendada de leitura
 
@@ -43,7 +43,6 @@ Quando um documento histórico conflitar com uma especificação marcada como vi
 28. `28_AUDIT_QUALITY_VERIFICATION.md`
 29. `29_SAAS_PILOT_WEB.md`
 30. `30_IDENTITY_AND_ACCESS.md`
-31. `09_IMPLEMENTATION_PLAN.md` - histórico de implementação; não deve sobrescrever contratos vigentes.
 
 ## 3. Precedência documental
 
@@ -54,12 +53,11 @@ Em caso de conflito:
 3. escopo em `01_PROJECT_CHARTER_SCOPE.md`;
 4. modelos normativos atuais de domínio, regras, workflows, scoring e priorização;
 5. arquitetura técnica atual;
-6. especificações funcionais complementares;
-7. documentos explicitamente históricos, roadmaps e planos de implementação.
+6. especificações funcionais complementares.
 
 Nenhuma decisão funcional deve ser alterada silenciosamente durante implementação.
 
-## 4. Baseline vigente de scoring
+## 4. Contrato de scoring
 
 ```text
 Public index:        SARI-001
@@ -72,11 +70,11 @@ Princípios:
 
 - dimensões legitimamente `NOT_APPLICABLE` não recebem zero;
 - Coverage, Confidence e Consolidation permanecem distintas do Score;
-- Overall 004 é determinístico e não exige model artifact externo;
+- Overall é determinístico e não exige model artifact externo;
 - ausência de evidência suficiente não é transformada em zero;
 - métricas externas não entram silenciosamente no SARI;
 - IA não calcula diretamente o score;
-- mudança incompatível exige nova `scoring_version`.
+- mudança metodologicamente incompatível exige nova `scoring_version`.
 
 Detalhes: `05_SCORING_MODEL.md`, `../SCORE_GEO_004.md` e `../SCORING_GUIDE.md`.
 
@@ -105,9 +103,9 @@ Contrato de saída por auditoria, condicionado à materialização:
 <AUD-ID>/report/css/site.css
 ```
 
-`readiness.html` é a página canônica do SARI. `scoring.html` é a página canônica estável da metodologia de scoring e deve exibir a versão efetivamente persistida.
+`readiness.html` é a página canônica do SARI. `scoring.html` é a página canônica da metodologia de scoring e deve exibir a versão efetivamente persistida.
 
-O alias versionado existe somente para compatibilidade e não recebe item próprio no menu.
+Não existe filename público versionado alternativo para a metodologia. A versão pertence a `scoring_version`, manifests, banco, metadados e conteúdo do relatório.
 
 ## 6. Fronteiras metodológicas
 
@@ -124,7 +122,7 @@ O alias versionado existe somente para compatibilidade e não recebe item própr
 | Monitoring | baseline/current e release gate | read-only; não cria score |
 | Quality | qualidade da evidência/decisão | read-only; não cria readiness score |
 | Fix Verification | transição de regra entre AUDs | não prova downstream impact |
-| Evidence Timeline | histórico de AUDs | não regrava evidência fonte |
+| Evidence Timeline | série de AUDs | não regrava evidência fonte |
 | Product Platform | tenancy, milestones, deploys, usage | control plane separado; não altera audit.db |
 | Web/API/SaaS Pilot | browser, API e durable execution jobs | projeção tenant-aware; não altera scoring nem executa crawling em request |
 | Identity & Access | autenticação externa, vínculo e sessão | termina em `Principal`; autorização continua em memberships; não altera audit.db |
@@ -185,11 +183,11 @@ O control plane local usa `audits/.rasai/platform.db` e permanece separado do `a
 
 Modela multiusuário, multiworkspace, multiprojeto, multidomínio, milestones/deployments, golden baselines, comparação before/after, schedules, alerts, integrations e usage ledger.
 
-A arquitetura alvo SaaS migra o control plane para PostgreSQL e workers Linux/containerizados, preservando a evidência AUD como bundle imutável.
+PostgreSQL é o backend centralizado do control plane para operação hospedada. Workers permanecem desacoplados do processo HTTP e `AUD-*/audit.db` continua sendo evidência imutável da execução.
 
-O SaaS Pilot Web adiciona a primeira UI de navegador, sem segunda persistência e sem mover regra de negócio para o frontend. Reports de um AUD podem ser projetados via HTTP somente após autorização e apenas dentro da árvore pública `report/`.
+O SaaS Pilot Web adiciona UI de navegador sem segunda persistência e sem mover regra de negócio para o frontend. Reports de um AUD podem ser projetados via HTTP somente após autorização e apenas dentro da árvore pública `report/`.
 
-Identity & Access adiciona OIDC/JWT provider-neutral, Authorization Code + PKCE para browser, sessão Web curta e vínculo explícito `(issuer, subject) -> USR-*`. Autenticação não cria memberships e não substitui as regras de tenancy.
+Identity & Access usa OIDC/JWT provider-neutral, Authorization Code + PKCE para browser, sessão Web curta e vínculo explícito `(issuer, subject) -> USR-*`. Autenticação não cria memberships e não substitui as regras de tenancy.
 
 Detalhes: `../PRODUCT_PLATFORM_ARCHITECTURE.md`, `29_SAAS_PILOT_WEB.md`, `30_IDENTITY_AND_ACCESS.md`, `../SAAS_PILOT_WEB.md` e `../IDENTITY_AND_ACCESS.md`.
 
@@ -199,17 +197,13 @@ O RASAi não representa seu score ou thresholds como standard GEO/AEO universal.
 
 Referências primárias externas sustentam fenômenos específicos. Elas não homologam automaticamente `SARI-001` ou `SCORE-GEO-004`.
 
-Heurísticas BR-GEO sem equivalente normativo permanecem identificadas como heurística/baseline interna.
+Heurísticas BR-GEO sem equivalente normativo permanecem identificadas como heurística interna.
 
-## 11. Continuidade de branches e integração
+## 11. Regra de mudança
 
-Branches de trabalho são temporárias. Após validação e merge em `main`, confirmar que não existe conteúdo exclusivo pendente antes de excluir branch.
+Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context, IA, Web Performance, acessibilidade, Apdex, crawling/discovery, visibilidade observada, monitoring/observability/quality, Product Platform, Web/API/SaaS Pilot ou Identity & Access devem reconciliar código, testes, HTML e documentação normativa na mesma evolução.
 
-## 12. Regra de mudança
-
-Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context, IA, Web Performance, acessibilidade, Apdex, crawling/discovery, visibilidade observada, monitoring/observability/quality, Product Platform, Web/API/SaaS Pilot ou Identity & Access devem reconciliar código, testes, HTML e documentação normativa.
-
-## 13. Critério de encerramento de alteração
+## 12. Critério de conclusão
 
 Uma alteração só está concluída quando:
 
@@ -219,4 +213,4 @@ Uma alteração só está concluída quando:
 - não há conflito material com `main` atualizado;
 - limitações e comportamento fail-closed estão explícitos;
 - HTML/menu estão coerentes quando afetados;
-- referências históricas são preservadas quando materialmente necessárias.
+- a documentação resultante descreve somente o contrato vigente.
