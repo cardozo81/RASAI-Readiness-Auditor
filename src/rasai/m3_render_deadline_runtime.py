@@ -114,11 +114,14 @@ def _worker(
             pass
 
     # Windows uses spawn, so runtime monkeypatches from the parent are not inherited.
-    # Install the bounded capture contract explicitly inside the browser owner process.
+    # Install the bounded capture contract and zero-cost same-session metrics explicitly
+    # inside the browser owner process before instantiating the renderer.
     from rasai.device_context_capture import install as install_device_context_capture
+    from rasai.open_web_metrics import install as install_open_web_metrics
     from rasai.browser_identity_renderer import BrowserIdentityRenderer
 
     install_device_context_capture()
+    install_open_web_metrics()
     renderer = BrowserIdentityRenderer(
         navigation_timeout_ms=navigation_timeout_ms,
         settle_timeout_ms=settle_timeout_ms,
