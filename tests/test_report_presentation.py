@@ -105,6 +105,29 @@ class ReportPresentationTests(unittest.TestCase):
         self.assertEqual(public_label("BLOCKED"), "Bloqueado")
         self.assertEqual(public_label("UNKNOWN"), "Não determinado")
 
+    def test_legacy_standalone_dimension_labels_are_normalized_across_reports(self) -> None:
+        html = (
+            "<h4>Capacidade de indexação</h4>"
+            "<td>Extração de conteúdo</td>"
+            "<span>Estrutura semântica</span>"
+            "<strong>Dados estruturados</strong>"
+            "<p>Capacidade de indexação continua explicada nesta frase.</p>"
+        )
+        rendered = humanize_report_html(html, page_name="readiness.html")
+        self.assertIn("<h4>Indexability</h4>", rendered)
+        self.assertIn("<td>Rendering & Extractability</td>", rendered)
+        self.assertIn("<span>Semantic Structure</span>", rendered)
+        self.assertIn("<strong>Structured Data</strong>", rendered)
+        self.assertIn("Capacidade de indexação continua explicada nesta frase.", rendered)
+
+    def test_humanization_remains_idempotent_after_concept_normalization(self) -> None:
+        html = "<td>CONTENT_VALUE</td><td>Valor do conteúdo</td><td>BLOCKED</td>"
+        once = humanize_report_html(html, page_name="scoring.html")
+        twice = humanize_report_html(once, page_name="scoring.html")
+        self.assertEqual(once, twice)
+        self.assertIn("<td>Content Value</td>", once)
+        self.assertIn("<td>Bloqueado</td>", once)
+
 
 if __name__ == "__main__":
     unittest.main()
