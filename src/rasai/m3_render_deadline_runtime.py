@@ -185,7 +185,7 @@ class IsolatedBrowserIdentityRenderer(BrowserRenderer):
             target=_worker,
             args=(child, self.navigation_timeout_ms, self.settle_timeout_ms, self.executable_path),
             name="rasai-m3-browser",
-            daemon=True,
+            daemon=False,
         )
         process.start()
         child.close()
