@@ -26,6 +26,19 @@ _NAV_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Ações e referência", ("content-suggestions.html", "remediation.html", "quality.html", "references.html")),
 )
 
+# ``details`` is also used throughout report content and intentionally has a light
+# surface there. Navigation groups live on a dark sidebar, so their contrast must be
+# overridden only on the menu element itself. Inline scoping avoids leaking this visual
+# treatment to content accordions/cards that also use <details>.
+_NAV_GROUP_DETAILS_STYLE = (
+    "margin:6px 8px;border:1px solid rgba(255,255,255,.10);border-radius:6px;"
+    "background:#364359;overflow:hidden"
+)
+_NAV_GROUP_SUMMARY_STYLE = (
+    "padding:10px 12px 7px;cursor:pointer;font-size:.72rem;letter-spacing:.06em;"
+    "text-transform:uppercase;opacity:1;color:#d9e2ee;background:#3b4860"
+)
+
 
 def _project_report_contract() -> None:
     from rasai import report_contract, report_manifest, report_navigation, report_registry
@@ -59,10 +72,20 @@ def _patch_grouped_navigation() -> None:
                 group_links.append(f"<a class='{'active' if filename == current else ''}' href='{escape(filename)}'>{escape(label)}</a>")
             if group_links:
                 open_attr = " open" if contains_active or group_label in {"Visão e readiness", "Coleta e dispositivos"} else ""
-                sections.append(f"<details class='rasai-nav-group'{open_attr}><summary style='padding:10px 12px 5px;cursor:pointer;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.78'>{escape(group_label)}</summary>" + "".join(group_links) + "</details>")
+                sections.append(
+                    f"<details class='rasai-nav-group' style='{_NAV_GROUP_DETAILS_STYLE}'{open_attr}>"
+                    f"<summary style='{_NAV_GROUP_SUMMARY_STYLE}'>{escape(group_label)}</summary>"
+                    + "".join(group_links)
+                    + "</details>"
+                )
         remaining = [f"<a class='{'active' if filename == current else ''}' href='{escape(filename)}'>{escape(label)}</a>" for label, filename in links if filename not in consumed]
         if remaining:
-            sections.append("<details class='rasai-nav-group' open><summary style='padding:10px 12px 5px;cursor:pointer;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.78'>Outros</summary>" + "".join(remaining) + "</details>")
+            sections.append(
+                f"<details class='rasai-nav-group' style='{_NAV_GROUP_DETAILS_STYLE}' open>"
+                f"<summary style='{_NAV_GROUP_SUMMARY_STYLE}'>Outros</summary>"
+                + "".join(remaining)
+                + "</details>"
+            )
         generated_label = report_navigation.format_report_generated_at(generated_at)
         return "<aside class='app-nav' aria-label='Navegação do relatório'><div class='brand'><small>RASAi Auditor</small><strong>Relatório da auditoria</strong>" + f"<small>Gerado em {escape(generated_label)} - Horário de Brasília</small></div><nav>{''.join(sections)}</nav></aside>"
 
