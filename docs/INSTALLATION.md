@@ -36,9 +36,17 @@ O marcador usado para a verificação de dependências fica dentro de `.venv` e 
 
 ### Dependências das integrações externas
 
-Os adapters atuais de OpenAI, DeepSeek, MiMo, xAI, Qwen, Gemini, Anthropic, PageSpeed Insights e CrUX usam transporte HTTP da biblioteca padrão do Python (`urllib`). Portanto, **não existe hoje um SDK Python opcional adicional que precise ser instalado para habilitar essas APIs**.
+OpenAI, DeepSeek, MiMo, xAI, Qwen, Gemini, Anthropic, PageSpeed Insights, CrUX e os adapters SERP HTTP usam transporte da biblioteca padrão do Python (`urllib`) e não exigem SDK Python adicional.
 
-Isso significa que, depois de o `iniciar.cmd` concluir o bootstrap, o software já está preparado do ponto de vista de dependências para utilizar qualquer integração suportada. O que continua sendo necessário, quando a integração for habilitada, é a respectiva credencial e disponibilidade externa: key/token compatível, modelo/plano, saldo/quota, permissões e conectividade de rede.
+**GitHub Copilot é a exceção atual.** A integração usa o SDK oficial e está declarada no extra `copilot` de `pyproject.toml`. No fluxo recomendado, `iniciar.cmd` descobre os grupos de `[project.optional-dependencies]` e instala os extras automaticamente. No fluxo manual, instale explicitamente:
+
+```powershell
+python -m pip install -e ".[copilot]"
+```
+
+A presença da biblioteca não habilita o provider por si só. Para Copilot também são necessários `COPILOT_GITHUB_TOKEN`, uma assinatura Copilot elegível e permissões compatíveis. O provider permanece `explicit-only` e não entra em `AI=auto`.
+
+Depois de o `iniciar.cmd` concluir o bootstrap, o software fica preparado do ponto de vista de dependências para utilizar as integrações declaradas no projeto. O que continua sendo necessário, quando cada integração for habilitada, é sua respectiva credencial e disponibilidade externa: key/token compatível, modelo/plano, saldo/quota, permissões e conectividade de rede.
 
 O launcher não cria credenciais, não compra quota e não habilita providers automaticamente. Esses itens são configuração operacional, não dependência de instalação.
 
@@ -62,7 +70,13 @@ python -m pip install -e .
 python -m playwright install chromium
 ```
 
-Se `pyproject.toml` passar a possuir extras em `[project.optional-dependencies]`, o fluxo manual deve instalá-los explicitamente ou usar `iniciar.cmd`, que os descobre automaticamente.
+Para usar GitHub Copilot no fluxo manual, instale o extra correspondente:
+
+```powershell
+python -m pip install -e ".[copilot]"
+```
+
+Para instalar todos os extras declarados sem depender do launcher, consulte os grupos atuais em `pyproject.toml`. O `iniciar.cmd` continua sendo o caminho recomendado porque os descobre e reconcilia automaticamente.
 
 Validar:
 
@@ -104,11 +118,11 @@ Na primeira abertura, o console cria `rasai-console.ini` com defaults não sens�
 
 ## Integrações opcionais
 
-Para IA, configure somente as credenciais dos providers que pretende usar. Não é obrigatório configurar todos.
+Para IA, configure somente as credenciais dos providers que pretende usar. Não é obrigatório configurar todos. As URLs oficiais para cadastro/login e geração de credenciais estão em [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
 
 Para PageSpeed/CrUX, use as variáveis descritas em [GOOGLE_API_KEYS.md](GOOGLE_API_KEYS.md).
 
-No código atual não há SDK adicional a instalar para essas APIs; o transporte HTTP necessário já faz parte do Python 3.13. Qualquer futura dependência opcional declarada no `pyproject.toml` será incluída pelo launcher.
+Para Search Intelligence/SERP, consulte [PROVIDER_SETUP.md](PROVIDER_SETUP.md) e [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md). As franquias gratuitas documentadas são limitadas; o RASAi não classifica nenhum provider SERP externo atual como gratuito e ilimitado.
 
 ## Atualização da instalação editável
 
@@ -130,6 +144,8 @@ git pull --ff-only origin main
 python -m pip install -e .
 python -m playwright install chromium
 ```
+
+Se o ambiente manual precisar de Copilot, reaplique `python -m pip install -e ".[copilot]"` após mudanças relevantes de dependências.
 
 ## Diagnóstico
 
