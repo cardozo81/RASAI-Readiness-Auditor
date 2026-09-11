@@ -12,6 +12,7 @@ from rasai import console_environment, console_search_intelligence, interactive_
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
 from rasai.ai_provider_console_management import install as install_ai_provider_console_management
 from rasai.console_apdex_configuration import configure_apdex
+from rasai.console_cancellation_runtime import install as install_console_cancellation_runtime
 from rasai.console_config_path import prepare_console_config
 from rasai.console_provider_environment_compat import install as install_provider_environment_compat
 from rasai.console_search_guidance import install as install_search_guidance
@@ -63,6 +64,7 @@ def main() -> int:
     install_m3_render_progress()
     install_m21_external_progress()
     install_search_progress_gate()
+    install_console_cancellation_runtime()
     interactive_console._environment_menu = console_environment.environment_menu
     interactive_console._configure_apdex = configure_apdex
     install_search_provider_compat(console_search_intelligence)
