@@ -75,6 +75,8 @@ def _patch_report_completion() -> None:
     from rasai.context_reporting import write_context_report
     from rasai.report_manifest import write_report_manifest
     from rasai.report_scale_ux import enhance_report_directory
+    from rasai.synthetic_profile_reporting import enrich_synthetic_profile_reports
+
     if getattr(report_completion, "_rasai_context_scope_completion", False):
         return
     if _CONTEXT_FILE not in report_completion.AUDIT_ALWAYS_PAGES:
@@ -86,6 +88,7 @@ def _patch_report_completion() -> None:
         errors = list(base.renderer_errors)
         try:
             write_context_report(audit_id=audit_id, workspace=workspace)
+            enrich_synthetic_profile_reports(audit_id=audit_id, workspace=workspace)
             report_dir = workspace.root / "report"
             report_navigation.normalize_report_navigation(report_dir)
             enhance_report_directory(report_dir)
