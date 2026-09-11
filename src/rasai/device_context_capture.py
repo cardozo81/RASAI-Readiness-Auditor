@@ -1,10 +1,11 @@
 """Device-scoped browser capture enrichment for the core M3 renderer.
 
 No extra network navigation is introduced. The existing Mobile/Desktop browser run is
-used to persist bounded main-document fingerprints and runtime diagnostics. Main-source
-capture is read from Chromium's already-buffered DevTools response only after the
-browser reports that the request finished; RASAi never waits indefinitely for
-``response.body()`` and never re-fetches the page to obtain this evidence.
+used to persist bounded main-document fingerprints, runtime diagnostics and, only when
+needed, a bounded lazy-loading interaction on the same live page. Main-source capture is
+read from Chromium's already-buffered DevTools response only after the browser reports
+that the request finished; RASAi never waits indefinitely for ``response.body()`` and
+never re-fetches the page to obtain this evidence.
 """
 from __future__ import annotations
 
@@ -22,6 +23,8 @@ from rasai.rendering import BrowserProfile, BrowserRenderResult, RenderErrorKind
 _MAX_DIAGNOSTICS = 60
 _MAX_MESSAGE = 400
 _MAX_DOCUMENT_SOURCE_BYTES = 5 * 1024 * 1024
+_LAZY_SCROLL_STEPS = 3
+_LAZY_SETTLE_MS = 250
 
 
 def _bounded(value: Any, limit: int = _MAX_MESSAGE) -> str:
@@ -106,13 +109,7 @@ def _document_source_metadata(
     *,
     content_type: str | None,
 ) -> dict[str, Any]:
-    """Return a bounded source fingerprint from the already-finished navigation.
-
-    ``Network.getResponseBody`` is only attempted after ``Network.loadingFinished`` was
-    observed for the main document and only for a bounded response. If either condition
-    is unavailable RASAi records an inconclusive capture instead of blocking or issuing
-    a second request.
-    """
+    """Return a bounded source fingerprint from the already-finished navigation."""
     result: dict[str, Any] = {
         "capture_state": "NOT_AVAILABLE",
         "sha256": None,
@@ -194,6 +191,49 @@ def _rendered_dom_metadata(rendered_html: str) -> dict[str, Any]:
         "additional_network_requests": 0,
         "capture_method": "PLAYWRIGHT_PAGE_CONTENT",
     }
+
+
+def _same_session_lazy_probe(page: Any, rendered_html: str) -> dict[str, Any]:
+    """Run BR-GEO-024's bounded interaction without another page navigation."""
+    from rasai.javascript_spa import JavascriptSpaAnalyzer
+
+    analyzer = JavascriptSpaAnalyzer()
+    preliminary = analyzer.lazy_loading(rendered_html, after_probe_html=None)
+    result: dict[str, Any] = {
+        "scope": ContextScope.DEVICE_SNAPSHOT.value,
+        "capture_method": "SAME_PAGE_BOUNDED_SCROLL",
+        "additional_navigation_requests": 0,
+        "scroll_steps": _LAZY_SCROLL_STEPS,
+        "settle_ms": _LAZY_SETTLE_MS,
+        "has_lazy_signals": preliminary.has_lazy_signals,
+        "initial_content_recoverable": preliminary.initial_content_recoverable,
+        "attempted": False,
+        "after_probe_content_recoverable": preliminary.after_probe_content_recoverable,
+        "state": "NOT_REQUIRED",
+    }
+    if not preliminary.has_lazy_signals or preliminary.initial_content_recoverable:
+        return result
+
+    result["attempted"] = True
+    try:
+        for _ in range(_LAZY_SCROLL_STEPS):
+            page.evaluate("window.scrollBy(0, Math.max(window.innerHeight * 0.8, 1))")
+            page.wait_for_timeout(_LAZY_SETTLE_MS)
+        after_html = page.content()
+        assessed = analyzer.lazy_loading(rendered_html, after_probe_html=after_html)
+        result.update(
+            state="CAPTURED",
+            after_probe_content_recoverable=assessed.after_probe_content_recoverable,
+            result=assessed.result.value,
+            reason=assessed.reason,
+        )
+    except PlaywrightTimeoutError:
+        result.update(state="TIMEOUT", reason="SAME_SESSION_LAZY_PROBE_TIMEOUT")
+    except PlaywrightError as exc:
+        result.update(state="FAILED", reason="SAME_SESSION_LAZY_PROBE_FAILED", error=type(exc).__name__)
+    except Exception as exc:
+        result.update(state="FAILED", reason="SAME_SESSION_LAZY_PROBE_FAILED", error=type(exc).__name__)
+    return result
 
 
 def _install_browser_capture() -> None:
@@ -321,6 +361,11 @@ def _install_browser_capture() -> None:
             except (PlaywrightError, TypeError, ValueError):
                 observation_state = "CAPTURE_FAILED"
 
+            # Primary snapshot evidence above is frozen before any diagnostic interaction.
+            # If lazy content needs bounded scrolling, reuse this same page/context instead
+            # of closing it and later navigating the URL again in M6.
+            lazy_probe = _same_session_lazy_probe(page, rendered_html)
+
             metadata = self._metadata(profile, settle_outcome=settle_outcome)
             metadata["profile"]["user_agent"] = identity.get("user_agent")
             metadata["profile"]["locale"] = identity.get("locale")
@@ -331,6 +376,7 @@ def _install_browser_capture() -> None:
             metadata["capture_scope"] = ContextScope.DEVICE_SNAPSHOT.value
             metadata["document_source"] = document_source
             metadata["rendered_dom"] = rendered_dom
+            metadata["bounded_lazy_probe"] = lazy_probe
             metadata["runtime_diagnostics"] = {
                 "scope": ContextScope.DEVICE_SNAPSHOT.value,
                 "count": len(runtime_diagnostics),
@@ -409,6 +455,13 @@ def _install_browser_capture() -> None:
         metadata = dict(result.browser_metadata)
         metadata["context_scope_contract"] = CONTEXT_SCOPE_CONTRACT_VERSION
         metadata["capture_scope"] = ContextScope.DEVICE_SNAPSHOT.value
+        metadata["bounded_lazy_probe"] = {
+            "scope": ContextScope.DEVICE_SNAPSHOT.value,
+            "capture_method": "SAME_PAGE_BOUNDED_SCROLL",
+            "additional_navigation_requests": 0,
+            "attempted": False,
+            "state": "UNAVAILABLE_RENDER_FAILURE",
+        }
         metadata["runtime_diagnostics"] = {
             "scope": ContextScope.DEVICE_SNAPSHOT.value,
             "count": len(runtime_diagnostics),
