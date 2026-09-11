@@ -14,6 +14,7 @@ from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from rasai.platform.deployment import resolve_deployment_pair
+from rasai.report_contract import CANONICAL_NAV_ITEMS
 from rasai.secret_safety import redact_value
 
 from .authz import AuthorizationError, Principal, accessible_organization_ids, require_project_read
@@ -32,25 +33,10 @@ _ALLOWED_REPORT_EXTENSIONS = {
     ".ico",
 }
 
-_CANONICAL_REPORT_PAGES = (
-    ("index.html", "Visão geral"),
-    ("readiness.html", "Readiness SARI"),
-    ("scoring.html", "Metodologia de scoring"),
-    ("mobile.html", "Relatório Mobile"),
-    ("desktop.html", "Relatório Desktop"),
-    ("remediation.html", "Remediações"),
-    ("content-suggestions.html", "Conteúdo e JSON-LD"),
-    ("crawling-discovery.html", "Rastreamento e descoberta"),
-    ("accessibility.html", "Acessibilidade"),
-    ("web-performance.html", "Web Performance"),
-    ("search-intelligence.html", "Search Intelligence"),
-    ("apdex.html", "Apdex de navegação"),
-    ("apdex-experience.html", "Apdex de experiência"),
-    ("ai-visibility.html", "Visibilidade em IA"),
-    ("observability.html", "Search & AI observados"),
-    ("quality.html", "Quality & decisão"),
-    ("ai-usage.html", "Uso de IA"),
-    ("references.html", "Referências e metodologia"),
+# Keep SaaS report discovery on the exact same canonical contract used by the
+# generated mini-site. The API only returns files that actually exist for the audit.
+_CANONICAL_REPORT_PAGES = tuple(
+    (filename, label) for label, filename in CANONICAL_NAV_ITEMS
 )
 
 
