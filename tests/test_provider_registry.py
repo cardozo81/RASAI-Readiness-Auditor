@@ -19,6 +19,7 @@ from rasai.provider_registry import (
     provider_environment_names,
     provider_registrations,
 )
+from rasai.provider_runtime_policy import REASONING_OPTIONS, SIMPLE_DEFAULT_MODELS, provider_reasoning_env
 
 
 class ProviderRegistryTests(unittest.TestCase):
@@ -56,6 +57,18 @@ class ProviderRegistryTests(unittest.TestCase):
             self.assertTrue(registration.auto_eligible)
             self.assertFalse(registration.explicit_only)
 
+    def test_registry_public_defaults_reasoning_and_reasoning_env_match_runtime_exactly(self) -> None:
+        for registration in provider_registrations():
+            name = registration.provider_name
+            self.assertEqual(registration.public_default_model, SIMPLE_DEFAULT_MODELS[name], registration.id)
+            self.assertEqual(registration.reasoning_values, REASONING_OPTIONS[name], registration.id)
+            self.assertEqual(registration.reasoning_env, provider_reasoning_env(name), registration.id)
+            self.assertIn(registration.public_default_model, registration.supported_models, registration.id)
+        self.assertEqual(
+            get_provider_registration("deepseek").reasoning_values,
+            ("NONE", "LOW", "HIGH", "MAX"),
+        )
+
     def test_copilot_metadata_is_explicit_only(self) -> None:
         registration = get_provider_registration("copilot")
         self.assertIsNotNone(registration)
@@ -65,6 +78,7 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertEqual(registration.key_env, "COPILOT_GITHUB_TOKEN")
         self.assertEqual(registration.model_env, "RASAI_COPILOT_MODEL")
         self.assertEqual(registration.default_model, "auto")
+        self.assertEqual(registration.public_default_model, "auto")
         self.assertTrue(registration.explicit_only)
         self.assertFalse(registration.auto_eligible)
 
@@ -112,6 +126,9 @@ class ProviderRegistryTests(unittest.TestCase):
             "GEMINI_API_KEY",
             "ANTHROPIC_API_KEY",
             "COPILOT_GITHUB_TOKEN",
+            "RASAI_XAI_REASONING_EFFORT",
+            "RASAI_GEMINI_REASONING_EFFORT",
+            "RASAI_ANTHROPIC_REASONING_EFFORT",
         ):
             self.assertIn(required, names)
 

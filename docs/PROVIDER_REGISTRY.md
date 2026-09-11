@@ -1,6 +1,6 @@
 # Registry de providers de IA
 
-O `provider_registry` canônico centraliza metadados consumidos por CLI, console, preflight e orquestração para evitar listas divergentes de providers, modelos, credenciais, aliases, URLs de onboarding e elegibilidade no modo automático.
+O `provider_registry` centraliza metadados consumidos por CLI, console, preflight e orquestração para evitar listas divergentes de providers, modelos, credenciais, aliases, URLs de onboarding e elegibilidade no modo automático.
 
 Arquivo principal:
 
@@ -62,7 +62,7 @@ Excluir um provider de `AUTO` não apaga sua credencial/configuração e não im
 
 ## Metadados do registro
 
-Cada registro pode expor:
+Cada registro expõe ou pode expor:
 
 - identificador canônico e nome de apresentação;
 - aliases;
@@ -72,8 +72,9 @@ Cada registro pode expor:
 - nota específica de autenticação;
 - variável de modelo;
 - modelos suportados;
-- modelo interno de referência/qualificação;
-- variável e valores de reasoning quando suportados;
+- modelo interno de referência/qualificação do adapter;
+- modelo público efetivo espelhado para superfícies leves de onboarding;
+- contrato de valores de reasoning aceitos pelo runtime;
 - endpoint override quando aplicável;
 - elegibilidade `AUTO` e `explicit_only`;
 - qualificação/reliability;
@@ -83,7 +84,9 @@ Qualificação e elegibilidade `AUTO` são conceitos diferentes. Um provider pod
 
 ## Valores públicos de modelo e reasoning
 
-Os defaults públicos efetivos são definidos por `provider_runtime_policy`, não pelos defaults históricos internos usados por adapters ou políticas de qualificação.
+O runtime executa os defaults públicos definidos por `provider_runtime_policy`. O `provider_registry` mantém uma projeção leve desses valores em `public_default_model`, além dos defaults internos usados pelos adapters/políticas de qualificação. A projeção de onboarding (`rasai providers`) usa o valor público espelhado no registry para continuar metadata-only.
+
+Os testes de contrato exigem igualdade exata entre `public_default_model`/`reasoning_values`/`reasoning_env` do registry e os valores efetivos de `provider_runtime_policy`. Assim, qualquer drift torna o CI vermelho antes de chegar ao usuário.
 
 | Provider | Default público de modelo | Modelos permitidos pelo runtime | Default de reasoning | Valores de reasoning permitidos | Recomendado |
 |---|---|---|---|---|---|
@@ -105,5 +108,7 @@ O registry expõe a restrição da credencial PAYG `sk-...` para impedir que Tok
 ## Fonte de verdade e compatibilidade interna
 
 Adapters históricos podem conservar defaults, ranks e labels de qualificação usados para compatibilidade interna. Esses valores não devem ser confundidos com o default público resolvido por `provider_runtime_policy`.
+
+A camada de onboarding é deliberadamente leve e não inicializa a política completa de execução. A coerência entre o metadata espelhado e o runtime é garantida pelos testes cruzados do CI; se houver drift, a alteração não deve ser integrada.
 
 Nomes internos de módulos/eventos também podem preservar identificadores históricos por compatibilidade. Consumidores públicos devem usar nomenclatura funcional e o registry canônico.

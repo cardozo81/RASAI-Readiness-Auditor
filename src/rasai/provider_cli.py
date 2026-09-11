@@ -62,7 +62,8 @@ def _render_human(records: tuple[ProviderOnboardingRecord, ...]) -> None:
         print(f"Obter/login     : {item.credential_url}")
         print(f"Documentação    : {item.documentation_url}")
         if item.kind == "ai":
-            print(f"Modelo default  : {item.default_model or '-'}")
+            print(f"Modelo público  : {item.default_model or '-'}")
+            print(f"Reasoning       : {', '.join(item.reasoning_values) if item.reasoning_values else '-'}")
             print(f"Qualificação    : {item.qualification or '-'}")
             print(f"AUTO elegível   : {_yes_no(item.auto_eligible)}")
             print(f"Explicit-only   : {_yes_no(item.explicit_only)}")

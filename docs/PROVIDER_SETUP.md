@@ -24,22 +24,28 @@ rasai providers --configured-only
 rasai providers --json
 ```
 
-A saída informa ID/aliases, nome do provider, variável da credencial, estado `SET`/`NÃO CONFIGURADA`, URL oficial para obter a credencial, documentação e metadados operacionais. Para IA, inclui modelo default, qualificação, elegibilidade em `AUTO` e `explicit-only`. Para SERP, inclui engine e informação de free tier.
+A saída informa ID/aliases, nome do provider, variável da credencial, estado `SET`/`NÃO CONFIGURADA`, URL oficial para obter a credencial, documentação e metadados operacionais. Para IA, inclui **modelo público efetivo**, valores de reasoning aceitos pelo runtime, qualificação, elegibilidade em `AUTO` e `explicit-only`. Para SERP, inclui engine e informação de free tier.
 
 **Nenhum valor de token/API key é retornado**, inclusive em `--json`. A saída machine-readable contém apenas `configured: true|false`, de modo que pode ser usada em suporte, automação ou futura UI SaaS sem transformar o comando em superfície de exfiltração de secrets.
 
+### Modelo público versus default interno do adapter
+
+Alguns adapters preservam um modelo default interno/histórico usado por políticas de qualificação. Esse valor **não é necessariamente o default público do RASAi**. `rasai providers` mostra o mesmo default público que o runtime resolve quando o usuário não informa um modelo explicitamente.
+
+O mesmo vale para reasoning: a lista exibida pelo comando é o contrato aceito pelo runtime. O CI cruza registry e runtime para impedir que o catálogo de onboarding anuncie níveis que a execução recusaria.
+
 ## 2. Providers de IA
 
-| Seleção RASAi | Provider | Variável de credencial | URL para login/chave | Observação |
-|---|---|---|---|---|
-| `openai` | OpenAI | `OPENAI_API_KEY` | <https://platform.openai.com/api-keys> | API é faturada separadamente do ChatGPT. |
-| `deepseek` | DeepSeek | `DEEPSEEK_API_KEY` | <https://platform.deepseek.com/api_keys> | Credencial da plataforma/API. |
-| `mimo` | Xiaomi MiMo | `MIMO_API_KEY` | <https://mimo.mi.com/> | Adapter atual usa chave PAYG `sk-...`; Token Plan `tp-...` não é compatível. |
-| `xai` / `grok` | xAI / Grok | `XAI_API_KEY` | <https://console.x.ai/> | Credencial da API xAI. |
-| `qwen` | Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | A região/endpoint deve permanecer coerente com a chave. |
-| `gemini` | Google Gemini | `GEMINI_API_KEY` | <https://aistudio.google.com/apikey> | Chave do Google AI Studio/Gemini API. |
-| `anthropic` / `claude` | Anthropic Claude | `ANTHROPIC_API_KEY` | <https://console.anthropic.com/> | Credencial da Anthropic API. |
-| `copilot` / `github-copilot` | GitHub Copilot | `COPILOT_GITHUB_TOKEN` | <https://github.com/settings/personal-access-tokens/new> | Usa a assinatura Copilot elegível do usuário via SDK oficial; não entra em `AUTO`. |
+| Seleção RASAi | Provider | Variável de credencial | Default público | URL para login/chave | Observação |
+|---|---|---|---|---|---|
+| `openai` | OpenAI | `OPENAI_API_KEY` | `gpt-5.6-luna` | <https://platform.openai.com/api-keys> | API é faturada separadamente do ChatGPT. |
+| `deepseek` | DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-v4-flash` | <https://platform.deepseek.com/api_keys> | Credencial da plataforma/API. |
+| `mimo` | Xiaomi MiMo | `MIMO_API_KEY` | `mimo-v2.5` | <https://mimo.mi.com/> | Adapter atual usa chave PAYG `sk-...`; Token Plan `tp-...` não é compatível. |
+| `xai` / `grok` | xAI / Grok | `XAI_API_KEY` | `grok-4.6` | <https://console.x.ai/> | Credencial da API xAI. |
+| `qwen` | Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | `qwen3.8-flash` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | A região/endpoint deve permanecer coerente com a chave. |
+| `gemini` | Google Gemini | `GEMINI_API_KEY` | `gemini-3.8-flash` | <https://aistudio.google.com/apikey> | Chave do Google AI Studio/Gemini API. |
+| `anthropic` / `claude` | Anthropic Claude | `ANTHROPIC_API_KEY` | `claude-sonnet-5` | <https://console.anthropic.com/> | Credencial da Anthropic API. |
+| `copilot` / `github-copilot` | GitHub Copilot | `COPILOT_GITHUB_TOKEN` | `auto` | <https://github.com/settings/personal-access-tokens/new> | Usa a assinatura Copilot elegível do usuário via SDK oficial; não entra em `AUTO`. |
 
 ### GitHub Copilot
 
@@ -144,6 +150,12 @@ Metadados de IA:
 
 ```text
 src/rasai/provider_registry.py
+```
+
+Defaults públicos e contrato efetivo de reasoning:
+
+```text
+src/rasai/provider_runtime_policy.py
 ```
 
 Metadados SERP:

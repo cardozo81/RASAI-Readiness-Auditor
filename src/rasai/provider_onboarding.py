@@ -31,6 +31,7 @@ class ProviderOnboardingRecord:
     auto_eligible: bool | None = None
     explicit_only: bool | None = None
     default_model: str | None = None
+    reasoning_values: tuple[str, ...] = ()
     qualification: str | None = None
     engine: str | None = None
     free_tier: bool | None = None
@@ -40,6 +41,7 @@ class ProviderOnboardingRecord:
         """Return a JSON-safe representation containing no credential value."""
         payload = asdict(self)
         payload["aliases"] = list(self.aliases)
+        payload["reasoning_values"] = list(self.reasoning_values)
         return payload
 
 
@@ -73,7 +75,8 @@ def provider_onboarding_records(
                     documentation_url=registration.documentation_url,
                     auto_eligible=registration.auto_eligible,
                     explicit_only=registration.explicit_only,
-                    default_model=registration.default_model,
+                    default_model=registration.public_default_model,
+                    reasoning_values=registration.reasoning_values,
                     qualification=registration.qualification,
                 )
             )
@@ -137,8 +140,15 @@ def provider_onboarding_integrity_issues() -> tuple[str, ...]:
             registration = get_provider_registration(item.id)
             if registration is None:
                 issues.append(f"ai:{item.id} missing canonical AI registration")
-            elif registration.default_model not in registration.supported_models:
-                issues.append(f"ai:{item.id} default model is not supported")
+                continue
+            if registration.default_model not in registration.supported_models:
+                issues.append(f"ai:{item.id} adapter default model is not supported")
+            if registration.public_default_model not in registration.supported_models:
+                issues.append(f"ai:{item.id} public default model is not supported")
+            if not registration.reasoning_values:
+                issues.append(f"ai:{item.id} missing runtime reasoning contract")
+            if registration.explicit_only and registration.auto_eligible:
+                issues.append(f"ai:{item.id} explicit-only provider cannot be AUTO eligible")
         else:
             registration = serp_provider_registration(item.id)
             if registration is None:

@@ -14,6 +14,7 @@ from rasai.provider_onboarding import (
     provider_onboarding_integrity_issues,
     provider_onboarding_records,
 )
+from rasai.provider_runtime_policy import REASONING_OPTIONS, SIMPLE_DEFAULT_MODELS
 from rasai.search_intelligence.config import SERP_ENV_NAMES, SERP_PROVIDER_KEY_ENVS
 from rasai.search_intelligence.provider_catalog import (
     SERP_PROVIDER_REGISTRY,
@@ -35,6 +36,16 @@ class ProviderOnboardingTests(unittest.TestCase):
             if registration.id != "serpapi-bing":
                 self.assertEqual("fixed-10", registration.pagination_mode)
 
+    def test_ai_onboarding_reports_effective_public_defaults_and_reasoning(self) -> None:
+        records = provider_onboarding_records({}, kind="ai")
+        for item in records:
+            provider_name = item.id.upper()
+            self.assertEqual(SIMPLE_DEFAULT_MODELS[provider_name], item.default_model, item.id)
+            self.assertEqual(REASONING_OPTIONS[provider_name], item.reasoning_values, item.id)
+        deepseek = next(item for item in records if item.id == "deepseek")
+        self.assertEqual("deepseek-v4-flash", deepseek.default_model)
+        self.assertEqual(("NONE", "LOW", "HIGH", "MAX"), deepseek.reasoning_values)
+
     def test_records_report_configuration_state_without_secret_value(self) -> None:
         ai_value = "opaque-runtime-ai-value"
         serp_value = "opaque-runtime-serp-value"
@@ -47,6 +58,7 @@ class ProviderOnboardingTests(unittest.TestCase):
         zenserp = next(item for item in records if item.kind == "serp" and item.id == "zenserp")
         self.assertTrue(openai.configured)
         self.assertTrue(zenserp.configured)
+        self.assertEqual("gpt-5.6-luna", openai.default_model)
         serialized = json.dumps([item.public_dict() for item in records])
         self.assertNotIn(ai_value, serialized)
         self.assertNotIn(serp_value, serialized)
@@ -57,6 +69,8 @@ class ProviderOnboardingTests(unittest.TestCase):
         self.assertEqual("copilot", records[0].id)
         self.assertTrue(records[0].explicit_only)
         self.assertFalse(records[0].auto_eligible)
+        self.assertEqual("auto", records[0].default_model)
+        self.assertEqual(("PROVIDER_DEFAULT",), records[0].reasoning_values)
 
 
 class ProviderCliTests(unittest.TestCase):
@@ -85,6 +99,8 @@ class ProviderCliTests(unittest.TestCase):
         openai = next(item for item in payload if item["kind"] == "ai" and item["id"] == "openai")
         scrapingdog = next(item for item in payload if item["kind"] == "serp" and item["id"] == "scrapingdog")
         self.assertTrue(openai["configured"])
+        self.assertEqual("gpt-5.6-luna", openai["default_model"])
+        self.assertEqual(["NONE", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"], openai["reasoning_values"])
         self.assertTrue(scrapingdog["configured"])
         self.assertIn("platform.openai.com", openai["credential_url"])
         self.assertTrue(scrapingdog["free_tier"])
@@ -95,6 +111,8 @@ class ProviderCliTests(unittest.TestCase):
         self.assertIn("[AI] copilot - GitHub Copilot", output)
         self.assertIn("COPILOT_GITHUB_TOKEN", output)
         self.assertIn("personal-access-tokens", output)
+        self.assertIn("Modelo público  : auto", output)
+        self.assertIn("Reasoning       : PROVIDER_DEFAULT", output)
         self.assertIn("Explicit-only   : sim", output)
 
     def test_configured_only_filters_without_exposing_values(self) -> None:
