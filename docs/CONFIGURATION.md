@@ -24,21 +24,9 @@ Quando este guia resumido e `ENVIRONMENT_VARIABLES.md` divergirem, a referência
 
 ## Menu de ambiente/credenciais
 
-O console organiza a configuração por fronteira funcional:
+O console organiza a configuração por fronteira funcional. A composição vigente inclui configuração geral, IA, Search Intelligence/SERP, Web Performance/Google APIs, Synthetic Apdex e Browser/Playwright, além da visão de todas as variáveis e do atalho para documentação detalhada.
 
-```text
-1. Aplicação e execução
-2. IA - credenciais
-3. IA - modelos e reasoning
-4. IA - endpoints avançados
-5. IA - contexto editorial / YMYL
-6. Web Performance / Google APIs
-7. Synthetic Apdex
-8. Browser / Playwright
-A. Todas as variáveis
-D. Abrir documentação detalhada
-V. Voltar
-```
+Secrets continuam fora do INI, independentemente do grupo em que aparecem.
 
 ## Arquivo INI do console
 
@@ -57,7 +45,7 @@ Não armazena secrets como chaves de IA, tokens OAuth, passwords ou credenciais 
 | Configuração | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
 | dispositivo | `mobile` | `mobile`, `desktop`, `both` | `mobile` para execução mínima; `both` quando for necessário comparar dispositivos |
-| provider de IA | `none` | `none`, `openai`, `deepseek`, `mimo`, `xai`, `grok`, `qwen`, `gemini`, `anthropic`, `claude`, `auto` | `none` sem necessidade semântica; `auto` quando houver múltiplos providers aptos e política de fallback desejada |
+| provider de IA | `none` | `none`, providers/aliases do registry e `auto` | `none` sem necessidade semântica; `auto` quando houver múltiplos providers aptos e política de fallback desejada |
 | remediação de conteúdo por IA | `false` | booleano | `false`; habilitar deliberadamente |
 | remediação técnica por IA | `false` | booleano | `false`; habilitar deliberadamente |
 | contexto editorial | `auto` | domínios definidos em `ENVIRONMENT_VARIABLES.md` | `auto`, salvo quando houver classificação humana conhecida |
@@ -85,14 +73,20 @@ xai
 qwen
 gemini
 anthropic
+copilot
 ```
 
 Aliases CLI:
 
 ```text
-grok   -> xai
-claude -> anthropic
+grok           -> xai
+claude         -> anthropic
+github-copilot -> copilot
 ```
+
+A lista normativa vem do `provider_registry`; documentação e UIs devem projetar esse catálogo em vez de manter allowlists independentes.
+
+GitHub Copilot usa o SDK oficial, `COPILOT_GITHUB_TOKEN` e modelo público `auto`. É deliberadamente `explicit-only`: estar configurado não o inclui em `AI=auto`. Instalação manual do transporte: `python -m pip install -e ".[copilot]"`.
 
 ### `AUTO`
 
@@ -109,7 +103,7 @@ O coordenador:
 7. aplica circuit breaker/saúde por execução;
 8. encerra a necessidade no primeiro resultado válido.
 
-Excluir um provider de `AUTO` não remove sua credencial nem impede seleção explícita posterior.
+Excluir um provider de `AUTO` não remove sua credencial nem impede seleção explícita posterior. Providers `explicit-only`, atualmente GitHub Copilot, ficam fora do pool por contrato e não precisam ser excluídos manualmente.
 
 ### Modelos e reasoning
 
@@ -122,6 +116,7 @@ Excluir um provider de `AUTO` não remove sua credencial nem impede seleção ex
 | Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `PROVIDER_DEFAULT` | default público |
 | Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | `LOW` | default público |
 | Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | `LOW` | default público |
+| GitHub Copilot | `auto` | `auto` | `PROVIDER_DEFAULT` | deixar SDK/assinatura resolver o modelo; seleção explícita |
 
 Os valores permitidos de reasoning são publicados em `ENVIRONMENT_VARIABLES.md` e `PROVIDER_REGISTRY.md`.
 
@@ -166,7 +161,7 @@ Base conceitual: [`CONTENT_ANALYSIS_CONTEXT.md`](CONTENT_ANALYSIS_CONTEXT.md).
 |---|---|---|---|
 | `RASAI_AI_CONTENT_REMEDIATION` | `false` | booleano | `false`; habilitar quando houver provider apto e objetivo explícito de gerar sugestões |
 
-Quando executada, `content-suggestions.html` e `ai-usage.html` expõem provider, modelo, reasoning, tentativas/status, duração, tokens e custo estimado quando existe base confiável.
+Quando executada, `content-suggestions.html` e `ai-usage.html` expõem provider, modelo, reasoning, tentativas/status, duração, tokens e custo estimado quando existe base confiável. O renderer usa provider/modelo persistidos e não possui allowlist específica para Copilot ou outros providers.
 
 ## Rastreamento, descoberta e acesso de crawlers
 
@@ -195,6 +190,23 @@ Página canônica:
 ```text
 report/crawling-discovery.html
 ```
+
+## Search Intelligence / SERP
+
+A coleta SERP é independente de SARI/SCORE-GEO-004. Providers live atuais:
+
+| Provider | Credencial |
+|---|---|
+| `serpapi` | `RASAI_SERPAPI_API_KEY` |
+| `serpapi-bing` | `RASAI_SERPAPI_API_KEY` |
+| `zenserp` | `RASAI_ZENSERP_API_KEY` |
+| `scrapingdog` | `RASAI_SCRAPINGDOG_API_KEY` |
+
+`RASAI_SERP_MODE` usa `disabled`, `live` ou `fixture`. O provider default permanece `serpapi` quando nenhuma seleção explícita é fornecida pelo fluxo correspondente.
+
+O console mostra provider, variável esperada e URL oficial de cadastro/login. As ofertas gratuitas documentadas são limitadas; o RASAi não classifica nenhum provider SERP externo atual como gratuito e ilimitado. `RASAI_SERP_MAX_REQUESTS` limita tentativas HTTP do RASAi e não representa necessariamente créditos comerciais do fornecedor.
+
+Referências: [`PROVIDER_SETUP.md`](PROVIDER_SETUP.md), [`CONSOLE_SEARCH_INTELLIGENCE.md`](CONSOLE_SEARCH_INTELLIGENCE.md) e [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md).
 
 ## Web Performance, Lighthouse e CrUX
 
@@ -228,8 +240,11 @@ Consulte [`MONITORING_OBSERVABILITY.md`](MONITORING_OBSERVABILITY.md) e [`ENVIRO
 | `RASAI_APDEX_TIMEOUT_SECONDS` | `max(45, 4T + 5)` | número `> 4T` | default derivado |
 | `RASAI_APDEX_DELAY_SECONDS` | `1` | número `>= 0` | `1` ou maior conforme sensibilidade do alvo |
 | `RASAI_APDEX_CONCURRENCY` | `1` | `1`, `2` | `1` |
+| `RASAI_APDEX_ACQUISITION_MODE` | `auto` | `auto`, `isolated` | `auto`; compartilha apenas aquisição física comprovadamente compatível |
 
 Synthetic Navigation Apdex só pode ser habilitado com `T` explícito. Consulte [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md).
+
+`RASAI_APDEX_ACQUISITION_MODE` não unifica as métricas. Em `auto`, uma navegação física pode alimentar Navigation Apdex e Experience Apdex quando URL, device, perfil, sessão e requisitos de coleta forem compatíveis; targets, thresholds, classificação e o device mix do Experience permanecem independentes. `isolated` mantém navegações separadas.
 
 ## Synthetic User Experience Apdex
 
@@ -254,6 +269,8 @@ valor já presente no processo/Windows
 
 Valores não secretos do INI são projetados novamente para o ambiente dos adapters antes da execução. Assim, remediação de IA, Web Performance, timeouts, modelo/reasoning selecionados e Synthetic Apdex podem sobreviver a salvar → fechar → reabrir.
 
+Secrets nunca entram no INI. No Windows, o console pode persistir/remover uma credencial no escopo `User` somente mediante ação explícita; `Windows/Machine` é observado, não administrado.
+
 ## Segurança
 
 - use variáveis de ambiente ou secret manager apropriado;
@@ -272,6 +289,8 @@ Valores não secretos do INI são projetados novamente para o ambiente dos adapt
 - [`CLI_REFERENCE.md`](CLI_REFERENCE.md)
 - [`AI_GUIDE.md`](AI_GUIDE.md)
 - [`PROVIDER_REGISTRY.md`](PROVIDER_REGISTRY.md)
+- [`PROVIDER_SETUP.md`](PROVIDER_SETUP.md)
+- [`CONSOLE_SEARCH_INTELLIGENCE.md`](CONSOLE_SEARCH_INTELLIGENCE.md)
 - [`GOOGLE_API_KEYS.md`](GOOGLE_API_KEYS.md)
 - [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md)
 - [`SYNTHETIC_USER_EXPERIENCE_APDEX.md`](SYNTHETIC_USER_EXPERIENCE_APDEX.md)
