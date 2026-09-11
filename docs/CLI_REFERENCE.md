@@ -197,7 +197,7 @@ Lab e field data permanecem separados e não entram automaticamente em SARI/SCOR
 
 Default OFF. O threshold `T` é obrigatório quando habilitado.
 
-Os nove argumentos de perfil usam a mesma precedência da configuração sintética: **CLI > variável de ambiente > default controlado**. Eles selecionam apenas o envelope de execução — cliente/viewport, slowdown relativo de CPU e rede — e não alteram a fórmula Apdex nem SARI/SCORE-GEO-004. Os equivalentes em ambiente são `RASAI_APDEX_MOBILE_*_PROFILE`, `RASAI_APDEX_DESKTOP_*_PROFILE` e `RASAI_APDEX_TABLET_*_PROFILE`; valores e defaults canônicos estão em [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md).
+Os nove argumentos de perfil usam a mesma precedência da configuração sintética: **CLI > variável de ambiente > default controlado**. Eles selecionam apenas o envelope de execução - cliente/viewport, slowdown relativo de CPU e rede - e não alteram a fórmula Apdex nem SARI/SCORE-GEO-004. Os equivalentes em ambiente são `RASAI_APDEX_MOBILE_*_PROFILE`, `RASAI_APDEX_DESKTOP_*_PROFILE` e `RASAI_APDEX_TABLET_*_PROFILE`; valores e defaults canônicos estão em [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md).
 
 Os presets não emulam RAM, GPU, estado térmico ou scheduler físico. O engine executado continua Chromium; identidade/viewport não deve ser interpretada como emulação de Safari/Firefox reais.
 
