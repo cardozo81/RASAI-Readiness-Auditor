@@ -1,9 +1,9 @@
 """Composable synthetic runtime profiles for browser-dependent measurements.
 
 These presets are operational laboratory envelopes, not population statistics and not
-claims of physical-device equivalence. They make device/client, CPU and network
-assumptions explicit, selectable and reproducible while preserving the existing RASAi
-baseline as the default.
+claims of physical-device equivalence. They make client geometry/browser identity, CPU
+and network assumptions explicit, selectable and reproducible while preserving the
+existing RASAi baseline as the default.
 """
 from __future__ import annotations
 
@@ -14,6 +14,19 @@ from rasai.domain import DeviceContext
 from rasai.rendering import BrowserProfile
 
 PROFILE_CATALOG_VERSION = "SYNTHETIC-RUNTIME-PROFILES-001"
+
+PROFILE_ENV = {
+    ("MOBILE", "client"): "RASAI_APDEX_MOBILE_CLIENT_PROFILE",
+    ("MOBILE", "hardware"): "RASAI_APDEX_MOBILE_HARDWARE_PROFILE",
+    ("MOBILE", "network"): "RASAI_APDEX_MOBILE_NETWORK_PROFILE",
+    ("DESKTOP", "client"): "RASAI_APDEX_DESKTOP_CLIENT_PROFILE",
+    ("DESKTOP", "hardware"): "RASAI_APDEX_DESKTOP_HARDWARE_PROFILE",
+    ("DESKTOP", "network"): "RASAI_APDEX_DESKTOP_NETWORK_PROFILE",
+    ("TABLET", "client"): "RASAI_APDEX_TABLET_CLIENT_PROFILE",
+    ("TABLET", "hardware"): "RASAI_APDEX_TABLET_HARDWARE_PROFILE",
+    ("TABLET", "network"): "RASAI_APDEX_TABLET_NETWORK_PROFILE",
+}
+PROFILE_ENV_NAMES = tuple(PROFILE_ENV.values())
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,10 +78,6 @@ class NetworkPreset:
     note: str
 
 
-# The default client geometry preserves the established RASAi baseline. Alternate
-# geometry presets intentionally vary screen class while keeping Chromium as the
-# executable browser engine; this avoids pretending that a Chromium process is Safari
-# or Firefox merely because a User-Agent string changed.
 CLIENT_PRESETS: dict[str, ClientPreset] = {
     "mobile-compact-chromium": ClientPreset(
         "mobile-compact-chromium", "MOBILE", "Mobile compacto · Chromium/Android",
@@ -120,9 +129,6 @@ CLIENT_PRESETS: dict[str, ClientPreset] = {
     ),
 }
 
-# CPU slowdown is relative to the host Chromium executor. It is intentionally expressed
-# as a reproducible tier rather than a fictitious CPU model/RAM amount that Playwright
-# cannot physically reproduce.
 HARDWARE_PRESETS: dict[str, HardwarePreset] = {
     "mobile-entry": HardwarePreset("mobile-entry", "MOBILE", "Mobile entrada · CPU 6×", 6.0, "Envelope conservador de CPU móvel."),
     "mobile-balanced": HardwarePreset("mobile-balanced", "MOBILE", "Mobile balanceado · CPU 4×", 4.0, "Baseline controlado do RASAi."),
@@ -134,8 +140,10 @@ HARDWARE_PRESETS: dict[str, HardwarePreset] = {
     "tablet-premium": HardwarePreset("tablet-premium", "TABLET", "Tablet premium · CPU 1×", 1.0, "Envelope de maior capacidade."),
 }
 
-# Network presets are laboratory envelopes. Defaults retain the existing RASAi values
-# so this structural change does not silently move historical synthetic baselines.
+# These are explicit laboratory envelopes. They are intentionally not labelled as
+# country/user-population medians because the RASAi does not own that population data.
+# Defaults preserve the pre-existing synthetic baseline to avoid silently changing
+# synthetic results as part of this structural refactor.
 NETWORK_PRESETS: dict[str, NetworkPreset] = {
     "mobile-3g-constrained": NetworkPreset("mobile-3g-constrained", "MOBILE", "Mobile 3G restrito", 300.0, 768.0, 256.0, "cellular3g", "Cenário degradado controlado."),
     "mobile-4g-balanced": NetworkPreset("mobile-4g-balanced", "MOBILE", "Mobile 4G balanceado", 150.0, 1638.4, 750.0, "cellular4g", "Baseline RASAi/Lighthouse-like conservador."),
@@ -168,31 +176,36 @@ DEFAULT_NETWORK_PRESET = {
 def preset_ids(kind: str, device: str) -> tuple[str, ...]:
     normalized = device.strip().upper()
     source: dict[str, Any]
-    if kind == "client":
-        source = CLIENT_PRESETS
-    elif kind == "hardware":
-        source = HARDWARE_PRESETS
-    elif kind == "network":
-        source = NETWORK_PRESETS
-    else:
-        raise KeyError(kind)
+    if kind == "client": source = CLIENT_PRESETS
+    elif kind == "hardware": source = HARDWARE_PRESETS
+    elif kind == "network": source = NETWORK_PRESETS
+    else: raise KeyError(kind)
     return tuple(item.preset_id for item in source.values() if item.device == normalized)
 
 
 def default_preset(kind: str, device: str) -> str:
     normalized = device.strip().upper()
-    if kind == "client":
-        return DEFAULT_CLIENT_PRESET[normalized]
-    if kind == "hardware":
-        return DEFAULT_HARDWARE_PRESET[normalized]
-    if kind == "network":
-        return DEFAULT_NETWORK_PRESET[normalized]
+    if kind == "client": return DEFAULT_CLIENT_PRESET[normalized]
+    if kind == "hardware": return DEFAULT_HARDWARE_PRESET[normalized]
+    if kind == "network": return DEFAULT_NETWORK_PRESET[normalized]
     raise KeyError(kind)
+
+
+def env_name(kind: str, device: str) -> str:
+    return PROFILE_ENV[(device.strip().upper(), kind)]
 
 
 def describe_preset(kind: str, preset_id: str) -> str:
     source: dict[str, Any] = {"client": CLIENT_PRESETS, "hardware": HARDWARE_PRESETS, "network": NETWORK_PRESETS}[kind]
     return source[preset_id].label
+
+
+def validate_preset(kind: str, device: str, preset_id: str) -> str:
+    value = preset_id.strip()
+    allowed = preset_ids(kind, device)
+    if value not in allowed:
+        raise ValueError(f"{kind} profile for {device.upper()} must be one of: {', '.join(allowed)}")
+    return value
 
 
 def compose_profile(*, device: str, client_id: str, hardware_id: str, network_id: str) -> dict[str, Any]:
