@@ -34,7 +34,7 @@ _RUNTIME_STYLE = """
 <style id='rasai-ai-runtime-style'>
 .ai-exchange-log details{margin:.8rem 0;border:1px solid var(--border,#d9dde3);border-radius:8px;padding:.65rem .8rem}
 .ai-exchange-log summary{cursor:pointer;font-weight:650}
-.ai-exchange-log pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:34rem;overflow:auto;background:var(--code-bg,#f6f7f9);padding:.75rem;border-radius:6px}
+.ai-exchange-log pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:34rem;overflow:auto;padding:.75rem;border-radius:6px}
 .ai-exchange-meta{display:flex;gap:.75rem;flex-wrap:wrap;margin:.35rem 0 .7rem}
 .ai-exchange-meta code{font-size:.86em}.ai-context-table td:nth-child(4){min-width:18rem}
 </style>
