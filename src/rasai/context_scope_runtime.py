@@ -12,6 +12,7 @@ from typing import Any
 
 from rasai.context_scope import CONTEXT_SCOPE_CONTRACT_VERSION
 from rasai.device_context_capture import install as install_device_context_capture
+from rasai.open_web_metrics import install as install_open_web_metrics
 from rasai.synthetic_apdex_shared_runtime import install as install_synthetic_apdex_shared_runtime
 from rasai.synthetic_profile_console_runtime import install as install_synthetic_profile_console_runtime
 from rasai.synthetic_profile_runtime import install as install_synthetic_profile_runtime
@@ -19,10 +20,11 @@ from rasai.synthetic_profile_saas_runtime import install as install_synthetic_pr
 
 _INSTALLED = False
 _CONTEXT_FILE = "context.html"
+_WEB_STANDARDS_FILE = "web-standards.html"
 
 _NAV_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Visão e readiness", ("index.html", "readiness.html", "scoring.html")),
-    ("Coleta e dispositivos", ("context.html", "crawling-discovery.html", "mobile.html", "desktop.html", "accessibility.html", "web-performance.html", "apdex.html", "apdex-experience.html")),
+    ("Coleta e dispositivos", ("context.html", "web-standards.html", "crawling-discovery.html", "mobile.html", "desktop.html", "accessibility.html", "web-performance.html", "apdex.html", "apdex-experience.html")),
     ("Search e IA", ("search-intelligence.html", "ai-visibility.html", "observability.html", "ai-usage.html")),
     ("Ações e referência", ("content-suggestions.html", "remediation.html", "quality.html", "references.html")),
 )
@@ -97,14 +99,16 @@ def _patch_grouped_navigation() -> None:
 def _patch_report_completion() -> None:
     from rasai import report_completion, report_navigation
     from rasai.context_reporting import write_context_report
+    from rasai.open_web_metrics_reporting import write_open_web_metrics_report
     from rasai.report_manifest import write_report_manifest
     from rasai.report_scale_ux import enhance_report_directory
     from rasai.synthetic_profile_reporting import enrich_synthetic_profile_reports
 
     if getattr(report_completion, "_rasai_context_scope_completion", False):
         return
-    if _CONTEXT_FILE not in report_completion.AUDIT_ALWAYS_PAGES:
-        report_completion.AUDIT_ALWAYS_PAGES = (*report_completion.AUDIT_ALWAYS_PAGES, _CONTEXT_FILE)
+    for required_file in (_CONTEXT_FILE, _WEB_STANDARDS_FILE):
+        if required_file not in report_completion.AUDIT_ALWAYS_PAGES:
+            report_completion.AUDIT_ALWAYS_PAGES = (*report_completion.AUDIT_ALWAYS_PAGES, required_file)
     original = report_completion.finalize_audit_report_site
 
     def finalize_with_context(*, audit_id: str, workspace: Any, context_interpretations=(), routing_snapshot=None):
@@ -112,6 +116,7 @@ def _patch_report_completion() -> None:
         errors = list(base.renderer_errors)
         try:
             write_context_report(audit_id=audit_id, workspace=workspace)
+            write_open_web_metrics_report(audit_id=audit_id, workspace=workspace)
             enrich_synthetic_profile_reports(audit_id=audit_id, workspace=workspace)
             report_dir = workspace.root / "report"
             report_navigation.normalize_report_navigation(report_dir)
@@ -133,6 +138,7 @@ def install() -> None:
     from rasai.report_registry import install as install_report_registry
     install_report_registry()
     install_device_context_capture()
+    install_open_web_metrics()
     install_synthetic_profile_runtime()
     install_synthetic_apdex_shared_runtime()
     install_synthetic_profile_console_runtime()
