@@ -12,27 +12,15 @@ from typing import Any
 
 from rasai.context_scope import CONTEXT_SCOPE_CONTRACT_VERSION
 from rasai.device_context_capture import install as install_device_context_capture
+from rasai.synthetic_profile_console_runtime import install as install_synthetic_profile_console_runtime
 from rasai.synthetic_profile_runtime import install as install_synthetic_profile_runtime
-
 
 _INSTALLED = False
 _CONTEXT_FILE = "context.html"
 
 _NAV_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Visão e readiness", ("index.html", "readiness.html", "scoring.html")),
-    (
-        "Coleta e dispositivos",
-        (
-            "context.html",
-            "crawling-discovery.html",
-            "mobile.html",
-            "desktop.html",
-            "web-performance.html",
-            "accessibility.html",
-            "apdex.html",
-            "apdex-experience.html",
-        ),
-    ),
+    ("Coleta e dispositivos", ("context.html", "crawling-discovery.html", "mobile.html", "desktop.html", "web-performance.html", "accessibility.html", "apdex.html", "apdex-experience.html")),
     ("Search e IA", ("search-intelligence.html", "ai-visibility.html", "observability.html", "ai-usage.html")),
     ("Ações e referência", ("content-suggestions.html", "remediation.html", "quality.html", "references.html")),
 )
@@ -68,23 +56,12 @@ def _patch_grouped_navigation() -> None:
                 group_links.append(f"<a class='{'active' if filename == current else ''}' href='{escape(filename)}'>{escape(label)}</a>")
             if group_links:
                 open_attr = " open" if contains_active or group_label in {"Visão e readiness", "Coleta e dispositivos"} else ""
-                sections.append(
-                    f"<details class='rasai-nav-group'{open_attr}><summary style='padding:10px 12px 5px;cursor:pointer;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.78'>{escape(group_label)}</summary>"
-                    + "".join(group_links) + "</details>"
-                )
-        remaining = [
-            f"<a class='{'active' if filename == current else ''}' href='{escape(filename)}'>{escape(label)}</a>"
-            for label, filename in links if filename not in consumed
-        ]
+                sections.append(f"<details class='rasai-nav-group'{open_attr}><summary style='padding:10px 12px 5px;cursor:pointer;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.78'>{escape(group_label)}</summary>" + "".join(group_links) + "</details>")
+        remaining = [f"<a class='{'active' if filename == current else ''}' href='{escape(filename)}'>{escape(label)}</a>" for label, filename in links if filename not in consumed]
         if remaining:
             sections.append("<details class='rasai-nav-group' open><summary style='padding:10px 12px 5px;cursor:pointer;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.78'>Outros</summary>" + "".join(remaining) + "</details>")
         generated_label = report_navigation.format_report_generated_at(generated_at)
-        return (
-            "<aside class='app-nav' aria-label='Navegação do relatório'>"
-            "<div class='brand'><small>RASAi Auditor</small><strong>Relatório da auditoria</strong>"
-            f"<small>Gerado em {escape(generated_label)} - Horário de Brasília</small></div>"
-            f"<nav>{''.join(sections)}</nav></aside>"
-        )
+        return "<aside class='app-nav' aria-label='Navegação do relatório'><div class='brand'><small>RASAi Auditor</small><strong>Relatório da auditoria</strong>" + f"<small>Gerado em {escape(generated_label)} - Horário de Brasília</small></div><nav>{''.join(sections)}</nav></aside>"
 
     report_navigation.render_report_navigation = grouped_navigation
     report_navigation._rasai_context_grouped_navigation = True
@@ -112,12 +89,7 @@ def _patch_report_completion() -> None:
         except Exception as exc:
             errors.append(f"context:{type(exc).__name__}:{str(exc)[:240]}")
         inspected = report_completion.inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
-        return report_completion.AuditReportCompletion(
-            expected_pages=inspected.expected_pages,
-            generated_pages=inspected.generated_pages,
-            missing_pages=inspected.missing_pages,
-            renderer_errors=tuple(errors),
-        )
+        return report_completion.AuditReportCompletion(expected_pages=inspected.expected_pages, generated_pages=inspected.generated_pages, missing_pages=inspected.missing_pages, renderer_errors=tuple(errors))
 
     report_completion.finalize_audit_report_site = finalize_with_context
     report_completion._rasai_context_scope_completion = True
@@ -130,6 +102,7 @@ def install() -> None:
     install_report_registry()
     install_device_context_capture()
     install_synthetic_profile_runtime()
+    install_synthetic_profile_console_runtime()
     _project_report_contract()
     _patch_grouped_navigation()
     _patch_report_completion()
