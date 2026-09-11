@@ -1,10 +1,10 @@
 """Cross-provider policy for punctual, token-efficient RASAi AI calls.
 
 The policy deliberately does not merge device snapshots whose evidence identities differ:
-evidence-bound scoring must remain traceable to the snapshot that was analyzed. Instead,
-RASAi keeps one structured semantic call for the complete unresolved rule set of a
-snapshot, removes transport-only/duplicated fields from the provider payload, and asks
-providers to avoid prose duplication. No scoring formula is changed here.
+evidence-bound scoring must remain traceable to the snapshot that was analyzed. RASAi
+keeps one structured semantic call for the complete contracted rule set of a snapshot,
+removes provider-input fields that duplicate information already supplied losslessly,
+and asks providers to avoid prose duplication. No scoring formula is changed here.
 """
 from __future__ import annotations
 
@@ -14,41 +14,24 @@ from typing import Any, Callable
 AI_CALL_POLICY_VERSION = "AI-CALL-POLICY-002"
 TOKEN_ECONOMY_INSTRUCTION = (
     "Be concise: do not restate the input evidence, rule text, or schema. "
-    "Use the minimum wording needed for evidence-bound reasoning fields and avoid duplicate details. "
-    "When requested_rule_ids is supplied, return assessments only for those rule_ids; omitted rules are resolved deterministically by RASAi."
+    "Use the minimum wording needed for evidence-bound reasoning fields and avoid duplicate details."
 )
 
-_SEMANTIC_RULE_IDS = tuple(f"BR-GEO-{number:03d}" for number in range(28, 50))
-_ALWAYS_DETERMINISTIC_RULE_IDS = frozenset({"BR-GEO-034", "BR-GEO-035"})
+
 _INSTALLED = False
 
 
-def _structured_data_absent(value: Any) -> bool:
-    if value is None:
-        return True
-    if isinstance(value, dict):
-        blocks = value.get("blocks")
-        return isinstance(blocks, list) and not blocks
-    return False
+def _compact_semantic_provider_payload(payload: Any) -> Any:
+    """Remove only transport-only or exact duplicate provider-input fields.
 
-
-def _requested_rule_ids(semantic_input: Any) -> tuple[str, ...]:
-    """Return only rules for which a configured provider can affect M7 outcome."""
-    excluded = set(_ALWAYS_DETERMINISTIC_RULE_IDS)
-    if not str(getattr(semantic_input, "title", "") or "").strip():
-        # Missing title is a hard deterministic BR-GEO-028 failure.
-        excluded.add("BR-GEO-028")
-    if _structured_data_absent(getattr(semantic_input, "structured_data", None)):
-        # With no Structured Data, consistency rules are deterministically N/A.
-        excluded.update({"BR-GEO-036", "BR-GEO-037"})
-    return tuple(rule_id for rule_id in _SEMANTIC_RULE_IDS if rule_id not in excluded)
-
-
-def _compact_semantic_provider_payload(payload: Any, semantic_input: Any) -> Any:
+    Full main content, Structured Data, evidence ids and observed evidence remain intact.
+    Local artifact paths cannot be dereferenced by a remote model. The context evidence's
+    title and excerpt are exact duplicates of top-level title/main_content, so only the
+    availability flags are retained in that evidence item.
+    """
     if not isinstance(payload, dict):
         return payload
     compact = dict(payload)
-    compact["requested_rule_ids"] = list(_requested_rule_ids(semantic_input))
     raw_evidence = compact.get("evidence")
     if isinstance(raw_evidence, list):
         evidence: list[Any] = []
@@ -57,14 +40,10 @@ def _compact_semantic_provider_payload(payload: Any, semantic_input: Any) -> Any
                 evidence.append(raw)
                 continue
             item = dict(raw)
-            # Local artifact paths cannot be dereferenced by an external model and add
-            # tokens without evidence value. Evidence identity remains the evidence_id.
             item.pop("artifact_reference", None)
             if str(item.get("source") or "") == "semantic-input-builder":
                 observed = item.get("observed_value")
                 if isinstance(observed, dict):
-                    # title and the first 2k characters were duplicate copies of fields
-                    # already supplied losslessly at top level (title/main_content).
                     item["observed_value"] = {
                         "main_content_available": bool(observed.get("main_content_available")),
                         "structured_data_available": bool(observed.get("structured_data_available")),
@@ -74,17 +53,13 @@ def _compact_semantic_provider_payload(payload: Any, semantic_input: Any) -> Any
     return compact
 
 
-def _append_instruction(payload: Any, requested_rule_ids: tuple[str, ...] = ()) -> Any:
+def _append_instruction(payload: Any) -> Any:
     if not isinstance(payload, dict):
         return payload
     instructions = payload.get("instructions")
-    if isinstance(instructions, str):
-        suffix = TOKEN_ECONOMY_INSTRUCTION
-        if requested_rule_ids:
-            suffix += " Requested rule_ids: " + ", ".join(requested_rule_ids) + "."
-        if TOKEN_ECONOMY_INSTRUCTION not in instructions:
-            payload = dict(payload)
-            payload["instructions"] = instructions.rstrip() + " " + suffix
+    if isinstance(instructions, str) and TOKEN_ECONOMY_INSTRUCTION not in instructions:
+        payload = dict(payload)
+        payload["instructions"] = instructions.rstrip() + " " + TOKEN_ECONOMY_INSTRUCTION
     return payload
 
 
@@ -94,7 +69,7 @@ def _patch_provider_payload(semantic: Any) -> None:
         return
 
     def compact_provider_payload(self: Any) -> dict[str, Any]:
-        return _compact_semantic_provider_payload(original(self), self)
+        return _compact_semantic_provider_payload(original(self))
 
     compact_provider_payload._rasai_ai_efficiency_policy = True
     compact_provider_payload._rasai_original = original
@@ -107,9 +82,7 @@ def _patch_request_method(cls: Any) -> None:
         return
 
     def compact_request(self: Any, *args: Any, **kwargs: Any) -> Any:
-        semantic_input = args[0] if args else kwargs.get("semantic_input")
-        requested = _requested_rule_ids(semantic_input) if semantic_input is not None else ()
-        return _append_instruction(original(self, *args, **kwargs), requested)
+        return _append_instruction(original(self, *args, **kwargs))
 
     cls._request_payload = compact_request
     cls._rasai_ai_efficiency_policy = True
@@ -132,7 +105,7 @@ def _patch_instruction_function(module: Any, name: str) -> None:
 
 
 def install() -> None:
-    """Install lossless input de-duplication and concise output guidance."""
+    """Install lossless input de-duplication and concise-output guidance."""
     global _INSTALLED
     if _INSTALLED:
         return
@@ -162,11 +135,10 @@ def install() -> None:
 def strategy_summary() -> dict[str, Any]:
     return {
         "version": AI_CALL_POLICY_VERSION,
-        "semantic_granularity": "ONE_STRUCTURED_CALL_PER_SNAPSHOT_FOR_UNRESOLVED_RULES",
-        "deterministic_rules_not_requested_from_ai": sorted(_ALWAYS_DETERMINISTIC_RULE_IDS),
+        "semantic_granularity": "ONE_STRUCTURED_CALL_PER_SNAPSHOT_FOR_ALL_CONTRACTED_RULES",
         "origin_resource_repetition": "NONE_BY_DEVICE",
         "report_generation_ai_calls": 0,
         "device_snapshot_deduplication": "NOT_MERGED_WHEN_EVIDENCE_IDENTITIES_DIFFER",
-        "input_policy": "LOSSLESS_DUPLICATE_REMOVAL_NO_ARTIFACT_PATHS",
+        "input_policy": "LOSSLESS_DUPLICATE_REMOVAL_NO_LOCAL_ARTIFACT_PATHS",
         "output_policy": "CONCISE_EVIDENCE_BOUND_NO_INPUT_RESTATEMENT",
     }
