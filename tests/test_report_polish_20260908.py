@@ -40,11 +40,11 @@ def test_actionable_table_rows_use_global_result_state_contract() -> None:
 def test_canonical_report_order_follows_reading_flow() -> None:
     filenames = [filename for _label, filename in CANONICAL_NAV_ITEMS]
     expected = [
-        "index.html", "readiness.html", "scoring.html", "mobile.html", "desktop.html",
-        "crawling-discovery.html", "accessibility.html", "web-performance.html",
-        "search-intelligence.html", "apdex.html", "apdex-experience.html",
-        "content-suggestions.html", "remediation.html", "ai-usage.html",
-        "ai-visibility.html", "observability.html", "quality.html", "references.html",
+        "index.html", "readiness.html", "scoring.html", "context.html",
+        "crawling-discovery.html", "mobile.html", "desktop.html", "accessibility.html",
+        "web-performance.html", "apdex.html", "apdex-experience.html",
+        "search-intelligence.html", "ai-visibility.html", "observability.html", "ai-usage.html",
+        "content-suggestions.html", "remediation.html", "quality.html", "references.html",
     ]
     assert filenames == expected
 
