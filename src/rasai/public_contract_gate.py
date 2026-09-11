@@ -282,7 +282,7 @@ def _check_generators(root: Path, errors: list[str]) -> None:
 
 def _check_public_html_normalization(errors: list[str]) -> None:
     fixture = "<html><body>" + " | ".join(_PUBLIC_HTML_MILESTONE_FIXTURES) + "</body></html>"
-    normalized = enrich_indicator_provenance_html(fixture)
+    normalized = enrich_indicator_provenance_html(fixture, page_name="index.html")
     if _MILESTONE_PUBLIC_RE.search(normalized):
         errors.append("normalizador público mantém identificadores internos de entrega no HTML")
 
