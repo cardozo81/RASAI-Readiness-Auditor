@@ -21,44 +21,26 @@ _INSTALLED = False
 
 
 def _scope_experience_config(config: Any, audit_device: str) -> Any:
-    """Restrict M25 synthetic population to the audit's canonical device scope.
+    """Align the synthetic Experience population with the selected audit scope.
 
-    The current core audit contract has two canonical contexts: MOBILE and DESKTOP.
-    M25 may model TABLET in isolation, but a console/CLI audit must not silently execute
-    devices that the audit selector excluded. Singular audit scopes therefore become
-    100% of that device; BOTH renormalizes only MOBILE/DESKTOP weights.
+    Core snapshots use MOBILE and DESKTOP. Experience Apdex is a separate
+    PROFILE_MEASUREMENT domain and may explicitly include TABLET in its configured
+    population. A singular core scope forces that one device to avoid unexpected extra
+    traffic; ``both`` preserves the explicit Experience mix, including TABLET, instead
+    of silently rewriting a user-visible population configuration.
     """
     if not bool(getattr(config, "enabled", False)):
         return config
     selected = str(audit_device or "mobile").strip().casefold()
     if selected == "mobile":
-        mix = (("MOBILE", 100.0),)
-    elif selected == "desktop":
-        mix = (("DESKTOP", 100.0),)
-    elif selected == "both":
-        configured = config.device_mix_dict()
-        mobile = max(float(configured.get("MOBILE", 0.0)), 0.0)
-        desktop = max(float(configured.get("DESKTOP", 0.0)), 0.0)
-        total = mobile + desktop
-        if total <= 0:
-            # BOTH is an explicit request for the two canonical audit contexts. If a
-            # legacy mix contained only TABLET, use an even canonical distribution
-            # rather than executing a device outside the selected audit scope.
-            mix = (("MOBILE", 50.0), ("DESKTOP", 50.0))
-        else:
-            rows: list[tuple[str, float]] = []
-            if mobile > 0:
-                rows.append(("MOBILE", mobile * 100.0 / total))
-            if desktop > 0:
-                rows.append(("DESKTOP", desktop * 100.0 / total))
-            mix = tuple(rows)
-    else:
-        # The public core currently supports mobile, desktop and both. Keep this
-        # guard explicit so TABLET is never mislabeled as MOBILE in the core audit.
-        raise ValueError(
-            "audit device must be mobile, desktop or both; tablet is currently an M25 synthetic profile, not a canonical core audit context"
-        )
-    return replace(config, device_mix=mix).validate()
+        return replace(config, device_mix=(("MOBILE", 100.0),)).validate()
+    if selected == "desktop":
+        return replace(config, device_mix=(("DESKTOP", 100.0),)).validate()
+    if selected == "both":
+        return config.validate()
+    raise ValueError(
+        "audit device must be mobile, desktop or both; tablet belongs to the explicit Experience Apdex population, not the core snapshot selector"
+    )
 
 
 def _serp_issue_category(code: str | None, message: str | None) -> str:
