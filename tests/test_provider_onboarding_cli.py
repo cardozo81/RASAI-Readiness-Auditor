@@ -35,9 +35,11 @@ class ProviderOnboardingTests(unittest.TestCase):
                 self.assertEqual("fixed-10", registration.pagination_mode)
 
     def test_records_report_configuration_state_without_secret_value(self) -> None:
+        ai_value = "opaque-runtime-ai-value"
+        serp_value = "opaque-runtime-serp-value"
         environment = {
-            "OPENAI_API_KEY": "sk-super-secret-openai",
-            "RASAI_ZENSERP_API_KEY": "zen-super-secret",
+            "OPENAI_API_KEY": ai_value,
+            "RASAI_ZENSERP_API_KEY": serp_value,
         }
         records = provider_onboarding_records(environment)
         openai = next(item for item in records if item.kind == "ai" and item.id == "openai")
@@ -45,8 +47,8 @@ class ProviderOnboardingTests(unittest.TestCase):
         self.assertTrue(openai.configured)
         self.assertTrue(zenserp.configured)
         serialized = json.dumps([item.public_dict() for item in records])
-        self.assertNotIn("sk-super-secret-openai", serialized)
-        self.assertNotIn("zen-super-secret", serialized)
+        self.assertNotIn(ai_value, serialized)
+        self.assertNotIn(serp_value, serialized)
 
     def test_ai_alias_resolves_to_canonical_onboarding_record(self) -> None:
         records = find_provider_onboarding("github-copilot", {}, kind="ai")
@@ -66,16 +68,18 @@ class ProviderCliTests(unittest.TestCase):
         return code, stdout.getvalue(), stderr.getvalue()
 
     def test_json_output_never_contains_secret_values(self) -> None:
+        ai_value = "opaque-provider-value-a"
+        serp_value = "opaque-provider-value-b"
         code, output, error = self.run_cli(
             ["--json"],
             {
-                "OPENAI_API_KEY": "sk-do-not-print",
-                "RASAI_SCRAPINGDOG_API_KEY": "dog-do-not-print",
+                "OPENAI_API_KEY": ai_value,
+                "RASAI_SCRAPINGDOG_API_KEY": serp_value,
             },
         )
         self.assertEqual(0, code, error)
-        self.assertNotIn("sk-do-not-print", output)
-        self.assertNotIn("dog-do-not-print", output)
+        self.assertNotIn(ai_value, output)
+        self.assertNotIn(serp_value, output)
         payload = json.loads(output)
         openai = next(item for item in payload if item["kind"] == "ai" and item["id"] == "openai")
         scrapingdog = next(item for item in payload if item["kind"] == "serp" and item["id"] == "scrapingdog")
@@ -93,11 +97,13 @@ class ProviderCliTests(unittest.TestCase):
         self.assertIn("Explicit-only   : sim", output)
 
     def test_configured_only_filters_without_exposing_values(self) -> None:
+        ai_value = "opaque-configured-value-a"
+        serp_value = "opaque-configured-value-b"
         code, output, error = self.run_cli(
             ["--configured-only", "--json"],
             {
-                "GEMINI_API_KEY": "gem-secret",
-                "RASAI_ZENSERP_API_KEY": "zen-secret",
+                "GEMINI_API_KEY": ai_value,
+                "RASAI_ZENSERP_API_KEY": serp_value,
             },
         )
         self.assertEqual(0, code, error)
@@ -106,8 +112,8 @@ class ProviderCliTests(unittest.TestCase):
             {("ai", "gemini"), ("serp", "zenserp")},
             {(item["kind"], item["id"]) for item in payload},
         )
-        self.assertNotIn("gem-secret", output)
-        self.assertNotIn("zen-secret", output)
+        self.assertNotIn(ai_value, output)
+        self.assertNotIn(serp_value, output)
 
     def test_unknown_provider_fails_closed(self) -> None:
         code, output, error = self.run_cli(["--provider", "does-not-exist"])
