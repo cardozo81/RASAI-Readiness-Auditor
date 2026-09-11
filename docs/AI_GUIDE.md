@@ -59,16 +59,20 @@ xai
 qwen
 gemini
 anthropic
+copilot
 ```
 
 Aliases:
 
 ```text
-grok   -> xai
-claude -> anthropic
+grok           -> xai
+claude         -> anthropic
+github-copilot -> copilot
 ```
 
-Em `AI=auto`, todos os providers registrados como elegíveis para AUTO que possuam credencial e configuração válidas participam do pool da execução. O registry é a fonte de verdade; não existe uma cadeia fixa limitada aos três providers históricos.
+Em `AI=auto`, participam apenas os providers registrados como `auto_eligible`, com credencial e configuração válidas. O registry é a fonte de verdade; não existe uma cadeia fixa limitada aos providers históricos.
+
+`copilot` é deliberadamente **explicit-only**: mesmo com credencial válida, não entra em `AI=auto`. Isso impede que a presença de um token de usuário faça o RASAi consumir silenciosamente créditos/franquia da assinatura GitHub Copilot. O usuário precisa selecionar Copilot de forma explícita.
 
 ## Credenciais
 
@@ -80,11 +84,16 @@ XAI_API_KEY
 DASHSCOPE_API_KEY
 GEMINI_API_KEY
 ANTHROPIC_API_KEY
+COPILOT_GITHUB_TOKEN
 ```
 
-A presença de uma key não garante saldo, quota, plano compatível ou acesso ao modelo.
+A presença de uma key/token não garante saldo, quota, plano compatível ou acesso ao modelo.
 
 MiMo PAYG usa credencial `sk-...` no adapter atual. Token Plan `tp-...` pertence a produto/endpoint diferente.
+
+GitHub Copilot usa um token de usuário compatível com o Copilot SDK. Para operação local do RASAi, o recomendado é fine-grained PAT com a permissão de conta `Copilot Requests`; classic PAT `ghp_` não é suportado nesse fluxo. A integração desativa fallback para credenciais locais do Copilot CLI/GitHub CLI.
+
+As URLs oficiais para criar/gerenciar as credenciais de todos os providers estão em [PROVIDER_SETUP.md](PROVIDER_SETUP.md) e também são expostas pelo console de variáveis.
 
 ## Defaults públicos
 
@@ -99,6 +108,7 @@ Quando o usuário não informa override, o produto privilegia menor custo/comple
 | Qwen | `qwen3.8-flash` | `PROVIDER_DEFAULT` |
 | Gemini | `gemini-3.8-flash` | `LOW` |
 | Anthropic | `claude-sonnet-5` | `LOW` |
+| GitHub Copilot | `auto` | `PROVIDER_DEFAULT` |
 
 Overrides explícitos continuam prevalecendo quando suportados.
 
@@ -177,6 +187,25 @@ claude-sonnet-5
 
 Default público de effort: `LOW`.
 
+### GitHub Copilot
+
+O adapter usa o SDK oficial `github-copilot-sdk` e o modelo público `auto`:
+
+```text
+RASAI_COPILOT_MODEL=auto
+COPILOT_GITHUB_TOKEN=<token de usuário>
+```
+
+O pacote é opcional:
+
+```powershell
+python -m pip install -e ".[copilot]"
+```
+
+A autenticação é explicitamente vinculada ao token configurado e `use_logged_in_user=false`; isso evita fallback silencioso para uma sessão Copilot/GitHub existente na máquina. O SDK é usado sem tools disponíveis e com a política deny-by-default de permissões, pois o RASAi precisa apenas de inferência evidence-bound, não de capacidades agentic de edição/shell/browser.
+
+Copilot permanece fora de `AI=auto`; selecione `copilot` ou `github-copilot` explicitamente.
+
 ## Timeout
 
 ```text
@@ -248,7 +277,7 @@ timeout por tentativa
 
 A opção 5, **Remediação textual IA**, só fica disponível com provider apto. Com IA=`none` ou nenhum provider AUTO elegível, o console informa a indisponibilidade sem transformar isso em finding do site.
 
-O grupo **IA - contexto editorial / YMYL** em `E. Variáveis de ambiente / credenciais` expõe os parâmetros contextuais com domínio aceito, default, explicação de impacto e link para a documentação específica.
+O grupo **IA - contexto editorial / YMYL** em `E. Variáveis de ambiente / credenciais` expõe os parâmetros contextuais com domínio aceito, default, explicação de impacto e link para a documentação específica. As credenciais de IA exibem também a URL oficial de cadastro/login onde o usuário cria ou gerencia a key/token.
 
 A remediação técnica é uma superfície CLI/ambiente na implementação atual. Não deve ser presumida como opção persistida no INI do console até existir integração explícita correspondente.
 
@@ -262,7 +291,7 @@ O contexto editorial configurado é persistido em `content_analysis_contexts` pa
 
 ## AUTO, rotação e fallback
 
-AUTO constrói dinamicamente o pool de providers registrados como elegíveis e configurados corretamente na execução.
+AUTO constrói dinamicamente o pool de providers registrados como elegíveis e configurados corretamente na execução. Providers marcados como explicit-only, como GitHub Copilot, não entram nesse pool.
 
 A seleção usa round-robin compartilhado entre necessidades de IA. Em uma mesma necessidade, cada provider pode ser tentado no máximo uma vez. Se um provider falhar temporariamente, o fallback segue para o próximo; esse provider pode voltar ao pool em uma necessidade futura enquanto não atingir o circuit breaker.
 
@@ -278,7 +307,7 @@ Contrato detalhado: [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
 
 O schema local do RASAi permanece normativo. Quando o wire format do provider aceita apenas um subconjunto do JSON Schema, o runtime projeta o schema imediatamente antes do transporte e mantém as validações locais mais estritas depois da resposta.
 
-Na integração OpenAI isso evita enviar constraints incompatíveis em contratos estruturados de análise/remediação sem relaxar os invariantes que o RASAi valida localmente.
+Na integração OpenAI isso evita enviar constraints incompatíveis em contratos estruturados de análise/remediação sem relaxar os invariantes que o RASAi valida localmente. Na integração Copilot, o contrato provider-neutral completo, incluindo o schema esperado e as evidências permitidas, é encapsulado no prompt do SDK e continua sendo validado localmente depois da resposta.
 
 Erro de schema/request é erro técnico de integração, não defeito do website auditado.
 
@@ -339,6 +368,7 @@ Detalhamento de retenção/sanitização: [AI_RUNTIME_SECURITY.md](AI_RUNTIME_SE
 - [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md)
 - [AI_PROVIDER_EXTENSIONS.md](AI_PROVIDER_EXTENSIONS.md)
 - [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
+- [PROVIDER_SETUP.md](PROVIDER_SETUP.md)
 - [OPENAI_PROVIDER_DIAGNOSTICS.md](OPENAI_PROVIDER_DIAGNOSTICS.md)
 - [specification/18_AI_RUNTIME_ORCHESTRATION.md](specification/18_AI_RUNTIME_ORCHESTRATION.md)
 - [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md)
