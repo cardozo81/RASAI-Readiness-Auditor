@@ -98,14 +98,14 @@ Nesse cenário o HTML recebido é comum, mas a falha de execução observada é 
 
 ## Robustez da renderização core
 
-Cada contexto URL/dispositivo do M3 emite marcos operacionais locais antes da renderização, depois do retorno do renderer e depois da persistência do snapshot. Esses marcos não realizam chamadas externas e permitem distinguir:
+Cada contexto URL/dispositivo da etapa de renderização emite marcos operacionais locais antes da navegação em browser, depois do retorno do renderer e depois da persistência do snapshot. Esses marcos não realizam chamadas externas e permitem distinguir:
 
 - URL/dispositivo efetivamente em processamento;
 - renderer ainda em execução;
 - renderização concluída aguardando persistência;
 - snapshot já persistido.
 
-O console usa esses marcos para não confundir a URL do último snapshot concluído com a URL atualmente em renderização. Quando um `M3_RENDER_STARTED` permanece sem novo marco por tempo anormal, a interface sinaliza ausência de progresso em vez de continuar apresentando silenciosamente o snapshot anterior.
+O console usa esses marcos para não confundir a URL do último snapshot concluído com a URL atualmente em renderização. Quando o marco de início de uma renderização permanece sem conclusão por tempo anormal, a interface sinaliza ausência de progresso em vez de continuar apresentando silenciosamente o snapshot anterior.
 
 A política de robustez não adiciona retry automático de navegação no core. Uma nova aquisição física somente pode ser introduzida quando um requisito de métrica ou de análise realmente exigir uma observação independente e isso estiver explicitamente documentado no respectivo contrato.
 
