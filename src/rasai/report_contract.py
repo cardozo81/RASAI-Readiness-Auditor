@@ -86,10 +86,10 @@ REPORT_SURFACES: tuple[ReportSurface, ...] = (
     ReportSurface(
         id="crawling-discovery",
         filename="crawling-discovery.html",
-        label="Rastreamento e descoberta",
+        label="Domínio e descoberta",
         optional=False,
-        inputs=("robots.txt", "sitemaps", "links", "controles de crawlers", "diagnósticos determinísticos"),
-        outputs=("diagnóstico de crawling/discovery",),
+        inputs=("robots.txt", "sitemaps", "llms.txt", "links", "controles de crawlers", "diagnósticos determinísticos"),
+        outputs=("recursos e sinais ORIGIN", "diagnóstico de crawling/discovery", "acesso de crawlers"),
         optional_dependencies=("análise por IA explicitamente habilitada",),
         ai_usage="A IA, quando habilitada, interpreta somente diagnósticos/evidências fornecidos e o resultado deve ser marcado como gerado por IA.",
         score_impact="BR-GEO-003/017/018 e, quando houver avaliação técnica evidence-bound válida, BR-GEO-055/056 podem contribuir pelos grupos SITEMAP/ROBOTS; demais diagnósticos desta superfície permanecem advisory/non-scoring.",
