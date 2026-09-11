@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from types import MethodType
+import json
 import os
 from typing import Any, Mapping, MutableMapping
 
@@ -234,7 +235,29 @@ def _patch_content_provider_reasoning(provider: Any) -> None:
         return
     name = provider.name
     effort = getattr(provider.base, "reasoning_profile", LOWEST_REASONING.get(name, "PROVIDER_DEFAULT"))
-    if name in {"QWEN", "COPILOT"}:
+    if name == "COPILOT":
+        provider.reasoning_profile = "PROVIDER_DEFAULT"
+
+        def copilot_request_payload(_self: Any, request: Any) -> dict[str, Any]:
+            from rasai.m20_ai import content_remediation_schema
+
+            schema = content_remediation_schema(request)
+            prompt = (
+                "You are an evidence-bound website content remediation assistant for RASAi. "
+                "Return one JSON object only, matching the supplied JSON Schema. Suggest exact text "
+                "only for supplied findings and cite only evidence_ids attached to that finding. "
+                "Do not invent facts, sources, prices, dates, credentials, statistics or guarantees. "
+                "If evidence is insufficient for safe wording, omit that finding. Human review is mandatory.\n\n"
+                "JSON Schema:\n"
+                + json.dumps(schema, ensure_ascii=False)
+                + "\n\nPersisted evidence/findings:\n"
+                + json.dumps(request.provider_payload(), ensure_ascii=False)
+            )
+            return {"model": provider.model, "prompt": prompt}
+
+        provider._request_payload = MethodType(copilot_request_payload, provider)
+        return
+    if name == "QWEN":
         provider.reasoning_profile = "PROVIDER_DEFAULT"
         return
     provider.reasoning_profile = str(effort).upper()
