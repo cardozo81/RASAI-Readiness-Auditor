@@ -64,3 +64,13 @@ def test_final_report_normalization_humanizes_every_html_surface() -> None:
         assert "CONTENT_VALUE" not in index_html
         assert "Capacidade de Indexação" not in readiness_html
         assert "Extração de Conteúdo" not in mobile_html
+
+
+def test_sari_methodology_uses_human_title_and_keeps_contract_id_technical() -> None:
+    from rasai.report_registry import _sari_method_panel
+
+    with tempfile.TemporaryDirectory() as tmp:
+        html = _sari_method_panel(Path(tmp), "scoring.html")
+    assert "<h2>Hierarchical Weighted Readiness</h2>" in html
+    assert "<code>HIERARCHICAL_WEIGHTED_READINESS_V1</code>" in html
+    assert "<h2>HIERARCHICAL_WEIGHTED_READINESS_V1</h2>" not in html
