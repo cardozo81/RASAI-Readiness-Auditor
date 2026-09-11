@@ -10,7 +10,7 @@ For multiple URLs:
 
 - **SARI-001 Mobile/Desktop** is an audit-set aggregate for that device. SCORE-GEO-004 divides each scoring-group weight across its applicable page scopes, so adding URLs does not multiply the methodological weight of that group. It is neither one page's score nor an arithmetic average of independent page scores.
 - **Core Web Vitals** is presented as valid contexts passing / valid contexts evaluated.
-- **Lighthouse Performance** and **Lighthouse Accessibility** are presented as minimum–maximum ranges across valid URL/device contexts when more than one value exists. No unlabeled average is created.
+- **Lighthouse Performance** and **Lighthouse Accessibility** are presented as minimum-to-maximum ranges across valid URL/device contexts when more than one value exists. No unlabeled average is created.
 - **Synthetic Navigation Apdex** is likewise summarized as a range across valid URL/device summaries. Each underlying summary still belongs to one URL/device sample population.
 
 The generated report injects an `Escopo e agregação` disclosure with the URL count, available devices, and the aggregation rule used by the executive cards.
@@ -43,7 +43,7 @@ A new report surface that combines multiple URLs must choose and label one of th
 
 1. individual URL or URL/device value;
 2. count / pass ratio;
-3. minimum–maximum range;
+3. minimum-to-maximum range;
 4. formally defined weighted aggregate;
 5. explicitly labeled arithmetic statistic when the methodology genuinely defines one.
 
