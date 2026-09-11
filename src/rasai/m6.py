@@ -18,7 +18,7 @@ from rasai.domain import (
     utc_now,
 )
 from rasai.evidence import EvidenceManager
-from rasai.javascript_spa import BoundedScrollProbe, JavascriptSpaAnalyzer, LazyProbe, StateComparison
+from rasai.javascript_spa import JavascriptSpaAnalyzer, LazyProbe, StateComparison
 from rasai.m2 import M2ExecutionResult
 from rasai.m3 import M3ExecutionResult
 from rasai.m4 import M4ExecutionResult
@@ -84,14 +84,19 @@ def execute_m6(
     workspace: AuditWorkspace,
     lazy_probe: LazyProbe | None = None,
 ) -> M6ExecutionResult:
-    """Execute BR-GEO-019..024 per snapshot with bounded SPA diagnostics."""
+    """Execute BR-GEO-019..024 per snapshot with bounded SPA diagnostics.
+
+    The normal production path consumes ``bounded_lazy_probe`` captured during the
+    already-required M3 Chromium navigation.  A caller-supplied ``lazy_probe`` remains
+    supported for explicit tests/adapters, but M6 no longer opens a second browser page
+    by default merely to evaluate BR-GEO-024.
+    """
 
     analyzer = JavascriptSpaAnalyzer()
     manager = EvidenceManager(persistence)
     writer = SnapshotArchitectureWriter(workspace)
     resolver = DependencyResolver()
     prior = _PriorState(persistence, m5_result.rule_execution_ids)
-    probe = lazy_probe or BoundedScrollProbe().render_after_scroll
     execution_ids: list[str] = []
     finding_ids: list[str] = []
     architecture: dict[str, ArchitectureClassification] = {}
@@ -132,13 +137,34 @@ def execute_m6(
                     if normalized_candidate not in audited_urls:
                         rendered_outside_audit.add(normalized_candidate)
 
-            lazy_after: str | None = None
             if rendered_html is not None:
                 preliminary = analyzer.lazy_loading(rendered_html, after_probe_html=None)
-                if preliminary.has_lazy_signals and not preliminary.initial_content_recoverable:
-                    probe_result = probe(snapshot.final_url or snapshot.requested_url, device)
-                    lazy_after = probe_result.rendered_html if probe_result.succeeded else None
-                evaluations["BR-GEO-024"] = _evaluate_024(analyzer, rendered_html, lazy_after)
+                if not preliminary.has_lazy_signals or preliminary.initial_content_recoverable:
+                    evaluations["BR-GEO-024"] = _evaluate_024(analyzer, rendered_html, None)
+                else:
+                    metadata = snapshot.browser_metadata if isinstance(snapshot.browser_metadata, dict) else {}
+                    same_session = metadata.get("bounded_lazy_probe") if isinstance(metadata, dict) else None
+                    if isinstance(same_session, dict) and same_session.get("attempted"):
+                        evaluations["BR-GEO-024"] = _evaluate_024_same_session(preliminary, same_session)
+                    elif lazy_probe is not None:
+                        # Explicit compatibility/test hook only. Production M3 captures
+                        # this interaction before closing the original page.
+                        probe_result = lazy_probe(snapshot.final_url or snapshot.requested_url, device)
+                        lazy_after = probe_result.rendered_html if probe_result.succeeded else None
+                        evaluations["BR-GEO-024"] = _evaluate_024(analyzer, rendered_html, lazy_after)
+                    else:
+                        evaluations["BR-GEO-024"] = RuleEvaluation(
+                            RuleResult.UNKNOWN,
+                            {
+                                "has_lazy_signals": preliminary.has_lazy_signals,
+                                "initial_content_recoverable": preliminary.initial_content_recoverable,
+                                "after_probe_content_recoverable": None,
+                                "probe_state": "NOT_AVAILABLE_WITHOUT_REFETCH",
+                                "additional_navigation_requests": 0,
+                            },
+                            "lazy loading does not prevent recovery of essential content within bounded predictable interaction",
+                            reason="LAZY_PROBE_UNAVAILABLE_NO_REFETCH",
+                        )
             else:
                 evaluations["BR-GEO-024"] = _unknown("RENDERED_UNAVAILABLE", "lazy-loaded essential content remains recoverable")
 
@@ -291,6 +317,32 @@ def _evaluate_024(analyzer: JavascriptSpaAnalyzer, rendered_html: str, after_pro
     )
 
 
+def _evaluate_024_same_session(preliminary: object, metadata: dict[str, object]) -> RuleEvaluation:
+    state = str(metadata.get("state") or "UNKNOWN")
+    after = metadata.get("after_probe_content_recoverable")
+    observed = {
+        "has_lazy_signals": bool(getattr(preliminary, "has_lazy_signals", True)),
+        "initial_content_recoverable": bool(getattr(preliminary, "initial_content_recoverable", False)),
+        "after_probe_content_recoverable": after if isinstance(after, bool) else None,
+        "probe_state": state,
+        "capture_method": metadata.get("capture_method"),
+        "scroll_steps": metadata.get("scroll_steps"),
+        "settle_ms": metadata.get("settle_ms"),
+        "additional_navigation_requests": int(metadata.get("additional_navigation_requests") or 0),
+    }
+    expected = "lazy loading does not prevent recovery of essential content within bounded predictable interaction"
+    if state == "CAPTURED" and after is True:
+        return RuleEvaluation(RuleResult.PASS, observed, expected, reason="CONTENT_RECOVERED_BY_BOUNDED_SCROLL")
+    if state == "CAPTURED" and after is False:
+        return RuleEvaluation(RuleResult.FAIL, observed, expected, reason="ESSENTIAL_CONTENT_NOT_RECOVERED_BY_BOUNDED_SCROLL")
+    return RuleEvaluation(
+        RuleResult.UNKNOWN,
+        observed,
+        expected,
+        reason=str(metadata.get("reason") or "LAZY_PROBE_UNAVAILABLE"),
+    )
+
+
 def _persist_execution(
     definition: RuleDefinition,
     evaluation: RuleEvaluation,
@@ -334,7 +386,7 @@ def _persist_finding(definition: RuleDefinition, execution: RuleExecution, persi
         return None
     device = FindingDevice.DESKTOP if execution.device is DeviceContext.DESKTOP else FindingDevice.MOBILE
     finding = Finding(
-        finding_id=new_id("FND"), audit_id=execution.audit_id, rule_id=execution.rule_id,
+        finding_id=new_id("FND"), audit_id=execution.audit_id, rule_id=definition.rule_id,
         rule_execution_id=execution.rule_execution_id, page_id=execution.page_id, device=device,
         category=definition.category, severity=definition.severity, source="deterministic-javascript-spa",
         title=definition.name, observed_value=execution.observed_value,

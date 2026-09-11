@@ -12,6 +12,7 @@ from rasai import console_environment, console_search_intelligence, interactive_
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
 from rasai.ai_provider_console_management import install as install_ai_provider_console_management
 from rasai.console_apdex_configuration import configure_apdex
+from rasai.console_cancellation_runtime import install as install_console_cancellation_runtime
 from rasai.console_config_path import prepare_console_config
 from rasai.console_provider_environment_compat import install as install_provider_environment_compat
 from rasai.console_search_guidance import install as install_search_guidance
@@ -24,12 +25,15 @@ from rasai.integration_state_contract import install as install_integration_stat
 from rasai.integration_state_refinements import install as install_integration_state_refinements
 from rasai.m21_console_progress import install_m21_external_progress
 from rasai.m3_console_progress import install_m3_render_progress
+from rasai.m3_render_deadline_runtime import install as install_m3_render_deadline_runtime
 from rasai.report_observation_reconciliation import install as install_report_observation_reconciliation
 from rasai.report_registry import install as install_report_registry
+from rasai.report_scope_clarity import install as install_report_scope_clarity
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.runtime_contract_compatibility import install_console_runtime_contract_compatibility
 from rasai.runtime_progress_gate import install_search_progress_gate
+from rasai.target_input_runtime import install as install_target_input_runtime
 
 
 def main() -> int:
@@ -46,6 +50,8 @@ def main() -> int:
     # the first console pass instead of only after the environment menu is opened.
     install_report_registry()
     install_context_scope_runtime()
+    install_m3_render_deadline_runtime()
+    install_target_input_runtime()
     install_external_measurement_runtime()
     prepare_console_config()
     install_provider_environment_compat(console_environment)
@@ -58,6 +64,7 @@ def main() -> int:
     install_m3_render_progress()
     install_m21_external_progress()
     install_search_progress_gate()
+    install_console_cancellation_runtime()
     interactive_console._environment_menu = console_environment.environment_menu
     interactive_console._configure_apdex = configure_apdex
     install_search_provider_compat(console_search_intelligence)
@@ -65,6 +72,7 @@ def main() -> int:
     install_search_intelligence(interactive_console)
     install_consolidation(interactive_console)
     install_console_runtime_contract_compatibility()
+    install_report_scope_clarity()
     # Install last: it intentionally supersedes the older availability-only selector
     # so unavailable providers remain configurable and credential changes refresh
     # execution readiness immediately.
