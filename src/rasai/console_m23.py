@@ -47,6 +47,7 @@ from rasai.m25_cli import (
     validate_m25_env_value,
 )
 from rasai.m25_dynatrace import DYNATRACE_API_TOKEN_ENV
+from rasai.synthetic_runtime_profiles import PROFILE_ENV, PROFILE_ENV_NAMES, validate_preset
 
 M23_ENV_NAMES = (
     APDEX_ENABLED_ENV,
@@ -57,8 +58,10 @@ M23_ENV_NAMES = (
     APDEX_TIMEOUT_ENV,
     APDEX_DELAY_ENV,
     APDEX_CONCURRENCY_ENV,
+    *PROFILE_ENV_NAMES,
 )
 _ALL_APDEX_ENV_NAMES = tuple(dict.fromkeys((*M23_ENV_NAMES, *M25_ENV_NAMES, DYNATRACE_API_TOKEN_ENV)))
+_PROFILE_ENV_REVERSE = {name: (device, kind) for (device, kind), name in PROFILE_ENV.items()}
 
 
 @dataclass(slots=True)
@@ -194,6 +197,9 @@ def validate_env_value(name: str, value: str) -> str:
     raw = value.strip()
     if not raw:
         raise ValueError("valor vazio; remova a variável em vez de gravar vazio")
+    if name in PROFILE_ENV_NAMES:
+        device, kind = _PROFILE_ENV_REVERSE[name]
+        return validate_preset(kind, device, raw)
     if name == DYNATRACE_API_TOKEN_ENV:
         return raw
     if name in M25_ENV_NAMES:
