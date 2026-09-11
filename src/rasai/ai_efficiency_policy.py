@@ -1,16 +1,17 @@
 """Cross-provider policy for punctual, token-efficient RASAi AI calls.
 
 The policy deliberately does not merge device snapshots whose evidence identities differ:
-evidence-bound scoring must remain traceable to the snapshot that was analyzed. Instead,
-RASAi keeps one structured semantic call for the complete rule set of a snapshot and asks
-providers to avoid prose duplication. No scoring formula is changed here.
+evidence-bound scoring must remain traceable to the snapshot that was analyzed. RASAi
+keeps one structured semantic call for the complete contracted rule set of a snapshot,
+removes provider-input fields that duplicate information already supplied losslessly,
+and asks providers to avoid prose duplication. No scoring formula is changed here.
 """
 from __future__ import annotations
 
 from typing import Any, Callable
 
 
-AI_CALL_POLICY_VERSION = "AI-CALL-POLICY-001"
+AI_CALL_POLICY_VERSION = "AI-CALL-POLICY-002"
 TOKEN_ECONOMY_INSTRUCTION = (
     "Be concise: do not restate the input evidence, rule text, or schema. "
     "Use the minimum wording needed for evidence-bound reasoning fields and avoid duplicate details."
@@ -18,6 +19,38 @@ TOKEN_ECONOMY_INSTRUCTION = (
 
 
 _INSTALLED = False
+
+
+def _compact_semantic_provider_payload(payload: Any) -> Any:
+    """Remove only transport-only or exact duplicate provider-input fields.
+
+    Full main content, Structured Data, evidence ids and observed evidence remain intact.
+    Local artifact paths cannot be dereferenced by a remote model. The context evidence's
+    title and excerpt are exact duplicates of top-level title/main_content, so only the
+    availability flags are retained in that evidence item.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    compact = dict(payload)
+    raw_evidence = compact.get("evidence")
+    if isinstance(raw_evidence, list):
+        evidence: list[Any] = []
+        for raw in raw_evidence:
+            if not isinstance(raw, dict):
+                evidence.append(raw)
+                continue
+            item = dict(raw)
+            item.pop("artifact_reference", None)
+            if str(item.get("source") or "") == "semantic-input-builder":
+                observed = item.get("observed_value")
+                if isinstance(observed, dict):
+                    item["observed_value"] = {
+                        "main_content_available": bool(observed.get("main_content_available")),
+                        "structured_data_available": bool(observed.get("structured_data_available")),
+                    }
+            evidence.append(item)
+        compact["evidence"] = evidence
+    return compact
 
 
 def _append_instruction(payload: Any) -> Any:
@@ -28,6 +61,19 @@ def _append_instruction(payload: Any) -> Any:
         payload = dict(payload)
         payload["instructions"] = instructions.rstrip() + " " + TOKEN_ECONOMY_INSTRUCTION
     return payload
+
+
+def _patch_provider_payload(semantic: Any) -> None:
+    original = semantic.SemanticInput.provider_payload
+    if bool(getattr(original, "_rasai_ai_efficiency_policy", False)):
+        return
+
+    def compact_provider_payload(self: Any) -> dict[str, Any]:
+        return _compact_semantic_provider_payload(original(self))
+
+    compact_provider_payload._rasai_ai_efficiency_policy = True
+    compact_provider_payload._rasai_original = original
+    semantic.SemanticInput.provider_payload = compact_provider_payload
 
 
 def _patch_request_method(cls: Any) -> None:
@@ -59,7 +105,7 @@ def _patch_instruction_function(module: Any, name: str) -> None:
 
 
 def install() -> None:
-    """Install concise-output guidance across current structured AI adapters."""
+    """Install lossless input de-duplication and concise-output guidance."""
     global _INSTALLED
     if _INSTALLED:
         return
@@ -67,6 +113,7 @@ def install() -> None:
     from rasai import semantic
     from rasai import m18_ai
 
+    _patch_provider_payload(semantic)
     _patch_request_method(semantic.OpenAIProvider)
     _patch_request_method(m18_ai.ResponsesSemanticProvider)
 
@@ -92,5 +139,6 @@ def strategy_summary() -> dict[str, Any]:
         "origin_resource_repetition": "NONE_BY_DEVICE",
         "report_generation_ai_calls": 0,
         "device_snapshot_deduplication": "NOT_MERGED_WHEN_EVIDENCE_IDENTITIES_DIFFER",
+        "input_policy": "LOSSLESS_DUPLICATE_REMOVAL_NO_LOCAL_ARTIFACT_PATHS",
         "output_policy": "CONCISE_EVIDENCE_BOUND_NO_INPUT_RESTATEMENT",
     }
