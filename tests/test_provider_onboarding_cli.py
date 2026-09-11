@@ -7,6 +7,7 @@ import os
 import unittest
 from unittest.mock import patch
 
+from rasai.entrypoint import main as rasai_main
 from rasai.provider_cli import main as provider_cli_main
 from rasai.provider_onboarding import (
     find_provider_onboarding,
@@ -114,6 +115,26 @@ class ProviderCliTests(unittest.TestCase):
         )
         self.assertNotIn(ai_value, output)
         self.assertNotIn(serp_value, output)
+
+    def test_top_level_rasai_providers_route_is_metadata_only(self) -> None:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with patch.dict(os.environ, {}, clear=True):
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                code = rasai_main([
+                    "providers",
+                    "--kind",
+                    "serp",
+                    "--provider",
+                    "zenserp",
+                    "--json",
+                ])
+        self.assertEqual(0, code, stderr.getvalue())
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(1, len(payload))
+        self.assertEqual("zenserp", payload[0]["id"])
+        self.assertEqual("serp", payload[0]["kind"])
+        self.assertFalse(payload[0]["configured"])
 
     def test_unknown_provider_fails_closed(self) -> None:
         code, output, error = self.run_cli(["--provider", "does-not-exist"])
