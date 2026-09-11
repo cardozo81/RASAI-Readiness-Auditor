@@ -112,20 +112,23 @@ def _patch_grouped_navigation() -> None:
         sections: list[str] = []
         for group_label, filenames in _NAV_GROUPS:
             group_links: list[str] = []
+            contains_active = False
             for filename in filenames:
                 label = by_file.get(filename)
                 if label is None:
                     continue
                 consumed.add(filename)
+                contains_active = contains_active or filename == current
                 group_links.append(
                     f"<a class='{'active' if filename == current else ''}' href='{escape(filename)}'>{escape(label)}</a>"
                 )
             if group_links:
+                open_attr = " open" if contains_active or group_label in {"Visão e readiness", "Coleta e dispositivos"} else ""
                 sections.append(
-                    "<div class='rasai-nav-group'>"
-                    f"<div class='rasai-nav-group-title' style='padding:12px 12px 4px;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.72'>{escape(group_label)}</div>"
+                    f"<details class='rasai-nav-group'{open_attr}>"
+                    f"<summary style='padding:10px 12px 5px;cursor:pointer;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.78'>{escape(group_label)}</summary>"
                     + "".join(group_links)
-                    + "</div>"
+                    + "</details>"
                 )
         remaining = [
             f"<a class='{'active' if filename == current else ''}' href='{escape(filename)}'>{escape(label)}</a>"
@@ -133,8 +136,8 @@ def _patch_grouped_navigation() -> None:
         ]
         if remaining:
             sections.append(
-                "<div class='rasai-nav-group'><div class='rasai-nav-group-title' style='padding:12px 12px 4px;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.72'>Outros</div>"
-                + "".join(remaining) + "</div>"
+                "<details class='rasai-nav-group' open><summary style='padding:10px 12px 5px;cursor:pointer;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.78'>Outros</summary>"
+                + "".join(remaining) + "</details>"
             )
         generated_label = report_navigation.format_report_generated_at(generated_at)
         return (
