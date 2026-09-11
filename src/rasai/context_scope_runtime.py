@@ -1,7 +1,8 @@
 """Runtime integration for the canonical capture-context contract.
 
-The project already uses additive runtime integration modules. This installer keeps the
-context contract centralized while leaving the scoring engine untouched.
+The public report catalog lives in ``report_contract``. This installer only wires that
+single contract into generators, capture/runtime enrichment and final report completion;
+it does not create a second report-surface registry and does not touch scoring.
 """
 from __future__ import annotations
 
@@ -42,49 +43,10 @@ _NAV_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
-def _register_report_surface() -> None:
+def _project_report_contract() -> None:
+    """Project the canonical report contract into modules that import tuples by value."""
     from rasai import report_contract, report_manifest, report_navigation, report_registry
-    from rasai.report_contract import ReportSurface
 
-    if not any(surface.filename == _CONTEXT_FILE for surface in report_contract.REPORT_SURFACES):
-        surface = ReportSurface(
-            id="context",
-            filename=_CONTEXT_FILE,
-            label="Contexto de coleta",
-            optional=False,
-            inputs=(
-                "audit.db",
-                "recursos origin-scoped",
-                "snapshots Mobile/Desktop",
-                "browser_metadata",
-            ),
-            outputs=(
-                "topologia ORIGIN/URL/DEVICE_SNAPSHOT/PROFILE_MEASUREMENT",
-                "variação do documento por dispositivo",
-                "diagnósticos de runtime por snapshot",
-            ),
-            required_dependencies=("audit.db",),
-            ai_usage="Nenhum. Esta página não dispara IA nem rede adicional.",
-            score_impact="Nenhum; apresenta escopo de captura sem alterar fórmulas ou resultados persistidos.",
-            source_of_truth="audit.db + metadata dos snapshots já capturados",
-        )
-        items = list(report_contract.REPORT_SURFACES)
-        insertion = next(
-            (index + 1 for index, item in enumerate(items) if item.filename == "scoring.html"),
-            3,
-        )
-        items.insert(insertion, surface)
-        report_contract.REPORT_SURFACES = tuple(items)
-
-    report_contract.CANONICAL_NAV_ITEMS = tuple(
-        (surface.label, surface.filename) for surface in report_contract.REPORT_SURFACES
-    )
-    report_contract.CANONICAL_FILENAMES = tuple(
-        surface.filename for surface in report_contract.REPORT_SURFACES
-    )
-
-    # Modules import these tuples by value. Project the single current contract into
-    # their module globals so every final normalization and manifest uses the same menu.
     report_navigation.CANONICAL_NAV_ITEMS = report_contract.CANONICAL_NAV_ITEMS
     report_navigation.NAV_ITEMS = report_contract.CANONICAL_NAV_ITEMS
     report_registry.CANONICAL_NAV_ITEMS = report_contract.CANONICAL_NAV_ITEMS
@@ -204,7 +166,7 @@ def install() -> None:
 
     install_report_registry()
     install_device_context_capture()
-    _register_report_surface()
+    _project_report_contract()
     _patch_grouped_navigation()
     _patch_report_completion()
     _INSTALLED = True
