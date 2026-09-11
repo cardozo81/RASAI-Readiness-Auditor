@@ -23,8 +23,10 @@ _SCALE_CSS = r"""
 .rasai-list-toolbar button{cursor:pointer;font-weight:620}.rasai-list-toolbar button:disabled{cursor:default;opacity:.45}
 .rasai-list-toolbar .rasai-list-status{margin-left:auto;align-self:center;color:var(--muted,#6f7b8d);font-size:.8rem;white-space:nowrap}
 .rasai-list-empty{padding:14px;border:1px dashed var(--line,rgba(111,123,141,.22));border-radius:6px;color:var(--muted,#6f7b8d);background:#fafbfc}
-@media(max-width:760px){.rasai-list-toolbar{align-items:stretch}.rasai-list-toolbar label{min-width:100%}.rasai-list-toolbar input,.rasai-list-toolbar select{min-width:0;width:100%;max-width:none}.rasai-list-toolbar .rasai-list-status{margin-left:0;width:100%}}
-@media print{.rasai-list-toolbar,.rasai-list-empty{display:none!important}.rasai-client-hidden{display:table-row!important}.page-card.rasai-client-hidden{display:block!important}}
+.rasai-population-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:12px;margin:12px 0 18px}
+.rasai-population-grid>.population-card{margin:0;min-width:0;overflow-wrap:anywhere}
+@media(max-width:760px){.rasai-list-toolbar{align-items:stretch}.rasai-list-toolbar label{min-width:100%}.rasai-list-toolbar input,.rasai-list-toolbar select{min-width:0;width:100%;max-width:none}.rasai-list-toolbar .rasai-list-status{margin-left:0;width:100%}.rasai-population-grid{grid-template-columns:1fr}}
+@media print{.rasai-list-toolbar,.rasai-list-empty{display:none!important}.rasai-client-hidden{display:table-row!important}.page-card.rasai-client-hidden{display:block!important}.rasai-population-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 """.strip()
 
@@ -70,6 +72,17 @@ _SCALE_SCRIPT = r"""
     return out;
   };
   const shouldEnhance=(items,fallback)=>urlsFor(items).length>=URL_THRESHOLD||items.length>=fallback;
+  const groupPopulationCards=()=>{
+    const parents=new Set();
+    document.querySelectorAll('.population-card').forEach(card=>{if(card.parentElement) parents.add(card.parentElement);});
+    parents.forEach(parent=>{
+      if(parent.querySelector(':scope > .rasai-population-grid')) return;
+      const cards=Array.from(parent.children).filter(el=>el.classList&&el.classList.contains('population-card'));
+      if(cards.length<2) return;
+      const grid=document.createElement('div'); grid.className='rasai-population-grid'; grid.dataset.rasaiPopulationGrid='true';
+      parent.insertBefore(grid,cards[0]); cards.forEach(card=>grid.appendChild(card));
+    });
+  };
   function toolbar(total, contexts, urls, onChange){
     const root=document.createElement('div'); root.className='rasai-list-toolbar'; root.dataset.rasaiListToolbar='true';
     const searchLabel=document.createElement('label'); searchLabel.textContent='Buscar na lista';
@@ -125,6 +138,7 @@ _SCALE_SCRIPT = r"""
     controls.status.textContent=filtered.length+' de '+items.length+' item(ns) · página '+state.page+' de '+pages;
     return filtered.length;
   }
+  groupPopulationCards();
   document.querySelectorAll('table').forEach(table=>{
     if(table.dataset.rasaiNoPagination==='true' || table.dataset.rasaiListReady==='true') return;
     const tbody=table.tBodies&&table.tBodies[0]; if(!tbody) return;
