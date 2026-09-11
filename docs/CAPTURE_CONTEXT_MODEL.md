@@ -55,15 +55,20 @@ Essa é a superfície canônica de dados `ORIGIN`. Páginas Mobile, Desktop e `c
 
 O HTTP preflight e o artifact de HTML bruto pertencem à URL. Um erro estrutural presente nos mesmos bytes do documento não se torna um erro diferente somente porque existem dois dispositivos.
 
-Entretanto, servidores, CDNs e aplicações podem entregar documentos diferentes conforme User-Agent ou Client Hints. Para tornar essa diferença observável sem adicionar uma navegação extra, o RASAi registra no `browser_metadata` de cada snapshot:
+Entretanto, servidores, CDNs e aplicações podem entregar documentos diferentes conforme User-Agent ou Client Hints. Para tornar essa diferença observável sem adicionar uma navegação extra, o RASAi anexa uma sessão Chrome DevTools Protocol à **mesma navegação Chromium que já produz o snapshot** e tenta registrar no `browser_metadata`:
 
 - hash SHA-256 do corpo do documento principal recebido naquela navegação;
 - tamanho em bytes;
 - Content-Type;
+- estado da captura (`CAPTURED`, inconclusivo/ignorado ou falha técnica);
 - escopo `DEVICE_SNAPSHOT`;
 - indicação explícita de que não houve requisição adicional para essa verificação.
 
-Quando Mobile e Desktop foram executados, `context.html` compara esses hashes e informa se o documento recebido foi igual, diferente ou se a comparação ficou inconclusiva.
+A leitura do corpo fonte é **bounded e fail-open**. O runtime somente consulta o buffer do Chromium após observar `Network.loadingFinished` para o documento principal e somente quando o tamanho codificado não excede 5 MiB. Se o documento não tiver término confirmado, o buffer não estiver disponível ou o limite for excedido, a captura do corpo fonte permanece inconclusiva: o RASAi **não espera indefinidamente, não repete a navegação e não faz uma nova requisição HTTP** apenas para obter o hash.
+
+Separadamente, o DOM serializado já obtido por `page.content()` recebe um fingerprint local (`rendered_dom`) para diagnóstico do snapshot. Esse fingerprint não substitui o hash do documento fonte na comparação de dynamic serving e também não provoca nova requisição.
+
+Quando Mobile e Desktop foram executados, `context.html` compara os hashes do documento fonte quando ambos estão disponíveis e informa se o documento recebido foi igual, diferente ou se a comparação ficou inconclusiva.
 
 ## JavaScript e erros de runtime
 
@@ -90,6 +95,19 @@ URL /produto
 ```
 
 Nesse cenário o HTML recebido é comum, mas a falha de execução observada é Mobile.
+
+## Robustez da renderização core
+
+Cada contexto URL/dispositivo do M3 emite marcos operacionais locais antes da renderização, depois do retorno do renderer e depois da persistência do snapshot. Esses marcos não realizam chamadas externas e permitem distinguir:
+
+- URL/dispositivo efetivamente em processamento;
+- renderer ainda em execução;
+- renderização concluída aguardando persistência;
+- snapshot já persistido.
+
+O console usa esses marcos para não confundir a URL do último snapshot concluído com a URL atualmente em renderização. Quando um `M3_RENDER_STARTED` permanece sem novo marco por tempo anormal, a interface sinaliza ausência de progresso em vez de continuar apresentando silenciosamente o snapshot anterior.
+
+A política de robustez não adiciona retry automático de navegação no core. Uma nova aquisição física somente pode ser introduzida quando um requisito de métrica ou de análise realmente exigir uma observação independente e isso estiver explicitamente documentado no respectivo contrato.
 
 ## Lighthouse
 
@@ -122,8 +140,8 @@ A auditoria possui `report/context.html`, responsável por:
 
 - explicar os quatro escopos;
 - mostrar snapshots por dispositivo;
-- apresentar hash do documento recebido por dispositivo;
-- identificar variação do documento Mobile × Desktop;
+- apresentar estado/hash do documento recebido por dispositivo quando a captura bounded estiver disponível;
+- identificar variação do documento Mobile × Desktop sem transformar ausência de hash em igualdade;
 - exibir diagnósticos de runtime por snapshot;
 - apontar para **Domínio e descoberta** em vez de repetir detalhes `ORIGIN`;
 - deixar explícito que a superfície é read-only e não recalcula scoring.
