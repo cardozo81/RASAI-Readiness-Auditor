@@ -1,11 +1,14 @@
 """Device-scoped browser capture enrichment for the core M3 renderer.
 
 No extra network navigation is introduced. The existing Mobile/Desktop browser run is
-used to persist a hash of the main-document response and bounded runtime diagnostics.
-This makes device variance observable without re-fetching origin-scoped resources.
+used to persist bounded main-document fingerprints and runtime diagnostics. Main-source
+capture is read from Chromium's already-buffered DevTools response only after the
+browser reports that the request finished; RASAi never waits indefinitely for
+``response.body()`` and never re-fetches the page to obtain this evidence.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -18,6 +21,7 @@ from rasai.rendering import BrowserProfile, BrowserRenderResult, RenderErrorKind
 
 _MAX_DIAGNOSTICS = 60
 _MAX_MESSAGE = 400
+_MAX_DOCUMENT_SOURCE_BYTES = 5 * 1024 * 1024
 
 
 def _bounded(value: Any, limit: int = _MAX_MESSAGE) -> str:
@@ -37,6 +41,161 @@ def _safe_url(value: Any) -> str | None:
     return urlunsplit((parsed.scheme, parsed.netloc, parsed.path or "/", "", ""))
 
 
+def _setup_document_capture(context: Any, page: Any) -> tuple[Any | None, dict[str, Any]]:
+    """Observe the existing Chromium navigation without creating another request."""
+    state: dict[str, Any] = {
+        "available": False,
+        "request_id": None,
+        "main_frame_id": None,
+        "finished": {},
+        "failed": set(),
+        "response_url": None,
+        "setup_error": None,
+    }
+    try:
+        session = context.new_cdp_session(page)
+        session.send("Network.enable")
+        frame_tree = session.send("Page.getFrameTree")
+        frame = frame_tree.get("frameTree", {}).get("frame", {}) if isinstance(frame_tree, dict) else {}
+        if isinstance(frame, dict) and frame.get("id"):
+            state["main_frame_id"] = str(frame["id"])
+
+        def response_received(event: dict[str, Any]) -> None:
+            if str(event.get("type") or "") != "Document":
+                return
+            frame_id = str(event.get("frameId") or "")
+            main_frame_id = str(state.get("main_frame_id") or "")
+            if main_frame_id and frame_id and frame_id != main_frame_id:
+                return
+            request_id = str(event.get("requestId") or "")
+            if not request_id:
+                return
+            response = event.get("response")
+            state["request_id"] = request_id
+            if isinstance(response, dict):
+                state["response_url"] = _safe_url(response.get("url"))
+
+        def loading_finished(event: dict[str, Any]) -> None:
+            request_id = str(event.get("requestId") or "")
+            if not request_id:
+                return
+            try:
+                encoded = float(event.get("encodedDataLength") or 0.0)
+            except (TypeError, ValueError):
+                encoded = 0.0
+            state["finished"][request_id] = max(encoded, 0.0)
+
+        def loading_failed(event: dict[str, Any]) -> None:
+            request_id = str(event.get("requestId") or "")
+            if request_id:
+                state["failed"].add(request_id)
+
+        session.on("Network.responseReceived", response_received)
+        session.on("Network.loadingFinished", loading_finished)
+        session.on("Network.loadingFailed", loading_failed)
+        state["available"] = True
+        return session, state
+    except Exception as exc:
+        state["setup_error"] = type(exc).__name__
+        return None, state
+
+
+def _document_source_metadata(
+    session: Any | None,
+    capture: dict[str, Any],
+    *,
+    content_type: str | None,
+) -> dict[str, Any]:
+    """Return a bounded source fingerprint from the already-finished navigation.
+
+    ``Network.getResponseBody`` is only attempted after ``Network.loadingFinished`` was
+    observed for the main document and only for a bounded response. If either condition
+    is unavailable RASAi records an inconclusive capture instead of blocking or issuing
+    a second request.
+    """
+    result: dict[str, Any] = {
+        "capture_state": "NOT_AVAILABLE",
+        "sha256": None,
+        "bytes": None,
+        "content_type": content_type,
+        "scope": ContextScope.DEVICE_SNAPSHOT.value,
+        "additional_network_requests": 0,
+        "capture_method": "CDP_BUFFERED_RESPONSE_BODY",
+        "max_capture_bytes": _MAX_DOCUMENT_SOURCE_BYTES,
+    }
+    if session is None or not capture.get("available"):
+        result["reason"] = "CDP_SESSION_UNAVAILABLE"
+        if capture.get("setup_error"):
+            result["error"] = str(capture["setup_error"])
+        return result
+
+    request_id = str(capture.get("request_id") or "")
+    if not request_id:
+        result["reason"] = "MAIN_DOCUMENT_REQUEST_NOT_OBSERVED"
+        return result
+    result["response_url"] = capture.get("response_url")
+
+    failed = capture.get("failed")
+    if isinstance(failed, set) and request_id in failed:
+        result.update(capture_state="CAPTURE_FAILED", reason="MAIN_DOCUMENT_LOADING_FAILED")
+        return result
+
+    finished = capture.get("finished")
+    if not isinstance(finished, dict) or request_id not in finished:
+        result.update(
+            capture_state="SKIPPED_NOT_FINISHED",
+            reason="MAIN_DOCUMENT_NOT_CONFIRMED_FINISHED",
+        )
+        return result
+
+    encoded_data_length = float(finished.get(request_id) or 0.0)
+    result["encoded_data_length"] = encoded_data_length
+    if encoded_data_length > _MAX_DOCUMENT_SOURCE_BYTES:
+        result.update(
+            capture_state="SKIPPED_SIZE_LIMIT",
+            reason="MAIN_DOCUMENT_EXCEEDS_CAPTURE_LIMIT",
+        )
+        return result
+
+    try:
+        payload = session.send("Network.getResponseBody", {"requestId": request_id})
+        body_value = payload.get("body", "") if isinstance(payload, dict) else ""
+        if bool(payload.get("base64Encoded")) if isinstance(payload, dict) else False:
+            source_body = base64.b64decode(str(body_value), validate=False)
+        else:
+            source_body = str(body_value).encode("utf-8")
+        if len(source_body) > _MAX_DOCUMENT_SOURCE_BYTES:
+            result.update(
+                capture_state="SKIPPED_SIZE_LIMIT",
+                reason="DECODED_DOCUMENT_EXCEEDS_CAPTURE_LIMIT",
+            )
+            return result
+        result.update(
+            capture_state="CAPTURED",
+            sha256=hashlib.sha256(source_body).hexdigest(),
+            bytes=len(source_body),
+        )
+    except Exception as exc:
+        result.update(
+            capture_state="CAPTURE_FAILED",
+            reason="CDP_RESPONSE_BODY_UNAVAILABLE",
+            error=type(exc).__name__,
+        )
+    return result
+
+
+def _rendered_dom_metadata(rendered_html: str) -> dict[str, Any]:
+    payload = rendered_html.encode("utf-8")
+    return {
+        "capture_state": "CAPTURED",
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "bytes": len(payload),
+        "scope": ContextScope.DEVICE_SNAPSHOT.value,
+        "additional_network_requests": 0,
+        "capture_method": "PLAYWRIGHT_PAGE_CONTENT",
+    }
+
+
 def _install_browser_capture() -> None:
     from rasai.browser_identity_renderer import BrowserIdentityRenderer
 
@@ -53,6 +212,8 @@ def _install_browser_capture() -> None:
     ) -> BrowserRenderResult:
         context = None
         page = None
+        cdp_session = None
+        cdp_capture: dict[str, Any] = {}
         settle_outcome = "NOT_ATTEMPTED"
         navigation_trace: list[dict[str, Any]] = []
         request_headers: dict[str, str] = {}
@@ -71,6 +232,9 @@ def _install_browser_capture() -> None:
             assert self._browser is not None
             context = self._browser.new_context(**options)
             page = context.new_page()
+            page.set_default_timeout(self.navigation_timeout_ms)
+            page.set_default_navigation_timeout(self.navigation_timeout_ms)
+            cdp_session, cdp_capture = _setup_document_capture(context, page)
 
             def on_response(response: Any) -> None:
                 try:
@@ -130,32 +294,21 @@ def _install_browser_capture() -> None:
 
             rendered_html = page.content()
             headers = response.headers if response is not None else {}
-            document_source: dict[str, Any] = {
-                "capture_state": "NOT_AVAILABLE",
-                "sha256": None,
-                "bytes": None,
-                "content_type": headers.get("content-type") if response is not None else None,
-                "scope": ContextScope.DEVICE_SNAPSHOT.value,
-                "additional_network_requests": 0,
-            }
-            if response is not None:
-                try:
-                    source_body = response.body()
-                    document_source.update(
-                        capture_state="CAPTURED",
-                        sha256=hashlib.sha256(source_body).hexdigest(),
-                        bytes=len(source_body),
-                    )
-                except Exception as exc:
-                    document_source.update(
-                        capture_state="CAPTURE_FAILED",
-                        error=type(exc).__name__,
-                    )
+            document_source = _document_source_metadata(
+                cdp_session,
+                cdp_capture,
+                content_type=headers.get("content-type") if response is not None else None,
+            )
+            rendered_dom = _rendered_dom_metadata(rendered_html)
 
             screenshot_png: bytes | None = None
             screenshot_state = "NOT_CAPTURED"
             try:
-                screenshot_png = page.screenshot(type="png", full_page=False)
+                screenshot_png = page.screenshot(
+                    type="png",
+                    full_page=False,
+                    timeout=self.navigation_timeout_ms,
+                )
                 screenshot_state = "CAPTURED"
             except PlaywrightError:
                 screenshot_state = "CAPTURE_FAILED"
@@ -177,6 +330,7 @@ def _install_browser_capture() -> None:
             metadata["context_scope_contract"] = CONTEXT_SCOPE_CONTRACT_VERSION
             metadata["capture_scope"] = ContextScope.DEVICE_SNAPSHOT.value
             metadata["document_source"] = document_source
+            metadata["rendered_dom"] = rendered_dom
             metadata["runtime_diagnostics"] = {
                 "scope": ContextScope.DEVICE_SNAPSHOT.value,
                 "count": len(runtime_diagnostics),
@@ -235,6 +389,11 @@ def _install_browser_capture() -> None:
         else:
             result = None
         finally:
+            if cdp_session is not None:
+                try:
+                    cdp_session.detach()
+                except Exception:
+                    pass
             if page is not None:
                 try:
                     page.close()
