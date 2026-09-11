@@ -64,6 +64,18 @@ REPORT_SURFACES: tuple[ReportSurface, ...] = (
         score_impact="Define e explica o contrato de scoring aplicado à auditoria; não recalcula o score ao renderizar HTML.",
     ),
     ReportSurface(
+        id="context",
+        filename="context.html",
+        label="Contexto de captura",
+        optional=False,
+        inputs=("audit.db", "snapshots Mobile/Desktop", "browser_metadata", "identidade de escopo"),
+        outputs=("topologia ORIGIN/URL/DEVICE_SNAPSHOT/PROFILE_MEASUREMENT", "variação do documento por dispositivo", "diagnósticos de runtime por snapshot"),
+        required_dependencies=("audit.db",),
+        ai_usage="Nenhum. Esta página não dispara IA nem rede adicional.",
+        score_impact="Nenhum; apresenta escopo de captura sem alterar fórmulas ou resultados persistidos.",
+        source_of_truth="audit.db + metadata dos snapshots já capturados",
+    ),
+    ReportSurface(
         id="mobile",
         filename="mobile.html",
         label="Relatório Mobile",
