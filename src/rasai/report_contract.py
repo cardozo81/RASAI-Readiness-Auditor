@@ -249,6 +249,31 @@ REPORT_SURFACES: tuple[ReportSurface, ...] = (
     ),
 )
 
+# Single pre-publication reading flow. The order is part of the current contract and is
+# intentionally grouped by how a human reads the report, not by implementation module.
+_REPORT_SURFACE_ORDER = (
+    "index",
+    "readiness",
+    "scoring",
+    "context",
+    "crawling-discovery",
+    "mobile",
+    "desktop",
+    "accessibility",
+    "web-performance",
+    "apdex",
+    "apdex-experience",
+    "search-intelligence",
+    "ai-visibility",
+    "observability",
+    "ai-usage",
+    "content-suggestions",
+    "remediation",
+    "quality",
+    "references",
+)
+_SURFACE_BY_ID = {surface.id: surface for surface in REPORT_SURFACES}
+REPORT_SURFACES = tuple(_SURFACE_BY_ID[surface_id] for surface_id in _REPORT_SURFACE_ORDER)
 
 CANONICAL_NAV_ITEMS: tuple[tuple[str, str], ...] = tuple(
     (surface.label, surface.filename) for surface in REPORT_SURFACES
