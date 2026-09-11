@@ -10,6 +10,7 @@ import os
 
 from rasai import console_search_intelligence, interactive_console
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
+from rasai.ai_provider_console_management import install as install_ai_provider_console_management
 from rasai.console_apdex_configuration import configure_apdex
 from rasai.console_config_path import prepare_console_config
 from rasai.console_environment import environment_menu
@@ -48,6 +49,10 @@ def main() -> int:
     install_search_intelligence(interactive_console)
     install_consolidation(interactive_console)
     install_console_runtime_contract_compatibility()
+    # Install last: it intentionally supersedes the older availability-only selector
+    # so unavailable providers remain configurable and credential changes refresh
+    # execution readiness immediately.
+    install_ai_provider_console_management()
     return interactive_console.main()
 
 
