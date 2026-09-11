@@ -17,7 +17,7 @@ def install() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
-    from rasai import console_environment as ce
+    from rasai import console_environment as ce, interactive_console as ic
 
     additions = []
     for device in ("MOBILE", "DESKTOP", "TABLET"):
@@ -51,6 +51,11 @@ def install() -> None:
         ce.ENV_NAMES = tuple(dict.fromkeys((*ce.ENV_NAMES, *(item.name for item in additions))))
         ce.SPECS = tuple((*ce.SPECS, *additions))
         ce.SPEC_BY_NAME = {spec.name: spec for spec in ce.SPECS}
+
+    # interactive_console imports its environment list by value during module import.
+    # Project the canonical catalog after installation so startup/help/INI restoration
+    # all see the same nine profile variables.
+    ic.ENV_NAMES = tuple(dict.fromkeys((*ic.ENV_NAMES, *PROFILE_ENV_NAMES)))
 
     original_validate = ce._validate
     if not getattr(original_validate, "_rasai_synthetic_profiles", False):
