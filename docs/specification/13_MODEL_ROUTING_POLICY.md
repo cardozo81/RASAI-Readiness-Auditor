@@ -42,10 +42,13 @@ O runtime atual não está limitado a OpenAI. O registry canônico inclui:
 | `qwen` | Alibaba Qwen | - | sim, se configurado e apto |
 | `gemini` | Google Gemini | - | sim, se configurado e apto |
 | `anthropic` | Anthropic Claude | `claude` | sim, se configurado e apto |
+| `copilot` | GitHub Copilot | `github-copilot` | **não; explicit-only** |
 | `none` | nenhum provider externo | - | não se aplica |
 | `auto` | coordenador dinâmico | - | usa o pool elegível |
 
-A propriedade `auto_eligible` pertence ao registry; participação efetiva exige também credencial e configuração válidas e ausência de exclusão explícita pelo usuário.
+A propriedade `auto_eligible` pertence ao registry; participação efetiva exige também credencial/configuração válidas e ausência de exclusão explícita pelo usuário.
+
+GitHub Copilot é `explicit_only=true` e `auto_eligible=false`. Mesmo com `COPILOT_GITHUB_TOKEN` configurado, ele só é consumido quando selecionado explicitamente. Essa política evita uso involuntário de franquia/créditos da assinatura Copilot.
 
 ## 4. Defaults públicos, valores permitidos e recomendação
 
@@ -60,6 +63,7 @@ Os defaults públicos efetivos são definidos por `provider_runtime_policy` e s�
 | Qwen | `qwen3.8-flash` | conforme registry vigente | default público |
 | Gemini | `gemini-3.8-flash` | conforme registry vigente | default público |
 | Anthropic | `claude-sonnet-5` | conforme registry vigente | default público |
+| GitHub Copilot | `auto` | `auto` | deixar SDK/assinatura resolver o modelo disponível; uso explícito |
 
 A referência operacional completa de modelos e variáveis é `../ENVIRONMENT_VARIABLES.md` e deve ser usada quando o conjunto permitido mudar.
 
@@ -74,6 +78,7 @@ Defaults de reasoning do runtime:
 | Qwen | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` |
 | Gemini | `LOW` | `LOW`, `MEDIUM`, `HIGH` | `LOW` |
 | Anthropic | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` |
+| GitHub Copilot | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` |
 
 O default de timeout de IA é `180` segundos. Alterações desse valor devem respeitar a validação do runtime e a documentação canônica de ambiente.
 
@@ -91,7 +96,7 @@ Seleção explícita mantém o provider solicitado e suas regras específicas de
 6. aplica estado de saúde e circuit breaker durante a execução;
 7. encerra a necessidade no primeiro resultado válido.
 
-A exclusão de um provider do `AUTO` altera apenas participação no pool daquela política; não remove sua configuração.
+A exclusão de um provider do `AUTO` altera apenas participação no pool daquela política; não remove sua configuração. Providers `explicit-only`, como GitHub Copilot, não entram no pool e não aparecem como candidatos de inclusão/exclusão AUTO.
 
 ## 6. Fallback e estado de falha
 
@@ -121,8 +126,12 @@ IA não calcula `SARI-001` nem escolhe pesos do `SCORE-GEO-004`.
 
 Credenciais não são persistidas no `audit.db`, HTML ou logs. Telemetria deve ser sanitizada e pode registrar provider, modelo, finalidade, duração, status, usage e custo estimado quando houver base confiável.
 
+GitHub Copilot usa o SDK oficial com `use_logged_in_user=False`, token de usuário explicitamente configurado, sessão sem tools e política deny-by-default de permissões. O transporte não autoriza edição, shell ou browser agentic.
+
 O custo persistido é estimativa operacional e não invoice do provider.
 
 ## 10. Regra documental
 
 Políticas de branch, PR, merge e marcos de implementação pertencem ao processo de desenvolvimento e ao histórico Git, não a este contrato de runtime. Esta especificação deve acompanhar o registry e a `provider_runtime_policy` vigentes em `main`.
+
+A lista operacional de URLs de cadastro/login e obtenção de credenciais fica em `../PROVIDER_SETUP.md`; duplicações documentais devem apontar para essa referência em vez de manter catálogos independentes.
