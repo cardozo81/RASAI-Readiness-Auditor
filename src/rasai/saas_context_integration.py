@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from rasai.context_scope import CONTEXT_SCOPE_CONTRACT_VERSION
-
+from rasai.synthetic_profile_saas_runtime import normalized_runtime_profiles
 
 _INSTALLED = False
 
@@ -33,6 +33,7 @@ def install() -> None:
                 "context_scope_contract": CONTEXT_SCOPE_CONTRACT_VERSION,
                 "device_context": normalized["device_context"],
                 "origin_resources_reused_across_devices": True,
+                "synthetic_runtime_profiles": normalized_runtime_profiles(normalized),
             }
         )
         return worker.WorkerResult(result_ref=result.result_ref, metadata=metadata)
