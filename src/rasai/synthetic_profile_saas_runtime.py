@@ -108,4 +108,16 @@ def install() -> None:
     contract.normalize_audit_job_payload = normalize_with_profiles
     contract.audit_job_environment_overrides = environment_with_profiles
     contract._rasai_synthetic_profile_saas = True
+
+    # worker.py imports these functions by value. Keep an already imported worker
+    # aligned with the same canonical contract instead of leaving stale bindings.
+    try:
+        from rasai import worker
+        if getattr(worker, "normalize_audit_job_payload", None) is original_normalize:
+            worker.normalize_audit_job_payload = normalize_with_profiles
+        if getattr(worker, "audit_job_environment_overrides", None) is original_environment:
+            worker.audit_job_environment_overrides = environment_with_profiles
+    except Exception:
+        pass
+
     _INSTALLED = True
