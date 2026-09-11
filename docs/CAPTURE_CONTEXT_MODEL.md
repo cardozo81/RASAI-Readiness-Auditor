@@ -171,7 +171,7 @@ Mobile e Desktop não são automaticamente fundidos em uma única chamada porque
 
 ### Recursos globais
 
-Uma evidência origin-scoped não deve criar N chamadas de IA apenas porque há N dispositivos. Quando M24 técnico usa IA, a avaliação é consolidada sobre o conjunto bounded de fatos de discovery da auditoria.
+Uma evidência origin-scoped não deve criar N chamadas de IA apenas porque há N dispositivos. Quando a análise técnica de crawling/discovery usa IA, a avaliação é consolidada sobre o conjunto bounded de fatos de discovery da auditoria.
 
 ### Remediação de conteúdo
 
