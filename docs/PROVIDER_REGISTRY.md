@@ -73,6 +73,7 @@ Cada registro expõe ou pode expor:
 - variável de modelo;
 - modelos suportados;
 - modelo interno de referência/qualificação do adapter;
+- modelo público efetivo espelhado para superfícies leves de onboarding;
 - contrato de valores de reasoning aceitos pelo runtime;
 - endpoint override quando aplicável;
 - elegibilidade `AUTO` e `explicit_only`;
@@ -83,9 +84,9 @@ Qualificação e elegibilidade `AUTO` são conceitos diferentes. Um provider pod
 
 ## Valores públicos de modelo e reasoning
 
-Os defaults públicos efetivos são definidos por `provider_runtime_policy`, enquanto o registry também preserva defaults internos usados por adapters/políticas de qualificação. A projeção de onboarding (`rasai providers`) sempre mostra o **default público efetivo**, não o default interno do adapter.
+O runtime executa os defaults públicos definidos por `provider_runtime_policy`. O `provider_registry` mantém uma projeção leve desses valores em `public_default_model`, além dos defaults internos usados pelos adapters/políticas de qualificação. A projeção de onboarding (`rasai providers`) usa o valor público espelhado no registry para continuar metadata-only.
 
-O contrato de reasoning do registry deve ser exatamente igual ao aceito pelo runtime. Essa igualdade é validada por testes; divergência passa a ser regressão de CI, e não informação incorreta exibida ao usuário.
+Os testes de contrato exigem igualdade exata entre `public_default_model`/`reasoning_values`/`reasoning_env` do registry e os valores efetivos de `provider_runtime_policy`. Assim, qualquer drift torna o CI vermelho antes de chegar ao usuário.
 
 | Provider | Default público de modelo | Modelos permitidos pelo runtime | Default de reasoning | Valores de reasoning permitidos | Recomendado |
 |---|---|---|---|---|---|
@@ -108,6 +109,6 @@ O registry expõe a restrição da credencial PAYG `sk-...` para impedir que Tok
 
 Adapters históricos podem conservar defaults, ranks e labels de qualificação usados para compatibilidade interna. Esses valores não devem ser confundidos com o default público resolvido por `provider_runtime_policy`.
 
-A camada de onboarding cruza registry e runtime antes de emitir dados. Se houver drift de modelo público ou reasoning, `rasai providers` falha fechado com `PROVIDER_CATALOG_ERROR` em vez de publicar informação contraditória.
+A camada de onboarding é deliberadamente leve e não inicializa a política completa de execução. A coerência entre o metadata espelhado e o runtime é garantida pelos testes cruzados do CI; se houver drift, a alteração não deve ser integrada.
 
 Nomes internos de módulos/eventos também podem preservar identificadores históricos por compatibilidade. Consumidores públicos devem usar nomenclatura funcional e o registry canônico.
