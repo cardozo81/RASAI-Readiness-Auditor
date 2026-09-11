@@ -6,6 +6,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
 import re
+import time
 from typing import Protocol
 
 from rasai.browser_identity_renderer import BrowserIdentityRenderer
@@ -13,6 +14,7 @@ from rasai.device_context import runtime_devices
 from rasai.domain import DeviceContext, Evidence, EvidenceType, PageSnapshot, new_id, utc_now
 from rasai.m14_persistence import ElementObservation, M14Persistence
 from rasai.m2 import M2ExecutionResult
+from rasai.operational_log import try_append_operational_event
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.rendering import (
     BrowserRenderResult,
@@ -58,9 +60,12 @@ def execute_m3(
     visual_artifact_refs: dict[str, dict[DeviceContext, str | None]] = {}
     failures: list[RenderFailure] = []
     devices = runtime_devices()
+    pages = tuple(m2_result.discovery.pages)
+    total_contexts = len(pages) * len(devices)
+    context_index = 0
 
     with M14Persistence(workspace) as m14, renderer_context as session_renderer:
-        for discovered in m2_result.discovery.pages:
+        for page_index, discovered in enumerate(pages, start=1):
             url = discovered.normalized_url
             page_id = m2_result.page_ids[url]
             page = persistence.pages.get(page_id)
@@ -76,11 +81,28 @@ def execute_m3(
 
             per_device: dict[DeviceContext, str] = {}
             per_device_visual: dict[DeviceContext, str | None] = {}
-            for device in devices:
+            for device_index, device in enumerate(devices, start=1):
+                context_index += 1
                 preflight_navigation_trace = [
                     {"url": hop.source_url, "status": hop.status, "location": hop.location}
                     for hop in acquisition.redirects
                 ]
+                try_append_operational_event(
+                    workspace,
+                    "M3_RENDER_STARTED",
+                    audit_id=page.audit_id,
+                    page_id=page_id,
+                    url=url,
+                    device=device.value,
+                    page_index=page_index,
+                    page_total=len(pages),
+                    device_index=device_index,
+                    device_total=len(devices),
+                    context_index=context_index,
+                    context_total=total_contexts,
+                    additional_network_requests=0,
+                )
+                render_started = time.monotonic()
                 try:
                     if isinstance(session_renderer, BrowserIdentityRenderer):
                         render_result = session_renderer.render(
@@ -90,8 +112,45 @@ def execute_m3(
                         )
                     else:
                         render_result = session_renderer.render(url, device)
-                except Exception:
+                except Exception as exc:
+                    try_append_operational_event(
+                        workspace,
+                        "M3_RENDER_EXCEPTION",
+                        level="WARNING",
+                        audit_id=page.audit_id,
+                        page_id=page_id,
+                        url=url,
+                        device=device.value,
+                        context_index=context_index,
+                        context_total=total_contexts,
+                        error_type=type(exc).__name__,
+                        error_message=str(exc)[:512],
+                    )
                     render_result = _unexpected_failure(url, device)
+
+                duration_ms = int(max(time.monotonic() - render_started, 0.0) * 1000.0)
+                document_source = render_result.browser_metadata.get("document_source")
+                document_source_state = (
+                    str(document_source.get("capture_state") or "NOT_AVAILABLE")
+                    if isinstance(document_source, dict)
+                    else "NOT_AVAILABLE"
+                )
+                try_append_operational_event(
+                    workspace,
+                    "M3_RENDER_COMPLETED",
+                    audit_id=page.audit_id,
+                    page_id=page_id,
+                    url=url,
+                    final_url=render_result.final_url,
+                    device=device.value,
+                    page_index=page_index,
+                    page_total=len(pages),
+                    context_index=context_index,
+                    context_total=total_contexts,
+                    duration_ms=duration_ms,
+                    render_status=(render_result.error_kind.value if render_result.error_kind is not None else "SUCCESS"),
+                    document_source_state=document_source_state,
+                )
 
                 snapshot_id = new_id("SNP")
                 captured_at = utc_now()
@@ -142,6 +201,18 @@ def execute_m3(
                 persistence.snapshots.add(snapshot)
                 per_device[device] = snapshot.snapshot_id
                 per_device_visual[device] = visual_artifact_ref
+                try_append_operational_event(
+                    workspace,
+                    "M3_SNAPSHOT_PERSISTED",
+                    audit_id=page.audit_id,
+                    page_id=page_id,
+                    snapshot_id=snapshot_id,
+                    url=url,
+                    device=device.value,
+                    context_index=context_index,
+                    context_total=total_contexts,
+                    render_succeeded=render_result.succeeded,
+                )
 
                 if visual_artifact_ref is not None:
                     viewport = (
