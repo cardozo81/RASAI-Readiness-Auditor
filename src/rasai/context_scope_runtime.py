@@ -12,6 +12,7 @@ from typing import Any
 
 from rasai.context_scope import CONTEXT_SCOPE_CONTRACT_VERSION
 from rasai.device_context_capture import install as install_device_context_capture
+from rasai.synthetic_profile_runtime import install as install_synthetic_profile_runtime
 
 
 _INSTALLED = False
@@ -32,21 +33,13 @@ _NAV_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "apdex-experience.html",
         ),
     ),
-    (
-        "Search e IA",
-        ("search-intelligence.html", "ai-visibility.html", "observability.html", "ai-usage.html"),
-    ),
-    (
-        "Ações e referência",
-        ("content-suggestions.html", "remediation.html", "quality.html", "references.html"),
-    ),
+    ("Search e IA", ("search-intelligence.html", "ai-visibility.html", "observability.html", "ai-usage.html")),
+    ("Ações e referência", ("content-suggestions.html", "remediation.html", "quality.html", "references.html")),
 )
 
 
 def _project_report_contract() -> None:
-    """Project the canonical report contract into modules that import tuples by value."""
     from rasai import report_contract, report_manifest, report_navigation, report_registry
-
     report_navigation.CANONICAL_NAV_ITEMS = report_contract.CANONICAL_NAV_ITEMS
     report_navigation.NAV_ITEMS = report_contract.CANONICAL_NAV_ITEMS
     report_registry.CANONICAL_NAV_ITEMS = report_contract.CANONICAL_NAV_ITEMS
@@ -56,17 +49,9 @@ def _project_report_contract() -> None:
 
 def _patch_grouped_navigation() -> None:
     from rasai import report_navigation
+    if getattr(report_navigation, "_rasai_context_grouped_navigation", False): return
 
-    if getattr(report_navigation, "_rasai_context_grouped_navigation", False):
-        return
-
-    def grouped_navigation(
-        report_dir: Path,
-        current: str,
-        *,
-        generated_at: Any = None,
-        software_version: str | None = None,
-    ) -> str:
+    def grouped_navigation(report_dir: Path, current: str, *, generated_at: Any = None, software_version: str | None = None) -> str:
         del software_version
         links = report_navigation.available_navigation(report_dir, current)
         by_file = {filename: label for label, filename in links}
@@ -77,30 +62,22 @@ def _patch_grouped_navigation() -> None:
             contains_active = False
             for filename in filenames:
                 label = by_file.get(filename)
-                if label is None:
-                    continue
+                if label is None: continue
                 consumed.add(filename)
                 contains_active = contains_active or filename == current
-                group_links.append(
-                    f"<a class='{'active' if filename == current else ''}' href='{escape(filename)}'>{escape(label)}</a>"
-                )
+                group_links.append(f"<a class='{'active' if filename == current else ''}' href='{escape(filename)}'>{escape(label)}</a>")
             if group_links:
                 open_attr = " open" if contains_active or group_label in {"Visão e readiness", "Coleta e dispositivos"} else ""
                 sections.append(
-                    f"<details class='rasai-nav-group'{open_attr}>"
-                    f"<summary style='padding:10px 12px 5px;cursor:pointer;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.78'>{escape(group_label)}</summary>"
-                    + "".join(group_links)
-                    + "</details>"
+                    f"<details class='rasai-nav-group'{open_attr}><summary style='padding:10px 12px 5px;cursor:pointer;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.78'>{escape(group_label)}</summary>"
+                    + "".join(group_links) + "</details>"
                 )
         remaining = [
             f"<a class='{'active' if filename == current else ''}' href='{escape(filename)}'>{escape(label)}</a>"
             for label, filename in links if filename not in consumed
         ]
         if remaining:
-            sections.append(
-                "<details class='rasai-nav-group' open><summary style='padding:10px 12px 5px;cursor:pointer;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.78'>Outros</summary>"
-                + "".join(remaining) + "</details>"
-            )
+            sections.append("<details class='rasai-nav-group' open><summary style='padding:10px 12px 5px;cursor:pointer;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.78'>Outros</summary>" + "".join(remaining) + "</details>")
         generated_label = report_navigation.format_report_generated_at(generated_at)
         return (
             "<aside class='app-nav' aria-label='Navegação do relatório'>"
@@ -118,25 +95,13 @@ def _patch_report_completion() -> None:
     from rasai.context_reporting import write_context_report
     from rasai.report_manifest import write_report_manifest
     from rasai.report_scale_ux import enhance_report_directory
-
-    if getattr(report_completion, "_rasai_context_scope_completion", False):
-        return
-
+    if getattr(report_completion, "_rasai_context_scope_completion", False): return
     if _CONTEXT_FILE not in report_completion.AUDIT_ALWAYS_PAGES:
-        report_completion.AUDIT_ALWAYS_PAGES = (
-            *report_completion.AUDIT_ALWAYS_PAGES,
-            _CONTEXT_FILE,
-        )
-
+        report_completion.AUDIT_ALWAYS_PAGES = (*report_completion.AUDIT_ALWAYS_PAGES, _CONTEXT_FILE)
     original = report_completion.finalize_audit_report_site
 
     def finalize_with_context(*, audit_id: str, workspace: Any, context_interpretations=(), routing_snapshot=None):
-        base = original(
-            audit_id=audit_id,
-            workspace=workspace,
-            context_interpretations=context_interpretations,
-            routing_snapshot=routing_snapshot,
-        )
+        base = original(audit_id=audit_id, workspace=workspace, context_interpretations=context_interpretations, routing_snapshot=routing_snapshot)
         errors = list(base.renderer_errors)
         try:
             write_context_report(audit_id=audit_id, workspace=workspace)
@@ -160,12 +125,11 @@ def _patch_report_completion() -> None:
 
 def install() -> None:
     global _INSTALLED
-    if _INSTALLED:
-        return
+    if _INSTALLED: return
     from rasai.report_registry import install as install_report_registry
-
     install_report_registry()
     install_device_context_capture()
+    install_synthetic_profile_runtime()
     _project_report_contract()
     _patch_grouped_navigation()
     _patch_report_completion()
