@@ -117,6 +117,14 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    effective = list(argv) if argv is not None else list(sys.argv[1:])
+
+    # Provider discovery is metadata-only and intentionally bypasses audit runtime
+    # patch installation. This keeps onboarding safe, fast and free of audit side effects.
+    if effective and effective[0] in {"providers", "provider"}:
+        from rasai.provider_cli import main as provider_main
+        return provider_main(effective[1:])
+
     install_report_registry()
     install_context_scope_runtime()
     install_m3_render_deadline_runtime()
@@ -132,10 +140,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     install_provider_presentation_alignment()
     # Install last so scope disclosures see the final canonical report projections.
     install_report_scope_clarity()
-    effective = list(argv) if argv is not None else list(sys.argv[1:])
-    if effective and effective[0] in {"providers", "provider"}:
-        from rasai.provider_cli import main as provider_main
-        return provider_main(effective[1:])
     if effective and effective[0] in {"search", "serp"}:
         from rasai.search_intelligence.cli import main as search_main
         return search_main(effective[1:])
