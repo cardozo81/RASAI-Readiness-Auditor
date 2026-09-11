@@ -29,6 +29,7 @@ UX_ERROR_SCOPE_ENV = "RASAI_APDEX_EXPERIENCE_ERROR_SCOPE"
 UX_SETTLE_ENV = "RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS"
 UX_DELAY_ENV = "RASAI_APDEX_EXPERIENCE_DELAY_SECONDS"
 UX_CONCURRENCY_ENV = "RASAI_APDEX_EXPERIENCE_CONCURRENCY"
+APDEX_ACQUISITION_MODE_ENV = "RASAI_APDEX_ACQUISITION_MODE"
 DYNATRACE_IMPORT_ENV = "RASAI_APDEX_DYNATRACE_IMPORT"
 DYNATRACE_BASE_URL_ENV = "RASAI_DYNATRACE_BASE_URL"
 DYNATRACE_APPLICATION_ID_ENV = "RASAI_DYNATRACE_APPLICATION_ID"
@@ -38,7 +39,7 @@ M25_ENV_NAMES = (
     UX_ENABLED_ENV, UX_SAMPLES_ENV, UX_MAX_ATTEMPTS_ENV, UX_MAX_PAGES_ENV,
     UX_DEVICE_MIX_ENV, UX_SESSION_MODE_ENV, UX_KPM_ENV, UX_SATISFIED_ENV,
     UX_FRUSTRATED_ENV, UX_ERRORS_ENV, UX_ERROR_SCOPE_ENV, UX_SETTLE_ENV,
-    UX_DELAY_ENV, UX_CONCURRENCY_ENV, DYNATRACE_IMPORT_ENV,
+    UX_DELAY_ENV, UX_CONCURRENCY_ENV, APDEX_ACQUISITION_MODE_ENV, DYNATRACE_IMPORT_ENV,
     DYNATRACE_BASE_URL_ENV, DYNATRACE_APPLICATION_ID_ENV, DYNATRACE_CONFIG_JSON_ENV,
 )
 
@@ -170,6 +171,9 @@ def validate_m25_env_value(name: str, raw: str) -> str:
     elif name == UX_SESSION_MODE_ENV and value.casefold() not in {"cold", "warm"}: raise ValueError("session mode deve ser cold ou warm")
     elif name == UX_KPM_ENV and value.upper() not in SUPPORTED_TIME_KPMS: raise ValueError("KPM temporal não suportada pelo Synthetic User Experience Apdex")
     elif name == UX_ERROR_SCOPE_ENV and value.casefold() not in {"navigation", "first-party", "all"}: raise ValueError("error scope inválido")
+    elif name == APDEX_ACQUISITION_MODE_ENV:
+        value = value.casefold()
+        if value not in {"auto", "isolated"}: raise ValueError("acquisition mode deve ser auto ou isolated")
     elif name in {UX_SATISFIED_ENV, UX_FRUSTRATED_ENV, UX_SETTLE_ENV} and float(value) <= 0: raise ValueError("valor deve ser >0")
     elif name == UX_DELAY_ENV and float(value) < 0: raise ValueError("valor deve ser >=0")
     return value
