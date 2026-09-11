@@ -19,8 +19,10 @@ from rasai.console_search_intelligence import install as install_search_intellig
 from rasai.console_search_provider_compat import install as install_search_provider_compat
 from rasai.consolidation.integration import install as install_consolidation
 from rasai.context_scope_runtime import install as install_context_scope_runtime
+from rasai.external_measurement_runtime import install as install_external_measurement_runtime
 from rasai.integration_state_contract import install as install_integration_state_contract
 from rasai.integration_state_refinements import install as install_integration_state_refinements
+from rasai.m21_console_progress import install_m21_external_progress
 from rasai.m3_console_progress import install_m3_render_progress
 from rasai.report_observation_reconciliation import install as install_report_observation_reconciliation
 from rasai.report_registry import install as install_report_registry
@@ -44,6 +46,7 @@ def main() -> int:
     # the first console pass instead of only after the environment menu is opened.
     install_report_registry()
     install_context_scope_runtime()
+    install_external_measurement_runtime()
     prepare_console_config()
     install_provider_environment_compat(console_environment)
     install_ai_efficiency_policy()
@@ -53,6 +56,7 @@ def main() -> int:
     install_integration_state_contract()
     install_integration_state_refinements()
     install_m3_render_progress()
+    install_m21_external_progress()
     install_search_progress_gate()
     interactive_console._environment_menu = console_environment.environment_menu
     interactive_console._configure_apdex = configure_apdex
