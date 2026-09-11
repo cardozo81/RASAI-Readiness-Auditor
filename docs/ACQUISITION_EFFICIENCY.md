@@ -10,13 +10,13 @@ The governing rule is:
 
 ## Canonical acquisition classes
 
-### 1. Direct HTTP acquisition — URL scope
+### 1. Direct HTTP acquisition - URL scope
 
 For `URL_SET` input, the direct HTTP acquisition stage performs one crawler-like request for each normalized URL in the explicit set. The result persists status, redirect chain, headers, body and elapsed time. This observation is intentionally distinct from a real-browser observation.
 
 Domain resources such as `robots.txt` and eligible sitemap resources are origin-scoped and are not repeated once per page.
 
-### 2. Browser snapshot — URL/device scope
+### 2. Browser snapshot - URL/device scope
 
 The browser-capture stage performs one normal Chromium navigation for each selected URL/device context. The same navigation is reused for:
 
