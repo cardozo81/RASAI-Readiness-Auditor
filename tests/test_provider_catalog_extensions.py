@@ -4,6 +4,7 @@ import json
 import unittest
 from urllib.parse import parse_qs, urlsplit
 
+from rasai.copilot_provider import _prompt_from_payload
 from rasai.provider_registry import get_provider_registration
 from rasai.provider_runtime_policy import build_semantic_provider
 from rasai.search_intelligence.config import provider_key_env
@@ -71,6 +72,21 @@ class ProviderCatalogTests(unittest.TestCase):
         provider = build_semantic_provider("copilot", env={})
         self.assertEqual("COPILOT", provider.name)
         self.assertIsNone(provider.api_key)
+
+    def test_copilot_bridges_provider_neutral_technical_payload_without_tools(self):
+        prompt = _prompt_from_payload(
+            {
+                "model": "auto",
+                "instructions": "Return JSON only and cite evidence EV-1.",
+                "input": [{"role": "user", "content": [{"type": "input_text", "text": "EV-1"}]}],
+                "text": {"format": {"type": "json_schema", "schema": {"type": "object"}}},
+            }
+        )
+        self.assertIn("Return JSON only", prompt)
+        self.assertIn("EV-1", prompt)
+        self.assertIn("json_schema", prompt)
+        self.assertIn("Never browse", prompt)
+        self.assertNotIn('"model":"auto"', prompt)
 
     def test_console_environment_catalog_imports_with_copilot(self):
         from rasai.console_environment import environment_specs
