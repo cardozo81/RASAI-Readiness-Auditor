@@ -715,7 +715,6 @@ def execute_m25_experience(
                 errors_affect_apdex=calibration.errors_affect_apdex,
                 error_scope=cfg.error_scope,
                 settle_seconds=cfg.settle_seconds,
-                delay_seconds=cfg.delay_seconds,
                 concurrency=cfg.concurrency,
                 calibration_source=calibration.source,
                 dynatrace_application_id=cfg.dynatrace_application_id,
