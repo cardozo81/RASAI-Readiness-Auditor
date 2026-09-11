@@ -68,9 +68,9 @@ def enrich_m25_report_site(*, audit_id: str, workspace: AuditWorkspace) -> Path:
 
 
 def _register_navigation() -> None:
-    item = ("Apdex calibrado", M25_REPORT_FILE)
-    if item in report_navigation.NAV_ITEMS:
+    if any(value[1] == M25_REPORT_FILE for value in report_navigation.NAV_ITEMS):
         return
+    item = ("Apdex de experiência", M25_REPORT_FILE)
     items = list(report_navigation.NAV_ITEMS)
     insertion = next(
         (index + 1 for index, value in enumerate(items) if value[1] == "apdex.html"),
