@@ -14,6 +14,7 @@ from rasai.context_scope import CONTEXT_SCOPE_CONTRACT_VERSION
 from rasai.device_context_capture import install as install_device_context_capture
 from rasai.synthetic_profile_console_runtime import install as install_synthetic_profile_console_runtime
 from rasai.synthetic_profile_runtime import install as install_synthetic_profile_runtime
+from rasai.synthetic_profile_saas_runtime import install as install_synthetic_profile_saas_runtime
 
 _INSTALLED = False
 _CONTEXT_FILE = "context.html"
@@ -37,7 +38,8 @@ def _project_report_contract() -> None:
 
 def _patch_grouped_navigation() -> None:
     from rasai import report_navigation
-    if getattr(report_navigation, "_rasai_context_grouped_navigation", False): return
+    if getattr(report_navigation, "_rasai_context_grouped_navigation", False):
+        return
 
     def grouped_navigation(report_dir: Path, current: str, *, generated_at: Any = None, software_version: str | None = None) -> str:
         del software_version
@@ -50,7 +52,8 @@ def _patch_grouped_navigation() -> None:
             contains_active = False
             for filename in filenames:
                 label = by_file.get(filename)
-                if label is None: continue
+                if label is None:
+                    continue
                 consumed.add(filename)
                 contains_active = contains_active or filename == current
                 group_links.append(f"<a class='{'active' if filename == current else ''}' href='{escape(filename)}'>{escape(label)}</a>")
@@ -72,7 +75,8 @@ def _patch_report_completion() -> None:
     from rasai.context_reporting import write_context_report
     from rasai.report_manifest import write_report_manifest
     from rasai.report_scale_ux import enhance_report_directory
-    if getattr(report_completion, "_rasai_context_scope_completion", False): return
+    if getattr(report_completion, "_rasai_context_scope_completion", False):
+        return
     if _CONTEXT_FILE not in report_completion.AUDIT_ALWAYS_PAGES:
         report_completion.AUDIT_ALWAYS_PAGES = (*report_completion.AUDIT_ALWAYS_PAGES, _CONTEXT_FILE)
     original = report_completion.finalize_audit_report_site
@@ -97,12 +101,14 @@ def _patch_report_completion() -> None:
 
 def install() -> None:
     global _INSTALLED
-    if _INSTALLED: return
+    if _INSTALLED:
+        return
     from rasai.report_registry import install as install_report_registry
     install_report_registry()
     install_device_context_capture()
     install_synthetic_profile_runtime()
     install_synthetic_profile_console_runtime()
+    install_synthetic_profile_saas_runtime()
     _project_report_contract()
     _patch_grouped_navigation()
     _patch_report_completion()
