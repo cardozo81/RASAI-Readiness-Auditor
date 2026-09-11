@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 import unittest
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
-from rasai.copilot_provider import _prompt_from_payload
+from rasai.copilot_provider import GitHubCopilotProvider, _prompt_from_payload
 from rasai.provider_registry import get_provider_registration
 from rasai.provider_runtime_policy import build_semantic_provider
 from rasai.search_intelligence.config import provider_key_env
@@ -87,6 +90,56 @@ class ProviderCatalogTests(unittest.TestCase):
         self.assertIn("json_schema", prompt)
         self.assertIn("Never browse", prompt)
         self.assertNotIn('"model":"auto"', prompt)
+
+    def test_copilot_transport_uses_documented_python_sdk_shape(self):
+        captured: dict[str, object] = {}
+
+        class FakeSession:
+            async def send_and_wait(self, prompt, timeout):
+                captured["prompt"] = prompt
+                captured["timeout"] = timeout
+                return types.SimpleNamespace(
+                    data=types.SimpleNamespace(content='{"ok":true}')
+                )
+
+            async def disconnect(self):
+                captured["disconnected"] = True
+
+        class FakeCopilotClient:
+            def __init__(self, options):
+                captured["client_options"] = options
+
+            async def start(self):
+                captured["started"] = True
+
+            async def create_session(self, **kwargs):
+                captured["session_kwargs"] = kwargs
+                return FakeSession()
+
+            async def stop(self):
+                captured["stopped"] = True
+
+        fake_module = types.ModuleType("copilot")
+        fake_module.CopilotClient = FakeCopilotClient
+        provider = GitHubCopilotProvider(api_key="github_pat_test")
+        body = json.dumps({"model": "auto", "prompt": "Return JSON only"}).encode("utf-8")
+        with patch.dict(sys.modules, {"copilot": fake_module}):
+            response = provider._copilot_transport("copilot://sdk", {}, body, 17.0)
+
+        self.assertEqual({"output_text": '{"ok":true}'}, response)
+        self.assertEqual(
+            {"github_token": "github_pat_test", "use_logged_in_user": False},
+            captured["client_options"],
+        )
+        self.assertEqual(
+            {"model": "auto", "available_tools": []},
+            captured["session_kwargs"],
+        )
+        self.assertEqual("Return JSON only", captured["prompt"])
+        self.assertEqual(17.0, captured["timeout"])
+        self.assertTrue(captured["started"])
+        self.assertTrue(captured["stopped"])
+        self.assertTrue(captured["disconnected"])
 
     def test_console_environment_catalog_imports_with_copilot(self):
         from rasai.console_environment import environment_specs
