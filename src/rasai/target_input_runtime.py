@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 from typing import Any, Mapping
 
 from rasai.target_file import validated_target_file
@@ -98,18 +99,13 @@ def install() -> None:
     console_config.preflight = preflight
     console_cost._configured_page_range = configured_page_range
 
-    # These modules import preflight by value at module import time.  Update their
-    # local references as well so menu readiness and the execution path use exactly
-    # the same parser/diagnostics.
-    try:
-        from rasai import console_runtime
+    # Console modules import preflight by value. Patch only modules that are already
+    # loaded; CLI execution must not import the interactive console as a side effect.
+    console_runtime = sys.modules.get("rasai.console_runtime")
+    if console_runtime is not None:
         console_runtime.preflight = preflight
-    except Exception:
-        pass
-    try:
-        from rasai import interactive_console
+    interactive_console = sys.modules.get("rasai.interactive_console")
+    if interactive_console is not None:
         interactive_console.preflight = preflight
-    except Exception:
-        pass
 
     _INSTALLED = True
