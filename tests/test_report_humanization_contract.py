@@ -60,8 +60,8 @@ def test_final_report_normalization_humanizes_every_html_surface() -> None:
         assert "<td>Indexability</td>" in readiness_html
         assert ">Não consolidado<" in readiness_html
         assert "NOT_CONSOLIDATED" not in readiness_html
-        assert "<td>Rendering &amp; Extractability</td>" in mobile_html
-        assert "<td>Structured Data</td>" in mobile_html
+        assert ">Rendering &amp; Extractability<" in mobile_html
+        assert ">Structured Data<" in mobile_html
         assert "CONTENT_VALUE" not in index_html
         assert "Capacidade de Indexação" not in readiness_html
         assert "Extração de Conteúdo" not in mobile_html
