@@ -144,7 +144,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     metrics = "".join((
         _metric("Estado", status),
         _metric("KPM efetiva", str(run["kpm"])),
-        _metric("Satisfied ≤", f"{float(run['satisfied_threshold_seconds']):g} s"),
+        _metric("Satisfied <", f"{float(run['satisfied_threshold_seconds']):g} s"),
         _metric("Frustrated >", f"{float(run['frustrated_threshold_seconds']):g} s"),
         _metric("Erros afetam", errors),
         _metric("Escopo de erro", str(run["error_scope"])),
@@ -176,6 +176,7 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     <section class='panel notice-critical'>
       <h2>Fronteira metodológica</h2>
       <p>O Synthetic User Experience Apdex não substitui <a href='apdex.html'>Synthetic Navigation Apdex Standard</a>. O Synthetic Navigation Apdex continua usando <strong>T/4T</strong> conforme a especificação Apdex. O Synthetic User Experience Apdex usa thresholds independentes e política de erros calibrável para permitir comparação metodologicamente mais próxima de ferramentas RUM/APM.</p>
+      <p><strong>Zonas temporais efetivas:</strong> valor &lt; Satisfied = SATISFIED; Satisfied ≤ valor ≤ Frustrated = TOLERATING; valor &gt; Frustrated = FRUSTRATED. Um erro qualificável pode forçar FRUSTRATED conforme a política configurada.</p>
       <p>O Dynatrace documenta <strong>{escape(DYNATRACE_LOAD_PRIMARY_KPM)}</strong> como KPM padrão de Load Action. O RASAi não implementa uma imitação visual com alegação de equivalência; seu baseline executável usa <strong>USER_ACTION_DURATION</strong>, que também é o fallback documentado pelo Dynatrace quando a KPM selecionada não é detectada.</p>
       <p>Proximidade numérica com Dynatrace <strong>não é objetivo do algoritmo</strong>. Se os valores convergirem, isso deve decorrer de KPM, thresholds, política de erros e população sintética alinhados - nunca de ajuste forçado do score.</p>
     </section>
@@ -233,8 +234,8 @@ def _settings_table(run: sqlite3.Row, configuration: dict[str, Any], metadata: d
 
     rows = [
         _setting_row("KPM efetiva", run["kpm"], DEFAULT_UX_KPM, "DYNATRACE IMPORT" if imported else _origin(run["kpm"], DEFAULT_UX_KPM), f"Dynatrace Load primária: {DYNATRACE_LOAD_PRIMARY_KPM}; baseline RASAi usa fallback mensurável."),
-        _setting_row("Satisfied", f"{float(run['satisfied_threshold_seconds']):g} s", f"{DEFAULT_UX_SATISFIED_SECONDS:g} s", "DYNATRACE IMPORT" if imported else _origin(float(run["satisfied_threshold_seconds"]), DEFAULT_UX_SATISFIED_SECONDS), "Referência/fallback Dynatrace Load."),
-        _setting_row("Frustrated", f"{float(run['frustrated_threshold_seconds']):g} s", f"{DEFAULT_UX_FRUSTRATED_SECONDS:g} s", "DYNATRACE IMPORT" if imported else _origin(float(run["frustrated_threshold_seconds"]), DEFAULT_UX_FRUSTRATED_SECONDS), "Referência/fallback Dynatrace Load."),
+        _setting_row("Satisfied", f"{float(run['satisfied_threshold_seconds']):g} s", f"{DEFAULT_UX_SATISFIED_SECONDS:g} s", "DYNATRACE IMPORT" if imported else _origin(float(run["satisfied_threshold_seconds"]), DEFAULT_UX_SATISFIED_SECONDS), "Valor estritamente abaixo deste limiar é Satisfied; igualdade inicia Tolerating."),
+        _setting_row("Frustrated", f"{float(run['frustrated_threshold_seconds']):g} s", f"{DEFAULT_UX_FRUSTRATED_SECONDS:g} s", "DYNATRACE IMPORT" if imported else _origin(float(run["frustrated_threshold_seconds"]), DEFAULT_UX_FRUSTRATED_SECONDS), "Valor estritamente acima deste limiar é Frustrated; igualdade permanece Tolerating."),
         _setting_row("Erros afetam Apdex", bool(run["errors_affect_apdex"]), True, "DYNATRACE IMPORT/POLICY" if imported and metadata.get("errors_affect_apdex_observed") else _origin(bool(run["errors_affect_apdex"]), True), "Dynatrace também pode frustrar ações por JavaScript/request errors; regras específicas podem variar."),
         _setting_row("Escopo de erro", run["error_scope"], DEFAULT_UX_ERROR_SCOPE, _origin(str(run["error_scope"]), DEFAULT_UX_ERROR_SCOPE), "Default conservador RASAi; não existe um único scope equivalente no Dynatrace."),
         _setting_row("Amostras por página", samples, DEFAULT_UX_SAMPLES, _origin(samples, DEFAULT_UX_SAMPLES), "Parâmetro sintético RASAi; RUM não possui N sintético."),
