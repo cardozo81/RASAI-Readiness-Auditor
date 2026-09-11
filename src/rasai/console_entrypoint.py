@@ -9,12 +9,14 @@ from __future__ import annotations
 import os
 
 from rasai import console_search_intelligence, interactive_console
+from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
 from rasai.console_apdex_configuration import configure_apdex
 from rasai.console_config_path import prepare_console_config
 from rasai.console_environment import environment_menu
 from rasai.console_search_guidance import install as install_search_guidance
 from rasai.console_search_intelligence import install as install_search_intelligence
 from rasai.consolidation.integration import install as install_consolidation
+from rasai.context_scope_runtime import install as install_context_scope_runtime
 from rasai.report_registry import install as install_report_registry
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
@@ -32,6 +34,8 @@ def main() -> int:
         return remote_main()
     prepare_console_config()
     install_report_registry()
+    install_context_scope_runtime()
+    install_ai_efficiency_policy()
     install_runtime_completion_extensions()
     install_runtime_adherence_extensions()
     install_search_progress_gate()
