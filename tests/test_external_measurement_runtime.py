@@ -25,15 +25,7 @@ def test_wallclock_deadline_returns_without_waiting_for_stuck_worker() -> None:
 
 
 def test_pagespeed_runtime_does_not_retry_transient_provider_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    original_installed = runtime._INSTALLED
-    original_run = m21.PageSpeedInsightsClient.run
-    original_query = m21.CruxApiClient.query
-    original_execute = m21.execute_m21
-    original_attempts = m21._PAGESPEED_MAX_ATTEMPTS
-
-    from rasai import cli as audit_cli
-    original_cli_execute = audit_cli.execute_m21
-
+    runtime.install()
     calls: list[int] = []
 
     def fail_once(*, service, request, timeout_seconds):  # noqa: ANN001
@@ -47,27 +39,17 @@ def test_pagespeed_runtime_does_not_retry_transient_provider_error(monkeypatch: 
             duration_ms=1,
         )
 
-    try:
-        runtime._INSTALLED = False
-        runtime.install()
-        monkeypatch.setattr(m21, "_request_json", fail_once)
-        client = m21.PageSpeedInsightsClient("test-key")
-        with pytest.raises(m21.ExternalServiceError):
-            client.run(
-                url="https://example.test/",
-                strategy="mobile",
-                categories=("performance",),
-                timeout_seconds=1.0,
-            )
-        assert len(calls) == 1
-        assert m21._PAGESPEED_MAX_ATTEMPTS == 1
-    finally:
-        m21.PageSpeedInsightsClient.run = original_run
-        m21.CruxApiClient.query = original_query
-        m21.execute_m21 = original_execute
-        audit_cli.execute_m21 = original_cli_execute
-        m21._PAGESPEED_MAX_ATTEMPTS = original_attempts
-        runtime._INSTALLED = original_installed
+    monkeypatch.setattr(m21, "_request_json", fail_once)
+    client = m21.PageSpeedInsightsClient("test-key")
+    with pytest.raises(m21.ExternalServiceError):
+        client.run(
+            url="https://example.test/",
+            strategy="mobile",
+            categories=("performance",),
+            timeout_seconds=1.0,
+        )
+    assert len(calls) == 1
+    assert m21._PAGESPEED_MAX_ATTEMPTS == 1
 
 
 def test_strategy_declares_independent_measurements_without_redundant_retry() -> None:
