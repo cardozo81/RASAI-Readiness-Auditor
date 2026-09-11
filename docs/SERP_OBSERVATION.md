@@ -1,4 +1,4 @@
-# SERP Observation — fundação de Search Intelligence
+# SERP Observation - fundação de Search Intelligence
 
 **Estado:** fundação provider-neutral implementada / POC operacional.
 

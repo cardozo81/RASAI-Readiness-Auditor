@@ -3,6 +3,8 @@
 **Estado no baseline de desenvolvimento:** APROVADO / VIGENTE  
 **Ruleset vigente:** `BR-GEO-001..059`
 
+O subconjunto `BR-GEO-001..056` corresponde ao conjunto anterior à introdução das regras `BR-GEO-057..059` de Content Value. O ruleset vigente e normativo permanece `BR-GEO-001..059`; a referência ao subconjunto existe apenas para rastreabilidade do contrato anterior, sem reduzir ou substituir o ruleset atual.
+
 Este documento descreve o contrato funcional vigente das Business Rules do RASAi. Identificadores, enums, nomes de campos e valores persistidos permanecem na forma técnica canônica; títulos e explicações são apresentados em português do Brasil.
 
 ## 1. Contrato comum

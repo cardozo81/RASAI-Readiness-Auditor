@@ -223,7 +223,7 @@ Prioridade de fonte:
 
 Links externos devem usar destino público estável e controles apropriados quando abrirem fora do relatório.
 
-Quando for necessário reproduzir trecho externo não pt-BR, usar o padrão definido em `docs/README.md`: **Disclaimer — texto original da fonte** seguido de **Tradução/adaptação pt-BR**, reproduzindo somente o trecho necessário.
+Quando for necessário reproduzir trecho externo não pt-BR, usar o padrão definido em `docs/README.md`: **Disclaimer - texto original da fonte** seguido de **Tradução/adaptação pt-BR**, reproduzindo somente o trecho necessário.
 
 ## 12. Tipografia
 

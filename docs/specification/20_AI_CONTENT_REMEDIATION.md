@@ -44,7 +44,7 @@ Precedência:
 
 A orientação JSON-LD é determinística e permanece disponível mesmo quando remediação textual por IA está desabilitada ou nenhum provider de IA está configurado.
 
-## 3. Contexto editorial de análise — YMYL / E-E-A-T
+## 3. Contexto editorial de análise - YMYL / E-E-A-T
 
 A camada de IA pode receber contexto explícito da auditoria para que avaliação semântica e remediação de conteúdo não sejam forçadas a um único perfil editorial genérico.
 
@@ -86,13 +86,13 @@ O contexto efetivo da auditoria deve ser persistido para que o relatório reaber
 
 Referências conceituais primárias:
 
-- Google Search Central — Creating helpful, reliable, people-first content: `https://developers.google.com/search/docs/fundamentals/creating-helpful-content`
+- Google Search Central - Creating helpful, reliable, people-first content: `https://developers.google.com/search/docs/fundamentals/creating-helpful-content`
 - Google Search Quality Rater Guidelines: `https://services.google.com/fh/files/misc/hsw-sqrg.pdf`
-- Google — How AI Overviews in Search work: `https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf`
+- Google - How AI Overviews in Search work: `https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf`
 
 Essas referências sustentam o uso conceitual de E-E-A-T/YMYL e análise de finalidade/necessidade do usuário. O RASAi não deve descrever E-E-A-T isoladamente como fator oficial único de ranking nem publicar probabilidade E-E-A-T/YMYL fabricada.
 
-Os links acima são referências, não reprodução de texto externo. Se futuramente um trecho não pt-BR precisar ser citado literalmente em Markdown, deve seguir a convenção de `docs/README.md`: **Disclaimer — texto original da fonte** seguido de **Tradução/adaptação pt-BR**, limitado ao trecho necessário.
+Os links acima são referências, não reprodução de texto externo. Se futuramente um trecho não pt-BR precisar ser citado literalmente em Markdown, deve seguir a convenção de `docs/README.md`: **Disclaimer - texto original da fonte** seguido de **Tradução/adaptação pt-BR**, limitado ao trecho necessário.
 
 ## 4. Contrato de gatilho
 
@@ -270,10 +270,10 @@ A capacidade deve comunicar corretamente que:
 
 Referências primárias:
 
-- Google Search Central — General Structured Data Guidelines: `https://developers.google.com/search/docs/appearance/structured-data/sd-policies`
-- Google Search Central — Intro to Structured Data: `https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data`
+- Google Search Central - General Structured Data Guidelines: `https://developers.google.com/search/docs/appearance/structured-data/sd-policies`
+- Google Search Central - Intro to Structured Data: `https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data`
 - documentação Schema.org: `https://schema.org/docs/documents.html`
-- Google Search Central — Optimizing for generative AI features: `https://developers.google.com/search/docs/fundamentals/ai-optimization-guide`
+- Google Search Central - Optimizing for generative AI features: `https://developers.google.com/search/docs/fundamentals/ai-optimization-guide`
 
 ## 14. Contrato de relatório
 

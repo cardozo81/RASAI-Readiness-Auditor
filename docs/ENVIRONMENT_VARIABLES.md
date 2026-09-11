@@ -1,6 +1,6 @@
-# Variáveis de ambiente — referência completa
+# Variáveis de ambiente - referência completa
 
-Referência operacional da superfície de variáveis reconhecida pelo RASAi — Search & AI Readiness Auditor.
+Referência operacional da superfície de variáveis reconhecida pelo RASAi - Search & AI Readiness Auditor.
 
 **Verificação contra o runtime:** 10/09/2026.
 
@@ -34,7 +34,7 @@ No console local, a preferência normal de timezone deve ser configurada pelo it
 
 `RASAI_AI_AUTO_EXCLUDE` não apaga credenciais nem impede seleção explícita. Exemplo: `RASAI_AI_AUTO_EXCLUDE=gemini` mantém Gemini disponível para seleção direta, mas impede chamadas Gemini durante `AI=auto`.
 
-## 2. IA — credenciais
+## 2. IA - credenciais
 
 | Variável | Default efetivo | Valores permitidos | Recomendado | Observação |
 |---|---|---|---|---|
@@ -48,7 +48,7 @@ No console local, a preferência normal de timezone deve ser configurada pelo it
 
 A presença de uma credencial não prova crédito, quota, plano nem acesso ao modelo. Em `AI=auto`, entram no pool apenas providers registrados como elegíveis, com credencial/configuração válidas e não excluídos pelo usuário.
 
-## 3. IA — modelos
+## 3. IA - modelos
 
 Os defaults abaixo são os **defaults públicos efetivamente aplicados** por `provider_runtime_policy`; eles prevalecem sobre defaults internos antigos de classes/qualificação que não representam a superfície pública atual.
 
@@ -62,7 +62,7 @@ Os defaults abaixo são os **defaults públicos efetivamente aplicados** por `pr
 | `RASAI_GEMINI_MODEL` | `gemini-3.8-flash` | `gemini-3.8-flash` | default |
 | `RASAI_ANTHROPIC_MODEL` | `claude-sonnet-5` | `claude-sonnet-5` | default |
 
-## 4. IA — reasoning
+## 4. IA - reasoning
 
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
@@ -76,7 +76,7 @@ Os defaults abaixo são os **defaults públicos efetivamente aplicados** por `pr
 
 Aumentar reasoning pode elevar latência, tokens e custo. `AI=auto` não é cadeia fixa: o runtime consulta o provider registry, monta o conjunto elegível da execução e aplica roteamento/circuit breaker conforme o contrato vigente. Consulte [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
 
-## 5. IA — endpoints avançados
+## 5. IA - endpoints avançados
 
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
@@ -87,7 +87,7 @@ Aumentar reasoning pode elevar latência, tokens e custo. `AI=auto` não é cade
 
 Não altere endpoints no uso normal. Um override incorreto pode causar falha, cobrança inesperada ou envio de dados ao destino errado. Em produção, não use HTTP para providers externos.
 
-## 6. IA — contexto editorial / YMYL
+## 6. IA - contexto editorial / YMYL
 
 Todos os campos têm default `auto`.
 
