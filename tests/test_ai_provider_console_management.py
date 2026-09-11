@@ -3,11 +3,53 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 
+def _fake_console(**overrides):
+    base = dict(
+        GREEN="GREEN",
+        YELLOW="YELLOW",
+        RED="RED",
+        DIM="DIM",
+        CYAN="CYAN",
+        paint=lambda text, color, bold=False: f"<{color}:{'B' if bold else 'N'}>{text}</{color}>",
+    )
+    base.update(overrides)
+    return SimpleNamespace(**base)
+
+
+def test_provider_status_colors_follow_console_semantics() -> None:
+    from rasai import ai_provider_console_management as management
+    from rasai.console_config import Capability
+
+    console = _fake_console()
+
+    assert "<DIM:N>DESABILITADA</DIM>" == management._provider_status_badge(
+        console, "none", Capability(True, "sem IA")
+    )
+    assert "<GREEN:B>APTO</GREEN>" == management._provider_status_badge(
+        console, "gemini", Capability(True, "Google Gemini/gemini-3.8-flash")
+    )
+    assert "<YELLOW:B>CONFIGURAR</YELLOW>" == management._provider_status_badge(
+        console, "gemini", Capability(False, "GEMINI_API_KEY não configurada")
+    )
+    assert "<RED:B>INDISPONÍVEL</RED>" == management._provider_status_badge(
+        console, "gemini", Capability(False, "bloqueado após erro: AUTHENTICATION_ERROR")
+    )
+
+
+def test_auto_membership_colors_use_green_and_dim() -> None:
+    from rasai import ai_provider_console_management as management
+
+    console = _fake_console()
+
+    assert "<GREEN:B>INCLUÍDO NO AUTO</GREEN>" == management._auto_membership_badge(console, False)
+    assert "<DIM:N>EXCLUÍDO DO AUTO</DIM>" == management._auto_membership_badge(console, True)
+
+
 def test_unavailable_provider_remains_selectable_for_configuration(monkeypatch) -> None:
     from rasai import ai_provider_console_management as management
     from rasai.console_config import Capability
 
-    fake = SimpleNamespace(
+    fake = _fake_console(
         PROVIDER_MENU_CHOICES=("none", "gemini", "auto"),
         provider_capabilities=lambda blocks=None: {
             "none": Capability(True, "sem IA"),
@@ -15,8 +57,6 @@ def test_unavailable_provider_remains_selectable_for_configuration(monkeypatch) 
             "auto": Capability(False, "nenhum provider apto"),
         },
         render_header=lambda state: None,
-        paint=lambda text, *args, **kwargs: str(text),
-        RED="",
     )
     state = SimpleNamespace(runtime_blocks={})
     answers = iter(("2",))
