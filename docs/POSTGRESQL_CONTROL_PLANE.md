@@ -1,36 +1,42 @@
-# PostgreSQL Control Plane
+# Control plane PostgreSQL
 
-Status: PostgreSQL 18 backend implemented behind explicit configuration. SQLite is the default local control-plane backend.
+**Estado:** backend PostgreSQL 18 implementado por configuração explícita. SQLite permanece o backend local padrão do control plane.
 
-This capability changes product persistence only. It does not alter `SARI-001`, `SCORE-GEO-004`, audit collection, scoring arithmetic or immutable `AUD-*/audit.db` evidence.
+Esta capacidade altera apenas a persistência de produto. Não altera `SARI-001`, `SCORE-GEO-004`, coleta de auditoria, aritmética de scoring nem a evidência imutável `AUD-*/audit.db`.
 
-## Storage boundary
+## Limite de armazenamento
 
 ```text
-Product/control-plane relational state
-  SQLite      local/default
-  PostgreSQL  centralized/hosted target
+estado relacional de produto/control plane
+  SQLite      local/padrão
+  PostgreSQL  alvo centralizado/hospedado
 
-Immutable audit evidence
+evidência imutável da auditoria
   AUD-*/audit.db
-  reports
-  artifacts
-  provider evidence
+  relatórios
+  artefatos
+  evidência de providers
 ```
 
-PostgreSQL is the centralized relational authority for product/control-plane state when selected. `AUD-*/audit.db` remains the immutable execution-evidence format and is not replaced by PostgreSQL.
+Quando selecionado, PostgreSQL é a autoridade relacional centralizada do estado de produto/control plane. `AUD-*/audit.db` permanece o formato imutável de evidência da execução e não é substituído por PostgreSQL.
 
-## Installation
+## Instalação
 
-PostgreSQL support is optional so a normal local installation does not acquire a database-driver dependency it does not use.
+O suporte PostgreSQL é opcional para que uma instalação local normal não adquira uma dependência de driver que não utiliza.
 
 ```powershell
 python -m pip install -e ".[postgresql]"
 ```
 
-The adapter uses Psycopg 3. Application code is not coupled to Docker or to a specific cloud provider.
+O adapter usa Psycopg 3. O código da aplicação não é acoplado a Docker nem a um cloud provider específico.
 
-## Backend selection
+## Seleção de backend
+
+| Configuração | Default efetivo | Valores permitidos | Recomendado |
+|---|---|---|---|
+| `RASAI_PLATFORM_DB_BACKEND` | `sqlite` | `sqlite`, `postgresql`; aliases aceitos pelo compositor: `postgres`, `pg` | documentar/configurar `sqlite` ou `postgresql`; preferir `postgresql` em control plane centralizado |
+| `RASAI_PLATFORM_DATABASE_URL` | sem default | URL/DSN PostgreSQL válida quando backend PostgreSQL está selecionado | definir somente para PostgreSQL; manter como segredo; usar TLS em host remoto |
+| `--platform-db` | raiz local padrão do SQLite quando omitido | caminho SQLite; não é aceito com PostgreSQL | usar apenas quando for necessário substituir o caminho SQLite local |
 
 SQLite:
 
@@ -38,7 +44,7 @@ SQLite:
 RASAI_PLATFORM_DB_BACKEND=sqlite
 ```
 
-When the backend variable is absent, SQLite is selected and the local control-plane database is:
+Quando a variável de backend está ausente, SQLite é selecionado e o banco local do control plane é:
 
 ```text
 audits/.rasai/platform.db
@@ -51,143 +57,143 @@ RASAI_PLATFORM_DB_BACKEND=postgresql
 RASAI_PLATFORM_DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<database>
 ```
 
-`postgres` and `pg` are accepted backend-name aliases, while `postgresql` is the documented value.
+`postgres` e `pg` são aliases aceitos pelo runtime para o nome do backend; `postgresql` é o valor canônico recomendado na documentação/configuração.
 
-`--platform-db` is SQLite-only. A configured PostgreSQL backend requires `RASAI_PLATFORM_DATABASE_URL` and never falls back silently to SQLite. This prevents split authority.
+`--platform-db` é exclusivo de SQLite. Backend PostgreSQL configurado exige `RASAI_PLATFORM_DATABASE_URL` e nunca faz fallback silencioso para SQLite. Isso evita autoridade dividida.
 
-The database password is not emitted by backend status output. Display URLs are redacted to retain user/host/database while removing password and sensitive connection parameters.
+A senha do banco não é emitida pela saída de status. URLs de exibição são redigidas para preservar usuário/host/database sem expor senha nem parâmetros sensíveis de conexão.
 
-## Connection targets
+## Alvos de conexão
 
-The PostgreSQL adapter is endpoint-neutral. The same runtime can connect to:
+O adapter PostgreSQL é independente do endpoint. O mesmo runtime pode se conectar a:
 
-- a local PostgreSQL 18 Docker container for development;
-- a PostgreSQL server on another machine;
-- a managed PostgreSQL service;
-- a hosting provider that exposes a standards-compatible PostgreSQL TCP endpoint.
+- container local PostgreSQL 18 em Docker para desenvolvimento;
+- servidor PostgreSQL em outra máquina;
+- serviço PostgreSQL gerenciado;
+- provedor de hospedagem que exponha endpoint TCP compatível com PostgreSQL.
 
-Local development example:
+Exemplo local:
 
 ```text
 RASAI_PLATFORM_DB_BACKEND=postgresql
 RASAI_PLATFORM_DATABASE_URL=postgresql://rasai_app:<password>@127.0.0.1:5432/rasai_control_plane
 ```
 
-Hosted example:
+Exemplo hospedado:
 
 ```text
 RASAI_PLATFORM_DB_BACKEND=postgresql
 RASAI_PLATFORM_DATABASE_URL=postgresql://rasai_app:<password>@db.example-host.net:5432/rasai_control_plane?sslmode=require&connect_timeout=10&application_name=rasai
 ```
 
-Provider-specific pooler endpoints are acceptable when they expose a PostgreSQL-compatible connection contract.
+Endpoints de pooler específicos do provider são aceitáveis quando expõem contrato de conexão compatível com PostgreSQL.
 
-For remote/hosted databases:
+Para bancos remotos/hospedados:
 
-- TLS should be enabled; `sslmode=require` is the minimum practical profile and `sslmode=verify-full` is preferred when hostname/CA verification is available;
-- inbound connectivity must be allowed from the RASAi execution environment;
-- the database user must have permissions required by explicit schema migrations;
-- credentials remain runtime secrets and must not be committed;
-- special characters in URL credentials must be percent-encoded.
+- TLS deve estar habilitado; `sslmode=require` é o mínimo prático e `sslmode=verify-full` é preferível quando validação de hostname/CA está disponível;
+- a conectividade de entrada precisa permitir o ambiente de execução do RASAi;
+- o usuário do banco deve possuir as permissões exigidas pelas migrations explícitas de schema;
+- credenciais permanecem segredos de runtime e não devem ser commitadas;
+- caracteres especiais em credenciais na URL devem ser percent-encoded.
 
-RASAi does not detect Docker versus hosting and does not branch behavior by provider. Database location is represented by the connection URL and network/TLS configuration.
+O RASAi não detecta “Docker versus hosting” para alterar a lógica e não ramifica comportamento por fornecedor. A localização do banco é representada pela URL de conexão e pela configuração de rede/TLS.
 
-If PostgreSQL is explicitly selected and unavailable, the control plane fails closed. Returning to SQLite requires an explicit backend selection.
+Se PostgreSQL for selecionado explicitamente e estiver indisponível, o control plane falha de forma fechada. Voltar para SQLite exige seleção explícita do backend.
 
-## Schema migrations
+## Migrations de schema
 
-PostgreSQL schema mutation is explicit. Normal application startup and Search monitoring do not create or upgrade schema.
+Mutação de schema PostgreSQL é explícita. Startup normal da aplicação e Search Monitoring não criam nem atualizam schema.
 
-Inspect schema state:
+Consultar o estado:
 
 ```powershell
 rasai platform database status
 ```
 
-Apply pending migrations:
+Aplicar migrations pendentes:
 
 ```powershell
 rasai platform database migrate
 ```
 
-Application startup requires the database schema to match the runtime-supported version. Empty, behind or newer-than-supported schema state is rejected with an explicit diagnostic.
+O startup da aplicação exige que a versão do schema corresponda à versão suportada pelo runtime. Schema vazio, atrasado ou mais novo do que o suportado é rejeitado com diagnóstico explícito.
 
-Migrations are ordered, transactional and recorded in migration tables. Re-running migration against a current schema is idempotent.
+Migrations são ordenadas, transacionais e registradas em tabelas de migration. Reexecutar migration sobre schema já atualizado é idempotente.
 
-## Current PostgreSQL scope
+## Escopo PostgreSQL atual
 
-The PostgreSQL control plane covers the product-domain entities required by the current architecture, including:
+O control plane PostgreSQL cobre as entidades de domínio de produto necessárias à arquitetura atual, incluindo:
 
-- organizations, users, memberships and workspaces;
-- projects, properties and environments;
-- audit catalog and audit scope links;
-- milestones and golden baselines;
+- organizations, users, memberships e workspaces;
+- projects, properties e environments;
+- catálogo de auditorias e vínculos de escopo da auditoria;
+- milestones e golden baselines;
 - page identities;
 - comparisons;
-- schedules, alert rules and notifications;
-- integration metadata;
-- external dataset catalog/records;
-- usage events and consumption analytics;
-- Search monitoring query registry and run summaries;
-- durable execution jobs;
-- external identity links for OIDC/JWT identity resolution.
+- schedules, alert rules e notifications;
+- metadados de integrações;
+- catálogo/registros de datasets externos;
+- usage events e consumption analytics;
+- registro de queries de Search Monitoring e resumos das execuções;
+- execution jobs duráveis;
+- vínculos de identidade externa para resolução OIDC/JWT.
 
-Search monitoring, scheduling, usage accounting, identity and execution jobs use the same selected control-plane authority.
+Search Monitoring, scheduling, contabilização de uso, identidade e execution jobs usam a mesma autoridade de control plane selecionada.
 
-## Current relational representation
+## Representação relacional atual
 
-The PostgreSQL schema preserves the domain representation expected by the current application contracts:
+O schema PostgreSQL preserva a representação de domínio esperada pelos contratos atuais da aplicação:
 
-- operational ISO-8601 values use canonical text where APIs expose strings;
-- structured domain payloads use canonical JSON text where required by repository contracts;
-- parity-sensitive booleans use constrained `0/1` values where that is the current schema contract;
-- migration audit timestamps use `TIMESTAMPTZ`.
+- valores operacionais ISO-8601 usam texto canônico quando APIs expõem strings;
+- payloads estruturados usam JSON canônico serializado como texto quando exigido pelo contrato do repository;
+- booleanos sensíveis à paridade usam valores `0/1` com constraint quando esse é o contrato vigente;
+- timestamps de auditoria de migration usam `TIMESTAMPTZ`.
 
-Representation changes such as broader adoption of `jsonb`, PostgreSQL `boolean` or `timestamptz` require explicit schema migrations and parity validation. They are not coupled implicitly to backend selection.
+Mudanças de representação, como adoção mais ampla de `jsonb`, `boolean` nativo PostgreSQL ou `timestamptz`, exigem migrations explícitas de schema e validação de paridade. Não são acopladas implicitamente à seleção do backend.
 
-PostgreSQL uses UTF8 and the RASAi session timezone is UTC.
+PostgreSQL usa UTF8 e a timezone da sessão RASAi é UTC.
 
-## Transaction behavior
+## Comportamento transacional
 
-The PostgreSQL adapter uses parameterized statements only.
+O adapter PostgreSQL usa somente statements parametrizados.
 
-- normal read operations use autocommit so read-only traffic does not remain in idle transactions;
-- domain writes use explicit transactions;
-- nested transaction scopes use savepoints;
-- failures roll back the affected transaction;
-- database errors exposed to CLI/runtime are sanitized and may include exception type/SQLSTATE, never password, raw connection URL or raw SQL statement.
+- leituras normais usam autocommit para que tráfego somente leitura não permaneça em transações ociosas;
+- gravações de domínio usam transações explícitas;
+- escopos transacionais aninhados usam savepoints;
+- falhas fazem rollback da transação afetada;
+- erros de banco expostos a CLI/runtime são sanitizados e podem conter tipo da exceção/SQLSTATE, nunca senha, URL bruta da conexão nem statement SQL bruto.
 
-## Local development and hosted operation
+## Desenvolvimento local e operação hospedada
 
-A local PostgreSQL 18 Docker container is appropriate for development and parity testing. The application connects through the same `RASAI_PLATFORM_DATABASE_URL` contract used by a hosted deployment.
+Um container local PostgreSQL 18 em Docker é adequado para desenvolvimento e testes de paridade. A aplicação conecta pelo mesmo contrato `RASAI_PLATFORM_DATABASE_URL` usado no deployment hospedado.
 
-For SaaS operation, managed PostgreSQL is the recommended production target. Provider selection remains a deployment decision; the repository contract is cloud-neutral.
+Para operação SaaS, PostgreSQL gerenciado é o alvo recomendado de produção. A escolha do fornecedor permanece decisão de deployment; o contrato do repositório é cloud-neutral.
 
-## Development/test data
+## Dados de desenvolvimento/teste
 
-Local SQLite control-plane content created during development is not treated as production authority. A clean PostgreSQL database may therefore be initialized through explicit schema migrations and populated through normal application contracts.
+Conteúdo local do control plane SQLite criado durante desenvolvimento não é tratado como autoridade de produção. Um banco PostgreSQL limpo pode, portanto, ser inicializado por migrations explícitas e populado pelos contratos normais da aplicação.
 
-A SQLite-to-PostgreSQL data import utility is required only when an installation contains authoritative data that must be promoted. Such a process must validate identifiers, foreign keys, row counts, hashes and tenant scope before cutover.
+Uma ferramenta de importação SQLite → PostgreSQL só é necessária quando uma instalação contém dados autoritativos que precisam ser promovidos. Esse processo deve validar identificadores, foreign keys, contagens de linhas, hashes e escopo de tenant antes do cutover.
 
-## CI contract
+## Contrato de CI
 
-PostgreSQL support is validated against PostgreSQL 18 in GitHub Actions. The integration suite verifies at least:
+O suporte PostgreSQL é validado contra PostgreSQL 18 no GitHub Actions. A suíte de integração verifica pelo menos:
 
-- schema migration and idempotence;
-- UTF8/UTC contract;
-- hierarchy and tenant-scope behavior;
-- schedules, usage and execution-job persistence;
-- transaction rollback;
-- Query Registry and Search monitoring history;
-- local and hosted/TLS connection profiles;
-- no mutation of `AUD-*/audit.db` by recurring Search monitoring;
-- explicit backend selection and absence of silent fallback;
-- credential redaction.
+- migration de schema e idempotência;
+- contrato UTF8/UTC;
+- hierarquia e comportamento de escopo de tenant;
+- persistência de schedules, uso e execution jobs;
+- rollback transacional;
+- Query Registry e histórico de Search Monitoring;
+- perfis de conexão local e hospedada/TLS;
+- ausência de mutação de `AUD-*/audit.db` por Search Monitoring recorrente;
+- seleção explícita do backend e ausência de fallback silencioso;
+- redação de credenciais.
 
-SQLite regressions remain in the normal Product Platform regression suites. A portable safety gate runs without Psycopg/PostgreSQL so centralized support cannot become a hidden dependency of local SQLite operation.
+Regressões SQLite permanecem nas suítes normais da Product Platform. Um gate portátil de segurança roda sem Psycopg/PostgreSQL para impedir que o suporte centralizado se torne dependência oculta da operação SQLite local.
 
-## SaaS boundary
+## Limite SaaS
 
-PostgreSQL is the control-plane database foundation. A complete hosted SaaS deployment additionally requires authenticated tenant context, Web/API services, durable queue/scheduler claim semantics, object storage, secret management and stateless/short-lived workers.
+PostgreSQL é a fundação do banco do control plane. Um deployment SaaS hospedado completo ainda requer contexto de tenant autenticado, serviços Web/API, semântica de claim em fila/scheduler durável, object storage, secret management e workers stateless ou de vida curta.
 
-Persisting schedules in PostgreSQL does not by itself make a multi-replica scheduler horizontally safe; distributed execution requires atomic claims, leases/locks, idempotency, bounded retries and tenant/provider concurrency controls.
+Persistir schedules em PostgreSQL, isoladamente, não torna um scheduler com múltiplas réplicas horizontalmente seguro. Execução distribuída exige claims atômicos, leases/locks, idempotência, retries limitados e controles de concorrência por tenant/provider.

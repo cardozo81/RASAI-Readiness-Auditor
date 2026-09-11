@@ -1,41 +1,41 @@
-# Auditoria multi-URL e evidência visual - Multi-URL Audit + Visual/DOM Evidence + Actionable Remediation
+# Auditoria multi-URL, evidência visual/DOM e remediação acionável
 
-## 1. Purpose
+## 1. Objetivo
 
-Auditoria multi-URL e evidência visual evolves the persisted audit chain from score/finding/remediation text to a traceable structure capable of answering, from persisted evidence, what domain and page were audited, which Desktop/Mobile snapshot was used, what DOM element was observed when determinable, what visual evidence exists, what action is justified, how the correction is validated, and which technical authority or internal heuristic supports the recommendation.
+A auditoria multi-URL com evidência visual evolui a cadeia persistida de auditoria - score, finding e remediação - para uma estrutura rastreável capaz de responder, a partir da evidência persistida: qual domínio e página foram auditados, qual snapshot Desktop/Mobile foi usado, qual elemento DOM foi observado quando determinável, qual evidência visual existe, qual ação é justificável, como a correção deve ser validada e qual autoridade técnica ou heurística interna sustenta a recomendação.
 
-The report remains a projection. Persisted audit state is the source of truth.
+O relatório permanece uma projeção. O estado persistido da auditoria é a fonte de verdade.
 
-## 2. URL_SET input
+## 2. Entrada `URL_SET`
 
-A single positional target and explicit multi-target input are both supported.
+Tanto um único target posicional quanto entrada explícita de múltiplos targets são suportados.
 
-An explicit sequence of targets or `--urls-file` creates `TargetType.URL_SET`, even if normalization/deduplication results in one unique URL. The explicit page universe must not silently fall back to ordinary discovery expansion.
+Uma sequência explícita de targets ou `--urls-file` cria `TargetType.URL_SET`, mesmo que normalização/remoção de duplicatas resulte em uma única URL. O universo explícito de páginas não pode fazer fallback silencioso para expansão por descoberta comum.
 
-For URL_SET:
+Para `URL_SET`:
 
-- normalize URLs using the project URL policy;
-- preserve ordered, deduplicated normalized input URLs;
-- preserve separately the raw supplied count and normalized unique count;
-- reject invalid URLs before audit acquisition;
-- reject targets outside the same normalized origin before acquisition;
-- require `max_pages` large enough for every unique explicit URL;
-- create one `audit_id` and one workspace;
-- persist all pages under that audit;
-- keep Desktop and Mobile as independent `PageSnapshot` records.
+- normalizar URLs pela política de URL do projeto;
+- preservar a sequência ordenada e sem duplicatas de URLs normalizadas;
+- preservar separadamente a quantidade bruta informada e a quantidade única normalizada;
+- rejeitar URLs inválidas antes da aquisição;
+- rejeitar targets fora da mesma origem normalizada antes da aquisição;
+- exigir `max_pages` suficiente para todas as URLs explícitas únicas;
+- criar um único `audit_id` e um único workspace;
+- persistir todas as páginas nessa auditoria;
+- manter Desktop e Mobile como registros `PageSnapshot` independentes.
 
-## 3. Domain resources
+## 3. Recursos de domínio
 
-`robots.txt` and sitemap resources are domain-scoped evidence. They are acquired once per audit/domain execution, not once per page.
+`robots.txt` e recursos de sitemap são evidências em escopo de domínio. São adquiridos uma vez por execução de auditoria/domínio, e não uma vez por página.
 
-Architecture:
+Arquitetura:
 
 ```text
 Audit
-├── Domain context
+├── contexto de domínio
 │   ├── robots.txt
 │   ├── sitemap(s)
-│   └── domain-level Evidence
+│   └── Evidence em nível de domínio
 └── Pages
     ├── Page
     │   ├── Desktop PageSnapshot
@@ -43,45 +43,47 @@ Audit
     └── ...
 ```
 
-Domain-level evidence uses `page_id = null`, `snapshot_id = null`, `device = null`. Site-level findings must not be cloned into identical page-level findings merely because several explicit URLs were audited.
+Evidência em nível de domínio usa `page_id = null`, `snapshot_id = null`, `device = null`. Findings em nível de site não devem ser clonados em findings idênticos por página apenas porque várias URLs explícitas foram auditadas.
 
-Sitemap evidence records at least state, discovery origin, HTTP acquisition, URL count, page URLs when interpretable, child sitemap references, redirects/network evidence through the persisted HTTP observation, and parsing error when present.
+A evidência de sitemap registra no mínimo estado, origem da descoberta, aquisição HTTP, quantidade de URLs, URLs de páginas quando interpretáveis, referências a sitemaps filhos, redirects/evidência de rede pelo registro HTTP persistido e erro de parsing quando existente.
 
-Absence of `robots.txt` or sitemap is not converted automatically into a `FAIL` unless an approved business rule explicitly defines that result. `BR-GEO-003` continues to prohibit automatic sitemap failure based only on absence.
+Ausência de `robots.txt` ou sitemap não é convertida automaticamente em `FAIL`, salvo quando uma Business Rule aprovada definir explicitamente esse resultado. `BR-GEO-003` continua proibindo falha automática de sitemap baseada apenas na ausência.
 
-## 4. Three evidence planes
+## 4. Três planos de evidência
 
-Auditoria multi-URL e evidência visual preserves three distinct evidence planes:
+A auditoria multi-URL com evidência visual preserva três planos distintos:
 
 ```text
 RAW HTTP
-→ bytes and protocol response received from the server
+→ bytes e resposta de protocolo recebidos do servidor
 
 Rendered DOM
-→ HTML/DOM state after JavaScript rendering
+→ estado HTML/DOM após renderização JavaScript
 
 Visual Snapshot
-→ viewport image observed by Chromium
+→ imagem do viewport observada pelo Chromium
 ```
 
-Visual evidence never replaces RAW or rendered evidence.
+Evidência visual nunca substitui evidência RAW nem rendered.
 
-## 5. Visual snapshot
+## 5. Snapshot visual
 
-For each valid rendered `PageSnapshot`, Chromium attempts to persist a PNG viewport screenshot under the audit workspace using a relative path.
+Para cada `PageSnapshot` renderizado válido, o Chromium tenta persistir um screenshot PNG do viewport dentro do workspace da auditoria usando caminho relativo.
 
-Viewport profiles:
+Perfis de viewport, confirmados no runtime:
 
-- Desktop: `1440 × 900`;
-- Mobile: `412 × 915`.
+| Contexto | Default efetivo | Valores permitidos nesta implementação | Recomendado |
+|---|---:|---|---|
+| Desktop | `1440 × 900` | perfil Desktop canônico do renderer | manter o perfil canônico para comparabilidade |
+| Mobile | `412 × 915` | perfil Mobile canônico do renderer | manter o perfil canônico para comparabilidade |
 
-Metadata remains linked to the same snapshot and includes requested URL, final URL, viewport, device profile, captured timestamp and artifact reference. Report assets must remain local to the audit workspace/ZIP; no remote image dependency is allowed.
+Os metadados permanecem vinculados ao mesmo snapshot e incluem URL solicitada, URL final, viewport, perfil de dispositivo, timestamp de captura e referência do artefato. Assets do relatório devem permanecer locais ao workspace/ZIP da auditoria; dependência remota de imagem não é permitida.
 
-Screenshot capture failure must be represented as a limitation/evidence state and must not fabricate an image.
+Falha na captura do screenshot deve ser representada como limitação/estado de evidência e nunca pode fabricar uma imagem.
 
-## 6. ElementObservation
+## 6. `ElementObservation`
 
-Auditoria multi-URL e evidência visual adds an additive persisted `ElementObservation` concept with at least:
+A capacidade adiciona o conceito persistido e aditivo `ElementObservation`, contendo no mínimo:
 
 - `element_observation_id`;
 - `audit_id`;
@@ -89,75 +91,77 @@ Auditoria multi-URL e evidência visual adds an additive persisted `ElementObser
 - `snapshot_id`;
 - `device`;
 - URL;
-- selector CSS when determinable;
-- tag name;
-- element id;
-- relevant classes;
-- bounded/sanitized `outer_html`;
-- bounded text excerpt;
-- bounding box when the element is visibly located in the viewport;
-- local artifact reference when applicable;
-- captured timestamp.
+- seletor CSS quando determinável;
+- tag;
+- ID do elemento;
+- classes relevantes;
+- `outer_html` limitado e sanitizado;
+- trecho de texto limitado;
+- bounding box quando o elemento está visível no viewport;
+- referência de artefato local quando aplicável;
+- timestamp de captura.
 
-The implementation must validate audit/page/snapshot/device consistency before persistence.
+A implementação deve validar consistência entre auditoria, página, snapshot e dispositivo antes da persistência.
 
-Current bounds:
+Limites atuais, confirmados no runtime:
 
-- `outer_html`: 4096 characters;
-- text excerpt: 512 characters;
-- classes: at most 12, each bounded;
-- selector: bounded and persisted only when actually generated from the observed DOM.
+| Campo | Default/limite efetivo | Valores permitidos | Recomendado |
+|---|---:|---|---|
+| `outer_html` | máximo `4096` caracteres | texto sanitizado até o limite | não ampliar sem necessidade de evidência e revisão de custo/tamanho |
+| trecho de texto | máximo `512` caracteres | texto sanitizado até o limite | manter o limite atual |
+| classes | máximo `12` | classes observadas e individualmente limitadas pelo contrato | persistir somente classes observadas e relevantes |
+| seletor | limitado pelo contrato | apenas seletor realmente gerado do DOM observado | nunca inventar seletor quando não determinável |
 
-A missing or ambiguous selector remains `NÃO DETERMINADO`. No selector may be invented from a generic rule label.
+Seletor ausente ou ambíguo permanece `NÃO DETERMINADO`. Nenhum seletor pode ser inventado a partir de um rótulo genérico de regra.
 
-## 7. Finding-to-element linkage
+## 7. Vínculo entre finding e elemento
 
-A finding may link to an `ElementObservation` only when the rule and persisted snapshot identify one concrete node deterministically.
+Um finding só pode ser vinculado a `ElementObservation` quando a regra e o snapshot persistido identificarem deterministicamente um único nó concreto.
 
-If zero or multiple candidate nodes exist, the finding remains document/set-level. Example: heading hierarchy can be a relationship across several nodes; the auditor must not choose an arbitrary heading merely to populate a selector field.
+Se houver zero ou múltiplos candidatos, o finding permanece no nível de documento/conjunto. Exemplo: hierarquia de headings pode representar relação entre vários nós; o auditor não deve escolher arbitrariamente um heading apenas para preencher o campo de seletor.
 
-When a linked observation has a valid visible bounding box and screenshot, the report may visually highlight that area. Non-visual findings such as HTTP headers, canonical/meta state, JSON-LD not visible in the viewport, robots and sitemap do not require finding-specific screenshots.
+Quando uma observação vinculada possui bounding box visível válido e screenshot, o relatório pode destacar visualmente aquela área. Findings não visuais, como headers HTTP, estado de canonical/meta, JSON-LD fora do viewport, robots e sitemap, não exigem screenshot específico do finding.
 
-## 8. Actionability
+## 8. Acionabilidade
 
-Raw technical result and actionability are independent concepts.
+Resultado técnico bruto e acionabilidade são conceitos independentes.
 
-Normative actionability values:
+Valores normativos de acionabilidade:
 
-| Value | Report label | Meaning |
-| --- | --- | --- |
-| `REQUIRED_FIX` | AÇÃO NECESSÁRIA | Evidence-backed defect whose remediation is required by the applicable rule semantics. |
-| `REVIEW_RECOMMENDED` | REVISÃO RECOMENDADA | Contextual or policy-sensitive condition requiring human review before deciding a site change. |
-| `OPTIONAL_IMPROVEMENT` | MELHORIA OPCIONAL | Non-blocking capability/good practice; not an automatic defect. |
-| `NO_ACTION` | NENHUMA AÇÃO NECESSÁRIA | Passed or not applicable. |
-| `INSUFFICIENT_EVIDENCE` | AÇÃO NO SITE NÃO DETERMINADA | Auditor/tool lacks sufficient evidence; remediation must target evidence/audit conditions, not invent a site fix. |
+| Valor persistido | Rótulo no relatório | Significado |
+|---|---|---|
+| `REQUIRED_FIX` | AÇÃO NECESSÁRIA | Defeito sustentado por evidência cuja remediação é exigida pela semântica da regra aplicável. |
+| `REVIEW_RECOMMENDED` | REVISÃO RECOMENDADA | Condição contextual ou sensível a política que exige revisão humana antes de decidir alteração no site. |
+| `OPTIONAL_IMPROVEMENT` | MELHORIA OPCIONAL | Capacidade/boa prática não bloqueante; não é defeito automático. |
+| `NO_ACTION` | NENHUMA AÇÃO NECESSÁRIA | Condição aprovada ou não aplicável. |
+| `INSUFFICIENT_EVIDENCE` | AÇÃO NO SITE NÃO DETERMINADA | Auditor/ferramenta não possui evidência suficiente; a ação deve tratar condições de evidência/auditoria, não inventar correção no site. |
 
-Deterministic projection:
+Projeção determinística:
 
 - `PASS` / `NOT_APPLICABLE` → `NO_ACTION`;
-- `UNKNOWN` / analysis/tool `ERROR` → `INSUFFICIENT_EVIDENCE`;
-- `FAIL` → `REQUIRED_FIX` unless the approved rule semantics require contextual review;
-- `WARNING` → normally `REVIEW_RECOMMENDED`;
-- optional capability absence remains `OPTIONAL_IMPROVEMENT` when the rule explicitly makes it non-blocking.
+- `UNKNOWN` / `ERROR` de análise/ferramenta → `INSUFFICIENT_EVIDENCE`;
+- `FAIL` → `REQUIRED_FIX`, salvo quando a semântica aprovada da regra exigir revisão contextual;
+- `WARNING` → normalmente `REVIEW_RECOMMENDED`;
+- ausência de capacidade opcional permanece `OPTIONAL_IMPROVEMENT` quando a regra a define explicitamente como não bloqueante.
 
-Actionability never changes `RuleResult`, scoring contribution, weight, score, Coverage, Confidence or Consolidation.
+Acionabilidade nunca altera `RuleResult`, contribuição de scoring, peso, score, Coverage, Confidence ou Consolidation.
 
-## 9. Scoring invariants
+## 9. Invariantes de scoring
 
-Mandatory invariants remain:
+Permanecem obrigatórios:
 
 - `UNKNOWN != FAIL`;
 - `ERROR != FAIL`;
 - `NOT_APPLICABLE != FAIL`;
-- missing AI does not create an artificial penalty;
-- Coverage is not Score;
-- Confidence is not Score;
-- Desktop and Mobile are independent;
-- Overall exists only when consolidation criteria are met.
+- ausência de IA não cria penalidade artificial;
+- Coverage não é Score;
+- Confidence não é Score;
+- Desktop e Mobile são independentes;
+- Overall só existe quando os critérios metodológicos de cálculo/consolidação forem atendidos.
 
-### Zero versus absence
+### Zero versus ausência
 
-The report must render these states distinctly:
+O relatório deve representar distintamente:
 
 ```text
 Score: 0.0
@@ -171,26 +175,26 @@ Score: NÃO DETERMINADO
 Estado: NÃO CALCULADO
 ```
 
-and independently:
+E, de forma independente:
 
 ```text
 Coverage: 0%
 ```
 
-No report component may use numeric zero as a fallback for `None`/missing score.
+Nenhum componente de relatório pode usar zero numérico como fallback para `None`/score ausente.
 
-## 10. Technical references
+## 10. Referências técnicas
 
-Auditoria multi-URL e evidência visual introduces a versioned rule-reference projection. Primary/authoritative technical sources must be preferred when they directly support a rule, including as applicable:
+A capacidade usa projeção versionada de referências de regra. Fontes técnicas primárias/autoritativas devem ser preferidas quando sustentarem diretamente uma regra, incluindo, conforme aplicabilidade:
 
 - IETF/RFC Editor;
 - WHATWG;
-- Google Search Central / Google crawling documentation;
-- Schema.org when relevant;
-- official OpenAI crawler/publisher documentation;
-- official documentation for the technology being evaluated.
+- Google Search Central e documentação oficial de crawling do Google;
+- Schema.org;
+- documentação oficial da OpenAI sobre crawlers/publicadores;
+- documentação oficial da tecnologia avaliada.
 
-A heuristic rule without a directly applicable normative external source must render explicitly:
+Uma regra heurística sem fonte normativa externa diretamente aplicável deve exibir explicitamente:
 
 ```text
 Base: HEURISTIC
@@ -198,90 +202,94 @@ Fonte externa normativa: não aplicável / não identificada
 Referência interna: BR-GEO-XXX
 ```
 
-The auditor must never manufacture external authority.
+O auditor nunca pode fabricar autoridade externa.
 
-Official links persisted in the Auditoria multi-URL e evidência visual rule-reference catalog were verified on `2026-09-02`.
+Quando um trecho externo em idioma diferente de pt-BR precisar ser reproduzido na documentação, deve seguir a convenção de `docs/README.md`: **Disclaimer - texto original da fonte** seguido de **Tradução/adaptação pt-BR**. O trecho original deve ser limitado ao necessário para a referência; o RASAi não deve copiar integralmente uma obra externa apenas para documentar uma regra.
 
-## 11. OAI-SearchBot and GPTBot
+Links oficiais do catálogo de referências desta capacidade foram verificados na data registrada pelo respectivo contrato de referência persistido. Datas fixas de verificação não devem ser tratadas como garantia permanente de disponibilidade externa.
 
-Crawler policy reporting must keep `OAI-SearchBot` and `GPTBot` separate. Their purposes and controls are not interchangeable. The crawler matrix may also include crawlers such as Googlebot, Googlebot Smartphone and Bingbot.
+## 11. OAI-SearchBot e GPTBot
 
-No business recommendation may claim that permitting either crawler guarantees indexing, ranking, citation or inclusion in generated answers.
+O relatório de política de crawlers deve manter `OAI-SearchBot` e `GPTBot` separados. Suas finalidades e controles não são intercambiáveis. A matriz também pode incluir crawlers como Googlebot, Googlebot Smartphone e Bingbot.
 
-## 12. Report contract - REPORT-GEO-003
+Nenhuma recomendação de negócio pode afirmar que permitir qualquer desses crawlers garante indexação, ranking, citação ou inclusão em respostas geradas.
 
-The Auditoria multi-URL e evidência visual report must visibly contain:
+## 12. Contrato de relatório - `REPORT-GEO-003`
 
-1. executive identification of project, `audit_id`, domain, input mode, raw supplied URL count, audited page count, time, AI provider/model state and limitations;
-2. GEO compatibility, Coverage, Confidence and Consolidation without conflating them;
-3. explicit Score zero versus not-calculated state;
-4. linked inventory of audited URLs;
-5. domain resources, including robots and sitemap state;
-6. text-based status/actionability legend;
-7. required actions and review items;
-8. non-blocking optional improvements separated from defects;
-9. Desktop and Mobile score/readiness projections where methodologically available;
-10. page-by-page sections with URL prominence, snapshot states, viewport screenshots, findings, selectors/DOM observations when deterministic and remediation details;
-11. prioritized correction plan;
-12. semantic/entity/intent and citation/evidence-trust sections from persisted Análise semântica e fallback/Remediação GEO acionável state;
-13. crawl/URL_SET coverage and limitations;
-14. methodology and glossary.
+O relatório deve conter visivelmente:
 
-Long URLs, selectors, HTML, JSON, IDs and model names must remain inside their containers. Required defensive CSS includes `min-width: 0`, safe wrapping, horizontal overflow for code/pre blocks, responsive grids/typography and `max-width: 100%` for screenshots.
+1. identificação executiva de projeto, `audit_id`, domínio, modo de entrada, quantidade bruta de URLs informadas, quantidade de páginas auditadas, horário, estado provider/modelo de IA e limitações;
+2. compatibilidade GEO, Coverage, Confidence e Consolidation sem confluir esses conceitos;
+3. distinção explícita entre Score zero e estado não calculado;
+4. inventário com links das URLs auditadas;
+5. recursos de domínio, incluindo estado de robots e sitemap;
+6. legenda textual de status/acionabilidade;
+7. ações necessárias e itens de revisão;
+8. melhorias opcionais não bloqueantes separadas de defeitos;
+9. projeções Desktop e Mobile de score/readiness quando metodologicamente disponíveis;
+10. seções por página com URL em destaque, estados de snapshot, screenshots do viewport, findings, seletores/observações DOM quando determinísticos e detalhes de remediação;
+11. plano priorizado de correção;
+12. seções de semântica/entidade/intenção e citation/evidence-trust derivadas do estado persistido de análise semântica/fallback e remediação;
+13. cobertura de crawl/`URL_SET` e limitações;
+14. metodologia e glossário.
 
-## 13. Finding remediation projection
+URLs longas, seletores, HTML, JSON, IDs e nomes de modelos devem permanecer dentro de seus containers. CSS defensivo obrigatório inclui `min-width: 0`, wrapping seguro, overflow horizontal para blocos `code`/`pre`, grids/tipografia responsivos e `max-width: 100%` para screenshots.
 
-For an actionable finding, render when applicable:
+## 13. Projeção de remediação do finding
+
+Para um finding acionável, renderizar quando aplicável:
 
 - URL;
 - Device;
 - Rule;
-- GEO category;
-- raw result;
+- categoria GEO;
+- resultado bruto;
 - Actionability;
 - Priority;
 - Selector;
 - Element;
-- observed HTML;
-- problem;
-- why it matters for GEO;
-- exact change guidance bounded by evidence;
-- recommended example clearly labeled as example;
-- acceptance criteria;
-- revalidation steps;
-- technical reference.
+- HTML observado;
+- problema;
+- por que isso importa no contexto GEO/readiness;
+- orientação exata de mudança limitada pela evidência;
+- exemplo recomendado claramente identificado como exemplo;
+- critérios de aceitação;
+- passos de revalidação;
+- referência técnica.
 
-Observed HTML must come from persisted evidence/observation. Recommended examples must never be presented as observed HTML.
+HTML observado deve vir de evidência/observação persistida. Exemplos recomendados nunca podem ser apresentados como HTML observado.
 
-If original HTML was not persisted, use the exact semantic message:
+Se o HTML original não foi persistido, usar a mensagem semântica exata:
 
-`Trecho HTML original não persistido para esta evidência.`
+```text
+Trecho HTML original não persistido para esta evidência.
+```
 
-## 14. AI invariants
+## 14. Invariantes de IA
 
-OpenAI remains optional. Auditoria multi-URL e evidência visual does not add a free-form LLM call to generate remediation.
+OpenAI permanece opcional. Esta capacidade não adiciona chamada livre de LLM para gerar remediação.
 
-Persisted Análise semântica e fallback outputs may be reused. AI:
+Saídas persistidas de análise semântica/fallback podem ser reutilizadas. IA:
 
-- does not calculate official score;
-- does not choose weights;
-- does not convert unknown/error to fail;
-- does not create selector/HTML/evidence/source/fact/claim not present in persisted state;
-- does not create author, date, price, product coverage or structured data as facts.
+- não calcula score oficial;
+- não escolhe pesos;
+- não converte `UNKNOWN`/`ERROR` em `FAIL`;
+- não cria seletor, HTML, evidência, fonte, fato ou claim ausente do estado persistido;
+- não cria autor, data, preço, cobertura de produto ou dados estruturados como fatos.
 
-When OpenAI is enabled, provider/model/assessment/reasoning/evidence/entity/intent traceability remains mandatory.
+Quando OpenAI está habilitada, rastreabilidade de provider/modelo/assessment/reasoning/evidência/entidade/intenção permanece obrigatória.
 
-## 15. Persistence
+## 15. Persistência
 
-Auditoria multi-URL e evidência visual persistence is additive in the audit SQLite workspace. Audit persistence tables are extended only through explicit schema contracts required by the current feature set.
+A persistência é aditiva no workspace SQLite da auditoria. Tabelas de persistência da auditoria só são estendidas por contratos explícitos de schema exigidos pelo conjunto atual de capacidades.
 
-Additional tables may store:
+Tabelas adicionais podem armazenar:
 
-- normalized URL input universe and raw/unique input summary;
+- universo normalizado de URLs de entrada e resumo bruto/único;
 - `ElementObservation`;
-- finding-to-element linkage.
+- vínculo finding → elemento.
 
-Single-target CLI options supported include:
+Opções de CLI suportadas para entrada incluem:
 
 - `--project`;
 - `--language`;
@@ -291,24 +299,26 @@ Single-target CLI options supported include:
 - `--ai-provider`;
 - `--ai-model`.
 
-## 16. Minimum validation
+Defaults e valores permitidos das configurações correspondentes devem ser consultados nas referências canônicas `../ENVIRONMENT_VARIABLES.md`, `../CONFIGURATION.md` e `../CLI_REFERENCE.md`; esta especificação não redefine esses defaults.
 
-Focused regression coverage must include:
+## 16. Validação mínima
 
-- single URL input;
-- same-origin multi-URL input;
-- normalization/deduplication;
-- incompatible-origin rejection before acquisition;
+A cobertura de regressão focada deve incluir:
+
+- entrada de URL única;
+- entrada multi-URL de mesma origem;
+- normalização/remoção de duplicatas;
+- rejeição de origem incompatível antes da aquisição;
 - `--urls-file`;
-- one audit workspace for an explicit set;
-- one robots acquisition and one acquisition per sitemap URL/domain resource;
-- Desktop/Mobile screenshot artifacts and snapshot linkage;
-- actual selector when deterministic and absence when not;
-- bounded observed HTML/text;
-- `UNKNOWN`, `ERROR`, `NOT_APPLICABLE` scoring invariants;
-- `None != 0` report behavior;
-- actionability mapping;
-- report presence of domain, audit ID, URL inventory, page URL prominence, visual/DOM evidence, references, robots, sitemap and responsive wrapping;
-- regression against invented canonical, author, date, structured data, claim, commercial fact, selector and observed HTML.
+- um único workspace de auditoria para conjunto explícito;
+- uma aquisição de robots e uma aquisição por URL de sitemap/recurso de domínio;
+- artefatos de screenshot Desktop/Mobile e vínculo ao snapshot;
+- seletor real quando determinístico e ausência quando não determinável;
+- HTML/texto observado dentro dos limites;
+- invariantes de scoring `UNKNOWN`, `ERROR`, `NOT_APPLICABLE`;
+- comportamento `None != 0` no relatório;
+- mapeamento de acionabilidade;
+- presença no relatório de domínio, audit ID, inventário de URLs, URL em destaque por página, evidência visual/DOM, referências, robots, sitemap e wrapping responsivo;
+- regressão contra canonical, autor, data, dados estruturados, claim, fato comercial, seletor e HTML observado inventados.
 
-A real smoke may use a controlled homologation domain when environment/connectivity permits. External websites are never unit-test fixtures.
+Smoke test real pode usar domínio controlado de homologação quando ambiente/conectividade permitirem. Websites externos nunca são fixtures de unit test.

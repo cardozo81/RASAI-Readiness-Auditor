@@ -1,77 +1,79 @@
-# RASAi Monitor, Observability & Quality
+# RASAi - Monitoramento, observabilidade e qualidade
 
-**Estado no baseline de desenvolvimento:** IMPLEMENTED / INTEGRATED IN `main`
+**Estado no baseline de desenvolvimento:** implementado e integrado à `main`.
 
-## Purpose
+## Objetivo
 
-This capability turns isolated RASAi audits into a longitudinal, evidence-bound workflow without changing the audit source of truth or silently adding new signals to `SARI-001/SCORE-GEO-004`.
+Esta capacidade transforma auditorias RASAi isoladas em um fluxo longitudinal vinculado a evidências, sem alterar a fonte de verdade da auditoria nem adicionar silenciosamente novos sinais ao `SARI-001`/`SCORE-GEO-004`.
 
-It keeps these questions separate:
+Ela mantém separadas as seguintes perguntas:
 
-1. **Readiness:** what technical/semantic conditions were observed by the audit?
-2. **Observed outcomes:** what did external Search/AI systems report?
-3. **Change:** what materially changed between persisted audits?
-4. **Association:** did an outcome move across a comparable period while a technical regression also existed?
-5. **Decision quality:** is the audit evidence complete/reliable enough to support remediation decisions?
+1. **Readiness:** quais condições técnicas e semânticas foram observadas pela auditoria?
+2. **Resultados observados:** o que sistemas externos de Search/AI reportaram?
+3. **Mudança:** o que mudou de forma material entre auditorias persistidas?
+4. **Associação:** um resultado mudou ao longo de um período comparável enquanto também existia uma regressão técnica?
+5. **Qualidade da decisão:** a evidência da auditoria está completa e confiável o suficiente para sustentar decisões de remediação?
 
-Temporal coincidence is not causal inference.
+Coincidência temporal não constitui inferência causal.
 
-## Architecture
+## Arquitetura
 
 ```text
 AUD-BASELINE/audit.db -----\
                             > RASAi Monitor -> MON-*/report.html + manifest.json + impact.html
 AUD-CURRENT/audit.db ------/
 
-AUD-CURRENT/audit.db (read-only)
+AUD-CURRENT/audit.db (somente leitura)
           |
           +--> observability.db          # RASAI-OBS-002
           +--> artifacts/observability/*
           +--> report/observability.html
           +--> report/quality.html
 
-AUD-* collection
+coleção AUD-*
           |
           +--> Fix Verification -> verification/VER-*/report.html
           +--> Evidence Timeline -> quality/TIMELINE-*/report.html
 ```
 
-`audit.db` is not migrated by Monitor, Observability or Quality. External observations are derived/rebuildable sidecar data.
+`audit.db` não é migrado por Monitor, Observability ou Quality. Observações externas são dados derivados/reconstruíveis armazenados em sidecar.
 
-## Methodological boundary
+## Limite metodológico
 
-Monitoring, Observability and Quality do not create another readiness score. External outcomes, Lighthouse/CrUX and synthetic metrics are not added to the Overall implicitly.
+Monitoring, Observability e Quality não criam outro score de readiness. Resultados externos, Lighthouse/CrUX e métricas sintéticas não são adicionados implicitamente ao Overall.
 
-## Observability sidecar
+Os termos em inglês nesta seção correspondem a nomes técnicos ou rótulos do produto e, por isso, são preservados.
 
-Current contract:
+## Sidecar de observabilidade
+
+Contrato atual:
 
 ```text
 RASAI-OBS-002
 identity = (dataset_id, record_id)
 ```
 
-Dataset provenance persists source type, capture method, period, artifact path/SHA-256, collection time and metadata. Secrets are runtime-only.
+A proveniência do dataset persiste tipo de origem, método de captura, período, caminho/SHA-256 do artefato, horário da coleta e metadados. Segredos existem somente em runtime.
 
 ## RASAi Monitor
 
-### Compare
+### Comparação
 
 ```powershell
 rasai monitor compare --audits-root audits --baseline AUD-BASELINE --current AUD-CURRENT
 ```
 
-Possible states include `REGRESSED`, `IMPROVED`, `CHANGED`, `NEW`, `RESOLVED`, `UNCHANGED`, `DATA_UNAVAILABLE` and `NOT_COMPARABLE`.
+Estados possíveis incluem `REGRESSED`, `IMPROVED`, `CHANGED`, `NEW`, `RESOLVED`, `UNCHANGED`, `DATA_UNAVAILABLE` e `NOT_COMPARABLE`.
 
-Different `scoring_version` values are not silently converted or treated as equivalent.
+Valores distintos de `scoring_version` não são convertidos silenciosamente nem tratados como equivalentes.
 
-### Release gate
+### Release Gate
 
 ```powershell
 rasai monitor gate --audits-root audits --baseline AUD-BASELINE --current AUD-CURRENT
 ```
 
-Default gate is deterministic and fail-closed. Optional families require explicit opt-in:
+O gate padrão é determinístico e *fail-closed*. Famílias opcionais exigem ativação explícita:
 
 ```text
 --include-semantic
@@ -81,7 +83,7 @@ Default gate is deterministic and fail-closed. Optional families require explici
 --include-score-dimensions
 ```
 
-Operational overrides are explicit:
+Sobrescritas operacionais são explícitas:
 
 ```text
 --allow-noncomparable
@@ -94,11 +96,11 @@ Operational overrides are explicit:
 rasai monitor impact --audits-root audits --baseline AUD-BASELINE --current AUD-CURRENT
 ```
 
-One latest dataset is selected per source/AUD. Overlapping histories are not summed. Missing values remain missing. Temporal associations are reported without causal language.
+É selecionado um único dataset mais recente por origem/`AUD-*`. Históricos sobrepostos não são somados. Valores ausentes permanecem ausentes. Associações temporais são reportadas sem linguagem causal.
 
-## Search & AI Observability
+## Observabilidade de Search & AI
 
-Main command:
+Comando principal:
 
 ```text
 rasai observe ...
@@ -110,30 +112,30 @@ Alias:
 rasai observability ...
 ```
 
-Supported operational surfaces include generic import, Bing import-first, Google AI import/control, Search Console property/sitemap/Search Analytics/Search Appearance/URL Inspection, CrUX History and report/status commands.
+As superfícies operacionais suportadas incluem importação genérica, Bing em modelo *import-first*, Google AI import/control, Search Console property/sitemap/Search Analytics/Search Appearance/URL Inspection, CrUX History e comandos de relatório/status.
 
-Rules common to external collection:
+Regras comuns à coleta externa:
 
-- target/source scope is validated against the AUD;
-- OAuth tokens/API keys are not persisted;
-- auth/quota/network errors are operational failures, not website findings;
-- data absent from a source is not invented;
-- `NULL` is never normalized to zero unless the source actually reports a numeric zero with that semantics;
-- source/surface/provenance remain explicit.
+- o escopo de target/origem é validado contra o `AUD-*`;
+- tokens OAuth e chaves de API não são persistidos;
+- erros de autenticação, quota ou rede são falhas operacionais, não findings do site;
+- dados ausentes na origem não são inventados;
+- `NULL` nunca é normalizado para zero, exceto quando a própria origem reporta um zero numérico com essa semântica;
+- origem, superfície e proveniência permanecem explícitas.
 
-## Observability diagnostics
+## Diagnósticos de observabilidade
 
-`report/observability.html` can include:
+`report/observability.html` pode incluir:
 
 - Indexability Reality Matrix;
 - Query × Intent Alignment;
 - Potential Search Cannibalization;
-- structured-data/entity/freshness/hreflang/retrieval diagnostics;
-- template/root-cause clusters;
+- diagnósticos de dados estruturados, entidade, atualização, `hreflang` e recuperação;
+- clusters por template/causa raiz;
 - CrUX History;
-- dataset provenance.
+- proveniência do dataset.
 
-These are derived diagnostics and do not automatically alter `SARI-001/SCORE-GEO-004`.
+Esses são diagnósticos derivados e não alteram automaticamente `SARI-001`/`SCORE-GEO-004`.
 
 ## RASAi Quality
 
@@ -143,21 +145,21 @@ rasai quality verify --baseline AUD-A --current AUD-B
 rasai quality timeline --audits-root audits
 ```
 
-Quality includes Audit Health, Evidence Confidence, Operational Priority, Coverage Map, publisher content-use controls, Recommendation Validation, Fix Verification and Evidence Timeline.
+Quality inclui Audit Health, Evidence Confidence, Operational Priority, Coverage Map, controles de uso de conteúdo pelo publicador, Recommendation Validation, Fix Verification e Evidence Timeline.
 
-Quality is decision support, not another readiness score.
+Quality oferece suporte à decisão; não é outro score de readiness.
 
-## Scoring command surface
+## Superfície de comando de scoring
 
-Current runtime:
+Runtime atual:
 
 ```powershell
 rasai scoring inspect
 ```
 
-## HTML surfaces
+## Superfícies HTML
 
-Canonical per-AUD navigation is conditional on file existence:
+A navegação canônica por `AUD-*` é condicional à existência do arquivo:
 
 ```text
 index.html
@@ -179,8 +181,8 @@ ai-usage.html
 references.html
 ```
 
-## Validation expectations
+## Expectativas de validação
 
-Automated validation should cover read-only behavior, comparability, gate policy, OBS-002 identity/migration, external-data scoping, secret exclusion, NULL preservation, Quality/Verification/Timeline semantics and canonical navigation.
+A validação automatizada deve cobrir comportamento somente leitura, comparabilidade, política do gate, identidade/migração `OBS-002`, escopo de dados externos, exclusão de segredos, preservação de `NULL`, semântica de Quality/Verification/Timeline e navegação canônica.
 
-Human smoke remains appropriate when validating real credentials, external provider behavior or visual/operational behavior. It is not a pending-merge status for capabilities already integrated in `main`.
+Smoke test humano continua apropriado para validar credenciais reais, comportamento de providers externos ou comportamento visual/operacional. Isso não representa status de merge pendente para capacidades já integradas à `main`.

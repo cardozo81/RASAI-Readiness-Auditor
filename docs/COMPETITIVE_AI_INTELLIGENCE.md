@@ -1,6 +1,6 @@
 # Competitive AI Content Intelligence
 
-Status: **implemented opt-in POC**.
+**Estado:** POC opt-in implementada.
 
 ## 1. Objetivo
 
@@ -16,7 +16,7 @@ query
 -> seleção limitada de páginas
 -> aquisição pública explícita
 -> extração determinística de features
--> comparação cliente x páginas observadas à frente
+-> comparação cliente × páginas observadas à frente
 -> contexto consolidado
 -> IA com evidence_ids fechados
 -> oportunidades e hipóteses de melhoria
@@ -28,7 +28,9 @@ A camada não altera `SARI-001`, `SCORE-GEO-004` ou qualquer tabela de scoring.
 
 O contrato vigente é:
 
-`COMPETITIVE-AI-001`
+```text
+COMPETITIVE-AI-001
+```
 
 A IA recebe somente evidência estruturada. HTML bruto não é enviado pelo contrato de Competitive AI.
 
@@ -37,7 +39,7 @@ Cada entrada recebe um identificador fechado:
 - `CE-QUERY`: contexto da query e posição observada;
 - `CE-CUSTOMER`: features extraídas da página do cliente;
 - `CE-COMP-###`: features de cada página selecionada e observada;
-- `CE-GAP-###`: diferença determinística previamente calculada pelo RASAI.
+- `CE-GAP-###`: diferença determinística previamente calculada pelo RASAi.
 
 Toda oportunidade produzida pela IA deve citar pelo menos um desses IDs. Um provider que referencie ID inexistente é rejeitado como erro de contrato.
 
@@ -58,20 +60,20 @@ Estados incompletos não são preenchidos por inferência. O resultado fica `NOT
 
 O schema permite oportunidades nas categorias:
 
-- `QUERY_INTENT`
-- `TOPIC_COVERAGE`
-- `ENTITY_COVERAGE`
-- `INFORMATION_ARCHITECTURE`
-- `STRUCTURED_DATA`
-- `EEAT`
-- `YMYL`
-- `SEO_AEO_GEO`
+- `QUERY_INTENT`;
+- `TOPIC_COVERAGE`;
+- `ENTITY_COVERAGE`;
+- `INFORMATION_ARCHITECTURE`;
+- `STRUCTURED_DATA`;
+- `EEAT`;
+- `YMYL`;
+- `SEO_AEO_GEO`.
 
 Prioridades permitidas:
 
-- `HIGH`
-- `MEDIUM`
-- `LOW`
+- `HIGH`;
+- `MEDIUM`;
+- `LOW`.
 
 Cada oportunidade contém:
 
@@ -110,23 +112,19 @@ Recomendações relacionadas a E-E-A-T devem privilegiar verificabilidade, trans
 
 ## 7. Providers
 
-A camada é provider-neutral no core.
+A camada é independente de provider no core.
 
 Providers disponíveis nesta fase:
 
-- `none`: default seguro; nenhuma IA é chamada;
-- `fixture`: valida o contrato sem rede;
-- `openai`: adapter inicial para OpenAI Responses API com BYOK.
+| Provider | Default/estado | Valores/uso permitido | Recomendado |
+|---|---|---|---|
+| `none` | default seguro | nenhuma chamada de IA | manter quando Competitive AI não for necessária |
+| `fixture` | sem rede | validação/testes com fixture | usar em CI, testes e smoke sem custo externo |
+| `openai` | opt-in | execução live com OpenAI Responses API e BYOK | usar somente com evidência consolidada e intenção explícita de consumo |
 
-A variável:
+A variável `RASAI_SEARCH_AI_PROVIDER` aceita `none`, `fixture` ou `openai`; o default efetivo é `none`.
 
-```text
-RASAI_SEARCH_AI_PROVIDER
-```
-
-pode definir `none`, `fixture` ou `openai`.
-
-Para OpenAI são reutilizados os contratos de configuração já existentes:
+Para OpenAI são reutilizados os contratos de configuração existentes:
 
 ```text
 OPENAI_API_KEY
@@ -134,7 +132,7 @@ RASAI_OPENAI_MODEL
 RASAI_OPENAI_REASONING_EFFORT
 ```
 
-A chave nunca é incluída no payload de evidências nem persistida.
+Defaults, modelos permitidos e valores de reasoning estão centralizados em `ENVIRONMENT_VARIABLES.md`. A chave nunca é incluída no payload de evidências nem persistida.
 
 Novos providers devem implementar o mesmo contrato de entrada/saída; não devem alterar a camada de classificação SERP.
 
@@ -167,7 +165,7 @@ rasai search "seguro auto" `
 
 `--ai-competitive` exige `--compare-content`.
 
-`--dry-run` não chama SERP, páginas ou IA e mostra o teto de chamadas potencial da camada semântica.
+`--dry-run` não chama SERP, páginas ou IA e mostra o teto potencial de chamadas da camada semântica.
 
 ## 9. Persistência
 
@@ -182,17 +180,17 @@ serp_competitive_ai_analyses
 Ela referencia `serp_observations` e registra:
 
 - estado;
-- provider/model;
+- provider/modelo;
 - versão do contrato;
 - prompt ID/versão;
-- request ID quando informado pelo provider;
+- request ID, quando informado pelo provider;
 - intenção da query;
 - avaliação YMYL;
 - resumo;
 - oportunidades estruturadas;
-- referência e SHA-256 do artifact.
+- referência e SHA-256 do artefato.
 
-Artifacts:
+Artefatos:
 
 ```text
 artifacts/search-intelligence/competitive-ai/<observation_id>.json
@@ -219,20 +217,20 @@ O conteúdo analisado ainda é conteúdo público obtido na etapa anterior. Em S
 
 Estados possíveis:
 
-- `AVAILABLE`
-- `NOT_CONFIGURED`
-- `UNAVAILABLE`
-- `NOT_ELIGIBLE`
+- `AVAILABLE`;
+- `NOT_CONFIGURED`;
+- `UNAVAILABLE`;
+- `NOT_ELIGIBLE`.
 
-Erros de schema e `evidence_ids` desconhecidos tornam o provider `UNAVAILABLE` para aquela análise. O RASAI não aceita parcialmente uma resposta que viole o contrato.
+Erros de schema e `evidence_ids` desconhecidos tornam o provider `UNAVAILABLE` para aquela análise. O RASAi não aceita parcialmente uma resposta que viole o contrato.
 
 Falha de Competitive AI não altera a observação SERP nem o resultado determinístico.
 
 ## 12. Testes
 
-CI usa apenas fixtures e transportes injetados.
+CI usa apenas fixtures e transports injetados.
 
-Testes verificam:
+Os testes verificam:
 
 - fechamento de `evidence_ids`;
 - rejeição de evidência inexistente;
@@ -241,21 +239,20 @@ Testes verificam:
 - chave fora do body;
 - ausência de chamada quando o contexto determinístico não está consolidado;
 - persistência aditiva;
-- artifact e hash;
+- artefato e hash;
 - controles CLI.
 
-Nenhum teste deve consumir uma chave real ou fazer chamada de IA ao vivo.
+Nenhum teste deve consumir uma chave real nem fazer chamada de IA live.
 
 ## 13. Limitações atuais
 
-- adapter de Competitive AI ao vivo disponível inicialmente para OpenAI;
+- adapter live de Competitive AI disponível inicialmente para OpenAI;
 - não há comparação semântica histórica entre duas execuções nesta camada;
-- não há entity/business-equivalence graph;
-- não há browser-rendered competitive content;
-- `report/search-intelligence.html` projeta a evidência semântica persistida, mas não executa IA durante o rendering;
+- não há grafo de equivalência de entidade/empresa;
+- não há conteúdo competitivo renderizado por browser;
+- `report/search-intelligence.html` projeta a evidência semântica persistida, mas não executa IA durante a renderização;
 - `SEARCH-HISTORY-001` e seu relatório histórico comparam evidência determinística; não transformam recomendações de IA em score temporal;
 - a IA não recebe o corpo integral da página, apenas features determinísticas;
 - não existe garantia de ganho de ranking a partir das recomendações.
 
-A arquitetura de plataforma reutiliza os marcos de deploy e a resolução before/after existentes. Não existe um segundo sistema de marcos para Search Intelligence.
-
+A arquitetura de plataforma reutiliza os milestones de deploy e a resolução before/after existentes. Não existe um segundo sistema de milestones para Search Intelligence.

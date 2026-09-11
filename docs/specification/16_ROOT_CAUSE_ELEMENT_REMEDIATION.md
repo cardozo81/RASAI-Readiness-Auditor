@@ -1,4 +1,4 @@
-# Remediação por causa raiz e elemento - Root Cause + Element-Level Remediation
+# Remediação por causa raiz e elemento
 
 ## 1. Objetivo
 
@@ -6,9 +6,9 @@ Elevar findings acionáveis de orientação genérica por regra para diagnóstic
 
 Quando tecnicamente possível, cada problema, alerta ou melhoria deve indicar:
 
-- causa raiz evidence-backed;
+- causa raiz evidence-bound;
 - escopo afetado;
-- página e device;
+- página e dispositivo;
 - elemento(s) HTML relacionado(s);
 - selector observado quando determinável;
 - HTML observado quando persistido;
@@ -21,25 +21,25 @@ Quando tecnicamente possível, cada problema, alerta ou melhoria deve indicar:
 
 ## 2. Princípio de precisão
 
-Remediação por causa raiz e elemento não pode criar falsa precisão.
+A remediação por causa raiz e elemento não pode criar falsa precisão.
 
 Há três classes de localização:
 
-1. `EXACT_ELEMENT` - finding possui vínculo determinístico com um único `ElementObservation`;
-2. `ELEMENT_SET_OR_CONTEXT` - regra pertence a conjunto de nós ou região de conteúdo; vários elementos/um contêiner contextual podem ser mostrados sem afirmar que um único nó é a causa;
-3. `RESOURCE_OR_DOCUMENT` - causa pertence a HTTP, header, robots.txt, sitemap ou documento e não possui selector DOM aplicável.
+1. `EXACT_ELEMENT` - o finding possui vínculo determinístico com um único `ElementObservation`;
+2. `ELEMENT_SET_OR_CONTEXT` - a regra pertence a um conjunto de nós ou região de conteúdo; vários elementos ou um contêiner contextual podem ser mostrados sem afirmar que um único nó é a causa;
+3. `RESOURCE_OR_DOCUMENT` - a causa pertence a HTTP, header, `robots.txt`, sitemap ou documento e não possui selector DOM aplicável.
 
-Quando um selector não puder ser provado:
+Quando um selector não puder ser comprovado:
 
 ```text
 Selector: NÃO DETERMINADO
 ```
 
-A ausência de selector não impede a apresentação da causa raiz quando a causa está sustentada por outra evidência.
+A ausência de selector não impede a apresentação da causa raiz quando ela estiver sustentada por outra evidência.
 
 ## 3. RootCauseAnalysis
 
-A projeção/persistência Remediação por causa raiz e elemento deve representar pelo menos:
+A projeção/persistência deve representar, conforme o contrato vigente, pelo menos:
 
 - `analysis_id`;
 - `audit_id`;
@@ -61,7 +61,7 @@ A projeção/persistência Remediação por causa raiz e elemento deve represent
 - `diagnostic_confidence`;
 - timestamp de materialização.
 
-A confiança diagnóstica Remediação por causa raiz e elemento é uma classificação da precisão da localização/causa e **não participa do Score GEO**.
+A confiança diagnóstica desta camada classifica a precisão da localização/causa e **não participa do SARI-001 nem do SCORE-GEO-004**.
 
 ## 4. Elementos afetados
 
@@ -71,10 +71,10 @@ Um elemento afetado pode conter:
 - selector;
 - tag;
 - id/classes;
-- `outer_html` bounded;
-- text excerpt;
+- `outer_html` limitado;
+- trecho textual;
 - bounding box;
-- snapshot/device;
+- snapshot/dispositivo;
 - `relation`: `EXACT`, `SET_MEMBER` ou `CONTEXT_REGION`.
 
 ### Exemplo de elemento único
@@ -88,7 +88,7 @@ relation: EXACT
 
 ### Exemplo de propriedade do conjunto
 
-Hierarquia de headings deve listar os headings observados relevantes. O relatório não escolhe arbitrariamente um único `h2` como culpado.
+A hierarquia de headings deve listar os headings observados relevantes. O relatório não escolhe arbitrariamente um único `h2` como culpado.
 
 ### Exemplo de região contextual
 
@@ -109,7 +109,7 @@ RuleExecution.observed_value
 
 A IA não pode inventar selector, HTML observado ou causa técnica sem evidência persistida.
 
-Para regras semânticas avaliadas por provider, a causa pode reutilizar `reasoning_summary` e evidence IDs validados, mas deve permanecer distinguível de observação determinística.
+Para regras semânticas avaliadas por provider, a causa pode reutilizar `reasoning_summary` e `evidence_ids` validados, mas deve permanecer distinguível de observação determinística.
 
 ## 6. Mudança exata
 
@@ -123,26 +123,34 @@ A remediação deve distinguir:
 - exemplo seguro quando disponível;
 - decisão humana obrigatória.
 
-Remediação por causa raiz e elemento deve preferir alterar um elemento existente quando essa é a correção adequada e não sugerir criar duplicatas artificiais.
+A remediação deve preferir alterar um elemento existente quando essa for a correção adequada e não sugerir duplicatas artificiais.
 
-## 7. Relatórios
+## 7. Superfícies de relatório
 
-### `report.html`
+O contrato público atual é o mini-site estático em `report/`.
 
-Na seção de cada finding, Remediação por causa raiz e elemento acrescenta bloco **Diagnóstico de causa raiz** antes da recomendação, contendo os elementos e a mudança exata.
+### `report/index.html`
 
-### `remediation.html`
+É a visão executiva. Pode resumir contagens e principais oportunidades e encaminhar o usuário à remediação detalhada, mas não deve duplicar toda a evidência de causa raiz.
 
-Cada grupo por problema continua agregado, mas deve possuir detalhamento por ocorrência/página, permitindo identificar:
+### `report/remediation.html`
+
+É a superfície canônica de remediação. Cada grupo por problema continua agregado, mas deve possuir detalhamento por ocorrência/página, permitindo identificar:
 
 - quais ocorrências têm a mesma causa;
 - quais possuem elementos/selectors diferentes;
 - quais são apenas contextuais/documentais;
 - o que corrigir em cada ocorrência.
 
+### `report/mobile.html` e `report/desktop.html`
+
+Quando materializadas, as páginas por dispositivo podem expor findings e observações daquele contexto e encaminhar à remediação detalhada. Elas não substituem `report/remediation.html` como superfície central de ação.
+
+`report.html` na raiz do workspace não é contrato público vigente e não deve ser documentado como destino final.
+
 ## 8. Regras globais e não DOM
 
-HTTP, robots.txt, sitemap, headers e outros recursos globais devem ser diagnosticados sem selector artificial.
+HTTP, `robots.txt`, sitemap, headers e outros recursos globais devem ser diagnosticados sem selector artificial.
 
 Exemplo:
 
@@ -154,21 +162,21 @@ Recurso: /robots.txt
 
 ## 9. Invariantes
 
-Remediação por causa raiz e elemento não altera:
+A remediação por causa raiz e elemento não altera:
 
 - Business Rules;
-- resultados de RuleExecution;
+- resultados de `RuleExecution`;
 - severity;
 - actionability;
 - prioridade;
-- weights;
+- pesos;
 - Score;
 - Coverage;
 - Confidence de scoring;
 - Consolidation;
 - política de IA.
 
-Root cause e localização são projeções adicionais do estado evidence-backed.
+Causa raiz e localização são projeções adicionais do estado evidence-bound.
 
 ## 10. Aceite mínimo
 
@@ -180,5 +188,5 @@ Root cause e localização são projeções adicionais do estado evidence-backed
 6. causa raiz apresenta observado versus esperado;
 7. mudança exata deriva da recipe aplicável;
 8. critérios de aceite e revalidação permanecem visíveis;
-9. `report.html` e `remediation.html` exibem diagnóstico por ocorrência;
-10. suíte de regressão permanece verde.
+9. `report/remediation.html` apresenta diagnóstico por ocorrência e o restante do mini-site apenas projeta resumos/atalhos coerentes;
+10. a suíte de regressão aplicável permanece verde.

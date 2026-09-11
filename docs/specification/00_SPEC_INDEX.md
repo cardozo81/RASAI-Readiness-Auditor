@@ -1,15 +1,17 @@
-# RASAi - Search & AI Readiness Auditor - Specification Index
+# RASAi - Search & AI Readiness Auditor - Índice da especificação
 
-**Contrato vigente:** CURRENT  
+**Contrato vigente:** VIGENTE  
 **Scoring:** `SCORE-GEO-004`  
 **Índice público:** `SARI-001`  
-**Idioma normativo:** Português, preservando identificadores e termos técnicos quando necessário.
+**Idioma normativo:** português do Brasil, preservando identificadores e termos técnicos quando necessário.
 
 ## 1. Objetivo
 
 Este diretório constitui a fonte normativa do RASAi. A especificação deve permitir compreender o produto e seus contratos atuais sem depender de chats, branches, pull requests, planos de entrega ou estados anteriores de implementação.
 
 A documentação normativa descreve somente o comportamento vigente. Decisões descartadas e superfícies removidas não integram o contrato do produto.
+
+As regras gerais de idioma, direitos autorais/citações e apresentação de default/valores permitidos/recomendados estão definidas em `../README.md` e aplicam-se a todos os arquivos deste diretório.
 
 ## 2. Ordem recomendada de leitura
 
@@ -30,19 +32,21 @@ A documentação normativa descreve somente o comportamento vigente. Decisões d
 15. `15_ERROR_CENTRIC_REPORT_UX.md`
 16. `16_ROOT_CAUSE_ELEMENT_REMEDIATION.md`
 17. `17_REMEDIATION_PRECISION_REPORT_CONSISTENCY.md`
-18. `18_MULTI_AI_PROVIDER_ROUTING.md`
-19. `19_SCORE_APPLICABILITY_READINESS_MINIMUMS.md`
-20. `20_AI_CONTENT_REMEDIATION.md`
-21. `21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md`
-22. `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md`
-23. `23_SYNTHETIC_APDEX_LIGHTHOUSE_TRACEABILITY.md`
-24. `24_CRAWLING_DISCOVERY_AI_ACCESS.md`
-25. `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`
-26. `26_OBSERVED_GENERATIVE_VISIBILITY.md`
-27. `27_MONITORING_OBSERVABILITY.md`
-28. `28_AUDIT_QUALITY_VERIFICATION.md`
-29. `29_SAAS_PILOT_WEB.md`
-30. `30_IDENTITY_AND_ACCESS.md`
+18. `18_AI_RUNTIME_ORCHESTRATION.md`
+19. `18_MULTI_AI_PROVIDER_ROUTING.md`
+20. `19_SCORE_APPLICABILITY_READINESS_MINIMUMS.md`
+21. `20_AI_CONTENT_REMEDIATION.md`
+22. `21_EXTERNAL_WEB_PERFORMANCE_EVIDENCE.md`
+23. `22_DOMAIN_SEPARATED_WEB_QUALITY_DIAGNOSTICS.md`
+24. `23_SYNTHETIC_APDEX_LIGHTHOUSE_TRACEABILITY.md`
+25. `24_CRAWLING_DISCOVERY_AI_ACCESS.md`
+26. `25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`
+27. `26_OBSERVED_GENERATIVE_VISIBILITY.md`
+28. `27_MONITORING_OBSERVABILITY.md`
+29. `28_AUDIT_QUALITY_VERIFICATION.md`
+30. `29_SAAS_PILOT_WEB.md`
+31. `30_IDENTITY_AND_ACCESS.md`
+32. `../TIMEZONE_CONTRACT.md` para persistência, comparação, schedules e apresentação temporal.
 
 ## 3. Precedência documental
 
@@ -55,7 +59,7 @@ Em caso de conflito:
 5. arquitetura técnica atual;
 6. especificações funcionais complementares.
 
-Nenhuma decisão funcional deve ser alterada silenciosamente durante implementação.
+Quando qualquer documento divergir do comportamento comprovado pelo runtime vigente, a documentação deve ser corrigida para representar o código atual, salvo quando a divergência revelar defeito de implementação explicitamente tratado em outra demanda. Nesta revisão documental não se altera código para preservar texto antigo.
 
 ## 4. Contrato de scoring
 
@@ -68,6 +72,7 @@ Canonical HTML:      report/scoring.html
 
 Princípios:
 
+- o contrato vigente possui 11 dimensões, incluindo `CONTENT_VALUE`;
 - dimensões legitimamente `NOT_APPLICABLE` não recebem zero;
 - pesos de dimensão e de grupo são versionados pelo contrato e não configuráveis por auditoria;
 - o Overall pondera as dimensões aplicáveis e efetivamente medidas e renormaliza o denominador pelos pesos participantes;
@@ -120,7 +125,7 @@ Não existe filename público versionado alternativo para a metodologia. A vers�
 | Acessibilidade automatizada | diagnóstico | não certifica WCAG integral; separado do SARI |
 | Synthetic Navigation Apdex | navegação sintética | não é RUM; separado do SARI |
 | Synthetic User Experience Apdex | experiência sintética | não é RUM; separado do Navigation Apdex e SARI |
-| Crawling/discovery | robots, sitemaps, crawler policy | diagnóstico técnico non-scoring |
+| Crawling/discovery | robots, sitemaps, crawler policy | diagnóstico técnico non-scoring, salvo regras explicitamente versionadas de refinamento bounded |
 | Search Intelligence | SERP e comparação competitiva opcional | observacional/advisory; non-scoring |
 | Observed Generative Visibility | outcomes de AI Search | observacional; não entra no score |
 | Search & AI Observability | outcomes e diagnósticos externos | sidecar derivado; non-scoring |
@@ -138,7 +143,7 @@ Não existe filename público versionado alternativo para a metodologia. A vers�
 
 Datasets externos podem ser usados em pesquisa/benchmarking para avaliar associação entre readiness e outcomes. Isso é separado do runtime de scoring e qualquer mudança decorrente exige nova versão metodológica explícita.
 
-## 8. Monitoring, Observability & Quality
+## 8. Monitoring, Observability e Quality
 
 ### Monitoring
 
@@ -182,6 +187,8 @@ rasai quality timeline
 - content-use controls;
 - Fix Verification e Timeline read-only.
 
+Os nomes acima podem permanecer em inglês quando correspondem às capacidades/estados técnicos canônicos; a explicação funcional deve permanecer em pt-BR.
+
 ## 9. Product Platform, SaaS Pilot Web e Identity & Access
 
 O control plane local usa `audits/.rasai/platform.db` e permanece separado do `audit.db` imutável.
@@ -196,19 +203,39 @@ Identity & Access usa OIDC/JWT provider-neutral, Authorization Code + PKCE para 
 
 Detalhes: `../PRODUCT_PLATFORM_ARCHITECTURE.md`, `29_SAAS_PILOT_WEB.md`, `30_IDENTITY_AND_ACCESS.md`, `../SAAS_PILOT_WEB.md` e `../IDENTITY_AND_ACCESS.md`.
 
-## 10. Fontes externas e heurística
+## 10. Tempo e timezone
 
-O RASAi não representa seu score ou thresholds como standard GEO/AEO universal.
+Persistência e comparação temporal usam UTC como referência canônica. A apresentação converte para o timezone configurado, com `America/Sao_Paulo` como padrão público vigente quando aplicável. Schedules e datas de wall-clock devem respeitar o contrato específico documentado em `../TIMEZONE_CONTRACT.md`.
+
+Nenhum relatório deve reinterpretar timestamp persistido como timezone local sem conversão explícita.
+
+## 11. Fontes externas, direitos autorais e heurística
+
+O RASAi não representa seu score ou thresholds internos como standard GEO/AEO universal.
 
 Referências primárias externas sustentam fenômenos específicos. Elas não homologam automaticamente `SARI-001` ou `SCORE-GEO-004`.
 
 Heurísticas BR-GEO sem equivalente normativo permanecem identificadas como heurística interna.
 
-## 11. Regra de mudança
+Quando houver reprodução ou tradução/adaptação de trecho protegido por direitos autorais, a seção correspondente deve incluir a nota definida em `../README.md`, preservar o excerto original estritamente necessário e apresentar a tradução/adaptação pt-BR. Lista de links ou nomes técnicos, isoladamente, não equivale a reprodução da obra.
+
+## 12. Regra de valores configuráveis
+
+Variável, flag, threshold ou limite configurável deve publicar, quando aplicável:
+
+- default efetivo;
+- valores permitidos ou tipo/faixa aceita;
+- recomendado;
+- dependência/obrigatoriedade;
+- impacto operacional quando relevante.
+
+Valor metodológico fixo deve ser identificado como fixo/versionado e não como default customizável.
+
+## 13. Regra de mudança
 
 Mudanças que afetem escopo, Business Rules, scoring, priorização, interpretação do relatório, device context, IA, Web Performance, acessibilidade, Apdex, crawling/discovery, visibilidade observada, monitoring/observability/quality, Product Platform, Web/API/SaaS Pilot ou Identity & Access devem reconciliar código, testes, HTML e documentação normativa na mesma evolução.
 
-## 12. Critério de conclusão
+## 14. Critério de conclusão
 
 Uma alteração só está concluída quando:
 

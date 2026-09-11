@@ -1,48 +1,48 @@
 # Observed Generative Visibility
 
-**Estado no baseline de desenvolvimento:** INTEGRATED / VALIDATED  
-**Import contract:** `OGV-IMPORT-001`  
-**Scoring impact:** `NONE`
+**Estado no baseline de desenvolvimento:** integrada / validada  
+**Contrato de importação:** `OGV-IMPORT-001`  
+**Impacto no scoring:** `NONE`
 
-## 1. Objective
+## 1. Objetivo
 
-Observed Generative Visibility stores observed Search/AI outcomes under an explicitly identified source or controlled protocol.
+Observed Generative Visibility armazena outcomes observados de Search/IA sob uma fonte explicitamente identificada ou um protocolo controlado.
 
 ```text
-Measured readiness != Observed visibility
+readiness medido != visibilidade observada
 ```
 
-OGV import does not recalculate SARI or alter the source audit. Current production scoring is `SCORE-GEO-004`, and OGV data is not an input to its formula.
+A importação OGV não recalcula SARI nem altera a auditoria de origem. O scoring vigente é `SCORE-GEO-004`, e dados OGV não são entrada de sua fórmula.
 
-## 2. Sources
+## 2. Fontes
 
-Supported source shapes include normalized Bing AI Performance evidence and controlled query runs according to the import contract.
+Formatos de origem suportados incluem evidência normalizada de Bing AI Performance e execuções controladas de queries conforme o contrato de importação.
 
-Where a documented direct API is not implemented, RASAi remains import-first and preserves the source artifact/provenance.
+Quando uma API direta documentada não está implementada, o RASAi permanece *import-first* e preserva artefato/proveniência da fonte.
 
-Controlled runs can record engine, query, observed time, validity, citation presence and cited URLs. They are observational evidence only.
+Execuções controladas podem registrar engine, query, horário observado, validade, presença de citação e URLs citadas. São somente evidência observacional.
 
-## 3. Research boundary
+## 3. Limite de pesquisa
 
-Observed outcomes can support **separate offline validation research** that studies association between readiness and real outcomes.
+Outcomes observados podem sustentar **pesquisa de validação offline separada** que estude associação entre readiness e outcomes reais.
 
-Such research must not change persisted `SCORE-GEO-004` results. Any future production formula derived from empirical work requires a new explicit scoring version.
+Essa pesquisa não deve alterar resultados persistidos de `SCORE-GEO-004`. Qualquer fórmula futura de produção derivada de trabalho empírico exige nova versão explícita de scoring.
 
 ## 4. Citation Presence Rate
 
 ```text
-Citation Presence Rate = valid cited runs / valid runs
+Citation Presence Rate = execuções válidas com citação / execuções válidas
 ```
 
-Invalid runs stay outside numerator and denominator. Sample size and Wilson 95% interval can qualify the observed rate; neither is a universal forecast of future citation.
+Execuções inválidas ficam fora do numerador e do denominador. Tamanho amostral e intervalo de Wilson de 95% podem qualificar a taxa observada; nenhum deles é previsão universal de citações futuras.
 
-## 5. Scope, provenance and persistence
+## 5. Escopo, proveniência e persistência
 
-URLs subject to same-origin validation must belong to an audited `normalized_origin`.
+URLs sujeitas à validação de mesma origem devem pertencer a um `normalized_origin` auditado.
 
-Artifacts are preserved in the audit workspace under the internal artifact area for Observed Generative Visibility, with SHA-256 and declared capture/source metadata. The physical subdirectory name is an implementation detail and is not part of the public contract. Reimport is idempotent under the deterministic import identity.
+Artefatos são preservados no workspace da auditoria dentro da área interna de Observed Generative Visibility, com SHA-256 e metadados declarados de captura/origem. O nome físico do subdiretório é detalhe de implementação e não integra o contrato público. Reimportação é idempotente sob a identidade determinística de importação.
 
-Tables include:
+Tabelas incluem:
 
 ```text
 generative_visibility_imports
@@ -52,41 +52,41 @@ generative_visibility_trend
 generative_visibility_query_runs
 ```
 
-Import does not write to scores, score contributions, RuleExecutions, findings or recommendations.
+A importação não grava em scores, contribuições de score, RuleExecutions, findings ou recommendations.
 
-## 6. Report and CLI
+## 6. Relatório e CLI
 
 ```text
 report/ai-visibility.html
 ```
 
-The report separates source metrics, URL activity, grounding queries, trends, controlled runs, sample information and provenance. Different sources are not collapsed into a universal score.
+O relatório separa métricas de origem, atividade de URLs, grounding queries, tendências, execuções controladas, informações amostrais e proveniência. Fontes diferentes não são colapsadas em um score universal.
 
-Commands:
+Comandos:
 
 ```powershell
 rasai visibility import --audit-id AUD-... --audits-root audits --file observed-visibility.json
 rasai visibility report --audit-id AUD-... --audits-root audits
 ```
 
-Current scoring inspection is:
+A inspeção do scoring atual é:
 
 ```powershell
 rasai scoring inspect
 ```
 
-## 7. Interpretation limits
+## 7. Limites de interpretação
 
-OGV does not establish official GEO scoring, guaranteed citation, ranking authority, causality or universal transferability between engines. Source-reported metrics remain source-reported metrics.
+OGV não estabelece scoring GEO oficial, citação garantida, autoridade de ranking, causalidade ou transferibilidade universal entre engines. Métricas reportadas pela fonte permanecem métricas reportadas pela fonte.
 
-## 8. Acceptance criteria
+## 8. Critérios de aceitação
 
-- import validation and scope enforcement;
-- explicit capture provenance;
-- preserved SHA-256;
-- idempotent reimport;
-- source metrics not reinterpreted;
-- invalid runs excluded from Citation Presence Rate;
-- report with explicit sample/provenance;
-- no source-AUD scoring mutation;
-- offline research remains separate from runtime scoring.
+- validação da importação e aplicação de escopo;
+- proveniência explícita da captura;
+- SHA-256 preservado;
+- reimportação idempotente;
+- métricas da fonte não reinterpretadas;
+- execuções inválidas excluídas de Citation Presence Rate;
+- relatório com amostra/proveniência explícitas;
+- nenhuma mutação do scoring do `AUD-*` de origem;
+- pesquisa offline separada do scoring de runtime.

@@ -1,38 +1,38 @@
-# Aplicabilidade de Dimensões e Premissas Mínimas - SARI-001 / SCORE-GEO-004
+# Aplicabilidade de dimensões e premissas mínimas - SARI-001 / SCORE-GEO-004
 
-**Estado no baseline de desenvolvimento:** APPROVED / CURRENT  
-**Current scoring runtime:** `SCORE-GEO-004`  
-**Aggregation contract:** `HIERARCHICAL_WEIGHTED_READINESS_V1`
+**Estado no baseline de desenvolvimento:** aprovado / vigente  
+**Scoring vigente em runtime:** `SCORE-GEO-004`  
+**Contrato de agregação:** `HIERARCHICAL_WEIGHTED_READINESS_V1`
 
-## 1. Principle
+## 1. Princípio
 
-`NOT_APPLICABLE` is not failure, missing evidence or score zero.
+`NOT_APPLICABLE` não significa falha, evidência ausente nem score zero.
 
-A dimension is:
+Uma dimensão fica:
 
-- `APPLICABLE` when at least one applicable RuleExecution exists;
-- `NOT_APPLICABLE` when executions exist and the dimension's observed universe is legitimately outside applicability;
-- `NOT_CONSOLIDATED` when the dimension has no usable measurement, applicability is blocked or its Coverage/Confidence is insufficient;
-- `PARTIAL` when useful measurement exists but the dimension does not meet its complete consolidation gate.
+- `APPLICABLE` quando existe pelo menos uma `RuleExecution` aplicável;
+- `NOT_APPLICABLE` quando existem execuções e o universo observado da dimensão está legitimamente fora de aplicabilidade;
+- `NOT_CONSOLIDATED` quando a dimensão não possui medição utilizável, a aplicabilidade está bloqueada ou Coverage/Confidence é insuficiente;
+- `PARTIAL` quando existe medição útil, mas a dimensão não satisfaz o gate completo de consolidação.
 
-Complete absence of RuleExecutions for a dimension never becomes benign `NOT_APPLICABLE`.
+A ausência completa de `RuleExecutions` de uma dimensão nunca se torna um `NOT_APPLICABLE` benigno.
 
-The Overall may still have a numeric value when a **non-critical** applicable dimension is not sufficiently measured. In that case the missing dimension contributes zero Coverage, its numeric weight is not imputed as either 0 or 100, and the Overall can only be `CONSOLIDATED` if the remaining weighted Coverage/Confidence satisfy the published gate.
+Overall ainda pode possuir valor numérico quando uma dimensão aplicável **não crítica** não foi suficientemente medida. Nesse caso, a dimensão ausente contribui com Coverage zero, seu peso numérico não é imputado como score 0 nem 100 e Overall só pode ser `CONSOLIDATED` se Coverage/Confidence ponderadas remanescentes satisfizerem o gate publicado.
 
-## 2. Missing execution versus explicit unresolved execution
+## 2. Execução ausente versus execução explícita não resolvida
 
-The scoring pipeline must preserve the difference between:
+O pipeline de scoring deve preservar a diferença entre:
 
 ```text
-not applicable
-unresolved/unknown
-execution error
-no execution materialized
+não aplicável
+não resolvido/desconhecido
+erro de execução
+nenhuma execução materializada
 ```
 
-For an applicable rule/group, acquisition or prerequisite failure should materialize an explicit RuleExecution state such as `UNKNOWN`, `ERROR` or a prerequisite-blocked `NOT_APPLICABLE` as defined by that rule family. A required applicable group must not disappear silently merely to reduce the Coverage denominator.
+Para regra/grupo aplicável, falha de aquisição ou pré-requisito deve materializar estado explícito de `RuleExecution`, como `UNKNOWN`, `ERROR` ou `NOT_APPLICABLE` bloqueado por pré-requisito, conforme definido pela família da regra. Um grupo aplicável obrigatório não pode desaparecer silenciosamente apenas para reduzir o denominador de Coverage.
 
-At dimension level, complete absence of executions yields:
+Em nível de dimensão, ausência completa de execuções resulta em:
 
 ```text
 Value = null
@@ -42,87 +42,89 @@ Consolidation = NOT_CONSOLIDATED
 limitation = NO_RULE_EXECUTIONS
 ```
 
-This dimension remains in the Overall applicable universe unless applicability was positively established as `NOT_APPLICABLE`.
+Essa dimensão permanece no universo aplicável de Overall, salvo quando a não aplicabilidade tiver sido positivamente estabelecida como `NOT_APPLICABLE`.
 
-## 3. Blocked prerequisite
+## 3. Pré-requisito bloqueado
 
-`PREREQUISITE_BLOCKED` is not benign non-applicability.
+`PREREQUISITE_BLOCKED` não é não aplicabilidade benigna.
 
-Reason codes such as:
+Reason codes como:
 
 ```text
 SEMANTIC_PREREQUISITE_BLOCKED
 CONTENT_EXTRACTION_PREREQUISITE_BLOCKED
 ```
 
-keep the affected measurement unresolved. They cannot be promoted to `NOT_APPLICABLE` solely to elevate score, Coverage or Consolidation.
+mantêm a medição afetada sem resolução. Eles não podem ser promovidos a `NOT_APPLICABLE` apenas para elevar score, Coverage ou Consolidation.
 
-For critical dimensions, insufficient measurement also blocks Overall consolidation through the critical measurement gate.
+Para dimensões críticas, medição insuficiente também bloqueia consolidação de Overall por meio do critical measurement gate.
 
-## 4. Dimensions and Overall
+## 4. Dimensões e Overall
 
-For each audited device:
+Para cada dispositivo auditado:
 
-1. materialize the eleven SARI dimensions;
-2. separate legitimate `NOT_APPLICABLE` dimensions;
-3. preserve explicit unresolved/error states;
-4. calculate dimension Value, Coverage, Confidence and Consolidation independently;
-5. calculate the weighted Overall only over measured/applicable numeric dimension values;
-6. calculate Overall Coverage over the complete applicable weighted universe;
-7. apply Confidence and critical measurement gates;
-8. persist limitations, excluded dimensions and Critical Readiness Gate states.
+1. materializar as onze dimensões SARI;
+2. separar dimensões legitimamente `NOT_APPLICABLE`;
+3. preservar estados explícitos não resolvidos/de erro;
+4. calcular Value, Coverage, Confidence e Consolidation por dimensão de forma independente;
+5. calcular Overall ponderado apenas sobre valores numéricos de dimensões medidas/aplicáveis;
+6. calcular Overall Coverage sobre o universo ponderado aplicável completo;
+7. aplicar gates de Confidence e medição crítica;
+8. persistir limitações, dimensões excluídas e estados de Critical Readiness Gate.
 
-Overall contract:
+Contrato Overall:
 
 ```text
 HIERARCHICAL_WEIGHTED_READINESS_V1
 ```
 
-Dimension weights:
+Pesos das dimensões, confirmados pelo contrato vigente:
 
-| Dimension | Weight |
-|---|---:|
-| `DISCOVERY_ACCESS` | 15% |
-| `INDEXABILITY` | 15% |
-| `CONTENT_EXTRACTABILITY` | 15% |
-| `SEMANTIC_STRUCTURE` | 7% |
-| `ENTITY_CLARITY` | 8% |
-| `STRUCTURED_DATA` | 5% |
-| `ANSWERABILITY` | 7% |
-| `CITATION_READINESS` | 7% |
-| `EVIDENCE_TRUST` | 8% |
-| `INTENT_COVERAGE` | 5% |
-| `CONTENT_VALUE` | 8% |
+| Dimensão | Valor vigente | Valores permitidos | Recomendado |
+|---|---:|---|---|
+| `DISCOVERY_ACCESS` | 15% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `INDEXABILITY` | 15% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `CONTENT_EXTRACTABILITY` | 15% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `SEMANTIC_STRUCTURE` | 7% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `ENTITY_CLARITY` | 8% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `STRUCTURED_DATA` | 5% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `ANSWERABILITY` | 7% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `CITATION_READINESS` | 7% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `EVIDENCE_TRUST` | 8% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `INTENT_COVERAGE` | 5% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
+| `CONTENT_VALUE` | 8% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
 
-A legitimate `NOT_APPLICABLE` dimension leaves the denominator and receives neither 0 nor 100.
+Esses pesos não são variáveis de usuário. Alterá-los sem nova versão de contrato quebraria reprodutibilidade/comparabilidade.
 
-A non-critical applicable dimension without value does **not** receive a fabricated numeric score. It lowers Overall Coverage and Confidence according to its published weight. Overall consolidation is permitted only if the weighted measurement still satisfies the 80% Coverage gate and HIGH/MEDIUM Confidence.
+Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador e não recebe 0 nem 100.
 
-Critical dimensions are stricter: `DISCOVERY_ACCESS`, `INDEXABILITY` and `CONTENT_EXTRACTABILITY` cannot remain insufficiently measured in a consolidated Overall.
+Uma dimensão aplicável não crítica sem valor **não** recebe score numérico fabricado. Ela reduz Overall Coverage e Confidence conforme seu peso publicado. A consolidação de Overall só é permitida se a medição ponderada ainda satisfizer Coverage mínima de 80% e Confidence `HIGH`/`MEDIUM`.
 
-## 5. Score, Coverage and Consolidation are separate
+Dimensões críticas são mais rígidas: `DISCOVERY_ACCESS`, `INDEXABILITY` e `CONTENT_EXTRACTABILITY` não podem permanecer insuficientemente medidas em um Overall consolidado.
 
-The contract deliberately separates:
+## 5. Score, Coverage, Confidence e Consolidation são conceitos separados
+
+O contrato separa deliberadamente:
 
 ```text
-Score         quality of the evaluated universe
-Coverage      weighted completeness of the applicable measurement
-Confidence    strength of the measurement
-Consolidation sufficiency for analytical publication
-Critical Gate operational readiness state
+Score         qualidade do universo avaliado
+Coverage      completude ponderada da medição aplicável
+Confidence    força da medição
+Consolidation suficiência para publicação analítica
+Critical Gate estado operacional de readiness
 ```
 
-Therefore:
+Portanto:
 
-- `UNKNOWN`/`ERROR` do not become quality zero;
-- missing non-critical measurement does not become quality zero or 100;
-- a high numeric Score with incomplete measurement must expose reduced Coverage/Confidence;
-- a low numeric Score can be `CONSOLIDATED` when the poor quality was measured strongly;
-- a numerically high SARI may coexist with operational `BLOCKED` if a critical observed condition failed.
+- `UNKNOWN`/`ERROR` não viram qualidade zero;
+- medição não crítica ausente não vira qualidade zero nem 100;
+- Score numérico alto com medição incompleta deve expor Coverage/Confidence reduzidas;
+- Score numérico baixo pode ser `CONSOLIDATED` quando a baixa qualidade foi medida com força suficiente;
+- SARI numericamente alto pode coexistir com estado operacional `BLOCKED` quando uma condição crítica observada falhou.
 
-## 6. Critical measurement and readiness gates
+## 6. Gates de medição crítica e readiness
 
-Critical dimensions:
+Dimensões críticas:
 
 ```text
 DISCOVERY_ACCESS
@@ -130,15 +132,15 @@ INDEXABILITY
 CONTENT_EXTRACTABILITY
 ```
 
-A critical dimension that is applicable but lacks sufficient measurement blocks Overall `CONSOLIDATED` regardless of aggregate Coverage.
+Uma dimensão crítica aplicável sem medição suficiente bloqueia Overall `CONSOLIDATED`, independentemente da Coverage agregada.
 
-Separately, Critical Readiness Gates summarize observed operational conditions:
+Separadamente, Critical Readiness Gates resumem condições operacionais observadas:
 
 - Discovery Gate: `PAGE_ACCESS`, `ROBOTS`, `REDIRECT`;
 - Indexability Gate: `INDEX_DIRECTIVES`, `CANONICAL`, `SOFT_ERROR`;
 - Extraction Gate: `RENDER_ACCESS`, `JS_CONTENT`, `CONTENT_EXTRACTION`.
 
-Gate states:
+Estados permitidos do gate:
 
 ```text
 PASS
@@ -147,7 +149,7 @@ BLOCKED
 UNKNOWN
 ```
 
-Readiness status:
+Estados de readiness:
 
 ```text
 READY
@@ -156,112 +158,107 @@ BLOCKED
 UNKNOWN
 ```
 
-These states do not rewrite the numeric SARI.
+Esses estados não reescrevem o SARI numérico.
 
 ## 7. Structured Data / JSON-LD
 
-JSON-LD is optional/contextual in the general baseline. Absence alone is not a universal readiness failure.
+JSON-LD é opcional/contextual no baseline geral. Ausência isolada não é falha universal de readiness.
 
-If BR-GEO-034..037 are legitimately `NOT_APPLICABLE`:
+Se `BR-GEO-034..037` estiverem legitimamente `NOT_APPLICABLE`:
 
 - `STRUCTURED_DATA = NOT_APPLICABLE`;
-- absence alone creates no automatic penalty;
-- the dimension is not imputed as zero;
-- its 5% weight leaves the applicable Overall denominator.
+- a ausência isolada não cria penalidade automática;
+- a dimensão não é imputada como zero;
+- seu peso de 5% sai do denominador Overall aplicável.
 
-If JSON-LD is present, syntax, types/properties and factual coherence become evaluable.
+Se JSON-LD estiver presente, sintaxe, tipos/propriedades e coerência factual passam a ser avaliáveis.
 
-Structured Data can normalize observed facts but must not invent price, rating/review, authorship, dates, product/service facts, claims or entities.
+Structured Data pode normalizar fatos observados, mas não deve inventar preço, rating/review, autoria, datas, fatos de produto/serviço, claims ou entidades.
 
-The current parser is oriented to JSON-LD in `script[type="application/ld+json"]`; Microdata/RDFa must not be described as fully covered without equivalent implementation/tests.
+O parser vigente é orientado a JSON-LD em `script[type="application/ld+json"]`; Microdata/RDFa não deve ser descrito como totalmente coberto sem implementação/testes equivalentes.
 
 ## 8. Content Value
 
-`CONTENT_VALUE` is an 8% `RASAI_HEURISTIC` dimension.
+`CONTENT_VALUE` possui peso vigente de 8% e natureza `RASAI_HEURISTIC`.
 
-Its baseline rules measure only evidence that can be defended from preserved content:
+As regras baseline medem somente evidência defensável a partir do conteúdo preservado:
 
-- useful/specific non-trivial content;
-- explicit first-party differentiation/experience/analysis/data when evidenced;
-- proportional depth/context.
+- conteúdo útil/específico e não trivial;
+- diferenciação, experiência, análise ou dados first-party explícitos quando evidenciados;
+- profundidade/contexto proporcionais.
 
-Absence of proof of differentiation or originality remains `UNKNOWN`, not `FAIL`. That unresolved weight reduces Coverage instead of punishing quality without evidence.
+Ausência de prova de diferenciação ou originalidade permanece `UNKNOWN`, não `FAIL`. Esse peso não resolvido reduz Coverage em vez de penalizar qualidade sem evidência.
 
-## 9. Minimum/contextual premises
+## 9. Premissas mínimas/contextuais
 
-| Topic | Class | RASAi effect |
+| Tema | Classe | Efeito no RASAi |
 |---|---|---|
-| Technically retrievable URL | MINIMUM | Material failure compromises technical readiness. |
-| Analyzable document/content | MINIMUM | Dependent dimensions cannot consolidate without a usable basis. |
-| Essential content after rendering | MINIMUM when JS applies | Main information must remain retrievable. |
-| Identifiable main content | MINIMUM | Basis for semantic/answerability/content-value analysis. |
-| Important information in retrievable text | MINIMUM | Visual-only/hidden information limits extraction. |
-| Indexability coherent with public intent | CONTEXTUAL/MINIMUM for public Search | Intentional blocks can make a URL ineligible for public search. |
-| Identifiable topic/intent | SEMANTIC MINIMUM | Required to evaluate what the URL answers. |
-| Coherent claims/values | FACTUAL MINIMUM | Contradictions reduce evidence/citation readiness. |
-| JSON-LD | OPTIONAL / REINFORCEMENT | When present, it must be valid/coherent. |
-| Sitemap | OPTIONAL / DISCOVERY | Useful; absence alone is not FAIL. |
-| Canonical | CONTEXTUAL | Important for duplicates/preference; not universal blocker alone. |
-| robots.txt | OPTIONAL AS FILE | Absence does not mean blocked; present rules are interpreted. |
-| Author/publisher | CONTEXTUAL | Depends on page/claim type. |
-| Publication/update date | CONTEXTUAL | Relevant to temporal/editorial content. |
-| `llms.txt` | NOT REQUIRED | Not a universal Search & AI requirement. |
-| GPTBot allowed | NOT REQUIRED for Search readiness | GPTBot and Search crawlers have distinct purposes. |
-| special GEO/AEO markup | NOT REQUIRED | No universal official requirement is assumed. |
-| artificial AI chunking | NOT REQUIRED | Not introduced as an artificial scoring rule. |
+| URL tecnicamente recuperável | `MINIMUM` | Falha material compromete readiness técnica. |
+| Documento/conteúdo analisável | `MINIMUM` | Dimensões dependentes não podem consolidar sem base utilizável. |
+| Conteúdo essencial após renderização | `MINIMUM` quando JS se aplica | Informação principal deve continuar recuperável. |
+| Conteúdo principal identificável | `MINIMUM` | Base para análise semântica, answerability e content value. |
+| Informação importante em texto recuperável | `MINIMUM` | Informação exclusivamente visual/oculta limita extração. |
+| Indexabilidade coerente com intenção pública | `CONTEXTUAL/MINIMUM` para Search público | Bloqueios intencionais podem tornar uma URL inelegível à busca pública. |
+| Tema/intenção identificável | `SEMANTIC MINIMUM` | Necessário para avaliar o que a URL responde. |
+| Claims/valores coerentes | `FACTUAL MINIMUM` | Contradições reduzem readiness de evidência/citação. |
+| JSON-LD | `OPTIONAL / REINFORCEMENT` | Quando presente, deve ser válido/coerente. |
+| Sitemap | `OPTIONAL / DISCOVERY` | Útil; ausência isolada não é `FAIL`. |
+| Canonical | `CONTEXTUAL` | Importante para duplicação/preferência; não é bloqueador universal isolado. |
+| `robots.txt` | `OPTIONAL AS FILE` | Ausência não significa bloqueio; regras presentes são interpretadas. |
+| Autor/publicador | `CONTEXTUAL` | Depende do tipo de página/claim. |
+| Data de publicação/atualização | `CONTEXTUAL` | Relevante a conteúdo temporal/editorial. |
+| `llms.txt` | `NOT REQUIRED` | Não é requisito universal de Search & AI. |
+| GPTBot permitido | `NOT REQUIRED` para Search readiness | GPTBot e crawlers de Search têm finalidades distintas. |
+| markup especial GEO/AEO | `NOT REQUIRED` | Não se presume requisito oficial universal. |
+| chunking artificial para IA | `NOT REQUIRED` | Não é introduzido como regra artificial de scoring. |
 
 ## 10. Confidence
 
-Confidence represents strength of the auditor conclusion, not text quality.
+Confidence representa a força da conclusão do auditor, não qualidade textual.
 
-Dimension baseline:
+Limiares vigentes em nível de dimensão:
 
-```text
-HIGH        Coverage >= 90%, evidence complete, zero errors
-MEDIUM      Coverage >= 80%, zero errors
-LOW         measurable but below HIGH/MEDIUM requirements
-UNAVAILABLE no evaluated applicable weight
-```
+| Estado | Valor vigente/critério | Valores permitidos | Recomendado |
+|---|---|---|---|
+| `HIGH` | Coverage >= 90%, evidência completa e zero erros | fixo no contrato vigente | não customizar sem nova versão metodológica |
+| `MEDIUM` | Coverage >= 80% e zero erros | fixo no contrato vigente | não customizar sem nova versão metodológica |
+| `LOW` | mensurável, mas abaixo dos requisitos `HIGH`/`MEDIUM` | fixo no contrato vigente | interpretar como limitação de força, não como falha do conteúdo |
+| `UNAVAILABLE` | nenhum peso aplicável avaliado | fixo no contrato vigente | preservar ausência; não converter em zero |
 
-Overall Confidence combines weighted confidence with strict treatment of critical dimensions. A critical LOW/UNAVAILABLE dimension keeps Overall Confidence LOW.
+Overall Confidence combina confiança ponderada com tratamento estrito das dimensões críticas. Uma dimensão crítica `LOW`/`UNAVAILABLE` mantém Overall Confidence `LOW`.
 
-`LOW` alone does not authorize a content finding/recommendation. Action requires a specific RuleExecution/finding and evidence.
+`LOW` isolado não autoriza finding/recomendação de conteúdo. Uma ação exige `RuleExecution`/finding específico e evidência.
 
-## 11. Consolidation thresholds
+## 11. Limiares de Consolidation
 
-Dimension:
+Valores vigentes da dimensão:
 
-```text
-CONSOLIDATED     Coverage >= 80% and Confidence HIGH/MEDIUM
-PARTIAL          measurable with Coverage >= 50% below complete gate
-NOT_CONSOLIDATED Coverage < 50% or Confidence UNAVAILABLE
-NOT_APPLICABLE   legitimately outside applicable universe
-```
+| Estado | Critério vigente | Permitido/recomendado |
+|---|---|---|
+| `CONSOLIDATED` | Coverage >= 80% e Confidence `HIGH`/`MEDIUM` | contrato fixo; não customizar sem versionamento |
+| `PARTIAL` | mensurável, Coverage >= 50% e abaixo do gate completo | preservar o estado; não promover artificialmente |
+| `NOT_CONSOLIDATED` | Coverage < 50% ou Confidence `UNAVAILABLE` | preservar ausência/insuficiência |
+| `NOT_APPLICABLE` | legitimamente fora do universo aplicável | não imputar score |
 
-Overall:
+Overall `CONSOLIDATED` exige simultaneamente:
 
-```text
-CONSOLIDATED
-  numeric value exists
-  Overall Coverage >= 80%
-  Overall Confidence HIGH/MEDIUM
-  no applicable critical dimension lacks sufficient measurement
+- valor numérico existente;
+- Overall Coverage >= 80%;
+- Overall Confidence `HIGH`/`MEDIUM`;
+- nenhuma dimensão crítica aplicável sem medição suficiente.
 
-PARTIAL
-  numeric value exists
-  Coverage >= 50%
-  Confidence available
-  complete gate not satisfied
+Overall `PARTIAL` exige:
 
-NOT_CONSOLIDATED
-  no numeric measurement
-  critical measurement blocker
-  or measurement below minimum gate
-```
+- valor numérico existente;
+- Coverage >= 50%;
+- Confidence disponível;
+- gate completo não satisfeito.
 
-## 12. Reporting
+Overall `NOT_CONSOLIDATED` ocorre quando não há medição numérica, existe bloqueador crítico de medição ou a medição está abaixo do gate mínimo.
 
-`report/readiness.html` and `report/scoring.html` distinguish:
+## 12. Relatórios
+
+`report/readiness.html` e `report/scoring.html` distinguem:
 
 - Score;
 - Coverage;
@@ -269,39 +266,37 @@ NOT_CONSOLIDATED
 - Consolidation;
 - `NOT_APPLICABLE`;
 - `NOT_CONSOLIDATED`;
-- scoring/aggregation contract;
+- contrato de scoring/agregação;
 - Critical Readiness Gates;
-- limitations and excluded dimensions.
+- limitações e dimensões excluídas.
 
-A report must not present a numeric value computed from the measured universe as if Coverage were 100% when it is not.
+O relatório não pode apresentar valor numérico calculado sobre universo medido como se Coverage fosse 100% quando não é.
 
-## 13. Reproducibility and comparability
+## 13. Reprodutibilidade e comparabilidade
 
-BR-GEO-054 validates integrity/reproducibility for the persisted scoring contract. Current audits use `SCORE-GEO-004` with `HIERARCHICAL_WEIGHTED_READINESS_V1`.
+`BR-GEO-054` valida integridade/reprodutibilidade do contrato de scoring persistido. Auditorias atuais usam `SCORE-GEO-004` com `HIERARCHICAL_WEIGHTED_READINESS_V1`.
 
-Given the same RuleExecutions, contributions, evidence and versioned formula/gates, dimensions and Overall state must be reconstructible without reopening the website or calling AI.
+Dadas as mesmas `RuleExecutions`, contribuições, evidências e fórmula/gates versionados, dimensões e estado Overall devem ser reconstruíveis sem reabrir o website nem chamar IA.
 
-Historical 003 audits remain reproducible under their own persisted contract and must not be silently recalculated as 004.
+Auditorias históricas que persistam outro `scoring_version`/contrato de agregação devem permanecer reproduzíveis sob o próprio contrato e nunca ser recalculadas silenciosamente como `SCORE-GEO-004`. Quando o contrato persistido for incompatível com o vigente, a comparação deve expor `NOT_COMPARABLE`/limitação equivalente conforme a superfície consumidora.
 
-Because RASAi remains pre-production, development audits created under the previous experimental 004 aggregation are non-comparable with the weighted contract and should be regenerated when reused. The aggregation/version metadata must prevent silent comparison.
+## 14. Testes mínimos
 
-## 14. Minimum tests
+Validar que:
 
-Validate that:
-
-1. complete absence of a dimension's RuleExecutions produces `NOT_CONSOLIDATED`, never benign `NOT_APPLICABLE`;
-2. a missing non-critical dimension lowers weighted Overall Coverage and is explicitly limited rather than imputed as 0 or 100;
-3. a missing/insufficient critical dimension blocks Overall consolidation;
-4. legitimate `NOT_APPLICABLE` receives no artificial zero or maximum score;
-5. blocked prerequisites remain unresolved/blocking rather than benignly non-applicable;
-6. present Structured Data makes relevant rules applicable;
-7. `PASS`/`WARNING`/`FAIL` participate in the value per dimension/group contract;
-8. `UNKNOWN`/`ERROR` reduce Coverage/Confidence without becoming `FAIL`;
-9. page count does not multiply scoring-group importance;
-10. deterministic evidence takes precedence over AI corroboration in the same scope/group;
-11. absent legitimate Structured Data receives no artificial score;
-12. Overall limitations/excluded dimensions and Critical Gate states are persisted;
-13. BR-GEO-054 is reproducible for the persisted contract;
-14. reports do not equate Confidence LOW with poor content;
-15. internal heuristics are distinguished from external sources;
-16. incompatible scoring/aggregation contracts are not merged silently.
+1. ausência completa de `RuleExecutions` de uma dimensão produz `NOT_CONSOLIDATED`, nunca `NOT_APPLICABLE` benigno;
+2. dimensão não crítica ausente reduz Overall Coverage ponderada e é limitada explicitamente, em vez de ser imputada como 0 ou 100;
+3. dimensão crítica ausente/insuficiente bloqueia consolidação Overall;
+4. `NOT_APPLICABLE` legítimo não recebe score artificial zero nem máximo;
+5. pré-requisitos bloqueados permanecem não resolvidos/bloqueantes, e não benignamente não aplicáveis;
+6. Structured Data presente torna regras relevantes aplicáveis;
+7. `PASS`/`WARNING`/`FAIL` participam do valor conforme contrato de dimensão/grupo;
+8. `UNKNOWN`/`ERROR` reduzem Coverage/Confidence sem se tornarem `FAIL`;
+9. quantidade de páginas não multiplica importância do scoring group;
+10. evidência determinística prevalece sobre corroboração de IA no mesmo escopo/grupo;
+11. Structured Data legitimamente ausente não recebe score artificial;
+12. limitações/dimensões excluídas do Overall e estados de Critical Gate são persistidos;
+13. `BR-GEO-054` é reproduzível para o contrato persistido;
+14. relatórios não equivalem Confidence `LOW` a conteúdo ruim;
+15. heurísticas internas são distinguidas de fontes externas;
+16. contratos incompatíveis de scoring/agregação não são mesclados silenciosamente.

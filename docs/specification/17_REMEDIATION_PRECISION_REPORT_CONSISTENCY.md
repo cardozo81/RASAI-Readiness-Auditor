@@ -1,26 +1,26 @@
-# Precisão e consistência das recomendações - Remediation Precision + Report Consistency
+# Precisão e consistência das recomendações
 
 ## 1. Objetivo
 
-Corrigir inconsistências observadas em smoke real após Remediação por causa raiz e elemento sem alterar Business Rules, RuleResult, severity, actionability, prioridade, Score, Coverage, Confidence ou Consolidation.
+Garantir que a remediação seja tecnicamente precisa e semanticamente coerente sem alterar Business Rules, `RuleResult`, severity, actionability, prioridade, Score, Coverage, Confidence ou Consolidation.
 
-Precisão e consistência das recomendações torna a remediação mais precisa e reduz ambiguidade operacional entre:
+A camada deve reduzir ambiguidades entre:
 
 - causa genérica da regra e motivo técnico efetivamente persistido;
 - elemento observado e elemento/selector alvo da correção;
 - finding, problema comprovado, revisão recomendada e melhoria opcional;
 - tentativa de IA e análise externa efetivamente concluída;
-- RuleExecution e Finding correspondente.
+- `RuleExecution` e Finding correspondente.
 
 ## 2. Projeção aditiva de precisão
 
-Precisão e consistência das recomendações adiciona a tabela:
+A persistência aditiva usa:
 
 ```text
 root_cause_precision
 ```
 
-Ela é derivada de `root_cause_analyses` + Evidence + RemediationRecipe e contém, por `finding_id`:
+Ela é derivada de `root_cause_analyses`, Evidence e `RemediationRecipe` e contém, por `finding_id`, os dados necessários para a projeção vigente, incluindo:
 
 - `reason_code`;
 - `precise_cause_summary`;
@@ -31,7 +31,7 @@ Ela é derivada de `root_cause_analyses` + Evidence + RemediationRecipe e conté
 - `target_location`;
 - timestamp de materialização.
 
-A tabela Remediação por causa raiz e elemento não é reescrita destrutivamente.
+A tabela de causa raiz não deve ser reescrita destrutivamente para produzir essa projeção.
 
 ## 3. Reason code antes do resumo genérico
 
@@ -44,35 +44,29 @@ reason = CANONICAL_ABSENT
 observed.canonicals = []
 ```
 
-Deve produzir causa semelhante a:
+A apresentação deve indicar que nenhuma declaração canonical foi observada, em vez de reduzir o caso a texto ambíguo como “ausente, conflitante ou inválida” quando a evidência já distingue o motivo.
 
-```text
-Nenhuma declaração <link rel="canonical"> foi encontrada no documento avaliado.
-```
-
-Não deve ser reduzida a texto ambíguo como "ausente, conflitante ou inválida" quando a evidência já distingue o caso.
-
-Quando não existir mapeamento humano específico para o reason code, o código persistido deve permanecer visível junto ao resumo evidence-backed; não deve ser descartado.
+Quando não existir mapeamento humano específico para o reason code, o código persistido deve permanecer visível junto ao resumo evidence-bound; não deve ser descartado.
 
 ## 4. Elemento observado versus alvo técnico
 
-Precisão e consistência das recomendações separa obrigatoriamente:
-
 ### Elemento observado
 
-Estado permitido:
+Estados permitidos:
 
-- `PRESENT`;
-- `ABSENT`;
-- `CONTEXT_ONLY`;
-- `NOT_APPLICABLE`;
-- `NOT_DETERMINED`.
+```text
+PRESENT
+ABSENT
+CONTEXT_ONLY
+NOT_APPLICABLE
+NOT_DETERMINED
+```
 
 O selector observado somente pode vir de `ElementObservation` persistido.
 
 ### Alvo técnico da correção
 
-Pode ser derivado deterministicamente da RemediationRecipe/regra e deve ser identificado explicitamente como alvo, não como observação.
+Pode ser derivado deterministicamente de `RemediationRecipe`/regra e deve ser identificado explicitamente como alvo, não como observação.
 
 Exemplo para canonical ausente:
 
@@ -88,23 +82,19 @@ O auditor não deve alegar ter observado um nó inexistente.
 
 ## 5. Semântica de actionability
 
-O relatório deve preservar a distinção:
+A projeção deve preservar:
 
-- `REQUIRED_FIX` → AÇÃO NECESSÁRIA;
-- `REVIEW_RECOMMENDED` → REVISÃO RECOMENDADA;
-- `OPTIONAL_IMPROVEMENT` → MELHORIA OPCIONAL;
-- `INSUFFICIENT_EVIDENCE` → AÇÃO NO SITE NÃO DETERMINADA;
-- `NO_ACTION` → NENHUMA AÇÃO NECESSÁRIA.
+| Valor técnico | Rótulo pt-BR |
+|---|---|
+| `REQUIRED_FIX` | AÇÃO NECESSÁRIA |
+| `REVIEW_RECOMMENDED` | REVISÃO RECOMENDADA |
+| `OPTIONAL_IMPROVEMENT` | MELHORIA OPCIONAL |
+| `INSUFFICIENT_EVIDENCE` | AÇÃO NO SITE NÃO DETERMINADA |
+| `NO_ACTION` | NENHUMA AÇÃO NECESSÁRIA |
 
-O resumo não deve chamar todo Finding de "problema".
+O resumo não deve chamar todo Finding de “problema”.
 
-O plano priorizado deve combinar prioridade e actionability. Exemplo:
-
-```text
-REVISÃO RECOMENDADA · P1
-```
-
-`P1` ordena a revisão e não converte WARNING em FAIL nem revisão em ação obrigatória.
+Priority e actionability são conceitos separados. `P1` ordena uma revisão; não converte `WARNING` em `FAIL` nem uma revisão em ação obrigatória.
 
 ## 6. Uso de IA
 
@@ -112,25 +102,24 @@ O relatório deve distinguir:
 
 1. provider não utilizado;
 2. tentativa sem sucesso (`UNAVAILABLE`);
-3. resultados externos válidos persistidos (`OPENAI`);
-4. execução parcialmente disponível (`OPENAI` + `UNAVAILABLE`).
+3. resultado externo válido persistido;
+4. execução parcialmente disponível.
 
-A presença da capability configurada não autoriza afirmar que análises externas foram concluídas.
+A existência de capability configurada não autoriza afirmar que análises externas foram concluídas.
 
-## 7. Redução de duplicação
+## 7. Distribuição das informações no mini-site
 
-`report.html` deve manter:
+### `report/index.html`
 
-- resumo;
-- scores;
-- página/device;
-- finding;
-- evidência observada;
-- diagnóstico preciso de causa raiz;
-- alvo técnico;
-- link para remediação completa.
+Mantém visão executiva, scores e atalhos para as áreas especializadas. Não deve repetir recipes completas por ocorrência.
 
-`remediation.html` deve concentrar:
+### `report/mobile.html` / `report/desktop.html`
+
+Quando materializadas, mostram estado por dispositivo, páginas e findings daquele contexto e podem encaminhar à remediação detalhada.
+
+### `report/remediation.html`
+
+Concentra:
 
 - recipe comum do problema;
 - páginas afetadas;
@@ -143,40 +132,40 @@ A presença da capability configurada não autoriza afirmar que análises extern
 - aceite;
 - revalidação.
 
-O bloco legado "Correções técnicas detalhadas" em `report.html` passa a orientar o usuário para `remediation.html`, evitando repetir toda a recipe várias vezes.
+`report.html` na raiz do workspace **não é superfície pública vigente** e não deve ser usado como contrato final.
 
 ## 8. Integridade RuleExecution → Finding
 
-O relatório técnico deve verificar:
+A projeção técnica deve verificar:
 
-- toda RuleExecution `FAIL`/`WARNING` versus `findings.rule_execution_id`;
-- todo Finding versus RuleExecution correspondente.
+- toda `RuleExecution` `FAIL`/`WARNING` versus `findings.rule_execution_id` quando a política da regra exige Finding;
+- todo Finding versus `RuleExecution` correspondente.
 
-Divergências devem ser exibidas explicitamente com:
+Divergências devem expor:
 
 - tipo de inconsistência;
-- rule_id;
+- `rule_id`;
 - resultado;
 - device;
-- rule_execution_id.
+- `rule_execution_id`.
 
-Precisão e consistência das recomendações não cria Finding automaticamente para corrigir uma divergência, pois isso alteraria semântica de regra sem diagnóstico da origem.
+A camada não cria Finding automaticamente apenas para mascarar uma divergência de persistência/contrato.
 
 ## 9. Multi-URL
 
-O gate de regressão deve incluir ao menos duas páginas do mesmo origin com o mesmo rule_id e comprovar que:
+A regressão deve cobrir ao menos duas páginas do mesmo origin com o mesmo `rule_id` e comprovar que:
 
-- existe um único grupo transversal;
-- as duas páginas permanecem listadas;
+- existe um único grupo transversal quando a causa é compartilhada;
+- as páginas permanecem listadas individualmente;
 - cada ocorrência possui diagnóstico técnico próprio;
 - selectors/alvos de uma página não são atribuídos à outra.
 
 ## 10. Invariantes
 
-Precisão e consistência das recomendações não altera:
+A precisão de remediação não altera:
 
 - Business Rules;
-- RuleResult;
+- `RuleResult`;
 - severity;
 - actionability classifier;
 - prioridade/priority score;
@@ -190,14 +179,14 @@ Precisão e consistência das recomendações não altera:
 ## 11. Critérios de conclusão
 
 1. `CANONICAL_ABSENT` gera causa específica;
-2. elemento ausente não aparece como selector observado desconhecido quando o estado `ABSENT` é comprovável;
-3. selector observado e selector alvo são campos semanticamente separados;
+2. elemento ausente não recebe selector observado inventado;
+3. selector observado e selector alvo são semanticamente separados;
 4. `UNAVAILABLE` não é descrito como análise externa concluída;
-5. resumo separa findings de ações obrigatórias e revisões;
-6. P1 de REVIEW permanece visualmente revisão;
-7. `report.html` reduz repetição da recipe;
-8. `remediation.html` preserva detalhamento completo por ocorrência;
-9. inconsistência RuleExecution → Finding é explicitamente diagnosticada;
+5. resumo separa findings, ações obrigatórias e revisões;
+6. P1 de `REVIEW_RECOMMENDED` continua visualmente revisão;
+7. `report/index.html` não duplica recipe detalhada;
+8. `report/remediation.html` preserva detalhamento por ocorrência;
+9. inconsistência RuleExecution → Finding é diagnosticada explicitamente;
 10. teste multi-URL comprova agrupamento e diagnósticos independentes;
-11. suíte determinística permanece verde;
-12. diff final não contém workflow temporário nem secrets.
+11. suíte determinística aplicável permanece verde;
+12. documentação e artefatos não contêm secrets nem contratos históricos de workflow/branch.

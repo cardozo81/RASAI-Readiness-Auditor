@@ -1,129 +1,72 @@
 # REPORTING_LANGUAGE_GLOSSARY.md
 
-**Estado no baseline de desenvolvimento:** APPROVED - extended through Web Performance externo Web Performance Evidence
+**Estado no baseline de desenvolvimento:** aprovado / vigente, incluindo Web Performance, Accessibility, Apdex, Search Intelligence e demais páginas especializadas materializadas pelo contrato atual.
 
 ## 1. Regra editorial
 
-O relatório destinado ao usuário deverá ser prioritariamente em português.
+Relatórios e documentação destinados ao usuário devem ser prioritariamente em português do Brasil, com acentuação e cedilha quando aplicáveis.
 
 Inglês somente quando:
 
-- nome técnico é consagrado;
-- nome oficial não deve ser traduzido;
-- tradução poderia reduzir precisão;
-- valor deriva diretamente de protocolo/HTML/API.
+- o nome técnico é consagrado;
+- o nome oficial não deve ser traduzido;
+- a tradução reduziria precisão;
+- o valor deriva literalmente de protocolo, HTML, API, enum, comando, variável, campo persistido ou identificador técnico.
 
-O usuário deve descobrir o resultado executivo antes de metodologia detalhada.
+O usuário deve encontrar o resultado executivo antes da metodologia detalhada.
+
+Quando for necessário reproduzir trecho externo não pt-BR, usar o padrão:
+
+```text
+Disclaimer - texto original da fonte
+<trecho estritamente necessário e fiel ao original>
+
+Tradução/adaptação pt-BR
+<explicação contextual em português>
+```
+
+Links para fontes externas não exigem reprodução de seu conteúdo. Não copiar integralmente uma obra externa quando um trecho menor ou apenas a referência for suficiente.
 
 ## 2. Tradução da interface
 
-Overall Readiness
-→ Readiness Search & AI
-
-Technical Accessibility
-→ Acessibilidade Técnica
-
-Indexability
-→ Capacidade de Indexação
-
-Content Extractability
-→ Extração de Conteúdo
-
-Semantic Structure
-→ Estrutura Semântica
-
-Entity Clarity
-→ Clareza de Entidades
-
-Structured Data
-→ Dados Estruturados
-
-Answerability
-→ Capacidade de Resposta
-
-Citation Readiness
-→ Preparação para Citação
-
-Evidence & Trust
-→ Evidências e Confiabilidade
-
-Intent Coverage
-→ Cobertura de Intenções
-
-Finding
-→ Problema Identificado
-
-Recommendation
-→ Recomendação
-
-Remediation Recipe
-→ Receita de Remediação / Remediation Recipe
-
-Severity
-→ Severidade
-
-Impact
-→ Impacto
-
-Effort
-→ Esforço
-
-Confidence
-→ Confiabilidade
-
-Coverage
-→ Cobertura da Análise
-
-Consolidated
-→ Consolidado
-
-Partial
-→ Parcial
-
-Not Consolidated
-→ Não Consolidado
-
-Unknown
-→ Não Determinado
-
-Warning
-→ Alerta
-
-PASS
-→ Aprovado
-
-FAIL
-→ Problema identificado
-
-NOT_APPLICABLE
-→ Não aplicável
-
-ERROR
-→ Erro de execução da análise
-
-Core Web Vitals
-→ Core Web Vitals (métricas de experiência real; preservar nome oficial)
-
-Lighthouse Performance
-→ Lighthouse Performance (score de laboratório; não traduzir como Score GEO)
-
-CrUX / Chrome UX Report
-→ CrUX / Chrome UX Report (dados agregados de usuários reais)
-
-Field data
-→ Dados de campo / experiência real agregada
-
-Lab data
-→ Dados de laboratório
-
-LCP
-→ Largest Contentful Paint (LCP)
-
-INP
-→ Interaction to Next Paint (INP)
-
-CLS
-→ Cumulative Layout Shift (CLS)
+| Termo/valor técnico | Exibição recomendada em pt-BR |
+|---|---|
+| Overall Readiness | Readiness Search & AI |
+| Technical Accessibility | Acessibilidade Técnica quando o contexto exigir o termo histórico; para a dimensão atual usar o rótulo de `DISCOVERY_ACCESS` definido pelo relatório |
+| Indexability | Capacidade de Indexação |
+| Content Extractability | Extração de Conteúdo |
+| Semantic Structure | Estrutura Semântica |
+| Entity Clarity | Clareza de Entidades |
+| Structured Data | Dados Estruturados |
+| Answerability | Capacidade de Resposta |
+| Citation Readiness | Preparação para Citação |
+| Evidence & Trust | Evidências e Confiabilidade |
+| Intent Coverage | Cobertura de Intenções |
+| Finding | Problema Identificado |
+| Recommendation | Recomendação |
+| Remediation Recipe | Receita de Remediação / Remediation Recipe |
+| Severity | Severidade |
+| Impact | Impacto |
+| Effort | Esforço |
+| Confidence | Confiabilidade |
+| Coverage | Cobertura da Análise |
+| Consolidated | Consolidado |
+| Partial | Parcial |
+| Not Consolidated | Não Consolidado |
+| Unknown | Não Determinado |
+| Warning | Alerta |
+| `PASS` | Aprovado |
+| `FAIL` | Problema identificado |
+| `NOT_APPLICABLE` | Não aplicável |
+| `ERROR` | Erro de execução da análise |
+| Core Web Vitals | Core Web Vitals - métricas de experiência real; preservar nome oficial |
+| Lighthouse Performance | Lighthouse Performance - score de laboratório; não traduzir como Score GEO |
+| CrUX / Chrome UX Report | CrUX / Chrome UX Report - dados agregados de usuários reais |
+| Field data | Dados de campo / experiência real agregada |
+| Lab data | Dados de laboratório |
+| LCP | Largest Contentful Paint (LCP) |
+| INP | Interaction to Next Paint (INP) |
+| CLS | Cumulative Layout Shift (CLS) |
 
 ## 3. Estado geral quando Overall não é consolidável
 
@@ -138,17 +81,17 @@ Não usar somente `-` como estado principal.
 
 Não apresentar Coverage como substituto de Readiness Search & AI.
 
-`NÃO DETERMINADA` significa informação insuficiente para conclusão geral; não equivale a zero, FAIL ou resultado crítico.
+`NÃO DETERMINADA` significa informação insuficiente para conclusão geral; não equivale a zero, `FAIL` ou resultado crítico.
 
 ## 4. Semântica visual
 
 Cores de referência:
 
-- sucesso / aprovado / resultado forte: verde (`#16803C`);
+- sucesso/aprovado/resultado forte: verde (`#16803C`);
 - atenção: amarelo (`#D99A00`);
 - problema relevante: laranja (`#D65A00`);
-- erro / crítico: vermelho (`#C62828`);
-- não determinado / informação insuficiente: cinza (`#667085`);
+- erro/crítico: vermelho (`#C62828`);
+- não determinado/informação insuficiente: cinza (`#667085`);
 - informação metodológica: azul (`#2563EB`).
 
 Todo estado visual deve incluir texto. Cor isolada nunca é suficiente.
@@ -167,16 +110,16 @@ Estados textuais possíveis incluem:
 
 ## 5. Classificação textual de score válido
 
-| Faixa | Termo |
-|---:|---|
-| 90-100 | Excelente |
-| 75-89 | Alta |
-| 60-74 | Moderada |
-| 40-59 | Baixa |
-| 0-39 | Crítica |
-| sem resultado válido | Não Determinada |
+| Faixa | Termo | Natureza | Recomendado |
+|---:|---|---|---|
+| 90-100 | Excelente | classificação interna RASAi | usar somente em score RASAi válido/consolidável conforme a tela |
+| 75-89 | Alta | classificação interna RASAi | idem |
+| 60-74 | Moderada | classificação interna RASAi | idem |
+| 40-59 | Baixa | classificação interna RASAi | idem |
+| 0-39 | Crítica | classificação interna RASAi | idem |
+| sem resultado válido | Não Determinada | ausência/insuficiência | não substituir por zero |
 
-A tabela acima é classificação interna para scores RASAi válidos. Ela não deve ser reutilizada automaticamente para classificar `Lighthouse Performance`, cujo score pertence à metodologia externa do Lighthouse.
+Essas faixas são internas ao RASAi e não são parâmetros configuráveis da auditoria. Não devem ser reutilizadas automaticamente para classificar `Lighthouse Performance`, cujo score pertence à metodologia externa do Lighthouse.
 
 A cor do resultado geral deve respeitar também Consolidation. Um valor não consolidável não deve receber apresentação de resultado geral válido.
 
@@ -185,9 +128,9 @@ A cor do resultado geral deve respeitar também Consolidation. Um valor não con
 Exemplos:
 
 - HTTP;
-- robots.txt;
+- `robots.txt`;
 - canonical;
-- noindex;
+- `noindex`;
 - JSON-LD;
 - Googlebot;
 - OAI-SearchBot;
@@ -208,29 +151,25 @@ Exemplos:
 - TBT;
 - Speed Index.
 
-Primeira ocorrência pode usar:
+Na primeira ocorrência, quando útil à leitura humana, pode-se usar:
 
-Canonical (URL canônica)
-
-Soft 404 (página com semântica de erro sem status HTTP apropriado)
-
-Client-Side Rendering - CSR (renderização no navegador)
-
-CrUX (Chrome UX Report - dados agregados de usuários reais)
-
-Lighthouse Performance (score de laboratório do Lighthouse)
+- Canonical (URL canônica);
+- Soft 404 (página com semântica de erro sem status HTTP apropriado);
+- Client-Side Rendering - CSR (renderização no navegador);
+- CrUX (Chrome UX Report - dados agregados de usuários reais);
+- Lighthouse Performance (score de laboratório do Lighthouse).
 
 ## 7. Seção de interpretação
 
-Título deve incluir:
+O título deve incluir:
 
 `Como interpretar este relatório`
 
-Deve explicar separadamente:
+Explicar separadamente:
 
 ### Readiness Search & AI
 
-Quão preparado está o site segundo score consolidado RASAi.
+Quão preparado está o site segundo o score consolidado RASAi.
 
 ### Cobertura da Análise
 
@@ -240,7 +179,7 @@ Baixa Coverage não significa necessariamente baixa qualidade do site.
 
 ### Confiabilidade
 
-Grau de segurança da conclusão com base em evidence, método e limitações.
+Grau de segurança da conclusão com base em evidência, método e limitações.
 
 ### Consolidado
 
@@ -268,7 +207,7 @@ São contextos independentes e podem apresentar resultados diferentes.
 
 ### Web Performance externo
 
-`Core Web Vitals` e `Lighthouse` devem aparecer como evidência complementar, não como dimensões implícitas do Score GEO.
+`Core Web Vitals` e `Lighthouse` aparecem como evidência complementar, não como dimensões implícitas do Score GEO.
 
 - Lighthouse = laboratório;
 - CrUX/Core Web Vitals = dados de campo agregados quando disponíveis;
@@ -316,11 +255,11 @@ Quando não houver IA:
 
 Quando IA externa for usada, o relatório deve indicar que análises semânticas utilizaram provider externo, sem revelar credenciais.
 
-O relatório não deve sugerir que a IA “deu a nota GEO”; score oficial continua determinístico.
+O relatório não deve sugerir que a IA “deu a nota GEO”; o score oficial continua determinístico.
 
 Web Performance externo não é telemetria de IA. PageSpeed/CrUX devem aparecer como serviços externos de medição e nunca como provider semântico.
 
-## 10. Linguagem Web Performance externo obrigatória
+## 10. Linguagem obrigatória para Web Performance externo
 
 Preferir:
 
@@ -361,8 +300,8 @@ Nunca usar linguagem que prometa:
 Nunca recomendar ou afirmar sem base:
 
 - canonical preferencial;
-- remoção de noindex;
-- structured data incompatível;
+- remoção de `noindex`;
+- Structured Data incompatível;
 - autoria;
 - data de atualização;
 - fonte;
@@ -371,8 +310,7 @@ Nunca recomendar ou afirmar sem base:
 
 Nunca representar PageSpeed, Lighthouse ou CrUX como certificação GEO/AEO oficial.
 
-O produto mede readiness, oferece remediação evidence-backed e pode apresentar sinais Web Performance externos de forma separada.
-
+O produto mede readiness, oferece remediação vinculada a evidências e pode apresentar sinais externos de Web Performance de forma separada.
 
 ### Linguagem orientada ao analista
 

@@ -1,6 +1,6 @@
 # DECISIONS.md
 
-**Contrato vigente:** CURRENT
+**Contrato vigente:** VIGENTE
 
 Este documento registra somente decisões atualmente válidas para o produto. Decisões abandonadas, etapas de implementação concluídas e regras transitórias de branch/merge não integram a especificação normativa.
 
@@ -12,11 +12,13 @@ Desktop e Mobile são contextos independentes. Scores, Coverage, Confidence e Co
 
 O índice público é `SARI-001` e o método de scoring vigente é `SCORE-GEO-004`.
 
-O scoring é determinístico, evidence-bound e usa as dez dimensões definidas pelo contrato atual. IA não escolhe pesos nem calcula unilateralmente o score. Coverage e Confidence não substituem Score.
+O scoring é determinístico, evidence-bound e usa as **11 dimensões** definidas pelo contrato atual, incluindo `CONTENT_VALUE`. IA não escolhe pesos nem calcula unilateralmente o score. Coverage e Confidence não substituem Score.
 
 Dimensões integralmente e legitimamente `NOT_APPLICABLE` são excluídas do denominador aplicável e não recebem score artificial 0 ou 100. Ausência de evidência suficiente não é convertida em falha.
 
-JSON-LD permanece `OPCIONAL / REFORÇO`. A ausência de JSON-LD é materializada por `BR-GEO-034` como `WARNING` de baixo impacto para tornar a lacuna observável e comparável; `BR-GEO-035..037` permanecem `NOT_APPLICABLE` enquanto não houver JSON-LD. Essa materialização não transforma JSON-LD em requisito universal nem converte ausência em `FAIL`.
+JSON-LD permanece `OPCIONAL / REFORÇO`. O contrato distingue a **observação persistida pela regra** da **interpretação efetiva do scoring**: quando `BR-GEO-034` registra explicitamente que Structured Data está ausente, o `SCORE-GEO-004` aplica sua política versionada de aplicabilidade e trata essa execução como `NOT_APPLICABLE` para scoring, com `reason=STRUCTURED_DATA_ABSENT_NOT_UNIVERSAL_SARI_REQUIREMENT`, preservando o resultado-fonte no estado observado. `BR-GEO-035..037` também permanecem `NOT_APPLICABLE` quando não existe Structured Data a avaliar. Assim, ausência legítima de JSON-LD não reduz o SARI, não recebe score artificial e não é apresentada como requisito universal.
+
+Para rastreabilidade, a ausência de JSON-LD é materializada na observação persistida da regra quando efetivamente detectada; a camada de scoring então aplica a política de aplicabilidade descrita acima, sem transformar ausência legítima em penalidade.
 
 ## D-003 - Evidência de auditoria imutável
 
@@ -149,11 +151,11 @@ Quando uma decisão não puder ser determinada pelas evidências, o relatório d
 
 ## D-019 - Contrato público de relatório
 
-O report site é HTML estático, navegável, responsivo e reabrível a partir do workspace persistido.
+O mini-site de relatório é HTML estático, navegável, responsivo e reabrível a partir do workspace persistido.
 
 `report/readiness.html` é a superfície canônica do SARI. `report/scoring.html` é a superfície canônica da metodologia. A versão metodológica pertence a `scoring_version`, banco, manifests, metadados e conteúdo do relatório; não a um filename público alternativo.
 
-Páginas opcionais são materializadas quando o respectivo domínio possui estado a apresentar e devem compartilhar navegação e CSS do report site.
+Páginas opcionais são materializadas quando o respectivo domínio possui estado a apresentar e devem compartilhar navegação e CSS do mini-site.
 
 ## D-020 - Linguagem e semântica de apresentação
 
@@ -165,11 +167,11 @@ Estados de indisponibilidade, ausência de evidência, coleta não executada e `
 
 Secrets não devem ser incluídos em documentação de exemplo real, banco de evidência, artifacts, reports, schedules ou logs.
 
-Aquisição de URLs externas deve respeitar controles de escopo, redirects, DNS/IP, same-origin e SSRF definidos pela superfície correspondente. Hosted execution requer também controles de egress e secret management apropriados ao ambiente.
+Aquisição de URLs externas deve respeitar controles de escopo, redirects, DNS/IP, same-origin e SSRF definidos pela superfície correspondente. Execução hospedada requer também controles de egress e gestão de secrets apropriados ao ambiente.
 
 ## D-022 - Uso e consumo
 
-O usage ledger é separado de findings/scoring e registra consumo operacional necessário para analytics, limites, custo e futura medição SaaS, preservando provider/source provenance e sem transformar consumo em indicador de qualidade do website.
+O usage ledger é separado de findings/scoring e registra consumo operacional necessário para analytics, limites, custo e futura medição SaaS, preservando proveniência de provider/source e sem transformar consumo em indicador de qualidade do website.
 
 ## D-023 - Regra documental de pré-publicação
 

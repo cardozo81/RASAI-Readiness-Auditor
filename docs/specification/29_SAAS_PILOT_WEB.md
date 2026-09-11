@@ -1,6 +1,6 @@
 # 29 - SaaS Pilot Web
 
-**Estado:** vigente para a primeira superfície de navegador do RASAi.  
+**Estado:** VIGENTE para a superfície de navegador do RASAi.  
 **Natureza:** Product Platform / Web API; não altera scoring.
 
 ## 1. Objetivo
@@ -19,21 +19,21 @@ Disponibilizar uma interface Web utilizável sobre o control plane e a execution
 
 `WEB-PILOT-005` - o catálogo HTTP de auditorias não pode expor `workspace_path`.
 
-`WEB-PILOT-006` - quando reports forem servidos via HTTP, somente a árvore `AUD-*/report/**` do AUD autorizado pode ser disponibilizada. `audit.db`, secrets e artifacts fora da superfície pública não podem ser acessíveis pelo route boundary.
+`WEB-PILOT-006` - quando reports forem servidos via HTTP, somente a árvore `AUD-*/report/**` do AUD autorizado pode ser disponibilizada. `audit.db`, secrets e artifacts fora da superfície pública não podem ser acessíveis pelo limite de rota.
 
-`WEB-PILOT-007` - traversal, symlink escape e extensão fora do allowlist de apresentação Web devem falhar fechado.
+`WEB-PILOT-007` - path traversal, symlink escape e extensão fora do allowlist de apresentação Web devem falhar fechado.
 
-`WEB-PILOT-008` - o piloto não deve criar banco de senhas, token proprietário ou mecanismo de autenticação que seja apresentado como produção. O modo `trusted-header` continua exigindo gateway confiável quando houver exposição pública.
+`WEB-PILOT-008` - o piloto não deve criar banco de senhas, token proprietário ou mecanismo de autenticação apresentado como produção. O modo `trusted-header` exige gateway confiável quando houver exposição pública.
 
 `WEB-PILOT-009` - conveniência de identidade no browser somente pode ser documentada como desenvolvimento em loopback; não deve ser usada como defesa de ambiente hospedado.
 
-`WEB-PILOT-010` - a UI deve operar contra a mesma `store_factory` usada pela API e portanto deve preservar SQLite local/default e PostgreSQL opt-in.
+`WEB-PILOT-010` - a UI deve operar contra a mesma `store_factory` usada pela API e preservar SQLite local/default e PostgreSQL opt-in.
 
 `WEB-PILOT-011` - a instalação CLI local sem `.[web]` continua funcional. A UI não pode adicionar Node/npm/bundler como dependência obrigatória.
 
 `WEB-PILOT-012` - Search Intelligence, Usage, Milestones e Deployment Pair devem permanecer projeções dos contratos existentes, sem segunda persistência Web.
 
-`WEB-PILOT-013` - `/app`, `/app/operations`, a API de execution jobs, managed schedules e o worker devem derivar a configuração `AUDIT` do mesmo contrato canônico. A camada Web não pode manter um allowlist reduzido independente do runtime.
+`WEB-PILOT-013` - `/app`, `/app/operations`, a API de execution jobs, managed schedules e o worker devem derivar a configuração `AUDIT` do mesmo contrato canônico. A camada Web não pode manter allowlist reduzido e independente do runtime.
 
 `WEB-PILOT-014` - durable payloads devem ser validados antes da persistência. Opção desconhecida, combinação inválida ou segredo inline não pode ser aceita para falhar apenas no worker.
 
@@ -41,32 +41,32 @@ Disponibilizar uma interface Web utilizável sobre o control plane e a execution
 
 `WEB-PILOT-016` - configuração/credencial de provider externo que seja secret deve permanecer fora de `payload_json`. Em ambiente multi-tenant, eventual importação Dynatrace ou integração equivalente deve ser resolvida por referência tenant-scoped no worker autorizado.
 
-`WEB-PILOT-017` - mudanças em contratos de auditoria, worker, Web ou runtime compartilhado devem acionar regressão de paridade PostgreSQL e SaaS/runtime no CI.
+`WEB-PILOT-017` - mudanças nos contratos compartilhados de auditoria, worker, Web ou runtime devem acionar regressão de paridade PostgreSQL e SaaS/runtime no CI.
 
-## 3. Superfícies mínimas
+## 3. Superfícies vigentes
 
-A primeira versão deve permitir:
+A superfície Web deve permitir, conforme autorização e capacidade materializada:
 
 - selecionar Organization, Workspace, Project, Property e Environment;
 - visualizar auditorias do Project;
 - abrir reports materializados de um AUD autorizado;
-- criar `AUDIT` job com o payload canônico permitido pelo worker;
-- editar a configuração não secreta completa exposta por `GET /api/v1/audit-job-options`;
-- visualizar Query Registry e criar `SEARCH_MONITOR` job;
+- criar job `AUDIT` com o payload canônico permitido pelo worker;
+- editar configuração não secreta completa exposta por `GET /api/v1/audit-job-options`;
+- visualizar Query Registry e criar job `SEARCH_MONITOR`;
 - acompanhar/cancelar execution jobs conforme role;
-- visualizar milestones e resolver pair before/after;
+- visualizar milestones e resolver par before/after;
 - criar e administrar managed schedules;
 - visualizar usage/cost e Consumption Analytics da Organization autorizada com filtros tenant-aware.
 
 ## 4. Autorização
 
-A UI não é authority de tenancy.
+A UI não é autoridade de tenancy.
 
-Qualquer filtro visual é somente conveniência. A decisão de acesso ocorre novamente na API com `Principal` e memberships do control plane.
+Qualquer filtro visual é apenas conveniência. A decisão de acesso ocorre novamente na API com `Principal` e memberships do control plane.
 
-A enumeração de ID de outro tenant deve resultar em recusa, inclusive para milestones, usage, consumption, schedules e report assets.
+Enumeração de ID pertencente a outro tenant deve resultar em recusa, inclusive para milestones, usage, consumption, schedules e report assets.
 
-## 5. Report boundary
+## 5. Limite de acesso aos reports
 
 São permitidos somente arquivos resolvidos dentro de:
 
@@ -78,9 +78,9 @@ O servidor deve normalizar/resolver o path e confirmar que o resultado permanece
 
 A existência de um `audit_id` não autoriza acesso ao workspace bruto.
 
-## 6. Deployment comparison
+## 6. Comparação de deployment
 
-A UI pode solicitar `AUTO` ou `GOLDEN` para resolução do pair, reutilizando `resolve_deployment_pair`.
+A UI pode solicitar `AUTO` ou `GOLDEN` para resolução do par, reutilizando `resolve_deployment_pair`.
 
 A camada Web não deve inferir causalidade. Milestone estabelece cronologia; comparabilidade e limitações continuam vindo do contrato Product Platform/Monitoring.
 
@@ -105,12 +105,12 @@ A página do piloto deve:
 - não armazenar API keys/provider tokens;
 - tratar eventual `USR-*` local somente como identity hint de desenvolvimento.
 
-## 9. Fora de escopo
+## 9. Fora de escopo desta especificação
 
-Não fazem parte desta especificação:
+Esta especificação não define:
 
 - Identity Provider obrigatório/específico;
-- billing;
+- billing definitivo;
 - object storage definitivo;
 - Kubernetes;
 - queue externa obrigatória;
@@ -120,13 +120,15 @@ Não fazem parte desta especificação:
 - migração de `audit.db` para PostgreSQL;
 - design system ou framework de frontend definitivo.
 
+Identity & Access hospedada **não é um gap genérico do produto**: autenticação OIDC/JWT, sessão e vínculo de identidade são definidos separadamente em `30_IDENTITY_AND_ACCESS.md`. O item “Identity Provider obrigatório/específico” acima significa apenas que esta especificação não vincula o produto a um fornecedor de identidade concreto.
+
 ## 10. Evidência de validação
 
 O contrato deve possuir regressão automatizada para:
 
 - carregamento da shell sem dado de tenant embutido;
 - tenant isolation das projeções aditivas;
-- autorização do report boundary;
+- autorização do limite de reports;
 - bloqueio de tentativa de acesso fora de `report/`;
 - preservação da API/execution queue já existente;
 - igualdade dos defaults compartilhados entre CLI/runtime e SaaS;
@@ -134,4 +136,4 @@ O contrato deve possuir regressão automatizada para:
 - paridade de persistência e comportamento sobre PostgreSQL real;
 - regressão integral do produto via CI.
 
-Documentação operacional: `../SAAS_PILOT_WEB.md`, `../WEB_API_FOUNDATION.md` e `../WEB_API_CLI.md`.
+Documentação operacional: `../SAAS_PILOT_WEB.md`, `../WEB_API_FOUNDATION.md`, `../WEB_API_CLI.md` e `30_IDENTITY_AND_ACCESS.md`.

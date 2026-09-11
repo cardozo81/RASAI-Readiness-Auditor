@@ -1,89 +1,89 @@
-# Search Intelligence History
+# Histórico de Search Intelligence
 
-## Objective
+## Objetivo
 
-Search Intelligence History compares two persisted Search Intelligence observations over time while preserving the exact measurement context.
+Search Intelligence History compara duas observações persistidas de Search Intelligence ao longo do tempo, preservando exatamente o contexto de medição.
 
-Current methodology identifier:
+Identificador metodológico atual:
 
 ```text
 SEARCH-HISTORY-001
 ```
 
-The feature is observational. It does not claim that a deployment, content change or technical change caused a Search ranking movement.
+A capacidade é observacional. Ela não afirma que um deploy, uma alteração de conteúdo ou uma alteração técnica causou movimento de ranking em Search.
 
-## Comparison identity
+## Identidade de comparação
 
-A rank delta is computed only when baseline and current observations have the same:
+Um delta de posição só é calculado quando as observações baseline e atual possuem os mesmos valores de:
 
 - query;
-- Search engine;
-- country;
-- region;
-- language;
-- device;
-- requested result depth;
-- customer domain.
+- mecanismo de busca;
+- país;
+- região;
+- idioma;
+- dispositivo;
+- profundidade de resultados solicitada;
+- domínio do cliente.
 
-The comparison also requires compatible observation provenance:
+A comparação também exige proveniência compatível:
 
-- both observations must have status `OBSERVED`;
-- provider must remain the same;
-- data mode must remain the same.
+- ambas as observações devem estar com status `OBSERVED`;
+- o provider deve permanecer o mesmo;
+- o modo de dados deve permanecer o mesmo.
 
-If any of these conditions changes, the context is reported as non-comparable instead of producing a misleading position delta.
+Se qualquer uma dessas condições mudar, o contexto é reportado como não comparável, em vez de produzir um delta de posição potencialmente enganoso.
 
-## Position semantics
+## Semântica de posição
 
-When the customer domain is `FOUND` in both observations, RASAI can report:
+Quando o domínio do cliente está `FOUND` nas duas observações, o RASAi pode reportar:
 
 - `POSITION_IMPROVED`;
 - `POSITION_REGRESSED`;
 - `POSITION_UNCHANGED`.
 
-Lower numeric position is better within the same observed context.
+Dentro do mesmo contexto observado, uma posição numérica menor é melhor.
 
-Example:
+Exemplo:
 
 ```text
-before: 8
-after: 4
-delta: -4 positions
+antes: 8
+depois: 4
+delta: -4 posições
 status: POSITION_IMPROVED
 ```
 
-The delta is descriptive only. It is not a causal attribution.
+O delta é apenas descritivo. Ele não constitui atribuição causal.
 
-## Observed depth boundary
+## Limite da profundidade observada
 
-`NOT_FOUND_WITHIN_DEPTH` is not converted to an artificial numeric rank.
+`NOT_FOUND_WITHIN_DEPTH` não é convertido em uma posição numérica artificial.
 
-If a customer moves from `NOT_FOUND_WITHIN_DEPTH` to `FOUND`, the event is:
+Se o cliente passa de `NOT_FOUND_WITHIN_DEPTH` para `FOUND`, o evento é:
 
 ```text
 ENTERED_OBSERVED_DEPTH
 ```
 
-If a customer moves from `FOUND` to `NOT_FOUND_WITHIN_DEPTH`, the event is:
+Se passa de `FOUND` para `NOT_FOUND_WITHIN_DEPTH`, o evento é:
 
 ```text
 LEFT_OBSERVED_DEPTH
 ```
 
-These states mean only that the domain entered or left the requested observation window. They do not establish an absolute position outside that depth.
+Esses estados significam apenas que o domínio entrou ou saiu da janela de observação solicitada. Eles não estabelecem uma posição absoluta fora daquela profundidade.
 
-## Deterministic content history
+## Histórico determinístico de conteúdo
 
-When both baseline and current observations have deterministic competitive comparison status `CONSOLIDATED`, the history layer can also compare persisted customer-page evidence:
+Quando as observações baseline e atual possuem status determinístico de comparação competitiva `CONSOLIDATED`, a camada histórica também pode comparar evidências persistidas da página do cliente:
 
-- query coverage in visible body;
-- query coverage in title;
-- query coverage in headings;
-- approximate visible-text word count;
-- observed JSON-LD types;
-- deterministic competitive gap codes.
+- cobertura da query no corpo visível;
+- cobertura da query no título;
+- cobertura da query em headings;
+- contagem aproximada de palavras do texto visível;
+- tipos JSON-LD observados;
+- códigos determinísticos de gaps competitivos.
 
-Current event classes include:
+Classes de evento atuais incluem:
 
 - `CONTENT_SIGNAL_CHANGED`;
 - `CONTENT_VOLUME_CHANGED`;
@@ -91,34 +91,34 @@ Current event classes include:
 - `DETERMINISTIC_GAP_ADDED`;
 - `DETERMINISTIC_GAP_RESOLVED`.
 
-These events remain correlational evidence. Word count is not quality, markup difference is not an automatic recommendation, and a resolved content gap does not prove why Search position changed.
+Esses eventos permanecem evidência correlacional. Contagem de palavras não equivale a qualidade, diferença de markup não é recomendação automática e a resolução de um gap de conteúdo não prova por que a posição em Search mudou.
 
-## Deployment and milestone integration
+## Integração com deploy e milestone
 
-The history command can use the product platform milestone model that already selects baseline/current audits.
+O comando de histórico pode usar o modelo de milestone da Product Platform, que já seleciona as auditorias baseline e atual.
 
-This keeps one before/after contract for the product instead of introducing a parallel deployment-marker system.
+Isso mantém um único contrato before/after no produto, em vez de introduzir um sistema paralelo de marcadores de deploy.
 
-The timeline is interpreted as:
+A linha do tempo é interpretada assim:
 
 ```text
-baseline Search observation
+observação Search baseline
         |
         v
-milestone / deployment marker
+milestone / marcador de deploy
         |
         v
-current Search observation
+observação Search atual
         |
         v
-observed Search and content differences
+diferenças observadas de Search e conteúdo
 ```
 
-The marker establishes chronology, not causality.
+O marcador estabelece cronologia, não causalidade.
 
 ## CLI
 
-### Direct workspace comparison
+### Comparação direta entre workspaces
 
 ```powershell
 rasai search-history `
@@ -126,9 +126,9 @@ rasai search-history `
   --current-workspace audits/AUD-CURRENT
 ```
 
-Every successful comparison also materializes a standalone HTML report and manifest under `audits/search-history/SH-*/`. Use `--report-root PATH` to override that output root.
+Toda comparação bem-sucedida também materializa um relatório HTML independente e um manifest em `audits/search-history/SH-*/`. Use `--report-root PATH` para substituir essa raiz de saída.
 
-Optional JSON output:
+Saída JSON opcional:
 
 ```powershell
 rasai search-history `
@@ -137,7 +137,7 @@ rasai search-history `
   --json search-history.json
 ```
 
-### Milestone-based comparison
+### Comparação baseada em milestone
 
 ```powershell
 rasai search-history `
@@ -145,7 +145,7 @@ rasai search-history `
   --audits-root audits
 ```
 
-The command supports the same baseline-selection modes used by the product platform:
+O comando aceita os mesmos modos de seleção de baseline usados pela Product Platform:
 
 ```text
 AUTO
@@ -153,7 +153,7 @@ GOLDEN
 EXPLICIT
 ```
 
-For explicit selection:
+Para seleção explícita:
 
 ```powershell
 rasai search-history `
@@ -163,20 +163,20 @@ rasai search-history `
   --current-audit <audit-id>
 ```
 
-## Output contract
+## Contrato de saída
 
-The JSON/console output includes:
+A saída JSON/console inclui:
 
-- baseline audit ID;
-- current audit ID;
-- methodology identifier;
-- count of comparable contexts;
-- count of non-comparable contexts;
-- compatibility notes;
-- event list;
-- interpretation policy.
+- ID da auditoria baseline;
+- ID da auditoria atual;
+- identificador metodológico;
+- quantidade de contextos comparáveis;
+- quantidade de contextos não comparáveis;
+- observações de compatibilidade;
+- lista de eventos;
+- política de interpretação.
 
-Standalone output:
+Saída independente:
 
 ```text
 audits/search-history/SH-*/
@@ -184,65 +184,65 @@ audits/search-history/SH-*/
 └─ manifest.json
 ```
 
-The pair-level manifest records baseline/current audit IDs, methodology, milestone metadata when supplied, comparability, event counts, events, source policy, scoring boundary and causality policy.
+O manifest do par registra IDs das auditorias baseline/atual, metodologia, metadados de milestone quando fornecidos, comparabilidade, contagens de eventos, eventos, política de origem, limite de scoring e política de causalidade.
 
-Each event can contain:
+Cada evento pode conter:
 
-- exact context key;
+- chave exata de contexto;
 - query;
 - status;
-- label;
-- before value;
-- after value;
-- numeric delta when meaningful;
-- unit;
-- methodological note.
+- rótulo;
+- valor anterior;
+- valor posterior;
+- delta numérico, quando fizer sentido;
+- unidade;
+- observação metodológica.
 
-## Relationship with the HTML report
+## Relação com o relatório HTML
 
-`report/search-intelligence.html` is the canonical point-in-time audit-level Search Intelligence surface.
+`report/search-intelligence.html` é a superfície canônica de Search Intelligence da auditoria em um ponto no tempo.
 
-`SEARCH-HISTORY-001` is a separate temporal comparison contract. Keeping the contracts separate prevents the point-in-time HTML from silently implying that a later observation was caused by a deployment.
+`SEARCH-HISTORY-001` é um contrato separado de comparação temporal. Manter esses contratos separados evita que o HTML pontual sugira silenciosamente que uma observação posterior foi causada por um deploy.
 
-`audits/search-history/SH-*/report.html` renders this comparison contract, while `manifest.json` preserves machine-readable provenance and methodological boundaries. The standalone surface belongs to the pair, not to either source AUD.
+`audits/search-history/SH-*/report.html` renderiza esse contrato de comparação, enquanto `manifest.json` preserva proveniência e limites metodológicos legíveis por máquina. A superfície independente pertence ao par de auditorias, não a um dos `AUD-*` de origem.
 
-## Scoring boundary
+## Limite de scoring
 
-Search Intelligence History does not change:
+Search Intelligence History não altera:
 
 ```text
 SARI-001
 SCORE-GEO-004
 ```
 
-Position changes, entry/exit from observed depth, deterministic content changes and competitive gaps have no automatic readiness-score weight.
+Mudanças de posição, entrada/saída da profundidade observada, alterações determinísticas de conteúdo e gaps competitivos não recebem peso automático no score de readiness.
 
-Any future scoring use would require an explicit new methodology and validation contract.
+Qualquer uso futuro em scoring exige nova metodologia explícita e contrato de validação.
 
-## AI boundary
+## Limite de IA
 
-Competitive AI output is not currently converted into a semantic before/after score.
+A saída de Competitive AI não é atualmente convertida em score semântico before/after.
 
-The deterministic history layer can compare the evidence that exists before and after. Any future semantic historical analysis must remain evidence-bound and must not infer private Search-engine causality.
+A camada histórica determinística pode comparar as evidências existentes antes e depois. Qualquer análise semântica histórica futura deve permanecer vinculada a evidências e não pode inferir causalidade privada de mecanismos de busca.
 
-## Security and persistence
+## Segurança e persistência
 
-The history layer is read-only with respect to audit workspaces.
+A camada histórica opera somente leitura sobre os workspaces de auditoria.
 
-It reads persisted evidence from `audit.db` and does not:
+Ela lê evidências persistidas de `audit.db` e não:
 
-- call a Search provider;
-- call an AI provider;
-- crawl customer or competitor pages;
-- rewrite Search observations;
-- rewrite scoring tables.
+- chama um provider de Search;
+- chama um provider de IA;
+- faz crawl de páginas do cliente ou de concorrentes;
+- reescreve observações de Search;
+- reescreve tabelas de scoring.
 
-This makes historical comparison reproducible from already persisted evidence.
+Isso torna a comparação histórica reproduzível a partir de evidências já persistidas.
 
-## Limitations
+## Limitações
 
-- comparison currently uses the latest persisted observation for each exact context inside each audit workspace;
-- provider or data-mode changes invalidate numeric rank comparison for that context;
-- historical semantic comparison of Competitive AI recommendations is not yet a stable contract;
-- the historical HTML is deterministic and pair-level; it does not yet provide multi-run trend charts across three or more observations;
-- Search volatility and personalization remain external factors that must be considered when interpreting observed changes.
+- a comparação usa atualmente a observação persistida mais recente para cada contexto exato dentro de cada workspace;
+- mudança de provider ou de modo de dados invalida a comparação numérica de ranking naquele contexto;
+- comparação semântica histórica de recomendações de Competitive AI ainda não constitui contrato estável;
+- o HTML histórico é determinístico e pertence ao par; ainda não oferece gráficos de tendência multi-run com três ou mais observações;
+- volatilidade e personalização de Search continuam sendo fatores externos que devem ser considerados na interpretação das mudanças observadas.

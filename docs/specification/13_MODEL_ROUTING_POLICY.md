@@ -1,170 +1,128 @@
 # MODEL_ROUTING_POLICY.md
 
-**Estado no baseline de desenvolvimento:** BASELINE OPERACIONAL
-**Objetivo:** escolher IA/modelo de acordo com esforço, risco e necessidade de acesso ao repositório.
+**Estado:** BASELINE OPERACIONAL VIGENTE  
+**Escopo:** separar a IA usada para desenvolver o RASAi da IA consumida pelo runtime do produto.
 
-## 1. Separar dois usos de IA
+## 1. Dois usos distintos de IA
 
-### A. IA usada para desenvolver o RASAi Auditor
+### A. IA usada no desenvolvimento do RASAi
 
-É a IA/agente que:
+É a ferramenta/agente utilizada para ler especificações, criar ou revisar código, executar testes, diagnosticar problemas e avaliar arquitetura. A escolha depende do ambiente de desenvolvimento e não integra o contrato funcional do runtime.
 
-- lê especificações;
-- cria ou modifica código;
-- revisa arquitetura;
-- executa testes;
-- diagnostica problemas.
+Quando uma tarefa exigir criar ou editar arquivos em um repositório, a ferramenta utilizada precisa possuir acesso efetivo ao repositório/filesystem ou a um conector autorizado. Um chat sem esse acesso não deve afirmar que gravou arquivos localmente.
 
-### B. IA usada pelo RASAi Auditor em runtime
+### B. IA usada pelo RASAi em runtime
 
-É o SemanticAnalysisProvider utilizado para avaliar páginas.
+É o conjunto de adapters de IA registrado no `provider_registry` canônico e consumido pela análise semântica e pelas finalidades compatíveis que reutilizam o mesmo contrato de execução.
 
-As duas coisas não devem ser confundidas.
+Os dois usos não devem ser confundidos. O modelo que executa uma atividade de desenvolvimento não define o provider/modelo utilizado pela auditoria do produto.
 
-## 2. Roteamento por esforço - desenvolvimento
+## 2. Roteamento de esforço no desenvolvimento
 
-### Esforço baixo
+A política de desenvolvimento é capability-based:
 
-Exemplos:
+- tarefa mecânica ou textual → configuração rápida suficiente;
+- implementação ou diagnóstico não trivial → modelo de raciocínio adequado;
+- alteração transversal, scoring, persistência ou segurança → maior capacidade de raciocínio disponível;
+- alteração de arquivos → agente/ferramenta com acesso real ao repositório;
+- ausência de acesso de escrita → não declarar alteração como executada.
 
-- correção textual;
-- ajuste isolado;
-- formatação;
-- pequenas alterações de configuração;
-- tarefas mecânicas sem impacto arquitetural.
+Nomes comerciais de modelos de desenvolvimento podem mudar e não constituem requisito normativo do RASAi.
 
-Usar configuração rápida/default disponível.
+## 3. Runtime multi-provider vigente
 
-Não consumir raciocínio avançado sem necessidade.
+O runtime atual não está limitado a OpenAI. O registry canônico inclui:
 
-### Esforço médio
+| Seleção canônica | Provider | Aliases CLI relevantes | Participação possível em `AUTO` |
+|---|---|---|---|
+| `openai` | OpenAI | - | sim, se configurado e apto |
+| `deepseek` | DeepSeek | - | sim, se configurado e apto |
+| `mimo` | Xiaomi MiMo | - | sim, se configurado e apto |
+| `xai` | xAI / Grok | `grok` | sim, se configurado e apto |
+| `qwen` | Alibaba Qwen | - | sim, se configurado e apto |
+| `gemini` | Google Gemini | - | sim, se configurado e apto |
+| `anthropic` | Anthropic Claude | `claude` | sim, se configurado e apto |
+| `none` | nenhum provider externo | - | não se aplica |
+| `auto` | coordenador dinâmico | - | usa o pool elegível |
 
-Exemplos:
+A propriedade `auto_eligible` pertence ao registry; participação efetiva exige também credencial e configuração válidas e ausência de exclusão explícita pelo usuário.
 
-- implementação de módulo isolado;
-- revisão de código;
-- testes;
-- diagnóstico de bug não trivial;
-- decisões técnicas locais.
+## 4. Defaults públicos, valores permitidos e recomendação
 
-Modelo recomendado atualmente:
+Os defaults públicos efetivos são definidos por `provider_runtime_policy` e são distintos de modelos históricos de qualificação interna.
 
-`GPT-5.6 Sol`
+| Provider | Modelo default público | Modelos permitidos pelo registry | Recomendado para operação padrão |
+|---|---|---|---|
+| OpenAI | `gpt-5.6-luna` | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | default público, salvo necessidade técnica específica |
+| DeepSeek | `deepseek-v4-flash` | `deepseek-v4-pro`, `deepseek-v4-flash` | default público |
+| MiMo | `mimo-v2.5` | `mimo-v2.5-pro`, `mimo-v2.5` | default público |
+| xAI | `grok-4.6` | conforme registry vigente | default público |
+| Qwen | `qwen3.8-flash` | conforme registry vigente | default público |
+| Gemini | `gemini-3.8-flash` | conforme registry vigente | default público |
+| Anthropic | `claude-sonnet-5` | conforme registry vigente | default público |
 
-ou modelo equivalente de raciocínio disponível no ambiente.
+A referência operacional completa de modelos e variáveis é `../ENVIRONMENT_VARIABLES.md` e deve ser usada quando o conjunto permitido mudar.
 
-### Esforço alto / crítico
+Defaults de reasoning do runtime:
 
-Exemplos:
+| Provider | Default efetivo | Valores permitidos pelo runtime | Recomendado padrão |
+|---|---|---|---|
+| OpenAI | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `NONE` |
+| DeepSeek | `NONE` | `NONE`, `LOW`, `HIGH`, `MAX` | `NONE` |
+| MiMo | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH` | `NONE` |
+| xAI | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH` | `LOW` |
+| Qwen | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` |
+| Gemini | `LOW` | `LOW`, `MEDIUM`, `HIGH` | `LOW` |
+| Anthropic | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` |
 
-- bootstrap estrutural;
-- alteração transversal;
-- Rules Engine;
-- scoring;
-- fallback de IA;
-- arquitetura de persistência;
-- Desktop/Mobile;
-- debugging complexo;
-- revisão de consistência entre múltiplos documentos;
-- migração que possa alterar comportamento funcional.
+O default de timeout de IA é `180` segundos. Alterações desse valor devem respeitar a validação do runtime e a documentação canônica de ambiente.
 
-Utilizar:
+## 5. Seleção explícita e `AUTO`
 
-`GPT-5.6 Sol`
+Seleção explícita mantém o provider solicitado e suas regras específicas de retry. Não existe failover cruzado automático para outro fornecedor apenas porque um provider explícito falhou.
 
-com a maior capacidade de raciocínio disponível no ambiente, ou agente de código equivalente.
+`AI=auto`:
 
-Quando a tarefa exigir criar/editar arquivos no repositório local, utilizar obrigatoriamente uma ferramenta/agente com acesso real ao filesystem.
+1. consulta todos os providers registrados como `auto_eligible`;
+2. exclui providers sem credencial/configuração válida;
+3. aplica `RASAI_AI_AUTO_EXCLUDE` sem apagar credenciais ou impedir seleção explícita posterior;
+4. usa round-robin compartilhado entre necessidades de IA;
+5. tenta cada provider elegível no máximo uma vez por necessidade;
+6. aplica estado de saúde e circuit breaker durante a execução;
+7. encerra a necessidade no primeiro resultado válido.
 
-Um chat sem acesso ao filesystem não deve afirmar que gravou arquivos em:
+A exclusão de um provider do `AUTO` altera apenas participação no pool daquela política; não remove sua configuração.
 
-`C:\IA-PROJETOS\github\RASAI-Readiness-Auditor`
+## 6. Fallback e estado de falha
 
-## 3. Runtime do produto
+Ausência de provider configurado ou uso de `none` não transforma limitação do auditor em defeito do website.
 
-Arquitetura:
+Princípios:
 
-SemanticAnalysisProvider
-├── NONE
-├── OPENAI
-├── futuros providers
+- análise determinística continua quando aplicável;
+- regras semânticas sem evidência suficiente podem permanecer `UNKNOWN`;
+- falha de autenticação, quota, crédito, modelo, contrato, rede ou serviço é estado operacional do provider;
+- resultado válido deve satisfazer schema e fechamento de `evidence_ids`;
+- HTTP 200 ou JSON parseável, isoladamente, não prova resposta semântica válida.
 
-MVP:
+## 7. Saúde do provider durante a execução
 
-- `NONE` obrigatório;
-- `OPENAI` primeiro provider real.
+Falhas terminais podem retirar imediatamente o provider do pool da execução. Falhas temporárias alimentam a janela de saúde; o circuit breaker vigente abre quando três falhas aparecem entre as últimas cinco observações daquele provider.
 
-O modelo específico da API não deve ser hardcoded na especificação funcional.
+Esse estado é limitado à execução corrente e não altera configuração global.
 
-Ele deve ser configurável porque:
+## 8. Separação do domínio
 
-- modelos mudam;
-- disponibilidade muda;
-- política corporativa pode mudar;
-- provider corporativo pode ser diferente.
+Adicionar ou atualizar um adapter de provider não deve exigir redefinir Business Rules, Finding, Score, Report ou Domain Model. Todos os adapters convergem para o contrato semântico normalizado e permanecem sujeitos à validação local do RASAi.
 
-O modelo escolhido em runtime deve possuir capacidade suficiente para:
+IA não calcula `SARI-001` nem escolhe pesos do `SCORE-GEO-004`.
 
-- saída estruturada;
-- interpretação semântica;
-- evidence-grounded analysis;
-- baixa propensão a inventar referências.
+## 9. Segurança e telemetria
 
-## 4. Fallback
+Credenciais não são persistidas no `audit.db`, HTML ou logs. Telemetria deve ser sanitizada e pode registrar provider, modelo, finalidade, duração, status, usage e custo estimado quando houver base confiável.
 
-Provider não configurado:
+O custo persistido é estimativa operacional e não invoice do provider.
 
-NO_AI
+## 10. Regra documental
 
-Provider configurado mas indisponível:
-
-DEGRADED
-
-Provider operacional:
-
-FULL
-
-Em NO_AI ou DEGRADED:
-
-- deterministic analysis continua;
-- safe heuristics continuam;
-- semantic-only rules podem virar UNKNOWN;
-- website nunca recebe penalidade por ausência de capacidade da auditoria.
-
-## 5. Multi-provider
-
-Adicionar outro provider deve exigir apenas adapter/provider novo.
-
-Não deve exigir mudança em:
-
-- Business Rules;
-- Finding;
-- Score;
-- Report;
-- Domain Model.
-
-## 6. Política de revisão
-
-Para mudanças críticas:
-
-1. ler especificação pertinente;
-2. implementar;
-3. executar testes mínimos;
-4. revisar contra requisitos;
-5. quando a mudança fizer parte de um marco, cumprir todos os gates de branch, PR, merge, confirmação pós-merge e limpeza Git definidos na baseline;
-6. avançar ao marco seguinte automaticamente somente quando autorizado por D-034 e após o encerramento integral exigido por D-035.
-
-Blockers reais interrompem a cascata; problemas técnicos ordinários e solucionáveis devem ser corrigidos e revalidados sem solicitar nova aprovação humana.
-
-## 7. Nota sobre esta política
-
-A seleção exata de nomes comerciais/modelos pode mudar com disponibilidade do ambiente.
-
-A regra normativa é capability-based:
-
-- tarefa simples → modelo rápido;
-- tarefa não trivial → reasoning model;
-- tarefa crítica/transversal → reasoning model forte;
-- escrita no repositório → agente com filesystem;
-- runtime semântico → provider configurável;
-- ausência de provider → fallback obrigatório.
+Políticas de branch, PR, merge e marcos de implementação pertencem ao processo de desenvolvimento e ao histórico Git, não a este contrato de runtime. Esta especificação deve acompanhar o registry e a `provider_runtime_policy` vigentes em `main`.

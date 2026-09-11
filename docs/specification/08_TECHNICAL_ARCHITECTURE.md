@@ -1,71 +1,73 @@
 # TECHNICAL_ARCHITECTURE.md
 
-**Estado no baseline de desenvolvimento:** APPROVED / CURRENT  
+**Estado no baseline de desenvolvimento:** aprovado / vigente  
 **Readiness:** `SARI-001`  
-**Scoring runtime:** `SCORE-GEO-004`
+**Scoring em runtime:** `SCORE-GEO-004`
 
-## 1. Architectural style
+## 1. Estilo arquitetural
 
-RASAi is Windows-first for the current local runtime, modular and CLI/console driven. The primary audit does not require a web server, database server, Docker, external AI or external Search/Performance APIs.
+O RASAi mantém Windows como plataforma principal da operação local, com arquitetura modular e execução por CLI/console. A auditoria principal não exige servidor Web, servidor de banco externo, Docker, IA externa nem APIs externas de Search/Performance.
 
-The product also contains a separate local control plane for multi-user, multi-project, multi-property/multi-domain and deployment-oriented workflows. This prepares the domain model for SaaS without changing the immutable AUD evidence contract.
+O produto também possui control plane separado para operação multiusuário, multiprojeto e multipropriedade/multidomínio, além de fluxos orientados a deployment. SQLite é o backend local padrão; PostgreSQL 18 é um backend explícito já implementado para centralização do control plane. Essa arquitetura prepara e sustenta a evolução SaaS sem alterar o contrato de evidência imutável dos `AUD-*`.
+
+A camada Web/API e o SaaS Pilot Web existem sobre esse mesmo domínio de produto; não criam segunda interpretação de scoring nem de evidência.
 
 ## 2. Runtime
 
-Local baseline:
+Baseline local:
 
 - CPython 3.13.x;
 - Playwright + Chromium;
-- embedded SQLite;
-- local filesystem;
-- HTTP/HTTPS to audited targets;
-- optional HTTPS integrations only when explicitly enabled/configured.
+- SQLite embarcado;
+- filesystem local;
+- HTTP/HTTPS para alvos auditados;
+- integrações HTTPS opcionais somente quando explicitamente habilitadas/configuradas.
 
-Docker is not a local runtime requirement.
+Docker não é requisito do runtime local SQLite. É utilizado, quando desejado, como alvo de desenvolvimento/integração PostgreSQL 18.
 
-## 3. Primary audit pipeline
+## 3. Pipeline principal da auditoria
 
 ```text
-CLI / interactive console
-→ configuration + device context
-→ discovery/acquisition
-→ rendering
-→ extraction/evidence
-→ deterministic rules
-→ optional semantic provider
-→ device comparison when applicable
+CLI / console interativo
+→ configuração + contexto de dispositivo
+→ descoberta/aquisição
+→ renderização
+→ extração/evidência
+→ regras determinísticas
+→ provider semântico opcional
+→ comparação de dispositivos quando aplicável
 → findings
-→ dimension scoring
-→ SCORE-GEO-004 Overall
-→ prioritization/remediation
-→ static report site
-→ optional enrichments
+→ scoring por dimensão
+→ Overall SCORE-GEO-004
+→ priorização/remediação
+→ site estático de relatório
+→ enriquecimentos opcionais
 ```
 
-The authoritative audit evidence remains `AUD-*/audit.db` + artifacts.
+A evidência autoritativa da auditoria permanece `AUD-*/audit.db` + artefatos.
 
 ## 4. Scoring
 
-Current method:
+Método atual:
 
 ```text
 SCORE-GEO-004
 HIERARCHICAL_WEIGHTED_READINESS_V1
 ```
 
-Dimension calculations remain deterministic and evidence-bound. The Overall is the weighted mean of measured applicable dimension scores using versioned dimension weights, with denominator renormalization over participating dimensions. Applicable dimensions without value are not imputed as zero; they reduce Coverage/Confidence and may constrain Consolidation. Critical readiness dimensions retain the stricter gates defined in `05_SCORING_MODEL.md`.
+Os cálculos por dimensão permanecem determinísticos e vinculados a evidências. Overall é a média ponderada dos scores medidos das dimensões aplicáveis, usando pesos versionados e renormalização do denominador sobre as dimensões participantes. Dimensões aplicáveis sem valor não são imputadas como zero; reduzem Coverage/Confidence e podem restringir Consolidation. Dimensões críticas de readiness preservam os gates mais rígidos definidos em `05_SCORING_MODEL.md`.
 
-No downstream enrichment may silently create ScoreContribution or enter SARI/SCORE-GEO-004.
+Nenhum enriquecimento downstream pode criar silenciosamente ScoreContribution nem entrar em SARI/SCORE-GEO-004.
 
-## 5. Device context
+## 5. Contexto de dispositivo
 
-Public device scope is `mobile`, `desktop` or `both`. Only selected/materialized contexts may trigger downstream analysis or optional calls. Desktop × Mobile comparison is applicable only when both contexts exist.
+O escopo público de dispositivo é `mobile`, `desktop` ou `both`. Somente contextos selecionados/materializados podem disparar análise downstream ou chamadas opcionais. Comparação Desktop × Mobile só é aplicável quando ambos existem.
 
-Synthetic User Experience Apdex may model TABLET as a synthetic profile, but TABLET is not a canonical core `DeviceContext`; a mobile-only audit cannot silently execute desktop or tablet contexts.
+Synthetic User Experience Apdex pode modelar `TABLET` como perfil sintético, mas `TABLET` não é um `DeviceContext` canônico do core; uma auditoria apenas mobile não pode executar silenciosamente contextos desktop ou tablet do pipeline principal.
 
-## 6. Persistence boundaries
+## 6. Limites de persistência
 
-### Immutable audit evidence
+### Evidência imutável da auditoria
 
 ```text
 AUD-*/audit.db
@@ -73,68 +75,79 @@ AUD-*/artifacts/
 AUD-*/report/
 ```
 
-### Observability sidecar
+### Sidecar de Observability
 
 ```text
 AUD-*/observability.db
 AUD-*/artifacts/observability/
 ```
 
-This stores post-audit external observations without migrating or rewriting `audit.db`.
+Armazena observações externas pós-auditoria sem migrar nem reescrever `audit.db`.
 
-### Consolidated analytical cache
+### Cache analítico consolidado
 
 ```text
 audits/.rasai/consolidated-index.db
 ```
 
-Derived and rebuildable; source AUD databases are read-only.
+É derivado e reconstruível; bancos `AUD-*` de origem são lidos somente leitura pelos fluxos derivados.
 
-### Product control plane
+### Control plane do produto
+
+Backend local padrão:
 
 ```text
 audits/.rasai/platform.db
 ```
 
-Separate authority for organization/workspace/project/property/environment, users/memberships, milestones/deployments, baselines, schedules, integrations and usage metadata. It does not replace `audit.db` evidence.
+Backend centralizado explícito:
 
-## 7. Optional AI
+```text
+PostgreSQL 18 via RASAI_PLATFORM_DB_BACKEND=postgresql
+                + RASAI_PLATFORM_DATABASE_URL
+```
 
-`SemanticAnalysisProvider` is vendor-abstracted and `NONE` is valid.
+É a autoridade separada para organization/workspace/project/property/environment, users/memberships, milestones/deployments, baselines, schedules, integrações, uso, Search Monitoring, execution jobs e vínculos de identidade. Não substitui evidência de `audit.db`.
 
-Invariants:
+## 7. IA opcional
 
-- provider failure is not a website finding;
-- accepted result terminates the chain for that context;
-- unavailable providers do not overwrite valid evidence;
-- provider/model/usage/cost is operational telemetry, not scoring;
-- secrets and private reasoning are not persisted;
-- AI remediation is advisory and evidence-bound;
-- `AI=AUTO` separates capacidade configurada de participação no pool: excluir um provider do AUTO não remove sua credencial nem impede seleção explícita posterior.
+`SemanticAnalysisProvider` é abstraído de fornecedor e `NONE` é um estado válido conforme o contrato correspondente.
 
-## 8. External domains
+Invariantes:
 
-The following remain independent of SARI unless a future explicit versioned method changes the contract:
+- falha de provider não é finding do website;
+- resultado aceito encerra a cadeia daquele contexto;
+- providers indisponíveis não sobrescrevem evidência válida;
+- provider/modelo/uso/custo são telemetria operacional, não scoring;
+- segredos e raciocínio privado não são persistidos;
+- remediação por IA é consultiva e vinculada a evidências;
+- `AI=AUTO` separa capacidade configurada de participação no pool: excluir um provider do AUTO não remove sua credencial nem impede seleção explícita posterior.
 
-- PageSpeed/Lighthouse lab metrics, including experimental Agentic Browsing when requested/supported;
-- CrUX field metrics;
-- Accessibility automation;
+Defaults e valores permitidos de providers/modelos/reasoning são definidos em `../ENVIRONMENT_VARIABLES.md` e no contrato de runtime correspondente.
+
+## 8. Domínios externos/adjacentes
+
+Os itens abaixo permanecem independentes de SARI, salvo futura metodologia explícita e versionada que altere o contrato:
+
+- métricas lab de PageSpeed/Lighthouse, incluindo Agentic Browsing experimental quando solicitado/suportado;
+- métricas de campo CrUX;
+- automação de Accessibility;
 - Synthetic Navigation Apdex;
 - Synthetic User Experience Apdex;
-- crawling/discovery enrichments;
+- enriquecimentos de crawling/discovery;
 - Search Intelligence / Competitive Search;
 - Observed Generative Visibility;
 - Search & AI Observability;
 - Monitoring/Change Impact;
 - Quality/Verification.
 
-Unavailable optional integrations produce limitations/operational state, not artificial website failures.
+Integrações opcionais indisponíveis produzem limitações/estado operacional, não falhas artificiais do website.
 
-## 9. Reporting architecture
+## 9. Arquitetura de relatórios
 
-The per-AUD result is a static HTML site. Opening it never triggers crawling, AI or API collection.
+O resultado por `AUD-*` é um site HTML estático. Abri-lo nunca dispara crawling, IA nem coleta de API.
 
-Canonical method routes:
+Rotas canônicas de método:
 
 ```text
 index.html
@@ -142,30 +155,47 @@ readiness.html
 scoring.html
 ```
 
-The method version is stored in `scoring_version` and rendered in the page, not encoded into the canonical filename.
+A versão do método é armazenada em `scoring_version` e renderizada na página, não codificada no filename canônico.
 
-Report totals for AI consumption are derived from persisted attempt telemetry, not from scraping presentation labels. Calls whose provider did not return usage remain without invented monetary cost.
+Totais de consumo de IA do relatório derivam da telemetria persistida de tentativas, não de scraping de labels de apresentação. Chamadas cujo provider não retornou uso permanecem sem custo monetário inventado.
 
 ## 10. Monitoring / Observability / Quality
 
-Monitoring opens persisted AUDs read-only and respects device, URL universe and `scoring_version` comparability.
+Monitoring abre `AUD-*` persistidos somente leitura e respeita comparabilidade de dispositivo, universo de URLs e `scoring_version`.
 
-Observability uses a derived sidecar and explicit provenance. Quality/Verification uses read-only evidence to support decisions without creating another readiness score.
+Observability usa sidecar derivado e proveniência explícita. Quality/Verification usa evidência somente leitura para apoiar decisões sem criar outro score de readiness.
 
-Temporal association is not causal inference.
+Associação temporal não é inferência causal.
 
-## 11. Product Platform and SaaS target
+## 11. Product Platform e alvo SaaS
 
-Current local control-plane storage is SQLite. SaaS target architecture uses a managed PostgreSQL control plane, a scheduler/queue, Linux/container audit workers and object storage for immutable AUD bundles.
+A Product Platform suporta duas autoridades de control plane:
 
-Windows local support remains a first-class execution mode. The migration boundary is the product/control plane, not a rewrite of historical `audit.db` evidence.
+| Backend | Default/ativação | Uso recomendado |
+|---|---|---|
+| SQLite | default local | máquina única, operação offline/local, piloto portátil |
+| PostgreSQL 18 | opt-in explícito | control plane centralizado/hospedado e validação de paridade |
 
-## 12. Security and failure isolation
+A arquitetura SaaS alvo complementa PostgreSQL com scheduler/fila durável, workers Linux/container, object storage, secret management e autenticação/tenant context hospedados.
 
-- enforce scope/same-origin rules where applicable;
-- no implicit cross-origin expansion;
-- no secrets in reports/artifacts/databases intended for evidence;
-- external responses are untrusted input;
-- derived workflows do not mutate source AUDs;
-- optional failures are isolated from the successful primary audit;
-- historical `scoring_version` is preserved rather than normalized silently.
+Windows local permanece modo de execução de primeira classe. O limite de migração é produto/control plane, não reescrita da evidência histórica `audit.db`.
+
+## 12. Web/API e execution plane
+
+A Web API é uma superfície tenant-aware sobre os contratos do control plane. Requests de execução criam jobs duráveis; crawling/auditoria e Search Monitoring são executados por workers desacoplados quando usados por essa superfície.
+
+O SaaS Pilot Web consome a mesma API/store e não cria regras de negócio paralelas no frontend.
+
+Persistir fila/schedules em banco é necessário, mas não suficiente para execução distribuída segura: múltiplos workers/schedulers exigem claims atômicos, idempotência, leases/locks, retries limitados e controles de concorrência.
+
+## 13. Segurança e isolamento de falhas
+
+- aplicar regras de escopo/mesma origem quando cabível;
+- nenhuma expansão cross-origin implícita;
+- nenhum segredo em relatórios/artefatos/bancos destinados a evidência;
+- respostas externas são entrada não confiável;
+- workflows derivados não modificam `AUD-*` de origem;
+- falhas opcionais são isoladas da auditoria principal bem-sucedida;
+- `scoring_version` histórico é preservado, não normalizado silenciosamente;
+- autenticação Web default é fail-closed até configuração válida;
+- autorização de tenant é revalidada no servidor, não delegada ao frontend.

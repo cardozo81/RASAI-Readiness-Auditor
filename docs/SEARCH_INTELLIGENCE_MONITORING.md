@@ -1,146 +1,146 @@
-# Search Intelligence Monitoring
+# Monitoramento de Search Intelligence
 
-Status: implemented control-plane monitoring contract with SQLite local/default and PostgreSQL explicit opt-in adapters.
+**Estado:** contrato de monitoramento do control plane implementado, com SQLite como backend local/padrão e PostgreSQL por configuração explícita.
 
-Current contract:
+Contrato atual:
 
 ```text
 SEARCH-MONITOR-001
 ```
 
-Search Intelligence Monitoring turns a manually supplied Search query into a registered, repeatable observation context. It is operational and longitudinal; it does not create a new readiness score and does not alter `SARI-001` or `SCORE-GEO-004`.
+Search Intelligence Monitoring transforma uma query de Search fornecida manualmente em um contexto de observação registrado e repetível. É uma capacidade operacional e longitudinal; não cria novo score de readiness e não altera `SARI-001` nem `SCORE-GEO-004`.
 
-## Purpose
+## Objetivo
 
-A registered query preserves the context required for repeatable observation:
+Uma query registrada preserva o contexto necessário à observação repetível:
 
-- Project, Property and Environment;
-- query text;
-- domain of interest;
-- Search engine;
-- country/market;
-- optional region;
-- language;
-- device;
-- requested depth;
-- Search provider and acquisition mode;
-- deterministic competitive-analysis controls;
-- optional bounded public-content comparison;
-- optional evidence-bound Competitive AI controls;
-- enabled/disabled state;
-- optional recurring schedule.
+- Project, Property e Environment;
+- texto da query;
+- domínio de interesse;
+- mecanismo de busca;
+- país/mercado;
+- região opcional;
+- idioma;
+- dispositivo;
+- profundidade solicitada;
+- provider de Search e modo de aquisição;
+- controles da análise competitiva determinística;
+- comparação opcional e limitada de conteúdo público;
+- controles opcionais de Competitive AI vinculada a evidências;
+- estado habilitado/desabilitado;
+- agendamento recorrente opcional.
 
-The registered context is the unit of longitudinal comparison. RASAi does not silently compare runs that changed provider or data mode.
+O contexto registrado é a unidade da comparação longitudinal. O RASAi não compara silenciosamente execuções que tenham mudado de provider ou de modo de dados.
 
-## Data authority and immutable audit evidence
+## Autoridade dos dados e evidência imutável da auditoria
 
-Recurring Search monitoring must not append observations to historical audit databases.
+O monitoramento recorrente de Search não deve anexar observações a bancos históricos de auditoria.
 
-The authority split in local/default mode is:
+No modo local/padrão, a divisão de autoridade é:
 
 ```text
 AUD-*/audit.db
-  immutable point-in-time audit evidence
+  evidência imutável da auditoria em um ponto no tempo
 
 .rasai/platform.db
-  SQLite product/control-plane metadata
-  registered Search queries
-  longitudinal Search run summaries
-  schedules
+  metadados de produto/control plane em SQLite
+  queries de Search registradas
+  resumos longitudinais de execuções Search
+  agendamentos
 
 .rasai/search-monitoring/
-  raw Search provider evidence
-  run manifests and SHA-256 integrity metadata
+  evidência bruta do provider de Search
+  manifests de execução e metadados de integridade SHA-256
 ```
 
-When PostgreSQL is explicitly selected, the relational portion changes to:
+Quando PostgreSQL é selecionado explicitamente, a parte relacional passa a ser:
 
 ```text
 PostgreSQL control plane
-  Product Platform relational state
-  registered Search queries
-  longitudinal Search run summaries
-  schedules
+  estado relacional da Product Platform
+  queries de Search registradas
+  resumos longitudinais de execuções Search
+  agendamentos
 
-.rasai/search-monitoring/ or future object storage
-  raw Search provider evidence
-  run manifests and SHA-256 integrity metadata
+.rasai/search-monitoring/ ou object storage futuro
+  evidência bruta do provider de Search
+  manifests de execução e metadados de integridade SHA-256
 ```
 
-PostgreSQL does not change the immutable `AUD-*/audit.db` evidence contract.
+PostgreSQL não altera o contrato de evidência imutável de `AUD-*/audit.db`.
 
-## Control-plane persistence
+## Persistência do control plane
 
-The relational Search monitoring tables are:
+As tabelas relacionais de monitoramento Search são:
 
 ```text
 search_monitor_queries
 search_monitor_runs
 ```
 
-`search_monitor_queries` references the existing Product Platform hierarchy and schedule model. It does not create an independent Project/Domain hierarchy.
+`search_monitor_queries` referencia a hierarquia já existente da Product Platform e o modelo de agendamento. Não cria uma hierarquia independente de Project/Domain.
 
-`search_monitor_runs` stores longitudinal run summaries including:
+`search_monitor_runs` armazena resumos longitudinais, incluindo:
 
-- run and observation IDs;
-- collection timestamps;
-- Search provider and data mode;
-- domain status and observed customer position;
-- result count;
-- domains observed ahead of the customer;
-- raw evidence reference and SHA-256;
-- deterministic comparison state and gap codes;
-- customer content coverage signals when observed;
-- observed word count and JSON-LD types;
-- Competitive AI state/provider/model/opportunity count when enabled;
-- change events against the previous comparable run;
-- SERP/content/AI request counters;
-- run manifest reference and SHA-256;
-- error state when applicable.
+- IDs da execução e da observação;
+- timestamps de coleta;
+- provider de Search e modo de dados;
+- status do domínio e posição observada do cliente;
+- quantidade de resultados;
+- domínios observados à frente do cliente;
+- referência da evidência bruta e SHA-256;
+- estado da comparação determinística e códigos de gaps;
+- sinais de cobertura do conteúdo do cliente, quando observados;
+- contagem de palavras observada e tipos JSON-LD;
+- estado/provider/modelo de Competitive AI e quantidade de oportunidades, quando habilitada;
+- eventos de mudança em relação à execução anterior comparável;
+- contadores de requests SERP/conteúdo/IA;
+- referência do manifest da execução e SHA-256;
+- estado de erro, quando aplicável.
 
-The runtime is behind the `SearchMonitoringRepository` contract. SQLite is the default local adapter and PostgreSQL implements the same domain behavior for the centralized control plane. Backend selection occurs at composition time rather than through database-engine checks scattered through monitoring logic.
+O runtime opera por meio do contrato `SearchMonitoringRepository`. SQLite é o adapter local padrão e PostgreSQL implementa o mesmo comportamento de domínio para o control plane centralizado. A seleção do backend ocorre na composição, e não por verificações do engine do banco espalhadas pela lógica de monitoramento.
 
-## Backend selection
+## Seleção do backend
 
-Default local operation remains SQLite. PostgreSQL is an explicit opt-in through:
+A operação local padrão permanece em SQLite. PostgreSQL exige ativação explícita:
 
 ```text
 RASAI_PLATFORM_DB_BACKEND=postgresql
 RASAI_PLATFORM_DATABASE_URL=postgresql://...
 ```
 
-PostgreSQL requires its versioned schema to be current before Search monitoring starts. Schema changes are never triggered by a Search monitoring command. Use:
+Antes de iniciar Search Monitoring com PostgreSQL, o schema versionado deve estar atualizado. Comandos de Search Monitoring nunca disparam mudanças de schema. Use:
 
 ```powershell
 rasai platform database status
 rasai platform database migrate
 ```
 
-There is no silent PostgreSQL-to-SQLite fallback.
+Não existe fallback silencioso de PostgreSQL para SQLite.
 
-## Raw evidence
+## Evidência bruta
 
-Raw Search provider evidence is written under:
+A evidência bruta do provider de Search é gravada em:
 
 ```text
 audits/.rasai/search-monitoring/artifacts/serp/
 ```
 
-Run manifests are written under:
+Os manifests das execuções são gravados em:
 
 ```text
 audits/.rasai/search-monitoring/runs/
 ```
 
-Evidence payloads use the existing Search evidence sanitizer. Provider credentials are not persisted in the control-plane tables, manifests or reports.
+Os payloads de evidência usam o sanitizador de evidência Search já existente. Credenciais do provider não são persistidas nas tabelas do control plane, manifests ou relatórios.
 
-For hosted SaaS, immutable evidence/manifests are expected to move to object storage while PostgreSQL retains relational ownership, references and hashes.
+Em SaaS hospedado, a expectativa arquitetural é mover evidências/manifests imutáveis para object storage, mantendo no PostgreSQL a propriedade relacional, as referências e os hashes.
 
-## Query registry CLI
+## CLI do registro de queries
 
-The Product Platform hierarchy must exist before registering a query. Use `rasai platform` to index/create the relevant Project, Property and Environment and obtain their stable IDs.
+A hierarquia da Product Platform deve existir antes do registro de uma query. Use `rasai platform` para indexar/criar Project, Property e Environment relevantes e obter seus IDs estáveis.
 
-Register a manual query:
+Registrar uma query manual:
 
 ```powershell
 rasai search-monitor --audits-root audits query add `
@@ -155,42 +155,42 @@ rasai search-monitor --audits-root audits query add `
   --depth 20
 ```
 
-List registered queries:
+Listar queries registradas:
 
 ```powershell
 rasai search-monitor --audits-root audits query list
 ```
 
-Enable or disable one query:
+Habilitar ou desabilitar uma query:
 
 ```powershell
 rasai search-monitor --audits-root audits query enable --query-id <query-id>
 rasai search-monitor --audits-root audits query disable --query-id <query-id>
 ```
 
-Disabling a registered query also disables its linked local schedule when present.
+Desabilitar uma query registrada também desabilita seu agendamento local vinculado, quando existente.
 
-## Manual execution
+## Execução manual
 
-Execute one registered query:
+Executar uma query registrada:
 
 ```powershell
 rasai search-monitor --audits-root audits run --query-id <query-id>
 ```
 
-Estimate the bounded request ceilings without calling providers:
+Estimar limites máximos de requests sem chamar providers:
 
 ```powershell
 rasai search-monitor --audits-root audits run --query-id <query-id> --dry-run
 ```
 
-The dry-run separates:
+O `dry-run` separa:
 
-- Search-provider HTTP request ceiling;
-- direct public-content HTTP attempt ceiling;
-- Competitive AI provider-call ceiling.
+- teto de requests HTTP ao provider de Search;
+- teto de tentativas HTTP diretas a conteúdo público;
+- teto de chamadas ao provider de Competitive AI.
 
-Fixture execution is supported for tests and local validation without provider network calls:
+Execução por fixture é suportada para testes e validação local sem chamadas de rede ao provider:
 
 ```powershell
 rasai search-monitor --audits-root audits run `
@@ -198,13 +198,13 @@ rasai search-monitor --audits-root audits run `
   --fixture test-serp.json
 ```
 
-Fixture mode is manual and is not eligible for a recurring live schedule.
+O modo fixture é manual e não pode ser associado a um agendamento live recorrente.
 
-## Recurring schedules
+## Agendamentos recorrentes
 
-Monitoring reuses the Product Platform scheduler. It does not introduce a second scheduler or execute arbitrary shell strings.
+O monitoramento reutiliza o scheduler da Product Platform. Não introduz um segundo scheduler nem executa strings arbitrárias de shell.
 
-Interval example:
+Exemplo por intervalo:
 
 ```powershell
 rasai search-monitor --audits-root audits query add `
@@ -218,7 +218,7 @@ rasai search-monitor --audits-root audits query add `
   --interval-minutes 1440
 ```
 
-Daily example:
+Exemplo diário:
 
 ```powershell
 rasai search-monitor --audits-root audits query add `
@@ -232,28 +232,28 @@ rasai search-monitor --audits-root audits query add `
   --daily-time 07:00
 ```
 
-The minimum interval accepted by this Search monitoring surface is 60 minutes. This is a product safety bound, not a recommendation to query every hour. Production cadence must account for provider terms, quota, cost, market volatility and the business value of the query.
+O intervalo mínimo aceito por esta superfície de Search Monitoring é **60 minutos**, conforme validação do runtime. Esse é um limite de segurança do produto, não recomendação para consultar a cada hora. A cadência em produção deve considerar termos do provider, quota, custo, volatilidade do mercado e valor de negócio da query.
 
-Execute only due Search-monitor schedules:
+Executar somente agendamentos de Search Monitoring vencidos:
 
 ```powershell
 rasai search-monitor --audits-root audits run-due
 ```
 
-The current scheduler is still a single-machine execution mechanism. Persisting schedules in PostgreSQL does not by itself make dispatch horizontally safe; durable queue/claim semantics belong to the hosted execution-plane phase.
+O scheduler atual ainda é um mecanismo de execução em uma única máquina. Persistir agendamentos em PostgreSQL, isoladamente, não torna o dispatch horizontalmente seguro; semântica de fila durável/claim pertence ao execution plane hospedado.
 
-## Competitive content and Competitive AI
+## Conteúdo competitivo e Competitive AI
 
-A registered query can enable deterministic competitive analysis and bounded content inspection.
+Uma query registrada pode habilitar análise competitiva determinística e inspeção limitada de conteúdo.
 
-Content acquisition remains explicit:
+Aquisição de conteúdo é explícita:
 
 ```text
 --compare-content
 --max-content-pages N
 ```
 
-Competitive AI remains explicit and downstream of consolidated deterministic content evidence:
+Competitive AI também é explícita e ocorre downstream de evidência determinística de conteúdo consolidada:
 
 ```text
 --ai-competitive
@@ -262,13 +262,13 @@ Competitive AI remains explicit and downstream of consolidated deterministic con
 --ymyl-mode AUTO|ON|OFF
 ```
 
-BYOK credentials remain environment/runtime inputs. They are not copied into schedules or the monitoring database.
+Credenciais BYOK continuam sendo entradas de ambiente/runtime. Elas não são copiadas para agendamentos nem para o banco de monitoramento.
 
-## Change detection
+## Detecção de mudanças
 
-A successful run is compared only with the previous run of the same registered query context.
+Uma execução bem-sucedida é comparada apenas com a execução anterior do mesmo contexto de query registrada.
 
-Current change states include:
+Estados de mudança atuais incluem:
 
 - `POSITION_IMPROVED`;
 - `POSITION_REGRESSED`;
@@ -285,87 +285,87 @@ Current change states include:
 - `DETERMINISTIC_GAP_RESOLVED`;
 - `NOT_COMPARABLE`.
 
-`NOT_FOUND_WITHIN_DEPTH` is never converted into position zero, infinite position or a fabricated absolute rank.
+`NOT_FOUND_WITHIN_DEPTH` nunca é convertido em posição zero, posição infinita ou rank absoluto fabricado.
 
-A provider or data-mode change makes the adjacent runs non-comparable for numeric rank deltas. RASAi preserves the provenance difference instead of normalizing it silently.
+Mudança de provider ou de modo de dados torna execuções adjacentes não comparáveis para deltas numéricos de ranking. O RASAi preserva a diferença de proveniência, em vez de normalizá-la silenciosamente.
 
-## Causality boundary
+## Limite de causalidade
 
-A chronological change is an observation, not proof of ranking causality.
+Mudança cronológica é observação, não prova de causalidade de ranking.
 
-Valid interpretation:
-
-```text
-The registered query moved from observed position 8 to position 4 between two comparable runs.
-A deterministic content gap observed in the previous run was not present in the current run.
-```
-
-Invalid interpretation:
+Interpretação válida:
 
 ```text
-The content change caused the four-position improvement.
+A query registrada passou da posição observada 8 para a posição 4 entre duas execuções comparáveis.
+Um gap determinístico de conteúdo observado na execução anterior não estava presente na execução atual.
 ```
 
-The available evidence does not establish the private causal mechanism of the Search engine.
+Interpretação inválida:
 
-## Longitudinal HTML
+```text
+A alteração de conteúdo causou a melhora de quatro posições.
+```
 
-The longitudinal control-plane report is:
+A evidência disponível não estabelece o mecanismo causal privado do mecanismo de busca.
+
+## HTML longitudinal
+
+O relatório longitudinal do control plane é:
 
 ```text
 audits/platform-report/search-intelligence.html
 ```
 
-It shows registered-query timelines, latest position/status, provider/data mode, domains ahead, deterministic gaps, Competitive AI state and the changes materialized for the latest run.
+Ele exibe linhas do tempo das queries registradas, posição/status mais recente, provider/modo de dados, domínios à frente, gaps determinísticos, estado de Competitive AI e mudanças materializadas na execução mais recente.
 
-This is deliberately separate from the point-in-time audit report:
+Ele é deliberadamente separado do relatório pontual da auditoria:
 
 ```text
 audits/AUD-*/report/search-intelligence.html
 ```
 
-The audit report projects immutable evidence belonging to one audit workspace. The platform report projects recurring operational observations from the selected control-plane backend. The longitudinal report must not rewrite historical audit HTML or `audit.db`.
+O relatório da auditoria projeta evidência imutável pertencente a um workspace específico. O relatório da plataforma projeta observações operacionais recorrentes do backend de control plane selecionado. O relatório longitudinal não deve reescrever HTML histórico de auditoria nem `audit.db`.
 
-## Relationship to deployment history
+## Relação com histórico de deploy
 
-`SEARCH-HISTORY-001` remains the contract for comparing Search evidence between explicit audit workspaces or audit pairs selected around a deployment milestone.
+`SEARCH-HISTORY-001` permanece o contrato para comparar evidência Search entre workspaces de auditoria explícitos ou pares de auditorias selecionados ao redor de um milestone de deploy.
 
-`SEARCH-MONITOR-001` serves a different purpose: continuous observations of a registered query independent of whether a new full audit was executed.
+`SEARCH-MONITOR-001` tem outro propósito: observações contínuas de uma query registrada, independentemente de uma nova auditoria completa ter sido executada.
 
-The two surfaces can be correlated by time in a future product dashboard, but neither is allowed to convert temporal proximity to a deployment into a ranking-causality claim.
+As duas superfícies podem ser correlacionadas temporalmente em dashboard futuro, mas nenhuma pode converter proximidade temporal com deploy em afirmação de causalidade de ranking.
 
-## PostgreSQL boundary
+## Limite PostgreSQL
 
-The monitoring storage seam is now concrete:
+A separação de armazenamento do monitoramento é concreta:
 
 ```text
-Search monitoring domain/runtime
+domínio/runtime de Search Monitoring
         |
 SearchMonitoringRepository
         |
-        +-- SQLite adapter: local/default
-        +-- PostgreSQL adapter: centralized control plane
+        +-- adapter SQLite: local/padrão
+        +-- adapter PostgreSQL: control plane centralizado
 ```
 
-The PostgreSQL adapter uses the same Project/Property/Environment and schedule authority as the rest of Product Platform. It does not replace or mutate immutable audit evidence.
+O adapter PostgreSQL usa a mesma autoridade de Project/Property/Environment e agendamento que o restante da Product Platform. Ele não substitui nem modifica evidência imutável de auditoria.
 
-Runtime details are documented in `POSTGRESQL_CONTROL_PLANE.md`; deployment strategy remains in `POSTGRESQL_MIGRATION_STRATEGY.md`.
+Detalhes de runtime estão em `POSTGRESQL_CONTROL_PLANE.md`; a estratégia de deployment permanece em `POSTGRESQL_MIGRATION_STRATEGY.md`.
 
-## Test and CI policy
+## Política de testes e CI
 
-Automated tests must not consume customer Search or AI credentials and must not crawl public competitor sites.
+Testes automatizados não devem consumir credenciais Search/IA de clientes nem fazer crawl de sites públicos de concorrentes.
 
-Fixture-based Search execution remains mandatory for repository parity tests. PostgreSQL-specific persistence tests run against a real PostgreSQL 18 service container.
+Execução Search baseada em fixture continua obrigatória nos testes de paridade do repositório. Testes de persistência específicos de PostgreSQL executam contra serviço real PostgreSQL 18 em container.
 
-Required regression properties include:
+Propriedades obrigatórias de regressão incluem:
 
-- Project/Property/Environment scope integrity;
-- duplicate query-context rejection;
-- exact rank-change semantics;
-- observed-depth boundary semantics;
-- provider/data-mode comparability protection;
-- control-plane persistence on both supported backends;
-- raw evidence and run manifest integrity;
-- no recurring write into historical `AUD-*/audit.db`;
-- report generation;
-- preservation of `SARI-001` and `SCORE-GEO-004` contracts.
+- integridade do escopo Project/Property/Environment;
+- rejeição de contexto de query duplicado;
+- semântica exata de mudança de ranking;
+- semântica do limite de profundidade observada;
+- proteção de comparabilidade entre provider/modo de dados;
+- persistência do control plane nos dois backends suportados;
+- integridade da evidência bruta e do manifest da execução;
+- ausência de gravação recorrente em `AUD-*/audit.db` históricos;
+- geração de relatório;
+- preservação dos contratos `SARI-001` e `SCORE-GEO-004`.
