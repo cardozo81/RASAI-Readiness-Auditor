@@ -8,7 +8,7 @@ existing RASAi baseline as the default.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 
 from rasai.domain import DeviceContext
 from rasai.rendering import BrowserProfile
@@ -79,54 +79,14 @@ class NetworkPreset:
 
 
 CLIENT_PRESETS: dict[str, ClientPreset] = {
-    "mobile-compact-chromium": ClientPreset(
-        "mobile-compact-chromium", "MOBILE", "Mobile compacto · Chromium/Android",
-        "chromium", "android", 360, 800, 3.0, True, True,
-        "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
-        "Pixel 7",
-    ),
-    "mobile-balanced-chromium": ClientPreset(
-        "mobile-balanced-chromium", "MOBILE", "Mobile balanceado · Chromium/Android",
-        "chromium", "android", 412, 915, 2.625, True, True,
-        "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
-        "Pixel 7",
-    ),
-    "mobile-large-chromium": ClientPreset(
-        "mobile-large-chromium", "MOBILE", "Mobile grande · Chromium/Android",
-        "chromium", "android", 430, 932, 3.0, True, True,
-        "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
-        "Pixel 7",
-    ),
-    "desktop-1366-chromium": ClientPreset(
-        "desktop-1366-chromium", "DESKTOP", "Desktop 1366×768 · Chromium",
-        "chromium", "desktop-runtime", 1366, 768, 1.0, False, False,
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-        "Desktop Chrome",
-    ),
-    "desktop-balanced-chromium": ClientPreset(
-        "desktop-balanced-chromium", "DESKTOP", "Desktop 1440×900 · Chromium",
-        "chromium", "desktop-runtime", 1440, 900, 1.0, False, False,
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-        "Desktop Chrome",
-    ),
-    "desktop-wide-chromium": ClientPreset(
-        "desktop-wide-chromium", "DESKTOP", "Desktop 1920×1080 · Chromium",
-        "chromium", "desktop-runtime", 1920, 1080, 1.0, False, False,
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-        "Desktop Chrome",
-    ),
-    "tablet-compact-chromium": ClientPreset(
-        "tablet-compact-chromium", "TABLET", "Tablet 800×1280 · Chromium/Android",
-        "chromium", "android", 800, 1280, 2.0, True, True,
-        "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-        "Pixel 7",
-    ),
-    "tablet-balanced-chromium": ClientPreset(
-        "tablet-balanced-chromium", "TABLET", "Tablet 1024×1366 · Chromium/Android",
-        "chromium", "android", 1024, 1366, 2.0, True, True,
-        "Mozilla/5.0 (Linux; Android 14; Pixel Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-        "Pixel 7",
-    ),
+    "mobile-compact-chromium": ClientPreset("mobile-compact-chromium", "MOBILE", "Mobile compacto · Chromium/Android", "chromium", "android", 360, 800, 3.0, True, True, "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36", "Pixel 7"),
+    "mobile-balanced-chromium": ClientPreset("mobile-balanced-chromium", "MOBILE", "Mobile balanceado · Chromium/Android", "chromium", "android", 412, 915, 2.625, True, True, "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36", "Pixel 7"),
+    "mobile-large-chromium": ClientPreset("mobile-large-chromium", "MOBILE", "Mobile grande · Chromium/Android", "chromium", "android", 430, 932, 3.0, True, True, "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36", "Pixel 7"),
+    "desktop-1366-chromium": ClientPreset("desktop-1366-chromium", "DESKTOP", "Desktop 1366×768 · Chromium", "chromium", "desktop-runtime", 1366, 768, 1.0, False, False, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36", "Desktop Chrome"),
+    "desktop-balanced-chromium": ClientPreset("desktop-balanced-chromium", "DESKTOP", "Desktop 1440×900 · Chromium", "chromium", "desktop-runtime", 1440, 900, 1.0, False, False, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36", "Desktop Chrome"),
+    "desktop-wide-chromium": ClientPreset("desktop-wide-chromium", "DESKTOP", "Desktop 1920×1080 · Chromium", "chromium", "desktop-runtime", 1920, 1080, 1.0, False, False, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36", "Desktop Chrome"),
+    "tablet-compact-chromium": ClientPreset("tablet-compact-chromium", "TABLET", "Tablet 800×1280 · Chromium/Android", "chromium", "android", 800, 1280, 2.0, True, True, "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36", "Pixel 7"),
+    "tablet-balanced-chromium": ClientPreset("tablet-balanced-chromium", "TABLET", "Tablet 1024×1366 · Chromium/Android", "chromium", "android", 1024, 1366, 2.0, True, True, "Mozilla/5.0 (Linux; Android 14; Pixel Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36", "Pixel 7"),
 }
 
 HARDWARE_PRESETS: dict[str, HardwarePreset] = {
@@ -140,10 +100,6 @@ HARDWARE_PRESETS: dict[str, HardwarePreset] = {
     "tablet-premium": HardwarePreset("tablet-premium", "TABLET", "Tablet premium · CPU 1×", 1.0, "Envelope de maior capacidade."),
 }
 
-# These are explicit laboratory envelopes. They are intentionally not labelled as
-# country/user-population medians because the RASAi does not own that population data.
-# Defaults preserve the pre-existing synthetic baseline to avoid silently changing
-# synthetic results as part of this structural refactor.
 NETWORK_PRESETS: dict[str, NetworkPreset] = {
     "mobile-3g-constrained": NetworkPreset("mobile-3g-constrained", "MOBILE", "Mobile 3G restrito", 300.0, 768.0, 256.0, "cellular3g", "Cenário degradado controlado."),
     "mobile-4g-balanced": NetworkPreset("mobile-4g-balanced", "MOBILE", "Mobile 4G balanceado", 150.0, 1638.4, 750.0, "cellular4g", "Baseline RASAi/Lighthouse-like conservador."),
@@ -156,21 +112,9 @@ NETWORK_PRESETS: dict[str, NetworkPreset] = {
     "tablet-wifi": NetworkPreset("tablet-wifi", "TABLET", "Tablet Wi-Fi", 40.0, 20480.0, 10240.0, "wifi", "Envelope Wi-Fi de capacidade intermediária."),
 }
 
-DEFAULT_CLIENT_PRESET = {
-    "MOBILE": "mobile-balanced-chromium",
-    "DESKTOP": "desktop-balanced-chromium",
-    "TABLET": "tablet-balanced-chromium",
-}
-DEFAULT_HARDWARE_PRESET = {
-    "MOBILE": "mobile-balanced",
-    "DESKTOP": "desktop-balanced",
-    "TABLET": "tablet-balanced",
-}
-DEFAULT_NETWORK_PRESET = {
-    "MOBILE": "mobile-4g-balanced",
-    "DESKTOP": "desktop-balanced",
-    "TABLET": "tablet-4g-balanced",
-}
+DEFAULT_CLIENT_PRESET = {"MOBILE": "mobile-balanced-chromium", "DESKTOP": "desktop-balanced-chromium", "TABLET": "tablet-balanced-chromium"}
+DEFAULT_HARDWARE_PRESET = {"MOBILE": "mobile-balanced", "DESKTOP": "desktop-balanced", "TABLET": "tablet-balanced"}
+DEFAULT_NETWORK_PRESET = {"MOBILE": "mobile-4g-balanced", "DESKTOP": "desktop-balanced", "TABLET": "tablet-4g-balanced"}
 
 
 def preset_ids(kind: str, device: str) -> tuple[str, ...]:
@@ -208,17 +152,23 @@ def validate_preset(kind: str, device: str, preset_id: str) -> str:
     return value
 
 
+def configured_preset(kind: str, device: str, env: Mapping[str, str], cli_value: str | None = None) -> str:
+    value = (str(cli_value).strip() if cli_value is not None else "") or (env.get(env_name(kind, device)) or "").strip() or default_preset(kind, device)
+    return validate_preset(kind, device, value)
+
+
+def selected_profile_ids(device: str, env: Mapping[str, str]) -> dict[str, str]:
+    return {kind: configured_preset(kind, device, env) for kind in ("client", "hardware", "network")}
+
+
 def compose_profile(*, device: str, client_id: str, hardware_id: str, network_id: str) -> dict[str, Any]:
     normalized = device.strip().upper()
     client = CLIENT_PRESETS.get(client_id)
     hardware = HARDWARE_PRESETS.get(hardware_id)
     network = NETWORK_PRESETS.get(network_id)
-    if client is None or client.device != normalized:
-        raise ValueError(f"client profile {client_id!r} is not valid for {normalized}")
-    if hardware is None or hardware.device != normalized:
-        raise ValueError(f"hardware profile {hardware_id!r} is not valid for {normalized}")
-    if network is None or network.device != normalized:
-        raise ValueError(f"network profile {network_id!r} is not valid for {normalized}")
+    if client is None or client.device != normalized: raise ValueError(f"client profile {client_id!r} is not valid for {normalized}")
+    if hardware is None or hardware.device != normalized: raise ValueError(f"hardware profile {hardware_id!r} is not valid for {normalized}")
+    if network is None or network.device != normalized: raise ValueError(f"network profile {network_id!r} is not valid for {normalized}")
     return {
         "catalog_version": PROFILE_CATALOG_VERSION,
         "device": normalized,
