@@ -8,7 +8,7 @@ from rasai.discovery import RobotsState, SitemapState
 from rasai.domain import RuleResult
 from rasai.m5 import _evaluate_robots, _evaluate_sitemaps
 from rasai.m7 import _deterministic_outcome
-from rasai.m21_web_performance import ExternalServiceError, HttpJsonResult, PageSpeedInsightsClient
+from rasai.m21_web_performance import ExternalServiceError, PageSpeedInsightsClient
 from rasai.m24_ai import _schema
 from rasai.m24_scoring import _bounded_result
 from rasai.scoring import _metadata
@@ -77,22 +77,19 @@ def test_low_confidence_ai_cannot_create_hard_pass_or_fail() -> None:
     assert _bounded_result("NEGATIVE", 0.90) is RuleResult.FAIL
 
 
-def test_pagespeed_retries_one_transient_failure(monkeypatch) -> None:
+def test_pagespeed_does_not_retry_transient_failure(monkeypatch) -> None:
     calls = []
 
     def fake_request_json(**kwargs):
         calls.append(kwargs)
-        if len(calls) == 1:
-            raise ExternalServiceError("PAGESPEED_INSIGHTS", "temporary", http_status=500)
-        return HttpJsonResult(payload={"lighthouseResult": {}}, http_status=200, duration_ms=1)
+        raise ExternalServiceError("PAGESPEED_INSIGHTS", "temporary", http_status=500)
 
     monkeypatch.setattr("rasai.m21_web_performance._request_json", fake_request_json)
-    monkeypatch.setattr("rasai.m21_web_performance.time.sleep", lambda _value: None)
-    result = PageSpeedInsightsClient("key").run(
-        url="https://example.test/",
-        strategy="mobile",
-        categories=("performance",),
-        timeout_seconds=1.0,
-    )
-    assert result.http_status == 200
-    assert len(calls) == 2
+    with pytest.raises(ExternalServiceError):
+        PageSpeedInsightsClient("key").run(
+            url="https://example.test/",
+            strategy="mobile",
+            categories=("performance",),
+            timeout_seconds=1.0,
+        )
+    assert len(calls) == 1
