@@ -12,7 +12,6 @@ from typing import Any, Mapping
 from urllib.parse import urlparse
 
 from rasai.provider_registry import get_provider_registration, provider_registrations
-from rasai.provider_runtime_policy import REASONING_OPTIONS, SIMPLE_DEFAULT_MODELS
 from rasai.search_intelligence.provider_catalog import (
     SERP_PROVIDER_REGISTRY,
     serp_provider_registration,
@@ -64,7 +63,6 @@ def provider_onboarding_records(
     result: list[ProviderOnboardingRecord] = []
     if normalized_kind in {"all", "ai"}:
         for registration in provider_registrations():
-            name = registration.provider_name
             result.append(
                 ProviderOnboardingRecord(
                     kind="ai",
@@ -77,8 +75,8 @@ def provider_onboarding_records(
                     documentation_url=registration.documentation_url,
                     auto_eligible=registration.auto_eligible,
                     explicit_only=registration.explicit_only,
-                    default_model=SIMPLE_DEFAULT_MODELS[name],
-                    reasoning_values=REASONING_OPTIONS[name],
+                    default_model=registration.public_default_model,
+                    reasoning_values=registration.reasoning_values,
                     qualification=registration.qualification,
                 )
             )
@@ -145,10 +143,10 @@ def provider_onboarding_integrity_issues() -> tuple[str, ...]:
                 continue
             if registration.default_model not in registration.supported_models:
                 issues.append(f"ai:{item.id} adapter default model is not supported")
-            if item.default_model not in registration.supported_models:
+            if registration.public_default_model not in registration.supported_models:
                 issues.append(f"ai:{item.id} public default model is not supported")
-            if tuple(item.reasoning_values) != tuple(registration.reasoning_values):
-                issues.append(f"ai:{item.id} reasoning contract drift between registry and runtime")
+            if not registration.reasoning_values:
+                issues.append(f"ai:{item.id} missing runtime reasoning contract")
             if registration.explicit_only and registration.auto_eligible:
                 issues.append(f"ai:{item.id} explicit-only provider cannot be AUTO eligible")
         else:
