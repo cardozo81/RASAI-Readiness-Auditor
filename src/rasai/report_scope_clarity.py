@@ -1,7 +1,7 @@
 """Multi-URL scope disclosures for static report surfaces.
 
 The report must never leave the reader guessing whether a value belongs to one URL,
-one device, or the complete audited set.  This adapter is projection-only: it adds
+one device, or the complete audited set. This adapter is projection-only: it adds
 explicit scope/aggregation language and does not recalculate any metric.
 """
 from __future__ import annotations
@@ -46,7 +46,7 @@ def _note(filename: str, pages: int, devices: tuple[str, ...]) -> str | None:
             "são distribuídos entre os escopos/páginas aplicáveis; portanto não é a nota de uma URL isolada nem uma média "
             "aritmética de scores por página. <strong>Core Web Vitals</strong> mostra contextos aprovados/avaliados. "
             "<strong>Lighthouse Performance, Lighthouse Accessibility e Synthetic Navigation Apdex</strong> mostram a faixa "
-            "mínimo–máximo dos contextos válidos quando há mais de um; nenhuma média é criada sem rótulo explícito."
+            "mínimo a máximo dos contextos válidos quando há mais de um; nenhuma média é criada sem rótulo explícito."
         )
     elif filename == "readiness.html":
         detail = (
@@ -56,12 +56,12 @@ def _note(filename: str, pages: int, devices: tuple[str, ...]) -> str | None:
         )
     elif filename in {"web-performance.html", "accessibility.html"}:
         detail = (
-            "Observações e tabelas mantêm granularidade <strong>URL × dispositivo</strong>. Resumos com vários contextos usam "
-            "contagem ou faixa mínimo–máximo conforme rotulado; filtros/paginação alteram apenas a visualização e não recalculam métricas."
+            "Observações e tabelas mantêm granularidade <strong>URL x dispositivo</strong>. Resumos com vários contextos usam "
+            "contagem ou faixa mínimo a máximo conforme rotulado; filtros/paginação alteram apenas a visualização e não recalculam métricas."
         )
     elif filename == "apdex.html":
         detail = (
-            "Cada resumo Apdex pertence a uma <strong>URL × dispositivo</strong> e é calculado a partir da população de amostras "
+            "Cada resumo Apdex pertence a uma <strong>URL x dispositivo</strong> e é calculado a partir da população de amostras "
             "sintéticas daquele contexto. Quando a visão geral resume várias URLs, apresenta faixa entre contextos, não média implícita."
         )
     elif filename == "apdex-experience.html":
