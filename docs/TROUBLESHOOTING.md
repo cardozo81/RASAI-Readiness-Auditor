@@ -20,15 +20,22 @@ Se `RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE` estiver configurado, o caminho precisa
 
 ## Provider de IA indisponível
 
-Verifique sem exibir a chave:
+Use o console em **4. IA** ou **E. Variáveis de ambiente / credenciais**. O status deve distinguir `DESABILITADA`, `CONFIGURAR`, `APTO` e `INDISPONÍVEL`; ausência de credencial não é finding do website.
+
+Para verificar presença sem exibir o segredo:
 
 ```powershell
 Test-Path Env:OPENAI_API_KEY
 Test-Path Env:DEEPSEEK_API_KEY
 Test-Path Env:MIMO_API_KEY
+Test-Path Env:XAI_API_KEY
+Test-Path Env:DASHSCOPE_API_KEY
+Test-Path Env:GEMINI_API_KEY
+Test-Path Env:ANTHROPIC_API_KEY
+Test-Path Env:COPILOT_GITHUB_TOKEN
 ```
 
-No console use `E. Variáveis de ambiente`. Secrets aparecem somente como `[SET]`.
+A lista canônica, aliases, variável de credencial e URL oficial de cadastro/login ficam em [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md) e [PROVIDER_SETUP.md](PROVIDER_SETUP.md). Não mantenha uma lista paralela como fonte de verdade.
 
 Também verifique:
 
@@ -40,6 +47,28 @@ Também verifique:
 - bloqueio/quarantine depois de erro operacional.
 
 MiMo PAYG exige chave `sk-...` no adapter atual; `tp-...` não é equivalente.
+
+GitHub Copilot exige o extra Python `copilot`, `COPILOT_GITHUB_TOKEN` compatível e assinatura Copilot elegível. No fluxo manual, instale com:
+
+```powershell
+python -m pip install -e ".[copilot]"
+```
+
+Copilot é `explicit-only`: estar configurado não o coloca em `AI=auto`.
+
+## Search Intelligence/SERP sem dados
+
+Em modo `live`, confirme o provider e sua variável de credencial:
+
+```text
+serpapi / serpapi-bing -> RASAI_SERPAPI_API_KEY
+zenserp               -> RASAI_ZENSERP_API_KEY
+scrapingdog            -> RASAI_SCRAPINGDOG_API_KEY
+```
+
+O console mostra a URL oficial de cadastro/login e o preflight deve diferenciar provider não configurado de tentativa que falhou. `RASAI_SERP_MAX_REQUESTS` limita tentativas HTTP do RASAi; não equivale necessariamente a créditos comerciais do fornecedor.
+
+Consulte [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md) e [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
 
 ## Remediação textual indisponível
 
@@ -78,7 +107,7 @@ Grupos com menos de 100 amostras válidas são deliberadamente small-group e rec
 
 ## INI não salva credenciais
 
-Comportamento intencional. `rasai-console.ini` persiste somente parâmetros não sensíveis. Chaves alteradas no console são voláteis ao processo se o usuário não as configurar externamente.
+Comportamento intencional. `rasai-console.ini` persiste somente parâmetros não sensíveis. O console pode alterar a credencial na sessão e, no Windows, persistir/remover explicitamente o valor no escopo `User`; nunca grava secrets no INI e não altera `Windows/Machine`.
 
 ## Configuração não salva
 

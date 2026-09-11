@@ -16,12 +16,15 @@ Providers reconhecidos pela superfície atual de IA:
 - `QWEN`;
 - `GEMINI`;
 - `ANTHROPIC` / alias `claude`;
+- `COPILOT` / alias `github-copilot`;
 - `NONE`;
 - `AUTO`.
 
-A qualificação de um provider (`QUALIFIED`, `PROVISIONAL` etc.) é informação de governança. A participação em `AUTO` é uma propriedade separada do `provider_registry`, expressa por `auto_eligible`, e ainda exige credencial/configuração válida na execução.
+A qualificação de um provider (`QUALIFIED`, `PROVISIONAL` etc.) é informação de governança. A participação em `AUTO` é propriedade separada do `provider_registry`, expressa por `auto_eligible`, e ainda exige credencial/configuração válida na execução.
 
-Providers de extensão podem permanecer `PROVISIONAL` e, ainda assim, participar de `AUTO` quando o registry vigente os marcar como `auto_eligible=true` e a configuração da execução estiver apta. Portanto, qualificação e elegibilidade AUTO não devem ser tratadas como sinônimos.
+Providers de extensão podem permanecer `PROVISIONAL` e, ainda assim, participar de `AUTO` quando o registry vigente os marcar como `auto_eligible=true` e a configuração da execução estiver apta. Qualificação e elegibilidade AUTO não são sinônimos.
+
+GitHub Copilot é a exceção deliberada: `explicit_only=true` e `auto_eligible=false`. Mesmo configurado, nunca entra em `AI=auto`; o usuário precisa selecioná-lo explicitamente.
 
 ## 2. Defaults públicos de modelo
 
@@ -36,6 +39,7 @@ Os defaults públicos efetivamente aplicados pelo runtime são:
 | Qwen | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `qwen3.8-flash` |
 | Gemini | `gemini-3.8-flash` | `gemini-3.8-flash` | default |
 | Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | default |
+| GitHub Copilot | `auto` | `auto` | deixar o SDK/assinatura resolver o modelo disponível; seleção explícita |
 
 Esses são os defaults públicos de `provider_runtime_policy`. Defaults internos antigos de classes/qualificação não devem ser apresentados como defaults efetivos da CLI/console.
 
@@ -56,9 +60,11 @@ O runtime atual:
 7. encerra aquela necessidade na primeira resposta válida;
 8. aplica circuit breaker e classificação de falhas para decidir se um provider continua elegível em necessidades posteriores.
 
-`RASAI_AI_AUTO_EXCLUDE` tem default vazio. Os valores permitidos são uma lista CSV ou separada por `;` de IDs/aliases de providers elegíveis. O recomendado é manter vazio e excluir somente providers que devam continuar configurados para seleção explícita, mas não participar do pool AUTO.
+`RASAI_AI_AUTO_EXCLUDE` tem default vazio. Os valores permitidos são lista CSV ou separada por `;` de IDs/aliases elegíveis. O recomendado é manter vazio e excluir somente providers que devam continuar configurados para seleção explícita, mas não participar do pool AUTO.
 
 Excluir um provider de `AUTO` não apaga sua credencial e não impede seleção explícita.
+
+Providers `explicit-only`, atualmente GitHub Copilot, não são candidatos ao pool AUTO nem à lista operacional de inclusão/exclusão desse pool.
 
 ## 4. Provider explícito
 
@@ -67,6 +73,8 @@ Provider selecionado explicitamente não faz failover cruzado silencioso para ou
 Credenciais ausentes de providers não selecionados não podem invalidar um provider explícito funcional.
 
 Selecionar explicitamente um provider sem configuração/credencial suficiente resulta em estado operacional correspondente, com zero chamada externa para aquele provider; não existe fallback automático para usar a chave de outro fornecedor.
+
+GitHub Copilot usa `COPILOT_GITHUB_TOKEN`, o SDK oficial e `use_logged_in_user=False`, evitando fallback silencioso para sessão GitHub/Copilot já autenticada na máquina.
 
 ## 5. Falhas, retry e circuit breaker
 
@@ -92,7 +100,7 @@ Quando a política fixa provider por URL ou reutiliza preferência contextual, e
 
 ## 7. Validação do contrato
 
-Todos os adapters convergem para um contrato normalizado. Uma resposta semântica só é aceita após validação local de:
+Todos os adapters convergem para contrato normalizado. Uma resposta semântica só é aceita após validação local de:
 
 - schema/estrutura esperada;
 - conjunto de regras semânticas;
@@ -104,6 +112,8 @@ Todos os adapters convergem para um contrato normalizado. Uma resposta semântic
 HTTP 200 ou JSON parseável isoladamente não significam resultado válido.
 
 Uma resposta que referencia evidência inexistente ou viola o schema deve ser rejeitada como erro de integração/contrato, não convertida em finding do website.
+
+Na integração Copilot, o contrato provider-neutral e as evidências permitidas são encapsulados no prompt do SDK; a resposta continua submetida às mesmas validações locais. A sessão é criada sem tools e não autoriza edição, shell ou browser agentic.
 
 ## 8. Reasoning
 
@@ -118,6 +128,7 @@ Defaults públicos:
 | Qwen | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` na superfície vigente | não criar variável de reasoning inexistente |
 | Gemini | `LOW` | `LOW`, `MEDIUM`, `HIGH` | `LOW` |
 | Anthropic | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` |
+| GitHub Copilot | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` via SDK | não criar variável de reasoning inexistente |
 
 Aumentar reasoning pode elevar latência, tokens e custo. Esses valores não participam do scoring.
 
@@ -151,6 +162,8 @@ report/ai-usage.html
 
 O relatório deve distinguir configuração, tentativa, sucesso, provider previsto/efetivo, fallback, status, tokens e custo estimado sem converter falha de IA em finding do website.
 
+O renderer não mantém allowlist visual de providers: nomes/modelos vêm da telemetria persistida. Assim, providers registrados como Copilot aparecem quando efetivamente utilizados sem exigir branch específica de HTML.
+
 ## 11. Limite de scoring
 
 Invariantes:
@@ -165,3 +178,9 @@ Invariantes:
 8. telemetria é separada de findings e score;
 9. outcomes externos não entram em `SARI-001`/`SCORE-GEO-004` sem nova metodologia explícita/versionada;
 10. o conjunto `AUTO` é derivado do registry vigente, não de uma lista histórica fixa escrita nesta especificação.
+
+## 12. Onboarding e fonte de verdade
+
+O `provider_registry` é a fonte técnica para IDs, aliases, credenciais, modelos e elegibilidade AUTO. URLs oficiais de cadastro/login e geração de credenciais ficam consolidadas em `../PROVIDER_SETUP.md`.
+
+Documentação e superfícies de UI devem projetar o registry, não manter listas independentes que possam divergir do runtime.

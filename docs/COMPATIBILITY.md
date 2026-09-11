@@ -22,7 +22,7 @@ Default: `mobile`. Somente contextos materializados participam das análises dep
 
 ## IA
 
-A auditoria funciona com IA desligada. Providers suportados pelo registry:
+A auditoria funciona com IA desligada. Providers concretos suportados pelo registry:
 
 ```text
 OpenAI
@@ -32,11 +32,16 @@ xAI/Grok
 Qwen
 Gemini
 Anthropic/Claude
+GitHub Copilot
 ```
 
-AUTO permanece restrito a OpenAI → DeepSeek → MiMo. Providers adicionais são explicit-only.
+`AI=auto` não usa uma cadeia fixa. O pool é derivado do `provider_registry`: entram somente providers com `auto_eligible=true`, credencial/configuração válidas e não excluídos por `RASAI_AI_AUTO_EXCLUDE`.
 
-Cada provider pode ter diferenças de plano, modelo, endpoint, structured output, reasoning e cobrança. Uma chave válida para um produto não deve ser presumida válida para outro endpoint/plano.
+GitHub Copilot é deliberadamente `explicit-only` e não participa de `AI=auto`, mesmo quando `COPILOT_GITHUB_TOKEN` está configurado. A integração Copilot usa o SDK oficial e exige uma assinatura Copilot elegível; o extra Python é declarado em `pyproject.toml` e pode ser instalado com `python -m pip install -e ".[copilot]"` quando o bootstrap automático não for usado.
+
+Cada provider pode ter diferenças de plano, modelo, endpoint, structured output, reasoning e cobrança. Uma chave/token válida para um produto não deve ser presumida válida para outro endpoint/plano.
+
+Referências: [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md), [PROVIDER_SETUP.md](PROVIDER_SETUP.md) e [AI_GUIDE.md](AI_GUIDE.md).
 
 ## MiMo
 
@@ -54,4 +59,4 @@ Synthetic Apdex usa Chromium local e tráfego HTTP real contra o alvo. Não depe
 
 ## Persistência do console
 
-`rasai-console.ini` armazena somente parâmetros não sensíveis. Credenciais permanecem em ambiente/sessão e não são persistidas pelo console.
+`rasai-console.ini` armazena somente parâmetros não sensíveis. Credenciais nunca entram no INI. Na sessão atual, o usuário pode definir/remover credenciais; no Windows, pode opcionalmente persistir/remover o valor no escopo `User` mediante ação explícita. O escopo `Machine` é somente observado pelo RASAi.
