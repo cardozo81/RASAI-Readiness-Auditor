@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from rasai import m23_reporting
+from rasai import m23_reporting, m25_reporting, report_navigation
 from rasai.m25_runtime import refresh_m25_report_after_m23
 from rasai.persistence import AuditWorkspace
 
@@ -34,6 +34,19 @@ class M25ReportFinalizationTests(unittest.TestCase):
         self.assertTrue(
             getattr(m23_reporting.enrich_m23_report_site, "_rasai_m25_finalizer", False)
         )
+
+    def test_m25_navigation_registration_is_idempotent_by_filename(self) -> None:
+        original = report_navigation.NAV_ITEMS
+        try:
+            m25_reporting._register_navigation()
+            matching = [
+                item for item in report_navigation.NAV_ITEMS
+                if item[1] == "apdex-experience.html"
+            ]
+            self.assertEqual(matching, [("Apdex de experiência", "apdex-experience.html")])
+            self.assertEqual(report_navigation.NAV_ITEMS, original)
+        finally:
+            report_navigation.NAV_ITEMS = original
 
     def test_refresh_runs_only_for_persisted_m25_audit(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
