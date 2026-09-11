@@ -155,6 +155,7 @@ def _patch_report_completion() -> None:
     from rasai import report_completion, report_navigation
     from rasai.context_reporting import write_context_report
     from rasai.report_manifest import write_report_manifest
+    from rasai.report_scale_ux import enhance_report_directory
 
     if getattr(report_completion, "_rasai_context_scope_completion", False):
         return
@@ -179,6 +180,7 @@ def _patch_report_completion() -> None:
             write_context_report(audit_id=audit_id, workspace=workspace)
             report_dir = workspace.root / "report"
             report_navigation.normalize_report_navigation(report_dir)
+            enhance_report_directory(report_dir)
             write_report_manifest(report_dir)
         except Exception as exc:
             errors.append(f"context:{type(exc).__name__}:{str(exc)[:240]}")
