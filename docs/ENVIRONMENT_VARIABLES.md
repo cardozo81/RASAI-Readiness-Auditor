@@ -45,11 +45,8 @@ No console local, a preferência normal de timezone deve ser configurada pelo it
 | `DASHSCOPE_API_KEY` | sem default | credencial não vazia válida para Alibaba Model Studio | usar somente por secret/env | necessária ao selecionar Qwen |
 | `GEMINI_API_KEY` | sem default | credencial não vazia válida para Gemini | usar somente por secret/env | necessária ao selecionar Gemini |
 | `ANTHROPIC_API_KEY` | sem default | credencial não vazia válida para Anthropic | usar somente por secret/env | necessária ao selecionar Anthropic/Claude |
-| `COPILOT_GITHUB_TOKEN` | sem default | token de usuário compatível com Copilot SDK (`github_pat_`, `gho_` ou `ghu_`); classic PAT `ghp_` não é aceito | fine-grained PAT com `Copilot Requests`, somente por secret/env | necessária ao selecionar `copilot`; usa assinatura Copilot elegível e não participa de `AI=auto` |
 
-A presença de uma credencial não prova crédito, quota, plano nem acesso ao modelo. Em `AI=auto`, entram no pool apenas providers registrados como elegíveis, com credencial/configuração válidas e não excluídos pelo usuário. GitHub Copilot é deliberadamente `explicit-only`: mesmo com `COPILOT_GITHUB_TOKEN` configurado, ele só é consumido quando selecionado de forma explícita.
-
-As URLs oficiais para criar/gerenciar cada credencial são exibidas pelo console e consolidadas em [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
+A presença de uma credencial não prova crédito, quota, plano nem acesso ao modelo. Em `AI=auto`, entram no pool apenas providers registrados como elegíveis, com credencial/configuração válidas e não excluídos pelo usuário.
 
 ## 3. IA - modelos
 
@@ -64,7 +61,6 @@ Os defaults abaixo são os **defaults públicos efetivamente aplicados** por `pr
 | `RASAI_QWEN_MODEL` | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `qwen3.8-flash` como default público; use `qwen3.8-max` somente quando deliberadamente necessário |
 | `RASAI_GEMINI_MODEL` | `gemini-3.8-flash` | `gemini-3.8-flash` | default |
 | `RASAI_ANTHROPIC_MODEL` | `claude-sonnet-5` | `claude-sonnet-5` | default |
-| `RASAI_COPILOT_MODEL` | `auto` | `auto` | `auto`; deixa o SDK/assinatura resolver o modelo disponível para o usuário |
 
 ## 4. IA - reasoning
 
@@ -77,7 +73,6 @@ Os defaults abaixo são os **defaults públicos efetivamente aplicados** por `pr
 | `RASAI_QWEN_REASONING_EFFORT` | não existe na superfície atual | Qwen usa `PROVIDER_DEFAULT` internamente | não criar variável inexistente |
 | `RASAI_GEMINI_REASONING_EFFORT` | `LOW` | `LOW`, `MEDIUM`, `HIGH` | `LOW` no uso normal |
 | `RASAI_ANTHROPIC_REASONING_EFFORT` | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` no uso normal |
-| `RASAI_COPILOT_REASONING_EFFORT` | não existe na superfície atual | Copilot usa `PROVIDER_DEFAULT` via SDK | não criar variável inexistente |
 
 Aumentar reasoning pode elevar latência, tokens e custo. `AI=auto` não é cadeia fixa: o runtime consulta o provider registry, monta o conjunto elegível da execução e aplica roteamento/circuit breaker conforme o contrato vigente. Consulte [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
 
@@ -91,8 +86,6 @@ Aumentar reasoning pode elevar latência, tokens e custo. `AI=auto` não é cade
 | `RASAI_ANTHROPIC_ENDPOINT` | `https://api.anthropic.com/v1/messages` | URL absoluta HTTP(S) | default HTTPS |
 
 Não altere endpoints no uso normal. Um override incorreto pode causar falha, cobrança inesperada ou envio de dados ao destino errado. Em produção, não use HTTP para providers externos.
-
-GitHub Copilot não expõe endpoint override nesta integração: o transporte é o SDK oficial autenticado pelo token de usuário configurado.
 
 ## 6. IA - contexto editorial / YMYL
 
@@ -138,8 +131,19 @@ Detalhes: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md) e [CONTENT_
 | `RASAI_APDEX_TIMEOUT_SECONDS` | `max(45, 4T + 5)` | número `> 0` e `> 4T` | default derivado |
 | `RASAI_APDEX_DELAY_SECONDS` | `1` | número `>= 0` | `1` ou maior conforme sensibilidade do alvo |
 | `RASAI_APDEX_CONCURRENCY` | `1` | `1`, `2` | `1`; `2` somente quando a carga paralela for aceitável |
+| `RASAI_APDEX_MOBILE_CLIENT_PROFILE` | `mobile-balanced-chromium` | `mobile-compact-chromium`, `mobile-balanced-chromium`, `mobile-large-chromium` | default salvo objetivo explícito de viewport/cliente distinto |
+| `RASAI_APDEX_MOBILE_HARDWARE_PROFILE` | `mobile-balanced` | `mobile-entry`, `mobile-balanced`, `mobile-premium` | `mobile-balanced`; CPU sintética, não RAM/hardware físico |
+| `RASAI_APDEX_MOBILE_NETWORK_PROFILE` | `mobile-4g-balanced` | `mobile-3g-constrained`, `mobile-4g-balanced`, `mobile-4g-fast`, `mobile-5g` | `mobile-4g-balanced` como envelope controlado |
+| `RASAI_APDEX_DESKTOP_CLIENT_PROFILE` | `desktop-balanced-chromium` | `desktop-1366-chromium`, `desktop-balanced-chromium`, `desktop-wide-chromium` | default salvo objetivo explícito de viewport/cliente distinto |
+| `RASAI_APDEX_DESKTOP_HARDWARE_PROFILE` | `desktop-balanced` | `desktop-constrained`, `desktop-balanced` | `desktop-balanced`; CPU sintética, não RAM/hardware físico |
+| `RASAI_APDEX_DESKTOP_NETWORK_PROFILE` | `desktop-balanced` | `desktop-constrained`, `desktop-balanced`, `desktop-fiber` | `desktop-balanced` como envelope controlado |
+| `RASAI_APDEX_TABLET_CLIENT_PROFILE` | `tablet-balanced-chromium` | `tablet-compact-chromium`, `tablet-balanced-chromium` | default do perfil Tablet do Experience Apdex |
+| `RASAI_APDEX_TABLET_HARDWARE_PROFILE` | `tablet-balanced` | `tablet-entry`, `tablet-balanced`, `tablet-premium` | `tablet-balanced`; CPU sintética, não RAM/hardware físico |
+| `RASAI_APDEX_TABLET_NETWORK_PROFILE` | `tablet-4g-balanced` | `tablet-4g-balanced`, `tablet-wifi` | `tablet-4g-balanced` como envelope controlado |
 
-O threshold `T` é obrigatório quando Synthetic Navigation Apdex está habilitado porque não existe objetivo de desempenho universal defensável para todos os sites. Consulte [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md).
+Os nove presets acima controlam somente o **ambiente sintético** de execução: identidade/viewport do cliente, slowdown relativo de CPU e envelope de rede. Eles não mudam a fórmula Apdex, não alteram `SARI-001`/`SCORE-GEO-004` e não afirmam equivalência com RAM, GPU, térmica ou scheduler de um dispositivo físico. Os presets Tablet são usados pela população do Synthetic User Experience Apdex; `RASAI_DEVICE_CONTEXT` continua limitado a `mobile`, `desktop` e `both` no core da auditoria.
+
+O threshold `T` é obrigatório quando Synthetic Navigation Apdex está habilitado porque não existe objetivo de desempenho universal defensável para todos os sites. Consulte [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md) e [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md).
 
 ## 9. Synthetic User Experience Apdex (`apdex-experience.html`)
 
@@ -153,6 +157,7 @@ O recurso permanece default OFF. Quando habilitado sem override manual ou import
 | `RASAI_APDEX_EXPERIENCE_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` como baseline seguro | RASAi sintético |
 | `RASAI_APDEX_EXPERIENCE_DEVICE_MIX` | `mobile=60,desktop=35,tablet=5` | CSV com `mobile`, `desktop` e/ou `tablet`, percentuais finitos `>=0`, soma exata `100` | usar população real conhecida quando o objetivo for comparar com RUM | peso populacional das amostras, não número de subrequests |
 | `RASAI_APDEX_EXPERIENCE_SESSION_MODE` | `cold` | `cold`, `warm` | `cold` para baseline reprodutível | não há equivalência 1:1 com RUM |
+| `RASAI_APDEX_ACQUISITION_MODE` | `auto` | `auto`, `isolated` | `auto`; use `isolated` somente para comparação/troubleshooting | `auto` reutiliza somente navegações físicas compatíveis entre os dois Apdex; não compartilha score, thresholds nem device mix |
 | `RASAI_APDEX_EXPERIENCE_KPM` | `USER_ACTION_DURATION` | `USER_ACTION_DURATION`, `DOM_INTERACTIVE`, `LOAD_EVENT_START`, `LOAD_EVENT_END`, `RESPONSE_START`, `RESPONSE_END`, `LARGEST_CONTENTFUL_PAINT` | `USER_ACTION_DURATION` no perfil compatível atual | fallback executável; `VISUALLY_COMPLETE` não é executável com semântica equivalente ao fornecedor |
 | `RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS` | `3` | número `> 0` | `3` no perfil compatível | referência/fallback Dynatrace Load |
 | `RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS` | `12` | número `> 0` e maior que o limiar Satisfied | `12` no perfil compatível | independente de `4T` |
@@ -167,6 +172,8 @@ O recurso permanece default OFF. Quando habilitado sem override manual ou import
 | `RASAI_DYNATRACE_CONFIG_JSON` | sem default | caminho para arquivo JSON existente | **preferido à importação live quando o objetivo for reprodutibilidade** | configuração exportada/offline |
 | `DYNATRACE_API_TOKEN` | sem default | token válido | secret/env; nunca persistir | necessário somente na importação live |
 
+`RASAI_APDEX_ACQUISITION_MODE=auto` implementa **shared acquisition, independent evaluation**. O compartilhamento só ocorre quando URL, device, perfil sintético e sessão `cold` são compatíveis e a fronteira de `load` cabe no timeout do Navigation Apdex. O Navigation mantém seu target por URL/device e sua regra `T/4T`; o Experience mantém seu target total por página, device mix, KPM, thresholds e política de erros. Consulte [SYNTHETIC_SHARED_ACQUISITION.md](SYNTHETIC_SHARED_ACQUISITION.md).
+
 ### Referência Dynatrace e limite de equivalência
 
 > **Nota de direitos autorais, citação e tradução:** o material externo citado nesta seção permanece de titularidade de seu respectivo autor/mantenedor. Quando necessário para precisão técnica, o RASAi reproduz apenas o trecho estritamente necessário no idioma original, identificado como citação, seguido de tradução/adaptação para pt-BR. A tradução é informativa e não substitui o texto oficial; em caso de divergência, prevalece a fonte primária vinculada.
@@ -180,10 +187,8 @@ O RASAi não calcula `VISUALLY_COMPLETE` com semântica equivalente à do fornec
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
 | `RASAI_SERP_MODE` | `disabled` | `disabled`, `live`, `fixture` | `disabled` no baseline; `fixture` para teste; `live` somente com BYOK e intenção de consumo |
-| `RASAI_SERP_PROVIDER` | `serpapi` | `serpapi`, `serpapi-bing`, `zenserp`, `scrapingdog` | `serpapi` como baseline existente; escolha outro provider de forma explícita conforme quota/engine |
-| `RASAI_SERPAPI_API_KEY` | sem default | credencial SerpApi válida | secret/env; exigida por `serpapi` e `serpapi-bing` |
-| `RASAI_ZENSERP_API_KEY` | sem default | credencial Zenserp válida | secret/env; exigida por `zenserp` |
-| `RASAI_SCRAPINGDOG_API_KEY` | sem default | credencial ScrapingDog válida | secret/env; exigida por `scrapingdog` |
+| `RASAI_SERP_PROVIDER` | `serpapi` | `serpapi`, `serpapi-bing` | `serpapi`, salvo objetivo explícito de Bing |
+| `RASAI_SERPAPI_API_KEY` | sem default | credencial SerpApi válida | secret/env |
 | `RASAI_SERP_FIXTURE_PATH` | sem default | caminho para arquivo existente | usar somente em `fixture` |
 | `RASAI_SERP_MAX_QUERIES` | `10` | inteiro `> 0` | `10` ou menor para smoke/custo controlado |
 | `RASAI_SERP_MAX_REQUESTS` | `10` | inteiro `> 0` | `10` |
@@ -194,10 +199,6 @@ O RASAi não calcula `VISUALLY_COMPLETE` com semântica equivalente à do fornec
 | `RASAI_SERP_MIN_INTERVAL_SECONDS` | `1` | número `>= 0` | `1` ou maior se o provider/alvo exigir |
 | `RASAI_SEARCH_AI_PROVIDER` | `none` | `none`, `fixture`, `openai` | `none` no baseline; `fixture` para teste; `openai` quando análise competitiva por IA for desejada |
 | `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` | sem default | OAuth bearer token válido | secret/env, temporário |
-
-O provider selecionado em `RASAI_SERP_PROVIDER` determina qual variável de credencial é obrigatória. O console mostra o nome do provider, a variável esperada e a URL oficial de cadastro/login. As ofertas gratuitas verificadas em 11/09/2026 são **limitadas**; nenhuma integração SERP externa atual é classificada pelo RASAi como gratuita e ilimitada. Consulte [PROVIDER_SETUP.md](PROVIDER_SETUP.md) para URLs e notas de franquia.
-
-`RASAI_SERP_MAX_REQUESTS` limita tentativas HTTP do RASAi e não representa créditos comerciais do fornecedor. Em providers baseados em créditos, uma única request pode consumir mais de um crédito.
 
 Search Intelligence permanece separado de `SARI-001`/`SCORE-GEO-004`. Consulte [SERP_OBSERVATION.md](SERP_OBSERVATION.md), [SEARCH_INTELLIGENCE_HISTORY.md](SEARCH_INTELLIGENCE_HISTORY.md) e [SEARCH_INTELLIGENCE_MONITORING.md](SEARCH_INTELLIGENCE_MONITORING.md).
 
