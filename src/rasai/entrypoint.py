@@ -13,6 +13,7 @@ from typing import Sequence
 from rasai import cli_extensions
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
 from rasai.context_scope_runtime import install as install_context_scope_runtime
+from rasai.external_measurement_runtime import install as install_external_measurement_runtime
 from rasai.integration_state_contract import install as install_integration_state_contract
 from rasai.integration_state_refinements import install as install_integration_state_refinements
 from rasai.provider_presentation_alignment import install as install_provider_presentation_alignment
@@ -115,6 +116,7 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     install_report_registry()
     install_context_scope_runtime()
+    install_external_measurement_runtime()
     install_ai_efficiency_policy()
     install_runtime_completion_extensions()
     install_report_observation_reconciliation()
