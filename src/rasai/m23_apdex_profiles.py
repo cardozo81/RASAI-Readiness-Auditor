@@ -1,4 +1,4 @@
-"""Deterministic browser/CPU/network profiles for M23 Synthetic Apdex."""
+"""Deterministic browser/CPU/network profiles for Synthetic Navigation Apdex."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,9 +14,10 @@ from playwright.sync_api import Error as PlaywrightError, TimeoutError as Playwr
 
 from rasai.browser_identity_renderer import realistic_context_options
 from rasai.domain import DeviceContext
-from rasai.rendering import DESKTOP_PROFILE, MOBILE_PROFILE, BrowserProfile
+from rasai.rendering import BrowserProfile
+from rasai.synthetic_runtime_profiles import compose_profile, default_preset
 
-PROFILE_VERSION = "M23-PROFILE-001"
+PROFILE_VERSION = "M23-PROFILE-002"
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +30,12 @@ class SyntheticProfile:
     download_kbps: float
     upload_kbps: float
     connection_type: str
+    client_profile_id: str = ""
+    hardware_profile_id: str = ""
+    network_profile_id: str = ""
+    browser_family: str = "chromium"
+    os_family: str = ""
+    playwright_descriptor: str = ""
 
     def validate(self) -> "SyntheticProfile":
         for name, value, minimum in (
@@ -46,6 +53,12 @@ class SyntheticProfile:
             "profile_id": self.profile_id,
             "profile_version": PROFILE_VERSION,
             "device": self.device.value,
+            "client_profile_id": self.client_profile_id or None,
+            "hardware_profile_id": self.hardware_profile_id or None,
+            "network_profile_id": self.network_profile_id or None,
+            "browser_family": self.browser_family,
+            "os_family": self.os_family or None,
+            "playwright_descriptor": self.playwright_descriptor or None,
             "viewport": {
                 "width": self.browser_profile.viewport_width,
                 "height": self.browser_profile.viewport_height,
@@ -65,29 +78,72 @@ class SyntheticProfile:
             "connection_type": self.connection_type,
             "cache_policy": "COLD_CONTEXT",
             "randomization": "NONE",
+            "emulation_limitations": {
+                "physical_ram": "NOT_EMULATED",
+                "physical_gpu": "NOT_EMULATED",
+                "thermal_state": "NOT_EMULATED",
+                "os_scheduler": "NOT_EMULATED",
+                "browser_engine": "CHROMIUM_RUNTIME",
+                "cpu": "CDP_RELATIVE_SLOWDOWN",
+                "network": "CDP_CONTROLLED_ENVELOPE",
+            },
         }
 
 
-MOBILE_STANDARD_PROFILE = SyntheticProfile(
-    profile_id="RASAI_MOBILE_SLOW4G_V1",
-    device=DeviceContext.MOBILE,
-    browser_profile=MOBILE_PROFILE,
-    cpu_slowdown=4.0,
-    rtt_ms=150.0,
-    download_kbps=1638.4,
-    upload_kbps=750.0,
-    connection_type="cellular4g",
+def profile_from_presets(
+    *,
+    device: str,
+    client_profile_id: str,
+    hardware_profile_id: str,
+    network_profile_id: str,
+) -> SyntheticProfile:
+    bundle = compose_profile(
+        device=device,
+        client_id=client_profile_id,
+        hardware_id=hardware_profile_id,
+        network_id=network_profile_id,
+    )
+    hardware = bundle["hardware_preset"]
+    network = bundle["network_preset"]
+    client = bundle["client_preset"]
+    enum_device = DeviceContext.MOBILE if bundle["device"] in {"MOBILE", "TABLET"} else DeviceContext.DESKTOP
+    return SyntheticProfile(
+        profile_id=str(bundle["profile_id"]),
+        device=enum_device,
+        browser_profile=bundle["browser_profile"],
+        cpu_slowdown=float(hardware.cpu_slowdown),
+        rtt_ms=float(network.rtt_ms),
+        download_kbps=float(network.download_kbps),
+        upload_kbps=float(network.upload_kbps),
+        connection_type=str(network.connection_type),
+        client_profile_id=str(client.preset_id),
+        hardware_profile_id=str(hardware.preset_id),
+        network_profile_id=str(network.preset_id),
+        browser_family=str(client.browser_family),
+        os_family=str(client.os_family),
+        playwright_descriptor=str(client.playwright_descriptor),
+    ).validate()
+
+
+MOBILE_STANDARD_PROFILE = profile_from_presets(
+    device="MOBILE",
+    client_profile_id=default_preset("client", "MOBILE"),
+    hardware_profile_id=default_preset("hardware", "MOBILE"),
+    network_profile_id=default_preset("network", "MOBILE"),
 )
 
-DESKTOP_STANDARD_PROFILE = SyntheticProfile(
-    profile_id="RASAI_DESKTOP_DENSE4G_V1",
-    device=DeviceContext.DESKTOP,
-    browser_profile=DESKTOP_PROFILE,
-    cpu_slowdown=1.0,
-    rtt_ms=40.0,
-    download_kbps=10240.0,
-    upload_kbps=10240.0,
-    connection_type="ethernet",
+DESKTOP_STANDARD_PROFILE = profile_from_presets(
+    device="DESKTOP",
+    client_profile_id=default_preset("client", "DESKTOP"),
+    hardware_profile_id=default_preset("hardware", "DESKTOP"),
+    network_profile_id=default_preset("network", "DESKTOP"),
+)
+
+TABLET_STANDARD_PROFILE = profile_from_presets(
+    device="TABLET",
+    client_profile_id=default_preset("client", "TABLET"),
+    hardware_profile_id=default_preset("hardware", "TABLET"),
+    network_profile_id=default_preset("network", "TABLET"),
 )
 
 
@@ -112,7 +168,7 @@ class SyntheticNavigationGateway(Protocol):
 
 
 def static_host_environment() -> dict[str, Any]:
-    """Host data that does not start Chromium; safe for M23-disabled audits."""
+    """Host data that does not start Chromium; safe for disabled audits."""
     try:
         playwright_version = package_version("playwright")
     except Exception:
@@ -195,21 +251,13 @@ class PlaywrightSyntheticNavigationGateway:
         cpu_method = network_method = None
         browser_diagnostics: list[dict[str, str]] = []
         try:
-            # Every sample gets a new BrowserContext: no cookie, local/session storage,
-            # service-worker storage, or browser-session reuse from another sample.
             context_options, _identity = realistic_context_options(
                 self._playwright,
                 browser_version=getattr(self._browser, "version", None),
                 device=profile.device,
+                profile_override=profile.browser_profile,
+                descriptor_name=profile.playwright_descriptor or None,
             )
-            # Preserve the SyntheticProfile's explicitly versioned viewport semantics.
-            context_options["viewport"] = {
-                "width": profile.browser_profile.viewport_width,
-                "height": profile.browser_profile.viewport_height,
-            }
-            context_options["device_scale_factor"] = profile.browser_profile.device_scale_factor
-            context_options["is_mobile"] = profile.browser_profile.is_mobile
-            context_options["has_touch"] = profile.browser_profile.has_touch
             context = self._browser.new_context(**context_options)
             page = context.new_page()
 
