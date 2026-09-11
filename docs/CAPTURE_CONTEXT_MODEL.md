@@ -124,6 +124,22 @@ A navegação do mini-site é agrupada em:
 - Search e IA;
 - Ações e referência.
 
+### Escala de apresentação para múltiplas URLs
+
+O layout atual de cartões permanece inalterado quando a auditoria possui uma ou duas URLs distintas, porque nesse volume a leitura linear continua simples.
+
+A partir da **terceira URL distinta**, páginas com coleções URL-scoped ou device-scoped recebem controles locais de leitura:
+
+- filtro por URL;
+- filtro por contexto `MOBILE`/`DESKTOP` quando ambos estiverem presentes;
+- busca textual por URL, regra, status ou conteúdo visível;
+- seleção de quantidade de itens por página;
+- paginação local.
+
+A quantidade de URLs não possui limite fixo de apresentação. O gatilho é semântico (`>= 3 URLs distintas`), não um número de exemplo como 50.
+
+A paginação e os filtros são client-side e atuam somente sobre a visualização. Todos os cartões/linhas continuam presentes no HTML gerado para preservar portabilidade, evidência e impressão completa. Listas sem URL só recebem controles quando se tornam materialmente grandes, como proteção contra relatórios extensos.
+
 ## Console interativo e arquivo de configuração
 
 A seleção canônica continua sendo:
