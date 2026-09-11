@@ -13,7 +13,7 @@ from rasai.m25_dynatrace_defaults import (
     RASAI_DYNATRACE_COMPAT_KPM,
     RASAI_DYNATRACE_COMPAT_SATISFIED_SECONDS,
 )
-from rasai.synthetic_runtime_profiles import configured_preset
+from rasai.synthetic_runtime_profiles import configured_preset, env_name
 
 UX_ENABLED_ENV = "RASAI_APDEX_EXPERIENCE"
 UX_SAMPLES_ENV = "RASAI_APDEX_EXPERIENCE_SAMPLES"
@@ -92,8 +92,7 @@ def configured_experience(
     enabled = _bool(getattr(args, "apdex_experience", None), UX_ENABLED_ENV, False, environment)
     samples = _positive_int(getattr(args, "apdex_experience_samples", None), UX_SAMPLES_ENV, DEFAULT_UX_SAMPLES, environment)
     max_attempts = _optional_positive_int(getattr(args, "apdex_experience_max_attempts", None), UX_MAX_ATTEMPTS_ENV, environment)
-    if max_attempts is None:
-        max_attempts = max(samples, int(math.ceil(samples * 1.25)))
+    if max_attempts is None: max_attempts = max(samples, int(math.ceil(samples * 1.25)))
     max_pages = _nonnegative_int(getattr(args, "apdex_experience_max_pages", None), UX_MAX_PAGES_ENV, standard_max_pages if standard_max_pages >= 0 else DEFAULT_UX_MAX_PAGES, environment)
     mix_raw = _text(getattr(args, "apdex_experience_device_mix", None), UX_DEVICE_MIX_ENV, environment) or DEFAULT_UX_DEVICE_MIX
     mix = parse_device_mix(mix_raw)
@@ -110,13 +109,15 @@ def configured_experience(
     base_url = _text(getattr(args, "dynatrace_base_url", None), DYNATRACE_BASE_URL_ENV, environment)
     app_id = _text(getattr(args, "dynatrace_application_id", None), DYNATRACE_APPLICATION_ID_ENV, environment)
     config_json = _text(getattr(args, "apdex_dynatrace_config_json", None), DYNATRACE_CONFIG_JSON_ENV, environment)
-    if config_json:
-        dynatrace_import = True
+    if config_json: dynatrace_import = True
 
-    profiles = {
-        device: {kind: _profile_value(args, environment, device, kind) for kind in ("client", "hardware", "network")}
-        for device in ("MOBILE", "DESKTOP", "TABLET")
-    }
+    # Profile choices are shared by Navigation and User Experience Apdex. CLI overrides
+    # are materialized into the current runtime environment so the one-shot M25 stage
+    # and report persistence consume exactly the same selected presets.
+    if hasattr(environment, "__setitem__"):
+        for device in ("MOBILE", "DESKTOP", "TABLET"):
+            for kind in ("client", "hardware", "network"):
+                environment[env_name(kind, device)] = _profile_value(args, environment, device, kind)  # type: ignore[index]
 
     return ExperienceApdexConfig(
         enabled=enabled,
@@ -137,15 +138,6 @@ def configured_experience(
         dynatrace_base_url=base_url,
         dynatrace_application_id=app_id,
         dynatrace_config_json=config_json,
-        mobile_client_profile=profiles["MOBILE"]["client"],
-        mobile_hardware_profile=profiles["MOBILE"]["hardware"],
-        mobile_network_profile=profiles["MOBILE"]["network"],
-        desktop_client_profile=profiles["DESKTOP"]["client"],
-        desktop_hardware_profile=profiles["DESKTOP"]["hardware"],
-        desktop_network_profile=profiles["DESKTOP"]["network"],
-        tablet_client_profile=profiles["TABLET"]["client"],
-        tablet_hardware_profile=profiles["TABLET"]["hardware"],
-        tablet_network_profile=profiles["TABLET"]["network"],
     ).validate()
 
 
@@ -183,16 +175,16 @@ def validate_m25_env_value(name: str, raw: str) -> str:
     return value
 
 
-def _text(cli: str | None, env_name: str, env: Mapping[str, str]) -> str | None:
+def _text(cli: str | None, env_name_value: str, env: Mapping[str, str]) -> str | None:
     if cli is not None and str(cli).strip(): return str(cli).strip()
-    value = (env.get(env_name) or "").strip()
+    value = (env.get(env_name_value) or "").strip()
     return value or None
 
 
-def _bool(cli: bool | None, env_name: str, default: bool, env: Mapping[str, str]) -> bool:
+def _bool(cli: bool | None, env_name_value: str, default: bool, env: Mapping[str, str]) -> bool:
     if cli is not None: return bool(cli)
-    raw = (env.get(env_name) or "").strip()
-    return default if not raw else _parse_bool(raw, env_name)
+    raw = (env.get(env_name_value) or "").strip()
+    return default if not raw else _parse_bool(raw, env_name_value)
 
 
 def _parse_bool(raw: str, name: str) -> bool:
@@ -202,43 +194,43 @@ def _parse_bool(raw: str, name: str) -> bool:
     raise ValueError(f"{name} deve ser booleano")
 
 
-def _optional_positive_int(cli: int | None, env_name: str, env: Mapping[str, str]) -> int | None:
-    raw = cli if cli is not None else ((env.get(env_name) or "").strip() or None)
+def _optional_positive_int(cli: int | None, env_name_value: str, env: Mapping[str, str]) -> int | None:
+    raw = cli if cli is not None else ((env.get(env_name_value) or "").strip() or None)
     if raw is None: return None
     value = int(raw)
-    if value < 1: raise ValueError(f"{env_name} deve ser >=1")
+    if value < 1: raise ValueError(f"{env_name_value} deve ser >=1")
     return value
 
 
-def _positive_int(cli: int | None, env_name: str, default: int, env: Mapping[str, str]) -> int:
-    value = _optional_positive_int(cli, env_name, env)
+def _positive_int(cli: int | None, env_name_value: str, default: int, env: Mapping[str, str]) -> int:
+    value = _optional_positive_int(cli, env_name_value, env)
     return default if value is None else value
 
 
-def _nonnegative_int(cli: int | None, env_name: str, default: int, env: Mapping[str, str]) -> int:
-    raw = cli if cli is not None else ((env.get(env_name) or "").strip() or None)
+def _nonnegative_int(cli: int | None, env_name_value: str, default: int, env: Mapping[str, str]) -> int:
+    raw = cli if cli is not None else ((env.get(env_name_value) or "").strip() or None)
     if raw is None: return default
     value = int(raw)
-    if value < 0: raise ValueError(f"{env_name} deve ser >=0")
+    if value < 0: raise ValueError(f"{env_name_value} deve ser >=0")
     return value
 
 
-def _optional_positive_float(cli: float | None, env_name: str, env: Mapping[str, str]) -> float | None:
-    raw = cli if cli is not None else ((env.get(env_name) or "").strip() or None)
+def _optional_positive_float(cli: float | None, env_name_value: str, env: Mapping[str, str]) -> float | None:
+    raw = cli if cli is not None else ((env.get(env_name_value) or "").strip() or None)
     if raw is None: return None
     value = float(raw)
-    if not math.isfinite(value) or value <= 0: raise ValueError(f"{env_name} deve ser número finito >0")
+    if not math.isfinite(value) or value <= 0: raise ValueError(f"{env_name_value} deve ser número finito >0")
     return value
 
 
-def _positive_float(cli: float | None, env_name: str, default: float, env: Mapping[str, str]) -> float:
-    value = _optional_positive_float(cli, env_name, env)
+def _positive_float(cli: float | None, env_name_value: str, default: float, env: Mapping[str, str]) -> float:
+    value = _optional_positive_float(cli, env_name_value, env)
     return default if value is None else value
 
 
-def _nonnegative_float(cli: float | None, env_name: str, default: float, env: Mapping[str, str]) -> float:
-    raw = cli if cli is not None else ((env.get(env_name) or "").strip() or None)
+def _nonnegative_float(cli: float | None, env_name_value: str, default: float, env: Mapping[str, str]) -> float:
+    raw = cli if cli is not None else ((env.get(env_name_value) or "").strip() or None)
     if raw is None: return default
     value = float(raw)
-    if not math.isfinite(value) or value < 0: raise ValueError(f"{env_name} deve ser número finito >=0")
+    if not math.isfinite(value) or value < 0: raise ValueError(f"{env_name_value} deve ser número finito >=0")
     return value
