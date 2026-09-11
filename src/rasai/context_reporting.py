@@ -263,7 +263,7 @@ def write_context_report(*, audit_id: str, workspace: AuditWorkspace) -> Path:
 <div class='app-shell'>{nav}<main class='app-main'>
 <header class='hero'><div class='eyebrow'>Contrato de captura · {escape(CONTEXT_SCOPE_CONTRACT_VERSION)}</div>
 <h1>Contexto de captura: URL e dispositivo</h1>
-<p>Esta superfície explica onde cada evidência é capturada e mostra diferenças observadas entre snapshots. Dados detalhados da origem ficam concentrados em <a href='{DOMAIN_REPORT_FILE}'>Domínio e descoberta</a>. Fórmulas, pesos e scores não são alterados.</p></header>
+<p>Esta superfície explica onde cada evidência é capturada e mostra diferenças observadas entre snapshots. Dados detalhados da origem ficam concentrados em <a href='{DOMAIN_REPORT_FILE}'>Domínio e descoberta</a>. Esta apresentação não altera fórmulas, pesos ou scores.</p></header>
 <section class='panel'><h2>Topologia desta auditoria</h2><div class='metric-grid'>
 <div class='metric'><small>Origem</small><strong>{escape(origins)}</strong></div>
 <div class='metric'><small>URLs auditadas</small><strong>{data['page_count']}</strong></div>
@@ -285,7 +285,7 @@ def write_context_report(*, audit_id: str, workspace: AuditWorkspace) -> Path:
 <section class='panel'><h2>Política de IA e economia de tokens</h2>
 <div class='notice'><strong>Sem IA adicional para este relatório.</strong> A análise semântica usa uma resposta estruturada para o conjunto contratado de regras de cada snapshot, em vez de uma chamada por regra. Recursos globais não provocam chamadas repetidas por dispositivo. Saídas devem ser concisas e evidence-bound.</div>
 </section>
-<footer class='footer'>RASAi · contexto de captura read-only · scoring inalterado</footer>
+<footer class='footer'>RASAi · contexto de captura read-only · não altera fórmulas de scoring</footer>
 </main></div></body></html>"""
     path.write_text(html, encoding="utf-8", newline="\n")
     return path
