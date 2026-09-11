@@ -20,7 +20,6 @@ from rasai.search_intelligence.provider_catalog import (
 )
 
 EnvironmentSpec = legacy.EnvironmentSpec
-ENV_NAMES = legacy.ENV_NAMES
 CATEGORIES = legacy.CATEGORIES
 DOCUMENT_NAME = legacy.DOCUMENT_NAME
 
@@ -92,6 +91,16 @@ def environment_specs() -> tuple[EnvironmentSpec, ...]:
     return _build_specs()
 
 
+def refresh_specs() -> tuple[EnvironmentSpec, ...]:
+    """Refresh this facade after runtime extensions mutate the legacy catalog."""
+    global ENV_NAMES, SPECS, SPEC_BY_NAME
+    ENV_NAMES = legacy.ENV_NAMES
+    SPECS = environment_specs()
+    SPEC_BY_NAME = {spec.name: spec for spec in SPECS}
+    return SPECS
+
+
+ENV_NAMES = legacy.ENV_NAMES
 SPECS = environment_specs()
 SPEC_BY_NAME = {spec.name: spec for spec in SPECS}
 
@@ -173,6 +182,7 @@ def _category_menu(state: object, title: str, specs: tuple[EnvironmentSpec, ...]
 
 def environment_menu(state: object) -> None:
     """Show the registry-aware product environment catalog grouped by functional scope."""
+    refresh_specs()
     grouped = {
         category: tuple(spec for spec in SPECS if spec.category == category)
         for category in CATEGORIES
