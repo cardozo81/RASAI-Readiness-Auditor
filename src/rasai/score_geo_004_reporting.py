@@ -9,6 +9,7 @@ import sqlite3
 from rasai import report_navigation
 from rasai.persistence import AuditWorkspace
 from rasai.report_contract import REPORT_CONTRACT_VERSION, SARI_VERSION
+from rasai.report_presentation import public_label
 from rasai.score_geo_004 import (
     FEATURE_ORDER,
     MIN_OVERALL_COVERAGE,
@@ -21,17 +22,21 @@ from rasai.score_geo_004 import (
 # in the rendered content. This pre-publication build exposes only the canonical path.
 REPORT_FILE = "scoring.html"
 
+# Conceptual labels remain in their established English form. Persisted enum names
+# remain available only as secondary technical traceability where useful.
 _DIMENSION_LABELS = {
-    "TECHNICAL_ACCESSIBILITY": "Acessibilidade técnica",
-    "INDEXABILITY": "Capacidade de indexação",
-    "CONTENT_EXTRACTABILITY": "Extração de conteúdo",
-    "SEMANTIC_STRUCTURE": "Estrutura semântica",
-    "ENTITY_CLARITY": "Clareza de entidades",
-    "STRUCTURED_DATA": "Dados estruturados",
-    "ANSWERABILITY": "Capacidade de resposta",
-    "CITATION_READINESS": "Preparação para citação",
-    "EVIDENCE_TRUST": "Evidências e confiabilidade",
-    "INTENT_COVERAGE": "Cobertura de intenções",
+    "TECHNICAL_ACCESSIBILITY": "Technical Accessibility",
+    "DISCOVERY_ACCESS": "Discovery & Crawler Access",
+    "INDEXABILITY": "Indexability",
+    "CONTENT_EXTRACTABILITY": "Rendering & Extractability",
+    "SEMANTIC_STRUCTURE": "Semantic Structure",
+    "ENTITY_CLARITY": "Entity Clarity",
+    "STRUCTURED_DATA": "Structured Data",
+    "ANSWERABILITY": "Answerability",
+    "CITATION_READINESS": "Citation Readiness",
+    "EVIDENCE_TRUST": "Evidence & Trust",
+    "INTENT_COVERAGE": "Intent Coverage",
+    "CONTENT_VALUE": "Content Value",
 }
 
 # Page-scoped layout: scoring contribution tables need substantially more horizontal
@@ -54,7 +59,7 @@ _SCORING_LAYOUT_CSS = r"""
 .scoring-dimension-table th:nth-child(6),.scoring-dimension-table td:nth-child(6){width:72px;text-align:center}
 .scoring-dimension-table th:nth-child(7),.scoring-dimension-table td:nth-child(7){width:142px;text-align:right}
 .scoring-dimension-table td:nth-child(2){color:#3f4c60}
-.scoring-dimension-table td:nth-child(3) code{white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+.scoring-dimension-table td:nth-child(3) code{display:block;margin-top:2px;color:var(--muted);font-size:.72rem;white-space:normal;overflow-wrap:anywhere;word-break:break-word}
 .scoring-dimension-table td:nth-child(4),.scoring-dimension-table td:nth-child(5),.scoring-dimension-table td:nth-child(6),.scoring-dimension-table td:nth-child(7){white-space:nowrap}
 .scoring-dimension-table tbody tr:hover{background:#fafbfc}
 @media(max-width:900px){.scoring-dimension-heading{align-items:flex-start;flex-direction:column;gap:4px}.scoring-dimension-meta{white-space:normal}.scoring-dimension-table table{min-width:900px}}
@@ -182,24 +187,28 @@ def _method_section(version: str, workspace: AuditWorkspace, audit_id: str) -> s
                 group = str(row["scoring_group"] or "regra independente")
                 scoring_groups.add(group)
                 rule_id = str(row["rule_id"])
+                group_label = public_label(group)
+                group_cell = escape(group_label)
+                if group_label != group:
+                    group_cell += f"<code>{escape(group)}</code>"
                 body.append(
                     "<tr>"
                     f"<td><strong>{escape(rule_id)}</strong></td>"
                     f"<td>{escape(_rule_description(rule_id))}</td>"
-                    f"<td><code>{escape(group)}</code></td>"
+                    f"<td>{group_cell}</td>"
                     f"<td>{float(row['weight']):g}</td>"
                     f"<td>{escape(str(row['result']))}</td>"
                     f"<td>{escape(factor)}</td>"
                     f"<td>{escape(effective)}</td>"
                     "</tr>"
                 )
-            label = _DIMENSION_LABELS.get(dimension, dimension)
+            label = _DIMENSION_LABELS.get(dimension, public_label(dimension))
             rule_label = "regra" if len(rows) == 1 else "regras"
-            group_label = "grupo" if len(scoring_groups) == 1 else "grupos"
+            group_count_label = "grupo" if len(scoring_groups) == 1 else "grupos"
             blocks.append(
                 "<article class='scoring-dimension-panel'>"
                 f"<div class='scoring-dimension-heading'><h4>{escape(label)}</h4>"
-                f"<span class='scoring-dimension-meta'>{len(rows)} {rule_label} · {len(scoring_groups)} {group_label}</span></div>"
+                f"<span class='scoring-dimension-meta'>{len(rows)} {rule_label} · {len(scoring_groups)} {group_count_label}</span></div>"
                 "<div class='table-wrap scoring-dimension-table'><table><thead><tr>"
                 "<th>Regra</th><th>Critério</th><th>Grupo</th><th>Peso</th><th>Resultado</th><th>Fator</th><th>Contribuição efetiva</th>"
                 f"</tr></thead><tbody>{''.join(body)}</tbody></table></div></article>"
@@ -210,7 +219,10 @@ def _method_section(version: str, workspace: AuditWorkspace, audit_id: str) -> s
 
 def _dimension_list(version: str) -> str:
     del version
-    items = "".join(f"<li><code>{escape(name)}</code></li>" for name in FEATURE_ORDER)
+    items = "".join(
+        f"<li>{escape(_DIMENSION_LABELS.get(name, public_label(name)))}</li>"
+        for name in FEATURE_ORDER
+    )
     return f"<ul>{items}</ul><p class='intro'>No Overall 004, cada dimensão aplicável consolidável recebe peso igual; pesos internos de regras são os persistidos nas contribuições da respectiva dimensão.</p>"
 
 
@@ -251,7 +263,11 @@ def _score_reason(row: sqlite3.Row) -> str:
     except (TypeError, ValueError, json.JSONDecodeError):
         raw = []
     limitations = [str(item) for item in raw if item]
-    missing = [item.split(":", 1)[1] for item in limitations if item.startswith("DIMENSION_NOT_CONSOLIDATED:")]
+    missing = [
+        public_label(item.split(":", 1)[1])
+        for item in limitations
+        if item.startswith("DIMENSION_NOT_CONSOLIDATED:")
+    ]
     if missing:
         return "Dimensão(ões) ainda não consolidada(s): " + ", ".join(missing)
     status = str(row["consolidation_status"])
