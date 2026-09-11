@@ -1,19 +1,20 @@
-"""Read-only report for zero-cost Open Web metrics captured in device snapshots."""
+"""Read-only enrichment of web-performance.html with zero-cost Open Web metrics."""
 from __future__ import annotations
 
 from collections import Counter
 from html import escape
 import json
-from pathlib import Path
+import re
 import sqlite3
 from typing import Any, Iterable
 
 from rasai.open_web_metrics import OPEN_WEB_METRICS_CONTRACT_VERSION
 from rasai.persistence import AuditWorkspace
-from rasai import report_navigation
 
 
-REPORT_FILE = "web-standards.html"
+REPORT_FILE = "web-performance.html"
+_START = "<!-- rasai-open-web-metrics-start -->"
+_END = "<!-- rasai-open-web-metrics-end -->"
 
 
 def _json(value: Any, default: Any) -> Any:
@@ -47,9 +48,9 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> list[dict[str, Any]]:
             return []
         snapshot_columns = _columns(connection, "page_snapshots")
         page_columns = _columns(connection, "pages")
-        required_snapshot = {"snapshot_id", "page_id", "device", "browser_metadata"}
-        required_page = {"page_id", "audit_id"}
-        if not required_snapshot.issubset(snapshot_columns) or not required_page.issubset(page_columns):
+        if not {"snapshot_id", "page_id", "device", "browser_metadata"}.issubset(snapshot_columns):
+            return []
+        if not {"page_id", "audit_id"}.issubset(page_columns):
             return []
         url_expr = "p.normalized_url" if "normalized_url" in page_columns else "ps.requested_url"
         rows = connection.execute(
@@ -85,10 +86,9 @@ def _number(value: Any) -> float | None:
     if isinstance(value, bool) or value is None:
         return None
     try:
-        parsed = float(value)
+        return float(value)
     except (TypeError, ValueError):
         return None
-    return parsed
 
 
 def _nested(item: dict[str, Any], section: str, field: str) -> Any:
@@ -118,16 +118,15 @@ def _fmt_decimal(value: Any, digits: int = 3) -> str:
     return "-" if parsed is None else f"{parsed:.{digits}f}"
 
 
-def _range(items: Iterable[dict[str, Any]], section: str, field: str, *, suffix: str = "") -> str:
-    values = [_number(_nested(item, section, field)) for item in items]
-    observed = [value for value in values if value is not None]
+def _range(items: Iterable[dict[str, Any]], section: str, field: str, *, milliseconds: bool = False) -> str:
+    observed = [
+        value for value in (_number(_nested(item, section, field)) for item in items) if value is not None
+    ]
     if not observed:
         return "não observado"
     low, high = min(observed), max(observed)
-    if suffix == " ms":
+    if milliseconds:
         return f"{low:.1f}–{high:.1f} ms" if low != high else f"{low:.1f} ms"
-    if suffix:
-        return f"{low:.3f}–{high:.3f}{suffix}" if low != high else f"{low:.3f}{suffix}"
     return f"{low:.3f}–{high:.3f}" if low != high else f"{low:.3f}"
 
 
@@ -149,9 +148,9 @@ def _summary(items: list[dict[str, Any]]) -> str:
     return f"""
 <div class='metric-grid'>
   <div class='metric'><small>Snapshots</small><strong>{len(items)}</strong></div>
-  <div class='metric'><small>Capturados</small><strong>{len(captured)}</strong></div>
-  <div class='metric'><small>LCP observado</small><strong>{escape(_range(captured, 'paint', 'largest_contentful_paint_ms', suffix=' ms'))}</strong></div>
-  <div class='metric'><small>CLS observado</small><strong>{escape(_range(captured, 'layout', 'cumulative_layout_shift'))}</strong></div>
+  <div class='metric'><small>Open Web capturados</small><strong>{len(captured)}</strong></div>
+  <div class='metric'><small>LCP same-session</small><strong>{escape(_range(captured, 'paint', 'largest_contentful_paint_ms', milliseconds=True))}</strong></div>
+  <div class='metric'><small>CLS same-session</small><strong>{escape(_range(captured, 'layout', 'cumulative_layout_shift'))}</strong></div>
 </div>
 <p><strong>Estados:</strong> {escape(state_text)}</p>
 """
@@ -238,34 +237,38 @@ def _details(items: list[dict[str, Any]]) -> str:
     return "".join(blocks) or "<p>Não há observações Open Web capturadas nesta auditoria.</p>"
 
 
-def write_open_web_metrics_report(*, audit_id: str, workspace: AuditWorkspace) -> Path:
-    items = _load(audit_id, workspace)
-    report_dir = workspace.root / "report"
-    report_dir.mkdir(parents=True, exist_ok=True)
-    path = report_dir / REPORT_FILE
-    nav = report_navigation.render_report_navigation(report_dir, REPORT_FILE)
-    html = f"""<!doctype html>
-<html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
-<title>RASAi · Open Web Metrics</title><link rel='stylesheet' href='css/site.css'></head><body>
-<div class='app-shell'>{nav}<main class='app-main'>
-<header class='hero'><div class='eyebrow'>Open Web · {escape(OPEN_WEB_METRICS_CONTRACT_VERSION)}</div>
-<h1>Web Standards & Performance APIs</h1>
-<p>Evidência complementar capturada no mesmo snapshot Chromium já usado pela auditoria. Não há nova navegação, API externa ou custo de provider. Esta página não recalcula SARI-001/SCORE-GEO-004.</p></header>
-<section class='panel'><h2>Resumo da auditoria</h2>
-<div class='notice'><strong>Escopo:</strong> cada linha abaixo representa uma combinação URL + dispositivo. O resumo usa faixas mínimo–máximo quando há múltiplos snapshots; não existe média implícita entre páginas ou devices.</div>
-{_summary(items)}</section>
-<section class='panel'><h2>Métricas observadas por URL e dispositivo</h2>
-<p>TTFB/FCP/LCP/CLS vêm das APIs de performance disponíveis no Chromium da própria execução. LCP e CLS usam as bandas de referência de Core Web Vitals apenas como contexto visual; isso não transforma a coleta em CrUX, RUM ou Lighthouse.</p>
-{_snapshot_table(items)}</section>
-<section class='panel'><h2>Navigation, Resource, Server e User Timing</h2>{_details(items)}</section>
-<section class='panel'><h2>Fronteiras metodológicas</h2>
-<ul>
-<li><strong>Sem “W3C score”:</strong> W3C define APIs e métricas, não um score composto oficial para esta superfície.</li>
+def _section(items: list[dict[str, Any]]) -> str:
+    return f"""{_START}
+<section class='panel' id='open-web-performance-apis'><h2>Open Web Performance APIs</h2>
+<p>Evidência complementar capturada no mesmo snapshot Chromium já usado pela auditoria. Não há nova navegação, API externa ou custo de provider. Esta seção não recalcula SARI-001/SCORE-GEO-004.</p>
+<div class='notice'><strong>Escopo:</strong> cada linha representa uma combinação URL + dispositivo. O resumo usa faixas mínimo–máximo quando há múltiplos snapshots; não existe média implícita entre páginas ou devices.</div>
+{_summary(items)}
+<h3>Métricas observadas por URL e dispositivo</h3>
+<p>TTFB/FCP/LCP/CLS vêm das APIs de performance disponíveis no Chromium da própria execução. LCP e CLS usam bandas de referência de Core Web Vitals apenas como contexto visual; isso não transforma a coleta em CrUX, RUM ou Lighthouse.</p>
+{_snapshot_table(items)}
+<h3>Navigation, Resource, Server e User Timing</h3>{_details(items)}
+<details><summary>Fronteiras metodológicas</summary><ul>
+<li><strong>Sem “W3C score”:</strong> W3C define APIs e métricas, não um score composto oficial para esta seção.</li>
 <li><strong>INP não é inferido:</strong> Event Timing aparece apenas quando houve interação qualificável; uma navegação sintética sem interação não recebe INP artificial.</li>
 <li><strong>Sem aquisição adicional:</strong> <code>additional_navigation_requests=0</code> e <code>additional_external_api_calls=0</code>.</li>
 <li><strong>Sem impacto em scoring:</strong> os valores são diagnósticos complementares e permanecem fora de SARI-001/SCORE-GEO-004.</li>
-<li><strong>Visibilidade de Resource Timing:</strong> recursos cross-origin podem ocultar tamanhos sem <code>Timing-Allow-Origin</code>; ausência de tamanho observável não significa recurso vazio.</li>
-</ul></section>
-</main></div></body></html>"""
+<li><strong>Resource Timing:</strong> recursos cross-origin podem ocultar tamanhos sem <code>Timing-Allow-Origin</code>; ausência de tamanho observável não significa recurso vazio.</li>
+</ul></details></section>
+{_END}"""
+
+
+def enrich_web_performance_report(*, audit_id: str, workspace: AuditWorkspace) -> None:
+    """Inject the Open Web section into the canonical Web Performance report."""
+    path = workspace.root / "report" / REPORT_FILE
+    if not path.is_file():
+        return
+    html = path.read_text(encoding="utf-8")
+    html = re.sub(re.escape(_START) + r".*?" + re.escape(_END), "", html, flags=re.DOTALL)
+    section = _section(_load(audit_id, workspace))
+    if "</main>" in html:
+        html = html.replace("</main>", section + "</main>", 1)
+    elif "</body>" in html:
+        html = html.replace("</body>", section + "</body>", 1)
+    else:
+        html += section
     path.write_text(html, encoding="utf-8", newline="\n")
-    return path
