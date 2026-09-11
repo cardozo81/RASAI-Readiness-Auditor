@@ -48,6 +48,16 @@ CLI:
 --apdex-timeout-seconds
 --apdex-delay-seconds
 --apdex-concurrency
+
+--apdex-mobile-client-profile
+--apdex-mobile-hardware-profile
+--apdex-mobile-network-profile
+--apdex-desktop-client-profile
+--apdex-desktop-hardware-profile
+--apdex-desktop-network-profile
+--apdex-tablet-client-profile
+--apdex-tablet-hardware-profile
+--apdex-tablet-network-profile
 ```
 
 Variáveis:
@@ -61,6 +71,16 @@ RASAI_APDEX_MAX_PAGES
 RASAI_APDEX_TIMEOUT_SECONDS
 RASAI_APDEX_DELAY_SECONDS
 RASAI_APDEX_CONCURRENCY
+
+RASAI_APDEX_MOBILE_CLIENT_PROFILE
+RASAI_APDEX_MOBILE_HARDWARE_PROFILE
+RASAI_APDEX_MOBILE_NETWORK_PROFILE
+RASAI_APDEX_DESKTOP_CLIENT_PROFILE
+RASAI_APDEX_DESKTOP_HARDWARE_PROFILE
+RASAI_APDEX_DESKTOP_NETWORK_PROFILE
+RASAI_APDEX_TABLET_CLIENT_PROFILE
+RASAI_APDEX_TABLET_HARDWARE_PROFILE
+RASAI_APDEX_TABLET_NETWORK_PROFILE
 ```
 
 | Parâmetro | Default efetivo | Valores permitidos | Recomendado |
@@ -74,9 +94,13 @@ RASAI_APDEX_CONCURRENCY
 | delay | `1 s` | número `>= 0` | `1 s` ou maior conforme sensibilidade do alvo |
 | concorrência | `1` | `1`, `2` | `1` |
 
+Os presets de cliente, hardware e rede são definidos no catálogo [`SYNTHETIC_RUNTIME_PROFILES.md`](SYNTHETIC_RUNTIME_PROFILES.md). A precedência efetiva é **CLI > variável de ambiente > default controlado**. Mobile e Desktop alimentam diretamente o Synthetic Navigation Apdex; os presets Tablet são compartilhados com a população do Synthetic User Experience Apdex.
+
+Os perfis alteram somente a condição de laboratório. Não alteram a fórmula Apdex, o threshold `T` escolhido pelo usuário nem `SARI-001`/`SCORE-GEO-004`. CPU significa slowdown relativo aplicado pelo Chrome DevTools Protocol; RAM, GPU, estado térmico e scheduler físicos não são emulados.
+
 ## Console interativo
 
-O console expõe Synthetic Apdex junto das demais configurações de auditoria, explica a finalidade de cada valor e mostra a carga máxima projetada em quantidade de navegações iniciadas.
+O console expõe Synthetic Apdex junto das demais configurações de auditoria, explica a finalidade de cada valor, lista os presets permitidos e mostra a carga máxima projetada em quantidade de navegações iniciadas.
 
 O timeout de Apdex é independente do timeout de IA e do timeout PageSpeed/Lighthouse.
 
@@ -94,7 +118,7 @@ Os dados são persistidos em tabelas dedicadas e o relatório é materializado e
 report/apdex.html
 ```
 
-Identificadores internos históricos de tabela/evento podem permanecer por compatibilidade de schema; a UI e a documentação operacional usam nomenclatura funcional.
+Identificadores de tabela/evento são detalhes internos de implementação. A UI e a documentação operacional usam nomenclatura funcional e o relatório persiste o perfil efetivamente utilizado para permitir reprodução e comparação correta.
 
 ## Relação com Lighthouse e CrUX
 
@@ -102,13 +126,16 @@ Apdex não é inferido de LCP, INP, CLS, FCP, TBT, Speed Index ou duração da c
 
 Quando um artifact Lighthouse existe, o RASAi pode extrair metadados de perfil para rastreabilidade. Ausência do artifact não invalida as navegações Synthetic Apdex; apenas impede essa comparação documental.
 
+Os presets RASAi não são enviados ao PageSpeed como se fossem parâmetros Lighthouse. O PageSpeed/Lighthouse usa sua própria estratégia; quando `configSettings` é retornado, o RASAi apresenta os parâmetros efetivos do provider separadamente.
+
 ## Segurança metodológica
 
 - falha de ferramenta fica fora do denominador quando não há amostra válida;
 - erro observável da aplicação/navegação não é mascarado como falha da ferramenta;
 - grupo pequeno é marcado explicitamente;
 - nenhum resultado é adicionado matematicamente ao Score GEO;
-- não há promessa de experiência real de usuários finais.
+- não há promessa de experiência real de usuários finais;
+- resultados de perfis diferentes não devem ser comparados como se a condição de laboratório fosse idêntica.
 
 ## Diagnóstico de erros e sensibilidade ao `T`
 
