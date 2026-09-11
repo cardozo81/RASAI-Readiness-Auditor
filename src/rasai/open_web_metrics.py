@@ -8,7 +8,6 @@ must not be presented as an official W3C/Lighthouse score or as RUM.
 from __future__ import annotations
 
 from dataclasses import replace
-import os
 from typing import Any
 
 from playwright.sync_api import Error as PlaywrightError
@@ -17,50 +16,8 @@ from rasai.context_scope import ContextScope
 from rasai.rendering import BrowserRenderResult
 
 
-OPEN_WEB_METRICS_ENV = "RASAI_OPEN_WEB_METRICS"
 OPEN_WEB_METRICS_CONTRACT_VERSION = "OPEN-WEB-METRICS-001"
 DEFAULT_OPEN_WEB_METRICS_ENABLED = True
-_ALLOWED_BOOLEAN_VALUES = {
-    "1": True,
-    "true": True,
-    "yes": True,
-    "on": True,
-    "0": False,
-    "false": False,
-    "no": False,
-    "off": False,
-}
-
-
-def parse_enabled(value: str | None) -> bool:
-    """Resolve the opt-out flag; zero-cost collection is enabled by default."""
-    if value is None or not str(value).strip():
-        return DEFAULT_OPEN_WEB_METRICS_ENABLED
-    normalized = str(value).strip().casefold()
-    if normalized not in _ALLOWED_BOOLEAN_VALUES:
-        raise ValueError(
-            f"{OPEN_WEB_METRICS_ENV} must be one of: "
-            + ", ".join(sorted(_ALLOWED_BOOLEAN_VALUES))
-        )
-    return _ALLOWED_BOOLEAN_VALUES[normalized]
-
-
-def enabled_from_environment() -> bool:
-    return parse_enabled(os.environ.get(OPEN_WEB_METRICS_ENV))
-
-
-def _disabled_payload() -> dict[str, Any]:
-    return {
-        "contract_version": OPEN_WEB_METRICS_CONTRACT_VERSION,
-        "state": "DISABLED",
-        "enabled_by_default": True,
-        "scope": ContextScope.DEVICE_SNAPSHOT.value,
-        "additional_navigation_requests": 0,
-        "additional_external_api_calls": 0,
-        "score_impact": "NONE",
-        "methodology": "W3C Web Performance APIs; same-session browser observation",
-        "reason": "DISABLED_BY_CONFIGURATION",
-    }
 
 
 _CAPTURE_SCRIPT = r"""
@@ -253,8 +210,6 @@ async () => {
 
 def capture_open_web_metrics(page: Any) -> dict[str, Any]:
     """Read W3C/browser-native metrics from the already loaded page."""
-    if not enabled_from_environment():
-        return _disabled_payload()
     base: dict[str, Any] = {
         "contract_version": OPEN_WEB_METRICS_CONTRACT_VERSION,
         "state": "UNAVAILABLE",
