@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from rasai import external_measurement_runtime
 from rasai.discovery import RobotsState, SitemapState
 from rasai.domain import RuleResult
 from rasai.m5 import _evaluate_robots, _evaluate_sitemaps
@@ -78,6 +79,7 @@ def test_low_confidence_ai_cannot_create_hard_pass_or_fail() -> None:
 
 
 def test_pagespeed_does_not_retry_transient_failure(monkeypatch) -> None:
+    external_measurement_runtime.install()
     calls = []
 
     def fake_request_json(**kwargs):
