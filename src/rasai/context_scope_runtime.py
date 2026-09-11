@@ -12,6 +12,7 @@ from typing import Any
 
 from rasai.context_scope import CONTEXT_SCOPE_CONTRACT_VERSION
 from rasai.device_context_capture import install as install_device_context_capture
+from rasai.synthetic_apdex_shared_runtime import install as install_synthetic_apdex_shared_runtime
 from rasai.synthetic_profile_console_runtime import install as install_synthetic_profile_console_runtime
 from rasai.synthetic_profile_runtime import install as install_synthetic_profile_runtime
 from rasai.synthetic_profile_saas_runtime import install as install_synthetic_profile_saas_runtime
@@ -133,6 +134,7 @@ def install() -> None:
     install_report_registry()
     install_device_context_capture()
     install_synthetic_profile_runtime()
+    install_synthetic_apdex_shared_runtime()
     install_synthetic_profile_console_runtime()
     install_synthetic_profile_saas_runtime()
     _project_report_contract()
