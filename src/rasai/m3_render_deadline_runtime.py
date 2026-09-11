@@ -1,11 +1,11 @@
-"""Process-isolated wall-clock deadline for the normal M3 browser session.
+"""Process-isolated wall-clock deadline for the normal browser snapshot session.
 
 Playwright's synchronous API has operation-level timeouts, but a browser/driver defect can
-still leave an individual call wedged.  A thread timeout is unsafe because Playwright is
-thread-affine and the timed-out thread would keep running.  This adapter therefore owns
-the normal BrowserIdentityRenderer in one persistent child process.  The process is reused
+still leave an individual call wedged. A thread timeout is unsafe because Playwright is
+thread-affine and the timed-out thread would keep running. This adapter therefore owns
+the normal BrowserIdentityRenderer in one persistent child process. The process is reused
 for healthy URL/device contexts and is terminated only when a context exceeds the complete
-wall-clock budget.  The timed-out URL is not retried automatically; the next context starts
+wall-clock budget. The timed-out URL is not retried automatically; the next context starts
 with a fresh browser worker.
 """
 from __future__ import annotations
@@ -20,24 +20,13 @@ from typing import Any
 from rasai.domain import DeviceContext
 from rasai.rendering import BrowserRenderResult, BrowserRenderer, RenderErrorKind
 
-_ENV = "RASAI_M3_RENDER_WALLCLOCK_SECONDS"
 _DEFAULT_SECONDS = 60.0
-_MIN_SECONDS = 5.0
-_MAX_SECONDS = 600.0
 _INSTALLED = False
 
 
 def configured_wallclock_seconds() -> float:
-    raw = (os.environ.get(_ENV) or "").strip()
-    if not raw:
-        return _DEFAULT_SECONDS
-    try:
-        value = float(raw)
-    except ValueError as exc:
-        raise ValueError(f"{_ENV} must be a number between {_MIN_SECONDS:g} and {_MAX_SECONDS:g}") from exc
-    if not (_MIN_SECONDS <= value <= _MAX_SECONDS):
-        raise ValueError(f"{_ENV} must be between {_MIN_SECONDS:g} and {_MAX_SECONDS:g} seconds")
-    return value
+    """Return the fixed safety deadline for one complete URL/device browser context."""
+    return _DEFAULT_SECONDS
 
 
 def _failure(url: str, device: DeviceContext, reason: str, *, seconds: float) -> BrowserRenderResult:
@@ -240,7 +229,7 @@ class IsolatedBrowserIdentityRenderer(BrowserRenderer):
         process = context.Process(
             target=_worker,
             args=(child, self.navigation_timeout_ms, self.settle_timeout_ms, self.executable_path),
-            name="rasai-m3-browser",
+            name="rasai-browser-snapshot-worker",
             daemon=False,
         )
         process.start()
@@ -290,7 +279,7 @@ class IsolatedBrowserIdentityRenderer(BrowserRenderer):
 
 
 def install() -> None:
-    """Replace only the default M3 renderer reference; injected test renderers stay direct."""
+    """Replace only the default browser snapshot renderer; injected test renderers stay direct."""
     global _INSTALLED
     if _INSTALLED:
         return
