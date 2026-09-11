@@ -1,10 +1,4 @@
-"""Public runtime defaults and execution-wide AI provider selection policy.
-
-Explicit provider selections keep provider-specific retry semantics. AUTO builds every
-configured registry provider that is not explicitly excluded by the user, uses
-round-robin routing, and shares one execution coordinator across semantic analysis,
-remediation and compatible specialist AI calls.
-"""
+"""Public runtime defaults and execution-wide AI provider selection policy."""
 from __future__ import annotations
 
 from types import MethodType
@@ -14,6 +8,7 @@ from typing import Any, Mapping, MutableMapping
 from rasai.ai_exchange_log import AiExchangeRecorder
 from rasai.ai_execution_state import clear_current_ai_execution, set_current_ai_execution
 from rasai.content_context import configured_content_analysis_context
+from rasai.copilot_provider import build_copilot_provider
 from rasai.dynamic_ai_routing import (
     DynamicProviderRoutingSession,
     build_dynamic_content_remediation_router,
@@ -40,10 +35,12 @@ SIMPLE_DEFAULT_MODELS: dict[str, str] = {
     "QWEN": "qwen3.8-flash",
     "GEMINI": "gemini-3.8-flash",
     "ANTHROPIC": "claude-sonnet-5",
+    "COPILOT": "auto",
 }
 LOWEST_REASONING: dict[str, str] = {
     "OPENAI": "NONE", "DEEPSEEK": "NONE", "MIMO": "NONE", "XAI": "LOW",
     "QWEN": "PROVIDER_DEFAULT", "GEMINI": "LOW", "ANTHROPIC": "LOW",
+    "COPILOT": "PROVIDER_DEFAULT",
 }
 EXTENSION_REASONING_ENV: dict[str, str] = {
     "XAI": "RASAI_XAI_REASONING_EFFORT",
@@ -58,6 +55,7 @@ REASONING_OPTIONS: dict[str, tuple[str, ...]] = {
     "QWEN": ("PROVIDER_DEFAULT",),
     "GEMINI": ("LOW", "MEDIUM", "HIGH"),
     "ANTHROPIC": ("LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
+    "COPILOT": ("PROVIDER_DEFAULT",),
 }
 DEFAULT_AI_TIMEOUT_SECONDS = 180.0
 DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS = 120.0
@@ -86,11 +84,6 @@ def configured_reasoning(provider_name: str, env: Mapping[str, str] | None = Non
 
 
 def configured_auto_exclusions(env: Mapping[str, str] | None = None) -> tuple[str, ...]:
-    """Return canonical provider IDs explicitly excluded from AUTO.
-
-    This changes AUTO membership only. Provider credentials/models remain untouched and
-    the same provider can still be selected explicitly.
-    """
     environment = env if env is not None else os.environ
     raw = (environment.get(AUTO_EXCLUDE_ENV) or "").strip()
     if not raw:
@@ -136,7 +129,7 @@ def environment_with_public_defaults(env: Mapping[str, str] | None = None) -> di
 
 def _patch_extension_semantic_reasoning(provider: IsolatedStructuredSemanticProvider, effort: str) -> None:
     name = provider.name
-    if name == "QWEN":
+    if name in {"QWEN", "COPILOT"}:
         provider.reasoning_profile = "PROVIDER_DEFAULT"
         return
     provider.reasoning_profile = effort
@@ -156,13 +149,6 @@ def _patch_extension_semantic_reasoning(provider: IsolatedStructuredSemanticProv
 
 
 def _install_provider_wire_projection(provider: Any) -> None:
-    """Project provider-specific schemas immediately before the external transport.
-
-    The wrapper is deliberately installed outside the exchange logger. The logger
-    therefore receives and persists the exact sanitized body that is actually sent
-    after projection, while local RASAi validators keep the canonical stricter
-    contract.
-    """
     if getattr(provider, "_rasai_wire_projection_installed", False):
         return
     original = getattr(provider, "_transport", None)
@@ -185,6 +171,13 @@ def _prepare_concrete_provider(provider: Any, *, effective_env: Mapping[str, str
     return provider
 
 
+def _build_registered_provider(selection: str, *, model: str | None, effective_env: Mapping[str, str]) -> Any:
+    registration = get_provider_registration(selection)
+    if registration is not None and registration.id == "copilot":
+        return build_copilot_provider(model_override=model, env=effective_env)
+    return _build_semantic_provider(selection, model_override=model, env=effective_env)
+
+
 def _build_auto_provider(*, effective_env: Mapping[str, str]) -> DynamicProviderRoutingSession:
     context = configured_content_analysis_context(effective_env)
     recorder = AiExchangeRecorder()
@@ -202,7 +195,7 @@ def _build_auto_provider(*, effective_env: Mapping[str, str]) -> DynamicProvider
             continue
         try:
             model = configured_simple_model(registration.provider_name, effective_env)
-            provider = _build_semantic_provider(registration.id, model_override=model, env=effective_env)
+            provider = _build_registered_provider(registration.id, model=model, effective_env=effective_env)
             _prepare_concrete_provider(provider, effective_env=effective_env, recorder=recorder, context=context)
             providers.append(provider)
         except (TypeError, ValueError) as exc:
@@ -226,7 +219,7 @@ def build_semantic_provider(selection: str, *, model_override: str | None = None
     effective_model = model_override
     if registration is not None and not effective_model:
         effective_model = configured_simple_model(registration.provider_name, effective_env)
-    provider = _build_semantic_provider(selection, model_override=effective_model, env=effective_env)
+    provider = _build_registered_provider(selection, model=effective_model, effective_env=effective_env)
     if selected == "NONE":
         clear_current_ai_execution()
         return provider
@@ -241,7 +234,7 @@ def _patch_content_provider_reasoning(provider: Any) -> None:
         return
     name = provider.name
     effort = getattr(provider.base, "reasoning_profile", LOWEST_REASONING.get(name, "PROVIDER_DEFAULT"))
-    if name == "QWEN":
+    if name in {"QWEN", "COPILOT"}:
         provider.reasoning_profile = "PROVIDER_DEFAULT"
         return
     provider.reasoning_profile = str(effort).upper()
