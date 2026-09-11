@@ -78,6 +78,26 @@ SCORING_CONCEPT_LABELS: dict[str, str] = {
     "EXTRACTION": "Extraction",
 }
 
+# Older renderers may already have converted machine identifiers into Portuguese
+# labels before the common presentation pass. Normalize only standalone text nodes;
+# prose is intentionally not rewritten. This keeps conceptual names consistent
+# without producing mixed-language sentence substitutions.
+_STANDALONE_CONCEPT_LABELS: dict[str, str] = {
+    "Acesso e descoberta": "Discovery & Crawler Access",
+    "Capacidade de indexação": "Indexability",
+    "Extração de conteúdo": "Rendering & Extractability",
+    "Estrutura semântica": "Semantic Structure",
+    "Clareza de entidades": "Entity Clarity",
+    "Dados estruturados": "Structured Data",
+    "Capacidade de resposta": "Answerability",
+    "Preparação para citação": "Citation Readiness",
+    "Evidências e confiabilidade": "Evidence & Trust",
+    "Confiança da evidência": "Evidence & Trust",
+    "Cobertura de intenções": "Intent Coverage",
+    "Cobertura de intenção": "Intent Coverage",
+    "Valor do conteúdo": "Content Value",
+}
+
 
 # Keep this map conservative outside of the scoring vocabulary. Add values whose
 # machine form is materially harder to read when used as a primary user-facing value.
@@ -331,6 +351,20 @@ def _public_token_replacement(match: re.Match[str]) -> str:
     return _PUBLIC_LABELS[value]
 
 
+def _standalone_concept_label(text: str, *, page_name: str | None) -> str:
+    stripped = text.strip()
+    replacement = _STANDALONE_CONCEPT_LABELS.get(stripped)
+    if replacement is None:
+        return text
+    # "Acessibilidade técnica" is ambiguous outside scoring/readiness surfaces;
+    # do not rewrite accessibility-domain prose or headings globally.
+    if stripped.casefold() == "acessibilidade técnica" and page_name == "accessibility.html":
+        return text
+    prefix = text[: len(text) - len(text.lstrip())]
+    suffix = text[len(text.rstrip()):]
+    return f"{prefix}{replacement}{suffix}"
+
+
 def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
     """Humanize visible report values without mutating persisted or code content.
 
@@ -340,7 +374,6 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
     identifiers, environment variables and canonical timestamps used as examples
     keep their original representation.
     """
-    del page_name
 
     def isolated(match: re.Match[str]) -> str:
         value = match.group("value")
@@ -365,5 +398,6 @@ def humanize_report_html(html: str, *, page_name: str | None = None) -> str:
             output.append(part)
             continue
         visible = localize_visible_timestamps(part)
+        visible = _standalone_concept_label(visible, page_name=page_name)
         output.append(_PUBLIC_TOKEN_RE.sub(_public_token_replacement, visible))
     return _VISIBLE_VALUE_RE.sub(isolated, "".join(output))
