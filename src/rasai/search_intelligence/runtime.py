@@ -8,11 +8,17 @@ import sqlite3
 from typing import Iterable, Mapping
 
 from .budget import RequestBudget
-from .config import SERPAPI_KEY_ENV, SerpRuntimeConfig
+from .config import SerpRuntimeConfig, provider_key_env
 from .evidence import FilesystemSerpEvidenceSink, SerpEvidenceSink
 from .models import DomainMatchStatus, SearchIntelligenceResult, SerpQueryRequest
 from .persistence import SerpObservationRepository
-from .providers import FixtureSerpProvider, SerpApiBingProvider, SerpApiProvider
+from .providers import (
+    FixtureSerpProvider,
+    ScrapingDogProvider,
+    SerpApiBingProvider,
+    SerpApiProvider,
+    ZenserpProvider,
+)
 from .service import SearchIntelligenceService
 
 
@@ -29,6 +35,8 @@ class SearchExecution:
 _LIVE_PROVIDER_BUILDERS = {
     "serpapi": SerpApiProvider,
     "serpapi-bing": SerpApiBingProvider,
+    "zenserp": ZenserpProvider,
+    "scrapingdog": ScrapingDogProvider,
 }
 
 
@@ -61,9 +69,9 @@ def projected_http_request_ceiling(
 ) -> int:
     """Return a conservative provider-aware HTTP-attempt ceiling.
 
-    Google pagination has a deterministic 10-position page contract in the current
-    adapter. Bing pagination is provider-driven and variable, so the configured global
-    hard budget is the only safe preflight ceiling for a live Bing execution.
+    Google adapters use a deterministic ten-result pagination contract. Bing pagination
+    is provider-driven and variable, so the configured hard budget is the only safe
+    preflight ceiling for the current Bing adapter.
     """
     values = tuple(int(depth) for depth in depths)
     if any(depth <= 0 for depth in values):
@@ -76,17 +84,11 @@ def projected_http_request_ceiling(
 
 
 def _refresh_search_intelligence_report(workspace_root: Path | None) -> None:
-    """Best-effort projection of already-persisted Search Intelligence evidence.
-
-    Report rendering is ancillary to observation persistence. A presentation failure must
-    not turn a successfully persisted SERP observation into a provider/runtime failure.
-    The report can always be regenerated from audit.db later.
-    """
+    """Best-effort projection of already-persisted Search Intelligence evidence."""
     if workspace_root is None:
         return
     try:
         from .reporting import write_search_intelligence_report
-
         write_search_intelligence_report(workspace_root)
     except (OSError, ValueError, sqlite3.Error):
         return
@@ -123,9 +125,7 @@ def execute_search(
         if config.mode == "live":
             validate_live_provider_engine(config.provider, item.engine)
 
-    projected = projected_http_request_ceiling(
-        config, depths=(item.depth for item in items)
-    )
+    projected = projected_http_request_ceiling(config, depths=(item.depth for item in items))
     if config.provider != "serpapi-bing" and projected > config.max_requests:
         raise ValueError(
             f"worst-case SERP HTTP requests {projected} exceed configured max_requests {config.max_requests}; "
@@ -143,12 +143,8 @@ def execute_search(
             for item in items
         )
         return SearchExecution(
-            mode="disabled",
-            provider="none",
-            results=disabled_results,
-            projected_http_request_ceiling=0,
-            actual_http_requests=0,
-            persisted=False,
+            mode="disabled", provider="none", results=disabled_results,
+            projected_http_request_ceiling=0, actual_http_requests=0, persisted=False,
         )
 
     repository = None
@@ -177,7 +173,10 @@ def execute_search(
             available = ", ".join(live_provider_ids())
             raise ValueError(f"unsupported live SERP provider {provider_id!r}; available: {available}")
         env = os.environ if environment is None else environment
-        api_key = (env.get(SERPAPI_KEY_ENV) or "").strip()
+        key_env = provider_key_env(provider_id)
+        api_key = (env.get(key_env) or "").strip()
+        if not api_key:
+            raise ValueError(f"{key_env} is required for live SERP provider {provider_id}")
         provider = builder(
             api_key=api_key,
             timeout_seconds=config.timeout_seconds,

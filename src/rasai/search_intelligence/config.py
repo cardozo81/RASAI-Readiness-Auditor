@@ -7,9 +7,13 @@ import os
 from pathlib import Path
 from typing import Mapping
 
+from .provider_catalog import serp_provider_ids, serp_provider_key_env
+
 SERP_MODE_ENV = "RASAI_SERP_MODE"
 SERP_PROVIDER_ENV = "RASAI_SERP_PROVIDER"
 SERPAPI_KEY_ENV = "RASAI_SERPAPI_API_KEY"
+ZENSERP_KEY_ENV = "RASAI_ZENSERP_API_KEY"
+SCRAPINGDOG_KEY_ENV = "RASAI_SCRAPINGDOG_API_KEY"
 SERP_FIXTURE_PATH_ENV = "RASAI_SERP_FIXTURE_PATH"
 SERP_MAX_QUERIES_ENV = "RASAI_SERP_MAX_QUERIES"
 SERP_MAX_REQUESTS_ENV = "RASAI_SERP_MAX_REQUESTS"
@@ -24,6 +28,8 @@ SERP_ENV_NAMES = (
     SERP_MODE_ENV,
     SERP_PROVIDER_ENV,
     SERPAPI_KEY_ENV,
+    ZENSERP_KEY_ENV,
+    SCRAPINGDOG_KEY_ENV,
     SERP_FIXTURE_PATH_ENV,
     SERP_MAX_QUERIES_ENV,
     SERP_MAX_REQUESTS_ENV,
@@ -33,6 +39,11 @@ SERP_ENV_NAMES = (
     SERP_RETRIES_ENV,
     SERP_MIN_INTERVAL_ENV,
 )
+
+
+def provider_key_env(provider: str) -> str:
+    """Return the credential environment variable for one configured live provider."""
+    return serp_provider_key_env(provider)
 
 
 def _positive_int(env: Mapping[str, str], name: str, default: int) -> int:
@@ -90,10 +101,15 @@ class SerpRuntimeConfig:
 
     def validate(self) -> "SerpRuntimeConfig":
         mode = self.mode.strip().casefold()
+        provider = self.provider.strip().casefold()
         if mode not in {"disabled", "live", "fixture"}:
             raise ValueError("SERP mode must be one of: disabled, live, fixture")
-        if not self.provider.strip():
+        if not provider:
             raise ValueError("SERP provider must not be empty")
+        if mode == "live" and provider not in set(serp_provider_ids()):
+            raise ValueError(
+                "SERP live provider must be one of: " + ", ".join(serp_provider_ids())
+            )
         if self.max_queries <= 0 or self.max_requests <= 0 or self.max_depth <= 0:
             raise ValueError("SERP max_queries, max_requests and max_depth must be > 0")
         if self.max_competitors < 0:
@@ -106,7 +122,7 @@ class SerpRuntimeConfig:
             raise ValueError("SERP min_interval_seconds must be a finite value >= 0")
         if mode == "fixture" and self.fixture_path is None:
             raise ValueError("SERP fixture mode requires a fixture path")
-        return replace(self, mode=mode, provider=self.provider.strip().casefold())
+        return replace(self, mode=mode, provider=provider)
 
     @classmethod
     def from_environment(

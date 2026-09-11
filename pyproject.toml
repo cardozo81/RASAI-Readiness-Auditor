@@ -22,6 +22,9 @@ web = [
     "httpx>=0.28,<1",
     "PyJWT[crypto]>=2.10,<3",
 ]
+copilot = [
+    "github-copilot-sdk>=1,<2",
+]
 
 [project.scripts]
 rasai = "rasai.entrypoint:main"
