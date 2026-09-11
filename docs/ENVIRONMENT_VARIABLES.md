@@ -45,8 +45,11 @@ No console local, a preferência normal de timezone deve ser configurada pelo it
 | `DASHSCOPE_API_KEY` | sem default | credencial não vazia válida para Alibaba Model Studio | usar somente por secret/env | necessária ao selecionar Qwen |
 | `GEMINI_API_KEY` | sem default | credencial não vazia válida para Gemini | usar somente por secret/env | necessária ao selecionar Gemini |
 | `ANTHROPIC_API_KEY` | sem default | credencial não vazia válida para Anthropic | usar somente por secret/env | necessária ao selecionar Anthropic/Claude |
+| `COPILOT_GITHUB_TOKEN` | sem default | token de usuário compatível com Copilot SDK (`github_pat_`, `gho_` ou `ghu_`); classic PAT `ghp_` não é aceito | fine-grained PAT com `Copilot Requests`, somente por secret/env | necessária ao selecionar `copilot`; usa assinatura Copilot elegível e não participa de `AI=auto` |
 
-A presença de uma credencial não prova crédito, quota, plano nem acesso ao modelo. Em `AI=auto`, entram no pool apenas providers registrados como elegíveis, com credencial/configuração válidas e não excluídos pelo usuário.
+A presença de uma credencial não prova crédito, quota, plano nem acesso ao modelo. Em `AI=auto`, entram no pool apenas providers registrados como elegíveis, com credencial/configuração válidas e não excluídos pelo usuário. GitHub Copilot é deliberadamente `explicit-only`: mesmo com `COPILOT_GITHUB_TOKEN` configurado, ele só é consumido quando selecionado de forma explícita.
+
+As URLs oficiais para criar/gerenciar cada credencial são exibidas pelo console e consolidadas em [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
 
 ## 3. IA - modelos
 
@@ -61,6 +64,7 @@ Os defaults abaixo são os **defaults públicos efetivamente aplicados** por `pr
 | `RASAI_QWEN_MODEL` | `qwen3.8-flash` | `qwen3.8-max`, `qwen3.8-flash` | `qwen3.8-flash` como default público; use `qwen3.8-max` somente quando deliberadamente necessário |
 | `RASAI_GEMINI_MODEL` | `gemini-3.8-flash` | `gemini-3.8-flash` | default |
 | `RASAI_ANTHROPIC_MODEL` | `claude-sonnet-5` | `claude-sonnet-5` | default |
+| `RASAI_COPILOT_MODEL` | `auto` | `auto` | `auto`; deixa o SDK/assinatura resolver o modelo disponível para o usuário |
 
 ## 4. IA - reasoning
 
@@ -73,6 +77,7 @@ Os defaults abaixo são os **defaults públicos efetivamente aplicados** por `pr
 | `RASAI_QWEN_REASONING_EFFORT` | não existe na superfície atual | Qwen usa `PROVIDER_DEFAULT` internamente | não criar variável inexistente |
 | `RASAI_GEMINI_REASONING_EFFORT` | `LOW` | `LOW`, `MEDIUM`, `HIGH` | `LOW` no uso normal |
 | `RASAI_ANTHROPIC_REASONING_EFFORT` | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` no uso normal |
+| `RASAI_COPILOT_REASONING_EFFORT` | não existe na superfície atual | Copilot usa `PROVIDER_DEFAULT` via SDK | não criar variável inexistente |
 
 Aumentar reasoning pode elevar latência, tokens e custo. `AI=auto` não é cadeia fixa: o runtime consulta o provider registry, monta o conjunto elegível da execução e aplica roteamento/circuit breaker conforme o contrato vigente. Consulte [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
 
@@ -86,6 +91,8 @@ Aumentar reasoning pode elevar latência, tokens e custo. `AI=auto` não é cade
 | `RASAI_ANTHROPIC_ENDPOINT` | `https://api.anthropic.com/v1/messages` | URL absoluta HTTP(S) | default HTTPS |
 
 Não altere endpoints no uso normal. Um override incorreto pode causar falha, cobrança inesperada ou envio de dados ao destino errado. Em produção, não use HTTP para providers externos.
+
+GitHub Copilot não expõe endpoint override nesta integração: o transporte é o SDK oficial autenticado pelo token de usuário configurado.
 
 ## 6. IA - contexto editorial / YMYL
 
@@ -187,8 +194,10 @@ O RASAi não calcula `VISUALLY_COMPLETE` com semântica equivalente à do fornec
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
 | `RASAI_SERP_MODE` | `disabled` | `disabled`, `live`, `fixture` | `disabled` no baseline; `fixture` para teste; `live` somente com BYOK e intenção de consumo |
-| `RASAI_SERP_PROVIDER` | `serpapi` | `serpapi`, `serpapi-bing` | `serpapi`, salvo objetivo explícito de Bing |
-| `RASAI_SERPAPI_API_KEY` | sem default | credencial SerpApi válida | secret/env |
+| `RASAI_SERP_PROVIDER` | `serpapi` | `serpapi`, `serpapi-bing`, `zenserp`, `scrapingdog` | `serpapi` como baseline existente; escolha outro provider de forma explícita conforme quota/engine |
+| `RASAI_SERPAPI_API_KEY` | sem default | credencial SerpApi válida | secret/env; exigida por `serpapi` e `serpapi-bing` |
+| `RASAI_ZENSERP_API_KEY` | sem default | credencial Zenserp válida | secret/env; exigida por `zenserp` |
+| `RASAI_SCRAPINGDOG_API_KEY` | sem default | credencial ScrapingDog válida | secret/env; exigida por `scrapingdog` |
 | `RASAI_SERP_FIXTURE_PATH` | sem default | caminho para arquivo existente | usar somente em `fixture` |
 | `RASAI_SERP_MAX_QUERIES` | `10` | inteiro `> 0` | `10` ou menor para smoke/custo controlado |
 | `RASAI_SERP_MAX_REQUESTS` | `10` | inteiro `> 0` | `10` |
@@ -199,6 +208,10 @@ O RASAi não calcula `VISUALLY_COMPLETE` com semântica equivalente à do fornec
 | `RASAI_SERP_MIN_INTERVAL_SECONDS` | `1` | número `>= 0` | `1` ou maior se o provider/alvo exigir |
 | `RASAI_SEARCH_AI_PROVIDER` | `none` | `none`, `fixture`, `openai` | `none` no baseline; `fixture` para teste; `openai` quando análise competitiva por IA for desejada |
 | `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` | sem default | OAuth bearer token válido | secret/env, temporário |
+
+O provider selecionado em `RASAI_SERP_PROVIDER` determina qual variável de credencial é obrigatória. O console mostra o nome do provider, a variável esperada e a URL oficial de cadastro/login. As ofertas gratuitas verificadas em 11/09/2026 são **limitadas**; nenhuma integração SERP externa atual é classificada pelo RASAi como gratuita e ilimitada. Consulte [PROVIDER_SETUP.md](PROVIDER_SETUP.md) para URLs e notas de franquia.
+
+`RASAI_SERP_MAX_REQUESTS` limita tentativas HTTP do RASAi e não representa créditos comerciais do fornecedor. Em providers baseados em créditos, uma única request pode consumir mais de um crédito.
 
 Search Intelligence permanece separado de `SARI-001`/`SCORE-GEO-004`. Consulte [SERP_OBSERVATION.md](SERP_OBSERVATION.md), [SEARCH_INTELLIGENCE_HISTORY.md](SEARCH_INTELLIGENCE_HISTORY.md) e [SEARCH_INTELLIGENCE_MONITORING.md](SEARCH_INTELLIGENCE_MONITORING.md).
 
