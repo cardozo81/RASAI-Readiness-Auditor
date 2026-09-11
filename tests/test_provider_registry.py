@@ -19,6 +19,7 @@ from rasai.provider_registry import (
     provider_environment_names,
     provider_registrations,
 )
+from rasai.provider_runtime_policy import REASONING_OPTIONS, SIMPLE_DEFAULT_MODELS
 
 
 class ProviderRegistryTests(unittest.TestCase):
@@ -55,6 +56,23 @@ class ProviderRegistryTests(unittest.TestCase):
             self.assertEqual(registration.default_model, EXTENDED_DEFAULT_MODELS[provider_name])
             self.assertTrue(registration.auto_eligible)
             self.assertFalse(registration.explicit_only)
+
+    def test_registry_reasoning_contract_matches_runtime_exactly(self) -> None:
+        for registration in provider_registrations():
+            self.assertEqual(
+                registration.reasoning_values,
+                REASONING_OPTIONS[registration.provider_name],
+                registration.id,
+            )
+        self.assertEqual(
+            get_provider_registration("deepseek").reasoning_values,
+            ("NONE", "LOW", "HIGH", "MAX"),
+        )
+
+    def test_public_runtime_defaults_are_supported_by_registry(self) -> None:
+        for registration in provider_registrations():
+            public_default = SIMPLE_DEFAULT_MODELS[registration.provider_name]
+            self.assertIn(public_default, registration.supported_models, registration.id)
 
     def test_copilot_metadata_is_explicit_only(self) -> None:
         registration = get_provider_registration("copilot")
