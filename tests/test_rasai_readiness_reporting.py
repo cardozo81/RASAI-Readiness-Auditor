@@ -163,9 +163,9 @@ def test_rasai_page_is_canonical_home_for_current_indicators() -> None:
         assert "SARI-001" in html
         assert "SCORE-GEO-004" in html
         assert "Dimensões do readiness" in html
-        assert "Capacidade de resposta" in html
-        assert "Preparação para citação" in html
-        assert "Evidências e confiabilidade" in html
+        assert "Answerability" in html
+        assert "Citation Readiness" in html
+        assert "Evidence & Trust" in html
         assert "Média de igual peso" not in html
         assert "calibração externa" in html
 
