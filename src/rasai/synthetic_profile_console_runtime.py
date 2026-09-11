@@ -1,4 +1,4 @@
-"""Interactive-console projection for synthetic runtime profile presets."""
+"""Interactive-console presentation for canonical synthetic runtime profile settings."""
 from __future__ import annotations
 
 from rasai.synthetic_runtime_profiles import (
@@ -19,12 +19,10 @@ def install() -> None:
         return
     from rasai import console_environment as ce, interactive_console as ic
 
-    additions = []
+    replacements = {}
     for device in ("MOBILE", "DESKTOP", "TABLET"):
         for kind in ("client", "hardware", "network"):
             name = PROFILE_ENV[(device, kind)]
-            if name in ce.SPEC_BY_NAME:
-                continue
             allowed = preset_ids(kind, device)
             labels = "; ".join(f"{item} = {describe_preset(kind, item)}" for item in allowed)
             purpose = {
@@ -32,29 +30,29 @@ def install() -> None:
                 "hardware": f"Envelope de CPU {device} aplicado por slowdown relativo CDP.",
                 "network": f"Envelope de rede {device}: RTT, download e upload controlados por CDP.",
             }[kind]
-            additions.append(
-                ce.EnvironmentSpec(
-                    name=name,
-                    category="Synthetic Apdex",
-                    purpose=purpose,
-                    value_type="enum",
-                    accepted=allowed,
-                    default=default_preset(kind, device),
-                    required_when="Nunca; o default controlado é aplicado automaticamente.",
-                    impact="Altera somente a condição sintética de execução; não altera a fórmula Apdex.",
-                    source="docs/SYNTHETIC_RUNTIME_PROFILES.md",
-                    notes=labels,
-                )
+            replacements[name] = ce.EnvironmentSpec(
+                name=name,
+                category="Synthetic Apdex",
+                purpose=purpose,
+                value_type="enum",
+                accepted=allowed,
+                default=default_preset(kind, device),
+                required_when="Nunca; o default controlado é aplicado automaticamente.",
+                impact="Altera somente a condição sintética de execução; não altera a fórmula Apdex.",
+                source="docs/SYNTHETIC_RUNTIME_PROFILES.md",
+                notes=labels,
             )
 
-    if additions:
-        ce.ENV_NAMES = tuple(dict.fromkeys((*ce.ENV_NAMES, *(item.name for item in additions))))
-        ce.SPECS = tuple((*ce.SPECS, *additions))
-        ce.SPEC_BY_NAME = {spec.name: spec for spec in ce.SPECS}
+    # Names are canonical in console_m23/console_environment from import time. Replace
+    # only their generic metadata with rich enum metadata used by the interactive list.
+    ce.ENV_NAMES = tuple(dict.fromkeys((*ce.ENV_NAMES, *PROFILE_ENV_NAMES)))
+    by_name = {spec.name: spec for spec in ce.SPECS}
+    by_name.update(replacements)
+    ce.SPECS = tuple(by_name[name] for name in ce.ENV_NAMES if name in by_name)
+    ce.SPEC_BY_NAME = {spec.name: spec for spec in ce.SPECS}
 
-    # interactive_console imports its environment list by value during module import.
-    # Project the canonical catalog after installation so startup/help/INI restoration
-    # all see the same nine profile variables.
+    # interactive_console also imports the name tuple by value; keep help/startup in
+    # lockstep with the canonical environment catalog.
     ic.ENV_NAMES = tuple(dict.fromkeys((*ic.ENV_NAMES, *PROFILE_ENV_NAMES)))
 
     original_validate = ce._validate
