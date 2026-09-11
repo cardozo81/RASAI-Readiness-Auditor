@@ -1,4 +1,4 @@
-"""CLI/environment contract do M25 Synthetic User Experience Apdex."""
+"""CLI/environment contract do Synthetic User Experience Apdex."""
 from __future__ import annotations
 
 import argparse
@@ -13,6 +13,7 @@ from rasai.m25_dynatrace_defaults import (
     RASAI_DYNATRACE_COMPAT_KPM,
     RASAI_DYNATRACE_COMPAT_SATISFIED_SECONDS,
 )
+from rasai.synthetic_runtime_profiles import configured_preset
 
 UX_ENABLED_ENV = "RASAI_APDEX_EXPERIENCE"
 UX_SAMPLES_ENV = "RASAI_APDEX_EXPERIENCE_SAMPLES"
@@ -55,27 +56,28 @@ DEFAULT_UX_CONCURRENCY = 1
 
 
 def register_experience_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--apdex-experience", action=argparse.BooleanOptionalAction, default=None,
-        help=f"enable calibrated Synthetic User Experience Apdex; default OFF or {UX_ENABLED_ENV}",
-    )
+    parser.add_argument("--apdex-experience", action=argparse.BooleanOptionalAction, default=None, help=f"enable calibrated Synthetic User Experience Apdex; default OFF or {UX_ENABLED_ENV}")
     parser.add_argument("--apdex-experience-samples", type=int, default=None, help=f"total valid samples per page across the configured device population; default {DEFAULT_UX_SAMPLES} or {UX_SAMPLES_ENV}")
     parser.add_argument("--apdex-experience-max-attempts", type=int, default=None, help=f"total attempt budget per page; default ceil(1.25*samples) or {UX_MAX_ATTEMPTS_ENV}")
     parser.add_argument("--apdex-experience-max-pages", type=int, default=None, help=f"maximum pages; 0=all; default {DEFAULT_UX_MAX_PAGES} or {UX_MAX_PAGES_ENV}")
     parser.add_argument("--apdex-experience-device-mix", default=None, help=f"percentage distribution of synthetic user-action samples; must total 100; default {DEFAULT_UX_DEVICE_MIX} or {UX_DEVICE_MIX_ENV}")
     parser.add_argument("--apdex-experience-session-mode", choices=("cold", "warm"), default=None, help=f"cold=fresh context/cache; warm=reused context/cache/cookies; default {DEFAULT_UX_SESSION_MODE} or {UX_SESSION_MODE_ENV}")
-    parser.add_argument("--apdex-experience-kpm", choices=tuple(sorted(SUPPORTED_TIME_KPMS)), default=None, help=f"executable time KPM; default {DEFAULT_UX_KPM} (Dynatrace load fallback metric because vendor-equivalent VISUALLY_COMPLETE is unavailable) or {UX_KPM_ENV}")
-    parser.add_argument("--apdex-experience-satisfied-seconds", type=float, default=None, help=f"Satisfied/Tolerating threshold; default {DEFAULT_UX_SATISFIED_SECONDS:g}s from Dynatrace load fallback/reference or {UX_SATISFIED_ENV}")
-    parser.add_argument("--apdex-experience-frustrated-seconds", type=float, default=None, help=f"Frustrated threshold; default {DEFAULT_UX_FRUSTRATED_SECONDS:g}s from Dynatrace load fallback/reference, independent from 4T, or {UX_FRUSTRATED_ENV}")
-    parser.add_argument("--apdex-experience-errors", action=argparse.BooleanOptionalAction, default=None, help=f"make qualifying errors Frustrated; default true when Synthetic User Experience Apdex is enabled; or {UX_ERRORS_ENV}")
+    parser.add_argument("--apdex-experience-kpm", choices=tuple(sorted(SUPPORTED_TIME_KPMS)), default=None, help=f"executable time KPM; default {DEFAULT_UX_KPM} or {UX_KPM_ENV}")
+    parser.add_argument("--apdex-experience-satisfied-seconds", type=float, default=None, help=f"Satisfied/Tolerating threshold; default {DEFAULT_UX_SATISFIED_SECONDS:g}s or {UX_SATISFIED_ENV}")
+    parser.add_argument("--apdex-experience-frustrated-seconds", type=float, default=None, help=f"Frustrated threshold; default {DEFAULT_UX_FRUSTRATED_SECONDS:g}s or {UX_FRUSTRATED_ENV}")
+    parser.add_argument("--apdex-experience-errors", action=argparse.BooleanOptionalAction, default=None, help=f"make qualifying errors Frustrated; default true or {UX_ERRORS_ENV}")
     parser.add_argument("--apdex-experience-error-scope", choices=("navigation", "first-party", "all"), default=None, help=f"which request/JS errors can force Frustrated; default {DEFAULT_UX_ERROR_SCOPE} or {UX_ERROR_SCOPE_ENV}")
-    parser.add_argument("--apdex-experience-settle-seconds", type=float, default=None, help=f"bounded post-load observation window for late XHR/resources; default {DEFAULT_UX_SETTLE_SECONDS:g}s or {UX_SETTLE_ENV}")
+    parser.add_argument("--apdex-experience-settle-seconds", type=float, default=None, help=f"bounded post-load observation window; default {DEFAULT_UX_SETTLE_SECONDS:g}s or {UX_SETTLE_ENV}")
     parser.add_argument("--apdex-experience-delay-seconds", type=float, default=None, help=f"minimum interval between sample starts; default {DEFAULT_UX_DELAY_SECONDS:g}s or {UX_DELAY_ENV}")
     parser.add_argument("--apdex-experience-concurrency", type=int, default=None, help=f"parallel workers 1-2; default {DEFAULT_UX_CONCURRENCY} or {UX_CONCURRENCY_ENV}")
-    parser.add_argument("--apdex-dynatrace-import", action=argparse.BooleanOptionalAction, default=None, help=f"import load-action KPM/thresholds/fallback thresholds from Dynatrace configuration; or {DYNATRACE_IMPORT_ENV}")
+    parser.add_argument("--apdex-dynatrace-import", action=argparse.BooleanOptionalAction, default=None, help=f"import load-action KPM/thresholds from Dynatrace configuration; or {DYNATRACE_IMPORT_ENV}")
     parser.add_argument("--dynatrace-base-url", default=None, help=f"Dynatrace environment URL, HTTPS only; or {DYNATRACE_BASE_URL_ENV}")
     parser.add_argument("--dynatrace-application-id", default=None, help=f"Dynatrace web application ID; or {DYNATRACE_APPLICATION_ID_ENV}")
-    parser.add_argument("--apdex-dynatrace-config-json", default=None, help=f"offline exported Dynatrace application config JSON; preferred for reproducibility; or {DYNATRACE_CONFIG_JSON_ENV}")
+    parser.add_argument("--apdex-dynatrace-config-json", default=None, help=f"offline exported Dynatrace application config JSON; or {DYNATRACE_CONFIG_JSON_ENV}")
+
+
+def _profile_value(args: Any, environment: Mapping[str, str], device: str, kind: str) -> str:
+    return configured_preset(kind, device, environment, getattr(args, f"apdex_{device.casefold()}_{kind}_profile", None))
 
 
 def configured_experience(
@@ -88,17 +90,11 @@ def configured_experience(
 ) -> ExperienceApdexConfig:
     environment = env if env is not None else os.environ
     enabled = _bool(getattr(args, "apdex_experience", None), UX_ENABLED_ENV, False, environment)
-
-    # Resolve the complete configuration even while disabled so console/SaaS surfaces
-    # can display, edit and persist coherent values before measurement is enabled.
     samples = _positive_int(getattr(args, "apdex_experience_samples", None), UX_SAMPLES_ENV, DEFAULT_UX_SAMPLES, environment)
     max_attempts = _optional_positive_int(getattr(args, "apdex_experience_max_attempts", None), UX_MAX_ATTEMPTS_ENV, environment)
     if max_attempts is None:
         max_attempts = max(samples, int(math.ceil(samples * 1.25)))
-    max_pages = _nonnegative_int(
-        getattr(args, "apdex_experience_max_pages", None), UX_MAX_PAGES_ENV,
-        standard_max_pages if standard_max_pages >= 0 else DEFAULT_UX_MAX_PAGES, environment,
-    )
+    max_pages = _nonnegative_int(getattr(args, "apdex_experience_max_pages", None), UX_MAX_PAGES_ENV, standard_max_pages if standard_max_pages >= 0 else DEFAULT_UX_MAX_PAGES, environment)
     mix_raw = _text(getattr(args, "apdex_experience_device_mix", None), UX_DEVICE_MIX_ENV, environment) or DEFAULT_UX_DEVICE_MIX
     mix = parse_device_mix(mix_raw)
     session = (_text(getattr(args, "apdex_experience_session_mode", None), UX_SESSION_MODE_ENV, environment) or DEFAULT_UX_SESSION_MODE).casefold()
@@ -116,6 +112,11 @@ def configured_experience(
     config_json = _text(getattr(args, "apdex_dynatrace_config_json", None), DYNATRACE_CONFIG_JSON_ENV, environment)
     if config_json:
         dynatrace_import = True
+
+    profiles = {
+        device: {kind: _profile_value(args, environment, device, kind) for kind in ("client", "hardware", "network")}
+        for device in ("MOBILE", "DESKTOP", "TABLET")
+    }
 
     return ExperienceApdexConfig(
         enabled=enabled,
@@ -136,92 +137,76 @@ def configured_experience(
         dynatrace_base_url=base_url,
         dynatrace_application_id=app_id,
         dynatrace_config_json=config_json,
+        mobile_client_profile=profiles["MOBILE"]["client"],
+        mobile_hardware_profile=profiles["MOBILE"]["hardware"],
+        mobile_network_profile=profiles["MOBILE"]["network"],
+        desktop_client_profile=profiles["DESKTOP"]["client"],
+        desktop_hardware_profile=profiles["DESKTOP"]["hardware"],
+        desktop_network_profile=profiles["DESKTOP"]["network"],
+        tablet_client_profile=profiles["TABLET"]["client"],
+        tablet_hardware_profile=profiles["TABLET"]["hardware"],
+        tablet_network_profile=profiles["TABLET"]["network"],
     ).validate()
 
 
 def parse_device_mix(raw: str | None) -> tuple[tuple[str, float], ...]:
-    if not raw or not raw.strip():
-        return ()
+    if not raw or not raw.strip(): return ()
     values: dict[str, float] = {}
     aliases = {"mobile": "MOBILE", "desktop": "DESKTOP", "tablet": "TABLET"}
     for part in raw.split(","):
-        if "=" not in part:
-            raise ValueError("device mix deve usar formato mobile=60,desktop=35,tablet=5")
+        if "=" not in part: raise ValueError("device mix deve usar formato mobile=60,desktop=35,tablet=5")
         name_raw, value_raw = part.split("=", 1)
         key = name_raw.strip().casefold()
-        if key not in aliases:
-            raise ValueError(f"device mix contém device não suportado: {name_raw.strip()}")
-        try:
-            value = float(value_raw.strip())
-        except ValueError as exc:
-            raise ValueError(f"percentual inválido para {name_raw.strip()}") from exc
-        if not math.isfinite(value) or value < 0:
-            raise ValueError("percentuais do device mix devem ser finitos e >=0")
+        if key not in aliases: raise ValueError(f"device mix contém device não suportado: {name_raw.strip()}")
+        try: value = float(value_raw.strip())
+        except ValueError as exc: raise ValueError(f"percentual inválido para {name_raw.strip()}") from exc
+        if not math.isfinite(value) or value < 0: raise ValueError("percentuais do device mix devem ser finitos e >=0")
         values[aliases[key]] = value
-    if abs(sum(values.values()) - 100.0) > 1e-6:
-        raise ValueError("device mix deve somar exatamente 100")
+    if abs(sum(values.values()) - 100.0) > 1e-6: raise ValueError("device mix deve somar exatamente 100")
     return tuple((name, values[name]) for name in ("MOBILE", "DESKTOP", "TABLET") if values.get(name, 0) > 0)
 
 
 def validate_m25_env_value(name: str, raw: str) -> str:
     value = raw.strip()
-    if not value:
-        raise ValueError("valor vazio")
-    if name in {UX_ENABLED_ENV, UX_ERRORS_ENV, DYNATRACE_IMPORT_ENV}:
-        _parse_bool(value, name)
+    if not value: raise ValueError("valor vazio")
+    if name in {UX_ENABLED_ENV, UX_ERRORS_ENV, DYNATRACE_IMPORT_ENV}: _parse_bool(value, name)
     elif name in {UX_SAMPLES_ENV, UX_MAX_ATTEMPTS_ENV, UX_CONCURRENCY_ENV}:
         parsed = int(value)
-        if parsed < 1 or (name == UX_CONCURRENCY_ENV and parsed > 2):
-            raise ValueError("valor inteiro fora do domínio permitido")
-    elif name == UX_MAX_PAGES_ENV:
-        if int(value) < 0:
-            raise ValueError("valor deve ser inteiro >=0")
-    elif name == UX_DEVICE_MIX_ENV:
-        parse_device_mix(value)
-    elif name == UX_SESSION_MODE_ENV and value.casefold() not in {"cold", "warm"}:
-        raise ValueError("session mode deve ser cold ou warm")
-    elif name == UX_KPM_ENV and value.upper() not in SUPPORTED_TIME_KPMS:
-        raise ValueError("KPM temporal não suportada pelo Synthetic User Experience Apdex")
-    elif name == UX_ERROR_SCOPE_ENV and value.casefold() not in {"navigation", "first-party", "all"}:
-        raise ValueError("error scope inválido")
-    elif name in {UX_SATISFIED_ENV, UX_FRUSTRATED_ENV, UX_SETTLE_ENV}:
-        if float(value) <= 0:
-            raise ValueError("valor deve ser >0")
-    elif name == UX_DELAY_ENV and float(value) < 0:
-        raise ValueError("valor deve ser >=0")
+        if parsed < 1 or (name == UX_CONCURRENCY_ENV and parsed > 2): raise ValueError("valor inteiro fora do domínio permitido")
+    elif name == UX_MAX_PAGES_ENV and int(value) < 0: raise ValueError("valor deve ser inteiro >=0")
+    elif name == UX_DEVICE_MIX_ENV: parse_device_mix(value)
+    elif name == UX_SESSION_MODE_ENV and value.casefold() not in {"cold", "warm"}: raise ValueError("session mode deve ser cold ou warm")
+    elif name == UX_KPM_ENV and value.upper() not in SUPPORTED_TIME_KPMS: raise ValueError("KPM temporal não suportada pelo Synthetic User Experience Apdex")
+    elif name == UX_ERROR_SCOPE_ENV and value.casefold() not in {"navigation", "first-party", "all"}: raise ValueError("error scope inválido")
+    elif name in {UX_SATISFIED_ENV, UX_FRUSTRATED_ENV, UX_SETTLE_ENV} and float(value) <= 0: raise ValueError("valor deve ser >0")
+    elif name == UX_DELAY_ENV and float(value) < 0: raise ValueError("valor deve ser >=0")
     return value
 
 
 def _text(cli: str | None, env_name: str, env: Mapping[str, str]) -> str | None:
-    if cli is not None and str(cli).strip():
-        return str(cli).strip()
+    if cli is not None and str(cli).strip(): return str(cli).strip()
     value = (env.get(env_name) or "").strip()
     return value or None
 
 
 def _bool(cli: bool | None, env_name: str, default: bool, env: Mapping[str, str]) -> bool:
-    if cli is not None:
-        return bool(cli)
+    if cli is not None: return bool(cli)
     raw = (env.get(env_name) or "").strip()
     return default if not raw else _parse_bool(raw, env_name)
 
 
 def _parse_bool(raw: str, name: str) -> bool:
     value = raw.casefold()
-    if value in {"1", "true", "yes", "on"}:
-        return True
-    if value in {"0", "false", "no", "off"}:
-        return False
+    if value in {"1", "true", "yes", "on"}: return True
+    if value in {"0", "false", "no", "off"}: return False
     raise ValueError(f"{name} deve ser booleano")
 
 
 def _optional_positive_int(cli: int | None, env_name: str, env: Mapping[str, str]) -> int | None:
     raw = cli if cli is not None else ((env.get(env_name) or "").strip() or None)
-    if raw is None:
-        return None
+    if raw is None: return None
     value = int(raw)
-    if value < 1:
-        raise ValueError(f"{env_name} deve ser >=1")
+    if value < 1: raise ValueError(f"{env_name} deve ser >=1")
     return value
 
 
@@ -232,21 +217,17 @@ def _positive_int(cli: int | None, env_name: str, default: int, env: Mapping[str
 
 def _nonnegative_int(cli: int | None, env_name: str, default: int, env: Mapping[str, str]) -> int:
     raw = cli if cli is not None else ((env.get(env_name) or "").strip() or None)
-    if raw is None:
-        return default
+    if raw is None: return default
     value = int(raw)
-    if value < 0:
-        raise ValueError(f"{env_name} deve ser >=0")
+    if value < 0: raise ValueError(f"{env_name} deve ser >=0")
     return value
 
 
 def _optional_positive_float(cli: float | None, env_name: str, env: Mapping[str, str]) -> float | None:
     raw = cli if cli is not None else ((env.get(env_name) or "").strip() or None)
-    if raw is None:
-        return None
+    if raw is None: return None
     value = float(raw)
-    if not math.isfinite(value) or value <= 0:
-        raise ValueError(f"{env_name} deve ser número finito >0")
+    if not math.isfinite(value) or value <= 0: raise ValueError(f"{env_name} deve ser número finito >0")
     return value
 
 
@@ -257,9 +238,7 @@ def _positive_float(cli: float | None, env_name: str, default: float, env: Mappi
 
 def _nonnegative_float(cli: float | None, env_name: str, default: float, env: Mapping[str, str]) -> float:
     raw = cli if cli is not None else ((env.get(env_name) or "").strip() or None)
-    if raw is None:
-        return default
+    if raw is None: return default
     value = float(raw)
-    if not math.isfinite(value) or value < 0:
-        raise ValueError(f"{env_name} deve ser número finito >=0")
+    if not math.isfinite(value) or value < 0: raise ValueError(f"{env_name} deve ser número finito >=0")
     return value
