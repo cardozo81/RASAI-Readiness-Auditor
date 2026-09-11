@@ -6,10 +6,21 @@ O console local expõe um input explícito de termos SERP sem transformar termos
 
 A separação é intencional:
 
-- `RASAI_SERP_MODE`, `RASAI_SERP_PROVIDER`, `RASAI_SERPAPI_API_KEY` e os limites `RASAI_SERP_*` configuram provider, credencial e governança;
+- `RASAI_SERP_MODE`, `RASAI_SERP_PROVIDER`, a credencial específica do provider e os limites `RASAI_SERP_*` configuram provider, credencial e governança;
 - os **termos de busca** são dados da execução corrente;
 - termos não são gravados no `rasai-console.ini`;
 - Search Intelligence continua não alterando `SARI-001` ou `SCORE-GEO-004`.
+
+Providers live atualmente selecionáveis:
+
+| Provider | Engine | Credencial | URL de cadastro/login |
+|---|---|---|---|
+| `serpapi` | Google | `RASAI_SERPAPI_API_KEY` | <https://serpapi.com/manage-api-key> |
+| `serpapi-bing` | Bing | `RASAI_SERPAPI_API_KEY` | <https://serpapi.com/manage-api-key> |
+| `zenserp` | Google | `RASAI_ZENSERP_API_KEY` | <https://app.zenserp.com/> |
+| `scrapingdog` | Google | `RASAI_SCRAPINGDOG_API_KEY` | <https://api.scrapingdog.com/> |
+
+Os quatro possuem uma oferta gratuita limitada verificada em 11/09/2026; isso não significa uso ilimitado. Consulte [PROVIDER_SETUP.md](PROVIDER_SETUP.md) para a franquia verificada e as ressalvas de quota/custo.
 
 ## Uso
 
@@ -19,7 +30,7 @@ No console local, a seção `SEARCH INTELLIGENCE` expõe:
 T. Termos SERP
 ```
 
-Ao selecionar `T`, o console permite:
+Ao selecionar `T`, o console mostra o provider configurado, **qual variável contém sua credencial e a URL oficial para cadastro/login**, além da nota de free tier. Em seguida permite:
 
 1. habilitar Search Intelligence para a próxima auditoria desta sessão;
 2. informar um ou mais termos separados por `;`;
@@ -42,18 +53,20 @@ Exemplos:
 
 Se o domínio auditado não aparecer, a interpretação é limitada pela profundidade escolhida. Com `depth=10`, por exemplo, o resultado significa **“domínio não observado no Top 10”**; não significa que o domínio não esteja ranqueado em posições posteriores.
 
-No provider Google/SerpApi vigente, a paginação usada pelo adapter trabalha em blocos de 10 posições. Portanto, posições `1-10` pertencem ao primeiro bloco/página consultado e posições `11-20` exigem um segundo bloco/página. Aumentar a profundidade amplia a chance de localizar o domínio auditado e identificar concorrentes fora do Top 10, mas pode aumentar quota e duração.
+Os adapters Google atuais (`serpapi`, `zenserp` e `scrapingdog`) trabalham com paginação normalizada pelo RASAi em blocos de até 10 posições para o cálculo conservador de orçamento. Portanto, posições `11-20` podem exigir uma segunda chamada. Aumentar a profundidade amplia a chance de localizar o domínio auditado e identificar concorrentes fora do Top 10, mas pode aumentar quota, créditos e duração.
 
-O teto conservador de requests para Google/SerpApi considera quantidade de termos, blocos de 10 posições e tentativas incluindo retries. Com `retries=1`, por exemplo:
+O teto conservador de requests considera quantidade de termos, blocos de 10 posições e tentativas incluindo retries. Com `retries=1`, por exemplo:
 
 ```text
-3 termos × depth 10 -> até 6 requests
-3 termos × depth 20 -> até 12 requests
+3 termos × depth 10 -> até 6 tentativas HTTP
+3 termos × depth 20 -> até 12 tentativas HTTP
 ```
 
-Assim, com `RASAI_SERP_MAX_REQUESTS=10`, três termos em `depth=20` não cabem no orçamento conservador atual. O console passa a sinalizar isso no momento do preenchimento e informa uma profundidade compatível quando possível.
+Assim, com `RASAI_SERP_MAX_REQUESTS=10`, três termos em `depth=20` não cabem no orçamento conservador atual.
 
 Para Bing, a paginação é provider-driven; `depth` continua significando o máximo de posições observadas, enquanto `RASAI_SERP_MAX_REQUESTS` permanece como limite rígido global.
+
+`RASAI_SERP_MAX_REQUESTS` limita tentativas HTTP do RASAi. Ele **não representa créditos comerciais**. No ScrapingDog, por exemplo, uma request Google pode consumir vários créditos do plano do fornecedor.
 
 ### Dispositivo e região
 
@@ -86,10 +99,13 @@ O renderer usa a evidência já persistida; ele não executa novas chamadas ao p
 Quando termos estão configurados, o preflight do console também valida o contrato SERP. Exemplos de bloqueio antes da auditoria:
 
 - `RASAI_SERP_MODE=disabled`;
-- `RASAI_SERPAPI_API_KEY` ausente em modo `live`;
+- credencial correspondente ao `RASAI_SERP_PROVIDER` ausente em modo `live`;
+- provider/engine incompatíveis;
 - quantidade de termos acima de `RASAI_SERP_MAX_QUERIES`;
 - profundidade acima de `RASAI_SERP_MAX_DEPTH`;
 - teto determinístico Google acima de `RASAI_SERP_MAX_REQUESTS`.
+
+Quando a credencial está ausente, a mensagem de configuração inclui a variável esperada e a URL oficial do provider para obtê-la.
 
 Uma falha externa ocorrida **depois** da auditoria principal é fail-open para scoring: o `AUD-*` continua válido e Search Intelligence é apresentado como limitação opcional. Nenhuma falha de SERP reduz o SARI.
 
@@ -99,9 +115,9 @@ Os termos permanecem somente no estado da sessão do console. Isso evita que sal
 
 Para monitoramento recorrente e persistente de queries, use `rasai search-monitor`, que possui contrato próprio de query registrada e scheduling.
 
-## Exemplo
+## Exemplos
 
-Com:
+SerpApi:
 
 ```text
 RASAI_SERP_MODE=live
@@ -109,10 +125,26 @@ RASAI_SERP_PROVIDER=serpapi
 RASAI_SERPAPI_API_KEY=[SET]
 ```
 
-se o usuário informar no item `T`:
+Zenserp:
+
+```text
+RASAI_SERP_MODE=live
+RASAI_SERP_PROVIDER=zenserp
+RASAI_ZENSERP_API_KEY=[SET]
+```
+
+ScrapingDog:
+
+```text
+RASAI_SERP_MODE=live
+RASAI_SERP_PROVIDER=scrapingdog
+RASAI_SCRAPINGDOG_API_KEY=[SET]
+```
+
+Se o usuário informar no item `T`:
 
 ```text
 seguro residencial; seguro residencial online
 ```
 
-e executar uma auditoria de `https://loja.exemplo.com.br`, o console executará a observação Google/SerpApi para esses termos e a associará ao mesmo `AUD-*` gerado pela auditoria.
+e executar uma auditoria de `https://loja.exemplo.com.br`, o console executará a observação com o adapter escolhido e associará o resultado ao mesmo `AUD-*` gerado pela auditoria.
