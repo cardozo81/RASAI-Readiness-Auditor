@@ -141,7 +141,7 @@ report/web-performance.html
 
 Não é criada uma superfície pública paralela de relatório.
 
-Quando existem múltiplas URLs ou dispositivos, o resumo usa **faixas mínimo–máximo** para métricas numéricas e a tabela preserva uma linha por URL + dispositivo. Isso evita atribuir uma média sem semântica explícita ao conjunto auditado.
+Quando existem múltiplas URLs ou dispositivos, o resumo usa **faixas mínimo-máximo** para métricas numéricas e a tabela preserva uma linha por URL + dispositivo. Isso evita atribuir uma média sem semântica explícita ao conjunto auditado.
 
 ## Relação com PageSpeed, Lighthouse e CrUX
 
