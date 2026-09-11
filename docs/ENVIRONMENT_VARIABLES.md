@@ -157,6 +157,7 @@ O recurso permanece default OFF. Quando habilitado sem override manual ou import
 | `RASAI_APDEX_EXPERIENCE_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` como baseline seguro | RASAi sintético |
 | `RASAI_APDEX_EXPERIENCE_DEVICE_MIX` | `mobile=60,desktop=35,tablet=5` | CSV com `mobile`, `desktop` e/ou `tablet`, percentuais finitos `>=0`, soma exata `100` | usar população real conhecida quando o objetivo for comparar com RUM | peso populacional das amostras, não número de subrequests |
 | `RASAI_APDEX_EXPERIENCE_SESSION_MODE` | `cold` | `cold`, `warm` | `cold` para baseline reprodutível | não há equivalência 1:1 com RUM |
+| `RASAI_APDEX_ACQUISITION_MODE` | `auto` | `auto`, `isolated` | `auto`; use `isolated` somente para comparação/troubleshooting | `auto` reutiliza somente navegações físicas compatíveis entre os dois Apdex; não compartilha score, thresholds nem device mix |
 | `RASAI_APDEX_EXPERIENCE_KPM` | `USER_ACTION_DURATION` | `USER_ACTION_DURATION`, `DOM_INTERACTIVE`, `LOAD_EVENT_START`, `LOAD_EVENT_END`, `RESPONSE_START`, `RESPONSE_END`, `LARGEST_CONTENTFUL_PAINT` | `USER_ACTION_DURATION` no perfil compatível atual | fallback executável; `VISUALLY_COMPLETE` não é executável com semântica equivalente ao fornecedor |
 | `RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS` | `3` | número `> 0` | `3` no perfil compatível | referência/fallback Dynatrace Load |
 | `RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS` | `12` | número `> 0` e maior que o limiar Satisfied | `12` no perfil compatível | independente de `4T` |
@@ -170,6 +171,8 @@ O recurso permanece default OFF. Quando habilitado sem override manual ou import
 | `RASAI_DYNATRACE_APPLICATION_ID` | sem default | texto não vazio | definir apenas na importação live | ID da aplicação web Dynatrace |
 | `RASAI_DYNATRACE_CONFIG_JSON` | sem default | caminho para arquivo JSON existente | **preferido à importação live quando o objetivo for reprodutibilidade** | configuração exportada/offline |
 | `DYNATRACE_API_TOKEN` | sem default | token válido | secret/env; nunca persistir | necessário somente na importação live |
+
+`RASAI_APDEX_ACQUISITION_MODE=auto` implementa **shared acquisition, independent evaluation**. O compartilhamento só ocorre quando URL, device, perfil sintético e sessão `cold` são compatíveis e a fronteira de `load` cabe no timeout do Navigation Apdex. O Navigation mantém seu target por URL/device e sua regra `T/4T`; o Experience mantém seu target total por página, device mix, KPM, thresholds e política de erros. Consulte [SYNTHETIC_SHARED_ACQUISITION.md](SYNTHETIC_SHARED_ACQUISITION.md).
 
 ### Referência Dynatrace e limite de equivalência
 
