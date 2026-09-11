@@ -1,9 +1,9 @@
 """Presentation-only labels for generated RASAi HTML reports.
 
-Persisted enums remain unchanged. This module only translates isolated machine
-states when they are rendered as primary values in table cells, metric values or
-badges. Technical identifiers inside code/pre blocks and diagnostic prose are not
-rewritten.
+Persisted enums remain unchanged. This module translates machine states when they
+are rendered as user-facing values. Established conceptual/industry terms remain
+in English; operational states and messages are presented in pt-BR. Technical
+identifiers inside code/pre blocks and diagnostic prose are not rewritten.
 """
 from __future__ import annotations
 
@@ -12,9 +12,77 @@ import re
 from rasai.time_contract import localize_visible_timestamps
 
 
-# Keep this map intentionally conservative. Add only values whose machine form is
-# materially harder to read when used as a primary user-facing value.
+# Public conceptual vocabulary for the current SARI/SCORE-GEO contract. These are
+# concepts, not operational messages, so established English terminology is kept.
+# Every scoring dimension/group should have an entry here; tests enforce coverage.
+SCORING_CONCEPT_LABELS: dict[str, str] = {
+    # Dimensions.
+    "TECHNICAL_ACCESSIBILITY": "Technical Accessibility",
+    "DISCOVERY_ACCESS": "Discovery & Crawler Access",
+    "INDEXABILITY": "Indexability",
+    "CONTENT_EXTRACTABILITY": "Rendering & Extractability",
+    "SEMANTIC_STRUCTURE": "Semantic Structure",
+    "ENTITY_CLARITY": "Entity Clarity",
+    "STRUCTURED_DATA": "Structured Data",
+    "ANSWERABILITY": "Answerability",
+    "CITATION_READINESS": "Citation Readiness",
+    "EVIDENCE_TRUST": "Evidence & Trust",
+    "INTENT_COVERAGE": "Intent Coverage",
+    "CONTENT_VALUE": "Content Value",
+    "OVERALL_READINESS": "Overall Readiness",
+    # Macrocomponents.
+    "DISCOVERY_AND_CRAWLER_ACCESS": "Discovery & Crawler Access",
+    "INDEXABILITY_AND_CANONICALIZATION": "Indexability & Canonicalization",
+    "RENDERING_AND_EXTRACTABILITY": "Rendering & Extractability",
+    "SEMANTIC_UNDERSTANDABILITY": "Semantic Understandability",
+    "CONTENT_UTILITY_AND_INTENT": "Content Utility & Intent",
+    "EVIDENCE_TRUST_AND_CITATION": "Evidence, Trust & Citation",
+    # Scoring groups.
+    "PAGE_ACCESS": "Page Access",
+    "ROBOTS": "robots.txt",
+    "SITEMAP": "Sitemap",
+    "REDIRECT": "Redirects",
+    "SPA_ROUTE": "SPA Route",
+    "SPA_NAVIGATION": "SPA Navigation",
+    "INTERNAL_LINKS": "Internal Links",
+    "INDEX_DIRECTIVES": "Index Directives",
+    "CANONICAL": "Canonical",
+    "SOFT_ERROR": "Soft Error",
+    "RENDER_ACCESS": "Render Access",
+    "JS_CONTENT": "JavaScript Content",
+    "CONTENT_EXTRACTION": "Content Extraction",
+    "DUPLICATE_CONTENT": "Duplicate Content",
+    "SEMANTIC_TITLE": "Semantic Title",
+    "SEMANTIC_HIERARCHY": "Semantic Hierarchy",
+    "SEMANTIC_TOPIC": "Semantic Topic",
+    "ENTITY_PRIMARY": "Primary Entity",
+    "ENTITY_CONTEXT": "Entity Context",
+    "ENTITY_AMBIGUITY": "Entity Ambiguity",
+    "STRUCTURED_DATA_SYNTAX": "Structured Data Syntax",
+    "STRUCTURED_DATA_CONSISTENCY": "Structured Data Consistency",
+    "PRIMARY_INTENT": "Primary Intent",
+    "PRIMARY_ANSWERS": "Primary Answers",
+    "FACTUAL_CLAIMS": "Factual Claims",
+    "FACTUAL_CONTEXT": "Factual Context",
+    "INFERENCE_LOAD": "Inference Load",
+    "ATTRIBUTION": "Attribution",
+    "RESPONSIBILITY": "Responsibility",
+    "FRESHNESS": "Freshness",
+    "INTENT_SET": "Intent Set",
+    "INTENT_GAPS": "Intent Gaps",
+    "CONTENT_USEFULNESS": "Content Usefulness",
+    "CONTENT_DIFFERENTIATION": "Content Differentiation",
+    "CONTENT_DEPTH": "Content Depth",
+    # Critical readiness gate concepts.
+    "DISCOVERY": "Discovery",
+    "EXTRACTION": "Extraction",
+}
+
+
+# Keep this map conservative outside of the scoring vocabulary. Add values whose
+# machine form is materially harder to read when used as a primary user-facing value.
 _PUBLIC_LABELS: dict[str, str] = {
+    **SCORING_CONCEPT_LABELS,
     # Execution and availability.
     "SUCCESS": "Concluído",
     "COMPLETED": "Concluído",
@@ -43,6 +111,9 @@ _PUBLIC_LABELS: dict[str, str] = {
     "NOT_CONFIGURED": "Não configurado",
     "DISABLED": "Desabilitado",
     "ENABLED": "Habilitado",
+    "READY": "Pronto",
+    "ATTENTION": "Atenção",
+    "BLOCKED": "Bloqueado",
     "NO_ELIGIBLE_FINDINGS": "Nenhum finding elegível",
     "DATA_UNAVAILABLE": "Dados indisponíveis",
     "NOT_DETERMINABLE": "Não determinável",
@@ -56,7 +127,7 @@ _PUBLIC_LABELS: dict[str, str] = {
     "HTTP_ERROR": "Erro HTTP",
     "NETWORK_ERROR": "Erro de rede",
     "NOT_FOUND": "Não localizado",
-    # Scoring and evaluation.
+    # Scoring and evaluation states. Concept names themselves live above.
     "PASS": "Aprovado",
     "FAIL": "Não aprovado",
     "CONSOLIDATED": "Consolidado",
@@ -72,18 +143,7 @@ _PUBLIC_LABELS: dict[str, str] = {
     "OPTIONAL_IMPROVEMENT": "Melhoria opcional",
     "NO_ACTION": "Nenhuma ação necessária",
     "INSUFFICIENT_EVIDENCE": "Evidência insuficiente",
-    # SCORE-GEO/SARI dimensions when rendered as isolated user-facing values.
-    "TECHNICAL_ACCESSIBILITY": "Acessibilidade técnica",
-    "INDEXABILITY": "Capacidade de indexação",
-    "CONTENT_EXTRACTABILITY": "Extração de conteúdo",
-    "SEMANTIC_STRUCTURE": "Estrutura semântica",
-    "ENTITY_CLARITY": "Clareza de entidades",
-    "STRUCTURED_DATA": "Dados estruturados",
-    "ANSWERABILITY": "Capacidade de resposta",
-    "CITATION_READINESS": "Prontidão para citação",
-    "EVIDENCE_TRUST": "Confiança da evidência",
-    "INTENT_COVERAGE": "Cobertura de intenção",
-    "OVERALL_READINESS": "Readiness geral",
+    "EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1": "Equal Weight Across Applicable Dimensions",
     # Severity and confidence.
     "CRITICAL": "Crítica",
     "HIGH": "Alta",
@@ -217,35 +277,6 @@ _PUBLIC_LABELS: dict[str, str] = {
     "BRAND": "Marca",
     "TOPIC": "Tópico",
     "OTHER": "Outro",
-    # Rule groups/dimensions that may appear in technical tables.
-    "CONTENT_EXTRACTION": "Extração de conteúdo",
-    "DUPLICATE_CONTENT": "Conteúdo duplicado",
-    "ENTITY_AMBIGUITY": "Ambiguidade de entidade",
-    "ENTITY_CONTEXT": "Contexto de entidade",
-    "ENTITY_PRIMARY": "Entidade principal",
-    "EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1": "Peso igual entre dimensões aplicáveis",
-    "FACTUAL_CLAIMS": "Afirmações factuais",
-    "FACTUAL_CONTEXT": "Contexto factual",
-    "INDEX_DIRECTIVES": "Diretivas de indexação",
-    "INFERENCE_LOAD": "Carga de inferência",
-    "INTENT_GAPS": "Lacunas de intenção",
-    "INTENT_SET": "Conjunto de intenções",
-    "INTERNAL_LINKS": "Links internos",
-    "JS_CONTENT": "Conteúdo por JavaScript",
-    "PAGE_ACCESS": "Acesso à página",
-    "PRIMARY_ANSWERS": "Respostas principais",
-    "PRIMARY_INTENT": "Intenção principal",
-    "REDIRECT": "Redirecionamentos",
-    "RENDER_ACCESS": "Acesso após renderização",
-    "ROBOTS": "robots.txt",
-    "SEMANTIC_HIERARCHY": "Hierarquia semântica",
-    "SEMANTIC_TITLE": "Título semântico",
-    "SEMANTIC_TOPIC": "Tópico semântico",
-    "SITEMAP": "Sitemap",
-    "SOFT_ERROR": "Erro aparente",
-    "SPA_NAVIGATION": "Navegação SPA",
-    "SPA_ROUTE": "Rota SPA",
-    "STRUCTURED_DATA_SYNTAX": "Sintaxe de dados estruturados",
     # Web Performance diagnostic categories.
     "CRITICAL_PATH": "Caminho crítico",
     "JAVASCRIPT_MAIN_THREAD": "Thread principal de JavaScript",
