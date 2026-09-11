@@ -1,8 +1,9 @@
-"""Shared client-side UX for report surfaces with many URLs/items.
+"""Shared client-side UX for report surfaces with multiple audited URLs/items.
 
-The generated report remains a self-contained static artifact. This module never removes
-rows/cards from HTML and never changes scoring. It only injects a small local controller
-that filters/paginates large collections in the browser.
+One or two URLs keep the compact report layout that is already easy to read. From the
+third distinct URL onward, URL/device filters become available. Large non-URL lists also
+receive the same controls as a safety fallback. The generated report remains a
+self-contained static artifact: no row/card is removed from HTML and no score changes.
 """
 from __future__ import annotations
 
@@ -18,10 +19,11 @@ _SCALE_CSS = r"""
 .rasai-list-toolbar label{display:grid;gap:4px;min-width:150px;color:var(--muted,#6f7b8d);font-size:.76rem;font-weight:620}
 .rasai-list-toolbar input,.rasai-list-toolbar select,.rasai-list-toolbar button{min-height:34px;border:1px solid var(--line,rgba(111,123,141,.22));border-radius:5px;background:#fff;color:var(--ink,#273449);padding:6px 9px;font:inherit}
 .rasai-list-toolbar input{min-width:min(330px,70vw)}
+.rasai-list-toolbar select[data-rasai-url-filter]{max-width:min(520px,80vw)}
 .rasai-list-toolbar button{cursor:pointer;font-weight:620}.rasai-list-toolbar button:disabled{cursor:default;opacity:.45}
 .rasai-list-toolbar .rasai-list-status{margin-left:auto;align-self:center;color:var(--muted,#6f7b8d);font-size:.8rem;white-space:nowrap}
 .rasai-list-empty{padding:14px;border:1px dashed var(--line,rgba(111,123,141,.22));border-radius:6px;color:var(--muted,#6f7b8d);background:#fafbfc}
-@media(max-width:760px){.rasai-list-toolbar{align-items:stretch}.rasai-list-toolbar label{min-width:100%}.rasai-list-toolbar input{min-width:0;width:100%}.rasai-list-toolbar .rasai-list-status{margin-left:0;width:100%}}
+@media(max-width:760px){.rasai-list-toolbar{align-items:stretch}.rasai-list-toolbar label{min-width:100%}.rasai-list-toolbar input,.rasai-list-toolbar select{min-width:0;width:100%;max-width:none}.rasai-list-toolbar .rasai-list-status{margin-left:0;width:100%}}
 @media print{.rasai-list-toolbar,.rasai-list-empty{display:none!important}.rasai-client-hidden{display:table-row!important}.page-card.rasai-client-hidden{display:block!important}}
 </style>
 """.strip()
@@ -30,8 +32,18 @@ _SCALE_SCRIPT = r"""
 <script id="rasai-scale-ux-script-v1">
 (function(){
   'use strict';
-  const MIN_TABLE_ROWS=15, MIN_CARDS=10;
+  const URL_THRESHOLD=3, LARGE_TABLE_FALLBACK=25, LARGE_CARD_FALLBACK=20;
   const normalize=v=>(v||'').toLocaleLowerCase('pt-BR');
+  const safeUrl=v=>{try{const u=new URL((v||'').trim());return /^https?:$/.test(u.protocol)?u.href:null;}catch(_){return null;}};
+  const urlFor=item=>{
+    const preferred=item.querySelector&&item.querySelector('.page-url');
+    const preferredText=preferred?(preferred.textContent||''):'';
+    const preferredMatch=preferredText.match(/https?:\/\/[^\s<>'"`]+/i);
+    if(preferredMatch){const parsed=safeUrl(preferredMatch[0]);if(parsed)return parsed;}
+    const match=(item.innerText||'').match(/https?:\/\/[^\s<>'"`]+/i);
+    return match?safeUrl(match[0]):null;
+  };
+  const urlsFor=items=>Array.from(new Set(items.map(urlFor).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
   const contextsFor=items=>{
     const joined=items.map(x=>(x.innerText||'').toUpperCase()).join('\n');
     const out=[];
@@ -39,10 +51,19 @@ _SCALE_SCRIPT = r"""
     if(/\bDESKTOP\b/.test(joined)) out.push('DESKTOP');
     return out;
   };
-  function toolbar(total, contexts, onChange){
+  const shouldEnhance=(items,fallback)=>urlsFor(items).length>=URL_THRESHOLD||items.length>=fallback;
+  function toolbar(total, contexts, urls, onChange){
     const root=document.createElement('div'); root.className='rasai-list-toolbar'; root.dataset.rasaiListToolbar='true';
     const searchLabel=document.createElement('label'); searchLabel.textContent='Buscar na lista';
     const search=document.createElement('input'); search.type='search'; search.placeholder='URL, regra, status, texto...'; search.setAttribute('aria-label','Buscar na lista'); searchLabel.appendChild(search); root.appendChild(searchLabel);
+    let urlSelect=null;
+    if(urls.length>=URL_THRESHOLD){
+      const label=document.createElement('label'); label.textContent='URL';
+      urlSelect=document.createElement('select'); urlSelect.dataset.rasaiUrlFilter='true'; urlSelect.setAttribute('aria-label','Filtrar URL');
+      urlSelect.innerHTML='<option value="">Todas as URLs ('+urls.length+')</option>'+urls.map(v=>'<option></option>').join('');
+      Array.from(urlSelect.options).slice(1).forEach((option,index)=>{option.value=urls[index];option.textContent=urls[index];});
+      label.appendChild(urlSelect); root.appendChild(label);
+    }
     let context=null;
     if(contexts.length>1){
       const label=document.createElement('label'); label.textContent='Contexto';
@@ -51,13 +72,14 @@ _SCALE_SCRIPT = r"""
     }
     const sizeLabel=document.createElement('label'); sizeLabel.textContent='Itens por página';
     const size=document.createElement('select'); size.setAttribute('aria-label','Itens por página');
-    size.innerHTML='<option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="0">Todos</option>'; size.value=total>25?'10':'25'; sizeLabel.appendChild(size); root.appendChild(sizeLabel);
+    size.innerHTML='<option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="0">Todos</option>'; size.value=total>10?'10':'25'; sizeLabel.appendChild(size); root.appendChild(sizeLabel);
     const prev=document.createElement('button'); prev.type='button'; prev.textContent='Anterior'; root.appendChild(prev);
     const next=document.createElement('button'); next.type='button'; next.textContent='Próxima'; root.appendChild(next);
     const status=document.createElement('span'); status.className='rasai-list-status'; root.appendChild(status);
-    const state={page:1,query:'',context:'',size:Number(size.value)};
+    const state={page:1,query:'',url:'',context:'',size:Number(size.value)};
     const emit=()=>onChange(state,{prev,next,status});
     search.addEventListener('input',()=>{state.query=normalize(search.value.trim());state.page=1;emit();});
+    if(urlSelect) urlSelect.addEventListener('change',()=>{state.url=urlSelect.value;state.page=1;emit();});
     if(context) context.addEventListener('change',()=>{state.context=context.value;state.page=1;emit();});
     size.addEventListener('change',()=>{state.size=Number(size.value);state.page=1;emit();});
     prev.addEventListener('click',()=>{if(state.page>1){state.page--;emit();}});
@@ -68,6 +90,7 @@ _SCALE_SCRIPT = r"""
     const filtered=items.filter(item=>{
       const text=normalize(item.innerText||'');
       if(state.query && !text.includes(state.query)) return false;
+      if(state.url && urlFor(item)!==state.url) return false;
       if(state.context && !(item.innerText||'').toUpperCase().includes(state.context)) return false;
       return true;
     });
@@ -87,9 +110,9 @@ _SCALE_SCRIPT = r"""
   document.querySelectorAll('table').forEach(table=>{
     if(table.dataset.rasaiNoPagination==='true' || table.dataset.rasaiListReady==='true') return;
     const tbody=table.tBodies&&table.tBodies[0]; if(!tbody) return;
-    const rows=Array.from(tbody.rows); if(rows.length<MIN_TABLE_ROWS) return;
+    const rows=Array.from(tbody.rows); if(!shouldEnhance(rows,LARGE_TABLE_FALLBACK)) return;
     table.dataset.rasaiListReady='true';
-    const ui=toolbar(rows.length,contextsFor(rows),(state,controls)=>{
+    const urls=urlsFor(rows), ui=toolbar(rows.length,contextsFor(rows),urls,(state,controls)=>{
       const count=apply(rows,state,controls,'table-row'); empty.style.display=count?'none':'block';
     });
     const host=table.closest('.table-wrap')||table; host.parentNode.insertBefore(ui.root,host);
@@ -101,10 +124,10 @@ _SCALE_SCRIPT = r"""
   parents.forEach(parent=>{
     if(parent.dataset.rasaiCardListReady==='true') return;
     const cards=Array.from(parent.children).filter(el=>el.classList&&el.classList.contains('page-card'));
-    if(cards.length<MIN_CARDS) return;
+    if(!shouldEnhance(cards,LARGE_CARD_FALLBACK)) return;
     parent.dataset.rasaiCardListReady='true';
-    const first=cards[0];
-    const ui=toolbar(cards.length,contextsFor(cards),(state,controls)=>{
+    const first=cards[0], urls=urlsFor(cards);
+    const ui=toolbar(cards.length,contextsFor(cards),urls,(state,controls)=>{
       const count=apply(cards,state,controls,''); empty.style.display=count?'none':'block';
     });
     parent.insertBefore(ui.root,first);
