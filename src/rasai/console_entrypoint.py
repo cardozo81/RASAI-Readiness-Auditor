@@ -24,12 +24,15 @@ from rasai.integration_state_contract import install as install_integration_stat
 from rasai.integration_state_refinements import install as install_integration_state_refinements
 from rasai.m21_console_progress import install_m21_external_progress
 from rasai.m3_console_progress import install_m3_render_progress
+from rasai.m3_render_deadline_runtime import install as install_m3_render_deadline_runtime
 from rasai.report_observation_reconciliation import install as install_report_observation_reconciliation
 from rasai.report_registry import install as install_report_registry
+from rasai.report_scope_clarity import install as install_report_scope_clarity
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.runtime_contract_compatibility import install_console_runtime_contract_compatibility
 from rasai.runtime_progress_gate import install_search_progress_gate
+from rasai.target_input_runtime import install as install_target_input_runtime
 
 
 def main() -> int:
@@ -46,6 +49,8 @@ def main() -> int:
     # the first console pass instead of only after the environment menu is opened.
     install_report_registry()
     install_context_scope_runtime()
+    install_m3_render_deadline_runtime()
+    install_target_input_runtime()
     install_external_measurement_runtime()
     prepare_console_config()
     install_provider_environment_compat(console_environment)
@@ -65,6 +70,7 @@ def main() -> int:
     install_search_intelligence(interactive_console)
     install_consolidation(interactive_console)
     install_console_runtime_contract_compatibility()
+    install_report_scope_clarity()
     # Install last: it intentionally supersedes the older availability-only selector
     # so unavailable providers remain configurable and credential changes refresh
     # execution readiness immediately.
