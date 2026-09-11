@@ -14,6 +14,7 @@ from rasai.console_config_path import prepare_console_config
 from rasai.console_environment import environment_menu
 from rasai.console_search_guidance import install as install_search_guidance
 from rasai.console_search_intelligence import install as install_search_intelligence
+from rasai.console_search_provider_compat import install as install_search_provider_compat
 from rasai.consolidation.integration import install as install_consolidation
 from rasai.report_registry import install as install_report_registry
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
@@ -37,6 +38,7 @@ def main() -> int:
     install_search_progress_gate()
     interactive_console._environment_menu = environment_menu
     interactive_console._configure_apdex = configure_apdex
+    install_search_provider_compat(console_search_intelligence)
     install_search_guidance(console_search_intelligence)
     install_search_intelligence(interactive_console)
     install_consolidation(interactive_console)
