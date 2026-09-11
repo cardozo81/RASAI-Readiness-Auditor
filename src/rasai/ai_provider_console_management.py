@@ -22,6 +22,22 @@ from rasai.provider_runtime_policy import (
 _INSTALLED = False
 
 
+def _registration_for_key(name: str):
+    for registration in provider_registrations():
+        if registration.key_env == name:
+            return registration
+    return None
+
+
+def _refresh_provider_after_credential_change(state: Any, key_env: str) -> None:
+    """Invalidate stale runtime failures after a credential/configuration change."""
+    registration = _registration_for_key(key_env)
+    if registration is not None:
+        getattr(state, "runtime_blocks", {}).pop(registration.id, None)
+        for alias in registration.aliases:
+            getattr(state, "runtime_blocks", {}).pop(alias, None)
+
+
 def _set_auto_membership(provider_id: str, *, included: bool) -> None:
     excluded = set(configured_auto_exclusions())
     if included:
@@ -69,9 +85,10 @@ def _choose_provider(state: Any, console: Any) -> str | None:
 
 
 def _delete_provider_key(state: Any, console: Any, key_env: str, provider_id: str) -> None:
-    """Remove the current-session key and Windows/User persistence when available."""
+    """Remove current-session key and Windows/User persistence when available."""
+    state.error = ""
     os.environ.pop(key_env, None)
-    state.runtime_blocks.pop(provider_id, None)
+    _refresh_provider_after_credential_change(state, key_env)
     user_value = console.user_environment_value(key_env)
     machine_value = console.machine_environment_value(key_env)
     if user_value is not None:
@@ -85,8 +102,6 @@ def _delete_provider_key(state: Any, console: Any, key_env: str, provider_id: st
             f"{key_env} removida da sessão/User, mas existe no escopo Windows/Machine; "
             "remova-a administrativamente para exclusão permanente"
         )
-    elif not state.error:
-        state.error = ""
 
 
 def _manage_provider(state: Any, console: Any, provider_id: str) -> str:
@@ -120,9 +135,8 @@ def _manage_provider(state: Any, console: Any, provider_id: str) -> str:
         print("L. Limpar Key somente da sessão")
         print("X. Excluir Key da sessão e do Windows/User")
         if registration.auto_eligible:
-            print("A. Incluir/excluir do AUTO sem apagar a Key")
+            print("A. Habilitar/desabilitar no AUTO sem apagar a Key")
         print("U. Usar este provider nesta auditoria")
-        print("D. Desabilitar IA nesta auditoria sem apagar a Key")
         print("V. Voltar")
         action = input("Escolha: ").strip().upper()
 
@@ -135,16 +149,17 @@ def _manage_provider(state: Any, console: Any, provider_id: str) -> str:
             except (ValueError, OverflowError) as exc:
                 state.error = str(exc)
                 continue
-            state.runtime_blocks.pop(registration.id, None)
+            _refresh_provider_after_credential_change(state, key_env)
             console._sync_secret_volatility(state, key_env)
             state.error = ""
             continue
         if action == "P":
             console._secret_persistence_action(state, key_env)
+            _refresh_provider_after_credential_change(state, key_env)
             continue
         if action == "L":
             os.environ.pop(key_env, None)
-            state.runtime_blocks.pop(registration.id, None)
+            _refresh_provider_after_credential_change(state, key_env)
             console._sync_secret_volatility(state, key_env)
             state.error = ""
             continue
@@ -155,14 +170,6 @@ def _manage_provider(state: Any, console: Any, provider_id: str) -> str:
             _set_auto_membership(registration.id, included=excluded)
             state.error = ""
             continue
-        if action == "D":
-            state.ai_provider = "none"
-            state.ai_model = None
-            state.ai_reasoning = None
-            state.content_remediation = False
-            state.technical_remediation = False
-            state.error = ""
-            return "disabled"
         if action == "U":
             capability = console.provider_capabilities(blocks=state.runtime_blocks)[registration.id]
             if not capability.available:
@@ -231,8 +238,7 @@ def _configure_ai(state: Any, console: Any) -> None:
         state.error = ""
         return
     if selection == "auto":
-        # Reuse the canonical AUTO-pool editor. Unlike concrete providers, AUTO has no
-        # credential of its own; credentials are managed on each concrete provider.
+        # AUTO has no credential of its own. Credentials remain managed provider by provider.
         from rasai.documented_contract_reconciliation import _configure_auto_pool
 
         if _configure_auto_pool(state, console):
@@ -256,13 +262,41 @@ def _configure_ai(state: Any, console: Any) -> None:
     _configure_model_reasoning_timeout(state, console, selection)
 
 
+def _install_persistence_refresh() -> None:
+    """Make both credential UIs invalidate stale provider blocks after persistence."""
+    from rasai import console_environment, interactive_console
+
+    original_grouped = console_environment._persist_secret
+    if not getattr(original_grouped, "_rasai_provider_refresh", False):
+        def persist_secret(state: Any, spec: Any) -> None:
+            original_grouped(state, spec)
+            _refresh_provider_after_credential_change(state, spec.name)
+            # Re-run the normal projection so current status reflects the credential now.
+            console_environment._apply_change(state, spec.name)
+
+        persist_secret._rasai_provider_refresh = True
+        persist_secret._rasai_original = original_grouped
+        console_environment._persist_secret = persist_secret
+
+    original_simple = interactive_console._secret_persistence_action
+    if not getattr(original_simple, "_rasai_provider_refresh", False):
+        def persist_simple(state: Any, name: str) -> None:
+            original_simple(state, name)
+            _refresh_provider_after_credential_change(state, name)
+
+        persist_simple._rasai_provider_refresh = True
+        persist_simple._rasai_original = original_simple
+        interactive_console._secret_persistence_action = persist_simple
+
+
 def install() -> None:
-    """Install the provider manager after the existing console adapters compose."""
+    """Install provider management after the existing console adapters compose."""
     global _INSTALLED
     if _INSTALLED:
         return
     from rasai import interactive_console
 
+    _install_persistence_refresh()
     original = interactive_console._configure
     if getattr(original, "_rasai_provider_management", False):
         _INSTALLED = True
