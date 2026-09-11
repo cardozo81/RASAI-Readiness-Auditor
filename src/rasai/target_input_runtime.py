@@ -97,4 +97,19 @@ def install() -> None:
     cli._audit_targets = audit_targets
     console_config.preflight = preflight
     console_cost._configured_page_range = configured_page_range
+
+    # These modules import preflight by value at module import time.  Update their
+    # local references as well so menu readiness and the execution path use exactly
+    # the same parser/diagnostics.
+    try:
+        from rasai import console_runtime
+        console_runtime.preflight = preflight
+    except Exception:
+        pass
+    try:
+        from rasai import interactive_console
+        interactive_console.preflight = preflight
+    except Exception:
+        pass
+
     _INSTALLED = True
