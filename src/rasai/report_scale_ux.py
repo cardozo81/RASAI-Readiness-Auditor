@@ -34,16 +34,26 @@ _SCALE_SCRIPT = r"""
   'use strict';
   const URL_THRESHOLD=2, LARGE_TABLE_FALLBACK=25, LARGE_CARD_FALLBACK=20;
   const normalize=v=>(v||'').toLocaleLowerCase('pt-BR');
-  const safeUrl=v=>{try{const u=new URL((v||'').trim());return /^https?:$/.test(u.protocol)?u.href:null;}catch(_){return null;}};
-  const urlFor=item=>{
-    const preferred=item.querySelector&&item.querySelector('.page-url');
-    const preferredText=preferred?(preferred.textContent||''):'';
-    const preferredMatch=preferredText.match(/https?:\/\/[^\s<>'"`]+/i);
-    if(preferredMatch){const parsed=safeUrl(preferredMatch[0]);if(parsed)return parsed;}
-    const match=(item.innerText||'').match(/https?:\/\/[^\s<>'"`]+/i);
-    return match?safeUrl(match[0]):null;
+  const safeUrl=v=>{
+    try{
+      const cleaned=(v||'').trim().replace(/[),.;]+$/,'');
+      const u=new URL(cleaned);
+      return /^https?:$/.test(u.protocol)?u.href:null;
+    }catch(_){return null;}
   };
-  const urlsFor=items=>Array.from(new Set(items.map(urlFor).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const urlsInText=text=>{
+    const matches=(text||'').match(/https?:\/\/[^\s<>'"`]+/gi)||[];
+    return matches.map(safeUrl).filter(Boolean);
+  };
+  const urlsForItem=item=>{
+    const values=[];
+    if(item.querySelectorAll){
+      item.querySelectorAll('.page-url').forEach(node=>values.push(...urlsInText(node.textContent||'')));
+    }
+    values.push(...urlsInText(item.innerText||''));
+    return Array.from(new Set(values));
+  };
+  const urlsFor=items=>Array.from(new Set(items.flatMap(urlsForItem))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
   const contextsFor=items=>{
     const joined=items.map(x=>(x.innerText||'').toUpperCase()).join('\n');
     const out=[];
@@ -60,7 +70,7 @@ _SCALE_SCRIPT = r"""
     if(urls.length>=URL_THRESHOLD){
       const label=document.createElement('label'); label.textContent='URL';
       urlSelect=document.createElement('select'); urlSelect.dataset.rasaiUrlFilter='true'; urlSelect.setAttribute('aria-label','Filtrar URL');
-      urlSelect.innerHTML='<option value="">Todas as URLs ('+urls.length+')</option>'+urls.map(v=>'<option></option>').join('');
+      urlSelect.innerHTML='<option value="">Todas as URLs ('+urls.length+')</option>'+urls.map(()=>'<option></option>').join('');
       Array.from(urlSelect.options).slice(1).forEach((option,index)=>{option.value=urls[index];option.textContent=urls[index];});
       label.appendChild(urlSelect); root.appendChild(label);
     }
@@ -90,7 +100,7 @@ _SCALE_SCRIPT = r"""
     const filtered=items.filter(item=>{
       const text=normalize(item.innerText||'');
       if(state.query && !text.includes(state.query)) return false;
-      if(state.url && urlFor(item)!==state.url) return false;
+      if(state.url && !urlsForItem(item).includes(state.url)) return false;
       if(state.context && !(item.innerText||'').toUpperCase().includes(state.context)) return false;
       return true;
     });
