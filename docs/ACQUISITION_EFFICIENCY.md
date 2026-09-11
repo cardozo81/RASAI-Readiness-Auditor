@@ -26,9 +26,25 @@ The browser-capture stage performs one normal Chromium navigation for each selec
 - navigation trace and safe request identity metadata;
 - console/page errors and failed-request diagnostics;
 - bounded DOM element observations;
+- bounded lazy-loading interaction when required by BR-GEO-024;
 - downstream deterministic extraction and semantic evidence.
 
+The lazy-loading interaction runs only when the initial DOM exposes lazy signals and essential content is not yet recoverable. It scrolls the already-open M3 page; it does **not** navigate the URL a second time. Primary DOM/screenshot evidence is frozen before the diagnostic interaction.
+
 No downstream rule, score, AI adapter or report generator may re-open the page merely to re-read these facts.
+
+### M3 wall-clock protection
+
+The normal M3 BrowserIdentityRenderer is owned by a persistent isolated worker process. Healthy URL/device contexts reuse the same worker/browser session. A complete context has a caller-side wall-clock deadline (`RASAI_M3_RENDER_WALLCLOCK_SECONDS`, default 60 s) in addition to Playwright operation-level timeouts.
+
+If the complete render exceeds that deadline:
+
+- the browser worker process is terminated;
+- the timed-out URL/device is recorded as a render failure;
+- the same URL is **not** retried automatically;
+- the next context receives a fresh browser worker and the audit can continue.
+
+Process isolation is used instead of a thread timeout because Playwright's synchronous API is thread-affine and a timed-out worker thread would continue running.
 
 ### 3. Independent measurements
 
@@ -61,7 +77,7 @@ Where the two Apdex methods use an equivalent URL/device/profile acquisition, RA
 
 #### Lazy-loading interaction probe
 
-A bounded extra browser observation may be required when the initial rendered state exposes lazy-loading signals but essential content is still not recoverable. This is a conditional diagnostic acquisition, not a general second pass over every URL. It should remain a candidate for future same-session reuse when the browser-capture contract can preserve the post-interaction evidence without weakening traceability.
+BR-GEO-024 no longer performs a default second page navigation. The bounded scroll is captured during the existing M3 browser context and persisted as `bounded_lazy_probe` metadata with `additional_navigation_requests=0`. M6 consumes that observation later. A separately supplied `lazy_probe` remains only as an explicit adapter/test hook.
 
 #### Crawling/discovery resources
 
@@ -103,6 +119,10 @@ Token reduction is allowed only when it does not remove semantic information nee
 
 Blind truncation of page content is not a default optimization because it could alter semantic, answerability, entity or factual-claim assessments. Any future token budget must preserve deterministic coverage guarantees and expose truncation as an explicit limitation.
 
+## URL-set file contract
+
+User-authored TXT files accept UTF-8 with or without BOM. Blank lines and `#` comments are ignored. Every meaningful line is validated before execution; an invalid target is reported with its exact line number instead of being silently removed from exposure estimates or audit scope.
+
 ## Request policy summary
 
 For a normal audit with one selected device and external features disabled, the intended page-level physical observations are:
@@ -110,4 +130,4 @@ For a normal audit with one selected device and external features disabled, the 
 1. one direct HTTP acquisition per URL;
 2. one Chromium snapshot navigation per URL/device.
 
-Additional target loads are permitted only for explicitly independent measurements such as PageSpeed/Lighthouse, Synthetic Apdex, or a bounded conditional interaction diagnostic. AI, scoring, report generation, comparison and other downstream logic must reuse persisted evidence.
+A bounded lazy-load interaction may trigger additional subresource activity on the **same** browser page, but it does not create a second navigation. Additional target loads are permitted only for explicitly independent measurements such as PageSpeed/Lighthouse and Synthetic Apdex. AI, scoring, report generation, comparison and other downstream logic must reuse persisted evidence.
