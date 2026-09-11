@@ -7,6 +7,7 @@ is a registry property; runtime still requires valid credentials and configurati
 from __future__ import annotations
 
 from dataclasses import dataclass
+import sys
 
 from rasai.copilot_provider import (
     COPILOT_DEFAULT_MODEL,
@@ -152,7 +153,28 @@ PROVIDER_REGISTRY: tuple[ProviderRegistration, ...] = _build_registry()
 _PROVIDER_BY_SELECTION = {selection: registration for registration in PROVIDER_REGISTRY for selection in registration.cli_selections}
 
 
+def _publish_legacy_console_credential_sources() -> None:
+    """Compatibility bridge for the older console environment catalog.
+
+    The console catalog is initialized while importing ``console_environment`` and used
+    to own a closed provider-name map. Publish registry metadata into that map when it is
+    present so new adapters do not break import and all AI credential entries expose the
+    provider's onboarding URL. This can disappear once that catalog consumes this
+    registry directly.
+    """
+    module = sys.modules.get("rasai.console_environment")
+    sources = getattr(module, "KEY_SOURCES", None) if module is not None else None
+    if not isinstance(sources, dict):
+        return
+    for registration in PROVIDER_REGISTRY:
+        if registration.credential_url:
+            sources[registration.provider_name] = (
+                f"{registration.display_name} credencial/login - {registration.credential_url}"
+            )
+
+
 def provider_registrations() -> tuple[ProviderRegistration, ...]:
+    _publish_legacy_console_credential_sources()
     return PROVIDER_REGISTRY
 
 
