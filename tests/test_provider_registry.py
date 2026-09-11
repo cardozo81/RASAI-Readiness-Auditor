@@ -26,7 +26,7 @@ class ProviderRegistryTests(unittest.TestCase):
         registrations = provider_registrations()
         self.assertEqual(
             tuple(item.id for item in registrations),
-            ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic"),
+            ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic", "copilot"),
         )
         self.assertEqual(len(registrations), len({item.id for item in registrations}))
 
@@ -56,18 +56,34 @@ class ProviderRegistryTests(unittest.TestCase):
             self.assertTrue(registration.auto_eligible)
             self.assertFalse(registration.explicit_only)
 
+    def test_copilot_metadata_is_explicit_only(self) -> None:
+        registration = get_provider_registration("copilot")
+        self.assertIsNotNone(registration)
+        assert registration is not None
+        self.assertEqual(registration.provider_name, "COPILOT")
+        self.assertEqual(registration.aliases, ("github-copilot",))
+        self.assertEqual(registration.key_env, "COPILOT_GITHUB_TOKEN")
+        self.assertEqual(registration.model_env, "RASAI_COPILOT_MODEL")
+        self.assertEqual(registration.default_model, "auto")
+        self.assertTrue(registration.explicit_only)
+        self.assertFalse(registration.auto_eligible)
+
     def test_extension_aliases_and_cli_choices_are_registry_driven(self) -> None:
         self.assertEqual(
             extension_cli_choices(),
-            tuple(alias.casefold() for alias in _PROVIDER_ALIASES),
+            (
+                "xai", "grok", "qwen", "gemini", "anthropic", "claude",
+                "copilot", "github-copilot",
+            ),
         )
         self.assertEqual(get_provider_registration("grok").id, "xai")
         self.assertEqual(get_provider_registration("claude").id, "anthropic")
+        self.assertEqual(get_provider_registration("github-copilot").id, "copilot")
         self.assertEqual(
             cli_provider_choices(),
             (
-                "none", "openai", "deepseek", "mimo", "auto",
-                "xai", "grok", "qwen", "gemini", "anthropic", "claude",
+                "none", "openai", "deepseek", "mimo", "xai", "qwen", "gemini",
+                "anthropic", "copilot", "auto", "grok", "claude", "github-copilot",
             ),
         )
 
@@ -76,6 +92,7 @@ class ProviderRegistryTests(unittest.TestCase):
             auto_provider_ids(),
             ("openai", "deepseek", "mimo", "xai", "qwen", "gemini", "anthropic"),
         )
+        self.assertNotIn("copilot", auto_provider_ids())
 
     def test_mimo_payg_key_constraint_is_exposed_to_consumers(self) -> None:
         registration = get_provider_registration("mimo")
@@ -94,6 +111,7 @@ class ProviderRegistryTests(unittest.TestCase):
             "DASHSCOPE_API_KEY",
             "GEMINI_API_KEY",
             "ANTHROPIC_API_KEY",
+            "COPILOT_GITHUB_TOKEN",
         ):
             self.assertIn(required, names)
 
