@@ -4,28 +4,25 @@ from pathlib import Path
 import sqlite3
 import tempfile
 
-from rasai.integration_state_contract import (
-    _m24_ai_notice,
-    _observability_state_section,
-    public_integration_state,
-    record_observability_attempt,
-)
+from rasai import integration_state_contract as state_contract
+from rasai.integration_state_refinements import install as install_refinements
 
 
 ROOT = Path(__file__).resolve().parents[1]
+install_refinements()
 
 
 def test_public_integration_states_distinguish_disabled_configuration_and_failure() -> None:
-    assert public_integration_state("DISABLED") == "Desabilitado / não solicitado"
-    assert public_integration_state("NOT_CONFIGURED") == "Não configurado"
-    assert public_integration_state("SUCCESS") == "Executado com sucesso"
-    assert public_integration_state("PARTIAL") == "Executado parcialmente"
-    assert public_integration_state("NO_DATA") == "Executado sem dado utilizável"
-    assert public_integration_state("ERROR") == "Falhou / indisponível"
+    assert state_contract.public_integration_state("DISABLED") == "Desabilitado / não solicitado"
+    assert state_contract.public_integration_state("NOT_CONFIGURED") == "Não configurado"
+    assert state_contract.public_integration_state("SUCCESS") == "Executado com sucesso"
+    assert state_contract.public_integration_state("PARTIAL") == "Executado parcialmente"
+    assert state_contract.public_integration_state("NO_DATA") == "Executado sem dado utilizável"
+    assert state_contract.public_integration_state("ERROR") == "Falhou / indisponível"
 
 
-def test_m24_ai_notice_is_explicit_when_disabled_or_not_configured() -> None:
-    disabled = _m24_ai_notice({
+def test_technical_ai_notice_is_explicit_when_disabled_or_not_configured() -> None:
+    disabled = state_contract._m24_ai_notice({
         "run": {"ai_enabled": 0, "ai_state": "DISABLED"},
         "ai": {"state": "DISABLED", "reason": "DEFAULT_OFF"},
         "attempts": [],
@@ -33,8 +30,10 @@ def test_m24_ai_notice_is_explicit_when_disabled_or_not_configured() -> None:
     assert "desabilitada nesta execução" in disabled
     assert "Nenhuma chamada era esperada" in disabled
     assert "não é erro do website" in disabled
+    assert "data-integration-state='technical-ai'" in disabled
+    assert "data-integration-state='m24-technical-ai'" not in disabled
 
-    missing = _m24_ai_notice({
+    missing = state_contract._m24_ai_notice({
         "run": {"ai_enabled": 1, "ai_state": "NOT_CONFIGURED"},
         "ai": {"state": "NOT_CONFIGURED", "reason": "AI_NOT_CONFIGURED_FOR_M24"},
         "attempts": [],
@@ -42,6 +41,32 @@ def test_m24_ai_notice_is_explicit_when_disabled_or_not_configured() -> None:
     assert "sem provider/credencial/configuração utilizável" in missing
     assert "Nenhum resultado de IA foi coletado" in missing
     assert "AI_NOT_CONFIGURED_FOR_M24" in missing
+
+
+def test_content_remediation_no_safe_suggestion_is_not_provider_failure() -> None:
+    connection = sqlite3.connect(":memory:")
+    connection.row_factory = sqlite3.Row
+    try:
+        connection.execute(
+            """CREATE TABLE content_remediation_runs(
+                audit_id TEXT PRIMARY KEY, enabled INTEGER, status TEXT,
+                eligible_findings INTEGER, reason TEXT
+            )"""
+        )
+        connection.execute(
+            "INSERT INTO content_remediation_runs VALUES (?,?,?,?,?)",
+            ("AUD-1", 1, "NO_SAFE_SUGGESTIONS", 3, "all responses rejected by safety contract"),
+        )
+        coverage = state_contract._content_ai_coverage(
+            connection,
+            "AUD-1",
+            lambda component, requested, status, reason: (component, requested, status, reason),
+        )
+        assert coverage is not None
+        assert coverage[2] == "SEM SAÍDA SEGURA"
+        assert "não é, por si só, falha do provider" in coverage[3]
+    finally:
+        connection.close()
 
 
 def test_observability_attempt_ledger_persists_failure_reason_without_touching_audit_db() -> None:
@@ -54,7 +79,7 @@ def test_observability_attempt_ledger_persists_failure_reason_without_touching_a
         connection.commit()
         connection.close()
 
-        attempt_id = record_observability_attempt(
+        attempt_id = state_contract.record_observability_attempt(
             workspace,
             operation="gsc-search",
             source_type="GOOGLE_SEARCH_CONSOLE",
@@ -82,11 +107,11 @@ def test_observability_attempt_ledger_persists_failure_reason_without_touching_a
 
 
 def test_observability_report_explains_no_attempt_and_failed_attempt() -> None:
-    empty = _observability_state_section([])
+    empty = state_contract._observability_state_section([])
     assert "Nenhuma tentativa persistida" in empty
     assert "não representa falha da fonte" in empty
 
-    rendered = _observability_state_section([
+    rendered = state_contract._observability_state_section([
         {
             "operation": "crux-history",
             "source_type": "CRUX_HISTORY_API",
