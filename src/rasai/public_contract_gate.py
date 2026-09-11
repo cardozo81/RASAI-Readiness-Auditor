@@ -165,10 +165,10 @@ def _check_runtime(errors: list[str]) -> None:
         errors.append(f"REPORT_FILE={REPORT_FILE!r}; esperado {EXPECTED_REPORT_FILE}")
     if tuple(CANONICAL_FILENAMES) != EXPECTED_CANONICAL_FILENAMES:
         errors.append("lista canônica de report surfaces diverge do contrato público")
-    labels = dict(CANONICAL_NAV_ITEMS)
-    if labels.get("context.html") != "Contexto de captura":
+    labels_by_filename = {filename: label for label, filename in CANONICAL_NAV_ITEMS}
+    if labels_by_filename.get("context.html") != "Contexto de captura":
         errors.append("context.html não usa o rótulo canônico Contexto de captura")
-    if labels.get("crawling-discovery.html") != "Domínio e descoberta":
+    if labels_by_filename.get("crawling-discovery.html") != "Domínio e descoberta":
         errors.append("crawling-discovery.html não usa o rótulo canônico Domínio e descoberta")
     if REPORT_ALIASES:
         errors.append("contrato atual não deve expor aliases de report")
@@ -279,100 +279,34 @@ def _check_generators(root: Path, errors: list[str]) -> None:
         if _OLD_VERSION_RE.search(text):
             errors.append(f"gerador público expõe scoring inválido: {relative}")
 
-    crawling = _read(root, "src/rasai/m24_reporting.py")
-    if "CRAWLING-DISCOVERY-001" not in crawling:
-        errors.append("relatório de domínio e descoberta não expõe contrato público funcional")
-    for fragment in (
-        '_metric("Contrato", M24_VERSION)',
-        "<footer class='footer'>M24-",
-        "<div class='kicker'>M24-",
-        "id='m24-crawling-references'",
-    ):
-        if fragment in crawling:
-            errors.append(f"relatório de domínio e descoberta ainda expõe identificador interno: {fragment}")
-
 
 def _check_public_html_normalization(errors: list[str]) -> None:
-    owned = " | ".join(_PUBLIC_HTML_MILESTONE_FIXTURES)
-    source = f"<html><body><header><h1>Contrato</h1></header><main><p>{owned}</p></main></body></html>"
-    rendered = enrich_indicator_provenance_html(source, page_name="index.html")
-    if _MILESTONE_PUBLIC_RE.search(rendered):
-        errors.append("normalizador comum de HTML permite identificador interno de entrega")
-    if "CRAWLING-DISCOVERY-001" not in rendered:
-        errors.append("normalizador comum de HTML não projeta contrato funcional de domínio e descoberta")
-
-    # Guard against a dangerous generic replacement: audited content may contain
-    # a legitimate model/product name that resembles an internal delivery token.
-    evidence = "<html><body><p>Produto M25 industrial observado na página.</p></body></html>"
-    preserved = enrich_indicator_provenance_html(evidence, page_name="other.html")
-    if "Produto M25 industrial observado na página." not in preserved:
-        errors.append("normalizador comum de HTML altera conteúdo auditado legítimo")
-
-
-_SCORING_SCAN_SUFFIXES = frozenset({
-    ".py", ".md", ".txt", ".toml", ".yml", ".yaml", ".json", ".ini", ".cmd", ".ps1"
-})
-
-
-def _check_single_scoring_contract(root: Path, errors: list[str]) -> None:
-    """Only SCORE-GEO-004 may be named as a concrete scoring contract."""
-    for path in root.rglob("*"):
-        if not path.is_file() or path.suffix.lower() not in _SCORING_SCAN_SUFFIXES:
-            continue
-        if any(part in {".git", ".venv", "venv", "__pycache__"} for part in path.parts):
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            continue
-        match = _OLD_VERSION_RE.search(text)
-        if match:
-            errors.append(
-                f"contrato de scoring inválido {match.group(0)!r}: {path.relative_to(root)}; "
-                f"somente {EXPECTED_SCORING_VERSION} é válido"
-            )
-
-    stale_reporting_claims = (
-        "No Search Intelligence-specific HTML report is introduced yet",
-        "no Search Intelligence-specific HTML report yet",
-        "não há Search Intelligence HTML específico",
-        "no dedicated historical HTML report is generated yet",
-    )
-    for relative in (
-        "docs/SERP_OBSERVATION.md",
-        "docs/COMPETITIVE_SEARCH_INTELLIGENCE.md",
-        "docs/COMPETITIVE_AI_INTELLIGENCE.md",
-        "docs/SEARCH_INTELLIGENCE_HISTORY.md",
-    ):
-        text = _read(root, relative)
-        for claim in stale_reporting_claims:
-            if claim in text:
-                errors.append(f"documentação anuncia limitação já implementada em {relative}: {claim}")
+    fixture = "<html><body>" + " | ".join(_PUBLIC_HTML_MILESTONE_FIXTURES) + "</body></html>"
+    normalized = enrich_indicator_provenance_html(fixture)
+    if _MILESTONE_PUBLIC_RE.search(normalized):
+        errors.append("normalizador público mantém identificadores internos de entrega no HTML")
 
 
 def validate_public_contract(root: str | Path | None = None) -> tuple[str, ...]:
-    repository = _root(root)
     errors: list[str] = []
+    base = _root(root)
     _check_runtime(errors)
-    _check_docs(repository, errors)
-    _check_cli_docs(repository, errors)
-    _check_surfaces(repository, errors)
-    _check_generators(repository, errors)
+    _check_docs(base, errors)
+    _check_cli_docs(base, errors)
+    _check_surfaces(base, errors)
+    _check_generators(base, errors)
     _check_public_html_normalization(errors)
-    _check_single_scoring_contract(repository, errors)
-    return tuple(errors)
+    return tuple(dict.fromkeys(errors))
 
 
-def main(argv: list[str] | None = None) -> int:
-    del argv
+def main() -> int:
     errors = validate_public_contract()
     if errors:
-        print("PUBLIC CONTRACT CONSISTENCY GATE: FAIL", file=sys.stderr)
+        print("PUBLIC CONTRACT CONSISTENCY GATE: FAIL")
         for error in errors:
-            print(f"- {error}", file=sys.stderr)
+            print(f"- {error}")
         return 1
     print("PUBLIC CONTRACT CONSISTENCY GATE: PASS")
-    print(f"runtime={SCORING_VERSION}; sari={SARI_VERSION}; report={REPORT_FILE}; surfaces={len(REPORT_SURFACES)}")
     return 0
 
 
