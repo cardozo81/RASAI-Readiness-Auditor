@@ -7,6 +7,7 @@ same commercial terms. Provider-enforced quotas remain authoritative.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +20,7 @@ class SerpProviderRegistration:
     documentation_url: str
     free_tier: bool
     free_tier_note: str
+    pagination_mode: str = "fixed-10"
 
 
 SERP_PROVIDER_REGISTRY: tuple[SerpProviderRegistration, ...] = (
@@ -41,6 +43,7 @@ SERP_PROVIDER_REGISTRY: tuple[SerpProviderRegistration, ...] = (
         documentation_url="https://serpapi.com/bing-search-api",
         free_tier=True,
         free_tier_note="Compartilha a franquia da conta SerpApi; confirme a oferta atual no provider.",
+        pagination_mode="provider-driven",
     ),
     SerpProviderRegistration(
         id="zenserp",
@@ -64,6 +67,36 @@ SERP_PROVIDER_REGISTRY: tuple[SerpProviderRegistration, ...] = (
     ),
 )
 
+
+def _validate_registry() -> None:
+    ids = [item.id for item in SERP_PROVIDER_REGISTRY]
+    if len(ids) != len(set(ids)):
+        raise RuntimeError("duplicate canonical SERP provider id in RASAi registry")
+    if any(not item.id.strip() or item.id != item.id.strip().casefold() for item in SERP_PROVIDER_REGISTRY):
+        raise RuntimeError("SERP provider ids must be non-empty lowercase canonical tokens")
+    for item in SERP_PROVIDER_REGISTRY:
+        if not item.key_env.strip():
+            raise RuntimeError(f"SERP provider {item.id} has no credential environment variable")
+        if not item.engine.strip():
+            raise RuntimeError(f"SERP provider {item.id} has no canonical engine")
+        if item.pagination_mode not in {"fixed-10", "provider-driven"}:
+            raise RuntimeError(
+                f"SERP provider {item.id} has unsupported pagination mode {item.pagination_mode!r}"
+            )
+        for label, url in (
+            ("credential", item.credential_url),
+            ("documentation", item.documentation_url),
+        ):
+            parsed = urlparse(url)
+            if parsed.scheme != "https" or not parsed.netloc:
+                raise RuntimeError(
+                    f"SERP provider {item.id} has invalid {label} URL; HTTPS is required"
+                )
+        if item.free_tier and not item.free_tier_note.strip():
+            raise RuntimeError(f"SERP provider {item.id} is free-tier but has no quota note")
+
+
+_validate_registry()
 _BY_ID = {item.id: item for item in SERP_PROVIDER_REGISTRY}
 
 
@@ -80,6 +113,17 @@ def serp_provider_key_env(provider_id: str) -> str:
     if registration is None:
         raise ValueError(f"unknown SERP provider: {provider_id}")
     return registration.key_env
+
+
+def serp_provider_key_envs() -> tuple[str, ...]:
+    return tuple(dict.fromkeys(item.key_env for item in SERP_PROVIDER_REGISTRY))
+
+
+def serp_provider_engine(provider_id: str) -> str:
+    registration = serp_provider_registration(provider_id)
+    if registration is None:
+        raise ValueError(f"unknown SERP provider: {provider_id}")
+    return registration.engine
 
 
 def free_serp_provider_ids() -> tuple[str, ...]:

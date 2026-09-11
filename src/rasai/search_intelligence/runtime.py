@@ -12,6 +12,7 @@ from .config import SerpRuntimeConfig, provider_key_env
 from .evidence import FilesystemSerpEvidenceSink, SerpEvidenceSink
 from .models import DomainMatchStatus, SearchIntelligenceResult, SerpQueryRequest
 from .persistence import SerpObservationRepository
+from .provider_catalog import serp_provider_ids, serp_provider_registration
 from .providers import (
     FixtureSerpProvider,
     ScrapingDogProvider,
@@ -40,6 +41,22 @@ _LIVE_PROVIDER_BUILDERS = {
 }
 
 
+def _validate_runtime_catalog_alignment() -> None:
+    catalog = serp_provider_ids()
+    runtime = tuple(_LIVE_PROVIDER_BUILDERS)
+    if runtime != catalog:
+        missing_adapters = tuple(item for item in catalog if item not in _LIVE_PROVIDER_BUILDERS)
+        unregistered_adapters = tuple(item for item in runtime if item not in set(catalog))
+        raise RuntimeError(
+            "SERP provider catalog/runtime drift: "
+            f"catalog={catalog}; runtime={runtime}; "
+            f"missing_adapters={missing_adapters}; unregistered_adapters={unregistered_adapters}"
+        )
+
+
+_validate_runtime_catalog_alignment()
+
+
 def live_provider_ids() -> tuple[str, ...]:
     return tuple(_LIVE_PROVIDER_BUILDERS)
 
@@ -64,21 +81,28 @@ def validate_live_provider_engine(provider_id: str, engine: str) -> None:
         )
 
 
+def _provider_uses_variable_pagination(provider_id: str) -> bool:
+    registration = serp_provider_registration(provider_id)
+    if registration is None:
+        raise ValueError(f"unknown SERP provider: {provider_id}")
+    return registration.pagination_mode == "provider-driven"
+
+
 def projected_http_request_ceiling(
     config: SerpRuntimeConfig, *, depths: Iterable[int]
 ) -> int:
     """Return a conservative provider-aware HTTP-attempt ceiling.
 
-    Google adapters use a deterministic ten-result pagination contract. Bing pagination
-    is provider-driven and variable, so the configured hard budget is the only safe
-    preflight ceiling for the current Bing adapter.
+    Fixed-page adapters use a deterministic ten-result pagination contract. Adapters
+    whose pagination is provider-driven and variable use the configured hard request
+    budget as the only safe preflight ceiling.
     """
     values = tuple(int(depth) for depth in depths)
     if any(depth <= 0 for depth in values):
         raise ValueError("SERP requested depths must be > 0")
     if config.mode != "live" or not values:
         return 0
-    if config.provider == "serpapi-bing":
+    if _provider_uses_variable_pagination(config.provider):
         return config.max_requests
     return sum(config.worst_case_http_requests(1, depth=depth) for depth in values)
 
@@ -126,7 +150,11 @@ def execute_search(
             validate_live_provider_engine(config.provider, item.engine)
 
     projected = projected_http_request_ceiling(config, depths=(item.depth for item in items))
-    if config.provider != "serpapi-bing" and projected > config.max_requests:
+    if (
+        config.mode == "live"
+        and not _provider_uses_variable_pagination(config.provider)
+        and projected > config.max_requests
+    ):
         raise ValueError(
             f"worst-case SERP HTTP requests {projected} exceed configured max_requests {config.max_requests}; "
             "reduce queries/depth/retries or raise the explicit limit"

@@ -16,12 +16,14 @@ from rasai.console_search_intelligence import (
 )
 from rasai.console_settings import _state_values
 from rasai.search_intelligence.config import (
+    SCRAPINGDOG_KEY_ENV,
     SERPAPI_KEY_ENV,
     SERP_MAX_DEPTH_ENV,
     SERP_MAX_QUERIES_ENV,
     SERP_MAX_REQUESTS_ENV,
     SERP_MODE_ENV,
     SERP_PROVIDER_ENV,
+    ZENSERP_KEY_ENV,
 )
 
 
@@ -30,7 +32,7 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
         return {
             SERP_MODE_ENV: "live",
             SERP_PROVIDER_ENV: "serpapi",
-            SERPAPI_KEY_ENV: "test-serp-key",
+            SERPAPI_KEY_ENV: "opaque-serp-value",
             SERP_MAX_QUERIES_ENV: "10",
             SERP_MAX_REQUESTS_ENV: "10",
             SERP_MAX_DEPTH_ENV: "20",
@@ -52,7 +54,7 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
         self.assertNotIn("seguro residencial", serialized)
         self.assertNotIn("search_queries", serialized)
 
-    def test_readiness_requires_live_key_when_terms_exist(self) -> None:
+    def test_readiness_requires_selected_live_provider_key_when_terms_exist(self) -> None:
         state = SimpleNamespace(
             search_queries=("seguro auto",),
             search_depth=20,
@@ -63,6 +65,40 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
         ready, reason = validate_search_readiness(state, env)
         self.assertFalse(ready)
         self.assertIn(SERPAPI_KEY_ENV, reason)
+        self.assertIn("serpapi.com", reason)
+
+    def test_readiness_uses_zenserp_registry_key_without_compat_patch(self) -> None:
+        state = SimpleNamespace(
+            search_queries=("seguro auto",),
+            search_depth=10,
+            search_device="desktop",
+        )
+        env = self._live_env()
+        env[SERP_PROVIDER_ENV] = "zenserp"
+        env.pop(SERPAPI_KEY_ENV)
+        env[ZENSERP_KEY_ENV] = "opaque-zen-value"
+        ready, reason = validate_search_readiness(state, env)
+        self.assertTrue(ready, reason)
+        argv = build_search_argv(
+            state,
+            workspace=Path("audits/AUD-TEST"),
+            target_url="https://example.com/",
+            env=env,
+        )
+        self.assertEqual("google", argv[argv.index("--engine") + 1])
+
+    def test_readiness_uses_scrapingdog_registry_key_without_compat_patch(self) -> None:
+        state = SimpleNamespace(
+            search_queries=("seguro auto",),
+            search_depth=10,
+            search_device="mobile",
+        )
+        env = self._live_env()
+        env[SERP_PROVIDER_ENV] = "scrapingdog"
+        env.pop(SERPAPI_KEY_ENV)
+        env[SCRAPINGDOG_KEY_ENV] = "opaque-dog-value"
+        ready, reason = validate_search_readiness(state, env)
+        self.assertTrue(ready, reason)
 
     def test_readiness_enforces_query_limit(self) -> None:
         state = SimpleNamespace(
