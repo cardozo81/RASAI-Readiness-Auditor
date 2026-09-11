@@ -1,19 +1,14 @@
 """Browser renderer with a coherent, browser-like HTTP identity.
 
-The stable M3 renderer historically used a fixed Chrome/127 User-Agent even when
-Playwright executed a much newer Chromium. Some CDN/WAF/redirect policies inspect
-User-Agent and User-Agent Client Hints together; a version mismatch can therefore
-produce a route that a normal browser would not receive.
+The stable renderer historically used a fixed Chrome User-Agent even when Playwright
+executed a newer Chromium. Some CDN/WAF/redirect policies inspect User-Agent and
+Client Hints together; a version mismatch can therefore produce a route that a normal
+browser would not receive.
 
-This renderer keeps RASAi stateless (no user cookies/profile reuse), preserves TLS
-validation, prefers the locally installed Google Chrome when Playwright can launch it,
-and otherwise falls back to bundled Chromium. Desktop and mobile keep RASAi's
-versioned viewport semantics while borrowing Playwright's current browser descriptors.
-
-When a strict browser navigation fails after an HTTPS -> HTTP redirect on the same
-host/www alias, RASAi may perform one bounded recovery probe against the HTTPS
-version of that insecure hop. This does not ignore TLS and does not rewrite the original
-redirect evidence: the original chain and the recovery chain are both persisted.
+This renderer keeps RASAi stateless, preserves TLS validation, prefers locally installed
+Google Chrome when Playwright can launch it, and otherwise falls back to bundled
+Chromium. Synthetic measurement callers may override the geometry/device preset while
+still using a browser descriptor aligned to the runtime Chromium version.
 """
 from __future__ import annotations
 
@@ -52,17 +47,18 @@ def realistic_context_options(
     browser_version: str | None,
     device: DeviceContext,
     locale: str | None = None,
+    profile_override: BrowserProfile | None = None,
+    descriptor_name: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Return coherent context options plus auditable identity metadata.
 
-    Playwright's maintained device descriptors provide a current desktop/mobile browser
-    identity. RASAi preserves its own viewport and device-scale baseline, while the
-    Chrome version token is aligned to the browser binary actually launched.
+    Playwright's maintained descriptors provide a current Chromium identity. RASAi may
+    override viewport/DPR/touch semantics for a selected synthetic client profile, while
+    the Chrome version token remains aligned to the browser binary actually launched.
     """
-
-    profile = DESKTOP_PROFILE if device is DeviceContext.DESKTOP else MOBILE_PROFILE
-    descriptor_name = "Desktop Chrome" if device is DeviceContext.DESKTOP else "Pixel 7"
-    descriptor = dict(playwright.devices.get(descriptor_name) or {})
+    profile = profile_override or (DESKTOP_PROFILE if device is DeviceContext.DESKTOP else MOBILE_PROFILE)
+    selected_descriptor = descriptor_name or ("Desktop Chrome" if device is DeviceContext.DESKTOP else "Pixel 7")
+    descriptor = dict(playwright.devices.get(selected_descriptor) or {})
     descriptor.pop("default_browser_type", None)
 
     ua = str(descriptor.get("user_agent") or profile.user_agent)
@@ -81,12 +77,13 @@ def realistic_context_options(
     }
     identity = {
         "strategy": "PLAYWRIGHT_DEVICE_DESCRIPTOR_ALIGNED_TO_RUNTIME_BROWSER",
-        "descriptor": descriptor_name,
+        "descriptor": selected_descriptor,
         "locale": effective_locale,
         "user_agent": ua,
         "browser_version": browser_version,
         "stateless_context": True,
         "tls_validation": "ENABLED",
+        "viewport_source": "RASAI_PROFILE_OVERRIDE" if profile_override is not None else "RASAI_DEVICE_DEFAULT",
     }
     return options, identity
 
@@ -95,20 +92,7 @@ def secure_upgrade_candidate(
     requested_url: str,
     navigation_trace: Any,
 ) -> str | None:
-    """Return one safe HTTPS recovery candidate from a failed redirect trace.
-
-    The recovery is intentionally narrow:
-    - the configured/requested URL must already be HTTPS;
-    - the observed redirect must downgrade HTTPS -> HTTP;
-    - requested, source and target hosts must represent the same site, allowing only
-      an optional leading ``www.`` difference;
-    - credentials and non-standard ports are rejected;
-    - only the insecure hop itself is upgraded to HTTPS.
-
-    A returned candidate is merely eligible for one strict-TLS browser probe. It is not
-    treated as evidence until that probe produces a valid rendered document.
-    """
-
+    """Return one safe HTTPS recovery candidate from a failed redirect trace."""
     try:
         requested = urlsplit(str(requested_url))
     except ValueError:
@@ -153,7 +137,7 @@ def secure_upgrade_candidate(
 
 
 class BrowserIdentityRenderer(BrowserRenderer):
-    """M3 renderer that uses a coherent Chrome identity and records browser routing."""
+    """Renderer that uses a coherent Chrome identity and records browser routing."""
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -198,12 +182,7 @@ class BrowserIdentityRenderer(BrowserRenderer):
             browser_version=self._browser.version,
             device=device,
         )
-        first = self._render_once(
-            url=url,
-            profile=profile,
-            options=options,
-            identity=identity,
-        )
+        first = self._render_once(url=url, profile=profile, options=options, identity=identity)
         if first.succeeded:
             return first
 
@@ -216,12 +195,7 @@ class BrowserIdentityRenderer(BrowserRenderer):
         if candidate is None:
             return first
 
-        recovered = self._render_once(
-            url=candidate,
-            profile=profile,
-            options=options,
-            identity=identity,
-        )
+        recovered = self._render_once(url=candidate, profile=profile, options=options, identity=identity)
         recovery_trace = recovered.browser_metadata.get("navigation_trace")
         recovery_metadata = {
             "policy": "STRICT_TLS_SAME_SITE_HTTPS_UPGRADE_V1",
@@ -243,11 +217,7 @@ class BrowserIdentityRenderer(BrowserRenderer):
         if recovered.succeeded:
             metadata = dict(recovered.browser_metadata)
             metadata["secure_redirect_recovery"] = recovery_metadata
-            return replace(
-                recovered,
-                requested_url=url,
-                browser_metadata=metadata,
-            )
+            return replace(recovered, requested_url=url, browser_metadata=metadata)
 
         metadata = dict(first.browser_metadata)
         metadata["secure_redirect_recovery"] = recovery_metadata
@@ -278,13 +248,7 @@ class BrowserIdentityRenderer(BrowserRenderer):
                     if not request.is_navigation_request() or request.frame != page.main_frame:
                         return
                     headers = response.headers
-                    navigation_trace.append(
-                        {
-                            "url": response.url,
-                            "status": int(response.status),
-                            "location": headers.get("location"),
-                        }
-                    )
+                    navigation_trace.append({"url": response.url, "status": int(response.status), "location": headers.get("location")})
                     if not request_headers:
                         try:
                             all_headers = request.all_headers()
@@ -333,10 +297,7 @@ class BrowserIdentityRenderer(BrowserRenderer):
                 "viewport_width": profile.viewport_width,
                 "viewport_height": profile.viewport_height,
             }
-            metadata["dom_observations"] = {
-                "state": observation_state,
-                "count": len(observations),
-            }
+            metadata["dom_observations"] = {"state": observation_state, "count": len(observations)}
             headers = response.headers if response is not None else {}
             return BrowserRenderResult(
                 requested_url=url,
@@ -349,35 +310,11 @@ class BrowserIdentityRenderer(BrowserRenderer):
                 element_observations=observations,
             )
         except PlaywrightTimeoutError:
-            return self._navigation_failure(
-                url=url,
-                profile=profile,
-                page=page,
-                error_kind=RenderErrorKind.NAVIGATION_TIMEOUT,
-                identity=identity,
-                navigation_trace=navigation_trace,
-                request_headers=request_headers,
-            )
+            return self._navigation_failure(url=url, profile=profile, page=page, error_kind=RenderErrorKind.NAVIGATION_TIMEOUT, identity=identity, navigation_trace=navigation_trace, request_headers=request_headers)
         except PlaywrightError:
-            return self._navigation_failure(
-                url=url,
-                profile=profile,
-                page=page,
-                error_kind=RenderErrorKind.NAVIGATION_ERROR,
-                identity=identity,
-                navigation_trace=navigation_trace,
-                request_headers=request_headers,
-            )
+            return self._navigation_failure(url=url, profile=profile, page=page, error_kind=RenderErrorKind.NAVIGATION_ERROR, identity=identity, navigation_trace=navigation_trace, request_headers=request_headers)
         except Exception:
-            return self._navigation_failure(
-                url=url,
-                profile=profile,
-                page=page,
-                error_kind=RenderErrorKind.RENDERER_ERROR,
-                identity=identity,
-                navigation_trace=navigation_trace,
-                request_headers=request_headers,
-            )
+            return self._navigation_failure(url=url, profile=profile, page=page, error_kind=RenderErrorKind.RENDERER_ERROR, identity=identity, navigation_trace=navigation_trace, request_headers=request_headers)
         finally:
             if page is not None:
                 try:
