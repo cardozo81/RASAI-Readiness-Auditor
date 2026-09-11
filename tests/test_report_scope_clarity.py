@@ -48,7 +48,7 @@ def test_index_explains_group_scope_and_non_average_semantics(tmp_path: Path) ->
     assert "3 URL(s)" in html
     assert "SARI-001" in html
     assert "não é a nota de uma URL isolada" in html
-    assert "mínimo–máximo" in html
+    assert "mínimo a máximo" in html
     assert "Core Web Vitals" in html
 
 
