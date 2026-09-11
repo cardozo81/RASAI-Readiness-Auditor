@@ -43,7 +43,7 @@ _NAV_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 
 def _register_report_surface() -> None:
-    from rasai import report_contract, report_navigation, report_registry
+    from rasai import report_contract, report_manifest, report_navigation, report_registry
     from rasai.report_contract import ReportSurface
 
     if not any(surface.filename == _CONTEXT_FILE for surface in report_contract.REPORT_SURFACES):
@@ -84,11 +84,12 @@ def _register_report_surface() -> None:
     )
 
     # Modules import these tuples by value. Project the single current contract into
-    # their module globals so every final normalization uses the same menu.
+    # their module globals so every final normalization and manifest uses the same menu.
     report_navigation.CANONICAL_NAV_ITEMS = report_contract.CANONICAL_NAV_ITEMS
     report_navigation.NAV_ITEMS = report_contract.CANONICAL_NAV_ITEMS
     report_registry.CANONICAL_NAV_ITEMS = report_contract.CANONICAL_NAV_ITEMS
     report_registry.REPORT_SURFACES = report_contract.REPORT_SURFACES
+    report_manifest.REPORT_SURFACES = report_contract.REPORT_SURFACES
 
 
 def _patch_grouped_navigation() -> None:
