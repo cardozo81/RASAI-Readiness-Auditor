@@ -44,14 +44,13 @@ class RuntimeAdherenceExtensionsTests(unittest.TestCase):
         scoped = _scope_experience_config(config, "desktop")
         self.assertEqual(scoped.device_mix_dict(), {"DESKTOP": 100.0})
 
-    def test_both_scope_drops_tablet_and_renormalizes_core_devices(self) -> None:
+    def test_both_scope_preserves_explicit_experience_population_including_tablet(self) -> None:
         config = self._experience((("MOBILE", 60.0), ("DESKTOP", 35.0), ("TABLET", 5.0)))
         scoped = _scope_experience_config(config, "both")
-        mix = scoped.device_mix_dict()
-        self.assertNotIn("TABLET", mix)
-        self.assertAlmostEqual(mix["MOBILE"], 60.0 / 95.0 * 100.0)
-        self.assertAlmostEqual(mix["DESKTOP"], 35.0 / 95.0 * 100.0)
-        self.assertAlmostEqual(sum(mix.values()), 100.0)
+        self.assertEqual(
+            scoped.device_mix_dict(),
+            {"MOBILE": 60.0, "DESKTOP": 35.0, "TABLET": 5.0},
+        )
 
     def test_serp_errors_are_classified_for_operator_diagnostics(self) -> None:
         self.assertEqual(
