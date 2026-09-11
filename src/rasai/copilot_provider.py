@@ -174,30 +174,28 @@ class GitHubCopilotProvider(IsolatedStructuredSemanticProvider):
 
         async def invoke() -> dict[str, Any]:
             try:
-                from copilot import CopilotClient, CopilotClientOptions
-                from copilot.rpc import PermissionDecisionReject
+                from copilot import CopilotClient
             except ImportError as exc:
                 raise SemanticProviderError(
                     "GitHub Copilot SDK is not installed; install RASAi with the copilot extra"
                 ) from exc
 
-            def reject_permission(_request, _invocation):
-                return PermissionDecisionReject(
-                    feedback="RASAi semantic analysis does not permit tool execution"
-                )
-
-            options = CopilotClientOptions(
-                github_token=token,
-                use_logged_in_user=False,
+            # Python SDK accepts client options as a mapping. Explicit token plus
+            # use_logged_in_user=False prevents silent fallback to Copilot CLI/gh auth.
+            client = CopilotClient(
+                {
+                    "github_token": token,
+                    "use_logged_in_user": False,
+                }
             )
-            client = CopilotClient(options)
             await client.start()
             session = None
             try:
+                # The SDK permission model is deny-by-default when no permission handler
+                # is supplied. An empty available_tools allowlist adds a second boundary.
                 session = await client.create_session(
                     model=model,
                     available_tools=[],
-                    on_permission_request=reject_permission,
                 )
                 response = await session.send_and_wait(prompt, timeout=float(timeout))
                 if response is None:
