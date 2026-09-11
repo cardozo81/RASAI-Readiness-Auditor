@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from rasai.ai_efficiency_policy import TOKEN_ECONOMY_INSTRUCTION, install as install_ai_efficiency
 from rasai.context_reporting import write_context_report
 from rasai.context_scope import ContextScope, evidence_scope
+from rasai.report_contract import surface_by_filename
 from rasai.semantic import OpenAIProvider, SemanticInput
 
 
@@ -15,6 +16,13 @@ def test_scope_is_derived_from_persisted_identity() -> None:
     assert evidence_scope(page_id=None, snapshot_id=None, device=None) is ContextScope.ORIGIN
     assert evidence_scope(page_id="P1", snapshot_id=None, device=None) is ContextScope.URL
     assert evidence_scope(page_id="P1", snapshot_id="S1", device="MOBILE") is ContextScope.DEVICE_SNAPSHOT
+
+
+def test_domain_report_is_the_canonical_origin_surface() -> None:
+    surface = surface_by_filename("crawling-discovery.html")
+    assert surface.label == "Domínio e descoberta"
+    assert "robots.txt" in surface.inputs
+    assert "sitemaps" in surface.inputs
 
 
 def test_ai_policy_keeps_one_structured_request_concise() -> None:
@@ -35,7 +43,7 @@ def test_ai_policy_keeps_one_structured_request_concise() -> None:
     assert len(payload["input"]) == 1
 
 
-def test_context_report_distinguishes_device_document_variance(tmp_path: Path) -> None:
+def test_context_report_distinguishes_device_document_variance_without_repeating_origin_detail(tmp_path: Path) -> None:
     root = tmp_path / "AUD-CONTEXT"
     report = root / "report"
     (report / "css").mkdir(parents=True)
@@ -75,11 +83,11 @@ def test_context_report_distinguishes_device_document_variance(tmp_path: Path) -
         }
         connection.execute(
             "INSERT INTO page_snapshots VALUES (?,?,?,?,?)",
-            ("S-M","P1","MOBILE","https://example.test/a",json.dumps(mobile)),
+            ("S-M", "P1", "MOBILE", "https://example.test/a", json.dumps(mobile)),
         )
         connection.execute(
             "INSERT INTO page_snapshots VALUES (?,?,?,?,?)",
-            ("S-D","P1","DESKTOP","https://example.test/a",json.dumps(desktop)),
+            ("S-D", "P1", "DESKTOP", "https://example.test/a", json.dumps(desktop)),
         )
         connection.commit()
     finally:
@@ -90,5 +98,7 @@ def test_context_report_distinguishes_device_document_variance(tmp_path: Path) -
     html = output.read_text(encoding="utf-8")
     assert "Documento recebido varia por dispositivo" in html
     assert "PAGE_ERROR" in html
-    assert "robots.txt" in html
+    assert "Domínio e descoberta" in html
+    assert "crawling-discovery.html" in html
+    assert "https://example.test/robots.txt" not in html
     assert "não altera fórmulas" in html
