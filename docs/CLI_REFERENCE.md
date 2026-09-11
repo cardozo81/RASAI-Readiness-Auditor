@@ -183,9 +183,23 @@ Lab e field data permanecem separados e não entram automaticamente em SARI/SCOR
 --apdex-timeout-seconds SECONDS
 --apdex-delay-seconds SECONDS
 --apdex-concurrency 1|2
+
+--apdex-mobile-client-profile PRESET
+--apdex-mobile-hardware-profile PRESET
+--apdex-mobile-network-profile PRESET
+--apdex-desktop-client-profile PRESET
+--apdex-desktop-hardware-profile PRESET
+--apdex-desktop-network-profile PRESET
+--apdex-tablet-client-profile PRESET
+--apdex-tablet-hardware-profile PRESET
+--apdex-tablet-network-profile PRESET
 ```
 
 Default OFF. O threshold `T` é obrigatório quando habilitado.
+
+Os nove argumentos de perfil usam a mesma precedência da configuração sintética: **CLI > variável de ambiente > default controlado**. Eles selecionam apenas o envelope de execução — cliente/viewport, slowdown relativo de CPU e rede — e não alteram a fórmula Apdex nem SARI/SCORE-GEO-004. Os equivalentes em ambiente são `RASAI_APDEX_MOBILE_*_PROFILE`, `RASAI_APDEX_DESKTOP_*_PROFILE` e `RASAI_APDEX_TABLET_*_PROFILE`; valores e defaults canônicos estão em [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md).
+
+Os presets não emulam RAM, GPU, estado térmico ou scheduler físico. O engine executado continua Chromium; identidade/viewport não deve ser interpretada como emulação de Safari/Firefox reais.
 
 ## Synthetic User Experience Apdex
 
@@ -210,7 +224,9 @@ Default OFF. O threshold `T` é obrigatório quando habilitado.
 
 A superfície continua sintética, inclusive quando calibrada contra configuração Dynatrace.
 
-O mix acima descreve a população sintética disponível no Synthetic User Experience Apdex, mas uma execução iniciada por `rasai audit` ou `rasai-console` é sempre limitada pelo `--device-context` do audit. `mobile` executa essa experiência sintética como 100% MOBILE; `desktop`, 100% DESKTOP; `both` usa somente MOBILE e DESKTOP e renormaliza os pesos configurados, descartando TABLET para essa execução. TABLET continua disponível como perfil sintético da experiência, mas ainda não é um `DeviceContext` canônico do core; portanto não deve ser tratado como mobile nem solicitado implicitamente por um audit mobile-only.
+O mix acima descreve a população sintética do Synthetic User Experience Apdex e é um contrato de `PROFILE_MEASUREMENT`, separado dos snapshots core. Uma execução com `--device-context mobile` restringe a experiência a 100% MOBILE; `desktop`, a 100% DESKTOP. Com `--device-context both`, o core continua produzindo snapshots MOBILE e DESKTOP, mas o **mix Experience explicitamente configurado é preservado**, inclusive TABLET quando presente. TABLET não se torna um `DeviceContext` core e não é solicitado implicitamente por um audit mobile-only ou desktop-only.
+
+O default `mobile=60,desktop=35,tablet=5` é uma política sintética RASAi, não uma estatística oficial ou alegação de distribuição real. Para comparação com RUM ou com uma aplicação específica, prefira o mix observado da população real.
 
 ## Search Intelligence
 
