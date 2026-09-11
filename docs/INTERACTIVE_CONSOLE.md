@@ -104,16 +104,20 @@ xai
 qwen
 gemini
 anthropic
+copilot
 ```
 
 Aliases:
 
 ```text
-grok   -> xai
-claude -> anthropic
+grok           -> xai
+claude         -> anthropic
+github-copilot -> copilot
 ```
 
 `none` desabilita IA para a auditoria. `auto` usa o pool dinâmico de providers elegíveis.
+
+GitHub Copilot é `explicit-only`: pode ser configurado e usado explicitamente, mas não participa do pool `AI=auto`. Essa separação evita consumo involuntário da assinatura Copilot.
 
 ### Gerenciamento por provider
 
@@ -141,7 +145,7 @@ U. Usar este provider nesta auditoria
 V. Voltar
 ```
 
-A ação `A` aparece somente para providers `auto_eligible`.
+A ação `A` aparece somente para providers `auto_eligible`; portanto não aparece para GitHub Copilot.
 
 ### Semântica das ações de Key
 
@@ -212,7 +216,9 @@ O pool AUTO é derivado do `provider_registry` atual:
 5. usa a política de roteamento/fallback do runtime;
 6. um provider pode continuar sendo selecionado explicitamente mesmo quando está excluído do AUTO.
 
-O submenu AUTO permite alternar inclusão por provider e exige pelo menos um provider `APTO` incluído antes de ativar `AI=auto`.
+Providers `explicit-only` ficam fora desse pool por contrato, independentemente da existência de credencial. Atualmente, GitHub Copilot pertence a essa categoria.
+
+O submenu AUTO permite alternar inclusão por provider elegível e exige pelo menos um provider `APTO` incluído antes de ativar `AI=auto`.
 
 ## Modelos, reasoning e timeout
 
@@ -227,6 +233,8 @@ RASAI_AI_TIMEOUT_SECONDS=180
 O timeout vale por tentativa de provider, não para a auditoria inteira.
 
 Defaults de modelo/reasoning vêm do provider registry e da política runtime vigente. Não devem ser duplicados manualmente em outro contrato quando o registry já fornece a lista.
+
+Para Copilot, o modelo público é `auto` e reasoning fica em `PROVIDER_DEFAULT`; a integração não cria variável de reasoning inexistente.
 
 ## Remediações IA
 
@@ -253,10 +261,13 @@ IA - credenciais
 IA - modelos e reasoning
 IA - endpoints avançados
 IA - contexto editorial / YMYL
+Search Intelligence / SERP
 Web Performance / Google APIs
 Synthetic Apdex
 Browser / Playwright
 ```
+
+As credenciais de IA e SERP mostram também a URL oficial de cadastro/login/geração de token quando conhecida pelo registry/catálogo. Para SERP, o provider selecionado determina qual variável de credencial é exigida; franquia gratuita não significa uso ilimitado.
 
 Para campos com domínio fechado, o console apresenta lista de opções aceitas em vez de exigir texto livre quando essa lista é conhecida pelo runtime.
 
@@ -321,9 +332,12 @@ timeout
 delay
 concorrência
 perfis client/hardware/network
+modo de aquisição compartilhada/isolada
 ```
 
 A execução gera tráfego HTTP real contra o alvo. O operador deve ajustar volume e concorrência de forma conservadora.
+
+`RASAI_APDEX_ACQUISITION_MODE=auto|isolated` controla somente a aquisição física compartilhável entre Navigation Apdex e Experience Apdex. `auto` compartilha apenas quando URL, device, perfil, sessão e demais requisitos são compatíveis; `isolated` preserva navegações separadas. Scores, thresholds, targets e device mix permanecem independentes.
 
 ## Timezone de apresentação
 
@@ -379,6 +393,8 @@ Os `AUD-*/audit.db` permanecem fonte de verdade; qualquer índice consolidado é
 - [AI_GUIDE.md](AI_GUIDE.md)
 - [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
 - [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
+- [PROVIDER_SETUP.md](PROVIDER_SETUP.md)
+- [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md)
 - [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md)
 - [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md)
 - [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md)
