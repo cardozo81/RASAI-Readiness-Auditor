@@ -13,6 +13,8 @@ from __future__ import annotations
 import multiprocessing as mp
 import os
 from multiprocessing.connection import Connection
+import signal
+import subprocess
 from typing import Any
 
 from rasai.domain import DeviceContext
@@ -57,12 +59,71 @@ def _failure(url: str, device: DeviceContext, reason: str, *, seconds: float) ->
     )
 
 
+def _terminate_worker_tree(process: Any) -> None:
+    """Terminate worker + Chromium descendants, with a safe test/fallback path."""
+    if process is None or not process.is_alive():
+        return
+    pid = getattr(process, "pid", None)
+    if isinstance(pid, int) and pid > 0:
+        try:
+            if os.name == "nt":
+                subprocess.run(
+                    ["taskkill", "/PID", str(pid), "/T", "/F"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                    timeout=10,
+                )
+            else:
+                # The worker calls setsid() before Playwright starts, so Chromium and
+                # driver descendants remain inside this dedicated process group.
+                os.killpg(pid, signal.SIGTERM)
+        except Exception:
+            try:
+                process.terminate()
+            except Exception:
+                pass
+    else:
+        try:
+            process.terminate()
+        except Exception:
+            pass
+
+    try:
+        process.join(timeout=2.0)
+    except Exception:
+        pass
+    if process.is_alive():
+        if isinstance(pid, int) and pid > 0 and os.name != "nt":
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except Exception:
+                pass
+        try:
+            if process.is_alive() and hasattr(process, "kill"):
+                process.kill()
+        except Exception:
+            pass
+        try:
+            process.join(timeout=1.0)
+        except Exception:
+            pass
+
+
 def _worker(
     connection: Connection,
     navigation_timeout_ms: int,
     settle_timeout_ms: int,
     executable_path: str | None,
 ) -> None:
+    # Create a dedicated POSIX process group before Chromium starts so a deadline can
+    # terminate browser descendants, not just the Python owner process.
+    if os.name != "nt":
+        try:
+            os.setsid()
+        except OSError:
+            pass
+
     # Windows uses spawn, so runtime monkeypatches from the parent are not inherited.
     # Install the bounded capture contract explicitly inside the browser owner process.
     from rasai.device_context_capture import install as install_device_context_capture
@@ -146,13 +207,12 @@ class IsolatedBrowserIdentityRenderer(BrowserRenderer):
             except Exception:
                 pass
         if process is not None:
-            process.join(timeout=2.0)
-            if process.is_alive():
-                process.terminate()
+            try:
                 process.join(timeout=2.0)
-            if process.is_alive() and hasattr(process, "kill"):
-                process.kill()
-                process.join(timeout=1.0)
+            except Exception:
+                pass
+            if process.is_alive():
+                _terminate_worker_tree(process)
         if connection is not None:
             try:
                 connection.close()
@@ -169,11 +229,7 @@ class IsolatedBrowserIdentityRenderer(BrowserRenderer):
             except Exception:
                 pass
         if process is not None and process.is_alive():
-            process.terminate()
-            process.join(timeout=2.0)
-            if process.is_alive() and hasattr(process, "kill"):
-                process.kill()
-                process.join(timeout=1.0)
+            _terminate_worker_tree(process)
 
     def _ensure_worker(self) -> None:
         if self._process is not None and self._process.is_alive() and self._connection is not None:
