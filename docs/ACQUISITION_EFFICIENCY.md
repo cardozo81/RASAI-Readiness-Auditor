@@ -12,13 +12,13 @@ The governing rule is:
 
 ### 1. Direct HTTP acquisition — URL scope
 
-For `URL_SET` input, M2 performs one crawler-like HTTP acquisition for each normalized URL in the explicit set. The result persists status, redirect chain, headers, body and elapsed time. This observation is intentionally distinct from a real-browser observation.
+For `URL_SET` input, the direct HTTP acquisition stage performs one crawler-like request for each normalized URL in the explicit set. The result persists status, redirect chain, headers, body and elapsed time. This observation is intentionally distinct from a real-browser observation.
 
 Domain resources such as `robots.txt` and eligible sitemap resources are origin-scoped and are not repeated once per page.
 
 ### 2. Browser snapshot — URL/device scope
 
-M3 performs one normal Chromium navigation for each selected URL/device context. The same navigation is reused for:
+The browser-capture stage performs one normal Chromium navigation for each selected URL/device context. The same navigation is reused for:
 
 - rendered DOM;
 - screenshot;
@@ -47,7 +47,7 @@ Current runtime policy:
 - timeout/failure is fail-open and becomes an explicit unavailable/partial observation;
 - this phase runs only after the core audit evidence has already been persisted.
 
-A PageSpeed execution is not counted as a second local M3 browser snapshot; it is an independent external measurement required for Lighthouse provenance.
+A PageSpeed execution is not counted as a second local browser snapshot; it is an independent external measurement required for Lighthouse provenance.
 
 #### CrUX
 
@@ -73,7 +73,7 @@ External services that are not part of direct core acquisition are treated as do
 
 The core audit may complete and persist its immutable evidence before PageSpeed, CrUX, AI or other optional providers finish. Optional-provider failure must not invalidate already-persisted core evidence.
 
-M21 writes an `M21_EXTERNAL_PLAN` operational event before external Web Performance collection. The plan records:
+Before external Web Performance collection, the operational log records a plan containing:
 
 - selected contexts;
 - planned PageSpeed calls;
@@ -83,7 +83,7 @@ M21 writes an `M21_EXTERNAL_PLAN` operational event before external Web Performa
 - whether the core snapshot is being reused as input;
 - that the provider phase is externalized after the core.
 
-Before every provider wait, `M21_EXTERNAL_REQUEST_STARTED` records URL, device, context index/total and the active timeout. The interactive console uses these events to display measured progress rather than remaining fixed at `~88%` with no internal unit.
+Before every provider wait, the operational log records URL, device, context index/total and the active timeout. The interactive console uses these events to display measured progress rather than remaining fixed at `~88%` with no internal unit.
 
 ## AI integration and token economy
 
