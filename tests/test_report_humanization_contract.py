@@ -41,7 +41,11 @@ def test_final_report_normalization_humanizes_every_html_surface() -> None:
             encoding="utf-8",
         )
         (report_dir / "readiness.html").write_text(
-            _page("<table><tr><td>Capacidade de indexação</td><td>NOT_CONSOLIDATED</td></tr></table>"),
+            _page("<table><tr><td>Capacidade de Indexação</td><td>NOT_CONSOLIDATED</td></tr></table>"),
+            encoding="utf-8",
+        )
+        (report_dir / "mobile.html").write_text(
+            _page("<table><tr><td>Extração de Conteúdo</td><td>Dados Estruturados</td></tr></table>"),
             encoding="utf-8",
         )
 
@@ -49,9 +53,13 @@ def test_final_report_normalization_humanizes_every_html_surface() -> None:
 
         index_html = (report_dir / "index.html").read_text(encoding="utf-8")
         readiness_html = (report_dir / "readiness.html").read_text(encoding="utf-8")
+        mobile_html = (report_dir / "mobile.html").read_text(encoding="utf-8")
         assert "<td>Content Value</td>" in index_html
         assert "<td>Bloqueado</td>" in index_html
         assert "<td>Indexability</td>" in readiness_html
         assert "<td>Não consolidado</td>" in readiness_html
+        assert "<td>Rendering &amp; Extractability</td>" in mobile_html
+        assert "<td>Structured Data</td>" in mobile_html
         assert "CONTENT_VALUE" not in index_html
-        assert "Capacidade de indexação" not in readiness_html
+        assert "Capacidade de Indexação" not in readiness_html
+        assert "Extração de Conteúdo" not in mobile_html
