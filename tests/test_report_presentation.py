@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from rasai.report_presentation import humanize_report_html, public_label
+from rasai.report_presentation import SCORING_CONCEPT_LABELS, humanize_report_html, public_label
+from rasai.score_geo_004 import FEATURE_ORDER, GROUP_WEIGHTS
 
 
 class ReportPresentationTests(unittest.TestCase):
@@ -22,8 +23,8 @@ class ReportPresentationTests(unittest.TestCase):
         self.assertIn("<td>Não consolidado</td>", rendered)
         self.assertIn("<td>Alta</td>", rendered)
         self.assertIn("<td>Muito alta (P1)</td>", rendered)
-        self.assertIn("<td>Estrutura semântica</td>", rendered)
-        self.assertIn("<td>Confiança da evidência</td>", rendered)
+        self.assertIn("<td>Semantic Structure</td>", rendered)
+        self.assertIn("<td>Evidence & Trust</td>", rendered)
         self.assertIn("<strong>Indisponível</strong>", rendered)
         self.assertIn("<span class='badge'>Concluído</span>", rendered)
 
@@ -85,6 +86,24 @@ class ReportPresentationTests(unittest.TestCase):
         self.assertEqual(public_label("NOT_CONFIGURED"), "Não configurado")
         self.assertEqual(public_label("LIGHTHOUSE_ARTIFACT"), "LIGHTHOUSE_ARTIFACT")
         self.assertEqual(public_label("BR-GEO-001"), "BR-GEO-001")
+
+    def test_scoring_contract_has_human_labels_for_every_dimension_and_group(self) -> None:
+        expected = set(FEATURE_ORDER)
+        expected.update(group for groups in GROUP_WEIGHTS.values() for group in groups)
+        missing = sorted(item for item in expected if item not in SCORING_CONCEPT_LABELS)
+        self.assertEqual(missing, [])
+        for item in expected:
+            label = public_label(item)
+            self.assertNotEqual(label, item)
+            self.assertNotIn("_", label)
+
+    def test_conceptual_scoring_terms_stay_in_established_english(self) -> None:
+        self.assertEqual(public_label("INDEXABILITY"), "Indexability")
+        self.assertEqual(public_label("STRUCTURED_DATA"), "Structured Data")
+        self.assertEqual(public_label("CONTENT_VALUE"), "Content Value")
+        self.assertEqual(public_label("CITATION_READINESS"), "Citation Readiness")
+        self.assertEqual(public_label("BLOCKED"), "Bloqueado")
+        self.assertEqual(public_label("UNKNOWN"), "Não determinado")
 
 
 if __name__ == "__main__":
