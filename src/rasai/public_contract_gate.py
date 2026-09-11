@@ -32,19 +32,19 @@ EXPECTED_CANONICAL_FILENAMES = (
     "readiness.html",
     "scoring.html",
     "context.html",
+    "crawling-discovery.html",
     "mobile.html",
     "desktop.html",
-    "crawling-discovery.html",
     "accessibility.html",
     "web-performance.html",
-    "search-intelligence.html",
     "apdex.html",
     "apdex-experience.html",
-    "content-suggestions.html",
-    "remediation.html",
-    "ai-usage.html",
+    "search-intelligence.html",
     "ai-visibility.html",
     "observability.html",
+    "ai-usage.html",
+    "content-suggestions.html",
+    "remediation.html",
     "quality.html",
     "references.html",
 )
@@ -124,14 +124,10 @@ SURFACE_IMPLEMENTATION_HINTS = {
 }
 
 _OLD_VERSION_RE = re.compile(r"SCORE-GEO-(?!004)\d{3}", re.I)
-# Documentation must never expose internal delivery/milestone identifiers, including
-# embedded implementation paths, artifact directories or contract labels.
 _MILESTONE_PUBLIC_RE = re.compile(r"(?i)(?<![A-Za-z0-9])m\d{1,3}")
 _VERSIONED_CANONICAL_RE = re.compile(r"report/score-geo-\d+\.html")
 _STALE_EQUAL_WEIGHT_RE = re.compile(r"m[eé]dia\s+de\s+igual\s+peso", re.I)
 
-# Representative RASAi-owned labels that the public normalizer must remove without
-# applying a generic regex to audited evidence, where a similar token can be legitimate.
 _PUBLIC_HTML_MILESTONE_FIXTURES = (
     "M18/M20",
     "M21/M22",
