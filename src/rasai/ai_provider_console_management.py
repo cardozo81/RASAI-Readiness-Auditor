@@ -38,6 +38,45 @@ def _refresh_provider_after_credential_change(state: Any, key_env: str) -> None:
             getattr(state, "runtime_blocks", {}).pop(alias, None)
 
 
+def _needs_configuration(capability: Any) -> bool:
+    reason = str(getattr(capability, "reason", "")).casefold()
+    return any(token in reason for token in ("não configurada", "nao configurada", "not configured"))
+
+
+def _provider_status_badge(console: Any, name: str, capability: Any) -> str:
+    """Render provider state using the same semantic colors as the rest of the console."""
+    if name == "none":
+        return console.paint("DESABILITADA", console.DIM)
+    if bool(getattr(capability, "available", False)):
+        return console.paint("APTO", console.GREEN, bold=True)
+    if name != "auto" and _needs_configuration(capability):
+        return console.paint("CONFIGURAR", console.YELLOW, bold=True)
+    return console.paint("INDISPONÍVEL", console.RED, bold=True)
+
+
+def _provider_reason(console: Any, name: str, capability: Any) -> str:
+    reason = str(getattr(capability, "reason", ""))
+    if name == "none":
+        return console.paint(reason, console.DIM)
+    if bool(getattr(capability, "available", False)):
+        return console.paint(reason, console.CYAN)
+    if name != "auto" and _needs_configuration(capability):
+        return console.paint(reason, console.YELLOW)
+    return console.paint(reason, console.RED)
+
+
+def _presence_badge(console: Any, active: bool, *, yes: str, no: str) -> str:
+    return console.paint(yes if active else no, console.GREEN if active else console.DIM, bold=active)
+
+
+def _auto_membership_badge(console: Any, excluded: bool) -> str:
+    return console.paint(
+        "EXCLUÍDO DO AUTO" if excluded else "INCLUÍDO NO AUTO",
+        console.DIM if excluded else console.GREEN,
+        bold=not excluded,
+    )
+
+
 def _set_auto_membership(provider_id: str, *, included: bool) -> None:
     excluded = set(configured_auto_exclusions())
     if included:
@@ -63,13 +102,9 @@ def _choose_provider(state: Any, console: Any) -> str | None:
     print("Selecione qualquer provider para configurar/alterar/remover sua credencial.\n")
     for index, name in enumerate(console.PROVIDER_MENU_CHOICES, 1):
         capability = capabilities[name]
-        if name == "none":
-            status = "SEM IA"
-        elif capability.available:
-            status = "APTO"
-        else:
-            status = "CONFIGURAR"
-        print(f" {index}. {name:<18} [{status}] {capability.reason}")
+        status = _provider_status_badge(console, name, capability)
+        reason = _provider_reason(console, name, capability)
+        print(f" {index}. {name:<18} [{status}] {reason}")
     print("\n V. Voltar")
     while True:
         raw = input("Escolha: ").strip().upper()
@@ -105,7 +140,7 @@ def _delete_provider_key(state: Any, console: Any, key_env: str, provider_id: st
 
 
 def _manage_provider(state: Any, console: Any, provider_id: str) -> str:
-    """Manage one provider. Return use, disabled or back."""
+    """Manage one provider. Return use or back."""
     registration = get_provider_registration(provider_id)
     if registration is None:
         state.error = f"provider desconhecido: {provider_id}"
@@ -122,14 +157,14 @@ def _manage_provider(state: Any, console: Any, provider_id: str) -> str:
 
         console.render_header(state)
         print(f"GERENCIAR IA - {registration.display_name}\n")
-        print(f"Estado execução     : {'APTO' if capability.available else 'INDISPONÍVEL'}")
-        print(f"Motivo              : {capability.reason}")
+        print(f"Estado execução     : {_provider_status_badge(console, registration.id, capability)}")
+        print(f"Motivo              : {_provider_reason(console, registration.id, capability)}")
         print(f"Credencial          : {key_env}")
-        print(f"Sessão atual        : {'[SET]' if session_key else '<não definida>'}")
-        print(f"Windows / User      : {'[PERSISTIDA]' if user_key else '<não persistida>'}")
-        print(f"Windows / Machine   : {'[PERSISTIDA]' if machine_key else '<não persistida>'}")
+        print(f"Sessão atual        : {_presence_badge(console, session_key, yes='[SET]', no='<não definida>')}")
+        print(f"Windows / User      : {_presence_badge(console, user_key, yes='[PERSISTIDA]', no='<não persistida>')}")
+        print(f"Windows / Machine   : {_presence_badge(console, machine_key, yes='[PERSISTIDA]', no='<não persistida>')}")
         if registration.auto_eligible:
-            print(f"Pool AUTO           : {'EXCLUÍDO' if excluded else 'INCLUÍDO'}")
+            print(f"Pool AUTO           : {_auto_membership_badge(console, excluded)}")
         print("\nS. Setar/alterar Key na sessão")
         print("P. Persistir/remover Key no Windows/User")
         print("L. Limpar Key somente da sessão")
@@ -186,6 +221,47 @@ def _manage_provider(state: Any, console: Any, provider_id: str) -> str:
         state.error = "opção inválida para gerenciamento do provider"
 
 
+def _configure_auto_pool(state: Any, console: Any) -> bool:
+    """Configure AUTO membership with the same status colors used by provider management."""
+    excluded = set(configured_auto_exclusions())
+    auto_registrations = tuple(registration for registration in provider_registrations() if registration.auto_eligible)
+    while True:
+        capabilities = console.provider_capabilities(blocks=state.runtime_blocks)
+        console.render_header(state)
+        print("POOL AI=AUTO - a chave continua configurada mesmo quando o provider é excluído do AUTO\n")
+        for index, registration in enumerate(auto_registrations, 1):
+            capability = capabilities[registration.id]
+            status = _provider_status_badge(console, registration.id, capability)
+            member = _auto_membership_badge(console, registration.id in excluded)
+            reason = _provider_reason(console, registration.id, capability)
+            print(f" {index}. {registration.display_name:<20} [{status}] [{member}] {reason}")
+        print("\nDigite o número para alternar inclusão. A = incluir todas. V = concluir.")
+        choice = input("Escolha: ").strip().upper()
+        if choice == "A":
+            excluded.clear()
+            os.environ.pop(AUTO_EXCLUDE_ENV, None)
+            continue
+        if choice == "V":
+            ready = [
+                registration.id
+                for registration in auto_registrations
+                if registration.id not in excluded and capabilities[registration.id].available
+            ]
+            if not ready:
+                state.error = "AI=AUTO exige ao menos um provider APTO incluído no pool"
+                return False
+            state.error = ""
+            return True
+        try:
+            registration = auto_registrations[int(choice) - 1]
+        except (ValueError, IndexError):
+            state.error = "opção inválida para pool AUTO"
+            continue
+        included = registration.id in excluded
+        _set_auto_membership(registration.id, included=included)
+        excluded = set(configured_auto_exclusions())
+
+
 def _configure_model_reasoning_timeout(state: Any, console: Any, provider_id: str) -> None:
     provider_name = console.PROVIDERS[provider_id]
     default = os.environ.get(console.MODEL_ENV[provider_name], console.DEFAULT_MODELS[provider_name])
@@ -238,9 +314,6 @@ def _configure_ai(state: Any, console: Any) -> None:
         state.error = ""
         return
     if selection == "auto":
-        # AUTO has no credential of its own. Credentials remain managed provider by provider.
-        from rasai.documented_contract_reconciliation import _configure_auto_pool
-
         if _configure_auto_pool(state, console):
             state.ai_provider = "auto"
             state.ai_model = None
@@ -271,7 +344,6 @@ def _install_persistence_refresh() -> None:
         def persist_secret(state: Any, spec: Any) -> None:
             original_grouped(state, spec)
             _refresh_provider_after_credential_change(state, spec.name)
-            # Re-run the normal projection so current status reflects the credential now.
             console_environment._apply_change(state, spec.name)
 
         persist_secret._rasai_provider_refresh = True
