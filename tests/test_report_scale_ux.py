@@ -17,19 +17,23 @@ def test_scale_ux_is_idempotent_and_activates_from_two_urls() -> None:
     assert "Itens por página" in once
 
 
-def test_scale_ux_preserves_original_report_payload() -> None:
+def test_scale_ux_preserves_original_report_payload_and_indexes_all_item_urls() -> None:
     payload = (
         "<html><head><title>Relatório</title></head><body>"
-        "<article class='page-card'><h3 class='page-url'>https://example.test/a</h3></article>"
-        "<article class='page-card'><h3 class='page-url'>https://example.test/b</h3></article>"
+        "<article class='page-card'><h3 class='page-url'>https://example.test/a</h3>"
+        "<p>Também afeta https://example.test/b</p></article>"
+        "<article class='page-card'><h3 class='page-url'>https://example.test/c</h3></article>"
         "</body></html>"
     )
     enhanced = enhance_report_html_for_scale(payload)
 
     assert "https://example.test/a" in enhanced
     assert "https://example.test/b" in enhanced
+    assert "https://example.test/c" in enhanced
     assert enhanced.count("class='page-card'") == 2
     assert "URL_THRESHOLD=2" in enhanced
+    assert "urlsForItem" in enhanced
+    assert "!urlsForItem(item).includes(state.url)" in enhanced
     assert "LARGE_CARD_FALLBACK=20" in enhanced
 
 
