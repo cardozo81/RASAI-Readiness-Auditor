@@ -76,18 +76,22 @@ class ZenserpProvider(SerpProvider):
         if not self.supports_engine(request.engine):
             raise SerpUnsupportedEngine(f"provider {self.provider_id} supports google only")
         language = request.language.split("-", 1)[0].strip().casefold()
+        device = request.device.strip().casefold()
+        if device not in {"mobile", "desktop"}:
+            raise SerpProviderError(
+                f"provider {self.provider_id} supports mobile or desktop, not {request.device!r}"
+            )
         params: dict[str, str | int] = {
             "q": request.query,
             "engine": "google",
             "num": _PAGE_SIZE,
             "start": start,
-            "gl": request.country.strip().casefold(),
+            "gl": request.country.strip().upper(),
             "hl": language,
+            "device": device,
         }
         if request.region and request.region.strip():
             params["location"] = request.region.strip()
-        # Zenserp accepts device-dependent Google results through its request surface;
-        # keep the requested device in evidence even when no dedicated parameter exists.
         url = self.endpoint + "?" + urlencode(params)
         last_error: Exception | None = None
         for attempt in range(self._retries + 1):
