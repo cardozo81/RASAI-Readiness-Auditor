@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import os
 
-from rasai import console_environment, console_search_intelligence, interactive_console
+from rasai import console_provider_environment as console_environment
+from rasai import console_search_intelligence, interactive_console
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
 from rasai.ai_provider_console_management import install as install_ai_provider_console_management
 from rasai.console_apdex_configuration import configure_apdex
 from rasai.console_cancellation_runtime import install as install_console_cancellation_runtime
 from rasai.console_config_path import prepare_console_config
-from rasai.console_provider_environment_compat import install as install_provider_environment_compat
 from rasai.console_search_guidance import install as install_search_guidance
 from rasai.console_search_intelligence import install as install_search_intelligence
 from rasai.consolidation.integration import install as install_consolidation
@@ -44,16 +44,15 @@ def main() -> int:
 
         return remote_main()
 
-    # Install the complete configuration catalog before reading the INI. This makes
-    # newly introduced non-secret runtime-profile variables loadable/persistable on
-    # the first console pass instead of only after the environment menu is opened.
+    # Resolve the canonical configuration path before loading the interactive state.
+    # Provider-aware environment/search surfaces consume their registries directly and
+    # therefore require no compatibility monkeypatch installation.
     install_report_registry()
     install_context_scope_runtime()
     install_m3_render_deadline_runtime()
     install_target_input_runtime()
     install_external_measurement_runtime()
     prepare_console_config()
-    install_provider_environment_compat(console_environment)
     install_ai_efficiency_policy()
     install_runtime_completion_extensions()
     install_report_observation_reconciliation()
@@ -66,8 +65,6 @@ def main() -> int:
     install_console_cancellation_runtime()
     interactive_console._environment_menu = console_environment.environment_menu
     interactive_console._configure_apdex = configure_apdex
-    # Search Intelligence consumes the canonical SERP catalog directly; no provider
-    # compatibility patch is required before installing the console extension.
     install_search_guidance(console_search_intelligence)
     install_search_intelligence(interactive_console)
     install_consolidation(interactive_console)
