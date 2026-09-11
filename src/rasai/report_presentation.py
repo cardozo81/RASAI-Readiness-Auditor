@@ -81,21 +81,28 @@ SCORING_CONCEPT_LABELS: dict[str, str] = {
 # Older renderers may already have converted machine identifiers into Portuguese
 # labels before the common presentation pass. Normalize only standalone text nodes;
 # prose is intentionally not rewritten. This keeps conceptual names consistent
-# without producing mixed-language sentence substitutions.
+# without producing mixed-language sentence substitutions. Keys are casefolded so
+# historical capitalization differences across renderers do not leak to HTML.
 _STANDALONE_CONCEPT_LABELS: dict[str, str] = {
-    "Acesso e descoberta": "Discovery & Crawler Access",
-    "Capacidade de indexação": "Indexability",
-    "Extração de conteúdo": "Rendering & Extractability",
-    "Estrutura semântica": "Semantic Structure",
-    "Clareza de entidades": "Entity Clarity",
-    "Dados estruturados": "Structured Data",
-    "Capacidade de resposta": "Answerability",
-    "Preparação para citação": "Citation Readiness",
-    "Evidências e confiabilidade": "Evidence & Trust",
-    "Confiança da evidência": "Evidence & Trust",
-    "Cobertura de intenções": "Intent Coverage",
-    "Cobertura de intenção": "Intent Coverage",
-    "Valor do conteúdo": "Content Value",
+    key.casefold(): value
+    for key, value in {
+        "Acesso e descoberta": "Discovery & Crawler Access",
+        "Capacidade de indexação": "Indexability",
+        "Extração de conteúdo": "Rendering & Extractability",
+        "Estrutura semântica": "Semantic Structure",
+        "Clareza de entidades": "Entity Clarity",
+        "Dados estruturados": "Structured Data",
+        "Capacidade de resposta": "Answerability",
+        "Preparação para citação": "Citation Readiness",
+        "Evidências e confiabilidade": "Evidence & Trust",
+        "Confiança da evidência": "Evidence & Trust",
+        "Cobertura de intenções": "Intent Coverage",
+        "Cobertura de intenção": "Intent Coverage",
+        "Valor do conteúdo": "Content Value",
+        "Discovery Access": "Discovery & Crawler Access",
+        "Content Extractability": "Rendering & Extractability",
+        "Evidence Trust": "Evidence & Trust",
+    }.items()
 }
 
 
@@ -353,7 +360,7 @@ def _public_token_replacement(match: re.Match[str]) -> str:
 
 def _standalone_concept_label(text: str, *, page_name: str | None) -> str:
     stripped = text.strip()
-    replacement = _STANDALONE_CONCEPT_LABELS.get(stripped)
+    replacement = _STANDALONE_CONCEPT_LABELS.get(stripped.casefold())
     if replacement is None:
         return text
     # "Acessibilidade técnica" is ambiguous outside scoring/readiness surfaces;
