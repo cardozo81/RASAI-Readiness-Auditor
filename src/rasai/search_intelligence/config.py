@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Mapping
 
-from .provider_catalog import serp_provider_ids, serp_provider_key_env
+from .provider_catalog import serp_provider_ids, serp_provider_key_env, serp_provider_key_envs
 
 SERP_MODE_ENV = "RASAI_SERP_MODE"
 SERP_PROVIDER_ENV = "RASAI_SERP_PROVIDER"
@@ -24,12 +24,13 @@ SERP_RETRIES_ENV = "RASAI_SERP_RETRIES"
 SERP_MIN_INTERVAL_ENV = "RASAI_SERP_MIN_INTERVAL_SECONDS"
 SERP_RESULTS_PER_PAGE = 10
 
+# Credential variables are projected from the canonical provider catalog. Named
+# constants above remain public compatibility aliases for existing integrations.
+SERP_PROVIDER_KEY_ENVS = serp_provider_key_envs()
 SERP_ENV_NAMES = (
     SERP_MODE_ENV,
     SERP_PROVIDER_ENV,
-    SERPAPI_KEY_ENV,
-    ZENSERP_KEY_ENV,
-    SCRAPINGDOG_KEY_ENV,
+    *SERP_PROVIDER_KEY_ENVS,
     SERP_FIXTURE_PATH_ENV,
     SERP_MAX_QUERIES_ENV,
     SERP_MAX_REQUESTS_ENV,

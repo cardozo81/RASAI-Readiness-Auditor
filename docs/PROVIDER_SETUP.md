@@ -4,7 +4,31 @@ Este documento é a referência operacional para descobrir **qual provider selec
 
 As ofertas comerciais e franquias gratuitas pertencem aos fornecedores e podem mudar sem alteração de código do RASAi. As informações de free tier abaixo foram verificadas em **11/09/2026** e devem ser confirmadas no site do provider antes de uso em produção.
 
-## 1. Providers de IA
+## 1. Consultar providers pelo próprio RASAi
+
+O catálogo canônico pode ser consultado sem abrir documentação externa:
+
+```powershell
+rasai providers
+```
+
+Filtros úteis:
+
+```powershell
+rasai providers --kind ai
+rasai providers --kind serp
+rasai providers --provider copilot
+rasai providers --provider github-copilot
+rasai providers --provider zenserp
+rasai providers --configured-only
+rasai providers --json
+```
+
+A saída informa ID/aliases, nome do provider, variável da credencial, estado `SET`/`NÃO CONFIGURADA`, URL oficial para obter a credencial, documentação e metadados operacionais. Para IA, inclui modelo default, qualificação, elegibilidade em `AUTO` e `explicit-only`. Para SERP, inclui engine e informação de free tier.
+
+**Nenhum valor de token/API key é retornado**, inclusive em `--json`. A saída machine-readable contém apenas `configured: true|false`, de modo que pode ser usada em suporte, automação ou futura UI SaaS sem transformar o comando em superfície de exfiltração de secrets.
+
+## 2. Providers de IA
 
 | Seleção RASAi | Provider | Variável de credencial | URL para login/chave | Observação |
 |---|---|---|---|---|
@@ -42,7 +66,7 @@ O provider Copilot é **explicit-only** e não participa do pool `AI=auto`. Essa
 
 Documentação oficial de autenticação do SDK: <https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth/authenticate>.
 
-## 2. Providers SERP com plano gratuito
+## 3. Providers SERP com plano gratuito
 
 `gratuito` significa que o fornecedor possuía uma franquia gratuita verificável na data acima. **Não significa ilimitado** e não elimina os limites locais do RASAi.
 
@@ -57,7 +81,7 @@ Não existe, entre os adapters integrados, um serviço SERP externo confiável c
 
 `Serper` não foi incluído nesta classificação porque a oferta pública vigente não permitiu confirmar com segurança um free tier recorrente. O RASAi não deve documentar como gratuito aquilo que não esteja verificável no momento da integração.
 
-## 3. Como configurar SERP
+## 4. Como configurar SERP
 
 Exemplo SerpApi/Google:
 
@@ -85,7 +109,7 @@ $env:RASAI_SCRAPINGDOG_API_KEY="<sua-chave>"
 
 O console interativo mostra o nome do provider selecionado, a variável de credencial correspondente, a URL de cadastro/login e a nota de franquia gratuita. O secret continua oculto e não é persistido no `rasai-console.ini`.
 
-## 4. Limites locais versus quota do fornecedor
+## 5. Limites locais versus quota do fornecedor
 
 Estas variáveis continuam limitando o RASAi independentemente da franquia externa:
 
@@ -102,16 +126,19 @@ RASAI_SERP_TIMEOUT_SECONDS
 
 A quota/faturamento real do fornecedor é sempre autoritativa. O RASAi não interpreta free tier como garantia de disponibilidade nem de custo zero.
 
-## 5. Segurança
+A estratégia de paginação também pertence ao catálogo do provider. Providers de página fixa permitem calcular um teto determinístico de requests a partir de profundidade e retries; paginação dirigida pelo fornecedor usa o orçamento rígido de `RASAI_SERP_MAX_REQUESTS` como teto conservador. Isso evita regras especiais espalhadas pelo console/runtime quando novos adapters forem adicionados.
+
+## 6. Segurança
 
 - nunca coloque credenciais reais em documentação, issue, commit, relatório ou arquivo de URLs;
 - secrets devem permanecer em variável de ambiente/secret store;
 - o console mostra somente `[SET]` para credenciais;
+- `rasai providers` e `rasai providers --json` nunca retornam o valor do secret, apenas se está configurado;
 - a presença de uma chave não comprova saldo, quota ou permissão;
 - falha de provider é falha de integração, não finding do website;
 - providers de IA e SERP continuam desacoplados do scoring determinístico.
 
-## 6. Fontes técnicas no código
+## 7. Fontes técnicas no código
 
 Metadados de IA:
 
@@ -123,6 +150,12 @@ Metadados SERP:
 
 ```text
 src/rasai/search_intelligence/provider_catalog.py
+```
+
+Projeção unificada de onboarding:
+
+```text
+src/rasai/provider_onboarding.py
 ```
 
 Composição SERP:

@@ -133,6 +133,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     # Install last so scope disclosures see the final canonical report projections.
     install_report_scope_clarity()
     effective = list(argv) if argv is not None else list(sys.argv[1:])
+    if effective and effective[0] in {"providers", "provider"}:
+        from rasai.provider_cli import main as provider_main
+        return provider_main(effective[1:])
     if effective and effective[0] in {"search", "serp"}:
         from rasai.search_intelligence.cli import main as search_main
         return search_main(effective[1:])
