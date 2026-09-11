@@ -45,7 +45,7 @@ rasai audit target [target ...] [opções]
 | `--max-pages N` | máximo determinístico de páginas |
 | `--audits-root PATH` | raiz dos workspaces; default `audits` |
 | `--device-context` | `mobile`, `desktop` ou `both` |
-| `--ai-provider` | `none`, provider explícito ou `auto` |
+| `--ai-provider` | `none`, provider explícito/alias do registry ou `auto` |
 | `--ai-model MODEL_ID` | override de modelo para provider explícito |
 
 Default de dispositivo: `mobile`. Override: `RASAI_DEVICE_CONTEXT`.
@@ -80,12 +80,19 @@ xai / grok
 qwen
 gemini
 anthropic / claude
+copilot / github-copilot
 auto
 ```
 
-`AI=auto` considera todos os providers registrados como elegíveis para AUTO que estejam aptos na execução. Aptidão exige credencial e configuração válidas. O runtime usa round-robin compartilhado entre necessidades, tenta cada provider no máximo uma vez por necessidade, remove imediatamente condições terminais e aplica circuit breaker para falhas temporárias.
+`AI=auto` considera todos os providers registrados como `auto_eligible=true` que estejam aptos na execução. Aptidão exige credencial e configuração válidas. O runtime usa round-robin compartilhado entre necessidades, tenta cada provider no máximo uma vez por necessidade, remove imediatamente condições terminais e aplica circuit breaker para falhas temporárias.
 
-A presença de uma credencial não obriga o provider a participar do AUTO. `RASAI_AI_AUTO_EXCLUDE` aceita uma lista CSV de providers a manter fora do pool AUTO daquela configuração, preservando suas chaves/modelos para seleção explícita posterior. Exemplo: `RASAI_AI_AUTO_EXCLUDE=gemini` mantém Gemini apto para uso explícito, mas fora do round-robin AUTO.
+A presença de uma credencial não obriga o provider a participar do AUTO. `RASAI_AI_AUTO_EXCLUDE` aceita uma lista CSV de providers elegíveis a manter fora do pool AUTO daquela configuração, preservando suas chaves/modelos para seleção explícita posterior. Exemplo: `RASAI_AI_AUTO_EXCLUDE=gemini` mantém Gemini apto para uso explícito, mas fora do round-robin AUTO.
+
+GitHub Copilot é `explicit-only` e `auto_eligible=false`: mesmo com `COPILOT_GITHUB_TOKEN` configurado, nunca entra em `AI=auto`. O adapter usa o SDK oficial, modelo público `auto`, `use_logged_in_user=False` e sessão sem tools. No fluxo manual, instale o transporte com:
+
+```powershell
+python -m pip install -e ".[copilot]"
+```
 
 O timeout principal é `RASAI_AI_TIMEOUT_SECONDS`, default 180 segundos por tentativa.
 
@@ -119,6 +126,8 @@ Quando um campo está em `auto` e IA está ligada, a configuração persistida c
 
 Cada chamada externa pode ser auditada em `report/ai-usage.html`. O runtime registra request/response sanitizados, provider/modelo, finalidade, duração, status, hashes e truncamento. Secrets e raciocínio privado do provider não são persistidos.
 
+O report usa provider/modelo efetivamente persistidos; não existe allowlist HTML específica que precise ser atualizada para Copilot ou para futuros providers registrados.
+
 Controle de tamanho:
 
 ```text
@@ -132,6 +141,8 @@ Documentos:
 - [AI_GUIDE.md](AI_GUIDE.md)
 - [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
 - [AI_RUNTIME_SECURITY.md](AI_RUNTIME_SECURITY.md)
+- [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
+- [PROVIDER_SETUP.md](PROVIDER_SETUP.md)
 - [CONTENT_CONTEXT_AI_INTERPRETATION.md](CONTENT_CONTEXT_AI_INTERPRETATION.md)
 
 ## Web Performance
@@ -201,6 +212,14 @@ Os nove argumentos de perfil usam a mesma precedência da configuração sintét
 
 Os presets não emulam RAM, GPU, estado térmico ou scheduler físico. O engine executado continua Chromium; identidade/viewport não deve ser interpretada como emulação de Safari/Firefox reais.
 
+Aquisição física compartilhável entre Navigation e Experience Apdex é controlada por:
+
+```text
+RASAI_APDEX_ACQUISITION_MODE=auto|isolated
+```
+
+Default `auto`. O compartilhamento só ocorre quando URL, device, perfil, sessão e requisitos de coleta são compatíveis. Cada Apdex preserva targets, thresholds, classificação e população próprios; o device mix do Experience continua independente. `isolated` mantém as navegações físicas separadas.
+
 ## Synthetic User Experience Apdex
 
 ```text
@@ -257,11 +276,24 @@ Opções relevantes:
 --dry-run
 ```
 
+Providers SERP live atuais:
+
+```text
+serpapi       -> RASAI_SERPAPI_API_KEY
+serpapi-bing  -> RASAI_SERPAPI_API_KEY
+zenserp       -> RASAI_ZENSERP_API_KEY
+scrapingdog   -> RASAI_SCRAPINGDOG_API_KEY
+```
+
+O console exibe a URL oficial de cadastro/login e a variável de credencial correspondente. Nenhum provider SERP externo atual é classificado pelo RASAi como gratuito e ilimitado; ofertas free tier conhecidas possuem limites próprios. `RASAI_SERP_MAX_REQUESTS` é teto de tentativas HTTP do RASAi, não garantia de equivalência 1:1 com créditos comerciais.
+
 `NOT_FOUND_WITHIN_DEPTH` significa apenas que o domínio não foi observado na profundidade solicitada. Search Intelligence é non-scoring.
 
 No `rasai-console`, quando termos SERP fazem parte da sessão, a etapa Search Intelligence integra o mesmo relógio de duração e o progresso global até a consolidação dos relatórios. As consultas são acompanhadas por termo. Erros do provider permanecem fail-open para a auditoria principal: o diagnóstico original é persistido e categorizado como limitação técnica ou de conta/negócio quando identificável (por exemplo crédito, autenticação/permissão ou quota/plano), o relatório geral é disponibilizado e sinaliza a limitação. O relatório Search destaca explicitamente a posição quando o domínio derivado da URL principal é encontrado.
 
 A comparação de conteúdo competitivo é opt-in porque baixa páginas públicas adicionais. Quando não habilitada, a classificação SERP pode existir sem listas de diferenças de conteúdo; o relatório deve explicar essa ausência em vez de apresentar listas vazias como se fossem uma conclusão analítica. Recomendações competitivas por IA exigem comparação determinística consolidada e permanecem evidence-bound e não causais.
+
+O renderer de `search-intelligence.html` projeta o campo `provider` persistido por observação; não mantém allowlist visual específica de SerpApi/Zenserp/ScrapingDog.
 
 ### Histórico
 
@@ -291,6 +323,8 @@ Documentos:
 - [SERP_OBSERVATION.md](SERP_OBSERVATION.md)
 - [SEARCH_INTELLIGENCE_HISTORY.md](SEARCH_INTELLIGENCE_HISTORY.md)
 - [SEARCH_INTELLIGENCE_MONITORING.md](SEARCH_INTELLIGENCE_MONITORING.md)
+- [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md)
+- [PROVIDER_SETUP.md](PROVIDER_SETUP.md)
 
 ## Observed Generative Visibility
 
@@ -370,7 +404,7 @@ SQLite continua disponível para operação local; PostgreSQL é o backend centr
 rasai-console
 ```
 
-O console monta os mesmos argumentos públicos da CLI, apresenta capacidade dos providers, exposição pré-execução, configuração editorial, Web Performance e demais opções suportadas. Secrets não são gravados no INI. Em `AI=auto`, o usuário pode excluir providers aptos do pool sem apagar ou alterar suas credenciais.
+O console monta os mesmos argumentos públicos da CLI, apresenta capacidade dos providers, exposição pré-execução, configuração editorial, Web Performance e demais opções suportadas. Secrets não são gravados no INI. Em `AI=auto`, o usuário pode excluir providers aptos/elegíveis do pool sem apagar ou alterar suas credenciais. Providers `explicit-only`, como Copilot, permanecem fora do pool automaticamente.
 
 ## API / execução remota
 
@@ -379,6 +413,8 @@ A Web/API e o console remoto possuem documentação própria porque autenticaç�
 - [WEB_API_CLI.md](WEB_API_CLI.md)
 - [WEB_API.md](WEB_API.md)
 - [SAAS_CONTROL_PLANE.md](SAAS_CONTROL_PLANE.md)
+
+O endpoint `GET /api/v1/audit-job-options` projeta o contrato canônico de opções não secretas. A UI Web deve derivar as opções de provider do `provider_registry`, evitando catálogo hardcoded divergente.
 
 ## Princípios de segurança da CLI
 
