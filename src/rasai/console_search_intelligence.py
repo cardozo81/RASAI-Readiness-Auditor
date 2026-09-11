@@ -20,8 +20,12 @@ from urllib.parse import urlsplit
 
 from rasai.console_artifacts import audit_workspace
 from rasai.console_m23 import State as BaseState
-from rasai.search_intelligence.config import SERPAPI_KEY_ENV, SerpRuntimeConfig
-from rasai.search_intelligence.runtime import projected_http_request_ceiling
+from rasai.search_intelligence.config import SerpRuntimeConfig, provider_key_env
+from rasai.search_intelligence.provider_catalog import serp_provider_registration
+from rasai.search_intelligence.runtime import (
+    projected_http_request_ceiling,
+    validate_live_provider_engine,
+)
 
 
 @dataclass(slots=True)
@@ -55,9 +59,13 @@ def parse_search_terms(raw: str) -> tuple[str, ...]:
     return tuple(result)
 
 
+def _provider_registration(provider: str):
+    return serp_provider_registration(provider)
+
+
 def _engine_for_provider(provider: str) -> str:
-    normalized = provider.strip().casefold()
-    return "bing" if normalized == "serpapi-bing" else "google"
+    registration = _provider_registration(provider)
+    return registration.engine if registration is not None else "unknown"
 
 
 def _configured_search(state: object, env: Mapping[str, str] | None = None) -> SerpRuntimeConfig:
@@ -69,7 +77,7 @@ def _configured_search(state: object, env: Mapping[str, str] | None = None) -> S
     if config.mode == "disabled":
         raise ValueError(
             "Search Intelligence possui termos, mas RASAI_SERP_MODE está disabled; "
-            "use live (SerpApi) ou fixture"
+            "use live ou fixture"
         )
     if len(queries) > config.max_queries:
         raise ValueError(
@@ -86,18 +94,20 @@ def _configured_search(state: object, env: Mapping[str, str] | None = None) -> S
     if device not in {"mobile", "desktop"}:
         raise ValueError("dispositivo SERP deve ser mobile ou desktop")
     if config.mode == "live":
-        if config.provider not in {"serpapi", "serpapi-bing"}:
+        registration = _provider_registration(config.provider)
+        if registration is None:
+            raise ValueError(f"provider SERP live desconhecido: {config.provider}")
+        validate_live_provider_engine(config.provider, registration.engine)
+        key_env = provider_key_env(config.provider)
+        if not (environment.get(key_env) or "").strip():
             raise ValueError(
-                f"provider SERP live não suportado pelo console: {config.provider}"
-            )
-        if not (environment.get(SERPAPI_KEY_ENV) or "").strip():
-            raise ValueError(
-                f"{SERPAPI_KEY_ENV} não configurada para Search Intelligence live"
+                f"{key_env} não configurada para Search Intelligence live; "
+                f"obtenha a chave em {registration.credential_url}"
             )
         projected = projected_http_request_ceiling(
             config, depths=(depth for _ in queries)
         )
-        if config.provider != "serpapi-bing" and projected > config.max_requests:
+        if registration.pagination_mode != "provider-driven" and projected > config.max_requests:
             raise ValueError(
                 f"teto projetado de {projected} requests SERP excede "
                 f"RASAI_SERP_MAX_REQUESTS={config.max_requests}"
@@ -131,16 +141,30 @@ def configure_search_intelligence(state: SearchConsoleState) -> None:
         state.error = f"configuração SERP inválida: {exc}"
         return
 
+    registration = _provider_registration(config.provider)
+    engine = registration.engine if registration is not None else "unknown"
+    key_env = registration.key_env if registration is not None else "<provider sem credencial conhecida>"
+    key_state = (
+        "[SET]"
+        if registration is not None and (os.environ.get(registration.key_env) or "").strip()
+        else "<não definida>"
+    )
+
     print("\nSEARCH INTELLIGENCE / SERP")
     print(
         "Termos são dados desta sessão de execução; não são variáveis de ambiente "
         "e não são gravados no rasai-console.ini."
     )
-    key_state = "[SET]" if (os.environ.get(SERPAPI_KEY_ENV) or "").strip() else "<não definida>"
     print(
         f"Provider atual: mode={config.mode} | provider={config.provider} | "
-        f"engine={_engine_for_provider(config.provider)} | {SERPAPI_KEY_ENV}={key_state}"
+        f"engine={engine} | {key_env}={key_state}"
     )
+    if registration is not None:
+        print(f"Chave/login: {registration.credential_url}")
+        print(
+            f"Free tier: {'sim' if registration.free_tier else 'não'}"
+            + (f" | {registration.free_tier_note}" if registration.free_tier_note else "")
+        )
     print(
         f"Limites: queries={config.max_queries} | requests={config.max_requests} | "
         f"depth máxima={config.max_depth} | timeout={config.timeout_seconds:g}s"
@@ -163,10 +187,15 @@ def configure_search_intelligence(state: SearchConsoleState) -> None:
 
         if config.mode == "disabled":
             raise ValueError(
-                "RASAI_SERP_MODE está disabled; configure live para SerpApi antes de habilitar termos"
+                "RASAI_SERP_MODE está disabled; configure um provider live ou fixture antes de habilitar termos"
             )
-        if config.mode == "live" and not (os.environ.get(SERPAPI_KEY_ENV) or "").strip():
-            raise ValueError(f"{SERPAPI_KEY_ENV} não configurada")
+        if config.mode == "live":
+            if registration is None:
+                raise ValueError(f"provider SERP live desconhecido: {config.provider}")
+            if not (os.environ.get(registration.key_env) or "").strip():
+                raise ValueError(
+                    f"{registration.key_env} não configurada; obtenha a chave em {registration.credential_url}"
+                )
 
         current = "; ".join(state.search_queries)
         raw = input(
@@ -358,7 +387,11 @@ def _render_menu_extension(state: SearchConsoleState) -> None:
             preview += f"; +{len(queries) - 2}"
         try:
             config = SerpRuntimeConfig.from_environment()
-            provider = f"{config.provider}/{_engine_for_provider(config.provider)}"
+            registration = _provider_registration(config.provider)
+            if registration is None:
+                provider = f"{config.provider}/unknown"
+            else:
+                provider = f"{registration.id}/{registration.engine}"
         except ValueError:
             provider = "configuração inválida"
         status = (

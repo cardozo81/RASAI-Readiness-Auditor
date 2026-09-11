@@ -17,7 +17,6 @@ from rasai.console_config_path import prepare_console_config
 from rasai.console_provider_environment_compat import install as install_provider_environment_compat
 from rasai.console_search_guidance import install as install_search_guidance
 from rasai.console_search_intelligence import install as install_search_intelligence
-from rasai.console_search_provider_compat import install as install_search_provider_compat
 from rasai.consolidation.integration import install as install_consolidation
 from rasai.context_scope_runtime import install as install_context_scope_runtime
 from rasai.external_measurement_runtime import install as install_external_measurement_runtime
@@ -67,7 +66,8 @@ def main() -> int:
     install_console_cancellation_runtime()
     interactive_console._environment_menu = console_environment.environment_menu
     interactive_console._configure_apdex = configure_apdex
-    install_search_provider_compat(console_search_intelligence)
+    # Search Intelligence consumes the canonical SERP catalog directly; no provider
+    # compatibility patch is required before installing the console extension.
     install_search_guidance(console_search_intelligence)
     install_search_intelligence(interactive_console)
     install_consolidation(interactive_console)
