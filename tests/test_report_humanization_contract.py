@@ -1,0 +1,57 @@
+from __future__ import annotations
+
+from pathlib import Path
+import tempfile
+
+from rasai.score_geo_004 import FEATURE_ORDER, SCORING_VERSION
+from rasai.score_geo_004_reporting import _dimension_list
+
+
+def _page(body: str) -> str:
+    return (
+        "<html><body><aside class='app-nav'><nav></nav></aside>"
+        f"<main>{body}</main></body></html>"
+    )
+
+
+def test_scoring_dimension_list_never_exposes_raw_dimension_enums() -> None:
+    html = _dimension_list(SCORING_VERSION)
+    for dimension in FEATURE_ORDER:
+        assert f">{dimension}<" not in html
+        assert f"<code>{dimension}</code>" not in html
+    assert "Discovery &amp; Crawler Access" in html
+    assert "Indexability" in html
+    assert "Rendering &amp; Extractability" in html
+    assert "Structured Data" in html
+    assert "Citation Readiness" in html
+    assert "Content Value" in html
+
+
+def test_final_report_normalization_humanizes_every_html_surface() -> None:
+    from rasai import report_navigation
+    from rasai.report_registry import install as install_report_registry
+
+    install_report_registry()
+    with tempfile.TemporaryDirectory() as tmp:
+        report_dir = Path(tmp)
+        (report_dir / "css").mkdir()
+        (report_dir / "css" / "site.css").write_text("body{}\n", encoding="utf-8")
+        (report_dir / "index.html").write_text(
+            _page("<table><tr><td>CONTENT_VALUE</td><td>BLOCKED</td></tr></table>"),
+            encoding="utf-8",
+        )
+        (report_dir / "readiness.html").write_text(
+            _page("<table><tr><td>Capacidade de indexação</td><td>NOT_CONSOLIDATED</td></tr></table>"),
+            encoding="utf-8",
+        )
+
+        report_navigation.normalize_report_navigation(report_dir)
+
+        index_html = (report_dir / "index.html").read_text(encoding="utf-8")
+        readiness_html = (report_dir / "readiness.html").read_text(encoding="utf-8")
+        assert "<td>Content Value</td>" in index_html
+        assert "<td>Bloqueado</td>" in index_html
+        assert "<td>Indexability</td>" in readiness_html
+        assert "<td>Não consolidado</td>" in readiness_html
+        assert "CONTENT_VALUE" not in index_html
+        assert "Capacidade de indexação" not in readiness_html
