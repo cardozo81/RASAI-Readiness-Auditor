@@ -26,20 +26,20 @@ The browser-capture stage performs one normal Chromium navigation for each selec
 - navigation trace and safe request identity metadata;
 - console/page errors and failed-request diagnostics;
 - bounded DOM element observations;
-- bounded lazy-loading interaction when required by BR-GEO-024;
+- bounded lazy-loading interaction when required by the lazy-content rule;
 - downstream deterministic extraction and semantic evidence.
 
-The lazy-loading interaction runs only when the initial DOM exposes lazy signals and essential content is not yet recoverable. It scrolls the already-open M3 page; it does **not** navigate the URL a second time. Primary DOM/screenshot evidence is frozen before the diagnostic interaction.
+The lazy-loading interaction runs only when the initial DOM exposes lazy signals and essential content is not yet recoverable. It scrolls the already-open browser page; it does **not** navigate the URL a second time. Primary DOM/screenshot evidence is frozen before the diagnostic interaction.
 
 No downstream rule, score, AI adapter or report generator may re-open the page merely to re-read these facts.
 
-### M3 wall-clock protection
+### Browser wall-clock protection
 
-The normal M3 BrowserIdentityRenderer is owned by a persistent isolated worker process. Healthy URL/device contexts reuse the same worker/browser session. A complete context has a caller-side wall-clock deadline (`RASAI_M3_RENDER_WALLCLOCK_SECONDS`, default 60 s) in addition to Playwright operation-level timeouts.
+The normal browser renderer is owned by a persistent isolated worker process. Healthy URL/device contexts reuse the same worker/browser session. A complete context has a caller-side wall-clock deadline (`RASAI_M3_RENDER_WALLCLOCK_SECONDS`, default 60 s) in addition to Playwright operation-level timeouts.
 
 If the complete render exceeds that deadline:
 
-- the browser worker process is terminated;
+- the browser worker process and its Chromium descendants are terminated;
 - the timed-out URL/device is recorded as a render failure;
 - the same URL is **not** retried automatically;
 - the next context receives a fresh browser worker and the audit can continue.
@@ -77,7 +77,7 @@ Where the two Apdex methods use an equivalent URL/device/profile acquisition, RA
 
 #### Lazy-loading interaction probe
 
-BR-GEO-024 no longer performs a default second page navigation. The bounded scroll is captured during the existing M3 browser context and persisted as `bounded_lazy_probe` metadata with `additional_navigation_requests=0`. M6 consumes that observation later. A separately supplied `lazy_probe` remains only as an explicit adapter/test hook.
+The lazy-content analysis no longer performs a default second page navigation. The bounded scroll is captured during the existing browser context and persisted as `bounded_lazy_probe` metadata with `additional_navigation_requests=0`. Downstream rule evaluation consumes that observation later. A separately supplied diagnostic adapter remains only as an explicit test/integration hook.
 
 #### Crawling/discovery resources
 
