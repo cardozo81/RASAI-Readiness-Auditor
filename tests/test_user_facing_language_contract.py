@@ -50,12 +50,12 @@ def test_legacy_milestone_chrome_is_sanitized_without_touching_audited_copy() ->
     assert "Produto M20 com motor M23 permanece conteúdo auditado." in rendered
     assert "Diagnóstico técnico" in rendered
 
+
 def test_single_provider_strategy_is_not_exposed_as_raw_enum() -> None:
     from rasai.report_presentation import humanize_report_html
     rendered = humanize_report_html("<div><span>SINGLE_PROVIDER</span></div>")
     assert "Provedor único" in rendered
     assert ">SINGLE_PROVIDER<" not in rendered
-
 
 
 def test_common_report_machine_values_are_humanized() -> None:
@@ -67,10 +67,10 @@ def test_common_report_machine_values_are_humanized() -> None:
         "<td>AUTH_ERROR</td><td>NAVIGATION_TIMEOUT</td></tr></table>"
     )
     rendered = humanize_report_html(html)
-    assert "Links internos" in rendered
-    assert "Acesso à página" in rendered
-    assert "Navegação SPA" in rendered
-    assert "Rota SPA" in rendered
+    assert "Internal Links" in rendered
+    assert "Page Access" in rendered
+    assert "SPA Navigation" in rendered
+    assert "SPA Route" in rendered
     assert "Execução com limitações" in rendered
     assert "Revisão do JSON-LD existente" in rendered
     assert "Erro de autenticação" in rendered
