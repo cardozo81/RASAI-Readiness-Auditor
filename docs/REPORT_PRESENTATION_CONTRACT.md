@@ -19,6 +19,45 @@ Um score numérico SARI válido usa a classificação interna vigente:
 
 A cor nunca substitui o texto da faixa.
 
+## Estado universal de integrações e coletas opcionais
+
+Ausência de dado nunca deve aparecer ao usuário como um vazio sem causa quando o RASAi possui estado suficiente para explicar a execução. Toda integração/coleta opcional deve separar, conforme aplicável:
+
+| Estado público | Significado |
+|---|---|
+| Desabilitado / não solicitado | a funcionalidade não deveria executar; zero chamadas é esperado |
+| Não configurado | a funcionalidade foi habilitada, mas faltou credencial, provider ou configuração necessária |
+| Executado com sucesso | a operação terminou normalmente e materializou seu estado/dataset |
+| Executado parcialmente | houve execução, mas parte do universo ou das fontes não produziu resultado utilizável |
+| Executado sem dado utilizável | a fonte/operação respondeu, porém não entregou evidência utilizável para o indicador |
+| Falhou / indisponível | houve tentativa ou bloqueio operacional e o resultado esperado não pôde ser materializado |
+| Estado não determinado | somente para legado/ausência real de estado persistido; não deve ser convertido em sucesso ou falha |
+
+Regras obrigatórias:
+
+- **desabilitado não é erro**;
+- **não configurado não é falha do website**;
+- timeout, quota, autenticação, HTTP 4xx/5xx, rede, indisponibilidade do provider ou contrato inválido devem aparecer como limitação da integração, com motivo seguro quando persistido;
+- sucesso com ausência de amostra/dado da fonte não deve virar `0` observado;
+- `PARTIAL` deve continuar distinto de `SUCCESS` e de `ERROR`;
+- o relatório não deve inventar `DISABLED` quando não existe evidência de configuração/execução suficiente;
+- credenciais e valores secretos nunca podem aparecer no motivo, HTML, log ou ledger;
+- falha de integração não cria finding do website e não altera SARI/SCORE fora de contratos explicitamente definidos;
+- quando a integração ocorre pós-auditoria, seu sidecar deve persistir um ledger de tentativas suficiente para reabrir o relatório depois e distinguir `NOT_CONFIGURED`, `SUCCESS` e `ERROR`.
+
+O `index.html` usa a seção **Configuração × resultado obtido** para as capacidades audit-owned. Superfícies especializadas pós-auditoria exibem o mesmo contrato em sua própria página.
+
+Aplicações atuais deste contrato incluem:
+
+- análise semântica por IA;
+- remediação textual por IA;
+- IA técnica de crawling/discovery;
+- PageSpeed/Lighthouse/CrUX e Accessibility derivada;
+- Synthetic Navigation Apdex e Synthetic User Experience Apdex;
+- Search Intelligence/SERP, inclusive falhas de runtime anteriores à materialização da observação;
+- Search & AI Observability, com ledger de tentativas de Search Console, CrUX History e imports suportados;
+- Observed Generative Visibility, que é `import-first`: ausência de dataset significa não importado/não observado por esse fluxo e **não** falha presumida de API de IA.
+
 ## Dashboard executivo e Apdex de experiência
 
 Quando houver estado persistido de Synthetic User Experience Apdex, `index.html` deve incluir um card complementar próprio, separado de Synthetic Navigation Apdex.
@@ -66,4 +105,4 @@ Além da tabela, `ai-usage.html` deve mostrar `Findings elegíveis`, `Contextos 
 
 ## Fonte de verdade
 
-Todas essas superfícies são projeções de `audit.db`. A renderização dos relatórios não dispara novas requisições ao website nem novas chamadas de IA para preencher a interface.
+As superfícies audit-owned são projeções de `audit.db`. Integrações pós-auditoria podem usar sidecars explícitos, como `observability.db`, preservando a separação da evidência imutável do AUD. A renderização dos relatórios não dispara novas requisições ao website nem novas chamadas de IA para preencher a interface.
