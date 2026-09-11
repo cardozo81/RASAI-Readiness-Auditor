@@ -15,6 +15,7 @@ from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
 from rasai.context_scope_runtime import install as install_context_scope_runtime
 from rasai.integration_state_contract import install as install_integration_state_contract
 from rasai.integration_state_refinements import install as install_integration_state_refinements
+from rasai.provider_presentation_alignment import install as install_provider_presentation_alignment
 from rasai.report_observation_reconciliation import install as install_report_observation_reconciliation
 from rasai.report_registry import install as install_report_registry
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
@@ -121,6 +122,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     install_integration_state_contract()
     install_integration_state_refinements()
     install_runtime_contract_compatibility()
+    install_provider_presentation_alignment()
     effective = list(argv) if argv is not None else list(sys.argv[1:])
     if effective and effective[0] in {"search", "serp"}:
         from rasai.search_intelligence.cli import main as search_main
