@@ -18,6 +18,7 @@ from rasai.console_search_guidance import install as install_search_guidance
 from rasai.console_search_intelligence import install as install_search_intelligence
 from rasai.consolidation.integration import install as install_consolidation
 from rasai.context_scope_runtime import install as install_context_scope_runtime
+from rasai.report_observation_reconciliation import install as install_report_observation_reconciliation
 from rasai.report_registry import install as install_report_registry
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
@@ -41,6 +42,7 @@ def main() -> int:
     prepare_console_config()
     install_ai_efficiency_policy()
     install_runtime_completion_extensions()
+    install_report_observation_reconciliation()
     install_runtime_adherence_extensions()
     install_search_progress_gate()
     interactive_console._environment_menu = environment_menu
