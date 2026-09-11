@@ -34,6 +34,9 @@ _SCALE_SCRIPT = r"""
   'use strict';
   const URL_THRESHOLD=2, LARGE_TABLE_FALLBACK=25, LARGE_CARD_FALLBACK=20;
   const normalize=v=>(v||'').toLocaleLowerCase('pt-BR');
+  // textContent is intentionally used instead of innerText. innerText becomes empty for
+  // rows/cards hidden by pagination, which made subsequent URL filters lose their data.
+  const stableText=item=>String((item&&item.textContent)||'');
   const safeUrl=v=>{
     try{
       const cleaned=(v||'').trim().replace(/[),.;]+$/,'');
@@ -45,17 +48,22 @@ _SCALE_SCRIPT = r"""
     const matches=(text||'').match(/https?:\/\/[^\s<>'"`]+/gi)||[];
     return matches.map(safeUrl).filter(Boolean);
   };
-  const urlsForItem=item=>{
+  const itemCache=new WeakMap();
+  const indexForItem=item=>{
+    const cached=itemCache.get(item); if(cached) return cached;
+    const text=stableText(item), upper=text.toUpperCase();
     const values=[];
     if(item.querySelectorAll){
       item.querySelectorAll('.page-url').forEach(node=>values.push(...urlsInText(node.textContent||'')));
     }
-    values.push(...urlsInText(item.innerText||''));
-    return Array.from(new Set(values));
+    values.push(...urlsInText(text));
+    const indexed={text:normalize(text),upper,urls:Array.from(new Set(values))};
+    itemCache.set(item,indexed); return indexed;
   };
+  const urlsForItem=item=>indexForItem(item).urls;
   const urlsFor=items=>Array.from(new Set(items.flatMap(urlsForItem))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
   const contextsFor=items=>{
-    const joined=items.map(x=>(x.innerText||'').toUpperCase()).join('\n');
+    const joined=items.map(x=>indexForItem(x).upper).join('\n');
     const out=[];
     if(/\bMOBILE\b/.test(joined)) out.push('MOBILE');
     if(/\bDESKTOP\b/.test(joined)) out.push('DESKTOP');
@@ -98,10 +106,10 @@ _SCALE_SCRIPT = r"""
   }
   function apply(items,state,controls,displayMode){
     const filtered=items.filter(item=>{
-      const text=normalize(item.innerText||'');
-      if(state.query && !text.includes(state.query)) return false;
-      if(state.url && !urlsForItem(item).includes(state.url)) return false;
-      if(state.context && !(item.innerText||'').toUpperCase().includes(state.context)) return false;
+      const indexed=indexForItem(item);
+      if(state.query && !indexed.text.includes(state.query)) return false;
+      if(state.url && !indexed.urls.includes(state.url)) return false;
+      if(state.context && !indexed.upper.includes(state.context)) return false;
       return true;
     });
     const pageSize=state.size||Math.max(filtered.length,1), pages=Math.max(1,Math.ceil(filtered.length/pageSize));
