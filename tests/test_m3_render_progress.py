@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -89,7 +88,7 @@ def test_m3_logs_current_render_before_snapshot_is_persisted(tmp_path: Path, mon
     url = "https://example.test/page"
     page = SimpleNamespace(page_id="PGE-1", audit_id="AUD-1", normalized_url=url)
     persistence = _Persistence(page)
-    workspace = SimpleNamespace(root=tmp_path)
+    workspace = SimpleNamespace(root=tmp_path, artifacts=tmp_path / "artifacts")
     m2_result = SimpleNamespace(
         discovery=SimpleNamespace(
             pages=(SimpleNamespace(normalized_url=url),),
