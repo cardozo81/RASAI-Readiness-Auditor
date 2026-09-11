@@ -30,11 +30,14 @@ def main() -> int:
         raise SystemExit("RASAI_CONSOLE_MODE must be local or remote")
     if mode == "remote":
         from rasai.remote_console import main as remote_main
-
         return remote_main()
-    prepare_console_config()
+
+    # Install the complete configuration catalog before reading the INI. This makes
+    # newly introduced non-secret runtime-profile variables loadable/persistable on
+    # the first console pass instead of only after the environment menu is opened.
     install_report_registry()
     install_context_scope_runtime()
+    prepare_console_config()
     install_ai_efficiency_policy()
     install_runtime_completion_extensions()
     install_runtime_adherence_extensions()
