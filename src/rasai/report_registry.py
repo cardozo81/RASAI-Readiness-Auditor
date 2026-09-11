@@ -314,8 +314,8 @@ def _sari_method_panel(report_dir: Path, page_name: str) -> str:
     return (
         "<section id='sari-hierarchical-contract' class='panel' data-sari-hierarchical-contract='true'>"
         "<div class='kicker'>SARI-001 - contrato vigente</div>"
-        f"<h2>{escape(OVERALL_AGGREGATION_VERSION)}</h2>"
-        "<p class='intro'>O Overall deixou de ser uma média 10 x 10. RuleExecutions são resolvidas por página/escopo, agregadas em scoring groups de peso fixo e só então nas dimensões. A quantidade de páginas não multiplica o peso de um grupo global como robots.txt ou sitemap.</p>"
+        "<h2>Hierarchical Weighted Readiness</h2>"
+        f"<p class='intro'>Contrato técnico: <code>{escape(OVERALL_AGGREGATION_VERSION)}</code>. O Overall deixou de ser uma média 10 x 10. RuleExecutions são resolvidas por página/escopo, agregadas em scoring groups de peso fixo e só então nas dimensões. A quantidade de páginas não multiplica o peso de um grupo global como robots.txt ou sitemap.</p>"
         "<div class='table-wrap'><table><thead><tr><th>Macrocomponente</th><th>Peso no SARI</th><th>Dimensões</th></tr></thead>"
         f"<tbody>{_macro_weight_rows()}</tbody></table></div>"
         "<div class='notice'><strong>Precedência de evidência:</strong> fato determinístico conclusivo prevalece sobre avaliação IA corroborativa no mesmo scoring_group. IA pode aprofundar ou resolver um estado sem evidência suficiente, mas não sobrescrever um hard fact avaliado.</div>"

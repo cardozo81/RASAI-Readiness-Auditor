@@ -19,10 +19,11 @@ from urllib.parse import urlsplit
 from playwright.sync_api import Error as PlaywrightError, TimeoutError as PlaywrightTimeoutError, sync_playwright
 
 from rasai.browser_identity_renderer import realistic_context_options
-from rasai.domain import DeviceContext, new_id
+from rasai.domain import new_id
 from rasai.m23_apdex_profiles import (
     DESKTOP_STANDARD_PROFILE,
     MOBILE_STANDARD_PROFILE,
+    TABLET_STANDARD_PROFILE,
     SyntheticProfile,
     _apply_network_profile,
     static_host_environment,
@@ -31,37 +32,12 @@ from rasai.m25_dynatrace import SUPPORTED_TIME_KPMS, load_dynatrace_calibration
 from rasai.m25_persistence import M25Persistence, SyntheticUxRun, SyntheticUxSample, SyntheticUxSummary
 from rasai.operational_log import try_append_operational_event
 from rasai.persistence import AuditWorkspace
-from rasai.rendering import BrowserProfile
 
 TASK_SYNTHETIC_USER_ACTION = "SYNTHETIC_LOAD_ACTION"
-M25_PROFILE_VERSION = "M25-PROFILE-001"
+M25_PROFILE_VERSION = "M25-PROFILE-002"
 NORMAL_GROUP_MINIMUM = 100
 MAX_CONCURRENCY = 2
 _DEVICE_ORDER = ("MOBILE", "DESKTOP", "TABLET")
-
-TABLET_BROWSER_PROFILE = BrowserProfile(
-    device=DeviceContext.MOBILE,
-    viewport_width=1024,
-    viewport_height=1366,
-    user_agent=(
-        "Mozilla/5.0 (Linux; Android 14; Pixel Tablet) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
-    ),
-    device_scale_factor=2.0,
-    is_mobile=True,
-    has_touch=True,
-)
-
-TABLET_STANDARD_PROFILE = SyntheticProfile(
-    profile_id="RASAI_TABLET_CONTROLLED4G_V1",
-    device=DeviceContext.MOBILE,
-    browser_profile=TABLET_BROWSER_PROFILE,
-    cpu_slowdown=2.0,
-    rtt_ms=100.0,
-    download_kbps=4096.0,
-    upload_kbps=2048.0,
-    connection_type="cellular4g",
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -301,18 +277,9 @@ class PlaywrightSyntheticUxGateway:
             self._playwright,
             browser_version=getattr(self._browser, "version", None),
             device=profile.device,
+            profile_override=profile.browser_profile,
+            descriptor_name=profile.playwright_descriptor or None,
         )
-        bp = profile.browser_profile
-        context_options["viewport"] = {"width": bp.viewport_width, "height": bp.viewport_height}
-        context_options["device_scale_factor"] = bp.device_scale_factor
-        context_options["is_mobile"] = bp.is_mobile
-        context_options["has_touch"] = bp.has_touch
-        if device == "TABLET":
-            major = str(getattr(self._browser, "version", "127")).split(".", 1)[0]
-            context_options["user_agent"] = (
-                "Mozilla/5.0 (Linux; Android 14; Pixel Tablet) AppleWebKit/537.36 "
-                f"(KHTML, like Gecko) Chrome/{major}.0.0.0 Safari/537.36"
-            )
         context = self._browser.new_context(**context_options)
         if self.session_mode == "warm":
             self._warm_contexts[profile.profile_id] = context
@@ -586,7 +553,7 @@ def classify_measurement(
     if forced:
         return "FRUSTRATED", value, True
     seconds = value / 1000.0
-    if seconds <= calibration.satisfied_threshold_seconds:
+    if seconds < calibration.satisfied_threshold_seconds:
         return "SATISFIED", value, False
     if seconds <= calibration.frustrated_threshold_seconds:
         return "TOLERATING", value, False

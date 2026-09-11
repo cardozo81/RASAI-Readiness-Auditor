@@ -22,6 +22,7 @@ _PAGESPEED_LIGHTHOUSE_CATEGORIES = (
 _PAGESPEED_LIGHTHOUSE_CATEGORIES_CSV = ",".join(_PAGESPEED_LIGHTHOUSE_CATEGORIES)
 _AI_EXCHANGE_LOG_MAX_BYTES_ENV = "RASAI_AI_EXCHANGE_LOG_MAX_BYTES"
 _PRESENTATION_TIMEZONE_ENV = "RASAI_PRESENTATION_TIMEZONE"
+_APDEX_ACQUISITION_MODE_ENV = "RASAI_APDEX_ACQUISITION_MODE"
 
 
 def install_runtime_completion_extensions() -> None:
@@ -88,7 +89,7 @@ def _install_console_environment() -> None:
     original_fixed_specs = console_environment._fixed_specs
     original_validate = console_environment._validate
 
-    for name in (_AI_EXCHANGE_LOG_MAX_BYTES_ENV, _PRESENTATION_TIMEZONE_ENV):
+    for name in (_AI_EXCHANGE_LOG_MAX_BYTES_ENV, _PRESENTATION_TIMEZONE_ENV, _APDEX_ACQUISITION_MODE_ENV):
         if name not in console_environment.ENV_NAMES:
             console_environment.ENV_NAMES = (*console_environment.ENV_NAMES, name)
 
@@ -119,6 +120,22 @@ def _install_console_environment() -> None:
                     impact="Sem efeito no instante canônico UTC, scoring, coleta ou audit.db.",
                     example="RASAI_PRESENTATION_TIMEZONE=Europe/London",
                     notes="Use identificador IANA. Offsets fixos como -03:00 não são aceitos como preferência persistida.",
+                )
+            )
+        if not any(spec.name == _APDEX_ACQUISITION_MODE_ENV for spec in items):
+            items.append(
+                console_environment.EnvironmentSpec(
+                    _APDEX_ACQUISITION_MODE_ENV,
+                    "Synthetic Apdex",
+                    "Controla somente o compartilhamento da aquisição física entre Navigation Apdex e Experience Apdex.",
+                    "enum",
+                    ("auto", "isolated"),
+                    "auto",
+                    required_when="Nunca; auto é o default seguro e só compartilha aquisições comprovadamente compatíveis.",
+                    impact="auto pode reduzir navegações físicas contra o alvo; não altera targets, device mix, thresholds ou scores.",
+                    example="RASAI_APDEX_ACQUISITION_MODE=isolated",
+                    source="docs/SYNTHETIC_SHARED_ACQUISITION.md",
+                    notes="Use isolated para comparação/troubleshooting. Não existe modo de compartilhamento forçado.",
                 )
             )
         return tuple(items)

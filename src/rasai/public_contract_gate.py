@@ -1,6 +1,6 @@
 """Automated consistency gate for RASAi public contracts.
 
-The gate validates the single pre-publication public/runtime scoring contract without rewriting files.
+The gate validates the single current public/runtime scoring contract without rewriting files.
 """
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 import re
-import sys
 
 from rasai.indicator_provenance import enrich_indicator_provenance_html
 from rasai.report_contract import (
@@ -31,19 +30,20 @@ EXPECTED_CANONICAL_FILENAMES = (
     "index.html",
     "readiness.html",
     "scoring.html",
+    "context.html",
+    "crawling-discovery.html",
     "mobile.html",
     "desktop.html",
-    "crawling-discovery.html",
     "accessibility.html",
     "web-performance.html",
-    "search-intelligence.html",
     "apdex.html",
     "apdex-experience.html",
-    "content-suggestions.html",
-    "remediation.html",
-    "ai-usage.html",
+    "search-intelligence.html",
     "ai-visibility.html",
     "observability.html",
+    "ai-usage.html",
+    "content-suggestions.html",
+    "remediation.html",
     "quality.html",
     "references.html",
 )
@@ -51,6 +51,7 @@ EXPECTED_CANONICAL_FILENAMES = (
 CURRENT_METHOD_DOCS = (
     "README.md",
     "docs/REPORT_GUIDE.md",
+    "docs/CAPTURE_CONTEXT_MODEL.md",
     "docs/OUTPUTS_AND_ARTIFACTS.md",
     "docs/SCORING_GUIDE.md",
     "docs/SCORE_GEO_004.md",
@@ -82,6 +83,7 @@ CURRENT_METHOD_DOCS = (
 )
 
 PUBLIC_GENERATOR_FILES = (
+    "src/rasai/context_reporting.py",
     "src/rasai/m20_reporting.py",
     "src/rasai/m21_reporting.py",
     "src/rasai/m22_quality_domains.py",
@@ -102,6 +104,7 @@ SURFACE_IMPLEMENTATION_HINTS = {
     "index.html": "src/rasai/reporting.py",
     "readiness.html": "src/rasai/rasai_readiness_reporting.py",
     "scoring.html": "src/rasai/score_geo_004_reporting.py",
+    "context.html": "src/rasai/context_reporting.py",
     "mobile.html": "src/rasai/reporting.py",
     "desktop.html": "src/rasai/reporting.py",
     "remediation.html": "src/rasai/reporting.py",
@@ -120,15 +123,10 @@ SURFACE_IMPLEMENTATION_HINTS = {
 }
 
 _OLD_VERSION_RE = re.compile(r"SCORE-GEO-(?!004)\d{3}", re.I)
-# Documentation must never expose internal delivery/milestone identifiers, including
-# embedded implementation paths, artifact directories or contract labels.
 _MILESTONE_PUBLIC_RE = re.compile(r"(?i)(?<![A-Za-z0-9])m\d{1,3}")
 _VERSIONED_CANONICAL_RE = re.compile(r"report/score-geo-\d+\.html")
 _STALE_EQUAL_WEIGHT_RE = re.compile(r"m[eé]dia\s+de\s+igual\s+peso", re.I)
 
-# Representative RASAi-owned labels from historical report templates. The public
-# normalizer must remove every one without applying a generic regex to audited
-# evidence, where a token such as a product/model name may be legitimate.
 _PUBLIC_HTML_MILESTONE_FIXTURES = (
     "M18/M20",
     "M21/M22",
@@ -140,6 +138,10 @@ _PUBLIC_HTML_MILESTONE_FIXTURES = (
     "M24-CD-001",
     "Rastreamento e descoberta M24",
 )
+
+_SCORING_SCAN_SUFFIXES = frozenset({
+    ".py", ".md", ".txt", ".toml", ".yml", ".yaml", ".json", ".ini", ".cmd", ".ps1"
+})
 
 
 def _root(root: str | Path | None) -> Path:
@@ -160,11 +162,15 @@ def _check_runtime(errors: list[str]) -> None:
         errors.append(f"SARI_VERSION={SARI_VERSION!r}; esperado {EXPECTED_SARI_VERSION}")
     if REPORT_FILE != EXPECTED_REPORT_FILE:
         errors.append(f"REPORT_FILE={REPORT_FILE!r}; esperado {EXPECTED_REPORT_FILE}")
-    nav_filenames = [filename for _label, filename in CANONICAL_NAV_ITEMS]
     if tuple(CANONICAL_FILENAMES) != EXPECTED_CANONICAL_FILENAMES:
         errors.append("lista canônica de report surfaces diverge do contrato público")
+    labels_by_filename = {filename: label for label, filename in CANONICAL_NAV_ITEMS}
+    if labels_by_filename.get("context.html") != "Contexto de captura":
+        errors.append("context.html não usa o rótulo canônico Contexto de captura")
+    if labels_by_filename.get("crawling-discovery.html") != "Domínio e descoberta":
+        errors.append("crawling-discovery.html não usa o rótulo canônico Domínio e descoberta")
     if REPORT_ALIASES:
-        errors.append("build pré-publicação não deve expor aliases históricos de report")
+        errors.append("contrato atual não deve expor aliases de report")
     if not REPORT_CONTRACT_VERSION or not OBSERVABILITY_CONTRACT_VERSION:
         errors.append("versões de contrato de report/observability não estão definidas")
 
@@ -189,11 +195,11 @@ def _check_docs(root: Path, errors: list[str]) -> None:
         if EXPECTED_SCORING_VERSION not in text:
             errors.append(f"documento corrente não menciona {EXPECTED_SCORING_VERSION}: {relative}")
         if _OLD_VERSION_RE.search(text):
-            errors.append(f"documento corrente expõe scoring descontinuado: {relative}")
+            errors.append(f"documento corrente expõe scoring inválido: {relative}")
         if _VERSIONED_CANONICAL_RE.search(text):
             errors.append(f"documento corrente expõe filename versionado de scoring: {relative}")
         if _STALE_EQUAL_WEIGHT_RE.search(text):
-            errors.append(f"documento corrente descreve Overall com peso igual descontinuado: {relative}")
+            errors.append(f"documento corrente descreve Overall com peso igual inválido: {relative}")
 
     readme = _read(root, "README.md")
     nav_apdex = re.findall(r"(?m)^apdex\.html\s+", readme)
@@ -211,11 +217,11 @@ def _check_docs(root: Path, errors: list[str]) -> None:
             continue
         text = path.read_text(encoding="utf-8")
         if _OLD_VERSION_RE.search(text):
-            errors.append(f"scoring descontinuado exposto na documentação: {path.relative_to(root)}")
+            errors.append(f"scoring inválido exposto na documentação: {path.relative_to(root)}")
         if _MILESTONE_PUBLIC_RE.search(text):
             errors.append(f"identificador interno de entrega exposto na documentação: {path.relative_to(root)}")
         if EXPECTED_SCORING_VERSION in text and _STALE_EQUAL_WEIGHT_RE.search(text):
-            errors.append(f"fórmula antiga de peso igual exposta na documentação: {path.relative_to(root)}")
+            errors.append(f"fórmula de peso igual inválida exposta na documentação: {path.relative_to(root)}")
 
 
 def _check_cli_docs(root: Path, errors: list[str]) -> None:
@@ -270,45 +276,25 @@ def _check_generators(root: Path, errors: list[str]) -> None:
             errors.append(f"gerador público ausente: {relative}")
             continue
         if _OLD_VERSION_RE.search(text):
-            errors.append(f"gerador público expõe scoring descontinuado: {relative}")
-
-    crawling = _read(root, "src/rasai/m24_reporting.py")
-    if "CRAWLING-DISCOVERY-001" not in crawling:
-        errors.append("relatório de rastreamento não expõe contrato público funcional")
-    for fragment in (
-        '_metric("Contrato", M24_VERSION)',
-        "<footer class='footer'>M24-",
-        "<div class='kicker'>M24-",
-        "id='m24-crawling-references'",
-    ):
-        if fragment in crawling:
-            errors.append(f"relatório de rastreamento ainda expõe identificador interno: {fragment}")
+            errors.append(f"gerador público expõe scoring inválido: {relative}")
 
 
 def _check_public_html_normalization(errors: list[str]) -> None:
-    owned = " | ".join(_PUBLIC_HTML_MILESTONE_FIXTURES)
-    source = f"<html><body><header><h1>Contrato</h1></header><main><p>{owned}</p></main></body></html>"
-    rendered = enrich_indicator_provenance_html(source, page_name="index.html")
-    if _MILESTONE_PUBLIC_RE.search(rendered):
-        errors.append("normalizador comum de HTML permite identificador interno de entrega")
-    if "CRAWLING-DISCOVERY-001" not in rendered:
-        errors.append("normalizador comum de HTML não projeta contrato funcional de rastreamento")
+    fixture = "<html><body>" + " | ".join(_PUBLIC_HTML_MILESTONE_FIXTURES) + "</body></html>"
+    normalized = enrich_indicator_provenance_html(fixture, page_name="index.html")
+    if _MILESTONE_PUBLIC_RE.search(normalized):
+        errors.append("normalizador público mantém identificadores internos de entrega no HTML")
 
-    # Guard against a dangerous generic replacement: audited content may contain
-    # a legitimate model/product name that resembles an internal delivery token.
+    # Never solve the public milestone problem with a generic replacement over audited
+    # content: a product/model can legitimately contain the same token shape.
     evidence = "<html><body><p>Produto M25 industrial observado na página.</p></body></html>"
     preserved = enrich_indicator_provenance_html(evidence, page_name="other.html")
     if "Produto M25 industrial observado na página." not in preserved:
-        errors.append("normalizador comum de HTML altera conteúdo auditado legítimo")
-
-
-_SCORING_SCAN_SUFFIXES = frozenset({
-    ".py", ".md", ".txt", ".toml", ".yml", ".yaml", ".json", ".ini", ".cmd", ".ps1"
-})
+        errors.append("normalizador público altera conteúdo auditado legítimo")
 
 
 def _check_single_scoring_contract(root: Path, errors: list[str]) -> None:
-    """Only SCORE-GEO-004 may be named as a concrete scoring contract."""
+    """Reject concrete scoring versions other than the single current contract."""
     for path in root.rglob("*"):
         if not path.is_file() or path.suffix.lower() not in _SCORING_SCAN_SUFFIXES:
             continue
@@ -344,25 +330,24 @@ def _check_single_scoring_contract(root: Path, errors: list[str]) -> None:
 
 
 def validate_public_contract(root: str | Path | None = None) -> tuple[str, ...]:
-    repository = _root(root)
     errors: list[str] = []
+    base = _root(root)
     _check_runtime(errors)
-    _check_docs(repository, errors)
-    _check_cli_docs(repository, errors)
-    _check_surfaces(repository, errors)
-    _check_generators(repository, errors)
+    _check_docs(base, errors)
+    _check_cli_docs(base, errors)
+    _check_surfaces(base, errors)
+    _check_generators(base, errors)
     _check_public_html_normalization(errors)
-    _check_single_scoring_contract(repository, errors)
-    return tuple(errors)
+    _check_single_scoring_contract(base, errors)
+    return tuple(dict.fromkeys(errors))
 
 
-def main(argv: list[str] | None = None) -> int:
-    del argv
+def main() -> int:
     errors = validate_public_contract()
     if errors:
-        print("PUBLIC CONTRACT CONSISTENCY GATE: FAIL", file=sys.stderr)
+        print("PUBLIC CONTRACT CONSISTENCY GATE: FAIL")
         for error in errors:
-            print(f"- {error}", file=sys.stderr)
+            print(f"- {error}")
         return 1
     print("PUBLIC CONTRACT CONSISTENCY GATE: PASS")
     print(f"runtime={SCORING_VERSION}; sari={SARI_VERSION}; report={REPORT_FILE}; surfaces={len(REPORT_SURFACES)}")

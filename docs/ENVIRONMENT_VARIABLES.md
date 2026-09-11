@@ -2,7 +2,7 @@
 
 Referência operacional da superfície de variáveis reconhecida pelo RASAi - Search & AI Readiness Auditor.
 
-**Verificação contra o runtime:** 10/09/2026.
+**Verificação contra o runtime:** 11/09/2026.
 
 Variáveis de ambiente são *overrides* avançados. Quando existe um default seguro, o runtime aplica esse valor mesmo que a variável não esteja materializada no sistema operacional. Segredos não devem ser gravados em `rasai-console.ini`, arquivos de URL, relatórios, bancos ou logs.
 
@@ -131,8 +131,19 @@ Detalhes: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md) e [CONTENT_
 | `RASAI_APDEX_TIMEOUT_SECONDS` | `max(45, 4T + 5)` | número `> 0` e `> 4T` | default derivado |
 | `RASAI_APDEX_DELAY_SECONDS` | `1` | número `>= 0` | `1` ou maior conforme sensibilidade do alvo |
 | `RASAI_APDEX_CONCURRENCY` | `1` | `1`, `2` | `1`; `2` somente quando a carga paralela for aceitável |
+| `RASAI_APDEX_MOBILE_CLIENT_PROFILE` | `mobile-balanced-chromium` | `mobile-compact-chromium`, `mobile-balanced-chromium`, `mobile-large-chromium` | default salvo objetivo explícito de viewport/cliente distinto |
+| `RASAI_APDEX_MOBILE_HARDWARE_PROFILE` | `mobile-balanced` | `mobile-entry`, `mobile-balanced`, `mobile-premium` | `mobile-balanced`; CPU sintética, não RAM/hardware físico |
+| `RASAI_APDEX_MOBILE_NETWORK_PROFILE` | `mobile-4g-balanced` | `mobile-3g-constrained`, `mobile-4g-balanced`, `mobile-4g-fast`, `mobile-5g` | `mobile-4g-balanced` como envelope controlado |
+| `RASAI_APDEX_DESKTOP_CLIENT_PROFILE` | `desktop-balanced-chromium` | `desktop-1366-chromium`, `desktop-balanced-chromium`, `desktop-wide-chromium` | default salvo objetivo explícito de viewport/cliente distinto |
+| `RASAI_APDEX_DESKTOP_HARDWARE_PROFILE` | `desktop-balanced` | `desktop-constrained`, `desktop-balanced` | `desktop-balanced`; CPU sintética, não RAM/hardware físico |
+| `RASAI_APDEX_DESKTOP_NETWORK_PROFILE` | `desktop-balanced` | `desktop-constrained`, `desktop-balanced`, `desktop-fiber` | `desktop-balanced` como envelope controlado |
+| `RASAI_APDEX_TABLET_CLIENT_PROFILE` | `tablet-balanced-chromium` | `tablet-compact-chromium`, `tablet-balanced-chromium` | default do perfil Tablet do Experience Apdex |
+| `RASAI_APDEX_TABLET_HARDWARE_PROFILE` | `tablet-balanced` | `tablet-entry`, `tablet-balanced`, `tablet-premium` | `tablet-balanced`; CPU sintética, não RAM/hardware físico |
+| `RASAI_APDEX_TABLET_NETWORK_PROFILE` | `tablet-4g-balanced` | `tablet-4g-balanced`, `tablet-wifi` | `tablet-4g-balanced` como envelope controlado |
 
-O threshold `T` é obrigatório quando Synthetic Navigation Apdex está habilitado porque não existe objetivo de desempenho universal defensável para todos os sites. Consulte [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md).
+Os nove presets acima controlam somente o **ambiente sintético** de execução: identidade/viewport do cliente, slowdown relativo de CPU e envelope de rede. Eles não mudam a fórmula Apdex, não alteram `SARI-001`/`SCORE-GEO-004` e não afirmam equivalência com RAM, GPU, térmica ou scheduler de um dispositivo físico. Os presets Tablet são usados pela população do Synthetic User Experience Apdex; `RASAI_DEVICE_CONTEXT` continua limitado a `mobile`, `desktop` e `both` no core da auditoria.
+
+O threshold `T` é obrigatório quando Synthetic Navigation Apdex está habilitado porque não existe objetivo de desempenho universal defensável para todos os sites. Consulte [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md) e [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md).
 
 ## 9. Synthetic User Experience Apdex (`apdex-experience.html`)
 
@@ -146,6 +157,7 @@ O recurso permanece default OFF. Quando habilitado sem override manual ou import
 | `RASAI_APDEX_EXPERIENCE_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` como baseline seguro | RASAi sintético |
 | `RASAI_APDEX_EXPERIENCE_DEVICE_MIX` | `mobile=60,desktop=35,tablet=5` | CSV com `mobile`, `desktop` e/ou `tablet`, percentuais finitos `>=0`, soma exata `100` | usar população real conhecida quando o objetivo for comparar com RUM | peso populacional das amostras, não número de subrequests |
 | `RASAI_APDEX_EXPERIENCE_SESSION_MODE` | `cold` | `cold`, `warm` | `cold` para baseline reprodutível | não há equivalência 1:1 com RUM |
+| `RASAI_APDEX_ACQUISITION_MODE` | `auto` | `auto`, `isolated` | `auto`; use `isolated` somente para comparação/troubleshooting | `auto` reutiliza somente navegações físicas compatíveis entre os dois Apdex; não compartilha score, thresholds nem device mix |
 | `RASAI_APDEX_EXPERIENCE_KPM` | `USER_ACTION_DURATION` | `USER_ACTION_DURATION`, `DOM_INTERACTIVE`, `LOAD_EVENT_START`, `LOAD_EVENT_END`, `RESPONSE_START`, `RESPONSE_END`, `LARGEST_CONTENTFUL_PAINT` | `USER_ACTION_DURATION` no perfil compatível atual | fallback executável; `VISUALLY_COMPLETE` não é executável com semântica equivalente ao fornecedor |
 | `RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS` | `3` | número `> 0` | `3` no perfil compatível | referência/fallback Dynatrace Load |
 | `RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS` | `12` | número `> 0` e maior que o limiar Satisfied | `12` no perfil compatível | independente de `4T` |
@@ -159,6 +171,8 @@ O recurso permanece default OFF. Quando habilitado sem override manual ou import
 | `RASAI_DYNATRACE_APPLICATION_ID` | sem default | texto não vazio | definir apenas na importação live | ID da aplicação web Dynatrace |
 | `RASAI_DYNATRACE_CONFIG_JSON` | sem default | caminho para arquivo JSON existente | **preferido à importação live quando o objetivo for reprodutibilidade** | configuração exportada/offline |
 | `DYNATRACE_API_TOKEN` | sem default | token válido | secret/env; nunca persistir | necessário somente na importação live |
+
+`RASAI_APDEX_ACQUISITION_MODE=auto` implementa **shared acquisition, independent evaluation**. O compartilhamento só ocorre quando URL, device, perfil sintético e sessão `cold` são compatíveis e a fronteira de `load` cabe no timeout do Navigation Apdex. O Navigation mantém seu target por URL/device e sua regra `T/4T`; o Experience mantém seu target total por página, device mix, KPM, thresholds e política de erros. Consulte [SYNTHETIC_SHARED_ACQUISITION.md](SYNTHETIC_SHARED_ACQUISITION.md).
 
 ### Referência Dynatrace e limite de equivalência
 

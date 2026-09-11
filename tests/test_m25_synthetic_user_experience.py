@@ -99,8 +99,13 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
             metadata={},
         )
         self.assertEqual(classify_measurement(_ux(500), calibration, error_scope="first-party")[0], "SATISFIED")
+        # Dynatrace load-action semantics: below the lower threshold is Satisfied;
+        # equality belongs to the Tolerating zone. Frustrated is strictly above the
+        # upper threshold, so equality at that boundary remains Tolerating.
+        self.assertEqual(classify_measurement(_ux(1000), calibration, error_scope="first-party")[0], "TOLERATING")
         self.assertEqual(classify_measurement(_ux(2000), calibration, error_scope="first-party")[0], "TOLERATING")
-        self.assertEqual(classify_measurement(_ux(3000), calibration, error_scope="first-party")[0], "FRUSTRATED")
+        self.assertEqual(classify_measurement(_ux(2500), calibration, error_scope="first-party")[0], "TOLERATING")
+        self.assertEqual(classify_measurement(_ux(2501), calibration, error_scope="first-party")[0], "FRUSTRATED")
 
     def test_qualifying_error_can_force_fast_action_to_frustrated(self) -> None:
         calibration = Calibration(

@@ -7,6 +7,7 @@ import tempfile
 from rasai.indicator_provenance import enrich_indicator_provenance_html
 from rasai.m24_reporting import _inject_references, _page as crawling_discovery_page
 from rasai.report_contract import CANONICAL_NAV_ITEMS
+from rasai.report_observation_reconciliation import install as install_report_observation_reconciliation
 from rasai.report_presentation import humanize_report_html
 from rasai.report_semantics import enhance_report_html
 
@@ -40,11 +41,11 @@ def test_actionable_table_rows_use_global_result_state_contract() -> None:
 def test_canonical_report_order_follows_reading_flow() -> None:
     filenames = [filename for _label, filename in CANONICAL_NAV_ITEMS]
     expected = [
-        "index.html", "readiness.html", "scoring.html", "mobile.html", "desktop.html",
-        "crawling-discovery.html", "accessibility.html", "web-performance.html",
-        "search-intelligence.html", "apdex.html", "apdex-experience.html",
-        "content-suggestions.html", "remediation.html", "ai-usage.html",
-        "ai-visibility.html", "observability.html", "quality.html", "references.html",
+        "index.html", "readiness.html", "scoring.html", "context.html",
+        "crawling-discovery.html", "mobile.html", "desktop.html", "accessibility.html",
+        "web-performance.html", "apdex.html", "apdex-experience.html",
+        "search-intelligence.html", "ai-visibility.html", "observability.html", "ai-usage.html",
+        "content-suggestions.html", "remediation.html", "quality.html", "references.html",
     ]
     assert filenames == expected
 
@@ -74,25 +75,30 @@ def test_actionable_table_rows_are_idempotent() -> None:
     assert twice.count("result-tag warn") == once.count("result-tag warn")
 
 
-def test_readiness_low_confidence_has_precedence_over_consolidated_state() -> None:
+def test_readiness_low_confidence_does_not_recolor_a_valid_sari_score() -> None:
+    install_report_observation_reconciliation()
     html = (
         "<table><tbody><tr><td>Evidências e confiabilidade</td><td>75.0</td>"
         "<td>67%</td><td>Baixa</td><td>Consolidado</td></tr></tbody></table>"
     )
     rendered = enhance_report_html(html, page_name="readiness.html", report_dir=ROOT)
-    assert "result-state-warn" in rendered
-    assert "Cobertura insuficiente" in rendered
-    assert "result-state-good" not in rendered
+    assert "result-state-good" in rendered
+    assert "Alta (75-89)" in rendered
+    assert "<td>67%</td><td>Baixa</td><td>Consolidado</td>" in rendered
+    assert "result-state-warn" not in rendered
 
 
-def test_readiness_partial_state_remains_warning_after_global_decoration() -> None:
+def test_readiness_partial_measurement_stays_separate_from_numeric_score_band() -> None:
+    install_report_observation_reconciliation()
     html = (
         "<table><tbody><tr><td>Evidências e confiabilidade</td><td>75.0</td>"
         "<td>100%</td><td>Alta</td><td>Parcial</td></tr></tbody></table>"
     )
     rendered = enhance_report_html(html, page_name="readiness.html", report_dir=ROOT)
-    assert "result-state-warn" in rendered
-    assert "result-state-good" not in rendered
+    assert "result-state-good" in rendered
+    assert "Alta (75-89)" in rendered
+    assert "<td>Alta</td><td>Parcial</td>" in rendered
+    assert "result-state-warn" not in rendered
 
 
 def test_public_report_pipeline_removes_known_internal_delivery_labels() -> None:

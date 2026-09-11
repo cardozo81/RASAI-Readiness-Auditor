@@ -118,3 +118,11 @@ def test_experience_apdex_has_a_valid_default_device_distribution() -> None:
     assert set(mix).issubset({"MOBILE", "DESKTOP", "TABLET"})
     assert abs(sum(mix.values()) - 100.0) < 1e-9
     assert SPEC_BY_NAME["RASAI_APDEX_EXPERIENCE_DEVICE_MIX"].default == DEFAULT_UX_DEVICE_MIX
+
+
+def test_shared_apdex_acquisition_mode_has_explicit_console_metadata() -> None:
+    spec = SPEC_BY_NAME["RASAI_APDEX_ACQUISITION_MODE"]
+    assert spec.category == "Synthetic Apdex"
+    assert spec.default == "auto"
+    assert spec.accepted == ("auto", "isolated")
+    assert "não altera" in spec.impact

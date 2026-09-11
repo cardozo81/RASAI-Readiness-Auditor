@@ -17,6 +17,7 @@ from rasai.m20_ai import (
 )
 from rasai.m23_reporting import _apdex_sensitivity_table, _diagnostic_notes
 from rasai.rasai_readiness_reporting import _dashboard
+from rasai.report_observation_reconciliation import install as install_report_observation_reconciliation
 from rasai.scoring import _metadata
 
 
@@ -37,6 +38,7 @@ def _request() -> ContentRemediationRequest:
 
 
 def test_dashboard_uses_persisted_lighthouse_scale_and_metric_conditions(tmp_path: Path) -> None:
+    install_report_observation_reconciliation()
     data = {
         "scores": [{
             "device": "MOBILE", "dimension": "OVERALL_READINESS", "coverage": 0.963,
@@ -59,7 +61,9 @@ def test_dashboard_uses_persisted_lighthouse_scale_and_metric_conditions(tmp_pat
     assert "Crítico - Poor (severidade visual RASAi)" in html
     assert "Quase no esperado - Needs Improvement" in html
     assert "Quase no esperado - Fair" in html
-    assert "Quase no esperado - medição parcial" in html
+    assert "Excelente (90-100)" in html
+    assert "Confidence Baixa" in html
+    assert "Parcial" in html
 
 
 def test_m20_schema_is_bounded_to_request_ids() -> None:

@@ -64,6 +64,18 @@ REPORT_SURFACES: tuple[ReportSurface, ...] = (
         score_impact="Define e explica o contrato de scoring aplicado à auditoria; não recalcula o score ao renderizar HTML.",
     ),
     ReportSurface(
+        id="context",
+        filename="context.html",
+        label="Contexto de captura",
+        optional=False,
+        inputs=("audit.db", "snapshots Mobile/Desktop", "browser_metadata", "identidade de escopo"),
+        outputs=("topologia ORIGIN/URL/DEVICE_SNAPSHOT/PROFILE_MEASUREMENT", "variação do documento por dispositivo", "diagnósticos de runtime por snapshot"),
+        required_dependencies=("audit.db",),
+        ai_usage="Nenhum. Esta página não dispara IA nem rede adicional.",
+        score_impact="Nenhum; apresenta escopo de captura sem alterar fórmulas ou resultados persistidos.",
+        source_of_truth="audit.db + metadata dos snapshots já capturados",
+    ),
+    ReportSurface(
         id="mobile",
         filename="mobile.html",
         label="Relatório Mobile",
@@ -86,10 +98,10 @@ REPORT_SURFACES: tuple[ReportSurface, ...] = (
     ReportSurface(
         id="crawling-discovery",
         filename="crawling-discovery.html",
-        label="Rastreamento e descoberta",
+        label="Domínio e descoberta",
         optional=False,
-        inputs=("robots.txt", "sitemaps", "links", "controles de crawlers", "diagnósticos determinísticos"),
-        outputs=("diagnóstico de crawling/discovery",),
+        inputs=("robots.txt", "sitemaps", "llms.txt", "links", "controles de crawlers", "diagnósticos determinísticos"),
+        outputs=("recursos e sinais ORIGIN", "diagnóstico de crawling/discovery", "acesso de crawlers"),
         optional_dependencies=("análise por IA explicitamente habilitada",),
         ai_usage="A IA, quando habilitada, interpreta somente diagnósticos/evidências fornecidos e o resultado deve ser marcado como gerado por IA.",
         score_impact="BR-GEO-003/017/018 e, quando houver avaliação técnica evidence-bound válida, BR-GEO-055/056 podem contribuir pelos grupos SITEMAP/ROBOTS; demais diagnósticos desta superfície permanecem advisory/non-scoring.",
@@ -237,6 +249,31 @@ REPORT_SURFACES: tuple[ReportSurface, ...] = (
     ),
 )
 
+# Single pre-publication reading flow. The order is part of the current contract and is
+# intentionally grouped by how a human reads the report, not by implementation module.
+_REPORT_SURFACE_ORDER = (
+    "index",
+    "readiness",
+    "scoring",
+    "context",
+    "crawling-discovery",
+    "mobile",
+    "desktop",
+    "accessibility",
+    "web-performance",
+    "apdex",
+    "apdex-experience",
+    "search-intelligence",
+    "ai-visibility",
+    "observability",
+    "ai-usage",
+    "content-suggestions",
+    "remediation",
+    "quality",
+    "references",
+)
+_SURFACE_BY_ID = {surface.id: surface for surface in REPORT_SURFACES}
+REPORT_SURFACES = tuple(_SURFACE_BY_ID[surface_id] for surface_id in _REPORT_SURFACE_ORDER)
 
 CANONICAL_NAV_ITEMS: tuple[tuple[str, str], ...] = tuple(
     (surface.label, surface.filename) for surface in REPORT_SURFACES

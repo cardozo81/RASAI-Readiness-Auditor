@@ -11,6 +11,11 @@ import sys
 from typing import Sequence
 
 from rasai import cli_extensions
+from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
+from rasai.context_scope_runtime import install as install_context_scope_runtime
+from rasai.integration_state_contract import install as install_integration_state_contract
+from rasai.integration_state_refinements import install as install_integration_state_refinements
+from rasai.report_observation_reconciliation import install as install_report_observation_reconciliation
 from rasai.report_registry import install as install_report_registry
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
@@ -108,8 +113,13 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
 
 def main(argv: Sequence[str] | None = None) -> int:
     install_report_registry()
+    install_context_scope_runtime()
+    install_ai_efficiency_policy()
     install_runtime_completion_extensions()
+    install_report_observation_reconciliation()
     install_runtime_adherence_extensions()
+    install_integration_state_contract()
+    install_integration_state_refinements()
     install_runtime_contract_compatibility()
     effective = list(argv) if argv is not None else list(sys.argv[1:])
     if effective and effective[0] in {"search", "serp"}:

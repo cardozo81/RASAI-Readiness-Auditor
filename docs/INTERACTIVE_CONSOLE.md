@@ -6,208 +6,95 @@ O RASAi mantém `rasai audit` como interface estável e oferece o console textua
 rasai-console
 ```
 
-O console é uma camada de configuração, preflight, observabilidade e execução sobre o mesmo pipeline da CLI. Ele não implementa um segundo motor de auditoria. O submenu de relatórios consolidados é um subsistema offline adicional e também não altera o pipeline de auditoria.
+O console é uma camada de configuração, preflight, observabilidade e execução sobre o mesmo pipeline da CLI. Ele não implementa um segundo motor de auditoria.
 
 ## Princípios
 
 - uma tela lógica por vez;
 - configuração explícita antes da execução;
-- defaults seguros visíveis sem obrigar o usuário a materializar variáveis redundantes;
-- variáveis avançadas agrupadas por fronteira funcional;
-- progresso/etapa durante a execução sem polling externo adicional;
+- defaults seguros e visíveis;
+- listas guiadas para configurações com domínio fechado;
 - secrets nunca exibidos em claro nem gravados no INI;
-- persistência opcional de credenciais no Windows exige confirmação explícita e usa apenas `User`;
-- integração externa indisponível é explicada e não vira finding do website;
-- custo prévio é estimativa de exposição, não invoice;
-- consumo real após a execução vem da telemetria persistida;
-- Synthetic Apdex é carga sintética, não custo financeiro de API;
-- consolidação histórica é somente leitura sobre `AUD-*/audit.db`, sem chamadas de API e sem recalcular o motor GEO.
+- providers sem credencial continuam configuráveis;
+- disponibilidade para execução e possibilidade de configuração são estados distintos;
+- persistência opcional de credenciais no Windows usa somente o escopo `User`;
+- o console não exige execução como Administrador para persistir/remover credenciais em `Windows/User`;
+- o escopo `Windows/Machine` é apenas observado pelo RASAi e nunca é alterado automaticamente;
+- alterações de credencial recalculam imediatamente a aptidão do provider;
+- integração externa indisponível não vira finding do website;
+- Synthetic Apdex gera carga HTTP real e permanece separado de Web Performance/IA;
+- relatórios consolidados são offline/read-only sobre auditorias persistidas.
 
-## Arquivo de configuração do usuário
+## Arquivo INI
 
-O console usa por padrão:
+Arquivo padrão:
 
 ```text
 rasai-console.ini
 ```
 
-Ao iniciar:
+O INI armazena somente parâmetros não sensíveis. API keys, tokens, passwords e outros secrets não são gravados nele.
 
-1. se o arquivo não existir, ele é criado com defaults não sensíveis;
-2. os parâmetros persistíveis são carregados;
-3. configurações de ambiente válidas continuam disponíveis para a sessão;
-4. API keys, tokens, senhas e outros secrets não são gravados pelo INI.
-
-O menu mostra `SALVO` ou `ALTERAÇÕES NÃO SALVAS`. Para persistir parâmetros não sensíveis:
+Precedência prática do console:
 
 ```text
+valor já presente no processo/Windows
+> configuração não sensível persistida no INI
+> default do runtime
+```
+
+Ao salvar, o console mostra explicitamente que a operação é `SEM CHAVES`.
+
+## Menu principal vigente
+
+```text
+1. Entrada
+2. Projeto
+3. Dispositivo
+4. IA
+5. Remediações IA
+6. Web Performance
+7. max-pages
+8. WebPerf max-pages
+9. Idioma / mercado
+10. Raiz auditorias
+11. Synthetic Apdex
+12. Timezone apresentação
+
 S. Salvar configuração INI [SEM CHAVES]
+H. Ajuda / custos
+E. Variáveis de ambiente / credenciais
+C. Histórico / relatórios consolidados [OFFLINE - sem APIs]
+R. Executar [APTO|INDISPONÍVEL]
+Q. Sair
 ```
 
-A gravação é atômica. Ao sair com alterações pendentes, o console pede decisão explícita. Credenciais que diferem da persistência do Windows continuam sendo tratadas como alterações voláteis da sessão.
+Quando existe auditoria anterior disponível, o console também oferece atalhos para abrir a pasta e o último relatório.
 
-## Credenciais
+## Cores e estados do console
 
-Principais variáveis:
+O console usa cor como reforço visual, nunca como única informação:
 
-| Serviço | Variável |
+| Estado | Cor esperada |
 |---|---|
-| OpenAI | `OPENAI_API_KEY` |
-| DeepSeek | `DEEPSEEK_API_KEY` |
-| MiMo | `MIMO_API_KEY` |
-| xAI | `XAI_API_KEY` |
-| Qwen | `DASHSCOPE_API_KEY` |
-| Gemini | `GEMINI_API_KEY` |
-| Anthropic | `ANTHROPIC_API_KEY` |
-| PageSpeed | `RASAI_PAGESPEED_API_KEY` |
-| CrUX | `RASAI_CRUX_API_KEY` |
+| `APTO`, ativo, credencial presente, incluído no AUTO | verde |
+| `CONFIGURAR`, atenção ou ação necessária | amarelo |
+| `INDISPONÍVEL`, erro ou bloqueio real | vermelho |
+| `DESABILITADA`, ausente, inativo ou excluído do AUTO | cinza/dim |
+| informação contextual | ciano |
 
-A referência completa, incluindo **como obter cada chave**, está em [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md). Para as chaves Google de PageSpeed/CrUX, veja também [GOOGLE_API_KEYS.md](GOOGLE_API_KEYS.md).
+Essa semântica vale também para a área de providers de IA.
 
-### Sessão × persistência no Windows
+## Opção 4 - IA
 
-O valor efetivamente usado pela auditoria é o valor presente no processo atual. Se uma key herdada do Windows é alterada dentro do console, **o valor da sessão aberta prevalece imediatamente**.
+A opção 4 separa duas perguntas:
 
-A origem é representada sem exibir o segredo:
+1. **o provider pode ser configurado?** - sim, qualquer provider registrado pode ser selecionado;
+2. **o provider está apto para executar agora?** - depende de credencial/configuração válida e de bloqueios runtime.
 
-```text
-[SET] [SO:USER]
-[SET] [SO:MACHINE]
-[SET] [SESSÃO]
-[SET] [SESSÃO | SO:USER existente]
-```
+Portanto, um provider sem Key não fica bloqueado para configuração. Ele aparece como `CONFIGURAR` e pode ser aberto normalmente.
 
-Para uma variável de secret:
-
-```text
-S = setar/alterar somente a sessão atual
-R = remover somente da sessão atual
-P = persistir/remover credencial no Windows/User
-D = abrir documentação detalhada
-V = voltar
-```
-
-A opção `P` exige valor válido na sessão e confirmação explícita `SIM`. A persistência usa o ambiente **User** do Windows, não `Machine`, não exige Administrador e nunca grava o segredo em arquivos RASAi. Remover a persistência `User` não apaga o valor já carregado na sessão atual.
-
-Variáveis de ambiente não são um secret manager: processos e ferramentas com acesso ao mesmo perfil podem lê-las.
-
-MiMo exige credencial PAYG `sk-...` no adapter atual. Token Plan `tp-...` usa produto/endpoint diferente.
-
-## Menu de variáveis de ambiente - organizado por domínio
-
-A antiga lista plana foi substituída por um nível de navegação por fronteira funcional:
-
-```text
-CONFIGURAÇÃO AVANÇADA - VARIÁVEIS DE AMBIENTE
-
-1. Aplicação e execução
-2. IA - credenciais
-3. IA - modelos e reasoning
-4. IA - endpoints avançados
-5. IA - contexto editorial / YMYL
-6. Web Performance / Google APIs
-7. Synthetic Apdex
-8. Browser / Playwright
-
-A. Todas as variáveis
-D. Abrir documentação detalhada
-V. Voltar
-```
-
-Dentro de cada grupo, somente as variáveis daquele domínio são exibidas. Ao selecionar uma variável, a tela informa:
-
-```text
-Grupo
-Para que serve
-Tipo
-Valores aceitos
-Default efetivo
-Quando é obrigatória
-Se é sensível
-Custo/impacto
-Valor/origem atual
-Exemplo
-Como obter/referência
-Observações
-```
-
-### Contexto editorial / YMYL
-
-O grupo `5. IA - contexto editorial / YMYL` contém:
-
-```text
-RASAI_CONTENT_RISK_PROFILE
-RASAI_YMYL_CATEGORY
-RASAI_PAGE_PURPOSE
-RASAI_INTENDED_AUDIENCE
-RASAI_EXPERIENCE_REQUIREMENT
-RASAI_FRESHNESS_SENSITIVITY
-RASAI_CONTENT_ORIGIN
-```
-
-Esses parâmetros **não habilitam IA nem criam custo externo por si só**. Eles condicionam uma chamada de IA que já seria executada para que a avaliação não use a mesma régua editorial em qualquer página.
-
-Todos usam `auto` por default. Nesse estado a classificação é somente provisória. Para um site claramente YMYL, configure explicitamente o perfil/categoria e os demais campos que você conhece com segurança.
-
-O editor bloqueia combinações contraditórias, por exemplo:
-
-```text
-risk_profile=standard + ymyl_category=financial-security
-risk_profile=ymyl + ymyl_category=none
-```
-
-A referência conceitual e operacional está em [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md).
-
-### Defaults na tela
-
-Quando a variável está ausente, mas existe um default seguro do produto, o console exibe por exemplo:
-
-```text
-RASAI_DEVICE_CONTEXT              <default efetivo: mobile>
-RASAI_AI_TIMEOUT_SECONDS           <default efetivo: 180>
-RASAI_CONTENT_RISK_PROFILE         <default efetivo: auto>
-RASAI_WEB_PERFORMANCE              <default efetivo: false>
-RASAI_OPENAI_MODEL                 <default efetivo: gpt-5.6-luna>
-```
-
-Isso **não cria a variável no sistema operacional**. O objetivo é mostrar o valor efetivamente usado e evitar configuração redundante. Secrets não possuem default. O threshold T do Synthetic Apdex também não recebe valor inventado porque precisa refletir o objetivo de desempenho definido pelo usuário.
-
-### Variáveis com domínio fechado
-
-Enums e booleanos são configurados por lista guiada. Exemplos:
-
-```text
-RASAI_DEVICE_CONTEXT
-  mobile | desktop | both
-
-RASAI_CONTENT_RISK_PROFILE
-  auto | standard | ymyl
-
-RASAI_WEB_PERFORMANCE_FIELD_SOURCE
-  auto | pagespeed | crux | none
-
-RASAI_APDEX_CONCURRENCY
-  1 | 2
-```
-
-Modelos e níveis de reasoning são derivados do provider registry, reduzindo risco de a UI divergir da validação do código.
-
-### Validações adicionais
-
-O editor recusa antes da execução, entre outros casos:
-
-- `RASAI_CONFIG` apontando para arquivo inexistente;
-- `RASAI_LOG_LEVEL` fora do domínio aceito;
-- contexto editorial/YMYL fora do domínio ou com combinação contraditória;
-- categoria Lighthouse desconhecida ou duplicada;
-- endpoint avançado que não seja URL HTTP(S) absoluta;
-- modelo/reasoning fora do domínio do provider;
-- `field_source=crux` sem credencial CrUX ativa;
-- limites inválidos de Synthetic Apdex.
-
-## Provider registry e AUTO
-
-Providers concretos:
+Providers canônicos atuais:
 
 ```text
 openai
@@ -226,144 +113,231 @@ grok   -> xai
 claude -> anthropic
 ```
 
-A cadeia `AUTO` permanece:
+`none` desabilita IA para a auditoria. `auto` usa o pool dinâmico de providers elegíveis.
+
+### Gerenciamento por provider
+
+Ao selecionar um provider concreto, o console mostra:
 
 ```text
-OpenAI -> DeepSeek -> MiMo
+Estado execução
+Motivo
+Variável de credencial
+Sessão atual
+Windows / User
+Windows / Machine
+Pool AUTO, quando aplicável
 ```
 
-xAI, Qwen, Gemini e Anthropic permanecem explicit-only enquanto sua qualificação não for promovida.
-
-## Defaults públicos de IA
-
-| Provider | Modelo default | Esforço default |
-|---|---|---|
-| OpenAI | `gpt-5.6-luna` | `NONE` |
-| DeepSeek | `deepseek-v4-flash` | `NONE` |
-| MiMo | `mimo-v2.5` | `NONE` |
-| xAI | `grok-4.6` | `LOW` |
-| Qwen | `qwen3.8-flash` | `PROVIDER_DEFAULT` |
-| Gemini | `gemini-3.8-flash` | `LOW` |
-| Anthropic | `claude-sonnet-5` | `LOW` |
-
-Overrides explícitos continuam prevalecendo quando o adapter aceita o valor.
-
-## Menu principal
+Ações:
 
 ```text
-1. Entrada
-2. Projeto
-3. Dispositivo
-4. IA
-5. Remediação textual IA
-6. Web Performance
-7. max-pages
-8. WebPerf max-pages
-9. Idioma / mercado
-10. Raiz auditorias
-11. Synthetic Apdex
-
-H. Ajuda / custos
-E. Variáveis de ambiente / credenciais
-S. Salvar configuração INI [SEM CHAVES]
-C. Histórico / relatórios consolidados [OFFLINE - sem APIs]
-R. Executar [APTO|INDISPONÍVEL]
-Q. Sair
+S. Setar/alterar Key na sessão
+P. Persistir/remover Key no Windows/User
+L. Limpar Key somente da sessão
+X. Excluir Key da sessão e do Windows/User
+A. Habilitar/desabilitar no AUTO sem apagar a Key
+U. Usar este provider nesta auditoria
+V. Voltar
 ```
 
-Após uma auditoria:
+A ação `A` aparece somente para providers `auto_eligible`.
+
+### Semântica das ações de Key
+
+**Setar/alterar (`S`)**
+
+- altera imediatamente a variável da sessão atual;
+- não grava no INI;
+- recalcula imediatamente a capability do provider;
+- limpa bloqueios transitórios associados à configuração anterior.
+
+**Persistir/remover Windows/User (`P`)**
+
+- exige confirmação explícita;
+- grava/remove somente no perfil do usuário Windows;
+- não usa `HKEY_LOCAL_MACHINE`;
+- não exige PowerShell ou `.ps1` executado como Administrador;
+- remover a persistência User mantém a Key já carregada na sessão atual;
+- após a operação, a capability é recalculada imediatamente.
+
+**Limpar sessão (`L`)**
+
+- remove apenas a variável do processo atual;
+- não apaga uma eventual persistência em Windows/User;
+- novos processos ainda podem herdar a credencial persistida.
+
+**Excluir Key (`X`)**
+
+- remove a Key da sessão;
+- remove a persistência Windows/User quando existir;
+- não modifica Windows/Machine;
+- se existir uma Key em Machine, o console informa que ela continua presente e que sua remoção é uma operação administrativa externa ao RASAi.
+
+**Usar provider (`U`)**
+
+- só conclui a seleção quando o provider está `APTO`;
+- provider sem configuração válida permanece configurável, mas não executável.
+
+### Reavaliação imediata de aptidão
+
+Toda alteração de credencial invalida bloqueios runtime antigos do provider. Assim, após definir ou persistir uma Key válida, o status deve voltar a `APTO` na mesma sessão quando não existir outro impedimento real.
+
+Não é necessário fechar/reabrir o console para atualizar esse estado.
+
+## Windows/User x Windows/Machine
+
+O RASAi persiste secrets somente em:
 
 ```text
-P. Abrir pasta da auditoria
-I. Abrir relatório HTML
-V. Voltar ao menu
-Q. Sair
+HKEY_CURRENT_USER\Environment
 ```
 
-## Opção 4 - IA
+Essa operação não exige elevação administrativa.
 
-A configuração reúne provider, modelo, esforço/profundidade quando suportado e timeout por tentativa. Exemplo:
+O RASAi pode detectar uma credencial já existente em `Machine`, mas não a cria, altera ou remove. O produto não deve solicitar execução como Administrador apenas para gerenciar suas credenciais normais.
+
+Variáveis de ambiente não são um secret manager. Processos com acesso ao mesmo perfil podem ler esses valores.
+
+## Provider registry e AUTO
+
+`AI=auto` **não é uma cadeia fixa OpenAI -> DeepSeek -> MiMo**.
+
+O pool AUTO é derivado do `provider_registry` atual:
+
+1. considera providers com `auto_eligible=true`;
+2. exige credencial/configuração válida para execução;
+3. aplica exclusões configuradas pelo operador;
+4. mantém a credencial mesmo quando o provider é excluído do AUTO;
+5. usa a política de roteamento/fallback do runtime;
+6. um provider pode continuar sendo selecionado explicitamente mesmo quando está excluído do AUTO.
+
+O submenu AUTO permite alternar inclusão por provider e exige pelo menos um provider `APTO` incluído antes de ativar `AI=auto`.
+
+## Modelos, reasoning e timeout
+
+Depois de escolher um provider `APTO`, o console permite selecionar modelo, esforço/profundidade quando suportado e timeout por tentativa.
+
+Default de timeout:
 
 ```text
-4. IA : openai [APTO] | modelo=gpt-5.6-luna | esforço=NONE | timeout=180s
+RASAI_AI_TIMEOUT_SECONDS=180
 ```
 
-`RASAI_AI_TIMEOUT_SECONDS` continua disponível como override avançado. Em `AUTO`, OpenAI, DeepSeek e MiMo mantêm suas próprias configurações; fallback não herda parâmetro incompatível do provider anterior.
+O timeout vale por tentativa de provider, não para a auditoria inteira.
 
-## Opção 5 - Remediação textual por IA
+Defaults de modelo/reasoning vêm do provider registry e da política runtime vigente. Não devem ser duplicados manualmente em outro contrato quando o registry já fornece a lista.
 
-Só pode ser habilitada quando a opção 4 possui provider apto. Com IA=`none` ou provider indisponível:
+## Remediações IA
+
+A opção 5 só fica disponível quando a opção 4 possui IA ativa e apta.
+
+As duas finalidades são independentes:
 
 ```text
-INDISPONÍVEL [REQUER IA CONFIGURADA E ATIVA NO ITEM 4]
+conteúdo
+crawling/discovery técnico
 ```
 
-A remediação é advisory/evidence-bound, pode gerar chamadas adicionais e não altera automaticamente Score, Coverage, Confidence, RuleExecution ou Finding.
+Ambas são advisory/evidence-bound e podem gerar chamadas/custo adicionais. Não alteram automaticamente Score, Coverage, Confidence, RuleExecution ou Finding.
 
-Quando executada, os reports expõem provider, modelo, reasoning, duração, tokens e custo estimado quando existe base confiável, além do contexto editorial/YMYL usado. Custo indisponível não é substituído por estimativa arbitrária.
+## Variáveis de ambiente / credenciais
 
-## Opção 6 - Web Performance
+O menu `E` continua disponível para configuração avançada e para integrações que não passam pelo gerenciador específico de provider.
 
-Configura PageSpeed/Lighthouse e dados de campo CrUX. O console permite definir habilitação, field source e timeout por URL.
+Grupos funcionais:
 
-Default operacional:
+```text
+Aplicação e execução
+IA - credenciais
+IA - modelos e reasoning
+IA - endpoints avançados
+IA - contexto editorial / YMYL
+Web Performance / Google APIs
+Synthetic Apdex
+Browser / Playwright
+```
+
+Para campos com domínio fechado, o console apresenta lista de opções aceitas em vez de exigir texto livre quando essa lista é conhecida pelo runtime.
+
+Secrets são exibidos apenas como presença/origem, por exemplo:
+
+```text
+[SET] [SESSÃO]
+[SET] [SO:USER]
+[SET] [SO:MACHINE]
+```
+
+## Perfis sintéticos configuráveis
+
+Os perfis do Synthetic Apdex separam três dimensões independentes por população:
+
+```text
+client/device geometry
+hardware/CPU envelope
+network envelope
+```
+
+Mobile, Desktop e Tablet possuem opções próprias. Os valores permitidos e defaults vigentes estão em [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md) e [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md).
+
+O console apresenta esses campos como enums/listas e persiste os valores não sensíveis no INI.
+
+Os defaults são baselines controladas de laboratório, não médias estatísticas da população real. RAM física, GPU, térmica e scheduler do sistema operacional não são simulados como hardware real.
+
+## Dispositivo
+
+`RASAI_DEVICE_CONTEXT` aceita:
+
+```text
+mobile
+desktop
+both
+```
+
+`both` mantém Mobile e Desktop como contextos independentes; o relatório não cria média automática que esconda diferenças.
+
+## Web Performance
+
+A opção 6 configura PageSpeed/Lighthouse e CrUX.
+
+Default operacional do timeout:
 
 ```text
 120 segundos
 ```
 
-Esse timeout controla quanto o cliente espera a resposta PageSpeed/CrUX. A API PageSpeed executa Lighthouse remotamente e não expõe ao RASAi parâmetro separado para o timeout interno de carregamento do Lighthouse.
+PageSpeed controla seu próprio perfil Lighthouse remoto. Os perfis sintéticos do RASAi não são enviados como CPU/rede/viewport customizados à API pública PageSpeed.
 
-`field_source=crux` exige `RASAI_CRUX_API_KEY`.
+## Synthetic Navigation Apdex
 
-Falha PageSpeed pode deixar Lighthouse/Acessibilidade indisponíveis enquanto CrUX direto ainda pode funcionar. O relatório preserva a causa real; não converte ausência de dado em problema do website.
-
-## Opção 11 - Synthetic Apdex
-
-Ao habilitar, o console explica e solicita T, amostras válidas, máximo de tentativas, máximo de páginas, timeout, delay e concorrência.
-
-Defaults:
+A opção 11 controla a carga sintética. O console solicita/expõe:
 
 ```text
-T                    = obrigatório
-amostras válidas     = 100
-max attempts         = ceil(1.25 × alvo)
-max pages            = 1
-timeout                = max(45 s, 4T + 5 s)
-delay                  = 1 s
-concorrência           = 1; máximo 2
+T
+amostras válidas
+máximo de tentativas
+máximo de páginas
+timeout
+delay
+concorrência
+perfis client/hardware/network
 ```
 
-Grupos com 1-99 amostras válidas são small-group e recebem `*`. Synthetic Apdex não usa LLM nem PageSpeed/CrUX, mas gera tráfego HTTP real; volume relevante em produção exige autorização.
+A execução gera tráfego HTTP real contra o alvo. O operador deve ajustar volume e concorrência de forma conservadora.
 
-## Opção C - Histórico / relatórios consolidados
+## Timezone de apresentação
 
-A opção `C` é um fluxo independente e offline. Ela não usa provider de IA, PageSpeed, CrUX ou Synthetic Apdex em modo de execução. Apenas lê os resultados que já foram persistidos em auditorias anteriores.
+A opção 12 controla apenas a apresentação de timestamps.
 
-Fluxo:
+O runtime continua persistindo/processando tempo canônico em UTC. O valor configurado é um timezone IANA, por default:
 
 ```text
-AUD-*/audit.db
-  -> leitura SQLite mode=ro / query_only
-  -> .rasai/consolidated-index.db
-  -> filtros de domínio, período, device e URL
-  -> validação de comparabilidade
-  -> consolidated/CONS-*/report.html + manifest.json
+America/Sao_Paulo
 ```
 
-O índice é cache derivado e reconstruível. Os `audit.db` permanecem fonte de verdade e não são modificados.
+## Progresso de execução
 
-O relatório reúne os indicadores persistidos relevantes - Score/Coverage/Confidence, dimensões GEO, Web Performance, CWV, Synthetic Apdex e estatística de findings - apenas quando as observações são comparáveis. Mudanças de `scoring_version`, universo de URLs, profile/threshold Apdex ou ausência de dado são tratadas explicitamente; nenhum valor ausente vira zero.
-
-Mobile e Desktop permanecem separados. Em filtro explícito por URL, score audit-level só entra se o universo completo da auditoria estiver contido no conjunto selecionado; o sistema não recalcula score parcial.
-
-Relatórios idênticos são reutilizados somente quando filtros, versão do formato e fingerprints dos AUDs elegíveis permanecem iguais. Um novo AUD elegível gera novo snapshot.
-
-Detalhes de arquitetura, metodologia, dedupe e rollback: [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md) e [CONSOLIDATED_REPORTING_VALIDATION.md](CONSOLIDATED_REPORTING_VALIDATION.md).
-
-## Progresso durante a execução
-
-A mesma tela é atualizada aproximadamente uma vez por segundo com:
+Durante a auditoria o console exibe, conforme disponível:
 
 ```text
 Status
@@ -378,61 +352,34 @@ Progresso
 Detalhe
 ```
 
-Não há polling HTTP adicional: a atualização usa estado do subprocesso, SQLite local em leitura e tail limitado do log.
+A atualização usa estado local do subprocesso/SQLite/log e não cria polling HTTP adicional contra o website auditado.
 
-## Configuração × resultado obtido
+## Histórico / relatórios consolidados
 
-Após a execução, console e relatório diferenciam o que foi configurado do que foi materializado. São mostrados separadamente tentativas/sucessos de IA, tokens/custo estimado, chamadas PageSpeed/CrUX, cobertura de Acessibilidade e tentativas/amostras Synthetic Apdex.
+A opção `C` é offline. Ela lê auditorias persistidas e não executa IA, PageSpeed, CrUX ou Synthetic Apdex.
 
-Fonte configurada que falhou por timeout, quota, HTTP, ausência de artifact ou falta de dado não é apresentada como sucesso nem como problema do website.
+Os `AUD-*/audit.db` permanecem fonte de verdade; qualquer índice consolidado é derivado e reconstruível.
 
-## Segurança e persistência
+## Segurança
 
-- INI não armazena secrets;
-- reports/logs não devem conter chaves em claro;
-- key configurada não é prova de saldo/quota;
-- sessão atual prevalece sobre valores herdados durante o processo aberto;
-- persistência Windows usa somente `User` e confirmação explícita;
-- remoção da persistência `User` não apaga automaticamente a sessão atual;
-- origem `SO:USER`, `SO:MACHINE` ou `SESSÃO` é mostrada sem revelar o secret;
-- variáveis de ambiente não equivalem a secret manager;
-- parâmetros não sensíveis podem ser salvos no INI;
-- alterações não salvas são avisadas antes da saída;
-- consolidação não escreve em `AUD-*/audit.db` e não depende de credenciais externas.
+- secrets não entram no INI;
+- reports e logs não devem registrar API keys;
+- persistência Windows/User exige ação explícita;
+- nenhuma operação normal de Key exige Administrador;
+- credencial configurada não implica crédito/quota/modelo disponível;
+- provider indisponível não é finding do website;
+- remover do AUTO não apaga Key;
+- alterar Key recalcula imediatamente a capability;
+- Windows/Machine não é administrado automaticamente pelo RASAi.
 
-## Leituras relacionadas
+## Documentos relacionados
 
-- [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md)
-- [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
 - [CONFIGURATION.md](CONFIGURATION.md)
-- [CLI_REFERENCE.md](CLI_REFERENCE.md)
-- [CONSOLE_COST_AND_USAGE.md](CONSOLE_COST_AND_USAGE.md)
-- [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md)
-- [CONSOLIDATED_REPORTING_VALIDATION.md](CONSOLIDATED_REPORTING_VALIDATION.md)
-- [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md)
-- [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
+- [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
 - [AI_GUIDE.md](AI_GUIDE.md)
-
-
-### Layout das ações
-
-Cada ação do menu principal é exibida em linha própria. O caractere `|` pode aparecer em metadados/configurações, mas não é usado para agrupar ações selecionáveis. `V. Voltar` permanece o padrão de retorno em submenus; `Q. Sair` é reservado ao encerramento do console.
-
-<!-- rasai-console-crux-ai-separation-20260908 -->
-## Leitura de CrUX e finalidades de IA após a execução
-
-No resumo persistido, o console diferencia:
-
-- `CrUX via PageSpeed`: field data CrUX veio incorporado na resposta PageSpeed;
-- `CrUX API direta`: quantidade de chamadas/sucessos feitos diretamente ao endpoint CrUX.
-
-Assim, `CrUX API direta 0/0` não significa ausência de Core Web Vitals quando a observação persistida informa `PAGESPEED_CRUX`.
-
-Também não confunda `RASAI_AI_CONTENT_REMEDIATION` com `RASAI_AI_TECHNICAL_REMEDIATION`: a primeira controla sugestões de conteúdo e a segunda controla remediação técnica advisory de crawling/discovery.
-
-## Save, fechamento e restauração
-
-Salvar a configuração materializa todos os parâmetros não sensíveis reconhecidos no INI. A seção `[environment]` preserva overrides editados pelo menu de variáveis; secrets permanecem exclusivamente na sessão/Windows User. Ao reabrir, o console lê o INI antes de montar o estado efetivo e reaplica os parâmetros aos adapters. Uma variável exibida como ligada durante a sessão não deve voltar ao default após reinício quando ela é persistível e o usuário executou **Salvar configuração INI**.
-
-O item de remediações IA mostra separadamente **conteúdo** (`RASAI_AI_CONTENT_REMEDIATION`) e **técnica crawling/discovery** (`RASAI_AI_TECHNICAL_REMEDIATION`).
-
+- [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
+- [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
+- [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md)
+- [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md)
+- [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md)
+- [REPORT_GUIDE.md](REPORT_GUIDE.md)

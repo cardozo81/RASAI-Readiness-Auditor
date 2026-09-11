@@ -78,7 +78,7 @@ class ReportNavigationTests(unittest.TestCase):
             hrefs = [href for _, href, _ in _LINK_RE.findall(nav_match.group(1))]
             self.assertEqual(
                 hrefs,
-                ["index.html", "mobile.html", "remediation.html", "ai-usage.html", "references.html"],
+                ["index.html", "mobile.html", "ai-usage.html", "remediation.html", "references.html"],
             )
             self.assertNotIn("desktop.html", hrefs)
             self.assertNotIn("content-suggestions.html", hrefs)

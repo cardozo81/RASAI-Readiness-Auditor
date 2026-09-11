@@ -5,6 +5,7 @@ import argparse
 import json
 from typing import Sequence
 
+from rasai.saas_context_integration import install as install_saas_context_integration
 from rasai.secret_safety import redact_value
 from rasai.worker import run_one
 
@@ -20,6 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    install_saas_context_integration()
     args = build_parser().parse_args(list(argv) if argv is not None else None)
     if args.worker_command == "run-once":
         item = run_one(

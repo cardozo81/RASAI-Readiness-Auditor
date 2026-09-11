@@ -30,8 +30,9 @@ report/
 ├─ index.html
 ├─ readiness.html              # SARI-001
 ├─ scoring.html                # fórmula, pesos e gates do scoring vigente
+├─ context.html                # topologia de captura URL/device; read-only
 ├─ content-suggestions.html    # existe mesmo sem IA de conteúdo
-├─ crawling-discovery.html
+├─ crawling-discovery.html     # Domínio e descoberta; recursos ORIGIN
 ├─ accessibility.html          # existe mesmo sem Lighthouse disponível
 ├─ web-performance.html        # existe mesmo com coleta externa desabilitada
 ├─ remediation.html
@@ -74,7 +75,7 @@ quality.html
 
 Eles são materializados quando sua capacidade especializada possui dados para o AUD. Portanto, a ausência desses arquivos em um workspace recém-gerado não significa, por si só, falha da auditoria base.
 
-Saídas históricas, comparativas e consolidadas também podem existir fora do diretório `report/` do AUD, por exemplo em `search-history/`, `monitoring/`, `verification/`, `quality/TIMELINE-*` e `consolidated/`.
+Saídas comparativas e consolidadas também podem existir fora do diretório `report/` do AUD, por exemplo em `search-history/`, `monitoring/`, `verification/`, `quality/TIMELINE-*` e `consolidated/`.
 
 ## SARI-001 / SCORE-GEO-004
 
@@ -95,10 +96,11 @@ SARI-001 é metodologia proprietária, evidence-bound e reprodutível. Não repr
 |---|---|---|
 | visão executiva | `index.html` | síntese de dados persistidos |
 | SARI-001 / dimensões | `readiness.html` | readiness proprietário |
-| metodologia de scoring | `scoring.html` | contrato versionado; vigente `SCORE-GEO-004` |
+| metodologia de scoring | `scoring.html` | contrato vigente `SCORE-GEO-004` |
+| contexto de captura | `context.html` | escopo URL/device, variância de documento e runtime; read-only |
 | Mobile | `mobile.html` | evidências/findings do contexto Mobile |
 | Desktop | `desktop.html` | evidências/findings do contexto Desktop |
-| Crawling/discovery | `crawling-discovery.html` | diagnóstico técnico e evidência de descoberta |
+| Domínio e descoberta | `crawling-discovery.html` | superfície canônica de `ORIGIN`: robots, sitemaps, llms.txt e controles de crawler |
 | Acessibilidade automatizada | `accessibility.html` | diagnóstico; não certificação WCAG |
 | Core Web Vitals / Lighthouse | `web-performance.html` | lab + field data separados |
 | Search Intelligence | `search-intelligence.html` | SERP observado e análise competitiva; non-scoring |
@@ -113,6 +115,39 @@ SARI-001 é metodologia proprietária, evidence-bound e reprodutível. Não repr
 | Referências | `references.html` | metodologia e proveniência |
 
 `index.html` pode repetir sínteses necessárias à leitura executiva, mas não funde domínios complementares em um score comum.
+
+## Escopo de captura e não duplicação
+
+O contrato `CONTEXT-SCOPE-001` separa quatro níveis:
+
+```text
+ORIGIN
+URL
+DEVICE_SNAPSHOT
+PROFILE_MEASUREMENT
+```
+
+`robots.txt`, sitemaps, `llms.txt` e demais fatos globais pertencem a `ORIGIN`. Eles são apresentados detalhadamente em **Domínio e descoberta** e não devem ser replicados por URL em Mobile, Desktop ou `context.html`.
+
+HTTP/HTML bruto e redirects pertencem à URL. DOM renderizado, erros JavaScript/runtime e Lighthouse pertencem ao snapshot/dispositivo. Apdex pertence ao perfil sintético executado.
+
+`context.html` existe para mostrar essa topologia, comparar documentos recebidos por Mobile/Desktop e apresentar erros de runtime por snapshot. Ele não recalcula score e não realiza nova chamada de rede ou IA.
+
+## Múltiplas URLs
+
+Com uma única URL, o layout permanece simples e linear.
+
+Quando uma coleção de resultados possui **duas ou mais URLs distintas**, a camada comum de apresentação oferece, conforme aplicável:
+
+- filtro por URL;
+- filtro Mobile/Desktop quando ambos estiverem presentes;
+- busca textual;
+- quantidade de itens por página;
+- paginação local.
+
+Um item pode representar mais de uma URL, como uma remediação agrupada. Nesse caso todas as URLs presentes no item são indexadas para o filtro.
+
+Os filtros são client-side e não removem evidência do HTML gerado. A impressão continua podendo expor a coleção completa.
 
 ## Configuração versus resultado obtido
 
@@ -131,11 +166,11 @@ error
 
 Timeout, quota, HTTP, falta de artifact ou ausência de dado da fonte não são convertidos em problema do website.
 
-Essa distinção é especialmente importante em páginas que agora existem sempre na auditoria base: `content-suggestions.html`, `web-performance.html`, `accessibility.html` e `ai-usage.html`. Nelas, um estado desabilitado ou indisponível deve ser explícito; a presença do arquivo não significa que a coleta ou IA ocorreu.
+Essa distinção é especialmente importante em páginas que existem sempre na auditoria base: `context.html`, `content-suggestions.html`, `web-performance.html`, `accessibility.html` e `ai-usage.html`. Nelas, um estado desabilitado ou indisponível deve ser explícito; a presença do arquivo não significa que a coleta ou IA ocorreu.
 
-## Crawling e descoberta
+## Domínio e descoberta
 
-`crawling-discovery.html` concentra robots/crawler policy, sitemaps, feeds, `llms.txt` experimental e evidências correlatas. Quando artifacts textuais foram efetivamente capturados, o relatório pode exibir uma pré-visualização read-only sem fazer nova requisição de rede.
+`crawling-discovery.html` concentra robots/crawler policy, sitemaps, feeds, `llms.txt` experimental e evidências correlatas no escopo `ORIGIN`. Quando artifacts textuais foram efetivamente capturados, o relatório pode exibir uma pré-visualização read-only sem fazer nova requisição de rede.
 
 O peso direto de `llms.txt` no `SARI-001` é `0`: presença, ausência ou erro não alteram `SCORE-GEO-004`. O arquivo permanece um sinal experimental/advisory, não um requisito normativo de Search ou de sistemas generativos.
 
@@ -151,11 +186,13 @@ A página não altera `SCORE-GEO-004`.
 
 `web-performance.html` mantém Lighthouse lab e CrUX field separados. A página é materializada mesmo quando a coleta externa está desabilitada, justamente para deixar esse estado inequívoco.
 
+Mobile e Desktop permanecem observações distintas. O relatório não cria média única automática entre os dois contextos.
+
 Synthetic Apdex não é derivado de LCP, INP, CLS, FCP ou TBT. Web Performance não altera automaticamente SARI/SCORE.
 
 ## Synthetic Navigation Apdex
 
-`apdex.html` existe somente quando a execução correspondente estiver habilitada e persistida. Apresenta T/4T, classificação Satisfied/Tolerating/Frustrated, amostras, exclusões e limitações.
+`apdex.html` existe somente quando a execução correspondente estiver habilitada e persistida. Apresenta T/4T, classificação Satisfied/Tolerating/Frustrated, amostras, exclusões, perfil operacional e limitações.
 
 É sintético, não RUM e não altera `SCORE-GEO-004`.
 
@@ -184,6 +221,8 @@ Aplicar uma recomendação exige nova auditoria para medir novo estado; o report
 `ai-usage.html` é audit-owned e sempre deve existir. Quando não houve IA, a página representa esse estado. Quando houve chamadas, deve preservar provider/modelo, tentativa/status, tokens, reasoning configurado quando disponível e custo estimado.
 
 Custo é estimativa operacional, não invoice nem sinal de qualidade. A página não cria chamadas adicionais de IA.
+
+A política de eficiência prioriza uma chamada estruturada por snapshot para o conjunto contratado de regras semânticas, em vez de uma chamada por regra, e evita repetir análise de recursos globais somente porque existem dois dispositivos.
 
 ## Observed Generative Visibility
 
@@ -243,30 +282,40 @@ Comparabilidade deve considerar `scoring_version`, device e universo de URL quan
 
 Todas as páginas materializadas devem compartilhar navegação estável, apenas um item ativo, layout responsivo, tabelas legíveis e footer coerente.
 
-A ordem canônica do contrato atual é:
+A navegação é agrupada em submenus:
 
 ```text
-Visão geral
-Readiness SARI
-Metodologia de scoring
-Relatório Mobile
-Relatório Desktop
-Rastreamento e descoberta
-Acessibilidade
-Web Performance
-Search Intelligence
-Apdex de navegação
-Apdex de experiência
-Conteúdo e JSON-LD
-Remediações
-Visibilidade em IA
-Search & AI observados
-Quality & decisão
-Uso de IA
-Referências e metodologia
+Visão e readiness
+  Visão geral
+  Readiness SARI
+  Metodologia de scoring
+
+Coleta e dispositivos
+  Contexto de captura
+  Domínio e descoberta
+  Relatório Mobile
+  Relatório Desktop
+  Web Performance
+  Acessibilidade
+  Apdex de navegação
+  Apdex de experiência
+
+Search e IA
+  Search Intelligence
+  Visibilidade em IA
+  Search & AI observados
+  Uso de IA
+
+Ações e referência
+  Conteúdo e JSON-LD
+  Remediações
+  Quality & decisão
+  Referências e metodologia
 ```
 
 Itens sem arquivo materializado são omitidos sem alterar a ordem relativa dos demais.
+
+O SaaS Pilot Web usa o mesmo catálogo canônico do mini-site para listar relatórios disponíveis; não mantém uma segunda lista independente de filenames/rótulos.
 
 ## Fonte de verdade
 
@@ -297,6 +346,6 @@ Estados visuais específicos do domínio prevalecem sobre decoradores genéricos
 
 ## Contrato atual
 
-O catálogo de superfícies e a validação de completude usam `REPORT-CONTRACT-002`. `scoring.html` é a única superfície canônica de metodologia durante a fase pré-publicação; a versão metodológica pertence a `scoring_version`, não ao filename.
+O catálogo de superfícies e a validação de completude usam `REPORT-CONTRACT-002`. `scoring.html` é a única superfície canônica de metodologia; a versão metodológica pertence a `scoring_version`, não ao filename.
 
-Detalhes complementares: [OUTPUTS_AND_ARTIFACTS.md](OUTPUTS_AND_ARTIFACTS.md), [SCORING_GUIDE.md](SCORING_GUIDE.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md) e [SCORE_GEO_004.md](SCORE_GEO_004.md).
+Detalhes complementares: [OUTPUTS_AND_ARTIFACTS.md](OUTPUTS_AND_ARTIFACTS.md), [SCORING_GUIDE.md](SCORING_GUIDE.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md), [SCORE_GEO_004.md](SCORE_GEO_004.md) e [CAPTURE_CONTEXT_MODEL.md](CAPTURE_CONTEXT_MODEL.md).
