@@ -8,7 +8,6 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 import re
-import sys
 
 from rasai.indicator_provenance import enrich_indicator_provenance_html
 from rasai.report_contract import (
@@ -139,6 +138,10 @@ _PUBLIC_HTML_MILESTONE_FIXTURES = (
     "M24-CD-001",
     "Rastreamento e descoberta M24",
 )
+
+_SCORING_SCAN_SUFFIXES = frozenset({
+    ".py", ".md", ".txt", ".toml", ".yml", ".yaml", ".json", ".ini", ".cmd", ".ps1"
+})
 
 
 def _root(root: str | Path | None) -> Path:
@@ -282,6 +285,49 @@ def _check_public_html_normalization(errors: list[str]) -> None:
     if _MILESTONE_PUBLIC_RE.search(normalized):
         errors.append("normalizador público mantém identificadores internos de entrega no HTML")
 
+    # Never solve the public milestone problem with a generic replacement over audited
+    # content: a product/model can legitimately contain the same token shape.
+    evidence = "<html><body><p>Produto M25 industrial observado na página.</p></body></html>"
+    preserved = enrich_indicator_provenance_html(evidence, page_name="other.html")
+    if "Produto M25 industrial observado na página." not in preserved:
+        errors.append("normalizador público altera conteúdo auditado legítimo")
+
+
+def _check_single_scoring_contract(root: Path, errors: list[str]) -> None:
+    """Reject concrete scoring versions other than the single current contract."""
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in _SCORING_SCAN_SUFFIXES:
+            continue
+        if any(part in {".git", ".venv", "venv", "__pycache__"} for part in path.parts):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        match = _OLD_VERSION_RE.search(text)
+        if match:
+            errors.append(
+                f"contrato de scoring inválido {match.group(0)!r}: {path.relative_to(root)}; "
+                f"somente {EXPECTED_SCORING_VERSION} é válido"
+            )
+
+    stale_reporting_claims = (
+        "No Search Intelligence-specific HTML report is introduced yet",
+        "no Search Intelligence-specific HTML report yet",
+        "não há Search Intelligence HTML específico",
+        "no dedicated historical HTML report is generated yet",
+    )
+    for relative in (
+        "docs/SERP_OBSERVATION.md",
+        "docs/COMPETITIVE_SEARCH_INTELLIGENCE.md",
+        "docs/COMPETITIVE_AI_INTELLIGENCE.md",
+        "docs/SEARCH_INTELLIGENCE_HISTORY.md",
+    ):
+        text = _read(root, relative)
+        for claim in stale_reporting_claims:
+            if claim in text:
+                errors.append(f"documentação anuncia limitação já implementada em {relative}: {claim}")
+
 
 def validate_public_contract(root: str | Path | None = None) -> tuple[str, ...]:
     errors: list[str] = []
@@ -292,6 +338,7 @@ def validate_public_contract(root: str | Path | None = None) -> tuple[str, ...]:
     _check_surfaces(base, errors)
     _check_generators(base, errors)
     _check_public_html_normalization(errors)
+    _check_single_scoring_contract(base, errors)
     return tuple(dict.fromkeys(errors))
 
 
@@ -303,6 +350,7 @@ def main() -> int:
             print(f"- {error}")
         return 1
     print("PUBLIC CONTRACT CONSISTENCY GATE: PASS")
+    print(f"runtime={SCORING_VERSION}; sari={SARI_VERSION}; report={REPORT_FILE}; surfaces={len(REPORT_SURFACES)}")
     return 0
 
 
