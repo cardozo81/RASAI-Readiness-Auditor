@@ -116,11 +116,14 @@ def test_ai_cost_banner_uses_persisted_attempts_across_purposes() -> None:
         assert "Consumo projetado total" not in html
 
 
-def test_ai_usage_nested_badges_and_exchange_log_pre_are_transparent() -> None:
+def test_ai_usage_nested_badges_and_exchange_log_pre_inherits_background() -> None:
     from rasai import report_ai_runtime_enrichment, report_semantics
 
     _install_ai_usage_presentation_fix()
-    assert "background:transparent" in report_ai_runtime_enrichment._RUNTIME_STYLE
+    style = report_ai_runtime_enrichment._RUNTIME_STYLE
+    assert ".ai-exchange-log pre{" in style
+    assert "background:transparent" not in style
+    assert "background:var(--code-bg" not in style
     assert ".result-tag .badge.good" in report_semantics.SEMANTIC_CSS
 
 
