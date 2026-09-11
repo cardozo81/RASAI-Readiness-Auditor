@@ -1,4 +1,4 @@
-"""Read-only report for origin, URL, device and synthetic-profile capture scopes."""
+"""Read-only report for URL, device and synthetic-profile capture scopes."""
 from __future__ import annotations
 
 from collections import Counter, defaultdict
@@ -20,6 +20,7 @@ from rasai import report_navigation
 
 
 REPORT_FILE = "context.html"
+DOMAIN_REPORT_FILE = "crawling-discovery.html"
 
 
 def _table_exists(connection: sqlite3.Connection, table: str) -> bool:
@@ -62,10 +63,9 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
                 ]
 
         scope_counts: Counter[str] = Counter()
-        origin_resources: list[dict[str, str]] = []
         if _table_exists(connection, "evidence"):
             cols = _columns(connection, "evidence")
-            selected = [name for name in ("evidence_type", "page_id", "snapshot_id", "device", "source") if name in cols]
+            selected = [name for name in ("page_id", "snapshot_id", "device") if name in cols]
             if selected and "audit_id" in cols:
                 rows = connection.execute(
                     f"SELECT {','.join(selected)} FROM evidence WHERE audit_id=? ORDER BY rowid",
@@ -79,14 +79,6 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
                         device=values.get("device"),
                     )
                     scope_counts[scope.value] += 1
-                    if values.get("evidence_type") in {"ROBOTS_RULE", "SITEMAP_ENTRY"}:
-                        origin_resources.append(
-                            {
-                                "type": str(values.get("evidence_type")),
-                                "source": str(values.get("source") or "-"),
-                                "scope": scope.value,
-                            }
-                        )
 
         snapshots: list[dict[str, Any]] = []
         if _table_exists(connection, "page_snapshots") and _table_exists(connection, "pages"):
@@ -149,15 +141,6 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
                 }
             )
 
-        llms_state = None
-        if _table_exists(connection, "m24_runs"):
-            cols = _columns(connection, "m24_runs")
-            if {"audit_id", "llms_state"}.issubset(cols):
-                row = connection.execute(
-                    "SELECT llms_state FROM m24_runs WHERE audit_id=? ORDER BY rowid DESC LIMIT 1", (audit_id,)
-                ).fetchone()
-                llms_state = str(row[0]) if row and row[0] is not None else None
-
         page_count = 0
         if _table_exists(connection, "pages") and "audit_id" in _columns(connection, "pages"):
             page_count = int(connection.execute("SELECT COUNT(*) FROM pages WHERE audit_id=?", (audit_id,)).fetchone()[0])
@@ -165,10 +148,8 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
         return {
             "origins": origins,
             "scope_counts": scope_counts,
-            "origin_resources": origin_resources,
             "snapshots": snapshots,
             "variance": variance,
-            "llms_state": llms_state,
             "page_count": page_count,
         }
     finally:
@@ -184,6 +165,11 @@ def _scope_cards(data: dict[str, Any]) -> str:
             observed_text = "medição configurada separadamente"
         else:
             observed_text = f"{observed} evidência(s) persistida(s)"
+        destination = ""
+        if definition.scope is ContextScope.ORIGIN:
+            destination = (
+                f"<p><a href='{DOMAIN_REPORT_FILE}'>Abrir dados detalhados de domínio/origem</a></p>"
+            )
         cards.append(
             "<div class='page-card'>"
             f"<h3>{escape(scope_label(definition.scope))}</h3>"
@@ -191,40 +177,16 @@ def _scope_cards(data: dict[str, Any]) -> str:
             f"<p>{escape(definition.meaning)}</p>"
             f"<p><strong>Exemplos:</strong> {escape(', '.join(definition.examples))}</p>"
             f"<p><strong>Política:</strong> {escape(definition.reacquisition_policy)}</p>"
+            f"{destination}"
             "</div>"
         )
     return "".join(cards)
 
 
-def _origin_table(data: dict[str, Any]) -> str:
-    rows = []
-    seen: set[tuple[str, str]] = set()
-    for item in data["origin_resources"]:
-        key = (item["type"], item["source"])
-        if key in seen:
-            continue
-        seen.add(key)
-        rows.append(
-            f"<tr><td>{escape(item['type'])}</td><td><code>{escape(item['source'])}</code></td>"
-            f"<td>{escape(scope_label(item['scope']))}</td><td>Uma vez por auditoria/origin</td></tr>"
-        )
-    if data.get("llms_state") is not None:
-        rows.append(
-            f"<tr><td>LLMS.TXT</td><td>descoberta M24</td><td>{escape(scope_label(ContextScope.ORIGIN))}</td>"
-            f"<td>{escape(str(data['llms_state']))}</td></tr>"
-        )
-    if not rows:
-        return "<p>Nenhum recurso global foi projetado nesta execução.</p>"
-    return (
-        "<div class='table-wrap'><table><thead><tr><th>Recurso</th><th>Origem</th><th>Escopo</th><th>Coleta</th></tr></thead>"
-        f"<tbody>{''.join(rows)}</tbody></table></div>"
-    )
-
-
 def _snapshot_table(data: dict[str, Any]) -> str:
     rows = []
     for item in data["snapshots"]:
-        digest = item["source_hash"][:12] + "…" if item["source_hash"] else "não capturado"
+        digest = item["source_hash"][:12] + "..." if item["source_hash"] else "não capturado"
         rows.append(
             "<tr>"
             f"<td>{escape(item['device'])}</td><td><code>{escape(item['url'])}</code></td>"
@@ -288,7 +250,7 @@ def _runtime_details(data: dict[str, Any]) -> str:
 
 
 def write_context_report(*, audit_id: str, workspace: AuditWorkspace) -> Path:
-    """Render context topology without recalculating any score."""
+    """Render capture topology without recalculating any score."""
     data = _load(audit_id, workspace)
     report_dir = workspace.root / "report"
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -297,20 +259,20 @@ def write_context_report(*, audit_id: str, workspace: AuditWorkspace) -> Path:
     origins = ", ".join(data["origins"]) or "não disponível"
     html = f"""<!doctype html>
 <html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
-<title>RASAi · Contexto de coleta</title><link rel='stylesheet' href='css/site.css'></head><body>
+<title>RASAi · Contexto de captura</title><link rel='stylesheet' href='css/site.css'></head><body>
 <div class='app-shell'>{nav}<main class='app-main'>
 <header class='hero'><div class='eyebrow'>Contrato de captura · {escape(CONTEXT_SCOPE_CONTRACT_VERSION)}</div>
-<h1>Contexto de dados: domínio, URL e dispositivo</h1>
-<p>Esta superfície mostra onde cada evidência foi capturada e quando uma nova requisição é necessária. Ela não altera fórmulas, pesos ou scores.</p></header>
+<h1>Contexto de captura: URL e dispositivo</h1>
+<p>Esta superfície explica onde cada evidência é capturada e mostra diferenças observadas entre snapshots. Dados detalhados da origem ficam concentrados em <a href='{DOMAIN_REPORT_FILE}'>Domínio e descoberta</a>. Fórmulas, pesos e scores não são alterados.</p></header>
 <section class='panel'><h2>Topologia desta auditoria</h2><div class='metric-grid'>
 <div class='metric'><small>Origem</small><strong>{escape(origins)}</strong></div>
 <div class='metric'><small>URLs auditadas</small><strong>{data['page_count']}</strong></div>
 <div class='metric'><small>Snapshots de browser</small><strong>{len(data['snapshots'])}</strong></div>
 <div class='metric'><small>Contrato</small><strong>{escape(CONTEXT_SCOPE_CONTRACT_VERSION)}</strong></div>
 </div><div class='grid'>{_scope_cards(data)}</div></section>
-<section class='panel'><h2>Recursos de domínio/origin</h2>
-<p><code>robots.txt</code>, sitemaps e recursos globais não são repetidos por URL ou dispositivo apenas porque Mobile/Desktop estão habilitados.</p>
-{_origin_table(data)}</section>
+<section class='panel'><h2>Dados de domínio/origem</h2>
+<div class='notice'><strong>Sem repetição nesta página.</strong> <code>robots.txt</code>, sitemaps, <code>llms.txt</code> e demais fatos <code>ORIGIN</code> são exibidos em uma única superfície: <a href='{DOMAIN_REPORT_FILE}'>Domínio e descoberta</a>. Eles não são replicados por URL ou por dispositivo.</div>
+</section>
 <section class='panel'><h2>Snapshots por dispositivo</h2>
 <p>DOM, execução JavaScript, identidade de browser e o documento efetivamente recebido pelo browser pertencem ao snapshot do dispositivo.</p>
 {_snapshot_table(data)}</section>
