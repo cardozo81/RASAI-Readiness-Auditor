@@ -89,8 +89,8 @@ Essa semântica vale também para a área de providers de IA.
 
 A opção 4 separa duas perguntas:
 
-1. **o provider pode ser configurado?** — sim, qualquer provider registrado pode ser selecionado;
-2. **o provider está apto para executar agora?** — depende de credencial/configuração válida e de bloqueios runtime.
+1. **o provider pode ser configurado?** - sim, qualquer provider registrado pode ser selecionado;
+2. **o provider está apto para executar agora?** - depende de credencial/configuração válida e de bloqueios runtime.
 
 Portanto, um provider sem Key não fica bloqueado para configuração. Ele aparece como `CONFIGURAR` e pode ser aberto normalmente.
 
