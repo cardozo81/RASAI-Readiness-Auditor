@@ -35,7 +35,7 @@ No downstream rule, score, AI adapter or report generator may re-open the page m
 
 ### Browser wall-clock protection
 
-The normal browser renderer is owned by a persistent isolated worker process. Healthy URL/device contexts reuse the same worker/browser session. A complete context has a caller-side wall-clock deadline (`RASAI_M3_RENDER_WALLCLOCK_SECONDS`, default 60 s) in addition to Playwright operation-level timeouts.
+The normal browser renderer is owned by a persistent isolated worker process. Healthy URL/device contexts reuse the same worker/browser session. A complete context has a configurable caller-side wall-clock deadline, with baseline de 60 s, in addition to Playwright operation-level timeouts.
 
 If the complete render exceeds that deadline:
 
