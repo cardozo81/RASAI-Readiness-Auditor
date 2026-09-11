@@ -1,223 +1,230 @@
 # REPORTING_LANGUAGE_GLOSSARY.md
 
-**Estado no baseline de desenvolvimento:** aprovado / vigente, incluindo Web Performance, Accessibility, Apdex, Search Intelligence e demais páginas especializadas materializadas pelo contrato atual.
+**Estado no baseline de desenvolvimento:** vigente.
+
+Este documento define a linguagem pública dos reports HTML do RASAi. Persistência, enums, IDs de regra e contratos internos permanecem canônicos no código/banco; a interface principal deve priorizar leitura humana.
 
 ## 1. Regra editorial
 
-Relatórios e documentação destinados ao usuário devem ser prioritariamente em português do Brasil, com acentuação e cedilha quando aplicáveis.
+O texto explicativo destinado ao usuário é prioritariamente em português do Brasil.
 
-Inglês somente quando:
+Termos conceituais/técnicos consolidados permanecem em inglês quando a tradução reduzir precisão, criar nomenclatura artificial ou divergir do uso corrente da disciplina.
 
-- o nome técnico é consagrado;
-- o nome oficial não deve ser traduzido;
-- a tradução reduziria precisão;
-- o valor deriva literalmente de protocolo, HTML, API, enum, comando, variável, campo persistido ou identificador técnico.
+Exemplos que devem permanecer em inglês na leitura principal:
 
-O usuário deve encontrar o resultado executivo antes da metodologia detalhada.
+- Search & AI Readiness;
+- Overall Readiness;
+- Discovery & Crawler Access;
+- Indexability;
+- Rendering & Extractability;
+- Semantic Structure;
+- Entity Clarity;
+- Structured Data;
+- Answerability;
+- Citation Readiness;
+- Evidence & Trust;
+- Intent Coverage;
+- Content Value;
+- Core Web Vitals;
+- Lighthouse;
+- Lighthouse Performance;
+- CrUX / Chrome UX Report;
+- Apdex;
+- RUM;
+- JSON-LD;
+- canonical;
+- robots.txt;
+- Sitemap;
+- SPA, SSR e CSR.
 
-Quando for necessário reproduzir trecho externo não pt-BR, usar o padrão:
+Estados operacionais, mensagens, ações e explicações permanecem em linguagem humana pt-BR.
 
-```text
-Disclaimer - texto original da fonte
-<trecho estritamente necessário e fiel ao original>
+## 2. Identificador interno x rótulo público
 
-Tradução/adaptação pt-BR
-<explicação contextual em português>
-```
-
-Links para fontes externas não exigem reprodução de seu conteúdo. Não copiar integralmente uma obra externa quando um trecho menor ou apenas a referência for suficiente.
-
-## 2. Tradução da interface
-
-| Termo/valor técnico | Exibição recomendada em pt-BR |
-|---|---|
-| Overall Readiness | Readiness Search & AI |
-| Technical Accessibility | Acessibilidade Técnica quando o contexto exigir o termo histórico; para a dimensão atual usar o rótulo de `DISCOVERY_ACCESS` definido pelo relatório |
-| Indexability | Capacidade de Indexação |
-| Content Extractability | Extração de Conteúdo |
-| Semantic Structure | Estrutura Semântica |
-| Entity Clarity | Clareza de Entidades |
-| Structured Data | Dados Estruturados |
-| Answerability | Capacidade de Resposta |
-| Citation Readiness | Preparação para Citação |
-| Evidence & Trust | Evidências e Confiabilidade |
-| Intent Coverage | Cobertura de Intenções |
-| Finding | Problema Identificado |
-| Recommendation | Recomendação |
-| Remediation Recipe | Receita de Remediação / Remediation Recipe |
-| Severity | Severidade |
-| Impact | Impacto |
-| Effort | Esforço |
-| Confidence | Confiabilidade |
-| Coverage | Cobertura da Análise |
-| Consolidated | Consolidado |
-| Partial | Parcial |
-| Not Consolidated | Não Consolidado |
-| Unknown | Não Determinado |
-| Warning | Alerta |
-| `PASS` | Aprovado |
-| `FAIL` | Problema identificado |
-| `NOT_APPLICABLE` | Não aplicável |
-| `ERROR` | Erro de execução da análise |
-| Core Web Vitals | Core Web Vitals - métricas de experiência real; preservar nome oficial |
-| Lighthouse Performance | Lighthouse Performance - score de laboratório; não traduzir como Score GEO |
-| CrUX / Chrome UX Report | CrUX / Chrome UX Report - dados agregados de usuários reais |
-| Field data | Dados de campo / experiência real agregada |
-| Lab data | Dados de laboratório |
-| LCP | Largest Contentful Paint (LCP) |
-| INP | Interaction to Next Paint (INP) |
-| CLS | Cumulative Layout Shift (CLS) |
-
-## 3. Estado geral quando Overall não é consolidável
-
-Quando `OVERALL_READINESS` não possuir valor consolidado, o relatório deve usar explicitamente:
-
-```text
-COMPATIBILIDADE GEO
-NÃO DETERMINADA
-```
-
-Não usar somente `-` como estado principal.
-
-Não apresentar Coverage como substituto de Readiness Search & AI.
-
-`NÃO DETERMINADA` significa informação insuficiente para conclusão geral; não equivale a zero, `FAIL` ou resultado crítico.
-
-## 4. Semântica visual
-
-Cores de referência:
-
-- sucesso/aprovado/resultado forte: verde (`#16803C`);
-- atenção: amarelo (`#D99A00`);
-- problema relevante: laranja (`#D65A00`);
-- erro/crítico: vermelho (`#C62828`);
-- não determinado/informação insuficiente: cinza (`#667085`);
-- informação metodológica: azul (`#2563EB`).
-
-Todo estado visual deve incluir texto. Cor isolada nunca é suficiente.
-
-Estados textuais possíveis incluem:
-
-- APROVADO;
-- ALERTA;
-- PROBLEMA;
-- CRÍTICO;
-- PARCIAL;
-- NÃO DETERMINADO;
-- NÃO CONSOLIDADO;
-- INCOMPLETO;
-- INDISPONÍVEL.
-
-## 5. Classificação textual de score válido
-
-| Faixa | Termo | Natureza | Recomendado |
-|---:|---|---|---|
-| 90-100 | Excelente | classificação interna RASAi | usar somente em score RASAi válido/consolidável conforme a tela |
-| 75-89 | Alta | classificação interna RASAi | idem |
-| 60-74 | Moderada | classificação interna RASAi | idem |
-| 40-59 | Baixa | classificação interna RASAi | idem |
-| 0-39 | Crítica | classificação interna RASAi | idem |
-| sem resultado válido | Não Determinada | ausência/insuficiência | não substituir por zero |
-
-Essas faixas são internas ao RASAi e não são parâmetros configuráveis da auditoria. Não devem ser reutilizadas automaticamente para classificar `Lighthouse Performance`, cujo score pertence à metodologia externa do Lighthouse.
-
-A cor do resultado geral deve respeitar também Consolidation. Um valor não consolidável não deve receber apresentação de resultado geral válido.
-
-## 6. Termos técnicos preservados
+Enums internos não devem aparecer como rótulo visual principal.
 
 Exemplos:
 
-- HTTP;
-- `robots.txt`;
-- canonical;
-- `noindex`;
-- JSON-LD;
-- Googlebot;
-- OAI-SearchBot;
-- GPTBot;
-- SPA;
-- SSR;
-- CSR;
-- Playwright;
-- Chromium;
-- PageSpeed Insights;
-- Lighthouse;
-- CrUX;
-- Core Web Vitals;
-- LCP;
-- INP;
-- CLS;
-- FCP;
-- TBT;
-- Speed Index.
+| Persistido/interno | Rótulo público principal |
+|---|---|
+| `DISCOVERY_ACCESS` | Discovery & Crawler Access |
+| `INDEXABILITY` | Indexability |
+| `CONTENT_EXTRACTABILITY` | Rendering & Extractability |
+| `SEMANTIC_STRUCTURE` | Semantic Structure |
+| `ENTITY_CLARITY` | Entity Clarity |
+| `STRUCTURED_DATA` | Structured Data |
+| `ANSWERABILITY` | Answerability |
+| `CITATION_READINESS` | Citation Readiness |
+| `EVIDENCE_TRUST` | Evidence & Trust |
+| `INTENT_COVERAGE` | Intent Coverage |
+| `CONTENT_VALUE` | Content Value |
+| `OVERALL_READINESS` | Overall Readiness |
 
-Na primeira ocorrência, quando útil à leitura humana, pode-se usar:
+O mesmo princípio vale para `scoring_group`:
 
-- Canonical (URL canônica);
-- Soft 404 (página com semântica de erro sem status HTTP apropriado);
-- Client-Side Rendering - CSR (renderização no navegador);
-- CrUX (Chrome UX Report - dados agregados de usuários reais);
-- Lighthouse Performance (score de laboratório do Lighthouse).
+```text
+PAGE_ACCESS                  -> Page Access
+INDEX_DIRECTIVES             -> Index Directives
+STRUCTURED_DATA_SYNTAX       -> Structured Data Syntax
+STRUCTURED_DATA_CONSISTENCY  -> Structured Data Consistency
+CONTENT_USEFULNESS           -> Content Usefulness
+CONTENT_DIFFERENTIATION      -> Content Differentiation
+CONTENT_DEPTH                -> Content Depth
+```
 
-## 7. Seção de interpretação
+Quando o ID técnico for útil para auditoria/rastreabilidade, ele pode aparecer de forma secundária em `<code>`, detalhes técnicos, tooltip ou metadado. O nome humano/conceitual continua sendo o texto principal.
 
-O título deve incluir:
+## 3. Identificadores metodológicos
 
-`Como interpretar este relatório`
+IDs como:
 
-Explicar separadamente:
+```text
+SCORE-GEO-004
+SARI-001
+HIERARCHICAL_WEIGHTED_READINESS_V1
+SARI_DIMENSION_WEIGHTS_V1
+SARI_GROUP_WEIGHTS_V1
+SARI_CRITICAL_GATES_V1
+```
 
-### Readiness Search & AI
+são válidos como versão, contrato, metadado ou rastreabilidade técnica.
 
-Quão preparado está o site segundo o score consolidado RASAi.
+Eles não devem substituir um título humano quando o contexto for de navegação/leitura. Exemplo:
 
-### Cobertura da Análise
+```text
+Hierarchical Weighted Readiness
+```
 
-Quanto do universo aplicável pôde ser efetivamente analisado.
+pode ser o título; o ID canônico pode aparecer ao lado em `<code>`.
 
-Baixa Coverage não significa necessariamente baixa qualidade do site.
+## 4. Estados operacionais
 
-### Confiabilidade
+Estados persistidos devem ser apresentados em pt-BR quando aparecem como valor primário:
 
-Grau de segurança da conclusão com base em evidência, método e limitações.
+| Interno | Exibição |
+|---|---|
+| `PASS` | Aprovado |
+| `FAIL` | Não aprovado / problema identificado conforme contexto |
+| `WARNING` | Alerta |
+| `UNKNOWN` | Não determinado |
+| `NOT_APPLICABLE` | Não aplicável |
+| `CONSOLIDATED` | Consolidado |
+| `NOT_CONSOLIDATED` | Não consolidado |
+| `PARTIAL` | Parcial |
+| `UNAVAILABLE` | Indisponível |
+| `BLOCKED` | Bloqueado |
+| `ATTENTION` | Atenção |
+| `READY` | Pronto |
+| `DISABLED` | Desabilitado |
+| `REGRESSED` | Regrediu |
+| `IMPROVED` | Melhorou |
+| `RESOLVED` | Resolvido |
+| `NOT_OBSERVED` | Não observado |
+| `DATA_UNAVAILABLE` | Dados indisponíveis |
 
-### Consolidado
+`UNKNOWN`, `UNAVAILABLE` e `NOT_CONSOLIDATED` nunca devem ser transformados em zero ou `FAIL` artificial.
 
-Há cobertura e confiabilidade suficientes para apresentar o resultado como consolidado.
+## 5. Blocos técnicos preservados
 
-### Parcial
+A camada de humanização não deve reescrever conteúdo destinado explicitamente à rastreabilidade, por exemplo:
 
-Parte relevante da avaliação está disponível, mas existem limitações.
+- `<code>`;
+- `<pre>`;
+- IDs `BR-GEO-*`;
+- nomes de variáveis como `RASAI_*`;
+- nomes de campos persistidos;
+- payloads/JSON de diagnóstico;
+- versões/contratos quando apresentados como metadados;
+- timestamps canônicos usados como exemplo técnico.
 
-### Não Consolidado / Não Determinado
+Isso permite uma UI humana sem destruir a capacidade de suporte/auditoria.
 
-Não há base suficiente para apresentar conclusão agregada. O estado não é score zero.
+## 6. Semântica visual
 
-### Severidade
+Cor reforça o estado, mas nunca substitui texto.
 
-Gravidade intrínseca do problema.
+Referência geral:
 
-### Prioridade
+- sucesso/aprovado/resultado forte: verde;
+- atenção/configuração necessária: amarelo;
+- problema relevante: laranja quando a superfície usar essa gradação;
+- erro/crítico/bloqueio: vermelho;
+- não determinado/inativo/desabilitado: cinza;
+- informação metodológica/contextual: azul/ciano conforme a superfície.
 
-Ordem recomendada de ação considerando gravidade, impacto, confiabilidade e facilidade.
+No console de IA, especificamente:
 
-### Desktop e Mobile
+```text
+APTO / ativo / incluído no AUTO -> verde
+CONFIGURAR                       -> amarelo
+INDISPONÍVEL                     -> vermelho
+DESABILITADA / ausente / excluído do AUTO -> cinza/dim
+```
 
-São contextos independentes e podem apresentar resultados diferentes.
+## 7. Navegação e contraste
 
-### Web Performance externo
+O menu dos reports usa navegação escura. Elementos `<details>` usados para agrupamento do menu devem receber estilo escopado ao contêiner de navegação.
 
-`Core Web Vitals` e `Lighthouse` aparecem como evidência complementar, não como dimensões implícitas do Score GEO.
+Não alterar o `details` global apenas para corrigir o menu, porque outras seções do report usam o mesmo elemento em conteúdo claro.
+
+Contrato visual:
+
+```css
+.app-nav .rasai-nav-group
+```
+
+ou seletor equivalente escopado à navegação.
+
+## 8. Uma URL x múltiplas URLs
+
+Com uma única URL, a apresentação deve permanecer simples.
+
+Com duas ou mais URLs distintas, a camada comum pode ativar filtros/segmentação/paginação local. Essa UI não remove evidência do HTML e não altera o dado persistido.
+
+## 9. Conceitos externos
+
+Preservar nomes oficiais e não misturar metodologias:
 
 - Lighthouse = laboratório;
-- CrUX/Core Web Vitals = dados de campo agregados quando disponíveis;
-- `PASS` de Core Web Vitals não significa “GEO aprovado”;
-- `FAIL` de Core Web Vitals não substitui `SARI-001` nem cria finding RASAi automaticamente;
-- `INCOMPLETE`/`UNAVAILABLE` significa falta de base externa suficiente, não defeito comprovado do site.
+- CrUX/Core Web Vitals = field data agregado quando disponível;
+- Apdex = metodologia própria de satisfação temporal;
+- Synthetic Apdex do RASAi = medição sintética, não RUM;
+- PageSpeed Insights = transporte/API externa; não é provider de IA;
+- Accessibility do Lighthouse = evidência automatizada, não certificação WCAG integral.
 
-## 8. Linguagem de remediação
+Nunca usar linguagem como:
 
-Correções detalhadas devem preferir a sequência:
+```text
+Score GEO Lighthouse
+Google confirmou o Score GEO
+Core Web Vitals determinou a nota GEO
+```
+
+## 10. Readiness, Coverage e Confidence
+
+Manter separados:
+
+### Overall Readiness
+
+Resultado agregado do contrato SARI/SCORE vigente quando consolidável.
+
+### Coverage
+
+Quanto do universo aplicável da medição foi efetivamente avaliado. Não é substituto do Overall Readiness e não equivale automaticamente à cobertura do domínio inteiro.
+
+### Confidence
+
+Força da medição baseada na evidência disponível e nos gates do método.
+
+### Consolidation
+
+Indica se Coverage/Confidence são suficientes para apresentar o resultado como consolidado.
+
+Um valor numérico pode existir e ainda permanecer `Partial`/`Not Consolidated` sem contradição.
+
+## 11. Remediação
+
+A sequência preferida é:
 
 ```text
 Página
@@ -225,8 +232,8 @@ Dispositivo
 Regra
 Severidade
 Prioridade
-Categoria GEO
-Alvo / elemento / local
+Área/conceito
+Alvo/local quando confiável
 Problema encontrado
 Valor observado
 Correção recomendada
@@ -235,83 +242,35 @@ Como revalidar
 Evidências
 ```
 
-Quando o trecho HTML original não estiver persistido:
+Nunca rotular conteúdo sugerido como conteúdo observado.
 
-`Trecho HTML original não persistido para esta evidência.`
+## 12. IA
 
-Quando houver código recomendado, rotular:
+Quando IA não estiver disponível:
 
-`Estrutura recomendada (exemplo)`
+`Algumas avaliações semânticas não foram executadas porque não havia um provider de IA disponível/configurado. Essa limitação reduz a cobertura quando a regra dependia dessa análise e não representa um problema do website.`
 
-Nunca rotular exemplo como HTML observado.
+Quando IA externa for usada, provider/modelo podem ser indicados sem revelar credenciais.
 
-Fallback deve ser explicitamente identificado como `FALLBACK DE REMEDIAÇÃO` ou equivalente.
+A IA não “dá a nota SARI”; o scoring final permanece sob o contrato determinístico vigente.
 
-## 9. Disclaimer de IA
+## 13. Linguagem orientada ao analista
 
-Quando não houver IA:
+O HTML é destinado a profissionais de análise de dados, Search, SEO, AI Search e performance, não a desenvolvedores do RASAi.
 
-`Algumas avaliações semânticas não foram executadas porque não havia um provedor de inteligência artificial disponível ou configurado. Essa limitação reduz a cobertura da auditoria e não representa um problema do website analisado.`
+Regras:
 
-Quando IA externa for usada, o relatório deve indicar que análises semânticas utilizaram provider externo, sem revelar credenciais.
+- apresentar o conceito antes do identificador interno;
+- preservar inglês quando o termo é conceitual/padrão da disciplina;
+- explicar em pt-BR estados e consequências;
+- evitar enums com underscore na leitura principal;
+- manter identificadores técnicos em áreas de suporte/rastreabilidade;
+- não expor nomes históricos de etapas internas de desenvolvimento como vocabulário de produto.
 
-O relatório não deve sugerir que a IA “deu a nota GEO”; o score oficial continua determinístico.
+## 14. Contrato de regressão
 
-Web Performance externo não é telemetria de IA. PageSpeed/CrUX devem aparecer como serviços externos de medição e nunca como provider semântico.
+A camada comum `report_presentation` é a autoridade visual final para estados e conceitos compartilhados.
 
-## 10. Linguagem obrigatória para Web Performance externo
+Toda dimensão e todo `scoring_group` vigente devem possuir rótulo público. Se uma nova dimensão/grupo for criada sem rótulo, o CI deve falhar.
 
-Preferir:
-
-```text
-Lighthouse Performance: 91/100
-Core Web Vitals: PASS
-Fonte de campo: CrUX
-Escopo: URL
-SARI-001: permanece independente
-```
-
-Evitar:
-
-```text
-Score GEO Lighthouse
-Google confirmou o Score GEO
-Core Web Vitals determinou a nota GEO
-Sem dados CrUX = site reprovado
-```
-
-Quando Web Performance externo estiver desabilitado:
-
-`A coleta externa de Web Performance foi desabilitada. Nenhuma requisição PageSpeed/CrUX foi realizada. O SARI-001 permanece disponível normalmente.`
-
-Quando houver falha externa:
-
-`A coleta de Web Performance ficou incompleta por indisponibilidade/erro do serviço externo. Essa limitação não foi convertida em problema do website nem alterou o SARI-001.`
-
-## 11. Restrições
-
-Nunca usar linguagem que prometa:
-
-- ranking;
-- citação;
-- visibilidade;
-- presença em mecanismo generativo.
-
-Nunca recomendar ou afirmar sem base:
-
-- canonical preferencial;
-- remoção de `noindex`;
-- Structured Data incompatível;
-- autoria;
-- data de atualização;
-- fonte;
-- claim factual;
-- informação comercial.
-
-Nunca representar PageSpeed, Lighthouse ou CrUX como certificação GEO/AEO oficial.
-
-O produto mede readiness, oferece remediação vinculada a evidências e pode apresentar sinais externos de Web Performance de forma separada.
-
-### Linguagem orientada ao analista
-
-A apresentação HTML é destinada a profissionais de análise de dados e SEO, não a desenvolvedores do RASAi. Termos técnicos só devem aparecer na leitura principal quando tiverem fonte pública reconhecida e uso difundido no domínio. Vocabulário interno de implementação deve permanecer fora da interface principal; quando tecnicamente necessário para suporte, deve ficar recolhido em detalhes técnicos e acompanhado de explicação humana. Identificadores históricos de etapas de entrega não fazem parte do vocabulário do produto e não devem aparecer em relatórios, console ou documentação operacional.
+A normalização deve ser idempotente: executar mais de uma vez não pode duplicar traduções, labels ou markup.
