@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import os
 
-from rasai import console_search_intelligence, interactive_console
+from rasai import console_environment, console_search_intelligence, interactive_console
 from rasai.console_apdex_configuration import configure_apdex
 from rasai.console_config_path import prepare_console_config
-from rasai.console_environment import environment_menu
+from rasai.console_provider_environment_compat import install as install_provider_environment_compat
 from rasai.console_search_guidance import install as install_search_guidance
 from rasai.console_search_intelligence import install as install_search_intelligence
 from rasai.console_search_provider_compat import install as install_search_provider_compat
@@ -36,7 +36,8 @@ def main() -> int:
     install_runtime_completion_extensions()
     install_runtime_adherence_extensions()
     install_search_progress_gate()
-    interactive_console._environment_menu = environment_menu
+    install_provider_environment_compat(console_environment)
+    interactive_console._environment_menu = console_environment.environment_menu
     interactive_console._configure_apdex = configure_apdex
     install_search_provider_compat(console_search_intelligence)
     install_search_guidance(console_search_intelligence)
