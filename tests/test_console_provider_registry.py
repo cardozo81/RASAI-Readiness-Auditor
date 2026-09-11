@@ -37,6 +37,7 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
                 "qwen",
                 "gemini",
                 "anthropic",
+                "copilot",
                 "auto",
             ),
         )
@@ -48,10 +49,12 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
             "DASHSCOPE_API_KEY",
             "GEMINI_API_KEY",
             "ANTHROPIC_API_KEY",
+            "COPILOT_GITHUB_TOKEN",
             "RASAI_XAI_MODEL",
             "RASAI_QWEN_MODEL",
             "RASAI_GEMINI_MODEL",
             "RASAI_ANTHROPIC_MODEL",
+            "RASAI_COPILOT_MODEL",
             "RASAI_XAI_ENDPOINT",
             "RASAI_QWEN_ENDPOINT",
             "RASAI_GEMINI_ENDPOINT",
@@ -66,6 +69,17 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
                 self.assertFalse(capabilities[provider_id].available)
                 self.assertIn("não configurada", capabilities[provider_id].reason)
                 self.assertNotIn("explicit-only", capabilities[provider_id].reason)
+
+    def test_copilot_is_explicit_only_and_never_auto_eligible(self) -> None:
+        without_key = provider_capabilities({})
+        self.assertFalse(without_key["copilot"].available)
+        self.assertIn("explicit-only", without_key["copilot"].reason)
+
+        configured = provider_capabilities({"COPILOT_GITHUB_TOKEN": "github_pat_test"})
+        self.assertTrue(configured["copilot"].available)
+        self.assertIn("explicit-only", configured["copilot"].reason)
+        self.assertFalse(configured["auto"].available)
+        self.assertNotIn("copilot", auto_provider_ids())
 
     def test_extensions_become_auto_eligible_with_credentials(self) -> None:
         environment = {
@@ -107,6 +121,7 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
                 "DASHSCOPE_API_KEY",
                 "GEMINI_API_KEY",
                 "ANTHROPIC_API_KEY",
+                "COPILOT_GITHUB_TOKEN",
             )
         }
         try:
@@ -117,6 +132,7 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
             os.environ["DASHSCOPE_API_KEY"] = "x"
             os.environ["GEMINI_API_KEY"] = "x"
             os.environ["ANTHROPIC_API_KEY"] = "x"
+            os.environ["COPILOT_GITHUB_TOKEN"] = "github_pat_test"
             state = State(
                 target="https://example.com",
                 max_pages=2,
@@ -155,6 +171,12 @@ class ConsoleProviderRegistryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_env_value("MIMO_API_KEY", "tp-test")
         self.assertEqual(validate_env_value("MIMO_API_KEY", "sk-test"), "sk-test")
+        self.assertEqual(
+            validate_env_value("COPILOT_GITHUB_TOKEN", "github_pat_test"),
+            "github_pat_test",
+        )
+        with self.assertRaises(ValueError):
+            validate_env_value("COPILOT_GITHUB_TOKEN", "ghp_classic")
 
 
 if __name__ == "__main__":
