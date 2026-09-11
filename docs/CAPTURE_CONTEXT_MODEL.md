@@ -179,6 +179,8 @@ Consequências:
 - `both`: snapshots independentes dos dois dispositivos e comparação de variância quando houver dados suficientes;
 - recursos `ORIGIN` continuam sendo adquiridos uma vez por auditoria/origin em qualquer das três opções.
 
+A regra acima descreve os **snapshots core**. Synthetic User Experience Apdex pertence a `PROFILE_MEASUREMENT` e possui um mix populacional próprio: em `mobile` ou `desktop` a experiência é restringida a 100% do dispositivo selecionado para evitar tráfego inesperado; em `both`, o mix Experience explicitamente configurado é preservado, inclusive TABLET quando presente. Isso não promove TABLET a `DeviceContext` core e não cria snapshot Tablet no restante da auditoria.
+
 Toda configuração futura que altere comportamento de aquisição deve ser adicionada simultaneamente ao console, validação, persistência do arquivo de configuração e contrato SaaS. Não é permitido criar parâmetro operacional acessível somente por código.
 
 ## SaaS e workers
