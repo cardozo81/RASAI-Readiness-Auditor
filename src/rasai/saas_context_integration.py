@@ -4,7 +4,10 @@ from __future__ import annotations
 from typing import Any
 
 from rasai.context_scope import CONTEXT_SCOPE_CONTRACT_VERSION
-from rasai.synthetic_profile_saas_runtime import normalized_runtime_profiles
+from rasai.synthetic_profile_saas_runtime import (
+    install as install_synthetic_profile_saas_runtime,
+    normalized_runtime_profiles,
+)
 
 _INSTALLED = False
 
@@ -14,6 +17,11 @@ def install() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
+
+    # Worker CLI can be entered directly, without the top-level audit entrypoint.
+    # Install the durable profile contract first so worker bindings accept the same
+    # payload surface as API/control-plane validation.
+    install_synthetic_profile_saas_runtime()
 
     from rasai import worker
     from rasai.audit_execution_contract import normalize_audit_job_payload
