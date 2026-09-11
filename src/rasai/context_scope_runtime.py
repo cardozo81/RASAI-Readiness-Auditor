@@ -12,6 +12,7 @@ from typing import Any
 
 from rasai.context_scope import CONTEXT_SCOPE_CONTRACT_VERSION
 from rasai.device_context_capture import install as install_device_context_capture
+from rasai.open_web_metrics import install as install_open_web_metrics
 from rasai.synthetic_apdex_shared_runtime import install as install_synthetic_apdex_shared_runtime
 from rasai.synthetic_profile_console_runtime import install as install_synthetic_profile_console_runtime
 from rasai.synthetic_profile_runtime import install as install_synthetic_profile_runtime
@@ -97,6 +98,7 @@ def _patch_grouped_navigation() -> None:
 def _patch_report_completion() -> None:
     from rasai import report_completion, report_navigation
     from rasai.context_reporting import write_context_report
+    from rasai.open_web_metrics_reporting import enrich_web_performance_report
     from rasai.report_manifest import write_report_manifest
     from rasai.report_scale_ux import enhance_report_directory
     from rasai.synthetic_profile_reporting import enrich_synthetic_profile_reports
@@ -112,11 +114,18 @@ def _patch_report_completion() -> None:
         errors = list(base.renderer_errors)
         try:
             write_context_report(audit_id=audit_id, workspace=workspace)
+            enrich_open_web_error = None
+            try:
+                enrich_web_performance_report(audit_id=audit_id, workspace=workspace)
+            except Exception as exc:
+                enrich_open_web_error = f"open-web:{type(exc).__name__}:{str(exc)[:240]}"
             enrich_synthetic_profile_reports(audit_id=audit_id, workspace=workspace)
             report_dir = workspace.root / "report"
             report_navigation.normalize_report_navigation(report_dir)
             enhance_report_directory(report_dir)
             write_report_manifest(report_dir)
+            if enrich_open_web_error:
+                errors.append(enrich_open_web_error)
         except Exception as exc:
             errors.append(f"context:{type(exc).__name__}:{str(exc)[:240]}")
         inspected = report_completion.inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
@@ -133,6 +142,7 @@ def install() -> None:
     from rasai.report_registry import install as install_report_registry
     install_report_registry()
     install_device_context_capture()
+    install_open_web_metrics()
     install_synthetic_profile_runtime()
     install_synthetic_apdex_shared_runtime()
     install_synthetic_profile_console_runtime()

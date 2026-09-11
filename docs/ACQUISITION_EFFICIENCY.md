@@ -26,8 +26,11 @@ The browser-capture stage performs one normal Chromium navigation for each selec
 - navigation trace and safe request identity metadata;
 - console/page errors and failed-request diagnostics;
 - bounded DOM element observations;
+- Open Web Metrics baseadas nas W3C Web Performance APIs já presentes no navegador;
 - bounded lazy-loading interaction when required by the lazy-content rule;
 - downstream deterministic extraction and semantic evidence.
+
+As Open Web Metrics são coletadas antes da interação diagnóstica de lazy loading, no mesmo documento já carregado, e registram `additional_navigation_requests=0` e `additional_external_api_calls=0`. Elas são habilitadas por default porque não usam provider pago, quota externa ou nova aquisição física. Permanecem advisory e não alteram `SARI-001`/`SCORE-GEO-004`.
 
 The lazy-loading interaction runs only when the initial DOM exposes lazy signals and essential content is not yet recoverable. It scrolls the already-open browser page; it does **not** navigate the URL a second time. Primary DOM/screenshot evidence is frozen before the diagnostic interaction.
 
@@ -45,6 +48,8 @@ If the complete render exceeds that deadline:
 - the next context receives a fresh browser worker and the audit can continue.
 
 Process isolation is used instead of a thread timeout because Playwright's synchronous API is thread-affine and a timed-out worker thread would continue running.
+
+On Windows, where multiprocessing uses `spawn`, the browser worker reinstalls both the canonical device-capture contract and the Open Web Metrics collector before creating the renderer. This prevents same-session metrics from silently disappearing only in the isolated execution path.
 
 ### 3. Independent measurements
 
@@ -82,6 +87,14 @@ The lazy-content analysis no longer performs a default second page navigation. T
 #### Crawling/discovery resources
 
 Origin resources such as `llms.txt`, robots and sitemap diagnostics are collected at origin/resource scope, not once per audited page. They must not be multiplied by the URL count unless the resource itself is page-specific.
+
+## Zero-cost same-session metrics
+
+The rule “sem custo fica habilitado por default” applies only when the metric can be obtained without creating a new external dependency, quota, public scan or target acquisition.
+
+`OPEN-WEB-METRICS-001` satisfies that requirement because it reads browser-native state from the existing `DEVICE_SNAPSHOT`. It may expose Navigation Timing, Resource Timing, Server-Timing presence, Paint/FCP/LCP observed, CLS observed, Event Timing when an interaction exists, Long Tasks, Long Animation Frames, aggregated User Timing and basic document/platform signals.
+
+This does **not** authorize automatic execution of every nominally free internet service. W3C validators, MDN HTTP Observatory, WebPageTest and similar services remain provider/integration concerns because they create an external dependency or external observation. Browsertime/sitespeed.io similarly require their own runtime/dependencies. Browser-compatibility datasets such as Web Platform Baseline/MDN BCD must be versioned and integrated reproducibly before they can become default evidence.
 
 ## External-service phase
 
@@ -130,4 +143,4 @@ For a normal audit with one selected device and external features disabled, the 
 1. one direct HTTP acquisition per URL;
 2. one Chromium snapshot navigation per URL/device.
 
-A bounded lazy-load interaction may trigger additional subresource activity on the **same** browser page, but it does not create a second navigation. Additional target loads are permitted only for explicitly independent measurements such as PageSpeed/Lighthouse and Synthetic Apdex. AI, scoring, report generation, comparison and other downstream logic must reuse persisted evidence.
+Open Web Metrics reuse item 2 and therefore do not add a third physical observation. A bounded lazy-load interaction may trigger additional subresource activity on the **same** browser page, but it does not create a second navigation. Additional target loads are permitted only for explicitly independent measurements such as PageSpeed/Lighthouse and Synthetic Apdex. AI, scoring, report generation, comparison and other downstream logic must reuse persisted evidence.
