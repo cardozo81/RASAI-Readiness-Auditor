@@ -1,9 +1,9 @@
 """Shared client-side UX for report surfaces with multiple audited URLs/items.
 
-One or two URLs keep the compact report layout that is already easy to read. From the
-third distinct URL onward, URL/device filters become available. Large non-URL lists also
-receive the same controls as a safety fallback. The generated report remains a
-self-contained static artifact: no row/card is removed from HTML and no score changes.
+One URL keeps the compact report layout. From two distinct URLs onward, URL/device
+filters become available. Large non-URL lists also receive the same controls as a safety
+fallback. The generated report remains a self-contained static artifact: no row/card is
+removed from HTML and no score changes.
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ _SCALE_SCRIPT = r"""
 <script id="rasai-scale-ux-script-v1">
 (function(){
   'use strict';
-  const URL_THRESHOLD=3, LARGE_TABLE_FALLBACK=25, LARGE_CARD_FALLBACK=20;
+  const URL_THRESHOLD=2, LARGE_TABLE_FALLBACK=25, LARGE_CARD_FALLBACK=20;
   const normalize=v=>(v||'').toLocaleLowerCase('pt-BR');
   const safeUrl=v=>{try{const u=new URL((v||'').trim());return /^https?:$/.test(u.protocol)?u.href:null;}catch(_){return null;}};
   const urlFor=item=>{
