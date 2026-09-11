@@ -55,7 +55,8 @@ def test_final_report_normalization_humanizes_every_html_surface() -> None:
         readiness_html = (report_dir / "readiness.html").read_text(encoding="utf-8")
         mobile_html = (report_dir / "mobile.html").read_text(encoding="utf-8")
         assert "<td>Content Value</td>" in index_html
-        assert "<td>Bloqueado</td>" in index_html
+        assert ">Bloqueado<" in index_html
+        assert "BLOCKED" not in index_html
         assert "<td>Indexability</td>" in readiness_html
         assert "<td>Não consolidado</td>" in readiness_html
         assert "<td>Rendering &amp; Extractability</td>" in mobile_html
