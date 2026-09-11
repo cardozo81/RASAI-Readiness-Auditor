@@ -45,9 +45,9 @@ As tags de prioridade visual servem para triagem operacional e não alteram o sc
 
 Web Performance pode conter três famílias distintas de evidência:
 
-1. **Open Web Metrics (`OPEN-WEB-METRICS-001`)** — métricas browser-native coletadas por default no mesmo `DEVICE_SNAPSHOT`, sem nova navegação ou API externa;
-2. **Lighthouse/PageSpeed** — medição de laboratório independente executada pelo provider externo quando habilitado;
-3. **CrUX** — dados de campo agregados quando disponíveis para a URL/origin elegível.
+1. **Open Web Metrics (`OPEN-WEB-METRICS-001`)** - métricas browser-native coletadas por default no mesmo `DEVICE_SNAPSHOT`, sem nova navegação ou API externa;
+2. **Lighthouse/PageSpeed** - medição de laboratório independente executada pelo provider externo quando habilitado;
+3. **CrUX** - dados de campo agregados quando disponíveis para a URL/origin elegível.
 
 A família Open Web pode incluir:
 
@@ -113,7 +113,7 @@ Diagnósticos técnicos podem receber tags de prioridade visual para facilitar t
 
 ### Múltiplas URLs e devices
 
-Open Web Metrics são apresentadas por URL + dispositivo. Quando o relatório oferece resumo de vários snapshots, usa faixa mínimo–máximo em vez de uma média implícita. Mobile e Desktop permanecem observações distintas.
+Open Web Metrics são apresentadas por URL + dispositivo. Quando o relatório oferece resumo de vários snapshots, usa faixa mínimo-máximo em vez de uma média implícita. Mobile e Desktop permanecem observações distintas.
 
 ## Coleta parcial
 
