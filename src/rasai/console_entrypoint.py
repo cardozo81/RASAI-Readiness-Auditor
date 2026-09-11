@@ -19,6 +19,7 @@ from rasai.console_search_intelligence import install as install_search_intellig
 from rasai.consolidation.integration import install as install_consolidation
 from rasai.context_scope_runtime import install as install_context_scope_runtime
 from rasai.integration_state_contract import install as install_integration_state_contract
+from rasai.integration_state_refinements import install as install_integration_state_refinements
 from rasai.report_observation_reconciliation import install as install_report_observation_reconciliation
 from rasai.report_registry import install as install_report_registry
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
@@ -46,6 +47,7 @@ def main() -> int:
     install_report_observation_reconciliation()
     install_runtime_adherence_extensions()
     install_integration_state_contract()
+    install_integration_state_refinements()
     install_search_progress_gate()
     interactive_console._environment_menu = environment_menu
     interactive_console._configure_apdex = configure_apdex
