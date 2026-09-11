@@ -25,6 +25,16 @@ def test_domain_report_is_the_canonical_origin_surface() -> None:
     assert "sitemaps" in surface.inputs
 
 
+def test_grouped_report_menu_contrast_is_scoped_to_navigation_details() -> None:
+    from rasai.context_scope_runtime import _NAV_GROUP_DETAILS_STYLE, _NAV_GROUP_SUMMARY_STYLE
+
+    assert "background:#364359" in _NAV_GROUP_DETAILS_STYLE
+    assert "border:1px solid rgba(255,255,255,.10)" in _NAV_GROUP_DETAILS_STYLE
+    assert "color:#d9e2ee" in _NAV_GROUP_SUMMARY_STYLE
+    assert "background:#3b4860" in _NAV_GROUP_SUMMARY_STYLE
+    assert "opacity:1" in _NAV_GROUP_SUMMARY_STYLE
+
+
 def test_ai_policy_keeps_one_structured_request_concise() -> None:
     install_ai_efficiency()
     provider = OpenAIProvider(model="test-model", api_key="test-key", transport=lambda *_: {})
