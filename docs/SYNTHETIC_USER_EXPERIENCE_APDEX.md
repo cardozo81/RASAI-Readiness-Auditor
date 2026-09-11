@@ -32,7 +32,7 @@ Quando `--apdex-experience` é habilitado e o usuário não fornece calibração
 | delay | `1.0 s` | número `>= 0` | `1.0 s` ou maior conforme capacidade do alvo | política de carga RASAi |
 | concorrência | `1` | `1`, `2` | `1` | política de carga RASAi |
 
-A classificação temporal do M25 segue a semântica publicada dos thresholds Dynatrace para Load Action:
+A classificação temporal do Synthetic User Experience Apdex segue a semântica publicada dos thresholds Dynatrace para Load Action:
 
 ```text
 valor < limiar Satisfied                         -> SATISFIED
