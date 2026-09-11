@@ -32,6 +32,16 @@ Quando `--apdex-experience` é habilitado e o usuário não fornece calibração
 | delay | `1.0 s` | número `>= 0` | `1.0 s` ou maior conforme capacidade do alvo | política de carga RASAi |
 | concorrência | `1` | `1`, `2` | `1` | política de carga RASAi |
 
+A classificação temporal do M25 segue a semântica publicada dos thresholds Dynatrace para Load Action:
+
+```text
+valor < limiar Satisfied                         -> SATISFIED
+limiar Satisfied <= valor <= limiar Frustrated  -> TOLERATING
+valor > limiar Frustrated                        -> FRUSTRATED
+```
+
+Um erro qualificável pode forçar `FRUSTRATED` independentemente da duração quando a política de erros efetiva estiver habilitada. Essa fronteira é intencionalmente diferente do Synthetic Navigation Apdex clássico, cuja classificação permanece baseada em `T` e `4T` conforme a especificação Apdex.
+
 > **Nota de direitos autorais, citação e tradução:** o material externo citado nesta seção permanece de titularidade de seu respectivo autor/mantenedor. Quando necessário para precisão técnica, o RASAi reproduz apenas o trecho estritamente necessário no idioma original, identificado como citação, seguido de tradução/adaptação para pt-BR. A tradução é informativa e não substitui o texto oficial; em caso de divergência, prevalece a fonte primária vinculada.
 
 **Disclaimer - texto original da fonte Dynatrace:**
@@ -147,7 +157,7 @@ Use URL autorizada e baixo volume:
 ```powershell
 python -m rasai audit "https://SEU-ALVO/" `
   --max-pages 1 `
-  --device-context mobile `
+  --device-context both `
   --ai-provider none `
   --no-web-performance `
   --synthetic-apdex `
@@ -161,7 +171,9 @@ python -m rasai audit "https://SEU-ALVO/" `
   --apdex-experience-concurrency 1
 ```
 
-Com 10 amostras e mix `60/30/10`, a alocação esperada é 6 Mobile, 3 Desktop e 1 Tablet. Grupo com menos de 100 amostras é diagnóstico, não baseline estatístico final.
+Com `--device-context both`, 10 amostras e mix `60/30/10`, a alocação Experience esperada é 6 Mobile, 3 Desktop e 1 Tablet. O core da auditoria continua tendo apenas snapshots Mobile e Desktop; Tablet pertence exclusivamente à população `PROFILE_MEASUREMENT` do Experience Apdex. Grupo com menos de 100 amostras é diagnóstico, não baseline estatístico final.
+
+Se o mesmo teste usar `--device-context mobile`, a população Experience é deliberadamente restrita a 100% Mobile, independentemente do mix configurado; `desktop` aplica a regra equivalente.
 
 ## 8. O que verificar no smoke
 
@@ -171,11 +183,12 @@ Com 10 amostras e mix `60/30/10`, a alocação esperada é 6 Mobile, 3 Desktop e
 4. valor alterado pelo usuário aparece como `CUSTOMIZADO`;
 5. calibração importada aparece como `DYNATRACE IMPORT`;
 6. fallback importado é mostrado explicitamente;
-7. Mobile/Desktop/Tablet/Population refletem o mix;
+7. Mobile/Desktop/Tablet/Population refletem o mix quando `device-context=both`;
 8. XHR/fetch, recursos tardios e erros aparecem somente quando observados;
 9. `console.error` não força `FRUSTRATED` sozinho;
 10. erro qualificável força `FRUSTRATED` quando `errors_affect_apdex=true`;
-11. `SARI-001`, `SCORE-GEO-004`, findings e recomendações GEO permanecem inalterados.
+11. igualdade com o limiar inferior fica em `TOLERATING`, e igualdade com o limiar Frustrated também permanece `TOLERATING`;
+12. `SARI-001`, `SCORE-GEO-004`, findings e recomendações GEO permanecem inalterados.
 
 ## 9. Persistência
 
@@ -257,20 +270,3 @@ Antes de interpretar diferenças, confira:
 - device mix;
 - cold/warm;
 - perfis de CPU/rede e geografia.
-
-Mesmo alinhando os itens controláveis, divergência continua esperada porque Dynatrace RUM mede usuários reais e o RASAi executa laboratório sintético controlado.
-
-## 14. Referências públicas
-
-A nota de direitos autorais da seção 2 aplica-se a qualquer trecho externo reproduzido neste documento. As referências abaixo são fontes primárias; os textos completos permanecem em seus respectivos sites e sob seus próprios termos/licenças.
-
-- Apdex Technical Specification v1.1: <https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf>
-- Dynatrace - Apdex configuration for load actions: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions>
-- Dynatrace - Key performance metrics: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-synthetic-browser-kpms>
-- Dynatrace - Work with key performance metrics: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/web-applications/analyze-and-use/work-with-key-performance-metrics>
-- Dynatrace - Apdex ratings: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/scores-and-ratings/apdex-ratings>
-- Dynatrace - Web application configuration API: <https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application>
-- Chrome DevTools Protocol - Network / Emulation
-- W3C Performance Timeline
-
-A especificação normativa está em [`specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md`](specification/25_SYNTHETIC_USER_EXPERIENCE_APDEX.md).
