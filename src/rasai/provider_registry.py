@@ -1,14 +1,22 @@
 """Canonical provider registry facade for RASAi consumers.
 
-The core provider module and adapter extensions are normalized into one public
-registry consumed by CLI, interactive console, preflight/help and orchestration.
-AUTO eligibility is a registry property; runtime still requires valid credentials
-and configuration before a provider can enter an execution.
+The core provider module and adapter extensions are normalized into one public registry
+consumed by CLI, interactive console, preflight/help and orchestration. AUTO eligibility
+is a registry property; runtime still requires valid credentials and configuration.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from rasai.copilot_provider import (
+    COPILOT_DEFAULT_MODEL,
+    COPILOT_DOCS_URL,
+    COPILOT_KEY_ENV,
+    COPILOT_MODEL_ENV,
+    COPILOT_SETTINGS_URL,
+    COPILOT_SUPPORTED_MODELS,
+    COPILOT_TOKEN_URL,
+)
 from rasai.m18_ai import DEFAULT_MODELS, KEY_ENV, MODEL_ENV, REASONING_ENV, ROUTING_POLICY, SUPPORTED_MODELS
 from rasai.provider_extensions import EXTENDED_DEFAULT_MODELS, EXTENDED_ENDPOINT_ENV, EXTENDED_KEY_ENV, EXTENDED_MODEL_ENV, EXTENDED_SUPPORTED_MODELS, EXTENSION_POLICIES, _PROVIDER_ALIASES
 
@@ -30,6 +38,9 @@ class ProviderRegistration:
     auto_eligible: bool
     reasoning_values: tuple[str, ...]
     required_key_prefixes: tuple[str, ...] = ()
+    credential_url: str = ""
+    documentation_url: str = ""
+    auth_note: str = ""
 
     @property
     def cli_selections(self) -> tuple[str, ...]:
@@ -39,7 +50,25 @@ class ProviderRegistration:
 _DISPLAY_NAMES = {
     "OPENAI": "OpenAI", "DEEPSEEK": "DeepSeek", "MIMO": "Xiaomi MiMo",
     "XAI": "xAI / Grok", "QWEN": "Alibaba Qwen", "GEMINI": "Google Gemini",
-    "ANTHROPIC": "Anthropic Claude",
+    "ANTHROPIC": "Anthropic Claude", "COPILOT": "GitHub Copilot",
+}
+_CREDENTIAL_URLS = {
+    "OPENAI": "https://platform.openai.com/api-keys",
+    "DEEPSEEK": "https://platform.deepseek.com/api_keys",
+    "MIMO": "https://mimo.mi.com/",
+    "XAI": "https://console.x.ai/",
+    "QWEN": "https://www.alibabacloud.com/help/en/model-studio/get-api-key",
+    "GEMINI": "https://aistudio.google.com/apikey",
+    "ANTHROPIC": "https://console.anthropic.com/",
+}
+_DOCUMENTATION_URLS = {
+    "OPENAI": "https://platform.openai.com/docs/",
+    "DEEPSEEK": "https://api-docs.deepseek.com/",
+    "MIMO": "https://mimo.mi.com/docs/en-US/quick-start/faq/api-integration",
+    "XAI": "https://docs.x.ai/",
+    "QWEN": "https://www.alibabacloud.com/help/en/model-studio/get-api-key",
+    "GEMINI": "https://ai.google.dev/gemini-api/docs/api-key",
+    "ANTHROPIC": "https://docs.anthropic.com/",
 }
 _CORE_PROVIDER_ORDER = ("OPENAI", "DEEPSEEK", "MIMO")
 _CORE_REASONING_VALUES = {
@@ -70,6 +99,7 @@ def _core_registration(provider_name: str) -> ProviderRegistration:
         default_model=DEFAULT_MODELS[provider_name], qualification=_qualification(provider_name, extension=False),
         explicit_only=False, auto_eligible=True, reasoning_values=_CORE_REASONING_VALUES[provider_name],
         required_key_prefixes=("sk-",) if provider_name == "MIMO" else (),
+        credential_url=_CREDENTIAL_URLS[provider_name], documentation_url=_DOCUMENTATION_URLS[provider_name],
     )
 
 
@@ -84,13 +114,31 @@ def _extension_registration(provider_name: str) -> ProviderRegistration:
         supported_models=tuple(EXTENDED_SUPPORTED_MODELS[provider_name]), default_model=EXTENDED_DEFAULT_MODELS[provider_name],
         qualification=_qualification(provider_name, extension=True), explicit_only=False, auto_eligible=True,
         reasoning_values=reasoning_values or ("PROVIDER_DEFAULT",),
+        credential_url=_CREDENTIAL_URLS[provider_name], documentation_url=_DOCUMENTATION_URLS[provider_name],
+    )
+
+
+def _copilot_registration() -> ProviderRegistration:
+    return ProviderRegistration(
+        id="copilot", provider_name="COPILOT", display_name=_DISPLAY_NAMES["COPILOT"],
+        aliases=("github-copilot",), key_env=COPILOT_KEY_ENV, model_env=COPILOT_MODEL_ENV,
+        endpoint_env=None, reasoning_env=None, supported_models=COPILOT_SUPPORTED_MODELS,
+        default_model=COPILOT_DEFAULT_MODEL, qualification="PROVISIONAL", explicit_only=True,
+        auto_eligible=False, reasoning_values=("PROVIDER_DEFAULT",),
+        required_key_prefixes=("github_pat_", "gho_", "ghu_"),
+        credential_url=COPILOT_TOKEN_URL, documentation_url=COPILOT_DOCS_URL,
+        auth_note=(
+            "Requer assinatura Copilot elegível. Para uso local do RASAi, gere um fine-grained PAT "
+            "com Copilot Requests e configure COPILOT_GITHUB_TOKEN. Classic PAT ghp_ não é suportado. "
+            f"Preferências Copilot: {COPILOT_SETTINGS_URL}"
+        ),
     )
 
 
 def _build_registry() -> tuple[ProviderRegistration, ...]:
     core = tuple(_core_registration(name) for name in _CORE_PROVIDER_ORDER)
     extension_names = tuple(dict.fromkeys(_PROVIDER_ALIASES.values()))
-    registrations = core + tuple(_extension_registration(name) for name in extension_names)
+    registrations = core + tuple(_extension_registration(name) for name in extension_names) + (_copilot_registration(),)
     ids = [registration.id for registration in registrations]
     if len(ids) != len(set(ids)):
         raise RuntimeError("duplicate canonical provider id in RASAi registry")
@@ -113,11 +161,11 @@ def get_provider_registration(selection: str) -> ProviderRegistration | None:
 
 
 def extension_cli_choices() -> tuple[str, ...]:
-    return tuple(alias.casefold() for alias in _PROVIDER_ALIASES)
+    return tuple(selection for item in PROVIDER_REGISTRY if item.provider_name not in _CORE_PROVIDER_ORDER for selection in item.cli_selections)
 
 
 def cli_provider_choices() -> tuple[str, ...]:
-    return ("none", *tuple(name.casefold() for name in _CORE_PROVIDER_ORDER), "auto", *extension_cli_choices())
+    return ("none", *(item.id for item in PROVIDER_REGISTRY), "auto", *(alias for item in PROVIDER_REGISTRY for alias in item.aliases))
 
 
 def auto_provider_ids() -> tuple[str, ...]:
