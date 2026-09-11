@@ -95,9 +95,14 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
                 for row in rows:
                     metadata = _json(row["browser_metadata"], {})
                     document_source = metadata.get("document_source") if isinstance(metadata, dict) else None
+                    rendered_dom = metadata.get("rendered_dom") if isinstance(metadata, dict) else None
                     runtime = metadata.get("runtime_diagnostics") if isinstance(metadata, dict) else None
                     source_hash = document_source.get("sha256") if isinstance(document_source, dict) else None
                     source_bytes = document_source.get("bytes") if isinstance(document_source, dict) else None
+                    source_state = document_source.get("capture_state") if isinstance(document_source, dict) else None
+                    source_reason = document_source.get("reason") if isinstance(document_source, dict) else None
+                    rendered_hash = rendered_dom.get("sha256") if isinstance(rendered_dom, dict) else None
+                    rendered_bytes = rendered_dom.get("bytes") if isinstance(rendered_dom, dict) else None
                     diagnostic_count = runtime.get("count", 0) if isinstance(runtime, dict) else 0
                     items = runtime.get("items", []) if isinstance(runtime, dict) else []
                     snapshots.append(
@@ -108,6 +113,10 @@ def _load(audit_id: str, workspace: AuditWorkspace) -> dict[str, Any]:
                             "url": str(row["url"] or "-"),
                             "source_hash": str(source_hash) if source_hash else None,
                             "source_bytes": int(source_bytes) if isinstance(source_bytes, int) else source_bytes,
+                            "source_state": str(source_state or ("CAPTURED" if source_hash else "NOT_AVAILABLE")),
+                            "source_reason": str(source_reason) if source_reason else None,
+                            "rendered_hash": str(rendered_hash) if rendered_hash else None,
+                            "rendered_bytes": int(rendered_bytes) if isinstance(rendered_bytes, int) else rendered_bytes,
                             "runtime_diagnostics": int(diagnostic_count or 0),
                             "diagnostic_items": items if isinstance(items, list) else [],
                             "capture_contract": metadata.get("context_scope_contract") if isinstance(metadata, dict) else None,
@@ -186,19 +195,25 @@ def _scope_cards(data: dict[str, Any]) -> str:
 def _snapshot_table(data: dict[str, Any]) -> str:
     rows = []
     for item in data["snapshots"]:
-        digest = item["source_hash"][:12] + "..." if item["source_hash"] else "não capturado"
+        source_digest = item["source_hash"][:12] + "..." if item["source_hash"] else "não capturado"
+        rendered_digest = item["rendered_hash"][:12] + "..." if item["rendered_hash"] else "não disponível"
+        state_text = item["source_state"]
+        if item["source_reason"]:
+            state_text += f" · {item['source_reason']}"
         rows.append(
             "<tr>"
             f"<td>{escape(item['device'])}</td><td><code>{escape(item['url'])}</code></td>"
-            f"<td><code>{escape(digest)}</code></td><td>{escape(str(item['source_bytes'] or '-'))}</td>"
+            f"<td>{escape(state_text)}</td><td><code>{escape(source_digest)}</code></td>"
+            f"<td>{escape(str(item['source_bytes'] or '-'))}</td><td><code>{escape(rendered_digest)}</code></td>"
             f"<td>{item['runtime_diagnostics']}</td><td>{escape(scope_label(ContextScope.DEVICE_SNAPSHOT))}</td>"
             "</tr>"
         )
     if not rows:
         return "<p>Nenhum snapshot por dispositivo disponível.</p>"
     return (
-        "<div class='table-wrap'><table><thead><tr><th>Dispositivo</th><th>URL</th><th>Hash do documento recebido</th>"
-        "<th>Bytes</th><th>Erros runtime</th><th>Escopo</th></tr></thead>"
+        "<div class='table-wrap'><table><thead><tr><th>Dispositivo</th><th>URL</th><th>Captura fonte</th>"
+        "<th>Hash do documento recebido</th><th>Bytes fonte</th><th>Hash DOM renderizado</th>"
+        "<th>Erros runtime</th><th>Escopo</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>"
     )
 
@@ -274,10 +289,10 @@ def write_context_report(*, audit_id: str, workspace: AuditWorkspace) -> Path:
 <div class='notice'><strong>Sem repetição nesta página.</strong> <code>robots.txt</code>, sitemaps, <code>llms.txt</code> e demais fatos <code>ORIGIN</code> são exibidos em uma única superfície: <a href='{DOMAIN_REPORT_FILE}'>Domínio e descoberta</a>. Eles não são replicados por URL ou por dispositivo.</div>
 </section>
 <section class='panel'><h2>Snapshots por dispositivo</h2>
-<p>DOM, execução JavaScript, identidade de browser e o documento efetivamente recebido pelo browser pertencem ao snapshot do dispositivo.</p>
+<p>DOM, execução JavaScript, identidade de browser e o documento efetivamente recebido pelo browser pertencem ao snapshot do dispositivo. A captura do corpo fonte usa apenas o buffer da navegação Chromium já realizada; quando o término do documento não é confirmado, o buffer não está disponível ou o limite bounded é excedido, o estado fica inconclusivo sem retry ou nova requisição.</p>
 {_snapshot_table(data)}</section>
 <section class='panel'><h2>Variação do documento por dispositivo</h2>
-<p>A comparação usa o corpo da resposta de navegação já realizada pelo browser. Não existe requisição adicional para produzir esta verificação.</p>
+<p>A comparação usa o corpo da resposta da navegação já realizada pelo browser somente quando a captura fonte foi concluída. O hash do DOM renderizado é mostrado separadamente e não substitui o documento fonte. Não existe requisição adicional para produzir esta verificação.</p>
 {_variance_table(data)}</section>
 <section class='panel'><h2>Erros JavaScript e de recursos</h2>
 <p>Erros de console, exceções de página e falhas de requests observadas durante o browser são associados ao dispositivo/snapshot onde ocorreram. Um defeito no HTML bruto comum da URL permanece no escopo URL.</p>
