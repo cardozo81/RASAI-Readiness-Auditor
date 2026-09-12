@@ -36,13 +36,15 @@ rasai-console.ini
 
 O INI armazena somente parâmetros não sensíveis. API keys, tokens, passwords e outros secrets não são gravados nele.
 
-Precedência prática do console:
+Precedência prática do console para as configurações gerais:
 
 ```text
 valor já presente no processo/Windows
 > configuração não sensível persistida no INI
 > default do runtime
 ```
+
+**Exceção deliberada:** dentro de `rasai-console`, o toggle de execução de Improvement Intelligence é controlado pelo item **13. Análise profunda URL**. O runtime neutraliza temporariamente `RASAI_IMPROVEMENT_INTELLIGENCE` durante a fase base para impedir execução invisível ou duplicada. As variáveis `RASAI_IMPROVEMENT_*` continuam válidas para CLI, worker/SaaS, automação e diagnóstico; no console interativo, a ativação efetiva vem do item 13 e da seção `[improvement_intelligence]`.
 
 Ao salvar, o console mostra explicitamente que a operação é `SEM CHAVES`.
 
@@ -282,7 +284,7 @@ Secrets são exibidos apenas como presença/origem, por exemplo:
 [SET] [SO:MACHINE]
 ```
 
-O grupo **IA - análise profunda** inclui os overrides avançados de Improvement Intelligence. A configuração normal deve ser feita pelo item 13; o menu `E` existe para automação e troubleshooting.
+O grupo **IA - análise profunda** inclui os overrides avançados de Improvement Intelligence. A configuração normal deve ser feita pelo item 13. `RASAI_IMPROVEMENT_INTELLIGENCE` não substitui visualmente esse item dentro de `rasai-console`; ele existe para CLI/worker/SaaS, automação e troubleshooting do contrato por ambiente.
 
 ## Perfis sintéticos configuráveis
 
@@ -399,6 +401,8 @@ AI_ACCESS
 ```
 
 A análise ocorre após a auditoria normal e, quando Search Intelligence foi executado na mesma sessão, pode reutilizar a evidência SERP já persistida. Ela não cria um segundo crawler competitivo.
+
+No console interativo, o item 13 é a única autoridade que decide se essa etapa será executada. O toggle de ambiente é neutralizado somente durante a auditoria base e restaurado em seguida; isso impede dupla chamada paga e mantém a UI coerente com o que efetivamente será executado.
 
 Segurança é passiva: headers, cookies e achados já observados podem gerar recomendações, mas não há exploração, fuzzing ou pentest ativo. Search/SERP é contexto correlacional; o console não promete posição futura de ranking.
 
