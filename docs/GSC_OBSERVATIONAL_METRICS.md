@@ -21,6 +21,18 @@ Datasets históricos anteriores não são somados ao snapshot atual.
 
 ## URL Inspection
 
+### GSC URL Inspection Response Coverage
+
+```text
+URLs auditadas com resposta de inspeção não-erro
+----------------------------------------------- x 100
+URLs do conjunto auditado
+```
+
+A métrica mede quanto do conjunto auditado possui uma resposta de URL Inspection utilizável no dataset mais recente. Uma cobertura inferior a 100% pode ser intencional quando `RASAI_STANDARDS_MAX_URLS` limita a coleta. Linhas `ERROR` são excluídas do numerador porque representam tentativa sem resposta de inspeção utilizável.
+
+Ela não mede cobertura do índice inteiro do Google nem cobertura de todas as URLs existentes no domínio.
+
 ### GSC URL Inspection Verdict PASS Rate
 
 ```text
@@ -87,13 +99,15 @@ Os nomes usam deliberadamente `Returned-row`.
 
 Quantidade de linhas normalizadas persistidas no dataset mais recente.
 
+Se o dataset foi coletado com sucesso e contém zero linhas, esta métrica é `0`. Isso é diferente de não existir dataset Search Analytics para a auditoria.
+
 ### GSC Returned-row Clicks
 
-Soma de `clicks` das linhas efetivamente retornadas/persistidas.
+Soma de `clicks` das linhas efetivamente retornadas/persistidas. Em um dataset válido com zero linhas, o valor é `0`.
 
 ### GSC Returned-row Impressions
 
-Soma de `impressions` das linhas efetivamente retornadas/persistidas.
+Soma de `impressions` das linhas efetivamente retornadas/persistidas. Em um dataset válido com zero linhas, o valor é `0`.
 
 ### GSC Returned-row CTR
 
@@ -103,7 +117,7 @@ soma(clicks)
 soma(impressions)
 ```
 
-Calculado somente sobre as linhas retornadas.
+Calculado somente sobre as linhas retornadas. Quando não há impressões, o estado permanece `NO_DATA`; zero impressões não é transformado em CTR 0%.
 
 ### GSC Returned-row Impression-weighted Position
 
@@ -113,7 +127,7 @@ soma(position × impressions)
 soma(impressions)
 ```
 
-Também limitado às linhas retornadas/persistidas.
+Também limitado às linhas retornadas/persistidas. Sem impressões elegíveis, permanece `NO_DATA`.
 
 ## Escopos
 
@@ -158,7 +172,8 @@ As métricas aparecem em:
 
 - URL Inspection descreve o estado conhecido pelo índice do Google; não é live test universal;
 - Search Analytics pode omitir linhas e não representa necessariamente o universo completo da property;
-- ausência de dados não vira zero;
+- dataset inexistente não é convertido em zero;
+- dataset Search Analytics válido com zero linhas materializa contagem/clicks/impressions como zero, enquanto CTR e posição permanecem `NO_DATA`;
 - erro de coleta não vira falha do website;
 - métricas GSC não duplicam peso no SARI;
 - dados locais determinísticos e dados observacionais Google permanecem separados.
