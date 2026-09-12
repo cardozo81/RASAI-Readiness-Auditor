@@ -10,7 +10,7 @@ import os
 from typing import Any, Mapping
 
 from rasai.standards_gsc_contract import install as install_gsc_contract
-from rasai.standards_service_registry import GSC_ENABLED_ENV, service, service_state
+from rasai.standards_service_registry import GSC_ENABLED_ENV, GSC_SITE_URL_ENV, service, service_state
 
 _CREDENTIAL_FIELDS = {
     "pagespeed_enabled": "RASAI_PAGESPEED_ENABLED",
@@ -53,9 +53,16 @@ def install() -> None:
             if not _explicit(payload, field):
                 overrides.pop(_CREDENTIAL_FIELDS[field], None)
 
-        # Search Console is property scoped. Auto enablement requires the property to
-        # be carried by this durable job; worker-global property context is not trusted.
-        if not _explicit(payload, "gsc_enabled") and str(payload.get("gsc_site_url") or "").strip():
+        # Search Console is property scoped. The property must always come from this
+        # durable job. An empty override deliberately masks any process-global property
+        # so explicit/auto GSC cannot inherit another tenant's context.
+        job_site_url = str(payload.get("gsc_site_url") or "").strip()
+        if job_site_url:
+            overrides[GSC_SITE_URL_ENV] = job_site_url
+        else:
+            overrides[GSC_SITE_URL_ENV] = ""
+
+        if not _explicit(payload, "gsc_enabled") and job_site_url:
             overrides.pop(GSC_ENABLED_ENV, None)
         elif not _explicit(payload, "gsc_enabled"):
             overrides[GSC_ENABLED_ENV] = "false"
