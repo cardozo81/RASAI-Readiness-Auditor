@@ -173,7 +173,9 @@ def enrich_report_scope_clarity(*, audit_id: str, workspace: Any) -> None:
         if not path.is_file():
             continue
         html = path.read_text(encoding="utf-8")
-        if _MARKER in html:
+        # A neutral surface intentionally asserts that no domain data was materialized.
+        # Do not add scope language that could be mistaken for evidence from that domain.
+        if _MARKER in html or _EMPTY_SURFACE_MARKER in html:
             continue
         note = _note(filename, pages, devices)
         if not note:
