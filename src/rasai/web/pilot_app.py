@@ -10,7 +10,7 @@ from typing import Any, Iterator
 
 from fastapi import Request
 
-from rasai.standards_runtime import install_service_contract
+from rasai.standards_gsc_contract import install as install_gsc_contract
 from rasai.synthetic_profile_saas_runtime import install as install_synthetic_profile_saas_runtime
 
 from .app import ApiSettings, SearchRepositoryFactory, StoreFactory, create_app as create_api_app
@@ -31,8 +31,8 @@ def create_app(
 ) -> Any:
     # The service contract extends the durable, secret-free AUDIT payload before the
     # synthetic-profile wrapper composes its own fields. Direct ASGI use therefore has
-    # the same options as CLI-launched SaaS.
-    install_service_contract()
+    # the same options as CLI-launched SaaS, including non-secret GSC property context.
+    install_gsc_contract()
     install_synthetic_profile_saas_runtime()
 
     app = create_api_app(
