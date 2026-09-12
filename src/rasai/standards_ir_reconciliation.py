@@ -1,9 +1,8 @@
 """Strict Information Retrieval reconciliation for standards metrics.
 
-The base standards collector can discover relevance annotations in SERP metadata. This
-module applies the publication boundary: unjudged results are never converted to
-non-relevant documents, nDCG requires an explicit ideal/qrel set, and Recall requires an
-explicit total relevant denominator.
+Unjudged results are never converted to non-relevant documents. Precision/MRR require a
+fully judged observed top 10; nDCG additionally requires an explicit ideal relevance
+vector; Recall additionally requires an explicit total relevant denominator.
 """
 from __future__ import annotations
 
@@ -81,7 +80,6 @@ def _ndcg_with_explicit_ideal(retrieved: list[float], ideal: list[float], k: int
     if ideal_dcg <= 0:
         return 0.0
     value = _dcg(retrieved[:k]) / ideal_dcg
-    # An invalid ideal ordering/contract must not produce a seemingly valid >1 metric.
     if not math.isfinite(value) or value < 0 or value > 1.000000001:
         return None
     return min(1.0, value)
@@ -252,3 +250,44 @@ def reconcile_information_retrieval_metrics(*, audit_id: str, workspace: AuditWo
                 )
     finally:
         connection.close()
+
+
+def install() -> None:
+    """Reconcile strict IR metrics after the standards collector and refresh projections."""
+    from rasai import report_completion, report_navigation
+    from rasai.report_manifest import write_report_manifest
+    from rasai.report_scale_ux import enhance_report_directory
+    from rasai.standards_metrics import enrich_existing_reports, write_standards_report
+
+    if getattr(report_completion, "_rasai_strict_ir_reconciliation", False):
+        return
+    original = report_completion.finalize_audit_report_site
+
+    def finalize_with_strict_ir(*, audit_id: str, workspace: Any, context_interpretations=(), routing_snapshot=None):
+        base = original(
+            audit_id=audit_id,
+            workspace=workspace,
+            context_interpretations=context_interpretations,
+            routing_snapshot=routing_snapshot,
+        )
+        errors = list(base.renderer_errors)
+        try:
+            reconcile_information_retrieval_metrics(audit_id=audit_id, workspace=workspace)
+            write_standards_report(audit_id=audit_id, workspace=workspace)
+            enrich_existing_reports(audit_id=audit_id, workspace=workspace)
+            report_dir = workspace.root / "report"
+            report_navigation.normalize_report_navigation(report_dir)
+            enhance_report_directory(report_dir)
+            write_report_manifest(report_dir)
+        except Exception as exc:
+            errors.append(f"strict-ir:{type(exc).__name__}:{str(exc)[:400]}")
+        inspected = report_completion.inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
+        return report_completion.AuditReportCompletion(
+            expected_pages=inspected.expected_pages,
+            generated_pages=inspected.generated_pages,
+            missing_pages=inspected.missing_pages,
+            renderer_errors=tuple(errors),
+        )
+
+    report_completion.finalize_audit_report_site = finalize_with_strict_ir
+    report_completion._rasai_strict_ir_reconciliation = True
