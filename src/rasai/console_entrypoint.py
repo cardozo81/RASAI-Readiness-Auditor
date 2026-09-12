@@ -21,6 +21,11 @@ from rasai.console_search_intelligence import install as install_search_intellig
 from rasai.consolidation.integration import install as install_consolidation
 from rasai.context_scope_runtime import install as install_context_scope_runtime
 from rasai.external_measurement_runtime import install as install_external_measurement_runtime
+from rasai.improvement_intelligence_console import (
+    install as install_improvement_intelligence_console,
+    install_environment as install_improvement_intelligence_environment,
+)
+from rasai.improvement_intelligence_runtime import install as install_improvement_intelligence_runtime
 from rasai.integration_state_contract import install as install_integration_state_contract
 from rasai.integration_state_refinements import install as install_integration_state_refinements
 from rasai.m21_console_progress import install_m21_external_progress
@@ -73,6 +78,7 @@ def main() -> int:
     install_standards_css_validation()
     install_standards_m21_reconciliation()
     install_standards_gsc_observability_runtime()
+    install_improvement_intelligence_environment()
     prepare_console_config()
     install_ai_efficiency_policy()
     install_runtime_completion_extensions()
@@ -85,6 +91,7 @@ def main() -> int:
     install_search_progress_gate()
     install_standards_gsc_console_progress()
     install_console_cancellation_runtime()
+    install_improvement_intelligence_runtime()
     interactive_console._environment_menu = console_environment.environment_menu
     interactive_console._configure_apdex = configure_apdex
     install_search_guidance(console_search_intelligence)
@@ -93,9 +100,10 @@ def main() -> int:
     install_console_runtime_contract_compatibility()
     install_report_scope_clarity()
     install_console_progress_presentation()
-    # Install last so provider availability, configuration and credential changes are
-    # resolved by one final selector before the user starts an execution.
+    # Provider management resolves the final configured/active catalog first; the
+    # deep-analysis surface then wraps that final console without replacing it.
     install_ai_provider_console_management()
+    install_improvement_intelligence_console(interactive_console)
     return interactive_console.main()
 
 
