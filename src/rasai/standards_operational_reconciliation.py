@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from typing import Any, Mapping
+from typing import Any
 from urllib.parse import urlsplit
 
 from rasai.persistence import AuditWorkspace
@@ -155,22 +155,22 @@ def reconcile_operational_http_metrics(*, audit_id: str, workspace: AuditWorkspa
                 "http_2xx_success_rate",
                 "HTTP 2xx Success Rate",
                 sum(200 <= int(status) <= 299 for status in statuses),
-                len(statuses),
-                "Final 2xx responses / physical URL acquisitions with determinate HTTP status",
+                observed,
+                "Physical URL acquisitions ending with HTTP 2xx / all physical observations; transport failures remain in the denominator",
             ),
             (
                 "http_4xx_rate",
                 "HTTP 4xx Rate",
                 sum(400 <= int(status) <= 499 for status in statuses),
-                len(statuses),
-                "Final 4xx responses / physical URL acquisitions with determinate HTTP status",
+                observed,
+                "Physical URL acquisitions ending with HTTP 4xx / all physical observations",
             ),
             (
                 "http_5xx_rate",
                 "HTTP 5xx Rate",
                 sum(500 <= int(status) <= 599 for status in statuses),
-                len(statuses),
-                "Final 5xx responses / physical URL acquisitions with determinate HTTP status",
+                observed,
+                "Physical URL acquisitions ending with HTTP 5xx / all physical observations",
             ),
             (
                 "transport_error_rate",
@@ -233,6 +233,7 @@ def reconcile_operational_http_metrics(*, audit_id: str, workspace: AuditWorkspa
                     relation_degree=4,
                     details={
                         "physical_observations": observed,
+                        "determinate_http_statuses": len(statuses),
                         "audited_urls": total_pages,
                         "deduplicated_by": "page_id",
                         "boundary": "Device snapshots do not multiply the same physical M2 HTTP acquisition.",
