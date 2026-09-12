@@ -5,7 +5,9 @@ keeps SARI/SCORE-GEO untouched and reuses only persisted audit/Search evidence.
 """
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
+import sqlite3
 from typing import Any
 
 from rasai.improvement_intelligence import (
@@ -77,6 +79,96 @@ def _install_report_contract() -> None:
             values.insert(anchor, REPORT_FILE)
         groups.append((label, tuple(values)))
     context_scope_runtime._NAV_GROUPS = tuple(groups)
+
+
+def _install_consolidated_alignment() -> None:
+    """Bring the historical/consolidated surface to the current public vocabulary."""
+    try:
+        from rasai.consolidation import reporting
+    except Exception:
+        return
+    reporting.REPORT_FORMAT_VERSION = "CONS-4"
+    reporting._DIMENSIONS.update({
+        "DISCOVERY_ACCESS": "Discovery & Crawler Access",
+        "INDEXABILITY": "Indexability & Canonicalization",
+        "CONTENT_EXTRACTABILITY": "Rendering & Extractability",
+        "SEMANTIC_STRUCTURE": "Semantic Structure",
+        "ENTITY_CLARITY": "Entity Clarity",
+        "STRUCTURED_DATA": "Structured Data",
+        "ANSWERABILITY": "Answerability",
+        "CITATION_READINESS": "Citation Readiness",
+        "EVIDENCE_TRUST": "Evidence & Trust",
+        "INTENT_COVERAGE": "Intent Coverage",
+        "CONTENT_VALUE": "Content Value",
+        # Backward-readable only. New audits use DISCOVERY_ACCESS.
+        "TECHNICAL_ACCESSIBILITY": "Discovery & Crawler Access (histórico legado)",
+    })
+    original = reporting._render_executive
+    if getattr(original, "_rasai_improvement_boundary", False):
+        return
+
+    def render_executive(data):
+        html = original(data)
+        notice = (
+            "<section class='notice' data-current-rasai-boundary='true'><strong>Fronteira do consolidado atual:</strong> "
+            "SARI/SCORE-GEO, Coverage, Confidence e gates mantêm sua série metodológica própria. Lighthouse/Core Web Vitals, "
+            "Apdex, SERP/Search Intelligence, postura de segurança e Improvement Intelligence são sinais complementares e não são "
+            "promediados artificialmente dentro do SARI histórico. Recomendações de IA são advisory e o ganho só é tratado como "
+            "observado depois de nova medição/before-after.</section>"
+        )
+        return notice + html
+
+    render_executive._rasai_improvement_boundary = True
+    render_executive._rasai_original = original
+    reporting._render_executive = render_executive
+
+
+def _install_ai_cost_attribution() -> None:
+    """Keep deep-analysis cost separate from semantic and technical remediation cost."""
+    try:
+        from rasai import documented_contract_reconciliation as reconciliation
+    except Exception:
+        return
+    original = reconciliation._db_ai_costs
+    if getattr(original, "_rasai_improvement_cost_attribution", False):
+        return
+
+    def db_ai_costs(database: Path) -> dict[str, dict[str, Decimal]]:
+        totals: dict[str, dict[str, Decimal]] = {}
+        if not database.is_file():
+            return totals
+        connection = sqlite3.connect(database)
+        try:
+            definitions = (
+                (
+                    "ai_provider_attempts",
+                    "CASE "
+                    f"WHEN semantic_contract_version='{CONTRACT_VERSION}' THEN 'Improvement Intelligence por IA' "
+                    "WHEN semantic_contract_version LIKE 'M24-%' THEN 'Remediação técnica por IA' "
+                    "ELSE 'Análise semântica por IA' END",
+                ),
+                ("content_remediation_attempts", "'Remediação textual por IA'"),
+            )
+            for table, label_sql in definitions:
+                exists = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
+                ).fetchone()
+                if not exists:
+                    continue
+                rows = connection.execute(
+                    f"SELECT {label_sql},cost_currency,SUM(estimated_cost) FROM {table} "
+                    "WHERE estimated_cost IS NOT NULL AND cost_currency IS NOT NULL GROUP BY 1,cost_currency"
+                ).fetchall()
+                for label, currency, amount in rows:
+                    bucket = totals.setdefault(str(currency), {})
+                    bucket[str(label)] = bucket.get(str(label), Decimal("0")) + Decimal(str(amount))
+        finally:
+            connection.close()
+        return totals
+
+    db_ai_costs._rasai_improvement_cost_attribution = True
+    db_ai_costs._rasai_original = original
+    reconciliation._db_ai_costs = db_ai_costs
 
 
 def _install_report_completion() -> None:
@@ -214,5 +306,7 @@ def install() -> None:
     if _INSTALLED:
         return
     _install_report_contract()
+    _install_consolidated_alignment()
+    _install_ai_cost_attribution()
     _install_report_completion()
     _INSTALLED = True
