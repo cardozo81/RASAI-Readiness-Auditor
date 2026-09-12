@@ -101,6 +101,24 @@ Quantidade de linhas normalizadas persistidas no dataset mais recente.
 
 Se o dataset foi coletado com sucesso e contém zero linhas, esta métrica é `0`. Isso é diferente de não existir dataset Search Analytics para a auditoria.
 
+### GSC Returned-row Distinct Queries
+
+Quantidade de valores `query_text` distintos e não vazios existentes nas linhas retornadas/persistidas do dataset mais recente.
+
+Esta contagem **não** representa o universo completo de consultas da property. Ela descreve somente as queries visíveis no dataset bounded retornado pelo Search Analytics.
+
+### GSC Returned-row Distinct URLs
+
+Quantidade de URLs distintas e não vazias representadas nas linhas retornadas/persistidas.
+
+Ela não deve ser interpretada como cobertura orgânica total das URLs auditadas ou da property, porque URLs ausentes podem apenas não ter aparecido entre as linhas retornadas.
+
+### GSC Returned-row Distinct Query-URL Pairs
+
+Quantidade de pares distintos `query_text + URL` existentes nas linhas retornadas/persistidas.
+
+O indicador descreve diversidade observada de associação entre consulta e página dentro do dataset retornado. Não é Recall, nDCG, Share of Voice ou cobertura completa de busca.
+
 ### GSC Returned-row Clicks
 
 Soma de `clicks` das linhas efetivamente retornadas/persistidas. Em um dataset válido com zero linhas, o valor é `0`.
@@ -172,8 +190,9 @@ As métricas aparecem em:
 
 - URL Inspection descreve o estado conhecido pelo índice do Google; não é live test universal;
 - Search Analytics pode omitir linhas e não representa necessariamente o universo completo da property;
+- contagens de queries, URLs e pares query-URL são somente do dataset retornado/persistido;
 - dataset inexistente não é convertido em zero;
-- dataset Search Analytics válido com zero linhas materializa contagem/clicks/impressions como zero, enquanto CTR e posição permanecem `NO_DATA`;
+- dataset Search Analytics válido com zero linhas materializa contagens/clicks/impressions como zero, enquanto CTR e posição permanecem `NO_DATA`;
 - erro de coleta não vira falha do website;
 - métricas GSC não duplicam peso no SARI;
 - dados locais determinísticos e dados observacionais Google permanecem separados.
