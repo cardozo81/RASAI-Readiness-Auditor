@@ -36,6 +36,7 @@ EXPECTED_CANONICAL_FILENAMES = (
     "desktop.html",
     "accessibility.html",
     "web-performance.html",
+    "standards.html",
     "apdex.html",
     "apdex-experience.html",
     "search-intelligence.html",
@@ -98,6 +99,7 @@ PUBLIC_GENERATOR_FILES = (
     "src/rasai/score_geo_004_reporting.py",
     "src/rasai/search_intelligence/reporting.py",
     "src/rasai/search_intelligence/history_reporting.py",
+    "src/rasai/standards_metrics.py",
     "src/rasai/observability/reporting.py",
     "src/rasai/quality/reporting.py",
     "src/rasai/monitoring/reporting.py",
@@ -115,6 +117,7 @@ SURFACE_IMPLEMENTATION_HINTS = {
     "crawling-discovery.html": "src/rasai/m24_reporting.py",
     "accessibility.html": "src/rasai/m22_quality_domains.py",
     "web-performance.html": "src/rasai/m21_reporting.py",
+    "standards.html": "src/rasai/standards_metrics.py",
     "search-intelligence.html": "src/rasai/search_intelligence/reporting.py",
     "apdex.html": "src/rasai/m23_reporting.py",
     "apdex-experience.html": "src/rasai/m25_reporting.py",
@@ -173,6 +176,8 @@ def _check_runtime(errors: list[str]) -> None:
         errors.append("context.html não usa o rótulo canônico Contexto de captura")
     if labels_by_filename.get("crawling-discovery.html") != "Domínio e descoberta":
         errors.append("crawling-discovery.html não usa o rótulo canônico Domínio e descoberta")
+    if labels_by_filename.get("standards.html") != "Métricas e padrões":
+        errors.append("standards.html não usa o rótulo canônico Métricas e padrões")
     if labels_by_filename.get("improvement-intelligence.html") != "Análise profunda e melhorias":
         errors.append("improvement-intelligence.html não usa o rótulo canônico Análise profunda e melhorias")
     if REPORT_ALIASES:
