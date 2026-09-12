@@ -32,6 +32,7 @@ from rasai.runtime_adherence_extensions import install_runtime_adherence_extensi
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.runtime_contract_compatibility import install_console_runtime_contract_compatibility
 from rasai.runtime_progress_gate import install_search_progress_gate
+from rasai.standards_console_runtime import install as install_standards_console_runtime
 from rasai.standards_runtime import (
     install_post_context as install_standards_post_context,
     install_pre_context as install_standards_pre_context,
@@ -51,6 +52,7 @@ def main() -> int:
     # Standards metadata is installed before context projection and before INI load so
     # all non-secret service toggles participate in the normal console persistence flow.
     install_standards_pre_context()
+    install_standards_console_runtime()
     install_report_registry()
     install_context_scope_runtime()
     install_m3_render_deadline_runtime()
