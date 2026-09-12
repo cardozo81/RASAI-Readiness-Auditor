@@ -167,7 +167,7 @@ def _evaluate_cost_outcome(
     deviation_percent = (deviation / expected) * 100.0
     if deviation_percent <= 0:
         status = "DENTRO DO ESPERADO"
-    elif deviation_percent <= _ALERT_THRESHOLD_PERCENT:
+    elif round(deviation_percent, 10) <= _ALERT_THRESHOLD_PERCENT:
         status = "ALERTA"
     else:
         status = "CRÍTICO"
