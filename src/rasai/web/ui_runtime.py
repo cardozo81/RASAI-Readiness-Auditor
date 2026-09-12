@@ -53,7 +53,7 @@ def _align_standards_surface(html: str) -> str:
     )
     html = html.replace(
         "function resetAuditConfig(){if($('audit-config'))$('audit-config').value=JSON.stringify(state.auditDefaults||{},null,2)}",
-        "function defaultAuditConfig(){const config={...(state.auditDefaults||{})};delete config.web_performance;return config}function resetAuditConfig(){if($('audit-config'))$('audit-config').value=JSON.stringify(defaultAuditConfig(),null,2)}",
+        "function defaultAuditConfig(){const config={...(state.auditDefaults||{})};delete config.web_performance;for(const s of state.standardServices||[]){if(s.job_field)delete config[s.job_field]}return config}function resetAuditConfig(){if($('audit-config'))$('audit-config').value=JSON.stringify(defaultAuditConfig(),null,2)}",
         1,
     )
     html = html.replace(
@@ -63,13 +63,18 @@ def _align_standards_surface(html: str) -> str:
     )
     html = html.replace(
         '  </section>\n\n  <section class="panel" id="panel-audits">',
-        '    <div class="card" style="margin-top:14px"><h2>Serviços de métricas e padrões</h2><p class="muted">Estado do processo API. Workers podem possuir credenciais próprias; valores secretos nunca são exibidos.</p><div id="standards-table"></div></div>\n  </section>\n\n  <section class="panel" id="panel-audits">',
+        '    <div class="card" style="margin-top:14px"><h2>Serviços de métricas e padrões</h2><p class="muted">Estado do processo API. Workers podem possuir credenciais próprias; valores secretos nunca são exibidos. O controle altera apenas o AuditJob em edição.</p><div id="standards-table"></div></div>\n  </section>\n\n  <section class="panel" id="panel-audits">',
         1,
     )
-    render_function = (
-        "function renderStandards(){const rows=(state.standardServices||[]).map(s=>`<tr><td><strong>${esc(s.label)}</strong><br><span class=\"muted\">${esc(s.purpose||'')}</span></td><td>${esc((s.relation_degree||'—')+'/5')}</td><td>${esc((s.scopes||[]).join(', '))}</td><td>${pill(s.state)}</td><td>${esc((s.missing_configuration||[]).join(', ')||'—')}</td></tr>`);$('standards-table').innerHTML=table(['Serviço','Relação','Escopo','Estado','Configuração ausente'],rows)}\n"
+    controls = (
+        "function auditConfigObject(){try{return JSON.parse($('audit-config').value||'{}')}catch(err){throw new Error('Configuração JSON inválida: '+err.message)}}\n"
+        "function serviceConfigMode(field){if(!field)return'default';try{const cfg=auditConfigObject();if(!(field in cfg)||cfg[field]===null)return'default';return cfg[field]===true?'true':'false'}catch(_){return'default'}}\n"
+        "function setServiceMode(field,mode){if(!field)return;try{const cfg=auditConfigObject();if(mode==='default')delete cfg[field];else cfg[field]=mode==='true';$('audit-config').value=JSON.stringify(cfg,null,2);renderStandards()}catch(err){toast(err.message,'bad')}}\n"
     )
-    html = html.replace("function renderAll(){", render_function + "function renderAll(){", 1)
+    render_function = (
+        "function renderStandards(){const rows=(state.standardServices||[]).map(s=>{const mode=serviceConfigMode(s.job_field);const autoLabel=s.auto_enable_with_credentials?'Auto':'Padrão';const control=s.job_field?`<select onchange=\"setServiceMode('${esc(s.job_field)}',this.value)\"><option value=\"default\" ${mode==='default'?'selected':''}>${autoLabel}</option><option value=\"true\" ${mode==='true'?'selected':''}>Ligado</option><option value=\"false\" ${mode==='false'?'selected':''}>Desligado</option></select>`:'-';return `<tr><td><strong>${esc(s.label)}</strong><br><span class=\"muted\">${esc(s.purpose||'')}</span></td><td>${esc((s.relation_degree||'-')+'/5')}</td><td>${esc((s.scopes||[]).join(', '))}</td><td>${pill(s.state)}</td><td>${esc((s.missing_configuration||[]).join(', ')||'-')}</td><td>${control}</td></tr>`});$('standards-table').innerHTML=table(['Serviço','Relação','Escopo','Estado','Configuração ausente','Controle do job'],rows)}\n"
+    )
+    html = html.replace("function renderAll(){", controls + render_function + "function renderAll(){", 1)
     html = html.replace("renderMilestones();renderUsage();$('overview-state')", "renderMilestones();renderUsage();renderStandards();$('overview-state')", 1)
     html = html.replace(
         "const klass=['SUCCEEDED','PASS','COMPLETED','SUCCESS','ACTIVE'].includes(s)?'good':['FAILED','FAIL','ERROR','CANCELLED'].includes(s)?'bad':['QUEUED','CLAIMED','RUNNING','PARTIAL'].includes(s)?'wait':'';",
