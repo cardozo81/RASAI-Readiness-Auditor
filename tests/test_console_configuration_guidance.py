@@ -24,11 +24,13 @@ from rasai.standards_runtime import install_pre_context
 def _installed_facade():
     # Mirror the relevant public console composition rather than testing a partial
     # catalog. Context-scope installation owns the canonical synthetic-profile
-    # EnvironmentSpecs used by the actual rasai-console entrypoint.
+    # EnvironmentSpecs used by the actual rasai-console entrypoint, while the second
+    # standards pass repairs service/GSC metadata after runtime catalog rebuilds.
     install_pre_context()
     install_standards_console_runtime()
     install_context_scope_runtime()
     install_runtime_completion_extensions()
+    install_standards_console_runtime()
     from rasai import console_provider_environment as facade
 
     facade.refresh_specs()
