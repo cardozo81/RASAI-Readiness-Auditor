@@ -235,6 +235,31 @@ print("OK")
     assert "OK" in result.stdout
 
 
+def test_console_item_13_prevents_env_driven_hidden_duplicate_execution() -> None:
+    code = r'''
+import os
+from rasai import interactive_console
+from rasai.improvement_intelligence import ENABLED_ENV
+from rasai.improvement_intelligence_console import install
+seen = []
+def base_run(state):
+    seen.append(os.environ.get(ENABLED_ENV))
+    return 0
+interactive_console.run_audit_from_console = base_run
+install(interactive_console)
+os.environ[ENABLED_ENV] = "true"
+state = interactive_console.State()
+state.improvement_enabled = False
+assert interactive_console.run_audit_from_console(state) == 0
+assert seen == ["false"]
+assert os.environ[ENABLED_ENV] == "true"
+print("OK")
+'''
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
+    assert "OK" in result.stdout
+
+
 def test_saas_contract_requires_exactly_one_url() -> None:
     # Isolated process avoids leaking additive monkey patches into unrelated tests.
     code = r'''
