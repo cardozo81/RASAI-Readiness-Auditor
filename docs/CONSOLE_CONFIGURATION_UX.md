@@ -205,7 +205,40 @@ Reset significa retornar cada variável ao default/auto/ausência definido pelo 
 
 Contrato detalhado: [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md).
 
-## 9. Referências oficiais de integrações
+## 9. Perfis de Execução de sessão
+
+Perfis de Execução são uma camada temporária de UX para reduzir a necessidade de alternar várias configurações antes de cada auditoria. Eles não criam uma segunda fonte de verdade e não reescrevem defaults do programa.
+
+No escopo inicial, o recurso é disponibilizado apenas quando existe **uma URL única explícita**. A UI deve expor:
+
+```text
+F. Perfil da execução
+```
+
+Regras obrigatórias:
+
+- o perfil existe somente na sessão/execução atual;
+- não é gravado no `rasai-console.ini`;
+- não altera `Windows/User` ou `Windows/Machine`;
+- não cria, troca ou persiste credenciais;
+- antes da aplicação, apresenta descrição, módulos envolvidos, dependências e custo/quota/carga estimada;
+- perfis podem ser combinados por composição de módulos sem exigir presets permanentes para cada combinação possível;
+- ajustes finos feitos depois da seleção vencem o preset no domínio explicitamente alterado;
+- a configuração-base deve ser restaurada após a projeção temporária da execução.
+
+Dependências humanas ou operacionais nunca são inventadas pelo perfil. Exemplos:
+
+- Search Intelligence exige termos SERP fornecidos na sessão;
+- GEO preserva contexto editorial/YMYL explícito ou mantém `AUTO` como hipótese, sem convertê-lo em fato;
+- Experiência sintética exige os parâmetros Apdex já configurados e não inventa threshold/amostras/carga;
+- Análise profunda exige o item 13 previamente habilitado e válido;
+- a opção de IA padrão do perfil pode ser `SEM IA` ou `IA SE DISPONÍVEL`; ausência de provider apto nesse segundo modo não bloqueia o core.
+
+Quando uma capacidade selecionada possui dependência obrigatória ausente, o perfil pode permanecer escolhido, mas o preflight deve indicar `CONFIGURAR` e impedir `R. Executar` somente conforme o contrato dessa dependência.
+
+Contrato detalhado: [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md).
+
+## 10. Referências oficiais de integrações
 
 As URLs devem preferencialmente vir dos registries canônicos usados pelo runtime.
 
@@ -224,7 +257,7 @@ As URLs devem preferencialmente vir dos registries canônicos usados pelo runtim
 
 Para IA e SERP, as URLs oficiais são derivadas respectivamente de `provider_registry` e `search_intelligence.provider_catalog`, evitando duplicação manual no console.
 
-## 10. Google Search Console como exemplo completo
+## 11. Google Search Console como exemplo completo
 
 `RASAI_GSC_ENABLED` controla a elegibilidade da coleta observacional do Search Console.
 
@@ -251,7 +284,7 @@ ou uma propriedade URL-prefix HTTP(S) válida.
 
 O access token é secret e nunca entra no `rasai-console.ini`.
 
-## 11. Fonte de verdade e extensibilidade
+## 12. Fonte de verdade e extensibilidade
 
 A UX não deve criar contratos paralelos.
 
@@ -269,7 +302,9 @@ documentação
 
 Quando uma extensão adicionar um novo booleano ou enum ao catálogo em runtime, a superfície guiada deve herdar automaticamente o comportamento de seleção. Quando um provider registrado informar URLs oficiais, a UI deve apresentá-las sem exigir duplicação manual.
 
-## 12. Critério de aderência
+Perfis de Execução obedecem a mesma regra: eles apenas projetam temporariamente escolhas sobre contratos existentes; não mantêm valores metodológicos ou defaults paralelos.
+
+## 13. Critério de aderência
 
 Uma nova variável configurável só está aderente quando:
 
@@ -285,6 +320,7 @@ Uma nova variável configurável só está aderente quando:
 - secrets recebem feedback mascarado quando o terminal suporta isso;
 - edição de secret pode ser cancelada antes do commit;
 - reset destrutivo exige confirmação explícita e nunca remove Windows/Machine;
+- Perfis de Execução permanecem session-only, exibem dependências/custo e não persistem overrides silenciosamente;
 - não expõe secrets no INI, logs ou relatórios.
 
-Documentos complementares: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md), [PROVIDER_SETUP.md](PROVIDER_SETUP.md), [STANDARDS_METRICS_AND_SERVICES.md](STANDARDS_METRICS_AND_SERVICES.md), [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md), [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md) e [WEB_PLATFORM_BASELINE.md](WEB_PLATFORM_BASELINE.md).
+Documentos complementares: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md), [PROVIDER_SETUP.md](PROVIDER_SETUP.md), [STANDARDS_METRICS_AND_SERVICES.md](STANDARDS_METRICS_AND_SERVICES.md), [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md), [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md) e [WEB_PLATFORM_BASELINE.md](WEB_PLATFORM_BASELINE.md).
