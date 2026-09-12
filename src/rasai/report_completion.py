@@ -11,7 +11,7 @@ from rasai.persistence import AuditWorkspace
 AUDIT_ALWAYS_PAGES: tuple[str, ...] = (
     "index.html", "readiness.html", "scoring.html", "content-suggestions.html",
     "crawling-discovery.html", "accessibility.html", "web-performance.html",
-    "remediation.html", "ai-usage.html", "references.html",
+    "improvement-intelligence.html", "remediation.html", "ai-usage.html", "references.html",
 )
 
 
@@ -72,6 +72,7 @@ def inspect_audit_report_site(*, audit_id: str, workspace: AuditWorkspace) -> Au
 def finalize_audit_report_site(*, audit_id: str, workspace: AuditWorkspace, context_interpretations: Sequence[Any] = (), routing_snapshot: Mapping[str, Any] | None = None) -> AuditReportCompletion:
     """Rebuild persisted projections, then add execution-local AI presentation data."""
     from rasai import report_navigation
+    from rasai.improvement_intelligence import write_improvement_report
     from rasai.m20_reporting import enrich_m20_report_site
     from rasai.m21_reporting import enrich_m21_report_site
     from rasai.m23_reporting import enrich_m23_report_site
@@ -105,6 +106,9 @@ def finalize_audit_report_site(*, audit_id: str, workspace: AuditWorkspace, cont
         run("apdex-experience", lambda: enrich_m25_report_site(audit_id=audit_id, workspace=workspace))
         run("apdex-experience-overview", lambda: enrich_m25_overview_summary(audit_id=audit_id, workspace=workspace))
     run("scoring", lambda: write_score_geo_004_report(audit_id=audit_id, workspace=workspace))
+    # Improvement Intelligence is audit-owned even when disabled. The writer is read-only
+    # and materializes an explicit state page without creating an AI request.
+    run("improvement-intelligence", lambda: write_improvement_report(audit_id=audit_id, workspace=workspace))
     report_dir = workspace.root / "report"
     run("consistency", lambda: reconcile_report_outputs(audit_id=audit_id, workspace=workspace))
     run("navigation", lambda: report_navigation.normalize_report_navigation(report_dir))

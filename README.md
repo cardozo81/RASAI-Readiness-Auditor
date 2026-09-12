@@ -13,7 +13,7 @@ O produto avalia sinais técnicos e semânticos úteis para Search e sistemas ge
 
 ## Estado funcional
 
-Capacidades integradas em `main`:
+Capacidades integradas no contrato atual:
 
 - auditoria por URL única, conjunto explícito ou arquivo TXT;
 - `mobile`, `desktop` ou `both`;
@@ -22,6 +22,7 @@ Capacidades integradas em `main`:
 - `SARI-001` com `SCORE-GEO-004`, Coverage, Confidence e Consolidation separados;
 - análise semântica opcional por IA e fallback provider-neutral;
 - remediação textual/JSON-LD advisory e evidence-bound;
+- Improvement Intelligence opcional para uma URL, com provider/modelo/esforço próprios, análise técnica/conteúdo/SERP/segurança passiva e backlog priorizado;
 - crawling/discovery e controles de crawlers;
 - PageSpeed/Lighthouse + Core Web Vitals/CrUX como domínio externo separado;
 - Acessibilidade automatizada separada do SARI e sem alegar conformidade WCAG integral;
@@ -72,16 +73,17 @@ report/index.html
 Uma análise de URLs concluída com sucesso deve terminar com as páginas audit-owned abaixo fisicamente materializadas. Quando uma página esperada não puder ser criada nem reparada a partir do `audit.db`, o comando retorna status de processo não-zero em vez de declarar silenciosamente que o mini-site está completo.
 
 ```text
-index.html               síntese executiva
-readiness.html           SARI-001
-scoring.html             metodologia de scoring e versão efetiva
-content-suggestions.html estado/sugestões de conteúdo e JSON-LD
-crawling-discovery.html  crawling/discovery
-accessibility.html       acessibilidade automatizada ou estado da coleta
-web-performance.html     Lighthouse/Core Web Vitals ou estado da coleta
-remediation.html         remediação
-ai-usage.html            uso/custo estimado de IA ou estado sem IA
-references.html          referências e metodologia
+index.html                    síntese executiva
+readiness.html                SARI-001
+scoring.html                  metodologia de scoring e versão efetiva
+crawling-discovery.html       crawling/discovery
+accessibility.html            acessibilidade automatizada ou estado da coleta
+web-performance.html          Lighthouse/Core Web Vitals ou estado da coleta
+ai-usage.html                 uso/custo estimado de IA ou estado sem IA
+improvement-intelligence.html análise profunda e backlog de melhorias; explicita DESABILITADO quando não solicitada
+content-suggestions.html      estado/sugestões de conteúdo e JSON-LD
+remediation.html              remediação
+references.html               referências e metodologia
 ```
 
 Páginas adicionais da própria auditoria são condicionais àquilo que foi efetivamente executado:
@@ -151,6 +153,8 @@ Audit Evidence
    |
    +--> SARI / SCORE-GEO-004        participa do readiness
    |
+   +--> Improvement Intelligence    advisory; prioriza correções sem alterar o score
+   |
    +--> Remediation                 derivado read-only
    |
    +--> Web Performance
@@ -171,7 +175,7 @@ Audit Evidence
    +--> AI Usage                    telemetria de IA
 ```
 
-Cada página HTML declara **Inputs, Outputs, dependências obrigatórias/opcionais, uso de IA, impacto no SARI/SCORE e fonte de verdade**. Isso evita inferir, por exemplo, que Lighthouse, Acessibilidade ou Apdex alterem o `SCORE-GEO-004`.
+Cada página HTML declara **Inputs, Outputs, dependências obrigatórias/opcionais, uso de IA, impacto no SARI/SCORE e fonte de verdade**. Isso evita inferir, por exemplo, que Lighthouse, Acessibilidade, Apdex ou recomendações da análise profunda alterem o `SCORE-GEO-004`.
 
 ## Versões e contratos são conceitos diferentes
 
@@ -239,6 +243,7 @@ Providers concretos e seleções aceitas são definidos pelo registry atual e do
 - [docs/AI_GUIDE.md](docs/AI_GUIDE.md)
 - [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
 - [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
+- [docs/IMPROVEMENT_INTELLIGENCE.md](docs/IMPROVEMENT_INTELLIGENCE.md)
 
 Credencial configurada não comprova saldo, quota, acesso ao modelo ou disponibilidade do provider.
 
@@ -252,6 +257,14 @@ Quando um conteúdo exibido foi produzido por IA, a superfície deve deixar isso
 - telemetria de tentativas, tokens e custo estimado em `ai-usage.html`.
 
 Uma resposta da IA continua **advisory/evidence-bound**. O RASAi valida o contrato do retorno e sua associação às evidências permitidas, mas não transforma texto gerado por IA em fato observado. Remediações por IA não alteram Score, Coverage, Confidence ou Consolidation por si só.
+
+### Improvement Intelligence
+
+A análise profunda é opt-in e só fica elegível para **uma URL explícita**. Ela pode correlacionar HTML/semântica, findings, Lighthouse/PageSpeed, Search/SERP, arquivos de descoberta e postura de segurança passiva. O usuário escolhe provider, modelo e esforço próprios para essa análise, reutilizando a credencial já configurada; `AUTO` não é usado nessa chamada.
+
+O resultado é um backlog priorizado com evidência, impacto potencial, esforço, justificativa e, quando aplicável, comparação entre HTML original e HTML sugerido. Search/SERP é usado como contexto competitivo observacional: nenhuma recomendação promete posição futura. Segurança é passiva; a feature não executa exploração ou pentest ativo.
+
+O ganho só é comprovado por nova medição/before-after após o deploy. Detalhes: [docs/IMPROVEMENT_INTELLIGENCE.md](docs/IMPROVEMENT_INTELLIGENCE.md).
 
 ## Web Performance e Acessibilidade
 
@@ -359,6 +372,7 @@ Princípios:
 - [docs/SCORING_GUIDE.md](docs/SCORING_GUIDE.md)
 - [docs/SARI_READINESS_INDEX.md](docs/SARI_READINESS_INDEX.md)
 - [docs/AI_GUIDE.md](docs/AI_GUIDE.md)
+- [docs/IMPROVEMENT_INTELLIGENCE.md](docs/IMPROVEMENT_INTELLIGENCE.md)
 - [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
 - [docs/MONITORING_OBSERVABILITY.md](docs/MONITORING_OBSERVABILITY.md)
 - [docs/PRODUCT_PLATFORM_ARCHITECTURE.md](docs/PRODUCT_PLATFORM_ARCHITECTURE.md)

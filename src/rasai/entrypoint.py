@@ -14,6 +14,8 @@ from rasai import cli_extensions
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
 from rasai.context_scope_runtime import install as install_context_scope_runtime
 from rasai.external_measurement_runtime import install as install_external_measurement_runtime
+from rasai.improvement_intelligence_runtime import install as install_improvement_intelligence_runtime
+from rasai.improvement_intelligence_saas import install as install_improvement_intelligence_saas
 from rasai.integration_state_contract import install as install_integration_state_contract
 from rasai.integration_state_refinements import install as install_integration_state_refinements
 from rasai.m3_render_deadline_runtime import install as install_m3_render_deadline_runtime
@@ -151,6 +153,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     install_standards_css_validation()
     install_standards_m21_reconciliation()
     install_standards_gsc_observability_runtime()
+    install_improvement_intelligence_saas()
     install_ai_efficiency_policy()
     install_runtime_completion_extensions()
     install_report_observation_reconciliation()
@@ -159,6 +162,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     install_integration_state_refinements()
     install_runtime_contract_compatibility()
     install_provider_presentation_alignment()
+    install_improvement_intelligence_runtime()
     # Install last so scope disclosures see the final canonical report projections.
     install_report_scope_clarity()
     if effective and effective[0] in {"search", "serp"}:

@@ -2,7 +2,7 @@
 
 Referência operacional da superfície de variáveis reconhecida pelo RASAi - Search & AI Readiness Auditor.
 
-**Verificação contra o runtime:** 11/09/2026.
+**Verificação contra o runtime:** 12/09/2026.
 
 O RASAi está em fase pré-publicação. Esta referência descreve somente o contrato atual do produto. Coexistência de controles ou aliases técnicos não representa compatibilidade com uma versão pública anterior.
 
@@ -114,6 +114,23 @@ Todos os campos têm default `auto`.
 Um campo configurado como `auto` permanece `AUTO` no estado persistido. Com IA ligada, o HTML pode exibir separadamente interpretação transitória baseada no conteúdo/evidências enviados. Essa leitura não sobrescreve o banco, não vira evidência determinística e não altera diretamente `SARI-001`/`SCORE-GEO-004`.
 
 Detalhes: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md) e [CONTENT_CONTEXT_AI_INTERPRETATION.md](CONTENT_CONTEXT_AI_INTERPRETATION.md).
+
+### 6.1 IA - análise profunda e idioma
+
+Improvement Intelligence usa uma configuração de IA própria para permitir modelo e esforço diferentes da análise semântica padrão, mas reutiliza a credencial já configurada do provider selecionado. A execução continua limitada a uma única URL explícita e permanece advisory/non-scoring.
+
+| Variável | Default efetivo | Valores permitidos | Recomendado | Finalidade |
+|---|---|---|---|---|
+| `RASAI_AI_ANALYSIS_LANGUAGE` | `auto` | `auto` ou tag BCP-47 como `pt-BR`, `en-US` | `auto`, salvo necessidade editorial explícita | idioma preferencial das explicações e sugestões; não força o idioma real da página |
+| `RASAI_IMPROVEMENT_INTELLIGENCE` | `false` | booleano | `false`; habilitar somente para URL única | ativa a análise profunda evidence-bound |
+| `RASAI_IMPROVEMENT_AI_PROVIDER` | sem default | provider explícito registrado; `AUTO`/`NONE` não são aceitos quando a feature está ativa | selecionar uma IA já configurada | provider exclusivo da análise profunda |
+| `RASAI_IMPROVEMENT_AI_MODEL` | sem default | modelo suportado pelo provider selecionado | omitir para usar o default público do provider | override de modelo somente desta análise |
+| `RASAI_IMPROVEMENT_AI_REASONING` | sem default | esforço suportado pelo provider selecionado | omitir para usar o perfil definido pela feature | esforço/profundidade somente desta análise |
+| `RASAI_IMPROVEMENT_DOMAINS` | todos os domínios suportados | CSV de `TECHNICAL_HTML`, `SEMANTICS_STRUCTURE`, `CONTENT`, `SEARCH_RANKING`, `FILES_DISCOVERY`, `PERFORMANCE`, `ACCESSIBILITY`, `BEST_PRACTICES`, `SECURITY`, `AI_ACCESS` | manter somente domínios úteis ao objetivo | controla quais conjuntos de evidência entram no estudo |
+| `RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS` | `30` | inteiro `1..100` | `30` | limita volume do backlog e output da IA |
+| `RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS` | `240` | número `> 0` | `240` | timeout da tentativa estruturada da análise profunda |
+
+No console local, as escolhas da análise profunda são persistidas na seção `[improvement_intelligence]` do `rasai-console.ini`; key/token nunca são duplicados nesse arquivo. No SaaS, provider/modelo/esforço/domínios/idioma são parte do payload secret-free do job, enquanto a credencial continua no boundary seguro do worker/integration. Consulte [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md).
 
 ## 7. Métricas, padrões e Web Performance
 
