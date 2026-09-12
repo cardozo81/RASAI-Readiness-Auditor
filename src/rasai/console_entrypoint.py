@@ -15,6 +15,7 @@ from rasai.ai_provider_console_management import install as install_ai_provider_
 from rasai.console_apdex_configuration import configure_apdex
 from rasai.console_cancellation_runtime import install as install_console_cancellation_runtime
 from rasai.console_config_path import prepare_console_config
+from rasai.console_cost_confirmation import install as install_cost_confirmation
 from rasai.console_environment_reset import (
     install_ai_secret_cancellation,
     install_environment_reset,
@@ -117,6 +118,9 @@ def main() -> int:
     install_ai_provider_console_management()
     install_ai_secret_cancellation()
     install_improvement_intelligence_console(interactive_console)
+    # Cost confirmation must see the final runtime but remain inside the profile
+    # wrapper so session profiles are projected before historical matching.
+    install_cost_confirmation(interactive_console)
     # Profiles must be outermost: their temporary overlay should be visible to all
     # readiness/run adapters while never leaking back into persistent configuration.
     install_execution_profiles(interactive_console)

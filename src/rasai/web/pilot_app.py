@@ -16,6 +16,8 @@ from rasai.synthetic_profile_saas_runtime import install as install_synthetic_pr
 from .app import ApiSettings, SearchRepositoryFactory, StoreFactory, create_app as create_api_app
 from .auth import PrincipalResolver
 from .authz import Principal
+from .cost_forecast_routes import install_cost_forecast_routes
+from .cost_forecast_ui import install_cost_forecast_ui
 from .identity_routes import install_identity_routes
 from .pilot import install_pilot_routes
 from .saas_management_routes import install_saas_management_routes
@@ -58,6 +60,11 @@ def create_app(
         store_dependency=store_dependency,
         principal_dependency=principal_dependency,
     )
+    install_cost_forecast_routes(
+        app,
+        store_dependency=store_dependency,
+        principal_dependency=principal_dependency,
+    )
     install_saas_management_routes(
         app,
         store_dependency=store_dependency,
@@ -67,6 +74,7 @@ def create_app(
         app,
         principal_dependency=principal_dependency,
     )
+    install_cost_forecast_ui(app)
     return app
 
 
