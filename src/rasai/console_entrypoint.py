@@ -33,6 +33,7 @@ from rasai.runtime_completion_extensions import install_runtime_completion_exten
 from rasai.runtime_contract_compatibility import install_console_runtime_contract_compatibility
 from rasai.runtime_progress_gate import install_search_progress_gate
 from rasai.standards_console_runtime import install as install_standards_console_runtime
+from rasai.standards_m21_reconciliation import install as install_standards_m21_reconciliation
 from rasai.standards_runtime import (
     install_post_context as install_standards_post_context,
     install_pre_context as install_standards_pre_context,
@@ -59,6 +60,7 @@ def main() -> int:
     install_target_input_runtime()
     install_external_measurement_runtime()
     install_standards_post_context()
+    install_standards_m21_reconciliation()
     prepare_console_config()
     install_ai_efficiency_policy()
     install_runtime_completion_extensions()
