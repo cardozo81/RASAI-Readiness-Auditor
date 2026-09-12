@@ -101,6 +101,7 @@ def finalize_audit_report_site(
     from rasai.m25_overview_reporting import enrich_m25_overview_summary
     from rasai.m25_reporting import enrich_m25_report_site
     from rasai.rasai_readiness_reporting import enrich_rasai_reporting
+    from rasai.report_ai_cost_attribution import enrich_ai_cost_attribution
     from rasai.report_ai_runtime_enrichment import enrich_ai_runtime_report
     from rasai.report_consistency_v2 import reconcile_report_outputs
     from rasai.report_manifest import write_report_manifest
@@ -158,6 +159,10 @@ def finalize_audit_report_site(
             context_interpretations=context_interpretations,
             routing_snapshot=routing_snapshot,
         ),
+    )
+    run(
+        "ai-cost-attribution",
+        lambda: enrich_ai_cost_attribution(audit_id=audit_id, workspace=workspace),
     )
     run("manifest", lambda: write_report_manifest(report_dir))
 
