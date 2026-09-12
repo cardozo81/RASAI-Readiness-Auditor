@@ -25,6 +25,17 @@ def test_pilot_exposes_standards_capability_catalog_without_secrets() -> None:
     assert "Workers podem possuir credenciais próprias" in html
 
 
+def test_pilot_colocates_service_controls_with_new_audit_workflow() -> None:
+    html = render_pilot_ui("trusted-header")
+    audits_index = html.index('id="panel-audits"')
+    services_index = html.index("Serviços de métricas e padrões")
+    new_audit_index = html.index("Nova auditoria")
+
+    assert audits_index < services_index < new_audit_index
+    assert html.count('id="standards-table"') == 1
+    assert "vale somente para a nova auditoria em edição" in html
+
+
 def test_pilot_default_json_does_not_materialize_service_toggles() -> None:
     html = render_pilot_ui("trusted-header")
     assert "for(const s of state.standardServices||[]){if(s.job_field)delete config[s.job_field]}" in html
