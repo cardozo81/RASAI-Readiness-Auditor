@@ -20,6 +20,7 @@ _SOURCE_INSPECTION = "GOOGLE_SEARCH_CONSOLE_URL_INSPECTION"
 _SOURCE_SEARCH = "GOOGLE_SEARCH_CONSOLE_SEARCH_ANALYTICS"
 
 _GSC_METRIC_IDS = (
+    "gsc_url_inspection_response_coverage",
     "gsc_url_inspection_verdict_pass_rate",
     "gsc_indexing_allowed_rate",
     "gsc_robots_allowed_rate",
@@ -114,6 +115,35 @@ def _reconcile_inspection(
         (dataset_id,),
     ).fetchall())
     non_error = [row for row in rows if str(row["verdict"] or "").upper() != "ERROR"]
+
+    page_table = audit_connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='pages'"
+    ).fetchone()
+    audited_urls = 0
+    if page_table is not None:
+        audited_urls = int(audit_connection.execute(
+            "SELECT COUNT(*) FROM pages WHERE audit_id=?",
+            (audit_id,),
+        ).fetchone()[0])
+    response_urls = len({str(row["url"]) for row in non_error if str(row["url"] or "").strip()})
+    _record_ratio(
+        audit_connection,
+        audit_id=audit_id,
+        metric_id="gsc_url_inspection_response_coverage",
+        label="GSC URL Inspection Response Coverage",
+        numerator=response_urls,
+        denominator=audited_urls,
+        methodology="Distinct audited URLs with a non-error URL Inspection response / audited URL set",
+        details={
+            "dataset_id": dataset_id,
+            "persisted_rows": len(rows),
+            "non_error_rows": len(non_error),
+            "boundary": (
+                "Coverage can be intentionally below 100% when URL Inspection is bounded by configuration. "
+                "Per-URL ERROR rows are excluded because they do not contain a usable inspection response."
+            ),
+        },
+    )
 
     verdict_rows = [
         row for row in non_error
@@ -370,6 +400,7 @@ def enrich_gsc_metrics_report(*, audit_id: str, workspace: AuditWorkspace) -> No
     if not rows:
         return
     preferred = (
+        "gsc_url_inspection_response_coverage",
         "gsc_url_inspection_verdict_pass_rate",
         "gsc_indexing_allowed_rate",
         "gsc_page_fetch_success_rate",
