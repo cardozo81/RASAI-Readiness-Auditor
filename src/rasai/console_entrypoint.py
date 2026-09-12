@@ -18,6 +18,7 @@ from rasai.console_config_path import prepare_console_config
 from rasai.console_progress_presentation import install as install_console_progress_presentation
 from rasai.console_search_guidance import install as install_search_guidance
 from rasai.console_search_intelligence import install as install_search_intelligence
+from rasai.console_secret_input import install_masked_secret_input
 from rasai.consolidation.integration import install as install_consolidation
 from rasai.context_scope_runtime import install as install_context_scope_runtime
 from rasai.external_measurement_runtime import install as install_external_measurement_runtime
@@ -92,6 +93,7 @@ def main() -> int:
     install_standards_gsc_console_progress()
     install_console_cancellation_runtime()
     install_improvement_intelligence_runtime()
+    install_masked_secret_input()
     interactive_console._environment_menu = console_environment.environment_menu
     interactive_console._configure_apdex = configure_apdex
     install_search_guidance(console_search_intelligence)
