@@ -2,9 +2,10 @@
 
 The materialized base environment catalog is the single source of variable metadata.
 This facade enriches provider metadata and gives operators a consistent navigation
-model: category -> variable -> action, with explicit guidance about defaults, secrets
-and cross-category dependencies. Runtime enrichments already present in ``SPECS`` are
-preserved; the facade must not rebuild the generic factory and discard them.
+model: category -> context -> variable -> action, with explicit guidance about defaults,
+secrets, references and cross-category dependencies. Runtime enrichments already present
+in ``SPECS`` are preserved; the facade must not rebuild the generic factory and discard
+them.
 """
 from __future__ import annotations
 
@@ -13,6 +14,14 @@ from getpass import getpass
 import os
 
 from rasai import console_environment as base_environment
+from rasai.console_configuration_guidance import (
+    context_for,
+    decision_badge,
+    grouped_by_context,
+    normalize_specs,
+    prompt_guided_value,
+    render_enrichment,
+)
 from rasai.console_ui import CYAN, DIM, GREEN, YELLOW, paint
 from rasai.provider_registry import provider_registrations
 from rasai.search_intelligence.config import SERP_PROVIDER_ENV
@@ -43,7 +52,7 @@ _CATEGORY_GUIDANCE: dict[str, tuple[str, ...]] = {
     ),
     "Search Intelligence / Observability": (
         "SERP e observabilidade são independentes do SARI/SCORE-GEO.",
-        "Google Search Console usa aqui o token OAuth; a property fica em Métricas e padrões.",
+        "Google Search Console usa token OAuth e property; o console agrupa essas variáveis pelo contexto GSC.",
     ),
     "Web Performance / Google APIs": (
         "PageSpeed e CrUX ficam AUTO quando a credencial existe, salvo hard-off explícito.",
@@ -51,11 +60,12 @@ _CATEGORY_GUIDANCE: dict[str, tuple[str, ...]] = {
     ),
     "Métricas e padrões": (
         "Serviços gratuitos/sem credencial usam o default do registry; não é preciso repetir true.",
-        "GSC AUTO exige token OAuth em Search Intelligence / Observability e property neste grupo.",
-        "PageSpeed/CrUX AUTO usam as chaves configuradas em Web Performance / Google APIs.",
+        "GSC AUTO exige token OAuth e property; PageSpeed/CrUX AUTO usam as respectivas chaves.",
+        "As variáveis são agrupadas pelo recurso externo para reduzir navegação cruzada.",
     ),
     "Synthetic Apdex": (
         "Medições sintéticas geram navegações reais; revise volume, concorrência e timeout.",
+        "Navigation, Experience e calibração Dynatrace aparecem em contextos separados.",
     ),
     "Browser / Playwright": (
         "Overrides de browser afetam a captura técnica e devem ser alterados com cautela.",
@@ -100,6 +110,7 @@ def _build_specs() -> tuple[EnvironmentSpec, ...]:
         provider_ids = ", ".join(item.id for item in registrations)
         display_names = " / ".join(dict.fromkeys(item.display_name for item in registrations))
         credential_url = registrations[0].credential_url
+        documentation_urls = ", ".join(dict.fromkeys(item.documentation_url for item in registrations))
         notes = " | ".join(dict.fromkeys(item.free_tier_note for item in registrations if item.free_tier_note))
         specs[index] = replace(
             specs[index],
@@ -112,7 +123,9 @@ def _build_specs() -> tuple[EnvironmentSpec, ...]:
             ),
             sensitive=True,
             impact="Consome quota/créditos do provider; limites do RASAi não substituem a quota do fornecedor.",
-            source=f"{display_names} chave/login - {credential_url}",
+            source=(
+                f"Credencial/login: {credential_url} | documentação oficial: {documentation_urls}"
+            ),
             notes=notes,
         )
 
@@ -127,10 +140,13 @@ def _build_specs() -> tuple[EnvironmentSpec, ...]:
         )
         specs[index] = replace(
             spec,
-            source=f"{registration.display_name} credencial/login - {registration.credential_url}",
+            source=(
+                f"Credencial/login: {registration.credential_url} | "
+                f"documentação oficial: {registration.documentation_url}"
+            ),
             notes=notes,
         )
-    return tuple(specs)
+    return normalize_specs(tuple(specs))
 
 
 def environment_specs() -> tuple[EnvironmentSpec, ...]:
@@ -184,17 +200,21 @@ def _selection_state(spec: EnvironmentSpec) -> str:
         return "override/credencial definido"
     if spec.default is not None:
         return "usando default do runtime"
+    required = str(spec.required_when or "").casefold()
+    if required and not required.startswith("nunca") and "opcional" not in required:
+        return "configuração condicional"
     return "sem valor explícito"
 
 
 def _variable_menu(state: object, spec: EnvironmentSpec) -> None:
     while True:
         base_environment.render_header(state)
-        _breadcrumb(spec.category, spec.name)
+        _breadcrumb(spec.category, context_for(spec), spec.name)
         base_environment._render_detail(spec)
+        render_enrichment(spec)
         sensitive = base_environment._is_sensitive_spec(spec)
         print()
-        print(f"Estado de decisão: {paint(_selection_state(spec), GREEN if (os.environ.get(spec.name) or '').strip() else DIM, bold=True)}")
+        print(f"Estado de decisão: {decision_badge(spec)} | {_selection_state(spec)}")
         if sensitive:
             print(paint("Secret: use sessão/Windows User; nunca será gravado no rasai-console.ini.", YELLOW))
         elif spec.default is not None and not (os.environ.get(spec.name) or "").strip():
@@ -203,7 +223,7 @@ def _variable_menu(state: object, spec: EnvironmentSpec) -> None:
         if sensitive:
             print("\nAÇÕES\nS. Definir/alterar na sessão\nR. Remover da sessão\nP. Persistência Windows/User\nD. Documentação\nV. Voltar")
         else:
-            print("\nAÇÕES\nS. Definir/alterar override\nR. Remover override e voltar ao default\nD. Documentação\nV. Voltar")
+            print("\nAÇÕES\nS. Definir/alterar override\nR. Remover override e voltar ao default/auto\nD. Documentação\nV. Voltar")
         action = input("Escolha: ").strip().upper()
         if action == "V":
             return
@@ -227,8 +247,8 @@ def _variable_menu(state: object, spec: EnvironmentSpec) -> None:
             setattr(state, "error", "ação inválida")
             continue
         try:
-            if spec.accepted and spec.value_type in {"enum", "enum inteiro", "booleano"}:
-                raw = base_environment._prompt_choice(spec)
+            if spec.accepted:
+                raw = prompt_guided_value(spec)
                 if raw is None:
                     continue
             else:
@@ -254,10 +274,14 @@ def _category_menu(state: object, title: str, specs: tuple[EnvironmentSpec, ...]
         )
         if not visible:
             print(paint("Nenhum override/secret definido neste grupo.", DIM))
-        for index, spec in enumerate(visible, 1):
-            status = base_environment._status(spec)
-            decision = _selection_state(spec)
-            print(f"{index:2d}. {spec.name:<44} {status:<20} {decision}")
+        for context, rows in grouped_by_context(visible):
+            print(paint(f"\n[{context}]", CYAN, bold=True))
+            for index, spec in rows:
+                status = base_environment._status(spec)
+                print(
+                    f"{index:2d}. {spec.name:<44} {status:<20} "
+                    f"{decision_badge(spec)}"
+                )
         print("\nAÇÕES")
         print("F. " + ("Mostrar todas" if configured_only else "Mostrar somente definidas"))
         print("D. Abrir documentação detalhada")
@@ -287,8 +311,10 @@ def environment_menu(state: object) -> None:
         print("FLUXO RECOMENDADO")
         print("  1. Use o menu principal para Entrada, Device, IA, Web Performance e Apdex.")
         print("  2. Use esta área para integrações, credenciais e overrides avançados.")
-        print("  3. Salve o INI no menu principal para persistir somente configurações não secretas.")
-        print("  4. Antes de executar, revise o preflight; integração ausente não vira finding do website.\n")
+        print("  3. Dentro de cada grupo, variáveis relacionadas aparecem juntas por contexto/recurso.")
+        print("  4. Valores fechados são selecionados de listas; texto livre fica restrito a dados realmente abertos.")
+        print("  5. Salve o INI no menu principal para persistir somente configurações não secretas.")
+        print("  6. Antes de executar, revise o preflight; integração ausente não vira finding do website.\n")
         print(paint("AUTO/Padrão significa deixar o runtime resolver pelo registry e requisitos; não é necessário repetir defaults.", DIM))
         print(paint("Secrets nunca entram no INI. Windows/User exige ação explícita do operador.", YELLOW))
         print()
