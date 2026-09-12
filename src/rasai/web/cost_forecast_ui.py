@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from starlette.responses import Response
-
 
 def inject_cost_forecast_ui(html: str) -> str:
     """Inject a forecast/confirm step into the existing zero-build audit action."""
@@ -45,6 +43,11 @@ def inject_cost_forecast_ui(html: str) -> str:
 
 def install_cost_forecast_ui(app: Any) -> None:
     """Transform only the successful /app HTML response; API and reports are untouched."""
+    # Starlette belongs to the optional Web/SaaS dependency profile. Keep the pure HTML
+    # transformer importable by the local/minimal runtime and load Response only when
+    # an ASGI application actually installs this adapter.
+    from starlette.responses import Response
+
     @app.middleware("http")
     async def cost_forecast_ui_middleware(request: Any, call_next: Any) -> Any:
         response = await call_next(request)
