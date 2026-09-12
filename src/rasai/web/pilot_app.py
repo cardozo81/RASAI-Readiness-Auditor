@@ -10,6 +10,7 @@ from typing import Any, Iterator
 
 from fastapi import Request
 
+from rasai.improvement_intelligence_saas import install as install_improvement_intelligence_saas
 from rasai.standards_gsc_contract import install as install_gsc_contract
 from rasai.synthetic_profile_saas_runtime import install as install_synthetic_profile_saas_runtime
 
@@ -31,10 +32,11 @@ def create_app(
     search_repository_factory: SearchRepositoryFactory | None = None,
     principal_resolver: PrincipalResolver | None = None,
 ) -> Any:
-    # The service contract extends the durable, secret-free AUDIT payload before the
-    # synthetic-profile wrapper composes its own fields. Direct ASGI use therefore has
-    # the same options as CLI-launched SaaS, including non-secret GSC property context.
+    # Direct ASGI import must expose the same secret-free AUDIT contract as
+    # ``rasai api``. Install extensions before profile composition so API options,
+    # validation and worker payloads agree even when the top-level entrypoint is bypassed.
     install_gsc_contract()
+    install_improvement_intelligence_saas()
     install_synthetic_profile_saas_runtime()
 
     app = create_api_app(
