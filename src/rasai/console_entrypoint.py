@@ -19,6 +19,7 @@ from rasai.console_environment_reset import (
     install_ai_secret_cancellation,
     install_environment_reset,
 )
+from rasai.console_execution_profiles import install as install_execution_profiles
 from rasai.console_progress_presentation import install as install_console_progress_presentation
 from rasai.console_search_guidance import install as install_search_guidance
 from rasai.console_search_intelligence import install as install_search_intelligence
@@ -116,6 +117,9 @@ def main() -> int:
     install_ai_provider_console_management()
     install_ai_secret_cancellation()
     install_improvement_intelligence_console(interactive_console)
+    # Profiles must be outermost: their temporary overlay should be visible to all
+    # readiness/run adapters while never leaking back into persistent configuration.
+    install_execution_profiles(interactive_console)
     return interactive_console.main()
 
 
