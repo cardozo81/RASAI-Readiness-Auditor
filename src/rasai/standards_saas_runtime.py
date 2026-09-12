@@ -1,8 +1,8 @@
 """SaaS reconciliation for credential-driven standards services.
 
-Durable payloads preserve explicit choices only. Omitting PageSpeed/CrUX/GSC delegates
-to the worker credential-driven default; false is an explicit disable; true is an
-explicit request that still requires the worker credential and mandatory context.
+Durable payloads preserve explicit choices only. Omitting PageSpeed/CrUX delegates to
+the worker credential-driven default. Search Console additionally requires job-scoped
+property context so one tenant cannot inherit another property's configuration.
 """
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ import os
 from typing import Any, Mapping
 
 from rasai.standards_gsc_contract import install as install_gsc_contract
-from rasai.standards_service_registry import service, service_state
+from rasai.standards_service_registry import GSC_ENABLED_ENV, service, service_state
 
 _CREDENTIAL_FIELDS = {
     "pagespeed_enabled": "RASAI_PAGESPEED_ENABLED",
     "crux_enabled": "RASAI_CRUX_ENABLED",
-    "gsc_enabled": "RASAI_GSC_ENABLED",
+    "gsc_enabled": GSC_ENABLED_ENV,
 }
 
 
@@ -43,11 +43,18 @@ def install() -> None:
 
     def environment_overrides(payload: Mapping[str, Any]) -> dict[str, str]:
         overrides = dict(original_environment(payload))
-        # Omitted credential-driven fields must not be materialized as false. This lets
-        # each worker resolve readiness from its own secret/configuration environment.
-        for field, env_name in _CREDENTIAL_FIELDS.items():
+        # PageSpeed/CrUX may safely inherit a worker-level secret when the job omitted
+        # the corresponding toggle. No target/property context is embedded in the key.
+        for field in ("pagespeed_enabled", "crux_enabled"):
             if field not in payload:
-                overrides.pop(env_name, None)
+                overrides.pop(_CREDENTIAL_FIELDS[field], None)
+
+        # Search Console is tenant/property scoped. Credential-driven enablement is
+        # allowed only when this durable job carries its own non-secret property.
+        if "gsc_enabled" not in payload and str(payload.get("gsc_site_url") or "").strip():
+            overrides.pop(GSC_ENABLED_ENV, None)
+        elif "gsc_enabled" not in payload:
+            overrides[GSC_ENABLED_ENV] = "false"
         return overrides
 
     contract.audit_job_environment_overrides = environment_overrides
