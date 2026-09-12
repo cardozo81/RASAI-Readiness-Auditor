@@ -154,7 +154,9 @@ Texto livre continua correto para dados cujo conjunto não é enumerável, por e
 
 Nesses casos, a UI deve exibir tipo, formato, exemplo, dependências e documentação antes da edição.
 
-## 7. Entrada de secrets mascarada
+`RASAI_WEB_FEATURES_DATASET` é um exemplo importante: o valor não é uma opção como `latest` ou `stable`; é o caminho para um arquivo local existente do dataset versionado WebDX/web-features. O contrato e a limitação atual da capacidade Baseline estão em [WEB_PLATFORM_BASELINE.md](WEB_PLATFORM_BASELINE.md).
+
+## 7. Entrada de secrets mascarada e cancelável
 
 Secrets não devem aparecer em claro, mas a ausência total de feedback visual também prejudica a usabilidade. O padrão do console é:
 
@@ -164,6 +166,15 @@ OPENAI_API_KEY: ************************
 
 Cada caractere digitado ou colado é armazenado normalmente em memória para validação/configuração, porém somente `*` é desenhado no terminal. Backspace remove o último caractere real e o último `*` visível.
 
+A edição é **staged**: digitar/colar não altera imediatamente o valor atual. Após a leitura e validação, o console oferece:
+
+```text
+C. Confirmar alteração
+V. Cancelar e manter o valor atual
+```
+
+Somente `C` efetiva a troca. `V` descarta o candidato e preserva integralmente o valor anterior; se ainda não existia credencial, continua não existindo.
+
 Regras de segurança:
 
 - o valor real nunca é ecoado no terminal;
@@ -171,11 +182,30 @@ Regras de segurança:
 - o secret continua fora do `rasai-console.ini`;
 - a quantidade de `*` revela apenas o comprimento aproximado do valor digitado, trade-off deliberado para dar feedback ao operador;
 - em terminal sem suporte seguro a leitura caractere a caractere, o console faz fallback para `getpass` sem eco, nunca para texto em claro;
-- falha do mecanismo de máscara não pode reduzir o nível de proteção do secret.
+- falha do mecanismo de máscara não pode reduzir o nível de proteção do secret;
+- cancelamento ocorre antes de qualquer mutação de sessão ou persistência do SO.
 
 Essa regra vale para credenciais de IA, SERP, Google APIs, GSC OAuth, Dynatrace, OIDC e demais variáveis classificadas como sensíveis.
 
-## 8. Referências oficiais de integrações
+## 8. Reset de variáveis
+
+O menu avançado deve disponibilizar um reset seguro baseado no catálogo canônico, com escopo por grupo funcional ou para todas as variáveis conhecidas.
+
+O fluxo deve distinguir as camadas:
+
+1. **sessão atual**;
+2. **sessão + persistência do estado resetado no `rasai-console.ini`**;
+3. no Windows, **sessão + INI + Windows/User**.
+
+A remoção de `Windows/User` exige escolha explícita e confirmação destrutiva `RESETAR`.
+
+`Windows/Machine` nunca é removido pelo RASAi. O console apenas informa sua existência porque esse escopo pode exigir privilégios administrativos e afetar outros usuários/processos. Um valor preservado em Machine pode voltar a ser herdado por processos futuros.
+
+Reset significa retornar cada variável ao default/auto/ausência definido pelo runtime, não inventar novos valores. Secrets continuam fora do INI em qualquer opção.
+
+Contrato detalhado: [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md).
+
+## 9. Referências oficiais de integrações
 
 As URLs devem preferencialmente vir dos registries canônicos usados pelo runtime.
 
@@ -194,7 +224,7 @@ As URLs devem preferencialmente vir dos registries canônicos usados pelo runtim
 
 Para IA e SERP, as URLs oficiais são derivadas respectivamente de `provider_registry` e `search_intelligence.provider_catalog`, evitando duplicação manual no console.
 
-## 9. Google Search Console como exemplo completo
+## 10. Google Search Console como exemplo completo
 
 `RASAI_GSC_ENABLED` controla a elegibilidade da coleta observacional do Search Console.
 
@@ -221,7 +251,7 @@ ou uma propriedade URL-prefix HTTP(S) válida.
 
 O access token é secret e nunca entra no `rasai-console.ini`.
 
-## 10. Fonte de verdade e extensibilidade
+## 11. Fonte de verdade e extensibilidade
 
 A UX não deve criar contratos paralelos.
 
@@ -239,7 +269,7 @@ documentação
 
 Quando uma extensão adicionar um novo booleano ou enum ao catálogo em runtime, a superfície guiada deve herdar automaticamente o comportamento de seleção. Quando um provider registrado informar URLs oficiais, a UI deve apresentá-las sem exigir duplicação manual.
 
-## 11. Critério de aderência
+## 12. Critério de aderência
 
 Uma nova variável configurável só está aderente quando:
 
@@ -253,6 +283,8 @@ Uma nova variável configurável só está aderente quando:
 - apresenta documentação/credencial oficial quando o recurso externo fornecer referência;
 - respeita a semântica de cores do console;
 - secrets recebem feedback mascarado quando o terminal suporta isso;
+- edição de secret pode ser cancelada antes do commit;
+- reset destrutivo exige confirmação explícita e nunca remove Windows/Machine;
 - não expõe secrets no INI, logs ou relatórios.
 
-Documentos complementares: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md), [PROVIDER_SETUP.md](PROVIDER_SETUP.md), [STANDARDS_METRICS_AND_SERVICES.md](STANDARDS_METRICS_AND_SERVICES.md) e [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md).
+Documentos complementares: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md), [PROVIDER_SETUP.md](PROVIDER_SETUP.md), [STANDARDS_METRICS_AND_SERVICES.md](STANDARDS_METRICS_AND_SERVICES.md), [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md), [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md) e [WEB_PLATFORM_BASELINE.md](WEB_PLATFORM_BASELINE.md).
