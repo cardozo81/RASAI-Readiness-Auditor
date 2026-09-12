@@ -13,6 +13,7 @@ O console é uma camada de configuração, preflight, observabilidade e execuç�
 - uma tela lógica por vez;
 - configuração explícita antes da execução;
 - defaults seguros e visíveis;
+- Perfis de Execução são overlays temporários de sessão e nunca uma segunda fonte de verdade;
 - listas guiadas para configurações com domínio fechado;
 - listas múltiplas guiadas quando o runtime publica um conjunto finito de valores;
 - variáveis relacionadas agrupadas por contexto/recurso sempre que possível;
@@ -71,13 +72,16 @@ Ao salvar, o console mostra explicitamente que a operação é `SEM CHAVES`.
 12. Timezone apresentação
 13. Análise profunda URL
 
+F. Perfil da execução [SESSÃO / URL ÚNICA]
 S. Salvar configuração INI [SEM CHAVES]
 H. Ajuda / custos
 E. Variáveis de ambiente / credenciais
 C. Histórico / relatórios consolidados [OFFLINE - sem APIs]
-R. Executar [APTO|INDISPONÍVEL]
+R. Executar [APTO|CONFIGURAR|INDISPONÍVEL]
 Q. Sair
 ```
+
+`F. Perfil da execução` fica disponível somente quando **Entrada** contém uma única URL explícita. O perfil é um overlay em memória para a próxima execução: não altera defaults, não grava o preset no INI, não modifica variáveis do SO e não toca em credenciais. Cada perfil mostra previamente o que envolve, dependências e custo/quota/carga estimada; ajustes finos feitos depois pelo menu normal vencem o preset no domínio alterado. Search Intelligence continua exigindo termos informados pelo operador, GEO preserva contexto YMYL explícito ou `AUTO`, Experiência sintética exige parametrização prévia e Análise profunda continua sob autoridade do item 13. O contrato completo está em [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md).
 
 Quando existe auditoria anterior disponível, o console também oferece atalhos para abrir a pasta e o último relatório.
 
@@ -470,6 +474,7 @@ Improvement Intelligence permanece complementar no consolidado: suas recomendaç
 - remover do AUTO não apaga Key;
 - alterar Key recalcula imediatamente a capability;
 - Windows/Machine não é administrado automaticamente pelo RASAi;
+- Perfis de Execução não persistem overrides, credenciais ou mudanças no SO;
 - análise profunda não executa exploração ativa;
 - recomendações de IA não alteram scoring nem são prova de ganho até nova medição.
 
@@ -478,6 +483,7 @@ Improvement Intelligence permanece complementar no consolidado: suas recomendaç
 - [CONFIGURATION.md](CONFIGURATION.md)
 - [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
 - [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md)
+- [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md)
 - [AI_GUIDE.md](AI_GUIDE.md)
 - [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
 - [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md)
