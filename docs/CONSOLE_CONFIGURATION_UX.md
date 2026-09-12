@@ -14,7 +14,8 @@ O console deve aplicar a seguinte ordem:
 2. **enum**: seleção entre os valores aceitos pelo runtime/registry;
 3. **lista fechada**: seleção múltipla entre os valores aceitos;
 4. **provider/model/reasoning**: lista derivada do registry canônico correspondente;
-5. **valor aberto**: entrada textual somente quando o dado realmente não possuir domínio finito, por exemplo URL, caminho, token, property, locale ou número contínuo.
+5. **valor dependente**: quando o domínio depende de outra configuração, a lista deve ser recalculada a partir da dependência vigente;
+6. **valor aberto**: entrada textual somente quando o dado realmente não possuir domínio finito, por exemplo URL, caminho, token, property, locale ou número contínuo.
 
 O runtime continua sendo a autoridade de validação. O console não deve manter uma segunda lista divergente quando um registry ou contrato já publicar os valores válidos.
 
@@ -135,6 +136,10 @@ Valores válidos (seleção múltipla):
 
 O usuário pode selecionar os itens sem digitar manualmente os tokens canônicos.
 
+### Domínio dependente
+
+Alguns valores só podem ser determinados depois de outra escolha. Exemplo: em Improvement Intelligence, modelo e reasoning dependem do provider selecionado. Nesses casos, o console deve recalcular a lista ao abrir a variável, sem exigir que o usuário conheça o catálogo do provider.
+
 ## 6. Valores abertos
 
 Texto livre continua correto para dados cujo conjunto não é enumerável, por exemplo:
@@ -149,7 +154,28 @@ Texto livre continua correto para dados cujo conjunto não é enumerável, por e
 
 Nesses casos, a UI deve exibir tipo, formato, exemplo, dependências e documentação antes da edição.
 
-## 7. Referências oficiais de integrações
+## 7. Entrada de secrets mascarada
+
+Secrets não devem aparecer em claro, mas a ausência total de feedback visual também prejudica a usabilidade. O padrão do console é:
+
+```text
+OPENAI_API_KEY: ************************
+```
+
+Cada caractere digitado ou colado é armazenado normalmente em memória para validação/configuração, porém somente `*` é desenhado no terminal. Backspace remove o último caractere real e o último `*` visível.
+
+Regras de segurança:
+
+- o valor real nunca é ecoado no terminal;
+- o mascaramento é apenas apresentação; não altera o secret armazenado;
+- o secret continua fora do `rasai-console.ini`;
+- a quantidade de `*` revela apenas o comprimento aproximado do valor digitado, trade-off deliberado para dar feedback ao operador;
+- em terminal sem suporte seguro a leitura caractere a caractere, o console faz fallback para `getpass` sem eco, nunca para texto em claro;
+- falha do mecanismo de máscara não pode reduzir o nível de proteção do secret.
+
+Essa regra vale para credenciais de IA, SERP, Google APIs, GSC OAuth, Dynatrace, OIDC e demais variáveis classificadas como sensíveis.
+
+## 8. Referências oficiais de integrações
 
 As URLs devem preferencialmente vir dos registries canônicos usados pelo runtime.
 
@@ -168,7 +194,7 @@ As URLs devem preferencialmente vir dos registries canônicos usados pelo runtim
 
 Para IA e SERP, as URLs oficiais são derivadas respectivamente de `provider_registry` e `search_intelligence.provider_catalog`, evitando duplicação manual no console.
 
-## 8. Google Search Console como exemplo completo
+## 9. Google Search Console como exemplo completo
 
 `RASAI_GSC_ENABLED` controla a elegibilidade da coleta observacional do Search Console.
 
@@ -195,7 +221,7 @@ ou uma propriedade URL-prefix HTTP(S) válida.
 
 O access token é secret e nunca entra no `rasai-console.ini`.
 
-## 9. Fonte de verdade e extensibilidade
+## 10. Fonte de verdade e extensibilidade
 
 A UX não deve criar contratos paralelos.
 
@@ -213,7 +239,7 @@ documentação
 
 Quando uma extensão adicionar um novo booleano ou enum ao catálogo em runtime, a superfície guiada deve herdar automaticamente o comportamento de seleção. Quando um provider registrado informar URLs oficiais, a UI deve apresentá-las sem exigir duplicação manual.
 
-## 10. Critério de aderência
+## 11. Critério de aderência
 
 Uma nova variável configurável só está aderente quando:
 
@@ -226,6 +252,7 @@ Uma nova variável configurável só está aderente quando:
 - informa impacto/custo quando material;
 - apresenta documentação/credencial oficial quando o recurso externo fornecer referência;
 - respeita a semântica de cores do console;
+- secrets recebem feedback mascarado quando o terminal suporta isso;
 - não expõe secrets no INI, logs ou relatórios.
 
 Documentos complementares: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md), [PROVIDER_SETUP.md](PROVIDER_SETUP.md), [STANDARDS_METRICS_AND_SERVICES.md](STANDARDS_METRICS_AND_SERVICES.md) e [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md).
