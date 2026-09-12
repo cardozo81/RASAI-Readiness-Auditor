@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import math
+from pathlib import Path
 import sqlite3
 from statistics import fmean
 from typing import Any, Iterable, Mapping
@@ -252,6 +253,23 @@ def reconcile_information_retrieval_metrics(*, audit_id: str, workspace: AuditWo
         connection.close()
 
 
+def _drop_generated_panel(path: Path, marker: str) -> None:
+    """Remove one generated block so the canonical enricher can rebuild it from final data."""
+    if not path.is_file():
+        return
+    text = path.read_text(encoding="utf-8")
+    start = f"<!-- {marker}:START -->"
+    end = f"<!-- {marker}:END -->"
+    left = text.find(start)
+    if left < 0:
+        return
+    right = text.find(end, left)
+    if right < 0:
+        return
+    right += len(end)
+    path.write_text(text[:left] + text[right:], encoding="utf-8", newline="\n")
+
+
 def install() -> None:
     """Reconcile strict IR metrics after the standards collector and refresh projections."""
     from rasai import report_completion, report_navigation
@@ -273,9 +291,10 @@ def install() -> None:
         errors = list(base.renderer_errors)
         try:
             reconcile_information_retrieval_metrics(audit_id=audit_id, workspace=workspace)
+            report_dir = workspace.root / "report"
+            _drop_generated_panel(report_dir / "search-intelligence.html", "RASAI_RETRIEVAL_METRICS")
             write_standards_report(audit_id=audit_id, workspace=workspace)
             enrich_existing_reports(audit_id=audit_id, workspace=workspace)
-            report_dir = workspace.root / "report"
             report_navigation.normalize_report_navigation(report_dir)
             enhance_report_directory(report_dir)
             write_report_manifest(report_dir)
