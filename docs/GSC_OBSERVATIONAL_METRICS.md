@@ -6,7 +6,7 @@ Esta camada transforma somente dados do Google Search Console já persistidos em
 
 Ela não cria chamadas adicionais ao Google, não grava credenciais e não altera `SARI-001` ou `SCORE-GEO-004`.
 
-Relação com RASAi: **5/5**, porque os dados descrevem diretamente o estado conhecido pelo Google para URLs inspecionadas e a performance observada na busca para a property autenticada.
+Relação com RASAi: **5/5**, porque os dados descrevem diretamente o estado conhecido pelo Google para URLs inspecionadas, Sitemaps da property autenticada e performance observada na busca.
 
 ## Fonte e seleção de dataset
 
@@ -14,6 +14,7 @@ Para cada família, o RASAi usa exclusivamente o dataset mais recente persistido
 
 ```text
 GOOGLE_SEARCH_CONSOLE_URL_INSPECTION
+GOOGLE_SEARCH_CONSOLE_SITEMAPS
 GOOGLE_SEARCH_CONSOLE_SEARCH_ANALYTICS
 ```
 
@@ -89,6 +90,52 @@ URLs inspecionadas com verdict determinável
 
 Associação observada não prova completude nem correção do sitemap.
 
+## Sitemaps
+
+A coleta usa o endpoint oficial de listagem de Sitemaps da property e persiste um resumo bounded em `observability.db`.
+
+### GSC Sitemap Count
+
+Quantidade de entradas de sitemap presentes no dataset mais recente retornado pelo Search Console.
+
+Dataset válido com lista vazia produz `0`; ausência de dataset não é convertida em zero.
+
+### GSC Sitemap Error-free Rate
+
+```text
+Sitemaps com errors = 0
+----------------------------- x 100
+Sitemaps com errors determinável
+```
+
+O campo `errors` vem diretamente do recurso Sitemap do Search Console.
+
+### GSC Sitemap Warning-free Rate
+
+```text
+Sitemaps com warnings = 0
+------------------------------- x 100
+Sitemaps com warnings determinável
+```
+
+Warnings são problemas reportados pela fonte Google e podem ser não críticos; o RASAi não os promove automaticamente a falha de readiness.
+
+### GSC Sitemap Pending Rate
+
+```text
+Sitemaps com isPending = true
+----------------------------- x 100
+Sitemaps com isPending determinável
+```
+
+É uma métrica em que **menor é melhor**. Estado pendente pode ser transitório e não é tratado como falha permanente do website.
+
+### GSC Sitemap Reported Submitted URLs
+
+Soma de `contents[].submitted` reportada pelo Search Console para os tipos de conteúdo existentes nas entradas do dataset mais recente.
+
+O RASAi **não usa** `contents[].indexed`, pois a própria documentação atual do Search Console marca esse campo como descontinuado. Portanto este indicador não é chamado de taxa de indexação e não estima URLs indexadas.
+
 ## Search Analytics
 
 A Search Analytics API pode retornar apenas as linhas superiores conforme dimensões, período e limites da consulta. Portanto o RASAi **não** chama estes agregados de totais da property.
@@ -155,7 +202,7 @@ As métricas de URL Inspection usam:
 URL_SET
 ```
 
-Os agregados e contagens do dataset Search Analytics usam:
+Os agregados de Sitemaps e as métricas/contagens do dataset Search Analytics usam:
 
 ```text
 ORIGIN
@@ -186,11 +233,23 @@ As métricas aparecem em:
 - `standards.html`, com fonte, escopo e metodologia;
 - `observability.html`, como resumo observacional do Search Console.
 
+## Referências oficiais
+
+- Search Console API Reference: https://developers.google.com/webmaster-tools/v1/api_reference_index
+- URL Inspection `index.inspect`: https://developers.google.com/webmaster-tools/v1/urlInspection.index/inspect
+- Sitemaps `list`: https://developers.google.com/webmaster-tools/v1/sitemaps/list
+- Sitemaps Resource: https://developers.google.com/webmaster-tools/v1/sitemaps
+- Search Analytics `query`: https://developers.google.com/webmaster-tools/v1/searchanalytics/query
+
+A documentação do recurso Sitemap informa que `contents[].indexed` está descontinuado; o RASAi respeita essa fronteira e não usa esse campo. A documentação de Search Analytics informa que a API não garante todas as linhas, justificando a nomenclatura `Returned-row`.
+
 ## Fronteiras metodológicas
 
 - URL Inspection descreve o estado conhecido pelo índice do Google; não é live test universal;
 - Search Analytics pode omitir linhas e não representa necessariamente o universo completo da property;
 - contagens de queries, URLs e pares query-URL são somente do dataset retornado/persistido;
+- Sitemaps `errors`, `warnings`, `isPending` e `submitted` são preservados como observações da fonte Google;
+- `contents[].indexed` de Sitemaps não é usado por estar descontinuado;
 - dataset inexistente não é convertido em zero;
 - dataset Search Analytics válido com zero linhas materializa contagens/clicks/impressions como zero, enquanto CTR e posição permanecem `NO_DATA`;
 - erro de coleta não vira falha do website;
