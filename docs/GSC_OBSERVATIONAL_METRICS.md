@@ -90,6 +90,34 @@ URLs inspecionadas com verdict determinável
 
 Associação observada não prova completude nem correção do sitemap.
 
+## Freshness de crawl Google
+
+O Search Console URL Inspection expõe `lastCrawlTime`, definido pela fonte como a última vez que o URL foi rastreado pelo Google usando o crawler principal. O campo pode estar ausente quando não houve crawl bem-sucedido conhecido.
+
+### GSC Last Crawl Time Coverage
+
+```text
+URLs inspecionadas com lastCrawlTime RFC3339 válido
+--------------------------------------------------- x 100
+URLs inspecionadas sem erro de coleta
+```
+
+### GSC Last Crawl Age p50 / p75 / p95
+
+Para cada `lastCrawlTime` válido:
+
+```text
+crawl_age_days = dataset.collected_at - lastCrawlTime
+```
+
+O RASAi calcula p50, p75 e p95 usando interpolação linear sobre as idades de crawl não negativas.
+
+A referência é **`collected_at` do dataset persistido**, e não o relógio atual. Assim, reprocessar a mesma evidência em outro dia não altera os percentis.
+
+Timestamps de crawl posteriores a `collected_at` são excluídos da amostra de idade e contabilizados em `details_json`, evitando idade negativa artificial.
+
+Esses percentis descrevem recência observacional do crawl Google para as URLs inspecionadas; não definem frequência esperada ou SLA de crawl.
+
 ## Sitemaps
 
 A coleta usa o endpoint oficial de listagem de Sitemaps da property e persiste um resumo bounded em `observability.db`.
@@ -196,7 +224,7 @@ Também limitado às linhas retornadas/persistidas. Sem impressões elegíveis, 
 
 ## Escopos
 
-As métricas de URL Inspection usam:
+As métricas de URL Inspection e crawl freshness usam:
 
 ```text
 URL_SET
@@ -237,15 +265,17 @@ As métricas aparecem em:
 
 - Search Console API Reference: https://developers.google.com/webmaster-tools/v1/api_reference_index
 - URL Inspection `index.inspect`: https://developers.google.com/webmaster-tools/v1/urlInspection.index/inspect
+- URL Inspection Result / `lastCrawlTime`: https://developers.google.com/webmaster-tools/v1/urlInspection.index/UrlInspectionResult
 - Sitemaps `list`: https://developers.google.com/webmaster-tools/v1/sitemaps/list
 - Sitemaps Resource: https://developers.google.com/webmaster-tools/v1/sitemaps
 - Search Analytics `query`: https://developers.google.com/webmaster-tools/v1/searchanalytics/query
 
-A documentação do recurso Sitemap informa que `contents[].indexed` está descontinuado; o RASAi respeita essa fronteira e não usa esse campo. A documentação de Search Analytics informa que a API não garante todas as linhas, justificando a nomenclatura `Returned-row`.
+A documentação do recurso Sitemap informa que `contents[].indexed` está descontinuado; o RASAi respeita essa fronteira e não usa esse campo. A documentação de Search Analytics informa que a API não garante todas as linhas, justificando a nomenclatura `Returned-row`. A documentação de URL Inspection define `lastCrawlTime` como o último crawl do Google usando o crawler principal e informa que ele pode estar ausente se o URL nunca foi rastreado com sucesso.
 
 ## Fronteiras metodológicas
 
 - URL Inspection descreve o estado conhecido pelo índice do Google; não é live test universal;
+- crawl freshness usa `lastCrawlTime` observado e o timestamp persistido de coleta; não presume cadência ideal de Googlebot;
 - Search Analytics pode omitir linhas e não representa necessariamente o universo completo da property;
 - contagens de queries, URLs e pares query-URL são somente do dataset retornado/persistido;
 - Sitemaps `errors`, `warnings`, `isPending` e `submitted` são preservados como observações da fonte Google;
