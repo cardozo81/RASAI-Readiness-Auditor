@@ -32,6 +32,17 @@ from rasai.runtime_adherence_extensions import install_runtime_adherence_extensi
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.runtime_contract_compatibility import install_console_runtime_contract_compatibility
 from rasai.runtime_progress_gate import install_search_progress_gate
+from rasai.standards_console_runtime import install as install_standards_console_runtime
+from rasai.standards_css_validation import install as install_standards_css_validation
+from rasai.standards_gsc_observability_runtime import install as install_standards_gsc_observability_runtime
+from rasai.standards_ir_reconciliation import install as install_standards_ir_reconciliation
+from rasai.standards_m21_reconciliation import install as install_standards_m21_reconciliation
+from rasai.standards_operational_reconciliation import install as install_standards_operational_reconciliation
+from rasai.standards_runtime import (
+    install_post_context as install_standards_post_context,
+    install_pre_context as install_standards_pre_context,
+)
+from rasai.standards_structured_data_reconciliation import install as install_standards_structured_data_reconciliation
 from rasai.target_input_runtime import install as install_target_input_runtime
 
 
@@ -44,14 +55,22 @@ def main() -> int:
 
         return remote_main()
 
-    # Resolve the canonical configuration path before loading the interactive state.
-    # Provider-aware environment/search surfaces consume their registries directly and
-    # therefore require no compatibility monkeypatch installation.
+    # Standards metadata is installed before context projection and before INI load so
+    # all non-secret service toggles participate in the normal console persistence flow.
+    install_standards_pre_context()
+    install_standards_console_runtime()
     install_report_registry()
     install_context_scope_runtime()
     install_m3_render_deadline_runtime()
     install_target_input_runtime()
     install_external_measurement_runtime()
+    install_standards_post_context()
+    install_standards_structured_data_reconciliation()
+    install_standards_ir_reconciliation()
+    install_standards_operational_reconciliation()
+    install_standards_css_validation()
+    install_standards_m21_reconciliation()
+    install_standards_gsc_observability_runtime()
     prepare_console_config()
     install_ai_efficiency_policy()
     install_runtime_completion_extensions()
@@ -70,9 +89,8 @@ def main() -> int:
     install_consolidation(interactive_console)
     install_console_runtime_contract_compatibility()
     install_report_scope_clarity()
-    # Install last: it intentionally supersedes the older availability-only selector
-    # so unavailable providers remain configurable and credential changes refresh
-    # execution readiness immediately.
+    # Install last so provider availability, configuration and credential changes are
+    # resolved by one final selector before the user starts an execution.
     install_ai_provider_console_management()
     return interactive_console.main()
 

@@ -22,6 +22,8 @@ from rasai.provider_runtime_policy import (
     configured_reasoning,
     provider_reasoning_env,
 )
+from rasai.standards_gsc_policy import environment_names as gsc_policy_environment_names
+from rasai.standards_service_registry import service_environment_names
 from rasai.url_utils import normalize_url, normalized_origin
 
 _REGISTRATIONS = provider_registrations()
@@ -42,6 +44,7 @@ _BASE_ENV_NAMES = (
     "RASAI_WEB_PERFORMANCE_MAX_PAGES", WEB_PERFORMANCE_TIMEOUT_ENV,
     "RASAI_WEB_PERFORMANCE_FIELD_SOURCE", "RASAI_LIGHTHOUSE_CATEGORIES",
     "RASAI_PAGESPEED_API_KEY", "RASAI_CRUX_API_KEY",
+    *service_environment_names(), *gsc_policy_environment_names(),
     *EXTENSION_REASONING_ENV.values(), "RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE", "RASAI_BROWSER_LOCALE",
 )
 ENV_NAMES = tuple(dict.fromkeys((*_BASE_ENV_NAMES, *provider_environment_names())))
