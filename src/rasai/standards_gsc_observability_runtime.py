@@ -36,6 +36,43 @@ from rasai.standards_service_registry import (
 
 GSC_TOKEN_ENV = "RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN"
 
+# Projection eligibility is tied to the operation result from the *current*
+# finalization. Historical sidecar datasets remain preserved, but they must not be
+# surfaced as if they were freshly collected when the corresponding operation failed,
+# was skipped, or the service is disabled for this run.
+_GSC_METRICS_BY_OPERATION: dict[str, tuple[str, ...]] = {
+    "URL_INSPECTION": (
+        "gsc_url_inspection_response_coverage",
+        "gsc_url_inspection_verdict_pass_rate",
+        "gsc_indexing_allowed_rate",
+        "gsc_robots_allowed_rate",
+        "gsc_page_fetch_success_rate",
+        "gsc_exact_canonical_agreement_rate",
+        "gsc_sitemap_association_rate",
+        "gsc_last_crawl_time_coverage",
+        "gsc_last_crawl_age_p50_days",
+        "gsc_last_crawl_age_p75_days",
+        "gsc_last_crawl_age_p95_days",
+    ),
+    "SITEMAPS": (
+        "gsc_sitemap_count",
+        "gsc_sitemap_error_free_rate",
+        "gsc_sitemap_warning_free_rate",
+        "gsc_sitemap_pending_rate",
+        "gsc_sitemap_reported_submitted_urls",
+    ),
+    "SEARCH_ANALYTICS": (
+        "gsc_returned_search_rows",
+        "gsc_returned_row_clicks",
+        "gsc_returned_row_impressions",
+        "gsc_returned_row_ctr",
+        "gsc_returned_row_impression_weighted_position",
+        "gsc_returned_distinct_queries",
+        "gsc_returned_distinct_urls",
+        "gsc_returned_distinct_query_url_pairs",
+    ),
+}
+
 
 def _bounded_urls(workspace: Any, audit_id: str, limit: int) -> tuple[str, ...]:
     connection = sqlite3.connect(workspace.database)
@@ -179,6 +216,58 @@ def collect_configured_search_console(
     return result
 
 
+def _successful_operation_names(result: Mapping[str, Any]) -> set[str]:
+    operations = result.get("operations")
+    if not isinstance(operations, list):
+        return set()
+    return {
+        str(item.get("name") or "").strip().upper()
+        for item in operations
+        if isinstance(item, Mapping)
+        and str(item.get("status") or "").strip().upper() == "SUCCESS"
+        and str(item.get("dataset_id") or "").strip()
+    }
+
+
+def _clear_metrics_without_current_success(
+    *,
+    audit_id: str,
+    workspace: Any,
+    result: Mapping[str, Any],
+) -> None:
+    """Hide stale GSC projections when their operation did not succeed this run.
+
+    Raw historical datasets remain untouched in observability.db. Only the advisory
+    audit.db projection for the current audit/report is removed.
+    """
+
+    successful = _successful_operation_names(result)
+    stale_metric_ids = tuple(
+        metric_id
+        for operation, metric_ids in _GSC_METRICS_BY_OPERATION.items()
+        if operation not in successful
+        for metric_id in metric_ids
+    )
+    if not stale_metric_ids:
+        return
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        exists = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='standards_metric_observations'"
+        ).fetchone()
+        if exists is None:
+            return
+        placeholders = ",".join("?" for _ in stale_metric_ids)
+        with connection:
+            connection.execute(
+                f"DELETE FROM standards_metric_observations WHERE audit_id=? AND metric_id IN ({placeholders})",
+                (audit_id, *stale_metric_ids),
+            )
+    finally:
+        connection.close()
+
+
 def _update_service_run(*, audit_id: str, workspace: Any, result: Mapping[str, Any]) -> None:
     connection = sqlite3.connect(workspace.database)
     try:
@@ -240,6 +329,8 @@ def install() -> None:
                 reconcile_gsc_crawl_freshness_metrics(audit_id=audit_id, workspace=workspace)
                 reconcile_gsc_sitemap_metrics(audit_id=audit_id, workspace=workspace)
                 reconcile_gsc_visibility_counts(audit_id=audit_id, workspace=workspace)
+            _clear_metrics_without_current_success(audit_id=audit_id, workspace=workspace, result=result)
+            if bool(result.get("effective_enabled")):
                 write_standards_report(audit_id=audit_id, workspace=workspace)
                 enrich_existing_reports(audit_id=audit_id, workspace=workspace)
                 enrich_gsc_metrics_report(audit_id=audit_id, workspace=workspace)
