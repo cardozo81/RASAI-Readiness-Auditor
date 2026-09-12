@@ -21,6 +21,7 @@ def test_zero_credential_services_are_default_on() -> None:
         "retrieval-metrics",
         "open-web-metrics",
         "w3c-validator",
+        "w3c-css-validator",
         "mdn-observatory",
     ):
         state = service_state(service(service_id), env)
