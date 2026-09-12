@@ -45,10 +45,11 @@ def _validate_gsc_site_url(raw: str) -> str:
 
 
 def _ensure_nonsecret_service_context_specs(base_environment: object, console_config: object) -> None:
+    """Upsert non-secret GSC context so repeated installs repair catalog drift."""
     category = "Métricas e padrões"
     source = "docs/STANDARDS_METRICS_AND_SERVICES.md"
     specs = list(base_environment.SPECS)
-    known = {spec.name for spec in specs}
+    by_name = {spec.name: index for index, spec in enumerate(specs)}
     additions = (
         base_environment.EnvironmentSpec(
             GSC_SITE_URL_ENV,
@@ -97,11 +98,18 @@ def _ensure_nonsecret_service_context_specs(base_environment: object, console_co
         ),
     )
     for spec in additions:
-        if spec.name not in known:
+        index = by_name.get(spec.name)
+        if index is None:
+            by_name[spec.name] = len(specs)
             specs.append(spec)
-            known.add(spec.name)
+        else:
+            specs[index] = spec
 
-    credential_driven = {item.enabled_env: item for item in services() if item.credential_envs and item.auto_enable_with_credentials}
+    credential_driven = {
+        item.enabled_env: item
+        for item in services()
+        if item.credential_envs and item.auto_enable_with_credentials
+    }
     for index, spec in enumerate(specs):
         item = credential_driven.get(spec.name)
         if item is None:
@@ -127,12 +135,18 @@ def _ensure_nonsecret_service_context_specs(base_environment: object, console_co
 
 
 def install() -> None:
-    install_console_service_catalog()
     from rasai import console_config
     from rasai import console_environment as base_environment
     from rasai import console_provider_environment as facade
 
+    # The console catalog can be rebuilt by test/runtime composition. The service
+    # catalog installer is itself an upsert, so deliberately re-run it here rather
+    # than trusting a stale "already installed" marker. This keeps categories,
+    # defaults and persistence metadata deterministic after reload/recomposition.
+    base_environment._rasai_standards_service_catalog = False
+    install_console_service_catalog()
     _ensure_nonsecret_service_context_specs(base_environment, console_config)
+
     if getattr(base_environment, "_rasai_standards_console_validation", False):
         facade.CATEGORIES = base_environment.CATEGORIES
         facade.refresh_specs()

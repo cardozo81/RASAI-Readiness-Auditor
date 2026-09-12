@@ -1,9 +1,10 @@
-"""Provider-aware environment catalog facade for the interactive console.
+"""Provider-aware, guided environment configuration for the interactive console.
 
-The legacy environment editor owns the general UI and validation surface. This module
-projects AI/SERP registry metadata before the menu is rendered, without mutating the
-legacy module at runtime. It is the canonical environment surface used by the console
-entrypoint while the broader environment editor remains stable.
+The materialized base environment catalog is the single source of variable metadata.
+This facade enriches provider metadata and gives operators a consistent navigation
+model: category -> variable -> action, with explicit guidance about defaults, secrets
+and cross-category dependencies. Runtime enrichments already present in ``SPECS`` are
+preserved; the facade must not rebuild the generic factory and discard them.
 """
 from __future__ import annotations
 
@@ -11,21 +12,71 @@ from dataclasses import replace
 from getpass import getpass
 import os
 
-from rasai import console_environment as legacy
+from rasai import console_environment as base_environment
+from rasai.console_ui import CYAN, DIM, GREEN, YELLOW, paint
 from rasai.provider_registry import provider_registrations
 from rasai.search_intelligence.config import SERP_PROVIDER_ENV
-from rasai.search_intelligence.provider_catalog import (
-    SERP_PROVIDER_REGISTRY,
-    serp_provider_ids,
-)
+from rasai.search_intelligence.provider_catalog import SERP_PROVIDER_REGISTRY, serp_provider_ids
 
-EnvironmentSpec = legacy.EnvironmentSpec
-CATEGORIES = legacy.CATEGORIES
-DOCUMENT_NAME = legacy.DOCUMENT_NAME
+EnvironmentSpec = base_environment.EnvironmentSpec
+CATEGORIES = base_environment.CATEGORIES
+DOCUMENT_NAME = base_environment.DOCUMENT_NAME
+
+_CATEGORY_GUIDANCE: dict[str, tuple[str, ...]] = {
+    "Aplicação e execução": (
+        "Preferências gerais do console e do pipeline local.",
+        "Defina overrides somente quando o default do runtime não atende ao cenário.",
+    ),
+    "IA - credenciais": (
+        "Credenciais habilitam providers de IA; elas nunca entram no INI.",
+        "Para uso normal, prefira o gerenciador da opção IA do menu principal.",
+    ),
+    "IA - modelos e reasoning": (
+        "Modelo e reasoning são configuração, não segredo.",
+        "Os defaults públicos vêm do provider registry e podem ser mantidos sem override.",
+    ),
+    "IA - endpoints avançados": (
+        "Use somente para endpoint compatível/proxy explicitamente homologado.",
+    ),
+    "IA - contexto editorial / YMYL": (
+        "Contexto explícito melhora interpretação sem criar score YMYL/E-E-A-T.",
+    ),
+    "Search Intelligence / Observability": (
+        "SERP e observabilidade são independentes do SARI/SCORE-GEO.",
+        "Google Search Console usa aqui o token OAuth; a property fica em Métricas e padrões.",
+    ),
+    "Web Performance / Google APIs": (
+        "PageSpeed e CrUX ficam AUTO quando a credencial existe, salvo hard-off explícito.",
+        "API keys são secrets e não são persistidas no INI.",
+    ),
+    "Métricas e padrões": (
+        "Serviços gratuitos/sem credencial usam o default do registry; não é preciso repetir true.",
+        "GSC AUTO exige token OAuth em Search Intelligence / Observability e property neste grupo.",
+        "PageSpeed/CrUX AUTO usam as chaves configuradas em Web Performance / Google APIs.",
+    ),
+    "Synthetic Apdex": (
+        "Medições sintéticas geram navegações reais; revise volume, concorrência e timeout.",
+    ),
+    "Browser / Playwright": (
+        "Overrides de browser afetam a captura técnica e devem ser alterados com cautela.",
+    ),
+    "Control plane / SaaS": (
+        "Configuração de operador/deployment; não deve ser confundida com configuração de tenant.",
+    ),
+    "Web API / Identity": (
+        "Configuração de autenticação e API do deployment; secrets seguem fora do INI.",
+    ),
+    "Remote control plane": (
+        "Use apenas quando o console operar como cliente de um control plane remoto.",
+    ),
+}
 
 
 def _build_specs() -> tuple[EnvironmentSpec, ...]:
-    specs = list(legacy.environment_specs())
+    # SPECS is the runtime-composed catalog. Calling environment_specs() here would
+    # rebuild only the generic base factory and silently discard metadata installed by
+    # standards, synthetic profiles and other runtime extensions.
+    specs = list(base_environment.SPECS)
     by_name = {spec.name: index for index, spec in enumerate(specs)}
 
     provider_index = by_name.get(SERP_PROVIDER_ENV)
@@ -49,9 +100,7 @@ def _build_specs() -> tuple[EnvironmentSpec, ...]:
         provider_ids = ", ".join(item.id for item in registrations)
         display_names = " / ".join(dict.fromkeys(item.display_name for item in registrations))
         credential_url = registrations[0].credential_url
-        notes = " | ".join(
-            dict.fromkeys(item.free_tier_note for item in registrations if item.free_tier_note)
-        )
+        notes = " | ".join(dict.fromkeys(item.free_tier_note for item in registrations if item.free_tier_note))
         specs[index] = replace(
             specs[index],
             category="Search Intelligence / Observability",
@@ -62,10 +111,7 @@ def _build_specs() -> tuple[EnvironmentSpec, ...]:
                 f"for um de: {provider_ids}."
             ),
             sensitive=True,
-            impact=(
-                "Consome quota/créditos do provider; os limites do RASAi não "
-                "substituem a quota do fornecedor."
-            ),
+            impact="Consome quota/créditos do provider; limites do RASAi não substituem a quota do fornecedor.",
             source=f"{display_names} chave/login - {credential_url}",
             notes=notes,
         )
@@ -92,15 +138,15 @@ def environment_specs() -> tuple[EnvironmentSpec, ...]:
 
 
 def refresh_specs() -> tuple[EnvironmentSpec, ...]:
-    """Refresh this facade after runtime extensions mutate the legacy catalog."""
-    global ENV_NAMES, SPECS, SPEC_BY_NAME
-    ENV_NAMES = legacy.ENV_NAMES
+    global ENV_NAMES, SPECS, SPEC_BY_NAME, CATEGORIES
+    ENV_NAMES = base_environment.ENV_NAMES
+    CATEGORIES = base_environment.CATEGORIES
     SPECS = environment_specs()
     SPEC_BY_NAME = {spec.name: spec for spec in SPECS}
     return SPECS
 
 
-ENV_NAMES = legacy.ENV_NAMES
+ENV_NAMES = base_environment.ENV_NAMES
 SPECS = environment_specs()
 SPEC_BY_NAME = {spec.name: spec for spec in SPECS}
 
@@ -114,89 +160,145 @@ def _validate(name: str, raw: str) -> str:
         if value not in set(allowed):
             raise ValueError("use " + ", ".join(allowed))
         return value
-    return legacy._validate(name, raw)
+    return base_environment._validate(name, raw)
+
+
+def _breadcrumb(*parts: str) -> None:
+    print(paint("CONFIGURAÇÃO  >  " + "  >  ".join(parts), CYAN, bold=True))
+    print()
+
+
+def _guidance(category: str) -> None:
+    lines = _CATEGORY_GUIDANCE.get(category, ())
+    if not lines:
+        return
+    print("COMO USAR ESTE GRUPO")
+    for line in lines:
+        print(f"  - {line}")
+    print()
+
+
+def _selection_state(spec: EnvironmentSpec) -> str:
+    raw = (os.environ.get(spec.name) or "").strip()
+    if raw:
+        return "override/credencial definido"
+    if spec.default is not None:
+        return "usando default do runtime"
+    return "sem valor explícito"
 
 
 def _variable_menu(state: object, spec: EnvironmentSpec) -> None:
     while True:
-        legacy.render_header(state)
-        legacy._render_detail(spec)
-        sensitive = legacy._is_sensitive_spec(spec)
+        base_environment.render_header(state)
+        _breadcrumb(spec.category, spec.name)
+        base_environment._render_detail(spec)
+        sensitive = base_environment._is_sensitive_spec(spec)
+        print()
+        print(f"Estado de decisão: {paint(_selection_state(spec), GREEN if (os.environ.get(spec.name) or '').strip() else DIM, bold=True)}")
         if sensitive:
-            print("\nAÇÕES\nS. Setar/alterar sessão\nR. Remover da sessão\nP. Persistência Windows/User\nD. Documentação\nV. Voltar")
+            print(paint("Secret: use sessão/Windows User; nunca será gravado no rasai-console.ini.", YELLOW))
+        elif spec.default is not None and not (os.environ.get(spec.name) or "").strip():
+            print(paint("Nenhuma ação é necessária para manter o default mostrado acima.", DIM))
+
+        if sensitive:
+            print("\nAÇÕES\nS. Definir/alterar na sessão\nR. Remover da sessão\nP. Persistência Windows/User\nD. Documentação\nV. Voltar")
         else:
-            print("\nAÇÕES\nS. Setar/alterar\nR. Remover override\nD. Documentação\nV. Voltar")
+            print("\nAÇÕES\nS. Definir/alterar override\nR. Remover override e voltar ao default\nD. Documentação\nV. Voltar")
         action = input("Escolha: ").strip().upper()
         if action == "V":
             return
         if action == "D":
-            legacy._open_docs(state)
+            base_environment._open_docs(state)
             continue
         if action == "P" and sensitive:
             try:
-                legacy._persist_secret(state, spec)
+                base_environment._persist_secret(state, spec)
             except (OSError, ValueError) as exc:
                 setattr(state, "error", f"falha de persistência: {type(exc).__name__}: {exc}")
             continue
         if action == "R":
             os.environ.pop(spec.name, None)
             if sensitive:
-                legacy._sync_secret_state(state, spec.name)
-            legacy._apply_change(state, spec.name)
+                base_environment._sync_secret_state(state, spec.name)
+            base_environment._apply_change(state, spec.name)
+            setattr(state, "operation", "LOCAL:CONFIG_OVERRIDE_REMOVED")
             continue
         if action != "S":
+            setattr(state, "error", "ação inválida")
             continue
         try:
             if spec.accepted and spec.value_type in {"enum", "enum inteiro", "booleano"}:
-                raw = legacy._prompt_choice(spec)
+                raw = base_environment._prompt_choice(spec)
                 if raw is None:
                     continue
             else:
                 raw = getpass(f"{spec.name}: ") if sensitive else input(f"{spec.name}: ")
             os.environ[spec.name] = _validate(spec.name, raw)
             if sensitive:
-                legacy._sync_secret_state(state, spec.name)
-            legacy._apply_change(state, spec.name)
+                base_environment._sync_secret_state(state, spec.name)
+            base_environment._apply_change(state, spec.name)
+            setattr(state, "operation", "LOCAL:CONFIG_UPDATED")
         except (ValueError, OverflowError) as exc:
             setattr(state, "error", str(exc))
 
 
 def _category_menu(state: object, title: str, specs: tuple[EnvironmentSpec, ...]) -> None:
+    configured_only = False
     while True:
-        legacy.render_header(state)
-        print(f"VARIÁVEIS DE AMBIENTE - {title}\n")
-        for index, spec in enumerate(specs, 1):
-            print(f"{index:2d}. {spec.name:<44} {legacy._status(spec)}")
-        print("\nAÇÕES\nD. Abrir documentação detalhada\nV. Voltar")
-        raw = input("Selecione a variável: ").strip().upper()
+        base_environment.render_header(state)
+        _breadcrumb(title)
+        _guidance(title)
+        visible = tuple(
+            spec for spec in specs
+            if not configured_only or bool((os.environ.get(spec.name) or "").strip())
+        )
+        if not visible:
+            print(paint("Nenhum override/secret definido neste grupo.", DIM))
+        for index, spec in enumerate(visible, 1):
+            status = base_environment._status(spec)
+            decision = _selection_state(spec)
+            print(f"{index:2d}. {spec.name:<44} {status:<20} {decision}")
+        print("\nAÇÕES")
+        print("F. " + ("Mostrar todas" if configured_only else "Mostrar somente definidas"))
+        print("D. Abrir documentação detalhada")
+        print("V. Voltar")
+        raw = input("Selecione a variável ou ação: ").strip().upper()
         if raw == "V":
             return
         if raw == "D":
-            legacy._open_docs(state)
+            base_environment._open_docs(state)
+            continue
+        if raw == "F":
+            configured_only = not configured_only
             continue
         try:
-            _variable_menu(state, specs[int(raw) - 1])
+            _variable_menu(state, visible[int(raw) - 1])
         except (ValueError, IndexError):
             setattr(state, "error", "variável inválida")
 
 
 def environment_menu(state: object) -> None:
-    """Show the registry-aware product environment catalog grouped by functional scope."""
+    """Show the complete registry-aware configuration catalog by functional context."""
     refresh_specs()
-    grouped = {
-        category: tuple(spec for spec in SPECS if spec.category == category)
-        for category in CATEGORIES
-    }
+    grouped = {category: tuple(spec for spec in SPECS if spec.category == category) for category in CATEGORIES}
     while True:
-        legacy.render_header(state)
-        print("CONFIGURAÇÃO AVANÇADA - VARIÁVEIS DE AMBIENTE\n")
-        print("Defaults coerentes são aplicados internamente; defina variável para override/credencial.")
-        print("Secrets não entram no INI. Opções de control plane/Identity são de operador, não de tenant.\n")
+        base_environment.render_header(state)
+        _breadcrumb("Configuração avançada")
+        print("FLUXO RECOMENDADO")
+        print("  1. Use o menu principal para Entrada, Device, IA, Web Performance e Apdex.")
+        print("  2. Use esta área para integrações, credenciais e overrides avançados.")
+        print("  3. Salve o INI no menu principal para persistir somente configurações não secretas.")
+        print("  4. Antes de executar, revise o preflight; integração ausente não vira finding do website.\n")
+        print(paint("AUTO/Padrão significa deixar o runtime resolver pelo registry e requisitos; não é necessário repetir defaults.", DIM))
+        print(paint("Secrets nunca entram no INI. Windows/User exige ação explícita do operador.", YELLOW))
+        print()
+
         choices: dict[str, str] = {}
         for index, category in enumerate(CATEGORIES, 1):
             specs = grouped[category]
             configured = sum(1 for spec in specs if (os.environ.get(spec.name) or "").strip())
-            print(f" {index:2d}. {category:<34} {configured}/{len(specs)} override(s) definidos")
+            marker = paint(f"{configured}/{len(specs)} definidos", GREEN if configured else DIM)
+            print(f" {index:2d}. {category:<36} {marker}")
             choices[str(index)] = category
         print("\n A. Todas as variáveis")
         print(f" D. Abrir documentação detalhada (docs/{DOCUMENT_NAME})")
@@ -205,7 +307,7 @@ def environment_menu(state: object) -> None:
         if raw == "V":
             return
         if raw == "D":
-            legacy._open_docs(state)
+            base_environment._open_docs(state)
             continue
         if raw == "A":
             _category_menu(state, "Todas", SPECS)

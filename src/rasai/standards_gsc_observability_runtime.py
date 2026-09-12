@@ -1,13 +1,15 @@
 """Bounded Search Console collection composed into audit finalization.
 
 The external data is persisted in observability.db/artifacts, not promoted to SARI or
-SCORE-GEO evidence. audit.db stores only the standards-service execution state.
+SCORE-GEO evidence. audit.db stores standards-service execution state plus advisory
+metrics derived from already-persisted GSC observations.
 """
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import json
 import os
+from pathlib import Path
 import sqlite3
 from typing import Any, Mapping
 
@@ -34,6 +36,53 @@ from rasai.standards_service_registry import (
 )
 
 GSC_TOKEN_ENV = "RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN"
+
+# Projection eligibility is tied to the operation result from the *current*
+# finalization. Historical sidecar datasets remain preserved, but they must not be
+# surfaced as if they were freshly collected when the corresponding operation failed,
+# was skipped, or the service is disabled for this run.
+_GSC_METRICS_BY_OPERATION: dict[str, tuple[str, ...]] = {
+    "URL_INSPECTION": (
+        "gsc_url_inspection_response_coverage",
+        "gsc_url_inspection_verdict_pass_rate",
+        "gsc_indexing_allowed_rate",
+        "gsc_robots_allowed_rate",
+        "gsc_page_fetch_success_rate",
+        "gsc_exact_canonical_agreement_rate",
+        "gsc_sitemap_association_rate",
+        "gsc_last_crawl_time_coverage",
+        "gsc_last_crawl_age_p50_days",
+        "gsc_last_crawl_age_p75_days",
+        "gsc_last_crawl_age_p95_days",
+    ),
+    "SITEMAPS": (
+        "gsc_sitemap_count",
+        "gsc_sitemap_error_free_rate",
+        "gsc_sitemap_warning_free_rate",
+        "gsc_sitemap_pending_rate",
+        "gsc_sitemap_reported_submitted_urls",
+    ),
+    "SEARCH_ANALYTICS": (
+        "gsc_returned_search_rows",
+        "gsc_returned_row_clicks",
+        "gsc_returned_row_impressions",
+        "gsc_returned_row_ctr",
+        "gsc_returned_row_impression_weighted_position",
+        "gsc_returned_distinct_queries",
+        "gsc_returned_distinct_urls",
+        "gsc_returned_distinct_query_url_pairs",
+    ),
+}
+_ALL_GSC_METRIC_IDS = tuple(
+    dict.fromkeys(metric_id for metric_ids in _GSC_METRICS_BY_OPERATION.values() for metric_id in metric_ids)
+)
+
+_GSC_REPORT_PANEL_MARKERS = (
+    "RASAI_GSC_OBSERVATIONAL_METRICS",
+    "RASAI_GSC_CRAWL_FRESHNESS_METRICS",
+    "RASAI_GSC_SITEMAP_METRICS",
+    "RASAI_GSC_RETURNED_VISIBILITY_COUNTS",
+)
 
 
 def _bounded_urls(workspace: Any, audit_id: str, limit: int) -> tuple[str, ...]:
@@ -93,9 +142,6 @@ def collect_configured_search_console(
     lag_days = final_data_lag_days(environment.get(GSC_FINAL_DATA_LAG_DAYS_ENV))
     urls = _bounded_urls(workspace, audit_id, max_urls)
 
-    # These counters represent logical API collection operations, not URL-level
-    # successes. URL Inspection persists per-URL ERROR rows in observability.db and its
-    # own report shows that finer-grained outcome without overstating this run summary.
     attempted = 0
     succeeded = 0
 
@@ -181,6 +227,98 @@ def collect_configured_search_console(
     return result
 
 
+def _successful_operation_names(result: Mapping[str, Any]) -> set[str]:
+    operations = result.get("operations")
+    if not isinstance(operations, list):
+        return set()
+    return {
+        str(item.get("name") or "").strip().upper()
+        for item in operations
+        if isinstance(item, Mapping)
+        and str(item.get("status") or "").strip().upper() == "SUCCESS"
+        and str(item.get("dataset_id") or "").strip()
+    }
+
+
+def _delete_metric_ids(*, audit_id: str, workspace: Any, metric_ids: tuple[str, ...]) -> None:
+    if not metric_ids:
+        return
+    connection = sqlite3.connect(workspace.database)
+    try:
+        exists = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='standards_metric_observations'"
+        ).fetchone()
+        if exists is None:
+            return
+        placeholders = ",".join("?" for _ in metric_ids)
+        with connection:
+            connection.execute(
+                f"DELETE FROM standards_metric_observations WHERE audit_id=? AND metric_id IN ({placeholders})",
+                (audit_id, *metric_ids),
+            )
+    finally:
+        connection.close()
+
+
+def _clear_all_gsc_metric_projections(*, audit_id: str, workspace: Any) -> None:
+    """Clear old advisory projections while preserving observability history."""
+    _delete_metric_ids(audit_id=audit_id, workspace=workspace, metric_ids=_ALL_GSC_METRIC_IDS)
+
+
+def _clear_metrics_without_current_success(
+    *,
+    audit_id: str,
+    workspace: Any,
+    result: Mapping[str, Any],
+) -> None:
+    """Hide GSC projections when their operation did not succeed this run.
+
+    Raw historical datasets remain untouched in observability.db. Only the advisory
+    audit.db projection for the current audit/report is removed.
+    """
+    successful = _successful_operation_names(result)
+    stale_metric_ids = tuple(
+        metric_id
+        for operation, metric_ids in _GSC_METRICS_BY_OPERATION.items()
+        if operation not in successful
+        for metric_id in metric_ids
+    )
+    _delete_metric_ids(audit_id=audit_id, workspace=workspace, metric_ids=stale_metric_ids)
+
+
+def _remove_marked_panel(path: Path, marker: str) -> bool:
+    """Remove one previously inserted report block without touching unrelated content."""
+    if not path.is_file():
+        return False
+    text = path.read_text(encoding="utf-8")
+    original = text
+    start_token = f"<!-- {marker}:START -->"
+    end_token = f"<!-- {marker}:END -->"
+    while True:
+        start = text.find(start_token)
+        if start < 0:
+            break
+        end = text.find(end_token, start + len(start_token))
+        if end < 0:
+            # Do not truncate a malformed document. Leave it intact for normal report
+            # validation to surface rather than deleting an unbounded suffix.
+            break
+        text = text[:start] + text[end + len(end_token):]
+    if text == original:
+        return False
+    path.write_text(text, encoding="utf-8", newline="\n")
+    return True
+
+
+def _clear_gsc_report_panels(report_dir: Path) -> bool:
+    """Remove all GSC advisory panels so the current finalization can re-project them."""
+    path = report_dir / "observability.html"
+    changed = False
+    for marker in _GSC_REPORT_PANEL_MARKERS:
+        changed = _remove_marked_panel(path, marker) or changed
+    return changed
+
+
 def _update_service_run(*, audit_id: str, workspace: Any, result: Mapping[str, Any]) -> None:
     connection = sqlite3.connect(workspace.database)
     try:
@@ -212,6 +350,13 @@ def install() -> None:
     from rasai import report_completion, report_navigation
     from rasai.report_manifest import write_report_manifest
     from rasai.report_scale_ux import enhance_report_directory
+    from rasai.standards_gsc_crawl_freshness_metrics import (
+        enrich_gsc_crawl_freshness_report,
+        reconcile_gsc_crawl_freshness_metrics,
+    )
+    from rasai.standards_gsc_metrics import enrich_gsc_metrics_report, reconcile_gsc_observational_metrics
+    from rasai.standards_gsc_sitemap_metrics import enrich_gsc_sitemap_report, reconcile_gsc_sitemap_metrics
+    from rasai.standards_gsc_visibility_metrics import enrich_gsc_visibility_report, reconcile_gsc_visibility_counts
     from rasai.standards_metrics import enrich_existing_reports, write_standards_report
 
     if getattr(report_completion, "_rasai_gsc_observability_runtime", False):
@@ -219,6 +364,13 @@ def install() -> None:
     original = report_completion.finalize_audit_report_site
 
     def finalize_with_gsc(*, audit_id: str, workspace: Any, context_interpretations=(), routing_snapshot=None):
+        report_dir = workspace.root / "report"
+
+        # Remove old GSC projections before the base renderer can read them. The raw
+        # observability history is intentionally preserved in observability.db.
+        _clear_all_gsc_metric_projections(audit_id=audit_id, workspace=workspace)
+        _clear_gsc_report_panels(report_dir)
+
         base = original(
             audit_id=audit_id,
             workspace=workspace,
@@ -226,22 +378,51 @@ def install() -> None:
             routing_snapshot=routing_snapshot,
         )
         errors = list(base.renderer_errors)
+        result: Mapping[str, Any] = {"operations": [], "effective_enabled": False}
         try:
+            # The base renderer may reuse an existing report file. Remove GSC marker
+            # blocks once more before current-run enrichment.
+            _clear_gsc_report_panels(report_dir)
             result = collect_configured_search_console(audit_id=audit_id, workspace=workspace)
             _update_service_run(audit_id=audit_id, workspace=workspace, result=result)
             if bool(result.get("effective_enabled")):
-                # Provider errors remain service state/details. They are not report-render
-                # failures and do not turn a valid audit mini-site into a renderer warning.
                 enrich_observability_report(audit_workspace=workspace.root)
+                try:
+                    reconcile_gsc_observational_metrics(audit_id=audit_id, workspace=workspace)
+                    reconcile_gsc_crawl_freshness_metrics(audit_id=audit_id, workspace=workspace)
+                    reconcile_gsc_sitemap_metrics(audit_id=audit_id, workspace=workspace)
+                    reconcile_gsc_visibility_counts(audit_id=audit_id, workspace=workspace)
+                finally:
+                    # Reconcilers use persisted latest datasets; this filter guarantees
+                    # that only families successful in this finalization survive.
+                    _clear_metrics_without_current_success(
+                        audit_id=audit_id,
+                        workspace=workspace,
+                        result=result,
+                    )
+            else:
+                _clear_metrics_without_current_success(audit_id=audit_id, workspace=workspace, result=result)
+
+            if bool(result.get("effective_enabled")):
+                # Only enabled GSC finalizations create new advisory rows after the
+                # pre-render cleanup, so only this path needs a second standards render.
                 write_standards_report(audit_id=audit_id, workspace=workspace)
                 enrich_existing_reports(audit_id=audit_id, workspace=workspace)
-                report_dir = workspace.root / "report"
+                enrich_gsc_metrics_report(audit_id=audit_id, workspace=workspace)
+                enrich_gsc_crawl_freshness_report(audit_id=audit_id, workspace=workspace)
+                enrich_gsc_sitemap_report(audit_id=audit_id, workspace=workspace)
+                enrich_gsc_visibility_report(audit_id=audit_id, workspace=workspace)
                 report_navigation.normalize_report_navigation(report_dir)
                 enhance_report_directory(report_dir)
-                write_report_manifest(report_dir)
+
+            # Hashes must describe post-cleanup/post-projection files even when the
+            # service is disabled and only stale content was removed.
+            write_report_manifest(report_dir)
         except Exception as exc:
-            # Only composition/rendering failures reach renderer_errors. External-call
-            # failures are contained by collect_configured_search_console above.
+            # No failure in configuration/composition may resurrect historical GSC
+            # data as current. The sidecar itself is never deleted.
+            _clear_metrics_without_current_success(audit_id=audit_id, workspace=workspace, result=result)
+            _clear_gsc_report_panels(report_dir)
             errors.append(f"gsc-runtime:{type(exc).__name__}:{redact_text(str(exc)[:500])}")
 
         inspected = report_completion.inspect_audit_report_site(audit_id=audit_id, workspace=workspace)

@@ -15,6 +15,7 @@ from rasai.ai_provider_console_management import install as install_ai_provider_
 from rasai.console_apdex_configuration import configure_apdex
 from rasai.console_cancellation_runtime import install as install_console_cancellation_runtime
 from rasai.console_config_path import prepare_console_config
+from rasai.console_progress_presentation import install as install_console_progress_presentation
 from rasai.console_search_guidance import install as install_search_guidance
 from rasai.console_search_intelligence import install as install_search_intelligence
 from rasai.consolidation.integration import install as install_consolidation
@@ -34,6 +35,7 @@ from rasai.runtime_contract_compatibility import install_console_runtime_contrac
 from rasai.runtime_progress_gate import install_search_progress_gate
 from rasai.standards_console_runtime import install as install_standards_console_runtime
 from rasai.standards_css_validation import install as install_standards_css_validation
+from rasai.standards_gsc_console_progress import install as install_standards_gsc_console_progress
 from rasai.standards_gsc_observability_runtime import install as install_standards_gsc_observability_runtime
 from rasai.standards_ir_reconciliation import install as install_standards_ir_reconciliation
 from rasai.standards_m21_reconciliation import install as install_standards_m21_reconciliation
@@ -81,6 +83,7 @@ def main() -> int:
     install_m3_render_progress()
     install_m21_external_progress()
     install_search_progress_gate()
+    install_standards_gsc_console_progress()
     install_console_cancellation_runtime()
     interactive_console._environment_menu = console_environment.environment_menu
     interactive_console._configure_apdex = configure_apdex
@@ -89,6 +92,7 @@ def main() -> int:
     install_consolidation(interactive_console)
     install_console_runtime_contract_compatibility()
     install_report_scope_clarity()
+    install_console_progress_presentation()
     # Install last so provider availability, configuration and credential changes are
     # resolved by one final selector before the user starts an execution.
     install_ai_provider_console_management()

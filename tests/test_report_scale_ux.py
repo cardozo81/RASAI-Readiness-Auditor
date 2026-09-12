@@ -40,8 +40,6 @@ def test_scale_ux_preserves_original_report_payload_and_indexes_all_item_urls() 
 def test_filter_index_is_stable_when_pagination_hides_rows() -> None:
     html = enhance_report_html_for_scale("<html><head></head><body><table><tbody></tbody></table></body></html>")
 
-    # Regression: innerText depends on layout/display. Once pagination set display:none,
-    # hidden rows returned empty text and later URL selections falsely found no data.
     assert "const stableText=item=>String((item&&item.textContent)||'')" in html
     assert "const itemCache=new WeakMap()" in html
     assert "const indexed=indexForItem(item)" in html
@@ -71,7 +69,37 @@ def test_scale_ux_keeps_single_url_as_simple_layout_contract() -> None:
         "</body></html>"
     )
 
-    # The controller is embedded globally, but its runtime threshold only activates
-    # URL filtering when at least two distinct URLs exist in the same collection.
     assert "URL_THRESHOLD=2" in html
     assert "urlsFor(items).length>=URL_THRESHOLD" in html
+
+
+def test_reports_receive_consistent_section_outline_when_content_is_structured() -> None:
+    payload = (
+        "<html><head></head><body><main><header class='hero'><h1>Relatório</h1></header>"
+        "<section><h2>Resumo executivo</h2></section>"
+        "<section><h2>Evidências por URL</h2></section>"
+        "<section><h2>Metodologia e limites</h2></section>"
+        "</main></body></html>"
+    )
+    enhanced = enhance_report_html_for_scale(payload)
+
+    assert "rasai-report-outline" in enhanced
+    assert "Neste relatório" in enhanced
+    assert "Seções do relatório" in enhanced
+    assert "buildOutline" in enhanced
+    assert "rasai-section-anchor" in enhanced
+    assert "headings.length<3" in enhanced
+
+
+def test_report_outline_is_hidden_for_print_and_does_not_change_source_headings() -> None:
+    payload = (
+        "<html><head></head><body><main>"
+        "<h2>A</h2><h2>B</h2><h2>C</h2>"
+        "</main></body></html>"
+    )
+    enhanced = enhance_report_html_for_scale(payload)
+
+    assert "@media print" in enhanced
+    assert ".rasai-report-outline{display:none!important}" in enhanced
+    assert payload.count("<h2>") == 3
+    assert enhanced.count("<h2>") == 3
