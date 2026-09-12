@@ -1,4 +1,4 @@
-"""Reconcile M21 legacy PageSpeed-first execution with per-service toggles."""
+"""Reconcile the current M21 PageSpeed-first execution with per-service toggles."""
 from __future__ import annotations
 
 from dataclasses import replace
