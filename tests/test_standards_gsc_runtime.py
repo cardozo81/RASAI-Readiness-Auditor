@@ -119,13 +119,16 @@ def test_saas_job_without_gsc_property_masks_worker_global_property(monkeypatch)
     from rasai import audit_execution_contract as contract
 
     auto = contract.audit_job_environment_overrides({})
-    explicit = contract.audit_job_environment_overrides({"gsc_enabled": True})
     disabled = contract.audit_job_environment_overrides({"gsc_enabled": False})
 
     assert auto[GSC_SITE_URL_ENV] == ""
     assert auto[GSC_ENABLED_ENV] == "false"
-    assert explicit[GSC_SITE_URL_ENV] == ""
     assert disabled[GSC_SITE_URL_ENV] == ""
+
+    # Explicit enablement without a job-scoped property is invalid rather than
+    # inheriting a process-global property from another tenant.
+    with pytest.raises(ValueError, match="gsc_site_url"):
+        contract.audit_job_environment_overrides({"gsc_enabled": True})
 
 
 def test_saas_job_property_is_the_only_gsc_property_context(monkeypatch) -> None:
