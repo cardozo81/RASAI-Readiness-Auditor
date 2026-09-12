@@ -20,6 +20,22 @@ GOOGLE_SEARCH_CONSOLE_SEARCH_ANALYTICS
 
 Datasets históricos anteriores não são somados ao snapshot atual.
 
+### Elegibilidade da projeção corrente
+
+O `observability.db` preserva datasets anteriores para histórico e reprodutibilidade. Entretanto, uma família GSC só permanece projetada em `standards_metric_observations` e nos relatórios da finalização corrente quando a operação correspondente terminou com `SUCCESS` e produziu um `dataset_id` nesta própria execução.
+
+A regra é aplicada independentemente por família:
+
+```text
+URL_INSPECTION    -> estado/indexação/canonical/associação a sitemap/crawl freshness
+SITEMAPS          -> saúde operacional dos sitemaps
+SEARCH_ANALYTICS  -> returned-row aggregates e visibility counts
+```
+
+Se uma operação falhar, for omitida por configuração ou o serviço estiver desabilitado/não configurado, as projeções advisory daquela família são removidas do `audit.db` da auditoria corrente. O dataset histórico continua preservado em `observability.db`; ele apenas não é apresentado como se fosse resultado fresco da execução atual.
+
+Essa política evita falso freshness sem destruir evidência histórica.
+
 ## URL Inspection
 
 ### GSC URL Inspection Response Coverage
@@ -280,6 +296,8 @@ A documentação do recurso Sitemap informa que `contents[].indexed` está desco
 - contagens de queries, URLs e pares query-URL são somente do dataset retornado/persistido;
 - Sitemaps `errors`, `warnings`, `isPending` e `submitted` são preservados como observações da fonte Google;
 - `contents[].indexed` de Sitemaps não é usado por estar descontinuado;
+- uma família só é projetada como corrente quando a operação correspondente termina com sucesso nesta finalização;
+- datasets históricos permanecem preservados no sidecar mesmo quando deixam de ser projetados no relatório atual;
 - dataset inexistente não é convertido em zero;
 - dataset Search Analytics válido com zero linhas materializa contagens/clicks/impressions como zero, enquanto CTR e posição permanecem `NO_DATA`;
 - erro de coleta não vira falha do website;
