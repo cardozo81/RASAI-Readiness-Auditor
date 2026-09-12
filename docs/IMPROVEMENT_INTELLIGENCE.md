@@ -1,4 +1,4 @@
-# Improvement Intelligence — análise profunda e melhorias
+# Improvement Intelligence - análise profunda e melhorias
 
 ## Objetivo
 
@@ -46,16 +46,16 @@ A feature não amplia silenciosamente o escopo de rede e não cria um segundo cr
 
 O usuário pode selecionar um subconjunto de:
 
-- `TECHNICAL_HTML` — problemas técnicos/HTML;
-- `SEMANTICS_STRUCTURE` — headings, landmarks e coerência semântica;
-- `CONTENT` — clareza, completude e texto da página;
-- `SEARCH_RANKING` — gaps observados em Search/SERP;
-- `FILES_DISCOVERY` — robots/sitemap/llms e descoberta;
-- `PERFORMANCE` — oportunidades Lighthouse/performance;
-- `ACCESSIBILITY` — problemas automatizáveis de acessibilidade;
-- `BEST_PRACTICES` — melhores práticas observadas;
-- `SECURITY` — postura de segurança passiva;
-- `AI_ACCESS` — crawlability, semântica e compreensão por agentes/IA.
+- `TECHNICAL_HTML` - problemas técnicos/HTML;
+- `SEMANTICS_STRUCTURE` - headings, landmarks e coerência semântica;
+- `CONTENT` - clareza, completude e texto da página;
+- `SEARCH_RANKING` - gaps observados em Search/SERP;
+- `FILES_DISCOVERY` - robots/sitemap/llms e descoberta;
+- `PERFORMANCE` - oportunidades Lighthouse/performance;
+- `ACCESSIBILITY` - problemas automatizáveis de acessibilidade;
+- `BEST_PRACTICES` - melhores práticas observadas;
+- `SECURITY` - postura de segurança passiva;
+- `AI_ACCESS` - crawlability, semântica e compreensão por agentes/IA.
 
 ## Segurança
 
@@ -139,7 +139,7 @@ A key/token não é duplicada: a feature reutiliza a credencial já configurada 
 
 `RASAI_AI_ANALYSIS_LANGUAGE` define o idioma preferencial das explicações/textos sugeridos.
 
-- `auto` — default; usa o idioma principal da auditoria;
+- `auto` - default; usa o idioma principal da auditoria;
 - ou uma tag como `pt-BR`, `en-US`, `es-ES`.
 
 Esse parâmetro **não força o idioma da página** e não substitui evidência real de `<html lang>`, conteúdo ou detecção semântica.
@@ -234,6 +234,6 @@ Uma recomendação é uma hipótese de melhoria até que a URL seja auditada nov
 
 A sequência recomendada é:
 
-`evidência → finding → recomendação → prioridade → deploy → nova auditoria → before/after`
+`evidência -> finding -> recomendação -> prioridade -> deploy -> nova auditoria -> before/after`
 
 Somente a nova medição pode afirmar o ganho efetivamente observado.
