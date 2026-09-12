@@ -107,6 +107,7 @@ def finalize_audit_report_site(
     from rasai.report_manifest import write_report_manifest
     from rasai.report_site import materialize_report_site
     from rasai.report_validation_reconciliation import reconcile_validated_report_details
+    from rasai.sari_readiness_presentation import install as install_sari_readiness_presentation
     from rasai.score_geo_004_reporting import write_score_geo_004_report
 
     errors: list[str] = []
@@ -116,6 +117,10 @@ def finalize_audit_report_site(
             function()
         except Exception as exc:
             errors.append(f"{label}:{type(exc).__name__}:{str(exc)[:240]}")
+
+    # Always install the public-readiness guard here as well as in normal entrypoint
+    # composition. Direct finalizer callers must not bypass the same HTML semantics.
+    install_sari_readiness_presentation()
 
     run("base", lambda: materialize_report_site(audit_id=audit_id, workspace=workspace))
     run("content", lambda: enrich_m20_report_site(audit_id=audit_id, workspace=workspace))
