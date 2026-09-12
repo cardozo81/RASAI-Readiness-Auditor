@@ -191,6 +191,8 @@ def _evaluate_cost_outcome(
 
 
 def _build_outcome(state: Any, forecast: CostForecast) -> _CostOutcome | None:
+    if not str(getattr(state, "audit_id", "") or "").strip():
+        return None
     workspace, _ = artifact_status(state)
     usage = actual_usage(workspace)
     if workspace is None or usage is None:
@@ -204,8 +206,10 @@ def _build_outcome(state: Any, forecast: CostForecast) -> _CostOutcome | None:
 
 
 def _persist_outcome(state: Any, forecast: CostForecast, outcome: _CostOutcome) -> bool:
+    if not str(getattr(state, "audit_id", "") or "").strip():
+        return False
     workspace, _ = artifact_status(state)
-    if workspace is None or not str(getattr(state, "audit_id", "") or ""):
+    if workspace is None:
         return False
     database = workspace / "audit.db"
     if not database.is_file():
