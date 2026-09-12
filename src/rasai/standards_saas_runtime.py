@@ -2,14 +2,14 @@
 
 Durable payloads preserve explicit choices only. Omitting PageSpeed/CrUX/GSC delegates
 to the worker credential-driven default; false is an explicit disable; true is an
-explicit request that still requires the worker credential.
+explicit request that still requires the worker credential and mandatory context.
 """
 from __future__ import annotations
 
 import os
 from typing import Any, Mapping
 
-from rasai.standards_runtime import install_service_contract
+from rasai.standards_gsc_contract import install as install_gsc_contract
 from rasai.standards_service_registry import service, service_state
 
 _CREDENTIAL_FIELDS = {
@@ -31,7 +31,7 @@ def _requested(payload: Mapping[str, Any], field: str, service_id: str) -> bool:
 
 
 def install() -> None:
-    install_service_contract()
+    install_gsc_contract()
     from rasai import audit_execution_contract as contract
     from rasai import worker
 
