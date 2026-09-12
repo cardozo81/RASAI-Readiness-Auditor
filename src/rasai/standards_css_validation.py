@@ -118,6 +118,31 @@ def _request(url: str, timeout: float, opener: Callable[..., Any]) -> bytes:
         raise CssValidationError(f"{type(exc).__name__}: {exc}") from exc
 
 
+def _persist_inactive_service_run(
+    *,
+    audit_id: str,
+    workspace: AuditWorkspace,
+    state_info: Mapping[str, Any],
+) -> None:
+    connection = sqlite3.connect(workspace.database)
+    try:
+        exists = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='standards_service_runs'"
+        ).fetchone()
+        if exists is None:
+            return
+        with connection:
+            _service_run(
+                connection,
+                audit_id=audit_id,
+                service_id="w3c-css-validator",
+                state_info=state_info,
+                state=str(state_info.get("state") or "DISABLED"),
+            )
+    finally:
+        connection.close()
+
+
 def collect_css_validation(
     *,
     audit_id: str,
@@ -136,6 +161,8 @@ def collect_css_validation(
         "errors": [],
     }
     if not bool(state_info["effective_enabled"]):
+        _persist_inactive_service_run(audit_id=audit_id, workspace=workspace, state_info=state_info)
+        result["collection_state"] = str(state_info["state"])
         return result
 
     max_urls = _int_env(environment, STANDARDS_MAX_URLS_ENV, DEFAULT_STANDARDS_MAX_URLS)
