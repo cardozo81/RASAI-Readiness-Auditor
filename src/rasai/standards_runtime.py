@@ -194,53 +194,62 @@ def _rebind_contract_consumers(contract: Any) -> None:
 
 
 def install_console_service_catalog() -> None:
-    """Expose service toggles in the interactive environment menu and INI allowlist."""
+    """Enrich the import-time console catalog with standards-specific metadata."""
     from rasai import console_config, console_environment
     if getattr(console_environment, "_rasai_standards_service_catalog", False):
         return
     source = "docs/STANDARDS_METRICS_AND_SERVICES.md"
     category = "Métricas e padrões"
     specs = list(console_environment.SPECS)
-    known = {spec.name for spec in specs}
+    by_name = {spec.name: index for index, spec in enumerate(specs)}
+
+    def upsert(spec: Any) -> None:
+        index = by_name.get(spec.name)
+        if index is None:
+            by_name[spec.name] = len(specs)
+            specs.append(spec)
+        else:
+            specs[index] = spec
+
     for item in services():
-        if item.enabled_env not in known:
-            default = None if item.auto_enable_with_credentials else ("true" if item.default_enabled else "false")
-            specs.append(console_environment.EnvironmentSpec(
-                item.enabled_env,
+        default = None if item.auto_enable_with_credentials else ("true" if item.default_enabled else "false")
+        upsert(console_environment.EnvironmentSpec(
+            item.enabled_env,
+            category,
+            f"Liga/desliga {item.label}. {item.purpose}",
+            "booleano",
+            ("true", "false"),
+            default,
+            required_when=(
+                "Override opcional; em auto exige credencial/configuração obrigatória para execução."
+                if item.credential_envs else "Nunca; pode ser desligado explicitamente pelo usuário."
+            ),
+            impact=item.network_behavior,
+            source=source,
+            notes=f"Relação com RASAi: {item.relation_degree}/5. Escopo: {', '.join(item.scopes)}.",
+        ))
+        if item.dataset_env:
+            upsert(console_environment.EnvironmentSpec(
+                item.dataset_env,
                 category,
-                f"Liga/desliga {item.label}. {item.purpose}",
-                "booleano",
-                ("true", "false"),
-                default,
-                required_when=(
-                    "Override opcional; em auto exige credencial/configuração obrigatória para execução."
-                    if item.credential_envs else "Nunca; pode ser desligado explicitamente pelo usuário."
-                ),
-                impact=item.network_behavior,
-                source=source,
-                notes=f"Relação com RASAi: {item.relation_degree}/5. Escopo: {', '.join(item.scopes)}.",
-            ))
-            known.add(item.enabled_env)
-        if item.dataset_env and item.dataset_env not in known:
-            specs.append(console_environment.EnvironmentSpec(
-                item.dataset_env, category,
                 "Caminho para dataset WebDX/web-features versionado usado na compatibilidade Baseline.",
-                "caminho de arquivo", required_when="Somente para materializar Web Platform Baseline.",
-                source=source, notes="Não é segredo e pode ser persistido no INI."
+                "caminho de arquivo",
+                required_when="Somente para materializar Web Platform Baseline.",
+                source=source,
+                notes="Não é segredo e pode ser persistido no INI.",
             ))
-            known.add(item.dataset_env)
+
     for name, purpose, default in (
         (STANDARDS_MAX_URLS_ENV, "Máximo de URLs submetidas a validadores externos; 0=todas.", str(DEFAULT_STANDARDS_MAX_URLS)),
         (STANDARDS_TIMEOUT_ENV, "Timeout por request de serviço de padrões.", f"{DEFAULT_STANDARDS_TIMEOUT_SECONDS:g}"),
     ):
-        if name not in known:
-            specs.append(console_environment.EnvironmentSpec(name, category, purpose, "número", default=default, source=source))
-            known.add(name)
+        upsert(console_environment.EnvironmentSpec(name, category, purpose, "número", default=default, source=source))
 
     names = tuple(dict.fromkeys((*console_environment.ENV_NAMES, *service_environment_names())))
     console_environment.ENV_NAMES = names
-    console_environment.SPECS = tuple(specs)
-    console_environment.SPEC_BY_NAME = {spec.name: spec for spec in specs}
+    spec_map = {spec.name: spec for spec in specs}
+    console_environment.SPECS = tuple(spec_map[name] for name in names if name in spec_map)
+    console_environment.SPEC_BY_NAME = {spec.name: spec for spec in console_environment.SPECS}
     if category not in console_environment.CATEGORIES:
         categories = list(console_environment.CATEGORIES)
         try:
@@ -255,41 +264,13 @@ def install_console_service_catalog() -> None:
 
 
 def install_report_contract() -> None:
-    """Add one coherent standards surface without replacing any existing report."""
-    from rasai import context_scope_runtime, report_contract
-    if any(surface.id == "standards" for surface in report_contract.REPORT_SURFACES):
-        return
-    surface = report_contract.ReportSurface(
-        id="standards",
-        filename="standards.html",
-        label="Métricas e padrões",
-        optional=False,
-        inputs=("audit.db", "RuleExecutions", "SERP observations", "serviços de padrões habilitados"),
-        outputs=("métricas derivadas", "Information Retrieval", "conformidade W3C", "postura HTTP", "estado de integrações"),
-        optional_dependencies=("W3C Nu/CSS", "MDN Observatory", "WebDX dataset", "Google APIs configuradas"),
-        ai_usage="Nenhum. Métricas de IR podem usar apenas relevance judgments já persistidos; não chamam IA para inventar relevância.",
-        score_impact="Nenhum impacto automático em SARI-001/SCORE-GEO-004.",
-        source_of_truth="audit.db + respostas externas persistidas em tabelas aditivas",
-    )
-    current = list(report_contract.REPORT_SURFACES)
-    insert_at = next((index + 1 for index, item in enumerate(current) if item.id == "web-performance"), len(current))
-    current.insert(insert_at, surface)
-    report_contract.REPORT_SURFACES = tuple(current)
-    report_contract.CANONICAL_NAV_ITEMS = tuple((item.label, item.filename) for item in current)
-    report_contract.CANONICAL_FILENAMES = tuple(item.filename for item in current)
+    """Keep standards detail auxiliary to the stable canonical report navigation.
 
-    groups = []
-    for label, filenames in context_scope_runtime._NAV_GROUPS:
-        if label == "Coleta e dispositivos" and "standards.html" not in filenames:
-            values = list(filenames)
-            try:
-                index = values.index("web-performance.html") + 1
-            except ValueError:
-                index = len(values)
-            values.insert(index, "standards.html")
-            filenames = tuple(values)
-        groups.append((label, filenames))
-    context_scope_runtime._NAV_GROUPS = tuple(groups)
+    ``standards.html`` is generated and linked from thematic report panels, but the
+    pre-publication canonical navigation remains owned exclusively by report_contract.
+    This avoids import-order-dependent mutations and duplicate top-level surfaces.
+    """
+    return None
 
 
 def _explicit_false(name: str) -> bool:
@@ -364,7 +345,7 @@ def install_collection_runtime() -> None:
 
 
 def install_report_runtime() -> None:
-    """Materialize standards observations and reorganize the final report site."""
+    """Materialize standards observations and enrich canonical report surfaces."""
     from rasai import report_completion, report_navigation
     from rasai.report_manifest import write_report_manifest
     from rasai.report_scale_ux import enhance_report_directory
