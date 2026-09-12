@@ -9,42 +9,59 @@ from __future__ import annotations
 from getpass import getpass as _hidden_getpass
 import os
 import sys
+from typing import Callable
 
 
 def _fallback(prompt: str) -> str:
     return _hidden_getpass(prompt)
 
 
+def _read_masked_chars(
+    prompt: str,
+    read_char: Callable[[], str],
+    write: Callable[[str], object],
+    flush: Callable[[], object],
+) -> str:
+    """Read characters while exposing only asterisks to the terminal."""
+    write(prompt)
+    flush()
+    chars: list[str] = []
+    while True:
+        char = read_char()
+        if char == "":
+            raise EOFError("entrada de secret encerrada antes de Enter")
+        if char in {"\r", "\n"}:
+            write("\n")
+            flush()
+            return "".join(chars)
+        if char == "\x03":
+            raise KeyboardInterrupt
+        if char in {"\b", "\x7f"}:
+            if chars:
+                chars.pop()
+                write("\b \b")
+                flush()
+            continue
+        if not char.isprintable():
+            continue
+        chars.append(char)
+        write("*")
+        flush()
+
+
 def _masked_windows(prompt: str) -> str:
     import msvcrt
 
-    sys.stdout.write(prompt)
-    sys.stdout.flush()
-    chars: list[str] = []
+    def read_char() -> str:
+        char = msvcrt.getwch()
+        if char in {"\x00", "\xe0"}:
+            # Consume Windows extended/special-key code and ignore it.
+            msvcrt.getwch()
+            return "\x00"
+        return char
+
     try:
-        while True:
-            char = msvcrt.getwch()
-            if char in {"\r", "\n"}:
-                sys.stdout.write("\n")
-                sys.stdout.flush()
-                return "".join(chars)
-            if char == "\x03":
-                raise KeyboardInterrupt
-            if char in {"\b", "\x7f"}:
-                if chars:
-                    chars.pop()
-                    sys.stdout.write("\b \b")
-                    sys.stdout.flush()
-                continue
-            # Ignore Windows extended/special-key prefixes and consume their code.
-            if char in {"\x00", "\xe0"}:
-                msvcrt.getwch()
-                continue
-            if not char.isprintable():
-                continue
-            chars.append(char)
-            sys.stdout.write("*")
-            sys.stdout.flush()
+        return _read_masked_chars(prompt, read_char, sys.stdout.write, sys.stdout.flush)
     except BaseException:
         sys.stdout.write("\n")
         sys.stdout.flush()
@@ -63,55 +80,31 @@ def _masked_posix(prompt: str) -> str:
     updated[6][termios.VMIN] = 1
     updated[6][termios.VTIME] = 0
 
-    sys.stdout.write(prompt)
-    sys.stdout.flush()
-    chars: list[str] = []
     try:
         termios.tcsetattr(fd, termios.TCSADRAIN, updated)
-        while True:
-            char = sys.stdin.read(1)
-            if char in {"\r", "\n"}:
-                sys.stdout.write("\n")
-                sys.stdout.flush()
-                return "".join(chars)
-            if char == "\x03":
-                raise KeyboardInterrupt
-            if char in {"\b", "\x7f"}:
-                if chars:
-                    chars.pop()
-                    sys.stdout.write("\b \b")
-                    sys.stdout.flush()
-                continue
-            if not char or not char.isprintable():
-                continue
-            chars.append(char)
-            sys.stdout.write("*")
-            sys.stdout.flush()
+        return _read_masked_chars(prompt, lambda: sys.stdin.read(1), sys.stdout.write, sys.stdout.flush)
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, original)
 
 
 def masked_secret_input(prompt: str = "Secret: ") -> str:
     """Read a secret while echoing only ``*`` characters when a TTY supports it."""
-    if not (getattr(sys.stdin, "isatty", lambda: False)() and getattr(sys.stdout, "isatty", lambda: False)()):
+    stdin_tty = getattr(sys.stdin, "isatty", lambda: False)()
+    stdout_tty = getattr(sys.stdout, "isatty", lambda: False)()
+    if not (stdin_tty and stdout_tty):
         return _fallback(prompt)
     try:
         return _masked_windows(prompt) if os.name == "nt" else _masked_posix(prompt)
-    except (ImportError, AttributeError, OSError, ValueError, termios_error_type()):
+    except KeyboardInterrupt:
+        raise
+    except Exception:
+        # Security-preserving fallback: if direct terminal control is unavailable,
+        # revert to no-echo getpass rather than ever exposing the secret in clear text.
         return _fallback(prompt)
 
 
-def termios_error_type():
-    """Return the platform termios error type without importing termios on Windows."""
-    try:
-        import termios
-        return termios.error
-    except ImportError:
-        return OSError
-
-
 def install_masked_secret_input() -> None:
-    """Patch the console modules that historically imported ``getpass`` directly."""
+    """Patch console modules that historically imported ``getpass`` directly."""
     from rasai import console_environment, console_provider_environment, interactive_console
 
     console_environment.getpass = masked_secret_input
