@@ -3,6 +3,8 @@ from __future__ import annotations
 from rasai.standards_metrics import ndcg_at_k, precision_at_k, reciprocal_rank
 from rasai.standards_service_registry import (
     CRUX_ENABLED_ENV,
+    GSC_ENABLED_ENV,
+    GSC_SITE_URL_ENV,
     PAGESPEED_ENABLED_ENV,
     service,
     service_state,
@@ -34,7 +36,7 @@ def test_dataset_service_is_not_configured_until_dataset_exists() -> None:
     assert state["state"] == "NOT_CONFIGURED"
 
 
-def test_credential_services_activate_only_after_credential() -> None:
+def test_credential_services_activate_only_after_required_configuration() -> None:
     pagespeed = service("pagespeed")
     missing = service_state(pagespeed, {})
     assert missing["requested"] is False
@@ -47,6 +49,17 @@ def test_credential_services_activate_only_after_credential() -> None:
     assert configured["effective_enabled"] is True
     assert configured["state"] == "READY"
 
+    gsc = service("google-search-console")
+    token_only = service_state(gsc, {"RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN": "token"})
+    assert token_only["effective_enabled"] is False
+    assert GSC_SITE_URL_ENV in token_only["missing_configuration"]
+    gsc_ready = service_state(gsc, {
+        "RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN": "token",
+        GSC_SITE_URL_ENV: "sc-domain:example.com",
+    })
+    assert gsc_ready["state"] == "READY"
+    assert gsc_ready["effective_enabled"] is True
+
 
 def test_explicit_disable_wins_even_with_credentials() -> None:
     pagespeed = service_state(
@@ -57,10 +70,20 @@ def test_explicit_disable_wins_even_with_credentials() -> None:
         service("crux"),
         {"RASAI_CRUX_API_KEY": "key", CRUX_ENABLED_ENV: "0"},
     )
+    gsc = service_state(
+        service("google-search-console"),
+        {
+            "RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN": "token",
+            GSC_SITE_URL_ENV: "sc-domain:example.com",
+            GSC_ENABLED_ENV: "false",
+        },
+    )
     assert pagespeed["state"] == "DISABLED"
     assert crux["state"] == "DISABLED"
+    assert gsc["state"] == "DISABLED"
     assert pagespeed["effective_enabled"] is False
     assert crux["effective_enabled"] is False
+    assert gsc["effective_enabled"] is False
 
 
 def test_all_services_have_independent_toggle_and_relation_degree() -> None:
