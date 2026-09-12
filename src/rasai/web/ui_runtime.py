@@ -42,12 +42,21 @@ def _guided_configuration_html() -> str:
         '<label>Dias de Search Analytics<input id="cfg-gsc-days" data-config-field="gsc_search_analytics_days" data-config-type="number" type="number" min="0" max="31"><span>0 desliga somente Search Analytics.</span></label>'
         '<label>Máximo de linhas GSC<input id="cfg-gsc-rows" data-config-field="gsc_search_max_rows" data-config-type="number" type="number" min="1" max="50000"><span>Teto de returned rows persistidas por auditoria.</span></label>'
         '<label>Defasagem de dados finais (dias)<input id="cfg-gsc-lag" data-config-field="gsc_final_data_lag_days" data-config-type="number" type="number" min="0" max="30"><span>Janela para preferir dados Search Analytics finalizados.</span></label>'
-        '<div class="guided-note"><strong>Como funciona:</strong> mantenha serviços em <em>Auto/Padrão</em> para usar o registry. Use <em>Ligado</em> ou <em>Desligado</em> apenas para override explícito. PageSpeed/CrUX/GSC mostram requisitos ausentes na tabela abaixo.</div>'
+        '<div class="guided-note"><strong>Como funciona:</strong> mantenha serviços em <em>Auto/Padrão</em> para usar o registry. Use <em>Ligado</em> ou <em>Desligado</em> apenas para override explícito. PageSpeed/CrUX/GSC mostram requisitos ausentes na tabela de serviços nesta mesma tela.</div>'
         '</div>'
         '<details class="advanced-config"><summary>Configuração avançada do AuditJob (JSON)</summary>'
         '<p class="muted">Use somente para parâmetros que ainda não possuem controle visual. Alterações válidas são sincronizadas com os campos guiados.</p>'
         '<textarea id="audit-config" rows="16" class="mono"></textarea></details>'
         '</div>'
+    )
+
+
+def _service_card_html() -> str:
+    return (
+        '<div class="card" style="margin-bottom:14px"><h2>Serviços de métricas e padrões</h2>'
+        '<p class="muted">O estado mostra a capacidade do deployment. Workers podem possuir credenciais próprias; valores secretos nunca são exibidos nem entram no AuditJob. O controle abaixo vale somente para a nova auditoria em edição.</p>'
+        '<div class="notice">Use <strong>Padrão/Auto</strong> na operação normal. <strong>Ligado</strong> força a solicitação (ainda exige requisitos) e <strong>Desligado</strong> é hard-off explícito.</div>'
+        '<div id="standards-table"></div></div>'
     )
 
 
@@ -69,6 +78,11 @@ def _align_standards_surface(html: str) -> str:
         1,
     )
     html = html.replace(
+        '<section class="panel" id="panel-audits"><div class="section-grid">',
+        '<section class="panel" id="panel-audits">' + _service_card_html() + '<div class="section-grid">',
+        1,
+    )
+    html = html.replace(
         "const state={me:null,organizations:[],workspaces:[],projects:[],properties:[],environments:[],audits:[],queries:[],jobs:[],milestones:[],usage:[],auditDefaults:{}};",
         "const state={me:null,organizations:[],workspaces:[],projects:[],properties:[],environments:[],audits:[],queries:[],jobs:[],milestones:[],usage:[],auditDefaults:{},standardServices:[]};",
         1,
@@ -81,11 +95,6 @@ def _align_standards_surface(html: str) -> str:
     html = html.replace(
         "const [organizations,contract]=await Promise.all([api('/api/v1/organizations'),api('/api/v1/audit-job-options')]);state.organizations=organizations;state.auditDefaults=contract.defaults||{};",
         "const [organizations,contract,standards]=await Promise.all([api('/api/v1/organizations'),api('/api/v1/audit-job-options'),api('/api/v1/standards/services')]);state.organizations=organizations;state.auditDefaults=contract.defaults||{};state.standardServices=standards.services||[];",
-        1,
-    )
-    html = html.replace(
-        '  </section>\n\n  <section class="panel" id="panel-audits">',
-        '    <div class="card" style="margin-top:14px"><h2>Serviços de métricas e padrões</h2><p class="muted">O estado mostra a capacidade do deployment. Workers podem possuir credenciais próprias; valores secretos nunca são exibidos nem entram no AuditJob. O controle abaixo vale somente para o job em edição.</p><div class="notice">Use <strong>Padrão/Auto</strong> na operação normal. <strong>Ligado</strong> força a solicitação (ainda exige requisitos) e <strong>Desligado</strong> é hard-off explícito.</div><div id="standards-table"></div></div>\n  </section>\n\n  <section class="panel" id="panel-audits">',
         1,
     )
     controls = (
