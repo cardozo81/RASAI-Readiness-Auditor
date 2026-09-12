@@ -217,3 +217,32 @@ def test_gsc_metrics_do_nothing_without_observability_sidecar(tmp_path) -> None:
 
     reconcile_gsc_observational_metrics(audit_id="AUD-GSC-METRICS", workspace=workspace)
     assert _metrics(audit_db) == {}
+
+
+def test_empty_search_analytics_dataset_is_measured_as_zero_rows_not_missing_dataset(tmp_path) -> None:
+    audit_db = tmp_path / "audit.db"
+    obs_db = tmp_path / "observability.db"
+    _audit_database(audit_db)
+    _observability_database(obs_db)
+
+    connection = sqlite3.connect(obs_db)
+    try:
+        connection.execute("DELETE FROM search_performance WHERE dataset_id='NEW-SA'")
+        connection.commit()
+    finally:
+        connection.close()
+
+    workspace = SimpleNamespace(root=tmp_path, database=audit_db)
+    reconcile_gsc_observational_metrics(audit_id="AUD-GSC-METRICS", workspace=workspace)
+    metrics = _metrics(audit_db)
+
+    assert metrics["gsc_returned_search_rows"]["state"] == "MEASURED"
+    assert metrics["gsc_returned_search_rows"]["value"] == 0.0
+    assert metrics["gsc_returned_row_clicks"]["state"] == "MEASURED"
+    assert metrics["gsc_returned_row_clicks"]["value"] == 0.0
+    assert metrics["gsc_returned_row_impressions"]["state"] == "MEASURED"
+    assert metrics["gsc_returned_row_impressions"]["value"] == 0.0
+    assert metrics["gsc_returned_row_ctr"]["state"] == "NO_DATA"
+    assert metrics["gsc_returned_row_ctr"]["value"] is None
+    assert metrics["gsc_returned_row_impression_weighted_position"]["state"] == "NO_DATA"
+    assert metrics["gsc_returned_row_impression_weighted_position"]["value"] is None
