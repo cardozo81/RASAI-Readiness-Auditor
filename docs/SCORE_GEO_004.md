@@ -25,13 +25,15 @@ O método produz um índice operacional que pode ser calculado, auditado e repro
 
 O contrato separa:
 
-- qualidade/readiness do website;
+- qualidade medida do website no universo avaliado;
 - Coverage, Confidence e Consolidation da medição;
 - Critical Readiness Gates;
 - métricas externas independentes;
 - outcomes observados de Search e AI Search.
 
 O Overall não é probabilidade de ranking, tráfego, resposta ou citação.
+
+A apresentação pública também não deve transformar o número 0-100 em uma conclusão isolada: **readiness publicada = qualidade medida + força da medição + Critical Readiness Gates**.
 
 ## Hierarquia de agregação
 
@@ -202,6 +204,27 @@ Overall =
 
 Dimensão legitimamente `NOT_APPLICABLE` sai do denominador. Uma dimensão não crítica insuficientemente medida reduz Coverage/Confidence; dimensões críticas insuficientemente medidas bloqueiam Consolidation.
 
+### Leitura do valor numérico
+
+O número 0-100 é a **qualidade ponderada do universo efetivamente medido**. Ele permanece matematicamente separado de Coverage/Confidence/Consolidation e dos Critical Gates para evitar que ausência de evidência ou falha operacional externa seja convertida em defeito fictício do website.
+
+Consequentemente, um valor alto pode coexistir com medição parcial ou gate crítico. Isso é matematicamente válido, mas não pode ser apresentado como “readiness excelente” sem qualificação.
+
+Contrato de apresentação:
+
+```text
+Overall 96 + CONSOLIDATED + READY
+=> Readiness pronta | qualidade medida Excelente
+
+Overall 96 + PARTIAL
+=> Readiness com medição parcial | qualidade medida Excelente
+
+Overall 96 + CONSOLIDATED + BLOCKED
+=> Readiness bloqueada | qualidade medida Excelente
+```
+
+A interface deve usar o estado de readiness/medição como badge primária. A banda numérica fica como qualificação secundária e auditável.
+
 ## Overall Coverage
 
 ```text
@@ -286,7 +309,7 @@ UNKNOWN
 
 O estado geral é `READY`, `ATTENTION`, `BLOCKED` ou `UNKNOWN`.
 
-Critical Gates qualificam readiness e **não truncam artificialmente o valor 0-100**. São persistidos em `limitations` do Overall para manter compatibilidade com o contrato de persistência vigente.
+Critical Gates qualificam readiness e **não truncam artificialmente o valor 0-100**. São persistidos em `limitations` do Overall para manter a rastreabilidade do contrato. Na apresentação pública, porém, `BLOCKED`, `UNKNOWN` e `ATTENTION` prevalecem sobre uma banda numérica positiva para evitar falso positivo executivo.
 
 ## Precedência de evidência
 
@@ -346,7 +369,18 @@ Não entram diretamente no Overall:
 - tráfego/conversão;
 - tokens/custos de IA.
 
-Um audit individual do Lighthouse pode ser classificado como `CORROBORATIVE_EVIDENCE` somente quando existir mapeamento explícito para a mesma condição técnica de uma BR-GEO. O category score nunca é input direto.
+Um audit individual do Lighthouse ou outro serviço externo pode ser classificado como `CORROBORATIVE_EVIDENCE` somente quando existir mapeamento explícito para a mesma condição técnica de uma BR-GEO. O category score nunca é input direto.
+
+### Falhas operacionais de integrações
+
+Timeout, quota, autenticação inválida, indisponibilidade do provider, erro HTTP do serviço externo ou falha de transporte são estados do **integrador/medição**, não resultados do website. Esses eventos podem:
+
+- reduzir Coverage/Confidence;
+- deixar uma regra `UNKNOWN`;
+- aparecer em diagnóstico/observabilidade;
+- gerar custo/telemetria quando aplicável.
+
+Eles não podem gerar `FAIL` do website sem evidência técnica sobre o próprio target. Essa separação é obrigatória para evitar penalizar o domínio por erro de terceiros.
 
 ## IA e baseline semântico
 
@@ -381,11 +415,29 @@ report/readiness.html
 report/scoring.html
 ```
 
-`readiness.html` é a superfície analítica do SARI-001.
+`readiness.html` é a superfície analítica do SARI-001 e deve destacar separadamente:
+
+- qualidade medida 0-100;
+- Coverage/Confidence/Consolidation;
+- estado de readiness e Critical Gates.
 
 `scoring.html` expõe o contrato vigente, pesos, RuleExecutions representativas, contribuições, gates e rastreabilidade.
 
 O filename é version-neutral; a versão pertence a `scoring_version` e ao conteúdo.
+
+## Revisão de calibração de setembro de 2026
+
+A revisão motivada por resultados frequentemente acima de 90 verificou a aritmética, pesos, tratamento de `WARNING/FAIL/UNKNOWN/ERROR`, gates críticos e relação com integrações externas.
+
+Conclusão:
+
+- não foi encontrada base empírica suficiente para alterar pesos de dimensão/grupo apenas para “forçar” maior dispersão das notas;
+- `FAIL`/`WARNING` contratados já reduzem o score conforme o peso da condição;
+- `UNKNOWN/ERROR` reduzem força da medição e não devem virar falha fictícia;
+- erros de integrações independentes não devem reduzir o website score por si só;
+- o problema comprovado era a apresentação de uma banda numérica alta como juízo positivo de readiness mesmo com `PARTIAL`, `NOT_CONSOLIDATED`, `BLOCKED` ou `UNKNOWN`.
+
+Por isso, esta revisão preserva a aritmética `SCORE-GEO-004` e endurece a semântica de publicação nos HTMLs executivos.
 
 ## Limite de validade
 
