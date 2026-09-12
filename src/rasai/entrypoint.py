@@ -24,6 +24,7 @@ from rasai.report_scope_clarity import install as install_report_scope_clarity
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.runtime_contract_compatibility import install_runtime_contract_compatibility
+from rasai.standards_css_validation import install as install_standards_css_validation
 from rasai.standards_gsc_observability_runtime import install as install_standards_gsc_observability_runtime
 from rasai.standards_ir_reconciliation import install as install_standards_ir_reconciliation
 from rasai.standards_m21_reconciliation import install as install_standards_m21_reconciliation
@@ -145,6 +146,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     install_standards_post_context()
     install_standards_ir_reconciliation()
     install_standards_operational_reconciliation()
+    install_standards_css_validation()
     install_standards_m21_reconciliation()
     install_standards_gsc_observability_runtime()
     install_ai_efficiency_policy()
