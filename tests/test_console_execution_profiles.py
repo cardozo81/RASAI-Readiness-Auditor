@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import ModuleType
+
 import pytest
 
 from rasai.console_execution_profiles import (
@@ -7,9 +9,11 @@ from rasai.console_execution_profiles import (
     clear_profile,
     dependency_status,
     effective_profile,
+    install,
     set_profile,
 )
 from rasai.console_search_intelligence import SearchConsoleState
+from rasai.console_settings import configuration_fingerprint
 
 
 def _state() -> SearchConsoleState:
@@ -44,6 +48,17 @@ def test_overlay_is_ephemeral_and_does_not_mutate_base_configuration() -> None:
         assert state.web_performance is False
         assert state.lighthouse_categories == original_categories
         assert state.ai_provider == "none"
+    finally:
+        clear_profile(state)
+
+
+def test_profile_selection_does_not_change_persistable_configuration() -> None:
+    state = _state()
+    before = configuration_fingerprint(state)
+    session = set_profile(state, profile_id="seo-geo-performance", ai_mode=AI_OFF)
+    try:
+        assert configuration_fingerprint(state) == before
+        assert session.profile_id == "seo-geo-performance"
     finally:
         clear_profile(state)
 
@@ -133,5 +148,42 @@ def test_manual_lighthouse_categories_do_not_disable_profile_web_performance() -
             assert state.lighthouse_categories == "performance"
         assert state.web_performance is False
         assert state.lighthouse_categories == "performance"
+    finally:
+        clear_profile(state)
+
+
+def test_installed_wrapper_projects_profile_for_readiness_and_run_then_restores() -> None:
+    module = ModuleType("profile_test_console")
+    observed: list[tuple[str, bool, str]] = []
+    module._menu = lambda state: "Q"
+    module._configure = lambda state, choice: None
+
+    def readiness(state):
+        observed.append(("readiness", state.web_performance, state.lighthouse_categories))
+        return True, "base ready"
+
+    def run(state):
+        observed.append(("run", state.web_performance, state.lighthouse_categories))
+        return 0
+
+    module._execution_readiness = readiness
+    module.run_audit_from_console = run
+    install(module)
+
+    state = _state()
+    session = set_profile(state, profile_id="performance", ai_mode=AI_OFF)
+    try:
+        ready, reason = module._execution_readiness(state)
+        assert ready is True
+        assert "perfil=Performance" in reason
+        assert state.web_performance is False
+
+        assert module.run_audit_from_console(state) == 0
+        assert state.web_performance is False
+        assert observed == [
+            ("readiness", True, "performance,best-practices"),
+            ("run", True, "performance,best-practices"),
+        ]
+        assert session.profile_id == "performance"
     finally:
         clear_profile(state)
