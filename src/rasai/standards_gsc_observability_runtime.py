@@ -403,11 +403,10 @@ def install() -> None:
             else:
                 _clear_metrics_without_current_success(audit_id=audit_id, workspace=workspace, result=result)
 
-            # standards.html is a full render from audit.db. Always regenerate after
-            # projection cleanup, including when GSC is disabled or partially skipped.
-            write_standards_report(audit_id=audit_id, workspace=workspace)
-
             if bool(result.get("effective_enabled")):
+                # Only enabled GSC finalizations create new advisory rows after the
+                # pre-render cleanup, so only this path needs a second standards render.
+                write_standards_report(audit_id=audit_id, workspace=workspace)
                 enrich_existing_reports(audit_id=audit_id, workspace=workspace)
                 enrich_gsc_metrics_report(audit_id=audit_id, workspace=workspace)
                 enrich_gsc_crawl_freshness_report(audit_id=audit_id, workspace=workspace)
