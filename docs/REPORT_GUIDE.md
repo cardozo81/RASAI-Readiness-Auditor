@@ -8,22 +8,24 @@ O RASAi gera um mini-site HTML estático por auditoria. O report é uma projeç�
 report/index.html
 ```
 
-O dashboard é multimetodológico, mas não cria um score combinado. Readiness, outcomes observados, Quality, Web Performance, acessibilidade, Apdex e Improvement Intelligence permanecem domínios analíticos distintos.
+O dashboard é multimetodológico, mas não cria um score combinado. Readiness, outcomes observados, Quality, Web Performance, acessibilidade, padrões, Apdex e Improvement Intelligence permanecem domínios analíticos distintos.
 
 Princípios obrigatórios:
 
 - não somar ou ponderar metodologias distintas em uma nota comum;
 - mostrar apenas fatos, estados e resultados persistidos ou derivados deterministicamente deles;
-- ausência de dado permanece `NÃO DISPONÍVEL`, `INCOMPLETO`, `UNKNOWN`, `NOT_OBSERVED` ou equivalente;
+- ausência de dado permanece `SEM DADOS`, `NÃO DISPONÍVEL`, `INCOMPLETO`, `UNKNOWN`, `NOT_OBSERVED` ou equivalente;
 - `NULL` de fonte externa não vira zero observado;
 - cada domínio usa filename canônico estável;
-- o menu mostra somente arquivos que existem fisicamente;
-- uma página pertencente à auditoria normal deve existir mesmo quando a capacidade opcional correspondente estiver desabilitada, registrando esse estado explicitamente;
-- páginas especializadas pós-auditoria aparecem somente depois que sua própria capacidade as materializa.
+- após a finalização bem-sucedida de `rasai audit`, o menu e o conjunto de superfícies HTML canônicas são estáveis;
+- a existência da página não significa que a capacidade correspondente foi habilitada, executada ou retornou dados;
+- coletores, providers, APIs, IA e serviços externos continuam condicionados exclusivamente à configuração da execução; a estrutura HTML estática não dispara chamadas adicionais;
+- quando uma capacidade não foi executada ou não materializou dados, sua página permanece disponível e apresenta estado neutro explícito, sem converter ausência em falha do website ou score zero;
+- uma projeção especializada que possua dados substitui/enriquece o estado neutro da mesma superfície canônica, sem criar outro filename público.
 
-## Estrutura de uma auditoria normal
+## Estrutura canônica de uma auditoria normal
 
-Após `rasai audit`, o conjunto base esperado é:
+Após a finalização bem-sucedida de `rasai audit`, o conjunto canônico esperado é:
 
 ```text
 report/
@@ -32,26 +34,31 @@ report/
 ├─ scoring.html                     # fórmula, pesos e gates do scoring vigente
 ├─ context.html                     # topologia de captura URL/device; read-only
 ├─ crawling-discovery.html          # Domínio e descoberta; recursos ORIGIN
-├─ accessibility.html               # existe mesmo sem Lighthouse disponível
-├─ web-performance.html             # existe mesmo com coleta externa desabilitada
-├─ ai-usage.html                    # existe mesmo sem chamadas de IA
-├─ improvement-intelligence.html    # existe mesmo quando a análise profunda não foi solicitada
-├─ content-suggestions.html         # existe mesmo sem IA de conteúdo
+├─ mobile.html                      # dados Mobile ou estado SEM DADOS/NÃO APLICÁVEL
+├─ desktop.html                     # dados Desktop ou estado SEM DADOS/NÃO APLICÁVEL
+├─ accessibility.html               # diagnóstico ou estado explícito
+├─ web-performance.html             # Lighthouse/CrUX ou estado explícito
+├─ standards.html                   # W3C/MDN/WebDX/métricas derivadas ou estado explícito
+├─ apdex.html                       # Synthetic Navigation Apdex ou estado explícito
+├─ apdex-experience.html            # Synthetic User Experience Apdex ou estado explícito
+├─ search-intelligence.html         # SERP/Search Intelligence ou estado explícito
+├─ ai-visibility.html               # visibilidade generativa observada ou estado explícito
+├─ observability.html               # observabilidade externa ou estado explícito
+├─ ai-usage.html                    # telemetria de IA ou estado sem uso
+├─ improvement-intelligence.html    # análise profunda ou estado não executado
+├─ content-suggestions.html         # sugestões/JSON-LD ou estado sem IA
 ├─ remediation.html
+├─ quality.html                     # Quality & decisão ou estado explícito
 ├─ references.html
-├─ mobile.html                      # quando houver snapshot Mobile
-├─ desktop.html                     # quando houver snapshot Desktop
-├─ apdex.html                       # quando Synthetic Navigation Apdex estiver habilitado
-├─ apdex-experience.html            # quando Synthetic User Experience Apdex estiver habilitado
 ├─ report-manifest.json
 └─ css/site.css
 ```
 
 ### Gate de completude do HTML
 
-Uma execução de URLs que terminou de persistir a auditoria não deve declarar sucesso pleno se o mini-site ficou incompleto. A finalização reconstrói as projeções audit-owned a partir do workspace já persistido e compara o conjunto esperado com os arquivos físicos.
+Uma execução de URLs que terminou de persistir a auditoria não deve declarar sucesso pleno se o mini-site ficou estruturalmente incompleto. A finalização reconstrói as projeções audit-owned a partir do workspace já persistido, permite que os renderizadores especializados materializem conteúdo e, ao final, cria um estado neutro apenas para qualquer superfície canônica ainda ausente.
 
-Se ainda faltar uma página obrigatória daquela execução, o comando retorna status de processo não zero e preserva `audit.db`. Assim, um problema de renderização não destrói a evidência, mas também não é ocultado como execução integralmente bem-sucedida.
+Depois dessa etapa, o conjunto esperado é estático e corresponde ao catálogo canônico do relatório. Se ainda faltar uma página, o comando retorna status de processo não zero e preserva `audit.db`. Assim, um problema de renderização não destrói a evidência, mas também não é ocultado como execução integralmente bem-sucedida.
 
 O manifest registra:
 
@@ -61,22 +68,20 @@ audit_missing_pages
 audit_report_complete
 ```
 
-Em uma auditoria com projeção íntegra, `audit_missing_pages` deve estar vazio e `audit_report_complete` deve ser `true`.
+Em uma auditoria com projeção íntegra, `audit_expected_pages` contém todas as superfícies HTML canônicas, `audit_missing_pages` deve estar vazio e `audit_report_complete` deve ser `true`.
 
-## Superfícies especializadas pós-auditoria
+### Superfície estática não significa coleta obrigatória
 
-Os arquivos abaixo são canônicos, mas não fazem parte da promessa de toda execução simples de `rasai audit`:
+A estabilidade do menu não altera a política operacional. Exemplos:
 
-```text
-search-intelligence.html
-ai-visibility.html
-observability.html
-quality.html
-```
+- `apdex.html` existe mesmo quando Synthetic Navigation Apdex não foi solicitado; nesse caso mostra estado neutro e nenhuma navegação sintética adicional é criada por causa do HTML;
+- `search-intelligence.html` existe mesmo sem termos SERP, provider ou observações; o RASAi não inventa termos nem executa Search apenas para preencher a página;
+- `ai-visibility.html`, `observability.html` e `quality.html` podem existir sem dataset/sidecar/processamento correspondente e informar ausência de dados;
+- `mobile.html` e `desktop.html` permanecem URLs públicas estáveis mesmo quando um dos dispositivos não possui snapshot persistido;
+- `standards.html` existe independentemente de W3C, MDN Observatory ou Web Platform Baseline terem retornado dados;
+- páginas vazias não alteram SARI, SCORE-GEO, Coverage, Confidence, Consolidation ou findings.
 
-Eles são materializados quando sua capacidade especializada possui dados para o AUD. Portanto, a ausência desses arquivos em um workspace recém-gerado não significa, por si só, falha da auditoria base.
-
-Saídas comparativas e consolidadas também podem existir fora do diretório `report/` do AUD, por exemplo em `search-history/`, `monitoring/`, `verification/`, `quality/TIMELINE-*` e `consolidated/`.
+Comandos especializados e processos pós-auditoria podem posteriormente materializar dados reais nessas superfícies ou produzir saídas standalone adicionais. Saídas comparativas e consolidadas também podem existir fora do diretório `report/` do AUD, por exemplo em `search-history/`, `monitoring/`, `verification/`, `quality/TIMELINE-*` e `consolidated/`.
 
 ## SARI-001 / SCORE-GEO-004
 
@@ -99,21 +104,22 @@ SARI-001 é metodologia proprietária, evidence-bound e reprodutível. Não repr
 | SARI-001 / dimensões | `readiness.html` | readiness proprietário |
 | metodologia de scoring | `scoring.html` | contrato vigente `SCORE-GEO-004` |
 | contexto de captura | `context.html` | escopo URL/device, variância de documento e runtime; read-only |
-| Mobile | `mobile.html` | evidências/findings do contexto Mobile |
-| Desktop | `desktop.html` | evidências/findings do contexto Desktop |
+| Mobile | `mobile.html` | evidências/findings do contexto Mobile quando disponíveis |
+| Desktop | `desktop.html` | evidências/findings do contexto Desktop quando disponíveis |
 | Domínio e descoberta | `crawling-discovery.html` | superfície canônica de `ORIGIN`: robots, sitemaps, llms.txt e controles de crawler |
 | Acessibilidade automatizada | `accessibility.html` | diagnóstico; não certificação WCAG |
 | Core Web Vitals / Lighthouse | `web-performance.html` | lab + field data separados |
+| Métricas e padrões | `standards.html` | W3C HTML/CSS, MDN Observatory, WebDX/Baseline e métricas derivadas quando disponíveis; advisory |
 | Search Intelligence | `search-intelligence.html` | SERP observado e análise competitiva; non-scoring |
-| Synthetic Navigation Apdex | `apdex.html` | sintético |
-| Synthetic User Experience Apdex | `apdex-experience.html` | sintético calibrável; não RUM |
+| Synthetic Navigation Apdex | `apdex.html` | sintético quando executado |
+| Synthetic User Experience Apdex | `apdex-experience.html` | sintético calibrável quando executado; não RUM |
 | Uso/custo de IA | `ai-usage.html` | telemetria operacional |
 | Improvement Intelligence | `improvement-intelligence.html` | análise profunda advisory/evidence-bound de uma URL; non-scoring |
 | Conteúdo e JSON-LD | `content-suggestions.html` | remediação advisory |
 | Remediações | `remediation.html` | plano evidence-bound |
-| Observed Generative Visibility | `ai-visibility.html` | outcome observado/importado |
-| Search & AI Observability | `observability.html` | outcomes externos e diagnósticos derivados |
-| Quality & decisão | `quality.html` | qualidade da evidência/priorização operacional |
+| Observed Generative Visibility | `ai-visibility.html` | outcome observado/importado quando disponível |
+| Search & AI Observability | `observability.html` | outcomes externos e diagnósticos derivados quando disponíveis |
+| Quality & decisão | `quality.html` | qualidade da evidência/priorização operacional quando processada |
 | Referências | `references.html` | metodologia e proveniência |
 
 `index.html` pode repetir sínteses necessárias à leitura executiva, mas não funde domínios complementares em um score comum.
@@ -161,6 +167,7 @@ O report deve distinguir estados de execução, por exemplo:
 não solicitado
 configurado
 desabilitado
+sem dados
 executado
 success
 partial
@@ -170,7 +177,7 @@ error
 
 Timeout, quota, HTTP, falta de artifact ou ausência de dado da fonte não são convertidos em problema do website.
 
-Essa distinção é especialmente importante em páginas que existem sempre na auditoria base: `context.html`, `content-suggestions.html`, `web-performance.html`, `accessibility.html`, `ai-usage.html` e `improvement-intelligence.html`. Nelas, um estado desabilitado, não executado ou indisponível deve ser explícito; a presença do arquivo não significa que a coleta ou IA ocorreu.
+Essa distinção se aplica a **todas** as superfícies canônicas. Uma página pode existir estruturalmente e ainda indicar que a capacidade correspondente não foi solicitada, não estava configurada, não era aplicável ou não retornou dado. A presença do arquivo nunca deve ser usada como prova de que uma coleta, provider ou IA ocorreu.
 
 ## Domínio e descoberta
 
@@ -194,15 +201,23 @@ Mobile e Desktop permanecem observações distintas. O relatório não cria méd
 
 Synthetic Apdex não é derivado de LCP, INP, CLS, FCP ou TBT. Web Performance não altera automaticamente SARI/SCORE.
 
+## Métricas e padrões
+
+`standards.html` é a superfície canônica de serviços e métricas complementares de padrões. Pode consolidar W3C Nu HTML Checker, W3C CSS Validator, MDN HTTP Observatory, Web Platform Baseline/WebDX e métricas derivadas quando cada capacidade estiver disponível.
+
+A página sempre existe no mini-site final, mas sua existência não habilita serviços. Se uma integração estiver desabilitada, não configurada ou sem dado, o estado deve ser apresentado explicitamente. Em especial, Web Platform Baseline continua dependente do dataset versionado e das limitações documentadas; a mera presença de `RASAI_WEB_FEATURES_DATASET` não fabrica classificação de compatibilidade.
+
+Esses sinais permanecem complementares/advisory, salvo quando existir mapeamento explícito de evidência para uma regra já contratada; não são um segundo score de readiness.
+
 ## Synthetic Navigation Apdex
 
-`apdex.html` existe somente quando a execução correspondente estiver habilitada e persistida. Apresenta T/4T, classificação Satisfied/Tolerating/Frustrated, amostras, exclusões, perfil operacional e limitações.
+`apdex.html` existe sempre como superfície canônica. Quando Synthetic Navigation Apdex foi habilitado e persistido, apresenta T/4T, classificação Satisfied/Tolerating/Frustrated, amostras, exclusões, perfil operacional e limitações. Quando não foi executado, apresenta estado neutro e não dispara navegações apenas para preencher o HTML.
 
 É sintético, não RUM e não altera `SCORE-GEO-004`.
 
 ## Synthetic User Experience Apdex
 
-`apdex-experience.html` existe somente quando a execução correspondente estiver habilitada e persistida. Continua sintético mesmo quando calibrado a partir de configuração Dynatrace.
+`apdex-experience.html` existe sempre como superfície canônica. Quando a execução correspondente foi habilitada e persistida, apresenta a população sintética e continua sintético mesmo quando calibrado a partir de configuração Dynatrace. Quando não foi executado, apresenta estado neutro.
 
 O mix Mobile/Desktop/Tablet distribui percentualmente a população de amostras/user actions e deve somar 100%. Ele não representa diretamente o número de requests HTTP de subrecursos, pois uma única amostra pode disparar vários requests.
 
@@ -216,7 +231,7 @@ A análise pode correlacionar:
 
 - findings, RuleExecutions e Evidences persistidos;
 - HTML bruto/renderizado, headings, landmarks e estrutura semântica;
-- Lighthouse/PageSpeed e Core Web Vitals quando já coletados;
+- Lighthouse/PageSpeed e Core Web Vitals quando já coletado;
 - SERP/Search Intelligence competitivo quando já observado;
 - robots, sitemap, `llms.txt` e arquivos de discovery;
 - headers/cookies observados para postura de segurança passiva;
@@ -254,7 +269,7 @@ A política de eficiência prioriza uma chamada estruturada por snapshot para o 
 
 ## Observed Generative Visibility
 
-`ai-visibility.html` é uma superfície especializada e permanece separada de readiness:
+`ai-visibility.html` é uma superfície canônica e permanece separada de readiness:
 
 ```text
 Readiness
@@ -264,11 +279,13 @@ Observed Generative Visibility
 = outcomes observados/importados sob fonte e protocolo declarados
 ```
 
-Pode mostrar métricas reportadas pela fonte, atividade de URLs, grounding queries, trends e controlled query-runs. Ausência de observação não vira score zero artificial. Observed Generative Visibility não altera `SARI-001/SCORE-GEO-004`.
+Pode mostrar métricas reportadas pela fonte, atividade de URLs, grounding queries, trends e controlled query-runs quando houver observação. Na ausência de dataset/import, a página mostra estado neutro; ausência de observação não vira score zero artificial. Observed Generative Visibility não altera `SARI-001/SCORE-GEO-004`.
 
 ## Search Intelligence
 
-`search-intelligence.html` é uma superfície especializada point-in-time. Pode conter SERP Observation, posição observada, candidatos competitivos, comparação determinística de conteúdo e análise semântica evidence-bound quando explicitamente executada.
+`search-intelligence.html` é uma superfície canônica point-in-time. Pode conter SERP Observation, posição observada, candidatos competitivos, comparação determinística de conteúdo e análise semântica evidence-bound quando explicitamente executada.
+
+Sem termos, provider ou observações persistidas, a página permanece disponível em estado neutro. O RASAi não inventa termos nem dispara Search para preencher HTML.
 
 Ela permanece non-scoring. `NOT_FOUND_WITHIN_DEPTH` não deve ser transformado em posição numérica artificial.
 
@@ -276,9 +293,9 @@ Comparações históricas Search Intelligence pertencem ao par de AUDs e podem s
 
 ## Search & AI Observability
 
-`observability.html` é a página especializada dos dados externos pós-auditoria. O sidecar atual é `RASAI-OBS-002`.
+`observability.html` é a superfície canônica dos dados externos pós-auditoria. O sidecar atual é `RASAI-OBS-002`.
 
-Pode conter Search Console, Search Appearance, properties/sitemaps, URL Inspection, CrUX History, imports generativos, publisher controls e diagnósticos derivados. Cada linha observacional pertence ao seu dataset e provenance.
+Pode conter Search Console, Search Appearance, properties/sitemaps, URL Inspection, CrUX History, imports generativos, publisher controls e diagnósticos derivados. Cada linha observacional pertence ao seu dataset e provenance. Sem sidecar/dados observacionais, a página apresenta estado neutro.
 
 Leitura correta:
 
@@ -290,7 +307,7 @@ Leitura correta:
 
 ## Quality & decisão
 
-`quality.html` é especializado e responde se a evidência RASAi está adequada para apoiar decisão. Pode expor Audit Health, Evidence Confidence, Operational Priority, Coverage Map, controles de conteúdo e Recommendation Validation.
+`quality.html` é uma superfície canônica e responde, quando processada, se a evidência RASAi está adequada para apoiar decisão. Pode expor Audit Health, Evidence Confidence, Operational Priority, Coverage Map, controles de conteúdo e Recommendation Validation. Sem processamento especializado, a página permanece disponível em estado neutro.
 
 Quality não cria um novo readiness score e não altera Severity nem `SCORE-GEO-004`.
 
@@ -310,7 +327,9 @@ Improvement Intelligence produz hipótese priorizada. A comprovação de efeito 
 
 ## Consistência visual e navegação
 
-Todas as páginas materializadas devem compartilhar navegação estável, apenas um item ativo, layout responsivo, tabelas legíveis e footer coerente.
+Todas as páginas canônicas devem compartilhar navegação estável, apenas um item ativo, layout responsivo, tabelas legíveis e footer coerente.
+
+Após a finalização de uma auditoria, o menu é estruturalmente estático e deriva do catálogo canônico; habilitar ou desabilitar uma funcionalidade altera o **conteúdo/estado da página**, não a existência do link.
 
 A navegação é agrupada em submenus:
 
@@ -327,6 +346,7 @@ Coleta e dispositivos
   Relatório Desktop
   Acessibilidade
   Web Performance
+  Métricas e padrões
   Apdex de navegação
   Apdex de experiência
 
@@ -344,21 +364,19 @@ Ações e referência
   Referências e metodologia
 ```
 
-Itens sem arquivo materializado são omitidos sem alterar a ordem relativa dos demais.
-
-O SaaS Pilot Web usa o mesmo catálogo canônico do mini-site para listar relatórios disponíveis; não mantém uma segunda lista independente de filenames/rótulos.
+O SaaS Pilot Web usa o mesmo catálogo canônico do mini-site para listar superfícies; não mantém uma segunda lista independente de filenames/rótulos. Interfaces podem indicar estado de disponibilidade dos dados, mas não devem redefinir o catálogo público.
 
 ## Fonte de verdade
 
 ```text
 audit.db + artifacts
--> report HTML audit-owned, incluindo Improvement Intelligence quando configurado ou seu estado explícito quando não executado
+-> report HTML audit-owned e superfícies canônicas em estado real ou neutro
 
 observability.db + artifacts/observability
--> observability.html
+-> dados que enriquecem observability.html quando disponíveis
 
-audit.db read-only + capacidade especializada
--> quality.html / search-intelligence.html / ai-visibility.html quando aplicável
+audit.db read-only + capacidades especializadas
+-> dados que enriquecem quality.html / search-intelligence.html / ai-visibility.html quando aplicável
 
 2 x audit.db read-only
 -> relatórios comparativos
@@ -367,7 +385,7 @@ N x audit.db read-only
 -> timelines/consolidações
 ```
 
-HTML nunca se torna segunda fonte de verdade para score, evidence, outcomes, tokens ou custos.
+HTML nunca se torna segunda fonte de verdade para score, evidence, outcomes, tokens ou custos. Um placeholder `SEM DADOS` é apenas estado de apresentação e nunca cria evidência persistida.
 
 ## Semântica visual e linguagem pública
 
@@ -377,6 +395,6 @@ Estados visuais específicos do domínio prevalecem sobre decoradores genéricos
 
 ## Contrato atual
 
-O catálogo de superfícies e a validação de completude usam `REPORT-CONTRACT-002`. `scoring.html` é a única superfície canônica de metodologia; a versão metodológica pertence a `scoring_version`, não ao filename.
+O catálogo de superfícies e a validação de completude usam `REPORT-CONTRACT-002`. `scoring.html` é a única superfície canônica de metodologia; a versão metodológica pertence a `scoring_version`, não ao filename. A regra estrutural vigente é: **toda superfície canônica possui HTML no mini-site final; dados e capacidades continuam opcionais conforme seus próprios contratos**.
 
 Detalhes complementares: [OUTPUTS_AND_ARTIFACTS.md](OUTPUTS_AND_ARTIFACTS.md), [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md), [SCORING_GUIDE.md](SCORING_GUIDE.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md), [SCORE_GEO_004.md](SCORE_GEO_004.md) e [CAPTURE_CONTEXT_MODEL.md](CAPTURE_CONTEXT_MODEL.md).
