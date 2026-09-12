@@ -3,7 +3,11 @@ from __future__ import annotations
 import sqlite3
 from types import SimpleNamespace
 
-from rasai.standards_gsc_observability_runtime import _clear_metrics_without_current_success
+from rasai.standards_gsc_observability_runtime import (
+    _clear_all_gsc_metric_projections,
+    _clear_gsc_report_panels,
+    _clear_metrics_without_current_success,
+)
 
 
 def _database(path) -> None:
@@ -132,3 +136,41 @@ def test_success_requires_dataset_id_before_projection_is_considered_current(tmp
     assert "gsc_sitemap_count" in remaining
     assert "gsc_returned_row_impressions" in remaining
     assert "gsc_returned_distinct_queries" in remaining
+
+
+def test_pre_render_cleanup_removes_all_gsc_metrics_for_current_audit_only(tmp_path) -> None:
+    database = tmp_path / "audit.db"
+    _database(database)
+    workspace = SimpleNamespace(database=database)
+
+    _clear_all_gsc_metric_projections(audit_id="AUD-1", workspace=workspace)
+
+    assert _metric_ids(database, "AUD-1") == {"crawlability_coverage"}
+    assert "gsc_url_inspection_verdict_pass_rate" in _metric_ids(database, "AUD-OTHER")
+
+
+def test_report_panel_cleanup_removes_all_gsc_blocks_and_preserves_other_content(tmp_path) -> None:
+    report_dir = tmp_path / "report"
+    report_dir.mkdir()
+    path = report_dir / "observability.html"
+    path.write_text(
+        "<main>before"
+        "<!-- RASAI_GSC_OBSERVATIONAL_METRICS:START --><section>old core</section><!-- RASAI_GSC_OBSERVATIONAL_METRICS:END -->"
+        "<!-- OTHER_PANEL:START --><section>keep me</section><!-- OTHER_PANEL:END -->"
+        "<!-- RASAI_GSC_CRAWL_FRESHNESS_METRICS:START --><section>old crawl</section><!-- RASAI_GSC_CRAWL_FRESHNESS_METRICS:END -->"
+        "<!-- RASAI_GSC_SITEMAP_METRICS:START --><section>old sitemap</section><!-- RASAI_GSC_SITEMAP_METRICS:END -->"
+        "<!-- RASAI_GSC_RETURNED_VISIBILITY_COUNTS:START --><section>old visibility</section><!-- RASAI_GSC_RETURNED_VISIBILITY_COUNTS:END -->"
+        "after</main>",
+        encoding="utf-8",
+    )
+
+    assert _clear_gsc_report_panels(report_dir) is True
+    html = path.read_text(encoding="utf-8")
+
+    assert "old core" not in html
+    assert "old crawl" not in html
+    assert "old sitemap" not in html
+    assert "old visibility" not in html
+    assert "keep me" in html
+    assert "before" in html and "after" in html
+    assert _clear_gsc_report_panels(report_dir) is False
