@@ -18,6 +18,7 @@ from rasai.improvement_intelligence import (
     AI_ANALYSIS_LANGUAGE_ENV,
     DEFAULT_DOMAINS,
     DOMAIN_LABELS,
+    ENABLED_ENV,
     ImprovementConfig,
     execute_improvement_intelligence,
     parse_domains,
@@ -271,7 +272,7 @@ def configure(console_module: ModuleType, state: Any) -> None:
 
 
 def _render_menu_extension(console_module: ModuleType, state: Any) -> None:
-    from rasai.console_ui import CYAN, DIM, GREEN, RED, YELLOW, paint
+    from rasai.console_ui import DIM, GREEN, RED, paint
     enabled = bool(getattr(state, "improvement_enabled", False))
     provider = str(getattr(state, "improvement_provider", "")) or "-"
     model = str(getattr(state, "improvement_model", "")) or "-"
@@ -373,7 +374,19 @@ def install(console_module: ModuleType) -> None:
         return _single_url_ready(state)
 
     def run(state: Any) -> int:
-        code = int(original_run(state) or 0)
+        # The interactive console owns this feature through item 13. Temporarily force
+        # the env-driven CLI/SaaS wrapper OFF while the base audit runs so an advanced
+        # environment override cannot execute the deep analysis invisibly or twice.
+        previous_runtime_toggle = os.environ.get(ENABLED_ENV)
+        os.environ[ENABLED_ENV] = "false"
+        try:
+            code = int(original_run(state) or 0)
+        finally:
+            if previous_runtime_toggle is None:
+                os.environ.pop(ENABLED_ENV, None)
+            else:
+                os.environ[ENABLED_ENV] = previous_runtime_toggle
+
         if code != 0 or not bool(getattr(state, "improvement_enabled", False)):
             return code
         workspace_path = audit_workspace(state)
@@ -421,8 +434,18 @@ def install(console_module: ModuleType) -> None:
                 progress=progress,
             )
             # Rebuild read-only projections so ai-usage.html includes this request and
-            # the canonical mini-site receives the new Improvement Intelligence page.
-            finalize_audit_report_site(audit_id=state.audit_id, workspace=workspace)
+            # the canonical mini-site receives the analyzed Improvement Intelligence page.
+            # Keep the env-driven wrapper disabled during this rebuild: item 13 already
+            # performed the analysis and must remain the single authority in the console.
+            previous_runtime_toggle = os.environ.get(ENABLED_ENV)
+            os.environ[ENABLED_ENV] = "false"
+            try:
+                finalize_audit_report_site(audit_id=state.audit_id, workspace=workspace)
+            finally:
+                if previous_runtime_toggle is None:
+                    os.environ.pop(ENABLED_ENV, None)
+                else:
+                    os.environ[ENABLED_ENV] = previous_runtime_toggle
             report = Path(workspace.root) / "report" / "improvement-intelligence.html"
             state.improvement_last_report = str(report) if report.is_file() else ""
             state.improvement_last_status = result.status
@@ -448,7 +471,15 @@ def install(console_module: ModuleType) -> None:
             state.operation = "LOCAL:IMPROVEMENT_FAIL_OPEN"
             state.error = "Análise profunda incompleta; auditoria principal preservada: " + state.improvement_last_detail
             try:
-                finalize_audit_report_site(audit_id=state.audit_id, workspace=workspace)
+                previous_runtime_toggle = os.environ.get(ENABLED_ENV)
+                os.environ[ENABLED_ENV] = "false"
+                try:
+                    finalize_audit_report_site(audit_id=state.audit_id, workspace=workspace)
+                finally:
+                    if previous_runtime_toggle is None:
+                        os.environ.pop(ENABLED_ENV, None)
+                    else:
+                        os.environ[ENABLED_ENV] = previous_runtime_toggle
             except Exception:
                 pass
             console_runtime.set_runtime_progress(
