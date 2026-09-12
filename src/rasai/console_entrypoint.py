@@ -83,6 +83,10 @@ def main() -> int:
     prepare_console_config()
     install_ai_efficiency_policy()
     install_runtime_completion_extensions()
+    # Runtime-completion extensions may rebuild the base EnvironmentSpec catalog.
+    # Standards installer is deliberately repairable; rerun it here so service/GSC
+    # metadata and contextual references remain rich in the final public console.
+    install_standards_console_runtime()
     install_report_observation_reconciliation()
     install_runtime_adherence_extensions()
     install_integration_state_contract()
