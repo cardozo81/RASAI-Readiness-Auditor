@@ -13,12 +13,14 @@ import os
 from typing import Callable, Iterable, Sequence
 
 from rasai.console_ui import CYAN, DIM, GREEN, YELLOW, paint
-from rasai.provider_registry import provider_registrations
+from rasai.provider_registry import get_provider_registration, provider_registrations
 from rasai.search_intelligence.provider_catalog import SERP_PROVIDER_REGISTRY
 from rasai.standards_service_registry import services
 
 _BOOLEAN_VALUES = ("true", "false")
 _OIDC_ALGORITHMS = ("RS256", "RS384", "RS512", "ES256", "ES384", "ES512")
+_GSC_DOC_URL = "https://developers.google.com/webmaster-tools/v1/api_reference_index"
+_GOOGLE_CREDENTIAL_URL = "https://console.cloud.google.com/apis/credentials"
 
 
 def _ai_registration_for_env(name: str):
@@ -43,11 +45,18 @@ def _service_for_env(name: str):
     return None
 
 
+def _improvement_provider_registration():
+    provider = (os.environ.get("RASAI_IMPROVEMENT_AI_PROVIDER") or "").strip().casefold()
+    return get_provider_registration(provider) if provider else None
+
+
 def normalize_spec(spec):
-    """Complete known closed domains without changing the runtime contract."""
+    """Complete known/dependent closed domains without changing runtime semantics."""
     accepted = tuple(spec.accepted)
-    value_type = str(spec.value_type).casefold()
-    if value_type == "booleano" and not accepted:
+    value_type = str(spec.value_type)
+    normalized_type = value_type.casefold()
+
+    if normalized_type == "booleano" and not accepted:
         accepted = _BOOLEAN_VALUES
     elif spec.name == "RASAI_OIDC_ALGORITHMS" and not accepted:
         accepted = _OIDC_ALGORITHMS
@@ -57,7 +66,19 @@ def normalize_spec(spec):
             for registration in provider_registrations()
             if registration.auto_eligible
         )
-    return replace(spec, accepted=accepted) if accepted != tuple(spec.accepted) else spec
+        value_type = "lista CSV"
+    elif spec.name in {"RASAI_IMPROVEMENT_AI_MODEL", "RASAI_IMPROVEMENT_AI_REASONING"}:
+        registration = _improvement_provider_registration()
+        if registration is not None:
+            if spec.name.endswith("_MODEL"):
+                accepted = tuple(registration.supported_models)
+            else:
+                accepted = tuple(registration.reasoning_values)
+            value_type = "enum"
+
+    if accepted != tuple(spec.accepted) or value_type != spec.value_type:
+        return replace(spec, accepted=accepted, value_type=value_type)
+    return spec
 
 
 def normalize_specs(specs: Iterable[object]) -> tuple[object, ...]:
@@ -149,6 +170,9 @@ def reference_lines(spec) -> tuple[str, ...]:
         ):
             lines.append(f"Credencial/configuração: {service.credential_url}")
 
+    if spec.name.startswith("RASAI_GSC_") or spec.name.startswith("RASAI_GOOGLE_SEARCH_CONSOLE_"):
+        lines.append(f"Documentação Google Search Console: {_GSC_DOC_URL}")
+        lines.append(f"Credenciais Google Cloud: {_GOOGLE_CREDENTIAL_URL}")
     if spec.name.startswith("RASAI_OIDC_") or spec.name.startswith("RASAI_API_AUTH_"):
         lines.append("Referência OIDC: https://openid.net/specs/openid-connect-core-1_0.html")
     if spec.name.startswith("RASAI_PLATFORM_"):
