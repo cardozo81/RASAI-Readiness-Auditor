@@ -24,6 +24,7 @@ from rasai.standards_service_registry import (
     STANDARDS_TIMEOUT_ENV,
     WEB_FEATURES_DATASET_ENV,
     WEB_PLATFORM_BASELINE_ENV,
+    W3C_CSS_VALIDATOR_ENV,
     W3C_VALIDATOR_ENV,
     boolean_value,
     service,
@@ -37,6 +38,7 @@ _SERVICE_PAYLOAD_TO_ENV = {
     "derived_readiness_metrics": DERIVED_READINESS_METRICS_ENV,
     "retrieval_metrics": RETRIEVAL_METRICS_ENV,
     "w3c_validator": W3C_VALIDATOR_ENV,
+    "w3c_css_validator": W3C_CSS_VALIDATOR_ENV,
     "mdn_observatory": MDN_OBSERVATORY_ENV,
     "web_platform_baseline": WEB_PLATFORM_BASELINE_ENV,
     "pagespeed_enabled": PAGESPEED_ENABLED_ENV,
@@ -48,6 +50,7 @@ _SERVICE_PAYLOAD_DEFAULTS: dict[str, bool | None] = {
     "derived_readiness_metrics": True,
     "retrieval_metrics": True,
     "w3c_validator": True,
+    "w3c_css_validator": True,
     "mdn_observatory": True,
     "web_platform_baseline": True,
     # None is deliberate: omitted credential-driven controls mean
@@ -106,6 +109,10 @@ def install_service_contract() -> None:
             contract.AuditJobOption("derived_readiness_metrics", True, "boolean", description="Crawlability/indexability/canonical/sitemap/structured-data consolidations."),
             contract.AuditJobOption("retrieval_metrics", True, "boolean", description="MRR and relevance-based IR metrics when judgments exist."),
             contract.AuditJobOption("w3c_validator", True, "boolean", description="W3C Nu HTML Checker; bounded external validation."),
+            contract.AuditJobOption(
+                "w3c_css_validator", True, "boolean",
+                description="W3C CSS Validation Service; bounded and throttled to at least one second between public-service requests.",
+            ),
             contract.AuditJobOption("mdn_observatory", True, "boolean", description="MDN HTTP Observatory security posture scan."),
             contract.AuditJobOption("web_platform_baseline", True, "boolean", description="WebDX/Baseline integration; requires versioned dataset on worker to materialize compatibility results."),
             contract.AuditJobOption(
@@ -259,7 +266,7 @@ def install_report_contract() -> None:
         optional=False,
         inputs=("audit.db", "RuleExecutions", "SERP observations", "serviços de padrões habilitados"),
         outputs=("métricas derivadas", "Information Retrieval", "conformidade W3C", "postura HTTP", "estado de integrações"),
-        optional_dependencies=("W3C Nu", "MDN Observatory", "WebDX dataset", "Google APIs configuradas"),
+        optional_dependencies=("W3C Nu/CSS", "MDN Observatory", "WebDX dataset", "Google APIs configuradas"),
         ai_usage="Nenhum. Métricas de IR podem usar apenas relevance judgments já persistidos; não chamam IA para inventar relevância.",
         score_impact="Nenhum impacto automático em SARI-001/SCORE-GEO-004.",
         source_of_truth="audit.db + respostas externas persistidas em tabelas aditivas",
