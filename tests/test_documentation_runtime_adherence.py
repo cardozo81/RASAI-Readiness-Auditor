@@ -69,7 +69,8 @@ def test_reporting_glossary_keeps_established_concepts_in_english() -> None:
 def test_report_guide_documents_current_scope_and_multi_url_behavior() -> None:
     text = _doc("docs/REPORT_GUIDE.md")
 
-    assert "crawling-discovery.html     # Domínio e descoberta; recursos ORIGIN" in text
+    assert "crawling-discovery.html" in text
+    assert "Domínio e descoberta; recursos ORIGIN" in text
     assert "Com uma única URL, o layout permanece simples e linear." in text
     assert "duas ou mais URLs distintas" in text
     assert "context.html" in text
