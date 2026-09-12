@@ -14,6 +14,8 @@ from rasai.console_configuration_guidance import (
     reference_lines,
 )
 from rasai.console_environment import EnvironmentSpec
+from rasai.provider_registry import get_provider_registration
+from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.standards_console_runtime import install as install_standards_console_runtime
 from rasai.standards_runtime import install_pre_context
 
@@ -21,6 +23,7 @@ from rasai.standards_runtime import install_pre_context
 def _installed_facade():
     install_pre_context()
     install_standards_console_runtime()
+    install_runtime_completion_extensions()
     from rasai import console_provider_environment as facade
 
     facade.refresh_specs()
@@ -180,3 +183,47 @@ def test_registry_backed_external_services_expose_official_references() -> None:
     page_refs = reference_lines(pagespeed)
     assert any("developers.google.com/speed" in item for item in page_refs)
     assert any("console.cloud.google.com/apis/credentials" in item for item in page_refs)
+
+
+def test_all_closed_domain_variables_are_guided_after_runtime_composition() -> None:
+    facade = _installed_facade()
+    for spec in facade.SPECS:
+        normalized = normalize_spec(spec)
+        if str(normalized.value_type).casefold() in {"booleano", "enum", "enum inteiro"}:
+            assert normalized.accepted, normalized.name
+        assert normalized.purpose != "Variável reconhecida pelo RASAi.", normalized.name
+        assert normalized.purpose.strip(), normalized.name
+        assert normalized.required_when.strip(), normalized.name
+        assert normalized.impact.strip(), normalized.name
+
+
+def test_gsc_toggle_uses_boolean_choice_and_context_metadata() -> None:
+    facade = _installed_facade()
+    spec = normalize_spec(facade.SPEC_BY_NAME["RASAI_GSC_ENABLED"])
+    assert spec.accepted == ("true", "false")
+    assert context_for(spec) == "Google Search Console"
+    assert any("webmaster-tools" in item for item in reference_lines(spec))
+
+
+def test_improvement_model_and_reasoning_choices_follow_selected_provider() -> None:
+    facade = _installed_facade()
+    registration = get_provider_registration("openai")
+    assert registration is not None
+    with patch.dict("os.environ", {"RASAI_IMPROVEMENT_AI_PROVIDER": "openai"}, clear=False):
+        model = normalize_spec(facade.SPEC_BY_NAME["RASAI_IMPROVEMENT_AI_MODEL"])
+        reasoning = normalize_spec(facade.SPEC_BY_NAME["RASAI_IMPROVEMENT_AI_REASONING"])
+    assert model.value_type == "enum"
+    assert model.accepted == registration.supported_models
+    assert reasoning.value_type == "enum"
+    assert reasoning.accepted == registration.reasoning_values
+
+
+def test_advanced_ai_variables_have_specific_metadata_not_generic_fallback() -> None:
+    facade = _installed_facade()
+    exchange = normalize_spec(facade.SPEC_BY_NAME["RASAI_AI_EXCHANGE_LOG_MAX_BYTES"])
+    exclusions = normalize_spec(facade.SPEC_BY_NAME["RASAI_AI_AUTO_EXCLUDE"])
+    assert exchange.default == "524288"
+    assert "request/response" in exchange.purpose
+    assert exclusions.value_type == "lista CSV"
+    assert exclusions.accepted
+    assert "AI=auto" in exclusions.purpose
