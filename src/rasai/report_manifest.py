@@ -3,6 +3,9 @@
 The manifest is a projection index, not a second evidence store. It deliberately
 contains no score values, findings or evidence payloads and opens audit.db in
 read-only/query-only mode.
+
+Canonical report pages may exist in a neutral no-data state. Therefore physical HTML
+existence must never be used as evidence that an optional dataset/capability executed.
 """
 from __future__ import annotations
 
@@ -54,6 +57,10 @@ def write_report_manifest(report_dir: str | Path) -> Path | None:
             expected_pages = []
             missing_pages = []
 
+    # ``observability.html`` is now a stable canonical surface and may be only a neutral
+    # placeholder. The sidecar itself is the capability/data signal.
+    observability_database = root.parent / "observability.db"
+
     manifest: dict[str, Any] = {
         "audit_id": audit_id,
         "auditor_version": metadata.get("auditor_version"),
@@ -62,7 +69,7 @@ def write_report_manifest(report_dir: str | Path) -> Path | None:
         "scoring_version": metadata.get("scoring_version"),
         "report_contract_version": REPORT_CONTRACT_VERSION,
         "observability_contract_version": (
-            OBSERVABILITY_CONTRACT_VERSION if "observability.html" in generated_pages else None
+            OBSERVABILITY_CONTRACT_VERSION if observability_database.is_file() else None
         ),
         "generated_pages": generated_pages,
         "audit_expected_pages": expected_pages,
