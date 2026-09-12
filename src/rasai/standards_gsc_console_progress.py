@@ -18,12 +18,20 @@ _INSTALLED = False
 _ACTIVE: dict[str, dict[str, int]] = {}
 
 
-def _workspace_from_root(value: Any) -> AuditWorkspace:
-    return AuditWorkspace(Path(value))
+def _workspace_from_root(value: Any) -> AuditWorkspace | None:
+    if value is None:
+        return None
+    try:
+        return AuditWorkspace(Path(value))
+    except (TypeError, ValueError, OSError):
+        return None
 
 
 def _key(value: Any) -> str:
-    return str(Path(value).resolve())
+    try:
+        return str(Path(value).resolve())
+    except (TypeError, ValueError, OSError):
+        return str(value)
 
 
 def install() -> None:
@@ -44,7 +52,9 @@ def install() -> None:
     original_analytics = gsc.collect_search_analytics
 
     def _emit(root: Any, event: str, **details: Any) -> None:
-        try_append_operational_event(_workspace_from_root(root), event, **details)
+        workspace = _workspace_from_root(root)
+        if workspace is not None:
+            try_append_operational_event(workspace, event, **details)
 
     def _operation_started(root: Any, operation: str) -> tuple[int, int]:
         active = _ACTIVE.get(_key(root), {"index": 0, "total": 1})
