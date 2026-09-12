@@ -29,7 +29,7 @@ def _ai_registration_for_env(name: str):
             registration.key_env,
             registration.model_env,
             registration.endpoint_env,
-        } or name == f"RASAI_{registration.provider_name}_REASONING_EFFORT":
+        } or name == registration.reasoning_env:
             return registration
     return None
 
@@ -51,33 +51,68 @@ def _improvement_provider_registration():
 
 
 def normalize_spec(spec):
-    """Complete known/dependent closed domains without changing runtime semantics."""
+    """Complete known/dependent domains and missing user-facing metadata."""
     accepted = tuple(spec.accepted)
     value_type = str(spec.value_type)
+    purpose = str(spec.purpose)
+    default = spec.default
+    required_when = str(spec.required_when)
+    impact = str(spec.impact)
+    source = str(spec.source)
     normalized_type = value_type.casefold()
 
     if normalized_type == "booleano" and not accepted:
         accepted = _BOOLEAN_VALUES
     elif spec.name == "RASAI_OIDC_ALGORITHMS" and not accepted:
         accepted = _OIDC_ALGORITHMS
-    elif spec.name == "RASAI_AI_AUTO_EXCLUDE" and not accepted:
+    elif spec.name == "RASAI_AI_AUTO_EXCLUDE":
         accepted = tuple(
             registration.id
             for registration in provider_registrations()
             if registration.auto_eligible
         )
         value_type = "lista CSV"
+        purpose = "Exclui providers elegíveis apenas do pool AI=auto, sem apagar credenciais nem impedir seleção explícita."
+        default = None
+        required_when = "Opcional; use somente para impedir consumo automático de providers específicos."
+        impact = "Pode reduzir redundância/fallback do AUTO e alterar qual provider recebe chamadas de IA."
+        source = "docs/AI_RUNTIME_ORCHESTRATION.md"
+    elif spec.name == "RASAI_AI_EXCHANGE_LOG_MAX_BYTES":
+        value_type = "inteiro 4096..4194304"
+        purpose = "Limita o tamanho sanitizado persistido por lado de cada request/response de IA no log de intercâmbio."
+        default = "524288"
+        required_when = "Opcional; mantenha o default salvo necessidade de diagnóstico/retenção diferente."
+        impact = "Valor maior pode aumentar audit.db/artefatos; não altera tokens enviados ao provider nem scoring."
+        source = "docs/AI_RUNTIME_SECURITY.md"
     elif spec.name in {"RASAI_IMPROVEMENT_AI_MODEL", "RASAI_IMPROVEMENT_AI_REASONING"}:
         registration = _improvement_provider_registration()
         if registration is not None:
-            if spec.name.endswith("_MODEL"):
-                accepted = tuple(registration.supported_models)
-            else:
-                accepted = tuple(registration.reasoning_values)
+            accepted = (
+                tuple(registration.supported_models)
+                if spec.name.endswith("_MODEL")
+                else tuple(registration.reasoning_values)
+            )
             value_type = "enum"
 
-    if accepted != tuple(spec.accepted) or value_type != spec.value_type:
-        return replace(spec, accepted=accepted, value_type=value_type)
+    if (
+        accepted != tuple(spec.accepted)
+        or value_type != spec.value_type
+        or purpose != spec.purpose
+        or default != spec.default
+        or required_when != spec.required_when
+        or impact != spec.impact
+        or source != spec.source
+    ):
+        return replace(
+            spec,
+            accepted=accepted,
+            value_type=value_type,
+            purpose=purpose,
+            default=default,
+            required_when=required_when,
+            impact=impact,
+            source=source,
+        )
     return spec
 
 
@@ -154,8 +189,7 @@ def reference_lines(spec) -> tuple[str, ...]:
         if spec.name == ai.key_env and ai.credential_url:
             lines.append(f"Credencial/login: {ai.credential_url}")
 
-    serp = _serp_registrations_for_env(spec.name)
-    for item in serp:
+    for item in _serp_registrations_for_env(spec.name):
         if item.documentation_url:
             lines.append(f"Documentação {item.display_name}: {item.documentation_url}")
         if item.credential_url:
