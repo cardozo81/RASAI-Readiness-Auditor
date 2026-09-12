@@ -14,7 +14,11 @@ O console é uma camada de configuração, preflight, observabilidade e execuç�
 - configuração explícita antes da execução;
 - defaults seguros e visíveis;
 - listas guiadas para configurações com domínio fechado;
+- listas múltiplas guiadas quando o runtime publica um conjunto finito de valores;
+- variáveis relacionadas agrupadas por contexto/recurso sempre que possível;
+- finalidade, dependências, impacto e referências exibidos antes da edição avançada;
 - secrets nunca exibidos em claro nem gravados no INI;
+- secrets recebem feedback visual mascarado por `*` quando o terminal suporta leitura segura caractere a caractere;
 - providers sem credencial continuam configuráveis;
 - disponibilidade para execução e possibilidade de configuração são estados distintos;
 - persistência opcional de credenciais no Windows usa somente o escopo `User`;
@@ -25,6 +29,8 @@ O console é uma camada de configuração, preflight, observabilidade e execuç�
 - Synthetic Apdex gera carga HTTP real e permanece separado de Web Performance/IA;
 - Improvement Intelligence é opt-in, exige URL única e permanece advisory/non-scoring;
 - relatórios consolidados são offline/read-only sobre auditorias persistidas.
+
+O contrato detalhado dessa UX está em [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md).
 
 ## Arquivo INI
 
@@ -81,13 +87,13 @@ O console usa cor como reforço visual, nunca como única informação:
 
 | Estado | Cor esperada |
 |---|---|
-| `APTO`, ativo, credencial presente, incluído no AUTO | verde |
+| `APTO`, `DEFINIDO`, `ON`, credencial presente, incluído no AUTO | verde |
 | `CONFIGURAR`, atenção ou ação necessária | amarelo |
 | `INDISPONÍVEL`, erro ou bloqueio real | vermelho |
-| `DESABILITADA`, ausente, inativo ou excluído do AUTO | cinza/dim |
-| informação contextual | ciano |
+| `PADRÃO`, `OPCIONAL`, `DESABILITADA`, ausente, inativo ou excluído do AUTO | cinza/dim |
+| informação contextual/breadcrumb | ciano |
 
-Essa semântica vale também para a área de providers de IA e para a indicação de prontidão da análise profunda.
+Essa semântica vale também para a área de providers de IA, configuração avançada e indicação de prontidão da análise profunda.
 
 ## Opção 4 - IA
 
@@ -158,7 +164,10 @@ A ação `A` aparece somente para providers `auto_eligible`; portanto não apare
 - altera imediatamente a variável da sessão atual;
 - não grava no INI;
 - recalcula imediatamente a capability do provider;
-- limpa bloqueios transitórios associados à configuração anterior.
+- limpa bloqueios transitórios associados à configuração anterior;
+- em terminal interativo compatível, cada caractere digitado/colado aparece somente como `*`.
+
+O mascaramento é estritamente visual. O valor real continua sendo o valor validado e armazenado na sessão. Backspace remove o caractere real correspondente e o `*` visual. Se o terminal não suportar mascaramento seguro por caractere, o console usa entrada sem eco; nunca degrada para exibição em claro. O número de `*` pode revelar aproximadamente o comprimento da credencial, trade-off deliberado para fornecer feedback ao operador sem expor o conteúdo.
 
 **Persistir/remover Windows/User (`P`)**
 
@@ -257,26 +266,31 @@ Ambas são advisory/evidence-bound e podem gerar chamadas/custo adicionais. Não
 
 O menu `E` continua disponível para configuração avançada e para integrações que não passam pelo gerenciador específico de provider.
 
-Grupos funcionais:
+A navegação segue **categoria funcional → contexto/recurso → variável**. Isso mantém itens relacionados próximos mesmo quando, tecnicamente, alguns valores pertencem a registries ou mecanismos de persistência diferentes. Exemplos de contextos:
 
 ```text
-Aplicação e execução
-IA - credenciais
-IA - modelos e reasoning
-IA - endpoints avançados
-IA - contexto editorial / YMYL
-IA - análise profunda
-Search Intelligence / Observability
-Web Performance / Google APIs
-Synthetic Apdex
-Browser / Playwright
+Google Search Console
+Google PageSpeed / Lighthouse
+Google Chrome UX Report (CrUX)
+SERP / Search Intelligence
+IA / <provider>
+Improvement Intelligence
+Synthetic Navigation Apdex
+Synthetic User Experience Apdex
+Dynatrace / calibração Apdex
+OIDC / Identity
+Control plane / banco
 ```
 
-As credenciais de IA e SERP mostram também a URL oficial de cadastro/login/geração de token quando conhecida pelo registry/catálogo. Para SERP, o provider selecionado determina qual variável de credencial é exigida; franquia gratuita não significa uso ilimitado.
+Ao abrir uma variável, o console apresenta finalidade, tipo, valores aceitos, default efetivo, condição de obrigatoriedade, sensibilidade, custo/impacto, estado atual, exemplo, contexto e referências oficiais conhecidas.
 
-Para campos com domínio fechado, o console apresenta lista de opções aceitas em vez de exigir texto livre quando essa lista é conhecida pelo runtime.
+Para campos com domínio fechado, o console apresenta lista de opções aceitas em vez de exigir texto livre. Isso inclui booleanos (`true`/`false`), enums e listas CSV fechadas. Campos dependentes são recalculados a partir do contexto atual: por exemplo, modelo e reasoning avançados da Improvement Intelligence usam o catálogo do provider selecionado.
 
-Secrets são exibidos apenas como presença/origem, por exemplo:
+Entrada livre permanece apenas para valores realmente abertos, como URL, path, property, token/secret, locale/tag BCP-47 ou número de faixa contínua.
+
+As credenciais de IA e SERP mostram a URL oficial de documentação e de cadastro/login/geração de token quando conhecida pelo registry/catálogo. GSC, PageSpeed, CrUX e demais standards externos usam as referências oficiais cadastradas no service registry.
+
+Secrets são exibidos em estado apenas como presença/origem, por exemplo:
 
 ```text
 [SET] [SESSÃO]
@@ -284,7 +298,11 @@ Secrets são exibidos apenas como presença/origem, por exemplo:
 [SET] [SO:MACHINE]
 ```
 
+Durante a **edição** do secret, terminal compatível mostra somente `*`; depois da edição, o valor continua não sendo exibido.
+
 O grupo **IA - análise profunda** inclui os overrides avançados de Improvement Intelligence. A configuração normal deve ser feita pelo item 13. `RASAI_IMPROVEMENT_INTELLIGENCE` não substitui visualmente esse item dentro de `rasai-console`; ele existe para CLI/worker/SaaS, automação e troubleshooting do contrato por ambiente.
+
+Veja [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md) para o contrato normativo da interface e [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) para o contrato variável por variável.
 
 ## Perfis sintéticos configuráveis
 
@@ -298,7 +316,7 @@ network envelope
 
 Mobile, Desktop e Tablet possuem opções próprias. Os valores permitidos e defaults vigentes estão em [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md) e [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md).
 
-O console apresenta esses campos como enums/listas e persiste os valores não sensíveis no INI.
+O console apresenta esses campos como enums/listas e persiste os valores não sensíveis no INI. O catálogo de configuração avançada recebe a metadata dos mesmos presets canônicos usados pelo runtime, evitando descrição genérica ou digitação manual de IDs conhecidos.
 
 Os defaults são baselines controladas de laboratório, não médias estatísticas da população real. RAM física, GPU, térmica e scheduler do sistema operacional não são simulados como hardware real.
 
@@ -442,6 +460,8 @@ Improvement Intelligence permanece complementar no consolidado: suas recomendaç
 ## Segurança
 
 - secrets não entram no INI;
+- durante a entrada interativa, secrets são mascarados por `*` quando suportado e nunca exibidos em claro;
+- em terminal incompatível com máscara por caractere, o fallback continua sem eco;
 - reports e logs não devem registrar API keys;
 - persistência Windows/User exige ação explícita;
 - nenhuma operação normal de Key exige Administrador;
@@ -457,6 +477,7 @@ Improvement Intelligence permanece complementar no consolidado: suas recomendaç
 
 - [CONFIGURATION.md](CONFIGURATION.md)
 - [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
+- [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md)
 - [AI_GUIDE.md](AI_GUIDE.md)
 - [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
 - [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md)
