@@ -2,8 +2,8 @@
 
 The registry is configuration metadata. It does not change SARI-001/SCORE-GEO-004.
 Cost-free collectors that require no credential are enabled by default. Services that
-require credentials remain disabled until the credential is present, then become
-eligible by default unless the user explicitly disables the service.
+require credentials remain disabled until the credential and mandatory non-secret
+context are present, then become eligible by default unless explicitly disabled.
 """
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ class StandardsService:
     enabled_env: str
     default_enabled: bool
     credential_envs: tuple[str, ...] = ()
+    config_envs: tuple[str, ...] = ()
     auto_enable_with_credentials: bool = False
     dataset_env: str | None = None
     documentation_url: str = ""
@@ -46,6 +47,7 @@ WEB_FEATURES_DATASET_ENV = "RASAI_WEB_FEATURES_DATASET"
 PAGESPEED_ENABLED_ENV = "RASAI_PAGESPEED_ENABLED"
 CRUX_ENABLED_ENV = "RASAI_CRUX_ENABLED"
 GSC_ENABLED_ENV = "RASAI_GSC_ENABLED"
+GSC_SITE_URL_ENV = "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL"
 STANDARDS_MAX_URLS_ENV = "RASAI_STANDARDS_MAX_URLS"
 STANDARDS_TIMEOUT_ENV = "RASAI_STANDARDS_TIMEOUT_SECONDS"
 
@@ -173,13 +175,14 @@ SERVICES: tuple[StandardsService, ...] = (
         enabled_env=GSC_ENABLED_ENV,
         default_enabled=False,
         credential_envs=("RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN",),
+        config_envs=(GSC_SITE_URL_ENV,),
         auto_enable_with_credentials=True,
         documentation_url="https://developers.google.com/webmaster-tools/v1/api_reference_index",
         credential_url="https://console.cloud.google.com/apis/credentials",
         cost_model="GOOGLE_API_AUTHENTICATED",
         network_behavior="EXTERNAL_API",
         methodology="Google Search Console API",
-        notes="Tambem exige propriedade Search Console adequada ao target consultado.",
+        notes="Exige token OAuth e propriedade siteUrl/sc-domain acessivel ao usuario autenticado.",
     ),
 )
 
@@ -211,14 +214,15 @@ def boolean_value(raw: str | None, *, default: bool) -> bool:
 def service_state(item: StandardsService, env: Mapping[str, str] | None = None) -> dict[str, object]:
     environment = env if env is not None else os.environ
     credentials_ready = all((environment.get(name) or "").strip() for name in item.credential_envs)
+    config_ready = all((environment.get(name) or "").strip() for name in item.config_envs)
     dataset_ready = True if not item.dataset_env else bool((environment.get(item.dataset_env) or "").strip())
-    configured = credentials_ready and dataset_ready
+    configured = credentials_ready and config_ready and dataset_ready
     explicit = (environment.get(item.enabled_env) or "").strip()
     if explicit:
         requested = boolean_value(explicit, default=item.default_enabled)
         source = "EXPLICIT"
     elif item.credential_envs and item.auto_enable_with_credentials:
-        requested = credentials_ready
+        requested = credentials_ready and config_ready
         source = "CREDENTIAL_DRIVEN_DEFAULT"
     else:
         requested = item.default_enabled
@@ -230,6 +234,10 @@ def service_state(item: StandardsService, env: Mapping[str, str] | None = None) 
         state = "NOT_CONFIGURED"
     else:
         state = "READY"
+    missing_config = tuple(
+        name for name in (*item.credential_envs, *item.config_envs, *((item.dataset_env,) if item.dataset_env else ()))
+        if not (environment.get(name) or "").strip()
+    )
     return {
         "id": item.id,
         "label": item.label,
@@ -239,7 +247,9 @@ def service_state(item: StandardsService, env: Mapping[str, str] | None = None) 
         "state": state,
         "configuration_source": source,
         "credential_envs": item.credential_envs,
+        "config_envs": item.config_envs,
         "dataset_env": item.dataset_env,
+        "missing_configuration": missing_config,
     }
 
 
@@ -250,7 +260,7 @@ def service_states(env: Mapping[str, str] | None = None) -> tuple[dict[str, obje
 def service_environment_names() -> tuple[str, ...]:
     names: list[str] = [STANDARDS_MAX_URLS_ENV, STANDARDS_TIMEOUT_ENV]
     for item in SERVICES:
-        for name in (item.enabled_env, item.dataset_env, *item.credential_envs):
+        for name in (item.enabled_env, item.dataset_env, *item.credential_envs, *item.config_envs):
             if name and name not in names:
                 names.append(name)
     return tuple(names)
