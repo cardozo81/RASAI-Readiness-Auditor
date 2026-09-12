@@ -9,7 +9,8 @@ from rasai.report_completion import (
     expected_audit_report_pages,
     inspect_audit_report_site,
 )
-from rasai.report_contract import CANONICAL_FILENAMES
+from rasai.report_contract import CANONICAL_FILENAMES, CANONICAL_NAV_ITEMS
+from rasai.report_navigation import available_navigation
 from rasai.report_scope_clarity import materialize_missing_canonical_surfaces
 
 
@@ -112,3 +113,14 @@ def test_missing_surfaces_get_neutral_html_without_overwriting_real_page(tmp_pat
         assert "data-rasai-empty-surface='true'" in html
         assert "SEM DADOS" in html
         assert "não é convertida em falha do website" in html
+
+
+def test_materialized_site_exposes_full_canonical_navigation(tmp_path: Path) -> None:
+    _workspace_obj, report = _workspace(tmp_path)
+    css = report / "css"
+    css.mkdir(parents=True)
+    (css / "site.css").write_text("body{}", encoding="utf-8")
+
+    materialize_missing_canonical_surfaces(report)
+
+    assert available_navigation(report) == CANONICAL_NAV_ITEMS
