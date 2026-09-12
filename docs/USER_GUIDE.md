@@ -7,14 +7,15 @@ Guia operacional do RASAi - Search & AI Readiness Auditor para execução local 
 1. instalar dependências e Chromium;
 2. escolher URL, conjunto de URLs ou arquivo TXT;
 3. selecionar `mobile`, `desktop` ou `both`;
-4. decidir se IA será usada;
-5. decidir se remediação textual por IA será habilitada;
-6. decidir se Web Performance/Lighthouse/CrUX será coletado;
-7. decidir se Synthetic Apdex será executado;
-8. revisar limites, timeouts, volume e exposição financeira;
-9. executar;
-10. conferir **Configuração × resultado obtido** no report;
-11. revisar findings, recomendações e limitações operacionais.
+4. para URL única, decidir se um Perfil de Execução temporário será usado;
+5. decidir se IA será usada;
+6. decidir se remediação textual por IA será habilitada;
+7. decidir se Web Performance/Lighthouse/CrUX será coletado;
+8. decidir se Synthetic Apdex será executado;
+9. revisar limites, timeouts, volume e exposição financeira;
+10. executar;
+11. conferir **Configuração × resultado obtido** no report;
+12. revisar findings, recomendações e limitações operacionais.
 
 ## Instalação
 
@@ -35,6 +36,9 @@ O console oferece:
 
 - configuração em uma tela por vez;
 - preflight;
+- Perfis de Execução temporários para uma URL explícita, incluindo SEO, GEO, Performance, Acessibilidade, Web Quality e combinações;
+- descrição, dependências e custo/exposição antes de aplicar um perfil;
+- ajuste fino posterior, sem persistir o preset no INI ou no sistema operacional;
 - provider/modelo/esforço/timeout de IA;
 - dependência explícita da remediação textual em relação à IA;
 - configuração de Web Performance e timeout PageSpeed/Lighthouse;
@@ -47,7 +51,23 @@ O console oferece:
 
 Credenciais não são gravadas no INI. Elas podem ser configuradas no menu de variáveis e aparecem somente como `[SET]`.
 
-Detalhes: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md).
+### Perfis de Execução
+
+Quando **Entrada** contém uma única URL explícita, o menu oferece:
+
+```text
+F. Perfil da execução
+```
+
+O perfil é um overlay somente da sessão. Ele não altera defaults do RASAi, não grava o preset no `rasai-console.ini`, não modifica `Windows/User` ou `Windows/Machine` e não cria/troca credenciais.
+
+Dependências que exigem informação humana ou configuração prévia continuam explícitas. Por exemplo, Search Intelligence não inventa termos SERP, GEO não transforma contexto YMYL `AUTO` em fato, Experiência sintética não inventa parâmetros de carga e Análise profunda exige o item 13 previamente configurado. Se uma dependência obrigatória faltar, o perfil pode permanecer selecionado, mas a execução aparece como `CONFIGURAR` até a correção.
+
+A IA padrão do perfil pode ficar desligada ou ser usada somente se houver provider `APTO`; a ausência de IA nesse segundo modo não bloqueia o core. Improvement Intelligence continua usando sua configuração de IA própria e independente.
+
+Detalhes dos perfis: [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md).
+
+Detalhes gerais do console: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md).
 
 ## Execução pela CLI
 
@@ -169,12 +189,14 @@ Custo é estimativa técnica; não substitui billing/invoice do provider.
 - não copie API keys para reports, issues ou documentação;
 - use variáveis de ambiente/secret manager para secrets;
 - o INI não persiste credenciais;
+- Perfis de Execução não persistem credenciais nem alteram variáveis do SO;
 - não assuma que key configurada implica saldo;
 - use Synthetic Apdex em produção somente com autorização.
 
 ## Documentos relacionados
 
 - [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md)
+- [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md)
 - [CONFIGURATION.md](CONFIGURATION.md)
 - [CLI_REFERENCE.md](CLI_REFERENCE.md)
 - [REPORT_GUIDE.md](REPORT_GUIDE.md)
