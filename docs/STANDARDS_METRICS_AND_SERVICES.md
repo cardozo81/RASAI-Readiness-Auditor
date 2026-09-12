@@ -2,84 +2,358 @@
 
 ## Objetivo
 
-Este documento define o contrato de métricas fundamentadas em padrões, métodos de mercado e serviços externos usados pelo RASAi além do núcleo `SARI-001` / `SCORE-GEO-004`.
+Este documento define o contrato vigente das métricas fundamentadas em padrões, métodos de mercado e serviços externos usados pelo RASAi além do núcleo `SARI-001` / `SCORE-GEO-004`.
 
-A finalidade é ampliar diagnóstico e observabilidade sem transformar sinais heterogêneos em um único score arbitrário.
+O RASAi está em fase pré-publicação. Este documento descreve somente o comportamento atual que deve ser validado e publicado. Não existem versões comerciais anteriores a preservar e não se deve interpretar coexistência de controles internos como compatibilidade com uma versão pública anterior.
+
+Contrato desta família: `STANDARDS-METRICS-001`.
 
 Princípios obrigatórios:
 
-- nenhuma métrica desta superfície altera `SARI-001` ou `SCORE-GEO-004` sem nova versão metodológica explícita;
+- nenhuma métrica desta família altera `SARI-001` ou `SCORE-GEO-004` sem mudança metodológica explícita e versionada;
 - métricas derivadas pelo RASAi são identificadas como derivadas e nunca atribuídas a Google, W3C, MDN, WebDX ou outra entidade;
-- scores ou grades emitidos por fonte externa são preservados como valores da fonte;
-- ausência de integração opcional não é finding do website;
-- todo serviço possui toggle próprio;
+- scores ou grades emitidos por fonte externa permanecem identificados como valores da própria fonte;
+- ausência, desabilitação ou indisponibilidade de integração opcional não é finding do website;
+- cada serviço possui controle independente de habilitação;
 - serviço sem cobrança de provider e sem credencial obrigatória fica habilitado por default;
-- serviço que requer credencial permanece inativo até a credencial existir;
-- segredos nunca são persistidos em `rasai-console.ini` nem em payload de `AuditJob`;
-- escolhas não secretas do console podem ser persistidas em `rasai-console.ini`;
-- chamadas externas são bounded por quantidade de URLs e timeout;
-- dados são separados por `ORIGIN`, `URL`, `DEVICE_SNAPSHOT`, `PROFILE_MEASUREMENT` ou `SEARCH_QUERY`, conforme a natureza da evidência.
+- serviço que requer credencial permanece inativo até credencial e contexto mínimo obrigatório existirem;
+- credenciais nunca são gravadas em `rasai-console.ini`, `AuditJob`, `audit.db`, HTML ou logs sanitizados;
+- configurações não secretas podem ser persistidas no `rasai-console.ini` e transportadas em `AuditJob`;
+- chamadas externas são bounded por quantidade de URLs, timeout e limites específicos quando aplicáveis;
+- `ORIGIN`, `URL`, `DEVICE_SNAPSHOT`, `PROFILE_MEASUREMENT` e `SEARCH_QUERY` não são agregados silenciosamente como se tivessem a mesma semântica;
+- resultados externos observacionais permanecem separados das evidências determinísticas do scoring.
 
-Contrato de implementação: `STANDARDS-METRICS-001`.
+## Arquitetura de escopo
 
-## Catálogo
+| Escopo | Significado | Exemplos |
+|---|---|---|
+| `ORIGIN` | propriedade/origem como unidade | MDN Observatory, propriedade Search Console, sitemap externo |
+| `URL` | recurso/endereço específico | W3C Nu, canonical, indexability por URL |
+| `DEVICE_SNAPSHOT` | captura renderizada por dispositivo | Open Web Metrics, structured data renderizado, status HTTP observado |
+| `PROFILE_MEASUREMENT` | execução sintética com perfil de rede/device | Apdex e medições sintéticas dedicadas |
+| `SEARCH_QUERY` | observação ou avaliação orientada a consulta | SERP visibility, MRR, Precision, nDCG |
 
-| Serviço ou método | Relação com RASAi | Escopo | Default | Credencial | Finalidade |
+Uma consolidação de várias URLs deve declarar o universo e a fórmula. Média implícita entre páginas não é permitida.
+
+## Catálogo vigente
+
+| Serviço ou método | Relação com RASAi | Escopo | Default operacional | Credencial/contexto | Finalidade |
 |---|---:|---|---|---|---|
-| RASAi Derived Search & AI Readiness Metrics | 5/5 | ORIGIN, URL, DEVICE_SNAPSHOT | ligado | não | consolidar crawlability, indexability, canonical, sitemap, structured data e disponibilidade a partir de evidência persistida |
-| Information Retrieval Metrics | 5/5 | SEARCH_QUERY, ORIGIN | ligado | não | MRR e, quando existem julgamentos explícitos, Precision@k, Recall@k e nDCG@k |
-| Open Web Performance APIs | 3/5 | DEVICE_SNAPSHOT | ligado | não | Navigation Timing, Resource Timing, Paint, LCP, CLS, Event Timing e sinais relacionados no browser já aberto |
-| W3C Nu HTML Checker | 3/5 | URL | ligado | não | validar conformidade HTML e preservar erros/warnings sem inventar score oficial |
-| MDN HTTP Observatory | 2/5 | ORIGIN | ligado | não | avaliar postura de headers HTTP e preservar grade/score da própria fonte |
-| Web Platform Baseline / WebDX | 3/5 | URL, DEVICE_SNAPSHOT | ligado | dataset versionado | classificar recursos Web por disponibilidade entre browsers quando o detector/dataset estiver materializado |
-| Google PageSpeed Insights / Lighthouse | 3/5 | URL, DEVICE_SNAPSHOT | auto após credencial | API key | laboratório Lighthouse e categorias de Web Quality |
-| Chrome UX Report API | 4/5 | URL, ORIGIN, DEVICE_SNAPSHOT | auto após credencial | API key | Core Web Vitals de campo agregados |
-| Google Search Console | 5/5 | ORIGIN, URL, SEARCH_QUERY | auto após credencial e contexto | OAuth 2.0 | Search Analytics, sitemaps, properties e URL Inspection |
+| RASAi Derived Search & AI Readiness Metrics | 5/5 | URL, DEVICE_SNAPSHOT, conjunto auditado | ligado | não | crawlability, indexability, sitemap, canonical, structured data, HTTP e percentis observados |
+| Information Retrieval Metrics | 5/5 | SEARCH_QUERY | ligado | não | MRR, visibilidade e métricas com relevance judgments explícitos |
+| Open Web Performance APIs | 3/5 | DEVICE_SNAPSHOT | ligado | não | Navigation Timing, Resource Timing, Paint, LCP, CLS, Event Timing e sinais relacionados |
+| W3C Nu HTML Checker | 3/5 | URL | ligado | não | conformidade HTML sem inventar score W3C |
+| MDN HTTP Observatory | 2/5 | ORIGIN | ligado | não | postura de headers HTTP e grade/score emitidos pela fonte |
+| Web Platform Baseline / WebDX | 3/5 | URL, DEVICE_SNAPSHOT | solicitado por default | dataset e detector reproduzível | compatibilidade de recursos Web quando há mapeamento confiável |
+| Google PageSpeed Insights / Lighthouse | 3/5 | URL, DEVICE_SNAPSHOT | auto por credencial | API key | laboratório Lighthouse e categorias Web Quality |
+| Chrome UX Report API | 4/5 | URL, ORIGIN, DEVICE_SNAPSHOT | auto por credencial | API key | Core Web Vitals de campo agregados |
+| Google Search Console | 5/5 | ORIGIN, URL, SEARCH_QUERY | auto por credencial + property | OAuth 2.0 + `siteUrl` | Sitemaps, URL Inspection e Search Analytics observacional |
 
-## Variáveis de controle
+## Estados de integração
 
-### Serviços sem credencial obrigatória
+O estado operacional usa três conceitos principais:
 
-| Variável | Default efetivo | Valores | Efeito |
+- `DISABLED`: serviço não solicitado ou desligado explicitamente;
+- `NOT_CONFIGURED`: solicitado, mas falta requisito obrigatório como dataset, credencial ou contexto;
+- `READY`: requisitos mínimos estão presentes e a execução é elegível.
+
+Após uma tentativa podem existir estados de execução como `SUCCESS`, `PARTIAL`, `NO_DATA` ou `ERROR`. Falha de provider não é convertida em falha do website.
+
+## Variáveis gerais
+
+| Variável | Default | Valores | Efeito |
 |---|---|---|---|
-| `RASAI_DERIVED_READINESS_METRICS` | `true` | `true` / `false` | liga/desliga consolidações derivadas de readiness |
-| `RASAI_RETRIEVAL_METRICS` | `true` | `true` / `false` | liga/desliga métricas de Information Retrieval |
-| `RASAI_OPEN_WEB_METRICS` | `true` | `true` / `false` | liga/desliga métricas browser-native sem nova navegação |
-| `RASAI_W3C_VALIDATOR` | `true` | `true` / `false` | liga/desliga W3C Nu Checker |
-| `RASAI_MDN_OBSERVATORY` | `true` | `true` / `false` | liga/desliga MDN HTTP Observatory |
-| `RASAI_WEB_PLATFORM_BASELINE` | `true` | `true` / `false` | habilita a capacidade Baseline; sem dataset/detector suficiente fica `NOT_CONFIGURED` ou `NO_DATA` |
-| `RASAI_WEB_FEATURES_DATASET` | sem default | caminho | aponta para dataset versionado WebDX/web-features quando disponível |
-| `RASAI_STANDARDS_MAX_URLS` | `10` | inteiro `>= 0` | limita URLs enviadas a validadores externos; `0` significa todo o universo auditado |
-| `RASAI_STANDARDS_TIMEOUT_SECONDS` | `20` | número `> 0` | timeout por request externo desta família |
+| `RASAI_DERIVED_READINESS_METRICS` | `true` | booleano | consolida métricas derivadas de Search & AI Readiness |
+| `RASAI_RETRIEVAL_METRICS` | `true` | booleano | calcula métricas de Information Retrieval quando há dados suficientes |
+| `RASAI_OPEN_WEB_METRICS` | `true` | booleano | coleta métricas browser-native no snapshot já aberto |
+| `RASAI_W3C_VALIDATOR` | `true` | booleano | habilita W3C Nu bounded |
+| `RASAI_MDN_OBSERVATORY` | `true` | booleano | habilita scan MDN HTTP Observatory por origem |
+| `RASAI_WEB_PLATFORM_BASELINE` | `true` | booleano | solicita análise Baseline; sem dataset/detector fica `NOT_CONFIGURED` ou `NO_DATA` |
+| `RASAI_WEB_FEATURES_DATASET` | sem default | caminho de arquivo | dataset WebDX/web-features versionado |
+| `RASAI_STANDARDS_MAX_URLS` | `10` | inteiro `>= 0` | teto para checks externos por URL; `0` significa todas as URLs auditadas |
+| `RASAI_STANDARDS_TIMEOUT_SECONDS` | `20` | número `> 0` e `< 3600` | timeout por request desta família |
 
-### Serviços com credencial
+Todos os controles acima podem ser desligados explicitamente pelo usuário.
 
-| Variável de serviço | Credencial | Default sem credencial | Default com credencial | Desligamento explícito |
-|---|---|---|---|---|
-| `RASAI_PAGESPEED_ENABLED` | `RASAI_PAGESPEED_API_KEY` | desligado | ligado quando não há override | `RASAI_PAGESPEED_ENABLED=false` |
-| `RASAI_CRUX_ENABLED` | `RASAI_CRUX_API_KEY` | desligado | ligado quando não há override | `RASAI_CRUX_ENABLED=false` |
-| `RASAI_GSC_ENABLED` | `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` | desligado | elegível quando não há override e o contexto mínimo existe | `RASAI_GSC_ENABLED=false` |
+## Google PageSpeed Insights / Lighthouse
 
-`RASAI_WEB_PERFORMANCE` permanece como macro legado de compatibilidade para PageSpeed/CrUX. Um `false` explícito nesse macro continua sendo hard-off. Os novos toggles permitem controle individual por serviço.
+### Para que serve
 
-## Persistência do console
+Coleta medição de laboratório Lighthouse e categorias suportadas pela PageSpeed Insights API.
 
-O menu de variáveis do `rasai-console` expõe os toggles desta família na categoria **Métricas e padrões**.
+Referência oficial:
 
-Regras de persistência:
+- https://developers.google.com/speed/docs/insights/v5/get-started
 
-- toggles, limites, timeout e caminho de dataset são não secretos e podem ser salvos na seção `[environment]` de `rasai-console.ini`;
-- API keys, tokens OAuth, passwords, client secrets e DSNs com credencial não são gravados no INI;
-- segredos podem existir apenas no ambiente/processo ou em mecanismo seguro equivalente;
-- ao reabrir o console, overrides não secretos persistidos voltam a ser aplicados pelo fluxo normal de configuração.
+### Política RASAi
+
+A API pode aceitar determinados usos sem chave, mas o RASAi exige API key para automação. Isso evita depender de quota anônima ou comportamento operacional incerto.
+
+Variáveis:
+
+```text
+RASAI_PAGESPEED_API_KEY=<segredo>
+RASAI_PAGESPEED_ENABLED=true|false
+```
+
+Sem `RASAI_PAGESPEED_API_KEY`, o serviço não executa. Com a chave presente e sem override de `RASAI_PAGESPEED_ENABLED`, o serviço fica elegível automaticamente. `RASAI_PAGESPEED_ENABLED=false` sempre desliga PageSpeed.
+
+### Criar a chave
+
+1. Acesse https://console.cloud.google.com/.
+2. Crie ou selecione um projeto.
+3. Habilite a PageSpeed Insights API.
+4. Abra `APIs & Services > Credentials`.
+5. Crie uma API key.
+6. Restrinja a chave de acordo com o ambiente de execução.
+7. Injete a chave somente por secret store ou variável protegida.
+
+## Chrome UX Report API
+
+### Para que serve
+
+Fornece dados agregados de experiência real para URL/origin quando o target possui cobertura no CrUX.
+
+Referência oficial:
+
+- https://developer.chrome.com/docs/crux/api/
+
+Variáveis:
+
+```text
+RASAI_CRUX_API_KEY=<segredo>
+RASAI_CRUX_ENABLED=true|false
+```
+
+Sem a chave, o serviço não executa. Com a chave e sem override, o serviço fica elegível automaticamente. `RASAI_CRUX_ENABLED=false` é hard-off do CrUX dedicado.
+
+### Criar a chave
+
+1. Acesse https://console.cloud.google.com/.
+2. Crie ou selecione um projeto.
+3. Habilite `Chrome UX Report API`.
+4. Abra `APIs & Services > Credentials`.
+5. Crie e restrinja uma API key.
+6. Injete-a como `RASAI_CRUX_API_KEY` somente em ambiente seguro.
+
+PageSpeed pode retornar dados de campo em determinadas respostas, mas o RASAi mantém CrUX dedicado como fonte identificável e não trata duas observações correlacionadas como evidências independentes para score.
+
+## Controle agregado de Web Performance
+
+`RASAI_WEB_PERFORMANCE` é o controle agregado vigente do runtime externo de Web Performance. Os toggles `RASAI_PAGESPEED_ENABLED` e `RASAI_CRUX_ENABLED` refinam a seleção por serviço.
+
+Um `RASAI_WEB_PERFORMANCE=false` explícito interrompe a família externa para aquela execução. Quando o controle agregado não é explicitamente desligado, os serviços individuais podem ser ativados conforme seus próprios requisitos.
+
+Isso é um contrato atual de composição, não referência a uma versão pública anterior.
+
+## Google Search Console
+
+### Para que serve
+
+A Search Console API fornece dados autenticados da propriedade verificada, incluindo:
+
+- Search Analytics;
+- Sitemaps;
+- properties/sites;
+- URL Inspection.
+
+Referências oficiais:
+
+- visão geral: https://developers.google.com/webmaster-tools
+- referência: https://developers.google.com/webmaster-tools/v1/api_reference_index
+- pré-requisitos: https://developers.google.com/webmaster-tools/v1/prereqs
+- OAuth 2.0: https://developers.google.com/webmaster-tools/v1/how-tos/authorizing
+- Search Analytics: https://developers.google.com/webmaster-tools/v1/searchanalytics/query
+- URL Inspection: https://developers.google.com/webmaster-tools/v1/urlInspection.index/inspect
+- limites de uso: https://developers.google.com/webmaster-tools/limits
+- orientação para obtenção de dados de performance: https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data
+
+### Requisitos mínimos
+
+O serviço só fica elegível quando existem simultaneamente:
+
+```text
+RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN=<segredo OAuth temporário>
+RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL=<property>
+```
+
+A property aceita:
+
+```text
+sc-domain:example.com
+```
+
+ou propriedade URL-prefix absoluta, por exemplo:
+
+```text
+https://www.example.com/
+```
+
+`RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL` não é segredo e pode ser persistida no INI ou transportada no `AuditJob`. O access token nunca pode ser persistido nessas superfícies.
+
+### OAuth e criação da credencial
+
+Search Console não usa uma API key simples para dados privados da conta. O fluxo recomendado é OAuth 2.0.
+
+1. Acesse https://console.cloud.google.com/.
+2. Crie ou selecione um projeto Google Cloud.
+3. Habilite a Search Console API.
+4. Configure a tela/consentimento OAuth conforme o tipo da aplicação.
+5. Crie um OAuth Client compatível com o cenário local ou SaaS.
+6. Solicite somente os scopes necessários, preferencialmente `https://www.googleapis.com/auth/webmasters.readonly` quando leitura for suficiente.
+7. Faça o fluxo de autorização com o usuário que possui acesso à property.
+8. No runtime local, forneça o access token temporário por `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`.
+9. No SaaS, refresh token/client secret devem permanecer em secret store e nunca entrar em `AuditJob` ou `audit.db`.
+
+O token sozinho não torna o serviço `READY`: a property também é obrigatória.
+
+### Coleta automática bounded
+
+Quando o serviço está `READY`, a finalização da auditoria reutiliza os coletores oficiais já existentes no RASAi e grava os resultados em `observability.db` + `artifacts/observability`.
+
+A coleta automática inclui:
+
+- Sitemaps da property;
+- URL Inspection para no máximo `RASAI_STANDARDS_MAX_URLS` URLs;
+- Search Analytics para um período finalizado curto.
+
+Política de Search Analytics:
+
+| Variável | Default | Faixa | Finalidade |
+|---|---:|---:|---|
+| `RASAI_GSC_SEARCH_ANALYTICS_DAYS` | `1` | `0..31` | dias consultados; `0` desliga apenas Search Analytics automático |
+| `RASAI_GSC_SEARCH_MAX_ROWS` | `10000` | `1..50000` | teto de linhas normalizadas por auditoria |
+| `RASAI_GSC_FINAL_DATA_LAG_DAYS` | `3` | `0..30` | defasagem para preferir dados finalizados |
+
+O default de 3 dias segue a orientação pública do Google de que dados de Search Analytics normalmente ficam disponíveis após cerca de 2 a 3 dias. O RASAi consulta `dataState=final` nessa automação.
+
+A documentação pública do Google informa que URL Inspection possui quota por property e que Search Analytics possui limites de carga. Por isso o default do RASAi é bounded e não consulta todas as URLs automaticamente.
+
+Desligamento total:
+
+```text
+RASAI_GSC_ENABLED=false
+```
+
+URL Inspection descreve o estado conhecido pelo índice do Google. Não é teste live universal de indexabilidade e não substitui as métricas determinísticas locais.
+
+### Isolamento SaaS
+
+No SaaS, a property deve pertencer ao próprio `AuditJob`. Um worker não pode usar silenciosamente uma property global para um job que não informou `gsc_site_url`. Essa regra evita vazamento de contexto entre tenants/properties.
+
+O worker pode receber o token por secret store. O token não trafega no payload durável.
+
+## W3C Nu HTML Checker
+
+### Para que serve
+
+Valida conformidade HTML e retorna mensagens estruturadas. O RASAi registra outcome e contagens, sem criar um suposto score oficial do W3C.
+
+Referências oficiais:
+
+- https://validator.w3.org/docs/api
+- https://validator.w3.org/nu/
+
+Comportamento:
+
+- default: ligado;
+- credencial: não necessária;
+- escopo: `URL`;
+- URLs limitadas por `RASAI_STANDARDS_MAX_URLS`;
+- timeout limitado por `RASAI_STANDARDS_TIMEOUT_SECONDS`;
+- resultados: `PASS`, `FAIL`, `INDETERMINATE` ou `ERROR` e contagens de mensagens.
+
+Desligamento:
+
+```text
+RASAI_W3C_VALIDATOR=false
+```
+
+O endpoint público deve ser usado de forma bounded. Para SaaS em volume alto, self-host do Nu Checker é preferível a depender de infraestrutura pública de terceiros.
+
+## MDN HTTP Observatory
+
+### Para que serve
+
+Avalia postura de segurança HTTP e retorna grade/score calculados pela própria fonte.
+
+Referência oficial:
+
+- https://developer.mozilla.org/en-US/observatory/docs/faq
+
+Comportamento:
+
+- default: ligado;
+- credencial: não necessária;
+- escopo: `ORIGIN`;
+- uma origem é consultada uma vez, não uma vez por URL/device;
+- grade, score, testes e versão de algoritmo da fonte são preservados quando retornados;
+- não altera SARI.
+
+Desligamento:
+
+```text
+RASAI_MDN_OBSERVATORY=false
+```
+
+O scan externo revela o hostname ao serviço público. Esse efeito de privacidade é diferente de uma análise local. Para SaaS em escala ou ambientes restritos, avaliar execução controlada/self-host quando disponível.
+
+## Web Platform Baseline / WebDX
+
+### Para que serve
+
+Baseline classifica disponibilidade de recursos Web entre browsers. O projeto `web-features`, coordenado pelo W3C WebDX Community Group, fornece dados versionáveis para esses status.
+
+Referências:
+
+- https://github.com/web-platform-dx/web-features
+- https://web-platform-dx.github.io/web-features-project/
+
+Configuração:
+
+```text
+RASAI_WEB_PLATFORM_BASELINE=true|false
+RASAI_WEB_FEATURES_DATASET=<caminho versionado>
+```
+
+O RASAi não produz cobertura Baseline apenas porque um dataset existe. É necessário também mapear recursos efetivamente usados pela página para IDs `web-features` de forma reproduzível.
+
+Estados esperados:
+
+- sem dataset: `NOT_CONFIGURED`;
+- dataset disponível, mas sem detector/mapeamento suficiente: `NO_DATA`;
+- nenhuma nota de compatibilidade é inventada por aproximação silenciosa.
+
+## Open Web Performance APIs
+
+O collector `OPEN-WEB-METRICS-001` lê métricas do browser já aberto e não cria nova navegação contra o target.
+
+Referências:
+
+- Performance Timeline: https://www.w3.org/TR/performance-timeline/
+- Navigation Timing: https://www.w3.org/TR/navigation-timing-2/
+- Resource Timing: https://www.w3.org/TR/resource-timing/
+- Event Timing: https://www.w3.org/TR/event-timing/
+
+Default:
+
+```text
+RASAI_OPEN_WEB_METRICS=true
+```
+
+Desligamento:
+
+```text
+RASAI_OPEN_WEB_METRICS=false
+```
 
 ## Métricas derivadas RASAi
 
+As métricas abaixo são calculadas sobre evidência persistida. Elas não são scores oficiais dos fornecedores citados nas referências.
+
 ### Crawlability Coverage
 
-Relação: **5/5**.
-
-Fórmula atual:
+Relação: 5/5.
 
 ```text
 URLs com BR-GEO-005 = PASS
@@ -87,13 +361,13 @@ URLs com BR-GEO-005 = PASS
 URLs com recuperabilidade determinável
 ```
 
-A métrica mede recuperabilidade técnica do universo auditado. `UNKNOWN` e estados não determináveis não são transformados em falha por conveniência.
+Estados desconhecidos não são convertidos em falha.
 
 ### Indexability Coverage
 
-Relação: **5/5**.
+Relação: 5/5.
 
-É uma consolidação conservadora por URL. Para a URL ser considerada positiva, os checks determinísticos de acesso/análise da página e os checks de diretivas/soft-404 dos snapshots observados precisam ser determináveis e aprovados.
+A consolidação por URL usa checks determinísticos de recuperabilidade, conteúdo analisável, soft-404 e diretivas observadas por snapshot. A URL só é positiva quando o conjunto aplicável é determinável e aprovado em todos os snapshots observados.
 
 Contrato atual usa:
 
@@ -104,13 +378,9 @@ Contrato atual usa:
 - `BR-GEO-012`;
 - `BR-GEO-016`.
 
-O resultado é **RASAi-derived**. Não é “Google Indexability Score”.
+O resultado é RASAi-derived. Não é "Google Indexability Score".
 
 ### Sitemap Coverage of Audited URLs
-
-Relação: **5/5**.
-
-Fórmula:
 
 ```text
 URLs auditadas cuja proveniência inclui SITEMAP
@@ -118,63 +388,52 @@ URLs auditadas cuja proveniência inclui SITEMAP
 URLs do universo efetivamente auditado
 ```
 
-Limite metodológico: não afirma cobertura integral de todas as URLs que existem no site. Mede apenas o universo incluído na auditoria.
+A métrica não afirma cobertura de todas as URLs existentes no site. Mede o universo efetivamente auditado.
 
-### Canonical Declaration Coverage
+### Canonical
 
-Percentual de snapshots que possuem canonical explícito.
+Métricas:
 
-Ausência de canonical e canonical inválido são conceitos diferentes. Por isso esta métrica é separada de `Canonical Consistency Rate`.
+- `Canonical Declaration Coverage`: snapshots com canonical explícito / snapshots observados;
+- `Canonical Consistency Rate`: `BR-GEO-013 = PASS` / snapshots com canonical declarado.
 
-### Canonical Consistency Rate
-
-Relação: **5/5**.
-
-Usa `BR-GEO-013` como fonte determinística e calcula PASS sobre snapshots com canonical declarado. Não reimplementa a interpretação de canonical em um segundo motor.
+Ausência de canonical e canonical inválido permanecem conceitos separados.
 
 ### Structured Data
 
-Métricas atuais:
+Métricas:
 
 - `Structured Data Coverage`;
 - `Structured Data Validity Rate`, baseada em `BR-GEO-034`;
 - `Structured Data to Visible Content Consistency`, baseada em `BR-GEO-036`;
 - `Structured Entity Consistency`, baseada em `BR-GEO-037`.
 
-Estas consolidações são derivadas do rule engine já persistido. Não substituem Rich Results Test e não afirmam elegibilidade para um rich result específico quando essa condição não foi medida.
+Elas não afirmam elegibilidade para rich result específico quando essa condição não foi medida.
 
-### HTTP Success e Error Rate
+### HTTP e TTFB
 
 Métricas atuais:
 
 - `HTTP 2xx Success Rate`;
-- `HTTP 5xx Rate`.
+- `HTTP 5xx Rate`;
+- `TTFB p50`;
+- `TTFB p75`;
+- `TTFB p95`;
+- `TTFB p99`.
 
-Fonte: status HTTP dos `DEVICE_SNAPSHOT` persistidos.
+TTFB vem do `OPEN-WEB-METRICS-001` e representa o universo observado na auditoria. Não é RUM e não equivale a percentil CrUX.
 
-### TTFB p50, p75, p95 e p99
+## Information Retrieval
 
-Fonte: `OPEN-WEB-METRICS-001`, `Navigation Timing` no mesmo browser snapshot.
-
-São percentis do universo observado nesta auditoria, não dados RUM e não equivalem ao percentil CrUX.
-
-## Métricas de Information Retrieval
-
-Relação: **5/5**.
-
-O RASAi calcula localmente as fórmulas. Não é necessário contratar um serviço externo para a matemática.
+O cálculo é local e não exige serviço externo.
 
 ### Domain MRR
 
-Quando Search Intelligence possui várias observações de query para um domínio de interesse:
-
 ```text
-RR(query) = 1 / primeira posição do domínio
+RR(query) = 1 / primeira posição observada do domínio
 RR(query) = 0 quando o domínio não foi observado
 MRR = média dos RR
 ```
-
-Isso mede quão cedo o domínio aparece no conjunto de queries observadas.
 
 ### Domain SERP Visibility Rate
 
@@ -186,254 +445,39 @@ queries com observação persistida
 
 ### Precision@10, nDCG@10 e Judged-result MRR
 
-Só são calculados quando existem **relevance judgments** explícitos e persistidos em metadata do resultado (`relevance_grade` ou `relevant`).
+Essas métricas só são calculadas quando existem relevance judgments explícitos em metadata persistida (`relevance_grade` ou `relevant`). Posição alta não é usada como sinônimo de relevância.
 
-O RASAi não presume que posição alta significa relevância e não pede a uma IA para fabricar qrels silenciosamente.
+### Recall@k
 
-`Recall@k` exige conhecer ou estimar de forma contratada o conjunto total de documentos relevantes. Enquanto esse denominador não existir de forma reproduzível, o RASAi não publica Recall apenas para preencher uma tabela.
+Recall exige o número total de documentos relevantes para a query. Enquanto esse denominador não existir como qrel/julgamento reproduzível, o RASAi não publica Recall artificialmente.
 
-## W3C Nu HTML Checker
+## Console e rasai-console.ini
 
-### Para que serve
+A categoria **Métricas e padrões** expõe os controles desta família.
 
-Valida conformidade de documentos HTML e retorna mensagens estruturadas. O RASAi usa a interface moderna do W3C HTML Checker, não a API SOAP histórica.
+Podem ser persistidos no INI:
 
-Referências oficiais:
+- toggles de serviço;
+- property Search Console;
+- período/limites GSC;
+- limites e timeout de standards;
+- caminho de dataset WebDX;
+- demais configurações não secretas.
 
-- API e orientação para usar `/nu/`: https://validator.w3.org/docs/api
-- serviço moderno: https://validator.w3.org/nu/
+Nunca são persistidos no INI:
 
-### Comportamento RASAi
+- API keys;
+- access tokens;
+- refresh tokens;
+- passwords;
+- client secrets;
+- DSNs contendo credencial.
 
-- default: ligado;
-- credencial: não necessária;
-- escopo: `URL`;
-- limite default: 10 URLs por auditoria por meio de `RASAI_STANDARDS_MAX_URLS`;
-- timeout default: 20 segundos;
-- saída: PASS, FAIL, INDETERMINATE ou ERROR, além de contagem de erros/warnings;
-- não existe “W3C Score” inventado pelo RASAi.
+Nos serviços dirigidos por credencial, ausência de override significa "auto quando os requisitos estiverem presentes". O console não deve apresentar `false` como se fosse o default efetivo desses serviços.
 
-O serviço público deve ser usado de forma bounded e razoável. Para SaaS com volume significativo, recomenda-se self-host do Nu Checker ou outra implantação controlada compatível.
+## SaaS e workers
 
-Para desligar:
-
-```text
-RASAI_W3C_VALIDATOR=false
-```
-
-## MDN HTTP Observatory
-
-### Para que serve
-
-Avalia postura de segurança HTTP, principalmente políticas e headers de resposta, e retorna grade/score calculados pela própria fonte.
-
-Referências oficiais:
-
-- FAQ e API v2: https://developer.mozilla.org/en-US/observatory/docs/faq
-- endpoint: `https://observatory-api.mdn.mozilla.net/api/v2/scan`
-
-### Comportamento RASAi
-
-- default: ligado;
-- credencial: não necessária;
-- escopo: `ORIGIN`;
-- uma origem não é repetida por URL/device;
-- o RASAi preserva `grade`, `score`, testes e `algorithm_version` quando retornados;
-- o score continua identificado como score da fonte MDN Observatory;
-- não altera SARI.
-
-Importante: o uso do endpoint público inicia/consulta um scan externo do host. Isso é um efeito de privacidade e operação diferente de uma análise puramente local.
-
-Para desligar:
-
-```text
-RASAI_MDN_OBSERVATORY=false
-```
-
-Para SaaS em escala ou ambientes restritos, avaliar a execução local/self-host da ferramenta em vez de depender do serviço público.
-
-## Web Platform Baseline / WebDX
-
-### Para que serve
-
-Baseline fornece status de disponibilidade de recursos da Web entre browsers. O projeto `web-features`, coordenado pelo W3C WebDX Community Group, é fonte de dados para esses status e publica o pacote `web-features`.
-
-Referências:
-
-- projeto WebDX/web-features: https://github.com/web-platform-dx/web-features
-- visão do projeto: https://web-platform-dx.github.io/web-features-project/
-
-### Estado atual no RASAi
-
-A capacidade e seu estado já estão modelados, mas o RASAi **não inventa cobertura Baseline** apenas porque o dataset existe. É necessário também mapear features efetivamente usadas pela página para IDs `web-features` de forma reproduzível.
-
-Por isso:
-
-- `RASAI_WEB_PLATFORM_BASELINE=true` é o default;
-- sem dataset versionado, estado `NOT_CONFIGURED`;
-- com dataset mas sem observação mapeável suficiente, estado `NO_DATA`;
-- nenhuma nota de compatibilidade é produzida por aproximação heurística silenciosa.
-
-Dataset:
-
-```text
-RASAI_WEB_FEATURES_DATASET=<caminho versionado>
-```
-
-## Google PageSpeed Insights / Lighthouse
-
-### Para que serve
-
-Coleta medição de laboratório Lighthouse e recomendações/categorias suportadas pela PageSpeed Insights API.
-
-Referência oficial:
-
-https://developers.google.com/speed/docs/insights/v5/get-started
-
-A documentação oficial permite uso com ou sem API key e recomenda key para consultas frequentes/automatizadas. A política do RASAi é mais restritiva: **automação PageSpeed fica desabilitada até uma API key estar configurada**.
-
-### Criar a chave
-
-1. Acesse Google Cloud Console: https://console.cloud.google.com/
-2. Crie ou selecione um projeto.
-3. Habilite a API PageSpeed Insights para o projeto.
-4. Abra `APIs & Services > Credentials`.
-5. Crie uma API key e aplique restrições adequadas ao seu ambiente.
-6. Configure somente no ambiente/secret store:
-
-```text
-RASAI_PAGESPEED_API_KEY=<segredo>
-```
-
-Com a chave presente e sem override, o serviço fica elegível automaticamente.
-
-Desligamento explícito:
-
-```text
-RASAI_PAGESPEED_ENABLED=false
-```
-
-## Chrome UX Report API
-
-### Para que serve
-
-Fornece dados agregados de experiência real na granularidade disponível para URL/origin, incluindo Core Web Vitals.
-
-Referência oficial:
-
-https://developer.chrome.com/docs/crux/api
-
-A documentação oficial exige Google Cloud API key com `Chrome UX Report API` provisionada.
-
-### Criar a chave
-
-1. Acesse https://console.cloud.google.com/
-2. Crie ou selecione um projeto.
-3. Habilite `Chrome UX Report API`.
-4. Abra `APIs & Services > Credentials`.
-5. Crie/restrinja uma API key.
-6. Configure:
-
-```text
-RASAI_CRUX_API_KEY=<segredo>
-```
-
-Desligamento explícito:
-
-```text
-RASAI_CRUX_ENABLED=false
-```
-
-O PageSpeed pode devolver dados CrUX em sua resposta, mas o Google informa intenção de descontinuar esse acoplamento. Para dados de campo, a integração CrUX dedicada é tratada como fonte explícita e mais estável.
-
-## Google Search Console
-
-### Para que serve
-
-A Search Console API fornece, conforme permissão da propriedade:
-
-- Search Analytics;
-- Sitemaps;
-- Sites/properties;
-- URL Inspection.
-
-Referências oficiais:
-
-- visão da API: https://developers.google.com/webmaster-tools
-- referência: https://developers.google.com/webmaster-tools/v1/api_reference_index
-- pré-requisitos: https://developers.google.com/webmaster-tools/v1/prereqs
-- autorização OAuth 2.0: https://developers.google.com/webmaster-tools/v1/how-tos/authorizing
-- URL Inspection: https://developers.google.com/webmaster-tools/v1/urlInspection.index/inspect
-
-### Credencial
-
-Search Console usa OAuth 2.0 para dados privados da conta. O fluxo recomendado para SaaS é Authorization Code/OIDC-compatible account connection com refresh token protegido em secret store, não um token bearer persistido em `audit.db` ou INI.
-
-O runtime local existente aceita token temporário via:
-
-```text
-RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN=<segredo>
-```
-
-Também é necessário que o usuário autenticado tenha acesso à propriedade Search Console compatível com o target. URL Inspection requer `inspectionUrl`, `siteUrl` e escopo OAuth apropriado (`webmasters.readonly` ou `webmasters`).
-
-Desligamento explícito:
-
-```text
-RASAI_GSC_ENABLED=false
-```
-
-Limite importante: URL Inspection descreve o estado conhecido no índice do Google. Não deve ser apresentada como teste live de indexabilidade universal.
-
-## Open Web Performance APIs
-
-Referências centrais:
-
-- Performance Timeline: https://www.w3.org/TR/performance-timeline/
-- Navigation Timing: https://www.w3.org/TR/navigation-timing-2/
-- Resource Timing: https://www.w3.org/TR/resource-timing/
-- Event Timing: https://www.w3.org/TR/event-timing/
-
-O collector `OPEN-WEB-METRICS-001` lê estado do browser já aberto. Não cria request adicional ao target e não chama API externa.
-
-Default:
-
-```text
-RASAI_OPEN_WEB_METRICS=true
-```
-
-Para desligar:
-
-```text
-RASAI_OPEN_WEB_METRICS=false
-```
-
-## Organização dos relatórios
-
-A página canônica `report/standards.html` concentra:
-
-- catálogo dos serviços;
-- estado por integração;
-- toggle correspondente;
-- escopo da evidência;
-- relação com o RASAi;
-- métricas materializadas e sua fonte.
-
-A mesma informação é projetada sem duplicação semântica nas superfícies onde faz sentido:
-
-- `index.html`: resumo executivo das métricas mais relacionadas ao RASAi;
-- `crawling-discovery.html`: crawlability, indexability, sitemap, canonical e structured data;
-- `search-intelligence.html`: MRR, visibilidade e métricas de IR quando há judgments;
-- `web-performance.html`: Open Web Metrics, PageSpeed/Lighthouse e CrUX;
-- `context.html`: topologia de ORIGIN, URL, DEVICE_SNAPSHOT e PROFILE_MEASUREMENT.
-
-Quando houver múltiplas URLs, o relatório deve identificar se o valor é por URL, por snapshot, por origem ou uma consolidação do universo auditado. Média implícita entre páginas não é permitida.
-
-## Impacto e paridade SaaS
-
-### Payload de AuditJob
-
-O SaaS transporta somente escolhas não secretas. Foram adicionadas opções estruturadas para:
+O `AuditJob` carrega somente escolhas não secretas. A superfície inclui:
 
 - `open_web_metrics`;
 - `derived_readiness_metrics`;
@@ -444,68 +488,100 @@ O SaaS transporta somente escolhas não secretas. Foram adicionadas opções est
 - `pagespeed_enabled`;
 - `crux_enabled`;
 - `gsc_enabled`;
+- `gsc_site_url`;
+- `gsc_search_analytics_days`;
+- `gsc_search_max_rows`;
+- `gsc_final_data_lag_days`;
 - `standards_max_urls`;
 - `standards_timeout_seconds`.
 
-Omissão e customização são preservadas no payload durável.
+Regras:
 
-Para serviços com credencial:
+- campo booleano omitido pode permitir resolução por requisitos no worker quando o serviço não depende de contexto tenant-específico;
+- `false` desliga explicitamente;
+- `true` solicita execução, mas credencial/contexto ausente mantém a integração não configurada;
+- Search Console exige property do próprio job para ativação automática no SaaS;
+- API key/token permanecem no secret store do worker.
 
-- campo omitido: o worker pode aplicar default dirigido pela credencial disponível no ambiente dele;
-- `false`: desliga explicitamente;
-- `true`: solicita execução, mas a ausência de credencial mantém o serviço não configurado.
-
-### Secret store
-
-O payload nunca leva API key/token. Workers recebem segredos por deployment secret store/variáveis protegidas. Isso mantém o control plane independente do segredo bruto e evita replicação para `AUD-*/audit.db`.
-
-### API do SaaS
-
-O SaaS Pilot expõe:
+A API SaaS expõe:
 
 ```text
 GET /api/v1/audit-job-options
 GET /api/v1/standards/services
 ```
 
-O segundo endpoint retorna metadados, docs, nomes das variáveis e estado de capability do processo API, mas **nunca valores de credencial**. Em topologias onde API e worker têm secret stores diferentes, esse estado é apenas hint do processo API; a aptidão efetiva final é resolvida pelo worker.
+O catálogo de serviços fornece finalidade, relação com RASAi, escopos, variáveis requeridas, links oficiais, estado de configuração e itens ausentes. Valores de credencial nunca são retornados.
 
-### Custo operacional mesmo sem fee de provider
+## Organização dos relatórios
 
-“Sem custo de provider” não significa “sem impacto de infraestrutura”. Defaults externos adicionam:
+`report/standards.html` concentra:
+
+- serviços e estado operacional;
+- relação com o RASAi;
+- escopo;
+- toggle;
+- necessidade de credencial;
+- métricas materializadas;
+- fonte e metodologia.
+
+As métricas também são projetadas nas superfícies onde fazem sentido:
+
+- `index.html`: resumo executivo com escopo explícito;
+- `crawling-discovery.html`: crawlability, indexability, sitemap, canonical e structured data;
+- `search-intelligence.html`: MRR, visibilidade e métricas IR;
+- `web-performance.html`: Open Web Metrics, PageSpeed/Lighthouse e CrUX;
+- `observability.html`: Search Console e demais outcomes externos;
+- `context.html`: topologia de ORIGIN, URL, DEVICE_SNAPSHOT e PROFILE_MEASUREMENT.
+
+Em múltiplas URLs, qualquer consolidação deve indicar denominador/universo. O relatório não usa a primeira URL como se representasse o domínio inteiro e não publica média sem explicar a agregação.
+
+## Impacto SaaS
+
+"Sem custo de provider" não significa "sem custo operacional". Serviços externos gratuitos podem adicionar:
 
 - egress;
-- latência de auditoria;
+- latência;
 - dependência de disponibilidade pública;
-- possibilidade de rate limit;
-- uso de CPU/armazenamento para persistir resultados;
-- no MDN Observatory, exposição do hostname ao serviço público de scan.
+- rate limit/quota;
+- armazenamento de artifacts;
+- exposição de hostname ou URL a terceiros.
 
-Para SaaS em escala, priorizar self-host/cache/datasets versionados antes de aumentar frequência ou universo de URLs.
+Para escala SaaS, a ordem preferencial é:
 
-## O que permanece fora do default automático
+1. coleta local/browser já existente;
+2. cálculo derivado sobre evidência persistida;
+3. dataset versionado local;
+4. API oficial autenticada do cliente;
+5. serviço público externo bounded;
+6. self-host de ferramentas gratuitas quando volume/privacidade justificarem.
+
+## Capacidades ainda não materializadas como default conclusivo
+
+### Web Platform Baseline completo
+
+O estado e dataset estão modelados, mas falta um detector de uso de features Web com mapeamento reproduzível para `web-features`. Até isso existir, o RASAi retorna `NO_DATA` em vez de inventar cobertura.
 
 ### Browsertime / sitespeed.io
 
-É tecnicamente aderente para synthetic journeys e múltiplos browsers, mas adiciona runtime/dependências próprias e pode duplicar parte da coleta Playwright atual. Deve entrar como `SyntheticMeasurementProvider`, não como chamada silenciosa no core.
+É tecnicamente aderente para journeys e múltiplos browsers. Deve entrar como `SyntheticMeasurementProvider` quando o ganho superar a sobreposição com Playwright.
 
 Referência: https://www.sitespeed.io/documentation/browsertime/
 
 ### WebPageTest
 
-Permanece provider opcional futuro. Há forte sobreposição com Lighthouse/Browsertime e dependência de serviço externo.
+Pode ser provider sintético opcional, mas sobrepõe Lighthouse/Browsertime e adiciona dependência externa.
 
 ### SSL Labs
 
-Permanece provider opcional futuro. Antes de uso SaaS deve haver validação explícita de termos de uso, limites e política comercial da API.
+Pode complementar postura TLS, mas uso SaaS exige validação de termos, limites e política comercial antes de ativação automática.
 
 ### axe-core direto
 
-O RASAi já recebe uma camada automatizada de acessibilidade via Lighthouse. Executar axe separadamente só deve entrar se houver ganho comprovado de cobertura/proveniência sem dupla contagem do mesmo finding.
+Lighthouse já fornece uma camada automatizada de acessibilidade baseada no ecossistema axe. Uma execução adicional só deve ser incluída se trouxer cobertura/proveniência adicional sem dupla contagem.
 
-## Proveniência
+## Proveniência mínima
 
-Sempre que uma nova fonte for incorporada, o contrato deve preservar no mínimo:
+Cada nova fonte deve preservar, quando aplicável:
 
 ```text
 source
@@ -520,4 +596,4 @@ source_score
 normalized_or_derived_value
 ```
 
-Nem todos os campos precisam existir como colunas físicas independentes; podem ser materializados em metadata estruturada, desde que sejam reabríveis e auditáveis.
+Os campos podem estar em metadata estruturada desde que permaneçam reabríveis, versionáveis e auditáveis.
