@@ -15,7 +15,6 @@ from rasai.improvement_intelligence import (
     REPORT_FILE,
     ImprovementConfig,
     execute_improvement_intelligence,
-    write_improvement_report,
 )
 from rasai.operational_log import try_append_operational_event
 
@@ -26,6 +25,9 @@ _SURFACE_ID = "improvement-intelligence"
 def _install_report_contract() -> None:
     from rasai import context_scope_runtime, report_contract, report_manifest, report_navigation, report_registry
 
+    # Compatibility only. The current public contract declares the surface statically
+    # in report_contract; this branch supports older composed imports without creating a
+    # second registry when the static declaration is already present.
     if not any(surface.id == _SURFACE_ID for surface in report_contract.REPORT_SURFACES):
         surface = report_contract.ReportSurface(
             id=_SURFACE_ID,
@@ -49,8 +51,8 @@ def _install_report_contract() -> None:
                 "postura de segurança passiva e remediações",
                 "impacto potencial por Performance/SEO/Best Practices/Acessibilidade/AI Access/Security",
             ),
-            required_dependencies=("exatamente uma URL de entrada", "audit.db"),
-            optional_dependencies=("provider de IA explícito", "Web Performance/Lighthouse", "Search Intelligence"),
+            required_dependencies=("audit.db",),
+            optional_dependencies=("exatamente uma URL de entrada", "provider de IA explícito", "Web Performance/Lighthouse", "Search Intelligence"),
             ai_usage=(
                 "Quando habilitada, executa análise estruturada própria com provider/modelo/esforço escolhidos para esta finalidade, "
                 "reutilizando somente a credencial já configurada. Cada tentativa é registrada em ai_provider_attempts."
@@ -172,8 +174,7 @@ def _install_ai_cost_attribution() -> None:
 
 
 def _install_report_completion() -> None:
-    from rasai import report_completion, report_navigation
-    from rasai.report_manifest import write_report_manifest
+    from rasai import report_completion
 
     if getattr(report_completion, "_rasai_improvement_intelligence_completion", False):
         return
@@ -266,35 +267,20 @@ def _install_report_completion() -> None:
                     scoring_impact="NONE",
                 )
 
+        # The canonical report finalizer now owns the Improvement Intelligence page,
+        # navigation normalization and manifest write. This wrapper executes only the
+        # optional analysis before that finalizer, avoiding duplicate HTML/manifest I/O.
         base = original(
             audit_id=audit_id,
             workspace=workspace,
             context_interpretations=context_interpretations,
             routing_snapshot=routing_snapshot,
         )
-        errors = [*base.renderer_errors, *errors]
-        try:
-            write_improvement_report(audit_id=audit_id, workspace=workspace)
-            report_dir = Path(workspace.root) / "report"
-            report_navigation.normalize_report_navigation(report_dir)
-            write_report_manifest(report_dir)
-        except Exception as exc:
-            errors.append(f"improvement-report:{type(exc).__name__}:{str(exc)[:240]}")
-            try_append_operational_event(
-                workspace,
-                "IMPROVEMENT_INTELLIGENCE_REPORT_FAILURE",
-                level="WARNING",
-                audit_id=audit_id,
-                error_type=type(exc).__name__,
-                error_message=str(exc)[:512],
-            )
-
-        inspected = report_completion.inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
         return report_completion.AuditReportCompletion(
-            expected_pages=inspected.expected_pages,
-            generated_pages=inspected.generated_pages,
-            missing_pages=inspected.missing_pages,
-            renderer_errors=tuple(errors),
+            expected_pages=base.expected_pages,
+            generated_pages=base.generated_pages,
+            missing_pages=base.missing_pages,
+            renderer_errors=tuple((*base.renderer_errors, *errors)),
         )
 
     report_completion.finalize_audit_report_site = finalize_with_improvement
