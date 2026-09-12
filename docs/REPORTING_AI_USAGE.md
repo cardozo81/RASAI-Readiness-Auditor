@@ -76,9 +76,9 @@ Além dos indicadores existentes, `ai-usage.html` contém o bloco **Total de IA 
 
 A página apresenta três níveis complementares:
 
-1. **Mapa de alocação: relatório × provider/modelo** — mostra financeiramente em qual HTML cada provider/modelo ficou alocado;
-2. **Consumo global por provider/modelo** — consolida o custo de cada provider/modelo independentemente da superfície;
-3. **Detalhamento por relatório proprietário** — expande URL, dispositivo, contrato/finalidade, motivo da alocação, provider/modelo, status, tokens e custo.
+1. **Mapa de alocação: relatório × provider/modelo** - mostra financeiramente em qual HTML cada provider/modelo ficou alocado;
+2. **Consumo global por provider/modelo** - consolida o custo de cada provider/modelo independentemente da superfície;
+3. **Detalhamento por relatório proprietário** - expande URL, dispositivo, contrato/finalidade, motivo da alocação, provider/modelo, status, tokens e custo.
 
 A soma das páginas proprietárias deve fechar com o total da execução porque uma tentativa nunca é atribuída a duas superfícies. Páginas sem consumo direto são listadas separadamente e não entram novamente na soma.
 
