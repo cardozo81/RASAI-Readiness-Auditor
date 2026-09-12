@@ -24,6 +24,10 @@ from rasai.report_scope_clarity import install as install_report_scope_clarity
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.runtime_contract_compatibility import install_runtime_contract_compatibility
+from rasai.standards_runtime import (
+    install_post_context as install_standards_post_context,
+    install_pre_context as install_standards_pre_context,
+)
 from rasai.target_input_runtime import install as install_target_input_runtime
 
 _LOGGER = logging.getLogger(__name__)
@@ -125,11 +129,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         from rasai.provider_cli import main as provider_main
         return provider_main(effective[1:])
 
+    # Standards/service metadata must exist before context projects the canonical
+    # report contract. Collection/report wrappers are installed after the existing
+    # browser/external-measurement runtime so they can compose rather than replace it.
+    install_standards_pre_context()
     install_report_registry()
     install_context_scope_runtime()
     install_m3_render_deadline_runtime()
     install_target_input_runtime()
     install_external_measurement_runtime()
+    install_standards_post_context()
     install_ai_efficiency_policy()
     install_runtime_completion_extensions()
     install_report_observation_reconciliation()
