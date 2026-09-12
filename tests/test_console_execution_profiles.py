@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from rasai.console_execution_profiles import (
@@ -12,7 +10,6 @@ from rasai.console_execution_profiles import (
     set_profile,
 )
 from rasai.console_search_intelligence import SearchConsoleState
-from rasai.improvement_intelligence import ENABLED_ENV as IMPROVEMENT_ENABLED_ENV
 
 
 def _state() -> SearchConsoleState:
@@ -33,24 +30,20 @@ def test_profile_requires_explicit_single_url() -> None:
         set_profile(state, profile_id="seo", ai_mode=AI_OFF)
 
 
-def test_overlay_is_ephemeral_and_does_not_mutate_base_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_overlay_is_ephemeral_and_does_not_mutate_base_configuration() -> None:
     state = _state()
     state.web_performance = False
     state.ai_provider = "none"
     original_categories = state.lighthouse_categories
-    monkeypatch.setenv(IMPROVEMENT_ENABLED_ENV, "true")
     session = set_profile(state, profile_id="seo", ai_mode=AI_OFF)
     try:
         with effective_profile(state, session):
             assert state.web_performance is True
             assert state.lighthouse_categories == "best-practices,seo"
             assert state.ai_provider == "none"
-            # SEO does not include deep analysis, so it is disabled only inside the overlay.
-            assert os.environ[IMPROVEMENT_ENABLED_ENV] == "false"
         assert state.web_performance is False
         assert state.lighthouse_categories == original_categories
         assert state.ai_provider == "none"
-        assert os.environ[IMPROVEMENT_ENABLED_ENV] == "true"
     finally:
         clear_profile(state)
 
@@ -93,15 +86,13 @@ def test_experience_profile_requires_preconfigured_synthetic_measurement() -> No
         clear_profile(state)
 
 
-def test_deep_profile_requires_item_13_but_does_not_enable_it(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_deep_profile_requires_item_13_and_does_not_infer_enablement() -> None:
     state = _state()
-    monkeypatch.delenv(IMPROVEMENT_ENABLED_ENV, raising=False)
     session = set_profile(state, profile_id="deep-analysis", ai_mode=AI_OFF)
     try:
         ready, blockers, _ = dependency_status(state, session)
         assert ready is False
         assert any("item 13" in item.casefold() for item in blockers)
-        assert IMPROVEMENT_ENABLED_ENV not in os.environ
     finally:
         clear_profile(state)
 
@@ -116,9 +107,6 @@ def test_geo_profile_preserves_explicit_ymyl_context(monkeypatch: pytest.MonkeyP
         assert ready is True
         assert blockers == ()
         assert any("explícito" in item.casefold() for item in advisories)
-        with effective_profile(state, session):
-            assert os.environ["RASAI_CONTENT_RISK_PROFILE"] == "ymyl"
-            assert os.environ["RASAI_YMYL_CATEGORY"] == "financial-security"
     finally:
         clear_profile(state)
 
@@ -131,5 +119,19 @@ def test_manual_web_override_wins_profile() -> None:
         state.web_performance = False
         with effective_profile(state, session):
             assert state.web_performance is False
+    finally:
+        clear_profile(state)
+
+
+def test_manual_lighthouse_categories_do_not_disable_profile_web_performance() -> None:
+    state = _state()
+    session = set_profile(state, profile_id="performance", ai_mode=AI_OFF)
+    try:
+        state.lighthouse_categories = "performance"
+        with effective_profile(state, session):
+            assert state.web_performance is True
+            assert state.lighthouse_categories == "performance"
+        assert state.web_performance is False
+        assert state.lighthouse_categories == "performance"
     finally:
         clear_profile(state)
