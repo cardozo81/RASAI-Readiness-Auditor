@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 SARI_VERSION = "SARI-001"
-REPORT_CONTRACT_VERSION = "REPORT-CONTRACT-002"
+REPORT_CONTRACT_VERSION = "REPORT-CONTRACT-003"
 OBSERVABILITY_CONTRACT_VERSION = "OBSERVABILITY-CONTRACT-001"
 
 
@@ -122,11 +122,23 @@ REPORT_SURFACES: tuple[ReportSurface, ...] = (
         filename="web-performance.html",
         label="Web Performance",
         optional=False,
-        inputs=("estado da coleta", "PageSpeed/Lighthouse quando habilitado", "CrUX quando disponível"),
-        outputs=("estado da integração", "métricas de laboratório quando coletadas", "Core Web Vitals de campo quando disponíveis", "telemetria de coleta"),
+        inputs=("estado da coleta", "Open Web Metrics", "PageSpeed/Lighthouse quando habilitado", "CrUX quando disponível"),
+        outputs=("estado da integração", "métricas browser-native", "métricas de laboratório quando coletadas", "Core Web Vitals de campo quando disponíveis", "telemetria de coleta"),
         optional_dependencies=("PageSpeed API", "CrUX API"),
         ai_usage="Nenhum.",
         score_impact="Nenhum impacto no SCORE-GEO-004.",
+    ),
+    ReportSurface(
+        id="standards",
+        filename="standards.html",
+        label="Métricas e padrões",
+        optional=False,
+        inputs=("audit.db", "RuleExecutions", "SERP observations", "serviços de padrões habilitados"),
+        outputs=("métricas derivadas", "Information Retrieval", "conformidade W3C", "postura HTTP", "estado de integrações"),
+        optional_dependencies=("W3C Nu", "MDN Observatory", "WebDX dataset", "Google APIs configuradas"),
+        ai_usage="Nenhum. Métricas de IR podem usar apenas relevance judgments já persistidos; não chamam IA para inventar relevância.",
+        score_impact="Nenhum impacto automático em SARI-001/SCORE-GEO-004.",
+        source_of_truth="audit.db + respostas externas persistidas em tabelas aditivas",
     ),
     ReportSurface(
         id="search-intelligence",
@@ -261,6 +273,7 @@ _REPORT_SURFACE_ORDER = (
     "desktop",
     "accessibility",
     "web-performance",
+    "standards",
     "apdex",
     "apdex-experience",
     "search-intelligence",
