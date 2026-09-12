@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import io
 from contextlib import redirect_stdout
 from unittest.mock import patch
@@ -63,3 +64,25 @@ def test_nonsecret_variable_screen_distinguishes_default_from_override() -> None
     assert "usando default do runtime" in rendered
     assert "Nenhuma ação é necessária" in rendered
     assert "Remover override e voltar ao default" in rendered
+
+
+def test_standards_console_install_repairs_catalog_drift_after_prior_install() -> None:
+    facade = _installed_facade()
+    base = facade.base_environment
+
+    drifted = tuple(
+        replace(spec, category="Aplicação e execução", default=None)
+        if spec.name == "RASAI_STANDARDS_MAX_URLS"
+        else spec
+        for spec in base.SPECS
+    )
+    base.SPECS = drifted
+    base.SPEC_BY_NAME = {spec.name: spec for spec in drifted}
+    base._rasai_standards_service_catalog = True
+
+    install_standards_console_runtime()
+    facade.refresh_specs()
+
+    healed = next(item for item in facade.SPECS if item.name == "RASAI_STANDARDS_MAX_URLS")
+    assert healed.category == "Métricas e padrões"
+    assert healed.default == "10"
