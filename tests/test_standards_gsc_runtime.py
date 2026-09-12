@@ -17,7 +17,8 @@ from rasai.standards_gsc_policy import (
     search_analytics_days,
     search_max_rows,
 )
-from rasai.standards_service_registry import GSC_SITE_URL_ENV, service, service_state
+from rasai.standards_saas_runtime import install as install_saas_runtime
+from rasai.standards_service_registry import GSC_ENABLED_ENV, GSC_SITE_URL_ENV, service, service_state
 
 
 def test_gsc_service_requires_token_and_property() -> None:
@@ -109,3 +110,33 @@ def test_bounded_gsc_collection_uses_existing_collectors_without_exposing_token(
     assert date.fromisoformat(calls["search"]["start_date"]) == date.fromisoformat(calls["search"]["end_date"])
     assert "top-secret-token" not in repr(result)
     assert calls["sitemaps"]["access_token"] == "top-secret-token"
+
+
+def test_saas_job_without_gsc_property_masks_worker_global_property(monkeypatch) -> None:
+    monkeypatch.setenv(GSC_SITE_URL_ENV, "sc-domain:wrong-tenant.example")
+    monkeypatch.setenv("RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN", "worker-secret")
+    install_saas_runtime()
+    from rasai import audit_execution_contract as contract
+
+    auto = contract.audit_job_environment_overrides({})
+    explicit = contract.audit_job_environment_overrides({"gsc_enabled": True})
+    disabled = contract.audit_job_environment_overrides({"gsc_enabled": False})
+
+    assert auto[GSC_SITE_URL_ENV] == ""
+    assert auto[GSC_ENABLED_ENV] == "false"
+    assert explicit[GSC_SITE_URL_ENV] == ""
+    assert disabled[GSC_SITE_URL_ENV] == ""
+
+
+def test_saas_job_property_is_the_only_gsc_property_context(monkeypatch) -> None:
+    monkeypatch.setenv(GSC_SITE_URL_ENV, "sc-domain:wrong-tenant.example")
+    monkeypatch.setenv("RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN", "worker-secret")
+    install_saas_runtime()
+    from rasai import audit_execution_contract as contract
+
+    overrides = contract.audit_job_environment_overrides({
+        "gsc_site_url": "sc-domain:correct.example",
+        "gsc_enabled": None,
+    })
+    assert overrides[GSC_SITE_URL_ENV] == "sc-domain:correct.example"
+    assert GSC_ENABLED_ENV not in overrides
