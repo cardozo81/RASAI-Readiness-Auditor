@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Este contrato consolida disponibilidade e comportamento HTTP a partir da **aquisição física M2 já executada por URL**. Nenhuma request adicional ao website é criada para calcular estas métricas.
+Este contrato consolida disponibilidade, comportamento e duração HTTP a partir da **aquisição física M2 já executada por URL**. Nenhuma request adicional ao website é criada para calcular estas métricas.
 
 Relação com RASAi: **4/5**. Um crawler, buscador ou agente não consegue interpretar conteúdo que não consegue recuperar de forma consistente; ainda assim, estas métricas permanecem diagnósticas e não alteram automaticamente `SARI-001`/`SCORE-GEO-004`.
 
@@ -18,7 +18,7 @@ O contrato operacional portanto:
 unidade física = page_id / URL auditada
 ```
 
-A consolidação deduplica `raw_http` por `page_id` antes de calcular taxas.
+A consolidação deduplica `raw_http` por `page_id` antes de calcular taxas e percentis.
 
 ## Métricas
 
@@ -100,6 +100,29 @@ Aquisições físicas redirecionadas
 
 A métrica não afirma, sozinha, que um redirect cross-host é incorreto. Migrações, canonicalização de host e autenticação podem torná-lo intencional. Ela sinaliza topologia observada.
 
+### HTTP Acquisition Duration p50 / p75 / p95 / p99
+
+Fonte: `raw_http.duration_ms` da aquisição M2, após deduplicação por `page_id`.
+
+Os quatro percentis mostram distribuição de duração das aquisições físicas do universo auditado, em vez de depender de uma média que pode esconder cauda longa.
+
+```text
+HTTP Acquisition Duration p50
+HTTP Acquisition Duration p75
+HTTP Acquisition Duration p95
+HTTP Acquisition Duration p99
+```
+
+A duração M2 representa o tempo total observado pela aquisição HTTP direta do RASAi. Ela **não** é:
+
+- TTFB de `Navigation Timing` no browser;
+- Core Web Vital;
+- CrUX/RUM;
+- duração de ação Apdex;
+- SLA universal do site.
+
+Falhas de transporte podem possuir `duration_ms`; quando o M2 materializa uma duração finita, ela faz parte da distribuição porque representa tempo realmente consumido pela tentativa física.
+
 ## Escopo e persistência
 
 As métricas consolidadas usam `scope=URL_SET`, com detalhes que preservam:
@@ -107,8 +130,9 @@ As métricas consolidadas usam `scope=URL_SET`, com detalhes que preservam:
 - quantidade de URLs auditadas;
 - quantidade de observações físicas encontradas;
 - quantidade de statuses HTTP determináveis;
+- quantidade de durações determináveis;
 - chave de deduplicação `page_id`;
-- metodologia de cada taxa.
+- metodologia de cada taxa/percentil.
 
 A fonte é identificada como a aquisição física M2 persistida em `page_snapshots.browser_metadata.raw_http`.
 
