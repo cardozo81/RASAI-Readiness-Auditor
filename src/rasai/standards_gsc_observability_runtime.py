@@ -73,6 +73,9 @@ _GSC_METRICS_BY_OPERATION: dict[str, tuple[str, ...]] = {
         "gsc_returned_distinct_query_url_pairs",
     ),
 }
+_ALL_GSC_METRIC_IDS = tuple(
+    dict.fromkeys(metric_id for metric_ids in _GSC_METRICS_BY_OPERATION.values() for metric_id in metric_ids)
+)
 
 _GSC_REPORT_PANEL_MARKERS = (
     "RASAI_GSC_OBSERVATIONAL_METRICS",
@@ -237,13 +240,38 @@ def _successful_operation_names(result: Mapping[str, Any]) -> set[str]:
     }
 
 
+def _delete_metric_ids(*, audit_id: str, workspace: Any, metric_ids: tuple[str, ...]) -> None:
+    if not metric_ids:
+        return
+    connection = sqlite3.connect(workspace.database)
+    try:
+        exists = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='standards_metric_observations'"
+        ).fetchone()
+        if exists is None:
+            return
+        placeholders = ",".join("?" for _ in metric_ids)
+        with connection:
+            connection.execute(
+                f"DELETE FROM standards_metric_observations WHERE audit_id=? AND metric_id IN ({placeholders})",
+                (audit_id, *metric_ids),
+            )
+    finally:
+        connection.close()
+
+
+def _clear_all_gsc_metric_projections(*, audit_id: str, workspace: Any) -> None:
+    """Clear old advisory projections while preserving observability history."""
+    _delete_metric_ids(audit_id=audit_id, workspace=workspace, metric_ids=_ALL_GSC_METRIC_IDS)
+
+
 def _clear_metrics_without_current_success(
     *,
     audit_id: str,
     workspace: Any,
     result: Mapping[str, Any],
 ) -> None:
-    """Hide stale GSC projections when their operation did not succeed this run.
+    """Hide GSC projections when their operation did not succeed this run.
 
     Raw historical datasets remain untouched in observability.db. Only the advisory
     audit.db projection for the current audit/report is removed.
@@ -255,24 +283,7 @@ def _clear_metrics_without_current_success(
         if operation not in successful
         for metric_id in metric_ids
     )
-    if not stale_metric_ids:
-        return
-
-    connection = sqlite3.connect(workspace.database)
-    try:
-        exists = connection.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='standards_metric_observations'"
-        ).fetchone()
-        if exists is None:
-            return
-        placeholders = ",".join("?" for _ in stale_metric_ids)
-        with connection:
-            connection.execute(
-                f"DELETE FROM standards_metric_observations WHERE audit_id=? AND metric_id IN ({placeholders})",
-                (audit_id, *stale_metric_ids),
-            )
-    finally:
-        connection.close()
+    _delete_metric_ids(audit_id=audit_id, workspace=workspace, metric_ids=stale_metric_ids)
 
 
 def _remove_marked_panel(path: Path, marker: str) -> bool:
@@ -353,6 +364,13 @@ def install() -> None:
     original = report_completion.finalize_audit_report_site
 
     def finalize_with_gsc(*, audit_id: str, workspace: Any, context_interpretations=(), routing_snapshot=None):
+        report_dir = workspace.root / "report"
+
+        # Remove old GSC projections before the base renderer can read them. The raw
+        # observability history is intentionally preserved in observability.db.
+        _clear_all_gsc_metric_projections(audit_id=audit_id, workspace=workspace)
+        _clear_gsc_report_panels(report_dir)
+
         base = original(
             audit_id=audit_id,
             workspace=workspace,
@@ -360,22 +378,33 @@ def install() -> None:
             routing_snapshot=routing_snapshot,
         )
         errors = list(base.renderer_errors)
+        result: Mapping[str, Any] = {"operations": [], "effective_enabled": False}
         try:
+            # The base renderer may reuse an existing report file. Remove GSC marker
+            # blocks once more before current-run enrichment.
+            _clear_gsc_report_panels(report_dir)
             result = collect_configured_search_console(audit_id=audit_id, workspace=workspace)
             _update_service_run(audit_id=audit_id, workspace=workspace, result=result)
             if bool(result.get("effective_enabled")):
                 enrich_observability_report(audit_workspace=workspace.root)
-                reconcile_gsc_observational_metrics(audit_id=audit_id, workspace=workspace)
-                reconcile_gsc_crawl_freshness_metrics(audit_id=audit_id, workspace=workspace)
-                reconcile_gsc_sitemap_metrics(audit_id=audit_id, workspace=workspace)
-                reconcile_gsc_visibility_counts(audit_id=audit_id, workspace=workspace)
+                try:
+                    reconcile_gsc_observational_metrics(audit_id=audit_id, workspace=workspace)
+                    reconcile_gsc_crawl_freshness_metrics(audit_id=audit_id, workspace=workspace)
+                    reconcile_gsc_sitemap_metrics(audit_id=audit_id, workspace=workspace)
+                    reconcile_gsc_visibility_counts(audit_id=audit_id, workspace=workspace)
+                finally:
+                    # Reconcilers use persisted latest datasets; this filter guarantees
+                    # that only families successful in this finalization survive.
+                    _clear_metrics_without_current_success(
+                        audit_id=audit_id,
+                        workspace=workspace,
+                        result=result,
+                    )
+            else:
+                _clear_metrics_without_current_success(audit_id=audit_id, workspace=workspace, result=result)
 
-            _clear_metrics_without_current_success(audit_id=audit_id, workspace=workspace, result=result)
-            report_dir = workspace.root / "report"
-            _clear_gsc_report_panels(report_dir)
-
-            # standards.html is a full render from audit.db, so regenerate it even when
-            # GSC is disabled/partial after stale projections have been removed.
+            # standards.html is a full render from audit.db. Always regenerate after
+            # projection cleanup, including when GSC is disabled or partially skipped.
             write_standards_report(audit_id=audit_id, workspace=workspace)
 
             if bool(result.get("effective_enabled")):
@@ -387,10 +416,14 @@ def install() -> None:
                 report_navigation.normalize_report_navigation(report_dir)
                 enhance_report_directory(report_dir)
 
-            # Report hashes must match the post-cleanup/post-projection files even when
-            # the service is disabled and only stale panels were removed.
+            # Hashes must describe post-cleanup/post-projection files even when the
+            # service is disabled and only stale content was removed.
             write_report_manifest(report_dir)
         except Exception as exc:
+            # No failure in configuration/composition may resurrect historical GSC
+            # data as current. The sidecar itself is never deleted.
+            _clear_metrics_without_current_success(audit_id=audit_id, workspace=workspace, result=result)
+            _clear_gsc_report_panels(report_dir)
             errors.append(f"gsc-runtime:{type(exc).__name__}:{redact_text(str(exc)[:500])}")
 
         inspected = report_completion.inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
