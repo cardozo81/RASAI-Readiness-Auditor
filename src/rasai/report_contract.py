@@ -4,6 +4,10 @@ Public report URLs are version-neutral. Method and product versions belong to
 persisted metadata and report content, never to the canonical filename. This module
 is the single source of truth for navigation, completeness checks, report manifests
 and SaaS/API projection.
+
+Every canonical surface is structurally materialized in the final audit mini-site.
+``ReportSurface.optional`` describes whether the domain data/capability is optional;
+it does not mean that the HTML surface may disappear from the final navigation.
 """
 from __future__ import annotations
 
@@ -127,6 +131,18 @@ REPORT_SURFACES: tuple[ReportSurface, ...] = (
         optional_dependencies=("PageSpeed API", "CrUX API"),
         ai_usage="Nenhum.",
         score_impact="Nenhum impacto no SCORE-GEO-004.",
+    ),
+    ReportSurface(
+        id="standards",
+        filename="standards.html",
+        label="Métricas e padrões",
+        optional=True,
+        inputs=("estado dos serviços de padrões", "W3C HTML/CSS quando executado", "MDN Observatory quando executado", "Web Platform Baseline quando materializável", "métricas derivadas persistidas"),
+        outputs=("estado explícito das integrações", "observações de padrões e compatibilidade", "métricas derivadas advisory"),
+        optional_dependencies=("W3C Nu HTML Checker", "W3C CSS Validator", "MDN HTTP Observatory", "dataset WebDX/web-features"),
+        ai_usage="Nenhum.",
+        score_impact="Nenhum impacto automático no SARI-001 ou SCORE-GEO-004; métricas de padrões permanecem complementares/advisory salvo mapeamento explícito de evidência contratado.",
+        source_of_truth="audit.db + artifacts e estados persistidos pelos serviços de padrões",
     ),
     ReportSurface(
         id="search-intelligence",
@@ -289,6 +305,7 @@ _REPORT_SURFACE_ORDER = (
     "desktop",
     "accessibility",
     "web-performance",
+    "standards",
     "apdex",
     "apdex-experience",
     "search-intelligence",
