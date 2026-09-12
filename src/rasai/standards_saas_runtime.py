@@ -1,8 +1,8 @@
 """SaaS reconciliation for credential-driven standards services.
 
-Durable payloads preserve explicit choices only. Omitting PageSpeed/CrUX delegates to
-the worker credential-driven default. Search Console additionally requires job-scoped
-property context so one tenant cannot inherit another property's configuration.
+Durable payloads preserve explicit choices only. Omitted/null PageSpeed and CrUX
+controls delegate to worker requirements. Search Console additionally requires
+job-scoped property context so one tenant cannot inherit another property's context.
 """
 from __future__ import annotations
 
@@ -25,8 +25,12 @@ def _requirements_ready(service_id: str) -> bool:
     return all((os.environ.get(name) or "").strip() for name in required_names)
 
 
+def _explicit(payload: Mapping[str, Any], field: str) -> bool:
+    return field in payload and payload[field] is not None
+
+
 def _requested(payload: Mapping[str, Any], field: str, service_id: str) -> bool:
-    if field in payload:
+    if _explicit(payload, field):
         return bool(payload[field]) and _requirements_ready(service_id)
     return bool(service_state(service(service_id))["effective_enabled"])
 
@@ -43,17 +47,17 @@ def install() -> None:
 
     def environment_overrides(payload: Mapping[str, Any]) -> dict[str, str]:
         overrides = dict(original_environment(payload))
-        # PageSpeed/CrUX may safely inherit a worker-level secret when the job omitted
-        # the corresponding toggle. No target/property context is embedded in the key.
+        # PageSpeed/CrUX may inherit worker-level credentials when the job is in auto
+        # mode. Their keys do not embed tenant/property context.
         for field in ("pagespeed_enabled", "crux_enabled"):
-            if field not in payload:
+            if not _explicit(payload, field):
                 overrides.pop(_CREDENTIAL_FIELDS[field], None)
 
-        # Search Console is tenant/property scoped. Credential-driven enablement is
-        # allowed only when this durable job carries its own non-secret property.
-        if "gsc_enabled" not in payload and str(payload.get("gsc_site_url") or "").strip():
+        # Search Console is property scoped. Auto enablement requires the property to
+        # be carried by this durable job; worker-global property context is not trusted.
+        if not _explicit(payload, "gsc_enabled") and str(payload.get("gsc_site_url") or "").strip():
             overrides.pop(GSC_ENABLED_ENV, None)
-        elif "gsc_enabled" not in payload:
+        elif not _explicit(payload, "gsc_enabled"):
             overrides[GSC_ENABLED_ENV] = "false"
         return overrides
 
@@ -65,9 +69,9 @@ def install() -> None:
     def audit_arguments(store: Any, job: Any, audits_root: Any) -> list[str]:
         argv = list(original_arguments(store, job, audits_root))
         payload = job.payload
-        # The aggregate web-performance switch is part of the current prepublication
-        # contract. When explicitly present it remains authoritative for that job;
-        # otherwise PageSpeed/CrUX service readiness can activate the aggregate runtime.
+        # The aggregate web-performance switch is a current hard-off when explicitly
+        # present in the job. Otherwise individual PageSpeed/CrUX readiness may activate
+        # the aggregate runtime needed by M21.
         if "web_performance" in payload:
             return argv
         should_enable = (
