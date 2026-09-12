@@ -33,6 +33,7 @@ from rasai.runtime_completion_extensions import install_runtime_completion_exten
 from rasai.runtime_contract_compatibility import install_console_runtime_contract_compatibility
 from rasai.runtime_progress_gate import install_search_progress_gate
 from rasai.standards_console_runtime import install as install_standards_console_runtime
+from rasai.standards_css_validation import install as install_standards_css_validation
 from rasai.standards_gsc_observability_runtime import install as install_standards_gsc_observability_runtime
 from rasai.standards_ir_reconciliation import install as install_standards_ir_reconciliation
 from rasai.standards_m21_reconciliation import install as install_standards_m21_reconciliation
@@ -65,6 +66,7 @@ def main() -> int:
     install_standards_post_context()
     install_standards_ir_reconciliation()
     install_standards_operational_reconciliation()
+    install_standards_css_validation()
     install_standards_m21_reconciliation()
     install_standards_gsc_observability_runtime()
     prepare_console_config()
