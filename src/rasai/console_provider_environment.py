@@ -18,6 +18,7 @@ from rasai.console_configuration_guidance import (
     context_for,
     decision_badge,
     grouped_by_context,
+    normalize_spec,
     normalize_specs,
     prompt_guided_value,
     render_enrichment,
@@ -49,6 +50,10 @@ _CATEGORY_GUIDANCE: dict[str, tuple[str, ...]] = {
     ),
     "IA - contexto editorial / YMYL": (
         "Contexto explícito melhora interpretação sem criar score YMYL/E-E-A-T.",
+    ),
+    "IA - análise profunda": (
+        "Provider, modelo, reasoning e domínios pertencem ao mesmo contexto de Improvement Intelligence.",
+        "Modelo e reasoning passam a usar a lista válida do provider selecionado quando essa dependência é conhecida.",
     ),
     "Search Intelligence / Observability": (
         "SERP e observabilidade são independentes do SARI/SCORE-GEO.",
@@ -83,9 +88,6 @@ _CATEGORY_GUIDANCE: dict[str, tuple[str, ...]] = {
 
 
 def _build_specs() -> tuple[EnvironmentSpec, ...]:
-    # SPECS is the runtime-composed catalog. Calling environment_specs() here would
-    # rebuild only the generic base factory and silently discard metadata installed by
-    # standards, synthetic profiles and other runtime extensions.
     specs = list(base_environment.SPECS)
     by_name = {spec.name: index for index, spec in enumerate(specs)}
 
@@ -208,6 +210,10 @@ def _selection_state(spec: EnvironmentSpec) -> str:
 
 def _variable_menu(state: object, spec: EnvironmentSpec) -> None:
     while True:
+        # Re-evaluate dependent domains on every visit. Example: the valid model and
+        # reasoning lists for Improvement Intelligence depend on the provider selected
+        # immediately before this screen.
+        spec = normalize_spec(spec)
         base_environment.render_header(state)
         _breadcrumb(spec.category, context_for(spec), spec.name)
         base_environment._render_detail(spec)
@@ -258,6 +264,8 @@ def _variable_menu(state: object, spec: EnvironmentSpec) -> None:
                 base_environment._sync_secret_state(state, spec.name)
             base_environment._apply_change(state, spec.name)
             setattr(state, "operation", "LOCAL:CONFIG_UPDATED")
+            # Recompose metadata after a dependency such as provider changed.
+            refresh_specs()
         except (ValueError, OverflowError) as exc:
             setattr(state, "error", str(exc))
 
@@ -269,7 +277,8 @@ def _category_menu(state: object, title: str, specs: tuple[EnvironmentSpec, ...]
         _breadcrumb(title)
         _guidance(title)
         visible = tuple(
-            spec for spec in specs
+            normalize_spec(spec)
+            for spec in specs
             if not configured_only or bool((os.environ.get(spec.name) or "").strip())
         )
         if not visible:
@@ -278,10 +287,7 @@ def _category_menu(state: object, title: str, specs: tuple[EnvironmentSpec, ...]
             print(paint(f"\n[{context}]", CYAN, bold=True))
             for index, spec in rows:
                 status = base_environment._status(spec)
-                print(
-                    f"{index:2d}. {spec.name:<44} {status:<20} "
-                    f"{decision_badge(spec)}"
-                )
+                print(f"{index:2d}. {spec.name:<44} {status:<20} {decision_badge(spec)}")
         print("\nAÇÕES")
         print("F. " + ("Mostrar todas" if configured_only else "Mostrar somente definidas"))
         print("D. Abrir documentação detalhada")
@@ -304,8 +310,10 @@ def _category_menu(state: object, title: str, specs: tuple[EnvironmentSpec, ...]
 def environment_menu(state: object) -> None:
     """Show the complete registry-aware configuration catalog by functional context."""
     refresh_specs()
-    grouped = {category: tuple(spec for spec in SPECS if spec.category == category) for category in CATEGORIES}
     while True:
+        # Rebuild category slices each pass so runtime-added/dependent metadata remains
+        # current after edits made in nested screens.
+        grouped = {category: tuple(spec for spec in SPECS if spec.category == category) for category in CATEGORIES}
         base_environment.render_header(state)
         _breadcrumb("Configuração avançada")
         print("FLUXO RECOMENDADO")
