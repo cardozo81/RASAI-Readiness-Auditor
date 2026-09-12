@@ -10,8 +10,9 @@ from rasai.standards_gsc_metrics import reconcile_gsc_observational_metrics
 def _audit_database(path):
     connection = sqlite3.connect(path)
     try:
-        connection.execute(
-            """CREATE TABLE standards_metric_observations (
+        connection.executescript(
+            """
+            CREATE TABLE standards_metric_observations (
                 observation_id TEXT PRIMARY KEY,
                 audit_id TEXT NOT NULL,
                 metric_id TEXT NOT NULL,
@@ -29,7 +30,21 @@ def _audit_database(path):
                 relation_degree INTEGER NOT NULL,
                 details_json TEXT NOT NULL,
                 observed_at TEXT NOT NULL
-            )"""
+            );
+            CREATE TABLE pages (
+                page_id TEXT PRIMARY KEY,
+                audit_id TEXT NOT NULL,
+                normalized_url TEXT NOT NULL
+            );
+            """
+        )
+        connection.executemany(
+            "INSERT INTO pages VALUES (?,?,?)",
+            (
+                ("PAGE-A", "AUD-GSC-METRICS", "https://example.test/a"),
+                ("PAGE-B", "AUD-GSC-METRICS", "https://example.test/b"),
+                ("PAGE-C", "AUD-GSC-METRICS", "https://example.test/c"),
+            ),
         )
         connection.commit()
     finally:
@@ -169,6 +184,9 @@ def test_gsc_metrics_use_only_latest_persisted_datasets(tmp_path) -> None:
     reconcile_gsc_observational_metrics(audit_id="AUD-GSC-METRICS", workspace=workspace)
     metrics = _metrics(audit_db)
 
+    assert metrics["gsc_url_inspection_response_coverage"]["value"] == 66.667
+    assert metrics["gsc_url_inspection_response_coverage"]["numerator"] == 2.0
+    assert metrics["gsc_url_inspection_response_coverage"]["denominator"] == 3.0
     assert metrics["gsc_url_inspection_verdict_pass_rate"]["value"] == 50.0
     assert metrics["gsc_url_inspection_verdict_pass_rate"]["denominator"] == 2.0
     assert metrics["gsc_indexing_allowed_rate"]["value"] == 50.0
@@ -188,6 +206,9 @@ def test_gsc_metrics_use_only_latest_persisted_datasets(tmp_path) -> None:
 
     inspection_details = json.loads(metrics["gsc_url_inspection_verdict_pass_rate"]["details_json"])
     assert inspection_details["dataset_id"] == "NEW-UI"
+    coverage_details = json.loads(metrics["gsc_url_inspection_response_coverage"]["details_json"])
+    assert coverage_details["dataset_id"] == "NEW-UI"
+    assert "bounded" in coverage_details["boundary"]
     search_details = json.loads(metrics["gsc_returned_row_impressions"]["details_json"])
     assert search_details["dataset_id"] == "NEW-SA"
     assert "top rows" in search_details["boundary"]
@@ -207,7 +228,7 @@ def test_gsc_metrics_are_idempotent_for_same_latest_datasets(tmp_path) -> None:
         count = connection.execute("SELECT COUNT(*) FROM standards_metric_observations").fetchone()[0]
     finally:
         connection.close()
-    assert count == 11
+    assert count == 12
 
 
 def test_gsc_metrics_do_nothing_without_observability_sidecar(tmp_path) -> None:
