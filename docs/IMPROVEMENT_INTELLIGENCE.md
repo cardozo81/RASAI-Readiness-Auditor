@@ -4,9 +4,9 @@
 
 `IMPROVEMENT-INTELLIGENCE-001` transforma evidências já coletadas pelo RASAi em um backlog de melhoria por **uma única URL explicitamente configurada**.
 
-A feature é deliberadamente separada do SARI/SCORE-GEO:
+A feature é deliberadamente separada do `SARI-001`/`SCORE-GEO-004`:
 
-- **SARI/SCORE-GEO mede** readiness de forma determinística;
+- **SARI-001/SCORE-GEO-004 mede** readiness de forma determinística;
 - **Improvement Intelligence interpreta e recomenda**;
 - **Opportunity Priority** ordena correções pelo impacto potencial, severidade, confiança e esforço;
 - **nova auditoria / before-after comprova** o ganho efetivamente observado.
@@ -161,6 +161,8 @@ A configuração não sensível é persistida em `rasai-console.ini` na seção 
 Credenciais nunca são gravadas no INI.
 
 A execução ocorre depois da auditoria normal e, quando Search Intelligence foi habilitado na mesma sessão, depois da coleta SERP. O progresso mostra fase, URL, provider/modelo e andamento da análise profunda antes de concluir a execução.
+
+Dentro de `rasai-console`, o item 13 é a autoridade de ativação da etapa. O toggle de ambiente é neutralizado durante a auditoria base e restaurado depois para impedir execução oculta ou duplicada. O contrato por variável continua disponível para CLI, worker/SaaS e automação.
 
 ## SaaS / Control Plane
 
