@@ -210,6 +210,11 @@ def _install_improvement_environment_contract() -> None:
     for name in _IMPROVEMENT_ENV_NAMES:
         if name not in console_environment.ENV_NAMES:
             console_environment.ENV_NAMES = (*console_environment.ENV_NAMES, name)
+    if "IA - análise profunda" not in console_environment.CATEGORIES:
+        categories = list(console_environment.CATEGORIES)
+        insert_at = categories.index("IA - contexto editorial / YMYL") + 1
+        categories.insert(insert_at, "IA - análise profunda")
+        console_environment.CATEGORIES = tuple(categories)
 
     provider_ids = tuple(item.id for item in provider_registrations())
     domains_csv = ",".join(DEFAULT_DOMAINS)
@@ -371,6 +376,16 @@ def _install_improvement_environment_contract() -> None:
     console_environment._validate = validate_with_improvement_contract
     console_environment.SPECS = console_environment.environment_specs()
     console_environment.SPEC_BY_NAME = {spec.name: spec for spec in console_environment.SPECS}
+
+    # The provider-aware facade is imported before runtime extensions by the public
+    # console entrypoint. Refresh it after composing the base catalog so the actual
+    # user-facing menu sees the same variables, categories and validation metadata.
+    try:
+        from rasai import console_provider_environment
+        console_provider_environment.refresh_specs()
+    except Exception:
+        pass
+
     console_environment._rasai_improvement_environment_current = True
 
 
