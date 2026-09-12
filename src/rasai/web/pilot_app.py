@@ -10,6 +10,7 @@ from typing import Any, Iterator
 
 from fastapi import Request
 
+from rasai.standards_runtime import install_service_contract
 from rasai.synthetic_profile_saas_runtime import install as install_synthetic_profile_saas_runtime
 
 from .app import ApiSettings, SearchRepositoryFactory, StoreFactory, create_app as create_api_app
@@ -18,6 +19,7 @@ from .authz import Principal
 from .identity_routes import install_identity_routes
 from .pilot import install_pilot_routes
 from .saas_management_routes import install_saas_management_routes
+from .standards_routes import install_standards_routes
 
 
 def create_app(
@@ -27,9 +29,10 @@ def create_app(
     search_repository_factory: SearchRepositoryFactory | None = None,
     principal_resolver: PrincipalResolver | None = None,
 ) -> Any:
-    # create_app is also a supported direct ASGI composition path. Install the same
-    # durable synthetic-profile contract used by the top-level router and worker so
-    # API validation/options do not depend on how the application was launched.
+    # The service contract extends the durable, secret-free AUDIT payload before the
+    # synthetic-profile wrapper composes its own fields. Direct ASGI use therefore has
+    # the same options as CLI-launched SaaS.
+    install_service_contract()
     install_synthetic_profile_saas_runtime()
 
     app = create_api_app(
@@ -58,6 +61,10 @@ def create_app(
     install_saas_management_routes(
         app,
         store_dependency=store_dependency,
+        principal_dependency=principal_dependency,
+    )
+    install_standards_routes(
+        app,
         principal_dependency=principal_dependency,
     )
     return app
