@@ -45,7 +45,7 @@ def _validate_gsc_site_url(raw: str) -> str:
 
 
 def _ensure_nonsecret_service_context_specs(base_environment: object, console_config: object) -> None:
-    """Upsert non-secret GSC context so repeated installs repair catalog drift."""
+    """Upsert non-secret service context so repeated installs repair catalog drift."""
     category = "Métricas e padrões"
     source = "docs/STANDARDS_METRICS_AND_SERVICES.md"
     specs = list(base_environment.SPECS)
@@ -95,6 +95,33 @@ def _ensure_nonsecret_service_context_specs(base_environment: object, console_co
             impact="Sem custo direto; altera o período consultado.",
             source=source,
             notes="Default 3 dias, alinhado à disponibilidade típica documentada pelo Google; faixa 0 a 30.",
+        ),
+        base_environment.EnvironmentSpec(
+            WEB_FEATURES_DATASET_ENV,
+            category,
+            (
+                "Caminho local para um arquivo de dataset versionado do projeto WebDX/web-features. "
+                "É usado como requisito da capacidade Web Platform Baseline; não é uma enumeração."
+            ),
+            "caminho de arquivo existente",
+            default=None,
+            required_when=(
+                "Opcional. Necessário para configurar o requisito de dataset da análise Web Platform Baseline. "
+                "Sem ele, o serviço fica NOT_CONFIGURED."
+            ),
+            sensitive=False,
+            impact="Leitura local; sem chamada externa e sem custo de provider.",
+            example=r"C:\dados\web-features\web-features.json",
+            source=(
+                "docs/WEB_PLATFORM_BASELINE.md | dataset oficial: "
+                "https://github.com/web-platform-dx/web-features"
+            ),
+            notes=(
+                "Valor permitido: qualquer caminho para arquivo existente acessível ao processo. "
+                "O runtime atual valida a existência e registra a referência, mas ainda não possui o detector/mapeador "
+                "versionado de uso de features; portanto a análise Baseline permanece NO_DATA mesmo com o arquivo "
+                "configurado. Não interpretar esta variável, isoladamente, como capacidade Baseline plenamente ativa."
+            ),
         ),
     )
     for spec in additions:
@@ -173,7 +200,10 @@ def install() -> None:
         if name == WEB_FEATURES_DATASET_ENV:
             path = Path(value).expanduser()
             if not path.is_file():
-                raise ValueError(f"{name}: dataset configurado não existe")
+                raise ValueError(
+                    f"{name}: informe o caminho para um arquivo web-features versionado existente; "
+                    "não há lista fechada de valores"
+                )
             return str(path)
         if name == GSC_SITE_URL_ENV:
             return _validate_gsc_site_url(value)
