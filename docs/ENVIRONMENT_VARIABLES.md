@@ -4,14 +4,17 @@ Referência operacional da superfície de variáveis reconhecida pelo RASAi - Se
 
 **Verificação contra o runtime:** 11/09/2026.
 
+O RASAi está em fase pré-publicação. Esta referência descreve somente o contrato atual do produto. Coexistência de controles ou aliases técnicos não representa compatibilidade com uma versão pública anterior.
+
 Variáveis de ambiente são *overrides* avançados. Quando existe um default seguro, o runtime aplica esse valor mesmo que a variável não esteja materializada no sistema operacional. Segredos não devem ser gravados em `rasai-console.ini`, arquivos de URL, relatórios, bancos ou logs.
 
 ## Como interpretar as tabelas
 
 - **Default efetivo:** valor usado pelo runtime na ausência de override.
-- **Valores permitidos:** domínio validado pelo código. Quando a célula descreve um tipo/faixa, qualquer valor que satisfaça aquela validação pode ser aceito.
-- **Recomendado:** configuração operacional indicada para o uso normal. Quando consta “default”, a recomendação é não criar a variável apenas para repetir o valor já aplicado internamente.
-- **Sem default:** a aplicação não inventa um valor. A variável só deve ser definida quando a integração ou o modo correspondente realmente exigir.
+- **Valores permitidos:** domínio validado pelo código.
+- **Recomendado:** configuração operacional indicada para o uso normal.
+- **Sem default:** a aplicação não inventa um valor.
+- Em serviços dirigidos por credencial, **auto por requisitos** significa: sem override do toggle, o serviço só fica elegível quando credencial e demais configurações obrigatórias existem.
 - Valores booleanos aceitam, conforme a superfície de validação, formas equivalentes como `true`/`false`, `1`/`0`, `yes`/`no` e `on`/`off`. Para documentação e automação, prefira `true` ou `false`.
 
 ## 1. Aplicação, execução e apresentação temporal
@@ -25,12 +28,12 @@ Variáveis de ambiente são *overrides* avançados. Quando existe um default seg
 | `RASAI_DEVICE_CONTEXT` | `mobile` | `mobile`, `desktop`, `both` | `mobile` para execução mínima; `both` quando a auditoria precisar dos dois contextos | device padrão quando CLI/menu não sobrescrevem |
 | `RASAI_PRESENTATION_TIMEZONE` | `America/Sao_Paulo` | identificador IANA válido; offsets fixos como `-03:00` não são aceitos | `America/Sao_Paulo` no produto Brasil; alterar apenas quando a apresentação exigir outro fuso | timezone de apresentação; não altera timestamps canônicos UTC |
 | `RASAI_AI_TIMEOUT_SECONDS` | `180` | número `> 0`, em segundos | `180` | timeout máximo por tentativa de IA |
-| `RASAI_AI_AUTO_EXCLUDE` | vazio | CSV ou lista separada por `;` de providers válidos e elegíveis ao pool AUTO | vazio; exclua apenas provider que deva permanecer configurado, mas fora do AUTO | remove providers apenas do pool `AI=auto` |
+| `RASAI_AI_AUTO_EXCLUDE` | vazio | CSV ou lista separada por `;` de providers válidos e elegíveis ao pool AUTO | vazio | remove providers apenas do pool `AI=auto` |
 | `RASAI_AI_CONTENT_REMEDIATION` | `false` | booleano | `false`; habilite quando houver provider apto e a remediação por IA for desejada | habilita remediação de conteúdo por IA |
 | `RASAI_AI_TECHNICAL_REMEDIATION` | `false` | booleano | `false`; habilite apenas quando a remediação técnica advisory for necessária | habilita remediação técnica por IA |
 | `RASAI_AI_EXCHANGE_LOG_MAX_BYTES` | `524288` | inteiro de `4096` a `4194304` bytes | `524288` | limite por request/response sanitizado no log de intercâmbio de IA |
 
-No console local, a preferência normal de timezone deve ser configurada pelo item **Timezone apresentação** e persistida em `[presentation] timezone = ...` no `rasai-console.ini`. `RASAI_PRESENTATION_TIMEZONE` é um override avançado para automação/processos e não reinterpreta nem regrava timestamps canônicos UTC. O offset corrente, como `UTC-03:00`, é apenas apresentação; o valor persistido de configuração é o identificador IANA. Consulte [TIMEZONE_CONTRACT.md](TIMEZONE_CONTRACT.md).
+No console local, a preferência normal de timezone deve ser configurada pelo item **Timezone apresentação** e persistida em `[presentation] timezone = ...` no `rasai-console.ini`. `RASAI_PRESENTATION_TIMEZONE` é um override avançado para automação/processos e não reinterpreta nem regrava timestamps canônicos UTC. Consulte [TIMEZONE_CONTRACT.md](TIMEZONE_CONTRACT.md).
 
 `RASAI_AI_AUTO_EXCLUDE` não apaga credenciais nem impede seleção explícita. Exemplo: `RASAI_AI_AUTO_EXCLUDE=gemini` mantém Gemini disponível para seleção direta, mas impede chamadas Gemini durante `AI=auto`.
 
@@ -47,13 +50,13 @@ No console local, a preferência normal de timezone deve ser configurada pelo it
 | `ANTHROPIC_API_KEY` | sem default | credencial não vazia válida para Anthropic | usar somente por secret/env | necessária ao selecionar Anthropic/Claude |
 | `COPILOT_GITHUB_TOKEN` | sem default | token de usuário compatível com Copilot SDK (`github_pat_`, `gho_` ou `ghu_`); classic PAT `ghp_` não é aceito | fine-grained PAT com `Copilot Requests`, somente por secret/env | necessária ao selecionar `copilot`; usa assinatura Copilot elegível e não participa de `AI=auto` |
 
-A presença de uma credencial não prova crédito, quota, plano nem acesso ao modelo. Em `AI=auto`, entram no pool apenas providers registrados como elegíveis, com credencial/configuração válidas e não excluídos pelo usuário. GitHub Copilot é deliberadamente `explicit-only`: mesmo com `COPILOT_GITHUB_TOKEN` configurado, ele só é consumido quando selecionado de forma explícita.
+A presença de uma credencial não prova crédito, quota, plano nem acesso ao modelo. Em `AI=auto`, entram no pool apenas providers registrados como elegíveis, com credencial/configuração válidas e não excluídos pelo usuário. GitHub Copilot é `explicit-only`: mesmo com `COPILOT_GITHUB_TOKEN` configurado, ele só é consumido quando selecionado de forma explícita.
 
 As URLs oficiais para criar/gerenciar cada credencial são exibidas pelo console e consolidadas em [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
 
 ## 3. IA - modelos
 
-Os defaults abaixo são os **defaults públicos efetivamente aplicados** por `provider_runtime_policy`; eles prevalecem sobre defaults internos antigos de classes/qualificação que não representam a superfície pública atual.
+Os valores abaixo são os **defaults públicos efetivamente aplicados** pelo contrato atual de `provider_runtime_policy`.
 
 | Variável | Default efetivo | Valores permitidos pelo runtime | Recomendado |
 |---|---|---|---|
@@ -70,7 +73,7 @@ Os defaults abaixo são os **defaults públicos efetivamente aplicados** por `pr
 
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
-| `RASAI_OPENAI_REASONING_EFFORT` | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `NONE` para custo/latência mínimos; elevar deliberadamente quando a tarefa exigir |
+| `RASAI_OPENAI_REASONING_EFFORT` | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `NONE` para custo/latência mínimos |
 | `RASAI_DEEPSEEK_REASONING_EFFORT` | `NONE` | `NONE`, `LOW`, `HIGH`, `MAX` | `NONE` no uso normal |
 | `RASAI_MIMO_REASONING_EFFORT` | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH` | `NONE` no uso normal |
 | `RASAI_XAI_REASONING_EFFORT` | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH` | `LOW` no uso normal |
@@ -79,7 +82,7 @@ Os defaults abaixo são os **defaults públicos efetivamente aplicados** por `pr
 | `RASAI_ANTHROPIC_REASONING_EFFORT` | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `LOW` no uso normal |
 | `RASAI_COPILOT_REASONING_EFFORT` | não existe na superfície atual | Copilot usa `PROVIDER_DEFAULT` via SDK | não criar variável inexistente |
 
-Aumentar reasoning pode elevar latência, tokens e custo. `AI=auto` não é cadeia fixa: o runtime consulta o provider registry, monta o conjunto elegível da execução e aplica roteamento/circuit breaker conforme o contrato vigente. Consulte [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
+Aumentar reasoning pode elevar latência, tokens e custo. `AI=auto` consulta o provider registry, monta o conjunto elegível da execução e aplica roteamento/circuit breaker conforme o contrato vigente. Consulte [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
 
 ## 5. IA - endpoints avançados
 
@@ -112,19 +115,67 @@ Um campo configurado como `auto` permanece `AUTO` no estado persistido. Com IA l
 
 Detalhes: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md) e [CONTENT_CONTEXT_AI_INTERPRETATION.md](CONTENT_CONTEXT_AI_INTERPRETATION.md).
 
-## 7. Web Performance / Google APIs
+## 7. Métricas, padrões e Web Performance
+
+A referência detalhada desta família está em [STANDARDS_METRICS_AND_SERVICES.md](STANDARDS_METRICS_AND_SERVICES.md).
+
+### 7.1 Controles gerais e métricas sem credencial
 
 | Variável | Default efetivo | Valores permitidos | Recomendado | Finalidade |
 |---|---|---|---|---|
-| `RASAI_WEB_PERFORMANCE` | `false` | booleano | `false` por segurança/custo; habilitar quando a coleta for requerida | coleta externa PageSpeed/Lighthouse/CrUX |
-| `RASAI_WEB_PERFORMANCE_MAX_PAGES` | `10` | inteiro `>= 0`; `0=todas` | `10` ou limite menor para smoke/teste | teto de páginas externas |
+| `RASAI_DERIVED_READINESS_METRICS` | `true` | booleano | `true` | métricas derivadas de crawlability, indexability, canonical, sitemap, structured data e disponibilidade |
+| `RASAI_RETRIEVAL_METRICS` | `true` | booleano | `true` | MRR e métricas de Information Retrieval quando houver dados suficientes |
+| `RASAI_OPEN_WEB_METRICS` | `true` | booleano | `true` | W3C Performance APIs no browser já aberto, sem nova navegação |
+| `RASAI_W3C_VALIDATOR` | `true` | booleano | `true`, bounded; desligar em ambiente que não permita validação externa | W3C Nu HTML Checker |
+| `RASAI_MDN_OBSERVATORY` | `true` | booleano | `true`, salvo restrição de privacidade/egress | scan HTTP Observatory por origem |
+| `RASAI_WEB_PLATFORM_BASELINE` | `true` | booleano | `true`; resultado só materializa com dataset/detector suficientes | habilita capacidade WebDX/Baseline |
+| `RASAI_WEB_FEATURES_DATASET` | sem default | caminho para arquivo existente | dataset versionado `web-features` quando a análise for usada | fonte local WebDX/Baseline |
+| `RASAI_STANDARDS_MAX_URLS` | `10` | inteiro `>= 0`; `0=todas` | `10` | teto de URLs submetidas a serviços externos desta família |
+| `RASAI_STANDARDS_TIMEOUT_SECONDS` | `20` | número `> 0` e `< 3600` | `20` | timeout por request de standards |
+
+Todos possuem desligamento explícito. `RASAI_WEB_PLATFORM_BASELINE=true` sem dataset suficiente resulta em `NOT_CONFIGURED`/`NO_DATA`, nunca em nota inventada.
+
+### 7.2 Controle agregado de Web Performance
+
+| Variável | Default efetivo | Valores permitidos | Recomendado | Finalidade |
+|---|---|---|---|---|
+| `RASAI_WEB_PERFORMANCE` | `false` no controle agregado isolado; serviços individuais podem ativar a família quando seus requisitos existem e não há hard-off explícito | booleano | não materializar apenas para repetir default; use `false` quando quiser hard-off explícito da família externa | controle agregado vigente de PageSpeed/Lighthouse/CrUX |
+| `RASAI_WEB_PERFORMANCE_MAX_PAGES` | `10` | inteiro `>= 0`; `0=todas` | `10` | teto de páginas externas |
 | `RASAI_WEB_PERFORMANCE_TIMEOUT_SECONDS` | `120` | número `> 0` | `120` | timeout por request |
 | `RASAI_WEB_PERFORMANCE_FIELD_SOURCE` | `auto` | `auto`, `pagespeed`, `crux`, `none` | `auto` | política de dados de campo |
-| `RASAI_LIGHTHOUSE_CATEGORIES` | `performance,accessibility,best-practices,seo,agentic-browsing` | combinação CSV sem duplicatas de `performance`, `accessibility`, `best-practices`, `seo`, `agentic-browsing` | default de cinco categorias | categorias pedidas ao PageSpeed |
-| `RASAI_PAGESPEED_API_KEY` | sem default | API key válida | secret/env | PageSpeed Insights |
-| `RASAI_CRUX_API_KEY` | sem default | API key válida | secret/env; necessária para `field_source=crux` | CrUX direto |
+| `RASAI_LIGHTHOUSE_CATEGORIES` | `performance,accessibility,best-practices,seo,agentic-browsing` | combinação CSV sem duplicatas das categorias suportadas | default | categorias pedidas ao PageSpeed |
 
-`agentic-browsing` permanece experimental no Lighthouse. Se a resposta não trouxer a categoria, o RASAi mantém o campo como `NULL`; não converte ausência em zero e não invalida as demais categorias recebidas.
+`RASAI_WEB_PERFORMANCE=false` explícito impede a execução externa dessa família para a auditoria. Na ausência desse hard-off, PageSpeed e CrUX podem ser ativados pelos controles individuais abaixo.
+
+### 7.3 PageSpeed e CrUX
+
+| Variável | Default efetivo | Valores permitidos | Recomendado | Finalidade |
+|---|---|---|---|---|
+| `RASAI_PAGESPEED_ENABLED` | auto por requisitos; sem override | booleano | omitir para auto; `false` para desligamento explícito | liga/desliga PageSpeed individualmente |
+| `RASAI_PAGESPEED_API_KEY` | sem default | API key válida | secret/env | credencial PageSpeed Insights |
+| `RASAI_CRUX_ENABLED` | auto por requisitos; sem override | booleano | omitir para auto; `false` para desligamento explícito | liga/desliga CrUX dedicado individualmente |
+| `RASAI_CRUX_API_KEY` | sem default | API key válida | secret/env | credencial CrUX API |
+
+PageSpeed somente fica elegível quando `RASAI_PAGESPEED_API_KEY` existe. CrUX dedicado somente fica elegível quando `RASAI_CRUX_API_KEY` existe. As chaves nunca entram no INI.
+
+`agentic-browsing` permanece experimental no Lighthouse. Se a resposta não trouxer a categoria, o RASAi mantém o campo como `NULL`; ausência não é convertida em zero.
+
+### 7.4 Google Search Console
+
+| Variável | Default efetivo | Valores permitidos | Recomendado | Finalidade |
+|---|---|---|---|---|
+| `RASAI_GSC_ENABLED` | auto por requisitos; sem override | booleano | omitir para auto; `false` para desligar | habilita coleta observacional Search Console |
+| `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` | sem default | OAuth bearer token válido | secret/env temporário; SaaS deve usar secret store | credencial Search Console |
+| `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL` | sem default | `sc-domain:<domínio>` ou URL-prefix HTTP(S) absoluta | property exata que pertence ao audit/job | contexto mínimo não secreto da propriedade |
+| `RASAI_GSC_SEARCH_ANALYTICS_DAYS` | `1` | inteiro `0..31` | `1`; `0` desliga apenas Search Analytics automático | período finalizado consultado por auditoria |
+| `RASAI_GSC_SEARCH_MAX_ROWS` | `10000` | inteiro `1..50000` | `10000` ou menor se volume/quota exigirem | teto de linhas normalizadas |
+| `RASAI_GSC_FINAL_DATA_LAG_DAYS` | `3` | inteiro `0..30` | `3` | defasagem usada para preferir dados `final` |
+
+Search Console só fica `READY` com token + property. A automação bounded coleta Sitemaps, URL Inspection até `RASAI_STANDARDS_MAX_URLS` e Search Analytics finalizado conforme os limites acima. Resultados vão para `observability.db` e não alteram SARI automaticamente.
+
+A property e os limites GSC podem ser persistidos no INI. O access token nunca pode ser persistido nele.
+
+Orientação oficial para OAuth e criação de credenciais: https://developers.google.com/webmaster-tools/v1/how-tos/authorizing e https://console.cloud.google.com/apis/credentials.
 
 ## 8. Synthetic Navigation Apdex (`apdex.html`)
 
@@ -133,7 +184,7 @@ Detalhes: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md) e [CONTENT_
 | `RASAI_SYNTHETIC_APDEX` | `false` | booleano | `false`; habilitar quando houver objetivo de medição sintética |
 | `RASAI_APDEX_THRESHOLD_SECONDS` | sem default | número `> 0` | usar o SLO/KPM definido para o sistema; não inventar `T` |
 | `RASAI_APDEX_SAMPLES_PER_CONTEXT` | `100` | inteiro `>= 1` | `100` para execução representativa; reduzir apenas em smoke controlado |
-| `RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT` | `ceil(1.25 × samples)` | inteiro `>= samples` | default derivado |
+| `RASAI_APDEX_MAX_ATTEMPTS_PER_CONTEXT` | `ceil(1.25 x samples)` | inteiro `>= samples` | default derivado |
 | `RASAI_APDEX_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` como baseline seguro; ampliar conscientemente |
 | `RASAI_APDEX_TIMEOUT_SECONDS` | `max(45, 4T + 5)` | número `> 0` e `> 4T` | default derivado |
 | `RASAI_APDEX_DELAY_SECONDS` | `1` | número `>= 0` | `1` ou maior conforme sensibilidade do alvo |
@@ -148,56 +199,46 @@ Detalhes: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md) e [CONTENT_
 | `RASAI_APDEX_TABLET_HARDWARE_PROFILE` | `tablet-balanced` | `tablet-entry`, `tablet-balanced`, `tablet-premium` | `tablet-balanced`; CPU sintética, não RAM/hardware físico |
 | `RASAI_APDEX_TABLET_NETWORK_PROFILE` | `tablet-4g-balanced` | `tablet-4g-balanced`, `tablet-wifi` | `tablet-4g-balanced` como envelope controlado |
 
-Os nove presets acima controlam somente o **ambiente sintético** de execução: identidade/viewport do cliente, slowdown relativo de CPU e envelope de rede. Eles não mudam a fórmula Apdex, não alteram `SARI-001`/`SCORE-GEO-004` e não afirmam equivalência com RAM, GPU, térmica ou scheduler de um dispositivo físico. Os presets Tablet são usados pela população do Synthetic User Experience Apdex; `RASAI_DEVICE_CONTEXT` continua limitado a `mobile`, `desktop` e `both` no core da auditoria.
+Os nove presets acima controlam somente o ambiente sintético de execução: identidade/viewport do cliente, slowdown relativo de CPU e envelope de rede. Eles não mudam a fórmula Apdex, não alteram `SARI-001`/`SCORE-GEO-004` e não afirmam equivalência com RAM, GPU, térmica ou scheduler de um dispositivo físico.
 
-O threshold `T` é obrigatório quando Synthetic Navigation Apdex está habilitado porque não existe objetivo de desempenho universal defensável para todos os sites. Consulte [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md) e [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md).
+O threshold `T` é obrigatório quando Synthetic Navigation Apdex está habilitado. Consulte [SYNTHETIC_APDEX.md](SYNTHETIC_APDEX.md) e [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md).
 
 ## 9. Synthetic User Experience Apdex (`apdex-experience.html`)
-
-O recurso permanece default OFF. Quando habilitado sem override manual ou importação Dynatrace, o runtime aplica somente os defaults de referência que podem ser mapeados de forma tecnicamente defensável ao sintético do RASAi.
 
 | Variável | Default efetivo | Valores permitidos | Recomendado | Origem/observação |
 |---|---|---|---|---|
 | `RASAI_APDEX_EXPERIENCE` | `false` | booleano | `false`; habilitar deliberadamente | exige Synthetic Navigation Apdex ativo |
-| `RASAI_APDEX_EXPERIENCE_SAMPLES` | `100` | inteiro `>= 1` | `100`; ampliar quando for necessário reduzir incerteza | RASAi sintético |
-| `RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS` | `ceil(1.25 × samples)` | inteiro `>= samples` | default derivado | orçamento de tentativas por página |
-| `RASAI_APDEX_EXPERIENCE_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` como baseline seguro | RASAi sintético |
-| `RASAI_APDEX_EXPERIENCE_DEVICE_MIX` | `mobile=60,desktop=35,tablet=5` | CSV com `mobile`, `desktop` e/ou `tablet`, percentuais finitos `>=0`, soma exata `100` | usar população real conhecida quando o objetivo for comparar com RUM | peso populacional das amostras, não número de subrequests |
-| `RASAI_APDEX_EXPERIENCE_SESSION_MODE` | `cold` | `cold`, `warm` | `cold` para baseline reprodutível | não há equivalência 1:1 com RUM |
-| `RASAI_APDEX_ACQUISITION_MODE` | `auto` | `auto`, `isolated` | `auto`; use `isolated` somente para comparação/troubleshooting | `auto` reutiliza somente navegações físicas compatíveis entre os dois Apdex; não compartilha score, thresholds nem device mix |
-| `RASAI_APDEX_EXPERIENCE_KPM` | `USER_ACTION_DURATION` | `USER_ACTION_DURATION`, `DOM_INTERACTIVE`, `LOAD_EVENT_START`, `LOAD_EVENT_END`, `RESPONSE_START`, `RESPONSE_END`, `LARGEST_CONTENTFUL_PAINT` | `USER_ACTION_DURATION` no perfil compatível atual | fallback executável; `VISUALLY_COMPLETE` não é executável com semântica equivalente ao fornecedor |
-| `RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS` | `3` | número `> 0` | `3` no perfil compatível | referência/fallback Dynatrace Load |
-| `RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS` | `12` | número `> 0` e maior que o limiar Satisfied | `12` no perfil compatível | independente de `4T` |
+| `RASAI_APDEX_EXPERIENCE_SAMPLES` | `100` | inteiro `>= 1` | `100` | RASAi sintético |
+| `RASAI_APDEX_EXPERIENCE_MAX_ATTEMPTS` | `ceil(1.25 x samples)` | inteiro `>= samples` | default derivado | orçamento de tentativas por página |
+| `RASAI_APDEX_EXPERIENCE_MAX_PAGES` | `1` | inteiro `>= 0`; `0=todas` | `1` | RASAi sintético |
+| `RASAI_APDEX_EXPERIENCE_DEVICE_MIX` | `mobile=60,desktop=35,tablet=5` | CSV com percentuais não negativos e soma 100 | usar população real quando conhecida | peso populacional |
+| `RASAI_APDEX_EXPERIENCE_SESSION_MODE` | `cold` | `cold`, `warm` | `cold` | sessão sintética |
+| `RASAI_APDEX_ACQUISITION_MODE` | `auto` | `auto`, `isolated` | `auto` | compartilhamento físico somente quando compatível; avaliação permanece independente |
+| `RASAI_APDEX_EXPERIENCE_KPM` | `USER_ACTION_DURATION` | `USER_ACTION_DURATION`, `DOM_INTERACTIVE`, `LOAD_EVENT_START`, `LOAD_EVENT_END`, `RESPONSE_START`, `RESPONSE_END`, `LARGEST_CONTENTFUL_PAINT` | `USER_ACTION_DURATION` | KPM sintético |
+| `RASAI_APDEX_EXPERIENCE_SATISFIED_SECONDS` | `3` | número `> 0` | `3` | referência/fallback configurado |
+| `RASAI_APDEX_EXPERIENCE_FRUSTRATED_SECONDS` | `12` | número `> satisfied` | `12` | referência/fallback configurado |
 | `RASAI_APDEX_EXPERIENCE_ERRORS_AFFECT` | `true` | booleano | `true` | erros qualificáveis podem forçar Frustrated |
-| `RASAI_APDEX_EXPERIENCE_ERROR_SCOPE` | `first-party` | `navigation`, `first-party`, `all` | `first-party` | escolha conservadora do RASAi |
-| `RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS` | `5` | número `> 0` | `5` | janela pós-load para recursos tardios |
-| `RASAI_APDEX_EXPERIENCE_DELAY_SECONDS` | `1` | número `>= 0` | `1` ou maior conforme sensibilidade do alvo | intervalo mínimo entre ações |
+| `RASAI_APDEX_EXPERIENCE_ERROR_SCOPE` | `first-party` | `navigation`, `first-party`, `all` | `first-party` | escopo de erro |
+| `RASAI_APDEX_EXPERIENCE_SETTLE_SECONDS` | `5` | número `> 0` | `5` | janela pós-load |
+| `RASAI_APDEX_EXPERIENCE_DELAY_SECONDS` | `1` | número `>= 0` | `1` | intervalo entre ações |
 | `RASAI_APDEX_EXPERIENCE_CONCURRENCY` | `1` | `1`, `2` | `1` | workers simultâneos |
-| `RASAI_APDEX_DYNATRACE_IMPORT` | `false` | booleano | `false`; habilitar somente com configuração Dynatrace deliberada | importa calibração |
-| `RASAI_DYNATRACE_BASE_URL` | sem default | URL HTTPS absoluta | definir apenas na importação live | ambiente Dynatrace |
-| `RASAI_DYNATRACE_APPLICATION_ID` | sem default | texto não vazio | definir apenas na importação live | ID da aplicação web Dynatrace |
-| `RASAI_DYNATRACE_CONFIG_JSON` | sem default | caminho para arquivo JSON existente | **preferido à importação live quando o objetivo for reprodutibilidade** | configuração exportada/offline |
-| `DYNATRACE_API_TOKEN` | sem default | token válido | secret/env; nunca persistir | necessário somente na importação live |
+| `RASAI_APDEX_DYNATRACE_IMPORT` | `false` | booleano | `false` | importa calibração quando deliberadamente habilitado |
+| `RASAI_DYNATRACE_BASE_URL` | sem default | URL HTTPS absoluta | somente na importação live | ambiente Dynatrace |
+| `RASAI_DYNATRACE_APPLICATION_ID` | sem default | texto não vazio | somente na importação live | ID da aplicação web Dynatrace |
+| `RASAI_DYNATRACE_CONFIG_JSON` | sem default | caminho para JSON existente | preferido à importação live para reprodutibilidade | configuração exportada/offline |
+| `DYNATRACE_API_TOKEN` | sem default | token válido | secret/env; nunca persistir | importação live |
 
-`RASAI_APDEX_ACQUISITION_MODE=auto` implementa **shared acquisition, independent evaluation**. O compartilhamento só ocorre quando URL, device, perfil sintético e sessão `cold` são compatíveis e a fronteira de `load` cabe no timeout do Navigation Apdex. O Navigation mantém seu target por URL/device e sua regra `T/4T`; o Experience mantém seu target total por página, device mix, KPM, thresholds e política de erros. Consulte [SYNTHETIC_SHARED_ACQUISITION.md](SYNTHETIC_SHARED_ACQUISITION.md).
-
-### Referência Dynatrace e limite de equivalência
-
-> **Nota de direitos autorais, citação e tradução:** o material externo citado nesta seção permanece de titularidade de seu respectivo autor/mantenedor. Quando necessário para precisão técnica, o RASAi reproduz apenas o trecho estritamente necessário no idioma original, identificado como citação, seguido de tradução/adaptação para pt-BR. A tradução é informativa e não substitui o texto oficial; em caso de divergência, prevalece a fonte primária vinculada.
-
-O perfil interno `DYNATRACE_WEB_LOAD_REFERENCE_2026` usa referências públicas de Load Action para mapear KPM/thresholds sem afirmar equivalência de fornecedor. Os trechos originais e respectivas traduções pt-BR que sustentam o fallback e os valores de referência são mantidos em [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md), evitando reprodução redundante aqui.
-
-O RASAi não calcula `VISUALLY_COMPLETE` com semântica equivalente à do fornecedor; o default sintético defensável é `USER_ACTION_DURATION` com 3 s / 12 s. XHR e Custom Actions autônomas exigiriam jornadas/clickpaths compatíveis e não são inventadas a partir da navegação do crawler.
+`RASAI_APDEX_ACQUISITION_MODE=auto` implementa shared acquisition com avaliação independente. Consulte [SYNTHETIC_SHARED_ACQUISITION.md](SYNTHETIC_SHARED_ACQUISITION.md) e [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md).
 
 ## 10. Search Intelligence / Observability
 
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
 | `RASAI_SERP_MODE` | `disabled` | `disabled`, `live`, `fixture` | `disabled` no baseline; `fixture` para teste; `live` somente com BYOK e intenção de consumo |
-| `RASAI_SERP_PROVIDER` | `serpapi` | `serpapi`, `serpapi-bing`, `zenserp`, `scrapingdog` | `serpapi` como baseline existente; escolha outro provider de forma explícita conforme quota/engine |
-| `RASAI_SERPAPI_API_KEY` | sem default | credencial SerpApi válida | secret/env; exigida por `serpapi` e `serpapi-bing` |
-| `RASAI_ZENSERP_API_KEY` | sem default | credencial Zenserp válida | secret/env; exigida por `zenserp` |
-| `RASAI_SCRAPINGDOG_API_KEY` | sem default | credencial ScrapingDog válida | secret/env; exigida por `scrapingdog` |
+| `RASAI_SERP_PROVIDER` | `serpapi` | `serpapi`, `serpapi-bing`, `zenserp`, `scrapingdog` | selecionar conforme engine/quota |
+| `RASAI_SERPAPI_API_KEY` | sem default | credencial SerpApi válida | secret/env |
+| `RASAI_ZENSERP_API_KEY` | sem default | credencial Zenserp válida | secret/env |
+| `RASAI_SCRAPINGDOG_API_KEY` | sem default | credencial ScrapingDog válida | secret/env |
 | `RASAI_SERP_FIXTURE_PATH` | sem default | caminho para arquivo existente | usar somente em `fixture` |
 | `RASAI_SERP_MAX_QUERIES` | `10` | inteiro `> 0` | `10` ou menor para smoke/custo controlado |
 | `RASAI_SERP_MAX_REQUESTS` | `10` | inteiro `> 0` | `10` |
@@ -205,13 +246,14 @@ O RASAi não calcula `VISUALLY_COMPLETE` com semântica equivalente à do fornec
 | `RASAI_SERP_MAX_COMPETITORS` | `10` | inteiro `>= 0` | `10` |
 | `RASAI_SERP_TIMEOUT_SECONDS` | `20` | número `> 0` | `20` |
 | `RASAI_SERP_RETRIES` | `1` | inteiro `>= 0` | `1` |
-| `RASAI_SERP_MIN_INTERVAL_SECONDS` | `1` | número `>= 0` | `1` ou maior se o provider/alvo exigir |
-| `RASAI_SEARCH_AI_PROVIDER` | `none` | `none`, `fixture`, `openai` | `none` no baseline; `fixture` para teste; `openai` quando análise competitiva por IA for desejada |
-| `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` | sem default | OAuth bearer token válido | secret/env, temporário |
+| `RASAI_SERP_MIN_INTERVAL_SECONDS` | `1` | número `>= 0` | `1` ou maior se o provider exigir |
+| `RASAI_SEARCH_AI_PROVIDER` | `none` | `none`, `fixture`, `openai` | `none` no baseline |
 
-O provider selecionado em `RASAI_SERP_PROVIDER` determina qual variável de credencial é obrigatória. O console mostra o nome do provider, a variável esperada e a URL oficial de cadastro/login. As ofertas gratuitas verificadas em 11/09/2026 são **limitadas**; nenhuma integração SERP externa atual é classificada pelo RASAi como gratuita e ilimitada. Consulte [PROVIDER_SETUP.md](PROVIDER_SETUP.md) para URLs e notas de franquia.
+As variáveis de Search Console estão centralizadas na seção 7.4 porque agora fazem parte do catálogo unificado de métricas e serviços, embora seus dados sejam persistidos no domínio Observability.
 
-`RASAI_SERP_MAX_REQUESTS` limita tentativas HTTP do RASAi e não representa créditos comerciais do fornecedor. Em providers baseados em créditos, uma única request pode consumir mais de um crédito.
+O provider selecionado em `RASAI_SERP_PROVIDER` determina qual variável de credencial é obrigatória. O console mostra provider, variável esperada e URL oficial de cadastro/login. Ofertas gratuitas verificadas são limitadas; nenhuma integração SERP externa atual é classificada pelo RASAi como gratuita e ilimitada.
+
+`RASAI_SERP_MAX_REQUESTS` limita tentativas HTTP do RASAi e não representa créditos comerciais do fornecedor.
 
 Search Intelligence permanece separado de `SARI-001`/`SCORE-GEO-004`. Consulte [SERP_OBSERVATION.md](SERP_OBSERVATION.md), [SEARCH_INTELLIGENCE_HISTORY.md](SEARCH_INTELLIGENCE_HISTORY.md) e [SEARCH_INTELLIGENCE_MONITORING.md](SEARCH_INTELLIGENCE_MONITORING.md).
 
@@ -219,7 +261,7 @@ Search Intelligence permanece separado de `SARI-001`/`SCORE-GEO-004`. Consulte [
 
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
-| `RASAI_PLATFORM_DB_BACKEND` | `sqlite` | `sqlite`, `postgresql`; aliases internos aceitos `postgres`, `pg` | `sqlite` para operação local; `postgresql` como valor canônico para control plane centralizado/hosted |
+| `RASAI_PLATFORM_DB_BACKEND` | `sqlite` | `sqlite`, `postgresql`; aliases de parser aceitos: `postgres`, `pg` | `sqlite` para operação local; `postgresql` para control plane centralizado/hosted |
 | `RASAI_PLATFORM_DATABASE_URL` | sem default | DSN com esquema `postgres://` ou `postgresql://` e host válido | definir somente com backend PostgreSQL; tratar como segredo |
 
 SQLite permanece disponível para operação local. PostgreSQL é o backend centralizado do control plane quando configurado. Seleção explícita de PostgreSQL sem URL válida ou com falha de conexão não provoca fallback silencioso para SQLite.
@@ -229,18 +271,18 @@ SQLite permanece disponível para operação local. PostgreSQL é o backend cent
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
 | `RASAI_API_DOCS_ENABLED` | `false` | booleano | `false` fora de desenvolvimento controlado |
-| `RASAI_API_AUDITS_ROOT` | `audits` | caminho | default, salvo layout deliberadamente distinto |
-| `RASAI_API_AUTH_MODE` | `deny` | `deny`, `trusted-header`, `oidc` | `deny` como fail-closed; `oidc` para ambiente hospedado; `trusted-header` somente em desenvolvimento/gateway confiável |
+| `RASAI_API_AUDITS_ROOT` | `audits` | caminho | default |
+| `RASAI_API_AUTH_MODE` | `deny` | `deny`, `trusted-header`, `oidc` | `deny` como fail-closed; `oidc` para ambiente hospedado |
 | `RASAI_API_TRUSTED_USER_HEADER` | `x-rasai-user-id` | nome de header HTTP sem espaços | default |
-| `RASAI_OIDC_ISSUER` | sem default | URL HTTPS absoluta, sem credenciais, fragmento ou query | issuer exato do IdP, apenas em OIDC |
+| `RASAI_OIDC_ISSUER` | sem default | URL HTTPS absoluta, sem credenciais, fragmento ou query | issuer exato do IdP |
 | `RASAI_OIDC_CLIENT_ID` | sem default | texto | client ID registrado no IdP |
-| `RASAI_OIDC_AUDIENCE` | client ID configurado | texto | manter client ID salvo quando o IdP não exigir audience distinta |
+| `RASAI_OIDC_AUDIENCE` | client ID configurado | texto | manter client ID quando o IdP não exigir audience distinta |
 | `RASAI_OIDC_REDIRECT_URI` | sem default | URL absoluta; HTTPS; HTTP somente em loopback | HTTPS em ambiente não local |
-| `RASAI_OIDC_SESSION_SECRET` | sem default | segredo forte | secret/env; obrigatório no fluxo web OIDC |
-| `RASAI_OIDC_CLIENT_SECRET_ENV` | sem default | **nome** de uma variável de ambiente válida | persistir somente a referência; manter o segredo real na variável referenciada |
-| `RASAI_OIDC_ALGORITHMS` | `RS256,ES256` | CSV sem duplicatas de `RS256`, `RS384`, `RS512`, `ES256`, `ES384`, `ES512` | default, salvo contrato explícito do IdP |
-| `RASAI_OIDC_SCOPES` | `openid,profile,email` | CSV que contenha obrigatoriamente `openid` | default, reduzindo scopes se o IdP e o produto permitirem |
-| `RASAI_OIDC_SESSION_TTL_SECONDS` | `28800` | inteiro `300..86400` | `28800`, salvo política de segurança mais restritiva |
+| `RASAI_OIDC_SESSION_SECRET` | sem default | segredo forte | secret/env |
+| `RASAI_OIDC_CLIENT_SECRET_ENV` | sem default | nome de variável de ambiente válida | persistir somente a referência |
+| `RASAI_OIDC_ALGORITHMS` | `RS256,ES256` | CSV de algoritmos suportados | default salvo contrato do IdP |
+| `RASAI_OIDC_SCOPES` | `openid,profile,email` | CSV contendo obrigatoriamente `openid` | default, reduzindo scopes quando possível |
+| `RASAI_OIDC_SESSION_TTL_SECONDS` | `28800` | inteiro `300..86400` | `28800` |
 
 Valores terminados em `_ENV` que representam referência de segredo persistem o **nome da variável**, não o segredo em si.
 
@@ -250,14 +292,14 @@ Valores terminados em `_ENV` que representam referência de segredo persistem o 
 |---|---|---|---|
 | `RASAI_REMOTE_BASE_URL` | sem default | URL absoluta; HTTPS; HTTP somente em loopback | HTTPS para host remoto |
 | `RASAI_REMOTE_TOKEN_ENV` | sem default | nome de variável de ambiente válida | referenciar o bearer token; não persistir o token diretamente |
-| `RASAI_REMOTE_USER_ID` | sem default | texto | usar somente no modo `trusted-header` de desenvolvimento em loopback; não usar em host remoto |
+| `RASAI_REMOTE_USER_ID` | sem default | texto | somente no modo `trusted-header` de desenvolvimento em loopback |
 | `RASAI_REMOTE_TIMEOUT_SECONDS` | `30` | número `> 0` e `<= 300` | `30` |
 
 ## 14. Browser / Playwright
 
 | Variável | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
-| `RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE` | sem override | caminho para executável existente | não definir; usar descoberta/instalação normal do Playwright, salvo necessidade controlada |
+| `RASAI_PLAYWRIGHT_CHROMIUM_EXECUTABLE` | sem override | caminho para executável existente | não definir; usar descoberta/instalação normal do Playwright |
 | `RASAI_BROWSER_LOCALE` | `pt-BR` | locale BCP 47 | `pt-BR`, salvo objetivo explícito de outra localidade |
 
 ## 15. Precedência e persistência
@@ -265,6 +307,8 @@ Valores terminados em `_ENV` que representam referência de segredo persistem o 
 Quando a mesma capacidade puder ser definida por CLI/menu, variável e default, a superfície explícita da execução prevalece conforme o contrato do respectivo módulo. O console resolve e exibe defaults mesmo quando as variáveis não existem no sistema operacional, permitindo distinguir **default efetivo** de **override configurado**.
 
 Segredos podem existir apenas no processo atual e, no Windows, podem ser persistidos no escopo User somente após confirmação explícita. O INI do console não recebe segredos. Referências como `RASAI_OIDC_CLIENT_SECRET_ENV` e `RASAI_REMOTE_TOKEN_ENV` não são o segredo: guardam apenas o nome da variável que contém o segredo real.
+
+Na família de standards, `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL`, limites GSC, toggles e caminhos de dataset são não secretos e podem ser persistidos. `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`, `RASAI_PAGESPEED_API_KEY` e `RASAI_CRUX_API_KEY` nunca são persistidos no INI.
 
 ## 16. Telemetria e segurança de IA
 
@@ -282,4 +326,4 @@ Sempre que um `*.md` publicar valores de configuração, deve distinguir, quando
 4. dependências e condições que tornam a variável obrigatória;
 5. impacto de custo, carga, segurança ou reprodutibilidade quando material.
 
-Quando não existir default tecnicamente seguro, a documentação deve declarar **“sem default”** em vez de inventar um valor.
+Quando não existir default tecnicamente seguro, a documentação deve declarar **sem default** em vez de inventar um valor.
