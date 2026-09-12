@@ -4,12 +4,13 @@
 
 Este documento consolida o contrato de experiência do usuário para configuração local, SaaS Pilot Web, acompanhamento de execução e leitura dos relatórios HTML do RASAi.
 
-A experiência deve preservar quatro princípios:
+A experiência deve preservar cinco princípios:
 
 1. o usuário não precisa conhecer nomes de variáveis para executar o fluxo comum;
 2. defaults do runtime não devem ser materializados como overrides sem necessidade;
 3. secrets permanecem separados de configuração persistente e de `AuditJob`;
-4. percentuais e estados de execução devem distinguir medição real de projeção por marcos.
+4. percentuais e estados de execução devem distinguir medição real de projeção por marcos;
+5. score numérico, força da medição e readiness operacional não podem ser condensados em uma sinalização visual enganosa.
 
 ## Console interativo
 
@@ -93,6 +94,21 @@ Secrets podem ser mantidos apenas na sessão atual ou, no Windows e mediante con
 
 A tela de nova auditoria combina controles de alto nível com configuração guiada.
 
+### Paridade de composição
+
+Os seguintes caminhos devem materializar o mesmo contrato não secreto de `AuditJob`:
+
+```text
+rasai api
+rasai.web.pilot_app:app   # import ASGI direto
+rasai worker ...
+python -m rasai.worker_cli ...
+```
+
+A composição direta do ASGI e do worker não pode depender de o usuário ter passado antes pelo roteador CLI principal. Standards/GSC, perfis sintéticos e Improvement Intelligence devem estender o mesmo contrato de payload em qualquer desses caminhos.
+
+Improvement Intelligence permanece secret-safe: o `AuditJob` armazena apenas escolha de provider/modelo/reasoning/domínios/limites/idioma; credenciais continuam no worker/deployment autorizado.
+
 ### Controles principais
 
 - máximo de páginas;
@@ -148,6 +164,14 @@ https://www.example.com/
 ```
 
 Secrets não aparecem como inputs do SaaS Pilot. O OAuth token GSC e API keys PageSpeed/CrUX devem ser resolvidos no worker/deployment autorizado.
+
+O endpoint:
+
+```text
+GET /api/v1/audit-job-options
+```
+
+deve refletir também extensões recentes do `AuditJob`, incluindo Improvement Intelligence e perfis sintéticos, mesmo quando uma opção ainda não possui controle guiado próprio.
 
 O JSON completo do `AuditJob` permanece disponível em uma área avançada e sincronizada com os campos guiados. Ele é uma escape hatch para parâmetros ainda sem controle visual, não a interface recomendada para configuração comum.
 
@@ -206,6 +230,42 @@ A navegação local não substitui o menu canônico entre relatórios. Ela organ
 
 O enhancer não altera scores, métricas, Findings ou RuleExecutions. Ele também não remove itens do HTML; filtros e paginação são apenas apresentação client-side.
 
+### Leitura pública do SARI
+
+`index.html` e `readiness.html` não podem usar a banda numérica do SARI como conclusão isolada.
+
+A hierarquia visual obrigatória é:
+
+```text
+1. Readiness / força da conclusão
+   READY | ATTENTION | BLOCKED | UNKNOWN
+   + Consolidation
+
+2. Qualidade medida
+   score 0-100 + banda Excelente/Alta/Moderada/Baixa/Crítica
+
+3. Evidência explicativa
+   Coverage + Confidence + Critical Gates + RuleExecutions/findings
+```
+
+Exemplo:
+
+```text
+96/100
+qualidade medida: Excelente
+readiness: BLOCKED
+```
+
+A apresentação correta é **Readiness bloqueada**, mantendo `96/100` como qualidade do universo medido. Não deve existir badge primária “Excelente” nesse cenário.
+
+Da mesma forma, `PARTIAL` ou `NOT_CONSOLIDATED` não podem aparecer visualmente como readiness positiva apenas porque o subconjunto medido obteve nota alta.
+
+### Erros de integrações
+
+Timeout, quota, erro de autenticação/provider/API ou falha de transporte devem aparecer como diagnóstico de integração/medição. Eles não são defeitos do target e não devem receber penalidade SARI artificial.
+
+Quando uma integração obtém um finding técnico conclusivo sobre o website, ele só participa do SARI se existir regra BR-GEO equivalente e mapeamento explícito sem dupla pontuação.
+
 ## Critérios de aderência
 
 A experiência está aderente quando:
@@ -216,8 +276,11 @@ A experiência está aderente quando:
 - GSC/PageSpeed/CrUX explicam dependências cruzadas;
 - secrets nunca são serializados no INI ou `AuditJob`;
 - o SaaS Pilot não pede keys/tokens no browser;
+- import ASGI direto e worker direto aceitam o mesmo contrato recente de `AuditJob` do roteador principal;
 - progresso de etapa não é confundido com progresso global;
 - percentuais estimados são rotulados como projeção;
 - suboperações externas longas indicam o serviço e a unidade em andamento;
 - relatórios mantêm estrutura de seções, busca, filtros e navegação local consistentes;
-- todas as melhorias permanecem sem impacto automático em `SARI-001` / `SCORE-GEO-004`.
+- SARI alto não mascara medição parcial/não consolidada nem Critical Gate bloqueado/indeterminado;
+- erro operacional de integração não é apresentado como falha do website;
+- melhorias externas permanecem sem impacto automático em `SARI-001` / `SCORE-GEO-004` sem mapeamento metodológico explícito.
