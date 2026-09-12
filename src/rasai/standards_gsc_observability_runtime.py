@@ -14,6 +14,7 @@ from typing import Any, Mapping
 from rasai.observability.google_search_console import collect_search_analytics, collect_url_inspection
 from rasai.observability.gsc_resources import collect_sitemaps
 from rasai.observability.reporting import enrich_observability_report
+from rasai.secret_safety import redact_text
 from rasai.standards_gsc_policy import (
     GSC_FINAL_DATA_LAG_DAYS_ENV,
     GSC_SEARCH_ANALYTICS_DAYS_ENV,
@@ -92,19 +93,28 @@ def collect_configured_search_console(
     lag_days = final_data_lag_days(environment.get(GSC_FINAL_DATA_LAG_DAYS_ENV))
     urls = _bounded_urls(workspace, audit_id, max_urls)
 
+    # These counters represent logical API collection operations, not URL-level
+    # successes. URL Inspection persists per-URL ERROR rows in observability.db and its
+    # own report shows that finer-grained outcome without overstating this run summary.
     attempted = 0
     succeeded = 0
 
-    def run_operation(name: str, callback: Any, *, target_count: int = 1) -> None:
+    def run_operation(name: str, callback: Any, **metadata: Any) -> None:
         nonlocal attempted, succeeded
-        attempted += max(1, target_count)
+        attempted += 1
         try:
             dataset_id = callback()
-            succeeded += max(1, target_count)
-            result["operations"].append({"name": name, "status": "SUCCESS", "dataset_id": dataset_id})
+            succeeded += 1
+            result["operations"].append({
+                "name": name,
+                "status": "SUCCESS",
+                "dataset_id": dataset_id,
+                **metadata,
+            })
         except Exception as exc:
-            result["operations"].append({"name": name, "status": "ERROR"})
-            result["errors"].append(f"{name}:{type(exc).__name__}:{str(exc)[:400]}")
+            message = redact_text(f"{name}:{type(exc).__name__}:{str(exc)[:400]}")
+            result["operations"].append({"name": name, "status": "ERROR", **metadata})
+            result["errors"].append(message)
 
     run_operation(
         "SITEMAPS",
@@ -114,6 +124,7 @@ def collect_configured_search_console(
             access_token=token,
             timeout=timeout,
         ),
+        property=site_url,
     )
 
     if urls:
@@ -126,7 +137,7 @@ def collect_configured_search_console(
                 urls=urls,
                 timeout=timeout,
             ),
-            target_count=len(urls),
+            requested_urls=len(urls),
         )
 
     if days > 0:
@@ -152,10 +163,13 @@ def collect_configured_search_console(
                 data_state="final",
                 timeout=timeout,
             ),
+            days=days,
+            max_rows=max_rows,
         )
 
     result["targets_attempted"] = attempted
     result["targets_succeeded"] = succeeded
+    result["requested_url_inspections"] = len(urls)
     if attempted == 0:
         result["collection_state"] = "NO_DATA"
     elif succeeded == attempted:
@@ -216,6 +230,8 @@ def install() -> None:
             result = collect_configured_search_console(audit_id=audit_id, workspace=workspace)
             _update_service_run(audit_id=audit_id, workspace=workspace, result=result)
             if bool(result.get("effective_enabled")):
+                # Provider errors remain service state/details. They are not report-render
+                # failures and do not turn a valid audit mini-site into a renderer warning.
                 enrich_observability_report(audit_workspace=workspace.root)
                 write_standards_report(audit_id=audit_id, workspace=workspace)
                 enrich_existing_reports(audit_id=audit_id, workspace=workspace)
@@ -223,10 +239,10 @@ def install() -> None:
                 report_navigation.normalize_report_navigation(report_dir)
                 enhance_report_directory(report_dir)
                 write_report_manifest(report_dir)
-            for message in result.get("errors") or ():
-                errors.append(f"gsc:{str(message)[:500]}")
         except Exception as exc:
-            errors.append(f"gsc:{type(exc).__name__}:{str(exc)[:500]}")
+            # Only composition/rendering failures reach renderer_errors. External-call
+            # failures are contained by collect_configured_search_console above.
+            errors.append(f"gsc-runtime:{type(exc).__name__}:{redact_text(str(exc)[:500])}")
 
         inspected = report_completion.inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
         return report_completion.AuditReportCompletion(
