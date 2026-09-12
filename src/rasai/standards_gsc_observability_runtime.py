@@ -94,9 +94,6 @@ def collect_configured_search_console(
     lag_days = final_data_lag_days(environment.get(GSC_FINAL_DATA_LAG_DAYS_ENV))
     urls = _bounded_urls(workspace, audit_id, max_urls)
 
-    # These counters represent logical API collection operations, not URL-level
-    # successes. URL Inspection persists per-URL ERROR rows in observability.db and its
-    # own report shows that finer-grained outcome without overstating this run summary.
     attempted = 0
     succeeded = 0
 
@@ -214,6 +211,7 @@ def install() -> None:
     from rasai.report_manifest import write_report_manifest
     from rasai.report_scale_ux import enhance_report_directory
     from rasai.standards_gsc_metrics import enrich_gsc_metrics_report, reconcile_gsc_observational_metrics
+    from rasai.standards_gsc_visibility_metrics import enrich_gsc_visibility_report, reconcile_gsc_visibility_counts
     from rasai.standards_metrics import enrich_existing_reports, write_standards_report
 
     if getattr(report_completion, "_rasai_gsc_observability_runtime", False):
@@ -232,20 +230,18 @@ def install() -> None:
             result = collect_configured_search_console(audit_id=audit_id, workspace=workspace)
             _update_service_run(audit_id=audit_id, workspace=workspace, result=result)
             if bool(result.get("effective_enabled")):
-                # Provider errors remain service state/details. They are not report-render
-                # failures and do not turn a valid audit mini-site into a renderer warning.
                 enrich_observability_report(audit_workspace=workspace.root)
                 reconcile_gsc_observational_metrics(audit_id=audit_id, workspace=workspace)
+                reconcile_gsc_visibility_counts(audit_id=audit_id, workspace=workspace)
                 write_standards_report(audit_id=audit_id, workspace=workspace)
                 enrich_existing_reports(audit_id=audit_id, workspace=workspace)
                 enrich_gsc_metrics_report(audit_id=audit_id, workspace=workspace)
+                enrich_gsc_visibility_report(audit_id=audit_id, workspace=workspace)
                 report_dir = workspace.root / "report"
                 report_navigation.normalize_report_navigation(report_dir)
                 enhance_report_directory(report_dir)
                 write_report_manifest(report_dir)
         except Exception as exc:
-            # Only composition/rendering failures reach renderer_errors. External-call
-            # failures are contained by collect_configured_search_console above.
             errors.append(f"gsc-runtime:{type(exc).__name__}:{redact_text(str(exc)[:500])}")
 
         inspected = report_completion.inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
