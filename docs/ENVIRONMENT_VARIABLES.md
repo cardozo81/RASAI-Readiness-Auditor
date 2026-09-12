@@ -123,17 +123,18 @@ A referência detalhada desta família está em [STANDARDS_METRICS_AND_SERVICES.
 
 | Variável | Default efetivo | Valores permitidos | Recomendado | Finalidade |
 |---|---|---|---|---|
-| `RASAI_DERIVED_READINESS_METRICS` | `true` | booleano | `true` | métricas derivadas de crawlability, indexability, canonical, sitemap, structured data e disponibilidade |
+| `RASAI_DERIVED_READINESS_METRICS` | `true` | booleano | `true` | métricas derivadas de crawlability, indexability, canonical, sitemap, structured data e HTTP operacional por aquisição física |
 | `RASAI_RETRIEVAL_METRICS` | `true` | booleano | `true` | MRR e métricas de Information Retrieval quando houver dados suficientes |
 | `RASAI_OPEN_WEB_METRICS` | `true` | booleano | `true` | W3C Performance APIs no browser já aberto, sem nova navegação |
 | `RASAI_W3C_VALIDATOR` | `true` | booleano | `true`, bounded; desligar em ambiente que não permita validação externa | W3C Nu HTML Checker |
+| `RASAI_W3C_CSS_VALIDATOR` | `true` | booleano | `true`, bounded/throttled; desligar em ambiente que não permita validação externa | W3C CSS Validation Service SOAP 1.2; mínimo 1 s entre URLs no serviço público |
 | `RASAI_MDN_OBSERVATORY` | `true` | booleano | `true`, salvo restrição de privacidade/egress | scan HTTP Observatory por origem |
 | `RASAI_WEB_PLATFORM_BASELINE` | `true` | booleano | `true`; resultado só materializa com dataset/detector suficientes | habilita capacidade WebDX/Baseline |
 | `RASAI_WEB_FEATURES_DATASET` | sem default | caminho para arquivo existente | dataset versionado `web-features` quando a análise for usada | fonte local WebDX/Baseline |
 | `RASAI_STANDARDS_MAX_URLS` | `10` | inteiro `>= 0`; `0=todas` | `10` | teto de URLs submetidas a serviços externos desta família |
 | `RASAI_STANDARDS_TIMEOUT_SECONDS` | `20` | número `> 0` e `< 3600` | `20` | timeout por request de standards |
 
-Todos possuem desligamento explícito. `RASAI_WEB_PLATFORM_BASELINE=true` sem dataset suficiente resulta em `NOT_CONFIGURED`/`NO_DATA`, nunca em nota inventada.
+Todos possuem desligamento explícito. `RASAI_WEB_PLATFORM_BASELINE=true` sem dataset suficiente resulta em `NOT_CONFIGURED`/`NO_DATA`, nunca em nota inventada. O W3C CSS Validator é detalhado em [W3C_CSS_VALIDATION.md](W3C_CSS_VALIDATION.md); as métricas HTTP físicas em [OPERATIONAL_HTTP_METRICS.md](OPERATIONAL_HTTP_METRICS.md).
 
 ### 7.2 Controle agregado de Web Performance
 
