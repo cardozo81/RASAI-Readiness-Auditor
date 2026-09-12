@@ -6,6 +6,14 @@ from contextlib import redirect_stdout
 from unittest.mock import patch
 
 from rasai.console_config import State
+from rasai.console_configuration_guidance import (
+    context_for,
+    grouped_by_context,
+    normalize_spec,
+    prompt_guided_value,
+    reference_lines,
+)
+from rasai.console_environment import EnvironmentSpec
 from rasai.standards_console_runtime import install as install_standards_console_runtime
 from rasai.standards_runtime import install_pre_context
 
@@ -32,10 +40,11 @@ def test_environment_menu_explains_flow_defaults_and_secret_boundaries() -> None
     assert "AUTO/Padrão" in rendered
     assert "Secrets nunca entram no INI" in rendered
     assert "Métricas e padrões" in rendered
+    assert "valores fechados" in rendered.casefold()
     assert "definidos" in rendered
 
 
-def test_metrics_category_guidance_connects_gsc_pagespeed_and_crux_contexts() -> None:
+def test_metrics_category_groups_related_external_services_by_context() -> None:
     facade = _installed_facade()
     metrics = tuple(spec for spec in facade.SPECS if spec.category == "Métricas e padrões")
     assert metrics
@@ -45,9 +54,9 @@ def test_metrics_category_guidance_connects_gsc_pagespeed_and_crux_contexts() ->
         facade._category_menu(State(), "Métricas e padrões", metrics)
 
     rendered = output.getvalue()
-    assert "Google Search Console" in rendered or "GSC" in rendered
-    assert "Search Intelligence / Observability" in rendered
-    assert "PageSpeed/CrUX" in rendered
+    assert "[Google Search Console]" in rendered
+    assert "PageSpeed" in rendered
+    assert "CrUX" in rendered
     assert "Mostrar somente definidas" in rendered
 
 
@@ -61,9 +70,12 @@ def test_nonsecret_variable_screen_distinguishes_default_from_override() -> None
 
     rendered = output.getvalue()
     assert "Estado de decisão" in rendered
+    assert "PADRÃO" in rendered
     assert "usando default do runtime" in rendered
     assert "Nenhuma ação é necessária" in rendered
-    assert "Remover override e voltar ao default" in rendered
+    assert "Remover override e voltar ao default/auto" in rendered
+    assert "Contexto" in rendered
+    assert "Como preencher" in rendered
 
 
 def test_standards_console_install_repairs_catalog_drift_after_prior_install() -> None:
@@ -86,3 +98,85 @@ def test_standards_console_install_repairs_catalog_drift_after_prior_install() -
     healed = next(item for item in facade.SPECS if item.name == "RASAI_STANDARDS_MAX_URLS")
     assert healed.category == "Métricas e padrões"
     assert healed.default == "10"
+
+
+def test_boolean_without_explicit_domain_is_normalized_to_canonical_choices() -> None:
+    spec = EnvironmentSpec(
+        "RASAI_TEST_BOOLEAN",
+        "Teste",
+        "Toggle de teste.",
+        "booleano",
+    )
+    normalized = normalize_spec(spec)
+    assert normalized.accepted == ("true", "false")
+    assert prompt_guided_value(normalized, lambda _: "1") == "true"
+    assert prompt_guided_value(normalized, lambda _: "2") == "false"
+
+
+def test_known_csv_domain_uses_multi_selection_instead_of_free_text() -> None:
+    spec = EnvironmentSpec(
+        "RASAI_LIGHTHOUSE_CATEGORIES",
+        "Web Performance / Google APIs",
+        "Categorias Lighthouse.",
+        "lista CSV",
+        ("performance", "accessibility", "best-practices", "seo"),
+        "performance,accessibility",
+    )
+    assert prompt_guided_value(spec, lambda _: "1,4") == "performance,seo"
+    assert prompt_guided_value(spec, lambda _: "todos") == "performance,accessibility,best-practices,seo"
+
+
+def test_oidc_algorithm_list_is_completed_from_known_runtime_domain() -> None:
+    spec = EnvironmentSpec(
+        "RASAI_OIDC_ALGORITHMS",
+        "Web API / Identity",
+        "Algoritmos JWT aceitos.",
+        "lista CSV",
+        default="RS256,ES256",
+    )
+    normalized = normalize_spec(spec)
+    assert normalized.accepted == ("RS256", "RS384", "RS512", "ES256", "ES384", "ES512")
+
+
+def test_context_grouping_keeps_related_gsc_variables_together() -> None:
+    specs = (
+        EnvironmentSpec("RASAI_GSC_ENABLED", "Métricas e padrões", "GSC toggle", "booleano"),
+        EnvironmentSpec(
+            "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL",
+            "Métricas e padrões",
+            "GSC property",
+            "texto",
+        ),
+        EnvironmentSpec("RASAI_CRUX_ENABLED", "Métricas e padrões", "CrUX toggle", "booleano"),
+    )
+    assert context_for(specs[0]) == "Google Search Console"
+    assert context_for(specs[1]) == "Google Search Console"
+    grouped = grouped_by_context(specs)
+    assert grouped[0][0] == "Google Search Console"
+    assert tuple(row[1].name for row in grouped[0][1]) == (
+        "RASAI_GSC_ENABLED",
+        "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL",
+    )
+
+
+def test_registry_backed_external_services_expose_official_references() -> None:
+    gsc = EnvironmentSpec(
+        "RASAI_GSC_ENABLED",
+        "Métricas e padrões",
+        "Google Search Console",
+        "booleano",
+    )
+    gsc_refs = reference_lines(gsc)
+    assert any("developers.google.com/webmaster-tools" in item for item in gsc_refs)
+    assert any("console.cloud.google.com/apis/credentials" in item for item in gsc_refs)
+
+    pagespeed = EnvironmentSpec(
+        "RASAI_PAGESPEED_API_KEY",
+        "Web Performance / Google APIs",
+        "PageSpeed key",
+        "segredo/API key",
+        sensitive=True,
+    )
+    page_refs = reference_lines(pagespeed)
+    assert any("developers.google.com/speed" in item for item in page_refs)
+    assert any("console.cloud.google.com/apis/credentials" in item for item in page_refs)
