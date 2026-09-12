@@ -33,18 +33,21 @@ def install_standards_routes(
             rows.append({
                 **metadata,
                 "credential_envs": list(item.credential_envs),
+                "config_envs": list(item.config_envs),
                 "state": state["state"],
                 "requested": state["requested"],
                 "configured": state["configured"],
                 "effective_enabled": state["effective_enabled"],
                 "configuration_source": state["configuration_source"],
+                "missing_configuration": list(state["missing_configuration"]),
             })
         return {
             "services": rows,
             "capability_scope": "API_PROCESS_ENVIRONMENT_HINT",
             "secrets_exposed": False,
             "note": (
-                "Credential values are never returned. Worker deployments can inject "
-                "credentials independently from the API process."
+                "Credential values are never returned. Variable names, required non-secret "
+                "context and official onboarding URLs are exposed for configuration guidance. "
+                "Worker deployments can inject credentials independently from the API process."
             ),
         }
