@@ -6,6 +6,12 @@ O **Search & AI Readiness Index (`SARI-001`)** é a identidade pública da metod
 
 O índice é auditável e reprodutível. Não é padrão oficial de GEO/AEO, não é nota de Google, Bing, OpenAI ou outro mantenedor e não representa probabilidade de ranking ou citação futura.
 
+A leitura pública do SARI **não deve ser reduzida ao número 0-100**. O resultado executivo combina três camadas independentes e complementares:
+
+1. **qualidade do universo medido**: score 0-100;
+2. **força/completude da medição**: Coverage, Confidence e Consolidation;
+3. **readiness operacional crítica**: Critical Readiness Gates e estado `READY`, `ATTENTION`, `BLOCKED` ou `UNKNOWN`.
+
 ## 2. Método vigente
 
 O SARI-001 usa:
@@ -140,6 +146,27 @@ Uma dimensão legitimamente `NOT_APPLICABLE` sai do denominador e não recebe ze
 
 Uma dimensão não crítica sem medição suficiente pode reduzir Coverage/Confidence sem apagar automaticamente o valor numérico das demais dimensões. Já as dimensões críticas possuem gates adicionais de suficiência da medição.
 
+### 8.1 Regra de apresentação pública do Overall
+
+O valor numérico continua sendo preservado sem truncamento artificial para manter a aritmética reproduzível. Porém, o relatório não deve apresentar a banda numérica como se fosse, isoladamente, a conclusão de readiness.
+
+Exemplos:
+
+```text
+96/100 + CONSOLIDATED + READY
+=> Readiness pronta; qualidade medida Excelente
+
+96/100 + PARTIAL
+=> Readiness com medição parcial; qualidade medida Excelente
+
+96/100 + CONSOLIDATED + BLOCKED
+=> Readiness bloqueada; qualidade medida Excelente
+```
+
+Nos dois últimos casos, a interface **não pode usar “Excelente” como badge primária de readiness**. A nota permanece visível como qualidade do universo medido, enquanto o estado de medição/gate ocupa a posição de conclusão executiva.
+
+Essa regra corrige um falso positivo de apresentação sem inventar penalidade matemática para ausência de evidência ou erro operacional de integração.
+
 ## 9. Coverage
 
 Coverage mede **completude**, não qualidade do website.
@@ -235,7 +262,7 @@ BLOCKED
 UNKNOWN
 ```
 
-Esse estado **não altera artificialmente o SARI numérico**. Exemplo válido:
+Esse estado **não altera artificialmente o SARI numérico**, mas passa a ser a qualificação primária da apresentação pública do Overall. Exemplo válido:
 
 ```text
 SARI: 82
@@ -244,7 +271,7 @@ Readiness status: BLOCKED
 Gate: INDEXABILITY
 ```
 
-Isso significa: a medição é conclusiva, a qualidade agregada é 82 no universo medido, mas existe uma condição crítica que impede interpretar 82 como prontidão operacional plena.
+Isso significa: a medição é conclusiva, a qualidade agregada é 82 no universo medido, mas existe uma condição crítica que impede interpretar 82 como prontidão operacional plena. O HTML deve destacar `Readiness bloqueada`, mantendo `82/100` como qualidade medida secundária.
 
 ## 13. Content Value
 
@@ -291,7 +318,7 @@ BR-GEO-055/056, por exemplo, podem aprofundar sitemap/robots quando IA técnica 
 
 O provider nunca escolhe pesos, thresholds, fatores ou o Overall.
 
-## 16. Lighthouse, Core Web Vitals, Accessibility e Apdex
+## 16. Lighthouse, Core Web Vitals, Accessibility, Apdex e outras integrações
 
 Os **scores de categoria** permanecem independentes do SARI:
 
@@ -301,11 +328,18 @@ Os **scores de categoria** permanecem independentes do SARI:
 - Lighthouse SEO;
 - Core Web Vitals / CrUX;
 - Synthetic Navigation Apdex;
-- Synthetic User Experience Apdex.
+- Synthetic User Experience Apdex;
+- validadores/serviços externos de padrões quando não existe regra SARI equivalente contratada.
 
 Nenhum desses scores é multiplicado por um peso SARI.
 
-Um **audit individual do Lighthouse** pode futuramente corroborar uma BR-GEO que avalie exatamente a mesma condição técnica, desde que exista mapeamento explícito e sem dupla pontuação. O category score nunca é usado como atalho para o SARI.
+Um **audit individual do Lighthouse** ou outro finding técnico externo pode corroborar uma BR-GEO que avalie exatamente a mesma condição técnica, desde que exista mapeamento explícito e sem dupla pontuação. O category score nunca é usado como atalho para o SARI.
+
+### 16.1 Erro de integração não é erro do website
+
+Estados como timeout, quota, autenticação inválida, indisponibilidade de provider, erro de API ou falha de transporte descrevem a **medição/integrador**. Eles podem reduzir Coverage/Confidence, deixar regras `UNKNOWN` ou produzir diagnóstico operacional, mas não são convertidos em `FAIL` do website.
+
+Quando uma integração obtém evidência conclusiva sobre o website e existe regra contratada equivalente, essa evidência pode participar do score pelo caminho normal de RuleExecution. Essa distinção evita tanto falso positivo quanto penalidade indevida por falha externa.
 
 ## 17. Outcomes observados
 
@@ -323,8 +357,8 @@ Esses dados são outcomes. Servem para observabilidade e para futura validação
 ## 18. Relatórios
 
 ```text
-index.html             -> síntese executiva
-readiness.html         -> SARI-001, macrocomponentes, dimensões e gates
+index.html             -> síntese executiva com readiness qualificada
+readiness.html         -> SARI-001, qualidade medida, força da medição, macrocomponentes, dimensões e gates
 scoring.html           -> fórmula, pesos, grupos, Coverage, Confidence e rastreabilidade
 web-performance.html   -> Lighthouse + Core Web Vitals/CrUX
 accessibility.html     -> acessibilidade automatizada
@@ -333,6 +367,8 @@ ai-visibility.html     -> outcomes observados de AI Search
 search-intelligence.html -> SERP/Search Intelligence quando materializado
 references.html        -> proveniência e função de cada indicador no SARI
 ```
+
+`index.html` e `readiness.html` devem usar o estado de readiness/medição como conclusão visual primária. A banda `Excelente/Alta/Moderada/Baixa/Crítica` permanece válida para a **qualidade numérica medida**, mas não pode mascarar `PARTIAL`, `NOT_CONSOLIDATED`, `BLOCKED` ou `UNKNOWN`.
 
 ## 19. Rastreabilidade
 
@@ -350,8 +386,10 @@ Resultados preservam:
 
 A mesma entrada persistida deve produzir o mesmo resultado sem reexecutar website, IA ou APIs externas.
 
-## 20. Limite de validade
+## 20. Limite de validade e calibração
 
 O SARI-001 é uma metodologia proprietária, transparente e reproduzível do RASAi. Os pesos atuais são decisões metodológicas pré-produção fundamentadas na arquitetura do problema; **não são pesos estatisticamente provados como causais**.
+
+A revisão de calibração de setembro de 2026 não encontrou base empírica suficiente para alterar pesos de dimensão/grupo apenas porque integrações independentes reportaram erros. A distorção comprovada estava na **apresentação pública de um score alto sem qualificação suficiente de Coverage/Confidence/Consolidation/Critical Gates**. Por isso a aritmética foi preservada e a semântica de publicação foi endurecida.
 
 A validação empírica futura deve estudar associação entre readiness e outcomes reais de Search/AI Search. Qualquer recalibração após existência de contrato público ou série histórica de produção deverá ser versionada explicitamente.
