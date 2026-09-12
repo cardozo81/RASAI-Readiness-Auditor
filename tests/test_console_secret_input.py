@@ -49,7 +49,17 @@ def test_non_tty_uses_hidden_fallback_never_plain_input() -> None:
 def test_installer_rebinds_all_local_console_secret_entry_points() -> None:
     from rasai import console_environment, console_provider_environment, interactive_console
 
-    install_masked_secret_input()
-    assert console_environment.getpass is masked_secret_input
-    assert console_provider_environment.getpass is masked_secret_input
-    assert interactive_console.getpass is masked_secret_input
+    originals = (
+        console_environment.getpass,
+        console_provider_environment.getpass,
+        interactive_console.getpass,
+    )
+    try:
+        install_masked_secret_input()
+        assert console_environment.getpass is masked_secret_input
+        assert console_provider_environment.getpass is masked_secret_input
+        assert interactive_console.getpass is masked_secret_input
+    finally:
+        console_environment.getpass = originals[0]
+        console_provider_environment.getpass = originals[1]
+        interactive_console.getpass = originals[2]
