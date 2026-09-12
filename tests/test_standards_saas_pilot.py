@@ -18,6 +18,16 @@ def test_pilot_exposes_standards_capability_catalog_without_secrets() -> None:
     assert "Serviços de métricas e padrões" in html
     assert "missing_configuration" in html
     assert "Valores secretos nunca são exibidos" in html
+    assert "s.job_field" in html
+    assert "setServiceMode" in html
+    assert "Controle do job" in html
+    assert "Auto" in html and "Padrão" in html and "Desligado" in html
+
+
+def test_pilot_default_json_does_not_materialize_service_toggles() -> None:
+    html = render_pilot_ui("trusted-header")
+    assert "for(const s of state.standardServices||[]){if(s.job_field)delete config[s.job_field]}" in html
+    assert "if(mode==='default')delete cfg[field]" in html
 
 
 def test_audit_job_defaults_preserve_auto_for_credential_driven_services() -> None:
