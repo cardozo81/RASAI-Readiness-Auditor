@@ -7,13 +7,14 @@ Desktop snapshots cannot double-count the same physical request.
 """
 from __future__ import annotations
 
+from html import escape
 import json
 import sqlite3
 from typing import Any
 from urllib.parse import urlsplit
 
 from rasai.persistence import AuditWorkspace
-from rasai.standards_metrics import _record
+from rasai.standards_metrics import _fmt_metric, _insert_panel, _record, load_metrics
 from rasai.standards_service_registry import service
 
 _OPERATIONAL_METRIC_IDS = (
@@ -243,6 +244,45 @@ def reconcile_operational_http_metrics(*, audit_id: str, workspace: AuditWorkspa
         connection.close()
 
 
+def enrich_operational_http_report(*, audit_id: str, workspace: AuditWorkspace) -> None:
+    metrics = {
+        str(row["metric_id"]): row
+        for row in load_metrics(audit_id, workspace)
+        if str(row["metric_id"]) in _OPERATIONAL_METRIC_IDS
+    }
+    if not metrics:
+        return
+    preferred = (
+        "http_physical_observation_coverage",
+        "http_2xx_success_rate",
+        "http_4xx_rate",
+        "http_5xx_rate",
+        "transport_error_rate",
+        "transport_timeout_rate",
+        "redirect_rate",
+        "redirect_completion_rate",
+        "cross_host_redirect_rate",
+    )
+    cards = []
+    for metric_id in preferred:
+        row = metrics.get(metric_id)
+        if row is None:
+            continue
+        cards.append(
+            "<div class='metric'><small>" + escape(str(row["label"])) + "</small><strong>"
+            + _fmt_metric(row) + "</strong><span>URL_SET - aquisição física M2 por URL</span></div>"
+        )
+    _insert_panel(
+        workspace.root / "report" / "crawling-discovery.html",
+        "RASAI_OPERATIONAL_HTTP_METRICS",
+        "<section class='panel'><h2>HTTP operacional por aquisição física</h2>"
+        "<p>Uma observação corresponde a uma aquisição M2 por URL. Snapshots Mobile/Desktop não multiplicam a mesma request. "
+        "Timeouts e erros de transporte permanecem no denominador da taxa de sucesso.</p>"
+        "<div class='metric-grid'>" + "".join(cards) + "</div>"
+        "<p><a href='standards.html'>Abrir metodologia, fontes e demais métricas</a></p></section>",
+    )
+
+
 def install() -> None:
     """Reconcile URL-level operational metrics and refresh affected report projections."""
     from rasai import report_completion, report_navigation
@@ -266,6 +306,7 @@ def install() -> None:
             reconcile_operational_http_metrics(audit_id=audit_id, workspace=workspace)
             write_standards_report(audit_id=audit_id, workspace=workspace)
             enrich_existing_reports(audit_id=audit_id, workspace=workspace)
+            enrich_operational_http_report(audit_id=audit_id, workspace=workspace)
             report_dir = workspace.root / "report"
             report_navigation.normalize_report_navigation(report_dir)
             enhance_report_directory(report_dir)
