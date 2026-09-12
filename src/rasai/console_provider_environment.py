@@ -1,9 +1,10 @@
 """Provider-aware, guided environment configuration for the interactive console.
 
-The base environment catalog remains the single source of variable metadata. This
-facade enriches provider metadata and gives operators a consistent navigation model:
-category -> variable -> action, with explicit guidance about defaults, secrets and
-cross-category dependencies.
+The materialized base environment catalog is the single source of variable metadata.
+This facade enriches provider metadata and gives operators a consistent navigation
+model: category -> variable -> action, with explicit guidance about defaults, secrets
+and cross-category dependencies. Runtime enrichments already present in ``SPECS`` are
+preserved; the facade must not rebuild the generic factory and discard them.
 """
 from __future__ import annotations
 
@@ -72,7 +73,10 @@ _CATEGORY_GUIDANCE: dict[str, tuple[str, ...]] = {
 
 
 def _build_specs() -> tuple[EnvironmentSpec, ...]:
-    specs = list(base_environment.environment_specs())
+    # SPECS is the runtime-composed catalog. Calling environment_specs() here would
+    # rebuild only the generic base factory and silently discard metadata installed by
+    # standards, synthetic profiles and other runtime extensions.
+    specs = list(base_environment.SPECS)
     by_name = {spec.name: index for index, spec in enumerate(specs)}
 
     provider_index = by_name.get(SERP_PROVIDER_ENV)
