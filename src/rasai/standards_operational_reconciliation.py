@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from html import escape
 import json
+import math
 import sqlite3
 from typing import Any
 from urllib.parse import urlsplit
@@ -27,6 +28,10 @@ _OPERATIONAL_METRIC_IDS = (
     "redirect_rate",
     "redirect_completion_rate",
     "cross_host_redirect_rate",
+    "http_acquisition_duration_p50",
+    "http_acquisition_duration_p75",
+    "http_acquisition_duration_p95",
+    "http_acquisition_duration_p99",
 )
 
 
@@ -52,6 +57,18 @@ def _status(value: Any) -> int | None:
     return parsed if 100 <= parsed <= 599 else None
 
 
+def _duration_ms(value: Any) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(parsed) or parsed < 0:
+        return None
+    return parsed
+
+
 def _host(value: Any) -> str:
     try:
         return (urlsplit(str(value or "")).hostname or "").casefold()
@@ -63,6 +80,21 @@ def _percentage(numerator: int, denominator: int) -> float | None:
     if denominator <= 0:
         return None
     return round(numerator * 100.0 / denominator, 3)
+
+
+def _percentile(values: list[float], q: float) -> float | None:
+    ordered = sorted(values)
+    if not ordered:
+        return None
+    if len(ordered) == 1:
+        return round(ordered[0], 3)
+    position = (len(ordered) - 1) * q
+    low = math.floor(position)
+    high = math.ceil(position)
+    if low == high:
+        return round(ordered[low], 3)
+    fraction = position - low
+    return round(ordered[low] + (ordered[high] - ordered[low]) * fraction, 3)
 
 
 def _physical_observations(connection: sqlite3.Connection, audit_id: str) -> tuple[int, list[dict[str, Any]]]:
@@ -100,6 +132,7 @@ def _physical_observations(connection: sqlite3.Connection, audit_id: str) -> tup
             "status": _status(raw.get("status")),
             "network_error": str(raw.get("network_error") or "").strip().upper() or None,
             "redirect_count": redirect_count,
+            "duration_ms": _duration_ms(raw.get("duration_ms")),
         }
     return total_pages, list(by_page.values())
 
@@ -126,25 +159,26 @@ def reconcile_operational_http_metrics(*, audit_id: str, workspace: AuditWorkspa
 
         total_pages, observations = _physical_observations(connection, audit_id)
         observed = len(observations)
-        statuses = [item["status"] for item in observations if item["status"] is not None]
-        transport_errors = sum(item["network_error"] is not None for item in observations)
-        timeouts = sum(item["network_error"] == "TIMEOUT" for item in observations)
-        redirected = [item for item in observations if item["redirect_count"] > 0]
+        statuses = [entry["status"] for entry in observations if entry["status"] is not None]
+        durations = [float(entry["duration_ms"]) for entry in observations if entry["duration_ms"] is not None]
+        transport_errors = sum(entry["network_error"] is not None for entry in observations)
+        timeouts = sum(entry["network_error"] == "TIMEOUT" for entry in observations)
+        redirected = [entry for entry in observations if entry["redirect_count"] > 0]
         redirect_completed = sum(
-            item["network_error"] is None
-            and item["final_url"]
-            and item["status"] is not None
-            and 200 <= int(item["status"]) <= 399
-            for item in redirected
+            entry["network_error"] is None
+            and entry["final_url"]
+            and entry["status"] is not None
+            and 200 <= int(entry["status"]) <= 399
+            for entry in redirected
         )
         cross_host = sum(
-            bool(_host(item["requested_url"]))
-            and bool(_host(item["final_url"]))
-            and _host(item["requested_url"]) != _host(item["final_url"])
-            for item in redirected
+            bool(_host(entry["requested_url"]))
+            and bool(_host(entry["final_url"]))
+            and _host(entry["requested_url"]) != _host(entry["final_url"])
+            for entry in redirected
         )
 
-        metrics = (
+        rate_metrics = (
             (
                 "http_physical_observation_coverage",
                 "Physical HTTP Observation Coverage",
@@ -216,7 +250,15 @@ def reconcile_operational_http_metrics(*, audit_id: str, workspace: AuditWorkspa
                 f"DELETE FROM standards_metric_observations WHERE audit_id=? AND metric_id IN ({placeholders})",
                 (audit_id, *_OPERATIONAL_METRIC_IDS),
             )
-            for metric_id, label, numerator, denominator, methodology in metrics:
+            common_details = {
+                "physical_observations": observed,
+                "determinate_http_statuses": len(statuses),
+                "duration_observations": len(durations),
+                "audited_urls": total_pages,
+                "deduplicated_by": "page_id",
+                "boundary": "Device snapshots do not multiply the same physical M2 HTTP acquisition.",
+            }
+            for metric_id, label, numerator, denominator, methodology in rate_metrics:
                 value = _percentage(int(numerator), int(denominator))
                 _record(
                     connection,
@@ -232,13 +274,27 @@ def reconcile_operational_http_metrics(*, audit_id: str, workspace: AuditWorkspa
                     source="M2 physical HTTP acquisition persisted as page_snapshots.browser_metadata.raw_http",
                     methodology=methodology,
                     relation_degree=4,
-                    details={
-                        "physical_observations": observed,
-                        "determinate_http_statuses": len(statuses),
-                        "audited_urls": total_pages,
-                        "deduplicated_by": "page_id",
-                        "boundary": "Device snapshots do not multiply the same physical M2 HTTP acquisition.",
-                    },
+                    details=common_details,
+                )
+            for percentile in (50, 75, 95, 99):
+                value = _percentile(durations, percentile / 100.0)
+                _record(
+                    connection,
+                    audit_id=audit_id,
+                    metric_id=f"http_acquisition_duration_p{percentile}",
+                    label=f"HTTP Acquisition Duration p{percentile}",
+                    scope="URL_SET",
+                    state="NO_DATA" if value is None else "MEASURED",
+                    value=value,
+                    denominator=float(len(durations)),
+                    unit="ms",
+                    source="M2 physical HTTP acquisition persisted as page_snapshots.browser_metadata.raw_http",
+                    methodology=(
+                        f"Percentile p{percentile} of M2 physical acquisition duration_ms after page_id deduplication; "
+                        "not browser TTFB and not CrUX/RUM"
+                    ),
+                    relation_degree=4,
+                    details=common_details,
                 )
     finally:
         connection.close()
@@ -262,6 +318,10 @@ def enrich_operational_http_report(*, audit_id: str, workspace: AuditWorkspace) 
         "redirect_rate",
         "redirect_completion_rate",
         "cross_host_redirect_rate",
+        "http_acquisition_duration_p50",
+        "http_acquisition_duration_p75",
+        "http_acquisition_duration_p95",
+        "http_acquisition_duration_p99",
     )
     cards = []
     for metric_id in preferred:
@@ -277,7 +337,7 @@ def enrich_operational_http_report(*, audit_id: str, workspace: AuditWorkspace) 
         "RASAI_OPERATIONAL_HTTP_METRICS",
         "<section class='panel'><h2>HTTP operacional por aquisição física</h2>"
         "<p>Uma observação corresponde a uma aquisição M2 por URL. Snapshots Mobile/Desktop não multiplicam a mesma request. "
-        "Timeouts e erros de transporte permanecem no denominador da taxa de sucesso.</p>"
+        "Timeouts e erros de transporte permanecem no denominador da taxa de sucesso. Percentis de duração usam duration_ms do M2 e não representam TTFB de browser ou CrUX.</p>"
         "<div class='metric-grid'>" + "".join(cards) + "</div>"
         "<p><a href='standards.html'>Abrir metodologia, fontes e demais métricas</a></p></section>",
     )
