@@ -18,12 +18,14 @@ audits/<AUD-ID>/
    ├─ index.html
    ├─ readiness.html
    ├─ scoring.html
-   ├─ content-suggestions.html
+   ├─ context.html
    ├─ crawling-discovery.html
    ├─ accessibility.html
    ├─ web-performance.html
-   ├─ remediation.html
    ├─ ai-usage.html
+   ├─ improvement-intelligence.html
+   ├─ content-suggestions.html
+   ├─ remediation.html
    ├─ references.html
    ├─ mobile.html              # quando houver snapshot Mobile
    ├─ desktop.html             # quando houver snapshot Desktop
@@ -41,16 +43,20 @@ O término bem-sucedido de uma análise de URLs exige que existam fisicamente as
 index.html
 readiness.html
 scoring.html
-content-suggestions.html
+context.html
 crawling-discovery.html
 accessibility.html
 web-performance.html
-remediation.html
 ai-usage.html
+improvement-intelligence.html
+content-suggestions.html
+remediation.html
 references.html
 ```
 
 Essas páginas existem mesmo quando uma capacidade opcional está desabilitada ou sem dado externo. Nesse caso, a página deve representar explicitamente estados como desabilitado, indisponível, não solicitado ou não observado; ausência de coleta não deve ser mascarada pela ausência do HTML.
+
+`improvement-intelligence.html` também é audit-owned. Quando a análise profunda não foi solicitada, a página registra `NOT_EXECUTED`/estado equivalente e não cria chamada de IA apenas para materializar o report.
 
 `mobile.html` e `desktop.html` são esperados somente para os contextos efetivamente materializados em `page_snapshots`. `apdex.html` e `apdex-experience.html` são esperados somente quando as respectivas execuções sintéticas estiverem habilitadas e persistidas.
 
@@ -142,6 +148,18 @@ provider_pricing_catalog
 ```
 
 Telemetria e custo estimado de IA não participam do score.
+
+### Improvement Intelligence
+
+Quando executada, a análise profunda adiciona tabelas aditivas no mesmo `audit.db`:
+
+```text
+improvement_intelligence_runs
+improvement_intelligence_findings
+improvement_intelligence_recommendations
+```
+
+A chamada de IA usa a telemetria canônica `ai_provider_attempts` com `semantic_contract_version=IMPROVEMENT-INTELLIGENCE-001`. Provider, modelo, reasoning, tokens e custo permanecem separados do cálculo de readiness.
 
 ### Crawling e descoberta
 
@@ -238,13 +256,13 @@ Página canônica do `SARI-001`, com Score, Coverage, Confidence, Consolidation 
 
 Página canônica da metodologia vigente. Expõe `scoring_version`, pesos, grupos, gates e rastreabilidade. Para novas auditorias, o motor atual é `SCORE-GEO-004` com agregação hierárquica ponderada.
 
+### `context.html`
+
+Topologia de captura por URL/device e informações de runtime. É read-only e não recalcula score.
+
 ### `mobile.html` / `desktop.html`
 
 Evidências e findings dos contextos de dispositivo efetivamente auditados.
-
-### `content-suggestions.html`
-
-Estado e sugestões textuais/JSON-LD advisory. Se IA estiver desabilitada, a página continua existindo e deixa esse estado explícito.
 
 ### `crawling-discovery.html`
 
@@ -258,13 +276,21 @@ Diagnóstico automatizado ou estado explícito de ausência/desabilitação da f
 
 Estado da integração e, quando coletados, Lighthouse/PageSpeed/CrUX. Permanece separado do SARI e do Apdex.
 
-### `remediation.html`
-
-Plano de correção evidence-bound derivado dos findings persistidos.
-
 ### `ai-usage.html`
 
 Estado de uso de IA, provider/modelo, tentativas, tokens e custo estimado quando aplicável. Não gera nova chamada de IA.
+
+### `improvement-intelligence.html`
+
+Análise profunda opcional de uma única URL. Correlaciona evidências persistidas, HTML/semântica, Lighthouse/PageSpeed, Search/SERP quando disponível, arquivos de descoberta e postura de segurança passiva. Materializa findings, backlog priorizado e sugestões evidence-bound sem alterar `SARI-001`/`SCORE-GEO-004`. HTML sugerido e recomendações continuam sujeitos a revisão humana e o ganho só é comprovado por nova auditoria/before-after.
+
+### `content-suggestions.html`
+
+Estado e sugestões textuais/JSON-LD advisory. Se IA estiver desabilitada, a página continua existindo e deixa esse estado explícito.
+
+### `remediation.html`
+
+Plano de correção evidence-bound derivado dos findings persistidos.
 
 ### `references.html`
 
@@ -332,20 +358,22 @@ A ordem do catálogo é estável; itens sem arquivo materializado são omitidos 
 Visão geral
 Readiness SARI
 Metodologia de scoring
+Contexto de captura
+Domínio e descoberta
 Relatório Mobile
 Relatório Desktop
-Rastreamento e descoberta
 Acessibilidade
 Web Performance
-Search Intelligence
 Apdex de navegação
 Apdex de experiência
-Conteúdo e JSON-LD
-Remediações
+Search Intelligence
 Visibilidade em IA
 Search & AI observados
-Quality & decisão
 Uso de IA
+Análise profunda e melhorias
+Conteúdo e JSON-LD
+Remediações
+Quality & decisão
 Referências e metodologia
 ```
 
@@ -358,7 +386,8 @@ Apenas a página atual recebe estado ativo.
 - cross-origin acquisition exige política explícita e segura;
 - dados externos ausentes não viram zero observado;
 - controles do publisher não são penalidades automáticas do SARI;
+- Improvement Intelligence usa somente postura de segurança passiva, sem exploração/pentest ativo;
 - apagar sidecars ou projeções derivadas não remove a evidência original do AUD;
 - operações pós-auditoria não devem alterar o hash do `audit.db` fonte.
 
-Detalhes: [REPORT_GUIDE.md](REPORT_GUIDE.md), [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md) e [SCORE_GEO_004.md](SCORE_GEO_004.md).
+Detalhes: [REPORT_GUIDE.md](REPORT_GUIDE.md), [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md), [MONITORING_OBSERVABILITY.md](MONITORING_OBSERVABILITY.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md) e [SCORE_GEO_004.md](SCORE_GEO_004.md).
