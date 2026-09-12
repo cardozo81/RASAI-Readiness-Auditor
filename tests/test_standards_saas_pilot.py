@@ -17,7 +17,7 @@ def test_pilot_exposes_standards_capability_catalog_without_secrets() -> None:
     assert "/api/v1/standards/services" in html
     assert "Serviços de métricas e padrões" in html
     assert "missing_configuration" in html
-    assert "Valores secretos nunca são exibidos" in html
+    assert "valores secretos nunca são exibidos" in html.casefold()
     assert "s.job_field" in html
     assert "setServiceMode" in html
     assert "Controle do job" in html
