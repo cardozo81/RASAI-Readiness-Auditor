@@ -1,6 +1,7 @@
 """Interactive-console reconciliation for standards service settings."""
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -99,6 +100,25 @@ def _ensure_nonsecret_service_context_specs(legacy: object, console_config: obje
         if spec.name not in known:
             specs.append(spec)
             known.add(spec.name)
+
+    credential_driven = {item.enabled_env: item for item in services() if item.credential_envs and item.auto_enable_with_credentials}
+    for index, spec in enumerate(specs):
+        item = credential_driven.get(spec.name)
+        if item is None:
+            continue
+        specs[index] = replace(
+            spec,
+            default=None,
+            required_when=(
+                "Override opcional. Sem override, ativa automaticamente somente quando "
+                "credencial e demais configurações obrigatórias estiverem presentes."
+            ),
+            notes=(
+                f"Relação com RASAi: {item.relation_degree}/5. Escopo: {', '.join(item.scopes)}. "
+                "Use false para desligamento explícito mesmo quando os requisitos estiverem configurados."
+            ),
+        )
+
     legacy.SPECS = tuple(specs)
     legacy.SPEC_BY_NAME = {spec.name: spec for spec in specs}
     extra_names = tuple(spec.name for spec in additions)
