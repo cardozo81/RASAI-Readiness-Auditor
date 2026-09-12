@@ -1,8 +1,13 @@
-"""Multi-URL scope disclosures for static report surfaces.
+"""Final report-surface stability and multi-URL scope disclosures.
 
-The report must never leave the reader guessing whether a value belongs to one URL,
+The final audit mini-site has a stable canonical navigation. Optional collectors remain
+optional, but every canonical HTML surface is materialized. A missing specialized
+projection becomes an explicit neutral state page rather than a missing menu item.
+
+The report must also never leave the reader guessing whether a value belongs to one URL,
 one device, or the complete audited set. This adapter is projection-only: it adds
-explicit scope/aggregation language and does not recalculate any metric.
+surface/state and scope/aggregation language and does not recalculate any metric or
+trigger network/AI work.
 """
 from __future__ import annotations
 
@@ -11,7 +16,10 @@ from pathlib import Path
 import sqlite3
 from typing import Any
 
+from rasai.report_contract import REPORT_SURFACES
+
 _MARKER = "data-rasai-scope-disclosure='true'"
+_EMPTY_SURFACE_MARKER = "data-rasai-empty-surface='true'"
 _INSTALLED = False
 
 
@@ -35,6 +43,64 @@ def _observed_scope(workspace: Any, audit_id: str) -> tuple[int, tuple[str, ...]
     finally:
         connection.close()
     return pages, devices
+
+
+def _empty_surface_body(surface: Any) -> str:
+    optional_text = (
+        "Esta capacidade é opcional. Ela pode não ter sido solicitada, configurada, "
+        "aplicável ou pode não ter retornado dados nesta auditoria."
+        if bool(surface.optional)
+        else
+        "A projeção especializada desta superfície não foi materializada nesta auditoria."
+    )
+    dependencies = "; ".join(surface.required_dependencies + surface.optional_dependencies)
+    dependency_html = (
+        f"<p><strong>Dependências relacionadas:</strong> {escape(dependencies)}</p>"
+        if dependencies
+        else ""
+    )
+    return (
+        "<section class='hero'>"
+        "<div class='eyebrow'>Superfície canônica do relatório</div>"
+        f"<h1>{escape(surface.label)}</h1>"
+        "<p class='lead'>Esta página faz parte da estrutura estável do mini-site RASAi, "
+        "independentemente de a capacidade correspondente ter sido habilitada.</p>"
+        "</section>"
+        f"<section class='panel' {_EMPTY_SURFACE_MARKER} data-report-state='NO_DATA'>"
+        "<div class='panel-head'><div><div class='kicker'>Estado desta execução</div>"
+        "<h2>Sem dados materializados</h2></div><span class='badge unknown'>SEM DADOS</span></div>"
+        f"<p>{escape(optional_text)}</p>"
+        "<div class='notice'><strong>Interpretação:</strong> ausência de dado nesta página "
+        "não é convertida em falha do website, score zero ou evidência negativa. "
+        "Coletores, APIs, IA e serviços externos continuam obedecendo exclusivamente à configuração da execução.</div>"
+        f"{dependency_html}"
+        "<p>Quando houver dados persistidos para este domínio, o renderizador especializado substitui este estado neutro pelo conteúdo correspondente.</p>"
+        "</section>"
+    )
+
+
+def materialize_missing_canonical_surfaces(report_dir: Path) -> tuple[str, ...]:
+    """Create neutral HTML only for canonical surfaces no specialized writer produced."""
+    from rasai.report_site import _shell
+
+    report_dir.mkdir(parents=True, exist_ok=True)
+    created: list[str] = []
+    for surface in REPORT_SURFACES:
+        path = report_dir / surface.filename
+        if path.is_file():
+            continue
+        path.write_text(
+            _shell(
+                surface.label,
+                surface.filename,
+                report_dir,
+                _empty_surface_body(surface),
+            ),
+            encoding="utf-8",
+            newline="\n",
+        )
+        created.append(surface.filename)
+    return tuple(created)
 
 
 def _note(filename: str, pages: int, devices: tuple[str, ...]) -> str | None:
@@ -126,23 +192,31 @@ def enrich_report_scope_clarity(*, audit_id: str, workspace: Any) -> None:
 
 
 def install() -> None:
-    """Install scope disclosure after the canonical report completion wrapper."""
+    """Install final stable-surface and scope-disclosure projection."""
     global _INSTALLED
     if _INSTALLED:
         return
-    from rasai import report_completion
+    from rasai import report_completion, report_navigation
     from rasai.report_manifest import write_report_manifest
+    from rasai.report_scale_ux import enhance_report_directory
 
     original = report_completion.finalize_audit_report_site
 
     def finalize_with_scope(*, audit_id: str, workspace: Any, **kwargs: Any):
         base = original(audit_id=audit_id, workspace=workspace, **kwargs)
         errors = list(base.renderer_errors)
+        report_dir = Path(workspace.root) / "report"
         try:
+            materialize_missing_canonical_surfaces(report_dir)
+            # All canonical files now exist; the existing navigation normalizer therefore
+            # renders the complete deterministic menu on every page without changing any
+            # collector/provider enablement.
+            report_navigation.normalize_report_navigation(report_dir)
+            enhance_report_directory(report_dir)
             enrich_report_scope_clarity(audit_id=audit_id, workspace=workspace)
-            write_report_manifest(Path(workspace.root) / "report")
+            write_report_manifest(report_dir)
         except Exception as exc:  # report projection must remain fail-open
-            errors.append(f"scope-clarity:{type(exc).__name__}:{str(exc)[:240]}")
+            errors.append(f"surface-stability:{type(exc).__name__}:{str(exc)[:240]}")
         inspected = report_completion.inspect_audit_report_site(
             audit_id=audit_id, workspace=workspace
         )
