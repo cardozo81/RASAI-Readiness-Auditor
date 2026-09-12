@@ -43,24 +43,28 @@ _SERVICE_PAYLOAD_TO_ENV = {
     "crux_enabled": CRUX_ENABLED_ENV,
     "gsc_enabled": GSC_ENABLED_ENV,
 }
-_SERVICE_PAYLOAD_DEFAULTS = {
+_SERVICE_PAYLOAD_DEFAULTS: dict[str, bool | None] = {
     "open_web_metrics": True,
     "derived_readiness_metrics": True,
     "retrieval_metrics": True,
     "w3c_validator": True,
     "mdn_observatory": True,
     "web_platform_baseline": True,
-    "pagespeed_enabled": False,
-    "crux_enabled": False,
-    "gsc_enabled": False,
+    # None is deliberate: omitted credential-driven controls mean
+    # "auto when all service requirements are available on the worker".
+    "pagespeed_enabled": None,
+    "crux_enabled": None,
+    "gsc_enabled": None,
 }
 _SERVICE_FIELDS = frozenset({*_SERVICE_PAYLOAD_TO_ENV, "standards_max_urls", "standards_timeout_seconds"})
 
 
-def _bool_payload(payload: Mapping[str, Any], name: str, default: bool) -> bool:
+def _bool_payload(payload: Mapping[str, Any], name: str, default: bool | None) -> bool | None:
     value = payload.get(name, default)
+    if value is None and default is None:
+        return None
     if not isinstance(value, bool):
-        raise ValueError(f"AUDIT payload field {name} must be boolean")
+        raise ValueError(f"AUDIT payload field {name} must be boolean or null for auto")
     return value
 
 
@@ -82,7 +86,7 @@ def _number_payload(payload: Mapping[str, Any], name: str, default: float) -> fl
 
 
 def install_service_contract() -> None:
-    """Extend secret-free SaaS job options and imported compatibility references."""
+    """Extend the current secret-free SaaS job options and imported references."""
     from rasai import audit_execution_contract as contract
     if getattr(contract, "_rasai_standards_service_contract", False):
         _rebind_contract_consumers(contract)
@@ -104,9 +108,21 @@ def install_service_contract() -> None:
             contract.AuditJobOption("w3c_validator", True, "boolean", description="W3C Nu HTML Checker; bounded external validation."),
             contract.AuditJobOption("mdn_observatory", True, "boolean", description="MDN HTTP Observatory security posture scan."),
             contract.AuditJobOption("web_platform_baseline", True, "boolean", description="WebDX/Baseline integration; requires versioned dataset on worker to materialize compatibility results."),
-            contract.AuditJobOption("pagespeed_enabled", False, "boolean", required_when="Requires RASAI_PAGESPEED_API_KEY in worker/deployment environment."),
-            contract.AuditJobOption("crux_enabled", False, "boolean", required_when="Requires RASAI_CRUX_API_KEY in worker/deployment environment."),
-            contract.AuditJobOption("gsc_enabled", False, "boolean", required_when="Requires Search Console OAuth token and property context."),
+            contract.AuditJobOption(
+                "pagespeed_enabled", None, "boolean",
+                required_when="Auto requires RASAI_PAGESPEED_API_KEY in worker/deployment environment.",
+                description="null/omitted=auto by requirements; false=explicitly disabled; true=requested explicitly.",
+            ),
+            contract.AuditJobOption(
+                "crux_enabled", None, "boolean",
+                required_when="Auto requires RASAI_CRUX_API_KEY in worker/deployment environment.",
+                description="null/omitted=auto by requirements; false=explicitly disabled; true=requested explicitly.",
+            ),
+            contract.AuditJobOption(
+                "gsc_enabled", None, "boolean",
+                required_when="Auto requires Search Console OAuth token and job-scoped property context.",
+                description="null/omitted=auto by requirements; false=explicitly disabled; true=requested explicitly.",
+            ),
             contract.AuditJobOption("standards_max_urls", DEFAULT_STANDARDS_MAX_URLS, "integer", description="Bounded URL cap for external standards checks; 0 means all audited URLs."),
             contract.AuditJobOption("standards_timeout_seconds", DEFAULT_STANDARDS_TIMEOUT_SECONDS, "number", description="Timeout per standards-service request."),
         ))
@@ -133,7 +149,11 @@ def install_service_contract() -> None:
         overrides = dict(original_environment(base_payload))
         normalized = normalize_with_services(payload)
         for name, env_name in _SERVICE_PAYLOAD_TO_ENV.items():
-            overrides[env_name] = "true" if normalized[name] else "false"
+            value = normalized[name]
+            if value is None:
+                # Keep worker/deployment environment authoritative in auto mode.
+                continue
+            overrides[env_name] = "true" if value else "false"
         overrides[STANDARDS_MAX_URLS_ENV] = str(normalized["standards_max_urls"])
         overrides[STANDARDS_TIMEOUT_ENV] = f"{normalized['standards_timeout_seconds']:g}"
         return overrides
@@ -177,15 +197,16 @@ def install_console_service_catalog() -> None:
     known = {spec.name for spec in specs}
     for item in services():
         if item.enabled_env not in known:
+            default = None if item.auto_enable_with_credentials else ("true" if item.default_enabled else "false")
             specs.append(console_environment.EnvironmentSpec(
                 item.enabled_env,
                 category,
                 f"Liga/desliga {item.label}. {item.purpose}",
                 "booleano",
                 ("true", "false"),
-                "true" if item.default_enabled else "false",
+                default,
                 required_when=(
-                    "Credencial obrigatória para execução; sem credencial o estado fica NOT_CONFIGURED."
+                    "Override opcional; em auto exige credencial/configuração obrigatória para execução."
                     if item.credential_envs else "Nunca; pode ser desligado explicitamente pelo usuário."
                 ),
                 impact=item.network_behavior,
