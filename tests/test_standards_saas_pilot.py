@@ -22,12 +22,47 @@ def test_pilot_exposes_standards_capability_catalog_without_secrets() -> None:
     assert "setServiceMode" in html
     assert "Controle do job" in html
     assert "Auto" in html and "Padrão" in html and "Desligado" in html
+    assert "Workers podem possuir credenciais próprias" in html
 
 
 def test_pilot_default_json_does_not_materialize_service_toggles() -> None:
     html = render_pilot_ui("trusted-header")
     assert "for(const s of state.standardServices||[]){if(s.job_field)delete config[s.job_field]}" in html
     assert "if(mode==='default')delete cfg[field]" in html
+
+
+def test_pilot_exposes_guided_nonsecret_gsc_and_standards_fields() -> None:
+    html = render_pilot_ui("trusted-header")
+
+    assert "Configuração guiada de métricas e integrações" in html
+    assert 'data-config-field="standards_max_urls"' in html
+    assert 'data-config-field="standards_timeout_seconds"' in html
+    assert 'data-config-field="gsc_site_url"' in html
+    assert 'data-config-field="gsc_search_analytics_days"' in html
+    assert 'data-config-field="gsc_search_max_rows"' in html
+    assert 'data-config-field="gsc_final_data_lag_days"' in html
+    assert "Configuração avançada do AuditJob (JSON)" in html
+    assert "syncGuidedFromJson" in html
+    assert "setGuidedField" in html
+    assert "bindGuidedConfig" in html
+
+
+def test_pilot_blocks_explicit_gsc_on_without_property_and_uses_existing_message_surface() -> None:
+    html = render_pilot_ui("trusted-header")
+
+    assert "field==='gsc_enabled'&&mode==='true'" in html
+    assert "informe a property na configuração guiada" in html
+    assert "message('Para ligar GSC explicitamente" in html
+    assert "toast(" not in html
+
+
+def test_pilot_keeps_secrets_out_of_guided_inputs() -> None:
+    html = render_pilot_ui("trusted-header")
+
+    assert "RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN" not in html
+    assert "RASAI_PAGESPEED_API_KEY" not in html
+    assert "RASAI_CRUX_API_KEY" not in html
+    assert "OAuth token fica somente no worker/secret store" in html
 
 
 def test_audit_job_defaults_preserve_auto_for_credential_driven_services() -> None:
