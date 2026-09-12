@@ -8,7 +8,7 @@ O RASAi gera um mini-site HTML estático por auditoria. O report é uma projeç�
 report/index.html
 ```
 
-O dashboard é multimetodológico, mas não cria um score combinado. Readiness, outcomes observados, Quality, Web Performance, acessibilidade e Apdex permanecem domínios analíticos distintos.
+O dashboard é multimetodológico, mas não cria um score combinado. Readiness, outcomes observados, Quality, Web Performance, acessibilidade, Apdex e Improvement Intelligence permanecem domínios analíticos distintos.
 
 Princípios obrigatórios:
 
@@ -28,20 +28,21 @@ Após `rasai audit`, o conjunto base esperado é:
 ```text
 report/
 ├─ index.html
-├─ readiness.html              # SARI-001
-├─ scoring.html                # fórmula, pesos e gates do scoring vigente
-├─ context.html                # topologia de captura URL/device; read-only
-├─ content-suggestions.html    # existe mesmo sem IA de conteúdo
-├─ crawling-discovery.html     # Domínio e descoberta; recursos ORIGIN
-├─ accessibility.html          # existe mesmo sem Lighthouse disponível
-├─ web-performance.html        # existe mesmo com coleta externa desabilitada
+├─ readiness.html                   # SARI-001
+├─ scoring.html                     # fórmula, pesos e gates do scoring vigente
+├─ context.html                     # topologia de captura URL/device; read-only
+├─ crawling-discovery.html          # Domínio e descoberta; recursos ORIGIN
+├─ accessibility.html               # existe mesmo sem Lighthouse disponível
+├─ web-performance.html             # existe mesmo com coleta externa desabilitada
+├─ ai-usage.html                    # existe mesmo sem chamadas de IA
+├─ improvement-intelligence.html    # existe mesmo quando a análise profunda não foi solicitada
+├─ content-suggestions.html         # existe mesmo sem IA de conteúdo
 ├─ remediation.html
-├─ ai-usage.html               # existe mesmo sem chamadas de IA
 ├─ references.html
-├─ mobile.html                 # quando houver snapshot Mobile
-├─ desktop.html                # quando houver snapshot Desktop
-├─ apdex.html                  # quando Synthetic Navigation Apdex estiver habilitado
-├─ apdex-experience.html       # quando Synthetic User Experience Apdex estiver habilitado
+├─ mobile.html                      # quando houver snapshot Mobile
+├─ desktop.html                     # quando houver snapshot Desktop
+├─ apdex.html                       # quando Synthetic Navigation Apdex estiver habilitado
+├─ apdex-experience.html            # quando Synthetic User Experience Apdex estiver habilitado
 ├─ report-manifest.json
 └─ css/site.css
 ```
@@ -106,12 +107,13 @@ SARI-001 é metodologia proprietária, evidence-bound e reprodutível. Não repr
 | Search Intelligence | `search-intelligence.html` | SERP observado e análise competitiva; non-scoring |
 | Synthetic Navigation Apdex | `apdex.html` | sintético |
 | Synthetic User Experience Apdex | `apdex-experience.html` | sintético calibrável; não RUM |
+| Uso/custo de IA | `ai-usage.html` | telemetria operacional |
+| Improvement Intelligence | `improvement-intelligence.html` | análise profunda advisory/evidence-bound de uma URL; non-scoring |
 | Conteúdo e JSON-LD | `content-suggestions.html` | remediação advisory |
 | Remediações | `remediation.html` | plano evidence-bound |
 | Observed Generative Visibility | `ai-visibility.html` | outcome observado/importado |
 | Search & AI Observability | `observability.html` | outcomes externos e diagnósticos derivados |
 | Quality & decisão | `quality.html` | qualidade da evidência/priorização operacional |
-| Uso/custo de IA | `ai-usage.html` | telemetria operacional |
 | Referências | `references.html` | metodologia e proveniência |
 
 `index.html` pode repetir sínteses necessárias à leitura executiva, mas não funde domínios complementares em um score comum.
@@ -149,6 +151,8 @@ Um item pode representar mais de uma URL, como uma remediação agrupada. Nesse 
 
 Os filtros são client-side e não removem evidência do HTML gerado. A impressão continua podendo expor a coleção completa.
 
+Improvement Intelligence é uma exceção operacional deliberada: a análise profunda só executa quando existe exatamente uma URL de entrada explícita. O crawler pode coletar páginas auxiliares, mas o estudo profundo não mistura URLs alvo distintas no mesmo contexto de IA.
+
 ## Configuração versus resultado obtido
 
 O report deve distinguir estados de execução, por exemplo:
@@ -166,7 +170,7 @@ error
 
 Timeout, quota, HTTP, falta de artifact ou ausência de dado da fonte não são convertidos em problema do website.
 
-Essa distinção é especialmente importante em páginas que existem sempre na auditoria base: `context.html`, `content-suggestions.html`, `web-performance.html`, `accessibility.html` e `ai-usage.html`. Nelas, um estado desabilitado ou indisponível deve ser explícito; a presença do arquivo não significa que a coleta ou IA ocorreu.
+Essa distinção é especialmente importante em páginas que existem sempre na auditoria base: `context.html`, `content-suggestions.html`, `web-performance.html`, `accessibility.html`, `ai-usage.html` e `improvement-intelligence.html`. Nelas, um estado desabilitado, não executado ou indisponível deve ser explícito; a presença do arquivo não significa que a coleta ou IA ocorreu.
 
 ## Domínio e descoberta
 
@@ -202,6 +206,28 @@ Synthetic Apdex não é derivado de LCP, INP, CLS, FCP ou TBT. Web Performance n
 
 O mix Mobile/Desktop/Tablet distribui percentualmente a população de amostras/user actions e deve somar 100%. Ele não representa diretamente o número de requests HTTP de subrecursos, pois uma única amostra pode disparar vários requests.
 
+## Improvement Intelligence
+
+`improvement-intelligence.html` é audit-owned e sempre deve existir após uma auditoria bem-sucedida. Quando a análise profunda não foi solicitada, a página registra explicitamente esse estado sem disparar IA adicional apenas para produzir HTML.
+
+Quando habilitada, a feature exige uma URL explícita e provider de IA explícito. Provider, modelo e esforço podem ser diferentes da IA padrão da auditoria, mas a credencial já configurada é reutilizada e não é duplicada no INI ou payload persistente.
+
+A análise pode correlacionar:
+
+- findings, RuleExecutions e Evidences persistidos;
+- HTML bruto/renderizado, headings, landmarks e estrutura semântica;
+- Lighthouse/PageSpeed e Core Web Vitals quando já coletados;
+- SERP/Search Intelligence competitivo quando já observado;
+- robots, sitemap, `llms.txt` e arquivos de discovery;
+- headers/cookies observados para postura de segurança passiva;
+- acessibilidade, performance e best practices como sinais complementares.
+
+O output separa finding observado de recomendação gerada por IA, pode mostrar HTML original versus HTML sugerido e prioriza ações por impacto potencial, confiança e esforço. Segurança é somente passiva: ausência de header ou configuração é postura observada, não prova automática de vulnerabilidade explorável; não há pentest ativo, fuzzing ou exploração.
+
+Search/SERP é contexto observacional e não sustenta promessa causal de ranking. Nenhuma recomendação altera `SARI-001`, `SCORE-GEO-004`, Coverage, Confidence ou gates. O ganho efetivo só pode ser afirmado depois de deploy e nova auditoria/before-after.
+
+Detalhes: [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md).
+
 ## Conteúdo e JSON-LD
 
 `content-suggestions.html` é audit-owned e sempre deve existir após uma auditoria bem-sucedida. Quando remediação por IA estiver desabilitada ou indisponível, o relatório registra esse estado sem fabricar uma sugestão.
@@ -221,6 +247,8 @@ Aplicar uma recomendação exige nova auditoria para medir novo estado; o report
 `ai-usage.html` é audit-owned e sempre deve existir. Quando não houve IA, a página representa esse estado. Quando houve chamadas, deve preservar provider/modelo, tentativa/status, tokens, reasoning configurado quando disponível e custo estimado.
 
 Custo é estimativa operacional, não invoice nem sinal de qualidade. A página não cria chamadas adicionais de IA.
+
+Tentativas da análise profunda usam `semantic_contract_version=IMPROVEMENT-INTELLIGENCE-001`, o que permite separar o custo de Improvement Intelligence das demais finalidades de IA sem criar uma segunda telemetria paralela.
 
 A política de eficiência prioriza uma chamada estruturada por snapshot para o conjunto contratado de regras semânticas, em vez de uma chamada por regra, e evita repetir análise de recursos globais somente porque existem dois dispositivos.
 
@@ -278,6 +306,8 @@ audits/quality/TIMELINE-*/report.html
 
 Comparabilidade deve considerar `scoring_version`, device e universo de URL quando aplicável. Mudança temporal ou proximidade de um deployment não prova causalidade de Search/AI.
 
+Improvement Intelligence produz hipótese priorizada. A comprovação de efeito pertence à comparação entre auditorias e deve preservar metodologia, URL/device e demais condições de comparabilidade.
+
 ## Consistência visual e navegação
 
 Todas as páginas materializadas devem compartilhar navegação estável, apenas um item ativo, layout responsivo, tabelas legíveis e footer coerente.
@@ -295,8 +325,8 @@ Coleta e dispositivos
   Domínio e descoberta
   Relatório Mobile
   Relatório Desktop
-  Web Performance
   Acessibilidade
+  Web Performance
   Apdex de navegação
   Apdex de experiência
 
@@ -307,6 +337,7 @@ Search e IA
   Uso de IA
 
 Ações e referência
+  Análise profunda e melhorias
   Conteúdo e JSON-LD
   Remediações
   Quality & decisão
@@ -321,19 +352,19 @@ O SaaS Pilot Web usa o mesmo catálogo canônico do mini-site para listar relat�
 
 ```text
 audit.db + artifacts
-→ report HTML audit-owned
+-> report HTML audit-owned, incluindo Improvement Intelligence quando configurado ou seu estado explícito quando não executado
 
 observability.db + artifacts/observability
-→ observability.html
+-> observability.html
 
 audit.db read-only + capacidade especializada
-→ quality.html / search-intelligence.html / ai-visibility.html quando aplicável
+-> quality.html / search-intelligence.html / ai-visibility.html quando aplicável
 
 2 x audit.db read-only
-→ relatórios comparativos
+-> relatórios comparativos
 
 N x audit.db read-only
-→ timelines/consolidações
+-> timelines/consolidações
 ```
 
 HTML nunca se torna segunda fonte de verdade para score, evidence, outcomes, tokens ou custos.
@@ -348,4 +379,4 @@ Estados visuais específicos do domínio prevalecem sobre decoradores genéricos
 
 O catálogo de superfícies e a validação de completude usam `REPORT-CONTRACT-002`. `scoring.html` é a única superfície canônica de metodologia; a versão metodológica pertence a `scoring_version`, não ao filename.
 
-Detalhes complementares: [OUTPUTS_AND_ARTIFACTS.md](OUTPUTS_AND_ARTIFACTS.md), [SCORING_GUIDE.md](SCORING_GUIDE.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md), [SCORE_GEO_004.md](SCORE_GEO_004.md) e [CAPTURE_CONTEXT_MODEL.md](CAPTURE_CONTEXT_MODEL.md).
+Detalhes complementares: [OUTPUTS_AND_ARTIFACTS.md](OUTPUTS_AND_ARTIFACTS.md), [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md), [SCORING_GUIDE.md](SCORING_GUIDE.md), [CONSOLIDATED_REPORTING.md](CONSOLIDATED_REPORTING.md), [SCORE_GEO_004.md](SCORE_GEO_004.md) e [CAPTURE_CONTEXT_MODEL.md](CAPTURE_CONTEXT_MODEL.md).
