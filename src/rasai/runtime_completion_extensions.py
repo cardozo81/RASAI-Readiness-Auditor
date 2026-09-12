@@ -23,6 +23,24 @@ _PAGESPEED_LIGHTHOUSE_CATEGORIES_CSV = ",".join(_PAGESPEED_LIGHTHOUSE_CATEGORIES
 _AI_EXCHANGE_LOG_MAX_BYTES_ENV = "RASAI_AI_EXCHANGE_LOG_MAX_BYTES"
 _PRESENTATION_TIMEZONE_ENV = "RASAI_PRESENTATION_TIMEZONE"
 _APDEX_ACQUISITION_MODE_ENV = "RASAI_APDEX_ACQUISITION_MODE"
+_AI_ANALYSIS_LANGUAGE_ENV = "RASAI_AI_ANALYSIS_LANGUAGE"
+_IMPROVEMENT_ENABLED_ENV = "RASAI_IMPROVEMENT_INTELLIGENCE"
+_IMPROVEMENT_PROVIDER_ENV = "RASAI_IMPROVEMENT_AI_PROVIDER"
+_IMPROVEMENT_MODEL_ENV = "RASAI_IMPROVEMENT_AI_MODEL"
+_IMPROVEMENT_REASONING_ENV = "RASAI_IMPROVEMENT_AI_REASONING"
+_IMPROVEMENT_DOMAINS_ENV = "RASAI_IMPROVEMENT_DOMAINS"
+_IMPROVEMENT_MAX_RECOMMENDATIONS_ENV = "RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS"
+_IMPROVEMENT_TIMEOUT_ENV = "RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS"
+_IMPROVEMENT_ENV_NAMES = (
+    _AI_ANALYSIS_LANGUAGE_ENV,
+    _IMPROVEMENT_ENABLED_ENV,
+    _IMPROVEMENT_PROVIDER_ENV,
+    _IMPROVEMENT_MODEL_ENV,
+    _IMPROVEMENT_REASONING_ENV,
+    _IMPROVEMENT_DOMAINS_ENV,
+    _IMPROVEMENT_MAX_RECOMMENDATIONS_ENV,
+    _IMPROVEMENT_TIMEOUT_ENV,
+)
 
 
 def install_runtime_completion_extensions() -> None:
@@ -30,6 +48,7 @@ def install_runtime_completion_extensions() -> None:
     _install_m21_runtime_contract()
     _install_cli_help()
     _install_console_environment()
+    _install_improvement_environment_contract()
     _install_console_cost()
     _install_dashboard_metrics()
     _install_monitoring_metrics()
@@ -175,6 +194,184 @@ def _install_console_environment() -> None:
     console_environment.SPECS = console_environment.environment_specs()
     console_environment.SPEC_BY_NAME = {spec.name: spec for spec in console_environment.SPECS}
     console_environment._rasai_pagespeed_categories_current = True
+
+
+def _install_improvement_environment_contract() -> None:
+    """Expose every Improvement Intelligence runtime setting through the guided console catalog."""
+    from rasai import console_environment
+    from rasai.improvement_intelligence import DEFAULT_DOMAINS, parse_domains, validate_analysis_language
+    from rasai.provider_registry import get_provider_registration, provider_registrations
+
+    if getattr(console_environment, "_rasai_improvement_environment_current", False):
+        return
+    original_fixed_specs = console_environment._fixed_specs
+    original_validate = console_environment._validate
+
+    for name in _IMPROVEMENT_ENV_NAMES:
+        if name not in console_environment.ENV_NAMES:
+            console_environment.ENV_NAMES = (*console_environment.ENV_NAMES, name)
+
+    provider_ids = tuple(item.id for item in provider_registrations())
+    domains_csv = ",".join(DEFAULT_DOMAINS)
+
+    def fixed_specs_with_improvement_contract():
+        items = list(original_fixed_specs())
+        known = {item.name for item in items}
+
+        def add(spec: Any) -> None:
+            if spec.name not in known:
+                items.append(spec)
+                known.add(spec.name)
+
+        add(
+            console_environment.EnvironmentSpec(
+                _AI_ANALYSIS_LANGUAGE_ENV,
+                "IA - contexto editorial / YMYL",
+                "Idioma preferencial das explicações e sugestões geradas por IA; auto usa o idioma da auditoria sem substituir a detecção do conteúdo.",
+                "tag BCP-47 ou auto",
+                default="auto",
+                impact="Sem custo externo direto; altera somente idioma preferencial de leitura/resposta.",
+                example="RASAI_AI_ANALYSIS_LANGUAGE=pt-BR",
+                source="docs/IMPROVEMENT_INTELLIGENCE.md",
+            )
+        )
+        add(
+            console_environment.EnvironmentSpec(
+                _IMPROVEMENT_ENABLED_ENV,
+                "IA - análise profunda",
+                "Habilita Improvement Intelligence evidence-bound para uma única URL explícita.",
+                "booleano",
+                ("true", "false"),
+                "false",
+                required_when="Somente com exatamente uma URL de entrada e provider explícito apto.",
+                impact="Quando true, pode gerar chamadas adicionais de IA, tokens, latência e custo.",
+                source="docs/IMPROVEMENT_INTELLIGENCE.md",
+            )
+        )
+        add(
+            console_environment.EnvironmentSpec(
+                _IMPROVEMENT_PROVIDER_ENV,
+                "IA - análise profunda",
+                "Provider explícito usado somente pela análise profunda; reutiliza a credencial já configurada.",
+                "provider explícito",
+                provider_ids,
+                None,
+                required_when="Obrigatório quando RASAI_IMPROVEMENT_INTELLIGENCE=true; AUTO/NONE não são permitidos.",
+                impact="Seleciona qual provider poderá gerar cobrança na análise profunda.",
+                source="docs/IMPROVEMENT_INTELLIGENCE.md",
+            )
+        )
+        add(
+            console_environment.EnvironmentSpec(
+                _IMPROVEMENT_MODEL_ENV,
+                "IA - análise profunda",
+                "Override de modelo exclusivo da análise profunda.",
+                "modelo suportado pelo provider selecionado",
+                default=None,
+                required_when="Opcional; vazio usa o modelo público default do provider selecionado.",
+                impact="Modelo pode alterar capacidade, latência, tokens e custo.",
+                source="docs/IMPROVEMENT_INTELLIGENCE.md",
+            )
+        )
+        add(
+            console_environment.EnvironmentSpec(
+                _IMPROVEMENT_REASONING_ENV,
+                "IA - análise profunda",
+                "Esforço/reasoning exclusivo da análise profunda.",
+                "valor suportado pelo provider selecionado",
+                default=None,
+                required_when="Opcional; vazio usa o maior perfil suportado definido pelo contrato da feature.",
+                impact="Esforço maior pode elevar latência, tokens e custo.",
+                source="docs/IMPROVEMENT_INTELLIGENCE.md",
+            )
+        )
+        add(
+            console_environment.EnvironmentSpec(
+                _IMPROVEMENT_DOMAINS_ENV,
+                "IA - análise profunda",
+                "Domínios correlacionados pela análise profunda.",
+                "lista CSV",
+                tuple(DEFAULT_DOMAINS),
+                domains_csv,
+                required_when="Opcional; o default inclui todos os domínios suportados.",
+                impact="Mais domínios podem aumentar contexto enviado, tokens e profundidade da resposta.",
+                source="docs/IMPROVEMENT_INTELLIGENCE.md",
+            )
+        )
+        add(
+            console_environment.EnvironmentSpec(
+                _IMPROVEMENT_MAX_RECOMMENDATIONS_ENV,
+                "IA - análise profunda",
+                "Teto de recomendações materializadas pela análise profunda.",
+                "inteiro 1..100",
+                default="30",
+                required_when="Opcional; limite de custo/volume do output.",
+                impact="Limite maior pode elevar output tokens e custo.",
+                source="docs/IMPROVEMENT_INTELLIGENCE.md",
+            )
+        )
+        add(
+            console_environment.EnvironmentSpec(
+                _IMPROVEMENT_TIMEOUT_ENV,
+                "IA - análise profunda",
+                "Timeout da tentativa estruturada de Improvement Intelligence.",
+                "número > 0 (segundos)",
+                default="240",
+                required_when="Opcional; use override somente quando o provider/modelo exigir outra janela.",
+                impact="Timeout maior amplia tempo máximo de espera, sem garantir sucesso.",
+                source="docs/IMPROVEMENT_INTELLIGENCE.md",
+            )
+        )
+        return tuple(items)
+
+    def validate_with_improvement_contract(name: str, raw: str) -> str:
+        if name not in _IMPROVEMENT_ENV_NAMES:
+            return original_validate(name, raw)
+        value = raw.strip()
+        if not value:
+            raise ValueError("valor vazio; remova a variável em vez de gravar vazio")
+        if name == _AI_ANALYSIS_LANGUAGE_ENV:
+            return validate_analysis_language(value)
+        if name == _IMPROVEMENT_ENABLED_ENV:
+            normalized = value.casefold()
+            if normalized not in {"true", "false", "1", "0", "yes", "no", "on", "off"}:
+                raise ValueError("use true/false")
+            return normalized
+        if name == _IMPROVEMENT_PROVIDER_ENV:
+            provider = value.casefold()
+            registration = get_provider_registration(provider)
+            if registration is None or provider in {"auto", "none"}:
+                raise ValueError("use um provider explícito registrado; AUTO/NONE não são permitidos")
+            return registration.id
+        if name == _IMPROVEMENT_REASONING_ENV:
+            return value.upper()
+        if name == _IMPROVEMENT_DOMAINS_ENV:
+            return ",".join(parse_domains(value))
+        if name == _IMPROVEMENT_MAX_RECOMMENDATIONS_ENV:
+            parsed = int(value)
+            if parsed < 1 or parsed > 100:
+                raise ValueError("use inteiro entre 1 e 100")
+            return str(parsed)
+        if name == _IMPROVEMENT_TIMEOUT_ENV:
+            parsed = float(value)
+            if parsed <= 0:
+                raise ValueError("use número > 0")
+            return f"{parsed:g}"
+        if name == _IMPROVEMENT_MODEL_ENV:
+            provider = __import__("os").environ.get(_IMPROVEMENT_PROVIDER_ENV, "").strip().casefold()
+            registration = get_provider_registration(provider) if provider else None
+            if registration is not None and value not in registration.supported_models:
+                raise ValueError(
+                    f"modelo não suportado por {registration.display_name}; use {', '.join(registration.supported_models)}"
+                )
+            return value
+        return value
+
+    console_environment._fixed_specs = fixed_specs_with_improvement_contract
+    console_environment._validate = validate_with_improvement_contract
+    console_environment.SPECS = console_environment.environment_specs()
+    console_environment.SPEC_BY_NAME = {spec.name: spec for spec in console_environment.SPECS}
+    console_environment._rasai_improvement_environment_current = True
 
 
 def _install_console_cost() -> None:
