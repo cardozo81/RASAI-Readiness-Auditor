@@ -42,6 +42,7 @@ EXPECTED_CANONICAL_FILENAMES = (
     "ai-visibility.html",
     "observability.html",
     "ai-usage.html",
+    "improvement-intelligence.html",
     "content-suggestions.html",
     "remediation.html",
     "quality.html",
@@ -62,6 +63,7 @@ CURRENT_METHOD_DOCS = (
     "docs/COMPETITIVE_SEARCH_INTELLIGENCE.md",
     "docs/SERP_OBSERVATION.md",
     "docs/ENVIRONMENT_VARIABLES.md",
+    "docs/IMPROVEMENT_INTELLIGENCE.md",
     "docs/INDICATOR_PROVENANCE.md",
     "docs/ACCESSIBILITY_PERFORMANCE_DOMAINS.md",
     "docs/MONITORING_OBSERVABILITY.md",
@@ -84,6 +86,7 @@ CURRENT_METHOD_DOCS = (
 
 PUBLIC_GENERATOR_FILES = (
     "src/rasai/context_reporting.py",
+    "src/rasai/improvement_intelligence.py",
     "src/rasai/m20_reporting.py",
     "src/rasai/m21_reporting.py",
     "src/rasai/m22_quality_domains.py",
@@ -119,6 +122,7 @@ SURFACE_IMPLEMENTATION_HINTS = {
     "observability.html": "src/rasai/observability/reporting.py",
     "quality.html": "src/rasai/quality/reporting.py",
     "ai-usage.html": "src/rasai/reporting.py",
+    "improvement-intelligence.html": "src/rasai/improvement_intelligence.py",
     "references.html": "src/rasai/reporting.py",
 }
 
@@ -169,6 +173,8 @@ def _check_runtime(errors: list[str]) -> None:
         errors.append("context.html não usa o rótulo canônico Contexto de captura")
     if labels_by_filename.get("crawling-discovery.html") != "Domínio e descoberta":
         errors.append("crawling-discovery.html não usa o rótulo canônico Domínio e descoberta")
+    if labels_by_filename.get("improvement-intelligence.html") != "Análise profunda e melhorias":
+        errors.append("improvement-intelligence.html não usa o rótulo canônico Análise profunda e melhorias")
     if REPORT_ALIASES:
         errors.append("contrato atual não deve expor aliases de report")
     if not REPORT_CONTRACT_VERSION or not OBSERVABILITY_CONTRACT_VERSION:
