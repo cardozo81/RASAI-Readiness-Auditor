@@ -41,6 +41,7 @@ OPEN_WEB_METRICS_ENV = "RASAI_OPEN_WEB_METRICS"
 DERIVED_READINESS_METRICS_ENV = "RASAI_DERIVED_READINESS_METRICS"
 RETRIEVAL_METRICS_ENV = "RASAI_RETRIEVAL_METRICS"
 W3C_VALIDATOR_ENV = "RASAI_W3C_VALIDATOR"
+W3C_CSS_VALIDATOR_ENV = "RASAI_W3C_CSS_VALIDATOR"
 MDN_OBSERVATORY_ENV = "RASAI_MDN_OBSERVATORY"
 WEB_PLATFORM_BASELINE_ENV = "RASAI_WEB_PLATFORM_BASELINE"
 WEB_FEATURES_DATASET_ENV = "RASAI_WEB_FEATURES_DATASET"
@@ -106,6 +107,23 @@ SERVICES: tuple[StandardsService, ...] = (
         network_behavior="EXTERNAL_VALIDATOR_FETCHES_URL",
         methodology="W3C Nu HTML Checker JSON outcome",
         notes="Uso publico e bounded; self-host e preferivel para SaaS em escala.",
+    ),
+    StandardsService(
+        id="w3c-css-validator",
+        label="W3C CSS Validation Service",
+        purpose="Valida CSS associado ao documento por URI e preserva validade/contagens emitidas pelo serviço oficial.",
+        relation_degree=3,
+        scopes=("URL",),
+        enabled_env=W3C_CSS_VALIDATOR_ENV,
+        default_enabled=True,
+        documentation_url="https://jigsaw.w3.org/css-validator/api.html",
+        cost_model="PUBLIC_FREE_SERVICE_OR_SELF_HOST",
+        network_behavior="EXTERNAL_VALIDATOR_FETCHES_URL_THROTTLED",
+        methodology="W3C CSS Validation Service SOAP 1.2",
+        notes=(
+            "O serviço público pede intervalo mínimo de 1 segundo em automação; "
+            "RASAi aplica throttling e limite de URLs. Self-host é preferível em escala."
+        ),
     ),
     StandardsService(
         id="mdn-observatory",
