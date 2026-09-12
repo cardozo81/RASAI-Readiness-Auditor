@@ -211,6 +211,7 @@ def install() -> None:
     from rasai.report_manifest import write_report_manifest
     from rasai.report_scale_ux import enhance_report_directory
     from rasai.standards_gsc_metrics import enrich_gsc_metrics_report, reconcile_gsc_observational_metrics
+    from rasai.standards_gsc_sitemap_metrics import enrich_gsc_sitemap_report, reconcile_gsc_sitemap_metrics
     from rasai.standards_gsc_visibility_metrics import enrich_gsc_visibility_report, reconcile_gsc_visibility_counts
     from rasai.standards_metrics import enrich_existing_reports, write_standards_report
 
@@ -232,10 +233,12 @@ def install() -> None:
             if bool(result.get("effective_enabled")):
                 enrich_observability_report(audit_workspace=workspace.root)
                 reconcile_gsc_observational_metrics(audit_id=audit_id, workspace=workspace)
+                reconcile_gsc_sitemap_metrics(audit_id=audit_id, workspace=workspace)
                 reconcile_gsc_visibility_counts(audit_id=audit_id, workspace=workspace)
                 write_standards_report(audit_id=audit_id, workspace=workspace)
                 enrich_existing_reports(audit_id=audit_id, workspace=workspace)
                 enrich_gsc_metrics_report(audit_id=audit_id, workspace=workspace)
+                enrich_gsc_sitemap_report(audit_id=audit_id, workspace=workspace)
                 enrich_gsc_visibility_report(audit_id=audit_id, workspace=workspace)
                 report_dir = workspace.root / "report"
                 report_navigation.normalize_report_navigation(report_dir)
