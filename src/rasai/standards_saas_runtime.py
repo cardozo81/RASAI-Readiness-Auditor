@@ -19,14 +19,15 @@ _CREDENTIAL_FIELDS = {
 }
 
 
-def _credential_ready(service_id: str) -> bool:
+def _requirements_ready(service_id: str) -> bool:
     item = service(service_id)
-    return all((os.environ.get(name) or "").strip() for name in item.credential_envs)
+    required_names = (*item.credential_envs, *item.config_envs)
+    return all((os.environ.get(name) or "").strip() for name in required_names)
 
 
 def _requested(payload: Mapping[str, Any], field: str, service_id: str) -> bool:
     if field in payload:
-        return bool(payload[field]) and _credential_ready(service_id)
+        return bool(payload[field]) and _requirements_ready(service_id)
     return bool(service_state(service(service_id))["effective_enabled"])
 
 
@@ -43,7 +44,7 @@ def install() -> None:
     def environment_overrides(payload: Mapping[str, Any]) -> dict[str, str]:
         overrides = dict(original_environment(payload))
         # Omitted credential-driven fields must not be materialized as false. This lets
-        # each worker resolve readiness from its own secret environment.
+        # each worker resolve readiness from its own secret/configuration environment.
         for field, env_name in _CREDENTIAL_FIELDS.items():
             if field not in payload:
                 overrides.pop(env_name, None)
@@ -57,7 +58,9 @@ def install() -> None:
     def audit_arguments(store: Any, job: Any, audits_root: Any) -> list[str]:
         argv = list(original_arguments(store, job, audits_root))
         payload = job.payload
-        # Explicit legacy macro remains authoritative for backwards compatibility.
+        # The aggregate web-performance switch is part of the current prepublication
+        # contract. When explicitly present it remains authoritative for that job;
+        # otherwise PageSpeed/CrUX service readiness can activate the aggregate runtime.
         if "web_performance" in payload:
             return argv
         should_enable = (
