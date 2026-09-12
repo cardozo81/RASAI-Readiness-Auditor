@@ -23,6 +23,7 @@ O console é uma camada de configuração, preflight, observabilidade e execuç�
 - alterações de credencial recalculam imediatamente a aptidão do provider;
 - integração externa indisponível não vira finding do website;
 - Synthetic Apdex gera carga HTTP real e permanece separado de Web Performance/IA;
+- Improvement Intelligence é opt-in, exige URL única e permanece advisory/non-scoring;
 - relatórios consolidados são offline/read-only sobre auditorias persistidas.
 
 ## Arquivo INI
@@ -60,6 +61,7 @@ Ao salvar, o console mostra explicitamente que a operação é `SEM CHAVES`.
 10. Raiz auditorias
 11. Synthetic Apdex
 12. Timezone apresentação
+13. Análise profunda URL
 
 S. Salvar configuração INI [SEM CHAVES]
 H. Ajuda / custos
@@ -83,7 +85,7 @@ O console usa cor como reforço visual, nunca como única informação:
 | `DESABILITADA`, ausente, inativo ou excluído do AUTO | cinza/dim |
 | informação contextual | ciano |
 
-Essa semântica vale também para a área de providers de IA.
+Essa semântica vale também para a área de providers de IA e para a indicação de prontidão da análise profunda.
 
 ## Opção 4 - IA
 
@@ -261,7 +263,8 @@ IA - credenciais
 IA - modelos e reasoning
 IA - endpoints avançados
 IA - contexto editorial / YMYL
-Search Intelligence / SERP
+IA - análise profunda
+Search Intelligence / Observability
 Web Performance / Google APIs
 Synthetic Apdex
 Browser / Playwright
@@ -278,6 +281,8 @@ Secrets são exibidos apenas como presença/origem, por exemplo:
 [SET] [SO:USER]
 [SET] [SO:MACHINE]
 ```
+
+O grupo **IA - análise profunda** inclui os overrides avançados de Improvement Intelligence. A configuração normal deve ser feita pelo item 13; o menu `E` existe para automação e troubleshooting.
 
 ## Perfis sintéticos configuráveis
 
@@ -349,6 +354,58 @@ O runtime continua persistindo/processando tempo canônico em UTC. O valor confi
 America/Sao_Paulo
 ```
 
+## Opção 13 - Análise profunda URL
+
+Improvement Intelligence é independente da IA padrão da opção 4. A opção 13 permite habilitar uma análise evidence-bound mais profunda sem obrigar toda a auditoria a usar o mesmo provider/modelo/esforço.
+
+Requisitos de prontidão:
+
+```text
+Entrada = URL única
+provider explícito selecionado
+credencial do provider apta
+modelo suportado
+reasoning suportado
+domínios de análise válidos
+```
+
+`AUTO` e `NONE` não são aceitos como provider da análise profunda. A feature reutiliza a key/token já configurada para o provider escolhido; não existe segunda cópia da credencial no INI.
+
+Configurações persistidas na seção `[improvement_intelligence]`:
+
+```text
+enabled
+provider
+model
+reasoning_effort
+domains
+max_recommendations
+timeout_seconds
+```
+
+Domínios selecionáveis:
+
+```text
+TECHNICAL_HTML
+SEMANTICS_STRUCTURE
+CONTENT
+SEARCH_RANKING
+FILES_DISCOVERY
+PERFORMANCE
+ACCESSIBILITY
+BEST_PRACTICES
+SECURITY
+AI_ACCESS
+```
+
+A análise ocorre após a auditoria normal e, quando Search Intelligence foi executado na mesma sessão, pode reutilizar a evidência SERP já persistida. Ela não cria um segundo crawler competitivo.
+
+Segurança é passiva: headers, cookies e achados já observados podem gerar recomendações, mas não há exploração, fuzzing ou pentest ativo. Search/SERP é contexto correlacional; o console não promete posição futura de ranking.
+
+O relatório `improvement-intelligence.html` é sempre materializado. Quando a opção 13 está OFF, ele registra estado não executado. Quando ON, apresenta findings, recomendações priorizadas, evidências, HTML original versus sugerido quando aplicável e consumo da IA. Nenhum desses outputs altera `SARI-001`/`SCORE-GEO-004`.
+
+O idioma preferencial das explicações/sugestões pode ser definido por `RASAI_AI_ANALYSIS_LANGUAGE`; `auto` usa o idioma da auditoria e não substitui a detecção real do idioma da página.
+
 ## Progresso de execução
 
 Durante a auditoria o console exibe, conforme disponível:
@@ -366,6 +423,8 @@ Progresso
 Detalhe
 ```
 
+Quando a análise profunda está habilitada, aparece como fase terminal própria antes da conclusão, incluindo provider/modelo, estágio e percentual. A duração final inclui essa etapa.
+
 A atualização usa estado local do subprocesso/SQLite/log e não cria polling HTTP adicional contra o website auditado.
 
 ## Histórico / relatórios consolidados
@@ -373,6 +432,8 @@ A atualização usa estado local do subprocesso/SQLite/log e não cria polling H
 A opção `C` é offline. Ela lê auditorias persistidas e não executa IA, PageSpeed, CrUX ou Synthetic Apdex.
 
 Os `AUD-*/audit.db` permanecem fonte de verdade; qualquer índice consolidado é derivado e reconstruível.
+
+Improvement Intelligence permanece complementar no consolidado: suas recomendações não são promediadas dentro do SARI histórico. A validação de ganho pertence à nova auditoria/before-after.
 
 ## Segurança
 
@@ -384,7 +445,9 @@ Os `AUD-*/audit.db` permanecem fonte de verdade; qualquer índice consolidado é
 - provider indisponível não é finding do website;
 - remover do AUTO não apaga Key;
 - alterar Key recalcula imediatamente a capability;
-- Windows/Machine não é administrado automaticamente pelo RASAi.
+- Windows/Machine não é administrado automaticamente pelo RASAi;
+- análise profunda não executa exploração ativa;
+- recomendações de IA não alteram scoring nem são prova de ganho até nova medição.
 
 ## Documentos relacionados
 
@@ -392,6 +455,7 @@ Os `AUD-*/audit.db` permanecem fonte de verdade; qualquer índice consolidado é
 - [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
 - [AI_GUIDE.md](AI_GUIDE.md)
 - [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
+- [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md)
 - [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
 - [PROVIDER_SETUP.md](PROVIDER_SETUP.md)
 - [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md)
