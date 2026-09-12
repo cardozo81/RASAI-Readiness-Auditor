@@ -27,6 +27,7 @@ from rasai.runtime_contract_compatibility import install_runtime_contract_compat
 from rasai.standards_gsc_observability_runtime import install as install_standards_gsc_observability_runtime
 from rasai.standards_ir_reconciliation import install as install_standards_ir_reconciliation
 from rasai.standards_m21_reconciliation import install as install_standards_m21_reconciliation
+from rasai.standards_operational_reconciliation import install as install_standards_operational_reconciliation
 from rasai.standards_runtime import (
     install_post_context as install_standards_post_context,
     install_pre_context as install_standards_pre_context,
@@ -143,6 +144,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     install_external_measurement_runtime()
     install_standards_post_context()
     install_standards_ir_reconciliation()
+    install_standards_operational_reconciliation()
     install_standards_m21_reconciliation()
     install_standards_gsc_observability_runtime()
     install_ai_efficiency_policy()
