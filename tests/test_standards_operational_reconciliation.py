@@ -77,6 +77,7 @@ def _workspace(tmp_path):
                     "status": 200,
                     "redirect_count": 1,
                     "network_error": None,
+                    "duration_ms": 100,
                 }
             }
         )
@@ -88,6 +89,7 @@ def _workspace(tmp_path):
                     "status": None,
                     "redirect_count": 0,
                     "network_error": "TIMEOUT",
+                    "duration_ms": 300,
                 }
             }
         )
@@ -133,8 +135,14 @@ def test_operational_metrics_deduplicate_device_snapshots(tmp_path) -> None:
     assert metrics["cross_host_redirect_rate"]["value"] == 100.0
     assert metrics["http_2xx_success_rate"]["denominator"] == 2.0
     assert metrics["http_2xx_success_rate"]["scope"] == "URL_SET"
+    assert metrics["http_acquisition_duration_p50"]["value"] == 200.0
+    assert metrics["http_acquisition_duration_p75"]["value"] == 250.0
+    assert metrics["http_acquisition_duration_p95"]["value"] == 290.0
+    assert metrics["http_acquisition_duration_p99"]["value"] == 298.0
+    assert metrics["http_acquisition_duration_p95"]["denominator"] == 2.0
     details = json.loads(metrics["http_2xx_success_rate"]["details_json"])
     assert details["physical_observations"] == 2
+    assert details["duration_observations"] == 2
     assert details["deduplicated_by"] == "page_id"
 
 
