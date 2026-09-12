@@ -78,3 +78,41 @@ def test_cost_confirmation_is_silent_without_monetary_forecast(monkeypatch) -> N
 
     assert module.run_audit_from_console(state) == 0
     assert calls == ["run"]
+
+
+def test_post_run_cost_at_or_below_expected_is_green_semantics() -> None:
+    outcome = console_cost_confirmation._evaluate_cost_outcome(
+        _forecast(), costs=(("USD", 0.11),), unpriced_ai_attempts=0, actual_pages=3
+    )
+    assert outcome.comparable is True
+    assert outcome.status == "DENTRO DO ESPERADO"
+    assert outcome.deviation_percent is not None and outcome.deviation_percent < 0
+
+
+def test_post_run_cost_up_to_five_percent_above_expected_is_alert() -> None:
+    outcome = console_cost_confirmation._evaluate_cost_outcome(
+        _forecast(), costs=(("USD", 0.126),), unpriced_ai_attempts=0, actual_pages=3
+    )
+    assert outcome.comparable is True
+    assert outcome.status == "ALERTA"
+    assert outcome.deviation_percent is not None
+    assert round(outcome.deviation_percent, 8) == 5.0
+
+
+def test_post_run_cost_more_than_five_percent_above_expected_is_critical() -> None:
+    outcome = console_cost_confirmation._evaluate_cost_outcome(
+        _forecast(), costs=(("USD", 0.12612),), unpriced_ai_attempts=0, actual_pages=3
+    )
+    assert outcome.comparable is True
+    assert outcome.status == "CRÍTICO"
+    assert outcome.deviation_percent is not None and outcome.deviation_percent > 5
+
+
+def test_post_run_cost_with_unpriced_attempt_is_not_falsely_classified() -> None:
+    outcome = console_cost_confirmation._evaluate_cost_outcome(
+        _forecast(), costs=(("USD", 0.10),), unpriced_ai_attempts=1, actual_pages=3
+    )
+    assert outcome.comparable is False
+    assert outcome.status == "NÃO COMPARÁVEL"
+    assert outcome.actual == 0.10
+    assert outcome.deviation_percent is None
