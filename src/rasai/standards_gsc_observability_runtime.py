@@ -1,7 +1,8 @@
 """Bounded Search Console collection composed into audit finalization.
 
 The external data is persisted in observability.db/artifacts, not promoted to SARI or
-SCORE-GEO evidence. audit.db stores only the standards-service execution state.
+SCORE-GEO evidence. audit.db stores standards-service execution state plus advisory
+metrics derived from already-persisted GSC observations.
 """
 from __future__ import annotations
 
@@ -212,6 +213,7 @@ def install() -> None:
     from rasai import report_completion, report_navigation
     from rasai.report_manifest import write_report_manifest
     from rasai.report_scale_ux import enhance_report_directory
+    from rasai.standards_gsc_metrics import enrich_gsc_metrics_report, reconcile_gsc_observational_metrics
     from rasai.standards_metrics import enrich_existing_reports, write_standards_report
 
     if getattr(report_completion, "_rasai_gsc_observability_runtime", False):
@@ -233,8 +235,10 @@ def install() -> None:
                 # Provider errors remain service state/details. They are not report-render
                 # failures and do not turn a valid audit mini-site into a renderer warning.
                 enrich_observability_report(audit_workspace=workspace.root)
+                reconcile_gsc_observational_metrics(audit_id=audit_id, workspace=workspace)
                 write_standards_report(audit_id=audit_id, workspace=workspace)
                 enrich_existing_reports(audit_id=audit_id, workspace=workspace)
+                enrich_gsc_metrics_report(audit_id=audit_id, workspace=workspace)
                 report_dir = workspace.root / "report"
                 report_navigation.normalize_report_navigation(report_dir)
                 enhance_report_directory(report_dir)
