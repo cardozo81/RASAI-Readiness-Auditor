@@ -43,13 +43,13 @@ Quando nenhuma chamada pertence diretamente àquela superfície, o quadro contin
 
 A atribuição é **primária e aditiva**: cada tentativa externa pertence a exatamente uma página proprietária. Se a evidência produzida por uma chamada for reutilizada em outras páginas, o mesmo custo não é repetido nessas páginas. Essa regra permite que a soma por página seja reconciliada com o total da auditoria.
 
-A atribuição vigente é orientada pelo contrato/finalidade persistidos:
+A atribuição vigente é orientada pelo contrato/finalidade persistidos, usando nomes públicos e estáveis de domínio:
 
-- `M18-SEMANTIC-*` → relatório Mobile ou Desktop conforme o dispositivo da tentativa; sem dispositivo, `readiness.html`;
-- `M24-*`/remediação técnica de crawling → `crawling-discovery.html`;
-- `SOURCE-QUALITY-*` → `context.html`;
-- `IMPROVEMENT-INTELLIGENCE-*` → `improvement-intelligence.html`;
-- `content_remediation_attempts` / `M20-CONTENT-REMEDIATION-*` → `content-suggestions.html`;
+- contratos de análise semântica → relatório Mobile ou Desktop conforme o dispositivo da tentativa; sem dispositivo, `readiness.html`;
+- contratos de crawling e remediação técnica de descoberta → `crawling-discovery.html`;
+- contratos de qualidade de fonte/contexto → `context.html`;
+- contratos de Improvement Intelligence → `improvement-intelligence.html`;
+- `content_remediation_attempts` e contratos de remediação de conteúdo → `content-suggestions.html`;
 - contratos de Search/Competitive Intelligence, quando persistidos na telemetria canônica → `search-intelligence.html`;
 - contratos futuros ainda não classificados → `index.html`, com motivo explícito de alocação preventiva, para que consumo novo nunca desapareça da conciliação.
 
