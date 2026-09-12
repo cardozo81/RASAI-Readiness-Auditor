@@ -25,7 +25,8 @@ Toda página HTML materializada no diretório `report/`, exceto `ai-usage.html`,
 O quadro mostra, a partir da telemetria persistida:
 
 - tentativas externas de IA;
-- respostas aceitas;
+- respostas aceitas e demais tentativas;
+- quantidade de combinações provider/modelo envolvidas;
 - tokens de entrada;
 - tokens de entrada em cache;
 - tokens de saída;
@@ -33,6 +34,10 @@ O quadro mostra, a partir da telemetria persistida:
 - tokens totais;
 - custo financeiro estimado e moeda;
 - indicação explícita quando tokens ou custo não foram retornados pelo provider.
+
+Quando existe consumo direto, o próprio relatório também mostra **Composição do custo por provider/modelo**, com tentativas, respostas aceitas, demais tentativas, URLs, dispositivos, tokens totais e custo estimado. Assim, em `AI=auto`, um fallback como `OPENAI → DEEPSEEK` permanece visível: o custo da tentativa anterior não desaparece só porque outro provider concluiu a finalidade.
+
+O bloco expansível **Por que este custo foi alocado nesta página?** mostra o contrato/finalidade persistido e a regra de ownership que determinou a superfície proprietária.
 
 Quando nenhuma chamada pertence diretamente àquela superfície, o quadro continua presente e informa `Sem consumo IA direto`. Isso evita a falsa impressão de que uma página sem custo próprio deixou de ser contabilizada.
 
@@ -46,18 +51,34 @@ A atribuição vigente é orientada pelo contrato/finalidade persistidos:
 - `IMPROVEMENT-INTELLIGENCE-*` → `improvement-intelligence.html`;
 - `content_remediation_attempts` / `M20-CONTENT-REMEDIATION-*` → `content-suggestions.html`;
 - contratos de Search/Competitive Intelligence, quando persistidos na telemetria canônica → `search-intelligence.html`;
-- contratos futuros ainda não classificados → `index.html`, de forma explícita, para que consumo novo nunca desapareça da conciliação.
+- contratos futuros ainda não classificados → `index.html`, com motivo explícito de alocação preventiva, para que consumo novo nunca desapareça da conciliação.
 
 Essa atribuição é de **ownership de custo**, não uma afirmação de exclusividade de uso da evidência. `readiness.html`, `scoring.html`, `remediation.html` ou outras superfícies podem projetar resultados derivados de uma chamada cujo custo pertence à etapa que efetivamente originou o request.
 
+## `AI=auto`, fallback e múltiplos providers no mesmo relatório
+
+`AI=auto` não implica um único provider por relatório. Uma mesma finalidade pode ter mais de uma tentativa externa, por exemplo:
+
+1. provider A responde, mas a resposta é rejeitada pelo contrato local;
+2. o runtime executa fallback para provider B;
+3. provider B produz a resposta aceita.
+
+Se ambas as chamadas retornaram usage/custo, **ambas entram no custo do relatório proprietário**. Se a primeira chamada não retornou dados suficientes para estimativa, ela continua aparecendo como tentativa sem custo mensurável; o RASAi não assume custo zero nem inventa um valor.
+
+Também é possível que URLs ou dispositivos diferentes do mesmo relatório sejam atendidos por providers distintos ao longo da execução. Por isso o relatório local e o totalizador sempre agregam por tentativa persistida, não por `effective_provider` da sessão.
+
 ## Total conciliado e drill-down em `ai-usage.html`
 
-Além dos indicadores existentes, `ai-usage.html` contém um bloco **Total de IA e detalhamento por página**. O total usa as tentativas persistidas em:
+Além dos indicadores existentes, `ai-usage.html` contém o bloco **Total de IA e onde cada custo foi alocado**. O total usa as tentativas persistidas em:
 
 - `ai_provider_attempts`;
 - `content_remediation_attempts`.
 
-O detalhamento é expansível por página proprietária e, dentro dela, por URL auditada/dispositivo/contrato/provider/modelo. Isso permite verificar tanto o custo de cada superfície HTML quanto o custo associado às URLs que geraram as chamadas.
+A página apresenta três níveis complementares:
+
+1. **Mapa de alocação: relatório × provider/modelo** — mostra financeiramente em qual HTML cada provider/modelo ficou alocado;
+2. **Consumo global por provider/modelo** — consolida o custo de cada provider/modelo independentemente da superfície;
+3. **Detalhamento por relatório proprietário** — expande URL, dispositivo, contrato/finalidade, motivo da alocação, provider/modelo, status, tokens e custo.
 
 A soma das páginas proprietárias deve fechar com o total da execução porque uma tentativa nunca é atribuída a duas superfícies. Páginas sem consumo direto são listadas separadamente e não entram novamente na soma.
 

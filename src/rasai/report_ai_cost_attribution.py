@@ -13,7 +13,7 @@ from html import escape
 from pathlib import Path
 import re
 import sqlite3
-from typing import Any
+from typing import Any, Iterable
 
 from rasai.persistence import AuditWorkspace
 from rasai.report_contract import REPORT_SURFACES
@@ -28,6 +28,7 @@ class _Attempt:
     source: str
     attempt_id: str
     report_file: str
+    allocation_reason: str
     url: str
     device: str
     provider: str
@@ -56,9 +57,13 @@ class _Usage:
     costs: dict[str, float]
     cost_unknown: int
 
+    @property
+    def non_successes(self) -> int:
+        return self.attempts - self.successes
+
 
 def enrich_ai_cost_attribution(*, audit_id: str, workspace: AuditWorkspace) -> None:
-    """Add one standardized AI-cost card to every HTML report and a reconciled rollup."""
+    """Add standardized per-report attribution and a reconciled audit-wide rollup."""
     report_dir = workspace.root / "report"
     if not report_dir.is_dir():
         return
@@ -160,11 +165,17 @@ def _collect_attempts(connection: sqlite3.Connection, audit_id: str) -> tuple[_A
         ):
             contract = str(row["contract"] or "")
             device = str(row["device"] or "")
+            report_file, allocation_reason = _owner_report(
+                source=source,
+                contract=contract,
+                device=device,
+            )
             collected.append(
                 _Attempt(
                     source=source,
                     attempt_id=str(row["attempt_id"] or ""),
-                    report_file=_owner_report(source=source, contract=contract, device=device),
+                    report_file=report_file,
+                    allocation_reason=allocation_reason,
                     url=str(row["url"] or "-"),
                     device=device or "-",
                     provider=str(row["provider"] or "-"),
@@ -183,28 +194,30 @@ def _collect_attempts(connection: sqlite3.Connection, audit_id: str) -> tuple[_A
     return tuple(collected)
 
 
-def _owner_report(*, source: str, contract: str, device: str) -> str:
-    """Return the single report that owns one AI attempt for additive reconciliation."""
+def _owner_report(*, source: str, contract: str, device: str) -> tuple[str, str]:
+    """Return the single cost owner and a human-readable reason for that allocation."""
     if source == "content":
-        return "content-suggestions.html"
+        return "content-suggestions.html", "Remediação de conteúdo/JSON-LD (M20)"
     normalized = contract.upper()
     if "IMPROVEMENT-INTELLIGENCE" in normalized:
-        return "improvement-intelligence.html"
+        return "improvement-intelligence.html", "Análise profunda e melhorias por IA"
     if normalized.startswith("M24-") or "CRAWL" in normalized or "ROBOTS" in normalized:
-        return "crawling-discovery.html"
+        return "crawling-discovery.html", "IA técnica de crawling/discovery"
     if "SOURCE-QUALITY" in normalized:
-        return "context.html"
+        return "context.html", "Explicação de qualidade da origem e rota técnica"
     if "COMPETITIVE" in normalized or "SEARCH-INTELLIGENCE" in normalized:
-        return "search-intelligence.html"
+        return "search-intelligence.html", "Search/Competitive Intelligence por IA"
     if normalized.startswith("M18-") or "SEMANTIC" in normalized:
         normalized_device = device.upper()
         if normalized_device == "MOBILE":
-            return "mobile.html"
+            return "mobile.html", "Análise semântica do contexto Mobile"
         if normalized_device == "DESKTOP":
-            return "desktop.html"
-        return "readiness.html"
-    # Unknown/future contracts remain visible and reconciled instead of disappearing.
-    return "index.html"
+            return "desktop.html", "Análise semântica do contexto Desktop"
+        return "readiness.html", "Análise semântica sem dispositivo específico"
+    return (
+        "index.html",
+        "Contrato de IA ainda sem regra específica; alocação preventiva na Visão geral",
+    )
 
 
 def _int_or_none(value: Any) -> int | None:
@@ -225,7 +238,7 @@ def _float_or_none(value: Any) -> float | None:
         return None
 
 
-def _usage(attempts: Any) -> _Usage:
+def _usage(attempts: Iterable[_Attempt]) -> _Usage:
     rows = tuple(attempts)
     costs: dict[str, float] = {}
     successes = token_unknown = cost_unknown = 0
@@ -262,10 +275,18 @@ def _usage(attempts: Any) -> _Usage:
     )
 
 
+def _format_count(value: int) -> str:
+    return f"{value:,}".replace(",", ".")
+
+
 def _format_cost(usage: _Usage) -> str:
     if usage.costs:
-        text = " + ".join(f"{value:.8f} {currency}" for currency, value in sorted(usage.costs.items()))
-        return text + (f" + {usage.cost_unknown} tentativa(s) sem custo mensurável" if usage.cost_unknown else "")
+        text = " + ".join(
+            f"{value:.8f} {currency}" for currency, value in sorted(usage.costs.items())
+        )
+        if usage.cost_unknown:
+            text += f" + {usage.cost_unknown} tentativa(s) sem custo mensurável"
+        return text
     if usage.attempts:
         return "Não mensurável pelo provider"
     return "0 · sem chamadas"
@@ -275,22 +296,39 @@ def _metric(label: str, value: str) -> str:
     return f"<div class='metric'><small>{escape(label)}</small><strong>{escape(value)}</strong></div>"
 
 
-def _usage_metrics(usage: _Usage) -> str:
-    total = f"{usage.total_tokens:,}".replace(",", ".")
+def _provider_model_keys(attempts: Iterable[_Attempt]) -> tuple[tuple[str, str], ...]:
+    return tuple(sorted({(row.provider, row.model) for row in attempts}))
+
+
+def _provider_model_text(attempts: Iterable[_Attempt]) -> str:
+    keys = _provider_model_keys(attempts)
+    if not keys:
+        return "Nenhum"
+    return " · ".join(f"{provider}/{model}" for provider, model in keys)
+
+
+def _usage_metrics(usage: _Usage, *, provider_models: int | None = None) -> str:
+    total = _format_count(usage.total_tokens)
     if usage.token_unknown:
         total += f" + {usage.token_unknown} tentativa(s) sem total retornado"
-    return "".join(
+    items = [
+        _metric("Tentativas de IA", str(usage.attempts)),
+        _metric("Respostas aceitas", str(usage.successes)),
+        _metric("Demais tentativas", str(usage.non_successes)),
+    ]
+    if provider_models is not None:
+        items.append(_metric("Providers/modelos envolvidos", str(provider_models)))
+    items.extend(
         (
-            _metric("Tentativas de IA", str(usage.attempts)),
-            _metric("Respostas aceitas", str(usage.successes)),
-            _metric("Tokens de entrada", f"{usage.input_tokens:,}".replace(",", ".")),
-            _metric("Tokens de entrada em cache", f"{usage.cached_input_tokens:,}".replace(",", ".")),
-            _metric("Tokens de saída", f"{usage.output_tokens:,}".replace(",", ".")),
-            _metric("Reasoning tokens", f"{usage.reasoning_tokens:,}".replace(",", ".")),
+            _metric("Tokens de entrada", _format_count(usage.input_tokens)),
+            _metric("Tokens de entrada em cache", _format_count(usage.cached_input_tokens)),
+            _metric("Tokens de saída", _format_count(usage.output_tokens)),
+            _metric("Reasoning tokens", _format_count(usage.reasoning_tokens)),
             _metric("Tokens totais", total),
             _metric("Custo financeiro estimado", _format_cost(usage)),
         )
     )
+    return "".join(items)
 
 
 def _report_label(filename: str) -> str:
@@ -300,29 +338,125 @@ def _report_label(filename: str) -> str:
     return filename
 
 
-def _standard_card(filename: str, attempts: Any) -> str:
-    usage = _usage(attempts)
+def _provider_breakdown_rows(attempts: Iterable[_Attempt], *, include_reports: bool) -> str:
+    grouped: dict[tuple[str, ...], list[_Attempt]] = defaultdict(list)
+    for row in attempts:
+        key = (
+            (row.provider, row.model, row.report_file)
+            if include_reports
+            else (row.provider, row.model)
+        )
+        grouped[key].append(row)
+
+    rows: list[str] = []
+    for key, values in sorted(grouped.items()):
+        usage = _usage(values)
+        provider, model = key[0], key[1]
+        urls = len({row.url for row in values})
+        devices = ", ".join(sorted({row.device for row in values})) or "-"
+        report_cell = (
+            f"<td>{escape(_report_label(key[2]))}<br><code>{escape(key[2])}</code></td>"
+            if include_reports
+            else ""
+        )
+        rows.append(
+            "<tr>"
+            f"{report_cell}<td>{escape(provider)}</td><td>{escape(model)}</td>"
+            f"<td>{usage.attempts}</td><td>{usage.successes}</td><td>{usage.non_successes}</td>"
+            f"<td>{urls}</td><td>{escape(devices)}</td><td>{_format_count(usage.total_tokens)}</td>"
+            f"<td>{escape(_format_cost(usage))}</td>"
+            "</tr>"
+        )
+    return "".join(rows)
+
+
+def _provider_breakdown_table(attempts: Iterable[_Attempt], *, include_reports: bool = False) -> str:
+    rows = tuple(attempts)
+    if not rows:
+        return ""
+    report_header = "<th>Relatório proprietário</th>" if include_reports else ""
+    return (
+        "<div class='table-wrap ai-provider-cost-breakdown'><table><thead><tr>"
+        f"{report_header}<th>Provider</th><th>Modelo</th><th>Tentativas</th><th>Aceitas</th>"
+        "<th>Demais</th><th>URLs</th><th>Dispositivos</th><th>Tokens totais</th><th>Custo estimado</th>"
+        "</tr></thead><tbody>"
+        f"{_provider_breakdown_rows(rows, include_reports=include_reports)}"
+        "</tbody></table></div>"
+    )
+
+
+def _allocation_rows(attempts: Iterable[_Attempt]) -> str:
+    grouped: dict[tuple[str, str], list[_Attempt]] = defaultdict(list)
+    for row in attempts:
+        grouped[(row.contract, row.allocation_reason)].append(row)
+    rows: list[str] = []
+    for (contract, reason), values in sorted(grouped.items()):
+        usage = _usage(values)
+        rows.append(
+            "<tr>"
+            f"<td><code>{escape(contract)}</code></td><td>{escape(reason)}</td>"
+            f"<td>{usage.attempts}</td><td>{_format_count(usage.total_tokens)}</td>"
+            f"<td>{escape(_format_cost(usage))}</td>"
+            "</tr>"
+        )
+    return "".join(rows)
+
+
+def _allocation_table(attempts: Iterable[_Attempt]) -> str:
+    rows = tuple(attempts)
+    if not rows:
+        return ""
+    return (
+        "<div class='table-wrap'><table><thead><tr>"
+        "<th>Contrato/finalidade</th><th>Motivo da alocação nesta página</th>"
+        "<th>Tentativas</th><th>Tokens totais</th><th>Custo estimado</th>"
+        "</tr></thead><tbody>"
+        f"{_allocation_rows(rows)}"
+        "</tbody></table></div>"
+    )
+
+
+def _standard_card(filename: str, attempts: Iterable[_Attempt]) -> str:
+    rows = tuple(attempts)
+    usage = _usage(rows)
+    provider_keys = _provider_model_keys(rows)
     badge = "Com consumo IA" if usage.attempts else "Sem consumo IA direto"
     explanation = (
-        "Atribuição primária e aditiva: cada tentativa externa pertence a um único relatório, "
-        "mesmo quando a evidência resultante é reutilizada em outras páginas. Isso evita dupla contagem."
+        "Cada tentativa externa é contabilizada uma única vez no relatório que originou a finalidade. "
+        "Em AI=auto, falhas, rejeições e fallbacks de providers diferentes permanecem visíveis e somados aqui quando pertencem a esta mesma superfície."
     )
     zero_note = (
         "<div class='notice'><strong>Nenhum consumo direto de IA atribuído a este relatório.</strong> "
-        "A página pode projetar dados produzidos em outra etapa; nesse caso o custo permanece atribuído à superfície que originou a chamada.</div>"
+        "A página pode projetar evidências produzidas por IA em outra etapa; nesse caso o custo fica somente no relatório proprietário da chamada.</div>"
         if usage.attempts == 0
         else ""
     )
+    provider_section = ""
+    allocation_section = ""
+    if rows:
+        provider_section = (
+            "<h3>Composição do custo por provider/modelo</h3>"
+            f"<p class='intro'><strong>Providers/modelos observados:</strong> {escape(_provider_model_text(rows))}. "
+            "Todas as tentativas são consideradas, inclusive as que antecederam um fallback.</p>"
+            f"{_provider_breakdown_table(rows)}"
+        )
+        allocation_section = (
+            "<details><summary>Por que este custo foi alocado nesta página?</summary><div class='detail-body'>"
+            f"{_allocation_table(rows)}"
+            "<p>A alocação identifica a superfície proprietária do request, não todas as páginas que posteriormente reutilizam a evidência.</p>"
+            "</div></details>"
+        )
     return (
         f"<section class='panel ai-cost-attribution' {_CARD_MARKER}>"
         "<div class='panel-head'><div><div class='kicker'>Transparência de consumo</div>"
         f"<h2>Consumo de IA atribuído a esta página</h2></div><span class='badge info'>{escape(badge)}</span></div>"
         f"<p class='intro'>{escape(explanation)}</p>"
-        f"<div class='metric-grid'>{_usage_metrics(usage)}</div>{zero_note}"
+        f"<div class='metric-grid'>{_usage_metrics(usage, provider_models=len(provider_keys))}</div>"
+        f"{zero_note}{provider_section}{allocation_section}"
         "<details><summary>Como interpretar custo e tokens</summary><div class='detail-body'>"
         "<p>Custo é estimativa operacional baseada na telemetria e tabela de preços persistidas; não substitui billing/invoice do provider. "
         "Tentativas sem usage/custo retornado não recebem valor inferido. Reasoning tokens, quando reportados, são subconjunto de output e não devem ser somados novamente ao total.</p>"
-        f"<p><strong>Superfície:</strong> <code>{escape(filename)}</code> · {escape(_report_label(filename))}.</p>"
+        f"<p><strong>Superfície proprietária:</strong> <code>{escape(filename)}</code> · {escape(_report_label(filename))}.</p>"
         "</div></details></section>"
     )
 
@@ -343,22 +477,26 @@ def _insert_before_end(html: str, section: str) -> str:
     return html + section
 
 
-def _rewrite_report(html: str, filename: str, attempts: Any) -> str:
+def _rewrite_report(html: str, filename: str, attempts: Iterable[_Attempt]) -> str:
     html = _strip_injected(html, _CARD_MARKER)
     return _insert_before_end(html, _standard_card(filename, attempts))
 
 
-def _group_detail_rows(attempts: tuple[_Attempt, ...]) -> str:
-    grouped: dict[tuple[str, str, str, str, str], list[_Attempt]] = defaultdict(list)
+def _group_detail_rows(attempts: Iterable[_Attempt]) -> str:
+    grouped: dict[tuple[str, str, str, str, str, str], list[_Attempt]] = defaultdict(list)
     for row in attempts:
-        grouped[(row.url, row.device, row.contract, row.provider, row.model)].append(row)
+        grouped[
+            (row.url, row.device, row.contract, row.allocation_reason, row.provider, row.model)
+        ].append(row)
     rows: list[str] = []
-    for (url, device, contract, provider, model), values in sorted(grouped.items()):
+    for (url, device, contract, reason, provider, model), values in sorted(grouped.items()):
         usage = _usage(values)
+        statuses = ", ".join(sorted({row.status for row in values}))
         rows.append(
             "<tr>"
             f"<td class='mono'>{escape(url)}</td><td>{escape(device)}</td>"
-            f"<td>{escape(contract)}</td><td>{escape(provider)} · {escape(model)}</td>"
+            f"<td><code>{escape(contract)}</code></td><td>{escape(reason)}</td>"
+            f"<td>{escape(provider)} · {escape(model)}</td><td>{escape(statuses)}</td>"
             f"<td>{usage.attempts}</td><td>{usage.successes}</td>"
             f"<td>{usage.input_tokens}</td><td>{usage.cached_input_tokens}</td>"
             f"<td>{usage.output_tokens}</td><td>{usage.reasoning_tokens}</td><td>{usage.total_tokens}</td>"
@@ -375,19 +513,61 @@ def _report_breakdown(by_report: dict[str, list[_Attempt]]) -> str:
         if not attempts:
             continue
         usage = _usage(attempts)
+        provider_count = len(_provider_model_keys(attempts))
         blocks.append(
             "<details class='ai-cost-report-detail'>"
-            f"<summary>{escape(surface.label)} · {usage.attempts} tentativa(s) · {escape(_format_cost(usage))}</summary>"
+            f"<summary>{escape(surface.label)} · {usage.attempts} tentativa(s) · "
+            f"{provider_count} provider/modelo · {escape(_format_cost(usage))}</summary>"
             "<div class='detail-body'><div class='metric-grid'>"
-            f"{_usage_metrics(usage)}</div>"
+            f"{_usage_metrics(usage, provider_models=provider_count)}</div>"
+            "<h4>Providers/modelos que compõem este custo</h4>"
+            f"{_provider_breakdown_table(attempts)}"
+            "<h4>Detalhe por URL, dispositivo e finalidade</h4>"
             "<div class='table-wrap'><table><thead><tr>"
-            "<th>URL auditada</th><th>Dispositivo</th><th>Contrato/finalidade</th><th>Provider/modelo</th>"
-            "<th>Tentativas</th><th>Sucessos</th><th>Input</th><th>Cache</th><th>Output</th><th>Reasoning</th><th>Total</th><th>Custo</th>"
+            "<th>URL auditada</th><th>Dispositivo</th><th>Contrato/finalidade</th><th>Motivo da alocação</th>"
+            "<th>Provider/modelo</th><th>Status</th><th>Tentativas</th><th>Sucessos</th>"
+            "<th>Input</th><th>Cache</th><th>Output</th><th>Reasoning</th><th>Total</th><th>Custo</th>"
             "</tr></thead><tbody>"
             f"{_group_detail_rows(attempts)}"
             "</tbody></table></div></div></details>"
         )
     return "".join(blocks)
+
+
+def _allocation_matrix_rows(by_report: dict[str, list[_Attempt]]) -> str:
+    rows: list[str] = []
+    for surface in REPORT_SURFACES:
+        attempts = tuple(by_report.get(surface.filename, ()))
+        if not attempts:
+            continue
+        grouped: dict[tuple[str, str], list[_Attempt]] = defaultdict(list)
+        for attempt in attempts:
+            grouped[(attempt.provider, attempt.model)].append(attempt)
+        for (provider, model), values in sorted(grouped.items()):
+            usage = _usage(values)
+            rows.append(
+                "<tr>"
+                f"<td>{escape(surface.label)}<br><code>{escape(surface.filename)}</code></td>"
+                f"<td>{escape(provider)}</td><td>{escape(model)}</td>"
+                f"<td>{usage.attempts}</td><td>{usage.successes}</td><td>{usage.non_successes}</td>"
+                f"<td>{_format_count(usage.total_tokens)}</td><td>{escape(_format_cost(usage))}</td>"
+                "</tr>"
+            )
+    return "".join(rows)
+
+
+def _allocation_matrix(by_report: dict[str, list[_Attempt]]) -> str:
+    rows = _allocation_matrix_rows(by_report)
+    if not rows:
+        return "<div class='notice'>Nenhuma alocação de custo de IA foi encontrada.</div>"
+    return (
+        "<div class='table-wrap ai-cost-allocation-matrix'><table><thead><tr>"
+        "<th>Relatório proprietário</th><th>Provider</th><th>Modelo</th><th>Tentativas</th>"
+        "<th>Aceitas</th><th>Demais</th><th>Tokens totais</th><th>Custo estimado</th>"
+        "</tr></thead><tbody>"
+        f"{rows}"
+        "</tbody></table></div>"
+    )
 
 
 def _rewrite_ai_usage(
@@ -398,27 +578,36 @@ def _rewrite_ai_usage(
     html = _strip_injected(html, _ROLLUP_MARKER)
     total = _usage(attempts)
     zero_reports = [
-        surface.label for surface in REPORT_SURFACES
+        surface.label
+        for surface in REPORT_SURFACES
         if surface.filename != _AI_USAGE_FILE and not by_report.get(surface.filename)
     ]
     zero_text = " · ".join(escape(label) for label in zero_reports) or "Nenhum"
     breakdown = _report_breakdown(by_report)
     if not breakdown:
         breakdown = "<div class='notice'>Nenhuma tentativa externa de IA foi persistida para esta auditoria.</div>"
+    provider_count = len(_provider_model_keys(attempts))
     section = (
         f"<section class='panel ai-cost-rollup' {_ROLLUP_MARKER}>"
         "<div class='panel-head'><div><div class='kicker'>Conciliação financeira e de tokens</div>"
-        "<h2>Total de IA e detalhamento por página</h2></div><span class='badge info'>Total reconciliado</span></div>"
-        "<p class='intro'>Este total considera todas as tentativas externas persistidas em <code>ai_provider_attempts</code> e "
-        "<code>content_remediation_attempts</code>. Cada tentativa é atribuída a exatamente uma página proprietária, de modo que a soma do detalhamento fecha com o total sem duplicação.</p>"
-        f"<div class='metric-grid'>{_usage_metrics(total)}</div>"
-        "<h3>Detalhamento expansível por página</h3>"
+        "<h2>Total de IA e onde cada custo foi alocado</h2></div><span class='badge info'>Total reconciliado</span></div>"
+        "<p class='intro'>O total abaixo considera todas as tentativas externas persistidas. Cada tentativa pertence a exatamente um relatório proprietário. "
+        "Em AI=auto, providers usados em fallback permanecem separados na composição, mesmo quando somente o último produziu uma resposta aceita.</p>"
+        f"<div class='metric-grid'>{_usage_metrics(total, provider_models=provider_count)}</div>"
+        "<h3>Mapa de alocação: relatório × provider/modelo</h3>"
+        "<p class='intro'>Use esta tabela para localizar financeiramente cada provider/modelo. A soma das linhas corresponde ao total conhecido acima; tentativas sem custo retornado são sinalizadas e não recebem valor inventado.</p>"
+        f"{_allocation_matrix(by_report)}"
+        "<h3>Consumo global por provider/modelo</h3>"
+        f"{_provider_breakdown_table(attempts, include_reports=False) if attempts else '<div class=\'notice\'>Nenhum provider consumido.</div>'}"
+        "<h3>Detalhamento expansível por relatório proprietário</h3>"
         f"{breakdown}"
         "<details><summary>Páginas sem consumo direto atribuído</summary><div class='detail-body'>"
         f"<p>{zero_text}</p><p>Essas páginas podem reutilizar evidências de IA geradas em outra superfície; esse reaproveitamento não é cobrado novamente no detalhamento.</p>"
         "</div></details>"
-        "<div class='notice'><strong>Regra de conciliação:</strong> custo e tokens deste bloco vêm apenas da telemetria persistida. "
-        "Valores ausentes não são inferidos. Reasoning tokens não são adicionados novamente a output/total.</div>"
+        "<div class='notice'><strong>Regra de conciliação:</strong> custos e tokens vêm apenas da telemetria persistida em "
+        "<code>ai_provider_attempts</code> e <code>content_remediation_attempts</code>. "
+        "Resposta rejeitada, erro técnico ou fallback continuam sendo tentativas reais e podem ter custo. "
+        "Valores ausentes não são inferidos; reasoning tokens não são somados novamente a output/total.</div>"
         "</section>"
     )
     return _insert_before_end(html, section)
