@@ -241,8 +241,6 @@ def _reconcile_search_analytics(
            WHERE dataset_id=? ORDER BY record_id""",
         (dataset_id,),
     ).fetchall())
-    if not rows:
-        return
 
     clicks = sum(value for row in rows if (value := _float(row["clicks"])) is not None)
     impressions = sum(value for row in rows if (value := _float(row["impressions"])) is not None)
