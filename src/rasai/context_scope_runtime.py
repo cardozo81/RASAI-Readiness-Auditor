@@ -23,7 +23,7 @@ _CONTEXT_FILE = "context.html"
 
 _NAV_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Visão e readiness", ("index.html", "readiness.html", "scoring.html")),
-    ("Coleta e dispositivos", ("context.html", "crawling-discovery.html", "mobile.html", "desktop.html", "accessibility.html", "web-performance.html", "apdex.html", "apdex-experience.html")),
+    ("Coleta e dispositivos", ("context.html", "crawling-discovery.html", "mobile.html", "desktop.html", "accessibility.html", "web-performance.html", "standards.html", "apdex.html", "apdex-experience.html")),
     ("Search e IA", ("search-intelligence.html", "ai-visibility.html", "observability.html", "ai-usage.html")),
     ("Ações e referência", ("content-suggestions.html", "remediation.html", "quality.html", "references.html")),
 )
