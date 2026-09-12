@@ -4,6 +4,17 @@ from __future__ import annotations
 from pathlib import Path
 from urllib.parse import urlparse
 
+from rasai.standards_gsc_policy import (
+    DEFAULT_GSC_FINAL_DATA_LAG_DAYS,
+    DEFAULT_GSC_SEARCH_ANALYTICS_DAYS,
+    DEFAULT_GSC_SEARCH_MAX_ROWS,
+    GSC_FINAL_DATA_LAG_DAYS_ENV,
+    GSC_SEARCH_ANALYTICS_DAYS_ENV,
+    GSC_SEARCH_MAX_ROWS_ENV,
+    final_data_lag_days,
+    search_analytics_days,
+    search_max_rows,
+)
 from rasai.standards_runtime import install_console_service_catalog
 from rasai.standards_service_registry import (
     GSC_SITE_URL_ENV,
@@ -32,37 +43,76 @@ def _validate_gsc_site_url(raw: str) -> str:
     return value
 
 
-def _ensure_nonsecret_service_context_spec(legacy: object) -> None:
+def _ensure_nonsecret_service_context_specs(legacy: object, console_config: object) -> None:
+    category = "Métricas e padrões"
+    source = "docs/STANDARDS_METRICS_AND_SERVICES.md"
     specs = list(legacy.SPECS)
-    if any(spec.name == GSC_SITE_URL_ENV for spec in specs):
-        return
-    specs.append(legacy.EnvironmentSpec(
-        GSC_SITE_URL_ENV,
-        "Métricas e padrões",
-        "Propriedade Google Search Console usada por Search Analytics, Sitemaps e URL Inspection.",
-        "texto",
-        required_when="Obrigatória quando Google Search Console estiver habilitado.",
-        sensitive=False,
-        impact="Sem custo externo direto; restringe as consultas à propriedade autenticada configurada.",
-        example="sc-domain:example.com",
-        source="docs/STANDARDS_METRICS_AND_SERVICES.md",
-        notes=(
-            "Aceita propriedade de domínio no formato sc-domain:<domínio> ou propriedade "
-            "URL-prefix http(s) absoluta. É configuração não secreta e pode ser persistida no INI."
+    known = {spec.name for spec in specs}
+    additions = (
+        legacy.EnvironmentSpec(
+            GSC_SITE_URL_ENV,
+            category,
+            "Propriedade Google Search Console usada por Search Analytics, Sitemaps e URL Inspection.",
+            "texto",
+            required_when="Obrigatória quando Google Search Console estiver habilitado.",
+            sensitive=False,
+            impact="Sem custo externo direto; restringe as consultas à propriedade autenticada configurada.",
+            example="sc-domain:example.com",
+            source=source,
+            notes=(
+                "Aceita propriedade de domínio no formato sc-domain:<domínio> ou propriedade "
+                "URL-prefix http(s) absoluta. É configuração não secreta e pode ser persistida no INI."
+            ),
         ),
-    ))
+        legacy.EnvironmentSpec(
+            GSC_SEARCH_ANALYTICS_DAYS_ENV,
+            category,
+            "Dias de Search Analytics finalizados coletados automaticamente por auditoria; 0 desliga somente essa subcoleta.",
+            "inteiro",
+            default=str(DEFAULT_GSC_SEARCH_ANALYTICS_DAYS),
+            impact="Aumentar o período aumenta carga/quota no Search Console.",
+            source=source,
+            notes="Faixa aceita: 0 a 31 dias.",
+        ),
+        legacy.EnvironmentSpec(
+            GSC_SEARCH_MAX_ROWS_ENV,
+            category,
+            "Teto de linhas de Search Analytics persistidas por auditoria.",
+            "inteiro",
+            default=str(DEFAULT_GSC_SEARCH_MAX_ROWS),
+            impact="Aumentar o teto pode elevar chamadas paginadas, armazenamento e tempo de execução.",
+            source=source,
+            notes="Faixa aceita: 1 a 50000 linhas.",
+        ),
+        legacy.EnvironmentSpec(
+            GSC_FINAL_DATA_LAG_DAYS_ENV,
+            category,
+            "Defasagem usada para preferir dados Search Analytics finalizados.",
+            "inteiro",
+            default=str(DEFAULT_GSC_FINAL_DATA_LAG_DAYS),
+            impact="Sem custo direto; altera o período consultado.",
+            source=source,
+            notes="Default 3 dias, alinhado à disponibilidade típica documentada pelo Google; faixa 0 a 30.",
+        ),
+    )
+    for spec in additions:
+        if spec.name not in known:
+            specs.append(spec)
+            known.add(spec.name)
     legacy.SPECS = tuple(specs)
     legacy.SPEC_BY_NAME = {spec.name: spec for spec in specs}
-    if GSC_SITE_URL_ENV not in legacy.ENV_NAMES:
-        legacy.ENV_NAMES = (*legacy.ENV_NAMES, GSC_SITE_URL_ENV)
+    extra_names = tuple(spec.name for spec in additions)
+    legacy.ENV_NAMES = tuple(dict.fromkeys((*legacy.ENV_NAMES, *extra_names)))
+    console_config.ENV_NAMES = tuple(dict.fromkeys((*console_config.ENV_NAMES, *extra_names)))
 
 
 def install() -> None:
     install_console_service_catalog()
+    from rasai import console_config
     from rasai import console_environment as legacy
     from rasai import console_provider_environment as facade
 
-    _ensure_nonsecret_service_context_spec(legacy)
+    _ensure_nonsecret_service_context_specs(legacy, console_config)
     if getattr(legacy, "_rasai_standards_console_validation", False):
         facade.CATEGORIES = legacy.CATEGORIES
         facade.refresh_specs()
@@ -93,6 +143,12 @@ def install() -> None:
             return str(path)
         if name == GSC_SITE_URL_ENV:
             return _validate_gsc_site_url(value)
+        if name == GSC_SEARCH_ANALYTICS_DAYS_ENV:
+            return str(search_analytics_days(value))
+        if name == GSC_SEARCH_MAX_ROWS_ENV:
+            return str(search_max_rows(value))
+        if name == GSC_FINAL_DATA_LAG_DAYS_ENV:
+            return str(final_data_lag_days(value))
         return original_validate(name, raw)
 
     legacy._validate = validate
