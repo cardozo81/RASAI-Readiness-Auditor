@@ -10,7 +10,6 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 import builtins
-import os
 from types import ModuleType
 from typing import Any, Iterator
 
@@ -19,7 +18,6 @@ from rasai.console_cost import ExposureEstimate, estimate_exposure
 from rasai.console_m23 import synthetic_load_summary
 from rasai.console_ui import CYAN, DIM, GREEN, RED, YELLOW, paint
 from rasai.content_context import configured_content_analysis_context
-from rasai.improvement_intelligence import ENABLED_ENV as IMPROVEMENT_ENABLED_ENV
 
 PROFILE_CHOICE = "F"
 AI_OFF = "off"
@@ -154,7 +152,7 @@ def _baseline(state: Any) -> dict[str, object]:
         "synthetic_apdex": bool(getattr(state, "synthetic_apdex", False)),
         "apdex_experience": bool(getattr(state, "apdex_experience", False)),
         "search_queries": tuple(getattr(state, "search_queries", ()) or ()),
-        "improvement_enabled": os.environ.get(IMPROVEMENT_ENABLED_ENV),
+        "improvement_enabled": bool(getattr(state, "improvement_enabled", False)),
     }
 
 
@@ -201,10 +199,9 @@ def _manual(session: SessionProfile, state: Any, domain: str) -> bool:
     if domain in session.manual_overrides:
         return True
     if domain == "web":
-        return (
-            bool(getattr(state, "web_performance", False)) != session.baseline["web_performance"]
-            or str(getattr(state, "lighthouse_categories", "")) != session.baseline["lighthouse_categories"]
-        )
+        return bool(getattr(state, "web_performance", False)) != session.baseline["web_performance"]
+    if domain == "categories":
+        return str(getattr(state, "lighthouse_categories", "")) != session.baseline["lighthouse_categories"]
     return False
 
 
@@ -227,7 +224,7 @@ def _effective_ai_provider(state: Any) -> str:
 
 @contextmanager
 def effective_profile(state: Any, session: SessionProfile | None = None) -> Iterator[None]:
-    """Temporarily project a profile onto the live state/environment and restore it."""
+    """Temporarily project a profile onto the live state and restore it afterwards."""
     current = session or active_profile(state)
     if current is None:
         yield
@@ -244,16 +241,15 @@ def effective_profile(state: Any, session: SessionProfile | None = None) -> Iter
         "synthetic_apdex",
         "apdex_experience",
         "search_queries",
+        "improvement_enabled",
     )
     saved = {name: getattr(state, name) for name in fields if hasattr(state, name)}
-    improvement_present = IMPROVEMENT_ENABLED_ENV in os.environ
-    improvement_previous = os.environ.get(IMPROVEMENT_ENABLED_ENV)
     try:
         categories = _profile_categories(current)
         if not _manual(current, state, "web"):
             state.web_performance = bool(categories)
-            if categories:
-                state.lighthouse_categories = ",".join(categories)
+        if categories and not _manual(current, state, "categories"):
+            state.lighthouse_categories = ",".join(categories)
 
         if "ai" not in current.manual_overrides:
             if current.ai_mode == AI_OFF:
@@ -279,18 +275,13 @@ def effective_profile(state: Any, session: SessionProfile | None = None) -> Iter
             if hasattr(state, "apdex_experience"):
                 state.apdex_experience = False
 
-        if "deep" not in current.manual_overrides and "deep-analysis" not in current.modules:
-            os.environ[IMPROVEMENT_ENABLED_ENV] = "false"
+        if "deep" not in current.manual_overrides and "deep-analysis" not in current.modules and hasattr(state, "improvement_enabled"):
+            state.improvement_enabled = False
 
         yield
     finally:
         for name, value in saved.items():
             setattr(state, name, value)
-        if improvement_present:
-            assert improvement_previous is not None
-            os.environ[IMPROVEMENT_ENABLED_ENV] = improvement_previous
-        else:
-            os.environ.pop(IMPROVEMENT_ENABLED_ENV, None)
 
 
 def dependency_status(state: Any, session: SessionProfile | None = None) -> tuple[bool, tuple[str, ...], tuple[str, ...]]:
@@ -307,10 +298,8 @@ def dependency_status(state: Any, session: SessionProfile | None = None) -> tupl
         bool(getattr(state, "synthetic_apdex", False)) or bool(getattr(state, "apdex_experience", False))
     ):
         blockers.append("Experiência sintética selecionada: configure Synthetic/Experience Apdex antes da execução")
-    if "deep-analysis" in current.modules:
-        raw = (os.environ.get(IMPROVEMENT_ENABLED_ENV) or "").strip().casefold()
-        if raw not in {"1", "true", "yes", "on"}:
-            blockers.append("Análise profunda selecionada: habilite/configure o item 13 antes da execução")
+    if "deep-analysis" in current.modules and not bool(getattr(state, "improvement_enabled", False)):
+        blockers.append("Análise profunda selecionada: habilite/configure o item 13 antes da execução")
     if "geo" in current.modules:
         try:
             context = configured_content_analysis_context()
