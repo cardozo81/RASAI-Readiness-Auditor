@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from rasai.standards_metrics import ndcg_at_k, precision_at_k, reciprocal_rank
+from rasai.standards_runtime import _SERVICE_PAYLOAD_DEFAULTS, _bool_payload
+from rasai.standards_saas_runtime import _requested
 from rasai.standards_service_registry import (
     CRUX_ENABLED_ENV,
     GSC_ENABLED_ENV,
@@ -59,6 +61,21 @@ def test_credential_services_activate_only_after_required_configuration() -> Non
     })
     assert gsc_ready["state"] == "READY"
     assert gsc_ready["effective_enabled"] is True
+
+
+def test_credential_saas_defaults_preserve_auto_semantics(monkeypatch) -> None:
+    assert _SERVICE_PAYLOAD_DEFAULTS["pagespeed_enabled"] is None
+    assert _SERVICE_PAYLOAD_DEFAULTS["crux_enabled"] is None
+    assert _SERVICE_PAYLOAD_DEFAULTS["gsc_enabled"] is None
+    assert _bool_payload({}, "pagespeed_enabled", None) is None
+    assert _bool_payload({"pagespeed_enabled": False}, "pagespeed_enabled", None) is False
+    assert _bool_payload({"pagespeed_enabled": True}, "pagespeed_enabled", None) is True
+
+    monkeypatch.setenv("RASAI_PAGESPEED_API_KEY", "key")
+    assert _requested({}, "pagespeed_enabled", "pagespeed") is True
+    assert _requested({"pagespeed_enabled": None}, "pagespeed_enabled", "pagespeed") is True
+    assert _requested({"pagespeed_enabled": False}, "pagespeed_enabled", "pagespeed") is False
+    assert _requested({"pagespeed_enabled": True}, "pagespeed_enabled", "pagespeed") is True
 
 
 def test_explicit_disable_wins_even_with_credentials() -> None:
