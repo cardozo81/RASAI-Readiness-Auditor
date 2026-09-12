@@ -155,7 +155,7 @@ As métricas de URL Inspection usam:
 URL_SET
 ```
 
-Os agregados do dataset Search Analytics usam:
+Os agregados e contagens do dataset Search Analytics usam:
 
 ```text
 ORIGIN
