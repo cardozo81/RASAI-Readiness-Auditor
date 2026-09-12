@@ -44,13 +44,13 @@ def _validate_gsc_site_url(raw: str) -> str:
     return value
 
 
-def _ensure_nonsecret_service_context_specs(legacy: object, console_config: object) -> None:
+def _ensure_nonsecret_service_context_specs(base_environment: object, console_config: object) -> None:
     category = "Métricas e padrões"
     source = "docs/STANDARDS_METRICS_AND_SERVICES.md"
-    specs = list(legacy.SPECS)
+    specs = list(base_environment.SPECS)
     known = {spec.name for spec in specs}
     additions = (
-        legacy.EnvironmentSpec(
+        base_environment.EnvironmentSpec(
             GSC_SITE_URL_ENV,
             category,
             "Propriedade Google Search Console usada por Search Analytics, Sitemaps e URL Inspection.",
@@ -65,7 +65,7 @@ def _ensure_nonsecret_service_context_specs(legacy: object, console_config: obje
                 "URL-prefix http(s) absoluta. É configuração não secreta e pode ser persistida no INI."
             ),
         ),
-        legacy.EnvironmentSpec(
+        base_environment.EnvironmentSpec(
             GSC_SEARCH_ANALYTICS_DAYS_ENV,
             category,
             "Dias de Search Analytics finalizados coletados automaticamente por auditoria; 0 desliga somente essa subcoleta.",
@@ -75,7 +75,7 @@ def _ensure_nonsecret_service_context_specs(legacy: object, console_config: obje
             source=source,
             notes="Faixa aceita: 0 a 31 dias.",
         ),
-        legacy.EnvironmentSpec(
+        base_environment.EnvironmentSpec(
             GSC_SEARCH_MAX_ROWS_ENV,
             category,
             "Teto de linhas de Search Analytics persistidas por auditoria.",
@@ -85,7 +85,7 @@ def _ensure_nonsecret_service_context_specs(legacy: object, console_config: obje
             source=source,
             notes="Faixa aceita: 1 a 50000 linhas.",
         ),
-        legacy.EnvironmentSpec(
+        base_environment.EnvironmentSpec(
             GSC_FINAL_DATA_LAG_DAYS_ENV,
             category,
             "Defasagem usada para preferir dados Search Analytics finalizados.",
@@ -119,27 +119,27 @@ def _ensure_nonsecret_service_context_specs(legacy: object, console_config: obje
             ),
         )
 
-    legacy.SPECS = tuple(specs)
-    legacy.SPEC_BY_NAME = {spec.name: spec for spec in specs}
+    base_environment.SPECS = tuple(specs)
+    base_environment.SPEC_BY_NAME = {spec.name: spec for spec in specs}
     extra_names = tuple(spec.name for spec in additions)
-    legacy.ENV_NAMES = tuple(dict.fromkeys((*legacy.ENV_NAMES, *extra_names)))
+    base_environment.ENV_NAMES = tuple(dict.fromkeys((*base_environment.ENV_NAMES, *extra_names)))
     console_config.ENV_NAMES = tuple(dict.fromkeys((*console_config.ENV_NAMES, *extra_names)))
 
 
 def install() -> None:
     install_console_service_catalog()
     from rasai import console_config
-    from rasai import console_environment as legacy
+    from rasai import console_environment as base_environment
     from rasai import console_provider_environment as facade
 
-    _ensure_nonsecret_service_context_specs(legacy, console_config)
-    if getattr(legacy, "_rasai_standards_console_validation", False):
-        facade.CATEGORIES = legacy.CATEGORIES
+    _ensure_nonsecret_service_context_specs(base_environment, console_config)
+    if getattr(base_environment, "_rasai_standards_console_validation", False):
+        facade.CATEGORIES = base_environment.CATEGORIES
         facade.refresh_specs()
         return
 
     enabled_names = {item.enabled_env for item in services()}
-    original_validate = legacy._validate
+    original_validate = base_environment._validate
 
     def validate(name: str, raw: str) -> str:
         value = str(raw).strip()
@@ -171,7 +171,7 @@ def install() -> None:
             return str(final_data_lag_days(value))
         return original_validate(name, raw)
 
-    legacy._validate = validate
-    legacy._rasai_standards_console_validation = True
-    facade.CATEGORIES = legacy.CATEGORIES
+    base_environment._validate = validate
+    base_environment._rasai_standards_console_validation = True
+    facade.CATEGORIES = base_environment.CATEGORIES
     facade.refresh_specs()
