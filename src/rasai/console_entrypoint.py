@@ -79,9 +79,8 @@ def main() -> int:
     install_consolidation(interactive_console)
     install_console_runtime_contract_compatibility()
     install_report_scope_clarity()
-    # Install last: it intentionally supersedes the older availability-only selector
-    # so unavailable providers remain configurable and credential changes refresh
-    # execution readiness immediately.
+    # Install last so provider availability, configuration and credential changes are
+    # resolved by one final selector before the user starts an execution.
     install_ai_provider_console_management()
     return interactive_console.main()
 
