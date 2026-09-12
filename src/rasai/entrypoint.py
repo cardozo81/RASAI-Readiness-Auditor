@@ -33,6 +33,7 @@ from rasai.standards_runtime import (
     install_post_context as install_standards_post_context,
     install_pre_context as install_standards_pre_context,
 )
+from rasai.standards_structured_data_reconciliation import install as install_standards_structured_data_reconciliation
 from rasai.target_input_runtime import install as install_target_input_runtime
 
 _LOGGER = logging.getLogger(__name__)
@@ -144,6 +145,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     install_target_input_runtime()
     install_external_measurement_runtime()
     install_standards_post_context()
+    install_standards_structured_data_reconciliation()
     install_standards_ir_reconciliation()
     install_standards_operational_reconciliation()
     install_standards_css_validation()
