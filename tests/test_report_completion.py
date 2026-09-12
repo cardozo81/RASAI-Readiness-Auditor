@@ -11,7 +11,10 @@ from rasai.report_completion import (
 )
 from rasai.report_contract import CANONICAL_FILENAMES, CANONICAL_NAV_ITEMS
 from rasai.report_navigation import available_navigation
-from rasai.report_scope_clarity import materialize_missing_canonical_surfaces
+from rasai.report_scope_clarity import (
+    enrich_report_scope_clarity,
+    materialize_missing_canonical_surfaces,
+)
 
 
 def _workspace(tmp_path: Path):
@@ -124,3 +127,23 @@ def test_materialized_site_exposes_full_canonical_navigation(tmp_path: Path) -> 
     materialize_missing_canonical_surfaces(report)
 
     assert available_navigation(report) == CANONICAL_NAV_ITEMS
+
+
+def test_neutral_surface_does_not_gain_scope_claims(tmp_path: Path) -> None:
+    workspace, report = _workspace(tmp_path)
+    css = report / "css"
+    css.mkdir(parents=True)
+    (css / "site.css").write_text("body{}", encoding="utf-8")
+    materialize_missing_canonical_surfaces(report)
+
+    enrich_report_scope_clarity(
+        audit_id="AUD-REPORT-COMPLETE",
+        workspace=workspace,
+    )
+
+    desktop = (report / "desktop.html").read_text(encoding="utf-8")
+    apdex_experience = (report / "apdex-experience.html").read_text(encoding="utf-8")
+    assert "data-rasai-empty-surface='true'" in desktop
+    assert "data-rasai-scope-disclosure='true'" not in desktop
+    assert "data-rasai-empty-surface='true'" in apdex_experience
+    assert "data-rasai-scope-disclosure='true'" not in apdex_experience
