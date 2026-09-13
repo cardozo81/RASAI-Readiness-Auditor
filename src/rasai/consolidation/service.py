@@ -21,6 +21,7 @@ from .reporting import write_report
 from .cons4 import find_existing as find_cons4
 from .cons4 import materialize as materialize_cons4
 from .cons4 import request_fingerprint as cons4_request_fingerprint
+from .presentation import refine_result
 from .specialist import enrich_result, validate_comparison_mode
 from .temporal_apdex import build_temporal_apdex
 
@@ -229,6 +230,7 @@ def generate(
     temporal_fingerprint = cons4_request_fingerprint(data.source_fingerprint, filters)
     existing_temporal = find_cons4(root, temporal_fingerprint, refresh)
     if existing_temporal is not None:
+        existing_temporal = refine_result(existing_temporal)
         _normalize_derivative_output(existing_temporal)
         return existing_temporal
 
@@ -248,5 +250,6 @@ def generate(
     # Evolution/AI enrichment is derivative and fail-open. It reads the same immutable
     # AUD workspaces through Monitoring/Quality and never feeds back into scoring.
     result = enrich_result(root, filters, result)
+    result = refine_result(result)
     _normalize_derivative_output(result)
     return result

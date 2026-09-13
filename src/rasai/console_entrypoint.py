@@ -24,6 +24,7 @@ from rasai.console_environment_reset import (
 )
 from rasai.console_execution_profile_readiness import install as install_execution_profile_readiness
 from rasai.console_execution_profiles import install as install_execution_profiles
+from rasai.console_first_run_cost_preview import install as install_first_run_cost_preview
 from rasai.console_navigation import install as install_console_navigation
 from rasai.console_progress_presentation import install as install_console_progress_presentation
 from rasai.console_search_guidance import install as install_search_guidance
@@ -136,6 +137,9 @@ def main() -> int:
     # Cost confirmation must see the final runtime but remain inside the profile
     # wrapper so session profiles are projected before historical matching.
     install_cost_confirmation(interactive_console)
+    # When no comparable history exists, still show current tariff/exposure information
+    # and require explicit acknowledgement before the first AI-enabled execution.
+    install_first_run_cost_preview(interactive_console)
     # System defaults are installed after all persistent state extensions so the
     # packaged baseline and Restore Defaults include their final sections/metadata.
     install_system_defaults(interactive_console)

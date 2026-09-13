@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 
 from .index import ConsolidationIndex
+from .presentation import specialist_usage_summary
 from .service import generate, normalize_filter
 from .specialist import SpecialistPreview, preview_specialist
 
@@ -86,7 +87,7 @@ def _choose_comparison(audits: tuple[dict, ...]) -> tuple[str, str | None, str |
         print("RELATÓRIOS CONSOLIDADOS - COMPARAÇÃO DE EVOLUÇÃO\n")
         print("1. Primeira × última auditoria do período [recomendado]")
         print("2. Auditoria anterior × última")
-        print("3. Escolher baseline e current manualmente")
+        print("3. Escolher auditoria de referência e auditoria atual manualmente")
         print("V. Voltar")
         raw = input("Escolha [1]: ").strip().upper() or "1"
         if raw == "V":
@@ -101,14 +102,14 @@ def _choose_comparison(audits: tuple[dict, ...]) -> tuple[str, str | None, str |
         for pos, audit in enumerate(audits, 1):
             print(f"{pos}. {audit.get('audit_id')} | {audit.get('event_time')}")
         try:
-            baseline_pos = int(input("Baseline: ").strip())
-            current_pos = int(input("Current : ").strip())
+            baseline_pos = int(input("Auditoria de referência: ").strip())
+            current_pos = int(input("Auditoria atual       : ").strip())
             baseline = audits[baseline_pos - 1]
             current = audits[current_pos - 1]
         except (ValueError, IndexError):
             continue
         if baseline_pos >= current_pos:
-            print("Baseline deve ser anterior ao current.")
+            print("A auditoria de referência deve ser anterior à auditoria atual.")
             _pause()
             continue
         return ("MANUAL", str(baseline.get("audit_id")), str(current.get("audit_id")))
@@ -124,18 +125,55 @@ def _print_preview(preview: SpecialistPreview, selection: str) -> None:
         return
     selected = preview.selected
     cost = f"{selected.estimated_cost:.8f} {selected.currency}" if selected.estimated_cost is not None and selected.currency else "não determinável pelo catálogo atual"
-    print(f"Provider   : {selected.provider}")
+    print(f"Provedor   : {selected.provider}")
     print(f"Modelo     : {selected.model}")
-    print(f"Reasoning  : {selected.reasoning_profile}")
-    print(f"Tokens     : input≈{selected.estimated_input_tokens} | output≈{selected.estimated_output_tokens}")
+    print(f"Raciocínio : {selected.reasoning_profile}")
+    print(f"Tokens     : entrada≈{selected.estimated_input_tokens} | saída≈{selected.estimated_output_tokens}")
     print(f"Tarifa     : {selected.pricing_context or '-'} | {selected.pricing_version}")
     print(f"Estimativa : {cost}")
-    print("Observação : estimativa pré-chamada; não é fatura e pode variar com usage real, cache, fallback e política do provider.")
+    print("Observação : estimativa pré-chamada; não é fatura e pode variar com uso real, cache, fallback e política do provedor.")
     if selection.casefold() == "auto" and len(preview.candidates) > 1:
         print("\nRanking AUTO estimado para esta necessidade:")
         for pos, item in enumerate(preview.candidates, 1):
             item_cost = f"{item.estimated_cost:.8f} {item.currency}" if item.estimated_cost is not None and item.currency else "preço não catalogado"
             print(f"  {pos}. {item.provider}/{item.model} [{item.reasoning_profile}] -> {item_cost} ({item.pricing_context or '-'})")
+
+
+def _print_ai_usage(report_dir: Path, *, specialist_requested: bool) -> None:
+    print("\nUSO E CUSTO DA IA NESTE CONSOLIDADO")
+    print("-" * 88)
+    usage = specialist_usage_summary(report_dir)
+    if usage is None:
+        if specialist_requested:
+            print("Telemetria da análise especialista não foi materializada; consulte o manifest e specialist-analysis.json.")
+        else:
+            print("Análise especialista por IA não executada. Custo de IA deste consolidado: 0.")
+        return
+    if not usage.requested:
+        print("Análise especialista por IA não solicitada/executada. Custo de IA deste consolidado: 0.")
+        return
+    status_label = {
+        "COMPLETE": "CONCLUÍDA",
+        "UNAVAILABLE": "INDISPONÍVEL",
+        "NO_DATA": "SEM DADOS ELEGÍVEIS",
+        "NOT_REQUESTED": "NÃO SOLICITADA",
+    }.get(usage.status.upper(), usage.status.upper())
+    print(f"Estado              : {status_label}")
+    print(f"Tentativas de IA    : {usage.attempts} (sucesso: {usage.successes})")
+    print(f"Tokens de entrada   : {usage.input_tokens:,}")
+    print(f"Tokens de cache     : {usage.cached_input_tokens:,}")
+    print(f"Tokens de saída     : {usage.output_tokens:,}")
+    print(f"Tokens de raciocínio: {usage.reasoning_tokens:,}")
+    print(f"Tokens total        : {usage.total_tokens:,}")
+    if usage.costs:
+        print("Custo IA estimado   : " + " | ".join(f"{currency} {amount:.8f}" for currency, amount in usage.costs))
+    elif usage.attempts:
+        print("Custo IA estimado   : não disponível com pricing/tokens retornados")
+    else:
+        print("Custo IA estimado   : 0 (nenhuma chamada de IA materializada)")
+    if usage.unpriced_attempts:
+        print(f"Atenção             : {usage.unpriced_attempts} tentativa(s) sem custo monetário calculável.")
+    print("Observação          : custo técnico estimado pelos adaptadores; não é fatura do provedor.")
 
 
 def run(
@@ -228,12 +266,16 @@ def run(
         _clear()
         print("RELATÓRIOS CONSOLIDADOS - ANÁLISE ESPECIALISTA\n")
         print(f"IA ativa no console: {selected_ai.upper()}")
-        print("A análise por IA interpreta mudanças já calculadas pelo RASAi e recomenda ações por SEO, GEO, Performance, Infra, Segurança, Acessibilidade, Conteúdo e UX.")
-        print("Ela é advisory/non-scoring e não altera SARI/SCORE-GEO.")
+        print("A análise por IA interpreta mudanças já calculadas pelo RASAi e recomenda ações por SEO, GEO, Desempenho, Infraestrutura, Segurança, Acessibilidade, Conteúdo e UX.")
+        print("Ela é orientativa, não altera pontuação e não modifica SARI/SCORE-GEO.")
         use_ai = input("Incluir análise especialista por IA? [s/N]: ").strip().casefold() == "s"
     elif selected_ai != "none" and not ai_available:
         print(f"\nIA selecionada, porém indisponível: {ai_unavailable_reason or 'configuração não apta'}")
         print("O relatório será gerado sem a análise especialista por IA.")
+        _pause()
+    elif selected_ai != "none" and len(audits) < 2:
+        print("\nIA está ativa no console, mas a análise especialista do consolidado exige pelo menos duas auditorias elegíveis.")
+        print("Com apenas uma auditoria não existe par de evolução; nenhuma chamada de IA será feita e o custo de IA deste CONS será 0.")
         _pause()
 
     filters = normalize_filter(
@@ -278,14 +320,14 @@ def run(
     print("RELATÓRIOS CONSOLIDADOS - CONFIRMAÇÃO\n")
     print(f"Domínios : {', '.join(filters.domains) or 'todos'}")
     print(f"Período  : {filters.date_from or 'início'} → {filters.date_to or 'fim'}")
-    print(f"Devices  : {', '.join(filters.devices) or 'todos (separados)'}")
+    print(f"Dispositivos: {', '.join(filters.devices) or 'todos (separados)'}")
     print(f"URLs     : {len(filters.urls) if filters.urls else 'todas'}")
     print(f"Evolução : {filters.comparison_mode}")
     print(f"IA       : {filters.ai_provider.upper() if filters.specialist_ai and filters.ai_provider else 'não'}")
     if filters.specialist_ai:
-        print("\nA consolidação dos AUDs continua local/read-only; somente a seção especialista realizará a chamada de IA já autorizada.")
+        print("\nA consolidação dos AUDs continua local/somente leitura; somente a seção especialista realizará a chamada de IA já autorizada.")
     else:
-        print("\nO processo é local/read-only e utiliza somente dados já persistidos.")
+        print("\nO processo é local/somente leitura e utiliza somente dados já persistidos.")
     if input("Gerar relatório? [s/N]: ").strip().casefold() != "s":
         return
 
@@ -301,6 +343,7 @@ def run(
     print(f"Relatório : {result.report_path}")
     print(f"Manifesto : {result.manifest_path}")
     print(f"Resultado : {'REUTILIZADO (filtros + fontes + análise idênticos)' if result.reused else 'NOVO SNAPSHOT'}")
+    _print_ai_usage(result.report_dir, specialist_requested=filters.specialist_ai)
     print("\nA. Abrir relatório")
     print("P. Abrir pasta")
     print("V. Voltar")
