@@ -29,7 +29,7 @@ A rejeição de AUD antigo sem snapshot é deliberadamente **fail-closed**. O RA
 
 ## Snapshot canônico
 
-Execuções iniciadas pelas superfícies de configuração suportadas nesta entrega — console local e durable job SaaS `AUDIT` — persistem no próprio `audit.db` um snapshot não secreto da configuração efetivamente usada.
+Execuções iniciadas pelas superfícies de configuração suportadas nesta entrega - console local e durable job SaaS `AUDIT` - persistem no próprio `audit.db` um snapshot não secreto da configuração efetivamente usada.
 
 A tabela derivada `audit_execution_configurations` registra:
 
