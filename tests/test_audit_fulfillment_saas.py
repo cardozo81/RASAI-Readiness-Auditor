@@ -100,11 +100,16 @@ def test_control_plane_accepts_only_newer_completed_reprocess_digest_revision() 
             store.upsert_audit(revised)
             assert store.get_audit(first.audit_id).audit_db_sha256 == revised.audit_db_sha256
 
-            # A later disk mutation with no newer RPR must still be rejected.
+            # A later disk mutation with no newer RPR must still be rejected. sqlite3
+            # Connection's context manager commits/rolls back but does not close the
+            # handle, so close explicitly for Windows workspace cleanup.
             import sqlite3
-            with sqlite3.connect(workspace.database) as connection:
+            connection = sqlite3.connect(workspace.database)
+            try:
                 connection.execute("CREATE TABLE unexpected_mutation(value TEXT)")
                 connection.commit()
+            finally:
+                connection.close()
             tampered = replace(revised, audit_db_sha256=file_sha256(workspace.database), indexed_at=utc_now())
             with pytest.raises(RuntimeError, match="without a newer completed reprocessing revision"):
                 store.upsert_audit(tampered)
