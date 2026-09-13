@@ -51,14 +51,18 @@ O runtime atual **não usa uma cadeia fixa limitada a OpenAI, DeepSeek e MiMo**.
 2. considera os registros com `auto_eligible=true`;
 3. exige credencial e configuração válidas para aquela execução;
 4. remove os IDs listados em `RASAI_AI_AUTO_EXCLUDE`;
-5. usa round-robin compartilhado entre necessidades de IA;
-6. tenta cada provider elegível no máximo uma vez por necessidade;
-7. aplica estado de saúde e circuit breaker durante a execução;
-8. encerra a necessidade quando recebe o primeiro resultado válido.
+5. remove candidatos inelegíveis pela saúde/quarentena da execução;
+6. estima o custo da necessidade atual usando provider/modelo/reasoning, tokens esperados, cache observado e tarifa vigente;
+7. ordena providers precificados do menor para o maior custo estimado; providers sem preço conhecido mantêm entre si a ordem rotativa determinística do coordenador e ficam depois dos precificados;
+8. tenta cada provider elegível no máximo uma vez por necessidade;
+9. aplica estado de saúde e circuit breaker durante a execução;
+10. encerra a necessidade quando recebe o primeiro resultado válido.
 
 Providers `explicit-only`, atualmente GitHub Copilot, não entram no pool `AUTO` mesmo quando a credencial existe.
 
 Excluir um provider de `AUTO` não apaga sua credencial/configuração e não impede seleção explícita posterior.
+
+A política de custo, preços vigentes, janelas horárias, heurísticas de tokens e revisão do catálogo estão em [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md).
 
 ## Metadados do registro
 
@@ -84,7 +88,7 @@ Qualificação e elegibilidade `AUTO` são conceitos diferentes. Um provider pod
 
 ## Valores públicos de modelo e reasoning
 
-O runtime executa os defaults públicos definidos por `provider_runtime_policy`. O `provider_registry` mantém uma projeção leve desses valores em `public_default_model`, além dos defaults internos usados pelos adapters/políticas de qualificação. A projeção de onboarding (`rasai providers`) usa o valor público espelhado no registry para continuar metadata-only.
+O runtime executa os defaults públicos definidos por `provider_runtime_policy`. O `provider_registry` mantém uma projeção leve desses valores em `public_default_model`, além dos parâmetros internos usados pelos adapters e políticas de qualificação. A projeção de onboarding (`rasai providers`) usa o valor público espelhado no registry para continuar metadata-only.
 
 Os testes de contrato exigem igualdade exata entre `public_default_model`/`reasoning_values`/`reasoning_env` do registry e os valores efetivos de `provider_runtime_policy`. Assim, qualquer drift torna o CI vermelho antes de chegar ao usuário.
 
@@ -99,16 +103,16 @@ Os testes de contrato exigem igualdade exata entre `public_default_model`/`reaso
 | Anthropic | `claude-sonnet-5` | `claude-sonnet-5` | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | default público |
 | GitHub Copilot | `auto` | `auto` | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` | deixar o SDK/assinatura resolver o modelo disponível; seleção explícita |
 
-A referência operacional consolidada é [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md), complementada por [`PROVIDER_SETUP.md`](PROVIDER_SETUP.md) para onboarding de providers. Caso documentação e runtime divirjam, o código vigente deve ser tratado como fonte técnica e a documentação corrigida; não se deve alterar o runtime apenas para preservar um texto antigo.
+A referência operacional consolidada é [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md), complementada por [`PROVIDER_SETUP.md`](PROVIDER_SETUP.md) para onboarding de providers. Caso documentação e runtime divirjam, o código vigente deve ser tratado como fonte técnica e a documentação corrigida; não se deve alterar o runtime apenas para preservar texto documental incorreto.
 
 ## MiMo
 
 O registry expõe a restrição da credencial PAYG `sk-...` para impedir que Token Plan `tp-...` seja tratado como credencial compatível pelo adapter atual.
 
-## Fonte de verdade e compatibilidade interna
+## Fonte de verdade
 
-Adapters históricos podem conservar defaults, ranks e labels de qualificação usados para compatibilidade interna. Esses valores não devem ser confundidos com o default público resolvido por `provider_runtime_policy`.
+Adapters podem conter parâmetros internos de execução, rank e qualificação que não constituem defaults públicos. Esses valores não devem ser confundidos com o default público resolvido por `provider_runtime_policy`.
 
 A camada de onboarding é deliberadamente leve e não inicializa a política completa de execução. A coerência entre o metadata espelhado e o runtime é garantida pelos testes cruzados do CI; se houver drift, a alteração não deve ser integrada.
 
-Nomes internos de módulos/eventos também podem preservar identificadores históricos por compatibilidade. Consumidores públicos devem usar nomenclatura funcional e o registry canônico.
+Consumidores públicos devem usar nomenclatura funcional e o registry canônico.

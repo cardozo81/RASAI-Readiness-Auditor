@@ -1,18 +1,29 @@
 """Execution-wide dynamic AI routing for AUTO mode.
 
-AUTO uses every configured provider that is eligible in the registry, rotates the
-starting provider between AI needs, and applies a bounded execution-wide circuit
-breaker. Provider-specific adapters remain responsible for wire contracts; this
-module coordinates eligibility only.
+AUTO uses every configured provider that is eligible in the registry. Before each AI
+need it estimates the synchronous token cost for the active provider/model/reasoning
+configuration and tries the lowest-cost eligible candidate first. Fallback and the
+execution-wide circuit breaker remain bounded and provider-specific wire contracts stay
+owned by their adapters.
 """
 from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field, replace
+from datetime import datetime, timezone
 import json
+from statistics import median
 from types import MethodType
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
+from rasai.ai_cost_policy import (
+    CandidateCostEstimate,
+    PRICING_REVIEW_RECOMMENDED_ON,
+    PRICING_VERSION,
+    estimate_candidate_cost,
+    estimate_observed_cost,
+    pricing_review_due,
+)
 from rasai.ai_exchange_log import AiExchangeRecorder, instrument_provider_transport
 from rasai.content_context import ContentAnalysisContext
 from rasai.m18_ai import (
@@ -27,6 +38,7 @@ from rasai.ai_resilience import DECISION_FALLBACK, DECISION_FALLBACK_SUCCESS, DE
 
 ROLLING_WINDOW_SIZE = 5
 FAILURES_TO_OPEN_CIRCUIT = 3
+_USAGE_HISTORY_SIZE = 12
 
 _TERMINAL_ERROR_CLASSES = frozenset({
     ProviderErrorClass.AUTH_ERROR.value,
@@ -76,7 +88,7 @@ class ProviderExecutionHealth:
 
 
 class AiExecutionCoordinator:
-    """Round-robin cursor plus execution-wide provider circuit breakers."""
+    """Eligibility, circuit breakers and same-execution usage learning for AUTO."""
 
     def __init__(self, provider_names: tuple[str, ...]) -> None:
         self.provider_names = tuple(dict.fromkeys(provider_names))
@@ -84,8 +96,15 @@ class AiExecutionCoordinator:
         self._cursor = 0
         self.last_successful_provider: str | None = None
         self._successful_urls: dict[str, set[str]] = {name: set() for name in self.provider_names}
+        self._usage_history: dict[tuple[str, str], deque[tuple[int, int, int]]] = {}
 
     def ordered_names(self) -> tuple[str, ...]:
+        """Return eligible names in deterministic rotating order.
+
+        Cost-aware ranking is applied later when concrete provider/model objects are
+        available. Keeping this order preserves deterministic fallback for providers
+        whose price is not catalogued and does not change quarantine semantics.
+        """
         if not self.provider_names:
             return ()
         order = self.provider_names[self._cursor:] + self.provider_names[:self._cursor]
@@ -95,13 +114,20 @@ class AiExecutionCoordinator:
         item = self._health.get(name)
         return bool(item and item.eligible)
 
-    def record_attempt(self, attempt: ProviderAttempt, *, page_url: str | None = None) -> None:
+    def record_attempt(
+        self,
+        attempt: ProviderAttempt,
+        *,
+        page_url: str | None = None,
+        scope: str = "UNKNOWN",
+    ) -> None:
         name = attempt.provider
         health = self._health.get(name)
         if health is None:
             return
         health.attempts += 1
         self._advance_after(name)
+        self._record_usage(scope, attempt)
 
         if attempt.status is AttemptStatus.SUCCESS:
             health.successes += 1
@@ -131,6 +157,33 @@ class AiExecutionCoordinator:
         if len(health.outcomes) >= FAILURES_TO_OPEN_CIRCUIT and sum(health.outcomes) >= FAILURES_TO_OPEN_CIRCUIT:
             health.eligible = False
             health.exclusion_reason = f"CIRCUIT_BREAKER:{FAILURES_TO_OPEN_CIRCUIT}_FAILURES_IN_LAST_{ROLLING_WINDOW_SIZE}"
+
+    def _record_usage(self, scope: str, attempt: ProviderAttempt) -> None:
+        usage = attempt.usage
+        if usage is None or usage.input_tokens is None or usage.output_tokens is None:
+            return
+        input_tokens = max(int(usage.input_tokens), 0)
+        cached_tokens = max(min(int(usage.cached_input_tokens or 0), input_tokens), 0)
+        output_tokens = max(int(usage.output_tokens), 0)
+        if attempt.provider == "GEMINI" and usage.reasoning_tokens is not None:
+            output_tokens += max(int(usage.reasoning_tokens), 0)
+        key = (scope, attempt.provider)
+        history = self._usage_history.setdefault(key, deque(maxlen=_USAGE_HISTORY_SIZE))
+        history.append((input_tokens, cached_tokens, output_tokens))
+
+    def usage_hint(self, scope: str, name: str) -> dict[str, float]:
+        history = self._usage_history.get((scope, name))
+        if not history:
+            return {}
+        inputs = [item[0] for item in history]
+        cached = [item[1] for item in history]
+        outputs = [item[2] for item in history]
+        total_input = sum(inputs)
+        return {
+            "input_tokens": float(median(inputs)),
+            "output_tokens": float(median(outputs)),
+            "cache_ratio": (sum(cached) / total_input) if total_input > 0 else 0.0,
+        }
 
     def exclude_configuration(self, name: str, reason: str) -> None:
         item = self._health.get(name)
@@ -178,6 +231,7 @@ class DynamicProviderRoutingSession:
     coordinator: AiExecutionCoordinator = field(init=False)
     _last_attempts: tuple[ProviderAttempt, ...] = field(init=False, default=())
     _history: list[ProviderAttempt] = field(init=False, default_factory=list)
+    _last_cost_ranking: tuple[CandidateCostEstimate, ...] = field(init=False, default=())
 
     def __post_init__(self) -> None:
         self._providers = tuple(sorted(self._providers, key=lambda item: int(getattr(item.policy, "rank", 9999))))
@@ -189,13 +243,59 @@ class DynamicProviderRoutingSession:
     def providers(self) -> tuple[Any, ...]:
         return self._providers
 
-    def ordered_candidates_for_need(self) -> tuple[Any, ...]:
-        by_name = {str(item.name): item for item in self._providers}
-        return tuple(by_name[name] for name in self.coordinator.ordered_names() if name in by_name)
+    def order_candidate_objects(
+        self,
+        providers: Sequence[Any],
+        request: Any = None,
+        *,
+        scope: str = "SEMANTIC",
+    ) -> tuple[Any, ...]:
+        """Rank only eligible candidates by current estimated synchronous token cost."""
+        base_names = self.coordinator.ordered_names()
+        by_name = {str(item.name): item for item in providers}
+        candidates = tuple(by_name[name] for name in base_names if name in by_name)
+        if not candidates:
+            self._last_cost_ranking = ()
+            return ()
+
+        now = datetime.now(timezone.utc)
+        base_index = {str(item.name): index for index, item in enumerate(candidates)}
+        pairs: list[tuple[Any, CandidateCostEstimate]] = []
+        for item in candidates:
+            hint = self.coordinator.usage_hint(scope, str(item.name))
+            estimate = estimate_candidate_cost(
+                item,
+                request,
+                scope=scope,
+                at=now,
+                history_hint=hint,
+            )
+            pairs.append((item, estimate))
+
+        def key(pair: tuple[Any, CandidateCostEstimate]) -> tuple[float, float, int, int]:
+            item, estimate = pair
+            priced = estimate.estimated_cost is not None and estimate.currency == "USD"
+            rank = int(getattr(getattr(item, "policy", None), "rank", 9999))
+            if priced:
+                return (0.0, float(estimate.estimated_cost), rank, base_index[str(item.name)])
+            # Forward-compatible/unpriced providers keep deterministic rotating order.
+            return (1.0, float("inf"), base_index[str(item.name)], rank)
+
+        pairs.sort(key=key)
+        self._last_cost_ranking = tuple(estimate for _, estimate in pairs)
+        return tuple(item for item, _ in pairs)
+
+    def ordered_candidates_for_need(
+        self,
+        request: Any = None,
+        *,
+        scope: str = "SEMANTIC",
+    ) -> tuple[Any, ...]:
+        return self.order_candidate_objects(self._providers, request, scope=scope)
 
     def analyze(self, semantic_input: Any) -> SemanticProviderResult:
         self._last_attempts = ()
-        candidates = self.ordered_candidates_for_need()
+        candidates = self.ordered_candidates_for_need(semantic_input, scope="SEMANTIC")
         if not candidates:
             return SemanticProviderResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED")
 
@@ -206,7 +306,7 @@ class DynamicProviderRoutingSession:
 
         for index, provider in enumerate(candidates):
             result = provider.analyze(semantic_input, max_attempts=1)
-            local = list(provider.consume_attempts())
+            local = [_price_auto_attempt(item) for item in provider.consume_attempts()]
             if fallback_from is not None:
                 local = [replace(item, fallback_from_provider=fallback_from, fallback_reason=fallback_reason) for item in local]
             local = [replace(item, attempt_index=len(attempts) + offset) for offset, item in enumerate(local, 1)]
@@ -215,7 +315,11 @@ class DynamicProviderRoutingSession:
 
             attempt = local[-1] if local else None
             if attempt is not None:
-                self.coordinator.record_attempt(attempt, page_url=str(getattr(semantic_input, "page_url", "") or ""))
+                self.coordinator.record_attempt(
+                    attempt,
+                    page_url=str(getattr(semantic_input, "page_url", "") or ""),
+                    scope="SEMANTIC",
+                )
 
             if result.state is ProviderState.AVAILABLE:
                 if fallback_from is not None and attempts:
@@ -279,10 +383,15 @@ class DynamicProviderRoutingSession:
             "successful_urls": self.coordinator.successful_urls(),
             "excluded_configurations": list(self.excluded_configurations),
             "routing_policy": {
-                "strategy": "ROUND_ROBIN_WITH_CIRCUIT_BREAKER",
+                "strategy": "COST_AWARE_WITH_CIRCUIT_BREAKER",
                 "same_need_provider_attempts": 1,
                 "failure_window": ROLLING_WINDOW_SIZE,
                 "failure_threshold": FAILURES_TO_OPEN_CIRCUIT,
+                "pricing_version": PRICING_VERSION,
+                "pricing_review_recommended_on": PRICING_REVIEW_RECOMMENDED_ON,
+                "pricing_review_due": pricing_review_due(),
+                "unpriced_fallback": "DETERMINISTIC_ROTATING_ORDER",
+                "last_cost_ranking": [_cost_estimate_dict(item) for item in self._last_cost_ranking],
             },
         }
 
@@ -302,8 +411,11 @@ class DynamicContentRemediationRoutingSession:
     def analyze(self, request: Any) -> Any:
         from rasai.m20_ai import ContentRemediationResult
         self._last_attempts = ()
-        by_name = {str(item.name): item for item in self.providers}
-        candidates = tuple(by_name[name] for name in self.coordinator.ordered_names() if name in by_name)
+        candidates = self.semantic_session.order_candidate_objects(
+            self.providers,
+            request,
+            scope="CONTENT_REMEDIATION",
+        )
         if not candidates:
             return ContentRemediationResult(ProviderState.UNAVAILABLE, reason="AI_PROVIDER_CHAIN_EXHAUSTED")
 
@@ -313,7 +425,7 @@ class DynamicContentRemediationRoutingSession:
         fallback_reason = None
         for index, provider in enumerate(candidates):
             result = provider.analyze(request, max_attempts=1)
-            local = list(provider.consume_attempts())
+            local = [_price_auto_attempt(item) for item in provider.consume_attempts()]
             if fallback_from is not None:
                 local = [replace(item, fallback_from_provider=fallback_from, fallback_reason=fallback_reason) for item in local]
             local = [replace(item, attempt_index=len(attempts) + offset) for offset, item in enumerate(local, 1)]
@@ -321,7 +433,11 @@ class DynamicContentRemediationRoutingSession:
             last = result
             attempt = local[-1] if local else None
             if attempt is not None:
-                self.coordinator.record_attempt(attempt, page_url=str(getattr(request, "page_url", "") or ""))
+                self.coordinator.record_attempt(
+                    attempt,
+                    page_url=str(getattr(request, "page_url", "") or ""),
+                    scope="CONTENT_REMEDIATION",
+                )
 
             if result.state is ProviderState.AVAILABLE:
                 if fallback_from is not None and attempts:
@@ -474,12 +590,46 @@ def _reactivate(provider: Any) -> None:
         pass
 
 
+def _price_auto_attempt(attempt: ProviderAttempt) -> ProviderAttempt:
+    estimated, currency, version = estimate_observed_cost(
+        attempt.provider,
+        attempt.model or "",
+        attempt.usage,
+        attempt.finished_at,
+    )
+    if estimated is None:
+        return attempt
+    return replace(
+        attempt,
+        estimated_cost=estimated,
+        cost_currency=currency,
+        pricing_version=version,
+    )
+
+
+def _cost_estimate_dict(item: CandidateCostEstimate) -> dict[str, Any]:
+    return {
+        "provider": item.provider,
+        "model": item.model,
+        "scope": item.scope,
+        "reasoning_profile": item.reasoning_profile,
+        "estimated_input_tokens": item.estimated_input_tokens,
+        "estimated_cached_input_tokens": item.estimated_cached_input_tokens,
+        "estimated_output_tokens": item.estimated_output_tokens,
+        "estimated_cost": item.estimated_cost,
+        "currency": item.currency,
+        "pricing_context": item.pricing_context,
+        "pricing_version": item.pricing_version,
+        "basis": item.basis,
+    }
+
+
 _M24_HOOKS_INSTALLED = False
 _SOURCE_QUALITY_HOOKS_INSTALLED = False
 
 
 def install_dynamic_specialist_hooks() -> None:
-    """Make specialist AI calls participate in the same AUTO cursor/breaker."""
+    """Make specialist AI calls participate in the same AUTO cost router/breaker."""
     _install_m24_hooks()
     _install_source_quality_hooks()
 
@@ -497,14 +647,23 @@ def _install_m24_hooks() -> None:
 
     def candidates(provider: Any):
         if isinstance(provider, DynamicProviderRoutingSession):
-            return tuple(item for item in provider.ordered_candidates_for_need() if m24_ai._supported_candidate(item))
+            return tuple(
+                item
+                for item in provider.ordered_candidates_for_need(scope="M24_TECHNICAL_REMEDIATION")
+                if m24_ai._supported_candidate(item)
+            )
         return original_candidates(provider)
 
     def call(candidate: Any, **kwargs):
         result, attempt = original_call(candidate, **kwargs)
+        attempt = _price_auto_attempt(attempt)
         coordinator = getattr(candidate, "_rasai_execution_coordinator", None)
         if isinstance(coordinator, AiExecutionCoordinator):
-            coordinator.record_attempt(attempt, page_url=str(attempt.url or ""))
+            coordinator.record_attempt(
+                attempt,
+                page_url=str(attempt.url or ""),
+                scope="M24_TECHNICAL_REMEDIATION",
+            )
             if coordinator.is_eligible(str(candidate.name)):
                 _reactivate(candidate)
         return result, attempt
@@ -528,14 +687,23 @@ def _install_source_quality_hooks() -> None:
 
     def candidates(provider: Any):
         if isinstance(provider, DynamicProviderRoutingSession):
-            return tuple(item for item in provider.ordered_candidates_for_need() if isinstance(item, ResponsesSemanticProvider) and bool(getattr(item, "api_key", None)))
+            return tuple(
+                item
+                for item in provider.ordered_candidates_for_need(scope="SOURCE_QUALITY")
+                if isinstance(item, ResponsesSemanticProvider) and bool(getattr(item, "api_key", None))
+            )
         return original_candidates(provider)
 
     def call(candidate: Any, assessment: Any, page_row: Mapping[str, Any], *, attempt_index: int):
         result, attempt = original_call(candidate, assessment, page_row, attempt_index=attempt_index)
+        attempt = _price_auto_attempt(attempt)
         coordinator = getattr(candidate, "_rasai_execution_coordinator", None)
         if isinstance(coordinator, AiExecutionCoordinator):
-            coordinator.record_attempt(attempt, page_url=str(attempt.url or ""))
+            coordinator.record_attempt(
+                attempt,
+                page_url=str(attempt.url or ""),
+                scope="SOURCE_QUALITY",
+            )
             if coordinator.is_eligible(str(candidate.name)):
                 _reactivate(candidate)
         return result, attempt

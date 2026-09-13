@@ -13,6 +13,11 @@ import time
 from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
 
+from rasai.ai_cost_policy import (
+    PRICING_CATALOG,
+    PRICING_VERSION,
+    estimate_observed_cost,
+)
 from rasai.ai_resilience import (
     DECISION_FALLBACK,
     DECISION_FALLBACK_SUCCESS,
@@ -47,7 +52,6 @@ from rasai.semantic import (
 
 SEMANTIC_CONTRACT_VERSION = "M18-SEMANTIC-22-v1"
 QUALIFICATION_VERSION = "RASAI-PROVIDER-QUAL-2026-09-03"
-PRICING_VERSION = "RASAI-PRICING-2026-09-03"
 
 
 class ProviderErrorClass(StrEnum):
@@ -147,7 +151,7 @@ class ProviderAttempt:
 
 @dataclass(frozen=True, slots=True)
 class SemanticProviderResult(ProviderCallResult):
-    """Provider-neutral result with a legacy ProviderCallResult compatibility surface."""
+    """Provider-neutral result exposing the ProviderCallResult compatibility surface."""
 
     provider: str = ""
     model: str | None = None
@@ -222,36 +226,6 @@ REASONING_ENV = {
 }
 KEY_ENV = {"OPENAI": "OPENAI_API_KEY", "DEEPSEEK": "DEEPSEEK_API_KEY", "MIMO": "MIMO_API_KEY"}
 
-
-@dataclass(frozen=True, slots=True)
-class ProviderPricing:
-    provider: str
-    model: str
-    effective_from: str
-    input_price_per_million: float
-    cached_input_price_per_million: float
-    output_price_per_million: float
-    currency: str
-    source_reference: str
-    pricing_version: str = PRICING_VERSION
-    pricing_context: str = "STANDARD"
-
-
-# Current public pay-as-you-go prices verified on 2026-09-03. OpenAI GPT-5.6 Sol
-# is under promotional pricing through at least 2026-11-21. DeepSeek switches
-# between deterministic UTC peak/off-peak contexts.
-PRICING_CATALOG: tuple[ProviderPricing, ...] = (
-    ProviderPricing("OPENAI", "gpt-5.6-sol", "2026-08-21", 4.0, 0.40, 20.0, "USD", "https://developers.openai.com/api/docs/models/gpt-5.6-sol"),
-    ProviderPricing("OPENAI", "gpt-5.6-terra", "2026-08-21", 2.0, 0.20, 12.0, "USD", "https://developers.openai.com/api/docs/models/gpt-5.6-terra"),
-    ProviderPricing("OPENAI", "gpt-5.6-luna", "2026-08-21", 0.20, 0.02, 1.20, "USD", "https://developers.openai.com/api/docs/models/gpt-5.6-luna"),
-    ProviderPricing("DEEPSEEK", "deepseek-v4-pro", "2026-08-16T16:00:00Z", 1.32, 0.044, 3.96, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", pricing_context="PEAK"),
-    ProviderPricing("DEEPSEEK", "deepseek-v4-pro", "2026-08-16T16:00:00Z", 0.66, 0.022, 1.98, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", pricing_context="OFF_PEAK"),
-    ProviderPricing("DEEPSEEK", "deepseek-v4-flash", "2026-08-16T16:00:00Z", 0.44, 0.014, 1.32, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", pricing_context="PEAK"),
-    ProviderPricing("DEEPSEEK", "deepseek-v4-flash", "2026-08-16T16:00:00Z", 0.22, 0.007, 0.66, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", pricing_context="OFF_PEAK"),
-    ProviderPricing("MIMO", "mimo-v2.5-pro", "2026-05-27T00:00:00+08:00", 0.435, 0.0036, 0.87, "USD", "https://mimo.mi.com/docs/en-US/price/pay-as-you-go"),
-    ProviderPricing("MIMO", "mimo-v2.5", "2026-05-27T00:00:00+08:00", 0.14, 0.0028, 0.28, "USD", "https://mimo.mi.com/docs/en-US/price/pay-as-you-go"),
-)
-
 _SAFE_TOKEN = re.compile(r"[^A-Za-z0-9_.-]+")
 Transport = Callable[[str, dict[str, str], bytes, float], dict[str, Any]]
 
@@ -270,32 +244,9 @@ def _policy(provider: str, model: str) -> ProviderPolicy:
         raise ValueError(f"unsupported RASAi model for {provider}: {model}") from exc
 
 
-def _pricing_context(provider: str, at: datetime) -> str:
-    if provider != "DEEPSEEK":
-        return "STANDARD"
-    hour = at.astimezone(timezone.utc).hour
-    # Peak: 01:00-04:00 and 06:00-10:00 UTC, all other hours off-peak.
-    return "PEAK" if 1 <= hour < 4 or 6 <= hour < 10 else "OFF_PEAK"
-
-
 def estimate_cost(provider: str, model: str, usage: ProviderUsage | None, at: datetime) -> tuple[float | None, str | None, str | None]:
-    if usage is None or usage.input_tokens is None or usage.output_tokens is None:
-        return None, None, None
-    context = _pricing_context(provider, at)
-    price = next((item for item in PRICING_CATALOG if item.provider == provider and item.model == model and item.pricing_context == context), None)
-    if price is None:
-        return None, None, None
-    cached = usage.cached_input_tokens
-    if cached is None:
-        # Never assume zero cached tokens when the provider did not report it.
-        return None, price.currency, price.pricing_version
-    uncached = max(usage.input_tokens - cached, 0)
-    amount = (
-        uncached * price.input_price_per_million
-        + cached * price.cached_input_price_per_million
-        + usage.output_tokens * price.output_price_per_million
-    ) / 1_000_000
-    return round(amount, 10), price.currency, price.pricing_version
+    """Use the single canonical pricing resolver for explicit and AUTO telemetry."""
+    return estimate_observed_cost(provider, model, usage, at)
 
 
 def _usage_from_native(raw: Mapping[str, Any]) -> ProviderUsage | None:
@@ -425,7 +376,7 @@ def _canonicalize_deepseek_wire_payload(payload: Any) -> Any:
         return payload
     assessments = payload.get("assessments")
     if not isinstance(assessments, Mapping):
-        # Backward-compatible acceptance of an already-canonical array response.
+        # Accept an already-canonical array response without introducing a second contract.
         return payload
 
     expected = frozenset(SEMANTIC_RULE_IDS)

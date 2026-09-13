@@ -1,4 +1,4 @@
-"""Additive SQLite persistence for M18 provider routing, telemetry and pricing."""
+"""Additive SQLite persistence for provider routing, telemetry and pricing."""
 
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ import logging
 import sqlite3
 from typing import Any
 
-from rasai.m18_ai import PRICING_CATALOG, ProviderAttempt
+from rasai.ai_cost_policy import PRICING_CATALOG
+from rasai.m18_ai import ProviderAttempt
 from rasai.persistence import AuditWorkspace
 
 _LOGGER = logging.getLogger(__name__)
@@ -315,7 +316,7 @@ class M18Persistence:
 
 
 def persist_provider_runtime(*, audit_id: str, provider: Any, workspace: AuditWorkspace, audit_mode: str) -> AiAuditSession:
-    """Materialize one audit's in-memory provider telemetry after M7 completes."""
+    """Materialize one audit's in-memory provider telemetry after the semantic stage completes."""
 
     from rasai.domain import new_id
     from rasai.m18_ai import provider_attempt_history, provider_session_snapshot

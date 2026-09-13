@@ -20,15 +20,17 @@ A lista canônica de providers, aliases, credenciais e onboarding está em [PROV
 
 ## AUTO
 
-AUTO não usa uma cadeia fixa limitada aos providers históricos. O runtime consulta o registry e inclui todos os providers com `auto_eligible=true` que estejam aptos naquela execução.
+AUTO não usa uma cadeia fixa limitada a um subconjunto de providers. O runtime consulta o registry e inclui todos os providers com `auto_eligible=true` que estejam aptos naquela execução.
 
 Aptidão exige credencial configurada, modelo aceito e demais parâmetros válidos. Providers sem configuração suficiente são excluídos antes de chamadas externas.
 
-A seleção usa round-robin compartilhado entre necessidades de IA. Em uma mesma necessidade, cada provider é tentado no máximo uma vez. Falha temporária avança para o próximo e pode manter o provider elegível para necessidades futuras; falha terminal o remove do restante da auditoria. O circuit breaker abre com três falhas nas últimas cinco observações daquele provider.
+A seleção é recalculada por necessidade de IA. Entre os candidatos ainda elegíveis, o runtime estima o custo da requisição atual usando provider, modelo, reasoning, volume esperado de input/output, cache observado quando disponível e a tarifa aplicável naquele instante. Providers com pricing conhecido são ordenados do menor para o maior custo estimado; providers sem pricing conhecido permanecem depois dos precificados e preservam entre si a ordem rotativa determinística do coordenador. Em uma mesma necessidade, cada provider é tentado no máximo uma vez. Falha temporária avança para o próximo e pode manter o provider elegível para necessidades futuras; falha terminal o remove do restante da auditoria. O circuit breaker abre com três falhas nas últimas cinco observações daquele provider.
+
+A política econômica não troca silenciosamente para Batch/Flex/assíncrono e não altera quarentena, classificação de erro ou limiares de circuit breaker.
 
 GitHub Copilot é deliberadamente `explicit-only` e nunca entra no pool AUTO, mesmo quando seu token está configurado. Isso evita consumo involuntário da assinatura pessoal.
 
-Contrato completo: [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
+Contratos completos: [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md) e [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md).
 
 ## Defaults de esforço
 
@@ -191,7 +193,7 @@ Falha `invalid_json_schema`/`invalid_request` é erro técnico de integração, 
 
 Uma credencial configurada e uma tentativa registrada provam que o provider foi chamado; não provam que o request foi aceito. O runtime registra tentativas, diagnósticos, consumo/custo quando disponíveis e exchanges sanitizados em `ai_exchange_log`.
 
-No AUTO, uma quarentena interna legada do adapter após falha temporária não é suficiente para retirar definitivamente o provider: o coordenador da execução decide elegibilidade e pode reativá-lo até o limiar do circuit breaker. Condições terminais continuam removendo-o imediatamente.
+No AUTO, uma quarentena interna do adapter após falha temporária não é suficiente para retirar definitivamente o provider: o coordenador da execução decide elegibilidade e pode reativá-lo até o limiar do circuit breaker. Condições terminais continuam removendo-o imediatamente.
 
 ## Segurança
 
