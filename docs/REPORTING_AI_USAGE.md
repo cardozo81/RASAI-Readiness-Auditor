@@ -22,6 +22,8 @@ Ausência de dado de IA não deve ser convertida em finding do website. O estado
 
 Toda página HTML materializada no diretório `report/`, exceto `ai-usage.html`, recebe um quadro padronizado **Consumo de IA atribuído a esta página**.
 
+Como regra de organização visual, esse quadro é sempre o **último bloco de dados antes do rodapé**. Assim, custo não interrompe a leitura do indicador principal nem fica misturado à explicação metodológica. `ai-usage.html` é a única exceção: por ser a superfície específica de consumo, roteamento e custo, seus blocos podem ser organizados conforme a hierarquia analítica do próprio relatório.
+
 O quadro mostra, a partir da telemetria persistida:
 
 - tentativas externas de IA;
