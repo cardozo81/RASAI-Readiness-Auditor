@@ -133,6 +133,7 @@ def install() -> None:
     from rasai.core_reprocessing import install as install_core_reprocessing
     from rasai.core_reprocessing_context import install as install_core_reprocessing_context
     from rasai.reprocess_runtime_safety import install as install_reprocess_runtime_safety
+    from rasai.report_public_ux_guard import install as install_report_public_ux_guard
     from rasai.semantic_recovery_runtime import install as install_semantic_recovery
     from rasai.technical_ai_eligibility import install as install_technical_ai_eligibility
 
@@ -146,6 +147,9 @@ def install() -> None:
     # Install last so the RPR trace wraps the final prerequisite-preserving apply
     # function and the M20 recovery path uses stable ContextVar-aware hooks.
     install_reprocess_runtime_safety()
+    # Presentation-only final guard: fulfillment and recovery functions must already
+    # be imported so references copied by value can be reconciled safely.
+    install_report_public_ux_guard()
 
     _INSTALLED = True
 
