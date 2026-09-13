@@ -1,37 +1,193 @@
 # Console interativo de execução
 
-O RASAi mantém `rasai audit` como interface estável e oferece o console textual opcional:
+O RASAi oferece o console textual local:
 
 ```powershell
 rasai-console
 ```
 
-O console é uma camada de configuração, preflight, observabilidade e execução sobre o mesmo pipeline da CLI. Ele não implementa um segundo motor de auditoria.
+O console é uma camada de configuração, preflight, observabilidade, execução e operação sobre o mesmo pipeline da CLI. Ele não implementa um segundo motor de auditoria.
 
-## Princípios
+## Princípios de UX
 
+- navegação de primeiro nível orientada a tarefas;
 - uma tela lógica por vez;
 - configuração explícita antes da execução;
+- detalhes avançados disponíveis sem ocupar o primeiro nível;
 - defaults seguros e visíveis;
-- Perfis de Execução são overlays temporários de sessão e nunca uma segunda fonte de verdade;
+- estados `APTO`, `CONFIGURAR` e `INDISPONÍVEL` apresentados junto da ação correspondente;
+- perfis de execução como overlays temporários da sessão;
 - listas guiadas para configurações com domínio fechado;
-- listas múltiplas guiadas quando o runtime publica um conjunto finito de valores;
-- variáveis relacionadas agrupadas por contexto/recurso sempre que possível;
+- variáveis relacionadas agrupadas por recurso/contexto;
 - finalidade, dependências, impacto e referências exibidos antes da edição avançada;
-- secrets nunca exibidos em claro nem gravados no INI;
-- secrets recebem feedback visual mascarado por `*` quando o terminal suporta leitura segura caractere a caractere;
-- providers sem credencial continuam configuráveis;
-- disponibilidade para execução e possibilidade de configuração são estados distintos;
-- persistência opcional de credenciais no Windows usa somente o escopo `User`;
-- o console não exige execução como Administrador para persistir/remover credenciais em `Windows/User`;
-- o escopo `Windows/Machine` é apenas observado pelo RASAi e nunca é alterado automaticamente;
-- alterações de credencial recalculam imediatamente a aptidão do provider;
+- secrets nunca exibidos em claro nem gravados no INI ou snapshot de AUD;
+- persistência opcional de credenciais no Windows limitada ao escopo `User`;
+- `Windows/Machine` apenas observado, nunca alterado automaticamente;
+- progresso da etapa e progresso geral do pipeline apresentados separadamente;
 - integração externa indisponível não vira finding do website;
-- Synthetic Apdex gera carga HTTP real e permanece separado de Web Performance/IA;
-- Improvement Intelligence é opt-in, exige URL única e permanece advisory/non-scoring;
-- relatórios consolidados são offline/read-only sobre auditorias persistidas.
+- relatórios consolidados continuam baseados em auditorias persistidas.
 
-O contrato detalhado dessa UX está em [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md).
+## Menu inicial
+
+O primeiro nível apresenta as tarefas principais:
+
+```text
+INÍCIO
+
+1. Nova auditoria / configurar e executar
+2. Auditorias / histórico
+3. Relatórios consolidados
+4. Integrações / credenciais
+5. Sistema / restaurar padrões
+?. Ajuda
+Q. Sair
+```
+
+Esse menu não substitui funções existentes. Ele organiza o acesso às superfícies já disponíveis e adiciona operações contextuais sobre `AUD-*`.
+
+### 1. Nova auditoria / configurar e executar
+
+Abre o dashboard completo de configuração da próxima auditoria. Nele permanecem acessíveis:
+
+```text
+Entrada
+Projeto
+Dispositivo
+IA
+Remediações por IA
+Web Performance
+max-pages
+Web Performance max-pages
+Idioma / mercado
+Raiz de auditorias
+Synthetic Apdex
+Timezone de apresentação
+Análise profunda de URL
+Search Intelligence / termos SERP
+Perfil da execução
+Salvar configuração INI
+Ajuda / custos
+Variáveis de ambiente / credenciais
+Relatórios consolidados
+Executar
+Abrir pasta/relatório da última auditoria
+Carregar configuração de AUD
+Restaurar padrões do RASAi
+```
+
+Extensões funcionais continuam usando suas próprias telas e validações. A reorganização do primeiro nível não cria contratos paralelos.
+
+### 2. Auditorias / histórico
+
+Lista os `AUD-*` que possuem `audit.db` na raiz configurada e permite selecionar uma auditoria específica.
+
+A tela contextual mostra, quando disponíveis:
+
+```text
+Processamento
+Score
+Status do relatório
+Elegibilidade para consolidação
+Requisitos atendidos
+Pendentes
+Bloqueados
+Quantidade de reprocessamentos
+Último RPR
+```
+
+Ações do AUD selecionado:
+
+```text
+1. Reprocessar pendências desta auditoria
+2. Carregar esta configuração para uma nova auditoria
+3. Mostrar caminhos de artefatos
+V. Voltar
+```
+
+#### Reprocessar pendências
+
+O reprocessamento mantém o mesmo `AUD-*` e utiliza o motor seletivo de recovery. Antes da confirmação, o console mostra os requisitos ainda não resolvidos e a quantidade de sucessos que serão preservados quando o fulfillment já estiver projetado.
+
+A confirmação exige a palavra:
+
+```text
+REPROCESSAR
+```
+
+Ao terminar, são apresentados:
+
+```text
+AUD
+RPR
+Processamento
+Score
+Relatório
+Elegibilidade para consolidação
+Itens tentados
+Itens resolvidos
+Sucessos preservados
+Itens restantes
+Itens temporalmente expirados, quando existirem
+```
+
+Uma auditoria já completa não tem seus sucessos repetidos; o motor retorna o estado atual sem criar trabalho desnecessário.
+
+#### Carregar configuração
+
+Carregar configuração inicia uma **nova execução**, não um reprocessamento.
+
+Qualquer `AUD-*` com snapshot canônico íntegro pode fornecer configuração, independentemente de a observação estar completa, parcial, preliminar ou bloqueada. O novo AUD só será criado quando o usuário executar a configuração carregada.
+
+O snapshot restaura parâmetros não secretos e inputs reproduzíveis, incluindo os termos e parâmetros de Search Intelligence quando aquela execução os utilizou.
+
+Credenciais nunca são recuperadas do AUD. Depois do carregamento, o console reconcilia a configuração com o ambiente atual e alerta quando uma integração solicitada não possui key/token/configuração válida. O usuário pode corrigir a dependência antes do preflight.
+
+O contrato completo está em [AUDIT_CONFIGURATION_REUSE.md](AUDIT_CONFIGURATION_REUSE.md).
+
+### 3. Relatórios consolidados
+
+Abre a superfície de relatórios históricos/consolidados já existente. A consolidação base lê `AUD-*/audit.db` e não executa coletas ou chamadas externas apenas para montar a visão consolidada.
+
+Somente auditorias elegíveis pelo contrato de finalização participam das métricas consolidadas.
+
+### 4. Integrações / credenciais
+
+Abre a configuração avançada de integrações e variáveis. A navegação interna segue:
+
+```text
+categoria funcional -> contexto/recurso -> variável
+```
+
+Exemplos:
+
+```text
+Google Search Console
+Google PageSpeed / Lighthouse
+Google Chrome UX Report (CrUX)
+SERP / Search Intelligence
+IA / provider
+IA - contexto editorial / YMYL
+Synthetic Navigation Apdex
+Synthetic User Experience Apdex
+Dynatrace / calibração Apdex
+OIDC / Identity
+Control plane / banco
+```
+
+Para campos com domínio fechado, o console apresenta opções aceitas. Entrada livre permanece para valores realmente abertos, como URL, path, property, token/secret, locale ou números de faixa contínua.
+
+### 5. Sistema / restaurar padrões
+
+Abre a restauração da baseline atual do produto.
+
+O usuário escolhe entre:
+
+```text
+Restaurar padrões e PRESERVAR credenciais
+Restaurar padrões e REMOVER credenciais gerenciadas
+```
+
+No Windows, a remoção gerenciada alcança sessão e `Windows/User`. `Windows/Machine` nunca é alterado automaticamente. Auditorias, relatórios, `audit.db`, banco do control plane e arquivos do projeto não são apagados.
 
 ## Arquivo INI
 
@@ -41,72 +197,39 @@ Arquivo padrão:
 rasai-console.ini
 ```
 
-O INI armazena somente parâmetros não sensíveis. API keys, tokens, passwords e outros secrets não são gravados nele.
+O INI armazena parâmetros não sensíveis de configuração geral. API keys, tokens, senhas e outros secrets não são gravados nele.
 
-Precedência prática do console para as configurações gerais:
+Termos de Search Intelligence são inputs de execução e não pertencem ao INI geral. Eles são persistidos no snapshot do respectivo `AUD-*` para permitir reprodução daquela observação.
+
+Precedência prática para configuração geral:
 
 ```text
-valor já presente no processo/Windows
+valor explícito presente no processo/Windows
 > configuração não sensível persistida no INI
-> default do runtime
+> default do produto/runtime
 ```
 
-**Exceção deliberada:** dentro de `rasai-console`, o toggle de execução de Improvement Intelligence é controlado pelo item **13. Análise profunda URL**. O runtime neutraliza temporariamente `RASAI_IMPROVEMENT_INTELLIGENCE` durante a fase base para impedir execução invisível ou duplicada. As variáveis `RASAI_IMPROVEMENT_*` continuam válidas para CLI, worker/SaaS, automação e diagnóstico, mas não são uma segunda superfície de edição dentro do console interativo; provider, modelo, reasoning, domínios, limite de recomendações e timeout são configurados pelo item 13 e persistidos na seção `[improvement_intelligence]`.
+Ao salvar, o console indica explicitamente que a operação é `SEM CHAVES`.
 
-Ao salvar, o console mostra explicitamente que a operação é `SEM CHAVES`.
+## Cores e estados
 
-## Menu principal vigente
+Cor é reforço visual, nunca a única informação:
 
-```text
-1. Entrada
-2. Projeto
-3. Dispositivo
-4. IA
-5. Remediações IA
-6. Web Performance
-7. max-pages
-8. WebPerf max-pages
-9. Idioma / mercado
-10. Raiz auditorias
-11. Synthetic Apdex
-12. Timezone apresentação
-13. Análise profunda URL
-
-F. Perfil da execução [SESSÃO / URL ÚNICA]
-S. Salvar configuração INI [SEM CHAVES]
-H. Ajuda / custos
-E. Variáveis de ambiente / credenciais
-C. Histórico / relatórios consolidados [OFFLINE - sem APIs]
-R. Executar [APTO|CONFIGURAR|INDISPONÍVEL]
-Q. Sair
-```
-
-`F. Perfil da execução` fica disponível somente quando **Entrada** contém uma única URL explícita. O perfil é um overlay em memória para a próxima execução: não altera defaults, não grava o preset no INI, não modifica variáveis do SO e não toca em credenciais. Cada perfil mostra previamente o que envolve, dependências e custo/quota/carga estimada; ajustes finos feitos depois pelo menu normal vencem o preset no domínio alterado. Search Intelligence continua exigindo termos informados pelo operador, GEO preserva contexto YMYL explícito ou `AUTO`, Experiência sintética exige parametrização prévia e Análise profunda continua sob autoridade do item 13. O contrato completo está em [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md).
-
-Quando existe auditoria anterior disponível, o console também oferece atalhos para abrir a pasta e o último relatório.
-
-## Cores e estados do console
-
-O console usa cor como reforço visual, nunca como única informação:
-
-| Estado | Cor esperada |
+| Estado | Semântica |
 |---|---|
-| `APTO`, `DEFINIDO`, `ON`, credencial presente, incluído no AUTO | verde |
-| `CONFIGURAR`, atenção ou ação necessária | amarelo |
-| `INDISPONÍVEL`, erro ou bloqueio real | vermelho |
-| `PADRÃO`, `OPCIONAL`, `DESABILITADA`, ausente, inativo ou excluído do AUTO | cinza/dim |
-| informação contextual/breadcrumb | ciano |
+| `APTO`, `DEFINIDO`, `ON`, credencial presente | operação disponível |
+| `CONFIGURAR`, atenção | ação necessária |
+| `INDISPONÍVEL`, erro, bloqueio | operação não executável no estado atual |
+| `PADRÃO`, `OPCIONAL`, `DESABILITADA`, ausente | estado neutro/inativo |
 
-Essa semântica vale também para a área de providers de IA, configuração avançada e indicação de prontidão da análise profunda.
+## IA
 
-## Opção 4 - IA
+O console separa duas perguntas:
 
-A opção 4 separa duas perguntas:
+1. o provider pode ser configurado?
+2. o provider está apto para executar agora?
 
-1. **o provider pode ser configurado?** - sim, qualquer provider registrado pode ser selecionado;
-2. **o provider está apto para executar agora?** - depende de credencial/configuração válida e de bloqueios runtime.
-
-Portanto, um provider sem Key não fica bloqueado para configuração. Ele aparece como `CONFIGURAR` e pode ser aberto normalmente.
+Um provider sem credencial permanece configurável, porém não executável.
 
 Providers canônicos atuais:
 
@@ -121,94 +244,30 @@ anthropic
 copilot
 ```
 
-Aliases:
+Aliases suportados são resolvidos pelo provider registry. `none` desabilita IA. `auto` utiliza somente providers elegíveis e aptos segundo a política vigente.
+
+GitHub Copilot é seleção explícita e não participa automaticamente do pool `AI=auto`.
+
+### Credenciais de IA
+
+A tela de provider permite, conforme aplicável:
 
 ```text
-grok           -> xai
-claude         -> anthropic
-github-copilot -> copilot
+Setar/alterar Key na sessão
+Persistir/remover Key no Windows/User
+Limpar Key somente da sessão
+Excluir Key da sessão e Windows/User
+Habilitar/desabilitar participação no AUTO
+Usar o provider na auditoria atual
 ```
 
-`none` desabilita IA para a auditoria. `auto` usa o pool dinâmico de providers elegíveis.
+A edição de secret usa mascaramento quando o terminal suporta leitura segura por caractere; caso contrário, usa entrada sem eco. O valor não é exibido em claro depois da edição.
 
-GitHub Copilot é `explicit-only`: pode ser configurado e usado explicitamente, mas não participa do pool `AI=auto`. Essa separação evita consumo involuntário da assinatura Copilot.
+Mudanças de credencial recalculam a aptidão do provider na mesma sessão.
 
-### Gerenciamento por provider
+## Windows/User e Windows/Machine
 
-Ao selecionar um provider concreto, o console mostra:
-
-```text
-Estado execução
-Motivo
-Variável de credencial
-Sessão atual
-Windows / User
-Windows / Machine
-Pool AUTO, quando aplicável
-```
-
-Ações:
-
-```text
-S. Setar/alterar Key na sessão
-P. Persistir/remover Key no Windows/User
-L. Limpar Key somente da sessão
-X. Excluir Key da sessão e do Windows/User
-A. Habilitar/desabilitar no AUTO sem apagar a Key
-U. Usar este provider nesta auditoria
-V. Voltar
-```
-
-A ação `A` aparece somente para providers `auto_eligible`; portanto não aparece para GitHub Copilot.
-
-### Semântica das ações de Key
-
-**Setar/alterar (`S`)**
-
-- altera imediatamente a variável da sessão atual;
-- não grava no INI;
-- recalcula imediatamente a capability do provider;
-- limpa bloqueios transitórios associados à configuração anterior;
-- em terminal interativo compatível, cada caractere digitado/colado aparece somente como `*`.
-
-O mascaramento é estritamente visual. O valor real continua sendo o valor validado e armazenado na sessão. Backspace remove o caractere real correspondente e o `*` visual. Se o terminal não suportar mascaramento seguro por caractere, o console usa entrada sem eco; nunca degrada para exibição em claro. O número de `*` pode revelar aproximadamente o comprimento da credencial, trade-off deliberado para fornecer feedback ao operador sem expor o conteúdo.
-
-**Persistir/remover Windows/User (`P`)**
-
-- exige confirmação explícita;
-- grava/remove somente no perfil do usuário Windows;
-- não usa `HKEY_LOCAL_MACHINE`;
-- não exige PowerShell ou `.ps1` executado como Administrador;
-- remover a persistência User mantém a Key já carregada na sessão atual;
-- após a operação, a capability é recalculada imediatamente.
-
-**Limpar sessão (`L`)**
-
-- remove apenas a variável do processo atual;
-- não apaga uma eventual persistência em Windows/User;
-- novos processos ainda podem herdar a credencial persistida.
-
-**Excluir Key (`X`)**
-
-- remove a Key da sessão;
-- remove a persistência Windows/User quando existir;
-- não modifica Windows/Machine;
-- se existir uma Key em Machine, o console informa que ela continua presente e que sua remoção é uma operação administrativa externa ao RASAi.
-
-**Usar provider (`U`)**
-
-- só conclui a seleção quando o provider está `APTO`;
-- provider sem configuração válida permanece configurável, mas não executável.
-
-### Reavaliação imediata de aptidão
-
-Toda alteração de credencial invalida bloqueios runtime antigos do provider. Assim, após definir ou persistir uma Key válida, o status deve voltar a `APTO` na mesma sessão quando não existir outro impedimento real.
-
-Não é necessário fechar/reabrir o console para atualizar esse estado.
-
-## Windows/User x Windows/Machine
-
-O RASAi persiste secrets somente em:
+Persistência gerenciada de secrets no Windows usa:
 
 ```text
 HKEY_CURRENT_USER\Environment
@@ -216,117 +275,79 @@ HKEY_CURRENT_USER\Environment
 
 Essa operação não exige elevação administrativa.
 
-O RASAi pode detectar uma credencial já existente em `Machine`, mas não a cria, altera ou remove. O produto não deve solicitar execução como Administrador apenas para gerenciar suas credenciais normais.
+Uma credencial existente em `Windows/Machine` pode ser detectada e usada conforme a precedência do ambiente, mas não é criada, alterada ou removida automaticamente pelo RASAi.
 
-Variáveis de ambiente não são um secret manager. Processos com acesso ao mesmo perfil podem ler esses valores.
+Variáveis de ambiente não constituem um secret manager; processos com acesso ao mesmo perfil podem ler esses valores.
 
 ## Provider registry e AUTO
 
-`AI=auto` **não é uma cadeia fixa OpenAI -> DeepSeek -> MiMo**.
+`AI=auto` deriva o pool do provider registry e da política runtime. O processo considera, entre outros fatores:
 
-O pool AUTO é derivado do `provider_registry` atual:
+- elegibilidade para AUTO;
+- credencial/configuração válida;
+- exclusões configuradas pelo operador;
+- disponibilidade atual;
+- política de custo/roteamento;
+- quarentena/circuit breaker.
 
-1. considera providers com `auto_eligible=true`;
-2. exige credencial/configuração válida para execução;
-3. aplica exclusões configuradas pelo operador;
-4. mantém a credencial mesmo quando o provider é excluído do AUTO;
-5. usa a política de roteamento/fallback do runtime;
-6. um provider pode continuar sendo selecionado explicitamente mesmo quando está excluído do AUTO.
-
-Providers `explicit-only` ficam fora desse pool por contrato, independentemente da existência de credencial. Atualmente, GitHub Copilot pertence a essa categoria.
-
-O submenu AUTO permite alternar inclusão por provider elegível e exige pelo menos um provider `APTO` incluído antes de ativar `AI=auto`.
+Desabilitar um provider no AUTO não apaga sua credencial nem impede seleção explícita quando o provider suporta esse uso.
 
 ## Modelos, reasoning e timeout
 
-Depois de escolher um provider `APTO`, o console permite selecionar modelo, esforço/profundidade quando suportado e timeout por tentativa.
+Depois de escolher um provider apto, o console permite selecionar modelo, esforço/profundidade quando suportado e timeout por tentativa.
 
-Default de timeout:
+O timeout padrão de IA é definido pelo contrato runtime e vale por tentativa de provider, não pela auditoria inteira.
 
-```text
-RASAI_AI_TIMEOUT_SECONDS=180
-```
+Modelos e opções de reasoning derivam do provider registry; o console não mantém um catálogo concorrente.
 
-O timeout vale por tentativa de provider, não para a auditoria inteira.
+## Remediações por IA
 
-Defaults de modelo/reasoning vêm do provider registry e da política runtime vigente. Não devem ser duplicados manualmente em outro contrato quando o registry já fornece a lista.
+Remediação de conteúdo e remediação técnica são independentes e só ficam executáveis quando existe IA apta para a finalidade correspondente.
 
-Para Copilot, o modelo público é `auto` e reasoning fica em `PROVIDER_DEFAULT`; a integração não cria variável de reasoning inexistente.
+São advisory/evidence-bound. Não alteram automaticamente Score, Coverage, Confidence, RuleExecution ou Finding.
 
-## Remediações IA
+## Search Intelligence / SERP
 
-A opção 5 só fica disponível quando a opção 4 possui IA ativa e apta.
+Search Intelligence mantém separados:
 
-As duas finalidades são independentes:
+- inputs da execução: termos, profundidade, região, device, análise competitiva;
+- configuração de provider, limites e credencial.
 
-```text
-conteúdo
-crawling/discovery técnico
-```
+Termos podem ser informados no dashboard da auditoria. Provider/credencial/limites ficam na área de integrações.
 
-Ambas são advisory/evidence-bound e podem gerar chamadas/custo adicionais. Não alteram automaticamente Score, Coverage, Confidence, RuleExecution ou Finding.
+Ao carregar a configuração de um AUD, os inputs de execução SERP também são restaurados. Se a key/token atual do provider não estiver disponível, o console aponta a dependência antes da execução.
 
-## Variáveis de ambiente / credenciais
+## Web Performance
 
-O menu `E` continua disponível para configuração avançada e para integrações que não passam pelo gerenciador específico de provider.
+Web Performance pode usar PageSpeed/Lighthouse e CrUX conforme configuração. O console mostra estado, fonte de field data, timeout e limites antes da execução.
 
-A navegação segue **categoria funcional → contexto/recurso → variável**. Isso mantém itens relacionados próximos mesmo quando, tecnicamente, alguns valores pertencem a registries ou mecanismos de persistência diferentes. Exemplos de contextos:
+Quando uma configuração carregada exige CrUX direto e a credencial atual não está disponível, o console apresenta alerta e o preflight impede execução incompatível.
 
-```text
-Google Search Console
-Google PageSpeed / Lighthouse
-Google Chrome UX Report (CrUX)
-SERP / Search Intelligence
-IA / <provider>
-IA - contexto editorial / YMYL
-Synthetic Navigation Apdex
-Synthetic User Experience Apdex
-Dynatrace / calibração Apdex
-OIDC / Identity
-Control plane / banco
-```
+## Synthetic Navigation Apdex
 
-Ao abrir uma variável, o console apresenta finalidade, tipo, valores aceitos, default efetivo, condição de obrigatoriedade, sensibilidade, custo/impacto, estado atual, exemplo, contexto e referências oficiais conhecidas.
-
-Para campos com domínio fechado, o console apresenta lista de opções aceitas em vez de exigir texto livre. Isso inclui booleanos (`true`/`false`), enums e listas CSV fechadas. Campos dependentes são recalculados a partir do contexto atual e dos catálogos canônicos do runtime, evitando valores incompatíveis.
-
-Entrada livre permanece apenas para valores realmente abertos, como URL, path, property, token/secret, locale/tag BCP-47 ou número de faixa contínua.
-
-As credenciais de IA e SERP mostram a URL oficial de documentação e de cadastro/login/geração de token quando conhecida pelo registry/catálogo. GSC, PageSpeed, CrUX e demais standards externos usam as referências oficiais cadastradas no service registry.
-
-Secrets são exibidos em estado apenas como presença/origem, por exemplo:
+Synthetic Navigation Apdex gera tráfego real contra o alvo. A configuração inclui:
 
 ```text
-[SET] [SESSÃO]
-[SET] [SO:USER]
-[SET] [SO:MACHINE]
+threshold T
+amostras válidas
+máximo de tentativas
+máximo de páginas
+timeout
+delay
+concorrência
+perfil client/hardware/network
+modo de aquisição
 ```
 
-Durante a **edição** do secret, terminal compatível mostra somente `*`; depois da edição, o valor continua não sendo exibido.
+O operador deve ajustar volume e concorrência de forma conservadora.
 
-Improvement Intelligence é uma exceção intencional à regra de expor cada override no menu `E`: `RASAI_IMPROVEMENT_INTELLIGENCE`, `RASAI_IMPROVEMENT_AI_PROVIDER`, `RASAI_IMPROVEMENT_AI_MODEL`, `RASAI_IMPROVEMENT_AI_REASONING`, `RASAI_IMPROVEMENT_DOMAINS`, `RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS` e `RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS` pertencem ao contrato de ambiente do runtime, mas **não são duplicados como campos editáveis do console interativo**. Seus equivalentes funcionais ficam no item **13. Análise profunda URL** e na seção `[improvement_intelligence]` do INI. `RASAI_AI_ANALYSIS_LANGUAGE` continua disponível na configuração avançada por ser um override global compartilhado. Essa separação evita duas fontes de verdade e impede ativação invisível de uma etapa com custo adicional.
+## Synthetic User Experience Apdex
 
-Veja [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md) para o contrato normativo da interface e [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) para o contrato variável por variável.
-
-## Perfis sintéticos configuráveis
-
-Os perfis do Synthetic Apdex separam três dimensões independentes por população:
-
-```text
-client/device geometry
-hardware/CPU envelope
-network envelope
-```
-
-Mobile, Desktop e Tablet possuem opções próprias. Os valores permitidos e defaults vigentes estão em [SYNTHETIC_RUNTIME_PROFILES.md](SYNTHETIC_RUNTIME_PROFILES.md) e [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md).
-
-O console apresenta esses campos como enums/listas e persiste os valores não sensíveis no INI. O catálogo de configuração avançada recebe a metadata dos mesmos presets canônicos usados pelo runtime, evitando descrição genérica ou digitação manual de IDs conhecidos.
-
-Os defaults são baselines controladas de laboratório, não médias estatísticas da população real. RAM física, GPU, térmica e scheduler do sistema operacional não são simulados como hardware real.
+A experiência sintética possui população, device mix, KPM, thresholds, tratamento de erros, sessão, settle/delay e demais parâmetros próprios. Esses parâmetros permanecem separados do Navigation Apdex mesmo quando uma aquisição física pode ser compartilhada com segurança.
 
 ## Dispositivo
 
-`RASAI_DEVICE_CONTEXT` aceita:
+O contexto de dispositivo aceita:
 
 ```text
 mobile
@@ -336,105 +357,48 @@ both
 
 `both` mantém Mobile e Desktop como contextos independentes; o relatório não cria média automática que esconda diferenças.
 
-## Web Performance
-
-A opção 6 configura PageSpeed/Lighthouse e CrUX.
-
-Default operacional do timeout:
-
-```text
-120 segundos
-```
-
-PageSpeed controla seu próprio perfil Lighthouse remoto. Os perfis sintéticos do RASAi não são enviados como CPU/rede/viewport customizados à API pública PageSpeed.
-
-## Synthetic Navigation Apdex
-
-A opção 11 controla a carga sintética. O console solicita/expõe:
-
-```text
-T
-amostras válidas
-máximo de tentativas
-máximo de páginas
-timeout
-delay
-concorrência
-perfis client/hardware/network
-modo de aquisição compartilhada/isolada
-```
-
-A execução gera tráfego HTTP real contra o alvo. O operador deve ajustar volume e concorrência de forma conservadora.
-
-`RASAI_APDEX_ACQUISITION_MODE=auto|isolated` controla somente a aquisição física compartilhável entre Navigation Apdex e Experience Apdex. `auto` compartilha apenas quando URL, device, perfil, sessão e demais requisitos são compatíveis; `isolated` preserva navegações separadas. Scores, thresholds, targets e device mix permanecem independentes.
-
 ## Timezone de apresentação
 
-A opção 12 controla apenas a apresentação de timestamps.
+Timezone altera somente a apresentação. Persistência e processamento temporal continuam canonicamente em UTC.
 
-O runtime continua persistindo/processando tempo canônico em UTC. O valor configurado é um timezone IANA, por default:
+O valor configurado é um timezone IANA. O default de apresentação é:
 
 ```text
 America/Sao_Paulo
 ```
 
-## Opção 13 - Análise profunda URL
+## Análise profunda de URL
 
-Improvement Intelligence é independente da IA padrão da opção 4. A opção 13 permite habilitar uma análise evidence-bound mais profunda sem obrigar toda a auditoria a usar o mesmo provider/modelo/esforço.
+Improvement Intelligence é independente da IA padrão da auditoria. A tela própria define se a etapa será executada e permite escolher provider explícito, modelo, reasoning, domínios, limite de recomendações e timeout.
 
-Requisitos de prontidão:
+A análise exige URL única, credencial apta e configuração suportada. É advisory/non-scoring e não executa exploração ativa de segurança.
 
-```text
-Entrada = URL única
-provider explícito selecionado
-credencial do provider apta
-modelo suportado
-reasoning suportado
-domínios de análise válidos
-```
+Quando Search Intelligence foi executado na mesma observação, a análise pode reutilizar evidência SERP já persistida.
 
-`AUTO` e `NONE` não são aceitos como provider da análise profunda. A feature reutiliza a key/token já configurada para o provider escolhido; não existe segunda cópia da credencial no INI.
+## Perfis de execução
 
-Configurações persistidas na seção `[improvement_intelligence]`:
+Perfis são overlays temporários para a próxima execução e não substituem os defaults persistentes.
 
-```text
-enabled
-provider
-model
-reasoning_effort
-domains
-max_recommendations
-timeout_seconds
-```
-
-Domínios selecionáveis:
-
-```text
-TECHNICAL_HTML
-SEMANTICS_STRUCTURE
-CONTENT
-SEARCH_RANKING
-FILES_DISCOVERY
-PERFORMANCE
-ACCESSIBILITY
-BEST_PRACTICES
-SECURITY
-AI_ACCESS
-```
-
-A análise ocorre após a auditoria normal e, quando Search Intelligence foi executado na mesma sessão, pode reutilizar a evidência SERP já persistida. Ela não cria um segundo crawler competitivo.
-
-No console interativo, o item 13 é a única autoridade que decide se essa etapa será executada. O toggle de ambiente é neutralizado somente durante a auditoria base e restaurado em seguida; isso impede dupla chamada paga e mantém a UI coerente com o que efetivamente será executado.
-
-Segurança é passiva: headers, cookies e achados já observados podem gerar recomendações, mas não há exploração, fuzzing ou pentest ativo. Search/SERP é contexto correlacional; o console não promete posição futura de ranking.
-
-O relatório `improvement-intelligence.html` é sempre materializado. Quando a opção 13 está OFF, ele registra estado não executado. Quando ON, apresenta findings, recomendações priorizadas, evidências, HTML original versus sugerido quando aplicável e consumo da IA. Nenhum desses outputs altera `SARI-001`/`SCORE-GEO-004`.
-
-O idioma preferencial das explicações/sugestões pode ser definido por `RASAI_AI_ANALYSIS_LANGUAGE`; `auto` usa o idioma da auditoria e não substitui a detecção real do idioma da página.
+Eles não gravam credenciais nem alteram variáveis do SO. Ajustes finos feitos depois no dashboard vencem o preset no domínio alterado.
 
 ## Progresso de execução
 
-Durante a auditoria o console exibe, conforme disponível:
+O modelo de progresso permanece orientado a duas escalas:
+
+```text
+Etapa atual
+[####################----------] 68%
+
+Pipeline geral
+[###############---------------] ~49%
+
+Executando
+<operação real / URL / dispositivo / contexto>
+```
+
+O percentual da etapa representa avanço interno observado sempre que o executor fornece essa informação. O percentual global representa a posição da etapa no pipeline e pode ser uma projeção quando o total exato ainda depende do runtime.
+
+O console também apresenta, conforme disponível:
 
 ```text
 Status
@@ -449,37 +413,40 @@ Progresso
 Detalhe
 ```
 
-Quando a análise profunda está habilitada, aparece como fase terminal própria antes da conclusão, incluindo provider/modelo, estágio e percentual. A duração final inclui essa etapa.
+A atualização usa estado local do subprocesso, banco e logs de execução. Não cria polling HTTP adicional contra o website apenas para atualizar a interface.
 
-A atualização usa estado local do subprocesso/SQLite/log e não cria polling HTTP adicional contra o website auditado.
+## Pós-execução
 
-## Histórico / relatórios consolidados
+Depois de uma auditoria, o console mantém acesso a consumo/cobertura persistidos e ações sobre os artefatos da sessão.
 
-A opção `C` é offline. Ela lê auditorias persistidas e não executa IA, PageSpeed, CrUX ou Synthetic Apdex.
+Uma auditoria que permaneça incompleta pode ser aberta posteriormente em:
 
-Os `AUD-*/audit.db` permanecem fonte de verdade; qualquer índice consolidado é derivado e reconstruível.
+```text
+Início > Auditorias / histórico
+```
 
-Improvement Intelligence permanece complementar no consolidado: suas recomendações não são promediadas dentro do SARI histórico. A validação de ganho pertence à nova auditoria/before-after.
+Nesse contexto o operador consegue revisar o estado e iniciar reprocessamento seletivo sem precisar conhecer o comando CLI correspondente.
 
 ## Segurança
 
-- secrets não entram no INI;
-- durante a entrada interativa, secrets são mascarados por `*` quando suportado e nunca exibidos em claro;
-- em terminal incompatível com máscara por caractere, o fallback continua sem eco;
-- reports e logs não devem registrar API keys;
+- secrets não entram no INI nem no snapshot reutilizável do AUD;
+- secrets não são exibidos em claro;
+- reports e logs não devem registrar API keys/tokens;
 - persistência Windows/User exige ação explícita;
-- nenhuma operação normal de Key exige Administrador;
-- credencial configurada não implica crédito/quota/modelo disponível;
+- nenhuma operação normal de credencial exige Administrador;
+- credencial configurada não implica quota/crédito/modelo disponível;
 - provider indisponível não é finding do website;
-- remover do AUTO não apaga Key;
-- alterar Key recalcula imediatamente a capability;
-- Windows/Machine não é administrado automaticamente pelo RASAi;
-- Perfis de Execução não persistem overrides, credenciais ou mudanças no SO;
+- remover provider do AUTO não apaga sua Key;
+- `Windows/Machine` não é administrado automaticamente;
+- perfis de execução não persistem credenciais;
 - análise profunda não executa exploração ativa;
-- recomendações de IA não alteram scoring nem são prova de ganho até nova medição.
+- recomendações de IA não alteram scoring automaticamente;
+- reprocessamento preserva sucessos e respeita a validade temporal das evidências.
 
 ## Documentos relacionados
 
+- [AUDIT_REPROCESSING.md](AUDIT_REPROCESSING.md)
+- [AUDIT_CONFIGURATION_REUSE.md](AUDIT_CONFIGURATION_REUSE.md)
 - [CONFIGURATION.md](CONFIGURATION.md)
 - [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
 - [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md)
