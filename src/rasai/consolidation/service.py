@@ -145,7 +145,12 @@ def build_data(index: ConsolidationIndex, filters: ConsolidationFilter) -> Conso
                 "Desempenho Web, Apdex e ocorrências continuam filtrados diretamente por URL."
             )
 
-    config_summary = configuration_comparability(audits)
+    config_summary = configuration_comparability(
+        audits,
+        comparison_mode=filters.comparison_mode,
+        baseline_audit_id=filters.baseline_audit_id,
+        current_audit_id=filters.current_audit_id,
+    )
     limitations.extend(_configuration_limitations(config_summary))
     score_rows = annotate_score_url_universes(index.path, points["scores"])
     dates = [str(row.get("event_time") or "")[:10] for row in audits if row.get("event_time")]
