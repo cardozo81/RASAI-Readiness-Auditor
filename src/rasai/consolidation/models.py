@@ -18,6 +18,14 @@ class ConsolidationFilter:
     date_to: date | None = None
     devices: tuple[str, ...] = ()
     urls: tuple[str, ...] = ()
+    comparison_mode: str = "FIRST_LAST"
+    baseline_audit_id: str | None = None
+    current_audit_id: str | None = None
+    specialist_ai: bool = False
+    ai_provider: str | None = None
+    ai_model: str | None = None
+    ai_reasoning: str | None = None
+    ai_timeout_seconds: float | None = None
 
     def canonical(self) -> dict[str, Any]:
         return {
@@ -26,6 +34,14 @@ class ConsolidationFilter:
             "date_to": self.date_to.isoformat() if self.date_to else None,
             "devices": sorted({item.upper() for item in self.devices if item}),
             "urls": sorted({item for item in self.urls if item}),
+            "comparison_mode": self.comparison_mode,
+            "baseline_audit_id": self.baseline_audit_id,
+            "current_audit_id": self.current_audit_id,
+            "specialist_ai": bool(self.specialist_ai),
+            "ai_provider": self.ai_provider if self.specialist_ai else None,
+            "ai_model": self.ai_model if self.specialist_ai else None,
+            "ai_reasoning": self.ai_reasoning if self.specialist_ai else None,
+            "ai_timeout_seconds": self.ai_timeout_seconds if self.specialist_ai else None,
         }
 
 
