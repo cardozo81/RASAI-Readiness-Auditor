@@ -14,6 +14,10 @@ from typing import Any, Callable, Iterator, Literal
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
+from rasai.audit_configuration_reuse_saas import (
+    build_reused_payload,
+    install as install_audit_configuration_reuse_saas,
+)
 from rasai.platform.database import open_platform_store, resolve_platform_database_config
 from rasai.search_intelligence.monitoring_database import open_search_monitoring_repository
 from rasai.secret_safety import redact_text, redact_value
@@ -52,6 +56,7 @@ class ExecutionJobCreate(BaseModel):
     environment_id: str = Field(min_length=1, max_length=200)
     job_type: Literal["AUDIT", "SEARCH_MONITOR", "REPORT_REFRESH"]
     payload: dict[str, Any] = Field(default_factory=dict)
+    source_audit_id: str | None = Field(default=None, min_length=5, max_length=200)
     idempotency_key: str | None = Field(default=None, max_length=200)
     priority: int = Field(default=100, ge=0, le=1000)
     max_attempts: int = Field(default=3, ge=1, le=100)
@@ -99,6 +104,9 @@ def create_app(
     search_repository_factory: SearchRepositoryFactory | None = None,
     principal_resolver: PrincipalResolver | None = None,
 ) -> FastAPI:
+    # Extend the already-installed AUDIT contract with server-managed provenance
+    # before any HTTP request can enqueue a durable job.
+    install_audit_configuration_reuse_saas()
     config = settings or ApiSettings.from_environment()
     docs_url = "/docs" if config.docs_enabled else None
     openapi_url = "/openapi.json" if config.docs_enabled else None
@@ -313,12 +321,24 @@ def create_app(
     ) -> dict[str, Any]:
         require_execution_create(store, principal, project_id)
         try:
+            if request.source_audit_id and request.job_type != "AUDIT":
+                raise ValueError("source_audit_id is supported only for AUDIT jobs")
+            effective_payload = request.payload
+            if request.source_audit_id:
+                effective_payload = build_reused_payload(
+                    str(config.audits_root),
+                    request.source_audit_id,
+                    request.payload,
+                    project_id=project_id,
+                    property_id=request.property_id,
+                    environment_id=request.environment_id,
+                )
             item = store.enqueue_execution_job(
                 project_id=project_id,
                 property_id=request.property_id,
                 environment_id=request.environment_id,
                 job_type=request.job_type,
-                payload=request.payload,
+                payload=effective_payload,
                 requested_by=principal.user_id,
                 idempotency_key=request.idempotency_key,
                 priority=request.priority,
