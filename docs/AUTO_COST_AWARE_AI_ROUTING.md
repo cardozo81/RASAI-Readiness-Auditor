@@ -197,9 +197,9 @@ O weekday também deve ser avaliado em UTC. Essa regra é necessária porque, em
 
 | Dia local GMT-3 | Peak |
 |---|---|
-| domingo | 22:00–24:00 |
-| segunda a quinta | 00:00–01:00, 03:00–07:00, 22:00–24:00 |
-| sexta | 00:00–01:00, 03:00–07:00 |
+| domingo | 22:00-24:00 |
+| segunda a quinta | 00:00-01:00, 03:00-07:00, 22:00-24:00 |
+| sexta | 00:00-01:00, 03:00-07:00 |
 | sábado | nenhum |
 
 A maior janela contínua off-peak em GMT-3 é:
@@ -298,7 +298,7 @@ A suíte deve cobrir pelo menos:
 
 - DeepSeek peak/off-peak com weekday em UTC;
 - domingo 22:xx GMT-3 corretamente reconhecido como segunda-feira peak em UTC;
-- sábado em horário `01:00–04:00 UTC` corretamente tratado como off-peak;
+- sábado em horário `01:00-04:00 UTC` corretamente tratado como off-peak;
 - vigência do novo preço Flash desde 10/09/2026 04:00 UTC;
 - retenção do preço histórico anterior à mudança;
 - preço disponível para todos os modelos default do pool AUTO;
