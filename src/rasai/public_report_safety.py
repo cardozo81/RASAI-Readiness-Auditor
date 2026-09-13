@@ -36,14 +36,14 @@ _OWNED_PRESENTATION_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("M18 análise semântica", "Análise semântica por IA"),
     ("M20 remediação textual", "Remediação textual por IA"),
     ("M24-CD-001", "CRAWLING-DISCOVERY-001"),
+    ("CRAWLING-Discovery-001", "CRAWLING-DISCOVERY-001"),
     ("Rastreamento e descoberta M24", "Rastreamento e descoberta"),
     ("m20-no-eligible-note", "content-remediation-no-eligible-note"),
     ("m23-apdex-summary", "apdex-summary"),
     ("artifacts/m24/", ""),
 )
 
-# Historical implementation prefixes that may still be emitted by optional
-# report enrichers. They are normalized only inside RASAi-owned HTML markup,
+# Implementation prefixes are normalized only inside RASAi-owned HTML markup,
 # comments and CSS selectors; ordinary visible evidence text is not touched.
 _MARKUP_PREFIX_MAP: dict[str, str] = {
     "m14": "evidence-linking",
