@@ -1,13 +1,12 @@
 """Last-mile organization for the public HTML report set.
 
-This pass is presentation-only.  It does not recalculate scores, modify evidence or call
-external services.  It runs after AI/cost enrichment so ordering and terminology cannot
+This pass is presentation-only. It does not recalculate scores, modify evidence or call
+external services. It runs after AI/cost enrichment so ordering and terminology cannot
 be undone by a late renderer.
 """
 from __future__ import annotations
 
 from html import escape
-from pathlib import Path
 import re
 import sqlite3
 from typing import Any
@@ -145,23 +144,28 @@ def _one(connection: sqlite3.Connection, sql: str, params: tuple[Any, ...]) -> s
         return None
 
 
-def _dependency_states(connection: sqlite3.Connection, audit_id: str) -> dict[str, str]:
-    states: dict[str, str] = {}
+def _lighthouse_state(connection: sqlite3.Connection, audit_id: str) -> str | None:
+    web = _one(
+        connection,
+        "SELECT enabled,status,reason,pagespeed_successes FROM web_performance_runs WHERE audit_id=?",
+        (audit_id,),
+    )
+    if web is None:
+        return "A coleta PageSpeed/Lighthouse não foi materializada nesta auditoria."
+    if not bool(web["enabled"]):
+        return "A coleta PageSpeed/Lighthouse foi desabilitada nesta execução."
 
-    web = _one(connection, "SELECT enabled,status,reason FROM web_performance_runs WHERE audit_id=?", (audit_id,))
     psi = _one(
         connection,
         "SELECT status,http_status,error_code,error_message FROM web_performance_attempts "
         "WHERE audit_id=? AND UPPER(service) LIKE 'PAGESPEED%' ORDER BY created_at DESC,rowid DESC LIMIT 1",
         (audit_id,),
     )
-    if web is None:
-        states["lighthouse"] = "A coleta PageSpeed/Lighthouse não foi materializada nesta auditoria."
-    elif not bool(web["enabled"]):
-        states["lighthouse"] = "A coleta PageSpeed/Lighthouse foi desabilitada nesta execução."
-    elif psi is None:
-        states["lighthouse"] = "Web Performance foi habilitado, mas nenhuma tentativa PageSpeed/Lighthouse foi persistida."
-    elif str(psi["status"] or "").upper() != "SUCCESS":
+    if psi is None:
+        reason = str(web["reason"] or "").strip()
+        suffix = f" Motivo registrado: {reason}." if reason else ""
+        return "Web Performance foi habilitado, mas nenhuma tentativa PageSpeed/Lighthouse foi persistida." + suffix
+    if str(psi["status"] or "").upper() != "SUCCESS":
         parts = ["A tentativa PageSpeed/Lighthouse falhou"]
         if psi["http_status"] is not None:
             parts.append(f"HTTP {psi['http_status']}")
@@ -169,7 +173,49 @@ def _dependency_states(connection: sqlite3.Connection, audit_id: str) -> dict[st
             parts.append(str(psi["error_code"]))
         if psi["error_message"]:
             parts.append(str(psi["error_message"])[:220])
-        states["lighthouse"] = " · ".join(parts) + "."
+        return " · ".join(parts) + "."
+
+    observation = _one(
+        connection,
+        "SELECT status,error_summary,performance_score,accessibility_score,best_practices_score,seo_score,agentic_browsing_score "
+        "FROM web_performance_observations WHERE audit_id=? ORDER BY captured_at DESC,rowid DESC LIMIT 1",
+        (audit_id,),
+    )
+    if observation is None:
+        return (
+            "PageSpeed respondeu, mas nenhuma observação Lighthouse foi persistida. "
+            "Consulte a telemetria de Web Performance para o contexto afetado."
+        )
+    score_fields = (
+        "performance_score",
+        "accessibility_score",
+        "best_practices_score",
+        "seo_score",
+        "agentic_browsing_score",
+    )
+    has_score = any(observation[name] is not None for name in score_fields)
+    if not has_score:
+        detail = str(observation["error_summary"] or "").strip()
+        text = (
+            "PageSpeed concluiu o transporte, mas o Lighthouse não materializou nenhum score válido. "
+            "HTTP/API concluído não equivale a lighthouseResult utilizável."
+        )
+        if detail:
+            text += " Diagnóstico persistido: " + detail[:240] + "."
+        return text
+    if str(observation["status"] or "").upper() == "PARTIAL":
+        detail = str(observation["error_summary"] or "").strip()
+        if detail:
+            return "Lighthouse foi materializado parcialmente. Diagnóstico persistido: " + detail[:240] + "."
+    return None
+
+
+def _dependency_states(connection: sqlite3.Connection, audit_id: str) -> dict[str, str]:
+    states: dict[str, str] = {}
+
+    lighthouse = _lighthouse_state(connection, audit_id)
+    if lighthouse:
+        states["lighthouse"] = lighthouse
 
     ai = _one(
         connection,
@@ -178,8 +224,8 @@ def _dependency_states(connection: sqlite3.Connection, audit_id: str) -> dict[st
     )
     if ai is not None and bool(ai["enabled"]) and not ai["effective_provider"]:
         states["semantic-ai"] = (
-            "A análise semântica por IA foi solicitada, mas nenhuma resposta válida de provider foi materializada. "
-            "Consulte Uso de IA para a tentativa, provider e causa registrada."
+            "A análise semântica por IA foi solicitada, mas nenhuma resposta válida de provedor foi materializada. "
+            "Consulte Uso de IA para a tentativa, provedor e causa registrada."
         )
 
     content = _one(
@@ -220,7 +266,7 @@ def _inject_dependency_notice(html: str, filename: str, states: dict[str, str]) 
         return html
 
     reason: str | None = None
-    if filename in {"web-performance.html", "accessibility.html"}:
+    if filename in {"index.html", "web-performance.html", "accessibility.html"}:
         reason = states.get("lighthouse")
     elif filename == "content-suggestions.html":
         reason = states.get("content-ai")
