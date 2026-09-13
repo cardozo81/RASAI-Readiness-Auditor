@@ -89,12 +89,13 @@ def test_every_configuration_has_default_or_explicit_conditional_requirement() -
 
 
 def test_environment_reference_documents_cover_the_console_catalog() -> None:
-    # General variables stay in ENVIRONMENT_VARIABLES; the external-observability
-    # family has a dedicated canonical reference because it also documents scope,
-    # quotas, secret boundaries and SARI interaction in one place.
+    # General variables stay in ENVIRONMENT_VARIABLES. Specialized families may keep
+    # their own canonical references when the setting requires domain-specific policy,
+    # lifecycle or security semantics.
     documents = (
         ROOT / "docs" / "ENVIRONMENT_VARIABLES.md",
         ROOT / "docs" / "EXTERNAL_OBSERVABILITY_INTEGRATIONS.md",
+        ROOT / "docs" / "AI_PRICING_CONFIGURATION.md",
     )
     text = "\n".join(path.read_text(encoding="utf-8") for path in documents)
     missing = sorted(name for name in console_environment.ENV_NAMES if name not in text)
