@@ -123,15 +123,16 @@ def install() -> None:
         pass
 
     # One fulfillment contract governs initial execution and selective recovery.
-    # SaaS, semantic prerequisite recovery and technical-AI eligibility consume that
-    # same state instead of redefining core AuditStatus or treating missing evidence
-    # as a provider failure.
+    # Core evidence recovery runs before AI recovery so no provider call can be used
+    # as a substitute for missing acquisition/render/extraction evidence.
     from rasai.audit_fulfillment_runtime import install as install_audit_fulfillment
     from rasai.audit_fulfillment_saas import install as install_audit_fulfillment_saas
+    from rasai.core_reprocessing import install as install_core_reprocessing
     from rasai.semantic_recovery_runtime import install as install_semantic_recovery
     from rasai.technical_ai_eligibility import install as install_technical_ai_eligibility
 
     install_audit_fulfillment()
+    install_core_reprocessing()
     install_semantic_recovery()
     install_audit_fulfillment_saas()
     install_technical_ai_eligibility()
