@@ -10,6 +10,7 @@ from rasai.audit_configuration_reuse import (
     KIND_CONSOLE,
     changed_fields,
     load_reusable_audit_configuration,
+    normalize_audit_id,
     persist_audit_configuration,
 )
 from rasai.audit_configuration_reuse_runtime import (
@@ -82,6 +83,13 @@ def test_reuse_accepts_only_canonical_consolidation_eligible_audits() -> None:
 
         with pytest.raises(ValueError, match="somente AUDs com consolidação geral concluída"):
             load_reusable_audit_configuration(root, "AUD-PARTIAL", expected_kind=KIND_CONSOLE)
+
+
+def test_path_like_audit_identifiers_are_rejected_before_filesystem_access() -> None:
+    assert normalize_audit_id("aud-safe_123") == "AUD-SAFE_123"
+    for value in ("AUD-../SECRET", "AUD-..\\SECRET", "../AUD-X", "AUD-", "AUD-X/OTHER"):
+        with pytest.raises(ValueError, match="Audit ID válido"):
+            normalize_audit_id(value)
 
 
 def test_complete_legacy_audit_without_snapshot_fails_closed() -> None:
