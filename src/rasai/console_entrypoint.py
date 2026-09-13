@@ -23,6 +23,7 @@ from rasai.console_environment_reset import (
 )
 from rasai.console_execution_profile_readiness import install as install_execution_profile_readiness
 from rasai.console_execution_profiles import install as install_execution_profiles
+from rasai.console_navigation import install as install_console_navigation
 from rasai.console_progress_presentation import install as install_console_progress_presentation
 from rasai.console_search_guidance import install as install_search_guidance
 from rasai.console_search_intelligence import install as install_search_intelligence
@@ -146,9 +147,11 @@ def main() -> int:
     # enabled/disabled by a profile preset.
     install_execution_profile_readiness()
     install_execution_profiles(interactive_console)
-    # Configuration reuse is deliberately installed last so its top-level shortcut
-    # wraps the final menu/profile surface instead of creating another submenu.
+    # Configuration reuse wraps the complete detailed configuration surface. The task
+    # navigation shell is installed last and delegates back to that surface, preserving
+    # every existing configuration/action while adding contextual AUD operations.
     install_audit_configuration_reuse_console(interactive_console)
+    install_console_navigation(interactive_console)
     return interactive_console.main()
 
 
