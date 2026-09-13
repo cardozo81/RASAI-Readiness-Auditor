@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Este documento define as integrações externas adicionadas ao RASAi para ampliar análise histórica, experiência real e evidência pública sem transformar outcomes externos em substitutos da metodologia de `SARI-001` / `SCORE-GEO-004`.
+Este documento define as integrações externas do RASAi para ampliar análise histórica, experiência real e evidência pública sem transformar outcomes externos em substitutos da metodologia de `SARI-001` / `SCORE-GEO-004`.
 
 Princípios obrigatórios:
 
@@ -23,12 +23,12 @@ Princípios obrigatórios:
 | CrUX History API | integrada | sem cobrança; quota Google | `RASAI_CRUX_API_KEY` | auto quando a key existe | `ORIGIN` | `ALL`, `PHONE`, `DESKTOP`, `TABLET` conforme dispositivos auditados | observacional; não pontua | `web-performance.html`, `observability.html`, `standards.html` |
 | Microsoft Clarity Data Export | integrada | gratuito | `RASAI_CLARITY_API_TOKEN` | **off**; opt-in | `ORIGIN`/`URL` | `Device` quando solicitado | observacional; não pontua | `apdex-experience.html`, `observability.html`, `standards.html` |
 | Common Crawl CDX History | integrada | gratuito, sem key/token | nenhuma | **on** | `URL` | não possui dimensão de device | `BR-GEO-060` positive-only, máximo 0,45 ponto Overall | `crawling-discovery.html`, `observability.html`, `standards.html`, `readiness.html`, `scoring.html` |
-| Bing Webmaster Tools live | **não ativada nesta etapa** | gratuito | autenticado | n/a | Search owner data | depende do contrato oficial atual | não pontua | importação existente continua disponível |
-| IndexNow submission | fora desta etapa | gratuito | ownership key | off | `URL` | não aplicável | não pontua | n/a |
+| Bing Webmaster Tools live | **não ativa no contrato atual** | gratuito | autenticado | n/a | Search owner data | depende do contrato oficial atual | não pontua | importação disponível |
+| IndexNow submission | fora do contrato atual | gratuito | ownership key | off | `URL` | não aplicável | não pontua | n/a |
 
 ## CrUX History API
 
-O RASAi já possuía o collector `rasai observe crux-history`. A integração automática reutiliza esse contrato na finalização da auditoria quando `RASAI_CRUX_API_KEY` existe e a capacidade não foi desligada.
+O collector `rasai observe crux-history` faz parte do contrato atual. A integração automática reutiliza esse contrato na finalização da auditoria quando `RASAI_CRUX_API_KEY` existe e a capacidade não foi desligada.
 
 A coleta automática usa a origem auditada como target e preserva duas granularidades:
 
@@ -187,17 +187,15 @@ Referências oficiais:
 
 ## Bing Webmaster Tools
 
-O RASAi já possui contratos/importadores para dados exportados do Bing Webmaster Tools e `BING_WEBMASTER` já é origem suportada em Search Intelligence.
+`BING_WEBMASTER` é origem suportada em Search Intelligence para dados importados do Bing Webmaster Tools.
 
-A integração live não foi ligada nesta etapa. Em 31 de agosto de 2026 a Microsoft aposentou as APIs SOAP e POX e orientou migração para REST. Parte da documentação pública de métodos ainda expõe exemplos legados `.svc/json`, portanto esta implementação não presume um endpoint live apenas por compatibilidade histórica.
-
-A regra é deliberada: enquanto o contrato REST atual não estiver inequívoco e testável, o RASAi mantém importação evidence-bound em vez de afirmar suporte live incompleto.
+A integração live não está ativa no contrato atual. O RASAi somente deve declarar suporte live quando o contrato REST oficial vigente estiver inequivocamente implementado e testável. Até lá, a superfície suportada permanece a importação evidence-bound, sem presumir endpoints ou formatos fora do contrato implementado.
 
 Referência: <https://learn.microsoft.com/bingwebmaster/>
 
 ## IndexNow
 
-IndexNow não faz parte deste pacote porque é uma operação de escrita/submissão externa. Uma auditoria normal é read-only; submissão IndexNow deve ser uma feature separada com opt-in, dry-run, ownership verificado, allowlist e proteção de ambientes não produtivos.
+IndexNow não integra o contrato atual porque é uma operação de escrita/submissão externa. Uma auditoria normal é read-only; eventual submissão IndexNow exige contrato próprio com opt-in, dry-run, ownership verificado, allowlist e proteção de ambientes não produtivos.
 
 ## Persistência e segurança
 
@@ -265,12 +263,12 @@ Contrato completo: [`AUDIT_REPROCESSING.md`](AUDIT_REPROCESSING.md).
 
 ## Perfis de execução
 
-Os perfis do console continuam sendo overlays de sessão e não alteram automaticamente estas integrações.
+Os perfis do console são overlays de sessão e não alteram automaticamente estas integrações.
 
 Isso é intencional:
 
 - `Completo seguro` não deve consumir a quota diária do Clarity apenas por ter sido selecionado;
-- Common Crawl já é governado pelo default/override da integração;
+- Common Crawl é governado pelo default/override da integração;
 - CrUX History é credential-driven, independente da seleção de perfil;
 - nenhuma integração muda termos SERP, IA, carga sintética ou análise profunda.
 
