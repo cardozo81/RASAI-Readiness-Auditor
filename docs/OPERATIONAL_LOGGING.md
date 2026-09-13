@@ -61,7 +61,7 @@ Quando uma etapa possui medição própria, por exemplo amostras/contextos de Sy
 
 O progresso geral usa pesos de carga configurada/observada. Trabalho repetido e normalmente demorado - contextos Chromium, PageSpeed/CrUX, Synthetic Apdex, Search Intelligence e chamadas de IA - recebe mais peso do que bookkeeping local. Improvement Intelligence, quando habilitada, também participa dessa projeção conforme o esforço configurado, em vez de usar uma faixa terminal fixa.
 
-Depois que Improvement Intelligence termina sua chamada de IA no console, a atualização necessária dos relatórios é uma passagem **somente local/read-only**. Ela atualiza `improvement-intelligence.html`, atribuição de consumo/custo de IA, navegação, UX e manifest a partir das evidências já persistidas. Essa segunda passagem não reexecuta GSC, PageSpeed, CrUX History, Microsoft Clarity, Common Crawl, SERP ou qualquer outro collector/provider externo.
+Depois que Improvement Intelligence termina sua chamada de IA no console, a atualização necessária dos relatórios é uma passagem **somente local/read-only**. Ela atualiza `improvement-intelligence.html`, atribuição de consumo/custo de IA, navegação, UX, reconciliação de qualidade pública, organização visual final e manifest a partir das evidências já persistidas. A organização visual final mantém os blocos de custo de IA no fim de cada página, exceto `ai-usage.html`, inclusive depois desse refresh tardio. Essa segunda passagem não reexecuta GSC, PageSpeed, CrUX History, Microsoft Clarity, Common Crawl, SERP ou qualquer outro collector/provider externo.
 
 Somente estados terminais como conclusão, conclusão com limitações, bloqueio técnico definitivo ou falha podem apresentar `100%` global como medido.
 
