@@ -50,7 +50,7 @@ O cálculo considera, quando aplicável:
 - janela peak/off-peak oficial;
 - faixas de contexto que alteram preço.
 
-Providers com preço conhecido são ordenados do menor para o maior custo estimado. Em empate, permanece o rank canônico. Providers futuros ou sem preço catalogado são colocados depois dos precificados e preservam entre si a ordem rotativa legada.
+Providers com preço conhecido são ordenados do menor para o maior custo estimado. Em empate, permanece o rank canônico. Providers sem preço catalogado são colocados depois dos precificados e preservam entre si a ordem rotativa determinística do coordenador.
 
 Exemplo conceitual com `A`, `B`, `C`, sendo todos elegíveis:
 
@@ -201,7 +201,7 @@ A interpretação editorial da IA:
 
 Ela existe em memória durante a execução e é injetada no HTML final depois que as projeções persistidas foram reconstruídas. O próprio HTML naturalmente preserva o texto exibido como artefato daquela auditoria.
 
-Para garantir essa separação, o campo transitório é removido da resposta antes que o normalizador semântico legado prossiga. No exchange log persistido, o conteúdo dessa interpretação também é redigido; a versão legível aparece apenas na seção interpretativa do relatório.
+Para garantir essa separação, o campo transitório é removido da resposta antes que o normalizador semântico prossiga. No exchange log persistido, o conteúdo dessa interpretação também é redigido; a versão legível aparece apenas na seção interpretativa do relatório.
 
 ## 10. Relatórios
 
@@ -251,7 +251,7 @@ A suíte deve cobrir no mínimo:
 - seleção do candidato precificado de menor custo por necessidade;
 - reavaliação dinâmica de horário/contexto/modelo/reasoning;
 - DeepSeek peak/off-peak com weekday calculado em UTC;
-- preservação da ordem rotativa legada entre providers sem pricing conhecido;
+- preservação da ordem rotativa determinística entre providers sem pricing conhecido;
 - exclusão voluntária de provider do AUTO sem apagar sua credencial e sem impedir seleção explícita;
 - fallback no mesmo contexto sem repetir provider;
 - telemetria de fallback também nos fluxos especializados;
