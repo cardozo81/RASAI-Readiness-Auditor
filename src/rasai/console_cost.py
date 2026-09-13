@@ -2,15 +2,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
 import sqlite3
 
+from rasai.ai_cost_policy import PRICING_VERSION, resolve_price
 from rasai.ai_resilience import MAX_PROVIDER_ATTEMPTS_PER_CONTEXT, max_attempts_for_auto
 from rasai.cli import validate_target
 from rasai.console_config import State, provider_capabilities
-from rasai.m18_ai import PRICING_CATALOG, PRICING_VERSION
 from rasai.provider_registry import auto_provider_ids, get_provider_registration
 from rasai.url_utils import normalize_url
 
@@ -72,7 +73,7 @@ def _model_for(registration, state_model: str | None = None) -> str:
     return (
         state_model
         or os.environ.get(registration.model_env)
-        or registration.default_model
+        or registration.public_default_model
     ).strip()
 
 
@@ -100,43 +101,30 @@ def _selected_provider_models(state: State) -> tuple[tuple[str, str], ...]:
     return ((registration.provider_name, _model_for(registration, state.ai_model)),)
 
 
+def _current_price(provider: str, model: str):
+    return resolve_price(
+        provider,
+        model,
+        at=datetime.now(timezone.utc),
+        input_tokens=10_000,
+    )
+
+
 def _pricing_lines(provider_models: tuple[tuple[str, str], ...]) -> tuple[str, ...]:
     lines: list[str] = []
     for provider, model in provider_models:
-        prices = [
-            item
-            for item in PRICING_CATALOG
-            if item.provider == provider and item.model == model
-        ]
-        if not prices:
+        price = _current_price(provider, model)
+        if price is None:
             lines.append(
                 f"{provider}/{model}: preço unitário não catalogado; "
                 "custo monetário prévio não estimável."
             )
             continue
-        currencies = {item.currency for item in prices}
-        if len(currencies) != 1:
-            lines.append(
-                f"{provider}/{model}: catálogo possui moedas distintas; "
-                "custo prévio não consolidado."
-            )
-            continue
-        currency = prices[0].currency
-        input_values = sorted({item.input_price_per_million for item in prices})
-        output_values = sorted({item.output_price_per_million for item in prices})
-        input_text = (
-            f"{input_values[0]:g}"
-            if len(input_values) == 1
-            else f"{input_values[0]:g}-{input_values[-1]:g}"
-        )
-        output_text = (
-            f"{output_values[0]:g}"
-            if len(output_values) == 1
-            else f"{output_values[0]:g}-{output_values[-1]:g}"
-        )
         lines.append(
-            f"{provider}/{model}: input {currency} {input_text}/1M tokens; "
-            f"output {currency} {output_text}/1M tokens."
+            f"{provider}/{model}: input {price.currency} {price.input_price_per_million:g}/1M tokens; "
+            f"cache {price.currency} {price.cached_input_price_per_million:g}/1M; "
+            f"output {price.currency} {price.output_price_per_million:g}/1M; "
+            f"contexto tarifário {price.pricing_context}."
         )
     return tuple(lines)
 
@@ -145,13 +133,9 @@ def _model_price_weight(provider_models: tuple[tuple[str, str], ...]) -> int:
     """Internal qualitative weight; deliberately not a billing formula."""
     maximum_output = 0.0
     for provider, model in provider_models:
-        prices = [
-            item.output_price_per_million
-            for item in PRICING_CATALOG
-            if item.provider == provider and item.model == model
-        ]
-        if prices:
-            maximum_output = max(maximum_output, max(prices))
+        price = _current_price(provider, model)
+        if price is not None:
+            maximum_output = max(maximum_output, price.output_price_per_million)
     if maximum_output <= 0:
         return 2 if provider_models else 0
     if maximum_output <= 1:
@@ -220,8 +204,8 @@ def estimate_exposure(state: State) -> ExposureEstimate:
                 f"IA AUTO ativa: {provider_count} provider(s) configurado(s) e elegível(is); "
                 f"até {max_ai} chamada(s) potenciais considerando as finalidades habilitadas. "
                 f"Cada necessidade percorre no máximo {max_attempts_for_auto(provider_count)} provider(s), "
-                "com uma tentativa por provider nessa necessidade; o cursor round-robin e o circuit breaker "
-                "são compartilhados durante a execução."
+                "com uma tentativa por provider nessa necessidade; os candidatos elegíveis são reordenados "
+                "pelo custo estimado da requisição e o circuit breaker permanece compartilhado durante a execução."
             )
             pool = ", ".join(provider for provider, _ in provider_models)
             reasons.append(
@@ -241,7 +225,7 @@ def estimate_exposure(state: State) -> ExposureEstimate:
         )
     if getattr(state, "technical_remediation", False):
         reasons.append(
-            "A remediação técnica de crawling/discovery é audit-level e pode acrescentar tentativas quando houver evidência técnica elegível. Os diagnósticos M24 permanecem advisory; uma avaliação evidence-bound válida pode materializar BR-GEO-055/056 dentro dos grupos SITEMAP/ROBOTS, sem peso extra nem bônus duplicado."
+            "A remediação técnica de crawling/discovery é audit-level e pode acrescentar tentativas quando houver evidência técnica elegível. Os diagnósticos técnicos permanecem advisory; uma avaliação evidence-bound válida pode materializar BR-GEO-055/056 dentro dos grupos SITEMAP/ROBOTS, sem peso extra nem bônus duplicado."
         )
     if state.web_performance:
         reasons.append(
@@ -359,7 +343,7 @@ def _web_usage(
 
 
 def actual_usage(workspace: Path | None) -> ActualUsage | None:
-    """Aggregate existing M18/M20/M21 telemetry without persisting duplicate totals."""
+    """Aggregate existing AI/Web telemetry without persisting duplicate totals."""
     if workspace is None:
         return None
     database = workspace / "audit.db"
@@ -368,8 +352,8 @@ def actual_usage(workspace: Path | None) -> ActualUsage | None:
     try:
         connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=0.5)
         try:
-            m18 = _usage_from_table(connection, "ai_provider_attempts")
-            m20 = _usage_from_table(connection, "content_remediation_attempts")
+            semantic = _usage_from_table(connection, "ai_provider_attempts")
+            content = _usage_from_table(connection, "content_remediation_attempts")
             web_calls, services = _web_usage(connection)
         finally:
             connection.close()
@@ -377,22 +361,22 @@ def actual_usage(workspace: Path | None) -> ActualUsage | None:
         return None
 
     costs: dict[str, float] = {}
-    for source in (m18["costs"], m20["costs"]):
+    for source in (semantic["costs"], content["costs"]):
         assert isinstance(source, dict)
         for currency, amount in source.items():
             costs[str(currency)] = costs.get(str(currency), 0.0) + float(amount)
     return ActualUsage(
-        ai_attempts=int(m18["attempts"]) + int(m20["attempts"]),
-        ai_successes=int(m18["successes"]) + int(m20["successes"]),
-        input_tokens=int(m18["input"]) + int(m20["input"]),
-        cached_input_tokens=int(m18["cached"]) + int(m20["cached"]),
-        output_tokens=int(m18["output"]) + int(m20["output"]),
-        reasoning_tokens=int(m18["reasoning"]) + int(m20["reasoning"]),
-        total_tokens=int(m18["total"]) + int(m20["total"]),
+        ai_attempts=int(semantic["attempts"]) + int(content["attempts"]),
+        ai_successes=int(semantic["successes"]) + int(content["successes"]),
+        input_tokens=int(semantic["input"]) + int(content["input"]),
+        cached_input_tokens=int(semantic["cached"]) + int(content["cached"]),
+        output_tokens=int(semantic["output"]) + int(content["output"]),
+        reasoning_tokens=int(semantic["reasoning"]) + int(content["reasoning"]),
+        total_tokens=int(semantic["total"]) + int(content["total"]),
         costs=tuple(
             sorted((currency, round(amount, 10)) for currency, amount in costs.items())
         ),
-        unpriced_ai_attempts=int(m18["unpriced"]) + int(m20["unpriced"]),
+        unpriced_ai_attempts=int(semantic["unpriced"]) + int(content["unpriced"]),
         web_external_calls=web_calls,
         web_services=services,
     )
@@ -408,7 +392,7 @@ def persist_execution_projection(
     finished_at: str,
     duration_ms: int,
 ) -> bool:
-    """Persist only console-specific projection/timing; actual usage stays in M18/M20/M21."""
+    """Persist only console-specific projection/timing; actual usage stays in canonical telemetry."""
     if workspace is None:
         return False
     database = workspace / "audit.db"
