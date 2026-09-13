@@ -87,7 +87,8 @@ def test_consolidated_report_adds_deterministic_evolution_and_fix_verification_r
         assert before == after
         html = result.report_path.read_text(encoding="utf-8")
         assert "Evolução determinística" in html
-        assert "Fix Verification" in html
+        assert "Verificação de correções" in html
+        assert "Fix Verification" not in html
         assert "BR-GEO-011" in html
         assert "FIXED" in html
         assert "Análise especialista por IA" not in html
