@@ -10,7 +10,7 @@ Este contrato complementa a análise semântica e as remediações assistidas po
 
 Para cada necessidade de IA, o runtime recalcula a ordem dos candidatos ainda elegíveis pelo custo estimado da requisição atual. O cálculo usa provider/modelo/reasoning configurados, input/output esperados, cache observado quando disponível e a regra tarifária vigente no instante da chamada. Janelas horárias e faixas de contexto são resolvidas antes da ordenação.
 
-Providers precificados são ordenados do menor para o maior custo estimado. Providers sem preço conhecido ficam depois dos precificados e preservam entre si a ordem rotativa legada. Em uma mesma necessidade, cada provider elegível pode ser tentado no máximo uma vez; esgotar os candidatos encerra a necessidade como indisponível, sem loop.
+Providers precificados são ordenados do menor para o maior custo estimado. Providers sem preço conhecido ficam depois dos precificados e preservam entre si a ordem rotativa determinística do coordenador. Em uma mesma necessidade, cada provider elegível pode ser tentado no máximo uma vez; esgotar os candidatos encerra a necessidade como indisponível, sem loop.
 
 `RASAI_AI_AUTO_EXCLUDE` tem default vazio. Os valores permitidos são IDs/aliases válidos de providers elegíveis, em lista CSV ou separada por `;`. O recomendado é manter vazio e usar a exclusão somente quando um provider deve permanecer configurado para seleção explícita, mas fora do pool AUTO.
 
