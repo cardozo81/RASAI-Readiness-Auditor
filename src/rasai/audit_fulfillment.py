@@ -1,31 +1,22 @@
 """Durable fulfillment contract for one logical RASAi AUD.
 
-An AUD is a single analytical observation even when one or more recovery runs are
-needed.  This module persists the original non-secret execution contract, the
-required work-items, append-only attempts and the effective completion state.
-
-The contract deliberately separates:
-
-* technical execution/job status;
-* fulfillment of the user's original configuration;
-* final-score availability;
-* report validity; and
-* eligibility for consolidated analytics.
-
-Failed attempts remain operational evidence.  Only an effective successful result
-can satisfy a required work-item and make the AUD eligible for consolidation.
+One AUD is one analytical observation even when recovery requires multiple RPR runs.
+The module persists the non-secret execution contract, required work-items,
+append-only attempts and the effective state used to decide score/report finality and
+consolidation eligibility.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import html
 import json
 import os
 from pathlib import Path
 import re
 import sqlite3
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Iterator, Mapping
 
 from rasai.domain import new_id
 from rasai.persistence import AuditWorkspace
@@ -62,7 +53,6 @@ TEMPORAL_VALID = "VALID"
 TEMPORAL_EXPIRED = "EXPIRED"
 
 _TERMINAL_NON_SUCCESS = {FAILED_PERMANENT, BLOCKED}
-_PENDINGISH = {PENDING, RUNNING, WAITING_FOR_DATA, FAILED_RETRYABLE}
 _EXCLUDED_REQUIRED = {DISABLED, NOT_APPLICABLE}
 _REPORT_MARKER = "<!-- RASAI_AUDIT_FULFILLMENT_STATUS -->"
 _LIVE_WINDOW_ENV = "RASAI_REPROCESS_LIVE_VALIDITY_MINUTES"
@@ -135,6 +125,8 @@ def _dump(value: Any) -> str:
 def _load(raw: Any, default: Any) -> Any:
     if raw in (None, ""):
         return default
+    if isinstance(raw, (dict, list, tuple)):
+        return raw
     try:
         return json.loads(str(raw))
     except (TypeError, ValueError, json.JSONDecodeError):
@@ -144,10 +136,15 @@ def _load(raw: Any, default: Any) -> Any:
 def _safe_mapping(value: Mapping[str, Any] | None) -> dict[str, Any]:
     if not value:
         return {}
-    # Secrets are never part of this contract.  The list intentionally covers the
-    # common provider/API spellings while keeping harmless booleans such as
-    # ``crux_configured``.
-    forbidden = ("api_key", "apikey", "token", "secret", "password", "credential", "authorization")
+    forbidden = (
+        "api_key",
+        "apikey",
+        "token",
+        "secret",
+        "password",
+        "credential",
+        "authorization",
+    )
     output: dict[str, Any] = {}
     for key, item in value.items():
         name = str(key)
@@ -165,20 +162,40 @@ def _safe_mapping(value: Mapping[str, Any] | None) -> dict[str, Any]:
     return output
 
 
-def _connect(workspace: AuditWorkspace | Path | str, *, read_only: bool = False) -> sqlite3.Connection:
+def _database_path(workspace: AuditWorkspace | Path | str) -> Path:
     if isinstance(workspace, AuditWorkspace):
-        database = workspace.database
-    else:
-        path = Path(workspace)
-        database = path if path.name == "audit.db" else path / "audit.db"
+        return workspace.database
+    path = Path(workspace)
+    return path if path.name == "audit.db" else path / "audit.db"
+
+
+@contextmanager
+def _connect(
+    workspace: AuditWorkspace | Path | str,
+    *,
+    read_only: bool = False,
+) -> Iterator[sqlite3.Connection]:
+    """Open a short-lived SQLite handle and always close it at context exit.
+
+    Explicit closure is required for Windows, where an outstanding handle prevents
+    workspace cleanup, report replacement and controlled audit.db revision handling.
+    """
+    database = _database_path(workspace)
     if read_only:
-        connection = sqlite3.connect(f"file:{database.resolve().as_posix()}?mode=ro", uri=True, timeout=2.0)
+        connection = sqlite3.connect(
+            f"file:{database.resolve().as_posix()}?mode=ro",
+            uri=True,
+            timeout=2.0,
+        )
         connection.execute("PRAGMA query_only = ON")
     else:
         connection = sqlite3.connect(database, timeout=5.0)
         connection.execute("PRAGMA foreign_keys = ON")
     connection.row_factory = sqlite3.Row
-    return connection
+    try:
+        yield connection
+    finally:
+        connection.close()
 
 
 def ensure_schema(workspace: AuditWorkspace | Path | str) -> None:
@@ -305,9 +322,25 @@ def initialize_contract(
                     reprocess_count,last_reprocess_id,created_at,updated_at,completed_at
                 ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
-                    audit_id, CONTRACT_VERSION, _dump(safe), PROCESSING, SCORE_PENDING,
-                    REPORT_PRELIMINARY, 0, TEMPORAL_VALID, 0, 0, 0, 0, 0, 0, 0,
-                    None, now, now, None,
+                    audit_id,
+                    CONTRACT_VERSION,
+                    _dump(safe),
+                    PROCESSING,
+                    SCORE_PENDING,
+                    REPORT_PRELIMINARY,
+                    0,
+                    TEMPORAL_VALID,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    None,
+                    now,
+                    now,
+                    None,
                 ),
             )
         elif safe:
@@ -339,7 +372,6 @@ def live_valid_until(started_at: str | None = None) -> str:
         minutes = _DEFAULT_LIVE_WINDOW_MINUTES
     minutes = max(1, min(minutes, 10080))
     base = _parse_time(started_at) or datetime.now(timezone.utc)
-    from datetime import timedelta
     return (base + timedelta(minutes=minutes)).isoformat()
 
 
@@ -382,9 +414,26 @@ def register_work_item(
                     valid_until,configuration,created_at,updated_at
                 ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
-                    work_item_id,audit_id,component,scope_key,int(required),temporal_mode,status,
-                    0,int(retryable),None,None,None,None,None,None,source_captured_at,
-                    valid_until,_dump(safe_config),now,now,
+                    work_item_id,
+                    audit_id,
+                    component,
+                    scope_key,
+                    int(required),
+                    temporal_mode,
+                    status,
+                    0,
+                    int(retryable),
+                    None,
+                    now if status == SUCCESS else None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    source_captured_at,
+                    valid_until,
+                    _dump(safe_config),
+                    now,
+                    now,
                 ),
             )
         else:
@@ -393,19 +442,25 @@ def register_work_item(
             if not isinstance(old_config, dict):
                 old_config = {}
             old_config.update(safe_config)
-            # Never regress an effective success just because the same expected item
-            # is re-registered by a report/runtime wrapper.
             effective_status = str(existing["status"])
             if effective_status != SUCCESS and status in {DISABLED, NOT_APPLICABLE}:
                 effective_status = status
             connection.execute(
                 """UPDATE audit_fulfillment_work_items SET
-                    required=?,temporal_mode=?,status=?,retryable=?,source_captured_at=COALESCE(source_captured_at,?),
+                    required=?,temporal_mode=?,status=?,retryable=?,
+                    source_captured_at=COALESCE(source_captured_at,?),
                     valid_until=COALESCE(valid_until,?),configuration=?,updated_at=?
                    WHERE work_item_id=?""",
                 (
-                    int(required),temporal_mode,effective_status,int(retryable),source_captured_at,
-                    valid_until,_dump(old_config),now,work_item_id,
+                    int(required),
+                    temporal_mode,
+                    effective_status,
+                    int(retryable),
+                    source_captured_at,
+                    valid_until,
+                    _dump(old_config),
+                    now,
+                    work_item_id,
                 ),
             )
         connection.commit()
@@ -413,7 +468,12 @@ def register_work_item(
     return work_item_id
 
 
-def _work_item_row(connection: sqlite3.Connection, audit_id: str, component: str, scope_key: str) -> sqlite3.Row:
+def _work_item_row(
+    connection: sqlite3.Connection,
+    audit_id: str,
+    component: str,
+    scope_key: str,
+) -> sqlite3.Row:
     row = connection.execute(
         "SELECT * FROM audit_fulfillment_work_items WHERE audit_id=? AND component=? AND scope_key=?",
         (audit_id, component.upper(), scope_key),
@@ -436,6 +496,8 @@ def begin_attempt(
     now = _utc_now()
     with _connect(workspace) as connection:
         row = _work_item_row(connection, audit_id, component, scope_key)
+        if str(row["status"]) == SUCCESS:
+            raise ValueError("successful fulfillment work-items must not be attempted again")
         number = int(row["attempt_count"]) + 1
         attempt_id = new_id("WKA")
         connection.execute(
@@ -444,14 +506,26 @@ def begin_attempt(
                 started_at,finished_at,error_class,error_code,error_message,result_ref,metadata
             ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
-                attempt_id,audit_id,row["work_item_id"],reprocess_id,number,RUNNING,
-                now,None,None,None,None,None,_dump(_safe_mapping(metadata)),
+                attempt_id,
+                audit_id,
+                row["work_item_id"],
+                reprocess_id,
+                number,
+                RUNNING,
+                now,
+                None,
+                None,
+                None,
+                None,
+                None,
+                _dump(_safe_mapping(metadata)),
             ),
         )
         connection.execute(
-            """UPDATE audit_fulfillment_work_items SET status=?,attempt_count=?,last_attempt_at=?,updated_at=?
+            """UPDATE audit_fulfillment_work_items
+               SET status=?,attempt_count=?,last_attempt_at=?,updated_at=?
                WHERE work_item_id=?""",
-            (RUNNING,number,now,now,row["work_item_id"]),
+            (RUNNING, number, now, now, row["work_item_id"]),
         )
         connection.commit()
     recalculate(workspace, audit_id)
@@ -485,30 +559,45 @@ def finish_attempt(
         ).fetchone()
         if row is None:
             raise KeyError(f"fulfillment work-item disappeared: {attempt['work_item_id']}")
+        if str(row["status"]) == SUCCESS and status != SUCCESS:
+            return
         current_metadata = _load(attempt["metadata"], {})
         if not isinstance(current_metadata, dict):
             current_metadata = {}
         current_metadata.update(_safe_mapping(metadata))
         connection.execute(
-            """UPDATE audit_fulfillment_attempts SET status=?,finished_at=?,error_class=?,error_code=?,
-               error_message=?,result_ref=?,metadata=? WHERE attempt_id=?""",
+            """UPDATE audit_fulfillment_attempts SET
+               status=?,finished_at=?,error_class=?,error_code=?,error_message=?,result_ref=?,metadata=?
+               WHERE attempt_id=?""",
             (
-                status,now,error_class,error_code,(error_message or "")[:1000] or None,
-                result_ref,_dump(current_metadata),attempt_id,
+                status,
+                now,
+                error_class,
+                error_code,
+                (error_message or "")[:1000] or None,
+                result_ref,
+                _dump(current_metadata),
+                attempt_id,
             ),
         )
         is_success = status == SUCCESS
         effective_retryable = int(row["retryable"] if retryable is None else bool(retryable))
         connection.execute(
             """UPDATE audit_fulfillment_work_items SET
-                status=?,retryable=?,last_attempt_at=?,last_success_at=?,last_error_class=?,
-                last_error_code=?,last_error_message=?,effective_result_ref=?,updated_at=?
+               status=?,retryable=?,last_attempt_at=?,last_success_at=?,last_error_class=?,
+               last_error_code=?,last_error_message=?,effective_result_ref=?,updated_at=?
                WHERE work_item_id=?""",
             (
-                status,effective_retryable,now,now if is_success else row["last_success_at"],
-                None if is_success else error_class,None if is_success else error_code,
+                status,
+                effective_retryable,
+                now,
+                now if is_success else row["last_success_at"],
+                None if is_success else error_class,
+                None if is_success else error_code,
                 None if is_success else ((error_message or "")[:1000] or None),
-                result_ref if is_success else row["effective_result_ref"],now,row["work_item_id"],
+                result_ref if is_success else row["effective_result_ref"],
+                now,
+                row["work_item_id"],
             ),
         )
         audit_id = str(attempt["audit_id"])
@@ -536,17 +625,19 @@ def set_work_item_status(
         if str(row["status"]) == SUCCESS and status != SUCCESS:
             return
         connection.execute(
-            """UPDATE audit_fulfillment_work_items SET status=?,retryable=?,last_success_at=?,
-               last_error_class=?,last_error_code=?,last_error_message=?,effective_result_ref=?,updated_at=?
-               WHERE work_item_id=?""",
+            """UPDATE audit_fulfillment_work_items SET
+               status=?,retryable=?,last_success_at=?,last_error_class=?,last_error_code=?,
+               last_error_message=?,effective_result_ref=?,updated_at=? WHERE work_item_id=?""",
             (
-                status,int(row["retryable"] if retryable is None else bool(retryable)),
+                status,
+                int(row["retryable"] if retryable is None else bool(retryable)),
                 now if status == SUCCESS else row["last_success_at"],
                 None if status == SUCCESS else error_class,
                 None if status == SUCCESS else error_code,
                 None if status == SUCCESS else ((error_message or "")[:1000] or None),
                 result_ref if status == SUCCESS else row["effective_result_ref"],
-                now,row["work_item_id"],
+                now,
+                row["work_item_id"],
             ),
         )
         connection.commit()
@@ -569,13 +660,22 @@ def list_work_items(
         rows = connection.execute(sql, params).fetchall()
     return tuple(
         WorkItem(
-            work_item_id=str(row["work_item_id"]),audit_id=str(row["audit_id"]),
-            component=str(row["component"]),scope_key=str(row["scope_key"]),required=bool(row["required"]),
-            temporal_mode=str(row["temporal_mode"]),status=str(row["status"]),attempt_count=int(row["attempt_count"]),
-            retryable=bool(row["retryable"]),last_error_class=row["last_error_class"],
-            last_error_code=row["last_error_code"],last_error_message=row["last_error_message"],
-            effective_result_ref=row["effective_result_ref"],source_captured_at=row["source_captured_at"],
-            valid_until=row["valid_until"],configuration=_load(row["configuration"], {}),
+            work_item_id=str(row["work_item_id"]),
+            audit_id=str(row["audit_id"]),
+            component=str(row["component"]),
+            scope_key=str(row["scope_key"]),
+            required=bool(row["required"]),
+            temporal_mode=str(row["temporal_mode"]),
+            status=str(row["status"]),
+            attempt_count=int(row["attempt_count"]),
+            retryable=bool(row["retryable"]),
+            last_error_class=row["last_error_class"],
+            last_error_code=row["last_error_code"],
+            last_error_message=row["last_error_message"],
+            effective_result_ref=row["effective_result_ref"],
+            source_captured_at=row["source_captured_at"],
+            valid_until=row["valid_until"],
+            configuration=dict(_load(row["configuration"], {}) or {}),
         )
         for row in rows
     )
@@ -588,7 +688,30 @@ def _expired(row: sqlite3.Row, now: datetime) -> bool:
     return bool(deadline and now > deadline)
 
 
-def recalculate(workspace: AuditWorkspace | Path | str, audit_id: str) -> FulfillmentSummary:
+def _summary_from_row(row: sqlite3.Row) -> FulfillmentSummary:
+    return FulfillmentSummary(
+        audit_id=str(row["audit_id"]),
+        processing_status=str(row["processing_status"]),
+        score_status=str(row["score_status"]),
+        report_status=str(row["report_status"]),
+        consolidation_eligible=bool(row["consolidation_eligible"]),
+        temporal_status=str(row["temporal_status"]),
+        required_items=int(row["required_items"]),
+        successful_items=int(row["successful_items"]),
+        pending_items=int(row["pending_items"]),
+        blocked_items=int(row["blocked_items"]),
+        expired_items=int(row["expired_items"]),
+        total_attempts=int(row["total_attempts"]),
+        reprocess_count=int(row["reprocess_count"]),
+        last_reprocess_id=row["last_reprocess_id"],
+        completed_at=row["completed_at"],
+    )
+
+
+def recalculate(
+    workspace: AuditWorkspace | Path | str,
+    audit_id: str,
+) -> FulfillmentSummary:
     ensure_schema(workspace)
     now_text = _utc_now()
     now = _parse_time(now_text) or datetime.now(timezone.utc)
@@ -598,21 +721,38 @@ def recalculate(workspace: AuditWorkspace | Path | str, audit_id: str) -> Fulfil
             (audit_id,),
         ).fetchone()
         if contract is None:
-            # Avoid recursion through initialize_contract -> recalculate.
             connection.execute(
                 """INSERT INTO audit_fulfillment_contracts(
-                    audit_id,contract_version,configuration,processing_status,score_status,report_status,
-                    consolidation_eligible,temporal_status,required_items,successful_items,pending_items,
-                    blocked_items,expired_items,total_attempts,reprocess_count,last_reprocess_id,
-                    created_at,updated_at,completed_at
+                    audit_id,contract_version,configuration,processing_status,score_status,
+                    report_status,consolidation_eligible,temporal_status,required_items,
+                    successful_items,pending_items,blocked_items,expired_items,total_attempts,
+                    reprocess_count,last_reprocess_id,created_at,updated_at,completed_at
                 ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
-                    audit_id,CONTRACT_VERSION,"{}",PROCESSING,SCORE_PENDING,REPORT_PRELIMINARY,
-                    0,TEMPORAL_VALID,0,0,0,0,0,0,0,None,now_text,now_text,None,
+                    audit_id,
+                    CONTRACT_VERSION,
+                    "{}",
+                    PROCESSING,
+                    SCORE_PENDING,
+                    REPORT_PRELIMINARY,
+                    0,
+                    TEMPORAL_VALID,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    None,
+                    now_text,
+                    now_text,
+                    None,
                 ),
             )
             contract = connection.execute(
-                "SELECT * FROM audit_fulfillment_contracts WHERE audit_id=?", (audit_id,)
+                "SELECT * FROM audit_fulfillment_contracts WHERE audit_id=?",
+                (audit_id,),
             ).fetchone()
         rows = connection.execute(
             "SELECT * FROM audit_fulfillment_work_items WHERE audit_id=? AND required=1",
@@ -620,9 +760,23 @@ def recalculate(workspace: AuditWorkspace | Path | str, audit_id: str) -> Fulfil
         ).fetchall()
         relevant = [row for row in rows if str(row["status"]) not in _EXCLUDED_REQUIRED]
         expired = [row for row in relevant if _expired(row, now)]
-        success = [row for row in relevant if str(row["status"]) == SUCCESS]
-        blocked = [row for row in relevant if str(row["status"]) in _TERMINAL_NON_SUCCESS or not bool(row["retryable"])]
-        pending = [row for row in relevant if str(row["status"]) != SUCCESS and row not in blocked]
+        successful = [row for row in relevant if str(row["status"]) == SUCCESS]
+        blocked = [
+            row
+            for row in relevant
+            if str(row["status"]) != SUCCESS
+            and (
+                str(row["status"]) in _TERMINAL_NON_SUCCESS
+                or not bool(row["retryable"])
+            )
+        ]
+        blocked_ids = {str(row["work_item_id"]) for row in blocked}
+        pending = [
+            row
+            for row in relevant
+            if str(row["status"]) != SUCCESS
+            and str(row["work_item_id"]) not in blocked_ids
+        ]
 
         if expired:
             processing_status = EXPIRED_FOR_COMPLETION
@@ -630,7 +784,7 @@ def recalculate(workspace: AuditWorkspace | Path | str, audit_id: str) -> Fulfil
             report_status = REPORT_PRELIMINARY
             temporal_status = TEMPORAL_EXPIRED
             eligible = False
-        elif relevant and len(success) == len(relevant):
+        elif relevant and len(successful) == len(relevant):
             processing_status = COMPLETE
             score_status = SCORE_FINAL
             report_status = REPORT_FINAL
@@ -655,45 +809,63 @@ def recalculate(workspace: AuditWorkspace | Path | str, audit_id: str) -> Fulfil
             temporal_status = TEMPORAL_VALID
             eligible = False
 
-        total_attempts = int(connection.execute(
-            "SELECT count(*) FROM audit_fulfillment_attempts WHERE audit_id=?", (audit_id,)
-        ).fetchone()[0])
-        reprocess_count = int(connection.execute(
-            "SELECT count(*) FROM audit_reprocess_runs WHERE audit_id=?", (audit_id,)
-        ).fetchone()[0])
+        total_attempts = int(
+            connection.execute(
+                "SELECT count(*) FROM audit_fulfillment_attempts WHERE audit_id=?",
+                (audit_id,),
+            ).fetchone()[0]
+        )
+        reprocess_count = int(
+            connection.execute(
+                "SELECT count(*) FROM audit_reprocess_runs WHERE audit_id=?",
+                (audit_id,),
+            ).fetchone()[0]
+        )
         completed_at = contract["completed_at"]
         if eligible and not completed_at:
             completed_at = now_text
         if not eligible:
             completed_at = None
         connection.execute(
-            """UPDATE audit_fulfillment_contracts SET processing_status=?,score_status=?,report_status=?,
-               consolidation_eligible=?,temporal_status=?,required_items=?,successful_items=?,pending_items=?,
-               blocked_items=?,expired_items=?,total_attempts=?,reprocess_count=?,updated_at=?,completed_at=?
-               WHERE audit_id=?""",
+            """UPDATE audit_fulfillment_contracts SET
+               processing_status=?,score_status=?,report_status=?,consolidation_eligible=?,
+               temporal_status=?,required_items=?,successful_items=?,pending_items=?,
+               blocked_items=?,expired_items=?,total_attempts=?,reprocess_count=?,updated_at=?,
+               completed_at=? WHERE audit_id=?""",
             (
-                processing_status,score_status,report_status,int(eligible),temporal_status,
-                len(relevant),len(success),len(pending),len(blocked),len(expired),total_attempts,
-                reprocess_count,now_text,completed_at,audit_id,
+                processing_status,
+                score_status,
+                report_status,
+                int(eligible),
+                temporal_status,
+                len(relevant),
+                len(successful),
+                len(pending),
+                len(blocked),
+                len(expired),
+                total_attempts,
+                reprocess_count,
+                now_text,
+                completed_at,
+                audit_id,
             ),
         )
         connection.commit()
         last = connection.execute(
-            "SELECT * FROM audit_fulfillment_contracts WHERE audit_id=?", (audit_id,)
+            "SELECT * FROM audit_fulfillment_contracts WHERE audit_id=?",
+            (audit_id,),
         ).fetchone()
-    return FulfillmentSummary(
-        audit_id=audit_id,processing_status=str(last["processing_status"]),score_status=str(last["score_status"]),
-        report_status=str(last["report_status"]),consolidation_eligible=bool(last["consolidation_eligible"]),
-        temporal_status=str(last["temporal_status"]),required_items=int(last["required_items"]),
-        successful_items=int(last["successful_items"]),pending_items=int(last["pending_items"]),
-        blocked_items=int(last["blocked_items"]),expired_items=int(last["expired_items"]),
-        total_attempts=int(last["total_attempts"]),reprocess_count=int(last["reprocess_count"]),
-        last_reprocess_id=last["last_reprocess_id"],completed_at=last["completed_at"],
-    )
+        if last is None:
+            raise RuntimeError(f"fulfillment summary disappeared for {audit_id}")
+        summary = _summary_from_row(last)
+    return summary
 
 
-def read_summary(workspace: AuditWorkspace | Path | str, audit_id: str | None = None) -> FulfillmentSummary | None:
-    database_path = workspace.database if isinstance(workspace, AuditWorkspace) else (Path(workspace) if Path(workspace).name == "audit.db" else Path(workspace) / "audit.db")
+def read_summary(
+    workspace: AuditWorkspace | Path | str,
+    audit_id: str | None = None,
+) -> FulfillmentSummary | None:
+    database_path = _database_path(workspace)
     if not database_path.is_file():
         return None
     try:
@@ -709,21 +881,14 @@ def read_summary(workspace: AuditWorkspace | Path | str, audit_id: str | None = 
                 ).fetchone()
             else:
                 row = connection.execute(
-                    "SELECT * FROM audit_fulfillment_contracts WHERE audit_id=?", (audit_id,)
+                    "SELECT * FROM audit_fulfillment_contracts WHERE audit_id=?",
+                    (audit_id,),
                 ).fetchone()
             if row is None:
                 return None
+            return _summary_from_row(row)
     except sqlite3.Error:
         return None
-    return FulfillmentSummary(
-        audit_id=str(row["audit_id"]),processing_status=str(row["processing_status"]),score_status=str(row["score_status"]),
-        report_status=str(row["report_status"]),consolidation_eligible=bool(row["consolidation_eligible"]),
-        temporal_status=str(row["temporal_status"]),required_items=int(row["required_items"]),
-        successful_items=int(row["successful_items"]),pending_items=int(row["pending_items"]),
-        blocked_items=int(row["blocked_items"]),expired_items=int(row["expired_items"]),
-        total_attempts=int(row["total_attempts"]),reprocess_count=int(row["reprocess_count"]),
-        last_reprocess_id=row["last_reprocess_id"],completed_at=row["completed_at"],
-    )
 
 
 def start_reprocess_run(
@@ -742,13 +907,26 @@ def start_reprocess_run(
                 reprocess_id,audit_id,contract_version,status,attempted_items,successful_items,
                 remaining_items,source,started_at,completed_at,note
             ) VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-            (reprocess_id,audit_id,CONTRACT_VERSION,RUNNING,0,0,0,source,now,None,(note or "")[:1000] or None),
+            (
+                reprocess_id,
+                audit_id,
+                CONTRACT_VERSION,
+                RUNNING,
+                0,
+                0,
+                0,
+                source,
+                now,
+                None,
+                (note or "")[:1000] or None,
+            ),
         )
         connection.execute(
             "UPDATE audit_fulfillment_contracts SET last_reprocess_id=?,updated_at=? WHERE audit_id=?",
-            (reprocess_id,now,audit_id),
+            (reprocess_id, now, audit_id),
         )
         connection.commit()
+    recalculate(workspace, audit_id)
     return reprocess_id
 
 
@@ -765,20 +943,33 @@ def finish_reprocess_run(
     now = _utc_now()
     with _connect(workspace) as connection:
         row = connection.execute(
-            "SELECT audit_id FROM audit_reprocess_runs WHERE reprocess_id=?", (reprocess_id,)
+            "SELECT audit_id FROM audit_reprocess_runs WHERE reprocess_id=?",
+            (reprocess_id,),
         ).fetchone()
         if row is None:
             raise KeyError(f"reprocess run not found: {reprocess_id}")
         audit_id = str(row["audit_id"])
-        remaining = int(connection.execute(
-            """SELECT count(*) FROM audit_fulfillment_work_items
-               WHERE audit_id=? AND required=1 AND status NOT IN ('SUCCESS','DISABLED','NOT_APPLICABLE')""",
-            (audit_id,),
-        ).fetchone()[0])
+        remaining = int(
+            connection.execute(
+                """SELECT count(*) FROM audit_fulfillment_work_items
+                   WHERE audit_id=? AND required=1
+                   AND status NOT IN ('SUCCESS','DISABLED','NOT_APPLICABLE')""",
+                (audit_id,),
+            ).fetchone()[0]
+        )
         connection.execute(
-            """UPDATE audit_reprocess_runs SET status=?,attempted_items=?,successful_items=?,
-               remaining_items=?,completed_at=?,note=COALESCE(?,note) WHERE reprocess_id=?""",
-            (status,attempted_items,successful_items,remaining,now,(note or "")[:1000] or None,reprocess_id),
+            """UPDATE audit_reprocess_runs SET
+               status=?,attempted_items=?,successful_items=?,remaining_items=?,completed_at=?,
+               note=COALESCE(?,note) WHERE reprocess_id=?""",
+            (
+                status,
+                attempted_items,
+                successful_items,
+                remaining,
+                now,
+                (note or "")[:1000] or None,
+                reprocess_id,
+            ),
         )
         connection.commit()
     return recalculate(workspace, audit_id)
@@ -806,7 +997,16 @@ def archive_rows(
                 """INSERT INTO audit_reprocess_derived_archive(
                     archive_id,audit_id,reprocess_id,component,entity_type,entity_id,payload,archived_at
                 ) VALUES (?,?,?,?,?,?,?,?)""",
-                (new_id("ARC"),audit_id,reprocess_id,component,entity_type,entity_id,_dump(dict(item)),now),
+                (
+                    new_id("ARC"),
+                    audit_id,
+                    reprocess_id,
+                    component,
+                    entity_type,
+                    entity_id,
+                    _dump(dict(item)),
+                    now,
+                ),
             )
             count += 1
         connection.commit()
@@ -838,7 +1038,7 @@ def _banner(summary: FulfillmentSummary) -> str:
     return (
         _REPORT_MARKER
         + f'<section class="rasai-fulfillment-banner {cls}" role="status" '
-          'style="border:1px solid currentColor;border-radius:10px;padding:14px 16px;margin:12px 0;">'
+        'style="border:1px solid currentColor;border-radius:10px;padding:14px 16px;margin:12px 0;">'
         + f"<strong>{html.escape(title)}</strong><p>{html.escape(text)}</p>"
         + f"<small>{html.escape(detail)}</small></section>"
     )
@@ -882,10 +1082,9 @@ def project_report_validity(
         except (OSError, UnicodeError):
             continue
         if _REPORT_MARKER in text:
-            # Replace the previous projected banner so reprocessing can promote the
-            # same report from PRELIMINARY to FINAL without duplicate notices.
             text = re.sub(
-                re.escape(_REPORT_MARKER) + r'<section class="rasai-fulfillment-banner.*?</section>',
+                re.escape(_REPORT_MARKER)
+                + r'<section class="rasai-fulfillment-banner.*?</section>',
                 banner,
                 text,
                 count=1,
@@ -904,8 +1103,9 @@ def project_report_validity(
     return summary
 
 
-def consolidation_eligible(database_or_workspace: Path | str, audit_id: str | None = None) -> bool:
+def consolidation_eligible(
+    database_or_workspace: Path | str,
+    audit_id: str | None = None,
+) -> bool:
     summary = read_summary(database_or_workspace, audit_id)
-    # Legacy AUDs created before this contract remain readable by the historical
-    # consolidator. New/reindexed AUDs with a contract are governed strictly by it.
-    return True if summary is None else summary.consolidation_eligible
+    return bool(summary and summary.consolidation_eligible)
