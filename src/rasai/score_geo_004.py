@@ -78,18 +78,21 @@ MACRO_COMPONENTS: dict[str, tuple[str, ...]] = {
 # group's importance: the group weight is divided across its applicable scopes.
 #
 # EXTERNAL_CRAWL_CORROBORATION is deliberately only 3% of DISCOVERY_ACCESS.
-# Because DISCOVERY_ACCESS is 15% of SARI, its theoretical maximum influence on
-# the Overall is 0.45 point. Absence of external evidence does not enter the
-# denominator, does not reduce Coverage and never participates in a Critical Gate.
+# The seven pre-existing Discovery groups are their original weights multiplied
+# by 0.97. Therefore, when BR-GEO-060 is absent, normalization over applicable
+# groups reproduces exactly the previous technical ratios (30/15/5/10/10/10/20).
+# Because DISCOVERY_ACCESS is 15% of SARI, the external group's theoretical
+# maximum influence on the Overall is 0.45 point. Absence of external evidence
+# does not enter the denominator, reduce Coverage, or participate in a Critical Gate.
 GROUP_WEIGHTS: dict[str, dict[str, float]] = {
     "DISCOVERY_ACCESS": {
-        "PAGE_ACCESS": 0.29,
-        "ROBOTS": 0.14,
-        "SITEMAP": 0.05,
-        "REDIRECT": 0.10,
-        "SPA_ROUTE": 0.10,
-        "SPA_NAVIGATION": 0.10,
-        "INTERNAL_LINKS": 0.19,
+        "PAGE_ACCESS": 0.291,
+        "ROBOTS": 0.1455,
+        "SITEMAP": 0.0485,
+        "REDIRECT": 0.097,
+        "SPA_ROUTE": 0.097,
+        "SPA_NAVIGATION": 0.097,
+        "INTERNAL_LINKS": 0.194,
         "EXTERNAL_CRAWL_CORROBORATION": 0.03,
     },
     "INDEXABILITY": {
