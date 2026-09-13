@@ -11,12 +11,14 @@ from rasai.console_m23 import State
 def test_console_snapshot_never_serializes_api_keys(monkeypatch) -> None:
     state = State()
     state.target = "https://example.com/"
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-secret-must-not-be-stored")
-    monkeypatch.setenv("RASAI_PAGESPEED_API_KEY", "pagespeed-secret")
+    openai_sentinel = "rasai_test_openai_secret_value"
+    pagespeed_sentinel = "rasai_test_pagespeed_secret_value"
+    monkeypatch.setenv("OPENAI_API_KEY", openai_sentinel)
+    monkeypatch.setenv("RASAI_PAGESPEED_API_KEY", pagespeed_sentinel)
     exported = _export_settings(state, ("https://example.com/",))
     serialized = json.dumps(exported, ensure_ascii=False)
-    assert "sk-secret-must-not-be-stored" not in serialized
-    assert "pagespeed-secret" not in serialized
+    assert openai_sentinel not in serialized
+    assert pagespeed_sentinel not in serialized
     assert "OPENAI_API_KEY" not in serialized
     assert "RASAI_PAGESPEED_API_KEY" not in serialized
 
