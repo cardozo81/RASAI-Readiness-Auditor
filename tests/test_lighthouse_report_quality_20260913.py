@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from pathlib import Path
 import sqlite3
-import tempfile
 
 from rasai.console_config import State, build_command
 from rasai.console_execution_profiles import clear_profile, effective_profile, set_profile
 from rasai.report_completion import AUDIT_ALWAYS_PAGES
 from rasai.report_presentation_finalizer import (
+    _apdex_visual,
+    _decorate_ux_apdex,
     _dependency_states,
     _move_ai_cost_to_final_data_block,
 )
@@ -46,6 +46,21 @@ def test_lighthouse_and_cwv_color_boundaries_are_canonical() -> None:
     assert _threshold_state("0.1", good=0.1, needs=0.25, primary=True)[0] == "good"
     assert _threshold_state("0.25", good=0.1, needs=0.25, primary=True)[0] == "warn"
     assert _threshold_state("0.251", good=0.1, needs=0.25, primary=True)[0] == "bad"
+
+
+def test_ux_apdex_uses_same_score_bands_as_standard_apdex() -> None:
+    assert _apdex_visual(0.94) == ("good", "Excelente")
+    assert _apdex_visual(0.85) == ("good", "Bom")
+    assert _apdex_visual(0.70) == ("warn", "Regular")
+    assert _apdex_visual(0.50) == ("bad", "Ruim")
+    assert _apdex_visual(0.49) == ("bad", "Inaceitável")
+
+    html = "<article class='population-card'><div>URL</div><div class='population-score'>0.850</div><div>dados</div></article>"
+    rendered = _decorate_ux_apdex(html)
+    assert "population-card result-state-good" in rendered
+    assert "population-score-state good" in rendered
+    assert "Bom" in rendered
+    assert "0.850" in rendered
 
 
 def test_ai_cost_is_final_data_block_before_footer() -> None:
