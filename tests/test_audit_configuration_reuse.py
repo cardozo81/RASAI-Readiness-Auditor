@@ -12,6 +12,11 @@ from rasai.audit_configuration_reuse import (
     load_reusable_audit_configuration,
     persist_audit_configuration,
 )
+from rasai.audit_configuration_reuse_runtime import (
+    configuration_context,
+    current_configuration,
+    persist_current_configuration,
+)
 from rasai.audit_fulfillment import (
     FAILED_RETRYABLE,
     REPLAY_SAFE,
@@ -117,6 +122,24 @@ def test_lineage_hash_and_changed_fields_are_deterministic() -> None:
         assert loaded.configuration_hash != first_snapshot.configuration_hash
 
 
+def test_execution_context_persists_inside_finalization_window_and_resets() -> None:
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        workspace = _workspace(root, "AUD-CONTEXT", complete=True)
+        assert current_configuration() is None
+        with configuration_context(
+            kind=KIND_CONSOLE,
+            configuration={"settings": {}, "targets": ["https://example.com/"]},
+            scope={"surface": "console"},
+        ):
+            assert current_configuration() is not None
+            assert persist_current_configuration(workspace.root, "AUD-CONTEXT") is True
+        assert current_configuration() is None
+        assert persist_current_configuration(workspace.root, "AUD-CONTEXT") is False
+        loaded = load_reusable_audit_configuration(root, "AUD-CONTEXT", expected_kind=KIND_CONSOLE)
+        assert loaded.scope == {"surface": "console"}
+
+
 def test_configuration_comparability_distinguishes_exact_partial_and_unrelated() -> None:
     exact = configuration_comparability((
         {"audit_id": "AUD-1", "event_time": "2026-01-01", "configuration_hash": "a", "execution_series_id": "SER-1"},
@@ -138,3 +161,26 @@ def test_configuration_comparability_distinguishes_exact_partial_and_unrelated()
         {"audit_id": "AUD-2", "event_time": "2026-02-01", "configuration_hash": "b", "execution_series_id": "SER-2"},
     ))
     assert unrelated["pair_status"] == "UNRELATED"
+
+
+def test_configuration_comparability_uses_latest_previous_and_manual_pairs() -> None:
+    audits = (
+        {"audit_id": "AUD-1", "event_time": "2026-01-01", "configuration_hash": "a", "execution_series_id": "SER-1"},
+        {"audit_id": "AUD-2", "event_time": "2026-02-01", "configuration_hash": "b", "execution_series_id": "SER-1", "configuration_changed_fields": ("max_pages",)},
+        {"audit_id": "AUD-3", "event_time": "2026-03-01", "configuration_hash": "b", "execution_series_id": "SER-1"},
+    )
+    latest = configuration_comparability(audits, comparison_mode="LATEST_PREVIOUS")
+    assert latest["baseline_audit_id"] == "AUD-2"
+    assert latest["current_audit_id"] == "AUD-3"
+    assert latest["pair_status"] == "EXACT"
+
+    manual = configuration_comparability(
+        audits,
+        comparison_mode="MANUAL",
+        baseline_audit_id="AUD-1",
+        current_audit_id="AUD-2",
+    )
+    assert manual["baseline_audit_id"] == "AUD-1"
+    assert manual["current_audit_id"] == "AUD-2"
+    assert manual["pair_status"] == "PARTIAL"
+    assert manual["altered_fields"] == ["max_pages"]
