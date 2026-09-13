@@ -141,7 +141,7 @@ Common Crawl não tem dimensão de device. O relatório não replica o mesmo dad
 
 ### Relação com SARI: BR-GEO-060
 
-A coleta Common Crawl ocorre antes do M9 para permitir que uma observação positiva qualificada seja persistida como evidência e RuleExecution normal do scoring.
+A coleta Common Crawl ocorre antes do cálculo final de `SCORE-GEO-004` para permitir que uma observação positiva qualificada seja persistida como Evidence e RuleExecution normais do scoring.
 
 Contrato:
 
