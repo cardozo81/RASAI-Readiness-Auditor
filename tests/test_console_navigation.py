@@ -76,6 +76,46 @@ def test_history_configuration_reuse_hands_off_to_preparation(monkeypatch) -> No
     assert "V. Voltar ao início" in output.getvalue()
 
 
+def test_selected_audit_menu_marks_missing_snapshot_as_unavailable(monkeypatch, tmp_path: Path) -> None:
+    console = _console()
+    state = _state(tmp_path)
+    reason = "AUD-LEGACY não possui snapshot canônico de configuração reutilizável"
+    monkeypatch.setattr(
+        navigation,
+        "_safe_summary",
+        lambda audit_root, audit_id: {
+            "processing_status": "COMPLETE",
+            "score_status": "FINAL",
+            "report_status": "FINAL",
+            "consolidation_eligible": True,
+            "required_items": 6,
+            "successful_items": 6,
+            "pending_items": 0,
+            "blocked_items": 0,
+            "reprocess_count": 0,
+            "last_reprocess_id": None,
+        },
+    )
+    monkeypatch.setattr(
+        navigation,
+        "_configuration_reuse_status",
+        lambda current_state, audit_id: (False, reason),
+    )
+    answers = iter(["2", "V"])
+    monkeypatch.setattr(builtins, "input", lambda prompt="": next(answers))
+
+    with redirect_stdout(StringIO()) as output:
+        assert navigation._selected_audit_menu(console, state, "AUD-LEGACY") is False
+
+    rendered = output.getvalue()
+    assert "Configuração   : INDISPONÍVEL" in rendered
+    assert "Carregar esta configuração para uma nova auditoria [INDISPONÍVEL]" in rendered
+    assert reason in rendered
+    assert state.error == reason
+    assert state.operation == "LOCAL:AUD_CONFIG_REUSE"
+    assert state.status == "CONFIG_SOURCE_REJECTED"
+
+
 def test_navigation_routes_existing_global_actions_without_reimplementing_them(monkeypatch) -> None:
     routes = {"3": "C", "4": "E", "5": "D", "?": "H", "Q": "Q"}
     for selected, expected in routes.items():

@@ -1,7 +1,10 @@
 """Platform-neutral regression contracts for AUD configuration reuse."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
+import subprocess
+import sys
 from tempfile import TemporaryDirectory
 
 import pytest
@@ -148,6 +151,44 @@ def test_execution_context_persists_inside_finalization_window_and_resets() -> N
         assert current_configuration() is None
         assert persist_current_configuration(workspace.root, "AUD-CONTEXT") is False
         loaded = load_reusable_audit_configuration(root, "AUD-CONTEXT", expected_kind=KIND_CONSOLE)
+        assert loaded.scope == {"surface": "console"}
+
+
+def test_console_configuration_handoff_crosses_real_process_boundary() -> None:
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        workspace = _workspace(root, "AUD-SUBPROCESS", complete=True)
+        child = (
+            "import sys; "
+            "from rasai.audit_configuration_reuse_runtime import persist_current_configuration; "
+            "raise SystemExit(0 if persist_current_configuration(sys.argv[1], sys.argv[2]) else 9)"
+        )
+        with configuration_context(
+            kind=KIND_CONSOLE,
+            configuration={
+                "settings": {"console": {"max_pages": "7"}},
+                "targets": ["https://example.com/subprocess"],
+            },
+            scope={"surface": "console"},
+        ):
+            completed = subprocess.run(
+                [sys.executable, "-c", child, str(workspace.root), "AUD-SUBPROCESS"],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=dict(os.environ),
+                timeout=30,
+            )
+
+        assert completed.returncode == 0, completed.stderr or completed.stdout
+        assert "_RASAI_AUD_CONFIGURATION_HANDOFF" not in os.environ
+        loaded = load_reusable_audit_configuration(
+            root,
+            "AUD-SUBPROCESS",
+            expected_kind=KIND_CONSOLE,
+        )
+        assert loaded.configuration["settings"]["console"]["max_pages"] == "7"
+        assert loaded.configuration["targets"] == ["https://example.com/subprocess"]
         assert loaded.scope == {"surface": "console"}
 
 

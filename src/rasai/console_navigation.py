@@ -52,6 +52,21 @@ def _safe_summary(audit_root: Path, audit_id: str) -> dict[str, Any]:
         return {}
 
 
+def _configuration_reuse_status(state: Any, audit_id: str) -> tuple[bool, str]:
+    """Return whether the selected AUD has a valid console snapshot and why not."""
+    from rasai.audit_configuration_reuse import KIND_CONSOLE, load_reusable_audit_configuration
+
+    try:
+        load_reusable_audit_configuration(
+            state.audits_root,
+            audit_id,
+            expected_kind=KIND_CONSOLE,
+        )
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        return False, str(exc)
+    return True, "snapshot canônico íntegro"
+
+
 def _render_audit_row(index: int, audit_root: Path) -> None:
     audit_id = audit_root.name
     summary = _safe_summary(audit_root, audit_id)
@@ -186,6 +201,7 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
     while True:
         audit_root = Path(state.audits_root) / audit_id
         summary = _safe_summary(audit_root, audit_id)
+        reuse_available, reuse_detail = _configuration_reuse_status(state, audit_id)
         console_module.render_header(state)
         print("AUDITORIA SELECIONADA\n")
         print(f"AUD            : {audit_id}")
@@ -194,6 +210,9 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
         print(f"Relatório      : {summary.get('report_status', '-')}")
         eligible = summary.get("consolidation_eligible")
         print(f"Consolidação   : {'ELEGÍVEL' if eligible is True else ('NÃO ELEGÍVEL' if eligible is False else '-')}")
+        print(f"Configuração   : {'REUTILIZÁVEL' if reuse_available else 'INDISPONÍVEL'}")
+        if not reuse_available:
+            print(f"Motivo config. : {reuse_detail}")
         if summary:
             print(
                 "Requisitos     : "
@@ -206,7 +225,10 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
             )
         print("\nAÇÕES")
         print("1. Reprocessar pendências desta auditoria")
-        print("2. Carregar esta configuração para uma nova auditoria")
+        if reuse_available:
+            print("2. Carregar esta configuração para uma nova auditoria")
+        else:
+            print("2. Carregar esta configuração para uma nova auditoria [INDISPONÍVEL]")
         print("3. Mostrar caminhos de artefatos")
         print("V. Voltar")
         choice = input("Escolha: ").strip().upper()
@@ -215,6 +237,11 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
         if choice == "1":
             _reprocess_selected(console_module, state, audit_id)
         elif choice == "2":
+            if not reuse_available:
+                state.status = "CONFIG_SOURCE_REJECTED"
+                state.operation = "LOCAL:AUD_CONFIG_REUSE"
+                state.error = reuse_detail
+                continue
             if _load_selected_configuration(console_module, state, audit_id):
                 return True
         elif choice == "3":
