@@ -132,6 +132,7 @@ def install() -> None:
     from rasai.core_integrity_runtime import install as install_core_integrity
     from rasai.core_reprocessing import install as install_core_reprocessing
     from rasai.core_reprocessing_context import install as install_core_reprocessing_context
+    from rasai.fulfillment_execution_contract import install as install_fulfillment_execution_contract
     from rasai.reprocess_failure_preservation import install as install_reprocess_failure_preservation
     from rasai.reprocess_runtime_safety import install as install_reprocess_runtime_safety
     from rasai.report_public_ux_guard import install as install_report_public_ux_guard
@@ -145,6 +146,10 @@ def install() -> None:
     install_semantic_recovery()
     install_audit_fulfillment_saas()
     install_technical_ai_eligibility()
+    # Install after the technical eligibility wrapper so the canonical projection sees
+    # the final M24 provider attempt and can restore CONTRACT_ERROR without bypassing
+    # source-quality gates, AUTO routing, quarantine or the shared pricing engine.
+    install_fulfillment_execution_contract()
     # Preserve a precise prerequisite/provider/service failure before the generic RPR
     # trace wraps _apply_result. This keeps the actual recovery reason visible instead
     # of replacing it with a generic *_RETRY_INCOMPLETE marker.
