@@ -214,6 +214,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     if effective and effective[0] == "platform":
         from rasai.platform.canonical_cli import main as platform_main
         return platform_main(effective[1:])
+    if effective and (
+        effective[0] in {"reprocess", "audit-reprocess"}
+        or (effective[0] == "audit" and len(effective) > 1 and effective[1] == "reprocess")
+    ):
+        from rasai.reprocess_cli import main as reprocess_main
+        forwarded = effective[2:] if effective[0] == "audit" else effective[1:]
+        code = reprocess_main(forwarded)
+        _try_refresh_platform_index(forwarded)
+        return code
     if effective and effective[0] == "audit":
         code = _run_audit_and_finalize(effective)
         if code == 0:
