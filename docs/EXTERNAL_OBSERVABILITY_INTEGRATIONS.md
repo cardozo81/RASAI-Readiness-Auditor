@@ -251,6 +251,18 @@ Precedência permanece a vigente no produto:
 process/OS environment > rasai-console.ini > rasai-defaults.ini > fallback defensivo de código
 ```
 
+### Janela de reprocessamento de coletas live
+
+Coletas externas classificadas como `LIVE_RECOLLECTION` podem ser reprocessadas dentro do mesmo `AUD-*` somente enquanto a observação permanecer temporalmente coerente. O limite é controlado por:
+
+```text
+RASAI_REPROCESS_LIVE_VALIDITY_MINUTES=1440
+```
+
+O runtime aceita valores entre 1 e 10080 minutos. O default de 1440 minutos representa 24 horas. Após o vencimento, uma nova coleta live não promove o AUD antigo a resultado final; deve ser criada uma nova auditoria para evitar mistura entre estados diferentes do site ou do provider. A configuração não altera evidências `REPLAY_SAFE`, que podem ser reanalisadas a partir dos dados persistidos da observação original.
+
+Contrato completo: [`AUDIT_REPROCESSING.md`](AUDIT_REPROCESSING.md).
+
 ## Perfis de execução
 
 Os perfis do console continuam sendo overlays de sessão e não alteram automaticamente estas integrações.
