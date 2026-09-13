@@ -268,6 +268,68 @@ def _preserve_waiting_recovery_state() -> None:
     audit_reprocess._apply_result = apply_result
 
 
+def _install_m24_resource_evidence_contract() -> None:
+    """Expose the validator's per-resource evidence universe to every M24 provider.
+
+    The M24 validator intentionally rejects a ROBOTS assessment that cites SITEMAP
+    evidence (and vice versa). The provider prompt must therefore carry the same
+    resource-scoped contract; otherwise a valid global evidence id can trigger a local
+    contract error and an unnecessary paid fallback.
+    """
+    from rasai import m24_ai
+
+    original = m24_ai._candidate_payload
+    if bool(getattr(original, "_rasai_resource_evidence_contract", False)):
+        return
+
+    def candidate_payload(candidate: Any, *, schema: dict[str, Any], instructions: str, facts: list[dict[str, Any]]):
+        resource_evidence: dict[str, list[str]] = {}
+        for fact in facts:
+            if not isinstance(fact, dict):
+                continue
+            if str(fact.get("scoring_role") or "") != "BOUNDED_RESOURCE_ASSESSMENT_ELIGIBLE":
+                continue
+            resource = str(fact.get("category") or "").strip().upper()
+            if resource not in {"ROBOTS", "SITEMAP"}:
+                continue
+            evidence_ids = [
+                str(item).strip()
+                for item in (fact.get("evidence_ids") or [])
+                if str(item).strip()
+            ]
+            if evidence_ids:
+                current = resource_evidence.setdefault(resource, [])
+                for evidence_id in evidence_ids:
+                    if evidence_id not in current:
+                        current.append(evidence_id)
+
+        if resource_evidence:
+            resource_contract = json.dumps(
+                resource_evidence,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            instructions = (
+                instructions
+                + " Para resource_assessments, a lista de evidence_ids é restrita por recurso. "
+                + "Use exclusivamente os IDs do recurso correspondente no mapa autoritativo a seguir; "
+                + "não cruze ROBOTS com SITEMAP e não gere assessment para recurso ausente do mapa. "
+                + f"resource_evidence_ids={resource_contract}."
+            )
+
+        return original(
+            candidate,
+            schema=schema,
+            instructions=instructions,
+            facts=facts,
+        )
+
+    candidate_payload._rasai_resource_evidence_contract = True
+    candidate_payload._rasai_original = original
+    m24_ai._candidate_payload = candidate_payload
+
+
 def install() -> None:
     global _INSTALLED
     if _INSTALLED:
@@ -282,4 +344,5 @@ def install() -> None:
 
     _correct_reprocess_diagnostics()
     _preserve_waiting_recovery_state()
+    _install_m24_resource_evidence_contract()
     _INSTALLED = True
