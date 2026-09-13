@@ -11,6 +11,13 @@ from dataclasses import dataclass
 import os
 from typing import Mapping
 
+from rasai.external_observability_policy import (
+    CLARITY_ENABLED_ENV,
+    CLARITY_TOKEN_ENV,
+    COMMON_CRAWL_ENABLED_ENV,
+    CRUX_HISTORY_ENABLED_ENV,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class StandardsService:
@@ -195,6 +202,24 @@ SERVICES: tuple[StandardsService, ...] = (
         methodology="Chrome UX Report API",
     ),
     StandardsService(
+        id="crux-history",
+        label="Chrome UX Report History API",
+        purpose="Coleta série histórica semanal de Core Web Vitals de campo por origem e form factor.",
+        relation_degree=5,
+        scopes=("ORIGIN", "DEVICE_SNAPSHOT"),
+        enabled_env=CRUX_HISTORY_ENABLED_ENV,
+        default_enabled=False,
+        job_field="crux_history_enabled",
+        credential_envs=("RASAI_CRUX_API_KEY",),
+        auto_enable_with_credentials=True,
+        documentation_url="https://developer.chrome.com/docs/crux/history-api/",
+        credential_url="https://console.cloud.google.com/apis/credentials",
+        cost_model="GOOGLE_API_QUOTA_NO_PROVIDER_FEE",
+        network_behavior="EXTERNAL_API",
+        methodology="Chrome UX Report History API",
+        notes="Mantém origem e form factor explícitos; não é média com Lighthouse/Apdex/CrUX current.",
+    ),
+    StandardsService(
         id="google-search-console",
         label="Google Search Console",
         purpose="Fornece Search Analytics, sitemaps e URL Inspection para propriedades verificadas.",
@@ -212,6 +237,45 @@ SERVICES: tuple[StandardsService, ...] = (
         network_behavior="EXTERNAL_API",
         methodology="Google Search Console API",
         notes="Exige token OAuth e propriedade siteUrl/sc-domain acessivel ao usuario autenticado.",
+    ),
+    StandardsService(
+        id="microsoft-clarity",
+        label="Microsoft Clarity Data Export",
+        purpose="Coleta somente métricas comportamentais agregadas, como engagement, scroll, rage/dead clicks e erros de script.",
+        relation_degree=5,
+        scopes=("ORIGIN", "URL", "DEVICE_SNAPSHOT"),
+        enabled_env=CLARITY_ENABLED_ENV,
+        default_enabled=False,
+        job_field="clarity_enabled",
+        credential_envs=(CLARITY_TOKEN_ENV,),
+        auto_enable_with_credentials=False,
+        documentation_url="https://learn.microsoft.com/clarity/setup-and-installation/clarity-data-export-api",
+        credential_url="https://clarity.microsoft.com/",
+        cost_model="NO_PROVIDER_FEE_DAILY_QUOTA",
+        network_behavior="EXTERNAL_API",
+        methodology="Microsoft Clarity Data Export API",
+        notes=(
+            "Opt-in explícito para preservar a quota de 10 requests/dia/projeto. "
+            "RASAi não persiste session replay, IDs de visitante/sessão, teclas ou conteúdo de formulário."
+        ),
+    ),
+    StandardsService(
+        id="common-crawl",
+        label="Common Crawl CDX History",
+        purpose="Consulta presença histórica de URLs auditadas nos índices públicos mensais do Common Crawl.",
+        relation_degree=4,
+        scopes=("URL",),
+        enabled_env=COMMON_CRAWL_ENABLED_ENV,
+        default_enabled=True,
+        job_field="common_crawl_enabled",
+        documentation_url="https://commoncrawl.org/cdxj-index",
+        cost_model="PUBLIC_FREE_DATASET",
+        network_behavior="EXTERNAL_PUBLIC_INDEX_API_BOUNDED",
+        methodology="Common Crawl CDXJ index API",
+        notes=(
+            "Sem chave/token e habilitado por default com limites conservadores. "
+            "Presença no Common Crawl não prova indexação Google/Bing nem disponibilidade atual."
+        ),
     ),
 )
 
