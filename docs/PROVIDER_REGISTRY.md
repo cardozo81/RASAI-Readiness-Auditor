@@ -51,14 +51,18 @@ O runtime atual **não usa uma cadeia fixa limitada a OpenAI, DeepSeek e MiMo**.
 2. considera os registros com `auto_eligible=true`;
 3. exige credencial e configuração válidas para aquela execução;
 4. remove os IDs listados em `RASAI_AI_AUTO_EXCLUDE`;
-5. usa round-robin compartilhado entre necessidades de IA;
-6. tenta cada provider elegível no máximo uma vez por necessidade;
-7. aplica estado de saúde e circuit breaker durante a execução;
-8. encerra a necessidade quando recebe o primeiro resultado válido.
+5. remove candidatos inelegíveis pela saúde/quarentena da execução;
+6. estima o custo da necessidade atual usando provider/modelo/reasoning, tokens esperados, cache observado e tarifa vigente;
+7. ordena providers precificados do menor para o maior custo estimado; providers sem preço conhecido mantêm entre si a ordem rotativa legada e ficam depois dos precificados;
+8. tenta cada provider elegível no máximo uma vez por necessidade;
+9. aplica estado de saúde e circuit breaker durante a execução;
+10. encerra a necessidade quando recebe o primeiro resultado válido.
 
 Providers `explicit-only`, atualmente GitHub Copilot, não entram no pool `AUTO` mesmo quando a credencial existe.
 
 Excluir um provider de `AUTO` não apaga sua credencial/configuração e não impede seleção explícita posterior.
+
+A política de custo, preços vigentes, janelas horárias, heurísticas de tokens e revisão do catálogo estão em [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md).
 
 ## Metadados do registro
 
