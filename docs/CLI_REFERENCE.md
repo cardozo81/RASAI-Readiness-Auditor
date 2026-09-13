@@ -84,9 +84,11 @@ copilot / github-copilot
 auto
 ```
 
-`AI=auto` considera todos os providers registrados como `auto_eligible=true` que estejam aptos na execução. Aptidão exige credencial e configuração válidas. O runtime usa round-robin compartilhado entre necessidades, tenta cada provider no máximo uma vez por necessidade, remove imediatamente condições terminais e aplica circuit breaker para falhas temporárias.
+`AI=auto` considera todos os providers registrados como `auto_eligible=true` que estejam aptos na execução. Aptidão exige credencial e configuração válidas. Antes de cada necessidade, o runtime remove candidatos em quarentena e estima o custo da requisição para os providers restantes usando modelo, reasoning, input/output esperado, cache observado e a tarifa vigente naquele instante. Providers precificados são tentados do menor para o maior custo estimado; providers sem preço conhecido ficam depois dos precificados e preservam entre si a ordem rotativa legada. Cada provider é tentado no máximo uma vez por necessidade. Condições terminais continuam removidas imediatamente e falhas temporárias continuam sujeitas ao mesmo circuit breaker.
 
-A presença de uma credencial não obriga o provider a participar do AUTO. `RASAI_AI_AUTO_EXCLUDE` aceita uma lista CSV de providers elegíveis a manter fora do pool AUTO daquela configuração, preservando suas chaves/modelos para seleção explícita posterior. Exemplo: `RASAI_AI_AUTO_EXCLUDE=gemini` mantém Gemini apto para uso explícito, mas fora do round-robin AUTO.
+A presença de uma credencial não obriga o provider a participar do AUTO. `RASAI_AI_AUTO_EXCLUDE` aceita uma lista CSV de providers elegíveis a manter fora do pool AUTO daquela configuração, preservando suas chaves/modelos para seleção explícita posterior. Exemplo: `RASAI_AI_AUTO_EXCLUDE=gemini` mantém Gemini apto para uso explícito, mas fora do pool AUTO.
+
+A ordem econômica é recalculada por necessidade e pode mudar por horário, janela peak/off-peak, faixa de contexto, modelo, reasoning ou comportamento de tokens observado durante a execução. O AUTO não troca silenciosamente para Batch, Flex ou outro service tier assíncrono apenas para obter desconto. Preços e janelas considerados estão em [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md).
 
 GitHub Copilot é `explicit-only` e `auto_eligible=false`: mesmo com `COPILOT_GITHUB_TOKEN` configurado, nunca entra em `AI=auto`. O adapter usa o SDK oficial, modelo público `auto`, `use_logged_in_user=False` e sessão sem tools. No fluxo manual, instale o transporte com:
 
@@ -140,6 +142,7 @@ Documentos:
 
 - [AI_GUIDE.md](AI_GUIDE.md)
 - [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
+- [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md)
 - [AI_RUNTIME_SECURITY.md](AI_RUNTIME_SECURITY.md)
 - [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
 - [PROVIDER_SETUP.md](PROVIDER_SETUP.md)
