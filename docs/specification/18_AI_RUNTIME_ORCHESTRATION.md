@@ -8,9 +8,15 @@ Este contrato complementa a análise semântica e as remediações assistidas po
 
 `AI=auto` considera todos os providers registrados como `auto_eligible` que possuam credencial e configuração válidas no início da execução e que não estejam excluídos por `RASAI_AI_AUTO_EXCLUDE`.
 
-A seleção usa round-robin compartilhado entre necessidades de IA da auditoria. Depois de uma tentativa, o cursor avança para o provider seguinte. Em uma mesma necessidade, cada provider elegível pode ser tentado no máximo uma vez; esgotar os candidatos encerra a necessidade como indisponível, sem loop.
+Para cada necessidade de IA, o runtime recalcula a ordem dos candidatos ainda elegíveis pelo custo estimado da requisição atual. O cálculo usa provider/modelo/reasoning configurados, input/output esperados, cache observado quando disponível e a regra tarifária vigente no instante da chamada. Janelas horárias e faixas de contexto são resolvidas antes da ordenação.
+
+Providers precificados são ordenados do menor para o maior custo estimado. Providers sem preço conhecido ficam depois dos precificados e preservam entre si a ordem rotativa legada. Em uma mesma necessidade, cada provider elegível pode ser tentado no máximo uma vez; esgotar os candidatos encerra a necessidade como indisponível, sem loop.
 
 `RASAI_AI_AUTO_EXCLUDE` tem default vazio. Os valores permitidos são IDs/aliases válidos de providers elegíveis, em lista CSV ou separada por `;`. O recomendado é manter vazio e usar a exclusão somente quando um provider deve permanecer configurado para seleção explícita, mas fora do pool AUTO.
+
+O runtime não muda silenciosamente o service tier para Batch/Flex/assíncrono apenas para reduzir preço.
+
+Referência financeira normativa: [`../AUTO_COST_AWARE_AI_ROUTING.md`](../AUTO_COST_AWARE_AI_ROUTING.md).
 
 ## 2. Saúde por provider
 
@@ -18,7 +24,7 @@ Falhas terminais retiram o provider do pool até o fim da auditoria. Incluem, co
 
 Falhas não terminais permanecem recuperáveis. O circuit breaker abre quando três falhas aparecem entre as últimas cinco observações do provider. Sucessos participam da mesma janela.
 
-A exclusão vale somente para a execução corrente e não modifica configuração global.
+A política econômica não reativa provider em quarentena, não reduz contadores e não muda classificação de erro. A exclusão vale somente para a execução corrente e não modifica configuração global.
 
 ## 3. Telemetria de comunicação
 
@@ -29,6 +35,8 @@ Credenciais e raciocínio privado do provider não podem ser persistidos. O log 
 A apresentação canônica dessa telemetria é `report/ai-usage.html`.
 
 O limite de captura é configurado por `RASAI_AI_EXCHANGE_LOG_MAX_BYTES`: default efetivo `524288`, valores permitidos de `4096` a `4194304` bytes e recomendação de manter o default salvo necessidade de diagnóstico controlado.
+
+O snapshot da sessão AUTO registra a estratégia `COST_AWARE_WITH_CIRCUIT_BREAKER`, versão do catálogo, próxima revisão recomendada e o último ranking de custo calculado.
 
 ## 4. Saída estruturada por provider
 
