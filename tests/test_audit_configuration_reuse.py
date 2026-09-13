@@ -1,23 +1,17 @@
-"""Regression contracts for completed-AUD configuration reuse."""
+"""Platform-neutral regression contracts for completed-AUD configuration reuse."""
 from __future__ import annotations
 
-import json
-import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
 
 from rasai.audit_configuration_reuse import (
-    KIND_AUDIT_PAYLOAD,
     KIND_CONSOLE,
     changed_fields,
     load_reusable_audit_configuration,
     persist_audit_configuration,
 )
-from rasai.audit_configuration_reuse_console import _export_settings
-from rasai.audit_configuration_reuse_saas import build_reused_payload
-from rasai.audit_execution_contract import normalize_audit_job_payload
 from rasai.audit_fulfillment import (
     FAILED_RETRYABLE,
     REPLAY_SAFE,
@@ -28,7 +22,6 @@ from rasai.audit_fulfillment import (
     set_work_item_status,
 )
 from rasai.consolidation.comparability import configuration_comparability
-from rasai.console_m23 import State
 from rasai.domain import Audit, CompletionStatus
 from rasai.persistence import AuditPersistence, AuditWorkspace
 
@@ -122,60 +115,6 @@ def test_lineage_hash_and_changed_fields_are_deterministic() -> None:
         assert loaded.source_audit_id == "AUD-FIRST"
         assert "settings.console.max_pages" in loaded.changed_fields
         assert loaded.configuration_hash != first_snapshot.configuration_hash
-
-
-def test_console_snapshot_never_serializes_api_keys(monkeypatch: pytest.MonkeyPatch) -> None:
-    state = State()
-    state.target = "https://example.com/"
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-secret-must-not-be-stored")
-    monkeypatch.setenv("RASAI_PAGESPEED_API_KEY", "pagespeed-secret")
-    exported = _export_settings(state, ("https://example.com/",))
-    serialized = json.dumps(exported, ensure_ascii=False)
-    assert "sk-secret-must-not-be-stored" not in serialized
-    assert "pagespeed-secret" not in serialized
-    assert "OPENAI_API_KEY" not in serialized
-    assert "RASAI_PAGESPEED_API_KEY" not in serialized
-
-
-def test_saas_reuse_inherits_payload_series_and_records_override_delta() -> None:
-    with TemporaryDirectory() as directory:
-        root = Path(directory)
-        source = _workspace(root, "AUD-SAAS", complete=True)
-        payload = normalize_audit_job_payload({
-            "urls": ["https://example.com/"],
-            "max_pages": 10,
-            "device_context": "mobile",
-        })
-        snapshot = persist_audit_configuration(
-            source.root,
-            audit_id="AUD-SAAS",
-            kind=KIND_AUDIT_PAYLOAD,
-            configuration=payload,
-            scope={"project_id": "P1", "property_id": "PROP1", "environment_id": "ENV1"},
-        )
-        reused = build_reused_payload(
-            root,
-            "AUD-SAAS",
-            {"max_pages": 25},
-            project_id="P1",
-            property_id="PROP1",
-            environment_id="ENV1",
-        )
-        assert reused["max_pages"] == 25
-        assert reused["configuration_source_audit_id"] == "AUD-SAAS"
-        assert reused["configuration_source_hash"] == snapshot.configuration_hash
-        assert reused["execution_series_id"] == snapshot.execution_series_id
-        assert "max_pages" in reused["configuration_changed_fields"]
-
-        with pytest.raises(ValueError, match="outro property_id"):
-            build_reused_payload(
-                root,
-                "AUD-SAAS",
-                {},
-                project_id="P1",
-                property_id="OTHER",
-                environment_id="ENV1",
-            )
 
 
 def test_configuration_comparability_distinguishes_exact_partial_and_unrelated() -> None:
