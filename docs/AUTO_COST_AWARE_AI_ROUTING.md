@@ -45,7 +45,7 @@ Ficam fora desta política:
 
 O catálogo canônico fica em `src/rasai/ai_cost_policy.py`.
 
-Todos os cálculos monetários de IA que usam preços tabelados devem resolver provider, modelo, contexto tarifário e custo a partir desse mesmo catálogo. `m18_ai`, AUTO, console e persistência não mantêm tabelas paralelas de preço.
+Todos os cálculos monetários de IA que usam preços tabelados devem resolver provider, modelo, contexto tarifário e custo a partir desse mesmo catálogo. O runtime semântico, o AUTO, o console e a persistência não mantêm tabelas paralelas de preço.
 
 Quando uma regra deixa de estar vigente e não existe uma tarifa seguinte revalidada, o custo fica **não precificado**. O RASAi não inventa tarifa futura nem reutiliza silenciosamente preço expirado.
 
@@ -310,7 +310,7 @@ A suíte deve cobrir pelo menos:
 - vigência do preço Flash desde 10/09/2026 04:00 UTC;
 - ausência de regra anterior ao início do contrato atual de pricing;
 - preço disponível para todos os modelos default do pool AUTO;
-- uma única fonte de pricing compartilhada entre AUTO, `m18_ai`, console e persistência;
+- uma única fonte de pricing compartilhada entre AUTO, runtime semântico, console e persistência;
 - thresholds de contexto OpenAI/xAI;
 - expiração fail-closed do preço promocional Gemini até nova revisão;
 - efeito de reasoning no envelope de custo;
