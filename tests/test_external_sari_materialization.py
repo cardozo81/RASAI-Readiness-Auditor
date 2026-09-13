@@ -80,7 +80,9 @@ def test_positive_common_crawl_materializes_reproducible_rule(monkeypatch, tmp_p
         assert evidence.artifact_reference == "artifacts/observability/common-crawl-test.json"
         assert evidence.observed_value["historical_only"] is True
         assert evidence.observed_value["proves_google_or_bing_indexation"] is False
-        assert evidence.observed_value["maximum_overall_impact_points"] == 0.45
+        # The binary float originates from multiplying the contracted 15% and 3%
+        # weights; its public/methodological value is two-decimal 0.45 point.
+        assert round(float(evidence.observed_value["maximum_overall_impact_points"]), 2) == 0.45
 
         state = json.loads(
             (workspace.root / "artifacts" / "observability" / "common-crawl-pre-scoring-state.json").read_text(
