@@ -3,9 +3,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from rasai.ai_pricing_console import install as install_ai_pricing_console
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 
 install_runtime_completion_extensions()
+install_ai_pricing_console()
 
 from rasai.console_environment import ENV_NAMES, SPEC_BY_NAME
 from rasai.m25_cli import DEFAULT_UX_DEVICE_MIX, parse_device_mix
