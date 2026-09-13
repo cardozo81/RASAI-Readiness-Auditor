@@ -22,13 +22,7 @@ _INSTALLED = False
 
 
 def _compact_semantic_provider_payload(payload: Any) -> Any:
-    """Remove only transport-only or exact duplicate provider-input fields.
-
-    Full main content, Structured Data, evidence ids and observed evidence remain intact.
-    Local artifact paths cannot be dereferenced by a remote model. The context evidence's
-    title and excerpt are exact duplicates of top-level title/main_content, so only the
-    availability flags are retained in that evidence item.
-    """
+    """Remove only transport-only or exact duplicate provider-input fields."""
     if not isinstance(payload, dict):
         return payload
     compact = dict(payload)
@@ -105,13 +99,12 @@ def _patch_instruction_function(module: Any, name: str) -> None:
 
 
 def install() -> None:
-    """Install lossless input de-duplication, AI gates and concise-output guidance."""
+    """Install lossless input de-duplication and evidence-readiness gates."""
     global _INSTALLED
     if _INSTALLED:
         return
 
-    from rasai import semantic
-    from rasai import m18_ai
+    from rasai import m18_ai, semantic
 
     _patch_provider_payload(semantic)
     _patch_request_method(semantic.OpenAIProvider)
@@ -129,13 +122,16 @@ def install() -> None:
     except ImportError:
         pass
 
-    # Fulfillment owns evidence readiness for both the initial execution and
-    # selective recovery. SaaS integration is installed immediately afterwards so
-    # worker/control-plane state uses the same contract without redefining core status.
+    # One fulfillment contract governs initial execution and selective recovery.
+    # SaaS and the technical-AI eligibility layer consume that same state instead of
+    # redefining core AuditStatus or treating prerequisite absence as provider failure.
     from rasai.audit_fulfillment_runtime import install as install_audit_fulfillment
     from rasai.audit_fulfillment_saas import install as install_audit_fulfillment_saas
+    from rasai.technical_ai_eligibility import install as install_technical_ai_eligibility
+
     install_audit_fulfillment()
     install_audit_fulfillment_saas()
+    install_technical_ai_eligibility()
 
     _INSTALLED = True
 
