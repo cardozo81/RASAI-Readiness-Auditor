@@ -105,7 +105,7 @@ def _patch_instruction_function(module: Any, name: str) -> None:
 
 
 def install() -> None:
-    """Install lossless input de-duplication and concise-output guidance."""
+    """Install lossless input de-duplication, AI gates and concise-output guidance."""
     global _INSTALLED
     if _INSTALLED:
         return
@@ -129,6 +129,12 @@ def install() -> None:
     except ImportError:
         pass
 
+    # The fulfillment layer owns the evidence-readiness gate shared by initial
+    # execution and later recovery.  Both public entrypoints already install this
+    # policy, so local console and SaaS/worker executions receive identical rules.
+    from rasai.audit_fulfillment_runtime import install as install_audit_fulfillment
+    install_audit_fulfillment()
+
     _INSTALLED = True
 
 
@@ -141,4 +147,5 @@ def strategy_summary() -> dict[str, Any]:
         "device_snapshot_deduplication": "NOT_MERGED_WHEN_EVIDENCE_IDENTITIES_DIFFER",
         "input_policy": "LOSSLESS_DUPLICATE_REMOVAL_NO_LOCAL_ARTIFACT_PATHS",
         "output_policy": "CONCISE_EVIDENCE_BOUND_NO_INPUT_RESTATEMENT",
+        "eligibility_policy": "NO_PROVIDER_CALL_UNTIL_REQUIRED_PERSISTED_EVIDENCE_IS_READY",
     }
