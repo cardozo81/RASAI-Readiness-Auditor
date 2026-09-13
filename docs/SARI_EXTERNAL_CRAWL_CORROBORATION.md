@@ -79,21 +79,29 @@ Logo, seu impacto máximo teórico no Overall é:
 
 A regra não pode acrescentar mais de 0,45 ponto ao SARI Overall quando todas as dimensões aplicáveis estão presentes.
 
-A redistribuição interna do contrato preserva 100% do peso de `DISCOVERY_ACCESS`:
+### Preservação exata do cálculo técnico quando a evidência externa não existe
 
-| Grupo | Peso vigente |
-|---|---:|
-| `PAGE_ACCESS` | 29% |
-| `ROBOTS` | 14% |
-| `SITEMAP` | 5% |
-| `REDIRECT` | 10% |
-| `SPA_ROUTE` | 10% |
-| `SPA_NAVIGATION` | 10% |
-| `INTERNAL_LINKS` | 19% |
-| `EXTERNAL_CRAWL_CORROBORATION` | 3% |
-| **Total** | **100%** |
+Os sete grupos técnicos anteriores de `DISCOVERY_ACCESS` foram multiplicados por `0,97`, reservando exatamente 3% para a nova corroboração externa:
 
-O grupo externo só entra no denominador quando existe BR-GEO-060 materializada. Quando não existe, o motor calcula a dimensão apenas sobre os grupos aplicáveis/evidenciados, conforme o contrato normal de SARI.
+| Grupo | Peso vigente | Relação técnica anterior preservada quando BR-GEO-060 não existe |
+|---|---:|---:|
+| `PAGE_ACCESS` | 29,10% | 30% |
+| `ROBOTS` | 14,55% | 15% |
+| `SITEMAP` | 4,85% | 5% |
+| `REDIRECT` | 9,70% | 10% |
+| `SPA_ROUTE` | 9,70% | 10% |
+| `SPA_NAVIGATION` | 9,70% | 10% |
+| `INTERNAL_LINKS` | 19,40% | 20% |
+| `EXTERNAL_CRAWL_CORROBORATION` | 3,00% | n/a |
+| **Total** | **100%** | |
+
+Quando BR-GEO-060 não existe, o motor normaliza apenas os grupos aplicáveis/evidenciados. Como os sete grupos técnicos são exatamente os pesos anteriores × 0,97, suas proporções retornam matematicamente a:
+
+```text
+30 / 15 / 5 / 10 / 10 / 10 / 20
+```
+
+Assim, **ausência de Common Crawl não altera o resultado técnico anterior nem Coverage**. A única mudança possível é um pequeno uplift quando existe evidência externa positiva qualificada.
 
 ## Critical Readiness Gates
 
@@ -171,7 +179,7 @@ As decisões abaixo são `RASAI_HEURISTIC` e pertencem ao contrato versionado do
 - exclusão de Critical Gates;
 - peso de 3% dentro de `DISCOVERY_ACCESS`;
 - impacto máximo de 0,45 ponto no Overall;
-- bloqueio do bônus quando sinais críticos atuais de Discovery estão em FAIL.
+- bloqueio do uplift quando sinais críticos atuais de Discovery estão em FAIL.
 
 Common Crawl não homologa o SARI e uma captura não significa indexação em Google/Bing, ranking, disponibilidade atual ou conhecimento por IA.
 
