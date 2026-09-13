@@ -14,6 +14,7 @@ from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
 from rasai.ai_provider_console_management import install as install_ai_provider_console_management
 from rasai.audit_configuration_reuse_console import install as install_audit_configuration_reuse_console
 from rasai.console_apdex_configuration import configure_apdex
+from rasai.console_audit_workflow import install as install_console_audit_workflow
 from rasai.console_cancellation_runtime import install as install_console_cancellation_runtime
 from rasai.console_config_path import prepare_console_config
 from rasai.console_cost_confirmation import install as install_cost_confirmation
@@ -148,10 +149,12 @@ def main() -> int:
     install_execution_profile_readiness()
     install_execution_profiles(interactive_console)
     # Configuration reuse wraps the complete detailed configuration surface. The task
-    # navigation shell is installed last and delegates back to that surface, preserving
-    # every existing configuration/action while adding contextual AUD operations.
+    # navigation shell is installed after it and delegates back to that surface.
     install_audit_configuration_reuse_console(interactive_console)
     install_console_navigation(interactive_console)
+    # Final workflow presentation synchronizes loaded AUD state with the visible console
+    # and projects selective reprocessing through the standard progress/cost surfaces.
+    install_console_audit_workflow(interactive_console)
     return interactive_console.main()
 
 
