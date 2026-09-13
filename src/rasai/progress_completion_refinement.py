@@ -22,6 +22,8 @@ def _refresh_reports_local_only(*, audit_id: str, workspace: Any) -> tuple[str, 
     from rasai.improvement_intelligence import write_improvement_report
     from rasai.report_ai_cost_attribution import enrich_ai_cost_attribution
     from rasai.report_manifest import write_report_manifest
+    from rasai.report_presentation_finalizer import finalize_report_presentation
+    from rasai.report_quality_reconciliation import reconcile_public_report_quality
     from rasai.report_scale_ux import enhance_report_directory
     from rasai import report_navigation
 
@@ -46,6 +48,17 @@ def _refresh_reports_local_only(*, audit_id: str, workspace: Any) -> tuple[str, 
     )
     run("navigation", lambda: report_navigation.normalize_report_navigation(report_dir))
     run("report-ux", lambda: enhance_report_directory(report_dir))
+    # The late Improvement Intelligence refresh must preserve the same public HTML
+    # contract as the normal finalizer. Both passes are local/read-only and ensure that
+    # AI cost remains the last data section (except ai-usage.html) after UX enrichment.
+    run(
+        "public-report-quality",
+        lambda: reconcile_public_report_quality(audit_id=audit_id, workspace=workspace),
+    )
+    run(
+        "presentation-finalizer",
+        lambda: finalize_report_presentation(audit_id=audit_id, workspace=workspace),
+    )
     run("manifest", lambda: write_report_manifest(report_dir))
     return tuple(errors)
 
