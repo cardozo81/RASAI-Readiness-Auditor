@@ -1,9 +1,13 @@
 """Safety gate for credential-free public observability collectors.
 
 Common Crawl is enabled by the packaged safe baseline because it is free and requires
-no credential.  That default must never leak private/internal targets or URL parameters
-into a public index lookup.  This wrapper suppresses only Common Crawl for the current
+no credential. That default must never leak private/internal targets or URL parameters
+into a public index lookup. This wrapper suppresses only Common Crawl for the current
 finalization when the bounded candidate set is not safe for public disclosure.
+
+The SARI corroboration installer is composed here for the top-level CLI. It performs
+its own equivalent pre-scoring safety gate because scoring occurs before report
+finalization.
 """
 from __future__ import annotations
 
@@ -27,23 +31,26 @@ _BLOCKED_SUFFIXES = (".localhost", ".local", ".internal", ".test", ".example", "
 
 
 def install() -> None:
-    """Wrap final report materialization outside external-observability collection."""
+    """Wrap final reports and install the pre-scoring external corroboration gate."""
     from rasai import report_completion
 
-    if getattr(report_completion, "_rasai_external_observability_public_target_safety", False):
-        return
-    original = report_completion.finalize_audit_report_site
+    if not getattr(report_completion, "_rasai_external_observability_public_target_safety", False):
+        original = report_completion.finalize_audit_report_site
 
-    def finalize_with_public_target_safety(*, audit_id: str, workspace: Any, **kwargs: Any):
-        reason = _common_crawl_block_reason(workspace=workspace, audit_id=audit_id)
-        if reason is None:
-            return original(audit_id=audit_id, workspace=workspace, **kwargs)
-        _LOGGER.warning("Common Crawl skipped for audit %s: %s", audit_id, reason)
-        with _temporary_environment(COMMON_CRAWL_ENABLED_ENV, "false"):
-            return original(audit_id=audit_id, workspace=workspace, **kwargs)
+        def finalize_with_public_target_safety(*, audit_id: str, workspace: Any, **kwargs: Any):
+            reason = _common_crawl_block_reason(workspace=workspace, audit_id=audit_id)
+            if reason is None:
+                return original(audit_id=audit_id, workspace=workspace, **kwargs)
+            _LOGGER.warning("Common Crawl skipped for audit %s: %s", audit_id, reason)
+            with _temporary_environment(COMMON_CRAWL_ENABLED_ENV, "false"):
+                return original(audit_id=audit_id, workspace=workspace, **kwargs)
 
-    report_completion.finalize_audit_report_site = finalize_with_public_target_safety
-    report_completion._rasai_external_observability_public_target_safety = True
+        report_completion.finalize_audit_report_site = finalize_with_public_target_safety
+        report_completion._rasai_external_observability_public_target_safety = True
+
+    # Import late to keep metadata/configuration discovery side-effect free.
+    from rasai.external_sari import install as install_external_sari
+    install_external_sari()
 
 
 def _common_crawl_block_reason(*, workspace: Any, audit_id: str) -> str | None:
