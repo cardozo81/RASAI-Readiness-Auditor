@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from rasai.console_config import provider_capabilities
+
 from .console import run as run_consolidation_console
 
 CONSOLIDATION_CHOICE = "C"
@@ -36,7 +38,18 @@ def install(interactive_console: Any) -> None:
         state.operation = "LOCAL:CONSOLIDATED_REPORT"
         state.error = ""
         try:
-            run_consolidation_console(state.audits_root)
+            selection = str(getattr(state, "ai_provider", "none") or "none").casefold()
+            capabilities = provider_capabilities(blocks=getattr(state, "runtime_blocks", {}) or {})
+            capability = capabilities.get(selection)
+            run_consolidation_console(
+                state.audits_root,
+                ai_provider=selection,
+                ai_model=getattr(state, "ai_model", None),
+                ai_reasoning=getattr(state, "ai_reasoning", None),
+                ai_timeout=float(getattr(state, "ai_timeout", 180.0) or 180.0),
+                ai_available=bool(capability and capability.available),
+                ai_unavailable_reason=(capability.reason if capability is not None and not capability.available else None),
+            )
         except Exception as exc:  # fail-open boundary: never break the audit console
             state.error = f"consolidação indisponível: {type(exc).__name__}: {exc}"
         finally:
