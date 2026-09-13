@@ -11,11 +11,18 @@ from rasai.external_sari import MAX_OVERALL_IMPACT_POINTS, MIN_OBSERVED_URL_RATI
 from rasai.score_geo_004 import GROUP_WEIGHTS
 
 _MARKER = "RASAI_EXTERNAL_SARI_CORROBORATION"
+_GROUP_ID = "EXTERNAL_CRAWL_CORROBORATION"
+_GROUP_LABEL = "External Crawl Corroboration"
 
 
 def install() -> None:
-    from rasai import report_navigation
+    from rasai import report_navigation, report_presentation
 
+    # The scoring vocabulary is extensible during pre-publication. Keep the canonical
+    # presentation maps aligned when this scoring extension is installed so generic
+    # scoring tables never expose the raw machine group identifier.
+    report_presentation.SCORING_CONCEPT_LABELS.setdefault(_GROUP_ID, _GROUP_LABEL)
+    report_presentation._PUBLIC_LABELS.setdefault(_GROUP_ID, _GROUP_LABEL)
     report_navigation._RULE_TOOLTIPS[RULE_ID] = (
         "Corroboração externa de discovery - evidência histórica positiva do Common Crawl. "
         "É positive-only, não integra Critical Gates, não prova indexação Google/Bing e tem impacto máximo de 0,45 ponto no SARI Overall."
@@ -108,8 +115,6 @@ def _inject(path: Path, *, state: dict[str, Any], detailed: bool) -> None:
             break
         text = text[:begin] + text[finish + len(end):]
 
-    # Narrow the generic exclusion language so it does not contradict the one
-    # explicitly contracted Common Crawl corroboration rule.
     text = text.replace(
         "Search Console e demais outcomes de Observability;",
         "Search Console, CrUX History, Microsoft Clarity e demais outcomes de Observability não mapeados explicitamente;",
@@ -127,7 +132,7 @@ def _inject(path: Path, *, state: dict[str, Any], detailed: bool) -> None:
 
 
 def _panel(state: dict[str, Any], *, detailed: bool) -> str:
-    weight = GROUP_WEIGHTS["DISCOVERY_ACCESS"]["EXTERNAL_CRAWL_CORROBORATION"]
+    weight = GROUP_WEIGHTS["DISCOVERY_ACCESS"][_GROUP_ID]
     status = "APLICADA" if state.get("materialized") else "NÃO APLICADA"
     ratio = _pct(state.get("ratio"))
     selected = state.get("selected")
