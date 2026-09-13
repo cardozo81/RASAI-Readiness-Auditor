@@ -2,32 +2,33 @@
 
 ## Objetivo
 
-Este documento define as integrações externas adicionadas ao RASAi para ampliar análise histórica, experiência real e evidência pública sem alterar o contrato metodológico de `SARI-001` / `SCORE-GEO-004`.
+Este documento define as integrações externas adicionadas ao RASAi para ampliar análise histórica, experiência real e evidência pública sem transformar outcomes externos em substitutos da metodologia de `SARI-001` / `SCORE-GEO-004`.
 
 Princípios obrigatórios:
 
 - `audit.db` continua sendo a evidência imutável do audit;
-- dados externos são persistidos em `observability.db` e `artifacts/observability`;
+- datasets externos permanecem em `observability.db` e `artifacts/observability`;
 - falha, quota, indisponibilidade ou ausência de dados externos não transforma o website em falha e não deve invalidar uma auditoria já concluída;
 - integrações observacionais não entram automaticamente em `SARI-001`, `SCORE-GEO-004` ou Apdex;
+- a única exceção vigente é `BR-GEO-060`, uma corroboração positiva, bounded e de peso mínimo baseada em Common Crawl;
 - escopo `ORIGIN`, `URL` e `DEVICE/FORM_FACTOR` permanece explícito; não existe média implícita entre granularidades diferentes;
-- segredos não são persistidos em `rasai-console.ini`, `rasai-defaults.ini`, `AuditJob`, `audit.db`, HTML ou artifacts sanitizados;
-- serviços gratuitos sem credencial podem ser ligados por default somente quando a operação é read-only e bounded;
+- segredos não são persistidos em `rasai-console.ini`, `rasai-defaults.ini`, `AuditJob`, HTML ou artifacts sanitizados;
+- serviços gratuitos sem credencial podem ser ligados por default somente quando a operação é read-only, bounded e protegida contra alvos privados/sensíveis;
 - serviços com token/key permanecem condicionados à credencial e, quando a quota for particularmente restrita, exigem opt-in explícito.
 
 ## Catálogo vigente
 
-| Integração | Estado | Custo de provider | Credencial | Default | Escopo | Device/form factor | Relatórios |
-|---|---|---|---|---|---|---|---|
-| CrUX History API | integrada | sem cobrança; quota Google | `RASAI_CRUX_API_KEY` | auto quando a key existe | `ORIGIN` | `ALL`, `PHONE`, `DESKTOP`, `TABLET` conforme dispositivos auditados | `web-performance.html`, `observability.html`, `standards.html` |
-| Microsoft Clarity Data Export | integrada | gratuito | `RASAI_CLARITY_API_TOKEN` | **off**; opt-in | `ORIGIN`/`URL` | `Device` quando solicitado | `apdex-experience.html`, `observability.html`, `standards.html` |
-| Common Crawl CDX History | integrada | gratuito, sem key/token | nenhuma | **on** | `URL` | não possui dimensão de device | `crawling-discovery.html`, `observability.html`, `standards.html` |
-| Bing Webmaster Tools live | **não ativada nesta etapa** | gratuito | autenticado | n/a | Search owner data | depende do contrato oficial atual | importação existente continua disponível |
-| IndexNow submission | fora desta etapa | gratuito | ownership key | off | `URL` | não aplicável | n/a |
+| Integração | Estado | Custo de provider | Credencial | Default | Escopo | Device/form factor | Relação com SARI | Relatórios |
+|---|---|---|---|---|---|---|---|---|
+| CrUX History API | integrada | sem cobrança; quota Google | `RASAI_CRUX_API_KEY` | auto quando a key existe | `ORIGIN` | `ALL`, `PHONE`, `DESKTOP`, `TABLET` conforme dispositivos auditados | observacional; não pontua | `web-performance.html`, `observability.html`, `standards.html` |
+| Microsoft Clarity Data Export | integrada | gratuito | `RASAI_CLARITY_API_TOKEN` | **off**; opt-in | `ORIGIN`/`URL` | `Device` quando solicitado | observacional; não pontua | `apdex-experience.html`, `observability.html`, `standards.html` |
+| Common Crawl CDX History | integrada | gratuito, sem key/token | nenhuma | **on** | `URL` | não possui dimensão de device | `BR-GEO-060` positive-only, máximo 0,45 ponto Overall | `crawling-discovery.html`, `observability.html`, `standards.html`, `readiness.html`, `scoring.html` |
+| Bing Webmaster Tools live | **não ativada nesta etapa** | gratuito | autenticado | n/a | Search owner data | depende do contrato oficial atual | não pontua | importação existente continua disponível |
+| IndexNow submission | fora desta etapa | gratuito | ownership key | off | `URL` | não aplicável | não pontua | n/a |
 
 ## CrUX History API
 
-O RASAi já possuía o collector `rasai observe crux-history`. A integração automática passa a reutilizar esse contrato na finalização da auditoria quando `RASAI_CRUX_API_KEY` existe e a capacidade não foi desligada.
+O RASAi já possuía o collector `rasai observe crux-history`. A integração automática reutiliza esse contrato na finalização da auditoria quando `RASAI_CRUX_API_KEY` existe e a capacidade não foi desligada.
 
 A coleta automática usa a origem auditada como target e preserva duas granularidades:
 
@@ -38,6 +39,8 @@ A coleta automática usa a origem auditada como target e preserva duas granulari
   - `tablet` -> `TABLET`.
 
 CrUX History não é agregado silenciosamente com Lighthouse lab, CrUX current, Open Web Metrics ou Apdex. Os valores são apresentados como série de experiência real agregada por período/form factor.
+
+CrUX History **não altera SARI**. Ele mede experiência real histórica e deve ser usado para análise longitudinal/before-after, não como proxy de readiness.
 
 ### Configuração
 
@@ -69,6 +72,8 @@ Métricas documentadas pela fonte incluem, entre outras:
 - Error Click Count.
 
 A API permite até três dimensões. Para uso automático pelo RASAi, `URL` é obrigatória: sem URL não é possível provar que o agregado pertence ao domínio auditado. O default também usa `Device` para preservar a dimensão de dispositivo quando a fonte a fornece.
+
+Clarity **não altera SARI**. Rage/dead click, engagement e scroll são comportamento/outcome e não devem ser convertidos em readiness estrutural.
 
 ### Configuração
 
@@ -134,6 +139,47 @@ Não significa:
 
 Common Crawl não tem dimensão de device. O relatório não replica o mesmo dado como Mobile/Desktop/Tablet.
 
+### Relação com SARI: BR-GEO-060
+
+A coleta Common Crawl ocorre antes do M9 para permitir que uma observação positiva qualificada seja persistida como evidência e RuleExecution normal do scoring.
+
+Contrato:
+
+```text
+BR-GEO-060
+Dimension = DISCOVERY_ACCESS
+Group = EXTERNAL_CRAWL_CORROBORATION
+Group Weight = 3% de DISCOVERY_ACCESS
+Maximum Overall Impact = 0,45 ponto
+Critical Gate = não
+```
+
+A regra é **positive-only**. Ela só é criada quando:
+
+- a URL é segura para consulta pública;
+- existe observação positiva nos índices recentes;
+- pelo menos 50% da amostra bounded selecionada foi observada;
+- sinais críticos atuais de Discovery não estão em `FAIL`.
+
+Ausência de captura, erro da API, alvo inelegível ou amostra abaixo do threshold não cria `FAIL`, não cria zero, não reduz Coverage e não reduz Confidence.
+
+A RuleExecution e a Evidence ficam persistidas no `audit.db` exclusivamente para tornar o score reprodutível sem nova chamada externa. O dataset bruto/normalizado continua no sidecar `observability.db`.
+
+Contrato detalhado: [`SARI_EXTERNAL_CRAWL_CORROBORATION.md`](SARI_EXTERNAL_CRAWL_CORROBORATION.md).
+
+### Segurança da consulta pública
+
+Mesmo habilitado por default, o RASAi não consulta automaticamente Common Crawl para alvos com:
+
+- localhost/hosts locais ou reservados;
+- IP privado/reservado;
+- userinfo;
+- query string;
+- fragment;
+- protocolo diferente de HTTP/HTTPS.
+
+Isso evita publicar inadvertidamente alvos internos ou parâmetros sensíveis em uma consulta a índice público.
+
 Referências oficiais:
 
 - <https://commoncrawl.org/get-started>
@@ -157,7 +203,11 @@ IndexNow não faz parte deste pacote porque é uma operação de escrita/submiss
 
 ### `audit.db`
 
-Não recebe os datasets externos. Pode receber apenas o estado operacional já existente em `standards_service_runs` para que o relatório mostre `DISABLED`, `NOT_CONFIGURED`, `SUCCESS`, `PARTIAL`, `NO_DATA` ou `ERROR`.
+Datasets externos completos não são copiados para o core.
+
+A exceção metodológica é `BR-GEO-060`: quando Common Crawl qualifica para SARI, o RASAi persiste somente a Evidence/RuleExecution mínima, com proveniência e referência ao artifact, necessária para reproduzir o score offline. O estado operacional também pode ser persistido em `standards_service_runs`.
+
+CrUX History e Clarity continuam fora do scoring e não materializam regras SARI.
 
 ### `observability.db`
 
@@ -208,7 +258,7 @@ Os perfis do console continuam sendo overlays de sessão e não alteram automati
 Isso é intencional:
 
 - `Completo seguro` não deve consumir a quota diária do Clarity apenas por ter sido selecionado;
-- Common Crawl já é governed pelo default/override da integração;
+- Common Crawl já é governado pelo default/override da integração;
 - CrUX History é credential-driven, independente da seleção de perfil;
 - nenhuma integração muda termos SERP, IA, carga sintética ou análise profunda.
 
@@ -230,18 +280,32 @@ Recebe histórico Common Crawl por URL: quantidade de capturas/collections e pri
 
 Permanece a superfície detalhada dos datasets externos e proveniência.
 
+### `readiness.html` e `scoring.html`
+
+Exibem explicitamente o estado de `BR-GEO-060`, peso de 3% dentro de Discovery, impacto máximo de 0,45 ponto e a regra de que ausência/erro não penalizam o score.
+
 ### `standards.html`
 
 Exibe o estado operacional das integrações por meio de `standards_service_runs`.
 
 ## Falhas externas
 
-O comportamento obrigatório é:
+O comportamento obrigatório para qualquer integração é:
 
 ```text
 external provider/public API failure
         -> ERROR/PARTIAL/NO_DATA na integração
-        -> audit e scoring preservados
+        -> website e score base preservados
+```
+
+Para Common Crawl especificamente:
+
+```text
+falha/no-data
+        -> BR-GEO-060 não materializada
+        -> nenhum FAIL
+        -> nenhum zero
+        -> nenhuma queda de Coverage/Confidence
 ```
 
 Nunca:
