@@ -80,6 +80,23 @@ AUD-ABC
 
 Para o relatório consolidado existe **uma observação**, `AUD-ABC`. Para custo e confiabilidade existem três tentativas registradas.
 
+### Duas trilhas de tentativa
+
+O runtime mantém duas granularidades complementares e elas não devem ser confundidas:
+
+- `audit_fulfillment_attempts` registra a avaliação operacional do work-item dentro da execução inicial ou de um `RPR-*`; é a trilha comum entre componentes e permite saber quantas vezes um requisito foi efetivamente processado;
+- tabelas específicas, como tentativas de providers de IA, PageSpeed/CrUX e amostras sintéticas, registram a operação externa ou medição concreta usada para diagnóstico, custo, confiabilidade e evidência técnica.
+
+Uma avaliação de reprocessamento pode terminar como `WAITING_FOR_DATA` ou `BLOCKED` sem produzir tentativa de provider. Nesses casos existe rastreabilidade do work-item/RPR, mas **não existe chamada de IA nem custo de provider**.
+
+## Concorrência de reprocessamento
+
+O estado transitório usado para compor um `RPR-*` é isolado por contexto de execução. O RASAi não troca funções globais por execução para selecionar itens pendentes, reutilizar um `RPR-*` ou filtrar snapshots já concluídos.
+
+Isso é obrigatório no worker/SaaS: duas auditorias reprocessadas simultaneamente não podem compartilhar `reprocess_id`, lista de pendências, filtro de Content Remediation nem estado de outro `AUD-*`.
+
+Os hooks instalados no processo permanecem estáveis; o contexto específico de cada execução é propagado isoladamente. Assim, concorrência não altera a regra de que um sucesso efetivo pertence exclusivamente ao respectivo `AUD-*` e ao seu histórico de `RPR-*`.
+
 ## Dependências de IA
 
 Nenhuma IA é chamada antes de existirem os dados mínimos persistidos necessários para a análise solicitada. Quando conteúdo, evidência ou contexto obrigatório ainda não está disponível, o requisito permanece aguardando dados e a chamada externa não é realizada.
