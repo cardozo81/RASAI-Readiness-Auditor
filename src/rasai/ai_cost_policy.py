@@ -1,12 +1,8 @@
 """Canonical AI pricing and cost-aware routing policy for RASAi.
 
-The catalog models synchronous request modes already used by RASAi. It does not
-silently opt a request into Batch, Flex, Priority, token-plan, or another service tier
-that changes latency, quota, or contractual semantics.
-
-Pricing is a routing/telemetry estimate, not an invoice. Pre-call routing assumes a
-cache miss until same-execution usage shows a reusable cache pattern. Post-call cost
-telemetry requires native cache accounting so it does not invent a billed split.
+Commercial values are loaded from the declarative pricing catalog. This module keeps the
+stable runtime API used by AUTO routing, telemetry, console estimation and persistence.
+Pricing is an operational estimate, not a provider invoice.
 """
 from __future__ import annotations
 
@@ -16,12 +12,14 @@ import json
 import math
 from typing import Any, Mapping
 
-PRICING_VERSION = "RASAI-PRICING-2026-09-13"
-PRICING_VERIFIED_ON = "2026-09-13"
-PRICING_REVIEW_RECOMMENDED_ON = "2026-10-13"
+from rasai.ai_pricing_catalog import PricingCatalog, PricingModelPolicy, load_pricing_catalog, resolve_catalog_rule
 
-# Approximation used only before the provider returns native usage. The router learns
-# from native usage during the same execution and replaces these defaults progressively.
+_EFFECTIVE_CATALOG: PricingCatalog = load_pricing_catalog()
+PRICING_VERSION = _EFFECTIVE_CATALOG.metadata.catalog_version
+PRICING_VERIFIED_ON = _EFFECTIVE_CATALOG.metadata.verified_on
+PRICING_REFERENCE_DATE = _EFFECTIVE_CATALOG.metadata.reference_date
+PRICING_REVIEW_RECOMMENDED_ON = _EFFECTIVE_CATALOG.metadata.review_recommended_on
+
 _TOKEN_CHARS_ESTIMATE = 4.0
 _SCOPE_DEFAULT_INPUT_TOKENS: dict[str, int] = {
     "SEMANTIC": 8_000,
@@ -94,23 +92,31 @@ class CandidateCostEstimate:
     basis: str = "STATIC_SCOPE"
 
 
-PRICING_CATALOG: tuple[PricingRule, ...] = (
-    PricingRule("OPENAI", "gpt-5.6-sol", 4.00, 0.40, 20.00, "USD", "https://developers.openai.com/api/docs/models/gpt-5.6-sol", "2026-08-21T00:00:00Z"),
-    PricingRule("OPENAI", "gpt-5.6-terra", 2.00, 0.20, 12.00, "USD", "https://developers.openai.com/api/docs/models/gpt-5.6-terra", "2026-08-21T00:00:00Z"),
-    PricingRule("OPENAI", "gpt-5.6-luna", 0.20, 0.02, 1.20, "USD", "https://developers.openai.com/api/docs/models/gpt-5.6-luna", "2026-08-21T00:00:00Z"),
-    PricingRule("DEEPSEEK", "deepseek-v4-pro", 1.32, 0.044, 3.96, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", "2026-08-16T16:00:00Z", pricing_context="PEAK"),
-    PricingRule("DEEPSEEK", "deepseek-v4-pro", 0.66, 0.022, 1.98, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", "2026-08-16T16:00:00Z", pricing_context="OFF_PEAK"),
-    PricingRule("DEEPSEEK", "deepseek-v4-flash", 0.44, 0.014, 1.32, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", "2026-08-16T16:00:00Z", pricing_context="PEAK"),
-    PricingRule("DEEPSEEK", "deepseek-v4-flash", 0.22, 0.007, 0.66, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", "2026-08-16T16:00:00Z", pricing_context="OFF_PEAK"),
-    PricingRule("MIMO", "mimo-v2.5-pro", 0.435, 0.0036, 0.87, "USD", "https://mimo.mi.com/docs/en-US/price/pay-as-you-go", "2026-08-06T00:00:00Z"),
-    PricingRule("MIMO", "mimo-v2.5", 0.14, 0.0028, 0.28, "USD", "https://mimo.mi.com/docs/en-US/price/pay-as-you-go", "2026-08-06T00:00:00Z"),
-    PricingRule("XAI", "grok-4.6", 2.00, 0.50, 6.00, "USD", "https://docs.x.ai/developers/pricing", "2026-09-02T00:00:00Z", pricing_context="SHORT_CONTEXT"),
-    PricingRule("XAI", "grok-4.6", 4.00, 1.00, 12.00, "USD", "https://docs.x.ai/developers/pricing", "2026-09-02T00:00:00Z", pricing_context="LONG_CONTEXT"),
-    PricingRule("QWEN", "qwen3.8-flash", 0.113, 0.014, 0.382, "USD", "https://www.alibabacloud.com/help/en/model-studio/qwen3-8-flash", "2026-09-07T00:00:00Z"),
-    PricingRule("QWEN", "qwen3.8-max", 1.65, 0.206, 4.951, "USD", "https://www.alibabacloud.com/help/en/model-studio/qwen3-8-max", "2026-09-07T00:00:00Z"),
-    PricingRule("GEMINI", "gemini-3.8-flash", 0.75, 0.075, 3.75, "USD", "https://ai.google.dev/gemini-api/docs/pricing", "2026-09-02T00:00:00Z", "2027-01-01T00:00:00Z"),
-    PricingRule("ANTHROPIC", "claude-sonnet-5", 2.00, 0.20, 10.00, "USD", "https://platform.claude.com/docs/en/about-claude/pricing", "2026-09-01T00:00:00Z"),
-)
+def _flatten_catalog(catalog: PricingCatalog) -> tuple[PricingRule, ...]:
+    rows: list[PricingRule] = []
+    for policy in catalog.models:
+        for rule in policy.rules:
+            rows.append(PricingRule(
+                provider=policy.provider,
+                model=policy.model,
+                input_price_per_million=rule.input_price_per_million,
+                cached_input_price_per_million=rule.cached_input_price_per_million,
+                output_price_per_million=rule.output_price_per_million,
+                currency=policy.currency,
+                source_reference=policy.source_reference,
+                effective_from=rule.effective_from,
+                effective_until=rule.effective_until,
+                pricing_context=rule.context,
+                pricing_version=catalog.metadata.catalog_version,
+            ))
+    return tuple(rows)
+
+
+PRICING_CATALOG: tuple[PricingRule, ...] = _flatten_catalog(_EFFECTIVE_CATALOG)
+
+
+def effective_pricing_catalog() -> PricingCatalog:
+    return _EFFECTIVE_CATALOG
 
 
 def _utc(value: datetime) -> datetime:
@@ -119,77 +125,64 @@ def _utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
-def _parse_instant(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
-
-
 def pricing_review_due(at: datetime | None = None) -> bool:
     instant = _utc(at or datetime.now(timezone.utc))
     review = datetime.fromisoformat(PRICING_REVIEW_RECOMMENDED_ON).replace(tzinfo=timezone.utc)
     return instant >= review
 
 
+def _policy_for(provider: str, model: str) -> PricingModelPolicy | None:
+    return _EFFECTIVE_CATALOG.model_policy(provider, model)
+
+
 def pricing_context(provider: str, at: datetime, *, input_tokens: int = 0) -> str:
-    name = provider.strip().upper()
-    instant = _utc(at)
-    if name == "DEEPSEEK":
-        weekday_peak = instant.weekday() < 5
-        hour = instant.hour
-        return "PEAK" if weekday_peak and (1 <= hour < 4 or 6 <= hour < 10) else "OFF_PEAK"
-    if name == "XAI":
-        return "LONG_CONTEXT" if int(input_tokens) >= 200_000 else "SHORT_CONTEXT"
-    return "STANDARD"
-
-
-def _active_rule(provider: str, model: str, at: datetime, context: str) -> PricingRule | None:
-    instant = _utc(at)
-    candidates: list[PricingRule] = []
-    for item in PRICING_CATALOG:
-        if item.provider != provider.upper() or item.model != model or item.pricing_context != context:
-            continue
-        if instant < _parse_instant(item.effective_from):
-            continue
-        if item.effective_until is not None and instant >= _parse_instant(item.effective_until):
-            continue
-        candidates.append(item)
-    if not candidates:
-        return None
-    return max(candidates, key=lambda item: _parse_instant(item.effective_from))
+    """Compatibility helper for callers that only request a provider context."""
+    provider_name = provider.strip().upper()
+    policies = [item for item in _EFFECTIVE_CATALOG.models if item.provider == provider_name]
+    if not policies:
+        return "STANDARD"
+    resolved = resolve_catalog_rule(
+        _EFFECTIVE_CATALOG,
+        provider_name,
+        policies[0].model,
+        at=at,
+        input_tokens=input_tokens,
+    )
+    return resolved[1].context if resolved is not None else "STANDARD"
 
 
 def resolve_price(provider: str, model: str, *, at: datetime, input_tokens: int) -> ResolvedPrice | None:
     provider_name = provider.strip().upper()
-    context = pricing_context(provider_name, at, input_tokens=input_tokens)
-    rule = _active_rule(provider_name, model, at, context)
-    if rule is None:
+    resolved = resolve_catalog_rule(
+        _EFFECTIVE_CATALOG,
+        provider_name,
+        model,
+        at=at,
+        input_tokens=input_tokens,
+    )
+    if resolved is None:
         return None
-    input_price = rule.input_price_per_million
-    cached_price = rule.cached_input_price_per_million
-    output_price = rule.output_price_per_million
-    resolved_context = context
-    if provider_name == "OPENAI" and input_tokens > 272_000:
-        input_price *= 2.0
-        cached_price *= 2.0
-        output_price *= 1.5
-        resolved_context = "LONG_CONTEXT_GT_272K"
+    policy, rule = resolved
     return ResolvedPrice(
         provider=provider_name,
         model=model,
-        input_price_per_million=input_price,
-        cached_input_price_per_million=cached_price,
-        output_price_per_million=output_price,
-        currency=rule.currency,
-        source_reference=rule.source_reference,
-        pricing_context=resolved_context,
+        input_price_per_million=rule.input_price_per_million,
+        cached_input_price_per_million=rule.cached_input_price_per_million,
+        output_price_per_million=rule.output_price_per_million,
+        currency=policy.currency,
+        source_reference=policy.source_reference,
+        pricing_context=rule.context,
+        pricing_version=_EFFECTIVE_CATALOG.metadata.catalog_version,
     )
 
 
-def _billable_output_tokens(provider: str, usage: Any) -> int | None:
+def _billable_output_tokens(provider: str, model: str, usage: Any) -> int | None:
     output = getattr(usage, "output_tokens", None)
     if output is None:
         return None
     billed = max(int(output), 0)
-    if provider.strip().upper() == "GEMINI":
+    policy = _policy_for(provider, model)
+    if policy is not None and policy.reasoning_billing == "ADD_REASONING_TO_OUTPUT":
         reasoning = getattr(usage, "reasoning_tokens", None)
         if reasoning is not None:
             billed += max(int(reasoning), 0)
@@ -201,7 +194,7 @@ def estimate_observed_cost(provider: str, model: str, usage: Any, at: datetime) 
         return None, None, PRICING_VERSION
     input_tokens = getattr(usage, "input_tokens", None)
     cached_raw = getattr(usage, "cached_input_tokens", None)
-    output_tokens = _billable_output_tokens(provider, usage)
+    output_tokens = _billable_output_tokens(provider, model, usage)
     if input_tokens is None or cached_raw is None or output_tokens is None:
         return None, None, PRICING_VERSION
     input_tokens = max(int(input_tokens), 0)
@@ -340,4 +333,4 @@ def estimate_candidate_cost(
 
 
 def catalog_models() -> frozenset[tuple[str, str]]:
-    return frozenset((item.provider, item.model) for item in PRICING_CATALOG)
+    return _EFFECTIVE_CATALOG.catalog_models()
