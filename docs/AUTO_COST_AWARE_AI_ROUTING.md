@@ -1,70 +1,68 @@
 # AUTO cost-aware AI routing
 
-Status da referência: **12/09/2026**  
-Versão do catálogo de pricing: **`RASAI-PRICING-2026-09-12`**  
-Revisão ordinária recomendada: **12/10/2026**
+Status da referência: **13/09/2026**  
+Versão do catálogo de pricing: **`RASAI-PRICING-2026-09-13`**  
+Revisão ordinária recomendada: **13/10/2026**
 
 Este documento define a política de seleção econômica de IA usada pelo RASAi **somente quando `AI=auto` está selecionado**.
 
-A política não muda o contrato de um provider explicitamente selecionado, não habilita providers sem credencial, não insere GitHub Copilot no AUTO e não altera as regras de quarentena/circuit breaker já homologadas.
+A política não muda o contrato de um provider explicitamente selecionado, não habilita providers sem credencial, não insere GitHub Copilot no AUTO e não altera as regras de quarentena/circuit breaker.
 
 ## 1. Objetivo
 
-Para cada necessidade de IA da auditoria, o RASAi deve ordenar os providers ativos e elegíveis pelo **custo monetário estimado daquela requisição específica**, considerando:
+Para cada necessidade de IA, o RASAi ordena os providers ativos e elegíveis pelo **custo monetário estimado daquela requisição específica**, considerando:
 
-- provider ativo;
-- modelo configurado para aquele provider;
-- esforço de raciocínio configurado;
-- tamanho estimado do prompt efetivamente enviado;
-- quantidade esperada de tokens de saída para a finalidade da chamada;
-- cache observado quando existe histórico utilizável na mesma execução;
-- regra de preço aplicável ao instante da chamada;
-- faixas de contexto que alteram preço;
-- janelas horárias oficiais quando existirem.
+- provider e modelo efetivos;
+- esforço de raciocínio;
+- tamanho estimado do prompt e da resposta;
+- cache observado na própria execução, quando disponível;
+- tarifa vigente no instante da chamada;
+- janela horária oficial e weekday em UTC quando aplicável;
+- faixas de contexto que alteram preço.
 
-A seleção econômica é um critério de **ordenação dos candidatos elegíveis**, não um mecanismo para ignorar erros ou forçar uso de um provider em quarentena.
+A seleção econômica apenas ordena candidatos já elegíveis. Ela não ignora falha, não reativa provider em quarentena e não reduz contadores do circuit breaker.
 
 ## 2. Escopo funcional
 
-A política é aplicada ao runtime principal `AI=auto` e aos fluxos que compartilham o mesmo coordenador AUTO:
+A política vale para o runtime principal `AI=auto` e para os fluxos que reutilizam o mesmo coordenador:
 
 1. análise semântica;
 2. remediação de conteúdo;
 3. remediação técnica de crawling/discovery;
-4. explicação de Source Quality quando o adapter daquele provider é compatível com esse fluxo.
+4. Source Quality quando o adapter é compatível.
 
-Ficam fora desta política:
+Ficam fora:
 
-- provider explicitamente selecionado pelo usuário;
-- GitHub Copilot, que continua `explicit_only` e `auto_eligible=false`;
-- Improvement Intelligence, cujo contrato atual exige provider explícito;
-- Competitive Search AI, que possui configuração própria e separada do `AI=auto` principal;
-- PageSpeed, CrUX, SERP e outros serviços que não são providers de LLM do pool AUTO.
+- provider explicitamente selecionado;
+- GitHub Copilot (`explicit_only`);
+- Improvement Intelligence quando configurada com provider próprio;
+- Competitive Search AI com configuração própria;
+- PageSpeed, CrUX, SERP e demais serviços que não pertencem ao pool LLM AUTO.
 
 ## 3. Fonte única de pricing
 
-O catálogo canônico fica em `src/rasai/ai_cost_policy.py`.
+O catálogo canônico é `src/rasai/ai_cost_policy.py`.
 
-Todos os cálculos monetários de IA que usam preços tabelados devem resolver provider, modelo, contexto tarifário e custo a partir desse mesmo catálogo. O runtime semântico, o AUTO, o console e a persistência não mantêm tabelas paralelas de preço.
+AUTO, telemetria, console e persistência devem usar essa mesma fonte. Quando uma regra deixa de estar vigente e não existe tarifa seguinte revalidada, o provider/modelo fica **não precificado** para aquela decisão. O RASAi não inventa tarifa futura nem reutiliza silenciosamente preço expirado.
 
-Quando uma regra deixa de estar vigente e não existe uma tarifa seguinte revalidada, o custo fica **não precificado**. O RASAi não inventa tarifa futura nem reutiliza silenciosamente preço expirado.
+Pricing é estimativa operacional, não substitui a fatura do fornecedor.
 
 ## 4. Algoritmo de decisão
 
 Para cada necessidade de IA:
 
-1. obtém o conjunto de providers configurados, `auto_eligible=true` e não excluídos por `RASAI_AI_AUTO_EXCLUDE`;
-2. remove qualquer provider já inelegível pela política de saúde/quarentena da execução;
-3. resolve provider, modelo e reasoning efetivamente configurados;
-4. estima o volume de input/output da requisição;
-5. resolve o preço vigente no instante da chamada;
-6. calcula o custo estimado;
-7. ordena candidatos com preço conhecido do menor para o maior custo estimado;
-8. em empate, usa o rank já existente do provider e depois a ordem determinística anterior;
-9. providers sem preço catalogado ficam depois dos providers precificados e preservam entre si a ordem rotativa determinística do coordenador;
-10. tenta cada provider no máximo uma vez naquela necessidade e usa fallback conforme a lógica existente.
+1. obtém providers configurados, `auto_eligible=true` e não excluídos;
+2. remove candidatos inelegíveis pela política de saúde/quarentena;
+3. resolve modelo e reasoning efetivos;
+4. estima input/output;
+5. resolve a tarifa vigente para o instante e contexto;
+6. calcula custo estimado;
+7. ordena providers precificados pelo menor custo;
+8. em empate, preserva rank e ordem determinística;
+9. candidatos sem preço ficam depois dos precificados;
+10. cada provider é tentado no máximo uma vez naquela necessidade, seguindo fallback e circuit breaker existentes.
 
-A fórmula base é:
+Fórmula base:
 
 ```text
 estimated_cost =
@@ -74,36 +72,23 @@ estimated_cost =
   / 1_000_000
 ```
 
-O custo de roteamento é uma **estimativa pré-chamada**. Depois da chamada, quando o provider retorna usage nativo, a telemetria de custo da tentativa é recalculada com os tokens efetivamente reportados e a tarifa vigente naquele instante.
+Após a chamada, quando usage nativo é fornecido, o custo observado é recalculado com os tokens reportados e a tarifa vigente naquele instante.
 
-## 5. Estimativa do prompt e da resposta
+## 5. Estimativas por finalidade
 
-### 5.1 Input
+Quando o adapter expõe o payload lógico, o router usa o tamanho serializado como aproximação de tokens. Na ausência disso, usa envelope conservador por escopo e o refina com usage observado na mesma execução.
 
-Quando o adapter expõe `_request_payload`, o router serializa em memória o mesmo payload lógico que seria enviado e usa seu tamanho como aproximação de tokens, com razão inicial de 4 caracteres por token.
-
-Essa aproximação existe apenas para ordenar providers antes da chamada. O provider continua sendo a fonte de verdade para usage real após a resposta.
-
-Quando a finalidade não permite construir o payload completo antes da seleção, utiliza-se um envelope conservador por escopo e o valor é refinado durante a execução usando usage nativo observado.
-
-### 5.2 Output por finalidade
-
-O output esperado é específico da finalidade:
-
-| Escopo | Baseline inicial |
+| Escopo | Baseline inicial de output |
 |---|---:|
-| análise semântica | 4.000 tokens, ajustados pela quantidade de evidências |
-| remediação de conteúdo | 900 + 650 tokens por finding, limitado a 16.000 antes do multiplicador de reasoning |
-| remediação técnica de crawling/discovery | 3.200 tokens |
-| Source Quality | 1.800 tokens |
+| análise semântica | 4.000 tokens, ajustados pela evidência |
+| remediação de conteúdo | 900 + 650 por finding, limitado a 16.000 antes do reasoning |
+| remediação técnica | 3.200 |
+| Source Quality | 1.800 |
+| especialista consolidado | 3.500 |
 
-Os números acima são **heurísticas de roteamento**, não preços oficiais nem limites de API.
+Multiplicadores de roteamento para reasoning:
 
-### 5.3 Reasoning
-
-O esforço configurado é incorporado como multiplicador conservador sobre o envelope esperado de saída:
-
-| Reasoning | Multiplicador de roteamento |
+| Reasoning | Multiplicador |
 |---|---:|
 | `NONE` | 1,00 |
 | `LOW` | 1,10 |
@@ -115,93 +100,55 @@ O esforço configurado é incorporado como multiplicador conservador sobre o env
 | `PROVIDER_DEFAULT` | 1,20 |
 | `THINKING_ENABLED` | 1,70 |
 
-Esses fatores não pretendem reproduzir a implementação interna de reasoning de cada fornecedor. Eles evitam comparar um modelo configurado em baixo esforço com outro em esforço elevado como se ambos tivessem a mesma expectativa de geração.
+Esses valores são heurísticas de roteamento, não preços oficiais nem limites de API.
 
-## 6. Aprendizado durante a própria execução
+## 6. Aprendizado dentro da execução
 
-O coordenador mantém uma janela curta de usage por `(escopo, provider)` durante a auditoria.
+O coordenador mantém uma janela curta de usage por `(escopo, provider)`. Chamadas posteriores combinam a estimativa atual com mediana de input/output e proporção de cache observadas. Esse histórico vale apenas para a execução corrente e não altera scoring.
 
-Quando já existem chamadas anteriores comparáveis, o próximo cálculo combina:
+## 7. Quarentena e fallback
 
-- tamanho estimado do request atual;
-- mediana de input observado;
-- mediana de output observado;
-- proporção de cache observada.
+Continuam terminais, entre outros, `AUTH_ERROR`, `CREDIT_ERROR`, `QUOTA_ERROR`, `MODEL_ERROR`, `PERMISSION_ERROR` e HTTP 401/403/404/410.
 
-Isso permite que uma auditoria com várias páginas converja progressivamente para uma previsão mais aderente ao comportamento real do conteúdo e dos providers ativos.
+O circuit breaker continua abrindo com **3 falhas nas últimas 5 observações** do provider.
 
-Esse histórico é usado apenas para roteamento daquela execução; não substitui a telemetria persistida nem altera scoring.
+O custo não reativa provider, não apaga falhas e não altera os limiares de quarentena.
 
-## 7. Quarentena e fallback: sem mudança de contrato
+## 8. Preços considerados em 13/09/2026
 
-A lógica de saúde permanece a mesma.
-
-### Exclusão imediata
-
-Continuam terminais:
-
-- `AUTH_ERROR`;
-- `CREDIT_ERROR`;
-- `QUOTA_ERROR`;
-- `MODEL_ERROR`;
-- `PERMISSION_ERROR`;
-- HTTP 401, 403, 404 e 410.
-
-### Circuit breaker temporário
-
-Continua abrindo com **3 falhas nas últimas 5 observações** do provider.
-
-O custo não reativa provider em quarentena, não reduz contadores, não ignora falhas e não muda a classificação de erro. A única alteração de comportamento do AUTO é a ordem em que candidatos ainda elegíveis são tentados.
-
-## 8. Preços considerados em 12/09/2026
-
-Todos os valores abaixo são em **USD por 1 milhão de tokens**, no modo síncrono/standard compatível com o runtime atual do RASAi.
+Valores em **USD por 1 milhão de tokens**, usando o modo síncrono compatível com o runtime atual.
 
 | Provider / modelo | Input sem cache | Cache hit/read | Output | Contexto relevante |
 |---|---:|---:|---:|---|
 | OpenAI `gpt-5.6-luna` | 0,20 | 0,02 | 1,20 | >272k input: 2x input e 1,5x output |
 | OpenAI `gpt-5.6-terra` | 2,00 | 0,20 | 12,00 | >272k input: 2x input e 1,5x output |
-| OpenAI `gpt-5.6-sol` | 4,00 | 0,40 | 20,00 | >272k input: 2x input e 1,5x output; promoção vigente na data desta revisão |
-| DeepSeek `deepseek-v4-pro` off-peak | 0,66 | 0,022 | 1,98 | janela UTC descrita abaixo |
-| DeepSeek `deepseek-v4-pro` peak | 1,32 | 0,044 | 3,96 | janela UTC descrita abaixo |
-| DeepSeek `deepseek-v4-flash` off-peak | 0,15 | 0,003 | 0,60 | preço vigente desde 10/09/2026 04:00 UTC |
-| DeepSeek `deepseek-v4-flash` peak | 0,30 | 0,006 | 1,20 | preço vigente desde 10/09/2026 04:00 UTC |
-| MiMo `mimo-v2.5` | 0,14 | 0,0028 | 0,28 | PAYG, sem janela horária |
-| MiMo `mimo-v2.5-pro` | 0,435 | 0,0036 | 0,87 | PAYG, sem janela horária |
+| OpenAI `gpt-5.6-sol` | 4,00 | 0,40 | 20,00 | >272k input: 2x input e 1,5x output |
+| DeepSeek `deepseek-v4-pro` off-peak | 0,66 | 0,022 | 1,98 | janela UTC abaixo |
+| DeepSeek `deepseek-v4-pro` peak | 1,32 | 0,044 | 3,96 | janela UTC abaixo |
+| DeepSeek `deepseek-v4-flash` off-peak | 0,22 | 0,007 | 0,66 | vigente desde 16/08/2026 16:00 UTC |
+| DeepSeek `deepseek-v4-flash` peak | 0,44 | 0,014 | 1,32 | vigente desde 16/08/2026 16:00 UTC |
+| MiMo `mimo-v2.5` | 0,14 | 0,0028 | 0,28 | PAYG |
+| MiMo `mimo-v2.5-pro` | 0,435 | 0,0036 | 0,87 | PAYG |
 | xAI `grok-4.6`, <200k input | 2,00 | 0,50 | 6,00 | tarifa curta |
 | xAI `grok-4.6`, >=200k input | 4,00 | 1,00 | 12,00 | tarifa longa |
-| Qwen `qwen3.8-flash` US/Virginia | 0,113 | 0,014 | 0,382 | cache implícito/read |
-| Qwen `qwen3.8-max` US/Virginia | 1,65 | 0,206 | 4,951 | cache implícito/read |
-| Gemini `gemini-3.8-flash` standard | 0,75 | 0,075 | 3,75 | promoção vigente até 31/12/2026; output inclui thinking |
-| Anthropic `claude-sonnet-5` standard | 2,00 | 0,20 | 10,00 | 0,20 representa cache read; cache write possui tarifa própria |
+| Qwen `qwen3.8-flash` US/Virginia | 0,113 | 0,014 | 0,382 | região do endpoint US usado pelo catálogo atual |
+| Qwen `qwen3.8-max` US/Virginia | 1,65 | 0,206 | 4,951 | região do endpoint US usado pelo catálogo atual |
+| Gemini `gemini-3.8-flash` standard | 0,75 | 0,075 | 3,75 | regra catalogada até 31/12/2026; output inclui thinking |
+| Anthropic `claude-sonnet-5` standard | 2,00 | 0,20 | 10,00 | 0,20 representa cache read |
 
-### 8.1 Por que Batch/Flex não entram automaticamente
+### 8.1 DeepSeek: timezone oficial
 
-OpenAI Batch, Anthropic Batch e Gemini Batch/Flex podem reduzir custo, mas alteram latência e/ou contrato de execução. O router **não troca silenciosamente o service tier** para economizar preço.
-
-A política atual compara apenas modos síncronos já compatíveis com a expectativa operacional do RASAi. Batch/Flex devem ser tratados futuramente como estratégia de execução assíncrona explicitamente configurável.
-
-### 8.2 MiMo Token Plan
-
-O Token Plan possui regras próprias e coeficiente por horário, mas não é usado pelo adapter PAYG atual e possui restrições de cenário de uso. O AUTO não utiliza esse desconto.
-
-## 9. DeepSeek: timezone oficial e conversão GMT-3
-
-A DeepSeek define peak/off-peak em **UTC**, não pelo timezone visual da conta do consumidor.
-
-Peak oficial:
+A DeepSeek define a janela pelo **UTC e weekday UTC**:
 
 ```text
-segunda a sexta em UTC
+segunda a sexta UTC
 01:00 <= UTC < 04:00
 06:00 <= UTC < 10:00
 ```
 
 Todo o restante é off-peak.
 
-O weekday também deve ser avaliado em UTC. Essa regra é necessária porque, em GMT-3, a primeira janela de segunda-feira começa ainda no domingo local.
-
-### Conversão para GMT-3
+Para GMT-3, a conversão é:
 
 | Dia local GMT-3 | Peak |
 |---|---|
@@ -210,112 +157,109 @@ O weekday também deve ser avaliado em UTC. Essa regra é necessária porque, em
 | sexta | 00:00-01:00, 03:00-07:00 |
 | sábado | nenhum |
 
-A maior janela contínua off-peak em GMT-3 é:
+A mudança de pricing da família V4 considerada pelo catálogo entra em vigor em **16/08/2026 16:00 UTC**. O runtime não deve usar a data/hora exibida em timezone local da conta como substituta da vigência oficial.
 
-```text
-sexta 07:00 -> domingo 22:00
-```
+### 8.2 Qwen e região
 
-Total: **63 horas**.
+O Model Studio possui preços regionais. O catálogo atual registra a tarifa **US/Virginia**, coerente com o endpoint `dashscope-us.aliyuncs.com` usado pela configuração padrão analisada. Uma mudança de região/endpoint exige revisão do catálogo antes de tratar o custo como comparável.
 
-O banner da conta DeepSeek observado em 12/09/2026 informa todos os horários do dashboard em GMT-3, mas o anúncio de alteração do Flash especifica `12:00 Beijing Time on September 10, 2026`. Essa vigência corresponde a:
+Enquanto o runtime não carregar região como dimensão explícita do preço observado, uma configuração Qwen em outra região deve ser tratada como caso que exige revisão de pricing, não como prova de que a tarifa US se aplica universalmente.
 
-```text
-10/09/2026 12:00 Beijing (UTC+8)
-= 10/09/2026 04:00 UTC
-= 10/09/2026 01:00 GMT-3
-```
+### 8.3 Batch/Flex
 
-O catálogo considera somente a tarifa vigente para o contrato atual do RASAi. Como o produto ainda não foi publicado, não existe contrato histórico de pricing a preservar.
+Batch/Flex podem reduzir preço, mas alteram latência e/ou contrato. O AUTO não muda silenciosamente service tier para economizar. Essas modalidades exigem estratégia de execução explicitamente configurável.
 
-## 10. Regras não horárias que alteram preço
+## 9. Regras não horárias
 
 ### OpenAI
 
-Para a família GPT-5.6 usada pelo RASAi, prompts acima de 272k tokens de input usam a tarifa longa informada pelo fornecedor: o request completo passa a 2x input e 1,5x output. O router resolve isso por request.
+Prompts acima de 272k tokens de input usam o multiplicador de tarifa longa catalogado para a família GPT-5.6.
 
 ### xAI
 
-`grok-4.6` muda de tarifa em 200k tokens de contexto. O router usa a estimativa de input para selecionar a faixa antes da chamada e o usage nativo para normalizar o custo observado depois.
+`grok-4.6` muda de tarifa em 200k tokens de input/contexto. O router seleciona a faixa pela estimativa pré-chamada e normaliza o custo observado com usage quando disponível.
 
 ### Gemini
 
-A tarifa promocional vigente foi catalogada somente até **31/12/2026**. Se o catálogo não tiver sido revisado antes de 01/01/2027, Gemini passa a ficar sem preço resolvido para roteamento econômico em vez de o RASAi presumir uma tarifa futura não revalidada.
+A regra promocional atual está catalogada somente até **31/12/2026**. Sem revisão antes da expiração, o modelo fica sem preço resolvido em vez de herdar tarifa presumida.
 
-## 11. Cache e limitações de telemetria
+## 10. Cache e limitações
 
-Antes da primeira chamada comparável, o router assume cache miss. Isso evita escolher um provider com base em um desconto de cache que talvez não ocorra.
-
-Depois que usage nativo reporta cache, a proporção observada pode influenciar as próximas estimativas da mesma execução.
+Antes da primeira chamada comparável, o router assume cache miss. Depois, cache nativo observado pode influenciar a estimativa da mesma execução.
 
 Limitações conhecidas:
 
-- tokenização real varia entre providers; tamanho de JSON/4 é apenas aproximação pré-chamada;
-- Anthropic diferencia cache creation de 5 min/1 h e cache read, mas o modelo de usage canônico atual do RASAi não preserva separadamente todos os tokens de cache write; por isso o router não presume desconto de write;
-- Qwen possui modalidades adicionais de cache explícito; o runtime atual utiliza a tarifa de input/cache observável pelo adapter corrente;
-- remediação técnica de crawling/discovery e Source Quality usam baseline na primeira seleção porque seu payload completo é construído depois da enumeração do candidato; usage real da própria execução passa a refinar chamadas seguintes;
-- uma resposta rejeitada pelo contrato local pode ainda gerar cobrança externa e deve continuar aparecendo na telemetria quando usage estiver disponível.
+- tokenização real varia por provider; JSON/4 é aproximação pré-chamada;
+- Anthropic diferencia cache creation e cache read; o modelo canônico atual não presume descontos não observados;
+- Qwen possui preços regionais e modalidades adicionais de cache;
+- algumas finalidades montam o payload completo somente depois da enumeração inicial do candidato;
+- uma resposta rejeitada pelo contrato local pode ter sido cobrada externamente e continua sendo tentativa de custo quando usage está disponível.
+
+## 11. Contrato de M24 e prevenção de fallback artificial
+
+A remediação técnica M24 continua evidence-bound. `actions` podem usar apenas o universo global de evidências fornecido. `resource_assessments` possuem universo mais estrito por recurso:
+
+```text
+ROBOTS -> somente evidence_ids autorizados para ROBOTS
+SITEMAP -> somente evidence_ids autorizados para SITEMAP
+```
+
+O prompt deve expor esse mapa ao provider antes da chamada. O validator continua fail-closed e rejeita referência cruzada ou inventada. Isso evita pagar fallback adicional apenas porque o modelo não recebeu uma restrição que o runtime já aplicava localmente.
 
 ## 12. Fontes oficiais
 
 - OpenAI GPT-5.6: `https://developers.openai.com/api/docs/models/`
 - DeepSeek pricing: `https://api-docs.deepseek.com/quick_start/pricing/`
-- DeepSeek usage/account banner usado para a alteração Flash de 10/09/2026: `https://platform.deepseek.com/usage`
+- DeepSeek changelog: `https://api-docs.deepseek.com/news/`
 - Xiaomi MiMo PAYG: `https://mimo.mi.com/docs/en-US/price/pay-as-you-go`
 - xAI pricing: `https://docs.x.ai/developers/pricing`
-- Alibaba Qwen/Model Studio: `https://www.alibabacloud.com/help/en/model-studio/`
+- Alibaba Qwen/Model Studio: `https://www.alibabacloud.com/help/en/model-studio/model-pricing`
 - Gemini API pricing: `https://ai.google.dev/gemini-api/docs/pricing`
 - Anthropic pricing: `https://platform.claude.com/docs/en/about-claude/pricing`
-- GitHub Copilot SDK billing: `https://docs.github.com/en/copilot/how-tos/copilot-sdk/features/usage-and-billing`
 
-## 13. Política de revisão do catálogo
+## 13. Política de revisão
 
-Revisão ordinária recomendada: **mensal**, com próxima revisão em **12/10/2026**.
+Revisão ordinária: **mensal**, próxima em **13/10/2026**.
 
-Além da revisão mensal, o catálogo deve ser revisado imediatamente quando ocorrer qualquer um destes eventos:
+Revisar imediatamente se ocorrer:
 
-- aviso de preço exibido no console/dashboard do provider;
-- lançamento ou troca do modelo default de um provider;
-- alteração de endpoint/região do Qwen;
-- mudança em política de cache;
-- nova janela peak/off-peak;
-- alteração de limite de contexto que muda tarifa;
-- antes do encerramento conhecido de promoção;
-- divergência material entre `estimated_cost` do RASAi e cobrança observada.
+- aviso de preço no dashboard/provider;
+- lançamento/troca do modelo default;
+- mudança de endpoint ou região do Qwen;
+- mudança de cache;
+- alteração de janela peak/off-peak;
+- mudança de limite de contexto que altera tarifa;
+- expiração de promoção;
+- divergência material entre `estimated_cost` e cobrança observada.
 
-Datas que merecem revisão antecipada já conhecidas em 12/09/2026:
+Revisões antecipadas conhecidas:
 
-- **até 21/11/2026**: revalidar promoção/preço do GPT-5.6 Sol;
-- **antes de 31/12/2026**: revalidar Gemini 3.8 Flash antes da expiração da regra catalogada.
+- antes do encerramento de qualquer promoção OpenAI explicitamente catalogada;
+- antes de **31/12/2026** para Gemini 3.8 Flash.
 
 ## 14. Observabilidade
 
-O `session_snapshot()` do AUTO expõe:
+O snapshot do AUTO deve expor estratégia, versão do catálogo, data recomendada para revisão e ranking de custo mais recente, incluindo provider/modelo/reasoning, volume estimado, contexto tarifário e custo estimado.
 
-- `strategy=COST_AWARE_WITH_CIRCUIT_BREAKER`;
-- versão do catálogo de preço;
-- data de revisão recomendada;
-- indicador `pricing_review_due`;
-- último ranking de custo calculado, incluindo provider, modelo, reasoning, input/output estimados, contexto tarifário e custo estimado.
-
-A telemetria de tentativas continua persistindo usage e custo observado quando disponíveis.
+Tentativas persistem usage e custo observado quando o provider fornece informação suficiente.
 
 ## 15. Critérios de regressão
 
-A suíte deve cobrir pelo menos:
+A suíte deve cobrir, no mínimo:
 
-- DeepSeek peak/off-peak com weekday em UTC;
-- domingo 22:xx GMT-3 corretamente reconhecido como segunda-feira peak em UTC;
-- sábado em horário `01:00-04:00 UTC` corretamente tratado como off-peak;
-- vigência do preço Flash desde 10/09/2026 04:00 UTC;
-- ausência de regra anterior ao início do contrato atual de pricing;
+- DeepSeek peak/off-peak com weekday UTC;
+- domingo 22:xx GMT-3 como segunda-feira UTC peak;
+- sábado dentro das mesmas horas de relógio como off-peak;
+- vigência do V4 Flash desde 16/08/2026 16:00 UTC;
+- ausência de regra antes da vigência atual;
 - preço disponível para todos os modelos default do pool AUTO;
-- uma única fonte de pricing compartilhada entre AUTO, runtime semântico, console e persistência;
-- thresholds de contexto OpenAI/xAI;
-- expiração fail-closed do preço promocional Gemini até nova revisão;
-- efeito de reasoning no envelope de custo;
-- contabilização dos thinking tokens Gemini quando reportados separadamente;
-- escolha do candidato precificado de menor custo;
-- preservação da ordem rotativa determinística para candidatos sem pricing;
-- quarentena imediata e circuit breaker sem mudança de limiares;
-- no máximo uma tentativa por provider por necessidade.
+- uma única fonte de pricing;
+- thresholds OpenAI/xAI;
+- expiração fail-closed do Gemini;
+- efeito do reasoning;
+- thinking tokens Gemini quando separados;
+- escolha do menor custo estimado;
+- ordem determinística de candidatos sem pricing;
+- quarentena/circuit breaker inalterados;
+- no máximo uma tentativa por provider por necessidade;
+- contrato M24 com evidence IDs por recurso e rejeição de cross-resource evidence.
