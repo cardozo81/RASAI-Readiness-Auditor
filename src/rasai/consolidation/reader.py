@@ -129,6 +129,34 @@ def _devices(connection: sqlite3.Connection, audit_id: str) -> tuple[str, ...]:
     return tuple(str(row[0]) for row in rows if row[0])
 
 
+def _configuration_lineage(connection: sqlite3.Connection, audit_id: str) -> dict[str, Any]:
+    required = {
+        "audit_id", "configuration_kind", "configuration_hash", "source_audit_id",
+        "changed_fields_json", "execution_series_id",
+    }
+    if not required <= _columns(connection, "audit_execution_configurations"):
+        return {}
+    row = connection.execute(
+        """SELECT configuration_kind,configuration_hash,source_audit_id,
+                  changed_fields_json,execution_series_id
+           FROM audit_execution_configurations WHERE audit_id=?""",
+        (audit_id,),
+    ).fetchone()
+    if row is None:
+        return {}
+    try:
+        changed = json.loads(str(row["changed_fields_json"] or "[]"))
+    except json.JSONDecodeError:
+        changed = []
+    return {
+        "configuration_kind": str(row["configuration_kind"] or "") or None,
+        "configuration_hash": str(row["configuration_hash"] or "") or None,
+        "configuration_source_audit_id": str(row["source_audit_id"] or "") or None,
+        "execution_series_id": str(row["execution_series_id"] or "") or None,
+        "configuration_changed_fields": tuple(str(item) for item in changed if isinstance(item, str)),
+    }
+
+
 def _read_scores(connection: sqlite3.Connection, audit_id: str) -> tuple[dict[str, Any], ...]:
     required = {
         "audit_id", "dimension", "device", "value", "coverage", "confidence",
@@ -221,6 +249,7 @@ def read_audit_bundle(db_path: Path) -> AuditBundle:
         urls = _audit_urls(connection, audit_id)
         domains = _domains(connection, audit_id, urls)
         devices = _devices(connection, audit_id)
+        lineage = _configuration_lineage(connection, audit_id)
         created_at = str(audit.get("created_at") or "")
         started_at = str(audit.get("started_at") or "") or None
         completed_at = str(audit.get("completed_at") or "") or None
@@ -241,6 +270,11 @@ def read_audit_bundle(db_path: Path) -> AuditBundle:
             domains=domains,
             devices=devices,
             urls=urls,
+            configuration_kind=lineage.get("configuration_kind"),
+            configuration_hash=lineage.get("configuration_hash"),
+            configuration_source_audit_id=lineage.get("configuration_source_audit_id"),
+            execution_series_id=lineage.get("execution_series_id"),
+            configuration_changed_fields=tuple(lineage.get("configuration_changed_fields") or ()),
         )
         return AuditBundle(
             source=source,
