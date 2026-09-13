@@ -12,6 +12,7 @@ O console é uma camada de configuração, preflight, observabilidade, execuçã
 
 - navegação de primeiro nível orientada a tarefas;
 - uma tela lógica por vez;
+- contexto de preparação da auditoria persistente até retorno explícito ao início;
 - configuração explícita antes da execução;
 - detalhes avançados disponíveis sem ocupar o primeiro nível;
 - defaults seguros e visíveis;
@@ -47,7 +48,23 @@ Esse menu não substitui funções existentes. Ele organiza o acesso às superf�
 
 ### 1. Nova auditoria / configurar e executar
 
-Abre o dashboard completo de configuração da próxima auditoria. Nele permanecem acessíveis:
+Ao selecionar essa opção, o console entra no contexto persistente:
+
+```text
+INÍCIO > PREPARAR AUDITORIA
+```
+
+O dashboard completo de configuração da próxima auditoria permanece ativo enquanto o usuário prepara a execução. Alterar um campo, salvar o INI, abrir e fechar credenciais/integrações, consultar ajuda, retornar de uma subtela ou corrigir uma dependência não leva de volta ao menu inicial.
+
+A saída desse contexto é explícita:
+
+```text
+V. Voltar ao início
+```
+
+`Q. Sair` continua encerrando a aplicação conforme as confirmações normais do console.
+
+No dashboard de preparação permanecem acessíveis:
 
 ```text
 Entrada
@@ -74,6 +91,8 @@ Abrir pasta/relatório da última auditoria
 Carregar configuração de AUD
 Restaurar padrões do RASAi
 ```
+
+A navegação segue o princípio de retorno ao chamador: quando uma subtela é aberta a partir de **Preparar auditoria**, ao concluir ou voltar ela retorna ao dashboard de preparação; quando uma integração é aberta diretamente pelo menu inicial, o retorno é para o menu inicial.
 
 Extensões funcionais continuam usando suas próprias telas e validações. A reorganização do primeiro nível não cria contratos paralelos.
 
@@ -142,6 +161,14 @@ O snapshot restaura parâmetros não secretos e inputs reproduzíveis, incluindo
 
 Credenciais nunca são recuperadas do AUD. Depois do carregamento, o console reconcilia a configuração com o ambiente atual e alerta quando uma integração solicitada não possui key/token/configuração válida. O usuário pode corrigir a dependência antes do preflight.
 
+Quando o carregamento é concluído com sucesso pelo histórico, o console sai do contexto do AUD selecionado e entra diretamente em:
+
+```text
+INÍCIO > PREPARAR AUDITORIA
+```
+
+A partir daí, todas as alterações pertencem à nova execução e permanecem nesse contexto até `V. Voltar ao início` ou a saída da aplicação.
+
 O contrato completo está em [AUDIT_CONFIGURATION_REUSE.md](AUDIT_CONFIGURATION_REUSE.md).
 
 ### 3. Relatórios consolidados
@@ -176,6 +203,8 @@ Control plane / banco
 
 Para campos com domínio fechado, o console apresenta opções aceitas. Entrada livre permanece para valores realmente abertos, como URL, path, property, token/secret, locale ou números de faixa contínua.
 
+Quando essa superfície é acessada a partir de **Preparar auditoria**, concluir a edição retorna ao mesmo contexto de preparação. Quando é acessada diretamente pelo menu inicial, o retorno é para o menu inicial.
+
 ### 5. Sistema / restaurar padrões
 
 Abre a restauração da baseline atual do produto.
@@ -209,7 +238,7 @@ valor explícito presente no processo/Windows
 > default do produto/runtime
 ```
 
-Ao salvar, o console indica explicitamente que a operação é `SEM CHAVES`.
+Ao salvar, o console indica explicitamente que a operação é `SEM CHAVES`. Salvar durante **Preparar auditoria** retorna ao próprio dashboard de preparação; salvar não encerra nem troca o contexto da tarefa.
 
 ## Cores e estados
 
