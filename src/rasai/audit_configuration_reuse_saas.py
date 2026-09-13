@@ -9,6 +9,7 @@ from rasai.audit_configuration_reuse import (
     PROVENANCE_FIELDS,
     changed_fields,
     load_reusable_audit_configuration,
+    normalize_audit_id,
     strip_provenance,
 )
 from rasai.audit_configuration_reuse_runtime import configuration_context
@@ -20,9 +21,7 @@ def _validate_provenance(payload: Mapping[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     source = payload.get("configuration_source_audit_id")
     if source not in (None, ""):
-        if not isinstance(source, str) or not source.strip().upper().startswith("AUD-"):
-            raise ValueError("configuration_source_audit_id must be an AUD-* identifier")
-        result["configuration_source_audit_id"] = source.strip().upper()
+        result["configuration_source_audit_id"] = normalize_audit_id(source)
     source_hash = payload.get("configuration_source_hash")
     if source_hash not in (None, ""):
         if not isinstance(source_hash, str) or len(source_hash.strip()) != 64:
@@ -43,6 +42,12 @@ def _validate_provenance(payload: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError("configuration_changed_fields must be a list of field names")
         result["configuration_changed_fields"] = list(changed)
     return result
+
+
+def assert_client_payload_has_no_provenance(payload: Mapping[str, Any]) -> None:
+    forbidden = sorted(set(payload) & set(PROVENANCE_FIELDS))
+    if forbidden:
+        raise ValueError("provenance fields are server-managed: " + ", ".join(forbidden))
 
 
 def install() -> None:
@@ -151,9 +156,7 @@ def build_reused_payload(
 
     base = strip_provenance(source.configuration)
     requested = dict(overrides or {})
-    forbidden = sorted(set(requested) & set(PROVENANCE_FIELDS))
-    if forbidden:
-        raise ValueError("provenance fields are server-managed: " + ", ".join(forbidden))
+    assert_client_payload_has_no_provenance(requested)
     merged = dict(base)
     merged.update(requested)
     effective = strip_provenance(contract.normalize_audit_job_payload(merged))
