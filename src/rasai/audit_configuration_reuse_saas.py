@@ -9,9 +9,9 @@ from rasai.audit_configuration_reuse import (
     PROVENANCE_FIELDS,
     changed_fields,
     load_reusable_audit_configuration,
-    persist_audit_configuration,
     strip_provenance,
 )
+from rasai.audit_configuration_reuse_runtime import configuration_context
 
 _INSTALLED = False
 
@@ -46,7 +46,7 @@ def _validate_provenance(payload: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def install() -> None:
-    """Allow durable AUDIT payloads to carry non-execution provenance safely."""
+    """Extend AUDIT payload validation and bind provenance before worker execution."""
     global _INSTALLED
     if _INSTALLED:
         return
@@ -75,6 +75,46 @@ def install() -> None:
     worker.audit_job_environment_overrides = environment_without_provenance
     if hasattr(cost_forecast, "normalize_audit_job_payload"):
         cost_forecast.normalize_audit_job_payload = normalize_with_provenance
+
+    if not getattr(worker, "_rasai_audit_configuration_reuse", False):
+        original_run_audit = worker._run_audit
+
+        def run_audit_with_configuration(store: Any, job: Any, audits_root: Any):
+            normalized = normalize_with_provenance(job.payload)
+            effective = strip_provenance(normalized)
+            with configuration_context(
+                kind=KIND_AUDIT_PAYLOAD,
+                configuration=effective,
+                source_audit_id=(
+                    str(normalized["configuration_source_audit_id"])
+                    if normalized.get("configuration_source_audit_id")
+                    else None
+                ),
+                source_configuration_hash=(
+                    str(normalized["configuration_source_hash"])
+                    if normalized.get("configuration_source_hash")
+                    else None
+                ),
+                changed_fields=tuple(
+                    str(item) for item in normalized.get("configuration_changed_fields", ())
+                ),
+                execution_series_id=(
+                    str(normalized["execution_series_id"])
+                    if normalized.get("execution_series_id")
+                    else None
+                ),
+                scope={
+                    "surface": "saas",
+                    "project_id": job.project_id,
+                    "property_id": job.property_id,
+                    "environment_id": job.environment_id,
+                    "job_id": job.job_id,
+                },
+            ):
+                return original_run_audit(store, job, audits_root)
+
+        worker._run_audit = run_audit_with_configuration
+        worker._rasai_audit_configuration_reuse = True
 
     _INSTALLED = True
 
@@ -127,34 +167,3 @@ def build_reused_payload(
         }
     )
     return effective
-
-
-def persist_worker_configuration(audits_root: str | Path, audit_id: str, job: Any) -> None:
-    """Persist the effective durable payload inside the resulting audit.db."""
-    install()
-    from rasai import audit_execution_contract as contract
-
-    normalized = contract.normalize_audit_job_payload(job.payload)
-    effective = strip_provenance(normalized)
-    source_id = normalized.get("configuration_source_audit_id")
-    source_hash = normalized.get("configuration_source_hash")
-    series_id = normalized.get("execution_series_id")
-    differences = tuple(str(item) for item in normalized.get("configuration_changed_fields", ()))
-    workspace = Path(audits_root) / audit_id
-    persist_audit_configuration(
-        workspace,
-        audit_id=audit_id,
-        kind=KIND_AUDIT_PAYLOAD,
-        configuration=effective,
-        source_audit_id=str(source_id) if source_id else None,
-        source_configuration_hash=str(source_hash) if source_hash else None,
-        changed=differences,
-        execution_series_id=str(series_id) if series_id else None,
-        scope={
-            "surface": "saas",
-            "project_id": job.project_id,
-            "property_id": job.property_id,
-            "environment_id": job.environment_id,
-            "job_id": job.job_id,
-        },
-    )
