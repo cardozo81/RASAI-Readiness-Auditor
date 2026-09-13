@@ -62,8 +62,8 @@ Fórmula atual:
 
 ```text
 estimated_cost =
-  ((estimated_input_tokens - estimated_cached_tokens) * input_price
-   + estimated_cached_tokens * cached_input_price
+  ((estimated_input_tokens - estimated_cached_input_tokens) * input_price
+   + estimated_cached_input_tokens * cached_input_price
    + estimated_output_tokens * output_price)
   / 1_000_000
 ```
@@ -87,7 +87,7 @@ Reasoning pode ser declarado como:
 
 Toda regra possui `effective_from`; `effective_until` é opcional. Sem regra vigente, o modelo é não precificado.
 
-## 5. Estado atual por provider — referência 13/09/2026
+## 5. Estado atual por provider - referência 13/09/2026
 
 Valores em USD por 1 milhão de tokens.
 
@@ -105,7 +105,7 @@ Valores em USD por 1 milhão de tokens.
 | Qwen `qwen3.8-max` | 1,65 | 0,206 | 4,951 | US/Virginia |
 | Gemini `gemini-3.8-flash` | 0,75 | 0,075 | 3,75 | reasoning soma no output; regra até 01/01/2027 UTC |
 | Anthropic `claude-sonnet-5` | 2,00 | 0,20 | 10,00 | standard/cache read |
-| GitHub Copilot | — | — | — | explicit-only; não precificado e fora do AUTO |
+| GitHub Copilot | - | - | - | explicit-only; não precificado e fora do AUTO |
 
 ### DeepSeek
 
@@ -170,15 +170,19 @@ A política de preço continua independente da política de saúde do provider.
 
 ## 8. SaaS
 
-O control plane deve persistir/publicar o mesmo documento lógico do catálogo e entregar um snapshot imutável ao execution job/worker. O parser aceita `Mapping` via `load_pricing_catalog(document=...)`, evitando um segundo motor de pricing para SaaS.
+O control plane deve persistir/publicar o mesmo documento lógico do catálogo e fixar uma versão imutável no `ExecutionJob`.
 
-Escopos futuros recomendados:
+O parser aceita `Mapping` via `load_pricing_catalog(document=...)` para validar e normalizar o cadastro do control plane. Para execução, o contrato atual é deliberadamente **job-scoped**: o worker recebe/materializa o snapshot daquele job como TOML e inicia o processo com `RASAI_AI_PRICING_SOURCE=file` e `RASAI_AI_PRICING_FILE=<snapshot>`. Assim, o `ai_cost_policy` carrega uma única política imutável no bootstrap do processo.
+
+Não deve existir hot reload global de catálogo dentro de um worker que execute organizações diferentes de forma concorrente. Uma alteração administrativa publicada depois do início de um job vale somente para jobs posteriores.
+
+Escopos futuros recomendados no control plane:
 
 ```text
 ORGANIZATION > DEPLOYMENT > FACTORY > UNPRICED
 ```
 
-Isso permite preços contratuais/BYOK por organização sem alterar adapters.
+Isso permite preços contratuais/BYOK por organização sem alterar adapters nem criar um segundo motor de pricing.
 
 ## 9. Política de revisão
 
