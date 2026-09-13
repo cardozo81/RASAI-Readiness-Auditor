@@ -11,6 +11,7 @@ import os
 from rasai import console_provider_environment as console_environment
 from rasai import console_search_intelligence, interactive_console
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
+from rasai.ai_pricing_console import install as install_ai_pricing_console
 from rasai.ai_provider_console_management import install as install_ai_provider_console_management
 from rasai.audit_configuration_reuse_console import install as install_audit_configuration_reuse_console
 from rasai.console_apdex_configuration import configure_apdex
@@ -110,6 +111,9 @@ def main() -> int:
     # console keeps service metadata, validation and secret-safety semantics.
     install_standards_console_runtime()
     install_external_observability_console()
+    # Pricing source/path must participate in the same canonical console catalog so a
+    # factory reset can remove persistent Windows/User overrides across restarts.
+    install_ai_pricing_console()
     install_report_observation_reconciliation()
     install_runtime_adherence_extensions()
     install_integration_state_contract()
