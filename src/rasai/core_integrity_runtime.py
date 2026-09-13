@@ -89,6 +89,8 @@ def install() -> None:
         if status != BLOCKED or error_code not in _INTEGRITY_CODES:
             return
         workspace = kwargs.get("workspace")
+        if workspace is None and args:
+            workspace = args[0]
         audit_id = str(kwargs.get("audit_id") or "")
         component = str(kwargs.get("component") or "")
         scope_key = str(kwargs.get("scope_key") or "")
