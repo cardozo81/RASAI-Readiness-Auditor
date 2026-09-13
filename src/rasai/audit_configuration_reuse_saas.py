@@ -1,6 +1,7 @@
 """SaaS/control-plane adapter for completed-AUD configuration reuse."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Mapping
 
 from rasai.audit_configuration_reuse import (
@@ -26,6 +27,10 @@ def _validate_provenance(payload: Mapping[str, Any]) -> dict[str, Any]:
     if source_hash not in (None, ""):
         if not isinstance(source_hash, str) or len(source_hash.strip()) != 64:
             raise ValueError("configuration_source_hash must be a SHA-256 hex digest")
+        try:
+            int(source_hash.strip(), 16)
+        except ValueError as exc:
+            raise ValueError("configuration_source_hash must be a SHA-256 hex digest") from exc
         result["configuration_source_hash"] = source_hash.strip().lower()
     series = payload.get("execution_series_id")
     if series not in (None, ""):
@@ -47,7 +52,7 @@ def install() -> None:
         return
 
     from rasai import audit_execution_contract as contract
-    from rasai import cost_forecast, execution_contract, saas_context_integration, worker
+    from rasai import cost_forecast, execution_contract, worker
 
     original_normalize = contract.normalize_audit_job_payload
     original_environment = contract.audit_job_environment_overrides
@@ -64,12 +69,10 @@ def install() -> None:
     contract.audit_job_environment_overrides = environment_without_provenance
     contract.AUDIT_JOB_FIELDS = frozenset(set(contract.AUDIT_JOB_FIELDS) | set(PROVENANCE_FIELDS))
 
-    # Several modules import the callable directly. Keep every execution surface on
-    # the same final contract, matching the extension pattern already used elsewhere.
+    # These modules import the contract callable directly at module import time.
     execution_contract.normalize_audit_job_payload = normalize_with_provenance
     worker.normalize_audit_job_payload = normalize_with_provenance
     worker.audit_job_environment_overrides = environment_without_provenance
-    saas_context_integration.normalize_audit_job_payload = normalize_with_provenance if hasattr(saas_context_integration, "normalize_audit_job_payload") else getattr(saas_context_integration, "normalize_audit_job_payload", None)
     if hasattr(cost_forecast, "normalize_audit_job_payload"):
         cost_forecast.normalize_audit_job_payload = normalize_with_provenance
 
@@ -77,7 +80,7 @@ def install() -> None:
 
 
 def build_reused_payload(
-    audits_root: str,
+    audits_root: str | Path,
     source_audit_id: str,
     overrides: Mapping[str, Any] | None,
     *,
@@ -126,7 +129,7 @@ def build_reused_payload(
     return effective
 
 
-def persist_worker_configuration(audits_root: str, audit_id: str, job: Any) -> None:
+def persist_worker_configuration(audits_root: str | Path, audit_id: str, job: Any) -> None:
     """Persist the effective durable payload inside the resulting audit.db."""
     install()
     from rasai import audit_execution_contract as contract
@@ -137,7 +140,7 @@ def persist_worker_configuration(audits_root: str, audit_id: str, job: Any) -> N
     source_hash = normalized.get("configuration_source_hash")
     series_id = normalized.get("execution_series_id")
     differences = tuple(str(item) for item in normalized.get("configuration_changed_fields", ()))
-    workspace = str(audits_root) + "/" + audit_id
+    workspace = Path(audits_root) / audit_id
     persist_audit_configuration(
         workspace,
         audit_id=audit_id,
