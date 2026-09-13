@@ -22,13 +22,7 @@ _INSTALLED = False
 
 
 def _compact_semantic_provider_payload(payload: Any) -> Any:
-    """Remove only transport-only or exact duplicate provider-input fields.
-
-    Full main content, Structured Data, evidence ids and observed evidence remain intact.
-    Local artifact paths cannot be dereferenced by a remote model. The context evidence's
-    title and excerpt are exact duplicates of top-level title/main_content, so only the
-    availability flags are retained in that evidence item.
-    """
+    """Remove only transport-only or exact duplicate provider-input fields."""
     if not isinstance(payload, dict):
         return payload
     compact = dict(payload)
@@ -105,13 +99,12 @@ def _patch_instruction_function(module: Any, name: str) -> None:
 
 
 def install() -> None:
-    """Install lossless input de-duplication and concise-output guidance."""
+    """Install lossless input de-duplication and evidence-readiness gates."""
     global _INSTALLED
     if _INSTALLED:
         return
 
-    from rasai import semantic
-    from rasai import m18_ai
+    from rasai import m18_ai, semantic
 
     _patch_provider_payload(semantic)
     _patch_request_method(semantic.OpenAIProvider)
@@ -129,6 +122,31 @@ def install() -> None:
     except ImportError:
         pass
 
+    # One fulfillment contract governs initial execution and selective recovery.
+    # Core evidence recovery runs before AI recovery so no provider call can be used
+    # as a substitute for missing acquisition/render/extraction evidence. Integrity
+    # invalidation is installed before context composition so a recorded SUCCESS can
+    # be blocked only when its persisted evidence is demonstrably missing.
+    from rasai.audit_fulfillment_runtime import install as install_audit_fulfillment
+    from rasai.audit_fulfillment_saas import install as install_audit_fulfillment_saas
+    from rasai.core_integrity_runtime import install as install_core_integrity
+    from rasai.core_reprocessing import install as install_core_reprocessing
+    from rasai.core_reprocessing_context import install as install_core_reprocessing_context
+    from rasai.reprocess_runtime_safety import install as install_reprocess_runtime_safety
+    from rasai.semantic_recovery_runtime import install as install_semantic_recovery
+    from rasai.technical_ai_eligibility import install as install_technical_ai_eligibility
+
+    install_audit_fulfillment()
+    install_core_reprocessing()
+    install_core_integrity()
+    install_core_reprocessing_context()
+    install_semantic_recovery()
+    install_audit_fulfillment_saas()
+    install_technical_ai_eligibility()
+    # Install last so the RPR trace wraps the final prerequisite-preserving apply
+    # function and the M20 recovery path uses stable ContextVar-aware hooks.
+    install_reprocess_runtime_safety()
+
     _INSTALLED = True
 
 
@@ -141,4 +159,5 @@ def strategy_summary() -> dict[str, Any]:
         "device_snapshot_deduplication": "NOT_MERGED_WHEN_EVIDENCE_IDENTITIES_DIFFER",
         "input_policy": "LOSSLESS_DUPLICATE_REMOVAL_NO_LOCAL_ARTIFACT_PATHS",
         "output_policy": "CONCISE_EVIDENCE_BOUND_NO_INPUT_RESTATEMENT",
+        "eligibility_policy": "NO_PROVIDER_CALL_UNTIL_REQUIRED_PERSISTED_EVIDENCE_IS_READY",
     }

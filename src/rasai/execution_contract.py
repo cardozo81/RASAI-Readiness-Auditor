@@ -5,7 +5,7 @@ from typing import Any, Mapping
 
 from rasai.audit_execution_contract import normalize_audit_job_payload
 
-SUPPORTED_EXECUTION_JOB_TYPES = frozenset({"AUDIT", "SEARCH_MONITOR", "REPORT_REFRESH"})
+SUPPORTED_EXECUTION_JOB_TYPES = frozenset({"AUDIT", "AUDIT_REPROCESS", "SEARCH_MONITOR", "REPORT_REFRESH"})
 
 
 def validate_execution_job_payload(job_type: str, payload: Mapping[str, Any]) -> None:
@@ -21,6 +21,18 @@ def validate_execution_job_payload(job_type: str, payload: Mapping[str, Any]) ->
 
     if normalized_type == "AUDIT":
         normalize_audit_job_payload(payload)
+        return
+
+    if normalized_type == "AUDIT_REPROCESS":
+        allowed = {"audit_id", "status_only"}
+        if set(payload) - allowed:
+            raise ValueError("AUDIT_REPROCESS accepts only payload.audit_id and payload.status_only")
+        audit_id = payload.get("audit_id")
+        if not isinstance(audit_id, str) or not audit_id.strip().upper().startswith("AUD-"):
+            raise ValueError("AUDIT_REPROCESS requires a valid payload.audit_id")
+        status_only = payload.get("status_only", False)
+        if not isinstance(status_only, bool):
+            raise ValueError("AUDIT_REPROCESS payload.status_only must be boolean")
         return
 
     if normalized_type == "SEARCH_MONITOR":

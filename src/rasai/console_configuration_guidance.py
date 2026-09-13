@@ -84,6 +84,13 @@ def normalize_spec(spec):
         required_when = "Opcional; mantenha o default salvo necessidade de diagnóstico/retenção diferente."
         impact = "Valor maior pode aumentar audit.db/artefatos; não altera tokens enviados ao provider nem scoring."
         source = "docs/AI_RUNTIME_SECURITY.md"
+    elif spec.name == "RASAI_REPROCESS_LIVE_VALIDITY_MINUTES":
+        value_type = "inteiro 1..10080"
+        purpose = "Define a janela máxima para reprocessar requisitos LIVE_RECOLLECTION no mesmo AUD sem misturar observações temporalmente incompatíveis."
+        default = "1440"
+        required_when = "Opcional; mantenha o default de 24 horas salvo política metodológica explícita."
+        impact = "Janela maior aumenta o risco de combinar estados diferentes do site; janela menor pode exigir um novo AUD mais cedo."
+        source = "docs/AUDIT_REPROCESSING.md"
     elif spec.name in {"RASAI_IMPROVEMENT_AI_MODEL", "RASAI_IMPROVEMENT_AI_REASONING"}:
         registration = _improvement_provider_registration()
         if registration is not None:
@@ -165,6 +172,8 @@ def context_for(spec) -> str:
         return "Control plane / banco"
     if name.startswith("RASAI_PLAYWRIGHT_") or name.startswith("RASAI_BROWSER_"):
         return "Browser / Playwright"
+    if name.startswith("RASAI_REPROCESS_"):
+        return "Reprocessamento seletivo"
     service = _service_for_env(name)
     if service is not None:
         return service.label
