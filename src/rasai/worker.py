@@ -12,6 +12,10 @@ import os
 from pathlib import Path
 from typing import Any, Iterator, Mapping
 
+from rasai.audit_configuration_reuse_saas import (
+    install as install_audit_configuration_reuse_saas,
+    persist_worker_configuration,
+)
 from rasai.audit_execution_contract import (
     audit_job_environment_overrides,
     normalize_audit_job_payload,
@@ -66,6 +70,7 @@ def _temporary_environment(overrides: Mapping[str, str]) -> Iterator[None]:
 
 
 def _audit_arguments(store: Any, job: Any, audits_root: Path) -> list[str]:
+    install_audit_configuration_reuse_saas()
     prop = next((item for item in store.list_properties(job.project_id) if item.property_id == job.property_id), None)
     if prop is None:
         raise KeyError(f"execution property not found: {job.property_id}")
@@ -162,12 +167,22 @@ def _run_audit(store: Any, job: Any, audits_root: Path) -> WorkerResult:
     environment_overrides = audit_job_environment_overrides(job.payload)
     with _temporary_environment(environment_overrides):
         code = rasai_main(argv)
-    if code != 0:
-        raise RuntimeError(f"RASAi audit execution returned exit code {code}")
     audits = store.list_audits(property_id=job.property_id, environment_id=job.environment_id)
     new_audits = [item for item in audits if item.audit_id not in previous_ids]
     latest = max(new_audits or audits, key=lambda item: item.event_time) if audits else None
+    configuration_warning: str | None = None
+    if latest is not None:
+        try:
+            persist_worker_configuration(str(audits_root), latest.audit_id, job)
+        except Exception as exc:
+            # Reusable configuration is derived provenance. Failure to persist it may
+            # block future reuse, but must never rewrite the audit result itself.
+            configuration_warning = redact_text(str(exc))
+    if code != 0:
+        raise RuntimeError(f"RASAi audit execution returned exit code {code}")
     metadata: dict[str, Any] = {"audit_id": latest.audit_id if latest is not None else None}
+    if configuration_warning:
+        metadata["configuration_snapshot_warning"] = configuration_warning
     if latest is not None and hasattr(store, "record_usage_once"):
         try:
             ingest_audit_usage(
@@ -258,6 +273,7 @@ def _run_report_refresh(store: Any, job: Any, audits_root: Path) -> WorkerResult
 
 
 def execute_job(store: Any, job: Any, *, audits_root: str | Path = "audits") -> WorkerResult:
+    install_audit_configuration_reuse_saas()
     root = Path(audits_root)
     if job.job_type == "AUDIT":
         return _run_audit(store, job, root)
