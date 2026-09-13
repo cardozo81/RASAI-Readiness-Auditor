@@ -4,17 +4,20 @@ Este documento descreve o contrato operacional do RASAi para uso de provedores d
 
 A lógica deste documento é operacional. Ela não altera a identidade pública `SARI-001`, a metodologia `SCORE-GEO-004` nem transforma respostas de IA em fatos determinísticos do website.
 
+A política financeira, preços, janelas horárias e critérios de revisão do catálogo estão detalhados em [`AUTO_COST_AWARE_AI_ROUTING.md`](AUTO_COST_AWARE_AI_ROUTING.md).
+
 ## 1. Princípios
 
 1. A configuração humana/original é preservada.
 2. Telemetria de IA é separada de evidência de scoring.
 3. Uma falha de provider não pode produzir loop infinito.
-4. `AI=auto` deve distribuir chamadas entre os providers aptos **e incluídos no pool AUTO** da execução, em vez de consumir sempre o primeiro da lista.
+4. `AI=auto` deve escolher primeiro, entre os providers aptos e incluídos no pool AUTO, o candidato com menor custo estimado para a necessidade atual quando existir pricing conhecido.
 5. Capacidade (`APTA`) e participação no AUTO são estados diferentes: um provider pode permanecer apto e explicitamente selecionável mesmo quando o usuário o exclui do AUTO.
 6. Falhas terminais retiram o provider do restante daquela execução.
 7. Falhas temporárias permitem novas oportunidades, mas são limitadas por circuit breaker.
 8. Requests e responses externos são auditáveis, com sanitização de segredos.
 9. Interpretações YMYL/E-E-A-T de campos `auto` são informativas e transitórias: não sobrescrevem configuração nem entram no cálculo do SARI.
+10. Economia nunca reativa provider em quarentena nem altera classificação de falha.
 
 ## 2. Elegibilidade em `AI=auto`
 
@@ -32,23 +35,36 @@ Providers sem credencial, com configuração inválida ou excluídos pelo usuár
 
 A elegibilidade é específica da execução. Uma exclusão causada por falha não altera a configuração global nem impede o uso em auditorias futuras.
 
-## 3. Round-robin por necessidade de IA
+## 3. Seleção por custo por necessidade de IA
 
-O coordenador mantém um cursor compartilhado durante a auditoria. Cada nova necessidade de IA começa pelo próximo provider elegível após o último provider efetivamente tentado.
+O coordenador mantém a saúde de todos os providers durante a auditoria. Antes de cada necessidade de IA, os providers ainda elegíveis são avaliados pelo custo estimado da requisição atual.
 
-Exemplo com `A`, `B`, `C`, `D`, sendo `D` apto porém excluído pelo usuário do AUTO:
+O cálculo considera, quando aplicável:
+
+- provider e modelo configurados;
+- reasoning configurado;
+- tamanho estimado do payload de input;
+- output esperado para a finalidade;
+- cache observado em chamadas anteriores comparáveis da mesma execução;
+- preço vigente no instante da chamada;
+- janela peak/off-peak oficial;
+- faixas de contexto que alteram preço.
+
+Providers com preço conhecido são ordenados do menor para o maior custo estimado. Em empate, permanece o rank canônico. Providers futuros ou sem preço catalogado são colocados depois dos precificados e preservam entre si a ordem rotativa legada.
+
+Exemplo conceitual com `A`, `B`, `C`, sendo todos elegíveis:
 
 ```text
-pool efetivo -> A, B, C
-necessidade 1 -> A
-necessidade 2 -> B
-necessidade 3 -> C
-necessidade 4 -> A
+necessidade 1 -> estimar A/B/C -> menor custo estimado primeiro
+se o primeiro falhar -> tentar o próximo candidato daquela mesma necessidade
+necessidade 2 -> recalcular preços/tokens/horário/saúde antes de ordenar novamente
 ```
 
-Se `B` falhar temporariamente na necessidade 2, a mesma necessidade continua em `C`. O cursor avança depois de cada tentativa; `B` não recebe retry imediato dentro daquela necessidade e poderá voltar a ser considerado em uma necessidade posterior se continuar elegível.
+A ordem pode mudar entre duas necessidades consecutivas. Isso é intencional: o horário pode cruzar uma janela tarifária, o request pode ser maior, o reasoning/modelo pode ser diferente e o histórico de usage pode melhorar a estimativa.
 
 Em uma mesma necessidade, cada provider é visitado no máximo uma vez. Quando todos os candidatos elegíveis foram tentados sem sucesso, a necessidade termina como indisponível. Não há ciclo de retry entre providers.
+
+O runtime não troca silenciosamente para Batch, Flex ou outro service tier de maior latência. A comparação econômica usa os modos síncronos compatíveis com o contrato vigente.
 
 ## 4. Classes de falha e circuit breaker
 
@@ -75,18 +91,20 @@ Uma tentativa com sucesso entra na mesma janela e reduz naturalmente a densidade
 
 ### 4.3 Provider explicitamente selecionado
 
-Quando o usuário escolhe um provider específico em vez de `auto`, permanecem válidas as regras de retry do adapter daquele provider. A política round-robin e `RASAI_AI_AUTO_EXCLUDE` são exclusivas do AUTO.
+Quando o usuário escolhe um provider específico em vez de `auto`, permanecem válidas as regras de retry do adapter daquele provider. A ordenação econômica multi-provider e `RASAI_AI_AUTO_EXCLUDE` são exclusivas do AUTO.
 
 ## 5. Compartilhamento da política entre módulos
 
-O estado do coordenador AUTO é de execução, não de módulo. Sempre que o adapter é compatível, o mesmo cursor e a mesma saúde do provider são compartilhados por:
+O estado do coordenador AUTO é de execução, não de módulo. Sempre que o adapter é compatível, a mesma saúde do provider e a mesma política de custo são compartilhadas por:
 
 - análise semântica;
 - remediação de conteúdo;
 - remediação técnica;
 - explicações especializadas integradas ao runtime.
 
-Isso evita que cada módulo reinicie a cadeia pelo primeiro provider e concentre consumo em um único serviço. Tentativas que prosseguem para outro provider devem preservar `FALLBACK`/`fallback_from_provider`/`fallback_reason` na telemetria, inclusive em fluxos especializados.
+Análise semântica e remediação de conteúdo conseguem estimar o payload lógico do candidato antes da chamada. Fluxos especializados que constroem o payload completo somente depois da seleção usam baseline por finalidade na primeira decisão e passam a incorporar o usage nativo observado em chamadas seguintes.
+
+Isso evita concentração cega de consumo e permite que a ordem responda ao perfil real de tokens da execução. Tentativas que prosseguem para outro provider devem preservar `FALLBACK`/`fallback_from_provider`/`fallback_reason` na telemetria, inclusive em fluxos especializados.
 
 ## 6. Log de comunicação com IA
 
@@ -135,7 +153,7 @@ Uma chamada externa pode ter sido concluída pelo provider e ainda assim ser rej
 
 A telemetria deve preservar essa distinção. Uma resposta rejeitada pelo contrato não deve ser rotulada genericamente como “provider indisponível” quando o provider de fato respondeu.
 
-Custos em `ai-usage.html` são somados a partir de `estimated_cost` e `cost_currency` persistidos nas tentativas. Uma chamada sem usage retornado pelo provider não recebe custo inventado, mesmo que o billing externo possa posteriormente registrar cobrança.
+Custos em `ai-usage.html` são somados a partir de `estimated_cost` e `cost_currency` persistidos nas tentativas. Uma chamada sem usage retornado pelo provider não recebe custo observado inventado, mesmo que o billing externo possa posteriormente registrar cobrança. O ranking pré-chamada, porém, pode usar estimativas conservadoras para decidir qual candidato tentar primeiro.
 
 ## 8. Projeção de JSON Schema no wire
 
@@ -230,7 +248,10 @@ A análise semântica competitiva por IA é outro opt-in separado. Ela pode suge
 
 A suíte deve cobrir no mínimo:
 
-- round-robin entre necessidades;
+- seleção do candidato precificado de menor custo por necessidade;
+- reavaliação dinâmica de horário/contexto/modelo/reasoning;
+- DeepSeek peak/off-peak com weekday calculado em UTC;
+- preservação da ordem rotativa legada entre providers sem pricing conhecido;
 - exclusão voluntária de provider do AUTO sem apagar sua credencial e sem impedir seleção explícita;
 - fallback no mesmo contexto sem repetir provider;
 - telemetria de fallback também nos fluxos especializados;
@@ -240,7 +261,7 @@ A suíte deve cobrir no mínimo:
 - ausência de loop quando todos falham;
 - sanitização de segredos no exchange log;
 - truncamento/hash;
-- custo agregado derivado de telemetria persistida e ausência de custo inventado sem usage;
+- custo agregado derivado de telemetria persistida e ausência de custo observado inventado sem usage;
 - não persistência do contexto editorial transitório;
 - projeção de schema OpenAI sem alterar o validador local;
 - aceitação/transporte de `agentic-browsing` no PageSpeed v5 atual;
