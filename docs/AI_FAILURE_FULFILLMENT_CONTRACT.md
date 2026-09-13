@@ -1,0 +1,417 @@
+# Contrato de falhas de IA, fulfillment e conclusão do AUD
+
+**Estado do produto:** pré-publicação.  
+**Data de referência desta documentação:** 13/09/2026.  
+**Contrato de pricing de referência:** `RASAI-PRICING-2026-09-13`.
+
+Este documento define a relação entre configuração efetiva, trabalho esperado, tentativas externas, consumo, fulfillment, resultado lógico do `AUD-*`, reprocessamento e apresentação no console/SaaS.
+
+O objetivo é impedir que o encerramento físico de um processo, a disponibilidade de um provider ou a existência de um HTML sejam confundidos com conclusão analítica da auditoria.
+
+## 1. Dois estados diferentes
+
+O RASAi mantém duas noções que não são equivalentes:
+
+1. **progresso físico da execução**: indica quanto do processo/orquestração terminou;
+2. **fulfillment lógico do AUD**: indica se todos os requisitos obrigatórios e aplicáveis da configuração original foram atendidos.
+
+Uma execução pode chegar a:
+
+```text
+Execução física : 100% ENCERRADA
+```
+
+sem que o AUD esteja completo.
+
+Exemplo válido:
+
+```text
+Execução física : 100% ENCERRADA
+Status do AUD   : PARCIAL - REPROCESSÁVEL
+Relatório       : PRELIMINARY
+Score           : PENDING
+Consolidação    : NÃO ELEGÍVEL
+Requisitos      : 7/8 atendidos
+```
+
+`100%` descreve o término físico do processo. Não significa sucesso de todos os requisitos.
+
+## 2. Universo obrigatório da auditoria
+
+A configuração efetiva original define os work items que precisam ser satisfeitos.
+
+Um componente opcional só entra como requisito quando foi efetivamente solicitado ou habilitado pela configuração aplicável à execução.
+
+Exemplos de componentes que podem participar do fulfillment:
+
+- `CORE_AUDIT`;
+- `SEMANTIC_AI`;
+- `TECHNICAL_AI`;
+- `CONTENT_REMEDIATION_AI`;
+- `IMPROVEMENT_INTELLIGENCE`;
+- `WEB_PERFORMANCE`;
+- `PAGESPEED_LIGHTHOUSE`;
+- `CRUX`;
+- `CRUX_HISTORY`;
+- `SYNTHETIC_APDEX`;
+- `EXPERIENCE_APDEX`;
+- `GOOGLE_SEARCH_CONSOLE`;
+- demais serviços opcionais explicitamente solicitados e representáveis pelo registry canônico.
+
+Serviços default que não constituem uma escolha explícita do usuário não são promovidos indiscriminadamente a requisito obrigatório apenas por existirem no registry.
+
+## 3. Estados de work item
+
+O contrato base continua usando os estados canônicos existentes e admite estados operacionais adicionais que continuam sendo pendências até resolução.
+
+Estados relevantes:
+
+| Estado | Significado |
+| --- | --- |
+| `SUCCESS` | requisito atendido |
+| `NOT_APPLICABLE` | requisito não se aplica ao universo observado |
+| `DISABLED` | recurso não solicitado/desabilitado |
+| `WAITING_FOR_DATA` | falta evidência/pré-requisito recuperável |
+| `NOT_CONFIGURED` | recurso solicitado, mas configuração obrigatória está ausente |
+| `REQUESTED_NOT_EXECUTED` | recurso solicitado e elegível, porém sem execução materializada |
+| `FAILED_RETRYABLE` | houve tentativa/falha recuperável |
+| `FAILED_PERMANENT` | falha não recuperável no mesmo AUD |
+| `BLOCKED` | requisito bloqueado por integridade, dependência ou condição não recuperável no mesmo fluxo |
+
+`NOT_CONFIGURED` e `REQUESTED_NOT_EXECUTED` são pendências. Não são sucesso e não podem desaparecer do denominador quando o componente era obrigatório.
+
+## 4. REQUESTED_NOT_EXECUTED
+
+O estado `REQUESTED_NOT_EXECUTED` representa explicitamente:
+
+```text
+solicitado = sim
+pré-requisitos = suficientes para a etapa existir
+execução materializada = não
+```
+
+Exemplos:
+
+- `RASAI_IMPROVEMENT_INTELLIGENCE=true`, mas nenhuma linha foi materializada em `improvement_intelligence_runs`;
+- `RASAI_SYNTHETIC_APDEX=true`, mas nenhuma execução Synthetic Apdex foi registrada;
+- `RASAI_APDEX_EXPERIENCE=true`, mas nenhuma execução Experience Apdex foi registrada;
+- serviço externo explicitamente habilitado, configurado e sem registro operacional após a finalização.
+
+A classificação é de orquestração/runtime e permanece reprocessável.
+
+## 5. CONTRACT_ERROR não é provider indisponível
+
+Um provider pode responder corretamente no transporte/API e ainda assim devolver conteúdo recusado pelo contrato evidence-bound do RASAi.
+
+Fluxo:
+
+```text
+RASAi
+  -> provider
+  -> resposta HTTP/API recebida
+  -> tokens observados
+  -> validação local M24
+  -> resposta viola contrato evidence-bound
+  -> CONTRACT_ERROR
+```
+
+Nesse caso é incorreto classificar a tentativa como indisponibilidade do provider.
+
+O provider esteve disponível para transporte e execução. A falha está na validade contratual do conteúdo recebido.
+
+### 5.1 Diagnóstico M24
+
+Para uma rejeição local do contrato M24, a tentativa mantém:
+
+```text
+status       = CONTRACT_ERROR
+error_class  = CONTRACT_ERROR
+error_type   = tipo da exceção local, por exemplo ValueError
+error_code   = M24_CONTRACT_VALIDATION_ERROR
+error_detail = mensagem sanitizada da validação
+```
+
+O fulfillment projeta isso como:
+
+```text
+component    = TECHNICAL_AI
+status       = FAILED_RETRYABLE
+error_class  = AI_CONTRACT
+error_code   = M24_CONTRACT_VALIDATION_ERROR
+```
+
+A mensagem sanitizada preserva o motivo concreto, por exemplo:
+
+```text
+M24 AI resource assessment references evidence outside its resource universe
+```
+
+### 5.2 Proteções que permanecem obrigatórias
+
+A classificação correta do erro não reduz as validações M24.
+
+Continuam inválidos, entre outros:
+
+- diagnostic code desconhecido;
+- `evidence_id` inexistente;
+- evidência fora do universo fornecido;
+- evidência de um recurso usada para justificar outro;
+- recurso duplicado;
+- campos obrigatórios ausentes;
+- classificação inválida;
+- confidence fora do intervalo permitido;
+- schema inconsistente.
+
+Nenhuma resposta rejeitada é promovida artificialmente a sucesso.
+
+## 6. Retry corretivo de CONTRACT_ERROR
+
+Na referência de 13/09/2026, `CONTRACT_ERROR` M24 é marcado como:
+
+```text
+retry_eligible = true
+decision       = REPROCESS_ELIGIBLE
+```
+
+O retry corretivo é executado por **reprocessamento seletivo**, e não como uma segunda chamada automática imediata no mesmo passo.
+
+Motivo: erros evidence-bound podem indicar violação estrutural ou metodológica. Reenviar automaticamente uma mensagem de reparo sem uma política especializada por classe de erro poderia:
+
+- gerar chamada paga adicional sem ganho provável;
+- induzir a IA a mascarar uma referência inválida;
+- alterar a estrutura sem corrigir a relação real entre recurso e evidência;
+- criar comportamento diferente entre providers.
+
+Esta decisão não impede evolução futura para retry corretivo automático. Se ele for habilitado, deverá ser bounded, provider-neutral, contabilizado como nova tentativa e restrito às classes consideradas estruturalmente reparáveis.
+
+## 7. Fallback e cadeia de providers
+
+Cada chamada continua sendo uma tentativa independente.
+
+Quando uma tentativa falha e outra IA é chamada na sequência:
+
+- a nova tentativa registra `fallback_from_provider` e `fallback_reason` quando aplicável;
+- a tentativa anterior permanece append-only;
+- o fallback não apaga tokens/custo da tentativa anterior;
+- AUTO e seleção explícita continuam obedecendo as regras canônicas de roteamento;
+- quarentena não é contornada por este contrato.
+
+`CONTRACT_ERROR` não é convertido automaticamente em `PROVIDER_UNAVAILABLE` para justificar quarentena.
+
+## 8. Pricing e custo por tentativa
+
+Não existe um pricing resolver específico para fulfillment ou retry.
+
+Toda chamada real usa o motor canônico introduzido pela arquitetura parametrizável:
+
+```text
+ai-pricing-defaults.toml / catálogo selecionado
+             ->
+regra vigente para provider/modelo/contexto/horário
+             ->
+ai_provider_attempts
+```
+
+Uma tentativa que termina em `CONTRACT_ERROR` pode ter custo real estimável porque o provider respondeu e devolveu usage.
+
+Esse custo não desaparece por a resposta analítica ter sido rejeitada.
+
+Persistem, quando informados pelo provider/adapters:
+
+- input tokens;
+- cached input tokens;
+- output tokens;
+- reasoning tokens;
+- total tokens;
+- custo estimado observado;
+- moeda;
+- `pricing_version`;
+- horário e duração.
+
+### 8.1 Tentativas posteriores
+
+Uma nova tentativa causada por reprocessamento, retry ou fallback usa a política de preço vigente no instante da nova chamada.
+
+Exemplo:
+
+```text
+tentativa 1 - 00:55 UTC - pricing rule A
+tentativa 2 - 01:05 UTC - pricing rule B
+```
+
+Cada tentativa conserva seu próprio `pricing_version` e custo.
+
+### 8.2 Histórico não é reprecificado
+
+Se o catálogo de preços mudar amanhã, uma tentativa persistida hoje não é recalculada retroativamente.
+
+O catálogo atual serve novas chamadas. A telemetria histórica conserva os valores e a versão de pricing aplicada no momento da tentativa.
+
+## 9. GSC: configuração não é falha da IA técnica
+
+Google Search Console exige sua configuração própria.
+
+Quando o serviço foi explicitamente solicitado, o token existe, mas falta:
+
+```text
+RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL
+```
+
+o work item é:
+
+```text
+component    = GOOGLE_SEARCH_CONSOLE
+status       = NOT_CONFIGURED
+error_class  = CONFIGURATION
+error_code   = SITE_URL_REQUIRED
+```
+
+Isso não altera `TECHNICAL_AI` e não deve aparecer como indisponibilidade de DeepSeek, OpenAI ou outro provider.
+
+Depois de corrigir a property, o item pode voltar a ser elegível para reprocessamento dentro das regras temporais aplicáveis.
+
+## 10. Improvement Intelligence
+
+Quando `RASAI_IMPROVEMENT_INTELLIGENCE=true`, a análise profunda passa a participar do fulfillment da execução.
+
+Estados relevantes:
+
+- configuração inválida/credencial obrigatória ausente: `NOT_CONFIGURED`;
+- configuração válida sem execução persistida: `REQUESTED_NOT_EXECUTED`;
+- execução `COMPLETE`: `SUCCESS`;
+- execução `COMPLETE_WITH_LIMITATIONS`: `FAILED_RETRYABLE` até que o requisito solicitado possa ser satisfeito conforme o contrato de recuperação.
+
+As tentativas de IA de Improvement Intelligence continuam usando `ai_provider_attempts` e o mesmo pricing canônico.
+
+## 11. Synthetic Apdex e Experience Apdex
+
+Quando explicitamente solicitados, ambos devem estar representados no fulfillment.
+
+Se as tabelas de execução existem, o estado é reconciliado pelos contratos específicos já existentes.
+
+Se o toggle está ativo, mas nenhuma execução foi materializada, o estado é `REQUESTED_NOT_EXECUTED` em vez de a etapa desaparecer do denominador.
+
+As coletas continuam classificadas como `LIVE_RECOLLECTION` e respeitam a validade temporal do AUD.
+
+## 12. Resultado final do console
+
+A tela final deve separar o encerramento físico do resultado lógico.
+
+Exemplo parcial:
+
+```text
+====================================================================
+RESULTADO DA AUDITORIA
+====================================================================
+Execução física : 100% ENCERRADA
+Audit ID        : AUD-...
+Status do AUD   : PARCIAL - REPROCESSÁVEL
+Relatório       : PRELIMINARY
+Score           : PENDING
+Consolidação    : NÃO ELEGÍVEL
+Requisitos      : 7/8 atendidos
+
+PENDÊNCIAS
+
+[REPROCESSAR] TECHNICAL_AI
+Estado     : FAILED_RETRYABLE
+Classe     : AI_CONTRACT
+Provider   : DEEPSEEK
+Modelo     : deepseek-v4-pro
+Código     : M24_CONTRACT_VALIDATION_ERROR
+Detalhe    : provider respondeu; resposta rejeitada pelo contrato evidence-bound do RASAi
+
+[CONFIGURAR] GOOGLE_SEARCH_CONSOLE
+Estado     : NOT_CONFIGURED
+Código     : SITE_URL_REQUIRED
+====================================================================
+```
+
+Exemplo final:
+
+```text
+Execução física : 100% ENCERRADA
+Status do AUD   : COMPLETO
+Relatório       : FINAL
+Score           : FINAL
+Consolidação    : ELEGÍVEL
+```
+
+## 13. Reprocessamento seletivo
+
+O `AUD-*` continua sendo uma observação lógica única.
+
+O reprocessamento:
+
+- não repete work item efetivamente `SUCCESS`;
+- executa pendências elegíveis;
+- mantém tentativas anteriores;
+- mantém custos anteriores;
+- adiciona novos custos apenas para novas chamadas reais;
+- usa pricing vigente para a nova tentativa;
+- reconstrói o estado público com o resultado efetivo mais recente;
+- só promove o AUD a `COMPLETE` quando todos os requisitos obrigatórios e aplicáveis estão satisfeitos.
+
+Um `CONTRACT_ERROR` M24 é reprocessável sem apagar a primeira tentativa que consumiu tokens.
+
+## 14. Consolidação
+
+O consolidado continua aceitando somente `AUD-*` com `consolidation_eligible=true`.
+
+Término de subprocesso, geração física dos HTMLs ou sucesso do core isoladamente não tornam uma auditoria elegível.
+
+## 15. SaaS e control plane
+
+O contrato não é exclusivo do console.
+
+O mesmo `audit_fulfillment_*`, `ai_provider_attempts` e pricing canônico são consumidos pelo worker/control plane.
+
+O SaaS deve poder distinguir:
+
+- execução física do job;
+- fulfillment do AUD;
+- falha de provider;
+- falha de contrato local;
+- ausência de configuração;
+- solicitado mas não executado;
+- retryabilidade;
+- fallback;
+- custo e `pricing_version` de cada tentativa.
+
+Payloads duráveis continuam secret-free.
+
+A camada SaaS não mantém uma tabela paralela de preço nem uma lógica alternativa de fulfillment.
+
+## 16. Segurança e diagnóstico
+
+Mensagens de exceção persistidas são sanitizadas.
+
+Não devem ser persistidos no `error_detail`:
+
+- API keys;
+- bearer tokens;
+- senhas;
+- secrets;
+- payload integral sensível;
+- conteúdo proibido pelos contratos existentes de segurança.
+
+O objetivo do diagnóstico é responder com precisão:
+
+- o provider respondeu?;
+- houve erro HTTP/timeout/auth/quota?;
+- houve resposta inválida?;
+- houve `CONTRACT_ERROR` local?;
+- qual validação recusou a resposta?;
+- houve fallback?;
+- quanto cada tentativa consumiu/custou?;
+- qual pricing version e contrato semântico estavam ativos?.
+
+## 17. Relação com outros documentos
+
+- `AI_PRICING_CONFIGURATION.md`: catálogo e schema de preços.
+- `AUTO_COST_AWARE_AI_ROUTING.md`: seleção econômica no modo AUTO.
+- `AUDIT_REPROCESSING.md`: recuperação seletiva do mesmo `AUD-*`.
+- `IMPROVEMENT_INTELLIGENCE.md`: contrato da análise profunda.
+- `EXTERNAL_OBSERVABILITY_INTEGRATIONS.md`: integrações externas e GSC.
+
+Este documento é a referência de integração entre essas superfícies na data de 13/09/2026.
