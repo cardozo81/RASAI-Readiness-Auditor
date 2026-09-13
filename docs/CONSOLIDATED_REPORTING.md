@@ -2,15 +2,23 @@
 
 ## Objetivo
 
-O consolidador reúne indicadores persistidos em auditorias `AUD-*` e gera um snapshot HTML estático para análise por domínio, período, dispositivo e URL. Ele é independente do pipeline de auditoria: não reexecuta crawl, regras, IA, scoring, PageSpeed, CrUX ou providers externos.
+O consolidador reúne indicadores persistidos em auditorias `AUD-*` e gera um snapshot HTML estático para análise por domínio, período, dispositivo e URL. A consolidação base é independente do pipeline de auditoria: não reexecuta crawl, regras, scoring, PageSpeed, CrUX ou outros collectors.
 
-O formato materializado vigente é:
+O formato materializado vigente continua:
 
 ```text
 CONS-4
 ```
 
-`CONS-4` adiciona consolidação temporal de Apdex baseada em amostras brutas e possui fingerprint próprio. `CONS-3` permanece somente como contrato/base de renderização compatível para artefatos anteriores; um snapshot `CONS-3` já existente nunca é reescrito para virar `CONS-4`.
+`CONS-4` inclui consolidação temporal de Apdex, análise determinística de evolução e, quando explicitamente solicitada pelo usuário, uma camada opcional de análise especialista por IA. O uso de IA não muda o contrato de scoring, não altera `SARI-001`/`SCORE-GEO-004` e nunca grava nos `AUD-*` fonte.
+
+Contratos derivados atuais:
+
+```text
+TEMPORAL-APDEX-001
+CONSOLIDATED-EVOLUTION-001
+CONSOLIDATED-SPECIALIST-001
+```
 
 ## Garantias de arquitetura
 
@@ -18,15 +26,17 @@ CONS-4
 - bancos fonte são abertos em modo somente leitura (`mode=ro` + `PRAGMA query_only=ON`);
 - nenhum schema de `audit.db` é migrado pelo consolidador;
 - `.rasai/consolidated-index.db` é cache derivado, descartável e reconstruível;
-- a leitura temporal de amostras Apdex ocorre diretamente nos `AUD-*`, também somente leitura;
-- falha do consolidador é independente do pipeline de auditoria;
+- Monitoring e Fix Verification calculam a evolução factual; a IA não redefine deltas;
+- falha ou ausência de IA não impede a geração do relatório consolidado;
 - `CONS-*` não substitui `AUD-*`;
 - séries metodologicamente incompatíveis nunca são fundidas silenciosamente;
-- dados ausentes nunca são convertidos em zero.
+- dados ausentes nunca são convertidos em zero;
+- segredos de providers não são persistidos no manifest nem em `specialist-analysis.json`.
 
 ```text
 AUD-*/audit.db (fonte oficial, read-only)
         |\
+        | +--> Monitoring / Fix Verification
         | +--> amostras Apdex brutas comparáveis
         |
         +----> .rasai/consolidated-index.db (cache reconstruível)
@@ -34,9 +44,14 @@ AUD-*/audit.db (fonte oficial, read-only)
                     v
           filtros + comparabilidade
                     |
+                    +--> evolução determinística
+                    |
+                    +--> IA especialista opcional
+                    |
                     v
        consolidated/CONS-*/report.html
                      + manifest.json
+                     + specialist-analysis.json
 ```
 
 ## Elegibilidade e filtros
@@ -48,6 +63,87 @@ completed_at -> started_at -> created_at
 ```
 
 Os limites do período são inclusivos. Web Performance, Apdex e ocorrências page-level podem ser filtrados por URL. Readiness persistida em nível de auditoria/dispositivo não é recalculada para um subconjunto arbitrário de URLs; quando o universo original não está contido no filtro, o valor é omitido e a limitação é declarada.
+
+A análise de evolução exige pelo menos dois `AUD-*` elegíveis. O usuário pode selecionar:
+
+```text
+FIRST_LAST       primeira auditoria x última auditoria do período
+LATEST_PREVIOUS  auditoria anterior x última auditoria
+MANUAL           baseline/current escolhidos explicitamente
+```
+
+Mobile e Desktop permanecem separados quando o sinal possui escopo de dispositivo.
+
+## Evolução determinística
+
+`CONSOLIDATED-EVOLUTION-001` reutiliza o RASAi Monitor e Quality/Fix Verification. Os estados de mudança podem incluir `IMPROVED`, `RESOLVED`, `REGRESSED`, `NEW`, `CHANGED`, `DATA_UNAVAILABLE` e `NOT_COMPARABLE`.
+
+A seção responde, sem IA:
+
+- quais sinais melhoraram;
+- quais regrediram;
+- quais novos problemas surgiram;
+- quais condições passaram de FAIL/WARNING para PASS;
+- quais condições continuam `NOT_FIXED`, `PARTIALLY_FIXED` ou `NOT_VERIFIABLE`;
+- valores antes/depois, delta, URL, dispositivo e regra quando disponíveis;
+- limitações de comparabilidade.
+
+A linguagem diferencia obrigatoriamente:
+
+```text
+melhora observada != correção verificada
+correção verificada != impacto causal em Search/IA
+```
+
+`FIXED` prova apenas a transição persistida da regra entre os dois `AUD-*` selecionados. Não prova que a correção causou melhora de ranking, tráfego, conversão ou visibilidade em IA.
+
+## Análise especialista por IA
+
+A análise `CONSOLIDATED-SPECIALIST-001` é opcional, advisory e non-scoring. Ela interpreta apenas o pacote de mudanças e Fix Verification já calculado pelo RASAi.
+
+Tópicos previstos:
+
+- SEO;
+- GEO / AI Readiness;
+- Performance;
+- UX / Apdex;
+- Acessibilidade;
+- Infraestrutura;
+- Segurança passiva;
+- Conteúdo e semântica.
+
+A resposta estruturada da IA inclui síntese, avaliação por tópico, prioridade, confiança, próximas ações e `evidence_ids`. O contrato rejeita referências a evidências que não tenham sido fornecidas no request.
+
+São proibidas alegações causais não demonstradas. Formulações como "a correção aumentou o ranking" não são aceitas somente por coincidência temporal. O texto deve usar conceitos como observado, comparável, verificado e associação temporal quando apropriado.
+
+### Seleção de provider
+
+O consolidado reutiliza a seleção de IA já ativa no console. Não existe um registry paralelo.
+
+- `none`: relatório gerado sem IA;
+- provider explícito: usa provider/model/reasoning configurados;
+- `auto`: reutiliza o roteamento canônico cost-aware do RASAi, incluindo elegibilidade, preço por horário/contexto, modelo, reasoning e circuit breaker/quarentena.
+
+A feature não altera a lógica de quarentena.
+
+### Prévia e confirmação de custo
+
+Antes de qualquer chamada externa de IA, o console calcula uma estimativa usando o mesmo catálogo e a mesma função canônica de custo do roteamento AUTO.
+
+A prévia informa, conforme disponível:
+
+- provider;
+- modelo;
+- reasoning;
+- tokens de input/output estimados;
+- contexto tarifário;
+- versão do catálogo de preços;
+- custo estimado;
+- ranking de candidatos quando a seleção é `AUTO`.
+
+A estimativa não é fatura. Usage real, cache, fallback e políticas do provider podem alterar o custo observado.
+
+A chamada externa só ocorre após confirmação explícita. Se o usuário negar, ou se não houver IA configurada/apta, o consolidado continua normalmente sem a seção especialista por IA.
 
 ## SARI-001 e SCORE-GEO-004
 
@@ -77,14 +173,14 @@ Mudança material de contexto cria outra série em vez de contaminar a série an
 - extremos não são descartados automaticamente;
 - não há trimming, winsorization ou remoção por IQR/desvio-padrão apenas por distância da média;
 - média, mediana, mínimo e máximo usam somente observações elegíveis/comparáveis;
-- para métricas page-level, estado inicial/atual é resolvido por URL antes da agregação transversal, evitando que uma URL auditada mais vezes domine o domínio;
+- para métricas page-level, estado inicial/atual é resolvido por URL antes da agregação transversal;
 - percentis externos ou já agregados não são tratados como amostras brutas.
 
 ### Quantidade de auditorias
 
 | Base | Interpretação |
 |---|---|
-| 1 AUD | **Snapshot**; não caracteriza tendência |
+| 1 AUD | **Snapshot**; não caracteriza tendência e não produz comparação especialista |
 | 2 AUDs | **Comparação de dois pontos**; variação não equivale a tendência |
 | 3+ AUDs comparáveis | **Série histórica descritiva**; não atribui causalidade |
 
@@ -108,51 +204,28 @@ Para cada série comparável, o **Apdex do período** é recalculado pelas conta
 
 ```text
 Apdex_periodo =
-  (Σ Satisfied + 0,5 × Σ Tolerating)
-  / Σ amostras_válidas
+  (sum Satisfied + 0,5 x sum Tolerating)
+  / sum amostras_validas
 ```
 
-Isso é equivalente a uma ponderação correta pelo número de amostras quando a metodologia é a mesma, mas evita tratar cada execução como se tivesse o mesmo tamanho de população.
+Percentis não são aditivos. `TEMPORAL-APDEX-001` usa as amostras brutas comparáveis para recalcular média, mediana/p50, p75, p90, p95, p99, mínimo/máximo, desvio-padrão e coeficiente de variação.
 
-Percentis não são aditivos. Por isso `p95_periodo` não é média dos `p95` de cada execução. `TEMPORAL-APDEX-001` lê as amostras brutas dos `AUD-*` comparáveis e recalcula no pool do período:
+A série é por URL e contexto. URLs diferentes não são juntadas em um único pool de tempos. Navigation preserva `T/4T`; Experience preserva KPM, thresholds, sessão, política de erros e população efetiva.
 
-- média;
-- mediana/p50;
-- p75, p90, p95 e p99;
-- mínimo/máximo;
-- desvio-padrão;
-- coeficiente de variação.
-
-A série é **por URL e contexto**. URLs diferentes não são juntadas em um único pool de tempos. Navigation preserva `T/4T`; Experience preserva KPM, thresholds, sessão, política de erros e população efetiva.
-
-Grupos pequenos continuam identificados. Mais amostras não tornam automaticamente a evidência temporalmente representativa; para monitoramento é preferível distribuir a carga em N janelas agendadas ao longo do período.
-
-Detalhes: [`CONSOLIDATED_REPORTING_TEMPORAL.md`](CONSOLIDATED_REPORTING_TEMPORAL.md), [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md) e [`SYNTHETIC_USER_EXPERIENCE_APDEX.md`](SYNTHETIC_USER_EXPERIENCE_APDEX.md).
-
-## Ocorrências
+## Ocorrências e confiabilidade analítica
 
 O consolidado pode exibir volume, severidade, categoria, páginas afetadas e evolução. O volume deve ser interpretado junto ao universo auditado; mais páginas podem gerar mais findings sem representar piora proporcional. Findings não recalculam SARI/SCORE-GEO.
 
-## Confiabilidade analítica
+O consolidado apresenta, conforme disponível, fidelidade à fonte, comparabilidade metodológica, suficiência da base histórica, Coverage/Confidence persistidas, robustez/amostragem de Apdex, status de Consolidation persistido e limitações explícitas.
 
-O consolidado não cria outro score de confiabilidade. Ele apresenta, conforme disponível:
+## Relação com RASAi Monitor e Quality
 
-- fidelidade à fonte;
-- comparabilidade metodológica;
-- suficiência da base histórica;
-- Coverage/Confidence persistidas;
-- robustez/amostragem de Apdex;
-- status de Consolidation persistido;
-- limitações explícitas de cada série.
-
-## Relação com RASAi Monitor
-
-`CONS-*` e RASAi Monitor possuem papéis diferentes:
+`CONS-*` compõe capacidades já existentes, sem duplicar metodologia:
 
 - consolidado: exploração histórica e estatística descritiva;
-- `rasai monitor compare`: baseline → current;
-- `rasai monitor gate`: release gate determinístico;
-- `rasai monitor impact`: associação temporal entre regressões e outcomes, sem causalidade.
+- Monitoring: baseline/current e deltas determinísticos;
+- Fix Verification: prova de transição persistida da regra;
+- IA especialista: interpretação/priorização opcional sobre os deltas já calculados.
 
 Nenhuma dessas superfícies altera o `audit.db` fonte.
 
@@ -162,28 +235,34 @@ Dados pós-auditoria como Search Console, URL Inspection, CrUX History e imports
 
 ## Agendamento e SaaS
 
-O scheduler/control plane já é suficiente para gerar N execuções independentes em horários distintos. Não é necessária migração de schema SaaS para `TEMPORAL-APDEX-001`.
+O scheduler/control plane já é suficiente para gerar N execuções independentes em horários distintos. Não é necessária migração de schema SaaS para `TEMPORAL-APDEX-001`, `CONSOLIDATED-EVOLUTION-001` ou `CONSOLIDATED-SPECIALIST-001`.
 
-Para uma campanha temporal, os jobs devem manter o contexto metodológico comparável e variar principalmente a janela de execução. O `CONS-*` usa depois os `AUD-*` materializados no período.
+Na implementação atual, a geração interativa de `CONS-*` continua exposta no console local. A lógica de evolução, preview de custo e análise foi mantida em módulos independentes de `input()` para que uma futura Web API possa reutilizar o mesmo contrato. Não deve ser criado um caminho SaaS alternativo que recalcule deltas, preço ou roteamento de IA com regras próprias.
 
-Em uma futura execução distribuída por hubs/regiões, região/origem de execução deve integrar a identidade de comparabilidade quando essa proveniência estiver persistida de forma estável. Até lá, populações de origens diferentes não devem ser fundidas silenciosamente.
+Ao expor essa capacidade no SaaS, o endpoint deverá manter duas etapas explícitas para IA: preview de custo e confirmação/autorização antes da execução. Secrets continuam no secret store/runtime e nunca fazem parte do request persistido de consolidação.
+
+Para uma campanha temporal, os jobs devem manter o contexto metodológico comparável e variar principalmente a janela de execução.
 
 ## Snapshot, fingerprint e dedupe
 
-`CONS-4` possui fingerprint próprio, derivado de:
+O fingerprint é derivado de:
 
 ```text
 report_format_version
 + TEMPORAL-APDEX-001
 + filtros canônicos
++ seleção de comparação
++ opção/configuração não secreta da análise especialista
 + fingerprint do conjunto de AUDs
 ```
 
+Assim, um consolidado com IA nunca é reutilizado silenciosamente quando o usuário pede um consolidado sem IA, e vice-versa.
+
 Regras:
 
-- mesma requisição + mesmas fontes + mesmo contrato: reutiliza `CONS-4`;
-- novo AUD, novo filtro ou novo contrato: novo snapshot;
-- se o renderizador base encontrar um `CONS-3` reutilizável, ele é **copiado** para um novo `CONS-4` antes da evolução; o `CONS-3` permanece byte a byte intacto.
+- mesma requisição + mesmas fontes + mesmos contratos: reutiliza o snapshot;
+- novo AUD, novo filtro, novo par de comparação ou mudança de análise: novo snapshot;
+- artifacts antigos não são reescritos para incorporar a nova análise.
 
 ## Saída estática
 
@@ -191,9 +270,10 @@ Regras:
 audits/consolidated/CONS-*/
     report.html
     manifest.json
+    specialist-analysis.json
 ```
 
-O manifest registra filtros, fingerprints, fontes, políticas de agregação, contrato temporal e limitações. As amostras brutas não são duplicadas no manifest. O HTML é estático e não relê bancos nem chama APIs ao ser aberto.
+`specialist-analysis.json` é derivado e não contém credenciais. O HTML final é estático e não relê bancos nem chama APIs ao ser aberto.
 
 ## Reversão e segurança
 
@@ -207,9 +287,14 @@ Mudanças do consolidador devem validar, no mínimo:
 - hashes dos `audit.db` inalterados;
 - segregação de contextos incompatíveis;
 - percentis do período calculados do pool bruto quando aplicável;
-- preservação de `CONS-3` legado ao criar `CONS-4`;
+- evolução calculada por Monitoring/Fix Verification, não pela IA;
+- preview de custo antes da autorização da IA;
+- fallback sem IA quando não configurada/indisponível/negada;
+- roteamento `AUTO` usando a política canônica de custo e quarentena;
 - HTML reabrível, estático e com demais seções preservadas;
 - manifest/fingerprint coerentes;
 - ausência de dependência do audit runner em consolidação/monitoring/observability.
 
-Veja também [`CONSOLIDATED_REPORTING_VALIDATION.md`](CONSOLIDATED_REPORTING_VALIDATION.md), [`CONSOLIDATED_REPORTING_TEMPORAL.md`](CONSOLIDATED_REPORTING_TEMPORAL.md), [`SCORING_GUIDE.md`](SCORING_GUIDE.md) e [`REPORT_GUIDE.md`](REPORT_GUIDE.md).
+Testes de console/runtime local são direcionados a Windows. Testes de control plane/SaaS permanecem direcionados a Linux quando houver mudança pertinente ao SaaS.
+
+Veja também [`CONSOLIDATED_REPORTING_VALIDATION.md`](CONSOLIDATED_REPORTING_VALIDATION.md), [`CONSOLIDATED_REPORTING_TEMPORAL.md`](CONSOLIDATED_REPORTING_TEMPORAL.md), [`MONITORING_OBSERVABILITY.md`](MONITORING_OBSERVABILITY.md), [`SCORING_GUIDE.md`](SCORING_GUIDE.md) e [`REPORT_GUIDE.md`](REPORT_GUIDE.md).
