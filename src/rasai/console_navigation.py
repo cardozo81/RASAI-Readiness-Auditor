@@ -2,13 +2,16 @@
 
 The shell is deliberately additive: the existing configuration dashboard remains the
 single detailed configuration surface, while the first level is organized around user
-tasks. AUD recovery and configuration reuse are contextual actions of a selected AUD.
+tasks. Audit preparation is a persistent navigation context: editing or saving one
+setting returns to the preparation dashboard until the operator explicitly goes home.
+AUD recovery and configuration reuse are contextual actions of a selected AUD.
 """
 from __future__ import annotations
 
+import builtins
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, Callable
 
 
 def _audit_directories(audits_root: str | Path) -> tuple[Path, ...]:
@@ -156,7 +159,7 @@ def _reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) -
     input("\nENTER para continuar...")
 
 
-def _load_selected_configuration(console_module: ModuleType, state: Any, audit_id: str) -> None:
+def _load_selected_configuration(console_module: ModuleType, state: Any, audit_id: str) -> bool:
     from rasai.audit_configuration_reuse_console import load_source_configuration
 
     source = load_source_configuration(state, audit_id, console_module=console_module)
@@ -164,17 +167,22 @@ def _load_selected_configuration(console_module: ModuleType, state: Any, audit_i
     if source is None:
         print("CONFIGURAÇÃO NÃO CARREGADA\n")
         print(state.error or "O AUD não possui snapshot reutilizável válido.")
-    else:
-        print("CONFIGURAÇÃO CARREGADA\n")
-        print(f"Origem: {source.audit_id}")
-        print("A próxima execução criará um novo AUD; o AUD de origem não será alterado.")
-        print("Credenciais nunca são copiadas do AUD e continuam sendo resolvidas na sessão/Windows/SaaS atual.")
-        if state.error:
-            print(f"\n{state.error}")
+        input("\nENTER para continuar...")
+        return False
+
+    print("CONFIGURAÇÃO CARREGADA\n")
+    print(f"Origem: {source.audit_id}")
+    print("A próxima execução criará um novo AUD; o AUD de origem não será alterado.")
+    print("Credenciais nunca são copiadas do AUD e continuam sendo resolvidas na sessão/Windows/SaaS atual.")
+    print("\nA configuração foi aberta no contexto PREPARAR AUDITORIA para revisão antes da execução.")
+    if state.error:
+        print(f"\n{state.error}")
     input("\nENTER para continuar...")
+    return True
 
 
-def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) -> None:
+def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) -> bool:
+    """Return True when configuration reuse should hand off to audit preparation."""
     while True:
         audit_root = Path(state.audits_root) / audit_id
         summary = _safe_summary(audit_root, audit_id)
@@ -203,11 +211,12 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
         print("V. Voltar")
         choice = input("Escolha: ").strip().upper()
         if choice == "V":
-            return
+            return False
         if choice == "1":
             _reprocess_selected(console_module, state, audit_id)
         elif choice == "2":
-            _load_selected_configuration(console_module, state, audit_id)
+            if _load_selected_configuration(console_module, state, audit_id):
+                return True
         elif choice == "3":
             report = audit_root / "report" / "index.html"
             console_module.render_header(state)
@@ -218,24 +227,70 @@ def _selected_audit_menu(console_module: ModuleType, state: Any, audit_id: str) 
             input("\nENTER para continuar...")
 
 
-def _audit_history(console_module: ModuleType, state: Any) -> None:
+def _audit_history(console_module: ModuleType, state: Any) -> bool:
+    """Return True when history hands a reused configuration to audit preparation."""
     while True:
         console_module.render_header(state)
         audit_id = _choose_audit(state)
         if audit_id is None:
-            return
-        _selected_audit_menu(console_module, state, audit_id)
+            return False
+        if _selected_audit_menu(console_module, state, audit_id):
+            return True
+
+
+def _preparation_menu(
+    console_module: ModuleType,
+    state: Any,
+    detailed_menu: Callable[[Any], str],
+) -> str:
+    """Render the complete dashboard while making the preparation context explicit."""
+    original_input = builtins.input
+    original_header = console_module.render_header
+    back_rendered = False
+
+    def preparation_header(current_state: Any) -> None:
+        original_header(current_state)
+        print("INÍCIO > PREPARAR AUDITORIA\n")
+
+    def preparation_input(prompt: str = "") -> str:
+        nonlocal back_rendered
+        if not back_rendered and prompt.strip().casefold().startswith("escolha"):
+            print("\nV. Voltar ao início")
+            back_rendered = True
+        return original_input(prompt)
+
+    console_module.render_header = preparation_header
+    builtins.input = preparation_input
+    try:
+        return detailed_menu(state)
+    finally:
+        builtins.input = original_input
+        console_module.render_header = original_header
 
 
 def install(console_module: ModuleType) -> None:
-    """Install the task-oriented first level while retaining the complete old dashboard."""
+    """Install task navigation while retaining the complete detailed dashboard."""
     if getattr(console_module, "_rasai_task_navigation_installed", False):
         return
 
     original_menu = console_module._menu
+    preparing_states: set[int] = set()
+
+    def enter_preparation(state: Any) -> None:
+        preparing_states.add(id(state))
+
+    def leave_preparation(state: Any) -> None:
+        preparing_states.discard(id(state))
 
     def menu(state: Any) -> str:
         while True:
+            if id(state) in preparing_states:
+                choice = _preparation_menu(console_module, state, original_menu)
+                if choice == "V":
+                    leave_preparation(state)
+                    continue
+                return choice
+
             console_module.render_header(state)
             print("INÍCIO\n")
             print(f"Projeto atual : {getattr(state, 'project', '') or '<auto>'}")
@@ -251,9 +306,11 @@ def install(console_module: ModuleType) -> None:
             print("Q. Sair")
             choice = input("Escolha: ").strip().upper()
             if choice == "1":
-                return original_menu(state)
+                enter_preparation(state)
+                continue
             if choice == "2":
-                _audit_history(console_module, state)
+                if _audit_history(console_module, state):
+                    enter_preparation(state)
                 continue
             if choice == "3":
                 return "C"
