@@ -1,6 +1,9 @@
 name: Audit Fulfillment and Reprocessing
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     paths:
       - 'src/rasai/audit_fulfillment.py'
