@@ -12,6 +12,7 @@ on:
       - 'src/rasai/audit_reprocess.py'
       - 'src/rasai/audit_configuration_reuse*.py'
       - 'src/rasai/console_navigation.py'
+      - 'src/rasai/console_audit_workflow.py'
       - 'src/rasai/core_reprocessing.py'
       - 'src/rasai/core_reprocessing_context.py'
       - 'src/rasai/core_integrity_runtime.py'
@@ -36,6 +37,7 @@ on:
       - 'tests/test_audit_fulfillment_reprocessing.py'
       - 'tests/test_audit_configuration_reuse*.py'
       - 'tests/test_console_navigation.py'
+      - 'tests/test_console_audit_workflow.py'
       - 'tests/test_consolidation_fulfillment_gate.py'
       - 'tests/test_core_reprocessing.py'
       - 'tests/test_core_reprocessing_context.py'
@@ -66,7 +68,7 @@ jobs:
       - name: Fulfillment, reprocessing and reusable-AUD domain tests
         run: pytest -q tests/test_audit_fulfillment_reprocessing.py tests/test_audit_configuration_reuse.py tests/test_consolidation_fulfillment_gate.py tests/test_core_reprocessing.py tests/test_core_reprocessing_context.py tests/test_core_integrity_runtime.py tests/test_reprocess_runtime_safety.py tests/test_semantic_recovery_runtime.py tests/test_m7_semantic_provider.py
       - name: Console navigation, configuration reuse and publication regressions
-        run: pytest -q tests/test_console_navigation.py tests/test_audit_configuration_reuse_console.py tests/test_console_configuration_guidance.py tests/test_prepublication_configuration_contract.py tests/test_environment_surface_parity.py
+        run: pytest -q tests/test_console_navigation.py tests/test_console_audit_workflow.py tests/test_audit_configuration_reuse_console.py tests/test_console_configuration_guidance.py tests/test_prepublication_configuration_contract.py tests/test_environment_surface_parity.py
       - name: CLI surface smoke tests
         shell: pwsh
         run: |
