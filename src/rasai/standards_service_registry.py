@@ -252,7 +252,6 @@ SERVICES: tuple[StandardsService, ...] = (
         default_enabled=False,
         job_field="clarity_enabled",
         credential_envs=(CLARITY_TOKEN_ENV,),
-        config_envs=(CLARITY_DAYS_ENV, CLARITY_DIMENSIONS_ENV),
         auto_enable_with_credentials=False,
         documentation_url="https://learn.microsoft.com/clarity/setup-and-installation/clarity-data-export-api",
         credential_url="https://clarity.microsoft.com/",
@@ -273,7 +272,6 @@ SERVICES: tuple[StandardsService, ...] = (
         enabled_env=COMMON_CRAWL_ENABLED_ENV,
         default_enabled=True,
         job_field="common_crawl_enabled",
-        config_envs=(COMMON_CRAWL_MAX_URLS_ENV, COMMON_CRAWL_INDEX_COUNT_ENV),
         documentation_url="https://commoncrawl.org/cdxj-index",
         cost_model="PUBLIC_FREE_DATASET",
         network_behavior="EXTERNAL_PUBLIC_INDEX_API_BOUNDED",
@@ -357,7 +355,14 @@ def service_states(env: Mapping[str, str] | None = None) -> tuple[dict[str, obje
 
 
 def service_environment_names() -> tuple[str, ...]:
-    names: list[str] = [STANDARDS_MAX_URLS_ENV, STANDARDS_TIMEOUT_ENV]
+    names: list[str] = [
+        STANDARDS_MAX_URLS_ENV,
+        STANDARDS_TIMEOUT_ENV,
+        CLARITY_DAYS_ENV,
+        CLARITY_DIMENSIONS_ENV,
+        COMMON_CRAWL_MAX_URLS_ENV,
+        COMMON_CRAWL_INDEX_COUNT_ENV,
+    ]
     for item in SERVICES:
         for name in (item.enabled_env, item.dataset_env, *item.credential_envs, *item.config_envs):
             if name and name not in names:
