@@ -65,6 +65,10 @@ def clarity_dimensions(raw: str | None) -> tuple[str, ...]:
             )
         if canonical not in normalized:
             normalized.append(canonical)
+    if "URL" not in normalized:
+        raise ValueError(
+            f"{CLARITY_DIMENSIONS_ENV}: inclua URL para que o RASAi possa restringir os dados ao domínio auditado"
+        )
     return tuple(normalized)
 
 
