@@ -44,10 +44,13 @@ def test_discovery_weights_are_static_and_ai_shares_deterministic_group() -> Non
     robots = _metadata("BR-GEO-017")
     robots_ai = _metadata("BR-GEO-056")
     assert sitemap.dimension == sitemap_ai.dimension == "DISCOVERY_ACCESS"
-    assert sitemap.weight == sitemap_ai.weight == pytest.approx(0.05)
+    # Three percent of Discovery is reserved for positive-only Common Crawl
+    # corroboration, so every pre-existing technical group is scaled by 0.97 while
+    # preserving its relative weight whenever the external signal is absent.
+    assert sitemap.weight == sitemap_ai.weight == pytest.approx(0.0485)
     assert sitemap.scoring_group == sitemap_ai.scoring_group == "SITEMAP"
     assert robots.dimension == robots_ai.dimension == "DISCOVERY_ACCESS"
-    assert robots.weight == robots_ai.weight == pytest.approx(0.15)
+    assert robots.weight == robots_ai.weight == pytest.approx(0.1455)
     assert robots.scoring_group == robots_ai.scoring_group == "ROBOTS"
     assert sitemap.evidence_role != sitemap_ai.evidence_role
     assert robots.evidence_role != robots_ai.evidence_role
