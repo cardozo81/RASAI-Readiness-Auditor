@@ -105,6 +105,14 @@ ou, dentro do dashboard completo de configuração:
 L. Carregar configuração de AUD [NOVA EXECUÇÃO]
 ```
 
+Quando o carregamento pelo histórico é concluído com sucesso, a navegação faz handoff direto para:
+
+```text
+Início > Preparar auditoria
+```
+
+Esse contexto permanece ativo enquanto o usuário revisa a nova execução. Alterar campos, salvar o INI, abrir credenciais/integrações, consultar ajuda ou retornar de uma subtela leva novamente ao dashboard de preparação; somente `V. Voltar ao início` encerra explicitamente esse contexto.
+
 O fluxo é:
 
 1. usuário seleciona ou informa `AUD-*`;
@@ -113,10 +121,11 @@ O fluxo é:
 4. Search Intelligence é restaurado quando fazia parte da execução de origem;
 5. credenciais e dependências são reconciliadas com o ambiente atual;
 6. alertas são exibidos para dependências ausentes ou incompatíveis;
-7. usuário pode revisar e alterar qualquer parâmetro permitido;
-8. preflight normal é executado;
-9. a execução cria um **novo `AUD-*`**;
-10. o novo snapshot registra origem, série e diferenças.
+7. o console entra ou permanece em **Preparar auditoria**;
+8. usuário pode revisar e alterar qualquer parâmetro permitido sem perder o contexto de preparação;
+9. preflight normal é executado;
+10. a execução cria um **novo `AUD-*`**;
+11. o novo snapshot registra origem, série e diferenças.
 
 Para uma única URL, o target volta ao modo URL. Para múltiplos targets, o console materializa um TXT operacional em `audits/.reused-inputs/` e mantém no snapshot a lista canônica de URLs, não a dependência do caminho de um arquivo anterior.
 
