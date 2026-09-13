@@ -12,6 +12,7 @@ from rasai import console_provider_environment as console_environment
 from rasai import console_search_intelligence, interactive_console
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
 from rasai.ai_provider_console_management import install as install_ai_provider_console_management
+from rasai.audit_configuration_reuse_console import install as install_audit_configuration_reuse_console
 from rasai.console_apdex_configuration import configure_apdex
 from rasai.console_cancellation_runtime import install as install_console_cancellation_runtime
 from rasai.console_config_path import prepare_console_config
@@ -145,6 +146,9 @@ def main() -> int:
     # enabled/disabled by a profile preset.
     install_execution_profile_readiness()
     install_execution_profiles(interactive_console)
+    # Configuration reuse is deliberately installed last so its top-level shortcut
+    # wraps the final menu/profile surface instead of creating another submenu.
+    install_audit_configuration_reuse_console(interactive_console)
     return interactive_console.main()
 
 

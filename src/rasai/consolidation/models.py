@@ -63,6 +63,11 @@ class SourceAudit:
     domains: tuple[str, ...]
     devices: tuple[str, ...]
     urls: tuple[str, ...]
+    configuration_kind: str | None = None
+    configuration_hash: str | None = None
+    configuration_source_audit_id: str | None = None
+    execution_series_id: str | None = None
+    configuration_changed_fields: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +177,7 @@ class ConsolidatedData:
     date_min: str | None
     date_max: str | None
     limitations: tuple[str, ...] = field(default_factory=tuple)
+    configuration_comparability: dict[str, Any] = field(default_factory=dict)
     # Raw, already-filtered analytical points are retained only inside the
     # consolidation boundary. They support historical charts/explainability and
     # never become a second source of truth: every value originates in AUD-*/audit.db.

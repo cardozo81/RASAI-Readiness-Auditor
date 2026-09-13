@@ -10,7 +10,11 @@ from rasai.report_presentation import humanize_report_html
 from rasai.time_contract import normalize_timestamp_values
 
 from .aggregate import summarize_apdex, summarize_findings, summarize_performance, summarize_scores
-from .comparability import annotate_score_url_universes
+from .comparability import (
+    annotate_audit_configurations,
+    annotate_score_url_universes,
+    configuration_comparability,
+)
 from .index import ConsolidationIndex
 from .models import ConsolidatedData, ConsolidationFilter, GenerationResult, RefreshResult
 from .reporting import write_report
@@ -72,11 +76,45 @@ def normalize_filter(
     )
 
 
+def _configuration_limitations(summary: dict[str, object]) -> tuple[str, ...]:
+    output: list[str] = []
+    missing = int(summary.get("without_snapshot") or 0)
+    if missing:
+        output.append(
+            f"{missing} AUD(s) do período não possuem snapshot canônico de configuração; "
+            "a equivalência metodológica completa dessas observações não pode ser comprovada."
+        )
+    pair = str(summary.get("pair_status") or "INSUFFICIENT_DATA")
+    baseline = str(summary.get("baseline_audit_id") or "")
+    current = str(summary.get("current_audit_id") or "")
+    if pair == "PARTIAL":
+        fields = tuple(str(item) for item in summary.get("altered_fields") or ())
+        detail = f" Campos alterados na série: {', '.join(fields)}." if fields else ""
+        output.append(
+            f"Comparabilidade de configuração entre {baseline} e {current}: PARCIAL. "
+            "As auditorias pertencem à mesma série longitudinal, mas a configuração efetiva mudou."
+            + detail
+        )
+    elif pair == "EQUIVALENT_WITHOUT_LINEAGE":
+        output.append(
+            f"{baseline} e {current} possuem configuração efetiva equivalente, porém não compartilham "
+            "linhagem explícita de uma mesma série de execução."
+        )
+    elif pair == "UNRELATED":
+        output.append(
+            f"{baseline} e {current} não pertencem à mesma série de configuração e possuem configurações "
+            "efetivas distintas; tendências entre elas devem ser interpretadas como comparação contextual, "
+            "não como repetição controlada do mesmo teste."
+        )
+    return tuple(output)
+
+
 def build_data(index: ConsolidationIndex, filters: ConsolidationFilter) -> ConsolidatedData:
     points = index.load_points(filters)
-    audits = points["audits"]
-    if not audits:
+    raw_audits = points["audits"]
+    if not raw_audits:
         raise ValueError("nenhuma auditoria COMPLETED corresponde aos filtros selecionados")
+    audits = annotate_audit_configurations(index.audits_root, raw_audits)
     source_fp = index.source_set_fingerprint(audits)
     available_urls = set(index.available_urls(filters))
     if filters.urls:
@@ -107,6 +145,13 @@ def build_data(index: ConsolidationIndex, filters: ConsolidationFilter) -> Conso
                 "Desempenho Web, Apdex e ocorrências continuam filtrados diretamente por URL."
             )
 
+    config_summary = configuration_comparability(
+        audits,
+        comparison_mode=filters.comparison_mode,
+        baseline_audit_id=filters.baseline_audit_id,
+        current_audit_id=filters.current_audit_id,
+    )
+    limitations.extend(_configuration_limitations(config_summary))
     score_rows = annotate_score_url_universes(index.path, points["scores"])
     dates = [str(row.get("event_time") or "")[:10] for row in audits if row.get("event_time")]
     return ConsolidatedData(
@@ -121,6 +166,7 @@ def build_data(index: ConsolidationIndex, filters: ConsolidationFilter) -> Conso
         date_min=min(dates) if dates else None,
         date_max=max(dates) if dates else None,
         limitations=tuple(limitations),
+        configuration_comparability=config_summary,
         score_history=score_rows,
         finding_history=points["findings"],
     )
@@ -175,6 +221,7 @@ def generate(
             limitations=data.limitations + (
                 f"{len(refresh.issues)} AUD(s) não puderam ser indexados nesta atualização; detalhes constam no manifest.json.",
             ),
+            configuration_comparability=data.configuration_comparability,
             score_history=data.score_history,
             finding_history=data.finding_history,
         )

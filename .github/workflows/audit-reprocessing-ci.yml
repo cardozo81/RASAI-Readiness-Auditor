@@ -7,6 +7,7 @@ on:
       - 'src/rasai/audit_fulfillment_runtime.py'
       - 'src/rasai/audit_fulfillment_saas.py'
       - 'src/rasai/audit_reprocess.py'
+      - 'src/rasai/audit_configuration_reuse*.py'
       - 'src/rasai/core_reprocessing.py'
       - 'src/rasai/core_reprocessing_context.py'
       - 'src/rasai/core_integrity_runtime.py'
@@ -15,15 +16,20 @@ on:
       - 'src/rasai/technical_ai_eligibility.py'
       - 'src/rasai/ai_efficiency_policy.py'
       - 'src/rasai/console_configuration_guidance.py'
+      - 'src/rasai/console_entrypoint.py'
+      - 'src/rasai/consolidation/**'
       - 'src/rasai/entrypoint.py'
       - 'src/rasai/platform/**'
       - 'src/rasai/web/**'
       - 'src/rasai/worker.py'
       - 'src/rasai/execution_contract.py'
       - 'docs/AUDIT_REPROCESSING.md'
+      - 'docs/AUDIT_CONFIGURATION_REUSE.md'
+      - 'docs/CONSOLIDATED_REPORTING.md'
       - 'docs/EXTERNAL_OBSERVABILITY_INTEGRATIONS.md'
       - 'docs/ENVIRONMENT_VARIABLES.md'
       - 'tests/test_audit_fulfillment_reprocessing.py'
+      - 'tests/test_audit_configuration_reuse*.py'
       - 'tests/test_consolidation_fulfillment_gate.py'
       - 'tests/test_core_reprocessing.py'
       - 'tests/test_core_reprocessing_context.py'
@@ -51,10 +57,10 @@ jobs:
         run: python -m pip install -e . pytest
       - name: Public contract gate
         run: python -m rasai.public_contract_gate
-      - name: Fulfillment and selective reprocessing tests
-        run: pytest -q tests/test_audit_fulfillment_reprocessing.py tests/test_consolidation_fulfillment_gate.py tests/test_core_reprocessing.py tests/test_core_reprocessing_context.py tests/test_core_integrity_runtime.py tests/test_reprocess_runtime_safety.py tests/test_semantic_recovery_runtime.py tests/test_m7_semantic_provider.py
-      - name: Console and publication configuration regressions
-        run: pytest -q tests/test_console_configuration_guidance.py tests/test_prepublication_configuration_contract.py tests/test_environment_surface_parity.py
+      - name: Fulfillment, reprocessing and reusable-AUD domain tests
+        run: pytest -q tests/test_audit_fulfillment_reprocessing.py tests/test_audit_configuration_reuse.py tests/test_consolidation_fulfillment_gate.py tests/test_core_reprocessing.py tests/test_core_reprocessing_context.py tests/test_core_integrity_runtime.py tests/test_reprocess_runtime_safety.py tests/test_semantic_recovery_runtime.py tests/test_m7_semantic_provider.py
+      - name: Console configuration reuse and publication regressions
+        run: pytest -q tests/test_audit_configuration_reuse_console.py tests/test_console_configuration_guidance.py tests/test_prepublication_configuration_contract.py tests/test_environment_surface_parity.py
       - name: CLI surface smoke tests
         shell: pwsh
         run: |
@@ -73,7 +79,7 @@ jobs:
           python-version: '3.13'
       - name: Install package, web dependencies and pytest
         run: python -m pip install -e '.[web]' pytest
-      - name: SaaS fulfillment integration tests
-        run: pytest -q tests/test_audit_fulfillment_saas.py
+      - name: SaaS fulfillment and configuration reuse integration tests
+        run: pytest -q tests/test_audit_fulfillment_saas.py tests/test_audit_configuration_reuse_saas.py
       - name: SaaS execution and web API regressions
         run: pytest -q tests/test_saas_runtime_parity.py tests/test_web_api.py tests/test_web_pilot.py tests/test_product_platform_architecture.py
