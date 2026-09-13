@@ -50,21 +50,18 @@ Exemplos de componentes que podem participar do fulfillment:
 - `CONTENT_REMEDIATION_AI`;
 - `IMPROVEMENT_INTELLIGENCE`;
 - `WEB_PERFORMANCE`;
-- `PAGESPEED_LIGHTHOUSE`;
-- `CRUX`;
-- `CRUX_HISTORY`;
 - `SYNTHETIC_APDEX`;
 - `EXPERIENCE_APDEX`;
 - `GOOGLE_SEARCH_CONSOLE`;
-- demais serviços opcionais explicitamente solicitados e representáveis pelo registry canônico.
+- demais serviços opcionais quando possuírem contrato canônico próprio de fulfillment.
 
 Serviços default que não constituem uma escolha explícita do usuário não são promovidos indiscriminadamente a requisito obrigatório apenas por existirem no registry.
+
+PageSpeed/Lighthouse e CrUX continuam representados pelo work item canônico de Web Performance enquanto essa for a unidade metodológica vigente. Não se cria obrigação paralela apenas para aumentar o denominador.
 
 ## 3. Estados de work item
 
 O contrato base continua usando os estados canônicos existentes e admite estados operacionais adicionais que continuam sendo pendências até resolução.
-
-Estados relevantes:
 
 | Estado | Significado |
 | --- | --- |
@@ -92,10 +89,10 @@ execução materializada = não
 
 Exemplos:
 
-- `RASAI_IMPROVEMENT_INTELLIGENCE=true`, mas nenhuma linha foi materializada em `improvement_intelligence_runs`;
+- `RASAI_IMPROVEMENT_INTELLIGENCE=true`, mas nenhuma execução da análise profunda foi materializada;
 - `RASAI_SYNTHETIC_APDEX=true`, mas nenhuma execução Synthetic Apdex foi registrada;
 - `RASAI_APDEX_EXPERIENCE=true`, mas nenhuma execução Experience Apdex foi registrada;
-- serviço externo explicitamente habilitado, configurado e sem registro operacional após a finalização.
+- integração com contrato de fulfillment solicitada e sem registro operacional após a finalização.
 
 A classificação é de orquestração/runtime e permanece reprocessável.
 
@@ -110,8 +107,8 @@ RASAi
   -> provider
   -> resposta HTTP/API recebida
   -> tokens observados
-  -> validação local M24
-  -> resposta viola contrato evidence-bound
+  -> validação local do contrato técnico
+  -> resposta viola o contrato evidence-bound
   -> CONTRACT_ERROR
 ```
 
@@ -119,15 +116,15 @@ Nesse caso é incorreto classificar a tentativa como indisponibilidade do provid
 
 O provider esteve disponível para transporte e execução. A falha está na validade contratual do conteúdo recebido.
 
-### 5.1 Diagnóstico M24
+### 5.1 Diagnóstico do contrato técnico
 
-Para uma rejeição local do contrato M24, a tentativa mantém:
+Para uma rejeição local do contrato técnico, a tentativa mantém:
 
 ```text
 status       = CONTRACT_ERROR
 error_class  = CONTRACT_ERROR
 error_type   = tipo da exceção local, por exemplo ValueError
-error_code   = M24_CONTRACT_VALIDATION_ERROR
+error_code   = TECHNICAL_AI_CONTRACT_VALIDATION_ERROR
 error_detail = mensagem sanitizada da validação
 ```
 
@@ -137,18 +134,14 @@ O fulfillment projeta isso como:
 component    = TECHNICAL_AI
 status       = FAILED_RETRYABLE
 error_class  = AI_CONTRACT
-error_code   = M24_CONTRACT_VALIDATION_ERROR
+error_code   = TECHNICAL_AI_CONTRACT_VALIDATION_ERROR
 ```
 
-A mensagem sanitizada preserva o motivo concreto, por exemplo:
-
-```text
-M24 AI resource assessment references evidence outside its resource universe
-```
+A mensagem sanitizada preserva o motivo concreto, por exemplo uma referência de evidência fora do universo permitido para o recurso avaliado.
 
 ### 5.2 Proteções que permanecem obrigatórias
 
-A classificação correta do erro não reduz as validações M24.
+A classificação correta do erro não reduz as validações do contrato técnico.
 
 Continuam inválidos, entre outros:
 
@@ -166,7 +159,7 @@ Nenhuma resposta rejeitada é promovida artificialmente a sucesso.
 
 ## 6. Retry corretivo de CONTRACT_ERROR
 
-Na referência de 13/09/2026, `CONTRACT_ERROR` M24 é marcado como:
+Na referência de 13/09/2026, `CONTRACT_ERROR` do contrato técnico é marcado como:
 
 ```text
 retry_eligible = true
@@ -205,7 +198,7 @@ Não existe um pricing resolver específico para fulfillment ou retry.
 Toda chamada real usa o motor canônico introduzido pela arquitetura parametrizável:
 
 ```text
-ai-pricing-defaults.toml / catálogo selecionado
+catálogo de pricing selecionado
              ->
 regra vigente para provider/modelo/contexto/horário
              ->
@@ -247,7 +240,7 @@ Se o catálogo de preços mudar amanhã, uma tentativa persistida hoje não é r
 
 O catálogo atual serve novas chamadas. A telemetria histórica conserva os valores e a versão de pricing aplicada no momento da tentativa.
 
-## 9. GSC: configuração não é falha da IA técnica
+## 9. Google Search Console: configuração não é falha da IA técnica
 
 Google Search Console exige sua configuração própria.
 
@@ -318,7 +311,7 @@ Estado     : FAILED_RETRYABLE
 Classe     : AI_CONTRACT
 Provider   : DEEPSEEK
 Modelo     : deepseek-v4-pro
-Código     : M24_CONTRACT_VALIDATION_ERROR
+Código     : TECHNICAL_AI_CONTRACT_VALIDATION_ERROR
 Detalhe    : provider respondeu; resposta rejeitada pelo contrato evidence-bound do RASAi
 
 [CONFIGURAR] GOOGLE_SEARCH_CONSOLE
@@ -352,7 +345,7 @@ O reprocessamento:
 - reconstrói o estado público com o resultado efetivo mais recente;
 - só promove o AUD a `COMPLETE` quando todos os requisitos obrigatórios e aplicáveis estão satisfeitos.
 
-Um `CONTRACT_ERROR` M24 é reprocessável sem apagar a primeira tentativa que consumiu tokens.
+Um `CONTRACT_ERROR` técnico é reprocessável sem apagar a primeira tentativa que consumiu tokens.
 
 ## 14. Consolidação
 
@@ -412,6 +405,6 @@ O objetivo do diagnóstico é responder com precisão:
 - `AUTO_COST_AWARE_AI_ROUTING.md`: seleção econômica no modo AUTO.
 - `AUDIT_REPROCESSING.md`: recuperação seletiva do mesmo `AUD-*`.
 - `IMPROVEMENT_INTELLIGENCE.md`: contrato da análise profunda.
-- `EXTERNAL_OBSERVABILITY_INTEGRATIONS.md`: integrações externas e GSC.
+- `EXTERNAL_OBSERVABILITY_INTEGRATIONS.md`: integrações externas e Google Search Console.
 
 Este documento é a referência de integração entre essas superfícies na data de 13/09/2026.
