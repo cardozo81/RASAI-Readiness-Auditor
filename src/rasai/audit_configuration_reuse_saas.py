@@ -167,3 +167,14 @@ def build_reused_payload(
         }
     )
     return effective
+
+
+def persist_worker_configuration(_audits_root: str | Path, _audit_id: str, _job: Any) -> None:
+    """Compatibility no-op: persistence now occurs before the first platform digest.
+
+    Older worker composition still invokes this hook after ``entrypoint.main`` returns.
+    Writing at that point would mutate an already indexed ``audit.db``. The execution
+    context installed above is the only persistence path; this function intentionally
+    performs no I/O and can be removed when the worker compatibility call is retired.
+    """
+    return None
