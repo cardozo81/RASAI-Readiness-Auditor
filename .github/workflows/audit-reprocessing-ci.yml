@@ -24,6 +24,7 @@ on:
       - 'docs/EXTERNAL_OBSERVABILITY_INTEGRATIONS.md'
       - 'docs/ENVIRONMENT_VARIABLES.md'
       - 'tests/test_audit_fulfillment_reprocessing.py'
+      - 'tests/test_consolidation_fulfillment_gate.py'
       - 'tests/test_core_reprocessing.py'
       - 'tests/test_core_reprocessing_context.py'
       - 'tests/test_core_integrity_runtime.py'
@@ -51,7 +52,7 @@ jobs:
       - name: Public contract gate
         run: python -m rasai.public_contract_gate
       - name: Fulfillment and selective reprocessing tests
-        run: pytest -q tests/test_audit_fulfillment_reprocessing.py tests/test_core_reprocessing.py tests/test_core_reprocessing_context.py tests/test_core_integrity_runtime.py tests/test_reprocess_runtime_safety.py tests/test_semantic_recovery_runtime.py tests/test_m7_semantic_provider.py
+        run: pytest -q tests/test_audit_fulfillment_reprocessing.py tests/test_consolidation_fulfillment_gate.py tests/test_core_reprocessing.py tests/test_core_reprocessing_context.py tests/test_core_integrity_runtime.py tests/test_reprocess_runtime_safety.py tests/test_semantic_recovery_runtime.py tests/test_m7_semantic_provider.py
       - name: Console and publication configuration regressions
         run: pytest -q tests/test_console_configuration_guidance.py tests/test_prepublication_configuration_contract.py tests/test_environment_surface_parity.py
       - name: CLI surface smoke tests
