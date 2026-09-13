@@ -14,12 +14,17 @@ from typing import Any
 from rasai.persistence import AuditWorkspace
 
 _AI_USAGE_FILE = "ai-usage.html"
+_UX_APDEX_FILE = "apdex-experience.html"
 _AI_COST_RE = re.compile(
     r"<section\b[^>]*data-ai-cost-attribution=['\"]true['\"][^>]*>.*?</section>",
     flags=re.IGNORECASE | re.DOTALL,
 )
 _FOOTER_RE = re.compile(
     r"<footer\b[^>]*class=(['\"])[^'\"]*\bfooter\b[^'\"]*\1[^>]*>.*?</footer>",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_UX_APDEX_CARD_RE = re.compile(
+    r"<article class='population-card'>(?P<body>.*?)<div class='population-score'>(?P<score>\d+(?:\.\d+)?)</div>",
     flags=re.IGNORECASE | re.DOTALL,
 )
 _STYLE_MARKER = "rasai-report-final-polish-v1"
@@ -35,11 +40,18 @@ abbr.report-term{cursor:help;text-decoration:underline dotted;text-underline-off
 .report-dependency-state{border-left:4px solid var(--amber);background:var(--soft-amber)}
 .report-dependency-state.bad{border-left-color:var(--red);background:var(--soft-red)}
 .report-dependency-state p{margin:.35rem 0 0;color:#4b5565}
+.population-card.result-state-good{background:var(--soft-green);border-color:rgba(95,150,116,.35)}
+.population-card.result-state-warn{background:var(--soft-amber);border-color:rgba(182,138,80,.35)}
+.population-card.result-state-bad{background:var(--soft-red);border-color:rgba(191,111,112,.35)}
+.population-score-state{display:inline-flex;margin-left:8px;padding:3px 8px;border-radius:999px;font-size:.72rem;font-weight:750;vertical-align:middle}
+.population-score-state.good{background:rgba(95,150,116,.18);color:#3f7452}
+.population-score-state.warn{background:rgba(182,138,80,.20);color:#76501f}
+.population-score-state.bad{background:rgba(191,111,112,.18);color:#8f4447}
 .ai-cost-attribution{margin-top:28px;border-top:2px solid var(--line)}
 .ai-cost-attribution .kicker{color:#68758a}
 .ai-cost-attribution[data-ai-zero='true']{background:#fafbfc;box-shadow:none}
 footer.footer{padding-top:16px;border-top:1px solid var(--line)}
-@media (prefers-contrast:more){.intro,.muted,.label,.metric small{color:#4b5565}.table-wrap{border-color:#c7ced8}}
+@media (prefers-contrast:more){.intro,.muted,.label,.metric small{color:#4b5565}.table-wrap{border-color:#c7ced8}.population-score-state{outline:1px solid currentColor}}
 </style>
 """
 
@@ -79,6 +91,8 @@ def finalize_report_presentation(*, audit_id: str, workspace: AuditWorkspace) ->
         html = _translate_owned_labels(html)
         html = _inject_style(html)
         html = _inject_dependency_notice(html, path.name, dependency)
+        if path.name == _UX_APDEX_FILE:
+            html = _decorate_ux_apdex(html)
         if path.name != _AI_USAGE_FILE:
             html = _move_ai_cost_to_final_data_block(html)
         html = _mark_zero_ai_cost(html)
@@ -102,6 +116,36 @@ def _inject_style(html: str) -> str:
     if "</head>" in html:
         return html.replace("</head>", _FINAL_STYLE + "</head>", 1)
     return html
+
+
+def _apdex_visual(score: float) -> tuple[str, str]:
+    """Return the same visual interpretation used by the standard Apdex report."""
+    if score >= 0.94:
+        return "good", "Excelente"
+    if score >= 0.85:
+        return "good", "Bom"
+    if score >= 0.70:
+        return "warn", "Regular"
+    if score >= 0.50:
+        return "bad", "Ruim"
+    return "bad", "Inaceitável"
+
+
+def _decorate_ux_apdex(html: str) -> str:
+    if "population-score-state" in html:
+        return html
+
+    def replace(match: re.Match[str]) -> str:
+        score = float(match.group("score"))
+        state, label = _apdex_visual(score)
+        return (
+            f"<article class='population-card result-state-{state}'>"
+            + match.group("body")
+            + f"<div class='population-score'>{match.group('score')}"
+            + f"<span class='population-score-state {state}'>{escape(label)}</span></div>"
+        )
+
+    return _UX_APDEX_CARD_RE.sub(replace, html)
 
 
 def _move_ai_cost_to_final_data_block(html: str) -> str:
