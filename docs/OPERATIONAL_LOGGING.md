@@ -59,7 +59,7 @@ A apresentação separa conceitos que não devem ser confundidos:
 
 Quando uma etapa possui medição própria, por exemplo amostras/contextos de Synthetic Apdex, o percentual medido permanece restrito a `Andamento`. O console projeta esse avanço dentro da faixa global reservada à etapa, mas mantém o `Progresso` geral identificado como estimativa. Assim, `40%` de Synthetic Apdex não é apresentado como `40%` da auditoria inteira e o percentual global não regride ao entrar em uma etapa que começa em zero.
 
-O progresso geral usa pesos de carga configurada/observada. Trabalho repetido e normalmente demorado — contextos Chromium, PageSpeed/CrUX, Synthetic Apdex, Search Intelligence e chamadas de IA — recebe mais peso do que bookkeeping local. Improvement Intelligence, quando habilitada, também participa dessa projeção conforme o esforço configurado, em vez de usar uma faixa terminal fixa.
+O progresso geral usa pesos de carga configurada/observada. Trabalho repetido e normalmente demorado - contextos Chromium, PageSpeed/CrUX, Synthetic Apdex, Search Intelligence e chamadas de IA - recebe mais peso do que bookkeeping local. Improvement Intelligence, quando habilitada, também participa dessa projeção conforme o esforço configurado, em vez de usar uma faixa terminal fixa.
 
 Depois que Improvement Intelligence termina sua chamada de IA no console, a atualização necessária dos relatórios é uma passagem **somente local/read-only**. Ela atualiza `improvement-intelligence.html`, atribuição de consumo/custo de IA, navegação, UX e manifest a partir das evidências já persistidas. Essa segunda passagem não reexecuta GSC, PageSpeed, CrUX History, Microsoft Clarity, Common Crawl, SERP ou qualquer outro collector/provider externo.
 
