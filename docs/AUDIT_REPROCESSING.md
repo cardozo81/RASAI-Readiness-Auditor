@@ -34,6 +34,38 @@ A confirmação exige:
 REPROCESSAR
 ```
 
+### Acompanhamento durante a execução
+
+Depois da confirmação, o console não fica silencioso. O reprocessamento usa a mesma superfície operacional de progresso da execução normal e mantém visível:
+
+- status e operação atuais;
+- URL principal do AUD, quando disponível;
+- início e duração da execução;
+- etapa `Reprocessamento seletivo`;
+- progresso calculado a partir dos requisitos efetivamente avaliados;
+- quantidade de sucessos anteriores preservados;
+- quantidade de work-items que ainda precisam ser avaliados;
+- componente/scope que está `RUNNING`, quando o fulfillment o expõe;
+- descrição textual do que está sendo executado;
+- tentativas, tokens e custo estimado de IA acumulados no AUD enquanto a recuperação ocorre.
+
+Exemplo de projeção:
+
+```text
+REPROCESSAMENTO EM EXECUÇÃO
+
+AUD                  : AUD-...
+Sucessos preservados : 9
+Itens a avaliar      : 1
+Itens avaliados      : 0/1
+Executando           : análise semântica por IA | SNAP-...
+IA acumulada no AUD  : tentativas=... | tokens=... | custo estimado=...
+```
+
+A apresentação é atualizada por leitura do estado persistido dos work-items. Essa projeção não cria outro motor de reprocessamento e não altera as regras de seleção, retry, quarentena ou custo.
+
+### Resumo ao terminar
+
 Ao terminar, o console apresenta:
 
 ```text
@@ -49,6 +81,13 @@ Sucessos preservados
 Itens restantes
 Itens temporalmente expirados, quando existirem
 ```
+
+Em seguida mostra dois níveis de consumo:
+
+1. **Consumo desta tentativa de reprocessamento**: diferença entre a telemetria persistida antes e depois do `RPR-*`, incluindo novas tentativas de IA, tokens, custo estimado e novas chamadas Web Performance.
+2. **Consumo acumulado do AUD**: reutiliza o mesmo resumo já usado após uma execução normal, preservando todas as tentativas anteriores para custo e confiabilidade.
+
+Se um requisito for bloqueado por pré-requisito antes de qualquer chamada externa, a tentativa de reprocessamento pode ter custo de IA igual a zero. Os valores exibidos são estimativas técnicas persistidas pelos adapters, não invoice do provider.
 
 O console usa o mesmo motor seletivo da CLI. Não existe uma segunda regra de reprocessamento para a interface interativa.
 
@@ -132,7 +171,7 @@ Uma avaliação de reprocessamento pode terminar como `WAITING_FOR_DATA` ou `BLO
 
 O estado transitório usado para compor um `RPR-*` é isolado por contexto de execução. Duas auditorias reprocessadas simultaneamente não podem compartilhar `reprocess_id`, lista de pendências, filtros ou estado de outro `AUD-*`.
 
-Os hooks instalados no processo permanecem estáveis; o contexto de cada execução é propagado isoladamente. Um sucesso efetivo pertence exclusivamente ao respectivo `AUD-*` e ao seu histórico de `RPR-*`.
+Os hooks instalados no processo permanecem estáveis; o contexto de cada execução é propagado isoladamente. O console preserva o contexto corrente ao executar o motor seletivo em sua projeção de progresso. Um sucesso efetivo pertence exclusivamente ao respectivo `AUD-*` e ao seu histórico de `RPR-*`.
 
 ## Dependências de IA
 
