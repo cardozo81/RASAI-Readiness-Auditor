@@ -201,7 +201,6 @@ def _install_worker_reprocess() -> None:
 def _install_web_projection() -> None:
     """Expose fulfillment explicitly and allow AUDIT_REPROCESS durable jobs."""
     try:
-        from pydantic import BaseModel, Field
         from rasai.web import app as web_app
     except ImportError:
         return
@@ -255,19 +254,18 @@ def _install_web_projection() -> None:
     if "AUDIT_REPROCESS" not in str(
         web_app.ExecutionJobCreate.model_fields["job_type"].annotation
     ):
-        class FulfillmentExecutionJobCreate(BaseModel):
-            property_id: str = Field(min_length=1, max_length=200)
-            environment_id: str = Field(min_length=1, max_length=200)
+        # Compose with the current request model instead of rebuilding it field by
+        # field. Other extensions may already have added server-supported inputs such
+        # as source_audit_id; subclassing preserves those fields and future validators.
+        BaseExecutionJobCreate = web_app.ExecutionJobCreate
+
+        class FulfillmentExecutionJobCreate(BaseExecutionJobCreate):
             job_type: Literal[
                 "AUDIT",
                 "AUDIT_REPROCESS",
                 "SEARCH_MONITOR",
                 "REPORT_REFRESH",
             ]
-            payload: dict[str, Any] = Field(default_factory=dict)
-            idempotency_key: str | None = Field(default=None, max_length=200)
-            priority: int = Field(default=100, ge=0, le=1000)
-            max_attempts: int = Field(default=3, ge=1, le=100)
 
         web_app.ExecutionJobCreate = FulfillmentExecutionJobCreate
         web_app.app = web_app.create_app()
