@@ -88,6 +88,11 @@ class ReportPresentationTests(unittest.TestCase):
         self.assertEqual(public_label("BR-GEO-001"), "BR-GEO-001")
 
     def test_scoring_contract_has_human_labels_for_every_dimension_and_group(self) -> None:
+        # The external SARI corroboration is an installed pre-publication scoring
+        # extension, so its presentation vocabulary is registered by the same installer.
+        from rasai.external_sari_reporting import install as install_external_sari_reporting
+
+        install_external_sari_reporting()
         expected = set(FEATURE_ORDER)
         expected.update(group for groups in GROUP_WEIGHTS.values() for group in groups)
         missing = sorted(item for item in expected if item not in SCORING_CONCEPT_LABELS)
@@ -118,7 +123,7 @@ class ReportPresentationTests(unittest.TestCase):
         self.assertIn("<td>Rendering & Extractability</td>", rendered)
         self.assertIn("<span>Semantic Structure</span>", rendered)
         self.assertIn("<strong>Structured Data</strong>", rendered)
-        self.assertIn("Capacidade de indexação continua explicada nesta frase.", rendered)
+        self.assertIn("Capacidade de indexação continua explicada nesta frase.</p>", rendered)
 
     def test_humanization_remains_idempotent_after_concept_normalization(self) -> None:
         html = "<td>CONTENT_VALUE</td><td>Valor do conteúdo</td><td>BLOCKED</td>"

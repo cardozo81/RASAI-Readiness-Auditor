@@ -1,7 +1,7 @@
 """Canonical pre-release contract for SARI-001 / SCORE-GEO-004.
 
 SCORE-GEO-004 remains the sole runtime scoring identifier while RASAi is still in
-pre-production.  This module is the single source of truth for the current
+pre-production. This module is the single source of truth for the current
 hierarchical weighting model, rule-to-group mapping, evidence precedence and
 critical readiness gates.
 
@@ -10,7 +10,9 @@ The contract deliberately separates:
 * quality score (0..100);
 * measurement Coverage/Confidence/Consolidation;
 * critical readiness gate state;
-* external metrics and observed outcomes, which are not score inputs by default.
+* external outcomes that stay advisory by default;
+* one bounded external discovery corroboration signal (BR-GEO-060) that can
+  contribute only when positive evidence is persisted and reproducible.
 """
 from __future__ import annotations
 
@@ -29,6 +31,7 @@ MIN_PARTIAL_COVERAGE = 0.50
 
 EVIDENCE_ROLE_DETERMINISTIC_PRIMARY = "DETERMINISTIC_PRIMARY"
 EVIDENCE_ROLE_AI_CORROBORATIVE = "AI_CORROBORATIVE"
+EVIDENCE_ROLE_EXTERNAL_CORROBORATIVE = "EXTERNAL_CORROBORATIVE"
 
 FEATURE_ORDER = (
     "DISCOVERY_ACCESS",
@@ -44,8 +47,8 @@ FEATURE_ORDER = (
     "CONTENT_VALUE",
 )
 
-# Public SARI weight.  These values are fixed by the scoring contract, not by an
-# audit configuration.  Legitimately NOT_APPLICABLE dimensions leave the
+# Public SARI weight. These values are fixed by the scoring contract, not by an
+# audit configuration. Legitimately NOT_APPLICABLE dimensions leave the
 # denominator and the remaining weights are normalized.
 DIMENSION_WEIGHTS: dict[str, float] = {
     "DISCOVERY_ACCESS": 0.15,
@@ -71,17 +74,26 @@ MACRO_COMPONENTS: dict[str, tuple[str, ...]] = {
     "STRUCTURED_DATA": ("STRUCTURED_DATA",),
 }
 
-# Weights are stable inside each dimension.  Page count never multiplies a
+# Weights are stable inside each dimension. Page count never multiplies a
 # group's importance: the group weight is divided across its applicable scopes.
+#
+# EXTERNAL_CRAWL_CORROBORATION is deliberately only 3% of DISCOVERY_ACCESS.
+# The seven pre-existing Discovery groups are their original weights multiplied
+# by 0.97. Therefore, when BR-GEO-060 is absent, normalization over applicable
+# groups reproduces exactly the previous technical ratios (30/15/5/10/10/10/20).
+# Because DISCOVERY_ACCESS is 15% of SARI, the external group's theoretical
+# maximum influence on the Overall is 0.45 point. Absence of external evidence
+# does not enter the denominator, reduce Coverage, or participate in a Critical Gate.
 GROUP_WEIGHTS: dict[str, dict[str, float]] = {
     "DISCOVERY_ACCESS": {
-        "PAGE_ACCESS": 0.30,
-        "ROBOTS": 0.15,
-        "SITEMAP": 0.05,
-        "REDIRECT": 0.10,
-        "SPA_ROUTE": 0.10,
-        "SPA_NAVIGATION": 0.10,
-        "INTERNAL_LINKS": 0.20,
+        "PAGE_ACCESS": 0.291,
+        "ROBOTS": 0.1455,
+        "SITEMAP": 0.0485,
+        "REDIRECT": 0.097,
+        "SPA_ROUTE": 0.097,
+        "SPA_NAVIGATION": 0.097,
+        "INTERNAL_LINKS": 0.194,
+        "EXTERNAL_CRAWL_CORROBORATION": 0.03,
     },
     "INDEXABILITY": {
         "INDEX_DIRECTIVES": 0.35,
@@ -178,7 +190,7 @@ def _rule(
     )
 
 
-# Explicit rule manifest.  Non-scoring acquisition/auditor-integrity rules are
+# Explicit rule manifest. Non-scoring acquisition/auditor-integrity rules are
 # intentionally absent instead of being inferred from BR-GEO number ranges.
 RULE_SCORING_CONTRACT: dict[str, RuleContract] = {
     "BR-GEO-003": _rule("DISCOVERY_ACCESS", "SITEMAP", warning_factor=0.80),
@@ -244,6 +256,11 @@ RULE_SCORING_CONTRACT: dict[str, RuleContract] = {
     "BR-GEO-057": _rule("CONTENT_VALUE", "CONTENT_USEFULNESS"),
     "BR-GEO-058": _rule("CONTENT_VALUE", "CONTENT_DIFFERENTIATION"),
     "BR-GEO-059": _rule("CONTENT_VALUE", "CONTENT_DEPTH"),
+    "BR-GEO-060": _rule(
+        "DISCOVERY_ACCESS",
+        "EXTERNAL_CRAWL_CORROBORATION",
+        evidence_role=EVIDENCE_ROLE_EXTERNAL_CORROBORATIVE,
+    ),
 }
 
 
@@ -259,6 +276,7 @@ def method_trace_limitations() -> tuple[str, ...]:
         f"GROUP_WEIGHTS:{GROUP_WEIGHT_VERSION}",
         f"CRITICAL_GATES:{CRITICAL_GATE_VERSION}",
         f"MEASUREMENT_CONFIDENCE:{MEASUREMENT_CONFIDENCE_VERSION}",
+        "EXTERNAL_CRAWL_CORROBORATION:BR-GEO-060:POSITIVE_ONLY:MAX_OVERALL_IMPACT_0.45",
         "EMPIRICAL_VALIDATION:NOT_SCORE_INPUT",
     )
 

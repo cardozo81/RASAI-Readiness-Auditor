@@ -29,6 +29,11 @@ from rasai.console_secret_input import install_masked_secret_input
 from rasai.consolidation.integration import install as install_consolidation
 from rasai.context_scope_runtime import install as install_context_scope_runtime
 from rasai.external_measurement_runtime import install as install_external_measurement_runtime
+from rasai.external_observability_console import install as install_external_observability_console
+from rasai.external_observability_runtime import (
+    install as install_external_observability_runtime,
+    install_service_contract as install_external_observability_service_contract,
+)
 from rasai.improvement_intelligence_console import (
     install as install_improvement_intelligence_console,
     install_environment as install_improvement_intelligence_environment,
@@ -75,7 +80,9 @@ def main() -> int:
     # Standards metadata is installed before context projection and before INI load so
     # all non-secret service toggles participate in the normal console persistence flow.
     install_standards_pre_context()
+    install_external_observability_service_contract()
     install_standards_console_runtime()
+    install_external_observability_console()
     install_report_registry()
     install_context_scope_runtime()
     install_m3_render_deadline_runtime()
@@ -88,14 +95,16 @@ def main() -> int:
     install_standards_css_validation()
     install_standards_m21_reconciliation()
     install_standards_gsc_observability_runtime()
+    install_external_observability_runtime()
     install_improvement_intelligence_environment()
     prepare_console_config()
     install_ai_efficiency_policy()
     install_runtime_completion_extensions()
     # Runtime-completion extensions may rebuild the base EnvironmentSpec catalog.
-    # Standards installer is deliberately repairable; rerun it here so service/GSC
-    # metadata and contextual references remain rich in the final public console.
+    # Standards/external installers are repairable; rerun them so the final public
+    # console keeps service metadata, validation and secret-safety semantics.
     install_standards_console_runtime()
+    install_external_observability_console()
     install_report_observation_reconciliation()
     install_runtime_adherence_extensions()
     install_integration_state_contract()
@@ -131,7 +140,9 @@ def main() -> int:
     # defaults without weakening validation of explicitly contradictory choices.
     install_system_default_dependencies(interactive_console)
     # Readiness guidance augments the profile catalog before the profile wrapper captures
-    # the final console contract. Profiles remain outermost and session-only.
+    # the final console contract. Profiles remain outermost and session-only. External
+    # observability services keep their independent service toggles and are not silently
+    # enabled/disabled by a profile preset.
     install_execution_profile_readiness()
     install_execution_profiles(interactive_console)
     return interactive_console.main()
