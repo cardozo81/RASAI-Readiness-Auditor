@@ -90,7 +90,7 @@ GitHub Copilot usa o SDK oficial, `COPILOT_GITHUB_TOKEN` e modelo público `auto
 
 ### `AUTO`
 
-`AI=auto` **não é uma cadeia fixa OpenAI -> DeepSeek -> MiMo** no runtime vigente.
+`AI=auto` **não é uma cadeia fixa OpenAI → DeepSeek → MiMo** no runtime vigente.
 
 O coordenador:
 
@@ -100,7 +100,7 @@ O coordenador:
 4. aplica exclusões de `RASAI_AI_AUTO_EXCLUDE`;
 5. remove candidatos já inelegíveis pela saúde/quarentena da execução;
 6. estima o custo da necessidade atual usando provider, modelo, reasoning, input/output esperados, cache observado quando disponível e a regra tarifária vigente naquele instante;
-7. ordena os providers precificados do menor para o maior custo estimado; providers sem preço conhecido ficam depois dos precificados e preservam entre si a ordem rotativa legada;
+7. ordena os providers precificados do menor para o maior custo estimado; providers sem preço conhecido ficam depois dos precificados e preservam entre si a ordem rotativa determinística do coordenador;
 8. tenta cada provider elegível no máximo uma vez por necessidade;
 9. aplica circuit breaker/saúde por execução sem alterar os limiares existentes;
 10. encerra a necessidade no primeiro resultado válido.
@@ -273,7 +273,7 @@ valor já presente no processo/Windows
 > default do runtime
 ```
 
-Valores não secretos do INI são projetados novamente para o ambiente dos adapters antes da execução. Assim, remediação de IA, Web Performance, timeouts, modelo/reasoning selecionados e Synthetic Apdex podem sobreviver a salvar -> fechar -> reabrir.
+Valores não secretos do INI são projetados novamente para o ambiente dos adapters antes da execução. Assim, remediação de IA, Web Performance, timeouts, modelo/reasoning selecionados e Synthetic Apdex podem sobreviver a salvar → fechar → reabrir.
 
 Secrets nunca entram no INI. No Windows, o console pode persistir/remover uma credencial no escopo `User` somente mediante ação explícita; `Windows/Machine` é observado, não administrado.
 
