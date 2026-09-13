@@ -40,7 +40,7 @@ def test_deepseek_peak_uses_utc_weekday_and_not_consumer_weekday() -> None:
     assert pricing_context("DEEPSEEK", monday_second_window) == "PEAK"
 
 
-def test_deepseek_flash_current_prices_apply_from_2026_09_10_change() -> None:
+def test_deepseek_flash_current_prices_apply_from_2026_08_16_change() -> None:
     peak = resolve_price(
         "DEEPSEEK",
         "deepseek-v4-flash",
@@ -55,15 +55,15 @@ def test_deepseek_flash_current_prices_apply_from_2026_09_10_change() -> None:
     )
     assert peak is not None
     assert off_peak is not None
-    assert (peak.input_price_per_million, peak.cached_input_price_per_million, peak.output_price_per_million) == pytest.approx((0.30, 0.006, 1.20))
-    assert (off_peak.input_price_per_million, off_peak.cached_input_price_per_million, off_peak.output_price_per_million) == pytest.approx((0.15, 0.003, 0.60))
+    assert (peak.input_price_per_million, peak.cached_input_price_per_million, peak.output_price_per_million) == pytest.approx((0.44, 0.014, 1.32))
+    assert (off_peak.input_price_per_million, off_peak.cached_input_price_per_million, off_peak.output_price_per_million) == pytest.approx((0.22, 0.007, 0.66))
 
 
 def test_deepseek_flash_is_unpriced_before_current_contract_effective_time() -> None:
     before_current_contract = resolve_price(
         "DEEPSEEK",
         "deepseek-v4-flash",
-        at=datetime(2026, 9, 9, 1, 30, tzinfo=UTC),
+        at=datetime(2026, 8, 16, 15, 59, tzinfo=UTC),
         input_tokens=10_000,
     )
     assert before_current_contract is None
@@ -175,4 +175,4 @@ def test_unpriced_candidates_keep_deterministic_rotating_order() -> None:
 
 
 def test_review_date_is_explicit_and_machine_readable() -> None:
-    assert PRICING_REVIEW_RECOMMENDED_ON == "2026-10-12"
+    assert PRICING_REVIEW_RECOMMENDED_ON == "2026-10-13"

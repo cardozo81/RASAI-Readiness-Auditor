@@ -16,9 +16,9 @@ import json
 import math
 from typing import Any, Mapping
 
-PRICING_VERSION = "RASAI-PRICING-2026-09-12"
-PRICING_VERIFIED_ON = "2026-09-12"
-PRICING_REVIEW_RECOMMENDED_ON = "2026-10-12"
+PRICING_VERSION = "RASAI-PRICING-2026-09-13"
+PRICING_VERIFIED_ON = "2026-09-13"
+PRICING_REVIEW_RECOMMENDED_ON = "2026-10-13"
 
 # Approximation used only before the provider returns native usage. The router learns
 # from native usage during the same execution and replaces these defaults progressively.
@@ -100,8 +100,8 @@ PRICING_CATALOG: tuple[PricingRule, ...] = (
     PricingRule("OPENAI", "gpt-5.6-luna", 0.20, 0.02, 1.20, "USD", "https://developers.openai.com/api/docs/models/gpt-5.6-luna", "2026-08-21T00:00:00Z"),
     PricingRule("DEEPSEEK", "deepseek-v4-pro", 1.32, 0.044, 3.96, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", "2026-08-16T16:00:00Z", pricing_context="PEAK"),
     PricingRule("DEEPSEEK", "deepseek-v4-pro", 0.66, 0.022, 1.98, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", "2026-08-16T16:00:00Z", pricing_context="OFF_PEAK"),
-    PricingRule("DEEPSEEK", "deepseek-v4-flash", 0.30, 0.006, 1.20, "USD", "https://platform.deepseek.com/usage", "2026-09-10T04:00:00Z", pricing_context="PEAK"),
-    PricingRule("DEEPSEEK", "deepseek-v4-flash", 0.15, 0.003, 0.60, "USD", "https://platform.deepseek.com/usage", "2026-09-10T04:00:00Z", pricing_context="OFF_PEAK"),
+    PricingRule("DEEPSEEK", "deepseek-v4-flash", 0.44, 0.014, 1.32, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", "2026-08-16T16:00:00Z", pricing_context="PEAK"),
+    PricingRule("DEEPSEEK", "deepseek-v4-flash", 0.22, 0.007, 0.66, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", "2026-08-16T16:00:00Z", pricing_context="OFF_PEAK"),
     PricingRule("MIMO", "mimo-v2.5-pro", 0.435, 0.0036, 0.87, "USD", "https://mimo.mi.com/docs/en-US/price/pay-as-you-go", "2026-08-06T00:00:00Z"),
     PricingRule("MIMO", "mimo-v2.5", 0.14, 0.0028, 0.28, "USD", "https://mimo.mi.com/docs/en-US/price/pay-as-you-go", "2026-08-06T00:00:00Z"),
     PricingRule("XAI", "grok-4.6", 2.00, 0.50, 6.00, "USD", "https://docs.x.ai/developers/pricing", "2026-09-02T00:00:00Z", pricing_context="SHORT_CONTEXT"),

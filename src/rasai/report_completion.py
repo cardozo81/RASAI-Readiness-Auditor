@@ -100,6 +100,7 @@ def finalize_audit_report_site(
     from rasai.m24_reporting import enrich_m24_report_site
     from rasai.m25_overview_reporting import enrich_m25_overview_summary
     from rasai.m25_reporting import enrich_m25_report_site
+    from rasai.quality.reporting import write_quality_report
     from rasai.rasai_readiness_reporting import enrich_rasai_reporting
     from rasai.report_ai_cost_attribution import enrich_ai_cost_attribution
     from rasai.report_ai_runtime_enrichment import enrich_ai_runtime_report
@@ -151,6 +152,12 @@ def finalize_audit_report_site(
         "improvement-intelligence",
         lambda: write_improvement_report(audit_id=audit_id, workspace=workspace),
     )
+
+    # Audit Quality is also audit-owned and read-only. It must be materialized from the
+    # completed persisted audit rather than left as a generic canonical placeholder.
+    # Fix Verification and Evidence Timeline remain separate multi-AUD operations.
+    run("audit-quality", lambda: write_quality_report(workspace.root))
+
     report_dir = workspace.root / "report"
     run("consistency", lambda: reconcile_report_outputs(audit_id=audit_id, workspace=workspace))
     run("navigation", lambda: report_navigation.normalize_report_navigation(report_dir))
