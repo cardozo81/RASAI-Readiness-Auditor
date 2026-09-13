@@ -229,7 +229,7 @@ O console separa duas perguntas:
 1. o provider pode ser configurado?
 2. o provider está apto para executar agora?
 
-Um provider sem credencial permanece configurável, porém não executável.
+**Providers sem credencial continuam configuráveis**; ficam indisponíveis apenas para execução até que a dependência necessária seja atendida.
 
 Providers canônicos atuais:
 
@@ -244,26 +244,27 @@ anthropic
 copilot
 ```
 
-Aliases suportados são resolvidos pelo provider registry. `none` desabilita IA. `auto` utiliza somente providers elegíveis e aptos segundo a política vigente.
+Aliases suportados são resolvidos pelo `provider_registry`. `none` desabilita IA. `auto` utiliza somente providers elegíveis e aptos segundo a política vigente.
 
-GitHub Copilot é seleção explícita e não participa automaticamente do pool `AI=auto`.
+GitHub Copilot é `explicit-only`: pode ser selecionado explicitamente quando apto, mas não participa automaticamente do pool `AI=auto`.
 
 ### Credenciais de IA
 
-A tela de provider permite, conforme aplicável:
+A tela de provider mantém as ações canônicas:
 
 ```text
-Setar/alterar Key na sessão
-Persistir/remover Key no Windows/User
-Limpar Key somente da sessão
-Excluir Key da sessão e Windows/User
-Habilitar/desabilitar participação no AUTO
-Usar o provider na auditoria atual
+S. Setar/alterar Key na sessão
+P. Persistir/remover Key no Windows/User
+L. Limpar Key somente da sessão
+X. Excluir Key da sessão e do Windows/User
+A. Habilitar/desabilitar no AUTO sem apagar a Key
+U. Usar este provider nesta auditoria
+V. Voltar
 ```
 
 A edição de secret usa mascaramento quando o terminal suporta leitura segura por caractere; caso contrário, usa entrada sem eco. O valor não é exibido em claro depois da edição.
 
-Mudanças de credencial recalculam a aptidão do provider na mesma sessão.
+Toda alteração de credencial recalcula imediatamente a capability do provider na mesma sessão. Uma Key válida pode tornar o provider `APTO` sem reiniciar o console quando não houver outro impedimento real.
 
 ## Windows/User e Windows/Machine
 
@@ -273,15 +274,17 @@ Persistência gerenciada de secrets no Windows usa:
 HKEY_CURRENT_USER\Environment
 ```
 
-Essa operação não exige elevação administrativa.
+Essa operação não exige PowerShell ou `.ps1` executado como Administrador. O RASAi não modifica Windows/Machine ao gerenciar credenciais normais do console.
 
-Uma credencial existente em `Windows/Machine` pode ser detectada e usada conforme a precedência do ambiente, mas não é criada, alterada ou removida automaticamente pelo RASAi.
+Uma credencial existente em `Windows/Machine` pode ser detectada e usada conforme a precedência do ambiente, mas não é criada, alterada ou removida automaticamente. Windows/Machine não é administrado automaticamente pelo RASAi.
 
 Variáveis de ambiente não constituem um secret manager; processos com acesso ao mesmo perfil podem ler esses valores.
 
 ## Provider registry e AUTO
 
-`AI=auto` deriva o pool do provider registry e da política runtime. O processo considera, entre outros fatores:
+`AI=auto` **não é uma cadeia fixa OpenAI -> DeepSeek -> MiMo**. O pool é derivado dinamicamente do `provider_registry` e da política runtime.
+
+O processo considera, entre outros fatores:
 
 - elegibilidade para AUTO;
 - credencial/configuração válida;
@@ -290,7 +293,7 @@ Variáveis de ambiente não constituem um secret manager; processos com acesso a
 - política de custo/roteamento;
 - quarentena/circuit breaker.
 
-Desabilitar um provider no AUTO não apaga sua credencial nem impede seleção explícita quando o provider suporta esse uso.
+Desabilitar um provider no AUTO não apaga sua credencial nem impede seleção explícita quando o provider suporta esse uso. Providers `explicit-only`, como GitHub Copilot, ficam fora do pool automático por contrato.
 
 ## Modelos, reasoning e timeout
 
@@ -298,7 +301,7 @@ Depois de escolher um provider apto, o console permite selecionar modelo, esfor�
 
 O timeout padrão de IA é definido pelo contrato runtime e vale por tentativa de provider, não pela auditoria inteira.
 
-Modelos e opções de reasoning derivam do provider registry; o console não mantém um catálogo concorrente.
+Modelos e opções de reasoning derivam do `provider_registry`; o console não mantém um catálogo concorrente.
 
 ## Remediações por IA
 
@@ -338,6 +341,8 @@ concorrência
 perfil client/hardware/network
 modo de aquisição
 ```
+
+`RASAI_APDEX_ACQUISITION_MODE` controla o modo de aquisição compartilhada, com valores `auto` e `isolated`. Essa escolha é operacional e não altera scoring por si só; `auto` permite reutilizar aquisição física quando isso for metodologicamente seguro e `isolated` força medições independentes.
 
 O operador deve ajustar volume e concorrência de forma conservadora.
 
