@@ -1,4 +1,4 @@
-"""Application service for offline consolidated reporting."""
+"""Application service for offline-first consolidated reporting."""
 from __future__ import annotations
 
 from datetime import date
@@ -17,6 +17,7 @@ from .reporting import write_report
 from .cons4 import find_existing as find_cons4
 from .cons4 import materialize as materialize_cons4
 from .cons4 import request_fingerprint as cons4_request_fingerprint
+from .specialist import enrich_result, validate_comparison_mode
 from .temporal_apdex import build_temporal_apdex
 
 
@@ -27,15 +28,47 @@ def normalize_filter(
     date_to: date | None = None,
     devices: Iterable[str] = (),
     urls: Iterable[str] = (),
+    comparison_mode: str = "FIRST_LAST",
+    baseline_audit_id: str | None = None,
+    current_audit_id: str | None = None,
+    specialist_ai: bool = False,
+    ai_provider: str | None = None,
+    ai_model: str | None = None,
+    ai_reasoning: str | None = None,
+    ai_timeout_seconds: float | None = None,
 ) -> ConsolidationFilter:
     if date_from and date_to and date_from > date_to:
         raise ValueError("date_from cannot be after date_to")
+    mode = validate_comparison_mode(comparison_mode)
+    baseline = str(baseline_audit_id or "").strip() or None
+    current = str(current_audit_id or "").strip() or None
+    if mode == "MANUAL" and (not baseline or not current):
+        raise ValueError("comparison_mode MANUAL exige baseline_audit_id e current_audit_id")
+    if mode != "MANUAL":
+        baseline = None
+        current = None
+    provider = str(ai_provider or "").strip().casefold() or None
+    if specialist_ai and provider in {None, "none"}:
+        raise ValueError("specialist_ai exige provider de IA habilitado")
+    timeout = None
+    if specialist_ai:
+        timeout = float(ai_timeout_seconds or 180.0)
+        if not timeout > 0:
+            raise ValueError("ai_timeout_seconds deve ser > 0")
     return ConsolidationFilter(
         domains=tuple(sorted({item.strip().casefold() for item in domains if item and item.strip()})),
         date_from=date_from,
         date_to=date_to,
         devices=tuple(sorted({item.strip().upper() for item in devices if item and item.strip()})),
         urls=tuple(sorted({item.strip() for item in urls if item and item.strip()})),
+        comparison_mode=mode,
+        baseline_audit_id=baseline,
+        current_audit_id=current,
+        specialist_ai=bool(specialist_ai),
+        ai_provider=provider if specialist_ai else None,
+        ai_model=(str(ai_model).strip() or None) if specialist_ai and ai_model is not None else None,
+        ai_reasoning=(str(ai_reasoning).strip().upper() or None) if specialist_ai and ai_reasoning is not None else None,
+        ai_timeout_seconds=timeout,
     )
 
 
@@ -146,17 +179,12 @@ def generate(
             finding_history=data.finding_history,
         )
 
-    # CONS-4 has its own request identity. This prevents a previously generated
-    # CONS-3 snapshot from being modified in place when temporal aggregation is enabled.
     temporal_fingerprint = cons4_request_fingerprint(data.source_fingerprint, filters)
     existing_temporal = find_cons4(root, temporal_fingerprint, refresh)
     if existing_temporal is not None:
         _normalize_derivative_output(existing_temporal)
         return existing_temporal
 
-    # Temporal Apdex is an additive, read-only projection over the same immutable
-    # AUD workspaces. It deliberately bypasses the rebuildable summary index so
-    # raw sample distributions remain exact without migrating source audit.db files.
     temporal_apdex = build_temporal_apdex(
         audits_root=root,
         audits=data.audits,
@@ -170,5 +198,8 @@ def generate(
         filters=filters,
         series=temporal_apdex,
     )
+    # Evolution/AI enrichment is derivative and fail-open. It reads the same immutable
+    # AUD workspaces through Monitoring/Quality and never feeds back into scoring.
+    result = enrich_result(root, filters, result)
     _normalize_derivative_output(result)
     return result
