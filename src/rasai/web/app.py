@@ -15,6 +15,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from rasai.audit_configuration_reuse_saas import (
+    assert_client_payload_has_no_provenance,
     build_reused_payload,
     install as install_audit_configuration_reuse_saas,
 )
@@ -323,6 +324,8 @@ def create_app(
         try:
             if request.source_audit_id and request.job_type != "AUDIT":
                 raise ValueError("source_audit_id is supported only for AUDIT jobs")
+            if request.job_type == "AUDIT":
+                assert_client_payload_has_no_provenance(request.payload)
             effective_payload = request.payload
             if request.source_audit_id:
                 effective_payload = build_reused_payload(
