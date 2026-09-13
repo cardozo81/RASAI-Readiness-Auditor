@@ -97,6 +97,36 @@ def _restore_core_platform_snapshot_projection() -> None:
         indexing.read_audit_snapshot = original
 
 
+def _summary_metadata(summary: Any | None, *, audit_id: str, status_only: bool) -> dict[str, Any]:
+    if summary is None:
+        return {
+            "audit_id": audit_id,
+            "reprocess_id": None,
+            "status_only": status_only,
+            "processing_status": None,
+            "score_status": None,
+            "report_status": None,
+            "consolidation_eligible": False,
+            "attempted_items": 0,
+            "successful_items": 0,
+            "remaining_items": None,
+            "temporal_expired_items": 0,
+        }
+    return {
+        "audit_id": audit_id,
+        "reprocess_id": summary.last_reprocess_id,
+        "status_only": status_only,
+        "processing_status": summary.processing_status,
+        "score_status": summary.score_status,
+        "report_status": summary.report_status,
+        "consolidation_eligible": summary.consolidation_eligible,
+        "attempted_items": 0,
+        "successful_items": 0,
+        "remaining_items": summary.pending_items + summary.blocked_items,
+        "temporal_expired_items": summary.expired_items,
+    }
+
+
 def _install_worker_reprocess() -> None:
     try:
         from rasai import worker
@@ -133,6 +163,15 @@ def _install_worker_reprocess() -> None:
                 "audit reprocessing job must use the same property/environment scope as the AUD"
             )
 
+        # A status-only durable job is an inspection request, not a recovery pass.
+        # It must never create RPR history, mutate audit.db or invoke external work.
+        if bool(payload.get("status_only", False)):
+            summary = read_summary(Path(indexed.workspace_path), audit_id)
+            return worker.WorkerResult(
+                result_ref=audit_id,
+                metadata=_summary_metadata(summary, audit_id=audit_id, status_only=True),
+            )
+
         from rasai.audit_reprocess import reprocess_audit
 
         result = reprocess_audit(
@@ -143,6 +182,7 @@ def _install_worker_reprocess() -> None:
         metadata = {
             "audit_id": result.audit_id,
             "reprocess_id": result.reprocess_id,
+            "status_only": False,
             "processing_status": result.processing_status,
             "score_status": result.score_status,
             "report_status": result.report_status,
