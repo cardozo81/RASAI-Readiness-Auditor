@@ -232,7 +232,8 @@ class M24Tests(unittest.TestCase):
             self.assertIn("NENHUM", html)
             self.assertIn("Rastreamento, descoberta e acesso por IA", html)
             self.assertIn("CRAWLING-DISCOVERY-001", html.upper())
-            self.assertIn("ROBOTS-EXTERNAL-SITEMAP", html)
+            self.assertIn("EXTERNAL-SITEMAP", html.upper())
+            self.assertIn("Sitemap externo declarado em robots.txt", html)
             self.assertNotIn("M24-ROBOTS-EXTERNAL-SITEMAP", html)
             self.assertIsNone(_MILESTONE_PUBLIC_RE.search(html))
 
