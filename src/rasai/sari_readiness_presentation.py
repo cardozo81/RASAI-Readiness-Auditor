@@ -185,6 +185,116 @@ def operational_readiness_panel(data: dict[str, Any]) -> str:
     )
 
 
+def _reporting_overall_card(reporting: Any, scores: list[Any], device: str) -> str:
+    row = next(
+        (
+            item for item in scores
+            if str(_row_value(item, "device", "")).upper() == device
+            and str(_row_value(item, "dimension", "")) == "OVERALL_READINESS"
+        ),
+        None,
+    )
+    label = "Mobile" if device == "MOBILE" else "Desktop"
+    if row is None:
+        return (
+            f"<article class='score-card neutral'><div class='label'>{label} - {reporting.PUBLIC_METHOD_VERSION}</div>"
+            "<div class='score-number'>Indisponível</div>"
+            "<span class='score-band-label neutral'>Readiness não determinada</span>"
+            "<p class='intro'>Overall não persistido.</p></article>"
+        )
+
+    raw_value = _row_value(row, "value")
+    condition, readiness_label, quality_label = public_readiness_condition(row)
+    css = _score_card_class(condition)
+    coverage = f"{float(_row_value(row, 'coverage', 0.0)) * 100:.0f}%"
+    confidence_raw = str(_row_value(row, "confidence", "UNAVAILABLE"))
+    confidence = reporting._STATUS_LABELS.get(confidence_raw, confidence_raw)
+    consolidation_raw = str(_row_value(row, "consolidation_status", "NOT_CONSOLIDATED"))
+    consolidation = reporting._STATUS_LABELS.get(consolidation_raw, consolidation_raw)
+    readiness, gates = readiness_state(row)
+    gate_detail = _gate_detail(gates)
+
+    if raw_value is None:
+        score_markup = "<div class='score-number'>Não consolidado</div>"
+    else:
+        score_markup = f"<div class='score-number'>{float(raw_value):.1f}<span>/100</span></div>"
+
+    qualifier = (
+        f"<p class='intro'><strong>Qualidade do universo medido:</strong> {escape(quality_label)}. "
+        "A badge acima é a conclusão de readiness e prevalece sobre a leitura isolada da nota."
+        + (f" Gates não-PASS: {escape(gate_detail)}." if gate_detail else "")
+        + "</p>"
+    )
+    return (
+        f"<article class='score-card {css}'><div class='label'>{label} - {reporting.PUBLIC_METHOD_VERSION}</div>"
+        f"{score_markup}<span class='score-band-label {condition}'>{escape(readiness_label)}</span>"
+        "<div class='score-meta'>"
+        f"<div><small>Cobertura</small><strong>{escape(coverage)}</strong></div>"
+        f"<div><small>Confiança</small><strong>{escape(confidence)}</strong></div>"
+        f"<div><small>Consolidação</small><strong>{escape(consolidation)}</strong></div>"
+        f"<div><small>Readiness</small><strong>{escape(readiness)}</strong></div>"
+        "</div>" + qualifier + "</article>"
+    )
+
+
+def _site_overall_card(report_site: Any, scores: list[Any], device: str) -> str:
+    """Render device pages with readiness as the primary visual state.
+
+    The numeric quality band remains visible as secondary information. This prevents
+    the same persisted Overall row from being amber on the executive page and green on
+    mobile/desktop simply because its numeric value is above 90 while a critical gate
+    is still WARNING/BLOCKED/UNKNOWN.
+    """
+    row = next(
+        (
+            item for item in scores
+            if str(_row_value(item, "device", "")).upper() == device
+            and str(_row_value(item, "dimension", "")) == "OVERALL_READINESS"
+        ),
+        None,
+    )
+    label = report_site._device_label(device)
+    if row is None:
+        return (
+            f"<article class='score-card neutral'><div class='label'>{escape(label)}</div>"
+            "<div class='score-number'>Indisponível</div>"
+            "<p class='intro'>Overall não persistido.</p></article>"
+        )
+
+    condition, readiness_label, quality_label = public_readiness_condition(row)
+    readiness, gates = readiness_state(row)
+    css = _score_card_class(condition)
+    raw_value = _row_value(row, "value")
+    score_markup = (
+        "<div class='score-number'>Não consolidado</div>"
+        if raw_value is None
+        else f"<div class='score-number'>{float(raw_value):.1f}<span>/100</span></div>"
+    )
+    confidence_raw = str(_row_value(row, "confidence", "UNAVAILABLE"))
+    confidence = report_site._STATUS_LABELS.get(confidence_raw, confidence_raw)
+    consolidation_raw = str(_row_value(row, "consolidation_status", "NOT_CONSOLIDATED"))
+    consolidation = report_site._STATUS_LABELS.get(consolidation_raw, consolidation_raw)
+    coverage = f"{float(_row_value(row, 'coverage', 0.0)) * 100:.0f}%"
+    gate_detail = _gate_detail(gates)
+    detail = (
+        f"<p class='intro'><strong>Qualidade medida:</strong> {escape(quality_label)}. "
+        f"<strong>Readiness operacional:</strong> {escape(readiness_label)}."
+        + (f" Gates não-PASS: {escape(gate_detail)}." if gate_detail else "")
+        + "</p>"
+    )
+    return (
+        f"<article class='score-card {css}'><div class='label'>{escape(label)} · índice interno</div>"
+        f"{score_markup}<div><span class='badge {css}'>{escape(readiness_label)}</span> "
+        f"<span class='badge info'>Qualidade {escape(quality_label)}</span> "
+        f"{report_site._confidence_badge(confidence_raw)}</div>"
+        "<div class='score-meta'>"
+        f"<div><small>Coverage</small><strong>{escape(coverage)}</strong></div>"
+        f"<div><small>Confidence</small><strong>{escape(confidence)}</strong></div>"
+        f"<div><small>Consolidação</small><strong>{escape(consolidation)}</strong></div>"
+        "</div>" + detail + "</article>"
+    )
+
+
 def install() -> None:
     """Install the public-readiness projection after the generic score-band layer."""
     # Direct report-finalizer callers may bypass the top-level entrypoints. Ensure the
@@ -192,71 +302,34 @@ def install() -> None:
     install_report_observation_reconciliation()
 
     from rasai import rasai_readiness_reporting as reporting
+    from rasai import report_site
 
-    if getattr(reporting, "_rasai_public_readiness_guardrails", False):
+    reporting_installed = bool(getattr(reporting, "_rasai_public_readiness_guardrails", False))
+    site_installed = bool(getattr(report_site, "_rasai_public_readiness_guardrails", False))
+    if reporting_installed and site_installed:
         return
 
-    original_governance = reporting._sari_governance_block
+    if not reporting_installed:
+        original_governance = reporting._sari_governance_block
 
-    def sari_condition(row: Any) -> tuple[str, str]:
-        condition, readiness_label, quality_label = public_readiness_condition(row)
-        return condition, f"{readiness_label} · qualidade {quality_label}"
+        def sari_condition(row: Any) -> tuple[str, str]:
+            condition, readiness_label, quality_label = public_readiness_condition(row)
+            return condition, f"{readiness_label} · qualidade {quality_label}"
 
-    def overall_card(scores: list[Any], device: str) -> str:
-        row = next(
-            (
-                item for item in scores
-                if str(_row_value(item, "device", "")).upper() == device
-                and str(_row_value(item, "dimension", "")) == "OVERALL_READINESS"
-            ),
-            None,
-        )
-        label = "Mobile" if device == "MOBILE" else "Desktop"
-        if row is None:
-            return (
-                f"<article class='score-card neutral'><div class='label'>{label} - {reporting.PUBLIC_METHOD_VERSION}</div>"
-                "<div class='score-number'>Indisponível</div>"
-                "<span class='score-band-label neutral'>Readiness não determinada</span>"
-                "<p class='intro'>Overall não persistido.</p></article>"
-            )
+        def overall_card(scores: list[Any], device: str) -> str:
+            return _reporting_overall_card(reporting, scores, device)
 
-        raw_value = _row_value(row, "value")
-        condition, readiness_label, quality_label = public_readiness_condition(row)
-        css = _score_card_class(condition)
-        coverage = f"{float(_row_value(row, 'coverage', 0.0)) * 100:.0f}%"
-        confidence_raw = str(_row_value(row, "confidence", "UNAVAILABLE"))
-        confidence = reporting._STATUS_LABELS.get(confidence_raw, confidence_raw)
-        consolidation_raw = str(_row_value(row, "consolidation_status", "NOT_CONSOLIDATED"))
-        consolidation = reporting._STATUS_LABELS.get(consolidation_raw, consolidation_raw)
-        readiness, gates = readiness_state(row)
-        gate_detail = _gate_detail(gates)
+        def governance_with_public_readiness(data: dict[str, Any]) -> str:
+            return operational_readiness_panel(data) + original_governance(data)
 
-        if raw_value is None:
-            score_markup = "<div class='score-number'>Não consolidado</div>"
-        else:
-            score_markup = f"<div class='score-number'>{float(raw_value):.1f}<span>/100</span></div>"
+        reporting._sari_condition = sari_condition
+        reporting._overall_card = overall_card
+        reporting._sari_governance_block = governance_with_public_readiness
+        reporting._rasai_public_readiness_guardrails = True
 
-        qualifier = (
-            f"<p class='intro'><strong>Qualidade do universo medido:</strong> {escape(quality_label)}. "
-            "A badge acima é a conclusão de readiness e prevalece sobre a leitura isolada da nota."
-            + (f" Gates não-PASS: {escape(gate_detail)}." if gate_detail else "")
-            + "</p>"
-        )
-        return (
-            f"<article class='score-card {css}'><div class='label'>{label} - {reporting.PUBLIC_METHOD_VERSION}</div>"
-            f"{score_markup}<span class='score-band-label {condition}'>{escape(readiness_label)}</span>"
-            "<div class='score-meta'>"
-            f"<div><small>Cobertura</small><strong>{escape(coverage)}</strong></div>"
-            f"<div><small>Confiança</small><strong>{escape(confidence)}</strong></div>"
-            f"<div><small>Consolidação</small><strong>{escape(consolidation)}</strong></div>"
-            f"<div><small>Readiness</small><strong>{escape(readiness)}</strong></div>"
-            "</div>" + qualifier + "</article>"
-        )
+    if not site_installed:
+        def site_overall_card(scores: list[Any], device: str) -> str:
+            return _site_overall_card(report_site, scores, device)
 
-    def governance_with_public_readiness(data: dict[str, Any]) -> str:
-        return operational_readiness_panel(data) + original_governance(data)
-
-    reporting._sari_condition = sari_condition
-    reporting._overall_card = overall_card
-    reporting._sari_governance_block = governance_with_public_readiness
-    reporting._rasai_public_readiness_guardrails = True
+        report_site._overall_card = site_overall_card
+        report_site._rasai_public_readiness_guardrails = True
