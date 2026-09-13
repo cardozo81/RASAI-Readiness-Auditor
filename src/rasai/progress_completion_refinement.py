@@ -81,6 +81,31 @@ def _install_progress_contract() -> None:
         workload_weights._rasai_improvement_weight = True  # type: ignore[attr-defined]
         model.workload_weights = workload_weights
 
+    # Improvement Intelligence reports exact internal progress, but its console callback
+    # historically stamped every substage as API:<provider>. Normalize the operation
+    # before render_header is called: only AI_ANALYSIS is a provider call; evidence,
+    # HTML/security/metrics/discovery/SERP correlation, preparation, persistence and
+    # report refresh are local work over evidence already collected by the audit.
+    original_set_progress = console_runtime.set_runtime_progress
+    if not getattr(original_set_progress, "_rasai_improvement_operation_truth", False):
+        @wraps(original_set_progress)
+        def set_runtime_progress(
+            state: Any,
+            label: str,
+            percent: float | None,
+            *,
+            detail: str = "",
+            exact: bool = False,
+        ) -> None:
+            if str(getattr(state, "status", "")).upper() == _PHASE:
+                stage = detail.partition(":")[0].strip().upper()
+                if stage and stage != "AI_ANALYSIS":
+                    state.operation = f"LOCAL:IMPROVEMENT_{stage}"
+            original_set_progress(state, label, percent, detail=detail, exact=exact)
+
+        set_runtime_progress._rasai_improvement_operation_truth = True  # type: ignore[attr-defined]
+        console_runtime.set_runtime_progress = set_runtime_progress
+
     # Replace the legacy fixed 94->99 projection before the console feature installs.
     # set_runtime_progress still receives the exact substage percentage; the workload
     # model projects it into the execution-wide range dynamically.
