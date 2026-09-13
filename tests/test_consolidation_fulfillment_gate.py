@@ -57,27 +57,34 @@ def _workspace(root: Path) -> AuditWorkspace:
 
 
 def test_completed_core_audit_is_excluded_until_fulfillment_is_final() -> None:
+    # The installer intentionally patches the class for the lifetime of a production
+    # process. This test must restore the prior binding so legacy consolidation fixtures
+    # in the same pytest process are not reinterpreted as current fulfillment-aware AUDs.
+    original = ConsolidationIndex.candidate_audits
     _install_consolidation_gate()
-    with TemporaryDirectory() as directory:
-        root = Path(directory)
-        workspace = _workspace(root)
-        index = ConsolidationIndex(root)
-        refresh = index.refresh()
-        assert refresh.discovered == 1
-        assert index.candidate_audits(ConsolidationFilter()) == ()
+    try:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = _workspace(root)
+            index = ConsolidationIndex(root)
+            refresh = index.refresh()
+            assert refresh.discovered == 1
+            assert index.candidate_audits(ConsolidationFilter()) == ()
 
-        set_work_item_status(
-            workspace,
-            audit_id=AUDIT_ID,
-            component="SEMANTIC_AI",
-            scope_key="SNP-1",
-            status=SUCCESS,
-            result_ref="semantic:SNP-1:effective",
-        )
-        candidates = index.candidate_audits(ConsolidationFilter())
-        assert len(candidates) == 1
-        assert candidates[0]["audit_id"] == AUDIT_ID
+            set_work_item_status(
+                workspace,
+                audit_id=AUDIT_ID,
+                component="SEMANTIC_AI",
+                scope_key="SNP-1",
+                status=SUCCESS,
+                result_ref="semantic:SNP-1:effective",
+            )
+            candidates = index.candidate_audits(ConsolidationFilter())
+            assert len(candidates) == 1
+            assert candidates[0]["audit_id"] == AUDIT_ID
 
-        # Fulfillment completion promotes the same logical AUD; it never creates a
-        # second analytical observation.
-        assert [row["audit_id"] for row in candidates] == [AUDIT_ID]
+            # Fulfillment completion promotes the same logical AUD; it never creates a
+            # second analytical observation.
+            assert [row["audit_id"] for row in candidates] == [AUDIT_ID]
+    finally:
+        ConsolidationIndex.candidate_audits = original
