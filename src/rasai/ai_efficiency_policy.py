@@ -124,15 +124,19 @@ def install() -> None:
 
     # One fulfillment contract governs initial execution and selective recovery.
     # Core evidence recovery runs before AI recovery so no provider call can be used
-    # as a substitute for missing acquisition/render/extraction evidence.
+    # as a substitute for missing acquisition/render/extraction evidence. The
+    # context adapter preserves one RPR across core/downstream work without mutating
+    # module globals during an execution.
     from rasai.audit_fulfillment_runtime import install as install_audit_fulfillment
     from rasai.audit_fulfillment_saas import install as install_audit_fulfillment_saas
     from rasai.core_reprocessing import install as install_core_reprocessing
+    from rasai.core_reprocessing_context import install as install_core_reprocessing_context
     from rasai.semantic_recovery_runtime import install as install_semantic_recovery
     from rasai.technical_ai_eligibility import install as install_technical_ai_eligibility
 
     install_audit_fulfillment()
     install_core_reprocessing()
+    install_core_reprocessing_context()
     install_semantic_recovery()
     install_audit_fulfillment_saas()
     install_technical_ai_eligibility()
