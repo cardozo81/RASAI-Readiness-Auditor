@@ -1,4 +1,4 @@
-"""Platform-neutral regression contracts for completed-AUD configuration reuse."""
+"""Platform-neutral regression contracts for AUD configuration reuse."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -60,7 +60,7 @@ def _workspace(root: Path, audit_id: str, *, complete: bool) -> AuditWorkspace:
     return workspace
 
 
-def test_reuse_accepts_only_canonical_consolidation_eligible_audits() -> None:
+def test_reuse_accepts_complete_and_partial_audits_when_snapshot_is_valid() -> None:
     with TemporaryDirectory() as directory:
         root = Path(directory)
         complete = _workspace(root, "AUD-COMPLETE", complete=True)
@@ -78,11 +78,14 @@ def test_reuse_accepts_only_canonical_consolidation_eligible_audits() -> None:
             configuration={"settings": {}, "targets": ["https://example.com/"]},
         )
 
-        loaded = load_reusable_audit_configuration(root, "AUD-COMPLETE", expected_kind=KIND_CONSOLE)
-        assert loaded.audit_id == "AUD-COMPLETE"
-
-        with pytest.raises(ValueError, match="somente AUDs com consolidação geral concluída"):
-            load_reusable_audit_configuration(root, "AUD-PARTIAL", expected_kind=KIND_CONSOLE)
+        complete_loaded = load_reusable_audit_configuration(
+            root, "AUD-COMPLETE", expected_kind=KIND_CONSOLE
+        )
+        partial_loaded = load_reusable_audit_configuration(
+            root, "AUD-PARTIAL", expected_kind=KIND_CONSOLE
+        )
+        assert complete_loaded.audit_id == "AUD-COMPLETE"
+        assert partial_loaded.audit_id == "AUD-PARTIAL"
 
 
 def test_path_like_audit_identifiers_are_rejected_before_filesystem_access() -> None:
@@ -92,7 +95,7 @@ def test_path_like_audit_identifiers_are_rejected_before_filesystem_access() -> 
             normalize_audit_id(value)
 
 
-def test_complete_legacy_audit_without_snapshot_fails_closed() -> None:
+def test_audit_without_snapshot_fails_closed() -> None:
     with TemporaryDirectory() as directory:
         root = Path(directory)
         _workspace(root, "AUD-NO-SNAPSHOT", complete=True)
