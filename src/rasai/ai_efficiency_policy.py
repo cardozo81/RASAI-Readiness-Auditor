@@ -132,6 +132,7 @@ def install() -> None:
     from rasai.core_integrity_runtime import install as install_core_integrity
     from rasai.core_reprocessing import install as install_core_reprocessing
     from rasai.core_reprocessing_context import install as install_core_reprocessing_context
+    from rasai.reprocess_runtime_safety import install as install_reprocess_runtime_safety
     from rasai.semantic_recovery_runtime import install as install_semantic_recovery
     from rasai.technical_ai_eligibility import install as install_technical_ai_eligibility
 
@@ -142,6 +143,9 @@ def install() -> None:
     install_semantic_recovery()
     install_audit_fulfillment_saas()
     install_technical_ai_eligibility()
+    # Install last so the RPR trace wraps the final prerequisite-preserving apply
+    # function and the M20 recovery path uses stable ContextVar-aware hooks.
+    install_reprocess_runtime_safety()
 
     _INSTALLED = True
 
