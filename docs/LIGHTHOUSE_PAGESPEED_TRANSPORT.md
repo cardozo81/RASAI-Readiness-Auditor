@@ -22,9 +22,9 @@ O perfil é um overlay de sessão. Ajustes manuais posteriores relacionados a We
 
 O RASAi diferencia três estados:
 
-1. **falha de transporte/API** — timeout, HTTP de erro, quota ou indisponibilidade do PageSpeed;
-2. **transporte PageSpeed concluído, mas Lighthouse inválido/incompleto** — por exemplo `lighthouseResult` ausente, `runtimeError` fatal ou categoria estável solicitada sem score utilizável;
-3. **Lighthouse válido** — `lighthouseResult` utilizável e scores válidos para as categorias materializadas.
+1. **falha de transporte/API** - timeout, HTTP de erro, quota ou indisponibilidade do PageSpeed;
+2. **transporte PageSpeed concluído, mas Lighthouse inválido/incompleto** - por exemplo `lighthouseResult` ausente, `runtimeError` fatal ou categoria estável solicitada sem score utilizável;
+3. **Lighthouse válido** - `lighthouseResult` utilizável e scores válidos para as categorias materializadas.
 
 Uma tentativa PageSpeed com HTTP 200 permanece sucesso de transporte, mas não autoriza o RASAi a inventar score. A camada `EXTERNAL-METRICS-INTEGRITY-2` valida o artifact persistido, limpa valores derivados inválidos e registra o motivo. Os HTMLs finais devem projetar essa causa junto das páginas afetadas (`index.html`, `web-performance.html` e `accessibility.html`) quando não houver resultado utilizável.
 
