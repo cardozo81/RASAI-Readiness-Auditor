@@ -289,19 +289,21 @@ API keys e outros secrets **não são gravados no INI**. O console permite inser
 
 O contexto editorial configurado é persistido em `content_analysis_contexts` para que o relatório conheça a configuração efetiva usada na auditoria. Quando o valor configurado é `auto`, continua persistido como `AUTO`; a interpretação produzida pela IA não sobrescreve esse valor nem cria uma classificação canônica paralela no banco.
 
-## AUTO, rotação e fallback
+## AUTO, custo e fallback
 
 AUTO constrói dinamicamente o pool de providers registrados como elegíveis e configurados corretamente na execução. Providers marcados como explicit-only, como GitHub Copilot, não entram nesse pool.
 
-A seleção usa round-robin compartilhado entre necessidades de IA. Em uma mesma necessidade, cada provider pode ser tentado no máximo uma vez. Se um provider falhar temporariamente, o fallback segue para o próximo; esse provider pode voltar ao pool em uma necessidade futura enquanto não atingir o circuit breaker.
+Antes de cada necessidade, o runtime estima o custo da requisição para os candidatos ainda elegíveis considerando provider, modelo, reasoning, input/output esperados, cache observado e regra tarifária vigente naquele instante. Providers com preço conhecido são ordenados do menor para o maior custo estimado. A ordem é recalculada a cada necessidade e pode mudar por horário, volume de tokens ou janela tarifária.
 
-Condições terminais como autenticação, crédito, quota terminal, permissão, modelo inválido/inexistente e HTTP 401/403/404/410 retiram o provider do restante da execução. Falhas temporárias abrem o circuit breaker quando três falhas aparecem entre as últimas cinco observações daquele provider.
+Em uma mesma necessidade, cada provider pode ser tentado no máximo uma vez. Se o primeiro candidato falhar temporariamente, o fallback segue para o próximo; esse provider pode voltar ao pool em uma necessidade futura enquanto não atingir o circuit breaker.
+
+Condições terminais como autenticação, crédito, quota terminal, permissão, modelo inválido/inexistente e HTTP 401/403/404/410 retiram o provider do restante da execução. Falhas temporárias abrem o circuit breaker quando três falhas aparecem entre as últimas cinco observações daquele provider. A política de custo não altera esses limiares e não reativa provider em quarentena.
 
 A exclusão é somente da auditoria atual e não altera a configuração global.
 
 O termo `AUTO` do roteamento de providers é diferente de campos editoriais `auto`: o primeiro escolhe dinamicamente um provider; o segundo mantém a configuração editorial indefinida e permite apenas uma interpretação transitória para apresentação.
 
-Contrato detalhado: [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md).
+Contratos detalhados: [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md) e [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md).
 
 ## Structured output e validação local
 
@@ -331,6 +333,8 @@ diagnóstico sanitizado
 
 Além da telemetria agregada, `ai_exchange_log` registra os envelopes externos sanitizados de request e response, com finalidade, página/snapshot, endpoint sanitizado, duração, resultado, hashes e truncamento. A projeção principal desse log está em `ai-usage.html`.
 
+No AUTO, o snapshot de sessão também expõe a estratégia `COST_AWARE_WITH_CIRCUIT_BREAKER`, a versão do pricing, a data recomendada de revisão e o último ranking econômico calculado.
+
 Headers de autenticação, API keys, tokens, passwords/client secrets e campos reconhecidos como raciocínio privado não são persistidos. O log pode conter conteúdo/evidência da página enviados ao provider e deve receber a mesma proteção de acesso/retenção do workspace da auditoria.
 
 Uma resposta recebida e posteriormente rejeitada pelo contrato local continua sendo uma chamada externa e pode ter consumo/custo. O relatório deve distingui-la de falha de transporte e de resposta aceita.
@@ -359,6 +363,7 @@ Detalhamento de retenção/sanitização: [AI_RUNTIME_SECURITY.md](AI_RUNTIME_SE
 ## Documentos relacionados
 
 - [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
+- [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md)
 - [AI_RUNTIME_SECURITY.md](AI_RUNTIME_SECURITY.md)
 - [REPORTING_AI_USAGE.md](REPORTING_AI_USAGE.md)
 - [CONTENT_CONTEXT_AI_INTERPRETATION.md](CONTENT_CONTEXT_AI_INTERPRETATION.md)
