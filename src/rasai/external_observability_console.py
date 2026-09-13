@@ -74,7 +74,10 @@ def install() -> None:
             "Máximo de URLs auditadas consultadas por execução no Common Crawl; 0 desliga somente a subcoleta.",
             "inteiro",
             default=str(DEFAULT_COMMON_CRAWL_MAX_URLS),
-            impact="Sem cobrança e sem credencial; cada URL multiplica requests pelo número de índices consultados.",
+            impact=(
+                "Sem cobrança e sem credencial; cada URL multiplica requests pelo número de índices consultados. "
+                "Quando há corroboracão positiva qualificada, BR-GEO-060 pode contribuir no máximo 0,45 ponto no SARI Overall."
+            ),
             source=source,
             notes="Faixa 0..25. O default é deliberadamente conservador para o serviço público.",
         ),
@@ -84,7 +87,7 @@ def install() -> None:
             "Quantidade dos índices mensais mais recentes do Common Crawl consultados por URL.",
             "inteiro",
             default=str(DEFAULT_COMMON_CRAWL_INDEX_COUNT),
-            impact="Sem cobrança; aumentar eleva requests e tempo de finalização.",
+            impact="Sem cobrança; aumentar eleva requests e tempo de finalização, sem aumentar o peso máximo de BR-GEO-060.",
             source=source,
             notes="Faixa 1..6; não há consulta global a todo o histórico por default.",
         ),
@@ -123,3 +126,9 @@ def install() -> None:
 
     facade.CATEGORIES = base.CATEGORIES
     facade.refresh_specs()
+
+    # Interactive-console execution does not pass through the top-level CLI safety
+    # installer. Compose the same pre-M9 bounded SARI corroboration here. The
+    # installer is idempotent and keeps secrets/configuration semantics unchanged.
+    from rasai.external_sari import install as install_external_sari
+    install_external_sari()
