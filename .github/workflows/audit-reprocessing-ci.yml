@@ -8,12 +8,20 @@ on:
       - 'src/rasai/audit_fulfillment_saas.py'
       - 'src/rasai/audit_reprocess.py'
       - 'src/rasai/reprocess_*.py'
+      - 'src/rasai/semantic_recovery_runtime.py'
+      - 'src/rasai/technical_ai_eligibility.py'
+      - 'src/rasai/ai_efficiency_policy.py'
+      - 'src/rasai/console_configuration_guidance.py'
       - 'src/rasai/entrypoint.py'
       - 'src/rasai/platform/**'
       - 'src/rasai/web/**'
       - 'src/rasai/worker.py'
       - 'src/rasai/execution_contract.py'
+      - 'docs/AUDIT_REPROCESSING.md'
+      - 'docs/EXTERNAL_OBSERVABILITY_INTEGRATIONS.md'
+      - 'docs/ENVIRONMENT_VARIABLES.md'
       - 'tests/test_audit_fulfillment_reprocessing.py'
+      - 'tests/test_semantic_recovery_runtime.py'
       - 'tests/test_audit_fulfillment_saas.py'
       - '.github/workflows/audit-reprocessing-ci.yml'
   workflow_dispatch:
@@ -36,7 +44,9 @@ jobs:
       - name: Public contract gate
         run: python -m rasai.public_contract_gate
       - name: Fulfillment and selective reprocessing tests
-        run: pytest -q tests/test_audit_fulfillment_reprocessing.py tests/test_m7_semantic_provider.py
+        run: pytest -q tests/test_audit_fulfillment_reprocessing.py tests/test_semantic_recovery_runtime.py tests/test_m7_semantic_provider.py
+      - name: Console and publication configuration regressions
+        run: pytest -q tests/test_console_configuration_guidance.py tests/test_prepublication_configuration_contract.py tests/test_environment_surface_parity.py
       - name: CLI surface smoke tests
         shell: pwsh
         run: |
