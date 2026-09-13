@@ -40,6 +40,7 @@ from rasai.external_observability_runtime import (
     install as install_external_observability_runtime,
     install_service_contract as install_external_observability_service_contract,
 )
+from rasai.fulfillment_execution_contract import install_console_projection
 from rasai.improvement_intelligence_console import (
     install as install_improvement_intelligence_console,
     install_environment as install_improvement_intelligence_environment,
@@ -166,6 +167,9 @@ def main() -> int:
     # processing while retaining its RPR-specific result and unresolved-item diagnosis.
     install_console_audit_workflow(interactive_console)
     install_console_reprocess_parity(interactive_console)
+    # Install last: the physical subprocess may be at 100% while the canonical AUD is
+    # still PARTIAL_RETRYABLE/BLOCKED. The final screen must show both facts explicitly.
+    install_console_projection(interactive_console)
     return interactive_console.main()
 
 
