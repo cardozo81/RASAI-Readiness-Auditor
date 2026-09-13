@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-import sqlite3
 from typing import Any, Mapping
 
 from rasai.audit_configuration_reuse import (
@@ -11,8 +10,8 @@ from rasai.audit_configuration_reuse import (
     ReusableAuditConfiguration,
     changed_fields,
     load_reusable_audit_configuration,
-    persist_audit_configuration,
 )
+from rasai.audit_configuration_reuse_runtime import configuration_context
 
 _INSTALLED = False
 _SESSION_SOURCE: dict[int, ReusableAuditConfiguration] = {}
@@ -90,74 +89,6 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
     return tuple(warnings)
 
 
-def _executed_targets(workspace: Path, audit_id: str) -> tuple[str, ...]:
-    """Read the persisted effective input set instead of re-reading mutable user files."""
-    database = workspace / "audit.db"
-    connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=1.0)
-    try:
-        tables = {
-            str(row[0])
-            for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
-        }
-        if "audit_input_urls" in tables:
-            columns = {
-                str(row[1])
-                for row in connection.execute('PRAGMA table_info("audit_input_urls")').fetchall()
-            }
-            if {"audit_id", "normalized_url"} <= columns:
-                rows = connection.execute(
-                    "SELECT DISTINCT normalized_url FROM audit_input_urls WHERE audit_id=? ORDER BY normalized_url",
-                    (audit_id,),
-                ).fetchall()
-                targets = tuple(str(row[0]) for row in rows if row and row[0])
-                if targets:
-                    return targets
-        if "pages" in tables:
-            columns = {
-                str(row[1]) for row in connection.execute('PRAGMA table_info("pages")').fetchall()
-            }
-            if {"audit_id", "normalized_url"} <= columns:
-                rows = connection.execute(
-                    "SELECT DISTINCT normalized_url FROM pages WHERE audit_id=? ORDER BY normalized_url",
-                    (audit_id,),
-                ).fetchall()
-                return tuple(str(row[0]) for row in rows if row and row[0])
-        return ()
-    finally:
-        connection.close()
-
-
-def _persist_console_snapshot(workspace: Path, state: Any) -> None:
-    audit_id = str(getattr(state, "audit_id", "") or "")
-    if not audit_id:
-        return
-    targets = _executed_targets(workspace, audit_id)
-    if not targets:
-        return
-    effective = _export_settings(state, targets)
-    source = _SESSION_SOURCE.get(id(state))
-    if source is None:
-        persist_audit_configuration(
-            workspace,
-            audit_id=audit_id,
-            kind=KIND_CONSOLE,
-            configuration=effective,
-            scope={"surface": "console"},
-        )
-        return
-    persist_audit_configuration(
-        workspace,
-        audit_id=audit_id,
-        kind=KIND_CONSOLE,
-        configuration=effective,
-        source_audit_id=source.audit_id,
-        source_configuration_hash=source.configuration_hash,
-        changed=changed_fields(source.configuration, effective),
-        execution_series_id=source.execution_series_id,
-        scope={"surface": "console"},
-    )
-
-
 def _load_source(state: Any) -> None:
     from rasai.console_session import mark_dirty
 
@@ -188,17 +119,17 @@ def _load_source(state: Any) -> None:
 
 
 def install(interactive_console: Any) -> None:
-    """Install one top-level shortcut and persist effective console configuration."""
+    """Install a top-level reuse shortcut and bind the final console execution state."""
     global _INSTALLED
     if _INSTALLED:
         return
 
-    from rasai import console_runtime
     import builtins
+    from rasai.console_config import preflight
 
     original_menu = interactive_console._menu
     original_configure = interactive_console._configure
-    original_projection = console_runtime.persist_execution_projection
+    original_run = interactive_console.run_audit_from_console
 
     def menu_with_visible_reuse(state: Any) -> str:
         original_input = builtins.input
@@ -220,23 +151,29 @@ def install(interactive_console: Any) -> None:
             return
         original_configure(state, choice)
 
-    def projection_with_snapshot(
-        workspace: Path | None,
-        state: Any,
-        estimate: Any,
-        **kwargs: Any,
-    ) -> bool:
-        persisted = original_projection(workspace, state, estimate, **kwargs)
-        if workspace is not None:
-            try:
-                _persist_console_snapshot(workspace, state)
-            except (OSError, sqlite3.Error, ValueError):
-                # Derived lineage must never change the outcome of an otherwise valid
-                # audit. A missing snapshot will fail closed on a later reuse attempt.
-                pass
-        return persisted
+    def run_with_configuration(state: Any) -> int:
+        try:
+            targets = tuple(preflight(state))
+        except (OSError, UnicodeError, ValueError):
+            # Preserve the final console runtime as the authority for validation and
+            # user-facing error handling. No audit => no snapshot to persist.
+            return original_run(state)
+
+        effective = _export_settings(state, targets)
+        source = _SESSION_SOURCE.get(id(state))
+        differences = changed_fields(source.configuration, effective) if source else ()
+        with configuration_context(
+            kind=KIND_CONSOLE,
+            configuration=effective,
+            source_audit_id=source.audit_id if source else None,
+            source_configuration_hash=source.configuration_hash if source else None,
+            changed_fields=differences,
+            execution_series_id=source.execution_series_id if source else None,
+            scope={"surface": "console"},
+        ):
+            return original_run(state)
 
     interactive_console._menu = menu_with_visible_reuse
     interactive_console._configure = configure_with_reuse
-    console_runtime.persist_execution_projection = projection_with_snapshot
+    interactive_console.run_audit_from_console = run_with_configuration
     _INSTALLED = True
