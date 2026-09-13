@@ -10,10 +10,12 @@ Formato materializado vigente:
 CONS-4
 ```
 
-Contrato temporal associado:
+Contratos derivados associados:
 
 ```text
 TEMPORAL-APDEX-001
+CONSOLIDATED-EVOLUTION-001
+CONSOLIDATED-SPECIALIST-001
 ```
 
 `CONS-3` permanece como formato/base anterior. Ele pode ser lido/reutilizado pelo renderizador base, mas não deve ser reescrito em lugar para adquirir semântica `CONS-4`.
@@ -28,9 +30,10 @@ Artefatos derivados:
 .rasai/consolidated-index.db
 consolidated/CONS-*/report.html
 consolidated/CONS-*/manifest.json
+consolidated/CONS-*/specialist-analysis.json
 ```
 
-O índice e os snapshots consolidados são reconstruíveis.
+O índice e os snapshots consolidados são reconstruíveis. O artifact especialista não contém secrets.
 
 ## Contrato comportamental CONS-4
 
@@ -42,12 +45,56 @@ O índice e os snapshots consolidados são reconstruíveis.
 - Navigation e User Experience Apdex continuam domínios separados;
 - Apdex do período usa soma de Satisfied/Tolerating/Frustrated sobre amostras válidas comparáveis;
 - p50/p75/p90/p95/p99, média, desvio-padrão e CV do período usam o pool bruto por URL/contexto, nunca média de percentis individuais;
-- grupos `small_group` continuam explicitamente identificados;
 - findings permanecem contextualizados pelo universo auditado;
 - dado ausente não vira zero;
 - extremos não são eliminados automaticamente;
 - mudanças materiais de método criam fronteiras de comparabilidade;
+- evolução factual é calculada por Monitoring/Fix Verification, não pela IA;
+- IA especialista é opcional, advisory e non-scoring;
+- ausência, recusa ou falha da IA não impede o relatório base;
 - `CONS-3` legado não é mutado ao materializar `CONS-4`.
+
+## Comparação de evolução
+
+A análise longitudinal pode usar:
+
+```text
+FIRST_LAST
+LATEST_PREVIOUS
+MANUAL
+```
+
+A comparação preserva escopo de URL/dispositivo e limites metodológicos. Em filtro parcial de URL, sinais agregados calculados para universo maior não podem ser reutilizados como se fossem específicos do subconjunto.
+
+Estados determinísticos são derivados de Monitoring. Fix Verification mantém `FIXED`, `PARTIALLY_FIXED`, `NOT_FIXED` e `NOT_VERIFIABLE` separados de mera narrativa de melhora.
+
+A validação deve garantir que o HTML não confunda:
+
+```text
+melhora observada
+correção verificada
+associação temporal
+causalidade
+```
+
+## IA especialista e custo
+
+Quando a IA estiver ativa no console, a análise consolidada deve ser explicitamente opt-in.
+
+Antes da chamada externa:
+
+1. construir o pacote de evidências persistidas;
+2. estimar tokens de input/output;
+3. usar o catálogo canônico `ai_cost_policy`;
+4. quando a seleção for `AUTO`, usar a mesma ordenação cost-aware do runtime;
+5. apresentar provider/model/reasoning/contexto tarifário/custo estimado;
+6. solicitar confirmação explícita.
+
+Sem confirmação não ocorre chamada de IA.
+
+Quando `ai_provider=none`, quando a seleção não estiver apta ou quando a estimativa/provider não puder ser preparado, o consolidado continua sem a seção de especialista por IA.
+
+A resposta de IA deve ser structured output e só pode citar `evidence_ids` enviados no request. Não pode alterar findings, scores, SARI ou SCORE-GEO.
 
 ## Comparabilidade do Apdex
 
@@ -88,21 +135,14 @@ Contextos incompatíveis não podem entrar no mesmo denominador nem no mesmo poo
 ### Apdex do período
 
 ```text
-Apdex = (ΣSatisfied + 0,5 × ΣTolerating) / ΣValid
+Apdex = (sum Satisfied + 0,5 x sum Tolerating) / sum Valid
 ```
 
 Se as contagens S/T/F persistidas não fecharem com `valid_samples`, o denominador persistido é preservado e a limitação deve aparecer no output.
 
 ### Distribuição temporal
 
-Amostras válidas com duração/KPM numérica formam o pool usado para:
-
-- média;
-- mediana/p50;
-- p75/p90/p95/p99;
-- mínimo/máximo;
-- desvio-padrão populacional;
-- coeficiente de variação.
+Amostras válidas com duração/KPM numérica formam o pool usado para média, mediana/p50, p75/p90/p95/p99, mínimo/máximo, desvio-padrão populacional e coeficiente de variação.
 
 Amostra válida sem valor temporal continua no Apdex, mas fica fora da distribuição; a diferença deve ser declarada.
 
@@ -112,84 +152,68 @@ Readiness, Web Performance, findings, estados categóricos e dados externos mant
 
 ## Integridade do snapshot e dedupe
 
-O fingerprint `CONS-4` depende de:
-
-```text
-CONS-4
-+ TEMPORAL-APDEX-001
-+ filtros canônicos
-+ source_fingerprint dos AUDs elegíveis
-```
+O fingerprint `CONS-4` depende dos filtros canônicos, que agora incluem seleção do par de comparação e configuração não secreta da análise especialista.
 
 Comportamento esperado:
 
-- mesma requisição + mesmas fontes: reutiliza o mesmo `CONS-4`;
-- novo AUD/filtro/contrato: novo fingerprint;
-- se o gerador base retornar um `CONS-3` reutilizado, o materializador cria outro diretório `CONS-*`, copia HTML/manifest e só então aplica `CONS-4`;
-- hashes/bytes do `CONS-3` original permanecem iguais;
-- `request_fingerprint`, `report_format_version`, `cons_id` e `generated_at` do novo snapshot permanecem coerentes;
-- o manifest não duplica as amostras brutas.
+- mesma requisição + mesmas fontes + mesmos contratos: reutiliza o mesmo `CONS-4`;
+- novo AUD/filtro/par/opção de IA: novo fingerprint;
+- consolidado com IA não é reutilizado por solicitação sem IA e vice-versa;
+- hashes/bytes dos `AUD-*` permanecem iguais;
+- `request_fingerprint`, `report_format_version`, `cons_id` e `generated_at` permanecem coerentes;
+- o manifest não duplica amostras brutas nem persiste credentials.
 
-## Gates automatizados
+## Gates automatizados e sistema operacional
 
-Workflow principal:
+Workflow específico:
 
 ```text
 .github/workflows/consolidated-reporting-ci.yml
 ```
 
-O gate deve cobrir:
+Esta superfície é local/console; portanto o workflow específico roda em **Windows**, conforme a convenção do projeto.
+
+O control plane/SaaS continua validado em **Linux** pelos workflows de arquitetura quando houver mudança pertinente ao SaaS. A implementação atual não adiciona endpoint SaaS nem migração de schema.
+
+O gate do consolidado deve cobrir:
 
 - compile da superfície de consolidação;
 - geração read-only e hash dos `audit.db` inalterado;
-- dedupe e invalidação por novo AUD/filtro/contrato;
+- dedupe e invalidação por novo AUD/filtro/contrato/configuração de IA;
+- seleção `FIRST_LAST`, `LATEST_PREVIOUS` e `MANUAL`;
+- Fix Verification e estados de evolução;
+- preview de custo canônico;
+- fallback sem IA;
 - segregação de método/universo de URLs;
 - Snapshot com N=1 sem falsa tendência;
-- série histórica apenas quando comparável;
 - Apdex calculado pelas contagens persistidas;
 - percentis recalculados do pool bruto;
-- separação de thresholds incompatíveis;
-- Experience `POPULATION` baseada na união das amostras elegíveis;
-- preservação byte a byte de `CONS-3` reutilizado ao materializar `CONS-4`;
-- findings normalizados/contextualizados;
-- HTML/manifest com metodologia e limitações;
-- regressões de console/configuração previstas pelo workflow.
+- HTML/manifest/artifact especialista coerentes;
+- regressões do console Windows.
 
 ## Testes pontuais mínimos
 
-1. dois AUDs Navigation com durações conhecidas e quantidades diferentes de S/T/F;
-2. confirmar Apdex do período por contagens e p95 pelo pool bruto;
-3. alterar `T` em um AUD e confirmar duas séries;
-4. repetir para Experience/`POPULATION`;
-5. calcular hash dos `audit.db` antes/depois;
-6. partir de um `CONS-3` existente e confirmar criação de outro snapshot `CONS-4` sem alterar bytes do legado;
-7. repetir a mesma solicitação e confirmar reuse do `CONS-4`;
-8. conferir que seções não relacionadas do HTML permanecem presentes;
-9. validar `manifest.json` e ausência de raw samples completos.
-
-## Smoke humano
-
-Quando necessário validar visualmente no ambiente local:
-
-1. atualizar checkout de `main`;
-2. gerar consolidado com 1 AUD e confirmar **Snapshot**;
-3. gerar com 2 AUDs comparáveis e confirmar comparação sem narrativa de tendência;
-4. gerar com 3+ AUDs e confirmar série histórica descritiva;
-5. validar seção Apdex por URL/contexto, p95 e amostras válidas;
-6. conferir SARI/Coverage/Confidence contra um `audit.db` fonte;
-7. testar pesquisa/paginação das auditorias consideradas;
-8. repetir filtros e confirmar dedupe `CONS-4`;
-9. comparar hashes dos `audit.db` antes/depois;
-10. abrir o HTML com o console fechado e confirmar funcionamento estático.
+1. dois AUDs com FAIL no baseline e PASS no current, confirmando `FIXED`;
+2. confirmar que hashes dos dois `audit.db` não mudaram;
+3. confirmar seções determinísticas no HTML sem IA configurada;
+4. comparar fingerprints com `specialist_ai=false` e `specialist_ai=true`;
+5. validar preview de custo com hints de tokens e catálogo canônico;
+6. validar que `AUTO` usa candidatos ordenados pela política dinâmica existente;
+7. negar autorização e confirmar geração sem IA;
+8. usar apenas um AUD e confirmar relatório válido sem falsa comparação;
+9. dois AUDs Navigation com durações conhecidas e quantidades diferentes de S/T/F;
+10. alterar `T` em um AUD e confirmar séries separadas;
+11. repetir para Experience/`POPULATION`;
+12. abrir o HTML com o console fechado e confirmar funcionamento estático.
 
 ## SaaS/control plane
 
-Nenhuma migração de schema é necessária para esta evolução. Scheduling já permite distribuir N execuções pelo período. A consolidação usa os `AUD-*` resultantes.
+Nenhuma migração de schema é necessária. A geração `CONS-*` permanece, no estado atual, uma superfície local. A lógica de evolução, preview e execução especialista está separada do fluxo de `input()` e pode ser reutilizada por futura Web API.
 
-Quando o produto executar medições por hubs/regiões distintas, a origem/região deverá entrar no contrato de comparabilidade assim que essa proveniência existir de forma persistida.
+Ao expor esta capacidade no SaaS, o contrato deverá preservar preview + autorização explícita para custo de IA e deverá chamar a mesma lógica canônica, sem recriar comparação, preço ou roteamento em outro serviço.
 
 ## Reversibilidade
 
 O consolidado é derivado. Reversão não exige migração dos `AUD-*`: cache e `CONS-*` podem ser removidos e reconstruídos.
 
-Veja também [`CONSOLIDATED_REPORTING.md`](CONSOLIDATED_REPORTING.md), [`CONSOLIDATED_REPORTING_TEMPORAL.md`](CONSOLIDATED_REPORTING_TEMPORAL.md), [`REPORT_GUIDE.md`](REPORT_GUIDE.md), [`SCORING_GUIDE.md`](SCORING_GUIDE.md) e [`SYNTHETIC_APDEX.md`](SYNTHETIC_APDEX.md).
+Veja também [`CONSOLIDATED_REPORTING.md`](CONSOLIDATED_REPORTING.md), [`CONSOLIDATED_REPORTING_TEMPORAL.md`](CONSOLIDATED_REPORTING_TEMPORAL.md), [`MONITORING_OBSERVABILITY.md`](MONITORING_OBSERVABILITY.md), [`REPORT_GUIDE.md`](REPORT_GUIDE.md) e [`SCORING_GUIDE.md`](SCORING_GUIDE.md).
