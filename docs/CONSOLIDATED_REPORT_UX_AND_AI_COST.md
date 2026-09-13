@@ -1,4 +1,4 @@
-# Relatório consolidado — UX, linguagem, IA e custos
+# Relatório consolidado - UX, linguagem, IA e custos
 
 ## Objetivo
 
@@ -43,10 +43,10 @@ A resposta especialista já possui prioridades `P0` a `P3`; a apresentação dev
 
 | Prioridade | Interpretação visual |
 |---|---|
-| P0 | Crítica — ação imediata |
-| P1 | Alta — próxima ação |
-| P2 | Média — planejar |
-| P3 | Baixa — oportunidade |
+| P0 | Crítica - ação imediata |
+| P1 | Alta - próxima ação |
+| P2 | Média - planejar |
+| P3 | Baixa - oportunidade |
 
 A prioridade vem do contrato especialista evidence-bound. A camada de apresentação não recalcula prioridade.
 
