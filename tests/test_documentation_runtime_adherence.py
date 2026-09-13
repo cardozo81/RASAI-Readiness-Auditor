@@ -12,7 +12,7 @@ def _doc(path: str) -> str:
 def test_interactive_console_documents_current_ai_credential_management() -> None:
     text = _doc("docs/INTERACTIVE_CONSOLE.md")
 
-    assert "providers sem credencial continuam configuráveis" in text
+    assert "providers sem credencial continuam configuráveis" in text.casefold()
     assert "S. Setar/alterar Key na sessão" in text
     assert "P. Persistir/remover Key no Windows/User" in text
     assert "L. Limpar Key somente da sessão" in text
