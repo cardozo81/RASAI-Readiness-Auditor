@@ -76,7 +76,7 @@ def install() -> None:
             default=str(DEFAULT_COMMON_CRAWL_MAX_URLS),
             impact=(
                 "Sem cobrança e sem credencial; cada URL multiplica requests pelo número de índices consultados. "
-                "Quando há corroboracão positiva qualificada, BR-GEO-060 pode contribuir no máximo 0,45 ponto no SARI Overall."
+                "Quando há corroboração positiva qualificada, BR-GEO-060 pode contribuir no máximo 0,45 ponto no SARI Overall."
             ),
             source=source,
             notes="Faixa 0..25. O default é deliberadamente conservador para o serviço público.",
@@ -128,7 +128,9 @@ def install() -> None:
     facade.refresh_specs()
 
     # Interactive-console execution does not pass through the top-level CLI safety
-    # installer. Compose the same pre-M9 bounded SARI corroboration here. The
-    # installer is idempotent and keeps secrets/configuration semantics unchanged.
+    # installer. Compose the same pre-M9 bounded SARI corroboration and its public
+    # report disclosure here. Both installers are idempotent.
     from rasai.external_sari import install as install_external_sari
+    from rasai.external_sari_reporting import install as install_external_sari_reporting
     install_external_sari()
+    install_external_sari_reporting()
