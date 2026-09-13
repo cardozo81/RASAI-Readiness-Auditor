@@ -25,6 +25,7 @@ from rasai.external_observability_policy import (
     common_crawl_max_urls,
 )
 
+
 _LOGGER = logging.getLogger(__name__)
 _BLOCKED_HOSTS = {"localhost", "localhost.localdomain"}
 _BLOCKED_SUFFIXES = (".localhost", ".local", ".internal", ".test", ".example", ".invalid")
@@ -53,6 +54,13 @@ def install() -> None:
     from rasai.external_sari_reporting import install as install_external_sari_reporting
     install_external_sari()
     install_external_sari_reporting()
+
+    # Progress/evidence-ordering installers are also late: they must wrap the final
+    # composed runtime and never affect metadata-only provider/service discovery.
+    from rasai.audit_progress_runtime import install as install_audit_progress_runtime
+    from rasai.external_observability_progress_runtime import install as install_external_progress_runtime
+    install_audit_progress_runtime()
+    install_external_progress_runtime()
 
 
 def _common_crawl_block_reason(*, workspace: Any, audit_id: str) -> str | None:
