@@ -8,7 +8,7 @@ Esta matriz resume os contratos que devem permanecer verdes antes de integrar a 
 | SARI | ausência Common Crawl não altera score técnico/Coverage |
 | SARI | BR-GEO-060 é positive-only e não integra Critical Gates |
 | SARI | impacto máximo teórico do grupo externo = 0,45 ponto Overall |
-| Reprodutibilidade | evidência positiva vira Evidence + RuleExecution antes do M9 |
+| Reprodutibilidade | evidência positiva vira Evidence + RuleExecution antes do cálculo de SCORE-GEO-004 |
 | Reprodutibilidade | rescoring não requer nova chamada Common Crawl |
 | Segurança | URL privada/local/query/fragment/userinfo não é enviada automaticamente ao índice público |
 | INI | Common Crawl credential-free fica `true` por default |
