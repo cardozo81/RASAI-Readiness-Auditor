@@ -1,12 +1,12 @@
-"""Cost-aware routing policy used only by the public AI=AUTO runtime.
+"""Canonical AI pricing and cost-aware routing policy for RASAi.
 
-The catalog intentionally models only synchronous request modes already used by RASAi.
-It does not silently opt a request into Batch, Flex, Priority, token-plan, or any other
-provider service tier that changes latency, quota, or contractual semantics.
+The catalog models synchronous request modes already used by RASAi. It does not
+silently opt a request into Batch, Flex, Priority, token-plan, or another service tier
+that changes latency, quota, or contractual semantics.
 
-Pricing is a routing estimate, not an invoice. When cache telemetry is unavailable,
-pre-call routing assumes a cache miss and observed-cost normalization also uses the
-uncached price as a conservative ceiling.
+Pricing is a routing/telemetry estimate, not an invoice. When cache telemetry is
+unavailable, pre-call routing and observed-cost normalization conservatively assume a
+cache miss.
 """
 from __future__ import annotations
 
@@ -60,6 +60,7 @@ class PricingRule:
     effective_from: str
     effective_until: str | None = None
     pricing_context: str = "STANDARD"
+    pricing_version: str = PRICING_VERSION
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,10 +92,10 @@ class CandidateCostEstimate:
     basis: str = "STATIC_SCOPE"
 
 
-# Public synchronous API prices verified on 2026-09-12. DeepSeek Flash changed at
-# 2026-09-10 12:00 Beijing Time == 2026-09-10 04:00 UTC; the live platform usage
-# banner is the source for the new Flash unit prices. The historical rules are kept so
-# attempt timestamps before the change remain priceable.
+# Public synchronous API prices verified on 2026-09-12. The DeepSeek Flash values
+# reflect the pricing notice effective from 2026-09-10 12:00 Beijing Time
+# (2026-09-10 04:00 UTC). Only pricing relevant to the current unpublished RASAi
+# contract is retained; there is no historical pricing contract to preserve here.
 PRICING_CATALOG: tuple[PricingRule, ...] = (
     PricingRule("OPENAI", "gpt-5.6-sol", 4.00, 0.40, 20.00, "USD", "https://developers.openai.com/api/docs/models/gpt-5.6-sol", "2026-08-21T00:00:00Z"),
     PricingRule("OPENAI", "gpt-5.6-terra", 2.00, 0.20, 12.00, "USD", "https://developers.openai.com/api/docs/models/gpt-5.6-terra", "2026-08-21T00:00:00Z"),
@@ -102,12 +103,8 @@ PRICING_CATALOG: tuple[PricingRule, ...] = (
 
     PricingRule("DEEPSEEK", "deepseek-v4-pro", 1.32, 0.044, 3.96, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", "2026-08-16T16:00:00Z", pricing_context="PEAK"),
     PricingRule("DEEPSEEK", "deepseek-v4-pro", 0.66, 0.022, 1.98, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", "2026-08-16T16:00:00Z", pricing_context="OFF_PEAK"),
-    PricingRule("DEEPSEEK", "deepseek-v4-flash", 0.44, 0.014, 1.32, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", "2026-08-16T16:00:00Z", "2026-09-10T04:00:00Z", "PEAK"),
-    PricingRule("DEEPSEEK", "deepseek-v4-flash", 0.22, 0.007, 0.66, "USD", "https://api-docs.deepseek.com/quick_start/pricing/", "2026-08-16T16:00:00Z", "2026-09-10T04:00:00Z", "OFF_PEAK"),
     PricingRule("DEEPSEEK", "deepseek-v4-flash", 0.30, 0.006, 1.20, "USD", "https://platform.deepseek.com/usage", "2026-09-10T04:00:00Z", pricing_context="PEAK"),
     PricingRule("DEEPSEEK", "deepseek-v4-flash", 0.15, 0.003, 0.60, "USD", "https://platform.deepseek.com/usage", "2026-09-10T04:00:00Z", pricing_context="OFF_PEAK"),
-    PricingRule("DEEPSEEK", "deepseek-flash", 0.30, 0.006, 1.20, "USD", "https://platform.deepseek.com/usage", "2026-09-10T04:00:00Z", pricing_context="PEAK"),
-    PricingRule("DEEPSEEK", "deepseek-flash", 0.15, 0.003, 0.60, "USD", "https://platform.deepseek.com/usage", "2026-09-10T04:00:00Z", pricing_context="OFF_PEAK"),
 
     PricingRule("MIMO", "mimo-v2.5-pro", 0.435, 0.0036, 0.87, "USD", "https://mimo.mi.com/docs/en-US/price/pay-as-you-go", "2026-08-06T00:00:00Z"),
     PricingRule("MIMO", "mimo-v2.5", 0.14, 0.0028, 0.28, "USD", "https://mimo.mi.com/docs/en-US/price/pay-as-you-go", "2026-08-06T00:00:00Z"),
@@ -118,8 +115,9 @@ PRICING_CATALOG: tuple[PricingRule, ...] = (
     PricingRule("QWEN", "qwen3.8-flash", 0.113, 0.014, 0.382, "USD", "https://www.alibabacloud.com/help/en/model-studio/qwen3-8-flash", "2026-09-07T00:00:00Z"),
     PricingRule("QWEN", "qwen3.8-max", 1.65, 0.206, 4.951, "USD", "https://www.alibabacloud.com/help/en/model-studio/qwen3-8-max", "2026-09-07T00:00:00Z"),
 
+    # Promotional standard price verified for the current contract. It intentionally
+    # expires rather than silently assuming a future tariff that has not been revalidated.
     PricingRule("GEMINI", "gemini-3.8-flash", 0.75, 0.075, 3.75, "USD", "https://ai.google.dev/gemini-api/docs/pricing", "2026-09-02T00:00:00Z", "2027-01-01T00:00:00Z"),
-    PricingRule("GEMINI", "gemini-3.8-flash", 1.50, 0.15, 7.50, "USD", "https://ai.google.dev/gemini-api/docs/pricing", "2027-01-01T00:00:00Z"),
 
     PricingRule("ANTHROPIC", "claude-sonnet-5", 2.00, 0.20, 10.00, "USD", "https://platform.claude.com/docs/en/about-claude/pricing", "2026-09-01T00:00:00Z"),
 )
