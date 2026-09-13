@@ -12,6 +12,7 @@ from rasai.audit_fulfillment import (
     SUCCESS,
     finish_reprocess_run,
     initialize_contract,
+    read_summary,
     register_work_item,
     set_work_item_status,
     start_reprocess_run,
@@ -151,6 +152,50 @@ def test_worker_job_success_is_separate_from_aggregate_audit_completion() -> Non
     assert execution.metadata["processing_status"] == "PARTIAL_RETRYABLE"
     assert execution.metadata["report_status"] == "PRELIMINARY"
     assert execution.metadata["consolidation_eligible"] is False
+    assert execution.metadata["status_only"] is False
+
+
+def test_worker_status_only_is_read_only_and_does_not_create_reprocess_history() -> None:
+    from rasai import worker
+
+    _install_worker_reprocess()
+    with TemporaryDirectory() as directory:
+        workspace = _workspace(Path(directory), "AUD-STATUS-ONLY")
+        before_hash = file_sha256(workspace.database)
+        before = read_summary(workspace, "AUD-STATUS-ONLY")
+        assert before is not None
+        indexed = SimpleNamespace(
+            audit_id="AUD-STATUS-ONLY",
+            property_id="PTY-1",
+            environment_id="ENV-1",
+            workspace_path=str(workspace.root),
+        )
+        job = SimpleNamespace(
+            job_type="AUDIT_REPROCESS",
+            payload={"audit_id": "AUD-STATUS-ONLY", "status_only": True},
+            property_id="PTY-1",
+            environment_id="ENV-1",
+        )
+
+        class Store:
+            def get_audit(self, audit_id: str):
+                return indexed if audit_id == "AUD-STATUS-ONLY" else None
+
+            def audit_belongs_to_scope(self, audit_id: str, property_id: str, environment_id: str) -> bool:
+                return (audit_id, property_id, environment_id) == ("AUD-STATUS-ONLY", "PTY-1", "ENV-1")
+
+        with patch("rasai.audit_reprocess.reprocess_audit") as recovery:
+            execution = worker.execute_job(Store(), job, audits_root=directory)
+        after = read_summary(workspace, "AUD-STATUS-ONLY")
+
+        assert recovery.call_count == 0
+        assert after is not None
+        assert after.reprocess_count == before.reprocess_count == 0
+        assert file_sha256(workspace.database) == before_hash
+        assert execution.metadata["status_only"] is True
+        assert execution.metadata["reprocess_id"] is None
+        assert execution.metadata["processing_status"] == before.processing_status
+        assert execution.metadata["consolidation_eligible"] == before.consolidation_eligible
 
 
 def test_web_job_contract_and_projection_expose_fulfillment_separately() -> None:
