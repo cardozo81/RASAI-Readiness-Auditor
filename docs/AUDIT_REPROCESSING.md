@@ -36,40 +36,48 @@ REPROCESSAR
 
 ### Acompanhamento durante a execução
 
-Depois da confirmação, o console não fica silencioso. O reprocessamento usa a mesma superfície operacional de progresso da execução normal e mantém visível:
+Depois da confirmação, **processar e reprocessar usam a mesma superfície operacional do console**. O reprocessamento não possui uma segunda tela de execução com outra disposição de informações.
 
-- status e operação atuais;
-- URL principal do AUD, quando disponível;
-- início e duração da execução;
-- etapa `Reprocessamento seletivo`;
-- progresso calculado a partir dos requisitos efetivamente avaliados;
-- quantidade de sucessos anteriores preservados;
-- quantidade de work-items que ainda precisam ser avaliados;
-- componente/scope que está `RUNNING`, quando o fulfillment o expõe;
-- descrição textual do que está sendo executado;
-- tentativas, tokens e custo estimado de IA acumulados no AUD enquanto a recuperação ocorre.
-
-Exemplo de projeção:
+Enquanto o `RPR-*` está ativo, a tela mantém a mesma estrutura usada por uma execução normal:
 
 ```text
-REPROCESSAMENTO EM EXECUÇÃO
+Status
+URL
+Dispositivo
+Operação
+Ambiente
+Início
+Fim
+Duração
+Etapa
+Andamento
+Progresso
+Executando
 
-AUD                  : AUD-...
-Sucessos preservados : 9
-Itens a avaliar      : 1
-Itens avaliados      : 0/1
-Executando           : análise semântica por IA | SNAP-...
-IA acumulada no AUD  : tentativas=... | tokens=... | custo estimado=...
+Audit ID
+Log técnico
 ```
 
-A apresentação é atualizada por leitura do estado persistido dos work-items. Essa projeção não cria outro motor de reprocessamento e não altera as regras de seleção, retry, quarentena ou custo.
+A diferença está somente no conteúdo da etapa. No reprocessamento, `Etapa` identifica `Reprocessamento seletivo` e `Executando` informa o requisito que está sendo avaliado, sua scope, quantidade já avaliada e sucessos anteriores preservados.
 
-### Resumo ao terminar
+O custo não é inserido em uma posição paralela no meio da tela de andamento. Assim como no processamento normal, a telemetria monetária e de consumo fica na área de pós-execução. Isso evita misturar andamento do pipeline com valores acumulados do AUD.
 
-Ao terminar, o console apresenta:
+A apresentação é atualizada por leitura do estado persistido dos work-items. Essa projeção não cria outro motor de reprocessamento e não altera as regras de seleção, retry, quarentena, provider ou custo.
+
+### Resumo e custos ao terminar
+
+Ao terminar, o console primeiro fecha a execução com a mesma estrutura do processamento normal:
 
 ```text
-AUD
+Status / tempo / progresso concluído
+Audit ID
+Log técnico
+Relatórios
+```
+
+Na área de pós-execução são mostrados os dados específicos do `RPR-*`:
+
+```text
 RPR
 Processamento
 Score
@@ -82,10 +90,20 @@ Itens restantes
 Itens temporalmente expirados, quando existirem
 ```
 
-Em seguida mostra dois níveis de consumo:
+Se algum requisito continuar pendente, o console não apresenta apenas `Itens restantes: N`. Para cada item não resolvido mostra:
+
+- componente e scope;
+- status efetivo (`WAITING_FOR_DATA`, `FAILED_RETRYABLE`, `BLOCKED` ou equivalente);
+- código e mensagem do último motivo persistido;
+- quantidade de tentativas;
+- orientação operacional para a próxima ação;
+- limite temporal quando o requisito depende de `LIVE_RECOLLECTION`.
+
+Em seguida aparecem os custos no mesmo contexto de pós-execução usado pelo processamento:
 
 1. **Consumo desta tentativa de reprocessamento**: diferença entre a telemetria persistida antes e depois do `RPR-*`, incluindo novas tentativas de IA, tokens, custo estimado e novas chamadas Web Performance.
-2. **Consumo acumulado do AUD**: reutiliza o mesmo resumo já usado após uma execução normal, preservando todas as tentativas anteriores para custo e confiabilidade.
+2. **Consumo e cobertura real persistidos do AUD**: reutiliza exatamente o renderer padrão já usado após uma execução normal, preservando todas as tentativas anteriores para custo, cobertura e confiabilidade.
+3. **Ações da auditoria desta sessão**: abrir pasta, abrir relatório, voltar ou sair, usando a mesma superfície do processamento normal.
 
 Se um requisito for bloqueado por pré-requisito antes de qualquer chamada externa, a tentativa de reprocessamento pode ter custo de IA igual a zero. Os valores exibidos são estimativas técnicas persistidas pelos adapters, não invoice do provider.
 
@@ -141,7 +159,7 @@ Há uma distinção obrigatória entre **falha de coleta** e **perda de evidênc
 
 Quando uma recuperação core altera a evidência efetiva, somente os cálculos determinísticos e derivados dependentes são recalculados. As versões anteriores permanecem na trilha do `RPR-*`.
 
-## Histórico de tentativas
+## Histórico de tentativas e motivo de falha
 
 Falhas anteriores não são apagadas. O RASAi preserva tentativas para rastreabilidade operacional, cálculo de custo real, confiabilidade de provider, diagnóstico de erro e análise do caminho até a conclusão.
 
@@ -157,6 +175,18 @@ AUD-ABC
 ```
 
 Para o consolidado existe **uma observação**, `AUD-ABC`. Para custo e confiabilidade existem as tentativas efetivamente registradas.
+
+### Preservação do diagnóstico específico
+
+Um adapter de recuperação pode detectar um motivo mais preciso antes do fallback genérico do orquestrador. Exemplos:
+
+- `WAITING_FOR_DATA` porque conteúdo/evidência mínima não existe;
+- `BLOCKED` por perda de integridade de artifact persistido;
+- `FAILED_RETRYABLE` com erro específico de provider ou serviço externo.
+
+Esses estados e seus códigos/mensagens são autoritativos. O fallback genérico do reprocessamento não deve sobrescrevê-los por uma mensagem `*_RETRY_INCOMPLETE` quando já existe um diagnóstico mais específico desta avaliação.
+
+Isso é especialmente importante para IA: ausência de pré-requisito não é falha de provider e não deve parecer uma tentativa de IA com erro. O console exibe o motivo efetivamente persistido para explicar por que o `RPR-*` não promoveu o AUD para `COMPLETE`.
 
 ### Duas trilhas de tentativa
 
