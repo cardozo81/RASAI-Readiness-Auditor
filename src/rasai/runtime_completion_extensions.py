@@ -90,9 +90,10 @@ def _install_cli_help() -> None:
             elif action.dest in {"ai_provider", "semantic_provider"}:
                 action.help = (
                     "semantic analysis provider; AUTO considers every registered provider with "
-                    "valid credentials/configuration, rotates eligible providers round-robin across "
-                    "AI needs, uses at most one attempt per provider per need, and applies an "
-                    "execution-wide circuit breaker; explicit provider selection keeps its own retry policy"
+                    "valid credentials/configuration, ranks eligible providers per AI need by estimated "
+                    "request cost using the configured model/reasoning and current pricing context, uses "
+                    "at most one attempt per provider per need, and applies an execution-wide circuit "
+                    "breaker; explicit provider selection keeps its own retry policy"
                 )
         return parser
 
@@ -390,38 +391,9 @@ def _install_improvement_environment_contract() -> None:
 
 
 def _install_console_cost() -> None:
-    """Keep the pre-run exposure explanation consistent with dynamic AUTO routing."""
+    """Mark the base exposure estimator as aligned with current cost-aware AUTO."""
     from rasai import console_cost
 
-    if getattr(console_cost, "_rasai_dynamic_auto_exposure_current", False):
-        return
-    original = console_cost.estimate_exposure
-
-    def estimate_exposure_with_dynamic_auto(state):
-        estimate = original(state)
-        if state.ai_provider != "auto":
-            return estimate
-        provider_count = len(console_cost._selected_provider_models(state))
-        reasons: list[str] = []
-        for reason in estimate.reasons:
-            if reason.startswith("IA ativa:"):
-                reasons.append(
-                    f"IA AUTO ativa: até {estimate.max_ai_attempts} chamada(s) potenciais no pior caso "
-                    f"da configuração atual. Cada necessidade visita no máximo {provider_count} provider(s) "
-                    "e cada provider é tentado no máximo uma vez naquela necessidade; remediações opcionais "
-                    "podem criar necessidades adicionais."
-                )
-                continue
-            if reason.startswith("AUTO considera somente a cadeia homologada"):
-                continue
-            reasons.append(reason)
-        reasons.append(
-            f"AUTO possui {provider_count} provider(s) apto(s) na projeção atual; a ordem efetiva usa "
-            "round-robin e pode encolher durante a execução por falha terminal ou circuit breaker."
-        )
-        return replace(estimate, reasons=tuple(reasons))
-
-    console_cost.estimate_exposure = estimate_exposure_with_dynamic_auto
     console_cost._rasai_dynamic_auto_exposure_current = True
 
 
