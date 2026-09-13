@@ -34,4 +34,4 @@ rasai-console = "rasai.console_entrypoint:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-rasai = ["config/*.ini"]
+rasai = ["config/*.ini", "config/*.toml"]
