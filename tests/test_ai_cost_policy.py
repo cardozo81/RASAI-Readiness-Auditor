@@ -5,7 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
+import rasai.m18_ai as m18_ai
 from rasai.ai_cost_policy import (
+    PRICING_CATALOG,
     PRICING_REVIEW_RECOMMENDED_ON,
     estimate_candidate_cost,
     estimate_observed_cost,
@@ -26,7 +28,7 @@ def test_deepseek_peak_uses_utc_weekday_and_not_consumer_weekday() -> None:
     assert pricing_context("DEEPSEEK", local_sunday) == "PEAK"
 
     # Saturday 02:00 UTC is always off-peak even though its clock hour is inside a
-    # weekday peak interval. This protects against the former hour-only bug.
+    # weekday peak interval. This protects against an hour-only implementation.
     saturday = datetime(2026, 9, 12, 2, 0, tzinfo=UTC)
     assert pricing_context("DEEPSEEK", saturday) == "OFF_PEAK"
 
@@ -38,7 +40,7 @@ def test_deepseek_peak_uses_utc_weekday_and_not_consumer_weekday() -> None:
     assert pricing_context("DEEPSEEK", monday_second_window) == "PEAK"
 
 
-def test_deepseek_flash_new_prices_apply_after_2026_09_10_change() -> None:
+def test_deepseek_flash_current_prices_apply_from_2026_09_10_change() -> None:
     peak = resolve_price(
         "DEEPSEEK",
         "deepseek-v4-flash",
@@ -57,15 +59,14 @@ def test_deepseek_flash_new_prices_apply_after_2026_09_10_change() -> None:
     assert (off_peak.input_price_per_million, off_peak.cached_input_price_per_million, off_peak.output_price_per_million) == pytest.approx((0.15, 0.003, 0.60))
 
 
-def test_deepseek_flash_historical_price_is_retained_before_change() -> None:
-    old_peak = resolve_price(
+def test_deepseek_flash_is_unpriced_before_current_contract_effective_time() -> None:
+    before_current_contract = resolve_price(
         "DEEPSEEK",
         "deepseek-v4-flash",
         at=datetime(2026, 9, 9, 1, 30, tzinfo=UTC),
         input_tokens=10_000,
     )
-    assert old_peak is not None
-    assert (old_peak.input_price_per_million, old_peak.cached_input_price_per_million, old_peak.output_price_per_million) == pytest.approx((0.44, 0.014, 1.32))
+    assert before_current_contract is None
 
 
 def test_every_public_auto_default_model_has_a_current_price() -> None:
@@ -83,6 +84,10 @@ def test_every_public_auto_default_model_has_a_current_price() -> None:
         assert resolve_price(provider, model, at=at, input_tokens=10_000) is not None
 
 
+def test_m18_and_auto_share_the_exact_same_pricing_catalog() -> None:
+    assert m18_ai.PRICING_CATALOG is PRICING_CATALOG
+
+
 def test_openai_long_context_and_xai_thresholds_are_applied() -> None:
     at = datetime(2026, 9, 12, 18, 0, tzinfo=UTC)
     openai = resolve_price("OPENAI", "gpt-5.6-luna", at=at, input_tokens=272_001)
@@ -96,20 +101,19 @@ def test_openai_long_context_and_xai_thresholds_are_applied() -> None:
     assert xai_long.input_price_per_million == pytest.approx(4.0)
 
 
-def test_gemini_promotion_expiry_is_already_encoded() -> None:
+def test_gemini_promotion_expiry_fails_closed_until_catalog_review() -> None:
     current = resolve_price(
         "GEMINI", "gemini-3.8-flash",
         at=datetime(2026, 12, 31, 23, 59, tzinfo=UTC), input_tokens=20_000,
     )
-    future = resolve_price(
+    expired = resolve_price(
         "GEMINI", "gemini-3.8-flash",
         at=datetime(2027, 1, 1, 0, 0, tzinfo=UTC), input_tokens=20_000,
     )
-    assert current is not None and future is not None
+    assert current is not None
     assert current.input_price_per_million == pytest.approx(0.75)
     assert current.output_price_per_million == pytest.approx(3.75)
-    assert future.input_price_per_million == pytest.approx(1.50)
-    assert future.output_price_per_million == pytest.approx(7.50)
+    assert expired is None
 
 
 def test_reasoning_effort_increases_expected_output_envelope() -> None:
@@ -160,7 +164,7 @@ def test_auto_orders_priced_active_candidates_by_estimated_request_cost() -> Non
     assert ordered[0].name == "MIMO"
 
 
-def test_unpriced_candidates_keep_legacy_rotating_order() -> None:
+def test_unpriced_candidates_keep_deterministic_rotating_order() -> None:
     a = _PricedProvider("A", "a", 1)
     b = _PricedProvider("B", "b", 2)
     c = _PricedProvider("C", "c", 3)
