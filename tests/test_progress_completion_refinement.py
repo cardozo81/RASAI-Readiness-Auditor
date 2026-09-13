@@ -79,3 +79,45 @@ print("OK")
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stderr
     assert "OK" in result.stdout
+
+
+def test_local_refresh_reapplies_public_quality_and_final_presentation() -> None:
+    code = r'''
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from rasai import improvement_intelligence
+from rasai import progress_completion_refinement as refinement
+from rasai import report_ai_cost_attribution
+from rasai import report_manifest
+from rasai import report_navigation
+from rasai import report_presentation_finalizer
+from rasai import report_quality_reconciliation
+from rasai import report_scale_ux
+
+calls = []
+def record(name):
+    def fn(*args, **kwargs):
+        calls.append(name)
+        return None
+    return fn
+
+improvement_intelligence.write_improvement_report = record("improvement")
+report_ai_cost_attribution.enrich_ai_cost_attribution = record("cost")
+report_navigation.normalize_report_navigation = record("navigation")
+report_scale_ux.enhance_report_directory = record("ux")
+report_quality_reconciliation.reconcile_public_report_quality = record("quality")
+report_presentation_finalizer.finalize_report_presentation = record("finalizer")
+report_manifest.write_report_manifest = record("manifest")
+
+with TemporaryDirectory() as directory:
+    workspace = SimpleNamespace(root=Path(directory))
+    errors = refinement._refresh_reports_local_only(audit_id="AUD-LOCAL", workspace=workspace)
+
+assert errors == ()
+assert calls == ["improvement", "cost", "navigation", "ux", "quality", "finalizer", "manifest"]
+print("OK")
+'''
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
+    assert "OK" in result.stdout
