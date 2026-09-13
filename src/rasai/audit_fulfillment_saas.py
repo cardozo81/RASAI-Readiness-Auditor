@@ -1,8 +1,8 @@
 """SaaS/control-plane integration for AUD fulfillment and selective reprocessing.
 
-This module keeps core audit lifecycle state separate from fulfillment state.  A
+This module keeps core audit lifecycle state separate from fulfillment state. A
 reprocessing job can finish successfully while the logical AUD still has unresolved
-requirements.  The platform index keeps the current audit.db digest, but accepts a
+requirements. The platform index keeps the current audit.db digest, but accepts a
 digest transition only when a completed RPR run is newer than the previously indexed
 revision.
 """
@@ -36,7 +36,11 @@ def _latest_completed_reprocess(workspace_path: str | Path) -> datetime | None:
     if not database.is_file():
         return None
     try:
-        connection = sqlite3.connect(f"file:{database.resolve().as_posix()}?mode=ro", uri=True, timeout=2.0)
+        connection = sqlite3.connect(
+            f"file:{database.resolve().as_posix()}?mode=ro",
+            uri=True,
+            timeout=2.0,
+        )
         try:
             row = connection.execute(
                 """SELECT completed_at FROM audit_reprocess_runs
@@ -65,9 +69,9 @@ def _install_platform_revision_gate() -> None:
             reprocessed_at = _latest_completed_reprocess(record.workspace_path)
             if indexed_at is None or reprocessed_at is None or reprocessed_at <= indexed_at:
                 raise RuntimeError(
-                    f"audit {record.audit_id} changed on disk without a newer completed reprocessing revision"
+                    f"immutable audit {record.audit_id} changed on disk without a newer completed reprocessing revision"
                 )
-            # The shared upsert still owns all relational/index fields.  Advance only
+            # The shared upsert still owns all relational/index fields. Advance only
             # the digest guard first so its normal consistency checks can proceed.
             with self._connection:
                 self._connection.execute(
@@ -111,18 +115,31 @@ def _install_worker_reprocess() -> None:
         indexed = store.get_audit(audit_id)
         if indexed is None:
             raise KeyError(f"audit not found for reprocessing: {audit_id}")
-        belongs = False
         if hasattr(store, "audit_belongs_to_scope"):
-            belongs = bool(store.audit_belongs_to_scope(audit_id, job.property_id, job.environment_id))
+            belongs = bool(
+                store.audit_belongs_to_scope(
+                    audit_id,
+                    job.property_id,
+                    job.environment_id,
+                )
+            )
         else:
-            belongs = indexed.property_id == job.property_id and indexed.environment_id == job.environment_id
+            belongs = (
+                indexed.property_id == job.property_id
+                and indexed.environment_id == job.environment_id
+            )
         if not belongs:
-            raise ValueError("audit reprocessing job must use the same property/environment scope as the AUD")
+            raise ValueError(
+                "audit reprocessing job must use the same property/environment scope as the AUD"
+            )
 
         from rasai.audit_reprocess import reprocess_audit
-        result = reprocess_audit(audit_id, audits_root=audits_root, source="SAAS_WORKER")
-        # Job success means the requested recovery pass executed.  Aggregate AUD
-        # completeness is intentionally reported separately in metadata.
+
+        result = reprocess_audit(
+            audit_id,
+            audits_root=audits_root,
+            source="SAAS_WORKER",
+        )
         metadata = {
             "audit_id": result.audit_id,
             "reprocess_id": result.reprocess_id,
@@ -143,7 +160,7 @@ def _install_worker_reprocess() -> None:
 
 
 def _install_web_projection() -> None:
-    """Expose fulfillment explicitly and allow AUD_REPROCESS durable jobs."""
+    """Expose fulfillment explicitly and allow AUDIT_REPROCESS durable jobs."""
     try:
         from pydantic import BaseModel, Field
         from rasai.web import app as web_app
@@ -157,55 +174,63 @@ def _install_web_projection() -> None:
             output = original_projection(item)
             summary = read_summary(Path(item.workspace_path), item.audit_id)
             if summary is None:
-                output.update({
-                    "processing_status": None,
-                    "score_status": None,
-                    "report_status": None,
-                    "consolidation_eligible": False,
-                    "temporal_status": None,
-                    "required_items": 0,
-                    "successful_items": 0,
-                    "pending_items": 0,
-                    "blocked_items": 0,
-                    "expired_items": 0,
-                    "reprocess_count": 0,
-                    "last_reprocess_id": None,
-                })
+                output.update(
+                    {
+                        "processing_status": None,
+                        "score_status": None,
+                        "report_status": None,
+                        "consolidation_eligible": False,
+                        "temporal_status": None,
+                        "required_items": 0,
+                        "successful_items": 0,
+                        "pending_items": 0,
+                        "blocked_items": 0,
+                        "expired_items": 0,
+                        "reprocess_count": 0,
+                        "last_reprocess_id": None,
+                    }
+                )
             else:
-                output.update({
-                    "processing_status": summary.processing_status,
-                    "score_status": summary.score_status,
-                    "report_status": summary.report_status,
-                    "consolidation_eligible": summary.consolidation_eligible,
-                    "temporal_status": summary.temporal_status,
-                    "required_items": summary.required_items,
-                    "successful_items": summary.successful_items,
-                    "pending_items": summary.pending_items,
-                    "blocked_items": summary.blocked_items,
-                    "expired_items": summary.expired_items,
-                    "reprocess_count": summary.reprocess_count,
-                    "last_reprocess_id": summary.last_reprocess_id,
-                })
+                output.update(
+                    {
+                        "processing_status": summary.processing_status,
+                        "score_status": summary.score_status,
+                        "report_status": summary.report_status,
+                        "consolidation_eligible": summary.consolidation_eligible,
+                        "temporal_status": summary.temporal_status,
+                        "required_items": summary.required_items,
+                        "successful_items": summary.successful_items,
+                        "pending_items": summary.pending_items,
+                        "blocked_items": summary.blocked_items,
+                        "expired_items": summary.expired_items,
+                        "reprocess_count": summary.reprocess_count,
+                        "last_reprocess_id": summary.last_reprocess_id,
+                    }
+                )
             return output
 
         fulfillment_projection._rasai_fulfillment_projection = True
         fulfillment_projection._rasai_original = original_projection
         web_app._audit_projection = fulfillment_projection
 
-    if "AUDIT_REPROCESS" not in str(web_app.ExecutionJobCreate.model_fields["job_type"].annotation):
+    if "AUDIT_REPROCESS" not in str(
+        web_app.ExecutionJobCreate.model_fields["job_type"].annotation
+    ):
         class FulfillmentExecutionJobCreate(BaseModel):
             property_id: str = Field(min_length=1, max_length=200)
             environment_id: str = Field(min_length=1, max_length=200)
-            job_type: Literal["AUDIT", "AUDIT_REPROCESS", "SEARCH_MONITOR", "REPORT_REFRESH"]
+            job_type: Literal[
+                "AUDIT",
+                "AUDIT_REPROCESS",
+                "SEARCH_MONITOR",
+                "REPORT_REFRESH",
+            ]
             payload: dict[str, Any] = Field(default_factory=dict)
             idempotency_key: str | None = Field(default=None, max_length=200)
             priority: int = Field(default=100, ge=0, le=1000)
             max_attempts: int = Field(default=3, ge=1, le=100)
 
         web_app.ExecutionJobCreate = FulfillmentExecutionJobCreate
-        # create_app resolves nested route annotations against module globals when
-        # each application instance is built, so future API/pilot apps use the new
-        # model. Replace the module-level direct ASGI app as well.
         web_app.app = web_app.create_app()
 
 
