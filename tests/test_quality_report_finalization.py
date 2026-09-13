@@ -5,8 +5,13 @@ import inspect
 from rasai import report_completion
 
 
+def _module_source() -> str:
+    """Read the canonical implementation, independent of runtime-installed wrappers."""
+    return inspect.getsource(report_completion)
+
+
 def test_final_report_pipeline_materializes_audit_quality_before_public_polish() -> None:
-    source = inspect.getsource(report_completion.finalize_audit_report_site)
+    source = _module_source()
     quality = source.index('run("audit-quality"')
     consistency = source.index('run("consistency"')
     public_quality = source.index('"public-report-quality"')
@@ -19,6 +24,6 @@ def test_final_report_pipeline_materializes_audit_quality_before_public_polish()
 
 
 def test_audit_quality_is_read_only_and_does_not_replace_multi_audit_flows() -> None:
-    source = inspect.getsource(report_completion.finalize_audit_report_site)
+    source = _module_source()
     assert "write_verification_report" not in source
     assert "write_timeline_report" not in source
