@@ -195,9 +195,9 @@ Limitações conhecidas:
 - algumas finalidades montam o payload completo somente depois da enumeração inicial do candidato;
 - uma resposta rejeitada pelo contrato local pode ter sido cobrada externamente e continua sendo tentativa de custo quando usage está disponível.
 
-## 11. Contrato de M24 e prevenção de fallback artificial
+## 11. Contrato de remediação técnica e prevenção de fallback artificial
 
-A remediação técnica M24 continua evidence-bound. `actions` podem usar apenas o universo global de evidências fornecido. `resource_assessments` possuem universo mais estrito por recurso:
+A remediação técnica continua evidence-bound. `actions` podem usar apenas o universo global de evidências fornecido. `resource_assessments` possuem universo mais estrito por recurso:
 
 ```text
 ROBOTS -> somente evidence_ids autorizados para ROBOTS
@@ -262,4 +262,4 @@ A suíte deve cobrir, no mínimo:
 - ordem determinística de candidatos sem pricing;
 - quarentena/circuit breaker inalterados;
 - no máximo uma tentativa por provider por necessidade;
-- contrato M24 com evidence IDs por recurso e rejeição de cross-resource evidence.
+- contrato de remediação técnica com evidence IDs por recurso e rejeição de referências cruzadas.
