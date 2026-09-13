@@ -5,9 +5,9 @@ no credential. That default must never leak private/internal targets or URL para
 into a public index lookup. This wrapper suppresses only Common Crawl for the current
 finalization when the bounded candidate set is not safe for public disclosure.
 
-The SARI corroboration installer is composed here for the top-level CLI. It performs
-its own equivalent pre-scoring safety gate because scoring occurs before report
-finalization.
+The SARI corroboration installers are composed here for the top-level CLI. They perform
+their own equivalent pre-scoring safety gate because scoring occurs before report
+finalization, then explain any bounded contribution in readiness/scoring HTML.
 """
 from __future__ import annotations
 
@@ -50,7 +50,9 @@ def install() -> None:
 
     # Import late to keep metadata/configuration discovery side-effect free.
     from rasai.external_sari import install as install_external_sari
+    from rasai.external_sari_reporting import install as install_external_sari_reporting
     install_external_sari()
+    install_external_sari_reporting()
 
 
 def _common_crawl_block_reason(*, workspace: Any, audit_id: str) -> str | None:
