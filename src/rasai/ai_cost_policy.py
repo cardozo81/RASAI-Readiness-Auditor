@@ -4,9 +4,9 @@ The catalog models synchronous request modes already used by RASAi. It does not
 silently opt a request into Batch, Flex, Priority, token-plan, or another service tier
 that changes latency, quota, or contractual semantics.
 
-Pricing is a routing/telemetry estimate, not an invoice. When cache telemetry is
-unavailable, pre-call routing and observed-cost normalization conservatively assume a
-cache miss.
+Pricing is a routing/telemetry estimate, not an invoice. Pre-call routing assumes a
+cache miss until same-execution usage shows a reusable cache pattern. Post-call cost
+telemetry requires native cache accounting so it does not invent a billed split.
 """
 from __future__ import annotations
 
@@ -94,8 +94,8 @@ class CandidateCostEstimate:
 
 # Public synchronous API prices verified on 2026-09-12. The DeepSeek Flash values
 # reflect the pricing notice effective from 2026-09-10 12:00 Beijing Time
-# (2026-09-10 04:00 UTC). Only pricing relevant to the current unpublished RASAi
-# contract is retained; there is no historical pricing contract to preserve here.
+# (2026-09-10 04:00 UTC). The catalog contains only rules applicable to the current
+# unpublished RASAi contract.
 PRICING_CATALOG: tuple[PricingRule, ...] = (
     PricingRule("OPENAI", "gpt-5.6-sol", 4.00, 0.40, 20.00, "USD", "https://developers.openai.com/api/docs/models/gpt-5.6-sol", "2026-08-21T00:00:00Z"),
     PricingRule("OPENAI", "gpt-5.6-terra", 2.00, 0.20, 12.00, "USD", "https://developers.openai.com/api/docs/models/gpt-5.6-terra", "2026-08-21T00:00:00Z"),
@@ -226,12 +226,12 @@ def estimate_observed_cost(
     if usage is None:
         return None, None, PRICING_VERSION
     input_tokens = getattr(usage, "input_tokens", None)
+    cached_raw = getattr(usage, "cached_input_tokens", None)
     output_tokens = _billable_output_tokens(provider, usage)
-    if input_tokens is None or output_tokens is None:
+    if input_tokens is None or cached_raw is None or output_tokens is None:
         return None, None, PRICING_VERSION
     input_tokens = max(int(input_tokens), 0)
-    cached_raw = getattr(usage, "cached_input_tokens", None)
-    cached_tokens = max(min(int(cached_raw or 0), input_tokens), 0)
+    cached_tokens = max(min(int(cached_raw), input_tokens), 0)
     price = resolve_price(provider, model, at=at, input_tokens=input_tokens)
     if price is None:
         return None, None, PRICING_VERSION
