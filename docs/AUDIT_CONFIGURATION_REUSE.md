@@ -29,7 +29,7 @@ A rejeição de AUD antigo sem snapshot é deliberadamente **fail-closed**. O RA
 
 ## Snapshot canônico
 
-Cada nova execução passa a persistir no próprio `audit.db` um snapshot não secreto da configuração efetivamente usada.
+Execuções iniciadas pelas superfícies de configuração suportadas nesta entrega — console local e durable job SaaS `AUDIT` — persistem no próprio `audit.db` um snapshot não secreto da configuração efetivamente usada.
 
 A tabela derivada `audit_execution_configurations` registra:
 
@@ -45,6 +45,14 @@ A tabela derivada `audit_execution_configurations` registra:
 - timestamp de criação.
 
 O hash descreve **a configuração efetiva**, não a proveniência. Metadados de linhagem não entram no hash.
+
+### Janela de persistência e imutabilidade
+
+A configuração é vinculada ao contexto da execução **antes** do audit começar. A persistência ocorre dentro da finalização canônica do AUD, enquanto `audit.db` ainda está na janela legítima de escrita e **antes do primeiro SHA-256 usado pela indexação do control plane**.
+
+Console e worker não escrevem o snapshot depois que `entrypoint.main()` retorna. Isso impediria a imutabilidade porque o control plane já poderia ter indexado o hash do `audit.db`.
+
+Portanto, o snapshot faz parte do mesmo estado imutável que será inicialmente indexado. Não existe atualização posterior do digest apenas para registrar a configuração.
 
 ## Secrets
 
@@ -78,7 +86,7 @@ O fluxo é:
 
 Para uma única URL, o target volta ao modo URL. Para múltiplos targets, o console materializa um TXT operacional em `audits/.reused-inputs/` e mantém no snapshot a lista canônica de URLs, não o caminho desse arquivo.
 
-O target reutilizado é obtido do input persistido no `audit.db`; o RASAi não relê um TXT histórico mutável para decidir o que foi executado.
+O target reutilizado vem da lista canônica registrada no snapshot da execução de origem. O RASAi não depende do caminho de um TXT histórico mutável para reconstruir a configuração.
 
 ### UX
 
@@ -138,13 +146,19 @@ O relatório continua tratando cada `AUD-*` como uma observação independente. 
 
 O consolidado não recalcula score nem muda o valor persistido por causa da configuração. A linhagem é uma camada de interpretação adicional.
 
+A classificação usa o mesmo par temporal escolhido pelo relatório:
+
+- `FIRST_LAST`: primeiro e último AUD elegíveis do filtro;
+- `LATEST_PREVIOUS`: penúltimo e último;
+- `MANUAL`: os dois Audit IDs explicitamente escolhidos pelo usuário.
+
 Classificações principais:
 
 - `EXACT`: baseline e atual pertencem à mesma série e possuem o mesmo hash de configuração;
 - `PARTIAL`: pertencem à mesma série, mas o hash mudou;
 - `EQUIVALENT_WITHOUT_LINEAGE`: hashes equivalentes, porém sem uma mesma série explícita;
 - `UNRELATED`: série/configuração não estabelecem uma repetição controlada;
-- `INSUFFICIENT_DATA`: não há observações suficientes com snapshot para classificar o par.
+- `INSUFFICIENT_DATA`: não há snapshot suficiente no par escolhido para classificá-lo.
 
 Quando a comparação é parcial ou não relacionada, o relatório consolidado registra uma limitação metodológica explícita. Campos alterados dentro de uma mesma série são listados quando disponíveis.
 
@@ -184,4 +198,4 @@ O recurso não altera:
 - `audit.db` como fonte de evidência da observação;
 - regra de que somente AUD elegível participa da consolidação geral.
 
-A falha ao persistir um snapshot de configuração não deve transformar um resultado analítico válido em falha de auditoria. Nesse caso o AUD pode continuar válido para relatório/consolidação, mas fica indisponível como origem de configuração até possuir um snapshot canônico válido.
+A falha ao persistir um snapshot de configuração não deve transformar um resultado analítico válido em falha de auditoria. Nesse caso o AUD pode continuar válido para relatório/consolidação, mas fica indisponível como origem de configuração porque o carregamento é fail-closed na ausência do snapshot.
