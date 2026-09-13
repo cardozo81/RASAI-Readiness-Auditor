@@ -15,7 +15,6 @@ from rasai.audit_execution_contract import normalize_audit_job_payload
 from rasai.audit_fulfillment import REPLAY_SAFE, SUCCESS, initialize_contract, recalculate, register_work_item, set_work_item_status
 from rasai.domain import Audit, CompletionStatus
 from rasai.persistence import AuditPersistence, AuditWorkspace
-from rasai.web.app import ExecutionJobCreate
 
 
 def _complete_workspace(root: Path, audit_id: str) -> AuditWorkspace:
@@ -116,6 +115,12 @@ def test_saas_reuse_rejects_cross_scope_and_client_managed_provenance() -> None:
 
 
 def test_web_contract_exposes_source_audit_only_as_optional_audit_input() -> None:
+    # FastAPI is an optional web extra. Base-runtime/full-regression environments
+    # must still collect this module without installing .[web]. The HTTP contract is
+    # exercised when the web extra is available, including the Linux SaaS workflow.
+    pytest.importorskip("fastapi")
+    from rasai.web.app import ExecutionJobCreate
+
     request = ExecutionJobCreate(
         property_id="PROP1",
         environment_id="ENV1",
