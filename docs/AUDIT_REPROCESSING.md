@@ -43,11 +43,25 @@ O reprocessamento não executa novamente um requisito que já possui resultado e
 
 Exemplos:
 
-- uma chamada de IA que falhou pode ser repetida usando a evidência persistida da mesma auditoria;
+- aquisição HTTP ou captura browser que não concluiu na execução original pode ser repetida dentro da janela de recuperação live;
+- extração determinística pode ser repetida a partir do RAW ou DOM persistido sem nova requisição ao website;
+- uma chamada de IA que falhou pode ser repetida usando a evidência efetiva da mesma auditoria;
 - uma coleta PageSpeed ou CrUX bem-sucedida não é repetida apenas porque outro componente de Web Performance falhou;
 - Synthetic Navigation Apdex coleta somente o déficit necessário de amostras válidas por contexto;
 - Synthetic User Experience Apdex coleta somente o déficit necessário da população configurada;
 - remediações por IA são reavaliadas quando uma nova resposta semântica efetiva altera os achados que servem de entrada.
+
+## Evidência core e integridade
+
+Aquisição HTTP, captura do documento pelo browser e extração determinística são requisitos explícitos de processamento quando aplicáveis ao contexto auditado.
+
+Há uma distinção obrigatória entre **falha de coleta** e **perda de evidência persistida**:
+
+- se a aquisição ou a captura não concluiu na execução original, o requisito permanece recuperável e pode ser tentado novamente como `LIVE_RECOLLECTION`, dentro da janela temporal configurada;
+- se uma captura foi registrada como sucesso e o artifact persistido correspondente depois não está disponível, o requisito fica `BLOCKED`; o RASAi não substitui essa evidência por uma versão posterior do site;
+- se existe RAW ou DOM persistido e apenas a extração falhou, a recuperação é `REPLAY_SAFE` e reutiliza exatamente a fonte já armazenada.
+
+Quando uma recuperação core altera a evidência efetiva, somente os cálculos determinísticos e derivados dependentes são recalculados. As versões anteriores permanecem no histórico do `RPR-*`.
 
 ## Histórico de tentativas
 
@@ -72,9 +86,11 @@ Nenhuma IA é chamada antes de existirem os dados mínimos persistidos necessár
 
 No fluxo semântico, a chamada do provider também exige que os pré-requisitos determinísticos da página e do snapshot confirmem que o conteúdo é tecnicamente analisável. Em particular, falha ou estado inconclusivo de `BR-GEO-009` ou `BR-GEO-020` impede a chamada externa. Esse estado é um bloqueio de pré-requisito, não uma falha do provider, portanto não gera tentativa nem custo de IA.
 
-Se a extração original falhou, mas o RAW ou DOM renderizado daquela mesma observação foi preservado, o reprocessamento pode executar novamente apenas a extração sobre esse artifact persistido e, depois, reavaliar a elegibilidade da IA. Isso é `REPLAY_SAFE`: não existe nova requisição ao website para fabricar uma fonte semântica diferente dentro do AUD antigo.
+Se a extração falhou, mas o RAW ou DOM daquela observação está persistido, o reprocessamento executa novamente somente a extração e depois reavalia a elegibilidade da IA.
 
-Se o RAW e o DOM originais necessários à análise semântica não foram preservados, o RASAi não faz uma captura tardia para completar artificialmente o mesmo `AUD-*`. O requisito fica bloqueado e deve ser criada uma nova auditoria. HTML/DOM que fundamenta a análise semântica é evidência de origem da observação e não pode ser substituído por uma versão posterior do site.
+A recuperação semântica não faz uma requisição ao website por conta própria. Quando a fonte ainda não existe porque a **captura original falhou**, o work-item de captura core deve ser recuperado primeiro, dentro da janela de `LIVE_RECOLLECTION`. Somente depois de a nova captura ter sido persistida e os pré-requisitos determinísticos passarem a IA se torna elegível.
+
+Se a captura havia sido registrada como sucesso e seu artifact persistido está ausente ou inconsistente, o RASAi não faz uma nova captura para substituir aquela evidência. Esse caso é perda de integridade, permanece bloqueado e exige uma nova auditoria para produzir uma observação válida.
 
 Essa regra evita custo sem utilidade, respostas sem base suficiente e tentativas que não poderiam produzir resultado válido.
 
@@ -82,8 +98,8 @@ Essa regra evita custo sem utilidade, respostas sem base suficiente e tentativas
 
 Requisitos são classificados de acordo com a origem da evidência:
 
-- `REPLAY_SAFE`: podem ser reexecutados a partir dos dados já persistidos no próprio `AUD-*`, como extração sobre RAW/DOM original ou nova análise de IA sobre o conteúdo originalmente capturado;
-- `LIVE_RECOLLECTION`: exigem nova consulta ao ambiente ou serviço externo, como PageSpeed, CrUX e medições sintéticas.
+- `REPLAY_SAFE`: podem ser reexecutados a partir dos dados já persistidos no próprio `AUD-*`, como extração sobre RAW/DOM persistido ou nova análise de IA sobre o conteúdo efetivo da auditoria;
+- `LIVE_RECOLLECTION`: exigem nova consulta ao ambiente ou serviço externo, como aquisição HTTP/captura que não concluiu, PageSpeed, CrUX e medições sintéticas.
 
 Coletas `LIVE_RECOLLECTION` só podem promover a auditoria ao estado final dentro da janela de recuperação configurada. Quando essa janela expira, o `AUD-*` permanece fora da consolidação e uma nova auditoria deve ser executada para preservar coerência temporal entre as evidências.
 
@@ -95,11 +111,11 @@ RASAI_REPROCESS_LIVE_VALIDITY_MINUTES
 
 O valor aceito é limitado pelo runtime entre 1 minuto e 10080 minutos.
 
-A janela de `LIVE_RECOLLECTION` não autoriza substituir evidência de origem ausente. Ela se aplica a medições externas ou sintéticas que foram contratadas como coletas live; não converte HTML/DOM sem artifact persistido em uma fonte recuperável do AUD antigo.
+A janela de `LIVE_RECOLLECTION` autoriza completar uma coleta que não obteve sucesso; ela não autoriza substituir um artifact que já havia sido persistido como evidência de uma coleta bem-sucedida.
 
-## Recalculo de dados derivados
+## Recálculo de dados derivados
 
-Quando uma nova tentativa de IA passa a ser a evidência efetiva, o RASAi invalida somente os dados derivados que dependem daquela evidência e os calcula novamente. Isso inclui score, contribuições, priorização e recomendações afetadas.
+Quando uma nova tentativa altera a evidência efetiva, o RASAi invalida somente os dados derivados que dependem daquela evidência e os calcula novamente. Isso inclui regras determinísticas afetadas, score, contribuições, priorização e recomendações dependentes.
 
 Os resultados anteriores substituídos são preservados no histórico de reprocessamento para auditoria. Relatórios públicos usam somente o estado efetivo atual.
 
