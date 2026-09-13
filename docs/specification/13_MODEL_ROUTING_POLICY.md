@@ -52,7 +52,7 @@ GitHub Copilot é `explicit_only=true` e `auto_eligible=false`. Mesmo com `COPIL
 
 ## 4. Defaults públicos, valores permitidos e recomendação
 
-Os defaults públicos efetivos são definidos por `provider_runtime_policy` e são distintos de modelos históricos de qualificação interna.
+Os defaults públicos efetivos são definidos por `provider_runtime_policy` e são distintos dos modelos internos de referência e qualificação.
 
 | Provider | Modelo default público | Modelos permitidos pelo registry | Recomendado para operação padrão |
 |---|---|---|---|
@@ -93,7 +93,7 @@ Seleção explícita mantém o provider solicitado e suas regras específicas de
 3. aplica `RASAI_AI_AUTO_EXCLUDE` sem apagar credenciais ou impedir seleção explícita posterior;
 4. exclui candidatos já inelegíveis pela saúde/quarentena da execução;
 5. estima, por necessidade, o custo do request usando modelo, reasoning, volume esperado de tokens, cache observado e regra tarifária vigente;
-6. ordena candidatos precificados do menor para o maior custo estimado, mantendo a ordem rotativa legada entre candidatos sem preço conhecido;
+6. ordena candidatos precificados do menor para o maior custo estimado, mantendo a ordem rotativa determinística do coordenador entre candidatos sem preço conhecido;
 7. tenta cada provider elegível no máximo uma vez por necessidade;
 8. aplica estado de saúde e circuit breaker durante a execução;
 9. encerra a necessidade no primeiro resultado válido.
@@ -138,6 +138,6 @@ O custo persistido é estimativa operacional e não invoice do provider.
 
 ## 10. Regra documental
 
-Políticas de branch, PR, merge e marcos de implementação pertencem ao processo de desenvolvimento e ao histórico Git, não a este contrato de runtime. Esta especificação deve acompanhar o registry e a `provider_runtime_policy` vigentes em `main`.
+Políticas de branch, PR e merge pertencem ao processo de desenvolvimento e não a este contrato de runtime. Esta especificação deve acompanhar o registry e a `provider_runtime_policy` vigentes em `main`.
 
 A lista operacional de URLs de cadastro/login e obtenção de credenciais fica em `../PROVIDER_SETUP.md`; duplicações documentais devem apontar para essa referência em vez de manter catálogos independentes.
