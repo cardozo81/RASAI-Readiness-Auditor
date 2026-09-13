@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+from rasai import console_environment
 from rasai.console_config import is_secret
-from rasai.console_environment import ENV_NAMES, SPECS
 from rasai.console_m23 import State, apply_m23_environment_defaults
 from rasai.console_settings import (
     _known_nonsecret_environment_names,
@@ -52,9 +52,12 @@ def test_experience_environment_overrides_are_projected_before_enablement() -> N
 
 
 def test_all_safe_console_environment_variables_are_ini_persistable() -> None:
+    # Runtime installers extend the canonical console catalog in place during process
+    # composition. Read the module attribute at assertion time instead of keeping a
+    # collection-time tuple snapshot, otherwise test order can create a false mismatch.
     expected = {
         spec.name
-        for spec in SPECS
+        for spec in console_environment.SPECS
         if not spec.sensitive and not is_secret(spec.name)
     }
     assert set(_known_nonsecret_environment_names()) == expected
@@ -79,7 +82,7 @@ def test_saved_configuration_contains_runtime_and_experience_defaults(monkeypatc
 
 
 def test_every_configuration_has_default_or_explicit_conditional_requirement() -> None:
-    for spec in SPECS:
+    for spec in console_environment.SPECS:
         if spec.default is not None or spec.sensitive:
             continue
         assert spec.required_when != "Nunca; override opcional.", spec.name
@@ -94,5 +97,5 @@ def test_environment_reference_documents_cover_the_console_catalog() -> None:
         ROOT / "docs" / "EXTERNAL_OBSERVABILITY_INTEGRATIONS.md",
     )
     text = "\n".join(path.read_text(encoding="utf-8") for path in documents)
-    missing = sorted(name for name in ENV_NAMES if name not in text)
+    missing = sorted(name for name in console_environment.ENV_NAMES if name not in text)
     assert not missing, "environment variables missing from documentation: " + ", ".join(missing)
