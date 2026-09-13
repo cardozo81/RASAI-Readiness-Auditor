@@ -15,7 +15,6 @@ from typing import Any
 
 from rasai.audit_fulfillment import (
     BLOCKED,
-    FAILED_RETRYABLE,
     WAITING_FOR_DATA,
     archive_rows,
     list_work_items,
@@ -75,7 +74,6 @@ def _archive_snapshot_before_replay(
             reprocess_id=reprocess_id,
             component="SEMANTIC_PREREQUISITE",
             entity_type="page_snapshot_extraction_state",
-            entity_id="snapshot_id",
             id_field="snapshot_id",
             rows=(dict(row),),
         )
@@ -120,11 +118,20 @@ def _replay_original_extraction(
     return "SUCCESS"
 
 
-def _rule_result(persistence: Any, execution_ids: Any, rule_id: str, *, snapshot_id: str | None = None) -> RuleResult | None:
+def _rule_result(
+    persistence: Any,
+    execution_ids: Any,
+    rule_id: str,
+    *,
+    page_id: str | None = None,
+    snapshot_id: str | None = None,
+) -> RuleResult | None:
     result: RuleResult | None = None
     for execution_id in tuple(execution_ids or ()):
         execution = persistence.rule_executions.get(execution_id)
         if execution is None or execution.rule_id != rule_id:
+            continue
+        if page_id is not None and execution.page_id not in {None, page_id}:
             continue
         if snapshot_id is not None and execution.snapshot_id not in {None, snapshot_id}:
             continue
@@ -137,13 +144,20 @@ def _dependency_reason(
     persistence: Any,
     m5_result: Any,
     m6_result: Any,
+    page_id: str,
     snapshot_id: str,
 ) -> str | None:
-    html = _rule_result(persistence, getattr(m5_result, "rule_execution_ids", ()), "BR-GEO-009")
+    html = _rule_result(
+        persistence,
+        getattr(m5_result, "rule_execution_ids", ()),
+        "BR-GEO-009",
+        page_id=page_id,
+    )
     rendered = _rule_result(
         persistence,
         getattr(m6_result, "rule_execution_ids", ()),
         "BR-GEO-020",
+        page_id=page_id,
         snapshot_id=snapshot_id,
     )
     if html is not RuleResult.PASS:
@@ -206,12 +220,13 @@ def _dependency_gate(original):
         if not audit_id or persistence is None or workspace is None or m3_result is None or provider is None:
             return original(*args, **kwargs)
         reasons: dict[str, str] = {}
-        for per_device in getattr(m3_result, "snapshot_ids", {}).values():
+        for page_id, per_device in getattr(m3_result, "snapshot_ids", {}).items():
             for snapshot_id in per_device.values():
                 reason = _dependency_reason(
                     persistence=persistence,
                     m5_result=m5_result,
                     m6_result=m6_result,
+                    page_id=str(page_id),
                     snapshot_id=str(snapshot_id),
                 )
                 if reason:
@@ -284,7 +299,7 @@ def _wrap_recover_semantic_item(original):
                     audit_id=audit_id,
                     component="SEMANTIC_AI",
                     scope_key=snapshot_id,
-                    status=FAILED_RETRYABLE,
+                    status=WAITING_FOR_DATA,
                     error_class="EXTRACTION",
                     error_code=replay,
                     error_message="replay-safe extraction did not produce sufficient semantic input",
@@ -312,7 +327,7 @@ def _wrap_apply_result(original):
                 ),
                 None,
             )
-            if current is not None and current.status in {WAITING_FOR_DATA, BLOCKED, FAILED_RETRYABLE}:
+            if current is not None and current.status in {WAITING_FOR_DATA, BLOCKED}:
                 return False
         return original(
             workspace,
