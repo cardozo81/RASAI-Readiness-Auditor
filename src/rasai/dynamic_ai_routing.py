@@ -275,12 +275,11 @@ class DynamicProviderRoutingSession:
         def key(pair: tuple[Any, CandidateCostEstimate]) -> tuple[float, float, int, int]:
             item, estimate = pair
             priced = estimate.estimated_cost is not None and estimate.currency == "USD"
-            return (
-                0.0 if priced else 1.0,
-                float(estimate.estimated_cost) if priced else float("inf"),
-                int(getattr(getattr(item, "policy", None), "rank", 9999)),
-                base_index[str(item.name)],
-            )
+            rank = int(getattr(getattr(item, "policy", None), "rank", 9999))
+            if priced:
+                return (0.0, float(estimate.estimated_cost), rank, base_index[str(item.name)])
+            # Forward-compatible/unpriced providers keep the legacy rotating order.
+            return (1.0, float("inf"), base_index[str(item.name)], rank)
 
         pairs.sort(key=key)
         self._last_cost_ranking = tuple(estimate for _, estimate in pairs)
