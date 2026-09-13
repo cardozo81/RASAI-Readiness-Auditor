@@ -70,13 +70,19 @@ Para o relatório consolidado existe **uma observação**, `AUD-ABC`. Para custo
 
 Nenhuma IA é chamada antes de existirem os dados mínimos persistidos necessários para a análise solicitada. Quando conteúdo, evidência ou contexto obrigatório ainda não está disponível, o requisito permanece aguardando dados e a chamada externa não é realizada.
 
+No fluxo semântico, a chamada do provider também exige que os pré-requisitos determinísticos da página e do snapshot confirmem que o conteúdo é tecnicamente analisável. Em particular, falha ou estado inconclusivo de `BR-GEO-009` ou `BR-GEO-020` impede a chamada externa. Esse estado é um bloqueio de pré-requisito, não uma falha do provider, portanto não gera tentativa nem custo de IA.
+
+Se a extração original falhou, mas o RAW ou DOM renderizado daquela mesma observação foi preservado, o reprocessamento pode executar novamente apenas a extração sobre esse artifact persistido e, depois, reavaliar a elegibilidade da IA. Isso é `REPLAY_SAFE`: não existe nova requisição ao website para fabricar uma fonte semântica diferente dentro do AUD antigo.
+
+Se o RAW e o DOM originais necessários à análise semântica não foram preservados, o RASAi não faz uma captura tardia para completar artificialmente o mesmo `AUD-*`. O requisito fica bloqueado e deve ser criada uma nova auditoria. HTML/DOM que fundamenta a análise semântica é evidência de origem da observação e não pode ser substituído por uma versão posterior do site.
+
 Essa regra evita custo sem utilidade, respostas sem base suficiente e tentativas que não poderiam produzir resultado válido.
 
 ## Consistência temporal
 
 Requisitos são classificados de acordo com a origem da evidência:
 
-- `REPLAY_SAFE`: podem ser reexecutados a partir dos dados já persistidos no próprio `AUD-*`, como uma nova análise de IA sobre o conteúdo originalmente capturado;
+- `REPLAY_SAFE`: podem ser reexecutados a partir dos dados já persistidos no próprio `AUD-*`, como extração sobre RAW/DOM original ou nova análise de IA sobre o conteúdo originalmente capturado;
 - `LIVE_RECOLLECTION`: exigem nova consulta ao ambiente ou serviço externo, como PageSpeed, CrUX e medições sintéticas.
 
 Coletas `LIVE_RECOLLECTION` só podem promover a auditoria ao estado final dentro da janela de recuperação configurada. Quando essa janela expira, o `AUD-*` permanece fora da consolidação e uma nova auditoria deve ser executada para preservar coerência temporal entre as evidências.
@@ -88,6 +94,8 @@ RASAI_REPROCESS_LIVE_VALIDITY_MINUTES
 ```
 
 O valor aceito é limitado pelo runtime entre 1 minuto e 10080 minutos.
+
+A janela de `LIVE_RECOLLECTION` não autoriza substituir evidência de origem ausente. Ela se aplica a medições externas ou sintéticas que foram contratadas como coletas live; não converte HTML/DOM sem artifact persistido em uma fonte recuperável do AUD antigo.
 
 ## Recalculo de dados derivados
 
