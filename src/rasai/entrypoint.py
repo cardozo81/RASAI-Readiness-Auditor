@@ -71,6 +71,7 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
     from rasai import m9
     from rasai.ai_exchange_log import persist_ai_exchange_log
     from rasai.ai_execution_state import consume_current_ai_execution
+    from rasai.audit_configuration_reuse_runtime import persist_current_configuration
     from rasai.m18_ai import provider_session_snapshot
     from rasai.persistence import AuditWorkspace
     from rasai.report_completion import finalize_audit_report_site
@@ -97,12 +98,28 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         m9.write_score_geo_004_report = original_score_writer
 
     execution = consume_current_ai_execution()
-    if code != 0 or not captured:
+    if not captured:
         return code
 
     result = captured[-1]
     try:
         workspace = AuditWorkspace.open(result.audit_root)
+    except Exception:
+        _LOGGER.exception("Unable to open audit workspace after execution")
+        return code
+
+    # This is the last mutable-evidence window before main() computes/indexes the
+    # audit.db SHA-256. Failure is fail-open for the audit result but fail-closed for
+    # future configuration reuse (no valid snapshot => source AUD is rejected).
+    try:
+        persist_current_configuration(workspace.root, result.audit_id)
+    except Exception:
+        _LOGGER.exception("Reusable audit configuration snapshot could not be persisted")
+
+    if code != 0:
+        return code
+
+    try:
         context_interpretations = ()
         routing_snapshot = None
         if execution is not None:
