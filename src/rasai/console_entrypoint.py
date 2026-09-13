@@ -27,6 +27,7 @@ from rasai.console_execution_profiles import install as install_execution_profil
 from rasai.console_first_run_cost_preview import install as install_first_run_cost_preview
 from rasai.console_navigation import install as install_console_navigation
 from rasai.console_progress_presentation import install as install_console_progress_presentation
+from rasai.console_reprocess_parity import install as install_console_reprocess_parity
 from rasai.console_search_guidance import install as install_search_guidance
 from rasai.console_search_intelligence import install as install_search_intelligence
 from rasai.console_secret_input import install_masked_secret_input
@@ -156,9 +157,11 @@ def main() -> int:
     # navigation shell is installed after it and delegates back to that surface.
     install_audit_configuration_reuse_console(interactive_console)
     install_console_navigation(interactive_console)
-    # Final workflow presentation synchronizes loaded AUD state with the visible console
-    # and projects selective reprocessing through the standard progress/cost surfaces.
+    # AUD loading/reuse synchronization is installed first. Reprocessing parity then
+    # becomes the final projection so a RPR uses the same execution/post-run surfaces as
+    # processing while retaining its RPR-specific result and unresolved-item diagnosis.
     install_console_audit_workflow(interactive_console)
+    install_console_reprocess_parity(interactive_console)
     return interactive_console.main()
 
 
