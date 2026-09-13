@@ -30,7 +30,7 @@ A política é aplicada ao runtime principal `AI=auto` e aos fluxos que comparti
 
 1. análise semântica;
 2. remediação de conteúdo;
-3. remediação técnica M24;
+3. remediação técnica de crawling/discovery;
 4. explicação de Source Quality quando o adapter daquele provider é compatível com esse fluxo.
 
 Ficam fora desta política:
@@ -86,7 +86,7 @@ O output esperado é específico da finalidade:
 |---|---:|
 | análise semântica | 4.000 tokens, ajustados pela quantidade de evidências |
 | remediação de conteúdo | 900 + 650 tokens por finding, limitado a 16.000 antes do multiplicador de reasoning |
-| remediação técnica M24 | 3.200 tokens |
+| remediação técnica de crawling/discovery | 3.200 tokens |
 | Source Quality | 1.800 tokens |
 
 Os números acima são **heurísticas de roteamento**, não preços oficiais nem limites de API.
@@ -245,7 +245,7 @@ Limitações conhecidas:
 - tokenização real varia entre providers; tamanho de JSON/4 é apenas aproximação pré-chamada;
 - Anthropic diferencia cache creation de 5 min/1 h e cache read, mas o modelo de usage canônico atual do RASAi não preserva separadamente todos os tokens de cache write; por isso o router não presume desconto de write;
 - Qwen possui modalidades adicionais de cache explícito; o runtime atual utiliza a tarifa de input/cache observável pelo adapter corrente;
-- M24 e Source Quality usam baseline na primeira seleção porque seu payload completo é construído depois da enumeração do candidato; usage real da própria execução passa a refinar chamadas seguintes;
+- remediação técnica de crawling/discovery e Source Quality usam baseline na primeira seleção porque seu payload completo é construído depois da enumeração do candidato; usage real da própria execução passa a refinar chamadas seguintes;
 - uma resposta rejeitada pelo contrato local pode ainda gerar cobrança externa e deve continuar aparecendo na telemetria quando usage estiver disponível.
 
 ## 11. Fontes oficiais
