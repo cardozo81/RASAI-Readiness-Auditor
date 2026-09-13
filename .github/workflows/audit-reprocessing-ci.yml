@@ -1,0 +1,57 @@
+name: Audit Fulfillment and Reprocessing
+
+on:
+  pull_request:
+    paths:
+      - 'src/rasai/audit_fulfillment.py'
+      - 'src/rasai/audit_fulfillment_runtime.py'
+      - 'src/rasai/audit_reprocess.py'
+      - 'src/rasai/reprocess_*.py'
+      - 'src/rasai/entrypoint.py'
+      - 'src/rasai/platform/**'
+      - 'src/rasai/web/**'
+      - 'src/rasai/worker.py'
+      - 'src/rasai/execution_contract.py'
+      - 'tests/test_audit_fulfillment_reprocessing.py'
+      - '.github/workflows/audit-reprocessing-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-local-runtime:
+    name: Windows local runtime / console contract
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and pytest
+        run: python -m pip install -e . pytest
+      - name: Public contract gate
+        run: python -m rasai.public_contract_gate
+      - name: Fulfillment and selective reprocessing tests
+        run: pytest -q tests/test_audit_fulfillment_reprocessing.py tests/test_m7_semantic_provider.py
+      - name: CLI surface smoke tests
+        shell: pwsh
+        run: |
+          python -m rasai.entrypoint --help
+          python -m rasai.entrypoint audit --help
+          python -m rasai.entrypoint reprocess --help
+
+  linux-saas-runtime:
+    name: Linux SaaS / control-plane contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package, web dependencies and pytest
+        run: python -m pip install -e '.[web]' pytest
+      - name: SaaS execution and web API tests
+        run: pytest -q tests/test_saas_runtime_parity.py tests/test_web_api_foundation.py tests/test_web_pilot.py tests/test_product_platform_architecture.py
