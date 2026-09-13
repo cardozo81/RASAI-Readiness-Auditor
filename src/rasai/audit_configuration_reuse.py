@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import re
 import sqlite3
 from typing import Any, Mapping
 from uuid import uuid4
@@ -26,6 +27,7 @@ CONFIGURATION_SCHEMA_VERSION = "1"
 KIND_CONSOLE = "CONSOLE"
 KIND_AUDIT_PAYLOAD = "AUDIT_PAYLOAD"
 _SUPPORTED_KINDS = frozenset({KIND_CONSOLE, KIND_AUDIT_PAYLOAD})
+_AUDIT_ID = re.compile(r"^AUD-[A-Z0-9][A-Z0-9_-]{0,195}$")
 
 # Durable job provenance is intentionally not part of the execution configuration
 # fingerprint. These fields describe where a configuration came from, not what the
@@ -50,6 +52,14 @@ class ReusableAuditConfiguration:
     changed_fields: tuple[str, ...]
     scope: dict[str, Any]
     created_at: str
+
+
+def normalize_audit_id(value: Any) -> str:
+    """Return one canonical AUD identifier; path-like input is never accepted."""
+    normalized = str(value or "").strip().upper()
+    if not _AUDIT_ID.fullmatch(normalized):
+        raise ValueError("informe um Audit ID válido no formato AUD-*")
+    return normalized
 
 
 def _canonical_json(value: Any) -> str:
@@ -127,6 +137,8 @@ def persist_audit_configuration(
     scope: Mapping[str, Any] | None = None,
 ) -> ReusableAuditConfiguration:
     """Persist one complete, secret-free effective configuration for an AUD."""
+    normalized_id = normalize_audit_id(audit_id)
+    normalized_source = normalize_audit_id(source_audit_id) if source_audit_id else None
     if kind not in _SUPPORTED_KINDS:
         raise ValueError(f"unsupported reusable configuration kind: {kind}")
     database = _database(database_or_workspace)
@@ -150,12 +162,12 @@ def persist_audit_configuration(
                 ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
-                    audit_id,
+                    normalized_id,
                     CONFIGURATION_SCHEMA_VERSION,
                     kind,
                     _canonical_json(clean),
                     digest,
-                    source_audit_id,
+                    normalized_source,
                     source_configuration_hash,
                     _canonical_json(list(changed)),
                     series_id,
@@ -166,12 +178,12 @@ def persist_audit_configuration(
     finally:
         connection.close()
     return ReusableAuditConfiguration(
-        audit_id=audit_id,
+        audit_id=normalized_id,
         kind=kind,
         configuration=clean,
         configuration_hash=digest,
         execution_series_id=series_id,
-        source_audit_id=source_audit_id,
+        source_audit_id=normalized_source,
         source_configuration_hash=source_configuration_hash,
         changed_fields=tuple(changed),
         scope=scope_payload,
@@ -180,7 +192,7 @@ def persist_audit_configuration(
 
 
 def _read_row(database: Path, audit_id: str) -> sqlite3.Row | None:
-    connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=1.0)
+    connection = sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=1.0)
     connection.row_factory = sqlite3.Row
     try:
         exists = connection.execute(
@@ -203,9 +215,7 @@ def load_reusable_audit_configuration(
     expected_kind: str | None = None,
 ) -> ReusableAuditConfiguration:
     """Load a reusable configuration, failing closed on incomplete/non-final AUDs."""
-    normalized_id = str(audit_id).strip().upper()
-    if not normalized_id.startswith("AUD-"):
-        raise ValueError("informe um Audit ID válido no formato AUD-*")
+    normalized_id = normalize_audit_id(audit_id)
     workspace = Path(audits_root) / normalized_id
     database = workspace / "audit.db"
     if not database.is_file():
