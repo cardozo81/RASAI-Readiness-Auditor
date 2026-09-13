@@ -148,7 +148,7 @@ Não existe key/token para Common Crawl.
 
 ## Reprodutibilidade
 
-A chamada externa acontece **antes do M9**.
+A chamada externa acontece **antes do cálculo de `SCORE-GEO-004`**.
 
 Quando a regra qualifica:
 
@@ -159,7 +159,7 @@ Evidence persistida no audit.db
         ↓
 BR-GEO-060 RuleExecution persistida
         ↓
-M9 / SCORE-GEO-004
+SCORE-GEO-004
         ↓
 score_contributions
 ```
