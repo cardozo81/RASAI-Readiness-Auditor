@@ -12,14 +12,18 @@ from rasai.audit_fulfillment import (
     set_work_item_status,
 )
 from rasai.core_integrity_runtime import install, invalidate_persisted_evidence
-from rasai.persistence import AuditWorkspace
+from rasai.domain import Audit
+from rasai.persistence import AuditPersistence, AuditWorkspace
 
 
 AUDIT_ID = "AUD-INTEGRITY"
 
 
 def _workspace(root: Path) -> AuditWorkspace:
+    audit = Audit(audit_id=AUDIT_ID, project_name="integrity invalidation")
     workspace = AuditWorkspace.create(root, AUDIT_ID)
+    with AuditPersistence(workspace) as persistence:
+        persistence.audits.add(audit)
     initialize_contract(workspace, AUDIT_ID, {"source": "test"})
     register_work_item(
         workspace,
