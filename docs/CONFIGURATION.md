@@ -90,7 +90,7 @@ GitHub Copilot usa o SDK oficial, `COPILOT_GITHUB_TOKEN` e modelo público `auto
 
 ### `AUTO`
 
-`AI=auto` **não é uma cadeia fixa OpenAI → DeepSeek → MiMo** no runtime vigente.
+`AI=auto` **não é uma cadeia fixa OpenAI -> DeepSeek -> MiMo** no runtime vigente.
 
 O coordenador:
 
@@ -98,12 +98,18 @@ O coordenador:
 2. considera todos os providers com `auto_eligible=true`;
 3. exige credencial e configuração válidas;
 4. aplica exclusões de `RASAI_AI_AUTO_EXCLUDE`;
-5. usa round-robin entre necessidades de IA;
-6. tenta cada provider elegível no máximo uma vez por necessidade;
-7. aplica circuit breaker/saúde por execução;
-8. encerra a necessidade no primeiro resultado válido.
+5. remove candidatos já inelegíveis pela saúde/quarentena da execução;
+6. estima o custo da necessidade atual usando provider, modelo, reasoning, input/output esperados, cache observado quando disponível e a regra tarifária vigente naquele instante;
+7. ordena os providers precificados do menor para o maior custo estimado; providers sem preço conhecido ficam depois dos precificados e preservam entre si a ordem rotativa legada;
+8. tenta cada provider elegível no máximo uma vez por necessidade;
+9. aplica circuit breaker/saúde por execução sem alterar os limiares existentes;
+10. encerra a necessidade no primeiro resultado válido.
+
+A ordem é recalculada a cada necessidade e pode mudar por horário, tamanho do request, modelo, reasoning, cache observado ou faixa de contexto. O runtime não troca silenciosamente para Batch, Flex ou outro service tier assíncrono somente para obter desconto.
 
 Excluir um provider de `AUTO` não remove sua credencial nem impede seleção explícita posterior. Providers `explicit-only`, atualmente GitHub Copilot, ficam fora do pool por contrato e não precisam ser excluídos manualmente.
+
+Preços, janelas tarifárias, timezone, heurísticas de tokens e política de revisão do catálogo estão em [`AUTO_COST_AWARE_AI_ROUTING.md`](AUTO_COST_AWARE_AI_ROUTING.md).
 
 ### Modelos e reasoning
 
@@ -267,7 +273,7 @@ valor já presente no processo/Windows
 > default do runtime
 ```
 
-Valores não secretos do INI são projetados novamente para o ambiente dos adapters antes da execução. Assim, remediação de IA, Web Performance, timeouts, modelo/reasoning selecionados e Synthetic Apdex podem sobreviver a salvar → fechar → reabrir.
+Valores não secretos do INI são projetados novamente para o ambiente dos adapters antes da execução. Assim, remediação de IA, Web Performance, timeouts, modelo/reasoning selecionados e Synthetic Apdex podem sobreviver a salvar -> fechar -> reabrir.
 
 Secrets nunca entram no INI. No Windows, o console pode persistir/remover uma credencial no escopo `User` somente mediante ação explícita; `Windows/Machine` é observado, não administrado.
 
@@ -288,6 +294,8 @@ Secrets nunca entram no INI. No Windows, o console pode persistir/remover uma cr
 - [`INTERACTIVE_CONSOLE.md`](INTERACTIVE_CONSOLE.md)
 - [`CLI_REFERENCE.md`](CLI_REFERENCE.md)
 - [`AI_GUIDE.md`](AI_GUIDE.md)
+- [`AI_RUNTIME_ORCHESTRATION.md`](AI_RUNTIME_ORCHESTRATION.md)
+- [`AUTO_COST_AWARE_AI_ROUTING.md`](AUTO_COST_AWARE_AI_ROUTING.md)
 - [`PROVIDER_REGISTRY.md`](PROVIDER_REGISTRY.md)
 - [`PROVIDER_SETUP.md`](PROVIDER_SETUP.md)
 - [`CONSOLE_SEARCH_INTELLIGENCE.md`](CONSOLE_SEARCH_INTELLIGENCE.md)
