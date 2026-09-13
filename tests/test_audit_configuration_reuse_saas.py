@@ -7,7 +7,10 @@ from tempfile import TemporaryDirectory
 import pytest
 
 from rasai.audit_configuration_reuse import KIND_AUDIT_PAYLOAD, persist_audit_configuration
-from rasai.audit_configuration_reuse_saas import build_reused_payload
+from rasai.audit_configuration_reuse_saas import (
+    assert_client_payload_has_no_provenance,
+    build_reused_payload,
+)
 from rasai.audit_execution_contract import normalize_audit_job_payload
 from rasai.audit_fulfillment import REPLAY_SAFE, SUCCESS, initialize_contract, recalculate, register_work_item, set_work_item_status
 from rasai.domain import Audit, CompletionStatus
@@ -104,6 +107,11 @@ def test_saas_reuse_rejects_cross_scope_and_client_managed_provenance() -> None:
                 project_id="P1",
                 property_id="PROP1",
                 environment_id="ENV1",
+            )
+
+        with pytest.raises(ValueError, match="server-managed"):
+            assert_client_payload_has_no_provenance(
+                {"configuration_source_audit_id": "AUD-FORGED", "max_pages": 10}
             )
 
 
