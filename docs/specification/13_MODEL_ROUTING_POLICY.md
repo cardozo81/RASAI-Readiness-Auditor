@@ -91,12 +91,18 @@ Seleção explícita mantém o provider solicitado e suas regras específicas de
 1. consulta todos os providers registrados como `auto_eligible`;
 2. exclui providers sem credencial/configuração válida;
 3. aplica `RASAI_AI_AUTO_EXCLUDE` sem apagar credenciais ou impedir seleção explícita posterior;
-4. usa round-robin compartilhado entre necessidades de IA;
-5. tenta cada provider elegível no máximo uma vez por necessidade;
-6. aplica estado de saúde e circuit breaker durante a execução;
-7. encerra a necessidade no primeiro resultado válido.
+4. exclui candidatos já inelegíveis pela saúde/quarentena da execução;
+5. estima, por necessidade, o custo do request usando modelo, reasoning, volume esperado de tokens, cache observado e regra tarifária vigente;
+6. ordena candidatos precificados do menor para o maior custo estimado, mantendo a ordem rotativa legada entre candidatos sem preço conhecido;
+7. tenta cada provider elegível no máximo uma vez por necessidade;
+8. aplica estado de saúde e circuit breaker durante a execução;
+9. encerra a necessidade no primeiro resultado válido.
+
+O ranking é recalculado a cada necessidade e pode mudar por horário, contexto, modelo, reasoning e usage observado. A política não troca silenciosamente para Batch/Flex/assíncrono para obter desconto.
 
 A exclusão de um provider do `AUTO` altera apenas participação no pool daquela política; não remove sua configuração. Providers `explicit-only`, como GitHub Copilot, não entram no pool e não aparecem como candidatos de inclusão/exclusão AUTO.
+
+Preços, janelas tarifárias e heurísticas vigentes: `../AUTO_COST_AWARE_AI_ROUTING.md`.
 
 ## 6. Fallback e estado de falha
 
@@ -114,7 +120,7 @@ Princípios:
 
 Falhas terminais podem retirar imediatamente o provider do pool da execução. Falhas temporárias alimentam a janela de saúde; o circuit breaker vigente abre quando três falhas aparecem entre as últimas cinco observações daquele provider.
 
-Esse estado é limitado à execução corrente e não altera configuração global.
+A política econômica altera somente a ordem dos providers ainda elegíveis. Não reativa quarentena, não muda limiares e não altera configuração global.
 
 ## 8. Separação do domínio
 
