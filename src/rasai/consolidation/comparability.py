@@ -92,7 +92,33 @@ def annotate_audit_configurations(
     return tuple(output)
 
 
-def configuration_comparability(audits: tuple[dict[str, Any], ...]) -> dict[str, Any]:
+def _selected_pair(
+    ordered: list[dict[str, Any]],
+    *,
+    comparison_mode: str,
+    baseline_audit_id: str | None,
+    current_audit_id: str | None,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    if comparison_mode == "MANUAL":
+        by_id = {str(row.get("audit_id") or ""): row for row in ordered}
+        return (
+            by_id.get(str(baseline_audit_id or "")),
+            by_id.get(str(current_audit_id or "")),
+        )
+    if len(ordered) < 2:
+        return None, None
+    if comparison_mode == "LATEST_PREVIOUS":
+        return ordered[-2], ordered[-1]
+    return ordered[0], ordered[-1]
+
+
+def configuration_comparability(
+    audits: tuple[dict[str, Any], ...],
+    *,
+    comparison_mode: str = "FIRST_LAST",
+    baseline_audit_id: str | None = None,
+    current_audit_id: str | None = None,
+) -> dict[str, Any]:
     """Summarize methodological comparability without changing any metric value."""
     with_snapshot = [row for row in audits if row.get("configuration_hash")]
     missing = len(audits) - len(with_snapshot)
@@ -105,36 +131,50 @@ def configuration_comparability(audits: tuple[dict[str, Any], ...]) -> dict[str,
     repeated = {series: rows for series, rows in by_series.items() if len(rows) >= 2}
     exact_series: list[str] = []
     partial_series: list[str] = []
-    altered_fields: set[str] = set()
     for series, rows in repeated.items():
         hashes = {str(row.get("configuration_hash") or "") for row in rows}
         if len(hashes) == 1:
             exact_series.append(series)
         else:
             partial_series.append(series)
-            for row in rows:
-                altered_fields.update(str(item) for item in row.get("configuration_changed_fields") or ())
 
-    ordered = sorted(with_snapshot, key=lambda row: (str(row.get("event_time") or ""), str(row.get("audit_id") or "")))
+    ordered = sorted(
+        audits,
+        key=lambda row: (str(row.get("event_time") or ""), str(row.get("audit_id") or "")),
+    )
+    baseline, current = _selected_pair(
+        ordered,
+        comparison_mode=comparison_mode,
+        baseline_audit_id=baseline_audit_id,
+        current_audit_id=current_audit_id,
+    )
     pair_status = "INSUFFICIENT_DATA"
-    baseline_id = current_id = None
-    if len(ordered) >= 2:
-        baseline, current = ordered[0], ordered[-1]
-        baseline_id = str(baseline.get("audit_id") or "")
-        current_id = str(current.get("audit_id") or "")
-        same_hash = baseline.get("configuration_hash") == current.get("configuration_hash")
-        same_series = (
-            bool(baseline.get("execution_series_id"))
-            and baseline.get("execution_series_id") == current.get("execution_series_id")
-        )
-        if same_series and same_hash:
-            pair_status = "EXACT"
-        elif same_series:
-            pair_status = "PARTIAL"
-        elif same_hash:
-            pair_status = "EQUIVALENT_WITHOUT_LINEAGE"
-        else:
-            pair_status = "UNRELATED"
+    selected_baseline_id = str(baseline.get("audit_id") or "") if baseline else None
+    selected_current_id = str(current.get("audit_id") or "") if current else None
+    altered_fields: set[str] = set()
+    if baseline is not None and current is not None:
+        baseline_hash = str(baseline.get("configuration_hash") or "")
+        current_hash = str(current.get("configuration_hash") or "")
+        if baseline_hash and current_hash:
+            same_hash = baseline_hash == current_hash
+            same_series = (
+                bool(baseline.get("execution_series_id"))
+                and baseline.get("execution_series_id") == current.get("execution_series_id")
+            )
+            if same_series and same_hash:
+                pair_status = "EXACT"
+            elif same_series:
+                pair_status = "PARTIAL"
+                altered_fields.update(
+                    str(item) for item in baseline.get("configuration_changed_fields") or ()
+                )
+                altered_fields.update(
+                    str(item) for item in current.get("configuration_changed_fields") or ()
+                )
+            elif same_hash:
+                pair_status = "EQUIVALENT_WITHOUT_LINEAGE"
+            else:
+                pair_status = "UNRELATED"
 
     return {
         "audits": len(audits),
@@ -143,8 +183,9 @@ def configuration_comparability(audits: tuple[dict[str, Any], ...]) -> dict[str,
         "repeated_series": len(repeated),
         "exact_series": len(exact_series),
         "partial_series": len(partial_series),
+        "comparison_mode": comparison_mode,
         "pair_status": pair_status,
-        "baseline_audit_id": baseline_id,
-        "current_audit_id": current_id,
+        "baseline_audit_id": selected_baseline_id,
+        "current_audit_id": selected_current_id,
         "altered_fields": sorted(altered_fields),
     }
