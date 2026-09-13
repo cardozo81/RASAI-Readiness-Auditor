@@ -1,9 +1,9 @@
 """Interactive-console adapter for reusable completed-AUD configurations."""
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
+import sqlite3
 from typing import Any, Mapping
 
 from rasai.audit_configuration_reuse import (
@@ -34,10 +34,7 @@ def _export_settings(state: Any, targets: tuple[str, ...] | list[str]) -> dict[s
     console.pop("target", None)
     console.pop("input_mode", None)
     console.pop("audits_root", None)
-    return {
-        "settings": settings,
-        "targets": list(targets),
-    }
+    return {"settings": settings, "targets": list(targets)}
 
 
 def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_id: str) -> tuple[str, ...]:
@@ -57,9 +54,8 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
     if not isinstance(environment, Mapping):
         raise ValueError("snapshot de console possui seção environment inválida")
 
-    # A historical configuration must override current non-secret settings so the
-    # operator sees what the source AUD actually used. Secrets are outside this list
-    # and remain resolved from the current session/OS at execution time.
+    # Historical non-secret settings override the current non-secret session. Secrets
+    # are outside this allowlist and therefore remain resolved from the current OS/session.
     for name in allowed_environment:
         raw = environment.get(name)
         if raw is None or not str(raw).strip():
@@ -68,8 +64,6 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
             os.environ[name] = str(raw).strip()
 
     for section, known_values in console_settings._state_values(state).items():
-        if section == "environment":
-            continue
         values = raw_settings.get(section, {})
         if not isinstance(values, Mapping):
             continue
@@ -96,26 +90,48 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
     return tuple(warnings)
 
 
-def _persist_console_snapshot(workspace: Path, state: Any) -> None:
-    from rasai.console_config import preflight
-
-    if not getattr(state, "audit_id", ""):
-        return
+def _executed_targets(workspace: Path, audit_id: str) -> tuple[str, ...]:
+    """Read the persisted effective input set instead of re-reading mutable user files."""
+    database = workspace / "audit.db"
+    connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=1.0)
     try:
-        targets = preflight(state)
-    except (OSError, UnicodeError, ValueError):
-        # The executed target set can still be reconstructed from canonical persisted
-        # audit input URLs when the source TXT changed between execution and finalization.
-        import sqlite3
-        database = workspace / "audit.db"
-        connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=1.0)
-        try:
-            rows = connection.execute(
-                "SELECT normalized_url FROM pages ORDER BY normalized_url"
-            ).fetchall()
-        finally:
-            connection.close()
-        targets = tuple(str(row[0]) for row in rows if row and row[0])
+        tables = {
+            str(row[0])
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+        if "audit_input_urls" in tables:
+            columns = {
+                str(row[1])
+                for row in connection.execute('PRAGMA table_info("audit_input_urls")').fetchall()
+            }
+            if {"audit_id", "normalized_url"} <= columns:
+                rows = connection.execute(
+                    "SELECT DISTINCT normalized_url FROM audit_input_urls WHERE audit_id=? ORDER BY normalized_url",
+                    (audit_id,),
+                ).fetchall()
+                targets = tuple(str(row[0]) for row in rows if row and row[0])
+                if targets:
+                    return targets
+        if "pages" in tables:
+            columns = {
+                str(row[1]) for row in connection.execute('PRAGMA table_info("pages")').fetchall()
+            }
+            if {"audit_id", "normalized_url"} <= columns:
+                rows = connection.execute(
+                    "SELECT DISTINCT normalized_url FROM pages WHERE audit_id=? ORDER BY normalized_url",
+                    (audit_id,),
+                ).fetchall()
+                return tuple(str(row[0]) for row in rows if row and row[0])
+        return ()
+    finally:
+        connection.close()
+
+
+def _persist_console_snapshot(workspace: Path, state: Any) -> None:
+    audit_id = str(getattr(state, "audit_id", "") or "")
+    if not audit_id:
+        return
+    targets = _executed_targets(workspace, audit_id)
     if not targets:
         return
     effective = _export_settings(state, targets)
@@ -123,7 +139,7 @@ def _persist_console_snapshot(workspace: Path, state: Any) -> None:
     if source is None:
         persist_audit_configuration(
             workspace,
-            audit_id=state.audit_id,
+            audit_id=audit_id,
             kind=KIND_CONSOLE,
             configuration=effective,
             scope={"surface": "console"},
@@ -131,7 +147,7 @@ def _persist_console_snapshot(workspace: Path, state: Any) -> None:
         return
     persist_audit_configuration(
         workspace,
-        audit_id=state.audit_id,
+        audit_id=audit_id,
         kind=KIND_CONSOLE,
         configuration=effective,
         source_audit_id=source.audit_id,
@@ -178,22 +194,11 @@ def install(interactive_console: Any) -> None:
         return
 
     from rasai import console_runtime
+    import builtins
 
     original_menu = interactive_console._menu
     original_configure = interactive_console._configure
     original_projection = console_runtime.persist_execution_projection
-
-    def menu_with_reuse(state: Any) -> str:
-        # Render the existing complete menu first. The shortcut is intentionally a
-        # top-level action, avoiding one more submenu in an already deep console.
-        choice = original_menu(state)
-        if choice == "L":
-            return "L"
-        return choice
-
-    # _menu itself owns rendering/input, so expose the shortcut by wrapping input for
-    # only that call. This avoids rewriting or forking the large menu implementation.
-    import builtins
 
     def menu_with_visible_reuse(state: Any) -> str:
         original_input = builtins.input
@@ -225,9 +230,9 @@ def install(interactive_console: Any) -> None:
         if workspace is not None:
             try:
                 _persist_console_snapshot(workspace, state)
-            except (OSError, ValueError):
-                # Snapshot lineage is derived evidence and must never invalidate an
-                # otherwise successful audit. Absence will fail closed on later reuse.
+            except (OSError, sqlite3.Error, ValueError):
+                # Derived lineage must never change the outcome of an otherwise valid
+                # audit. A missing snapshot will fail closed on a later reuse attempt.
                 pass
         return persisted
 
