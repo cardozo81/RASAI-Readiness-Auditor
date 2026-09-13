@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "src/rasai/consolidation/**"
+      - "src/rasai/ai_cost_policy.py"
       - "src/rasai/console_entrypoint.py"
       - "tests/test_consolidation*.py"
       - "README.md"
@@ -16,6 +17,7 @@ on:
     branches: [main]
     paths:
       - "src/rasai/consolidation/**"
+      - "src/rasai/ai_cost_policy.py"
       - "src/rasai/console_entrypoint.py"
       - "tests/test_consolidation*.py"
       - "README.md"
@@ -28,9 +30,11 @@ permissions:
   contents: read
 
 jobs:
-  consolidation-safety:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+  consolidation-local-runtime:
+    # Consolidated generation and its interactive entrypoint are local-console
+    # surfaces. Project convention validates console/runtime behavior on Windows.
+    runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,10 +45,10 @@ jobs:
           python -m pip install -e .
           python -m pip install pytest
       - name: Compile changed Python surface
-        run: python -m compileall -q src/rasai/consolidation src/rasai/console_entrypoint.py tests/test_consolidation*.py
+        run: python -m compileall -q src/rasai/consolidation src/rasai/ai_cost_policy.py src/rasai/console_entrypoint.py tests/test_consolidation*.py
       - name: Run consolidation regression tests
         run: python -m unittest discover -v -s tests -p "test_consolidation*.py"
-      - name: Run existing console regression tests
+      - name: Run existing Windows console regression tests
         run: >-
           python -m unittest -v
           tests.test_interactive_console
