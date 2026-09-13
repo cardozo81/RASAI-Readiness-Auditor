@@ -41,7 +41,7 @@ def _reason_text(item: Any) -> str:
     code = str(getattr(item, "last_error_code", "") or "").strip()
     message = str(getattr(item, "last_error_message", "") or "").strip()
     if code and message and message != code:
-        return f"{code} — {message}"
+        return f"{code} - {message}"
     return code or message or "motivo específico não persistido"
 
 
@@ -271,9 +271,15 @@ def reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) ->
 
     result = outcome["result"]
     unresolved = _pending_items(state, audit_id)
-    state.status = result.processing_status
+    actual_status = str(result.processing_status)
     state.operation = "LOCAL:DONE"
     state.error = ""
+
+    # ``set_runtime_progress`` recognizes normal execution completion statuses as
+    # terminal. Project the RPR completion through that same contract, then restore the
+    # authoritative fulfillment status for display. This makes a finished RPR show
+    # measured 100% even when the logical AUD remains PARTIAL_RETRYABLE/BLOCKED.
+    state.status = "COMPLETE" if actual_status == "COMPLETE" else "COMPLETE_WITH_LIMITATIONS"
     console_runtime.set_runtime_progress(
         state,
         "Reprocessamento concluído",
@@ -284,6 +290,7 @@ def reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) ->
         ),
         exact=True,
     )
+    state.status = actual_status
 
     # Same completion frame emitted by a normal audit before its post-run actions.
     _render_live_frame(console_module, state, audit_root)
