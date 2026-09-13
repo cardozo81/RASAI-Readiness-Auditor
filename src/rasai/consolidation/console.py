@@ -1,4 +1,4 @@
-"""Interactive console flow for offline historical/consolidated reports."""
+"""Interactive console flow for historical/consolidated reports."""
 from __future__ import annotations
 
 from datetime import date
@@ -8,6 +8,7 @@ import subprocess
 
 from .index import ConsolidationIndex
 from .service import generate, normalize_filter
+from .specialist import SpecialistPreview, preview_specialist
 
 
 def _clear() -> None:
@@ -77,12 +78,82 @@ def _choose_devices(devices: tuple[str, ...]) -> tuple[str, ...] | None:
             continue
 
 
-def run(audits_root: str | Path) -> None:
+def _choose_comparison(audits: tuple[dict, ...]) -> tuple[str, str | None, str | None] | None:
+    if len(audits) < 2:
+        return ("FIRST_LAST", None, None)
+    while True:
+        _clear()
+        print("RELATÓRIOS CONSOLIDADOS - COMPARAÇÃO DE EVOLUÇÃO\n")
+        print("1. Primeira × última auditoria do período [recomendado]")
+        print("2. Auditoria anterior × última")
+        print("3. Escolher baseline e current manualmente")
+        print("V. Voltar")
+        raw = input("Escolha [1]: ").strip().upper() or "1"
+        if raw == "V":
+            return None
+        if raw == "1":
+            return ("FIRST_LAST", None, None)
+        if raw == "2":
+            return ("LATEST_PREVIOUS", None, None)
+        if raw != "3":
+            continue
+        print("\nAuditorias elegíveis:")
+        for pos, audit in enumerate(audits, 1):
+            print(f"{pos}. {audit.get('audit_id')} | {audit.get('event_time')}")
+        try:
+            baseline_pos = int(input("Baseline: ").strip())
+            current_pos = int(input("Current : ").strip())
+            baseline = audits[baseline_pos - 1]
+            current = audits[current_pos - 1]
+        except (ValueError, IndexError):
+            continue
+        if baseline_pos >= current_pos:
+            print("Baseline deve ser anterior ao current.")
+            _pause()
+            continue
+        return ("MANUAL", str(baseline.get("audit_id")), str(current.get("audit_id")))
+
+
+def _print_preview(preview: SpecialistPreview, selection: str) -> None:
+    print("\nPRÉVIA DE CUSTO - ANÁLISE ESPECIALISTA POR IA\n")
+    print(f"Comparação : {preview.baseline_audit_id or '-'} → {preview.current_audit_id or '-'}")
+    print(f"Mudanças   : {preview.event_count} evento(s) elegível(is)")
+    print(f"Seleção IA : {selection.upper()}")
+    if not preview.available or preview.selected is None:
+        print(f"Status     : indisponível ({preview.reason or 'sem candidato'})")
+        return
+    selected = preview.selected
+    cost = f"{selected.estimated_cost:.8f} {selected.currency}" if selected.estimated_cost is not None and selected.currency else "não determinável pelo catálogo atual"
+    print(f"Provider   : {selected.provider}")
+    print(f"Modelo     : {selected.model}")
+    print(f"Reasoning  : {selected.reasoning_profile}")
+    print(f"Tokens     : input≈{selected.estimated_input_tokens} | output≈{selected.estimated_output_tokens}")
+    print(f"Tarifa     : {selected.pricing_context or '-'} | {selected.pricing_version}")
+    print(f"Estimativa : {cost}")
+    print("Observação : estimativa pré-chamada; não é fatura e pode variar com usage real, cache, fallback e política do provider.")
+    if selection.casefold() == "auto" and len(preview.candidates) > 1:
+        print("\nRanking AUTO estimado para esta necessidade:")
+        for pos, item in enumerate(preview.candidates, 1):
+            item_cost = f"{item.estimated_cost:.8f} {item.currency}" if item.estimated_cost is not None and item.currency else "preço não catalogado"
+            print(f"  {pos}. {item.provider}/{item.model} [{item.reasoning_profile}] -> {item_cost} ({item.pricing_context or '-'})")
+
+
+def run(
+    audits_root: str | Path,
+    *,
+    ai_provider: str = "none",
+    ai_model: str | None = None,
+    ai_reasoning: str | None = None,
+    ai_timeout: float = 180.0,
+    ai_available: bool = False,
+    ai_unavailable_reason: str | None = None,
+) -> None:
     root = Path(audits_root)
     index = ConsolidationIndex(root)
     _clear()
     print("RELATÓRIOS HISTÓRICOS / CONSOLIDADOS\n")
-    print("Somente leitura dos AUD-*/audit.db. Nenhuma API é chamada e nenhuma auditoria é alterada.")
+    print("A consolidação base é somente leitura dos AUD-*/audit.db e não chama APIs.")
+    print("A análise especialista por IA é opcional e, quando solicitada, exige prévia de custo e confirmação explícita.")
     print("Atualizando índice analítico reconstruível...")
     try:
         refresh = index.refresh()
@@ -124,12 +195,7 @@ def run(audits_root: str | Path) -> None:
     if selected_devices is None:
         return
 
-    partial = normalize_filter(
-        domains=selected_domains,
-        date_from=date_from,
-        date_to=date_to,
-        devices=selected_devices,
-    )
+    partial = normalize_filter(domains=selected_domains, date_from=date_from, date_to=date_to, devices=selected_devices)
     urls = index.available_urls(partial)
     _clear()
     print("RELATÓRIOS CONSOLIDADOS - URLs\n")
@@ -142,20 +208,84 @@ def run(audits_root: str | Path) -> None:
         _pause()
         return
 
-    filters = normalize_filter(
+    base_filters = normalize_filter(
         domains=selected_domains,
         date_from=date_from,
         date_to=date_to,
         devices=selected_devices,
         urls=selected_urls,
     )
+    audits = index.candidate_audits(base_filters)
+    comparison = _choose_comparison(audits)
+    if comparison is None:
+        return
+    comparison_mode, baseline_audit_id, current_audit_id = comparison
+
+    use_ai = False
+    selected_ai = str(ai_provider or "none").casefold()
+    can_offer_ai = len(audits) >= 2 and selected_ai != "none" and ai_available
+    if can_offer_ai:
+        _clear()
+        print("RELATÓRIOS CONSOLIDADOS - ANÁLISE ESPECIALISTA\n")
+        print(f"IA ativa no console: {selected_ai.upper()}")
+        print("A análise por IA interpreta mudanças já calculadas pelo RASAi e recomenda ações por SEO, GEO, Performance, Infra, Segurança, Acessibilidade, Conteúdo e UX.")
+        print("Ela é advisory/non-scoring e não altera SARI/SCORE-GEO.")
+        use_ai = input("Incluir análise especialista por IA? [s/N]: ").strip().casefold() == "s"
+    elif selected_ai != "none" and not ai_available:
+        print(f"\nIA selecionada, porém indisponível: {ai_unavailable_reason or 'configuração não apta'}")
+        print("O relatório será gerado sem a análise especialista por IA.")
+        _pause()
+
+    filters = normalize_filter(
+        domains=selected_domains,
+        date_from=date_from,
+        date_to=date_to,
+        devices=selected_devices,
+        urls=selected_urls,
+        comparison_mode=comparison_mode,
+        baseline_audit_id=baseline_audit_id,
+        current_audit_id=current_audit_id,
+        specialist_ai=use_ai,
+        ai_provider=selected_ai if use_ai else None,
+        ai_model=ai_model if use_ai else None,
+        ai_reasoning=ai_reasoning if use_ai else None,
+        ai_timeout_seconds=ai_timeout if use_ai else None,
+    )
+
+    if use_ai:
+        preview = preview_specialist(root, filters)
+        _clear()
+        _print_preview(preview, selected_ai)
+        if not preview.available:
+            print("\nA análise por IA não pode ser executada com segurança; o consolidado seguirá sem IA.")
+            _pause()
+            use_ai = False
+        elif input("\nConfirmar custo estimado e autorizar chamada externa de IA? [s/N]: ").strip().casefold() != "s":
+            use_ai = False
+        if not use_ai:
+            filters = normalize_filter(
+                domains=selected_domains,
+                date_from=date_from,
+                date_to=date_to,
+                devices=selected_devices,
+                urls=selected_urls,
+                comparison_mode=comparison_mode,
+                baseline_audit_id=baseline_audit_id,
+                current_audit_id=current_audit_id,
+            )
+
     _clear()
     print("RELATÓRIOS CONSOLIDADOS - CONFIRMAÇÃO\n")
     print(f"Domínios : {', '.join(filters.domains) or 'todos'}")
     print(f"Período  : {filters.date_from or 'início'} → {filters.date_to or 'fim'}")
     print(f"Devices  : {', '.join(filters.devices) or 'todos (separados)'}")
     print(f"URLs     : {len(filters.urls) if filters.urls else 'todas'}")
-    print("\nO processo é offline e utiliza somente dados já persistidos.")
+    print(f"Evolução : {filters.comparison_mode}")
+    print(f"IA       : {filters.ai_provider.upper() if filters.specialist_ai and filters.ai_provider else 'não'}")
+    if filters.specialist_ai:
+        print("\nA consolidação dos AUDs continua local/read-only; somente a seção especialista realizará a chamada de IA já autorizada.")
+    else:
+        print("\nO processo é local/read-only e utiliza somente dados já persistidos.")
     if input("Gerar relatório? [s/N]: ").strip().casefold() != "s":
         return
 
@@ -170,7 +300,7 @@ def run(audits_root: str | Path) -> None:
     print("RELATÓRIO CONSOLIDADO CONCLUÍDO\n")
     print(f"Relatório : {result.report_path}")
     print(f"Manifesto : {result.manifest_path}")
-    print(f"Resultado : {'REUTILIZADO (filtros + fontes idênticos)' if result.reused else 'NOVO SNAPSHOT'}")
+    print(f"Resultado : {'REUTILIZADO (filtros + fontes + análise idênticos)' if result.reused else 'NOVO SNAPSHOT'}")
     print("\nA. Abrir relatório")
     print("P. Abrir pasta")
     print("V. Voltar")
