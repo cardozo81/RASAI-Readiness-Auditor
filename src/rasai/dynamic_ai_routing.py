@@ -99,7 +99,7 @@ class AiExecutionCoordinator:
         self._usage_history: dict[tuple[str, str], deque[tuple[int, int, int]]] = {}
 
     def ordered_names(self) -> tuple[str, ...]:
-        """Return eligible names in the legacy rotating order.
+        """Return eligible names in deterministic rotating order.
 
         Cost-aware ranking is applied later when concrete provider/model objects are
         available. Keeping this order preserves deterministic fallback for providers
@@ -278,7 +278,7 @@ class DynamicProviderRoutingSession:
             rank = int(getattr(getattr(item, "policy", None), "rank", 9999))
             if priced:
                 return (0.0, float(estimate.estimated_cost), rank, base_index[str(item.name)])
-            # Forward-compatible/unpriced providers keep the legacy rotating order.
+            # Forward-compatible/unpriced providers keep deterministic rotating order.
             return (1.0, float("inf"), base_index[str(item.name)], rank)
 
         pairs.sort(key=key)
@@ -390,7 +390,7 @@ class DynamicProviderRoutingSession:
                 "pricing_version": PRICING_VERSION,
                 "pricing_review_recommended_on": PRICING_REVIEW_RECOMMENDED_ON,
                 "pricing_review_due": pricing_review_due(),
-                "unpriced_fallback": "LEGACY_ROTATING_ORDER",
+                "unpriced_fallback": "DETERMINISTIC_ROTATING_ORDER",
                 "last_cost_ranking": [_cost_estimate_dict(item) for item in self._last_cost_ranking],
             },
         }
