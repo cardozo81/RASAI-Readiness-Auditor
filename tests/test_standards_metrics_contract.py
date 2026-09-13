@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from rasai.external_observability_runtime import _EXTERNAL_PAYLOAD_TO_ENV
 from rasai.standards_metrics import ndcg_at_k, precision_at_k, reciprocal_rank
 from rasai.standards_runtime import _SERVICE_PAYLOAD_DEFAULTS, _SERVICE_PAYLOAD_TO_ENV, _bool_payload
 from rasai.standards_saas_runtime import _requested
@@ -12,6 +13,13 @@ from rasai.standards_service_registry import (
     service_state,
     services,
 )
+
+
+_EXTERNAL_SERVICE_PAYLOAD_DEFAULTS = {
+    "crux_history_enabled": None,
+    "clarity_enabled": False,
+    "common_crawl_enabled": True,
+}
 
 
 def test_zero_credential_services_are_default_on() -> None:
@@ -110,9 +118,15 @@ def test_all_services_have_independent_toggle_relation_and_audit_job_binding() -
     assert len({item.job_field for item in items if item.job_field}) == len(items)
     assert all(1 <= item.relation_degree <= 5 for item in items)
     assert all(item.purpose and item.scopes and item.job_field for item in items)
+
+    # Core standards controls remain owned by standards_runtime. The three new
+    # observability controls are intentionally owned by external_observability_runtime,
+    # which also carries their provider-specific non-secret tuning fields.
+    payload_to_env = {**_SERVICE_PAYLOAD_TO_ENV, **_EXTERNAL_PAYLOAD_TO_ENV}
+    payload_defaults = {**_SERVICE_PAYLOAD_DEFAULTS, **_EXTERNAL_SERVICE_PAYLOAD_DEFAULTS}
     for item in items:
-        assert _SERVICE_PAYLOAD_TO_ENV[item.job_field] == item.enabled_env
-        assert item.job_field in _SERVICE_PAYLOAD_DEFAULTS
+        assert payload_to_env[item.job_field] == item.enabled_env
+        assert item.job_field in payload_defaults
 
 
 def test_retrieval_metric_formulas_are_deterministic() -> None:
