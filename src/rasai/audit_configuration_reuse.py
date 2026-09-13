@@ -1,13 +1,14 @@
-"""Reusable, secret-free configuration snapshots for completed AUD executions.
+"""Reusable, secret-free configuration snapshots for RASAi AUD executions.
 
 This module deliberately separates two concepts:
 
 * AUD reprocessing completes missing work inside the same AUD identity;
-* configuration reuse starts a new AUD using a completed AUD as configuration source.
+* configuration reuse starts a new AUD using another AUD only as configuration source.
 
-Only audits accepted by the canonical consolidation eligibility gate may be used as
-sources. Snapshots are stored inside ``audit.db`` so provenance travels with the
-immutable audit evidence instead of depending on a console INI or control-plane row.
+Configuration reuse depends on the integrity of the persisted configuration snapshot,
+not on the analytical completion state of the source observation. Snapshots are stored
+inside ``audit.db`` so provenance travels with the audit evidence instead of depending
+on a console INI or control-plane row.
 """
 from __future__ import annotations
 
@@ -20,8 +21,6 @@ import re
 import sqlite3
 from typing import Any, Mapping
 from uuid import uuid4
-
-from rasai.audit_fulfillment import consolidation_eligible
 
 CONFIGURATION_SCHEMA_VERSION = "1"
 KIND_CONSOLE = "CONSOLE"
@@ -208,28 +207,40 @@ def _read_row(database: Path, audit_id: str) -> sqlite3.Row | None:
         connection.close()
 
 
+def _audit_exists(database: Path, audit_id: str) -> bool:
+    connection = sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=1.0)
+    try:
+        table = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='audits'"
+        ).fetchone()
+        if not table:
+            return False
+        return connection.execute(
+            "SELECT 1 FROM audits WHERE audit_id=?",
+            (audit_id,),
+        ).fetchone() is not None
+    finally:
+        connection.close()
+
+
 def load_reusable_audit_configuration(
     audits_root: str | Path,
     audit_id: str,
     *,
     expected_kind: str | None = None,
 ) -> ReusableAuditConfiguration:
-    """Load a reusable configuration, failing closed on incomplete/non-final AUDs."""
+    """Load one reusable configuration, failing closed on missing/corrupt snapshots."""
     normalized_id = normalize_audit_id(audit_id)
     workspace = Path(audits_root) / normalized_id
     database = workspace / "audit.db"
     if not database.is_file():
         raise FileNotFoundError(f"audit não encontrado: {normalized_id}")
-    if not consolidation_eligible(database, normalized_id):
-        raise ValueError(
-            f"{normalized_id} não pode ser usado como configuração: "
-            "somente AUDs com consolidação geral concluída e elegível são aceitos"
-        )
+    if not _audit_exists(database, normalized_id):
+        raise ValueError(f"audit.db não contém o Audit ID informado: {normalized_id}")
     row = _read_row(database, normalized_id)
     if row is None:
         raise ValueError(
-            f"{normalized_id} é elegível para consolidação, mas não possui snapshot "
-            "canônico de configuração reutilizável; execute-o com uma versão que suporte este contrato"
+            f"{normalized_id} não possui snapshot canônico de configuração reutilizável"
         )
     kind = str(row["configuration_kind"])
     if expected_kind is not None and kind != expected_kind:
