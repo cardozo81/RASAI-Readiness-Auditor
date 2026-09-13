@@ -1,9 +1,10 @@
 """Safe external observability composed into audit finalization.
 
 The runtime is intentionally non-blocking: provider/public-index failures are recorded
-as service outcomes and never turn website readiness into a failure.  All external
+as service outcomes and never turn website readiness into a failure. All external
 records go to observability.db; audit.db receives only the existing service-run status
-metadata needed by the standards report.
+metadata needed by the standards report. Durable AuditJob payloads contain only
+non-secret controls; credentials remain worker/secret-store concerns.
 """
 from __future__ import annotations
 
@@ -12,18 +13,27 @@ import json
 import logging
 import os
 import sqlite3
+import sys
 from typing import Any, Mapping
 
 from rasai.external_observability_policy import (
     CLARITY_DAYS_ENV,
     CLARITY_DIMENSIONS_ENV,
+    CLARITY_ENABLED_ENV,
     CLARITY_TOKEN_ENV,
+    COMMON_CRAWL_ENABLED_ENV,
     COMMON_CRAWL_INDEX_COUNT_ENV,
     COMMON_CRAWL_MAX_URLS_ENV,
+    CRUX_HISTORY_ENABLED_ENV,
+    DEFAULT_CLARITY_DAYS,
+    DEFAULT_CLARITY_DIMENSIONS,
+    DEFAULT_COMMON_CRAWL_INDEX_COUNT,
+    DEFAULT_COMMON_CRAWL_MAX_URLS,
     clarity_days,
     clarity_dimensions,
     common_crawl_index_count,
     common_crawl_max_urls,
+    dimensions_csv,
 )
 from rasai.external_observability_reporting import enrich_external_observability_reports
 from rasai.observability.crux_history import collect_crux_history
@@ -41,6 +51,158 @@ _LOGGER = logging.getLogger(__name__)
 CRUX_KEY_ENV = "RASAI_CRUX_API_KEY"
 _DEVICE_TO_CRUX = {"mobile": "PHONE", "desktop": "DESKTOP", "tablet": "TABLET"}
 _SERVICE_IDS = ("crux-history", "microsoft-clarity", "common-crawl")
+
+_EXTERNAL_PAYLOAD_TO_ENV = {
+    "crux_history_enabled": CRUX_HISTORY_ENABLED_ENV,
+    "clarity_enabled": CLARITY_ENABLED_ENV,
+    "common_crawl_enabled": COMMON_CRAWL_ENABLED_ENV,
+}
+_EXTERNAL_FIELDS = frozenset({
+    *_EXTERNAL_PAYLOAD_TO_ENV,
+    "clarity_days",
+    "clarity_dimensions",
+    "common_crawl_max_urls",
+    "common_crawl_index_count",
+})
+
+
+def install_service_contract() -> None:
+    """Extend the secret-free AuditJob contract with external-observability controls."""
+    from rasai import audit_execution_contract as contract
+
+    if getattr(contract, "_rasai_external_observability_contract", False):
+        _rebind_contract_consumers(contract)
+        return
+
+    original_options = contract.audit_job_options
+    original_defaults = contract.audit_job_defaults
+    original_normalize = contract.normalize_audit_job_payload
+    original_environment = contract.audit_job_environment_overrides
+    original_fields = contract.AUDIT_JOB_FIELDS
+    contract.AUDIT_JOB_FIELDS = frozenset((*original_fields, *_EXTERNAL_FIELDS))
+
+    def options_with_external_observability():
+        options = list(original_options())
+        options.extend((
+            contract.AuditJobOption(
+                "crux_history_enabled", None, "boolean",
+                required_when="Auto requires RASAI_CRUX_API_KEY in the worker/secret store.",
+                description="null/omitted=auto by credential; false=off; true=requested explicitly.",
+            ),
+            contract.AuditJobOption(
+                "clarity_enabled", False, "boolean",
+                required_when="Requires RASAI_CLARITY_API_TOKEN in the worker/secret store.",
+                description="Opt-in because Clarity allows only 10 Data Export requests/day/project.",
+            ),
+            contract.AuditJobOption(
+                "common_crawl_enabled", True, "boolean",
+                description="Credential-free bounded Common Crawl URL-history observation.",
+            ),
+            contract.AuditJobOption(
+                "clarity_days", DEFAULT_CLARITY_DAYS, "integer",
+                description="Microsoft Clarity rolling window: 1, 2 or 3 days.",
+            ),
+            contract.AuditJobOption(
+                "clarity_dimensions", dimensions_csv(DEFAULT_CLARITY_DIMENSIONS), "string",
+                description="Up to three Clarity dimensions; RASAi requires URL to preserve audited-origin scope.",
+            ),
+            contract.AuditJobOption(
+                "common_crawl_max_urls", DEFAULT_COMMON_CRAWL_MAX_URLS, "integer",
+                description="Bounded exact audited URLs queried in Common Crawl; 0 disables the subcollection.",
+            ),
+            contract.AuditJobOption(
+                "common_crawl_index_count", DEFAULT_COMMON_CRAWL_INDEX_COUNT, "integer",
+                description="Recent Common Crawl monthly indexes queried per selected URL.",
+            ),
+        ))
+        return tuple(options)
+
+    def defaults_with_external_observability():
+        result = dict(original_defaults())
+        result.update({
+            "crux_history_enabled": None,
+            "clarity_enabled": False,
+            "common_crawl_enabled": True,
+            "clarity_days": DEFAULT_CLARITY_DAYS,
+            "clarity_dimensions": dimensions_csv(DEFAULT_CLARITY_DIMENSIONS),
+            "common_crawl_max_urls": DEFAULT_COMMON_CRAWL_MAX_URLS,
+            "common_crawl_index_count": DEFAULT_COMMON_CRAWL_INDEX_COUNT,
+        })
+        return result
+
+    def normalize_with_external_observability(payload: Mapping[str, Any]):
+        base_payload = {key: value for key, value in payload.items() if key not in _EXTERNAL_FIELDS}
+        normalized = dict(original_normalize(base_payload))
+        normalized["crux_history_enabled"] = _optional_bool(payload, "crux_history_enabled", None)
+        normalized["clarity_enabled"] = _optional_bool(payload, "clarity_enabled", False)
+        normalized["common_crawl_enabled"] = _optional_bool(payload, "common_crawl_enabled", True)
+        normalized["clarity_days"] = clarity_days(_payload_text(payload, "clarity_days", str(DEFAULT_CLARITY_DAYS)))
+        normalized["clarity_dimensions"] = dimensions_csv(
+            clarity_dimensions(_payload_text(payload, "clarity_dimensions", dimensions_csv(DEFAULT_CLARITY_DIMENSIONS)))
+        )
+        normalized["common_crawl_max_urls"] = common_crawl_max_urls(
+            _payload_text(payload, "common_crawl_max_urls", str(DEFAULT_COMMON_CRAWL_MAX_URLS))
+        )
+        normalized["common_crawl_index_count"] = common_crawl_index_count(
+            _payload_text(payload, "common_crawl_index_count", str(DEFAULT_COMMON_CRAWL_INDEX_COUNT))
+        )
+        return normalized
+
+    def environment_with_external_observability(payload: Mapping[str, Any]):
+        base_payload = {key: value for key, value in payload.items() if key not in _EXTERNAL_FIELDS}
+        overrides = dict(original_environment(base_payload))
+        normalized = normalize_with_external_observability(payload)
+        for name, env_name in _EXTERNAL_PAYLOAD_TO_ENV.items():
+            value = normalized[name]
+            if value is None:
+                continue
+            overrides[env_name] = "true" if value else "false"
+        overrides[CLARITY_DAYS_ENV] = str(normalized["clarity_days"])
+        overrides[CLARITY_DIMENSIONS_ENV] = str(normalized["clarity_dimensions"])
+        overrides[COMMON_CRAWL_MAX_URLS_ENV] = str(normalized["common_crawl_max_urls"])
+        overrides[COMMON_CRAWL_INDEX_COUNT_ENV] = str(normalized["common_crawl_index_count"])
+        return overrides
+
+    contract.audit_job_options = options_with_external_observability
+    contract.audit_job_defaults = defaults_with_external_observability
+    contract.normalize_audit_job_payload = normalize_with_external_observability
+    contract.audit_job_environment_overrides = environment_with_external_observability
+    contract._rasai_external_observability_contract = True
+    _rebind_contract_consumers(contract)
+
+
+def _rebind_contract_consumers(contract: Any) -> None:
+    bindings = {
+        "rasai.execution_contract": (("normalize_audit_job_payload", contract.normalize_audit_job_payload),),
+        "rasai.worker": (
+            ("normalize_audit_job_payload", contract.normalize_audit_job_payload),
+            ("audit_job_environment_overrides", contract.audit_job_environment_overrides),
+        ),
+        "rasai.saas_context_integration": (("normalize_audit_job_payload", contract.normalize_audit_job_payload),),
+        "rasai.web.saas_management_routes": (("audit_job_options", contract.audit_job_options),),
+    }
+    for module_name, assignments in bindings.items():
+        module = sys.modules.get(module_name)
+        if module is None:
+            continue
+        for name, value in assignments:
+            setattr(module, name, value)
+
+
+def _optional_bool(payload: Mapping[str, Any], name: str, default: bool | None) -> bool | None:
+    value = payload.get(name, default)
+    if value is None:
+        return None
+    if not isinstance(value, bool):
+        raise ValueError(f"AUDIT payload field {name} must be boolean or null")
+    return value
+
+
+def _payload_text(payload: Mapping[str, Any], name: str, default: str) -> str:
+    value = payload.get(name, default)
+    if isinstance(value, bool) or value is None:
+        raise ValueError(f"AUDIT payload field {name} has invalid type")
+    return str(value)
 
 
 def collect_configured_external_observability(
@@ -308,10 +470,16 @@ def install() -> None:
                     )
         except Exception:
             # External enrichment must not compromise the already completed canonical
-            # audit/report.  Details go to the application log without changing score.
+            # audit/report. Details go to the application log without changing score.
             _LOGGER.exception("External observability finalization failed; canonical audit preserved")
 
-        return report_completion.inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
+        inspected = report_completion.inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
+        return report_completion.AuditReportCompletion(
+            expected_pages=inspected.expected_pages,
+            generated_pages=inspected.generated_pages,
+            missing_pages=inspected.missing_pages,
+            renderer_errors=base.renderer_errors,
+        )
 
     report_completion.finalize_audit_report_site = finalize_with_external_observability
     report_completion._rasai_external_observability_runtime = True
