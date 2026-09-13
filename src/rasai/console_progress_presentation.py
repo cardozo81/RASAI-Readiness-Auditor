@@ -23,12 +23,17 @@ def install() -> None:
     from rasai.audit_progress_runtime import install as install_audit_progress_runtime
     from rasai.console_progress_model import install as install_workload_progress_model
     from rasai.external_observability_progress_runtime import install as install_external_progress_runtime
+    from rasai.progress_completion_refinement import install as install_progress_completion_refinement
     from rasai.console_ui import CYAN, GREEN, paint
 
     # Install after the specialized collectors/runtime adapters have been composed.
     # This layer only observes their real units/events and recalculates presentation.
     install_audit_progress_runtime()
     install_external_progress_runtime()
+    # Improvement Intelligence is installed later by console_entrypoint. Prepare its
+    # workload phase and post-analysis local-only report refresh before that wrapper is
+    # composed, while the external finalizer chain is already complete.
+    install_progress_completion_refinement()
     install_workload_progress_model()
 
     original = console_runtime.render_header
