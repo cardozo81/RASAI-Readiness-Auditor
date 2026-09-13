@@ -129,11 +129,13 @@ def install() -> None:
     except ImportError:
         pass
 
-    # The fulfillment layer owns the evidence-readiness gate shared by initial
-    # execution and later recovery.  Both public entrypoints already install this
-    # policy, so local console and SaaS/worker executions receive identical rules.
+    # Fulfillment owns evidence readiness for both the initial execution and
+    # selective recovery. SaaS integration is installed immediately afterwards so
+    # worker/control-plane state uses the same contract without redefining core status.
     from rasai.audit_fulfillment_runtime import install as install_audit_fulfillment
+    from rasai.audit_fulfillment_saas import install as install_audit_fulfillment_saas
     install_audit_fulfillment()
+    install_audit_fulfillment_saas()
 
     _INSTALLED = True
 
