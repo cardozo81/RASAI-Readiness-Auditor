@@ -101,8 +101,8 @@ O diretório `report/` recebe `processing-status.json` com o estado de processam
 
 Os HTMLs exibem uma indicação explícita:
 
-- **Relatório preliminar — score final ainda não definido**, enquanto algum requisito obrigatório não estiver atendido;
-- **Processamento concluído — relatório final**, quando todo o contrato original estiver satisfeito e válido.
+- **Relatório preliminar - score final ainda não definido**, enquanto algum requisito obrigatório não estiver atendido;
+- **Processamento concluído - relatório final**, quando todo o contrato original estiver satisfeito e válido.
 
 ## Consolidação
 
