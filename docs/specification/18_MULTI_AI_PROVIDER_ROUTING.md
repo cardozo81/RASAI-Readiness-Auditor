@@ -1,6 +1,6 @@
 # Análise semântica por IA, roteamento e telemetria
 
-**Estado no baseline de desenvolvimento:** aprovado / vigente  
+**Estado:** vigente  
 **Limite de scoring:** `SARI-001` / `SCORE-GEO-004`
 
 IA é uma extensão de análise semântica. LLM não é engine de scoring, não substitui Business Rules e falha/ausência de provider não é defeito do website.
@@ -130,9 +130,9 @@ Defaults públicos:
 
 | Provider | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
-| OpenAI | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `NONE` no baseline |
-| DeepSeek | `NONE` | `NONE`, `LOW`, `HIGH`, `MAX` | `NONE` no baseline |
-| MiMo | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH` | `NONE` no baseline |
+| OpenAI | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, `MAX` | `NONE` no uso normal |
+| DeepSeek | `NONE` | `NONE`, `LOW`, `HIGH`, `MAX` | `NONE` no uso normal |
+| MiMo | `NONE` | `NONE`, `LOW`, `MEDIUM`, `HIGH` | `NONE` no uso normal |
 | xAI | `LOW` | `LOW`, `MEDIUM`, `HIGH`, `XHIGH` | `LOW` |
 | Qwen | `PROVIDER_DEFAULT` | `PROVIDER_DEFAULT` na superfície vigente | não criar variável de reasoning inexistente |
 | Gemini | `LOW` | `LOW`, `MEDIUM`, `HIGH` | `LOW` |
@@ -173,7 +173,7 @@ report/ai-usage.html
 
 O relatório deve distinguir configuração, tentativa, sucesso, provider previsto/efetivo, fallback, status, tokens e custo estimado sem converter falha de IA em finding do website.
 
-O renderer não mantém allowlist visual de providers: nomes/modelos vêm da telemetria persistida. Assim, providers registrados como Copilot aparecem quando efetivamente utilizados sem exigir branch específica de HTML.
+O renderer não mantém allowlist visual de providers: nomes/modelos vêm da telemetria persistida. Assim, providers registrados como Copilot aparecem quando efetivamente utilizados sem exigir condição específica de HTML por provider.
 
 ## 11. Limite de scoring
 
@@ -187,12 +187,12 @@ Invariantes:
 6. resultado válido não pode ser sobrescrito por tentativa posterior;
 7. contexto de dispositivo limita chamadas ao escopo solicitado;
 8. telemetria é separada de findings e score;
-9. outcomes externos não entram em `SARI-001`/`SCORE-GEO-004` sem nova metodologia explícita/versionada;
+9. outcomes externos não entram em `SARI-001`/`SCORE-GEO-004` sem contrato metodológico explícito e vigente;
 10. o conjunto `AUTO` é derivado do registry vigente, não de uma lista fixa escrita nesta especificação;
 11. decisão de custo altera somente a ordem de tentativa entre providers ainda elegíveis.
 
 ## 12. Onboarding e fonte de verdade
 
-O `provider_registry` é a fonte técnica para IDs, aliases, credenciais, modelos e elegibilidade AUTO. URLs oficiais de cadastro/login e geração de credenciais ficam consolidadas em `../PROVIDER_SETUP.md`.
+O `provider_registry` é a fonte técnica para IDs, aliases, credenciais, modelos e elegibilidade AUTO. URLs oficiais de cadastro/login e geração de credenciais ficam consolidadas em `../PROVIDER_SETUP.md` e `../EXTERNAL_CREDENTIALS.md`.
 
 Documentação e superfícies de UI devem projetar o registry, não manter listas independentes que possam divergir do runtime.
