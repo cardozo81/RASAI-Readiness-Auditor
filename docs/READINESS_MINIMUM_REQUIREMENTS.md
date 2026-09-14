@@ -1,4 +1,6 @@
-# READINESS_MINIMUM_REQUIREMENTS.md
+# Requisitos mínimos e fundamentos de Readiness
+
+**Estado:** vigente.
 
 ## Escopo
 
@@ -12,11 +14,11 @@ Este documento separa:
 
 O RASAi não assume que exista uma especificação normativa única denominada GEO/AEO.
 
-Em 2026, o Google publicou o guia oficial **Optimizing your website for generative AI features on Google Search**:
+O Google mantém um guia oficial para otimização de websites para recursos de IA generativa em Google Search:
 
 <https://developers.google.com/search/docs/fundamentals/ai-optimization-guide>
 
-O guia trata AEO/GEO como termos de mercado e mantém SEO, conteúdo útil e acesso técnico como fundamentos para recursos generativos do Google Search.
+Esse material deve ser lido como orientação do Google para seus próprios recursos de Search. Ele não transforma GEO/AEO em standard universal nem homologa o SARI.
 
 ## Princípio do SARI
 
@@ -29,7 +31,7 @@ O contrato vigente separa:
 - utilidade/intenção do conteúdo;
 - evidência/confiança/citation readiness;
 - Structured Data quando aplicável;
-- métricas externas e outcomes que permanecem fora da aritmética.
+- métricas externas e outcomes que permanecem fora da aritmética, salvo regra explicitamente score-eligible.
 
 Por isso o SARI usa pesos diferentes e Critical Readiness Gates em vez de uma média uniforme entre dimensões.
 
@@ -41,17 +43,19 @@ O conteúdo precisa ser tecnicamente recuperável e os controles de crawler prec
 
 Fontes relevantes:
 
-- Google Search Essentials;
-- RFC 9110;
-- RFC 9309;
-- documentação Google para robots.txt;
-- documentação OpenAI para controles de crawlers aplicáveis.
+- Google Search Essentials - requisitos técnicos, políticas e práticas fundamentais para participação em Google Search: <https://developers.google.com/search/docs/essentials>
+- RFC 9110 - semântica e contrato do HTTP, incluindo status, métodos e comportamento de respostas: <https://www.rfc-editor.org/rfc/rfc9110.html>
+- RFC 9309 - standard IETF para o Robots Exclusion Protocol e interpretação de `robots.txt`: <https://www.rfc-editor.org/rfc/rfc9309.html>
+- documentação Google de `robots.txt` - comportamento do Googlebot e sintaxe suportada: <https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec>
+- OpenAI Publishers and Developers FAQ - orientação atual sobre OAI-SearchBot, GPTBot e controles de publicação para superfícies OpenAI: <https://help.openai.com/en/articles/12627856-publishers-and-developers-faq>
 
 No SARI, falhas materiais desta camada são expostas também pelo **Discovery Gate**.
 
 ### Indexabilidade e canonicalização
 
 Diretivas de indexação, canonical e conflitos técnicos são avaliados separadamente de qualidade de conteúdo.
+
+Referência primária do Google para canonicalização: <https://developers.google.com/search/docs/crawling-indexing/canonicalization>. O documento descreve sinais e práticas usados pelo Google para seleção de URL canônica; não define uma regra universal para todos os mecanismos.
 
 No SARI, condições materiais desta camada aparecem também no **Indexability Gate**.
 
@@ -63,7 +67,9 @@ No SARI, condições materiais aparecem também no **Extraction Gate**.
 
 ### Conteúdo útil, confiável e orientado a pessoas
 
-O Google recomenda conteúdo útil, confiável e people-first. O RASAi usa essa base conceitual, mas não a apresenta como uma fórmula oficial externa.
+O Google recomenda conteúdo útil, confiável e people-first em sua documentação de criação de conteúdo: <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>.
+
+O RASAi usa essa base conceitual, mas não a apresenta como uma fórmula oficial externa.
 
 A dimensão `CONTENT_VALUE` é `RASAI_HEURISTIC` e mede somente sinais sustentados por evidência persistida:
 
@@ -75,7 +81,9 @@ Ausência de prova de diferenciação/originalidade **não vira FAIL**; permanec
 
 ### Estrutura compreensível
 
-HTML semântico, headings, título e organização lógica ajudam usuários e sistemas. WHATWG fornece a base de semântica HTML; critérios de clareza/interpretabilidade adicionados pelo RASAi são identificados como heurística quando não existe regra normativa externa equivalente.
+HTML semântico, headings, título e organização lógica ajudam usuários e sistemas. O WHATWG HTML Living Standard define a semântica dos elementos e a estrutura dos documentos: <https://html.spec.whatwg.org/dev/sections.html>.
+
+Critérios de clareza/interpretabilidade adicionados pelo RASAi são identificados como heurística quando não existe regra normativa externa equivalente.
 
 ### Evidência e responsabilidade
 
@@ -87,7 +95,11 @@ Isso não cria um “E-E-A-T Score oficial”.
 
 ### Structured Data / JSON-LD
 
-Structured Data não é requisito universal para recursos generativos do Google e não existe markup especial obrigatório de IA.
+Structured Data não é requisito universal para recursos generativos e não existe markup especial obrigatório de IA.
+
+A introdução oficial do Google a Structured Data explica como markup pode habilitar e qualificar recursos de apresentação em Google Search: <https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data>.
+
+Schema.org mantém o vocabulário aberto utilizado por muitas implementações de dados estruturados: <https://schema.org/docs/documents.html>.
 
 No SARI vigente:
 
@@ -110,6 +122,12 @@ Esses scores permanecem métricas externas independentes. Um audit técnico indi
 ### Core Web Vitals / CrUX
 
 Core Web Vitals permanecem métricas externas de experiência. Não são convertidas diretamente em SARI. Se um problema de entrega impedir rendering/extraction, a consequência técnica é avaliada pela regra SARI correspondente, evitando dupla penalização.
+
+### Common Crawl
+
+Common Crawl não é fonte normativa de qualidade ou ranking. No contrato vigente, sua participação no SARI é restrita à `BR-GEO-060`, como corroboração externa **somente positiva** de descoberta observada. Ausência de registro, erro ou indisponibilidade não geram `FAIL`, zero ou redução de Coverage/Confidence.
+
+Detalhes: [SARI_EXTERNAL_CRAWL_CORROBORATION.md](SARI_EXTERNAL_CRAWL_CORROBORATION.md).
 
 ### `llms.txt`
 
@@ -144,9 +162,9 @@ Entre as famílias que contêm heurísticas internas estão:
 ## Score, Confidence e Critical Gate são coisas diferentes
 
 ```text
-Score       = qualidade do universo efetivamente medido
-Coverage    = completude ponderada da medição
-Confidence  = força da medição
+Score         = qualidade do universo efetivamente medido
+Coverage      = completude ponderada da medição
+Confidence    = força da medição
 Consolidation = suficiência para publicar a conclusão
 Critical Gate = existência de condição fundamental PASS/WARNING/BLOCKED/UNKNOWN
 ```
@@ -165,17 +183,19 @@ Isso é decisão operacional/custo do auditor, não afirmação de que Desktop s
 
 ## Referências primárias principais
 
-- Google generative AI optimization guide: <https://developers.google.com/search/docs/fundamentals/ai-optimization-guide>
-- Google Search Essentials: <https://developers.google.com/search/docs/essentials>
-- Google SEO Starter Guide: <https://developers.google.com/search/docs/fundamentals/seo-starter-guide>
-- Google helpful content guidance: <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
-- Google Structured Data: <https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data>
-- Google canonicalization: <https://developers.google.com/search/docs/crawling-indexing/canonicalization>
-- Google robots.txt: <https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec>
-- OpenAI Publishers and Developers FAQ: <https://help.openai.com/en/articles/12627856-publishers-and-developers-faq>
-- Schema.org: <https://schema.org/docs/documents.html>
-- WHATWG sections: <https://html.spec.whatwg.org/dev/sections.html>
-- RFC 9309: <https://www.rfc-editor.org/rfc/rfc9309.html>
-- RFC 9110: <https://www.rfc-editor.org/rfc/rfc9110.html>
+| Fonte | Função no RASAi | Link |
+|---|---|---|
+| Google - otimização para recursos generativos em Search | orientação específica do Google para Search com recursos de IA; não é standard universal GEO/AEO | <https://developers.google.com/search/docs/fundamentals/ai-optimization-guide> |
+| Google Search Essentials | requisitos e práticas fundamentais do Google Search | <https://developers.google.com/search/docs/essentials> |
+| Google SEO Starter Guide | orientação introdutória de SEO técnico/editorial do Google | <https://developers.google.com/search/docs/fundamentals/seo-starter-guide> |
+| Google - conteúdo útil e people-first | princípios editoriais oficiais usados como referência conceitual, não como fórmula de scoring | <https://developers.google.com/search/docs/fundamentals/creating-helpful-content> |
+| Google Structured Data | finalidade e regras gerais de Structured Data no Google Search | <https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data> |
+| Google canonicalization | sinais e práticas de canonicalização no Google Search | <https://developers.google.com/search/docs/crawling-indexing/canonicalization> |
+| Google robots.txt | sintaxe e comportamento documentados para crawlers Google | <https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec> |
+| OpenAI Publishers and Developers FAQ | controles de crawler e publicação aplicáveis a OAI-SearchBot/GPTBot e superfícies OpenAI | <https://help.openai.com/en/articles/12627856-publishers-and-developers-faq> |
+| Schema.org | vocabulário compartilhado de dados estruturados | <https://schema.org/docs/documents.html> |
+| WHATWG HTML Living Standard | semântica e estrutura normativa do HTML | <https://html.spec.whatwg.org/dev/sections.html> |
+| RFC 9309 | standard IETF do Robots Exclusion Protocol | <https://www.rfc-editor.org/rfc/rfc9309.html> |
+| RFC 9110 | semântica HTTP e interpretação de respostas | <https://www.rfc-editor.org/rfc/rfc9110.html> |
 
 As URLs e interpretações externas devem ser revisadas periodicamente. A fonte externa valida apenas o fenômeno no escopo documentado; não homologa o SARI composto.
