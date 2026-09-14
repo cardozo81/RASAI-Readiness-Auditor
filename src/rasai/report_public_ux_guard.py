@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+import sqlite3
 import sys
 from typing import Any, Callable
 
@@ -31,6 +32,25 @@ _ACTIVE_LINK_RE = re.compile(
 _OPEN_ATTR_RE = re.compile(
     r"\sopen(?:\s*=\s*(?:['\"]?open['\"]?))?",
     flags=re.IGNORECASE,
+)
+_READER_STATUS_RE = re.compile(
+    r"<section\b[^>]*class=['\"][^'\"]*\brasai-analysis-status\b[^'\"]*['\"][^>]*"
+    r"data-rasai-analysis-status=['\"]true['\"][^>]*>.*?</section>",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_READER_PATH_RE = re.compile(
+    r"<section\b[^>]*class=['\"][^'\"]*\brasai-dashboard-path\b[^'\"]*['\"][^>]*"
+    r"data-rasai-dashboard-path=['\"]true['\"][^>]*>.*?</section>",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_READER_TRIGGER_RE = re.compile(
+    r"<section\b[^>]*class=['\"][^'\"]*\brasai-page-transparency\b[^'\"]*['\"][^>]*"
+    r"data-rasai-page-help-trigger=['\"]true['\"][^>]*>.*?</section>",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_READER_DIALOG_RE = re.compile(
+    r"<dialog\b[^>]*data-rasai-page-help=['\"]true['\"][^>]*>.*?</dialog>",
+    flags=re.IGNORECASE | re.DOTALL,
 )
 
 _PUBLIC_STATE_LABELS: dict[str, str] = {
@@ -276,6 +296,46 @@ def _finalize_report_directory(report_dir: Path) -> None:
         _finalize_report_file(path)
 
 
+def _strip_reader_blocks(html: str) -> str:
+    html = _READER_STATUS_RE.sub("", html, count=1)
+    html = _READER_PATH_RE.sub("", html, count=1)
+    html = _READER_TRIGGER_RE.sub("", html, count=1)
+    html = _READER_DIALOG_RE.sub("", html, count=1)
+    return html
+
+
+def _refresh_reader_experience(*, workspace: Any, audit_id: str) -> None:
+    """Reproject reader status after the canonical fulfillment state is final."""
+    from rasai.report_reader_experience import build_report_experience_context, enhance_report_experience
+
+    report_dir = Path(workspace.root) / "report"
+    if not report_dir.is_dir():
+        return
+    try:
+        connection = sqlite3.connect(workspace.database)
+        connection.row_factory = sqlite3.Row
+        try:
+            context = build_report_experience_context(connection, audit_id)
+        finally:
+            connection.close()
+    except sqlite3.Error:
+        return
+
+    for path in sorted(report_dir.glob("*.html")):
+        try:
+            html = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            continue
+        stripped = _strip_reader_blocks(html)
+        rendered = enhance_report_experience(stripped, filename=path.name, context=context)
+        if rendered == html:
+            continue
+        try:
+            path.write_text(rendered, encoding="utf-8", newline="\n")
+        except OSError:
+            continue
+
+
 def _install_fulfillment_projection_policy() -> None:
     from rasai import audit_fulfillment
 
@@ -286,21 +346,25 @@ def _install_fulfillment_projection_policy() -> None:
     def project_report_validity_with_public_ux(*args: Any, **kwargs: Any):
         summary = original(*args, **kwargs)
         workspace = kwargs.get("workspace")
+        audit_id = str(kwargs.get("audit_id") or "")
         if workspace is not None:
             _finalize_report_directory(Path(workspace.root) / "report")
+            if audit_id:
+                _refresh_reader_experience(workspace=workspace, audit_id=audit_id)
         return summary
 
     project_report_validity_with_public_ux._rasai_public_ux_guard = True
     project_report_validity_with_public_ux._rasai_original = original
     audit_fulfillment.project_report_validity = project_report_validity_with_public_ux
 
-    # Recovery modules may have imported the function by value before this guard is
-    # installed. Update only references that still point to the exact original.
+    # Recovery/reconciliation modules may have imported the function by value before
+    # this guard is installed. Update only references that still point to the exact original.
     for module_name in (
         "rasai.audit_fulfillment_runtime",
         "rasai.audit_reprocess",
         "rasai.core_reprocessing",
         "rasai.core_reprocessing_context",
+        "rasai.fulfillment_execution_contract",
     ):
         module = sys.modules.get(module_name)
         if module is not None and getattr(module, "project_report_validity", None) is original:
