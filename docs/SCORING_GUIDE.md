@@ -11,8 +11,6 @@ overall_aggregation = HIERARCHICAL_WEIGHTED_READINESS_V1
 
 O método é determinístico sobre RuleExecutions/evidências persistidas e não representa probabilidade de ranking ou citação.
 
-O produto ainda está em pré-produção. A implementação experimental anterior do mesmo `SCORE-GEO-004` não é contrato ativo; auditorias antigas com o antigo Overall devem ser regeneradas se precisarem ser comparadas.
-
 Contrato completo: [`SCORE_GEO_004.md`](SCORE_GEO_004.md).
 
 ## Dimensões e pesos
@@ -33,7 +31,7 @@ Contrato completo: [`SCORE_GEO_004.md`](SCORE_GEO_004.md).
 
 Desktop e Mobile permanecem separados.
 
-`DISCOVERY_ACCESS` é a denominação vigente da dimensão antes conhecida internamente como `TECHNICAL_ACCESSIBILITY`; o objetivo é evitar confusão com Accessibility/WCAG.
+`DISCOVERY_ACCESS` é a dimensão canônica para acesso técnico, discovery e crawler access. Accessibility/WCAG permanece um domínio diagnóstico independente e não deve ser confundido com esta dimensão.
 
 ## Como o peso é aplicado
 
@@ -41,10 +39,10 @@ A hierarquia é:
 
 ```text
 RuleExecution
-→ página/escopo global
-→ scoring_group
-→ dimensão
-→ Overall ponderado
+-> página/escopo global
+-> scoring_group
+-> dimensão
+-> Overall ponderado
 ```
 
 O peso do grupo não é multiplicado pelo número de páginas.
@@ -52,7 +50,7 @@ O peso do grupo não é multiplicado pelo número de páginas.
 Exemplo conceitual:
 
 ```text
-ROBOTS = 15% de DISCOVERY_ACCESS
+ROBOTS = 14,55% de DISCOVERY_ACCESS
 ```
 
 continua representando essa participação relativa em uma auditoria de 5, 50 ou 500 páginas. Quando o grupo existe em várias páginas, seu peso é dividido pelos escopos aplicáveis.
@@ -86,9 +84,9 @@ FAIL    = 0.00
 Scope Weight = Group Weight / escopos aplicáveis do grupo
 
 Dimension Score =
-  sum(Scope Weight × Result Factor avaliados)
+  sum(Scope Weight x Result Factor avaliados)
   / sum(Scope Weight avaliados)
-  × 100
+  x 100
 ```
 
 ## Coverage
@@ -97,7 +95,7 @@ Dimension Score =
 Dimension Coverage = evaluated applicable weight / total applicable weight
 
 Overall Coverage =
-  sum(Dimension Weight × Dimension Coverage)
+  sum(Dimension Weight x Dimension Coverage)
   / sum(Dimension Weight aplicável)
 ```
 
@@ -107,7 +105,7 @@ Coverage mede completude da análise, não qualidade do site.
 
 ```text
 Overall =
-  sum(Dimension Weight × Dimension Score medido)
+  sum(Dimension Weight x Dimension Score medido)
   / sum(Dimension Weight medido e aplicável)
 ```
 
@@ -190,7 +188,7 @@ Readiness BLOCKED
 Indexability Gate BLOCKED
 ```
 
-## Precedência IA × determinístico
+## Precedência IA x determinístico
 
 No mesmo `scoring_group` e escopo:
 
@@ -202,6 +200,29 @@ Se existe fato determinístico conclusivo, uma avaliação IA corroborativa não
 
 BR-GEO-055/056 compartilham os grupos de sitemap/robots e nunca criam bônus duplicado. IA não escolhe pesos, fatores ou thresholds.
 
+## Common Crawl / BR-GEO-060
+
+`BR-GEO-060` é uma evidência externa corroborativa e positive-only dentro de `DISCOVERY_ACCESS`.
+
+```text
+dimension = DISCOVERY_ACCESS
+scoring_group = EXTERNAL_CRAWL_CORROBORATION
+group_weight = 3%
+evidence_role = EXTERNAL_CORROBORATIVE
+```
+
+Como `DISCOVERY_ACCESS` representa 15% do SARI, a influência teórica máxima desse grupo no Overall é 0,45 ponto.
+
+Ausência no Common Crawl, timeout, erro de rede, alvo privado/inelegível ou amostra insuficiente:
+
+- não materializa `FAIL`;
+- não cria zero;
+- não reduz Coverage;
+- não reduz Confidence;
+- não participa de Critical Readiness Gate.
+
+A regra contribui somente quando existe observação positiva reproduzível e a evidência mínima é persistida.
+
 ## Content Value
 
 A dimensão `CONTENT_VALUE` usa:
@@ -212,13 +233,13 @@ BR-GEO-058  diferenciação/experiência/dado próprio explícito
 BR-GEO-059  profundidade/contexto
 ```
 
-Baseline:
+Contrato técnico:
 
 ```text
 CONTENT-VALUE-BASELINE-001
 ```
 
-A baseline é local e evidence-bound. Ela é deliberadamente conservadora: diferenciação não demonstrada fica `UNKNOWN`, não `FAIL`.
+A avaliação local é evidence-bound e deliberadamente conservadora: diferenciação não demonstrada fica `UNKNOWN`, não `FAIL`.
 
 ## Structured Data
 
@@ -256,7 +277,7 @@ Ficam fora do Overall:
 - Observed Generative Visibility;
 - tráfego e conversão.
 
-Esses resultados servem à Observability e à futura validação empírica dos pesos.
+Esses resultados servem à Observability e à validação/calibração empírica da metodologia, sem alterar automaticamente o score de uma auditoria.
 
 ## Parametrização
 
@@ -275,7 +296,7 @@ Fixo no `SCORE-GEO-004`:
 - dimensões e pesos;
 - scoring groups e pesos;
 - fatores RuleResult;
-- manifesto regra → dimensão → grupo;
+- manifesto regra -> dimensão -> grupo;
 - thresholds de Coverage/Confidence/Consolidation;
 - Critical Gates;
 - precedência de evidência.
@@ -313,12 +334,10 @@ references.html proveniência e função de cada indicador no SARI
 
 Os filenames são version-neutral. A versão metodológica pertence ao banco, manifests, metadados e conteúdo.
 
-## Comparabilidade pré-produção
+## Comparabilidade
 
-A formulação experimental de peso igual anterior a esta recalibração não é uma versão suportada do produto. Seus resultados devem ser regenerados.
-
-Após entrada em produção, qualquer mudança incompatível que altere pesos, dimensões ou gates deverá ser versionada explicitamente para preservar séries históricas de clientes.
+Auditorias só devem participar da mesma série quantitativa quando o contrato de scoring e o universo comparável forem compatíveis. Contratos incompatíveis devem ser classificados como `NOT_COMPARABLE`; o consolidado não deve recalcular silenciosamente uma auditoria persistida com outra metodologia.
 
 ## Limite de validade
 
-SARI-001/SCORE-GEO-004 são metodologias proprietárias do RASAi. Os pesos vigentes são decisões metodológicas pré-produção e não coeficientes causais homologados por Google, Microsoft, OpenAI ou outro mantenedor.
+SARI-001/SCORE-GEO-004 são metodologias proprietárias do RASAi. Os pesos vigentes são decisões metodológicas do produto e não coeficientes causais homologados por Google, Microsoft, OpenAI ou outro mantenedor.
