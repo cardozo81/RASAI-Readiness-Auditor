@@ -2,37 +2,36 @@
 
 Search Intelligence is a console-AUD observation and is replayed directly from its
 persisted non-secret execution contract. Google Search Console and Improvement
-Intelligence remain owned by their existing report-finalization runtimes; during an
-RPR this adapter supplies the original non-secret configuration, reuses successful
-persisted results, and lets those owners execute only when their work item is pending.
+Intelligence remain owned by their existing report-finalization runtimes. During an
+RPR this adapter restores only non-secret original settings through a ContextVar,
+reuses successful persisted results, and executes only work items that were unresolved
+when the RPR started.
 
 No pricing code lives here. AI/provider attempts and their observed costs remain owned
 by the existing provider persistence/pricing path.
 """
 from __future__ import annotations
 
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from contextlib import contextmanager
 from dataclasses import replace
 from datetime import datetime, timezone
-import io
 import json
 import os
 from pathlib import Path
 import sqlite3
-from types import SimpleNamespace
 from typing import Any, Iterator, Mapping
 from urllib.parse import urlsplit
 
 from rasai.audit_fulfillment import (
     FAILED_RETRYABLE,
     LIVE_RECOLLECTION,
-    NOT_APPLICABLE,
     REPLAY_SAFE,
     SUCCESS,
     list_work_items,
     register_work_item,
     set_work_item_status,
 )
+from rasai.execution_environment import override_environment, resolve_environment
 from rasai.persistence import AuditWorkspace
 from rasai.secret_safety import redact_text
 from rasai.selective_reprocess_context import current, record_optional_evaluation, scope, should_execute
@@ -145,6 +144,7 @@ def _backfill_console_search(workspace: Any, audit_id: str) -> None:
     env_map = {
         "RASAI_SERP_MODE": "mode",
         "RASAI_SERP_PROVIDER": "provider",
+        "RASAI_SERP_FIXTURE_PATH": "fixture_path",
         "RASAI_SERP_MAX_QUERIES": "max_queries",
         "RASAI_SERP_MAX_REQUESTS": "max_requests",
         "RASAI_SERP_MAX_DEPTH": "max_depth",
@@ -178,6 +178,175 @@ def _backfill_console_search(workspace: Any, audit_id: str) -> None:
     )
 
 
+def _improvement_run(workspace: Any, audit_id: str) -> dict[str, Any] | None:
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        if not _table_exists(connection, "improvement_intelligence_runs"):
+            return None
+        row = connection.execute(
+            "SELECT * FROM improvement_intelligence_runs WHERE audit_id=?",
+            (audit_id,),
+        ).fetchone()
+        return dict(row) if row is not None else None
+    finally:
+        connection.close()
+
+
+def _gsc_service_run(workspace: Any, audit_id: str) -> dict[str, Any] | None:
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        if not _table_exists(connection, "standards_service_runs"):
+            return None
+        row = connection.execute(
+            "SELECT * FROM standards_service_runs WHERE audit_id=? AND service_id='google-search-console'",
+            (audit_id,),
+        ).fetchone()
+        return dict(row) if row is not None else None
+    finally:
+        connection.close()
+
+
+def _reconcile_improvement_rpr(workspace: Any, audit_id: str) -> None:
+    """Project the Improvement result using the original config plus current credential."""
+    from rasai.fulfillment_execution_contract import NOT_CONFIGURED
+    from rasai.improvement_intelligence import ImprovementConfig
+
+    item = _item(workspace, audit_id, "IMPROVEMENT_INTELLIGENCE")
+    if item is None:
+        return
+    try:
+        cfg = ImprovementConfig.from_environment(resolve_environment())
+    except Exception as exc:
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="IMPROVEMENT_INTELLIGENCE",
+            status=NOT_CONFIGURED,
+            error_class="CONFIGURATION",
+            error_code="IMPROVEMENT_CONFIGURATION_INVALID",
+            error_message=redact_text(str(exc))[:1000],
+            retryable=True,
+        )
+        return
+
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component="IMPROVEMENT_INTELLIGENCE",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        retryable=True,
+        configuration={
+            "requested": True,
+            "provider": cfg.provider,
+            "model": cfg.model,
+            "reasoning": cfg.reasoning,
+            "domains": list(cfg.domains),
+            "max_recommendations": cfg.max_recommendations,
+            "timeout_seconds": cfg.timeout_seconds,
+            "language": cfg.language,
+        },
+    )
+    run = _improvement_run(workspace, audit_id)
+    if run is None:
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="IMPROVEMENT_INTELLIGENCE",
+            status=FAILED_RETRYABLE,
+            error_class="ORCHESTRATION",
+            error_code="IMPROVEMENT_RETRY_NOT_MATERIALIZED",
+            error_message="Improvement Intelligence foi reavaliado, mas não materializou resultado persistido",
+            retryable=True,
+        )
+        return
+    status = str(run.get("status") or "").upper()
+    if status == "COMPLETE":
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="IMPROVEMENT_INTELLIGENCE",
+            status=SUCCESS,
+            result_ref="improvement-intelligence:effective",
+            retryable=False,
+        )
+        return
+    set_work_item_status(
+        workspace,
+        audit_id=audit_id,
+        component="IMPROVEMENT_INTELLIGENCE",
+        status=FAILED_RETRYABLE,
+        error_class="AI_ANALYSIS",
+        error_code=status or "IMPROVEMENT_INCOMPLETE",
+        error_message=redact_text(str(run.get("reason") or "Improvement Intelligence não concluiu sem limitações"))[:1000],
+        retryable=True,
+    )
+
+
+def _reconcile_gsc_rpr(workspace: Any, audit_id: str) -> None:
+    """Project GSC using original non-secret settings and the current OAuth token."""
+    from rasai.fulfillment_execution_contract import NOT_CONFIGURED
+    from rasai.standards_service_registry import service, service_state
+
+    item = _item(workspace, audit_id, "GOOGLE_SEARCH_CONSOLE")
+    if item is None or _expired(item):
+        return
+    state_info = service_state(service("google-search-console"), resolve_environment())
+    if not bool(state_info.get("configured")):
+        missing = tuple(str(value) for value in state_info.get("missing_configuration", ()) if str(value))
+        code = "SITE_URL_REQUIRED" if "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL" in missing else "CONFIGURATION_REQUIRED"
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="GOOGLE_SEARCH_CONSOLE",
+            status=NOT_CONFIGURED,
+            error_class="CONFIGURATION",
+            error_code=code,
+            error_message=("configuração ausente: " + ", ".join(missing)) if missing else "Google Search Console sem configuração completa",
+            retryable=True,
+        )
+        return
+
+    run = _gsc_service_run(workspace, audit_id)
+    if run is None:
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="GOOGLE_SEARCH_CONSOLE",
+            status=FAILED_RETRYABLE,
+            error_class="ORCHESTRATION",
+            error_code="GSC_RETRY_NOT_MATERIALIZED",
+            error_message="Google Search Console foi reavaliado, mas não materializou execução persistida",
+            retryable=True,
+        )
+        return
+    state = str(run.get("state") or "").upper()
+    attempted = int(run.get("targets_attempted") or 0)
+    succeeded = int(run.get("targets_succeeded") or 0)
+    if state in {"SUCCESS", "READY"} and (attempted == 0 or succeeded == attempted):
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="GOOGLE_SEARCH_CONSOLE",
+            status=SUCCESS,
+            result_ref="standards-service:google-search-console:effective",
+            retryable=False,
+        )
+        return
+    set_work_item_status(
+        workspace,
+        audit_id=audit_id,
+        component="GOOGLE_SEARCH_CONSOLE",
+        status=FAILED_RETRYABLE,
+        error_class="EXTERNAL_SERVICE",
+        error_code=state or "SERVICE_INCOMPLETE",
+        error_message=f"Google Search Console terminou em {state or 'UNKNOWN'} ({succeeded}/{attempted} alvos com sucesso)",
+        retryable=True,
+    )
+
+
 def _augment_reconciliation_configuration() -> None:
     """Persist complete non-secret optional-service configuration into each work item."""
     from rasai import fulfillment_execution_contract as contract
@@ -185,6 +354,10 @@ def _augment_reconciliation_configuration() -> None:
     improvement = contract._reconcile_requested_improvement
     if not bool(getattr(improvement, "_rasai_optional_config", False)):
         def reconcile_improvement(workspace: Any, audit_id: str) -> None:
+            active_context = current()
+            if active_context is not None and active_context.audit_id == audit_id:
+                _reconcile_improvement_rpr(workspace, audit_id)
+                return
             improvement(workspace, audit_id)
             item = _item(workspace, audit_id, "IMPROVEMENT_INTELLIGENCE")
             if item is None:
@@ -243,6 +416,10 @@ def _augment_reconciliation_configuration() -> None:
     services = contract._reconcile_explicit_services
     if not bool(getattr(services, "_rasai_optional_config", False)):
         def reconcile_services(workspace: Any, audit_id: str) -> None:
+            active_context = current()
+            if active_context is not None and active_context.audit_id == audit_id:
+                _reconcile_gsc_rpr(workspace, audit_id)
+                return
             services(workspace, audit_id)
             item = _item(workspace, audit_id, "GOOGLE_SEARCH_CONSOLE")
             if item is None:
@@ -286,20 +463,10 @@ def _augment_reconciliation_configuration() -> None:
 
 def _validate_success_integrity(workspace: Any, audit_id: str) -> None:
     """A successful optional work item must still have the persisted evidence it claims."""
+    gsc = _gsc_service_run(workspace, audit_id)
+    improvement = _improvement_run(workspace, audit_id)
     connection = sqlite3.connect(workspace.database)
     try:
-        gsc_row = None
-        if _table_exists(connection, "standards_service_runs"):
-            gsc_row = connection.execute(
-                "SELECT details_json FROM standards_service_runs WHERE audit_id=? AND service_id='google-search-console'",
-                (audit_id,),
-            ).fetchone()
-        improvement_row = None
-        if _table_exists(connection, "improvement_intelligence_runs"):
-            improvement_row = connection.execute(
-                "SELECT status FROM improvement_intelligence_runs WHERE audit_id=?",
-                (audit_id,),
-            ).fetchone()
         search_count = None
         if _table_exists(connection, "serp_observations"):
             search_count = int(connection.execute(
@@ -310,8 +477,8 @@ def _validate_success_integrity(workspace: Any, audit_id: str) -> None:
         connection.close()
 
     checks = (
-        ("GOOGLE_SEARCH_CONSOLE", bool(gsc_row and gsc_row[0])),
-        ("IMPROVEMENT_INTELLIGENCE", bool(improvement_row and str(improvement_row[0]).upper() == "COMPLETE")),
+        ("GOOGLE_SEARCH_CONSOLE", bool(gsc and str(gsc.get("state") or "").upper() in {"SUCCESS", "READY"} and gsc.get("details_json"))),
+        ("IMPROVEMENT_INTELLIGENCE", bool(improvement and str(improvement.get("status") or "").upper() == "COMPLETE")),
         ("SEARCH_INTELLIGENCE", search_count is not None and search_count > 0),
     )
     for component, valid in checks:
@@ -345,44 +512,33 @@ def _audit_domain(workspace: Any, audit_id: str) -> str:
     return host
 
 
-@contextmanager
-def _temporary_environment(values: Mapping[str, Any]) -> Iterator[None]:
-    previous: dict[str, str | None] = {}
-    for name, value in values.items():
-        text = str(value or "").strip()
-        if not name or not text:
-            continue
-        previous[name] = os.environ.get(name)
-        os.environ[name] = text
-    try:
-        yield
-    finally:
-        for name, value in previous.items():
-            if value is None:
-                os.environ.pop(name, None)
-            else:
-                os.environ[name] = value
+def _search_runtime_config(item: Any):
+    from rasai.search_intelligence.config import SerpRuntimeConfig
 
-
-def _search_environment(item: Any) -> dict[str, Any]:
-    config = dict(getattr(item, "configuration", {}) or {})
-    mapping = {
-        "mode": "RASAI_SERP_MODE",
-        "provider": "RASAI_SERP_PROVIDER",
-        "max_queries": "RASAI_SERP_MAX_QUERIES",
-        "max_requests": "RASAI_SERP_MAX_REQUESTS",
-        "max_depth": "RASAI_SERP_MAX_DEPTH",
-        "max_competitors": "RASAI_SERP_MAX_COMPETITORS",
-        "timeout_seconds": "RASAI_SERP_TIMEOUT_SECONDS",
-        "retries": "RASAI_SERP_RETRIES",
-        "min_interval_seconds": "RASAI_SERP_MIN_INTERVAL_SECONDS",
-    }
-    return {env_name: config.get(key) for key, env_name in mapping.items() if config.get(key) not in (None, "")}
+    values = dict(getattr(item, "configuration", {}) or {})
+    fixture = str(values.get("fixture_path") or "").strip()
+    return SerpRuntimeConfig(
+        mode=str(values.get("mode") or "disabled"),
+        provider=str(values.get("provider") or "serpapi"),
+        fixture_path=Path(fixture) if fixture else None,
+        max_queries=int(values.get("max_queries") or 10),
+        max_requests=int(values.get("max_requests") or 10),
+        max_depth=int(values.get("max_depth") or 20),
+        max_competitors=int(values.get("max_competitors") or 10),
+        timeout_seconds=float(values.get("timeout_seconds") or 20.0),
+        retries=int(values.get("retries") or 1),
+        min_interval_seconds=float(values.get("min_interval_seconds") or 1.0),
+    ).validate()
 
 
 def _recover_search(workspace: Any, audit_id: str, item: Any) -> bool:
-    config = dict(getattr(item, "configuration", {}) or {})
-    queries = tuple(str(value).strip() for value in config.get("queries", ()) if str(value).strip())
+    from rasai.search_intelligence.competitive_runtime import execute_competitive_intelligence
+    from rasai.search_intelligence.models import DomainMatchStatus, QueryOrigin, SerpQueryRequest, new_identifier
+    from rasai.search_intelligence.provider_catalog import serp_provider_registration
+    from rasai.search_intelligence.runtime import execute_search
+
+    values = dict(getattr(item, "configuration", {}) or {})
+    queries = tuple(str(value).strip() for value in values.get("queries", ()) if str(value).strip())
     if not queries:
         set_work_item_status(
             workspace,
@@ -396,19 +552,42 @@ def _recover_search(workspace: Any, audit_id: str, item: Any) -> bool:
         )
         return False
 
-    from rasai.console_search_intelligence import _configured_search, _engine_for_provider
-    from rasai.search_intelligence.cli import main as search_main
-
-    state = SimpleNamespace(
-        search_queries=queries,
-        search_depth=int(config.get("depth") or 20),
-        search_device=str(config.get("device") or "mobile"),
-    )
-    environment = dict(os.environ)
-    environment.update({name: str(value) for name, value in _search_environment(item).items()})
     try:
-        runtime = _configured_search(state, environment)
+        runtime = _search_runtime_config(item)
         domain = _audit_domain(workspace, audit_id)
+        registration = serp_provider_registration(runtime.provider)
+        engine = str(values.get("engine") or (registration.engine if registration is not None else "google"))
+        run_id = new_identifier("SERP-RPR")
+        requests = tuple(
+            SerpQueryRequest(
+                query=query,
+                engine=engine,
+                country=str(values.get("market") or "BR"),
+                region=str(values.get("region") or "") or None,
+                language=str(values.get("language") or "pt-BR"),
+                device=str(values.get("device") or "mobile"),
+                depth=int(values.get("depth") or 20),
+                domain_of_interest=domain,
+                run_id=run_id,
+                query_origin=QueryOrigin.MANUAL,
+                config_metadata={"surface": "audit-reprocess"},
+            )
+            for query in queries
+        )
+        execution = execute_search(
+            requests,
+            config=runtime,
+            environment=os.environ,
+            workspace_root=workspace.root,
+            fixture_path=runtime.fixture_path,
+        )
+        if bool(values.get("competitive", True)):
+            execute_competitive_intelligence(
+                execution,
+                content_enabled=False,
+                max_competitor_pages=runtime.max_competitors,
+                workspace_root=workspace.root,
+            )
     except (OSError, TypeError, ValueError) as exc:
         set_work_item_status(
             workspace,
@@ -421,41 +600,25 @@ def _recover_search(workspace: Any, audit_id: str, item: Any) -> bool:
             retryable=True,
         )
         return False
-
-    argv = [
-        *queries,
-        "--domain", domain,
-        "--engine", str(config.get("engine") or _engine_for_provider(runtime.provider)),
-        "--country", str(config.get("market") or "BR"),
-        "--language", str(config.get("language") or "pt-BR"),
-        "--device", str(config.get("device") or "mobile"),
-        "--depth", str(int(config.get("depth") or 20)),
-        "--audit-workspace", str(workspace.root),
-        "--mode", runtime.mode,
-        "--provider", runtime.provider,
-    ]
-    region = str(config.get("region") or "").strip()
-    if region:
-        argv.extend(["--region", region])
-    if bool(config.get("competitive", True)):
-        argv.append("--competitive")
-
-    output = io.StringIO()
-    code = 2
-    try:
-        with _temporary_environment(_search_environment(item)):
-            with redirect_stdout(output), redirect_stderr(output):
-                try:
-                    code = int(search_main(argv) or 0)
-                except SystemExit as exc:
-                    code = int(exc.code) if isinstance(exc.code, int) else 2
     except Exception as exc:
-        output.write(f"{type(exc).__name__}: {redact_text(str(exc))}")
-        code = 2
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="SEARCH_INTELLIGENCE",
+            status=FAILED_RETRYABLE,
+            error_class="SEARCH_PROVIDER",
+            error_code="SEARCH_INTELLIGENCE_RUNTIME_ERROR",
+            error_message=redact_text(f"{type(exc).__name__}: {exc}")[:1000],
+            retryable=True,
+        )
+        return False
 
-    detail_lines = [line.strip() for line in output.getvalue().splitlines() if line.strip()]
-    detail = redact_text(detail_lines[-1] if detail_lines else f"Search Intelligence retornou código {code}")[:1000]
-    if code == 0:
+    failed = tuple(
+        result
+        for result in execution.results
+        if result.domain_status in {DomainMatchStatus.ERROR, DomainMatchStatus.UNAVAILABLE, DomainMatchStatus.DISABLED}
+    )
+    if not failed and execution.results:
         set_work_item_status(
             workspace,
             audit_id=audit_id,
@@ -465,43 +628,40 @@ def _recover_search(workspace: Any, audit_id: str, item: Any) -> bool:
             retryable=False,
         )
         return True
+    first = failed[0] if failed else None
+    detail = (
+        f"{getattr(first, 'error_code', None) or getattr(first, 'domain_status', 'UNKNOWN')}: "
+        f"{getattr(first, 'error_message', None) or 'observação Search não concluída'}"
+        if first is not None
+        else "Search Intelligence não produziu observações"
+    )
     set_work_item_status(
         workspace,
         audit_id=audit_id,
         component="SEARCH_INTELLIGENCE",
         status=FAILED_RETRYABLE,
         error_class="SEARCH_PROVIDER",
-        error_code="SEARCH_INTELLIGENCE_RETRY_INCOMPLETE",
-        error_message=detail,
+        error_code=str(getattr(first, "error_code", None) or "SEARCH_INTELLIGENCE_RETRY_INCOMPLETE"),
+        error_message=redact_text(detail)[:1000],
         retryable=True,
     )
     return False
 
 
 def _persisted_gsc_result(workspace: Any, audit_id: str) -> dict[str, Any] | None:
-    connection = sqlite3.connect(workspace.database)
-    connection.row_factory = sqlite3.Row
-    try:
-        if not _table_exists(connection, "standards_service_runs"):
-            return None
-        row = connection.execute(
-            "SELECT * FROM standards_service_runs WHERE audit_id=? AND service_id='google-search-console'",
-            (audit_id,),
-        ).fetchone()
-    finally:
-        connection.close()
+    row = _gsc_service_run(workspace, audit_id)
     if row is None:
         return None
     try:
-        details = json.loads(str(row["details_json"] or "{}"))
+        details = json.loads(str(row.get("details_json") or "{}"))
     except (TypeError, ValueError, json.JSONDecodeError):
         details = {}
     result = dict(details) if isinstance(details, dict) else {}
     result.update({
-        "service_state": str(row["state"] or result.get("service_state") or "SUCCESS"),
-        "collection_state": str(row["state"] or result.get("collection_state") or "SUCCESS"),
-        "targets_attempted": int(row["targets_attempted"] or result.get("targets_attempted") or 0),
-        "targets_succeeded": int(row["targets_succeeded"] or result.get("targets_succeeded") or 0),
+        "service_state": str(row.get("state") or result.get("service_state") or "SUCCESS"),
+        "collection_state": str(row.get("state") or result.get("collection_state") or "SUCCESS"),
+        "targets_attempted": int(row.get("targets_attempted") or result.get("targets_attempted") or 0),
+        "targets_succeeded": int(row.get("targets_succeeded") or result.get("targets_succeeded") or 0),
         "requested": True,
         "configured": True,
         "effective_enabled": True,
@@ -514,35 +674,23 @@ def _persisted_gsc_result(workspace: Any, audit_id: str) -> dict[str, Any] | Non
 def _persisted_improvement_result(workspace: Any, audit_id: str) -> Any | None:
     from rasai.improvement_intelligence import ImprovementResult
 
-    connection = sqlite3.connect(workspace.database)
-    connection.row_factory = sqlite3.Row
-    try:
-        if not _table_exists(connection, "improvement_intelligence_runs"):
-            return None
-        row = connection.execute(
-            "SELECT * FROM improvement_intelligence_runs WHERE audit_id=?",
-            (audit_id,),
-        ).fetchone()
-    finally:
-        connection.close()
+    row = _improvement_run(workspace, audit_id)
     if row is None:
         return None
     return ImprovementResult(
-        status=str(row["status"] or "COMPLETE"),
-        target_url=str(row["target_url"]) if row["target_url"] else None,
-        findings_count=int(row["findings_count"] or 0),
-        recommendations_count=int(row["recommendations_count"] or 0),
-        provider=str(row["provider"]) if row["provider"] else None,
-        model=str(row["model"]) if row["model"] else None,
-        reasoning=str(row["reasoning"]) if row["reasoning"] else None,
-        reason=str(row["reason"]) if row["reason"] else None,
+        status=str(row.get("status") or "COMPLETE"),
+        target_url=str(row["target_url"]) if row.get("target_url") else None,
+        findings_count=int(row.get("findings_count") or 0),
+        recommendations_count=int(row.get("recommendations_count") or 0),
+        provider=str(row["provider"]) if row.get("provider") else None,
+        model=str(row["model"]) if row.get("model") else None,
+        reasoning=str(row["reasoning"]) if row.get("reasoning") else None,
+        reason=str(row["reason"]) if row.get("reason") else None,
         reused=True,
     )
 
 
-@contextmanager
-def _original_optional_environment(workspace: Any, audit_id: str) -> Iterator[None]:
-    """Restore original non-secret settings; missing prerequisites may use current values."""
+def _optional_environment_values(workspace: Any, audit_id: str) -> dict[str, Any]:
     overrides: dict[str, Any] = {}
     improvement = _item(workspace, audit_id, "IMPROVEMENT_INTELLIGENCE")
     if improvement is not None:
@@ -597,51 +745,89 @@ def _original_optional_environment(workspace: Any, audit_id: str) -> Iterator[No
         ):
             if cfg.get(key) not in (None, ""):
                 overrides[env_name] = cfg[key]
-
-    with _temporary_environment(overrides):
-        yield
+    return overrides
 
 
 @contextmanager
-def _reuse_successful_optional_calls(workspace: Any, audit_id: str) -> Iterator[None]:
-    """Prevent external re-execution of optional work items already satisfied."""
+def _original_optional_environment(workspace: Any, audit_id: str) -> Iterator[None]:
+    """Restore original non-secret settings without mutating process-wide environment."""
+    with override_environment(_optional_environment_values(workspace, audit_id)):
+        yield
+
+
+def _install_contextual_optional_hooks() -> None:
+    """Install stable ContextVar-aware hooks; never swap functions per execution."""
     from rasai import improvement_intelligence_runtime as improvement_runtime
     from rasai import standards_gsc_observability_runtime as gsc_runtime
 
-    original_improvement = improvement_runtime.execute_improvement_intelligence
+    original_config = improvement_runtime.ImprovementConfig
+    if not bool(getattr(original_config, "_rasai_contextual_optional_config", False)):
+        class ContextualImprovementConfig:
+            _rasai_contextual_optional_config = True
+
+            @classmethod
+            def from_environment(cls, env: Mapping[str, str] | None = None):
+                return original_config.from_environment(resolve_environment(env))
+
+        improvement_runtime.ImprovementConfig = ContextualImprovementConfig
+
+    original_execute = improvement_runtime.execute_improvement_intelligence
+    if not bool(getattr(original_execute, "_rasai_contextual_optional_reuse", False)):
+        def contextual_improvement_execute(*args: Any, **kwargs: Any):
+            audit_id = str(kwargs.get("audit_id") or "")
+            workspace = kwargs.get("workspace")
+            active_context = current()
+            if (
+                active_context is not None
+                and active_context.audit_id == audit_id
+                and workspace is not None
+                and not should_execute("IMPROVEMENT_INTELLIGENCE")
+            ):
+                item = _item(workspace, audit_id, "IMPROVEMENT_INTELLIGENCE")
+                if item is not None and str(item.status) == SUCCESS:
+                    persisted = _persisted_improvement_result(workspace, audit_id)
+                    if persisted is not None:
+                        return persisted
+            return original_execute(*args, **kwargs)
+
+        contextual_improvement_execute._rasai_contextual_optional_reuse = True
+        contextual_improvement_execute._rasai_original = original_execute
+        improvement_runtime.execute_improvement_intelligence = contextual_improvement_execute
+
     original_gsc = gsc_runtime.collect_configured_search_console
-    patched_improvement = False
-    patched_gsc = False
+    if not bool(getattr(original_gsc, "_rasai_contextual_optional_reuse", False)):
+        def contextual_gsc_collect(*, audit_id: str, workspace: Any, env: Mapping[str, str] | None = None):
+            active_context = current()
+            if active_context is not None and active_context.audit_id == audit_id:
+                item = _item(workspace, audit_id, "GOOGLE_SEARCH_CONSOLE")
+                if item is not None and (
+                    (not should_execute("GOOGLE_SEARCH_CONSOLE") and str(item.status) == SUCCESS)
+                    or _expired(item)
+                ):
+                    persisted = _persisted_gsc_result(workspace, audit_id)
+                    if persisted is not None:
+                        return persisted
+                    return {
+                        "service_state": "NO_PERSISTED_RESULT",
+                        "requested": True,
+                        "configured": False,
+                        "effective_enabled": False,
+                        "operations": [],
+                        "errors": [],
+                        "collection_state": "NO_DATA",
+                        "targets_attempted": 0,
+                        "targets_succeeded": 0,
+                    }
+                return original_gsc(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    env=resolve_environment(env),
+                )
+            return original_gsc(audit_id=audit_id, workspace=workspace, env=env)
 
-    improvement = _item(workspace, audit_id, "IMPROVEMENT_INTELLIGENCE")
-    if improvement is not None and not should_execute("IMPROVEMENT_INTELLIGENCE") and str(improvement.status) == SUCCESS:
-        reused = _persisted_improvement_result(workspace, audit_id)
-        if reused is not None:
-            def reuse_improvement(*args: Any, **kwargs: Any):
-                return reused
-            improvement_runtime.execute_improvement_intelligence = reuse_improvement
-            patched_improvement = True
-
-    gsc = _item(workspace, audit_id, "GOOGLE_SEARCH_CONSOLE")
-    reuse_gsc = gsc is not None and (
-        (not should_execute("GOOGLE_SEARCH_CONSOLE") and str(gsc.status) == SUCCESS)
-        or _expired(gsc)
-    )
-    if reuse_gsc:
-        persisted = _persisted_gsc_result(workspace, audit_id)
-        if persisted is not None:
-            def reuse_search_console(*args: Any, **kwargs: Any):
-                return dict(persisted)
-            gsc_runtime.collect_configured_search_console = reuse_search_console
-            patched_gsc = True
-
-    try:
-        yield
-    finally:
-        if patched_improvement:
-            improvement_runtime.execute_improvement_intelligence = original_improvement
-        if patched_gsc:
-            gsc_runtime.collect_configured_search_console = original_gsc
+        contextual_gsc_collect._rasai_contextual_optional_reuse = True
+        contextual_gsc_collect._rasai_original = original_gsc
+        gsc_runtime.collect_configured_search_console = contextual_gsc_collect
 
 
 def _current_reprocess_id(workspace: Any, audit_id: str) -> str | None:
@@ -704,8 +890,20 @@ def _install_report_finalizer() -> None:
             and str(search.status) != SUCCESS
             and not _expired(search)
         ):
-            _recover_search(workspace, audit_id, search)
             evaluated.add("SEARCH_INTELLIGENCE")
+            try:
+                _recover_search(workspace, audit_id, search)
+            except Exception as exc:
+                set_work_item_status(
+                    workspace,
+                    audit_id=audit_id,
+                    component="SEARCH_INTELLIGENCE",
+                    status=FAILED_RETRYABLE,
+                    error_class="SEARCH_PROVIDER",
+                    error_code="SEARCH_INTELLIGENCE_RUNTIME_ERROR",
+                    error_message=redact_text(f"{type(exc).__name__}: {exc}")[:1000],
+                    retryable=True,
+                )
 
         for component in ("GOOGLE_SEARCH_CONSOLE", "IMPROVEMENT_INTELLIGENCE"):
             item = _item(workspace, audit_id, component)
@@ -716,11 +914,10 @@ def _install_report_finalizer() -> None:
             evaluated.add(component)
 
         with _original_optional_environment(workspace, audit_id):
-            with _reuse_successful_optional_calls(workspace, audit_id):
-                result = original(*args, **kwargs)
-
-        _record_optional_attempts(workspace, audit_id, evaluated)
-        return result
+            try:
+                return original(*args, **kwargs)
+            finally:
+                _record_optional_attempts(workspace, audit_id, evaluated)
 
     finalize_selective_optional._rasai_selective_optional_reprocess = True
     finalize_selective_optional._rasai_original = original
@@ -757,9 +954,6 @@ def _install_reprocess_wrapper() -> None:
         source: str = "CLI",
     ):
         workspace = AuditWorkspace.open(Path(audits_root) / audit_id)
-        # Index the current contract first. This is idempotent and also lets an AUD
-        # created before the Search fulfillment adapter recover from its saved console
-        # configuration rather than silently shrinking the denominator.
         audit_reprocess._backfill_contract(workspace, audit_id)
         _backfill_console_search(workspace, audit_id)
         _validate_success_integrity(workspace, audit_id)
@@ -768,7 +962,7 @@ def _install_reprocess_wrapper() -> None:
             for item in list_work_items(workspace, audit_id, pending_only=True)
             if bool(item.required)
         }
-        with scope(audit_id, pending) as state:
+        with scope(audit_id, pending, workspace=workspace) as state:
             result = original(audit_id, audits_root=audits_root, source=source)
             extra_attempted = int(state.extra_attempted)
             extra_successful = int(state.extra_successful)
@@ -797,6 +991,7 @@ def install() -> None:
     if _INSTALLED:
         return
     _augment_reconciliation_configuration()
+    _install_contextual_optional_hooks()
     _install_reprocess_wrapper()
     _install_report_finalizer()
     _INSTALLED = True
