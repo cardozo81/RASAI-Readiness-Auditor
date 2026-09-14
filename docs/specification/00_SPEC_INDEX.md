@@ -1,17 +1,18 @@
-# RASAi - Search & AI Readiness Auditor - Índice da especificação
+# RASAi - Search & AI Readiness Auditor - índice da especificação
 
 **Contrato vigente:** VIGENTE  
 **Scoring:** `SCORE-GEO-004`  
 **Índice público:** `SARI-001`  
+**Contrato de relatório:** `REPORT-CONTRACT-002`  
 **Idioma normativo:** português do Brasil, preservando identificadores e termos técnicos quando necessário.
 
 ## 1. Objetivo
 
-Este diretório constitui a fonte normativa do RASAi. A especificação deve permitir compreender o produto e seus contratos atuais sem depender de chats, branches, pull requests, planos de entrega ou estados anteriores de implementação.
+Este diretório constitui a fonte normativa do RASAi. A especificação deve permitir compreender o produto e seus contratos atuais sem depender de chats, mecanismos de entrega ou estados de desenvolvimento que não façam parte do produto vigente.
 
-A documentação normativa descreve somente o comportamento vigente. Decisões descartadas e superfícies removidas não integram o contrato do produto.
+A documentação normativa descreve somente o comportamento atual.
 
-As regras gerais de idioma, direitos autorais/citações e apresentação de default/valores permitidos/recomendados estão definidas em `../README.md` e aplicam-se a todos os arquivos deste diretório.
+As regras gerais de idioma, direitos autorais/citações, credenciais externas e apresentação de default/valores permitidos/recomendados estão definidas em `../README.md`, `../ENVIRONMENT_VARIABLES.md` e `../EXTERNAL_CREDENTIALS.md` e aplicam-se a todos os arquivos deste diretório.
 
 ## 2. Ordem recomendada de leitura
 
@@ -59,7 +60,9 @@ Em caso de conflito:
 5. arquitetura técnica atual;
 6. especificações funcionais complementares.
 
-Quando qualquer documento divergir do comportamento comprovado pelo runtime vigente, a documentação deve ser corrigida para representar o código atual, salvo quando a divergência revelar defeito de implementação explicitamente tratado em outra demanda. Nesta revisão documental não se altera código para preservar texto antigo.
+Quando qualquer documento divergir do comportamento comprovado pelo runtime vigente, a documentação deve ser corrigida para representar o código atual, salvo quando a divergência revelar defeito de implementação catalogado para correção posterior. Revisões documentais não alteram código para preservar texto divergente.
+
+Protótipos em `../../prototypes/` não são fonte normativa. Eles podem representar contratos atuais ou contratos desejados, mas nunca prevalecem sobre runtime, testes e especificação vigente.
 
 ## 4. Contrato de scoring
 
@@ -81,33 +84,41 @@ Princípios:
 - Overall é determinístico e não exige model artifact externo;
 - ausência de evidência suficiente não é transformada em zero;
 - métricas externas não entram silenciosamente no SARI;
+- `BR-GEO-060` é a única corroboração externa score-eligible vigente e somente contribui quando há evidência positiva Common Crawl persistida e reproduzível;
 - IA não calcula diretamente o score;
 - mudança metodologicamente incompatível exige nova `scoring_version`.
 
-Detalhes: `05_SCORING_MODEL.md`, `../SCORE_GEO_004.md` e `../SCORING_GUIDE.md`.
+Detalhes: `05_SCORING_MODEL.md`, `../SCORE_GEO_004.md`, `../SCORING_GUIDE.md` e `../SARI_EXTERNAL_CRAWL_CORROBORATION.md`.
 
-## 5. REPORT-SITE-GEO-001
+## 5. REPORT-CONTRACT-002
 
-Contrato de saída por auditoria, condicionado à materialização:
+Toda auditoria concluída com sucesso deve materializar fisicamente todas as superfícies HTML canônicas. A propriedade `optional` de `ReportSurface` significa que os dados ou a capacidade daquele domínio podem ser opcionais. Ela não autoriza a remoção da página ou do item de navegação.
+
+Quando uma capacidade não foi solicitada, não está configurada, não é aplicável ou não possui dados, sua página canônica permanece presente e apresenta o estado neutro correspondente. A materialização da página não dispara provider, API, coletor ou IA apenas para preencher a interface.
+
+Superfícies canônicas vigentes, na ordem de leitura definida pelo runtime:
 
 ```text
 <AUD-ID>/report/index.html
 <AUD-ID>/report/readiness.html
 <AUD-ID>/report/scoring.html
+<AUD-ID>/report/context.html
+<AUD-ID>/report/crawling-discovery.html
 <AUD-ID>/report/mobile.html
 <AUD-ID>/report/desktop.html
-<AUD-ID>/report/remediation.html
-<AUD-ID>/report/content-suggestions.html
-<AUD-ID>/report/crawling-discovery.html
 <AUD-ID>/report/accessibility.html
 <AUD-ID>/report/web-performance.html
-<AUD-ID>/report/search-intelligence.html
+<AUD-ID>/report/standards.html
 <AUD-ID>/report/apdex.html
 <AUD-ID>/report/apdex-experience.html
+<AUD-ID>/report/search-intelligence.html
 <AUD-ID>/report/ai-visibility.html
 <AUD-ID>/report/observability.html
-<AUD-ID>/report/quality.html
 <AUD-ID>/report/ai-usage.html
+<AUD-ID>/report/improvement-intelligence.html
+<AUD-ID>/report/content-suggestions.html
+<AUD-ID>/report/remediation.html
+<AUD-ID>/report/quality.html
 <AUD-ID>/report/references.html
 <AUD-ID>/report/css/site.css
 ```
@@ -115,6 +126,8 @@ Contrato de saída por auditoria, condicionado à materialização:
 `readiness.html` é a página canônica do SARI. `scoring.html` é a página canônica da metodologia de scoring e deve exibir a versão efetivamente persistida.
 
 Não existe filename público versionado alternativo para a metodologia. A versão pertence a `scoring_version`, manifests, banco, metadados e conteúdo do relatório.
+
+A fonte de verdade da lista, ordem, labels e completude é `src/rasai/report_contract.py`.
 
 ## 6. Fronteiras metodológicas
 
@@ -125,10 +138,10 @@ Não existe filename público versionado alternativo para a metodologia. A vers�
 | Acessibilidade automatizada | diagnóstico | não certifica WCAG integral; separado do SARI |
 | Synthetic Navigation Apdex | navegação sintética | não é RUM; separado do SARI |
 | Synthetic User Experience Apdex | experiência sintética | não é RUM; separado do Navigation Apdex e SARI |
-| Crawling/discovery | robots, sitemaps, crawler policy | diagnóstico técnico non-scoring, salvo regras explicitamente versionadas de refinamento bounded |
+| Crawling/discovery | robots, sitemaps, crawler policy | diagnóstico técnico; somente regras explicitamente versionadas podem pontuar |
 | Search Intelligence | SERP e comparação competitiva opcional | observacional/advisory; non-scoring |
 | Observed Generative Visibility | outcomes de AI Search | observacional; não entra no score |
-| Search & AI Observability | outcomes e diagnósticos externos | sidecar derivado; non-scoring |
+| Search & AI Observability | outcomes e diagnósticos externos | sidecar derivado; non-scoring, salvo `BR-GEO-060` conforme contrato específico |
 | Monitoring | baseline/current e release gate | read-only; não cria score |
 | Quality | qualidade da evidência/decisão | read-only; não cria readiness score |
 | Fix Verification | transição de regra entre AUDs | não prova downstream impact |
@@ -169,7 +182,7 @@ rasai observability ...
 - identidade `(dataset_id, record_id)`;
 - provenance explícita;
 - `NULL` externo não vira zero;
-- não altera `audit.db` nem SARI/SCORE-GEO-004.
+- não altera `audit.db` nem SARI/SCORE-GEO-004, exceto a Evidence/RuleExecution mínima de `BR-GEO-060` quando a corroboração Common Crawl positiva qualifica para scoring.
 
 ### Quality
 
@@ -201,7 +214,7 @@ O SaaS Pilot Web adiciona UI de navegador sem segunda persistência e sem mover 
 
 Identity & Access usa OIDC/JWT provider-neutral, Authorization Code + PKCE para browser, sessão Web curta e vínculo explícito `(issuer, subject) -> USR-*`. Autenticação não cria memberships e não substitui as regras de tenancy.
 
-Detalhes: `../PRODUCT_PLATFORM_ARCHITECTURE.md`, `29_SAAS_PILOT_WEB.md`, `30_IDENTITY_AND_ACCESS.md`, `../SAAS_PILOT_WEB.md` e `../IDENTITY_AND_ACCESS.md`.
+Detalhes: `../PRODUCT_PLATFORM_ARCHITECTURE.md`, `29_SAAS_PILOT_WEB.md`, `30_IDENTITY_AND_ACCESS.md`, `../SAAS_PILOT_WEB.md`, `../IDENTITY_AND_ACCESS.md` e `../WEB_API_FOUNDATION.md`.
 
 ## 10. Tempo e timezone
 
@@ -218,6 +231,8 @@ Referências primárias externas sustentam fenômenos específicos. Elas não ho
 Heurísticas BR-GEO sem equivalente normativo permanecem identificadas como heurística interna.
 
 Quando houver reprodução ou tradução/adaptação de trecho protegido por direitos autorais, a seção correspondente deve incluir a nota definida em `../README.md`, preservar o excerto original estritamente necessário e apresentar a tradução/adaptação pt-BR. Lista de links ou nomes técnicos, isoladamente, não equivale a reprodução da obra.
+
+Credenciais, tokens, API keys e onboarding de serviços externos devem apontar para fonte oficial e seguir `../EXTERNAL_CREDENTIALS.md`.
 
 ## 12. Regra de valores configuráveis
 
