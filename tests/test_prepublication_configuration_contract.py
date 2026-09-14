@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
 from rasai import console_environment
 from rasai.console_config import is_secret
 from rasai.console_m23 import State, apply_m23_environment_defaults
@@ -13,6 +14,11 @@ from rasai.console_settings import (
 )
 from rasai.m25_cli import DEFAULT_UX_DEVICE_MIX, configured_experience, parse_device_mix
 
+
+# This suite validates the public, composed console catalog rather than the raw import
+# state of one module. The interactive entrypoint installs the canonical AI policy before
+# the final advanced-configuration catalog is exposed.
+install_ai_efficiency_policy()
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -52,9 +58,6 @@ def test_experience_environment_overrides_are_projected_before_enablement() -> N
 
 
 def test_all_safe_console_environment_variables_are_ini_persistable() -> None:
-    # Runtime installers extend the canonical console catalog in place during process
-    # composition. Read the module attribute at assertion time instead of keeping a
-    # collection-time tuple snapshot, otherwise test order can create a false mismatch.
     expected = {
         spec.name
         for spec in console_environment.SPECS
@@ -66,9 +69,6 @@ def test_all_safe_console_environment_variables_are_ini_persistable() -> None:
 def test_saved_configuration_contains_runtime_and_experience_defaults(monkeypatch) -> None:
     state = State()
     state.apdex_experience_device_mix = DEFAULT_UX_DEVICE_MIX
-    # The helper also preserves advanced environment-only overrides. Isolate all
-    # state-owned projections so this test cannot inherit mutable process state from
-    # another test or from a developer shell.
     for name in _runtime_environment_projection(state):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("RASAI_REMOTE_TIMEOUT_SECONDS", "45")
@@ -89,9 +89,6 @@ def test_every_configuration_has_default_or_explicit_conditional_requirement() -
 
 
 def test_environment_reference_documents_cover_the_console_catalog() -> None:
-    # General variables stay in ENVIRONMENT_VARIABLES. Specialized families may keep
-    # their own canonical references when the setting requires domain-specific policy,
-    # lifecycle or security semantics.
     documents = (
         ROOT / "docs" / "ENVIRONMENT_VARIABLES.md",
         ROOT / "docs" / "EXTERNAL_OBSERVABILITY_INTEGRATIONS.md",
