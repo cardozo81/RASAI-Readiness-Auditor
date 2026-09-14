@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from rasai.console_preparation_layout import (
+    _InteractiveCapture,
     _replace_menu_references,
     _standardize_output,
     _translate_choice,
@@ -111,3 +112,15 @@ def test_contextual_guidance_uses_canonical_visible_items() -> None:
     assert _replace_menu_references("habilite o item 13") == "habilite o item 8"
     assert _replace_menu_references("configure IA no item 4") == "configure IA no item 6"
     assert _replace_menu_references("retorne a F. Perfil da execução") == "retorne a 15. Perfil da execução"
+
+
+def test_capture_preserves_real_terminal_tty_capability() -> None:
+    fake_stdout = SimpleNamespace(isatty=lambda: True)
+    capture = _InteractiveCapture(fake_stdout)
+    assert capture.isatty() is True
+
+
+def test_standardizer_preserves_existing_ansi_value_badges() -> None:
+    colored = _sample_render().replace("deepseek [APTO]", "\x1b[32mdeepseek [APTO]\x1b[0m")
+    rendered = _standardize_output(colored)
+    assert "\x1b[32mdeepseek [APTO]\x1b[0m" in rendered
