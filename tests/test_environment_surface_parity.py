@@ -4,6 +4,7 @@ import ast
 from pathlib import Path
 
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
+from rasai.ai_model_console import install as install_ai_model_console
 from rasai.ai_pricing_console import install as install_ai_pricing_console
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 
@@ -11,6 +12,7 @@ from rasai.runtime_completion_extensions import install_runtime_completion_exten
 # feature-local provider selectors before the final advanced catalog is exposed.
 install_ai_efficiency_policy()
 install_runtime_completion_extensions()
+install_ai_model_console()
 install_ai_pricing_console()
 
 from rasai.console_environment import ENV_NAMES, SPEC_BY_NAME
