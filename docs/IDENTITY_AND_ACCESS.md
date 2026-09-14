@@ -1,14 +1,10 @@
 # Identity & Access do RASAi
 
-## Estado
+## Estado e objetivo
 
-Esta é a fundação vigente de identidade para a superfície Web/SaaS do RASAi.
+Identity & Access é o contrato de autenticação da superfície Web/SaaS do RASAi. Ele não altera `SARI-001`, `SCORE-GEO-004`, `audit.db`, regras BR-GEO ou evidências da auditoria.
 
-Ela não altera `SARI-001`, `SCORE-GEO-004`, `audit.db`, regras BR-GEO ou qualquer evidência de auditoria.
-
-## Objetivo
-
-Separar claramente três conceitos:
+A separação é:
 
 ```text
 Identity Provider
@@ -21,23 +17,21 @@ RASAi memberships / roles
   -> autorizam Organization, Workspace e Project
 ```
 
-Autenticar no Identity Provider não concede acesso automaticamente ao RASAi.
+Autenticação válida no Identity Provider não concede acesso automaticamente ao RASAi.
 
 ## Modos de autenticação
 
 `RASAI_API_AUTH_MODE` aceita:
 
-| Modo | Uso | Estado |
+| Modo | Default/uso | Limite |
 |---|---|---|
-| `deny` | fail-closed quando autenticação não foi configurada | default |
-| `trusted-header` | desenvolvimento local ou gateway que já autenticou o usuário | compatibilidade |
-| `oidc` | validação direta de OIDC/JWT e sessão Web | recomendado para evolução SaaS |
+| `deny` | default fail-closed | não autentica chamadas protegidas |
+| `trusted-header` | gateway autenticado ou smoke local controlado | não é autenticação pública por si só |
+| `oidc` | recomendado para Web/SaaS | exige configuração OIDC válida |
 
-`trusted-header` não transforma um header HTTP em autenticação pública segura. Em bind público ele somente pode ser usado atrás de infraestrutura que remova headers do cliente, autentique a requisição e injete a identidade confiável.
+`trusted-header` só é seguro fora de loopback quando o gateway remove o header de identidade recebido do cliente, autentica a requisição, injeta a identidade confiável e impede acesso direto ao processo RASAi.
 
 ## Identidade externa
-
-O RASAi não usa e-mail como chave de autenticação e não converte automaticamente `sub` em `USR-*`.
 
 O vínculo canônico é:
 
@@ -45,7 +39,9 @@ O vínculo canônico é:
 (issuer, subject) -> user_id
 ```
 
-Exemplo:
+E-mail pode ser metadata, mas não é a chave de autenticação.
+
+Vincular identidade:
 
 ```powershell
 rasai platform identity link `
@@ -55,22 +51,22 @@ rasai platform identity link `
   --email analyst@example.com
 ```
 
-Listagem:
+Consultar:
 
 ```powershell
 rasai platform identity list
 rasai platform identity list --user USR-EXISTENTE
 ```
 
-Remoção:
+Remover vínculo:
 
 ```powershell
 rasai platform identity unlink --identity IDN-EXISTENTE
 ```
 
-A remoção do vínculo impede novas resoluções daquela identidade. Memberships permanecem registros separados e podem ser administradas independentemente.
+Remover o vínculo impede novas resoluções daquela identidade. Memberships continuam registros independentes.
 
-## OIDC - configuração mínima
+## Configuração OIDC mínima
 
 ```powershell
 $env:RASAI_API_AUTH_MODE = "oidc"
@@ -78,39 +74,37 @@ $env:RASAI_OIDC_ISSUER = "https://login.example.com"
 $env:RASAI_OIDC_CLIENT_ID = "rasai-web"
 $env:RASAI_OIDC_AUDIENCE = "rasai-api"
 $env:RASAI_OIDC_REDIRECT_URI = "https://rasai.example.com/auth/callback"
-$env:RASAI_OIDC_SESSION_SECRET = "<segredo-forte-fornecido-pelo-secret-manager>"
+$env:RASAI_OIDC_SESSION_SECRET = "<segredo-forte>"
 ```
 
-`RASAI_OIDC_SESSION_SECRET` deve ter pelo menos 32 bytes UTF-8. Ele protege estado PKCE e sessões Web. Não deve ser commitado, materializado em TOML, exibido em logs ou gravado no control plane.
+O RASAi é provider-neutral. Não existe uma URL universal para criar o client OIDC: ele deve ser registrado no Identity Provider escolhido pela implantação. A orientação de credencial está em [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md).
+
+## Variáveis OIDC
+
+| Variável | Default efetivo | Valores permitidos | Recomendado | Finalidade / dependência |
+|---|---|---|---|---|
+| `RASAI_OIDC_ISSUER` | sem default | URL HTTPS absoluta, sem credenciais, query ou fragmento | issuer exato do IdP | obrigatório no modo `oidc`; base para discovery e validação `iss` |
+| `RASAI_OIDC_CLIENT_ID` | sem default | texto não vazio | client registrado no IdP | identifica o client no Authorization Code flow |
+| `RASAI_OIDC_AUDIENCE` | valor de `RASAI_OIDC_CLIENT_ID` | texto | manter client ID salvo requisito distinto do IdP | audience esperada para bearer JWT da API |
+| `RASAI_OIDC_REDIRECT_URI` | sem default | URL absoluta; HTTPS; HTTP somente em loopback | HTTPS | callback do browser; define origem esperada para proteção CSRF |
+| `RASAI_OIDC_SESSION_SECRET` | sem default | segredo com pelo menos 32 bytes UTF-8 | secret manager | cifra/autentica transações e sessões Web |
+| `RASAI_OIDC_CLIENT_SECRET_ENV` | sem default | nome válido de variável de ambiente | referência para secret store | opcional para confidential client; não contém o segredo diretamente |
+| `RASAI_OIDC_ALGORITHMS` | `RS256,ES256` | CSV de algoritmos assimétricos suportados | default salvo contrato do IdP | allowlist de assinatura JWT; `none` e algoritmos simétricos não são aceitos |
+| `RASAI_OIDC_SCOPES` | `openid,profile,email` | CSV contendo obrigatoriamente `openid` | reduzir ao necessário | scopes do login |
+| `RASAI_OIDC_SESSION_TTL_SECONDS` | `28800` | inteiro `300..86400` | `28800` | duração máxima da sessão Web emitida pelo RASAi |
+
+`RASAI_OIDC_SESSION_SECRET` nunca deve ser commitado, gravado em TOML/INI, exibido em log ou persistido no control plane.
 
 ### Client secret opcional
 
-O fluxo usa Authorization Code + PKCE e pode funcionar como public client quando o Identity Provider permitir.
-
-Para confidential client, configure somente a referencia para o nome da variável que contém o segredo:
+Authorization Code + PKCE pode operar como public client quando o IdP permitir. Para confidential client:
 
 ```powershell
 $env:RASAI_OIDC_CLIENT_SECRET_ENV = "RASAI_IDP_CLIENT_SECRET"
 $env:RASAI_IDP_CLIENT_SECRET = "<segredo-do-client>"
 ```
 
-O valor do client secret não é persistido pelo RASAi.
-
-## Variáveis OIDC
-
-| Variável | Default | Finalidade |
-|---|---|---|
-| `RASAI_OIDC_ISSUER` | nenhum | issuer HTTPS exato do Identity Provider |
-| `RASAI_OIDC_CLIENT_ID` | nenhum | client usado no Authorization Code flow |
-| `RASAI_OIDC_AUDIENCE` | `RASAI_OIDC_CLIENT_ID` | audience esperada para bearer JWT da API |
-| `RASAI_OIDC_REDIRECT_URI` | nenhum | callback absoluto; HTTP somente em loopback |
-| `RASAI_OIDC_SESSION_SECRET` | nenhum | segredo de criptografia/autenticacao da sessao |
-| `RASAI_OIDC_CLIENT_SECRET_ENV` | nenhum | nome da variável que contém client secret opcional |
-| `RASAI_OIDC_ALGORITHMS` | `RS256,ES256` | allowlist de algoritmos assimétricos |
-| `RASAI_OIDC_SCOPES` | `openid,profile,email` | scopes do login; `openid` é obrigatório |
-| `RASAI_OIDC_SESSION_TTL_SECONDS` | `28800` | TTL entre 300 e 86400 segundos |
-
-Algoritmos simétricos e `none` não são aceitos pelo contrato atual.
+Somente o nome `RASAI_IDP_CLIENT_SECRET` pode ser tratado como configuração. O valor real permanece no secret boundary.
 
 ## Browser login
 
@@ -118,32 +112,30 @@ Com `oidc` ativo:
 
 ```text
 GET /app
-  -> se não autenticado: /auth/login
+  -> sem sessão válida: /auth/login
 
 /auth/login
-  -> discovery OIDC
+  -> OIDC discovery
   -> state + nonce
   -> PKCE S256
-  -> redirect para authorization_endpoint
+  -> authorization_endpoint
 
 /auth/callback
   -> valida state
   -> troca code no token_endpoint
-  -> valida assinatura, issuer, audience, exp, sub e nonce do id_token
+  -> valida id_token
   -> resolve issuer + sub para USR-*
   -> cria sessão Web curta
   -> redirect /app
 ```
 
-O access token e o ID token recebidos no callback não são persistidos no control plane nem colocados na sessão do browser.
+O access token e o ID token recebidos durante login não são persistidos no control plane nem copiados para a sessão do browser.
 
-A sessão contém apenas o mínimo necessário para revalidar o vínculo interno e é cifrada/autenticada com o segredo da implantação.
-
-Cookies são `HttpOnly` e `SameSite=Lax`. Em redirect HTTPS também recebem `Secure`.
+A sessão contém apenas os dados mínimos para revalidar o vínculo interno. Cookies são `HttpOnly` e `SameSite=Lax`; em HTTPS também são `Secure`.
 
 ## Bearer JWT para API
 
-Clientes de API podem enviar:
+Clientes podem enviar:
 
 ```text
 Authorization: Bearer <JWT>
@@ -151,57 +143,49 @@ Authorization: Bearer <JWT>
 
 O RASAi valida:
 
-- algoritmo dentro da allowlist;
+- algoritmo na allowlist;
 - `kid`;
 - assinatura por JWKS;
 - `iss`;
 - `aud`;
 - `exp`;
 - `sub`;
-- rotação de chave por refresh do JWKS quando o `kid` não está no cache.
+- rotação de chave por atualização de JWKS quando necessária.
 
-Depois da validação, `issuer + sub` ainda precisa existir no control plane e apontar para usuário ativo.
+Depois da validação, `(issuer, sub)` precisa estar vinculado a usuário interno ativo e a autorização continua dependendo de memberships.
 
 ## Discovery e JWKS
 
-O issuer e os endpoints descobertos precisam usar HTTPS.
-
-Discovery e JWKS são mantidos em cache de memória por janela curta e são atualizados quando necessário. Falha de rede ou configuração do Identity Provider gera indisponibilidade de autenticação, não bypass.
+Issuer e endpoints descobertos precisam cumprir o contrato HTTPS. Discovery e JWKS são cacheados em memória por janela curta e atualizados quando necessário. Falha de rede ou configuração resulta em indisponibilidade de autenticação, nunca em bypass.
 
 ## CSRF
 
-Quando uma operação mutável usa cookie de sessão, a origem do browser precisa coincidir com a origem configurada em `RASAI_OIDC_REDIRECT_URI`.
+Operação mutável autenticada por cookie exige `Origin` igual à origem derivada de `RASAI_OIDC_REDIRECT_URI`. Bearer JWT não usa cookie e não depende dessa verificação.
 
-Bearer JWT não depende de cookie e portanto não usa essa verificação de origem.
+## PostgreSQL e SQLite
 
-## PostgreSQL
+Vínculo de identidade pertence ao control plane, não ao `audit.db`.
 
-O vínculo de identidade é metadado do control plane. Ele não pertence ao `audit.db`.
-
-Em PostgreSQL a tabela é criada somente por migration explícita:
+Em PostgreSQL, migrations são explícitas:
 
 ```powershell
 rasai platform database migrate
 ```
 
-Normal startup continua sem aplicar migrations automaticamente.
+Startup normal não aplica migration automaticamente.
 
-`platform database status` passa a expor também as versões `identity_current_version` e `identity_supported_version`.
-
-SQLite continua local/default e materializa a extensão de identidade local de forma aditiva.
+SQLite continua disponível para operação local e mantém a mesma separação conceitual.
 
 ## Provisionamento
 
-O baseline atual é deliberadamente administrado:
+Acesso exige, nesta ordem lógica:
 
-1. criar ou identificar `USR-*`;
-2. criar memberships e roles;
-3. vincular `issuer + subject` ao usuário;
-4. habilitar `oidc` na aplicação.
+1. `USR-*` existente no control plane;
+2. membership/role correspondente;
+3. vínculo `(issuer, subject)`;
+4. modo `oidc` corretamente configurado.
 
-Não existe Just-In-Time provisioning automático neste estágio.
-
-Essa decisão evita que qualquer conta válida no tenant do Identity Provider passe a ganhar acesso ao RASAi por acidente.
+O runtime não cria Just-In-Time provisioning automaticamente.
 
 ## Falhas
 
@@ -209,27 +193,26 @@ Essa decisão evita que qualquer conta válida no tenant do Identity Provider pa
 |---|---|
 | auth não configurada | `503` fail-closed |
 | bearer/cookie ausente | `401` |
-| JWT inválido/expirado | `401` |
-| identidade válida mas não provisionada | `403` |
+| JWT inválido ou expirado | `401` |
+| identidade válida sem vínculo RASAi | `403` |
 | membership ausente ou fora do tenant | `403` |
 | discovery/JWKS/IdP indisponível | `503` |
 | tentativa CSRF com cookie | `403` |
 
-Nenhuma dessas situações deve cair para `trusted-header` automaticamente.
+Nenhuma dessas situações cai automaticamente para `trusted-header`.
 
-## Fora de escopo desta fundação
+## Fora do contrato atual
 
-Ainda não são baseline obrigatório:
+Não fazem parte do contrato vigente:
 
 - SCIM;
-- Just-In-Time provisioning;
+- Just-In-Time provisioning automático;
 - MFA próprio do RASAi;
 - recuperação de senha própria;
-- password database;
+- banco de senhas próprio;
 - SAML direto;
 - federation multi-issuer por Organization;
 - refresh token persistido;
-- billing;
-- Identity Provider específico obrigatório.
+- Identity Provider obrigatório específico.
 
-MFA, políticas de senha, Conditional Access e lifecycle de credenciais devem permanecer no Identity Provider, não ser reimplementados pelo RASAi.
+MFA, política de senha, Conditional Access e lifecycle de credenciais pertencem ao Identity Provider escolhido, não ao RASAi.
