@@ -1,4 +1,4 @@
-# Guia das Business Rules - BR-GEO-001..059
+# Guia das Business Rules - BR-GEO-001..060
 
 A definição normativa prevalente está em [`docs/specification/03_BUSINESS_RULES.md`](specification/03_BUSINESS_RULES.md). Este guia explica a finalidade operacional das regras sem duplicar a fórmula completa do scoring.
 
@@ -27,15 +27,17 @@ Finding exige RuleExecution + Evidence rastreável. Falha de pré-requisito bloq
 
 Regras podem declarar `OFFICIAL`, `STANDARD` ou `HEURISTIC`. Regras de integridade podem representar contratos internos do auditor. Uma referência externa sustenta somente o fenômeno específico; não homologa o SARI composto.
 
+`BR-GEO-060` tem natureza externa corroborativa e positive-only. Ela não transforma ausência de observação externa em falha.
+
 ## Scoring
 
 - índice público: `SARI-001`;
 - scoring vigente: `SCORE-GEO-004`;
 - agregação: `HIERARCHICAL_WEIGHTED_READINESS_V1`.
 
-O manifesto vigente mapeia explicitamente regra → dimensão → `scoring_group` → papel de evidência. O peso de um grupo é fixo e distribuído entre páginas/escopos aplicáveis; quantidade de páginas não multiplica o peso metodológico.
+O manifesto vigente mapeia explicitamente regra -> dimensão -> `scoring_group` -> papel de evidência. O peso de um grupo é fixo e distribuído entre páginas/escopos aplicáveis; quantidade de páginas não multiplica o peso metodológico.
 
-Detalhes: [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SARI_READINESS_INDEX.md`](SARI_READINESS_INDEX.md) e [`SCORE_GEO_004.md`](SCORE_GEO_004.md).
+Detalhes: [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SARI_READINESS_INDEX.md`](SARI_READINESS_INDEX.md), [`SCORE_GEO_004.md`](SCORE_GEO_004.md) e [`SARI_EXTERNAL_CRAWL_CORROBORATION.md`](SARI_EXTERNAL_CRAWL_CORROBORATION.md).
 
 ## Catálogo
 
@@ -59,7 +61,7 @@ Detalhes: [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SARI_READINESS_INDEX.md`](SA
 | BR-GEO-016 | MEDIUM | detectar página error-like apresentada como indexável |
 | BR-GEO-017 | MEDIUM | interpretar robots.txt quando presente |
 | BR-GEO-018 | HIGH | resolver acesso por crawler configurado |
-| BR-GEO-019 | HIGH | comparar RAW × RENDERED por consistência semântica material |
+| BR-GEO-019 | HIGH | comparar RAW x RENDERED por consistência semântica material |
 | BR-GEO-020 | HIGH | verificar preservação de conteúdo essencial após JS |
 | BR-GEO-021 | HIGH | verificar acesso direto a rotas client-side indexáveis |
 | BR-GEO-022 | MEDIUM | verificar se navegação interna expõe destinos crawlable |
@@ -76,7 +78,7 @@ Detalhes: [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SARI_READINESS_INDEX.md`](SA
 | BR-GEO-033 | MEDIUM | detectar ambiguidade material de entidade |
 | BR-GEO-034 | MEDIUM | verificar Structured Data sintaticamente interpretável quando presente |
 | BR-GEO-035 | LOW | identificar tipos/propriedades presentes em Structured Data |
-| BR-GEO-036 | MEDIUM | verificar consistência Structured Data × conteúdo visível |
+| BR-GEO-036 | MEDIUM | verificar consistência Structured Data x conteúdo visível |
 | BR-GEO-037 | MEDIUM | verificar consistência entre entidades estruturadas/observadas |
 | BR-GEO-038 | HIGH | identificar intenção primária |
 | BR-GEO-039 | MEDIUM | verificar resposta explícita a perguntas relevantes |
@@ -92,7 +94,7 @@ Detalhes: [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SARI_READINESS_INDEX.md`](SA
 | BR-GEO-049 | MEDIUM | exigir evidência para gaps materiais de intenção |
 | BR-GEO-050 | MEDIUM | verificar destinos tecnicamente utilizáveis em links internos |
 | BR-GEO-051 | MEDIUM | identificar duplicatas/near-duplicates materiais |
-| BR-GEO-052 | MEDIUM | detectar/classificar diferenças Desktop × Mobile |
+| BR-GEO-052 | MEDIUM | detectar/classificar diferenças Desktop x Mobile |
 | BR-GEO-053 | CRITICAL | verificar rastreabilidade de Finding, RuleExecution e Evidence |
 | BR-GEO-054 | CRITICAL de integridade | verificar reprodutibilidade do scoring persistido |
 | BR-GEO-055 | MEDIUM | avaliação IA evidence-bound corroborativa de sitemap |
@@ -100,10 +102,11 @@ Detalhes: [`SCORING_GUIDE.md`](SCORING_GUIDE.md), [`SARI_READINESS_INDEX.md`](SA
 | BR-GEO-057 | MEDIUM | avaliar sinais de utilidade/especificidade não trivial do conteúdo |
 | BR-GEO-058 | MEDIUM | avaliar diferenciação/experiência/análise/dado próprio explicitamente demonstrado |
 | BR-GEO-059 | MEDIUM | avaliar profundidade/contexto proporcionais ao conteúdo e propósito observável |
+| BR-GEO-060 | INFO corroborativo | corroborar positivamente Discovery Access com presença histórica qualificada no Common Crawl |
 
 ## Dimensão Discovery & Crawler Access
 
-As regras antes associadas internamente a `TECHNICAL_ACCESSIBILITY` que realmente medem discovery/crawler access passam a usar:
+As regras que medem discovery/crawler access usam:
 
 ```text
 DISCOVERY_ACCESS
@@ -119,7 +122,8 @@ Principais grupos:
 - `REDIRECT`;
 - `SPA_ROUTE`;
 - `SPA_NAVIGATION`;
-- `INTERNAL_LINKS`.
+- `INTERNAL_LINKS`;
+- `EXTERNAL_CRAWL_CORROBORATION`.
 
 ## Regras semânticas e IA
 
@@ -132,8 +136,8 @@ Falha/ausência de IA não é evidência de baixa qualidade do website. Sem base
 Essas regras são opcionais e `AI_CORROBORATIVE`.
 
 ```text
-BR-GEO-055 → SITEMAP
-BR-GEO-056 → ROBOTS
+BR-GEO-055 -> SITEMAP
+BR-GEO-056 -> ROBOTS
 ```
 
 O provider não escolhe pesos, thresholds ou Overall.
@@ -167,7 +171,7 @@ Busca sinais **explícitos** de experiência, pesquisa, análise, metodologia, t
 Regra conservadora:
 
 ```text
-sem evidência explícita de diferenciação → UNKNOWN
+sem evidência explícita de diferenciação -> UNKNOWN
 ```
 
 Nunca presumir falta de originalidade como FAIL apenas porque o auditor não consegue prová-la.
@@ -175,6 +179,36 @@ Nunca presumir falta de originalidade como FAIL apenas porque o auditor não con
 ### BR-GEO-059 - Content depth
 
 Avalia se a profundidade/contexto observáveis são suficientes para uma conclusão baseline. Quando a evidência local não permite julgar adequação ao propósito, o resultado permanece UNKNOWN.
+
+## BR-GEO-060 - Corroboração externa de discovery
+
+`BR-GEO-060` é a única regra externa corroborativa atualmente elegível ao SARI.
+
+Contrato:
+
+```text
+Dimension = DISCOVERY_ACCESS
+Group = EXTERNAL_CRAWL_CORROBORATION
+Evidence role = EXTERNAL_CORROBORATIVE
+Group Weight = 3% de DISCOVERY_ACCESS
+Maximum Overall Impact = 0,45 ponto
+Critical Gate = não
+```
+
+A regra é `positive-only`. Ela só é materializada quando a observação Common Crawl atende às condições qualificadoras do contrato.
+
+Ausência de captura, erro de provider, alvo inelegível ou amostra insuficiente:
+
+```text
+não cria FAIL
+não cria score zero
+não reduz Coverage
+não reduz Confidence
+```
+
+A Evidence e a RuleExecution mínimas são persistidas quando a regra participa do score para que o resultado continue reproduzível sem nova chamada externa.
+
+Detalhes: [`SARI_EXTERNAL_CRAWL_CORROBORATION.md`](SARI_EXTERNAL_CRAWL_CORROBORATION.md).
 
 ## Structured Data
 
@@ -188,11 +222,11 @@ Structured Data representa no máximo 5% do contrato SARI quando aplicável.
 
 Category scores Lighthouse não são Business Rules SARI.
 
-Um audit individual do Lighthouse pode futuramente ser mapeado como `CORROBORATIVE_EVIDENCE` de uma BR-GEO que avalie a mesma condição técnica. Esse mapeamento precisa ser explícito e não pode criar dupla pontuação.
+Um audit individual do Lighthouse somente pode ser mapeado como `CORROBORATIVE_EVIDENCE` de uma BR-GEO quando esse mapeamento estiver explicitamente contratado. Ele não pode criar dupla pontuação.
 
 ## International Search / hreflang
 
-Checks de hreflang em Observability continuam diagnósticos complementares. Não são promovidos ao SARI apenas por existirem; uma futura inclusão exige regra, applicability e peso explicitamente contratados.
+Checks de hreflang em Observability continuam diagnósticos complementares. Não são promovidos ao SARI apenas por existirem; qualquer inclusão exige regra, applicability e peso explicitamente contratados.
 
 ## BR-GEO-054 e reprodutibilidade
 
@@ -206,7 +240,7 @@ BR-GEO-054 reconstrói o método vigente a partir de:
 - Coverage/Confidence/Consolidation;
 - Critical Gates.
 
-O contrato ativo permanece `SCORE-GEO-004`. Como o produto está em pré-produção, resultados experimentais anteriores ao contrato `HIERARCHICAL_WEIGHTED_READINESS_V1` devem ser regenerados em vez de mantidos como versão ativa.
+O contrato ativo é `SCORE-GEO-004` com agregação `HIERARCHICAL_WEIGHTED_READINESS_V1`.
 
 ## Evidência e remediation
 
