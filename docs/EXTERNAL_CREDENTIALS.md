@@ -1,10 +1,10 @@
 # Credenciais e integrações externas
 
+**Estado:** vigente.
+
 ## Objetivo
 
 Este documento é a referência operacional para credenciais, tokens e API keys usados pelo RASAi. Ele descreve para que cada credencial serve, qual funcionalidade a consome, quais dependências precisam existir, onde criar ou gerenciar a credencial e quais limites de segurança devem ser observados.
-
-O RASAi está em pré-publicação. Este documento descreve somente o contrato vigente. Não há contrato de compatibilidade com versões públicas anteriores.
 
 Credenciais reais nunca devem ser incluídas em documentação, issue, commit, relatório, `audit.db`, `rasai-console.ini`, payload durável de job ou log.
 
@@ -27,12 +27,34 @@ As credenciais desta seção são usadas apenas quando o provider correspondente
 |---|---|---|---|---|
 | OpenAI | `OPENAI_API_KEY` | análise semântica, remediação e demais finalidades de IA que selecionem `openai` | <https://platform.openai.com/api-keys> | criar uma API key da plataforma OpenAI. A cobrança da API é separada de planos do ChatGPT. |
 | DeepSeek | `DEEPSEEK_API_KEY` | finalidades de IA que selecionem `deepseek` | <https://platform.deepseek.com/api_keys> | criar uma chave da plataforma/API DeepSeek e manter saldo/quota adequados. |
-| Xiaomi MiMo | `MIMO_API_KEY` | finalidades de IA que selecionem `mimo` | <https://mimo.mi.com/> | usar a credencial de API aceita pelo adapter. O runtime atual valida chave PAYG com prefixo `sk-`; Token Plan `tp-` não faz parte do contrato do adapter. |
+| Xiaomi MiMo | `MIMO_API_KEY` | finalidades de IA que selecionem `mimo` | <https://mimo.mi.com/> | usar a credencial aceita pelo adapter. O runtime valida chave PAYG com prefixo `sk-`; Token Plan `tp-` não faz parte do contrato do adapter. |
 | xAI / Grok | `XAI_API_KEY` | finalidades de IA que selecionem `xai` ou alias `grok` | <https://console.x.ai/> | criar uma API key no console xAI. |
-| Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | finalidades de IA que selecionem `qwen` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | criar a API key no Model Studio e manter região da chave e endpoint coerentes. |
-| Google Gemini | `GEMINI_API_KEY` | finalidades de IA que selecionem `gemini` | <https://aistudio.google.com/apikey> | criar uma Gemini API key no Google AI Studio. |
+| Alibaba Qwen / Model Studio | `DASHSCOPE_API_KEY` | finalidades de IA que selecionem `qwen` | <https://www.alibabacloud.com/help/en/model-studio/get-api-key> | criar a API key no Model Studio na mesma região do endpoint usado pelo RASAi. Chaves, endpoints e modelos disponíveis são regionais. |
+| Google Gemini | `GEMINI_API_KEY` | finalidades de IA que selecionem `gemini` | <https://aistudio.google.com/apikey> | criar uma Auth key no Google AI Studio. Novas chaves são Auth keys; não usar Standard key irrestrita para Gemini API. |
 | Anthropic Claude | `ANTHROPIC_API_KEY` | finalidades de IA que selecionem `anthropic` ou alias `claude` | <https://console.anthropic.com/> | criar e gerenciar a API key no console Anthropic. |
-| GitHub Copilot | `COPILOT_GITHUB_TOKEN` | provider `copilot`, explicitamente selecionado | <https://github.com/settings/personal-access-tokens/new> | criar um fine-grained personal access token pertencente à conta pessoal, adicionar a permissão de conta `Copilot Requests` e manter assinatura Copilot elegível. |
+| GitHub Copilot | `COPILOT_GITHUB_TOKEN` | provider `copilot`, explicitamente selecionado | <https://github.com/settings/personal-access-tokens/new> | criar um fine-grained personal access token da conta pessoal com `Copilot Requests`; o adapter vigente não usa automaticamente a sessão Copilot já autenticada. |
+
+### Alibaba Qwen / Model Studio
+
+O Model Studio separa chaves por região. Uma chave criada para uma região não deve ser presumida válida em outro endpoint/região. A documentação oficial de obtenção de API key é <https://www.alibabacloud.com/help/en/model-studio/get-api-key>.
+
+Para a configuração atual do RASAi, mantenha `DASHSCOPE_API_KEY`, modelo e `RASAI_QWEN_ENDPOINT` coerentes com a mesma região. O formato de chave pode variar conforme região e política atual do Model Studio; o RASAi não deve documentar um prefixo universal que o fornecedor não garanta para todas as regiões.
+
+### Google Gemini
+
+A documentação oficial de autenticação é <https://ai.google.dev/gemini-api/docs/api-key>.
+
+O Google AI Studio cria novas chaves Gemini como **Auth keys**. A orientação vigente do Google é migrar Standard keys e não depender de Standard keys irrestritas. Para configurar o RASAi:
+
+1. abra <https://aistudio.google.com/apikey>;
+2. selecione ou crie o projeto correspondente;
+3. crie uma nova API key;
+4. confirme que a chave é apropriada para Gemini API e aplique as restrições recomendadas pelo Google;
+5. armazene a chave somente no boundary de secrets;
+6. configure `GEMINI_API_KEY`;
+7. teste a integração antes de depender dela em uma auditoria.
+
+Uma chave existente não comprova quota, billing ou acesso ao modelo configurado.
 
 ### GitHub Copilot
 
@@ -46,9 +68,9 @@ gho_         OAuth user access token
 ghu_         GitHub App user access token
 ```
 
-Classic PAT `ghp_` não é aceito nesse fluxo. A documentação oficial do GitHub confirma esses tipos de token para autenticação de usuário no Copilot SDK: <https://docs.github.com/en/copilot/how-tos/copilot-sdk/setup/github-oauth>.
+Classic PAT `ghp_` não é aceito nesse fluxo. A documentação oficial do SDK descreve os tipos suportados na autenticação de usuário: <https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth/authenticate>.
 
-Para o caminho mais simples de uso local:
+Para o caminho local suportado pelo RASAi:
 
 1. confirme que a conta possui Copilot elegível;
 2. abra <https://github.com/settings/personal-access-tokens/new>;
@@ -58,7 +80,13 @@ Para o caminho mais simples de uso local:
 6. configure o valor em `COPILOT_GITHUB_TOKEN`;
 7. selecione `copilot` no RASAi.
 
-O GitHub também documenta OAuth de usuário e autenticação server-to-server para outros cenários. Esses métodos não devem ser presumidos como equivalentes ao adapter vigente sem suporte explícito do runtime. Referência geral: <https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth>.
+O GitHub documenta outras formas de autenticação do Copilot SDK, incluindo OAuth e server-to-server. O adapter atual do RASAi não deve ser descrito como compatível com um método adicional apenas porque o SDK externo o suporta; a documentação do produto segue o contrato efetivamente implementado.
+
+Referências oficiais complementares:
+
+- autenticação do Copilot SDK: <https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth>;
+- autenticação detalhada e tipos de token: <https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth/authenticate>;
+- criação/gestão de fine-grained PAT e permissão `copilot_requests`: <https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens>.
 
 ## Providers SERP
 
@@ -133,7 +161,7 @@ Fluxo básico:
 4. restrinja a key à API quando aplicável;
 5. configure `RASAI_CRUX_API_KEY`.
 
-A documentação oficial informa que a mesma key pode atender a API diária e a API histórica. A existência da key não garante que uma URL tenha amostra CrUX elegível.
+A mesma key pode atender a API diária e a API histórica. A existência da key não garante que uma URL tenha amostra CrUX elegível.
 
 ## Google Search Console
 
@@ -186,7 +214,7 @@ https://www.googleapis.com/auth/webmasters
 
 Para a natureza observacional do RASAi, prefira o escopo read-only quando ele atender aos endpoints efetivamente usados.
 
-O runtime atual recebe o access token já emitido. O RASAi não deve documentar a API key do Google como substituta do OAuth exigido para dados privados do Search Console.
+O runtime recebe o access token já emitido. O RASAi não deve documentar a API key do Google como substituta do OAuth exigido para dados privados do Search Console.
 
 ## Microsoft Clarity Data Export
 
