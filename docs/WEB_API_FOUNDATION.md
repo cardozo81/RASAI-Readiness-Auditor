@@ -2,53 +2,49 @@
 
 ## Objetivo
 
-A camada Web/API transforma o control plane já existente em uma superfície utilizável por uma aplicação SaaS sem alterar o motor de auditoria, o índice `SARI-001`, o método `SCORE-GEO-004` ou a natureza imutável dos workspaces `AUD-*`.
+A camada Web/API expõe o control plane do RASAi para aplicações Web e integrações sem mover crawling, scoring ou regra de auditoria para o processo HTTP.
 
-A arquitetura atual é:
+A arquitetura vigente é:
 
 ```text
 Browser / API client
   |
 Identity & Access
-  |-- OIDC/JWT direto
-  |-- trusted-header compatível
+  |-- OIDC/JWT
+  |-- trusted-header controlado
   |
-Web UI zero-build (/app)
+Web UI (/app e /app/operations)
   |
 RASAi API tenant-aware
   |
 Control plane
   |-- SQLite local
-  |-- PostgreSQL hospedado
+  |-- PostgreSQL centralizado
   |
-Execution jobs
+Execution jobs / schedules
   |
 Workers
   |
 Audit / Search Monitoring / report refresh
 ```
 
-O processo HTTP nunca executa crawling ou auditoria diretamente. Requisições de execução criam jobs duráveis; workers separados reivindicam e executam esses jobs.
-
-A primeira superfície de navegador está documentada em `SAAS_PILOT_WEB.md`. A identidade Web está documentada em `IDENTITY_AND_ACCESS.md`. Essas camadas são projeções sobre contratos existentes e não redefinem scoring ou evidência.
+O processo HTTP não executa crawling ou auditoria dentro da requisição. Operações de execução criam jobs duráveis; workers separados reivindicam e executam o trabalho autorizado.
 
 ## Dependências opcionais
 
-A instalação local padrão não depende da stack Web:
+Instalação local sem Web/API:
 
 ```powershell
 pip install -e .
 ```
 
-Para habilitar API, SaaS Pilot Web e OIDC/JWT:
+Para API, UI Web e OIDC/JWT:
 
 ```powershell
 pip install -e ".[web]"
 ```
 
-A stack opcional inclui FastAPI, Uvicorn, HTTPX e bibliotecas de validação JWT/criptografia. PostgreSQL continua opcional separadamente por `.[postgresql]`.
-
-A UI do piloto não adiciona Node, npm, bundler, CDN ou framework JavaScript obrigatório.
+PostgreSQL é opcional separadamente por `.[postgresql]`.
 
 ## Inicialização
 
@@ -56,98 +52,66 @@ A UI do piloto não adiciona Node, npm, bundler, CDN ou framework JavaScript obr
 rasai api --host 127.0.0.1 --port 8000
 ```
 
+O bind padrão é loopback. Bind público exige `--allow-public-bind` e infraestrutura externa adequada de TLS, firewall, reverse proxy e gestão de secrets.
+
 Superfícies principais:
 
 ```text
-/app             SaaS Pilot Web
-/auth/...        OIDC browser flow quando habilitado
-/health/live     liveness
-/health/ready    readiness do control plane
-/api/v1/...      API tenant-aware
+/app                  UI Web do RASAi
+/app/operations       scheduling e consumo
+/auth/...             identidade OIDC quando configurada
+/health/live          liveness do processo
+/health/ready         readiness do control plane
+/api/v1/...           API tenant-aware
 ```
 
-A superfície Web permanece sob o entrypoint público canônico `rasai`; a instalação não adiciona um executável público separado para a API.
-
-O bind padrão é `127.0.0.1`. Um bind fora de loopback exige `--allow-public-bind` e deve ocorrer somente atrás de infraestrutura de TLS/firewall/reverse proxy apropriada.
-
-A documentação OpenAPI fica desativada por padrão. Para desenvolvimento controlado:
-
-```text
-RASAI_API_DOCS_ENABLED=1
-```
+A documentação OpenAPI fica desabilitada por default. `RASAI_API_DOCS_ENABLED=true` habilita `/docs` e `/openapi.json` para ambiente controlado.
 
 ## Autenticação
 
-O RASAi não cria banco próprio de senhas e não define bearer token proprietário.
+O RASAi não mantém banco próprio de senhas nem define formato proprietário de bearer token.
 
-O default permanece fail-closed:
+`RASAI_API_AUTH_MODE`:
 
-```text
-RASAI_API_AUTH_MODE=deny
-```
-
-Os modos vigentes são:
-
-```text
-deny
-trusted-header
-oidc
-```
+| Modo | Uso | Comportamento |
+|---|---|---|
+| `deny` | default fail-closed | endpoints protegidos respondem indisponibilidade de autenticação |
+| `trusted-header` | desenvolvimento local ou gateway autenticado | lê o header configurado somente em fronteira confiável |
+| `oidc` | Web/SaaS | valida OIDC/JWT e sessão Web |
 
 ### OIDC/JWT
 
-`oidc` é a fundação recomendada para evolução SaaS. O RASAi:
+No modo `oidc`, o RASAi:
 
-- descobre metadata OIDC a partir de issuer HTTPS;
-- usa Authorization Code + PKCE S256 para login Web;
+- descobre metadata OIDC por issuer HTTPS;
+- usa Authorization Code + PKCE S256 no login Web;
 - valida `state` e `nonce`;
-- valida JWT com assinatura JWKS;
-- aceita somente algoritmos assimétricos explicitamente permitidos;
+- valida assinatura JWT por JWKS;
 - valida `iss`, `aud`, `exp` e `sub`;
-- tenta refresh de JWKS quando ocorre rotação de `kid`;
+- permite somente algoritmos assimétricos configurados;
+- atualiza JWKS quando necessário para rotação de `kid`;
 - cria sessão Web curta cifrada/autenticada;
-- não persiste ID token, access token ou refresh token;
-- resolve `issuer + sub` para um `USR-*` provisionado no control plane.
+- não persiste access token, ID token ou refresh token;
+- resolve `(issuer, sub)` para um `USR-*` provisionado no control plane.
 
-A identidade externa válida não cria usuário, membership ou role automaticamente.
+Autenticação válida não cria usuário, membership ou role automaticamente.
 
-O vínculo administrativo é feito por:
-
-```powershell
-rasai platform identity link `
-  --user USR-EXISTENTE `
-  --issuer https://login.example.com `
-  --subject 00u123456789
-```
-
-Detalhes e variáveis: `IDENTITY_AND_ACCESS.md`.
+Configuração completa: [IDENTITY_AND_ACCESS.md](IDENTITY_AND_ACCESS.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md).
 
 ### trusted-header
-
-O modo de compatibilidade continua disponível:
 
 ```text
 RASAI_API_AUTH_MODE=trusted-header
 RASAI_API_TRUSTED_USER_HEADER=x-rasai-user-id
 ```
 
-Ele é seguro somente quando um gateway/reverse proxy autenticado:
-
-- autentica o usuário;
-- remove qualquer header de identidade recebido do cliente externo;
-- injeta o header somente depois da autenticação;
-- protege o tráfego entre gateway e RASAi;
-- impede acesso direto do cliente ao processo Uvicorn.
-
-Para smoke humano estritamente local em loopback, `/app` pode manter temporariamente um `USR-*` existente em `sessionStorage` e enviá-lo no trusted header. Essa conveniência não constitui autenticação para ambiente hospedado.
+Esse modo só é apropriado quando um gateway autenticado remove o header enviado pelo cliente, autentica a requisição, injeta a identidade confiável e impede acesso direto ao processo RASAi. Em uso humano local estritamente em loopback, a UI pode usar um `USR-*` existente para smoke controlado. Isso não constitui autenticação pública.
 
 Não existe fallback automático de `oidc` para `trusted-header`.
 
 ## Tenancy e autorização
 
-A autenticação termina em um `Principal(user_id)`. A autorização continua independente do mecanismo de login.
-
-A fonte de verdade é o control plane:
+A autenticação termina em `Principal(user_id)`. A autorização é revalidada contra memberships e escopo do control plane:
 
 ```text
 Organization
@@ -157,11 +121,7 @@ Organization
            -> Environment
 ```
 
-A autorização deriva de `memberships`. Um membership pode ser organizacional, limitado a workspace ou limitado a projeto.
-
-Permissões iniciais de execução:
-
-| Role | Ler projeto | Criar job | Cancelar/gerenciar job |
+| Role | Ler projeto | Criar job | Gerenciar execução/schedule |
 |---|---:|---:|---:|
 | OWNER | Sim | Sim | Sim |
 | ADMIN | Sim | Sim | Sim |
@@ -171,82 +131,89 @@ Permissões iniciais de execução:
 | INTEGRATION_MANAGER | Sim quando membro | Não | Não |
 | BILLING | Sim quando membro | Não | Não |
 
-A API nunca retorna recursos de outro tenant apenas porque o ID é conhecido pelo cliente.
+Conhecer um ID não concede acesso ao recurso.
 
-## Endpoints iniciais
+## Catálogo de endpoints
 
-Health:
+### Health e identidade
 
-```text
-GET /health/live
-GET /health/ready
-```
+| Método | Endpoint | Finalidade | Autenticação |
+|---|---|---|---|
+| `GET` | `/health/live` | confirma que o processo API está vivo | pública |
+| `GET` | `/health/ready` | valida acesso ao control plane e retorna health sanitizado | pública |
+| `GET` | `/auth/config` | informa modo de autenticação e disponibilidade de browser login | pública |
+| `GET` | `/auth/login` | inicia Authorization Code + PKCE | somente com OIDC |
+| `GET` | `/auth/callback` | valida retorno OIDC e cria sessão | somente com OIDC |
+| `POST` | `/auth/logout` | encerra sessão Web | somente com OIDC |
+| `GET` | `/api/v1/me` | retorna usuário interno, memberships e escopos acessíveis | protegida |
 
-Identity bootstrap/login:
+### Portfólio e tenancy
 
-```text
-GET  /auth/config
-GET  /auth/login              # somente quando oidc está ativo
-GET  /auth/callback           # somente quando oidc está ativo
-POST /auth/logout             # somente quando oidc está ativo
-```
+| Método | Endpoint | Finalidade |
+|---|---|---|
+| `GET` | `/api/v1/organizations` | organizações acessíveis ao principal |
+| `GET` | `/api/v1/organizations/{organization_id}/workspaces` | workspaces autorizados da organização |
+| `GET` | `/api/v1/workspaces/{workspace_id}/projects` | projetos autorizados do workspace |
+| `GET` | `/api/v1/projects/{project_id}/properties` | properties do projeto |
+| `GET` | `/api/v1/properties/{property_id}/environments` | environments da property |
 
-Identidade autenticada e portfólio:
+Todas revalidam tenancy no servidor.
 
-```text
-GET /api/v1/me
-GET /api/v1/organizations
-GET /api/v1/organizations/{organization_id}/workspaces
-GET /api/v1/workspaces/{workspace_id}/projects
-GET /api/v1/projects/{project_id}/properties
-GET /api/v1/properties/{property_id}/environments
-GET /api/v1/organizations/{organization_id}/usage
-```
+### Auditorias e relatórios
 
-Auditorias e Search Intelligence:
+| Método | Endpoint | Finalidade / limite |
+|---|---|---|
+| `GET` | `/api/v1/projects/{project_id}/audits` | catálogo de AUDs do projeto sem expor `workspace_path` interno |
+| `GET` | `/api/v1/audits/{audit_id}/reports` | lista arquivos canônicos existentes sob `report/` do AUD autorizado |
+| `GET` | `/api/v1/audits/{audit_id}/reports/{asset_path}` | serve somente asset permitido dentro da árvore pública `report/` |
 
-```text
-GET /api/v1/projects/{project_id}/audits
-GET /api/v1/projects/{project_id}/search-queries
-GET /api/v1/search-queries/{query_id}/runs
-```
-
-Milestones/deployments:
+Extensões permitidas no boundary de reports:
 
 ```text
-GET /api/v1/projects/{project_id}/milestones
-GET /api/v1/milestones/{milestone_id}/deployment-pair
+.html .css .js .json .svg .png .jpg .jpeg .webp .ico
 ```
 
-Reports de um AUD autorizado:
+O endpoint rejeita path absoluto, `..`, saída do diretório resolvido e extensões fora da allowlist. `audit.db` e artifacts privados não são servidos por essa rota.
 
-```text
-GET /api/v1/audits/{audit_id}/reports
-GET /api/v1/audits/{audit_id}/reports/{asset_path}
-```
+### Search Intelligence
 
-Execução:
+| Método | Endpoint | Finalidade / limite |
+|---|---|---|
+| `GET` | `/api/v1/projects/{project_id}/search-queries` | lista queries do projeto; `enabled_only` pode filtrar habilitadas |
+| `GET` | `/api/v1/search-queries/{query_id}/runs` | histórico da query; `limit` default `20`, permitido `1..200` |
 
-```text
-GET  /api/v1/projects/{project_id}/execution-jobs
-POST /api/v1/projects/{project_id}/execution-jobs
-GET  /api/v1/execution-jobs/{job_id}
-POST /api/v1/execution-jobs/{job_id}/cancel
-```
+### Milestones e comparação de deployment
 
-O catálogo de auditorias exposto por HTTP não publica `workspace_path` interno. O boundary de reports serve apenas arquivos de apresentação sob o diretório `report/` do AUD autorizado e não permite acesso a `audit.db`.
+| Método | Endpoint | Finalidade / valores |
+|---|---|---|
+| `GET` | `/api/v1/projects/{project_id}/milestones` | lista milestones autorizados |
+| `GET` | `/api/v1/milestones/{milestone_id}/deployment-pair` | resolve par para comparação; `baseline_mode=AUTO|GOLDEN`, default `AUTO` |
 
-## Execution jobs
+### Execution jobs
 
-Tipos iniciais:
+| Método | Endpoint | Finalidade / limite |
+|---|---|---|
+| `GET` | `/api/v1/projects/{project_id}/execution-jobs` | lista jobs; `limit` default `100`, permitido `1..1000` |
+| `POST` | `/api/v1/projects/{project_id}/execution-jobs` | cria job durável e retorna `202` |
+| `GET` | `/api/v1/execution-jobs/{job_id}` | consulta job autorizado |
+| `POST` | `/api/v1/execution-jobs/{job_id}/cancel` | solicita cancelamento quando permitido |
 
-```text
-AUDIT
-SEARCH_MONITOR
-REPORT_REFRESH
-```
+Payload de criação:
 
-Estados:
+| Campo | Obrigatório | Default | Valores/limites | Finalidade |
+|---|---:|---|---|---|
+| `property_id` | Sim | - | texto `1..200` | property do job |
+| `environment_id` | Sim | - | texto `1..200` | environment do job |
+| `job_type` | Sim | - | `AUDIT`, `SEARCH_MONITOR`, `REPORT_REFRESH` | handler permitido |
+| `payload` | Não | `{}` | objeto estruturado | opções específicas do job; credenciais inline não são aceitas |
+| `source_audit_id` | Não | `null` | texto `5..200`; somente `AUDIT` | reutilização/reprocessamento permitido pelo contrato |
+| `idempotency_key` | Não | `null` | texto até 200 | evita duplicação lógica no mesmo projeto |
+| `priority` | Não | `100` | inteiro `0..1000` | prioridade de fila |
+| `max_attempts` | Não | `3` | inteiro `1..100` | limite de tentativas do job |
+
+Para `AUDIT`, o servidor rejeita provenance controlada pelo cliente e recompõe dados server-managed quando necessário. `source_audit_id` é inválido para outros tipos de job.
+
+Estados de execução:
 
 ```text
 QUEUED
@@ -257,109 +224,193 @@ FAILED
 CANCELLED
 ```
 
-Cada job possui:
+### Opções de auditoria
 
-- escopo Organization/Project/Property/Environment;
-- payload estruturado;
-- `requested_by`;
-- chave opcional de idempotência;
-- prioridade;
-- contador e limite de tentativas;
-- `available_at`;
-- claim/lease de worker;
-- resultado e metadados sanitizados;
-- erro sanitizado.
+| Método | Endpoint | Finalidade |
+|---|---|---|
+| `GET` | `/api/v1/audit-job-options` | retorna catálogo de opções e defaults do contrato de AuditJob usado pelo SaaS |
 
-Payload, resultado e erro passam pela política central de secret safety. Credenciais inline não são aceitas.
+Essa rota exige principal autenticado, mas não retorna valores de segredo.
 
-## Idempotência
+### Previsão de custo antes da execução
 
-A combinação `project_id + idempotency_key` identifica uma solicitação já registrada. Repetir a mesma chamada com a mesma chave devolve o job existente em vez de criar duplicação.
+| Método | Endpoint | Finalidade |
+|---|---|---|
+| `POST` | `/api/v1/projects/{project_id}/execution-cost-estimate` | estima custo monetário com base no usage ledger e configuração solicitada |
 
-O cliente deve escolher chaves estáveis para operações que não podem ser duplicadas por retry HTTP.
+Payload:
+
+```text
+property_id      obrigatório
+ environment_id obrigatório
+ job_type        AUDIT por default; aceita AUDIT, SEARCH_MONITOR, REPORT_REFRESH
+ payload         objeto, default {}
+```
+
+O estimador monetário canônico dessa rota está disponível para `AUDIT`. Para outros tipos, a resposta informa `available=false`, `show_confirmation=false` e confiança `NENHUMA`, sem inventar custo.
+
+A rota exige a mesma permissão usada para criação de execução e valida que Project, Property e Environment pertencem ao escopo informado.
+
+### Scheduling Management
+
+| Método | Endpoint | Finalidade |
+|---|---|---|
+| `GET` | `/api/v1/projects/{project_id}/schedules` | lista schedules com filtros e paginação |
+| `POST` | `/api/v1/projects/{project_id}/schedules` | cria schedule |
+| `GET` | `/api/v1/schedules/{schedule_id}` | consulta schedule |
+| `PATCH` | `/api/v1/schedules/{schedule_id}` | altera campos permitidos |
+| `POST` | `/api/v1/schedules/{schedule_id}/pause` | muda estado para `PAUSED` |
+| `POST` | `/api/v1/schedules/{schedule_id}/resume` | muda estado para `ACTIVE` |
+| `DELETE` | `/api/v1/schedules/{schedule_id}` | desabilita schedule, estado `DISABLED` |
+| `POST` | `/api/v1/schedules/{schedule_id}/duplicate` | duplica com novo nome |
+| `GET` | `/api/v1/schedules/{schedule_id}/runs` | histórico de runs; `limit` default `100`, `1..1000` |
+| `GET` | `/api/v1/schedules/{schedule_id}/events` | eventos do schedule; `limit` default `100`, `1..1000` |
+| `GET` | `/api/v1/schedules/{schedule_id}/next-occurrences` | próximas ocorrências; `count` default `10`, `1..100` |
+
+Filtros de listagem:
+
+```text
+property_id
+ environment_id
+ state=<repetível>
+ limit=200, permitido 1..1000
+ offset=0, inteiro >= 0
+```
+
+Contrato de criação de schedule:
+
+| Campo | Default | Valores/limites |
+|---|---|---|
+| `property_id` | obrigatório | texto `1..200` |
+| `environment_id` | obrigatório | texto `1..200` |
+| `name` | obrigatório | texto `1..200` |
+| `job_type` | `AUDIT` | `AUDIT`, `SEARCH_MONITOR`, `REPORT_REFRESH` |
+| `timezone` | obrigatório | texto `1..200`; validação temporal pertence ao store/contrato de schedule |
+| `urls` | `[]` | até 5000 itens |
+| `payload` | `{}` | objeto estruturado |
+| `overlap_policy` | `SKIP` | `SKIP`, `QUEUE` |
+| `priority` | `100` | `0..1000` |
+| `max_attempts` | `3` | `1..100` |
+
+Recorrência:
+
+| Campo | Default | Valores/limites |
+|---|---|---|
+| `times` | `[]` | até 48 horários |
+| `every_minutes` | `null` | `60..44640` quando definido |
+| `window_start` | `00:00` | horário aceito pelo contrato de schedule |
+| `window_end` | `23:59` | horário aceito pelo contrato de schedule |
+| `weekdays` | `[]` | até 7 valores |
+| `month_days` | `[]` | até 31 valores |
+| `last_day` | `false` | booleano |
+
+Criação, alteração, pause/resume, disable e duplicação exigem permissão de gerenciamento de execução. Leitura exige acesso ao projeto.
+
+### Usage e Consumption Analytics
+
+Há duas projeções distintas:
+
+| Método | Endpoint | Finalidade |
+|---|---|---|
+| `GET` | `/api/v1/organizations/{organization_id}/usage` | resumo de uso da organização |
+| `GET` | `/api/v1/organizations/{organization_id}/consumption` | analytics filtrável e agrupável sobre o usage ledger |
+
+Filtros disponíveis em `consumption`:
+
+```text
+workspace_id
+project_id
+property_id
+environment_id
+domain
+url
+user_id
+job_type
+provider
+integration
+category
+operation
+event_status
+model
+resource_type
+job_id
+audit_id
+period
+timezone
+start
+end
+group_by
+limit
+```
+
+`limit` tem default `10000` e aceita `1..50000`.
+
+`group_by` tem default:
+
+```text
+category,provider
+```
+
+Quando `period` é usado, `start` e `end` não podem ser informados simultaneamente. A resolução temporal usa o timezone informado ou `UTC` quando omitido.
+
+`organization_id`, `workspace_id` e `project_id`, quando fornecidos, são revalidados contra o principal autenticado.
+
+### Catálogo de métricas, padrões e integrações
+
+| Método | Endpoint | Finalidade |
+|---|---|---|
+| `GET` | `/api/v1/standards/services` | retorna catálogo de serviços, configuração exigida e estado operacional visto pelo processo API |
+
+A resposta inclui nomes de variáveis de credencial/configuração, mas nunca seus valores. Campos de estado incluem:
+
+```text
+state
+requested
+configured
+effective_enabled
+configuration_source
+missing_configuration
+```
+
+O endpoint declara `capability_scope=API_PROCESS_ENVIRONMENT_HINT`: worker pode receber secrets por fronteira diferente do processo API. Portanto, `configured=false` na API não deve ser interpretado automaticamente como incapacidade do worker remoto.
 
 ## Worker
 
-Um worker executa no máximo um job com:
+Execução unitária:
 
 ```powershell
 rasai worker run-once --worker-id worker-01 --audits-root audits
 ```
 
-O worker não depende da stack FastAPI nem valida tokens OIDC.
-
-O processo:
+O worker:
 
 1. recupera leases expirados;
-2. reivindica um job disponível;
+2. reivindica job disponível;
 3. marca o job como `RUNNING`;
-4. executa o handler permitido;
-5. grava resultado ou falha sanitizada.
+4. executa somente handler permitido;
+5. persiste resultado ou falha sanitizada.
 
-Se o worker morrer, o lease expira. Enquanto `attempts < max_attempts`, o job volta a `QUEUED`. Ao esgotar tentativas, passa a `FAILED`.
+Se o lease expira e `attempts < max_attempts`, o job pode retornar a `QUEUED`. Ao esgotar tentativas, torna-se `FAILED`.
 
-## Segurança de execução
+Jobs não persistem shell command ou `argv` arbitrário. O worker constrói internamente a execução canônica a partir de payload estruturado e contexto autorizado.
 
-Execution jobs não persistem shell commands ou `argv` arbitrário.
+## Segurança de sessão e CSRF
 
-Para `AUDIT`, o worker aceita somente campos conhecidos e constrói internamente a CLI canônica. O destino vem da Property/Environment registrada no control plane.
+Sessão OIDC contém somente identidade externa mínima e metadados temporais cifrados/autenticados. Cookies são `HttpOnly` e `SameSite=Lax`; em implantação HTTPS também recebem `Secure`.
 
-Para `SEARCH_MONITOR`, o payload contém somente `query_id`, e o worker valida que a query pertence exatamente ao Project/Property/Environment do job.
+Operação mutável autenticada por cookie exige `Origin` correspondente à origem configurada no redirect OIDC. Bearer JWT não depende do cookie e não usa essa verificação de origem.
 
-Para `REPORT_REFRESH`, a fundação aceita somente a superfície `portfolio`.
+## PostgreSQL e migrations
 
-A UI Web usa os mesmos endpoints e não possui caminho alternativo para executar comandos.
-
-## Boundary de reports
-
-O HTML de auditoria continua sendo projeção, nunca fonte de verdade.
-
-O servidor Web pode disponibilizar o mini-site de um AUD depois de revalidar autorização do Project. O path persistido do workspace permanece interno.
-
-A leitura é limitada a:
-
-```text
-<AUD workspace>/report/**
-```
-
-Traversal, saída do diretório resolvido e extensões fora do allowlist Web são recusados. `audit.db` e artifacts que não pertencem à superfície pública não são servidos por esse endpoint.
-
-## Sessão Web e CSRF
-
-A sessão OIDC contém apenas `issuer + sub` e metadados temporais cifrados/autenticados. Ela não contém access token, ID token ou client secret.
-
-Cookies de sessão são `HttpOnly` e `SameSite=Lax`; em implantação HTTPS também são `Secure`.
-
-Para chamadas mutáveis autenticadas por cookie, o servidor exige `Origin` igual à origem configurada no redirect OIDC. Bearer JWT não depende do cookie e não usa essa verificação de origem.
-
-## PostgreSQL
-
-Execution jobs e Identity & Access são extensões PostgreSQL versionadas e aplicadas apenas pela operação explícita:
+Execution jobs e Identity & Access usam extensões de schema controladas pelo produto. Em PostgreSQL, aplicação de migrations é explícita:
 
 ```powershell
 rasai platform database migrate
 ```
 
-Não existe auto-DDL no startup da API ou do worker.
+Startup da API ou worker não aplica DDL automaticamente.
 
-`/health/ready` e o health do store informam a versão principal do schema e as versões das extensões de execution e identity.
-
-As rotas do SaaS Pilot usam a mesma `store_factory`; não criam dependência direta com SQLite e preservam a paridade de backend.
-
-## SQLite portátil
-
-O modo local permanece válido sem FastAPI, Uvicorn, Psycopg, Docker ou servidor PostgreSQL.
-
-```text
-RASAi local
-  -> SQLite
-  -> execution queue local
-  -> worker local
-```
-
-A extensão de vínculo de identidade é aditiva no control plane local e não altera nenhum `AUD-*/audit.db`.
-
-A existência da API/UI/OIDC no código não transforma a stack Web em requisito do programa portátil.
+SQLite continua válido para operação local sem FastAPI, Uvicorn, Psycopg, Docker ou servidor PostgreSQL.
 
 ## Secrets
 
@@ -376,24 +427,22 @@ Nenhum endpoint, exception handler, job, worker ou tela deve expor:
 - client secrets;
 - session secrets.
 
-Mensagens HTTP derivadas de exceptions passam pela mesma política central de redaction usada por logs e persistência.
+Payloads, resultados e erros passam pela política de redaction antes de persistência ou exposição HTTP.
 
-O campo local de `USR-*` usado no smoke trusted-header não é credencial e fica somente em `sessionStorage`; ainda assim ele não deve ser tratado como autenticação real fora de loopback.
+## Limites do contrato Web/SaaS atual
 
-## Limites desta fundação
-
-A camada já possui UI de piloto e identidade OIDC/JWT provider-neutral. Ainda não define:
+O código não define como capacidade operacional completa:
 
 - Identity Provider obrigatório;
 - SCIM;
 - Just-In-Time provisioning;
 - SAML direto;
-- cobrança;
+- cobrança/faturamento completo;
 - object storage definitivo;
-- orquestração Kubernetes;
-- hubs regionais;
-- queue externa obrigatória;
+- Kubernetes obrigatório;
+- multi-região;
+- fila externa obrigatória;
 - migração de `AUD-*/audit.db` para PostgreSQL;
-- design system/frontend framework definitivo.
+- design system/frontend definitivo.
 
-Essas decisões podem evoluir sem substituir os contratos de tenancy, identity mapping, execution job, worker, report projection e scoring definidos aqui.
+Os protótipos em `../prototypes/` podem representar contratos desejados além dessas superfícies. Tais contratos não são endpoints disponíveis até existirem no runtime da API.
