@@ -175,6 +175,21 @@ Ao selecionar um perfil, o console oferece:
 4. Herdar exatamente a política global RASAI_GSC_ENABLED
 ```
 
+### Precedência e duração da política do perfil
+
+Depois que um perfil é aplicado, sua escolha GSC é autoritativa durante **todo o ciclo daquela execução**, inclusive finalização do mini-site, enriquecimentos de relatório e reconciliações que ocorram depois do processamento físico principal.
+
+A política do perfil não pode ser perdida apenas porque uma camada interna terminou e restaurou temporariamente o ambiente. Em particular:
+
+- `Não usar GSC nesta execução` mantém o GSC desligado até o ciclo do perfil terminar, mesmo quando `RASAI_GSC_ENABLED=true` está configurado globalmente;
+- `Usar somente se compatível` mantém semântica automática para o ciclo completo e não herda um `true` global no meio da finalização;
+- `Exigir GSC` mantém o requisito até a conclusão da execução;
+- `Herdar global` não cria overlay durável e usa a configuração global normal.
+
+Ao remover/limpar o perfil, o valor global anterior é restaurado. Esse mecanismo é transitório de sessão: não persiste alteração no INI, no Windows/User ou no Windows/Machine.
+
+O console e o CLI usam o mesmo gate de escopo property/URL. Assim, uma property incompatível em modo automático é `NOT_APPLICABLE` sem chamada ao Google; em modo obrigatório é erro de configuração; em modo desabilitado nenhuma operação GSC é executada.
+
 ### Usar somente se compatível
 
 É o default seguro dos presets.
@@ -198,7 +213,7 @@ Mesmo com esse preflight aprovado, autenticação/permissão continuam dependent
 
 ### Não usar GSC
 
-Projeta `RASAI_GSC_ENABLED=false` somente durante a execução do perfil.
+Projeta `RASAI_GSC_ENABLED=false` durante todo o ciclo efetivo do perfil. Nenhuma chamada Sitemaps, URL Inspection ou Search Analytics deve ocorrer nessa execução, ainda que exista credencial/property válida e a política global esteja ativa.
 
 ### Herdar global
 
@@ -227,6 +242,8 @@ error_code=PROPERTY_URL_MISMATCH
 ```
 
 A mensagem deve informar a property e a URL auditada e explicar que a configuração impede conclusão completa/final.
+
+Quando GSC está desabilitado pelo perfil, a ausência de dados GSC não é pendência nem requisito de fulfillment. Um relatório pode mencionar que a integração não foi solicitada naquela execução, mas não deve tratá-la como falha ou motivo de `PARTIAL_RETRYABLE`.
 
 O tratamento é diferente de falhas como:
 
