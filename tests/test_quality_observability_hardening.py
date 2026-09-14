@@ -411,10 +411,10 @@ def test_quality_report_content_controls_and_freshness_use_persisted_audit_date(
         assert any(item.code == "AUDIT-DB-INTEGRITY" and item.status == "PASS" for item in quality.health_checks)
         path = write_quality_report(workspace)
         html = path.read_text(encoding="utf-8")
-        assert "Audit Health" in html
-        assert "Evidence Confidence" in html
-        assert "Coverage Map" in html
-        assert "Search & AI content controls" in html
+        assert "Saúde da auditoria" in html
+        assert "Confiança da evidência" in html
+        assert "Mapa de cobertura" in html
+        assert "Controles de conteúdo para Search e IA" in html
         assert "quality.html" in (workspace / "report" / "index.html").read_text(encoding="utf-8")
 
 
