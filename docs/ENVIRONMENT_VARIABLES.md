@@ -120,7 +120,7 @@ Improvement Intelligence usa a seleção principal de IA da execução. Não pos
 | `RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS` | `30` | inteiro `1..100` | `30` | limita backlog/output |
 | `RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS` | `240` | número `> 0` | `240` | timeout da necessidade estruturada; não redefine política de roteamento |
 
-No console interativo, o item **13. Análise profunda URL** configura apenas ativação/domínios/limites. Provider, modelo e reasoning vêm da configuração principal `[ai]`. Consulte [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md).
+No console interativo, o item **8. Análise profunda URL** configura apenas ativação/domínios/limites. Provider, modelo e reasoning vêm da configuração principal `[ai]`, apresentada no item **6. IA**. Consulte [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md).
 
 ## 7. Métricas, padrões e Web Performance
 
