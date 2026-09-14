@@ -113,6 +113,14 @@ def _unwrap_fulfillment(function: Any) -> Any:
     return current
 
 
+def _configured_provider(provider: Any) -> bool:
+    """Return whether M24 has an actual provider to gate behind evidence readiness."""
+    if provider is None:
+        return False
+    name = str(getattr(provider, "name", "NONE") or "NONE").strip().upper()
+    return name not in {"", "NONE"}
+
+
 def _wrap_m24(base: Any) -> Any:
     base = _unwrap_fulfillment(base)
     if bool(getattr(base, "_rasai_technical_evidence_gate", False)):
@@ -122,7 +130,14 @@ def _wrap_m24(base: Any) -> Any:
         audit_id = str(kwargs.get("audit_id") or "")
         workspace = kwargs.get("workspace")
         enabled = bool(kwargs.get("technical_ai", False))
+        provider = kwargs.get("semantic_provider")
         if not audit_id or workspace is None or not enabled:
+            return base(*args, **kwargs)
+
+        # Configuration is evaluated before evidence readiness. A requested technical-AI
+        # run with no usable provider is NOT_CONFIGURED, not WAITING_FOR_DATA: no amount
+        # of re-collecting robots/sitemap evidence can repair a missing provider.
+        if not _configured_provider(provider):
             return base(*args, **kwargs)
 
         register_work_item(
@@ -220,6 +235,14 @@ def _correct_reprocess_diagnostics() -> None:
         return
 
     def recover_with_gate(*, workspace: Any, audit_id: str, item: Any, reprocess_id: str, provider: Any | None = None):
+        if not _configured_provider(provider):
+            return original_recover(
+                workspace=workspace,
+                audit_id=audit_id,
+                item=item,
+                reprocess_id=reprocess_id,
+                provider=provider,
+            )
         if not technical_evidence_ready(workspace, audit_id):
             _mark_waiting(workspace, audit_id)
             return False, provider
