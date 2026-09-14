@@ -19,6 +19,62 @@ Ordem preferencial:
 
 O runtime continua sendo a autoridade de validação. O console não deve manter uma lista paralela divergente quando um registry ou contrato já publica os valores válidos.
 
+### 1.1 Convenção do dashboard Preparar auditoria
+
+A tela `INÍCIO > PREPARAR AUDITORIA` usa uma convenção única:
+
+```text
+número = parâmetro editável da próxima auditoria
+letra  = ação, comando ou navegação
+título = agrupamento visual; nunca é uma opção
+```
+
+A sequência canônica é contínua e sem atalhos de configuração por letra:
+
+```text
+[ ESCOPO ]
+ 1. Entrada
+ 2. Projeto
+ 3. Dispositivo
+ 4. Idioma / mercado
+ 5. Timezone apresentação
+
+[ INTELIGÊNCIA ARTIFICIAL ]
+ 6. IA
+ 7. Remediações IA
+ 8. Análise profunda URL
+
+[ WEB PERFORMANCE ]
+ 9. Web Performance
+10. Máx. páginas da auditoria
+11. Máx. páginas em Web Performance
+12. Synthetic Apdex
+
+[ SEARCH INTELLIGENCE ]
+13. Termos SERP
+
+[ ARMAZENAMENTO / EXECUÇÃO ]
+14. Raiz auditorias
+
+[ PERFIL DA PRÓXIMA EXECUÇÃO ]
+15. Perfil da execução
+```
+
+As ações permanecem identificadas por letras:
+
+```text
+R. Executar
+S. Salvar configuração INI
+L. Carregar configuração de AUD
+E. Integrações / credenciais
+C. Histórico / relatórios consolidados
+H. Ajuda / custos
+V. Voltar ao início
+Q. Sair
+```
+
+`Restaurar padrões do RASAi` não pertence à preparação de uma auditoria. A restauração global existe somente em `INÍCIO > Sistema / restaurar padrões`.
+
 ## 2. Informações obrigatórias por variável
 
 A UI deve tornar visíveis, quando aplicáveis:
@@ -176,6 +232,14 @@ Remoção de Windows/User exige confirmação destrutiva. Windows/Machine nunca 
 
 Reset significa retornar ao default/auto/ausência do runtime, não inventar valores.
 
+A restauração global da baseline do produto é uma função de sistema e fica exclusivamente em:
+
+```text
+INÍCIO > Sistema / restaurar padrões
+```
+
+Ela não é exibida como ação de `Preparar auditoria`.
+
 Contrato detalhado: [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md).
 
 ## 9. Perfis de Execução de sessão
@@ -185,7 +249,7 @@ Perfis reduzem a necessidade de alternar várias configurações antes de uma au
 Disponíveis apenas com **uma URL única explícita**:
 
 ```text
-F. Perfil da execução
+15. Perfil da execução
 ```
 
 Regras obrigatórias:
@@ -206,11 +270,11 @@ Todos os presets devem permanecer visíveis mesmo quando ainda não podem ser us
  1. [APTO] SEO / Search Readiness
  ...
  8. [CONFIGURAR] Search Intelligence / SERP
-     Falta: termos SERP no item T
+     Falta: termos SERP no item 13
  9. [CONFIGURAR] Experiência sintética
-     Falta: Synthetic/Experience Apdex
+     Falta: Synthetic/Experience Apdex no item 12
 10. [CONFIGURAR] Análise profunda URL
-     Falta: item 13 / IA deep
+     Falta: item 8 / IA principal no item 6
 12. [CONFIGURAR] Completo máximo
      Falta: ...
 ```
@@ -233,10 +297,10 @@ Isso evita a falsa expectativa de uma execução "completa" quando SERP, Apdex o
 
 ### 9.3 Dependências que nunca são inventadas
 
-- Search Intelligence exige termos e contrato SERP válido, incluindo provider/credencial quando aplicável;
+- Search Intelligence exige termos no item 13 e contrato SERP válido, incluindo provider/credencial quando aplicável;
 - GEO preserva contexto editorial/YMYL explícito ou `AUTO`;
-- Experiência sintética exige parâmetros Apdex já configurados;
-- Análise profunda exige item 13 habilitado e IA deep válida;
+- Experiência sintética exige parâmetros Apdex já configurados no item 12;
+- Análise profunda exige item 8 habilitado e IA principal apta no item 6;
 - IA padrão pode ser `SEM IA` ou `IA SE DISPONÍVEL`; ausência de provider apto no segundo modo não bloqueia o core.
 
 ### 9.4 Completo seguro e Completo máximo
