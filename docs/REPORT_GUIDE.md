@@ -225,7 +225,7 @@ O mix Mobile/Desktop/Tablet distribui percentualmente a população de amostras/
 
 `improvement-intelligence.html` é audit-owned e sempre deve existir após uma auditoria bem-sucedida. Quando a análise profunda não foi solicitada, a página registra explicitamente esse estado sem disparar IA adicional apenas para produzir HTML.
 
-Quando habilitada, a feature exige uma URL explícita e provider de IA explícito. Provider, modelo e esforço podem ser diferentes da IA padrão da auditoria, mas a credencial já configurada é reutilizada e não é duplicada no INI ou payload persistente.
+Quando habilitada, a feature exige uma URL explícita e uma **IA principal apta** na execução. Provider, modelo e reasoning pertencem à seleção principal da auditoria e não são configurados novamente para Improvement Intelligence. A seleção principal pode ser um provider explícito ou `AUTO`; em `AUTO`, a análise profunda reutiliza o mesmo coordenador central de custo, elegibilidade, quarentena, circuit breaker e fallback. Credenciais continuam fora do INI e do payload persistente.
 
 A análise pode correlacionar:
 
@@ -285,7 +285,9 @@ Pode mostrar métricas reportadas pela fonte, atividade de URLs, grounding queri
 
 `search-intelligence.html` é uma superfície canônica point-in-time. Pode conter SERP Observation, posição observada, candidatos competitivos, comparação determinística de conteúdo e análise semântica evidence-bound quando explicitamente executada.
 
-Sem termos, provider ou observações persistidas, a página permanece disponível em estado neutro. O RASAi não inventa termos nem dispara Search para preencher HTML.
+Sem termos, provider SERP ou observações persistidas, a página permanece disponível em estado neutro. O RASAi não inventa termos nem dispara Search para preencher HTML.
+
+Quando Competitive AI é solicitada, ela usa a seleção principal de IA da execução; não existe provider de IA específico de Search no contrato vigente.
 
 Ela permanece non-scoring. `NOT_FOUND_WITHIN_DEPTH` não deve ser transformado em posição numérica artificial.
 
