@@ -105,6 +105,11 @@ def install() -> None:
         return
 
     from rasai import m18_ai, semantic
+    from rasai.ai_model_runtime import install as install_ai_model_runtime
+
+    # Apply the effective model catalog before any runtime/console consumer captures
+    # provider-model metadata. Adapter protocol remains code; only model policy is data.
+    install_ai_model_runtime()
 
     _patch_provider_payload(semantic)
     _patch_request_method(semantic.OpenAIProvider)
