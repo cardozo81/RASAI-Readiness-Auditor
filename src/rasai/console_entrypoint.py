@@ -11,6 +11,7 @@ import os
 from rasai import console_provider_environment as console_environment
 from rasai import console_search_intelligence, interactive_console
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
+from rasai.ai_model_console import install as install_ai_model_console
 from rasai.ai_pricing_console import install as install_ai_pricing_console
 from rasai.ai_provider_console_management import install as install_ai_provider_console_management
 from rasai.audit_configuration_reuse_console import install as install_audit_configuration_reuse_console
@@ -126,8 +127,9 @@ def main() -> int:
     install_standards_console_runtime()
     install_external_observability_console()
     install_gsc_oauth_console()
-    # Pricing source/path must participate in the same canonical console catalog so a
-    # factory reset can remove persistent Windows/User overrides across restarts.
+    # Model/pricing source and path are operator settings. Both participate in the
+    # canonical environment catalog and Restore Defaults, while credentials stay secret.
+    install_ai_model_console()
     install_ai_pricing_console()
     install_report_observation_reconciliation()
     install_runtime_adherence_extensions()
