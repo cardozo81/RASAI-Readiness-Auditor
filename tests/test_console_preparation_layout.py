@@ -96,6 +96,16 @@ def test_restore_defaults_is_not_available_from_preparation() -> None:
     assert "INÍCIO > Sistema / restaurar padrões" in state.error
 
 
+def test_old_configuration_letters_are_not_hidden_shortcuts() -> None:
+    state = SimpleNamespace(error="")
+    assert _translate_choice(state, "T") == ""
+    assert "item 13" in state.error
+
+    state.error = ""
+    assert _translate_choice(state, "F") == ""
+    assert "item 15" in state.error
+
+
 def test_contextual_guidance_uses_canonical_visible_items() -> None:
     assert _replace_menu_references("configure termos no item T") == "configure termos no item 13"
     assert _replace_menu_references("habilite o item 13") == "habilite o item 8"
