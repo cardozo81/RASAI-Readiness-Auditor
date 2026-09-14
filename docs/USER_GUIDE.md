@@ -50,21 +50,76 @@ O console oferece:
 - aviso de alterações não salvas;
 - atalhos para abrir pasta e relatório.
 
-Credenciais não são gravadas no INI. Elas podem ser configuradas no menu de variáveis e aparecem somente como `[SET]`.
+Credenciais não são gravadas no INI. Elas podem ser configuradas em `Integrações / credenciais` e aparecem somente como `[SET]`.
+
+### Preparar auditoria
+
+O dashboard `INÍCIO > PREPARAR AUDITORIA` segue uma regra única de navegação:
+
+```text
+números = parâmetros da próxima auditoria
+letras  = ações e navegação
+```
+
+Os parâmetros são agrupados por contexto e numerados continuamente:
+
+```text
+[ ESCOPO ]
+ 1. Entrada
+ 2. Projeto
+ 3. Dispositivo
+ 4. Idioma / mercado
+ 5. Timezone apresentação
+
+[ INTELIGÊNCIA ARTIFICIAL ]
+ 6. IA
+ 7. Remediações IA
+ 8. Análise profunda URL
+
+[ WEB PERFORMANCE ]
+ 9. Web Performance
+10. Máx. páginas da auditoria
+11. Máx. páginas em Web Performance
+12. Synthetic Apdex
+
+[ SEARCH INTELLIGENCE ]
+13. Termos SERP
+
+[ ARMAZENAMENTO / EXECUÇÃO ]
+14. Raiz auditorias
+
+[ PERFIL DA PRÓXIMA EXECUÇÃO ]
+15. Perfil da execução
+```
+
+As ações são apresentadas separadamente:
+
+```text
+R. Executar
+S. Salvar configuração INI
+L. Carregar configuração de AUD
+E. Integrações / credenciais
+C. Histórico / relatórios consolidados
+H. Ajuda / custos
+V. Voltar ao início
+Q. Sair
+```
+
+A restauração global do produto não faz parte desta tela. `Restaurar padrões do RASAi` fica somente em `INÍCIO > Sistema / restaurar padrões`.
 
 ### Perfis de Execução
 
 Quando **Entrada** contém uma única URL explícita, o menu oferece:
 
 ```text
-F. Perfil da execução
+15. Perfil da execução
 ```
 
 O perfil é um overlay somente da sessão. Ele não altera defaults do RASAi, não grava o preset no `rasai-console.ini`, não modifica `Windows/User` ou `Windows/Machine` e não cria/troca credenciais.
 
 Todos os presets permanecem visíveis. Um preset `APTO` pode ser selecionado. Um preset `CONFIGURAR` continua aparecendo para orientar a parametrização, mostra exatamente o que falta e **não pode ser aplicado** até que as dependências obrigatórias sejam resolvidas.
 
-Dependências humanas ou operacionais continuam explícitas: Search Intelligence não inventa termos SERP, GEO não transforma contexto YMYL `AUTO` em fato, Experiência sintética não inventa parâmetros de carga e Análise profunda exige o item 13, uma URL única e a IA principal apta.
+Dependências humanas ou operacionais continuam explícitas: Search Intelligence não inventa termos SERP e usa o item 13; GEO não transforma contexto YMYL `AUTO` em fato; Experiência sintética não inventa parâmetros de carga; Análise profunda exige o item 8, uma URL única e a IA principal apta no item 6.
 
 `Completo seguro` combina SEO, GEO, Performance, Acessibilidade e Web Quality sem ativar automaticamente SERP, carga sintética ou análise profunda.
 
@@ -205,6 +260,7 @@ Custo é estimativa técnica; não substitui billing/invoice do provider.
 ## Documentos relacionados
 
 - [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md)
+- [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md)
 - [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md)
 - [CONFIGURATION.md](CONFIGURATION.md)
 - [CLI_REFERENCE.md](CLI_REFERENCE.md)
