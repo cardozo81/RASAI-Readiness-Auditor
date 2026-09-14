@@ -312,7 +312,7 @@ def _validate_success_integrity(workspace: Any, audit_id: str) -> None:
     checks = (
         ("GOOGLE_SEARCH_CONSOLE", bool(gsc_row and gsc_row[0])),
         ("IMPROVEMENT_INTELLIGENCE", bool(improvement_row and str(improvement_row[0]).upper() == "COMPLETE")),
-        ("SEARCH_INTELLIGENCE", search_count is None or search_count > 0),
+        ("SEARCH_INTELLIGENCE", search_count is not None and search_count > 0),
     )
     for component, valid in checks:
         item = _item(workspace, audit_id, component)
