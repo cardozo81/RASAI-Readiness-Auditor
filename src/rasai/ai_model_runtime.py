@@ -79,7 +79,6 @@ def apply_model_catalog(catalog: AiModelCatalog) -> AiModelCatalog:
             ))
     m18_ai.ROUTING_POLICY = tuple(sorted(core_policies, key=lambda item: (item.rank, item.provider, item.model)))
     m18_ai._POLICY_BY_KEY.clear()
-    m18_ai._POLICY_BY_KEY.update((item.provider, item.model) for item in ())
     m18_ai._POLICY_BY_KEY.update({(item.provider, item.model): item for item in m18_ai.ROUTING_POLICY})
 
     # Additional providers reuse their existing wire adapter classes.
