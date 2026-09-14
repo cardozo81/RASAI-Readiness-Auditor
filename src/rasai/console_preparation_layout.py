@@ -219,8 +219,8 @@ def _canonical_preparation_menu(
 
 def _replace_menu_references(text: str) -> str:
     return (
-        text.replace("item T", "item 13")
-        .replace("item 13", "item 8")
+        text.replace("item 13", "item 8")
+        .replace("item T", "item 13")
         .replace("item 4", "item 6")
         .replace("F. Perfil da execução", "15. Perfil da execução")
     )
