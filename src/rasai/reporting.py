@@ -19,7 +19,8 @@ from rasai.remediation import RemediationRecipe, recipe_for
 TEMPLATE_VERSION = "REPORT-GEO-002"
 
 _DIMENSION_LABELS = {
-    "TECHNICAL_ACCESSIBILITY": "Acessibilidade Técnica",
+    "DISCOVERY_ACCESS": "Acesso e Descoberta",
+    "TECHNICAL_ACCESSIBILITY": "Acesso e Descoberta",
     "INDEXABILITY": "Capacidade de Indexação",
     "CONTENT_EXTRACTABILITY": "Extração de Conteúdo",
     "SEMANTIC_STRUCTURE": "Estrutura Semântica",
@@ -29,6 +30,7 @@ _DIMENSION_LABELS = {
     "CITATION_READINESS": "Preparação para Citação",
     "EVIDENCE_TRUST": "Evidências e Confiabilidade",
     "INTENT_COVERAGE": "Cobertura de Intenções",
+    "CONTENT_VALUE": "Valor do Conteúdo",
     "OVERALL_READINESS": "Readiness Search & AI",
 }
 _STATUS_LABELS = {
@@ -55,9 +57,10 @@ _PRIORITY_LABELS = {
     "INFO": "Informacional",
 }
 _CATEGORY_DIMENSION = {
-    "TECHNICAL_ACCESSIBILITY": "TECHNICAL_ACCESSIBILITY",
-    "DISCOVERY": "TECHNICAL_ACCESSIBILITY",
-    "ROBOTS": "TECHNICAL_ACCESSIBILITY",
+    "TECHNICAL_ACCESSIBILITY": "DISCOVERY_ACCESS",
+    "DISCOVERY_ACCESS": "DISCOVERY_ACCESS",
+    "DISCOVERY": "DISCOVERY_ACCESS",
+    "ROBOTS": "DISCOVERY_ACCESS",
     "INDEXABILITY": "INDEXABILITY",
     "CANONICAL": "INDEXABILITY",
     "CONTENT_EXTRACTABILITY": "CONTENT_EXTRACTABILITY",
@@ -69,6 +72,7 @@ _CATEGORY_DIMENSION = {
     "CITATION_READINESS": "CITATION_READINESS",
     "EVIDENCE_TRUST": "EVIDENCE_TRUST",
     "INTENT_COVERAGE": "INTENT_COVERAGE",
+    "CONTENT_VALUE": "CONTENT_VALUE",
 }
 _SENSITIVE_KEY = re.compile(
     r"(?:api[_-]?key|authorization|password|passwd|secret|access[_-]?token|bearer|credential)",
