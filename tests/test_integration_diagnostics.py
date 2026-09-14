@@ -5,10 +5,13 @@ from io import BytesIO
 import json
 from urllib.error import HTTPError
 
+from rasai import integration_diagnostics_console as diagnostics_console
 from rasai.integration_diagnostics import (
     STATUS_AUTHENTICATION_ERROR,
     STATUS_AUTHORIZATION_ERROR,
     STATUS_NOT_CONFIGURED,
+    STATUS_OPERATIONAL,
+    STATUS_OPERATIONAL_LIMITED,
     STATUS_TRANSIENT_FAILURE,
     IntegrationDiagnostic,
     configuration_fingerprint,
@@ -106,6 +109,52 @@ def test_gsc_valid_oauth_without_configured_property_is_authorization_error() ->
     assert result.status == STATUS_AUTHORIZATION_ERROR
     assert result.category == "PROPERTY_ACCESS"
     assert "expected.example" in result.detail
+
+
+def test_console_pagespeed_probe_uses_fixed_pudim_target(monkeypatch) -> None:
+    spec = get_integration_spec("service:pagespeed")
+    assert spec is not None
+    monkeypatch.setenv("RASAI_PAGESPEED_API_KEY", "test-key")
+    seen: dict[str, object] = {}
+
+    def opener(request, timeout=0):
+        seen["url"] = request.full_url
+        seen["timeout"] = timeout
+        return _Response({"lighthouseResult": {"categories": {"performance": {"score": 1.0}}}})
+
+    result = diagnostics_console._targeted_web_probe(spec, opener=opener)
+
+    assert diagnostics_console.DEFAULT_WEB_PROBE_URL == "https://pudim.com.br"
+    assert result.status == STATUS_OPERATIONAL
+    assert "url=https%3A%2F%2Fpudim.com.br" in str(seen["url"])
+    assert "key=test-key" in str(seen["url"])
+    assert "https://pudim.com.br" in result.detail
+
+
+def test_console_crux_probe_uses_fixed_origin_and_no_data_is_not_auth_error(monkeypatch) -> None:
+    spec = get_integration_spec("service:crux")
+    assert spec is not None
+    monkeypatch.setenv("RASAI_CRUX_API_KEY", "test-key")
+    seen: dict[str, object] = {}
+
+    def opener(request, timeout=0):
+        seen["url"] = request.full_url
+        seen["body"] = request.data
+        raise HTTPError(
+            request.full_url,
+            404,
+            "not found",
+            {},
+            BytesIO(json.dumps({"error": {"message": "No record found"}}).encode("utf-8")),
+        )
+
+    result = diagnostics_console._targeted_web_probe(spec, opener=opener)
+
+    assert result.status == STATUS_OPERATIONAL_LIMITED
+    assert result.category == "NO_FIELD_DATA"
+    assert json.loads(bytes(seen["body"]).decode("utf-8")) == {"origin": "https://pudim.com.br"}
+    assert "queryRecord" in str(seen["url"])
+    assert "key=test-key" in str(seen["url"])
 
 
 def test_persisted_diagnostic_is_invalidated_when_configuration_changes(tmp_path) -> None:
