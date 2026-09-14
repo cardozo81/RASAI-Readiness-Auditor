@@ -1,6 +1,6 @@
 # Experiência e organização dos relatórios orientada a problemas
 
-**Estado no baseline de desenvolvimento:** aprovado / vigente para a experiência e organização do site estático de relatórios.
+**Estado:** APROVADO / VIGENTE para a experiência e organização do site estático de relatórios.
 
 ## 1. Objetivo
 
@@ -10,7 +10,7 @@ O relatório é uma projeção de dados persistidos. Não é fonte de verdade ne
 
 ## 2. Contrato atual de saída
 
-O conjunto materializado depende das capacidades efetivamente executadas e da disponibilidade de evidência, mas usa o mesmo site estático:
+`REPORT-CONTRACT-002` define superfícies canônicas estáveis. Toda auditoria concluída com sucesso materializa todas as páginas abaixo, independentemente de a capacidade especializada ter sido executada:
 
 ```text
 <AUD-ID>/
@@ -20,28 +20,33 @@ O conjunto materializado depende das capacidades efetivamente executadas e da di
    ├─ index.html
    ├─ readiness.html
    ├─ scoring.html
-   ├─ mobile.html                  # quando aplicável
-   ├─ desktop.html                 # quando aplicável
-   ├─ remediation.html
-   ├─ content-suggestions.html     # quando aplicável
-   ├─ crawling-discovery.html      # quando aplicável
-   ├─ accessibility.html           # quando materializada
-   ├─ web-performance.html         # quando materializada
-   ├─ apdex.html                   # quando materializada
-   ├─ apdex-experience.html        # quando materializada
-   ├─ search-intelligence.html     # quando materializada
-   ├─ ai-visibility.html           # quando materializada
-   ├─ observability.html           # quando materializada
-   ├─ quality.html                 # quando materializada
+   ├─ context.html
+   ├─ crawling-discovery.html
+   ├─ mobile.html
+   ├─ desktop.html
+   ├─ accessibility.html
+   ├─ web-performance.html
+   ├─ standards.html
+   ├─ apdex.html
+   ├─ apdex-experience.html
+   ├─ search-intelligence.html
+   ├─ ai-visibility.html
+   ├─ observability.html
    ├─ ai-usage.html
+   ├─ improvement-intelligence.html
+   ├─ content-suggestions.html
+   ├─ remediation.html
+   ├─ quality.html
    ├─ references.html
    └─ css/
       └─ site.css
 ```
 
-Páginas opcionais devem aparecer no menu somente quando materializadas. A versão do scoring pertence a `scoring_version` e ao conteúdo de `scoring.html`, não ao nome físico da página canônica.
+A existência física da página não significa que a capacidade foi executada. Quando uma capacidade não foi solicitada, não está configurada, não se aplica ou não possui dados, a página apresenta um estado neutro correspondente. O renderer não chama API, provider, coletor ou IA apenas para preencher a superfície.
 
-Arquivos HTML transitórios usados internamente durante orquestração não integram o contrato público final.
+A versão do scoring pertence a `scoring_version` e ao conteúdo de `scoring.html`, não ao nome físico da página canônica.
+
+Arquivos HTML internos que não constem de `src/rasai/report_contract.py` não integram o contrato público final.
 
 ## 3. Navegação
 
@@ -53,7 +58,9 @@ Todas as páginas finais devem compartilhar:
 - estados visuais semanticamente consistentes;
 - item ativo correspondente à página atual.
 
-O menu deve ser produzido/normalizado pelo componente comum de navegação e conter apenas páginas materializadas. Exemplo: `desktop.html` não deve aparecer em auditoria somente Mobile.
+O menu deve ser produzido/normalizado pelo componente comum de navegação e refletir a ordem canônica de `src/rasai/report_contract.py`. Como as superfícies são estáveis, o menu também é estável.
+
+Exemplo: em uma auditoria somente Mobile, `desktop.html` continua presente no menu e deve informar de forma neutra que Desktop não foi executado. A página não pode inventar score, snapshot ou finding Desktop.
 
 Páginas com múltiplas seções analíticas relevantes devem oferecer **atalhos internos contextuais** próximos ao topo. Eles não substituem o menu global; servem para reduzir rolagem e localizar metodologia, contexto, telemetria, findings ou referências.
 
@@ -72,7 +79,7 @@ Aplicação esperada:
 - título e introdução curtos explicam a finalidade da tela;
 - rótulos usam linguagem de produto/analista, evitando identificador interno isolado;
 - códigos internos (`BR-GEO-*`, reason codes, `scoring_version`) podem aparecer para rastreabilidade, mas acompanhados de contexto ou acesso rápido à metodologia;
-- ausência de coleta deve ser descrita como `não coletado`, `não solicitado`, `indisponível` ou estado equivalente correto, nunca como defeito implícito do website.
+- ausência de coleta deve ser descrita como `não coletado`, `não solicitado`, `indisponível`, `não aplicável` ou estado equivalente correto, nunca como defeito implícito do website.
 
 O relatório não deve repetir longos blocos de documentação em todas as páginas. Quando o detalhe metodológico já existe em `references.html` ou outra tela especializada, usar explicação curta e link de atalho.
 
@@ -126,7 +133,7 @@ mobile.html
 desktop.html
 ```
 
-Cada página pode conter:
+Cada página pode conter, quando o contexto correspondente foi executado:
 
 - scorecard do dispositivo;
 - dimensões;
@@ -135,7 +142,7 @@ Cada página pode conter:
 - findings aplicáveis;
 - avaliações semânticas relevantes.
 
-Resultados do outro dispositivo não devem ser misturados.
+Resultados do outro dispositivo não devem ser misturados. Se o contexto não foi executado, a superfície permanece presente e informa esse estado sem score artificial.
 
 ## 8. Remediação
 
@@ -176,6 +183,8 @@ Deve mostrar prioritariamente:
 - resumo da IA consumida nesta etapa;
 - atalho para telemetria detalhada de IA;
 - fontes oficiais relevantes.
+
+Quando a capacidade não for executada, a página permanece canônica e apresenta o estado correspondente.
 
 Não deve virar despejo de prompt, payload bruto ou documentação completa.
 
@@ -222,6 +231,8 @@ Prioridade de fonte:
 4. fonte secundária somente quando necessária e identificada como tal.
 
 Links externos devem usar destino público estável e controles apropriados quando abrirem fora do relatório.
+
+Documentação operacional sobre credenciais, tokens e API keys deve usar as fontes oficiais e a orientação central de `../EXTERNAL_CREDENTIALS.md`.
 
 Quando for necessário reproduzir trecho externo não pt-BR, usar o padrão definido em `docs/README.md`: **Disclaimer - texto original da fonte** seguido de **Tradução/adaptação pt-BR**, reproduzindo somente o trecho necessário.
 
@@ -342,7 +353,8 @@ Uma nova página HTML ou mudança relevante de relatório só está completa ap�
 9. telemetria completa quando a tela utiliza IA;
 10. separação entre website finding e limitação de integração/auditor;
 11. ausência de segredo, payload sensível ou prompt interno desnecessário;
-12. smoke em HTML gerado com conteúdo suficiente para verificar menu, links e responsividade básica.
+12. smoke em HTML gerado com conteúdo suficiente para verificar menu, links e responsividade básica;
+13. presença de todas as superfícies canônicas e estados neutros corretos nas capacidades não executadas.
 
 ## 21. Proveniência metodológica dos indicadores
 
