@@ -171,14 +171,17 @@ A existência da key não garante amostra CrUX elegível. Ausência de dados nã
 
 | Variável | Default efetivo | Valores permitidos | Recomendado | Dependência / finalidade |
 |---|---|---|---|---|
-| `RASAI_GSC_ENABLED` | auto por requisitos | booleano | omitir para auto; `false` para desligar | requer token + property |
-| `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` | sem default | OAuth 2.0 bearer token válido | secret/env temporário | autentica Sitemaps, URL Inspection e Search Analytics |
-| `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL` | sem default | `sc-domain:<domínio>` ou URL-prefix HTTP(S) | property exata do job | contexto obrigatório da propriedade |
+| `RASAI_GSC_ENABLED` | auto por requisitos | booleano | omitir para auto; `false` para desligar | requer property + uma forma OAuth completa |
+| `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` | sem default | OAuth 2.0 bearer token válido | apenas para teste pontual/manual | alternativa temporária ao fluxo com Refresh Token |
+| `RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_ID` | sem default | OAuth Client ID não vazio | persistir como configuração não secreta | obrigatório no fluxo durável com Refresh Token |
+| `RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET` | sem default | OAuth Client Secret não vazio | secret/env | obrigatório no fluxo durável; nunca entra no INI |
+| `RASAI_GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN` | sem default | OAuth Refresh Token válido | secret/env | obrigatório no fluxo durável; gera access token temporário em memória |
+| `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL` | sem default | `sc-domain:<domínio>` ou URL-prefix HTTP(S) | property exata autorizada no Search Console | contexto obrigatório da propriedade |
 | `RASAI_GSC_SEARCH_ANALYTICS_DAYS` | `1` | inteiro `0..31` | `1` | `0` desliga apenas Search Analytics automático |
 | `RASAI_GSC_SEARCH_MAX_ROWS` | `10000` | inteiro `1..50000` | `10000` | teto de linhas normalizadas |
 | `RASAI_GSC_FINAL_DATA_LAG_DAYS` | `3` | inteiro `0..30` | `3` | defasagem para preferir dados finalizados |
 
-Search Console só fica `READY` com token e property. O access token não é persistido. A property e limites podem ser persistidos como configuração não secreta. O runtime recebe um access token já emitido; uma API key Google não substitui OAuth para esses dados privados. Consulte [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md).
+Search Console fica configurado quando existe a property e **uma** destas formas de autenticação: um `ACCESS_TOKEN` manual, ou o trio `CLIENT_ID` + `CLIENT_SECRET` + `REFRESH_TOKEN`. No modo durável, o RASAi obtém o access token imediatamente antes da chamada ao Google e o mantém apenas em memória. Uma Google API Key, normalmente iniciada por `AIza`, não substitui OAuth para dados privados do Search Console. Consulte [GSC_OAUTH.md](GSC_OAUTH.md) e [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md).
 
 ### 7.5 Microsoft Clarity Data Export
 
@@ -347,11 +350,13 @@ COPILOT_GITHUB_TOKEN
 RASAI_PAGESPEED_API_KEY
 RASAI_CRUX_API_KEY
 RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
+RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET
+RASAI_GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN
 RASAI_CLARITY_API_TOKEN
 DYNATRACE_API_TOKEN
 ```
 
-`RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL`, limites, toggles e caminhos de dataset são não secretos e podem ser persistidos quando a superfície de configuração suportar essa persistência.
+`RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_ID`, `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL`, limites, toggles e caminhos de dataset são não secretos e podem ser persistidos quando a superfície de configuração suportar essa persistência.
 
 ## 16. Telemetria e segurança de IA
 
