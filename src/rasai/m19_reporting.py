@@ -11,7 +11,8 @@ from rasai.persistence import AuditWorkspace
 
 
 _DIMENSION_LABELS = {
-    "TECHNICAL_ACCESSIBILITY": "Acessibilidade Técnica",
+    "DISCOVERY_ACCESS": "Acesso e descoberta",
+    "TECHNICAL_ACCESSIBILITY": "Acesso e descoberta",
     "INDEXABILITY": "Capacidade de Indexação",
     "CONTENT_EXTRACTABILITY": "Extração de Conteúdo",
     "SEMANTIC_STRUCTURE": "Estrutura Semântica",
@@ -21,6 +22,7 @@ _DIMENSION_LABELS = {
     "CITATION_READINESS": "Preparação para Citação",
     "EVIDENCE_TRUST": "Evidências e Confiabilidade",
     "INTENT_COVERAGE": "Cobertura de Intenções",
+    "CONTENT_VALUE": "Valor do Conteúdo",
 }
 _DEVICE_LABELS = {"DESKTOP": "Desktop", "MOBILE": "Mobile"}
 
