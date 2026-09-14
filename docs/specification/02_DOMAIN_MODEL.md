@@ -1,6 +1,6 @@
-# DOMAIN_MODEL.md
+# Modelo de domínio
 
-**Estado no baseline de desenvolvimento:** aprovado / vigente.
+**Estado:** vigente.
 
 ## 1. Objetivo
 
