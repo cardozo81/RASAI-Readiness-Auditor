@@ -52,7 +52,7 @@ def test_language_and_domain_contract() -> None:
         parse_domains("UNKNOWN")
 
 
-def test_deep_config_requires_explicit_configured_provider() -> None:
+def test_deep_config_uses_primary_explicit_provider_or_auto() -> None:
     env = {"OPENAI_API_KEY": "sk-test"}
     config = ImprovementConfig(
         enabled=True,
@@ -65,8 +65,11 @@ def test_deep_config_requires_explicit_configured_provider() -> None:
     assert config.model == "gpt-5.6-luna"
     assert config.reasoning == "HIGH"
 
-    with pytest.raises(ValueError, match="explícito"):
-        ImprovementConfig(enabled=True, provider="auto").validate(env)
+    automatic = ImprovementConfig(enabled=True, provider="auto").validate(env)
+    assert automatic.provider == "auto"
+    assert automatic.model == ""
+    assert automatic.reasoning == ""
+
     with pytest.raises(ValueError, match="OPENAI_API_KEY"):
         ImprovementConfig(
             enabled=True,
@@ -213,20 +216,24 @@ def test_report_renders_original_and_suggested_html_with_priority() -> None:
         assert "advisory/non-scoring" in html
 
 
-def test_console_ini_contract_is_persistable_without_secrets_in_isolated_process() -> None:
+def test_console_ini_contract_persists_only_feature_controls() -> None:
     code = r'''
+from rasai.ai_efficiency_policy import install as install_ai
 from rasai import interactive_console
 from rasai.improvement_intelligence_console import install
 from rasai import console_settings
+install_ai()
 install(interactive_console)
 state = interactive_console.State()
+state.ai_provider = "openai"
+state.ai_model = "gpt-5.6-luna"
+state.ai_reasoning = "HIGH"
 state.improvement_enabled = True
-state.improvement_provider = "openai"
-state.improvement_model = "gpt-5.6-luna"
-state.improvement_reasoning = "HIGH"
 values = console_settings._state_values(state)["improvement_intelligence"]
 assert values["enabled"] == "true"
-assert values["provider"] == "openai"
+assert "provider" not in values
+assert "model" not in values
+assert "reasoning_effort" not in values
 assert "API_KEY" not in str(values)
 print("OK")
 '''
@@ -260,22 +267,22 @@ print("OK")
     assert "OK" in result.stdout
 
 
-def test_saas_contract_requires_exactly_one_url() -> None:
-    # Isolated process avoids leaking additive monkey patches into unrelated tests.
+def test_saas_contract_uses_primary_ai_and_requires_exactly_one_url() -> None:
     code = r'''
 from rasai.improvement_intelligence_saas import install
 from rasai import audit_execution_contract as contract
 install()
 base = {
   "urls": ["https://example.test/"],
+  "ai_provider": "openai",
+  "ai_model": "gpt-5.6-luna",
+  "ai_reasoning": "HIGH",
   "improvement_intelligence": True,
-  "improvement_ai_provider": "openai",
-  "improvement_ai_model": "gpt-5.6-luna",
-  "improvement_ai_reasoning": "HIGH",
 }
 normalized = contract.normalize_audit_job_payload(base)
 assert normalized["improvement_intelligence"] is True
-assert normalized["improvement_ai_provider"] == "openai"
+assert normalized["ai_provider"] == "openai"
+assert "improvement_ai_provider" not in normalized
 try:
     contract.normalize_audit_job_payload({**base, "urls": ["https://a.test/", "https://b.test/"]})
 except ValueError as exc:
