@@ -45,14 +45,29 @@ def _oauth_specs(base):
     )
 
 
+def _refresh_facade() -> None:
+    try:
+        from rasai import console_provider_environment as facade
+        facade.refresh_specs()
+    except ImportError:
+        pass
+
+
+def _refresh_scope_alias() -> None:
+    """Update readiness modules that imported the scope evaluator before runtime install."""
+    try:
+        from rasai import console_execution_profile_readiness as readiness
+        from rasai.gsc_scope import assess_gsc_target
+        readiness.assess_gsc_target = assess_gsc_target
+    except ImportError:
+        pass
+
+
 def install() -> None:
     global _INSTALLED
     if _INSTALLED:
-        try:
-            from rasai import console_provider_environment as facade
-            facade.refresh_specs()
-        except ImportError:
-            pass
+        _refresh_facade()
+        _refresh_scope_alias()
         return
 
     from rasai import console_environment as base
@@ -81,10 +96,6 @@ def install() -> None:
     base.SPECS = tuple(specs[name] for name in base.ENV_NAMES if name in specs)
     base.SPEC_BY_NAME = {spec.name: spec for spec in base.SPECS}
 
-    try:
-        from rasai import console_provider_environment as facade
-        facade.refresh_specs()
-    except ImportError:
-        pass
-
+    _refresh_facade()
+    _refresh_scope_alias()
     _INSTALLED = True
