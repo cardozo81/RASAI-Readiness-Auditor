@@ -172,6 +172,12 @@ def _translate_choice(state: Any, raw: str) -> str:
             "INÍCIO > Sistema / restaurar padrões."
         )
         return ""
+    if choice == "T":
+        state.error = "Use o item 13 para configurar Termos SERP."
+        return ""
+    if choice == "F":
+        state.error = "Use o item 15 para configurar o Perfil da execução."
+        return ""
     return _VISIBLE_TO_INTERNAL.get(choice, choice)
 
 
