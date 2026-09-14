@@ -1,11 +1,14 @@
-"""Windows user-environment persistence for console secrets.
+"""Windows environment persistence and activation for console secrets.
 
-Secrets are never persisted in RASAi configuration files. This module only
-handles an explicit user request to store/remove a secret in the current
-Windows user's environment.
+Secrets are never persisted in RASAi configuration files. An explicit operator action
+may store/remove a secret in the current Windows user's environment. At console startup,
+known persisted secrets can be activated in the RASAi process so the runtime does not
+depend on the parent shell having refreshed its environment block after a registry
+change.
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 import ctypes
 import os
 
@@ -37,11 +40,47 @@ def machine_environment_value(name: str) -> str | None:
 
 
 def effective_persisted_value(name: str) -> str | None:
-    """Return the value a new normal Windows user process should inherit."""
+    """Return the persisted value a normal Windows user process should inherit."""
     user_value = user_environment_value(name)
-    if user_value is not None:
+    if user_value not in {None, ""}:
         return user_value
-    return machine_environment_value(name)
+    machine_value = machine_environment_value(name)
+    return machine_value if machine_value not in {None, ""} else None
+
+
+def activate_persisted_environment(
+    names: Iterable[str],
+    *,
+    overwrite: bool = False,
+) -> tuple[str, ...]:
+    """Activate persisted Windows values in the current RASAi process.
+
+    The helper is intentionally bounded to names supplied by the caller. Windows/User
+    takes precedence over Windows/Machine. By default, a non-empty value already present
+    in the process wins, preserving an explicit session/process override. The normal
+    console startup uses this only for variables classified as secrets.
+
+    On non-Windows systems the normal registry readers return no values, so this is a
+    no-op without introducing a second persistence mechanism.
+    """
+    activated: list[str] = []
+    seen: set[str] = set()
+    for raw_name in names:
+        name = str(raw_name or "").strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+
+        current = (os.environ.get(name) or "").strip()
+        if current and not overwrite:
+            continue
+
+        persisted = effective_persisted_value(name)
+        if persisted in {None, ""}:
+            continue
+        os.environ[name] = str(persisted)
+        activated.append(name)
+    return tuple(activated)
 
 
 def classify_environment_origin(
@@ -103,13 +142,13 @@ def _broadcast_environment_change() -> None:
             ctypes.byref(result),
         )
     except (AttributeError, OSError):
-        # Registry persistence already succeeded. The broadcast only helps
-        # existing desktop processes notice the change sooner.
+        # Registry persistence already succeeded. The broadcast only helps existing
+        # desktop processes notice the change; RASAi startup also reads HKCU directly.
         return
 
 
 def persist_user_environment(name: str, value: str) -> None:
-    """Persist one value in the current Windows user's environment."""
+    """Persist one value in the current Windows user's environment and verify it."""
     if os.name != "nt":
         raise OSError("persistência de credenciais no ambiente do SO está disponível somente no Windows")
     if not value:
@@ -123,6 +162,11 @@ def persist_user_environment(name: str, value: str) -> None:
         winreg.KEY_SET_VALUE,
     ) as key:
         winreg.SetValueEx(key, name, 0, winreg.REG_SZ, value)
+
+    # Do not report success unless the value can be read back from HKCU. Writing the
+    # current user's environment does not require administrator elevation.
+    if user_environment_value(name) != value:
+        raise OSError(f"persistência Windows/User de {name} não pôde ser confirmada após a gravação")
     _broadcast_environment_change()
 
 
