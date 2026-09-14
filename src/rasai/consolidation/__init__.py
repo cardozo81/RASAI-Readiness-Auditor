@@ -22,6 +22,28 @@ def _rasai_index_init(self: _index.ConsolidationIndex, audits_root: str | Path) 
 # initializer first, so they receive the canonical path behavior as well.
 _index.ConsolidationIndex.__init__ = _rasai_index_init
 
+# Keep the consolidated renderer on the current public scoring vocabulary. The
+# TECHNICAL_ACCESSIBILITY key is read-only compatibility for persisted development
+# artifacts; new producers persist DISCOVERY_ACCESS.
+from . import reporting as _reporting
+
+_reporting._DIMENSIONS.update(
+    {
+        "DISCOVERY_ACCESS": "Acesso e descoberta",
+        "TECHNICAL_ACCESSIBILITY": "Acesso e descoberta",
+        "INDEXABILITY": "Capacidade de indexação",
+        "CONTENT_EXTRACTABILITY": "Extração de conteúdo",
+        "SEMANTIC_STRUCTURE": "Estrutura semântica",
+        "ENTITY_CLARITY": "Clareza de entidades",
+        "STRUCTURED_DATA": "Dados estruturados",
+        "ANSWERABILITY": "Capacidade de resposta",
+        "CITATION_READINESS": "Preparação para citação",
+        "EVIDENCE_TRUST": "Evidências e confiabilidade",
+        "INTENT_COVERAGE": "Cobertura de intenções",
+        "CONTENT_VALUE": "Valor do conteúdo",
+    }
+)
+
 # Install CONS-only reporting enrichment before service-level function imports are
 # bound. This keeps actionable remediation/rule references isolated from the audit
 # provider/pricing pipeline, which may evolve independently.
