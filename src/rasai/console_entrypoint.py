@@ -43,6 +43,7 @@ from rasai.external_observability_runtime import (
     install_service_contract as install_external_observability_service_contract,
 )
 from rasai.fulfillment_execution_contract import install_console_projection
+from rasai.gsc_oauth_runtime import install as install_gsc_oauth_runtime
 from rasai.improvement_intelligence_console import (
     install as install_improvement_intelligence_console,
     install_environment as install_improvement_intelligence_environment,
@@ -108,6 +109,7 @@ def main() -> int:
     install_standards_css_validation()
     install_standards_m21_reconciliation()
     install_standards_gsc_observability_runtime()
+    install_gsc_oauth_runtime()
     install_external_observability_runtime()
     install_improvement_intelligence_environment()
     prepare_console_config()
