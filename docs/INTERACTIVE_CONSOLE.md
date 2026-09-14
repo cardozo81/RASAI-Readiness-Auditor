@@ -194,12 +194,15 @@ Google Chrome UX Report (CrUX)
 SERP / Search Intelligence
 IA / provider
 IA - contexto editorial / YMYL
+IA - análise profunda
 Synthetic Navigation Apdex
 Synthetic User Experience Apdex
 Dynatrace / calibração Apdex
 OIDC / Identity
 Control plane / banco
 ```
+
+`IA - análise profunda` contém apenas controles próprios da feature, como habilitação, domínios, limite de recomendações e timeout. Provider, modelo e reasoning pertencem à configuração principal de IA e não são duplicados nessa categoria.
 
 Para campos com domínio fechado, o console apresenta opções aceitas. Entrada livre permanece para valores realmente abertos, como URL, path, property, token/secret, locale ou números de faixa contínua.
 
@@ -229,6 +232,8 @@ rasai-console.ini
 O INI armazena parâmetros não sensíveis de configuração geral. API keys, tokens, senhas e outros secrets não são gravados nele.
 
 Termos de Search Intelligence são inputs de execução e não pertencem ao INI geral. Eles são persistidos no snapshot do respectivo `AUD-*` para permitir reprodução daquela observação.
+
+Improvement Intelligence persiste somente seus controles não sensíveis próprios. A seleção de provider/model/reasoning continua na configuração principal de IA.
 
 Precedência prática para configuração geral:
 
@@ -273,9 +278,17 @@ anthropic
 copilot
 ```
 
-Aliases suportados são resolvidos pelo `provider_registry`. `none` desabilita IA. `auto` utiliza somente providers elegíveis e aptos segundo a política vigente.
+Aliases suportados são resolvidos pelo `provider_registry`. `none` desabilita IA quando nenhuma capacidade selecionada exigir IA. `auto` utiliza somente providers elegíveis e aptos segundo a política vigente.
 
 GitHub Copilot é `explicit-only`: pode ser selecionado explicitamente quando apto, mas não participa automaticamente do pool `AI=auto`.
+
+### Uma seleção principal por execução
+
+A configuração de IA do item principal é a autoridade para os consumidores de IA compatíveis da execução.
+
+Search/Competitive AI, Improvement Intelligence, remediações e demais contratos especializados não criam uma seleção paralela de provider. Cada módulo preserva somente seu contrato funcional de prompt/schema/evidência/validação.
+
+Em `AUTO`, todos os consumidores compatíveis reutilizam o runtime central de custo, elegibilidade, quarentena, circuit breaker e fallback.
 
 ### Credenciais de IA
 
@@ -334,7 +347,7 @@ Modelos e opções de reasoning derivam do `provider_registry`; o console não m
 
 ## Remediações por IA
 
-Remediação de conteúdo e remediação técnica são independentes e só ficam executáveis quando existe IA apta para a finalidade correspondente.
+Remediação de conteúdo e remediação técnica são independentes como finalidades, mas usam a seleção principal de IA e só ficam executáveis quando existe IA apta para a finalidade correspondente.
 
 São advisory/evidence-bound. Não alteram automaticamente Score, Coverage, Confidence, RuleExecution ou Finding.
 
@@ -343,11 +356,14 @@ São advisory/evidence-bound. Não alteram automaticamente Score, Coverage, Conf
 Search Intelligence mantém separados:
 
 - inputs da execução: termos, profundidade, região, device, análise competitiva;
-- configuração de provider, limites e credencial.
+- configuração do provider SERP, limites e credencial;
+- seleção principal de IA, quando uma extensão semântica de Search for solicitada.
 
-Termos podem ser informados no dashboard da auditoria. Provider/credencial/limites ficam na área de integrações.
+Termos podem ser informados no dashboard da auditoria. Provider SERP/credencial/limites ficam na área de integrações.
 
-Ao carregar a configuração de um AUD, os inputs de execução SERP também são restaurados. Se a key/token atual do provider não estiver disponível, o console aponta a dependência antes da execução.
+Não existe `RASAI_SEARCH_AI_PROVIDER` no contrato vigente. Uma análise competitiva por IA usa a seleção canônica da execução.
+
+Ao carregar a configuração de um AUD, os inputs de execução SERP também são restaurados. Se a key/token atual do provider SERP não estiver disponível, o console aponta a dependência antes da execução.
 
 ## Web Performance
 
@@ -403,9 +419,20 @@ America/Sao_Paulo
 
 ## Análise profunda de URL
 
-Improvement Intelligence é independente da IA padrão da auditoria. A tela própria define se a etapa será executada e permite escolher provider explícito, modelo, reasoning, domínios, limite de recomendações e timeout.
+Improvement Intelligence é uma finalidade especializada que usa **a mesma IA principal da auditoria**.
 
-A análise exige URL única, credencial apta e configuração suportada. É advisory/non-scoring e não executa exploração ativa de segurança.
+A tela própria define apenas:
+
+- habilitação da etapa;
+- domínios de análise;
+- limite de recomendações;
+- timeout da chamada profunda.
+
+Provider, modelo e reasoning não são configurados novamente no item 13. Eles vêm da seleção principal de IA.
+
+A análise exige URL única e IA principal apta. Se a seleção principal for `AUTO`, a etapa reutiliza a política central de custo, elegibilidade, quarentena, circuit breaker e fallback.
+
+É advisory/non-scoring e não executa exploração ativa de segurança.
 
 Quando Search Intelligence foi executado na mesma observação, a análise pode reutilizar evidência SERP já persistida.
 
@@ -413,7 +440,9 @@ Quando Search Intelligence foi executado na mesma observação, a análise pode 
 
 Perfis são overlays temporários para a próxima execução e não substituem os defaults persistentes.
 
-Eles não gravam credenciais nem alteram variáveis do SO. Ajustes finos feitos depois no dashboard vencem o preset no domínio alterado.
+Eles não gravam credenciais nem alteram variáveis do SO. Ajustes finos feitos depois no dashboard vencem o preset no domínio alterado, desde que o resultado ainda satisfaça as dependências obrigatórias do perfil.
+
+Um perfil que inclui Análise profunda mantém a IA principal necessária a essa etapa; não existe uma IA exclusiva do item 13.
 
 ## Progresso de execução
 
