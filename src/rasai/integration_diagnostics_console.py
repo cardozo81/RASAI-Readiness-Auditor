@@ -3,15 +3,21 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from datetime import datetime
+import json
 import os
 from types import ModuleType
 from typing import Any
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from rasai import console_provider_environment as environment_console
 from rasai import integration_diagnostics as diagnostics
 from rasai.console_ui import CYAN, DIM, GREEN, RED, YELLOW, paint
 from rasai.time_contract import configured_presentation_timezone
+
+
+DEFAULT_WEB_PROBE_URL = "https://pudim.com.br"
+_TARGETED_WEB_PROBE_KINDS = frozenset({"PAGESPEED", "CRUX", "CRUX_HISTORY"})
 
 
 # ``transient`` and ``deterministic`` are derived from ``status``. Keep diagnostic
@@ -101,6 +107,85 @@ def _dependency_value(item: diagnostics.IntegrationDependency) -> str:
     return "<ausente>" if item.required else "<não definido>"
 
 
+def _targeted_web_probe(
+    spec: diagnostics.IntegrationSpec,
+    *,
+    opener=None,
+) -> diagnostics.IntegrationDiagnostic:
+    """Run a real, bounded console-only probe against the fixed diagnostic target."""
+    environment = os.environ
+    local = diagnostics._local_validation(spec, environment)
+    if local is not None:
+        return local
+
+    effective_opener = diagnostics.urlopen if opener is None else opener
+    if spec.probe_kind == "PAGESPEED":
+        key = str(environment.get("RASAI_PAGESPEED_API_KEY") or "").strip()
+        endpoint = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?" + urlencode(
+            {"url": DEFAULT_WEB_PROBE_URL}
+        )
+        result = diagnostics._google_key_probe(
+            spec,
+            key,
+            endpoint,
+            method="GET",
+            body=None,
+            timeout=30.0,
+            opener=effective_opener,
+        )
+    elif spec.probe_kind in {"CRUX", "CRUX_HISTORY"}:
+        key = str(environment.get("RASAI_CRUX_API_KEY") or "").strip()
+        endpoint = (
+            "https://chromeuxreport.googleapis.com/v1/records:queryRecord"
+            if spec.probe_kind == "CRUX"
+            else "https://chromeuxreport.googleapis.com/v1/records:queryHistoryRecord"
+        )
+        body = json.dumps({"origin": DEFAULT_WEB_PROBE_URL}, separators=(",", ":")).encode("utf-8")
+        result = diagnostics._google_key_probe(
+            spec,
+            key,
+            endpoint,
+            method="POST",
+            body=body,
+            timeout=15.0,
+            opener=effective_opener,
+        )
+        if result.status == diagnostics.STATUS_RESOURCE_ERROR and result.http_status == 404:
+            return diagnostics.IntegrationDiagnostic(
+                spec.id,
+                spec.label,
+                result.checked_at,
+                diagnostics.STATUS_OPERATIONAL_LIMITED,
+                "NO_FIELD_DATA",
+                f"API e credencial responderam à consulta real para {DEFAULT_WEB_PROBE_URL}, mas não há registro CrUX disponível para essa origem.",
+                "A integração está comunicável. Ausência de dados de campo para o alvo padrão não é erro de credencial/configuração.",
+                result.configuration_fingerprint,
+                result.latency_ms,
+                result.http_status,
+                spec.probe_cost,
+                ("configuration", "connectivity", "authentication", "target_query"),
+            )
+    else:
+        return diagnostics.run_diagnostic(spec)
+
+    if result.status == diagnostics.STATUS_OPERATIONAL:
+        return diagnostics.IntegrationDiagnostic(
+            spec.id,
+            spec.label,
+            result.checked_at,
+            result.status,
+            "OK",
+            f"Consulta mínima real concluída usando o alvo padrão de diagnóstico {DEFAULT_WEB_PROBE_URL}.",
+            "Nenhuma ação corretiva é necessária com base neste teste. O alvo padrão é usado somente pelo diagnóstico de integração.",
+            result.configuration_fingerprint,
+            result.latency_ms,
+            result.http_status,
+            spec.probe_cost,
+            ("configuration", "connectivity", "authentication", "target_query"),
+        )
+    return result
+
+
 def _render_dependencies(spec: diagnostics.IntegrationSpec) -> None:
     print("DEPENDÊNCIAS E PARÂMETROS")
     for index, item in enumerate(spec.dependencies, 1):
@@ -115,13 +200,20 @@ def _render_dependencies(spec: diagnostics.IntegrationSpec) -> None:
         for name in spec.related_envs:
             value = str(os.environ.get(name) or "").strip() or "<default/não definido>"
             print(f" - {name:<44} {value}")
+    if spec.probe_kind in _TARGETED_WEB_PROBE_KINDS:
+        print("\nALVO DO TESTE DE INTEGRAÇÃO")
+        print(f" - URL/origem padrão                           {DEFAULT_WEB_PROBE_URL}")
+        print(paint("   Usado somente pelo diagnóstico; não altera a URL de auditoria nem configuração global.", DIM))
     print(f"\nTipo de probe: {spec.probe_cost}")
     if spec.probe_cost == diagnostics.PROBE_NO_GENERATION:
         print(paint("O teste não envia prompt nem gera tokens de IA.", DIM))
     elif spec.probe_cost == diagnostics.PROBE_SCARCE_QUOTA_AVOIDED:
         print(paint("O teste evita a operação de Data Export para não consumir a quota escassa do fornecedor.", YELLOW))
     elif spec.probe_cost == diagnostics.PROBE_LIGHT_QUOTA:
-        print(paint("O teste usa uma requisição técnica mínima e deliberadamente incompleta quando isso evita executar a coleta real.", DIM))
+        if spec.probe_kind in _TARGETED_WEB_PROBE_KINDS:
+            print(paint("O teste executa uma consulta mínima real contra o alvo padrão e pode consumir quota técnica da API.", DIM))
+        else:
+            print(paint("O teste usa uma requisição técnica mínima e deliberadamente incompleta quando isso evita executar a coleta real.", DIM))
 
 
 def _render_result(spec: diagnostics.IntegrationSpec, result: diagnostics.IntegrationDiagnostic | None) -> None:
@@ -151,7 +243,7 @@ def _render_result(spec: diagnostics.IntegrationSpec, result: diagnostics.Integr
 
 
 def _run_and_store(state: Any, spec: diagnostics.IntegrationSpec) -> diagnostics.IntegrationDiagnostic:
-    result = diagnostics.run_diagnostic(spec)
+    result = _targeted_web_probe(spec) if spec.probe_kind in _TARGETED_WEB_PROBE_KINDS else diagnostics.run_diagnostic(spec)
     diagnostics.save_diagnostic(state.audits_root, result)
     state.operation = "LOCAL:INTEGRATION_DIAGNOSTIC"
     state.error = ""
