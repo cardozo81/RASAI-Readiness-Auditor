@@ -167,6 +167,13 @@ def _dependency_reason(
     return None
 
 
+def _provider_requested(provider: Any) -> bool:
+    if provider is None:
+        return False
+    name = str(getattr(provider, "name", "NONE") or "NONE").strip().upper()
+    return name not in {"", "NONE"}
+
+
 class _DependencyGatedProvider:
     def __init__(self, base: Any, reasons: dict[str, str], *, workspace: Any, audit_id: str) -> None:
         self.base = base
@@ -218,6 +225,11 @@ def _dependency_gate(original):
         m6_result = kwargs.get("m6_result")
         provider = kwargs.get("provider")
         if not audit_id or persistence is None or workspace is None or m3_result is None or provider is None:
+            return original(*args, **kwargs)
+        # Prerequisite gating only applies when semantic AI was actually requested.
+        # NONE means the user selected no semantic AI, so the canonical M7 result must
+        # remain NO_AI even if deterministic rendered-content prerequisites failed.
+        if not _provider_requested(provider):
             return original(*args, **kwargs)
         reasons: dict[str, str] = {}
         for page_id, per_device in getattr(m3_result, "snapshot_ids", {}).items():
