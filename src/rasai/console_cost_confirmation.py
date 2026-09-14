@@ -321,7 +321,7 @@ def _render_outcome(forecast: CostForecast, outcome: _CostOutcome) -> None:
         explanation = "custo igual ou abaixo do esperado"
     else:
         explanation = "telemetria monetária insuficiente para um veredito confiável"
-    print("Resultado            : " + paint(f"{outcome.status} — {explanation}", color, bold=True))
+    print("Resultado            : " + paint(f"{outcome.status} - {explanation}", color, bold=True))
     for note in outcome.notes:
         print(paint(f"Observação           : {note}", DIM))
     print(
