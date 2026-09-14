@@ -21,6 +21,7 @@ from rasai.console_audit_workflow import install as install_console_audit_workfl
 from rasai.console_cancellation_runtime import install as install_console_cancellation_runtime
 from rasai.console_config_path import prepare_console_config
 from rasai.console_cost_confirmation import install as install_cost_confirmation
+from rasai.console_detail_presentation import install as install_console_detail_presentation
 from rasai.console_environment_reset import (
     install_ai_secret_cancellation,
     install_environment_reset,
@@ -205,6 +206,9 @@ def main() -> int:
     # operator may continue after explicit acknowledgement, and runtime behavior remains
     # authoritative.
     install_integration_network_diagnostics(interactive_console)
+    # Presentation-only final pass: optional technical codes must never render an empty
+    # prefix such as "Detalhe : : ...". No diagnostic semantics are changed here.
+    install_console_detail_presentation()
     return interactive_console.main()
 
 
