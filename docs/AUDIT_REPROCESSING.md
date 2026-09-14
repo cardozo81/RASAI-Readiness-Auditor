@@ -147,6 +147,51 @@ Exemplos:
 
 Uma chamada sobre um `AUD-*` já completo é um no-op analítico: o estado atual é devolvido sem repetir serviços bem-sucedidos.
 
+## Componentes opcionais solicitados na auditoria
+
+Um recurso opcional deixa de ser opcional para o fulfillment quando o usuário o seleciona explicitamente na configuração daquela auditoria. Nesse caso ele passa a integrar o denominador obrigatório do `AUD-*` e precisa ter resultado efetivo antes de o relatório ser final e o AUD ser elegível para consolidação.
+
+O contrato atual cobre explicitamente:
+
+- `SEARCH_INTELLIGENCE`, quando termos SERP foram configurados no console da auditoria;
+- `GOOGLE_SEARCH_CONSOLE`, quando o serviço foi explicitamente habilitado;
+- `IMPROVEMENT_INTELLIGENCE`, quando a análise profunda por IA foi explicitamente habilitada;
+- Synthetic Navigation Apdex e Synthetic User Experience Apdex, quando selecionados na configuração da execução.
+
+Se um desses recursos foi solicitado, mas nenhuma execução correspondente foi materializada, o work-item permanece visível como `REQUESTED_NOT_EXECUTED`. Ausência de configuração obrigatória é diferenciada de falha de execução. Por exemplo, Google Search Console explicitamente solicitado sem `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL` permanece `NOT_CONFIGURED` com código `SITE_URL_REQUIRED`.
+
+### Search Intelligence da auditoria
+
+Search Intelligence solicitado no console pertence ao contrato daquele `AUD-*`. O RASAi persiste no work-item apenas parâmetros não secretos necessários para reproduzir a observação, como termos, profundidade, região, dispositivo, mercado, idioma, provider, engine, limites, timeout e política de retry.
+
+Credenciais SERP não são copiadas para o work-item. No reprocessamento, a configuração não secreta original é reutilizada e a credencial é resolvida novamente a partir do ambiente atual.
+
+Uma observação Search já concluída com sucesso não é executada outra vez porque outro componente falhou. Uma observação Search pendente pode ser repetida dentro da janela `LIVE_RECOLLECTION`. Se essa janela expirar, o AUD antigo não é atualizado com uma nova observação temporalmente incompatível; uma nova auditoria deve ser executada.
+
+`SEARCH_MONITOR` do control plane SaaS permanece um job separado. A existência de monitoramento contínuo não transforma suas execuções em work-items da observação local `AUD-*`.
+
+### Google Search Console
+
+Google Search Console é tratado como `LIVE_RECOLLECTION`. O RASAi preserva a configuração não secreta original da propriedade e dos limites da coleta, mas resolve o token atual somente no momento da recuperação.
+
+Se o work-item já possui sucesso efetivo e sua evidência persistida continua íntegra, o finalizador reutiliza os datasets existentes e não faz nova chamada à API. Se o item está pendente e ainda está dentro da janela temporal, somente esse requisito pode ser coletado novamente. Depois do vencimento da janela, nova coleta não promove o AUD antigo a resultado final.
+
+### Improvement Intelligence
+
+Improvement Intelligence reutiliza provider, modelo, esforço, domínios, limite de recomendações, timeout e idioma definidos na configuração original. A credencial do provider não é persistida nesse contrato e é resolvida novamente no ambiente atual.
+
+Quando uma execução anterior de Improvement Intelligence já concluiu com sucesso e sua evidência persistida continua íntegra, o reprocessamento reutiliza o resultado com `reused=true`; não faz uma segunda chamada paga apenas para regenerar o relatório.
+
+Quando o work-item está pendente, a análise pode ser repetida sobre a evidência persistida da mesma observação. A tentativa de IA continua registrada pelo mecanismo normal de provider, incluindo tokens, custo estimado e versão de pricing. O reprocessamento não possui uma segunda camada de cobrança ou precificação.
+
+### Custo, pricing e tentativas opcionais
+
+O reprocessamento não recalcula o custo observado de tentativas históricas. Cada chamada já realizada conserva os tokens, custo estimado e versão de pricing que foram persistidos na execução correspondente.
+
+Uma nova tentativa feita por um `RPR-*` usa o mesmo motor vigente de pricing e telemetria usado por uma execução normal. O custo adicional aparece como nova tentativa; ele não sobrescreve nem reprecifica a tentativa anterior.
+
+A previsão de uma futura execução pode reutilizar consumo histórico e o catálogo de preços vigente para estimativa, mas isso é uma projeção separada e não altera o custo observado do AUD.
+
 ## Evidência core e integridade
 
 Aquisição HTTP, captura do documento pelo browser e extração determinística são requisitos explícitos de processamento quando aplicáveis ao contexto auditado.
@@ -156,6 +201,8 @@ Há uma distinção obrigatória entre **falha de coleta** e **perda de evidênc
 - se a aquisição ou captura não concluiu, o requisito permanece recuperável e pode ser tentado novamente como `LIVE_RECOLLECTION`, dentro da janela temporal configurada;
 - se uma captura foi registrada como sucesso e o artifact persistido correspondente não está disponível, o requisito fica `BLOCKED`; o RASAi não substitui essa evidência por uma versão posterior do site;
 - se existe RAW ou DOM persistido e apenas a extração falhou, a recuperação é `REPLAY_SAFE` e reutiliza exatamente a fonte armazenada.
+
+O mesmo princípio vale para componentes opcionais: um work-item marcado como sucesso não é considerado íntegro se a evidência persistida que comprova esse resultado desapareceu. Nesse caso o status de sucesso é invalidado e a inconsistência aparece como falha de integridade, em vez de o RASAi assumir que o resultado ainda existe.
 
 Quando uma recuperação core altera a evidência efetiva, somente os cálculos determinísticos e derivados dependentes são recalculados. As versões anteriores permanecem na trilha do `RPR-*`.
 
@@ -188,6 +235,8 @@ Esses estados e seus códigos/mensagens são autoritativos. O fallback genérico
 
 Isso é especialmente importante para IA: ausência de pré-requisito não é falha de provider e não deve parecer uma tentativa de IA com erro. O console exibe o motivo efetivamente persistido para explicar por que o `RPR-*` não promoveu o AUD para `COMPLETE`.
 
+Quando uma resposta de IA técnica chega ao RASAi, mas é rejeitada pelo contrato de evidência, a falha é classificada como erro de contrato da análise e permanece elegível para reprocessamento seletivo. O runtime não dispara uma segunda chamada paga imediata apenas para tentar corrigir automaticamente a resposta. Essa nova chamada só ocorre em um `RPR-*` explícito, depois que o operador decide reprocessar o requisito pendente.
+
 ### Duas trilhas de tentativa
 
 O runtime mantém granularidades complementares:
@@ -201,7 +250,9 @@ Uma avaliação de reprocessamento pode terminar como `WAITING_FOR_DATA` ou `BLO
 
 O estado transitório usado para compor um `RPR-*` é isolado por contexto de execução. Duas auditorias reprocessadas simultaneamente não podem compartilhar `reprocess_id`, lista de pendências, filtros ou estado de outro `AUD-*`.
 
-Os hooks instalados no processo permanecem estáveis; o contexto de cada execução é propagado isoladamente. O console preserva o contexto corrente ao executar o motor seletivo em sua projeção de progresso. Um sucesso efetivo pertence exclusivamente ao respectivo `AUD-*` e ao seu histórico de `RPR-*`.
+Os hooks instalados no processo permanecem estáveis; o contexto de cada execução é propagado isoladamente. Configurações não secretas restauradas para GSC e Improvement Intelligence usam overrides locais ao contexto e não alteram `os.environ` do processo. Isso evita que workers concorrentes compartilhem temporariamente parâmetros de outra auditoria.
+
+O console preserva o contexto corrente ao executar o motor seletivo em sua projeção de progresso. Um sucesso efetivo pertence exclusivamente ao respectivo `AUD-*` e ao seu histórico de `RPR-*`.
 
 ## Dependências de IA
 
