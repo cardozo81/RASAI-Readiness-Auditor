@@ -12,6 +12,7 @@ import sqlite3
 from typing import Any
 
 from rasai.persistence import AuditWorkspace
+from rasai.report_reader_experience import build_report_experience_context, enhance_report_experience
 
 _AI_USAGE_FILE = "ai-usage.html"
 _UX_APDEX_FILE = "apdex-experience.html"
@@ -70,7 +71,7 @@ _TERM_REPLACEMENTS: tuple[tuple[str, str], ...] = (
 
 
 def finalize_report_presentation(*, audit_id: str, workspace: AuditWorkspace) -> None:
-    """Apply final ordering, concise dependency state and shared wording to all HTML."""
+    """Apply final ordering, dependency state and reader-oriented UX to all HTML."""
     report_dir = workspace.root / "report"
     if not report_dir.is_dir():
         return
@@ -79,6 +80,7 @@ def finalize_report_presentation(*, audit_id: str, workspace: AuditWorkspace) ->
     connection.row_factory = sqlite3.Row
     try:
         dependency = _dependency_states(connection, audit_id)
+        experience_context = build_report_experience_context(connection, audit_id)
     finally:
         connection.close()
 
@@ -96,6 +98,7 @@ def finalize_report_presentation(*, audit_id: str, workspace: AuditWorkspace) ->
         if path.name != _AI_USAGE_FILE:
             html = _move_ai_cost_to_final_data_block(html)
         html = _mark_zero_ai_cost(html)
+        html = enhance_report_experience(html, filename=path.name, context=experience_context)
         html = _ensure_footer_last(html)
 
         try:
