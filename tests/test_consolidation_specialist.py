@@ -91,7 +91,8 @@ def test_consolidated_report_adds_deterministic_evolution_and_fix_verification_r
         assert "Fix Verification" not in html
         assert "BR-GEO-011" in html
         assert "FIXED" in html
-        assert "Análise especialista por IA" not in html
+        assert "IA especialista não solicitada" in html
+        assert "IA especialista concluída" not in html
         artifact = json.loads((result.report_dir / "specialist-analysis.json").read_text(encoding="utf-8"))
         assert artifact["ai"]["requested"] is False
         assert artifact["comparison"]["baseline_audit_id"] == "AUD-BASE"
