@@ -1,7 +1,7 @@
 # RASAi - Search & AI Readiness Auditor - visão e escopo do produto
 
-**Estado no baseline de desenvolvimento:** aprovado e vigente para o estado atual do produto.  
-**Fase do produto:** piloto/POC com operação local preservada e fundação SaaS já implementada em componentes incrementais.
+**Estado:** APROVADO / VIGENTE  
+**Fase do produto:** desenvolvimento e validação pré-publicação, com operação local e fundação SaaS disponíveis no código atual.
 
 ## 1. Visão do produto
 
@@ -18,7 +18,7 @@ O produto transforma evidências técnicas, estruturais e semânticas em:
 - recomendações e remediações priorizadas;
 - relatórios HTML estáticos;
 - comparações longitudinais e before/after;
-- observabilidade externa separada do scoring;
+- observabilidade externa separada do scoring, salvo contratos explicitamente score-eligible;
 - Search Intelligence pontual e recorrente;
 - superfícies locais, Web/API e de Product Platform.
 
@@ -37,11 +37,11 @@ CITATION
 CAUSALIDADE
 ```
 
-Resultados externos observados podem ser armazenados e comparados, mas não são convertidos automaticamente em peso de `SARI-001`/`SCORE-GEO-004`.
+Resultados externos observados podem ser armazenados e comparados, mas não são convertidos automaticamente em peso de `SARI-001`/`SCORE-GEO-004`. A única exceção externa vigente é `BR-GEO-060`, corroboração positiva Common Crawl definida por contrato específico.
 
 ## 2. Contexto operacional atual
 
-O produto preserva operação local e, paralelamente, possui fundações para evolução SaaS.
+O produto oferece operação local e fundação de plataforma/SaaS no mesmo domínio funcional.
 
 ### Operação local
 
@@ -52,9 +52,9 @@ O produto preserva operação local e, paralelamente, possui fundações para ev
 - Docker não é requisito para operação local SQLite;
 - providers externos são opcionais e seguem BYOK/configuração explícita quando aplicável.
 
-### Fundação de plataforma/SaaS existente
+### Plataforma/SaaS
 
-O código atual também contém:
+O código atual contém:
 
 - Product Platform;
 - hierarquia `Organization -> Workspace -> Project -> Property -> Environment`;
@@ -64,13 +64,13 @@ O código atual também contém:
 - SaaS Pilot Web;
 - execution jobs e workers desacoplados;
 - scheduling e run-due;
-- Identity & Access em evolução OIDC/JWT, com modo default fail-closed;
+- Identity & Access OIDC/JWT, com modo default fail-closed;
 - usage ledger e consumption analytics;
 - Search Monitoring longitudinal;
 - milestones, golden baselines e comparação before/after;
 - Monitor, Observability, Quality e Fix Verification.
 
-A existência dessas fundações **não significa** que toda infraestrutura SaaS de produção esteja implantada. Object storage gerenciado, fila externa definitiva, deployment multi-região, secret manager de produção, billing completo e demais componentes de operação em escala permanecem decisões/etapas de infraestrutura.
+A existência dessas capacidades **não significa** que toda infraestrutura necessária a uma operação SaaS de produção esteja implantada. Object storage gerenciado, fila externa definitiva, deployment multi-região, secret manager de produção, billing completo e demais componentes de operação em escala permanecem fora do contrato operacional atual.
 
 ## 3. Objetivos da auditoria
 
@@ -132,11 +132,13 @@ Todo score deve ser reconstruível a partir de regras, contribuições e versõe
 
 ### Contextos de dispositivo independentes
 
-Desktop e Mobile são contextos independentes. Comparação Desktop × Mobile só é aplicável quando ambos existem; a ausência deliberada de um contexto não deve ser convertida automaticamente em falha do website.
+Desktop e Mobile são contextos independentes. Comparação Desktop x Mobile só é aplicável quando ambos existem; a ausência deliberada de um contexto não deve ser convertida automaticamente em falha do website.
 
 ### Separação entre readiness e outcomes
 
 Lighthouse, CrUX, Search Console, SERP Observation, Observed Generative Visibility e outros outcomes externos mantêm proveniência/metodologia próprias. Sua existência não autoriza fusão automática com `SARI-001`/`SCORE-GEO-004`.
+
+`BR-GEO-060` é exceção explícita e limitada: Common Crawl pode corroborar positivamente `DISCOVERY_ACCESS` quando a evidência qualifica, sem penalizar ausência ou erro.
 
 ### Imutabilidade da auditoria
 
@@ -160,6 +162,8 @@ Entradas mínimas dependem da superfície usada, mas podem incluir:
 O estado do console mantém `max_pages = 100` como valor inicial do fluxo interativo, sujeito à configuração explícita da execução. Quando um documento publicar variáveis/limites operacionais, deve distinguir **default efetivo**, **valores permitidos** e **recomendado**.
 
 Referência central: `../ENVIRONMENT_VARIABLES.md` e `../CONFIGURATION.md`.
+
+Para credenciais e tokens externos, incluindo finalidade, dependências e links oficiais de criação, consultar `../EXTERNAL_CREDENTIALS.md`.
 
 ## 6. Descoberta e aquisição
 
@@ -188,7 +192,7 @@ Para páginas e dispositivos aplicáveis, a aquisição pode preservar/derivar:
 
 ## 7. Crawlers e acesso de agentes
 
-O ruleset possui tratamento separado para crawlers/agentes configurados. O baseline documentado inclui, entre outros:
+O ruleset possui tratamento separado para crawlers/agentes configurados. O conjunto documentado inclui, entre outros:
 
 - Googlebot;
 - Googlebot Smartphone;
@@ -222,7 +226,9 @@ Estados e nomenclaturas específicos são definidos nos contratos vigentes de IA
 
 ## 10. Relatórios
 
-O formato principal de publicação de auditoria é HTML estático, com navegação canônica e páginas opcionais condicionadas à existência de evidência.
+O formato principal de publicação de auditoria é HTML estático, com navegação canônica e superfícies estáveis definidas por `REPORT-CONTRACT-002`.
+
+Toda auditoria concluída com sucesso materializa as páginas canônicas registradas em `src/rasai/report_contract.py`. Quando o domínio correspondente não foi solicitado, não está configurado, não se aplica ou não possui dados, a página permanece presente e apresenta estado neutro explícito. A existência da superfície não dispara coleta adicional.
 
 Características esperadas:
 
@@ -232,7 +238,8 @@ Características esperadas:
 - texto contextual em pt-BR;
 - termos técnicos/identificadores preservados quando sua tradução comprometer o contrato;
 - adequado a público técnico e executivo sem esconder limitações metodológicas;
-- proveniência explícita de métricas externas.
+- proveniência explícita de métricas externas;
+- distinção clara entre página existente e capacidade efetivamente executada.
 
 ## 11. Dimensões de readiness
 
@@ -240,9 +247,9 @@ O modelo vigente mantém dimensões metodológicas próprias do `SCORE-GEO-004`.
 
 Nenhuma lista resumida neste charter deve substituir o contrato de scoring versionado.
 
-## 12. Capacidades adjacentes já implementadas
+## 12. Capacidades adjacentes vigentes
 
-Além da auditoria pontual, o estado atual do produto possui capacidades independentes/aditivas, incluindo:
+Além da auditoria pontual, o produto possui capacidades independentes/aditivas, incluindo:
 
 - Synthetic Navigation Apdex;
 - Synthetic User Experience Apdex;
@@ -259,7 +266,7 @@ Além da auditoria pontual, o estado atual do produto possui capacidades indepen
 - Product Platform e relatórios de portfólio;
 - Web API e SaaS Pilot Web;
 - PostgreSQL control plane;
-- Identity & Access foundation.
+- Identity & Access.
 
 Cada capacidade mantém seu próprio limite metodológico e de persistência conforme as respectivas especificações.
 
@@ -278,11 +285,11 @@ O RASAi não promete:
 
 ## 14. Testes e validação
 
-A estratégia atual não se limita ao conjunto mínimo do MVP antigo. Regressões automatizadas protegem contratos críticos, incluindo:
+Regressões automatizadas protegem contratos críticos, incluindo:
 
 - parsing e Rules Engine;
 - scoring e aplicabilidade;
-- finding → evidence;
+- finding -> evidence;
 - contexto de dispositivo;
 - relatórios HTML;
 - persistência/imutabilidade de `AUD-*`;
@@ -302,7 +309,7 @@ Uma mudança é aceitável quando preserva, conforme aplicabilidade:
 1. rastreabilidade da evidência;
 2. imutabilidade do `AUD-*` como fonte de evidência;
 3. reprodutibilidade do scoring versionado;
-4. separação entre readiness e outcomes externos;
+4. separação entre readiness e outcomes externos, respeitando exceções explicitamente versionadas como `BR-GEO-060`;
 5. isolamento de falhas de providers externos;
 6. escopo/tenancy do control plane;
 7. ausência de exposição de segredos;
