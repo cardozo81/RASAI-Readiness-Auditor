@@ -1,10 +1,12 @@
 # Consolidação temporal de métricas
 
+**Estado:** vigente.
+
 ## Objetivo
 
 O relatório consolidado `CONS-*` deve combinar execuções independentes do RASAi ao longo de um período sem tratar métricas distintas como se compartilhassem a mesma regra estatística.
 
-A evolução `TEMPORAL-APDEX-001` formaliza o primeiro caso que exige acesso às amostras brutas: **Synthetic Navigation Apdex** e **Synthetic User Experience Apdex**.
+O contrato `TEMPORAL-APDEX-001` formaliza o caso que exige acesso às amostras brutas: **Synthetic Navigation Apdex** e **Synthetic User Experience Apdex**.
 
 O modelo recomendado para monitoramento é:
 
@@ -154,7 +156,7 @@ apdex_period_distribution = raw_sample_pool_per_url_exact_context
 
 ## HTML do relatório consolidado
 
-A seção `Apdex` de `CONS-*/report.html` passa a distinguir:
+A seção `Apdex` de `CONS-*/report.html` distingue:
 
 - tipo de Apdex;
 - URL;
@@ -168,13 +170,13 @@ A seção `Apdex` de `CONS-*/report.html` passa a distinguir:
 - contexto de comparabilidade;
 - limitações de dados.
 
-O restante do HTML é preservado. A evolução é aditiva e `fail-open`: se não houver dados temporais utilizáveis, o relatório legado de Apdex continua disponível.
+A composição é `fail-open`: se não houver dados temporais utilizáveis, o relatório permanece válido e mantém a apresentação de Apdex disponível a partir dos dados efetivamente materializados, sem fabricar série temporal.
 
 ## Agendamento e SaaS
 
-Nenhuma mudança obrigatória no schema do SaaS/control plane é necessária nesta etapa.
+O contrato atual não exige mudança no schema do SaaS/control plane.
 
-O scheduler já pode materializar execuções independentes em horários distintos. Para uma campanha temporal confiável, os jobs devem manter o mesmo contexto metodológico e variar principalmente a janela de execução.
+O scheduler pode materializar execuções independentes em horários distintos. Para uma campanha temporal confiável, os jobs devem manter o mesmo contexto metodológico e variar principalmente a janela de execução.
 
 Exemplo conceitual:
 
@@ -191,9 +193,9 @@ Project / Property / Environment
                      CONS-* do período
 ```
 
-O consolidador continua operando onde os artefatos `AUD-*` estejam acessíveis. Uma futura execução hosted/distribuída deve transportar ou disponibilizar a evidência imutável para a camada analítica, mas não precisa criar uma segunda fórmula de Apdex no control plane.
+O consolidador exige acesso aos artefatos `AUD-*` que participam da série. Em execução distribuída, o nó responsável pela consolidação precisa receber acesso à evidência imutável correspondente; sem esse acesso, a consolidação não é executável nesse nó.
 
-Para execução em hubs/regiões diferentes, **região/origem de execução deve futuramente integrar a identidade de comparabilidade**. Até existir proveniência regional persistida e estável para a série, resultados de origens diferentes não devem ser apresentados como uma única população homogênea.
+Região/origem de execução não integra atualmente a identidade metodológica da série de forma suficiente para fundir automaticamente resultados de hubs distintos. Sem proveniência regional persistida e comparável, resultados de origens diferentes não devem ser apresentados como uma única população homogênea.
 
 ## Estratégia operacional recomendada
 
@@ -217,7 +219,7 @@ A validação de `TEMPORAL-APDEX-001` cobre:
 
 ## Limites metodológicos
 
-- três ou mais `AUD-*` caracterizam uma série histórica descritiva, não causalidade;
+- três ou mais `AUD-*` caracterizam uma série temporal descritiva, não causalidade;
 - janelas temporais diferentes aumentam representatividade operacional, mas não transformam Synthetic Apdex em RUM;
 - mudanças de infraestrutura externa, CDN, rede e terceiros continuam fazendo parte do fenômeno observado;
 - percentis e CV do período só usam amostras com valor temporal/KPM numérico;
