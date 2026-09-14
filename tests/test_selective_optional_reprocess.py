@@ -6,7 +6,8 @@ import sqlite3
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
-from rasai.audit_fulfillment import LIVE_RECOLLECTION, REPLAY_SAFE, SUCCESS, list_work_items, register_work_item, set_work_item_status
+from rasai.audit_fulfillment import BLOCKED, LIVE_RECOLLECTION, REPLAY_SAFE, SUCCESS, list_work_items, register_work_item, set_work_item_status
+from rasai.core_integrity_runtime import install as install_core_integrity
 from rasai.domain import Audit
 from rasai.execution_environment import override_environment, resolve_environment
 from rasai.persistence import AuditPersistence, AuditWorkspace
@@ -194,7 +195,8 @@ def test_contextual_environment_does_not_mutate_process_environment(monkeypatch)
     assert resolve_environment()["RASAI_TEST_CONTEXT_VALUE"] == "base"
 
 
-def test_success_without_persisted_optional_evidence_is_invalidated() -> None:
+def test_success_without_persisted_optional_evidence_is_blocked_by_integrity() -> None:
+    install_core_integrity()
     with TemporaryDirectory() as directory:
         workspace = _workspace(Path(directory))
         _success_item(workspace, "SEARCH_INTELLIGENCE", LIVE_RECOLLECTION)
@@ -205,9 +207,11 @@ def test_success_without_persisted_optional_evidence_is_invalidated() -> None:
 
         items = {item.component: item for item in list_work_items(workspace, AUDIT_ID)}
         for component in ("SEARCH_INTELLIGENCE", "IMPROVEMENT_INTELLIGENCE", "GOOGLE_SEARCH_CONSOLE"):
-            assert items[component].status == "FAILED_RETRYABLE"
+            assert items[component].status == BLOCKED
+            assert items[component].retryable is False
             assert items[component].last_error_class == "INTEGRITY"
             assert items[component].last_error_code == "PERSISTED_EVIDENCE_MISSING"
+            assert items[component].effective_result_ref == f"{component.casefold()}:effective"
 
 
 def test_saved_console_search_is_backfilled_into_denominator() -> None:
