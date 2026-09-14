@@ -1,6 +1,6 @@
 # Aplicabilidade de dimensões e premissas mínimas - SARI-001 / SCORE-GEO-004
 
-**Estado no baseline de desenvolvimento:** aprovado / vigente  
+**Estado:** vigente  
 **Scoring vigente em runtime:** `SCORE-GEO-004`  
 **Contrato de agregação:** `HIERARCHICAL_WEIGHTED_READINESS_V1`
 
@@ -162,7 +162,7 @@ Esses estados não reescrevem o SARI numérico.
 
 ## 7. Structured Data / JSON-LD
 
-JSON-LD é opcional/contextual no baseline geral. Ausência isolada não é falha universal de readiness.
+JSON-LD é opcional/contextual no contrato geral. Ausência isolada não é falha universal de readiness.
 
 Se `BR-GEO-034..037` estiverem legitimamente `NOT_APPLICABLE`:
 
@@ -181,7 +181,7 @@ O parser vigente é orientado a JSON-LD em `script[type="application/ld+json"]`;
 
 `CONTENT_VALUE` possui peso vigente de 8% e natureza `RASAI_HEURISTIC`.
 
-As regras baseline medem somente evidência defensável a partir do conteúdo preservado:
+As regras vigentes medem somente evidência defensável a partir do conteúdo preservado:
 
 - conteúdo útil/específico e não trivial;
 - diferenciação, experiência, análise ou dados first-party explícitos quando evidenciados;
@@ -274,11 +274,11 @@ O relatório não pode apresentar valor numérico calculado sobre universo medid
 
 ## 13. Reprodutibilidade e comparabilidade
 
-`BR-GEO-054` valida integridade/reprodutibilidade do contrato de scoring persistido. Auditorias atuais usam `SCORE-GEO-004` com `HIERARCHICAL_WEIGHTED_READINESS_V1`.
+`BR-GEO-054` valida integridade/reprodutibilidade do contrato de scoring persistido. O contrato vigente usa `SCORE-GEO-004` com `HIERARCHICAL_WEIGHTED_READINESS_V1`.
 
 Dadas as mesmas `RuleExecutions`, contribuições, evidências e fórmula/gates versionados, dimensões e estado Overall devem ser reconstruíveis sem reabrir o website nem chamar IA.
 
-Auditorias históricas que persistam outro `scoring_version`/contrato de agregação devem permanecer reproduzíveis sob o próprio contrato e nunca ser recalculadas silenciosamente como `SCORE-GEO-004`. Quando o contrato persistido for incompatível com o vigente, a comparação deve expor `NOT_COMPARABLE`/limitação equivalente conforme a superfície consumidora.
+Se duas auditorias persistirem contratos metodológicos incompatíveis, cada uma permanece reproduzível pelo próprio `scoring_version`, mas a comparação deve expor `NOT_COMPARABLE` ou limitação equivalente. Nenhuma superfície pode recalcular silenciosamente um `AUD-*` usando outro contrato.
 
 ## 14. Testes mínimos
 
