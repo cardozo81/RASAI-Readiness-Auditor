@@ -16,8 +16,9 @@ from rasai.time_contract import localize_visible_timestamps
 # concepts, not operational messages, so established English terminology is kept.
 # Every scoring dimension/group should have an entry here; tests enforce coverage.
 SCORING_CONCEPT_LABELS: dict[str, str] = {
-    # Dimensions.
-    "TECHNICAL_ACCESSIBILITY": "Technical Accessibility",
+    # Dimensions. TECHNICAL_ACCESSIBILITY is read compatibility only and resolves
+    # to the same current concept as DISCOVERY_ACCESS.
+    "TECHNICAL_ACCESSIBILITY": "Discovery & Crawler Access",
     "DISCOVERY_ACCESS": "Discovery & Crawler Access",
     "INDEXABILITY": "Indexability",
     "CONTENT_EXTRACTABILITY": "Rendering & Extractability",
@@ -78,15 +79,16 @@ SCORING_CONCEPT_LABELS: dict[str, str] = {
     "EXTRACTION": "Extraction",
 }
 
-# Older renderers may already have converted machine identifiers into Portuguese
+# Some renderers may already have converted machine identifiers into Portuguese
 # labels before the common presentation pass. Normalize only standalone text nodes;
 # prose is intentionally not rewritten. This keeps conceptual names consistent
 # without producing mixed-language sentence substitutions. Keys are casefolded so
-# historical capitalization differences across renderers do not leak to HTML.
+# capitalization differences across renderers do not leak to HTML.
 _STANDALONE_CONCEPT_LABELS: dict[str, str] = {
     key.casefold(): value
     for key, value in {
         "Acesso e descoberta": "Discovery & Crawler Access",
+        "Acessibilidade técnica": "Discovery & Crawler Access",
         "Capacidade de indexação": "Indexability",
         "Extração de conteúdo": "Rendering & Extractability",
         "Estrutura semântica": "Semantic Structure",
