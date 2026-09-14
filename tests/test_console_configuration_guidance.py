@@ -5,6 +5,7 @@ import io
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
+from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
 from rasai.console_config import State
 from rasai.console_configuration_guidance import (
     context_for,
@@ -22,12 +23,13 @@ from rasai.synthetic_profile_console_runtime import install as install_synthetic
 
 
 def _installed_facade():
-    # Compose only configuration-related installers. Calling the broad context-scope
-    # installer here would also mutate report presentation and make this test module
-    # order-dependent with unrelated report tests.
+    # Reproduce the public console composition relevant to the advanced configuration
+    # catalog. Canonical AI orchestration is installed before runtime-completion may
+    # rebuild the EnvironmentSpec surface, exactly as in console_entrypoint.main().
     install_pre_context()
     install_standards_console_runtime()
     install_synthetic_profile_console_runtime()
+    install_ai_efficiency_policy()
     install_runtime_completion_extensions()
     install_standards_console_runtime()
     install_synthetic_profile_console_runtime()
