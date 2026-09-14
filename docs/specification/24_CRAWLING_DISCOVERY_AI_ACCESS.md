@@ -76,23 +76,23 @@ A IA recebe somente diagnóstico/evidências persistidos, não inventa URL, poli
 
 A remediação técnica não possui provider especializado próprio. Ela consome a seleção principal de IA da execução e, quando `AUTO` é usado, preserva integralmente o orquestrador canônico: elegibilidade, ordenação por custo estimado, fallback, quarentena, circuit breaker, telemetria e limites de tentativas permanecem responsabilidade do core de IA.
 
-Falha de validação do payload M24 não deve ser interpretada como defeito do algoritmo de seleção/fallback. O contrato funcional da feature continua responsável por definir qual saída é válida.
+Falha de validação do payload técnico não deve ser interpretada como defeito do algoritmo de seleção/fallback. O contrato funcional da feature continua responsável por definir qual saída é válida.
 
 ### Contrato de evidência por recurso
 
 `ROBOTS` e `SITEMAP` possuem universos de evidência distintos. O runtime mantém a validação local fail-closed e, adicionalmente, projeta essa restrição no JSON Schema enviado ao provider.
 
-Para cada `resource_assessment`:
+Para cada avaliação de recurso:
 
-- `resource=ROBOTS` só pode referenciar `evidence_ids` pertencentes ao conjunto ROBOTS persistido;
-- `resource=SITEMAP` só pode referenciar `evidence_ids` pertencentes ao conjunto SITEMAP persistido;
-- recurso sem conjunto de evidência elegível não recebe branch de assessment no schema;
-- `diagnostic_code` e `evidence_ids` das ações também são restringidos aos valores efetivamente fornecidos;
+- `ROBOTS` só pode referenciar identificadores de evidência pertencentes ao conjunto ROBOTS persistido;
+- `SITEMAP` só pode referenciar identificadores de evidência pertencentes ao conjunto SITEMAP persistido;
+- recurso sem conjunto de evidência elegível não recebe branch de avaliação no schema;
+- códigos de diagnóstico e identificadores de evidência das ações também são restringidos aos valores efetivamente fornecidos;
 - o validador local continua verificando a resposta mesmo quando o provider declara suporte a structured output.
 
-A separação é estrutural, não apenas uma instrução em linguagem natural. Isso evita fallback/custo desnecessário causado por um provider misturar evidência válida de um recurso no assessment de outro recurso.
+A separação é estrutural, não apenas uma instrução em linguagem natural. Isso evita fallback/custo desnecessário causado por um provider misturar evidência válida de um recurso na avaliação de outro recurso.
 
-O identificador público/persistido do contrato permanece `M24-TECHNICAL-REMEDIATION-v2`, pois a forma de saída e os consumidores persistidos não mudaram; o endurecimento restringe apenas combinações que já eram inválidas pelo validador local.
+O formato persistido e seus consumidores permanecem no mesmo contrato vigente; o endurecimento apenas impede combinações que já eram inválidas pelo validador local, sem criar contrato público paralelo.
 
 ## 8. Persistência e relatório
 
@@ -117,8 +117,8 @@ Hard source blockers impedem aquisição adicional dependente do corpus. Expans�
 - ausência de robots não cria falso bloqueio;
 - `llms.txt` permanece experimental/non-scoring;
 - remediação técnica permanece default OFF;
-- `resource_assessments` não podem cruzar evidência ROBOTS/SITEMAP nem no schema enviado ao provider nem na validação local;
-- falha contratual de M24 não altera regras de preço, AUTO, fallback, quarentena ou circuit breaker;
+- avaliações de recurso não podem cruzar evidência ROBOTS/SITEMAP nem no schema enviado ao provider nem na validação local;
+- falha contratual da remediação técnica não altera regras de preço, AUTO, fallback, quarentena ou circuit breaker;
 - execução não altera entidades de scoring fora do contrato BR-GEO-055/056;
 - report usa navegação/CSS canônicos;
 - source blocker evita aquisição adicional;
