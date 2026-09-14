@@ -198,7 +198,7 @@ def _read_scores(connection: sqlite3.Connection, tables: set[str], audit_id: str
             label=dimension,
             value=(float(row["value"]) if row["value"] is not None else None),
             device=device,
-            severity="HIGH" if dimension in {"TECHNICAL_ACCESSIBILITY", "INDEXABILITY", "CONTENT_EXTRACTABILITY"} else "MEDIUM",
+            severity="HIGH" if dimension in {"DISCOVERY_ACCESS", "TECHNICAL_ACCESSIBILITY", "INDEXABILITY", "CONTENT_EXTRACTABILITY"} else "MEDIUM",
             direction="HIGHER_BETTER",
             unit="points",
             metadata={
