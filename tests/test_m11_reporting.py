@@ -100,7 +100,7 @@ class M11ReportingTests(unittest.TestCase):
                     rule_execution_id="REX-1",
                     page_id=None,
                     device=FindingDevice.BOTH,
-                    category="TECHNICAL_ACCESSIBILITY",
+                    category="DISCOVERY_ACCESS",
                     severity=Severity.CRITICAL,
                     source="deterministic-rules-engine",
                     title="Destino indisponível",
@@ -116,7 +116,7 @@ class M11ReportingTests(unittest.TestCase):
                         Score(
                             score_id="SCR-1",
                             audit_id="AUD-1",
-                            dimension="TECHNICAL_ACCESSIBILITY",
+                            dimension="DISCOVERY_ACCESS",
                             device=DeviceContext.DESKTOP,
                             value=50.0,
                             coverage=0.75,
@@ -146,7 +146,7 @@ class M11ReportingTests(unittest.TestCase):
                 group = RemediationGroup(
                     group_id="RMG-1",
                     rule_id="BR-GEO-005",
-                    root_cause="BR-GEO-005:TECHNICAL_ACCESSIBILITY:target is technically retrievable",
+                    root_cause="BR-GEO-005:DISCOVERY_ACCESS:target is technically retrievable",
                     affected_findings=("FND-1",),
                     affected_pages=(),
                     devices=(FindingDevice.BOTH,),
@@ -163,7 +163,7 @@ class M11ReportingTests(unittest.TestCase):
                     finding_id=None,
                     remediation_group_id="RMG-1",
                     device=FindingDevice.BOTH,
-                    title="Corrigir acessibilidade e indexabilidade",
+                    title="Corrigir acesso de descoberta e indexabilidade",
                     description="Restabelecer resposta HTTP utilizável e revalidar.",
                     impact=Impact.VERY_HIGH,
                     effort=Effort.LOW,
@@ -183,11 +183,11 @@ class M11ReportingTests(unittest.TestCase):
             self.assertTrue(html.startswith("<!doctype html>"))
             self.assertIn('lang="pt-BR"', html)
             self.assertIn("Como interpretar este relatório", html)
-            self.assertIn("Acessibilidade Técnica", html)
+            self.assertIn("Acesso e descoberta", html)
             self.assertIn("NÃO CONSOLIDADO", html)
             self.assertIn("Destino indisponível", html)
             self.assertIn("EVD-1", html)
-            self.assertIn("Corrigir acessibilidade e indexabilidade", html)
+            self.assertIn("Corrigir acesso de descoberta e indexabilidade", html)
             self.assertIn("Algumas avaliações semânticas não foram executadas", html)
             self.assertIn("[REDACTED]", html)
             self.assertNotIn("super-secret-value", html)
