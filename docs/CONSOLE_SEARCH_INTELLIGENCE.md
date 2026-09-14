@@ -27,10 +27,10 @@ Os quatro possuem uma oferta gratuita limitada verificada em 11/09/2026; isso n�
 No console local, a seção `SEARCH INTELLIGENCE` expõe:
 
 ```text
-T. Termos SERP
+13. Termos SERP
 ```
 
-Ao selecionar `T`, o console mostra o provider configurado, **qual variável contém sua credencial e a URL oficial para cadastro/login**, além da nota de free tier. Em seguida permite:
+Ao selecionar o item 13, o console mostra o provider configurado, **qual variável contém sua credencial e a URL oficial para cadastro/login**, além da nota de free tier. Em seguida permite:
 
 1. habilitar Search Intelligence para a próxima auditoria desta sessão;
 2. informar um ou mais termos separados por `;`;
@@ -83,7 +83,7 @@ Quando a auditoria principal termina com sucesso e existem termos configurados n
 - domínio derivado da origem auditada;
 - mercado e idioma da auditoria;
 - provider/mode/credencial definidos nas variáveis `RASAI_SERP_*`;
-- termos, profundidade, device e região informados no item `T`;
+- termos, profundidade, device e região informados no item `13`;
 - `--audit-workspace` apontando para o `AUD-*` recém-criado.
 
 A persistência especializada permanece aditiva no workspace e materializa, quando a observação foi persistida corretamente:
@@ -141,7 +141,7 @@ RASAI_SERP_PROVIDER=scrapingdog
 RASAI_SCRAPINGDOG_API_KEY=[SET]
 ```
 
-Se o usuário informar no item `T`:
+Se o usuário informar no item `13`:
 
 ```text
 seguro residencial; seguro residencial online
