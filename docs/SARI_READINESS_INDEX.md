@@ -1,10 +1,12 @@
 # Search & AI Readiness Index - SARI-001
 
+**Estado:** vigente.
+
 ## 1. Objetivo
 
 O **Search & AI Readiness Index (`SARI-001`)** é a identidade pública da metodologia proprietária do RASAi para consolidar sinais de prontidão relacionados a descoberta, acesso por crawlers, indexabilidade, recuperação, interpretação, utilidade, resposta, confiança e uso do conteúdo como evidência em Search e AI Search.
 
-O índice é auditável e reprodutível. Não é padrão oficial de GEO/AEO, não é nota de Google, Bing, OpenAI ou outro mantenedor e não representa probabilidade de ranking ou citação futura.
+O índice é auditável e reprodutível. Não é padrão oficial de GEO/AEO, não é nota de Google, Bing, OpenAI ou outro mantenedor e não representa probabilidade de ranking ou citação.
 
 A leitura pública do SARI **não deve ser reduzida ao número 0-100**. O resultado executivo combina três camadas independentes e complementares:
 
@@ -20,15 +22,13 @@ O SARI-001 usa:
 SCORE-GEO-004
 ```
 
-O RASAi ainda está em fase de desenvolvimento/pré-produção. A recalibração descrita neste documento substitui a formulação experimental anterior do mesmo `SCORE-GEO-004`; não foi criada uma versão comercial adicional porque não existe série histórica de produção ou contrato externo que precise ser preservado.
-
-Auditorias de desenvolvimento produzidas antes desta recalibração, identificadas pelo contrato antigo de agregação, devem ser consideradas **não comparáveis** e regeneradas quando precisarem ser reutilizadas. O histórico de engenharia permanece no Git, não como metodologia ativa do produto.
-
 Contrato de agregação vigente:
 
 ```text
 HIERARCHICAL_WEIGHTED_READINESS_V1
 ```
+
+`scoring_version` e o contrato de agregação são persistidos para garantir reprodutibilidade e comparabilidade. Auditorias com contratos metodológicos incompatíveis não devem ser comparadas numericamente como se fossem equivalentes.
 
 ## 3. Princípio de cálculo
 
@@ -69,7 +69,7 @@ Os pesos são parte fixa do contrato. Não são configuráveis por auditoria.
 | `CONTENT_VALUE` | 8% |
 | **Total** | **100%** |
 
-`DISCOVERY_ACCESS` substitui a denominação interna anterior `TECHNICAL_ACCESSIBILITY`. O novo nome evita confusão com Accessibility/WCAG e representa melhor o conteúdo real da dimensão: acesso, crawler controls, redirects, SPA/navigation e internal links.
+`DISCOVERY_ACCESS` é a dimensão canônica para descoberta, acesso por crawlers, controles de crawler, redirects, SPA/navigation e links internos. Ela é semanticamente distinta de Accessibility/WCAG.
 
 ## 5. Macrocomponentes
 
@@ -165,7 +165,7 @@ Exemplos:
 
 Nos dois últimos casos, a interface **não pode usar “Excelente” como badge primária de readiness**. A nota permanece visível como qualidade do universo medido, enquanto o estado de medição/gate ocupa a posição de conclusão executiva.
 
-Essa regra corrige um falso positivo de apresentação sem inventar penalidade matemática para ausência de evidência ou erro operacional de integração.
+Essa regra evita falso positivo de apresentação sem inventar penalidade matemática para ausência de evidência ou erro operacional de integração.
 
 ## 9. Coverage
 
@@ -192,7 +192,7 @@ LOW         existe avaliação, mas os critérios acima não foram satisfeitos
 UNAVAILABLE Coverage <= 0
 ```
 
-No Overall, Confidence deixa de ser simplesmente a pior Confidence de qualquer dimensão. O contrato vigente combina:
+No Overall, Confidence combina:
 
 1. **rigor crítico** para `DISCOVERY_ACCESS`, `INDEXABILITY` e `CONTENT_EXTRACTABILITY`;
 2. **confiança ponderada** pelas participações das dimensões aplicáveis.
@@ -262,7 +262,7 @@ BLOCKED
 UNKNOWN
 ```
 
-Esse estado **não altera artificialmente o SARI numérico**, mas passa a ser a qualificação primária da apresentação pública do Overall. Exemplo válido:
+Esse estado **não altera artificialmente o SARI numérico**, mas é a qualificação primária da apresentação pública do Overall. Exemplo válido:
 
 ```text
 SARI: 82
@@ -275,7 +275,7 @@ Isso significa: a medição é conclusiva, a qualidade agregada é 82 no univers
 
 ## 13. Content Value
 
-`CONTENT_VALUE` acrescenta três regras proprietárias:
+`CONTENT_VALUE` contém três regras proprietárias:
 
 - `BR-GEO-057`: utilidade e especificidade não trivial;
 - `BR-GEO-058`: diferenciação, experiência, análise ou dado próprio explicitamente sustentado quando alegado;
@@ -283,13 +283,13 @@ Isso significa: a medição é conclusiva, a qualidade agregada é 82 no univers
 
 Classificação: `RASAI_HEURISTIC`.
 
-A baseline vigente é:
+Contrato técnico:
 
 ```text
 CONTENT-VALUE-BASELINE-001
 ```
 
-Ela usa somente conteúdo principal já persistido e é conservadora. Em especial, **ausência de prova de diferenciação/originalidade fica `UNKNOWN`**, nunca `FAIL` inventado.
+O identificador `BASELINE` faz parte do nome técnico versionado do contrato e não representa histórico público de produto. O cálculo usa somente conteúdo principal já persistido e é conservador. Em especial, **ausência de prova de diferenciação/originalidade fica `UNKNOWN`**, nunca `FAIL` inventado.
 
 ## 14. Structured Data
 
@@ -311,7 +311,7 @@ Contrato:
 ```text
 fato determinístico conclusivo
     >
-avaliação IA corroborativa
+avaliação corroborativa
 ```
 
 BR-GEO-055/056, por exemplo, podem aprofundar sitemap/robots quando IA técnica evidence-bound está habilitada, mas compartilham os mesmos `scoring_group` das regras determinísticas e não criam bônus duplicado. Uma avaliação IA não pode sobrescrever arbitrariamente um hard fact determinístico PASS/WARNING/FAIL da mesma condição.
@@ -341,6 +341,22 @@ Estados como timeout, quota, autenticação inválida, indisponibilidade de prov
 
 Quando uma integração obtém evidência conclusiva sobre o website e existe regra contratada equivalente, essa evidência pode participar do score pelo caminho normal de RuleExecution. Essa distinção evita tanto falso positivo quanto penalidade indevida por falha externa.
 
+### 16.2 Common Crawl e BR-GEO-060
+
+`BR-GEO-060` é uma exceção explicitamente score-eligible para corroboração externa de descoberta histórica observada no índice Common Crawl.
+
+Contrato:
+
+- dimensão `DISCOVERY_ACCESS`;
+- grupo `EXTERNAL_CRAWL_CORROBORATION`;
+- peso de 3% dentro da dimensão, equivalente a impacto máximo teórico de 0,45 ponto no Overall;
+- evidência externa somente positiva: quando todos os requisitos forem satisfeitos, a regra pode produzir `PASS`;
+- ausência de registro, erro, timeout, indisponibilidade, alvo privado ou resposta inconclusiva não produzem `FAIL`, zero, redução de Coverage ou redução de Confidence;
+- a regra não participa dos Critical Readiness Gates;
+- evidência e RuleExecution são persistidas antes do cálculo para manter reprodutibilidade.
+
+Contrato detalhado: [SARI_EXTERNAL_CRAWL_CORROBORATION.md](SARI_EXTERNAL_CRAWL_CORROBORATION.md).
+
 ## 17. Outcomes observados
 
 Continuam fora do Overall operacional:
@@ -352,20 +368,34 @@ Continuam fora do Overall operacional:
 - menções/citações em mecanismos generativos;
 - Observed Generative Visibility.
 
-Esses dados são outcomes. Servem para observabilidade e para futura validação/calibração empírica do SARI, sem tornar o índice circular.
+Esses dados são outcomes. Servem para observabilidade e podem sustentar pesquisa empírica separada, sem tornar o índice circular ou alterar silenciosamente o contrato de scoring.
 
 ## 18. Relatórios
 
+Todas as superfícies canônicas são materializadas após uma auditoria concluída com sucesso. A presença do HTML não implica execução da capacidade correspondente; ausência de dado deve aparecer como estado neutro ou explicativo.
+
 ```text
-index.html             -> síntese executiva com readiness qualificada
-readiness.html         -> SARI-001, qualidade medida, força da medição, macrocomponentes, dimensões e gates
-scoring.html           -> fórmula, pesos, grupos, Coverage, Confidence e rastreabilidade
-web-performance.html   -> Lighthouse + Core Web Vitals/CrUX
-accessibility.html     -> acessibilidade automatizada
-apdex.html             -> Synthetic Navigation Apdex
-ai-visibility.html     -> outcomes observados de AI Search
-search-intelligence.html -> SERP/Search Intelligence quando materializado
-references.html        -> proveniência e função de cada indicador no SARI
+index.html                -> síntese executiva com readiness qualificada
+readiness.html            -> SARI-001, qualidade medida, força da medição, macrocomponentes, dimensões e gates
+scoring.html              -> fórmula, pesos, grupos, Coverage, Confidence e rastreabilidade
+context.html              -> contexto da auditoria e configuração materializada
+crawling-discovery.html   -> descoberta e acesso técnico
+mobile.html               -> contexto Mobile ou estado neutro quando não executado
+desktop.html              -> contexto Desktop ou estado neutro quando não executado
+accessibility.html        -> acessibilidade automatizada ou estado neutro
+web-performance.html      -> Lighthouse + Core Web Vitals/CrUX ou estado neutro
+standards.html            -> métricas e padrões externos ou estado neutro
+apdex.html                -> Synthetic Navigation Apdex ou estado neutro
+apdex-experience.html     -> Synthetic User Experience Apdex ou estado neutro
+search-intelligence.html  -> SERP/Search Intelligence ou estado neutro
+ai-visibility.html        -> outcomes observados de AI Search ou estado neutro
+observability.html        -> observabilidade ou estado neutro
+ai-usage.html             -> uso de IA ou estado neutro
+improvement-intelligence.html -> análise profunda opcional ou estado neutro
+content-suggestions.html  -> sugestões de conteúdo ou estado neutro
+remediation.html          -> remediação
+quality.html              -> qualidade/verificação ou estado neutro
+references.html           -> proveniência e função de cada indicador no SARI
 ```
 
 `index.html` e `readiness.html` devem usar o estado de readiness/medição como conclusão visual primária. A banda `Excelente/Alta/Moderada/Baixa/Crítica` permanece válida para a **qualidade numérica medida**, mas não pode mascarar `PARTIAL`, `NOT_CONSOLIDATED`, `BLOCKED` ou `UNKNOWN`.
@@ -388,8 +418,6 @@ A mesma entrada persistida deve produzir o mesmo resultado sem reexecutar websit
 
 ## 20. Limite de validade e calibração
 
-O SARI-001 é uma metodologia proprietária, transparente e reproduzível do RASAi. Os pesos atuais são decisões metodológicas pré-produção fundamentadas na arquitetura do problema; **não são pesos estatisticamente provados como causais**.
+O SARI-001 é uma metodologia proprietária, transparente e reproduzível do RASAi. Os pesos vigentes são decisões metodológicas internas fundamentadas na arquitetura do problema e **não são pesos estatisticamente provados como causais**.
 
-A revisão de calibração de setembro de 2026 não encontrou base empírica suficiente para alterar pesos de dimensão/grupo apenas porque integrações independentes reportaram erros. A distorção comprovada estava na **apresentação pública de um score alto sem qualificação suficiente de Coverage/Confidence/Consolidation/Critical Gates**. Por isso a aritmética foi preservada e a semântica de publicação foi endurecida.
-
-A validação empírica futura deve estudar associação entre readiness e outcomes reais de Search/AI Search. Qualquer recalibração após existência de contrato público ou série histórica de produção deverá ser versionada explicitamente.
+Evidência empírica externa pode ser usada para avaliar associação entre readiness e outcomes reais de Search/AI Search, desde que permaneça separada do cálculo operacional. Qualquer alteração de pesos, dimensões, grupos ou fórmulas que mude o significado do índice exige nova versão metodológica explícita e não pode reinterpretar silenciosamente auditorias persistidas.
