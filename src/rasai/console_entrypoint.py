@@ -47,6 +47,7 @@ from rasai.improvement_intelligence_console import (
     install_environment as install_improvement_intelligence_environment,
 )
 from rasai.improvement_intelligence_runtime import install as install_improvement_intelligence_runtime
+from rasai.integration_diagnostics_console import install as install_integration_diagnostics_console
 from rasai.integration_state_contract import install as install_integration_state_contract
 from rasai.integration_state_refinements import install as install_integration_state_refinements
 from rasai.m21_console_progress import install_m21_external_progress
@@ -164,6 +165,9 @@ def main() -> int:
     # enabled/disabled by a profile preset.
     install_execution_profile_readiness()
     install_execution_profiles(interactive_console)
+    # Diagnostics wraps only the final integration/environment surface. It remains
+    # advisory and does not participate in execution eligibility, AUTO or quarantine.
+    install_integration_diagnostics_console(interactive_console)
     # Configuration reuse wraps the complete detailed configuration surface. The task
     # navigation shell is installed after it and delegates back to that surface.
     install_audit_configuration_reuse_console(interactive_console)
