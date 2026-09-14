@@ -1,62 +1,85 @@
 # AUTO cost-aware AI routing
 
-**Data de referência da política/catálogo: 13/09/2026**  
-**Versão do catálogo: `RASAI-PRICING-2026-09-13`**  
-**Revisão ordinária recomendada: 13/10/2026**
+**Data de referência da política de preços: 13/09/2026**  
+**Versão do catálogo de pricing de fábrica: `RASAI-PRICING-2026-09-13`**  
+**Data de referência do catálogo de modelos: 14/09/2026**
 
-Este documento define a seleção econômica usada pelo RASAi quando `AI=auto` está selecionado. O detalhamento cadastral, schema, preços vigentes, atualização local, reset de fábrica e equivalência SaaS estão em [`AI_PRICING_CONFIGURATION.md`](AI_PRICING_CONFIGURATION.md).
+Este documento define a seleção econômica usada pelo RASAi quando `AI=auto` está selecionado. O cadastro de modelos está em [`AI_MODEL_CONFIGURATION.md`](AI_MODEL_CONFIGURATION.md) e o schema comercial em [`AI_PRICING_CONFIGURATION.md`](AI_PRICING_CONFIGURATION.md).
 
 ## 1. Princípios
 
 A política econômica:
 
-- somente ordena providers já configurados, elegíveis e saudáveis;
+- somente ordena providers/modelos já configurados, elegíveis, precificados e saudáveis;
 - não habilita credenciais;
 - não altera quarantine/circuit breaker;
 - não torna GitHub Copilot elegível ao AUTO;
 - não troca silenciosamente service tier para Batch/Flex/Priority;
+- não interpreta ausência de preço como preço zero;
 - trata preço como estimativa operacional, não como fatura do fornecedor.
 
-## 2. Fonte única de pricing
+## 2. Duas fontes declarativas
 
-Os **dados comerciais canônicos** estão em:
+Modelos e preços têm responsabilidades separadas:
 
 ```text
+src/rasai/config/ai-models-defaults.toml
 src/rasai/config/ai-pricing-defaults.toml
 ```
 
-O motor/contrato está em:
+O catálogo de modelos determina:
+
+- modelos habilitados/selecionáveis;
+- default público e default técnico;
+- reasoning aceito/default;
+- elegibilidade do modelo ao `AUTO`;
+- qualification, rank, capabilities e vigência.
+
+O catálogo de pricing determina:
+
+- preço de input/cache/output;
+- vigência;
+- região;
+- faixas de contexto;
+- janelas horárias;
+- interpretação de reasoning faturável.
+
+Os motores estão em:
 
 ```text
+src/rasai/ai_model_catalog.py
+src/rasai/ai_model_runtime.py
 src/rasai/ai_pricing_catalog.py
 src/rasai/ai_cost_policy.py
 ```
 
-`ai_cost_policy.py` não contém mais tabelas de preço específicas por provider. Ele preserva a API consumida por AUTO, console, telemetria e persistência.
+Catálogos locais editáveis:
 
-O operador pode usar um catálogo local editável através de:
-
-```text
-RASAI_AI_PRICING_SOURCE=file
-RASAI_AI_PRICING_FILE=ai-pricing.toml
+```ini
+RASAI_AI_MODELS_SOURCE = file
+RASAI_AI_MODELS_FILE = ai-models.toml
+RASAI_AI_PRICING_SOURCE = file
+RASAI_AI_PRICING_FILE = ai-pricing.toml
 ```
 
-O reset de fábrica mantém `RASAI_AI_PRICING_SOURCE=factory` em `rasai-defaults.ini`.
+Restore Defaults retorna ambas as origens para `factory`.
 
 ## 3. Algoritmo AUTO
 
 Para cada necessidade de IA:
 
-1. obtém providers configurados, `auto_eligible=true` e não excluídos;
-2. remove candidatos inelegíveis pela política de saúde/quarentena;
-3. resolve modelo e reasoning efetivos;
-4. estima input/output da chamada;
-5. resolve a regra de preço vigente no catálogo para provider/modelo, instante e quantidade de input tokens;
-6. calcula custo estimado;
-7. ordena providers precificados pelo menor custo;
-8. em empate preserva rank/ordem determinística;
-9. candidatos sem preço ficam depois dos precificados;
+1. consulta o registry dos providers tecnicamente integrados;
+2. resolve **um modelo efetivo por provider** a partir de `RASAI_<PROVIDER>_MODEL` ou do `public_default` do catálogo;
+3. exige modelo habilitado, selecionável, vigente e `auto_eligible=true`;
+4. exige credencial/configuração válida e aplica `RASAI_AI_AUTO_EXCLUDE`;
+5. exige uma regra de pricing vigente para o modelo efetivo;
+6. remove candidatos inelegíveis pela política de saúde/quarentena;
+7. resolve reasoning efetivo e estima input/output da necessidade;
+8. calcula o custo estimado da chamada atual;
+9. ordena os candidatos elegíveis do menor para o maior custo estimado, preservando desempate determinístico;
 10. fallback e circuit breaker continuam com suas regras próprias.
+
+Um modelo sem pricing vigente pode continuar disponível para **seleção explícita**, se permitido pelo catálogo. Ele é excluído do `AUTO` econômico e o motivo é registrado como modelo sem preço vigente para AUTO.
 
 Fórmula atual:
 
@@ -85,9 +108,9 @@ Reasoning pode ser declarado como:
 - `IN_OUTPUT`;
 - `ADD_REASONING_TO_OUTPUT`.
 
-Toda regra possui `effective_from`; `effective_until` é opcional. Sem regra vigente, o modelo é não precificado.
+Toda regra possui `effective_from`; `effective_until` é opcional. Sem regra vigente, o modelo é não precificado e fica fora do AUTO econômico.
 
-## 5. Estado atual por provider - referência 13/09/2026
+## 5. Estado de pricing de fábrica - referência 13/09/2026
 
 Valores em USD por 1 milhão de tokens.
 
@@ -116,7 +139,7 @@ Peak atual em UTC, segunda a sexta:
 06:00 <= UTC < 10:00
 ```
 
-Essa lógica agora é declarada em `weekdays_utc` e `time_windows_utc` no TOML.
+Essa lógica é declarada em `weekdays_utc` e `time_windows_utc` no TOML.
 
 ### OpenAI
 
@@ -132,7 +155,7 @@ As regras atuais são associadas à região `US_VIRGINIA`. Uma mudança de endpo
 
 ### Gemini
 
-A regra atual expira em `2027-01-01T00:00:00Z`. Sem regra posterior, o modelo fica não precificado. O campo `reasoning_billing=ADD_REASONING_TO_OUTPUT` substitui a antiga exceção hardcoded no cálculo.
+A regra atual expira em `2027-01-01T00:00:00Z`. Sem regra posterior, o modelo fica não precificado e sai do AUTO econômico. `reasoning_billing=ADD_REASONING_TO_OUTPUT` informa ao motor como compor o output faturável.
 
 ## 6. Estimativas por finalidade
 
@@ -160,7 +183,7 @@ Multiplicadores de estimativa para reasoning:
 | `PROVIDER_DEFAULT` | 1,20 |
 | `THINKING_ENABLED` | 1,70 |
 
-Esses multiplicadores são heurísticas de roteamento, não preços oficiais.
+Esses multiplicadores são heurísticas de roteamento, não preços oficiais. O catálogo de modelos define quais esforços são válidos para o modelo efetivo; o catálogo de pricing define a tarifa.
 
 ## 7. Cache e aprendizado dentro da execução
 
@@ -170,39 +193,58 @@ A política de preço continua independente da política de saúde do provider.
 
 ## 8. SaaS
 
-O control plane deve persistir/publicar o mesmo documento lógico do catálogo e fixar uma versão imutável no `ExecutionJob`.
-
-O parser aceita `Mapping` via `load_pricing_catalog(document=...)` para validar e normalizar o cadastro do control plane. Para execução, o contrato atual é deliberadamente **job-scoped**: o worker recebe/materializa o snapshot daquele job como TOML e inicia o processo com `RASAI_AI_PRICING_SOURCE=file` e `RASAI_AI_PRICING_FILE=<snapshot>`. Assim, o `ai_cost_policy` carrega uma única política imutável no bootstrap do processo.
-
-Não deve existir hot reload global de catálogo dentro de um worker que execute organizações diferentes de forma concorrente. Uma alteração administrativa publicada depois do início de um job vale somente para jobs posteriores.
-
-Escopos futuros recomendados no control plane:
+O control plane armazena separadamente provider/modelo e pricing em tabelas administrativas e publica versões identificáveis. O schema atual prevê:
 
 ```text
-ORGANIZATION > DEPLOYMENT > FACTORY > UNPRICED
+ai_providers
+ai_model_catalogs
+ai_models
+ai_pricing_catalogs
+ai_pricing_rules
+ai_catalog_events
+ai_job_catalog_snapshots
 ```
 
-Isso permite preços contratuais/BYOK por organização sem alterar adapters nem criar um segundo motor de pricing.
+O worker recebe snapshots imutáveis por job. O snapshot de modelos é materializado com:
+
+```ini
+RASAI_AI_MODELS_SOURCE = file
+RASAI_AI_MODELS_FILE = <snapshot-do-job>
+```
+
+e o pricing com:
+
+```ini
+RASAI_AI_PRICING_SOURCE = file
+RASAI_AI_PRICING_FILE = <snapshot-do-job>
+```
+
+O control plane registra as versões e hashes de ambos em `ai_job_catalog_snapshots`. Uma publicação do backoffice depois do início do job vale somente para jobs posteriores.
+
+Não existe hot reload global de catálogos dentro de um worker que execute organizações diferentes de forma concorrente.
 
 ## 9. Política de revisão
 
-A data de referência desta configuração é **13/09/2026**. Próxima revisão ordinária: **13/10/2026**.
+O pricing de fábrica tem data de referência **13/09/2026** e revisão ordinária recomendada em **13/10/2026**. O catálogo de modelos de fábrica tem data de referência **14/09/2026**.
 
-Revisar imediatamente se houver mudança de preço, modelo default, região, endpoint, cache, janela horária, threshold de contexto, promoção, service tier ou divergência material entre estimativa e cobrança.
+Revisar imediatamente se houver mudança de preço, modelo default, disponibilidade de modelo, reasoning, região, endpoint, cache, janela horária, threshold de contexto, promoção, service tier ou divergência material entre estimativa e cobrança.
 
 ## 10. Regressão obrigatória
 
 A suíte deve preservar:
 
+- catálogo de modelos carregável por `factory`, `file` e `auto`;
+- novo modelo de provider existente projetado no mesmo adapter sem código específico do modelo;
+- provider desconhecido rejeitado pelo catálogo de modelos;
+- reasoning validado por modelo;
+- modelo `auto_eligible` sem pricing vigente excluído do AUTO econômico;
 - DeepSeek peak/off-peak e weekday UTC;
 - domingo 22:xx GMT-3 convertido para segunda UTC peak;
 - sábado off-peak;
-- vigência do V4;
+- vigência do DeepSeek;
 - OpenAI >272k;
 - xAI >=200k;
 - expiração fail-closed do Gemini;
 - billing de reasoning do Gemini;
-- preço para todos os defaults do pool AUTO;
-- candidato sem preço posterior aos precificados;
 - quarantine/circuit breaker inalterados;
-- configuração futura de provider/preço sem hardcode quando o modelo comercial couber no schema.
+- snapshots SaaS imutáveis para modelo e pricing.
