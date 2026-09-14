@@ -1,11 +1,11 @@
-# BUSINESS_RULES.md
+# Regras de negócio do RASAi
 
-**Estado no baseline de desenvolvimento:** APROVADO / VIGENTE  
-**Ruleset vigente:** `BR-GEO-001..059`
-
-O subconjunto `BR-GEO-001..056` corresponde ao conjunto anterior à introdução das regras `BR-GEO-057..059` de Content Value. O ruleset vigente e normativo permanece `BR-GEO-001..059`; a referência ao subconjunto existe apenas para rastreabilidade do contrato anterior, sem reduzir ou substituir o ruleset atual.
+**Estado:** APROVADO / VIGENTE  
+**Ruleset vigente:** `BR-GEO-001..060`
 
 Este documento descreve o contrato funcional vigente das Business Rules do RASAi. Identificadores, enums, nomes de campos e valores persistidos permanecem na forma técnica canônica; títulos e explicações são apresentados em português do Brasil.
+
+`BR-GEO-001..059` representam regras internas do contrato atual. `BR-GEO-060` é uma regra externa corroborativa, positive-only, baseada em Common Crawl. Ela integra o mesmo ruleset vigente porque pode contribuir para `SCORE-GEO-004` quando a evidência positiva qualifica conforme o contrato específico.
 
 ## 1. Contrato comum
 
@@ -203,7 +203,7 @@ Tipos técnicos podem incluir `ORGANIZATION`, `PERSON`, `PRODUCT`, `SERVICE`, `P
 
 ### BR-GEO-032 - Tipos e relações importantes entre entidades devem possuir contexto suficiente
 
-Exemplos conceituais: Product → Brand e Person → Organization.
+Exemplos conceituais: Product -> Brand e Person -> Organization.
 
 ### BR-GEO-033 - Ambiguidade material de entidades deve ser detectável
 
@@ -312,7 +312,7 @@ Avalia `href`, normalização, status e destino.
 
 A avaliação é limitada ao universo efetivamente auditado.
 
-## 16. Desktop × Mobile
+## 16. Desktop x Mobile
 
 ### BR-GEO-052 - Diferenças materiais entre Desktop e Mobile devem ser detectadas e classificadas explicitamente
 
@@ -394,7 +394,44 @@ Contrato vigente:
 
 Esses limiares são **valores metodológicos fixos da versão vigente**, não recomendação universal de tamanho de texto nem configuração pública.
 
-## 19. Dependências e bloqueios
+## 19. Corroboração externa de discovery
+
+### BR-GEO-060 - Presença histórica positiva no Common Crawl pode corroborar Discovery Access
+
+`BR-GEO-060` é a única regra externa corroborativa atualmente elegível ao SARI.
+
+Contrato:
+
+```text
+Dimension = DISCOVERY_ACCESS
+Group = EXTERNAL_CRAWL_CORROBORATION
+Evidence role = EXTERNAL_CORROBORATIVE
+Group Weight = 3% de DISCOVERY_ACCESS
+Maximum Overall Impact = 0,45 ponto
+Critical Gate = não
+```
+
+A regra é `positive-only` e somente é materializada quando:
+
+- a URL é elegível para consulta pública segura;
+- existe observação positiva nos índices Common Crawl consultados;
+- pelo menos 50% da amostra bounded selecionada foi observada;
+- sinais críticos atuais de Discovery não estão em `FAIL`.
+
+Ausência de captura, erro da API, alvo inelegível ou amostra insuficiente:
+
+```text
+não cria FAIL
+não cria zero
+não reduz Coverage
+não reduz Confidence
+```
+
+Quando a regra participa do score, a Evidence e a RuleExecution mínimas são persistidas em `audit.db` para permitir reprodução offline. O dataset externo completo permanece no domínio de observabilidade.
+
+Contrato detalhado: `../SARI_EXTERNAL_CRAWL_CORROBORATION.md`.
+
+## 20. Dependências e bloqueios
 
 Antes de executar uma regra, o pipeline deve resolver, conforme o contrato da família:
 
@@ -410,10 +447,10 @@ Exemplo:
 
 ```text
 HTTP 500
-→ finding técnico
+-> finding técnico
 
 regras semânticas dependentes
-→ NOT_APPLICABLE bloqueado, UNKNOWN ou outro estado previsto pelo contrato
+-> NOT_APPLICABLE bloqueado, UNKNOWN ou outro estado previsto pelo contrato
 ```
 
 Nunca inferir automaticamente:
@@ -422,7 +459,7 @@ Nunca inferir automaticamente:
 HTTP 500 + sem entidade + sem resposta + sem intenção + baixa preparação para citação
 ```
 
-## 20. IA e fallback
+## 21. IA e fallback
 
 A análise semântica possui dois caminhos de evidência, preservando a mesma camada posterior de scoring:
 
@@ -461,7 +498,7 @@ rule_version = 2
 
 A capability `semantic_baseline:SEMANTIC-BASELINE-001` identifica auditorias em que o baseline foi efetivamente utilizado.
 
-## 21. Tipo de base metodológica
+## 22. Tipo de base metodológica
 
 Toda regra deve indicar, quando aplicável, um tipo de base canônico:
 
@@ -473,3 +510,5 @@ EXPERIMENTAL
 ```
 
 Regras específicas de mecanismo devem indicar também `engine_scope`. O rótulo `HEURISTIC` identifica método interno do RASAi e não pode ser apresentado como requisito oficial de Google, OpenAI, Microsoft ou outro fornecedor.
+
+A natureza de `BR-GEO-060` permanece explicitamente externa e corroborativa; a regra não pode ser apresentada como standard universal de Search readiness.
