@@ -26,10 +26,10 @@ REMEDIATION_TEMPLATE_VERSION = "REMEDIATION-GEO-001"
 
 _DIMENSION_GUIDE: tuple[tuple[str, str, str, str, tuple[str, ...]], ...] = (
     (
-        "TECHNICAL_ACCESSIBILITY", "Acessibilidade Técnica",
-        "Mede se páginas e recursos necessários podem ser recuperados e interpretados tecnicamente.",
-        "Manter respostas HTTP previsíveis, redirects válidos, políticas de crawler intencionais e recursos de descoberta acessíveis.",
-        ("BR-GEO-005", "BR-GEO-017", "BR-GEO-018"),
+        "DISCOVERY_ACCESS", "Acesso e descoberta",
+        "Mede se páginas e recursos necessários podem ser recuperados, descobertos e interpretados tecnicamente por crawlers.",
+        "Manter respostas HTTP previsíveis, redirects válidos, políticas de crawler intencionais, navegação rastreável e recursos de descoberta acessíveis.",
+        ("BR-GEO-005", "BR-GEO-017", "BR-GEO-021", "BR-GEO-050", "BR-GEO-060"),
     ),
     (
         "INDEXABILITY", "Capacidade de Indexação",
@@ -84,6 +84,12 @@ _DIMENSION_GUIDE: tuple[tuple[str, str, str, str, tuple[str, ...]], ...] = (
         "Avalia quanto das intenções relevantes observadas pode ser sustentado pelo conteúdo existente.",
         "Cobrir intenções prioritárias com conteúdo real e evitar criar respostas artificiais apenas para preencher lacunas de auditoria.",
         ("BR-GEO-048", "BR-GEO-049"),
+    ),
+    (
+        "CONTENT_VALUE", "Valor do Conteúdo",
+        "Avalia utilidade, diferenciação sustentada por evidência e profundidade/contexto do conteúdo.",
+        "Aumentar especificidade, evidência própria quando existente e contexto útil sem fabricar diferenciação não demonstrada.",
+        ("BR-GEO-057", "BR-GEO-058", "BR-GEO-059"),
     ),
 )
 
@@ -195,7 +201,7 @@ class M15ReportBuilder(M14ReportBuilder):
         return (
             "<section id='guia-score-geo'><div class='section-kicker'>REFERÊNCIA DE LEITURA</div>"
             "<h2>O que cada dimensão do Score GEO mede</h2>"
-            "<p class='section-intro'>As dez dimensões abaixo são as dimensões oficiais de SCORE-GEO-004. "
+            "<p class='section-intro'>As onze dimensões abaixo são as dimensões oficiais de SCORE-GEO-004. "
             "As orientações indicam como melhorar a evidência avaliada; não representam promessa de ranking, citação ou tráfego.</p>"
             f"<div class='m15-guide-grid'>{''.join(cards)}</div></section>"
         )
