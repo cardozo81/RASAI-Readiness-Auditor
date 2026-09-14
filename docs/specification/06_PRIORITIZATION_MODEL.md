@@ -1,6 +1,6 @@
-# PRIORITIZATION_MODEL.md
+# Modelo de priorização
 
-**Estado no baseline de desenvolvimento:** aprovado / vigente  
+**Estado:** vigente  
 **Contrato:** `PRIORITY-GEO-001`
 
 ## 1. Conceitos
@@ -87,7 +87,7 @@ Severity × 45%
 
 Resultado: `0..100`.
 
-Os pesos da fórmula são fixos em `PRIORITY-GEO-001`; não são parâmetros livres do usuário. Alteração desses pesos exige novo contrato/versionamento de priorização.
+Os pesos da fórmula são fixos em `PRIORITY-GEO-001`; não são parâmetros livres do usuário. Alteração desses pesos exige nova versão explícita do contrato de priorização.
 
 Effort nunca deve reduzir artificialmente a importância de um blocker crítico.
 
