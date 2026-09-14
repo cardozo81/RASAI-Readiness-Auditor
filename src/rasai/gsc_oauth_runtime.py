@@ -15,7 +15,6 @@ from typing import Any, Mapping
 from rasai.gsc_oauth import (
     ACCESS_TOKEN_ENV,
     CATEGORY_AUTHENTICATION,
-    CATEGORY_CONFIGURATION,
     CATEGORY_TRANSIENT,
     CLIENT_ID_ENV,
     CLIENT_SECRET_ENV,
@@ -76,13 +75,17 @@ def _install_service_state() -> None:
     registry.service_state = service_state
 
     # Modules that imported service_state by value before this installer was composed.
+    # Optional web modules are patched only when their dependencies are installed.
     for module_name in (
         "rasai.standards_gsc_observability_runtime",
         "rasai.gsc_scope_runtime",
         "rasai.fulfillment_execution_contract",
         "rasai.web.standards_routes",
     ):
-        module = __import__(module_name, fromlist=["service_state"])
+        try:
+            module = __import__(module_name, fromlist=["service_state"])
+        except ImportError:
+            continue
         if hasattr(module, "service_state"):
             setattr(module, "service_state", service_state)
 
