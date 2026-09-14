@@ -1,20 +1,19 @@
-# Histórico de Search Intelligence
+# Comparação temporal de Search Intelligence
+
+**Estado:** vigente.  
+**Contrato:** `SEARCH-HISTORY-001`
 
 ## Objetivo
 
 Search Intelligence History compara duas observações persistidas de Search Intelligence ao longo do tempo, preservando exatamente o contexto de medição.
 
-Identificador metodológico atual:
-
-```text
-SEARCH-HISTORY-001
-```
-
 A capacidade é observacional. Ela não afirma que um deploy, uma alteração de conteúdo ou uma alteração técnica causou movimento de ranking em Search.
+
+Neste documento, "histórico" significa **dados observacionais de auditorias diferentes no tempo**. Não descreve evolução de implementação do produto.
 
 ## Identidade de comparação
 
-Um delta de posição só é calculado quando as observações baseline e atual possuem os mesmos valores de:
+Um delta de posição só é calculado quando as observações de referência e atual possuem os mesmos valores de:
 
 - query;
 - mecanismo de busca;
@@ -72,9 +71,9 @@ LEFT_OBSERVED_DEPTH
 
 Esses estados significam apenas que o domínio entrou ou saiu da janela de observação solicitada. Eles não estabelecem uma posição absoluta fora daquela profundidade.
 
-## Histórico determinístico de conteúdo
+## Comparação determinística de conteúdo
 
-Quando as observações baseline e atual possuem status determinístico de comparação competitiva `CONSOLIDATED`, a camada histórica também pode comparar evidências persistidas da página do cliente:
+Quando as observações de referência e atual possuem status determinístico de comparação competitiva `CONSOLIDATED`, a comparação temporal também pode avaliar evidências persistidas da página do cliente:
 
 - cobertura da query no corpo visível;
 - cobertura da query no título;
@@ -83,7 +82,7 @@ Quando as observações baseline e atual possuem status determinístico de compa
 - tipos JSON-LD observados;
 - códigos determinísticos de gaps competitivos.
 
-Classes de evento atuais incluem:
+Classes de evento incluem:
 
 - `CONTENT_SIGNAL_CHANGED`;
 - `CONTENT_VOLUME_CHANGED`;
@@ -95,14 +94,14 @@ Esses eventos permanecem evidência correlacional. Contagem de palavras não equ
 
 ## Integração com deploy e milestone
 
-O comando de histórico pode usar o modelo de milestone da Product Platform, que já seleciona as auditorias baseline e atual.
+O comando de comparação temporal pode usar o modelo de milestone da Product Platform, que seleciona as auditorias de referência e atual.
 
-Isso mantém um único contrato before/after no produto, em vez de introduzir um sistema paralelo de marcadores de deploy.
+Isso mantém um único contrato before/after no produto.
 
 A linha do tempo é interpretada assim:
 
 ```text
-observação Search baseline
+observação Search de referência
         |
         v
 milestone / marcador de deploy
@@ -126,6 +125,8 @@ rasai search-history `
   --current-workspace audits/AUD-CURRENT
 ```
 
+`baseline` permanece no nome técnico do parâmetro CLI e significa auditoria de referência para comparação.
+
 Toda comparação bem-sucedida também materializa um relatório HTML independente e um manifest em `audits/search-history/SH-*/`. Use `--report-root PATH` para substituir essa raiz de saída.
 
 Saída JSON opcional:
@@ -145,7 +146,7 @@ rasai search-history `
   --audits-root audits
 ```
 
-O comando aceita os mesmos modos de seleção de baseline usados pela Product Platform:
+O comando aceita os modos de seleção de referência usados pela Product Platform:
 
 ```text
 AUTO
@@ -167,7 +168,7 @@ rasai search-history `
 
 A saída JSON/console inclui:
 
-- ID da auditoria baseline;
+- ID da auditoria de referência;
 - ID da auditoria atual;
 - identificador metodológico;
 - quantidade de contextos comparáveis;
@@ -184,7 +185,7 @@ audits/search-history/SH-*/
 └─ manifest.json
 ```
 
-O manifest do par registra IDs das auditorias baseline/atual, metodologia, metadados de milestone quando fornecidos, comparabilidade, contagens de eventos, eventos, política de origem, limite de scoring e política de causalidade.
+O manifest do par registra IDs das auditorias de referência/atual, metodologia, metadados de milestone quando fornecidos, comparabilidade, contagens de eventos, eventos, política de origem, limite de scoring e política de causalidade.
 
 Cada evento pode conter:
 
@@ -217,17 +218,17 @@ SCORE-GEO-004
 
 Mudanças de posição, entrada/saída da profundidade observada, alterações determinísticas de conteúdo e gaps competitivos não recebem peso automático no score de readiness.
 
-Qualquer uso futuro em scoring exige nova metodologia explícita e contrato de validação.
+O contrato vigente não converte esses outcomes em scoring.
 
 ## Limite de IA
 
-A saída de Competitive AI não é atualmente convertida em score semântico before/after.
+A saída de Competitive AI não é convertida em score semântico before/after.
 
-A camada histórica determinística pode comparar as evidências existentes antes e depois. Qualquer análise semântica histórica futura deve permanecer vinculada a evidências e não pode inferir causalidade privada de mecanismos de busca.
+A comparação determinística usa apenas evidências persistidas. Não chama IA para inferir causa de mudanças de Search.
 
 ## Segurança e persistência
 
-A camada histórica opera somente leitura sobre os workspaces de auditoria.
+A comparação temporal opera somente leitura sobre os workspaces de auditoria.
 
 Ela lê evidências persistidas de `audit.db` e não:
 
@@ -237,12 +238,4 @@ Ela lê evidências persistidas de `audit.db` e não:
 - reescreve observações de Search;
 - reescreve tabelas de scoring.
 
-Isso torna a comparação histórica reproduzível a partir de evidências já persistidas.
-
-## Limitações
-
-- a comparação usa atualmente a observação persistida mais recente para cada contexto exato dentro de cada workspace;
-- mudança de provider ou de modo de dados invalida a comparação numérica de ranking naquele contexto;
-- comparação semântica histórica de recomendações de Competitive AI ainda não constitui contrato estável;
-- o HTML histórico é determinístico e pertence ao par; ainda não oferece gráficos de tendência multi-run com três ou mais observações;
-- volatilidade e personalização de Search continuam sendo fatores externos que devem ser considerados na interpretação das mudanças observadas.
+Isso torna a comparação reproduzível a partir de evidências já persistidas.
