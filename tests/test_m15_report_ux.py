@@ -112,7 +112,7 @@ class M15ReportUxTests(unittest.TestCase):
             self.assertIn("report.html#pagina-1", html)
             self.assertIn("report.html#pagina-2", html)
 
-    def test_main_ux_contains_fixed_path_navigation_score_guide_and_interpretation(self) -> None:
+    def test_main_ux_contains_current_score_dimension_guide_and_interpretation(self) -> None:
         sidebar = M15ReportBuilder._sidebar([
             {"normalized_url": "https://example.com/a-very-long-path-that-should-be-visually-truncated"},
             {"normalized_url": "https://example.com/second"},
@@ -123,8 +123,11 @@ class M15ReportUxTests(unittest.TestCase):
         self.assertIn("/a-very-long-path", sidebar)
         self.assertNotIn("https://example.com", sidebar)
         self.assertIn("remediation.html", sidebar)
-        self.assertEqual(guide.count("class='m15-guide-card'"), 10)
-        self.assertIn("Acessibilidade Técnica", guide)
+        self.assertEqual(guide.count("class='m15-guide-card'"), 11)
+        self.assertIn("DISCOVERY_ACCESS", guide)
+        self.assertIn("Acesso e descoberta", guide)
+        self.assertIn("Valor do Conteúdo", guide)
+        self.assertNotIn("Acessibilidade Técnica", guide)
         self.assertIn("Dados Estruturados", guide)
         self.assertIn("Google Search Central", guide)
         self.assertIn("Coverage", interpretation)
