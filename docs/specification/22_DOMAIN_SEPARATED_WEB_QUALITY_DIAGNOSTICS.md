@@ -1,8 +1,8 @@
 # Acessibilidade automatizada e diagnósticos de qualidade Web
 
-**Estado:** INTEGRADO / VIGENTE  
+**Estado:** VIGENTE  
 **Domínio:** Acessibilidade automatizada e diagnósticos Web  
-**Dependências:** Web Performance externo + `REPORT-SITE-GEO-001`  
+**Dependências:** Web Performance externo + `REPORT-CONTRACT-002`  
 **Natureza:** projeção aditiva de evidência; sem alteração automática do scoring
 
 ## 1. Objetivo
@@ -61,6 +61,8 @@ Nenhum audit Lighthouse de acessibilidade ou performance vira BR-GEO automaticam
 report/accessibility.html
 ```
 
+A página é uma superfície canônica estável. Quando a coleta Lighthouse Accessibility não for executada ou não tiver dados, ela permanece presente e apresenta estado neutro, sem iniciar nova coleta.
+
 ### 4.2 Fontes
 
 Fonte automatizada: Lighthouse Accessibility. Referências normativas/primárias: W3C WCAG 2.2, WAI-ARIA 1.2 e documentação oficial Lighthouse/Chrome.
@@ -101,7 +103,7 @@ A camada não prescreve `aria-label` como solução universal. Para accessible n
 report/web-performance.html
 ```
 
-Os diagnósticos adicionam interpretação técnica à página de Web Performance já existente, sem criar score próprio RASAi.
+A página é uma superfície canônica estável. Os diagnósticos adicionam interpretação técnica quando existem dados persistidos, sem criar score próprio RASAi e sem iniciar coleta durante renderização.
 
 ### 5.2 Campo e laboratório
 
@@ -161,7 +163,9 @@ Nenhum desses domínios altera automaticamente `SCORE-GEO-004`.
 
 ## 8. Navegação
 
-Páginas especializadas aparecem no menu canônico somente quando materializadas. Ordem e rótulos devem ser produzidos pelo componente compartilhado de navegação, não por cada página isoladamente.
+`accessibility.html` e `web-performance.html`, assim como as demais superfícies definidas por `REPORT-CONTRACT-002`, permanecem no menu canônico mesmo quando a capacidade correspondente não foi executada.
+
+Ordem e rótulos são produzidos pelo contrato compartilhado de `src/rasai/report_contract.py`, não por cada página isoladamente. Estados sem dados devem ser exibidos de forma neutra e não podem ser confundidos com falha do website.
 
 ## 9. Referências externas e direitos autorais
 
@@ -191,10 +195,12 @@ As referências abaixo sustentam os conceitos nos respectivos domínios e não h
 
 - <https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf>
 
+Para criação e gerenciamento de credenciais PageSpeed/CrUX, consultar `../EXTERNAL_CREDENTIALS.md`.
+
 ## 10. Critérios de conclusão
 
-1. `accessibility.html` pode ser materializado sem nova chamada externa quando a evidência necessária já existe;
-2. menu mostra Acessibilidade quando a página existe;
+1. `accessibility.html` pode projetar evidência existente sem nova chamada externa;
+2. `accessibility.html` permanece no menu mesmo quando não houver coleta e apresenta estado neutro;
 3. Accessibility score permanece separado do scorecard Performance;
 4. selector/snippet Lighthouse são preservados quando existem;
 5. ausência de selector não gera selector inventado;
@@ -206,4 +212,5 @@ As referências abaixo sustentam os conceitos nos respectivos domínios e não h
 11. nenhuma alteração automática ocorre em `SCORE-GEO-004`;
 12. reutilizar artifact não cria chamada LLM ou Google adicional;
 13. referências oficiais permanecem identificadas;
-14. suíte determinística aplicável permanece verde.
+14. `web-performance.html` permanece presente mesmo quando a integração não for executada;
+15. suíte determinística aplicável permanece verde.
