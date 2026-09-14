@@ -58,6 +58,8 @@ from rasai.runtime_adherence_extensions import install_runtime_adherence_extensi
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.runtime_contract_compatibility import install_console_runtime_contract_compatibility
 from rasai.runtime_progress_gate import install_search_progress_gate
+from rasai.search_fulfillment_runtime import install as install_search_fulfillment
+from rasai.selective_optional_reprocess import install as install_selective_optional_reprocess
 from rasai.standards_console_runtime import install as install_standards_console_runtime
 from rasai.standards_css_validation import install as install_standards_css_validation
 from rasai.standards_gsc_console_progress import install as install_standards_gsc_console_progress
@@ -125,6 +127,9 @@ def main() -> int:
     install_standards_gsc_console_progress()
     install_console_cancellation_runtime()
     install_improvement_intelligence_runtime()
+    # Optional RPR recovery must wrap the final Improvement/GSC owners so successful
+    # optional work is reused and only pending work is executed again.
+    install_selective_optional_reprocess()
     install_masked_secret_input()
     install_environment_reset()
     interactive_console._environment_menu = console_environment.environment_menu
@@ -163,10 +168,13 @@ def main() -> int:
     install_audit_configuration_reuse_console(interactive_console)
     install_console_navigation(interactive_console)
     # AUD loading/reuse synchronization is installed first. Reprocessing parity then
-    # becomes the final projection so a RPR uses the same execution/post-run surfaces as
+    # becomes the final RPR presentation so a RPR uses the same execution/post-run surfaces as
     # processing while retaining its RPR-specific result and unresolved-item diagnosis.
     install_console_audit_workflow(interactive_console)
     install_console_reprocess_parity(interactive_console)
+    # Search is executed by the final composed console chain. Project its result into
+    # fulfillment before the canonical result screen computes the logical AUD state.
+    install_search_fulfillment(interactive_console)
     # Install last: the physical subprocess may be at 100% while the canonical AUD is
     # still PARTIAL_RETRYABLE/BLOCKED. The final screen must show both facts explicitly.
     install_console_projection(interactive_console)
