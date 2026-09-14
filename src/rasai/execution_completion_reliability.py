@@ -195,7 +195,22 @@ def _install_crux_no_data_semantics() -> None:
         audit_id = str(kwargs.get("audit_id") or "")
         if workspace is None or not audit_id:
             return result
-        return _reconcile_crux_no_data(workspace, audit_id, result)
+        corrected = _reconcile_crux_no_data(workspace, audit_id, result)
+        if corrected is result:
+            return result
+        # The integrity layer may already have materialized its artifact inside the
+        # wrapped M21 chain. Re-run it over the corrected persisted state so HTML/artifact
+        # provenance cannot keep the former false PARTIAL classification.
+        try:
+            from rasai.external_metrics_integrity import reconcile_external_metrics_integrity
+
+            return reconcile_external_metrics_integrity(
+                audit_id=audit_id,
+                workspace=workspace,
+                result=corrected,
+            )
+        except (OSError, sqlite3.Error, TypeError, ValueError):
+            return corrected
 
     execute_m21_with_crux_no_data._rasai_crux_no_data_semantics = True  # type: ignore[attr-defined]
     execute_m21_with_crux_no_data._rasai_original = original  # type: ignore[attr-defined]
@@ -312,8 +327,8 @@ def _install_m24_resource_schema() -> None:
     candidate_payload_hardened._rasai_resource_schema_hardened = True  # type: ignore[attr-defined]
     candidate_payload_hardened._rasai_original = original  # type: ignore[attr-defined]
     m24_ai._candidate_payload = candidate_payload_hardened
-    # Schema semantics changed materially; keep attempt/report provenance explicit.
-    m24_ai.CONTRACT_VERSION = "M24-TECHNICAL-REMEDIATION-v3"
+    # The output shape is unchanged; keep the existing v2 contract identifier so every
+    # report/cost/reprocessing reader remains on the same current contract.
 
 
 def _apply_gsc_policy_to_environment(readiness: Any, policy: str) -> None:
@@ -325,6 +340,19 @@ def _apply_gsc_policy_to_environment(readiness: Any, policy: str) -> None:
         os.environ[GSC_ENABLED_ENV] = "true"
     elif policy == readiness.GSC_PROFILE_DISABLED:
         os.environ[GSC_ENABLED_ENV] = "false"
+
+
+def _restore_gsc_baseline(state: Any) -> None:
+    baseline = _GSC_BASELINE_BY_STATE.pop(id(state), None)
+    if baseline is None:
+        return
+    from rasai.gsc_scope import GSC_ENABLED_ENV
+
+    existed, value = baseline
+    if existed and value is not None:
+        os.environ[GSC_ENABLED_ENV] = value
+    else:
+        os.environ.pop(GSC_ENABLED_ENV, None)
 
 
 def _install_console_gsc_profile_lifetime() -> None:
@@ -359,8 +387,15 @@ def _install_console_gsc_profile_lifetime() -> None:
         ) -> Iterator[None]:
             current = session or profiles.active_profile(state)
             active = profiles.active_profile(state)
-            persist = current is not None and active is current
-            if persist and id(state) not in _GSC_BASELINE_BY_STATE:
+            policy = readiness.gsc_profile_policy(current)
+            owns_policy = current is not None and active is current
+            persist = owns_policy and policy != readiness.GSC_PROFILE_INHERIT
+
+            if owns_policy and policy == readiness.GSC_PROFILE_INHERIT:
+                # Switching an already active profile back to inherit must immediately
+                # release any durable session overlay and expose the original global value.
+                _restore_gsc_baseline(state)
+            elif persist and id(state) not in _GSC_BASELINE_BY_STATE:
                 from rasai.gsc_scope import GSC_ENABLED_ENV
 
                 _GSC_BASELINE_BY_STATE[id(state)] = (
@@ -372,20 +407,11 @@ def _install_console_gsc_profile_lifetime() -> None:
                     yield
             finally:
                 if persist:
-                    _apply_gsc_policy_to_environment(readiness, readiness.gsc_profile_policy(current))
+                    _apply_gsc_policy_to_environment(readiness, policy)
 
         def clear_profile_restoring_gsc(state: Any) -> None:
-            baseline = _GSC_BASELINE_BY_STATE.pop(id(state), None)
+            _restore_gsc_baseline(state)
             clear(state)
-            if baseline is None:
-                return
-            from rasai.gsc_scope import GSC_ENABLED_ENV
-
-            existed, value = baseline
-            if existed and value is not None:
-                os.environ[GSC_ENABLED_ENV] = value
-            else:
-                os.environ.pop(GSC_ENABLED_ENV, None)
 
         effective_profile_persistent._rasai_gsc_profile_lifetime = True  # type: ignore[attr-defined]
         effective_profile_persistent._rasai_original = effective  # type: ignore[attr-defined]
