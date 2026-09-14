@@ -19,7 +19,7 @@ from rasai.m18_ai import ProviderUsage, estimate_cost
 from rasai.provider_registry import get_provider_registration
 
 _SUCCESS = {"SUCCESS", "SUCCEEDED", "COMPLETED", "PASS"}
-_AI_OPS = {"SEMANTIC_ANALYSIS", "CONTENT_REMEDIATION"}
+_AI_OPS = {"SEMANTIC_ANALYSIS", "CONTENT_REMEDIATION", "IMPROVEMENT_INTELLIGENCE"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,15 +206,10 @@ def _improvement_history(connection: sqlite3.Connection) -> tuple[str | None, st
 
 
 def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
-    standard_selection = str(getattr(state, "ai_provider", "none")).casefold()
-    standard_provider, standard_model = _provider(standard_selection, getattr(state, "ai_model", None))
+    selection = str(getattr(state, "ai_provider", "none")).casefold()
+    selected_provider, selected_model = _provider(selection, getattr(state, "ai_model", None))
     improvement_enabled = bool(getattr(state, "improvement_enabled", False))
-    improvement_selection = str(getattr(state, "improvement_provider", "") or "").casefold()
-    improvement_provider, improvement_model = (
-        _provider(improvement_selection, getattr(state, "improvement_model", None))
-        if improvement_enabled and improvement_selection else (None, None)
-    )
-    if standard_selection == "none" and not improvement_provider:
+    if selection == "none":
         return None
     try:
         connection = sqlite3.connect(f"file:{database.as_posix()}?mode=ro", uri=True, timeout=0.5)
@@ -225,9 +220,11 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
         if not _local_comparable(state, _projection(connection)):
             return None
         improvement_contract, old_improvement_provider, old_improvement_model = _improvement_history(connection)
-        if improvement_provider and (
-            old_improvement_provider != improvement_provider
-            or (improvement_model and old_improvement_model and improvement_model != old_improvement_model)
+        # Explicit primary selection must remain comparable to the effective historical
+        # provider/model used by Improvement. AUTO deliberately preserves the observed mix.
+        if improvement_enabled and selection != "auto" and improvement_contract and (
+            old_improvement_provider != selected_provider
+            or (selected_model and old_improvement_model and selected_model != old_improvement_model)
         ):
             return None
         try:
@@ -254,11 +251,21 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
         currency: str | None = None
         for family, row in rows:
             provider, model = str(_value(row, "provider") or "").upper(), str(_value(row, "model") or "")
-            if family == "semantic" and improvement_contract and str(_value(row, "semantic_contract_version") or "") == improvement_contract:
-                if not improvement_provider or provider != improvement_provider or (improvement_model and model != improvement_model):
+            is_improvement = (
+                family == "semantic"
+                and improvement_contract
+                and str(_value(row, "semantic_contract_version") or "") == improvement_contract
+            )
+            if is_improvement:
+                if not improvement_enabled:
+                    continue
+                if selection != "auto" and (
+                    (selected_provider and provider != selected_provider)
+                    or (selected_model and model != selected_model)
+                ):
                     continue
             else:
-                if standard_selection == "none" or (standard_provider and provider != standard_provider) or (standard_model and model != standard_model):
+                if (selected_provider and provider != selected_provider) or (selected_model and model != selected_model):
                     continue
             amount, item_currency, was_repriced = _current_cost(row)
             if amount is None or not item_currency:
@@ -291,9 +298,10 @@ def _target_local(state: Any, runs: list[HistoricalRunCost]) -> int:
 
 
 def forecast_local_cost(state: Any) -> CostForecast:
-    standard = str(getattr(state, "ai_provider", "none")).casefold() != "none"
-    improvement = bool(getattr(state, "improvement_enabled", False)) and bool(str(getattr(state, "improvement_provider", "") or "").strip())
-    if not standard and not improvement:
+    selection = str(getattr(state, "ai_provider", "none")).casefold()
+    standard = selection != "none"
+    improvement = bool(getattr(state, "improvement_enabled", False)) and standard
+    if not standard:
         return unavailable_forecast("nenhuma IA com telemetria financeira está ativa na configuração", source="local-audit-history")
     root = Path(str(getattr(state, "audits_root", "audits")))
     if not root.is_dir():
@@ -305,7 +313,9 @@ def forecast_local_cost(state: Any) -> CostForecast:
     runs = [run for run in (_read_local_run(state, db) for db in databases) if run is not None]
     if not runs:
         return unavailable_forecast("não há execuções locais comparáveis com custo monetário conhecido", source="local-audit-history")
-    notes = ["Improvement Intelligence entra no histórico quando provider/model e contrato são comparáveis"] if improvement else []
+    notes = []
+    if improvement:
+        notes.append("Improvement Intelligence usa a mesma seleção principal de IA; em AUTO o histórico preserva o mix efetivo de providers/modelos")
     return _forecast_from_runs(runs, target_pages=_target_local(state, runs), source="local-audit-history", notes=notes)
 
 
@@ -320,7 +330,7 @@ def _job_payload(job: Any) -> dict[str, Any] | None:
 
 def _job_comparable(current: Mapping[str, Any], historical: Mapping[str, Any]) -> bool:
     if any(current.get(key) != historical.get(key) for key in (
-        "device_context", "ai_provider", "ai_content_remediation", "ai_technical_remediation"
+        "device_context", "ai_provider", "ai_content_remediation", "ai_technical_remediation", "improvement_intelligence"
     )):
         return False
     current_model, historical_model = str(current.get("ai_model") or ""), str(historical.get("ai_model") or "")
@@ -362,7 +372,7 @@ def forecast_saas_cost(
     current = normalize_audit_job_payload(payload)
     provider_selection = str(current.get("ai_provider") or "none").casefold()
     if provider_selection == "none":
-        return unavailable_forecast("nenhuma IA padrão tarifável está ativa na configuração", source="saas-usage-ledger")
+        return unavailable_forecast("nenhuma IA tarifável está ativa na configuração", source="saas-usage-ledger")
 
     comparable_jobs = {
         str(job.job_id)
@@ -403,6 +413,8 @@ def forecast_saas_cost(
             continue
         if operation == "CONTENT_REMEDIATION" and not bool(current.get("ai_content_remediation")):
             continue
+        if operation == "IMPROVEMENT_INTELLIGENCE" and not bool(current.get("improvement_intelligence")):
+            continue
         if (provider_filter and provider != provider_filter) or (model_filter and model != model_filter):
             continue
         amount, currency, was_repriced = _group_cost(group)
@@ -433,6 +445,8 @@ def forecast_saas_cost(
         ["AI auto usa o mix histórico real de providers/modelos do mesmo escopo; o browser não presume credenciais do worker"]
         if provider_selection == "auto" else []
     )
+    if bool(current.get("improvement_intelligence")):
+        notes.append("Improvement Intelligence usa a mesma seleção principal de IA e participa do custo comparável quando sua telemetria está disponível")
     return _forecast_from_runs(
         runs, target_pages=_target_saas(current, runs), source="saas-usage-ledger", notes=notes
     )
