@@ -1,8 +1,8 @@
-# DECISIONS.md
+# Decisões vigentes do RASAi
 
 **Contrato vigente:** VIGENTE
 
-Este documento registra somente decisões atualmente válidas para o produto. Decisões abandonadas, etapas de implementação concluídas e regras transitórias de branch/merge não integram a especificação normativa.
+Este documento registra somente decisões atualmente válidas para o produto.
 
 ## D-001 - Readiness por dispositivo
 
@@ -16,7 +16,7 @@ O scoring é determinístico, evidence-bound e usa as **11 dimensões** definida
 
 Dimensões integralmente e legitimamente `NOT_APPLICABLE` são excluídas do denominador aplicável e não recebem score artificial 0 ou 100. Ausência de evidência suficiente não é convertida em falha.
 
-JSON-LD permanece `OPCIONAL / REFORÇO`. O contrato distingue a **observação persistida pela regra** da **interpretação efetiva do scoring**: quando `BR-GEO-034` registra explicitamente que Structured Data está ausente, o `SCORE-GEO-004` aplica sua política versionada de aplicabilidade e trata essa execução como `NOT_APPLICABLE` para scoring, com `reason=STRUCTURED_DATA_ABSENT_NOT_UNIVERSAL_SARI_REQUIREMENT`, preservando o resultado-fonte no estado observado. `BR-GEO-035..037` também permanecem `NOT_APPLICABLE` quando não existe Structured Data a avaliar. Assim, ausência legítima de JSON-LD não reduz o SARI, não recebe score artificial e não é apresentada como requisito universal.
+JSON-LD permanece `OPCIONAL / REFORÇO`. O contrato distingue a observação persistida pela regra da interpretação efetiva do scoring: quando `BR-GEO-034` registra explicitamente que Structured Data está ausente, o `SCORE-GEO-004` aplica sua política versionada de aplicabilidade e trata essa execução como `NOT_APPLICABLE` para scoring, com `reason=STRUCTURED_DATA_ABSENT_NOT_UNIVERSAL_SARI_REQUIREMENT`, preservando o resultado-fonte no estado observado. `BR-GEO-035..037` também permanecem `NOT_APPLICABLE` quando não existe Structured Data a avaliar. Assim, ausência legítima de JSON-LD não reduz o SARI, não recebe score artificial e não é apresentada como requisito universal.
 
 Para rastreabilidade, a ausência de JSON-LD é materializada na observação persistida da regra quando efetivamente detectada; a camada de scoring então aplica a política de aplicabilidade descrita acima, sem transformar ausência legítima em penalidade.
 
@@ -135,6 +135,8 @@ Associação temporal não é causalidade. Observed Generative Visibility, Searc
 
 Dados ausentes permanecem ausentes; `NULL` externo não é convertido em zero.
 
+A única exceção externa score-eligible vigente é a corroboração positiva Common Crawl materializada por `BR-GEO-060`. Ela segue contrato específico, não cria penalidade por ausência/erro e não autoriza promoção automática de outras integrações observacionais ao SARI.
+
 ## D-017 - Multi-URL e recursos de domínio
 
 Uma auditoria pode receber múltiplas URLs/targets conforme o contrato da CLI/API e preservar um único `audit_id` quando o escopo for válido.
@@ -155,7 +157,11 @@ O mini-site de relatório é HTML estático, navegável, responsivo e reabrível
 
 `report/readiness.html` é a superfície canônica do SARI. `report/scoring.html` é a superfície canônica da metodologia. A versão metodológica pertence a `scoring_version`, banco, manifests, metadados e conteúdo do relatório; não a um filename público alternativo.
 
-Páginas opcionais são materializadas quando o respectivo domínio possui estado a apresentar e devem compartilhar navegação e CSS do mini-site.
+Toda auditoria concluída com sucesso materializa todas as superfícies canônicas definidas por `REPORT-CONTRACT-002` e `src/rasai/report_contract.py`. A opcionalidade de um `ReportSurface` descreve a disponibilidade dos dados/capacidade, não a existência do HTML.
+
+Quando uma capacidade não é executada, não está configurada, não se aplica ou não possui dados, a página permanece navegável e apresenta estado neutro explícito. O renderer não chama provider, API, coletor ou IA para preencher uma página sem evidência.
+
+Navegação, ordem, rótulos e verificação de completude devem derivar do mesmo contrato compartilhado.
 
 ## D-020 - Linguagem e semântica de apresentação
 
@@ -169,14 +175,32 @@ Secrets não devem ser incluídos em documentação de exemplo real, banco de ev
 
 Aquisição de URLs externas deve respeitar controles de escopo, redirects, DNS/IP, same-origin e SSRF definidos pela superfície correspondente. Execução hospedada requer também controles de egress e gestão de secrets apropriados ao ambiente.
 
+Documentação de credenciais externas deve informar finalidade, dependências, tipo de credencial e link oficial de criação/gerenciamento, conforme `../EXTERNAL_CREDENTIALS.md`.
+
 ## D-022 - Uso e consumo
 
 O usage ledger é separado de findings/scoring e registra consumo operacional necessário para analytics, limites, custo e futura medição SaaS, preservando proveniência de provider/source e sem transformar consumo em indicador de qualidade do website.
 
 ## D-023 - Regra documental de pré-publicação
 
-O RASAi ainda está em desenvolvimento e validação. A documentação normativa descreve somente o contrato vigente do produto.
+O RASAi está em desenvolvimento e validação pré-publicação. A documentação normativa descreve somente o contrato vigente do produto.
 
-Não devem permanecer na documentação pública/normativa decisões descartadas, nomes de branches de entrega, números de PR usados como status de implementação, planos concluídos ou superfícies removidas. Git continua responsável pelo histórico técnico dessas mudanças.
+Não devem ser tratados como contrato do produto branch, PR, etapa de entrega, caminho removido, alias sem uso vigente ou decisão que não tenha efeito atual no runtime. Git é a fonte apropriada para rastreabilidade de implementação.
 
 Toda alteração funcional deve manter código, testes, HTML, CLI/API e documentação aderentes ao mesmo contrato.
+
+## D-024 - Ruleset e corroboração externa
+
+O ruleset vigente compreende `BR-GEO-001..060`.
+
+`BR-GEO-001..059` formam o conjunto de regras internas do contrato atual. `BR-GEO-060` é uma regra externa corroborativa, positive-only, baseada em Common Crawl, pertencente a `DISCOVERY_ACCESS` e ao grupo `EXTERNAL_CRAWL_CORROBORATION`.
+
+A ausência de observação Common Crawl, erro de rede, alvo inelegível ou amostra insuficiente não materializa `FAIL`, não cria zero e não reduz Coverage ou Confidence. A regra somente participa quando a observação positiva cumpre as condições do contrato e a Evidence/RuleExecution mínima é persistida para reprodutibilidade.
+
+Detalhes: `../SARI_EXTERNAL_CRAWL_CORROBORATION.md`.
+
+## D-025 - Protótipos frontend-only
+
+A pasta `prototypes/` serve à validação de UI, UX, navegação e contratos desejados de frontend. Ela não constitui segunda implementação do domínio e não cria autoridade sobre scoring, crawling, execução, tenancy, credenciais ou persistência.
+
+Contratos marcados como atuais nos protótipos devem corresponder à Web API real. Contratos marcados como desejados são propostas de interface e não podem ser apresentados como capacidade disponível do SaaS até que o core/control plane/API correspondente exista.
