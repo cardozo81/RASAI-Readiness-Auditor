@@ -18,7 +18,7 @@ _DECLINED: set[int] = set()
 
 
 def _render_fallback(forecast: CostForecast, exposure: ExposureEstimate) -> None:
-    print("\nPRÉVIA FINANCEIRA ANTES DA EXECUÇÃO — SEM HISTÓRICO COMPARÁVEL")
+    print("\nPRÉVIA FINANCEIRA ANTES DA EXECUÇÃO - SEM HISTÓRICO COMPARÁVEL")
     print("-" * 100)
     print(
         "Histórico monetário : "
