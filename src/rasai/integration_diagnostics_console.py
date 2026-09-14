@@ -6,7 +6,7 @@ from datetime import datetime
 import os
 from types import ModuleType
 from typing import Any
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from rasai import console_provider_environment as environment_console
 from rasai import integration_diagnostics as diagnostics
@@ -14,7 +14,7 @@ from rasai.console_ui import CYAN, DIM, GREEN, RED, YELLOW, paint
 from rasai.time_contract import configured_presentation_timezone
 
 
-# ``transient`` and ``deterministic`` are derived from ``status``.  Keep diagnostic
+# ``transient`` and ``deterministic`` are derived from ``status``. Keep diagnostic
 # serialization minimal so callers can reconstruct them instead of duplicating fields.
 # This also keeps compatibility with diagnostics created before this console installer.
 def _diagnostic_to_dict(value: diagnostics.IntegrationDiagnostic) -> dict[str, Any]:
@@ -61,7 +61,7 @@ def _formatted_time(value: str) -> str:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
         timezone_name = configured_presentation_timezone()
         return parsed.astimezone(ZoneInfo(timezone_name)).strftime("%d/%m/%Y %H:%M:%S %Z")
-    except (ValueError, ZoneInfo.KeyError):
+    except (ValueError, ZoneInfoNotFoundError):
         return value or "-"
 
 
