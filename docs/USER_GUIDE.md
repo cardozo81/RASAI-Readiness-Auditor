@@ -40,7 +40,7 @@ O console oferece:
 - estado `APTO`/`CONFIGURAR` e pendências visíveis antes da seleção;
 - descrição, dependências e custo/exposição antes de aplicar um perfil;
 - ajuste fino posterior, sem persistir o preset no INI ou no sistema operacional;
-- provider/modelo/esforço/timeout de IA;
+- provider/modelo/esforço/timeout da IA principal;
 - dependência explícita da remediação textual em relação à IA;
 - configuração de Web Performance e timeout PageSpeed/Lighthouse;
 - configuração guiada de Synthetic Apdex;
@@ -64,13 +64,13 @@ O perfil é um overlay somente da sessão. Ele não altera defaults do RASAi, n�
 
 Todos os presets permanecem visíveis. Um preset `APTO` pode ser selecionado. Um preset `CONFIGURAR` continua aparecendo para orientar a parametrização, mostra exatamente o que falta e **não pode ser aplicado** até que as dependências obrigatórias sejam resolvidas.
 
-Dependências humanas ou operacionais continuam explícitas: Search Intelligence não inventa termos SERP, GEO não transforma contexto YMYL `AUTO` em fato, Experiência sintética não inventa parâmetros de carga e Análise profunda exige o item 13 e sua IA própria devidamente configurados.
+Dependências humanas ou operacionais continuam explícitas: Search Intelligence não inventa termos SERP, GEO não transforma contexto YMYL `AUTO` em fato, Experiência sintética não inventa parâmetros de carga e Análise profunda exige o item 13, uma URL única e a IA principal apta.
 
 `Completo seguro` combina SEO, GEO, Performance, Acessibilidade e Web Quality sem ativar automaticamente SERP, carga sintética ou análise profunda.
 
 `Completo máximo` combina todos os módulos do catálogo. Ele permanece `CONFIGURAR` até Search Intelligence, Experiência sintética e Análise profunda estarem aptos. O nome "máximo" indica cobertura funcional, não redução de segurança ou limites.
 
-A IA padrão do perfil pode ficar desligada ou ser usada somente se houver provider `APTO`; a ausência de IA nesse segundo modo não bloqueia o core. Improvement Intelligence continua usando sua configuração de IA própria e independente.
+Existe uma única seleção principal de IA por execução. Improvement Intelligence e demais consumidores compatíveis usam essa mesma seleção. Quando a análise profunda faz parte do perfil, ela não possui provider/model/reasoning próprios e não pode ser desativada por uma escolha de “sem IA opcional” para os demais módulos. Em `AUTO`, ela reutiliza a política central de custo, elegibilidade, quarentena, circuit breaker e fallback.
 
 Detalhes dos perfis: [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md).
 
@@ -107,9 +107,9 @@ rasai audit `
 
 ## IA
 
-A auditoria pode rodar com `--ai-provider none`.
+A auditoria pode rodar com `--ai-provider none` quando nenhuma capacidade selecionada exigir IA.
 
-Quando IA é habilitada, o default público privilegia o modelo mais simples e o menor esforço suportado. O console permite escolher valores maiores quando necessário.
+Quando IA é habilitada, o provider pode ser explícito ou `auto`. O console usa o registry canônico para disponibilidade, modelos e reasoning. O modo `AUTO` aplica a política central de custo/saúde/fallback; módulos especializados não criam uma segunda escolha de provider.
 
 A remediação textual por IA é opcional e exige provider apto.
 
