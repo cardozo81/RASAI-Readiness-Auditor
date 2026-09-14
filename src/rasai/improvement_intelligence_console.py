@@ -1,8 +1,9 @@
 """Interactive-console integration for one-URL Improvement Intelligence.
 
-The console persists only non-secret choices in rasai-console.ini. The analysis provider
-reuses an already configured credential and runs after the normal audit/Search extension,
-so SERP evidence from the same session can participate without duplicating paid calls.
+The console persists only feature-specific, non-secret choices in rasai-console.ini.
+Provider, model and reasoning come exclusively from the canonical primary AI selection
+of the audit. The analysis runs after the normal audit/Search extension so persisted
+SERP evidence from the same session can participate without a parallel AI policy.
 """
 from __future__ import annotations
 
@@ -24,7 +25,6 @@ from rasai.improvement_intelligence import (
     parse_domains,
     validate_analysis_language,
 )
-from rasai.provider_registry import get_provider_registration, provider_registrations
 
 _INSTALLED_ENV = False
 _INSTALLED_CONSOLE = False
@@ -65,14 +65,18 @@ def install_environment() -> None:
 
     base._validate = validate
 
-    # The provider-aware environment surface is the one wired into the public console.
     try:
         from rasai import console_provider_environment as provider_env
+
         if AI_ANALYSIS_LANGUAGE_ENV not in provider_env.ENV_NAMES:
-            provider_env.ENV_NAMES = tuple(dict.fromkeys((*provider_env.ENV_NAMES, AI_ANALYSIS_LANGUAGE_ENV)))
+            provider_env.ENV_NAMES = tuple(
+                dict.fromkeys((*provider_env.ENV_NAMES, AI_ANALYSIS_LANGUAGE_ENV))
+            )
         p_by_name = {item.name: item for item in provider_env.SPECS}
         p_by_name[AI_ANALYSIS_LANGUAGE_ENV] = spec
-        provider_env.SPECS = tuple(p_by_name[name] for name in provider_env.ENV_NAMES if name in p_by_name)
+        provider_env.SPECS = tuple(
+            p_by_name[name] for name in provider_env.ENV_NAMES if name in p_by_name
+        )
         provider_env.SPEC_BY_NAME = {item.name: item for item in provider_env.SPECS}
         provider_validate = provider_env._validate
 
@@ -100,11 +104,10 @@ def _install_settings(console_module: ModuleType) -> None:
         values = dict(original_values(state))
         values["improvement_intelligence"] = {
             "enabled": "true" if bool(getattr(state, "improvement_enabled", False)) else "false",
-            "provider": str(getattr(state, "improvement_provider", "")),
-            "model": str(getattr(state, "improvement_model", "")),
-            "reasoning_effort": str(getattr(state, "improvement_reasoning", "")),
             "domains": ",".join(getattr(state, "improvement_domains", DEFAULT_DOMAINS)),
-            "max_recommendations": str(int(getattr(state, "improvement_max_recommendations", 30))),
+            "max_recommendations": str(
+                int(getattr(state, "improvement_max_recommendations", 30))
+            ),
             "timeout_seconds": f"{float(getattr(state, 'improvement_timeout', 240.0)):g}",
         }
         return values
@@ -115,12 +118,6 @@ def _install_settings(console_module: ModuleType) -> None:
             return
         if option == "enabled":
             state.improvement_enabled = settings._parse_bool(raw)
-        elif option == "provider":
-            state.improvement_provider = raw.strip().casefold()
-        elif option == "model":
-            state.improvement_model = raw.strip()
-        elif option == "reasoning_effort":
-            state.improvement_reasoning = raw.strip().upper()
         elif option == "domains":
             state.improvement_domains = parse_domains(raw)
         elif option == "max_recommendations":
@@ -133,6 +130,8 @@ def _install_settings(console_module: ModuleType) -> None:
             if value <= 0:
                 raise ValueError("use número > 0")
             state.improvement_timeout = value
+        else:
+            raise ValueError(f"opção desconhecida em improvement_intelligence: {option}")
 
     settings._state_values = state_values
     settings._assign = assign
@@ -140,16 +139,25 @@ def _install_settings(console_module: ModuleType) -> None:
 
 
 def _config_from_state(state: Any) -> ImprovementConfig:
+    selection = str(getattr(state, "ai_provider", "none") or "none").strip().casefold()
+    model = str(getattr(state, "ai_model", "") or "") if selection != "auto" else ""
+    reasoning = str(getattr(state, "ai_reasoning", "") or "") if selection != "auto" else ""
     return ImprovementConfig(
         enabled=bool(getattr(state, "improvement_enabled", False)),
-        provider=str(getattr(state, "improvement_provider", "")),
-        model=str(getattr(state, "improvement_model", "")),
-        reasoning=str(getattr(state, "improvement_reasoning", "")),
+        provider=selection,
+        model=model,
+        reasoning=reasoning,
         domains=tuple(getattr(state, "improvement_domains", DEFAULT_DOMAINS)),
         max_recommendations=int(getattr(state, "improvement_max_recommendations", 30)),
         timeout_seconds=float(getattr(state, "improvement_timeout", 240.0)),
         language=(os.environ.get(AI_ANALYSIS_LANGUAGE_ENV) or "auto"),
     ).validate()
+
+
+def console_module_provider_capabilities(state: Any):
+    from rasai.console_config import provider_capabilities
+
+    return provider_capabilities(blocks=getattr(state, "runtime_blocks", {}))
 
 
 def _single_url_ready(state: Any) -> tuple[bool, str]:
@@ -159,39 +167,30 @@ def _single_url_ready(state: Any) -> tuple[bool, str]:
         return False, "Análise profunda exige Entrada=URL única; arquivo TXT/múltiplas URLs não é permitido"
     if not str(getattr(state, "target", "")).strip():
         return False, "Análise profunda exige uma URL explícita"
-    provider = str(getattr(state, "improvement_provider", "")).casefold()
-    if provider in {"", "none", "auto"}:
-        return False, "Análise profunda exige uma IA explícita independente da IA padrão"
+
+    selection = str(getattr(state, "ai_provider", "none") or "none").strip().casefold()
+    if selection == "none":
+        return False, "Análise profunda usa a IA principal; configure uma IA ou AUTO no item 4"
+
     capabilities = console_module_provider_capabilities(state)
-    capability = capabilities.get(provider)
+    capability = capabilities.get(selection)
     if capability is None or not capability.available:
         reason = capability.reason if capability is not None else "provider desconhecido"
-        return False, f"IA da análise profunda indisponível: {reason}"
+        return False, f"IA principal indisponível para análise profunda: {reason}"
+
     try:
         _config_from_state(state)
     except ValueError as exc:
         return False, str(exc)
-    return True, "análise profunda pronta para URL única"
+    return True, f"análise profunda pronta; IA principal={selection.upper()}"
 
 
-def console_module_provider_capabilities(state: Any):
-    from rasai.console_config import provider_capabilities
-    return provider_capabilities(blocks=getattr(state, "runtime_blocks", {}))
-
-
-def _select_provider(console_module: ModuleType, state: Any) -> str | None:
-    capabilities = console_module.provider_capabilities(blocks=state.runtime_blocks)
-    options = []
-    for registration in provider_registrations():
-        capability = capabilities.get(registration.id)
-        available = bool(capability and capability.available)
-        reason = capability.reason if capability is not None else "indisponível"
-        options.append((registration.id, available, reason))
-    return console_module._select(
-        state,
-        "IA exclusiva da análise profunda - reutiliza a key/token já configurada",
-        options,
-    )
+def _ai_label(state: Any) -> str:
+    selection = str(getattr(state, "ai_provider", "none") or "none").strip().casefold()
+    if selection == "auto":
+        return "AUTO"
+    model = str(getattr(state, "ai_model", "") or "").strip()
+    return f"{selection.upper()}/{model}" if model else selection.upper()
 
 
 def configure(console_module: ModuleType, state: Any) -> None:
@@ -200,7 +199,9 @@ def configure(console_module: ModuleType, state: Any) -> None:
     print("Executa uma análise evidence-bound após a auditoria e, quando configurado, após a coleta SERP da mesma sessão.")
     print("Obrigatório: uma única URL de entrada. O crawl pode coletar páginas auxiliares, mas a análise profunda permanece vinculada à URL explícita.")
     print("Segurança é somente passiva; não há exploração/pentest. A IA não altera SARI/SCORE-GEO e não promete posição de ranking.")
-    print("A configuração abaixo é independente da IA padrão e pode usar modelo/esforço mais profundo, reutilizando a mesma credencial do provider.\n")
+    print("A análise usa exclusivamente a IA principal configurada no item 4; não existe provider/model/reasoning separado para esta feature.")
+    print("Em AUTO, a etapa reutiliza custo, elegibilidade, quarentena, circuit breaker e fallback do runtime central.\n")
+
     current = bool(getattr(state, "improvement_enabled", False))
     raw = input(f"Habilitar análise profunda? [{'S/n' if current else 's/N'}]: ").strip().casefold()
     enabled = current if not raw else raw in {"s", "sim", "y", "yes", "1", "true", "on"}
@@ -208,33 +209,19 @@ def configure(console_module: ModuleType, state: Any) -> None:
         state.improvement_enabled = False
         state.error = ""
         return
-    if state.input_mode != "url":
+    if str(getattr(state, "input_mode", "url")) != "url":
         state.error = "Análise profunda só pode ser habilitada com Entrada=URL única"
         return
-    provider = _select_provider(console_module, state)
-    if not provider:
+
+    state.improvement_enabled = True
+    ready, reason = _single_url_ready(state)
+    if not ready:
+        state.improvement_enabled = current
+        state.error = reason
         return
-    registration = get_provider_registration(provider)
-    assert registration is not None
-    state.improvement_provider = provider
-    current_model = state.improvement_model if state.improvement_model in registration.supported_models else registration.public_default_model
-    chosen_model = console_module._select(
-        state,
-        f"Modelo {registration.display_name} para análise profunda",
-        [(item, True, "atual" if item == current_model else "suportado") for item in registration.supported_models],
-    )
-    state.improvement_model = chosen_model or current_model
-    efforts = registration.reasoning_values
-    current_effort = state.improvement_reasoning if state.improvement_reasoning in efforts else efforts[-1]
-    if len(efforts) == 1:
-        state.improvement_reasoning = efforts[0]
-    else:
-        effort = console_module._select(
-            state,
-            f"Esforço/profundidade {registration.display_name} para esta análise",
-            [(item, True, "atual" if item == current_effort else "suportado") for item in efforts],
-        )
-        state.improvement_reasoning = effort or current_effort
+
+    print(f"\nIA principal efetiva: {_ai_label(state)}")
+    print("Configure provider/model/reasoning pelo item 4 se desejar alterar essa seleção.")
 
     print("\nDomínios disponíveis:")
     for index, domain in enumerate(DEFAULT_DOMAINS, 1):
@@ -254,47 +241,50 @@ def configure(console_module: ModuleType, state: Any) -> None:
             state.improvement_domains = tuple(dict.fromkeys(selected))
             parse_domains(state.improvement_domains)
 
-    maximum = input(f"Máximo de recomendações [{state.improvement_max_recommendations}]: ").strip()
+    maximum = input(
+        f"Máximo de recomendações [{state.improvement_max_recommendations}]: "
+    ).strip()
     if maximum:
         value = int(maximum)
         if value < 1 or value > 100:
             raise ValueError("máximo de recomendações deve estar entre 1 e 100")
         state.improvement_max_recommendations = value
-    timeout = input(f"Timeout da chamada profunda em segundos [{state.improvement_timeout:g}]: ").strip()
+    timeout = input(
+        f"Timeout da chamada profunda em segundos [{state.improvement_timeout:g}]: "
+    ).strip()
     if timeout:
         value = float(timeout)
         if value <= 0:
             raise ValueError("timeout deve ser > 0")
         state.improvement_timeout = value
-    state.improvement_enabled = True
+
     _config_from_state(state)
     state.error = ""
 
 
 def _render_menu_extension(console_module: ModuleType, state: Any) -> None:
     from rasai.console_ui import DIM, GREEN, RED, paint
+
     enabled = bool(getattr(state, "improvement_enabled", False))
-    provider = str(getattr(state, "improvement_provider", "")) or "-"
-    model = str(getattr(state, "improvement_model", "")) or "-"
-    reasoning = str(getattr(state, "improvement_reasoning", "")) or "-"
     domains = len(tuple(getattr(state, "improvement_domains", DEFAULT_DOMAINS)))
     ready, reason = _single_url_ready(state)
     if enabled:
         state_text = paint("ON", GREEN if ready else RED, bold=True)
         detail = (
-            f"provider={provider} | modelo={model} | esforço={reasoning} | domínios={domains} | "
-            f"idioma IA={os.environ.get(AI_ANALYSIS_LANGUAGE_ENV, 'auto')} | até 2 tentativas estruturadas"
+            f"IA principal={_ai_label(state)} | domínios={domains} | "
+            f"idioma IA={os.environ.get(AI_ANALYSIS_LANGUAGE_ENV, 'auto')} | timeout={float(getattr(state, 'improvement_timeout', 240.0)):g}s"
         )
         if not ready:
             detail += " | " + paint(reason, RED, bold=True)
     else:
         state_text = paint("OFF", DIM)
-        detail = "somente URL única; chamada IA adicional; segurança passiva; advisory/non-scoring"
+        detail = "somente URL única; usa IA principal; segurança passiva; advisory/non-scoring"
     print(f"13. Análise profunda URL  : {state_text} | {detail}")
 
 
 def _install_progress_projection() -> None:
     from rasai import console_runtime
+
     if getattr(console_runtime, "_rasai_improvement_progress_projection", False):
         return
     original = console_runtime._synthetic_progress_projection
@@ -302,18 +292,22 @@ def _install_progress_projection() -> None:
     def projection(state: Any, label: str, percent: float | None):
         bounded = console_runtime._bounded_percent(percent)
         if state.status.upper() == "IMPROVEMENT_INTELLIGENCE" and bounded is not None:
-            # Deep analysis is an optional terminal enrichment after audit/Search.
             return bounded, 94.0 + (bounded / 100.0) * 5.0
         return original(state, label, percent)
 
     console_runtime._synthetic_progress_projection = projection
-    console_runtime._PHASE_PROGRESS["IMPROVEMENT_INTELLIGENCE"] = ("Análise profunda e melhorias", 94.0)
+    console_runtime._PHASE_PROGRESS["IMPROVEMENT_INTELLIGENCE"] = (
+        "Análise profunda e melhorias",
+        94.0,
+    )
     console_runtime._rasai_improvement_progress_projection = True
 
 
 def install(console_module: ModuleType) -> None:
     global _INSTALLED_CONSOLE
-    if _INSTALLED_CONSOLE or getattr(console_module, "_improvement_intelligence_console_installed", False):
+    if _INSTALLED_CONSOLE or getattr(
+        console_module, "_improvement_intelligence_console_installed", False
+    ):
         return
     install_environment()
     _install_progress_projection()
@@ -323,9 +317,6 @@ def install(console_module: ModuleType) -> None:
         @dataclass(slots=True)
         class ImprovementConsoleState(base_state):
             improvement_enabled: bool = False
-            improvement_provider: str = ""
-            improvement_model: str = ""
-            improvement_reasoning: str = ""
             improvement_domains: tuple[str, ...] = DEFAULT_DOMAINS
             improvement_max_recommendations: int = 30
             improvement_timeout: float = 240.0
@@ -374,9 +365,9 @@ def install(console_module: ModuleType) -> None:
         return _single_url_ready(state)
 
     def run(state: Any) -> int:
-        # The interactive console owns this feature through item 13. Temporarily force
-        # the env-driven CLI/SaaS wrapper OFF while the base audit runs so an advanced
-        # environment override cannot execute the deep analysis invisibly or twice.
+        # Item 13 is the console authority for enabling this feature. Keep the
+        # environment-driven wrapper OFF while the base audit runs to avoid duplicate
+        # execution; provider selection still comes from the primary AI state.
         previous_runtime_toggle = os.environ.get(ENABLED_ENV)
         os.environ[ENABLED_ENV] = "false"
         try:
@@ -401,19 +392,17 @@ def install(console_module: ModuleType) -> None:
 
         timing = console_runtime._RUN_TIMINGS.get(id(state))
         if timing is not None:
-            # Base audit/Search may have marked the clock complete; reopen the same
-            # timing interval so final duration includes this terminal enrichment.
             timing.finished_at = None
             timing.duration_seconds = None
 
         workspace = AuditWorkspace.open(workspace_path)
         config = _config_from_state(state)
         state.status = "IMPROVEMENT_INTELLIGENCE"
-        state.operation = f"API:{config.provider.upper()}/{config.model}"
+        state.operation = f"API:{_ai_label(state)}"
 
         def progress(stage: str, percent: float, detail: str) -> None:
             state.status = "IMPROVEMENT_INTELLIGENCE"
-            state.operation = f"API:{config.provider.upper()}/{config.model}"
+            state.operation = f"API:{_ai_label(state)}"
             console_runtime.set_runtime_progress(
                 state,
                 "Análise profunda e melhorias",
@@ -433,10 +422,6 @@ def install(console_module: ModuleType) -> None:
                 config=config,
                 progress=progress,
             )
-            # Rebuild read-only projections so ai-usage.html includes this request and
-            # the canonical mini-site receives the analyzed Improvement Intelligence page.
-            # Keep the env-driven wrapper disabled during this rebuild: item 13 already
-            # performed the analysis and must remain the single authority in the console.
             previous_runtime_toggle = os.environ.get(ENABLED_ENV)
             os.environ[ENABLED_ENV] = "false"
             try:
@@ -453,15 +438,22 @@ def install(console_module: ModuleType) -> None:
                 f"{result.findings_count} finding(s); {result.recommendations_count} recomendação(ões); "
                 f"provider={result.provider}/{result.model}; reused={result.reused}"
             )
-            final_status = "COMPLETE_WITH_LIMITATIONS" if result.status == "COMPLETE_WITH_LIMITATIONS" else "COMPLETE"
+            final_status = (
+                "COMPLETE_WITH_LIMITATIONS"
+                if result.status == "COMPLETE_WITH_LIMITATIONS"
+                else "COMPLETE"
+            )
             state.status = final_status
             state.operation = "LOCAL:DONE"
             state.current_url = result.target_url or state.current_url
             console_runtime.set_runtime_progress(
                 state,
-                "Concluído com limitações" if final_status == "COMPLETE_WITH_LIMITATIONS" else "Concluído",
+                "Concluído com limitações"
+                if final_status == "COMPLETE_WITH_LIMITATIONS"
+                else "Concluído",
                 100.0,
-                detail=state.improvement_last_detail + (f"; {result.reason}" if result.reason else ""),
+                detail=state.improvement_last_detail
+                + (f"; {result.reason}" if result.reason else ""),
                 exact=True,
             )
         except Exception as exc:
@@ -469,7 +461,10 @@ def install(console_module: ModuleType) -> None:
             state.improvement_last_detail = f"{type(exc).__name__}: {str(exc)[:400]}"
             state.status = "COMPLETE_WITH_LIMITATIONS"
             state.operation = "LOCAL:IMPROVEMENT_FAIL_OPEN"
-            state.error = "Análise profunda incompleta; auditoria principal preservada: " + state.improvement_last_detail
+            state.error = (
+                "Análise profunda incompleta; auditoria principal preservada: "
+                + state.improvement_last_detail
+            )
             try:
                 previous_runtime_toggle = os.environ.get(ENABLED_ENV)
                 os.environ[ENABLED_ENV] = "false"
@@ -486,7 +481,9 @@ def install(console_module: ModuleType) -> None:
                 state,
                 "Concluído com limitações",
                 100.0,
-                detail="auditoria principal preservada; análise profunda falhou e foi registrada como limitação",
+                detail=(
+                    "auditoria principal preservada; análise profunda falhou e foi registrada como limitação"
+                ),
                 exact=True,
             )
         finally:
