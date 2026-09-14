@@ -89,6 +89,67 @@ def _scope_mismatch_result(
     }
 
 
+def _scope_mismatch_reason(run: Mapping[str, Any]) -> str:
+    reason = "Google Search Console obrigatório: propriedade configurada não cobre a URL auditada"
+    try:
+        details = json.loads(str(run.get("details_json") or "{}"))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        details = {}
+    if isinstance(details, dict) and str(details.get("reason") or "").strip():
+        return str(details["reason"]).strip()[:1000]
+    return reason
+
+
+def _set_scope_mismatch_fulfillment(
+    *,
+    workspace: Any,
+    audit_id: str,
+    contract: Any,
+    run: Mapping[str, Any],
+) -> None:
+    contract.set_work_item_status(
+        workspace,
+        audit_id=audit_id,
+        component="GOOGLE_SEARCH_CONSOLE",
+        status=contract.NOT_CONFIGURED,
+        error_class="CONFIGURATION",
+        error_code=STATE_PROPERTY_URL_MISMATCH,
+        error_message=_scope_mismatch_reason(run),
+        retryable=True,
+    )
+
+
+def _install_selective_reprocess_detail() -> None:
+    """Keep PROPERTY_URL_MISMATCH a configuration diagnosis during RPR too."""
+    try:
+        from rasai import fulfillment_execution_contract as contract
+        from rasai import selective_optional_reprocess as selective
+    except ImportError:
+        return
+    original = getattr(selective, "_reconcile_gsc_rpr", None)
+    if not callable(original) or bool(getattr(original, "_rasai_gsc_scope_detail", False)):
+        return
+
+    def reconcile_gsc_rpr_with_scope_detail(workspace: Any, audit_id: str) -> None:
+        original(workspace, audit_id)
+        try:
+            run = selective._gsc_service_run(workspace, audit_id)
+        except Exception:
+            return
+        if not run or str(run.get("state") or "").upper() != STATE_PROPERTY_URL_MISMATCH:
+            return
+        _set_scope_mismatch_fulfillment(
+            workspace=workspace,
+            audit_id=audit_id,
+            contract=contract,
+            run=run,
+        )
+
+    reconcile_gsc_rpr_with_scope_detail._rasai_gsc_scope_detail = True  # type: ignore[attr-defined]
+    reconcile_gsc_rpr_with_scope_detail._rasai_original = original  # type: ignore[attr-defined]
+    selective._reconcile_gsc_rpr = reconcile_gsc_rpr_with_scope_detail
+
+
 def _install_fulfillment_detail() -> None:
     """Project property mismatch as a configuration diagnosis in report fulfillment."""
     try:
@@ -96,38 +157,26 @@ def _install_fulfillment_detail() -> None:
     except ImportError:
         return
     original = getattr(contract, "_reconcile_explicit_services", None)
-    if not callable(original) or bool(getattr(original, "_rasai_gsc_scope_detail", False)):
-        return
+    if callable(original) and not bool(getattr(original, "_rasai_gsc_scope_detail", False)):
+        def reconcile_with_scope_detail(workspace: Any, audit_id: str) -> None:
+            original(workspace, audit_id)
+            try:
+                run = contract._service_run(workspace, audit_id, "google-search-console")
+            except Exception:
+                return
+            if not run or str(run.get("state") or "").upper() != STATE_PROPERTY_URL_MISMATCH:
+                return
+            _set_scope_mismatch_fulfillment(
+                workspace=workspace,
+                audit_id=audit_id,
+                contract=contract,
+                run=run,
+            )
 
-    def reconcile_with_scope_detail(workspace: Any, audit_id: str) -> None:
-        original(workspace, audit_id)
-        try:
-            run = contract._service_run(workspace, audit_id, "google-search-console")
-        except Exception:
-            return
-        if not run or str(run.get("state") or "").upper() != STATE_PROPERTY_URL_MISMATCH:
-            return
-        reason = "Google Search Console obrigatório: propriedade configurada não cobre a URL auditada"
-        try:
-            details = json.loads(str(run.get("details_json") or "{}"))
-        except (TypeError, ValueError, json.JSONDecodeError):
-            details = {}
-        if isinstance(details, dict) and str(details.get("reason") or "").strip():
-            reason = str(details["reason"]).strip()
-        contract.set_work_item_status(
-            workspace,
-            audit_id=audit_id,
-            component="GOOGLE_SEARCH_CONSOLE",
-            status=contract.NOT_CONFIGURED,
-            error_class="CONFIGURATION",
-            error_code=STATE_PROPERTY_URL_MISMATCH,
-            error_message=reason[:1000],
-            retryable=True,
-        )
-
-    reconcile_with_scope_detail._rasai_gsc_scope_detail = True  # type: ignore[attr-defined]
-    reconcile_with_scope_detail._rasai_original = original  # type: ignore[attr-defined]
-    contract._reconcile_explicit_services = reconcile_with_scope_detail
+        reconcile_with_scope_detail._rasai_gsc_scope_detail = True  # type: ignore[attr-defined]
+        reconcile_with_scope_detail._rasai_original = original  # type: ignore[attr-defined]
+        contract._reconcile_explicit_services = reconcile_with_scope_detail
+    _install_selective_reprocess_detail()
 
 
 def install() -> None:
