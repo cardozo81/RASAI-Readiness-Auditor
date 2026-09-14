@@ -14,6 +14,7 @@ from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
 from rasai.ai_pricing_console import install as install_ai_pricing_console
 from rasai.ai_provider_console_management import install as install_ai_provider_console_management
 from rasai.audit_configuration_reuse_console import install as install_audit_configuration_reuse_console
+from rasai.audit_management_console import install as install_audit_management_console
 from rasai.console_apdex_configuration import configure_apdex
 from rasai.console_audit_workflow import install as install_console_audit_workflow
 from rasai.console_cancellation_runtime import install as install_console_cancellation_runtime
@@ -167,6 +168,7 @@ def main() -> int:
     # navigation shell is installed after it and delegates back to that surface.
     install_audit_configuration_reuse_console(interactive_console)
     install_console_navigation(interactive_console)
+    install_audit_management_console(interactive_console)
     # AUD loading/reuse synchronization is installed first. Reprocessing parity then
     # becomes the final RPR presentation so a RPR uses the same execution/post-run surfaces as
     # processing while retaining its RPR-specific result and unresolved-item diagnosis.
