@@ -49,6 +49,7 @@ from rasai.improvement_intelligence_console import (
 )
 from rasai.improvement_intelligence_runtime import install as install_improvement_intelligence_runtime
 from rasai.integration_diagnostics_console import install as install_integration_diagnostics_console
+from rasai.integration_network_diagnostics import install as install_integration_network_diagnostics
 from rasai.integration_state_contract import install as install_integration_state_contract
 from rasai.integration_state_refinements import install as install_integration_state_refinements
 from rasai.m21_console_progress import install_m21_external_progress
@@ -189,6 +190,11 @@ def main() -> int:
     # Install last: the physical subprocess may be at 100% while the canonical AUD is
     # still PARTIAL_RETRYABLE/BLOCKED. The final screen must show both facts explicitly.
     install_console_projection(interactive_console)
+    # Network diagnostics are the final advisory wrapper so execution/reprocessing
+    # warnings observe the fully composed console. They do not block by policy: the
+    # operator may continue after explicit acknowledgement, and runtime behavior remains
+    # authoritative.
+    install_integration_network_diagnostics(interactive_console)
     return interactive_console.main()
 
 
