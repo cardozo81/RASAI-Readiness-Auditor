@@ -71,14 +71,14 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "Coverage mede completude ponderada; Confidence combina confiança das dimensões com rigor adicional para Discovery, Indexability e Extraction; Consolidation mede suficiência da medição. Critical Gates descrevem bloqueios de readiness e não alteram artificialmente a nota numérica.",
     ),
     IndicatorProvenance(
-        "BR-GEO-001..059",
+        "BR-GEO-001..059 - regras internas",
         "RASAI_HEURISTIC",
         "CORE_SCORE_INPUT",
         "RASAi + fontes primárias por regra",
         "RULES_GUIDE / referências por BR-GEO",
         None,
-        "Cada regra pode ter base OFFICIAL, STANDARD, HEURISTIC ou executor interno; a natureza é individual.",
-        "Somente regras presentes no manifesto do SCORE-GEO-004 entram no SARI. Regras de integridade/telemetria permanecem fora da aritmética.",
+        "Cada regra pode ter base OFFICIAL, STANDARD, HEURISTIC ou executor interno; a natureza é individual. BR-GEO-060 é a regra externa corroborativa do mesmo ruleset e está descrita separadamente abaixo.",
+        "O ruleset vigente compreende BR-GEO-001..060. Somente regras presentes no manifesto do SCORE-GEO-004 entram no SARI; regras de integridade/telemetria permanecem fora da aritmética.",
     ),
     IndicatorProvenance(
         "BR-GEO-060 / Common Crawl",
@@ -228,7 +228,7 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "Outcome externo",
         None,
         "Posição, impressão, clique, menção ou citação descrevem resultado observado em um mecanismo/período.",
-        "Outcomes permanecem fora do SARI operacional e são usados para observabilidade e futura validação/calibração empírica.",
+        "Outcomes permanecem fora do SARI operacional e são usados para observabilidade e validação/calibração empírica quando houver série apropriada.",
     ),
     IndicatorProvenance(
         "Tokens / duração / custo estimado de IA",
