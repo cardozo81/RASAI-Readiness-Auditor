@@ -1,5 +1,7 @@
 # Reprocessamento seletivo de auditorias
 
+O RASAi está em desenvolvimento e ainda não foi publicado. Este documento descreve somente o contrato atual do produto.
+
 O RASAi trata cada `AUD-*` como **uma única observação lógica**. Uma auditoria pode precisar de zero, uma ou várias reexecuções para satisfazer integralmente a configuração escolhida pelo usuário, sem transformar essas reexecuções em novas observações para histórico, tendência ou consolidação.
 
 ## Contrato de conclusão
@@ -158,7 +160,7 @@ O contrato atual cobre explicitamente:
 - `IMPROVEMENT_INTELLIGENCE`, quando a análise profunda por IA foi explicitamente habilitada;
 - Synthetic Navigation Apdex e Synthetic User Experience Apdex, quando selecionados na configuração da execução.
 
-Se um desses recursos foi solicitado, mas nenhuma execução correspondente foi materializada, o work-item permanece visível como `REQUESTED_NOT_EXECUTED`. Ausência de configuração obrigatória é diferenciada de falha de execução. Por exemplo, Google Search Console explicitamente solicitado sem `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL` permanece `NOT_CONFIGURED` com código `SITE_URL_REQUIRED`.
+Se um desses recursos foi solicitado, mas nenhuma execução correspondente foi materializada, o work-item permanece visível como `REQUESTED_NOT_EXECUTED`. Ausência de configuração obrigatória é diferenciada de falha de execução. Por exemplo, Google Search Console explicitamente solicitado sem `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL` permanece `NOT_CONFIGURED` com código `SITE_URL_REQUIRED`. Se a property existe, mas nenhuma forma OAuth está completa, o item também permanece `NOT_CONFIGURED` com diagnóstico de autenticação/configuração correspondente.
 
 ### Search Intelligence da auditoria
 
@@ -172,15 +174,31 @@ Uma observação Search já concluída com sucesso não é executada outra vez p
 
 ### Google Search Console
 
-Google Search Console é tratado como `LIVE_RECOLLECTION`. O RASAi preserva a configuração não secreta original da propriedade e dos limites da coleta, mas resolve o token atual somente no momento da recuperação.
+Google Search Console é tratado como `LIVE_RECOLLECTION`. O RASAi preserva a configuração não secreta original da property, limites da coleta e, quando aplicável, o OAuth Client ID. Segredos OAuth não são copiados para o work-item.
+
+No momento da recuperação, a autenticação é resolvida novamente a partir do ambiente atual. O contrato aceita:
+
+```text
+CLIENT_ID + CLIENT_SECRET + REFRESH_TOKEN
+```
+
+ou, como alternativa temporária:
+
+```text
+ACCESS_TOKEN manual
+```
+
+No fluxo com Refresh Token, o access token é obtido imediatamente antes da chamada e permanece apenas em memória. Client Secret, Refresh Token e Access Token não são persistidos no `AUD-*`.
 
 Se o work-item já possui sucesso efetivo e sua evidência persistida continua íntegra, o finalizador reutiliza os datasets existentes e não faz nova chamada à API. Se o item está pendente e ainda está dentro da janela temporal, somente esse requisito pode ser coletado novamente. Depois do vencimento da janela, nova coleta não promove o AUD antigo a resultado final.
 
-### Improvement Intelligence
+### Análise profunda por IA
 
-Improvement Intelligence reutiliza provider, modelo, esforço, domínios, limite de recomendações, timeout e idioma definidos na configuração original. A credencial do provider não é persistida nesse contrato e é resolvida novamente no ambiente atual.
+A análise profunda reutiliza a **seleção principal de IA** da configuração original da auditoria, junto dos domínios, limite de recomendações, timeout e idioma aplicáveis. Ela não possui provider, modelo ou reasoning especializados próprios.
 
-Quando uma execução anterior de Improvement Intelligence já concluiu com sucesso e sua evidência persistida continua íntegra, o reprocessamento reutiliza o resultado com `reused=true`; não faz uma segunda chamada paga apenas para regenerar o relatório.
+Quando a seleção principal era explícita, o reprocessamento reaplica esse contrato sem persistir a credencial do provider. Quando a seleção era `AI=auto`, o reprocessamento reutiliza a política canônica de AUTO e resolve novamente os providers elegíveis/configurados no ambiente atual, preservando custo, quarentena, circuit breaker, fallback e limite de tentativas do runtime principal.
+
+Quando uma execução anterior da análise profunda já concluiu com sucesso e sua evidência persistida continua íntegra, o reprocessamento reutiliza o resultado com `reused=true`; não faz uma segunda chamada paga apenas para regenerar o relatório.
 
 Quando o work-item está pendente, a análise pode ser repetida sobre a evidência persistida da mesma observação. A tentativa de IA continua registrada pelo mecanismo normal de provider, incluindo tokens, custo estimado e versão de pricing. O reprocessamento não possui uma segunda camada de cobrança ou precificação.
 
@@ -250,7 +268,7 @@ Uma avaliação de reprocessamento pode terminar como `WAITING_FOR_DATA` ou `BLO
 
 O estado transitório usado para compor um `RPR-*` é isolado por contexto de execução. Duas auditorias reprocessadas simultaneamente não podem compartilhar `reprocess_id`, lista de pendências, filtros ou estado de outro `AUD-*`.
 
-Os hooks instalados no processo permanecem estáveis; o contexto de cada execução é propagado isoladamente. Configurações não secretas restauradas para GSC e Improvement Intelligence usam overrides locais ao contexto e não alteram `os.environ` do processo. Isso evita que workers concorrentes compartilhem temporariamente parâmetros de outra auditoria.
+Os hooks instalados no processo permanecem estáveis; o contexto de cada execução é propagado isoladamente. Configurações não secretas restauradas para GSC e análise profunda usam overrides locais ao contexto e não alteram `os.environ` do processo. Isso evita que workers concorrentes compartilhem temporariamente parâmetros de outra auditoria.
 
 O console preserva o contexto corrente ao executar o motor seletivo em sua projeção de progresso. Um sucesso efetivo pertence exclusivamente ao respectivo `AUD-*` e ao seu histórico de `RPR-*`.
 
