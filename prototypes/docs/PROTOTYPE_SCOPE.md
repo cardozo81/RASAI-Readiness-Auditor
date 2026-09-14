@@ -1,69 +1,75 @@
-# Escopo consolidado — protótipos Web RASAi
+# Escopo consolidado - protótipos Web RASAi
 
 ## Objetivo
 
-Validar visualmente e por interação a futura experiência Web do RASAi sem implementar backend. O resultado deve poder ser reaproveitado como base do frontend definitivo.
+Validar visualmente e por interação a experiência Web desejada do RASAi sem implementar backend nesta pasta. Os protótipos servem para avaliar UI, UX, navegação, organização de informação e viabilidade dos contratos de frontend.
+
+Eles não constituem especificação normativa do core, da Web API ou do control plane.
 
 ## Produtos
 
 ### RASAi Web
 
-Aplicação dos clientes. Deve priorizar tarefas e não copiar o console literalmente.
+Aplicação protótipo dos clientes. Deve priorizar tarefas e não copiar o console literalmente.
 
-- Dashboard operacional.
-- Auditorias e wizard de execução.
-- Central de execuções com fila, execução atual e histórico.
-- Agendamentos recorrentes e próximas ocorrências.
-- Relatórios e comparações.
-- Search Intelligence.
-- Integrações e BYOK.
-- Configuração efetiva/herança.
-- Multiusuário/RBAC.
+- dashboard operacional;
+- auditorias e wizard de execução;
+- central de execuções com fila, execução atual e histórico;
+- agendamentos recorrentes e próximas ocorrências;
+- relatórios e comparações;
+- Search Intelligence;
+- integrações e BYOK;
+- configuração efetiva/herança;
+- multiusuário/RBAC.
 
 ### RASAi Backoffice
 
-Aplicação exclusiva do proprietário da plataforma.
+Aplicação protótipo exclusiva do proprietário da plataforma.
 
-- Clientes/organizações e usuários.
-- Consumo e custo global.
-- Rastreabilidade por usuário, tenant, provider, job, audit, report e credencial lógica.
-- Gestão de credenciais da plataforma.
-- Defaults globais distribuídos.
-- Saúde de providers e integrações.
-- Auditoria administrativa.
+- clientes/organizações e usuários;
+- consumo e custo global;
+- rastreabilidade por usuário, tenant, provider, job, audit, report e credencial lógica;
+- gestão de referências de credenciais da plataforma;
+- defaults globais distribuídos;
+- saúde de providers e integrações;
+- trilha administrativa.
+
+As telas de Backoffice podem representar contratos desejados que ainda não possuem endpoint administrativo no SaaS atual. Esse estado deve permanecer explícito.
 
 ## Design e UX
 
 - layout funcional e responsivo;
-- cores pastéis/equilibradas; cor semântica para sucesso, atenção e erro;
+- cores pastéis/equilibradas;
+- cor semântica reservada para estados relevantes;
 - contraste e acessibilidade preservados;
 - menus, shells, cards, badges, tabelas, gráficos, drawers e estados reutilizados;
-- nenhuma duplicação estrutural entre páginas;
-- componentes de domínio compõem primitives compartilhados;
-- dados mockados devem representar cenários reais do RASAi.
+- componentes compartilhados em vez de duplicação estrutural;
+- dados mockados plausíveis, sem serem apresentados como dados reais.
 
-## Execução e tempo real
+## Execução e atualização de estado
 
-O protótipo deve diferenciar:
+A experiência deve diferenciar:
 
 1. próximas ocorrências de schedule;
 2. jobs materializados na fila;
 3. jobs em execução;
-4. concluídos/parciais/falhos.
+4. jobs concluídos, parciais ou falhos.
 
-O progresso detalhado é um contrato desejado do SaaS: estágio atual, percentual, unidades e eventos. O protótipo usa polling simulado; produção poderá usar polling ou SSE.
+Progresso detalhado por estágio, percentual, unidades e eventos é um **contrato desejado** e não um endpoint disponível no runtime atual. O protótipo usa polling simulado. Uma implementação SaaS pode usar polling e, se houver contrato de backend correspondente, SSE.
 
 ## Credenciais
 
-Há três origens lógicas:
+O protótipo usa três origens lógicas desejadas:
 
-- `PLATFORM_SHARED`: paga/gerida pelo RASAi;
-- `ORGANIZATION_SHARED`: compartilhada pelo cliente/organização;
-- `USER_PRIVATE`: BYOK privada do usuário.
+```text
+PLATFORM_SHARED
+ORGANIZATION_SHARED
+USER_PRIVATE
+```
 
-Secrets nunca são retornados ao browser. O frontend vê apenas a referência lógica e saúde.
+Secrets nunca devem ser retornados ao browser. A UI deve trabalhar apenas com referência lógica, owner/origem e estado sanitizado.
 
-Para todo uso registrar:
+Atribuição desejada por uso:
 
 - usuário e tenant;
 - project/property/environment;
@@ -72,17 +78,19 @@ Para todo uso registrar:
 - credential reference/source;
 - status;
 - tokens/quantidade;
-- provider cost estimate;
-- platform cost;
-- billable cost.
+- `provider_cost_estimate`;
+- `platform_cost`;
+- `billable_cost`.
 
-BYOK deve manter `provider_cost_estimate` para histórico, mas `platform_cost=0` e `billable_cost=0` quando a política determinar que o consumo não é cobrado pelo RASAi.
+A API vigente ainda não fornece todo esse contrato de credencial lógica e atribuição financeira. Por isso esses campos são mocks de UX, não documentação de persistência existente.
 
-Não haverá fallback silencioso de BYOK falha para credencial paga pela plataforma.
+Não deve existir fallback silencioso de uma credencial BYOK com falha para credencial paga pela plataforma sem política explícita de backend.
 
 ## Variáveis e configuração
 
-A Web não edita `os.environ` por usuário. Variáveis do console serão classificadas em:
+A Web não deve editar `os.environ` por usuário.
+
+O protótipo representa uma classificação desejada de configuração por escopo:
 
 - runtime interno;
 - system/platform default;
@@ -96,10 +104,17 @@ A Web não edita `os.environ` por usuário. Variáveis do console serão classif
 - job;
 - secret.
 
-A UI deve apresentar nomes humanos, mantendo identificador técnico como rastreabilidade.
+A UI deve apresentar nome humano e identificador técnico. Origem, herança e override são parte do contrato desejado de configuração efetiva, ainda não uma API completa disponível.
 
-A configuração efetiva deve informar origem, herança e override.
+## Compatibilidade com o console
 
-## Compatibilidade do console
+O console permanece interface paralela do produto. Nenhuma decisão do protótipo pode tornar Node, React, FastAPI ou PostgreSQL obrigatórios para o runtime local.
 
-O console permanece uma interface paralela. Nenhuma feature Web pode tornar Node, React, FastAPI ou PostgreSQL obrigatórios para execução local. Regras compartilháveis devem residir no core/contratos Python e serem apenas renderizadas pelas interfaces.
+Regras compartilháveis devem permanecer no core/contratos Python e ser apenas projetadas pelas interfaces.
+
+## Referências
+
+- [`../../docs/WEB_API_FOUNDATION.md`](../../docs/WEB_API_FOUNDATION.md) - endpoints atuais.
+- [`../../docs/ENVIRONMENT_VARIABLES.md`](../../docs/ENVIRONMENT_VARIABLES.md) - configurações e defaults vigentes.
+- [`../../docs/EXTERNAL_CREDENTIALS.md`](../../docs/EXTERNAL_CREDENTIALS.md) - credenciais reais e onboarding.
+- [`SAAS_CONTRACT_MAP.md`](SAAS_CONTRACT_MAP.md) - separação entre contrato existente e desejado.
