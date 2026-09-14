@@ -148,6 +148,36 @@ def test_standards_can_be_complete_with_external_service_limitation() -> None:
     assert "Falhou; pode ser reprocessado" in rendered
 
 
+def test_requested_standards_service_without_configuration_is_not_disabled() -> None:
+    connection = sqlite3.connect(":memory:")
+    connection.row_factory = sqlite3.Row
+    connection.executescript(
+        """
+        CREATE TABLE standards_metric_observations(audit_id TEXT);
+        INSERT INTO standards_metric_observations VALUES('AUD-TEST');
+        CREATE TABLE standards_service_runs(
+          audit_id TEXT, service_id TEXT, requested INTEGER, configured INTEGER,
+          effective_enabled INTEGER, state TEXT, targets_attempted INTEGER,
+          targets_succeeded INTEGER
+        );
+        INSERT INTO standards_service_runs VALUES(
+          'AUD-TEST','GOOGLE_SEARCH_CONSOLE',1,0,0,'NOT_CONFIGURED',0,0
+        );
+        """
+    )
+    context = build_report_experience_context(connection, "AUD-TEST")
+    connection.close()
+
+    external = [item for item in context["work_items"] if item["component"] == "STANDARDS_EXTERNAL"]
+    assert len(external) == 1
+    assert external[0]["status"] == "NOT_CONFIGURED"
+
+    html = "<html><head></head><body><main><header><h1>Métricas e padrões</h1></header></main></body></html>"
+    rendered = enhance_report_experience(html, filename="standards.html", context=context)
+    assert "Configuração necessária" in rendered
+    assert "Não solicitado" not in rendered
+
+
 def test_consolidated_gets_same_status_language_and_help() -> None:
     html = "<html><head></head><body><main><header><h1>Consolidado</h1></header><footer>fim</footer></main></body></html>"
     artifact = {
