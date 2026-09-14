@@ -81,7 +81,7 @@ def test_search_recovery_uses_persisted_contract_and_current_secret(monkeypatch)
                 "max_depth": 20,
                 "max_competitors": 10,
                 "timeout_seconds": 20,
-                "retries": 1,
+                "retries": 0,
                 "min_interval_seconds": 0,
             },
         )
@@ -124,6 +124,8 @@ def test_search_recovery_uses_persisted_contract_and_current_secret(monkeypatch)
         assert requests[0].domain_of_interest == "example.com"
         assert captured["config"].provider == "serpapi"
         assert captured["config"].mode == "live"
+        assert captured["config"].retries == 0
+        assert captured["config"].min_interval_seconds == 0.0
 
 
 def test_successful_optional_services_are_reused_by_contextual_hooks() -> None:
