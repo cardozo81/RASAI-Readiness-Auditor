@@ -132,8 +132,13 @@ def install() -> None:
     # observes. It also hardens M24's resource-scoped provider schema and repairs the
     # interactive-console GSC profile lifetime without changing scoring or AI routing.
     from rasai.execution_completion_reliability import install as install_execution_completion_reliability
+    from rasai.execution_completion_regression import install as install_execution_completion_regression
 
     install_execution_completion_reliability()
+    # Real-AUD regression coverage: keep the local M24 validator on the exact same
+    # resource evidence universe projected to providers, and transport the session GSC
+    # policy across the console subprocess boundary so a disabled run cannot call Google.
+    install_execution_completion_regression()
 
     # One fulfillment contract governs initial execution and selective recovery.
     # Core evidence recovery runs before AI recovery so no provider call can be used
