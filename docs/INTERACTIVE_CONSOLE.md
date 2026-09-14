@@ -44,7 +44,7 @@ INÍCIO
 Q. Sair
 ```
 
-Esse menu não substitui funções existentes. Ele organiza o acesso às superfícies já disponíveis e adiciona operações contextuais sobre `AUD-*`.
+Esse menu organiza o acesso às superfícies do produto e adiciona operações contextuais sobre `AUD-*`.
 
 ### 1. Nova auditoria / configurar e executar
 
@@ -64,37 +64,66 @@ V. Voltar ao início
 
 `Q. Sair` continua encerrando a aplicação conforme as confirmações normais do console.
 
-No dashboard de preparação permanecem acessíveis:
+A preparação usa uma convenção única:
 
 ```text
-Entrada
-Projeto
-Dispositivo
-IA
-Remediações por IA
-Web Performance
-max-pages
-Web Performance max-pages
-Idioma / mercado
-Raiz de auditorias
-Synthetic Apdex
-Timezone de apresentação
-Análise profunda de URL
-Search Intelligence / termos SERP
-Perfil da execução
-Salvar configuração INI
-Ajuda / custos
-Variáveis de ambiente / credenciais
-Relatórios consolidados
-Executar
-Abrir pasta/relatório da última auditoria
-Carregar configuração de AUD
-Restaurar padrões do RASAi
+número = parâmetro editável da próxima auditoria
+letra  = ação, comando ou navegação
+título = agrupamento visual; nunca é opção
+```
+
+O dashboard canônico é organizado assim:
+
+```text
+[ ESCOPO ]
+ 1. Entrada
+ 2. Projeto
+ 3. Dispositivo
+ 4. Idioma / mercado
+ 5. Timezone apresentação
+
+[ INTELIGÊNCIA ARTIFICIAL ]
+ 6. IA
+ 7. Remediações IA
+ 8. Análise profunda URL
+
+[ WEB PERFORMANCE ]
+ 9. Web Performance
+10. Máx. páginas da auditoria
+11. Máx. páginas em Web Performance
+12. Synthetic Apdex
+
+[ SEARCH INTELLIGENCE ]
+13. Termos SERP
+
+[ ARMAZENAMENTO / EXECUÇÃO ]
+14. Raiz auditorias
+
+[ PERFIL DA PRÓXIMA EXECUÇÃO ]
+15. Perfil da execução
+
+[ AÇÕES ]
+R. Executar
+S. Salvar configuração INI [SEM CHAVES]
+L. Carregar configuração de AUD [NOVA EXECUÇÃO]
+E. Integrações / credenciais
+C. Histórico / relatórios consolidados [OFFLINE - sem APIs]
+H. Ajuda / custos
+V. Voltar ao início
+Q. Sair
+```
+
+Quando houver artefatos da sessão, os atalhos para abrir a última pasta e o último relatório aparecem em uma seção própria de artefatos e continuam sendo ações por letra.
+
+`Restaurar padrões do RASAi` não pertence ao contexto de preparação. A restauração global existe exclusivamente em:
+
+```text
+INÍCIO > Sistema / restaurar padrões
 ```
 
 A navegação segue o princípio de retorno ao chamador: quando uma subtela é aberta a partir de **Preparar auditoria**, ao concluir ou voltar ela retorna ao dashboard de preparação; quando uma integração é aberta diretamente pelo menu inicial, o retorno é para o menu inicial.
 
-Extensões funcionais continuam usando suas próprias telas e validações. A reorganização do primeiro nível não cria contratos paralelos.
+Extensões funcionais continuam usando suas próprias telas e validações. A organização visual não cria contratos paralelos nem modifica o pipeline de execução.
 
 ### 2. Auditorias / histórico
 
@@ -173,7 +202,7 @@ O contrato completo está em [AUDIT_CONFIGURATION_REUSE.md](AUDIT_CONFIGURATION_
 
 ### 3. Relatórios consolidados
 
-Abre a superfície de relatórios históricos/consolidados já existente. A consolidação base lê `AUD-*/audit.db` e não executa coletas ou chamadas externas apenas para montar a visão consolidada.
+Abre a superfície de relatórios históricos/consolidados. A consolidação base lê `AUD-*/audit.db` e não executa coletas ou chamadas externas apenas para montar a visão consolidada.
 
 Somente auditorias elegíveis pelo contrato de finalização participam das métricas consolidadas.
 
@@ -284,7 +313,7 @@ GitHub Copilot é `explicit-only`: pode ser selecionado explicitamente quando ap
 
 ### Uma seleção principal por execução
 
-A configuração de IA do item principal é a autoridade para os consumidores de IA compatíveis da execução.
+A configuração principal de IA é o item **6. IA** e é a autoridade para os consumidores de IA compatíveis da execução.
 
 Search/Competitive AI, Improvement Intelligence, remediações e demais contratos especializados não criam uma seleção paralela de provider. Cada módulo preserva somente seu contrato funcional de prompt/schema/evidência/validação.
 
@@ -359,7 +388,7 @@ Search Intelligence mantém separados:
 - configuração do provider SERP, limites e credencial;
 - seleção principal de IA, quando uma extensão semântica de Search for solicitada.
 
-Termos podem ser informados no dashboard da auditoria. Provider SERP/credencial/limites ficam na área de integrações.
+Os termos são configurados no item **13. Termos SERP**. Provider SERP/credencial/limites ficam na área de integrações.
 
 Não existe `RASAI_SEARCH_AI_PROVIDER` no contrato vigente. Uma análise competitiva por IA usa a seleção canônica da execução.
 
@@ -421,14 +450,14 @@ America/Sao_Paulo
 
 Improvement Intelligence é uma finalidade especializada que usa **a mesma IA principal da auditoria**.
 
-A tela própria define apenas:
+A tela própria, acessada pelo item **8. Análise profunda URL**, define apenas:
 
 - habilitação da etapa;
 - domínios de análise;
 - limite de recomendações;
 - timeout da chamada profunda.
 
-Provider, modelo e reasoning não são configurados novamente no item 13. Eles vêm da seleção principal de IA.
+Provider, modelo e reasoning não são configurados novamente no item 8. Eles vêm da seleção principal de IA do item 6.
 
 A análise exige URL única e IA principal apta. Se a seleção principal for `AUTO`, a etapa reutiliza a política central de custo, elegibilidade, quarentena, circuit breaker e fallback.
 
@@ -438,11 +467,11 @@ Quando Search Intelligence foi executado na mesma observação, a análise pode 
 
 ## Perfis de execução
 
-Perfis são overlays temporários para a próxima execução e não substituem os defaults persistentes.
+Perfis são overlays temporários para a próxima execução e não substituem os defaults persistentes. A superfície canônica no dashboard é o item **15. Perfil da execução**.
 
 Eles não gravam credenciais nem alteram variáveis do SO. Ajustes finos feitos depois no dashboard vencem o preset no domínio alterado, desde que o resultado ainda satisfaça as dependências obrigatórias do perfil.
 
-Um perfil que inclui Análise profunda mantém a IA principal necessária a essa etapa; não existe uma IA exclusiva do item 13.
+Um perfil que inclui Análise profunda mantém a IA principal necessária a essa etapa; não existe uma IA exclusiva do item 8.
 
 ## Progresso de execução
 
