@@ -1,12 +1,12 @@
 # Competitive Search & Content Intelligence
 
-**Estado:** camada determinística implementada, com extensão opcional de IA vinculada a evidências.
+**Estado:** camada determinística implementada, com extensão opcional de IA vinculada a evidências e ao runtime canônico de providers.
 
 ## 1. Objetivo
 
 Competitive Search Intelligence responde à seguinte pergunta:
 
-> Para uma query observada, quais tipos de resultado aparecem à frente do cliente, quais são candidatos razoáveis a concorrentes em Search, quais diferenças determinísticas de conteúdo são observáveis e - quando solicitado explicitamente - quais oportunidades de melhoria vinculadas a evidências um provider de IA pode propor?
+> Para uma query observada, quais tipos de resultado aparecem à frente do cliente, quais são candidatos razoáveis a concorrentes em Search, quais diferenças determinísticas de conteúdo são observáveis e - quando solicitado explicitamente - quais oportunidades de melhoria vinculadas a evidências a IA pode propor?
 
 A camada determinística permanece autoritativa para as observações. IA é downstream e opcional.
 
@@ -25,6 +25,7 @@ query
 -> comparação cliente × líderes observados
 -> diferenças correlacionais sustentadas por evidências
 -> Competitive AI opcional usando evidence_ids fechados
+-> runtime canônico de IA (provider explícito ou AUTO)
 -> HTML pontual de Search Intelligence
 -> comparação histórica determinística opcional
 ```
@@ -50,15 +51,15 @@ Classes atuais:
 
 A classificação é heurística. Ela seleciona candidatos para inspeção limitada; não declara que duas organizações sejam concorrentes comerciais.
 
-Quando o cliente está `FOUND`, somente resultados à frente da primeira correspondência do cliente são considerados. Quando está `NOT_FOUND_WITHIN_DEPTH`, o conjunto observado de resultados ainda pode ser classificado, mas a comparação de conteúdo exige `--customer-url` explícita.
+Quando o cliente está `FOUND`, somente resultados à frente da primeira correspondência do cliente são considerados. Quando está `NOT_FOUND_WITHIN_DEPTH`, o conjunto observado ainda pode ser classificado, mas a comparação de conteúdo exige `--customer-url` explícita.
 
-A seleção de candidatos remove duplicatas por domínio normalizado e é limitada por `--max-content-pages` e `RASAI_SERP_MAX_COMPETITORS`.
+A seleção remove duplicatas por domínio normalizado e é limitada por `--max-content-pages` e `RASAI_SERP_MAX_COMPETITORS`.
 
 ## 4. Modos explícitos de aquisição
 
 `--competitive` executa apenas a classificação e não adiciona request de conteúdo.
 
-`--compare-content` habilita explicitamente a aquisição de páginas públicas para a página do cliente e para o conjunto limitado de candidatos.
+`--compare-content` habilita explicitamente aquisição de páginas públicas para o cliente e conjunto limitado de candidatos.
 
 Exemplo:
 
@@ -90,66 +91,37 @@ Defaults operacionais:
 
 | Parâmetro | Default | Valores permitidos/limite | Recomendado |
 |---|---:|---|---|
-| páginas concorrentes por query | `3`, além de uma página do cliente | limitado pelos controles da CLI/runtime | manter `3` no uso normal; ampliar somente com justificativa de cobertura/carga |
-| timeout por tentativa | `10` s | valor positivo aceito pelo parâmetro correspondente | `10` s |
-| corpo máximo da resposta | `2.000.000` bytes | limite positivo configurável | manter o default salvo necessidade comprovada |
-| redirects máximos | `5` | limite não negativo configurável | `5` |
-| método | `GET` | `GET` nesta capacidade | default |
-| portas públicas aceitas | `80`, `443` | `80`, `443` | `443` quando o destino oferecer HTTPS |
-| verificação TLS | habilitada | não deve ser desabilitada no fluxo normal | habilitada |
+| páginas concorrentes por query | `3`, além de uma página do cliente | limitado pela CLI/runtime | manter `3` no uso normal |
+| timeout por tentativa | `10` s | valor positivo | `10` s |
+| corpo máximo | `2.000.000` bytes | limite positivo configurável | default |
+| redirects máximos | `5` | limite não negativo | `5` |
+| método | `GET` | `GET` | default |
+| portas públicas | `80`, `443` | `80`, `443` | `443` quando disponível |
+| TLS | habilitado | não desabilitar | habilitado |
 
-Controles de CLI:
+Controles: `--max-content-pages`, `--content-timeout`, `--content-max-bytes`, `--content-max-redirects`.
 
-- `--max-content-pages`;
-- `--content-timeout`;
-- `--content-max-bytes`;
-- `--content-max-redirects`.
-
-`--dry-run --compare-content` mostra o teto de tentativas HTTP diretas no pior caso, separado da quota SERP.
+`--dry-run --compare-content` mostra o teto de tentativas HTTP diretas separado da quota SERP.
 
 ## 6. Limite SSRF / rede
 
-URLs da SERP são entrada externa não confiável. Antes de cada request e redirect, o fetcher:
+URLs da SERP são entrada externa não confiável. Antes de cada request e redirect, o fetcher exige HTTP/HTTPS, rejeita credenciais em URL, localhost/sufixos internos, portas fora do padrão, IPs não globais e destinos resolvidos não globais.
 
-- exige HTTP/HTTPS;
-- rejeita credenciais em URLs;
-- rejeita localhost e sufixos locais/internos;
-- rejeita portas fora do padrão da web pública;
-- rejeita literais IP não globais;
-- resolve hostnames e rejeita destinos não globais;
-- valida destinos de redirect antes de segui-los.
-
-A validação na aplicação não elimina risco de DNS rebinding/TOCTOU. Um deployment SaaS multi-tenant deve adicionar controles de egress de rede ou proxy de saída endurecido.
+Deploy SaaS multi-tenant deve complementar essas validações com controle de egress/proxy endurecido.
 
 ## 7. Features determinísticas
 
-O RASAi extrai features limitadas:
-
-- URL final e status HTTP;
-- tipo de conteúdo;
-- tamanho da resposta;
-- SHA-256 do conteúdo;
-- título;
-- meta description;
-- H1-H3;
-- contagem aproximada de palavras do texto visível;
-- termos significativos da query;
-- presença dos termos da query em título, descrição, headings e corpo;
-- valores `@type` de JSON-LD.
+O RASAi extrai features limitadas como URL final/status, tipo/tamanho da resposta, SHA-256, título, meta description, H1-H3, volume aproximado de texto visível, presença dos termos da query e tipos JSON-LD.
 
 HTML bruto não é persistido por esta capacidade.
 
-A comparação lexical ignora acentos e é determinística. Ela não representa compreensão semântica.
+A comparação lexical é determinística e não representa compreensão semântica.
 
 ## 8. Comparação determinística
 
-Metodologia:
+Metodologia: `DETERMINISTIC-CORRELATIONAL-001`.
 
-```text
-DETERMINISTIC-CORRELATIONAL-001
-```
-
-Gaps informativos atuais incluem:
+Gaps informativos incluem:
 
 - `QUERY_BODY_COVERAGE_LOWER_THAN_OBSERVED_LEADERS`;
 - `TITLE_QUERY_ALIGNMENT_LOWER_THAN_OBSERVED_LEADERS`;
@@ -157,9 +129,7 @@ Gaps informativos atuais incluem:
 - `CONTENT_WORD_COUNT_LOWER_THAN_OBSERVED_LEADERS`;
 - `STRUCTURED_DATA_TYPES_DIFFER_FROM_OBSERVED_LEADERS`.
 
-As referências usam a mediana das páginas selecionadas observadas com sucesso. Aquisições que falharam ou foram bloqueadas são excluídas, em vez de serem convertidas em zero.
-
-Contagem de palavras mede volume de conteúdo, não qualidade. Diferenças de dados estruturados não são recomendações automáticas de markup. Os sinais são informativos e não participam do scoring.
+Referências usam a mediana das páginas observadas com sucesso. Falhas de aquisição são excluídas, não convertidas em zero. Os sinais são informativos e não participam do scoring.
 
 ## 9. Status da comparação
 
@@ -175,9 +145,9 @@ Somente `CONSOLIDATED` é elegível para Competitive AI.
 
 ## 10. Competitive AI opcional
 
-`--ai-competitive` é um opt-in explícito separado e exige `--compare-content`.
+`--ai-competitive` é opt-in e exige `--compare-content`.
 
-Exemplo:
+Com orquestração automática:
 
 ```powershell
 rasai search "seguro auto online" `
@@ -185,119 +155,83 @@ rasai search "seguro auto online" `
   --mode live `
   --compare-content `
   --ai-competitive `
-  --ai-provider openai `
+  --ai-provider auto `
   --ymyl-mode AUTO
 ```
 
-Competitive AI recebe apenas evidência determinística estruturada com IDs fechados:
+Também é possível selecionar explicitamente qualquer provider suportado pelo registry canônico.
 
-- `CE-QUERY`;
-- `CE-CUSTOMER`;
-- `CE-COMP-###`;
-- `CE-GAP-###`.
+Competitive AI recebe apenas evidência determinística estruturada com IDs fechados `CE-QUERY`, `CE-CUSTOMER`, `CE-COMP-###` e `CE-GAP-###`. IDs desconhecidos invalidam a resposta. IA não pode reparar evidência determinística ausente.
 
-IDs de evidência desconhecidos invalidam a resposta do provider. IA não pode reparar evidência determinística ausente.
-
-Adapter live atual: `openai`. `fixture` valida o contrato sem rede. Default: `none`.
+Não existe provider de produção exclusivo de Search Intelligence. A necessidade `COMPETITIVE_INTELLIGENCE` usa o mesmo registry, adapters, estimativa de custo, elegibilidade, quarentena, circuit breaker e fallback do core. `fixture` é somente para testes/CI.
 
 Consulte `COMPETITIVE_AI_INTELLIGENCE.md`.
 
 ## 11. Evidência e persistência
 
-Quando `--audit-workspace` é fornecido, todas as camadas permanecem dentro do workspace de auditoria existente e de `audit.db`.
+Quando `--audit-workspace` é fornecido, as camadas permanecem dentro do workspace e `audit.db`.
 
-Tabelas determinísticas aditivas:
+Tabelas determinísticas:
 
 - `serp_competitive_analyses`;
 - `serp_competitive_results`;
 - `serp_competitive_pages`.
 
-Tabela aditiva de Competitive AI:
+Tabela de Competitive AI:
 
 - `serp_competitive_ai_analyses`.
 
-Artefatos determinísticos:
+Artefatos:
 
 ```text
 artifacts/search-intelligence/competitive/<observation_id>.json
-```
-
-Artefatos de Competitive AI:
-
-```text
 artifacts/search-intelligence/competitive-ai/<observation_id>.json
 ```
 
-Nenhum banco paralelo é introduzido. Nenhuma tabela de scoring é modificada.
+Nenhuma tabela de scoring é modificada.
 
 ## 12. Custo e desempenho
 
-- classificação: nenhuma rede adicional;
-- comparação de conteúdo: HTTP direto para web pública, sem quota do provider SERP;
-- Competitive AI: chamada ao provider apenas quando explicitamente habilitada e o contexto determinístico está `CONSOLIDATED`;
-- renderização do HTML pontual: somente projeção de dados persistidos;
-- comparação histórica: somente leitura de dados persistidos, sem chamada a Search, conteúdo ou provider de IA;
-- `--dry-run`: mostra tetos separados para SERP, aquisição de conteúdo e IA.
+- classificação: sem rede adicional;
+- comparação de conteúdo: HTTP direto para web pública, sem quota SERP;
+- Competitive AI: chamada somente quando habilitada e o contexto está `CONSOLIDATED`;
+- `AUTO`: candidato priorizado conforme a política de custo vigente e estado do coordenador;
+- renderização HTML: somente dados persistidos;
+- histórico: somente leitura;
+- `--dry-run`: tetos separados para SERP, conteúdo e IA.
 
-Credenciais dos providers não são persistidas nesses artefatos.
+Credenciais não são persistidas nos artefatos.
 
 ## 13. Comportamento aditivo
 
 Sem `--competitive`, `--compare-content` ou `--ai-competitive`, o comportamento SERP comum permanece inalterado.
 
-Sem `--ai-competitive`:
-
-- nenhum provider de IA é instanciado;
-- nenhuma chamada de Competitive AI é feita;
-- Search Intelligence determinística permanece totalmente utilizável.
-
-Falha de Competitive AI não reescreve evidência SERP nem evidência da comparação determinística.
+Sem `--ai-competitive`, nenhuma chamada de Competitive AI é feita. Falha de IA não reescreve evidência SERP nem a comparação determinística.
 
 `SARI-001` e `SCORE-GEO-004` são independentes.
 
 ## 14. Política de testes
 
-CI usa fixtures, HTML falso e transports/resolvers injetados.
+CI usa fixtures, HTML falso e transports/resolvers injetados. Não deve chamar Search/IA live nem depender de DNS/internet públicos.
 
-CI não deve:
+Os testes cobrem classificação, limites, extração, SSRF, gaps, evidence IDs, contrato de IA, provider registry, `AUTO`, persistência e projeção HTML.
 
-- chamar SerpApi live;
-- consumir chaves de clientes;
-- fazer crawl de sites públicos de concorrentes;
-- chamar provider de IA live;
-- depender de DNS/internet públicos.
+## 15. Relatório e histórico
 
-Os testes cobrem classificação, limites, extração, bloqueio de endereços não públicos, gaps de comparação, fechamento de evidence IDs, validação do contrato de IA, persistência aditiva, projeção HTML e comparação histórica determinística.
+Relatório pontual: `report/search-intelligence.html`.
 
-## 15. Relatório e histórico atuais
+Comparação temporal determinística: `SEARCH-HISTORY-001`.
 
-O relatório pontual canônico é:
+A camada histórica compara somente contextos Search com proveniência compatível e não estabelece causalidade de ranking.
 
-```text
-report/search-intelligence.html
-```
+## 16. Limitações funcionais
 
-Ele renderiza evidência persistida e não chama providers de Search ou IA.
-
-A comparação temporal determinística está disponível em:
-
-```text
-SEARCH-HISTORY-001
-```
-
-A camada histórica compara apenas contextos Search exatos com proveniência compatível de provider/modo de dados. Pode descrever mudanças de posição observada, entrada/saída da profundidade solicitada de resultados, mudanças determinísticas de conteúdo do cliente e códigos de gaps competitivos adicionados/resolvidos.
-
-Nem o relatório pontual nem a camada histórica estabelecem causalidade de ranking.
-
-## 16. Limitações atuais
-
-- a classificação de resultados permanece uma taxonomia heurística pequena;
-- ainda não existe grafo de equivalência de entidades/empresas;
-- extração de conteúdo usa HTML estático por HTTP, não DOM renderizado em browser;
-- ainda não existe comparação de canonical/`hreflang`/link graph;
-- suporte live de Competitive AI começa por OpenAI; outros adapters podem ser adicionados por trás do mesmo contrato;
+- taxonomia de classificação ainda é heurística;
+- não existe grafo de equivalência de entidades/empresas;
+- extração de conteúdo usa HTML estático por HTTP;
+- não existe comparação de canonical/`hreflang`/link graph nesta camada;
 - a IA recebe features extraídas, não HTML bruto completo;
-- comparação histórica e seu HTML/manifest independente são determinísticos; comparação semântica before/after da saída de Competitive AI ainda não é contrato estável;
-- validação de IP público ainda exige reforço na camada de rede antes de SaaS multi-tenant.
+- comparação semântica before/after da saída de Competitive AI não é contrato estável;
+- deploy SaaS multi-tenant ainda exige reforço de egress além da validação de aplicação.
 
-O modelo de milestone e auditoria before/after da Product Platform é reutilizado por Search Intelligence History. Nenhum modelo paralelo de marcador de deployment é introduzido.
+Search Intelligence History reutiliza milestones e auditorias before/after da Product Platform; não existe modelo paralelo de deployment.
