@@ -30,7 +30,7 @@ from rasai.secret_safety import redact_text
 REQUESTED_NOT_EXECUTED = "REQUESTED_NOT_EXECUTED"
 NOT_CONFIGURED = "NOT_CONFIGURED"
 AI_CONTRACT = "AI_CONTRACT"
-M24_CONTRACT_ERROR_CODE = "M24_CONTRACT_VALIDATION_ERROR"
+M24_CONTRACT_ERROR_CODE = "TECHNICAL_AI_CONTRACT_VALIDATION_ERROR"
 
 _INSTALLED = False
 _CONSOLE_INSTALLED = False
@@ -275,7 +275,7 @@ def _latest_m24_attempt(workspace: Any, audit_id: str) -> dict[str, Any] | None:
 
 
 def reconcile_technical_ai_fulfillment(*, workspace: Any, audit_id: str, state: str | None = None) -> None:
-    """Project the real M24 provider attempt into the canonical fulfillment work item."""
+    """Project the real technical-AI provider attempt into canonical fulfillment."""
     attempt = _latest_m24_attempt(workspace, audit_id)
     if attempt is None:
         return
@@ -306,7 +306,7 @@ def reconcile_technical_ai_fulfillment(*, workspace: Any, audit_id: str, state: 
             audit_id=audit_id,
             component="TECHNICAL_AI",
             status=SUCCESS,
-            result_ref=f"m24-ai:{provider or 'provider'}",
+            result_ref=f"technical-ai:{provider or 'provider'}",
             retryable=False,
         )
         return
@@ -329,8 +329,8 @@ def reconcile_technical_ai_fulfillment(*, workspace: Any, audit_id: str, state: 
         component="TECHNICAL_AI",
         status=FAILED_RETRYABLE,
         error_class="AI_PROVIDER",
-        error_code=str(attempt.get("error_code") or attempt.get("error_type") or state or status or "M24_AI_UNAVAILABLE"),
-        error_message=detail or f"M24 technical AI state={state or status or 'UNKNOWN'}",
+        error_code=str(attempt.get("error_code") or attempt.get("error_type") or state or status or "TECHNICAL_AI_UNAVAILABLE"),
+        error_message=detail or f"technical AI state={state or status or 'UNKNOWN'}",
         retryable=True,
     )
 
@@ -504,22 +504,6 @@ def _reconcile_requested_apdex(workspace: Any, audit_id: str) -> None:
             )
 
 
-def _service_component(service_id: str) -> str:
-    mapping = {
-        "google-search-console": "GOOGLE_SEARCH_CONSOLE",
-        "pagespeed": "PAGESPEED_LIGHTHOUSE",
-        "crux": "CRUX",
-        "crux-history": "CRUX_HISTORY",
-        "microsoft-clarity": "MICROSOFT_CLARITY",
-        "common-crawl": "COMMON_CRAWL",
-        "w3c-validator": "W3C_VALIDATOR",
-        "w3c-css-validator": "W3C_CSS_VALIDATOR",
-        "mdn-observatory": "MDN_OBSERVATORY",
-        "web-platform-baseline": "WEB_PLATFORM_BASELINE",
-    }
-    return mapping.get(service_id, "SERVICE_" + service_id.replace("-", "_").upper())
-
-
 def _service_run(workspace: Any, audit_id: str, service_id: str) -> dict[str, Any] | None:
     connection = sqlite3.connect(workspace.database)
     connection.row_factory = sqlite3.Row
@@ -536,83 +520,83 @@ def _service_run(workspace: Any, audit_id: str, service_id: str) -> dict[str, An
 
 
 def _reconcile_explicit_services(workspace: Any, audit_id: str) -> None:
-    from rasai.standards_service_registry import service_state, services
+    """Project only service gaps not already represented by a canonical domain work item."""
+    from rasai.standards_service_registry import service, service_state
 
-    for item in services():
-        state_info = service_state(item, os.environ)
-        if state_info.get("configuration_source") != "EXPLICIT" or not bool(state_info.get("requested")):
-            continue
-        component = _service_component(item.id)
-        register_work_item(
+    item = service("google-search-console")
+    state_info = service_state(item, os.environ)
+    if state_info.get("configuration_source") != "EXPLICIT" or not bool(state_info.get("requested")):
+        return
+
+    component = "GOOGLE_SEARCH_CONSOLE"
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component=component,
+        required=True,
+        temporal_mode=LIVE_RECOLLECTION,
+        retryable=True,
+        configuration={"requested": True, "service_id": item.id},
+    )
+    if not bool(state_info.get("configured")):
+        missing = tuple(str(value) for value in state_info.get("missing_configuration", ()) if str(value))
+        error_code = "SITE_URL_REQUIRED" if "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL" in missing else "CONFIGURATION_REQUIRED"
+        set_work_item_status(
             workspace,
             audit_id=audit_id,
             component=component,
-            required=True,
-            temporal_mode=LIVE_RECOLLECTION,
+            status=NOT_CONFIGURED,
+            error_class="CONFIGURATION",
+            error_code=error_code,
+            error_message=("configuração ausente: " + ", ".join(missing)) if missing else "Google Search Console solicitado sem configuração completa",
             retryable=True,
+        )
+        return
+
+    run = _service_run(workspace, audit_id, item.id)
+    if run is None:
+        _mark_requested_not_executed(
+            workspace,
+            audit_id,
+            component,
+            temporal_mode=LIVE_RECOLLECTION,
             configuration={"requested": True, "service_id": item.id},
         )
-        if not bool(state_info.get("configured")):
-            missing = tuple(str(value) for value in state_info.get("missing_configuration", ()) if str(value))
-            error_code = "CONFIGURATION_REQUIRED"
-            if item.id == "google-search-console" and "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL" in missing:
-                error_code = "SITE_URL_REQUIRED"
-            set_work_item_status(
-                workspace,
-                audit_id=audit_id,
-                component=component,
-                status=NOT_CONFIGURED,
-                error_class="CONFIGURATION",
-                error_code=error_code,
-                error_message=("configuração ausente: " + ", ".join(missing)) if missing else "serviço solicitado sem configuração completa",
-                retryable=True,
-            )
-            continue
-
-        run = _service_run(workspace, audit_id, item.id)
-        if run is None:
-            _mark_requested_not_executed(
-                workspace,
-                audit_id,
-                component,
-                temporal_mode=LIVE_RECOLLECTION,
-                configuration={"requested": True, "service_id": item.id},
-            )
-            continue
-        state = str(run.get("state") or "").upper()
-        attempted = int(run.get("targets_attempted") or 0)
-        succeeded = int(run.get("targets_succeeded") or 0)
-        if state in {"SUCCESS", "READY"} and (attempted == 0 or succeeded == attempted):
-            set_work_item_status(
-                workspace,
-                audit_id=audit_id,
-                component=component,
-                status=SUCCESS,
-                result_ref=f"standards-service:{item.id}:effective",
-                retryable=False,
-            )
-        elif state == "NOT_CONFIGURED":
-            set_work_item_status(
-                workspace,
-                audit_id=audit_id,
-                component=component,
-                status=NOT_CONFIGURED,
-                error_class="CONFIGURATION",
-                error_code="CONFIGURATION_REQUIRED",
-                error_message="serviço solicitado sem configuração completa",
-                retryable=True,
-            )
-        else:
-            set_work_item_status(
-                workspace,
-                audit_id=audit_id,
-                component=component,
-                status=FAILED_RETRYABLE,
-                error_class="EXTERNAL_SERVICE",
-                error_code=state or "SERVICE_INCOMPLETE",
-                error_message=f"serviço {item.id} terminou em {state or 'UNKNOWN'} ({succeeded}/{attempted} alvos com sucesso)",
-                retryable=True,
-            )
+        return
+    state = str(run.get("state") or "").upper()
+    attempted = int(run.get("targets_attempted") or 0)
+    succeeded = int(run.get("targets_succeeded") or 0)
+    if state in {"SUCCESS", "READY"} and (attempted == 0 or succeeded == attempted):
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component=component,
+            status=SUCCESS,
+            result_ref="standards-service:google-search-console:effective",
+            retryable=False,
+        )
+    elif state == "NOT_CONFIGURED":
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component=component,
+            status=NOT_CONFIGURED,
+            error_class="CONFIGURATION",
+            error_code="CONFIGURATION_REQUIRED",
+            error_message="Google Search Console solicitado sem configuração completa",
+            retryable=True,
+        )
+    else:
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component=component,
+            status=FAILED_RETRYABLE,
+            error_class="EXTERNAL_SERVICE",
+            error_code=state or "SERVICE_INCOMPLETE",
+            error_message=f"Google Search Console terminou em {state or 'UNKNOWN'} ({succeeded}/{attempted} alvos com sucesso)",
+            retryable=True,
+        )
 
 
 def reconcile_requested_components(*, workspace: Any, audit_id: str) -> None:
