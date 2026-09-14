@@ -135,9 +135,9 @@ def _status_class(status: str) -> str:
 
 def _value(value: Any, unit: str | None = None) -> str:
     if value is None:
-        return "—"
+        return "-"
     if isinstance(value, (tuple, list)):
-        text = ", ".join(str(item) for item in value) or "—"
+        text = ", ".join(str(item) for item in value) or "-"
     elif isinstance(value, dict):
         text = json.dumps(value, ensure_ascii=False, sort_keys=True)
     elif isinstance(value, float):
@@ -152,7 +152,7 @@ def _value(value: Any, unit: str | None = None) -> str:
 
 def _delta(event: SearchHistoryEvent) -> str:
     if event.delta is None:
-        return "—"
+        return "-"
     prefix = "+" if event.delta > 0 else ""
     value = f"{event.delta:.4f}".rstrip("0").rstrip(".")
     unit = {"positions": "posições", "words": "palavras", "ratio": "proporção"}.get(event.unit or "", event.unit or "")
@@ -169,7 +169,7 @@ def _event_row(event: SearchHistoryEvent) -> str:
         f"<td>{escape(_value(event.before, event.unit))}</td>",
         f"<td>{escape(_value(event.after, event.unit))}</td>",
         f"<td>{escape(_delta(event))}</td>",
-        f"<td>{escape(event.note or '—')}</td>",
+        f"<td>{escape(event.note or '-')}</td>",
         f"<td class='mono'>{escape(event.context_key)}</td>",
         "</tr>",
     ))
