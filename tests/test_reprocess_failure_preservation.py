@@ -8,8 +8,10 @@ from rasai.reprocess_failure_preservation import should_preserve_failure
 
 def _item(**overrides):
     values = {
+        "component": "SEMANTIC_AI",
         "status": "FAILED_RETRYABLE",
         "attempt_count": 1,
+        "last_error_class": "AI_PROVIDER",
         "last_error_code": "OLD_GENERIC",
         "last_error_message": "old generic failure",
     }
@@ -34,6 +36,40 @@ def test_fresh_provider_failure_is_preserved() -> None:
         attempt_count=2,
         last_error_code="RATE_LIMITED",
         last_error_message="provider did not return an available result",
+    )
+
+    assert should_preserve_failure(original, current) is True
+
+
+def test_repeated_technical_contract_failure_keeps_authoritative_diagnostic() -> None:
+    original = _item(
+        component="TECHNICAL_AI",
+        last_error_class="AI_CONTRACT",
+        last_error_code="TECHNICAL_AI_CONTRACT_VALIDATION_ERROR",
+        last_error_message="evidence outside the resource universe",
+    )
+    current = _item(
+        component="TECHNICAL_AI",
+        last_error_class="AI_CONTRACT",
+        last_error_code="TECHNICAL_AI_CONTRACT_VALIDATION_ERROR",
+        last_error_message="evidence outside the resource universe",
+    )
+
+    assert should_preserve_failure(original, current) is True
+
+
+def test_repeated_technical_provider_failure_keeps_provider_diagnostic() -> None:
+    original = _item(
+        component="TECHNICAL_AI",
+        last_error_class="AI_PROVIDER",
+        last_error_code="RATE_LIMITED",
+        last_error_message="provider rate limited the request",
+    )
+    current = _item(
+        component="TECHNICAL_AI",
+        last_error_class="AI_PROVIDER",
+        last_error_code="RATE_LIMITED",
+        last_error_message="provider rate limited the request",
     )
 
     assert should_preserve_failure(original, current) is True
