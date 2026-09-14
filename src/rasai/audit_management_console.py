@@ -53,7 +53,7 @@ def _parse_date(raw: str) -> date | None:
 
 
 def _configure_filters(current: AuditInventoryFilter) -> AuditInventoryFilter:
-    print("\nFILTROS — ENTER remove/ignora o filtro")
+    print("\nFILTROS - ENTER remove/ignora o filtro")
     try:
         date_from = _parse_date(input("Data inicial [AAAA-MM-DD]: "))
         date_to = _parse_date(input("Data final   [AAAA-MM-DD]: "))
