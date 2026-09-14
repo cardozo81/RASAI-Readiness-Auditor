@@ -21,6 +21,15 @@ def _rasai_index_init(self: _index.ConsolidationIndex, audits_root: str | Path) 
 # initializer first, so they receive the canonical path behavior as well.
 _index.ConsolidationIndex.__init__ = _rasai_index_init
 
+# Install CONS-only reporting enrichment before service-level function imports are
+# bound. This keeps actionable remediation/rule references isolated from the audit
+# provider/pricing pipeline, which may evolve independently.
+from . import presentation as _presentation
+from . import specialist as _specialist
+from .consolidated_report_enrichment import install as _install_consolidated_report_enrichment
+
+_install_consolidated_report_enrichment(_specialist, _presentation)
+
 from .models import ConsolidationFilter, GenerationResult, RefreshResult
 from .service import generate, normalize_filter
 
