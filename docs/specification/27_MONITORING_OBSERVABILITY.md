@@ -1,6 +1,6 @@
-# RASAi Monitor & Search/AI Observability
+# 27 - Monitoramento RASAi e observabilidade de Search/AI
 
-**Estado no baseline de desenvolvimento:** aprovado / implementado / integrado à `main`  
+**Estado:** vigente  
 **Natureza:** capacidades derivadas, somente leitura sobre a evidência de origem e, por default, fora do scoring.
 
 ## 1. Objetivo
@@ -18,7 +18,7 @@ A capacidade responde separadamente:
 ## 2. Fronteira metodológica
 
 - `SARI-001` é o índice público de readiness;
-- `SCORE-GEO-004` é o scoring vigente para novas auditorias;
+- `SCORE-GEO-004` é o scoring vigente das auditorias;
 - Monitoring não cria novo score;
 - Observability não entra automaticamente no SARI;
 - Search Performance, URL Inspection, CrUX History, outcomes Bing/IA e diagnósticos derivados permanecem identificados por fonte/método;
@@ -30,7 +30,7 @@ A capacidade responde separadamente:
 
 Monitoring abre `AUD-*/audit.db` em SQLite somente leitura. Nenhuma operação derivada pode modificar a evidência de origem.
 
-Dados externos pós-auditoria são persistidos em:
+Dados externos associados à auditoria são persistidos em:
 
 ```text
 AUD-*/observability.db
@@ -39,7 +39,7 @@ AUD-*/artifacts/observability/
 
 Contrato atual: `RASAI-OBS-002`.
 
-Observações usam identidade `(dataset_id, record_id)`. Sidecars históricos são migrados preservando linhas/proveniência; `audit.db` não é migrado. Artefatos preservam SHA-256 e credenciais não são persistidas.
+Observações usam identidade `(dataset_id, record_id)`. Quando um sidecar precisar de migração de schema, linhas e proveniência devem ser preservadas; `audit.db` não é migrado por esse processo. Artefatos preservam SHA-256 e credenciais não são persistidas.
 
 ## 4. RASAi Monitor
 
@@ -99,7 +99,7 @@ rasai monitor impact ...
 ```
 
 - seleciona um dataset mais recente por fonte/`AUD-*`;
-- históricos sobrepostos não são somados;
+- datasets com períodos sobrepostos não são somados;
 - associação temporal exige janelas comparáveis;
 - `NULL` permanece indisponível;
 - temporalidade não estabelece causalidade;
@@ -107,7 +107,7 @@ rasai monitor impact ...
 
 ## 5. Search Console / CrUX / importações
 
-Superfícies observacionais implementadas incluem, conforme credencial e fonte disponível:
+Superfícies observacionais suportadas incluem, conforme credencial e fonte disponível:
 
 ```text
 rasai observe gsc-sites
@@ -153,7 +153,7 @@ Divergência observada não é automaticamente fator de ranking nem causalidade.
 
 Contrato detalhado: `28_AUDIT_QUALITY_VERIFICATION.md`.
 
-`report/quality.html`, Fix Verification e Evidence Timeline ficam fora do scoring e operam somente leitura. Estados resolvidos/fechados permanecem no histórico sem entrar na fila operacional ativa.
+`report/quality.html`, Fix Verification e Evidence Timeline ficam fora do scoring e operam somente leitura. Estados resolvidos/fechados permanecem persistidos sem entrar na fila operacional ativa.
 
 ## 8. Relação com scoring
 
@@ -175,7 +175,9 @@ report/observability.html
 report/quality.html
 ```
 
-Independentes:
+`observability.html` e `quality.html` pertencem ao conjunto canônico estável da auditoria e permanecem materializados mesmo quando a capacidade correspondente não foi executada ou não produziu dado utilizável. Nesses casos, a apresentação deve refletir estado neutro ou explicativo.
+
+Artefatos derivados independentes:
 
 ```text
 monitoring/MON-*/report.html
@@ -204,7 +206,7 @@ CI deve cobrir:
 - compilação/importação dos módulos;
 - leitura somente leitura e comparabilidade;
 - gate determinístico/*fail-closed*;
-- migration/identidade `OBS-002`;
+- migração/identidade `OBS-002`;
 - escopo dos collectors;
 - ausência de segredos em artefatos;
 - preservação de `NULL`;
