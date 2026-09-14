@@ -6,6 +6,7 @@ writes only its own rebuildable index and CONS snapshots.
 from pathlib import Path
 
 from rasai.runtime_paths import runtime_directory
+from rasai.report_reader_experience import enhance_consolidated_experience
 
 from . import index as _index
 
@@ -29,6 +30,18 @@ from . import specialist as _specialist
 from .consolidated_report_enrichment import install as _install_consolidated_report_enrichment
 
 _install_consolidated_report_enrichment(_specialist, _presentation)
+
+# Last-mile consolidated UX: presentation only. It consumes the already materialized
+# CONS artifact and never changes historical calculations, eligibility or evidence.
+_refine_html_before_reader_experience = _presentation.refine_html
+
+
+def _refine_html_with_reader_experience(html: str, artifact=None) -> str:
+    rendered = _refine_html_before_reader_experience(html, artifact)
+    return enhance_consolidated_experience(rendered, artifact)
+
+
+_presentation.refine_html = _refine_html_with_reader_experience
 
 from .models import ConsolidationFilter, GenerationResult, RefreshResult
 from .service import generate, normalize_filter
