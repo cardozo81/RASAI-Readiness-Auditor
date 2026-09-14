@@ -244,6 +244,10 @@ A validação local não comprova se o token está expirado nem se a conta possu
 
 Projeta GSC como desabilitado somente durante a execução do perfil.
 
+Essa decisão é estado da execução, não alteração permanente da configuração global. Ela acompanha o processo de auditoria iniciado pelo console e é reaplicada no coletor antes de qualquer operação GSC. Assim, uma configuração global `RASAI_GSC_ENABLED=true` não pode reativar Search Console dentro de uma execução cujo perfil escolheu “Não usar GSC nesta execução”. Ao terminar/remover o perfil, a configuração global original volta a valer normalmente.
+
+O critério de aceite desse modo é físico: a execução não deve tentar Sitemaps, URL Inspection, Search Analytics nem renovação OAuth para GSC.
+
 ### Herdar global
 
 Preserva a política configurada no ambiente normal.
