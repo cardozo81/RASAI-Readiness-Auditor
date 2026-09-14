@@ -19,6 +19,7 @@ from rasai.external_observability_runtime import (
     install_service_contract as install_external_observability_service_contract,
 )
 from rasai.external_observability_safety import install as install_external_observability_safety
+from rasai.gsc_scope_runtime import install as install_gsc_scope_runtime
 from rasai.improvement_intelligence_runtime import install as install_improvement_intelligence_runtime
 from rasai.improvement_intelligence_saas import install as install_improvement_intelligence_saas
 from rasai.integration_state_contract import install as install_integration_state_contract
@@ -177,6 +178,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     install_standards_css_validation()
     install_standards_m21_reconciliation()
     install_standards_gsc_observability_runtime()
+    install_gsc_scope_runtime()
     install_external_observability_runtime()
     # Installed outside the external runtime so it can suppress only the public
     # Common Crawl lookup for unsafe/private/parameterized targets on this run.
