@@ -167,12 +167,27 @@ A mesma key pode atender a API diária e a API histórica. A existência da key 
 
 ### Credencial e contexto
 
+O contrato atual aceita duas formas OAuth.
+
+**Recomendada para uso repetido:**
+
+```text
+RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_ID
+RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET
+RASAI_GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN
+RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL
+```
+
+Nesse modo, o RASAi troca o Refresh Token por um access token imediatamente antes da chamada ao Google. O access token obtido fica apenas em memória.
+
+**Alternativa para teste pontual:**
+
 ```text
 RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
 RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL
 ```
 
-`RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` é um OAuth 2.0 access token. Não é uma API key permanente.
+`RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` é um OAuth 2.0 bearer token temporário. Uma Google API Key, normalmente iniciada por `AIza`, não é um access token OAuth e não serve para dados privados do Search Console.
 
 `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL` identifica a propriedade à qual o usuário autenticado precisa ter acesso, por exemplo:
 
@@ -183,7 +198,7 @@ https://www.example.com/
 
 ### Finalidade
 
-O token autoriza as coletas Search Console habilitadas pelo RASAi, incluindo Search Analytics, Sitemaps e URL Inspection conforme o escopo e os limites configurados.
+A autenticação autoriza as coletas Search Console habilitadas pelo RASAi, incluindo Search Analytics, Sitemaps e URL Inspection conforme o escopo e os limites configurados.
 
 ### Como obter
 
@@ -194,16 +209,22 @@ Referências oficiais:
 - credenciais Google Cloud: <https://console.cloud.google.com/apis/credentials>
 - referência da API: <https://developers.google.com/webmaster-tools/v1/api_reference_index>
 
-Fluxo básico:
+Fluxo recomendado:
 
 1. confirme que a conta Google tem acesso à propriedade Search Console;
 2. crie ou selecione um projeto no Google Cloud;
 3. habilite a Search Console API;
 4. configure a tela de consentimento quando aplicável;
-5. crie credenciais OAuth 2.0 adequadas ao tipo de aplicação;
+5. crie um OAuth Client ID e obtenha o respectivo Client Secret;
 6. solicite consentimento com o menor escopo suficiente;
-7. obtenha um access token válido e configure-o temporariamente em `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`;
-8. configure a property exata em `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL`.
+7. obtenha um Refresh Token para essa autorização;
+8. configure `RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_ID`;
+9. configure `RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET` somente no boundary de secrets;
+10. configure `RASAI_GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN` somente no boundary de secrets;
+11. configure a property exata em `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL`;
+12. valide a integração no console do RASAi.
+
+Para um teste temporário, é possível usar um access token já emitido em `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`, sabendo que ele expira e precisa ser substituído manualmente.
 
 Escopos oficiais relevantes:
 
@@ -214,7 +235,7 @@ https://www.googleapis.com/auth/webmasters
 
 Para a natureza observacional do RASAi, prefira o escopo read-only quando ele atender aos endpoints efetivamente usados.
 
-O runtime recebe o access token já emitido. O RASAi não deve documentar a API key do Google como substituta do OAuth exigido para dados privados do Search Console.
+`CLIENT_SECRET`, `REFRESH_TOKEN` e `ACCESS_TOKEN` nunca entram no INI. `CLIENT_ID` e a property são configurações não secretas. Consulte [GSC_OAUTH.md](GSC_OAUTH.md) para o contrato completo.
 
 ## Microsoft Clarity Data Export
 
@@ -327,6 +348,7 @@ Para variáveis não cobertas pelo catálogo de providers, use o console e os co
 ## Referências relacionadas
 
 - [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
+- [GSC_OAUTH.md](GSC_OAUTH.md)
 - [PROVIDER_SETUP.md](PROVIDER_SETUP.md)
 - [STANDARDS_METRICS_AND_SERVICES.md](STANDARDS_METRICS_AND_SERVICES.md)
 - [EXTERNAL_OBSERVABILITY_INTEGRATIONS.md](EXTERNAL_OBSERVABILITY_INTEGRATIONS.md)
