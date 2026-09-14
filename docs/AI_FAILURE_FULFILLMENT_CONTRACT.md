@@ -1,7 +1,7 @@
 # Contrato de falhas de IA, fulfillment e conclusão do AUD
 
 **Estado do produto:** pré-publicação.  
-**Data de referência desta documentação:** 13/09/2026.  
+**Data de referência desta documentação:** 14/09/2026.  
 **Contrato de pricing de referência:** `RASAI-PRICING-2026-09-13`.
 
 Este documento define a relação entre configuração efetiva, trabalho esperado, tentativas externas, consumo, fulfillment, resultado lógico do `AUD-*`, reprocessamento e apresentação no console/SaaS.
@@ -159,7 +159,7 @@ Nenhuma resposta rejeitada é promovida artificialmente a sucesso.
 
 ## 6. Retry corretivo de CONTRACT_ERROR
 
-Na referência de 13/09/2026, `CONTRACT_ERROR` do contrato técnico é marcado como:
+No contrato vigente, `CONTRACT_ERROR` do contrato técnico é marcado como:
 
 ```text
 retry_eligible = true
@@ -175,7 +175,7 @@ Motivo: erros evidence-bound podem indicar violação estrutural ou metodológic
 - alterar a estrutura sem corrigir a relação real entre recurso e evidência;
 - criar comportamento diferente entre providers.
 
-Esta decisão não impede evolução futura para retry corretivo automático. Se ele for habilitado, deverá ser bounded, provider-neutral, contabilizado como nova tentativa e restrito às classes consideradas estruturalmente reparáveis.
+Se retry corretivo automático vier a ser habilitado, deverá ser bounded, provider-neutral, contabilizado como nova tentativa e restrito às classes consideradas estruturalmente reparáveis.
 
 ## 7. Fallback e cadeia de providers
 
@@ -242,9 +242,21 @@ O catálogo atual serve novas chamadas. A telemetria histórica conserva os valo
 
 ## 9. Google Search Console: configuração não é falha da IA técnica
 
-Google Search Console exige sua configuração própria.
+Google Search Console exige sua configuração própria: uma property e uma forma OAuth válida.
 
-Quando o serviço foi explicitamente solicitado, o token existe, mas falta:
+As formas aceitas são:
+
+```text
+# recomendada para uso repetido
+RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_ID
+RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET
+RASAI_GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN
+
+# alternativa temporária/manual
+RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
+```
+
+Se o serviço foi explicitamente solicitado e falta a property:
 
 ```text
 RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL
@@ -259,22 +271,28 @@ error_class  = CONFIGURATION
 error_code   = SITE_URL_REQUIRED
 ```
 
-Isso não altera `TECHNICAL_AI` e não deve aparecer como indisponibilidade de DeepSeek, OpenAI ou outro provider.
+Se a property existe, mas nenhuma forma OAuth está completa, o estado também permanece `NOT_CONFIGURED`, com diagnóstico de configuração/autenticação correspondente. Uma Google API Key, normalmente iniciada por `AIza`, não substitui OAuth.
 
-Depois de corrigir a property, o item pode voltar a ser elegível para reprocessamento dentro das regras temporais aplicáveis.
+No modo durável, o RASAi obtém o access token a partir do Refresh Token imediatamente antes da chamada e não o persiste.
 
-## 10. Improvement Intelligence
+Nenhum desses estados altera `TECHNICAL_AI` nem deve aparecer como indisponibilidade de DeepSeek, OpenAI ou outro provider.
+
+Depois de corrigir autenticação/property, o item pode voltar a ser elegível para reprocessamento dentro das regras temporais aplicáveis.
+
+## 10. Análise profunda por IA
 
 Quando `RASAI_IMPROVEMENT_INTELLIGENCE=true`, a análise profunda passa a participar do fulfillment da execução.
 
+Ela usa a **mesma seleção principal de IA** da auditoria. Não possui provider, modelo ou reasoning próprios. Com `AI=auto`, reutiliza a mesma política canônica de elegibilidade, custo, quarentena, circuit breaker e fallback.
+
 Estados relevantes:
 
-- configuração inválida/credencial obrigatória ausente: `NOT_CONFIGURED`;
+- configuração principal de IA inválida/indisponível para o requisito: `NOT_CONFIGURED`;
 - configuração válida sem execução persistida: `REQUESTED_NOT_EXECUTED`;
 - execução `COMPLETE`: `SUCCESS`;
 - execução `COMPLETE_WITH_LIMITATIONS`: `FAILED_RETRYABLE` até que o requisito solicitado possa ser satisfeito conforme o contrato de recuperação.
 
-As tentativas de IA de Improvement Intelligence continuam usando `ai_provider_attempts` e o mesmo pricing canônico.
+As tentativas continuam usando `ai_provider_attempts` e o mesmo pricing canônico.
 
 ## 11. Synthetic Apdex e Experience Apdex
 
@@ -383,6 +401,8 @@ Não devem ser persistidos no `error_detail`:
 
 - API keys;
 - bearer tokens;
+- refresh tokens;
+- client secrets;
 - senhas;
 - secrets;
 - payload integral sensível;
@@ -405,6 +425,7 @@ O objetivo do diagnóstico é responder com precisão:
 - `AUTO_COST_AWARE_AI_ROUTING.md`: seleção econômica no modo AUTO.
 - `AUDIT_REPROCESSING.md`: recuperação seletiva do mesmo `AUD-*`.
 - `IMPROVEMENT_INTELLIGENCE.md`: contrato da análise profunda.
+- `GSC_OAUTH.md`: autenticação atual do Google Search Console.
 - `EXTERNAL_OBSERVABILITY_INTEGRATIONS.md`: integrações externas e Google Search Console.
 
-Este documento é a referência de integração entre essas superfícies na data de 13/09/2026.
+Este documento descreve o contrato atual do produto em desenvolvimento.
