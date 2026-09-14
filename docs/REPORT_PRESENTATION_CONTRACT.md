@@ -60,6 +60,106 @@ Aplicações atuais deste contrato incluem:
 - Search & AI Observability, com ledger de tentativas de Search Console, CrUX History e imports suportados;
 - Observed Generative Visibility, que é `import-first`: ausência de dataset significa não importado/não observado por esse fluxo e **não** falha presumida de API de IA.
 
+## Estado contextual no topo de cada página
+
+A existência física de um HTML canônico **não** significa que a análise correspondente foi concluída. O header de cada relatório deve informar, a partir do estado já persistido, se a leitura está:
+
+- concluída;
+- concluída com limitações;
+- dependente de configuração;
+- sem dados solicitados/produzidos;
+- com dados insuficientes;
+- não concluída por falha/bloqueio;
+- ou com estado não determinado quando não existir evidência suficiente para classificar com segurança.
+
+O header é uma projeção de apresentação e não recalcula fulfillment. Quando o contrato de execução persistido estiver disponível, ele é a referência para o estado global da auditoria; estados específicos de capabilities permanecem subordinados aos respectivos ledgers/runs.
+
+O header também pode mostrar, de forma compacta:
+
+- quantidade de URLs do escopo;
+- dispositivos/contextos presentes;
+- indicação de uso de IA quando houver evidência persistida;
+- aviso de que o HTML é uma projeção dos dados persistidos e não recalcula resultados.
+
+O estado deve ser expresso por **texto + cor semântica**, nunca apenas pela cor.
+
+## Semântica visual comum
+
+A apresentação final usa uma paleta semântica consistente para cards, badges, headers e estados:
+
+| Semântica | Uso principal |
+|---|---|
+| verde | concluído, aprovado, melhora observada, correção verificada |
+| amarelo/âmbar | parcial, configuração necessária, dado insuficiente, atenção |
+| vermelho | falha, bloqueio, regressão ou condição crítica |
+| azul | informação contextual/metodológica, escopo, navegação |
+| cinza/neutro | não solicitado, não aplicável ou estado não determinado |
+
+Cor reforça a interpretação, mas o rótulo textual é obrigatório. A mesma semântica deve ser reutilizada em AUD e CONS sempre que o conceito for equivalente.
+
+## Transparência: “Entenda esta página”
+
+Cada superfície canônica pode apresentar, próximo ao final da página, um acionador discreto **Entenda esta página**. O conteúdo detalhado fica em modal/painel sob demanda para evitar poluir a leitura principal.
+
+A camada de transparência deve separar claramente:
+
+1. o que a página entrega;
+2. quais dados podem alimentá-la;
+3. o estado das dependências nesta auditoria;
+4. dependências necessárias;
+5. dependências complementares;
+6. orientação para obter uma análise mais completa quando houver ação possível;
+7. uso ou não uso de IA;
+8. rastreabilidade técnica, fonte de verdade e impacto sobre scoring.
+
+Identificadores internos, nomes de componentes, códigos e variáveis podem aparecer no nível de rastreabilidade técnica, mas não devem substituir o vocabulário humano da leitura principal.
+
+A interface nunca deve expor valor de segredo, token, credencial ou chave. Quando necessário, informa apenas que determinada configuração/credencial está ausente ou inválida.
+
+## Leitura orientada ao usuário
+
+A ordem de leitura preferencial é:
+
+```text
+resultado -> interpretação -> ação -> detalhe técnico -> evidência -> metodologia/proveniência
+```
+
+O usuário deve conseguir responder, sem conhecer a arquitetura interna do RASAi:
+
+1. esta análise foi concluída?;
+2. qual é o resultado técnico?;
+3. quais dados sustentam o resultado?;
+4. o que precisa ser corrigido e em qual URL/contexto?;
+5. o que já melhorou ou foi resolvido quando existir base comparável?;
+6. o que faltou e como habilitar/completar a medição, quando isso estiver sob controle do usuário?.
+
+O relatório não deve sugerir uma configuração como solução quando a ausência é legítima da fonte externa, por exemplo falta de amostra CrUX para determinada URL.
+
+## Dashboard executivo
+
+`index.html` é a entrada executiva e deve priorizar resumo factual já existente nos relatórios especializados, sem criar novos cálculos.
+
+Além dos indicadores persistidos, a navegação visual pode destacar três caminhos:
+
+- **Resultado técnico** -> aprofundar Readiness e qualidade da medição;
+- **Ação** -> abrir Remediações para localizar problema, página/contexto, correção e critério de aceite;
+- **Evolução** -> abrir Quality/comparações disponíveis para entender melhora, regressão ou verificação.
+
+O dashboard não combina metodologias diferentes em uma nota única e não pode apresentar valor divergente daquele usado na superfície especializada proprietária do indicador.
+
+## Relatório consolidado
+
+O CONS aplica a mesma semântica visual e a mesma regra de progressive disclosure do AUD.
+
+O topo deve deixar claro que se trata de leitura histórica derivada de auditorias elegíveis/comparáveis. Quando a análise especialista por IA for solicitada, o estado dessa IA deve ser identificado separadamente e seus resultados continuam orientativos.
+
+No consolidado:
+
+- melhora observada não prova causalidade;
+- uma correção verificada demonstra a transição persistida da regra, não prova impacto posterior em ranking, tráfego, conversão ou visibilidade em IA;
+- auditorias/metodologias incompatíveis não devem ser fundidas silenciosamente;
+- o HTML não reexecuta PageSpeed, CrUX, Search ou outras coletas históricas para preencher o relatório.
+
 ## Dashboard executivo e Apdex de experiência
 
 Quando houver estado persistido de Synthetic User Experience Apdex, `index.html` deve incluir um card complementar próprio, separado de Synthetic Navigation Apdex.
