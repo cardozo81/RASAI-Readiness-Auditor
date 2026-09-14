@@ -1,6 +1,6 @@
-# WORKFLOWS.md
+# Fluxos de execução
 
-**Estado no baseline de desenvolvimento:** aprovado / vigente  
+**Estado:** vigente  
 **Scoring:** `SCORE-GEO-004`
 
 ## 1. Fluxo principal da auditoria
@@ -26,7 +26,7 @@ Os princípios centrais são Evidence First, isolamento de falhas, escopo explí
 
 ## 2. Contexto de dispositivo
 
-O escopo público é `mobile`, `desktop` ou `both`. Somente contextos selecionados/materializados podem disparar renderização downstream, análise ou chamadas externas.
+O escopo público é `mobile`, `desktop` ou `both`. Somente contextos selecionados/materializados podem disparar renderização posterior, análise ou chamadas externas.
 
 A comparação Desktop × Mobile só é aplicável quando ambos os contextos existem. Uma auditoria de contexto único não trata a ausência do outro contexto como falha de renderização.
 
@@ -85,24 +85,47 @@ Entrada canônica:
 report/index.html
 ```
 
-Páginas canônicas de método:
+Após uma auditoria concluída com sucesso, todas as superfícies HTML canônicas são materializadas fisicamente. A existência da página não significa que a respectiva capacidade tenha sido executada ou produzido dados.
+
+Superfícies canônicas:
 
 ```text
-report/readiness.html
-report/scoring.html
+index.html
+readiness.html
+scoring.html
+context.html
+crawling-discovery.html
+mobile.html
+desktop.html
+accessibility.html
+web-performance.html
+standards.html
+apdex.html
+apdex-experience.html
+search-intelligence.html
+ai-visibility.html
+observability.html
+ai-usage.html
+improvement-intelligence.html
+content-suggestions.html
+remediation.html
+quality.html
+references.html
 ```
 
-Outras páginas de domínio são materializadas condicionalmente, incluindo Mobile/Desktop, remediation, content suggestions, crawling/discovery, accessibility, Web Performance, Search Intelligence, os dois domínios Apdex, AI visibility, Observability, Quality, AI usage e references.
+Quando uma capacidade não foi solicitada, não está configurada, não é aplicável ou não produziu dados utilizáveis, a superfície correspondente permanece estável e apresenta estado neutro ou explicativo. A geração da página não pode disparar coleta, provider, API externa ou IA apenas para preencher o relatório.
+
+A fonte de verdade para a lista de superfícies é `src/rasai/report_contract.py`. O contrato detalhado está em `../OUTPUTS_AND_ARTIFACTS.md` e `../REPORT_GUIDE.md`.
 
 Abrir HTML estático não dispara crawling, IA nem coleta de API externa. `audit.db` + artefatos permanecem a evidência de origem.
 
 ## 8. Conclusão e fluxos derivados
 
-Uma auditoria concluída pode alimentar posteriormente workflows derivados/somente leitura:
+Uma auditoria concluída pode alimentar fluxos derivados e somente leitura:
 
 - Monitoring (`compare`, `gate`, `impact`);
 - Observability/importações;
 - Quality/Fix Verification/Timeline;
 - indexação na Product Platform e comparações de deployment.
 
-Esses workflows preservam o `audit.db` de origem e não recalculam silenciosamente scoring histórico.
+Esses fluxos preservam o `audit.db` de origem e não recalculam silenciosamente o scoring persistido da auditoria.
