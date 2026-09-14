@@ -216,6 +216,25 @@ def _install_execution_profile_contract() -> None:
 
     profiles._choose_ai_mode = choose_ai_mode
 
+    original_cost_lines = profiles._cost_lines
+    if not getattr(original_cost_lines, "_rasai_primary_ai_deep_profile", False):
+        def cost_lines(state: Any, session: Any):
+            lines = list(original_cost_lines(state, session))
+            if "deep-analysis" in tuple(getattr(session, "modules", ()) or ()):
+                replacement = (
+                    "Análise profunda: chamadas adicionais pela IA principal; em AUTO, custo e provider "
+                    "efetivos são decididos pelo coordenador central para cada necessidade"
+                )
+                lines = [
+                    replacement if str(line).startswith("Análise profunda:") else line
+                    for line in lines
+                ]
+            return tuple(lines)
+
+        cost_lines._rasai_primary_ai_deep_profile = True
+        cost_lines._rasai_original = original_cost_lines
+        profiles._cost_lines = cost_lines
+
     def enhanced_dependency_status(
         state: Any,
         session: Any | None = None,
