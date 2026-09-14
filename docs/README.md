@@ -2,7 +2,7 @@
 
 ## Estado do produto
 
-O RASAi está em **desenvolvimento e validação pré-publicação**. A documentação descreve exclusivamente o contrato vigente do produto; histórico de branches, PRs, nomes substituídos, aliases transitórios e comportamentos descartados durante o desenvolvimento não fazem parte do contrato documental.
+O RASAi está em **desenvolvimento e validação pré-publicação**. A documentação descreve exclusivamente o contrato vigente do produto e deve ser lida como definição do estado atual, sem pressupor versões públicas anteriores.
 
 O contrato funcional vigente usa:
 
@@ -22,14 +22,21 @@ A documentação normativa deve representar **o produto como ele existe agora**.
 
 Não documentar como contrato público:
 
-- branches ou PRs usados para implementar uma capacidade;
-- nomenclaturas internas de etapas de entrega;
-- caminhos/aliases descartados durante desenvolvimento;
-- defaults substituídos;
-- comportamento mantido apenas para acomodar artefatos de desenvolvimento;
-- versões de scoring que não sejam o contrato vigente.
+- branch, PR ou mecanismo de entrega usado para implementar uma capacidade;
+- nomenclatura interna de etapa de desenvolvimento;
+- caminho, alias ou default que não faça parte do runtime vigente;
+- comportamento sem função no produto atual;
+- versão de scoring que não seja o contrato vigente.
 
-Histórico é documentado somente quando é uma **funcionalidade do produto**, por exemplo séries temporais, Evidence Timeline, Search Intelligence History e comparações before/after. Isso é diferente de manter histórico de implementação.
+Séries temporais, Evidence Timeline, Search Intelligence History e comparações before/after são funcionalidades do produto e podem ser documentadas por fazerem parte do comportamento vigente.
+
+## Protótipos Web
+
+A pasta `prototypes/` contém superfícies frontend-only para validação de UI, UX, navegação e contratos desejados. Ela não redefine o comportamento do core, do control plane, do console ou da Web API.
+
+Quando um protótipo representar uma capacidade já existente, deve apontar para o contrato real correspondente. Quando representar uma capacidade ainda não oferecida pelo SaaS, o documento deve identificá-la explicitamente como contrato desejado do protótipo, sem apresentá-la como endpoint ou funcionalidade disponível.
+
+Nenhum mock, tipo TypeScript ou fluxo visual em `prototypes/` tem precedência sobre o runtime Python, os testes e a especificação normativa vigente.
 
 ## Convenção obrigatória de idioma para `*.md`
 
@@ -92,7 +99,7 @@ Se não existe default tecnicamente seguro, a documentação deve declarar **“
 
 Se o runtime aceita aliases mas existe um valor canônico, ambos devem ser distinguidos. Exemplo: o compositor do control plane aceita `postgres`/`pg` como aliases, mas o valor canônico documentado é `postgresql`.
 
-A referência central consolidada de variáveis é [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md).
+A referência central consolidada de variáveis é [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md). Para credenciais, tokens, API keys, criação no fornecedor, finalidade funcional e links oficiais, a referência central é [`EXTERNAL_CREDENTIALS.md`](EXTERNAL_CREDENTIALS.md).
 
 ## Ordem de leitura recomendada
 
@@ -104,9 +111,10 @@ A referência central consolidada de variáveis é [`ENVIRONMENT_VARIABLES.md`](
 6. [`ACCESSIBILITY_PERFORMANCE_DOMAINS.md`](ACCESSIBILITY_PERFORMANCE_DOMAINS.md), [`LIGHTHOUSE_WEB_QUALITY.md`](LIGHTHOUSE_WEB_QUALITY.md) e [`LIGHTHOUSE_CATEGORIES.md`](LIGHTHOUSE_CATEGORIES.md) - fronteiras entre Performance, Accessibility, Best Practices, SEO técnico, Agentic Browsing experimental, Core Web Vitals e readiness.
 7. [`SERP_OBSERVATION.md`](SERP_OBSERVATION.md), [`CONSOLE_SEARCH_INTELLIGENCE.md`](CONSOLE_SEARCH_INTELLIGENCE.md), [`COMPETITIVE_SEARCH_INTELLIGENCE.md`](COMPETITIVE_SEARCH_INTELLIGENCE.md), [`COMPETITIVE_AI_INTELLIGENCE.md`](COMPETITIVE_AI_INTELLIGENCE.md), [`SEARCH_INTELLIGENCE_REPORT.md`](SEARCH_INTELLIGENCE_REPORT.md), [`SEARCH_INTELLIGENCE_HISTORY.md`](SEARCH_INTELLIGENCE_HISTORY.md) e [`SEARCH_INTELLIGENCE_MONITORING.md`](SEARCH_INTELLIGENCE_MONITORING.md) - observação SERP, entrada de termos no console, comparação determinística, recomendações semânticas vinculadas a evidências, superfície HTML, comparação temporal before/after e monitoramento recorrente por query registrada.
 8. [`CONSOLIDATED_REPORTING.md`](CONSOLIDATED_REPORTING.md) e [`CONSOLIDATED_REPORTING_VALIDATION.md`](CONSOLIDATED_REPORTING_VALIDATION.md) - séries, comparabilidade e relatório longitudinal.
-9. [`AI_GUIDE.md`](AI_GUIDE.md), [`AI_PROVIDER_EXTENSIONS.md`](AI_PROVIDER_EXTENSIONS.md) e [`CONTENT_ANALYSIS_CONTEXT.md`](CONTENT_ANALYSIS_CONTEXT.md) - uso de IA, contexto e limites.
-10. [`UX_CONFIGURATION_AND_REPORTS.md`](UX_CONFIGURATION_AND_REPORTS.md), [`TECHNICAL_GUIDE.md`](TECHNICAL_GUIDE.md), [`CONFIGURATION.md`](CONFIGURATION.md), [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md), [`CLI_REFERENCE.md`](CLI_REFERENCE.md), [`TIMEZONE_CONTRACT.md`](TIMEZONE_CONTRACT.md), [`PRODUCT_PLATFORM_ARCHITECTURE.md`](PRODUCT_PLATFORM_ARCHITECTURE.md), [`POSTGRESQL_MIGRATION_STRATEGY.md`](POSTGRESQL_MIGRATION_STRATEGY.md), [`POSTGRESQL_LOCAL_DEVELOPMENT.md`](POSTGRESQL_LOCAL_DEVELOPMENT.md), [`WEB_API_FOUNDATION.md`](WEB_API_FOUNDATION.md), [`WEB_API_CLI.md`](WEB_API_CLI.md), [`SAAS_PILOT_WEB.md`](SAAS_PILOT_WEB.md) e [`IDENTITY_AND_ACCESS.md`](IDENTITY_AND_ACCESS.md) - UX de configuração/execução/relatórios, operação, tempo/timezone, arquitetura do control plane, implantação, desenvolvimento local, estratégia PostgreSQL, evolução Web/API/worker e identidade SaaS.
+9. [`AI_GUIDE.md`](AI_GUIDE.md), [`AI_PROVIDER_EXTENSIONS.md`](AI_PROVIDER_EXTENSIONS.md), [`PROVIDER_SETUP.md`](PROVIDER_SETUP.md), [`EXTERNAL_CREDENTIALS.md`](EXTERNAL_CREDENTIALS.md) e [`CONTENT_ANALYSIS_CONTEXT.md`](CONTENT_ANALYSIS_CONTEXT.md) - uso de IA, providers, credenciais, contexto e limites.
+10. [`UX_CONFIGURATION_AND_REPORTS.md`](UX_CONFIGURATION_AND_REPORTS.md), [`TECHNICAL_GUIDE.md`](TECHNICAL_GUIDE.md), [`CONFIGURATION.md`](CONFIGURATION.md), [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md), [`CLI_REFERENCE.md`](CLI_REFERENCE.md), [`TIMEZONE_CONTRACT.md`](TIMEZONE_CONTRACT.md), [`PRODUCT_PLATFORM_ARCHITECTURE.md`](PRODUCT_PLATFORM_ARCHITECTURE.md), [`POSTGRESQL_MIGRATION_STRATEGY.md`](POSTGRESQL_MIGRATION_STRATEGY.md), [`POSTGRESQL_LOCAL_DEVELOPMENT.md`](POSTGRESQL_LOCAL_DEVELOPMENT.md), [`WEB_API_FOUNDATION.md`](WEB_API_FOUNDATION.md), [`WEB_API_CLI.md`](WEB_API_CLI.md), [`SAAS_PILOT_WEB.md`](SAAS_PILOT_WEB.md) e [`IDENTITY_AND_ACCESS.md`](IDENTITY_AND_ACCESS.md) - UX de configuração/execução/relatórios, operação, tempo/timezone, arquitetura do control plane, implantação, desenvolvimento local, estratégia PostgreSQL, Web/API/worker e identidade SaaS.
 11. [`specification/00_SPEC_INDEX.md`](specification/00_SPEC_INDEX.md) - especificação técnica detalhada.
+12. [`../prototypes/README.md`](../prototypes/README.md) - escopo dos protótipos frontend-only e fronteira entre contratos atuais e contratos desejados.
 
 ## Convenção de linguagem de relatório
 
