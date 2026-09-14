@@ -1,13 +1,16 @@
 """Public runtime defaults and execution-wide AI provider selection policy."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from types import MethodType
 import json
 import os
 from typing import Any, Mapping, MutableMapping
 
+from rasai.ai_cost_policy import resolve_price
 from rasai.ai_exchange_log import AiExchangeRecorder
 from rasai.ai_execution_state import clear_current_ai_execution, set_current_ai_execution
+from rasai.ai_model_runtime import model_definition
 from rasai.content_context import configured_content_analysis_context
 from rasai.copilot_provider import build_copilot_provider
 from rasai.dynamic_ai_routing import (
@@ -28,6 +31,8 @@ from rasai.provider_extensions_m20 import ExtensionContentRemediationProvider
 from rasai.provider_registry import get_provider_registration, provider_registrations
 from rasai.provider_wire_schema import project_provider_request_body
 
+# These mappings are startup projections and are refreshed by ai_model_runtime. Keeping
+# them as dictionaries preserves the stable API used by console/reporting consumers.
 SIMPLE_DEFAULT_MODELS: dict[str, str] = {
     "OPENAI": "gpt-5.6-luna",
     "DEEPSEEK": "deepseek-v4-flash",
@@ -72,15 +77,33 @@ def provider_reasoning_env(provider_name: str) -> str | None:
     return EXTENSION_REASONING_ENV.get(provider_name.strip().upper())
 
 
-def configured_reasoning(provider_name: str, env: Mapping[str, str] | None = None) -> str:
+def configured_reasoning(
+    provider_name: str,
+    env: Mapping[str, str] | None = None,
+    *,
+    model: str | None = None,
+) -> str:
     name = provider_name.strip().upper()
     environment = env if env is not None else os.environ
+    registration = get_provider_registration(name)
+    if registration is None:
+        raise ValueError(f"provider desconhecido: {provider_name}")
+    effective_model = (
+        model
+        or environment.get(registration.model_env)
+        or registration.public_default_model
+    ).strip()
+    definition = model_definition(name, effective_model)
+    if definition is None or not definition.enabled or not definition.is_effective():
+        raise ValueError(f"modelo indisponível para {name}: {effective_model}")
     variable = provider_reasoning_env(name)
-    raw = (environment.get(variable) if variable else None) or LOWEST_REASONING[name]
+    raw = (environment.get(variable) if variable else None) or definition.default_reasoning
     value = raw.strip().upper()
-    allowed = REASONING_OPTIONS[name]
+    allowed = definition.reasoning_values
     if value not in allowed:
-        raise ValueError(f"reasoning effort inválido para {name}: {value}; use {', '.join(allowed)}")
+        raise ValueError(
+            f"reasoning effort inválido para {name}/{effective_model}: {value}; use {', '.join(allowed)}"
+        )
     return value
 
 
@@ -108,9 +131,14 @@ def configured_simple_model(provider_name: str, env: Mapping[str, str] | None = 
     if registration is None:
         raise ValueError(f"provider desconhecido: {provider_name}")
     environment = env if env is not None else os.environ
-    raw = (environment.get(registration.model_env) or SIMPLE_DEFAULT_MODELS[name]).strip()
+    raw = (environment.get(registration.model_env) or registration.public_default_model).strip()
     if raw not in registration.supported_models:
-        raise ValueError(f"modelo inválido para {name}: {raw}; use {', '.join(registration.supported_models)}")
+        raise ValueError(
+            f"modelo inválido para {name}: {raw}; use {', '.join(registration.supported_models)}"
+        )
+    definition = model_definition(name, raw)
+    if definition is None or not definition.enabled or not definition.is_effective():
+        raise ValueError(f"modelo indisponível para {name}: {raw}")
     return raw
 
 
@@ -119,10 +147,11 @@ def environment_with_public_defaults(env: Mapping[str, str] | None = None) -> di
     result = dict(source)
     for registration in provider_registrations():
         name = registration.provider_name
-        result.setdefault(registration.model_env, SIMPLE_DEFAULT_MODELS[name])
+        result.setdefault(registration.model_env, registration.public_default_model)
         reasoning_env = provider_reasoning_env(name)
-        if reasoning_env:
-            result.setdefault(reasoning_env, LOWEST_REASONING[name])
+        definition = model_definition(name, result[registration.model_env])
+        if reasoning_env and definition is not None:
+            result.setdefault(reasoning_env, definition.default_reasoning)
     result.setdefault(AI_TIMEOUT_ENV, f"{DEFAULT_AI_TIMEOUT_SECONDS:g}")
     result.setdefault(WEB_PERFORMANCE_TIMEOUT_ENV, f"{DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS:g}")
     return result
@@ -164,19 +193,53 @@ def _install_provider_wire_projection(provider: Any) -> None:
     provider._transport = projected
 
 
-def _prepare_concrete_provider(provider: Any, *, effective_env: Mapping[str, str], recorder: AiExchangeRecorder, context: Any) -> Any:
+def _prepare_concrete_provider(
+    provider: Any,
+    *,
+    effective_env: Mapping[str, str],
+    recorder: AiExchangeRecorder,
+    context: Any,
+) -> Any:
     if isinstance(provider, IsolatedStructuredSemanticProvider):
-        _patch_extension_semantic_reasoning(provider, configured_reasoning(provider.name, effective_env))
+        _patch_extension_semantic_reasoning(
+            provider,
+            configured_reasoning(
+                provider.name,
+                effective_env,
+                model=str(getattr(provider, "model", "") or ""),
+            ),
+        )
     prepare_provider_for_execution(provider, recorder=recorder, context=context)
     _install_provider_wire_projection(provider)
     return provider
 
 
-def _build_registered_provider(selection: str, *, model: str | None, effective_env: Mapping[str, str]) -> Any:
+def _build_registered_provider(
+    selection: str,
+    *,
+    model: str | None,
+    effective_env: Mapping[str, str],
+) -> Any:
     registration = get_provider_registration(selection)
     if registration is not None and registration.id == "copilot":
         return build_copilot_provider(model_override=model, env=effective_env)
     return _build_semantic_provider(selection, model_override=model, env=effective_env)
+
+
+def _auto_model_reason(registration: Any, model: str) -> str | None:
+    definition = model_definition(registration.provider_name, model)
+    if definition is None or not definition.auto_eligible:
+        return "MODEL_NOT_AUTO_ELIGIBLE"
+    # AUTO is explicitly economic. An enabled model without a currently applicable
+    # pricing rule remains usable by explicit selection but cannot enter AUTO ranking.
+    if resolve_price(
+        registration.provider_name,
+        model,
+        at=datetime.now(timezone.utc),
+        input_tokens=0,
+    ) is None:
+        return "MODEL_UNPRICED_FOR_AUTO"
+    return None
 
 
 def _build_auto_provider(*, effective_env: Mapping[str, str]) -> DynamicProviderRoutingSession:
@@ -196,36 +259,80 @@ def _build_auto_provider(*, effective_env: Mapping[str, str]) -> DynamicProvider
             continue
         try:
             model = configured_simple_model(registration.provider_name, effective_env)
-            provider = _build_registered_provider(registration.id, model=model, effective_env=effective_env)
-            _prepare_concrete_provider(provider, effective_env=effective_env, recorder=recorder, context=context)
+            model_reason = _auto_model_reason(registration, model)
+            if model_reason is not None:
+                excluded.append(f"{registration.provider_name}:{model_reason}:{model}")
+                continue
+            provider = _build_registered_provider(
+                registration.id,
+                model=model,
+                effective_env=effective_env,
+            )
+            _prepare_concrete_provider(
+                provider,
+                effective_env=effective_env,
+                recorder=recorder,
+                context=context,
+            )
             providers.append(provider)
         except (TypeError, ValueError) as exc:
-            excluded.append(f"{registration.provider_name}:INVALID_CONFIGURATION:{type(exc).__name__}")
-    router = DynamicProviderRoutingSession(tuple(providers), excluded_configurations=tuple(excluded), recorder=recorder)
+            excluded.append(
+                f"{registration.provider_name}:INVALID_CONFIGURATION:{type(exc).__name__}"
+            )
+    router = DynamicProviderRoutingSession(
+        tuple(providers),
+        excluded_configurations=tuple(excluded),
+        recorder=recorder,
+    )
     install_dynamic_specialist_hooks()
     set_current_ai_execution(router, recorder)
     return router
 
 
-def build_semantic_provider(selection: str, *, model_override: str | None = None, env: Mapping[str, str] | None = None) -> Any:
+def build_semantic_provider(
+    selection: str,
+    *,
+    model_override: str | None = None,
+    env: Mapping[str, str] | None = None,
+) -> Any:
     effective_env = environment_with_public_defaults(env)
     context = configured_content_analysis_context(effective_env)
     selected = selection.strip().upper()
     if selected == "AUTO":
         if model_override:
-            raise ValueError("AUTO does not accept one global model override; configure models per provider")
+            raise ValueError(
+                "AUTO does not accept one global model override; configure models per provider"
+            )
         return _build_auto_provider(effective_env=effective_env)
 
     registration = get_provider_registration(selection)
     effective_model = model_override
-    if registration is not None and not effective_model:
-        effective_model = configured_simple_model(registration.provider_name, effective_env)
-    provider = _build_registered_provider(selection, model=effective_model, effective_env=effective_env)
+    if registration is not None:
+        if not effective_model:
+            effective_model = configured_simple_model(
+                registration.provider_name,
+                effective_env,
+            )
+        elif effective_model not in registration.supported_models:
+            raise ValueError(
+                f"modelo inválido para {registration.provider_name}: {effective_model}; use "
+                + ", ".join(registration.supported_models)
+            )
+    provider = _build_registered_provider(
+        selection,
+        model=effective_model,
+        effective_env=effective_env,
+    )
     if selected == "NONE":
         clear_current_ai_execution()
         return provider
     recorder = AiExchangeRecorder()
-    _prepare_concrete_provider(provider, effective_env=effective_env, recorder=recorder, context=context)
+    _prepare_concrete_provider(
+        provider,
+        effective_env=effective_env,
+        recorder=recorder,
+        context=context,
+    )
     set_current_ai_execution(provider, recorder)
     return provider
 
@@ -234,7 +341,11 @@ def _patch_content_provider_reasoning(provider: Any) -> None:
     if not isinstance(provider, ExtensionContentRemediationProvider):
         return
     name = provider.name
-    effort = getattr(provider.base, "reasoning_profile", LOWEST_REASONING.get(name, "PROVIDER_DEFAULT"))
+    effort = getattr(
+        provider.base,
+        "reasoning_profile",
+        LOWEST_REASONING.get(name, "PROVIDER_DEFAULT"),
+    )
     if name == "COPILOT":
         provider.reasoning_profile = "PROVIDER_DEFAULT"
 
@@ -281,17 +392,30 @@ def build_content_remediation_router(semantic_provider: Any) -> Any:
     if isinstance(semantic_provider, DynamicProviderRoutingSession):
         router = build_dynamic_content_remediation_router(semantic_provider)
     else:
-        from rasai.provider_extensions_m20 import build_content_remediation_router as _build_content_remediation_router
+        from rasai.provider_extensions_m20 import (
+            build_content_remediation_router as _build_content_remediation_router,
+        )
         router = _build_content_remediation_router(semantic_provider)
     for provider in getattr(router, "providers", ()):
         _patch_content_provider_reasoning(provider)
     return router
 
 
-def apply_console_reasoning_environment(provider_name: str, effort: str, environment: MutableMapping[str, str] | None = None) -> None:
+def apply_console_reasoning_environment(
+    provider_name: str,
+    effort: str,
+    environment: MutableMapping[str, str] | None = None,
+) -> None:
     env = environment if environment is not None else os.environ
     name = provider_name.strip().upper()
-    allowed = REASONING_OPTIONS[name]
+    registration = get_provider_registration(name)
+    if registration is None:
+        raise ValueError(f"provider desconhecido: {provider_name}")
+    model = configured_simple_model(name, env)
+    definition = model_definition(name, model)
+    if definition is None:
+        raise ValueError(f"modelo indisponível para {name}: {model}")
+    allowed = definition.reasoning_values
     value = effort.strip().upper()
     if value not in allowed:
         raise ValueError(f"use {', '.join(allowed)}")
