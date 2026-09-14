@@ -25,7 +25,7 @@ from rasai.m2 import M2ExecutionResult
 from rasai.m3 import M3ExecutionResult
 from rasai.m4 import M4ExecutionResult
 from rasai.m5 import M5ExecutionResult
-from rasai.m6 import execute_m6
+from rasai.m6 import _M6_DEFINITIONS, execute_m6
 from rasai.persistence import AuditPersistence, AuditWorkspace
 
 
@@ -33,6 +33,15 @@ _NOW = datetime(2026, 9, 2, 17, 0, tzinfo=timezone.utc)
 
 
 class M6JavascriptSpaTests(unittest.TestCase):
+    def test_discovery_rules_use_current_dimension_contract(self) -> None:
+        definitions = {definition.rule_id: definition for definition in _M6_DEFINITIONS}
+        self.assertEqual(definitions["BR-GEO-021"].dimension, "DISCOVERY_ACCESS")
+        self.assertEqual(definitions["BR-GEO-022"].dimension, "DISCOVERY_ACCESS")
+        self.assertNotIn(
+            "TECHNICAL_ACCESSIBILITY",
+            {definition.dimension for definition in _M6_DEFINITIONS},
+        )
+
     def test_raw_shell_plus_rendered_content_is_valid_csr_spa(self) -> None:
         analyzer = JavascriptSpaAnalyzer()
         raw = '<html><head><title>App</title></head><body><div id="root"></div></body></html>'
