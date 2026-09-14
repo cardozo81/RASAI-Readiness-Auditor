@@ -88,7 +88,7 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         "Common Crawl Index API / SCORE-GEO-004",
         "https://index.commoncrawl.org/",
         "Common Crawl fornece uma observação externa de histórico de rastreamento. Ausência na amostra consultada não prova ausência de descoberta nem falha do site.",
-        "RASAi usa BR-GEO-060 como corroboracão positive-only em DISCOVERY_ACCESS/EXTERNAL_CRAWL_CORROBORATION. Evidência ausente, erro, timeout ou alvo inelegível não gera FAIL, zero, redução de Coverage/Confidence nem Critical Gate.",
+        "RASAi usa BR-GEO-060 como corroboração positive-only em DISCOVERY_ACCESS/EXTERNAL_CRAWL_CORROBORATION. Evidência ausente, erro, timeout ou alvo inelegível não gera FAIL, zero, redução de Coverage/Confidence nem Critical Gate.",
     ),
     IndicatorProvenance(
         "HTTP / status / redirects",
