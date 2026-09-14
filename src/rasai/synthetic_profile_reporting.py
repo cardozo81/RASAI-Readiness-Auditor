@@ -138,7 +138,7 @@ def _lighthouse_disclosure() -> str:
         "<section class='panel'><div class='kicker'>Contexto Lighthouse</div>"
         "<h2>Perfil efetivo controlado pelo provider</h2>"
         "<p class='intro'>Na integração PageSpeed Insights, o RASAi escolhe a estratégia Mobile ou Desktop. CPU, throttling de rede, viewport e demais configSettings da execução remota são definidos pelo serviço/Lighthouse e são tratados como provenance observada, não como parâmetros arbitrariamente emulados pelo RASAi.</p>"
-        "<div class='notice'>Quando o artefato Lighthouse fornece <code>configSettings</code>, o RASAi persiste os valores efetivos — incluindo form factor, throttling, RTT/throughput, CPU slowdown, screen emulation, user agents e benchmark — para permitir leitura e comparação sem inventar campos ausentes.</div></section>"
+        "<div class='notice'>Quando o artefato Lighthouse fornece <code>configSettings</code>, o RASAi persiste os valores efetivos - incluindo form factor, throttling, RTT/throughput, CPU slowdown, screen emulation, user agents e benchmark - para permitir leitura e comparação sem inventar campos ausentes.</div></section>"
     )
 
 
