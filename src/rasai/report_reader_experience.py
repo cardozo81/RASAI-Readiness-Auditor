@@ -238,10 +238,12 @@ def _standards_service_status(row: sqlite3.Row) -> str:
     state = str(row["state"] or "UNKNOWN").upper()
     succeeded = int(row["targets_succeeded"] or 0)
     attempted = int(row["targets_attempted"] or 0)
-    if not requested or not enabled:
+    if not requested:
         return "DISABLED"
     if not configured:
         return "NOT_CONFIGURED"
+    if not enabled:
+        return "DISABLED"
     if state in {"SUCCESS", "COMPLETE", "READY", "MEASURED"} and (succeeded > 0 or attempted == 0):
         return "SUCCESS"
     if state in {"PARTIAL", "NO_DATA", "DATA_UNAVAILABLE", "EMPTY"}:
