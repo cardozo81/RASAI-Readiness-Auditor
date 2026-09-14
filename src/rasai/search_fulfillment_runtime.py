@@ -2,7 +2,7 @@
 
 Search Monitoring in the SaaS control plane remains a separate SEARCH_MONITOR job.
 This module covers only Search Intelligence explicitly requested as part of one local
-AUD console execution.  The work item stores the non-secret execution contract so a
+AUD console execution. The work item stores the non-secret execution contract so a
 later selective reprocessing run can repeat only this observation with the current
 credential for the same provider/configuration.
 """
@@ -17,6 +17,7 @@ from rasai.audit_fulfillment import (
     SUCCESS,
     begin_attempt,
     finish_attempt,
+    list_work_items,
     live_valid_until,
     project_report_validity,
     register_work_item,
@@ -40,6 +41,7 @@ def _configuration(state: Any) -> dict[str, Any]:
             "mode": str(runtime.mode or "disabled"),
             "provider": provider,
             "engine": _engine_for_provider(provider),
+            "fixture_path": str(runtime.fixture_path) if runtime.fixture_path is not None else "",
             "max_queries": int(runtime.max_queries),
             "max_requests": int(runtime.max_requests),
             "max_depth": int(runtime.max_depth),
@@ -75,6 +77,17 @@ def _workspace(state: Any) -> AuditWorkspace | None:
     return AuditWorkspace.open(root)
 
 
+def _current_item(workspace: AuditWorkspace, audit_id: str):
+    return next(
+        (
+            item
+            for item in list_work_items(workspace, audit_id)
+            if item.component == "SEARCH_INTELLIGENCE" and item.scope_key == "AUDIT"
+        ),
+        None,
+    )
+
+
 def _project(state: Any) -> None:
     queries = tuple(getattr(state, "search_queries", ()) or ())
     if not queries:
@@ -97,39 +110,42 @@ def _project(state: Any) -> None:
 
     status = str(getattr(state, "search_last_status", "") or "").upper()
     detail = str(getattr(state, "search_last_detail", "") or "").strip()
+    current_item = _current_item(workspace, audit_id)
     if status == "COMPLETE":
-        attempt_id = begin_attempt(
-            workspace,
-            audit_id=audit_id,
-            component="SEARCH_INTELLIGENCE",
-            metadata={"surface": "console", "queries": len(queries)},
-        )
-        finish_attempt(
-            workspace,
-            attempt_id,
-            status=SUCCESS,
-            result_ref="search-intelligence:effective",
-            retryable=False,
-            metadata={"console_status": status},
-        )
+        if current_item is None or current_item.status != SUCCESS:
+            attempt_id = begin_attempt(
+                workspace,
+                audit_id=audit_id,
+                component="SEARCH_INTELLIGENCE",
+                metadata={"surface": "console", "queries": len(queries)},
+            )
+            finish_attempt(
+                workspace,
+                attempt_id,
+                status=SUCCESS,
+                result_ref="search-intelligence:effective",
+                retryable=False,
+                metadata={"console_status": status},
+            )
     elif status == "COMPLETE_WITH_LIMITATIONS":
-        attempt_id = begin_attempt(
-            workspace,
-            audit_id=audit_id,
-            component="SEARCH_INTELLIGENCE",
-            metadata={"surface": "console", "queries": len(queries)},
-        )
-        finish_attempt(
-            workspace,
-            attempt_id,
-            status=FAILED_RETRYABLE,
-            error_class="SEARCH_PROVIDER",
-            error_code="SEARCH_INTELLIGENCE_INCOMPLETE",
-            error_message=detail or "Search Intelligence terminou com limitações",
-            retryable=True,
-            metadata={"console_status": status},
-        )
-    else:
+        if current_item is None or current_item.status != SUCCESS:
+            attempt_id = begin_attempt(
+                workspace,
+                audit_id=audit_id,
+                component="SEARCH_INTELLIGENCE",
+                metadata={"surface": "console", "queries": len(queries)},
+            )
+            finish_attempt(
+                workspace,
+                attempt_id,
+                status=FAILED_RETRYABLE,
+                error_class="SEARCH_PROVIDER",
+                error_code="SEARCH_INTELLIGENCE_INCOMPLETE",
+                error_message=detail or "Search Intelligence terminou com limitações",
+                retryable=True,
+                metadata={"console_status": status},
+            )
+    elif current_item is None or current_item.status != SUCCESS:
         set_work_item_status(
             workspace,
             audit_id=audit_id,
