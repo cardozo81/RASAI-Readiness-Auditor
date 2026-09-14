@@ -1,5 +1,7 @@
 # Contrato de apresentação dos relatórios
 
+**Estado:** vigente.
+
 Este documento define regras de apresentação que são comuns ao mini-site HTML do RASAi. Ele não altera cálculo, pesos, gates, persistência ou evidência do `SARI-001` / `SCORE-GEO-004` e não altera a fórmula Apdex.
 
 ## Faixas visuais do SARI
@@ -31,7 +33,7 @@ Ausência de dado nunca deve aparecer ao usuário como um vazio sem causa quando
 | Executado parcialmente | houve execução, mas parte do universo ou das fontes não produziu resultado utilizável |
 | Executado sem dado utilizável | a fonte/operação respondeu, porém não entregou evidência utilizável para o indicador |
 | Falhou / indisponível | houve tentativa ou bloqueio operacional e o resultado esperado não pôde ser materializado |
-| Estado não determinado | somente para legado/ausência real de estado persistido; não deve ser convertido em sucesso ou falha |
+| Estado não determinado | não há estado persistido suficiente para classificar a execução com segurança; não deve ser convertido em sucesso ou falha |
 
 Regras obrigatórias:
 
