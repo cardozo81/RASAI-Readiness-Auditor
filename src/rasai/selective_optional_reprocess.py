@@ -512,22 +512,27 @@ def _audit_domain(workspace: Any, audit_id: str) -> str:
     return host
 
 
+def _configured_value(values: Mapping[str, Any], name: str, default: Any) -> Any:
+    raw = values.get(name)
+    return default if raw is None or raw == "" else raw
+
+
 def _search_runtime_config(item: Any):
     from rasai.search_intelligence.config import SerpRuntimeConfig
 
     values = dict(getattr(item, "configuration", {}) or {})
-    fixture = str(values.get("fixture_path") or "").strip()
+    fixture = str(_configured_value(values, "fixture_path", "")).strip()
     return SerpRuntimeConfig(
-        mode=str(values.get("mode") or "disabled"),
-        provider=str(values.get("provider") or "serpapi"),
+        mode=str(_configured_value(values, "mode", "disabled")),
+        provider=str(_configured_value(values, "provider", "serpapi")),
         fixture_path=Path(fixture) if fixture else None,
-        max_queries=int(values.get("max_queries") or 10),
-        max_requests=int(values.get("max_requests") or 10),
-        max_depth=int(values.get("max_depth") or 20),
-        max_competitors=int(values.get("max_competitors") or 10),
-        timeout_seconds=float(values.get("timeout_seconds") or 20.0),
-        retries=int(values.get("retries") or 1),
-        min_interval_seconds=float(values.get("min_interval_seconds") or 1.0),
+        max_queries=int(_configured_value(values, "max_queries", 10)),
+        max_requests=int(_configured_value(values, "max_requests", 10)),
+        max_depth=int(_configured_value(values, "max_depth", 20)),
+        max_competitors=int(_configured_value(values, "max_competitors", 10)),
+        timeout_seconds=float(_configured_value(values, "timeout_seconds", 20.0)),
+        retries=int(_configured_value(values, "retries", 1)),
+        min_interval_seconds=float(_configured_value(values, "min_interval_seconds", 1.0)),
     ).validate()
 
 
