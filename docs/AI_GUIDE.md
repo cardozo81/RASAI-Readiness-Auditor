@@ -1,53 +1,20 @@
 # Guia de IA
 
-O RASAi usa IA apenas em finalidades opcionais e evidence-bound. A auditoria principal continua capaz de executar sem IA.
+O RASAi usa IA em finalidades opcionais e evidence-bound. A auditoria determinística continua capaz de executar sem IA. Todos os consumidores de IA reutilizam a mesma seleção principal e a mesma orquestração central de provider/modelo, custo, quarentena, circuit breaker e fallback.
 
 ## Finalidades
 
-1. **análise semântica**: avalia somente as evidências fornecidas pelo RASAi e deve devolver saída estruturada compatível com o contrato local;
-2. **remediação textual opcional (Sugestões e remediação de conteúdo por IA)**: produz sugestões exatas somente para findings elegíveis e com evidência suficiente;
-3. **remediação técnica opcional de crawling/discovery (Rastreamento, descoberta e acesso de crawlers)**: explica diagnósticos técnicos já determinados pelo runtime e pode sugerir correção evidence-bound, sem alterar scoring ou política editorial automaticamente.
+A composição atual usa IA para finalidades como:
 
-Nenhuma dessas finalidades autoriza inventar fatos, credenciais, preços, datas, estatísticas, URLs, crawler policies ou evidências.
+- análise semântica baseada somente nas evidências fornecidas;
+- sugestões e remediação de conteúdo por IA;
+- orientação técnica opcional sobre diagnósticos já determinados pelo runtime;
+- análise profunda de uma URL quando habilitada;
+- análises especializadas que fazem parte do relatório consolidado ou de outras superfícies opcionais.
 
-## Contexto editorial para evitar análise genérica
+Nenhuma finalidade autoriza inventar fatos, credenciais, preços, datas, estatísticas, URLs, políticas de crawler ou evidências.
 
-A mesma evidência textual não deve ser interpretada com a mesma régua em qualquer página. Quando configurado, o RASAi fornece aos providers um contexto editorial explícito:
-
-```text
-risk profile: standard | ymyl | auto
-YMYL category
-page purpose
-intended audience
-experience requirement
-freshness sensitivity
-content origin
-```
-
-Esses valores vêm das variáveis `RASAI_CONTENT_*`, `RASAI_YMYL_CATEGORY`, `RASAI_PAGE_PURPOSE`, `RASAI_INTENDED_AUDIENCE`, `RASAI_EXPERIENCE_REQUIREMENT` e `RASAI_FRESHNESS_SENSITIVITY`.
-
-Regras:
-
-- valor explícito é contexto fornecido pelo operador e permanece como configuração oficial;
-- quando um campo está em `auto` e IA está ligada, o provider pode produzir uma **interpretação transitória** baseada somente nas evidências/conteúdo enviados;
-- essa interpretação é mostrada separadamente em `readiness.html`, sem substituir o valor `AUTO`;
-- a interpretação transitória não sobrescreve `content_analysis_contexts`, não vira evidência determinística e não altera diretamente `SARI-001`/`SCORE-GEO-004`;
-- quando a evidência não sustenta uma classificação, o relatório deve mostrar `Não determinável`;
-- quando o conteúdo é claramente YMYL e a organização já conhece sua classificação, configuração explícita continua preferível;
-- YMYL eleva a exigência de confiança, atribuição, suporte factual e qualificadores onde material;
-- Trust é tratado como elemento central de E-E-A-T; Experience, Expertise e Authoritativeness são considerados conforme o propósito/tópico, não exigidos mecanicamente em todo conteúdo;
-- a IA não pode inferir como fato credenciais, compliance, revisão profissional, reputação externa, experiência pessoal ou processo editorial oculto;
-- contexto editorial não cria um score E-E-A-T/YMYL e não entra diretamente na aritmética do `SARI-001`.
-
-A base conceitual e os valores completos estão em [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md) e o comportamento transitório está em [CONTENT_CONTEXT_AI_INTERPRETATION.md](CONTENT_CONTEXT_AI_INTERPRETATION.md).
-
-Fontes oficiais principais:
-
-- <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
-- <https://services.google.com/fh/files/misc/hsw-sqrg.pdf>
-- <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf>
-
-## Providers
+## Providers integrados
 
 Providers concretos no registry:
 
@@ -70,9 +37,54 @@ claude         -> anthropic
 github-copilot -> copilot
 ```
 
-Em `AI=auto`, participam apenas os providers registrados como `auto_eligible`, com credencial e configuração válidas. O registry é a fonte de verdade; não existe uma cadeia fixa limitada aos providers históricos.
+`none` desabilita IA. `auto` aciona a orquestração econômica entre providers elegíveis.
 
-`copilot` é deliberadamente **explicit-only**: mesmo com credencial válida, não entra em `AI=auto`. Isso impede que a presença de um token de usuário faça o RASAi consumir silenciosamente créditos/franquia da assinatura GitHub Copilot. O usuário precisa selecionar Copilot de forma explícita.
+GitHub Copilot permanece explicit-only: a presença de uma credencial não o inclui automaticamente no `AUTO`.
+
+## Catálogo de modelos
+
+Os adapters técnicos continuam em código. Modelos são configurados declarativamente em:
+
+```text
+src/rasai/config/ai-models-defaults.toml
+```
+
+O operador pode usar:
+
+```ini
+RASAI_AI_MODELS_SOURCE = file
+RASAI_AI_MODELS_FILE = ai-models.toml
+```
+
+Isso permite adicionar ou desativar modelos de providers já integrados, alterar default, reasoning permitido e elegibilidade ao `AUTO`, sem alterar código quando o novo modelo continuar compatível com o protocolo do adapter existente.
+
+Detalhamento e exemplos: [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md).
+
+### Catálogo de fábrica em 14/09/2026
+
+| Provider | Default público | Reasoning default |
+|---|---|---|
+| OpenAI | `gpt-5.6-luna` | `NONE` |
+| DeepSeek | `deepseek-v4-flash` | `NONE` |
+| MiMo | `mimo-v2.5` | `NONE` |
+| xAI | `grok-4.6` | `LOW` |
+| Qwen | `qwen3.8-flash` | `PROVIDER_DEFAULT` |
+| Gemini | `gemini-3.8-flash` | `LOW` |
+| Anthropic | `claude-sonnet-5` | `LOW` |
+| GitHub Copilot | `auto` | `PROVIDER_DEFAULT` |
+
+Essa tabela é somente a fotografia de fábrica. O catálogo efetivamente carregado é a autoridade da execução.
+
+## Seleção do modelo e reasoning
+
+As variáveis por provider continuam selecionando o modelo efetivo, por exemplo:
+
+```ini
+RASAI_OPENAI_MODEL = gpt-5.6-luna
+RASAI_OPENAI_REASONING_EFFORT = NONE
+```
+
+O modelo precisa existir, estar habilitado/selecionável e vigente no catálogo. O reasoning precisa pertencer a `reasoning_values` **daquele modelo**. Configuração inválida é rejeitada; não existe troca silenciosa para outro modelo.
 
 ## Credenciais
 
@@ -87,124 +99,56 @@ ANTHROPIC_API_KEY
 COPILOT_GITHUB_TOKEN
 ```
 
-A presença de uma key/token não garante saldo, quota, plano compatível ou acesso ao modelo.
+A presença de uma credencial não garante saldo, quota, assinatura ou acesso ao modelo.
 
-MiMo PAYG usa credencial `sk-...` no adapter atual. Token Plan `tp-...` pertence a produto/endpoint diferente.
+MiMo PAYG usa credencial `sk-...` no adapter atual. GitHub Copilot usa token de usuário compatível com o SDK; o fluxo local recomendado usa fine-grained PAT com `Copilot Requests`, e o adapter desativa fallback para outra sessão GitHub local.
 
-GitHub Copilot usa um token de usuário compatível com o Copilot SDK. Para operação local do RASAi, o recomendado é fine-grained PAT com a permissão de conta `Copilot Requests`; classic PAT `ghp_` não é suportado nesse fluxo. A integração desativa fallback para credenciais locais do Copilot CLI/GitHub CLI.
+Referência: [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
 
-As URLs oficiais para criar/gerenciar as credenciais de todos os providers estão em [PROVIDER_SETUP.md](PROVIDER_SETUP.md) e também são expostas pelo console de variáveis.
+## Contexto editorial
 
-## Defaults públicos
-
-Quando o usuário não informa override, o produto privilegia menor custo/complexidade e o menor esforço suportado pelo adapter/modelo:
-
-| Provider | Modelo default | Esforço default |
-|---|---|---|
-| OpenAI | `gpt-5.6-luna` | `NONE` |
-| DeepSeek | `deepseek-v4-flash` | `NONE` |
-| MiMo | `mimo-v2.5` | `NONE` |
-| xAI | `grok-4.6` | `LOW` |
-| Qwen | `qwen3.8-flash` | `PROVIDER_DEFAULT` |
-| Gemini | `gemini-3.8-flash` | `LOW` |
-| Anthropic | `claude-sonnet-5` | `LOW` |
-| GitHub Copilot | `auto` | `PROVIDER_DEFAULT` |
-
-Overrides explícitos continuam prevalecendo quando suportados.
-
-### OpenAI
-
-Modelos aceitos pelo adapter atual:
+Quando configurado, o RASAi fornece contexto editorial explícito à IA:
 
 ```text
-gpt-5.6-sol
-gpt-5.6-terra
-gpt-5.6-luna
+risk profile
+YMYL category
+page purpose
+intended audience
+experience requirement
+freshness sensitivity
+content origin
 ```
 
-Default público: `gpt-5.6-luna` com esforço `NONE`.
+Campos em `auto` podem gerar apenas uma interpretação transitória baseada nas evidências disponíveis. Essa interpretação não substitui a configuração oficial, não vira evidência determinística e não altera diretamente scoring.
 
-### DeepSeek
+O RASAi não deve inferir como fato credenciais, compliance, revisão profissional, reputação externa, experiência pessoal ou processo editorial oculto.
 
-Modelos:
+Referências: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md) e [CONTENT_CONTEXT_AI_INTERPRETATION.md](CONTENT_CONTEXT_AI_INTERPRETATION.md).
+
+## AUTO, preço e fallback
+
+Modelos e preços são catálogos separados:
 
 ```text
-deepseek-v4-pro
-deepseek-v4-flash
+ai-models*.toml   -> capacidade e elegibilidade
+ai-pricing*.toml  -> política comercial
 ```
 
-Default público: `deepseek-v4-flash` com thinking desabilitado (`NONE`) quando não há override.
+Para cada provider, o `AUTO` resolve um modelo efetivo a partir do override do provider ou do `public_default` do catálogo. O candidato somente entra no ranking econômico quando:
 
-### MiMo
+1. provider e modelo são tecnicamente válidos;
+2. há credencial/configuração válida;
+3. o modelo está habilitado, vigente e `auto_eligible=true`;
+4. existe regra de pricing vigente para o modelo;
+5. o provider não está inelegível pela saúde/quarentena.
 
-Modelos:
+O runtime estima o custo da necessidade atual e ordena os candidatos elegíveis do menor para o maior custo. A ordem pode mudar por horário, tokens, contexto, cache e reasoning.
 
-```text
-mimo-v2.5-pro
-mimo-v2.5
-```
+**Modelo sem pricing vigente não participa do `AUTO`.** Ele pode continuar disponível para seleção explícita quando o catálogo permitir. Ausência de preço nunca é tratada como custo zero.
 
-Default público: `mimo-v2.5` com `NONE`.
+Cada provider pode ser tentado no máximo uma vez por necessidade. Falhas temporárias seguem a política central de retry/circuit breaker; condições terminais retiram o provider do restante da execução conforme o contrato de resiliência vigente.
 
-### xAI
-
-Modelo atual:
-
-```text
-grok-4.6
-```
-
-O modelo é reasoning-only no contrato atual; o menor esforço configurável usado como default é `LOW`.
-
-### Qwen
-
-Modelos:
-
-```text
-qwen3.8-max
-qwen3.8-flash
-```
-
-Default público: `qwen3.8-flash`. O adapter atual não expõe um parâmetro de reasoning validado, portanto usa `PROVIDER_DEFAULT`.
-
-### Gemini
-
-Modelo atual:
-
-```text
-gemini-3.8-flash
-```
-
-Default público de thinking: `LOW` na integração atual.
-
-### Anthropic
-
-Modelo atual:
-
-```text
-claude-sonnet-5
-```
-
-Default público de effort: `LOW`.
-
-### GitHub Copilot
-
-O adapter usa o SDK oficial `github-copilot-sdk` e o modelo público `auto`:
-
-```text
-RASAI_COPILOT_MODEL=auto
-COPILOT_GITHUB_TOKEN=<token de usuário>
-```
-
-O pacote é opcional:
-
-```powershell
-python -m pip install -e ".[copilot]"
-```
-
-A autenticação é explicitamente vinculada ao token configurado e `use_logged_in_user=false`; isso evita fallback silencioso para uma sessão Copilot/GitHub existente na máquina. O SDK é usado sem tools disponíveis e com a política deny-by-default de permissões, pois o RASAi precisa apenas de inferência evidence-bound, não de capacidades agentic de edição/shell/browser.
-
-Copilot permanece fora de `AI=auto`; selecione `copilot` ou `github-copilot` explicitamente.
+Detalhes: [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md) e [AI_PRICING_CONFIGURATION.md](AI_PRICING_CONFIGURATION.md).
 
 ## Timeout
 
@@ -212,180 +156,76 @@ Copilot permanece fora de `AI=auto`; selecione `copilot` ou `github-copilot` exp
 RASAI_AI_TIMEOUT_SECONDS
 ```
 
-Default público:
-
-```text
-180 segundos por tentativa
-```
-
-O timeout limita cada chamada ao provider; não representa tempo máximo da auditoria completa.
-
-O console permite alterar o timeout diretamente na opção 4.
-
-## Remediação textual Sugestões e remediação de conteúdo por IA
-
-Superfície:
-
-```text
---ai-content-remediation
---no-ai-content-remediation
-RASAI_AI_CONTENT_REMEDIATION
-```
-
-Default: OFF.
-
-Sugestões e remediação de conteúdo por IA atua sobre conteúdo/findings elegíveis depois do scoring e nunca recalcula o score.
-
-## Remediação técnica Rastreamento, descoberta e acesso de crawlers
-
-Superfície:
-
-```text
---ai-technical-remediation
---no-ai-technical-remediation
-RASAI_AI_TECHNICAL_REMEDIATION
-```
-
-Default: OFF.
-
-A execução determinística de crawling/discovery não depende dessa opção. O flag habilita somente a camada de IA sobre diagnósticos técnicos já persistidos.
-
-A remediação técnica deve respeitar estas fronteiras:
-
-- não criar nem alterar `RuleExecution`, Finding, Recommendation GEO, Score, Coverage, Confidence ou Consolidation;
-- não inventar URL, canonical, sitemap, data ou crawler token;
-- não decidir automaticamente se GPTBot/Google-Extended devem ser permitidos ou bloqueados;
-- distinguir OAI-SearchBot de GPTBot;
-- tratar Google-Extended como token de produto, não como crawler Search independente;
-- tratar `llms.txt` como proposta comunitária experimental e non-scoring;
-- exigir revisão humana antes de qualquer alteração em `robots.txt`, sitemap ou conteúdo publicado.
-
-Quando não existe provider compatível/configurado, o estado técnico de IA fica indisponível/`NOT_CONFIGURED`; isso não é finding do website.
-
-Documentação normativa: [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md).
-
-## Console interativo
-
-A opção 4 reúne:
-
-```text
-provider
-modelo
-esforço/profundidade, quando suportado
-timeout por tentativa
-```
-
-A opção 5, **Remediação textual IA**, só fica disponível com provider apto. Com IA=`none` ou nenhum provider AUTO elegível, o console informa a indisponibilidade sem transformar isso em finding do site.
-
-O grupo **IA - contexto editorial / YMYL** em `E. Variáveis de ambiente / credenciais` expõe os parâmetros contextuais com domínio aceito, default, explicação de impacto e link para a documentação específica. As credenciais de IA exibem também a URL oficial de cadastro/login onde o usuário cria ou gerencia a key/token.
-
-A remediação técnica é uma superfície CLI/ambiente na implementação atual. Não deve ser presumida como opção persistida no INI do console até existir integração explícita correspondente.
-
-## Persistência de configuração e secrets
-
-`rasai-console.ini` pode persistir provider, modelo, esforço, timeout e demais parâmetros não sensíveis previstos pelo INI.
-
-API keys e outros secrets **não são gravados no INI**. O console permite inseri-los pelo menu de variáveis, usa entrada sem eco e mostra apenas `[SET]`.
-
-O contexto editorial configurado é persistido em `content_analysis_contexts` para que o relatório conheça a configuração efetiva usada na auditoria. Quando o valor configurado é `auto`, continua persistido como `AUTO`; a interpretação produzida pela IA não sobrescreve esse valor nem cria uma classificação canônica paralela no banco.
-
-## AUTO, custo e fallback
-
-AUTO constrói dinamicamente o pool de providers registrados como elegíveis e configurados corretamente na execução. Providers marcados como explicit-only, como GitHub Copilot, não entram nesse pool.
-
-Antes de cada necessidade, o runtime estima o custo da requisição para os candidatos ainda elegíveis considerando provider, modelo, reasoning, input/output esperados, cache observado e regra tarifária vigente naquele instante. Providers com preço conhecido são ordenados do menor para o maior custo estimado. A ordem é recalculada a cada necessidade e pode mudar por horário, volume de tokens ou janela tarifária.
-
-Em uma mesma necessidade, cada provider pode ser tentado no máximo uma vez. Se o primeiro candidato falhar temporariamente, o fallback segue para o próximo; esse provider pode voltar ao pool em uma necessidade futura enquanto não atingir o circuit breaker.
-
-Condições terminais como autenticação, crédito, quota terminal, permissão, modelo inválido/inexistente e HTTP 401/403/404/410 retiram o provider do restante da execução. Falhas temporárias abrem o circuit breaker quando três falhas aparecem entre as últimas cinco observações daquele provider. A política de custo não altera esses limiares e não reativa provider em quarentena.
-
-A exclusão é somente da auditoria atual e não altera a configuração global.
-
-O termo `AUTO` do roteamento de providers é diferente de campos editoriais `auto`: o primeiro escolhe dinamicamente um provider; o segundo mantém a configuração editorial indefinida e permite apenas uma interpretação transitória para apresentação.
-
-Contratos detalhados: [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md) e [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md).
+Default público: `180` segundos por tentativa. O timeout não representa duração máxima da auditoria completa.
 
 ## Structured output e validação local
 
-O schema local do RASAi permanece normativo. Quando o wire format do provider aceita apenas um subconjunto do JSON Schema, o runtime projeta o schema imediatamente antes do transporte e mantém as validações locais mais estritas depois da resposta.
-
-Na integração OpenAI isso evita enviar constraints incompatíveis em contratos estruturados de análise/remediação sem relaxar os invariantes que o RASAi valida localmente. Na integração Copilot, o contrato provider-neutral completo, incluindo o schema esperado e as evidências permitidas, é encapsulado no prompt do SDK e continua sendo validado localmente depois da resposta.
+O schema local do RASAi permanece normativo. Quando o wire format do provider aceita apenas um subconjunto do contrato, o runtime adapta o transporte e mantém as validações locais depois da resposta.
 
 Erro de schema/request é erro técnico de integração, não defeito do website auditado.
 
+## Remediações e análises especializadas
+
+As superfícies opcionais não possuem provider/modelo paralelo. Quando usam IA, recebem a mesma seleção principal:
+
+```text
+provider explícito
+ou
+AUTO central
+```
+
+Em `AUTO`, isso reutiliza a mesma política de custo, qualification, pricing, quarentena, circuit breaker e fallback. A finalidade pode alterar o tamanho estimado de input/output, mas não cria outro mecanismo de roteamento.
+
+## GitHub Copilot
+
+O adapter usa o SDK oficial `github-copilot-sdk` e o modelo de fábrica `auto`:
+
+```text
+RASAI_COPILOT_MODEL=auto
+COPILOT_GITHUB_TOKEN=<token de usuário>
+```
+
+Instalação opcional:
+
+```powershell
+python -m pip install -e ".[copilot]"
+```
+
+A autenticação usa o token configurado e `use_logged_in_user=false`. O RASAi disponibiliza apenas a inferência necessária ao contrato evidence-bound e não habilita tools de edição/shell/browser. Copilot permanece fora de `AUTO` por padrão de produto.
+
 ## Telemetria
 
-Quando disponível, o RASAi persiste por tentativa:
+Quando disponível, cada tentativa registra de forma sanitizada:
 
 ```text
 provider
 modelo
 reasoning profile
 status
-started_at / finished_at
-latência/duração
+horários e duração
 tokens input/cache/output/reasoning/total
 custo estimado
 moeda
 versão de pricing
-diagnóstico sanitizado
+diagnóstico técnico
 ```
 
-Além da telemetria agregada, `ai_exchange_log` registra os envelopes externos sanitizados de request e response, com finalidade, página/snapshot, endpoint sanitizado, duração, resultado, hashes e truncamento. A projeção principal desse log está em `ai-usage.html`.
+A execução também preserva a versão do catálogo de pricing. No SaaS, modelo e pricing são fixados por snapshot de job, com versão e hash, para que uma publicação administrativa durante a auditoria não altere uma execução em andamento.
 
-No AUTO, o snapshot de sessão também expõe a estratégia `COST_AWARE_WITH_CIRCUIT_BREAKER`, a versão do pricing, a data recomendada de revisão e o último ranking econômico calculado.
+Secrets, headers de autenticação, passwords/client secrets e conteúdo reconhecido como raciocínio privado não são persistidos como telemetria pública.
 
-Headers de autenticação, API keys, tokens, passwords/client secrets e campos reconhecidos como raciocínio privado não são persistidos. O log pode conter conteúdo/evidência da página enviados ao provider e deve receber a mesma proteção de acesso/retenção do workspace da auditoria.
+## Console e persistência
 
-Uma resposta recebida e posteriormente rejeitada pelo contrato local continua sendo uma chamada externa e pode ter consumo/custo. O relatório deve distingui-la de falha de transporte e de resposta aceita.
+O console permite selecionar provider/modelo/reasoning apenas entre valores válidos do catálogo efetivo. `rasai-console.ini` pode persistir configuração não sensível; API keys e tokens não são gravados nesse arquivo.
 
-O custo é estimativa técnica local, não invoice do provider. Quando não existe base de pricing confiável para aquele adapter/modelo, o HTML deve mostrar custo indisponível em vez de fabricar valor.
+O catálogo local de modelos e o catálogo local de pricing também não são secret stores. Suas origens e caminhos são configuração administrativa persistível.
 
-Para Sugestões e remediação de conteúdo por IA, `content-suggestions.html` mostra um resumo e oferece atalho para o detalhamento em `ai-usage.html`.
+## Referências
 
-Para Rastreamento, descoberta e acesso de crawlers, a finalidade técnica deve permanecer identificável em `crawling-discovery.html`/`ai-usage.html` e não ser misturada com o score de qualidade do website.
-
-## Segurança
-
-- nunca copie uma key real para documentação, issue, report ou log;
-- não persista secrets no INI;
-- não reutilize credencial de um provider em outro endpoint;
-- não assuma que key configurada significa crédito disponível;
-- falha de provider não deve ser convertida em finding do website;
-- `evidence_ids` retornados por provider são limitados ao conjunto exato fornecido naquele contexto; referência a ID externo ao input invalida a resposta, não a evidência local;
-- provider configurado/chamado com resposta indisponível ou rejeitada por contrato deve aparecer como execução degradada, e não como `NO_AI`;
-- sugestão textual/técnica exige revisão humana antes de publicação;
-- IA de crawling/discovery não pode escolher unilateralmente política de treinamento/crawler da organização;
-- contexto YMYL não autoriza inferir responsabilidade legal/regulatória.
-
-Detalhamento de retenção/sanitização: [AI_RUNTIME_SECURITY.md](AI_RUNTIME_SECURITY.md).
-
-## Documentos relacionados
-
-- [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
+- [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md)
+- [AI_PRICING_CONFIGURATION.md](AI_PRICING_CONFIGURATION.md)
 - [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md)
-- [AI_RUNTIME_SECURITY.md](AI_RUNTIME_SECURITY.md)
-- [REPORTING_AI_USAGE.md](REPORTING_AI_USAGE.md)
-- [CONTENT_CONTEXT_AI_INTERPRETATION.md](CONTENT_CONTEXT_AI_INTERPRETATION.md)
-- [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md)
-- [CONFIGURATION.md](CONFIGURATION.md)
-- [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
-- [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md)
-- [AI_PROVIDER_EXTENSIONS.md](AI_PROVIDER_EXTENSIONS.md)
+- [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
 - [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
 - [PROVIDER_SETUP.md](PROVIDER_SETUP.md)
-- [OPENAI_PROVIDER_DIAGNOSTICS.md](OPENAI_PROVIDER_DIAGNOSTICS.md)
-- [specification/18_AI_RUNTIME_ORCHESTRATION.md](specification/18_AI_RUNTIME_ORCHESTRATION.md)
-- [specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md](specification/24_CRAWLING_DISCOVERY_AI_ACCESS.md)
-
-<!-- rasai-ai-purpose-separation-20260908 -->
-## Separação das remediações por IA
-
-As finalidades são independentes:
-
-- `RASAI_AI_CONTENT_REMEDIATION`: sugestões textuais evidence-bound para findings de conteúdo elegíveis;
-- `RASAI_AI_TECHNICAL_REMEDIATION`: explicação/remediação advisory de crawling, discovery, `robots.txt`, sitemap e controles de crawlers.
-
-Execução degradada ou `CONTRACT_ERROR` significa que a finalidade foi habilitada e houve tentativa de provider, mas a resposta não foi aceita pelo contrato; isso não deve ser apresentado como "IA desabilitada". A remediação de conteúdo restringe `finding_id` e `evidence_ids` ao universo enviado e persiste reason codes seguros para falhas contratuais.
-
-A IA técnica de crawling/discovery não possui autoridade para elevar Confidence ou SARI por julgamento. Ela permanece advisory; somente evidência válida incorporada por uma regra de scoring pode alterar Coverage/Confidence.
+- [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
