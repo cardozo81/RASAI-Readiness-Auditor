@@ -83,6 +83,17 @@ from rasai.standards_structured_data_reconciliation import install as install_st
 from rasai.system_default_dependencies import install as install_system_default_dependencies
 from rasai.system_defaults import install as install_system_defaults
 from rasai.target_input_runtime import install as install_target_input_runtime
+from rasai.windows_environment import activate_persisted_environment
+
+
+def _activate_persisted_console_secrets() -> tuple[str, ...]:
+    """Hydrate known persisted secrets before readiness/configuration is evaluated."""
+    specs = console_environment.refresh_specs()
+    return activate_persisted_environment(
+        spec.name
+        for spec in specs
+        if console_environment.base_environment._is_sensitive_spec(spec)
+    )
 
 
 def main() -> int:
@@ -119,6 +130,11 @@ def main() -> int:
     install_gsc_oauth_console()
     install_external_observability_runtime()
     install_improvement_intelligence_environment()
+    # Windows/User persistence lives in HKCU and does not require elevation. Read known
+    # persisted secrets directly before config/readiness evaluation so a stale parent
+    # shell environment cannot make a successfully persisted credential appear absent.
+    # An explicit non-empty process/session value keeps precedence.
+    _activate_persisted_console_secrets()
     prepare_console_config()
     install_ai_efficiency_policy()
     install_runtime_completion_extensions()
