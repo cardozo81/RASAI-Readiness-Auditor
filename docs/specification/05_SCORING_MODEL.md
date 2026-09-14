@@ -1,6 +1,6 @@
-# SCORING_MODEL.md
+# Modelo de scoring
 
-**Estado no baseline de desenvolvimento:** aprovado / vigente  
+**Estado:** vigente  
 **Scoring vigente:** `SCORE-GEO-004`  
 **Índice público:** `SARI-001`  
 **Contrato de agregação:** `HIERARCHICAL_WEIGHTED_READINESS_V1`
@@ -9,9 +9,9 @@
 
 `SCORE-GEO-004` é o método proprietário e versionado de scoring vigente do RASAi.
 
-“Aprovado” significa aprovado como baseline normativa interna. Não significa homologação por Google, OpenAI, Microsoft, Anthropic, NIST, W3C, Schema.org ou outro mantenedor.
+O status vigente identifica um contrato metodológico interno do produto. Não significa homologação por Google, OpenAI, Microsoft, Anthropic, NIST, W3C, Schema.org ou outro mantenedor.
 
-O método é determinístico, vinculado a evidências e reproduzível por auditoria. Overall não é probabilidade de ranking, tráfego, conversão, resposta ou citação futura.
+O método é determinístico, vinculado a evidências e reproduzível por auditoria. Overall não é probabilidade de ranking, tráfego, conversão, resposta ou citação.
 
 Validação empírica externa pode existir como pesquisa independente, mas não é input obrigatório do runtime e não altera silenciosamente o score.
 
@@ -54,7 +54,7 @@ O contrato vigente possui onze dimensões:
 | `CONTENT_VALUE` | 8% | fixo em `SARI_DIMENSION_WEIGHTS_V1` | não customizar sem nova versão metodológica |
 | **Total** | **100%** | contrato fixo | preservar |
 
-`DISCOVERY_ACCESS` substitui a denominação histórica interna `TECHNICAL_ACCESSIBILITY`, evitando confusão com Accessibility/WCAG. A referência histórica existe somente para explicar compatibilidade conceitual; o nome vigente é `DISCOVERY_ACCESS`.
+`DISCOVERY_ACCESS` é a dimensão canônica para descoberta e acesso de crawlers e deve permanecer semanticamente distinta de Accessibility/WCAG.
 
 Desktop e Mobile permanecem separados. Um dispositivo não auditado não pode ser projetado como resultado válido.
 
@@ -113,12 +113,12 @@ A tabela de rule-to-dimension/group é explícita no contrato de scoring; não �
 
 ## 5. Precedência de evidência no grupo
 
-Quando execuções determinísticas e execuções AI-correlative/corroborativas coexistem no mesmo escopo/grupo:
+Quando execuções determinísticas e execuções corroborativas externas ou de IA coexistem no mesmo escopo/grupo:
 
 1. uma execução determinística avaliada (`PASS`, `WARNING`, `FAIL`) tem precedência;
-2. IA corroborativa não pode sobrescrever fato determinístico já avaliado;
-3. IA pode contribuir apenas quando o contrato permitir e a evidência determinística equivalente não estiver avaliada;
-4. ausência de IA nunca é convertida silenciosamente em `FAIL`.
+2. evidência corroborativa não pode sobrescrever fato determinístico já avaliado;
+3. uma contribuição corroborativa só participa quando o contrato explícito do grupo permitir;
+4. ausência de uma fonte corroborativa nunca é convertida silenciosamente em `FAIL`.
 
 ## 6. Score da dimensão
 
@@ -385,9 +385,9 @@ O cálculo do Overall não chama IA e não depende de provider específico.
 
 A reprodução não pode exigir nova execução do website nem nova chamada de IA.
 
-## 21. Histórico e comparabilidade
+## 21. Persistência e comparabilidade
 
-Nenhum `AUD-*` persistido é recalculado automaticamente por geração de relatório ou mudança metodológica.
+Nenhum `AUD-*` persistido é recalculado automaticamente por geração de relatório ou por alteração metodológica.
 
 Comparação longitudinal exige compatibilidade metodológica. Auditorias persistidas com `scoring_version` ou contrato de agregação incompatível não devem ser comparadas numericamente como se fossem equivalentes; a superfície consumidora deve declarar não comparabilidade/limitação correspondente.
 
@@ -401,6 +401,18 @@ O RASAi separa:
 4. outcomes externos observados.
 
 Core Web Vitals, Lighthouse, WCAG, Apdex, E-E-A-T/YMYL e Observed Generative Visibility não entram automaticamente no Overall `SCORE-GEO-004`.
+
+A exceção explicitamente score-eligible desta família é `BR-GEO-060`, que usa Common Crawl somente como corroboração externa positiva de `DISCOVERY_ACCESS`:
+
+- grupo `EXTERNAL_CRAWL_CORROBORATION`;
+- peso de 3% dentro de `DISCOVERY_ACCESS`;
+- impacto máximo teórico de 0,45 ponto no Overall;
+- somente `PASS` pode ser materializado pela evidência externa qualificada;
+- ausência, erro, timeout, indisponibilidade, alvo privado ou ausência de registro não geram `FAIL`, zero, redução de Coverage ou redução de Confidence;
+- não participa dos Critical Readiness Gates;
+- a evidência e a RuleExecution são persistidas antes do cálculo para preservar reprodutibilidade.
+
+O contrato específico está em `../SARI_EXTERNAL_CRAWL_CORROBORATION.md`.
 
 ## 23. Relatório
 
