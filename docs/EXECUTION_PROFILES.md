@@ -2,163 +2,167 @@
 
 ## Objetivo
 
-Os **Perfis de Execução** simplificam a configuração de uma auditoria sem criar uma segunda fonte de verdade para o RASAi.
+Os **Perfis de Execução** simplificam a preparação de uma auditoria sem criar uma segunda fonte de verdade para o RASAi.
 
-O perfil é uma camada temporária sobre a configuração normal:
+Um perfil é apenas um overlay temporário da sessão:
 
 ```text
-defaults canônicos do RASAi
-        +
-configuração normal da sessão/INI/SO
-        +
-perfil selecionado para a próxima execução
-        +
-ajustes finos feitos depois da seleção
-        =
-configuração efetiva da execução
+defaults canônicos
++ configuração normal da sessão/INI/SO
++ perfil selecionado para a próxima execução
++ ajustes explícitos feitos depois da seleção
+= configuração efetiva da execução
 ```
 
-O perfil existe somente em memória. Ele **não**:
+O perfil não:
 
-- grava valores no `rasai-console.ini`;
-- altera defaults do runtime;
-- cria ou apaga variáveis em Windows/User;
-- modifica Windows/Machine;
 - grava credenciais;
-- inventa termos SERP;
+- altera Windows/Machine;
+- cria provider de IA paralelo;
+- cria termos SERP;
 - inventa contexto YMYL/editorial;
 - inventa parâmetros Synthetic Apdex;
-- habilita silenciosamente Improvement Intelligence;
-- transforma uma property GSC de terceiro em acesso válido ao domínio auditado.
+- altera SARI-001 ou SCORE-GEO-004;
+- persiste o preset como configuração estrutural do produto.
 
-A política de GSC selecionada dentro de um perfil também é somente da sessão/próxima execução. O contrato detalhado está em [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md).
+Perfis ficam disponíveis somente para **uma URL explícita**. Entrada por arquivo/TXT ou múltiplas URLs torna essa superfície indisponível.
 
-## Escopo: URL única
+## Estados do catálogo
 
-Perfis ficam disponíveis somente quando o item **1. Entrada** possui uma URL única explícita.
+Cada perfil é apresentado com um dos estados:
 
-Se a entrada estiver em modo TXT/arquivo ou ainda não houver URL informada, o menu mostra o recurso como `INDISPONÍVEL`.
+- `APTO`: todas as dependências obrigatórias conhecidas estão satisfeitas;
+- `CONFIGURAR`: o perfil permanece visível, mas não pode ser aplicado enquanto houver dependência obrigatória ausente;
+- `INDISPONÍVEL`: a própria superfície de perfis não pode ser usada no contexto atual.
 
-Se o operador trocar de URL para arquivo enquanto um perfil estiver ativo, o perfil é removido da sessão para impedir que um overlay pensado para uma URL seja aplicado a múltiplos targets.
+A validação do catálogo é preventiva e não substitui o preflight final do runtime.
 
-## Estados visíveis antes da seleção
+## Regra canônica de IA
 
-Todos os presets permanecem visíveis no catálogo para que o operador saiba quais capacidades existem e o que precisa parametrizar.
+Existe **uma única seleção principal de IA por execução**.
 
-Exemplo:
+Ela pode ser:
 
-```text
- 1. [APTO] SEO / Search Readiness
- 2. [APTO] GEO / AI Readiness
- ...
- 8. [CONFIGURAR] Search Intelligence / SERP
-     Falta : Search Intelligence selecionado: configure os termos transitórios no item T
- 9. [CONFIGURAR] Experiência sintética
-     Falta : Experiência sintética selecionada: configure Synthetic/Experience Apdex antes da execução
-10. [CONFIGURAR] Análise profunda URL
-     Falta : Análise profunda selecionada: habilite/configure o item 13 antes da execução
-12. [CONFIGURAR] Completo máximo
-     Falta : ...
-```
+- `none`;
+- um provider explícito registrado;
+- `auto`.
 
-Semântica:
+Não existem providers de produção exclusivos para Search Intelligence, Improvement Intelligence ou qualquer outra feature.
 
-- `APTO`: o preset pode ser selecionado;
-- `CONFIGURAR`: o preset continua visível, mas **não pode ser aplicado** enquanto houver dependência obrigatória ausente;
-- `INDISPONÍVEL`: o próprio recurso de perfis não pode ser usado no contexto atual, por exemplo entrada em arquivo/múltiplas URLs.
+Uma feature que usa IA mantém apenas seu contrato funcional: prompt, schema, evidências, validação, finalidade e limites. A seleção de provider pertence ao runtime central.
 
-Ao tentar abrir um preset `CONFIGURAR`, o console mostra as pendências e orienta o item de configuração correspondente. O operador deve voltar ao menu principal, parametrizar o recurso e retornar a `F. Perfil da execução`.
+### Provider explícito
 
-Essa validação antecipada não substitui o preflight do runtime. Ela evita a situação em que uma execução aparentemente "completa" termina e só no HTML o usuário descobre que uma capacidade nunca foi solicitada.
+Quando um provider explícito está selecionado, os módulos compatíveis usam esse mesmo provider e suas configurações canônicas de modelo/reasoning.
 
-Para GSC, a validação local também diferencia **escopo estrutural da property** de **autorização OAuth**. O console consegue saber previamente se `sc-domain:sersolucao.com.br` não cobre `https://www.portoseguro.com.br/`; ele não consegue provar sem consultar o Google se um token ainda é válido ou se a conta possui permissão na property.
+### AUTO
 
-## Acesso
+Quando `AI=auto`, os módulos compatíveis reutilizam a política central de:
 
-No menu principal:
+- elegibilidade;
+- custo estimado da necessidade atual;
+- catálogo de preços vigente;
+- quarentena por falha terminal;
+- circuit breaker para falhas temporárias;
+- fallback;
+- telemetria de tentativas;
+- limites de retry existentes.
 
-```text
-F. Perfil da execução
-```
+O perfil não possui algoritmo AUTO próprio.
 
-Sem perfil:
+## IA no seletor de perfil
+
+O console oferece duas decisões gerais:
 
 ```text
-F. Perfil da execução : NENHUM | disponível para URL única | sessão apenas
+1. Não usar IA opcional nos módulos que não a exigem
+2. Usar a IA principal se houver provider APTO
 ```
 
-Com perfil ativo:
+A opção 1 não pode invalidar um módulo cuja própria finalidade exige IA.
 
-```text
-F. Perfil da execução : APTO | <perfil> | SEM IA|IA SE DISPONÍVEL | SESSÃO
-   Google Search Console  : SOMENTE SE COMPATÍVEL|OBRIGATÓRIO|DESABILITADO|HERDAR GLOBAL
-```
+### Regra especial para Análise profunda
 
-Perfis com dependência obrigatória faltante não entram no estado ativo.
+`Análise profunda URL` usa **a mesma IA principal da execução**.
+
+Se um perfil contém `deep-analysis`:
+
+- o item 13 precisa estar habilitado;
+- a entrada precisa ser uma URL única;
+- a IA principal precisa estar apta;
+- `none` não é válido para a etapa;
+- provider/model/reasoning próprios da análise profunda não existem;
+- se a seleção principal for `AUTO`, a análise profunda reutiliza o mesmo coordenador central;
+- o overlay do perfil não pode desligar a IA necessária a essa etapa.
+
+Mesmo que o operador escolha “não usar IA opcional”, um perfil que inclui `deep-analysis` mantém a IA principal necessária à análise profunda. Após aplicação, o estado efetivo do perfil reflete essa exigência.
 
 ## Perfis prontos
 
-Todos os presets usam por default **GSC somente se a property configurada cobrir a URL auditada**. Ao selecionar o perfil, o operador pode trocar essa política para `OBRIGATÓRIO`, `DESABILITADO` ou `HERDAR GLOBAL`.
-
 ### SEO / Search Readiness
 
-Envolve core determinístico de search readiness, Lighthouse SEO e Best Practices. Serviços já configurados continuam obedecendo seus próprios contratos; GSC recebe a política de sessão escolhida no perfil.
+Prioriza sinais técnicos de descoberta/indexabilidade e Lighthouse SEO/Best Practices.
 
-Pode gerar chamadas PageSpeed/Lighthouse e CrUX conforme configuração/credenciais. IA é opcional e independente.
+IA permanece opcional.
 
 ### GEO / AI Readiness
 
-Envolve sinais para descoberta/consumo por agentes/IA, Lighthouse SEO, Best Practices, `agentic-browsing` e contexto semântico disponível.
+Prioriza sinais de descoberta e compreensão por agentes/IA, incluindo semântica e `agentic-browsing` quando disponível.
 
-`RASAI_CONTENT_RISK_PROFILE`, `RASAI_YMYL_CATEGORY` e demais campos editoriais continuam sob controle explícito do operador. `AUTO` permanece hipótese, não fato.
+Contexto editorial/YMYL permanece explícito ou `AUTO`; o perfil não transforma hipótese de IA em fato persistido.
 
 ### Performance
 
-Envolve Lighthouse Performance, Best Practices e field data conforme a configuração Web Performance vigente.
+Prioriza Lighthouse Performance, Best Practices e field data conforme as integrações disponíveis.
 
 ### Acessibilidade
 
-Envolve Lighthouse Accessibility, Best Practices e as demais evidências determinísticas já existentes.
+Prioriza Lighthouse Accessibility e evidências automatizáveis já suportadas.
 
 ### Web Quality
 
-Combina Best Practices, SEO e Accessibility. Validadores e observability já habilitados continuam com seus próprios contratos.
+Combina Best Practices, SEO e Accessibility como visão operacional de qualidade Web.
 
 ### SEO + GEO
 
-Combina os módulos SEO e GEO na mesma execução.
+Combina Search Readiness e AI Readiness.
 
 ### SEO + GEO + Performance
 
-Combina search readiness, AI readiness e performance.
+Combina Search/AI readiness com performance.
 
 ### Search Intelligence / SERP
 
-O perfil **não cria termos**.
+O perfil não cria termos.
 
 Para ficar `APTO`, exige:
 
-- termos informados no item `T` da sessão;
-- `RASAI_SERP_MODE` compatível com a execução;
+- termos configurados para a sessão;
+- `RASAI_SERP_MODE` compatível;
 - provider SERP válido;
-- credencial quando `RASAI_SERP_MODE=live`;
-- limites de queries/depth/requests válidos.
+- credencial quando o modo for `live`;
+- limites de requests/depth válidos.
 
-A validação do catálogo usa o mesmo contrato operacional do Search Intelligence; portanto termos presentes, mas provider/key/modo inválidos, continuam resultando em `CONFIGURAR`.
+Competitive AI, quando utilizada por fluxos Search compatíveis, usa a seleção principal de IA. Não existe `RASAI_SEARCH_AI_PROVIDER` no contrato vigente.
 
 ### Experiência sintética
 
-O perfil **não cria threshold, amostras, tentativas, concorrência ou carga**.
+Exige Synthetic Navigation Apdex e/ou Synthetic User Experience Apdex previamente configurado.
 
-Exige Synthetic Navigation Apdex e/ou Synthetic User Experience Apdex previamente configurado. A carga HTTP real contra o alvo permanece explícita.
+O perfil não inventa threshold, amostras, tentativas, concorrência ou carga.
 
 ### Análise profunda URL
 
-Integra Improvement Intelligence somente quando o item **13. Análise profunda URL** já estiver habilitado e válido.
+Inclui Improvement Intelligence evidence-bound, advisory/non-scoring e com segurança passiva.
 
-O perfil não inventa provider/model/reasoning. Quando o item 13 está ligado, o catálogo também valida a disponibilidade da IA exclusiva da análise profunda, incluindo credencial/provider/modelo conforme o contrato vigente.
+Para ficar `APTO`, exige:
 
-Improvement Intelligence permanece evidence-bound, advisory/non-scoring e com segurança passiva.
+- item 13 habilitado;
+- uma única URL explícita;
+- IA principal apta, por provider explícito ou `AUTO`;
+- domínios/limites/timeout válidos.
+
+A análise profunda não possui seleção própria de provider/model/reasoning.
 
 ### Completo seguro
 
@@ -170,216 +174,150 @@ Combina:
 - Acessibilidade;
 - Web Quality.
 
-Deliberadamente **não ativa automaticamente**:
+Não ativa automaticamente:
 
-- Search Intelligence/SERP;
+- Search Intelligence;
 - Synthetic Apdex;
-- Improvement Intelligence.
+- Análise profunda.
 
-Esses grupos têm dependências, carga ou custo adicional que justificam opt-in explícito.
-
-GSC não é tratado como fonte pública obrigatória por este preset. O default do perfil é `SOMENTE SE COMPATÍVEL`.
+Esses recursos têm dependências, carga ou custo adicional e permanecem opt-in.
 
 ### Completo máximo
 
-Combina **todos os módulos do catálogo**:
+Combina todos os módulos disponíveis, incluindo:
 
 - SEO;
 - GEO;
 - Performance;
 - Acessibilidade;
 - Web Quality;
-- Search Intelligence / SERP;
+- Search Intelligence;
 - Experiência sintética;
-- Análise profunda URL.
+- Análise profunda.
 
-O nome "máximo" descreve cobertura funcional; não significa relaxar segurança, limites ou metodologia.
+O perfil permanece `CONFIGURAR` enquanto alguma dependência obrigatória estiver ausente.
 
-O preset fica `CONFIGURAR` e **não pode ser selecionado** até que todas as dependências dos módulos opcionais estejam válidas. Isso normalmente inclui:
-
-- termos e provider/credencial SERP;
-- configuração Synthetic/Experience Apdex;
-- item 13 habilitado com provider/model/reasoning válidos.
-
-Depois que essas dependências ficam aptas, o operador ainda escolhe se a **IA padrão do perfil** será `SEM IA` ou `IA SE DISPONÍVEL` e qual será a política GSC da execução. A IA própria de Improvement Intelligence continua independente.
+Para Análise profunda, a dependência de IA é satisfeita pela seleção principal da execução; não existe uma segunda parametrização de IA.
 
 ## Perfil personalizado
 
-`C. Compor perfil personalizado` abre a lista guiada de módulos.
+`C. Compor perfil personalizado` permite selecionar qualquer combinação de módulos.
 
-Cada módulo mostra finalidade, custo/exposição e dependências. Uma composição personalizada com dependência obrigatória ausente também permanece `CONFIGURAR` e não é aplicada até a parametrização ser concluída.
+As mesmas regras de dependência dos perfis prontos são aplicadas.
 
-O personalizado também recebe a escolha explícita de política GSC antes de ser aplicado.
+Se `deep-analysis` fizer parte da composição, a IA principal passa a ser requisito da execução e não pode ser desligada pelo overlay.
 
-## IA padrão do perfil
+## Google Search Console
 
-Depois que um preset está apto, o console oferece:
-
-```text
-1. Não usar IA padrão nesta execução
-2. Usar IA padrão se houver provider APTO
-```
-
-### Não usar IA
-
-Durante a execução efetiva do perfil, `ai_provider` é projetado como `none`; a configuração persistida do usuário não é alterada.
-
-### Usar se disponível
-
-A regra é:
-
-1. se o provider já selecionado pelo usuário estiver `APTO`, preservá-lo;
-2. caso contrário, usar `AI=auto` somente se existir provider elegível/APTO;
-3. se nenhum provider estiver apto, seguir sem IA padrão.
-
-Esse modo não bloqueia o core quando não existe IA padrão disponível.
-
-Credenciais nunca são criadas, trocadas ou persistidas pelo perfil.
-
-Improvement Intelligence possui IA própria e independente no item 13.
-
-## Google Search Console no perfil
-
-Depois da escolha de IA, o console oferece:
+Cada perfil recebe uma política GSC específica da sessão:
 
 ```text
-1. Usar somente se a property GSC cobrir a URL auditada (recomendado)
+1. Usar somente se a property cobrir a URL auditada
 2. Exigir GSC para considerar a auditoria completa/final
 3. Não usar GSC nesta execução
-4. Herdar exatamente a política global RASAI_GSC_ENABLED
+4. Herdar a política global RASAI_GSC_ENABLED
 ```
 
 ### Somente se compatível
 
-É o default dos presets. Durante a execução, o perfil remove apenas o override `RASAI_GSC_ENABLED` e deixa o contrato credential-driven decidir a elegibilidade.
+É a opção recomendada.
 
-Se token e property estiverem configurados, mas a property não cobrir a URL auditada, o runtime classifica GSC como `NOT_APPLICABLE` para aquele alvo e não envia chamadas incompatíveis ao Google. Isso não cria requisito de conclusão.
+Uma property de outro domínio não é transformada em requisito de conclusão. Se a configuração não cobrir a URL auditada, GSC fica não aplicável para aquele alvo.
 
 ### Obrigatório
 
-Projeta `RASAI_GSC_ENABLED=true` somente durante a execução do perfil.
+Exige:
 
-Antes de aplicar o perfil, o console exige:
-
-- token presente;
-- property presente e sintaticamente válida;
+- OAuth token presente;
+- property sintaticamente válida;
 - property cobrindo estruturalmente a URL auditada.
 
-Se existir mismatch, o perfil fica `CONFIGURAR`. Não há motivo para iniciar uma execução que já se sabe incapaz de chegar a `COMPLETE/FINAL`.
-
-A aprovação local não valida OAuth. Token expirado/revogado ou conta sem permissão ainda podem falhar em runtime; como GSC foi escolhido como obrigatório, essa falha deixa o AUD parcial/não final.
+A validação local não comprova se o token está expirado nem se a conta possui permissão real. Essa confirmação depende da resposta do Google.
 
 ### Desabilitado
 
-Projeta `RASAI_GSC_ENABLED=false` somente durante a execução do perfil.
+Projeta GSC como desabilitado somente durante a execução do perfil.
 
 ### Herdar global
 
-Preserva exatamente a semântica global:
+Preserva a política configurada no ambiente normal.
 
-- sem override → automático;
-- `true` → obrigatório;
-- `false` → desabilitado.
+## Dependências principais
 
-O token representa a conta Google, não um domínio. A property é que define o escopo de dados. Consulte [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md).
-
-## Dependências e `CONFIGURAR`
-
-Uma capacidade explicitamente solicitada não deve ser silenciosamente omitida.
-
-| Módulo/capacidade | Dependência | Comportamento no catálogo |
+| Módulo/capacidade | Dependência obrigatória | Resultado quando ausente |
 |---|---|---|
-| Search Intelligence | termos, modo, provider, credencial e limites | `CONFIGURAR`; preset não selecionável |
-| Experiência sintética | Apdex previamente configurado | `CONFIGURAR`; preset não selecionável |
-| Análise profunda | item 13 + IA deep válida | `CONFIGURAR`; preset não selecionável |
-| GSC obrigatório | token + property que cubra a URL | `CONFIGURAR`; execução previsivelmente parcial não é aplicada |
-| GSC somente se compatível | token/property podem estar ausentes ou ser de outro alvo | não bloqueia; GSC fica não exigido/não aplicável |
-| GEO | contexto YMYL/editorial | `AUTO` é permitido e informado |
-| IA padrão `se disponível` | provider apto | não bloqueia; fallback seguro para sem IA padrão |
+| Search Intelligence | termos + modo/provider SERP + credencial quando live + limites válidos | `CONFIGURAR` |
+| Experiência sintética | configuração Apdex válida | `CONFIGURAR` |
+| Análise profunda | item 13 + URL única + IA principal apta | `CONFIGURAR` |
+| GSC obrigatório | token + property compatível | `CONFIGURAR` |
+| GSC somente se compatível | nenhuma dependência bloqueante | não bloqueia |
+| GEO | contexto editorial válido | `AUTO` permitido |
+| IA opcional | provider apto quando solicitada | pode degradar para sem IA, exceto em módulos que exigem IA |
 
-O runtime continua executando sua validação final depois do catálogo. Se algo mudar entre a visualização e a aplicação, o preset é revalidado antes de entrar no estado ativo.
+## Ajustes depois da seleção
 
-## Ajuste fino
+Ajustes explícitos feitos após selecionar o perfil têm precedência no domínio correspondente.
 
-Depois de escolher um perfil `APTO`, as opções normais continuam disponíveis. Ajustes explícitos feitos depois da seleção vencem o preset no domínio correspondente, por exemplo:
+Principais entradas:
 
-- item `4` → IA;
-- item `5` → remediações;
-- item `6` → Web Performance;
-- item `11` → experiência sintética;
-- item `13` → análise profunda;
-- item `T` → Search Intelligence.
+- item `4`: IA principal;
+- item `5`: remediações por IA;
+- item `6`: Web Performance;
+- item `11`: experiência sintética;
+- item `13`: Análise profunda;
+- item `T`: Search Intelligence.
 
-A política GSC do perfil é escolhida na própria seleção do preset. Alterações persistentes posteriores nas variáveis GSC continuam existindo na configuração normal e voltam a valer após o término do overlay da execução.
+Uma alteração manual que torne uma dependência obrigatória inválida faz o perfil voltar a `CONFIGURAR` e bloqueia a execução até correção.
 
-Alterações avançadas de Web Performance/Lighthouse também são respeitadas quando diferem da configuração-base capturada no momento da seleção.
+Exemplo: selecionar `none` na IA principal enquanto `deep-analysis` estiver ativo torna a Análise profunda não apta.
 
 ## Precedência
 
-Durante uma execução com perfil:
+Durante a execução:
 
 ```text
 ajuste manual posterior à seleção
 > overlay do perfil
-> configuração normal carregada na sessão
-> default canônico do RASAi
+> configuração normal da sessão/INI/SO
+> default canônico
 ```
 
-Para `RASAI_GSC_ENABLED`, a política GSC do perfil é parte do overlay da sessão. Token e property não são alterados pelo preset.
-
-Essa precedência existe somente para a execução.
+Essa precedência não autoriza um overlay a violar requisito estrutural do módulo. Por isso, Análise profunda preserva a IA principal necessária à própria execução.
 
 ## Persistência
 
-Selecionar/remover um perfil não marca o INI como alterado porque o perfil não modifica o estado persistível.
+O perfil é somente de sessão.
 
-O preset nunca é salvo. Um ajuste manual real continua podendo ser salvo somente pela ação explícita normal do usuário.
+Selecionar, remover ou trocar perfil não grava o preset no INI e não altera credenciais.
+
+A configuração real feita pelo usuário fora do perfil continua seguindo as regras normais de persistência do console.
 
 ## Custos
 
-Cada preset e módulo apresenta descrição de custo/exposição antes da aplicação. Quando aplicável, o detalhe mostra:
+Antes de executar, o console pode apresentar:
 
-- nível de exposição;
-- intervalo potencial de chamadas Web Performance;
-- intervalo potencial de tentativas de IA;
-- pricing unitário catalogado quando disponível;
-- carga Synthetic Apdex já configurada;
+- chamadas Web Performance estimadas;
+- tentativas de IA estimadas;
+- pricing catalogado quando disponível;
+- carga Synthetic Apdex;
 - quantidade de termos SERP;
-- aviso de chamadas adicionais da análise profunda.
+- chamadas adicionais da análise profunda.
 
-GSC incompatível não deve gerar chamada ao provider apenas para descobrir um conflito de property que pode ser resolvido localmente.
+Para `AUTO`, o custo efetivo depende do provider/modelo selecionado pelo runtime para cada necessidade, respeitando a política central vigente.
 
-O RASAi não inventa quantidade de tokens antes da execução e não converte quota em preço quando o provider não fornece base suficiente.
+## Relatórios
 
-## Compatibilidade com os relatórios HTML
+Perfis não criam relatórios paralelos nem alteram contratos de scoring.
 
-Perfis são uma superfície de **orquestração do console**, não uma nova fonte de evidência. Por isso não criam schema, score ou relatório paralelo.
+Eles apenas determinam quais capacidades são solicitadas para aquela execução.
 
-Os relatórios continuam materializados a partir do estado/evidência realmente persistidos no `AUD-*`:
+Os relatórios continuam projetando dados persistidos, status de fulfillment, tentativas e limitações conforme seus contratos próprios.
 
-- `search-intelligence.html` apresenta observação SERP quando executada ou estado explícito sem observações;
-- `apdex.html` apresenta Synthetic Navigation Apdex ou estado explícito de não execução;
-- `apdex-experience.html` apresenta Synthetic User Experience Apdex ou estado explícito de não execução;
-- `improvement-intelligence.html` apresenta a análise profunda ou estado explícito de não execução/falha conforme persistência;
-- `ai-usage.html` distingue finalidade não solicitada/desabilitada de tentativa externa, resposta aceita, falha de provider/contrato, tokens e custo quando mensuráveis;
-- as demais páginas recebem o quadro padronizado de consumo de IA atribuído à superfície proprietária, sem duplicar custo entre relatórios.
+## Referências
 
-Quando GSC foi explicitamente exigido e existe `PROPERTY_URL_MISMATCH`, o fulfillment persiste a falha como configuração reprocessável. O banner/estado canônico do relatório deve deixar claro que a auditoria não é final enquanto o requisito continuar incompatível. Em modo `SOMENTE SE COMPATÍVEL`, o mesmo mismatch é `NOT_APPLICABLE` e não deve fabricar parcialidade.
-
-O `Completo máximo` não exige mudança de metodologia ou renderer: ele apenas impede que o usuário aplique o preset enquanto alguma capacidade obrigatória ainda não estiver configurada. Uma vez executada, cada superfície continua obedecendo seu contrato de evidência e reporting vigente.
-
-Falha em runtime após um preset ter ficado `APTO` continua sendo possível (rede, provider, timeout, token OAuth expirado, permissão GSC etc.). Nesse caso o relatório deve mostrar falha/parcialidade quando a capacidade era obrigatória; o console não fabrica dados para preencher uma capacidade que não concluiu.
-
-## Segurança metodológica
-
-Perfis selecionam **o que executar**, não alteram a metodologia.
-
-Não modificam:
-
-- `SARI-001`;
-- `SCORE-GEO-004`;
-- pesos de scoring;
-- regras históricas;
-- thresholds metodológicos sem ação explícita do operador.
-
-A ausência/presença de evidência continua obedecendo ao contrato normal de cobertura/confiabilidade.
+- [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md)
+- [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
+- [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md)
+- [COMPETITIVE_AI_INTELLIGENCE.md](COMPETITIVE_AI_INTELLIGENCE.md)
+- [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md)
+- [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
