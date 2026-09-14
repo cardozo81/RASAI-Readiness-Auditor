@@ -15,6 +15,13 @@ on:
       - 'src/rasai/console_navigation.py'
       - 'src/rasai/console_audit_workflow.py'
       - 'src/rasai/console_reprocess_parity.py'
+      - 'src/rasai/console_execution_profile*.py'
+      - 'src/rasai/console_configuration_guidance.py'
+      - 'src/rasai/console_entrypoint.py'
+      - 'src/rasai/improvement_intelligence.py'
+      - 'src/rasai/improvement_intelligence_console.py'
+      - 'src/rasai/improvement_intelligence_saas.py'
+      - 'src/rasai/ai_orchestration_unification*.py'
       - 'src/rasai/core_reprocessing.py'
       - 'src/rasai/core_reprocessing_context.py'
       - 'src/rasai/core_integrity_runtime.py'
@@ -22,8 +29,6 @@ on:
       - 'src/rasai/semantic_recovery_runtime.py'
       - 'src/rasai/technical_ai_eligibility.py'
       - 'src/rasai/ai_efficiency_policy.py'
-      - 'src/rasai/console_configuration_guidance.py'
-      - 'src/rasai/console_entrypoint.py'
       - 'src/rasai/consolidation/**'
       - 'src/rasai/entrypoint.py'
       - 'src/rasai/platform/**'
@@ -34,6 +39,8 @@ on:
       - 'docs/AUDIT_CONFIGURATION_REUSE.md'
       - 'docs/AUDIT_STORAGE_MANAGEMENT.md'
       - 'docs/INTERACTIVE_CONSOLE.md'
+      - 'docs/EXECUTION_PROFILES.md'
+      - 'docs/IMPROVEMENT_INTELLIGENCE.md'
       - 'docs/CONSOLIDATED_REPORTING.md'
       - 'docs/EXTERNAL_OBSERVABILITY_INTEGRATIONS.md'
       - 'docs/ENVIRONMENT_VARIABLES.md'
@@ -43,6 +50,10 @@ on:
       - 'tests/test_console_navigation.py'
       - 'tests/test_console_audit_workflow.py'
       - 'tests/test_console_reprocess_parity.py'
+      - 'tests/test_console_canonical_ai_orchestration.py'
+      - 'tests/test_console_execution_profile_readiness.py'
+      - 'tests/test_console_configuration_guidance.py'
+      - 'tests/test_improvement_intelligence.py'
       - 'tests/test_reprocess_failure_preservation.py'
       - 'tests/test_consolidation_fulfillment_gate.py'
       - 'tests/test_core_reprocessing.py'
@@ -75,6 +86,8 @@ jobs:
         run: pytest -q tests/test_audit_fulfillment_reprocessing.py tests/test_audit_configuration_reuse.py tests/test_audit_management.py tests/test_consolidation_fulfillment_gate.py tests/test_core_reprocessing.py tests/test_core_reprocessing_context.py tests/test_core_integrity_runtime.py tests/test_reprocess_runtime_safety.py tests/test_reprocess_failure_preservation.py tests/test_semantic_recovery_runtime.py tests/test_m7_semantic_provider.py
       - name: Console navigation, configuration reuse and publication regressions
         run: pytest -q tests/test_console_navigation.py tests/test_console_audit_workflow.py tests/test_console_reprocess_parity.py tests/test_audit_configuration_reuse_console.py tests/test_console_configuration_guidance.py tests/test_prepublication_configuration_contract.py tests/test_environment_surface_parity.py
+      - name: Canonical AI orchestration in interactive console
+        run: pytest -q tests/test_console_canonical_ai_orchestration.py tests/test_console_execution_profile_readiness.py tests/test_improvement_intelligence.py tests/test_fulfillment_execution_contract.py
       - name: CLI surface smoke tests
         shell: pwsh
         run: |
