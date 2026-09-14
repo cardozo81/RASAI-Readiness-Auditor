@@ -1,25 +1,29 @@
 """Canonical provider registry facade for RASAi consumers.
 
-The core provider module and adapter extensions are normalized into one public registry
-consumed by CLI, interactive console, preflight/help and orchestration. AUTO eligibility
-is a registry property; runtime still requires valid credentials and configuration.
+Provider integrations remain implemented by adapters. Model availability, defaults,
+reasoning metadata and model-level AUTO eligibility are projected from the declarative
+AI model catalog so CLI, console, preflight and orchestration share one model contract.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 import sys
 
+from rasai.ai_model_catalog import AiModelCatalog, AiModelDefinition, load_model_catalog
 from rasai.copilot_provider import (
-    COPILOT_DEFAULT_MODEL,
     COPILOT_DOCS_URL,
     COPILOT_KEY_ENV,
     COPILOT_MODEL_ENV,
     COPILOT_SETTINGS_URL,
-    COPILOT_SUPPORTED_MODELS,
     COPILOT_TOKEN_URL,
 )
-from rasai.m18_ai import DEFAULT_MODELS, KEY_ENV, MODEL_ENV, REASONING_ENV, ROUTING_POLICY, SUPPORTED_MODELS
-from rasai.provider_extensions import EXTENDED_DEFAULT_MODELS, EXTENDED_ENDPOINT_ENV, EXTENDED_KEY_ENV, EXTENDED_MODEL_ENV, EXTENDED_SUPPORTED_MODELS, EXTENSION_POLICIES, _PROVIDER_ALIASES
+from rasai.m18_ai import KEY_ENV, MODEL_ENV, REASONING_ENV
+from rasai.provider_extensions import (
+    EXTENDED_ENDPOINT_ENV,
+    EXTENDED_KEY_ENV,
+    EXTENDED_MODEL_ENV,
+    _PROVIDER_ALIASES,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,125 +77,145 @@ _DOCUMENTATION_URLS = {
     "ANTHROPIC": "https://docs.anthropic.com/",
 }
 _CORE_PROVIDER_ORDER = ("OPENAI", "DEEPSEEK", "MIMO")
-_PUBLIC_DEFAULT_MODELS = {
-    "OPENAI": "gpt-5.6-luna",
-    "DEEPSEEK": "deepseek-v4-flash",
-    "MIMO": "mimo-v2.5",
-    "XAI": "grok-4.6",
-    "QWEN": "qwen3.8-flash",
-    "GEMINI": "gemini-3.8-flash",
-    "ANTHROPIC": "claude-sonnet-5",
-    "COPILOT": "auto",
-}
-_RUNTIME_REASONING_VALUES = {
-    "OPENAI": ("NONE", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
-    "DEEPSEEK": ("NONE", "LOW", "HIGH", "MAX"),
-    "MIMO": ("NONE", "LOW", "MEDIUM", "HIGH"),
-    "XAI": ("LOW", "MEDIUM", "HIGH", "XHIGH"),
-    "QWEN": ("PROVIDER_DEFAULT",),
-    "GEMINI": ("LOW", "MEDIUM", "HIGH"),
-    "ANTHROPIC": ("LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"),
-    "COPILOT": ("PROVIDER_DEFAULT",),
-}
 _EXTENSION_REASONING_ENV = {
     "XAI": "RASAI_XAI_REASONING_EFFORT",
     "GEMINI": "RASAI_GEMINI_REASONING_EFFORT",
     "ANTHROPIC": "RASAI_ANTHROPIC_REASONING_EFFORT",
 }
-
-
-def _qualification(provider_name: str, *, extension: bool) -> str:
-    policies = tuple(policy for (provider, _model), policy in EXTENSION_POLICIES.items() if provider == provider_name) if extension else tuple(policy for policy in ROUTING_POLICY if policy.provider == provider_name)
-    values = tuple(dict.fromkeys(policy.qualification for policy in policies))
-    if not values:
-        return "UNQUALIFIED"
-    return values[0] if len(values) == 1 else "/".join(values)
+_TECHNICAL_PROVIDER_ORDER = (*_CORE_PROVIDER_ORDER, *tuple(dict.fromkeys(_PROVIDER_ALIASES.values())), "COPILOT")
 
 
 def _extension_aliases(provider_name: str) -> tuple[str, ...]:
     canonical = provider_name.casefold()
-    return tuple(alias.casefold() for alias, target in _PROVIDER_ALIASES.items() if target == provider_name and alias.casefold() != canonical)
-
-
-def _core_registration(provider_name: str) -> ProviderRegistration:
-    return ProviderRegistration(
-        id=provider_name.casefold(), provider_name=provider_name, display_name=_DISPLAY_NAMES[provider_name], aliases=(),
-        key_env=KEY_ENV[provider_name], model_env=MODEL_ENV[provider_name], endpoint_env=None,
-        reasoning_env=REASONING_ENV[provider_name], supported_models=tuple(SUPPORTED_MODELS[provider_name]),
-        default_model=DEFAULT_MODELS[provider_name], public_default_model=_PUBLIC_DEFAULT_MODELS[provider_name],
-        qualification=_qualification(provider_name, extension=False), explicit_only=False, auto_eligible=True,
-        reasoning_values=_RUNTIME_REASONING_VALUES[provider_name],
-        required_key_prefixes=("sk-",) if provider_name == "MIMO" else (),
-        credential_url=_CREDENTIAL_URLS[provider_name], documentation_url=_DOCUMENTATION_URLS[provider_name],
+    return tuple(
+        alias.casefold()
+        for alias, target in _PROVIDER_ALIASES.items()
+        if target == provider_name and alias.casefold() != canonical
     )
 
 
-def _extension_registration(provider_name: str) -> ProviderRegistration:
-    return ProviderRegistration(
-        id=provider_name.casefold(), provider_name=provider_name,
-        display_name=_DISPLAY_NAMES.get(provider_name, provider_name.title()), aliases=_extension_aliases(provider_name),
-        key_env=EXTENDED_KEY_ENV[provider_name], model_env=EXTENDED_MODEL_ENV[provider_name],
-        endpoint_env=EXTENDED_ENDPOINT_ENV.get(provider_name), reasoning_env=_EXTENSION_REASONING_ENV.get(provider_name),
-        supported_models=tuple(EXTENDED_SUPPORTED_MODELS[provider_name]), default_model=EXTENDED_DEFAULT_MODELS[provider_name],
-        public_default_model=_PUBLIC_DEFAULT_MODELS[provider_name],
-        qualification=_qualification(provider_name, extension=True), explicit_only=False, auto_eligible=True,
-        reasoning_values=_RUNTIME_REASONING_VALUES[provider_name],
-        credential_url=_CREDENTIAL_URLS[provider_name], documentation_url=_DOCUMENTATION_URLS[provider_name],
-    )
+def _catalog_items(catalog: AiModelCatalog, provider_name: str) -> tuple[AiModelDefinition, ...]:
+    return catalog.provider_models(provider_name, enabled_only=True, effective_only=True)
 
 
-def _copilot_registration() -> ProviderRegistration:
-    return ProviderRegistration(
-        id="copilot", provider_name="COPILOT", display_name=_DISPLAY_NAMES["COPILOT"],
-        aliases=("github-copilot",), key_env=COPILOT_KEY_ENV, model_env=COPILOT_MODEL_ENV,
-        endpoint_env=None, reasoning_env=None, supported_models=COPILOT_SUPPORTED_MODELS,
-        default_model=COPILOT_DEFAULT_MODEL, public_default_model=_PUBLIC_DEFAULT_MODELS["COPILOT"],
-        qualification="PROVISIONAL", explicit_only=True,
-        auto_eligible=False, reasoning_values=_RUNTIME_REASONING_VALUES["COPILOT"],
-        required_key_prefixes=("github_pat_", "gho_", "ghu_"),
-        credential_url=COPILOT_TOKEN_URL, documentation_url=COPILOT_DOCS_URL,
+def _one_default(items: tuple[AiModelDefinition, ...], field: str, provider_name: str) -> AiModelDefinition:
+    matches = tuple(item for item in items if bool(getattr(item, field)))
+    if len(matches) != 1:
+        raise RuntimeError(f"provider {provider_name} must have exactly one effective {field}")
+    return matches[0]
+
+
+def _reasoning_values(items: tuple[AiModelDefinition, ...]) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(value for item in items for value in item.reasoning_values))
+
+
+def _registration(provider_name: str, catalog: AiModelCatalog) -> ProviderRegistration | None:
+    items = _catalog_items(catalog, provider_name)
+    if not items:
+        return None
+    selectable = tuple(item for item in items if item.selectable)
+    if not selectable:
+        return None
+    adapter_default = _one_default(items, "adapter_default", provider_name)
+    public_default = _one_default(items, "public_default", provider_name)
+    explicit_only = provider_name == "COPILOT"
+
+    if provider_name in _CORE_PROVIDER_ORDER:
+        aliases: tuple[str, ...] = ()
+        key_env = KEY_ENV[provider_name]
+        model_env = MODEL_ENV[provider_name]
+        endpoint_env = None
+        reasoning_env = REASONING_ENV[provider_name]
+    elif provider_name == "COPILOT":
+        aliases = ("github-copilot",)
+        key_env = COPILOT_KEY_ENV
+        model_env = COPILOT_MODEL_ENV
+        endpoint_env = None
+        reasoning_env = None
+    else:
+        aliases = _extension_aliases(provider_name)
+        key_env = EXTENDED_KEY_ENV[provider_name]
+        model_env = EXTENDED_MODEL_ENV[provider_name]
+        endpoint_env = EXTENDED_ENDPOINT_ENV.get(provider_name)
+        reasoning_env = _EXTENSION_REASONING_ENV.get(provider_name)
+
+    registration = ProviderRegistration(
+        id=provider_name.casefold(),
+        provider_name=provider_name,
+        display_name=_DISPLAY_NAMES.get(provider_name, provider_name.title()),
+        aliases=aliases,
+        key_env=key_env,
+        model_env=model_env,
+        endpoint_env=endpoint_env,
+        reasoning_env=reasoning_env,
+        supported_models=tuple(item.model for item in selectable),
+        default_model=adapter_default.model,
+        public_default_model=public_default.model,
+        qualification=public_default.qualification,
+        explicit_only=explicit_only,
+        auto_eligible=(not explicit_only and any(item.auto_eligible for item in selectable)),
+        reasoning_values=_reasoning_values(selectable),
+        required_key_prefixes=("sk-",) if provider_name == "MIMO" else (("github_pat_", "gho_", "ghu_") if provider_name == "COPILOT" else ()),
+        credential_url=(COPILOT_TOKEN_URL if provider_name == "COPILOT" else _CREDENTIAL_URLS.get(provider_name, "")),
+        documentation_url=(COPILOT_DOCS_URL if provider_name == "COPILOT" else _DOCUMENTATION_URLS.get(provider_name, "")),
         auth_note=(
             "Requer assinatura Copilot elegível. Para uso local do RASAi, gere um fine-grained PAT "
             "com Copilot Requests e configure COPILOT_GITHUB_TOKEN. Classic PAT ghp_ não é suportado. "
             f"Preferências Copilot: {COPILOT_SETTINGS_URL}"
+            if provider_name == "COPILOT" else ""
         ),
     )
+    if registration.default_model not in tuple(item.model for item in items):
+        raise RuntimeError(f"provider {registration.id} has unsupported adapter default model")
+    if registration.public_default_model not in registration.supported_models:
+        raise RuntimeError(f"provider {registration.id} has unsupported public default model")
+    if not registration.reasoning_values:
+        raise RuntimeError(f"provider {registration.id} has no runtime reasoning contract")
+    if registration.explicit_only and registration.auto_eligible:
+        raise RuntimeError(f"provider {registration.id} cannot be explicit-only and AUTO eligible")
+    return registration
 
 
-def _build_registry() -> tuple[ProviderRegistration, ...]:
-    core = tuple(_core_registration(name) for name in _CORE_PROVIDER_ORDER)
-    extension_names = tuple(dict.fromkeys(_PROVIDER_ALIASES.values()))
-    registrations = core + tuple(_extension_registration(name) for name in extension_names) + (_copilot_registration(),)
+def _build_registry(catalog: AiModelCatalog | None = None) -> tuple[ProviderRegistration, ...]:
+    effective = catalog or load_model_catalog()
+    unknown = sorted(set(effective.provider_names()) - set(_TECHNICAL_PROVIDER_ORDER))
+    if unknown:
+        raise ValueError("AI models: provider sem adapter integrado: " + ", ".join(unknown))
+    registrations = tuple(
+        item
+        for provider_name in _TECHNICAL_PROVIDER_ORDER
+        for item in (_registration(provider_name, effective),)
+        if item is not None
+    )
     ids = [registration.id for registration in registrations]
     if len(ids) != len(set(ids)):
         raise RuntimeError("duplicate canonical provider id in RASAi registry")
     selections = [selection for registration in registrations for selection in registration.cli_selections]
     if len(selections) != len(set(selections)):
         raise RuntimeError("duplicate provider CLI selection in RASAi registry")
-    for registration in registrations:
-        if registration.default_model not in registration.supported_models:
-            raise RuntimeError(f"provider {registration.id} has unsupported adapter default model")
-        if registration.public_default_model not in registration.supported_models:
-            raise RuntimeError(f"provider {registration.id} has unsupported public default model")
-        if not registration.reasoning_values:
-            raise RuntimeError(f"provider {registration.id} has no runtime reasoning contract")
-        if registration.explicit_only and registration.auto_eligible:
-            raise RuntimeError(f"provider {registration.id} cannot be explicit-only and AUTO eligible")
     return registrations
 
 
 PROVIDER_REGISTRY: tuple[ProviderRegistration, ...] = _build_registry()
-_PROVIDER_BY_SELECTION = {selection: registration for registration in PROVIDER_REGISTRY for selection in registration.cli_selections}
+_PROVIDER_BY_SELECTION = {
+    selection: registration
+    for registration in PROVIDER_REGISTRY
+    for selection in registration.cli_selections
+}
 
 
-def _publish_legacy_console_credential_sources() -> None:
-    """Compatibility bridge for the older console environment catalog.
+def refresh_provider_registry(*, catalog: AiModelCatalog | None = None) -> tuple[ProviderRegistration, ...]:
+    global PROVIDER_REGISTRY, _PROVIDER_BY_SELECTION
+    PROVIDER_REGISTRY = _build_registry(catalog)
+    _PROVIDER_BY_SELECTION = {
+        selection: registration
+        for registration in PROVIDER_REGISTRY
+        for selection in registration.cli_selections
+    }
+    return PROVIDER_REGISTRY
 
-    The general environment editor still owns a historical credential-source mapping.
-    Publish canonical onboarding URLs into that mapping when it is already imported.
-    The provider-aware console surface then enriches the user-facing records without
-    exposing any secret value.
-    """
+
+def _publish_console_credential_sources() -> None:
     module = sys.modules.get("rasai.console_environment")
     sources = getattr(module, "KEY_SOURCES", None) if module is not None else None
     if not isinstance(sources, dict):
@@ -204,7 +228,7 @@ def _publish_legacy_console_credential_sources() -> None:
 
 
 def provider_registrations() -> tuple[ProviderRegistration, ...]:
-    _publish_legacy_console_credential_sources()
+    _publish_console_credential_sources()
     return PROVIDER_REGISTRY
 
 
@@ -213,11 +237,21 @@ def get_provider_registration(selection: str) -> ProviderRegistration | None:
 
 
 def extension_cli_choices() -> tuple[str, ...]:
-    return tuple(selection for item in PROVIDER_REGISTRY if item.provider_name not in _CORE_PROVIDER_ORDER for selection in item.cli_selections)
+    return tuple(
+        selection
+        for item in PROVIDER_REGISTRY
+        if item.provider_name not in _CORE_PROVIDER_ORDER
+        for selection in item.cli_selections
+    )
 
 
 def cli_provider_choices() -> tuple[str, ...]:
-    return ("none", *(item.id for item in PROVIDER_REGISTRY), "auto", *(alias for item in PROVIDER_REGISTRY for alias in item.aliases))
+    return (
+        "none",
+        *(item.id for item in PROVIDER_REGISTRY),
+        "auto",
+        *(alias for item in PROVIDER_REGISTRY for alias in item.aliases),
+    )
 
 
 def auto_provider_ids() -> tuple[str, ...]:
@@ -227,7 +261,12 @@ def auto_provider_ids() -> tuple[str, ...]:
 def provider_environment_names() -> tuple[str, ...]:
     names: list[str] = []
     for registration in PROVIDER_REGISTRY:
-        for name in (registration.key_env, registration.model_env, registration.endpoint_env, registration.reasoning_env):
+        for name in (
+            registration.key_env,
+            registration.model_env,
+            registration.endpoint_env,
+            registration.reasoning_env,
+        ):
             if name and name not in names:
                 names.append(name)
     return tuple(names)
