@@ -1,6 +1,6 @@
 # Diagnóstico de integrações externas
 
-**Estado:** contrato vigente de desenvolvimento. O RASAi ainda não foi publicado; este documento descreve somente o comportamento atual do produto, sem regras de legado ou migração.
+**Estado:** contrato vigente de desenvolvimento. O RASAi ainda não foi publicado; este documento descreve somente o comportamento atual do produto.
 
 ## Objetivo
 
