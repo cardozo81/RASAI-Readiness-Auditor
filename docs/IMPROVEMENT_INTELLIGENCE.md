@@ -132,7 +132,7 @@ Esse parâmetro não força o idioma da página nem substitui evidência real do
 
 ## Console interativo
 
-O item **13. Análise profunda URL** controla somente a habilitação e os parâmetros próprios da análise profunda.
+O item **8. Análise profunda URL** controla somente a habilitação e os parâmetros próprios da análise profunda.
 
 A configuração persistida em `[improvement_intelligence]` contém:
 
@@ -141,9 +141,9 @@ A configuração persistida em `[improvement_intelligence]` contém:
 - `max_recommendations`;
 - `timeout_seconds`.
 
-Provider, modelo e reasoning vêm exclusivamente da configuração principal `[ai]`. Credenciais nunca são gravadas no INI.
+Provider, modelo e reasoning vêm exclusivamente da configuração principal `[ai]`, apresentada no item **6. IA**. Credenciais nunca são gravadas no INI.
 
-O item 13 deve indicar qual seleção principal será usada (`provider` explícito ou `AUTO`) e bloquear a habilitação quando a IA principal estiver `none`.
+O item 8 deve indicar qual seleção principal será usada (`provider` explícito ou `AUTO`) e bloquear a habilitação quando a IA principal do item 6 estiver `none`.
 
 ## SaaS / Control Plane
 
