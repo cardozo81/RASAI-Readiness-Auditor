@@ -126,6 +126,7 @@ def _align_standards_surface(html: str) -> str:
 def render_pilot_ui(auth_mode: str) -> str:
     """Return the pilot shell aligned to provider, service and authentication contracts."""
     html = _align_standards_surface(_align_provider_selector(PILOT_UI_HTML))
+    html = html.replace("—", "-").replace("–", "-")
     if auth_mode != "oidc":
         return html
     html = html.replace("const state=", "sessionStorage.removeItem('rasai-dev-user');\nconst state=", 1)
