@@ -111,7 +111,7 @@ Esses campos são obrigatórios no contrato estruturado usado pela análise prof
 
 O benefício é uma hipótese evidence-bound, não uma promessa. A IA não pode garantir ganho de ranking, tráfego, conversão, receita, segurança ou performance, nem inventar percentuais. O ganho efetivo continua dependendo de nova medição/before-after.
 
-Para evitar reutilizar silenciosamente uma recomendação antiga que não possua essa explicação, a versão efetiva do fingerprint de configuração muda quando esse contrato de apresentação está ativo. Assim, resultados anteriores incompatíveis não são tratados como equivalentes apenas porque URL e demais parâmetros permaneceram iguais.
+Para evitar reutilizar silenciosamente uma recomendação incompatível com o contrato vigente, a versão efetiva do fingerprint de configuração participa da identidade do resultado. Assim, resultados com contratos diferentes não são tratados como equivalentes apenas porque URL e demais parâmetros coincidem.
 
 ## Priorização
 
@@ -239,9 +239,9 @@ O relatório é gerado mesmo quando a feature não foi executada, deixando o est
 
 ## Relatório consolidado
 
-O consolidado atual usa o vocabulário vigente de dimensões, incluindo `DISCOVERY_ACCESS` e `CONTENT_VALUE`. `TECHNICAL_ACCESSIBILITY` permanece apenas como leitura histórica legada.
+O consolidado atual usa o vocabulário canônico de dimensões do `SCORE-GEO-004`, incluindo `DISCOVERY_ACCESS` e `CONTENT_VALUE`.
 
-Improvement Intelligence, Lighthouse/Core Web Vitals, Apdex, SERP e postura de segurança são complementares e não são artificialmente promediados dentro da série histórica do SARI.
+Improvement Intelligence, Lighthouse/Core Web Vitals, Apdex, SERP e postura de segurança são complementares e não são artificialmente promediados dentro da série temporal do SARI.
 
 ## Validação pós-deploy
 
