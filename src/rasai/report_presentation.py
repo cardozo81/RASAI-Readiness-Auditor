@@ -172,7 +172,8 @@ _PUBLIC_LABELS: dict[str, str] = {
     "OPTIONAL_IMPROVEMENT": "Melhoria opcional",
     "NO_ACTION": "Nenhuma ação necessária",
     "INSUFFICIENT_EVIDENCE": "Evidência insuficiente",
-    "EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1": "Equal Weight Across Applicable Dimensions",
+    "HIERARCHICAL_WEIGHTED_READINESS_V1": "Hierarchical Weighted Readiness",
+    "EQUAL_WEIGHT_APPLICABLE_DIMENSIONS_V1": "Hierarchical Weighted Readiness",
     # Severity and confidence.
     "CRITICAL": "Crítica",
     "HIGH": "Alta",
