@@ -1,10 +1,10 @@
 # Sugestões e remediação de conteúdo por IA + orientação JSON-LD
 
-**Estado no baseline de desenvolvimento:** implementado como capacidade opcional downstream e separado do scoring.
+**Estado:** vigente como capacidade opcional downstream e separada do scoring.
 
 ## 1. Objetivo
 
-Sugestões e remediação de conteúdo por IA adiciona uma camada opcional de remediação downstream que pode propor texto exato para findings de conteúdo/semântica sustentados por evidência e pode fornecer orientação determinística de JSON-LD por página/dispositivo auditado.
+Sugestões e remediação de conteúdo por IA adicionam uma camada opcional de remediação downstream que pode propor texto exato para findings de conteúdo/semântica sustentados por evidência e fornecer orientação determinística de JSON-LD por página/dispositivo auditado.
 
 Essa capacidade **não** é uma etapa de scoring. Ela nunca pode alterar retroativamente:
 
@@ -38,7 +38,7 @@ Precedência:
 
 | Configuração | Default efetivo | Valores permitidos | Recomendado |
 |---|---|---|---|
-| `RASAI_AI_CONTENT_REMEDIATION` | `false` | `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`, sem distinção de caixa | `false` no baseline; habilitar apenas com provider apto e intenção explícita de gerar propostas textuais |
+| `RASAI_AI_CONTENT_REMEDIATION` | `false` | `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`, sem distinção de caixa | `false`; habilitar apenas com provider apto e intenção explícita de gerar propostas textuais |
 | `--ai-content-remediation` | não aplicado por default | flag de ativação | usar somente na execução em que a remediação for desejada |
 | `--no-ai-content-remediation` | não aplicado por default | flag de desativação | usar para override explícito quando necessário |
 
@@ -86,13 +86,15 @@ O contexto efetivo da auditoria deve ser persistido para que o relatório reaber
 
 Referências conceituais primárias:
 
-- Google Search Central - Creating helpful, reliable, people-first content: `https://developers.google.com/search/docs/fundamentals/creating-helpful-content`
-- Google Search Quality Rater Guidelines: `https://services.google.com/fh/files/misc/hsw-sqrg.pdf`
-- Google - How AI Overviews in Search work: `https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf`
+| Fonte | Aplicação no RASAi | Link |
+|---|---|---|
+| Google - Creating helpful, reliable, people-first content | referência conceitual de conteúdo útil, confiança, finalidade e E-E-A-T; não é fórmula de scoring do RASAi | <https://developers.google.com/search/docs/fundamentals/creating-helpful-content> |
+| Google Search Quality Rater Guidelines | referência para conceitos de YMYL, finalidade, qualidade e E-E-A-T no processo de avaliação humana descrito pelo Google; não é algoritmo de ranking | <https://services.google.com/fh/files/misc/hsw-sqrg.pdf> |
+| Google - How AI Overviews in Search work | contexto oficial sobre o funcionamento geral de AI Overviews; não estabelece requisito SARI | <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf> |
 
 Essas referências sustentam o uso conceitual de E-E-A-T/YMYL e análise de finalidade/necessidade do usuário. O RASAi não deve descrever E-E-A-T isoladamente como fator oficial único de ranking nem publicar probabilidade E-E-A-T/YMYL fabricada.
 
-Os links acima são referências, não reprodução de texto externo. Se futuramente um trecho não pt-BR precisar ser citado literalmente em Markdown, deve seguir a convenção de `docs/README.md`: **Disclaimer - texto original da fonte** seguido de **Tradução/adaptação pt-BR**, limitado ao trecho necessário.
+Trechos não pt-BR citados literalmente em Markdown devem seguir a convenção de `docs/README.md`: **Disclaimer - texto original da fonte** seguido de **Tradução/adaptação pt-BR**, limitado ao trecho necessário.
 
 ## 4. Contrato de gatilho
 
@@ -100,7 +102,7 @@ Remediação textual por IA só pode ser acionada por findings persistidos de co
 
 `Confidence LOW`, isoladamente, **nunca** é gatilho e não deve ser interpretada como conteúdo ruim.
 
-Universo de regras elegíveis para propostas de texto exato nesta versão:
+Universo de regras elegíveis para propostas de texto exato:
 
 ```text
 BR-GEO-028..033
@@ -222,7 +224,7 @@ DEGRADED
 
 ## 11. Orientação JSON-LD quando ausente
 
-Para cada snapshot/dispositivo efetivamente auditado sem artefato JSON-LD persistido, o RASAi pode materializar baseline conservador Schema.org `WebPage` usando somente dados persistidos/observados.
+Para cada snapshot/dispositivo efetivamente auditado sem artefato JSON-LD persistido, o RASAi pode materializar uma proposta conservadora Schema.org `WebPage` usando somente dados persistidos/observados.
 
 Campos genéricos permitidos incluem:
 
@@ -239,7 +241,7 @@ Campos genéricos permitidos incluem:
 
 Um `mainEntity` opcional só pode ser incluído quando uma única entidade persistida de alta confiança for suficientemente inequívoca e sustentada pela evidência visível/persistida da página. O auditor deve preferir omissão a tipagem especulativa.
 
-O baseline não deve inventar FAQ, reviews, ratings, preços, autores, datas, offers, endereços, credenciais, identificadores de produto nem outra propriedade sem suporte no conteúdo observado.
+A proposta não deve inventar FAQ, reviews, ratings, preços, autores, datas, offers, endereços, credenciais, identificadores de produto nem outra propriedade sem suporte no conteúdo observado.
 
 Uma proposta genérica `WebPage` não é promessa de elegibilidade a rich result do Google.
 
@@ -270,20 +272,24 @@ A capacidade deve comunicar corretamente que:
 
 Referências primárias:
 
-- Google Search Central - General Structured Data Guidelines: `https://developers.google.com/search/docs/appearance/structured-data/sd-policies`
-- Google Search Central - Intro to Structured Data: `https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data`
-- documentação Schema.org: `https://schema.org/docs/documents.html`
-- Google Search Central - Optimizing for generative AI features: `https://developers.google.com/search/docs/fundamentals/ai-optimization-guide`
+| Fonte | Aplicação | Link |
+|---|---|---|
+| Google - General Structured Data Guidelines | regras gerais de qualidade e elegibilidade de markup no Google Search | <https://developers.google.com/search/docs/appearance/structured-data/sd-policies> |
+| Google - Intro to Structured Data | formatos suportados e finalidade de dados estruturados em Search | <https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data> |
+| Schema.org | vocabulário público usado para tipos e propriedades | <https://schema.org/docs/documents.html> |
+| Google - otimização para recursos generativos | orientação do Google para Search com recursos de IA; não cria markup GEO/AEO obrigatório | <https://developers.google.com/search/docs/fundamentals/ai-optimization-guide> |
 
 ## 14. Contrato de relatório
 
-`REPORT-SITE-GEO-001` é estendido com:
+`content-suggestions.html` pertence ao conjunto canônico estável de `REPORT-SITE-GEO-001`:
 
 ```text
 <AUD-ID>/report/content-suggestions.html
 ```
 
-A página deve usar a mesma navegação compartilhada e stylesheet externo das demais páginas do relatório, preservando consistência com o design system do report.
+A página existe após auditoria concluída com sucesso mesmo quando remediação por IA está desabilitada ou não há sugestões. Nesses casos, apresenta estado neutro/explicativo e não dispara chamada de IA apenas para preencher a superfície.
+
+A página usa a mesma navegação compartilhada e stylesheet externo das demais páginas do relatório, preservando consistência com o design system do report.
 
 Deve mostrar somente informação analiticamente útil, incluindo:
 
