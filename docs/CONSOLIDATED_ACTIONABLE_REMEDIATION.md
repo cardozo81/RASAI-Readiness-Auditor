@@ -1,4 +1,4 @@
-# Relatório consolidado — remediação técnica acionável
+# Relatório consolidado - remediação técnica acionável
 
 **Estado:** vigente no baseline de desenvolvimento.  
 **Escopo:** somente `CONS-*`; não altera auditorias `AUD-*`, SARI/SCORE-GEO, regras, provider adapters, quarentena ou política de preços de IA.
