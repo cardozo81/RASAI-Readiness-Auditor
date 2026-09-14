@@ -223,15 +223,28 @@ SerpApi usa endpoint de conta quando disponível; outros adapters usam probes t�
 
 ### Google Search Console
 
-O probe consulta as propriedades acessíveis pelo OAuth e verifica se `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL` está entre as propriedades da conta autenticada.
+O diagnóstico reconhece duas formas de autenticação:
+
+```text
+ACCESS_TOKEN manual
+ou
+CLIENT_ID + CLIENT_SECRET + REFRESH_TOKEN
+```
+
+No fluxo durável, o RASAi solicita um access token temporário ao endpoint OAuth do Google e usa esse token somente em memória para consultar as propriedades acessíveis. Depois verifica se `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL` está entre as properties autorizadas.
 
 São diferenciados:
 
 ```text
-OAuth recusado
+configuração OAuth incompleta
+Google API Key usada indevidamente como access token (ex.: prefixo AIza)
+refresh token/client recusado
+falha temporária no endpoint OAuth
 OAuth válido + property sem acesso
 OAuth válido + property acessível
 ```
+
+A property é obrigatória em ambos os modos. `CLIENT_SECRET`, `REFRESH_TOKEN` e `ACCESS_TOKEN` não são exibidos nem persistidos. Consulte [GSC_OAUTH.md](GSC_OAUTH.md).
 
 ### PageSpeed, CrUX e CrUX History
 
@@ -324,7 +337,7 @@ control_host/control_status
 proxy_configured
 ```
 
-Não são persistidos API keys, bearer tokens, passwords, client secrets, payloads de AUD ou respostas completas do fornecedor.
+Não são persistidos API keys, bearer tokens, passwords, client secrets, refresh tokens, payloads de AUD ou respostas completas do fornecedor.
 
 O diagnóstico funcional continua usando `configuration_fingerprint` para detectar alteração de credencial/configuração sem persistir o valor original.
 
