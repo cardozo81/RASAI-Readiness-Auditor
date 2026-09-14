@@ -8,12 +8,41 @@ import sqlite3
 import tempfile
 import unittest
 
+from rasai.audit_fulfillment import (
+    REPLAY_SAFE,
+    SUCCESS,
+    initialize_contract,
+    register_work_item,
+    set_work_item_status,
+)
 from rasai.consolidation.index import ConsolidationIndex
 from rasai.consolidation.service import build_data, generate, normalize_filter
 
 
 def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _mark_fulfillment_complete(workspace: Path, audit_id: str) -> None:
+    """Materialize the current fulfillment contract for a completed fixture AUD."""
+    initialize_contract(workspace, audit_id, {"source": "consolidation-test-fixture"})
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component="CORE_AUDIT",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status=SUCCESS,
+        retryable=False,
+    )
+    set_work_item_status(
+        workspace,
+        audit_id=audit_id,
+        component="CORE_AUDIT",
+        status=SUCCESS,
+        result_ref=f"audit:{audit_id}",
+        retryable=False,
+    )
 
 
 def _make_audit(
@@ -95,6 +124,7 @@ def _make_audit(
         connection.commit()
     finally:
         connection.close()
+    _mark_fulfillment_complete(workspace, audit_id)
     return db
 
 
