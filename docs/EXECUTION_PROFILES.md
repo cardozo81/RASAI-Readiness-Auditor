@@ -4,6 +4,12 @@
 
 Os **Perfis de Execução** simplificam a preparação de uma auditoria sem criar uma segunda fonte de verdade para o RASAi.
 
+No dashboard `INÍCIO > PREPARAR AUDITORIA`, o acesso canônico é:
+
+```text
+15. Perfil da execução
+```
+
 Um perfil é apenas um overlay temporário da sessão:
 
 ```text
@@ -87,9 +93,9 @@ A opção 1 não pode invalidar um módulo cuja própria finalidade exige IA.
 
 Se um perfil contém `deep-analysis`:
 
-- o item 13 precisa estar habilitado;
+- o item 8 precisa estar habilitado;
 - a entrada precisa ser uma URL única;
-- a IA principal precisa estar apta;
+- a IA principal do item 6 precisa estar apta;
 - `none` não é válido para a etapa;
 - provider/model/reasoning próprios da análise profunda não existem;
 - se a seleção principal for `AUTO`, a análise profunda reutiliza o mesmo coordenador central;
@@ -137,7 +143,7 @@ O perfil não cria termos.
 
 Para ficar `APTO`, exige:
 
-- termos configurados para a sessão;
+- termos configurados no item 13 para a sessão;
 - `RASAI_SERP_MODE` compatível;
 - provider SERP válido;
 - credencial quando o modo for `live`;
@@ -157,9 +163,9 @@ Inclui Improvement Intelligence evidence-bound, advisory/non-scoring e com segur
 
 Para ficar `APTO`, exige:
 
-- item 13 habilitado;
+- item 8 habilitado;
 - uma única URL explícita;
-- IA principal apta, por provider explícito ou `AUTO`;
+- IA principal apta no item 6, por provider explícito ou `AUTO`;
 - domínios/limites/timeout válidos.
 
 A análise profunda não possui seleção própria de provider/model/reasoning.
@@ -246,9 +252,9 @@ Preserva a política configurada no ambiente normal.
 
 | Módulo/capacidade | Dependência obrigatória | Resultado quando ausente |
 |---|---|---|
-| Search Intelligence | termos + modo/provider SERP + credencial quando live + limites válidos | `CONFIGURAR` |
-| Experiência sintética | configuração Apdex válida | `CONFIGURAR` |
-| Análise profunda | item 13 + URL única + IA principal apta | `CONFIGURAR` |
+| Search Intelligence | item 13 + modo/provider SERP + credencial quando live + limites válidos | `CONFIGURAR` |
+| Experiência sintética | configuração Apdex válida no item 12 | `CONFIGURAR` |
+| Análise profunda | item 8 + URL única + IA principal apta no item 6 | `CONFIGURAR` |
 | GSC obrigatório | token + property compatível | `CONFIGURAR` |
 | GSC somente se compatível | nenhuma dependência bloqueante | não bloqueia |
 | GEO | contexto editorial válido | `AUTO` permitido |
@@ -258,14 +264,14 @@ Preserva a política configurada no ambiente normal.
 
 Ajustes explícitos feitos após selecionar o perfil têm precedência no domínio correspondente.
 
-Principais entradas:
+Principais entradas do dashboard:
 
-- item `4`: IA principal;
-- item `5`: remediações por IA;
-- item `6`: Web Performance;
-- item `11`: experiência sintética;
-- item `13`: Análise profunda;
-- item `T`: Search Intelligence.
+- item `6`: IA principal;
+- item `7`: remediações por IA;
+- item `9`: Web Performance;
+- item `12`: experiência sintética;
+- item `8`: Análise profunda;
+- item `13`: Search Intelligence.
 
 Uma alteração manual que torne uma dependência obrigatória inválida faz o perfil voltar a `CONFIGURAR` e bloqueia a execução até correção.
 
@@ -316,6 +322,7 @@ Os relatórios continuam projetando dados persistidos, status de fulfillment, te
 ## Referências
 
 - [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md)
+- [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md)
 - [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
 - [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md)
 - [COMPETITIVE_AI_INTELLIGENCE.md](COMPETITIVE_AI_INTELLIGENCE.md)
