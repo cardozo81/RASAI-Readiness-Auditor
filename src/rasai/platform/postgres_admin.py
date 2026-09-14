@@ -1,7 +1,7 @@
 """Explicit schema administration for the PostgreSQL control plane.
 
 Normal application startup validates schema compatibility but never mutates hosted
-schema. Migrations are an explicit deployment/development operation through this
+schema. Schema changes are an explicit deployment/development operation through this
 module and the public platform CLI.
 """
 from __future__ import annotations
@@ -9,6 +9,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .postgres_ai_catalog_migration import (
+    AI_CATALOG_SCHEMA_VERSION,
+    apply_ai_catalog_migrations,
+    current_ai_catalog_schema_version,
+    require_current_ai_catalog_schema,
+)
 from .postgres_compat import connect_postgres, redact_postgres_url
 from .postgres_execution_migration import (
     EXECUTION_SCHEMA_VERSION,
@@ -35,6 +41,8 @@ class PostgreSQLSchemaStatus:
     execution_supported_version: int = EXECUTION_SCHEMA_VERSION
     identity_current_version: int = 0
     identity_supported_version: int = IDENTITY_SCHEMA_VERSION
+    ai_catalog_current_version: int = 0
+    ai_catalog_supported_version: int = AI_CATALOG_SCHEMA_VERSION
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -45,6 +53,8 @@ class PostgreSQLSchemaStatus:
             "execution_supported_version": self.execution_supported_version,
             "identity_current_version": self.identity_current_version,
             "identity_supported_version": self.identity_supported_version,
+            "ai_catalog_current_version": self.ai_catalog_current_version,
+            "ai_catalog_supported_version": self.ai_catalog_supported_version,
             "state": self.state,
         }
 
@@ -75,13 +85,22 @@ def combined_schema_state(
     core_version: int,
     execution_version: int,
     identity_version: int = IDENTITY_SCHEMA_VERSION,
+    ai_catalog_version: int = AI_CATALOG_SCHEMA_VERSION,
 ) -> str:
     core = schema_state(core_version)
     if core != "CURRENT":
         return core
-    if execution_version > EXECUTION_SCHEMA_VERSION or identity_version > IDENTITY_SCHEMA_VERSION:
+    if (
+        execution_version > EXECUTION_SCHEMA_VERSION
+        or identity_version > IDENTITY_SCHEMA_VERSION
+        or ai_catalog_version > AI_CATALOG_SCHEMA_VERSION
+    ):
         return "NEWER_THAN_RUNTIME"
-    if execution_version < EXECUTION_SCHEMA_VERSION or identity_version < IDENTITY_SCHEMA_VERSION:
+    if (
+        execution_version < EXECUTION_SCHEMA_VERSION
+        or identity_version < IDENTITY_SCHEMA_VERSION
+        or ai_catalog_version < AI_CATALOG_SCHEMA_VERSION
+    ):
         return "MIGRATION_REQUIRED"
     return "CURRENT"
 
@@ -101,6 +120,7 @@ def require_current_postgres_schema(connection: Any) -> int:
         )
     require_current_execution_schema(connection)
     require_current_identity_schema(connection)
+    require_current_ai_catalog_schema(connection)
     return version
 
 
@@ -110,6 +130,7 @@ def postgres_schema_status(database_url: str) -> PostgreSQLSchemaStatus:
         version = current_postgres_schema_version(connection)
         execution_version = current_execution_schema_version(connection)
         identity_version = current_identity_schema_version(connection)
+        ai_catalog_version = current_ai_catalog_schema_version(connection)
         return PostgreSQLSchemaStatus(
             database=redact_postgres_url(database_url),
             current_version=version,
@@ -118,23 +139,32 @@ def postgres_schema_status(database_url: str) -> PostgreSQLSchemaStatus:
             execution_supported_version=EXECUTION_SCHEMA_VERSION,
             identity_current_version=identity_version,
             identity_supported_version=IDENTITY_SCHEMA_VERSION,
-            state=combined_schema_state(version, execution_version, identity_version),
+            ai_catalog_current_version=ai_catalog_version,
+            ai_catalog_supported_version=AI_CATALOG_SCHEMA_VERSION,
+            state=combined_schema_state(
+                version,
+                execution_version,
+                identity_version,
+                ai_catalog_version,
+            ),
         )
     finally:
         connection.close()
 
 
 def migrate_postgres(database_url: str) -> tuple[PostgreSQLSchemaStatus, tuple[int, ...]]:
-    """Apply pending migrations explicitly and return the resulting schema state."""
+    """Apply pending schema changes explicitly and return the resulting schema state."""
 
     connection = connect_postgres(database_url)
     try:
         applied = apply_postgres_migrations(connection)
         apply_execution_migrations(connection)
         apply_identity_migrations(connection)
+        apply_ai_catalog_migrations(connection)
         version = require_current_postgres_schema(connection)
         execution_version = current_execution_schema_version(connection)
         identity_version = current_identity_schema_version(connection)
+        ai_catalog_version = current_ai_catalog_schema_version(connection)
         return (
             PostgreSQLSchemaStatus(
                 database=redact_postgres_url(database_url),
@@ -144,6 +174,8 @@ def migrate_postgres(database_url: str) -> tuple[PostgreSQLSchemaStatus, tuple[i
                 execution_supported_version=EXECUTION_SCHEMA_VERSION,
                 identity_current_version=identity_version,
                 identity_supported_version=IDENTITY_SCHEMA_VERSION,
+                ai_catalog_current_version=ai_catalog_version,
+                ai_catalog_supported_version=AI_CATALOG_SCHEMA_VERSION,
                 state="CURRENT",
             ),
             applied,
