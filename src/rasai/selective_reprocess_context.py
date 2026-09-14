@@ -9,13 +9,14 @@ from __future__ import annotations
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Iterator
+from typing import Any, Iterator
 
 
 @dataclass(slots=True)
 class SelectiveReprocessContext:
     audit_id: str
     pending_components: frozenset[str]
+    workspace: Any | None = None
     extra_attempted: int = 0
     extra_successful: int = 0
 
@@ -52,10 +53,16 @@ def record_optional_evaluation(*, success: bool) -> None:
 
 
 @contextmanager
-def scope(audit_id: str, pending_components: set[str] | frozenset[str]) -> Iterator[SelectiveReprocessContext]:
+def scope(
+    audit_id: str,
+    pending_components: set[str] | frozenset[str],
+    *,
+    workspace: Any | None = None,
+) -> Iterator[SelectiveReprocessContext]:
     value = SelectiveReprocessContext(
         audit_id=str(audit_id),
         pending_components=frozenset(str(item).strip().upper() for item in pending_components if str(item).strip()),
+        workspace=workspace,
     )
     token = _CURRENT.set(value)
     try:
