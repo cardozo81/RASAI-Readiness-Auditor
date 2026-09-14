@@ -25,9 +25,8 @@ _SURFACE_ID = "improvement-intelligence"
 def _install_report_contract() -> None:
     from rasai import context_scope_runtime, report_contract, report_manifest, report_navigation, report_registry
 
-    # Compatibility only. The current public contract declares the surface statically
-    # in report_contract; this branch supports older composed imports without creating a
-    # second registry when the static declaration is already present.
+    # Defensive registration for composed imports. The current public contract
+    # normally declares this surface statically in report_contract.
     if not any(surface.id == _SURFACE_ID for surface in report_contract.REPORT_SURFACES):
         surface = report_contract.ReportSurface(
             id=_SURFACE_ID,
@@ -83,28 +82,12 @@ def _install_report_contract() -> None:
     context_scope_runtime._NAV_GROUPS = tuple(groups)
 
 
-def _install_consolidated_alignment() -> None:
-    """Bring the historical/consolidated surface to the current public vocabulary."""
+def _install_consolidated_boundary() -> None:
+    """Add the Improvement Intelligence boundary without changing CONS identity."""
     try:
         from rasai.consolidation import reporting
     except Exception:
         return
-    reporting.REPORT_FORMAT_VERSION = "CONS-4"
-    reporting._DIMENSIONS.update({
-        "DISCOVERY_ACCESS": "Discovery & Crawler Access",
-        "INDEXABILITY": "Indexability & Canonicalization",
-        "CONTENT_EXTRACTABILITY": "Rendering & Extractability",
-        "SEMANTIC_STRUCTURE": "Semantic Structure",
-        "ENTITY_CLARITY": "Entity Clarity",
-        "STRUCTURED_DATA": "Structured Data",
-        "ANSWERABILITY": "Answerability",
-        "CITATION_READINESS": "Citation Readiness",
-        "EVIDENCE_TRUST": "Evidence & Trust",
-        "INTENT_COVERAGE": "Intent Coverage",
-        "CONTENT_VALUE": "Content Value",
-        # Backward-readable only. New audits use DISCOVERY_ACCESS.
-        "TECHNICAL_ACCESSIBILITY": "Discovery & Crawler Access (histórico legado)",
-    })
     original = reporting._render_executive
     if getattr(original, "_rasai_improvement_boundary", False):
         return
@@ -115,7 +98,7 @@ def _install_consolidated_alignment() -> None:
             "<section class='notice' data-current-rasai-boundary='true'><strong>Fronteira do consolidado atual:</strong> "
             "SARI/SCORE-GEO, Coverage, Confidence e gates mantêm sua série metodológica própria. Lighthouse/Core Web Vitals, "
             "Apdex, SERP/Search Intelligence, postura de segurança e Improvement Intelligence são sinais complementares e não são "
-            "promediados artificialmente dentro do SARI histórico. Recomendações de IA são advisory e o ganho só é tratado como "
+            "promediados artificialmente dentro do SARI temporal. Recomendações de IA são advisory e o ganho só é tratado como "
             "observado depois de nova medição/before-after.</section>"
         )
         return notice + html
@@ -267,7 +250,7 @@ def _install_report_completion() -> None:
                     scoring_impact="NONE",
                 )
 
-        # The canonical report finalizer now owns the Improvement Intelligence page,
+        # The canonical report finalizer owns the Improvement Intelligence page,
         # navigation normalization and manifest write. This wrapper executes only the
         # optional analysis before that finalizer, avoiding duplicate HTML/manifest I/O.
         base = original(
@@ -295,7 +278,7 @@ def install() -> None:
 
     install_report_quality_reconciliation()
     _install_report_contract()
-    _install_consolidated_alignment()
+    _install_consolidated_boundary()
     _install_ai_cost_attribution()
     _install_report_completion()
     _INSTALLED = True
