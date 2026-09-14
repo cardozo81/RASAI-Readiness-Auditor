@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": {"dev":"vite --port 5174","build":"tsc -b && vite build","typecheck":"tsc --noEmit"},
+  "scripts": {"dev":"vite --port 5174","build":"tsc --noEmit && vite build","typecheck":"tsc --noEmit"},
   "dependencies": {
     "@rasai/prototype-contracts": "0.1.0",
     "@rasai/prototype-mocks": "0.1.0",
