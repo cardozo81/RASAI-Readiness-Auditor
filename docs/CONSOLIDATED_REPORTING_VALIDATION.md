@@ -1,8 +1,8 @@
 # Validação e reversibilidade - relatórios consolidados
 
-## Estado atual
+**Estado:** vigente.
 
-O relatório consolidado faz parte do baseline de desenvolvimento em `main`.
+## Formato e contratos
 
 Formato materializado vigente:
 
@@ -18,7 +18,7 @@ CONSOLIDATED-EVOLUTION-001
 CONSOLIDATED-SPECIALIST-001
 ```
 
-`CONS-3` permanece como formato/base anterior. Ele pode ser lido/reutilizado pelo renderizador base, mas não deve ser reescrito em lugar para adquirir semântica `CONS-4`.
+O runtime utiliza uma camada interna de renderização base identificada no código como `CONS-3`. Essa identificação é detalhe de implementação e não representa versão pública anterior nem compromisso de compatibilidade externa. A materialização `CONS-4` deve manter identidade própria e não alterar em lugar um snapshot base reutilizado.
 
 ## Fonte de verdade e escrita
 
@@ -33,7 +33,7 @@ consolidated/CONS-*/manifest.json
 consolidated/CONS-*/specialist-analysis.json
 ```
 
-O índice e os snapshots consolidados são reconstruíveis. O artifact especialista não contém secrets.
+O índice e os snapshots consolidados são reconstruíveis. O artefato especialista não contém secrets.
 
 ## Contrato comportamental CONS-4
 
@@ -48,11 +48,11 @@ O índice e os snapshots consolidados são reconstruíveis. O artifact especiali
 - findings permanecem contextualizados pelo universo auditado;
 - dado ausente não vira zero;
 - extremos não são eliminados automaticamente;
-- mudanças materiais de método criam fronteiras de comparabilidade;
+- diferenças materiais de método criam fronteiras de comparabilidade;
 - evolução factual é calculada por Monitoring/Fix Verification, não pela IA;
 - IA especialista é opcional, advisory e non-scoring;
 - ausência, recusa ou falha da IA não impede o relatório base;
-- `CONS-3` legado não é mutado ao materializar `CONS-4`.
+- a camada `CONS-4` não altera em lugar snapshots do renderizador base.
 
 ## Comparação de evolução
 
@@ -152,7 +152,7 @@ Readiness, Web Performance, findings, estados categóricos e dados externos mant
 
 ## Integridade do snapshot e dedupe
 
-O fingerprint `CONS-4` depende dos filtros canônicos, que agora incluem seleção do par de comparação e configuração não secreta da análise especialista.
+O fingerprint `CONS-4` depende dos filtros canônicos, que incluem seleção do par de comparação e configuração não secreta da análise especialista.
 
 Comportamento esperado:
 
@@ -173,7 +173,7 @@ Workflow específico:
 
 Esta superfície é local/console; portanto o workflow específico roda em **Windows**, conforme a convenção do projeto.
 
-O control plane/SaaS continua validado em **Linux** pelos workflows de arquitetura quando houver mudança pertinente ao SaaS. A implementação atual não adiciona endpoint SaaS nem migração de schema.
+O control plane/SaaS é validado em **Linux** quando houver mudança pertinente ao SaaS. O contrato atual de consolidação não adiciona endpoint SaaS nem migração de schema.
 
 O gate do consolidado deve cobrir:
 
@@ -188,12 +188,12 @@ O gate do consolidado deve cobrir:
 - Snapshot com N=1 sem falsa tendência;
 - Apdex calculado pelas contagens persistidas;
 - percentis recalculados do pool bruto;
-- HTML/manifest/artifact especialista coerentes;
+- HTML/manifest/artefato especialista coerentes;
 - regressões do console Windows.
 
 ## Testes pontuais mínimos
 
-1. dois AUDs com FAIL no baseline e PASS no current, confirmando `FIXED`;
+1. dois AUDs com `FAIL` na referência e `PASS` no comparado, confirmando `FIXED`;
 2. confirmar que hashes dos dois `audit.db` não mudaram;
 3. confirmar seções determinísticas no HTML sem IA configurada;
 4. comparar fingerprints com `specialist_ai=false` e `specialist_ai=true`;
@@ -208,12 +208,12 @@ O gate do consolidado deve cobrir:
 
 ## SaaS/control plane
 
-Nenhuma migração de schema é necessária. A geração `CONS-*` permanece, no estado atual, uma superfície local. A lógica de evolução, preview e execução especialista está separada do fluxo de `input()` e pode ser reutilizada por futura Web API.
+Não existe endpoint SaaS de consolidação `CONS-*` no contrato atual. A geração permanece uma superfície local e não exige migração de schema do control plane.
 
-Ao expor esta capacidade no SaaS, o contrato deverá preservar preview + autorização explícita para custo de IA e deverá chamar a mesma lógica canônica, sem recriar comparação, preço ou roteamento em outro serviço.
+Qualquer exposição Web/API dessa capacidade deve reutilizar a mesma lógica canônica de comparação, autorização de custo e roteamento, sem recriar scoring, pricing ou análise longitudinal em outro serviço.
 
 ## Reversibilidade
 
-O consolidado é derivado. Reversão não exige migração dos `AUD-*`: cache e `CONS-*` podem ser removidos e reconstruídos.
+O consolidado é derivado. Remover cache e `CONS-*` não exige migração dos `AUD-*`; os artefatos derivados podem ser reconstruídos a partir das fontes persistidas.
 
 Veja também [`CONSOLIDATED_REPORTING.md`](CONSOLIDATED_REPORTING.md), [`CONSOLIDATED_REPORTING_TEMPORAL.md`](CONSOLIDATED_REPORTING_TEMPORAL.md), [`MONITORING_OBSERVABILITY.md`](MONITORING_OBSERVABILITY.md), [`REPORT_GUIDE.md`](REPORT_GUIDE.md) e [`SCORING_GUIDE.md`](SCORING_GUIDE.md).
