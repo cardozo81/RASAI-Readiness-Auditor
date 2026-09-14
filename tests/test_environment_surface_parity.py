@@ -3,9 +3,13 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
 from rasai.ai_pricing_console import install as install_ai_pricing_console
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 
+# Match the public interactive-console composition. The canonical AI policy removes
+# feature-local provider selectors before the final advanced catalog is exposed.
+install_ai_efficiency_policy()
 install_runtime_completion_extensions()
 install_ai_pricing_console()
 
@@ -17,6 +21,18 @@ from rasai.provider_registry import provider_environment_names
 ROOT = Path(__file__).resolve().parents[1]
 _ENV_CONSTANT_SUFFIXES = ("_ENV", "_ENV_REF")
 _ENV_LOOKUP_METHODS = {"get", "getenv", "pop", "setdefault"}
+
+# These strings may still appear inside adapter/bootstrap internals while the code is
+# being composed, but they are deliberately not runtime configuration surfaces. The
+# current product contract has one primary AI selection per execution.
+_NON_PUBLIC_FEATURE_LOCAL_AI_ENV = frozenset(
+    {
+        "RASAI_SEARCH_AI_PROVIDER",
+        "RASAI_IMPROVEMENT_AI_PROVIDER",
+        "RASAI_IMPROVEMENT_AI_MODEL",
+        "RASAI_IMPROVEMENT_AI_REASONING",
+    }
+)
 
 
 def _rasai_literal(node: ast.AST | None) -> str | None:
@@ -37,12 +53,11 @@ def _assigned_names(node: ast.Assign | ast.AnnAssign) -> tuple[str, ...]:
 
 
 def _runtime_rasai_environment_names() -> set[str]:
-    """Discover actual environment keys, not every RASAI-prefixed runtime identifier.
+    """Discover candidate environment keys used by source-level runtime code.
 
-    Profile IDs, operational event names and public contract labels also intentionally
-    use the RASAI_* namespace. Treating every such string as an environment variable
-    creates false positives and would pressure the console into exposing non-settings.
-    We therefore inspect explicit *_ENV constants and environment-style lookups.
+    Static discovery intentionally over-approximates. The canonical product contract can
+    classify a source literal as internal/non-public even when it appears in a compatibility
+    adapter. Public console parity is checked only after applying that classification.
     """
     names: set[str] = set()
     for path in (ROOT / "src" / "rasai").rglob("*.py"):
@@ -81,11 +96,16 @@ def _runtime_rasai_environment_names() -> set[str]:
     return names
 
 
-def test_every_builtin_rasai_runtime_environment_variable_is_exposed_in_console() -> None:
-    discovered = _runtime_rasai_environment_names()
+def test_every_builtin_public_runtime_environment_variable_is_exposed_in_console() -> None:
+    discovered = _runtime_rasai_environment_names() - _NON_PUBLIC_FEATURE_LOCAL_AI_ENV
     exposed = set(ENV_NAMES)
     missing = sorted(discovered - exposed)
     assert not missing, "runtime environment variables missing from console catalog: " + ", ".join(missing)
+
+
+def test_feature_local_ai_selectors_are_not_public_console_settings() -> None:
+    assert _NON_PUBLIC_FEATURE_LOCAL_AI_ENV.isdisjoint(ENV_NAMES)
+    assert _NON_PUBLIC_FEATURE_LOCAL_AI_ENV.isdisjoint(SPEC_BY_NAME)
 
 
 def test_non_setting_rasai_identifiers_are_not_misclassified_as_environment_variables() -> None:
