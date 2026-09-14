@@ -90,6 +90,8 @@ Para cada avaliação de recurso:
 - códigos de diagnóstico e identificadores de evidência das ações também são restringidos aos valores efetivamente fornecidos;
 - o validador local continua verificando a resposta mesmo quando o provider declara suporte a structured output.
 
+O universo de cada recurso é a união das evidências elegíveis daquele próprio recurso que foram efetivamente fornecidas à chamada, incluindo diagnóstico técnico persistido e baseline determinístico quando ambos existem. O mesmo conjunto canônico deve alimentar schema, instrução ao provider e validação local; uma evidência válida de SITEMAP não pode ser rejeitada apenas por ter origem diagnóstica em vez de baseline, e continua proibida em uma avaliação ROBOTS.
+
 A separação é estrutural, não apenas uma instrução em linguagem natural. Isso evita fallback/custo desnecessário causado por um provider misturar evidência válida de um recurso na avaliação de outro recurso.
 
 O formato persistido e seus consumidores permanecem no mesmo contrato vigente; o endurecimento apenas impede combinações que já eram inválidas pelo validador local, sem criar contrato público paralelo.
@@ -118,6 +120,7 @@ Hard source blockers impedem aquisição adicional dependente do corpus. Expans�
 - `llms.txt` permanece experimental/non-scoring;
 - remediação técnica permanece default OFF;
 - avaliações de recurso não podem cruzar evidência ROBOTS/SITEMAP nem no schema enviado ao provider nem na validação local;
+- evidências diagnósticas e de baseline do mesmo recurso usam o mesmo universo canônico em schema e validação;
 - falha contratual da remediação técnica não altera regras de preço, AUTO, fallback, quarentena ou circuit breaker;
 - execução não altera entidades de scoring fora do contrato BR-GEO-055/056;
 - report usa navegação/CSS canônicos;
