@@ -74,6 +74,18 @@ A existência física de um HTML canônico **não** significa que a análise cor
 
 O header é uma projeção de apresentação e não recalcula fulfillment. Quando o contrato de execução persistido estiver disponível, ele é a referência para o estado global da auditoria; estados específicos de capabilities permanecem subordinados aos respectivos ledgers/runs.
 
+### Estado da página não é o estado genérico da capacidade-pai
+
+Quando uma página representa somente uma parte de uma coleta mais ampla, o estado público deve usar a evidência **específica daquela parte** quando ela estiver persistida. O sucesso da capacidade-pai não autoriza classificar automaticamente todas as páginas derivadas como concluídas.
+
+Exemplos:
+
+- `accessibility.html` só pode ser apresentada como concluída quando a categoria/resultado de Accessibility efetivamente foi solicitada e materializada; sucesso de Web Performance apenas em outras categorias não basta;
+- `standards.html` distingue métricas já materializadas dos serviços externos opcionais. Dados locais/derivados podem existir ao mesmo tempo em que um serviço externo está desabilitado, não configurado ou falhou; nesse caso a página pode ser **concluída com limitações**, sem apagar o resultado já existente;
+- o mesmo princípio vale para qualquer superfície futura em que um único ledger operacional alimente vários indicadores públicos.
+
+Na ausência de estado especializado suficiente, a apresentação deve preferir **Estado não determinado**, **Dados insuficientes** ou outra condição conservadora suportada pela evidência. Ela nunca deve inferir sucesso somente porque uma etapa mais ampla terminou.
+
 O header também pode mostrar, de forma compacta:
 
 - quantidade de URLs do escopo;
@@ -104,13 +116,16 @@ Cada superfície canônica pode apresentar, próximo ao final da página, um aci
 A camada de transparência deve separar claramente:
 
 1. o que a página entrega;
-2. quais dados podem alimentá-la;
-3. o estado das dependências nesta auditoria;
-4. dependências necessárias;
-5. dependências complementares;
-6. orientação para obter uma análise mais completa quando houver ação possível;
-7. uso ou não uso de IA;
-8. rastreabilidade técnica, fonte de verdade e impacto sobre scoring.
+2. **dados previstos para a página**, conforme o contrato da superfície;
+3. **estado materializado nesta auditoria**, indicando o que de fato foi solicitado, produzido, ficou pendente, foi desabilitado ou falhou;
+4. origem/fonte de verdade dos dados;
+5. dependências necessárias;
+6. dependências complementares;
+7. orientação para obter uma análise mais completa quando houver ação possível;
+8. uso ou não uso de IA;
+9. rastreabilidade técnica e impacto sobre scoring.
+
+A lista de inputs possíveis nunca deve ser apresentada como prova de que todos eles participaram daquela execução. A UI deve deixar explícita a diferença entre **o que pode alimentar a página** e **o que efetivamente foi materializado**.
 
 Identificadores internos, nomes de componentes, códigos e variáveis podem aparecer no nível de rastreabilidade técnica, mas não devem substituir o vocabulário humano da leitura principal.
 
@@ -131,7 +146,7 @@ O usuário deve conseguir responder, sem conhecer a arquitetura interna do RASAi
 3. quais dados sustentam o resultado?;
 4. o que precisa ser corrigido e em qual URL/contexto?;
 5. o que já melhorou ou foi resolvido quando existir base comparável?;
-6. o que faltou e como habilitar/completar a medição, quando isso estiver sob controle do usuário?.
+6. o que faltou e como habilitar/completar a medição, quando isso estiver sob controle do usuário?
 
 O relatório não deve sugerir uma configuração como solução quando a ausência é legítima da fonte externa, por exemplo falta de amostra CrUX para determinada URL.
 
