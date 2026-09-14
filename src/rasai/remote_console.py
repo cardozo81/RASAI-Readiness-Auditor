@@ -85,7 +85,7 @@ def main() -> int:
     except (ValueError, RemoteApiError) as exc:
         print(f"Falha ao conectar ao RASAi remoto: {exc}")
         return 2
-    print("RASAi Console — modo remoto")
+    print("RASAi Console - modo remoto")
     print(f"Usuário: {me.get('user_id')}")
     while True:
         print("\nAÇÕES")
