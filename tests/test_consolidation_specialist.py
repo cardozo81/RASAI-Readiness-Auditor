@@ -8,6 +8,13 @@ import tempfile
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from rasai.audit_fulfillment import (
+    REPLAY_SAFE,
+    SUCCESS,
+    initialize_contract,
+    register_work_item,
+    set_work_item_status,
+)
 from rasai.consolidation.cons4 import request_fingerprint
 from rasai.consolidation.index import ConsolidationIndex
 from rasai.consolidation.service import generate, normalize_filter
@@ -16,6 +23,27 @@ from rasai.consolidation.specialist import build_evolution, preview_specialist
 
 def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _mark_fulfillment_complete(workspace: Path, audit_id: str) -> None:
+    initialize_contract(workspace, audit_id, {"source": "consolidation-specialist-fixture"})
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component="CORE_AUDIT",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status=SUCCESS,
+        retryable=False,
+    )
+    set_work_item_status(
+        workspace,
+        audit_id=audit_id,
+        component="CORE_AUDIT",
+        status=SUCCESS,
+        result_ref=f"audit:{audit_id}",
+        retryable=False,
+    )
 
 
 def _workspace(root: Path, audit_id: str, *, when: str, rule_result: str, score: float) -> Path:
@@ -73,6 +101,7 @@ def _workspace(root: Path, audit_id: str, *, when: str, rule_result: str, score:
         connection.commit()
     finally:
         connection.close()
+    _mark_fulfillment_complete(workspace, audit_id)
     return workspace
 
 
