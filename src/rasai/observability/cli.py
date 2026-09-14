@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 import sqlite3
 
+from rasai.gsc_oauth import ACCESS_TOKEN_ENV, resolve_access_token
+
 from .crux_history import collect_crux_history
 from .google_genai import import_google_genai_performance_csv, persist_google_genai_control
 from .google_search_console import collect_search_analytics, collect_url_inspection
@@ -14,7 +16,7 @@ from .importers import import_bing_search_performance_csv, import_observability_
 from .reporting import enrich_observability_report
 from .store import ObservabilityStore
 
-GSC_TOKEN_ENV = "RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN"
+GSC_TOKEN_ENV = ACCESS_TOKEN_ENV
 CRUX_KEY_ENV = "RASAI_CRUX_API_KEY"
 
 
@@ -101,7 +103,14 @@ def _search_window_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--end-date", required=True)
     parser.add_argument("--search-type", default="web")
     parser.add_argument("--max-rows", type=int, default=100_000)
-    parser.add_argument("--token-env", default=GSC_TOKEN_ENV, help=f"env que contém OAuth bearer token; default {GSC_TOKEN_ENV}")
+    parser.add_argument(
+        "--token-env",
+        default=GSC_TOKEN_ENV,
+        help=(
+            f"env que contém OAuth bearer token; default {GSC_TOKEN_ENV}. "
+            "No default, o RASAi também aceita Client ID + Client Secret + Refresh Token."
+        ),
+    )
 
 
 def _workspace(root: str, value: str) -> Path:
@@ -149,11 +158,11 @@ def main(argv: list[str] | None = None) -> int:
             )
             return _reported(workspace, f"Google GenAI control observado ({args.state})", dataset)
         if args.observe_command == "gsc-sites":
-            token = _secret(args.token_env, "Google Search Console OAuth bearer token")
+            token = _gsc_token(args.token_env)
             dataset = collect_sites(audit_workspace=workspace, access_token=token)
             return _reported(workspace, "Search Console properties", dataset)
         if args.observe_command == "gsc-sitemaps":
-            token = _secret(args.token_env, "Google Search Console OAuth bearer token")
+            token = _gsc_token(args.token_env)
             dataset = collect_sitemaps(
                 audit_workspace=workspace,
                 site_url=args.site_url,
@@ -161,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             return _reported(workspace, "Search Console sitemaps", dataset)
         if args.observe_command in {"gsc-search", "gsc-appearance"}:
-            token = _secret(args.token_env, "Google Search Console OAuth bearer token")
+            token = _gsc_token(args.token_env)
             dimensions = (
                 ("searchAppearance", "date", "page", "device", "country")
                 if args.observe_command == "gsc-appearance"
@@ -181,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
             label = "Search Console Search Appearance" if args.observe_command == "gsc-appearance" else "Search Console Search Analytics"
             return _reported(workspace, label, dataset)
         if args.observe_command == "gsc-inspect":
-            token = _secret(args.token_env, "Google Search Console OAuth bearer token")
+            token = _gsc_token(args.token_env)
             urls = _audit_urls(workspace)[: max(1, args.max_urls)]
             dataset = collect_url_inspection(
                 audit_workspace=workspace,
@@ -223,6 +232,13 @@ def _secret(name: str, label: str) -> str:
     if not value:
         raise ValueError(f"{label} not configured; set environment variable {name}")
     return value
+
+
+def _gsc_token(name: str) -> str:
+    """Resolve the default GSC OAuth contract or honor an explicit custom token env."""
+    if name != GSC_TOKEN_ENV:
+        return _secret(name, "Google Search Console OAuth bearer token")
+    return resolve_access_token(os.environ)
 
 
 def _audit_urls(workspace: Path) -> list[str]:
