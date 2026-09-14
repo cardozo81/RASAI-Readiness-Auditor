@@ -60,8 +60,8 @@ _PUBLIC_STATE_LABELS: dict[str, str] = {
     "RUNNING": "Em execução",
     "WAITING_FOR_DATA": "Aguardando dados",
     "PROCESSING": "Em processamento",
-    "PARTIAL_RETRYABLE": "Parcial — reprocessamento disponível",
-    "PARTIAL_BLOCKED": "Parcial — há bloqueios",
+    "PARTIAL_RETRYABLE": "Parcial - reprocessamento disponível",
+    "PARTIAL_BLOCKED": "Parcial - há bloqueios",
     "FAILED_RETRYABLE": "Falha recuperável",
     "FAILED_PERMANENT": "Falha permanente",
     "FAILED_FATAL": "Falha não recuperável",
@@ -198,7 +198,7 @@ def _canonical_quality_shell(nav: str, body: str) -> str:
 def _localize_quality_html(html: str) -> str:
     for old, new in _QUALITY_REPLACEMENTS:
         html = html.replace(old, new)
-    # Shared report CSS styles metric labels through <small>, not the historical
+    # Shared report CSS styles metric labels through <small>, not the renderer-specific
     # private Quality <span>. Limit the rewrite to the canonical metric structure.
     html = html.replace("<div class='metric'><span>", "<div class='metric'><small>")
     html = html.replace("</span><strong>", "</small><strong>")
