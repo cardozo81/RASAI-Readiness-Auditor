@@ -99,7 +99,7 @@ def _patch_instruction_function(module: Any, name: str) -> None:
 
 
 def install() -> None:
-    """Install lossless input de-duplication and evidence-readiness gates."""
+    """Install lossless input de-duplication, readiness gates and shared AI consumers."""
     global _INSTALLED
     if _INSTALLED:
         return
@@ -164,6 +164,18 @@ def install() -> None:
     # Presentation-only final guard: fulfillment and recovery functions must already
     # be imported so references copied by value can be reconciled safely.
     install_report_public_ux_guard()
+
+    # Specialist consumers must reuse the canonical provider runtime instead of owning
+    # feature-local provider selection. These installers are integration glue only: the
+    # AUTO cost ranking, quarantine, circuit breaker and retry/fallback limits remain
+    # exclusively owned by provider_runtime_policy/dynamic_ai_routing.
+    from rasai.ai_orchestration_unification import install_ai_orchestration_unification
+    from rasai.ai_orchestration_unification_cleanup import (
+        install_ai_orchestration_unification_cleanup,
+    )
+
+    install_ai_orchestration_unification()
+    install_ai_orchestration_unification_cleanup()
 
     _INSTALLED = True
 
