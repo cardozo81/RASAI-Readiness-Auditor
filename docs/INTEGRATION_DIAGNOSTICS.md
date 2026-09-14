@@ -1,25 +1,27 @@
 # Diagnóstico de integrações externas
 
-**Estado:** vigente.
+**Estado:** contrato vigente de desenvolvimento. O RASAi ainda não foi publicado; este documento descreve somente o comportamento atual do produto, sem regras de legado ou migração.
 
 ## Objetivo
 
-O RASAi possui uma superfície de diagnóstico operacional para integrações externas configuradas no console local. O objetivo é identificar antecipadamente problemas de configuração, autenticação, autorização, recurso, quota ou comunicação sem transformar o diagnóstico em uma auditoria, sem gerar findings do website e sem alterar o comportamento homologado do pipeline.
+O RASAi possui uma superfície de diagnóstico operacional para integrações externas configuradas no console local. O objetivo é identificar antecipadamente problemas de configuração, autenticação, autorização, recurso, quota, comunicação e caminho de rede sem transformar o diagnóstico em uma auditoria e sem alterar o comportamento funcional do pipeline.
 
-A feature é deliberadamente **aditiva e consultiva**. Nesta versão, o resultado do diagnóstico:
+A feature é deliberadamente **aditiva e consultiva**. O resultado do diagnóstico:
 
-- não muda elegibilidade de execução;
+- não muda elegibilidade funcional de execução;
 - não muda `AI=auto`;
 - não altera quarentena/circuit breaker;
-- não impede processamento ou reprocessamento;
+- não altera retry do runtime;
 - não altera SARI, SCORE-GEO, Coverage ou Confidence;
 - não grava evidência em `AUD-*/audit.db`;
-- não executa reprocessamento;
-- não substitui o resultado real do adapter durante uma auditoria.
+- não substitui o resultado real do adapter durante uma auditoria;
+- pode gerar uma advertência antes de processar/reprocessar quando a mesma configuração possui diagnóstico problemático registrado.
+
+A advertência não é um bloqueio permanente. O operador pode continuar explicitamente; o runtime continua sendo a fonte definitiva de sucesso/falha.
 
 ## Acesso no console
 
-O ponto de entrada continua sendo o menu já existente:
+O ponto de entrada é:
 
 ```text
 INÍCIO
@@ -33,9 +35,7 @@ INÍCIO
 Q. Sair
 ```
 
-Não foi criado um novo item de primeiro nível.
-
-Ao abrir `Integrações / credenciais`, o console apresenta as integrações conhecidas, agrupadas por contexto:
+Em `Integrações / credenciais`, as integrações são agrupadas por:
 
 ```text
 IA
@@ -43,7 +43,7 @@ SERP / Search Intelligence
 Serviços externos
 ```
 
-Cada integração pode aparecer como, por exemplo:
+Estados possíveis incluem:
 
 ```text
 CONFIGURAR
@@ -63,75 +63,169 @@ DIAGNÓSTICO DESATUALIZADO - CONFIGURAÇÃO ALTERADA
 
 Um probe representa somente o estado observado **no momento da validação**. Uma chamada isolada não autoriza afirmar que um fornecedor está globalmente estável.
 
-O RASAi pode validar, conforme o contrato disponível para cada integração:
+O diagnóstico pode validar, conforme o contrato de cada integração:
 
 1. dependências locais obrigatórias;
 2. formato/configuração conhecida pelo adapter;
-3. resolução de endpoint e comunicação HTTP;
-4. autenticação, quando o fornecedor oferece um probe seguro;
-5. autorização/recurso, quando isso pode ser verificado sem executar a finalidade completa;
-6. catálogo/modelo, quando o fornecedor expõe listagem compatível;
-7. property/aplicação configurada, quando faz parte do contrato da integração.
+3. endpoint e comunicação HTTP;
+4. autenticação, quando existe probe seguro;
+5. autorização/recurso;
+6. catálogo/modelo;
+7. property/aplicação configurada;
+8. caminho de rede em DNS, TCP e TLS quando a chamada principal não produz resposta HTTP conclusiva;
+9. host de runtime separado quando autenticação e execução usam destinos distintos, como no GitHub Copilot.
 
-O console usa a expressão `OPERACIONAL` como resultado pontual, não como garantia futura de disponibilidade.
+`OPERACIONAL` é uma observação pontual, não uma garantia futura de disponibilidade.
 
-## Falha determinística versus falha temporária
+## Diagnóstico por camadas de rede
 
-O diagnóstico não deve confundir indisponibilidade do fornecedor com erro do usuário ou do RASAi.
+Quando o serviço responde HTTP, a resposta por si só comprova que o caminho de transporte foi suficiente para alcançar o endpoint. Nesses casos o RASAi **não adiciona conexões TCP/TLS redundantes** apenas para confirmar o que já foi provado.
 
-### Condições tratadas como determinísticas
+Quando ocorre timeout/erro de rede sem resposta HTTP conclusiva, o diagnóstico pode avaliar:
+
+```text
+DNS
+  ↓
+TCP porta 443
+  ↓
+TLS
+  ↓
+HTTP / aplicação
+```
+
+A tela apresenta, quando aplicável:
+
+```text
+Endpoint
+DNS
+TCP 443
+TLS
+HTTP
+Tentativas
+Latências
+Classificação
+Host de controle
+Indicação de proxy detectado
+```
+
+### Retentativas limitadas
+
+Retentativas automáticas deste diagnóstico são restritas a **DNS/TCP/TLS** e usam no máximo três tentativas curtas.
+
+Elas **não repetem**:
+
+- prompt de IA;
+- geração de tokens;
+- consulta SERP comercial;
+- PageSpeed/CrUX real;
+- GSC;
+- Data Export;
+- qualquer operação que possa acrescentar custo/quota apenas para confirmar uma falha de transporte.
+
+Assim, o diagnóstico consegue diferenciar uma oscilação momentânea de transporte sem alterar a política de retry funcional do RASAi.
+
+## Classificações de rede
+
+O RASAi não afirma que "a VPN bloqueou" ou "o firewall bloqueou" sem evidência direta da política de rede. O processo normalmente só consegue observar o efeito.
+
+As classificações usam linguagem probabilística:
+
+```text
+REDE OPERACIONAL
+REDE OPERACIONAL APÓS RETENTATIVA
+PROVÁVEL FALHA/BLOQUEIO DNS DO DESTINO
+PROVÁVEL BLOQUEIO/INACESSIBILIDADE DO DESTINO
+PROVÁVEL INSPEÇÃO TLS/PROXY/POLÍTICA
+FALHA TLS DO DESTINO
+PROVÁVEL FALHA DE CONECTIVIDADE LOCAL/GERAL
+INCONCLUSIVO — PROXY/VPN PODE ALTERAR A ROTA
+TRANSPORTE OK; FALHA ACIMA DE TLS/HTTP
+REDE NÃO TESTADA
+```
+
+### Host de controle
+
+O host de controle só é usado depois de uma falha de DNS/TCP/TLS do destino.
+
+Interpretação conceitual:
+
+```text
+serviço falha + controle funciona
+    -> problema aparentemente específico do destino
+
+serviço falha + controle falha
+    -> problema local/geral de conectividade é mais provável
+```
+
+O controle não transforma inferência em prova de firewall. Ele apenas melhora a separação entre falha geral e falha específica do destino.
+
+### Proxy e VPN
+
+Quando o ambiente possui proxy configurado, uma conexão TCP/TLS direta pode não representar o caminho real da aplicação. Nesse caso, se o teste direto falhar, o estado é mantido como **inconclusivo** e a UI informa que proxy/VPN pode alterar a rota.
+
+O RASAi não tenta identificar marcas específicas de VPN nem presume que uma interface de rede específica seja a causa.
+
+## Falha determinística versus temporária
+
+### Determinísticas
 
 Exemplos:
 
 - dependência obrigatória ausente;
-- formato de configuração inválido;
+- formato inválido;
 - credencial recusada;
 - ausência de autorização;
-- property/application ID/recurso incompatível;
-- modelo configurado fora do contrato ou indisponível no catálogo acessível;
-- quota, crédito ou billing quando o fornecedor explicita essa condição.
+- property/application ID incompatível;
+- modelo fora do contrato;
+- quota/crédito/billing quando explicitados pelo fornecedor.
 
-Essas condições tendem a permanecer até ocorrer alteração de configuração, permissão, credencial ou situação comercial.
-
-### Condições tratadas como temporárias
+### Temporárias
 
 Exemplos:
 
 - timeout;
-- erro de rede;
+- connection reset;
 - HTTP `429`;
 - HTTP `5xx`.
 
-Nesses casos, o console informa que a falha **não prova erro de configuração** e recomenda reteste. Um `503`, por exemplo, não é apresentado como credencial inválida.
+Um `503` recebido do fornecedor é evidência de que a rede conseguiu chegar ao serviço. Portanto, ele é classificado como indisponibilidade temporária do fornecedor, e não como bloqueio de rede.
 
 ## Estratégia de custo mínimo
 
-O verificador não deve executar trabalho comercial ou gerativo apenas para provar conectividade quando existe alternativa mais barata e tecnicamente suficiente.
+O verificador não executa trabalho gerativo/comercial apenas para provar conectividade quando existe alternativa mais barata.
 
 ### Providers de IA
 
-A estratégia preferencial é consultar endpoint de autenticação/catálogo/modelos sem enviar prompt. O diagnóstico não executa análise semântica, remediação, Improvement Intelligence ou qualquer payload de AUD.
+A estratégia preferencial é endpoint de autenticação/catálogo/modelos sem prompt.
 
-Consequências:
+Nenhum conteúdo do website é enviado pelo diagnóstico e nenhum prompt de auditoria é usado.
 
-- nenhum conteúdo do website é enviado pelo diagnóstico;
-- nenhum prompt de auditoria é usado;
-- o teste não tenta medir qualidade do modelo;
-- quando o fornecedor não permite comprovar toda a capacidade sem uma chamada de geração, o estado pode ser `OPERACIONAL COM VALIDAÇÃO LIMITADA` em vez de inventar uma garantia.
+### GitHub Copilot
 
-Para GitHub Copilot, o diagnóstico valida o token no GitHub sem criar uma sessão de chat Copilot. Portanto, entitlement/modelo do Copilot continua sendo uma capacidade que só pode ser confirmada integralmente pelo adapter em uso real.
+Há duas verificações distintas:
+
+1. a credencial é validada na API do GitHub sem criar sessão Copilot;
+2. o caminho de rede do runtime é verificado contra:
+
+```text
+https://api.githubcopilot.com/_ping
+```
+
+A segunda verificação usa somente DNS/TCP/TLS. Ela não envia prompt nem gera tokens.
+
+Isso permite detectar o cenário em que `api.github.com` funciona, mas o domínio específico do Copilot está inacessível por política de rede/VPN/proxy.
+
+Entitlement, assinatura, modelo e funcionamento completo do SDK continuam sendo capacidades que só o adapter real pode confirmar integralmente.
 
 ### SERP
 
-SerpApi usa o endpoint de conta para validar a credencial sem executar uma pesquisa de SERP.
-
-Outros adapters usam somente probes técnicos mínimos. O diagnóstico não deve ser interpretado como medição de ranking nem virar observação SERP.
+SerpApi usa endpoint de conta quando disponível; outros adapters usam probes técnicos mínimos. O diagnóstico não vira observação SERP nem medição de ranking.
 
 ### Google Search Console
 
-O probe consulta as propriedades acessíveis pelo OAuth e verifica se `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL` está realmente entre as propriedades da conta autenticada.
+O probe consulta as propriedades acessíveis pelo OAuth e verifica se `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL` está entre as propriedades da conta autenticada.
 
-Assim são diferenciados, entre outros casos:
+São diferenciados:
 
 ```text
 OAuth recusado
@@ -139,38 +233,27 @@ OAuth válido + property sem acesso
 OAuth válido + property acessível
 ```
 
-A propriedade continua sendo configuração não secreta; o bearer token continua sendo secret.
-
 ### PageSpeed, CrUX e CrUX History
 
-Na superfície do **console interativo**, esses três diagnósticos usam por padrão o alvo fixo:
+No console interativo, esses três diagnósticos usam como alvo fixo de teste:
 
 ```text
 https://pudim.com.br
 ```
 
-Esse valor existe somente para o teste de integração. Ele:
+Esse valor existe somente no diagnóstico. Não altera URL de auditoria nem configuração global.
 
-- não altera a URL da auditoria;
-- não é gravado como configuração global do projeto;
-- não interfere no processamento ou reprocessamento;
-- não substitui as URLs selecionadas pelo usuário durante uma auditoria.
+PageSpeed executa consulta mínima real. CrUX e CrUX History consultam a origem padrão. O probe continua `LIGHT_QUOTA`.
 
-PageSpeed executa uma consulta mínima real para essa URL com a API key configurada. CrUX e CrUX History consultam a origem `https://pudim.com.br`. Dessa forma o console pode validar o caminho `credencial + endpoint + consulta real` em vez de depender apenas de uma requisição deliberadamente incompleta.
-
-O probe continua classificado como `LIGHT_QUOTA`, pois a validação pode consumir quota técnica das APIs Google.
-
-Para CrUX e CrUX History, ausência de dados de campo para o alvo padrão não é confundida com falha de autenticação. Quando a API e a credencial respondem corretamente, mas não existe registro para a origem, o estado é apresentado como `OPERACIONAL COM VALIDAÇÃO LIMITADA` com categoria `NO_FIELD_DATA`.
+Ausência de dados CrUX para o alvo não é erro de credencial; quando API e credencial respondem corretamente, o estado é `OPERACIONAL COM VALIDAÇÃO LIMITADA / NO_FIELD_DATA`.
 
 ### Microsoft Clarity
 
-A integração possui quota diária particularmente restrita. O diagnóstico evita Data Export apenas para validar a configuração. O console pode confirmar comunicabilidade do endpoint, mas não deve gastar uma chamada de exportação para produzir um `OK` cosmético.
-
-Por esse motivo o Clarity é omitido da ação em lote de probes seguros e permanece disponível para diagnóstico individual limitado.
+O diagnóstico evita Data Export para preservar quota escassa. O Clarity não participa do probe em lote seguro quando isso puder consumir quota relevante.
 
 ### Dynatrace
 
-O diagnóstico usa a Config API já compatível com o adapter, verificando:
+O diagnóstico usa:
 
 ```text
 DYNATRACE_API_TOKEN
@@ -178,21 +261,9 @@ RASAI_DYNATRACE_BASE_URL
 RASAI_DYNATRACE_APPLICATION_ID
 ```
 
-A URL deve ser HTTPS e o application ID precisa ser acessível pelo token configurado.
+A URL deve ser HTTPS e o application ID precisa estar acessível pelo token.
 
-## Dependências e correção pelo próprio diagnóstico
-
-Cada integração declara as variáveis obrigatórias, opcionais e relacionadas ao seu contrato.
-
-Exemplo conceitual:
-
-```text
-Google Search Console
-
-RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN   obrigatória / secret
-RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL       obrigatória / configuração
-RASAI_GSC_ENABLED                          relacionada
-```
+## Dependências e correção na própria tela
 
 A tela oferece:
 
@@ -203,91 +274,99 @@ C. Abrir catálogo completo de configuração
 V. Voltar
 ```
 
-`A. Ajustar dependência/parâmetro` reutiliza o editor canônico de variáveis do console. Não existe um segundo mecanismo de gravação de configuração.
+`A` reutiliza o editor canônico de variáveis. Não existe um segundo mecanismo de persistência.
 
-Depois da alteração, o usuário retorna para a mesma integração e escolhe:
-
-```text
-S. Salvar configuração não secreta no INI e retestar
-T. Retestar agora sem salvar o INI
-V. Voltar sem retestar
-```
-
-Secrets continuam fora do `rasai-console.ini`. Persistência de credencial no Windows/User continua exigindo a ação explícita já existente no editor de credenciais.
+Secrets continuam fora do `rasai-console.ini`.
 
 ## Validação em lote
 
-A tela oferece:
+A ação:
 
 ```text
 T. Validar todas as integrações configuradas com probe seguro
 ```
 
-Somente integrações com dependências obrigatórias presentes são candidatas. Uma integração marcada como inadequada para probe em lote por quota/custo é omitida e informada ao operador.
+considera apenas integrações com dependências obrigatórias presentes e omite probes deliberadamente marcados como inadequados para lote.
 
-A execução do diagnóstico não utiliza retry agressivo. Repetir automaticamente uma chamada poderia aumentar consumo e mascarar uma condição temporária.
+As retentativas de rede não repetem a API do fornecedor; somente transporte DNS/TCP/TLS pode ser testado mais de uma vez depois de uma falha inconclusiva.
 
-## Persistência do último diagnóstico
+## Persistência
 
-O resultado é metadado operacional local, fora dos workspaces imutáveis:
+O resultado funcional permanece em:
 
 ```text
 <audits_root>/.rasai/integration-diagnostics.json
 ```
 
-São persistidos somente dados sanitizados, como:
+A evidência de transporte é armazenada separadamente em:
+
+```text
+<audits_root>/.rasai/integration-network-diagnostics.json
+```
+
+A persistência de rede pode conter apenas metadados sanitizados:
 
 ```text
 integration_id
 checked_at
-status
-category
+endpoint sem query/credencial
+host
+port
+dns_status
+tcp_status
+tls_status
 http_status
-latency_ms
-probe_cost
-validated_facets
-configuration_fingerprint
+attempt_count
+latencies_ms
+classification
+error_code/error_detail sanitizado
+control_host/control_status
+proxy_configured
 ```
 
-Não são persistidos:
+Não são persistidos API keys, bearer tokens, passwords, client secrets, payloads de AUD ou respostas completas do fornecedor.
 
-- API keys;
-- OAuth access tokens;
-- passwords;
-- client secrets;
-- payloads de AUD;
-- respostas completas potencialmente sensíveis do fornecedor.
+O diagnóstico funcional continua usando `configuration_fingerprint` para detectar alteração de credencial/configuração sem persistir o valor original.
 
-`configuration_fingerprint` é um hash não reversível dos valores relevantes. Quando key, token, modelo, endpoint, property, região ou outro parâmetro relacionado muda, o diagnóstico anterior passa a ser apresentado como desatualizado.
+## Advertência antes de processar
 
-Também existe validade temporal: um diagnóstico antigo é histórico, não uma afirmação sobre o estado atual do fornecedor.
+Quando o usuário escolhe executar uma auditoria e existe diagnóstico anterior problemático de uma integração relevante para a configuração atual, o console apresenta advertência antes da execução.
 
-## Uso futuro antes de processar/reprocessar
-
-A persistência foi desenhada para permitir posteriormente um warning consultivo antes de uma execução ou reexecução, por exemplo:
+Exemplo conceitual:
 
 ```text
-Gemini apresentou FALHA TEMPORÁRIA em 14/09/2026 10:37.
-A configuração usada pelo próximo processamento é a mesma.
-Continuar pode resultar em nova falha desta etapa.
+ATENÇÃO — DIAGNÓSTICO ANTERIOR DE INTEGRAÇÃO
 
-1. Validar novamente
-2. Continuar mesmo assim
-V. Voltar
+GitHub Copilot
+Testado em : 14/09/2026 ...
+Estado API : OPERACIONAL COM VALIDAÇÃO LIMITADA
+Rede       : PROVÁVEL BLOQUEIO/INACESSIBILIDADE DO DESTINO
+DNS/TCP/TLS: OK / FALHA / NÃO ALCANÇADO
+
+C. Continuar mesmo assim
+V. Voltar sem executar
 ```
 
-Esse warning **não faz parte do bloqueio da execução nesta versão**. O pipeline real continua sendo a fonte definitiva de sucesso/falha. Uma falha temporária registrada anteriormente não autoriza o RASAi a concluir que o serviço continua indisponível.
+A advertência só usa diagnóstico cuja configuração ainda corresponde ao fingerprint atual. Se a configuração mudou, o resultado anterior não é usado como alerta equivalente.
 
-## Segurança e fronteira arquitetural
+Diagnósticos antigos podem ser exibidos como alerta histórico, explicitando que não provam estado atual.
 
-O diagnóstico é instalado somente na superfície local de integrações do console. O core de processamento não consulta o arquivo de diagnóstico nesta versão.
+## Advertência antes de reprocessar
 
-Isso preserva o princípio:
+O mesmo princípio é aplicado ao reprocessamento seletivo. O RASAi lê a configuração canônica persistida do AUD de origem para determinar quais integrações eram relevantes e compara com os diagnósticos disponíveis na configuração atual.
+
+A advertência ocorre **antes** do comando textual de confirmação do reprocessamento e não modifica os itens de fulfillment, retryability, temporal mode ou quarentena.
+
+## Fronteira arquitetural
+
+O diagnóstico permanece separado do motor de auditoria:
 
 ```text
-configuração/diagnóstico do console
+configuração/diagnóstico consultivo
         !=
 resultado factual da auditoria
 ```
 
-Uma falha de integração externa também não deve ser convertida em finding do website.
+Uma falha de integração externa não vira finding do website.
+
+A feature não altera adapters nem políticas funcionais de rede/IA/SERP. O runtime continua sendo autoridade para decidir sucesso, retry e fulfillment durante a execução real.
