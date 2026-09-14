@@ -9,8 +9,8 @@ def test_scale_ux_is_idempotent_and_activates_from_two_urls() -> None:
     twice = enhance_report_html_for_scale(once)
 
     assert once == twice
-    assert once.count("rasai-scale-ux-v1") == 1
-    assert once.count("rasai-scale-ux-script-v1") == 1
+    assert once.count("rasai-scale-ux-v2") == 1
+    assert once.count("rasai-scale-ux-script-v2") == 1
     assert "URL_THRESHOLD=2" in once
     assert "Todas as URLs" in once
     assert "Filtrar contexto" in once
@@ -89,6 +89,8 @@ def test_reports_receive_consistent_section_outline_when_content_is_structured()
     assert "buildOutline" in enhanced
     assert "rasai-section-anchor" in enhanced
     assert "headings.length<3" in enhanced
+    assert "position:sticky" in enhanced
+    assert "dialog,.rasai-analysis-status,.rasai-fulfillment-banner,.rasai-page-transparency,footer" in enhanced
 
 
 def test_report_outline_is_hidden_for_print_and_does_not_change_source_headings() -> None:
@@ -103,3 +105,24 @@ def test_report_outline_is_hidden_for_print_and_does_not_change_source_headings(
     assert ".rasai-report-outline{display:none!important}" in enhanced
     assert payload.count("<h2>") == 3
     assert enhanced.count("<h2>") == 3
+
+
+def test_report_structure_moves_visual_context_without_changing_report_data() -> None:
+    html = enhance_report_html_for_scale("<html><head></head><body><main></main></body></html>")
+
+    assert "normalizeReportStructure" in html
+    assert "rasai-analysis-status-actions" in html
+    assert "data-rasai-page-help-trigger" in html
+    assert "report-dependency-state" in html
+    assert "data-audit-limitations" in html
+    assert "data-ai-operational-diagnostic" in html
+    assert "Ações e transparência desta análise" in html
+
+
+def test_consolidated_keeps_legacy_structure_and_modal_styling_scope() -> None:
+    html = enhance_report_html_for_scale("<html><head></head><body><main></main></body></html>")
+
+    assert "data-rasai-consolidated-experience" in html
+    assert "rasai-report-outline-legacy" in html
+    assert "if(isConsolidated()) return;" in html
+    assert ".rasai-help-dialog:not(#rasai-consolidated-help)>section" in html
