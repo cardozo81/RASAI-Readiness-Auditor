@@ -55,9 +55,10 @@ def test_all_report_contracts_receive_operational_reading_governance() -> None:
     assert "UNKNOWN não é convertido em FAIL" in text
 
 
-def test_ruleset_documentation_includes_055_056() -> None:
+def test_ruleset_documentation_includes_current_rules_through_060() -> None:
     business = Path("docs/specification/03_BUSINESS_RULES.md").read_text(encoding="utf-8")
     guide = Path("docs/RULES_GUIDE.md").read_text(encoding="utf-8")
-    assert "BR-GEO-001..056" in business
-    assert "BR-GEO-055" in business and "BR-GEO-056" in business
+    assert "BR-GEO-001..060" in business
+    assert "BR-GEO-055" in business and "BR-GEO-056" in business and "BR-GEO-060" in business
     assert "BR-GEO-055 / BR-GEO-056" in guide
+    assert "BR-GEO-060" in guide
