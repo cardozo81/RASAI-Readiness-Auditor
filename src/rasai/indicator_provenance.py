@@ -1,7 +1,7 @@
 """User-facing provenance for indicators projected into RASAi reports.
 
 This module classifies methodology and the role each signal has in SARI. It also
-normalizes known legacy presentation wording so final HTML cannot contradict the
+normalizes compatibility presentation wording so final HTML cannot contradict the
 active SCORE-GEO-004 contract. It never recalculates persisted measurements,
 findings or scores.
 """
@@ -12,7 +12,7 @@ from html import escape
 
 from rasai.public_report_safety import normalize_owned_public_report_text
 
-VERIFIED_ON = "2026-09-09"
+VERIFIED_ON = "2026-09-14"
 PROVENANCE_MARKER = "rasai-indicator-provenance-v2"
 
 
@@ -79,6 +79,16 @@ INDICATORS: tuple[IndicatorProvenance, ...] = (
         None,
         "Cada regra pode ter base OFFICIAL, STANDARD, HEURISTIC ou executor interno; a natureza é individual.",
         "Somente regras presentes no manifesto do SCORE-GEO-004 entram no SARI. Regras de integridade/telemetria permanecem fora da aritmética.",
+    ),
+    IndicatorProvenance(
+        "BR-GEO-060 / Common Crawl",
+        "RAW_OBSERVATION",
+        "CORE_SCORE_INPUT",
+        "Common Crawl + RASAi",
+        "Common Crawl Index API / SCORE-GEO-004",
+        "https://index.commoncrawl.org/",
+        "Common Crawl fornece uma observação externa de histórico de rastreamento. Ausência na amostra consultada não prova ausência de descoberta nem falha do site.",
+        "RASAi usa BR-GEO-060 como corroboracão positive-only em DISCOVERY_ACCESS/EXTERNAL_CRAWL_CORROBORATION. Evidência ausente, erro, timeout ou alvo inelegível não gera FAIL, zero, redução de Coverage/Confidence nem Critical Gate.",
     ),
     IndicatorProvenance(
         "HTTP / status / redirects",
@@ -281,7 +291,7 @@ _PAGE_SUMMARY: dict[str, tuple[str, str]] = {
 
 
 def _normalize_current_sari_wording(html: str, *, page_name: str) -> str:
-    """Remove presentation remnants from the pre-recalibration SCORE-GEO-004 contract."""
+    """Normalize presentation text to the active SCORE-GEO-004 contract."""
     if page_name not in {"readiness.html", "scoring.html", "mobile.html", "desktop.html"}:
         return html
 
