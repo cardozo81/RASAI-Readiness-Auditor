@@ -1,6 +1,6 @@
-# REPORTING_LANGUAGE_GLOSSARY.md
+# Linguagem pública e glossário dos relatórios
 
-**Estado no baseline de desenvolvimento:** vigente.
+**Estado:** vigente.
 
 Este documento define a linguagem pública dos reports HTML do RASAi. Persistência, enums, IDs de regra e contratos internos permanecem canônicos no código/banco; a interface principal deve priorizar leitura humana.
 
@@ -265,7 +265,7 @@ Regras:
 - explicar em pt-BR estados e consequências;
 - evitar enums com underscore na leitura principal;
 - manter identificadores técnicos em áreas de suporte/rastreabilidade;
-- não expor nomes históricos de etapas internas de desenvolvimento como vocabulário de produto.
+- não expor nomes internos de desenvolvimento como vocabulário de produto.
 
 ## 14. Contrato de regressão
 
