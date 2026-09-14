@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from rasai.console_config import State, is_secret
 from rasai.console_cost import estimate_exposure
-from rasai.console_ui import clear_screen, cost_color, paint
+from rasai.console_ui import CYAN, DIM, GREEN, RED, YELLOW, clear_screen, cost_color, paint
 
 COST_NONE = "SEM CUSTO EXTERNO DIRETO"
 COST_EXTERNAL = "PODE GERAR CUSTO EXTERNO"
@@ -65,13 +65,27 @@ def current_cost_summary(state: State) -> tuple[str, ...]:
 
 
 def menu_cost_badges(state: State) -> dict[str, str]:
+    """Return cost/volume badges with the console's semantic color contract.
+
+    AI cost is deliberately red because it is the most direct external financial
+    exposure on the preparation screen. Quota/volume are warnings rather than errors,
+    so they remain yellow/cyan; disabled/no-cost states are de-emphasized.
+    """
     return {
-        "device": " [VOLUME↑]" if state.device == "both" else "",
-        "ai": " [SEM CUSTO IA]" if state.ai_provider == "none" else " [CUSTO EXTERNO]",
-        "remediation": " [CUSTO IA ADICIONAL]" if (state.content_remediation or getattr(state, "technical_remediation", False)) else "",
-        "web": " [QUOTA EXTERNA]" if state.web_performance else "",
-        "max_pages": " [VOLUME]",
-        "web_max_pages": " [LIMITE QUOTA]" if state.web_performance else "",
+        "device": paint(" [VOLUME↑]", YELLOW, bold=True) if state.device == "both" else "",
+        "ai": (
+            paint(" [SEM CUSTO IA]", DIM)
+            if state.ai_provider == "none"
+            else paint(" [CUSTO EXTERNO]", RED, bold=True)
+        ),
+        "remediation": (
+            paint(" [CUSTO IA ADICIONAL]", RED, bold=True)
+            if (state.content_remediation or getattr(state, "technical_remediation", False))
+            else ""
+        ),
+        "web": paint(" [QUOTA EXTERNA]", YELLOW, bold=True) if state.web_performance else "",
+        "max_pages": paint(" [VOLUME]", CYAN),
+        "web_max_pages": paint(" [LIMITE QUOTA]", YELLOW) if state.web_performance else "",
     }
 
 
