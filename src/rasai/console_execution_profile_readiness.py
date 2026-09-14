@@ -113,7 +113,7 @@ def _configure_profile_guided(state: Any) -> None:
         return
 
     while True:
-        print("\nPERFIS DE EXECUÇÃO — SOMENTE ESTA SESSÃO / URL ÚNICA\n")
+        print("\nPERFIS DE EXECUÇÃO - SOMENTE ESTA SESSÃO / URL ÚNICA\n")
         print("Todos os perfis permanecem visíveis. [CONFIGURAR] indica dependência obrigatória ainda ausente.")
         print("Perfis [CONFIGURAR] não podem ser aplicados até que as pendências exibidas sejam resolvidas.")
         print("O perfil não altera defaults, INI, Windows/User, Windows/Machine ou credenciais.\n")
