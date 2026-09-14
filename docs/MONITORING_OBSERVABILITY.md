@@ -1,6 +1,6 @@
 # RASAi - Monitoramento, observabilidade e qualidade
 
-**Estado no baseline de desenvolvimento:** implementado e integrado à `main`.
+**Estado:** vigente.
 
 ## Objetivo
 
@@ -96,7 +96,7 @@ Sobrescritas operacionais são explícitas:
 rasai monitor impact --audits-root audits --baseline AUD-BASELINE --current AUD-CURRENT
 ```
 
-É selecionado um único dataset mais recente por origem/`AUD-*`. Históricos sobrepostos não são somados. Valores ausentes permanecem ausentes. Associações temporais são reportadas sem linguagem causal.
+É selecionado um único dataset mais recente por origem/`AUD-*`. Datasets com períodos sobrepostos não são somados. Valores ausentes permanecem ausentes. Associações temporais são reportadas sem linguagem causal.
 
 ## Observabilidade de Search & AI
 
@@ -159,30 +159,38 @@ rasai scoring inspect
 
 ## Superfícies HTML
 
-A navegação canônica por `AUD-*` é condicional à existência do arquivo:
+Após uma auditoria concluída com sucesso, a navegação do `AUD-*` usa o conjunto canônico estável definido por `src/rasai/report_contract.py`:
 
 ```text
 index.html
 readiness.html
 scoring.html
+context.html
+crawling-discovery.html
 mobile.html
 desktop.html
-remediation.html
-content-suggestions.html
-crawling-discovery.html
 accessibility.html
 web-performance.html
+standards.html
 apdex.html
 apdex-experience.html
+search-intelligence.html
 ai-visibility.html
 observability.html
-quality.html
 ai-usage.html
+improvement-intelligence.html
+content-suggestions.html
+remediation.html
+quality.html
 references.html
 ```
+
+A ausência de execução ou de dado em Monitoring, Observability, Quality ou outra capacidade não remove a superfície canônica correspondente. A página deve apresentar estado neutro ou explicativo e não pode iniciar coleta externa apenas para preencher o HTML.
+
+Artefatos derivados como `MON-*`, `VER-*` e `TIMELINE-*` possuem contratos próprios e não alteram a estabilidade das superfícies do `AUD-*`.
 
 ## Expectativas de validação
 
 A validação automatizada deve cobrir comportamento somente leitura, comparabilidade, política do gate, identidade/migração `OBS-002`, escopo de dados externos, exclusão de segredos, preservação de `NULL`, semântica de Quality/Verification/Timeline e navegação canônica.
 
-Smoke test humano continua apropriado para validar credenciais reais, comportamento de providers externos ou comportamento visual/operacional. Isso não representa status de merge pendente para capacidades já integradas à `main`.
+Smoke test humano é apropriado para validar credenciais reais, comportamento de providers externos ou comportamento visual/operacional quando a mudança depende do ambiente.
