@@ -1,9 +1,9 @@
-"""Install the stable public report contract into legacy/current generators.
+"""Install the stable public report contract into current generators.
 
 Report generators remain responsible for their domain content. This module owns
 cross-cutting presentation invariants that must be identical on every page:
 canonical navigation, dependency metadata, SARI method projection, version-neutral
-filenames, manifest projection and defensive normalization of stale wording.
+filenames, manifest projection and defensive normalization of compatibility wording.
 """
 from __future__ import annotations
 
@@ -158,7 +158,44 @@ def _patch_current_scoring_projection() -> None:
     rasai_readiness_reporting.COMPATIBLE_ENGINE_VERSION = SCORING_VERSION
 
 
+def _patch_current_dimension_vocabulary() -> None:
+    """Keep compatibility keys readable without exposing an obsolete dimension concept."""
+    from rasai import (
+        m14_reporting,
+        rasai_readiness_reporting,
+        report_presentation,
+        report_site,
+        reporting,
+        score_geo_004_reporting,
+    )
+
+    current_pt = "Acesso e descoberta"
+    current_en = "Discovery & Crawler Access"
+
+    for mapping in (
+        reporting._DIMENSION_LABELS,
+        report_site._DIMENSION_LABELS,
+        rasai_readiness_reporting._DIMENSION_LABELS,
+    ):
+        mapping["DISCOVERY_ACCESS"] = current_pt
+        mapping["TECHNICAL_ACCESSIBILITY"] = current_pt
+
+    score_geo_004_reporting._DIMENSION_LABELS["DISCOVERY_ACCESS"] = current_en
+    score_geo_004_reporting._DIMENSION_LABELS["TECHNICAL_ACCESSIBILITY"] = current_en
+    report_presentation.SCORING_CONCEPT_LABELS["DISCOVERY_ACCESS"] = current_en
+    report_presentation.SCORING_CONCEPT_LABELS["TECHNICAL_ACCESSIBILITY"] = current_en
+    report_presentation._PUBLIC_LABELS["DISCOVERY_ACCESS"] = current_en
+    report_presentation._PUBLIC_LABELS["TECHNICAL_ACCESSIBILITY"] = current_en
+
+    reporting._CATEGORY_DIMENSION["DISCOVERY_ACCESS"] = "DISCOVERY_ACCESS"
+    reporting._CATEGORY_DIMENSION["TECHNICAL_ACCESSIBILITY"] = "DISCOVERY_ACCESS"
+    compatibility_why = m14_reporting._CATEGORY_WHY.get("TECHNICAL_ACCESSIBILITY")
+    if compatibility_why:
+        m14_reporting._CATEGORY_WHY["DISCOVERY_ACCESS"] = compatibility_why
+
+
 def _normalize_known_legacy_wording(html: str, *, page_name: str) -> str:
+    """Normalize compatibility text to the sole current public scoring contract."""
     del page_name
     updated = re.sub(r"SCORE-GEO-(?!004)\d{3}", SCORING_VERSION, html, flags=re.I)
     replacements = (
@@ -177,8 +214,8 @@ def _normalize_known_legacy_wording(html: str, *, page_name: str) -> str:
     )
     for old, replacement in replacements:
         updated = updated.replace(old, replacement)
-    # Raw fallback labels must not leak when a legacy generator does not know the
-    # newly introduced dimension yet.
+    # Raw fallback labels must not leak when a compatibility reader does not know
+    # the current dimension yet.
     updated = updated.replace(">DISCOVERY_ACCESS<", ">Discovery & Crawler Access<")
     updated = updated.replace(">CONTENT_VALUE<", ">Content Value<")
     return updated
@@ -315,7 +352,7 @@ def _sari_method_panel(report_dir: Path, page_name: str) -> str:
         "<section id='sari-hierarchical-contract' class='panel' data-sari-hierarchical-contract='true'>"
         "<div class='kicker'>SARI-001 - contrato vigente</div>"
         "<h2>Hierarchical Weighted Readiness</h2>"
-        f"<p class='intro'>Contrato técnico: <code>{escape(OVERALL_AGGREGATION_VERSION)}</code>. O Overall deixou de ser uma média 10 x 10. RuleExecutions são resolvidas por página/escopo, agregadas em scoring groups de peso fixo e só então nas dimensões. A quantidade de páginas não multiplica o peso de um grupo global como robots.txt ou sitemap.</p>"
+        f"<p class='intro'>Contrato técnico: <code>{escape(OVERALL_AGGREGATION_VERSION)}</code>. O Overall é ponderado por dimensões de peso fixo. RuleExecutions são resolvidas por página/escopo, agregadas em scoring groups de peso fixo e só então nas dimensões. A quantidade de páginas não multiplica o peso de um grupo global como robots.txt ou sitemap.</p>"
         "<div class='table-wrap'><table><thead><tr><th>Macrocomponente</th><th>Peso no SARI</th><th>Dimensões</th></tr></thead>"
         f"<tbody>{_macro_weight_rows()}</tbody></table></div>"
         "<div class='notice'><strong>Precedência de evidência:</strong> fato determinístico conclusivo prevalece sobre avaliação IA corroborativa no mesmo scoring_group. IA pode aprofundar ou resolver um estado sem evidência suficiente, mas não sobrescrever um hard fact avaliado.</div>"
@@ -394,4 +431,5 @@ def install() -> None:
     _patch_apdex_navigation()
     _patch_lighthouse_traceability_message()
     _patch_current_scoring_projection()
+    _patch_current_dimension_vocabulary()
     _patch_final_branding_normalization()
