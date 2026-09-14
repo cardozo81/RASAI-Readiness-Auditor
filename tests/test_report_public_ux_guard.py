@@ -51,14 +51,14 @@ def test_public_state_labels_cover_no_data_and_fulfillment_states() -> None:
     _install_public_state_labels()
     assert presentation.public_label("NO_DATA") == "Sem dados utilizáveis"
     assert presentation.public_label("WAITING_FOR_DATA") == "Aguardando dados"
-    assert presentation.public_label("PARTIAL_RETRYABLE") == "Parcial — reprocessamento disponível"
+    assert presentation.public_label("PARTIAL_RETRYABLE") == "Parcial - reprocessamento disponível"
     rendered = presentation.humanize_report_html(
         "<p>NO_DATA · PARTIAL_RETRYABLE · PENDING · MEASURED</p>"
         "<code>NO_DATA</code>",
         page_name="standards.html",
     )
     assert "Sem dados utilizáveis" in rendered
-    assert "Parcial — reprocessamento disponível" in rendered
+    assert "Parcial - reprocessamento disponível" in rendered
     assert "Pendente" in rendered
     assert "Medido" in rendered
     assert "<code>NO_DATA</code>" in rendered
