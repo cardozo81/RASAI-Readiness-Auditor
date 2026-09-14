@@ -2,8 +2,9 @@
 
 Search Monitoring in the SaaS control plane remains a separate SEARCH_MONITOR job.
 This module covers only Search Intelligence explicitly requested as part of one local
-AUD console execution, where the terms are already persisted in the reusable AUD
-configuration contract.
+AUD console execution.  The work item stores the non-secret execution contract so a
+later selective reprocessing run can repeat only this observation with the current
+credential for the same provider/configuration.
 """
 from __future__ import annotations
 
@@ -28,8 +29,31 @@ _INSTALLED = False
 
 
 def _configuration(state: Any) -> dict[str, Any]:
+    """Persist only non-secret settings required to reproduce the requested SERP work."""
+    from rasai.console_search_intelligence import _engine_for_provider
+    from rasai.search_intelligence.config import SerpRuntimeConfig
+
+    try:
+        runtime = SerpRuntimeConfig.from_environment(validate=False)
+        provider = str(runtime.provider or "")
+        runtime_config = {
+            "mode": str(runtime.mode or "disabled"),
+            "provider": provider,
+            "engine": _engine_for_provider(provider),
+            "max_queries": int(runtime.max_queries),
+            "max_requests": int(runtime.max_requests),
+            "max_depth": int(runtime.max_depth),
+            "max_competitors": int(runtime.max_competitors),
+            "timeout_seconds": float(runtime.timeout_seconds),
+            "retries": int(runtime.retries),
+            "min_interval_seconds": float(runtime.min_interval_seconds),
+        }
+    except (OSError, TypeError, ValueError):
+        runtime_config = {}
+
     return {
         "requested": True,
+        "surface": "console-audit",
         "queries": list(tuple(getattr(state, "search_queries", ()) or ())),
         "depth": int(getattr(state, "search_depth", 20)),
         "region": str(getattr(state, "search_region", "") or ""),
@@ -37,6 +61,7 @@ def _configuration(state: Any) -> dict[str, Any]:
         "competitive": bool(getattr(state, "search_competitive", True)),
         "market": str(getattr(state, "market", "BR") or "BR"),
         "language": str(getattr(state, "language", "pt-BR") or "pt-BR"),
+        **runtime_config,
     }
 
 
