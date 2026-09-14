@@ -141,9 +141,26 @@ OAuth válido + property acessível
 
 A propriedade continua sendo configuração não secreta; o bearer token continua sendo secret.
 
-### PageSpeed e CrUX
+### PageSpeed, CrUX e CrUX History
 
-Os probes usam chamadas técnicas mínimas e deliberadamente incompletas quando necessário para testar key/API sem executar a coleta normal da auditoria. Uma resposta de parâmetro obrigatório ausente pode comprovar que o endpoint respondeu e que a key não foi recusada, mas é apresentada como validação limitada quando não houver prova suficiente da finalidade completa.
+Na superfície do **console interativo**, esses três diagnósticos usam por padrão o alvo fixo:
+
+```text
+https://pudim.com.br
+```
+
+Esse valor existe somente para o teste de integração. Ele:
+
+- não altera a URL da auditoria;
+- não é gravado como configuração global do projeto;
+- não interfere no processamento ou reprocessamento;
+- não substitui as URLs selecionadas pelo usuário durante uma auditoria.
+
+PageSpeed executa uma consulta mínima real para essa URL com a API key configurada. CrUX e CrUX History consultam a origem `https://pudim.com.br`. Dessa forma o console pode validar o caminho `credencial + endpoint + consulta real` em vez de depender apenas de uma requisição deliberadamente incompleta.
+
+O probe continua classificado como `LIGHT_QUOTA`, pois a validação pode consumir quota técnica das APIs Google.
+
+Para CrUX e CrUX History, ausência de dados de campo para o alvo padrão não é confundida com falha de autenticação. Quando a API e a credencial respondem corretamente, mas não existe registro para a origem, o estado é apresentado como `OPERACIONAL COM VALIDAÇÃO LIMITADA` com categoria `NO_FIELD_DATA`.
 
 ### Microsoft Clarity
 
