@@ -31,6 +31,7 @@ from rasai.report_scope_clarity import install as install_report_scope_clarity
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.runtime_contract_compatibility import install_runtime_contract_compatibility
+from rasai.selective_optional_reprocess import install as install_selective_optional_reprocess
 from rasai.standards_css_validation import install as install_standards_css_validation
 from rasai.standards_gsc_observability_runtime import install as install_standards_gsc_observability_runtime
 from rasai.standards_ir_reconciliation import install as install_standards_ir_reconciliation
@@ -190,6 +191,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     install_runtime_contract_compatibility()
     install_provider_presentation_alignment()
     install_improvement_intelligence_runtime()
+    # Install after the optional-service owners. It wraps the final report chain only
+    # during RPR and therefore can suppress repeated successful external work while
+    # preserving normal processing behavior.
+    install_selective_optional_reprocess()
     # Install last so scope disclosures see the final canonical report projections.
     install_report_scope_clarity()
     if effective and effective[0] in {"search", "serp"}:
