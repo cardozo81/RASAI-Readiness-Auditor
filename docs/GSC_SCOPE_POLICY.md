@@ -4,15 +4,25 @@
 
 ## Regra central
 
-Google Search Console não é uma fonte pública consultável para qualquer domínio. O RASAi só pode usar dados GSC quando a conta Google representada pelo OAuth 2.0 access token possui acesso à property configurada e essa property cobre a URL auditada.
+Google Search Console não é uma fonte pública consultável para qualquer domínio. O RASAi só pode usar dados GSC quando a conta Google representada pelo OAuth 2.0 possui acesso à property configurada e essa property cobre a URL auditada.
 
-As duas configurações têm papéis diferentes:
+Autenticação e property têm papéis diferentes.
+
+O contrato atual aceita duas formas OAuth:
 
 ```text
+# modo recomendado para uso repetido
+RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_ID
+RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET
+RASAI_GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN
+
+# alternativa temporária/manual
 RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN
 ```
 
-é um **OAuth 2.0 access token temporário** da conta Google autenticada. O token não pertence tecnicamente a um domínio específico e uma mesma conta pode ter acesso a várias properties.
+No modo recomendado, o RASAi usa Client ID, Client Secret e Refresh Token para obter um access token temporário imediatamente antes da chamada ao Google. Esse access token permanece somente em memória.
+
+No modo manual, `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN` recebe um OAuth 2.0 bearer token já emitido e ainda válido. Uma Google API Key, normalmente iniciada por `AIza`, não substitui OAuth para dados privados do Search Console.
 
 ```text
 RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL
@@ -28,7 +38,7 @@ https://www.example.com/
 https://www.example.com/blog/
 ```
 
-A conta autenticada pelo token precisa ter acesso à property informada.
+A conta autenticada precisa ter acesso à property informada.
 
 ## Compatibilidade entre property e URL auditada
 
@@ -78,14 +88,16 @@ Compatibilidade de domínio/property não comprova autenticação.
 
 Mesmo quando a property cobre a URL, ainda podem ocorrer:
 
-- access token expirado;
-- access token revogado;
+- Refresh Token revogado ou inválido;
+- Client ID/Client Secret incompatíveis com o grant OAuth;
+- access token manual expirado ou revogado;
 - OAuth scope insuficiente;
 - conta sem acesso à property;
 - quota/rate limit;
-- indisponibilidade da API do Google.
+- indisponibilidade da API ou do endpoint OAuth do Google;
+- bloqueio/interferência de rede, proxy ou VPN.
 
-Por isso o console informa explicitamente que **escopo compatível não significa OAuth validado**. A confirmação definitiva de token e permissão ocorre quando o Google aceita a chamada.
+Por isso o console informa explicitamente que **escopo compatível não significa OAuth validado**. A confirmação definitiva de autenticação e permissão ocorre quando o Google aceita a chamada.
 
 ## Política global `RASAI_GSC_ENABLED`
 
@@ -99,7 +111,7 @@ A variável possui três semânticas operacionais:
 
 ### Automático
 
-Quando credencial e property existem, o RASAi pode tentar GSC. Se a property **não cobre** a URL auditada, o runtime classifica a integração como `NOT_APPLICABLE` para aquela execução e não realiza chamadas GSC incompatíveis.
+Quando uma forma OAuth completa e a property existem, o RASAi pode tentar GSC. Se a property **não cobre** a URL auditada, o runtime classifica a integração como `NOT_APPLICABLE` para aquela execução e não realiza chamadas GSC incompatíveis.
 
 Esse mismatch não vira requisito de conclusão do AUD em modo automático.
 
@@ -175,14 +187,14 @@ O perfil projeta GSC como obrigatório somente naquela execução.
 
 Antes de aplicar o perfil, o console valida localmente:
 
-- presença do token;
+- existência de uma forma OAuth completa: access token manual ou Client ID + Client Secret + Refresh Token;
 - presença da property;
 - formato da property;
 - cobertura estrutural da URL auditada.
 
 Se houver conflito previsível, o perfil fica `CONFIGURAR` e não é aplicado. Isso evita iniciar uma execução que já se sabe incapaz de chegar a resultado final.
 
-Mesmo com esse preflight aprovado, OAuth/permissão continuam dependentes da resposta do Google. Se o Google rejeitar token/acesso durante a execução, o GSC obrigatório falha e o AUD permanece parcial.
+Mesmo com esse preflight aprovado, autenticação/permissão continuam dependentes da resposta do Google. Se a renovação OAuth falhar ou o Google rejeitar autenticação/acesso durante a execução, o GSC obrigatório falha e o AUD permanece parcial.
 
 ### Não usar GSC
 
@@ -194,11 +206,14 @@ Não altera a política global. Se a configuração global exigir GSC, as conseq
 
 ## Tela de configuração
 
-O console deve deixar explícito nos detalhes das três variáveis:
+O console deve deixar explícito:
 
 - `RASAI_GSC_ENABLED`: diferença entre automático, obrigatório e desabilitado;
 - `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL`: property real, não domínio arbitrário do alvo;
-- `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`: token da conta Google, não token vinculado diretamente ao domínio.
+- `RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_ID`: identificador OAuth não secreto;
+- `RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET`: secret do cliente OAuth, nunca gravado no INI;
+- `RASAI_GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN`: grant de longa duração usado para renovação automática, nunca gravado no INI;
+- `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`: alternativa manual temporária, também secreta.
 
 A indicação `[SET]` de um secret significa apenas que existe um valor na sessão. Não prova validade, expiração, scope OAuth ou permissão sobre a property.
 
@@ -216,6 +231,7 @@ A mensagem deve informar a property e a URL auditada e explicar que a configura�
 O tratamento é diferente de falhas como:
 
 ```text
+OAuth invalid_grant / invalid_client
 HTTP 401 / UNAUTHENTICATED
 HTTP 403 / PERMISSION_DENIED
 HTTP 429
@@ -223,7 +239,7 @@ HTTP 5xx
 timeout
 ```
 
-Essas últimas dependem de resposta do provider. `PROPERTY_URL_MISMATCH` é detectável localmente antes da chamada.
+`PROPERTY_URL_MISMATCH` é detectável localmente antes da chamada. Falhas OAuth, HTTP e de transporte são classificadas conforme a camada em que ocorrerem.
 
 ## Reprocessamento
 
@@ -236,3 +252,5 @@ Antes de reprocessar um GSC obrigatório pendente por `PROPERTY_URL_MISMATCH`, c
 3. desabilite GSC para a execução quando os dados privados do Search Console não fizerem parte do objetivo.
 
 A alteração de política deve ser consciente: transformar um requisito obrigatório em opcional muda o contrato esperado da auditoria, não "corrige" a coleta anterior.
+
+Consulte [GSC_OAUTH.md](GSC_OAUTH.md) para o fluxo de autenticação atual e [INTEGRATION_DIAGNOSTICS.md](INTEGRATION_DIAGNOSTICS.md) para a classificação de falhas de conectividade/autenticação.
