@@ -46,7 +46,7 @@ Toda consolidação de múltiplas URLs deve declarar universo e fórmula.
 | Google PageSpeed Insights / Lighthouse | 3/5 | URL, DEVICE_SNAPSHOT | auto por credencial | API key | laboratório Lighthouse e categorias Web Quality |
 | Chrome UX Report API | 4/5 | URL, ORIGIN, DEVICE_SNAPSHOT | auto por credencial | API key | Core Web Vitals de campo |
 | Chrome UX Report History API | 5/5 | ORIGIN, DEVICE_SNAPSHOT | auto por credencial | mesma API key CrUX | série histórica semanal de métricas de campo |
-| Google Search Console | 5/5 | ORIGIN, URL, SEARCH_QUERY | auto por token + property | OAuth 2.0 + `siteUrl` | Sitemaps, URL Inspection e Search Analytics |
+| Google Search Console | 5/5 | ORIGIN, URL, SEARCH_QUERY | auto por OAuth + property | OAuth 2.0 + `siteUrl` | Sitemaps, URL Inspection e Search Analytics |
 | Microsoft Clarity Data Export | 5/5 | ORIGIN, URL, DEVICE_SNAPSHOT | desligado | bearer token + opt-in | métricas comportamentais agregadas |
 | Common Crawl CDX History | 4/5 | URL | ligado e bounded | sem credencial | presença histórica pública e possível `BR-GEO-060` positiva |
 
@@ -111,14 +111,27 @@ Referências oficiais:
 - URL Inspection: <https://developers.google.com/webmaster-tools/v1/urlInspection.index/inspect>
 - limites: <https://developers.google.com/webmaster-tools/limits>
 
-Requisitos mínimos:
+Requisitos mínimos: uma property e uma das formas OAuth suportadas.
+
+Modo recomendado para uso repetido:
+
+```text
+RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_ID=<OAuth Client ID>
+RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET=<OAuth Client Secret>
+RASAI_GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN=<OAuth Refresh Token>
+RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL=<property>
+```
+
+Alternativa temporária/manual:
 
 ```text
 RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN=<OAuth access token>
 RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL=<property>
 ```
 
-A property aceita `sc-domain:example.com` ou URL-prefix HTTP(S). O token nunca é persistido; a property é não secreta.
+A property aceita `sc-domain:example.com` ou URL-prefix HTTP(S). No fluxo recomendado, o RASAi obtém um access token imediatamente antes da chamada e o mantém somente em memória. `CLIENT_SECRET`, `REFRESH_TOKEN` e `ACCESS_TOKEN` são secretos e nunca entram no INI. `CLIENT_ID` e a property são configurações não secretas.
+
+Uma Google API Key, normalmente iniciada por `AIza`, não substitui OAuth para dados privados do Search Console. Consulte [GSC_OAUTH.md](GSC_OAUTH.md).
 
 Coleta automática bounded:
 
@@ -130,7 +143,7 @@ Coleta automática bounded:
 
 `RASAI_GSC_SEARCH_ANALYTICS_DAYS=0` desliga apenas Search Analytics automático.
 
-A property deve pertencer ao próprio contexto do job. Token pode existir no secret store do worker e não trafega no payload durável.
+A property deve pertencer ao próprio contexto do job. Segredos OAuth podem existir no secret store do worker e não trafegam no payload durável.
 
 ## Microsoft Clarity Data Export
 
@@ -308,6 +321,7 @@ Podem ser persistidos:
 
 - toggles de serviço;
 - property Search Console;
+- OAuth Client ID do Search Console;
 - limites GSC;
 - limites e timeout de standards;
 - caminho de dataset WebDX;
@@ -315,7 +329,7 @@ Podem ser persistidos:
 - limites Common Crawl;
 - demais configurações não secretas previstas pelo console.
 
-Nunca são persistidos API keys, tokens, passwords, client secrets ou DSNs com credencial.
+Nunca são persistidos API keys, access tokens, refresh tokens, passwords, client secrets ou DSNs com credencial.
 
 ## SaaS e workers
 
@@ -326,7 +340,7 @@ Regras:
 - campo booleano omitido de serviço credential-driven significa auto por requisitos;
 - `false` desliga explicitamente;
 - `true` solicita execução, mas requisito ausente mantém `NOT_CONFIGURED`;
-- Search Console exige property do próprio job;
+- Search Console exige property do próprio job e uma forma OAuth completa;
 - Clarity exige opt-in explícito;
 - Common Crawl não exige secret;
 - serviços públicos respeitam throttling e limites.
