@@ -106,7 +106,10 @@ Métricas e padrões
   [Google Search Console]
     RASAI_GSC_ENABLED
     RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL
-    ...
+    RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_ID
+    RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET
+    RASAI_GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN
+    RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN   # alternativa temporária
 
 Web Performance / Google APIs
   [Google PageSpeed / Lighthouse]
@@ -124,7 +127,7 @@ Synthetic Apdex
   [Dynatrace / calibração Apdex]
 ```
 
-Secrets podem permanecer em uma categoria tecnicamente apropriada, mas a UI deve deixar claro a qual integração pertencem.
+Secrets podem permanecer em uma categoria tecnicamente apropriada, mas a UI deve deixar claro a qual integração pertencem. No Search Console, Client ID é configuração não secreta; Client Secret, Refresh Token e Access Token são secretos e nunca entram no INI.
 
 ## 4. Semântica de estados e cores
 
@@ -377,4 +380,4 @@ Uma nova configuração/superfície só está aderente quando:
 - presets `CONFIGURAR` ficam visíveis para orientação, mas não são aplicados;
 - relatórios continuam evidence-bound e distinguem ausência, falha e execução real.
 
-Documentos complementares: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md), [PROVIDER_SETUP.md](PROVIDER_SETUP.md), [STANDARDS_METRICS_AND_SERVICES.md](STANDARDS_METRICS_AND_SERVICES.md), [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md), [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md) e [WEB_PLATFORM_BASELINE.md](WEB_PLATFORM_BASELINE.md).
+Documentos complementares: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md), [GSC_OAUTH.md](GSC_OAUTH.md), [PROVIDER_SETUP.md](PROVIDER_SETUP.md), [STANDARDS_METRICS_AND_SERVICES.md](STANDARDS_METRICS_AND_SERVICES.md), [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md), [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md) e [WEB_PLATFORM_BASELINE.md](WEB_PLATFORM_BASELINE.md).
