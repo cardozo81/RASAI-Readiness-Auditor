@@ -1,7 +1,7 @@
 """CONS-4 materialization for temporal consolidated reports.
 
-CONS-3 remains the base renderer contract. This layer gives temporal consolidation
-its own request identity and never mutates a reused legacy snapshot in place.
+The base renderer is an internal implementation detail. This layer owns the
+materialized CONS-4 identity, temporal contract and final request fingerprint.
 """
 from __future__ import annotations
 
@@ -86,7 +86,7 @@ def _upgrade_manifest(
     *,
     fingerprint: str,
     source_fingerprint: str,
-    legacy_request_fingerprint: str | None,
+    base_request_fingerprint: str | None,
     cons_id: str | None,
     generated_at: str | None,
 ) -> None:
@@ -100,7 +100,8 @@ def _upgrade_manifest(
         payload["generated_at"] = generated_at
     temporal = payload.setdefault("temporal_apdex", {})
     temporal["report_format_version"] = REPORT_FORMAT_VERSION
-    temporal["legacy_request_fingerprint"] = legacy_request_fingerprint
+    temporal["base_request_fingerprint"] = base_request_fingerprint
+    temporal.pop("legacy_request_fingerprint", None)
     path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -116,7 +117,7 @@ def materialize(
     filters: ConsolidationFilter,
     series: tuple[TemporalApdexSeries, ...],
 ) -> GenerationResult:
-    """Materialize CONS-4, cloning first when the base renderer reused an older snapshot."""
+    """Materialize the final CONS-4 artifact from the internal base renderer output."""
     root = Path(audits_root)
     fingerprint = request_fingerprint(source_fingerprint, filters)
     report_dir = base_result.report_dir
@@ -129,7 +130,7 @@ def materialize(
         base_manifest = json.loads(base_result.manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         base_manifest = {}
-    legacy_request_fingerprint = str(base_manifest.get("request_fingerprint") or "") or None
+    base_request_fingerprint = str(base_manifest.get("request_fingerprint") or "") or None
 
     if base_result.reused:
         now = datetime.now().astimezone()
@@ -151,7 +152,7 @@ def materialize(
         manifest_path,
         fingerprint=fingerprint,
         source_fingerprint=source_fingerprint,
-        legacy_request_fingerprint=legacy_request_fingerprint,
+        base_request_fingerprint=base_request_fingerprint,
         cons_id=cons_id,
         generated_at=generated_at,
     )
