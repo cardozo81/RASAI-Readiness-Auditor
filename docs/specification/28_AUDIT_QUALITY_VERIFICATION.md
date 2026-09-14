@@ -1,12 +1,12 @@
-# 28 - Audit Quality, Verification & Decision Support
+# 28 - Qualidade da auditoria, verificação e suporte à decisão
 
-**Estado no baseline de desenvolvimento:** aprovado / implementado / integrado à `main`.
+**Estado:** vigente.
 
 ## 1. Objetivo
 
 Este domínio fornece capacidades derivadas e somente leitura que avaliam a qualidade da evidência do RASAi e apoiam decisões de remediação sem criar outro score de readiness.
 
-Ele responde se o `AUD-*` persistido está saudável, qual é a força da evidência de cada finding, quais findings merecem atenção operacional, se recomendações ainda referenciam evidências válidas e não resolvidas, se uma auditoria posterior demonstra correção no nível de regra e como a evidência evoluiu entre `AUD-*`.
+Ele responde se o `AUD-*` persistido está saudável, qual é a força da evidência de cada finding, quais findings merecem atenção operacional, se recomendações ainda referenciam evidências válidas e não resolvidas, se uma auditoria comparada demonstra correção no nível de regra e como a evidência varia entre `AUD-*`.
 
 Nenhuma dessas capacidades altera `SARI-001` ou `SCORE-GEO-004`.
 
@@ -16,7 +16,7 @@ Quality/Verification deve:
 
 1. abrir o `audit.db` de origem somente leitura;
 2. tratar `observability.db` como evidência sidecar derivada;
-3. nunca modificar findings, recommendations, RuleExecution, scores ou `AUD-*` históricos;
+3. nunca modificar findings, recommendations, RuleExecution, scores ou `AUD-*` de origem;
 4. nunca converter evidência ausente em falha por default;
 5. distinguir Evidence Confidence da Confidence de dimensão usada pelo SARI;
 6. distinguir Operational Priority de scoring/severity;
@@ -114,7 +114,7 @@ Status permitidos:
 - `NOT_FIXED`;
 - `NOT_VERIFIABLE`.
 
-Fix Verification usa evidência de comparação persistida e não pode afirmar impacto downstream em Search/IA.
+Fix Verification usa evidência de comparação persistida e não pode afirmar impacto posterior em Search/IA.
 
 ## 6. Evidence Timeline
 
@@ -128,11 +128,11 @@ Saída default:
 audits/quality/TIMELINE-*/report.html
 ```
 
-A timeline pode projetar horário da auditoria, versões do auditor/ruleset/scoring, quantidade de URLs, contagens `FAIL`/`WARNING`, valores das dimensões e estado selecionado de páginas. Workspaces históricos permanecem somente leitura.
+A linha do tempo pode projetar horário da auditoria, versões do auditor/ruleset/scoring, quantidade de URLs, contagens `FAIL`/`WARNING`, valores das dimensões e estado selecionado de páginas. Workspaces de origem permanecem somente leitura.
 
 ## 7. Reprodutibilidade
 
-Verificações dependentes de tempo usam timestamps persistidos da auditoria/observação para que regenerar o relatório mais tarde não altere conclusões apenas porque o relógio avançou.
+Verificações dependentes de tempo usam timestamps persistidos da auditoria/observação para que regenerar o relatório posteriormente não altere conclusões apenas porque o relógio avançou.
 
 Âncoras de tempo preferidas são, nesta ordem: `completed_at`, `started_at`, `created_at` e timestamp persistido de captura do snapshot.
 
@@ -155,4 +155,4 @@ Evite garantia de ganho de ranking, alegações causais derivadas de coincidênc
 
 ## 10. Gates automatizados de segurança
 
-A cobertura deve incluir migration/identidade do sidecar, preservação de `NULL`, comparabilidade temporal, limites do release gate, detecção de controles de conteúdo, avaliação de atualização baseada em horário persistido, materialização do relatório/menu Quality, semântica de Fix Verification e preservação histórica de `scoring_version`.
+A cobertura deve incluir migração/identidade do sidecar, preservação de `NULL`, comparabilidade temporal, limites do release gate, detecção de controles de conteúdo, avaliação de atualização baseada em horário persistido, materialização do relatório/menu Quality, semântica de Fix Verification e preservação de `scoring_version`.
