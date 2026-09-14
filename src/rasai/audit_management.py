@@ -426,7 +426,7 @@ def _refresh_consolidated_index(root: Path) -> str | None:
 
         result = ConsolidationIndex(root).refresh()
         if result.issues:
-            return "; ".join(f"{item.source}: {item.error}" for item in result.issues[:5])
+            return "; ".join(f"{item.db_path}: {item.reason}" for item in result.issues[:5])
         return None
     except (ImportError, OSError, sqlite3.Error, RuntimeError, ValueError) as exc:
         return f"{type(exc).__name__}: {exc}"
