@@ -197,17 +197,17 @@ def test_requested_improvement_without_materialized_run_is_visible(monkeypatch) 
     with TemporaryDirectory() as directory:
         workspace = _workspace(Path(directory))
         monkeypatch.setenv("RASAI_IMPROVEMENT_INTELLIGENCE", "true")
-        monkeypatch.setenv("RASAI_IMPROVEMENT_AI_PROVIDER", "openai")
-        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-        monkeypatch.delenv("RASAI_IMPROVEMENT_AI_MODEL", raising=False)
-        monkeypatch.delenv("RASAI_IMPROVEMENT_AI_REASONING", raising=False)
 
         _reconcile_requested_improvement(workspace, AUDIT_ID)
 
         item = next(item for item in list_work_items(workspace, AUDIT_ID) if item.component == "IMPROVEMENT_INTELLIGENCE")
         assert item.status == REQUESTED_NOT_EXECUTED
         assert item.last_error_class == "ORCHESTRATION"
-        assert item.configuration["provider"] == "openai"
+        # Provider/model are supplied by the primary routing snapshot during the real
+        # finalization path. A standalone reconciliation must not read a parallel
+        # Improvement-specific provider setting.
+        assert item.configuration["provider"] == ""
+        assert item.configuration["model"] == ""
 
 
 def test_physical_100_percent_does_not_turn_partial_fulfillment_into_complete() -> None:
