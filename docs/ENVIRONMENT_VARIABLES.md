@@ -110,20 +110,17 @@ Um valor `auto` permanece `AUTO` no estado persistido. Eventual interpretação 
 
 ### 6.1 IA - análise profunda e idioma
 
-Improvement Intelligence possui configuração própria e reutiliza a credencial do provider selecionado. A execução é limitada a uma URL explícita e permanece advisory/non-scoring.
+Improvement Intelligence usa a seleção principal de IA da execução. Não possui provider/modelo/reasoning próprios. Com `AI=auto`, reutiliza a mesma ordenação por custo, elegibilidade, quarentena, circuit breaker e fallback do runtime canônico. A execução é limitada a uma URL explícita e permanece advisory/non-scoring.
 
 | Variável | Default efetivo | Valores permitidos | Recomendado | Finalidade |
 |---|---|---|---|---|
 | `RASAI_AI_ANALYSIS_LANGUAGE` | `auto` | `auto` ou tag BCP-47 | `auto` | idioma preferencial das explicações e sugestões |
-| `RASAI_IMPROVEMENT_INTELLIGENCE` | `false` | booleano | `false`; habilitar somente para URL única | ativa análise profunda evidence-bound |
-| `RASAI_IMPROVEMENT_AI_PROVIDER` | sem default | provider explícito registrado; `AUTO`/`NONE` não aceitos quando ativo | provider já configurado | provider exclusivo desta análise |
-| `RASAI_IMPROVEMENT_AI_MODEL` | sem default | modelo suportado pelo provider | omitir para default público | override de modelo desta finalidade |
-| `RASAI_IMPROVEMENT_AI_REASONING` | sem default | esforço suportado pelo provider | omitir para perfil da feature | profundidade desta finalidade |
+| `RASAI_IMPROVEMENT_INTELLIGENCE` | `false` | booleano | `false`; habilitar somente para URL única e IA principal ativa | ativa análise profunda evidence-bound |
 | `RASAI_IMPROVEMENT_DOMAINS` | todos os domínios suportados | CSV de `TECHNICAL_HTML`, `SEMANTICS_STRUCTURE`, `CONTENT`, `SEARCH_RANKING`, `FILES_DISCOVERY`, `PERFORMANCE`, `ACCESSIBILITY`, `BEST_PRACTICES`, `SECURITY`, `AI_ACCESS` | restringir aos domínios necessários | controla evidências enviadas ao estudo |
 | `RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS` | `30` | inteiro `1..100` | `30` | limita backlog/output |
-| `RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS` | `240` | número `> 0` | `240` | timeout da chamada estruturada |
+| `RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS` | `240` | número `> 0` | `240` | timeout da necessidade estruturada; não redefine política de roteamento |
 
-No console interativo, o item **13. Análise profunda URL** é a superfície de configuração desta capacidade. As escolhas não secretas são persistidas em `[improvement_intelligence]`; key/token permanecem fora do INI. Consulte [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md).
+No console interativo, o item **13. Análise profunda URL** configura apenas ativação/domínios/limites. Provider, modelo e reasoning vêm da configuração principal `[ai]`. Consulte [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md).
 
 ## 7. Métricas, padrões e Web Performance
 
@@ -280,9 +277,8 @@ Criação e segurança do token Dynatrace: [EXTERNAL_CREDENTIALS.md](EXTERNAL_CR
 | `RASAI_SERP_TIMEOUT_SECONDS` | `20` | número `> 0` | `20` | timeout por tentativa |
 | `RASAI_SERP_RETRIES` | `1` | inteiro `>= 0` | `1` | retries permitidos |
 | `RASAI_SERP_MIN_INTERVAL_SECONDS` | `1` | número `>= 0` | `1` ou maior se provider exigir | throttling local |
-| `RASAI_SEARCH_AI_PROVIDER` | `none` | `none`, `fixture`, `openai` | `none` | análise semântica específica de Search Intelligence |
 
-Search Intelligence permanece separado do SARI. Links de cadastro e orientação de keys: [PROVIDER_SETUP.md](PROVIDER_SETUP.md) e [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md).
+Search Intelligence permanece separado do SARI. Competitive AI não possui variável de provider própria: `--ai-provider` usa o registry canônico e `auto` reutiliza a orquestração central. Links de cadastro e orientação de keys: [PROVIDER_SETUP.md](PROVIDER_SETUP.md), [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md) e [COMPETITIVE_AI_INTELLIGENCE.md](COMPETITIVE_AI_INTELLIGENCE.md).
 
 ## 11. Control plane / SaaS
 
