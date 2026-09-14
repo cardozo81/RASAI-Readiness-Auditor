@@ -127,6 +127,14 @@ def install() -> None:
     except ImportError:
         pass
 
+    # Completion reliability is installed before fulfillment wrappers so a deterministic
+    # CrUX NO_DATA classification is already reflected in the M21 result that fulfillment
+    # observes. It also hardens M24's resource-scoped provider schema and repairs the
+    # interactive-console GSC profile lifetime without changing scoring or AI routing.
+    from rasai.execution_completion_reliability import install as install_execution_completion_reliability
+
+    install_execution_completion_reliability()
+
     # One fulfillment contract governs initial execution and selective recovery.
     # Core evidence recovery runs before AI recovery so no provider call can be used
     # as a substitute for missing acquisition/render/extraction evidence. Integrity
