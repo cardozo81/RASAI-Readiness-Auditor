@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from rasai.report_reader_experience import enhance_consolidated_experience, enhance_report_experience
+import sqlite3
+
+from rasai.report_reader_experience import (
+    build_report_experience_context,
+    enhance_consolidated_experience,
+    enhance_report_experience,
+)
 
 
 def _context(*, status: str = "SUCCESS", url_count: int = 3):
@@ -44,7 +50,9 @@ def test_audit_page_gets_context_status_and_transparency_dialog() -> None:
     assert "3 URLs" in rendered
     assert "Mobile + Desktop" in rendered
     assert "Entenda esta página" in rendered
-    assert "Dados que podem alimentar esta página" in rendered
+    assert "Dados previstos para esta página" in rendered
+    assert "Estado materializado nesta auditoria" in rendered
+    assert "Origem dos dados" in rendered
     assert "PageSpeed API" in rendered
     assert "Dados persistidos · sem recálculo no HTML" in rendered
 
@@ -79,6 +87,65 @@ def test_reader_layer_is_idempotent() -> None:
     assert second.count("rasai-reader-experience-v1") == 1
     assert second.count("data-rasai-page-help='true'") == 1
     assert second.count("data-rasai-analysis-status='true'") == 1
+
+
+def test_accessibility_state_follows_requested_lighthouse_category() -> None:
+    connection = sqlite3.connect(":memory:")
+    connection.row_factory = sqlite3.Row
+    connection.executescript(
+        """
+        CREATE TABLE web_performance_runs(
+          audit_id TEXT, enabled INTEGER, status TEXT, reason TEXT, categories TEXT
+        );
+        INSERT INTO web_performance_runs VALUES(
+          'AUD-TEST',1,'SUCCESS',NULL,'["performance"]'
+        );
+        CREATE TABLE web_performance_attempts(audit_id TEXT);
+        INSERT INTO web_performance_attempts VALUES('AUD-TEST');
+        CREATE TABLE web_performance_observations(
+          audit_id TEXT, accessibility_score REAL
+        );
+        """
+    )
+    context = build_report_experience_context(connection, "AUD-TEST")
+    connection.close()
+
+    items = [item for item in context["work_items"] if item["component"] == "ACCESSIBILITY_DATA"]
+    assert len(items) == 1
+    assert items[0]["status"] == "DISABLED"
+
+    html = "<html><head></head><body><main><header><h1>Acessibilidade</h1></header></main></body></html>"
+    rendered = enhance_report_experience(html, filename="accessibility.html", context=context)
+    assert "Dados não solicitados" in rendered
+    assert "ACCESSIBILITY_CATEGORY_NOT_REQUESTED" in rendered
+
+
+def test_standards_can_be_complete_with_external_service_limitation() -> None:
+    connection = sqlite3.connect(":memory:")
+    connection.row_factory = sqlite3.Row
+    connection.executescript(
+        """
+        CREATE TABLE standards_metric_observations(audit_id TEXT);
+        INSERT INTO standards_metric_observations VALUES('AUD-TEST');
+        CREATE TABLE standards_service_runs(
+          audit_id TEXT, service_id TEXT, requested INTEGER, configured INTEGER,
+          effective_enabled INTEGER, state TEXT, targets_attempted INTEGER,
+          targets_succeeded INTEGER
+        );
+        INSERT INTO standards_service_runs VALUES(
+          'AUD-TEST','W3C_HTML',1,1,1,'ERROR',1,0
+        );
+        """
+    )
+    context = build_report_experience_context(connection, "AUD-TEST")
+    connection.close()
+
+    html = "<html><head></head><body><main><header><h1>Métricas e padrões</h1></header></main></body></html>"
+    rendered = enhance_report_experience(html, filename="standards.html", context=context)
+    assert "Concluída com limitações" in rendered
+    assert "Métricas e padrões materializados" in rendered
+    assert "Serviço externo de padrões" in rendered
+    assert "Falhou; pode ser reprocessado" in rendered
 
 
 def test_consolidated_gets_same_status_language_and_help() -> None:
