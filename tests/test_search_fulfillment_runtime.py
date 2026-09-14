@@ -14,7 +14,7 @@ AUDIT_ID = "AUD-SEARCH-FULFILLMENT"
 
 
 def _workspace(root: Path) -> AuditWorkspace:
-    workspace = AuditWorkspace.create(root / AUDIT_ID, AUDIT_ID)
+    workspace = AuditWorkspace.create(root, AUDIT_ID)
     with AuditPersistence(workspace) as persistence:
         persistence.audits.add(Audit(audit_id=AUDIT_ID, project_name="search fulfillment"))
     return workspace
