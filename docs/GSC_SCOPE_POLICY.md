@@ -1,4 +1,4 @@
-# Google Search Console — escopo de property e política de execução
+# Google Search Console - escopo de property e política de execução
 
 **Estado:** vigente.
 
