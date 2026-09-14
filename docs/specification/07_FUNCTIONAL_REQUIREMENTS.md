@@ -1,7 +1,7 @@
-# FUNCTIONAL_REQUIREMENTS.md
+# Requisitos funcionais e não funcionais do RASAi
 
 **Estado:** APROVADO / VIGENTE  
-**Contrato relacionado:** Rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance + Sugestões e remediação de conteúdo por IA + análise semântica por IA, roteamento e telemetria + `SCORE-GEO-004` + `SARI-001` + `REPORT-SITE-GEO-001`
+**Contrato relacionado:** rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance + Sugestões e remediação de conteúdo por IA + análise semântica por IA, roteamento e telemetria + `SCORE-GEO-004` + `SARI-001` + `REPORT-CONTRACT-002`
 
 Os identificadores `FR-GEO-*` e `NFR-GEO-*` são canônicos. Termos de implementação, flags, enums, nomes de classes e arquivos permanecem em inglês quando fazem parte do contrato técnico; a descrição funcional é mantida em português do Brasil.
 
@@ -44,7 +44,7 @@ Preservar DOM renderizado.
 Suportar HTML, SSR, SSG, hydration, CSR, SPA e arquiteturas híbridas.
 
 ### FR-GEO-013
-Comparar estados RAW × RENDERED.
+Comparar estados RAW x RENDERED.
 
 ### FR-GEO-014
 Extrair conteúdo principal.
@@ -62,7 +62,7 @@ Avaliar problemas materiais de JavaScript e SPA.
 Detectar e validar Dados Estruturados quando presentes.
 
 ### FR-GEO-019
-Executar o ruleset vigente `BR-GEO-001..059` conforme aplicabilidade, dependências e versão de cada regra.
+Executar o ruleset vigente `BR-GEO-001..060` conforme aplicabilidade, dependências e versão de cada regra. `BR-GEO-060` é externa, corroborativa e positive-only; sua ausência ou indisponibilidade não cria `FAIL`, zero ou redução de Coverage/Confidence.
 
 ### FR-GEO-020
 Padronizar os resultados técnicos `PASS`, `FAIL`, `WARNING`, `UNKNOWN`, `NOT_APPLICABLE` e `ERROR`.
@@ -107,7 +107,7 @@ Avaliar evidência e confiança.
 Avaliar uma intenção primária e até cinco intenções secundárias.
 
 ### FR-GEO-034
-Comparar Desktop × Mobile quando ambos os snapshots estiverem no universo selecionado; ausência intencional de um contexto não deve ser apresentada como defeito do website.
+Comparar Desktop x Mobile quando ambos os snapshots estiverem no universo selecionado; ausência intencional de um contexto não deve ser apresentada como defeito do website.
 
 ### FR-GEO-035
 Criar findings estruturados.
@@ -143,7 +143,7 @@ Consolidar recomendações repetitivas por causa raiz quando a evidência permit
 Gerar recomendações técnicas mesmo sem IA.
 
 ### FR-GEO-046
-Gerar mini-site HTML estático em `report/`, com `report/index.html` como ponto de entrada.
+Gerar mini-site HTML estático em `report/`, com `report/index.html` como ponto de entrada, materializando todas as superfícies canônicas de `REPORT-CONTRACT-002` após auditoria concluída com sucesso.
 
 ### FR-GEO-047
 Produzir mini-site local e navegável sem servidor Web, usando dependências relativas internas ao workspace.
@@ -194,7 +194,7 @@ Preservar segurança factual: não inventar autor, fonte, freshness, claim, pre�
 Gerar diagnóstico de crawl reabrível a partir do estado persistido.
 
 ### FR-GEO-063
-Manter scorecards Mobile e Desktop independentes; o relatório final só deve expor como auditado o dispositivo que possui snapshot no universo executado.
+Manter scorecards Mobile e Desktop independentes; o relatório só deve rotular como auditado o dispositivo que possui snapshot no universo executado.
 
 ### FR-GEO-064
 Ordenar a apresentação por domínio de informação: visão executiva, dispositivo, remediação, telemetria de IA e fundamentação técnica.
@@ -203,7 +203,7 @@ Ordenar a apresentação por domínio de informação: visão executiva, disposi
 Identificar recipes de fallback quando não houver recipe específica.
 
 ### FR-GEO-066
-Preservar IDs de Evidence e rastreabilidade no fluxo `evidence → finding → priority → remediation → report`.
+Preservar IDs de Evidence e rastreabilidade no fluxo `evidence -> finding -> priority -> remediation -> report`.
 
 ### FR-GEO-067
 Distinguir dimensão sem `RuleExecution`, com aplicabilidade não resolvida e integralmente `NOT_APPLICABLE`.
@@ -224,13 +224,13 @@ Documentar premissas `MÍNIMO`, `CONTEXTUAL`, `OPCIONAL / REFORÇO` e `NÃO OBRI
 Classificar JSON-LD/Dados Estruturados como `OPCIONAL / REFORÇO`: ausência legítima isolada não é `FAIL` nem impede Overall; quando presente, deve ser interpretável, factual e coerente com conteúdo visível.
 
 ### FR-GEO-073
-Expor `--device-context mobile|desktop|both` e `RASAI_DEVICE_CONTEXT`, com precedência flag → ambiente → default `mobile` na CLI.
+Expor `--device-context mobile|desktop|both` e `RASAI_DEVICE_CONTEXT`, com precedência flag -> ambiente -> default `mobile` na CLI.
 
 ### FR-GEO-074
 O contexto de dispositivo selecionado deve controlar rendering e, por consequência, os contextos enviados ao provider semântico; nenhum provider deve ser chamado para dispositivo sem snapshot selecionado.
 
 ### FR-GEO-075
-Separar `report/mobile.html` e `report/desktop.html`; gerar cada página somente quando o respectivo contexto foi auditado.
+Manter `report/mobile.html` e `report/desktop.html` como superfícies canônicas estáveis. Ambas as páginas são materializadas em auditoria concluída com sucesso; cada uma deve apresentar resultados somente quando o respectivo contexto foi auditado e, caso contrário, exibir estado neutro de contexto não executado.
 
 ### FR-GEO-076
 Separar telemetria operacional em `report/ai-usage.html` e fundamentação técnica em `report/references.html`, evitando confundir erro de provider com qualidade do website.
@@ -284,7 +284,7 @@ Expor remediação por IA em `report/content-suggestions.html`, com navegação/
 Informar que JSON-LD é reforço opcional, que não existe markup especial GEO/AEO obrigatório, que propriedades de rich result dependem do tipo/feature e que markup válido não garante exibição de rich result.
 
 ### FR-GEO-093
-Expor Web Performance por `--web-performance`, `--no-web-performance` e `RASAI_WEB_PERFORMANCE`, com default público `false` e nenhuma chamada PageSpeed/CrUX quando desabilitado.
+Expor Web Performance por `--web-performance`, `--no-web-performance` e `RASAI_WEB_PERFORMANCE`, com default público `false`. Quando houver hard-off explícito, nenhuma chamada PageSpeed/CrUX desta família pode ocorrer.
 
 ### FR-GEO-095
 Coletar Core Web Vitals de campo LCP, INP e CLS em p75 quando disponíveis, distinguindo dados CrUX de métricas Lighthouse de laboratório.
@@ -308,7 +308,7 @@ Web Performance deve adicionar zero chamadas LLM e não pode reutilizar automati
 Persistir Web Performance em tabelas auxiliares e artifacts JSON reabríveis, mantendo tentativas/erros de PageSpeed/CrUX como telemetria operacional externa e não como Finding/Recommendation do website.
 
 ### FR-GEO-102
-Materializar `report/web-performance.html` com navegação/CSS compartilhados, separando Lighthouse lab, Core Web Vitals de campo, source/scope, indisponibilidade e telemetria de coleta.
+Materializar `report/web-performance.html` com navegação/CSS compartilhados, separando Lighthouse lab, Core Web Vitals de campo, source/scope, indisponibilidade e telemetria de coleta. A superfície existe mesmo quando a coleta não foi executada e, nesse caso, deve apresentar estado neutro.
 
 ### FR-GEO-103
 Projetar em `report/index.html` somente resumo explicitamente rotulado como Web Performance externo, sem substituir ou recalcular Overall Readiness, Coverage ou Confidence.
@@ -317,7 +317,7 @@ Projetar em `report/index.html` somente resumo explicitamente rotulado como Web 
 Executar Web Performance como enriquecimento pós-auditoria/fail-open: indisponibilidade ou erro do serviço externo não pode invalidar `RuleExecution`, Finding, Recommendation ou score já concluídos.
 
 ### FR-GEO-106
-Executar diagnósticos determinísticos de rastreamento, descoberta e acesso de crawlers como advisory/non-scoring. Quando IA técnica estiver explicitamente habilitada e produzir saída evidence-bound válida, permitir somente BR-GEO-055/056 nos grupos SITEMAP/ROBOTS, sem escolha de pesos pelo provider, sem bônus duplicado e sem alteração direta de Coverage, Confidence ou Consolidation. O runtime vigente permanece `SCORE-GEO-004`/`SARI-001`.
+Executar diagnósticos determinísticos de rastreamento, descoberta e acesso de crawlers como advisory/non-scoring, exceto regras explicitamente score-eligible pelo contrato. Quando IA técnica estiver explicitamente habilitada e produzir saída evidence-bound válida, permitir somente BR-GEO-055/056 nos grupos SITEMAP/ROBOTS, sem escolha de pesos pelo provider, sem bônus duplicado e sem alteração direta de Coverage, Confidence ou Consolidation. `BR-GEO-060` segue contrato externo corroborativo próprio. O runtime vigente permanece `SCORE-GEO-004`/`SARI-001`.
 
 ### FR-GEO-107
 Aprofundar a interpretação de `robots.txt` com evidência reabrível de grupos de crawler, `Allow`, `Disallow`, `Sitemap`, linhas inválidas, tamanho e campos relevantes, sem transformar ausência legítima do arquivo em bloqueio artificial.
@@ -353,7 +353,7 @@ Registrar feeds RSS/Atom observados como sinais adicionais de discovery sem atri
 Reportar configuração/submissão IndexNow como não determinável quando a auditoria passiva não possuir evidência explícita, log ou artifact verificável; não inferir sucesso de submissão por mera observação do site.
 
 ### FR-GEO-118
-Expor remediação técnica de crawling/discovery por `--ai-technical-remediation`, `--no-ai-technical-remediation` e `RASAI_AI_TECHNICAL_REMEDIATION`, com default público `false` e precedência CLI explícito → ambiente → `false`.
+Expor remediação técnica de crawling/discovery por `--ai-technical-remediation`, `--no-ai-technical-remediation` e `RASAI_AI_TECHNICAL_REMEDIATION`, com default público `false` e precedência CLI explícito -> ambiente -> `false`.
 
 ### FR-GEO-119
 Restringir a IA técnica a diagnósticos/evidências persistidos, rejeitar invenção de URL, policy, canonical, data ou crawler token, exigir revisão humana e não permitir que o provider decida unilateralmente política de treinamento/crawler da organização.
@@ -362,7 +362,7 @@ Restringir a IA técnica a diagnósticos/evidências persistidos, rejeitar inven
 Persistir estado/telemetria de crawling/discovery em tabelas auxiliares próprias, mantendo separação entre qualidade do website, diagnósticos técnicos e consumo de provider.
 
 ### FR-GEO-121
-Materializar `report/crawling-discovery.html` com navegação/CSS compartilhados, robots/crawler policy, múltiplos sitemaps, múltiplos `llms.txt` raiz/scoped, feeds, IndexNow, conteúdo capturado reabrível/copiável, limitações de segurança, referências e eventual orientação técnica por IA.
+Materializar `report/crawling-discovery.html` com navegação/CSS compartilhados, robots/crawler policy, múltiplos sitemaps, múltiplos `llms.txt` raiz/scoped, feeds, IndexNow, conteúdo capturado reabrível/copiável, limitações de segurança, referências e eventual orientação técnica por IA. A página permanece presente quando não houver dados opcionais e deve indicar o estado correspondente.
 
 ### FR-GEO-122
 Quando houver hard source blocker confirmado, evitar aquisição adicional de `llms.txt` e chamada técnica de IA dependente do corpus, persistindo estado de skip/fail-open sem invalidar a auditoria principal.
@@ -418,7 +418,7 @@ Remediação de conteúdo por IA deve ser fail-open em relação ao audit: indis
 Sugestões de IA e JSON-LD devem permanecer advisory, reabríveis no `audit.db` e separadas dos objetos normativos de scoring.
 
 ### NFR-GEO-017
-Web Performance deve permanecer opcional, com rede externa desabilitada por default e limites explícitos de páginas/timeout para impedir consumo PageSpeed/CrUX não previsto.
+Web Performance deve permanecer opcional, com controles explícitos de rede, páginas e timeout para impedir consumo PageSpeed/CrUX não previsto. Credenciais podem tornar serviços individuais elegíveis quando o contrato credential-driven assim definir, salvo hard-off explícito.
 
 ### NFR-GEO-019
 Métricas de Web Performance devem permanecer reabríveis a partir de `audit.db` + artifacts JSON sem nova chamada externa, preservando source, device, URL/origin scope e versão Lighthouse quando disponível.
@@ -449,4 +449,4 @@ Estados `UNAVAILABLE`, `INCOMPLETE`, ausência de evidência ou coleta não exec
 
 ## Observação sobre numeração
 
-Os identificadores existentes são preservados por compatibilidade documental. Lacunas numéricas neste arquivo não devem ser preenchidas por renumeração automática, pois um identificador funcional já publicado não deve mudar de significado apenas para produzir sequência contínua.
+As lacunas numéricas fazem parte do conjunto de identificadores usado atualmente por código, testes e documentação. Não renumerar requisitos apenas para produzir sequência contínua, pois a mudança quebraria rastreabilidade técnica sem alterar o significado funcional.
