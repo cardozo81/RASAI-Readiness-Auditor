@@ -1,8 +1,8 @@
 """SaaS/control-plane contract for Improvement Intelligence.
 
-Only non-secret execution choices enter durable jobs. Provider credentials remain in the
-worker/integration secret boundary and are reused by the runtime through the canonical
-provider registry.
+Only feature-specific, non-secret execution choices enter durable jobs. AI provider,
+model and reasoning belong to the canonical AUDIT AI fields and credentials remain in
+the worker/integration secret boundary.
 """
 from __future__ import annotations
 
@@ -10,30 +10,25 @@ from typing import Any, Mapping
 
 from rasai.improvement_intelligence import (
     AI_ANALYSIS_LANGUAGE_ENV,
+    DEFAULT_DOMAINS,
     DOMAINS_ENV,
     ENABLED_ENV,
     MAX_RECOMMENDATIONS_ENV,
-    MODEL_ENV,
-    PROVIDER_ENV,
-    REASONING_ENV,
     TIMEOUT_ENV,
-    DEFAULT_DOMAINS,
     parse_domains,
     validate_analysis_language,
 )
-from rasai.provider_registry import get_provider_registration, provider_registrations
 
 _INSTALLED = False
-_FIELDS = frozenset({
-    "improvement_intelligence",
-    "improvement_ai_provider",
-    "improvement_ai_model",
-    "improvement_ai_reasoning",
-    "improvement_domains",
-    "improvement_max_recommendations",
-    "improvement_ai_timeout_seconds",
-    "ai_analysis_language",
-})
+_FIELDS = frozenset(
+    {
+        "improvement_intelligence",
+        "improvement_domains",
+        "improvement_max_recommendations",
+        "improvement_ai_timeout_seconds",
+        "ai_analysis_language",
+    }
+)
 
 
 def _bool(payload: Mapping[str, Any], name: str, default: bool = False) -> bool:
@@ -66,10 +61,9 @@ def _positive_number(payload: Mapping[str, Any], name: str, default: float) -> f
 
 def _validate_extension(payload: Mapping[str, Any], normalized: dict[str, Any]) -> dict[str, Any]:
     enabled = _bool(payload, "improvement_intelligence", False)
-    provider = _text(payload, "improvement_ai_provider", "").casefold()
-    model = _text(payload, "improvement_ai_model", "")
-    reasoning = _text(payload, "improvement_ai_reasoning", "").upper()
-    language = validate_analysis_language(_text(payload, "ai_analysis_language", "auto") or "auto")
+    language = validate_analysis_language(
+        _text(payload, "ai_analysis_language", "auto") or "auto"
+    )
     raw_domains = payload.get("improvement_domains", ",".join(DEFAULT_DOMAINS))
     if not isinstance(raw_domains, str):
         raise ValueError("AUDIT payload field improvement_domains must be comma-separated text")
@@ -83,35 +77,21 @@ def _validate_extension(payload: Mapping[str, Any], normalized: dict[str, Any]) 
             raise ValueError(
                 "Improvement Intelligence requires exactly one explicit URL in AUDIT payload urls"
             )
-        if provider in {"", "none", "auto"}:
+        selection = str(normalized.get("ai_provider") or "none").strip().casefold()
+        if selection == "none":
             raise ValueError(
-                "Improvement Intelligence requires one explicit AI provider; none/auto are not allowed"
+                "Improvement Intelligence requires the primary AUDIT ai_provider to be enabled"
             )
-        registration = get_provider_registration(provider)
-        if registration is None:
-            raise ValueError(f"unknown improvement_ai_provider: {provider}")
-        effective_model = model or registration.public_default_model
-        if effective_model not in registration.supported_models:
-            raise ValueError(
-                f"improvement_ai_model is not supported by {registration.display_name}"
-            )
-        effective_reasoning = reasoning or registration.reasoning_values[-1]
-        if effective_reasoning not in registration.reasoning_values:
-            raise ValueError(
-                f"improvement_ai_reasoning is not supported by {registration.display_name}"
-            )
-        model, reasoning = effective_model, effective_reasoning
 
-    normalized.update({
-        "improvement_intelligence": enabled,
-        "improvement_ai_provider": provider,
-        "improvement_ai_model": model,
-        "improvement_ai_reasoning": reasoning,
-        "improvement_domains": ",".join(domains),
-        "improvement_max_recommendations": maximum,
-        "improvement_ai_timeout_seconds": timeout,
-        "ai_analysis_language": language,
-    })
+    normalized.update(
+        {
+            "improvement_intelligence": enabled,
+            "improvement_domains": ",".join(domains),
+            "improvement_max_recommendations": maximum,
+            "improvement_ai_timeout_seconds": timeout,
+            "ai_analysis_language": language,
+        }
+    )
     return normalized
 
 
@@ -132,38 +112,37 @@ def install() -> None:
     def options_with_improvement():
         values = list(original_options())
         known = {item.name for item in values}
-        provider_choices = tuple(item.id for item in provider_registrations())
         additions = (
             contract.AuditJobOption(
-                "improvement_intelligence", False, "boolean",
-                description="Análise profunda evidence-bound; exige exatamente uma URL e uma IA explícita.",
+                "improvement_intelligence",
+                False,
+                "boolean",
+                description=(
+                    "Análise profunda evidence-bound; exige exatamente uma URL e usa a IA principal do AUDIT."
+                ),
             ),
             contract.AuditJobOption(
-                "improvement_ai_provider", "", "enum", provider_choices,
-                required_when="Obrigatório quando improvement_intelligence=true; credencial não entra no payload.",
-            ),
-            contract.AuditJobOption(
-                "improvement_ai_model", "", "text",
-                required_when="Override independente do modelo usado pela análise semântica normal.",
-            ),
-            contract.AuditJobOption(
-                "improvement_ai_reasoning", "", "text",
-                required_when="Profundidade independente da IA padrão; validada pelo provider selecionado.",
-            ),
-            contract.AuditJobOption(
-                "improvement_domains", ",".join(DEFAULT_DOMAINS), "text",
+                "improvement_domains",
+                ",".join(DEFAULT_DOMAINS),
+                "text",
                 description="Domínios de análise separados por vírgula.",
             ),
             contract.AuditJobOption(
-                "improvement_max_recommendations", 30, "integer",
+                "improvement_max_recommendations",
+                30,
+                "integer",
                 description="Teto de recomendações estruturadas retornadas pela IA.",
             ),
             contract.AuditJobOption(
-                "improvement_ai_timeout_seconds", 240.0, "number",
-                description="Timeout da chamada profunda; separado do timeout da IA padrão.",
+                "improvement_ai_timeout_seconds",
+                240.0,
+                "number",
+                description="Timeout da chamada profunda; não cria seleção de provider paralela.",
             ),
             contract.AuditJobOption(
-                "ai_analysis_language", "auto", "text",
+                "ai_analysis_language",
+                "auto",
+                "text",
                 description="Idioma preferencial de leitura/resposta da IA; auto usa o idioma da auditoria.",
             ),
         )
@@ -172,16 +151,15 @@ def install() -> None:
 
     def defaults_with_improvement() -> dict[str, Any]:
         values = dict(original_defaults())
-        values.update({
-            "improvement_intelligence": False,
-            "improvement_ai_provider": "",
-            "improvement_ai_model": "",
-            "improvement_ai_reasoning": "",
-            "improvement_domains": ",".join(DEFAULT_DOMAINS),
-            "improvement_max_recommendations": 30,
-            "improvement_ai_timeout_seconds": 240.0,
-            "ai_analysis_language": "auto",
-        })
+        values.update(
+            {
+                "improvement_intelligence": False,
+                "improvement_domains": ",".join(DEFAULT_DOMAINS),
+                "improvement_max_recommendations": 30,
+                "improvement_ai_timeout_seconds": 240.0,
+                "ai_analysis_language": "auto",
+            }
+        )
         return values
 
     def normalize_with_improvement(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -196,16 +174,15 @@ def install() -> None:
         base_payload = {key: value for key, value in payload.items() if key not in _FIELDS}
         overrides = dict(original_environment(base_payload))
         normalized = normalize_with_improvement(payload)
-        overrides.update({
-            ENABLED_ENV: "true" if normalized["improvement_intelligence"] else "false",
-            PROVIDER_ENV: str(normalized["improvement_ai_provider"]),
-            MODEL_ENV: str(normalized["improvement_ai_model"]),
-            REASONING_ENV: str(normalized["improvement_ai_reasoning"]),
-            DOMAINS_ENV: str(normalized["improvement_domains"]),
-            MAX_RECOMMENDATIONS_ENV: str(normalized["improvement_max_recommendations"]),
-            TIMEOUT_ENV: f"{float(normalized['improvement_ai_timeout_seconds']):g}",
-            AI_ANALYSIS_LANGUAGE_ENV: str(normalized["ai_analysis_language"]),
-        })
+        overrides.update(
+            {
+                ENABLED_ENV: "true" if normalized["improvement_intelligence"] else "false",
+                DOMAINS_ENV: str(normalized["improvement_domains"]),
+                MAX_RECOMMENDATIONS_ENV: str(normalized["improvement_max_recommendations"]),
+                TIMEOUT_ENV: f"{float(normalized['improvement_ai_timeout_seconds']):g}",
+                AI_ANALYSIS_LANGUAGE_ENV: str(normalized["ai_analysis_language"]),
+            }
+        )
         return overrides
 
     contract.audit_job_options = options_with_improvement
@@ -214,15 +191,16 @@ def install() -> None:
     contract.audit_job_environment_overrides = environment_with_improvement
     contract._rasai_improvement_intelligence_saas = True
 
-    # Import-by-value compatibility for API/worker surfaces already loaded.
     try:
         from rasai import execution_contract
+
         if getattr(execution_contract, "normalize_audit_job_payload", None) is original_normalize:
             execution_contract.normalize_audit_job_payload = normalize_with_improvement
     except Exception:
         pass
     try:
         from rasai import worker
+
         if getattr(worker, "normalize_audit_job_payload", None) is original_normalize:
             worker.normalize_audit_job_payload = normalize_with_improvement
         if getattr(worker, "audit_job_environment_overrides", None) is original_environment:
@@ -231,6 +209,7 @@ def install() -> None:
         pass
     try:
         from rasai.web import saas_management_routes
+
         if getattr(saas_management_routes, "audit_job_options", None) is original_options:
             saas_management_routes.audit_job_options = options_with_improvement
     except Exception:
