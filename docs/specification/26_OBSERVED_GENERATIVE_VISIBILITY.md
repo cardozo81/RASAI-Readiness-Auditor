@@ -1,6 +1,6 @@
-# Observed Generative Visibility
+# Visibilidade generativa observada
 
-**Estado no baseline de desenvolvimento:** integrada / validada  
+**Estado:** vigente  
 **Contrato de importação:** `OGV-IMPORT-001`  
 **Impacto no scoring:** `NONE`
 
@@ -18,7 +18,7 @@ A importação OGV não recalcula SARI nem altera a auditoria de origem. O scori
 
 Formatos de origem suportados incluem evidência normalizada de Bing AI Performance e execuções controladas de queries conforme o contrato de importação.
 
-Quando uma API direta documentada não está implementada, o RASAi permanece *import-first* e preserva artefato/proveniência da fonte.
+Quando uma API direta documentada não está disponível no contrato do RASAi, a operação permanece *import-first* e preserva artefato/proveniência da fonte.
 
 Execuções controladas podem registrar engine, query, horário observado, validade, presença de citação e URLs citadas. São somente evidência observacional.
 
@@ -26,7 +26,7 @@ Execuções controladas podem registrar engine, query, horário observado, valid
 
 Outcomes observados podem sustentar **pesquisa de validação offline separada** que estude associação entre readiness e outcomes reais.
 
-Essa pesquisa não deve alterar resultados persistidos de `SCORE-GEO-004`. Qualquer fórmula futura de produção derivada de trabalho empírico exige nova versão explícita de scoring.
+Essa pesquisa não altera resultados persistidos de `SCORE-GEO-004` nem cria contribuição de scoring. O único scoring de produção aplicável é o contrato explícito vigente.
 
 ## 4. Citation Presence Rate
 
@@ -34,7 +34,7 @@ Essa pesquisa não deve alterar resultados persistidos de `SCORE-GEO-004`. Qualq
 Citation Presence Rate = execuções válidas com citação / execuções válidas
 ```
 
-Execuções inválidas ficam fora do numerador e do denominador. Tamanho amostral e intervalo de Wilson de 95% podem qualificar a taxa observada; nenhum deles é previsão universal de citações futuras.
+Execuções inválidas ficam fora do numerador e do denominador. Tamanho amostral e intervalo de Wilson de 95% podem qualificar a taxa observada; nenhum deles é previsão universal de citações.
 
 ## 5. Escopo, proveniência e persistência
 
