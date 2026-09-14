@@ -1,6 +1,6 @@
 # Relatório consolidado - remediação técnica acionável
 
-**Estado:** vigente no baseline de desenvolvimento.  
+**Estado:** vigente.  
 **Escopo:** somente `CONS-*`; não altera auditorias `AUD-*`, SARI/SCORE-GEO, regras, provider adapters, quarentena ou política de preços de IA.
 
 ## Objetivo
@@ -38,7 +38,7 @@ O relatório permanece utilizável offline. Links externos são apenas referênc
 
 ## Contexto técnico enviado à IA
 
-O pacote `CONSOLIDATED_SPECIALIST` continua evidence-bound. Além de `changes` e `fix_verification`, a consolidação passa a anexar, quando disponível, o contexto técnico persistido da auditoria atual a partir de `root_cause_analyses` em modo SQLite read-only.
+O pacote `CONSOLIDATED_SPECIALIST` continua evidence-bound. Além de `changes` e `fix_verification`, a consolidação anexa, quando disponível, o contexto técnico persistido da auditoria atual a partir de `root_cause_analyses` em modo SQLite read-only.
 
 Campos aproveitados incluem:
 
@@ -100,9 +100,9 @@ Sem mudar provider, modelo, política de preço ou schema público da resposta, 
 - declarar quando o trecho observado não foi persistido;
 - produzir texto e ações em pt-BR, preservando apenas nomes conceituais oficiais em inglês.
 
-## Compatibilidade com CONS já materializado
+## Reabertura de CONS materializado
 
-Ao reabrir um CONS antigo que tenha `specialist-analysis.json`, a camada tenta fazer backfill do contexto técnico usando os IDs de baseline/current já persistidos, desde que os respectivos `AUD-*/audit.db` continuem disponíveis. O acesso é read-only e o enriquecimento modifica apenas arquivos derivados do `CONS-*`.
+Ao reabrir um `CONS-*` que tenha `specialist-analysis.json`, a camada resolve o contexto técnico usando os IDs de baseline/current persistidos, desde que os respectivos `AUD-*/audit.db` continuem disponíveis. O acesso é read-only e o enriquecimento modifica apenas arquivos derivados do `CONS-*`.
 
 ## Falha segura
 
@@ -110,7 +110,7 @@ A funcionalidade é fail-open:
 
 - ausência da tabela `root_cause_analyses` não invalida o consolidado;
 - erro ao ler contexto técnico não altera o resultado determinístico;
-- ausência de recipe específica usa o fallback conservador já existente;
+- ausência de recipe específica usa fallback conservador;
 - ausência de referência externa não cria fonte artificial;
 - erro ao gerar a página auxiliar não afeta `report.html`.
 
