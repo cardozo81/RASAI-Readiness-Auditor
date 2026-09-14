@@ -26,9 +26,9 @@ def _state() -> SimpleNamespace:
         search_depth=20,
         search_device="mobile",
         improvement_enabled=False,
-        improvement_provider="",
-        improvement_model="",
-        improvement_reasoning="",
+        improvement_domains=("CONTENT",),
+        improvement_max_recommendations=30,
+        improvement_timeout=240.0,
         error="",
         operation="",
     )
@@ -61,13 +61,13 @@ def test_search_profile_validates_provider_contract_not_only_terms(monkeypatch: 
     assert any("disabled" in item.casefold() for item in blockers)
 
 
-def test_deep_profile_exposes_missing_independent_provider_when_item_13_is_on() -> None:
+def test_deep_profile_exposes_missing_primary_ai_when_item_13_is_on() -> None:
     install()
     state = _state()
     state.improvement_enabled = True
     ready, blockers, _ = profile_status(state, "deep-analysis")
     assert ready is False
-    assert any("ia explícita" in item.casefold() for item in blockers)
+    assert any("ia principal" in item.casefold() for item in blockers)
 
 
 def test_blocked_complete_maximum_remains_visible_but_is_not_selected(
