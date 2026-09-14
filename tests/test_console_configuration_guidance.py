@@ -212,17 +212,20 @@ def test_gsc_toggle_uses_boolean_choice_and_context_metadata() -> None:
     assert any("webmaster-tools" in item for item in reference_lines(spec))
 
 
-def test_improvement_model_and_reasoning_choices_follow_selected_provider() -> None:
+def test_improvement_has_no_parallel_provider_model_or_reasoning_choices() -> None:
     facade = _installed_facade()
+    forbidden = {
+        "RASAI_IMPROVEMENT_AI_PROVIDER",
+        "RASAI_IMPROVEMENT_AI_MODEL",
+        "RASAI_IMPROVEMENT_AI_REASONING",
+    }
+    assert forbidden.isdisjoint(facade.SPEC_BY_NAME)
+
     registration = get_provider_registration("openai")
     assert registration is not None
-    with patch.dict("os.environ", {"RASAI_IMPROVEMENT_AI_PROVIDER": "openai"}, clear=False):
-        model = normalize_spec(facade.SPEC_BY_NAME["RASAI_IMPROVEMENT_AI_MODEL"])
-        reasoning = normalize_spec(facade.SPEC_BY_NAME["RASAI_IMPROVEMENT_AI_REASONING"])
-    assert model.value_type == "enum"
-    assert model.accepted == registration.supported_models
-    assert reasoning.value_type == "enum"
-    assert reasoning.accepted == registration.reasoning_values
+    primary_model = normalize_spec(facade.SPEC_BY_NAME[registration.model_env])
+    assert primary_model.value_type == "enum"
+    assert primary_model.accepted == registration.supported_models
 
 
 def test_advanced_ai_variables_have_specific_metadata_not_generic_fallback() -> None:
