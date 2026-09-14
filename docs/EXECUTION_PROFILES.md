@@ -28,7 +28,10 @@ O perfil existe somente em memória. Ele **não**:
 - inventa termos SERP;
 - inventa contexto YMYL/editorial;
 - inventa parâmetros Synthetic Apdex;
-- habilita silenciosamente Improvement Intelligence.
+- habilita silenciosamente Improvement Intelligence;
+- transforma uma property GSC de terceiro em acesso válido ao domínio auditado.
+
+A política de GSC selecionada dentro de um perfil também é somente da sessão/próxima execução. O contrato detalhado está em [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md).
 
 ## Escopo: URL única
 
@@ -68,6 +71,8 @@ Ao tentar abrir um preset `CONFIGURAR`, o console mostra as pendências e orient
 
 Essa validação antecipada não substitui o preflight do runtime. Ela evita a situação em que uma execução aparentemente "completa" termina e só no HTML o usuário descobre que uma capacidade nunca foi solicitada.
 
+Para GSC, a validação local também diferencia **escopo estrutural da property** de **autorização OAuth**. O console consegue saber previamente se `sc-domain:sersolucao.com.br` não cobre `https://www.portoseguro.com.br/`; ele não consegue provar sem consultar o Google se um token ainda é válido ou se a conta possui permissão na property.
+
 ## Acesso
 
 No menu principal:
@@ -86,15 +91,18 @@ Com perfil ativo:
 
 ```text
 F. Perfil da execução : APTO | <perfil> | SEM IA|IA SE DISPONÍVEL | SESSÃO
+   Google Search Console  : SOMENTE SE COMPATÍVEL|OBRIGATÓRIO|DESABILITADO|HERDAR GLOBAL
 ```
 
 Perfis com dependência obrigatória faltante não entram no estado ativo.
 
 ## Perfis prontos
 
+Todos os presets usam por default **GSC somente se a property configurada cobrir a URL auditada**. Ao selecionar o perfil, o operador pode trocar essa política para `OBRIGATÓRIO`, `DESABILITADO` ou `HERDAR GLOBAL`.
+
 ### SEO / Search Readiness
 
-Envolve core determinístico de search readiness, Lighthouse SEO e Best Practices. Serviços já configurados, como GSC, continuam obedecendo seus próprios contratos.
+Envolve core determinístico de search readiness, Lighthouse SEO e Best Practices. Serviços já configurados continuam obedecendo seus próprios contratos; GSC recebe a política de sessão escolhida no perfil.
 
 Pode gerar chamadas PageSpeed/Lighthouse e CrUX conforme configuração/credenciais. IA é opcional e independente.
 
@@ -170,6 +178,8 @@ Deliberadamente **não ativa automaticamente**:
 
 Esses grupos têm dependências, carga ou custo adicional que justificam opt-in explícito.
 
+GSC não é tratado como fonte pública obrigatória por este preset. O default do perfil é `SOMENTE SE COMPATÍVEL`.
+
 ### Completo máximo
 
 Combina **todos os módulos do catálogo**:
@@ -191,13 +201,15 @@ O preset fica `CONFIGURAR` e **não pode ser selecionado** até que todas as dep
 - configuração Synthetic/Experience Apdex;
 - item 13 habilitado com provider/model/reasoning válidos.
 
-Depois que essas dependências ficam aptas, o operador ainda escolhe se a **IA padrão do perfil** será `SEM IA` ou `IA SE DISPONÍVEL`. A IA própria de Improvement Intelligence continua independente.
+Depois que essas dependências ficam aptas, o operador ainda escolhe se a **IA padrão do perfil** será `SEM IA` ou `IA SE DISPONÍVEL` e qual será a política GSC da execução. A IA própria de Improvement Intelligence continua independente.
 
 ## Perfil personalizado
 
 `C. Compor perfil personalizado` abre a lista guiada de módulos.
 
 Cada módulo mostra finalidade, custo/exposição e dependências. Uma composição personalizada com dependência obrigatória ausente também permanece `CONFIGURAR` e não é aplicada até a parametrização ser concluída.
+
+O personalizado também recebe a escolha explícita de política GSC antes de ser aplicado.
 
 ## IA padrão do perfil
 
@@ -226,15 +238,62 @@ Credenciais nunca são criadas, trocadas ou persistidas pelo perfil.
 
 Improvement Intelligence possui IA própria e independente no item 13.
 
+## Google Search Console no perfil
+
+Depois da escolha de IA, o console oferece:
+
+```text
+1. Usar somente se a property GSC cobrir a URL auditada (recomendado)
+2. Exigir GSC para considerar a auditoria completa/final
+3. Não usar GSC nesta execução
+4. Herdar exatamente a política global RASAI_GSC_ENABLED
+```
+
+### Somente se compatível
+
+É o default dos presets. Durante a execução, o perfil remove apenas o override `RASAI_GSC_ENABLED` e deixa o contrato credential-driven decidir a elegibilidade.
+
+Se token e property estiverem configurados, mas a property não cobrir a URL auditada, o runtime classifica GSC como `NOT_APPLICABLE` para aquele alvo e não envia chamadas incompatíveis ao Google. Isso não cria requisito de conclusão.
+
+### Obrigatório
+
+Projeta `RASAI_GSC_ENABLED=true` somente durante a execução do perfil.
+
+Antes de aplicar o perfil, o console exige:
+
+- token presente;
+- property presente e sintaticamente válida;
+- property cobrindo estruturalmente a URL auditada.
+
+Se existir mismatch, o perfil fica `CONFIGURAR`. Não há motivo para iniciar uma execução que já se sabe incapaz de chegar a `COMPLETE/FINAL`.
+
+A aprovação local não valida OAuth. Token expirado/revogado ou conta sem permissão ainda podem falhar em runtime; como GSC foi escolhido como obrigatório, essa falha deixa o AUD parcial/não final.
+
+### Desabilitado
+
+Projeta `RASAI_GSC_ENABLED=false` somente durante a execução do perfil.
+
+### Herdar global
+
+Preserva exatamente a semântica global:
+
+- sem override → automático;
+- `true` → obrigatório;
+- `false` → desabilitado.
+
+O token representa a conta Google, não um domínio. A property é que define o escopo de dados. Consulte [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md).
+
 ## Dependências e `CONFIGURAR`
 
 Uma capacidade explicitamente solicitada não deve ser silenciosamente omitida.
 
-| Módulo | Dependência | Comportamento no catálogo |
+| Módulo/capacidade | Dependência | Comportamento no catálogo |
 |---|---|---|
 | Search Intelligence | termos, modo, provider, credencial e limites | `CONFIGURAR`; preset não selecionável |
 | Experiência sintética | Apdex previamente configurado | `CONFIGURAR`; preset não selecionável |
 | Análise profunda | item 13 + IA deep válida | `CONFIGURAR`; preset não selecionável |
+| GSC obrigatório | token + property que cubra a URL | `CONFIGURAR`; execução previsivelmente parcial não é aplicada |
+| GSC somente se compatível | token/property podem estar ausentes ou ser de outro alvo | não bloqueia; GSC fica não exigido/não aplicável |
 | GEO | contexto YMYL/editorial | `AUTO` é permitido e informado |
 | IA padrão `se disponível` | provider apto | não bloqueia; fallback seguro para sem IA padrão |
 
@@ -251,6 +310,8 @@ Depois de escolher um perfil `APTO`, as opções normais continuam disponíveis.
 - item `13` → análise profunda;
 - item `T` → Search Intelligence.
 
+A política GSC do perfil é escolhida na própria seleção do preset. Alterações persistentes posteriores nas variáveis GSC continuam existindo na configuração normal e voltam a valer após o término do overlay da execução.
+
 Alterações avançadas de Web Performance/Lighthouse também são respeitadas quando diferem da configuração-base capturada no momento da seleção.
 
 ## Precedência
@@ -263,6 +324,8 @@ ajuste manual posterior à seleção
 > configuração normal carregada na sessão
 > default canônico do RASAi
 ```
+
+Para `RASAI_GSC_ENABLED`, a política GSC do perfil é parte do overlay da sessão. Token e property não são alterados pelo preset.
 
 Essa precedência existe somente para a execução.
 
@@ -284,6 +347,8 @@ Cada preset e módulo apresenta descrição de custo/exposição antes da aplica
 - quantidade de termos SERP;
 - aviso de chamadas adicionais da análise profunda.
 
+GSC incompatível não deve gerar chamada ao provider apenas para descobrir um conflito de property que pode ser resolvido localmente.
+
 O RASAi não inventa quantidade de tokens antes da execução e não converte quota em preço quando o provider não fornece base suficiente.
 
 ## Compatibilidade com os relatórios HTML
@@ -299,9 +364,11 @@ Os relatórios continuam materializados a partir do estado/evidência realmente 
 - `ai-usage.html` distingue finalidade não solicitada/desabilitada de tentativa externa, resposta aceita, falha de provider/contrato, tokens e custo quando mensuráveis;
 - as demais páginas recebem o quadro padronizado de consumo de IA atribuído à superfície proprietária, sem duplicar custo entre relatórios.
 
-O novo `Completo máximo` não exige mudança de metodologia ou renderer: ele apenas impede que o usuário aplique o preset enquanto alguma capacidade obrigatória ainda não estiver configurada. Uma vez executada, cada superfície continua obedecendo seu contrato de evidência e reporting vigente.
+Quando GSC foi explicitamente exigido e existe `PROPERTY_URL_MISMATCH`, o fulfillment persiste a falha como configuração reprocessável. O banner/estado canônico do relatório deve deixar claro que a auditoria não é final enquanto o requisito continuar incompatível. Em modo `SOMENTE SE COMPATÍVEL`, o mesmo mismatch é `NOT_APPLICABLE` e não deve fabricar parcialidade.
 
-Falha em runtime após um preset ter ficado `APTO` continua sendo possível (rede, provider, timeout, bloqueio do alvo etc.). Nesse caso o relatório deve mostrar falha/parcialidade; o console não fabrica dados para preencher uma capacidade que não concluiu.
+O `Completo máximo` não exige mudança de metodologia ou renderer: ele apenas impede que o usuário aplique o preset enquanto alguma capacidade obrigatória ainda não estiver configurada. Uma vez executada, cada superfície continua obedecendo seu contrato de evidência e reporting vigente.
+
+Falha em runtime após um preset ter ficado `APTO` continua sendo possível (rede, provider, timeout, token OAuth expirado, permissão GSC etc.). Nesse caso o relatório deve mostrar falha/parcialidade quando a capacidade era obrigatória; o console não fabrica dados para preencher uma capacidade que não concluiu.
 
 ## Segurança metodológica
 
