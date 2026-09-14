@@ -11,6 +11,7 @@ from rasai.persistence import AuditWorkspace
 from rasai.report_contract import REPORT_CONTRACT_VERSION, SARI_VERSION
 from rasai.report_presentation import public_label
 from rasai.score_geo_004 import (
+    DIMENSION_WEIGHTS,
     FEATURE_ORDER,
     MIN_OVERALL_COVERAGE,
     MIN_PARTIAL_COVERAGE,
@@ -19,14 +20,14 @@ from rasai.score_geo_004 import (
 )
 
 # Public URLs are version-neutral. Method versions live in persisted metadata and
-# in the rendered content. This pre-publication build exposes only the canonical path.
+# in the rendered content. The current contract exposes one canonical path.
 REPORT_FILE = "scoring.html"
 
-# Conceptual labels remain in their established English form. Persisted enum names
-# remain available only as secondary technical traceability where useful.
+# Conceptual labels remain in their established English form. The compatibility
+# key resolves to the current concept so it cannot leak obsolete public vocabulary.
 _DIMENSION_LABELS = {
-    "TECHNICAL_ACCESSIBILITY": "Technical Accessibility",
     "DISCOVERY_ACCESS": "Discovery & Crawler Access",
+    "TECHNICAL_ACCESSIBILITY": "Discovery & Crawler Access",
     "INDEXABILITY": "Indexability",
     "CONTENT_EXTRACTABILITY": "Rendering & Extractability",
     "SEMANTIC_STRUCTURE": "Semantic Structure",
@@ -68,7 +69,7 @@ _SCORING_LAYOUT_CSS = r"""
 
 
 def register_navigation() -> None:
-    # Pre-publication contract: there is one version-neutral scoring surface only.
+    # Current contract: there is one version-neutral scoring surface only.
     items = [
         item
         for item in report_navigation.NAV_ITEMS
@@ -81,7 +82,7 @@ def register_navigation() -> None:
 
 
 def write_score_geo_004_report(*, audit_id: str, workspace: AuditWorkspace) -> Path:
-    """Render the single scoring surface supported by this pre-publication build."""
+    """Render the canonical scoring surface for the current contract."""
     register_navigation()
     report_dir = workspace.root / "report"
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -97,17 +98,16 @@ def write_score_geo_004_report(*, audit_id: str, workspace: AuditWorkspace) -> P
 {_version_integrity_notice(versions)}
 <section class='panel'><h2>Resultado Overall persistido</h2><p class='intro'>Esta tabela é projeção read-only de <code>audit.db</code>. Renderizar o HTML não recalcula nem troca a <code>scoring_version</code>.</p><div class='table-wrap'><table><thead><tr><th>Device</th><th>Overall</th><th>Coverage</th><th>Confidence</th><th>Consolidação</th><th>scoring_version</th><th>Motivo / rastreabilidade</th></tr></thead><tbody>{score_rows}</tbody></table></div></section>
 {_method_section(effective_version, workspace, audit_id)}
-<section class='panel'><h2>O que entra no score</h2><p class='intro'>Entram somente <strong>RuleExecutions aplicáveis</strong> mapeadas às dimensões do contrato e suas evidências persistidas. Para {SCORING_VERSION}, cada dimensão usa pesos e fatores estáticos/versionados persistidos em <code>score_contributions</code>; o Overall usa peso igual entre dimensões aplicáveis que tenham medição suficiente. Sitemap e robots usam peso interno pequeno/moderado e compartilham grupos com eventual avaliação técnica por IA, impedindo bônus duplicado. JSON-LD ausente é uma lacuna leve mensurável; JSON-LD inválido é desfavorável; consistência semântica pode usar IA evidence-bound quando disponível.</p>{_dimension_list(effective_version)}</section>
+<section class='panel'><h2>O que entra no score</h2><p class='intro'>Entram somente <strong>RuleExecutions aplicáveis</strong> mapeadas às dimensões do contrato e suas evidências persistidas. Para {SCORING_VERSION}, grupos e dimensões usam pesos estáticos/versionados; as contribuições por regra ficam persistidas em <code>score_contributions</code>. O Overall aplica os pesos de dimensão do contrato e normaliza o denominador pelas dimensões medidas e aplicáveis. Sitemap e robots compartilham grupos com eventual avaliação técnica por IA, impedindo bônus duplicado. BR-GEO-060 participa apenas como corroboracão externa positive-only em Discovery & Crawler Access. JSON-LD ausente é uma lacuna leve mensurável; JSON-LD inválido é desfavorável; consistência semântica pode usar IA evidence-bound quando disponível.</p>{_dimension_list(effective_version)}</section>
 <section class='panel'><h2>O que não entra automaticamente no score</h2><ul><li>Lighthouse Performance;</li><li>Core Web Vitals / CrUX;</li><li>Lighthouse Accessibility;</li><li>Synthetic Navigation Apdex;</li><li>Synthetic User Experience Apdex;</li><li>Observed Generative Visibility;</li><li>Search Console e demais outcomes de Observability;</li><li>custos, tokens ou quantidade de chamadas de IA;</li><li>Monitoring, Quality, Fix Verification e Evidence Timeline.</li></ul><div class='notice'><strong>IA e scoring:</strong> IA não escolhe pesos, thresholds ou o Overall. Quando elegível e explicitamente habilitada, uma avaliação evidence-bound pode materializar RuleExecution bounded em regra previamente definida pelo contrato (por exemplo BR-GEO-055/056); essa regra compartilha o scoring_group do sinal determinístico e não cria bônus duplicado. O cálculo final continua determinístico sobre estados/evidências persistidos.</div></section>
-<section class='panel'><h2>Dependências e reprodutibilidade</h2><div class='grid'><div><h3>Inputs</h3><p>RuleExecutions, Evidences, applicability, pesos/fatores persistidos, Coverage e Confidence.</p></div><div><h3>Outputs</h3><p>Scores por dimensão, Overall, Coverage, Confidence e Consolidation.</p></div><div><h3>Dependências obrigatórias</h3><p><code>audit.db</code> íntegro e <code>scoring_version</code> preservada.</p></div><div><h3>IA obrigatória</h3><p>Não para a fórmula. A ausência de IA pode deixar regras semânticas sem evidência suficiente quando aplicável.</p></div><div><h3>Fonte de verdade</h3><p><code>audit.db</code>; HTML é somente projeção.</p></div><div><h3>Contrato vigente</h3><p>Esta build de desenvolvimento publica somente o contrato vigente da auditoria. A versão continua persistida em <code>scoring_version</code>.</p></div></div></section>
+<section class='panel'><h2>Dependências e reprodutibilidade</h2><div class='grid'><div><h3>Inputs</h3><p>RuleExecutions, Evidences, applicability, pesos/fatores persistidos, Coverage e Confidence.</p></div><div><h3>Outputs</h3><p>Scores por dimensão, Overall, Coverage, Confidence e Consolidation.</p></div><div><h3>Dependências obrigatórias</h3><p><code>audit.db</code> íntegro e <code>scoring_version</code> preservada.</p></div><div><h3>IA obrigatória</h3><p>Não para a fórmula. A ausência de IA pode deixar regras semânticas sem evidência suficiente quando aplicável.</p></div><div><h3>Fonte de verdade</h3><p><code>audit.db</code>; HTML é somente projeção.</p></div><div><h3>Contrato vigente</h3><p>O runtime publica somente a superfície canônica vigente da auditoria. A versão metodológica continua persistida em <code>scoring_version</code>.</p></div></div></section>
 <section class='panel'><h2>Estados de medição</h2><p><code>UNKNOWN</code> não significa FAIL. <code>NOT_APPLICABLE</code> não recebe zero. Ausência de um recurso que o método considera uma melhoria de readiness pode ser <code>WARNING</code> com fator reduzido em vez de PASS ou zero. <code>NOT_CONSOLIDATED</code> indica que a evidência não sustenta consolidação. <code>UNAVAILABLE</code> indica ausência técnica do dado esperado para aquela superfície.</p></section>
-<section class='panel'><h2>Contrato do arquivo</h2><p><code>{REPORT_FILE}</code> é o único endereço canônico desta build de desenvolvimento. A versão metodológica pertence a <code>scoring_version</code>, banco, manifests, metadados e conteúdo.</p></section>
+<section class='panel'><h2>Contrato do arquivo</h2><p><code>{REPORT_FILE}</code> é o único endereço canônico da metodologia de scoring. A versão metodológica pertence a <code>scoring_version</code>, banco, manifests, metadados e conteúdo.</p></section>
 <footer class='footer'>{escape(effective_version)} é uma metodologia versionada e auditável do RASAi. O índice não garante ranking, tráfego, conversão ou citação futura.</footer></main></body></html>\n"""
     path = report_dir / REPORT_FILE
     path.write_text(html, encoding="utf-8", newline="\n")
-    # Pre-publication development contract: remove any obsolete version-named surface.
-    for obsolete in report_dir.glob('score-geo-*.html'):
-        obsolete.unlink(missing_ok=True)
+    for noncanonical in report_dir.glob("score-geo-*.html"):
+        noncanonical.unlink(missing_ok=True)
     return path
 
 
@@ -214,31 +214,31 @@ def _method_section(version: str, workspace: AuditWorkspace, audit_id: str) -> s
                 f"</tr></thead><tbody>{''.join(body)}</tbody></table></div></article>"
             )
         materialized = "<div class='scoring-weight-groups'>" + "".join(blocks) + "</div>" if blocks else "<p class='intro'>Nenhuma contribuição persistida disponível para detalhar pesos nesta projeção.</p>"
-        return f"""<section class='panel'><h2>Fórmula e gates do método vigente</h2><p><strong>Dimensão:</strong> <code>sum(weight × result_factor) / sum(weight evaluated) × 100</code>.</p><p><strong>Overall:</strong> média aritmética de igual peso das dimensões aplicáveis que possuem valor e não estão em <code>NOT_CONSOLIDATED</code>. Uma dimensão legitimamente <code>NOT_APPLICABLE</code> sai do denominador.</p><div class='metric-grid'>{_metric('Agregação Overall', OVERALL_AGGREGATION_VERSION)}{_metric('Coverage mínima para consolidar', f'{MIN_OVERALL_COVERAGE*100:.0f}%')}{_metric('Confidence mínima', 'MEDIUM')}{_metric('Coverage mínima para parcial', f'{MIN_PARTIAL_COVERAGE*100:.0f}%')}</div><h3>Contribuições materializadas neste AUD</h3><p class='intro'>Cada dimensão ocupa um painel de largura total, mantendo regra, critério humano, <code>scoring_group</code>, peso, fator aplicado e contribuição persistida na mesma linha de leitura. Regras do mesmo grupo não somam bônus: o grupo usa o peso máximo configurado e o resultado representativo mais restritivo avaliado.</p>{materialized}<div class='notice'><strong>Governança da leitura:</strong> pesos de regra atuam somente dentro da dimensão. O Overall continua com peso igual entre dimensões aplicáveis. Um Overall numericamente alto pode permanecer <code>PARTIAL</code> quando Coverage/Confidence não alcançam os gates; isso qualifica a força da medição e não invalida a aritmética do score.</div><div class='notice'><strong>Calibração externa:</strong> não é requisito, input ou gate do Overall {SCORING_VERSION}.</div></section>"""
+        return f"""<section class='panel'><h2>Fórmula e gates do método vigente</h2><p><strong>Dimensão:</strong> <code>sum(weight x result_factor) / sum(weight evaluated) x 100</code>.</p><p><strong>Overall:</strong> <code>sum(Dimension Weight x Dimension Score medido) / sum(Dimension Weight medido e aplicável)</code>. Uma dimensão legitimamente <code>NOT_APPLICABLE</code> sai do denominador e os pesos restantes são normalizados.</p><div class='metric-grid'>{_metric('Agregação Overall', OVERALL_AGGREGATION_VERSION)}{_metric('Coverage mínima para consolidar', f'{MIN_OVERALL_COVERAGE*100:.0f}%')}{_metric('Confidence mínima', 'MEDIUM')}{_metric('Coverage mínima para parcial', f'{MIN_PARTIAL_COVERAGE*100:.0f}%')}</div><h3>Contribuições materializadas neste AUD</h3><p class='intro'>Cada dimensão ocupa um painel de largura total, mantendo regra, critério humano, <code>scoring_group</code>, peso, fator aplicado e contribuição persistida na mesma linha de leitura. Regras do mesmo grupo não somam bônus: o grupo usa o peso máximo configurado e o resultado representativo mais restritivo avaliado.</p>{materialized}<div class='notice'><strong>Governança da leitura:</strong> pesos de regra atuam dentro da dimensão; o Overall usa os pesos fixos de dimensão do {SCORING_VERSION}. Um Overall numericamente alto pode permanecer <code>PARTIAL</code> quando Coverage/Confidence não alcançam os gates; isso qualifica a força da medição e não invalida a aritmética do score.</div><div class='notice'><strong>Calibração externa:</strong> não é requisito, input ou gate do Overall {SCORING_VERSION}.</div></section>"""
 
 
 def _dimension_list(version: str) -> str:
     del version
     items = "".join(
-        f"<li>{escape(_DIMENSION_LABELS.get(name, public_label(name)))}</li>"
+        f"<li>{escape(_DIMENSION_LABELS.get(name, public_label(name)))} - {DIMENSION_WEIGHTS[name] * 100:g}%</li>"
         for name in FEATURE_ORDER
     )
-    return f"<ul>{items}</ul><p class='intro'>No Overall 004, cada dimensão aplicável consolidável recebe peso igual; pesos internos de regras são os persistidos nas contribuições da respectiva dimensão.</p>"
+    return f"<ul>{items}</ul><p class='intro'>No Overall, cada dimensão medida e aplicável participa conforme o peso fixo do contrato. Dimensões legitimamente NOT_APPLICABLE saem do denominador e os pesos restantes são normalizados.</p>"
 
 
 def _version_intro(version: str) -> str:
     del version
-    return "Método operacional vigente do SARI-001. O Overall é determinístico, reproduzível e baseado nas evidências persistidas da auditoria; não depende de model artifact externo."
+    return "Método operacional vigente do SARI-001. O Overall é determinístico, reproduzível e ponderado pelas dimensões do contrato sobre as evidências persistidas da auditoria."
 
 
 def _version_integrity_notice(versions: list[str]) -> str:
-    unsupported = [version for version in versions if version != SCORING_VERSION]
-    if not unsupported:
+    incompatible = [version for version in versions if version != SCORING_VERSION]
+    if not incompatible:
         return ""
     return (
         "<section class='notice bad'><strong>Integridade metodológica:</strong> esta auditoria contém "
-        "uma scoring_version que não pertence ao contrato suportado por esta build pré-publicação. "
-        f"Somente <code>{SCORING_VERSION}</code> é reconhecido e nenhuma versão descontinuada é projetada ou convertida.</section>"
+        "scoring_version diferente do contrato reconhecido pelo runtime atual. "
+        f"Somente <code>{SCORING_VERSION}</code> é projetado nesta superfície e nenhuma versão incompatível é convertida silenciosamente.</section>"
     )
 
 
