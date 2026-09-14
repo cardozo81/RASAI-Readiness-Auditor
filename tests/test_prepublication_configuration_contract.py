@@ -92,6 +92,7 @@ def test_environment_reference_documents_cover_the_console_catalog() -> None:
     documents = (
         ROOT / "docs" / "ENVIRONMENT_VARIABLES.md",
         ROOT / "docs" / "EXTERNAL_OBSERVABILITY_INTEGRATIONS.md",
+        ROOT / "docs" / "AI_MODEL_CONFIGURATION.md",
         ROOT / "docs" / "AI_PRICING_CONFIGURATION.md",
     )
     text = "\n".join(path.read_text(encoding="utf-8") for path in documents)
