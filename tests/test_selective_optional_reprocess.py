@@ -4,14 +4,16 @@ import json
 from pathlib import Path
 import sqlite3
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
 from rasai.audit_fulfillment import LIVE_RECOLLECTION, REPLAY_SAFE, SUCCESS, list_work_items, register_work_item, set_work_item_status
 from rasai.domain import Audit
+from rasai.execution_environment import override_environment, resolve_environment
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.selective_optional_reprocess import (
     _backfill_console_search,
+    _install_contextual_optional_hooks,
     _recover_search,
-    _reuse_successful_optional_calls,
     _validate_success_integrity,
 )
 from rasai.selective_reprocess_context import scope
@@ -50,7 +52,8 @@ def _success_item(workspace: AuditWorkspace, component: str, temporal_mode: str 
 
 def test_search_recovery_uses_persisted_contract_and_current_secret(monkeypatch) -> None:
     from rasai import selective_optional_reprocess as runtime
-    from rasai.search_intelligence import cli as search_cli
+    from rasai.search_intelligence import runtime as search_runtime
+    from rasai.search_intelligence.models import DomainMatchStatus
 
     with TemporaryDirectory() as directory:
         workspace = _workspace(Path(directory))
@@ -67,7 +70,7 @@ def test_search_recovery_uses_persisted_contract_and_current_secret(monkeypatch)
                 "depth": 10,
                 "region": "RS",
                 "device": "mobile",
-                "competitive": True,
+                "competitive": False,
                 "market": "BR",
                 "language": "pt-BR",
                 "mode": "live",
@@ -87,25 +90,43 @@ def test_search_recovery_uses_persisted_contract_and_current_secret(monkeypatch)
         monkeypatch.setattr(runtime, "_audit_domain", lambda *args, **kwargs: "example.com")
         captured: dict[str, object] = {}
 
-        def fake_main(argv):
-            captured["argv"] = list(argv)
-            assert __import__("os").environ["RASAI_SERPAPI_API_KEY"] == "current-secret"
-            return 0
+        def fake_execute(requests, *, config, environment, workspace_root, fixture_path=None, evidence_sink=None):
+            items = tuple(requests)
+            captured["requests"] = items
+            captured["config"] = config
+            captured["environment"] = dict(environment)
+            assert environment["RASAI_SERPAPI_API_KEY"] == "current-secret"
+            return SimpleNamespace(
+                mode="live",
+                provider="serpapi",
+                results=tuple(
+                    SimpleNamespace(
+                        domain_status=DomainMatchStatus.NOT_FOUND_WITHIN_DEPTH,
+                        error_code=None,
+                        error_message=None,
+                    )
+                    for _ in items
+                ),
+                projected_http_request_ceiling=1,
+                actual_http_requests=1,
+                persisted=True,
+            )
 
-        monkeypatch.setattr(search_cli, "main", fake_main)
+        monkeypatch.setattr(search_runtime, "execute_search", fake_execute)
 
         assert _recover_search(workspace, AUDIT_ID, item) is True
 
         effective = next(item for item in list_work_items(workspace, AUDIT_ID) if item.component == "SEARCH_INTELLIGENCE")
         assert effective.status == "SUCCESS"
-        argv = captured["argv"]
-        assert "rasai readiness" in argv
-        assert argv[argv.index("--provider") + 1] == "serpapi"
-        assert argv[argv.index("--mode") + 1] == "live"
-        assert argv[argv.index("--domain") + 1] == "example.com"
+        requests = captured["requests"]
+        assert len(requests) == 1
+        assert requests[0].query == "rasai readiness"
+        assert requests[0].domain_of_interest == "example.com"
+        assert captured["config"].provider == "serpapi"
+        assert captured["config"].mode == "live"
 
 
-def test_successful_optional_services_are_reused_without_external_call() -> None:
+def test_successful_optional_services_are_reused_by_contextual_hooks() -> None:
     from rasai import improvement_intelligence_runtime as improvement_runtime
     from rasai import standards_gsc_observability_runtime as gsc_runtime
 
@@ -146,21 +167,29 @@ def test_successful_optional_services_are_reused_without_external_call() -> None
         finally:
             connection.close()
 
-        original_improvement = improvement_runtime.execute_improvement_intelligence
-        original_gsc = gsc_runtime.collect_configured_search_console
-        with scope(AUDIT_ID, {"TECHNICAL_AI"}):
-            with _reuse_successful_optional_calls(workspace, AUDIT_ID):
-                assert improvement_runtime.execute_improvement_intelligence is not original_improvement
-                assert gsc_runtime.collect_configured_search_console is not original_gsc
-                reused = improvement_runtime.execute_improvement_intelligence(audit_id=AUDIT_ID, workspace=workspace)
-                assert reused.reused is True
-                assert reused.status == "COMPLETE"
-                gsc = gsc_runtime.collect_configured_search_console(audit_id=AUDIT_ID, workspace=workspace)
-                assert gsc["effective_enabled"] is True
-                assert gsc["targets_succeeded"] == 2
+        _install_contextual_optional_hooks()
+        assert getattr(improvement_runtime.execute_improvement_intelligence, "_rasai_contextual_optional_reuse", False)
+        assert getattr(gsc_runtime.collect_configured_search_console, "_rasai_contextual_optional_reuse", False)
 
-        assert improvement_runtime.execute_improvement_intelligence is original_improvement
-        assert gsc_runtime.collect_configured_search_console is original_gsc
+        with scope(AUDIT_ID, {"TECHNICAL_AI"}, workspace=workspace):
+            reused = improvement_runtime.execute_improvement_intelligence(audit_id=AUDIT_ID, workspace=workspace)
+            assert reused.reused is True
+            assert reused.status == "COMPLETE"
+            gsc = gsc_runtime.collect_configured_search_console(audit_id=AUDIT_ID, workspace=workspace)
+            assert gsc["effective_enabled"] is True
+            assert gsc["targets_succeeded"] == 2
+
+
+def test_contextual_environment_does_not_mutate_process_environment(monkeypatch) -> None:
+    monkeypatch.setenv("RASAI_TEST_CONTEXT_VALUE", "base")
+    assert resolve_environment()["RASAI_TEST_CONTEXT_VALUE"] == "base"
+    with override_environment({"RASAI_TEST_CONTEXT_VALUE": "reprocess", "RASAI_ONLY_CONTEXT": "yes"}):
+        resolved = resolve_environment()
+        assert resolved["RASAI_TEST_CONTEXT_VALUE"] == "reprocess"
+        assert resolved["RASAI_ONLY_CONTEXT"] == "yes"
+        assert __import__("os").environ["RASAI_TEST_CONTEXT_VALUE"] == "base"
+        assert "RASAI_ONLY_CONTEXT" not in __import__("os").environ
+    assert resolve_environment()["RASAI_TEST_CONTEXT_VALUE"] == "base"
 
 
 def test_success_without_persisted_optional_evidence_is_invalidated() -> None:
