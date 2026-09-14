@@ -127,6 +127,7 @@ def install() -> None:
     # as a substitute for missing acquisition/render/extraction evidence. Integrity
     # invalidation is installed before context composition so a recorded SUCCESS can
     # be blocked only when its persisted evidence is demonstrably missing.
+    from rasai.ai_attempt_diagnostic_reporting import install as install_ai_attempt_diagnostic_reporting
     from rasai.audit_fulfillment_runtime import install as install_audit_fulfillment
     from rasai.audit_fulfillment_saas import install as install_audit_fulfillment_saas
     from rasai.core_integrity_runtime import install as install_core_integrity
@@ -147,16 +148,19 @@ def install() -> None:
     install_audit_fulfillment_saas()
     install_technical_ai_eligibility()
     # Install after the technical eligibility wrapper so the canonical projection sees
-    # the final M24 provider attempt and can restore CONTRACT_ERROR without bypassing
-    # source-quality gates, AUTO routing, quarantine or the shared pricing engine.
+    # the final technical-AI provider attempt and can restore CONTRACT_ERROR without
+    # bypassing source-quality gates, AUTO routing, quarantine or the shared pricing engine.
     install_fulfillment_execution_contract()
     # Preserve a precise prerequisite/provider/service failure before the generic RPR
     # trace wraps _apply_result. This keeps the actual recovery reason visible instead
     # of replacing it with a generic *_RETRY_INCOMPLETE marker.
     install_reprocess_failure_preservation()
     # Install last so the RPR trace wraps the final prerequisite-preserving apply
-    # function and the M20 recovery path uses stable ContextVar-aware hooks.
+    # function and the content-remediation recovery path uses stable ContextVar-aware hooks.
     install_reprocess_runtime_safety()
+    # Existing ai-usage/report projections consume the same append-only attempt rows;
+    # add only user-facing operation labels and sanitized local contract detail.
+    install_ai_attempt_diagnostic_reporting()
     # Presentation-only final guard: fulfillment and recovery functions must already
     # be imported so references copied by value can be reconciled safely.
     install_report_public_ux_guard()
