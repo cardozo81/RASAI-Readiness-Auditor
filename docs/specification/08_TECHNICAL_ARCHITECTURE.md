@@ -1,6 +1,6 @@
-# TECHNICAL_ARCHITECTURE.md
+# Arquitetura técnica
 
-**Estado no baseline de desenvolvimento:** aprovado / vigente  
+**Estado:** vigente  
 **Readiness:** `SARI-001`  
 **Scoring em runtime:** `SCORE-GEO-004`
 
@@ -8,13 +8,13 @@
 
 O RASAi mantém Windows como plataforma principal da operação local, com arquitetura modular e execução por CLI/console. A auditoria principal não exige servidor Web, servidor de banco externo, Docker, IA externa nem APIs externas de Search/Performance.
 
-O produto também possui control plane separado para operação multiusuário, multiprojeto e multipropriedade/multidomínio, além de fluxos orientados a deployment. SQLite é o backend local padrão; PostgreSQL 18 é um backend explícito já implementado para centralização do control plane. Essa arquitetura prepara e sustenta a evolução SaaS sem alterar o contrato de evidência imutável dos `AUD-*`.
+O produto também possui control plane separado para operação multiusuário, multiprojeto e multipropriedade/multidomínio, além de fluxos orientados a deployment. SQLite é o backend local padrão; PostgreSQL 18 é um backend explícito para centralização do control plane. Essa arquitetura sustenta a operação SaaS sem alterar o contrato de evidência imutável dos `AUD-*`.
 
 A camada Web/API e o SaaS Pilot Web existem sobre esse mesmo domínio de produto; não criam segunda interpretação de scoring nem de evidência.
 
 ## 2. Runtime
 
-Baseline local:
+Runtime local:
 
 - CPython 3.13.x;
 - Playwright + Chromium;
@@ -57,11 +57,11 @@ HIERARCHICAL_WEIGHTED_READINESS_V1
 
 Os cálculos por dimensão permanecem determinísticos e vinculados a evidências. Overall é a média ponderada dos scores medidos das dimensões aplicáveis, usando pesos versionados e renormalização do denominador sobre as dimensões participantes. Dimensões aplicáveis sem valor não são imputadas como zero; reduzem Coverage/Confidence e podem restringir Consolidation. Dimensões críticas de readiness preservam os gates mais rígidos definidos em `05_SCORING_MODEL.md`.
 
-Nenhum enriquecimento downstream pode criar silenciosamente ScoreContribution nem entrar em SARI/SCORE-GEO-004.
+Nenhum enriquecimento posterior pode criar silenciosamente ScoreContribution nem entrar em SARI/SCORE-GEO-004.
 
 ## 5. Contexto de dispositivo
 
-O escopo público de dispositivo é `mobile`, `desktop` ou `both`. Somente contextos selecionados/materializados podem disparar análise downstream ou chamadas opcionais. Comparação Desktop × Mobile só é aplicável quando ambos existem.
+O escopo público de dispositivo é `mobile`, `desktop` ou `both`. Somente contextos selecionados/materializados podem disparar análise posterior ou chamadas opcionais. Comparação Desktop × Mobile só é aplicável quando ambos existem.
 
 Synthetic User Experience Apdex pode modelar `TABLET` como perfil sintético, mas `TABLET` não é um `DeviceContext` canônico do core; uma auditoria apenas mobile não pode executar silenciosamente contextos desktop ou tablet do pipeline principal.
 
@@ -82,7 +82,7 @@ AUD-*/observability.db
 AUD-*/artifacts/observability/
 ```
 
-Armazena observações externas pós-auditoria sem migrar nem reescrever `audit.db`.
+Armazena observações externas associadas à auditoria sem migrar nem reescrever `audit.db`.
 
 ### Cache analítico consolidado
 
@@ -121,13 +121,13 @@ Invariantes:
 - provider/modelo/uso/custo são telemetria operacional, não scoring;
 - segredos e raciocínio privado não são persistidos;
 - remediação por IA é consultiva e vinculada a evidências;
-- `AI=AUTO` separa capacidade configurada de participação no pool: excluir um provider do AUTO não remove sua credencial nem impede seleção explícita posterior.
+- `AI=AUTO` separa capacidade configurada de participação no pool: excluir um provider do AUTO não remove sua credencial nem impede seleção explícita.
 
 Defaults e valores permitidos de providers/modelos/reasoning são definidos em `../ENVIRONMENT_VARIABLES.md` e no contrato de runtime correspondente.
 
 ## 8. Domínios externos/adjacentes
 
-Os itens abaixo permanecem independentes de SARI, salvo futura metodologia explícita e versionada que altere o contrato:
+Os itens abaixo permanecem independentes de SARI, salvo metodologia explícita e versionada que altere o contrato:
 
 - métricas lab de PageSpeed/Lighthouse, incluindo Agentic Browsing experimental quando solicitado/suportado;
 - métricas de campo CrUX;
@@ -157,6 +157,8 @@ scoring.html
 
 A versão do método é armazenada em `scoring_version` e renderizada na página, não codificada no filename canônico.
 
+Todas as superfícies canônicas de relatório são materializadas após uma auditoria concluída com sucesso. Dados e capacidades especializadas podem permanecer ausentes ou não executados, caso em que a superfície correspondente apresenta estado neutro. A fonte de verdade dessa lista é `src/rasai/report_contract.py`.
+
 Totais de consumo de IA do relatório derivam da telemetria persistida de tentativas, não de scraping de labels de apresentação. Chamadas cujo provider não retornou uso permanecem sem custo monetário inventado.
 
 ## 10. Monitoring / Observability / Quality
@@ -167,7 +169,7 @@ Observability usa sidecar derivado e proveniência explícita. Quality/Verificat
 
 Associação temporal não é inferência causal.
 
-## 11. Product Platform e alvo SaaS
+## 11. Product Platform e arquitetura SaaS
 
 A Product Platform suporta duas autoridades de control plane:
 
@@ -176,9 +178,9 @@ A Product Platform suporta duas autoridades de control plane:
 | SQLite | default local | máquina única, operação offline/local, piloto portátil |
 | PostgreSQL 18 | opt-in explícito | control plane centralizado/hospedado e validação de paridade |
 
-A arquitetura SaaS alvo complementa PostgreSQL com scheduler/fila durável, workers Linux/container, object storage, secret management e autenticação/tenant context hospedados.
+A arquitetura SaaS hospedada complementa PostgreSQL com scheduler/fila durável, workers Linux/container, object storage, secret management e autenticação/tenant context hospedados.
 
-Windows local permanece modo de execução de primeira classe. O limite de migração é produto/control plane, não reescrita da evidência histórica `audit.db`.
+Windows local permanece modo de execução de primeira classe. O limite arquitetural é produto/control plane, não reescrita da evidência persistida em `audit.db`.
 
 ## 12. Web/API e execution plane
 
@@ -196,6 +198,6 @@ Persistir fila/schedules em banco é necessário, mas não suficiente para execu
 - respostas externas são entrada não confiável;
 - workflows derivados não modificam `AUD-*` de origem;
 - falhas opcionais são isoladas da auditoria principal bem-sucedida;
-- `scoring_version` histórico é preservado, não normalizado silenciosamente;
+- `scoring_version` persistido é preservado, não normalizado silenciosamente;
 - autenticação Web default é fail-closed até configuração válida;
 - autorização de tenant é revalidada no servidor, não delegada ao frontend.
