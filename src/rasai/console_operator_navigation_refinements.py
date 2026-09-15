@@ -5,16 +5,19 @@ Presentation/navigation only:
 - never swallow a configuration ID typed from contextual help;
 - allow V to cancel manual AUD-ID entry without emitting an invalid-AUD error;
 - repair closed boolean metadata for service toggles when a later catalog overlay has
-  preserved runtime validation but accidentally degraded the UI type/domain.
+  preserved runtime validation but accidentally degraded the UI type/domain;
+- keep Search Intelligence/SERP and Google Search Console as independent capabilities,
+  with independent readiness states and dependency lists.
 """
 from __future__ import annotations
 
 from dataclasses import replace
+import os
 from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-from rasai.console_ui import CYAN, DIM, RED, paint
+from rasai.console_ui import CYAN, DIM, RED, YELLOW, paint
 
 
 def _repair_service_toggle_domains() -> None:
@@ -44,6 +47,201 @@ def _repair_service_toggle_domains() -> None:
     base.SPECS = tuple(specs)
     base.SPEC_BY_NAME = {spec.name: spec for spec in specs}
     facade.refresh_specs()
+
+
+def _serp_spec(spec: Any) -> bool:
+    name = str(spec.name).upper()
+    if name.startswith("RASAI_SERP"):
+        return True
+    try:
+        from rasai.search_intelligence.provider_catalog import serp_provider_key_envs
+
+        return name in set(serp_provider_key_envs())
+    except ImportError:
+        return name in {
+            "RASAI_SERPAPI_API_KEY",
+            "RASAI_ZENSERP_API_KEY",
+            "RASAI_SCRAPINGDOG_API_KEY",
+        }
+
+
+def _gsc_spec(spec: Any) -> bool:
+    name = str(spec.name).upper()
+    return name.startswith("RASAI_GSC_") or name.startswith("RASAI_GOOGLE_SEARCH_CONSOLE_")
+
+
+def _search_intelligence_status(state: Any) -> tuple[str, str]:
+    """Represent request intent separately from provider configuration readiness."""
+    from rasai.console_search_intelligence import validate_search_readiness
+    from rasai.search_intelligence.config import SerpRuntimeConfig
+    from rasai.search_intelligence.provider_catalog import serp_provider_registration
+
+    try:
+        config = SerpRuntimeConfig.from_environment()
+    except ValueError as exc:
+        return "CONFIGURAR", f"configuração SERP inválida: {exc}"
+
+    queries = tuple(getattr(state, "search_queries", ()) or ())
+    if not queries:
+        if config.mode == "disabled":
+            return "DESABILITADO", "RASAI_SERP_MODE=disabled; observação SERP está desabilitada"
+
+        registration = serp_provider_registration(config.provider)
+        if config.mode == "live" and registration is not None:
+            key_present = bool((os.environ.get(registration.key_env) or "").strip())
+            provider_detail = (
+                f"provider {registration.id} configurado"
+                if key_present
+                else f"provider {registration.id} selecionado; credencial ainda não configurada"
+            )
+        elif config.mode == "fixture":
+            provider_detail = "modo fixture configurado"
+        else:
+            provider_detail = f"modo {config.mode}; provider {config.provider}"
+        return "NÃO SOLICITADO", f"{provider_detail}; nenhum termo SERP definido nesta execução"
+
+    ready, detail = validate_search_readiness(state)
+    return ("APTO" if ready else "CONFIGURAR"), detail
+
+
+def _gsc_status(state: Any) -> tuple[str, str]:
+    """Resolve local GSC readiness without conflating it with SERP readiness."""
+    from rasai.gsc_oauth import (
+        MODE_INCOMPLETE,
+        MODE_INVALID as OAUTH_INVALID,
+        credential_state,
+    )
+    from rasai.gsc_scope import (
+        GSC_SITE_URL_ENV,
+        MODE_AUTO,
+        MODE_DISABLED,
+        MODE_INVALID,
+        MODE_REQUIRED,
+        gsc_property_covers_url,
+        gsc_request_mode,
+    )
+
+    mode = gsc_request_mode(os.environ)
+    if mode == MODE_INVALID:
+        return "CONFIGURAR", "RASAI_GSC_ENABLED possui valor inválido"
+    if mode == MODE_DISABLED:
+        return "DESABILITADO", "Google Search Console foi desabilitado explicitamente"
+
+    oauth = credential_state(os.environ)
+    site_url = (os.environ.get(GSC_SITE_URL_ENV) or "").strip()
+    required = mode == MODE_REQUIRED
+
+    if oauth.mode == OAUTH_INVALID:
+        return "CONFIGURAR", oauth.detail or "credencial OAuth do Google Search Console é inválida"
+    if oauth.mode == MODE_INCOMPLETE:
+        return "CONFIGURAR", oauth.detail or "credenciais OAuth do Google Search Console estão incompletas"
+
+    missing: list[str] = []
+    if not oauth.configured:
+        missing.append("OAuth")
+    if not site_url:
+        missing.append("property")
+    if missing:
+        state_label = "CONFIGURAR" if required else "NÃO CONFIGURADO"
+        mode_detail = "obrigatório" if required else "automático/opcional"
+        return state_label, f"GSC {mode_detail}: falta " + " + ".join(missing)
+
+    target = str(getattr(state, "target", "") or "").strip()
+    if not target:
+        return (
+            "AUTOMÁTICO" if mode == MODE_AUTO else "APTO",
+            "OAuth e property configurados; informe a URL para validar se a property cobre o alvo",
+        )
+
+    try:
+        covers = gsc_property_covers_url(site_url, target)
+    except ValueError as exc:
+        return "CONFIGURAR", f"property GSC inválida: {exc}"
+
+    if not covers:
+        if required:
+            return "CONFIGURAR", "GSC obrigatório, mas a property configurada não cobre a URL auditada"
+        return "NÃO APLICÁVEL", "property GSC não cobre esta URL; em modo automático o GSC não será exigido"
+
+    return (
+        "APTO",
+        "OAuth e property configurados; o escopo cobre a URL. Validade/permissão são confirmadas pela API do Google",
+    )
+
+
+def _install_search_capability_split() -> None:
+    """Split SERP and GSC in the preparation UI without changing either runtime."""
+    from rasai import console_provider_environment as facade
+    from rasai import console_ui_catalog as catalog
+    from rasai import console_ui_refactor as refactor
+
+    if getattr(catalog, "_rasai_search_gsc_capability_split", False):
+        return
+
+    original_specs = catalog.capability_specs
+    original_status = catalog.capability_status
+
+    def capability_specs(capability: str) -> tuple[Any, ...]:
+        if capability == "search-intelligence":
+            return tuple(spec for spec in facade.refresh_specs() if _serp_spec(spec))
+        if capability == "google-search-console":
+            return tuple(spec for spec in facade.refresh_specs() if _gsc_spec(spec))
+        if capability == "observability":
+            return tuple(spec for spec in original_specs(capability) if not _gsc_spec(spec))
+        return original_specs(capability)
+
+    def capability_status(state: Any, capability: Any) -> tuple[str, str]:
+        if capability.key == "search-intelligence":
+            return _search_intelligence_status(state)
+        if capability.key == "google-search-console":
+            return _gsc_status(state)
+        return original_status(state, capability)
+
+    capabilities: list[Any] = []
+    gsc_added = False
+    for item in catalog.CAPABILITIES:
+        if item.key == "search-intelligence":
+            item = catalog.CapabilityUI(
+                "search-intelligence",
+                "Search Intelligence / SERP",
+                "Observação SERP por termos desta execução, com provider, limites e compatibilidade validados antes da chamada.",
+                item.handler_choice,
+                item.automatic,
+                item.derived,
+            )
+            capabilities.append(item)
+            capabilities.append(
+                catalog.CapabilityUI(
+                    "google-search-console",
+                    "Google Search Console",
+                    "Search Analytics, sitemaps e URL Inspection para property autenticada que cubra a URL auditada.",
+                )
+            )
+            gsc_added = True
+            continue
+        capabilities.append(item)
+    if not gsc_added:
+        capabilities.append(
+            catalog.CapabilityUI(
+                "google-search-console",
+                "Google Search Console",
+                "Search Analytics, sitemaps e URL Inspection para property autenticada que cubra a URL auditada.",
+            )
+        )
+
+    catalog.CAPABILITIES = tuple(capabilities)
+    catalog.capability_specs = capability_specs
+    catalog.capability_status = capability_status
+    catalog._STATUS_COLORS["NÃO SOLICITADO"] = DIM
+    catalog._STATUS_COLORS["NÃO CONFIGURADO"] = YELLOW
+
+    # console_ui_refactor imports these names by value; rebind the already imported
+    # references so the preparation screen sees the split immediately in this process.
+    refactor.CAPABILITIES = catalog.CAPABILITIES
+    refactor.capability_specs = capability_specs
+    refactor.capability_status = capability_status
+
+    catalog._rasai_search_gsc_capability_split = True
 
 
 def _context_help(
@@ -273,6 +471,8 @@ def install(console_module: ModuleType) -> None:
     from rasai import console_navigation as navigation
     from rasai import console_ui_catalog as catalog
     from rasai import console_ui_refactor as refactor
+
+    _install_search_capability_split()
 
     capability_menu = _capability_menu_factory(catalog)
     catalog.capability_menu = capability_menu
