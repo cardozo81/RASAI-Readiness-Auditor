@@ -11,6 +11,14 @@ from rasai.ai_model_catalog import (
 
 
 def install() -> None:
+    # Task/persona profile settings are another AI catalog surface and must always join
+    # the managed console environment when model configuration is installed. Install it
+    # before the model idempotency guard so repeated composition cannot omit the newer
+    # public settings in long-lived/test processes.
+    from rasai.ai_task_profile_console import install as install_ai_task_profile_console
+
+    install_ai_task_profile_console()
+
     from rasai import console_environment as base
 
     if getattr(base, "_rasai_ai_model_environment_installed", False):
