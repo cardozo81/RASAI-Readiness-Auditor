@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import redirect_stdout
+from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -103,15 +104,20 @@ def test_preparation_shows_cost_preview_and_explicit_confirm_cancel(monkeypatch,
     assert "REPROCESSAR:" not in rendered
 
 
-def test_post_actions_offer_direct_retry_when_unresolved_is_retryable(monkeypatch, tmp_path: Path) -> None:
+def test_post_actions_offer_direct_retry_with_slotted_state(monkeypatch, tmp_path: Path) -> None:
     from rasai import console_artifacts, console_reprocess_parity as parity
+
+    @dataclass(slots=True)
+    class SlottedState:
+        audit_id: str = "AUD-TEST"
+        error: str = ""
 
     console = ModuleType("fake_console")
     console.render_header = lambda state: print("HEADER")
     console._render_actual_usage = lambda state: print("USAGE")
     console._artifact_action = lambda state, action: None
     console._confirm_exit = lambda state: False
-    state = SimpleNamespace(audit_id="AUD-TEST", error="")
+    state = SlottedState()
     result = SimpleNamespace(
         reprocess_id="RPR-TEST",
         processing_status="PARTIAL_RETRYABLE",
@@ -131,17 +137,23 @@ def test_post_actions_offer_direct_retry_when_unresolved_is_retryable(monkeypatc
     monkeypatch.setattr(parity, "_render_reprocess_usage_delta", lambda before, after: print("DELTA"))
     monkeypatch.setattr("builtins.input", lambda prompt="": "R")
 
-    with redirect_stdout(StringIO()) as output:
-        final._run_post_actions(
-            console,
-            state,
-            result=result,
-            unresolved=unresolved,
-            before_usage=None,
-            after_usage=None,
-        )
+    token = final._REPEAT_REQUESTED.set(False)
+    try:
+        with redirect_stdout(StringIO()) as output:
+            final._run_post_actions(
+                console,
+                state,
+                result=result,
+                unresolved=unresolved,
+                before_usage=None,
+                after_usage=None,
+            )
 
-    assert getattr(state, final._REPEAT_ATTR) is True
+        assert final._REPEAT_REQUESTED.get() is True
+    finally:
+        final._REPEAT_REQUESTED.reset(token)
+
+    assert not hasattr(state, "__dict__")
     assert "Reprocessar novamente" in output.getvalue()
     assert "CONSUMO ACUMULADO" in output.getvalue()
 
@@ -155,7 +167,7 @@ def test_reprocess_wrapper_repeats_only_after_explicit_result_action(monkeypatch
     def fake_reprocess(console_module, current_state, audit_id):
         calls.append(len(calls) + 1)
         if len(calls) == 1:
-            setattr(current_state, final._REPEAT_ATTR, True)
+            final._REPEAT_REQUESTED.set(True)
 
     monkeypatch.setattr(parity, "reprocess_selected", fake_reprocess)
     final._reprocess_selected(ModuleType("fake_console"), state, "AUD-TEST")
