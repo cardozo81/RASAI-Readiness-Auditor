@@ -21,17 +21,18 @@ A superfície canônica é:
 
 ## Princípio central
 
-O relatório representa o **contrato efetivo da execução**, não a capacidade máxima do RASAi.
+O relatório representa o **contrato efetivo da execução**, não a capacidade máxima do RASAi e
+não o estado bruto das variáveis da sessão antes da aplicação do perfil.
 
 Capacidade não solicitada não reduz fulfillment, não transforma o AUD em preliminar e não
 bloqueia consolidação.
 
 Exemplos:
 
-- IA não solicitada pelo perfil e ausente na sessão = `NÃO SOLICITADO`;
-- IA já selecionada na sessão permanece parte da execução mesmo quando o perfil não adiciona IA;
+- perfil `SEM IA` = IA `NÃO SOLICITADA`, mesmo que a sessão tenha provider configurado;
+- perfil sem Search Intelligence = SERP `NÃO SOLICITADO`, mesmo que existam termos na sessão;
+- perfil sem Synthetic/Experience Apdex = medições sintéticas `NÃO SOLICITADAS`;
 - categoria Lighthouse fora do contrato efetivo = `NÃO SOLICITADO`;
-- Synthetic Apdex desabilitado e não solicitado = estado neutro;
 - GSC não solicitado = estado neutro;
 - GSC obrigatório sem configuração suficiente = `CONFIGURAÇÃO NECESSÁRIA`;
 - serviço solicitado que tentou executar e recebeu erro = `FALHA` ou estado parcial correspondente.
@@ -45,36 +46,40 @@ e não pode ser reescrita por um perfil.
 
 ### Sessão atual
 
-Contém as escolhas explícitas do operador. A sessão é autoridade superior ao preset quando o
-operador altera algo depois da seleção do perfil.
+Contém valores e parâmetros explícitos do operador. Esses valores podem alimentar capacidades
+incluídas pelo perfil, mas não reativam por si mesmos workloads excluídos do perfil.
+
+Quando o operador altera uma configuração **depois** de selecionar o perfil, o ajuste é tratado
+como override explícito e passa a ter precedência.
 
 ### Overlay da execução
 
-É a projeção temporária do perfil/contexto restaurado usada para preparar a execução.
+É a projeção temporária do perfil usada para readiness, preflight, snapshot e execução.
 
 O overlay:
 
-- é **aditivo**;
-- não desliga silenciosamente capacidades já habilitadas na sessão;
+- define o escopo efetivo das capacidades selecionáveis;
+- neutraliza temporariamente workloads excluídos pelo perfil;
+- preserva parâmetros da sessão apenas para capacidades incluídas;
 - não altera `rasai-defaults.ini`;
 - não altera `rasai-console.ini`;
 - não grava Windows/User ou Windows/Machine;
 - não grava credenciais;
-- não permanece no `os.environ` do processo pai após a projeção.
+- não permanece no `os.environ` nem no estado do processo pai após a projeção.
 
 A precedência é:
 
 ```text
 ajuste explícito posterior do usuário
-> intenção adicionada pelo perfil
-> estado/configuração já existente na sessão
+> escopo/políticas definidos pelo perfil
+> parâmetros da sessão para capacidades incluídas
 > configuração persistida/defaults
 ```
 
 ## Perfis e capacidades canônicas
 
-Perfis não possuem mais uma taxonomia independente de módulos. Eles são combinações das mesmas
-capacidades canônicas mostradas em `Preparar auditoria`.
+Existe um único catálogo de perfis. Perfis são combinações das mesmas capacidades canônicas
+mostradas em `Preparar auditoria`.
 
 O snapshot secret-free persiste, quando houver perfil:
 
@@ -84,8 +89,7 @@ O snapshot secret-free persiste, quando houver perfil:
 - `ai_mode`;
 - `manual_overrides`.
 
-O objetivo é permitir que perfil, preparação, execução, fulfillment, reprocessamento e relatório
-usem a mesma linguagem funcional.
+Não existe campo paralelo de `modules` mantido por compatibilidade histórica de perfil.
 
 ## Snapshot efetivo e integridade
 
@@ -96,7 +100,7 @@ O snapshot inclui, conforme aplicável:
 
 - alvo(s) normalizado(s);
 - parâmetros do core;
-- configuração de IA sem credenciais;
+- configuração efetiva de IA sem credenciais;
 - Web Performance e categorias Lighthouse;
 - Synthetic Navigation/Experience Apdex;
 - Search Intelligence;
