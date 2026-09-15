@@ -139,15 +139,23 @@ def _discard_legacy_gsc_baseline(state: Any) -> None:
 
 def _wrap_profile_context() -> None:
     try:
+        from rasai import console_execution_profile_readiness as readiness
         from rasai import console_execution_profiles as profiles
         from rasai.gsc_scope import GSC_ENABLED_ENV
     except ImportError:
         return
 
-    effective = profiles.effective_profile
+    current_effective = profiles.effective_profile
     clear = profiles.clear_profile
-    if bool(getattr(effective, "_rasai_execution_context_isolated", False)):
+    if bool(getattr(current_effective, "_rasai_execution_context_isolated", False)):
         return
+
+    # Readiness historically wrapped effective_profile only to mutate
+    # RASAI_GSC_ENABLED in the parent process. Once that wrapper has been installed,
+    # call its captured predecessor directly and keep GSC policy exclusively in the
+    # private child environment. This removes the mutation rather than merely hiding it.
+    legacy_base = getattr(readiness, "_ORIGINAL_EFFECTIVE_PROFILE", None)
+    effective = legacy_base if callable(legacy_base) else current_effective
 
     @contextmanager
     def isolated_effective_profile(
@@ -160,16 +168,13 @@ def _wrap_profile_context() -> None:
         token = _ACTIVE_EXECUTION_STATE.set(state)
         try:
             with effective(state, current):
-                # Older wrappers may project GSC into os.environ while entering the
-                # context. Restore the canonical session values before any caller sees
-                # the context; only the private subprocess copy receives the overlay.
+                # Defensive restore for compatibility with any older composed wrapper.
+                # The canonical path above no longer mutates either parent variable.
                 _restore_environment(GSC_ENABLED_ENV, gsc_snapshot)
                 _restore_environment(EXECUTION_GSC_POLICY_ENV, marker_snapshot)
                 _discard_legacy_gsc_baseline(state)
                 yield
         finally:
-            # Inner wrappers may mutate the variables again while unwinding. The session
-            # must still equal the operator-owned configuration after execution.
             _restore_environment(GSC_ENABLED_ENV, gsc_snapshot)
             _restore_environment(EXECUTION_GSC_POLICY_ENV, marker_snapshot)
             _discard_legacy_gsc_baseline(state)
