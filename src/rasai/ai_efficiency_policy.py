@@ -151,6 +151,7 @@ def install() -> None:
     from rasai.core_integrity_runtime import install as install_core_integrity
     from rasai.core_reprocessing import install as install_core_reprocessing
     from rasai.core_reprocessing_context import install as install_core_reprocessing_context
+    from rasai.execution_evidence_reporting import install as install_execution_evidence_reporting
     from rasai.fulfillment_execution_contract import install as install_fulfillment_execution_contract
     from rasai.reprocess_failure_preservation import install as install_reprocess_failure_preservation
     from rasai.reprocess_runtime_safety import install as install_reprocess_runtime_safety
@@ -179,6 +180,10 @@ def install() -> None:
     # Existing ai-usage/report projections consume the same append-only attempt rows;
     # add only user-facing operation labels and sanitized local contract detail.
     install_ai_attempt_diagnostic_reporting()
+    # Refresh the execution matrix after the final fulfillment state is projected. This
+    # wrapper is installed before the public UX guard so the guard's common HTML pass
+    # sees the regenerated page and applies the same navigation/status treatment to it.
+    install_execution_evidence_reporting()
     # Presentation-only final guard: fulfillment and recovery functions must already
     # be imported so references copied by value can be reconciled safely.
     install_report_public_ux_guard()
