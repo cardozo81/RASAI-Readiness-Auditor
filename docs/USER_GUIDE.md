@@ -1,23 +1,8 @@
 # Guia do usuário
 
-Guia operacional do RASAi - Search & AI Readiness Auditor para execução local e leitura dos resultados.
+Guia operacional do RASAi - Search & AI Readiness Auditor para execução local, configuração do console e leitura dos resultados.
 
-## Fluxo recomendado
-
-1. instalar dependências e Chromium;
-2. escolher URL, conjunto de URLs ou arquivo TXT;
-3. selecionar `mobile`, `desktop` ou `both`;
-4. para URL única, decidir se um Perfil de Execução temporário será usado;
-5. decidir se IA será usada;
-6. decidir se remediação textual por IA será habilitada;
-7. decidir se Web Performance/Lighthouse/CrUX será coletado;
-8. decidir se Synthetic Apdex será executado;
-9. revisar limites, timeouts, volume e exposição financeira;
-10. executar;
-11. conferir **Configuração × resultado obtido** no report;
-12. revisar findings, recomendações e limitações operacionais.
-
-## Instalação
+## Instalação local
 
 ```powershell
 py -3.13 -m venv .venv
@@ -26,171 +11,214 @@ python -m pip install -e .
 python -m playwright install chromium
 ```
 
-## Console interativo
+## Abrir o console
 
 ```powershell
 rasai-console
 ```
 
-O console oferece:
-
-- configuração em uma tela por vez;
-- preflight;
-- Perfis de Execução temporários para uma URL explícita, incluindo `Completo seguro` e `Completo máximo`;
-- estado `APTO`/`CONFIGURAR` e pendências visíveis antes da seleção;
-- descrição, dependências e custo/exposição antes de aplicar um perfil;
-- ajuste fino posterior, sem persistir o preset no INI ou no sistema operacional;
-- provider/modelo/esforço/timeout da IA principal;
-- dependência explícita da remediação textual em relação à IA;
-- configuração de Web Performance e timeout PageSpeed/Lighthouse;
-- configuração guiada de Synthetic Apdex;
-- progresso por etapa;
-- estimativa de custo/quota/carga;
-- arquivo `rasai-console.ini` para parâmetros não sensíveis;
-- aviso de alterações não salvas;
-- atalhos para abrir pasta e relatório.
-
-Credenciais não são gravadas no INI. Elas podem ser configuradas em `Integrações / credenciais` e aparecem somente como `[SET]`.
-
-### Preparar auditoria
-
-O dashboard `INÍCIO > PREPARAR AUDITORIA` segue uma regra única de navegação:
+Menu principal:
 
 ```text
-números = parâmetros da próxima auditoria
-letras  = ações e navegação
-```
-
-Os parâmetros são agrupados por contexto e numerados continuamente:
-
-```text
-[ ESCOPO ]
- 1. Entrada
- 2. Projeto
- 3. Dispositivo
- 4. Idioma / mercado
- 5. Timezone apresentação
-
-[ INTELIGÊNCIA ARTIFICIAL ]
- 6. IA
- 7. Remediações IA
- 8. Análise profunda URL
-
-[ WEB PERFORMANCE ]
- 9. Web Performance
-10. Máx. páginas da auditoria
-11. Máx. páginas em Web Performance
-12. Synthetic Apdex
-
-[ SEARCH INTELLIGENCE ]
-13. Termos SERP
-
-[ ARMAZENAMENTO / EXECUÇÃO ]
-14. Raiz auditorias
-
-[ PERFIL DA PRÓXIMA EXECUÇÃO ]
-15. Perfil da execução
-```
-
-As ações são apresentadas separadamente:
-
-```text
-R. Executar
-S. Salvar configuração INI
-L. Carregar configuração de AUD
-E. Integrações / credenciais
-C. Histórico / relatórios consolidados
-H. Ajuda / custos
-V. Voltar ao início
+1. Preparar auditoria
+2. Auditorias / histórico
+3. Relatórios consolidados
+4. Inteligência Artificial
+5. Integrações e serviços
+6. Todas as configurações
+7. Sistema / restaurar padrões
+H. Ajuda
 Q. Sair
 ```
 
-A restauração global do produto não faz parte desta tela. `Restaurar padrões do RASAi` fica somente em `INÍCIO > Sistema / restaurar padrões`.
+## Fluxo recomendado
 
-### Perfis de Execução
+1. abra **Preparar auditoria**;
+2. selecione um perfil quando uma URL única permitir e o preset for útil;
+3. informe entrada, projeto, `Device`, idioma/mercado e timezone;
+4. revise as análises/resultados que pretende obter;
+5. resolva itens `CONFIGURAR` usando as dependências mostradas na própria capacidade;
+6. configure IA, integrações e credenciais quando forem necessárias;
+7. revise custo, quota e carga de recursos opcionais;
+8. salve a configuração se quiser reutilizar os parâmetros não sensíveis;
+9. execute somente quando o preflight estiver compatível com a configuração desejada;
+10. leia o relatório e diferencie resultado obtido de capacidade não solicitada, parcial ou indisponível.
 
-Quando **Entrada** contém uma única URL explícita, o menu oferece:
+## Preparar auditoria
+
+A tela usa a seguinte estrutura:
 
 ```text
-15. Perfil da execução
+PERFIL DA PRÓXIMA AUDITORIA
+ESCOPO
+ANÁLISES / RESULTADOS
+RESULTADOS SISTÊMICOS
+EXECUÇÃO / ARMAZENAMENTO
+AÇÕES
 ```
 
-O perfil é um overlay somente da sessão. Ele não altera defaults do RASAi, não grava o preset no `rasai-console.ini`, não modifica `Windows/User` ou `Windows/Machine` e não cria/troca credenciais.
+### Escopo
 
-Todos os presets permanecem visíveis. Um preset `APTO` pode ser selecionado. Um preset `CONFIGURAR` continua aparecendo para orientar a parametrização, mostra exatamente o que falta e **não pode ser aplicado** até que as dependências obrigatórias sejam resolvidas.
+Os campos básicos têm IDs reservados:
 
-Dependências humanas ou operacionais continuam explícitas: Search Intelligence não inventa termos SERP e usa o item 13; GEO não transforma contexto YMYL `AUTO` em fato; Experiência sintética não inventa parâmetros de carga; Análise profunda exige o item 8, uma URL única e a IA principal apta no item 6.
-
-`Completo seguro` combina SEO, GEO, Performance, Acessibilidade e Web Quality sem ativar automaticamente SERP, carga sintética ou análise profunda.
-
-`Completo máximo` combina todos os módulos do catálogo. Ele permanece `CONFIGURAR` até Search Intelligence, Experiência sintética e Análise profunda estarem aptos. O nome "máximo" indica cobertura funcional, não redução de segurança ou limites.
-
-Existe uma única seleção principal de IA por execução. Improvement Intelligence e demais consumidores compatíveis usam essa mesma seleção. Quando a análise profunda faz parte do perfil, ela não possui provider/model/reasoning próprios e não pode ser desativada por uma escolha de “sem IA opcional” para os demais módulos. Em `AUTO`, ela reutiliza a política central de custo, elegibilidade, quarentena, circuit breaker e fallback.
-
-Detalhes dos perfis: [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md).
-
-Detalhes gerais do console: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md).
-
-## Execução pela CLI
-
-### Básica
-
-```powershell
-rasai audit https://example.com --project "Exemplo"
+```text
+00000002 Entrada
+00000003 Projeto
+00000004 Device
+00000005 Idioma / mercado
+00000006 Timezone apresentação
 ```
 
-### Desktop
+`Device` pode ser `mobile`, `desktop` ou `both`.
 
-```powershell
-rasai audit https://example.com --device-context desktop
+Os relatórios Mobile/Desktop são derivados desse valor e aparecem como `INCLUÍDO` ou `NÃO APLICÁVEL`; não são checkboxes separados.
+
+### Análises/resultados
+
+O catálogo inclui:
+
+- Domínio e descoberta;
+- Acessibilidade;
+- Web Performance;
+- Métricas e padrões;
+- Search Intelligence;
+- Apdex de navegação;
+- Apdex de experiência;
+- Visibilidade em IA;
+- Search & AI observados;
+- Análise profunda e melhorias;
+- Conteúdo e JSON-LD;
+- Remediações;
+- Quality & decisão.
+
+Ao abrir uma capacidade, o console mostra estado, finalidade, parâmetros próprios e dependências relacionadas. Selecionar o ID de uma dependência abre a configuração canônica correspondente.
+
+### Resultados sistêmicos
+
+Visão geral, Readiness SARI, metodologia de scoring, contexto de captura, uso de IA e referências/metodologia pertencem ao contrato do relatório e não têm seleção independente.
+
+## IDs e números de menu
+
+O console usa duas classes de números:
+
+- números curtos: escolhas da tela atual;
+- IDs de 8 dígitos: identidade estável de uma configuração canônica.
+
+O mesmo ID de variável aparece em Inteligência Artificial, Integrações, Todas as configurações ou em uma tela de capacidade quando essa dependência é relevante.
+
+## Inteligência Artificial
+
+Existe uma única seleção principal de IA por execução.
+
+Opções conceituais:
+
+```text
+none       -> sem IA quando nenhuma capacidade exigir
+provider   -> provider explicitamente selecionado
+auto       -> orquestração canônica entre providers elegíveis
 ```
 
-### Ambos os dispositivos
+`AUTO` considera a política existente de custo, elegibilidade, disponibilidade, quarentena, circuit breaker, fallback e limite de tentativas.
 
-```powershell
-rasai audit https://example.com --device-context both
+Módulos consumidores não criam provider próprio. Improvement Intelligence, remediações e demais capacidades compatíveis reutilizam a seleção principal.
+
+Credenciais e parâmetros do provider são configurados na macro **Inteligência Artificial** ou no catálogo técnico.
+
+## Integrações e serviços
+
+Use essa superfície para Google Search Console, SERP, PageSpeed/Lighthouse, CrUX, observabilidade e outros serviços externos publicados no catálogo.
+
+Filtros disponíveis incluem owner funcional, ordem alfabética, estado, modificadas, pendentes e busca por ID/nome/finalidade.
+
+`D. Diagnóstico técnico das integrações` executa probes consultivos de baixo impacto e não substitui a execução real da auditoria.
+
+## Todas as configurações
+
+Essa tela é a visão completa do catálogo técnico.
+
+Cada variável mostra:
+
+- finalidade;
+- owner e contexto;
+- quando é necessária;
+- impacto;
+- valor e origem;
+- estado;
+- tipo e domínio aceito;
+- default;
+- referências/documentação;
+- ações de edição/restauração.
+
+Campos enum/boolean/lista fechada são guiados; texto livre é usado apenas em domínios realmente abertos.
+
+## Origem dos valores
+
+O console pode indicar:
+
+```text
+SESSÃO
+ARQUIVO
+WINDOWS/USER
+WINDOWS/MACHINE
+DEFAULT
+NÃO CONFIGURADO
 ```
 
-### Várias URLs
+Isso ajuda a identificar por que um valor efetivo está ativo.
 
-```powershell
-rasai audit `
-  https://example.com/ `
-  https://example.com/produto `
-  --max-pages 2
-```
+## Salvar configuração
 
-## IA
+`S. Salvar configuração` grava parâmetros não sensíveis no `rasai-console.ini`.
 
-A auditoria pode rodar com `--ai-provider none` quando nenhuma capacidade selecionada exigir IA.
+Também podem ser persistidos inputs não sensíveis da próxima execução, como os parâmetros de Search Intelligence configurados na sessão.
 
-Quando IA é habilitada, o provider pode ser explícito ou `auto`. O console usa o registry canônico para disponibilidade, modelos e reasoning. O modo `AUTO` aplica a política central de custo/saúde/fallback; módulos especializados não criam uma segunda escolha de provider.
+Secrets nunca entram no arquivo.
 
-A remediação textual por IA é opcional e exige provider apto.
+## Search Intelligence
 
-## Web Performance e Lighthouse
+Search Intelligence separa:
 
-Habilite com:
+- termos, depth, região, device e classificação competitiva;
+- provider/mode/limites SERP;
+- credencial do provider.
+
+Os inputs ficam em memória durante a sessão. Ao salvar explicitamente a configuração, são gravados no INI para reutilização local.
+
+Search utiliza seu próprio device `mobile|desktop`, independente do `Device` geral da auditoria.
+
+A profundidade significa a maior posição orgânica que será tentada, por exemplo `10 = Top 10` e `20 = Top 20`.
+
+Consulte [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md).
+
+## Perfis
+
+Perfis ficam no topo de **Preparar auditoria** e são presets da próxima execução.
+
+Um perfil `CONFIGURAR` permanece visível, explica o que falta e não pode ser aplicado até atender às dependências obrigatórias.
+
+Ajustes explícitos feitos depois de aplicar um perfil vencem o preset somente no domínio alterado.
+
+O perfil não cria credenciais, termos SERP, contexto editorial específico nem provider de IA alternativo.
+
+Consulte [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md).
+
+## Web Performance
+
+Quando solicitado, Web Performance usa os adapters e contratos atuais de PageSpeed/Lighthouse/CrUX.
+
+A ausência de artifact ou resposta externa deve aparecer como limitação/indisponibilidade; não é convertida em score artificial.
+
+Na CLI:
 
 ```powershell
 rasai audit https://example.com --web-performance
 ```
 
-Default de timeout externo:
+## Apdex de navegação
 
-```text
-120 s por chamada PageSpeed/CrUX
-```
+Apdex de navegação executa amostras sintéticas de browser conforme os parâmetros configurados.
 
-Se PageSpeed exceder o timeout, o RASAi registra a tentativa como erro operacional. CrUX direto pode continuar disponível. Lighthouse lab e Acessibilidade automatizada ficam indisponíveis quando não há artifact PageSpeed e o report deve informar a causa.
-
-A ausência de dado não é transformada em score artificial.
-
-## Synthetic Apdex
-
-Synthetic Apdex é OFF por padrão e exige `T` explícito.
-
-Para smoke:
+Exemplo CLI:
 
 ```powershell
 rasai audit https://example.com `
@@ -202,67 +230,109 @@ rasai audit https://example.com `
   --apdex-concurrency 1
 ```
 
-Grupos abaixo de 100 amostras válidas são diagnóstico small-group `*`.
+Grupos pequenos permanecem diagnóstico de amostra limitada segundo o contrato Apdex.
+
+## Apdex de experiência
+
+Experience Apdex depende de Navigation Apdex.
+
+Enquanto o mix estiver herdado:
+
+```text
+Device=mobile   -> 100% mobile
+Device=desktop  -> 100% desktop
+Device=both     -> 60% mobile + 40% desktop
+Tablet          -> 0% no default herdado
+```
+
+Tablet pode ser incluído somente por override avançado do mix.
+
+Editar amostras ou outros parâmetros não transforma o mix herdado em personalizado; somente alterar o próprio mix faz isso.
+
+## Auditorias e histórico
+
+A seleção de um `AUD-*` apresenta estado de processamento, score, relatório, elegibilidade para consolidação, requisitos e reprocessamentos.
+
+Ações principais:
+
+```text
+Reprocessar pendências
+Carregar configuração para uma nova auditoria
+Mostrar caminhos de artefatos
+```
+
+O reprocessamento preserva itens já bem-sucedidos por padrão. Carregar configuração cria uma nova execução quando o usuário efetivamente executar; o AUD de origem não é alterado.
+
+Credenciais não são copiadas do AUD.
+
+## Relatórios consolidados
+
+A consolidação usa auditorias persistidas e elegíveis. Montar a visão consolidada não deve iniciar coletas externas apenas para preencher a página histórica.
 
 ## Como ler o relatório
 
-Comece por `report/index.html`.
+Comece por:
 
-Observe separadamente:
+```text
+AUD-*/report/index.html
+```
 
+Leia separadamente:
+
+- Readiness/SARI;
 - Score GEO;
 - Coverage;
 - Confidence;
 - findings e recomendações;
+- Web Performance;
 - Acessibilidade;
-- Web Performance/Lighthouse/CrUX;
-- Synthetic Apdex;
+- Apdex;
+- Search Intelligence;
 - Uso de IA;
-- **Configuração × resultado obtido**.
+- configuração solicitada versus resultado realmente obtido.
 
-Essa última seção é importante para distinguir:
+Estados como não solicitado, desabilitado, parcial, falho ou indisponível devem ser interpretados de forma distinta de resultado bem-sucedido.
 
-```text
-não configurado
-configurado e obtido
-configurado, mas não obtido
-parcial
-indisponível por timeout/quota/HTTP/ausência de artifact
+## Uso de IA no relatório
+
+`ai-usage.html` registra provider/modelo, tentativas, tokens e custo estimado quando essas informações existem.
+
+Custo é estimativa operacional; billing do fornecedor permanece a autoridade financeira externa.
+
+## CLI básica
+
+```powershell
+rasai audit https://example.com --project "Exemplo"
+rasai audit https://example.com --device-context desktop
+rasai audit https://example.com --device-context both
 ```
 
-Um perfil `APTO` significa que as dependências conhecidas estavam válidas antes da execução; não é garantia de sucesso de rede/provider. Se uma integração falhar em runtime, o HTML deve mostrar falha/parcialidade em vez de fabricar dados.
+Várias URLs:
 
-## Acessibilidade
-
-A página `accessibility.html` reutiliza evidência Lighthouse persistida. Não é certificação WCAG.
-
-Se o artifact Lighthouse não existir, o relatório deve dizer por que não foi obtido em vez de exibir somente valores vazios.
-
-## Web Performance
-
-`web-performance.html` apresenta Lighthouse lab e CrUX/CWV quando disponíveis. Apdex permanece em página própria e não deve ser apresentado como métrica derivada de Lighthouse.
-
-## Uso de IA
-
-`ai-usage.html` apresenta provider, modelo, tentativas, tokens e custo estimado quando disponíveis e distingue finalidades não solicitadas de chamadas efetivamente realizadas/falhas.
-
-Custo é estimativa técnica; não substitui billing/invoice do provider.
+```powershell
+rasai audit `
+  https://example.com/ `
+  https://example.com/produto `
+  --max-pages 2
+```
 
 ## Segurança
 
-- não copie API keys para reports, issues ou documentação;
-- use variáveis de ambiente/secret manager para secrets;
-- o INI não persiste credenciais;
-- Perfis de Execução não persistem credenciais nem alteram variáveis do SO;
-- não assuma que key configurada implica saldo;
-- use Synthetic Apdex em produção somente com autorização.
+- não copie API keys para issues, reports ou documentação;
+- o INI não contém secrets;
+- Windows/User só é alterado por ação explícita;
+- Windows/Machine não é administrado automaticamente;
+- key configurada não garante quota/saldo;
+- Synthetic Apdex deve respeitar autorização e limites de carga;
+- diagnóstico de integração é uma observação pontual, não garantia futura.
 
 ## Documentos relacionados
 
 - [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md)
 - [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md)
 - [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md)
-- [CONFIGURATION.md](CONFIGURATION.md)
-- [CLI_REFERENCE.md](CLI_REFERENCE.md)
-- [REPORT_GUIDE.md](REPORT_GUIDE.md)
-- [AI_GUIDE.md](AI_GUIDE.md)
+- [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md)
+- [INTEGRATION_DIAGNOSTICS.md](INTEGRATION_DIAGNOSTICS.md)
+- [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md)
+- [AUDIT_CONFIGURATION_REUSE.md](AUDIT_CONFIGURATION_REUSE.md)
+- [OUTPUTS_AND_ARTIFACTS.md](OUTPUTS_AND_ARTIFACTS.md)

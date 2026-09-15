@@ -2,149 +2,173 @@
 
 ## Objetivo
 
-O console local expõe um input explícito de termos SERP sem transformar termos de busca em variáveis de ambiente.
+Search Intelligence observa posições e contexto SERP para termos informados pelo operador e associa a evidência ao `AUD-*` da auditoria.
 
-A separação é intencional:
+O console separa três domínios:
 
-- `RASAI_SERP_MODE`, `RASAI_SERP_PROVIDER`, a credencial específica do provider e os limites `RASAI_SERP_*` configuram provider, credencial e governança;
-- os **termos de busca** são dados da execução corrente;
-- termos não são gravados no `rasai-console.ini`;
-- Search Intelligence continua não alterando `SARI-001` ou `SCORE-GEO-004`.
+1. **inputs da próxima execução**: termos, profundidade, região, device SERP e análise competitiva;
+2. **provider/governança**: `RASAI_SERP_MODE`, `RASAI_SERP_PROVIDER`, limites `RASAI_SERP_*` e registry canônico;
+3. **credencial**: variável secreta exigida pelo provider live selecionado.
 
-Providers live atualmente selecionáveis:
+Search Intelligence é evidence-bound e não altera `SARI-001` ou `SCORE-GEO-004` por ausência ou falha de SERP.
 
-| Provider | Engine | Credencial | URL de cadastro/login |
-|---|---|---|---|
-| `serpapi` | Google | `RASAI_SERPAPI_API_KEY` | <https://serpapi.com/manage-api-key> |
-| `serpapi-bing` | Bing | `RASAI_SERPAPI_API_KEY` | <https://serpapi.com/manage-api-key> |
-| `zenserp` | Google | `RASAI_ZENSERP_API_KEY` | <https://app.zenserp.com/> |
-| `scrapingdog` | Google | `RASAI_SCRAPINGDOG_API_KEY` | <https://api.scrapingdog.com/> |
+## Acesso
 
-Os quatro possuem uma oferta gratuita limitada verificada em 11/09/2026; isso não significa uso ilimitado. Consulte [PROVIDER_SETUP.md](PROVIDER_SETUP.md) para a franquia verificada e as ressalvas de quota/custo.
-
-## Uso
-
-No console local, a seção `SEARCH INTELLIGENCE` expõe:
+Na preparação da auditoria, selecione a capacidade:
 
 ```text
-13. Termos SERP
+INÍCIO > PREPARAR AUDITORIA > SEARCH INTELLIGENCE
 ```
 
-Ao selecionar o item 13, o console mostra o provider configurado, **qual variável contém sua credencial e a URL oficial para cadastro/login**, além da nota de free tier. Em seguida permite:
+A tela apresenta estado, explicação, parâmetros próprios e somente as dependências/configurações relacionadas ao domínio Search.
 
-1. habilitar Search Intelligence para a próxima auditoria desta sessão;
-2. informar um ou mais termos separados por `;`;
-3. definir a profundidade, limitada por `RASAI_SERP_MAX_DEPTH`;
-4. selecionar `mobile` ou `desktop` para a observação;
-5. informar uma região/localidade opcional;
-6. habilitar a classificação competitiva determinística dos resultados à frente.
+As configurações do provider podem também ser encontradas em:
 
-O console exibe orientação contextual antes dos campos de profundidade, dispositivo, região e classificação competitiva. A ajuda é apenas de apresentação: não modifica o contrato de execução nem o scoring.
+```text
+INÍCIO > Integrações e serviços
+```
 
-### O que significa profundidade SERP
+ou pelo catálogo completo em:
 
-`depth=N` define até qual **posição orgânica** o RASAi tentará observar para cada termo.
+```text
+INÍCIO > Todas as configurações
+```
+
+## Inputs da próxima execução
+
+O fluxo permite definir:
+
+- um ou mais termos separados por `;`;
+- profundidade SERP;
+- device SERP `mobile` ou `desktop`;
+- região/localidade opcional;
+- classificação competitiva determinística.
+
+Esses campos são inputs da execução, não variáveis de ambiente.
+
+### Sessão e persistência explícita
+
+Os inputs permanecem na sessão durante a configuração normal. Se o operador usar `Salvar configuração`, os valores não sensíveis são gravados no `rasai-console.ini` e restaurados ao carregar esse arquivo.
+
+A seção persistida contém, quando a capacidade existe no estado do console:
+
+```text
+[search_intelligence]
+queries = ...
+depth = ...
+region = ...
+device = mobile|desktop
+competitive = true|false
+```
+
+Credenciais SERP nunca são escritas nessa seção nem em qualquer outra parte do INI.
+
+O snapshot do `AUD-*` também preserva inputs reproduzíveis da execução conforme o contrato de reutilização de auditoria.
+
+## Provider e credencial
+
+O catálogo de provider é publicado por `search_intelligence.provider_catalog`. O console não mantém uma lista concorrente de compatibilidade.
+
+Providers live suportados pelo catálogo vigente incluem integrações baseadas em SerpApi, Zenserp e ScrapingDog, além das variantes de engine publicadas pelo registry.
+
+Para `mode=live`, o preflight exige a credencial correspondente ao provider. A tela informa o nome da variável e, quando publicado pelo registry, a URL oficial de cadastro/login.
+
+Exemplos de variáveis encontradas no catálogo vigente incluem:
+
+```text
+RASAI_SERPAPI_API_KEY
+RASAI_ZENSERP_API_KEY
+RASAI_SCRAPINGDOG_API_KEY
+```
+
+O nome efetivo deve ser obtido pelo registry do provider selecionado.
+
+## Profundidade SERP
+
+`depth=N` significa observar até a posição orgânica `N`, respeitando os limites do provider e do RASAi.
 
 Exemplos:
 
-- `depth=1`: somente a posição orgânica 1;
-- `depth=10`: Top 10;
-- `depth=20`: Top 20.
+```text
+depth=1  -> posição 1
+depth=10 -> Top 10
+depth=20 -> Top 20
+```
 
-Se o domínio auditado não aparecer, a interpretação é limitada pela profundidade escolhida. Com `depth=10`, por exemplo, o resultado significa **“domínio não observado no Top 10”**; não significa que o domínio não esteja ranqueado em posições posteriores.
+Se o domínio não for observado em `depth=10`, o significado é **não observado no Top 10**. Não é evidência de ausência além dessa profundidade.
 
-Os adapters Google atuais (`serpapi`, `zenserp` e `scrapingdog`) trabalham com paginação normalizada pelo RASAi em blocos de até 10 posições para o cálculo conservador de orçamento. Portanto, posições `11-20` podem exigir uma segunda chamada. Aumentar a profundidade amplia a chance de localizar o domínio auditado e identificar concorrentes fora do Top 10, mas pode aumentar quota, créditos e duração.
+Providers Google normalizados em blocos de até 10 posições podem exigir chamadas adicionais para profundidades maiores. O teto conservador considera termos, blocos e tentativas/retries do adapter.
 
-O teto conservador de requests considera quantidade de termos, blocos de 10 posições e tentativas incluindo retries. Com `retries=1`, por exemplo:
+Exemplo conceitual com `retries=1`:
 
 ```text
 3 termos × depth 10 -> até 6 tentativas HTTP
 3 termos × depth 20 -> até 12 tentativas HTTP
 ```
 
-Assim, com `RASAI_SERP_MAX_REQUESTS=10`, três termos em `depth=20` não cabem no orçamento conservador atual.
+`RASAI_SERP_MAX_REQUESTS` é limite de tentativas HTTP do RASAi, não equivalência direta com créditos comerciais cobrados pelo fornecedor.
 
-Para Bing, a paginação é provider-driven; `depth` continua significando o máximo de posições observadas, enquanto `RASAI_SERP_MAX_REQUESTS` permanece como limite rígido global.
+## Device e região
 
-`RASAI_SERP_MAX_REQUESTS` limita tentativas HTTP do RASAi. Ele **não representa créditos comerciais**. No ScrapingDog, por exemplo, uma request Google pode consumir vários créditos do plano do fornecedor.
+O device SERP é independente do `Device` principal da auditoria. Search pode observar `mobile` ou `desktop` sem alterar os contextos das demais etapas.
 
-### Dispositivo e região
+A região adiciona localização específica quando ranking geográfico é relevante. Deixar vazio preserva o contexto geral de mercado/país sem forçar uma localidade adicional.
 
-`mobile` e `desktop` representam contextos de busca distintos e podem produzir ordenações diferentes. Essa escolha vale para a observação SERP e não altera automaticamente o dispositivo das demais etapas da auditoria.
+## Classificação competitiva
 
-A região/localidade deve ser informada quando o ranking tiver componente geográfico relevante, por exemplo `Porto Alegre, RS, Brazil`. Deixar vazio preserva o contexto de país/mercado já configurado sem adicionar localização mais específica.
+A classificação competitiva determinística usa a SERP já coletada e não cria por si só uma nova chamada comercial.
 
-A classificação competitiva usa a SERP já observada e não cria uma chamada adicional ao provider de Search. Comparação de conteúdo de páginas e Competitive AI continuam fora deste input básico e exigem as superfícies explícitas correspondentes.
+Comparação aprofundada de conteúdo e análises por IA pertencem às capacidades próprias e, quando usam IA, reutilizam a seleção principal da execução.
 
-## Execução vinculada ao AUD
+## Readiness e preflight
 
-Quando a auditoria principal termina com sucesso e existem termos configurados na sessão, o console executa Search Intelligence usando:
+Com termos configurados, o preflight valida o contrato SERP antes da auditoria. Podem bloquear a capacidade:
 
-- domínio derivado da origem auditada;
+- `RASAI_SERP_MODE=disabled`;
+- provider desconhecido ou engine incompatível;
+- credencial ausente em modo live;
+- quantidade de termos acima de `RASAI_SERP_MAX_QUERIES`;
+- profundidade inválida ou acima de `RASAI_SERP_MAX_DEPTH`;
+- teto projetado acima de `RASAI_SERP_MAX_REQUESTS` quando a paginação permite cálculo conservador.
+
+O estado exibido na preparação é recalculado a partir desses validadores.
+
+## Execução e persistência no AUD
+
+Quando Search Intelligence é solicitado e a auditoria principal permite a etapa, o console executa o adapter com:
+
+- domínio/origem auditada;
 - mercado e idioma da auditoria;
-- provider/mode/credencial definidos nas variáveis `RASAI_SERP_*`;
-- termos, profundidade, device e região informados no item `13`;
-- `--audit-workspace` apontando para o `AUD-*` recém-criado.
+- provider/mode/credencial configurados;
+- termos, depth, device e região da próxima execução;
+- workspace do `AUD-*` gerado.
 
-A persistência especializada permanece aditiva no workspace e materializa, quando a observação foi persistida corretamente:
+A evidência persistida materializa o relatório:
 
 ```text
 AUD-*/report/search-intelligence.html
 ```
 
-O renderer usa a evidência já persistida; ele não executa novas chamadas ao provider durante a abertura do HTML.
+Abrir ou renderizar o HTML usa a evidência persistida e não refaz chamadas SERP somente para exibição.
 
-## Falhas e preflight
+## Falhas externas
 
-Quando termos estão configurados, o preflight do console também valida o contrato SERP. Exemplos de bloqueio antes da auditoria:
+Falha de SERP após o core da auditoria é tratada como limitação da capacidade opcional conforme o contrato vigente. O RASAi não fabrica ranking nem reduz score por ausência de evidência externa.
 
-- `RASAI_SERP_MODE=disabled`;
-- credencial correspondente ao `RASAI_SERP_PROVIDER` ausente em modo `live`;
-- provider/engine incompatíveis;
-- quantidade de termos acima de `RASAI_SERP_MAX_QUERIES`;
-- profundidade acima de `RASAI_SERP_MAX_DEPTH`;
-- teto determinístico Google acima de `RASAI_SERP_MAX_REQUESTS`.
+O relatório distingue solicitado/concluído, parcial/falho, desabilitado ou indisponível.
 
-Quando a credencial está ausente, a mensagem de configuração inclui a variável esperada e a URL oficial do provider para obtê-la.
+## Monitoramento recorrente
 
-Uma falha externa ocorrida **depois** da auditoria principal é fail-open para scoring: o `AUD-*` continua válido e Search Intelligence é apresentado como limitação opcional. Nenhuma falha de SERP reduz o SARI.
+Persistir inputs no INI facilita repetir uma configuração local, mas não substitui o contrato de monitoramento recorrente.
 
-## Persistência dos termos
+Para série temporal e scheduling de queries, use o domínio próprio de `rasai search-monitor`.
 
-Os termos permanecem somente no estado da sessão do console. Isso evita que salvar o INI transforme uma hipótese de busca específica em default silencioso de auditorias futuras.
+## Segurança
 
-Para monitoramento recorrente e persistente de queries, use `rasai search-monitor`, que possui contrato próprio de query registrada e scheduling.
+- termos e parâmetros Search não são secrets;
+- chaves de provider são secrets e ficam fora do INI;
+- relatórios não devem expor a credencial;
+- uma key configurada não prova saldo, quota ou disponibilidade futura;
+- diagnóstico de integração é consultivo e não substitui a tentativa real do adapter.
 
-## Exemplos
-
-SerpApi:
-
-```text
-RASAI_SERP_MODE=live
-RASAI_SERP_PROVIDER=serpapi
-RASAI_SERPAPI_API_KEY=[SET]
-```
-
-Zenserp:
-
-```text
-RASAI_SERP_MODE=live
-RASAI_SERP_PROVIDER=zenserp
-RASAI_ZENSERP_API_KEY=[SET]
-```
-
-ScrapingDog:
-
-```text
-RASAI_SERP_MODE=live
-RASAI_SERP_PROVIDER=scrapingdog
-RASAI_SCRAPINGDOG_API_KEY=[SET]
-```
-
-Se o usuário informar no item `13`:
-
-```text
-seguro residencial; seguro residencial online
-```
-
-e executar uma auditoria de `https://loja.exemplo.com.br`, o console executará a observação com o adapter escolhido e associará o resultado ao mesmo `AUD-*` gerado pela auditoria.
+Documentos relacionados: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md), [PROVIDER_SETUP.md](PROVIDER_SETUP.md) e [AUDIT_CONFIGURATION_REUSE.md](AUDIT_CONFIGURATION_REUSE.md).

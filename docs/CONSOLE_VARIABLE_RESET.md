@@ -1,171 +1,166 @@
-# Cancelamento de credenciais e restauração/reset no console
+# Restauração e gerenciamento seguro de configurações no console
 
-Este documento descreve o comportamento seguro do gerenciamento de credenciais, do reset avançado por variável/grupo e da restauração integral dos padrões do produto no `rasai-console`.
+Este documento descreve a restauração de configurações e o tratamento de credenciais no `rasai-console`.
 
-A baseline oficial do produto está documentada em [SYSTEM_DEFAULTS.md](SYSTEM_DEFAULTS.md) e é distribuída em `src/rasai/config/rasai-defaults.ini`.
+A baseline oficial do produto é distribuída em `src/rasai/config/rasai-defaults.ini` e documentada em [SYSTEM_DEFAULTS.md](SYSTEM_DEFAULTS.md).
 
-## 1. Cancelamento ao definir Key/token/secret
+## 1. Princípios
 
-A edição de um secret é transacional do ponto de vista do operador.
+- restauração de configuração usa contratos canônicos do console;
+- secrets nunca são gravados no `rasai-console.ini`;
+- Windows/User só é alterado por ação explícita;
+- Windows/Machine é observado, mas nunca modificado automaticamente;
+- restauração não apaga auditorias, relatórios ou bancos;
+- remover uma credencial do RASAi não revoga a credencial no fornecedor.
 
-Fluxo esperado:
+## 2. Restaurar uma variável
 
-1. o usuário escolhe **Definir/alterar**;
-2. digita ou cola o valor;
-3. o terminal mostra apenas `*` para os caracteres recebidos;
-4. o valor é validado em memória;
-5. o console apresenta:
-
-```text
-C. Confirmar alteração
-V. Cancelar e manter o valor atual
-```
-
-Somente `C` grava o novo valor na sessão.
-
-Ao escolher `V`:
-
-- o valor anterior permanece intacto;
-- um secret que ainda não existia continua ausente;
-- nada é persistido no Windows/User;
-- nada é escrito no `rasai-console.ini`;
-- o valor digitado é descartado após sair do fluxo.
-
-O conteúdo real do secret nunca é exibido.
-
-## 2. Restaurar padrões do RASAi
-
-O menu principal oferece:
+Abra:
 
 ```text
-D. Restaurar padrões do RASAi
+INÍCIO > Todas as configurações
 ```
 
-Esse fluxo é diferente do reset avançado por grupo. Ele reconstrói a configuração operacional a partir do `rasai-defaults.ini` da versão instalada e salva o resultado usando o writer canônico do `rasai-console.ini`.
+Localize a variável pelo ID numérico, nome, owner, estado ou finalidade e abra o editor.
 
-O usuário escolhe entre:
-
-1. **Restaurar padrões e preservar credenciais**;
-2. **Restaurar padrões e remover credenciais** da sessão e, no Windows, de `Windows/User`.
-
-Antes de executar, é exigida a confirmação textual:
+Ações relevantes:
 
 ```text
-RESTAURAR
+S. Definir / alterar
+L. Limpar override somente desta sessão
+R. Restaurar default/ausência canônica e salvar no arquivo    # não secret
+P. Gerenciar persistência Windows/User                         # secret
+V. Voltar
 ```
 
-### Overrides não secretos
+Para uma configuração não sensível, `R` remove o override efetivo da sessão, reaplica o default/ausência canônica por meio do runtime de configuração e usa o writer normal do console para persistir o estado resultante.
 
-Overrides não secretos conhecidos pelo catálogo RASAi são removidos da sessão e, no Windows, de `Windows/User` em ambas as modalidades.
+`L` atua somente sobre a sessão atual.
 
-Isso é necessário porque a precedência normal continua sendo ambiente/SO sobre o INI. Se o console apenas regravasse o `rasai-console.ini`, um `RASAI_*` persistido no SO poderia continuar prevalecendo e a restauração não seria efetiva.
+## 3. Secrets
 
-`RASAI_CONSOLE_INI` e `RASAI_CONFIG` são localizadores/bootstrap e não participam dessa limpeza operacional.
+Secrets são tratados separadamente das configurações comuns.
 
-### Credenciais
+Exemplos:
 
-Na opção **preservar**, secrets da sessão/Windows permanecem como estão.
+- API keys;
+- bearer tokens;
+- passwords;
+- client secrets;
+- refresh tokens;
+- DSNs classificados como credenciais.
 
-Na opção **remover**, o console remove secrets conhecidos da sessão e, no Windows, do escopo `Windows/User`. O arquivo restaurado nunca recebe esses valores.
+O valor real não é exibido após a configuração. O estado é mostrado como presença/ausência, por exemplo `[SET]`.
 
-## 3. Reset avançado de variáveis
+Secrets não são gravados no INI nem em snapshots reutilizáveis de AUD.
 
-O menu **E. Variáveis de ambiente / credenciais** continua oferecendo:
+## 4. Destino de uma alteração
+
+Para valor não sensível:
 
 ```text
-R. Resetar variáveis por grupo ou todas
+1. Aplicar somente nesta sessão
+2. Aplicar na sessão e salvar no arquivo de configuração
 ```
 
-Esse fluxo é mantido para diagnóstico e administração granular. Ele usa o catálogo `EnvironmentSpec` vigente e só atua sobre variáveis conhecidas pelo RASAi; não executa limpeza genérica do ambiente do sistema operacional.
+Para secret:
 
-### Escopo
+```text
+1. Aplicar somente nesta sessão
+2. Aplicar na sessão e persistir em Windows/User
+```
 
-O usuário pode selecionar:
+A segunda opção de secret só é aplicável no Windows e exige o fluxo explícito de persistência do console.
 
-- um grupo funcional, por exemplo `Web Performance / Google APIs`, `Métricas e padrões`, `IA - credenciais` ou `Synthetic Apdex`;
-- **Todas as variáveis conhecidas**.
+## 5. Windows/User
 
-### Camadas
+O RASAi administra credenciais persistidas no escopo do usuário quando o operador solicita essa ação.
 
-Após escolher o escopo, o usuário escolhe:
+O console pode:
 
-1. somente sessão atual;
-2. sessão + persistência do estado resetado no `rasai-console.ini`;
-3. no Windows, sessão + INI + Windows/User.
+- persistir o secret atual em Windows/User;
+- remover a persistência de Windows/User;
+- sincronizar o estado efetivo da sessão após a alteração.
 
-Esse reset granular continua exigindo a confirmação textual `RESETAR`.
+Persistência no perfil do usuário não transforma variável de ambiente em secret manager. Processos com acesso ao mesmo perfil podem ler esses valores conforme as permissões do sistema.
 
-## 4. Windows/User versus Windows/Machine
+## 6. Windows/Machine
 
-O RASAi só gerencia persistência no escopo **Windows/User**.
-
-Nenhum dos fluxos remove valores de **Windows/Machine**.
+O console não cria, altera nem remove automaticamente variáveis em Windows/Machine.
 
 Motivos:
 
-- `Machine` pode exigir privilégio administrativo;
-- a alteração afetaria outros usuários e processos;
-- uma ferramenta de auditoria local não deve realizar esse tipo de limpeza global implicitamente.
+- o escopo afeta outros usuários/processos;
+- pode exigir privilégio administrativo;
+- uma aplicação de auditoria local não deve executar essa mudança global implicitamente.
 
-Quando uma variável existe em `Machine`, o console informa que o valor foi preservado. Um novo processo pode herdar novamente esse valor e ele poderá prevalecer sobre o INI restaurado.
+Se um valor Machine for herdado por um novo processo, ele pode influenciar a precedência efetiva. A UI informa a origem para permitir diagnóstico.
 
-A remoção administrativa de `Machine` permanece responsabilidade explícita do operador/sistema.
+## 7. Restaurar padrões do produto
 
-## 5. Efeito sobre defaults e AUTO
+A restauração integral fica em:
 
-A restauração integral usa a baseline versionada do produto.
+```text
+INÍCIO > Sistema / restaurar padrões
+```
 
-A política vigente é:
+Esse fluxo reconstrói a configuração a partir da baseline versionada do produto e usa os mecanismos normais de persistência do console.
 
-- capacidade interna/local sem credencial: habilitada quando tecnicamente aplicável;
-- serviço externo gratuito sem credencial: habilitado;
-- integração dependente de credencial: AUTO/dirigida por requisitos ou inativa até cumprir os requisitos;
-- segurança/administração: fail-closed;
-- valores específicos do cliente que não podem ser inventados: vazio/AUTO.
+As opções de sistema permitem preservar credenciais ou remover credenciais gerenciadas, conforme apresentado na própria tela.
 
-Synthetic Navigation Apdex e Synthetic User Experience Apdex ficam habilitados no baseline com carga reduzida. O console informa que `>=100` amostras válidas é o alvo recomendado para sair de `small-group` e obter resultado mais representativo. Consulte [SYSTEM_DEFAULTS.md](SYSTEM_DEFAULTS.md).
+A restauração exige confirmação explícita antes de executar a operação destrutiva.
 
-O reset granular continua significando retornar ao default/AUTO vigente da variável selecionada.
+## 8. O que a restauração integral afeta
 
-## 6. INI e secrets
+Ela pode redefinir parâmetros não sensíveis conhecidos pelo RASAi e, quando o operador escolhe remover credenciais, limpar os secrets gerenciados nos escopos permitidos.
 
-O writer canônico do `rasai-console.ini` é usado tanto no Save normal quanto na restauração integral e no reset granular que solicita persistência.
+No Windows, a administração automatizada permanece limitada a sessão e Windows/User.
 
-Secrets permanecem fora do arquivo em qualquer cenário.
+## 9. O que não é apagado
 
-Nenhum fluxo converte credencial em texto persistente e nenhum backup de configuração deve conter secrets.
+Os fluxos de restauração de configuração não apagam:
 
-## 7. Operações que não fazem parte do reset/restauração
-
-Os fluxos não apagam:
-
-- auditorias existentes;
-- `AUD-*/audit.db`;
+- `AUD-*`;
+- `audit.db`;
 - relatórios HTML;
 - banco do control plane;
-- arquivos de projeto do usuário;
-- variáveis Windows/Machine;
-- credenciais externas no fornecedor original.
+- arquivos do projeto;
+- evidências já persistidas;
+- Windows/Machine;
+- credenciais existentes no painel do fornecedor.
 
-Remover uma API key do RASAi não revoga a credencial no provider. Revogação deve ser feita no painel oficial do fornecedor.
+## 10. INI
 
-## 8. Segurança e rastreabilidade
+O arquivo padrão é:
 
-O fluxo preserva os seguintes princípios:
+```text
+rasai-console.ini
+```
 
-- secrets nunca aparecem em claro;
-- a troca de secret só ocorre depois de confirmação;
-- remoção de Windows/User requer escolha explícita quando envolve credenciais;
-- Windows/Machine é fail-safe/preservado;
-- erros de remoção são exibidos e não são mascarados como sucesso;
-- o catálogo canônico continua sendo a fonte de quais variáveis pertencem ao RASAi;
-- o arquivo de padrões é versionado e não contém secrets;
-- o INI restaurado é materializado pelo mesmo writer usado no Save normal.
+O writer canônico grava somente parâmetros não sensíveis permitidos pelo catálogo.
 
-Documentos relacionados:
+O comando geral de salvar e a restauração por variável usam esse mesmo contrato. Inputs não sensíveis da próxima execução que fazem parte do estado persistível, como Search Intelligence, podem ser gravados quando o operador escolhe salvar.
 
-- [SYSTEM_DEFAULTS.md](SYSTEM_DEFAULTS.md)
-- [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md)
-- [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md)
-- [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
-- [WEB_PLATFORM_BASELINE.md](WEB_PLATFORM_BASELINE.md)
+## 11. Defaults e AUTO
+
+Restaurar uma configuração significa voltar ao default, `AUTO` ou ausência definidos pelo contrato daquela variável. O console não inventa um valor apenas para preencher o campo.
+
+Quando o runtime já possui um default interno, a UI pode mostrar `DEFAULT` como origem sem exigir um override redundante.
+
+## 12. Cancelamento e segurança
+
+Quando a edição de credencial usa fluxo staged, o novo valor só substitui o atual depois da confirmação apresentada pela tela. Cancelar mantém a configuração vigente.
+
+Regras de segurança:
+
+- nenhum secret é ecoado em claro;
+- erro de persistência não é apresentado como sucesso;
+- alteração de Windows/User é explícita;
+- Windows/Machine permanece fail-safe;
+- configuração restaurada é reavaliada pelos validadores/readiness existentes.
+
+## 13. Revogação externa
+
+Apagar uma key da sessão ou do Windows não revoga a credencial no fornecedor. Revogação definitiva deve ser feita no painel oficial do provider.
+
+Documentos relacionados: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md), [SYSTEM_DEFAULTS.md](SYSTEM_DEFAULTS.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
