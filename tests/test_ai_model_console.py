@@ -12,8 +12,8 @@ def test_model_catalog_settings_join_managed_console_catalog() -> None:
     assert MODEL_FILE_ENV in base_environment.ENV_NAMES
     assert MODEL_SOURCE_ENV in provider_environment.SPEC_BY_NAME
     assert MODEL_FILE_ENV in provider_environment.SPEC_BY_NAME
-    assert provider_environment.SPEC_BY_NAME[MODEL_SOURCE_ENV].default == "factory"
-    assert provider_environment.SPEC_BY_NAME[MODEL_FILE_ENV].default == "ai-models.toml"
+    assert provider_environment.SPEC_BY_NAME[MODEL_SOURCE_ENV].default == "auto"
+    assert provider_environment.SPEC_BY_NAME[MODEL_FILE_ENV].default == "config/ai-models.toml"
     assert provider_environment.SPEC_BY_NAME[MODEL_SOURCE_ENV].sensitive is False
     assert provider_environment.SPEC_BY_NAME[MODEL_FILE_ENV].sensitive is False
 
