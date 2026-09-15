@@ -105,15 +105,8 @@ def install() -> None:
 
     install_console_observability_capability_refinements(console)
 
-    from rasai.console_profile_catalog_refinements import (
-        install as install_console_profile_catalog_refinements,
-    )
-
-    install_console_profile_catalog_refinements(console)
-
-    # Final profile owner: presets are combinations of the same canonical capabilities
-    # shown in Preparar auditoria. The projection is additive and preserves intentional
-    # choices that already exist in the operator session.
+    # Single profile owner: every preset is a composition of the canonical capabilities
+    # shown in Preparar auditoria. There is no second profile catalog/refinement layer.
     from rasai.console_profile_capability_architecture import (
         install as install_console_profile_capability_architecture,
     )
