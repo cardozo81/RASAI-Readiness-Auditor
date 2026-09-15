@@ -1,58 +1,68 @@
 # Perfis da próxima auditoria
 
 Perfis são **presets temporários de capacidades** da próxima execução do `rasai-console`.
-Eles não possuem uma taxonomia técnica paralela: usam as mesmas capacidades canônicas
-apresentadas em `INÍCIO > PREPARAR AUDITORIA`.
+Existe **um único catálogo de perfis** e ele usa as mesmas capacidades canônicas apresentadas em
+`INÍCIO > PREPARAR AUDITORIA`.
 
-O objetivo do perfil é reduzir escolhas repetitivas e deixar explícito **qual resultado o
-operador pretende obter**, sem criar outra fonte de verdade para configuração, readiness,
-fulfillment ou relatórios.
+Não existe segundo grupo funcional, taxonomia paralela, compatibilidade de perfil legado ou
+camada de migração. O programa ainda não foi publicado em produção; este documento descreve
+somente o contrato atual.
 
 ## Princípio central
 
 A composição é:
 
 ```text
-perfil nomeado
+perfil nomeado ou personalizado
 -> conjunto de capacidades canônicas
--> readiness das mesmas capacidades exibidas em Preparar auditoria
--> overlay temporário e aditivo
+-> política explícita de IA e GSC da execução
+-> readiness das capacidades solicitadas
+-> projeção temporária do escopo
 -> preflight/runtime normal
--> evidências/fulfillment das capacidades efetivamente solicitadas
+-> evidências/fulfillment do que foi efetivamente solicitado
 ```
 
 A fonte canônica do catálogo técnico é `rasai.execution_capabilities`.
 
-## Preservação da sessão
+## Regra de escopo
 
-Selecionar um perfil **não pode desligar silenciosamente uma escolha que já exista na sessão**.
+O perfil selecionado é **autoritativo para a próxima execução**.
+
+Variáveis já existentes na sessão continuam armazenadas e podem fornecer parâmetros para uma
+capacidade incluída pelo perfil, mas **não podem reativar silenciosamente uma capacidade que o
+perfil excluiu**.
 
 Exemplos:
 
-- IA já selecionada continua selecionada;
-- termos SERP já informados permanecem na sessão;
-- Synthetic/Experience Apdex já habilitados permanecem habilitados;
-- Análise profunda já habilitada permanece habilitada;
-- categorias Lighthouse existentes são preservadas;
-- integrações opt-in já habilitadas continuam sob seus próprios contratos.
+- perfil com `SEM IA` executa com `ai_provider=none`, mesmo que a sessão tenha OpenAI/Gemini/etc.;
+- perfil sem Search Intelligence não executa SERP apenas porque existem termos na sessão;
+- perfil sem Apdex não executa navegações sintéticas apenas porque Synthetic/Experience Apdex
+  estavam habilitados;
+- perfil sem Análise profunda não executa Improvement Intelligence apenas porque a variável da
+  sessão estava ativa;
+- perfil sem remediação por IA não executa esse enriquecimento somente porque os flags da sessão
+  estavam ativos;
+- perfil com Web Performance pode usar os parâmetros vigentes da sessão para essa capacidade.
 
-O perfil é aditivo: pode solicitar Web Performance, acrescentar categorias Lighthouse ou
-solicitar Análise profunda, mas a ausência de uma capacidade no preset não significa `OFF`.
+A projeção é temporária. Ao terminar preflight/execução, o estado original da sessão é restaurado.
+
+## Precedência
 
 A precedência efetiva é:
 
 ```text
 ajuste explícito feito depois da seleção do perfil
-> intenção adicionada pelo perfil
-> estado/configuração que já existia na sessão
+> escopo e política definidos pelo perfil
+> parâmetros já existentes da sessão para capacidades incluídas
 > INI / SO / defaults canônicos
 ```
 
-Ao terminar a projeção da execução, o estado do processo pai é restaurado.
+Assim, o usuário pode escolher um perfil e depois alterar deliberadamente uma opção no menu
+normal. Esse ajuste posterior passa a ser um override explícito da sessão e vence o preset.
 
 ## Capacidades canônicas
 
-O catálogo compartilhado inclui, entre outras:
+O catálogo compartilhado inclui:
 
 - Domínio e descoberta;
 - Acessibilidade;
@@ -68,52 +78,38 @@ O catálogo compartilhado inclui, entre outras:
 - Remediações;
 - Quality & decisão.
 
-Capacidades automáticas ou derivadas continuam sem checkbox apenas para reproduzir algo que
-o pipeline já gera. O perfil personalizado expõe somente workloads que realmente podem ser
-solicitados/desmarcados pelo operador.
+Capacidades automáticas ou derivadas continuam sem checkbox independente quando representam
+resultados que o pipeline já produz. O perfil personalizado expõe somente workloads que o
+operador pode solicitar ou excluir diretamente.
 
-## Catálogo de perfis
+## Catálogo único de perfis
 
 ### SEO / Search Readiness
 
-**Uso:** diagnosticar descoberta, indexabilidade e sinais técnicos que afetam busca orgânica.
-
-**Resultado esperado:** leitura técnica de Search Readiness com descoberta/conteúdo e
-Lighthouse SEO/boas práticas.
+Diagnostica descoberta, indexabilidade e sinais técnicos de busca orgânica. O resultado esperado
+é Search Readiness técnico com descoberta/conteúdo e Lighthouse SEO/boas práticas.
 
 ### GEO / AI Readiness
 
-**Uso:** diagnosticar se a URL está tecnicamente preparada para descoberta e consumo por
-agentes/IA.
-
-**Resultado esperado:** leitura de AI Readiness com estrutura de conteúdo, sinais agentic e
-evidências disponíveis de visibilidade.
+Diagnostica preparo técnico para descoberta e consumo por agentes/IA. O resultado esperado inclui
+estrutura de conteúdo, sinais agentic e evidências disponíveis de visibilidade.
 
 ### Performance
 
-**Uso:** medir desempenho técnico sem ampliar o escopo para SERP, Apdex ou Análise profunda.
-
-**Resultado esperado:** métricas PageSpeed/Lighthouse/CrUX disponíveis, com foco em
-Performance e boas práticas.
+Mede PageSpeed/Lighthouse/CrUX disponíveis com foco em Performance e boas práticas, sem ampliar
+por si só para SERP, Apdex ou Análise profunda.
 
 ### Acessibilidade
 
-**Uso:** aprofundar a leitura de acessibilidade com enriquecimento Lighthouse.
-
-**Resultado esperado:** evidências do core mais Lighthouse Accessibility/boas práticas quando
-disponível.
+Aprofunda acessibilidade com evidências do core e enriquecimento Lighthouse quando disponível.
 
 ### Web Quality
 
-**Uso:** obter leitura ampla de qualidade técnica Web sem acionar SERP, carga sintética ou IA
-obrigatória.
-
-**Resultado esperado:** descoberta, acessibilidade, padrões, conteúdo e categorias Lighthouse
-de qualidade Web.
+Entrega visão ampla de qualidade técnica Web sem acionar SERP, carga sintética ou IA obrigatória.
 
 ### SEO + GEO
 
-Combina os objetivos de Search Readiness e AI Readiness na mesma execução.
+Combina Search Readiness e AI Readiness na mesma execução.
 
 ### SEO + GEO + Performance
 
@@ -121,125 +117,107 @@ Combina Search/AI Readiness com performance de laboratório/campo.
 
 ### Search Intelligence / SERP
 
-**Uso:** observar resultados de busca para termos explicitamente fornecidos.
-
-**Resultado esperado:** observação SERP/concorrencial restrita aos termos, região, device e
-depth configurados. O perfil nunca cria termos.
+Observa resultados de busca para termos explicitamente fornecidos. O perfil nunca cria termos,
+região, device ou depth.
 
 ### Apdex de navegação
 
-**Uso:** medir repetidamente navegação real sob perfil sintético controlado.
-
-**Resultado esperado:** amostras e Apdex de navegação conforme thresholds, amostras e perfil
-operacional configurados.
+Executa navegações reais repetidas conforme thresholds, amostras e perfil sintético configurados.
 
 ### Apdex de experiência
 
-**Uso:** medir experiência sintética considerando a distribuição de dispositivos configurada.
-
-**Resultado esperado:** Navigation + Experience Apdex. Experience mantém Navigation como
-dependência técnica explícita.
+Executa Navigation + Experience Apdex. Experience mantém Navigation como dependência técnica.
 
 ### Análise profunda URL
 
-**Uso:** obter análise evidence-bound adicional com priorização e ações corretivas.
-
-**Resultado esperado:** recomendações adicionais vinculadas às evidências da URL, usando a
-mesma IA principal/orquestrador canônico da auditoria.
+Executa análise evidence-bound adicional com priorização corretiva usando a mesma IA
+principal/orquestrador canônico da auditoria.
 
 ### Completo seguro
 
-**Uso:** cobertura técnica ampla sem acionar workloads que exigem termos SERP, carga sintética
-ou IA obrigatória.
-
-**Resultado esperado:** descoberta, acessibilidade, performance, padrões, conteúdo e resultados
-sistêmicos/observacionais disponíveis. Integrações externas opt-in não são ligadas pelo preset.
+Executa cobertura técnica ampla sem workloads que exigem termos SERP, carga sintética ou IA
+obrigatória.
 
 ### Completo máximo
 
-**Uso:** executar todas as capacidades selecionáveis que estiverem corretamente parametrizadas.
+Solicita todas as capacidades do catálogo. Inputs não inventáveis, credenciais e guardrails
+continuam obrigatórios.
 
-**Resultado esperado:** cobertura máxima, incluindo SERP, Apdex e Análise profunda.
+## Perfil personalizado
 
-`Máximo` não ignora guardrails. Inputs não inventáveis e credenciais continuam obrigatórios.
+O perfil personalizado usa o mesmo catálogo de capacidades selecionáveis; não existe uma segunda
+família de perfis.
 
-## Readiness do perfil
+`Apdex de experiência` adiciona `Apdex de navegação` como dependência e a UI impede remover
+Navigation enquanto Experience permanecer selecionado.
 
-O perfil não mantém um validador paralelo. O estado é agregado a partir da aptidão das
-capacidades canônicas que ele solicita.
+Depois da composição, o usuário escolhe a política de IA da execução:
 
 ```text
-APTO
-  todas as capacidades obrigatórias do preset estão executáveis
-
-CONFIGURAR
-  ao menos uma capacidade solicitada possui dependência conhecida não atendida
-
-APTO com observações
-  capacidades obrigatórias estão aptas, mas fontes automáticas/opcionais podem não produzir dados
+1. Não usar IA nesta execução do perfil
+2. Usar IA principal/AUTO se houver provider APTO
 ```
 
-Capacidade automática/derivada ausente não transforma o perfil em falha. Capacidade realmente
-solicitada pelo preset, como SERP, Apdex ou Análise profunda, precisa satisfazer seu próprio
-contrato.
+A opção 1 significa efetivamente **SEM IA** durante essa execução. A configuração de IA da sessão
+não é apagada; ela apenas não é projetada para o runtime desse perfil.
 
 ## IA
 
 Existe uma única IA principal por execução.
 
-Para perfis que não exigem IA, a UI oferece:
+Quando o perfil está em `SEM IA`, provider/model/reasoning são temporariamente neutralizados e
+remediações dependentes de IA não são executadas. Quando a IA é permitida, a seleção atual da
+sessão é usada se estiver apta; caso contrário, o orquestrador `AUTO` segue o contrato central de
+elegibilidade, preço, quarentena, circuit breaker, fallback e limite de tentativas.
 
-```text
-não adicionar IA pelo perfil e preservar a seleção atual da sessão
-usar IA principal/AUTO somente se a sessão estiver sem IA e houver provider APTO
-```
-
-O primeiro caso **não equivale a `SEM IA`** se o operador já havia selecionado uma IA antes do
-perfil.
-
-Análise profunda exige IA principal. Não existe provider/model/reasoning especializado paralelo.
-`AUTO` continua governado pelo runtime central de elegibilidade, preço, quarentena, circuit
-breaker, fallback e limite de tentativas.
+Análise profunda exige IA principal e, por isso, não pode ser combinada com `SEM IA`.
 
 ## Google Search Console
 
-GSC continua independente de SERP e do preset técnico. Após selecionar um perfil, a execução
-pode:
+GSC continua independente de SERP. Após selecionar o perfil, a execução pode:
 
 - usar somente se a property cobrir a URL;
 - exigir GSC;
 - não usar GSC nesta execução;
 - herdar a política global.
 
-A política é session-only e não regrava credenciais nem `RASAI_GSC_ENABLED`.
+Essa política é temporária e não regrava credenciais nem a configuração persistente do operador.
 
-## Perfil personalizado
+## Readiness
 
-A composição personalizada mostra somente capacidades que representam workloads
-selecionáveis. Capacidades automáticas/derivadas permanecem incluídas pelo contrato normal.
+O perfil não possui validador técnico paralelo. O estado é agregado a partir da aptidão das
+capacidades canônicas solicitadas.
 
-`Apdex de experiência` adiciona `Apdex de navegação` como dependência. A UI não permite remover
-Navigation enquanto Experience continuar selecionado.
+```text
+APTO
+  todas as capacidades obrigatórias do perfil estão executáveis
+
+CONFIGURAR
+  ao menos uma capacidade solicitada possui dependência conhecida não atendida
+```
+
+Capacidades automáticas/derivadas não se tornam falha apenas por não produzirem dado opcional.
+SERP, Apdex e Análise profunda precisam satisfazer seus próprios contratos quando solicitados.
 
 ## Persistência e evidências
 
-O preset não grava INI, Windows/User, Windows/Machine nem credenciais.
+O perfil não grava INI, Windows/User, Windows/Machine nem credenciais.
 
-O snapshot secret-free do AUD registra o perfil em termos de **capacidades**, além de:
+O snapshot secret-free do AUD registra o contrato atual em termos de:
 
-- identificador/rótulo do perfil;
-- política de IA;
-- overrides explícitos feitos depois da seleção.
+- `profile_id`;
+- `label`;
+- `capabilities`;
+- `ai_mode`;
+- `manual_overrides`.
 
-A página `report/execution-evidence.html` deve continuar representando o contrato efetivo da
-execução: solicitado, não solicitado, concluído, parcial, falha ou configuração necessária.
+Não é mantido campo paralelo de `modules` para compatibilidade histórica de perfil.
+
+A evidência de execução deve refletir o **estado efetivo projetado pelo perfil**, e não o estado
+bruto das variáveis da sessão antes da projeção. Portanto, uma execução `SEM IA` deve aparecer
+como IA não solicitada mesmo que a sessão tenha um provider configurado fora do perfil.
 
 ## Desenvolvimento
 
-O programa permanece em desenvolvimento e não possui versão pública/legado a preservar. Esta
-arquitetura é o contrato vigente; não existe camada de migração para o modelo anterior de módulos
-de perfil.
-
-Documentos relacionados: `CONSOLE_CONFIGURATION_UX.md`,
-`EXECUTION_EVIDENCE_AND_CONFIGURATION_INTEGRITY.md`, `INTERACTIVE_CONSOLE.md` e
-`PROVIDER_SETUP.md`.
+O programa permanece em desenvolvimento e não possui versão pública/legado a preservar. A
+arquitetura descrita aqui é o contrato vigente.
