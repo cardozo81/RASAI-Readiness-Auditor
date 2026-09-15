@@ -362,12 +362,17 @@ def _install_top_level(console: ModuleType) -> None:
     original = console._menu
 
     class Capture(io.StringIO):
+        def __init__(self, target: Any):
+            super().__init__()
+            self._target = target
+
         def isatty(self):
-            probe = getattr(sys.stdout, "isatty", None)
+            probe = getattr(self._target, "isatty", None)
             return bool(probe()) if callable(probe) else False
 
     def menu(state: Any) -> str:
-        original_input, real_stdout, buffer, rendered = builtins.input, sys.stdout, Capture(), False
+        original_input, real_stdout, rendered = builtins.input, sys.stdout, False
+        buffer = Capture(real_stdout)
 
         def flush():
             text = buffer.getvalue()
