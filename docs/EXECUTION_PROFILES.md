@@ -20,10 +20,14 @@ defaults canônicos
 = configuração efetiva da execução
 ```
 
+Essa fórmula descreve **precedência de leitura para a execução**, não autorização para o perfil regravar a camada anterior. Configuração do usuário, estado da sessão e overlay da execução são contextos independentes.
+
 O perfil não:
 
 - grava credenciais;
 - altera Windows/Machine;
+- altera Windows/User;
+- sobrescreve variáveis canônicas da sessão para simular o perfil;
 - cria provider de IA paralelo;
 - cria termos SERP;
 - inventa contexto YMYL/editorial;
@@ -215,7 +219,7 @@ Se `deep-analysis` fizer parte da composição, a IA principal passa a ser requi
 
 ## Google Search Console
 
-Cada perfil recebe uma política GSC específica da sessão:
+Cada perfil recebe uma política GSC específica da próxima execução:
 
 ```text
 1. Usar somente se a property cobrir a URL auditada
@@ -242,15 +246,45 @@ A validação local não comprova se o token está expirado nem se a conta possu
 
 ### Desabilitado
 
-Projeta GSC como desabilitado somente durante a execução do perfil.
+Projeta GSC como desabilitado somente no **ambiente privado do subprocesso da execução**.
 
-Essa decisão é estado da execução, não alteração permanente da configuração global. Ela acompanha o processo de auditoria iniciado pelo console e é reaplicada no coletor antes de qualquer operação GSC. Assim, uma configuração global `RASAI_GSC_ENABLED=true` não pode reativar Search Console dentro de uma execução cujo perfil escolheu “Não usar GSC nesta execução”. Ao terminar/remover o perfil, a configuração global original volta a valer normalmente.
+Essa decisão é estado da execução, não alteração da configuração global nem da memória canônica da sessão. Uma configuração global `RASAI_GSC_ENABLED=true` continua `true` na tela de variáveis e no processo do console, enquanto somente o AUD recebe a projeção efetiva de GSC desligado.
 
 O critério de aceite desse modo é físico: a execução não deve tentar Sitemaps, URL Inspection, Search Analytics nem renovação OAuth para GSC.
 
 ### Herdar global
 
-Preserva a política configurada no ambiente normal.
+Preserva exatamente a política configurada no ambiente normal.
+
+## Contextos e ambiente do subprocesso
+
+A implementação separa três responsabilidades:
+
+```text
+1. configuração persistida / explicitamente mantida pelo operador
+2. estado canônico da sessão do console
+3. overlay efetivo de uma única execução
+```
+
+O perfil atua apenas no item 3. Para integrações cujo runtime depende de ambiente, o console cria uma cópia privada antes de iniciar o subprocesso e aplica os overrides nessa cópia.
+
+Exemplo:
+
+```text
+sessão do console:
+RASAI_GSC_ENABLED=true
+
+perfil:
+GSC=disabled
+
+subprocesso do AUD:
+RASAI_EXECUTION_GSC_POLICY=disabled
+RASAI_GSC_ENABLED=false
+```
+
+O processo do console permanece com `RASAI_GSC_ENABLED=true` durante e depois da execução.
+
+O mesmo princípio vale para contexto recuperado de AUD anterior: valores históricos usados como fallback de uma nova execução não são promovidos silenciosamente para configuração global. Se o operador configurar posteriormente um valor explícito, a ação direta do operador vence o fallback recuperado.
 
 ## Dependências principais
 
@@ -283,7 +317,7 @@ Exemplo: selecionar `none` na IA principal enquanto `deep-analysis` estiver ativ
 
 ## Precedência
 
-Durante a execução:
+Para calcular a configuração efetiva do AUD:
 
 ```text
 ajuste manual posterior à seleção
@@ -292,15 +326,17 @@ ajuste manual posterior à seleção
 > default canônico
 ```
 
-Essa precedência não autoriza um overlay a violar requisito estrutural do módulo. Por isso, Análise profunda preserva a IA principal necessária à própria execução.
+A precedência acima é uma regra de resolução para a execução. Ela **não** significa que a camada vencedora sobrescreva ou persista sobre as camadas inferiores.
+
+Essa precedência também não autoriza um overlay a violar requisito estrutural do módulo. Por isso, Análise profunda preserva a IA principal necessária à própria execução.
 
 ## Persistência
 
-O perfil é somente de sessão.
+O perfil é somente de sessão e sua projeção é somente da execução.
 
-Selecionar, remover ou trocar perfil não grava o preset no INI e não altera credenciais.
+Selecionar, remover, trocar, visualizar ou executar um perfil não grava o preset no INI, não altera credenciais e não substitui variáveis canônicas configuradas pelo usuário.
 
-A configuração real feita pelo usuário fora do perfil continua seguindo as regras normais de persistência do console.
+A configuração real feita pelo usuário fora do perfil continua seguindo as regras normais de persistência do console e não pode ser revertida quando o perfil é removido.
 
 ## Custos
 
@@ -318,17 +354,3 @@ Para `AUTO`, o custo efetivo depende do provider/modelo selecionado pelo runtime
 ## Relatórios
 
 Perfis não criam relatórios paralelos nem alteram contratos de scoring.
-
-Eles apenas determinam quais capacidades são solicitadas para aquela execução.
-
-Os relatórios continuam projetando dados persistidos, status de fulfillment, tentativas e limitações conforme seus contratos próprios.
-
-## Referências
-
-- [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md)
-- [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md)
-- [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
-- [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md)
-- [COMPETITIVE_AI_INTELLIGENCE.md](COMPETITIVE_AI_INTELLIGENCE.md)
-- [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md)
-- [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
