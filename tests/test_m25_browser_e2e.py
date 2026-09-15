@@ -25,8 +25,8 @@ class _Handler(BaseHTTPRequestHandler):
         <script>
         window.addEventListener('load', () => {
           // The timer deliberately starts the request after the load event has
-          // completed. Calling fetch() synchronously inside the load handler is
-          // still part of load-event dispatch and is not a valid post-load fixture.
+          // completed. It must remain observable inside the settle window, but
+          // it must not extend USER_ACTION_DURATION for this Load Action.
           setTimeout(() => {
             fetch('/late').then(() => {
               setTimeout(() => { throw new Error('controlled-m25-error'); }, 15);
@@ -45,7 +45,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 class M25BrowserE2ETests(unittest.TestCase):
-    def test_real_chromium_collects_late_fetch_and_javascript_error(self) -> None:
+    def test_real_chromium_observes_late_fetch_without_extending_load_action_duration(self) -> None:
         server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -64,10 +64,19 @@ class M25BrowserE2ETests(unittest.TestCase):
             self.assertIsNotNone(result.user_action_duration_ms)
             self.assertIsNotNone(result.navigation_duration_ms)
             self.assertIsNotNone(result.dom_interactive_ms)
+            self.assertIsNotNone(result.load_event_end_ms)
             self.assertGreaterEqual(result.xhr_fetch_count, 1)
             self.assertGreaterEqual(result.dynamic_resource_count, 1)
             self.assertGreaterEqual(result.javascript_error_count, 1)
             self.assertTrue(result.network_settled)
+            # The late fetch is intentionally initiated after loadEventEnd. M25
+            # observes it for diagnostics, but the Load Action KPM must remain
+            # anchored to loadEventEnd instead of arbitrary post-load traffic.
+            self.assertAlmostEqual(
+                float(result.user_action_duration_ms),
+                float(result.load_event_end_ms),
+                delta=50.0,
+            )
         finally:
             gateway.close()
             server.shutdown()
