@@ -384,8 +384,8 @@ Estados técnicos do fulfillment continuam persistidos no contrato interno, mas 
 
 ```text
 COMPLETE            -> Concluída
-PARTIAL_RETRYABLE   -> Parcial — pode reprocessar
-PARTIAL_BLOCKED     -> Parcial — há bloqueios
+PARTIAL_RETRYABLE   -> Parcial - pode reprocessar
+PARTIAL_BLOCKED     -> Parcial - há bloqueios
 FAILED_FATAL        -> Falha definitiva
 EXPIRED_FOR_COMPLETION -> Expirada para conclusão
 ```
