@@ -157,9 +157,9 @@ def test_restore_factory_helper_reconstructs_editable_catalog(tmp_path: Path) ->
     assert catalog.source == str(target.resolve())
 
 
-def test_rasai_defaults_keeps_factory_pricing_as_reset_baseline() -> None:
+def test_rasai_defaults_use_operator_pricing_catalog_with_factory_fallback() -> None:
     parser = ConfigParser(interpolation=None)
     parser.optionxform = str
     parser.read(ROOT / "src" / "rasai" / "config" / "rasai-defaults.ini", encoding="utf-8")
-    assert parser.get("environment", "RASAI_AI_PRICING_SOURCE") == "factory"
-    assert parser.get("environment", "RASAI_AI_PRICING_FILE") == "ai-pricing.toml"
+    assert parser.get("environment", "RASAI_AI_PRICING_SOURCE") == "auto"
+    assert parser.get("environment", "RASAI_AI_PRICING_FILE") == "config/ai-pricing.toml"
