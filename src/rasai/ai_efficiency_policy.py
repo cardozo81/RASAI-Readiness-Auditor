@@ -206,8 +206,10 @@ def install() -> None:
     # Task/persona specialization is the final AI-request composition layer. It does not
     # select providers or weaken feature-owned evidence/schema/safety contracts.
     from rasai.ai_task_profile_runtime import install as install_ai_task_profile_runtime
+    from rasai.ai_task_profile_semantic_compat import install as install_ai_task_profile_semantic_compat
 
     install_ai_task_profile_runtime()
+    install_ai_task_profile_semantic_compat()
 
     _INSTALLED = True
 
