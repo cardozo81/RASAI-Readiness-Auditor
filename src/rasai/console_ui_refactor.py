@@ -32,6 +32,16 @@ from rasai.console_ui_catalog import (
 # object is released, and UI metadata must never leak to a later State instance.
 _SESSION_META: dict[int, tuple[Any, dict[str, Any]]] = {}
 
+_SEARCH_OLD_NOTICE = (
+    "Termos são dados desta sessão de execução; não são variáveis de ambiente "
+    "e não são gravados no rasai-console.ini."
+)
+_SEARCH_NOTICE = (
+    "Termos são inputs da próxima execução e não são variáveis de ambiente. "
+    "Permanecem na sessão; ao usar Salvar configuração, os inputs não sensíveis "
+    "de Search também são gravados no rasai-console.ini."
+)
+
 
 def _bucket(state: Any, *, create: bool = False) -> dict[str, Any] | None:
     key = id(state)
@@ -293,6 +303,35 @@ def _install_search_persistence() -> None:
     settings._rasai_search_console_persistence = True
 
 
+def _rewrite_search_copy(text: str) -> str:
+    return text.replace(_SEARCH_OLD_NOTICE, _SEARCH_NOTICE)
+
+
+def _install_search_copy() -> None:
+    from rasai import console_search_intelligence as search
+
+    if getattr(search, "_rasai_final_console_copy", False):
+        return
+    original = search.configure_search_intelligence
+
+    class Writer:
+        def __init__(self, target: Any):
+            self.target = target
+
+        def write(self, text: str):
+            return self.target.write(_rewrite_search_copy(text))
+
+        def __getattr__(self, name: str):
+            return getattr(self.target, name)
+
+    def configure_search_intelligence(state: Any):
+        with redirect_stdout(Writer(sys.stdout)):
+            return original(state)
+
+    search.configure_search_intelligence = configure_search_intelligence
+    search._rasai_final_console_copy = True
+
+
 def _install_variable_editor(console: ModuleType) -> None:
     from rasai import console_provider_environment as env
 
@@ -444,6 +483,7 @@ def install() -> None:
     if getattr(console, "_rasai_ui_refactor_installed", False):
         return
     _install_search_persistence()
+    _install_search_copy()
     _install_variable_editor(console)
     _install_environment_router(console)
     from rasai import console_navigation as navigation
