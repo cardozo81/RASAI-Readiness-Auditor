@@ -313,7 +313,7 @@ Cor reforça o estado, mas o texto é obrigatório:
 Nº  AUDITORIA  CONCLUSÃO LOCAL  SITUAÇÃO  REPROCESSAMENTO
 ```
 
-`CONCLUSÃO LOCAL` usa o timezone de apresentação configurado e só é preenchida quando a auditoria atingiu conclusão efetiva. Estados técnicos como `COMPLETE`, `PARTIAL_RETRYABLE`, `PARTIAL_BLOCKED`, `FAILED_FATAL` e `EXPIRED_FOR_COMPLETION` continuam persistidos internamente, mas são apresentados ao usuário em PT-BR (`Concluída`, `Parcial — pode reprocessar`, `Parcial — há bloqueios`, `Falha definitiva`, `Expirada para conclusão`).
+`CONCLUSÃO LOCAL` usa o timezone de apresentação configurado e só é preenchida quando a auditoria atingiu conclusão efetiva. Estados técnicos como `COMPLETE`, `PARTIAL_RETRYABLE`, `PARTIAL_BLOCKED`, `FAILED_FATAL` e `EXPIRED_FOR_COMPLETION` continuam persistidos internamente, mas são apresentados ao usuário em PT-BR (`Concluída`, `Parcial - pode reprocessar`, `Parcial - há bloqueios`, `Falha definitiva`, `Expirada para conclusão`).
 
 A coluna separada `relatório=PRELIMINARY|FINAL` não é repetida na listagem quando apenas duplica o estado operacional já comunicado. A tela detalhada mantém score, consolidação, requisitos e reprocessamentos quando essas informações acrescentam significado.
 
