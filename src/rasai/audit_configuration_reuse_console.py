@@ -32,16 +32,41 @@ def _search_execution_settings(state: Any) -> dict[str, Any] | None:
     }
 
 
+def _capture_environment(names: set[str]) -> dict[str, tuple[bool, str | None]]:
+    return {name: (name in os.environ, os.environ.get(name)) for name in names}
+
+
+def _restore_environment(snapshot: Mapping[str, tuple[bool, str | None]]) -> None:
+    for name, (existed, value) in snapshot.items():
+        if existed and value is not None:
+            os.environ[name] = value
+        else:
+            os.environ.pop(name, None)
+
+
 def _export_settings(state: Any, targets: tuple[str, ...] | list[str]) -> dict[str, Any]:
-    """Export the effective non-secret console configuration for one AUD."""
+    """Export one effective secret-free execution snapshot without changing the session.
+
+    ``console_settings`` uses process environment variables as an adapter surface for
+    several non-secret settings. Building a reusable AUD snapshot must not promote an
+    execution-only profile overlay into the parent console environment, so every key
+    touched by that projection is restored exactly after serialization.
+    """
     from rasai import console_settings
 
-    console_settings.sync_nonsecret_runtime_environment(state)
-    parser = console_settings._parser_for_state(state)
-    settings = {
-        section: {name: value for name, value in parser.items(section, raw=True)}
-        for section in parser.sections()
-    }
+    projection = console_settings._runtime_environment_projection(state)
+    names = set(console_settings._known_nonsecret_environment_names()) | set(projection)
+    environment_snapshot = _capture_environment(names)
+    try:
+        console_settings.sync_nonsecret_runtime_environment(state)
+        parser = console_settings._parser_for_state(state)
+        settings = {
+            section: {name: value for name, value in parser.items(section, raw=True)}
+            for section in parser.sections()
+        }
+    finally:
+        _restore_environment(environment_snapshot)
+
     # Filesystem placement and the original URL/TXT representation are operational
     # details. The effective normalized target set is the reproducible input.
     console = settings.get("console", {})
@@ -53,6 +78,40 @@ def _export_settings(state: Any, targets: tuple[str, ...] | list[str]) -> dict[s
     if search is not None:
         payload["search_intelligence"] = search
     return payload
+
+
+def _execution_profile_metadata(session: Any) -> dict[str, Any]:
+    return {
+        "profile_id": str(getattr(session, "profile_id", "") or ""),
+        "label": str(getattr(session, "label", "") or ""),
+        "modules": list(tuple(getattr(session, "modules", ()) or ())),
+        "ai_mode": str(getattr(session, "ai_mode", "") or ""),
+        "manual_overrides": sorted(str(item) for item in (getattr(session, "manual_overrides", set()) or set())),
+    }
+
+
+def _effective_execution_snapshot(
+    state: Any,
+    preflight: Any,
+) -> tuple[tuple[str, ...], dict[str, Any]]:
+    """Resolve the exact profile/user state used by the next audit subprocess.
+
+    Profile projection is deliberately temporary. The same ``effective_profile``
+    context used by execution is used here for preflight and serialization, then the
+    parent session is restored before the real runner applies the profile again.
+    """
+    from rasai.console_execution_profiles import active_profile, effective_profile
+
+    session = active_profile(state)
+    if session is None:
+        targets = tuple(preflight(state))
+        return targets, _export_settings(state, targets)
+
+    with effective_profile(state, session):
+        targets = tuple(preflight(state))
+        effective = _export_settings(state, targets)
+        effective["execution_profile"] = _execution_profile_metadata(session)
+    return targets, effective
 
 
 def _as_bool(value: Any, *, default: bool) -> bool:
@@ -136,8 +195,9 @@ def _apply_settings(state: Any, configuration: Mapping[str, Any], source_audit_i
     if not isinstance(environment, Mapping):
         raise ValueError("snapshot de console possui seção environment inválida")
 
-    # Historical non-secret settings override the current non-secret session. Secrets
-    # remain outside this allowlist and continue resolved from the current OS/session.
+    # Historical non-secret settings override the current non-secret session only after
+    # the operator explicitly chooses to load that AUD. Secrets remain outside this
+    # allowlist and continue resolved from the current OS/session.
     for name in allowed_environment:
         raw = environment.get(name)
         if raw is None or not str(raw).strip():
@@ -291,13 +351,12 @@ def install(interactive_console: ModuleType) -> None:
 
     def run_with_configuration(state: Any) -> int:
         try:
-            targets = tuple(preflight(state))
+            targets, effective = _effective_execution_snapshot(state, preflight)
         except (OSError, UnicodeError, ValueError):
             # Preserve the final console runtime as the authority for validation and
             # user-facing error handling. No audit => no snapshot to persist.
             return original_run(state)
 
-        effective = _export_settings(state, targets)
         source = _SESSION_SOURCE.get(id(state))
         differences = changed_fields(source.configuration, effective) if source else ()
         with configuration_context(
@@ -307,7 +366,11 @@ def install(interactive_console: ModuleType) -> None:
             source_configuration_hash=source.configuration_hash if source else None,
             changed_fields=differences,
             execution_series_id=source.execution_series_id if source else None,
-            scope={"surface": "console"},
+            scope={
+                "surface": "console",
+                "profile_effective": bool(effective.get("execution_profile")),
+                "targets": len(targets),
+            },
         ):
             return original_run(state)
 
