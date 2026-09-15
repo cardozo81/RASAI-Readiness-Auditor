@@ -10,6 +10,10 @@ from rasai.execution_completion_reliability import (
     _install_console_gsc_profile_lifetime,
     _reconcile_crux_no_data,
 )
+from rasai.execution_context_isolation import (
+    build_execution_environment,
+    install as install_execution_context_isolation,
+)
 from rasai.gsc_scope import GSC_ENABLED_ENV
 from rasai.m21_web_performance import M21ExecutionResult
 
@@ -134,11 +138,12 @@ def test_m24_schema_binds_each_resource_to_its_own_evidence_ids() -> None:
     assert by_resource["SITEMAP"]["properties"]["evidence_ids"]["items"]["enum"] == ["EV-SITEMAP-1"]
 
 
-def test_active_profile_keeps_gsc_disabled_until_profile_is_cleared(monkeypatch) -> None:
+def test_active_profile_keeps_canonical_gsc_and_projects_disabled_only_to_execution(monkeypatch) -> None:
     from rasai import console_execution_profile_readiness as readiness
 
     monkeypatch.setenv(GSC_ENABLED_ENV, "true")
     _install_console_gsc_profile_lifetime()
+    install_execution_context_isolation()
     readiness.install()
     state = SimpleNamespace(
         input_mode="url",
@@ -167,10 +172,11 @@ def test_active_profile_keeps_gsc_disabled_until_profile_is_cleared(monkeypatch)
     readiness.set_gsc_profile_policy(session, readiness.GSC_PROFILE_DISABLED)
 
     with profiles.effective_profile(state, session):
-        assert GSC_ENABLED_ENV in __import__("os").environ
-        assert __import__("os").environ[GSC_ENABLED_ENV] == "false"
-    # Outer report/finalization wrappers still belong to the active profile session.
-    assert __import__("os").environ[GSC_ENABLED_ENV] == "false"
+        # Canonical user/session configuration is never the profile overlay.
+        assert __import__("os").environ[GSC_ENABLED_ENV] == "true"
+        execution_env = build_execution_environment(state)
+        assert execution_env[GSC_ENABLED_ENV] == "false"
 
+    assert __import__("os").environ[GSC_ENABLED_ENV] == "true"
     profiles.clear_profile(state)
     assert __import__("os").environ[GSC_ENABLED_ENV] == "true"
