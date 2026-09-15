@@ -152,6 +152,7 @@ def install() -> None:
     from rasai.core_reprocessing import install as install_core_reprocessing
     from rasai.core_reprocessing_context import install as install_core_reprocessing_context
     from rasai.execution_evidence_reporting import install as install_execution_evidence_reporting
+    from rasai.execution_profile_report_capabilities import install as install_execution_profile_report_capabilities
     from rasai.fulfillment_execution_contract import install as install_fulfillment_execution_contract
     from rasai.reprocess_failure_preservation import install as install_reprocess_failure_preservation
     from rasai.reprocess_runtime_safety import install as install_reprocess_runtime_safety
@@ -184,6 +185,9 @@ def install() -> None:
     # wrapper is installed before the public UX guard so the guard's common HTML pass
     # sees the regenerated page and applies the same navigation/status treatment to it.
     install_execution_evidence_reporting()
+    # Profiles persist canonical capability IDs; keep the public evidence page on the
+    # same vocabulary instead of retaining the former module label/key.
+    install_execution_profile_report_capabilities()
     # Presentation-only final guard: fulfillment and recovery functions must already
     # be imported so references copied by value can be reconciled safely.
     install_report_public_ux_guard()
