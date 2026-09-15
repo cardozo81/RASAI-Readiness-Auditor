@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'src/rasai/audit_catalog.py'
       - 'src/rasai/console_*.py'
       - 'src/rasai/interactive_console.py'
       - 'src/rasai/integration_diagnostics_console.py'
