@@ -1,15 +1,17 @@
 """Final operator-facing refinements for selective AUD reprocessing.
 
-This module is intentionally presentation/orchestration-only. It keeps the canonical
-``audit_reprocess.reprocess_audit`` engine, fixes the final work-item preview semantics,
-adds a selective pre-execution AI cost preview based on the same historical forecaster
-used by normal processing, and keeps the operator on a complete post-run action surface.
+This module owns the final console UX for selective reprocessing. It keeps the canonical
+``audit_reprocess.reprocess_audit`` engine, excludes terminal/non-applicable work from the
+retry queue, presents an explicit pre-run AI cost forecast, and guarantees immediate
+operator feedback after confirmation even when the RPR completes quickly.
 """
 from __future__ import annotations
 
 from contextvars import ContextVar
 from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
+from textwrap import wrap
 from types import ModuleType, SimpleNamespace
 from typing import Any
 
@@ -22,16 +24,35 @@ _AI_COMPONENTS = frozenset(
     }
 )
 _EXCLUDED_STATUSES = frozenset({"SUCCESS", "DISABLED", "NOT_APPLICABLE"})
-_REPEAT_REQUESTED: ContextVar[bool] = ContextVar(
-    "rasai_repeat_reprocess_requested",
-    default=False,
-)
+_REPEAT_REQUESTED: ContextVar[bool] = ContextVar("rasai_repeat_reprocess_requested", default=False)
+_CURRENT_AUDIT_ID: ContextVar[str] = ContextVar("rasai_current_reprocess_audit_id", default="")
+_WIDTH = 100
+_LABEL_WIDTH = 22
+_VALUE_WIDTH = _WIDTH - _LABEL_WIDTH - 3
 
 
 def _as_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     return str(value or "").strip().casefold() in {"1", "true", "yes", "on", "sim", "s"}
+
+
+def _section(title: str) -> None:
+    print(f"\n{title}")
+    print("-" * _WIDTH)
+
+
+def _field(label: str, value: Any) -> None:
+    print(f"{label:<{_LABEL_WIDTH}} : {value}")
+
+
+def _wrapped_field(label: str, value: Any) -> None:
+    text = str(value or "-").strip() or "-"
+    lines = wrap(text, width=_VALUE_WIDTH, break_long_words=False, break_on_hyphens=False) or ["-"]
+    print(f"{label:<{_LABEL_WIDTH}} : {lines[0]}")
+    continuation = " " * (_LABEL_WIDTH + 3)
+    for line in lines[1:]:
+        print(f"{continuation}{line}")
 
 
 def _work_item_preview(state: Any, audit_id: str) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
@@ -100,9 +121,11 @@ def _source_forecast_state(state: Any, audit_id: str) -> Any | None:
         max_pages = max(len(clean_targets), 1)
     provider = str(ai.get("provider") or "none").strip().casefold()
     model = str(ai.get("model") or "").strip() or None
+    reasoning = str(ai.get("reasoning") or ai.get("reasoning_effort") or "").strip() or None
     return SimpleNamespace(
         ai_provider=provider,
         ai_model=model,
+        ai_reasoning=reasoning,
         content_remediation=_as_bool(ai.get("content_remediation")),
         technical_remediation=_as_bool(ai.get("technical_remediation")),
         improvement_enabled=_as_bool(environment.get("RASAI_IMPROVEMENT_INTELLIGENCE")),
@@ -152,35 +175,92 @@ def _money(value: float | None, currency: str | None) -> str:
     return f"{currency} {value:.6f}"
 
 
+def _catalog_fallback_estimate(
+    forecast_state: Any,
+    pending_ai_items: tuple[Any, ...],
+) -> tuple[float, str, int, int, str] | None:
+    """Estimate explicit-provider RPR cost from canonical pricing when history is absent."""
+    selection = str(getattr(forecast_state, "ai_provider", "none") or "none").strip().casefold()
+    if selection in {"none", "auto"}:
+        return None
+
+    from rasai.ai_cost_policy import estimate_candidate_cost
+    from rasai.provider_registry import get_provider_registration
+
+    registration = get_provider_registration(selection)
+    provider_name = registration.provider_name if registration is not None else selection.upper()
+    model = str(getattr(forecast_state, "ai_model", "") or "").strip()
+    if not model and registration is not None:
+        model = str(registration.default_model or "").strip()
+    if not provider_name or not model:
+        return None
+
+    provider = SimpleNamespace(
+        name=provider_name,
+        model=model,
+        reasoning_profile=str(getattr(forecast_state, "ai_reasoning", "") or "PROVIDER_DEFAULT"),
+    )
+    scope_by_component = {
+        "SEMANTIC_AI": "SEMANTIC",
+        "TECHNICAL_AI": "M24_TECHNICAL_REMEDIATION",
+        "CONTENT_REMEDIATION_AI": "CONTENT_REMEDIATION",
+        "IMPROVEMENT_INTELLIGENCE": "CONSOLIDATED_SPECIALIST",
+    }
+    total = 0.0
+    currency: str | None = None
+    input_tokens = 0
+    output_tokens = 0
+    contexts: list[str] = []
+    now = datetime.now(timezone.utc)
+    for item in pending_ai_items:
+        scope = scope_by_component.get(str(getattr(item, "component", "")).upper(), "SEMANTIC")
+        estimate = estimate_candidate_cost(provider, None, scope=scope, at=now)
+        if estimate.estimated_cost is None or not estimate.currency:
+            return None
+        if currency is None:
+            currency = estimate.currency
+        elif currency != estimate.currency:
+            return None
+        total += float(estimate.estimated_cost)
+        input_tokens += int(estimate.estimated_input_tokens)
+        output_tokens += int(estimate.estimated_output_tokens)
+        if estimate.pricing_context:
+            contexts.append(str(estimate.pricing_context))
+    if currency is None:
+        return None
+    context = ", ".join(dict.fromkeys(contexts)) or "STANDARD"
+    return round(total, 10), currency, input_tokens, output_tokens, context
+
+
 def _render_reprocess_cost_preview(state: Any, audit_id: str, pending: tuple[Any, ...]) -> None:
-    """Render an explicit pre-RPR AI cost preview without inventing unknown token usage."""
+    """Render a truthful pre-RPR AI cost preview, with catalog fallback when needed."""
     pending_ai_items = tuple(
         item
         for item in pending
         if str(getattr(item, "component", "")).upper() in _AI_COMPONENTS
         and str(getattr(item, "status", "")).upper() not in _EXCLUDED_STATUSES
     )
-    print("\nPRÉVIA DE CUSTO - REPROCESSAMENTO SELETIVO")
-    print("-" * 100)
+    _section("PREVISÃO DE CUSTO DE IA")
     if not pending_ai_items:
-        print("Requisitos IA pendentes: 0")
-        print("Custo IA incremental : 0 (nenhum requisito de IA será reexecutado nesta tentativa)")
+        _field("Requisitos IA", "0")
+        _field("Previsão", "NÃO APLICÁVEL")
+        _field("Custo incremental", "0 (nenhuma chamada de IA prevista nesta tentativa)")
         return
 
     all_ai_items = _all_applicable_ai_items(state, audit_id)
     total_ai = max(len(all_ai_items), len(pending_ai_items))
-    print(f"Requisitos IA pendentes: {len(pending_ai_items)}/{total_ai} aplicável(is)")
+    _field("Requisitos IA", f"{len(pending_ai_items)}/{total_ai} pendente(s)")
 
     forecast_state = _source_forecast_state(state, audit_id)
     if forecast_state is None:
-        print("Custo monetário       : não estimável antes da tentativa")
-        print("Motivo                 : snapshot canônico da configuração original indisponível/incompatível")
-        print("Observação             : nenhuma quantidade de tokens ou preço desconhecido foi inventado")
+        _field("Previsão", "INDISPONÍVEL")
+        _wrapped_field("Motivo", "snapshot canônico da configuração original indisponível ou incompatível")
+        _wrapped_field("Segurança", "nenhum custo ou volume de tokens desconhecido será inventado")
         return
 
-    print(
-        "Configuração IA      : "
-        f"{forecast_state.ai_provider} / {forecast_state.ai_model or '<modelo efetivo/default>'}"
+    _field(
+        "Configuração do AUD",
+        f"{forecast_state.ai_provider} / {forecast_state.ai_model or '<modelo efetivo/default>'}",
     )
     from rasai.cost_forecast import forecast_local_cost
 
@@ -189,31 +269,43 @@ def _render_reprocess_cost_preview(state: Any, audit_id: str, pending: tuple[Any
         pending_ai=len(pending_ai_items),
         total_ai=total_ai,
     )
-    if not forecast.show_confirmation or forecast.expected is None or not forecast.currency:
-        print("Custo monetário       : não estimável com segurança antes da tentativa")
-        for note in tuple(forecast.notes or ())[:5]:
-            print(f"Observação             : {note}")
-        print("Após a tentativa, tokens e custo técnico persistido serão exibidos quando disponíveis.")
+    if forecast.show_confirmation and forecast.expected is not None and forecast.currency:
+        _field("Previsão", "HISTÓRICA")
+        _field("Base histórica", f"{forecast.sample_runs} execução(ões) / {forecast.sample_calls} chamada(s)")
+        _field("Custo só sucessos", _money(forecast.success_baseline, forecast.currency))
+        _field("Custo esperado", _money(forecast.expected, forecast.currency))
+        _field(
+            "Faixa provável",
+            f"{_money(forecast.likely_low, forecast.currency)} - {_money(forecast.likely_high, forecast.currency)}",
+        )
+        _field("Cenário potencial", _money(forecast.potential, forecast.currency))
+        _field("Confiança", forecast.confidence)
+        _wrapped_field(
+            "Critério",
+            "histórico financeiro comparável e pricing vigente, proporcional somente aos requisitos de IA pendentes",
+        )
         return
 
-    print(
-        "Base histórica       : "
-        f"{forecast.sample_runs} execução(ões), {forecast.sample_calls} chamada(s) com custo conhecido"
-    )
-    print(f"Custo só sucessos     : {_money(forecast.success_baseline, forecast.currency)}")
-    print(f"Custo esperado        : {_money(forecast.expected, forecast.currency)}")
-    print(
-        "Faixa provável       : "
-        f"{_money(forecast.likely_low, forecast.currency)} - "
-        f"{_money(forecast.likely_high, forecast.currency)}"
-    )
-    print(f"Cenário potencial     : {_money(forecast.potential, forecast.currency)}")
-    print(f"Confiança             : {forecast.confidence}")
-    print(
-        "Critério             : mesmo histórico/preço canônico da execução normal, proporcional "
-        "somente aos requisitos de IA ainda pendentes"
-    )
-    print("Observação             : estimativa técnica; não representa invoice/fatura do provider")
+    catalog = _catalog_fallback_estimate(forecast_state, pending_ai_items)
+    if catalog is not None:
+        amount, currency, input_tokens, output_tokens, context = catalog
+        _field("Previsão", "CATÁLOGO / BAIXA CONFIANÇA")
+        _field("Custo estimado", _money(amount, currency))
+        _field("Tokens estimados", f"entrada={input_tokens} | saída={output_tokens}")
+        _field("Contexto de preço", context)
+        _wrapped_field(
+            "Base",
+            "pricing canônico vigente e orçamento estático de tokens por escopo; usado somente porque não há histórico financeiro comparável",
+        )
+        _wrapped_field("Limite", "estimativa técnica de pré-execução; não representa invoice/fatura do provider")
+        return
+
+    _field("Previsão", "SEM VALOR MONETÁRIO CONFIÁVEL")
+    notes = tuple(forecast.notes or ())
+    _wrapped_field("Motivo", notes[0] if notes else "não há base financeira comparável para estimar esta tentativa")
+    if str(forecast_state.ai_provider).casefold() == "auto":
+        _wrapped_field("Contexto", "AI=auto pode escolher provider/modelo diferente; sem histórico comparável não há valor único seguro antes do roteamento")
+    _wrapped_field("Após executar", "tokens e custo técnico persistido serão exibidos quando disponíveis")
 
 
 def render_reprocess_preparation(
@@ -223,12 +315,13 @@ def render_reprocess_preparation(
     pending: tuple[Any, ...],
     successes: tuple[Any, ...],
 ) -> None:
-    """Render preparation, selective cost preview and explicit confirm/cancel actions."""
+    """Render a compact, hierarchical preparation screen with explicit cost semantics."""
     from rasai import console_navigation
     from rasai import console_reprocess_parity as parity
     from rasai.audit_fulfillment import DISABLED, NOT_APPLICABLE, list_work_items
     from rasai.persistence import AuditWorkspace
 
+    _CURRENT_AUDIT_ID.set(audit_id)
     audit_root = Path(state.audits_root) / audit_id
     summary = console_navigation._safe_summary(audit_root, audit_id)
     excluded = 0
@@ -243,49 +336,94 @@ def render_reprocess_preparation(
         excluded = 0
 
     console_module.render_header(state)
-    print("INÍCIO > AUDITORIAS / HISTÓRICO > REPROCESSAR AUDITORIA\n")
-    print("PREPARAR REPROCESSAMENTO")
-    print("-" * 100)
-    print(f"AUD                  : {audit_id}")
-    print(f"Situação atual       : {parity._friendly_status(summary.get('processing_status'))}")
+    print("INÍCIO > AUDITORIAS / HISTÓRICO > REPROCESSAR AUDITORIA")
+    print("\nPREPARAR REPROCESSAMENTO")
+    print("=" * _WIDTH)
+    _field("AUD", audit_id)
+    _field("Situação", parity._friendly_status(summary.get("processing_status")))
     if summary:
-        print(
-            "Requisitos           : "
-            f"{summary.get('successful_items', 0)}/{summary.get('required_items', 0)} atendidos"
+        _field(
+            "Requisitos",
+            f"{summary.get('successful_items', 0)}/{summary.get('required_items', 0)} atendidos",
         )
-    print(f"Pendentes/bloqueados : {len(pending)}")
-    print(f"Sucessos preservados : {len(successes)}")
-    if excluded:
-        print(f"Não aplicáveis       : {excluded} (fora da fila de reprocessamento)")
+    _field("Pendências a tentar", len(pending))
+    _field("Sucessos preservados", len(successes))
+    _field("Fora da fila", f"{excluded} não aplicável(is)/desabilitado(s)")
 
-    print("\nESCOPO DESTA TENTATIVA")
-    print("-" * 100)
+    _section("PENDÊNCIAS DESTA TENTATIVA")
     if pending:
-        for item in pending[:30]:
-            print(
-                f"- {item.component}/{item.scope_key}: "
-                f"{parity._friendly_status(getattr(item, 'status', ''))}"
-            )
+        for index, item in enumerate(pending[:30], start=1):
+            component = f"{item.component} / {item.scope_key}"
+            print(f"{index:>2}. {component}")
+            _wrapped_field("    Status", parity._friendly_status(getattr(item, "status", "")))
             reason = parity._reason_text(item)
             if reason != "motivo específico não persistido":
-                print(f"  Motivo              : {reason}")
+                _wrapped_field("    Motivo", reason)
+            if index != min(len(pending), 30):
+                print()
         if len(pending) > 30:
-            print(f"- ... e mais {len(pending) - 30} requisito(s) pendente(s)")
+            print(f"... e mais {len(pending) - 30} requisito(s) pendente(s)")
     else:
         print("Nenhum requisito aplicável está pendente para nova tentativa.")
 
-    print("\nCOMPORTAMENTO")
-    print("-" * 100)
-    print("- resultados já bem-sucedidos permanecem preservados e não são repetidos por padrão")
-    print("- itens DISABLED/NOT_APPLICABLE ficam fora da fila e não contam como pendência")
-    print("- chamadas externas/IA ocorrem apenas quando o requisito realmente precisar ser recuperado")
-    print("- consumo adicional desta tentativa e consumo acumulado do AUD aparecem ao final")
+    _section("REGRAS DESTA TENTATIVA")
+    print("- sucessos anteriores são preservados e não são executados novamente por padrão")
+    print("- itens DISABLED/NOT_APPLICABLE ficam fora da fila")
+    print("- chamadas externas/IA só ocorrem para requisitos que realmente precisarem de recuperação")
+    print("- consumo adicional e consumo acumulado do AUD aparecem ao final")
 
     _render_reprocess_cost_preview(state, audit_id, pending)
 
-    print("\nAÇÕES")
-    print("C. Confirmar e iniciar reprocessamento")
-    print("V. Voltar sem reprocessar")
+    _section("AÇÕES")
+    print(" C. Confirmar e iniciar reprocessamento")
+    print(" V. Voltar sem reprocessar")
+
+
+def _confirm_reprocess_with_feedback(console_module: ModuleType, state: Any) -> bool:
+    """Require an explicit choice and render the execution surface immediately on C."""
+    from rasai import console_runtime
+
+    while True:
+        choice = input("Escolha [C/V]: ").strip().upper()
+        if choice == "C":
+            audit_id = _CURRENT_AUDIT_ID.get()
+            if audit_id and hasattr(state, "audit_id"):
+                state.audit_id = audit_id
+            state.status = "REPROCESSING"
+            state.operation = "LOCAL:AUD_REPROCESS"
+            state.error = ""
+            console_runtime.set_runtime_progress(
+                state,
+                "Preparando reprocessamento",
+                0.0,
+                detail="confirmação recebida; iniciando os requisitos pendentes",
+                exact=False,
+            )
+            console_module.render_header(state)
+            print("REPROCESSAMENTO EM EXECUÇÃO")
+            print("-" * _WIDTH)
+            if audit_id:
+                _field("AUD", audit_id)
+                _field("Log técnico", Path(state.audits_root) / audit_id / "logs" / "audit.log")
+            print("A execução foi iniciada. Esta tela será atualizada automaticamente.")
+            return True
+        if choice in {"V", "Q"}:
+            state.operation = "LOCAL:AUD_REPROCESS_CANCELLED"
+            state.error = ""
+            _CURRENT_AUDIT_ID.set("")
+            return False
+        print("Opção inválida. Use C para confirmar ou V para voltar.")
+
+
+def _render_live_frame(console_module: ModuleType, state: Any, audit_root: Path) -> None:
+    """Render the same progress header as processing plus explicit RPR context."""
+    console_module.render_header(state)
+    if str(getattr(state, "status", "")).upper() == "REPROCESSING":
+        print("REPROCESSAMENTO EM EXECUÇÃO")
+        print("-" * _WIDTH)
+    if getattr(state, "audit_id", ""):
+        _field("Audit ID", state.audit_id)
+    _field("Log técnico", audit_root / "logs" / "audit.log")
 
 
 def _can_repeat(unresolved: tuple[Any, ...]) -> bool:
@@ -390,6 +528,8 @@ def install(console_module: ModuleType) -> None:
 
     navigation._work_item_preview = _work_item_preview
     parity.render_reprocess_preparation = render_reprocess_preparation
+    parity._confirm_reprocess = lambda state: _confirm_reprocess_with_feedback(console_module, state)
+    parity._render_live_frame = _render_live_frame
     parity._run_post_actions = _run_post_actions
     navigation._reprocess_selected = _reprocess_selected
     usability._reprocess_selected = _reprocess_selected
