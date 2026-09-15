@@ -59,6 +59,13 @@ def test_search_capability_filter_does_not_expose_unrelated_ai_variables() -> No
     assert "RASAI_CRUX_API_KEY" not in names
 
 
+def test_search_console_notice_matches_explicit_save_contract() -> None:
+    rendered = ui._rewrite_search_copy(ui._SEARCH_OLD_NOTICE)
+    assert "não são gravados" not in rendered
+    assert "Salvar configuração" in rendered
+    assert "rasai-console.ini" in rendered
+
+
 def test_search_inputs_are_persisted_only_by_console_save(tmp_path) -> None:
     ui._install_search_persistence()
     state = SearchConsoleState()
