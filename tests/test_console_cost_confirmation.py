@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from types import ModuleType, SimpleNamespace
 
 from rasai import console_cost_confirmation
@@ -126,14 +127,18 @@ def test_post_run_zero_cost_without_ai_success_is_not_within_expected() -> None:
         actual_pages=3,
         ai_attempts=1,
         ai_successes=0,
+        ai_failure_context="OPENAI/gpt-test; NETWORK; code=CONNECT_ERROR",
     )
     assert outcome.comparable is False
     assert outcome.status == "NÃO CONSUMIDO"
     assert outcome.actual == 0.0
     assert outcome.deviation is None
     assert outcome.deviation_percent is None
-    assert "1 tentativa(s)" in " ".join(outcome.notes)
-    assert "não representa aderência" in " ".join(outcome.notes)
+    notes = " ".join(outcome.notes)
+    assert "1 tentativa(s)" in notes
+    assert "Motivo técnico registrado" in notes
+    assert "NETWORK" in notes
+    assert "não representa aderência" in notes
 
 
 def test_post_run_without_materialized_ai_attempt_is_not_within_expected() -> None:
@@ -149,3 +154,44 @@ def test_post_run_without_materialized_ai_attempt_is_not_within_expected() -> No
     assert outcome.status == "NÃO CONSUMIDO"
     assert outcome.actual == 0.0
     assert "nenhuma tentativa" in " ".join(outcome.notes)
+
+
+def test_latest_ai_failure_context_reuses_persisted_diagnostic(tmp_path) -> None:
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            """
+            CREATE TABLE ai_provider_attempts (
+                provider TEXT,
+                model TEXT,
+                status TEXT,
+                http_status INTEGER,
+                error_class TEXT,
+                error_type TEXT,
+                error_code TEXT,
+                started_at TEXT
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?)
+            """,
+            (
+                "OPENAI",
+                "gpt-test",
+                "FAILED",
+                503,
+                "NETWORK",
+                "ConnectError",
+                "CONNECT_ERROR",
+                "2026-09-15T12:00:00+00:00",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    context = console_cost_confirmation._latest_ai_failure_context(tmp_path)
+    assert context == "OPENAI/gpt-test; NETWORK; code=CONNECT_ERROR; HTTP 503"
