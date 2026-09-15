@@ -11,15 +11,9 @@ A escolha do provider não altera a persona. Uma mesma tarefa recebe o mesmo per
 
 Os perfis são versionados e configuráveis porque a redação da persona pode exigir ajuste fino ao longo do tempo. Essa flexibilidade não permite alterar contratos normativos de evidência, schema, scoring, causalidade, segurança ou revisão humana.
 
-## Arquivos
+## Arquivos e responsabilidade
 
-### Configuração editável pelo operador
-
-```text
-config/ai-task-profiles.toml
-```
-
-Esse arquivo pode ser alterado diretamente para refinamento das personas.
+O modelo usa deliberadamente duas camadas com responsabilidades diferentes.
 
 ### Catálogo de fábrica
 
@@ -27,7 +21,44 @@ Esse arquivo pode ser alterado diretamente para refinamento das personas.
 src/rasai/config/ai-profiles-defaults.toml
 ```
 
-É a referência canônica usada quando não existe configuração local aplicável.
+É a baseline canônica distribuída dentro do pacote Python. Contém todos os perfis obrigatórios e é usada diretamente quando não existe override aplicável ou quando `RASAI_AI_TASK_PROFILES_SOURCE=factory`.
+
+Esse arquivo **não é o ponto de customização do operador**. Alterá-lo significa mudar a baseline do produto e exige tratamento como alteração de código/produto, com testes e versionamento correspondentes.
+
+### Overrides editáveis pelo operador
+
+```text
+config/ai-task-profiles.toml
+```
+
+Esse é o arquivo destinado ao ajuste humano das personas. Ele é deliberadamente **vazio de overrides por padrão** para não congelar uma cópia do catálogo de fábrica.
+
+O operador deve adicionar somente os perfis que realmente deseja customizar. Perfis omitidos continuam herdando automaticamente a versão mais recente da baseline de fábrica.
+
+O arquivo editável não é tecnicamente necessário para o runtime funcionar: se ele estiver ausente e a fonte for `auto`, o runtime usa a baseline de fábrica. Ele é mantido no projeto como superfície explícita e pronta para customização humana.
+
+> Não copie o catálogo de fábrica inteiro para o arquivo editável sem necessidade. Fazer isso transforma todos os perfis em overrides locais e pode mascarar futuras atualizações da baseline do produto.
+
+## Qual arquivo o humano deve editar
+
+Para ajuste operacional, edite somente:
+
+```text
+config/ai-task-profiles.toml
+```
+
+Com a configuração padrão:
+
+```text
+RASAI_AI_TASK_PROFILES_SOURCE=auto
+RASAI_AI_TASK_PROFILES_FILE=config/ai-task-profiles.toml
+```
+
+o runtime usa os overrides presentes nesse arquivo e completa os demais perfis com a baseline de fábrica.
+
+Alterações salvas no TOML são resolvidas novamente na próxima utilização de um perfil de IA. Não é necessário reiniciar o console apenas para recarregar uma alteração de persona.
+
+Se `RASAI_AI_TASK_PROFILES_SOURCE=factory`, qualquer ajuste no arquivo editável é ignorado intencionalmente. Se `SOURCE=file`, o arquivo configurado precisa existir e ser válido.
 
 ## Seleção da fonte
 
@@ -42,9 +73,9 @@ Comportamento:
 
 | Fonte | Regra |
 |---|---|
-| `auto` | usa o arquivo configurado quando ele existe; caso contrário usa o catálogo de fábrica |
+| `auto` | usa os overrides do arquivo configurado quando ele existe; se não existir, usa somente o catálogo de fábrica |
 | `factory` | ignora override local e usa somente o catálogo de fábrica |
-| `file` | exige que o arquivo configurado exista e seja válido |
+| `file` | exige que o arquivo configurado exista e seja válido; os perfis nele presentes sobrescrevem a fábrica |
 
 O caminho padrão do override é:
 
@@ -52,7 +83,7 @@ O caminho padrão do override é:
 config/ai-task-profiles.toml
 ```
 
-Overrides podem ser parciais. Perfis omitidos continuam herdando o valor de fábrica.
+Overrides são parciais **no nível do perfil**. Perfis omitidos continuam herdando a fábrica. Quando um `profile_id` é sobrescrito, a seção precisa informar integralmente `version`, `role`, `objective`, `competencies` e `guidance`.
 
 ## O que pode ser alterado
 
@@ -330,12 +361,14 @@ A versão permite comparar auditorias históricas sem assumir que duas chamadas 
 
 Ao ajustar um perfil:
 
-1. altere somente o perfil diretamente relacionado ao problema observado;
-2. mantenha objetivo e competências específicos, evitando personas universais;
-3. não replique regras de schema/evidência no arquivo de persona;
-4. evite instruções de resultado garantido;
-5. altere `version` quando o comportamento esperado mudar;
-6. execute testes de contrato antes de promover o ajuste.
+1. edite `config/ai-task-profiles.toml`, não a baseline empacotada;
+2. adicione somente o perfil diretamente relacionado ao problema observado;
+3. ao sobrescrever um perfil, informe os cinco campos configuráveis completos;
+4. mantenha objetivo e competências específicos, evitando personas universais;
+5. não replique regras de schema/evidência no arquivo de persona;
+6. evite instruções de resultado garantido;
+7. altere `version` quando o comportamento esperado mudar;
+8. execute testes de contrato antes de promover o ajuste.
 
 ## Falha de configuração
 
@@ -347,6 +380,7 @@ São falhas, entre outras:
 - `schema_version` incompatível;
 - perfil com ID inválido;
 - competências vazias;
+- seção sobrescrita sem todos os campos obrigatórios;
 - campos desconhecidos;
 - textos acima dos limites definidos;
 - `RASAI_AI_TASK_PROFILES_SOURCE=file` apontando para arquivo inexistente.
