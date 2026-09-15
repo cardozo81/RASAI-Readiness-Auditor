@@ -37,7 +37,7 @@ class _Gateway:
         self.closed = True
 
 
-def _ux(duration: float, *, js: int = 0, first_http: int = 0) -> UxMeasurement:
+def _ux(duration: float, *, js: int = 0, console: int = 0, first_http: int = 0) -> UxMeasurement:
     return UxMeasurement(
         status="SUCCESS",
         user_action_duration_ms=duration,
@@ -52,6 +52,7 @@ def _ux(duration: float, *, js: int = 0, first_http: int = 0) -> UxMeasurement:
         http_status=200,
         final_url="https://example.com/",
         javascript_error_count=js,
+        console_error_count=console,
         first_party_http_error_count=first_http,
         http_error_count=first_http,
     )
@@ -119,6 +120,26 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
         self.assertEqual(value, 300.0)
         self.assertEqual(classification, "FRUSTRATED")
         self.assertTrue(forced)
+
+    def test_console_error_is_global_runtime_error_but_navigation_scope_remains_navigation_only(self) -> None:
+        calibration = Calibration(
+            source="TEST", kpm="USER_ACTION_DURATION",
+            satisfied_threshold_seconds=1.0, frustrated_threshold_seconds=4.0,
+            errors_affect_apdex=True, metadata={},
+        )
+        for scope in ("first-party", "all"):
+            classification, value, forced = classify_measurement(
+                _ux(300, console=1), calibration, error_scope=scope
+            )
+            self.assertEqual(value, 300.0)
+            self.assertEqual(classification, "FRUSTRATED")
+            self.assertTrue(forced)
+        classification, value, forced = classify_measurement(
+            _ux(300, console=1), calibration, error_scope="navigation"
+        )
+        self.assertEqual(value, 300.0)
+        self.assertEqual(classification, "SATISFIED")
+        self.assertFalse(forced)
 
     def test_dynatrace_configuration_parser_converts_old_millisecond_thresholds(self) -> None:
         parsed = parse_dynatrace_configuration(
@@ -215,6 +236,7 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
             self.assertEqual(population, (0.5, 2, 0, 2, 1))
             self.assertEqual(tablet, 1)
             self.assertNotIn("DYNATRACE_API_TOKEN", stored_config)
+            self.assertIn("measurement_contract", stored_config)
             report = workspace.root / "report" / "apdex-experience.html"
             self.assertTrue(report.is_file())
             html = report.read_text(encoding="utf-8")
