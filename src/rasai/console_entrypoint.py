@@ -38,6 +38,7 @@ from rasai.console_search_intelligence import install as install_search_intellig
 from rasai.console_secret_input import install_masked_secret_input
 from rasai.consolidation.integration import install as install_consolidation
 from rasai.context_scope_runtime import install as install_context_scope_runtime
+from rasai.execution_context_isolation import install as install_execution_context_isolation
 from rasai.external_measurement_runtime import install as install_external_measurement_runtime
 from rasai.external_observability_console import install as install_external_observability_console
 from rasai.external_observability_runtime import (
@@ -47,6 +48,7 @@ from rasai.external_observability_runtime import (
 from rasai.fulfillment_execution_contract import install_console_projection
 from rasai.gsc_oauth_console import install as install_gsc_oauth_console
 from rasai.gsc_oauth_runtime import install as install_gsc_oauth_runtime
+from rasai.gsc_scope_runtime import install as install_gsc_scope_runtime
 from rasai.improvement_intelligence_console import (
     install as install_improvement_intelligence_console,
     install_environment as install_improvement_intelligence_environment,
@@ -124,6 +126,7 @@ def main() -> int:
     install_standards_m21_reconciliation()
     install_standards_gsc_observability_runtime()
     install_gsc_oauth_runtime()
+    install_gsc_scope_runtime()
     # OAuth console metadata is part of the current public configuration contract.
     # Install it before INI/default preparation so Client ID is persistable while
     # Client Secret/Refresh Token remain secret-only and never enter the INI.
@@ -206,10 +209,12 @@ def main() -> int:
     # INÍCIO > Sistema / restaurar padrões.
     install_console_preparation_layout(interactive_console)
     install_audit_management_console(interactive_console)
-    # AUD loading/reuse synchronization is installed first. Reprocessing parity then
-    # becomes the final RPR presentation so a RPR uses the same execution/post-run surfaces as
-    # processing while retaining its RPR-specific result and unresolved-item diagnosis.
+    # AUD loading/reuse synchronization is installed first. Execution isolation is then
+    # applied at the console boundary, after profile/reuse/cancellation owners exist and
+    # before later result wrappers capture the composed runtime. Reprocessing parity then
+    # becomes the final RPR presentation.
     install_console_audit_workflow(interactive_console)
+    install_execution_context_isolation()
     install_console_reprocess_parity(interactive_console)
     # Search is executed by the final composed console chain. Project its result into
     # fulfillment before the canonical result screen computes the logical AUD state.
