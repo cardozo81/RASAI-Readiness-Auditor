@@ -8,6 +8,7 @@ from types import ModuleType, SimpleNamespace
 
 from rasai.cost_forecast import CostForecast, unavailable_forecast
 import rasai.console_reprocess_final_refinements as final
+import rasai.console_reprocess_visual_presentation as visual
 
 
 def _item(component: str, status: str, *, retryable: bool = True, required: bool = True):
@@ -137,6 +138,27 @@ def test_cost_preview_uses_canonical_catalog_fallback_without_history(monkeypatc
     assert "CATÁLOGO / BAIXA CONFIANÇA" in rendered
     assert "USD 0.012345" in rendered
     assert "entrada=14000" in rendered
+
+
+def test_zero_ai_preview_is_explicit_zero_cost_forecast() -> None:
+    pending = (
+        _item("EXPERIENCE_APDEX", "FAILED_RETRYABLE"),
+        _item("SYNTHETIC_APDEX", "FAILED_RETRYABLE"),
+    )
+
+    with redirect_stdout(StringIO()) as output:
+        visual._zero_ai_cost_preview(final, pending)
+
+    rendered = output.getvalue()
+    assert "PREVISÃO DE CUSTO DE IA" in rendered
+    assert "CUSTO ZERO — ESCOPO SEM IA" in rendered
+    assert "Chamadas IA previstas" in rendered
+    assert "Custo IA previsto" in rendered
+    assert "0 (zero)" in rendered
+    assert "EXATA PARA O ESCOPO ATUAL" in rendered
+    assert "EXPERIENCE_APDEX" in rendered
+    assert "SYNTHETIC_APDEX" in rendered
+    assert "NÃO APLICÁVEL" not in rendered
 
 
 def test_confirm_renders_progress_surface_immediately_with_slotted_state(monkeypatch, tmp_path: Path) -> None:
