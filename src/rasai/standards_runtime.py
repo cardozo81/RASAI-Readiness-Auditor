@@ -114,7 +114,13 @@ def install_service_contract() -> None:
                 description="W3C CSS Validation Service; bounded and throttled to at least one second between public-service requests.",
             ),
             contract.AuditJobOption("mdn_observatory", True, "boolean", description="MDN HTTP Observatory security posture scan."),
-            contract.AuditJobOption("web_platform_baseline", True, "boolean", description="WebDX/Baseline integration; requires versioned dataset on worker to materialize compatibility results."),
+            contract.AuditJobOption(
+                "web_platform_baseline", True, "boolean",
+                description=(
+                    "WebDX/Baseline over deterministic signals from AUD-owned HTML/inline CSS/JS; "
+                    "dataset source defaults to auto and is frozen per AUD."
+                ),
+            ),
             contract.AuditJobOption(
                 "pagespeed_enabled", None, "boolean",
                 required_when="Auto requires RASAI_PAGESPEED_API_KEY in worker/deployment environment.",
@@ -232,11 +238,18 @@ def install_console_service_catalog() -> None:
             upsert(console_environment.EnvironmentSpec(
                 item.dataset_env,
                 category,
-                "Caminho para dataset WebDX/web-features versionado usado na compatibilidade Baseline.",
-                "caminho de arquivo",
-                required_when="Somente para materializar Web Platform Baseline.",
+                "Fonte do dataset global WebDX/web-features: auto ou arquivo local existente.",
+                "auto ou caminho de arquivo existente",
+                default="auto",
+                required_when=(
+                    "Não requer configuração manual no uso normal. Use caminho local apenas "
+                    "para pin/versionamento explícito."
+                ),
                 source=source,
-                notes="Não é segredo e pode ser persistido no INI.",
+                notes=(
+                    "Não é segredo. Em auto, o runtime resolve a fonte oficial e congela a versão "
+                    "e o SHA-256 no próprio AUD antes de classificar sinais detectáveis."
+                ),
             ))
 
     for name, purpose, default in (
@@ -350,6 +363,7 @@ def install_report_runtime() -> None:
     from rasai.report_manifest import write_report_manifest
     from rasai.report_scale_ux import enhance_report_directory
     from rasai.standards_metrics import execute_standards_metrics, enrich_existing_reports, write_standards_report
+    from rasai.web_platform_baseline import materialize_web_platform_baseline
     if getattr(report_completion, "_rasai_standards_runtime", False):
         return
     original = report_completion.finalize_audit_report_site
@@ -364,6 +378,7 @@ def install_report_runtime() -> None:
         errors = list(base.renderer_errors)
         try:
             execute_standards_metrics(audit_id=audit_id, workspace=workspace)
+            materialize_web_platform_baseline(audit_id=audit_id, workspace=workspace)
             write_standards_report(audit_id=audit_id, workspace=workspace)
             enrich_existing_reports(audit_id=audit_id, workspace=workspace)
             report_dir = workspace.root / "report"
