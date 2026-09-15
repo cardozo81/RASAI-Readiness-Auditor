@@ -131,8 +131,8 @@ def _ensure_nonsecret_service_context_specs(base_environment: object, console_co
             ),
             sensitive=False,
             impact=(
-                "Sem custo de provider. 'auto' mantém a seleção canônica gerenciada pelo RASAi; "
-                "um caminho local fixa explicitamente a referência do operador."
+                "Sem custo de provider. Em 'auto', o RASAi consulta somente o registry npm oficial "
+                "para obter web-features e congela a versão exata no AUD; não envia a URL auditada."
             ),
             example=WEB_FEATURES_DATASET_AUTO,
             source=(
@@ -141,11 +141,11 @@ def _ensure_nonsecret_service_context_specs(base_environment: object, console_co
             ),
             notes=(
                 "Valores permitidos: 'auto' ou caminho para arquivo existente acessível ao processo. "
-                "O dataset WebDX/web-features é global e versionado; as características do domínio determinam "
-                "quais features seriam observadas na página, não qual dataset-base deve ser usado. "
-                "O runtime atual ainda não possui o detector/mapeador versionado de uso de features; portanto "
-                "a análise Baseline permanece NO_DATA mesmo com a fonte configurada. 'auto' não inventa "
-                "compatibilidade nem implica que um resultado Baseline já foi materializado."
+                "O dataset WebDX/web-features é global e versionado; o domínio determina os sinais "
+                "observados na página, não o dataset-base. O detector WEB-PLATFORM-BASELINE-001 mapeia "
+                "sinais determinísticos do HTML renderizado/raw e de CSS/JavaScript inline para as "
+                "compat_features do WebDX. Assets externos não são reconsultados e uso dinâmico não "
+                "diretamente observável não é declarado como detectado."
             ),
         ),
         base_environment.EnvironmentSpec(
