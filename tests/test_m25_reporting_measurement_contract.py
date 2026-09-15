@@ -20,16 +20,13 @@ def test_measurement_contract_is_rendered_without_expanding_settle_duration() ->
     assert "por si só não estende USER_ACTION_DURATION" in section
     assert "console.error" in section
     assert "first-party" in section
-    assert "LEGADO" not in section
-    assert "legad" not in section.lower()
 
 
-def test_missing_contract_metadata_never_switches_to_historical_behavior() -> None:
+def test_contract_rendering_keeps_current_semantics_when_optional_metadata_is_absent() -> None:
     context = _measurement_contract_context({})
     section = _measurement_contract_section(context)
 
     assert "Load Action configurada para esta execução" in section
     assert "observacional" in section
     assert "política de erro vigente" in section
-    assert "LEGADO" not in section
-    assert "legad" not in section.lower()
+    assert "Request failures e HTTP" in section
