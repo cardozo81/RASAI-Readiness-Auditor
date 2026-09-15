@@ -144,7 +144,6 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     dynatrace_contract = _dynatrace_contract_table(metadata)
     metrics = "".join((
         _metric("Estado", status),
-        _metric("Contrato de medição", measurement_contract["state"]),
         _metric("KPM efetiva", str(run["kpm"])),
         _metric("Satisfied <", f"{float(run['satisfied_threshold_seconds']):g} s"),
         _metric("Frustrated >", f"{float(run['frustrated_threshold_seconds']):g} s"),
@@ -192,8 +191,8 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
       <p><strong>Origem:</strong> {escape(str(run['calibration_source']))}. {escape(calibration_note)}</p>
       {fallback_notice}
       <p><strong>Mix de dispositivos:</strong> {escape(mix_text)}. <strong>Alvo:</strong> {int(run['target_samples_per_page'])} amostras válidas por página no total, não por device.</p>
-      <p><strong>Janela pós-load:</strong> até {float(run['settle_seconds']):g}s. O papel desta janela na duração está descrito no contrato de medição abaixo. <strong>Session mode:</strong> {escape(str(run['session_mode']))}; <code>cold</code> cria contexto isolado/cache frio por sample, <code>warm</code> preserva contexto/cookies/cache entre samples do mesmo worker/perfil.</p>
-      <p><strong>Política de erros:</strong> errors_affect_apdex={errors}, scope={escape(str(run['error_scope']))}. {_error_policy_note(run, measurement_contract)}</p>
+      <p><strong>Janela pós-load:</strong> até {float(run['settle_seconds']):g}s. Esta janela observa atividade tardia e network idle; por si só não estende <code>USER_ACTION_DURATION</code>. <strong>Session mode:</strong> {escape(str(run['session_mode']))}; <code>cold</code> cria contexto isolado/cache frio por sample, <code>warm</code> preserva contexto/cookies/cache entre samples do mesmo worker/perfil.</p>
+      <p><strong>Política de erros:</strong> errors_affect_apdex={errors}, scope={escape(str(run['error_scope']))}. {_error_policy_note(run)}</p>
     </section>
     {_measurement_contract_section(measurement_contract)}
     <section class='panel'>
@@ -227,49 +226,38 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     return _shell(nav, body)
 
 
-def _measurement_contract_context(configuration: dict[str, Any]) -> dict[str, str | bool]:
+def _measurement_contract_context(configuration: dict[str, Any]) -> dict[str, str]:
     raw = configuration.get("measurement_contract")
-    if not isinstance(raw, dict) or not raw:
-        return {
-            "state": "LEGADO",
-            "legacy": True,
-            "duration": "Contrato de duração não persistido nesta execução.",
-            "settle": "O papel exato da janela pós-load na duração não foi persistido nesta execução.",
-            "runtime_errors": "A semântica histórica de JavaScript e console.error não será reinterpretada pelo relatório atual.",
-            "request_errors": "O escopo registrado da execução é exibido, mas o contrato detalhado de request/HTTP errors não foi persistido.",
-        }
-
-    duration = str(raw.get("user_action_duration") or "")
-    settle_role = str(raw.get("settle_role") or "")
-    runtime_errors = str(raw.get("runtime_errors") or "")
-    request_scope = str(raw.get("request_error_scope") or "")
+    contract = raw if isinstance(raw, dict) else {}
+    duration = str(contract.get("user_action_duration") or "")
+    settle_role = str(contract.get("settle_role") or "")
+    runtime_errors = str(contract.get("runtime_errors") or "")
+    request_scope = str(contract.get("request_error_scope") or configuration.get("error_scope") or "")
 
     duration_note = (
         "USER_ACTION_DURATION vai de navigationStart até loadEventEnd; XHR/fetch iniciado antes do loadEventEnd "
         "pode estender a ação até o término desse request."
         if duration == "navigationStart_to_loadEventEnd_or_last_xhr_fetch_started_before_loadEventEnd"
-        else f"Contrato persistido: {duration or 'não informado'}."
+        else "USER_ACTION_DURATION segue a fronteira de Load Action configurada para esta execução."
     )
     settle_note = (
         "A janela pós-load observa atividade tardia e network idle; por si só não estende USER_ACTION_DURATION."
         if settle_role == "observation_only_not_duration_extension"
-        else f"Papel persistido da janela pós-load: {settle_role or 'não informado'}."
+        else "A janela pós-load é observacional e não deve ampliar a duração apenas por atividade tardia arbitrária."
     )
     runtime_note = (
         "Com errors_affect_apdex=true, erros JavaScript e console.error são erros de runtime qualificáveis nos "
         "escopos first-party e all; o escopo navigation permanece restrito à navegação."
         if runtime_errors == "javascript_and_console_errors_global_when_error_policy_is_enabled"
-        else f"Contrato persistido para erros de runtime: {runtime_errors or 'não informado'}."
+        else "Erros JavaScript e console.error seguem a política de erro vigente da execução."
     )
     request_note = (
         f"Request failures e HTTP ≥400 seguem o escopo configurado ({request_scope}); APPLICATION_ERROR da "
         "navegação permanece qualificável independentemente desse filtro."
         if request_scope
-        else "Request failures e HTTP ≥400 seguem o escopo configurado da execução."
+        else "Request failures e HTTP ≥400 seguem o escopo de erro configurado na execução."
     )
     return {
-        "state": "ATUAL",
-        "legacy": False,
         "duration": duration_note,
         "settle": settle_note,
         "runtime_errors": runtime_note,
@@ -277,14 +265,7 @@ def _measurement_contract_context(configuration: dict[str, Any]) -> dict[str, st
     }
 
 
-def _measurement_contract_section(contract: dict[str, str | bool]) -> str:
-    legacy = bool(contract.get("legacy"))
-    notice = (
-        "<p><strong>Execução legada:</strong> esta auditoria não persistiu o contrato de medição detalhado. "
-        "O relatório preserva os valores históricos e não aplica retroativamente a semântica atual.</p>"
-        if legacy
-        else "<p><strong>Contrato atual:</strong> a execução persistiu a fronteira de duração, o papel da janela pós-load e a política de erros usada na classificação.</p>"
-    )
+def _measurement_contract_section(contract: dict[str, str]) -> str:
     rows = "".join(
         (
             _contract_row("USER_ACTION_DURATION", contract["duration"]),
@@ -295,9 +276,8 @@ def _measurement_contract_section(contract: dict[str, str | bool]) -> str:
     )
     return (
         "<section class='panel'>"
-        "<div class='kicker'>Contrato de medição</div><h2>Como duração e erros foram interpretados</h2>"
-        f"{notice}"
-        "<div class='table-wrap'><table><thead><tr><th>Dimensão</th><th>Regra desta execução</th></tr></thead>"
+        "<div class='kicker'>Contrato de medição</div><h2>Como duração e erros são interpretados</h2>"
+        "<div class='table-wrap'><table><thead><tr><th>Dimensão</th><th>Regra da execução</th></tr></thead>"
         f"<tbody>{rows}</tbody></table></div>"
         "</section>"
     )
@@ -307,12 +287,7 @@ def _contract_row(label: str, value: Any) -> str:
     return f"<tr><td><strong>{escape(label)}</strong></td><td>{escape(str(value))}</td></tr>"
 
 
-def _error_policy_note(run: sqlite3.Row, contract: dict[str, str | bool]) -> str:
-    if bool(contract.get("legacy")):
-        return (
-            "Esta execução não persistiu o contrato detalhado de medição; o relatório mantém os contadores e "
-            "resultados históricos sem inferir retroativamente quais sinais eram qualificáveis."
-        )
+def _error_policy_note(run: sqlite3.Row) -> str:
     if not bool(run["errors_affect_apdex"]):
         return "Erros observados são diagnósticos e não forçam FRUSTRATED nesta execução."
     scope = str(run["error_scope"])
@@ -348,7 +323,7 @@ def _settings_table(run: sqlite3.Row, configuration: dict[str, Any], metadata: d
         _setting_row("Máximo de páginas", configuration.get("max_pages", DEFAULT_UX_MAX_PAGES), DEFAULT_UX_MAX_PAGES, _origin(int(configuration.get("max_pages", DEFAULT_UX_MAX_PAGES)), DEFAULT_UX_MAX_PAGES), "Parâmetro operacional RASAi."),
         _setting_row("Device mix", mix_value, default_mix, _origin(_mix_normalized(config_mix), _mix_normalized(_mix_from_text(default_mix))), "Sem default Dynatrace RUM; população real é observada."),
         _setting_row("Session mode", configuration.get("session_mode", run["session_mode"]), DEFAULT_UX_SESSION_MODE, _origin(str(configuration.get("session_mode", run["session_mode"])), DEFAULT_UX_SESSION_MODE), "Parâmetro sintético RASAi; sem equivalente direto RUM."),
-        _setting_row("Janela pós-load", f"{float(configuration.get('settle_seconds', run['settle_seconds'])):g} s", f"{DEFAULT_UX_SETTLE_SECONDS:g} s", _origin(float(configuration.get("settle_seconds", run["settle_seconds"])), DEFAULT_UX_SETTLE_SECONDS), "O papel na duração é descrito pelo contrato de medição persistido."),
+        _setting_row("Janela pós-load", f"{float(configuration.get('settle_seconds', run['settle_seconds'])):g} s", f"{DEFAULT_UX_SETTLE_SECONDS:g} s", _origin(float(configuration.get("settle_seconds", run["settle_seconds"])), DEFAULT_UX_SETTLE_SECONDS), "Janela observacional; não amplia USER_ACTION_DURATION apenas por atividade tardia arbitrária."),
         _setting_row("Delay", f"{float(configuration.get('delay_seconds', DEFAULT_UX_DELAY_SECONDS)):g} s", f"{DEFAULT_UX_DELAY_SECONDS:g} s", _origin(float(configuration.get("delay_seconds", DEFAULT_UX_DELAY_SECONDS)), DEFAULT_UX_DELAY_SECONDS), "Controle de carga RASAi."),
         _setting_row("Concorrência", int(configuration.get("concurrency", DEFAULT_UX_CONCURRENCY)), DEFAULT_UX_CONCURRENCY, _origin(int(configuration.get("concurrency", DEFAULT_UX_CONCURRENCY)), DEFAULT_UX_CONCURRENCY), "Controle de carga RASAi."),
     ]
