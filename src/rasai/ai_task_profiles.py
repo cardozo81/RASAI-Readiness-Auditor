@@ -1,4 +1,4 @@
-"""Configurable, versioned task-specialization profiles for RASAi AI calls.
+"""Configurable, versioned task specialization profiles for RASAi AI calls.
 
 The profile catalog controls persona, competencies, objective and optional task guidance.
 Normative evidence, schema, scoring, safety and human-review rules remain owned by the
