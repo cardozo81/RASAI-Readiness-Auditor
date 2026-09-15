@@ -1,31 +1,29 @@
 """Reliability fixes for execution completion without changing scoring formulas.
 
-This integration layer closes three false/infinite-partial paths observed in real AUDs:
+This integration layer closes false/infinite-partial paths observed in real AUDs:
 
 * CrUX HTTP 404/NOT_FOUND means that Chrome UX Report has no eligible field-data
   population for the requested URL/form factor. It is a deterministic NO_DATA outcome,
   not a retryable transport failure when Lighthouse/lab evidence is otherwise usable.
-* A session execution profile owns its GSC policy for the whole active profile session,
-  including report/finalization wrappers that execute after the inner audit call returns.
 * M24 technical-AI structured output receives a resource-scoped JSON Schema so a provider
   cannot legally attach SITEMAP evidence to a ROBOTS assessment or vice versa.
 
-The module is intentionally additive. It does not alter SARI-001/SCORE-GEO-004, AI AUTO
-ranking, pricing, quarantine, retry limits, provider selection, or deterministic findings.
+Interactive-console profile/session isolation is intentionally not owned here. That
+responsibility belongs to ``execution_context_isolation`` at the console boundary.
+
+The module does not alter SARI-001/SCORE-GEO-004, AI AUTO ranking, pricing, quarantine,
+retry limits, provider selection, or deterministic findings.
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import replace
-import os
 import sqlite3
-from typing import Any, Iterator, Mapping
+from typing import Any, Mapping
 
 _INSTALLED = False
 _CRUX_NO_DATA_HTTP = 404
 _CRUX_NO_DATA_CODES = frozenset({"NOT_FOUND", "NOTFOUND"})
-_GSC_BASELINE_BY_STATE: dict[int, tuple[bool, str | None]] = {}
 
 
 def _table_exists(connection: sqlite3.Connection, name: str) -> bool:
@@ -198,9 +196,6 @@ def _install_crux_no_data_semantics() -> None:
         corrected = _reconcile_crux_no_data(workspace, audit_id, result)
         if corrected is result:
             return result
-        # The integrity layer may already have materialized its artifact inside the
-        # wrapped M21 chain. Re-run it over the corrected persisted state so HTML/artifact
-        # provenance cannot keep the former false PARTIAL classification.
         try:
             from rasai.external_metrics_integrity import reconcile_external_metrics_integrity
 
@@ -216,8 +211,6 @@ def _install_crux_no_data_semantics() -> None:
     execute_m21_with_crux_no_data._rasai_original = original  # type: ignore[attr-defined]
     m21.execute_m21 = execute_m21_with_crux_no_data
 
-    # Several public surfaces import execute_m21 by value. Point them to the same final
-    # callable before fulfillment wraps it, so console/CLI/recovery observe one contract.
     for module_name in ("cli", "cli_extensions", "audit_runner"):
         try:
             module = __import__(f"rasai.{module_name}", fromlist=[module_name])
@@ -327,110 +320,16 @@ def _install_m24_resource_schema() -> None:
     candidate_payload_hardened._rasai_resource_schema_hardened = True  # type: ignore[attr-defined]
     candidate_payload_hardened._rasai_original = original  # type: ignore[attr-defined]
     m24_ai._candidate_payload = candidate_payload_hardened
-    # The output shape is unchanged; keep the existing v2 contract identifier so every
-    # report/cost/reprocessing reader remains on the same current contract.
-
-
-def _apply_gsc_policy_to_environment(readiness: Any, policy: str) -> None:
-    from rasai.gsc_scope import GSC_ENABLED_ENV
-
-    if policy == readiness.GSC_PROFILE_IF_COMPATIBLE:
-        os.environ.pop(GSC_ENABLED_ENV, None)
-    elif policy == readiness.GSC_PROFILE_REQUIRED:
-        os.environ[GSC_ENABLED_ENV] = "true"
-    elif policy == readiness.GSC_PROFILE_DISABLED:
-        os.environ[GSC_ENABLED_ENV] = "false"
-
-
-def _restore_gsc_baseline(state: Any) -> None:
-    baseline = _GSC_BASELINE_BY_STATE.pop(id(state), None)
-    if baseline is None:
-        return
-    from rasai.gsc_scope import GSC_ENABLED_ENV
-
-    existed, value = baseline
-    if existed and value is not None:
-        os.environ[GSC_ENABLED_ENV] = value
-    else:
-        os.environ.pop(GSC_ENABLED_ENV, None)
 
 
 def _install_console_gsc_profile_lifetime() -> None:
-    """Keep the active profile's GSC decision alive through outer finalizers.
+    """Compatibility no-op.
 
-    The existing profile context correctly changes RASAI_GSC_ENABLED while the inner
-    audit function runs, but later-installed console wrappers can finalize/enrich the
-    report after that context has restored the global environment. The active profile is
-    still in force at that point, so restore-on-context-exit is too early.
+    Older tests/embedders may still import this symbol. Parent-process GSC projection was
+    removed: the interactive console now owns execution isolation and projects GSC only
+    into the private audit subprocess environment.
     """
-    try:
-        from rasai import console_execution_profile_readiness as readiness
-        from rasai import console_execution_profiles as profiles
-    except ImportError:
-        return
-
-    original_installer = readiness._install_profile_gsc_overlay
-    if bool(getattr(original_installer, "_rasai_gsc_profile_lifetime", False)):
-        return
-
-    def install_profile_gsc_overlay_with_lifetime() -> None:
-        original_installer()
-        effective = profiles.effective_profile
-        clear = profiles.clear_profile
-        if bool(getattr(effective, "_rasai_gsc_profile_lifetime", False)):
-            return
-
-        @contextmanager
-        def effective_profile_persistent(
-            state: Any,
-            session: Any | None = None,
-        ) -> Iterator[None]:
-            current = session or profiles.active_profile(state)
-            active = profiles.active_profile(state)
-            policy = readiness.gsc_profile_policy(current)
-            owns_policy = current is not None and active is current
-            persist = owns_policy and policy != readiness.GSC_PROFILE_INHERIT
-
-            if owns_policy and policy == readiness.GSC_PROFILE_INHERIT:
-                # Switching an already active profile back to inherit must immediately
-                # release any durable session overlay and expose the original global value.
-                _restore_gsc_baseline(state)
-            elif persist and id(state) not in _GSC_BASELINE_BY_STATE:
-                from rasai.gsc_scope import GSC_ENABLED_ENV
-
-                _GSC_BASELINE_BY_STATE[id(state)] = (
-                    GSC_ENABLED_ENV in os.environ,
-                    os.environ.get(GSC_ENABLED_ENV),
-                )
-            try:
-                with effective(state, current):
-                    yield
-            finally:
-                if persist:
-                    _apply_gsc_policy_to_environment(readiness, policy)
-
-        def clear_profile_restoring_gsc(state: Any) -> None:
-            _restore_gsc_baseline(state)
-            clear(state)
-
-        effective_profile_persistent._rasai_gsc_profile_lifetime = True  # type: ignore[attr-defined]
-        effective_profile_persistent._rasai_original = effective  # type: ignore[attr-defined]
-        clear_profile_restoring_gsc._rasai_gsc_profile_lifetime = True  # type: ignore[attr-defined]
-        clear_profile_restoring_gsc._rasai_original = clear  # type: ignore[attr-defined]
-        profiles.effective_profile = effective_profile_persistent
-        profiles.clear_profile = clear_profile_restoring_gsc
-
-    install_profile_gsc_overlay_with_lifetime._rasai_gsc_profile_lifetime = True  # type: ignore[attr-defined]
-    install_profile_gsc_overlay_with_lifetime._rasai_original = original_installer  # type: ignore[attr-defined]
-    readiness._install_profile_gsc_overlay = install_profile_gsc_overlay_with_lifetime
-
-
-def _install_gsc_scope_for_console() -> None:
-    # CLI already installs this gate explicitly. The interactive console historically
-    # installed the collector/OAuth wrappers but omitted the property-scope gate.
-    from rasai.gsc_scope_runtime import install as install_gsc_scope_runtime
-
-    install_gsc_scope_runtime()
+    return
 
 
 def install() -> None:
@@ -440,6 +339,4 @@ def install() -> None:
         return
     _install_crux_no_data_semantics()
     _install_m24_resource_schema()
-    _install_console_gsc_profile_lifetime()
-    _install_gsc_scope_for_console()
     _INSTALLED = True
