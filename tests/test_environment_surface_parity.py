@@ -36,6 +36,16 @@ _NON_PUBLIC_FEATURE_LOCAL_AI_ENV = frozenset(
     }
 )
 
+# Execution-only transport markers are intentionally absent from the operator-facing
+# configuration catalog. They exist only in the private environment of one audit
+# subprocess and must never be editable/persisted as canonical user configuration.
+_NON_PUBLIC_EXECUTION_ENV = frozenset(
+    {
+        "RASAI_EXECUTION_GSC_POLICY",
+    }
+)
+_NON_PUBLIC_RUNTIME_ENV = _NON_PUBLIC_FEATURE_LOCAL_AI_ENV | _NON_PUBLIC_EXECUTION_ENV
+
 
 def _rasai_literal(node: ast.AST | None) -> str | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -99,7 +109,7 @@ def _runtime_rasai_environment_names() -> set[str]:
 
 
 def test_every_builtin_public_runtime_environment_variable_is_exposed_in_console() -> None:
-    discovered = _runtime_rasai_environment_names() - _NON_PUBLIC_FEATURE_LOCAL_AI_ENV
+    discovered = _runtime_rasai_environment_names() - _NON_PUBLIC_RUNTIME_ENV
     exposed = set(ENV_NAMES)
     missing = sorted(discovered - exposed)
     assert not missing, "runtime environment variables missing from console catalog: " + ", ".join(missing)
@@ -108,6 +118,11 @@ def test_every_builtin_public_runtime_environment_variable_is_exposed_in_console
 def test_feature_local_ai_selectors_are_not_public_console_settings() -> None:
     assert _NON_PUBLIC_FEATURE_LOCAL_AI_ENV.isdisjoint(ENV_NAMES)
     assert _NON_PUBLIC_FEATURE_LOCAL_AI_ENV.isdisjoint(SPEC_BY_NAME)
+
+
+def test_execution_only_markers_are_not_public_console_settings() -> None:
+    assert _NON_PUBLIC_EXECUTION_ENV.isdisjoint(ENV_NAMES)
+    assert _NON_PUBLIC_EXECUTION_ENV.isdisjoint(SPEC_BY_NAME)
 
 
 def test_non_setting_rasai_identifiers_are_not_misclassified_as_environment_variables() -> None:
