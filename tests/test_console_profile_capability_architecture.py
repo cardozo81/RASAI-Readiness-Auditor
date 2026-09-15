@@ -26,7 +26,7 @@ def _state():
     )
 
 
-def test_profile_overlay_is_additive_and_restores_parent_session() -> None:
+def test_profile_scope_disables_unselected_session_workloads_and_restores_parent() -> None:
     state = _state()
     session = profiles.SessionProfile(
         "performance",
@@ -38,17 +38,44 @@ def test_profile_overlay_is_additive_and_restores_parent_session() -> None:
 
     with effective_profile(state, session):
         assert state.web_performance is True
-        assert state.ai_provider == "openai"
-        assert state.search_queries == ("brand",)
-        assert state.synthetic_apdex is True
-        assert state.apdex_experience is True
-        assert state.improvement_enabled is True
-        assert set(state.lighthouse_categories.split(",")) >= {"performance", "best-practices", "seo"}
+        assert state.ai_provider == "none"
+        assert state.ai_model is None
+        assert state.content_remediation is False
+        assert state.technical_remediation is False
+        assert state.search_queries == ()
+        assert state.synthetic_apdex is False
+        assert state.apdex_experience is False
+        assert state.improvement_enabled is False
+        assert state.lighthouse_categories == "performance,best-practices"
 
     assert state.web_performance is False
     assert state.lighthouse_categories == "seo"
     assert state.ai_provider == "openai"
+    assert state.ai_model == "configured-model"
+    assert state.content_remediation is True
     assert state.search_queries == ("brand",)
+    assert state.synthetic_apdex is True
+    assert state.apdex_experience is True
+    assert state.improvement_enabled is True
+
+
+def test_no_ai_profile_is_authoritative_even_when_session_has_provider() -> None:
+    state = _state()
+    session = profiles.SessionProfile(
+        "custom",
+        "Personalizado",
+        ("web-performance",),
+        profiles.AI_OFF,
+        profiles._baseline(state),
+    )
+
+    with effective_profile(state, session):
+        assert state.ai_provider == "none"
+        assert state.ai_model is None
+        assert state.ai_reasoning is None
+
+    assert state.ai_provider == "openai"
+    assert state.ai_model == "configured-model"
 
 
 def test_explicit_post_profile_override_wins() -> None:
@@ -60,10 +87,11 @@ def test_explicit_post_profile_override_wins() -> None:
         profiles.AI_OFF,
         profiles._baseline(state),
     )
-    session.manual_overrides.add("web")
+    session.manual_overrides.update({"web", "ai"})
 
     with effective_profile(state, session):
         assert state.web_performance is False
+        assert state.ai_provider == "openai"
 
 
 def test_gsc_profile_policy_is_projected_and_parent_environment_restored() -> None:
@@ -108,7 +136,7 @@ def test_custom_profile_exposes_only_selectable_workloads() -> None:
     assert {"web-performance", "search-intelligence", "apdex-navigation", "deep-analysis"} <= selectable
 
 
-def test_profile_metadata_exposes_capabilities() -> None:
+def test_profile_metadata_exposes_only_current_capability_contract() -> None:
     state = _state()
     session = profiles.SessionProfile(
         "performance",
@@ -119,4 +147,4 @@ def test_profile_metadata_exposes_capabilities() -> None:
     )
     payload = metadata(session)
     assert payload["capabilities"] == ["web-performance"]
-    assert payload["modules"] == payload["capabilities"]
+    assert "modules" not in payload
