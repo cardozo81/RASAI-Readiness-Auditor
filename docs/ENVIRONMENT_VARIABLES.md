@@ -137,11 +137,11 @@ Referência funcional: [STANDARDS_METRICS_AND_SERVICES.md](STANDARDS_METRICS_AND
 | `RASAI_W3C_CSS_VALIDATOR` | `true` | booleano | `true`, bounded/throttled | W3C CSS Validation Service |
 | `RASAI_MDN_OBSERVATORY` | `true` | booleano | `true` salvo restrição de privacidade/egress | scan HTTP Observatory por origem |
 | `RASAI_WEB_PLATFORM_BASELINE` | `true` | booleano | `true` | solicita análise WebDX/Baseline |
-| `RASAI_WEB_FEATURES_DATASET` | sem default | caminho existente | dataset versionado `web-features` | necessário para materialização reproduzível do Baseline |
+| `RASAI_WEB_FEATURES_DATASET` | `auto` | `auto` ou caminho para arquivo existente | `auto` | fonte canônica global WebDX; caminho local é override para pin/versionamento |
 | `RASAI_STANDARDS_MAX_URLS` | `10` | inteiro `>= 0`; `0=todas` | `10` | teto de URLs em serviços externos desta família |
 | `RASAI_STANDARDS_TIMEOUT_SECONDS` | `20` | número `> 0` e `< 3600` | `20` | timeout por request |
 
-`RASAI_WEB_PLATFORM_BASELINE=true` sem dataset/detector suficiente resulta em `NOT_CONFIGURED`/`NO_DATA`, não em nota inventada.
+`RASAI_WEB_FEATURES_DATASET=auto` atende a configuração normal da fonte do dataset global `web-platform-dx/web-features`; o dataset-base não depende do domínio auditado. O domínio determina quais features seriam observadas na página. Como o detector/mapeador versionado ainda não está materializado no runtime, `RASAI_WEB_PLATFORM_BASELINE=true` pode resultar em `NO_DATA`, mas não deve exigir um caminho local nem inventar compatibilidade. Consulte [WEB_PLATFORM_BASELINE.md](WEB_PLATFORM_BASELINE.md).
 
 ### 7.2 Controle agregado de Web Performance
 
@@ -358,7 +358,7 @@ RASAI_CLARITY_API_TOKEN
 DYNATRACE_API_TOKEN
 ```
 
-`RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_ID`, `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL`, limites, toggles e caminhos de dataset são não secretos e podem ser persistidos quando a superfície de configuração suportar essa persistência.
+`RASAI_GOOGLE_SEARCH_CONSOLE_CLIENT_ID`, `RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL`, limites, toggles e fonte/pin de dataset WebDX são não secretos e podem ser persistidos quando a superfície de configuração suportar essa persistência.
 
 ## 16. Telemetria e segurança de IA
 
