@@ -4,12 +4,27 @@ import builtins
 from configparser import ConfigParser
 from contextlib import redirect_stdout
 from io import StringIO
+import os
 from types import ModuleType, SimpleNamespace
+
+import pytest
 
 from rasai.console_m23 import State as ApdexConsoleState
 from rasai.console_search_intelligence import SearchConsoleState
 from rasai import console_settings
 from rasai import console_ui_refactor as ui
+
+
+@pytest.fixture(autouse=True)
+def _isolate_console_ui_process_state():
+    environment = dict(os.environ)
+    ui._SESSION_META.clear()
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(environment)
+        ui._SESSION_META.clear()
 
 
 def test_configuration_ids_are_numeric_stable_and_unique_for_current_catalog() -> None:
@@ -38,7 +53,7 @@ def test_search_capability_filter_does_not_expose_unrelated_ai_variables() -> No
     assert "RASAI_CRUX_API_KEY" not in names
 
 
-def test_search_inputs_are_persisted_only_by_console_save(tmp_path, monkeypatch) -> None:
+def test_search_inputs_are_persisted_only_by_console_save(tmp_path) -> None:
     ui._install_search_persistence()
     state = SearchConsoleState()
     state.search_queries = ("seguro residencial", "seguro casa")
