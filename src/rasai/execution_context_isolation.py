@@ -6,9 +6,9 @@ The interactive console has three different configuration scopes:
 * the live console session, which reflects explicit operator changes;
 * one execution overlay produced by an execution profile or a restored AUD context.
 
-Only the third scope may be projected into the audit subprocess.  A profile must never
+Only the third scope may be projected into the audit subprocess. A profile must never
 rewrite canonical ``RASAI_*`` values in the parent console process merely to execute one
-AUD.  This module provides a private subprocess environment and neutralizes legacy GSC
+AUD. This module provides a private subprocess environment and neutralizes legacy GSC
 profile wrappers that temporarily/persistently mutated ``RASAI_GSC_ENABLED``.
 """
 from __future__ import annotations
@@ -25,6 +25,10 @@ _SERP_MODE_ENV = "RASAI_SERP_MODE"
 
 _ACTIVE_EXECUTION_STATE: ContextVar[Any | None] = ContextVar(
     "rasai_active_execution_state",
+    default=None,
+)
+_AUDIT_REUSE_RENDER_STATE: ContextVar[Any | None] = ContextVar(
+    "rasai_audit_reuse_render_state",
     default=None,
 )
 _STATE_ENVIRONMENT_OVERRIDES: dict[int, dict[str, str]] = {}
@@ -245,6 +249,28 @@ def _install_private_subprocess_environment() -> None:
         module.subprocess = _SubprocessProxy(current)
 
 
+def _isolated_serp_runtime_summary(original: Any) -> Any:
+    state = _AUDIT_REUSE_RENDER_STATE.get()
+    if state is None:
+        return original()
+    overrides = execution_environment_overrides(state)
+    provider = str(os.environ.get(_SERP_PROVIDER_ENV) or overrides.get(_SERP_PROVIDER_ENV) or "").strip().casefold()
+    mode = str(os.environ.get(_SERP_MODE_ENV) or overrides.get(_SERP_MODE_ENV) or "").strip().casefold()
+    if not provider and not mode:
+        return original()
+    try:
+        from rasai.search_intelligence.config import provider_key_env
+        from rasai.search_intelligence.provider_catalog import serp_provider_registration
+
+        registration = serp_provider_registration(provider)
+        key_name = provider_key_env(provider)
+        key_state = "[SET]" if (os.environ.get(key_name) or "").strip() else "<não definida>"
+        engine = registration.engine if registration is not None else "unknown"
+        return f"{mode or 'configuração atual'} / {provider or 'provider atual'} / {engine}", key_name, key_state
+    except (KeyError, TypeError, ValueError):
+        return original()
+
+
 def _install_restored_audit_environment_isolation() -> None:
     """Keep SERP provider/mode recovered from an AUD out of canonical session env."""
     try:
@@ -252,30 +278,50 @@ def _install_restored_audit_environment_isolation() -> None:
     except ImportError:
         return
 
-    original = reuse._restore_search_from_persisted_observations
-    if bool(getattr(original, "_rasai_execution_context_isolated", False)):
-        return
+    original_restore = reuse._restore_search_from_persisted_observations
+    if not bool(getattr(original_restore, "_rasai_execution_context_isolated", False)):
+        def restore_search_isolated(state: Any, audit_id: str):
+            snapshots = {
+                _SERP_PROVIDER_ENV: _capture_environment(_SERP_PROVIDER_ENV),
+                _SERP_MODE_ENV: _capture_environment(_SERP_MODE_ENV),
+            }
+            try:
+                result = original_restore(state, audit_id)
+                for name, snapshot in snapshots.items():
+                    before = str(snapshot[1] or "").strip()
+                    after = str(os.environ.get(name) or "").strip()
+                    if not before and after:
+                        register_execution_environment_override(state, name, after)
+                return result
+            finally:
+                for name, snapshot in snapshots.items():
+                    _restore_environment(name, snapshot)
 
-    def restore_search_isolated(state: Any, audit_id: str):
-        snapshots = {
-            _SERP_PROVIDER_ENV: _capture_environment(_SERP_PROVIDER_ENV),
-            _SERP_MODE_ENV: _capture_environment(_SERP_MODE_ENV),
-        }
-        try:
-            result = original(state, audit_id)
-            for name, snapshot in snapshots.items():
-                before = str(snapshot[1] or "").strip()
-                after = str(os.environ.get(name) or "").strip()
-                if not before and after:
-                    register_execution_environment_override(state, name, after)
-            return result
-        finally:
-            for name, snapshot in snapshots.items():
-                _restore_environment(name, snapshot)
+        restore_search_isolated._rasai_execution_context_isolated = True  # type: ignore[attr-defined]
+        restore_search_isolated._rasai_original = original_restore  # type: ignore[attr-defined]
+        reuse._restore_search_from_persisted_observations = restore_search_isolated
 
-    restore_search_isolated._rasai_execution_context_isolated = True  # type: ignore[attr-defined]
-    restore_search_isolated._rasai_original = original  # type: ignore[attr-defined]
-    reuse._restore_search_from_persisted_observations = restore_search_isolated
+    original_summary = reuse._serp_runtime_summary
+    if not bool(getattr(original_summary, "_rasai_execution_context_isolated", False)):
+        def serp_runtime_summary_isolated():
+            return _isolated_serp_runtime_summary(original_summary)
+
+        serp_runtime_summary_isolated._rasai_execution_context_isolated = True  # type: ignore[attr-defined]
+        serp_runtime_summary_isolated._rasai_original = original_summary  # type: ignore[attr-defined]
+        reuse._serp_runtime_summary = serp_runtime_summary_isolated
+
+    original_render = reuse.render_loaded_configuration_summary
+    if not bool(getattr(original_render, "_rasai_execution_context_isolated", False)):
+        def render_loaded_configuration_summary_isolated(console_module: Any, state: Any, source: Any):
+            token = _AUDIT_REUSE_RENDER_STATE.set(state)
+            try:
+                return original_render(console_module, state, source)
+            finally:
+                _AUDIT_REUSE_RENDER_STATE.reset(token)
+
+        render_loaded_configuration_summary_isolated._rasai_execution_context_isolated = True  # type: ignore[attr-defined]
+        render_loaded_configuration_summary_isolated._rasai_original = original_render  # type: ignore[attr-defined]
+        reuse.render_loaded_configuration_summary = render_loaded_configuration_summary_isolated
 
 
 def install() -> None:
