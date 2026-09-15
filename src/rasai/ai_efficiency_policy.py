@@ -195,6 +195,16 @@ def install() -> None:
     install_ai_orchestration_unification()
     install_ai_orchestration_unification_cleanup()
 
+    # Final integration layers intentionally run after every fulfillment/routing wrapper.
+    # They do not introduce new policy: they make initial execution and RPR use the same
+    # completion semantics, and keep operator-owned configuration separate from one-run
+    # profile/restored-AUD overlays.
+    from rasai.completion_recovery_alignment import install as install_completion_recovery_alignment
+    from rasai.execution_context_isolation import install as install_execution_context_isolation
+
+    install_completion_recovery_alignment()
+    install_execution_context_isolation()
+
     _INSTALLED = True
 
 
