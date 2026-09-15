@@ -56,7 +56,9 @@ RASAI_AI_TASK_PROFILES_FILE=config/ai-task-profiles.toml
 
 o runtime usa os overrides presentes nesse arquivo e completa os demais perfis com a baseline de fábrica.
 
-Alterações salvas no TOML são resolvidas novamente na próxima utilização de um perfil de IA. Não é necessário reiniciar o console apenas para recarregar uma alteração de persona.
+No console interativo, alterações salvas entram em vigor na **próxima AUD iniciada**, sem necessidade de reiniciar o console. Imediatamente antes da execução, o RASAi resolve e valida o catálogo efetivo e cria um snapshot temporário imutável. A AUD em andamento continua usando esse snapshot mesmo que o humano altere `config/ai-task-profiles.toml` durante o processamento.
+
+O loader de perfis continua capaz de resolver o arquivo atual quando usado fora desse limite de execução, mas o console deliberadamente não faz hot reload de persona no meio de uma AUD. Isso preserva reprodutibilidade e mantém modelos, preços e personas sob a mesma regra de consistência por execução.
 
 Se `RASAI_AI_TASK_PROFILES_SOURCE=factory`, qualquer ajuste no arquivo editável é ignorado intencionalmente. Se `SOURCE=file`, o arquivo configurado precisa existir e ser válido.
 
