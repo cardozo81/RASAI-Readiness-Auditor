@@ -129,15 +129,15 @@ def install() -> None:
 
     # Completion reliability is installed before fulfillment wrappers so a deterministic
     # CrUX NO_DATA classification is already reflected in the M21 result that fulfillment
-    # observes. It also hardens M24's resource-scoped provider schema and repairs the
-    # interactive-console GSC profile lifetime without changing scoring or AI routing.
+    # observes. It also hardens M24's resource-scoped provider schema without changing
+    # scoring or the central AI routing policy.
     from rasai.execution_completion_reliability import install as install_execution_completion_reliability
     from rasai.execution_completion_regression import install as install_execution_completion_regression
 
     install_execution_completion_reliability()
-    # Real-AUD regression coverage: keep the local M24 validator on the exact same
-    # resource evidence universe projected to providers, and transport the session GSC
-    # policy across the console subprocess boundary so a disabled run cannot call Google.
+    # Real-AUD regression coverage keeps the local M24 validator on the exact same
+    # resource evidence universe projected to providers. The GSC collector also honors
+    # an execution marker when one is supplied by the interactive-console child process.
     install_execution_completion_regression()
 
     # One fulfillment contract governs initial execution and selective recovery.
@@ -195,15 +195,13 @@ def install() -> None:
     install_ai_orchestration_unification()
     install_ai_orchestration_unification_cleanup()
 
-    # Final integration layers intentionally run after every fulfillment/routing wrapper.
-    # They do not introduce new policy: they make initial execution and RPR use the same
-    # completion semantics, and keep operator-owned configuration separate from one-run
-    # profile/restored-AUD overlays.
+    # Final runtime alignment intentionally runs after every fulfillment/routing wrapper.
+    # It introduces no new policy: initial execution and RPR consume the same M24 and
+    # CrUX completion semantics. Interactive-console environment isolation is installed
+    # by console_entrypoint because profile/session ownership belongs to that surface.
     from rasai.completion_recovery_alignment import install as install_completion_recovery_alignment
-    from rasai.execution_context_isolation import install as install_execution_context_isolation
 
     install_completion_recovery_alignment()
-    install_execution_context_isolation()
 
     _INSTALLED = True
 
