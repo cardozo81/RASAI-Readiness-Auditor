@@ -13,6 +13,10 @@ from rasai.execution_completion_regression import (
     _install_gsc_collection_execution_gate,
     _project_gsc_policy,
 )
+from rasai.execution_context_isolation import (
+    build_execution_environment,
+    install as install_execution_context_isolation,
+)
 from rasai.gsc_scope import GSC_ENABLED_ENV
 
 
@@ -127,13 +131,14 @@ def test_gsc_collection_gate_passes_hard_disabled_environment(monkeypatch) -> No
     assert received[-1][GSC_ENABLED_ENV] == "false"
 
 
-def test_profile_gsc_policy_is_present_during_execution_context(monkeypatch) -> None:
+def test_profile_gsc_policy_is_private_to_execution_environment(monkeypatch) -> None:
     from rasai import console_execution_profile_readiness as readiness
     from rasai import console_execution_profiles as profiles
 
     monkeypatch.setenv(GSC_ENABLED_ENV, "true")
     monkeypatch.delenv(_EXECUTION_GSC_POLICY_ENV, raising=False)
     _install_console_gsc_execution_marker()
+    install_execution_context_isolation()
     readiness.install()
 
     state = SimpleNamespace(
@@ -163,9 +168,15 @@ def test_profile_gsc_policy_is_present_during_execution_context(monkeypatch) -> 
     readiness.set_gsc_profile_policy(session, readiness.GSC_PROFILE_DISABLED)
 
     with profiles.effective_profile(state, session):
-        assert os.environ[_EXECUTION_GSC_POLICY_ENV] == "disabled"
-        # subprocess.Popen(env=dict(os.environ)) therefore inherits the execution policy.
-        assert dict(os.environ)[_EXECUTION_GSC_POLICY_ENV] == "disabled"
+        # Parent/session variables remain operator-owned.
+        assert os.environ[GSC_ENABLED_ENV] == "true"
+        assert _EXECUTION_GSC_POLICY_ENV not in os.environ
+
+        child = build_execution_environment(state)
+        assert child[_EXECUTION_GSC_POLICY_ENV] == "disabled"
+        assert child[GSC_ENABLED_ENV] == "false"
 
     assert _EXECUTION_GSC_POLICY_ENV not in os.environ
+    assert os.environ[GSC_ENABLED_ENV] == "true"
     profiles.clear_profile(state)
+    assert os.environ[GSC_ENABLED_ENV] == "true"
