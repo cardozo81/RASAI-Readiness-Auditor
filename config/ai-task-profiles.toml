@@ -7,6 +7,8 @@
 # O arquivo é carregado automaticamente quando RASAI_AI_TASK_PROFILES_SOURCE=auto
 # (padrão) ou obrigatoriamente quando SOURCE=file. Perfis omitidos continuam usando
 # o valor de fábrica. Por isso, mantenha aqui SOMENTE os perfis realmente customizados.
+# Alterações salvas entram em vigor na próxima AUD do console; uma AUD já iniciada usa
+# um snapshot imutável deste arquivo até terminar.
 #
 # Um override é parcial no nível do perfil, não no nível do campo: ao customizar um
 # profile_id, informe version, role, objective, competencies e guidance completos.
