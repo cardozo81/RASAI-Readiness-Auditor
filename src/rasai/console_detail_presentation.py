@@ -53,10 +53,22 @@ def _render_network_assessment(assessment: Any) -> None:
 
 
 def install() -> None:
-    """Install the final console-only renderer after network diagnostics are composed."""
+    """Install the final console-only presentation layer after runtime composition."""
     from rasai import integration_network_diagnostics as network
 
-    if getattr(network, "_rasai_detail_presentation_installed", False):
+    if not getattr(network, "_rasai_detail_presentation_installed", False):
+        network._render_network_assessment = _render_network_assessment
+        network._rasai_detail_presentation_installed = True
+
+    try:
+        from rasai import interactive_console as console
+    except ImportError:
         return
-    network._render_network_assessment = _render_network_assessment
-    network._rasai_detail_presentation_installed = True
+    if not (
+        getattr(console, "_rasai_integration_diagnostics_installed", False)
+        and getattr(console, "_rasai_canonical_preparation_layout", False)
+    ):
+        return
+    from rasai.console_ui_refactor import install as install_console_ui_refactor
+
+    install_console_ui_refactor()

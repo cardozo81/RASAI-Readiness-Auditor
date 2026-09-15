@@ -1,0 +1,36 @@
+name: Windows Console Navigation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/console_*.py'
+      - 'src/rasai/interactive_console.py'
+      - 'src/rasai/integration_diagnostics_console.py'
+      - 'tests/test_console_*.py'
+      - 'tests/test_m23_integration.py'
+      - 'tests/test_m25_console_integration.py'
+      - 'tests/test_integration_diagnostics.py'
+      - '.github/workflows/console-windows-navigation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  console-navigation:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and test runner
+        shell: pwsh
+        run: python -m pip install -e . pytest
+      - name: Console and navigation regression
+        shell: pwsh
+        run: |
+          $consoleTests = Get-ChildItem tests -Filter 'test_console_*.py' | ForEach-Object { $_.FullName }
+          python -m pytest -q @consoleTests tests/test_m23_integration.py tests/test_m25_console_integration.py tests/test_integration_diagnostics.py
