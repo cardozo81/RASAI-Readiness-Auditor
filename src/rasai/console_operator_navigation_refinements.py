@@ -187,7 +187,10 @@ def _install_search_capability_split() -> None:
         if capability == "google-search-console":
             return tuple(spec for spec in facade.refresh_specs() if _gsc_spec(spec))
         if capability == "observability":
-            return tuple(spec for spec in original_specs(capability) if not _gsc_spec(spec))
+            return tuple(
+                spec for spec in original_specs(capability)
+                if not _gsc_spec(spec) and not _serp_spec(spec)
+            )
         return original_specs(capability)
 
     def capability_status(state: Any, capability: Any) -> tuple[str, str]:
