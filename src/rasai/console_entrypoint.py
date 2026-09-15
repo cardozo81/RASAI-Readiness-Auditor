@@ -11,6 +11,7 @@ import os
 from rasai import console_provider_environment as console_environment
 from rasai import console_search_intelligence, interactive_console
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
+from rasai.ai_execution_configuration import install as install_ai_execution_configuration
 from rasai.ai_model_console import install as install_ai_model_console
 from rasai.ai_pricing_console import install as install_ai_pricing_console
 from rasai.ai_provider_console_management import install as install_ai_provider_console_management
@@ -230,6 +231,9 @@ def main() -> int:
     # Presentation-only final pass: optional technical codes must never render an empty
     # prefix such as "Detalhe : : ...". No diagnostic semantics are changed here.
     install_console_detail_presentation()
+    # Final execution boundary: read operator-owned AI catalogs only when an AUD is about
+    # to run, refresh cost/model previews, then pass immutable snapshots to the child.
+    install_ai_execution_configuration(interactive_console)
     return interactive_console.main()
 
 
