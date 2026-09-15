@@ -18,6 +18,8 @@ H. Ajuda
 Q. Sair
 ```
 
+O menu `INÍCIO` é o owner dos acessos globais. Subtelas operacionais não duplicam atalhos para Inteligência Artificial, Integrações e serviços, Todas as configurações, Histórico, Consolidados, Ajuda ou Sair.
+
 ## Preparar auditoria
 
 A tela é organizada em:
@@ -31,6 +33,20 @@ AÇÕES
 ```
 
 Não há Perfil da próxima auditoria nem uma lista paralela `ANÁLISES / RESULTADOS`.
+
+A seção `AÇÕES` desta tela é contextual ao plano corrente:
+
+```text
+R. Executar auditoria
+U. Executar com/sem IA        # somente quando aplicável
+S. Salvar configuração no arquivo [SEM SECRETS]
+L. Carregar configuração de AUD [NOVA EXECUÇÃO]
+V. Voltar ao início
+```
+
+Ação global não deve ser reproduzida aqui. Quando um catálogo depende de configuração global de IA/provider, a tela apenas informa o caminho `INÍCIO > Inteligência Artificial`.
+
+Isso não impede edição contextual de uma configuração diretamente necessária ao catálogo selecionado. Uma variável relacionada ao item pode continuar sendo aberta pelo seu ID canônico sem expor menus globais paralelos.
 
 ### Catálogos
 
@@ -152,6 +168,8 @@ SERP e GSC continuam independentes. GSC obrigatório incompatível pode bloquear
 A IA principal continua global/orquestrada. O catálogo apenas declara onde IA é `NONE`, `OPTIONAL` ou `REQUIRED`.
 
 Quando só existem consumidores opcionais (`CAT-03`/`CAT-09`), o plano usa **Executar sem IA (recomendado)** por padrão. Se a IA principal estiver configurada/apta, o operador pode alternar para **Executar com IA**. `CAT-08` exige IA e não permite o modo sem IA. Os demais catálogos não ativam IA por si só. Nenhum enriquecimento advisory pode alterar evidência/scoring determinístico.
+
+A escolha local `U` altera apenas o plano da próxima auditoria. Configurar provider, modelo, credencial, AUTO ou política global continua pertencendo exclusivamente ao menu `INÍCIO > Inteligência Artificial`.
 
 Quando houver consumo, o fluxo canônico de estimativa/aceite continua executando antes do AUD.
 
