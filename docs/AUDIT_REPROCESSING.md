@@ -28,13 +28,30 @@ rasai-console
 > Reprocessar pendências desta auditoria
 ```
 
-Antes de confirmar, o console apresenta os itens ainda não resolvidos e a quantidade de sucessos preservados quando o fulfillment já está projetado.
+Antes de confirmar, o console apresenta:
 
-A confirmação exige:
+- situação atual do `AUD-*`;
+- requisitos atendidos;
+- itens ainda recuperáveis ou bloqueados;
+- sucessos que serão preservados;
+- itens `DISABLED` ou `NOT_APPLICABLE` fora da fila de reprocessamento;
+- motivo persistido das pendências quando disponível;
+- prévia financeira seletiva quando houver requisito de IA pendente.
+
+### Prévia financeira e confirmação
+
+A prévia de custo do reprocessamento usa o mesmo histórico e o mesmo catálogo canônico de pricing usados pela execução normal. O valor monetário é projetado somente sobre a parcela de requisitos de IA ainda pendente; sucessos preservados, itens desabilitados e itens não aplicáveis não são incluídos como nova carga.
+
+Quando existe histórico monetário comparável, o console mostra custo esperado, faixa provável, cenário potencial e confiança. Quando não há base suficiente, o console informa explicitamente que o custo monetário não é estimável com segurança antes da tentativa. O RASAi não inventa quantidade futura de tokens nem preço ausente.
+
+A operação exige uma decisão explícita:
 
 ```text
-REPROCESSAR
+C. Confirmar e iniciar reprocessamento
+V. Voltar sem reprocessar
 ```
+
+`V` cancela de forma explícita e retorna sem executar. `ENTER` vazio ou qualquer outra entrada inválida não é interpretado como cancelamento: o console pede uma opção válida. Não existe mais a exigência de digitar a palavra `REPROCESSAR`.
 
 ### Acompanhamento durante a execução
 
@@ -62,22 +79,17 @@ Log técnico
 
 A diferença está somente no conteúdo da etapa. No reprocessamento, `Etapa` identifica `Reprocessamento seletivo` e `Executando` informa o requisito que está sendo avaliado, sua scope, quantidade já avaliada e sucessos anteriores preservados.
 
-O custo não é inserido em uma posição paralela no meio da tela de andamento. Assim como no processamento normal, a telemetria monetária e de consumo fica na área de pós-execução. Isso evita misturar andamento do pipeline com valores acumulados do AUD.
+A superfície é atualizada periodicamente durante o `RPR-*`; chamadas externas longas não devem deixar o operador sem indicação visível de que o trabalho continua em andamento.
+
+A telemetria monetária observada não é inserida no meio da tela de andamento. A previsão seletiva aparece antes da confirmação e o consumo efetivo fica na área de pós-execução. Isso evita misturar posição do pipeline com valores acumulados do AUD.
 
 A apresentação é atualizada por leitura do estado persistido dos work-items. Essa projeção não cria outro motor de reprocessamento e não altera as regras de seleção, retry, quarentena, provider ou custo.
 
-### Resumo e custos ao terminar
+### Resumo, custos e ações ao terminar
 
-Ao terminar, o console primeiro fecha a execução com a mesma estrutura do processamento normal:
+Ao terminar, o console fecha a execução com a mesma estrutura operacional do processamento normal e mantém o resultado do reprocessamento na própria superfície final, sem depender de um `ENTER` intermediário para revelar as ações disponíveis.
 
-```text
-Status / tempo / progresso concluído
-Audit ID
-Log técnico
-Relatórios
-```
-
-Na área de pós-execução são mostrados os dados específicos do `RPR-*`:
+São mostrados os dados específicos do `RPR-*`:
 
 ```text
 RPR
@@ -101,15 +113,19 @@ Se algum requisito continuar pendente, o console não apresenta apenas `Itens re
 - orientação operacional para a próxima ação;
 - limite temporal quando o requisito depende de `LIVE_RECOLLECTION`.
 
-Em seguida aparecem os custos no mesmo contexto de pós-execução usado pelo processamento:
+Em seguida aparecem os custos no mesmo contexto de pós-execução:
 
 1. **Consumo desta tentativa de reprocessamento**: diferença entre a telemetria persistida antes e depois do `RPR-*`, incluindo novas tentativas de IA, tokens, custo estimado e novas chamadas Web Performance.
 2. **Consumo e cobertura real persistidos do AUD**: reutiliza exatamente o renderer padrão já usado após uma execução normal, preservando todas as tentativas anteriores para custo, cobertura e confiabilidade.
-3. **Ações da auditoria desta sessão**: abrir pasta, abrir relatório, voltar ou sair, usando a mesma superfície do processamento normal.
+3. **Ações do reprocessamento**: `R` para tentar novamente somente pendências ainda recuperáveis, `P` para abrir a pasta, `I` para abrir o relatório HTML, `V` para voltar à auditoria selecionada e `Q` para sair.
+
+A ação `R` só fica operacional quando permanece ao menos um work-item obrigatório, aplicável e `retryable`. Ao escolhê-la, o console volta para `PREPARAR REPROCESSAMENTO`, recalcula escopo e prévia de custo sobre o estado atual e exige nova confirmação explícita. Quando restam apenas bloqueios definitivos, itens não aplicáveis ou itens sem retry automático, um novo reprocessamento direto não é oferecido como ação válida.
 
 Se um requisito for bloqueado por pré-requisito antes de qualquer chamada externa, a tentativa de reprocessamento pode ter custo de IA igual a zero. Os valores exibidos são estimativas técnicas persistidas pelos adapters, não invoice do provider.
 
 O console usa o mesmo motor seletivo da CLI. Não existe uma segunda regra de reprocessamento para a interface interativa.
+
+O roteiro operacional de validação manual no Windows está em [REPROCESSING_HUMAN_SMOKE.md](REPROCESSING_HUMAN_SMOKE.md).
 
 ## Reprocessamento pela CLI
 
@@ -208,7 +224,7 @@ O reprocessamento não recalcula o custo observado de tentativas históricas. Ca
 
 Uma nova tentativa feita por um `RPR-*` usa o mesmo motor vigente de pricing e telemetria usado por uma execução normal. O custo adicional aparece como nova tentativa; ele não sobrescreve nem reprecifica a tentativa anterior.
 
-A previsão de uma futura execução pode reutilizar consumo histórico e o catálogo de preços vigente para estimativa, mas isso é uma projeção separada e não altera o custo observado do AUD.
+Antes de um `RPR-*` que ainda contenha trabalho de IA, o console pode projetar uma estimativa monetária seletiva a partir do histórico comparável e do catálogo vigente. Essa projeção é independente do custo observado, é limitada aos requisitos de IA ainda pendentes e pode ser declarada não estimável quando a base histórica for insuficiente.
 
 ## Evidência core e integridade
 
