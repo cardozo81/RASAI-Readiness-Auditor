@@ -66,6 +66,7 @@ STANDARDS_TIMEOUT_ENV = "RASAI_STANDARDS_TIMEOUT_SECONDS"
 
 DEFAULT_STANDARDS_MAX_URLS = 10
 DEFAULT_STANDARDS_TIMEOUT_SECONDS = 20.0
+DEFAULT_WEB_FEATURES_DATASET = "auto"
 
 
 SERVICES: tuple[StandardsService, ...] = (
@@ -160,7 +161,10 @@ SERVICES: tuple[StandardsService, ...] = (
     StandardsService(
         id="web-platform-baseline",
         label="Web Platform Baseline / WebDX",
-        purpose="Classifica recursos Web como Widely Available, Newly Available ou Limited Availability quando um dataset versionado esta disponivel.",
+        purpose=(
+            "Classifica Web Features diretamente observáveis no artefato da página como "
+            "Widely Available, Newly Available ou Limited Availability."
+        ),
         relation_degree=3,
         scopes=("URL", "DEVICE_SNAPSHOT"),
         enabled_env=WEB_PLATFORM_BASELINE_ENV,
@@ -168,8 +172,14 @@ SERVICES: tuple[StandardsService, ...] = (
         job_field="web_platform_baseline",
         dataset_env=WEB_FEATURES_DATASET_ENV,
         documentation_url="https://github.com/web-platform-dx/web-features",
-        methodology="W3C WebDX web-features Baseline data",
-        notes="Sem dataset versionado o estado e NOT_CONFIGURED; nenhum resultado de compatibilidade e inventado.",
+        cost_model="PUBLIC_FREE_DATASET",
+        network_behavior="EXTERNAL_DATASET_AUTO_OR_LOCAL_PIN",
+        methodology="W3C WebDX web-features + RASAi WEB-PLATFORM-BASELINE-001 deterministic source-to-BCD mapping",
+        notes=(
+            "A fonte do dataset usa auto por default e é congelada por AUD com versão/SHA-256. "
+            "O detector usa somente HTML renderizado/raw já persistido e CSS/JS inline; "
+            "não reconsulta assets externos da URL auditada."
+        ),
     ),
     StandardsService(
         id="pagespeed",
@@ -308,11 +318,20 @@ def boolean_value(raw: str | None, *, default: bool) -> bool:
     raise ValueError("use true/false, 1/0, yes/no or on/off")
 
 
+def _configuration_value(environment: Mapping[str, str], name: str) -> str:
+    value = (environment.get(name) or "").strip()
+    if value:
+        return value
+    if name == WEB_FEATURES_DATASET_ENV:
+        return DEFAULT_WEB_FEATURES_DATASET
+    return ""
+
+
 def service_state(item: StandardsService, env: Mapping[str, str] | None = None) -> dict[str, object]:
     environment = env if env is not None else os.environ
-    credentials_ready = all((environment.get(name) or "").strip() for name in item.credential_envs)
-    config_ready = all((environment.get(name) or "").strip() for name in item.config_envs)
-    dataset_ready = True if not item.dataset_env else bool((environment.get(item.dataset_env) or "").strip())
+    credentials_ready = all(_configuration_value(environment, name) for name in item.credential_envs)
+    config_ready = all(_configuration_value(environment, name) for name in item.config_envs)
+    dataset_ready = True if not item.dataset_env else bool(_configuration_value(environment, item.dataset_env))
     configured = credentials_ready and config_ready and dataset_ready
     explicit = (environment.get(item.enabled_env) or "").strip()
     if explicit:
@@ -333,7 +352,7 @@ def service_state(item: StandardsService, env: Mapping[str, str] | None = None) 
         state = "READY"
     missing_config = tuple(
         name for name in (*item.credential_envs, *item.config_envs, *((item.dataset_env,) if item.dataset_env else ()))
-        if not (environment.get(name) or "").strip()
+        if not _configuration_value(environment, name)
     )
     return {
         "id": item.id,
