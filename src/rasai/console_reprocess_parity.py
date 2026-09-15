@@ -1,8 +1,9 @@
 """Make selective reprocessing use the standard local execution presentation.
 
 The analytical/recovery engine remains ``audit_reprocess.reprocess_audit``.  This layer
-only projects it through the same console frame as a normal audit: header/timing/progress
-while running, then persisted usage/cost and artifact actions after completion.
+only projects it through the same console frame as a normal audit: preparation,
+header/timing/progress while running, then persisted usage/cost and artifact actions
+after completion.
 """
 from __future__ import annotations
 
@@ -56,6 +57,93 @@ def _next_action(item: Any) -> str:
     if temporal == "LIVE_RECOLLECTION" and status != "SUCCESS":
         return "nova tentativa é possível somente enquanto a janela temporal permanecer válida"
     return "o requisito continua retryable; revise o motivo antes de novo reprocessamento"
+
+
+def _friendly_status(value: Any) -> str:
+    raw = str(value or "").strip()
+    labels = {
+        "COMPLETE": "Concluída",
+        "PARTIAL_RETRYABLE": "Parcial — pode reprocessar",
+        "PARTIAL_BLOCKED": "Parcial — há bloqueios",
+        "FAILED_FATAL": "Falha definitiva",
+        "EXPIRED_FOR_COMPLETION": "Expirada para conclusão",
+        "WAITING_FOR_DATA": "Aguardando dados",
+        "FAILED_RETRYABLE": "Falha temporária — nova tentativa possível",
+        "FAILED_PERMANENT": "Falha definitiva",
+        "BLOCKED": "Bloqueado",
+        "PENDING": "Pendente",
+    }
+    return labels.get(raw.upper(), raw.replace("_", " ").strip().capitalize() or "-")
+
+
+def render_reprocess_preparation(
+    console_module: ModuleType,
+    state: Any,
+    audit_id: str,
+    pending: tuple[Any, ...],
+    successes: tuple[Any, ...],
+) -> None:
+    """Render reprocessing as the same preparation/action pattern used by processing."""
+    from rasai import console_navigation
+
+    audit_root = Path(state.audits_root) / audit_id
+    summary = console_navigation._safe_summary(audit_root, audit_id)
+
+    console_module.render_header(state)
+    print("INÍCIO > AUDITORIAS / HISTÓRICO > REPROCESSAR AUDITORIA\n")
+    print("PREPARAR REPROCESSAMENTO")
+    print("-" * 100)
+    print(f"AUD                  : {audit_id}")
+    print(f"Situação atual       : {_friendly_status(summary.get('processing_status'))}")
+    if summary:
+        print(
+            "Requisitos           : "
+            f"{summary.get('successful_items', 0)}/{summary.get('required_items', 0)} atendidos"
+        )
+    print(f"Pendentes/bloqueados : {len(pending)}")
+    print(f"Sucessos preservados : {len(successes)}")
+
+    print("\nESCOPO DESTA TENTATIVA")
+    print("-" * 100)
+    if pending:
+        for item in pending[:30]:
+            print(
+                f"- {item.component}/{item.scope_key}: "
+                f"{_friendly_status(getattr(item, 'status', ''))}"
+            )
+            reason = _reason_text(item)
+            if reason != "motivo específico não persistido":
+                print(f"  Motivo              : {reason}")
+        if len(pending) > 30:
+            print(f"- ... e mais {len(pending) - 30} requisito(s) pendente(s)")
+    else:
+        print(
+            "O estado será reavaliado pelo motor de reprocessamento antes de qualquer "
+            "nova tentativa."
+        )
+
+    print("\nCOMPORTAMENTO")
+    print("-" * 100)
+    print("- resultados já bem-sucedidos permanecem preservados e não são repetidos por padrão")
+    print("- somente requisitos ainda não satisfeitos e elegíveis são avaliados pelo motor canônico")
+    print("- chamadas externas/IA ocorrem apenas quando o requisito realmente precisar ser recuperado")
+    print("- consumo adicional desta tentativa e consumo acumulado do AUD aparecem ao final")
+
+    print("\nAÇÕES")
+    print("C. Confirmar e iniciar reprocessamento")
+    print("V. Voltar sem reprocessar")
+
+
+def _confirm_reprocess(state: Any) -> bool:
+    while True:
+        choice = input("Escolha: ").strip().upper()
+        if choice == "C":
+            return True
+        if choice in {"V", "Q"}:
+            state.operation = "LOCAL:AUD_REPROCESS_CANCELLED"
+            state.error = ""
+            return False
+        print("Opção inválida. Use C para confirmar ou V para voltar.")
 
 
 def render_reprocess_result(result: Any, unresolved: tuple[Any, ...]) -> None:
@@ -158,29 +246,8 @@ def reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) ->
     from rasai.console_cost import actual_usage
 
     pending, successes = console_navigation._work_item_preview(state, audit_id)
-    console_module.render_header(state)
-    print("REPROCESSAMENTO SELETIVO\n")
-    print(f"AUD: {audit_id}")
-    if pending or successes:
-        print(f"Pendentes/bloqueados : {len(pending)}")
-        print(f"Sucessos preservados : {len(successes)}")
-        if pending:
-            print("\nItens que ainda precisam de resolução:")
-            for item in pending[:30]:
-                print(f"- {item.component}/{item.scope_key}: {item.status}")
-    else:
-        print(
-            "O estado será reavaliado pelo motor de reprocessamento antes de "
-            "qualquer nova tentativa."
-        )
-    print("\nItens já bem-sucedidos não são repetidos por padrão.")
-    print(
-        "Chamadas externas/IA só ocorrem quando o requisito correspondente "
-        "realmente precisar ser recuperado."
-    )
-    if input("\nPara iniciar, digite REPROCESSAR: ").strip().upper() != "REPROCESSAR":
-        state.operation = "LOCAL:AUD_REPROCESS_CANCELLED"
-        state.error = "reprocessamento cancelado"
+    render_reprocess_preparation(console_module, state, audit_id, pending, successes)
+    if not _confirm_reprocess(state):
         return
 
     audit_root = Path(state.audits_root) / audit_id
