@@ -43,6 +43,9 @@ from rasai.standards_service_registry import (
 )
 
 
+WEB_FEATURES_DATASET_AUTO = "auto"
+
+
 def _validate_gsc_site_url(raw: str) -> str:
     value = str(raw).strip()
     if not value:
@@ -117,27 +120,32 @@ def _ensure_nonsecret_service_context_specs(base_environment: object, console_co
             WEB_FEATURES_DATASET_ENV,
             category,
             (
-                "Caminho local para um arquivo de dataset versionado do projeto WebDX/web-features. "
-                "É usado como requisito da capacidade Web Platform Baseline; não é uma enumeração."
+                "Seleciona a fonte do dataset canônico global WebDX/web-features usado pela capacidade "
+                "Web Platform Baseline. O dataset não depende do domínio auditado."
             ),
-            "caminho de arquivo existente",
-            default=None,
+            "auto ou caminho de arquivo existente",
+            default=WEB_FEATURES_DATASET_AUTO,
             required_when=(
-                "Opcional. Necessário para configurar o requisito de dataset da análise Web Platform Baseline. "
-                "Sem ele, o serviço fica NOT_CONFIGURED."
+                "Não requer configuração manual no uso normal: 'auto' é o padrão canônico. "
+                "Informe um caminho somente para fixar um snapshot local/versionado específico."
             ),
             sensitive=False,
-            impact="Leitura local; sem chamada externa e sem custo de provider.",
-            example=r"C:\dados\web-features\web-features.json",
+            impact=(
+                "Sem custo de provider. 'auto' mantém a seleção canônica gerenciada pelo RASAi; "
+                "um caminho local fixa explicitamente a referência do operador."
+            ),
+            example=WEB_FEATURES_DATASET_AUTO,
             source=(
                 "docs/WEB_PLATFORM_BASELINE.md | dataset oficial: "
                 "https://github.com/web-platform-dx/web-features"
             ),
             notes=(
-                "Valor permitido: qualquer caminho para arquivo existente acessível ao processo. "
-                "O runtime atual valida a existência e registra a referência, mas ainda não possui o detector/mapeador "
-                "versionado de uso de features; portanto a análise Baseline permanece NO_DATA mesmo com o arquivo "
-                "configurado. Não interpretar esta variável, isoladamente, como capacidade Baseline plenamente ativa."
+                "Valores permitidos: 'auto' ou caminho para arquivo existente acessível ao processo. "
+                "O dataset WebDX/web-features é global e versionado; as características do domínio determinam "
+                "quais features seriam observadas na página, não qual dataset-base deve ser usado. "
+                "O runtime atual ainda não possui o detector/mapeador versionado de uso de features; portanto "
+                "a análise Baseline permanece NO_DATA mesmo com a fonte configurada. 'auto' não inventa "
+                "compatibilidade nem implica que um resultado Baseline já foi materializado."
             ),
         ),
         base_environment.EnvironmentSpec(
@@ -266,11 +274,13 @@ def install() -> None:
                 raise ValueError(f"{name}: use número > 0 e < 3600")
             return f"{parsed:g}"
         if name == WEB_FEATURES_DATASET_ENV:
+            if value.casefold() == WEB_FEATURES_DATASET_AUTO:
+                return WEB_FEATURES_DATASET_AUTO
             path = Path(value).expanduser()
             if not path.is_file():
                 raise ValueError(
-                    f"{name}: informe o caminho para um arquivo web-features versionado existente; "
-                    "não há lista fechada de valores"
+                    f"{name}: use 'auto' ou informe o caminho para um arquivo web-features "
+                    "versionado existente"
                 )
             return str(path)
         if name == GSC_SITE_URL_ENV:
