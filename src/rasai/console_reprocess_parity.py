@@ -1,6 +1,6 @@
 """Make selective reprocessing use the standard local execution presentation.
 
-The analytical/recovery engine remains ``audit_reprocess.reprocess_audit``.  This layer
+The analytical/recovery engine remains ``audit_reprocess.reprocess_audit``. This layer
 only projects it through the same console frame as a normal audit: preparation,
 header/timing/progress while running, then persisted usage/cost and artifact actions
 after completion.
@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from contextvars import copy_context
 from pathlib import Path
+import sys
 import threading
+import time
 from types import ModuleType
 from typing import Any, Mapping
 
@@ -21,6 +23,8 @@ from rasai.console_audit_workflow import (
 )
 
 _INSTALLED = False
+_LIVE_REFRESH_SECONDS = 0.25
+_MIN_VISIBLE_PROGRESS_SECONDS = 0.80
 
 
 def _pending_items(state: Any, audit_id: str) -> tuple[Any, ...]:
@@ -203,6 +207,7 @@ def _render_live_frame(console_module: ModuleType, state: Any, audit_root: Path)
     if getattr(state, "audit_id", ""):
         print(f"Audit ID    : {state.audit_id}")
     print(f"Log técnico: {audit_root / 'logs' / 'audit.log'}")
+    sys.stdout.flush()
 
 
 def _run_post_actions(
@@ -270,9 +275,17 @@ def reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) ->
         state,
         "Reprocessamento seletivo",
         0.0,
-        detail="preparando requisitos pendentes e preservando resultados já válidos",
+        detail=(
+            f"iniciando tentativa; requisitos avaliados=0/{len(pending)}; "
+            f"sucessos anteriores preservados={len(successes)}"
+        ),
         exact=False,
     )
+
+    # Render before the worker starts. This guarantees visible feedback even when the
+    # selected recovery finishes before the first polling cycle (common for local APDEX).
+    visible_since = time.monotonic()
+    _render_live_frame(console_module, state, audit_root)
 
     outcome: dict[str, Any] = {}
 
@@ -312,9 +325,26 @@ def reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) ->
             exact=False,
         )
         _render_live_frame(console_module, state, audit_root)
-        thread.join(timeout=1.0)
+        thread.join(timeout=_LIVE_REFRESH_SECONDS)
 
     thread.join()
+
+    # The engine may finish in milliseconds. Keep a truthful completion transition on
+    # screen long enough to be perceived by a human operator instead of jumping directly
+    # from C to the result screen and looking frozen.
+    console_runtime.set_runtime_progress(
+        state,
+        "Reprocessamento físico encerrado",
+        100.0,
+        detail="execução física encerrada; consolidando o resultado lógico da tentativa",
+        exact=True,
+    )
+    state.operation = "LOCAL:AUD_REPROCESS"
+    _render_live_frame(console_module, state, audit_root)
+    elapsed_visible = time.monotonic() - visible_since
+    if elapsed_visible < _MIN_VISIBLE_PROGRESS_SECONDS:
+        time.sleep(_MIN_VISIBLE_PROGRESS_SECONDS - elapsed_visible)
+
     console_runtime._finish_timing(state)
     after_usage = actual_usage(audit_root)
 
