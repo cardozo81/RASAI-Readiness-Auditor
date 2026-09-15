@@ -116,6 +116,7 @@ def test_explicit_user_change_is_not_rolled_back_by_active_profile(monkeypatch) 
 def test_restored_audit_environment_is_fallback_and_user_value_wins(monkeypatch) -> None:
     state = _state()
     monkeypatch.delenv("RASAI_SERP_PROVIDER", raising=False)
+    monkeypatch.delenv("RASAI_SERP_MODE", raising=False)
     register_execution_environment_override(state, "RASAI_SERP_PROVIDER", "serpapi")
     register_execution_environment_override(state, "RASAI_SERP_MODE", "fixture")
 
@@ -123,12 +124,15 @@ def test_restored_audit_environment_is_fallback_and_user_value_wins(monkeypatch)
     assert child["RASAI_SERP_PROVIDER"] == "serpapi"
     assert child["RASAI_SERP_MODE"] == "fixture"
     assert "RASAI_SERP_PROVIDER" not in os.environ
+    assert "RASAI_SERP_MODE" not in os.environ
 
     # A later explicit operator configuration is canonical and must beat the historical
-    # restored-AUD fallback.
+    # restored-AUD fallback for both provider and mode.
     monkeypatch.setenv("RASAI_SERP_PROVIDER", "dataforseo")
+    monkeypatch.setenv("RASAI_SERP_MODE", "live")
     child = build_execution_environment(state)
     assert child["RASAI_SERP_PROVIDER"] == "dataforseo"
+    assert child["RASAI_SERP_MODE"] == "live"
 
 
 def test_subprocess_proxy_projects_even_when_runtime_supplies_env(monkeypatch) -> None:
