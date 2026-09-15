@@ -164,7 +164,7 @@ Trocar a property para `sc-domain:portoseguro.com.br` **não é solução** se a
 
 ## Perfis do console interativo
 
-Os Perfis de Execução possuem uma política GSC **somente para a sessão/próxima execução**. Ela não grava `rasai-console.ini`, não altera Windows/User e não modifica credenciais.
+Os Perfis de Execução possuem uma política GSC **somente para a próxima execução**. Ela não grava `rasai-console.ini`, não altera Windows/User, Windows/Machine, credenciais nem o valor canônico da sessão.
 
 Ao selecionar um perfil, o console oferece:
 
@@ -175,18 +175,45 @@ Ao selecionar um perfil, o console oferece:
 4. Herdar exatamente a política global RASAI_GSC_ENABLED
 ```
 
+### Separação obrigatória de contextos
+
+A configuração do operador e a configuração efetiva de um AUD são contextos diferentes.
+
+Exemplo válido:
+
+```text
+configuração do usuário/sessão:
+RASAI_GSC_ENABLED=true
+
+perfil da próxima execução:
+GSC=disabled
+```
+
+A tela de variáveis deve continuar mostrando `RASAI_GSC_ENABLED=true`. O perfil não possui permissão para substituir esse valor no processo do console.
+
+Na criação do subprocesso de auditoria, o RASAi constrói uma **cópia privada do ambiente** e projeta nela a decisão da execução. Nesse exemplo, somente o processo do AUD recebe semanticamente:
+
+```text
+RASAI_EXECUTION_GSC_POLICY=disabled
+RASAI_GSC_ENABLED=false
+```
+
+O processo pai continua com `RASAI_GSC_ENABLED=true` durante e após a execução.
+
+Essa regra também impede que previews de perfil, cálculo de custo, readiness, finalização ou remoção do perfil restaurem valores antigos sobre uma alteração explícita feita pelo usuário.
+
 ### Precedência e duração da política do perfil
 
-Depois que um perfil é aplicado, sua escolha GSC é autoritativa durante **todo o ciclo daquela execução**, inclusive finalização do mini-site, enriquecimentos de relatório e reconciliações que ocorram depois do processamento físico principal.
+A escolha GSC do perfil é autoritativa para **todo o subprocesso daquela execução**, inclusive finalização do mini-site, enriquecimentos de relatório e reconciliações pertencentes ao AUD.
 
-A política do perfil não pode ser perdida apenas porque uma camada interna terminou e restaurou temporariamente o ambiente. Em particular:
+Em particular:
 
-- `Não usar GSC nesta execução` mantém o GSC desligado até o ciclo do perfil terminar, mesmo quando `RASAI_GSC_ENABLED=true` está configurado globalmente;
-- `Usar somente se compatível` mantém semântica automática para o ciclo completo e não herda um `true` global no meio da finalização;
-- `Exigir GSC` mantém o requisito até a conclusão da execução;
-- `Herdar global` não cria overlay durável e usa a configuração global normal.
+- `Não usar GSC nesta execução` projeta GSC desligado somente no ambiente privado do AUD, mesmo quando `RASAI_GSC_ENABLED=true` está configurado globalmente;
+- `Usar somente se compatível` remove o hard-on/hard-off global somente da cópia privada da execução e mantém semântica automática durante todo o AUD;
+- `Exigir GSC` projeta o requisito somente na cópia privada do AUD;
+- `Herdar global` não cria override de execução e usa exatamente a configuração normal do operador.
 
-Ao remover/limpar o perfil, o valor global anterior é restaurado. Esse mecanismo é transitório de sessão: não persiste alteração no INI, no Windows/User ou no Windows/Machine.
+Ao terminar ou remover o perfil, não há variável global a restaurar: a configuração do operador **nunca foi modificada pelo perfil**.
 
 O console e o CLI usam o mesmo gate de escopo property/URL. Assim, uma property incompatível em modo automático é `NOT_APPLICABLE` sem chamada ao Google; em modo obrigatório é erro de configuração; em modo desabilitado nenhuma operação GSC é executada.
 
@@ -194,7 +221,7 @@ O console e o CLI usam o mesmo gate de escopo property/URL. Assim, uma property 
 
 É o default seguro dos presets.
 
-O perfil projeta GSC como automático durante a execução. Se a property não cobrir a URL, GSC é `NOT_APPLICABLE` e não bloqueia a conclusão.
+O perfil projeta GSC como automático apenas no ambiente da execução. Se a property não cobrir a URL, GSC é `NOT_APPLICABLE` e não bloqueia a conclusão.
 
 ### Exigir GSC
 
@@ -213,11 +240,13 @@ Mesmo com esse preflight aprovado, autenticação/permissão continuam dependent
 
 ### Não usar GSC
 
-Projeta `RASAI_GSC_ENABLED=false` durante todo o ciclo efetivo do perfil. Nenhuma chamada Sitemaps, URL Inspection ou Search Analytics deve ocorrer nessa execução, ainda que exista credencial/property válida e a política global esteja ativa.
+Projeta `RASAI_GSC_ENABLED=false` **somente na cópia privada do ambiente entregue ao subprocesso do AUD**. Nenhuma chamada Sitemaps, URL Inspection, Search Analytics ou renovação OAuth deve ocorrer nessa execução, ainda que exista credencial/property válida e a política global esteja ativa.
+
+Esse modo não altera o valor exibido na tela de variáveis e não grava `false` em nenhuma camada persistente.
 
 ### Herdar global
 
-Não altera a política global. Se a configuração global exigir GSC, as consequências de `true` permanecem válidas.
+Não cria override de execução. Se a configuração global exigir GSC, as consequências de `true` permanecem válidas.
 
 ## Tela de configuração
 
@@ -257,17 +286,3 @@ timeout
 ```
 
 `PROPERTY_URL_MISMATCH` é detectável localmente antes da chamada. Falhas OAuth, HTTP e de transporte são classificadas conforme a camada em que ocorrerem.
-
-## Reprocessamento
-
-Um RPR não deve ser usado para tentar resolver repetidamente uma incompatibilidade de property.
-
-Antes de reprocessar um GSC obrigatório pendente por `PROPERTY_URL_MISMATCH`, corrija uma destas condições:
-
-1. configure uma property GSC que realmente cubra a URL e à qual a conta OAuth possua acesso; ou
-2. mude a política para automático/se compatível quando GSC não for requisito da auditoria; ou
-3. desabilite GSC para a execução quando os dados privados do Search Console não fizerem parte do objetivo.
-
-A alteração de política deve ser consciente: transformar um requisito obrigatório em opcional muda o contrato esperado da auditoria, não "corrige" a coleta anterior.
-
-Consulte [GSC_OAUTH.md](GSC_OAUTH.md) para o fluxo de autenticação atual e [INTEGRATION_DIAGNOSTICS.md](INTEGRATION_DIAGNOSTICS.md) para a classificação de falhas de conectividade/autenticação.
