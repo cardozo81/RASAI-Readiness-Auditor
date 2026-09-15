@@ -107,6 +107,7 @@ def install() -> None:
     if _INSTALLED:
         return
     from rasai import console_runtime as runtime
+    from rasai.ai_execution_configuration import current_execution_environment
 
     def run_audit_from_console(state: Any) -> int:
         state.error, state.output, state.audit_id = "", [], ""
@@ -126,6 +127,7 @@ def install() -> None:
         output_queue: queue.Queue[str] = queue.Queue()
         runtime._start_timing(state)
         try:
+            child_env = current_execution_environment() or dict(os.environ)
             process = subprocess.Popen(
                 runtime.build_command(state),
                 stdout=subprocess.PIPE,
@@ -133,7 +135,7 @@ def install() -> None:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
-                env=dict(os.environ),
+                env=child_env,
                 **_popen_kwargs(),
             )
         except OSError as exc:
