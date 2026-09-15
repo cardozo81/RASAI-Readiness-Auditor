@@ -2,7 +2,7 @@
 schema_version = 1
 catalog_version = "2026-09-15.1"
 reference_date = "2026-09-15"
-description = "Factory personas and task-specialization profiles used by the RASAi AI runtime."
+description = "Factory personas and task specialization profiles used by the RASAi AI runtime."
 
 [profiles.SEMANTIC_READINESS]
 version = "1.0"
