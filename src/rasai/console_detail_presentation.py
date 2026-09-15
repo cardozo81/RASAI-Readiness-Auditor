@@ -87,3 +87,12 @@ def install() -> None:
     from rasai.console_guided_input_fix import install as install_console_guided_input_fix
 
     install_console_guided_input_fix()
+
+    # Keep the last navigation layer focused on operator ergonomics: capability help is
+    # actionable, IDs are never swallowed by a pause prompt, service toggle domains are
+    # reflected correctly in the UI, and manual AUD lookup can be cancelled with V.
+    from rasai.console_operator_navigation_refinements import (
+        install as install_console_operator_navigation_refinements,
+    )
+
+    install_console_operator_navigation_refinements(console)
