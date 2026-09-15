@@ -39,12 +39,20 @@ def test_zero_credential_services_are_default_on() -> None:
         assert state["state"] == "READY"
 
 
-def test_dataset_service_is_not_configured_until_dataset_exists() -> None:
+def test_webdx_dataset_uses_canonical_auto_default() -> None:
     state = service_state(service("web-platform-baseline"), {})
     assert state["requested"] is True
-    assert state["configured"] is False
-    assert state["effective_enabled"] is False
-    assert state["state"] == "NOT_CONFIGURED"
+    assert state["configured"] is True
+    assert state["effective_enabled"] is True
+    assert state["state"] == "READY"
+    assert state["missing_configuration"] == ()
+
+    disabled = service_state(
+        service("web-platform-baseline"),
+        {"RASAI_WEB_PLATFORM_BASELINE": "false"},
+    )
+    assert disabled["state"] == "DISABLED"
+    assert disabled["effective_enabled"] is False
 
 
 def test_credential_services_activate_only_after_required_configuration() -> None:
