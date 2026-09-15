@@ -89,7 +89,7 @@ def test_search_inputs_are_persisted_only_by_console_save(tmp_path) -> None:
     assert restored.search_queries == state.search_queries
     assert restored.search_depth == 17
     assert restored.search_region == state.search_region
-    assert restored.search_device == "desktop"
+    assert restored.search_device == state.search_device
     assert restored.search_competitive is False
 
 
@@ -148,10 +148,11 @@ def test_apdex_edit_marks_mix_override_only_when_mix_changes(monkeypatch) -> Non
     assert state.apdex_experience_device_mix == "mobile=50,desktop=50,tablet=0"
 
 
-def test_preparation_surface_is_result_oriented_and_returns_home(monkeypatch) -> None:
+def test_preparation_surface_is_catalog_driven_and_returns_home(monkeypatch) -> None:
     console = ModuleType("test_console_ui_refactor_preparation")
     console.render_header = lambda state: None
     console._execution_readiness = lambda state: (True, "configuração válida")
+    console._configure = lambda state, choice: None
     state = SearchConsoleState(target="https://example.com/")
     monkeypatch.setattr(builtins, "input", lambda prompt="": "V")
 
@@ -159,15 +160,12 @@ def test_preparation_surface_is_result_oriented_and_returns_home(monkeypatch) ->
     with redirect_stdout(output):
         assert ui._preparation_menu(console, state, lambda current: "") == "V"
     rendered = output.getvalue()
-    assert "PERFIL DA PRÓXIMA AUDITORIA" in rendered
-    assert "ANÁLISES / RESULTADOS" in rendered
-    assert "Relatório Mobile" in rendered
-    assert "Relatório Desktop" in rendered
-    assert "Domínio e descoberta" in rendered
-    assert "Search Intelligence" in rendered
-    assert "RESULTADOS SISTÊMICOS" in rendered
-    assert "Derivados do Device; não possuem seleção independente." in rendered
-    assert ui._get_meta(state, "preparation_active", False) is False
+    assert "CATÁLOGO DA AUDITORIA" in rendered
+    assert "PLANO DA PRÓXIMA AUDITORIA" in rendered
+    assert "CAT-01" in rendered
+    assert "CAT-09" in rendered
+    assert "PERFIL DA PRÓXIMA AUDITORIA" not in rendered
+    assert "ANÁLISES / RESULTADOS" not in rendered
 
 
 def test_top_level_information_architecture_routes_to_existing_actions(monkeypatch) -> None:
