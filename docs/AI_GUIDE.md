@@ -41,20 +41,36 @@ github-copilot -> copilot
 
 GitHub Copilot permanece explicit-only: a presença de uma credencial não o inclui automaticamente no `AUTO`.
 
-## Catálogo de modelos
+## Arquivos administráveis pelo operador
 
-Os adapters técnicos continuam em código. Modelos são configurados declarativamente em:
+A convenção do RASAi é:
 
 ```text
-src/rasai/config/ai-models-defaults.toml
+config/                         <- humano / operador
+├─ ai-models.toml
+├─ ai-pricing.toml
+└─ ai-task-profiles.toml
+
+src/rasai/config/               <- baseline interna do produto
+├─ ai-models-defaults.toml
+├─ ai-pricing-defaults.toml
+└─ ai-profiles-defaults.toml
 ```
 
-O operador pode usar:
+Para ajustes operacionais, o humano edita somente os arquivos em `config/`. Os arquivos `*-defaults.toml` sob `src/rasai/config/` são referências de fábrica distribuídas com o produto e não são a superfície normal de customização.
+
+No console interativo, os três catálogos são resolvidos e validados imediatamente antes de cada AUD. Arquivos file-backed são snapshotados para a execução. Portanto, uma alteração salva em `config/` entra na **próxima AUD** sem reiniciar o console, enquanto uma AUD já iniciada permanece com a configuração que recebeu no início.
+
+## Catálogo de modelos
+
+Os adapters técnicos continuam em código. A superfície humana padrão é:
 
 ```ini
-RASAI_AI_MODELS_SOURCE = file
-RASAI_AI_MODELS_FILE = ai-models.toml
+RASAI_AI_MODELS_SOURCE = auto
+RASAI_AI_MODELS_FILE = config/ai-models.toml
 ```
+
+`auto` usa o arquivo do operador quando ele existe e recorre à baseline empacotada quando ele não existe. `factory` ignora o arquivo do operador; `file` exige que o caminho configurado exista e seja válido.
 
 Isso permite adicionar ou desativar modelos de providers já integrados, alterar default, reasoning permitido e elegibilidade ao `AUTO`, sem alterar código quando o novo modelo continuar compatível com o protocolo do adapter existente.
 
@@ -73,7 +89,7 @@ Detalhamento e exemplos: [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md).
 | Anthropic | `claude-sonnet-5` | `LOW` |
 | GitHub Copilot | `auto` | `PROVIDER_DEFAULT` |
 
-Essa tabela é somente a fotografia de fábrica. O catálogo efetivamente carregado é a autoridade da execução.
+Essa tabela é somente a fotografia de fábrica. O catálogo efetivamente snapshotado para a execução é a autoridade da AUD.
 
 ## Seleção do modelo e reasoning
 
@@ -101,7 +117,7 @@ COPILOT_GITHUB_TOKEN
 
 A presença de uma credencial não garante saldo, quota, assinatura ou acesso ao modelo.
 
-MiMo PAYG usa credencial `sk-...` no adapter atual. GitHub Copilot usa token de usuário compatível com o SDK; o fluxo local recomendado usa fine-grained PAT com `Copilot Requests`, e o adapter desativa fallback para outra sessão GitHub local.
+MiMo PAYG usa credencial compatível com o adapter atual. GitHub Copilot usa token de usuário compatível com o SDK; o fluxo local recomendado usa fine-grained PAT com `Copilot Requests`, e o adapter desativa fallback para outra sessão GitHub local.
 
 Referência: [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
 
@@ -130,8 +146,8 @@ Referências: [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md) e [CONT
 Modelos e preços são catálogos separados:
 
 ```text
-ai-models*.toml   -> capacidade e elegibilidade
-ai-pricing*.toml  -> política comercial
+config/ai-models.toml   -> capacidade e elegibilidade
+config/ai-pricing.toml  -> política comercial
 ```
 
 Para cada provider, o `AUTO` resolve um modelo efetivo a partir do override do provider ou do `public_default` do catálogo. O candidato somente entra no ranking econômico quando:
@@ -210,7 +226,7 @@ versão de pricing
 diagnóstico técnico
 ```
 
-A execução também preserva a versão do catálogo de pricing. No SaaS, modelo e pricing são fixados por snapshot de job, com versão e hash, para que uma publicação administrativa durante a auditoria não altere uma execução em andamento.
+A execução também preserva a versão do catálogo de pricing. No console local, os arquivos de configuração de IA usados pela AUD são snapshotados no início da execução. No SaaS, modelo e pricing são fixados por snapshot de job, com versão e hash, para que uma publicação administrativa durante a auditoria não altere uma execução em andamento.
 
 Secrets, headers de autenticação, passwords/client secrets e conteúdo reconhecido como raciocínio privado não são persistidos como telemetria pública.
 
@@ -218,12 +234,13 @@ Secrets, headers de autenticação, passwords/client secrets e conteúdo reconhe
 
 O console permite selecionar provider/modelo/reasoning apenas entre valores válidos do catálogo efetivo. `rasai-console.ini` pode persistir configuração não sensível; API keys e tokens não são gravados nesse arquivo.
 
-O catálogo local de modelos e o catálogo local de pricing também não são secret stores. Suas origens e caminhos são configuração administrativa persistível.
+Os catálogos em `config/` também não são secret stores. Suas origens e caminhos são configuração administrativa persistível. Salvar uma alteração neles não modifica uma AUD que já começou; a próxima AUD resolve e snapshotará novamente os arquivos.
 
 ## Referências
 
 - [AI_MODEL_CONFIGURATION.md](AI_MODEL_CONFIGURATION.md)
 - [AI_PRICING_CONFIGURATION.md](AI_PRICING_CONFIGURATION.md)
+- [AI_TASK_PROFILES.md](AI_TASK_PROFILES.md)
 - [AUTO_COST_AWARE_AI_ROUTING.md](AUTO_COST_AWARE_AI_ROUTING.md)
 - [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md)
 - [PROVIDER_REGISTRY.md](PROVIDER_REGISTRY.md)
