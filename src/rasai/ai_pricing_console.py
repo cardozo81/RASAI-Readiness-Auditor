@@ -1,18 +1,15 @@
 """Interactive-console registration for configurable AI pricing.
 
-Pricing source/path are non-secret operator settings. Registering them in the canonical
-console environment catalog is required so persistence and Restore Defaults can remove
-Windows/User overrides and reliably return to the packaged factory policy.
+Pricing source/path are non-secret operator settings. The human-editable catalog lives
+under root ``config/``; packaged defaults remain an internal product baseline.
 """
 from __future__ import annotations
 
 from dataclasses import replace
 
-from rasai.ai_pricing_catalog import (
-    DEFAULT_USER_PRICING_FILE,
-    PRICING_FILE_ENV,
-    PRICING_SOURCE_ENV,
-)
+from rasai.ai_pricing_catalog import PRICING_FILE_ENV, PRICING_SOURCE_ENV
+
+OPERATOR_PRICING_FILE = "config/ai-pricing.toml"
 
 
 def install() -> None:
@@ -38,20 +35,20 @@ def install() -> None:
                 "Seleciona a origem da política de preços usada nas estimativas e no ranking econômico do AI=AUTO.",
                 "enum",
                 ("factory", "file", "auto"),
-                "factory",
+                "auto",
                 required_when=(
-                    "Nunca. factory é o baseline versionado; file exige o TOML configurado; "
-                    "auto usa arquivo quando existir e factory quando não existir."
+                    "Nunca. auto usa config/ai-pricing.toml quando presente e a baseline de fábrica quando ausente; "
+                    "file exige o TOML configurado; factory ignora o arquivo do operador."
                 ),
                 impact=(
                     "Pode alterar estimativas de custo e a ordem econômica dos providers no AI=AUTO; "
                     "não altera credenciais, elegibilidade, quarentena ou circuit breaker."
                 ),
-                example="RASAI_AI_PRICING_SOURCE=file",
+                example="RASAI_AI_PRICING_SOURCE=auto",
                 source="docs/AI_PRICING_CONFIGURATION.md",
                 notes=(
-                    "Restore Defaults volta para factory. O catálogo de fábrica desta versão tem "
-                    "data de referência 13/09/2026."
+                    "Alterações no arquivo do operador entram na próxima AUD sem reiniciar o console; "
+                    "a execução iniciada usa snapshot imutável."
                 ),
             ),
             base.EnvironmentSpec(
@@ -59,15 +56,15 @@ def install() -> None:
                 "IA - modelos e reasoning",
                 "Caminho do catálogo TOML editável usado quando a origem de pricing é file/auto.",
                 "caminho de arquivo TOML",
-                default=DEFAULT_USER_PRICING_FILE,
+                default=OPERATOR_PRICING_FILE,
                 required_when=f"Obrigatório quando {PRICING_SOURCE_ENV}=file.",
                 impact=(
                     "O conteúdo do arquivo determina preços, vigências, janelas e faixas de contexto "
                     "usadas pelo motor de custo."
                 ),
-                example="RASAI_AI_PRICING_FILE=ai-pricing.toml",
+                example="RASAI_AI_PRICING_FILE=config/ai-pricing.toml",
                 source="docs/AI_PRICING_CONFIGURATION.md",
-                notes="Não contém segredos. SOURCE=file falha fechado quando o arquivo não existe ou é inválido.",
+                notes="Arquivo humano na pasta config/; não contém segredos.",
             ),
         )
         for spec in specs:
