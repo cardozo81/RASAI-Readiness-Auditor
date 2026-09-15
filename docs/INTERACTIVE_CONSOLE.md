@@ -43,7 +43,7 @@ A convenção visual é:
 número curto = item acionável da tela atual
 ID numérico de 8 dígitos = identidade estável da configuração canônica
 letra = ação ou navegação
-— = resultado automático, derivado ou não selecionável
+- = resultado automático, derivado ou não selecionável
 ```
 
 Um ID de configuração é derivado da chave canônica e não muda conforme o caminho usado para chegar à variável.
