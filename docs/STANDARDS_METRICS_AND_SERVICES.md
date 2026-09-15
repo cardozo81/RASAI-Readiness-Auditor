@@ -42,7 +42,7 @@ Toda consolidação de múltiplas URLs deve declarar universo e fórmula.
 | W3C Nu HTML Checker | 3/5 | URL | ligado | não | conformidade HTML sem score RASAi artificial |
 | W3C CSS Validation Service | 3/5 | URL | ligado | não | conformidade CSS com throttling |
 | MDN HTTP Observatory | 2/5 | ORIGIN | ligado | não | headers HTTP e grade da própria fonte |
-| Web Platform Baseline / WebDX | 3/5 | URL, DEVICE_SNAPSHOT | solicitado | dataset reproduzível | compatibilidade de features quando mapeável |
+| Web Platform Baseline / WebDX | 3/5 | URL, DEVICE_SNAPSHOT | ligado; fonte `auto` | sem credencial; fonte WebDX global | compatibilidade de features quando mapeável |
 | Google PageSpeed Insights / Lighthouse | 3/5 | URL, DEVICE_SNAPSHOT | auto por credencial | API key | laboratório Lighthouse e categorias Web Quality |
 | Chrome UX Report API | 4/5 | URL, ORIGIN, DEVICE_SNAPSHOT | auto por credencial | API key | Core Web Vitals de campo |
 | Chrome UX Report History API | 5/5 | ORIGIN, DEVICE_SNAPSHOT | auto por credencial | mesma API key CrUX | série histórica semanal de métricas de campo |
@@ -54,7 +54,7 @@ Toda consolidação de múltiplas URLs deve declarar universo e fórmula.
 
 ```text
 DISABLED        serviço não solicitado ou desligado
-NOT_CONFIGURED  falta credencial, dataset ou contexto obrigatório
+NOT_CONFIGURED  falta credencial, contexto ou fonte obrigatória sem default aplicável
 READY           requisitos mínimos presentes
 SUCCESS         coleta concluída
 PARTIAL         resultado parcial
@@ -75,7 +75,7 @@ ERROR           falha da integração
 | `RASAI_W3C_CSS_VALIDATOR` | `true` | W3C CSS bounded/throttled |
 | `RASAI_MDN_OBSERVATORY` | `true` | scan por origem |
 | `RASAI_WEB_PLATFORM_BASELINE` | `true` | solicita análise Baseline |
-| `RASAI_WEB_FEATURES_DATASET` | sem default | dataset WebDX versionado |
+| `RASAI_WEB_FEATURES_DATASET` | `auto` | fonte canônica global WebDX; caminho local é override avançado |
 | `RASAI_STANDARDS_MAX_URLS` | `10` | teto de URLs; `0=todas` |
 | `RASAI_STANDARDS_TIMEOUT_SECONDS` | `20` | timeout por request |
 
@@ -223,14 +223,18 @@ Referências:
 - <https://github.com/web-platform-dx/web-features>
 - <https://web-platform-dx.github.io/web-features-project/>
 
-Configuração:
+Configuração normal:
 
 ```text
-RASAI_WEB_PLATFORM_BASELINE=true|false
-RASAI_WEB_FEATURES_DATASET=<caminho versionado>
+RASAI_WEB_PLATFORM_BASELINE=true
+RASAI_WEB_FEATURES_DATASET=auto
 ```
 
-Dataset existente não basta para inventar cobertura. Sem detector/mapeamento reproduzível suficiente, o estado permanece `NO_DATA`.
+`auto` é a política canônica de fonte do dataset global `web-platform-dx/web-features`. O dataset-base não varia por domínio auditado; o domínio determina quais features são observadas na página. Um caminho para arquivo local existente continua aceito como override avançado para pin/versionamento e reprodutibilidade.
+
+O default `auto` atende a configuração mínima da fonte e evita exigir ao usuário um caminho local sem necessidade. Isso não significa que a análise de compatibilidade já foi materializada: sem detector/mapeamento reproduzível suficiente, o estado de resultado permanece `NO_DATA` e nenhuma compatibilidade é inventada.
+
+Contrato detalhado: [WEB_PLATFORM_BASELINE.md](WEB_PLATFORM_BASELINE.md).
 
 ## Open Web Performance APIs
 
@@ -324,7 +328,7 @@ Podem ser persistidos:
 - OAuth Client ID do Search Console;
 - limites GSC;
 - limites e timeout de standards;
-- caminho de dataset WebDX;
+- fonte `auto` ou caminho local versionado do dataset WebDX;
 - configurações Clarity não secretas;
 - limites Common Crawl;
 - demais configurações não secretas previstas pelo console.
@@ -379,7 +383,7 @@ Para escala, priorize coleta local já existente, cálculo sobre evidência pers
 
 ### Web Platform Baseline completo
 
-Dataset e estado são modelados, mas sem detector/mapeamento suficiente o RASAi retorna `NO_DATA`.
+A fonte do dataset e o estado são modelados, com `auto` como default canônico. Sem detector/mapeamento suficiente o RASAi retorna `NO_DATA`.
 
 ### Browsertime / sitespeed.io
 
