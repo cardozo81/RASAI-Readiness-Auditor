@@ -116,3 +116,36 @@ def test_post_run_cost_with_unpriced_attempt_is_not_falsely_classified() -> None
     assert outcome.status == "NÃO COMPARÁVEL"
     assert outcome.actual == 0.10
     assert outcome.deviation_percent is None
+
+
+def test_post_run_zero_cost_without_ai_success_is_not_within_expected() -> None:
+    outcome = console_cost_confirmation._evaluate_cost_outcome(
+        _forecast(),
+        costs=(),
+        unpriced_ai_attempts=0,
+        actual_pages=3,
+        ai_attempts=1,
+        ai_successes=0,
+    )
+    assert outcome.comparable is False
+    assert outcome.status == "NÃO CONSUMIDO"
+    assert outcome.actual == 0.0
+    assert outcome.deviation is None
+    assert outcome.deviation_percent is None
+    assert "1 tentativa(s)" in " ".join(outcome.notes)
+    assert "não representa aderência" in " ".join(outcome.notes)
+
+
+def test_post_run_without_materialized_ai_attempt_is_not_within_expected() -> None:
+    outcome = console_cost_confirmation._evaluate_cost_outcome(
+        _forecast(),
+        costs=(),
+        unpriced_ai_attempts=0,
+        actual_pages=3,
+        ai_attempts=0,
+        ai_successes=0,
+    )
+    assert outcome.comparable is False
+    assert outcome.status == "NÃO CONSUMIDO"
+    assert outcome.actual == 0.0
+    assert "nenhuma tentativa" in " ".join(outcome.notes)
