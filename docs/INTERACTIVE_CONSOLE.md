@@ -36,6 +36,20 @@ AÇÕES
 
 O operador seleciona um ou mais itens `CAT-*`. A seleção abre imediatamente as opções do item; não existe wizard obrigatório de `Avançar`.
 
+A tela `PREPARAR AUDITORIA` contém somente ações ligadas ao plano corrente. Os acessos globais ficam exclusivamente no menu `INÍCIO`; portanto a preparação não repete atalhos para Inteligência Artificial, Integrações e serviços, Todas as configurações, Ajuda, Histórico/Consolidados ou Sair.
+
+Ações contextuais da preparação:
+
+```text
+R. Executar auditoria
+U. Executar com/sem IA        # somente quando aplicável ao plano
+S. Salvar configuração no arquivo [SEM SECRETS]
+L. Carregar configuração de AUD [NOVA EXECUÇÃO]
+V. Voltar ao início
+```
+
+Configurações diretamente relacionadas ao catálogo selecionado continuam editáveis no próprio contexto quando necessárias para completar aquele item. Isso não cria um segundo acesso global de configuração.
+
 Catálogos atuais:
 
 ```text
@@ -68,6 +82,8 @@ AÇÕES
 ```
 
 IDs canônicos de configurações podem ser usados diretamente para abrir o editor correspondente.
+
+O submenu de catálogo também não oferece atalho para a configuração global de provider/modelo de IA. Quando essa configuração for necessária, a orientação aponta para `INÍCIO > Inteligência Artificial`. A ação `U` permanece local ao plano porque decide somente se o enriquecimento opcional por IA será usado naquela auditoria.
 
 ## Configurações: linguagem do usuário
 
