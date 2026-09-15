@@ -96,3 +96,12 @@ def install() -> None:
     )
 
     install_console_operator_navigation_refinements(console)
+
+    # Conteúdo e JSON-LD share one top-level capability but have distinct functional
+    # components. Segment those components only in the presentation layer; deterministic
+    # analysis, editorial context and optional AI remediation keep their existing runtime.
+    from rasai.console_content_capability_refinements import (
+        install as install_console_content_capability_refinements,
+    )
+
+    install_console_content_capability_refinements(console)
