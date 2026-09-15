@@ -116,3 +116,11 @@ def install() -> None:
     from rasai.console_history_presentation import install as install_console_history_presentation
 
     install_console_history_presentation(console)
+
+    # Final RPR owner: fixes applicable-item counting, selective AI cost preview and the
+    # complete result/action surface, including direct retry of remaining recoverable work.
+    from rasai.console_reprocess_final_refinements import (
+        install as install_console_reprocess_final_refinements,
+    )
+
+    install_console_reprocess_final_refinements(console)
