@@ -45,6 +45,7 @@ def test_packaged_defaults_enable_maximum_credential_free_baseline() -> None:
         "RASAI_WEB_PLATFORM_BASELINE",
     ):
         assert parser.getboolean("environment", name) is True
+    assert parser.get("environment", "RASAI_WEB_FEATURES_DATASET") == "auto"
 
     # Credential-driven services stay AUTO-by-requirements: the defaults file must not
     # materialize an explicit hard-on/hard-off that defeats credential discovery.
@@ -83,10 +84,13 @@ def test_missing_user_ini_is_created_from_system_defaults_and_external_free_serv
         assert os.environ["RASAI_W3C_VALIDATOR"] == "true"
         assert os.environ["RASAI_W3C_CSS_VALIDATOR"] == "true"
         assert os.environ["RASAI_MDN_OBSERVATORY"] == "true"
+        assert os.environ["RASAI_WEB_PLATFORM_BASELINE"] == "true"
+        assert os.environ["RASAI_WEB_FEATURES_DATASET"] == "auto"
         text = path.read_text(encoding="utf-8")
         assert "enabled = true" in text
         assert "samples_per_context = 1" in text
         assert "samples_per_page = 20" in text
+        assert "RASAI_WEB_FEATURES_DATASET = auto" in text
         assert "OPENAI_API_KEY" not in text
 
 
@@ -181,6 +185,7 @@ def test_restore_preserves_or_clears_credentials_only_when_selected() -> None:
         assert result.warnings == ()
         assert os.environ["OPENAI_API_KEY"] == "sk-preserve"
         assert os.environ["RASAI_W3C_VALIDATOR"] == "true"
+        assert os.environ["RASAI_WEB_FEATURES_DATASET"] == "auto"
         assert state.synthetic_apdex is True
         assert state.apdex_experience_samples == 20
 
