@@ -92,7 +92,7 @@ A revisão dos Perfis de Execução não encontrou o mesmo vazamento de ambiente
 
 Foi identificado um caso da mesma família fora do mecanismo de perfil: a recuperação de Search Intelligence de um AUD antigo podia colocar `RASAI_SERP_PROVIDER` e `RASAI_SERP_MODE` diretamente no ambiente do console. Esse comportamento também foi isolado como fallback de execução.
 
-Outros usos temporários de ambiente existentes no runtime — por exemplo, overrides de worker, supressão temporária de experiência, toggles transitórios de análise e proteções de observabilidade — continuam obrigados a salvar/restaurar o valor anterior e não constituem configuração persistente.
+Outros usos temporários de ambiente existentes no runtime - por exemplo, overrides de worker, supressão temporária de experiência, toggles transitórios de análise e proteções de observabilidade - continuam obrigados a salvar/restaurar o valor anterior e não constituem configuração persistente.
 
 ## Invariantes
 
