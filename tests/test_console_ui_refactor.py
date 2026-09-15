@@ -45,6 +45,12 @@ def test_device_drives_normal_experience_mix_without_tablet() -> None:
     assert ui._derived_apdex_mix("both") == "mobile=60,desktop=40,tablet=0"
 
 
+def test_device_drives_mobile_and_desktop_result_visibility() -> None:
+    assert ui._device_result_states(SimpleNamespace(device="mobile")) == ("INCLUÍDO", "NÃO APLICÁVEL")
+    assert ui._device_result_states(SimpleNamespace(device="desktop")) == ("NÃO APLICÁVEL", "INCLUÍDO")
+    assert ui._device_result_states(SimpleNamespace(device="both")) == ("INCLUÍDO", "INCLUÍDO")
+
+
 def test_search_capability_filter_does_not_expose_unrelated_ai_variables() -> None:
     specs = ui._capability_specs("search-intelligence")
     names = {spec.name for spec in specs}
@@ -93,6 +99,48 @@ def test_inherited_experience_mix_is_not_materialized_as_override(tmp_path) -> N
     assert not parser.has_option("synthetic_apdex_experience", "device_mix")
 
 
+def test_apdex_edit_keeps_mix_inherited_when_mix_is_unchanged(monkeypatch) -> None:
+    console = ModuleType("test_console_ui_refactor_apdex_inherited")
+    console._configure = lambda state, choice: setattr(
+        state, "apdex_experience_samples", state.apdex_experience_samples + 1
+    )
+    console.mark_dirty = lambda state, value=True: None
+    console._save_configuration = lambda state: True
+    state = ApdexConsoleState(device="both")
+    state.apdex_experience = True
+    state.apdex_experience_device_mix = ui._derived_apdex_mix("both")
+    ui._set_mix_inherited(state, True)
+
+    ui._install_configure_persistence(console)
+    monkeypatch.setattr(builtins, "input", lambda prompt="": "1")
+    console._configure(state, "11")
+
+    assert ui._mix_inherited(state) is True
+    assert state.apdex_experience_device_mix == "mobile=60,desktop=40,tablet=0"
+
+
+def test_apdex_edit_marks_mix_override_only_when_mix_changes(monkeypatch) -> None:
+    console = ModuleType("test_console_ui_refactor_apdex_override")
+
+    def change_mix(state, choice):
+        state.apdex_experience_device_mix = "mobile=50,desktop=50,tablet=0"
+
+    console._configure = change_mix
+    console.mark_dirty = lambda state, value=True: None
+    console._save_configuration = lambda state: True
+    state = ApdexConsoleState(device="both")
+    state.apdex_experience = True
+    state.apdex_experience_device_mix = ui._derived_apdex_mix("both")
+    ui._set_mix_inherited(state, True)
+
+    ui._install_configure_persistence(console)
+    monkeypatch.setattr(builtins, "input", lambda prompt="": "1")
+    console._configure(state, "11")
+
+    assert ui._mix_inherited(state) is False
+    assert state.apdex_experience_device_mix == "mobile=50,desktop=50,tablet=0"
+
+
 def test_preparation_surface_is_result_oriented_and_returns_home(monkeypatch) -> None:
     console = ModuleType("test_console_ui_refactor_preparation")
     console.render_header = lambda state: None
@@ -106,10 +154,12 @@ def test_preparation_surface_is_result_oriented_and_returns_home(monkeypatch) ->
     rendered = output.getvalue()
     assert "PERFIL DA PRÓXIMA AUDITORIA" in rendered
     assert "ANÁLISES / RESULTADOS" in rendered
+    assert "Relatório Mobile" in rendered
+    assert "Relatório Desktop" in rendered
     assert "Domínio e descoberta" in rendered
     assert "Search Intelligence" in rendered
     assert "RESULTADOS SISTÊMICOS" in rendered
-    assert "Mobile=INCLUÍDO" in rendered
+    assert "Derivados do Device; não possuem seleção independente." in rendered
     assert ui._get_meta(state, "preparation_active", False) is False
 
 
