@@ -12,6 +12,7 @@ from rasai.ai_task_profiles import (
     profile_identity,
     profiles_for_improvement_domains,
     render_task_profiles,
+    restore_factory_task_profile_catalog,
 )
 
 
@@ -20,6 +21,13 @@ def test_factory_catalog_contains_all_required_profiles() -> None:
     assert set(REQUIRED_PROFILE_IDS).issubset(catalog.profiles)
     assert catalog.profile("SECURITY_PASSIVE").version == "1.0"
     assert "security architect" in catalog.profile("SECURITY_PASSIVE").role
+
+
+def test_factory_catalog_can_reconstruct_an_editable_profile_file(tmp_path: Path) -> None:
+    target = restore_factory_task_profile_catalog(tmp_path / "profiles.toml")
+    restored = load_task_profile_catalog(path=target)
+    factory = load_factory_task_profile_catalog()
+    assert restored.profiles == factory.profiles
 
 
 def test_partial_operator_file_overrides_only_selected_profile(tmp_path: Path) -> None:
