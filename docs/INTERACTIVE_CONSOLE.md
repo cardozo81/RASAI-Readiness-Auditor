@@ -41,19 +41,19 @@ A convenção visual é:
 
 ```text
 número curto = item acionável da tela atual
-ID numérico de 8 dígitos = identidade estável da configuração canônica
+ID numérico de 6 dígitos = identidade estável da configuração canônica
 letra = ação ou navegação
 - = resultado automático, derivado ou não selecionável
 ```
 
-Um ID de configuração é derivado da chave canônica e não muda conforme o caminho usado para chegar à variável.
+Um ID de configuração é derivado da chave canônica e não muda conforme o caminho usado para chegar à variável. O formato de 6 dígitos reduz o ruído visual do formato anterior de 8 dígitos; 4 dígitos não são usados porque o espaço de identificação seria pequeno demais para preservar com segurança o contrato de identidade estável conforme o catálogo cresce.
 
 ### Perfil da próxima auditoria
 
 O perfil aparece no início da preparação:
 
 ```text
-1. 00000001  Perfil base : <perfil ou Personalizado>
+1. 000001  Perfil base : <perfil ou Personalizado>
 ```
 
 Perfis são presets temporários da próxima execução. O contrato detalhado está em [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md).
@@ -62,11 +62,11 @@ Perfis são presets temporários da próxima execução. O contrato detalhado es
 
 ```text
 [ ESCOPO ]
-2. 00000002  Entrada
-3. 00000003  Projeto
-4. 00000004  Device
-5. 00000005  Idioma / mercado
-6. 00000006  Timezone apresentação
+2. 000002  Entrada
+3. 000003  Projeto
+4. 000004  Device
+5. 000005  Idioma / mercado
+6. 000006  Timezone apresentação
 ```
 
 `Device` aceita `mobile`, `desktop` ou `both` e é a autoridade para os relatórios de contexto de dispositivo.
@@ -191,7 +191,9 @@ AÇÕES
 
 São exibidos, quando aplicáveis: finalidade, owner, contexto, necessidade, impacto, observações, valor, origem, estado, tipo, valores aceitos, default, referência e documentação.
 
-Campos com domínio fechado usam seleção guiada. Texto livre é reservado a valores realmente abertos, como URL, path, locale, property, identificador externo, secret ou número contínuo.
+Campos com domínio fechado usam seleção guiada. Ao escolher `S. Definir / alterar`, o console lista os valores técnicos aceitos, apresenta uma descrição curta em PT-BR quando a opção não é autoexplicativa e pede confirmação antes de aplicar. Listas fechadas aceitam seleção múltipla. Texto livre é reservado a valores realmente abertos, como URL, path, locale, property, identificador externo, secret ou número contínuo.
+
+O identificador técnico permanece visível mesmo quando existe explicação amigável. Isso evita esconder do operador o valor efetivamente persistido no contrato (`auto`, `health-safety`, nomes de modelos, categorias Lighthouse etc.).
 
 ## Origem das configurações
 
@@ -258,7 +260,19 @@ Cor reforça o estado, mas o texto é obrigatório:
 
 ## Auditorias, reprocessamento e reutilização
 
-`Auditorias / histórico` seleciona um `AUD-*`, apresenta fulfillment e permite reprocessar somente pendências ou carregar a configuração para uma nova auditoria. Sucessos preservados pelo motor de reprocessamento não são repetidos por padrão.
+`Auditorias / histórico` apresenta a lista recente em colunas explícitas:
+
+```text
+Nº  AUDITORIA  CONCLUSÃO LOCAL  SITUAÇÃO  REPROCESSAMENTO
+```
+
+`CONCLUSÃO LOCAL` usa o timezone de apresentação configurado e só é preenchida quando a auditoria atingiu conclusão efetiva. Estados técnicos como `COMPLETE`, `PARTIAL_RETRYABLE`, `PARTIAL_BLOCKED`, `FAILED_FATAL` e `EXPIRED_FOR_COMPLETION` continuam persistidos internamente, mas são apresentados ao usuário em PT-BR (`Concluída`, `Parcial — pode reprocessar`, `Parcial — há bloqueios`, `Falha definitiva`, `Expirada para conclusão`).
+
+A coluna separada `relatório=PRELIMINARY|FINAL` não é repetida na listagem quando apenas duplica o estado operacional já comunicado. A tela detalhada mantém score, consolidação, requisitos e reprocessamentos quando essas informações acrescentam significado.
+
+Auditorias concluídas não oferecem reprocessamento porque não possuem pendências a recuperar. Estados com pendências recuperáveis continuam oferecendo reprocessamento seletivo, preservando itens já bem-sucedidos por padrão.
+
+`GERENCIAR AUDITORIAS / EXCLUSÃO SEGURA` segue a mesma estrutura tabular do histórico. A tabela adiciona `SEL`, `TAMANHO` e `DOMÍNIO`, usa data/hora local e calcula a largura da coluna `AUDITORIA` pelo tamanho real dos IDs para manter os cabeçalhos alinhados.
 
 Carregar configuração de AUD não reutiliza credenciais persistidas no workspace. O ambiente atual resolve as credenciais e o preflight informa dependências ausentes.
 

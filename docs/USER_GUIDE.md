@@ -62,11 +62,11 @@ AÇÕES
 Os campos básicos têm IDs reservados:
 
 ```text
-00000002 Entrada
-00000003 Projeto
-00000004 Device
-00000005 Idioma / mercado
-00000006 Timezone apresentação
+000002 Entrada
+000003 Projeto
+000004 Device
+000005 Idioma / mercado
+000006 Timezone apresentação
 ```
 
 `Device` pode ser `mobile`, `desktop` ou `both`.
@@ -102,9 +102,11 @@ Visão geral, Readiness SARI, metodologia de scoring, contexto de captura, uso d
 O console usa duas classes de números:
 
 - números curtos: escolhas da tela atual;
-- IDs de 8 dígitos: identidade estável de uma configuração canônica.
+- IDs de 6 dígitos: identidade estável de uma configuração canônica.
 
 O mesmo ID de variável aparece em Inteligência Artificial, Integrações, Todas as configurações ou em uma tela de capacidade quando essa dependência é relevante.
+
+O formato de 6 dígitos reduz o ruído visual do formato anterior. O RASAi não usa apenas 4 dígitos porque o espaço de identificação seria pequeno demais para manter o contrato de identidade estável com baixo risco de colisão conforme novas variáveis forem adicionadas.
 
 ## Inteligência Artificial
 
@@ -149,7 +151,7 @@ Cada variável mostra:
 - referências/documentação;
 - ações de edição/restauração.
 
-Campos enum/boolean/lista fechada são guiados; texto livre é usado apenas em domínios realmente abertos.
+Campos enum/boolean/lista fechada são guiados. Ao escolher `S. Definir / alterar`, o console exibe as opções permitidas para seleção e solicita confirmação antes de aplicá-las. Quando um valor técnico não é autoexplicativo, como categorias YMYL, a opção mantém o texto canônico e recebe uma descrição curta em PT-BR. Listas fechadas permitem selecionar vários valores. Texto livre é usado apenas em domínios realmente abertos.
 
 ## Origem dos valores
 
@@ -251,17 +253,35 @@ Editar amostras ou outros parâmetros não transforma o mix herdado em personali
 
 ## Auditorias e histórico
 
-A seleção de um `AUD-*` apresenta estado de processamento, score, relatório, elegibilidade para consolidação, requisitos e reprocessamentos.
+A listagem recente usa colunas com `AUDITORIA`, `CONCLUSÃO LOCAL`, `SITUAÇÃO` e `REPROCESSAMENTO`.
+
+`CONCLUSÃO LOCAL` usa o timezone configurado no programa. Auditorias ainda parciais não recebem um timestamp de conclusão artificial.
+
+O console apresenta estados do fulfillment em PT-BR. Exemplos:
+
+```text
+COMPLETE              -> Concluída
+PARTIAL_RETRYABLE     -> Parcial — pode reprocessar
+PARTIAL_BLOCKED       -> Parcial — há bloqueios
+FAILED_FATAL          -> Falha definitiva
+EXPIRED_FOR_COMPLETION -> Expirada para conclusão
+```
+
+A coluna técnica separada `relatório=PRELIMINARY|FINAL` não é necessária na lista quando apenas repete o estado operacional já exibido.
+
+Ao selecionar um `AUD-*`, a tela detalhada apresenta situação, conclusão local quando aplicável, score, elegibilidade para consolidação, requisitos e reprocessamentos.
 
 Ações principais:
 
 ```text
-Reprocessar pendências
+Reprocessar somente pendências recuperáveis
 Carregar configuração para uma nova auditoria
 Mostrar caminhos de artefatos
 ```
 
-O reprocessamento preserva itens já bem-sucedidos por padrão. Carregar configuração cria uma nova execução quando o usuário efetivamente executar; o AUD de origem não é alterado.
+Auditorias concluídas não oferecem reprocessamento porque já atingiram o objetivo e não possuem pendências a recuperar. O reprocessamento preserva itens já bem-sucedidos por padrão. Carregar configuração cria uma nova execução quando o usuário efetivamente executar; o AUD de origem não é alterado.
+
+`GERENCIAR AUDITORIAS / EXCLUSÃO SEGURA` usa estrutura tabular equivalente à do histórico, acrescentando seleção, tamanho e domínio. Os cabeçalhos são dimensionados com base no tamanho real do Audit ID para permanecer alinhados.
 
 Credenciais não são copiadas do AUD.
 

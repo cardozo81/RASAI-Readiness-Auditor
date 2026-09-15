@@ -52,7 +52,7 @@ O perfil aparece antes dos ajustes porque funciona como preset/base. Alteraçõe
 
 ```text
 número curto = escolha contextual da tela
-ID de 8 dígitos = identidade estável da configuração
+ID de 6 dígitos = identidade estável da configuração
 letra = ação/navegação
 - = linha informativa, automática ou derivada
 ```
@@ -61,25 +61,27 @@ Os números curtos ajudam a operar a tela. IDs estáveis permitem localizar a me
 
 ### 3.2 IDs estáveis
 
-Variáveis do catálogo recebem um ID numérico de 8 dígitos calculado a partir do nome canônico. O ID não depende de ordem alfabética, owner, filtro ou caminho de navegação.
+Variáveis do catálogo recebem um ID numérico de 6 dígitos calculado a partir do nome canônico. O ID não depende de ordem alfabética, owner, filtro ou caminho de navegação.
+
+Quatro dígitos foram descartados porque o espaço de 10 mil combinações aumenta demais o risco de colisão conforme o catálogo cresce. Seis dígitos reduzem o ruído visual em relação ao formato anterior de 8 dígitos sem transformar a identidade da variável em um índice sequencial dependente da ordem do catálogo.
 
 Configurações-base do console usam IDs reservados, por exemplo:
 
 ```text
-00000001 Perfil
-00000002 Entrada
-00000003 Projeto
-00000004 Device
-00000005 Idioma / mercado
-00000006 Timezone
-00000007 Raiz de auditorias
-00000008 IA principal
-00000009 Web Performance
-00000010 Inputs Search
-00000011 Apdex navegação
-00000012 Apdex experiência
-00000013 Análise profunda
-00000014 Remediações
+000001 Perfil
+000002 Entrada
+000003 Projeto
+000004 Device
+000005 Idioma / mercado
+000006 Timezone
+000007 Raiz de auditorias
+000008 IA principal
+000009 Web Performance
+000010 Inputs Search
+000011 Apdex navegação
+000012 Apdex experiência
+000013 Análise profunda
+000014 Remediações
 ```
 
 ## 4. Device como autoridade
@@ -205,6 +207,10 @@ Todo editor canônico segue quatro blocos:
 - default;
 - exemplo/referência/documentação quando disponível.
 
+Quando o domínio é fechado, `S. Definir / alterar` não abre entrada livre. O console lista as opções técnicas aceitas, acrescenta uma explicação curta em PT-BR quando o valor pode não ser autoexplicativo e exige confirmação da seleção antes de aplicá-la.
+
+Listas fechadas permitem selecionar um ou mais valores pelo número ou pelo identificador técnico. O texto técnico continua visível porque ele corresponde ao contrato real gravado/configurado.
+
 ### AÇÕES
 
 - definir/alterar;
@@ -226,6 +232,8 @@ Ordem preferencial:
 4. provider/model/reasoning derivados do registry;
 5. valor dependente recalculado a partir da seleção vigente;
 6. texto livre apenas quando o domínio realmente é aberto.
+
+A UI preserva o valor técnico (`health-safety`, `financial-security`, `auto`, nomes de modelos etc.) e pode apresentar uma descrição curta em tom visual secundário. Valores triviais como `true/false` ou `mobile/desktop` podem permanecer com explicação mínima.
 
 Valores abertos incluem URL, path, property, locale, identificador externo, secret e números de faixa contínua.
 
@@ -335,13 +343,34 @@ INÍCIO > Sistema / restaurar padrões
 
 Ela não é uma ação da preparação da auditoria.
 
-## 19. Critério de aderência
+## 19. Auditorias / histórico
+
+A listagem histórica usa colunas explícitas, com `AUDITORIA`, `CONCLUSÃO LOCAL`, `SITUAÇÃO` e `REPROCESSAMENTO`. O timestamp de conclusão é apresentado no timezone configurado para apresentação e só aparece quando a auditoria atingiu conclusão efetiva.
+
+Estados técnicos do fulfillment continuam persistidos no contrato interno, mas a UI usa textos amigáveis em PT-BR. Exemplos:
+
+```text
+COMPLETE            -> Concluída
+PARTIAL_RETRYABLE   -> Parcial — pode reprocessar
+PARTIAL_BLOCKED     -> Parcial — há bloqueios
+FAILED_FATAL        -> Falha definitiva
+EXPIRED_FOR_COMPLETION -> Expirada para conclusão
+```
+
+`report_status` não é repetido na listagem quando apenas duplica a semântica operacional de `processing_status`.
+
+Uma auditoria `COMPLETE` não oferece reprocessamento: o objetivo já foi atingido e os itens requeridos já estão satisfeitos. O reprocessamento permanece disponível para estados em que existem pendências recuperáveis.
+
+`GERENCIAR AUDITORIAS / EXCLUSÃO SEGURA` segue a mesma linguagem tabular do histórico, acrescentando seleção, tamanho e domínio. As larguras consideram o tamanho real de `AUD-*` para evitar desalinhamento dos cabeçalhos.
+
+## 20. Critério de aderência
 
 Uma superfície de configuração é aderente quando:
 
 - usa o owner canônico da variável;
 - oferece ajuda e impacto antes da edição;
 - guia domínios fechados;
+- explica opções técnicas não autoexplicativas sem ocultar o valor canônico;
 - mostra estado e origem;
 - distingue automático, derivado, herdado e personalizado;
 - não duplica provider/configuração em módulos consumidores;
