@@ -130,6 +130,8 @@ def catalog_menu(console_module: ModuleType, state: Any, catalog: AuditCatalog) 
             info("Uso nesta auditoria", "COM IA" if ai_execution_enabled(state) else "SEM IA")
             if catalog.ai_mode == AI_OPTIONAL and not ai_execution_enabled(state):
                 print(paint("  Execução sem IA é o default recomendado quando o catálogo tem apenas enriquecimento opcional.", DIM))
+            if not ai_provider_readiness(state)[0]:
+                print(paint("  Para configurar provider/modelo, volte ao INÍCIO > Inteligência Artificial.", DIM))
         section("RESULTADO ESPERADO")
         print(catalog.expected_result)
         specs = _related_specs(catalog)
@@ -145,8 +147,6 @@ def catalog_menu(console_module: ModuleType, state: Any, catalog: AuditCatalog) 
         section("AÇÕES")
         if _HANDLER_CHOICES.get(catalog.id):
             print("1. Configurar parâmetros próprios deste catálogo")
-        if catalog.ai_mode != AI_NONE:
-            print("I. Configurar IA principal / orquestração")
         if catalog.ai_mode == AI_OPTIONAL and ai_provider_readiness(state)[0] and not ai_required(state):
             toggle = "Executar sem IA (recomendado)" if ai_execution_enabled(state) else "Executar com IA"
             print(f"U. {toggle}")
@@ -159,9 +159,6 @@ def catalog_menu(console_module: ModuleType, state: Any, catalog: AuditCatalog) 
             if deselect_catalog(state, catalog):
                 state.error = ""
                 return
-            continue
-        if raw == "I" and catalog.ai_mode != AI_NONE:
-            console_module._configure(state, "4")
             continue
         if raw == "U" and catalog.ai_mode == AI_OPTIONAL and ai_provider_readiness(state)[0] and not ai_required(state):
             set_ai_execution_enabled(state, not ai_execution_enabled(state))
@@ -221,7 +218,7 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
         if ai_optional(state) and not ai_required(state) and ai_provider_readiness(state)[0]:
             toggle = "Executar sem IA (recomendado)" if ai_execution_enabled(state) else "Executar com IA"
             print(f"U. {toggle}")
-        print("I. Inteligência Artificial\nS. Salvar configuração no arquivo [SEM SECRETS]\nL. Carregar configuração de AUD [NOVA EXECUÇÃO]\nE. Integrações e serviços\nA. Todas as configurações\nH. Ajuda / custos\nC. Histórico / relatórios consolidados [OFFLINE]\nV. Voltar ao início\nQ. Sair")
+        print("S. Salvar configuração no arquivo [SEM SECRETS]\nL. Carregar configuração de AUD [NOVA EXECUÇÃO]\nV. Voltar ao início")
         raw = input("Escolha: ").strip().upper()
         if raw == "V":
             return "V"
@@ -230,21 +227,11 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
                 state.error = plan_detail
                 continue
             return "R"
-        if raw == "I":
-            console_module._configure(state, "4")
-            continue
         if raw == "U" and ai_optional(state) and not ai_required(state) and ai_provider_readiness(state)[0]:
             set_ai_execution_enabled(state, not ai_execution_enabled(state))
             state.error = ""
             continue
-        if raw in {"E", "A"}:
-            try:
-                from rasai import console_ui_refactor as refactor
-                refactor._set_config_view(state, "integrations" if raw == "E" else "all")
-            except (ImportError, AttributeError):
-                pass
-            return "E"
-        if raw in {"S", "L", "H", "C", "Q"}:
+        if raw in {"S", "L"}:
             return raw
         core = {"1": "1", "2": "2", "3": "3", "4": "9", "5": "12", "15": "10"}
         if raw in core:
@@ -257,6 +244,7 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
             catalog_menu(console_module, state, catalog)
             continue
         state.error = "opção inválida em Preparar auditoria"
+
 
 def preparation_menu(console_module: ModuleType, state: Any, detailed: Any = None) -> str:
     """Render preparation without allowing the top-level input capture to hijack nested prompts."""
