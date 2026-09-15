@@ -3,7 +3,7 @@ from __future__ import annotations
 from rasai.m25_reporting import _measurement_contract_context, _measurement_contract_section
 
 
-def test_current_measurement_contract_is_rendered_without_expanding_settle_duration() -> None:
+def test_measurement_contract_is_rendered_without_expanding_settle_duration() -> None:
     context = _measurement_contract_context(
         {
             "measurement_contract": {
@@ -15,23 +15,21 @@ def test_current_measurement_contract_is_rendered_without_expanding_settle_durat
         }
     )
 
-    assert context["state"] == "ATUAL"
-    assert context["legacy"] is False
     section = _measurement_contract_section(context)
-    assert "Contrato atual" in section
     assert "XHR/fetch iniciado antes do loadEventEnd" in section
     assert "por si só não estende USER_ACTION_DURATION" in section
     assert "console.error" in section
     assert "first-party" in section
-    assert "não aplica retroativamente" not in section
+    assert "LEGADO" not in section
+    assert "legad" not in section.lower()
 
 
-def test_legacy_measurement_contract_preserves_historical_semantics() -> None:
+def test_missing_contract_metadata_never_switches_to_historical_behavior() -> None:
     context = _measurement_contract_context({})
-
-    assert context["state"] == "LEGADO"
-    assert context["legacy"] is True
     section = _measurement_contract_section(context)
-    assert "Execução legada" in section
-    assert "não aplica retroativamente a semântica atual" in section
-    assert "Contrato atual" not in section
+
+    assert "Load Action configurada para esta execução" in section
+    assert "observacional" in section
+    assert "política de erro vigente" in section
+    assert "LEGADO" not in section
+    assert "legad" not in section.lower()
