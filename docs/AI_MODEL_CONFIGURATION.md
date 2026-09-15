@@ -13,16 +13,20 @@ O RASAi separa a **integração técnica do provider** da **lista de modelos dis
 - preços permanecem em um catálogo separado;
 - um novo modelo de um provider já integrado pode ser cadastrado sem alteração de código quando continuar compatível com o adapter existente.
 
-Exemplo: se a OpenAI publicar um novo modelo compatível com a mesma integração já usada pelo RASAi, o operador pode cadastrá-lo no catálogo de modelos e cadastrar sua política comercial no catálogo de pricing. Um provider completamente novo, ou um modelo que exija protocolo incompatível, continua exigindo implementação de adapter.
+Exemplo: se um provider publicar um novo modelo compatível com a mesma integração já usada pelo RASAi, o operador pode cadastrá-lo no catálogo de modelos e cadastrar sua política comercial no catálogo de pricing. Um provider completamente novo, ou um modelo que exija protocolo incompatível, continua exigindo implementação de adapter.
 
-## 2. Arquivos
+## 2. Arquivos e responsabilidade
 
-| Artefato | Responsabilidade |
-|---|---|
-| `src/rasai/config/ai-models-defaults.toml` | catálogo de modelos de fábrica distribuído com o RASAi |
-| `ai-models.toml` | catálogo local editável pelo operador |
-| `src/rasai/config/ai-pricing-defaults.toml` | catálogo de preços de fábrica |
-| `ai-pricing.toml` | catálogo local editável de preços |
+A regra operacional é única: **arquivos que o humano administra ficam em `config/` na raiz; arquivos em `src/rasai/config/` são baselines internas do produto**.
+
+| Artefato | Responsabilidade | Alteração humana operacional |
+|---|---|---|
+| `config/ai-models.toml` | catálogo operacional de modelos | **sim** |
+| `config/ai-pricing.toml` | catálogo operacional de preços | **sim** |
+| `config/ai-task-profiles.toml` | overrides de personas/perfis de tarefa | **sim** |
+| `src/rasai/config/ai-models-defaults.toml` | catálogo de modelos de fábrica distribuído com o RASAi | não |
+| `src/rasai/config/ai-pricing-defaults.toml` | catálogo de preços de fábrica | não |
+| `src/rasai/config/ai-profiles-defaults.toml` | catálogo completo de personas de fábrica | não |
 
 Modelos e preços são separados de propósito. Um modelo pode existir para seleção explícita mesmo quando ainda não existe uma tarifa unitária conhecida. Nesse caso ele não entra no ranking econômico do `AUTO`.
 
@@ -32,33 +36,38 @@ Modelos e preços são separados de propósito. Um modelo pode existir para sele
 
 | Valor | Comportamento |
 |---|---|
-| `factory` | usa `ai-models-defaults.toml`; é o padrão de fábrica |
-| `file` | exige o arquivo definido por `RASAI_AI_MODELS_FILE`; erro de arquivo ou conteúdo é tratado de forma fail-closed |
-| `auto` | usa o arquivo quando existir; caso contrário usa o catálogo de fábrica |
+| `factory` | ignora o arquivo do operador e usa `src/rasai/config/ai-models-defaults.toml` |
+| `file` | exige o arquivo definido por `RASAI_AI_MODELS_FILE`; ausência ou conteúdo inválido é fail-closed |
+| `auto` | usa o arquivo do operador quando existir; caso contrário usa o catálogo de fábrica |
 
-### `RASAI_AI_MODELS_FILE`
-
-Valor convencional:
-
-```text
-ai-models.toml
-```
-
-Exemplo no ambiente ou em `[environment]` do `rasai-console.ini`:
+O console interativo usa como baseline:
 
 ```ini
-RASAI_AI_MODELS_SOURCE = file
-RASAI_AI_MODELS_FILE = ai-models.toml
+RASAI_AI_MODELS_SOURCE = auto
+RASAI_AI_MODELS_FILE = config/ai-models.toml
 ```
 
-O reset de fábrica volta a usar:
+Portanto, em uso normal, o humano altera **`config/ai-models.toml`**. Não é necessário editar `src/rasai/config/ai-models-defaults.toml`.
 
-```ini
-RASAI_AI_MODELS_SOURCE = factory
-RASAI_AI_MODELS_FILE = ai-models.toml
-```
+### Vigência da alteração no console interativo
 
-O reset muda a origem efetiva; não precisa apagar o arquivo administrativo `ai-models.toml`.
+O console é um processo de longa duração, mas cada nova AUD local executa em subprocesso próprio. Imediatamente antes de iniciar uma AUD, o RASAi:
+
+1. resolve `RASAI_AI_MODELS_SOURCE` e `RASAI_AI_MODELS_FILE`;
+2. lê o arquivo atual do operador;
+3. valida o catálogo;
+4. cria um snapshot temporário imutável;
+5. atualiza o catálogo usado pelo preflight e pela estimativa de custo do console;
+6. passa o snapshot ao subprocesso da AUD.
+
+Consequências:
+
+- salvar uma alteração em `config/ai-models.toml` **não exige reiniciar o console**;
+- a alteração passa a valer na **próxima AUD iniciada**;
+- uma AUD em andamento continua usando o snapshot com que começou;
+- uma alteração inválida falha no precheck antes de iniciar o subprocesso da auditoria.
+
+Isso evita hot reload no meio da execução e preserva reprodutibilidade.
 
 ## 4. Estrutura do catálogo
 
@@ -67,10 +76,10 @@ Metadados:
 ```toml
 [metadata]
 schema_version = 1
-catalog_version = "MINHA-POLITICA-MODELOS-2026-09-14"
-reference_date = "2026-09-14"
-verified_on = "2026-09-14"
-review_recommended_on = "2026-10-14"
+catalog_version = "MINHA-POLITICA-MODELOS-2026-09-15"
+reference_date = "2026-09-15"
+verified_on = "2026-09-15"
+review_recommended_on = "2026-10-15"
 ```
 
 Cada modelo é declarado com `[[models]]`:
@@ -100,7 +109,7 @@ Campos opcionais:
 ```toml
 context_window = 200000
 max_output_tokens = 32000
-effective_from = "2026-09-14T00:00:00Z"
+effective_from = "2026-09-15T00:00:00Z"
 effective_until = "2027-01-01T00:00:00Z"
 ```
 
@@ -130,7 +139,7 @@ Um modelo desabilitado não pode ser selecionável, default ou elegível ao `AUT
 
 ## 6. Seleção efetiva por provider
 
-O catálogo define quais modelos são válidos e qual é o default. As variáveis já existentes continuam selecionando o modelo efetivo por provider, por exemplo:
+O catálogo define quais modelos são válidos e qual é o default. As variáveis existentes continuam selecionando o modelo efetivo por provider, por exemplo:
 
 ```ini
 RASAI_OPENAI_MODEL = gpt-5.6-luna
@@ -148,15 +157,13 @@ O catálogo também define os esforços aceitos por **modelo**. A variável do p
 RASAI_OPENAI_REASONING_EFFORT = MEDIUM
 ```
 
-O valor precisa estar em `reasoning_values` do modelo OpenAI efetivamente selecionado. Isso permite que dois modelos do mesmo provider tenham políticas de esforço diferentes sem alterar código.
+O valor precisa estar em `reasoning_values` do modelo efetivamente selecionado. Isso permite que dois modelos do mesmo provider tenham políticas de esforço diferentes sem alterar código.
 
 Quando o provider não expõe níveis configuráveis, o catálogo usa `PROVIDER_DEFAULT`.
 
 ## 8. Exemplo: adicionar um novo modelo de um provider existente
 
-Suponha que a OpenAI publique um novo modelo e a documentação oficial confirme que ele usa o mesmo contrato técnico já suportado pelo adapter OpenAI do RASAi.
-
-Copie o catálogo de fábrica para `ai-models.toml`, mantenha os modelos existentes e acrescente um novo bloco:
+Edite diretamente `config/ai-models.toml`, mantenha os registros necessários e acrescente o novo bloco compatível com o adapter existente. Atualize também `catalog_version`, `reference_date` e `verified_on` quando a mudança for material.
 
 ```toml
 [[models]]
@@ -178,38 +185,7 @@ capabilities = ["STRUCTURED_OUTPUT", "REASONING", "CACHED_INPUT"]
 source_reference = "https://documentacao-oficial-do-modelo"
 ```
 
-Depois selecione o modelo:
-
-```ini
-RASAI_OPENAI_MODEL = novo-modelo-openai
-```
-
-Para uso explícito, isso é suficiente do ponto de vista do catálogo de modelos, desde que o adapter existente seja compatível.
-
-Para participar do `AUTO` econômico, também deve existir uma regra de preço vigente em `ai-pricing.toml` para o mesmo par provider/modelo.
-
-Exemplo estrutural de pricing, com valores meramente ilustrativos que devem ser substituídos pela política oficial:
-
-```toml
-[[models]]
-provider = "OPENAI"
-model = "novo-modelo-openai"
-pricing_model = "TOKEN_STANDARD"
-reasoning_billing = "IN_OUTPUT"
-region = "GLOBAL"
-source_reference = "https://fonte-oficial-de-precos"
-
-  [[models.rules]]
-  rule_id = "openai-novo-modelo-standard"
-  context = "STANDARD"
-  priority = 0
-  effective_from = "2026-09-14T00:00:00Z"
-  input_price_per_million = 0.00
-  cached_input_price_per_million = 0.00
-  output_price_per_million = 0.00
-```
-
-Valores `0.00` acima são somente placeholders de formato e **não devem ser usados como tarifa real sem confirmação oficial**.
+Depois selecione o modelo pela variável do provider, se desejar seleção explícita. Para participar do `AUTO` econômico, também deve existir uma regra de preço vigente em `config/ai-pricing.toml` para o mesmo par provider/modelo.
 
 ## 9. Desativar um modelo
 
@@ -223,15 +199,11 @@ public_default = false
 auto_eligible = false
 ```
 
-Outro modelo habilitado do mesmo provider deve assumir os defaults obrigatórios.
-
-Essa abordagem preserva clareza administrativa sem fazer fallback silencioso para um modelo diferente.
+Outro modelo habilitado do mesmo provider deve assumir os defaults obrigatórios. Essa abordagem preserva clareza administrativa sem fazer fallback silencioso para um modelo diferente.
 
 ## 10. AUTO e orquestração de custos
 
 O catálogo de modelos **não cria uma nova orquestração**. Todos os consumidores de IA continuam usando o runtime central do RASAi.
-
-A ordem conceitual é:
 
 ```text
 necessidade de IA
@@ -245,41 +217,24 @@ necessidade de IA
   -> quarentena / circuit breaker / fallback já existentes
 ```
 
-No `AUTO`, o RASAi trabalha com **um modelo efetivo por provider**. O modelo efetivo vem do override `RASAI_<PROVIDER>_MODEL` ou do `public_default` do catálogo.
-
-Um modelo só participa do `AUTO` quando:
-
-1. o provider já possui adapter integrado;
-2. o provider está habilitado para AUTO;
-3. o modelo está habilitado, selecionável, vigente e `auto_eligible=true`;
-4. existe credencial válida/configurada para o provider;
-5. existe uma regra de pricing vigente para o modelo efetivo;
-6. a saúde do provider não o colocou em quarentena/circuit breaker.
-
-Se o modelo estiver tecnicamente disponível, mas sem pricing vigente, ele pode continuar disponível para seleção explícita. Para `AUTO`, ele é excluído com motivo equivalente a **modelo sem preço vigente para decisão econômica**. O RASAi não inventa preço nem transforma ausência de tarifa em custo zero.
+No `AUTO`, o RASAi trabalha com um modelo efetivo por provider. Um modelo só participa quando provider/adaptador, credencial, elegibilidade, vigência, pricing e saúde operacional permitem. Ausência de preço nunca é interpretada como custo zero.
 
 ## 11. Validação cruzada modelo x pricing
 
-O RASAi possui validação cruzada entre os catálogos para identificar:
+O RASAi valida, entre outros pontos:
 
-- pricing apontando para provider/modelo que não existe no catálogo de modelos;
+- pricing apontando para provider/modelo inexistente no catálogo de modelos;
 - modelo elegível ao `AUTO` sem regra de preço aplicável;
 - quantidade de modelos habilitados, elegíveis ao `AUTO` e precificados.
 
-A validação é complementar às validações individuais de cada TOML.
+A validação é complementar às validações individuais dos TOMLs.
 
 ## 12. Limite da configuração sem código
 
 ### Não exige código
 
-- novo modelo de OpenAI usando o mesmo adapter OpenAI;
-- novo modelo de Gemini compatível com o adapter Gemini atual;
-- novo modelo de Anthropic compatível com o adapter Anthropic atual;
-- equivalentes para os demais providers já integrados;
-- alterar default;
-- alterar disponibilidade;
-- alterar reasoning aceito/default;
-- alterar elegibilidade ao AUTO;
+- novo modelo compatível com um adapter já integrado;
+- alterar default, disponibilidade, reasoning e elegibilidade ao `AUTO`;
 - alterar pricing usando o schema comercial existente.
 
 ### Exige código
@@ -288,21 +243,13 @@ A validação é complementar às validações individuais de cada TOML.
 - nova autenticação;
 - novo protocolo ou endpoint incompatível com o adapter;
 - formato de request/response incompatível;
-- nova regra comercial que não possa ser expressa pelo schema de pricing existente.
+- nova regra comercial não representável pelo schema de pricing existente.
 
 O TOML não é uma linguagem para criar integrações HTTP arbitrárias.
 
 ## 13. SaaS / backoffice
 
-O SaaS usa o mesmo contrato lógico, armazenado em PostgreSQL para futura manutenção pelo backoffice. O schema prevê:
-
-- `ai_providers`: providers e adapters técnicos disponíveis;
-- `ai_model_catalogs`: versões/publicações do catálogo de modelos;
-- `ai_models`: modelos e características;
-- `ai_pricing_catalogs`: versões/publicações da política comercial;
-- `ai_pricing_rules`: regras de preço;
-- `ai_catalog_events`: trilha administrativa das publicações;
-- `ai_job_catalog_snapshots`: versões e hashes fixados por job.
+O SaaS usa o mesmo contrato lógico, armazenado em PostgreSQL para manutenção pelo backoffice. O schema prevê `ai_providers`, `ai_model_catalogs`, `ai_models`, `ai_pricing_catalogs`, `ai_pricing_rules`, `ai_catalog_events` e `ai_job_catalog_snapshots`.
 
 Estados administrativos de catálogo:
 
@@ -312,19 +259,10 @@ DRAFT -> VALIDATED -> PUBLISHED -> DISABLED
 
 Uma versão `PUBLISHED` é tratada como imutável quanto ao conteúdo: uma mudança comercial ou funcional deve gerar outra `catalog_version`.
 
-## 14. Snapshot por job no SaaS
+## 14. Snapshot por execução
 
-O worker não deve consultar continuamente a versão corrente das tabelas enquanto executa uma auditoria.
+No console local, o snapshot é criado no limite de cada nova AUD. No SaaS, o control plane fixa a versão/hash por job. Em ambos os casos, a regra é a mesma:
 
-Ao preparar o job, o control plane fixa:
+> uma execução iniciada não muda de catálogo no meio do processamento.
 
-```text
-model_catalog_version
-model_catalog_sha256
-pricing_catalog_version
-pricing_catalog_sha256
-```
-
-Os documentos validados podem ser materializados como snapshots TOML somente-leitura para o worker. Assim, se o backoffice publicar outra versão durante uma execução, a auditoria em andamento continua usando exatamente a versão com a qual começou.
-
-Isso preserva explicabilidade do `AUTO`, reprocessamento e cálculo de custo.
+Isso preserva explicabilidade do `AUTO`, cálculo de custo, histórico e reprodutibilidade. Reprocessamentos devem continuar respeitando o contrato próprio da AUD/reprocessamento, e não reinterpretar silenciosamente uma execução histórica com uma configuração diferente.
