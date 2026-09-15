@@ -70,8 +70,6 @@ def test_catalog_has_stable_unique_report_ready_ids() -> None:
     )
 
 
-
-
 def test_ai_usage_is_limited_to_actual_ai_consumers() -> None:
     modes = {item.id: item.ai_mode for item in audit_catalog.CATALOGS}
     assert modes["CAT-03"] == audit_catalog.AI_OPTIONAL
@@ -114,6 +112,7 @@ def test_optional_ai_enabled_requires_registry_readiness(monkeypatch) -> None:
     status, detail = workflow.plan_status(state)
     assert status == "BLOQUEADO"
     assert "sem credencial" in detail
+
 
 def test_selecting_experience_apdex_adds_navigation_dependency() -> None:
     state = _state()
@@ -214,6 +213,7 @@ def test_optional_ai_off_masks_provider_and_ai_remediation_without_changing_sess
     assert state.ai_reasoning == "low"
     assert state.content_remediation is True
     assert state.technical_remediation is True
+    assert state.ai_provider == "auto"
 
 
 def test_selecting_catalog_opens_its_configuration_immediately(monkeypatch) -> None:
@@ -241,6 +241,30 @@ def test_selecting_catalog_opens_its_configuration_immediately(monkeypatch) -> N
     assert "CATÁLOGO DA AUDITORIA" in rendered
     assert "PERFIL DA PRÓXIMA AUDITORIA" not in rendered
     assert "ANÁLISES / RESULTADOS" not in rendered
+
+
+def test_preparation_actions_do_not_duplicate_global_home_navigation(monkeypatch) -> None:
+    console = ModuleType("test_catalog_action_scope")
+    console.render_header = lambda state: None
+    console._execution_readiness = lambda state: (True, "configuração válida")
+    console._configure = lambda state, choice: None
+    state = _state()
+    monkeypatch.setattr(builtins, "input", lambda prompt="": "V")
+
+    output = StringIO()
+    with redirect_stdout(output):
+        assert workflow.preparation_menu(console, state) == "V"
+
+    rendered = output.getvalue()
+    assert "S. Salvar configuração no arquivo" in rendered
+    assert "L. Carregar configuração de AUD" in rendered
+    assert "V. Voltar ao início" in rendered
+    assert "I. Inteligência Artificial" not in rendered
+    assert "E. Integrações e serviços" not in rendered
+    assert "A. Todas as configurações" not in rendered
+    assert "H. Ajuda / custos" not in rendered
+    assert "C. Histórico / relatórios consolidados" not in rendered
+    assert "Q. Sair" not in rendered
 
 
 def test_catalog_snapshot_is_stable_for_future_report_projection() -> None:
@@ -277,9 +301,10 @@ def test_install_wraps_execution_with_selected_plan(monkeypatch) -> None:
     assert state.web_performance is True
     assert state.search_queries == ("seguro",)
 
+
 def test_catalog_guidance_removes_superseded_item_references() -> None:
     assert workflow._rewrite_catalog_guidance("configure IA no item 4") == (
-        "configure IA no I. Inteligência Artificial"
+        "configure IA no INÍCIO > Inteligência Artificial"
     )
     assert workflow._rewrite_catalog_guidance("retorne ao item 13") == "retorne ao CAT-08"
     assert workflow._rewrite_catalog_guidance("configure termos no item T") == (
@@ -306,6 +331,6 @@ def test_catalog_guidance_wraps_console_configure_without_changing_handler(monke
         console._configure(state, "5")
 
     assert calls == ["5"]
-    assert "I. Inteligência Artificial" in output.getvalue()
+    assert "INÍCIO > Inteligência Artificial" in output.getvalue()
     assert "item 4" not in output.getvalue()
-    assert "I. Inteligência Artificial" in state.error
+    assert "INÍCIO > Inteligência Artificial" in state.error
