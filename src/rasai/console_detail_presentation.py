@@ -110,3 +110,9 @@ def install() -> None:
     )
 
     install_console_profile_catalog_refinements(console)
+
+    # Install last because earlier usability/navigation overlays historically rebound an
+    # older reprocess surface and interpreted fulfillment completion as process completion.
+    from rasai.console_history_presentation import install as install_console_history_presentation
+
+    install_console_history_presentation(console)
