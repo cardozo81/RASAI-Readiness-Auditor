@@ -1,113 +1,67 @@
 # Semântica visual do console interativo
 
-**Estado:** contrato vigente de desenvolvimento. O RASAi ainda não foi publicado; este documento descreve somente a UI atual.
+**Estado:** contrato vigente de desenvolvimento. O RASAi ainda não foi publicado.
 
-## Objetivo
+Cor é reforço semântico; texto continua obrigatório.
 
-Cor no console é um reforço semântico. Nenhuma informação pode depender exclusivamente da cor: o texto (`APTO`, `ON`, `INDISPONÍVEL`, `CUSTO EXTERNO`, etc.) continua obrigatório.
-
-A tela `INÍCIO > PREPARAR AUDITORIA` preserva a mesma semântica visual das superfícies detalhadas. A reorganização do menu não pode remover os badges ANSI já calculados pelo console.
-
-## Contrato de cores
+## Cores
 
 | Cor | Uso canônico |
 |---|---|
-| verde | habilitado, `ON`, `APTO`, `READY`, sucesso, configuração definida |
-| vermelho | erro, bloqueio, indisponibilidade e exposição financeira direta de IA que exige atenção |
-| amarelo | atenção, quota, limite, volume/carga relevante, condição transitória |
-| ciano/azul | estrutura, contexto, informação e navegação técnica |
-| cinza/dim | default, `OFF`, opcional, ausência deliberada e texto secundário |
+| verde | `APTO`, sucesso, habilitado/configurado |
+| vermelho | `BLOQUEADO`, erro determinístico, indisponibilidade crítica |
+| amarelo | `APTO COM LIMITAÇÕES`, quota, condição transitória ou atenção |
+| ciano/azul | estrutura, contexto, navegação |
+| cinza/dim | `NÃO SELECIONADO`, `OFF`, default, opcional e texto secundário |
 
-O vermelho em custo de IA **não significa erro**. Ele sinaliza exposição financeira externa direta e deve aparecer acompanhado de texto explícito como:
-
-```text
-[CUSTO EXTERNO]
-[CUSTO IA ADICIONAL]
-```
-
-Assim, erro e custo podem compartilhar cor de atenção alta, mas nunca compartilham o mesmo rótulo textual.
+Exposição financeira deve ser rotulada explicitamente (`CUSTO EXTERNO`, estimativa, quota) e nunca depender apenas da cor.
 
 ## Preparar auditoria
 
-A tela canônica mantém:
-
-```text
-número = configuração
-letra  = ação/navegação
-título = agrupamento
-```
-
-Os títulos das seções usam ciano/azul com destaque:
+A organização visual vigente é:
 
 ```text
 [ ESCOPO ]
-[ INTELIGÊNCIA ARTIFICIAL ]
-[ WEB PERFORMANCE ]
-[ SEARCH INTELLIGENCE ]
-[ ARMAZENAMENTO / EXECUÇÃO ]
-[ PERFIL DA PRÓXIMA EXECUÇÃO ]
+[ CATÁLOGO DA AUDITORIA ]
+[ PLANO DA PRÓXIMA AUDITORIA ]
+[ EXECUÇÃO / ARMAZENAMENTO ]
 [ AÇÕES ]
 ```
 
-Os valores e badges continuam vindo da superfície funcional original. A camada de layout apenas renumera/reagrupa linhas; ela não recalcula estados nem substitui cores.
-
-Exemplos:
+Cada linha de catálogo mantém simultaneamente seleção e readiness:
 
 ```text
-6. IA : deepseek [APTO] [CUSTO EXTERNO]
-7. Remediações IA : conteúdo=ON [CUSTO IA ADICIONAL]
-9. Web Performance : ON [QUOTA EXTERNA]
+[X] CAT-04 Web Performance          [APTO]
+[ ] CAT-05 Search & AI Intelligence [NÃO SELECIONADO]
+[X] CAT-08 Análise profunda         [BLOQUEADO]
 ```
 
-Sem ANSI/terminal compatível, os textos permanecem legíveis e completos:
+No submenu, a mesma identidade `CAT-*` aparece no breadcrumb e no bloco `ESTADO`.
 
-```text
-[APTO]
-[CUSTO EXTERNO]
-[QUOTA EXTERNA]
-```
+## Estados
 
-## Regra técnica para recomposição de tela
+- `APTO`: verde;
+- `APTO COM LIMITAÇÕES`: amarelo;
+- `BLOQUEADO`: vermelho;
+- `NÃO SELECIONADO`: neutro/dim.
 
-Qualquer captura intermediária usada para reorganizar o dashboard deve preservar a capacidade TTY do `stdout` real. Caso contrário, `supports_color()` entende a captura como saída não interativa e remove ANSI antes da renderização final.
+Integrações não selecionadas não devem produzir destaque vermelho no plano global.
 
-O contrato atual usa um buffer de captura que delega `isatty()` ao terminal real. Isso permite que os helpers existentes continuem sendo a única fonte de semântica de cor.
+## IA e custo
 
-## Custos e consumo
+A UI separa:
 
-Badges canônicos na preparação:
+- readiness técnico;
+- uso de IA (`NONE|OPTIONAL|REQUIRED`);
+- modo efetivo da próxima execução (`SEM IA`, `COM IA`, `OBRIGATÓRIA`);
+- exposição de custo/quota.
 
-- IA ativa: vermelho, `[CUSTO EXTERNO]`;
-- remediação IA ativa: vermelho, `[CUSTO IA ADICIONAL]`;
-- PageSpeed/CrUX/Web Performance: amarelo, `[QUOTA EXTERNA]`;
-- `both`/volume elevado: amarelo, `[VOLUME↑]`;
-- limites de volume: ciano ou amarelo conforme impacto;
-- IA `none`: dim, `[SEM CUSTO IA]`.
-
-A classificação global de exposição (`NENHUM`, `BAIXO`, `MÉDIO`, `ALTO`, `EXCESSIVO`) continua usando `cost_color()` e não substitui os badges específicos de cada parâmetro.
-
-## Erros e bloqueios
-
-Erros exibidos no cabeçalho permanecem vermelhos e em destaque. Estados como `INDISPONÍVEL`, `BLOCKED`, `FAILED`, `ERROR` ou quarentena também usam vermelho.
-
-Falha temporária, rate limit ou condição inconclusiva usam amarelo quando não há evidência suficiente para afirmar erro determinístico.
+Quando IA é apenas opcional, `SEM IA (RECOMENDADO)` é o estado inicial. Custo não é erro. A confirmação financeira/operacional continua no preview canônico antes da execução quando IA estiver efetivamente ativa.
 
 ## Acessibilidade
 
-A cor é redundante por projeto. A UI deve continuar compreensível em:
+A interface deve permanecer compreensível em terminal sem ANSI, `NO_COLOR`, logs e capturas de texto. Todo significado de cor precisa ter rótulo textual equivalente.
 
-- terminal sem suporte ANSI;
-- `NO_COLOR`;
-- logs/capturas de texto;
-- leitores que não distinguem cor.
+## Correspondência futura com HTML
 
-Por isso os rótulos textuais e a organização por seção são obrigatórios.
-
-## Testes
-
-A suíte deve verificar pelo menos:
-
-1. o buffer canônico preserva a capacidade TTY do `stdout` real;
-2. sequências ANSI já presentes nos valores sobrevivem à recomposição do menu;
-3. os textos dos badges continuam presentes quando cor é desabilitada;
-4. a organização números/letras/seções permanece independente da cor.
+Relatórios podem usar componentes visuais diferentes, mas devem preservar identidade `CAT-*`, terminologia e semântica de status adequadas à fase de execução.
