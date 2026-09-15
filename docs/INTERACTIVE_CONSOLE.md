@@ -138,6 +138,23 @@ A execução usa o preflight e os handlers existentes. A camada de apresentaçã
 
 Existe uma seleção principal de IA por execução. `none` desabilita IA quando nenhuma capacidade selecionada a exige. Seleção explícita usa o provider escolhido. `auto` usa o runtime canônico de elegibilidade, custo, disponibilidade, quarentena, circuit breaker e fallback.
 
+O conjunto de providers é projetado dinamicamente pelo `provider_registry`; `AI=auto` não é uma cadeia fixa OpenAI -> DeepSeek -> MiMo. Providers marcados como `explicit-only` ficam fora do pool automático. GitHub Copilot é atualmente `explicit-only`, portanto a presença de `COPILOT_GITHUB_TOKEN` não o inclui automaticamente no AUTO.
+
+Providers sem credencial continuam configuráveis. A ausência de credencial afeta readiness e elegibilidade de execução, mas não impede abrir o provider, revisar modelo/reasoning/endpoints ou gerenciar a própria credencial.
+
+Na tela de um provider, as ações de credencial e participação são apresentadas sem duplicar o owner canônico:
+
+```text
+S. Setar/alterar Key na sessão
+P. Persistir/remover Key no Windows/User
+L. Limpar Key somente da sessão
+X. Excluir Key da sessão e do Windows/User
+A. Habilitar/desabilitar no AUTO sem apagar a Key
+U. Usar este provider nesta auditoria
+```
+
+Depois de alterar credencial, habilitação ou seleção, o console recalcula imediatamente a capability e atualiza o readiness exibido.
+
 Provider, modelo, reasoning, endpoint, credencial e demais parâmetros pertencem aos owners canônicos publicados pelo registry. Módulos consumidores não criam um segundo provider de produção.
 
 ## Integrações e serviços
@@ -191,6 +208,8 @@ NÃO CONFIGURADO
 
 A origem é informação de diagnóstico e precedência. `Windows/Machine` pode ser observado, mas não é administrado automaticamente pelo console.
 
+No Windows, persistência em escopo de usuário utiliza `HKEY_CURRENT_USER\Environment`. Esse fluxo não exige PowerShell ou `.ps1` executado como Administrador, não modifica Windows/Machine e preserva a regra de que Windows/Machine não é administrado automaticamente pelo RASAi.
+
 ## Persistência
 
 O arquivo padrão é:
@@ -222,6 +241,8 @@ Device=both     -> mobile=60,desktop=40,tablet=0
 `tablet` não é um `Device` da auditoria principal. Ele permanece disponível apenas como ajuste avançado do mix de Experience Apdex.
 
 Alterar amostras, limites ou outros parâmetros do Apdex não transforma o mix herdado em override. O mix passa a ser personalizado somente quando o próprio mix é alterado. Um mix herdado não é materializado como override no INI.
+
+`RASAI_APDEX_ACQUISITION_MODE` controla somente a estratégia compartilhada de aquisição do Apdex e não altera scoring. Os valores documentados são `auto` e `isolated`; a escolha de aquisição permanece separada dos thresholds e da metodologia de cálculo.
 
 ## Estados e cores
 
