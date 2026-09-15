@@ -31,6 +31,7 @@ EXPECTED_CANONICAL_FILENAMES = (
     "readiness.html",
     "scoring.html",
     "context.html",
+    "execution-evidence.html",
     "crawling-discovery.html",
     "mobile.html",
     "desktop.html",
@@ -87,6 +88,7 @@ CURRENT_METHOD_DOCS = (
 
 PUBLIC_GENERATOR_FILES = (
     "src/rasai/context_reporting.py",
+    "src/rasai/execution_evidence_reporting.py",
     "src/rasai/improvement_intelligence.py",
     "src/rasai/m20_reporting.py",
     "src/rasai/m21_reporting.py",
@@ -110,6 +112,7 @@ SURFACE_IMPLEMENTATION_HINTS = {
     "readiness.html": "src/rasai/rasai_readiness_reporting.py",
     "scoring.html": "src/rasai/score_geo_004_reporting.py",
     "context.html": "src/rasai/context_reporting.py",
+    "execution-evidence.html": "src/rasai/execution_evidence_reporting.py",
     "mobile.html": "src/rasai/reporting.py",
     "desktop.html": "src/rasai/reporting.py",
     "remediation.html": "src/rasai/reporting.py",
@@ -174,6 +177,8 @@ def _check_runtime(errors: list[str]) -> None:
     labels_by_filename = {filename: label for label, filename in CANONICAL_NAV_ITEMS}
     if labels_by_filename.get("context.html") != "Contexto de captura":
         errors.append("context.html não usa o rótulo canônico Contexto de captura")
+    if labels_by_filename.get("execution-evidence.html") != "Evidências da execução":
+        errors.append("execution-evidence.html não usa o rótulo canônico Evidências da execução")
     if labels_by_filename.get("crawling-discovery.html") != "Domínio e descoberta":
         errors.append("crawling-discovery.html não usa o rótulo canônico Domínio e descoberta")
     if labels_by_filename.get("standards.html") != "Métricas e padrões":
