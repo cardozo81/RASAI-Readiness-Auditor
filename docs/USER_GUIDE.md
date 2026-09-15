@@ -310,8 +310,8 @@ O console apresenta estados do fulfillment em PT-BR. Exemplos:
 
 ```text
 COMPLETE              -> Concluída
-PARTIAL_RETRYABLE     -> Parcial — pode reprocessar
-PARTIAL_BLOCKED       -> Parcial — há bloqueios
+PARTIAL_RETRYABLE     -> Parcial - pode reprocessar
+PARTIAL_BLOCKED       -> Parcial - há bloqueios
 FAILED_FATAL          -> Falha definitiva
 EXPIRED_FOR_COMPLETION -> Expirada para conclusão
 ```
