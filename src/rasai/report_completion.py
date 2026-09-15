@@ -105,6 +105,7 @@ def finalize_audit_report_site(
     from rasai.report_ai_cost_attribution import enrich_ai_cost_attribution
     from rasai.report_ai_runtime_enrichment import enrich_ai_runtime_report
     from rasai.report_consistency_v2 import reconcile_report_outputs
+    from rasai.report_dashboard_final_polish import finalize_dashboard_presentation
     from rasai.report_manifest import write_report_manifest
     from rasai.report_presentation_finalizer import finalize_report_presentation
     from rasai.report_quality_reconciliation import reconcile_public_report_quality
@@ -178,8 +179,9 @@ def finalize_audit_report_site(
         "ai-cost-attribution",
         lambda: enrich_ai_cost_attribution(audit_id=audit_id, workspace=workspace),
     )
-    # Sanitize and explain late AI/cost states first, then run the absolute last layout
-    # pass so every cost block (except ai-usage.html) remains the final data section.
+    # Sanitize and explain late AI/cost states first, then run the final common layout
+    # pass. Dashboard-specific semantic grouping runs after it so late renderers cannot
+    # reintroduce internal timeout codes or ambiguous optional states.
     run(
         "public-report-quality",
         lambda: reconcile_public_report_quality(audit_id=audit_id, workspace=workspace),
@@ -187,6 +189,10 @@ def finalize_audit_report_site(
     run(
         "presentation-finalizer",
         lambda: finalize_report_presentation(audit_id=audit_id, workspace=workspace),
+    )
+    run(
+        "dashboard-final-polish",
+        lambda: finalize_dashboard_presentation(audit_id=audit_id, workspace=workspace),
     )
     run("manifest", lambda: write_report_manifest(report_dir))
 
