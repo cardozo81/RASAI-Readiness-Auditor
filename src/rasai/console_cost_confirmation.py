@@ -102,6 +102,60 @@ def _actual_page_count(workspace: Any) -> int | None:
         return None
 
 
+def _latest_ai_failure_context(workspace: Any) -> str:
+    if workspace is None:
+        return ""
+    database = workspace / "audit.db"
+    if not database.is_file():
+        return ""
+    try:
+        connection = sqlite3.connect(f"file:{database.as_posix()}?mode=ro", uri=True, timeout=0.5)
+        connection.row_factory = sqlite3.Row
+    except sqlite3.Error:
+        return ""
+    try:
+        candidates: list[sqlite3.Row] = []
+        for table in ("ai_provider_attempts", "content_remediation_attempts"):
+            try:
+                row = connection.execute(
+                    f"""
+                    SELECT provider,model,status,http_status,error_class,error_type,error_code,started_at
+                    FROM {table}
+                    WHERE UPPER(COALESCE(status,'')) <> 'SUCCESS'
+                    ORDER BY started_at DESC,rowid DESC
+                    LIMIT 1
+                    """
+                ).fetchone()
+            except sqlite3.Error:
+                continue
+            if row is not None:
+                candidates.append(row)
+        if not candidates:
+            return ""
+        row = max(candidates, key=lambda item: str(item["started_at"] or ""))
+    finally:
+        connection.close()
+
+    parts: list[str] = []
+    provider = str(row["provider"] or "").strip()
+    model = str(row["model"] or "").strip()
+    if provider:
+        parts.append(f"{provider}/{model}" if model else provider)
+    error_class = str(row["error_class"] or "").strip()
+    status = str(row["status"] or "").strip()
+    primary = error_class or status
+    if primary:
+        parts.append(primary)
+    error_code = str(row["error_code"] or "").strip()
+    error_type = str(row["error_type"] or "").strip()
+    code = error_code or error_type
+    if code and code != primary:
+        parts.append(f"code={code}")
+    if row["http_status"] is not None:
+        parts.append(f"HTTP {row['http_status']}")
+    return "; ".join(parts)
+
+
 def _historical_relation(forecast: CostForecast, actual: float) -> str:
     low = forecast.likely_low
     high = forecast.likely_high
@@ -125,6 +179,7 @@ def _evaluate_cost_outcome(
     actual_pages: int | None,
     ai_attempts: int | None = None,
     ai_successes: int | None = None,
+    ai_failure_context: str = "",
 ) -> _CostOutcome:
     expected = forecast.expected
     currency = forecast.currency
@@ -154,9 +209,14 @@ def _evaluate_cost_outcome(
             notes.append(
                 "IA foi solicitada, mas nenhuma tentativa foi materializada pela telemetria da auditoria"
             )
+        if ai_failure_context:
+            notes.append(f"Motivo técnico registrado: {ai_failure_context}")
+        else:
+            notes.append(
+                "a causa técnica detalhada não está disponível neste bloco; consulte as pendências do AUD"
+            )
         notes.append(
-            "custo zero neste cenário não representa aderência à estimativa; consulte as pendências do AUD "
-            "para a causa técnica da não execução"
+            "custo zero neste cenário não representa aderência à estimativa"
         )
         return _CostOutcome(
             comparable=False,
@@ -248,6 +308,7 @@ def _build_outcome(state: Any, forecast: CostForecast) -> _CostOutcome | None:
         actual_pages=_actual_page_count(workspace),
         ai_attempts=usage.ai_attempts,
         ai_successes=usage.ai_successes,
+        ai_failure_context=_latest_ai_failure_context(workspace),
     )
 
 
