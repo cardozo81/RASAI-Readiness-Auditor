@@ -131,11 +131,11 @@ def _profile_text(state: Any) -> str:
         return "Personalizado / sem preset ativo"
 
 
-def _devices(state: Any) -> str:
+def _device_results(state: Any) -> tuple[str, str]:
     value = str(getattr(state, "device", "mobile")).casefold()
     mobile = "INCLUÍDO" if value in {"mobile", "both"} else "NÃO APLICÁVEL"
     desktop = "INCLUÍDO" if value in {"desktop", "both"} else "NÃO APLICÁVEL"
-    return f"Mobile={mobile}; Desktop={desktop}"
+    return mobile, desktop
 
 
 def _overall(console: ModuleType, state: Any) -> tuple[str, str]:
@@ -162,7 +162,7 @@ def preparation_menu(console: ModuleType, state: Any, detailed: Callable[[Any], 
             section("ESCOPO")
             print(f"2. {CORE_IDS['input']}  Entrada                  : {getattr(state, 'target', '') or '<não informada>'}")
             print(f"3. {CORE_IDS['project']}  Projeto                  : {getattr(state, 'project', '') or '<auto>'}")
-            print(f"4. {CORE_IDS['device']}  Device                   : {getattr(state, 'device', 'mobile')} | {_devices(state)}")
+            print(f"4. {CORE_IDS['device']}  Device                   : {getattr(state, 'device', 'mobile')}")
             print(f"5. {CORE_IDS['language_market']}  Idioma / mercado         : {getattr(state, 'language', '-')} / {getattr(state, 'market', '-')}")
             try:
                 from rasai.time_contract import configured_presentation_timezone
@@ -173,6 +173,10 @@ def preparation_menu(console: ModuleType, state: Any, detailed: Callable[[Any], 
             print(f"6. {CORE_IDS['timezone']}  Timezone apresentação    : {timezone}")
 
             section("ANÁLISES / RESULTADOS")
+            mobile_result, desktop_result = _device_results(state)
+            print(f"  — {'Relatório Mobile':<31} {badge(mobile_result)}")
+            print(f"  — {'Relatório Desktop':<31} {badge(desktop_result)}")
+            print(paint("    Derivados do Device; não possuem seleção independente.", DIM))
             number, mapping = 7, {}
             for capability in CAPABILITIES:
                 status, detail = capability_status(state, capability)
@@ -401,11 +405,14 @@ def _install_configure_persistence(console: ModuleType) -> None:
     def configure(state: Any, choice: str):
         before = _fingerprint(state)
         _ensure_mix(state)
+        before_mix = str(getattr(state, "apdex_experience_device_mix", "") or "")
+        mix_was_inherited = _mix_inherited(state)
         original(state, choice)
         if choice == "3" and _mix_inherited(state) and hasattr(state, "apdex_experience_device_mix"):
             state.apdex_experience_device_mix = _derived_mix(getattr(state, "device", "mobile"))
-        if choice == "11" and bool(getattr(state, "apdex_experience", False)):
-            _set_mix_inherited(state, False)
+        if choice == "11" and mix_was_inherited and hasattr(state, "apdex_experience_device_mix"):
+            after_mix = str(getattr(state, "apdex_experience_device_mix", "") or "")
+            _set_mix_inherited(state, after_mix == before_mix)
         if choice == "F" or _fingerprint(state) == before:
             return
         print("\nDESTINO DA ALTERAÇÃO")
@@ -450,5 +457,6 @@ def install() -> None:
 # Testable aliases for the presentation contract.
 _capability_specs = capability_specs
 _derived_apdex_mix = _derived_mix
+_device_result_states = _device_results
 _preparation_menu = preparation_menu
 _install_top_level_menu = _install_top_level
