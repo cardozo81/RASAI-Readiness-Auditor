@@ -120,7 +120,7 @@ Improvement Intelligence usa a seleção principal de IA da execução. Não pos
 | `RASAI_IMPROVEMENT_MAX_RECOMMENDATIONS` | `30` | inteiro `1..100` | `30` | limita backlog/output |
 | `RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS` | `240` | número `> 0` | `240` | timeout da necessidade estruturada; não redefine política de roteamento |
 
-No console interativo, o item **8. Análise profunda URL** configura apenas ativação/domínios/limites. Provider, modelo e reasoning vêm da configuração principal `[ai]`, apresentada no item **6. IA**. Consulte [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md).
+No console interativo, a capacidade **Análise profunda e melhorias** configura apenas ativação/domínios/limites próprios e referencia as dependências canônicas relacionadas. Provider, modelo e reasoning vêm da **IA principal** da execução, acessível em `INÍCIO > Inteligência Artificial`. Consulte [IMPROVEMENT_INTELLIGENCE.md](IMPROVEMENT_INTELLIGENCE.md).
 
 ## 7. Métricas, padrões e Web Performance
 
@@ -260,6 +260,8 @@ Os presets controlam cliente/viewport, slowdown relativo de CPU e envelope de re
 | `RASAI_DYNATRACE_APPLICATION_ID` | sem default | texto não vazio | somente importação live | aplicação web consultada |
 | `RASAI_DYNATRACE_CONFIG_JSON` | sem default | caminho para JSON existente | preferível à importação live quando possível | configuração offline/reproduzível |
 | `DYNATRACE_API_TOKEN` | sem default | token API válido com permissões mínimas necessárias | secret/env | obrigatório na importação live |
+
+O valor `mobile=60,desktop=35,tablet=5` acima é o default técnico do runtime/variável. Na preparação pelo console, quando o mix está **HERDADO**, a interface projeta a próxima execução a partir de `Device`: `mobile` -> `100/0/0`, `desktop` -> `0/100/0` e `both` -> `60/40/0`. Essa projeção não altera o default da variável; Tablet permanece disponível por override avançado do mix.
 
 Criação e segurança do token Dynatrace: [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md). Consulte também [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md).
 

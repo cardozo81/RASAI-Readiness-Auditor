@@ -4,91 +4,127 @@
 
 Este documento consolida o contrato de experiência do usuário para configuração local, SaaS Pilot Web, acompanhamento de execução e leitura dos relatórios HTML do RASAi.
 
-A experiência deve preservar cinco princípios:
+A experiência preserva cinco princípios:
 
-1. o usuário não precisa conhecer nomes de variáveis para executar o fluxo comum;
+1. o usuário não precisa conhecer nomes de variáveis para concluir o fluxo comum;
 2. defaults do runtime não devem ser materializados como overrides sem necessidade;
 3. secrets permanecem separados de configuração persistente e de `AuditJob`;
-4. percentuais e estados de execução devem distinguir medição real de projeção por marcos;
-5. score numérico, força da medição e readiness operacional não podem ser condensados em uma sinalização visual enganosa.
+4. percentuais e estados de execução distinguem medição real de projeção por marcos;
+5. score numérico, força da medição e readiness operacional não são condensados em uma sinalização visual enganosa.
 
 ## Console interativo
+
+O primeiro nível é orientado a tarefas:
+
+```text
+1. Preparar auditoria
+2. Auditorias / histórico
+3. Relatórios consolidados
+4. Inteligência Artificial
+5. Integrações e serviços
+6. Todas as configurações
+7. Sistema / restaurar padrões
+H. Ajuda
+Q. Sair
+```
 
 O fluxo recomendado é:
 
 ```text
-Entrada
-  -> Projeto
-  -> Dispositivo
-  -> IA, quando necessária
-  -> Web Performance, quando necessário
-  -> Synthetic Apdex, quando necessário
-  -> Variáveis / credenciais para integrações avançadas
-  -> Salvar INI sem secrets
+Perfil da próxima auditoria, quando aplicável
+  -> Escopo
+  -> Análises / resultados desejados
+  -> Resolver itens CONFIGURAR
+  -> Revisar IA e integrações necessárias
+  -> Salvar configuração, se desejar reutilização local
   -> Preflight
   -> Executar
   -> Relatórios / histórico
 ```
 
-O menu avançado usa navegação por contexto:
+### Arquitetura de configuração
+
+O usuário navega pela capacidade que deseja executar ou pelo catálogo técnico. A edição permanece vinculada ao **owner canônico** da configuração.
 
 ```text
-CONFIGURAÇÃO
-  -> grupo funcional
-      -> variável
-          -> ação
+capacidade / resultado
+  -> dependências relacionadas
+      -> ID canônico da configuração
+          -> editor da variável
 ```
 
-Cada grupo deve explicar o contexto antes de listar variáveis. A tela da variável diferencia:
+Uma configuração não é duplicada porque várias capacidades a consomem. A tela da capacidade referencia o mesmo owner e o mesmo ID numérico estável.
+
+A visão técnica completa permite organizar o catálogo por owner funcional, ordem alfabética, estado, modificadas, pendentes ou busca por ID/nome/finalidade.
+
+### Tela da variável
+
+A tela canônica diferencia:
 
 - **default do runtime**: nenhuma ação necessária;
 - **override**: valor explícito que substitui o default;
-- **secret**: credencial disponível apenas em sessão, ambiente do sistema ou secret store;
-- **configuração não secreta**: pode ser persistida no `rasai-console.ini`.
+- **secret**: credencial disponível em sessão ou escopo seguro suportado;
+- **configuração não secreta**: pode ser persistida no `rasai-console.ini`;
+- **origem**: sessão, arquivo, Windows/User, Windows/Machine, default ou não configurado.
 
-O menu avançado permite filtrar somente itens definidos para facilitar revisão e troubleshooting.
-
-### Orientação cruzada de integrações
-
-Algumas integrações usam dados de mais de um contexto de configuração. O console deve explicar a relação sem obrigar o usuário a descobrir os vínculos manualmente.
-
-Google Search Console:
+A apresentação usa os blocos:
 
 ```text
-Search Intelligence / Observability
-  -> OAuth token temporário/secret
-
-Métricas e padrões
-  -> property/siteUrl
-  -> dias de Search Analytics
-  -> máximo de returned rows
-  -> defasagem para dados finalizados
+INFORMAÇÃO
+ESTADO ATUAL
+DOMÍNIO / INPUT
+AÇÕES
 ```
 
-PageSpeed e CrUX:
+### Device e resultados derivados
+
+`Device` é a autoridade para os relatórios Mobile/Desktop:
 
 ```text
-Web Performance / Google APIs
-  -> API keys
-
-Métricas e padrões
-  -> AUTO / ligado / desligado
-  -> limite de URLs / timeout compartilhado da família quando aplicável
+mobile  -> Mobile INCLUÍDO; Desktop NÃO APLICÁVEL
+desktop -> Mobile NÃO APLICÁVEL; Desktop INCLUÍDO
+both    -> Mobile INCLUÍDO; Desktop INCLUÍDO
 ```
+
+Os dois resultados não possuem seleção independente.
+
+No Experience Apdex, o console projeta o mix herdado da próxima execução:
+
+```text
+mobile  -> mobile=100,desktop=0,tablet=0
+desktop -> mobile=0,desktop=100,tablet=0
+both    -> mobile=60,desktop=40,tablet=0
+```
+
+Esse comportamento é de configuração do console. O runtime/CLI preserva seus defaults canônicos quando não recebe a projeção do console. Tablet continua disponível apenas como override avançado da população de Experience Apdex.
+
+### Search Intelligence
+
+Termos, depth, região, device SERP e classificação competitiva são inputs da próxima execução, não variáveis de ambiente.
+
+Durante o uso normal ficam na sessão. Quando o operador escolhe explicitamente **Salvar configuração**, esses inputs não sensíveis podem ser persistidos no `rasai-console.ini`. Provider, governança e credencial continuam pertencendo ao owner SERP; secrets nunca entram no INI.
+
+### Integrações relacionadas a uma capacidade
+
+Integrações como Google Search Console, PageSpeed/Lighthouse e CrUX são apresentadas pelo owner canônico do serviço. Quando uma análise precisa de parâmetros de mais de um serviço, a tela da análise mostra as dependências relacionadas e os IDs que levam ao editor correto.
+
+Não existe necessidade de o usuário conhecer em qual categoria interna uma variável foi originalmente implementada.
 
 ## Persistência local
 
 Precedência operacional:
 
 ```text
-valor já presente no processo/Windows
+valor explícito presente no processo/Windows
 > valor não secreto persistido no rasai-console.ini
 > default do runtime
 ```
 
-O `rasai-console.ini` armazena somente configuração não secreta. O catálogo de `EnvironmentSpec` é a allowlist de persistência; campos sensíveis e nomes classificados como secret são excluídos.
+O `rasai-console.ini` armazena somente configuração não secreta permitida pelo catálogo canônico e inputs persistíveis da próxima execução. Campos sensíveis e nomes classificados como secret são excluídos.
 
-Secrets podem ser mantidos apenas na sessão atual ou, no Windows e mediante confirmação explícita, em `Windows/User`. O produto não grava API keys, bearer tokens, passwords, OAuth tokens ou session secrets no INI.
+Secrets podem ser mantidos apenas na sessão atual ou, no Windows e mediante confirmação explícita, em `Windows/User`. O produto não grava API keys, bearer tokens, passwords, OAuth secrets/tokens ou session secrets no INI.
+
+`Windows/Machine` pode ser detectado como origem, mas não é administrado automaticamente.
 
 ## SaaS Pilot Web
 
@@ -96,18 +132,18 @@ A tela de nova auditoria combina controles de alto nível com configuração gui
 
 ### Paridade de composição
 
-Os seguintes caminhos devem materializar o mesmo contrato não secreto de `AuditJob`:
+Os seguintes caminhos materializam o mesmo contrato não secreto de `AuditJob`:
 
 ```text
 rasai api
-rasai.web.pilot_app:app   # import ASGI direto
+rasai.web.pilot_app:app
 rasai worker ...
 python -m rasai.worker_cli ...
 ```
 
-A composição direta do ASGI e do worker não pode depender de o usuário ter passado antes pelo roteador CLI principal. Standards/GSC, perfis sintéticos e Improvement Intelligence devem estender o mesmo contrato de payload em qualquer desses caminhos.
+A composição direta do ASGI e do worker não depende de o usuário passar antes pelo roteador CLI principal. Standards/GSC, perfis sintéticos e Improvement Intelligence estendem o mesmo contrato de payload em qualquer desses caminhos.
 
-Improvement Intelligence permanece secret-safe: o `AuditJob` armazena apenas escolha de provider/modelo/reasoning/domínios/limites/idioma; credenciais continuam no worker/deployment autorizado.
+Improvement Intelligence permanece secret-safe: o `AuditJob` armazena apenas escolhas não secretas; credenciais continuam no worker/deployment autorizado.
 
 ### Controles principais
 
@@ -127,7 +163,7 @@ GET /api/v1/standards/services
 Cada serviço mostra:
 
 - nome e finalidade;
-- grau de relação com RASAi;
+- relação com RASAi;
 - escopo;
 - estado (`READY`, `NOT_CONFIGURED`, `DISABLED` etc.);
 - requisitos/configurações ausentes;
@@ -163,7 +199,7 @@ ou uma propriedade URL-prefix absoluta:
 https://www.example.com/
 ```
 
-Secrets não aparecem como inputs do SaaS Pilot. O OAuth token GSC e API keys PageSpeed/CrUX devem ser resolvidos no worker/deployment autorizado.
+Secrets não aparecem como inputs do SaaS Pilot. OAuth/refresh/access tokens GSC e API keys PageSpeed/CrUX são resolvidos no worker/deployment autorizado.
 
 O endpoint:
 
@@ -171,9 +207,9 @@ O endpoint:
 GET /api/v1/audit-job-options
 ```
 
-deve refletir também extensões recentes do `AuditJob`, incluindo Improvement Intelligence e perfis sintéticos, mesmo quando uma opção ainda não possui controle guiado próprio.
+reflete extensões do `AuditJob`, incluindo Improvement Intelligence e perfis sintéticos, mesmo quando uma opção ainda não possui controle guiado próprio.
 
-O JSON completo do `AuditJob` permanece disponível em uma área avançada e sincronizada com os campos guiados. Ele é uma escape hatch para parâmetros ainda sem controle visual, não a interface recomendada para configuração comum.
+O JSON completo do `AuditJob` permanece disponível como área avançada sincronizada com os campos guiados. É escape hatch para parâmetros ainda sem controle visual, não a interface recomendada para configuração comum.
 
 ## Progresso de execução
 
@@ -213,7 +249,7 @@ Esses eventos servem apenas para observabilidade/progresso e não alteram scorin
 
 ## Relatórios HTML
 
-Todos os relatórios continuam estáticos, self-contained e read-only sobre evidência persistida.
+Todos os relatórios permanecem estáticos, self-contained e read-only sobre evidência persistida.
 
 A camada comum de UX aplica:
 
@@ -228,13 +264,13 @@ A camada comum de UX aplica:
 
 A navegação local não substitui o menu canônico entre relatórios. Ela organiza somente as seções da página atual.
 
-O enhancer não altera scores, métricas, Findings ou RuleExecutions. Ele também não remove itens do HTML; filtros e paginação são apenas apresentação client-side.
+O enhancer não altera scores, métricas, Findings ou RuleExecutions. Filtros e paginação são apenas apresentação client-side.
 
 ### Leitura pública do SARI
 
-`index.html` e `readiness.html` não podem usar a banda numérica do SARI como conclusão isolada.
+`index.html` e `readiness.html` não usam a banda numérica do SARI como conclusão isolada.
 
-A hierarquia visual obrigatória é:
+A hierarquia visual é:
 
 ```text
 1. Readiness / força da conclusão
@@ -256,31 +292,35 @@ qualidade medida: Excelente
 readiness: BLOCKED
 ```
 
-A apresentação correta é **Readiness bloqueada**, mantendo `96/100` como qualidade do universo medido. Não deve existir badge primária “Excelente” nesse cenário.
+A apresentação correta é **Readiness bloqueada**, mantendo `96/100` como qualidade do universo medido. Não existe badge primária positiva que mascare o bloqueio de readiness.
 
-Da mesma forma, `PARTIAL` ou `NOT_CONSOLIDATED` não podem aparecer visualmente como readiness positiva apenas porque o subconjunto medido obteve nota alta.
+Da mesma forma, `PARTIAL` ou `NOT_CONSOLIDATED` não aparecem visualmente como readiness positiva apenas porque o subconjunto medido obteve nota alta.
 
 ### Erros de integrações
 
-Timeout, quota, erro de autenticação/provider/API ou falha de transporte devem aparecer como diagnóstico de integração/medição. Eles não são defeitos do target e não devem receber penalidade SARI artificial.
+Timeout, quota, erro de autenticação/provider/API ou falha de transporte aparecem como diagnóstico de integração/medição. Não são defeitos do target e não recebem penalidade SARI artificial.
 
-Quando uma integração obtém um finding técnico conclusivo sobre o website, ele só participa do SARI se existir regra BR-GEO equivalente e mapeamento explícito sem dupla pontuação.
+Quando uma integração obtém finding técnico conclusivo sobre o website, ele só participa do SARI se existir regra BR-GEO equivalente e mapeamento explícito sem dupla pontuação.
 
 ## Critérios de aderência
 
 A experiência está aderente quando:
 
 - o fluxo comum pode ser concluído sem conhecer variáveis `RASAI_*`;
-- configuração avançada continua disponível para operadores técnicos;
-- defaults, overrides e secrets são visualmente/semanticamente distintos;
-- GSC/PageSpeed/CrUX explicam dependências cruzadas;
+- cada configuração possui um owner canônico e ID estável;
+- capacidades mostram somente dependências relacionadas;
+- configuração técnica completa continua acessível;
+- defaults, overrides, origens e secrets são distintos;
+- `Device` governa os resultados Mobile/Desktop e o default herdado de Experience Apdex no console;
+- Search inputs só persistem por ação explícita de salvar;
 - secrets nunca são serializados no INI ou `AuditJob`;
 - o SaaS Pilot não pede keys/tokens no browser;
 - import ASGI direto e worker direto aceitam o mesmo contrato recente de `AuditJob` do roteador principal;
 - progresso de etapa não é confundido com progresso global;
 - percentuais estimados são rotulados como projeção;
-- suboperações externas longas indicam o serviço e a unidade em andamento;
-- relatórios mantêm estrutura de seções, busca, filtros e navegação local consistentes;
+- relatórios mantêm estrutura, busca, filtros e navegação local consistentes;
 - SARI alto não mascara medição parcial/não consolidada nem Critical Gate bloqueado/indeterminado;
 - erro operacional de integração não é apresentado como falha do website;
 - melhorias externas permanecem sem impacto automático em `SARI-001` / `SCORE-GEO-004` sem mapeamento metodológico explícito.
+
+Documentos relacionados: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md), [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md) e [OUTPUTS_AND_ARTIFACTS.md](OUTPUTS_AND_ARTIFACTS.md).

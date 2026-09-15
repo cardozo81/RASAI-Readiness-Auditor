@@ -2,93 +2,93 @@
 
 ## Objetivo
 
-`IMPROVEMENT-INTELLIGENCE-001` transforma evidências já coletadas pelo RASAi em um backlog de melhoria por **uma única URL explicitamente configurada**.
+`IMPROVEMENT-INTELLIGENCE-001` transforma evidências já coletadas pelo RASAi em um backlog de melhoria para **uma única URL explicitamente configurada**.
 
-A feature é deliberadamente separada do `SARI-001`/`SCORE-GEO-004`:
+A capacidade é separada de `SARI-001` e `SCORE-GEO-004`:
 
-- **SARI-001/SCORE-GEO-004 mede** readiness de forma determinística;
-- **Improvement Intelligence interpreta e recomenda**;
-- **Opportunity Priority** ordena correções pelo impacto potencial, severidade, confiança e esforço;
-- **nova auditoria / before-after comprova** o ganho efetivamente observado.
+- SARI/SCORE-GEO medem readiness segundo seus contratos;
+- Improvement Intelligence interpreta evidências e recomenda ações;
+- Opportunity Priority ordena correções por impacto potencial, severidade, confiança e esforço;
+- uma nova auditoria comprova o ganho efetivamente observado.
 
 Nenhuma sugestão de IA altera automaticamente score, Coverage, Confidence, gates ou posição SERP.
 
 ## Restrição de URL única
 
-A análise profunda só é habilitada quando a execução possui exatamente uma URL de entrada.
+A análise profunda só é elegível quando a execução possui exatamente uma URL de entrada.
 
-O crawler normal pode descobrir páginas auxiliares segundo o limite da auditoria, mas o estudo profundo permanece vinculado à URL explicitamente informada. Arquivo TXT ou payload SaaS com múltiplas URLs bloqueia a feature antes da chamada de IA.
+O crawler pode descobrir páginas auxiliares segundo o limite da auditoria, mas o estudo profundo permanece vinculado à URL explicitamente informada. Arquivo TXT ou payload com múltiplas URLs bloqueia a capacidade antes da chamada de IA.
 
-Essa restrição preserva contexto específico, evita generalizações entre páginas, limita custo/token e mantém o relatório acionável por elemento/URL.
+Essa restrição preserva contexto específico, limita custo/token e mantém o resultado acionável por elemento/URL.
 
 ## Evidências correlacionadas
 
-Quando disponíveis no mesmo `AUD-*/audit.db` e nos artifacts associados, a feature reutiliza:
+Quando disponíveis no mesmo `AUD-*/audit.db` e artifacts associados, a capacidade pode reutilizar:
 
 - Findings, RuleExecutions e Evidences do core;
 - HTML bruto/renderizado e snapshots;
-- `title`, meta description, canonical, headings e landmarks;
+- title, meta description, canonical, headings e landmarks;
 - imagens, links e botões observados;
-- PageSpeed/Lighthouse, categorias, savings e referências DOM quando fornecidas;
+- PageSpeed/Lighthouse, categorias, savings e referências DOM;
 - Core Web Vitals/CrUX persistidos;
 - `robots.txt`, sitemap/feed, `llms.txt` e diagnósticos de discovery;
-- SERP Observation e Competitive Search & Content Intelligence, quando executados;
+- Search Intelligence/SERP e Competitive Search & Content Intelligence, quando executados;
 - headers HTTP persistidos para postura de segurança passiva.
 
-A feature não amplia silenciosamente o escopo de rede e não cria um segundo crawler competitivo.
+A capacidade não amplia silenciosamente o escopo de rede e não cria um segundo crawler competitivo.
 
 ## Domínios de análise
 
 O usuário pode selecionar um subconjunto de:
 
-- `TECHNICAL_HTML` - problemas técnicos/HTML;
-- `SEMANTICS_STRUCTURE` - headings, landmarks e coerência semântica;
-- `CONTENT` - clareza, completude e texto da página;
-- `SEARCH_RANKING` - gaps observados em Search/SERP;
-- `FILES_DISCOVERY` - robots/sitemap/llms e descoberta;
-- `PERFORMANCE` - oportunidades Lighthouse/performance;
-- `ACCESSIBILITY` - problemas automatizáveis de acessibilidade;
-- `BEST_PRACTICES` - melhores práticas observadas;
-- `SECURITY` - postura de segurança passiva;
-- `AI_ACCESS` - crawlability, semântica e compreensão por agentes/IA.
+- `TECHNICAL_HTML`;
+- `SEMANTICS_STRUCTURE`;
+- `CONTENT`;
+- `SEARCH_RANKING`;
+- `FILES_DISCOVERY`;
+- `PERFORMANCE`;
+- `ACCESSIBILITY`;
+- `BEST_PRACTICES`;
+- `SECURITY`;
+- `AI_ACCESS`.
 
 ## Segurança
 
-O domínio `SECURITY` é **passivo**.
+O domínio `SECURITY` é passivo.
 
-O RASAi pode apontar, quando a evidência foi capturada, ausência ou configuração de HTTPS, CSP, HSTS, framing, `X-Content-Type-Options`, `Referrer-Policy`, atributos de cookies, exposição aparente de versão e achados Lighthouse relacionados.
+O RASAi pode interpretar evidências já capturadas, como HTTPS, CSP, HSTS, framing, `X-Content-Type-Options`, `Referrer-Policy`, atributos de cookies, exposição aparente de versão e achados Lighthouse relacionados.
 
-Ausência de header é reportada como postura/configuração observada, não como prova de vulnerabilidade explorável. A feature não executa payloads, fuzzing, bypass de autenticação, exploração XSS/SQLi/SSRF ou pentest ativo.
+Ausência de header é reportada como postura/configuração observada, não como prova de vulnerabilidade explorável. A capacidade não executa payloads, fuzzing, bypass de autenticação, exploração XSS/SQLi/SSRF ou pentest ativo.
 
 ## Search / SERP
 
-Quando Search Intelligence existe na auditoria, o relatório pode usar query, posição observada, resultados à frente, gaps determinísticos e features das páginas competitivas que foram explicitamente adquiridas.
+Quando Search Intelligence existe na auditoria, o relatório pode usar query, posição observada, resultados à frente, gaps determinísticos e evidências competitivas que tenham sido explicitamente adquiridas.
 
-A IA pode sugerir conteúdo/estrutura que reduza gaps observados, mas é proibido concluir que uma alteração **causará** determinada posição. Ranking é tratado como observação correlacional.
+A IA pode sugerir conteúdo/estrutura que reduza gaps observados, mas não pode concluir que uma alteração causará determinada posição. Ranking é tratado como observação correlacional.
 
 ## HTML original x HTML sugerido
 
 Para findings técnicos com fragmento/selector observável, `improvement-intelligence.html` pode mostrar selector, HTML original, HTML sugerido, diferenças, justificativa e forma de validação pós-deploy.
 
-A sugestão continua exigindo revisão humana.
+A sugestão exige revisão humana.
 
-## Degradação atual e benefício esperado
+## Benefício esperado
 
-Toda recomendação de IA deve permanecer vinculada às evidências disponíveis e explicar o problema/limitação observada e o benefício qualitativo razoável da correção. O benefício é hipótese evidence-bound, não promessa.
+Toda recomendação permanece vinculada às evidências disponíveis e explica o problema/limitação observada e o benefício qualitativo razoável da correção.
 
-A IA não pode garantir ganho de ranking, tráfego, conversão, receita, segurança ou performance nem inventar percentuais. O ganho efetivo depende de nova medição/before-after.
+O benefício é hipótese evidence-bound, não promessa. A IA não garante ganho de ranking, tráfego, conversão, receita, segurança ou performance nem inventa percentuais. O ganho efetivo depende de nova medição.
 
 ## Priorização
 
-Cada recomendação recebe prioridade derivada de severidade do finding, dimensões potencialmente afetadas, confiança e esforço (`LOW`, `MEDIUM`, `HIGH`).
+Cada recomendação recebe prioridade derivada de severidade, dimensões potencialmente afetadas, confiança e esforço (`LOW`, `MEDIUM`, `HIGH`).
 
-As dimensões de impacto são Performance, SEO, Best Practices, Accessibility, AI Access e Security.
+As dimensões de impacto incluem Performance, SEO, Best Practices, Accessibility, AI Access e Security.
 
-Essa prioridade **não é SARI** e não deve ser usada como score metodológico de readiness.
+Essa prioridade não é SARI e não é usada como score metodológico de readiness.
 
 ## Seleção e orquestração de IA
 
-Improvement Intelligence **não possui provider, modelo ou reasoning próprios**. Quando habilitada, usa a configuração principal de IA da mesma execução.
+Improvement Intelligence **não possui provider, modelo ou reasoning próprios**. Quando habilitada, usa a seleção principal de IA da mesma execução.
 
 Configuração principal explícita:
 
@@ -98,7 +98,7 @@ ai_model = <modelo-opcional>
 ai_reasoning = <reasoning-opcional>
 ```
 
-Nesse modo, a análise profunda usa o mesmo provider configurado para a execução, desde que ele suporte o contrato estruturado necessário.
+Nesse modo, a análise profunda usa o provider principal, desde que ele suporte o contrato estruturado necessário.
 
 Configuração principal automática:
 
@@ -108,48 +108,57 @@ ai_provider = auto
 
 Nesse modo, a necessidade `IMPROVEMENT_INTELLIGENCE` reutiliza a política canônica existente:
 
-1. providers configurados e elegíveis ao `AUTO`;
+1. providers configurados e elegíveis ao AUTO;
 2. exclusões e estado de saúde da execução;
 3. estimativa de custo por provider/modelo/reasoning;
-4. prioridade pelo menor custo estimado conforme a política vigente;
-5. mesma classificação de falhas;
-6. mesma quarentena/circuit breaker;
+4. prioridade vigente de custo/roteamento;
+5. classificação de falhas;
+6. quarentena/circuit breaker;
 7. fallback para o próximo candidato elegível;
 8. término no primeiro sucesso ou no esgotamento da cadeia.
 
-A feature não possui política própria de ordenação, quarentena, circuit breaker ou número de tentativas. O contrato especializado continua responsável apenas pelo prompt, schema, evidências e validação da resposta.
+A capacidade não possui política própria de ordenação, quarentena, circuit breaker ou número de tentativas. Seu contrato especializado fica restrito a prompt, schema, evidências e validação da resposta.
 
-Configurações exclusivas da feature permanecem limitadas a ativação, domínios, teto de recomendações, timeout da necessidade e idioma preferencial.
+Configurações próprias permanecem limitadas a ativação, domínios, teto de recomendações, timeout da necessidade e idioma preferencial.
 
 ### Idioma de análise
 
-`RASAI_AI_ANALYSIS_LANGUAGE` define o idioma preferencial das explicações/textos sugeridos.
+`RASAI_AI_ANALYSIS_LANGUAGE` define o idioma preferencial das explicações/textos sugeridos:
 
-- `auto` - usa o idioma principal da auditoria;
+- `auto`: usa o idioma principal da auditoria;
 - ou tag BCP-47 como `pt-BR`, `en-US`, `es-ES`.
 
 Esse parâmetro não força o idioma da página nem substitui evidência real do conteúdo.
 
 ## Console interativo
 
-O item **8. Análise profunda URL** controla somente a habilitação e os parâmetros próprios da análise profunda.
+No console, abra:
 
-A configuração persistida em `[improvement_intelligence]` contém:
+```text
+INÍCIO > PREPARAR AUDITORIA > Análise profunda e melhorias
+```
+
+A tela da capacidade controla somente sua habilitação e parâmetros próprios. Dependências relacionadas são apresentadas com os IDs canônicos das configurações correspondentes.
+
+A configuração persistível específica contém:
 
 - `enabled`;
 - `domains`;
 - `max_recommendations`;
-- `timeout_seconds`.
+- `timeout_seconds`;
+- idioma de análise quando aplicável ao contrato de configuração.
 
-Provider, modelo e reasoning vêm exclusivamente da configuração principal `[ai]`, apresentada no item **6. IA**. Credenciais nunca são gravadas no INI.
+Provider, modelo e reasoning vêm exclusivamente da **IA principal** da execução, acessível pela macro `INÍCIO > Inteligência Artificial` e pelo catálogo completo de configurações.
 
-O item 8 deve indicar qual seleção principal será usada (`provider` explícito ou `AUTO`) e bloquear a habilitação quando a IA principal do item 6 estiver `none`.
+Credenciais nunca são gravadas no INI.
+
+A capacidade deve indicar a seleção principal que será usada (`provider` explícito ou `AUTO`) e permanecer `CONFIGURAR` quando a execução exigir IA e a seleção principal não estiver apta.
 
 ## SaaS / Control Plane
 
 O contrato SaaS usa `ExecutionJob.payload` e permanece secret-free.
 
-Campos específicos da feature:
+Campos específicos da capacidade incluem:
 
 - `improvement_intelligence`;
 - `improvement_domains`;
@@ -163,13 +172,13 @@ A seleção de IA é feita somente pelos campos canônicos do job de auditoria:
 - `ai_model`;
 - `ai_reasoning`.
 
-Quando `improvement_intelligence=true`, `urls` deve conter exatamente uma URL e `ai_provider` deve estar habilitado. `auto` é válido e aciona a mesma orquestração do core.
+Quando `improvement_intelligence=true`, `urls` deve conter exatamente uma URL e a política de IA precisa ser compatível. `auto` é válido e aciona a mesma orquestração do core.
 
-Credenciais continuam no boundary seguro do worker/integration/environment e não entram no payload durável.
+Credenciais ficam no boundary seguro do worker/integration/environment e não entram no payload durável.
 
 ## Variáveis de ambiente próprias
 
-A feature reconhece apenas controles próprios de escopo/comportamento:
+A capacidade reconhece somente controles próprios de escopo/comportamento:
 
 ```text
 RASAI_IMPROVEMENT_INTELLIGENCE
@@ -179,7 +188,7 @@ RASAI_IMPROVEMENT_AI_TIMEOUT_SECONDS
 RASAI_AI_ANALYSIS_LANGUAGE
 ```
 
-A seleção de provider/modelo/reasoning não é duplicada em variáveis de Improvement Intelligence.
+Provider/modelo/reasoning não são duplicados em variáveis de Improvement Intelligence.
 
 ## Persistência e idempotência
 
@@ -189,13 +198,13 @@ Tabelas:
 - `improvement_intelligence_findings`;
 - `improvement_intelligence_recommendations`.
 
-A configuração efetiva e a evidência recebem fingerprints. Se ambas são idênticas e já existe execução completa, o runtime pode reutilizar o resultado para evitar nova chamada paga.
+A configuração efetiva e a evidência recebem fingerprints. Se ambas forem idênticas e já existir execução completa reutilizável, o runtime pode reaproveitar o resultado para evitar nova chamada paga conforme o contrato vigente.
 
-Os campos de provider/modelo/reasoning persistidos no resultado representam a seleção/execução efetiva para rastreabilidade, não uma configuração paralela da feature.
+Os campos de provider/modelo/reasoning persistidos no resultado representam a execução efetiva para rastreabilidade, não configuração paralela.
 
 ## Telemetria de IA
 
-Cada tentativa usa a tabela canônica `ai_provider_attempts` com provider/modelo/reasoning, horário, duração, status, tokens, custo estimado quando calculável e diagnóstico.
+Cada tentativa usa a telemetria canônica de providers com provider/modelo/reasoning, horário, duração, status, tokens, custo estimado quando calculável e diagnóstico.
 
 O contrato é identificado por:
 
@@ -203,28 +212,34 @@ O contrato é identificado por:
 semantic_contract_version=IMPROVEMENT-INTELLIGENCE-001
 ```
 
-O relatório próprio contém o recorte de consumo dessa análise e a superfície canônica de Uso de IA pode atribuir o mesmo consumo ao contrato correspondente.
+O relatório próprio contém o recorte de consumo da análise e a superfície canônica de Uso de IA pode atribuir o mesmo consumo ao contrato correspondente.
 
 ## Relatórios
 
-A superfície canônica é `report/improvement-intelligence.html`, no grupo **Ações e referência**.
+A superfície canônica é:
+
+```text
+report/improvement-intelligence.html
+```
 
 O HTML separa backlog priorizado derivado pela IA, findings/evidências determinísticos, HTML original/sugerido quando aplicável, consumo de IA e fronteiras metodológicas.
 
-O relatório é gerado mesmo quando a feature não foi executada, deixando o estado explícito.
+A página existe no contrato de relatório mesmo quando a capacidade não foi executada, deixando o estado explícito.
 
 ## Relatório consolidado
 
 O consolidado usa o vocabulário canônico de dimensões do `SCORE-GEO-004`. Improvement Intelligence, Lighthouse/Core Web Vitals, Apdex, SERP e postura de segurança são complementares e não são artificialmente promediados dentro da série temporal do SARI.
 
-A análise especialista do próprio consolidado possui telemetria de IA separada e também utiliza a orquestração canônica.
+A análise especialista do próprio consolidado possui telemetria separada e também utiliza a orquestração canônica quando IA é solicitada.
 
 ## Validação pós-deploy
 
-Uma recomendação é hipótese de melhoria até que a URL seja auditada novamente.
+Uma recomendação é hipótese de melhoria até que a URL seja auditada novamente:
 
 ```text
-evidência -> finding -> recomendação -> prioridade -> deploy -> nova auditoria -> before/after
+evidência -> finding -> recomendação -> prioridade -> deploy -> nova auditoria -> comparação
 ```
 
 Somente a nova medição pode afirmar o ganho efetivamente observado.
+
+Documentos relacionados: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md), [AI_RUNTIME_ORCHESTRATION.md](AI_RUNTIME_ORCHESTRATION.md) e [OUTPUTS_AND_ARTIFACTS.md](OUTPUTS_AND_ARTIFACTS.md).
