@@ -7,7 +7,10 @@ on:
       - 'src/rasai/console_*.py'
       - 'src/rasai/interactive_console.py'
       - 'src/rasai/integration_diagnostics_console.py'
-      - 'tests/test_console_*.py'
+      - 'tests/*console*.py'
+      - 'tests/test_interactive_console.py'
+      - 'tests/test_environment_surface_parity.py'
+      - 'tests/test_prepublication_configuration_contract.py'
       - 'tests/test_m23_integration.py'
       - 'tests/test_m25_console_integration.py'
       - 'tests/test_integration_diagnostics.py'
@@ -29,8 +32,11 @@ jobs:
       - name: Install package and test runner
         shell: pwsh
         run: python -m pip install -e . pytest
-      - name: Console and navigation regression
+      - name: Public contract gate
+        shell: pwsh
+        run: python -m rasai.public_contract_gate
+      - name: Complete console and navigation regression
         shell: pwsh
         run: |
-          $consoleTests = Get-ChildItem tests -Filter 'test_console_*.py' | ForEach-Object { $_.FullName }
-          python -m pytest -q @consoleTests tests/test_m23_integration.py tests/test_m25_console_integration.py tests/test_integration_diagnostics.py
+          $consoleTests = Get-ChildItem tests -Filter '*console*.py' | ForEach-Object { $_.FullName }
+          python -m pytest -q @consoleTests tests/test_interactive_console.py tests/test_environment_surface_parity.py tests/test_prepublication_configuration_contract.py tests/test_m23_integration.py tests/test_m25_console_integration.py tests/test_integration_diagnostics.py
