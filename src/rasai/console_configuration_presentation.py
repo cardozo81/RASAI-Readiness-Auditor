@@ -1,9 +1,8 @@
 """User-facing presentation for console configuration variables.
 
-This module is intentionally presentation-only. Environment variable names remain the
-canonical runtime/configuration keys, but the interactive console exposes stable numeric
-IDs, human labels, effective values and origins. Technical names are available only from
-the explicit technical-details action.
+Presentation only: runtime/configuration keys remain unchanged. Normal console views use
+stable numeric IDs, human labels, effective values and origins. Technical variable names
+are exposed only by the explicit technical-details action.
 """
 from __future__ import annotations
 
@@ -15,7 +14,7 @@ import re
 from types import ModuleType
 from typing import Any, Callable, Iterator
 
-from rasai.console_ui import CYAN, DIM, GREEN, RED, YELLOW, paint
+from rasai.console_ui import CYAN, DIM, GREEN, RED, paint
 
 _OUTPUT_DEPTH = 0
 _TECHNICAL_DEPTH = 0
@@ -79,6 +78,10 @@ _VALUE_LABELS = {
 _LEADING_VERBS = (
     "Habilita ", "Define ", "Controla ", "Seleciona ", "Configura ", "Força ",
     "Limita ", "Informa ", "Aponta ", "Determina ", "Usa ",
+)
+_ORIGIN_PATTERN = re.compile(
+    r"\[(?:ARQUIVO|SESSÃO|DEFAULT|NÃO CONFIGURADO|WINDOWS/[^\]]+|SO:[^\]]+)\]",
+    re.IGNORECASE,
 )
 
 
@@ -167,12 +170,7 @@ def friendly_value(spec: Any) -> str:
         return mapped
     name = str(spec.name).upper()
     value_type = str(getattr(spec, "value_type", "") or "").casefold()
-    if (
-        "SECONDS" in name
-        or "segundo" in value_type
-        or name.endswith("_TIMEOUT")
-        or name.endswith("_DELAY")
-    ):
+    if "SECONDS" in name or "segundo" in value_type or name.endswith("_TIMEOUT") or name.endswith("_DELAY"):
         try:
             number = float(raw)
         except ValueError:
@@ -202,8 +200,9 @@ def format_configuration_row(state: Any, spec: Any, *, prefix: str | None = None
     value = friendly_value(spec)
     if len(value) > 22:
         value = value[:19].rstrip() + "…"
-    value_cell = paint(f"{value:<22}", _value_color(spec), bold=value not in {"NÃO CONFIGURADO"})
-    suffix = f" {tail.strip()}" if tail.strip() else ""
+    value_cell = paint(f"{value:<22}", _value_color(spec), bold=value != "NÃO CONFIGURADO")
+    cleaned_tail = _ORIGIN_PATTERN.sub("", str(tail)).strip()
+    suffix = f" {cleaned_tail}" if cleaned_tail else ""
     return f"{row_prefix:<10} {label:<46} {value_cell} [{origin_for(state, spec)}]{suffix}"
 
 
@@ -227,12 +226,7 @@ def _rewrite_line(text: str, state: Any, by_name: dict[str, Any], names: tuple[s
         stripped_before = before.strip()
         row_like = bool(re.fullmatch(r"(?:\d+\.)?\s*\d{0,8}", stripped_before)) and "·" not in before
         if row_like:
-            prefix = stripped_before
-            if prefix.endswith("."):
-                prefix += ""
-            # Drop alignment whitespace from the technical-name column while preserving
-            # any status/details that followed it.
-            return format_configuration_row(state, spec, prefix=prefix, tail=after.strip())
+            return format_configuration_row(state, spec, prefix=stripped_before, tail=after)
         result = before + friendly_label(spec) + after
     return result
 
@@ -249,10 +243,7 @@ def user_facing_output(state: Any) -> Iterator[None]:
     original_input = builtins.input
 
     def friendly_print(*args: Any, **kwargs: Any) -> None:
-        rewritten = tuple(
-            _rewrite_line(arg, state, by_name, names) if isinstance(arg, str) else arg
-            for arg in args
-        )
+        rewritten = tuple(_rewrite_line(arg, state, by_name, names) if isinstance(arg, str) else arg for arg in args)
         original_print(*rewritten, **kwargs)
 
     def friendly_input(prompt: str = "") -> str:
@@ -285,7 +276,11 @@ def _technical_details(state: Any, spec: Any) -> None:
         section("DETALHES TÉCNICOS")
         info("ID público", configuration_id(spec.name))
         info("Variável", spec.name)
-        info("Valor bruto", "CONFIGURADO (oculto)" if _is_secret(spec) and (os.environ.get(spec.name) or "").strip() else ("NÃO CONFIGURADO" if _is_secret(spec) else (raw_effective_value(spec) or "<não configurado>")))
+        if _is_secret(spec):
+            raw_display = "CONFIGURADO (oculto)" if (os.environ.get(spec.name) or "").strip() else "NÃO CONFIGURADO"
+        else:
+            raw_display = raw_effective_value(spec) or "<não configurado>"
+        info("Valor bruto", raw_display)
         info("Tipo", getattr(spec, "value_type", "-"))
         info("Default", getattr(spec, "default", None) if getattr(spec, "default", None) is not None else "<sem default>")
         info("Origem efetiva", origin_for(state, spec))
@@ -325,7 +320,8 @@ def variable_editor(console_module: ModuleType, state: Any, spec: Any) -> None:
             info("Exemplo", spec.example)
         render_enrichment(spec)
         secret = _is_secret(spec)
-        section("AÇÕES")
+        from rasai.console_ui_catalog import section as ui_section
+        ui_section("AÇÕES")
         print("S. Definir / alterar")
         print("L. Limpar override somente desta sessão")
         print("R. Restaurar estado canônico")
@@ -408,13 +404,10 @@ def install(console_module: ModuleType) -> None:
     from rasai import console_ui_refactor as refactor
     from rasai import console_navigation as navigation
 
-    # Canonical editor is shared by all configuration entry points.
     ui_catalog.variable_editor = variable_editor
     refactor.variable_editor = variable_editor
     console_catalog_ui.variable_editor = variable_editor
 
-    # Every normal configuration/preparation surface hides technical names and renders
-    # friendly values. The technical-details action explicitly suspends this rewriting.
     console_module._environment_menu = _wrap_surface(console_module._environment_menu)
     console_module._configure = _wrap_surface(console_module._configure)
     navigation._preparation_menu = _wrap_surface(navigation._preparation_menu)
