@@ -1,4 +1,4 @@
-# Smoke humano — reprocessamento seletivo no console Windows
+# Smoke humano - reprocessamento seletivo no console Windows
 
 Este roteiro valida a experiência final do operador depois dos testes automatizados. O foco é o console local Windows; não é um teste de SaaS.
 
@@ -6,7 +6,7 @@ Este roteiro valida a experiência final do operador depois dos testes automatiz
 
 - usar `main` atualizado;
 - executar no Windows;
-- possuir ao menos um `AUD-*` em estado `Parcial — pode reprocessar` com uma pendência recuperável;
+- possuir ao menos um `AUD-*` em estado `Parcial - pode reprocessar` com uma pendência recuperável;
 - preferencialmente usar um AUD que tenha IA configurada e alguma tentativa/custo persistido, para validar a prévia monetária;
 - manter as credenciais necessárias disponíveis na sessão/Windows User.
 
