@@ -18,13 +18,22 @@ A política econômica:
 - não interpreta ausência de preço como preço zero;
 - trata preço como estimativa operacional, não como fatura do fornecedor.
 
-## 2. Duas fontes declarativas
+## 2. Duas fontes declarativas e duas camadas de responsabilidade
 
-Modelos e preços têm responsabilidades separadas:
+Modelos e preços têm responsabilidades separadas. O RASAi também separa baseline do produto de configuração administrativa.
+
+Baselines internas:
 
 ```text
 src/rasai/config/ai-models-defaults.toml
 src/rasai/config/ai-pricing-defaults.toml
+```
+
+Arquivos humanos:
+
+```text
+config/ai-models.toml
+config/ai-pricing.toml
 ```
 
 O catálogo de modelos determina:
@@ -53,16 +62,18 @@ src/rasai/ai_pricing_catalog.py
 src/rasai/ai_cost_policy.py
 ```
 
-Catálogos locais editáveis:
+Baseline do console interativo:
 
 ```ini
-RASAI_AI_MODELS_SOURCE = file
-RASAI_AI_MODELS_FILE = ai-models.toml
-RASAI_AI_PRICING_SOURCE = file
-RASAI_AI_PRICING_FILE = ai-pricing.toml
+RASAI_AI_MODELS_SOURCE = auto
+RASAI_AI_MODELS_FILE = config/ai-models.toml
+RASAI_AI_PRICING_SOURCE = auto
+RASAI_AI_PRICING_FILE = config/ai-pricing.toml
 ```
 
-Restore Defaults retorna ambas as origens para `factory`.
+`auto` usa o arquivo humano quando presente e a baseline empacotada quando ausente. `factory` ignora o arquivo humano. `file` exige o arquivo configurado.
+
+Antes de cada nova AUD, o console resolve, valida e snapshotará os catálogos efetivos. Assim, alterações salvas em `config/` valem na próxima AUD sem reiniciar o console, mas não alteram uma execução já iniciada. `Restore Defaults` não apaga os arquivos administrativos; para ignorá-los explicitamente, selecione `SOURCE=factory`.
 
 ## 3. Algoritmo AUTO
 
@@ -234,6 +245,9 @@ Revisar imediatamente se houver mudança de preço, modelo default, disponibilid
 A suíte deve preservar:
 
 - catálogo de modelos carregável por `factory`, `file` e `auto`;
+- `config/ai-models.toml` e `config/ai-pricing.toml` como superfícies humanas padrão do console;
+- nova AUD recarregando alterações salvas sem restart;
+- AUD em andamento usando snapshots imutáveis mesmo após nova edição dos arquivos;
 - novo modelo de provider existente projetado no mesmo adapter sem código específico do modelo;
 - provider desconhecido rejeitado pelo catálogo de modelos;
 - reasoning validado por modelo;
