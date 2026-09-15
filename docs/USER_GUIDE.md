@@ -2,7 +2,7 @@
 
 Guia operacional do RASAi - Search & AI Readiness Auditor para execução local, configuração do console e leitura dos resultados.
 
-## Instalação local
+## Instalação local no Windows
 
 ```powershell
 py -3.13 -m venv .venv
@@ -34,258 +34,152 @@ Q. Sair
 ## Fluxo recomendado
 
 1. abra **Preparar auditoria**;
-2. selecione um perfil quando uma URL única permitir e o preset for útil;
-3. informe entrada, projeto, `Device`, idioma/mercado e timezone;
-4. revise as análises/resultados que pretende obter;
-5. resolva itens `CONFIGURAR` usando as dependências mostradas na própria capacidade;
-6. configure IA, integrações e credenciais quando forem necessárias;
-7. revise custo, quota e carga de recursos opcionais;
-8. salve a configuração se quiser reutilizar os parâmetros não sensíveis;
-9. execute somente quando o preflight estiver compatível com a configuração desejada;
-10. leia o relatório e diferencie resultado obtido de capacidade não solicitada, parcial ou indisponível.
+2. informe entrada, projeto, `Device`, idioma/mercado e timezone;
+3. selecione um ou mais catálogos `CAT-*`;
+4. configure imediatamente as particularidades mostradas no submenu de cada catálogo;
+5. resolva qualquer catálogo `BLOQUEADO` antes de executar;
+6. configure IA somente quando o plano escolhido puder ou precisar utilizá-la;
+7. salve parâmetros não sensíveis na sessão/arquivo quando fizer sentido;
+8. revise o estado do plano e a previsão de consumo/custo quando o fluxo canônico a apresentar;
+9. execute;
+10. leia o resultado distinguindo o que foi solicitado, não solicitado, limitado, falho ou indisponível.
 
 ## Preparar auditoria
 
-A tela usa a seguinte estrutura:
+A tela atual usa:
 
 ```text
-PERFIL DA PRÓXIMA AUDITORIA
 ESCOPO
-ANÁLISES / RESULTADOS
-RESULTADOS SISTÊMICOS
+CATÁLOGO DA AUDITORIA
+PLANO DA PRÓXIMA AUDITORIA
 EXECUÇÃO / ARMAZENAMENTO
 AÇÕES
 ```
 
-### Escopo
+Não há Perfil da próxima auditoria. A seleção do usuário é o próprio plano de catálogos.
 
-Os campos básicos têm IDs reservados:
-
-```text
-000002 Entrada
-000003 Projeto
-000004 Device
-000005 Idioma / mercado
-000006 Timezone apresentação
-```
-
-`Device` pode ser `mobile`, `desktop` ou `both`.
-
-Os relatórios Mobile/Desktop são derivados desse valor e aparecem como `INCLUÍDO` ou `NÃO APLICÁVEL`; não são checkboxes separados.
-
-### Análises/resultados
-
-O catálogo inclui:
-
-- Domínio e descoberta;
-- Acessibilidade;
-- Web Performance;
-- Métricas e padrões;
-- Search Intelligence / SERP;
-- Google Search Console;
-- Apdex de navegação;
-- Apdex de experiência;
-- Visibilidade em IA;
-- Search & AI observados;
-- Análise profunda e melhorias;
-- Conteúdo e JSON-LD;
-- Remediações;
-- Quality & decisão.
-
-Ao abrir uma capacidade, o console mostra estado, finalidade, parâmetros próprios e dependências relacionadas. Selecionar o ID de uma dependência abre a configuração canônica correspondente.
-
-`H. Ajuda de contexto` explica a própria capacidade e suas configurações relacionadas; não é necessário pressionar `H` antes de digitar um ID. Dentro da ajuda também é possível abrir um dos IDs mostrados. `ENTER` ou `V` retorna sem gerar erro.
-
-### Conteúdo e JSON-LD
-
-Essa capacidade separa o que é determinístico do que é contexto/enriquecimento opcional:
+### Catálogos
 
 ```text
-Conteúdo / estrutura   INCLUÍDO
-JSON-LD                INCLUÍDO
-Contexto editorial     AUTOMÁTICO / PERSONALIZADO / CONFIGURAR
-Remediação por IA      NÃO SOLICITADA / APTO / CONFIGURAR
+CAT-01 Fundamentos técnicos e descoberta
+CAT-02 Acessibilidade
+CAT-03 Conteúdo, semântica e dados estruturados
+CAT-04 Web Performance
+CAT-05 Search & AI Intelligence
+CAT-06 Apdex de navegação
+CAT-07 Apdex de experiência
+CAT-08 Análise profunda e melhorias
+CAT-09 Remediações
 ```
 
-Valores editoriais `auto` são válidos e não representam pendência. A orientação JSON-LD determinística não depende de a remediação textual por IA estar habilitada.
+Selecionar um catálogo abre suas opções imediatamente. O operador não precisa atravessar uma sequência fixa de telas.
 
-As variáveis relacionadas aparecem agrupadas em **Contexto editorial** e **Enriquecimento por IA**. A linguagem de análise continua sendo uma configuração compartilhada/global de IA.
+Cada submenu mostra estado, capacidades/fontes, configuração efetiva, uso de IA, resultado esperado, configurações relacionadas, persistência e ações.
 
-### Resultados sistêmicos
+### Estados
 
-Visão geral, Readiness SARI, metodologia de scoring, contexto de captura, uso de IA e referências/metodologia pertencem ao contrato do relatório e não têm seleção independente.
+```text
+APTO                 -> requisitos mínimos conhecidos atendidos
+APTO COM LIMITAÇÕES  -> executável, mas com fonte/enriquecimento opcional indisponível
+BLOQUEADO            -> falta requisito obrigatório do catálogo selecionado
+NÃO SELECIONADO      -> fora do plano desta execução
+```
 
-## IDs e números de menu
+Recurso não selecionado não deve bloquear o plano.
 
-O console usa duas classes de números:
+## Escopo e Device
 
-- números curtos: escolhas da tela atual;
-- IDs de 6 dígitos: identidade estável de uma configuração canônica.
+`Device` pode ser:
 
-O mesmo ID de variável aparece em Inteligência Artificial, Integrações, Todas as configurações ou em uma tela de capacidade quando essa dependência é relevante.
+```text
+mobile
+desktop
+both
+```
 
-O formato de 6 dígitos reduz o ruído visual do formato anterior. O RASAi não usa apenas 4 dígitos porque o espaço de identificação seria pequeno demais para manter o contrato de identidade estável com baixo risco de colisão conforme novas variáveis forem adicionadas.
+Mobile/Desktop são dimensões/resultados derivados, não catálogos separados.
+
+## IDs de configuração
+
+Números curtos operam a tela atual. IDs canônicos identificam a mesma variável em qualquer caminho do console.
+
+Ao abrir um catálogo, configurações relacionadas podem ser acessadas diretamente por seus IDs sem criar cópias da variável.
+
+## Persistência
+
+Após uma alteração não sensível, o console permite:
+
+```text
+1. manter somente nesta sessão
+2. manter na sessão e salvar no arquivo de configuração
+```
+
+Secrets nunca entram no INI. O armazenamento Windows/User continua sendo usado somente por ação explícita.
+
+A seleção `CAT-*` pertence ao plano da próxima execução. O snapshot secret-free do AUD registra essa seleção para reutilização e futura correspondência com os relatórios.
 
 ## Inteligência Artificial
 
-Existe uma única seleção principal de IA por execução.
-
-Opções conceituais:
+Existe uma IA principal/orquestrador por execução.
 
 ```text
-none       -> sem IA quando nenhuma capacidade exigir
+none       -> sem IA
 provider   -> provider explicitamente selecionado
 auto       -> orquestração canônica entre providers elegíveis
 ```
 
-`AUTO` considera a política existente de custo, elegibilidade, disponibilidade, quarentena, circuit breaker, fallback e limite de tentativas.
-
-Módulos consumidores não criam provider próprio. Improvement Intelligence, remediações e demais capacidades compatíveis reutilizam a seleção principal.
-
-Credenciais e parâmetros do provider são configurados na macro **Inteligência Artificial** ou no catálogo técnico.
-
-## Integrações e serviços
-
-Use essa superfície para Google Search Console, SERP, PageSpeed/Lighthouse, CrUX, observabilidade e outros serviços externos publicados no catálogo.
-
-Filtros disponíveis incluem owner funcional, ordem alfabética, estado, modificadas, pendentes e busca por ID/nome/finalidade.
-
-`D. Diagnóstico técnico das integrações` executa probes consultivos de baixo impacto e não substitui a execução real da auditoria.
-
-## Todas as configurações
-
-Essa tela é a visão completa do catálogo técnico.
-
-Cada variável mostra:
-
-- finalidade;
-- owner e contexto;
-- quando é necessária;
-- impacto;
-- valor e origem;
-- estado;
-- tipo e domínio aceito;
-- default;
-- referências/documentação;
-- ações de edição/restauração.
-
-Campos enum/boolean/lista fechada são guiados. Ao escolher `S. Definir / alterar`, o console exibe as opções permitidas para seleção e solicita confirmação antes de aplicá-las. Quando um valor técnico não é autoexplicativo, como categorias YMYL, a opção mantém o texto canônico e recebe uma descrição curta em PT-BR. Listas fechadas permitem selecionar vários valores. Texto livre é usado apenas em domínios realmente abertos.
-
-Um toggle booleano deve aparecer como booleano na UI. Por exemplo, `RASAI_GSC_ENABLED` usa seleção `true|false`; o console não deve apresentar texto livre para um domínio que o runtime valida como fechado.
-
-## Origem dos valores
-
-O console pode indicar:
+O catálogo informa onde IA é:
 
 ```text
-SESSÃO
-ARQUIVO
-WINDOWS/USER
-WINDOWS/MACHINE
-DEFAULT
-NÃO CONFIGURADO
+NONE
+OPTIONAL
+REQUIRED
 ```
 
-Isso ajuda a identificar por que um valor efetivo está ativo.
+`CAT-03` pode usar IA para análise semântica/contextual; `CAT-08` exige IA para análise profunda; `CAT-09` pode usar IA para enriquecimento de remediações. Selecionar Acessibilidade, Web Performance, Search & AI Intelligence ou Apdex não ativa IA por si só. IA advisory não altera evidência/scoring determinístico.
 
-## Salvar configuração
+Quando somente `CAT-03` e/ou `CAT-09` tornam IA possível, o plano começa em **Executar sem IA (recomendado)**. Se a IA principal estiver configurada, use `U. Executar com IA` para ativar o enriquecimento na próxima auditoria. Ao ativar IA, a previsão de consumo/custo aparece no fluxo canônico antes da confirmação da execução. Com `CAT-08`, IA é obrigatória.
 
-`S. Salvar configuração` grava parâmetros não sensíveis no `rasai-console.ini`.
+AUTO mantém a política existente de custo, elegibilidade, disponibilidade, quarentena, circuit breaker, fallback e limite de tentativas.
 
-Também podem ser persistidos inputs não sensíveis da próxima execução, como os parâmetros de Search Intelligence configurados na sessão.
+Quando houver consumo estimável, o preview/aceite canônico ocorre antes da execução.
 
-Secrets nunca entram no arquivo.
+## Search & AI Intelligence
 
-## Search Intelligence / SERP
+`CAT-05` agrupa o objetivo do usuário, mas mantém as fontes independentes:
 
-Search Intelligence / SERP separa:
+- Search Intelligence / SERP;
+- Google Search Console;
+- Visibilidade em IA;
+- observabilidade externa aplicável.
 
-- termos, depth, região, device e classificação competitiva;
-- provider/mode/limites SERP;
-- credencial do provider.
+### SERP
 
-Os inputs ficam em memória durante a sessão. Ao salvar explicitamente a configuração, são gravados no INI para reutilização local.
+Termos, depth, região, device e classificação competitiva continuam configuráveis. A profundidade representa a posição orgânica máxima tentada (`10 = Top 10`, `20 = Top 20`).
 
-Search utiliza seu próprio device `mobile|desktop`, independente do `Device` geral da auditoria.
+SERP com provider/key aptos mas sem termos ainda não produz a coleta; ao selecionar `CAT-05`, o console orienta a completar uma fonte Search suficiente.
 
-A profundidade significa a maior posição orgânica que será tentada, por exemplo `10 = Top 10` e `20 = Top 20`.
+### Google Search Console
 
-A preparação distingue intenção de configuração:
+GSC depende de OAuth, property, política e cobertura estrutural da URL. SERP e GSC não são dependência um do outro.
 
-```text
-SERP configurado + nenhum termo -> NÃO SOLICITADO
-RASAI_SERP_MODE=disabled        -> DESABILITADO
-termos + configuração válida    -> APTO
-termos + dependência inválida   -> CONFIGURAR
-```
-
-Google Search Console não é dependência desta capacidade.
-
-Consulte [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md).
-
-## Google Search Console
-
-Google Search Console possui capacidade própria em **Preparar auditoria**. OAuth, property e cobertura da URL são avaliados separadamente de SERP.
-
-Estados comuns na preparação:
-
-```text
-APTO            -> OAuth/property suficientes e property cobre a URL
-NÃO CONFIGURADO -> modo automático/opcional sem configuração suficiente
-NÃO APLICÁVEL   -> property não cobre a URL em modo automático
-DESABILITADO    -> GSC explicitamente desligado
-CONFIGURAR      -> configuração inválida/incompleta ou requisito obrigatório não atendido
-```
-
-Mesmo quando a UI mostra `APTO`, validade/expiração do OAuth, scope, permissão da conta, quota e disponibilidade do Google só são confirmados pela chamada real.
+Quando GSC é obrigatório e incompatível, o catálogo bloqueia. Quando é automático/opcional e não aplicável, não deve transformar uma fonte Search válida em falha global.
 
 Consulte [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md).
 
-## Perfis
-
-Perfis ficam no topo de **Preparar auditoria** e são presets da próxima execução.
-
-Um perfil `CONFIGURAR` permanece visível, explica o que falta e não pode ser aplicado até atender às dependências obrigatórias.
-
-Ajustes explícitos feitos depois de aplicar um perfil vencem o preset somente no domínio alterado.
-
-O perfil não cria credenciais, termos SERP, contexto editorial específico nem provider de IA alternativo.
-
-Consulte [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md).
-
 ## Web Performance
 
-Quando solicitado, Web Performance usa os adapters e contratos atuais de PageSpeed/Lighthouse/CrUX.
+`CAT-04` usa os adapters/contratos atuais de PageSpeed, Lighthouse e CrUX conforme configuração.
 
-A ausência de artifact ou resposta externa deve aparecer como limitação/indisponibilidade; não é convertida em score artificial.
-
-Na CLI:
-
-```powershell
-rasai audit https://example.com --web-performance
-```
+Ausência de field data ou resposta externa é limitação/indisponibilidade; não deve ser convertida em score artificial.
 
 ## Apdex de navegação
 
-Apdex de navegação executa amostras sintéticas de browser conforme os parâmetros configurados.
-
-Exemplo CLI:
-
-```powershell
-rasai audit https://example.com `
-  --synthetic-apdex `
-  --apdex-threshold-seconds 1.5 `
-  --apdex-samples-per-context 5 `
-  --apdex-max-attempts-per-context 7 `
-  --apdex-max-pages 1 `
-  --apdex-concurrency 1
-```
-
-Grupos pequenos permanecem diagnóstico de amostra limitada segundo o contrato Apdex.
+`CAT-06` executa amostras sintéticas conforme thresholds, volume e carga configurados. O cálculo não depende de IA.
 
 ## Apdex de experiência
 
-Experience Apdex depende de Navigation Apdex.
+`CAT-07` depende de `CAT-06`. Selecioná-lo inclui Navigation Apdex no plano.
 
 Enquanto o mix estiver herdado:
 
@@ -296,81 +190,49 @@ Device=both     -> 60% mobile + 40% desktop
 Tablet          -> 0% no default herdado
 ```
 
-Tablet pode ser incluído somente por override avançado do mix.
+Selecionar `CAT-07` não ativa IA. Qualquer correlação por IA pertence aos catálogos consumidores que a solicitam, como `CAT-08`.
 
-Editar amostras ou outros parâmetros não transforma o mix herdado em personalizado; somente alterar o próprio mix faz isso.
+## Análise profunda e melhorias
+
+`CAT-08` consome as evidências dos catálogos produtores selecionados. Sem fonte de evidência ou sem IA principal apta, fica `BLOQUEADO`.
+
+## Remediações
+
+`CAT-09` transforma achados em ações técnicas/editoriais rastreáveis. Remediações determinísticas continuam válidas sem IA; IA pode enriquecer contextualização/exemplos sem alterar scoring por opinião.
+
+## Integrações e serviços
+
+Use essa superfície para configurar GSC, SERP, PageSpeed/Lighthouse, CrUX, observabilidade e demais serviços publicados no catálogo técnico.
+
+Diagnósticos de integração são consultivos: um teste bem-sucedido não garante disponibilidade futura e uma falha transitória não deve ser confundida automaticamente com erro de configuração.
+
+## Todas as configurações
+
+Cada variável deve informar finalidade, owner, contexto, valor/origem, estado, domínio/default e impacto. Booleanos/enums/listas fechadas usam seleção guiada; texto livre só é usado para domínios realmente abertos.
 
 ## Auditorias e histórico
 
-A listagem recente usa colunas com `AUDITORIA`, `CONCLUSÃO LOCAL`, `SITUAÇÃO` e `REPROCESSAMENTO`.
+Carregar configuração de um `AUD-*` prepara **nova execução**; o AUD de origem não é alterado. Credenciais não são copiadas.
 
-`CONCLUSÃO LOCAL` usa o timezone configurado no programa. Auditorias ainda parciais não recebem um timestamp de conclusão artificial.
+Quando o snapshot contém `audit_catalog`, a lista `CAT-*` é restaurada junto da configuração não sensível.
 
-O console apresenta estados do fulfillment em PT-BR. Exemplos:
+Reprocessamento continua sendo outra operação: ele completa pendências do mesmo AUD segundo os contratos atuais.
 
-```text
-COMPLETE              -> Concluída
-PARTIAL_RETRYABLE     -> Parcial - pode reprocessar
-PARTIAL_BLOCKED       -> Parcial - há bloqueios
-FAILED_FATAL          -> Falha definitiva
-EXPIRED_FOR_COMPLETION -> Expirada para conclusão
-```
+## Relatórios
 
-A coluna técnica separada `relatório=PRELIMINARY|FINAL` não é necessária na lista quando apenas repete o estado operacional já exibido.
+A estrutura `CAT-*` é persistida agora para permitir correspondência futura nos HTMLs. A mudança visual completa dos relatórios não faz parte desta etapa.
 
-Ao selecionar um `AUD-*`, a tela detalhada apresenta situação, conclusão local quando aplicável, score, elegibilidade para consolidação, requisitos e reprocessamentos.
-
-Ações principais:
+A direção de UX é manter equivalência semântica:
 
 ```text
-Reprocessar somente pendências recuperáveis
-Carregar configuração para uma nova auditoria
-Mostrar caminhos de artefatos
+pedido no console -> configuração efetiva -> evidências/resultados -> relatório
 ```
 
-Auditorias concluídas não oferecem reprocessamento porque já atingiram o objetivo e não possuem pendências a recuperar. O reprocessamento preserva itens já bem-sucedidos por padrão. Carregar configuração cria uma nova execução quando o usuário efetivamente executar; o AUD de origem não é alterado.
-
-Ao escolher `I. Informar Audit ID`, digitar `V` cancela a entrada e retorna à listagem sem mensagem de Audit ID inválido.
-
-`GERENCIAR AUDITORIAS / EXCLUSÃO SEGURA` usa estrutura tabular equivalente à do histórico, acrescentando seleção, tamanho e domínio. Os cabeçalhos são dimensionados com base no tamanho real do Audit ID para permanecer alinhados.
-
-Credenciais não são copiadas do AUD.
-
-## Relatórios consolidados
-
-A consolidação usa auditorias persistidas e elegíveis. Montar a visão consolidada não deve iniciar coletas externas apenas para preencher a página histórica.
-
-## Como ler o relatório
-
-Comece por:
-
-```text
-AUD-*/report/index.html
-```
-
-Leia separadamente:
-
-- Readiness/SARI;
-- Score GEO;
-- Coverage;
-- Confidence;
-- findings e recomendações;
-- Web Performance;
-- Acessibilidade;
-- Apdex;
-- Search Intelligence;
-- Uso de IA;
-- configuração solicitada versus resultado realmente obtido.
-
-Estados como não solicitado, não configurado, desabilitado, não aplicável, parcial, falho ou indisponível devem ser interpretados de forma distinta de resultado bem-sucedido.
-
-## Uso de IA no relatório
-
-`ai-usage.html` registra provider/modelo, tentativas, tokens e custo estimado quando essas informações existem.
-
-Custo é estimativa operacional; billing do fornecedor permanece a autoridade financeira externa.
+Leia sempre separadamente medição determinística, indisponibilidade de fonte, execução parcial e conteúdo advisory por IA.
 
 ## CLI básica
+
+O catálogo descrito neste documento é uma UX do `rasai-console`. A CLI tradicional mantém seus contratos próprios.
 
 ```powershell
 rasai audit https://example.com --project "Exemplo"
@@ -378,34 +240,21 @@ rasai audit https://example.com --device-context desktop
 rasai audit https://example.com --device-context both
 ```
 
-Várias URLs:
-
-```powershell
-rasai audit `
-  https://example.com/ `
-  https://example.com/produto `
-  --max-pages 2
-```
-
 ## Segurança
 
 - não copie API keys para issues, reports ou documentação;
 - o INI não contém secrets;
 - Windows/User só é alterado por ação explícita;
-- Windows/Machine não é administrado automaticamente;
 - key configurada não garante quota/saldo;
 - Synthetic Apdex deve respeitar autorização e limites de carga;
-- diagnóstico de integração é uma observação pontual, não garantia futura.
+- diagnóstico de integração é observação pontual, não garantia futura.
 
 ## Documentos relacionados
 
+- [AUDIT_CATALOG_WORKFLOW.md](AUDIT_CATALOG_WORKFLOW.md)
 - [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md)
 - [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md)
-- [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md)
 - [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md)
 - [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md)
 - [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md)
-- [INTEGRATION_DIAGNOSTICS.md](INTEGRATION_DIAGNOSTICS.md)
-- [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md)
-- [AUDIT_CONFIGURATION_REUSE.md](AUDIT_CONFIGURATION_REUSE.md)
 - [OUTPUTS_AND_ARTIFACTS.md](OUTPUTS_AND_ARTIFACTS.md)
