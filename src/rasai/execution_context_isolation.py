@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar
+from functools import wraps
 import os
 from typing import Any, Iterator, Mapping
 
@@ -260,6 +261,7 @@ def _wrap_runtime_run() -> None:
     if bool(getattr(original, "_rasai_execution_state_context", False)):
         return
 
+    @wraps(original)
     def run_with_execution_state(state: Any) -> int:
         token = _ACTIVE_EXECUTION_STATE.set(state)
         try:
