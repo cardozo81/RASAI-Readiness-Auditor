@@ -3,11 +3,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from rasai.ai_model_catalog import (
-    DEFAULT_USER_MODEL_FILE,
-    MODEL_FILE_ENV,
-    MODEL_SOURCE_ENV,
-)
+from rasai.ai_model_catalog import MODEL_FILE_ENV, MODEL_SOURCE_ENV
+
+OPERATOR_MODEL_FILE = "config/ai-models.toml"
 
 
 def install() -> None:
@@ -41,33 +39,36 @@ def install() -> None:
                 "Seleciona a origem do catálogo de modelos usados pelos providers já integrados ao RASAi.",
                 "enum",
                 ("factory", "file", "auto"),
-                "factory",
+                "auto",
                 required_when=(
-                    "Nunca. factory usa o catálogo distribuído; file exige o TOML configurado; "
-                    "auto usa arquivo quando existir e factory quando não existir."
+                    "Nunca. auto usa config/ai-models.toml quando presente e a baseline de fábrica quando ausente; "
+                    "file exige o TOML configurado; factory ignora o arquivo do operador."
                 ),
                 impact=(
                     "Controla modelos habilitados, defaults, reasoning permitido e elegibilidade ao AUTO. "
                     "Não cria um provider novo nem altera protocolo, autenticação ou endpoint do adapter."
                 ),
-                example="RASAI_AI_MODELS_SOURCE=file",
+                example="RASAI_AI_MODELS_SOURCE=auto",
                 source="docs/AI_MODEL_CONFIGURATION.md",
-                notes="Restore Defaults volta para factory. SOURCE=file falha fechado se o TOML não existir ou for inválido.",
+                notes=(
+                    "Alterações no arquivo do operador entram na próxima AUD sem reiniciar o console; "
+                    "a execução iniciada usa snapshot imutável."
+                ),
             ),
             base.EnvironmentSpec(
                 MODEL_FILE_ENV,
                 "IA - modelos e reasoning",
                 "Caminho do catálogo TOML editável de modelos usado quando a origem é file/auto.",
                 "caminho de arquivo TOML",
-                default=DEFAULT_USER_MODEL_FILE,
+                default=OPERATOR_MODEL_FILE,
                 required_when=f"Obrigatório quando {MODEL_SOURCE_ENV}=file.",
                 impact=(
                     "Permite adicionar, desativar ou alterar modelos de providers já integrados sem mudar código, "
                     "desde que o modelo use o mesmo contrato técnico do adapter existente."
                 ),
-                example="RASAI_AI_MODELS_FILE=ai-models.toml",
+                example="RASAI_AI_MODELS_FILE=config/ai-models.toml",
                 source="docs/AI_MODEL_CONFIGURATION.md",
-                notes="Não contém segredos; credenciais continuam fora do catálogo.",
+                notes="Arquivo humano na pasta config/; credenciais continuam fora do catálogo.",
             ),
         )
         for spec in specs:
