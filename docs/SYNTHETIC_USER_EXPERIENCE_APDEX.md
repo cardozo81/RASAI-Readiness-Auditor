@@ -10,7 +10,7 @@ Synthetic User Experience Apdex adiciona ao RASAi uma medição sintética calib
 | Synthetic User Experience Apdex | laboratório sintético enriquecido/calibrável | `SYNTHETIC_LOAD_ACTION`, mix explícito de dispositivos | limites Satisfied/Frustrated independentes, com baseline compatível com referências Dynatrace ou importação |
 | Dynatrace RUM | usuários reais | Load/XHR/Custom actions observadas no período | configuração efetiva da aplicação/ação |
 
-Synthetic User Experience Apdex **não é RUM**. O objetivo é reduzir diferenças metodológicas controláveis — KPM, thresholds, política de erros, sessão e mix de dispositivos — sem manipular o score para coincidir com Dynatrace.
+Synthetic User Experience Apdex **não é RUM**. O objetivo é reduzir diferenças metodológicas controláveis - KPM, thresholds, política de erros, sessão e mix de dispositivos - sem manipular o score para coincidir com Dynatrace.
 
 Mudanças da fronteira de medição são versionadas internamente e persistidas junto ao ambiente de execução. Resultados gerados por contratos metodológicos diferentes não devem ser tratados como diretamente equivalentes em comparação longitudinal.
 
@@ -63,8 +63,8 @@ A documentação Dynatrace também descreve recursos dinâmicos e execução de 
 
 Fontes oficiais:
 
-- Dynatrace — User actions in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-actions>
-- Dynatrace — User action metrics in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-action-metrics>
+- Dynatrace - User actions in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-actions>
+- Dynatrace - User action metrics in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-action-metrics>
 
 ## 4. KPM e fallback
 
@@ -106,8 +106,8 @@ Dynatrace possui regras de request errors mais granulares, incluindo filtros e `
 
 Fontes oficiais:
 
-- Dynatrace — Request errors: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-request-errors>
-- Dynatrace — Error rules: <https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/error-rules/get-configuration>
+- Dynatrace - Request errors: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-request-errors>
+- Dynatrace - Error rules: <https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/error-rules/get-configuration>
 
 ## 6. Cobertura do contrato Dynatrace
 
@@ -208,7 +208,7 @@ Verificações mínimas:
 
 ## 11. Cold/warm, amostragem e carga
 
-`cold` é o baseline reproduzível: novo BrowserContext, cache desabilitado e sem storage reaproveitado. `warm` reutiliza contexto no mesmo worker/perfil.
+`cold` é o baseline reproduzível: novo BrowserContext, cache desabilitado e sem storage reaproveitado. `warm` reutiliza contexto por worker/perfil.
 
 O default é 100 amostras válidas totais por página. Valores maiores representam carga relevante: uma navegação gera múltiplos subrequests. Não execute carga relevante contra produção sem autorização e avaliação de capacidade.
 
@@ -231,8 +231,8 @@ Mesmo com fatores controláveis alinhados, igualdade numérica não é esperada 
 ## 13. Referências
 
 - Apdex Technical Specification v1.1: <https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf>
-- Dynatrace — User actions in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-actions>
-- Dynatrace — User action metrics in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-action-metrics>
-- Dynatrace — Apdex configuration for load actions: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions>
-- Dynatrace — Request errors: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-request-errors>
-- Dynatrace — Web application configuration API: <https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application>
+- Dynatrace - User actions in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-actions>
+- Dynatrace - User action metrics in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-action-metrics>
+- Dynatrace - Apdex configuration for load actions: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions>
+- Dynatrace - Request errors: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-request-errors>
+- Dynatrace - Web application configuration API: <https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application>
