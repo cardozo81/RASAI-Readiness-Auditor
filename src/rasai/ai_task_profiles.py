@@ -20,7 +20,7 @@ from typing import Any, Iterable, Mapping
 PROFILE_FILE_ENV = "RASAI_AI_TASK_PROFILES_FILE"
 PROFILE_SOURCE_ENV = "RASAI_AI_TASK_PROFILES_SOURCE"
 CONSOLE_INI_ENV = "RASAI_CONSOLE_INI"
-FACTORY_PROFILE_RESOURCE = "config/ai-task-profiles-defaults.toml"
+FACTORY_PROFILE_RESOURCE = "config/ai-profiles-defaults.toml"
 DEFAULT_USER_PROFILE_FILE = "config/ai-task-profiles.toml"
 DEFAULT_CONSOLE_INI = "rasai-console.ini"
 SUPPORTED_SCHEMA_VERSION = 1
@@ -171,7 +171,7 @@ def _load_toml_bytes(payload: bytes, *, source: str, require_all: bool) -> AiTas
 
 
 def load_factory_task_profile_catalog() -> AiTaskProfileCatalog:
-    resource = files("rasai").joinpath("config").joinpath("ai-task-profiles-defaults.toml")
+    resource = files("rasai").joinpath("config").joinpath("ai-profiles-defaults.toml")
     return _load_toml_bytes(resource.read_bytes(), source="FACTORY", require_all=True)
 
 
@@ -339,7 +339,7 @@ def profile_summary_tag(
 def restore_factory_task_profile_catalog(destination: Path | str) -> Path:
     target = Path(destination).expanduser().resolve()
     target.parent.mkdir(parents=True, exist_ok=True)
-    resource = files("rasai").joinpath("config").joinpath("ai-task-profiles-defaults.toml")
+    resource = files("rasai").joinpath("config").joinpath("ai-profiles-defaults.toml")
     with resource.open("rb") as source, target.open("wb") as output:
         shutil.copyfileobj(source, output)
     return target
