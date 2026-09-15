@@ -105,13 +105,12 @@ def install() -> None:
 
     install_console_observability_capability_refinements(console)
 
-    # Single profile owner: every preset is a composition of the canonical capabilities
-    # shown in Preparar auditoria. There is no second profile catalog/refinement layer.
-    from rasai.console_profile_capability_architecture import (
-        install as install_console_profile_capability_architecture,
-    )
+    # Final preparation owner: the public console exposes one stable audit catalog.
+    # Legacy execution-profile/preset UI is deliberately absent from the unpublished
+    # product contract. The runtime/core itself is not modified by this presentation layer.
+    from rasai.console_catalog_workflow import install as install_console_catalog_workflow
 
-    install_console_profile_capability_architecture(console)
+    install_console_catalog_workflow(console)
 
     # Install last because earlier usability/navigation overlays historically rebound an
     # older reprocess surface and interpreted fulfillment completion as process completion.
