@@ -124,3 +124,11 @@ def install() -> None:
     )
 
     install_console_reprocess_final_refinements(console)
+
+    # Visual-only polish must come after the final owner so its presentation globals are
+    # the last layer rebound without affecting retry/pricing semantics.
+    from rasai.console_reprocess_visual_presentation import (
+        install as install_console_reprocess_visual_presentation,
+    )
+
+    install_console_reprocess_visual_presentation()
