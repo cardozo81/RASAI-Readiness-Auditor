@@ -72,3 +72,10 @@ def install() -> None:
     from rasai.console_ui_refactor import install as install_console_ui_refactor
 
     install_console_ui_refactor()
+
+    # Final pass after the information-architecture wrapper: keep these changes strictly
+    # in the presentation layer so runtime, persistence and reprocessing contracts stay
+    # owned by their canonical modules.
+    from rasai.console_usability_refinements import install as install_console_usability_refinements
+
+    install_console_usability_refinements(console)
