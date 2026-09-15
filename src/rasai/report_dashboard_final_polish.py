@@ -17,7 +17,6 @@ from rasai.persistence import AuditWorkspace
 
 _STYLE_MARKER = "rasai-indicator-cluster-layout-v1"
 _GROUP_MARKER = "data-indicator-groups='true'"
-_DASHBOARD_END = "<!-- rasai-executive-dashboard:end -->"
 
 _LIGHTHOUSE_TITLES = (
     "Lighthouse Performance",
@@ -200,6 +199,17 @@ def _card_title(card: str) -> str:
     return re.sub(r"<[^>]+>", "", match.group("title")).strip()
 
 
+def _article_pattern(title: str) -> re.Pattern[str]:
+    """Match exactly one indicator article; never cross a previous card boundary."""
+    return re.compile(
+        r"<article(?P<attrs>[^>]*\bindicator-card\b[^>]*)>"
+        r"(?P<body>(?:(?!</article>).)*?<h3>"
+        + re.escape(title)
+        + r"</h3>(?:(?!</article>).)*?)</article>",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+
 def _rewrite_indicator_card(
     html: str,
     title: str,
@@ -208,12 +218,7 @@ def _rewrite_indicator_card(
     condition_label: str,
     detail: str,
 ) -> str:
-    pattern = re.compile(
-        r"<article(?P<attrs>[^>]*\bindicator-card\b[^>]*)>(?P<body>.*?<h3>"
-        + re.escape(title)
-        + r"</h3>.*?)</article>",
-        flags=re.IGNORECASE | re.DOTALL,
-    )
+    pattern = _article_pattern(title)
 
     def replace(match: re.Match[str]) -> str:
         attrs = re.sub(r"\bcondition-[A-Za-z0-9_-]+\b", "condition-neutral", match.group("attrs"))
@@ -253,27 +258,31 @@ def _rewrite_indicator_card(
 
 
 def _rewrite_lighthouse_unavailable(html: str, title: str, detail: str) -> str:
-    pattern = re.compile(
-        r"(<article\b[^>]*\bindicator-card\b[^>]*>.*?<h3>"
-        + re.escape(title)
-        + r"</h3>.*?</article>)",
-        flags=re.IGNORECASE | re.DOTALL,
-    )
+    pattern = _article_pattern(title)
 
     def replace(match: re.Match[str]) -> str:
-        card = match.group(1)
-        public_text = re.sub(r"<[^>]+>", " ", card)
+        body = match.group("body")
+        public_text = re.sub(r"<[^>]+>", " ", body)
         if "NÃO DISPONÍVEL" not in public_text and not any(
             token in public_text.casefold() for token in ("wall_clock_timeout", "wall-clock", "deadline exceeded")
         ):
-            return card
-        return re.sub(
-            r"<p class=['\"]intro['\"]>.*?</p>",
-            f"<p class='intro'>{escape(detail)}</p>",
-            card,
+            return match.group(0)
+        attrs = re.sub(r"\bcondition-[A-Za-z0-9_-]+\b", "condition-neutral", match.group("attrs"))
+        body = re.sub(
+            r"<span class=['\"]indicator-condition['\"]>.*?</span>",
+            "<span class='indicator-condition'>Coleta não concluída</span>",
+            body,
             count=1,
             flags=re.IGNORECASE | re.DOTALL,
         )
+        body = re.sub(
+            r"<p class=['\"]intro['\"]>.*?</p>",
+            f"<p class='intro'>{escape(detail)}</p>",
+            body,
+            count=1,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        return f"<article{attrs}>{body}</article>"
 
     return pattern.sub(replace, html, count=1)
 
