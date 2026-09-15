@@ -42,7 +42,7 @@ def test_canonical_report_order_follows_reading_flow() -> None:
     filenames = [filename for _label, filename in CANONICAL_NAV_ITEMS]
     expected = [
         "index.html", "readiness.html", "scoring.html", "context.html",
-        "crawling-discovery.html", "mobile.html", "desktop.html", "accessibility.html",
+        "execution-evidence.html", "crawling-discovery.html", "mobile.html", "desktop.html", "accessibility.html",
         "web-performance.html", "standards.html", "apdex.html", "apdex-experience.html",
         "search-intelligence.html", "ai-visibility.html", "observability.html", "ai-usage.html",
         "improvement-intelligence.html", "content-suggestions.html", "remediation.html", "quality.html", "references.html",
