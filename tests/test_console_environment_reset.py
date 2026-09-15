@@ -112,12 +112,22 @@ def test_environment_menu_exposes_reset_action() -> None:
     assert "cancelados depois da digitação" in rendered
 
 
-def test_web_features_dataset_metadata_is_explicit_about_path_and_current_no_data_limit() -> None:
+def test_web_features_dataset_metadata_uses_auto_default_and_documents_no_data_limit() -> None:
     facade = _installed_facade()
     spec = facade.SPEC_BY_NAME["RASAI_WEB_FEATURES_DATASET"]
-    assert spec.value_type == "caminho de arquivo existente"
+    assert spec.value_type == "auto ou caminho de arquivo existente"
     assert spec.accepted == ()
-    assert "qualquer caminho para arquivo existente" in spec.notes
+    assert spec.default == "auto"
+    assert "dataset WebDX/web-features é global" in spec.notes
+    assert "não qual dataset-base" in spec.notes
     assert "NO_DATA" in spec.notes
     assert "WEB_PLATFORM_BASELINE.md" in spec.source
     assert "web-platform-dx/web-features" in spec.source
+    assert facade._validate("RASAI_WEB_FEATURES_DATASET", "AUTO") == "auto"
+
+
+def test_web_features_dataset_accepts_existing_local_file_as_explicit_override(tmp_path) -> None:
+    facade = _installed_facade()
+    dataset = tmp_path / "web-features.json"
+    dataset.write_text("{}", encoding="utf-8")
+    assert facade._validate("RASAI_WEB_FEATURES_DATASET", str(dataset)) == str(dataset)
