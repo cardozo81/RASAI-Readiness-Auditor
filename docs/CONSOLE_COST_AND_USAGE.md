@@ -94,7 +94,7 @@ artifact ausente
 
 O console e o report devem explicar qual coleta foi afetada.
 
-Quando havia estimativa monetária prévia para IA, mas a execução termina com **zero sucessos de IA** e sem consumo monetário materializado, o fechamento financeiro não classifica o resultado como `DENTRO DO ESPERADO`. O estado exibido é `NÃO CONSUMIDO`, o campo `Desvio vs esperado` permanece sem valor comparativo e a observação deixa explícito que a IA solicitada não produziu execução bem-sucedida/consumo tarifável. A causa técnica detalhada continua pertencendo às pendências e diagnósticos canônicos do AUD; o bloco financeiro não inventa uma nova classificação de erro.
+Quando havia estimativa monetária prévia para IA, mas a execução termina com **zero sucessos de IA** e sem consumo monetário materializado, o fechamento financeiro não classifica o resultado como `DENTRO DO ESPERADO`. O estado exibido é `NÃO CONSUMIDO`, o campo `Desvio vs esperado` permanece sem valor comparativo e a observação deixa explícito que a IA solicitada não produziu execução bem-sucedida/consumo tarifável. Quando existe uma tentativa de IA falha persistida, o bloco reutiliza somente o diagnóstico técnico estruturado já registrado (`provider/model`, `error_class` ou `status`, `error_code/error_type` e `HTTP` quando disponível). Se esse diagnóstico não estiver disponível, o bloco orienta consultar as pendências canônicas do AUD. Nenhuma nova classificação de erro de integração é criada pela camada financeira.
 
 Menor custo não reativa provider em quarentena, não reduz contador de falhas e não modifica a classificação de erro. A seleção econômica altera somente a ordem dos candidatos ainda elegíveis no `AI=auto`.
 
