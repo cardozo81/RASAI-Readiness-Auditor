@@ -16,7 +16,6 @@ from __future__ import annotations
 from contextlib import contextmanager
 from contextvars import ContextVar
 import os
-import subprocess as _subprocess
 from typing import Any, Iterator, Mapping
 
 EXECUTION_GSC_POLICY_ENV = "RASAI_EXECUTION_GSC_POLICY"
@@ -157,7 +156,7 @@ def _wrap_profile_context() -> None:
         current = session or profiles.active_profile(state)
         gsc_snapshot = _capture_environment(GSC_ENABLED_ENV)
         marker_snapshot = _capture_environment(EXECUTION_GSC_POLICY_ENV)
-        token = _ACTIVE_EXECUTION_STATE.set(state if current is not None else None)
+        token = _ACTIVE_EXECUTION_STATE.set(state)
         try:
             with effective(state, current):
                 # Older wrappers may project GSC into os.environ while entering the
@@ -229,8 +228,10 @@ class _SubprocessProxy:
 
     def Popen(self, *args: Any, **kwargs: Any):  # noqa: N802 - mirrors subprocess API
         state = _ACTIVE_EXECUTION_STATE.get()
-        if state is not None and kwargs.get("env") is None:
-            kwargs["env"] = build_execution_environment(state)
+        if state is not None:
+            supplied = kwargs.get("env")
+            base_environment = supplied if isinstance(supplied, Mapping) else os.environ
+            kwargs["env"] = build_execution_environment(state, base_environment)
         return self._base.Popen(*args, **kwargs)
 
 
@@ -247,6 +248,52 @@ def _install_private_subprocess_environment() -> None:
         if current is None or bool(getattr(current, "_rasai_execution_context_proxy", False)):
             continue
         module.subprocess = _SubprocessProxy(current)
+
+
+def _wrap_runtime_run() -> None:
+    """Associate every local audit run with its state, profile or not."""
+    try:
+        from rasai import console_runtime as runtime
+    except ImportError:
+        return
+    original = runtime.run_audit_from_console
+    if bool(getattr(original, "_rasai_execution_state_context", False)):
+        return
+
+    def run_with_execution_state(state: Any) -> int:
+        token = _ACTIVE_EXECUTION_STATE.set(state)
+        try:
+            return int(original(state) or 0)
+        finally:
+            _ACTIVE_EXECUTION_STATE.reset(token)
+
+    run_with_execution_state._rasai_execution_state_context = True  # type: ignore[attr-defined]
+    run_with_execution_state._rasai_original = original  # type: ignore[attr-defined]
+    runtime.run_audit_from_console = run_with_execution_state
+
+
+def _install_runtime_state_context() -> None:
+    """Repair the runtime wrapper again after cancellation runtime replaces the runner."""
+    _wrap_runtime_run()
+    try:
+        from rasai import console_cancellation_runtime as cancellation
+    except ImportError:
+        return
+
+    original_install = cancellation.install
+    if not bool(getattr(original_install, "_rasai_execution_state_context", False)):
+        def install_with_execution_state() -> None:
+            original_install()
+            _install_private_subprocess_environment()
+            _wrap_runtime_run()
+
+        install_with_execution_state._rasai_execution_state_context = True  # type: ignore[attr-defined]
+        install_with_execution_state._rasai_original = original_install  # type: ignore[attr-defined]
+        cancellation.install = install_with_execution_state
+
+    if bool(getattr(cancellation, "_INSTALLED", False)):
+        _install_private_subprocess_environment()
+        _wrap_runtime_run()
 
 
 def _isolated_serp_runtime_summary(original: Any) -> Any:
@@ -331,5 +378,6 @@ def install() -> None:
         return
     _install_profile_context_isolation()
     _install_private_subprocess_environment()
+    _install_runtime_state_context()
     _install_restored_audit_environment_isolation()
     _INSTALLED = True
