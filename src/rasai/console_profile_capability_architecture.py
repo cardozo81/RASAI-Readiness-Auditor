@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
+import os
 from typing import Any, Iterator
 
 from rasai.execution_capabilities import (
@@ -89,6 +90,7 @@ def _merge_categories(current: str, additions: tuple[str, ...]) -> str:
 @contextmanager
 def effective_profile(state: Any, session: Any | None = None) -> Iterator[None]:
     """Apply an additive execution overlay and restore the parent session exactly."""
+    from rasai import console_execution_profile_readiness as readiness
     from rasai import console_execution_profiles as profiles
 
     current = session or profiles.active_profile(state)
@@ -98,7 +100,18 @@ def effective_profile(state: Any, session: Any | None = None) -> Iterator[None]:
     fields = ("web_performance", "lighthouse_categories", "ai_provider", "ai_model", "ai_reasoning", "content_remediation", "technical_remediation", "synthetic_apdex", "apdex_experience", "search_queries", "improvement_enabled")
     saved = {name: getattr(state, name) for name in fields if hasattr(state, name)}
     capabilities = set(tuple(getattr(current, "modules", ()) or ()))
+    policy = readiness.gsc_profile_policy(current)
+    gsc_env = readiness.GSC_ENABLED_ENV
+    gsc_existed = gsc_env in os.environ
+    gsc_previous = os.environ.get(gsc_env)
     try:
+        if policy == readiness.GSC_PROFILE_IF_COMPATIBLE:
+            os.environ.pop(gsc_env, None)
+        elif policy == readiness.GSC_PROFILE_REQUIRED:
+            os.environ[gsc_env] = "true"
+        elif policy == readiness.GSC_PROFILE_DISABLED:
+            os.environ[gsc_env] = "false"
+
         if "web-performance" in capabilities and not _manual(current, state, "web"):
             state.web_performance = True
         categories = _categories(current)
@@ -117,6 +130,10 @@ def effective_profile(state: Any, session: Any | None = None) -> Iterator[None]:
     finally:
         for name, value in saved.items():
             setattr(state, name, value)
+        if gsc_existed and gsc_previous is not None:
+            os.environ[gsc_env] = gsc_previous
+        elif not gsc_existed:
+            os.environ.pop(gsc_env, None)
 
 
 def _ui_capability(capability_id: str):
@@ -315,6 +332,7 @@ def configure_profile(state: Any) -> None:
 
 
 def profile_summary(state: Any) -> None:
+    from rasai import console_execution_profile_readiness as readiness
     from rasai import console_execution_profiles as profiles
     from rasai.console_cost import estimate_exposure
     from rasai.console_ui import CYAN, DIM, GREEN, RED, YELLOW, paint
@@ -330,6 +348,7 @@ def profile_summary(state: Any) -> None:
     labels = ", ".join(CAPABILITY_BY_ID[item].label for item in current.modules)
     print(f"F. Perfil da execução     : {marker} | {current.label} | SESSÃO\n   Capacidades            : {labels}")
     print(paint("   Precedência            : sessão preservada; ajustes posteriores vencem o perfil", DIM))
+    print(f"   Google Search Console  : {readiness._gsc_policy_label(readiness.gsc_profile_policy(current))}")
     with effective_profile(state, current): estimate = estimate_exposure(state)
     print(f"   Exposição estimada     : {estimate.level} | Web API até {estimate.max_web_calls} | IA até {estimate.max_ai_attempts} tentativa(s)")
     for item in blockers: print(paint(f"   CONFIGURAR             : {item}", YELLOW))
