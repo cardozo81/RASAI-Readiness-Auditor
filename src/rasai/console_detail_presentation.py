@@ -111,6 +111,15 @@ def install() -> None:
 
     install_console_profile_catalog_refinements(console)
 
+    # Final profile owner: presets are combinations of the same canonical capabilities
+    # shown in Preparar auditoria. The projection is additive and preserves intentional
+    # choices that already exist in the operator session.
+    from rasai.console_profile_capability_architecture import (
+        install as install_console_profile_capability_architecture,
+    )
+
+    install_console_profile_capability_architecture(console)
+
     # Install last because earlier usability/navigation overlays historically rebound an
     # older reprocess surface and interpreted fulfillment completion as process completion.
     from rasai.console_history_presentation import install as install_console_history_presentation
