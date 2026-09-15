@@ -119,7 +119,7 @@ def test_web_features_dataset_metadata_uses_auto_default_and_documents_no_data_l
     assert spec.accepted == ()
     assert spec.default == "auto"
     assert "dataset WebDX/web-features é global" in spec.notes
-    assert "não qual dataset-base" in spec.notes
+    assert "não o dataset-base" in spec.notes
     assert "NO_DATA" in spec.notes
     assert "WEB_PLATFORM_BASELINE.md" in spec.source
     assert "web-platform-dx/web-features" in spec.source
