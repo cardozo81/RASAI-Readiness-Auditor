@@ -45,8 +45,8 @@ RASAI_WEB_FEATURES_DATASET=auto
 
 Valores aceitos:
 
-1. `auto` — modo recomendado. Resolve o pacote oficial `web-features` no registry npm;
-2. caminho para arquivo local existente — override avançado para homologação, reprodução ou pin operacional explícito.
+1. `auto` - modo recomendado. Resolve o pacote oficial `web-features` no registry npm;
+2. caminho para arquivo local existente - override avançado para homologação, reprodução ou pin operacional explícito.
 
 Exemplos:
 
@@ -118,10 +118,10 @@ Por isso, `SUCCESS` significa **materialização bem-sucedida do universo direta
 
 A classificação mantém a semântica do dataset:
 
-- `WIDELY_AVAILABLE` — `status.baseline = "high"`;
-- `NEWLY_AVAILABLE` — `status.baseline = "low"`;
-- `LIMITED_AVAILABILITY` — `status.baseline = false`;
-- `UNKNOWN` — a feature foi vinculada, mas o dado aplicável não fornece uma classificação Baseline conclusiva.
+- `WIDELY_AVAILABLE` - `status.baseline = "high"`;
+- `NEWLY_AVAILABLE` - `status.baseline = "low"`;
+- `LIMITED_AVAILABILITY` - `status.baseline = false`;
+- `UNKNOWN` - a feature foi vinculada, mas o dado aplicável não fornece uma classificação Baseline conclusiva.
 
 Quando a feature possui estado específico por `compat_features`, o runtime usa o estado aplicável à chave observada. Se uma Web Feature agregada possuir chaves observadas com estados diferentes, a consolidação é conservadora e preserva o estado mais restritivo entre as evidências observadas.
 
