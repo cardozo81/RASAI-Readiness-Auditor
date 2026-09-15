@@ -48,8 +48,8 @@ RASAI_WEB_FEATURES_DATASET=auto
 
 Valores aceitos:
 
-1. `auto` — modo recomendado. Usa a política canônica de fonte WebDX gerenciada pelo RASAi e não exige que o usuário escolha um dataset específico por domínio;
-2. caminho para um arquivo local existente — override avançado para fixar explicitamente um snapshot/versionamento em homologação, reprodução ou operação controlada.
+1. `auto` - modo recomendado. Usa a política canônica de fonte WebDX gerenciada pelo RASAi e não exige que o usuário escolha um dataset específico por domínio;
+2. caminho para um arquivo local existente - override avançado para fixar explicitamente um snapshot/versionamento em homologação, reprodução ou operação controlada.
 
 Exemplo de override Windows:
 
