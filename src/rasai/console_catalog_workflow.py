@@ -184,6 +184,12 @@ def install(console_module: ModuleType) -> None:
     _install_catalog_guidance(console_module)
     _install_configuration_reuse_contract()
     _install_execution_projection(console_module)
+
+    # Presentation-only layer: friendly labels/value/origin are the public surface;
+    # technical environment names remain available through an explicit details action.
+    from rasai import console_configuration_presentation as configuration_presentation
+    configuration_presentation.install(console_module)
+
     console_module._rasai_catalog_workflow_installed = True
 
 
