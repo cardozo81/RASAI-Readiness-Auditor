@@ -24,7 +24,7 @@ Esse arquivo pode ser alterado diretamente para refinamento das personas.
 ### Catálogo de fábrica
 
 ```text
-src/rasai/config/ai-task-profiles-defaults.toml
+src/rasai/config/ai-profiles-defaults.toml
 ```
 
 É a referência canônica usada quando não existe configuração local aplicável.
