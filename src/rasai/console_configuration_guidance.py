@@ -40,7 +40,12 @@ def _serp_registrations_for_env(name: str) -> tuple[object, ...]:
 
 def _service_for_env(name: str):
     for item in services():
-        if name == item.enabled_env or name in item.credential_envs or name in item.config_envs:
+        if (
+            name == item.enabled_env
+            or name == item.dataset_env
+            or name in item.credential_envs
+            or name in item.config_envs
+        ):
             return item
     return None
 
