@@ -123,11 +123,55 @@ def _evaluate_cost_outcome(
     costs: tuple[tuple[str, float], ...],
     unpriced_ai_attempts: int,
     actual_pages: int | None,
+    ai_attempts: int | None = None,
+    ai_successes: int | None = None,
 ) -> _CostOutcome:
     expected = forecast.expected
     currency = forecast.currency
     notes: list[str] = []
     observed: float | None = None
+
+    zero_priced_cost = not costs or all(abs(float(amount)) <= 1e-12 for _, amount in costs)
+    ai_requested_without_consumption = (
+        forecast.show_confirmation
+        and expected is not None
+        and expected > 0
+        and bool(currency)
+        and unpriced_ai_attempts <= 0
+        and ai_attempts is not None
+        and ai_successes is not None
+        and ai_successes == 0
+        and zero_priced_cost
+    )
+    if ai_requested_without_consumption:
+        attempts = max(int(ai_attempts or 0), 0)
+        if attempts:
+            notes.append(
+                f"IA foi solicitada e registrou {attempts} tentativa(s), mas nenhuma terminou com sucesso "
+                "ou consumo monetário materializado"
+            )
+        else:
+            notes.append(
+                "IA foi solicitada, mas nenhuma tentativa foi materializada pela telemetria da auditoria"
+            )
+        notes.append(
+            "custo zero neste cenário não representa aderência à estimativa; consulte as pendências do AUD "
+            "para a causa técnica da não execução"
+        )
+        return _CostOutcome(
+            comparable=False,
+            currency=currency,
+            expected=expected,
+            actual=0.0,
+            deviation=None,
+            deviation_percent=None,
+            status="NÃO CONSUMIDO",
+            relation="IA solicitada sem sucesso e sem consumo monetário materializado",
+            forecast_pages=forecast.target_pages,
+            actual_pages=actual_pages,
+            unpriced_ai_attempts=0,
+            notes=tuple(notes),
+        )
 
     if not forecast.show_confirmation or expected is None or expected <= 0 or not currency:
         notes.append("estimativa prévia não possui custo esperado monetário comparável")
@@ -202,6 +246,8 @@ def _build_outcome(state: Any, forecast: CostForecast) -> _CostOutcome | None:
         costs=usage.costs,
         unpriced_ai_attempts=usage.unpriced_ai_attempts,
         actual_pages=_actual_page_count(workspace),
+        ai_attempts=usage.ai_attempts,
+        ai_successes=usage.ai_successes,
     )
 
 
@@ -283,7 +329,7 @@ def _persist_outcome(state: Any, forecast: CostForecast, outcome: _CostOutcome) 
 def _status_color(status: str) -> str:
     if status == "CRÍTICO":
         return RED
-    if status in {"ALERTA", "NÃO COMPARÁVEL"}:
+    if status in {"ALERTA", "NÃO COMPARÁVEL", "NÃO CONSUMIDO"}:
         return YELLOW
     return GREEN
 
@@ -319,6 +365,8 @@ def _render_outcome(forecast: CostForecast, outcome: _CostOutcome) -> None:
         explanation = f"custo ultrapassou {_ALERT_THRESHOLD_PERCENT:.0f}% acima do esperado"
     elif outcome.status == "DENTRO DO ESPERADO":
         explanation = "custo igual ou abaixo do esperado"
+    elif outcome.status == "NÃO CONSUMIDO":
+        explanation = "IA solicitada sem sucesso e sem consumo monetário materializado"
     else:
         explanation = "telemetria monetária insuficiente para um veredito confiável"
     print("Resultado            : " + paint(f"{outcome.status} - {explanation}", color, bold=True))
