@@ -56,7 +56,8 @@ def test_invalid_editorial_combination_requires_configuration(monkeypatch):
     status, detail = _editorial_context_status()
 
     assert status == "CONFIGURAR"
-    assert "invalid content analysis context" in detail
+    assert "YMYL category" in detail
+    assert "content risk profile is standard" in detail
 
 
 def test_requested_ai_remediation_without_apt_primary_ai_requires_configuration(monkeypatch):
