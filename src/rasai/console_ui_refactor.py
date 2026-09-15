@@ -28,15 +28,34 @@ from rasai.console_ui_catalog import (
 
 # Console State classes are slot-based. Presentation metadata must therefore remain
 # outside the canonical state object so the UI never changes the runtime state contract.
-_SESSION_META: dict[int, dict[str, Any]] = {}
+# Keep a strong identity reference with each bucket: Python may reuse id() after an
+# object is released, and UI metadata must never leak to a later State instance.
+_SESSION_META: dict[int, tuple[Any, dict[str, Any]]] = {}
+
+
+def _bucket(state: Any, *, create: bool = False) -> dict[str, Any] | None:
+    key = id(state)
+    entry = _SESSION_META.get(key)
+    if entry is not None and entry[0] is state:
+        return entry[1]
+    if entry is not None:
+        _SESSION_META.pop(key, None)
+    if not create:
+        return None
+    metadata: dict[str, Any] = {}
+    _SESSION_META[key] = (state, metadata)
+    return metadata
 
 
 def _meta(state: Any) -> dict[str, Any]:
-    return _SESSION_META.setdefault(id(state), {})
+    bucket = _bucket(state, create=True)
+    assert bucket is not None
+    return bucket
 
 
 def _get_meta(state: Any, key: str, default: Any = None) -> Any:
-    return _SESSION_META.get(id(state), {}).get(key, default)
+    bucket = _bucket(state)
+    return default if bucket is None else bucket.get(key, default)
 
 
 def _set_meta(state: Any, key: str, value: Any) -> None:
@@ -44,7 +63,7 @@ def _set_meta(state: Any, key: str, value: Any) -> None:
 
 
 def _drop_meta(state: Any, key: str) -> None:
-    bucket = _SESSION_META.get(id(state))
+    bucket = _bucket(state)
     if bucket is None:
         return
     bucket.pop(key, None)
