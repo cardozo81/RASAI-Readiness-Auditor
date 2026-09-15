@@ -94,6 +94,7 @@ def test_environment_reference_documents_cover_the_console_catalog() -> None:
         ROOT / "docs" / "EXTERNAL_OBSERVABILITY_INTEGRATIONS.md",
         ROOT / "docs" / "AI_MODEL_CONFIGURATION.md",
         ROOT / "docs" / "AI_PRICING_CONFIGURATION.md",
+        ROOT / "docs" / "AI_TASK_PROFILES.md",
     )
     text = "\n".join(path.read_text(encoding="utf-8") for path in documents)
     missing = sorted(name for name in console_environment.ENV_NAMES if name not in text)
