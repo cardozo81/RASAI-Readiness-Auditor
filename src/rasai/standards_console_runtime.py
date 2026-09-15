@@ -145,7 +145,9 @@ def _ensure_nonsecret_service_context_specs(base_environment: object, console_co
                 "observados na página, não o dataset-base. O detector WEB-PLATFORM-BASELINE-001 mapeia "
                 "sinais determinísticos do HTML renderizado/raw e de CSS/JavaScript inline para as "
                 "compat_features do WebDX. Assets externos não são reconsultados e uso dinâmico não "
-                "diretamente observável não é declarado como detectado."
+                "diretamente observável não é declarado como detectado. Quando nenhum sinal diretamente "
+                "observável puder ser mapeado, o resultado permanece NO_DATA; isso não representa falha "
+                "do website nem autoriza inventar uma conclusão de compatibilidade."
             ),
         ),
         base_environment.EnvironmentSpec(
