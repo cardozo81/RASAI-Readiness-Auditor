@@ -7,6 +7,7 @@ used by normal processing, and keeps the operator on a complete post-run action 
 """
 from __future__ import annotations
 
+from contextvars import ContextVar
 from dataclasses import replace
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -21,7 +22,10 @@ _AI_COMPONENTS = frozenset(
     }
 )
 _EXCLUDED_STATUSES = frozenset({"SUCCESS", "DISABLED", "NOT_APPLICABLE"})
-_REPEAT_ATTR = "_rasai_repeat_reprocess"
+_REPEAT_REQUESTED: ContextVar[bool] = ContextVar(
+    "rasai_repeat_reprocess_requested",
+    default=False,
+)
 
 
 def _as_bool(value: Any) -> bool:
@@ -336,7 +340,7 @@ def _run_post_actions(
 
         if choice == "R":
             if repeatable:
-                setattr(state, _REPEAT_ATTR, True)
+                _REPEAT_REQUESTED.set(True)
                 return
             state.error = "não há pendência recuperável para novo reprocessamento"
             continue
@@ -366,9 +370,13 @@ def _reprocess_selected(console_module: ModuleType, state: Any, audit_id: str) -
     from rasai import console_reprocess_parity as parity
 
     while True:
-        setattr(state, _REPEAT_ATTR, False)
-        parity.reprocess_selected(console_module, state, audit_id)
-        if not bool(getattr(state, _REPEAT_ATTR, False)):
+        token = _REPEAT_REQUESTED.set(False)
+        try:
+            parity.reprocess_selected(console_module, state, audit_id)
+            repeat_requested = _REPEAT_REQUESTED.get()
+        finally:
+            _REPEAT_REQUESTED.reset(token)
+        if not repeat_requested:
             return
 
 
