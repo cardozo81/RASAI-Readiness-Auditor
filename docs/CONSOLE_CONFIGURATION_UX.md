@@ -127,20 +127,26 @@ Esse valor é **derivado-customizável**:
 A preparação expõe capacidades com estados calculados pelos contratos existentes. Exemplos:
 
 ```text
-Domínio e descoberta       INCLUÍDO
-Acessibilidade             INCLUÍDO
-Web Performance            APTO / DESABILITADO / CONFIGURAR
-Search Intelligence        APTO / DESABILITADO / CONFIGURAR
-Apdex de navegação         APTO / DESABILITADO / CONFIGURAR
-Apdex de experiência       APTO / DESABILITADO / CONFIGURAR
-Quality & decisão          DERIVADO
+Domínio e descoberta          INCLUÍDO
+Acessibilidade                INCLUÍDO
+Web Performance               APTO / DESABILITADO / CONFIGURAR
+Search Intelligence / SERP    APTO / NÃO SOLICITADO / DESABILITADO / CONFIGURAR
+Google Search Console         APTO / NÃO CONFIGURADO / NÃO APLICÁVEL / DESABILITADO / CONFIGURAR
+Conteúdo e JSON-LD            INCLUÍDO
+Apdex de navegação            APTO / DESABILITADO / CONFIGURAR
+Apdex de experiência          APTO / DESABILITADO / CONFIGURAR
+Quality & decisão             DERIVADO
 ```
 
 Uma capacidade automática não recebe checkbox apenas para reproduzir algo que o pipeline já gera. Uma capacidade opcional mostra readiness e permite abrir os parâmetros que efetivamente controla.
 
+`Search Intelligence / SERP` e `Google Search Console` são capacidades independentes. SERP é dirigido por termos da execução e por `RASAI_SERP_*`; GSC possui autenticação, property e política próprias. GSC não deve aparecer como dependência da capacidade SERP nem SERP como dependência da capacidade GSC.
+
+`Conteúdo e JSON-LD` é uma capacidade agregadora, mas seu estado visual é segmentado internamente: conteúdo/estrutura e orientação JSON-LD são determinísticos e `INCLUÍDOS`; contexto editorial pode estar `AUTOMÁTICO`, `PERSONALIZADO` ou `CONFIGURAR`; remediação por IA pode estar `NÃO SOLICITADA`, `APTO` ou `CONFIGURAR`.
+
 ## 7. Tela de capacidade
 
-A estrutura é:
+A estrutura geral é:
 
 ```text
 ESTADO
@@ -151,6 +157,10 @@ AÇÕES
 ```
 
 Somente configurações consumidas por aquela capacidade devem aparecer. O usuário pode selecionar o ID relacionado e editar a variável no owner canônico.
+
+`H. Ajuda de contexto` é ajuda operacional, não prefixo para informar um ID. A ajuda deve mostrar objetivo, estado/interpretação, forma de operar e, para as configurações relacionadas, finalidade, condição de necessidade e impacto. Dentro da própria ajuda o usuário pode informar diretamente um ID exibido para abrir o editor correspondente; `ENTER` ou `V` retorna sem erro. Um ID digitado em um prompt de retorno nunca deve ser consumido silenciosamente.
+
+Capacidades que misturam subdomínios funcionais podem agrupar as configurações relacionadas sem criar novos owners. Em `Conteúdo e JSON-LD`, por exemplo, o console separa visualmente **Contexto editorial** de **Enriquecimento por IA**; `RASAI_AI_ANALYSIS_LANGUAGE` permanece uma configuração compartilhada/global de IA, apenas referenciada pela capacidade consumidora.
 
 ## 8. Catálogo de configurações
 
@@ -211,6 +221,8 @@ Quando o domínio é fechado, `S. Definir / alterar` não abre entrada livre. O 
 
 Listas fechadas permitem selecionar um ou mais valores pelo número ou pelo identificador técnico. O texto técnico continua visível porque ele corresponde ao contrato real gravado/configurado.
 
+Metadados de apresentação devem refletir o contrato real do runtime. Um toggle booleano, como `RASAI_GSC_ENABLED`, deve aparecer como `booleano` com domínio `true, false`; validação runtime e UI não podem divergir a ponto de a interface oferecer texto livre para um valor fechado.
+
 ### AÇÕES
 
 - definir/alterar;
@@ -244,12 +256,12 @@ Cor é reforço, nunca informação exclusiva.
 | Estado | Semântica visual |
 |---|---|
 | `APTO`, `INCLUÍDO`, `CONCLUÍDO`, `HABILITADO` | sucesso/disponível |
-| `CONFIGURAR`, `PARCIAL`, `APTO COM LIMITAÇÕES` | atenção |
+| `CONFIGURAR`, `PARCIAL`, `APTO COM LIMITAÇÕES`, `NÃO CONFIGURADO` | atenção |
 | `ERRO`, `INDISPONÍVEL`, `BLOQUEADO` | impedimento |
 | `AUTOMÁTICO`, `HERDADO`, `DERIVADO`, `PERSONALIZADO` | composição/origem |
-| `DESABILITADO`, `NÃO APLICÁVEL`, `PADRÃO` | neutro |
+| `DESABILITADO`, `NÃO APLICÁVEL`, `NÃO SOLICITADO`, `PADRÃO` | neutro/inativo |
 
-`CONFIGURAR` significa que uma dependência conhecida exige ação; não é sinônimo de falha do website.
+`CONFIGURAR` significa que uma dependência conhecida exige ação; não é sinônimo de falha do website. `NÃO SOLICITADO` significa que a capacidade pode estar configurada, mas não foi pedida para a próxima execução. `NÃO CONFIGURADO` significa ausência de configuração suficiente para uma capacidade opcional/automática, sem transformá-la automaticamente em falha do AUD.
 
 ## 12. Origem
 
@@ -279,9 +291,11 @@ Secrets usam destino próprio e nunca entram no INI.
 
 O comando geral `Salvar configuração` persiste o estado não sensível da próxima auditoria, incluindo inputs Search configurados na sessão.
 
-## 14. Search Intelligence
+## 14. Search Intelligence / SERP e Google Search Console
 
-A UI separa:
+A UI separa **Search Intelligence / SERP** de **Google Search Console**.
+
+Search Intelligence / SERP separa:
 
 - **inputs da próxima execução**: termos, depth, região, device e análise competitiva;
 - **governança/provider**: `RASAI_SERP_*` e registry SERP;
@@ -289,6 +303,25 @@ A UI separa:
 - **IA principal**: usada somente quando alguma extensão compatível realmente exige IA.
 
 Os inputs Search são session-first. A persistência no INI ocorre somente por ação explícita de salvar configuração.
+
+Sem termos, uma configuração SERP válida aparece como `NÃO SOLICITADO`; `RASAI_SERP_MODE=disabled` aparece como `DESABILITADO`. Com termos, o console usa os validadores canônicos para decidir `APTO` ou `CONFIGURAR`.
+
+Google Search Console possui superfície própria porque autenticação OAuth, property e cobertura da URL são requisitos distintos de SERP. Em modo automático/opcional sem OAuth/property suficiente, a UI usa `NÃO CONFIGURADO`; quando a property não cobre a URL em modo automático, usa `NÃO APLICÁVEL`; em modo obrigatório uma incompatibilidade previsível usa `CONFIGURAR`; hard-off usa `DESABILITADO`.
+
+## 14.1 Conteúdo e JSON-LD
+
+`Conteúdo e JSON-LD` permanece uma única capacidade de primeiro nível, com segmentação interna:
+
+```text
+Conteúdo / estrutura   INCLUÍDO
+JSON-LD                INCLUÍDO
+Contexto editorial     AUTOMÁTICO / PERSONALIZADO / CONFIGURAR
+Remediação por IA      NÃO SOLICITADA / APTO / CONFIGURAR
+```
+
+A orientação JSON-LD determinística permanece disponível independentemente da remediação textual por IA. Valores editoriais `auto` são configurações válidas e não devem ser apresentados como pendência.
+
+As configurações relacionadas são agrupadas em **Contexto editorial** (`RASAI_CONTENT_*`, `RASAI_YMYL_CATEGORY`, `RASAI_PAGE_PURPOSE`, `RASAI_INTENDED_AUDIENCE`, `RASAI_EXPERIENCE_REQUIREMENT`, `RASAI_FRESHNESS_SENSITIVITY`) e **Enriquecimento por IA** (`RASAI_AI_CONTENT_REMEDIATION` e `RASAI_AI_ANALYSIS_LANGUAGE`). O agrupamento é visual; owners canônicos e runtime não são alterados.
 
 ## 15. Inteligência Artificial
 
@@ -361,6 +394,8 @@ EXPIRED_FOR_COMPLETION -> Expirada para conclusão
 
 Uma auditoria `COMPLETE` não oferece reprocessamento: o objetivo já foi atingido e os itens requeridos já estão satisfeitos. O reprocessamento permanece disponível para estados em que existem pendências recuperáveis.
 
+Ao escolher `I. Informar Audit ID`, o prompt aceita `V` para cancelar e retornar à listagem sem registrar crítica de AUD inválido. O cancelamento é navegação normal, não falha de validação.
+
 `GERENCIAR AUDITORIAS / EXCLUSÃO SEGURA` segue a mesma linguagem tabular do histórico, acrescentando seleção, tamanho e domínio. As larguras consideram o tamanho real de `AUD-*` para evitar desalinhamento dos cabeçalhos.
 
 ## 20. Critério de aderência
@@ -372,11 +407,11 @@ Uma superfície de configuração é aderente quando:
 - guia domínios fechados;
 - explica opções técnicas não autoexplicativas sem ocultar o valor canônico;
 - mostra estado e origem;
-- distingue automático, derivado, herdado e personalizado;
+- distingue automático, derivado, herdado, personalizado, não solicitado e não configurado;
 - não duplica provider/configuração em módulos consumidores;
 - preserva secrets;
 - usa readiness real existente;
 - retorna ao contexto de navegação de origem;
 - não cria comportamento funcional fora do runtime.
 
-Documentos relacionados: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md), [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md), [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
+Documentos relacionados: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md), [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md), [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md), [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md), [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [PROVIDER_SETUP.md](PROVIDER_SETUP.md).

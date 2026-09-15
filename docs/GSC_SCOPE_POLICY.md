@@ -109,6 +109,8 @@ A variável possui três semânticas operacionais:
 | `true` | GSC explicitamente obrigatório |
 | `false` | GSC explicitamente desabilitado |
 
+A variável é booleana quando existe override. Na UI de configuração, o domínio fechado deve ser apresentado como seleção guiada `true|false`; a ausência do override continua representando a política automática por requisitos.
+
 ### Automático
 
 Quando uma forma OAuth completa e a property existem, o RASAi pode tentar GSC. Se a property **não cobre** a URL auditada, o runtime classifica a integração como `NOT_APPLICABLE` para aquela execução e não realiza chamadas GSC incompatíveis.
@@ -260,6 +262,29 @@ O console deve deixar explícito:
 - `RASAI_GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`: alternativa manual temporária, também secreta.
 
 A indicação `[SET]` de um secret significa apenas que existe um valor na sessão. Não prova validade, expiração, scope OAuth ou permissão sobre a property.
+
+### Capacidade própria em Preparar auditoria
+
+Google Search Console aparece como capacidade própria em `INÍCIO > PREPARAR AUDITORIA`. Ele não é subitem nem dependência de `Search Intelligence / SERP`.
+
+A separação é deliberada:
+
+- SERP usa termos da execução, provider e `RASAI_SERP_*`;
+- GSC usa OAuth, property e `RASAI_GSC_*`/`RASAI_GOOGLE_SEARCH_CONSOLE_*`;
+- configurar SERP não torna GSC configurado;
+- configurar GSC não solicita observação SERP.
+
+Estados de apresentação esperados para GSC incluem:
+
+```text
+APTO            OAuth + property suficientes e property cobre a URL
+NÃO CONFIGURADO modo automático/opcional sem OAuth/property suficientes
+NÃO APLICÁVEL   property não cobre a URL em modo automático
+DESABILITADO    hard-off explícito
+CONFIGURAR      requisito obrigatório ou configuração inválida/incompleta que exige ação
+```
+
+Esses estados são de readiness/apresentação. Os códigos técnicos persistidos pelo runtime continuam sendo a fonte de verdade para fulfillment e diagnóstico.
 
 ## Reporting e fulfillment
 

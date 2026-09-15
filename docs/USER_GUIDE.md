@@ -81,7 +81,8 @@ O catálogo inclui:
 - Acessibilidade;
 - Web Performance;
 - Métricas e padrões;
-- Search Intelligence;
+- Search Intelligence / SERP;
+- Google Search Console;
 - Apdex de navegação;
 - Apdex de experiência;
 - Visibilidade em IA;
@@ -92,6 +93,23 @@ O catálogo inclui:
 - Quality & decisão.
 
 Ao abrir uma capacidade, o console mostra estado, finalidade, parâmetros próprios e dependências relacionadas. Selecionar o ID de uma dependência abre a configuração canônica correspondente.
+
+`H. Ajuda de contexto` explica a própria capacidade e suas configurações relacionadas; não é necessário pressionar `H` antes de digitar um ID. Dentro da ajuda também é possível abrir um dos IDs mostrados. `ENTER` ou `V` retorna sem gerar erro.
+
+### Conteúdo e JSON-LD
+
+Essa capacidade separa o que é determinístico do que é contexto/enriquecimento opcional:
+
+```text
+Conteúdo / estrutura   INCLUÍDO
+JSON-LD                INCLUÍDO
+Contexto editorial     AUTOMÁTICO / PERSONALIZADO / CONFIGURAR
+Remediação por IA      NÃO SOLICITADA / APTO / CONFIGURAR
+```
+
+Valores editoriais `auto` são válidos e não representam pendência. A orientação JSON-LD determinística não depende de a remediação textual por IA estar habilitada.
+
+As variáveis relacionadas aparecem agrupadas em **Contexto editorial** e **Enriquecimento por IA**. A linguagem de análise continua sendo uma configuração compartilhada/global de IA.
 
 ### Resultados sistêmicos
 
@@ -153,6 +171,8 @@ Cada variável mostra:
 
 Campos enum/boolean/lista fechada são guiados. Ao escolher `S. Definir / alterar`, o console exibe as opções permitidas para seleção e solicita confirmação antes de aplicá-las. Quando um valor técnico não é autoexplicativo, como categorias YMYL, a opção mantém o texto canônico e recebe uma descrição curta em PT-BR. Listas fechadas permitem selecionar vários valores. Texto livre é usado apenas em domínios realmente abertos.
 
+Um toggle booleano deve aparecer como booleano na UI. Por exemplo, `RASAI_GSC_ENABLED` usa seleção `true|false`; o console não deve apresentar texto livre para um domínio que o runtime valida como fechado.
+
 ## Origem dos valores
 
 O console pode indicar:
@@ -176,9 +196,9 @@ Também podem ser persistidos inputs não sensíveis da próxima execução, com
 
 Secrets nunca entram no arquivo.
 
-## Search Intelligence
+## Search Intelligence / SERP
 
-Search Intelligence separa:
+Search Intelligence / SERP separa:
 
 - termos, depth, região, device e classificação competitiva;
 - provider/mode/limites SERP;
@@ -190,7 +210,36 @@ Search utiliza seu próprio device `mobile|desktop`, independente do `Device` ge
 
 A profundidade significa a maior posição orgânica que será tentada, por exemplo `10 = Top 10` e `20 = Top 20`.
 
+A preparação distingue intenção de configuração:
+
+```text
+SERP configurado + nenhum termo -> NÃO SOLICITADO
+RASAI_SERP_MODE=disabled        -> DESABILITADO
+termos + configuração válida    -> APTO
+termos + dependência inválida   -> CONFIGURAR
+```
+
+Google Search Console não é dependência desta capacidade.
+
 Consulte [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md).
+
+## Google Search Console
+
+Google Search Console possui capacidade própria em **Preparar auditoria**. OAuth, property e cobertura da URL são avaliados separadamente de SERP.
+
+Estados comuns na preparação:
+
+```text
+APTO            -> OAuth/property suficientes e property cobre a URL
+NÃO CONFIGURADO -> modo automático/opcional sem configuração suficiente
+NÃO APLICÁVEL   -> property não cobre a URL em modo automático
+DESABILITADO    -> GSC explicitamente desligado
+CONFIGURAR      -> configuração inválida/incompleta ou requisito obrigatório não atendido
+```
+
+Mesmo quando a UI mostra `APTO`, validade/expiração do OAuth, scope, permissão da conta, quota e disponibilidade do Google só são confirmados pela chamada real.
+
+Consulte [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md).
 
 ## Perfis
 
@@ -281,6 +330,8 @@ Mostrar caminhos de artefatos
 
 Auditorias concluídas não oferecem reprocessamento porque já atingiram o objetivo e não possuem pendências a recuperar. O reprocessamento preserva itens já bem-sucedidos por padrão. Carregar configuração cria uma nova execução quando o usuário efetivamente executar; o AUD de origem não é alterado.
 
+Ao escolher `I. Informar Audit ID`, digitar `V` cancela a entrada e retorna à listagem sem mensagem de Audit ID inválido.
+
 `GERENCIAR AUDITORIAS / EXCLUSÃO SEGURA` usa estrutura tabular equivalente à do histórico, acrescentando seleção, tamanho e domínio. Os cabeçalhos são dimensionados com base no tamanho real do Audit ID para permanecer alinhados.
 
 Credenciais não são copiadas do AUD.
@@ -311,7 +362,7 @@ Leia separadamente:
 - Uso de IA;
 - configuração solicitada versus resultado realmente obtido.
 
-Estados como não solicitado, desabilitado, parcial, falho ou indisponível devem ser interpretados de forma distinta de resultado bem-sucedido.
+Estados como não solicitado, não configurado, desabilitado, não aplicável, parcial, falho ou indisponível devem ser interpretados de forma distinta de resultado bem-sucedido.
 
 ## Uso de IA no relatório
 
@@ -352,6 +403,8 @@ rasai audit `
 - [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md)
 - [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md)
 - [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md)
+- [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md)
+- [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md)
 - [INTEGRATION_DIAGNOSTICS.md](INTEGRATION_DIAGNOSTICS.md)
 - [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md)
 - [AUDIT_CONFIGURATION_REUSE.md](AUDIT_CONFIGURATION_REUSE.md)

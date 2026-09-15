@@ -91,17 +91,41 @@ O catálogo de análises/resultados apresentado na preparação é:
 | Acessibilidade | incluído; pode receber evidência Lighthouse |
 | Web Performance | configurável |
 | Métricas e padrões | usa serviços configurados quando aplicável |
-| Search Intelligence | configurável; depende de termos e contrato SERP |
+| Search Intelligence / SERP | configurável; depende de termos e contrato SERP; não depende de GSC |
+| Google Search Console | capacidade própria; OAuth, property e cobertura da URL são avaliados separadamente |
 | Apdex de navegação | configurável |
 | Apdex de experiência | configurável; depende do Apdex de navegação |
 | Visibilidade em IA | automático conforme fontes/evidências aplicáveis |
-| Search & AI observados | automático conforme integrações observacionais configuradas |
+| Search & AI observados | automático conforme demais integrações observacionais configuradas; não agrega SERP/GSC |
 | Análise profunda e melhorias | configurável; exige URL única e IA principal apta |
-| Conteúdo e JSON-LD | resultado com enriquecimento por IA quando configurado |
+| Conteúdo e JSON-LD | incluído; segmenta determinístico, contexto editorial e remediação opcional por IA |
 | Remediações | determinísticas e, opcionalmente, enriquecidas por IA |
 | Quality & decisão | derivado do conjunto de evidências |
 
 A numeração curta dos itens acionáveis é contextual. O nome da capacidade e os IDs numéricos das configurações relacionadas são as referências estáveis.
+
+### Tela de capacidade e ajuda contextual
+
+Ao abrir uma capacidade, a tela apresenta estado, informação, parâmetros próprios quando existirem, configurações relacionadas e ações.
+
+`H. Ajuda de contexto` abre uma explicação operacional da própria capacidade. Essa ajuda mostra objetivo, interpretação do estado e orientação de uso; para cada configuração relacionada, pode mostrar finalidade, condição de necessidade e impacto.
+
+`H` não é um prefixo para informar um ID. O ID pode ser digitado diretamente em `Número/ID ou ação:`. Dentro da própria ajuda também é possível informar um dos IDs exibidos para abrir o editor correspondente. `ENTER` ou `V` retorna ao contexto sem tratar a navegação como erro.
+
+### Conteúdo e JSON-LD
+
+`Conteúdo e JSON-LD` permanece uma única capacidade na preparação, mas não usa um único estado genérico para tudo. A tela segmenta:
+
+```text
+Conteúdo / estrutura   INCLUÍDO
+JSON-LD                INCLUÍDO
+Contexto editorial     AUTOMÁTICO / PERSONALIZADO / CONFIGURAR
+Remediação por IA      NÃO SOLICITADA / APTO / CONFIGURAR
+```
+
+Conteúdo/estrutura e orientação JSON-LD são determinísticos. A remediação textual por IA é opcional. Valores editoriais `auto` são válidos e não representam configuração pendente.
+
+As configurações relacionadas são agrupadas visualmente em **Contexto editorial** e **Enriquecimento por IA**. `RASAI_AI_ANALYSIS_LANGUAGE` continua compartilhada/global e apenas é referenciada por essa capacidade.
 
 ### Resultados sistêmicos
 
@@ -195,6 +219,8 @@ Campos com domínio fechado usam seleção guiada. Ao escolher `S. Definir / alt
 
 O identificador técnico permanece visível mesmo quando existe explicação amigável. Isso evita esconder do operador o valor efetivamente persistido no contrato (`auto`, `health-safety`, nomes de modelos, categorias Lighthouse etc.).
 
+Metadados de UI precisam refletir o domínio real do runtime. Toggles booleanos, como `RASAI_GSC_ENABLED`, são apresentados como seleção `true|false`; a interface não deve cair em texto livre quando o runtime só aceita booleano.
+
 ## Origem das configurações
 
 A UI diferencia, conforme o caso:
@@ -224,11 +250,30 @@ Ao editar uma configuração não sensível, o usuário escolhe entre manter a a
 
 API keys, bearer tokens, passwords, client secrets, refresh tokens e demais secrets nunca são gravados no INI.
 
-## Search Intelligence
+## Search Intelligence / SERP
 
 Termos, profundidade, região, device SERP e classificação competitiva são inputs da próxima execução, não variáveis de ambiente. Ficam na sessão durante o uso normal. Ao escolher explicitamente salvar a configuração, esses inputs não sensíveis são gravados no INI e podem ser restaurados ao reabrir o console.
 
 Provider, modo, credencial, limites e governança SERP permanecem no catálogo de integrações. Consulte [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md).
+
+Na preparação, a semântica de estado distingue intenção da execução:
+
+```text
+SERP configurado, sem termos   -> NÃO SOLICITADO
+RASAI_SERP_MODE=disabled       -> DESABILITADO
+termos + configuração válida   -> APTO
+termos + problema previsível   -> CONFIGURAR
+```
+
+Google Search Console não é dependência dessa capacidade.
+
+## Google Search Console
+
+GSC possui capacidade própria em `Preparar auditoria`. OAuth, property e cobertura da URL são avaliados independentemente de SERP.
+
+Estados de apresentação incluem `APTO`, `NÃO CONFIGURADO`, `NÃO APLICÁVEL`, `DESABILITADO` e `CONFIGURAR`, conforme política global/da execução, credenciais, property e compatibilidade com a URL.
+
+A validade efetiva do OAuth, scopes, permissão da conta, quota e disponibilidade do Google continuam dependendo da chamada real à API. Consulte [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md).
 
 ## Apdex de experiência e Device
 
@@ -253,10 +298,12 @@ Cor reforça o estado, mas o texto é obrigatório:
 | Estado | Uso |
 |---|---|
 | `APTO`, `INCLUÍDO`, `CONCLUÍDO`, `HABILITADO` | disponível/atendido |
-| `CONFIGURAR`, `PARCIAL`, `APTO COM LIMITAÇÕES` | atenção ou dependência pendente |
+| `CONFIGURAR`, `PARCIAL`, `APTO COM LIMITAÇÕES`, `NÃO CONFIGURADO` | atenção ou dependência pendente |
 | `ERRO`, `INDISPONÍVEL`, `BLOQUEADO` | falha ou impedimento |
 | `AUTOMÁTICO`, `HERDADO`, `DERIVADO`, `PERSONALIZADO` | origem/composição do comportamento |
-| `DESABILITADO`, `NÃO APLICÁVEL`, `PADRÃO` | estado neutro/inativo |
+| `DESABILITADO`, `NÃO APLICÁVEL`, `NÃO SOLICITADO`, `PADRÃO` | estado neutro/inativo |
+
+`NÃO SOLICITADO` não significa falha: a capacidade pode estar configurada, mas não foi pedida para aquela execução. `NÃO CONFIGURADO` indica configuração opcional/automática insuficiente, sem transformar automaticamente o AUD em erro.
 
 ## Auditorias, reprocessamento e reutilização
 
@@ -271,6 +318,8 @@ Nº  AUDITORIA  CONCLUSÃO LOCAL  SITUAÇÃO  REPROCESSAMENTO
 A coluna separada `relatório=PRELIMINARY|FINAL` não é repetida na listagem quando apenas duplica o estado operacional já comunicado. A tela detalhada mantém score, consolidação, requisitos e reprocessamentos quando essas informações acrescentam significado.
 
 Auditorias concluídas não oferecem reprocessamento porque não possuem pendências a recuperar. Estados com pendências recuperáveis continuam oferecendo reprocessamento seletivo, preservando itens já bem-sucedidos por padrão.
+
+Ao usar `I. Informar Audit ID`, o prompt aceita `V` para cancelar e retornar à lista. Cancelar não gera mensagem de Audit ID inválido.
 
 `GERENCIAR AUDITORIAS / EXCLUSÃO SEGURA` segue a mesma estrutura tabular do histórico. A tabela adiciona `SEL`, `TAMANHO` e `DOMÍNIO`, usa data/hora local e calcula a largura da coluna `AUDITORIA` pelo tamanho real dos IDs para manter os cabeçalhos alinhados.
 

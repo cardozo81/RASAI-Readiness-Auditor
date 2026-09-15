@@ -12,17 +12,25 @@ O console separa três domínios:
 
 Search Intelligence é evidence-bound e não altera `SARI-001` ou `SCORE-GEO-004` por ausência ou falha de SERP.
 
+Google Search Console não faz parte desse domínio operacional. Embora ambos estejam relacionados a Search, GSC possui autenticação OAuth, property, política e readiness próprios e aparece como capacidade separada em `Preparar auditoria`.
+
 ## Acesso
 
 Na preparação da auditoria, selecione a capacidade:
 
 ```text
-INÍCIO > PREPARAR AUDITORIA > SEARCH INTELLIGENCE
+INÍCIO > PREPARAR AUDITORIA > SEARCH INTELLIGENCE / SERP
 ```
 
-A tela apresenta estado, explicação, parâmetros próprios e somente as dependências/configurações relacionadas ao domínio Search.
+A tela apresenta estado, explicação, parâmetros próprios e somente as dependências/configurações relacionadas a SERP. Variáveis `RASAI_GSC_*` e `RASAI_GOOGLE_SEARCH_CONSOLE_*` não são listadas como dependências de Search Intelligence / SERP.
 
-As configurações do provider podem também ser encontradas em:
+Google Search Console possui a superfície independente:
+
+```text
+INÍCIO > PREPARAR AUDITORIA > GOOGLE SEARCH CONSOLE
+```
+
+As configurações do provider SERP podem também ser encontradas em:
 
 ```text
 INÍCIO > Integrações e serviços
@@ -82,6 +90,21 @@ RASAI_SCRAPINGDOG_API_KEY
 ```
 
 O nome efetivo deve ser obtido pelo registry do provider selecionado.
+
+## Estados na preparação
+
+A UI distingue configuração da integração de solicitação efetiva para a próxima execução.
+
+```text
+SERP configurado + nenhum termo -> NÃO SOLICITADO
+RASAI_SERP_MODE=disabled        -> DESABILITADO
+termos + configuração válida    -> APTO
+termos + dependência inválida   -> CONFIGURAR
+```
+
+`NÃO SOLICITADO` não significa falha nem integração quebrada. Significa que o provider pode estar configurado, mas nenhuma observação SERP foi pedida porque não existem termos na próxima execução.
+
+`DESABILITADO` é reservado ao hard-off operacional de SERP. Com termos presentes, o readiness continua sendo determinado pelos validadores canônicos de provider, credencial, limites, profundidade e orçamento de requests.
 
 ## Profundidade SERP
 
@@ -171,4 +194,4 @@ Para série temporal e scheduling de queries, use o domínio próprio de `rasai 
 - uma key configurada não prova saldo, quota ou disponibilidade futura;
 - diagnóstico de integração é consultivo e não substitui a tentativa real do adapter.
 
-Documentos relacionados: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md), [PROVIDER_SETUP.md](PROVIDER_SETUP.md) e [AUDIT_CONFIGURATION_REUSE.md](AUDIT_CONFIGURATION_REUSE.md).
+Documentos relacionados: [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md), [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md), [PROVIDER_SETUP.md](PROVIDER_SETUP.md) e [AUDIT_CONFIGURATION_REUSE.md](AUDIT_CONFIGURATION_REUSE.md).

@@ -162,6 +162,25 @@ mixed
 
 Ajuda a distinguir autor/criador do conteúdo e entidade publicadora/host. É relevante para atribuição, responsabilidade editorial e avaliação de conteúdo de terceiros ou UGC.
 
+## Apresentação no console
+
+Na preparação da auditoria, essas variáveis aparecem dentro da capacidade **Conteúdo e JSON-LD**, mas continuam pertencendo ao owner canônico de contexto editorial/IA. A capacidade não cria uma segunda configuração paralela.
+
+A UI segmenta o estado funcional para não confundir resultado determinístico com enriquecimento opcional:
+
+```text
+Conteúdo / estrutura   INCLUÍDO
+JSON-LD                INCLUÍDO
+Contexto editorial     AUTOMÁTICO / PERSONALIZADO / CONFIGURAR
+Remediação por IA      NÃO SOLICITADA / APTO / CONFIGURAR
+```
+
+`AUTOMÁTICO` significa que todos os campos editoriais permanecem `auto`; isso é configuração válida e não uma pendência. `PERSONALIZADO` significa que ao menos um campo possui override explícito válido. Combinações inválidas, como `risk_profile=ymyl` com `ymyl_category=none`, aparecem como `CONFIGURAR` antes da execução.
+
+Conteúdo/estrutura e orientação JSON-LD permanecem `INCLUÍDOS` porque são parte determinística da capacidade. A remediação textual por IA é opcional e seu readiness é apresentado separadamente.
+
+As variáveis relacionadas são agrupadas visualmente em **Contexto editorial**. `RASAI_AI_CONTENT_REMEDIATION` e `RASAI_AI_ANALYSIS_LANGUAGE` aparecem em **Enriquecimento por IA**; `RASAI_AI_ANALYSIS_LANGUAGE` é compartilhada/global e não se torna propriedade exclusiva desta capacidade.
+
 ## Exemplo - site financeiro/YMYL
 
 PowerShell:
