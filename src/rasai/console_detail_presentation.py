@@ -73,35 +73,40 @@ def install() -> None:
 
     install_console_ui_refactor()
 
-    # Final pass after the information-architecture wrapper: keep these changes strictly
-    # in the presentation layer so runtime, persistence and reprocessing contracts stay
-    # owned by their canonical modules.
     from rasai.console_usability_refinements import install as install_console_usability_refinements
 
     install_console_usability_refinements(console)
 
-    # Guided-choice prompts must resolve builtins.input at interaction time.  The final
-    # information-architecture wrapper temporarily replaces input so buffered modal text
-    # is flushed before reading; import-time defaults bypass that wrapper and hide the
-    # option list from the operator.
     from rasai.console_guided_input_fix import install as install_console_guided_input_fix
 
     install_console_guided_input_fix()
 
-    # Keep the last navigation layer focused on operator ergonomics: capability help is
-    # actionable, IDs are never swallowed by a pause prompt, service toggle domains are
-    # reflected correctly in the UI, and manual AUD lookup can be cancelled with V.
     from rasai.console_operator_navigation_refinements import (
         install as install_console_operator_navigation_refinements,
     )
 
     install_console_operator_navigation_refinements(console)
 
-    # Conteúdo e JSON-LD share one top-level capability but have distinct functional
-    # components. Segment those components only in the presentation layer; deterministic
-    # analysis, editorial context and optional AI remediation keep their existing runtime.
     from rasai.console_content_capability_refinements import (
         install as install_console_content_capability_refinements,
     )
 
     install_console_content_capability_refinements(console)
+
+    from rasai.console_configuration_detail_refinements import (
+        install as install_console_configuration_detail_refinements,
+    )
+
+    install_console_configuration_detail_refinements()
+
+    from rasai.console_observability_capability_refinements import (
+        install as install_console_observability_capability_refinements,
+    )
+
+    install_console_observability_capability_refinements(console)
+
+    from rasai.console_profile_catalog_refinements import (
+        install as install_console_profile_catalog_refinements,
+    )
+
+    install_console_profile_catalog_refinements(console)
