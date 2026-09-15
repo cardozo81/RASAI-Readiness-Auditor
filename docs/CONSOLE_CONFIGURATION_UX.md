@@ -60,13 +60,54 @@ BLOQUEADO
 NÃO SELECIONADO
 ```
 
-Uma integração não selecionada não pode bloquear a auditoria. `CONFIGURAR` continua válido em superfícies técnicas de variável/capacidade, mas o catálogo converte requisito obrigatório pendente em `BLOQUEADO`.
+Uma integração não selecionada não pode bloquear a auditoria. `CONFIGURAR` continua válido em superfícies técnicas de configuração/capacidade, mas o catálogo converte requisito obrigatório pendente em `BLOQUEADO`.
 
-## IDs de configuração
+## Identidade pública das configurações
 
-Números curtos são escolhas da tela. IDs numéricos canônicos identificam a mesma variável independentemente do caminho usado para chegar a ela.
+Números curtos são escolhas da tela. IDs numéricos canônicos identificam a mesma configuração independentemente do caminho usado para chegar a ela.
+
+O **nome da variável de ambiente não é identidade pública**. A visualização normal deve privilegiar propósito e efeito:
+
+```text
+ID        CONFIGURAÇÃO                                  VALOR EFETIVO          ORIGEM
+71865000  Limite de experiência satisfatória            3 s                    [ARQUIVO]
+63673900  Amostras por contexto                          1                      [SESSÃO]
+```
+
+Contrato global para todas as variáveis:
+
+- cada variável possui um rótulo amigável e funcional;
+- o ID numérico permanece estável e é a referência indicada para suporte/documentação;
+- o nome técnico (`RASAI_*`, credencial de provider etc.) fica suprimido na navegação normal;
+- `VALOR EFETIVO` representa o valor que o runtime receberá após resolver sessão, arquivo, Windows/User e default;
+- valores booleanos/enums/unidades devem ser apresentados em linguagem humana quando houver representação inequívoca;
+- secrets nunca revelam conteúdo: aparecem somente como `CONFIGURADO` ou `NÃO CONFIGURADO`;
+- cor do valor pode comunicar estado: explicitamente configurado, default/herdado, atenção obrigatória ou não aplicável.
 
 A tela de catálogo referencia o owner canônico da configuração; não duplica variáveis.
+
+## Detalhes técnicos
+
+O editor oferece uma ação explícita:
+
+```text
+T. Detalhes técnicos
+```
+
+Somente essa visão avançada apresenta o nome real da variável, além de informações úteis para diagnóstico:
+
+```text
+ID público
+Variável
+Valor bruto (nunca para secrets)
+Tipo
+Default
+Origem efetiva
+Categoria
+Fonte documental
+```
+
+O objetivo é manter detalhes de implementação disponíveis para troubleshooting sem obrigar o operador a compreender nomes de ambiente durante a operação normal.
 
 ## Persistência
 
@@ -79,7 +120,7 @@ Após alteração não sensível:
 
 Secrets permanecem fora do INI e usam o destino Windows/User já existente.
 
-A seleção `CAT-*` é execução-scoped e é registrada no snapshot secret-free da AUD para reutilização e futura projeção em relatórios.
+A seleção `CAT-*` é execution-scoped e é registrada no snapshot secret-free da AUD para reutilização e futura projeção em relatórios.
 
 ## Device e Apdex
 
@@ -114,15 +155,16 @@ Quando só existem consumidores opcionais (`CAT-03`/`CAT-09`), o plano usa **Exe
 
 Quando houver consumo, o fluxo canônico de estimativa/aceite continua executando antes do AUD.
 
-## Tela de variável
+## Tela de configuração
 
-O editor canônico continua exibindo:
+O editor canônico exibe prioritariamente:
 
-- finalidade/owner/contexto;
+- ID público e rótulo amigável;
+- finalidade/contexto;
 - valor efetivo e origem;
-- tipo/domínio/default;
+- domínio/formato e exemplo de preenchimento;
 - impacto/custo/quota quando relevante;
-- ações de definir, limpar override, restaurar e persistir.
+- ações de definir, limpar override, restaurar, persistir e abrir detalhes técnicos.
 
 Enums, booleanos e listas fechadas devem usar escolha guiada; texto livre somente quando o domínio for realmente aberto.
 
@@ -142,5 +184,7 @@ NÃO CONFIGURADO
 ## Regra de implementação
 
 A última tela não é o local para descobrir dependências básicas. Cada catálogo recalcula readiness enquanto o operador configura. `R. Executar auditoria` permanece bloqueado quando existe pendência obrigatória conhecida.
+
+O contrato de rótulo/valor/origem é de **apresentação**: nomes técnicos continuam sendo as chaves canônicas usadas internamente, portanto não há alteração das regras do core ou do formato aceito pelos runtimes.
 
 Documentos relacionados: [AUDIT_CATALOG_WORKFLOW.md](AUDIT_CATALOG_WORKFLOW.md), [INTERACTIVE_CONSOLE.md](INTERACTIVE_CONSOLE.md), [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md), [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md), [CONTENT_ANALYSIS_CONTEXT.md](CONTENT_ANALYSIS_CONTEXT.md), [CONSOLE_VARIABLE_RESET.md](CONSOLE_VARIABLE_RESET.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
