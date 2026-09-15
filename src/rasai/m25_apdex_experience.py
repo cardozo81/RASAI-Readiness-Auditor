@@ -34,7 +34,7 @@ from rasai.operational_log import try_append_operational_event
 from rasai.persistence import AuditWorkspace
 
 TASK_SYNTHETIC_USER_ACTION = "SYNTHETIC_LOAD_ACTION"
-M25_PROFILE_VERSION = "M25-PROFILE-002"
+M25_PROFILE_VERSION = "M25-PROFILE-003"
 NORMAL_GROUP_MINIMUM = 100
 MAX_CONCURRENCY = 2
 _DEVICE_ORDER = ("MOBILE", "DESKTOP", "TABLET")
@@ -121,6 +121,12 @@ class ExperienceApdexConfig:
             "dynatrace_application_id": self.dynatrace_application_id,
             "dynatrace_config_json": self.dynatrace_config_json,
             "dynatrace_api_token_persisted": False,
+            "measurement_contract": {
+                "user_action_duration": "navigationStart_to_loadEventEnd_or_last_xhr_fetch_started_before_loadEventEnd",
+                "settle_role": "observation_only_not_duration_extension",
+                "runtime_errors": "javascript_and_console_errors_global_when_error_policy_is_enabled",
+                "request_error_scope": self.error_scope,
+            },
         }
 
 
@@ -319,16 +325,17 @@ class PlaywrightSyntheticUxGateway:
             "first_http": 0,
         }
         started = time.monotonic()
-        last_activity = started
+        last_action_xhr_activity = started
         load_completed_at: float | None = None
+        action_xhr_request_ids: set[int] = set()
         target_host = _normalize_host(urlsplit(url).hostname)
 
         def is_first_party(candidate: str) -> bool:
             return _normalize_host(urlsplit(candidate).hostname) == target_host
 
-        def mark_activity() -> None:
-            nonlocal last_activity
-            last_activity = time.monotonic()
+        def mark_action_xhr_activity() -> None:
+            nonlocal last_action_xhr_activity
+            last_action_xhr_activity = time.monotonic()
 
         try:
             context, close_context = self._context(device=device, profile=profile)
@@ -366,19 +373,28 @@ class PlaywrightSyntheticUxGateway:
             )
 
             def on_request(request: Any) -> None:
-                if str(getattr(request, "resource_type", "")) in {"xhr", "fetch"}:
+                resource_type = str(getattr(request, "resource_type", ""))
+                if resource_type in {"xhr", "fetch"}:
                     counters["xhr_fetch"] += 1
-                if load_completed_at is not None and str(getattr(request, "resource_type", "")) != "document":
+                    if load_completed_at is None:
+                        action_xhr_request_ids.add(id(request))
+                if load_completed_at is not None and resource_type != "document":
                     counters["dynamic"] += 1
 
-            def on_request_finished(_request: Any) -> None:
-                mark_activity()
+            def on_request_finished(request: Any) -> None:
+                request_id = id(request)
+                if request_id in action_xhr_request_ids:
+                    action_xhr_request_ids.discard(request_id)
+                    mark_action_xhr_activity()
 
             def on_request_failed(request: Any) -> None:
                 counters["failed"] += 1
                 if is_first_party(str(getattr(request, "url", ""))):
                     counters["first_failed"] += 1
-                mark_activity()
+                request_id = id(request)
+                if request_id in action_xhr_request_ids:
+                    action_xhr_request_ids.discard(request_id)
+                    mark_action_xhr_activity()
 
             def on_response(response: Any) -> None:
                 try:
@@ -399,7 +415,8 @@ class PlaywrightSyntheticUxGateway:
             page.on("console", lambda msg: counters.__setitem__("console", counters["console"] + (1 if msg.type == "error" else 0)))
 
             started = time.monotonic()
-            last_activity = started
+            last_action_xhr_activity = started
+            action_xhr_request_ids.clear()
             try:
                 response = page.goto(url, wait_until="load", timeout=int(timeout_seconds * 1000.0))
                 load_completed_at = time.monotonic()
@@ -428,8 +445,6 @@ class PlaywrightSyntheticUxGateway:
             except PlaywrightTimeoutError:
                 network_settled = False
 
-            action_end = max(load_completed_at or started, last_activity)
-            user_action_ms = max((action_end - started) * 1000.0, 0.0)
             timing: dict[str, Any] = {}
             visual: dict[str, Any] = {}
             try:
@@ -448,15 +463,28 @@ class PlaywrightSyntheticUxGateway:
             except PlaywrightError:
                 pass
 
+            navigation_duration_ms = _num(timing.get("duration"))
+            load_event_end_ms = _num(timing.get("loadEventEnd"))
+            fallback_load_end_ms = max(((load_completed_at or started) - started) * 1000.0, 0.0)
+            load_boundary_ms = (
+                load_event_end_ms
+                if load_event_end_ms is not None
+                else navigation_duration_ms
+                if navigation_duration_ms is not None
+                else fallback_load_end_ms
+            )
+            last_action_xhr_end_ms = max((last_action_xhr_activity - started) * 1000.0, 0.0)
+            user_action_ms = max(load_boundary_ms, last_action_xhr_end_ms)
+
             return UxMeasurement(
                 status=status,
                 user_action_duration_ms=user_action_ms,
-                navigation_duration_ms=_num(timing.get("duration")),
+                navigation_duration_ms=navigation_duration_ms,
                 response_start_ms=_num(timing.get("responseStart")),
                 response_end_ms=_num(timing.get("responseEnd")),
                 dom_interactive_ms=_num(timing.get("domInteractive")),
                 load_event_start_ms=_num(timing.get("loadEventStart")),
-                load_event_end_ms=_num(timing.get("loadEventEnd")),
+                load_event_end_ms=load_event_end_ms,
                 lcp_ms=_num(visual.get("lcp")),
                 cls=_num(visual.get("cls")),
                 http_status=http_status,
@@ -608,6 +636,9 @@ def execute_m25_experience(
         errors_affect_apdex=calibration.errors_affect_apdex,
         error_scope=cfg.error_scope,
         calibration_source=calibration.source,
+        m25_profile_version=M25_PROFILE_VERSION,
+        user_action_duration_policy="LOAD_EVENT_END_OR_LAST_XHR_FETCH_STARTED_BEFORE_LOAD_EVENT_END",
+        runtime_error_policy="GLOBAL_JAVASCRIPT_AND_CONSOLE_ERRORS",
     )
 
     shared_gateway = gateway
@@ -934,7 +965,7 @@ def _qualifying_error(item: UxMeasurement, scope: str) -> bool:
         return True
     if scope == "navigation":
         return False
-    if item.javascript_error_count > 0:
+    if item.javascript_error_count > 0 or item.console_error_count > 0:
         return True
     if scope == "first-party":
         return item.first_party_request_failed_count > 0 or item.first_party_http_error_count > 0
@@ -997,6 +1028,7 @@ def _log_progress(
         classification=item.classification, status=item.measurement.status,
         kpm_value_ms=item.kpm_value_ms, error_forced_frustrated=item.error_forced,
         javascript_errors=item.measurement.javascript_error_count,
+        console_errors=item.measurement.console_error_count,
         request_failures=item.measurement.request_failed_count,
         http_errors=item.measurement.http_error_count,
         network_settled=item.measurement.network_settled,
