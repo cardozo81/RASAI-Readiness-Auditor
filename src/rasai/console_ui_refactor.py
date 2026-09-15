@@ -1,7 +1,10 @@
-"""Final information architecture for the local interactive console.
+"""Final information architecture helpers for the local interactive console.
 
-Only console presentation/configuration UX is changed. Audit execution, routing, scoring,
-retries, quarantine, fulfillment and report generation remain owned by existing code.
+The public preparation surface is catalog-driven. This module owns shared console-only
+presentation/configuration behavior (navigation, persistence and canonical editors) and
+intentionally contains no legacy execution-profile or ``ANÁLISES / RESULTADOS`` screen.
+Audit execution, routing, scoring, retries, quarantine, fulfillment and report generation
+remain owned by existing runtime code.
 """
 from __future__ import annotations
 
@@ -10,26 +13,20 @@ from contextlib import redirect_stdout
 import io
 import sys
 from types import ModuleType
-from typing import Any, Callable
+from typing import Any
 
 from rasai.console_ui import CYAN, DIM, RED, paint
 from rasai.console_ui_catalog import (
     CAPABILITIES,
-    CORE_IDS,
-    badge,
-    capability_menu,
     capability_specs,
     capability_status,
     catalog_menu,
     configuration_id,
-    section,
     variable_editor,
 )
 
 # Console State classes are slot-based. Presentation metadata must therefore remain
 # outside the canonical state object so the UI never changes the runtime state contract.
-# Keep a strong identity reference with each bucket: Python may reuse id() after an
-# object is released, and UI metadata must never leak to a later State instance.
 _SESSION_META: dict[int, tuple[Any, dict[str, Any]]] = {}
 
 _SEARCH_OLD_NOTICE = (
@@ -129,125 +126,20 @@ def _ensure_mix(state: Any) -> None:
         state.apdex_experience_device_mix = _derived_mix(getattr(state, "device", "mobile"))
 
 
-def _profile_text(state: Any) -> str:
-    try:
-        from rasai.console_execution_profiles import active_profile
-
-        profile = active_profile(state)
-        if profile is None:
-            return "Personalizado / sem preset ativo"
-        return str(getattr(profile, "label", None) or getattr(profile, "profile_id", None) or profile)
-    except (ImportError, AttributeError, TypeError):
-        return "Personalizado / sem preset ativo"
-
-
 def _device_results(state: Any) -> tuple[str, str]:
+    """Compatibility helper for the Device-derived report projection/tests."""
     value = str(getattr(state, "device", "mobile")).casefold()
     mobile = "INCLUÍDO" if value in {"mobile", "both"} else "NÃO APLICÁVEL"
     desktop = "INCLUÍDO" if value in {"desktop", "both"} else "NÃO APLICÁVEL"
     return mobile, desktop
 
 
-def _overall(console: ModuleType, state: Any) -> tuple[str, str]:
-    try:
-        ready, reason = console._execution_readiness(state)
-    except (OSError, ValueError, UnicodeError) as exc:
-        return "CONFIGURAR", str(exc)
-    return ("APTO" if ready else "CONFIGURAR"), reason
+def preparation_menu(console: ModuleType, state: Any, detailed: Any = None) -> str:
+    """Delegate to the canonical catalog workflow; no legacy preparation UI remains."""
+    from rasai.console_catalog_workflow import preparation_menu as catalog_preparation_menu
 
-
-def preparation_menu(console: ModuleType, state: Any, detailed: Callable[[Any], str]) -> str:
-    del detailed
-    _set_meta(state, "preparation_active", True)
     _ensure_mix(state)
-    try:
-        while True:
-            console.render_header(state)
-            print(paint("INÍCIO > PREPARAR AUDITORIA", CYAN, bold=True))
-            print(paint("Números abrem parâmetros/resultados; letras executam ações ou navegam.", DIM))
-
-            section("PERFIL DA PRÓXIMA AUDITORIA")
-            print(f"1. {CORE_IDS['profile']}  Perfil base              : {_profile_text(state)}")
-
-            section("ESCOPO")
-            print(f"2. {CORE_IDS['input']}  Entrada                  : {getattr(state, 'target', '') or '<não informada>'}")
-            print(f"3. {CORE_IDS['project']}  Projeto                  : {getattr(state, 'project', '') or '<auto>'}")
-            print(f"4. {CORE_IDS['device']}  Device                   : {getattr(state, 'device', 'mobile')}")
-            print(f"5. {CORE_IDS['language_market']}  Idioma / mercado         : {getattr(state, 'language', '-')} / {getattr(state, 'market', '-')}")
-            try:
-                from rasai.time_contract import configured_presentation_timezone
-
-                timezone = configured_presentation_timezone()
-            except (ImportError, ValueError):
-                timezone = "<inválido>"
-            print(f"6. {CORE_IDS['timezone']}  Timezone apresentação    : {timezone}")
-
-            section("ANÁLISES / RESULTADOS")
-            mobile_result, desktop_result = _device_results(state)
-            print(f"  — {'Relatório Mobile':<31} {badge(mobile_result)}")
-            print(f"  — {'Relatório Desktop':<31} {badge(desktop_result)}")
-            print(paint("    Derivados do Device; não possuem seleção independente.", DIM))
-            number, mapping = 7, {}
-            for capability in CAPABILITIES:
-                status, detail = capability_status(state, capability)
-                editable = bool(capability_specs(capability.key))
-                prefix = "—" if capability.automatic and capability.handler_choice is None and not editable else f"{number}."
-                if prefix != "—":
-                    mapping[str(number)] = capability
-                    number += 1
-                print(f"{prefix:>3} {capability.label:<31} {badge(status)}")
-                if status in {"CONFIGURAR", "APTO COM LIMITAÇÕES"}:
-                    print(paint(f"    {detail}", RED if status == "CONFIGURAR" else CYAN))
-
-            section("RESULTADOS SISTÊMICOS")
-            print(paint("Visão geral · Readiness SARI · Metodologia de scoring · Contexto de captura · Uso de IA · Referências/metodologia", DIM))
-            print(paint("Gerados pelo contrato do relatório; não possuem seleção independente.", DIM))
-
-            section("EXECUÇÃO / ARMAZENAMENTO")
-            storage = number
-            print(f"{storage}. {CORE_IDS['audits_root']}  Raiz das auditorias        : {getattr(state, 'audits_root', 'audits')}")
-
-            status, reason = _overall(console, state)
-            section("AÇÕES")
-            print(f"R. Executar auditoria        [{badge(status)}] {reason}")
-            print(
-                "S. Salvar configuração no arquivo [SEM SECRETS]\n"
-                "L. Carregar configuração de AUD [NOVA EXECUÇÃO]\n"
-                "E. Integrações e serviços\n"
-                "A. Todas as configurações\n"
-                "H. Ajuda / custos\n"
-                "C. Histórico / relatórios consolidados [OFFLINE]\n"
-                "V. Voltar ao início\n"
-                "Q. Sair"
-            )
-            raw = input("Escolha: ").strip().upper()
-            if raw == "V":
-                return "V"
-            if raw in {"E", "A"}:
-                _set_config_view(state, "integrations" if raw == "E" else "all")
-                return "E"
-            if raw in {"R", "S", "L", "H", "C", "Q"}:
-                return raw
-            core = {
-                "1": "F",
-                "2": "1",
-                "3": "2",
-                "4": "3",
-                "5": "9",
-                "6": "12",
-                str(storage): "10",
-            }
-            if raw in core:
-                return core[raw]
-            capability = mapping.get(raw)
-            if capability is not None:
-                choice = capability_menu(console, state, capability)
-                if choice is not None:
-                    return choice
-                continue
-            state.error = "opção inválida em Preparar auditoria"
-    finally:
-        _drop_meta(state, "preparation_active")
+    return catalog_preparation_menu(console, state, detailed)
 
 
 def _install_search_persistence() -> None:
@@ -261,8 +153,6 @@ def _install_search_persistence() -> None:
         result = old_values(state)
         if _mix_inherited(state):
             result.get("synthetic_apdex_experience", {}).pop("device_mix", None)
-        # The settings helper is shared by narrower State variants in tests and tools.
-        # Only states that actually expose Search Intelligence receive this section.
         if hasattr(state, "search_queries"):
             result["search_intelligence"] = {
                 "queries": "; ".join(tuple(getattr(state, "search_queries", ()) or ())),
@@ -493,13 +383,13 @@ def install() -> None:
     _install_environment_router(console)
     from rasai import console_navigation as navigation
 
-    navigation._preparation_menu = lambda module, state, detailed: preparation_menu(module, state, detailed)
+    navigation._preparation_menu = preparation_menu
     _install_configure_persistence(console)
     _install_top_level(console)
     console._rasai_ui_refactor_installed = True
 
 
-# Testable aliases for the presentation contract.
+# Testable aliases retained for the current console contracts.
 _capability_specs = capability_specs
 _derived_apdex_mix = _derived_mix
 _device_result_states = _device_results
