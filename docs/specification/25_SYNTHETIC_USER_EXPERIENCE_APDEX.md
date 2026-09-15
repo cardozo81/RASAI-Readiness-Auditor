@@ -172,8 +172,8 @@ Escopos:
 
 Regras mínimas:
 
-- timeout/navigation error → `FRUSTRATED` quando o perfil foi aplicado;
-- HTTP `>= 400` do documento principal → application error;
+- timeout/navigation error -> `FRUSTRATED` quando o perfil foi aplicado;
+- HTTP `>= 400` do documento principal -> application error;
 - JavaScript runtime error pode forçar `FRUSTRATED` conforme policy;
 - `console.error` pode forçar `FRUSTRATED` conforme policy nos escopos `first-party` e `all`;
 - request/HTTP errors respeitam `navigation|first-party|all`;
@@ -214,8 +214,8 @@ Grupos menores são diagnósticos. Uma amostra é uma navegação com múltiplos
 
 A importação pode usar:
 
-1. JSON exportado — preferido para reprodutibilidade;
-2. Configuration API — leitura live.
+1. JSON exportado - preferido para reprodutibilidade;
+2. Configuration API - leitura live.
 
 Persistir somente dados sanitizados necessários:
 
@@ -294,8 +294,8 @@ Igualdade numérica não é objetivo porque RUM observa usuários reais e Experi
 A regressão deve cobrir:
 
 1. default `USER_ACTION_DURATION`, `3 s / 12 s`;
-2. igualdade no limiar inferior → `TOLERATING`;
-3. igualdade no limiar superior → `TOLERATING`;
+2. igualdade no limiar inferior -> `TOLERATING`;
+3. igualdade no limiar superior -> `TOLERATING`;
 4. `console.error` global nos escopos `first-party` e `all` quando errors affect está ativo;
 5. `navigation` permanece restrito a erro de navegação/documento;
 6. request pós-`loadEventEnd` pode ser observado sem estender sozinho a duração;
@@ -309,10 +309,10 @@ A regressão deve cobrir:
 ## 17. Referências externas
 
 - Apdex Technical Specification v1.1: <https://www.apdex.org/wp-content/uploads/2020/09/ApdexTechnicalSpecificationV11_000.pdf>
-- Dynatrace — User actions in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-actions>
-- Dynatrace — User action metrics in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-action-metrics>
-- Dynatrace — Apdex configuration for load actions: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions>
-- Dynatrace — Request errors: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-request-errors>
-- Dynatrace — Web application configuration API: <https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application>
+- Dynatrace - User actions in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-actions>
+- Dynatrace - User action metrics in RUM Classic: <https://docs.dynatrace.com/docs/observe/digital-experience/rum-classic/rum-concepts/user-action-metrics>
+- Dynatrace - Apdex configuration for load actions: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-key-performance-metric-load-actions>
+- Dynatrace - Request errors: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-request-errors>
+- Dynatrace - Web application configuration API: <https://docs.dynatrace.com/docs/dynatrace-api/configuration-api/rum/web-application-configuration-api/web-application/post-web-application>
 - W3C Navigation Timing / Performance Timeline
-- Chrome DevTools Protocol — Network / Emulation
+- Chrome DevTools Protocol - Network / Emulation
