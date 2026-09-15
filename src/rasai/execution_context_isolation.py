@@ -321,7 +321,7 @@ def _isolated_serp_runtime_summary(original: Any) -> Any:
 def _install_restored_audit_environment_isolation() -> None:
     """Keep SERP provider/mode recovered from an AUD out of canonical session env."""
     try:
-        from rasai import audit_configuration_reuse_runtime as reuse
+        from rasai import console_audit_workflow as reuse
     except ImportError:
         return
 
