@@ -54,7 +54,7 @@ O perfil aparece antes dos ajustes porque funciona como preset/base. Alteraçõe
 número curto = escolha contextual da tela
 ID de 8 dígitos = identidade estável da configuração
 letra = ação/navegação
-— = linha informativa, automática ou derivada
+- = linha informativa, automática ou derivada
 ```
 
 Os números curtos ajudam a operar a tela. IDs estáveis permitem localizar a mesma configuração por caminhos diferentes.
