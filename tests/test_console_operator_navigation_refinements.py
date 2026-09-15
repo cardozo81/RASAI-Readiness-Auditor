@@ -45,6 +45,7 @@ def test_search_capability_contains_serp_but_not_gsc_and_gsc_has_own_capability(
 
     search_names = {item.name for item in catalog.capability_specs("search-intelligence")}
     gsc_names = {item.name for item in catalog.capability_specs("google-search-console")}
+    observed_names = {item.name for item in catalog.capability_specs("observability")}
 
     assert "RASAI_SERP_MODE" in search_names
     assert "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL" not in search_names
@@ -53,6 +54,10 @@ def test_search_capability_contains_serp_but_not_gsc_and_gsc_has_own_capability(
     assert "RASAI_GSC_ENABLED" in gsc_names
     assert "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL" in gsc_names
     assert "RASAI_SERP_MODE" not in gsc_names
+
+    assert "RASAI_SERP_MODE" not in observed_names
+    assert "RASAI_GSC_ENABLED" not in observed_names
+    assert "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL" not in observed_names
 
     labels = {item.key: item.label for item in catalog.CAPABILITIES}
     assert labels["search-intelligence"] == "Search Intelligence / SERP"
