@@ -1,5 +1,7 @@
+import os
 from types import SimpleNamespace
 
+from rasai import console_execution_profile_readiness as readiness
 from rasai import console_execution_profiles as profiles
 from rasai.console_profile_capability_architecture import CAPS, effective_profile, metadata
 from rasai.execution_capabilities import CAPABILITY_BY_ID, PROFILE_SELECTABLE
@@ -62,6 +64,29 @@ def test_explicit_post_profile_override_wins() -> None:
 
     with effective_profile(state, session):
         assert state.web_performance is False
+
+
+def test_gsc_profile_policy_is_projected_and_parent_environment_restored() -> None:
+    state = _state()
+    session = profiles.SessionProfile(
+        "performance",
+        "Performance",
+        ("web-performance",),
+        profiles.AI_OFF,
+        profiles._baseline(state),
+    )
+    readiness.set_gsc_profile_policy(session, readiness.GSC_PROFILE_DISABLED)
+    previous = os.environ.get(readiness.GSC_ENABLED_ENV)
+    os.environ[readiness.GSC_ENABLED_ENV] = "true"
+    try:
+        with effective_profile(state, session):
+            assert os.environ[readiness.GSC_ENABLED_ENV] == "false"
+        assert os.environ[readiness.GSC_ENABLED_ENV] == "true"
+    finally:
+        if previous is None:
+            os.environ.pop(readiness.GSC_ENABLED_ENV, None)
+        else:
+            os.environ[readiness.GSC_ENABLED_ENV] = previous
 
 
 def test_presets_use_only_canonical_capability_ids() -> None:
