@@ -1,0 +1,90 @@
+name: WebDX documentation reconciliation (one-shot)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/webdx-docs-finalize-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reconcile WebDX documentation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding="utf-8")
+              if old not in text:
+                  raise SystemExit(f"expected text not found in {path}: {old[:90]!r}")
+              text = text.replace(old, new, 1)
+              file.write_text(text, encoding="utf-8", newline="\n")
+
+          replace_once(
+              "docs/STANDARDS_METRICS_AND_SERVICES.md",
+              "O default `auto` atende a configuração mínima da fonte e evita exigir ao usuário um caminho local sem necessidade. Isso não significa que a análise de compatibilidade já foi materializada: sem detector/mapeamento reproduzível suficiente, o estado de resultado permanece `NO_DATA` e nenhuma compatibilidade é inventada.",
+              "O default `auto` atende a configuração mínima da fonte e evita exigir ao usuário um caminho local. O contrato `WEB-PLATFORM-BASELINE-001` resolve o pacote oficial `web-features`, congela `data.json` + metadata (incluindo versão e SHA-256) dentro do `AUD-*` e classifica sinais diretamente observáveis no HTML persistido e em CSS/JavaScript inline. Assets CSS/JS externos do alvo não são refeitos apenas para WebDX; por isso `NO_DATA` continua válido quando nenhum sinal observável mapeia para `compat_features`, sem inventar compatibilidade. Reprocessamentos do mesmo AUD reutilizam o snapshot congelado antes de qualquer nova resolução de rede.",
+          )
+
+          replace_once(
+              "docs/ENVIRONMENT_VARIABLES.md",
+              "`RASAI_WEB_FEATURES_DATASET=auto` atende a configuração normal da fonte do dataset global `web-platform-dx/web-features`; o dataset-base não depende do domínio auditado. O domínio determina quais features seriam observadas na página. Como o detector/mapeador versionado ainda não está materializado no runtime, `RASAI_WEB_PLATFORM_BASELINE=true` pode resultar em `NO_DATA`, mas não deve exigir um caminho local nem inventar compatibilidade. Consulte [WEB_PLATFORM_BASELINE.md](WEB_PLATFORM_BASELINE.md).",
+              "`RASAI_WEB_FEATURES_DATASET=auto` atende a configuração normal da fonte global `web-platform-dx/web-features`; o dataset-base não depende do domínio auditado. No contrato `WEB-PLATFORM-BASELINE-001`, o runtime resolve e congela a versão usada por `AUD-*` (versão/SHA-256), detecta features diretamente observáveis no HTML persistido e em CSS/JavaScript inline e cruza essas evidências com `compat_features`. CSS/JS externos do alvo não são refeitos apenas para ampliar WebDX; `NO_DATA` significa ausência de evidência diretamente mapeável ou de artifact elegível, não ausência do detector. Consulte [WEB_PLATFORM_BASELINE.md](WEB_PLATFORM_BASELINE.md).",
+          )
+
+          guide = Path("docs/REPORT_GUIDE.md")
+          text = guide.read_text(encoding="utf-8")
+          if "├─ execution-evidence.html" not in text:
+              needle = "├─ context.html                     # topologia de captura URL/device; read-only\n"
+              if needle not in text:
+                  raise SystemExit("REPORT_GUIDE canonical tree anchor not found")
+              text = text.replace(
+                  needle,
+                  needle + "├─ execution-evidence.html          # opções solicitadas, execução, falhas e dependências\n",
+                  1,
+              )
+          if "| Evidências da execução | `execution-evidence.html` |" not in text:
+              needle = "| contexto de captura | `context.html` | escopo URL/device, variância de documento e runtime; read-only |\n"
+              if needle not in text:
+                  raise SystemExit("REPORT_GUIDE ownership table anchor not found")
+              text = text.replace(
+                  needle,
+                  needle + "| Evidências da execução | `execution-evidence.html` | matriz do que foi solicitado/executado, estado, falhas e configuração faltante; sem recalcular scoring |\n",
+                  1,
+              )
+          old = "Em especial, Web Platform Baseline continua dependente do dataset versionado e das limitações documentadas; a mera presença de `RASAI_WEB_FEATURES_DATASET` não fabrica classificação de compatibilidade."
+          new = "Em especial, Web Platform Baseline usa o dataset WebDX versionado congelado no próprio `AUD-*` e materializa somente features vinculadas a sinais diretamente observáveis nos artifacts persistidos. A presença de `RASAI_WEB_FEATURES_DATASET` não fabrica classificação: assets externos não são refeitos apenas para WebDX e ausência de sinal mapeável permanece `NO_DATA`, não falha do website."
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit("REPORT_GUIDE WebDX paragraph anchor not found")
+          guide.write_text(text, encoding="utf-8", newline="\n")
+
+          stale = {
+              "docs/STANDARDS_METRICS_AND_SERVICES.md": "sem detector/mapeamento reproduzível suficiente",
+              "docs/ENVIRONMENT_VARIABLES.md": "detector/mapeador versionado ainda não está materializado",
+          }
+          for path, phrase in stale.items():
+              if phrase in Path(path).read_text(encoding="utf-8"):
+                  raise SystemExit(f"stale WebDX documentation remains in {path}")
+
+          Path(".github/workflows/webdx-docs-finalize-once.yml").unlink()
+          PY
+      - name: Commit reconciled documentation
+        shell: bash
+        run: |
+          git config user.name "RASAi documentation automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/STANDARDS_METRICS_AND_SERVICES.md docs/ENVIRONMENT_VARIABLES.md docs/REPORT_GUIDE.md .github/workflows/webdx-docs-finalize-once.yml
+          git commit -m "Reconcile WebDX docs with implemented runtime"
+          git push origin HEAD:main
