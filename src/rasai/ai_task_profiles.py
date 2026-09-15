@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from configparser import ConfigParser
 from dataclasses import dataclass
-from functools import lru_cache
 from importlib.resources import files
 import os
 from pathlib import Path
@@ -262,13 +261,22 @@ def load_task_profile_catalog(
     raise ValueError(f"AI task profiles: {PROFILE_SOURCE_ENV}=file mas arquivo não existe: {selected}")
 
 
-@lru_cache(maxsize=1)
 def active_task_profile_catalog() -> AiTaskProfileCatalog:
+    """Resolve the active catalog from the current environment and file contents.
+
+    Task profile files are intentionally small and operator-editable. Resolving them on
+    demand avoids stale personas when the operator changes the TOML or source settings
+    during a long-lived console process. Paid AI calls dominate the cost by many orders
+    of magnitude, so correctness is preferred over caching a few kilobytes of TOML.
+    """
+
     return load_task_profile_catalog()
 
 
 def clear_task_profile_cache() -> None:
-    active_task_profile_catalog.cache_clear()
+    """Compatibility no-op retained for callers from the former cached implementation."""
+
+    return None
 
 
 def normalize_profile_ids(profile_ids: str | Iterable[str]) -> tuple[str, ...]:
