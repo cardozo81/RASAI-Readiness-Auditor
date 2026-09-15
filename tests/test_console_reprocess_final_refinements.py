@@ -6,7 +6,7 @@ from io import StringIO
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
-from rasai.cost_forecast import CostForecast
+from rasai.cost_forecast import CostForecast, unavailable_forecast
 import rasai.console_reprocess_final_refinements as final
 
 
@@ -74,7 +74,7 @@ def test_selective_cost_forecast_scales_only_pending_ai_share() -> None:
     assert scaled.source.endswith(":selective-reprocess")
 
 
-def test_preparation_shows_cost_preview_and_explicit_confirm_cancel(monkeypatch, tmp_path: Path) -> None:
+def test_preparation_shows_compact_ui_cost_preview_and_explicit_confirm_cancel(monkeypatch, tmp_path: Path) -> None:
     from rasai import console_navigation
 
     monkeypatch.setattr(
@@ -98,10 +98,84 @@ def test_preparation_shows_cost_preview_and_explicit_confirm_cancel(monkeypatch,
         final.render_reprocess_preparation(console, state, "AUD-TEST", pending, successes)
 
     rendered = output.getvalue()
+    assert "PENDÊNCIAS DESTA TENTATIVA" in rendered
+    assert "Pendências a tentar" in rendered
+    assert "Fora da fila" in rendered
     assert "CUSTO-SELETIVO" in rendered
     assert "C. Confirmar e iniciar reprocessamento" in rendered
     assert "V. Voltar sem reprocessar" in rendered
     assert "REPROCESSAR:" not in rendered
+
+
+def test_cost_preview_uses_canonical_catalog_fallback_without_history(monkeypatch) -> None:
+    from rasai import cost_forecast
+
+    state = SimpleNamespace(audits_root="audits")
+    pending = (
+        _item("SEMANTIC_AI", "FAILED_RETRYABLE"),
+        _item("TECHNICAL_AI", "FAILED_RETRYABLE"),
+    )
+    source = SimpleNamespace(ai_provider="gemini", ai_model="gemini-test", ai_reasoning=None)
+    monkeypatch.setattr(final, "_source_forecast_state", lambda current_state, audit_id: source)
+    monkeypatch.setattr(final, "_all_applicable_ai_items", lambda current_state, audit_id: pending)
+    monkeypatch.setattr(
+        cost_forecast,
+        "forecast_local_cost",
+        lambda current_state: unavailable_forecast("sem histórico financeiro comparável", source="test"),
+    )
+    monkeypatch.setattr(
+        final,
+        "_catalog_fallback_estimate",
+        lambda current_state, items: (0.012345, "USD", 14000, 9000, "STANDARD"),
+    )
+
+    with redirect_stdout(StringIO()) as output:
+        final._render_reprocess_cost_preview(state, "AUD-TEST", pending)
+
+    rendered = output.getvalue()
+    assert "PREVISÃO DE CUSTO DE IA" in rendered
+    assert "CATÁLOGO / BAIXA CONFIANÇA" in rendered
+    assert "USD 0.012345" in rendered
+    assert "entrada=14000" in rendered
+
+
+def test_confirm_renders_progress_surface_immediately_with_slotted_state(monkeypatch, tmp_path: Path) -> None:
+    from rasai import console_runtime
+
+    @dataclass(slots=True)
+    class SlottedState:
+        audits_root: str
+        audit_id: str = ""
+        status: str = "READY"
+        operation: str = "LOCAL:MENU"
+        error: str = ""
+
+    state = SlottedState(str(tmp_path))
+    console = ModuleType("fake_console")
+    console.render_header = lambda current_state: print(f"HEADER:{current_state.status}")
+    calls: list[tuple[str, float]] = []
+    monkeypatch.setattr(
+        console_runtime,
+        "set_runtime_progress",
+        lambda current_state, label, percent, **kwargs: calls.append((label, percent)),
+    )
+    monkeypatch.setattr("builtins.input", lambda prompt="": "C")
+    token = final._CURRENT_AUDIT_ID.set("AUD-TEST")
+    try:
+        with redirect_stdout(StringIO()) as output:
+            confirmed = final._confirm_reprocess_with_feedback(console, state)
+    finally:
+        final._CURRENT_AUDIT_ID.reset(token)
+
+    assert confirmed is True
+    assert state.audit_id == "AUD-TEST"
+    assert state.status == "REPROCESSING"
+    assert state.operation == "LOCAL:AUD_REPROCESS"
+    assert calls == [("Preparando reprocessamento", 0.0)]
+    rendered = output.getvalue()
+    assert "HEADER:REPROCESSING" in rendered
+    assert "REPROCESSAMENTO EM EXECUÇÃO" in rendered
+    assert "atualizada automaticamente" in rendered
 
 
 def test_post_actions_offer_direct_retry_with_slotted_state(monkeypatch, tmp_path: Path) -> None:
