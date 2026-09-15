@@ -146,10 +146,6 @@ def load_console_config_with_system_defaults(state: Any, path: Path | None = Non
     from rasai import console_settings as settings
 
     source = path or settings.resolve_config_path()
-    # Snapshot the complete incoming environment, not only names represented by the
-    # advanced [environment] section. Structured controls such as
-    # RASAI_SYNTHETIC_APDEX are also legitimate external overrides and must remain the
-    # highest-precedence layer, including while the first rasai-console.ini is created.
     external = {
         name: str(value)
         for name, value in os.environ.items()
@@ -169,10 +165,6 @@ def load_console_config_with_system_defaults(state: Any, path: Path | None = Non
         )
     )
 
-    # First run must materialize the complete non-secret product baseline, including
-    # advanced metric/service defaults that are not direct State fields. The canonical
-    # writer projects State into os.environ while serializing; restore the incoming
-    # explicit environment immediately afterwards so it never loses precedence.
     if result.created:
         try:
             settings.save_console_config(state, result.path)
@@ -342,9 +334,10 @@ def _patch_environment_catalog() -> None:
         )
         facade.SPEC_BY_NAME = {spec.name: spec for spec in facade.SPECS}
 
-    def refresh_specs() -> None:
+    def refresh_specs() -> tuple[Any, ...]:
         original_refresh()
         apply_current()
+        return facade.SPECS
 
     facade.refresh_specs = refresh_specs
     refresh_specs()
