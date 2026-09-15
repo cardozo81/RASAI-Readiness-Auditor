@@ -115,7 +115,7 @@ A informação técnica permanece disponível para suporte e diagnóstico, mas n
 - `BLOQUEADO`: falta requisito obrigatório do escopo selecionado;
 - `NÃO SELECIONADO`: fora do plano.
 
-Recursos não selecionados não bloqueiam a auditoria.
+Recursos não selecionados não bloqueiam a auditoria. Toda alteração relevante recalcula imediatamente a capability e o estado do plano antes de permitir execução.
 
 ## IA e custo
 
@@ -123,9 +123,22 @@ O catálogo identifica operações que não usam IA, podem usar IA ou exigem IA.
 
 Com apenas consumidores opcionais selecionados, o plano inicia em `Executar sem IA (recomendado)`. A ação `U` permite alternar para `Executar com IA` somente quando a IA principal está configurada/apta. `CAT-08` torna IA obrigatória e remove a possibilidade de execução sem IA.
 
-A seleção AUTO usa o registry dinâmico de providers; **não é uma cadeia fixa OpenAI -> DeepSeek -> MiMo**. O catálogo atual também contempla Copilot quando o provider estiver registrado/configurado pelo runtime canônico.
+A seleção AUTO usa o `provider_registry` dinâmico; **não é uma cadeia fixa OpenAI -> DeepSeek -> MiMo**. O catálogo atual também contempla Copilot conforme o contrato do registry. Providers marcados `explicit-only` não entram silenciosamente no AUTO; continuam disponíveis quando selecionados explicitamente conforme sua política canônica.
 
 Providers sem credencial continuam configuráveis; ausência de credencial afeta readiness/execução, não a possibilidade de abrir e editar sua configuração.
+
+A gestão específica de credencial de provider mantém as ações operacionais existentes:
+
+```text
+S. Setar/alterar Key na sessão
+P. Persistir/remover Key no Windows/User
+L. Limpar Key somente da sessão
+X. Excluir Key da sessão e do Windows/User
+A. Habilitar/desabilitar no AUTO sem apagar a Key
+U. Usar este provider nesta auditoria
+```
+
+Essas ações são do provider; na listagem geral de configurações o usuário continua vendo rótulo amigável, valor efetivo e origem, e o nome técnico somente em `T. Detalhes técnicos`.
 
 Quando o plano efetivo gera consumo estimável, o preview/aceite canônico ocorre antes da execução. Não há cálculo financeiro duplicado na tela do catálogo.
 
@@ -133,7 +146,7 @@ Quando o plano efetivo gera consumo estimável, o preview/aceite canônico ocorr
 
 Parâmetros não sensíveis podem ficar somente na sessão ou ser salvos no arquivo de configuração. Secrets permanecem no mecanismo Windows/User e nunca entram no INI.
 
-No Windows, persistência de segredo em escopo de usuário usa `HKEY_CURRENT_USER\Environment`; o console nunca exige privilégio administrativo para esse caminho de usuário.
+No Windows, persistência de segredo em escopo de usuário usa `HKEY_CURRENT_USER\Environment`; esse caminho não exige PowerShell ou `.ps1` executado como Administrador. O console não modifica Windows/Machine e Windows/Machine não é administrado automaticamente pelo RASAi.
 
 A seleção dos catálogos pertence à próxima execução. Ela é gravada no snapshot secret-free do AUD, permitindo carregar posteriormente a mesma configuração para uma nova AUD.
 
@@ -145,7 +158,7 @@ A seleção dos catálogos pertence à próxima execução. Ela é gravada no sn
 
 `CAT-07` depende de `CAT-06`. Cálculos de Apdex não dependem de IA e selecionar CAT-06/CAT-07 não ativa IA por si só.
 
-`RASAI_APDEX_ACQUISITION_MODE` controla somente a estratégia de aquisição compartilhada/isolada do Synthetic Apdex. Essa configuração é operacional e **não altera scoring** nem a metodologia SARI/SCORE-GEO.
+`RASAI_APDEX_ACQUISITION_MODE` controla somente a estratégia de aquisição do Synthetic Apdex. Os valores técnicos aceitos são `auto` e `isolated`: `auto` é o default e compartilha somente aquisições comprovadamente compatíveis; `isolated` força aquisições independentes para comparação/troubleshooting. Essa configuração é operacional e **não altera scoring** nem a metodologia SARI/SCORE-GEO.
 
 ## Análise profunda e remediações
 
