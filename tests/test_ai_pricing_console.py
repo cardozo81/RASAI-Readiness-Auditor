@@ -12,8 +12,8 @@ def test_pricing_settings_join_managed_console_catalog() -> None:
     assert PRICING_FILE_ENV in base_environment.ENV_NAMES
     assert PRICING_SOURCE_ENV in provider_environment.SPEC_BY_NAME
     assert PRICING_FILE_ENV in provider_environment.SPEC_BY_NAME
-    assert provider_environment.SPEC_BY_NAME[PRICING_SOURCE_ENV].default == "factory"
-    assert provider_environment.SPEC_BY_NAME[PRICING_FILE_ENV].default == "ai-pricing.toml"
+    assert provider_environment.SPEC_BY_NAME[PRICING_SOURCE_ENV].default == "auto"
+    assert provider_environment.SPEC_BY_NAME[PRICING_FILE_ENV].default == "config/ai-pricing.toml"
     assert provider_environment.SPEC_BY_NAME[PRICING_SOURCE_ENV].sensitive is False
     assert provider_environment.SPEC_BY_NAME[PRICING_FILE_ENV].sensitive is False
 
@@ -21,7 +21,7 @@ def test_pricing_settings_join_managed_console_catalog() -> None:
 def test_pricing_console_validation_is_fail_closed() -> None:
     install()
     assert base_environment._validate(PRICING_SOURCE_ENV, "FILE") == "file"
-    assert base_environment._validate(PRICING_FILE_ENV, "pricing/custom.toml") == "pricing/custom.toml"
+    assert base_environment._validate(PRICING_FILE_ENV, "config/ai-pricing.toml") == "config/ai-pricing.toml"
 
     for invalid in ("", "remote", "saas"):
         try:
