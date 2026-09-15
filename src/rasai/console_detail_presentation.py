@@ -79,3 +79,11 @@ def install() -> None:
     from rasai.console_usability_refinements import install as install_console_usability_refinements
 
     install_console_usability_refinements(console)
+
+    # Guided-choice prompts must resolve builtins.input at interaction time.  The final
+    # information-architecture wrapper temporarily replaces input so buffered modal text
+    # is flushed before reading; import-time defaults bypass that wrapper and hide the
+    # option list from the operator.
+    from rasai.console_guided_input_fix import install as install_console_guided_input_fix
+
+    install_console_guided_input_fix()
