@@ -6,6 +6,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 from types import ModuleType, SimpleNamespace
 
+from rasai.console_m23 import State as ApdexConsoleState
 from rasai.console_search_intelligence import SearchConsoleState
 from rasai import console_settings
 from rasai import console_ui_refactor as ui
@@ -66,9 +67,9 @@ def test_search_inputs_are_persisted_only_by_console_save(tmp_path, monkeypatch)
 
 def test_inherited_experience_mix_is_not_materialized_as_override(tmp_path) -> None:
     ui._install_search_persistence()
-    state = SearchConsoleState(device="both")
+    state = ApdexConsoleState(device="both")
     state.apdex_experience_device_mix = ui._derived_apdex_mix("both")
-    state._rasai_apdex_mix_inherited = True
+    ui._set_mix_inherited(state, True)
     destination = tmp_path / "rasai-console.ini"
 
     console_settings.save_console_config(state, destination)
@@ -94,7 +95,7 @@ def test_preparation_surface_is_result_oriented_and_returns_home(monkeypatch) ->
     assert "Search Intelligence" in rendered
     assert "RESULTADOS SISTÊMICOS" in rendered
     assert "Mobile=INCLUÍDO" in rendered
-    assert state._rasai_preparation_active is False
+    assert ui._get_meta(state, "preparation_active", False) is False
 
 
 def test_top_level_information_architecture_routes_to_existing_actions(monkeypatch) -> None:
@@ -115,7 +116,7 @@ def test_top_level_information_architecture_routes_to_existing_actions(monkeypat
     assert "4. Inteligência Artificial" in rendered
     assert "5. Integrações e serviços" in rendered
     assert "6. Todas as configurações" in rendered
-    assert state._rasai_config_view == "ai"
+    assert ui._config_view(state) == "ai"
 
 
 def test_post_edit_persistence_offers_session_or_immediate_save(monkeypatch) -> None:
