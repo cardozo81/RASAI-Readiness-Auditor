@@ -27,8 +27,8 @@ def _rewrite_catalog_guidance(text: str) -> str:
     """Translate superseded menu-number guidance to the catalog-era public UX."""
     return (
         str(text)
-        .replace("item 4", "I. Inteligência Artificial")
-        .replace("ITEM 4", "I. INTELIGÊNCIA ARTIFICIAL")
+        .replace("item 4", "INÍCIO > Inteligência Artificial")
+        .replace("ITEM 4", "INÍCIO > INTELIGÊNCIA ARTIFICIAL")
         .replace("item 13", "CAT-08")
         .replace("ITEM 13", "CAT-08")
         .replace("item T", "CAT-05")
