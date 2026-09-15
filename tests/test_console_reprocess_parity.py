@@ -130,6 +130,58 @@ def test_live_frame_matches_normal_processing_body_without_inline_cost(tmp_path:
     assert "REPROCESSAMENTO EM EXECUÇÃO" not in rendered
 
 
+def test_fast_reprocess_renders_progress_before_result_surface(monkeypatch, tmp_path: Path) -> None:
+    """A millisecond-fast local retry must still produce a perceivable live frame."""
+    from rasai import audit_reprocess, console_cost, console_navigation, console_runtime
+
+    pending = SimpleNamespace(
+        component="EXPERIENCE_APDEX",
+        scope_key="AUDIT",
+        status="FAILED_RETRYABLE",
+        attempt_count=1,
+        required=True,
+    )
+    state = SimpleNamespace(
+        audits_root=str(tmp_path),
+        audit_id="",
+        status="READY",
+        operation="LOCAL:MENU",
+        error="",
+        current_url="-",
+    )
+    console = ModuleType("fake_console")
+    rendered_labels: list[str] = []
+
+    monkeypatch.setattr(console_navigation, "_work_item_preview", lambda current_state, audit_id: ((pending,), ()))
+    monkeypatch.setattr(parity, "render_reprocess_preparation", lambda *args, **kwargs: None)
+    monkeypatch.setattr(parity, "_confirm_reprocess", lambda current_state: True)
+    monkeypatch.setattr(console_cost, "actual_usage", lambda audit_root: _usage(attempts=0, tokens=0, cost=0.0))
+    monkeypatch.setattr(audit_reprocess, "reprocess_audit", lambda *args, **kwargs: _result())
+    monkeypatch.setattr(parity, "_audit_primary_url", lambda audit_root: None)
+    monkeypatch.setattr(parity, "_pending_items", lambda current_state, audit_id: (pending,))
+    monkeypatch.setattr(parity, "_run_post_actions", lambda *args, **kwargs: None)
+    monkeypatch.setattr(parity.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(
+        parity,
+        "_reprocess_live_snapshot",
+        lambda audit_root, audit_id, baseline: {"total": 1, "evaluated": 1, "running": ()},
+    )
+    monkeypatch.setattr(parity, "_reprocess_activity", lambda snapshot: "finalizando requisito local")
+
+    def record_frame(console_module, current_state, audit_root):
+        progress = console_runtime.runtime_progress_summary(current_state)
+        rendered_labels.append(progress.label if progress is not None else "")
+
+    monkeypatch.setattr(parity, "_render_live_frame", record_frame)
+
+    parity.reprocess_selected(console, state, "AUD-TEST")
+
+    assert rendered_labels
+    assert rendered_labels[0] == "Reprocessamento seletivo"
+    assert "Reprocessamento físico encerrado" in rendered_labels
+    assert rendered_labels[-1] == "Reprocessamento concluído"
+
+
 def test_post_reprocess_uses_standard_post_run_usage_surface() -> None:
     console = ModuleType("fake_console")
     state = SimpleNamespace()
