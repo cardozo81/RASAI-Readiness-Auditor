@@ -57,7 +57,7 @@ def test_secret_value_is_never_exposed(monkeypatch) -> None:
         "segredo/API key",
         sensitive=True,
     )
-    secret = "sk-test-never-render-this"
+    secret = "unit-test-secret-value"
     monkeypatch.setenv(spec.name, secret)
     rendered = presentation.friendly_value(spec)
     assert rendered == "CONFIGURADO"
