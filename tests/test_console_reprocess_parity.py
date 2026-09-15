@@ -40,6 +40,54 @@ def _usage(*, attempts: int, tokens: int, cost: float) -> SimpleNamespace:
     )
 
 
+def test_reprocess_preparation_uses_processing_style_action_surface(monkeypatch, tmp_path: Path) -> None:
+    from rasai import console_navigation
+
+    monkeypatch.setattr(
+        console_navigation,
+        "_safe_summary",
+        lambda audit_root, audit_id: {
+            "processing_status": "PARTIAL_RETRYABLE",
+            "successful_items": 9,
+            "required_items": 10,
+        },
+    )
+    console = ModuleType("fake_console")
+    console.render_header = lambda state: print("HEADER")
+    state = SimpleNamespace(audits_root=str(tmp_path))
+    pending = (
+        SimpleNamespace(
+            component="SEMANTIC_AI",
+            scope_key="SNAP-1",
+            status="FAILED_RETRYABLE",
+            last_error_code="NETWORK",
+            last_error_message="NETWORK",
+        ),
+    )
+    successes = tuple(SimpleNamespace() for _ in range(9))
+
+    with redirect_stdout(StringIO()) as output:
+        parity.render_reprocess_preparation(console, state, "AUD-TEST", pending, successes)
+
+    rendered = output.getvalue()
+    assert "INÍCIO > AUDITORIAS / HISTÓRICO > REPROCESSAR AUDITORIA" in rendered
+    assert "PREPARAR REPROCESSAMENTO" in rendered
+    assert "9/10 atendidos" in rendered
+    assert "Sucessos preservados : 9" in rendered
+    assert "C. Confirmar e iniciar reprocessamento" in rendered
+    assert "V. Voltar sem reprocessar" in rendered
+    assert "REPROCESSAR:" not in rendered
+
+
+def test_reprocess_cancel_returns_without_error(monkeypatch) -> None:
+    state = SimpleNamespace(operation="", error="erro anterior")
+    monkeypatch.setattr("builtins.input", lambda prompt="": "V")
+
+    assert parity._confirm_reprocess(state) is False
+    assert state.operation == "LOCAL:AUD_REPROCESS_CANCELLED"
+    assert state.error == ""
+
+
 def test_result_explains_why_item_remained_unresolved() -> None:
     unresolved = (
         SimpleNamespace(
