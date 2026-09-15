@@ -33,6 +33,7 @@ report/
 ├─ readiness.html                   # SARI-001
 ├─ scoring.html                     # fórmula, pesos e gates do scoring vigente
 ├─ context.html                     # topologia de captura URL/device; read-only
+├─ execution-evidence.html          # opções solicitadas, execução, falhas e dependências
 ├─ crawling-discovery.html          # Domínio e descoberta; recursos ORIGIN
 ├─ mobile.html                      # dados Mobile ou estado SEM DADOS/NÃO APLICÁVEL
 ├─ desktop.html                     # dados Desktop ou estado SEM DADOS/NÃO APLICÁVEL
@@ -104,6 +105,7 @@ SARI-001 é metodologia proprietária, evidence-bound e reprodutível. Não repr
 | SARI-001 / dimensões | `readiness.html` | readiness proprietário |
 | metodologia de scoring | `scoring.html` | contrato vigente `SCORE-GEO-004` |
 | contexto de captura | `context.html` | escopo URL/device, variância de documento e runtime; read-only |
+| Evidências da execução | `execution-evidence.html` | matriz do que foi solicitado/executado, estado, falhas e configuração faltante; sem recalcular scoring |
 | Mobile | `mobile.html` | evidências/findings do contexto Mobile quando disponíveis |
 | Desktop | `desktop.html` | evidências/findings do contexto Desktop quando disponíveis |
 | Domínio e descoberta | `crawling-discovery.html` | superfície canônica de `ORIGIN`: robots, sitemaps, llms.txt e controles de crawler |
@@ -205,7 +207,7 @@ Synthetic Apdex não é derivado de LCP, INP, CLS, FCP ou TBT. Web Performance n
 
 `standards.html` é a superfície canônica de serviços e métricas complementares de padrões. Pode consolidar W3C Nu HTML Checker, W3C CSS Validator, MDN HTTP Observatory, Web Platform Baseline/WebDX e métricas derivadas quando cada capacidade estiver disponível.
 
-A página sempre existe no mini-site final, mas sua existência não habilita serviços. Se uma integração estiver desabilitada, não configurada ou sem dado, o estado deve ser apresentado explicitamente. Em especial, Web Platform Baseline continua dependente do dataset versionado e das limitações documentadas; a mera presença de `RASAI_WEB_FEATURES_DATASET` não fabrica classificação de compatibilidade.
+A página sempre existe no mini-site final, mas sua existência não habilita serviços. Se uma integração estiver desabilitada, não configurada ou sem dado, o estado deve ser apresentado explicitamente. Em especial, Web Platform Baseline usa o dataset WebDX versionado congelado no próprio `AUD-*` e materializa somente features vinculadas a sinais diretamente observáveis nos artifacts persistidos. A presença de `RASAI_WEB_FEATURES_DATASET` não fabrica classificação: assets externos não são refeitos apenas para WebDX e ausência de sinal mapeável permanece `NO_DATA`, não falha do website.
 
 Esses sinais permanecem complementares/advisory, salvo quando existir mapeamento explícito de evidência para uma regra já contratada; não são um segundo score de readiness.
 

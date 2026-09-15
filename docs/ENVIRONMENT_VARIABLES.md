@@ -141,7 +141,7 @@ Referência funcional: [STANDARDS_METRICS_AND_SERVICES.md](STANDARDS_METRICS_AND
 | `RASAI_STANDARDS_MAX_URLS` | `10` | inteiro `>= 0`; `0=todas` | `10` | teto de URLs em serviços externos desta família |
 | `RASAI_STANDARDS_TIMEOUT_SECONDS` | `20` | número `> 0` e `< 3600` | `20` | timeout por request |
 
-`RASAI_WEB_FEATURES_DATASET=auto` atende a configuração normal da fonte do dataset global `web-platform-dx/web-features`; o dataset-base não depende do domínio auditado. O domínio determina quais features seriam observadas na página. Como o detector/mapeador versionado ainda não está materializado no runtime, `RASAI_WEB_PLATFORM_BASELINE=true` pode resultar em `NO_DATA`, mas não deve exigir um caminho local nem inventar compatibilidade. Consulte [WEB_PLATFORM_BASELINE.md](WEB_PLATFORM_BASELINE.md).
+`RASAI_WEB_FEATURES_DATASET=auto` atende a configuração normal da fonte global `web-platform-dx/web-features`; o dataset-base não depende do domínio auditado. No contrato `WEB-PLATFORM-BASELINE-001`, o runtime resolve e congela a versão usada por `AUD-*` (versão/SHA-256), detecta features diretamente observáveis no HTML persistido e em CSS/JavaScript inline e cruza essas evidências com `compat_features`. CSS/JS externos do alvo não são refeitos apenas para ampliar WebDX; `NO_DATA` significa ausência de evidência diretamente mapeável ou de artifact elegível, não ausência do detector. Consulte [WEB_PLATFORM_BASELINE.md](WEB_PLATFORM_BASELINE.md).
 
 ### 7.2 Controle agregado de Web Performance
 

@@ -232,7 +232,7 @@ RASAI_WEB_FEATURES_DATASET=auto
 
 `auto` é a política canônica de fonte do dataset global `web-platform-dx/web-features`. O dataset-base não varia por domínio auditado; o domínio determina quais features são observadas na página. Um caminho para arquivo local existente continua aceito como override avançado para pin/versionamento e reprodutibilidade.
 
-O default `auto` atende a configuração mínima da fonte e evita exigir ao usuário um caminho local sem necessidade. Isso não significa que a análise de compatibilidade já foi materializada: sem detector/mapeamento reproduzível suficiente, o estado de resultado permanece `NO_DATA` e nenhuma compatibilidade é inventada.
+O default `auto` atende a configuração mínima da fonte e evita exigir ao usuário um caminho local. O contrato `WEB-PLATFORM-BASELINE-001` resolve o pacote oficial `web-features`, congela `data.json` + metadata (incluindo versão e SHA-256) dentro do `AUD-*` e classifica sinais diretamente observáveis no HTML persistido e em CSS/JavaScript inline. Assets CSS/JS externos do alvo não são refeitos apenas para WebDX; por isso `NO_DATA` continua válido quando nenhum sinal observável mapeia para `compat_features`, sem inventar compatibilidade. Reprocessamentos do mesmo AUD reutilizam o snapshot congelado antes de qualquer nova resolução de rede.
 
 Contrato detalhado: [WEB_PLATFORM_BASELINE.md](WEB_PLATFORM_BASELINE.md).
 
