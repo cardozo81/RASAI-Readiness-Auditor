@@ -22,195 +22,76 @@ jobs:
         run: python -m pip install -e .
       - name: Install Chromium
         run: python -m playwright install chromium
-      - name: Run isolated mobile measurements
+      - name: Run isolated mobile measurements sequentially
         shell: bash
         run: |
           python - <<'PY' | tee apdex-isolated-validation.json
-          import json
-          import math
-          import statistics
-          import time
-
-          from rasai.m23_apdex import _classification as navigation_classification
+          import json, math, statistics, time
+          from rasai.m23_apdex import _classification as nav_classify
           from rasai.m23_apdex_profiles import MOBILE_STANDARD_PROFILE, PlaywrightSyntheticNavigationGateway
           from rasai.m25_apdex_experience import Calibration, PlaywrightSyntheticUxGateway, classify_measurement
 
           URL = "https://loja.bradescoseguros.com.br/"
-          SAMPLES = 10
-          TIMEOUT_SECONDS = 30.0
-          SETTLE_SECONDS = 5.0
-          DELAY_SECONDS = 1.0
-          NAV_T_SECONDS = 3.0
+          N = 10
+          TIMEOUT = 30.0
+          SETTLE = 5.0
+          DELAY = 1.0
+          calibration = Calibration(source="ISOLATED_VALIDATION", kpm="USER_ACTION_DURATION", satisfied_threshold_seconds=3.0, frustrated_threshold_seconds=12.0, errors_affect_apdex=True, metadata={})
 
-          calibration = Calibration(
-              source="ISOLATED_VALIDATION",
-              kpm="USER_ACTION_DURATION",
-              satisfied_threshold_seconds=3.0,
-              frustrated_threshold_seconds=12.0,
-              errors_affect_apdex=True,
-              metadata={},
-          )
+          def pct(values, q):
+              v = sorted(float(x) for x in values if x is not None and math.isfinite(float(x)))
+              if not v: return None
+              if len(v) == 1: return v[0]
+              p = (len(v)-1)*q; lo=math.floor(p); hi=math.ceil(p)
+              return v[lo] if lo == hi else v[lo]*(1-(p-lo))+v[hi]*(p-lo)
 
-          def apdex(rows):
-              values = [row["classification"] for row in rows if row["classification"] is not None]
-              if not values:
-                  return None
-              satisfied = sum(value == "SATISFIED" for value in values)
-              tolerating = sum(value == "TOLERATING" for value in values)
-              return (satisfied + 0.5 * tolerating) / len(values)
+          def summary(rows, key):
+              valid=[r for r in rows if r["classification"] is not None]
+              vals=[r[key] for r in valid if r.get(key) is not None]
+              cut=max(1,len(valid)//2)
+              first=[r[key] for r in valid[:cut] if r.get(key) is not None]
+              second=[r[key] for r in valid[cut:] if r.get(key) is not None]
+              s=sum(r["classification"]=="SATISFIED" for r in valid); t=sum(r["classification"]=="TOLERATING" for r in valid); f=sum(r["classification"]=="FRUSTRATED" for r in valid)
+              return {"attempts":len(rows),"valid":len(valid),"invalid":len(rows)-len(valid),"valid_ratio":len(valid)/len(rows) if rows else 0,"apdex":(s+.5*t)/len(valid) if valid else None,"counts":{"SATISFIED":s,"TOLERATING":t,"FRUSTRATED":f},"p50_ms":pct(vals,.5),"p75_ms":pct(vals,.75),"p95_ms":pct(vals,.95),"first_half_mean_ms":statistics.fmean(first) if first else None,"second_half_mean_ms":statistics.fmean(second) if second else None}
 
-          def percentile(values, fraction):
-              clean = sorted(float(v) for v in values if v is not None and math.isfinite(float(v)))
-              if not clean:
-                  return None
-              if len(clean) == 1:
-                  return clean[0]
-              position = (len(clean) - 1) * fraction
-              low = math.floor(position)
-              high = math.ceil(position)
-              if low == high:
-                  return clean[low]
-              weight = position - low
-              return clean[low] * (1.0 - weight) + clean[high] * weight
-
-          def summarize(rows, duration_key):
-              valid = [row for row in rows if row["classification"] is not None]
-              durations = [row[duration_key] for row in valid if row.get(duration_key) is not None]
-              first = [row[duration_key] for row in valid[: max(1, len(valid)//2)] if row.get(duration_key) is not None]
-              second = [row[duration_key] for row in valid[max(1, len(valid)//2):] if row.get(duration_key) is not None]
-              counts = {name: sum(row["classification"] == name for row in valid) for name in ("SATISFIED", "TOLERATING", "FRUSTRATED")}
-              return {
-                  "attempts": len(rows),
-                  "valid": len(valid),
-                  "invalid": len(rows) - len(valid),
-                  "valid_ratio": len(valid) / len(rows) if rows else 0.0,
-                  "apdex": apdex(rows),
-                  "counts": counts,
-                  "p50_ms": percentile(durations, 0.50),
-                  "p75_ms": percentile(durations, 0.75),
-                  "p95_ms": percentile(durations, 0.95),
-                  "first_half_mean_ms": statistics.fmean(first) if first else None,
-                  "second_half_mean_ms": statistics.fmean(second) if second else None,
-              }
-
-          navigation = PlaywrightSyntheticNavigationGateway()
-          experience = PlaywrightSyntheticUxGateway(session_mode="cold")
-          nav_rows = []
-          ux_rows = []
+          nav_rows=[]
+          nav=PlaywrightSyntheticNavigationGateway()
+          nav_env=nav.environment()
           try:
-              environments = {
-                  "navigation": navigation.environment(),
-                  "experience": experience.environment(),
-                  "profile": MOBILE_STANDARD_PROFILE.as_dict(),
-              }
-              for index in range(1, SAMPLES + 1):
-                  nav = navigation.measure(
-                      url=URL,
-                      profile=MOBILE_STANDARD_PROFILE,
-                      timeout_seconds=TIMEOUT_SECONDS,
-                  )
-                  nav_rows.append({
-                      "sample": index,
-                      "status": nav.status,
-                      "duration_ms": nav.duration_ms,
-                      "http_status": nav.http_status,
-                      "final_url": nav.final_url,
-                      "classification": navigation_classification(nav, NAV_T_SECONDS),
-                      "error_code": nav.error_code,
-                      "profile_applied": nav.profile_applied,
-                  })
-                  time.sleep(DELAY_SECONDS)
-
-                  ux = experience.measure(
-                      url=URL,
-                      device="MOBILE",
-                      profile=MOBILE_STANDARD_PROFILE,
-                      timeout_seconds=TIMEOUT_SECONDS,
-                      settle_seconds=SETTLE_SECONDS,
-                  )
-                  classification, value, forced = classify_measurement(
-                      ux,
-                      calibration,
-                      error_scope="first-party",
-                  )
-                  ux_rows.append({
-                      "sample": index,
-                      "status": ux.status,
-                      "user_action_duration_ms": ux.user_action_duration_ms,
-                      "kpm_value_ms": value,
-                      "navigation_duration_ms": ux.navigation_duration_ms,
-                      "load_event_end_ms": ux.load_event_end_ms,
-                      "http_status": ux.http_status,
-                      "final_url": ux.final_url,
-                      "classification": classification,
-                      "error_forced_frustrated": forced,
-                      "javascript_error_count": ux.javascript_error_count,
-                      "console_error_count": ux.console_error_count,
-                      "request_failed_count": ux.request_failed_count,
-                      "first_party_request_failed_count": ux.first_party_request_failed_count,
-                      "http_error_count": ux.http_error_count,
-                      "first_party_http_error_count": ux.first_party_http_error_count,
-                      "xhr_fetch_count": ux.xhr_fetch_count,
-                      "dynamic_resource_count": ux.dynamic_resource_count,
-                      "network_settled": ux.network_settled,
-                      "error_code": ux.error_code,
-                      "profile_applied": ux.profile_applied,
-                  })
-                  time.sleep(DELAY_SECONDS)
+              for i in range(1,N+1):
+                  m=nav.measure(url=URL,profile=MOBILE_STANDARD_PROFILE,timeout_seconds=TIMEOUT)
+                  nav_rows.append({"sample":i,"status":m.status,"duration_ms":m.duration_ms,"http_status":m.http_status,"final_url":m.final_url,"classification":nav_classify(m,3.0),"error_code":m.error_code,"profile_applied":m.profile_applied})
+                  time.sleep(DELAY)
           finally:
-              navigation.close()
-              experience.close()
+              nav.close()
 
-          nav_summary = summarize(nav_rows, "duration_ms")
-          ux_summary = summarize(ux_rows, "user_action_duration_ms")
-          forced_count = sum(bool(row["error_forced_frustrated"]) for row in ux_rows if row["classification"] is not None)
-          console_samples = sum(int(row["console_error_count"] or 0) > 0 for row in ux_rows)
-          js_samples = sum(int(row["javascript_error_count"] or 0) > 0 for row in ux_rows)
-          first_request_error_samples = sum(
-              int(row["first_party_request_failed_count"] or 0) > 0 or int(row["first_party_http_error_count"] or 0) > 0
-              for row in ux_rows
-          )
-          blocked_statuses = sum(row.get("http_status") in {403, 429} for row in nav_rows + ux_rows)
+          ux_rows=[]
+          ux=PlaywrightSyntheticUxGateway(session_mode="cold")
+          ux_env=ux.environment()
+          try:
+              for i in range(1,N+1):
+                  m=ux.measure(url=URL,device="MOBILE",profile=MOBILE_STANDARD_PROFILE,timeout_seconds=TIMEOUT,settle_seconds=SETTLE)
+                  c,v,forced=classify_measurement(m,calibration,error_scope="first-party")
+                  ux_rows.append({"sample":i,"status":m.status,"user_action_duration_ms":m.user_action_duration_ms,"kpm_value_ms":v,"navigation_duration_ms":m.navigation_duration_ms,"load_event_end_ms":m.load_event_end_ms,"http_status":m.http_status,"final_url":m.final_url,"classification":c,"error_forced_frustrated":forced,"javascript_error_count":m.javascript_error_count,"console_error_count":m.console_error_count,"request_failed_count":m.request_failed_count,"first_party_request_failed_count":m.first_party_request_failed_count,"http_error_count":m.http_error_count,"first_party_http_error_count":m.first_party_http_error_count,"xhr_fetch_count":m.xhr_fetch_count,"dynamic_resource_count":m.dynamic_resource_count,"network_settled":m.network_settled,"error_code":m.error_code,"profile_applied":m.profile_applied})
+                  time.sleep(DELAY)
+          finally:
+              ux.close()
 
-          suspicions = []
-          if nav_summary["valid_ratio"] < 0.8:
-              suspicions.append("NAVIGATION_COLLECTION_VALID_RATIO_BELOW_80_PERCENT")
-          if ux_summary["valid_ratio"] < 0.8:
-              suspicions.append("EXPERIENCE_COLLECTION_VALID_RATIO_BELOW_80_PERCENT")
-          if ux_summary["apdex"] is not None and not (0.35 <= ux_summary["apdex"] <= 0.75):
-              suspicions.append("EXPERIENCE_APDEX_OUTSIDE_BROAD_DIAGNOSTIC_TOLERANCE_AROUND_REFERENCE")
-          if ux_summary["valid"] and forced_count / ux_summary["valid"] >= 0.5:
-              suspicions.append("EXPERIENCE_ERROR_FORCED_FRUSTRATED_AT_LEAST_50_PERCENT")
-          for label, summary in (("NAVIGATION", nav_summary), ("EXPERIENCE", ux_summary)):
-              first = summary["first_half_mean_ms"]
-              second = summary["second_half_mean_ms"]
-              if first and second and second > first * 1.5:
-                  suspicions.append(f"{label}_SECOND_HALF_MEAN_OVER_50_PERCENT_WORSE")
-          if blocked_statuses:
-              suspicions.append("HTTP_403_OR_429_OBSERVED_DURING_BATTERY")
-
-          result = {
-              "url": URL,
-              "device": "MOBILE",
-              "samples_per_mode": SAMPLES,
-              "execution_pattern": "INTERLEAVED_NAVIGATION_THEN_EXPERIENCE",
-              "navigation_criteria": {"T_seconds": 3.0, "satisfied": "<=3s", "tolerating": ">3s and <=12s", "frustrated": ">12s or qualifying navigation error"},
-              "experience_criteria": {"kpm": "USER_ACTION_DURATION", "satisfied": "<3s", "tolerating": "3s through 12s", "frustrated": ">12s or qualifying error", "runtime_errors": "all JavaScript/pageerror and console.error", "request_errors": "first-party"},
-              "environments": environments,
-              "navigation": {"summary": nav_summary, "samples": nav_rows},
-              "experience": {
-                  "summary": ux_summary,
-                  "forced_frustrated_samples": forced_count,
-                  "samples_with_console_error": console_samples,
-                  "samples_with_javascript_error": js_samples,
-                  "samples_with_first_party_request_error": first_request_error_samples,
-                  "user_reference_apdex": [0.5, 0.6],
-                  "samples": ux_rows,
-              },
-              "blocked_403_429_observations": blocked_statuses,
-              "routine_suspicions": suspicions,
-          }
-          print(json.dumps(result, ensure_ascii=False, indent=2))
+          ns=summary(nav_rows,"duration_ms"); us=summary(ux_rows,"user_action_duration_ms")
+          forced=sum(bool(r["error_forced_frustrated"]) for r in ux_rows if r["classification"] is not None)
+          console_samples=sum((r["console_error_count"] or 0)>0 for r in ux_rows)
+          js_samples=sum((r["javascript_error_count"] or 0)>0 for r in ux_rows)
+          fp_req_samples=sum((r["first_party_request_failed_count"] or 0)>0 or (r["first_party_http_error_count"] or 0)>0 for r in ux_rows)
+          blocked=sum(r.get("http_status") in {403,429} for r in nav_rows+ux_rows)
+          susp=[]
+          if ns["valid_ratio"]<.8: susp.append("NAVIGATION_COLLECTION_VALID_RATIO_BELOW_80_PERCENT")
+          if us["valid_ratio"]<.8: susp.append("EXPERIENCE_COLLECTION_VALID_RATIO_BELOW_80_PERCENT")
+          if us["apdex"] is not None and not (.35<=us["apdex"]<=.75): susp.append("EXPERIENCE_APDEX_OUTSIDE_BROAD_DIAGNOSTIC_TOLERANCE_AROUND_REFERENCE")
+          if us["valid"] and forced/us["valid"]>=.5: susp.append("EXPERIENCE_ERROR_FORCED_FRUSTRATED_AT_LEAST_50_PERCENT")
+          for label,x in (("NAVIGATION",ns),("EXPERIENCE",us)):
+              if x["first_half_mean_ms"] and x["second_half_mean_ms"] and x["second_half_mean_ms"]>x["first_half_mean_ms"]*1.5: susp.append(label+"_SECOND_HALF_MEAN_OVER_50_PERCENT_WORSE")
+          if blocked: susp.append("HTTP_403_OR_429_OBSERVED_DURING_BATTERY")
+          print(json.dumps({"url":URL,"device":"MOBILE","samples_per_mode":N,"execution_pattern":"SEQUENTIAL_ISOLATED_RUNTIMES","criteria":{"navigation":"T=3s; <=3 S; >3..12 T; >12/error F","experience":"USER_ACTION_DURATION; <3 S; 3..12 T; >12/error F; JS/pageerror+console.error global; request errors first-party"},"environments":{"navigation":nav_env,"experience":ux_env,"profile":MOBILE_STANDARD_PROFILE.as_dict()},"navigation":{"summary":ns,"samples":nav_rows},"experience":{"summary":us,"forced_frustrated_samples":forced,"samples_with_console_error":console_samples,"samples_with_javascript_error":js_samples,"samples_with_first_party_request_error":fp_req_samples,"user_reference_apdex":[.5,.6],"samples":ux_rows},"blocked_403_429_observations":blocked,"routine_suspicions":susp},ensure_ascii=False,indent=2))
           PY
       - name: Upload diagnostic result
         uses: actions/upload-artifact@v4
