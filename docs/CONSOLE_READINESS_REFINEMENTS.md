@@ -1,92 +1,71 @@
 # Readiness e orientação contextual do console
 
-Este documento registra a semântica de apresentação aplicada às áreas revisadas do console. O runtime, registries e validadores canônicos continuam sendo a fonte de verdade.
+Este documento registra a semântica de readiness aplicada ao catálogo da auditoria. Runtime, registries e validadores canônicos continuam sendo a fonte de verdade.
+
+## Regra agregada
+
+Um catálogo selecionado é:
+
+```text
+APTO                 requisitos mínimos conhecidos satisfeitos
+APTO COM LIMITAÇÕES  executável com perda conhecida de fonte/enriquecimento opcional
+BLOQUEADO            falta requisito obrigatório para o resultado escolhido
+```
+
+Catálogo fora do plano aparece `NÃO SELECIONADO` e não participa dos blockers.
 
 ## Observabilidade externa
 
-A capacidade de preparação denominada **Observabilidade externa** representa exatamente as fontes do runtime de observabilidade externa:
+Observabilidade externa permanece uma capacidade/fonte técnica consumida quando aplicável. Ela não transforma automaticamente integrações não selecionadas em requisitos da auditoria.
+
+As fontes atuais incluem, conforme registry/configuração:
 
 1. CrUX History;
 2. Microsoft Clarity Data Export;
 3. Common Crawl CDX History.
 
-Ela não agrega:
+Dynatrace continua sendo uma fonte de calibração do Synthetic User Experience Apdex, não um dataset genérico de observabilidade externa.
 
-- Search Intelligence / SERP, que possui capacidade própria;
-- Google Search Console, que possui capacidade própria;
-- Dynatrace, que é uma fonte de **calibração do Synthetic User Experience Apdex**, não um dataset da capacidade de observabilidade externa.
+## Search & AI Intelligence
 
-### Estado por fonte
+`CAT-05` agrega objetivo de produto, mas mantém contratos independentes:
 
 ```text
-APTO         fonte solicitada/elegível e configuração suficiente
-CONFIGURAR   fonte solicitada, mas falta requisito obrigatório
-DESABILITADO fonte desligada, sem opt-in ou sem elegibilidade automática
+Search Intelligence / SERP
+Google Search Console
+Visibilidade em IA
+Observabilidade aplicável
 ```
 
-### Estado agregado
-
-```text
-CONFIGURAR      se qualquer fonte solicitada estiver incompleta
-APTO            se ao menos uma fonte estiver pronta e nenhuma solicitada estiver incompleta
-NÃO SOLICITADO  se nenhuma fonte estiver ativa/elegível
-```
-
-Com os defaults atuais, Common Crawl é público, bounded e habilitado por default, portanto o agregado normalmente aparece `APTO` mesmo com Clarity e CrUX History desabilitados/não solicitados.
-
-Clarity permanece opt-in. `RASAI_CLARITY_API_TOKEN` sozinho não solicita a coleta; `RASAI_CLARITY_ENABLED=true` sem token gera `CONFIGURAR`.
-
-CrUX History pode ficar elegível por credencial conforme o registry, salvo desligamento explícito.
+SERP com termos e configuração válida pode tornar o catálogo apto mesmo quando GSC automático é não aplicável. GSC explicitamente obrigatório e incompatível é blocker.
 
 ## Dynatrace no editor de variáveis
 
-Valores de domínio aberto devem mostrar mais do que `entrada específica`. A UI apresenta:
-
-```text
-Como preencher
-formato aceito
-exemplo válido, quando conhecido
-critério de uso/ativação
-referências do contrato
-```
+Valores de domínio aberto mostram formato, exemplo e critério de uso.
 
 ### `RASAI_DYNATRACE_APPLICATION_ID`
 
-É o identificador técnico da Web Application usado pela Config API.
-
-Exemplo publicado:
+Identificador técnico da Web Application usado pela Config API. Exemplo publicado:
 
 ```text
 APPLICATION-XXXXXXXXXXXX
 ```
 
-O runtime trata o valor como texto não vazio e URL-escapa o identificador ao montar o endpoint. A UI não impõe um regex rígido adicional para não rejeitar identificadores válidos do provider.
-
-É necessário somente no modo live:
-
-```text
-RASAI_APDEX_DYNATRACE_IMPORT=true
-e
-RASAI_DYNATRACE_CONFIG_JSON ausente
-```
+É necessário somente no modo live quando `RASAI_APDEX_DYNATRACE_IMPORT=true` e não existe `RASAI_DYNATRACE_CONFIG_JSON`.
 
 ### `RASAI_DYNATRACE_CONFIG_JSON`
 
-É um caminho para arquivo JSON existente com configuração exportada da Web Application.
-
-Exemplo:
+Caminho para JSON exportado da Web Application, por exemplo:
 
 ```text
 C:\dados\dynatrace-web-application.json
 ```
 
-É uma alternativa offline/reprodutível. Quando definido, o loader prefere o JSON e não exige base URL, Application ID ou token para carregar a calibração.
-
-O arquivo precisa conter objeto JSON compatível com thresholds/KPM de Load Action. O payload bruto não é persistido nos relatórios.
+Quando definido, o loader pode usar a calibração offline sem exigir base URL/Application ID/token para essa leitura.
 
 ### Modo live
 
-Quando o JSON offline não está definido e `RASAI_APDEX_DYNATRACE_IMPORT=true`, o modo live exige em conjunto:
+Quando não há JSON offline e `RASAI_APDEX_DYNATRACE_IMPORT=true`, continuam necessários:
 
 ```text
 RASAI_DYNATRACE_BASE_URL
@@ -94,20 +73,27 @@ RASAI_DYNATRACE_APPLICATION_ID
 DYNATRACE_API_TOKEN
 ```
 
-`DYNATRACE_API_TOKEN` continua sendo secret e não entra no INI, SQLite, HTML ou logs sanitizados.
+O token permanece secret e não entra no INI/HTML/log sanitizado.
 
-## Perfis
+## Uso opcional de IA
 
-As referências canônicas exibidas em `Falta` são:
+Com somente `CAT-03`/`CAT-09` como consumidores de IA, o plano usa **sem IA** por padrão. Escolher **com IA** passa a exigir uma IA principal configurada/apta; sem isso o plano fica `BLOQUEADO` antes da execução.
 
-```text
-6  IA principal
-12 Synthetic Apdex
-13 Termos SERP
-```
+## Análise profunda
 
-Análise profunda é solicitada pelo próprio perfil quando esse módulo faz parte da composição; por isso `item 8 desligado` não deve aparecer como pendência prévia isolada.
+`CAT-08` é consumidor de evidências. Fica `BLOQUEADO` quando:
 
-Perfis com Análise profunda exigem IA principal/AUTO apta e não oferecem a combinação contraditória `Análise profunda + SEM IA`.
+- nenhum catálogo produtor foi selecionado; ou
+- a IA principal necessária não está apta.
 
-Detalhes completos: [EXECUTION_PROFILES.md](EXECUTION_PROFILES.md).
+O console não deve descobrir essa incompatibilidade somente depois de iniciar o AUD.
+
+## Remediações
+
+`CAT-09` exige evidências produzidas. Remediações determinísticas podem existir sem IA; enriquecimento advisory por IA não altera scoring técnico.
+
+## Dependências e variáveis
+
+A mensagem de blocker deve indicar a dependência/variável concreta quando conhecida. O usuário pode abrir a configuração canônica pelo ID exibido no submenu do catálogo e retornar ao mesmo contexto após salvar.
+
+Detalhes completos: [AUDIT_CATALOG_WORKFLOW.md](AUDIT_CATALOG_WORKFLOW.md).
