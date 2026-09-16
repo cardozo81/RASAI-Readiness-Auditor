@@ -114,6 +114,21 @@ def test_source_specific_groups_are_explicit() -> None:
         context._functional_group = original
 
 
+def test_cat05_shared_crux_key_stays_inside_crux_history_group() -> None:
+    major, subgroup = refinements._functional_group_for_catalog(
+        "CAT-05", SimpleNamespace(name="RASAI_CRUX_API_KEY")
+    )
+    assert major == "CrUX History — experiência real histórica"
+    assert subgroup == "Credencial"
+
+
+def test_related_row_parser_accepts_current_compact_and_legacy_ids() -> None:
+    current = refinements._ROW_RE.match("598690    Modo de coleta SERP")
+    legacy = refinements._ROW_RE.match("12345678   Modo de coleta SERP")
+    assert current is not None and current.group(1) == "598690"
+    assert legacy is not None and legacy.group(1) == "12345678"
+
+
 def test_cat05_sources_are_ordered_and_cat07_dynatrace_is_last(monkeypatch) -> None:
     groups = {
         "serp": "SERP — resultados públicos por termo",
