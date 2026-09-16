@@ -13,17 +13,14 @@ handling:
 from __future__ import annotations
 
 import builtins
-from configparser import ConfigParser
-from contextlib import contextmanager
 import re
 from types import ModuleType
-from typing import Any, Iterator
+from typing import Any
 
-from rasai.console_ui import CYAN, DIM, paint
+from rasai.console_ui import DIM, paint
 
 _INSTALLED = False
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
-_ROW_RE = re.compile(r"^\s*(\d{8})\s{2,}")
 _LABEL_WIDTH = 46
 _VALUE_WIDTH = 22
 
