@@ -133,6 +133,12 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
     print(f"3. Profundidade desejada    : Top {depth}")
     print(f"4. Dispositivo da busca     : {'Desktop' if device == 'desktop' else 'Mobile'}")
     print(f"5. Análise de concorrentes  : {'Ativada' if competitive else 'Desativada'}")
+    if hasattr(state, "search_compare_content"):
+        compare = bool(getattr(state, "search_compare_content", False))
+        print(
+            "6. Comparação de conteúdo   : "
+            + ("Ativada (HTTP adicional limitado)" if compare else "Desativada")
+        )
     if queries:
         print(f"   Impacto projetado         : {projected}/{config.max_requests} requests no teto conservador")
     else:
@@ -251,6 +257,28 @@ def _edit_competitive(state: Any, config: SerpRuntimeConfig) -> None:
         print("  Opção inválida: use 1, 2 ou V.")
 
 
+def _edit_content_comparison(state: Any) -> None:
+    print("\nCOMPARAÇÃO DE CONTEÚDO")
+    print(
+        "  Uso: adquire de forma limitada páginas públicas do domínio auditado e de candidatos SERP "
+        "para comparar título, headings, corpo e dados estruturados."
+    )
+    print(
+        "       Gera HTTP adicional além da coleta SERP; não ativa IA e não afirma que diferenças de "
+        "conteúdo causaram a posição observada."
+    )
+    print("  1. Ativada")
+    print("  2. Desativada")
+    print("  V. Voltar")
+    raw = input("Escolha [1-2/V]: ").strip().upper()
+    if raw == "1":
+        state.search_compare_content = True
+    elif raw == "2":
+        state.search_compare_content = False
+    elif raw != "V":
+        print("  Opção inválida: use 1, 2 ou V.")
+
+
 def _mark_pending(search_module: ModuleType, state: Any, config: SerpRuntimeConfig) -> None:
     queries = tuple(getattr(state, "search_queries", ()) or ())
     if not queries:
@@ -299,7 +327,10 @@ def configure_search_parameters(search_module: ModuleType, state: Any) -> None:
             state.search_queries = ()
             _mark_pending(search_module, state, config)
             continue
-        if raw in {"1", "2", "3", "4", "5"}:
+        editable = {"1", "2", "3", "4", "5"}
+        if hasattr(state, "search_compare_content"):
+            editable.add("6")
+        if raw in editable:
             blocker = _provider_blocker(search_module, config)
             if blocker:
                 print(f"\n  Provider não apto: {blocker}.")
@@ -314,8 +345,11 @@ def configure_search_parameters(search_module: ModuleType, state: Any) -> None:
             _edit_device(state)
         elif raw == "5":
             _edit_competitive(state, config)
+        elif raw == "6" and hasattr(state, "search_compare_content"):
+            _edit_content_comparison(state)
         else:
-            print("  Opção inválida: use 1-5, D ou V.")
+            allowed = "1-6" if hasattr(state, "search_compare_content") else "1-5"
+            print(f"  Opção inválida: use {allowed}, D ou V.")
 
 
 def install(search_module: ModuleType) -> None:
@@ -330,6 +364,8 @@ def install(search_module: ModuleType) -> None:
         return configure_search_parameters(search_module, state)
 
     configure_search_intelligence._rasai_original = original  # type: ignore[attr-defined]
+    if getattr(original, "_rasai_content_compare", False):
+        configure_search_intelligence._rasai_content_compare = True  # type: ignore[attr-defined]
     search_module.configure_search_intelligence = configure_search_intelligence
     search_module._rasai_search_parameter_menu = True
     _INSTALLED = True
