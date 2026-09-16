@@ -139,8 +139,9 @@ Marcadores internos de subprocesso e seletores de IA locais já aposentados não
 Ao usar `Salvar configuração`, o INI passa a ser também um inventário completo da configuração pública não sensível:
 
 - toda configuração pública não sensível é materializada na seção `[environment]`;
-- a precedência para o valor salvo é: valor explícito da sessão/ambiente, projeção do estado do console, default público do runtime;
-- configurações públicas sem valor efetivo nem default permanecem listadas com valor vazio;
+- a precedência para o valor salvo é: valor explícito da sessão/ambiente, projeção do estado do console, default público persistível do runtime;
+- configurações públicas sem valor efetivo nem default persistível permanecem listadas com valor vazio;
+- seletores que só devem existir quando há override explícito, como `RASAI_CONFIG`, permanecem vazios se o operador não os definiu; o ato de salvar não pode transformar ausência em override;
 - os inputs não sensíveis de Search ficam na seção `[search_intelligence]` (`queries`, `depth`, `region`, `device`, `competitive`);
 - secrets permanecem somente em sessão ou Windows/User, conforme suporte existente;
 - API keys, tokens, client secrets, passwords e outros valores classificados como sensíveis nunca entram no INI;
