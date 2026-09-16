@@ -58,6 +58,7 @@ A superfície segue o contrato:
   3. Profundidade desejada
   4. Dispositivo da busca
   5. Análise de concorrentes
+  6. Comparação de conteúdo, quando essa capacidade opcional estiver disponível
 
   D. Não solicitar SERP nesta execução
   V. Voltar
@@ -72,15 +73,16 @@ Cada campo da próxima execução aplica o domínio permitido pelo runtime/provi
 - **Profundidade**: aceita somente inteiro dentro do intervalo efetivo `1..N`; `N` respeita `RASAI_SERP_MAX_DEPTH` e, para paginação previsível, também o orçamento de `RASAI_SERP_MAX_REQUESTS` considerando quantidade de termos e retries;
 - **Dispositivo**: enum fechado `Mobile` ou `Desktop`;
 - **Análise de concorrentes**: enum fechado `Ativada` ou `Desativada`; a tela informa também `RASAI_SERP_MAX_COMPETITORS`;
+- **Comparação de conteúdo**: enum fechado `Ativada` ou `Desativada` quando o runtime expõe a capacidade; ativar adiciona aquisição HTTP limitada de páginas públicas para comparação determinística e não ativa IA;
 - **D. Não solicitar SERP**: limpa os termos e projeta o estado como `NÃO SOLICITADO` para a próxima execução.
 
-O menu mostra explicação de uso e abrangência antes de solicitar valores fechados/ranged. Entradas fora do domínio permitido não alteram o estado corrente.
+O menu mostra explicação de uso e abrangência antes de solicitar valores fechados/ranged. Entradas fora do domínio permitido não alteram o estado corrente. Em modo `disabled`, ou com provider live sem a credencial exigida, o menu informa a pendência e não aceita alterações que produziriam uma solicitação SERP inválida.
 
 Esses campos são inputs da execução, não variáveis de ambiente.
 
 ### Sessão e persistência explícita
 
-Os inputs permanecem na sessão durante a configuração normal. Se o operador usar `Salvar configuração`, os valores não sensíveis são gravados no `rasai-console.ini` e restaurados ao carregar esse arquivo.
+Os inputs permanecem na sessão durante a configuração normal. Se o operador usar `Salvar configuração`, os valores não sensíveis previstos pelo contrato de persistência são gravados no `rasai-console.ini` e restaurados ao carregar esse arquivo.
 
 A seção persistida contém, quando a capacidade existe no estado do console:
 
@@ -165,7 +167,7 @@ A região adiciona localização específica quando ranking geográfico é relev
 
 A classificação competitiva determinística usa a SERP já coletada e não cria por si só uma nova chamada comercial.
 
-Comparação aprofundada de conteúdo e análises por IA pertencem às capacidades próprias e, quando usam IA, reutilizam a seleção principal da execução.
+A comparação opcional de conteúdo pode adquirir um conjunto limitado de páginas públicas para materializar diferenças determinísticas de título, headings, corpo e dados estruturados. Ela acrescenta HTTP, mas não ativa IA. Análises por IA pertencem às capacidades próprias e, quando usam IA, reutilizam a seleção principal da execução.
 
 ## Readiness e preflight
 
