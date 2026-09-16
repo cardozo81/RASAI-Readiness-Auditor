@@ -140,3 +140,10 @@ def install() -> None:
     from rasai.console_submenu_action_scope import install as install_submenu_action_scope
 
     install_submenu_action_scope(console)
+
+    # Final public copy/semantic-message pass. It normalizes action descriptions and
+    # ERRO/ALERTA/INFO/OK presentation after every feature-specific wrapper has already
+    # been composed, without changing the action returned by any screen.
+    from rasai.console_operator_ux_consistency import install as install_operator_ux_consistency
+
+    install_operator_ux_consistency(console)
