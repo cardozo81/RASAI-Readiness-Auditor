@@ -1,6 +1,7 @@
 """Catalog ownership, status and effective configuration."""
 from rasai.catalog_report_presentation import *  # noqa: F401,F403
 
+
 def _friendly_component(value: Any) -> str:
     key=_norm(value)
     return _COMPONENT_LABELS.get(key, str(value or "—").replace("_"," ").title())
@@ -54,9 +55,9 @@ def _catalog_source_specs(catalog_id: str) -> tuple[tuple[str,str],...]:
             ("content_analysis_contexts","Contextos de conteúdo"),
         ),
         "CAT-04":(
-            ("web_performance_runs","Execuções de Web Performance"),
+            ("web_performance_runs","Execuções de desempenho web"),
             ("web_performance_attempts","Tentativas de coleta externa"),
-            ("web_performance_observations","Medições de performance"),
+            ("web_performance_observations","Medições de desempenho"),
         ),
         "CAT-05":(
             ("serp_observations","Observações de resultados de busca"),
@@ -74,6 +75,7 @@ def _catalog_source_specs(catalog_id: str) -> tuple[tuple[str,str],...]:
             ("synthetic_ux_apdex_runs","Execuções do Apdex de experiência"),
             ("synthetic_ux_apdex_samples","Amostras do Apdex de experiência"),
             ("synthetic_ux_apdex_summaries","Resumo do Apdex de experiência"),
+            ("synthetic_apdex_acquisitions","Aquisições sintéticas disponíveis"),
         ),
         "CAT-08":(
             ("improvement_intelligence_runs","Execução da análise profunda"),
@@ -129,6 +131,8 @@ def _catalog_status(database: Path, data: _ReportData, catalog_id: str) -> tuple
     run=_explicit_run(database,data,catalog_id)
     if run:
         raw=_norm(run.get("status"))
+        if raw in {"COMPLETE_WITH_LIMITATIONS","COMPLETED_WITH_LIMITATIONS"} or "LIMITATION" in raw:
+            return "PARCIAL","warn","A execução terminou com limitações e não deve ser apresentada como conclusão integral do catálogo."
         if raw in _STATUS_SUCCESS:
             return "CONCLUÍDO","good","A execução específica deste catálogo foi concluída e possui resultado persistido."
         if raw in _STATUS_FAILURE:
@@ -164,7 +168,7 @@ def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any
         cfg=settings.get("web_performance") if isinstance(settings,Mapping) else {}
         if isinstance(cfg,Mapping):
             rows.extend([
-                ("Web Performance","Habilitado" if str(cfg.get("enabled","")).lower()=="true" else "Desabilitado","Configuração da execução"),
+                ("Desempenho web","Habilitado" if str(cfg.get("enabled","")).lower()=="true" else "Desabilitado","Configuração da execução"),
                 ("Fonte de dados de campo",cfg.get("field_source") or "Automática","Configuração da execução"),
                 ("Categorias Lighthouse",str(cfg.get("lighthouse_categories") or "—").replace(","," · "),"Configuração da execução"),
             ])
@@ -173,10 +177,10 @@ def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any
         if isinstance(search,Mapping):
             queries=search.get("queries",[])
             rows.extend([
-                ("Search Intelligence","Habilitado" if bool(search.get("enabled")) else "Desabilitado","Plano congelado"),
+                ("Inteligência de busca / SERP","Habilitado" if bool(search.get("enabled")) else "Desabilitado","Plano congelado"),
                 ("Consultas de busca","; ".join(str(v) for v in queries if str(v).strip()) if isinstance(queries,list) else str(queries or "—"),"Plano congelado"),
                 ("Profundidade da busca",f"Top {search.get('depth','—')}","Plano congelado"),
-                ("Dispositivo",str(search.get("device") or "—").title(),"Plano congelado"),
+                ("Dispositivo",_device_label(search.get("device")),"Plano congelado"),
                 ("Região",search.get("region") or "Não definida","Plano congelado"),
             ])
     elif catalog_id=="CAT-06":
@@ -215,7 +219,6 @@ def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any
     if item.get("detail"):
         rows.append(("Condição registrada no plano",_plan_detail_label(item.get("detail")),"Plano congelado"))
     return rows
-
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]
