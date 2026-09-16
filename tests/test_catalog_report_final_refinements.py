@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from rasai.catalog_report_adherence import install_catalog_report_adherence
 from rasai.catalog_report_final_refinements import (
     _ai_totals,
     _apdex_samples_html,
@@ -38,10 +39,11 @@ def test_lighthouse_one_is_one_out_of_100_not_100(tmp_path: Path) -> None:
     finally:
         con.close()
 
+    install_catalog_report_adherence()
     rows = _web_metric_rows(database, "AUD-1")
     values = {str(row[0]): str(row[1]) for row in rows}
-    assert values["Lighthouse Performance"] == "1 / 100"
-    assert values["Lighthouse Accessibility"] == "78 / 100"
+    assert values["Lighthouse · Desempenho"] == "1 / 100"
+    assert values["Lighthouse · Acessibilidade"] == "78 / 100"
 
 
 def test_ai_totals_use_one_canonical_aggregation_without_reasoning_double_count() -> None:
