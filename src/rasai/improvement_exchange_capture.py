@@ -94,7 +94,9 @@ def install() -> None:
                 getattr(provider, "_rasai_exchange_instrumented", False)
             ):
                 _remember_external(state, existing)
-                return original_candidate(provider, body=body, timeout=timeout)
+                result = original_candidate(provider, body=body, timeout=timeout)
+                _mark_latest_as_improvement(existing)
+                return result
 
             started_at = datetime.now(timezone.utc)
             raw, usage, diagnostic, status, duration_ms = original_candidate(
