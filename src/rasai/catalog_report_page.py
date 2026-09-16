@@ -1,6 +1,7 @@
 """Shared CAT page assembly preserving the stable section order."""
 from rasai.catalog_report_analysis import *  # noqa: F401,F403
 
+
 def _catalog_results_html(database: Path, data: _ReportData, catalog_id: str) -> str:
     metrics=_catalog_metrics(database,data,catalog_id)
     base=_table(("Indicador","Valor","Tipo"),metrics,empty="Nenhum índice ou métrica principal foi materializado neste contexto.")
@@ -21,7 +22,7 @@ def _catalog_results_html(database: Path, data: _ReportData, catalog_id: str) ->
     if catalog_id=="CAT-06":
         return base+"<div class='subsection'><h3>Amostras</h3>"+_apdex_samples_html(database,data,experience=False)+"</div>"
     if catalog_id=="CAT-07":
-        return base+"<div class='subsection'><h3>Amostras</h3>"+_apdex_samples_html(database,data,experience=True)+"</div>"
+        return base+"<div class='subsection'><h3>Amostras</h3><p class='section-lead'>A tabela usa o fuso horário de apresentação do RASAi, mostra 10 registros por página quando necessário e permite ordenar pelas colunas.</p>"+_apdex_samples_html(database,data,experience=True)+"</div>"
     if catalog_id=="CAT-08":
         return _improvement_html(database,data)
     if catalog_id=="CAT-09":
@@ -39,10 +40,26 @@ def _catalog_analysis_html(database: Path, data: _ReportData, catalog_id: str) -
     if policy=="Não utiliza IA":
         text="Este catálogo apresenta observações, medições e validações do seu próprio domínio. Recomendações aprofundadas ficam em CAT-08 e implementações em CAT-09."
     elif enabled:
-        text=f"{policy} estava habilitada para esta capacidade. A página mantém o resultado do domínio e apenas indica o uso do recurso; detalhes de requisição, tokens, custo e comunicação ficam em IA e integrações."
+        text=f"{policy} estava habilitada para esta capacidade. A página mantém o resultado do domínio e apenas indica o uso do recurso; detalhes de requisição, dados envolvidos, tokens, custo e comunicação ficam em IA e integrações."
     else:
         text=f"{policy}, porém não habilitada para esta capacidade nesta execução."
     return f"<div class='notice'><strong>Fronteira de responsabilidade:</strong> {escape(text)}</div>{indicator}"
+
+
+def _execution_context_notice(database: Path, data: _ReportData, catalog_id: str) -> str:
+    run=_explicit_run(database,data,catalog_id)
+    if not run:return ""
+    if catalog_id=="CAT-06" and _norm(run.get("status"))=="PARTIAL":
+        reason=_norm(run.get("reason"))
+        if reason=="SMALL_GROUP_BELOW_NORMAL_MINIMUM":
+            config=_safe_json(run.get("configuration"),{})
+            normal_min=config.get("normal_group_minimum") if isinstance(config,Mapping) else None
+            valid=int(run.get("valid_samples") or 0)
+            target=int(run.get("target_valid_samples") or 0)
+            minimum=f"{normal_min} amostras" if normal_min else "o grupo mínimo normal da metodologia"
+            return f"<div class='notice warn'><strong>Por que o resultado é Parcial se a etapa foi concluída?</strong> A coleta técnica terminou sem falha e atingiu {valid} amostra(s) válida(s) para uma meta operacional de {target}. Porém, esse volume está abaixo de {escape(minimum)}; por contrato, o Apdex é calculado, mas permanece <strong>Parcial</strong> por cobertura estatística reduzida. Isso não representa falha de execução.</div>"
+        return "<div class='notice warn'><strong>Resultado funcional parcial:</strong> a etapa técnica foi executada, mas a metodologia registrou cobertura incompleta ou amostra inválida. Consulte as amostras e o motivo persistido.</div>"
+    return ""
 
 
 def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
@@ -56,13 +73,13 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     capabilities=[(_capability_label(c),"Incluída" if catalog_id in data.selected else "Não solicitada") for c in catalog.capability_ids]
     scope=_section("scope","Escopo solicitado",_table(("Capacidade","Situação"),capabilities)+f"<div class='notice'>{escape(detail)}</div>")
     config=_section("config","Configuração efetiva",_table(("Configuração","Valor","Origem"),_configuration_rows(data,catalog_id))+"<p class='muted'>Os valores vêm do plano congelado desta AUD, não da configuração atual da máquina.</p>")
-    execution=_section("execution","Execução",_work_execution_html(data,catalog_id)+f"<p>{_badge(status,tone)} {escape(detail)}</p>")
+    execution=_section("execution","Execução",_work_execution_html(data,catalog_id)+_execution_context_notice(database,data,catalog_id)+f"<p><strong>Estado funcional do catálogo:</strong> {_badge(status,tone)} {escape(detail)}</p>")
     results=_section("results","Resultados",_catalog_results_html(database,data,catalog_id))
     source_cards="".join(f"<div class='source-item'><strong>{escape(label)}</strong><small>{count} registro(s) persistido(s)</small></div>" for _table_name,label,count in sources)
     evidence=_section("evidence","Evidências",("<div class='source-list'>"+source_cards+"</div>" if source_cards else "<div class='notice'>Nenhuma fonte própria deste catálogo foi encontrada.</div>")+"<p class='muted'>Esta seção identifica a proveniência funcional. Nomes físicos de tabelas ficam restritos a Detalhes técnicos.</p>")
     analysis=_section("analysis","Análise e interpretação",_catalog_analysis_html(database,data,catalog_id))
     if catalog_id=="CAT-09":
-        rem_body="<p>As correções detalhadas deste catálogo aparecem em <strong>Resultados</strong>, vinculadas ao problema/evidência de origem quando disponível.</p>"
+        rem_body="<p>As correções detalhadas deste catálogo aparecem em <strong>Resultados</strong>. Cada item procura informar problema, risco de manter, benefício esperado, local de aplicação, implementação sugerida e forma de validação quando esses dados foram persistidos.</p>"
     elif catalog_id=="CAT-08":
         rem_body="<p>A análise profunda prioriza melhorias. Implementação técnica, exemplos de HTML/texto e critérios de validação são consolidados em <a href='cat-09.html'>CAT-09 · Remediações</a>.</p>"
     else:
@@ -72,7 +89,6 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     item=data.catalog_items.get(catalog_id,{})
     technical=_section("technical","Detalhes técnicos",f"<details><summary>Mostrar proveniência técnica</summary><div class='detail-body'>{_table(('Fonte funcional','Fonte interna','Registros'),tech_rows,empty='Nenhuma fonte interna específica identificada.')}<p><strong>Identificadores técnicos de capacidade:</strong> <code>{escape(', '.join(catalog.capability_ids))}</code></p><p><strong>Aptidão registrada no plano:</strong> {escape(str(item.get('status') or '—'))}</p></div></details>")
     return _audit_hero(data,f"{catalog.id} · {catalog.label}",catalog.expected_result)+outline+summary+scope+config+execution+results+evidence+analysis+remediation+technical
-
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]
