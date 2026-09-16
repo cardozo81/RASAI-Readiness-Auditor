@@ -2,74 +2,51 @@
 
 Data de referência: 2026-09-16.
 
-Este documento acompanha a validação incremental de `report-catalog/`. A estrutura visual
-atual deve ser preservada; os ajustes serão feitos por contrato de dados e, depois, por
-página, sem redesenhar a navegação ou o layout já aprovado.
+A estrutura visual atual é preservada. Os ajustes são de contrato de dados, linguagem, rastreabilidade e conteúdo; não constituem redesign.
 
-## Correções estruturais aplicadas
+## Validado após a correção do contrato de execução
 
-- A seleção `CAT-*` é congelada no snapshot secret-free da execução e deve chegar ao
-  subprocesso mesmo quando a configuração de modelos/preços de IA foi congelada antes.
-- O snapshot de IA deixa de congelar uma cópia completa e antiga do ambiente do processo.
-  Somente os parâmetros dos catálogos de modelo/preço/task-profile permanecem imutáveis;
-  overlays posteriores da execução continuam visíveis ao subprocesso.
-- CAT-08 não selecionado passa a suprimir também `RASAI_IMPROVEMENT_INTELLIGENCE` durante
-  a projeção do plano. Uma configuração persistida antiga não pode reativar análise
-  profunda fora do plano escolhido pelo operador.
-- Itens do snapshot do catálogo passam a persistir `id` e `catalog_id` com o mesmo
-  `CAT-*`, permitindo que o gerador HTML relacione o item congelado ao catálogo exibido.
+A AUD `AUD-A336F323E60C4BD7BCF7662D3B390A07` confirmou que o snapshot `audit_catalog` passou a chegar ao subprocesso e foi persistido com `id`/`catalog_id`. O plano congelado contém os oito CATs selecionados e mantém CAT-05 como não selecionado. As autorizações de IA por catálogo também foram persistidas coerentemente.
 
-Essas correções são de contrato/execução. Não alteram scoring, regras determinísticas,
-layout HTML, roteamento AUTO de providers, quarentena ou política de retry.
+A mesma AUD confirmou execução legítima do CAT-08 selecionado: `improvement_intelligence_runs` terminou `COMPLETE`, com 52 findings e 30 recomendações. CAT-07 possui `EXPERIENCE_APDEX` concluído e 20 amostras. A telemetria final possui cinco tentativas de IA, quatro bem-sucedidas, 104.383 tokens e custo técnico estimado de USD 0,07399068.
 
-## Pendências conhecidas do relatório por catálogos
+## Correções de projeção incorporadas no contrato 002
 
-### Captura e contexto da página
+- nova página de Governança `Captura e contexto`;
+- estados CAT derivados de resultados específicos, não apenas de work-items;
+- ownership explícito de work-items, evitando associar `CONTENT_REMEDIATION_AI` ao CAT-03;
+- CAT-01 passa a projetar arquivos/descoberta e diagnósticos de runtime;
+- CAT-02 projeta evidência detalhada do Lighthouse quando o artifact persistido existe;
+- CAT-03 projeta entidades e validações determinísticas de JSON-LD sem reutilizar sugestões do CAT-09 como prova do diagnóstico;
+- CAT-06/CAT-07 projetam suas amostras individualmente;
+- CAT-08 projeta findings/prioridades com referência ao CAT de origem;
+- CAT-09 concentra correções e detalhes de implementação;
+- `IA e integrações` consolida tentativas de IA, content remediation, custos, tokens, fallback e exchanges persistidos, além de integrações externas reconhecidas;
+- rótulos funcionais substituem nomes de campo/tabela na apresentação principal;
+- modal passa a ser contextual/atômica por item;
+- nomes internos ficam restritos a detalhes técnicos/proveniência.
 
-Os dados de captura (`page_snapshots`, URL solicitada/final, device, viewport, navegador,
-renderização e artefatos HTTP/DOM/visual) já podem existir no `audit.db`/workspace, mas a
-nova árvore ainda não possui uma página sistêmica dedicada para projetá-los. A página deve
-ser adicionada em Governança sem alterar a organização visual existente.
+## Limitações de dados ainda reais
 
-### IA: plano versus uso efetivo
+### Requests individuais do Apdex de experiência
 
-A página `IA e integrações` já consegue ler tentativas persistidas, porém cada página CAT
-ainda precisa reconciliar explicitamente três estados distintos:
+O contrato atual de `synthetic_ux_apdex_samples` preserva contagens de XHR/fetch, recursos dinâmicos, erros de console/JavaScript, request failures e erros HTTP por amostra, mas não necessariamente a lista completa de URLs de cada request. O relatório deve mostrar tudo o que foi persistido e declarar a ausência da lista individual; nunca reconstruí-la por inferência.
 
-- política de IA declarada pelo catálogo (`NONE`, `OPTIONAL`, `REQUIRED`);
-- IA autorizada para aquela subcapacidade no plano congelado;
-- tentativa/resultado de IA efetivamente persistido na AUD.
+### Comunicação bruta da análise profunda
 
-O ajuste deve ser feito página a página. A presença de custo/tentativa persistida nunca
-deve ser descrita como "IA não utilizada".
+Algumas tentativas de IA possuem telemetria em `ai_provider_attempts` sem entrada correspondente em `ai_exchange_log`. Nesses casos o relatório exibe provider/modelo, status, tokens, duração, custo, contrato, fallback e erro persistidos, e informa que request/response bruto não foi armazenado.
 
-### AUDs anteriores sem `audit_catalog`
+### Fontes compartilhadas
 
-Uma AUD criada antes da persistência correta do bloco `audit_catalog` pode possuir dados e
-work-items válidos sem possuir o plano CAT congelado. Dados produzidos não devem ser usados
-para inferir retroativamente que o operador solicitou um catálogo. O relatório deve tratar
-o plano como **indeterminado/ausente**, e não como prova de `NÃO SOLICITADO`.
+Alguns collectors servem a mais de um domínio, por exemplo PageSpeed/Lighthouse. O dado funcional pode aparecer no CAT proprietário (acessibilidade ou performance), mas a chamada externa e sua telemetria são exibidas uma única vez em `IA e integrações`.
 
-### CAT-02 - Acessibilidade
+## Invariantes
 
-A página precisa separar coleta automatizada Lighthouse/PageSpeed de evidências
-determinísticas de acessibilidade obtidas por outras rotinas. Falha de Lighthouse não
-significa ausência de toda evidência de acessibilidade, mas também não pode ser apresentada
-como fulfillment completo da coleta que falhou.
-
-### Mapeamento catálogo x work-item
-
-O relatório deve evoluir para uma tabela declarativa de ownership entre `CAT-*` e
-work-items internos. Componentes de suporte como aquisição HTTP, renderização e extração
-podem servir a mais de um catálogo e não devem ser confundidos com seleção independente.
-A contagem global de work-items deve sempre refletir todas as linhas persistidas da AUD.
-
-## Invariantes para os próximos ajustes
-
-- A seleção do usuário vem do plano congelado; nunca é inferida pela existência de dados.
-- Um CAT desmarcado não pode iniciar chamada paga nem work-item funcional próprio.
-- IA não altera scoring determinístico por opinião do modelo.
-- `report-catalog/` permanece read-only e não executa collectors/providers/IA.
-- Ausência de snapshot de plano é estado de proveniência desconhecida, não `NÃO SOLICITADO`.
-- Os relatórios serão refinados incrementalmente sem alterar a estrutura visual já
-  validada, salvo necessidade funcional explícita.
+- seleção vem do plano congelado; ausência de snapshot não significa `NÃO SOLICITADO`;
+- CAT desmarcado não pode iniciar chamada paga nem work-item funcional próprio;
+- coleta, análise e remediação são responsabilidades distintas;
+- CATs referenciam evidências de outros domínios em vez de duplicá-las;
+- IA não altera scoring determinístico;
+- `report-catalog/` permanece read-only;
+- modais são contextuais, nunca um depósito de detalhes da página;
+- componentes visuais e ordem estrutural das seções permanecem compartilhados e estáveis.
