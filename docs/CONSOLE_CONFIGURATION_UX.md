@@ -1,6 +1,6 @@
 # Contrato de UX para configuração no console
 
-**Estado:** vigente para o software ainda não publicado.
+**Estado:** vigente para o software em desenvolvimento/pré-produção.
 
 O `rasai-console` organiza configuração por **catálogo de auditoria**. Runtime, registries e validadores existentes continuam como fonte de verdade; a UI não redefine scoring, collectors, providers, retries, quarentena, fulfillment ou metodologia.
 
@@ -51,7 +51,7 @@ Contrato visual:
 - **verde**: sucesso, concluído, apto ou valor explicitamente válido;
 - **ciano**: navegação, títulos, informação e contexto operacional;
 - **amarelo**: alerta, limitação, configuração pendente, quota/custo ou validação ainda não feita;
-- **vermelho**: erro, bloqueio, falha ou condição destrutiva que exige correção/confirmacão;
+- **vermelho**: erro, bloqueio, falha ou condição destrutiva que exige correção/confirmação;
 - **dim/neutro**: texto secundário, explicação, default/herança ou condição não aplicável.
 
 Uma mensagem operacional deve responder, quando a informação existir, a três perguntas: **o que aconteceu**, **qual o efeito** e **qual a próxima ação**. Mensagens genéricas como `ação inválida`, `ID/ação inválido` ou `variável inválida` são projetadas para texto amigável que indique o que o operador pode informar naquela tela. Detalhe técnico continua disponível quando necessário, mas não substitui a orientação operacional.
@@ -120,12 +120,12 @@ Uma integração não selecionada não pode bloquear a auditoria. `CONFIGURAR` c
 
 Números curtos são escolhas da tela. IDs numéricos canônicos identificam a mesma configuração independentemente do caminho usado para chegar a ela.
 
-O **nome da variável de ambiente não é identidade pública**. A visualização normal deve privilegiar propósito e efeito:
+O **nome da variável de ambiente não é identidade pública**. A visualização normal deve privilegiar propósito e efeito. O formato público corrente usa IDs compactos de seis dígitos; os números abaixo são apenas ilustrativos do layout:
 
 ```text
-ID        CONFIGURAÇÃO                                  VALOR EFETIVO          ORIGEM
-71865000  Limite de experiência satisfatória            3 s                    [ARQUIVO]
-63673900  Amostras por contexto                          1                      [SESSÃO]
+ID      CONFIGURAÇÃO                                  VALOR EFETIVO          ORIGEM
+123456  Limite de experiência satisfatória            3 s                    [ARQUIVO]
+654321  Amostras por contexto                          1                      [SESSÃO]
 ```
 
 Contrato global para todas as variáveis:
@@ -174,13 +174,34 @@ Após alteração não sensível:
 
 Para secrets, o destino persistente é Windows/User e o INI nunca recebe o conteúdo secreto. Limpar o override da sessão não apaga automaticamente arquivo/Windows; restauração ou gerenciamento de persistência possuem ações próprias e explícitas.
 
-A seleção `CAT-*` é execution-scoped e é registrada no snapshot secret-free da AUD para reutilização e futura projeção em relatórios.
+O `rasai-console.ini` pode persistir explicitamente:
+
+- configuração pública não sensível materializada em `[environment]`;
+- inputs reproduzíveis de Search em `[search_intelligence]`;
+- seleção do plano da próxima auditoria em `[audit_catalog].selected`;
+- decisão de IA opcional do plano em `[audit_catalog].ai_enabled`;
+- demais seções não sensíveis suportadas pelo writer canônico.
+
+A seleção `CAT-*` continua pertencendo ao plano da próxima auditoria. Salvar o INI apenas permite reutilizar explicitamente esse plano em outra sessão; não cria uma política global independente do catálogo.
+
+No início da execução, o plano efetivo é congelado no snapshot secret-free da AUD, incluindo `audit_catalog.version`, `selected`, `ai_enabled` e `items`.
+
+### Atomicidade das edições
+
+O editor canônico aplica alterações de configuração como uma unidade coerente entre ambiente e estado do console:
+
+- o valor é validado antes de ser considerado aplicado;
+- contratos entre campos são reconciliados antes da validação final quando o runtime possui regra derivada;
+- se a alteração produzir estado inválido, o ambiente e o estado do console retornam ao valor anterior;
+- uma edição rejeitada não deve aparecer como sucesso nem ser gravada no INI.
+
+Para Synthetic Navigation Apdex, aumentar `samples_per_context` pode exigir aumento conjunto de `max_attempts_per_context`. O editor usa o mesmo contrato derivado do configurador dedicado: quando o orçamento atual é insuficiente, reconcilia para pelo menos `ceil(1.25 × samples)`. Reduzir manualmente o orçamento de tentativas para uma combinação inválida é rejeitado e revertido.
 
 ## Device e Apdex
 
 `Device` permanece `mobile|desktop|both`.
 
-O mix herdado de Experience Apdex continua:
+O mix efetivo de Experience Apdex segue:
 
 ```text
 mobile  -> mobile=100,desktop=0,tablet=0
@@ -200,6 +221,8 @@ both    -> mobile=60,desktop=40,tablet=0
 - Observabilidade externa aplicável.
 
 SERP e GSC continuam independentes. GSC obrigatório incompatível pode bloquear o catálogo; GSC opcional não aplicável não deve invalidar SERP apto.
+
+Os inputs de `O QUE PESQUISAR` são execution-scoped durante a edição normal, mas podem ser persistidos explicitamente no INI por `Salvar configuração` e também são congelados no snapshot da AUD quando participam da execução.
 
 ## Inteligência Artificial
 

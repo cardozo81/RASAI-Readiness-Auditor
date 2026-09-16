@@ -1,5 +1,7 @@
 # Reutilização de configuração de AUD
 
+**Estado:** contrato vigente de desenvolvimento/pré-produção.
+
 ## Objetivo
 
 O RASAi permite iniciar **uma nova auditoria** usando como ponto de partida a configuração efetivamente registrada em outro `AUD-*`. O objetivo é repetir uma configuração de medição com menor deriva operacional e manter rastreabilidade entre observações independentes.
@@ -23,7 +25,7 @@ Um `AUD-*` completo, parcial, preliminar ou bloqueado pode fornecer configuraç�
 
 A ausência ou corrupção do snapshot é tratada de forma **fail-closed**. O RASAi não tenta reconstruir a configuração geral a partir de HTMLs, relatórios ou efeitos indiretos da execução.
 
-Quando o snapshot canônico existe, mas não contém o bloco dedicado de Search Intelligence, o console pode recuperar **somente os inputs SERP reproduzíveis que estejam materializados no próprio `audit.db`**, a partir de `serp_observations`. Essa recuperação é read-only, não altera o AUD de origem e não inventa termos, credenciais ou valores ausentes. O console sinaliza que esses dados foram reconstruídos e exige revisão antes da nova execução.
+Quando o snapshot canônico existe, mas não contém o bloco dedicado de Search Intelligence, o console pode recuperar **somente os inputs SERP reproduzíveis que estejam materializados no próprio `audit.db`**, a partir de `serp_observations`. Essa recuperação é read-only, não altera o AUD de origem e não inventa termos, credenciais ou valores ausentes. O console sinaliza a origem desses dados e exige revisão antes da nova execução.
 
 Essa regra é independente da consolidação. Somente AUDs que atendem ao contrato de finalização continuam elegíveis para consolidação, tendências e comparações oficiais.
 
@@ -58,22 +60,65 @@ O snapshot do console contém a configuração não secreta necessária para rep
 - Synthetic Apdex e Experience Apdex;
 - configurações não secretas expostas pelo catálogo de ambiente;
 - configuração da análise profunda quando aplicável;
-- Search Intelligence da execução.
+- Search Intelligence da execução;
+- plano efetivo do catálogo da auditoria.
+
+### Plano do catálogo
+
+A execução do console congela no snapshot:
+
+```text
+audit_catalog.version
+audit_catalog.selected
+audit_catalog.ai_enabled
+audit_catalog.items
+```
+
+Ao reutilizar uma AUD, o console restaura a seleção `CAT-*` e a decisão de IA opcional para o plano da nova execução. Dependências canônicas continuam sendo reaplicadas pelo owner do plano.
 
 ### Search Intelligence / SERP
 
-Termos de busca são entrada de uma execução e continuam **fora do `rasai-console.ini` geral**. Entretanto, fazem parte do snapshot do `AUD-*` porque são necessários para reproduzir aquela observação.
+Termos de busca e demais campos de `O QUE PESQUISAR` são inputs da próxima execução.
 
-Quando Search Intelligence foi solicitado, o snapshot registra:
+Durante a configuração normal eles vivem na sessão. Se o operador usar `Salvar configuração`, os valores não sensíveis suportados podem ser persistidos explicitamente no `rasai-console.ini`, em `[search_intelligence]`, para reutilização em outra sessão do console.
+
+Quando a auditoria é iniciada, os inputs efetivamente usados também fazem parte do snapshot do `AUD-*`, porque são necessários para reproduzir aquela observação.
+
+Quando Search Intelligence foi solicitado, o snapshot registra conforme aplicável:
 
 - termos pesquisados;
 - profundidade;
 - região/localidade;
 - dispositivo SERP;
 - classificação competitiva habilitada/desabilitada;
+- comparação de conteúdo quando a capacidade estiver presente;
 - parâmetros não secretos do provider e limites que pertencem ao contrato normal de configuração.
 
-Ao carregar o AUD, esses dados voltam para a sessão atual e podem ser revisados antes da nova execução. Se o bloco específico de Search Intelligence não estiver no snapshot, mas existirem observações SERP persistidas no mesmo `audit.db`, o console recupera os termos e o contexto observável dessas evidências e marca a situação para revisão.
+Ao carregar o AUD, esses dados voltam para a sessão atual e podem ser revisados antes da nova execução. Se o bloco específico de Search Intelligence não estiver no snapshot, mas existirem observações SERP persistidas no mesmo `audit.db`, o console recupera somente o contexto reproduzível dessas evidências e marca a situação para revisão.
+
+## Relação com `rasai-console.ini`
+
+O INI e o snapshot da AUD têm responsabilidades diferentes:
+
+- `rasai-console.ini` guarda configuração não sensível explicitamente salva para uso futuro no console;
+- o snapshot da AUD congela a configuração efetivamente usada por uma execução específica;
+- alterar o INI depois da auditoria não altera o snapshot já persistido;
+- carregar uma configuração de AUD modifica a sessão corrente para preparar uma **nova** execução, sem editar a AUD de origem.
+
+O INI pode conter, entre outras seções suportadas:
+
+```text
+[search_intelligence]
+queries = ...
+depth = ...
+region = ...
+device = ...
+competitive = ...
+
+[audit_catalog]
+selected = CAT-01, CAT-05, ...
+ai_enabled = true|false
+```
 
 ## Credenciais e secrets
 
@@ -81,7 +126,7 @@ Credenciais nunca são copiadas do AUD de origem.
 
 API keys, bearer tokens, senhas, tokens OAuth e demais secrets continuam sendo resolvidos no momento atual por sessão, Windows/User, Windows/Machine observado ou mecanismo SaaS correspondente.
 
-Depois de aplicar a configuração histórica, o console reconcilia as dependências com o ambiente atual. Se a configuração solicitar uma integração que hoje não possui credencial/configuração válida, o usuário recebe um alerta imediatamente.
+Depois de aplicar a configuração da AUD, o console reconcilia as dependências com o ambiente atual. Se a configuração solicitar uma integração que hoje não possui credencial/configuração válida, o usuário recebe um alerta imediatamente.
 
 Exemplos:
 
@@ -101,37 +146,17 @@ Há dois caminhos equivalentes para carregar configuração:
 Início > Auditorias / histórico > selecionar AUD-* > Carregar esta configuração para uma nova auditoria
 ```
 
-ou, dentro do dashboard completo de configuração:
+ou, dentro da preparação:
 
 ```text
 L. Carregar configuração de AUD [NOVA EXECUÇÃO]
 ```
 
-Os dois caminhos usam o mesmo carregador e, quando a operação é concluída, mostram um resumo explícito da configuração efetivamente aplicada à sessão. O resumo inclui no mínimo:
+Os dois caminhos usam o mesmo carregador e, quando a operação é concluída, mostram um resumo explícito da configuração efetivamente aplicada à sessão.
 
-```text
-CONFIGURAÇÃO CARREGADA
-Origem
-Entrada
-Alvo
-Projeto
-Dispositivo
-Idioma / mercado
+O resumo inclui no mínimo escopo, alvo, projeto, dispositivo, idioma/mercado, plano `CAT-*`, uso de IA da próxima execução e, quando aplicável, os inputs de Search Intelligence/SERP.
 
-SEARCH INTELLIGENCE / SERP
-Estado
-Termos
-Depth
-Região
-Dispositivo SERP
-Competitive
-Modo/provider/engine
-Estado da credencial atual
-```
-
-O target restaurado também sincroniza o campo visual de URL do cabeçalho. Assim, o cabeçalho e o item `Entrada` do dashboard representam a mesma configuração carregada.
-
-Credenciais do AUD nunca aparecem como valor reutilizado. A tela informa apenas a variável esperada e se existe uma credencial disponível **agora** na sessão/Windows.
+Credenciais do AUD nunca aparecem como valor reutilizado. A tela informa apenas a configuração esperada e se existe uma credencial disponível **agora** na sessão/Windows.
 
 Quando o carregamento pelo histórico é concluído com sucesso, a navegação faz handoff direto para:
 
@@ -139,22 +164,22 @@ Quando o carregamento pelo histórico é concluído com sucesso, a navegação f
 Início > Preparar auditoria
 ```
 
-Esse contexto permanece ativo enquanto o usuário revisa a nova execução. Alterar campos, salvar o INI, abrir credenciais/integrações, consultar ajuda ou retornar de uma subtela leva novamente ao dashboard de preparação; somente `V. Voltar ao início` encerra explicitamente esse contexto.
+Esse contexto permanece ativo enquanto o usuário revisa a nova execução. Somente `V. Voltar ao início` encerra explicitamente esse contexto.
 
 O fluxo é:
 
 1. usuário seleciona ou informa `AUD-*`;
 2. RASAi valida `audit.db` e o snapshot canônico;
 3. parâmetros não secretos, targets e inputs de execução reproduzíveis são carregados;
-4. Search Intelligence é restaurado pelo snapshot ou, quando necessário e possível, pelas observações SERP persistidas no próprio AUD;
-5. o estado visual do console é sincronizado com o target/dispositivo carregados;
-6. credenciais e dependências são reconciliadas com o ambiente atual;
-7. o console exibe o resumo do que foi restaurado e os alertas aplicáveis;
-8. o console entra ou permanece em **Preparar auditoria**;
-9. usuário pode revisar e alterar qualquer parâmetro permitido sem perder o contexto de preparação;
-10. preflight normal é executado;
+4. o plano `CAT-*` e a decisão de IA opcional são restaurados quando presentes;
+5. Search Intelligence é restaurado pelo snapshot ou, quando necessário e possível, pelas observações SERP persistidas no próprio AUD;
+6. o estado visual do console é sincronizado com o target/dispositivo carregados;
+7. credenciais e dependências são reconciliadas com o ambiente atual;
+8. o console exibe o resumo do que foi restaurado e os alertas aplicáveis;
+9. o usuário pode revisar e alterar qualquer parâmetro permitido;
+10. o preflight normal é executado;
 11. a execução cria um **novo `AUD-*`**;
-12. o novo snapshot registra origem, série e diferenças.
+12. o novo snapshot registra origem, série, plano e diferenças.
 
 Para uma única URL, o target volta ao modo URL. Para múltiplos targets, o console materializa um TXT operacional em `audits/.reused-inputs/` e mantém no snapshot a lista canônica de URLs, não a dependência do caminho de um arquivo anterior.
 
