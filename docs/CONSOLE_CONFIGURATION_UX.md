@@ -120,12 +120,12 @@ Uma integração não selecionada não pode bloquear a auditoria. `CONFIGURAR` c
 
 Números curtos são escolhas da tela. IDs numéricos canônicos identificam a mesma configuração independentemente do caminho usado para chegar a ela.
 
-O **nome da variável de ambiente não é identidade pública**. A visualização normal deve privilegiar propósito e efeito:
+O **nome da variável de ambiente não é identidade pública**. A visualização normal deve privilegiar propósito e efeito. O formato público corrente usa IDs compactos de seis dígitos; os números abaixo são apenas ilustrativos do layout:
 
 ```text
-ID        CONFIGURAÇÃO                                  VALOR EFETIVO          ORIGEM
-71865000  Limite de experiência satisfatória            3 s                    [ARQUIVO]
-63673900  Amostras por contexto                          1                      [SESSÃO]
+ID      CONFIGURAÇÃO                                  VALOR EFETIVO          ORIGEM
+123456  Limite de experiência satisfatória            3 s                    [ARQUIVO]
+654321  Amostras por contexto                          1                      [SESSÃO]
 ```
 
 Contrato global para todas as variáveis:
@@ -222,7 +222,7 @@ both    -> mobile=60,desktop=40,tablet=0
 
 SERP e GSC continuam independentes. GSC obrigatório incompatível pode bloquear o catálogo; GSC opcional não aplicável não deve invalidar SERP apto.
 
-Os inputs de `O QUE PESQUISAR` são execução-scoped durante a edição normal, mas podem ser persistidos explicitamente no INI por `Salvar configuração` e também são congelados no snapshot da AUD quando participam da execução.
+Os inputs de `O QUE PESQUISAR` são execution-scoped durante a edição normal, mas podem ser persistidos explicitamente no INI por `Salvar configuração` e também são congelados no snapshot da AUD quando participam da execução.
 
 ## Inteligência Artificial
 
