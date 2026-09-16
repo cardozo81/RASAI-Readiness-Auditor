@@ -178,8 +178,10 @@ def install(console_module: ModuleType) -> None:
         return
     from rasai import console_navigation as navigation
     from rasai import console_ui_catalog as ui_catalog
+    from rasai import console_configuration_transaction as configuration_transaction
 
     ui_catalog._STATUS_COLORS["NÃO SELECIONADO"] = DIM
+    configuration_transaction.install(ui_catalog)
     navigation._preparation_menu = preparation_menu
     _install_catalog_guidance(console_module)
     _install_configuration_reuse_contract()
