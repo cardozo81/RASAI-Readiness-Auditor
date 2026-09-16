@@ -201,7 +201,7 @@ def test_sari_and_metrics_use_persisted_values_without_recalculation(tmp_path: P
     assert "SARI-TEST-1" in sari
     assert "O HTML não recalcula o SARI" in sari
     assert "Acesso e descoberta" in sari
-    assert "Lighthouse Performance" in metrics
+    assert "Lighthouse · Desempenho" in metrics
     assert "LCP" in metrics
     assert "Apdex" in metrics
     assert "Índices e métricas evidentes" in overview
