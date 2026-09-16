@@ -15,7 +15,7 @@ def _catalog_results_html(database: Path, data: _ReportData, catalog_id: str) ->
         obs=_web_observation(database,data.audit_id)
         notes=[]
         for key,label in (("lcp_assessment","LCP"),("inp_assessment","INP"),("cls_assessment","CLS"),("cwv_assessment","Core Web Vitals")):
-            if obs.get(key):notes.append((label,str(obs.get(key)).replace("_"," ").title()))
+            if obs.get(key):notes.append((label,_assessment_label(obs.get(key))))
         return base+("<div class='subsection'><h3>Avaliações persistidas</h3>"+_table(("Métrica","Avaliação"),notes)+"</div>" if notes else "")
     if catalog_id=="CAT-05":
         return base+"<div class='subsection'><h3>Observações de busca</h3>"+_search_intelligence_html(database,data)+"</div>"
