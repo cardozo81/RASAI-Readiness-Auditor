@@ -76,8 +76,6 @@ audit_catalog.items
 
 Ao reutilizar uma AUD, o console restaura a seleção `CAT-*` e a decisão de IA opcional para o plano da nova execução. Dependências canônicas continuam sendo reaplicadas pelo owner do plano.
 
-O bloco `execution_profile` não faz parte do contrato vigente de reutilização do console. A unidade pública de composição é o catálogo `CAT-*`.
-
 ### Search Intelligence / SERP
 
 Termos de busca e demais campos de `O QUE PESQUISAR` são inputs da próxima execução.
