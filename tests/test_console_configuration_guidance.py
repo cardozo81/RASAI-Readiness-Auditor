@@ -66,7 +66,8 @@ def test_metrics_category_groups_related_external_services_by_context() -> None:
         facade._category_menu(State(), "Métricas e padrões", metrics)
 
     rendered = output.getvalue()
-    assert "[Google Search Console]" in rendered
+    assert "[Google Search Console / Ativação]" in rendered
+    assert "[Google Search Console / Property e cobertura da URL auditada]" in rendered
     assert "PageSpeed" in rendered
     assert "CrUX" in rendered
     assert "Mostrar somente definidas" in rendered
@@ -150,7 +151,7 @@ def test_oidc_algorithm_list_is_completed_from_known_runtime_domain() -> None:
     assert normalized.accepted == ("RS256", "RS384", "RS512", "ES256", "ES384", "ES512")
 
 
-def test_context_grouping_keeps_related_gsc_variables_together() -> None:
+def test_context_grouping_keeps_related_gsc_variables_in_explicit_subcontexts() -> None:
     specs = (
         EnvironmentSpec("RASAI_GSC_ENABLED", "Métricas e padrões", "GSC toggle", "booleano"),
         EnvironmentSpec(
@@ -161,12 +162,13 @@ def test_context_grouping_keeps_related_gsc_variables_together() -> None:
         ),
         EnvironmentSpec("RASAI_CRUX_ENABLED", "Métricas e padrões", "CrUX toggle", "booleano"),
     )
-    assert context_for(specs[0]) == "Google Search Console"
-    assert context_for(specs[1]) == "Google Search Console"
+    assert context_for(specs[0]) == "Google Search Console / Ativação"
+    assert context_for(specs[1]) == "Google Search Console / Property e cobertura da URL auditada"
     grouped = grouped_by_context(specs)
-    assert grouped[0][0] == "Google Search Console"
-    assert tuple(row[1].name for row in grouped[0][1]) == (
-        "RASAI_GSC_ENABLED",
+    assert grouped[0][0] == "Google Search Console / Ativação"
+    assert tuple(row[1].name for row in grouped[0][1]) == ("RASAI_GSC_ENABLED",)
+    assert grouped[1][0] == "Google Search Console / Property e cobertura da URL auditada"
+    assert tuple(row[1].name for row in grouped[1][1]) == (
         "RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL",
     )
 
@@ -210,7 +212,7 @@ def test_gsc_toggle_uses_boolean_choice_and_context_metadata() -> None:
     facade = _installed_facade()
     spec = normalize_spec(facade.SPEC_BY_NAME["RASAI_GSC_ENABLED"])
     assert spec.accepted == ("true", "false")
-    assert context_for(spec) == "Google Search Console"
+    assert context_for(spec) == "Google Search Console / Ativação"
     assert any("webmaster-tools" in item for item in reference_lines(spec))
 
 
