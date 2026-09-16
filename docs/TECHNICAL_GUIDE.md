@@ -1,5 +1,7 @@
 # Guia técnico
 
+**Estado:** contrato vigente de desenvolvimento/pré-produção.
+
 ## Pipeline
 
 Fluxo funcional simplificado:
@@ -62,8 +64,12 @@ Exemplos:
 
 O console é uma camada sobre a CLI, não um segundo pipeline. Configura parâmetros, executa preflight, acompanha progresso por estado persistido/log e inicia a mesma superfície `rasai audit`.
 
-`rasai-console.ini` guarda somente configuração não sensível. Secrets permanecem no ambiente/processo.
+`rasai-console.ini` guarda somente configuração não sensível. Secrets permanecem no ambiente/processo ou nos mecanismos de persistência segura suportados.
 
-## Compatibilidade histórica
+O plano da próxima auditoria é composto pelo catálogo `CAT-*`. Quando o operador usa `Salvar configuração`, a seleção do catálogo, a opção de IA do plano e os inputs não sensíveis suportados também podem ser persistidos no INI para reutilização explícita.
 
-Nomes internos de módulos, classes, tabelas e eventos podem conservar identificadores históricos de implementação para não quebrar imports, schemas e rastreabilidade. Esses identificadores não devem ser usados como nomenclatura funcional da UI ou dos relatórios.
+## Identificadores internos
+
+Nomes de módulos, classes, tabelas, eventos e campos técnicos são detalhes de implementação. A documentação funcional, a UI e os relatórios devem descrever o contrato vigente do produto e usar os identificadores técnicos somente quando forem necessários para diagnóstico, rastreabilidade ou integração.
+
+A superfície pública não deve introduzir nomenclatura de transição entre versões do produto. O software ainda está em desenvolvimento/pré-produção; a referência é o comportamento vigente no código e nos contratos canônicos.
