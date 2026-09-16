@@ -19,10 +19,12 @@ A estrutura visual permanece preservada. Os ajustes desta rodada são de contrat
 - se o renderer falhar, a árvore anterior não volta a ficar disponível como se fosse final;
 - o `manifest.json` registra `generated_at`, `source_audit`, `source_fingerprint`, algoritmo do fingerprint, `projection_version` e `freshness=FINAL`;
 - existe verificação explícita de freshness após a promoção;
+- a camada externa final do console refaz `report-catalog/` somente depois que toda a cadeia interna retorna, incluindo persistências tardias de fulfillment e de aderência de custo esperado x observado;
+- portanto `freshness=FINAL` passa a representar o `audit.db` após essas persistências, e não uma fotografia produzida milissegundos antes delas;
 - erro de materialização/freshness do `report-catalog` é bloqueante para a conclusão dos relatórios HTML: a execução informa `Relatórios HTML: INCOMPLETOS` e retorna o código de projeção incompleta, preservando o `audit.db`;
 - erros tardios de outros enriquecimentos mantêm sua semântica própria; o gate bloqueante é específico para a projeção final que não pode ser validada como correspondente ao estado persistido.
 
-Isso corrige a classe de erro observada em validação na AUD `AUD-1851DA1A3CBE466AA649D34CAC2D48E0`, em que CAT-08/CAT-09/IA e integrações haviam sido materializados antes dos dados finais da análise profunda.
+Isso corrige também a classe de divergência em que `console_cost_forecast_outcomes` já existia no `audit.db`, mas `IA e integrações` ainda apresentava a previsão como não persistida porque o HTML havia sido gerado antes do último `COMMIT` lógico da execução.
 
 ### Tabelas interativas
 
@@ -53,6 +55,19 @@ Foi corrigido o caso de fronteira em que `performance_score=1.0`, já persistido
 
 Pontuações de categoria provenientes de `web_performance_observations` são projetadas diretamente na escala persistida. Portanto `1.0` é exibido como `1 / 100`, enquanto `78.0` é `78 / 100`.
 
+Na camada de apresentação em português, rótulos genéricos de tabela passam a usar termos como `Desempenho web`, `Lighthouse · Desempenho`, `Lighthouse · Acessibilidade`, `Lighthouse · Boas práticas`, `Índice de velocidade (Speed Index)` e `Tempo total de bloqueio (TBT)`. Marcas, siglas e nomes técnicos oficiais permanecem preservados.
+
+### CAT-05 - Search & AI Intelligence
+
+O estado agregado do catálogo não é mais reutilizado como se todas as subcapacidades tivessem sido executadas. A tabela de escopo resolve separadamente:
+
+- Inteligência de busca / SERP;
+- Google Search Console;
+- Visibilidade em respostas de IA;
+- Observabilidade externa.
+
+Cada linha usa sua própria evidência persistida ou work-item. Uma capacidade independente sem fonte/work-item deixa de aparecer simplesmente como `Incluída` e passa a informar, conforme o caso, `Concluída`, `Não configurado`, `Solicitado, não executado`, `Parcial`, falha ou `Não requerida nesta AUD`.
+
 ### CAT-06 - Apdex de navegação
 
 A apresentação mantém separadas as duas dimensões:
@@ -66,12 +81,22 @@ Um work-item `SUCCESS` com run `PARTIAL` por `SMALL_GROUP_BELOW_NORMAL_MINIMUM` 
 
 A tabela de amostras mantém:
 
-- `captured_at` apresentado como data/hora da captura no timezone de apresentação;
-- explicação de que esse timestamp é o momento persistido da captura, não necessariamente o início individual da navegação;
+- `captured_at` apresentado como data/hora da medição no timezone de apresentação;
+- para novas execuções, o timestamp é registrado individualmente quando cada amostra conclui sua coleta, antes da persistência posterior em lote;
+- amostras coletadas em momentos diferentes deixam de herdar o mesmo horário apenas porque foram inseridas juntas no SQLite;
 - LCP e contagem de requests com falha entre as colunas principais;
 - ordenação client-side aplicada sobre o dataset inteiro antes da paginação;
 - paginação de 10 registros por página;
 - explicação explícita quando a política `errors_affect_apdex` força amostras para `Frustrada`, evitando atribuir a classificação somente à duração.
+
+### Estado lógico x auditoria-base
+
+O topo das páginas passa a expor separadamente:
+
+- `Resultado lógico da AUD`, derivado do fulfillment final;
+- `Auditoria-base`, derivada de `audits.completion_status`/`status`.
+
+Assim, uma execução pode estar logicamente `Concluída` e, ao mesmo tempo, preservar `Concluído com limitações` na auditoria-base. Quando `audits.limitations` contém uma limitação conhecida, ela é apresentada de forma legível, por exemplo `Lacuna na descoberta renderizada: 10`, sem achatar a informação para um único estado verde.
 
 ### CAT-08 - Análise profunda
 
@@ -115,6 +140,8 @@ A captura visual persistida tem preview na própria página, com dispositivo, da
 
 Estados e níveis usados na camada principal são humanizados. Códigos internos continuam permitidos apenas em detalhes técnicos/proveniência ou no payload bruto original. Valores em português como `CRÍTICO` também são normalizados sem perder acentuação legível.
 
+A revisão cobre também valores vindos do banco que antes escapavam como enums/termos ingleses em tabelas portuguesas, incluindo estados de execução, componentes, dispositivo móvel e categorias genéricas de qualidade web. Nomes de produto, padrões, siglas e identificadores técnicos oficiais não são traduzidos artificialmente.
+
 ## Limitações de dados ainda reais
 
 ### Requests individuais do Apdex de experiência
@@ -144,4 +171,5 @@ Alguns collectors servem a mais de um domínio, por exemplo PageSpeed/Lighthouse
 - modais são contextuais, nunca um depósito de detalhes da página;
 - componentes visuais e ordem estrutural das seções permanecem compartilhados e estáveis;
 - um `report-catalog` cujo fingerprint não corresponda à fonte persistida não é considerado final;
+- `freshness=FINAL` somente é válido depois da última persistência da cadeia de execução local;
 - a auditoria não deve anunciar os relatórios HTML como completos quando o gate final de materialização/freshness do `report-catalog` falhar.
