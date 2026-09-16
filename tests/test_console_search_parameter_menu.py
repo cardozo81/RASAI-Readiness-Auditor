@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import redirect_stdout
 from io import StringIO
+from types import SimpleNamespace
 from unittest.mock import patch
 import os
 
@@ -9,7 +10,12 @@ import pytest
 
 from rasai import console_search_intelligence as search
 from rasai.console_search_intelligence import SearchConsoleState
-from rasai.console_search_parameter_menu import configure_search_parameters
+from rasai.console_search_parameter_menu import (
+    _edit_content_comparison,
+    _render_execution_menu,
+    configure_search_parameters,
+)
+from rasai.search_intelligence.config import SerpRuntimeConfig
 
 
 @pytest.fixture(autouse=True)
@@ -115,3 +121,39 @@ def test_disable_action_clears_terms_and_marks_search_not_requested() -> None:
     assert state.search_queries == ()
     assert state.search_last_status == "NOT_REQUESTED"
     assert state.search_last_detail == ""
+
+
+def test_missing_live_provider_credential_blocks_parameter_changes() -> None:
+    os.environ.pop("RASAI_SERPAPI_API_KEY", None)
+    state = SearchConsoleState()
+
+    rendered = _run(state, ["1", "V"])
+
+    assert "Provider não apto" in rendered
+    assert "RASAI_SERPAPI_API_KEY" in rendered
+    assert state.search_queries == ()
+
+
+def test_content_comparison_stays_a_closed_optional_search_input() -> None:
+    state = SimpleNamespace(
+        search_queries=("seguro auto",),
+        search_depth=10,
+        search_region="",
+        search_device="mobile",
+        search_competitive=True,
+        search_compare_content=False,
+    )
+    config = SerpRuntimeConfig.from_environment()
+    output = StringIO()
+
+    with redirect_stdout(output):
+        _render_execution_menu(state, config)
+    assert "6. Comparação de conteúdo" in output.getvalue()
+
+    output = StringIO()
+    with patch("builtins.input", return_value="1"), redirect_stdout(output):
+        _edit_content_comparison(state)
+
+    assert "HTTP adicional" in output.getvalue()
+    assert "não ativa IA" in output.getvalue()
+    assert state.search_compare_content is True
