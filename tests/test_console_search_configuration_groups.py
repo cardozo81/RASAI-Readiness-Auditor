@@ -11,16 +11,19 @@ install_standards_console_runtime()
 install_gsc_oauth_console()
 
 from rasai import console_provider_environment as facade
+from rasai import console_ui_catalog as ui_catalog
 from rasai.console_search_configuration_groups import (
     GSC_CONFIGURATION_NAMES,
     context_label_for_name,
     install,
 )
+from rasai.console_search_owner_routing import install as install_owner_routing
 from rasai.console_ui_catalog import catalog_specs
 from rasai.search_intelligence.config import SERP_ENV_NAMES
 
 
 install()
+install_owner_routing()
 
 
 def test_every_registered_configuration_is_reachable_from_all_configurations() -> None:
@@ -59,6 +62,19 @@ def test_gsc_configuration_is_split_by_operator_context() -> None:
     )
     assert context_label_for_name("RASAI_GSC_SEARCH_MAX_ROWS") == (
         "Google Search Console / Search Analytics — janela e volume"
+    )
+
+
+def test_search_settings_are_owned_by_search_even_when_source_category_is_metrics() -> None:
+    specs = {spec.name: spec for spec in facade.refresh_specs()}
+    assert ui_catalog.owner_for(specs["RASAI_GSC_ENABLED"]).startswith(
+        "Search / Google Search Console / Ativação"
+    )
+    assert ui_catalog.owner_for(specs["RASAI_GOOGLE_SEARCH_CONSOLE_SITE_URL"]).startswith(
+        "Search / Google Search Console / Property"
+    )
+    assert ui_catalog.owner_for(specs["RASAI_SERP_MODE"]).startswith(
+        "Search / SERP / Ativação"
     )
 
 
