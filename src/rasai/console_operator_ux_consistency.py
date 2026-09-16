@@ -138,8 +138,15 @@ def _error_kind(state: Any, text: str) -> str:
     lowered = str(text or "").casefold()
     if operation == "LOCAL:RESTORE_SYSTEM_DEFAULTS":
         return "ALERTA"
-    if "disponível somente no menu início" in lowered or "não é necessário" in lowered:
+    if (
+        "disponível somente no menu início" in lowered
+        or "não é necessário" in lowered
+        or "cancelad" in lowered
+        or "ainda não disponível" in lowered
+    ):
         return "INFO"
+    if "expirou" in lowered or "indisponível neste estado" in lowered:
+        return "ALERTA"
     return "ERRO"
 
 
@@ -171,8 +178,12 @@ def _rewrite_line(state: Any, line: str) -> str:
             return indent + _message("ALERTA", detail)
         if normalized_label in {"observação", "informação", "info"}:
             return indent + _message("INFO", detail)
-        if normalized_label in {"falha", "erro técnico"}:
+        if normalized_label in {"falha", "erro técnico", "não foi possível abrir"}:
             return indent + _message("ERRO", detail)
+        if normalized_label == "aberto":
+            return indent + _message("OK", f"Artefato aberto: {detail}")
+        if normalized_label == "configuração salva em":
+            return indent + _message("OK", f"Configuração não sensível salva em {detail}")
 
     upper = stripped.upper()
     if upper.startswith("FALHA NA ") and ":" in stripped:
@@ -218,6 +229,18 @@ def _rewrite_line(state: Any, line: str) -> str:
         return indent + _message("INFO", "Nenhuma integração está pronta para validação em lote.")
     if stripped == "Nenhum requisito aplicável está pendente para nova tentativa.":
         return indent + _message("INFO", "Não há requisito aplicável pendente para nova tentativa.")
+    if stripped == "Chaves/API tokens não são gravados no INI por segurança.":
+        return indent + _message("INFO", "Credenciais e tokens não são gravados no INI por segurança.")
+    if stripped == "Há alterações de configuração ainda não salvas no arquivo INI.":
+        return indent + _message(
+            "ALERTA",
+            "Há alterações não salvas no arquivo INI. Salve ou descarte explicitamente antes de sair.",
+        )
+    if stripped.startswith("Uma ou mais alterações de credenciais desta sessão diferem da persistência do Windows"):
+        return indent + _message(
+            "ALERTA",
+            "Há credenciais alteradas somente na sessão; ao sair, elas não serão persistidas como padrão de novos processos.",
+        )
     if stripped.startswith("Opção inválida."):
         return indent + _message("ERRO", stripped)
 
@@ -282,10 +305,17 @@ def install(console_module: Any) -> None:
     if getattr(console_module, "_rasai_operator_ux_consistency", False):
         return
 
+    # These functions are invoked directly by the main loop, so they must participate
+    # in the same final presentation contract as nested configuration/audit menus.
     for name in (
         "_menu",
         "_configure",
         "_environment_menu",
+        "_save_configuration",
+        "_confirm_exit",
+        "_artifact_action",
+        "render_help",
+        "render_m23_help",
         "run_audit_from_console",
         "_post_run_actions",
     ):
