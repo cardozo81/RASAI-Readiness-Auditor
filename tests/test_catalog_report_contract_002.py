@@ -133,7 +133,9 @@ def test_ai_integrations_uses_human_labels_not_generic_field_columns(tmp_path: P
     assert "Campo 1" not in html
     assert "Requisições de IA" in html
     assert "Tokens de entrada" in html
-    assert "Custo estimado" in html
+    assert "Custo observado" in html
+    assert "Previsão pré-execução" in html
+    assert "Não persistida" in html
     assert html.count("data-modal-open='ai-attempt-") == 1
     assert html.count("<dialog id='ai-attempt-") == 1
 
