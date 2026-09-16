@@ -172,3 +172,12 @@ def install() -> None:
     from rasai.console_operator_ux_consistency import install as install_operator_ux_consistency
 
     install_operator_ux_consistency(console)
+
+    # Last presentation pass for configuration lists. It guarantees unique public labels
+    # and groups mixed variables by their functional context on catalog, capability and
+    # all-configuration screens. Technical variable names remain opt-in details only.
+    from rasai.console_configuration_context_presentation import (
+        install as install_configuration_context_presentation,
+    )
+
+    install_configuration_context_presentation(console)
