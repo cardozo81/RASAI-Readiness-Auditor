@@ -119,6 +119,12 @@ def install() -> None:
 
     install_search_configuration_groups()
 
+    # Some GSC metadata originates from the metrics/service registry. Public ownership is
+    # nevertheless Search, so the all-configurations view must not scatter GSC under Web.
+    from rasai.console_search_owner_routing import install as install_search_owner_routing
+
+    install_search_owner_routing()
+
     # Install last because earlier usability/navigation overlays historically rebound an
     # older reprocess surface and interpreted fulfillment completion as process completion.
     from rasai.console_history_presentation import install as install_console_history_presentation
