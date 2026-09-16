@@ -2,56 +2,15 @@
 
 ## Objetivo
 
-O RASAi mantém temporariamente duas projeções HTML independentes para a mesma AUD. A
-finalidade é validar a nova arquitetura CAT-01…CAT-09 sem alterar, remover ou reinterpretar
-o conjunto de relatórios que já era gerado.
+O RASAi mantém temporariamente duas projeções HTML independentes para a mesma AUD. `report/` continua sendo a árvore canônica atual; `report-catalog/` é a proposta por CAT-01…CAT-09 em validação. Não existe cópia de HTML entre as árvores.
 
-| Árvore física | Responsável | Situação |
-|---|---|---|
-| `report/` | geradores HTML atuais/canônicos | permanece inalterada e continua sendo gerada |
-| `report-catalog/` | `catalog_report_site.py` | proposta nova em validação |
+`report-catalog/` é **read-only**. Sua fonte de verdade é `audit.db`, os artifacts da própria AUD e o snapshot secret-free da execução. O gerador não chama collectors, APIs, IA, scoring nem consulta a configuração atual da máquina para reconstruir decisões históricas.
 
-Não existe cópia de arquivos entre as árvores. Cada gerador possui contrato, navegação,
-CSS e materialização próprios. Quando a validação terminar, uma das implementações poderá
-ser removida sem exigir que a outra absorva templates ou regras de navegação da descartada.
+## Contrato de apresentação
 
-## Fonte de verdade da proposta
+Todas as páginas compartilham o mesmo menu, componentes, CSS, estados e linguagem visual. A evolução do conteúdo não deve redesenhar a estrutura aprovada.
 
-`report-catalog/` é uma projeção **read-only**. O gerador lê:
-
-- `audit.db` da própria AUD;
-- `audit_execution_configurations`, incluindo o bloco `audit_catalog` congelado no início
-  da execução;
-- scores, métricas, work-items e resultados já persistidos.
-
-O gerador não consulta a configuração atual da máquina para reconstruir o plano, não faz
-chamadas externas, não chama IA, não executa coletores, não recalcula SARI/SCORE, não cria
-evidências e não altera fulfillment.
-
-## Contrato de páginas
-
-A fonte única da navegação é `src/rasai/catalog_report_contract.py`. Todas as páginas usam
-o mesmo menu, na mesma ordem, alterando apenas o item ativo.
-
-### Auditoria
-
-- `index.html` - Visão geral;
-- `sari.html` - SARI, com score persistido, coverage, confidence, dimensões, limitações e
-  versão metodológica.
-
-### Catálogos
-
-- `cat-01.html` - Fundamentos técnicos e descoberta;
-- `cat-02.html` - Acessibilidade;
-- `cat-03.html` - Conteúdo, semântica e dados estruturados;
-- `cat-04.html` - Web Performance;
-- `cat-05.html` - Search & AI Intelligence;
-- `cat-06.html` - Apdex de navegação;
-- `cat-07.html` - Apdex de experiência;
-- `cat-08.html` - Análise profunda e melhorias;
-- `cat-09.html` - Remediações.
-
-Cada página CAT utiliza a gramática comum:
+As páginas CAT preservam esta ordem:
 
 1. Resumo;
 2. Escopo solicitado;
@@ -63,59 +22,76 @@ Cada página CAT utiliza a gramática comum:
 8. Remediações;
 9. Detalhes técnicos.
 
-Catálogos ausentes do plano congelado continuam tendo página estável, mas aparecem como
-`NÃO SOLICITADO`; ausência de dado não é convertida artificialmente em falha do website.
+A informação principal usa rótulos funcionais em pt-BR. Nomes físicos de tabelas, campos, variáveis, IDs internos e payloads pertencem somente a proveniência/detalhes técnicos quando forem necessários para rastreabilidade.
 
-### Governança
+## Modal contextual
 
-- `execution-evidence.html` - matriz plano × execução e integridade do snapshot;
-- `ai-integrations.html` - IA e integrações, usando somente telemetria segura persistida;
-- `methodology.html` - distinção entre índice, métrica, classificação e contagem, além do
-  contrato de scoring persistido;
-- `metrics.html` - inventário transversal de índices/métricas e dicionário de leitura.
+Modal é recurso de aprofundamento, não uma segunda página. Cada gatilho abre exclusivamente o item clicado: uma amostra, uma tentativa de integração, uma ocorrência de navegador, uma validação de JSON-LD, um finding ou uma remediação.
 
-## Índices e contexto
+O padrão visual da modal é compartilhado, mas seu conteúdo continua restrito ao contexto de origem. Informações curtas permanecem na página; detalhes técnicos pequenos podem usar expansão inline; conteúdo com navegação própria deve permanecer em superfície dedicada.
 
-Todo score persistido na tabela `scores` é projetado. `OVERALL_READINESS` é exibido como
-SARI em página específica; as demais dimensões permanecem visíveis com device/contexto,
-valor, coverage, confidence, status de consolidação e versão de scoring.
+## Fronteiras de responsabilidade
 
-Métricas de Web Performance, SERP e Apdex são exibidas nos CATs que as produzem e também
-no inventário transversal. O relatório mantém a distinção metodológica entre, por
-exemplo, posição observada em SERP e posição média do Google Search Console.
+O relatório distingue explicitamente:
 
-O HTML não cria classificação nova para um valor quando essa classificação não está
-persistida no contrato que produziu o dado.
+- **captura/observação:** o que foi medido ou encontrado;
+- **análise/interpretação:** o que os fatos significam e como se correlacionam;
+- **remediação:** o que deve ser alterado e como validar a correção.
 
-## IA e segurança
+CAT-01…CAT-07 são proprietários dos fatos e diagnósticos de seus domínios. CAT-08 consome referências desses catálogos para explicar, correlacionar e priorizar melhorias. CAT-09 concentra implementação de correções, exemplos e critérios de validação. Quando um CAT depende de dado pertencente a outro domínio, ele referencia o CAT/identificador de origem em vez de duplicar a evidência.
 
-A proposta não envia dados para IA. Quando a AUD registra uso de IA, a página apenas
-informa essa política e telemetria segura já persistida. Prompt, resposta bruta, segredo,
-API key, access token, refresh token, client secret e senha não são projetados.
+### CAT-01
 
-Nomes técnicos e tabelas físicas aparecem apenas em blocos de detalhes/proveniência. O
-conteúdo principal usa conceitos funcionais.
+Fundamentos técnicos e descoberta: robots, sitemap/feed, `llms.txt`, padrões web, falhas de console/JavaScript/requisições e evidências técnicas de descoberta. O snapshot bruto continua pertencendo à Governança.
+
+### CAT-02
+
+Acessibilidade: resultados automatizados, elementos afetados e evidências. Lighthouse é uma fonte automatizada e não equivale a certificação WCAG integral.
+
+### CAT-03
+
+Conteúdo, semântica e dados estruturados: entidades, avaliações semânticas e validações de JSON-LD. Sugestões de implementação de JSON-LD pertencem ao CAT-09.
+
+### CAT-04
+
+Web Performance: Lighthouse/PageSpeed/CrUX e métricas de laboratório/campo. Telemetria da chamada externa pertence a IA e integrações.
+
+### CAT-05
+
+Search & AI Intelligence: SERP, GSC, visibilidade em IA e observabilidade aplicável. Fontes independentes não são tratadas como dependências obrigatórias umas das outras.
+
+### CAT-06 e CAT-07
+
+Apdex de navegação e de experiência mostram o agregado e cada amostra persistida. O relatório não inventa URL individual de request quando o contrato da amostra só preservou contagens de falhas.
+
+### CAT-08
+
+Análise profunda: problemas, correlações, prioridades e melhorias evidence-bound, com referência ao CAT que possui a evidência original.
+
+### CAT-09
+
+Remediações: correções determinísticas e assistidas por IA, texto/HTML/JSON-LD sugerido e forma de revalidar, sempre vinculados ao finding/evidência de origem quando disponível.
+
+## Governança
+
+- `capture-context.html`: URL, página/captura, device, navegador, viewport, renderização e artifacts;
+- `execution-evidence.html`: plano congelado × execução, fulfillment e integridade;
+- `ai-integrations.html`: cada tentativa de IA e integração externa persistida, volumes, tokens, custos, retries/fallbacks, estados e comunicação request/response quando armazenada;
+- `methodology.html`: natureza de observação, índice, análise e remediação;
+- `metrics.html`: inventário transversal dos índices/métricas com referência ao catálogo proprietário.
+
+Uma página CAT somente indica que utilizou IA/API e aponta para `ai-integrations.html`; ela não replica tokens, custo ou payloads.
+
+## IA, integrações e segurança
+
+`ai-integrations.html` consolida telemetria persistida de IA e serviços externos. Request/response bruto só é exibido quando existe no log da própria AUD. Ausência de payload não é reconstruída. API keys, bearer tokens, cookies, senhas e outros segredos são removidos da projeção.
+
+Custo exibido é estimativa técnica persistida, não invoice/fatura. IA não altera score determinístico por opinião do modelo.
 
 ## Integração com o finalizador
 
-`report_completion.finalize_audit_report_site()` executa o gerador novo após finalizar a
-árvore `report/`. A inspeção de completude canônica continua verificando somente
-`report/`; portanto, a proposta não redefine silenciosamente o contrato legado durante o
-período de avaliação.
-
-Uma falha do gerador experimental é registrada como `catalog-report:<erro>` em
-`renderer_errors`, permitindo diagnóstico sem confundir a lista canônica de páginas da
-árvore atual.
+`report_completion.finalize_audit_report_site()` materializa `report-catalog/` depois da árvore atual. A proposta continua isolada da inspeção de completude de `report/` enquanto estiver em validação. O gerador deve ser total sobre estados legais e poder ser executado novamente depois de capacidades pós-auditoria, como análise profunda, para refletir o estado final persistido.
 
 ## Critério para remoção futura
 
-Após o smoke e a comparação funcional, decidir explicitamente qual árvore se torna o
-contrato único. Somente então remover:
-
-- o gerador descartado;
-- seu contrato de páginas/menu;
-- seus testes específicos;
-- a chamada correspondente no finalizador.
-
-Até essa decisão, não mover arquivos entre `report/` e `report-catalog/` e não criar uma
-terceira árvore de relatórios.
+Somente após validação funcional decidir qual árvore se torna o contrato único. Até lá, não mover templates entre `report/` e `report-catalog/` e não criar uma terceira árvore.
