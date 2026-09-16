@@ -26,6 +26,32 @@ def test_configuration_actions_explain_scope_and_persistence() -> None:
     )
 
 
+def test_provider_actions_explain_exact_credential_scope() -> None:
+    state = _state()
+    assert "somente nesta sessão" in ux._rewrite_line(state, "S. Setar/alterar Key na sessão")
+    assert "nunca no INI" in ux._rewrite_line(state, "P. Persistir/remover Key no Windows/User")
+    assert "Windows/User permanece inalterado" in ux._rewrite_line(
+        state, "L. Limpar Key somente da sessão"
+    )
+    deleted = ux._rewrite_line(state, "X. Excluir Key da sessão e do Windows/User")
+    assert "sessão + Windows/User" in deleted
+    assert "Windows/Machine não é alterado" in deleted
+    assert "não apaga a credencial" in ux._rewrite_line(
+        state, "A. Habilitar/desabilitar no AUTO sem apagar a Key"
+    )
+
+
+def test_legacy_secret_actions_keep_the_same_storage_contract() -> None:
+    state = _state()
+    assert ux._rewrite_line(state, "S. Setar/alterar sessão") == (
+        "S. Definir/alterar valor somente nesta sessão"
+    )
+    assert "persistência não é alterada" in ux._rewrite_line(state, "R. Remover da sessão")
+    assert "Windows/User" in ux._rewrite_line(
+        state, "P. Persistir/remover credencial no Windows"
+    )
+
+
 def test_catalog_and_history_actions_state_their_effect() -> None:
     state = _state()
     assert "plano da próxima auditoria" in ux._rewrite_line(
@@ -35,6 +61,12 @@ def test_catalog_and_history_actions_state_their_effect() -> None:
     assert "NOVA auditoria" in reuse
     assert "AUD de origem não é alterada" in reuse
     assert "arquivos e artefatos" in ux._rewrite_line(state, "3. Mostrar caminhos de artefatos")
+
+
+def test_consolidated_result_actions_name_their_artifacts() -> None:
+    state = _state()
+    assert ux._rewrite_line(state, "A. Abrir relatório") == "A. Abrir relatório consolidado gerado"
+    assert "arquivos deste relatório consolidado" in ux._rewrite_line(state, "P. Abrir pasta")
 
 
 def test_integration_validation_actions_warn_about_possible_quota_use() -> None:
@@ -49,13 +81,28 @@ def test_integration_validation_actions_warn_about_possible_quota_use() -> None:
 def test_semantic_messages_use_one_operator_vocabulary() -> None:
     state = _state()
     assert ux._rewrite_line(state, "ATENÇÃO: haverá impacto") == "ALERTA     : haverá impacto"
+    assert ux._rewrite_line(state, "Atenção             : haverá impacto") == "ALERTA     : haverá impacto"
     assert ux._rewrite_line(state, "Observação: somente contexto") == "INFO       : somente contexto"
+    assert ux._rewrite_line(state, "Observação          : somente contexto") == "INFO       : somente contexto"
     assert ux._rewrite_line(state, "A alteração já está ativa nesta sessão.") == (
         "OK         : Alteração aplicada nesta sessão."
     )
     assert ux._rewrite_line(state, "Ainda não validado.") == (
         "INFO       : Integração ainda não validada. Use T para validar/retestar."
     )
+
+
+def test_consolidation_failures_and_filters_get_actionable_severity() -> None:
+    state = _state()
+    failure = ux._rewrite_line(state, "Falha na consolidação: ValueError: x")
+    assert failure.startswith("ERRO")
+    assert "Falha na consolidação" in failure
+    invalid_filter = ux._rewrite_line(state, "Filtro inválido: data inicial posterior à final")
+    assert invalid_filter.startswith("ERRO")
+    assert "Corrija os valores" in invalid_filter
+    reference = ux._rewrite_line(state, "A auditoria de referência deve ser anterior à auditoria atual.")
+    assert reference.startswith("ALERTA")
+    assert "Selecione outro par" in reference
 
 
 def test_generic_errors_are_actionable_instead_of_opaque() -> None:
