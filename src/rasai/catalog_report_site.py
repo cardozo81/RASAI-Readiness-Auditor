@@ -27,14 +27,14 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
         dim=str(r.get("dimension") or "");label=_DIMENSION_LABELS.get(dim,dim.replace("_"," ").title())
         ctx="SARI" if dim=="OVERALL_READINESS" else _DIMENSION_CONTEXT.get(dim,"Metodologia")
         link="sari.html" if dim=="OVERALL_READINESS" else CATALOG_PAGE_BY_ID[ctx].filename if ctx in CATALOG_PAGE_BY_ID else "methodology.html"
-        rows.append((_Html(f"<a href='{link}'>{escape(label)}</a>"),"Índice",_score_value(r),str(r.get("device") or "—").title(),"Índice persistido",r.get("scoring_version","—")))
+        rows.append((_Html(f"<a href='{link}'>{escape(label)}</a>"),"Índice",_score_value(r),_device_label(r.get("device")),"Índice persistido",r.get("scoring_version","—")))
     for cid in ("CAT-04","CAT-06","CAT-07"):
         for name,value,kind in _catalog_metrics(database,data,cid):
             rows.append((_Html(f"<a href='{CATALOG_PAGE_BY_ID[cid].filename}'>{escape(str(name))}</a>"),kind,value,CATALOG_BY_ID[cid].label,"Medição persistida","—"))
     definitions=(
         ("SARI","Índice","Prontidão agregada com cobertura, confiança e condições de validação."),
         ("Lighthouse","Índice","Pontuações laboratoriais por categoria quando coletadas."),
-        ("LCP / INP / CLS","Métrica","Métricas de experiência/performance; o contexto diferencia laboratório e campo."),
+        ("LCP / INP / CLS","Métrica","Métricas de experiência/desempenho; o contexto diferencia laboratório e campo."),
         ("Apdex","Índice","Satisfação calculada a partir das amostras e limites persistidos."),
         ("SERP","Métrica","Posição observada em uma coleta de resultados de busca; não equivale à posição média do GSC."),
     )
@@ -106,11 +106,13 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
     final database.  A successful build is promoted only when the source fingerprint
     is unchanged from the beginning to the end of the projection.
     """
+    from rasai.catalog_report_adherence import install_catalog_report_adherence
     from rasai.catalog_report_final_refinements import install_catalog_report_refinements
     from rasai.catalog_report_label_refinements import install_catalog_human_labels
 
     install_catalog_human_labels()
     install_catalog_report_refinements()
+    install_catalog_report_adherence()
 
     root=Path(workspace.root)
     report_dir=root/CATALOG_REPORT_DIR
