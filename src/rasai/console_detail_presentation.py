@@ -112,6 +112,13 @@ def install() -> None:
 
     install_console_catalog_workflow(console)
 
+    # Search/GSC are both part of CAT-05 but remain technically independent. Group their
+    # settings by execution scope, authentication, property and collection limits so the
+    # operator does not need to infer relationships from environment-variable names.
+    from rasai.console_search_configuration_groups import install as install_search_configuration_groups
+
+    install_search_configuration_groups()
+
     # Install last because earlier usability/navigation overlays historically rebound an
     # older reprocess surface and interpreted fulfillment completion as process completion.
     from rasai.console_history_presentation import install as install_console_history_presentation
