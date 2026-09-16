@@ -35,6 +35,29 @@ Regras:
 
 Como referência visual, o teto recomendado é de até quatro ações operacionais visíveis por tela comum. Telas de gestão em lote, como gerenciamento/exclusão de AUDs, podem ter mais comandos porque todos continuam pertencendo ao mesmo contexto operacional.
 
+## Mensagens semânticas, cores e disposição
+
+A camada pública do console usa o mesmo vocabulário em todas as superfícies:
+
+```text
+OK         : operação concluída ou alteração aplicada com sucesso
+INFO       : contexto útil; nenhuma correção obrigatória foi detectada
+ALERTA     : condição que merece atenção, limitação, quota/custo ou consequência de continuar
+ERRO       : entrada inválida, falha, bloqueio ou operação que não pôde ser concluída
+```
+
+Contrato visual:
+
+- **verde**: sucesso, concluído, apto ou valor explicitamente válido;
+- **ciano**: navegação, títulos, informação e contexto operacional;
+- **amarelo**: alerta, limitação, configuração pendente, quota/custo ou validação ainda não feita;
+- **vermelho**: erro, bloqueio, falha ou condição destrutiva que exige correção/confirmacão;
+- **dim/neutro**: texto secundário, explicação, default/herança ou condição não aplicável.
+
+Uma mensagem operacional deve responder, quando a informação existir, a três perguntas: **o que aconteceu**, **qual o efeito** e **qual a próxima ação**. Mensagens genéricas como `ação inválida`, `ID/ação inválido` ou `variável inválida` são projetadas para texto amigável que indique o que o operador pode informar naquela tela. Detalhe técnico continua disponível quando necessário, mas não substitui a orientação operacional.
+
+Ações também descrevem seu efeito. Quando uma ação altera armazenamento/persistência, a própria legenda ou a etapa imediatamente seguinte deve deixar claro se afeta **somente a sessão**, o **arquivo de configuração**, **Windows/User**, ou se cria uma **nova AUD** sem alterar a origem. Ações potencialmente destrutivas, como reset e exclusão, continuam exigindo confirmação explícita.
+
 ## Preparar auditoria
 
 A tela é organizada em:
@@ -53,9 +76,9 @@ A seção `AÇÕES` desta tela é contextual ao plano corrente:
 
 ```text
 R. Executar auditoria
-U. Executar com/sem IA        # somente quando aplicável
-S. Salvar configuração no arquivo [SEM SECRETS]
-L. Carregar configuração de AUD [NOVA EXECUÇÃO]
+U. Usar/não usar IA opcional nesta próxima auditoria   # somente quando aplicável
+S. Salvar configurações não sensíveis no arquivo       # secrets não são gravados
+L. Carregar configuração de AUD como base              # cria nova execução; não altera a origem
 V. Voltar ao início
 ```
 
@@ -122,7 +145,7 @@ A tela de catálogo referencia o owner canônico da configuração; não duplica
 O editor oferece uma ação explícita:
 
 ```text
-T. Detalhes técnicos
+T. Exibir detalhes técnicos desta configuração
 ```
 
 Somente essa visão avançada apresenta o nome real da variável, além de informações úteis para diagnóstico:
@@ -145,11 +168,11 @@ O objetivo é manter detalhes de implementação disponíveis para troubleshooti
 Após alteração não sensível:
 
 ```text
-1. manter somente nesta sessão
-2. manter na sessão e salvar no arquivo de configuração
+1. aplicar somente nesta sessão
+2. aplicar na sessão e salvar no arquivo de configuração
 ```
 
-Secrets permanecem fora do INI e usam o destino Windows/User já existente.
+Para secrets, o destino persistente é Windows/User e o INI nunca recebe o conteúdo secreto. Limpar o override da sessão não apaga automaticamente arquivo/Windows; restauração ou gerenciamento de persistência possuem ações próprias e explícitas.
 
 A seleção `CAT-*` é execution-scoped e é registrada no snapshot secret-free da AUD para reutilização e futura projeção em relatórios.
 
@@ -217,6 +240,8 @@ NÃO CONFIGURADO
 ## Regra de implementação
 
 A última tela não é o local para descobrir dependências básicas. Cada catálogo recalcula readiness enquanto o operador configura. `R. Executar auditoria` permanece bloqueado quando existe pendência obrigatória conhecida.
+
+A padronização final de mensagens e rótulos é exclusivamente de **apresentação**. Ela pode reescrever copy pública como `ERRO/ALERTA/INFO/OK` e tornar a descrição de uma ação mais explícita, mas nunca modifica a tecla aceita, o retorno da ação, a persistência executada, a validação, o core da auditoria ou o contrato dos runtimes.
 
 O contrato de rótulo/valor/origem é de **apresentação**: nomes técnicos continuam sendo as chaves canônicas usadas internamente, portanto não há alteração das regras do core ou do formato aceito pelos runtimes.
 
