@@ -91,8 +91,15 @@ def finalize_audit_report_site(
     context_interpretations: Sequence[Any] = (),
     routing_snapshot: Mapping[str, Any] | None = None,
 ) -> AuditReportCompletion:
-    """Rebuild persisted projections, then add execution-local presentation data."""
+    """Rebuild persisted projections, then add execution-local presentation data.
+
+    The canonical/legacy generator continues to own ``report/`` and its existing
+    completeness contract.  The catalog proposal is materialized independently into
+    ``report-catalog/`` so either implementation can later be removed without coupling
+    their navigation, templates or expected-page rules.
+    """
     from rasai import report_navigation
+    from rasai.catalog_report_site import materialize_catalog_report_site
     from rasai.improvement_intelligence import write_improvement_report
     from rasai.m20_reporting import enrich_m20_report_site
     from rasai.m21_reporting import enrich_m21_report_site
@@ -195,6 +202,14 @@ def finalize_audit_report_site(
         lambda: finalize_dashboard_presentation(audit_id=audit_id, workspace=workspace),
     )
     run("manifest", lambda: write_report_manifest(report_dir))
+
+    # Experimental catalog report.  It receives the completed persisted AUD as input,
+    # has its own templates/navigation and writes to a separate tree.  It is deliberately
+    # not part of the legacy canonical-page completeness set above.
+    run(
+        "catalog-report",
+        lambda: materialize_catalog_report_site(audit_id=audit_id, workspace=workspace),
+    )
 
     inspected = inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
     return AuditReportCompletion(
