@@ -30,7 +30,7 @@ def test_catalog_shell_uses_product_timezone_presentation() -> None:
         "AUD-TIME",
         "<p>2026-09-16T11:57:02+00:00</p><pre>2026-09-16T11:57:02+00:00</pre>",
     )
-    assert "16/09/2026 08:57:02 -03:00" in html
+    assert "16/09/2026 08:57:02 (America/Sao_Paulo)" in html
     # Technical/raw blocks keep their original persisted timestamp.
     assert "<pre>2026-09-16T11:57:02+00:00</pre>" in html
 
