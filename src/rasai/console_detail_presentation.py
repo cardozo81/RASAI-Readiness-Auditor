@@ -119,11 +119,23 @@ def install() -> None:
 
     install_search_configuration_groups()
 
+    # Execution-owned Search inputs are shown as product concepts, not internal state
+    # attributes, and stay visually separate from reusable provider/governance settings.
+    from rasai.console_search_scope_presentation import install as install_search_scope_presentation
+
+    install_search_scope_presentation()
+
     # Some GSC metadata originates from the metrics/service registry. Public ownership is
     # nevertheless Search, so the all-configurations view must not scatter GSC under Web.
     from rasai.console_search_owner_routing import install as install_search_owner_routing
 
     install_search_owner_routing()
+
+    # Saving configuration materializes the complete public non-secret catalog, including
+    # effective defaults. Search execution inputs remain in their dedicated INI section.
+    from rasai.console_complete_persistence import install as install_complete_persistence
+
+    install_complete_persistence()
 
     # Install last because earlier usability/navigation overlays historically rebound an
     # older reprocess surface and interpreted fulfillment completion as process completion.
