@@ -1,13 +1,13 @@
-# Agrupamento de configuração: SERP e Google Search Console
+# Agrupamento de configuração: CAT-05 Search & AI Intelligence
 
 ## Objetivo
 
-`CAT-05 Search & AI Intelligence` reúne a intenção funcional de Search, mas **SERP e Google Search Console continuam sendo fontes independentes**. A UI não deve apresentar suas propriedades como uma lista única de variáveis.
+`CAT-05 Search & AI Intelligence` reúne a intenção funcional de Search, mas **SERP, Google Search Console e fontes observacionais continuam tecnicamente independentes**. A UI não deve apresentar suas propriedades como uma lista única de variáveis.
 
 A estrutura pública deve permitir ao operador entender três dimensões sem conhecer nomes `RASAI_*`:
 
 1. o que pertence ao **escopo da próxima execução**;
-2. o que configura o **serviço/integrador** de forma reutilizável;
+2. o que configura cada **fonte/serviço reutilizável**;
 3. quais dados são **credenciais** e onde podem ser persistidos.
 
 Os IDs numéricos canônicos continuam sendo a identidade pública de cada configuração. O nome técnico da variável permanece disponível somente em `T. Detalhes técnicos`.
@@ -38,9 +38,30 @@ GOOGLE SEARCH CONSOLE
 
 Os valores internos `search_queries`, `search_region`, `search_depth`, `search_device` e `search_competitive` não são nomes apresentados ao operador. A UI usa rótulos funcionais.
 
+Na tela do CAT-05, a ação primária explicita o destino:
+
+```text
+1. Configurar O QUE PESQUISAR (termos, localidade, profundidade, dispositivo e concorrentes)
+```
+
 `Profundidade desejada` significa o Top N que será consultado para cada termo. Ela não deve ser confundida com a configuração persistente `profundidade máxima permitida`, que é um limite de governança do serviço.
 
 Esses dados não devem ser confundidos com credencial, provider ou limites operacionais persistentes.
+
+## Configurações relacionadas por fonte
+
+A lista de configurações relacionadas do CAT-05 é agrupada visualmente e ordenada por contexto funcional. O operador não precisa inferir a fonte pelo nome da variável.
+
+A ordem pública é:
+
+1. SERP;
+2. Google Search Console;
+3. CrUX History;
+4. Microsoft Clarity;
+5. Common Crawl;
+6. outras fontes aplicáveis, quando existirem.
+
+As colunas `ID`, `configuração`, `valor` e `origem` usam larguras estáveis. Rótulos longos são truncados visualmente com reticências, preservando o alinhamento das colunas seguintes; o texto completo continua disponível no editor/detalhe da configuração.
 
 ## SERP
 
@@ -112,6 +133,35 @@ A property é validada contra o alvo da auditoria. Uma property incompatível n�
 
 Sitemaps e URL Inspection reutilizam a mesma autenticação/property; não exigem um segundo conjunto de credenciais.
 
+## Fontes observacionais externas
+
+As fontes observacionais que pertencem ao CAT-05 permanecem em grupos próprios:
+
+### CrUX History
+
+- habilitação/elegibilidade da série histórica;
+- credencial aplicável;
+- parâmetros próprios da fonte.
+
+### Microsoft Clarity
+
+- opt-in explícito;
+- token de API;
+- janela em dias;
+- dimensões consultadas.
+
+Token configurado sozinho não habilita a coleta do Clarity quando o opt-in está desligado.
+
+### Common Crawl
+
+- habilitação;
+- quantidade de índices consultados;
+- limite de URLs.
+
+Common Crawl é uma fonte pública e não compartilha credencial com SERP, GSC ou Clarity.
+
+**Dynatrace não pertence a este grupo.** No console ele é apresentado junto do `CAT-07 Apdex de experiência`, como calibração/importação opcional, e suas configurações exclusivas ficam agrupadas ao final das configurações relacionadas desse catálogo.
+
 ## Regra de independência
 
 A UI deve deixar explícito:
@@ -119,9 +169,10 @@ A UI deve deixar explícito:
 ```text
 SERP configurada != GSC configurado
 GSC configurado  != SERP configurada
+Clarity configurado != SERP/GSC configurados
 ```
 
-Uma dependência GSC ausente ou inválida só bloqueia o plano quando GSC pertence ao escopo efetivamente selecionado/requerido. O mesmo princípio vale para SERP.
+Uma dependência GSC ausente ou inválida só bloqueia o plano quando GSC pertence ao escopo efetivamente selecionado/requerido. O mesmo princípio vale para SERP e para cada fonte observacional opcional.
 
 ## Visibilidade de configurações
 
@@ -136,17 +187,19 @@ Marcadores internos de subprocesso e seletores de IA locais já aposentados não
 
 ## Persistência
 
-Ao usar `Salvar configuração`, o INI passa a ser também um inventário completo da configuração pública não sensível:
+Ao usar `Salvar configuração`, o INI passa a ser também um inventário completo da configuração pública não sensível e do plano explícito da próxima auditoria:
 
 - toda configuração pública não sensível é materializada na seção `[environment]`;
 - a precedência para o valor salvo é: valor explícito da sessão/ambiente, projeção do estado do console, default público persistível do runtime;
 - configurações públicas sem valor efetivo nem default persistível permanecem listadas com valor vazio;
 - seletores que só devem existir quando há override explícito, como `RASAI_CONFIG`, permanecem vazios se o operador não os definiu; o ato de salvar não pode transformar ausência em override;
 - os inputs não sensíveis de Search ficam na seção `[search_intelligence]` (`queries`, `depth`, `region`, `device`, `competitive`);
+- a seleção explícita de catálogos fica na seção `[audit_catalog]`, em `selected`, e a escolha de IA opcional fica em `ai_enabled`;
+- ao carregar o INI, a seleção `CAT-*` é restaurada como plano da próxima auditoria; dependências canônicas, como `CAT-07 -> CAT-06`, continuam sendo aplicadas pelo owner do plano;
 - secrets permanecem somente em sessão ou Windows/User, conforme suporte existente;
 - API keys, tokens, client secrets, passwords e outros valores classificados como sensíveis nunca entram no INI;
-- o snapshot do AUD continua preservando o plano efetivo da execução conforme seu contrato próprio.
+- o snapshot do AUD continua preservando e congelando o plano efetivo daquela execução conforme seu contrato próprio.
 
-Isso significa que parâmetros SERP como modo, provider, limites, timeout, retries e intervalo passam a ser persistidos mesmo quando o operador estiver usando o default efetivo e nunca tiver criado um override manual.
+Isso significa que parâmetros SERP como modo, provider, limites, timeout, retries e intervalo passam a ser persistidos mesmo quando o operador estiver usando o default efetivo e nunca tiver criado um override manual. Também significa que salvar a configuração não perde a seleção explícita dos catálogos ao fechar e reabrir o console.
 
 Documentos relacionados: [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md), [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md), [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
