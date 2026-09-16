@@ -25,6 +25,7 @@ ESCOPO DESTA EXECUÇÃO
   Device da auditoria
 
 O QUE PESQUISAR
+  Editar estes valores: digite 1 no prompt desta tela — Configurar O QUE PESQUISAR.
   Termos de busca
   Quantidade de termos
   Localidade
@@ -38,7 +39,9 @@ GOOGLE SEARCH CONSOLE
 
 Os valores internos `search_queries`, `search_region`, `search_depth`, `search_device` e `search_competitive` não são nomes apresentados ao operador. A UI usa rótulos funcionais.
 
-Na tela do CAT-05, a ação primária explicita o destino:
+`Quantidade de termos` é somente leitura: ela é calculada automaticamente a partir de `Termos de busca`. Os demais campos de `O QUE PESQUISAR` são editados pelo fluxo da ação `1`.
+
+Na tela do CAT-05, a ação primária explicita o destino e também é referenciada junto ao próprio bloco `O QUE PESQUISAR`, para não ficar escondida depois da lista longa de configurações relacionadas:
 
 ```text
 1. Configurar O QUE PESQUISAR (termos, localidade, profundidade, dispositivo e concorrentes)
@@ -60,6 +63,8 @@ A ordem pública é:
 4. Microsoft Clarity;
 5. Common Crawl;
 6. outras fontes aplicáveis, quando existirem.
+
+As subseções são efetivamente renderizadas a partir dos IDs públicos compactos usados pelo console. A apresentação aceita também a forma legada de ID para compatibilidade, evitando que uma mudança no comprimento visual do ID volte a achatar a lista em um único bloco.
 
 As colunas `ID`, `configuração`, `valor` e `origem` usam larguras estáveis. Rótulos longos são truncados visualmente com reticências, preservando o alinhamento das colunas seguintes; o texto completo continua disponível no editor/detalhe da configuração.
 
@@ -142,6 +147,8 @@ As fontes observacionais que pertencem ao CAT-05 permanecem em grupos próprios:
 - habilitação/elegibilidade da série histórica;
 - credencial aplicável;
 - parâmetros próprios da fonte.
+
+A chave `CrUX API` é compartilhável com outras capacidades CrUX do produto, mas dentro do CAT-05 ela é apresentada na subseção `CrUX History`, porque esse é o papel funcional que exerce nesse catálogo.
 
 ### Microsoft Clarity
 
