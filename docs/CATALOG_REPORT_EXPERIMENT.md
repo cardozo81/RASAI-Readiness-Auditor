@@ -1,4 +1,4 @@
-# Relatório HTML por catálogos — validação paralela
+# Relatório HTML por catálogos - validação paralela
 
 ## Objetivo
 
@@ -35,21 +35,21 @@ o mesmo menu, na mesma ordem, alterando apenas o item ativo.
 
 ### Auditoria
 
-- `index.html` — Visão geral;
-- `sari.html` — SARI, com score persistido, coverage, confidence, dimensões, limitações e
+- `index.html` - Visão geral;
+- `sari.html` - SARI, com score persistido, coverage, confidence, dimensões, limitações e
   versão metodológica.
 
 ### Catálogos
 
-- `cat-01.html` — Fundamentos técnicos e descoberta;
-- `cat-02.html` — Acessibilidade;
-- `cat-03.html` — Conteúdo, semântica e dados estruturados;
-- `cat-04.html` — Web Performance;
-- `cat-05.html` — Search & AI Intelligence;
-- `cat-06.html` — Apdex de navegação;
-- `cat-07.html` — Apdex de experiência;
-- `cat-08.html` — Análise profunda e melhorias;
-- `cat-09.html` — Remediações.
+- `cat-01.html` - Fundamentos técnicos e descoberta;
+- `cat-02.html` - Acessibilidade;
+- `cat-03.html` - Conteúdo, semântica e dados estruturados;
+- `cat-04.html` - Web Performance;
+- `cat-05.html` - Search & AI Intelligence;
+- `cat-06.html` - Apdex de navegação;
+- `cat-07.html` - Apdex de experiência;
+- `cat-08.html` - Análise profunda e melhorias;
+- `cat-09.html` - Remediações.
 
 Cada página CAT utiliza a gramática comum:
 
@@ -68,11 +68,11 @@ Catálogos ausentes do plano congelado continuam tendo página estável, mas apa
 
 ### Governança
 
-- `execution-evidence.html` — matriz plano × execução e integridade do snapshot;
-- `ai-integrations.html` — IA e integrações, usando somente telemetria segura persistida;
-- `methodology.html` — distinção entre índice, métrica, classificação e contagem, além do
+- `execution-evidence.html` - matriz plano × execução e integridade do snapshot;
+- `ai-integrations.html` - IA e integrações, usando somente telemetria segura persistida;
+- `methodology.html` - distinção entre índice, métrica, classificação e contagem, além do
   contrato de scoring persistido;
-- `metrics.html` — inventário transversal de índices/métricas e dicionário de leitura.
+- `metrics.html` - inventário transversal de índices/métricas e dicionário de leitura.
 
 ## Índices e contexto
 
