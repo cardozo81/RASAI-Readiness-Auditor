@@ -25,7 +25,7 @@ ESCOPO DESTA EXECUÇÃO
   Device da auditoria
 
 O QUE PESQUISAR
-  Editar estes valores: digite 1 no prompt desta tela — Configurar O QUE PESQUISAR.
+  Editar estes valores: digite 1 no prompt desta tela - Configurar O QUE PESQUISAR.
   Termos de busca
   Quantidade de termos
   Localidade
