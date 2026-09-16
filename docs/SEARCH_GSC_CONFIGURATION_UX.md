@@ -1,5 +1,7 @@
 # Agrupamento de configuração: CAT-05 Search & AI Intelligence
 
+**Estado:** contrato vigente de desenvolvimento/pré-produção.
+
 ## Objetivo
 
 `CAT-05 Search & AI Intelligence` reúne a intenção funcional de Search, mas **SERP, Google Search Console e fontes observacionais continuam tecnicamente independentes**. A UI não deve apresentar suas propriedades como uma lista única de variáveis.
@@ -64,7 +66,7 @@ A ordem pública é:
 5. Common Crawl;
 6. outras fontes aplicáveis, quando existirem.
 
-As subseções são efetivamente renderizadas a partir dos IDs públicos compactos usados pelo console. A apresentação aceita também a forma legada de ID para compatibilidade, evitando que uma mudança no comprimento visual do ID volte a achatar a lista em um único bloco.
+As subseções são renderizadas a partir dos IDs públicos numéricos reconhecidos pelo console. O agrupamento aceita a faixa de comprimento prevista pelo parser da apresentação para que a organização por fonte não dependa da largura visual do ID.
 
 As colunas `ID`, `configuração`, `valor` e `origem` usam larguras estáveis. Rótulos longos são truncados visualmente com reticências, preservando o alinhamento das colunas seguintes; o texto completo continua disponível no editor/detalhe da configuração.
 
@@ -190,7 +192,7 @@ A suíte de regressão mantém dois contratos:
 - toda variável de runtime classificada como configuração pública deve estar registrada no catálogo do console;
 - todo `EnvironmentSpec` registrado deve ser alcançável em `Todas as configurações`.
 
-Marcadores internos de subprocesso e seletores de IA locais já aposentados não fazem parte da superfície pública.
+Marcadores internos de subprocesso e seletores locais de IA que não pertencem ao contrato público não fazem parte da superfície normal de configuração.
 
 ## Persistência
 
@@ -200,12 +202,14 @@ Ao usar `Salvar configuração`, o INI passa a ser também um inventário comple
 - a precedência para o valor salvo é: valor explícito da sessão/ambiente, projeção do estado do console, default público persistível do runtime;
 - configurações públicas sem valor efetivo nem default persistível permanecem listadas com valor vazio;
 - seletores que só devem existir quando há override explícito, como `RASAI_CONFIG`, permanecem vazios se o operador não os definiu; o ato de salvar não pode transformar ausência em override;
-- os inputs não sensíveis de Search ficam na seção `[search_intelligence]` (`queries`, `depth`, `region`, `device`, `competitive`);
+- os inputs não sensíveis de Search ficam na seção `[search_intelligence]` (`queries`, `depth`, `region`, `device`, `competitive` e outros campos suportados pela capacidade quando presentes no estado);
 - a seleção explícita de catálogos fica na seção `[audit_catalog]`, em `selected`, e a escolha de IA opcional fica em `ai_enabled`;
 - ao carregar o INI, a seleção `CAT-*` é restaurada como plano da próxima auditoria; dependências canônicas, como `CAT-07 -> CAT-06`, continuam sendo aplicadas pelo owner do plano;
 - secrets permanecem somente em sessão ou Windows/User, conforme suporte existente;
 - API keys, tokens, client secrets, passwords e outros valores classificados como sensíveis nunca entram no INI;
-- o snapshot do AUD continua preservando e congelando o plano efetivo daquela execução conforme seu contrato próprio.
+- o snapshot do AUD preserva e congela o plano efetivo daquela execução conforme seu contrato próprio.
+
+Alterações feitas pelo editor canônico são validadas antes de serem consideradas aplicadas. Quando uma configuração dependente ficaria inválida, o estado e o ambiente são restaurados; uma edição rejeitada não deve ser persistida como se tivesse sido aceita.
 
 Isso significa que parâmetros SERP como modo, provider, limites, timeout, retries e intervalo passam a ser persistidos mesmo quando o operador estiver usando o default efetivo e nunca tiver criado um override manual. Também significa que salvar a configuração não perde a seleção explícita dos catálogos ao fechar e reabrir o console.
 
