@@ -14,14 +14,31 @@ Os IDs numéricos canônicos continuam sendo a identidade pública de cada confi
 
 ## Escopo da próxima execução
 
-Antes das propriedades persistentes dos serviços, CAT-05 mostra separadamente os inputs do pedido atual:
+Antes das propriedades persistentes dos serviços, CAT-05 mostra separadamente os inputs do pedido atual.
 
-- termos SERP;
-- região/localidade;
-- profundidade solicitada;
-- device SERP;
-- URL/alvo e idioma/mercado herdados do escopo da auditoria;
-- readiness do GSC para a URL auditada.
+A apresentação pública segue esta estrutura:
+
+```text
+ESCOPO DESTA EXECUÇÃO
+  URL / entrada
+  Idioma / mercado
+  Device da auditoria
+
+O QUE PESQUISAR
+  Termos de busca
+  Quantidade de termos
+  Localidade
+  Profundidade desejada (Top N)
+  Dispositivo da busca
+  Análise de concorrentes
+
+GOOGLE SEARCH CONSOLE
+  Estado para a URL atual
+```
+
+Os valores internos `search_queries`, `search_region`, `search_depth`, `search_device` e `search_competitive` não são nomes apresentados ao operador. A UI usa rótulos funcionais.
+
+`Profundidade desejada` significa o Top N que será consultado para cada termo. Ela não deve ser confundida com a configuração persistente `profundidade máxima permitida`, que é um limite de governança do serviço.
 
 Esses dados não devem ser confundidos com credencial, provider ou limites operacionais persistentes.
 
@@ -119,9 +136,16 @@ Marcadores internos de subprocesso e seletores de IA locais já aposentados não
 
 ## Persistência
 
-- valores não sensíveis: sessão ou `rasai-console.ini`;
-- secrets: sessão ou Windows/User, conforme suporte existente;
-- secrets nunca entram no INI;
-- inputs da execução seguem o snapshot/reuso do AUD conforme seu contrato próprio.
+Ao usar `Salvar configuração`, o INI passa a ser também um inventário completo da configuração pública não sensível:
+
+- toda configuração pública não sensível é materializada na seção `[environment]`;
+- a precedência para o valor salvo é: valor explícito da sessão/ambiente, projeção do estado do console, default público do runtime;
+- configurações públicas sem valor efetivo nem default permanecem listadas com valor vazio;
+- os inputs não sensíveis de Search ficam na seção `[search_intelligence]` (`queries`, `depth`, `region`, `device`, `competitive`);
+- secrets permanecem somente em sessão ou Windows/User, conforme suporte existente;
+- API keys, tokens, client secrets, passwords e outros valores classificados como sensíveis nunca entram no INI;
+- o snapshot do AUD continua preservando o plano efetivo da execução conforme seu contrato próprio.
+
+Isso significa que parâmetros SERP como modo, provider, limites, timeout, retries e intervalo passam a ser persistidos mesmo quando o operador estiver usando o default efetivo e nunca tiver criado um override manual.
 
 Documentos relacionados: [CONSOLE_SEARCH_INTELLIGENCE.md](CONSOLE_SEARCH_INTELLIGENCE.md), [CONSOLE_CONFIGURATION_UX.md](CONSOLE_CONFIGURATION_UX.md), [GSC_SCOPE_POLICY.md](GSC_SCOPE_POLICY.md), [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) e [PROVIDER_SETUP.md](PROVIDER_SETUP.md).
