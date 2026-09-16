@@ -133,3 +133,10 @@ def install() -> None:
     )
 
     install_console_reprocess_visual_presentation()
+
+    # Absolute last navigation pass: nested screens expose only actions for their current
+    # context. Global destinations (configuration, help, history, exit) remain owned by
+    # INÍCIO. This layer only filters/redirects console actions; core rules are untouched.
+    from rasai.console_submenu_action_scope import install as install_submenu_action_scope
+
+    install_submenu_action_scope(console)
