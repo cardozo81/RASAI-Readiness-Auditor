@@ -48,6 +48,7 @@ from rasai.target_input_runtime import install as install_target_input_runtime
 
 _LOGGER = logging.getLogger(__name__)
 _REPORT_PROJECTION_INCOMPLETE_EXIT = 3
+_CATALOG_REPORT_ERROR_PREFIXES = ("catalog-report:", "catalog-report-freshness:")
 
 
 def _audits_root(argv: list[str]) -> Path:
@@ -68,6 +69,19 @@ def _try_refresh_platform_index(argv: list[str]) -> None:
             index_audits(store, root, strict=False)
     except Exception:
         _LOGGER.exception("RASAi platform index refresh failed after successful audit")
+
+
+def _blocking_catalog_report_errors(renderer_errors: Sequence[str]) -> tuple[str, ...]:
+    """Return catalog projection errors that make the final HTML surface incomplete.
+
+    Other late enrichment errors retain their historical warning-only semantics, but a
+    failed/stale ``report-catalog`` cannot be announced as a complete final report.
+    """
+    return tuple(
+        issue
+        for issue in renderer_errors
+        if str(issue).startswith(_CATALOG_REPORT_ERROR_PREFIXES)
+    )
 
 
 def _run_audit_and_finalize(effective: list[str]) -> int:
@@ -142,6 +156,20 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
 
     for issue in completion.renderer_errors:
         _LOGGER.warning("Audit report renderer issue during final repair: %s", issue)
+
+    blocking_catalog_errors = _blocking_catalog_report_errors(completion.renderer_errors)
+    if blocking_catalog_errors:
+        _LOGGER.error(
+            "Final catalog report failed freshness/materialization gate: %s",
+            "; ".join(blocking_catalog_errors),
+        )
+        print(
+            "Relatórios HTML: INCOMPLETOS - o report-catalog final não pôde ser "
+            "materializado/validado contra o audit.db final. A árvore stale não foi "
+            "mantida como válida; o audit.db foi preservado."
+        )
+        return _REPORT_PROJECTION_INCOMPLETE_EXIT
+
     if completion.missing_pages:
         missing = ", ".join(completion.missing_pages)
         _LOGGER.error("Expected audit report pages were not materialized: %s", missing)
