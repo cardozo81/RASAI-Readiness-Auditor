@@ -73,3 +73,11 @@ CATALOG_REPORT_FILENAMES = tuple(page.filename for page in CATALOG_REPORT_PAGES)
 CATALOG_PAGE_BY_ID = {
     page.catalog_id: page for page in CATALOG_REPORT_PAGES if page.catalog_id is not None
 }
+CATALOG_REPORT_NAV_ITEMS = tuple((page.label, page.filename) for page in CATALOG_REPORT_PAGES)
+
+
+def page_by_filename(filename: str) -> CatalogReportPage:
+    for page in CATALOG_REPORT_PAGES:
+        if page.filename == filename:
+            return page
+    raise KeyError(filename)
