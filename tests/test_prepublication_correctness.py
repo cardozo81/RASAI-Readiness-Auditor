@@ -1,0 +1,135 @@
+from __future__ import annotations
+
+from pathlib import Path
+import sqlite3
+from types import SimpleNamespace
+from urllib.parse import parse_qs, urlparse
+
+from rasai.audit_fulfillment import list_work_items
+from rasai.domain import Audit
+from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.prepublication_correctness import install
+
+
+def _workspace(root: Path, audit_id: str = "AUD-CURRENT-CONTRACT") -> AuditWorkspace:
+    workspace = AuditWorkspace.create(root, audit_id)
+    with AuditPersistence(workspace) as persistence:
+        persistence.audits.add(Audit(audit_id=audit_id, project_name="current contract"))
+    return workspace
+
+
+def test_cwv_assessments_keep_needs_improvement_separate_from_poor() -> None:
+    from rasai import m21_web_performance as m21
+
+    install()
+    result = m21._assess_cwv({"lcp_p75_ms": 3034.0, "inp_p75_ms": 396.0, "cls_p75": 0.90})
+
+    assert result == {
+        "lcp_assessment": "NEEDS_IMPROVEMENT",
+        "inp_assessment": "NEEDS_IMPROVEMENT",
+        "cls_assessment": "POOR",
+        "cwv_assessment": "FAIL",
+    }
+
+
+def test_pagespeed_requests_portuguese_locale(monkeypatch) -> None:
+    from rasai import m21_web_performance as m21
+
+    install()
+    captured: dict[str, str] = {}
+
+    def request_json(*, service, request, timeout_seconds):
+        captured["url"] = request.full_url
+        return m21.HttpJsonResult(payload={}, http_status=200, duration_ms=1)
+
+    monkeypatch.setattr(m21, "_request_json", request_json)
+    client = m21.PageSpeedInsightsClient()
+    client.run(
+        url="https://example.test/",
+        strategy="mobile",
+        categories=("performance",),
+        timeout_seconds=1.0,
+    )
+
+    query = parse_qs(urlparse(captured["url"]).query)
+    assert query["locale"] == ["pt-BR"]
+
+
+def test_first_party_apdex_scope_does_not_promote_unattributed_console_noise_to_frustration() -> None:
+    from rasai import m25_apdex_experience as m25
+
+    install()
+    third_party_noise = SimpleNamespace(
+        status="SUCCESS",
+        javascript_error_count=0,
+        console_error_count=2,
+        request_failed_count=2,
+        first_party_request_failed_count=0,
+        http_error_count=0,
+        first_party_http_error_count=0,
+    )
+    first_party_failure = SimpleNamespace(
+        status="SUCCESS",
+        javascript_error_count=0,
+        console_error_count=0,
+        request_failed_count=1,
+        first_party_request_failed_count=1,
+        http_error_count=0,
+        first_party_http_error_count=0,
+    )
+
+    assert m25._qualifying_error(third_party_noise, "first-party") is False
+    assert m25._qualifying_error(third_party_noise, "all") is True
+    assert m25._qualifying_error(first_party_failure, "first-party") is True
+
+
+def test_persisted_limited_improvement_run_is_mandatory_fulfillment_even_with_env_isolated(tmp_path: Path, monkeypatch) -> None:
+    from rasai import fulfillment_execution_contract as contract
+
+    install()
+    audit_id = "AUD-IMPROVEMENT-LIMITED"
+    workspace = _workspace(tmp_path, audit_id)
+    connection = sqlite3.connect(workspace.database)
+    try:
+        with connection:
+            connection.execute(
+                """CREATE TABLE improvement_intelligence_runs(
+                    audit_id TEXT PRIMARY KEY,
+                    status TEXT,
+                    provider TEXT,
+                    model TEXT,
+                    reasoning TEXT,
+                    analysis_language TEXT,
+                    domains_json TEXT,
+                    max_recommendations INTEGER,
+                    reason TEXT
+                )"""
+            )
+            connection.execute(
+                """INSERT INTO improvement_intelligence_runs(
+                    audit_id,status,provider,model,reasoning,analysis_language,
+                    domains_json,max_recommendations,reason
+                ) VALUES(?,?,?,?,?,?,?,?,?)""",
+                (
+                    audit_id,
+                    "COMPLETE_WITH_LIMITATIONS",
+                    "AUTO",
+                    "",
+                    "auto",
+                    "pt-BR",
+                    '["PERFORMANCE","ACCESSIBILITY"]',
+                    30,
+                    "AI_PROVIDER_UNAVAILABLE",
+                ),
+            )
+    finally:
+        connection.close()
+
+    monkeypatch.setenv("RASAI_IMPROVEMENT_INTELLIGENCE", "false")
+    contract._reconcile_requested_improvement(workspace, audit_id)
+
+    item = next(item for item in list_work_items(workspace, audit_id) if item.component == "IMPROVEMENT_INTELLIGENCE")
+    assert item.required is True
+    assert item.status == "FAILED_RETRYABLE"
+    assert item.last_error_code == "COMPLETE_WITH_LIMITATIONS"
+    assert item.last_error_message == "AI_PROVIDER_UNAVAILABLE"
