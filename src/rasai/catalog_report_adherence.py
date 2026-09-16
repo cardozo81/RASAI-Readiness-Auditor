@@ -1,11 +1,12 @@
-"""Late report adherence corrections for the pre-production catalog projection.
+"""Final public-report adherence for the current pre-publication contract.
 
-This module changes presentation only. Persisted values remain untouched.  The
-installer is deliberately repairable because ``catalog_report_final_refinements`` is
-reapplied on every materialization and may rebind selected renderer functions.
+This module is presentation-only: it never changes persisted audit evidence or scores.
+It runs after the report renderers are composed so the public projection uses one
+consistent Portuguese vocabulary and the canonical provenance of each measurement.
 """
 from __future__ import annotations
 
+from collections import defaultdict
 import json
 import re
 import sqlite3
@@ -26,12 +27,17 @@ _STATUS_PT = {
     "MEASURED": "Medido",
     "GENERATED": "Gerado",
     "CONSOLIDATED": "Consolidado",
+    "PASS": "Aprovado",
+    "FAIL": "Não aprovado",
+    "WARNING": "Atenção",
+    "INFO": "Informativo",
     "PARTIAL": "Parcial",
     "FAILED_RETRYABLE": "Falha reprocessável",
     "FAILED_PERMANENT": "Falha permanente",
     "FAILED_FATAL": "Falha fatal",
     "FAILURE": "Falha",
     "ERROR": "Erro",
+    "TECHNICAL_ERROR": "Erro técnico",
     "CONTRACT_ERROR": "Erro de resposta contratual",
     "BLOCKED": "Bloqueado",
     "DISABLED": "Desabilitado",
@@ -42,6 +48,9 @@ _STATUS_PT = {
     "SKIPPED": "Ignorado",
     "ABSENT": "Não encontrado",
     "UNAVAILABLE": "Sem dados disponíveis",
+    "NO_DATA": "Sem dados",
+    "INCOMPLETE": "Incompleto",
+    "PRELIMINARY": "Preliminar",
     "RUNNING": "Em execução",
     "PENDING": "Pendente",
     "PROCESSING": "Em processamento",
@@ -49,6 +58,7 @@ _STATUS_PT = {
     "NOT_DETERMINABLE": "Não determinável com os dados desta auditoria",
     "UNKNOWN": "Não determinado",
     "COMPLETE_WITH_LIMITATIONS": "Concluído com limitações",
+    "COMPLETED_WITH_LIMITATIONS": "Concluído com limitações",
     "APPLICATION_ERROR": "Erro da aplicação",
     "INVALID_SAMPLE": "Amostra inválida",
     "BROWSER_UNAVAILABLE": "Navegador indisponível",
@@ -67,7 +77,12 @@ _COMPONENT_PT = {
     "GSC": "Google Search Console",
     "GOOGLE_SEARCH_CONSOLE": "Google Search Console",
     "AI_VISIBILITY": "Visibilidade em respostas de IA",
+    "GENERATIVE_VISIBILITY": "Visibilidade em respostas de IA",
     "OBSERVABILITY": "Observabilidade externa",
+    "EXTERNAL_OBSERVABILITY": "Observabilidade externa",
+    "IMPROVEMENT_INTELLIGENCE": "Análise profunda e melhorias",
+    "SYNTHETIC_APDEX": "Apdex de navegação",
+    "EXPERIENCE_APDEX": "Apdex de experiência",
     "SYNTHETIC_UX_APDEX": "Apdex de experiência",
 }
 
@@ -76,6 +91,13 @@ _LIMITATION_PT = {
     "RENDER_DISCOVERY_GAP": "Lacuna na descoberta renderizada",
     "DISCOVERY_GAP": "Lacuna de descoberta",
     "PARTIAL_RENDERED_DISCOVERY": "Descoberta renderizada parcial",
+}
+
+_STRUCTURED_EXPECTED_PT = {
+    "structured data is syntactically interpretable when present": "Dados estruturados são sintaticamente interpretáveis quando presentes",
+    "structured data types and relevant properties are identifiable": "Os tipos e as propriedades relevantes dos dados estruturados são identificáveis",
+    "structured data remains consistent with visible page content": "Os dados estruturados permanecem consistentes com o conteúdo visível da página",
+    "structured data entities remain consistent with observed page entities": "As entidades dos dados estruturados permanecem consistentes com as entidades observadas na página",
 }
 
 
@@ -121,7 +143,7 @@ def _audit_limitations(data: Any) -> tuple[str, ...]:
 
 
 def _audit_hero(data: Any, title: str, subtitle: str) -> str:
-    """Expose logical AUD state and base-audit limitations as separate dimensions."""
+    """Expose logical AUD state without repeating the full base limitation on every CAT."""
     from rasai import catalog_report_presentation as p
 
     target = data.targets[0] if getattr(data, "targets", ()) else "—"
@@ -141,11 +163,16 @@ def _audit_hero(data: Any, title: str, subtitle: str) -> str:
     metrics += "</div>"
 
     limitation_html = ""
-    if limitations:
+    if limitations and title in {"Visão geral por catálogos", "Captura e contexto"}:
         limitation_html = (
-            "<div class='notice warn'><strong>Limitações registradas na auditoria-base:</strong> "
+            "<div class='notice warn'><strong>Limitações da auditoria-base:</strong> "
             + escape("; ".join(limitations))
-            + ". O resultado lógico da AUD e o estado de cada catálogo são apresentados separadamente.</div>"
+            + ". Elas descrevem o escopo/cobertura da auditoria-base e não transformam, por si só, catálogos concluídos em falha.</div>"
+        )
+    elif limitations:
+        limitation_html = (
+            f"<div class='notice warn'><strong>Auditoria-base com {len(limitations)} limitação(ões).</strong> "
+            "O estado funcional desta página é independente. <a href='capture-context.html'>Ver contexto e limitações da auditoria-base</a>.</div>"
         )
     return (
         f"<header class='hero'><div class='eyebrow'>Auditoria {escape(str(data.audit_id))}</div>"
@@ -349,7 +376,6 @@ def _install_public_labels() -> None:
         if hasattr(module, "_domain_label"):
             setattr(module, "_domain_label", domain_label)
 
-    # Preserve branded metric names/acronyms while translating generic English labels.
     from rasai import catalog_report_metrics as metrics
     translated = {
         "performance_score": "Lighthouse · Desempenho",
@@ -444,43 +470,215 @@ def _install_cat05_scope_states() -> None:
         page._configuration_rows = configuration_rows
 
 
-def _install_cat07_timestamp_copy() -> None:
+def _sample_key(row: Mapping[str, Any]) -> tuple[str, str, str]:
+    return (
+        str(row.get("url") or ""),
+        str(row.get("device") or "").upper(),
+        str(row.get("profile_id") or ""),
+    )
+
+
+def _acquisition_timestamp_map(
+    connection: sqlite3.Connection,
+    audit_id: str,
+    samples: Sequence[Mapping[str, Any]],
+    *,
+    experience: bool,
+) -> dict[str, str]:
+    """Match samples to their physical acquisition timestamp without inventing a time."""
+    if not _table_exists(connection, "synthetic_apdex_acquisitions"):
+        return {}
+    if experience:
+        rows = connection.execute(
+            """SELECT * FROM synthetic_apdex_acquisitions
+               WHERE audit_id=? AND source='SYNTHETIC_USER_EXPERIENCE_APDEX'
+               ORDER BY created_at, rowid""",
+            (audit_id,),
+        ).fetchall()
+    else:
+        rows = connection.execute(
+            """SELECT * FROM synthetic_apdex_acquisitions
+               WHERE audit_id=? AND consumed_by_navigation=1
+               ORDER BY created_at, rowid""",
+            (audit_id,),
+        ).fetchall()
+
+    acquisitions: dict[tuple[str, str, str], list[Mapping[str, Any]]] = defaultdict(list)
+    for row in rows:
+        item = dict(row)
+        acquisitions[_sample_key(item)].append(item)
+
+    grouped_samples: dict[tuple[str, str, str], list[Mapping[str, Any]]] = defaultdict(list)
+    for sample in samples:
+        grouped_samples[_sample_key(sample)].append(sample)
+
+    result: dict[str, str] = {}
+    for key, group in grouped_samples.items():
+        ordered_samples = sorted(group, key=lambda item: int(item.get("run_index") or 0))
+        ordered_acquisitions = acquisitions.get(key, [])
+        for sample, acquisition in zip(ordered_samples, ordered_acquisitions):
+            sample_id = str(sample.get("sample_id") or "")
+            created_at = str(acquisition.get("created_at") or "")
+            if sample_id and created_at:
+                result[sample_id] = created_at
+    return result
+
+
+def _duration_only_apdex(samples: Sequence[Mapping[str, Any]], run: Mapping[str, Any]) -> tuple[float | None, int, int, int, int]:
+    try:
+        satisfied_ms = float(run.get("satisfied_threshold_seconds")) * 1000.0
+        frustrated_ms = float(run.get("frustrated_threshold_seconds")) * 1000.0
+    except (TypeError, ValueError):
+        return None, 0, 0, 0, 0
+    satisfied = tolerating = frustrated = valid = 0
+    for sample in samples:
+        if sample.get("classification") in (None, ""):
+            continue
+        raw = sample.get("kpm_value_ms") if sample.get("kpm_value_ms") is not None else sample.get("user_action_duration_ms")
+        try:
+            duration = float(raw)
+        except (TypeError, ValueError):
+            continue
+        valid += 1
+        if duration <= satisfied_ms:
+            satisfied += 1
+        elif duration <= frustrated_ms:
+            tolerating += 1
+        else:
+            frustrated += 1
+    score = (satisfied + 0.5 * tolerating) / valid if valid else None
+    return score, valid, satisfied, tolerating, frustrated
+
+
+def _install_apdex_projection() -> None:
     from rasai import catalog_report_analysis as analysis
     from rasai import catalog_report_page as page
 
     current = page._apdex_samples_html
-    if getattr(current, "_rasai_individual_sample_time", False):
+    if getattr(current, "_rasai_canonical_apdex_projection", False):
         return
 
-    original = current
-
     def apdex_samples_html(database: Any, data: Any, *, experience: bool) -> str:
-        html = original(database, data, experience=experience)
-        if experience:
-            html = html.replace(
-                "O horário representa o <strong>momento persistido da captura da amostra</strong>; não é apresentado como horário de início da navegação.",
-                "O horário representa o <strong>registro individual da medição</strong>, gravado quando cada amostra conclui sua coleta. Não é o horário de persistência em lote.",
-            )
-        return html
+        table = "synthetic_ux_apdex_samples" if experience else "synthetic_apdex_samples"
+        run_table = "synthetic_ux_apdex_runs" if experience else "synthetic_apdex_runs"
+        connection = sqlite3.connect(database)
+        connection.row_factory = sqlite3.Row
+        try:
+            samples = analysis._audit_rows(connection, table, data.audit_id)
+            run = analysis._last(connection, run_table, data.audit_id)
+            timestamp_map = _acquisition_timestamp_map(connection, data.audit_id, samples, experience=experience)
+        finally:
+            connection.close()
 
-    apdex_samples_html._rasai_individual_sample_time = True  # type: ignore[attr-defined]
-    apdex_samples_html._rasai_original = original  # type: ignore[attr-defined]
+        samples = sorted(samples, key=lambda item: (int(item.get("run_index") or 0), str(item.get("sample_id") or "")))
+        rows: list[Sequence[Any]] = []
+        modals: list[str] = []
+        fallback_count = 0
+        for index, sample in enumerate(samples, 1):
+            modal_id = ("ux" if experience else "nav") + f"-sample-{index}"
+            sample_id = str(sample.get("sample_id") or "")
+            measured_at = timestamp_map.get(sample_id)
+            displayed_at = measured_at or sample.get("captured_at") or "—"
+            timestamp_label = "Medição em" if measured_at else "Persistida em"
+            if not measured_at:
+                fallback_count += 1
+
+            if experience:
+                duration = sample.get("kpm_value_ms") if sample.get("kpm_value_ms") is not None else sample.get("user_action_duration_ms")
+                rows.append((sample.get("run_index", index), displayed_at, analysis._device_label(sample.get("device")), analysis._classification_label(sample.get("classification")), analysis._fmt_number(duration, "ms"), analysis._fmt_number(sample.get("lcp_ms"), "ms"), sample.get("request_failed_count") or 0, analysis._status_label(sample.get("status")), analysis._modal_button(modal_id, "Ver amostra")))
+                fields = (
+                    ("Amostra", sample.get("sample_id")), (timestamp_label, displayed_at), ("URL", sample.get("url")), ("URL final", sample.get("final_url")),
+                    ("Classificação", analysis._classification_label(sample.get("classification"))), ("Duração da ação", analysis._fmt_number(sample.get("user_action_duration_ms"), "ms")),
+                    ("Navegação", analysis._fmt_number(sample.get("navigation_duration_ms"), "ms")), ("LCP", analysis._fmt_number(sample.get("lcp_ms"), "ms")), ("CLS", sample.get("cls")),
+                    ("Requisições XHR/fetch", sample.get("xhr_fetch_count")), ("Recursos dinâmicos", sample.get("dynamic_resource_count")), ("Erros JavaScript", sample.get("javascript_error_count")),
+                    ("Erros de console", sample.get("console_error_count")), ("Requisições com falha", sample.get("request_failed_count")), ("Falhas em recursos próprios", sample.get("first_party_request_failed_count")),
+                    ("Respostas HTTP com erro", sample.get("http_error_count")), ("Erros HTTP em recursos próprios", sample.get("first_party_http_error_count")),
+                    ("Rede estabilizada", "Sim" if sample.get("network_settled") else "Não"), ("Frustração forçada por erro", "Sim" if sample.get("error_forced_frustrated") else "Não"),
+                    ("Erro", sample.get("error_message") or sample.get("error_code") or "—"),
+                )
+                if measured_at:
+                    note = "<div class='notice'>A data/hora vem do registro da aquisição física associado a esta medição. O horário de persistência em lote não é apresentado como horário da chamada.</div>"
+                else:
+                    note = "<div class='notice warn'>Esta amostra não possui aquisição física individual vinculável no ledger. O horário exibido é o de persistência da amostra e está rotulado como tal; o relatório não inventa o horário da chamada.</div>"
+                note += "<div class='notice'>A amostra persiste contagens de falhas por requisição; quando a lista individual de URLs não foi persistida, o relatório não a reconstrói.</div>"
+            else:
+                duration = sample.get("duration_ms")
+                rows.append((sample.get("run_index", index), displayed_at, analysis._device_label(sample.get("device")), analysis._classification_label(sample.get("classification")), analysis._fmt_number(duration, "ms"), analysis._status_label(sample.get("status")), analysis._modal_button(modal_id, "Ver amostra")))
+                fields = (("Amostra", sample.get("sample_id")), (timestamp_label, displayed_at), ("URL", sample.get("url")), ("URL final", sample.get("final_url")), ("Classificação", analysis._classification_label(sample.get("classification"))), ("Duração", analysis._fmt_number(duration, "ms")), ("HTTP", sample.get("http_status")), ("Perfil técnico", sample.get("profile_id")), ("Política de cache", analysis._session_label(sample.get("cache_policy"))), ("Erro", sample.get("error_message") or sample.get("error_code") or "—"))
+                diagnostics = analysis._safe_json(sample.get("browser_diagnostics"), {})
+                note = "<h3>Diagnóstico de navegador</h3><div class='pre'>" + escape(json.dumps(diagnostics, ensure_ascii=False, indent=2)) + "</div>" if diagnostics else ""
+                if not measured_at:
+                    note += "<div class='notice'>Não existe aquisição reutilizada vinculável a esta amostra; por isso o horário permanece explicitamente identificado como persistência.</div>"
+            modals.append(analysis._modal(modal_id, f"Amostra {sample.get('run_index', index)}", f"{'Apdex de experiência' if experience else 'Apdex de navegação'} · {sample.get('url') or '—'}", analysis._kv(fields) + note))
+
+        lead = ""
+        if experience and run:
+            duration_score, duration_valid, duration_satisfied, duration_tolerating, duration_frustrated = _duration_only_apdex(samples, run)
+            effective_valid = sum(1 for sample in samples if sample.get("classification") not in (None, ""))
+            effective_satisfied = sum(1 for sample in samples if _norm(sample.get("classification")) == "SATISFIED")
+            effective_tolerating = sum(1 for sample in samples if _norm(sample.get("classification")) == "TOLERATING")
+            effective_score = (effective_satisfied + 0.5 * effective_tolerating) / effective_valid if effective_valid else None
+            forced = sum(1 for sample in samples if bool(sample.get("error_forced_frustrated")))
+            lead += "<div class='metric-grid'>"
+            lead += analysis._metric("Apdex por duração", f"{duration_score:.3f}" if duration_score is not None else "—", f"{duration_valid} amostra(s); sem aplicar a política de erros")
+            lead += analysis._metric("Apdex efetivo", f"{effective_score:.3f}" if effective_score is not None else "—", "classificação final persistida")
+            lead += analysis._metric("Forçadas por erro", forced, f"de {effective_valid} amostra(s) válida(s)")
+            lead += "</div>"
+            if bool(run.get("errors_affect_apdex")):
+                scope = analysis._error_scope_label(run.get("error_scope"))
+                lead += f"<div class='notice warn'><strong>Política de erro do Apdex:</strong> {escape(scope)}. A leitura por duração resultou em {duration_satisfied} satisfatória(s), {duration_tolerating} tolerável(is) e {duration_frustrated} frustrada(s); após a política de erro, {forced} amostra(s) foram forçadas para Frustrada. Isso permite distinguir lentidão de falhas funcionais.</div>"
+        if fallback_count:
+            lead += f"<div class='notice'><strong>Proveniência temporal:</strong> {len(samples)-fallback_count} amostra(s) usam o horário da aquisição física e {fallback_count} usam somente o horário de persistência, explicitamente identificado.</div>"
+
+        headers = ("Amostra", "Data/hora", "Dispositivo", "Classificação", "Duração", "LCP", "Falhas de requisição", "Medição", "Detalhe") if experience else ("Amostra", "Data/hora", "Dispositivo", "Classificação", "Duração", "Medição", "Detalhe")
+        return lead + analysis._table(headers, rows, empty="Nenhuma amostra foi persistida para este Apdex.", sortable=bool(rows), page_size=10 if len(rows) > 10 else None) + "".join(modals)
+
+    apdex_samples_html._rasai_canonical_apdex_projection = True  # type: ignore[attr-defined]
+    apdex_samples_html._rasai_original = current  # type: ignore[attr-defined]
     page._apdex_samples_html = apdex_samples_html
     analysis._apdex_samples_html = apdex_samples_html
 
 
+def _install_structured_condition_labels() -> None:
+    from rasai import catalog_report_evidence as evidence
+    from rasai import catalog_report_page as page
+
+    current = evidence._structured_data_html
+    if getattr(current, "_rasai_structured_conditions_pt", False):
+        return
+
+    def structured_data_html(database: Any, data: Any) -> str:
+        html = current(database, data)
+        for source, target in _STRUCTURED_EXPECTED_PT.items():
+            pattern = re.compile(re.escape(source), flags=re.I)
+            html = pattern.sub(target, html)
+        return html
+
+    structured_data_html._rasai_structured_conditions_pt = True  # type: ignore[attr-defined]
+    structured_data_html._rasai_original = current  # type: ignore[attr-defined]
+    evidence._structured_data_html = structured_data_html
+    for module_name in ("rasai.catalog_report_analysis", "rasai.catalog_report_page"):
+        module = sys.modules.get(module_name)
+        if module is not None and hasattr(module, "_structured_data_html"):
+            setattr(module, "_structured_data_html", structured_data_html)
+    if hasattr(page, "_structured_data_html"):
+        page._structured_data_html = structured_data_html
+
+
 def install_catalog_report_adherence() -> None:
-    """Install/repair all presentation corrections after late report refinements."""
+    """Install the current public-report contract after all lower renderers are composed."""
     _install_public_labels()
     _install_hero()
     _install_cat05_scope_states()
-    _install_cat07_timestamp_copy()
+    _install_apdex_projection()
+    _install_structured_condition_labels()
 
 
 __all__ = [
     "_audit_hero",
     "_audit_limitations",
     "_cat05_capability_states",
+    "_duration_only_apdex",
     "_human_status_value",
     "install_catalog_report_adherence",
 ]
