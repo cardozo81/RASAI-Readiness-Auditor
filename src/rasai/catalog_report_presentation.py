@@ -1,5 +1,7 @@
 """Human-facing labels and shared visual helpers."""
 from rasai.catalog_report_model import *  # noqa: F401,F403
+from rasai.time_contract import localize_html_timestamps
+
 
 def _status_label(value: Any) -> str:
     raw=_norm(value)
@@ -8,7 +10,8 @@ def _status_label(value: Any) -> str:
         "READY":"Disponível","AVAILABLE":"Disponível","PARTIAL":"Parcial","FAILED_RETRYABLE":"Falha reprocessável",
         "FAILED_PERMANENT":"Falha permanente","FAILED_FATAL":"Falha","ERROR":"Erro","CONTRACT_ERROR":"Erro de resposta contratual",
         "BLOCKED":"Bloqueado","DISABLED":"Desabilitado","NOT_REQUESTED":"Não solicitado","NOT_APPLICABLE":"Não aplicável",
-        "ABSENT":"Não encontrado","UNAVAILABLE":"Indisponível","RUNNING":"Em execução","PENDING":"Pendente",
+        "ABSENT":"Não encontrado","UNAVAILABLE":"Sem dados disponíveis","RUNNING":"Em execução","PENDING":"Pendente",
+        "NOT_DETERMINABLE":"Não determinável com os dados desta auditoria","UNKNOWN":"Não determinado",
         "COMPLETE_WITH_LIMITATIONS":"Concluído com limitações",
     }
     return mapping.get(raw, str(value or "—").replace("_"," ").title())
@@ -26,18 +29,27 @@ def _classification_label(value: Any) -> str:
 
 def _level_label(value: Any) -> str:
     raw=_norm(value)
-    return {"CRITICAL":"Crítica","VERY_HIGH":"Muito alta","HIGH":"Alta","MEDIUM":"Média","LOW":"Baixa","VERY_LOW":"Muito baixa","INFO":"Informativa","WARNING":"Atenção"}.get(raw,str(value or "—").replace("_"," ").title())
+    return {
+        "CRITICAL":"Crítica","VERY_HIGH":"Muito alta","HIGH":"Alta","MEDIUM":"Média","LOW":"Baixa","VERY_LOW":"Muito baixa",
+        "INFO":"Informativa","WARNING":"Atenção","P1":"Prioridade 1","P2":"Prioridade 2","P3":"Prioridade 3","P4":"Prioridade 4",
+    }.get(raw,str(value or "—").replace("_"," ").title())
 
 
 def _confidence_label(value: Any) -> str:
     raw=_norm(value)
     if raw in {"HIGH","MEDIUM","LOW","VERY_HIGH","VERY_LOW"}:
         return _level_label(value)
+    if raw in {"UNAVAILABLE","NOT_AVAILABLE"}:
+        return "Sem dados para estimar"
+    if raw in {"NOT_APPLICABLE","N/A"}:
+        return "Não aplicável"
+    if raw in {"UNKNOWN","NOT_DETERMINABLE"}:
+        return "Não determinada"
     try:
         number=float(value)
         return f"{number*100:.0f}%" if 0<=number<=1 else f"{number:g}"
     except (TypeError,ValueError):
-        return str(value or "—")
+        return str(value or "—").replace("_"," ")
 
 
 def _session_label(value: Any) -> str:
@@ -93,6 +105,7 @@ def _attempt_count_label(value: Any) -> str:
         return str(value or "—")
     return "Não contabilizada neste item" if number==0 else str(number)
 
+
 def _tone_for_status(value: Any) -> str:
     raw=_norm(value)
     if raw in _STATUS_FAILURE or any(t in raw for t in ("FAIL","ERROR","BLOCK")):
@@ -113,12 +126,29 @@ def _metric(label: str, value: Any, note: str="") -> str:
     return f"<div class='metric'><small>{escape(label)}</small><strong>{escape(_plain(value) or '—')}</strong>{note_html}</div>"
 
 
-def _table(headers: Sequence[str], rows: Sequence[Sequence[Any]], *, empty: str="Sem dados disponíveis para este contexto.") -> str:
+def _table(
+    headers: Sequence[str],
+    rows: Sequence[Sequence[Any]],
+    *,
+    empty: str="Sem dados disponíveis para este contexto.",
+    sortable: bool=False,
+    page_size: int|None=None,
+) -> str:
     if not rows:
         return f"<div class='notice'>{escape(empty)}</div>"
     head="".join(f"<th>{escape(str(h))}</th>" for h in headers)
     body="".join("<tr>"+"".join(f"<td>{cell if isinstance(cell,_Html) else escape(_plain(cell))}</td>" for cell in row)+"</tr>" for row in rows)
-    return f"<div class='table-wrap'><table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>"
+    interactive=bool(sortable or page_size)
+    attrs=""
+    if interactive:
+        attrs=" data-interactive-table='true'"
+        attrs+=f" data-sortable='{'true' if sortable else 'false'}'"
+        if page_size:
+            attrs+=f" data-page-size='{max(1,int(page_size))}'"
+    table=f"<div class='table-wrap'><table{attrs}><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>"
+    if page_size:
+        table+="<div class='table-controls'><button type='button' data-table-prev>Página anterior</button><span class='table-page-info'></span><button type='button' data-table-next>Próxima página</button></div>"
+    return table
 
 
 def _kv(items: Sequence[tuple[str,Any]]) -> str:
@@ -157,7 +187,8 @@ def _navigation(current: str) -> str:
 
 
 def _shell(page: CatalogReportPage, audit_id: str, body: str) -> str:
-    return f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>{escape(page.label)} · RASAi</title><link rel='stylesheet' href='css/site.css'></head><body data-report-contract='{CATALOG_REPORT_CONTRACT_VERSION}' data-page='{escape(page.id)}'><aside class='app-nav' data-shared-report-menu='{CATALOG_REPORT_CONTRACT_VERSION}'><div class='brand'><small>RASAi · relatório por catálogos</small><strong>{escape(audit_id)}</strong></div><nav aria-label='Relatórios'>{_navigation(page.filename)}</nav></aside><main class='app-main'>{body}<footer class='footer'>Projeção somente para leitura de dados persistidos · {CATALOG_REPORT_CONTRACT_VERSION} · nenhuma coleta, integração, IA ou cálculo de pontuação é executado pelo HTML.</footer></main><script>{_JS}</script></body></html>"""
+    html=f"""<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>{escape(page.label)} · RASAi</title><link rel='stylesheet' href='css/site.css'></head><body data-report-contract='{CATALOG_REPORT_CONTRACT_VERSION}' data-page='{escape(page.id)}'><aside class='app-nav' data-shared-report-menu='{CATALOG_REPORT_CONTRACT_VERSION}'><div class='brand'><small>RASAi · relatório por catálogos</small><strong>{escape(audit_id)}</strong></div><nav aria-label='Relatórios'>{_navigation(page.filename)}</nav></aside><main class='app-main'>{body}<footer class='footer'>Projeção somente para leitura de dados persistidos · {CATALOG_REPORT_CONTRACT_VERSION} · nenhuma coleta, integração, IA ou cálculo de pontuação é executado pelo HTML.</footer></main><script>{_JS}</script></body></html>"""
+    return localize_html_timestamps(html)
 
 
 def _audit_state(data: _ReportData) -> str:
@@ -187,9 +218,8 @@ def _score_table(data: _ReportData, *, include_overall: bool=True, context: str|
             continue
         if context and _DIMENSION_CONTEXT.get(dim)!=context:
             continue
-        rows.append((_DIMENSION_LABELS.get(dim,dim.replace("_"," ").title()),_device_label(row.get("device")),_score_value(row),row.get("coverage","—"),str(row.get("confidence") or "—").title(),_status_label(row.get("consolidation_status")),row.get("scoring_version","—")))
+        rows.append((_DIMENSION_LABELS.get(dim,dim.replace("_"," ").title()),_device_label(row.get("device")),_score_value(row),row.get("coverage","—"),_confidence_label(row.get("confidence")),_status_label(row.get("consolidation_status")),row.get("scoring_version","—")))
     return _table(("Indicador","Contexto","Valor","Cobertura","Confiança","Consolidação","Método"),rows)
-
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]
