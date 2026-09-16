@@ -297,6 +297,20 @@ def _optional_environment_switches() -> tuple[str, ...]:
     return (CRUX_HISTORY_ENABLED_ENV, CLARITY_ENABLED_ENV, COMMON_CRAWL_ENABLED_ENV)
 
 
+def _deep_analysis_environment_switches() -> tuple[str, ...]:
+    """Return runtime switches that could otherwise re-enable CAT-08 in the child.
+
+    CAT-08 is selected by the catalog plan, not by a stale machine/session environment
+    toggle. Masking this switch is a second line of defense in addition to the console
+    ``improvement_enabled`` state and the Improvement wrapper's own duplicate guard.
+    """
+    try:
+        from rasai.improvement_intelligence import ENABLED_ENV
+    except ImportError:
+        return ()
+    return (ENABLED_ENV,)
+
+
 @contextmanager
 def project_plan(state: Any) -> Iterator[None]:
     selected = _plan(state).selected
@@ -306,7 +320,12 @@ def project_plan(state: Any) -> Iterator[None]:
         "ai_provider", "ai_model", "ai_reasoning",
     )
     saved = {name: getattr(state, name) for name in names if hasattr(state, name)}
-    environment_switches = ("RASAI_GSC_ENABLED", *_optional_environment_switches())
+    deep_analysis_switches = _deep_analysis_environment_switches()
+    environment_switches = (
+        "RASAI_GSC_ENABLED",
+        *_optional_environment_switches(),
+        *deep_analysis_switches,
+    )
     environment_snapshot = {
         name: (name in os.environ, os.environ.get(name))
         for name in environment_switches
@@ -317,14 +336,17 @@ def project_plan(state: Any) -> Iterator[None]:
         if "CAT-05" not in selected:
             if hasattr(state, "search_queries"):
                 state.search_queries = ()
-            for name in environment_switches:
+            for name in ("RASAI_GSC_ENABLED", *_optional_environment_switches()):
                 os.environ[name] = "false"
         if "CAT-06" not in selected and hasattr(state, "synthetic_apdex"):
             state.synthetic_apdex = False
         if "CAT-07" not in selected and hasattr(state, "apdex_experience"):
             state.apdex_experience = False
-        if "CAT-08" not in selected and hasattr(state, "improvement_enabled"):
-            state.improvement_enabled = False
+        if "CAT-08" not in selected:
+            if hasattr(state, "improvement_enabled"):
+                state.improvement_enabled = False
+            for name in deep_analysis_switches:
+                os.environ[name] = "false"
         if "CAT-09" not in selected or not ai_execution_enabled(state):
             if hasattr(state, "content_remediation"):
                 state.content_remediation = False
@@ -366,6 +388,9 @@ def catalog_snapshot(state: Any) -> tuple[dict[str, Any], ...]:
     for item in CATALOGS:
         status, detail = catalog_status(state, item)
         rows.append({
+            # ``id`` is the persisted/report contract key. ``catalog_id`` remains as a
+            # compatibility alias for existing console/tests and explicit readability.
+            "id": item.id,
             "catalog_version": CATALOG_VERSION,
             "catalog_id": item.id,
             "label": item.label,
