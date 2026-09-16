@@ -225,6 +225,14 @@ def install() -> None:
     install_ai_task_profile_runtime()
     install_ai_task_profile_semantic_compat()
 
+    # The product is still pre-publication: these are the canonical contracts, not a
+    # backward-compatibility layer. Install after fulfillment/routing composition so the
+    # final runtime uses the exact CWV thresholds, scoped Apdex errors and mandatory
+    # CAT-08 fulfillment state defined for the current release.
+    from rasai.prepublication_correctness import install as install_prepublication_correctness
+
+    install_prepublication_correctness()
+
     _INSTALLED = True
 
 
