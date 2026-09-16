@@ -94,12 +94,12 @@ def finalize_audit_report_site(
     """Rebuild persisted projections, then add execution-local presentation data.
 
     The canonical/legacy generator continues to own ``report/`` and its existing
-    completeness contract.  The catalog proposal is materialized independently into
-    ``report-catalog/`` so either implementation can later be removed without coupling
-    their navigation, templates or expected-page rules.
+    completeness contract. The catalog proposal is materialized independently into
+    ``report-catalog/`` from the completed persisted AUD and must pass its own
+    fingerprint-based freshness gate before this finalizer returns.
     """
     from rasai import report_navigation
-    from rasai.catalog_report_site import materialize_catalog_report_site
+    from rasai.catalog_report_site import catalog_report_is_fresh, materialize_catalog_report_site
     from rasai.improvement_intelligence import write_improvement_report
     from rasai.m20_reporting import enrich_m20_report_site
     from rasai.m21_reporting import enrich_m21_report_site
@@ -203,13 +203,23 @@ def finalize_audit_report_site(
     )
     run("manifest", lambda: write_report_manifest(report_dir))
 
-    # Experimental catalog report.  It receives the completed persisted AUD as input,
-    # has its own templates/navigation and writes to a separate tree.  It is deliberately
-    # not part of the legacy canonical-page completeness set above.
+    # The catalog report is generated after all audit-owned late renderers. Its own
+    # materializer removes the previous public tree before attempting the new build,
+    # preventing a renderer error from silently exposing stale HTML as final.
     run(
         "catalog-report",
         lambda: materialize_catalog_report_site(audit_id=audit_id, workspace=workspace),
     )
+    if not any(error.startswith("catalog-report:") for error in errors):
+        try:
+            fresh = catalog_report_is_fresh(audit_id=audit_id, workspace=workspace)
+        except Exception as exc:
+            errors.append(f"catalog-report-freshness:{type(exc).__name__}:{str(exc)[:240]}")
+        else:
+            if not fresh:
+                errors.append(
+                    "catalog-report-freshness:RuntimeError:published catalog report does not match final persisted audit"
+                )
 
     inspected = inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
     return AuditReportCompletion(
