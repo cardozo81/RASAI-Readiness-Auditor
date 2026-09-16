@@ -20,6 +20,21 @@ Q. Sair
 
 O menu `INÍCIO` é o owner dos acessos globais. Subtelas operacionais não duplicam atalhos para Inteligência Artificial, Integrações e serviços, Todas as configurações, Histórico, Consolidados, Ajuda ou Sair.
 
+## Padronização dos submenus
+
+Toda subtela deve apresentar somente ações que atuem sobre o contexto corrente e uma ação explícita de retorno. Acesso global não é repetido em níveis inferiores.
+
+Regras:
+
+- `Q. Sair` existe somente em `INÍCIO`; telas de execução, resultado e reprocessamento usam `V. Voltar`;
+- `Todas as configurações`, `Integrações e serviços`, `Inteligência Artificial`, `Ajuda`, `Histórico` e `Relatórios consolidados` são destinos globais e pertencem somente ao menu `INÍCIO`;
+- uma subtela de integração pode validar/retestar a integração e ajustar somente suas dependências relacionadas, mas não abrir o catálogo global de configurações;
+- uma subtela de catálogo pode editar diretamente uma configuração relacionada pelo ID canônico, mas não oferece acesso paralelo ao menu global;
+- uma tela de resultado pode abrir artefatos, reprocessar pendências quando aplicável e voltar ao contexto anterior; sair do programa não é ação local;
+- ações indisponíveis não devem ser substituídas por atalhos globais. Quando necessário, a interface informa o caminho `INÍCIO > ...`.
+
+Como referência visual, o teto recomendado é de até quatro ações operacionais visíveis por tela comum. Telas de gestão em lote, como gerenciamento/exclusão de AUDs, podem ter mais comandos porque todos continuam pertencendo ao mesmo contexto operacional.
+
 ## Preparar auditoria
 
 A tela é organizada em:
