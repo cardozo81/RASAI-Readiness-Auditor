@@ -1,8 +1,8 @@
 """Final presentation-only consistency layer for the local interactive console.
 
-The console has several independently composed feature surfaces.  This module is the
+The console has several independently composed feature surfaces. This module is the
 last public-UX projection and therefore standardises only operator-facing copy, colours
-and action descriptions.  It deliberately does not change routing, persistence,
+and action descriptions. It deliberately does not change routing, persistence,
 validation, scoring, retries, provider selection, fulfillment or audit evidence.
 """
 from __future__ import annotations
@@ -16,6 +16,7 @@ from rasai.console_ui import CYAN, GREEN, RED, YELLOW, paint
 
 _DEPTH = 0
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+_LABEL_RE = re.compile(r"^(?P<label>[^:]+?)\s*:\s*(?P<detail>.*)$")
 
 _ACTION_REWRITES = {
     "S. Definir / alterar": (
@@ -69,6 +70,37 @@ _ACTION_REWRITES = {
     "L. Carregar configuração de AUD [NOVA EXECUÇÃO]": (
         "L. Carregar configuração de AUD como base [CRIA NOVA EXECUÇÃO]"
     ),
+    # Provider/credential actions. Keep storage scope in the action itself so the
+    # operator does not need to infer whether session, User or Machine is affected.
+    "S. Setar/alterar Key na sessão": (
+        "S. Definir/alterar credencial somente nesta sessão"
+    ),
+    "P. Persistir/remover Key no Windows/User": (
+        "P. Gerenciar credencial persistida no Windows/User — nunca no INI"
+    ),
+    "L. Limpar Key somente da sessão": (
+        "L. Limpar credencial da sessão — Windows/User permanece inalterado"
+    ),
+    "X. Excluir Key da sessão e do Windows/User": (
+        "X. Excluir credencial da sessão + Windows/User — Windows/Machine não é alterado"
+    ),
+    "A. Habilitar/desabilitar no AUTO sem apagar a Key": (
+        "A. Incluir/excluir este provider do pool AUTO — não apaga a credencial"
+    ),
+    "U. Usar este provider nesta auditoria": (
+        "U. Selecionar este provider como IA principal"
+    ),
+    # Older secret editor retained by the composed console for compatible paths.
+    "S. Setar/alterar sessão": "S. Definir/alterar valor somente nesta sessão",
+    "R. Remover da sessão": (
+        "R. Remover valor somente da sessão — persistência não é alterada"
+    ),
+    "P. Persistir/remover credencial no Windows": (
+        "P. Gerenciar credencial persistida no Windows/User — nunca no INI"
+    ),
+    # Consolidated report result actions.
+    "A. Abrir relatório": "A. Abrir relatório consolidado gerado",
+    "P. Abrir pasta": "P. Abrir pasta de arquivos deste relatório consolidado",
 }
 
 _GENERIC_ERRORS = {
@@ -111,6 +143,13 @@ def _error_kind(state: Any, text: str) -> str:
     return "ERRO"
 
 
+def _split_label(text: str) -> tuple[str, str] | None:
+    match = _LABEL_RE.match(str(text).strip())
+    if match is None:
+        return None
+    return match.group("label").strip(), match.group("detail").strip()
+
+
 def _rewrite_line(state: Any, line: str) -> str:
     raw = str(line)
     plain = _plain(raw)
@@ -121,18 +160,50 @@ def _rewrite_line(state: Any, line: str) -> str:
     if replacement is not None:
         return indent + replacement
 
-    if stripped.startswith("Erro") and ":" in stripped:
-        _, detail = stripped.split(":", 1)
-        detail = _friendly_error(detail)
-        return indent + _message(_error_kind(state, detail), detail)
+    labeled = _split_label(stripped)
+    if labeled is not None:
+        label, detail = labeled
+        normalized_label = label.casefold()
+        if normalized_label == "erro":
+            friendly = _friendly_error(detail)
+            return indent + _message(_error_kind(state, friendly), friendly)
+        if normalized_label in {"atenção", "alerta", "aviso"}:
+            return indent + _message("ALERTA", detail)
+        if normalized_label in {"observação", "informação", "info"}:
+            return indent + _message("INFO", detail)
+        if normalized_label in {"falha", "erro técnico"}:
+            return indent + _message("ERRO", detail)
 
     upper = stripped.upper()
-    if upper.startswith("ATENÇÃO:"):
-        return indent + _message("ALERTA", stripped.split(":", 1)[1])
-    if upper.startswith("ALERTA:") or upper.startswith("AVISO:"):
-        return indent + _message("ALERTA", stripped.split(":", 1)[1])
-    if upper.startswith("OBSERVAÇÃO") and ":" in stripped:
-        return indent + _message("INFO", stripped.split(":", 1)[1])
+    if upper.startswith("FALHA NA ") and ":" in stripped:
+        summary, detail = stripped.split(":", 1)
+        return indent + _message("ERRO", f"{summary}. Detalhe: {detail.strip()}")
+    if upper.startswith("FILTRO INVÁLIDO:"):
+        return indent + _message(
+            "ERRO",
+            "Filtro inválido. Corrija os valores informados e tente novamente. "
+            + stripped.split(":", 1)[1].strip(),
+        )
+    if stripped == "A auditoria de referência deve ser anterior à auditoria atual.":
+        return indent + _message(
+            "ALERTA",
+            "A auditoria de referência precisa ser anterior à auditoria atual. Selecione outro par.",
+        )
+    if stripped == "Nenhuma URL corresponde ao trecho informado.":
+        return indent + _message(
+            "INFO",
+            "Nenhuma URL corresponde ao filtro informado. Volte e ajuste o filtro para continuar.",
+        )
+    if stripped.startswith("IA selecionada, porém indisponível:"):
+        return indent + _message(
+            "ALERTA",
+            stripped + " O relatório seguirá sem análise especialista por IA.",
+        )
+    if stripped == "A análise por IA não pode ser executada com segurança; o consolidado seguirá sem IA.":
+        return indent + _message(
+            "ALERTA",
+            "A análise especialista por IA não pode ser executada com segurança; o consolidado seguirá sem IA.",
+        )
     if stripped == "Restauração concluída com ressalvas:":
         return indent + _message("ALERTA", "Restauração concluída com ressalvas; revise os itens abaixo.")
     if stripped == "Ainda não validado.":
