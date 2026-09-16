@@ -190,3 +190,11 @@ def install() -> None:
     )
 
     install_catalog_configuration_refinements()
+
+    # CAT-05 action 1 must behave like the other configuration surfaces: first choose the
+    # SERP execution field to edit, then accept only the provider/governance-supported
+    # range or enum. Reusable provider settings remain in Configurações Relacionadas.
+    from rasai import console_search_intelligence as search
+    from rasai.console_search_parameter_menu import install as install_search_parameter_menu
+
+    install_search_parameter_menu(search)
