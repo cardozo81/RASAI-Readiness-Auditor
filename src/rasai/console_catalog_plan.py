@@ -387,6 +387,7 @@ def catalog_snapshot(state: Any) -> tuple[dict[str, Any], ...]:
     rows: list[dict[str, Any]] = []
     for item in CATALOGS:
         status, detail = catalog_status(state, item)
+        selected = is_selected(state, item.id)
         rows.append({
             # ``id`` is the persisted/report contract key. ``catalog_id`` remains as a
             # compatibility alias for existing console/tests and explicit readability.
@@ -394,11 +395,11 @@ def catalog_snapshot(state: Any) -> tuple[dict[str, Any], ...]:
             "catalog_version": CATALOG_VERSION,
             "catalog_id": item.id,
             "label": item.label,
-            "selected": is_selected(state, item.id),
+            "selected": selected,
             "status": status,
             "detail": detail,
             "ai_mode": item.ai_mode,
-            "ai_execution_enabled": ai_execution_enabled(state) and item.ai_mode != AI_NONE,
+            "ai_execution_enabled": selected and ai_execution_enabled(state) and item.ai_mode != AI_NONE,
             "result": item.expected_result,
             "capability_ids": item.capability_ids,
         })
