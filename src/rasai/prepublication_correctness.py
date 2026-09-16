@@ -8,15 +8,46 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
-import time
 from typing import Any, Mapping
-from urllib.parse import urlencode
-from urllib.request import Request
 
 _INSTALLED = False
 
 
+def _install_locale_encoder(module: Any) -> None:
+    """Force PageSpeed's public locale without replacing provider runtime semantics.
+
+    Both the base M21 client and the bounded external-measurement runtime resolve their
+    imported ``urlencode`` symbol at call time. Replacing that symbol lets the current
+    no-retry/wall-clock/telemetry wrapper remain intact while converting only a present
+    ``locale`` query parameter to pt-BR. CrUX and unrelated query strings are unchanged.
+    """
+    current = getattr(module, "urlencode", None)
+    if not callable(current) or getattr(current, "_rasai_pt_br_locale", False):
+        return
+
+    def encode_pt_br(query: Any, *args: Any, **kwargs: Any) -> str:
+        normalized = query
+        if isinstance(query, Mapping):
+            normalized = dict(query)
+            if "locale" in normalized:
+                normalized["locale"] = "pt-BR"
+        elif isinstance(query, (list, tuple)):
+            converted: list[Any] = []
+            for item in query:
+                if isinstance(item, (list, tuple)) and len(item) == 2 and str(item[0]) == "locale":
+                    converted.append((item[0], "pt-BR"))
+                else:
+                    converted.append(item)
+            normalized = converted
+        return current(normalized, *args, **kwargs)
+
+    encode_pt_br._rasai_pt_br_locale = True  # type: ignore[attr-defined]
+    encode_pt_br._rasai_original = current  # type: ignore[attr-defined]
+    module.urlencode = encode_pt_br
+
+
 def _install_web_performance_contract() -> None:
+    from rasai import external_measurement_runtime
     from rasai import m21_web_performance as m21
 
     def assess_cwv(field: Mapping[str, Any] | None) -> dict[str, str | None]:
@@ -59,44 +90,11 @@ def _install_web_performance_contract() -> None:
     assess_cwv._rasai_prepublication_correctness = True  # type: ignore[attr-defined]
     m21._assess_cwv = assess_cwv
 
-    current_run = m21.PageSpeedInsightsClient.run
-    if getattr(current_run, "_rasai_pt_br_locale", False):
-        return
-
-    def run_pt_br(
-        self: Any,
-        *,
-        url: str,
-        strategy: str,
-        categories: tuple[str, ...],
-        timeout_seconds: float,
-    ) -> Any:
-        query: list[tuple[str, str]] = [("url", url), ("strategy", strategy), ("locale", "pt-BR")]
-        query.extend(("category", category) for category in categories)
-        if getattr(self, "_api_key", None):
-            query.append(("key", str(self._api_key)))
-        endpoint = f"{m21.PAGESPEED_ENDPOINT}?{urlencode(query)}"
-        request = Request(endpoint, headers={"Accept": "application/json"})
-        last_error: Exception | None = None
-        for attempt in range(1, m21._PAGESPEED_MAX_ATTEMPTS + 1):
-            try:
-                return m21._request_json(
-                    service="PAGESPEED_INSIGHTS",
-                    request=request,
-                    timeout_seconds=timeout_seconds,
-                )
-            except m21.ExternalServiceError as exc:
-                last_error = exc
-                transient = exc.http_status in m21._TRANSIENT_HTTP_STATUSES or exc.error_code in {"TIMEOUTERROR", "URLERROR"}
-                if attempt >= m21._PAGESPEED_MAX_ATTEMPTS or not transient:
-                    raise
-                time.sleep(0.75)
-        assert last_error is not None
-        raise last_error
-
-    run_pt_br._rasai_pt_br_locale = True  # type: ignore[attr-defined]
-    run_pt_br._rasai_original = current_run  # type: ignore[attr-defined]
-    m21.PageSpeedInsightsClient.run = run_pt_br
+    # Do not replace PageSpeedInsightsClient.run here. The external measurement runtime
+    # owns its wall-clock deadline, no-retry policy and operational telemetry. Only the
+    # provider locale is a presentation contract and is changed at URL encoding time.
+    _install_locale_encoder(m21)
+    _install_locale_encoder(external_measurement_runtime)
 
 
 def _install_experience_apdex_contract() -> None:
