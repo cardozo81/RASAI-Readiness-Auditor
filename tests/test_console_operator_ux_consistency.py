@@ -92,6 +92,30 @@ def test_semantic_messages_use_one_operator_vocabulary() -> None:
     )
 
 
+def test_save_exit_and_artifact_messages_use_semantic_severity() -> None:
+    state = _state()
+    saved = ux._rewrite_line(state, "Configuração salva em: C:/tmp/rasai-console.ini")
+    assert saved.startswith("OK")
+    assert "Configuração não sensível salva" in saved
+    security = ux._rewrite_line(state, "Chaves/API tokens não são gravados no INI por segurança.")
+    assert security.startswith("INFO")
+    assert "Credenciais e tokens" in security
+    dirty = ux._rewrite_line(state, "Há alterações de configuração ainda não salvas no arquivo INI.")
+    assert dirty.startswith("ALERTA")
+    opened = ux._rewrite_line(state, "Aberto: C:/audits/AUD-X/report/index.html")
+    assert opened.startswith("OK")
+    failed = ux._rewrite_line(state, "Não foi possível abrir: C:/audits/AUD-X/report/index.html")
+    assert failed.startswith("ERRO")
+
+
+def test_expected_user_cancellation_is_info_not_error() -> None:
+    state = _state()
+    rendered = ux._rewrite_line(state, "Erro        : persistência cancelada")
+    assert rendered.startswith("INFO")
+    rendered = ux._rewrite_line(state, "Erro        : artefato ainda não disponível para esta auditoria")
+    assert rendered.startswith("INFO")
+
+
 def test_consolidation_failures_and_filters_get_actionable_severity() -> None:
     state = _state()
     failure = ux._rewrite_line(state, "Falha na consolidação: ValueError: x")
@@ -138,7 +162,7 @@ def test_multiline_action_blocks_are_rewritten_without_changing_navigation() -> 
     assert rendered.endswith("\n")
 
 
-def test_install_wraps_public_boundaries_without_changing_return_values() -> None:
+def test_install_wraps_all_public_local_console_boundaries_without_changing_results() -> None:
     console = ModuleType("test_console_operator_ux")
 
     def menu(state):
@@ -149,6 +173,11 @@ def test_install_wraps_public_boundaries_without_changing_return_values() -> Non
     console._menu = menu
     console._configure = lambda state, choice: None
     console._environment_menu = lambda state: None
+    console._save_configuration = lambda state: True
+    console._confirm_exit = lambda state: False
+    console._artifact_action = lambda state, action: None
+    console.render_help = lambda state: None
+    console.render_m23_help = lambda state: None
     console.run_audit_from_console = lambda state: 7
     console._post_run_actions = lambda state: False
 
@@ -161,5 +190,20 @@ def test_install_wraps_public_boundaries_without_changing_return_values() -> Non
     rendered = output.getvalue()
     assert "Ação não reconhecida" in rendered
     assert "depois escolha sessão ou persistência" in rendered
+    assert console._save_configuration(state) is True
+    assert console._confirm_exit(state) is False
     assert console.run_audit_from_console(state) == 7
     assert console._post_run_actions(state) is False
+    for name in (
+        "_menu",
+        "_configure",
+        "_environment_menu",
+        "_save_configuration",
+        "_confirm_exit",
+        "_artifact_action",
+        "render_help",
+        "render_m23_help",
+        "run_audit_from_console",
+        "_post_run_actions",
+    ):
+        assert getattr(getattr(console, name), "_rasai_operator_ux_consistency", False)
