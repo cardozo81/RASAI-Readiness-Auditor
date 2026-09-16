@@ -6,7 +6,8 @@ handling:
 
 - persist the selected CAT-* plan and optional-AI choice in ``rasai-console.ini``;
 - keep CAT-05 execution inputs visibly separate from reusable source configuration;
-- group CAT-05 settings by SERP, GSC, CrUX History, Clarity and Common Crawl;
+- make the CAT-05 action that edits execution inputs visible beside ``O QUE PESQUISAR``;
+- group related settings by their functional source/context using the compact public IDs;
 - keep Dynatrace-specific Experience Apdex settings together and at the end;
 - keep configuration columns aligned even when a friendly label is long.
 """
@@ -17,10 +18,13 @@ import re
 from types import ModuleType
 from typing import Any
 
-from rasai.console_ui import DIM, paint
+from rasai.console_ui import CYAN, DIM, paint
 
 _INSTALLED = False
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+# Public configuration IDs are currently compact six-digit values. Accept the former
+# eight-digit shape as well so presentation grouping remains backward compatible.
+_ROW_RE = re.compile(r"^\s*(\d{6,8})\s{2,}")
 _LABEL_WIDTH = 46
 _VALUE_WIDTH = 22
 
@@ -177,6 +181,18 @@ def _install_functional_groups() -> None:
     context._functional_group = functional_group
 
 
+def _functional_group_for_catalog(catalog_id: str, spec: Any) -> tuple[str, str | None]:
+    """Resolve the presentation group with catalog-specific ownership when needed."""
+    from rasai import console_configuration_context_presentation as context
+
+    name = str(getattr(spec, "name", "") or "").upper()
+    # The CrUX API key is shared by current CrUX and History. Inside CAT-05 its role is
+    # specifically the History source, so do not scatter it into a separate CrUX group.
+    if catalog_id == "CAT-05" and name == "RASAI_CRUX_API_KEY":
+        return "CrUX History — experiência real histórica", "Credencial"
+    return context._functional_group(spec)
+
+
 def _source_rank(catalog_id: str, major: str, first_position: int) -> tuple[int, int]:
     if catalog_id == "CAT-05":
         ordered = (
@@ -197,13 +213,12 @@ def _source_rank(catalog_id: str, major: str, first_position: int) -> tuple[int,
 
 def sort_related_specs(catalog_id: str, rows: tuple[Any, ...]) -> tuple[Any, ...]:
     """Group related rows by functional owner while preserving a stable source order."""
-    from rasai import console_configuration_context_presentation as context
     from rasai import console_configuration_presentation as presentation
 
     rows = tuple(rows)
     first: dict[str, int] = {}
     for index, spec in enumerate(rows):
-        major, _ = context._functional_group(spec)
+        major, _ = _functional_group_for_catalog(catalog_id, spec)
         first.setdefault(major, index)
 
     return tuple(
@@ -212,10 +227,10 @@ def sort_related_specs(catalog_id: str, rows: tuple[Any, ...]) -> tuple[Any, ...
             key=lambda spec: (
                 *_source_rank(
                     catalog_id,
-                    context._functional_group(spec)[0],
-                    first[context._functional_group(spec)[0]],
+                    _functional_group_for_catalog(catalog_id, spec)[0],
+                    first[_functional_group_for_catalog(catalog_id, spec)[0]],
                 ),
-                (context._functional_group(spec)[1] or "").casefold(),
+                (_functional_group_for_catalog(catalog_id, spec)[1] or "").casefold(),
                 presentation.friendly_label(spec).casefold(),
                 str(spec.name).casefold(),
             ),
@@ -241,6 +256,7 @@ def _install_related_ordering() -> None:
 
 def _install_catalog_copy() -> None:
     from rasai import console_catalog_ui as catalog_ui
+    from rasai.console_ui_catalog import configuration_id
 
     current = catalog_ui.catalog_menu
     if getattr(current, "_rasai_catalog_configuration_copy", False):
@@ -248,12 +264,48 @@ def _install_catalog_copy() -> None:
 
     def catalog_menu(console_module: ModuleType, state: Any, catalog: Any) -> None:
         catalog_id = str(getattr(catalog, "id", ""))
+        related_specs = tuple(catalog_ui._related_specs(catalog))
+        id_to_spec = {configuration_id(spec.name): spec for spec in related_specs}
+        group_pairs = tuple(
+            _functional_group_for_catalog(catalog_id, spec) for spec in related_specs
+        )
+        major_groups = {major for major, _ in group_pairs}
+        known_group_lines = {
+            text
+            for major, subgroup in group_pairs
+            for text in (major, subgroup)
+            if text
+        }
+        show_group_headings = catalog_id == "CAT-05" or len(major_groups) > 1
+
         previous_print = builtins.print
+        in_related = False
+        last_major: str | None = None
+        last_subgroup: str | None = None
 
         def refined_print(*args: Any, **kwargs: Any) -> None:
+            nonlocal in_related, last_major, last_subgroup
             if len(args) == 1 and isinstance(args[0], str):
                 raw = args[0]
                 plain = _plain(raw).strip()
+
+                if catalog_id == "CAT-05" and plain == "O QUE PESQUISAR":
+                    previous_print(raw, **kwargs)
+                    previous_print(
+                        paint(
+                            "Editar estes valores: digite 1 no prompt desta tela — Configurar O QUE PESQUISAR.",
+                            CYAN,
+                            bold=True,
+                        )
+                    )
+                    previous_print(
+                        paint(
+                            "Termos, localidade, profundidade, dispositivo e concorrentes são editáveis; Quantidade de termos é calculada automaticamente.",
+                            DIM,
+                        )
+                    )
+                    return
+
                 if plain == "1. Configurar parâmetros próprios deste catálogo":
                     labels = {
                         "CAT-05": "1. Configurar O QUE PESQUISAR (termos, localidade, profundidade, dispositivo e concorrentes)",
@@ -262,15 +314,54 @@ def _install_catalog_copy() -> None:
                     }
                     previous_print(labels.get(catalog_id, raw), **kwargs)
                     return
-                if catalog_id == "CAT-05" and plain == "[ CONFIGURAÇÕES RELACIONADAS ]":
+
+                if plain == "[ CONFIGURAÇÕES RELACIONADAS ]":
+                    in_related = True
+                    last_major = None
+                    last_subgroup = None
                     previous_print(raw, **kwargs)
-                    previous_print(
-                        paint(
-                            "A ação 1 edita O QUE PESQUISAR. Os IDs abaixo editam configuração reutilizável de cada fonte/serviço.",
-                            DIM,
+                    if catalog_id == "CAT-05":
+                        previous_print(
+                            paint(
+                                "A ação 1 edita O QUE PESQUISAR. Os IDs abaixo editam configuração reutilizável de cada fonte/serviço.",
+                                DIM,
+                            )
                         )
-                    )
+                        previous_print(
+                            paint(
+                                "As subseções separam SERP, Google Search Console, CrUX History, Microsoft Clarity e Common Crawl.",
+                                DIM,
+                            )
+                        )
                     return
+
+                if plain == "[ PERSISTÊNCIA ]":
+                    in_related = False
+                    last_major = None
+                    last_subgroup = None
+                    previous_print(raw, **kwargs)
+                    return
+
+                # Earlier presentation layers can emit their own grouping headings. This
+                # final owner suppresses them and emits one canonical grouping shape below.
+                if in_related and show_group_headings and plain in known_group_lines:
+                    return
+
+                if in_related and show_group_headings:
+                    match = _ROW_RE.match(plain)
+                    if match and match.group(1) in id_to_spec:
+                        major, subgroup = _functional_group_for_catalog(
+                            catalog_id, id_to_spec[match.group(1)]
+                        )
+                        if major != last_major:
+                            previous_print("")
+                            previous_print(paint(f"  [ {major} ]", CYAN, bold=True))
+                            last_major = major
+                            last_subgroup = None
+                        if subgroup and subgroup != last_subgroup:
+                            previous_print(paint(f"    {subgroup}", DIM))
+                            last_subgroup = subgroup
+
                 if plain.startswith("Variáveis editáveis usam sessão ou arquivo"):
                     previous_print(
                         "Configurações não sensíveis deste catálogo podem ser salvas no rasai-console.ini; secrets usam Windows/User e nunca entram no INI.",
