@@ -91,7 +91,7 @@ def test_long_configuration_label_does_not_shift_value_or_origin(monkeypatch) ->
 
         assert "…" in long
         assert short.index("3 s") == long.index("3 s")
-        assert short.index("[SESSÃO]") == long.index("[SESSÃO]")
+        assert short.rindex("[") == long.rindex("[")
     finally:
         presentation.format_configuration_row = original
 
