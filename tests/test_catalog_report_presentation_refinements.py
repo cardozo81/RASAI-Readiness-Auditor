@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from rasai.catalog_report_analysis import _rationale_parts, _technical_work_status
 from rasai.catalog_report_contract import CATALOG_REPORT_PAGES
+from rasai.catalog_report_integrations import _attempt_total_tokens
 from rasai.catalog_report_presentation import _confidence_label, _shell, _table
 from rasai.improvement_exchange_capture import _mark_latest_as_improvement
 from rasai.ai_exchange_log import AiExchangeRecorder
@@ -44,6 +45,15 @@ def test_remediation_rationale_is_split_into_human_sections() -> None:
     assert parts["risk"] == "barreira presente."
     assert parts["benefit"] == "navegação mais clara."
     assert parts["technical"] == "regra automatizada falhou."
+
+
+def test_reasoning_tokens_are_not_added_twice_to_total() -> None:
+    assert _attempt_total_tokens(
+        {"input_tokens": 100, "output_tokens": 40, "reasoning_tokens": 15}
+    ) == 140
+    assert _attempt_total_tokens(
+        {"input_tokens": 100, "output_tokens": 40, "reasoning_tokens": 15, "total_tokens": 140}
+    ) == 140
 
 
 def test_deep_analysis_exchange_gets_stable_purpose_label() -> None:
