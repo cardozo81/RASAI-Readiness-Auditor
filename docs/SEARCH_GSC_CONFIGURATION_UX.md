@@ -67,13 +67,13 @@ GSC é apresentado em grupos independentes da SERP.
 
 - política de uso do Google Search Console.
 
-### OAuth temporário — teste/uso pontual
+### OAuth temporário - teste/uso pontual
 
 - Access Token.
 
 O Access Token é uma alternativa temporária. Ele **não é obrigatório em paralelo** quando o fluxo OAuth durável está configurado.
 
-### OAuth durável — recomendado
+### OAuth durável - recomendado
 
 - Client ID;
 - Client Secret;
@@ -87,7 +87,7 @@ Client Secret e Refresh Token são secrets. Client ID não é segredo e pode seg
 
 A property é validada contra o alvo da auditoria. Uma property incompatível não deve ser descrita como falha da SERP.
 
-### Search Analytics — janela e volume
+### Search Analytics - janela e volume
 
 - quantidade de dias consultados;
 - máximo de linhas;
