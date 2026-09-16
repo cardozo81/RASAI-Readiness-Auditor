@@ -121,11 +121,12 @@ print("OK")
     assert "OK" in result.stdout
 
 
-def test_local_refresh_reapplies_public_quality_and_final_presentation() -> None:
+def test_local_refresh_reapplies_public_quality_final_presentation_and_catalog_projection() -> None:
     code = r'''
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+from rasai import catalog_report_site
 from rasai import improvement_intelligence
 from rasai import progress_completion_refinement as refinement
 from rasai import report_ai_cost_attribution
@@ -149,13 +150,14 @@ report_scale_ux.enhance_report_directory = record("ux")
 report_quality_reconciliation.reconcile_public_report_quality = record("quality")
 report_presentation_finalizer.finalize_report_presentation = record("finalizer")
 report_manifest.write_report_manifest = record("manifest")
+catalog_report_site.materialize_catalog_report_site = record("catalog")
 
 with TemporaryDirectory() as directory:
-    workspace = SimpleNamespace(root=Path(directory))
+    workspace = SimpleNamespace(root=Path(directory), database=Path(directory) / "audit.db")
     errors = refinement._refresh_reports_local_only(audit_id="AUD-LOCAL", workspace=workspace)
 
 assert errors == ()
-assert calls == ["improvement", "cost", "navigation", "ux", "quality", "finalizer", "manifest"]
+assert calls == ["improvement", "cost", "navigation", "ux", "quality", "finalizer", "manifest", "catalog"]
 print("OK")
 '''
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
