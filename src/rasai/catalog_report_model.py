@@ -79,7 +79,7 @@ _WEB_METRICS = (
     ("agentic_browsing_score","Lighthouse · Navegação por agentes","índice"),
     ("fcp_lab_ms","FCP de laboratório","ms"),("speed_index_lab_ms","Speed Index","ms"),
     ("lcp_lab_ms","LCP de laboratório","ms"),("tbt_lab_ms","Total Blocking Time","ms"),
-    ("cls_lab","CLS de laboratório",""),("lcp_p75_ms","LCP de campo (p75)","ms"),
+    ("cls_lab","CLS de laboratório",""),("lcp_ms","LCP","ms"),("inp_ms","INP","ms"),("cls","CLS",""),("ttfb_ms","TTFB","ms"),("lcp_p75_ms","LCP de campo (p75)","ms"),
     ("inp_p75_ms","INP de campo (p75)","ms"),("cls_p75","CLS de campo (p75)",""),
 )
 _SECRET_KEY_RE = re.compile(r"(?:api[_-]?key|authorization|bearer|token|secret|password|passwd|cookie|client[_-]?secret)", re.I)
