@@ -90,8 +90,6 @@ audit_catalog.items
 
 `selected` contém a seleção efetiva da execução, já com dependências canônicas resolvidas. `items` preserva a projeção dos catálogos selecionados necessária para rastreabilidade.
 
-O contrato vigente do console não usa `execution_profile` como unidade pública de composição da próxima auditoria.
-
 ## Snapshot efetivo e integridade
 
 A tabela `audit_execution_configurations` persiste a configuração efetiva secret-free usada pelo subprocesso.
