@@ -44,13 +44,37 @@ INÍCIO > Todas as configurações
 
 ## Inputs da próxima execução
 
-O fluxo permite definir:
+A ação de configuração SERP abre primeiro um menu de campos, em vez de executar um wizard sequencial. O operador escolhe exatamente o que deseja alterar e pode voltar sem percorrer os demais campos.
 
-- um ou mais termos separados por `;`;
-- profundidade SERP;
-- device SERP `mobile` ou `desktop`;
-- região/localidade opcional;
-- classificação competitiva determinística.
+A superfície segue o contrato:
+
+```text
+[ PROVIDER / LIMITES APLICADOS ]
+  modo, provider, engine, credencial e limites efetivos
+
+[ O QUE PESQUISAR - PRÓXIMA EXECUÇÃO ]
+  1. Termos de busca
+  2. Localidade
+  3. Profundidade desejada
+  4. Dispositivo da busca
+  5. Análise de concorrentes
+
+  D. Não solicitar SERP nesta execução
+  V. Voltar
+```
+
+O bloco de provider é contextual e somente leitura nessa superfície. Modo, provider, credencial, limites, retries, timeout e intervalo continuam sendo configurações reutilizáveis editadas pelos IDs de `CONFIGURAÇÕES RELACIONADAS` ou por `Integrações e serviços`.
+
+Cada campo da próxima execução aplica o domínio permitido pelo runtime/provider atual:
+
+- **Termos de busca**: aceita um ou mais termos separados por `;`, remove duplicados e limita a quantidade pelo menor teto entre `RASAI_SERP_MAX_QUERIES` e o orçamento conservador de requests para a profundidade atual;
+- **Localidade**: texto livre opcional enviado ao provider; `LIMPAR` remove a localidade e volta ao país/mercado da auditoria;
+- **Profundidade**: aceita somente inteiro dentro do intervalo efetivo `1..N`; `N` respeita `RASAI_SERP_MAX_DEPTH` e, para paginação previsível, também o orçamento de `RASAI_SERP_MAX_REQUESTS` considerando quantidade de termos e retries;
+- **Dispositivo**: enum fechado `Mobile` ou `Desktop`;
+- **Análise de concorrentes**: enum fechado `Ativada` ou `Desativada`; a tela informa também `RASAI_SERP_MAX_COMPETITORS`;
+- **D. Não solicitar SERP**: limpa os termos e projeta o estado como `NÃO SOLICITADO` para a próxima execução.
+
+O menu mostra explicação de uso e abrangência antes de solicitar valores fechados/ranged. Entradas fora do domínio permitido não alteram o estado corrente.
 
 Esses campos são inputs da execução, não variáveis de ambiente.
 
@@ -125,8 +149,8 @@ Providers Google normalizados em blocos de até 10 posições podem exigir chama
 Exemplo conceitual com `retries=1`:
 
 ```text
-3 termos × depth 10 -> até 6 tentativas HTTP
-3 termos × depth 20 -> até 12 tentativas HTTP
+3 termos x depth 10 -> até 6 tentativas HTTP
+3 termos x depth 20 -> até 12 tentativas HTTP
 ```
 
 `RASAI_SERP_MAX_REQUESTS` é limite de tentativas HTTP do RASAi, não equivalência direta com créditos comerciais cobrados pelo fornecedor.
