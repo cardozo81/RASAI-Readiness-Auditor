@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from rasai.catalog_report_adherence import (
     _audit_hero,
     _cat05_capability_states,
+    _duration_only_apdex,
     _human_status_value,
     _normalize_configuration_rows,
 )
@@ -55,8 +56,8 @@ def test_cat05_uses_fulfillment_state_when_source_was_requested_but_not_material
     assert states["ai-visibility"] == "Solicitado, não executado"
 
 
-def test_hero_separates_logical_result_from_base_audit_limitations() -> None:
-    data = SimpleNamespace(
+def _limited_data() -> SimpleNamespace:
+    return SimpleNamespace(
         audit_id="AUD-1",
         targets=("https://example.test/",),
         selected={"CAT-01", "CAT-05"},
@@ -68,16 +69,27 @@ def test_hero_separates_logical_result_from_base_audit_limitations() -> None:
         },
     )
 
-    html = _audit_hero(data, "Relatório", "Resumo")
-    assert "Resultado lógico da AUD" in html
-    assert "Auditoria-base" in html
-    assert "Concluído com limitações" in html
-    assert "Lacuna na descoberta renderizada: 10" in html
+
+def test_hero_shows_full_base_limitation_only_on_governance_pages() -> None:
+    data = _limited_data()
+    overview = _audit_hero(data, "Visão geral por catálogos", "Resumo")
+    catalog = _audit_hero(data, "CAT-04 · Web Performance", "Resumo")
+
+    assert "Resultado lógico da AUD" in overview
+    assert "Auditoria-base" in overview
+    assert "Concluído com limitações" in overview
+    assert "Lacuna na descoberta renderizada: 10" in overview
+
+    assert "Auditoria-base com 1 limitação(ões)" in catalog
+    assert "Ver contexto e limitações da auditoria-base" in catalog
+    assert "Lacuna na descoberta renderizada: 10" not in catalog
 
 
 def test_public_status_and_configuration_terms_are_portuguese() -> None:
     assert _human_status_value("REQUESTED_NOT_EXECUTED") == "Solicitado, não executado"
     assert _human_status_value("BROWSER_UNAVAILABLE") == "Navegador indisponível"
+    assert _human_status_value("TECHNICAL_ERROR") == "Erro técnico"
+    assert _human_status_value("FAIL") == "Não aprovado"
 
     rows = _normalize_configuration_rows(
         [
@@ -92,6 +104,19 @@ def test_public_status_and_configuration_terms_are_portuguese() -> None:
     assert "desempenho" in str(rows[2][1])
     assert "acessibilidade" in str(rows[2][1])
     assert "boas práticas" in str(rows[2][1])
+
+
+def test_duration_only_apdex_is_separate_from_error_forced_classification() -> None:
+    samples = [
+        {"classification": "FRUSTRATED", "kpm_value_ms": 1000.0},
+        {"classification": "FRUSTRATED", "kpm_value_ms": 2500.0},
+        {"classification": "FRUSTRATED", "kpm_value_ms": 5000.0},
+    ]
+    run = {"satisfied_threshold_seconds": 3.0, "frustrated_threshold_seconds": 12.0}
+
+    score, valid, satisfied, tolerating, frustrated = _duration_only_apdex(samples, run)
+    assert score == 1.0
+    assert (valid, satisfied, tolerating, frustrated) == (3, 3, 0, 0)
 
 
 def test_final_execution_boundary_runs_catalog_projection_after_inner_result(monkeypatch) -> None:
