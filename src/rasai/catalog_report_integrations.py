@@ -110,6 +110,18 @@ def _cost_forecast(database: Path, audit_id: str) -> dict[str,Any]:
     finally:con.close()
 
 
+def _attempt_total_tokens(attempt: Mapping[str,Any]) -> int:
+    """Return canonical total tokens without double-counting reasoning tokens.
+
+    Provider accounting defines total as input + output. Reasoning tokens, when exposed,
+    are a subset of output tokens and therefore remain a diagnostic breakdown only.
+    """
+    persisted=attempt.get("total_tokens")
+    if persisted not in (None,""):
+        return int(persisted or 0)
+    return int(attempt.get("input_tokens") or 0)+int(attempt.get("output_tokens") or 0)
+
+
 def _ai_integrations_body(database: Path, data: _ReportData) -> str:
     attempts=_ai_attempts(database,data.audit_id)
     exchanges=_ai_exchange_rows(database,data.audit_id)
@@ -119,7 +131,7 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
     cached_tokens=sum(int(a.get("cached_input_tokens") or 0) for a in attempts)
     output_tokens=sum(int(a.get("output_tokens") or 0) for a in attempts)
     reasoning_tokens=sum(int(a.get("reasoning_tokens") or 0) for a in attempts)
-    total_tokens=sum(int(a.get("total_tokens") or ((a.get("input_tokens") or 0)+(a.get("output_tokens") or 0)+(a.get("reasoning_tokens") or 0))) for a in attempts)
+    total_tokens=sum(_attempt_total_tokens(a) for a in attempts)
     total_cost=sum(float(a.get("estimated_cost") or a.get("estimated_cost_usd") or 0) for a in attempts)
     rows=[];modals=[];used=set()
     for i,a in enumerate(attempts,1):
@@ -128,7 +140,7 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
         cost=float(a.get("estimated_cost") or a.get("estimated_cost_usd") or 0)
         usage_context,inputs,role=_ai_usage_detail(a)
         rows.append((a.get("purpose"),usage_context,a.get("provider") or "—",a.get("model") or "—",_status_label(a.get("status")),f"{int(a.get('input_tokens') or 0):,} / {int(a.get('output_tokens') or 0):,}".replace(","," "),f"{a.get('cost_currency') or 'USD'} {cost:.8f}",_modal_button(mid,"Ver requisição")))
-        body=_kv((("Finalidade",a.get("purpose")),("Aplicação no relatório",usage_context),("Provedor",a.get("provider")),("Modelo",a.get("model")),("Resultado da tentativa",_status_label(a.get("status"))),("Tentativa",a.get("attempt_index") or "—"),("Início",a.get("started_at") or "—"),("Fim",a.get("finished_at") or "—"),("Duração",_fmt_number(a.get("duration_ms"),"ms")),("Tokens de entrada",a.get("input_tokens") or 0),("Entrada em cache",a.get("cached_input_tokens") or 0),("Tokens de saída",a.get("output_tokens") or 0),("Tokens de raciocínio",a.get("reasoning_tokens") or 0),("Tokens totais",a.get("total_tokens") or "—"),("Custo individual",f"{a.get('cost_currency') or 'USD'} {cost:.8f}"),("Roteamento / contingência",a.get("decision") or a.get("fallback_reason") or "—"),("Erro",a.get("error_detail") or a.get("error_code") or "—")))
+        body=_kv((("Finalidade",a.get("purpose")),("Aplicação no relatório",usage_context),("Provedor",a.get("provider")),("Modelo",a.get("model")),("Resultado da tentativa",_status_label(a.get("status"))),("Tentativa",a.get("attempt_index") or "—"),("Início",a.get("started_at") or "—"),("Fim",a.get("finished_at") or "—"),("Duração",_fmt_number(a.get("duration_ms"),"ms")),("Tokens de entrada",a.get("input_tokens") or 0),("Entrada em cache",a.get("cached_input_tokens") or 0),("Tokens de saída",a.get("output_tokens") or 0),("Tokens de raciocínio",a.get("reasoning_tokens") or 0),("Tokens totais",_attempt_total_tokens(a)),("Custo individual",f"{a.get('cost_currency') or 'USD'} {cost:.8f}"),("Roteamento / contingência",a.get("decision") or a.get("fallback_reason") or "—"),("Erro",a.get("error_detail") or a.get("error_code") or "—")))
         body+="<h3>Dados envolvidos</h3><p>"+escape(inputs)+"</p>"
         body+="<h3>Papel da IA nesta chamada</h3><p>"+escape(role)+"</p>"
         body+="<h3>O que foi solicitado</h3><p>"+escape(str(a.get("request_message_summary") or "Resumo textual da solicitação não persistido."))+"</p>"
@@ -164,7 +176,7 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
 
     body=_audit_hero(data,"IA e integrações","Auditoria das comunicações externas: finalidade, dados envolvidos, tentativas, volume, custo, resultado e solicitações/respostas persistidas, com credenciais removidas.")
     body+=_outline((("summary","Resumo"),("ai","Requisições de IA"),("integrations","Outras integrações"),("cost","Custos"),("principles","Leitura")))
-    body+=_section("summary","Resumo do consumo",f"<div class='metric-grid'>{_metric('Tentativas de IA',len(attempts),f'{success} concluída(s)')}{_metric('Tokens de entrada',f'{input_tokens:,}'.replace(',',' '))}{_metric('Entrada em cache',f'{cached_tokens:,}'.replace(',',' '))}{_metric('Tokens de saída',f'{output_tokens:,}'.replace(',',' '))}{_metric('Tokens de raciocínio',f'{reasoning_tokens:,}'.replace(',',' '))}{_metric('Tokens totais',f'{total_tokens:,}'.replace(',',' '))}{_metric('Custo técnico observado',f'{currency} {total_cost:.8f}','soma dos custos individuais persistidos')}</div>")
+    body+=_section("summary","Resumo do consumo",f"<div class='metric-grid'>{_metric('Tentativas de IA',len(attempts),f'{success} concluída(s)')}{_metric('Tokens de entrada',f'{input_tokens:,}'.replace(',',' '))}{_metric('Entrada em cache',f'{cached_tokens:,}'.replace(',',' '))}{_metric('Tokens de saída',f'{output_tokens:,}'.replace(',',' '))}{_metric('Tokens de raciocínio',f'{reasoning_tokens:,}'.replace(',',' '), 'incluídos nos tokens de saída; não somados novamente')}{_metric('Tokens totais',f'{total_tokens:,}'.replace(',',' '),'entrada + saída')}{_metric('Custo técnico observado',f'{currency} {total_cost:.8f}','soma dos custos individuais persistidos')}</div>")
     body+=_section("ai","Requisições de IA",_table(("Finalidade","Aplicação no relatório","Provedor","Modelo","Resultado","Tokens entrada / saída","Custo","Detalhe"),rows,empty="Nenhuma tentativa de IA persistida.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals))
     body+=_section("integrations","Outras integrações",_table(("Serviço","Resultado","Tentativas","Sucessos","Duração","Detalhe"),int_rows,empty="Nenhuma integração externa reconhecida foi persistida.",sortable=bool(int_rows),page_size=10 if len(int_rows)>10 else None)+"".join(int_modals))
 
@@ -182,7 +194,7 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
             +"</div>"
         )
         reconcile_tone="good" if reconciled and arithmetic_ok else "bad"
-        reconcile_text="Os totalizadores estão conciliados: custo observado = soma dos custos individuais e o desvio foi recalculado a partir de esperado × observado." if reconciled and arithmetic_ok else "Há divergência entre os totalizadores persistidos e a soma/recomputação desta projeção. Revise a telemetria financeira antes de usar esses valores."
+        reconcile_text="Os totalizadores estão conciliados: custo observado = soma dos custos individuais e o desvio foi recalculado a partir do custo esperado e do custo observado." if reconciled and arithmetic_ok else "Há divergência entre os totalizadores persistidos e a soma/recomputação desta projeção. Revise a telemetria financeira antes de usar esses valores."
         cost_html+=f"<div class='notice {reconcile_tone}'><strong>Conciliação:</strong> {escape(reconcile_text)}</div>"
         if forecast.get("relation"):
             cost_html+=f"<div class='notice'>{escape(str(forecast.get('relation')))}</div>"
