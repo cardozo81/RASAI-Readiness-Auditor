@@ -54,7 +54,17 @@ document.addEventListener('click',(event)=>{const trigger=event.target.closest('
 document.addEventListener('cancel',(event)=>{if(event.target.matches('dialog.rasai-modal'))event.target.close();});
 document.addEventListener('click',(event)=>{const dlg=event.target;if(dlg instanceof HTMLDialogElement&&dlg.classList.contains('rasai-modal')){const rect=dlg.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)dlg.close();}});
 
-const valueFor=(row,index)=>((row.cells[index]&&row.cells[index].innerText)||'').trim();
+const normalizeSortValue=(input)=>{
+  const value=(input||'').trim();
+  const localized=value.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+  if(localized)return `${localized[3]}-${localized[2]}-${localized[1]}T${localized[4]}:${localized[5]}:${localized[6]}`;
+  const milliseconds=value.match(/^([+-]?[\d\s.,]+)\s*ms$/i);
+  if(milliseconds){const numeric=Number(milliseconds[1].replace(/\s/g,'').replace(',','.'));if(Number.isFinite(numeric))return String(numeric);}
+  const percent=value.match(/^([+-]?[\d\s.,]+)%$/);
+  if(percent){const numeric=Number(percent[1].replace(/\s/g,'').replace(',','.'));if(Number.isFinite(numeric))return String(numeric);}
+  return value;
+};
+const valueFor=(row,index)=>normalizeSortValue((row.cells[index]&&row.cells[index].innerText)||'');
 document.querySelectorAll('table[data-interactive-table="true"]').forEach((table)=>{
   const tbody=table.tBodies[0]; if(!tbody)return;
   const original=Array.from(tbody.rows); let rows=original.slice(); let page=1; let sortIndex=-1; let sortDirection=1;
