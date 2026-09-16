@@ -181,3 +181,12 @@ def install() -> None:
     )
 
     install_configuration_context_presentation(console)
+
+    # Absolute final catalog pass: persist the selected CAT plan, make execution-owned
+    # Search inputs discoverable from CAT-05, keep source-specific settings grouped and
+    # keep the public configuration table aligned. Runtime semantics remain untouched.
+    from rasai.console_catalog_configuration_refinements import (
+        install as install_catalog_configuration_refinements,
+    )
+
+    install_catalog_configuration_refinements()
