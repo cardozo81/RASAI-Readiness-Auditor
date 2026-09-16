@@ -11,10 +11,12 @@ from rasai.gsc_oauth_console import install as install_gsc_oauth_console
 from rasai.gsc_oauth_runtime import install as install_gsc_oauth_runtime
 from rasai.report_public_ux_guard import install as install_report_public_ux_guard
 from rasai.selective_optional_reprocess import install as install_selective_optional_reprocess
+from rasai.console_search_configuration_groups import install as install_search_configuration_groups
 
 
 install_ai_orchestration_unification()
 install_gsc_oauth_runtime()
 install_gsc_oauth_console()
+install_search_configuration_groups()
 install_selective_optional_reprocess()
 install_report_public_ux_guard()
