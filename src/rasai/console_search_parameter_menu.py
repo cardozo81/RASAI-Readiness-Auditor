@@ -40,6 +40,19 @@ def _provider_name(search_module: ModuleType, config: SerpRuntimeConfig) -> str:
     return registration.display_name
 
 
+def _provider_blocker(search_module: ModuleType, config: SerpRuntimeConfig) -> str:
+    if config.mode == "disabled":
+        return "modo SERP está disabled; altere o modo em CONFIGURAÇÕES RELACIONADAS antes de configurar a execução"
+    if config.mode != "live":
+        return ""
+    registration = _provider_registration(search_module, config)
+    if registration is None:
+        return f"provider live desconhecido: {config.provider}"
+    if not (os.environ.get(registration.key_env) or "").strip():
+        return f"credencial {registration.key_env} não configurada para o provider {config.provider}"
+    return ""
+
+
 def _print_guidance(lines: tuple[str, ...]) -> None:
     for index, line in enumerate(lines):
         prefix = "  Uso: " if index == 0 else "       "
@@ -256,6 +269,16 @@ def _mark_pending(search_module: ModuleType, state: Any, config: SerpRuntimeConf
     state.error = ""
 
 
+def _finish(search_module: ModuleType, state: Any, config: SerpRuntimeConfig) -> None:
+    try:
+        search_module._configured_search(state)
+    except (TypeError, ValueError) as exc:
+        state.error = f"Search Intelligence: {exc}"
+        print(f"\nConfiguração da execução SERP ainda inválida: {exc}")
+        return
+    _mark_pending(search_module, state, config)
+
+
 def configure_search_parameters(search_module: ModuleType, state: Any) -> None:
     """Edit one SERP execution input at a time through a bounded operator menu."""
     try:
@@ -270,12 +293,17 @@ def configure_search_parameters(search_module: ModuleType, state: Any) -> None:
         _render_execution_menu(state, config)
         raw = input("Opção a modificar: ").strip().upper()
         if raw == "V":
-            _mark_pending(search_module, state, config)
+            _finish(search_module, state, config)
             return
         if raw == "D":
             state.search_queries = ()
             _mark_pending(search_module, state, config)
             continue
+        if raw in {"1", "2", "3", "4", "5"}:
+            blocker = _provider_blocker(search_module, config)
+            if blocker:
+                print(f"\n  Provider não apto: {blocker}.")
+                continue
         if raw == "1":
             _edit_terms(search_module, state, config)
         elif raw == "2":
