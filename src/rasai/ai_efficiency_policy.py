@@ -200,9 +200,14 @@ def install() -> None:
     from rasai.ai_orchestration_unification_cleanup import (
         install_ai_orchestration_unification_cleanup,
     )
+    from rasai.improvement_exchange_capture import install as install_improvement_exchange_capture
 
     install_ai_orchestration_unification()
     install_ai_orchestration_unification_cleanup()
+    # The deep-analysis contract uses the canonical provider runtime but historically
+    # persisted only attempt telemetry. Capture sanitized request/response envelopes
+    # after orchestration is fully composed so IA e integrações can audit every AI call.
+    install_improvement_exchange_capture()
 
     # Final runtime alignment intentionally runs after every fulfillment/routing wrapper.
     # It introduces no new policy: initial execution and RPR consume the same M24 and
