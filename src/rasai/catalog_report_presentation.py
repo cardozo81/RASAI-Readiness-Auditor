@@ -7,14 +7,35 @@ def _status_label(value: Any) -> str:
     raw=_norm(value)
     mapping={
         "SUCCESS":"Concluído","COMPLETE":"Concluído","COMPLETED":"Concluído","FINAL":"Concluído",
-        "READY":"Disponível","AVAILABLE":"Disponível","PARTIAL":"Parcial","FAILED_RETRYABLE":"Falha reprocessável",
-        "FAILED_PERMANENT":"Falha permanente","FAILED_FATAL":"Falha","ERROR":"Erro","CONTRACT_ERROR":"Erro de resposta contratual",
-        "BLOCKED":"Bloqueado","DISABLED":"Desabilitado","NOT_REQUESTED":"Não solicitado","NOT_APPLICABLE":"Não aplicável",
-        "ABSENT":"Não encontrado","UNAVAILABLE":"Sem dados disponíveis","RUNNING":"Em execução","PENDING":"Pendente",
+        "READY":"Disponível","AVAILABLE":"Disponível","MEASURED":"Medido","GENERATED":"Gerado","CONSOLIDATED":"Consolidado",
+        "PASS":"Aprovado","FAIL":"Não aprovado","WARNING":"Atenção","INFO":"Informativo",
+        "PARTIAL":"Parcial","FAILED_RETRYABLE":"Falha reprocessável","FAILED_PERMANENT":"Falha permanente",
+        "FAILED_FATAL":"Falha fatal","FAILURE":"Falha","ERROR":"Erro","TECHNICAL_ERROR":"Erro técnico",
+        "CONTRACT_ERROR":"Erro de resposta contratual","BLOCKED":"Bloqueado","DISABLED":"Desabilitado",
+        "NOT_REQUESTED":"Não solicitado","REQUESTED_NOT_EXECUTED":"Solicitado, não executado","NOT_CONFIGURED":"Não configurado",
+        "NOT_APPLICABLE":"Não aplicável","SKIPPED":"Ignorado","ABSENT":"Não encontrado","UNAVAILABLE":"Sem dados disponíveis",
+        "NO_DATA":"Sem dados","INCOMPLETE":"Incompleto","PRELIMINARY":"Preliminar","VALID":"Válido","EXPIRED":"Expirado",
+        "RUNNING":"Em execução","PENDING":"Pendente","PROCESSING":"Em processamento","WAITING_FOR_DATA":"Aguardando dados",
         "NOT_DETERMINABLE":"Não determinável com os dados desta auditoria","UNKNOWN":"Não determinado",
-        "COMPLETE_WITH_LIMITATIONS":"Concluído com limitações",
+        "COMPLETE_WITH_LIMITATIONS":"Concluído com limitações","COMPLETED_WITH_LIMITATIONS":"Concluído com limitações",
+        "APPLICATION_ERROR":"Erro da aplicação","INVALID_SAMPLE":"Amostra inválida","BROWSER_UNAVAILABLE":"Navegador indisponível",
+        "TIMEOUT":"Tempo limite excedido","NAVIGATION_ERROR":"Erro de navegação",
     }
     return mapping.get(raw, str(value or "—").replace("_"," ").title())
+
+
+def _assessment_label(value: Any) -> str:
+    raw=_norm(value)
+    return {
+        "PASS":"Aprovado",
+        "FAIL":"Não aprovado",
+        "GOOD":"Bom",
+        "NEEDS_IMPROVEMENT":"Precisa melhorar",
+        "POOR":"Ruim",
+        "NOT_APPLICABLE":"Não aplicável",
+        "UNAVAILABLE":"Sem dados disponíveis",
+        "INCOMPLETE":"Incompleto",
+    }.get(raw,_status_label(value))
 
 
 def _device_label(value: Any) -> str:
@@ -59,7 +80,12 @@ def _session_label(value: Any) -> str:
 
 def _error_scope_label(value: Any) -> str:
     raw=_norm(value)
-    return {"ALL":"Todos os erros observados","FIRST_PARTY":"Somente recursos do próprio domínio","OWNER":"Somente recursos do próprio domínio"}.get(raw,str(value or "—").replace("_"," ").title())
+    return {
+        "ALL":"Todos os erros observados",
+        "FIRST_PARTY":"Somente falhas atribuídas a recursos do próprio domínio; erros de console/JavaScript sem origem confiável permanecem diagnósticos",
+        "OWNER":"Somente falhas atribuídas a recursos do próprio domínio",
+        "NAVIGATION":"Somente erro da ação/navegação principal",
+    }.get(raw,str(value or "—").replace("_"," ").title())
 
 
 def _score_impact_label(value: Any) -> str:
@@ -70,7 +96,7 @@ def _score_impact_label(value: Any) -> str:
 def _domain_label(value: Any) -> str:
     raw=_norm(value)
     return {
-        "ACCESSIBILITY":"Acessibilidade","PERFORMANCE":"Performance","SEMANTICS_STRUCTURE":"Estrutura semântica",
+        "ACCESSIBILITY":"Acessibilidade","PERFORMANCE":"Desempenho","SEMANTICS_STRUCTURE":"Estrutura semântica",
         "CONTENT":"Conteúdo","SEARCH_RANKING":"Busca e posicionamento","FILES_DISCOVERY":"Arquivos de descoberta",
         "TECHNICAL_HTML":"HTML e estrutura técnica","BEST_PRACTICES":"Boas práticas","SECURITY":"Segurança passiva",
         "AI_ACCESS":"Acesso por agentes de IA",
@@ -82,7 +108,7 @@ def _capability_label(value: Any) -> str:
     return {
         "domain-discovery":"Descoberta e acesso técnico","standards":"Padrões e compatibilidade web",
         "accessibility":"Acessibilidade","content-suggestions":"Conteúdo, semântica e dados estruturados",
-        "web-performance":"Web Performance","search-intelligence":"Inteligência de busca / SERP",
+        "web-performance":"Desempenho web","search-intelligence":"Inteligência de busca / SERP",
         "google-search-console":"Google Search Console","ai-visibility":"Visibilidade em respostas de IA",
         "observability":"Observabilidade externa","apdex-navigation":"Apdex de navegação",
         "apdex-experience":"Apdex de experiência","deep-analysis":"Análise profunda e melhorias",
@@ -218,7 +244,11 @@ def _score_table(data: _ReportData, *, include_overall: bool=True, context: str|
             continue
         if context and _DIMENSION_CONTEXT.get(dim)!=context:
             continue
-        rows.append((_DIMENSION_LABELS.get(dim,dim.replace("_"," ").title()),_device_label(row.get("device")),_score_value(row),row.get("coverage","—"),_confidence_label(row.get("confidence")),_status_label(row.get("consolidation_status")),row.get("scoring_version","—")))
+        consolidation=_norm(row.get("consolidation_status"))
+        structured_absent=(dim=="STRUCTURED_DATA" and consolidation=="NOT_APPLICABLE" and row.get("value") is None)
+        value="Não aplicável" if structured_absent else _score_value(row)
+        confidence="Não aplicável — nenhum dado estruturado foi observado" if structured_absent else _confidence_label(row.get("confidence"))
+        rows.append((_DIMENSION_LABELS.get(dim,dim.replace("_"," ").title()),_device_label(row.get("device")),value,row.get("coverage","—"),confidence,_status_label(row.get("consolidation_status")),row.get("scoring_version","—")))
     return _table(("Indicador","Contexto","Valor","Cobertura","Confiança","Consolidação","Método"),rows)
 
 
