@@ -3,8 +3,8 @@
 The interactive console is long-lived, while each local audit runs in a fresh child
 process. Before an audit starts, this module resolves and validates the current operator
 model, pricing and task-profile catalogs, snapshots any file-backed catalogs, refreshes
-the parent process used by pre-run cost/readiness UI, and exposes an immutable child
-environment for the audit subprocess.
+the parent process used by pre-run cost/readiness UI, and exposes immutable AI catalog
+settings to the audit subprocess without freezing unrelated execution-scoped variables.
 """
 from __future__ import annotations
 
@@ -43,6 +43,20 @@ from rasai.ai_task_profiles import (
 
 _CURRENT_CHILD_ENV: ContextVar[dict[str, str] | None] = ContextVar(
     "rasai_ai_execution_child_env", default=None
+)
+
+# Only these values belong to the immutable AI-catalog snapshot. The execution wrapper
+# is installed outermost, before inner catalog/profile/configuration contexts bind their
+# own temporary environment variables. Returning the entire environment captured here
+# would therefore discard later execution-scoped values such as the canonical AUD
+# configuration handoff and catalog feature suppressions.
+_FROZEN_AI_ENV_KEYS = (
+    MODEL_SOURCE_ENV,
+    MODEL_FILE_ENV,
+    PRICING_SOURCE_ENV,
+    PRICING_FILE_ENV,
+    PROFILE_SOURCE_ENV,
+    PROFILE_FILE_ENV,
 )
 
 
@@ -164,6 +178,8 @@ def execution_ai_configuration(*, cwd: Path | None = None) -> Iterator[AiExecuti
 
     Human edits made under ``config/`` after this context starts cannot change the current
     audit. A later execution creates a new snapshot and therefore sees newly saved edits.
+    Execution-scoped environment changes made by inner wrappers remain visible to the
+    child; only model/pricing/task-profile source and snapshot paths stay frozen here.
     """
     base = (cwd or Path.cwd()).resolve()
     with tempfile.TemporaryDirectory(prefix="rasai-ai-config-") as raw:
@@ -176,9 +192,24 @@ def execution_ai_configuration(*, cwd: Path | None = None) -> Iterator[AiExecuti
 
 
 def current_execution_environment() -> dict[str, str] | None:
-    """Return the immutable AI snapshot environment for the current audit child."""
-    value = _CURRENT_CHILD_ENV.get()
-    return dict(value) if value is not None else None
+    """Return the current execution environment plus immutable AI-catalog settings.
+
+    The AI snapshot is created by the outermost console wrapper. Inner execution layers
+    subsequently bind catalog suppressions, profile overlays and the secret-free AUD
+    configuration handoff. Those values are execution contract data and must not be
+    replaced by the older process-wide environment captured when the AI catalogs were
+    frozen. Merge the six AI catalog keys onto the live environment instead.
+    """
+    frozen = _CURRENT_CHILD_ENV.get()
+    if frozen is None:
+        return None
+    environment = dict(os.environ)
+    for name in _FROZEN_AI_ENV_KEYS:
+        if name in frozen:
+            environment[name] = frozen[name]
+        else:
+            environment.pop(name, None)
+    return environment
 
 
 def install(console_module: ModuleType) -> None:

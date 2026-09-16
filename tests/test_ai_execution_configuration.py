@@ -73,6 +73,29 @@ def test_execution_snapshot_is_immutable_after_operator_file_changes(tmp_path: P
     assert snapshot_model is not None and not snapshot_model.exists()
 
 
+def test_ai_snapshot_preserves_late_execution_scoped_environment(tmp_path: Path, monkeypatch) -> None:
+    """Outer AI freezing must not erase inner audit-plan/handoff environment values."""
+    monkeypatch.setenv(MODEL_SOURCE_ENV, "factory")
+    monkeypatch.setenv(PRICING_SOURCE_ENV, "factory")
+    monkeypatch.setenv(PROFILE_SOURCE_ENV, "factory")
+    monkeypatch.delenv("_RASAI_AUD_CONFIGURATION_HANDOFF", raising=False)
+    monkeypatch.setenv("RASAI_IMPROVEMENT_INTELLIGENCE", "true")
+
+    with execution_ai_configuration(cwd=tmp_path):
+        # These values are bound after the outer AI snapshot by the catalog and reusable
+        # configuration execution contexts. They must reach the child process verbatim.
+        monkeypatch.setenv("_RASAI_AUD_CONFIGURATION_HANDOFF", "/tmp/aud-plan.json")
+        monkeypatch.setenv("RASAI_IMPROVEMENT_INTELLIGENCE", "false")
+        # AI catalog source itself remains frozen even if the parent environment changes.
+        monkeypatch.setenv(MODEL_SOURCE_ENV, "auto")
+
+        child = current_execution_environment()
+        assert child is not None
+        assert child["_RASAI_AUD_CONFIGURATION_HANDOFF"] == "/tmp/aud-plan.json"
+        assert child["RASAI_IMPROVEMENT_INTELLIGENCE"] == "false"
+        assert child[MODEL_SOURCE_ENV] == "factory"
+
+
 def test_next_execution_reloads_saved_operator_pricing_without_console_restart(
     tmp_path: Path, monkeypatch
 ) -> None:
