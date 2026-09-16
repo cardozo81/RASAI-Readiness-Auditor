@@ -19,6 +19,7 @@ _PHASE = "IMPROVEMENT_INTELLIGENCE"
 
 def _refresh_reports_local_only(*, audit_id: str, workspace: Any) -> tuple[str, ...]:
     """Refresh projections affected by late AI persistence without network collection."""
+    from rasai.catalog_report_site import materialize_catalog_report_site
     from rasai.improvement_intelligence import write_improvement_report
     from rasai.report_ai_cost_attribution import enrich_ai_cost_attribution
     from rasai.report_dashboard_final_polish import finalize_dashboard_presentation
@@ -65,6 +66,14 @@ def _refresh_reports_local_only(*, audit_id: str, workspace: Any) -> tuple[str, 
         lambda: finalize_dashboard_presentation(audit_id=audit_id, workspace=workspace),
     )
     run("manifest", lambda: write_report_manifest(report_dir))
+    # report-catalog is a separate read-only projection. It must be rebuilt after the
+    # late Improvement Intelligence persistence as well; otherwise CAT-08/CAT-09 and
+    # AI/cost telemetry can remain frozen at the pre-analysis state even though audit.db
+    # already contains the final evidence.
+    run(
+        "catalog-report",
+        lambda: materialize_catalog_report_site(audit_id=audit_id, workspace=workspace),
+    )
     return tuple(errors)
 
 
