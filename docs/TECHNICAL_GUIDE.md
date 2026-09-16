@@ -72,4 +72,4 @@ O plano da próxima auditoria é composto pelo catálogo `CAT-*`. Quando o opera
 
 Nomes de módulos, classes, tabelas, eventos e campos técnicos são detalhes de implementação. A documentação funcional, a UI e os relatórios devem descrever o contrato vigente do produto e usar os identificadores técnicos somente quando forem necessários para diagnóstico, rastreabilidade ou integração.
 
-A superfície pública não deve introduzir nomenclatura de transição entre versões do produto. O software ainda está em desenvolvimento/pré-produção; a referência é o comportamento vigente no código e nos contratos canônicos.
+O software está em desenvolvimento/pré-produção. A referência documental é o comportamento vigente no código e nos contratos canônicos.
