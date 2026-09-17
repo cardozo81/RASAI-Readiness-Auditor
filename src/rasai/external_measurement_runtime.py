@@ -197,7 +197,7 @@ def _install_m21_policy() -> None:
             timeout_seconds=timeout_seconds,
             target_navigation=True,
         )
-        query: list[tuple[str, str]] = [("url", url), ("strategy", strategy), ("locale", "en")]
+        query: list[tuple[str, str]] = [("url", url), ("strategy", strategy), ("locale", "pt-BR")]
         query.extend(("category", category) for category in categories)
         if getattr(self, "_api_key", None):
             query.append(("key", str(self._api_key)))
