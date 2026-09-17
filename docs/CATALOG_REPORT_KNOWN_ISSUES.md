@@ -151,7 +151,7 @@ A apresentação diferencia correção necessária de oportunidade:
 - sitemap ausente no caminho convencional é lacuna de descoberta/readiness, não falha fatal; URLs não descobertas não são inventadas;
 - `llms.txt` permanece opcional/não padronizado e sua ausência não é tratada como requisito obrigatório;
 - quando nenhum dado estruturado foi observado, a sugestão é `Considerar implementar dados estruturados aplicáveis`, e não `Corrigir sintaxe`;
-- quando a dimensão `STRUCTURED_DATA` está `NOT_APPLICABLE` por ausência observada e a política metodológica é `NOT_APPLICABLE_WHEN_ABSENT`, o SARI apresenta `Não aplicável — nenhum dado estruturado foi observado`, e não `Sem dados para estimar`.
+- quando a dimensão `STRUCTURED_DATA` está `NOT_APPLICABLE` por ausência observada e a política metodológica é `NOT_APPLICABLE_WHEN_ABSENT`, o SARI apresenta `Não aplicável - nenhum dado estruturado foi observado`, e não `Sem dados para estimar`.
 
 ### Captura e contexto
 
