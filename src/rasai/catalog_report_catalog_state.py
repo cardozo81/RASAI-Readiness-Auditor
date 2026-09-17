@@ -1,5 +1,6 @@
 """Catalog ownership, status and effective configuration."""
 from rasai.catalog_report_presentation import *  # noqa: F401,F403
+import json
 
 
 def _plan_available(data: _ReportData) -> bool:
