@@ -21,6 +21,7 @@ from .cost_forecast_routes import install_cost_forecast_routes
 from .cost_forecast_ui import install_cost_forecast_ui
 from .identity_routes import install_identity_routes
 from .pilot import install_pilot_routes
+from .property_semantic_profile_routes import install_property_semantic_profile_routes
 from .saas_management_routes import install_saas_management_routes
 from .standards_routes import install_standards_routes
 
@@ -68,6 +69,11 @@ def create_app(
         principal_dependency=principal_dependency,
     )
     install_saas_management_routes(
+        app,
+        store_dependency=store_dependency,
+        principal_dependency=principal_dependency,
+    )
+    install_property_semantic_profile_routes(
         app,
         store_dependency=store_dependency,
         principal_dependency=principal_dependency,
