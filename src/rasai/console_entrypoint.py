@@ -43,6 +43,10 @@ from rasai.external_measurement_runtime import install as install_external_measu
 from rasai.external_observability_console import install as install_external_observability_console
 from rasai.external_observability_runtime import install as install_external_observability_runtime, install_service_contract as install_external_observability_service_contract
 from rasai.fulfillment_execution_contract import install_console_projection
+from rasai.governed_analysis_runtime import (
+    install_post as install_governed_analysis_post,
+    install_pre as install_governed_analysis_pre,
+)
 from rasai.gsc_oauth_console import install as install_gsc_oauth_console
 from rasai.gsc_oauth_runtime import install as install_gsc_oauth_runtime
 from rasai.gsc_scope_runtime import install as install_gsc_scope_runtime
@@ -97,6 +101,10 @@ def main() -> int:
         from rasai.remote_console import main as remote_main
         return remote_main()
 
+    # Install governance before any legacy finalizer captures collector functions.
+    # Re-assert the post boundary after every console adapter so no later wrapper can
+    # execute network/AI or mutate audit.db outside the canonical report projection.
+    install_governed_analysis_pre()
     install_standards_pre_context()
     install_external_observability_service_contract()
     install_standards_console_runtime()
@@ -173,6 +181,7 @@ def main() -> int:
     install_integration_network_diagnostics(interactive_console)
     install_console_detail_presentation()
     install_ai_execution_configuration(interactive_console)
+    install_governed_analysis_post()
     return interactive_console.main()
 
 
