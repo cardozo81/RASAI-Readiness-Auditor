@@ -1,7 +1,7 @@
 """Top-level RASAi command router.
 
-Specialist commands are intercepted here. Audit commands are delegated to the
-current audit CLI composition and finalized through the canonical report gate.
+Specialist commands are intercepted here. Audit commands are delegated to the current
+audit CLI composition and finalized through the canonical read-only report gate.
 """
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import sys
 from typing import Sequence
 
 from rasai import cli_extensions
+from rasai.ai_dependency_runtime import install as install_ai_dependency_runtime
 from rasai.ai_efficiency_policy import install as install_ai_efficiency_policy
 from rasai.context_scope_runtime import install as install_context_scope_runtime
 from rasai.external_measurement_runtime import install as install_external_measurement_runtime
@@ -19,6 +20,10 @@ from rasai.external_observability_runtime import (
     install_service_contract as install_external_observability_service_contract,
 )
 from rasai.external_observability_safety import install as install_external_observability_safety
+from rasai.governed_optional_runtime import (
+    configure_audit_argv as configure_governed_audit_argv,
+    install as install_governed_optional_runtime,
+)
 from rasai.gsc_oauth_runtime import install as install_gsc_oauth_runtime
 from rasai.gsc_scope_runtime import install as install_gsc_scope_runtime
 from rasai.improvement_intelligence_runtime import install as install_improvement_intelligence_runtime
@@ -72,11 +77,7 @@ def _try_refresh_platform_index(argv: list[str]) -> None:
 
 
 def _blocking_catalog_report_errors(renderer_errors: Sequence[str]) -> tuple[str, ...]:
-    """Return catalog projection errors that make the final HTML surface incomplete.
-
-    Other late enrichment errors retain their historical warning-only semantics, but a
-    failed/stale ``report-catalog`` cannot be announced as a complete final report.
-    """
+    """Return catalog projection errors that make the final HTML surface incomplete."""
     return tuple(
         issue
         for issue in renderer_errors
@@ -125,9 +126,8 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         _LOGGER.exception("Unable to open audit workspace after execution")
         return code
 
-    # This is the last mutable-evidence window before main() computes/indexes the
-    # audit.db SHA-256. Failure is fail-open for the audit result but fail-closed for
-    # future configuration reuse (no valid snapshot => source AUD is rejected).
+    # Last non-report metadata window before main() indexes the audit.db hash. No
+    # collector or provider may be invoked from this point onward.
     try:
         persist_current_configuration(workspace.root, result.audit_id)
     except Exception:
@@ -140,7 +140,11 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         context_interpretations = ()
         routing_snapshot = None
         if execution is not None:
-            persist_ai_exchange_log(audit_id=result.audit_id, workspace=workspace, recorder=execution.recorder)
+            persist_ai_exchange_log(
+                audit_id=result.audit_id,
+                workspace=workspace,
+                recorder=execution.recorder,
+            )
             context_interpretations = execution.recorder.context_interpretations
             routing_snapshot = provider_session_snapshot(execution.provider)
         completion = finalize_audit_report_site(
@@ -151,7 +155,10 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         )
     except Exception:
         _LOGGER.exception("Final audit report materialization gate failed")
-        print("Relatórios HTML: INCOMPLETOS - falha ao validar/materializar o mini-site final. O audit.db já persistido foi preservado; consulte logs/audit.log.")
+        print(
+            "Relatórios HTML: INCOMPLETOS - falha ao validar/materializar o mini-site final. "
+            "O audit.db já persistido foi preservado; consulte logs/audit.log."
+        )
         return _REPORT_PROJECTION_INCOMPLETE_EXIT
 
     for issue in completion.renderer_errors:
@@ -173,26 +180,28 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
     if completion.missing_pages:
         missing = ", ".join(completion.missing_pages)
         _LOGGER.error("Expected audit report pages were not materialized: %s", missing)
-        print(f"Relatórios HTML: INCOMPLETOS - páginas esperadas não foram materializadas: {missing}. O audit.db foi preservado.")
+        print(
+            f"Relatórios HTML: INCOMPLETOS - páginas esperadas não foram materializadas: {missing}. "
+            "O audit.db foi preservado."
+        )
         return _REPORT_PROJECTION_INCOMPLETE_EXIT
-    print(f"Relatórios HTML: COMPLETOS ({len(completion.expected_pages)} página(s) esperada(s) para esta execução).")
+    print(
+        f"Relatórios HTML: COMPLETOS ({len(completion.expected_pages)} página(s) esperada(s) para esta execução)."
+    )
     if completion.renderer_errors:
-        print("Relatórios HTML: houve falha de enriquecimento reparável em um ou mais renderizadores; as páginas canônicas esperadas existem e o detalhe foi registrado no log.")
+        print(
+            "Relatórios HTML: houve falha de enriquecimento reparável em um ou mais renderizadores; "
+            "as páginas canônicas esperadas existem e o detalhe foi registrado no log."
+        )
     return code
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    effective = list(argv) if argv is not None else list(sys.argv[1:])
+def _install_audit_runtime() -> None:
+    """Install audit extensions in dependency order.
 
-    # Provider discovery is metadata-only and intentionally bypasses audit runtime
-    # patch installation. This keeps onboarding safe, fast and free of audit side effects.
-    if effective and effective[0] in {"providers", "provider"}:
-        from rasai.provider_cli import main as provider_main
-        return provider_main(effective[1:])
-
-    # Standards/service metadata must exist before context projects the canonical
-    # report contract. Collection/report wrappers are installed after the existing
-    # browser/external-measurement runtime so they can compose rather than replace it.
+    Governed optional collection is installed after the existing wrappers so it can
+    capture their final safety/reuse behavior and relocate only the execution phase.
+    """
     install_standards_pre_context()
     install_external_observability_service_contract()
     install_report_registry()
@@ -210,8 +219,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     install_gsc_oauth_runtime()
     install_gsc_scope_runtime()
     install_external_observability_runtime()
-    # Installed outside the external runtime so it can suppress only the public
-    # Common Crawl lookup for unsafe/private/parameterized targets on this run.
     install_external_observability_safety()
     install_improvement_intelligence_saas()
     install_ai_efficiency_policy()
@@ -223,12 +230,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     install_runtime_contract_compatibility()
     install_provider_presentation_alignment()
     install_improvement_intelligence_runtime()
-    # Install after the optional-service owners. It wraps the final report chain only
-    # during RPR and therefore can suppress repeated successful external work while
-    # preserving normal processing behavior.
     install_selective_optional_reprocess()
-    # Install last so scope disclosures see the final canonical report projections.
+    install_ai_dependency_runtime()
+    install_governed_optional_runtime()
     install_report_scope_clarity()
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    effective = list(argv) if argv is not None else list(sys.argv[1:])
+
+    if effective and effective[0] in {"providers", "provider"}:
+        from rasai.provider_cli import main as provider_main
+        return provider_main(effective[1:])
+
+    _install_audit_runtime()
+
     if effective and effective[0] in {"search", "serp"}:
         from rasai.search_intelligence.cli import main as search_main
         return search_main(effective[1:])
@@ -245,7 +261,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             from rasai.web.cli import main as api_main
         except ImportError as exc:
-            raise SystemExit("RASAi web dependencies are not installed; install with: pip install -e '.[web]'") from exc
+            raise SystemExit(
+                "RASAi web dependencies are not installed; install with: pip install -e '.[web]'"
+            ) from exc
         return api_main(effective[1:])
     if effective and effective[0] == "worker":
         from rasai.worker_cli import main as worker_main
@@ -278,6 +296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _try_refresh_platform_index(forwarded)
         return code
     if effective and effective[0] == "audit":
+        configure_governed_audit_argv(effective)
         code = _run_audit_and_finalize(effective)
         if code == 0:
             _try_refresh_platform_index(effective)
