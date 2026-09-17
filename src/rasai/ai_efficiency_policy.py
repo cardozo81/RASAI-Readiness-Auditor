@@ -161,6 +161,7 @@ def install() -> None:
     install_execution_profile_report_capabilities()
     install_report_public_ux_guard()
 
+    from rasai.accepted_audit_refinements import install as install_accepted_audit_refinements
     from rasai.ai_orchestration_unification import install_ai_orchestration_unification
     from rasai.ai_orchestration_unification_cleanup import (
         install_ai_orchestration_unification_cleanup,
@@ -169,6 +170,7 @@ def install() -> None:
 
     install_ai_orchestration_unification()
     install_ai_orchestration_unification_cleanup()
+    install_accepted_audit_refinements()
     install_improvement_exchange_capture()
 
     from rasai.completion_recovery_alignment import install as install_completion_recovery_alignment
