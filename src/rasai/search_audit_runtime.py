@@ -11,7 +11,8 @@ import io
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 import sqlite3
-from typing import Any, Sequence
+import sys
+from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
 from rasai.audit_fulfillment import (
@@ -27,8 +28,18 @@ from rasai.search_intelligence.provider_catalog import serp_provider_registratio
 
 
 _INSTALLED = False
+_WORKER_INSTALLED = False
 _CURRENT_ARGV: tuple[str, ...] = ()
 _COMPONENT = "SEARCH_INTELLIGENCE"
+_SEARCH_JOB_FIELDS = frozenset(
+    {
+        "search_queries",
+        "search_depth",
+        "search_region",
+        "search_device",
+        "search_competitive",
+    }
+)
 
 
 def configure_audit_argv(argv: Sequence[str]) -> None:
@@ -83,6 +94,153 @@ def _install_arguments() -> None:
     build_parser._rasai_search_audit_args = True
     build_parser._rasai_original = current
     cli_extensions.build_parser = build_parser
+
+
+def _normalize_search_queries(value: Any) -> list[str]:
+    if value in (None, ""):
+        return []
+    if isinstance(value, str):
+        raw = value.replace("\r", "\n").replace("\n", ";").split(";")
+    elif isinstance(value, list) and all(isinstance(item, str) for item in value):
+        raw = value
+    else:
+        raise ValueError("AUDIT payload search_queries must be an array of strings or semicolon-separated text")
+    values: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        text = " ".join(str(item).split())
+        key = text.casefold()
+        if not text or key in seen:
+            continue
+        seen.add(key)
+        values.append(text)
+    if len(values) > 50:
+        raise ValueError("AUDIT payload search_queries supports at most 50 unique terms")
+    return values
+
+
+def _install_saas_contract() -> None:
+    """Extend the durable AUDIT payload without merging it with SEARCH_MONITOR."""
+    from rasai import audit_execution_contract as contract
+
+    contract.AUDIT_JOB_FIELDS = frozenset((*contract.AUDIT_JOB_FIELDS, *_SEARCH_JOB_FIELDS))
+
+    current_options = contract.audit_job_options
+    if not bool(getattr(current_options, "_rasai_search_audit", False)):
+        def audit_job_options():
+            options = list(current_options())
+            existing = {item.name for item in options}
+            additions = (
+                contract.AuditJobOption(
+                    "search_queries",
+                    "",
+                    "text",
+                    description=(
+                        "Termos SERP point-in-time deste AUD; informe texto separado por ';' "
+                        "ou array no payload da API. Não configura SEARCH_MONITOR."
+                    ),
+                ),
+                contract.AuditJobOption("search_depth", 20, "integer"),
+                contract.AuditJobOption("search_region", "", "text"),
+                contract.AuditJobOption(
+                    "search_device",
+                    "mobile",
+                    "enum",
+                    ("mobile", "desktop"),
+                ),
+                contract.AuditJobOption("search_competitive", True, "boolean"),
+            )
+            options.extend(item for item in additions if item.name not in existing)
+            return tuple(options)
+
+        audit_job_options._rasai_search_audit = True
+        audit_job_options._rasai_original = current_options
+        contract.audit_job_options = audit_job_options
+
+    current_normalize = contract.normalize_audit_job_payload
+    if not bool(getattr(current_normalize, "_rasai_search_audit", False)):
+        def normalize_audit_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+            normalized = current_normalize(payload)
+            queries = _normalize_search_queries(payload.get("search_queries", normalized.get("search_queries", "")))
+            depth = payload.get("search_depth", normalized.get("search_depth", 20))
+            if isinstance(depth, bool) or not isinstance(depth, int) or not 1 <= depth <= 100:
+                raise ValueError("AUDIT payload search_depth must be an integer between 1 and 100")
+            region = payload.get("search_region", normalized.get("search_region", ""))
+            if not isinstance(region, str):
+                raise ValueError("AUDIT payload search_region must be text")
+            device = payload.get("search_device", normalized.get("search_device", "mobile"))
+            if not isinstance(device, str) or device.strip().casefold() not in {"mobile", "desktop"}:
+                raise ValueError("AUDIT payload search_device must be mobile or desktop")
+            competitive = payload.get("search_competitive", normalized.get("search_competitive", True))
+            if not isinstance(competitive, bool):
+                raise ValueError("AUDIT payload search_competitive must be boolean")
+            normalized.update(
+                {
+                    "search_queries": queries,
+                    "search_depth": int(depth),
+                    "search_region": region.strip(),
+                    "search_device": device.strip().casefold(),
+                    "search_competitive": competitive,
+                }
+            )
+            return normalized
+
+        normalize_audit_job_payload._rasai_search_audit = True
+        normalize_audit_job_payload._rasai_original = current_normalize
+        contract.normalize_audit_job_payload = normalize_audit_job_payload
+
+        # Modules that may already have imported the callable by value are repaired;
+        # future imports naturally receive the extended contract.
+        assignments = {
+            "rasai.execution_contract": "normalize_audit_job_payload",
+            "rasai.saas_context_integration": "normalize_audit_job_payload",
+            "rasai.worker": "normalize_audit_job_payload",
+        }
+        for module_name, attribute in assignments.items():
+            module = sys.modules.get(module_name)
+            if module is not None:
+                setattr(module, attribute, normalize_audit_job_payload)
+
+    web_module = sys.modules.get("rasai.web.saas_management_routes")
+    if web_module is not None:
+        web_module.audit_job_options = contract.audit_job_options
+
+
+def install_worker_projection() -> None:
+    """Append in-AUD Search arguments to the canonical SaaS AUDIT worker argv."""
+    global _WORKER_INSTALLED
+    if _WORKER_INSTALLED:
+        return
+    from rasai import worker
+
+    current = worker._audit_arguments
+    if bool(getattr(current, "_rasai_search_audit", False)):
+        _WORKER_INSTALLED = True
+        return
+
+    def audit_arguments(store: Any, job: Any, audits_root: Path) -> list[str]:
+        argv = list(current(store, job, audits_root))
+        payload = worker.normalize_audit_job_payload(job.payload)
+        queries = tuple(payload.get("search_queries") or ())
+        if not queries:
+            return argv
+        for query in queries:
+            argv.extend(("--search-query", str(query)))
+        argv.extend(("--search-depth", str(int(payload["search_depth"]))))
+        if str(payload.get("search_region") or "").strip():
+            argv.extend(("--search-region", str(payload["search_region"])))
+        argv.extend(("--search-device", str(payload["search_device"])))
+        argv.append(
+            "--search-competitive"
+            if bool(payload["search_competitive"])
+            else "--no-search-competitive"
+        )
+        return argv
+
+    audit_arguments._rasai_search_audit = True
+    audit_arguments._rasai_original = current
+    worker._audit_arguments = audit_arguments
+    _WORKER_INSTALLED = True
 
 
 def _parsed_args():
@@ -279,8 +437,9 @@ def install() -> None:
     if _INSTALLED:
         return
     _install_arguments()
+    _install_saas_contract()
     register_collection_hook(_COMPONENT, _collector, order=35)
     _INSTALLED = True
 
 
-__all__ = ["configure_audit_argv", "install"]
+__all__ = ["configure_audit_argv", "install", "install_worker_projection"]
