@@ -7,6 +7,7 @@ from typing import Any
 from rasai.execution_contract import validate_execution_job_payload
 
 from .consumption import usage_analytics as aggregate_usage
+from .property_semantic_profiles import PropertySemanticProfileStoreMixin
 from .saas_management import SaaSManagementMixin
 from .saas_scheduler_runtime import materialize_due_schedules
 from .secure_store import SecurePlatformStore
@@ -56,15 +57,29 @@ class _SaaSRuntimeMixin:
         return item
 
 
-class SaaSSecurePlatformStore(_SaaSRuntimeMixin, SaaSManagementMixin, SecurePlatformStore):
-    """SQLite control plane with SaaS scheduling and analytics schema."""
+class SaaSSecurePlatformStore(
+    _SaaSRuntimeMixin,
+    PropertySemanticProfileStoreMixin,
+    SaaSManagementMixin,
+    SecurePlatformStore,
+):
+    """SQLite control plane with SaaS scheduling, analytics and property context."""
 
     def __init__(self, database: str | Path) -> None:
         super().__init__(database)
         self._initialize_saas_management_extensions()
+        self._initialize_property_semantic_profiles_sqlite()
 
 
-class SaaSPostgreSQLStoreMixin(_SaaSRuntimeMixin, SaaSManagementMixin):
+class SaaSPostgreSQLStoreMixin(
+    _SaaSRuntimeMixin,
+    PropertySemanticProfileStoreMixin,
+    SaaSManagementMixin,
+):
     """PostgreSQL mixin; schema changes remain explicit through migrations."""
 
-    pass
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)  # type: ignore[misc]
+        from .postgres_semantic_profile_migration import require_current_semantic_profile_schema
+
+        require_current_semantic_profile_schema(self._connection)
