@@ -91,6 +91,7 @@ def test_every_configuration_has_default_or_explicit_conditional_requirement() -
 def test_environment_reference_documents_cover_the_console_catalog() -> None:
     documents = (
         ROOT / "docs" / "ENVIRONMENT_VARIABLES.md",
+        ROOT / "docs" / "CONTENT_ANALYSIS_CONTEXT.md",
         ROOT / "docs" / "EXTERNAL_OBSERVABILITY_INTEGRATIONS.md",
         ROOT / "docs" / "AI_MODEL_CONFIGURATION.md",
         ROOT / "docs" / "AI_PRICING_CONFIGURATION.md",
