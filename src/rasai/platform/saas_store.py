@@ -12,8 +12,38 @@ from .saas_management import SaaSManagementMixin
 from .saas_scheduler_runtime import materialize_due_schedules
 from .secure_store import SecurePlatformStore
 
+_PROPERTY_PROFILE_TO_AUDIT_PAYLOAD = {
+    "business_sector": "property_business_sector",
+    "business_description": "property_business_description",
+    "primary_offering": "property_primary_offering",
+    "target_audience_profile": "property_target_audience_profile",
+    "primary_goal": "property_primary_goal",
+    "positioning": "property_positioning",
+}
+
 
 class _SaaSRuntimeMixin:
+    def _effective_audit_payload(self, property_id: str, payload: dict[str, Any] | None) -> dict[str, Any]:
+        """Materialize Property profile values without overriding explicit job choices.
+
+        The durable execution job is the boundary: after this method returns, the job
+        contains the exact six semantic values that the worker/AUD will use. Later edits
+        to the reusable Property profile therefore cannot mutate an already queued AUD.
+        An explicitly supplied ``auto`` is an intentional override and is preserved.
+        """
+        effective = dict(payload or {})
+        profile = self.get_property_semantic_profile(property_id)
+        for profile_name, payload_name in _PROPERTY_PROFILE_TO_AUDIT_PAYLOAD.items():
+            if payload_name not in effective:
+                effective[payload_name] = str(profile.get(profile_name) or "auto")
+        return effective
+
+    def enqueue_execution_job(self, **kwargs: Any):
+        if str(kwargs.get("job_type") or "").strip().upper() == "AUDIT":
+            property_id = str(kwargs.get("property_id") or "").strip()
+            kwargs["payload"] = self._effective_audit_payload(property_id, kwargs.get("payload"))
+        return super().enqueue_execution_job(**kwargs)  # type: ignore[misc]
+
     def create_managed_schedule(self, **kwargs: Any) -> dict[str, Any]:
         validate_execution_job_payload(kwargs.get("job_type", ""), kwargs.get("payload") or {})
         return super().create_managed_schedule(**kwargs)  # type: ignore[misc]
