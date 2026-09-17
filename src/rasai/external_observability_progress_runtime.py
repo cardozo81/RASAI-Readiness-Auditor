@@ -1,9 +1,10 @@
-"""Progress milestones and evidence gate for post-audit external observability.
+"""Progress milestones and evidence gate for pre-seal external observability.
 
-The wrapper adds no requests. It only verifies that the core audit has completed and
-that browser evidence exists before CrUX History, Clarity or Common Crawl are allowed
-to execute, then records secret-safe start/finish milestones for the interactive
-console.
+The wrapper adds no requests. It only verifies that core browser evidence already
+exists before CrUX History, Clarity or Common Crawl are allowed to execute, then
+records secret-safe start/finish milestones for the interactive console. External
+observability is a collector phase and must not depend on the audit already being
+COMPLETED.
 """
 from __future__ import annotations
 
@@ -32,17 +33,11 @@ def _evidence_ready(*, workspace: Any, audit_id: str) -> tuple[bool, str]:
         connection = sqlite3.connect(workspace.database, timeout=0.5)
         try:
             audit = connection.execute(
-                "SELECT status,completion_status FROM audits WHERE audit_id=?",
+                "SELECT 1 FROM audits WHERE audit_id=?",
                 (audit_id,),
             ).fetchone()
             if audit is None:
                 return False, "AUDIT_NOT_FOUND"
-            status = str(audit[0] or "").upper()
-            completion = str(audit[1] or "").upper()
-            if status != "COMPLETED":
-                return False, f"AUDIT_STATUS_{status or 'UNKNOWN'}"
-            if completion not in {"COMPLETE", "COMPLETE_WITH_LIMITATIONS"}:
-                return False, f"COMPLETION_{completion or 'UNKNOWN'}"
             page_count = int(
                 connection.execute("SELECT COUNT(*) FROM pages WHERE audit_id=?", (audit_id,)).fetchone()[0]
             )
@@ -57,7 +52,9 @@ def _evidence_ready(*, workspace: Any, audit_id: str) -> tuple[bool, str]:
             connection.close()
     except sqlite3.Error as exc:
         return False, f"SQLITE_{type(exc).__name__.upper()}"
-    if page_count > 0 and snapshot_count <= 0:
+    if page_count <= 0:
+        return False, "NO_PERSISTED_PAGE"
+    if snapshot_count <= 0:
         return False, "NO_PERSISTED_BROWSER_SNAPSHOT"
     return True, "READY"
 
@@ -70,8 +67,8 @@ def _planned_operations(runtime: Any, *, audit_id: str, workspace: Any, env: Map
     clarity_state = runtime.service_state(runtime.service("microsoft-clarity"), env)
     if bool(clarity_state["effective_enabled"]):
         total += 1
-    # Common Crawl is already owned by the pre-scoring SARI corroboration path
-    # and is deliberately suppressed in this later finalization pass.
+    # Common Crawl is already owned by the bounded SARI corroboration path and is
+    # deliberately suppressed from this second collector surface.
     return total
 
 
@@ -108,7 +105,7 @@ def install() -> None:
             operation_index=index,
             operation_total=total,
             timeout_seconds=float(active.get("timeout", 0.0)),
-            policy="POST_CORE_READ_ONLY",
+            policy="PRE_SEAL_CORE_EVIDENCE",
         )
         return active, index, total
 
@@ -181,7 +178,7 @@ def install() -> None:
                 level="WARNING",
                 audit_id=audit_id,
                 reason=reason,
-                policy="NO_EXTERNAL_OBSERVABILITY_BEFORE_CORE_COMPLETION",
+                policy="NO_EXTERNAL_OBSERVABILITY_BEFORE_CORE_EVIDENCE",
             )
             return {
                 service_id: {
@@ -219,7 +216,7 @@ def install() -> None:
             "EXTERNAL_OBSERVABILITY_COLLECTION_STARTED",
             audit_id=audit_id,
             operation_total=total,
-            policy="POST_CORE_READ_ONLY",
+            policy="PRE_SEAL_CORE_EVIDENCE",
             core_evidence_state="READY",
         )
         try:
