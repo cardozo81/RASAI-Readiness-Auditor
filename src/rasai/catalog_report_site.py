@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import sqlite3
 import uuid
 from typing import Any
 
@@ -44,8 +45,21 @@ def _metrics_body(database: Path, data: _ReportData) -> str:
     return body
 
 
+def _sha256_file(path: Path) -> str:
+    digest=hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024*1024),b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _source_fingerprint(database: Path) -> str:
-    """Fingerprint the persisted audit database, including an active WAL when present."""
+    """Fingerprint the live audit state for freshness checks during materialization.
+
+    This live fingerprint may include an active WAL. It is deliberately distinct from
+    the package integrity fingerprint, which is calculated from a stable SQLite backup
+    physically included in ``report-catalog/integrity``.
+    """
     digest=hashlib.sha256()
     paths=(database,database.with_name(database.name+"-wal"))
     found=False
@@ -64,8 +78,75 @@ def _source_fingerprint(database: Path) -> str:
     return digest.hexdigest()
 
 
+def _snapshot_sqlite_database(source: Path, destination: Path) -> None:
+    """Create one consistent standalone SQLite database including committed WAL state."""
+    destination.parent.mkdir(parents=True,exist_ok=True)
+    if destination.exists():
+        destination.unlink()
+    source_uri=f"file:{source.resolve().as_posix()}?mode=ro"
+    source_connection=sqlite3.connect(source_uri,uri=True,timeout=10.0)
+    target_connection=sqlite3.connect(destination,timeout=10.0)
+    try:
+        source_connection.backup(target_connection)
+        target_connection.commit()
+    finally:
+        target_connection.close()
+        source_connection.close()
+    # A backup database is standalone and must not require sidecar WAL/SHM files.
+    if not destination.is_file() or destination.stat().st_size<=0:
+        raise RuntimeError("catalog report SQLite snapshot was not materialized")
+
+
+def _packaged_file_records(root: Path) -> list[dict[str,Any]]:
+    records=[]
+    for path in sorted(item for item in root.rglob("*") if item.is_file() and item.name!="manifest.json"):
+        relative=path.relative_to(root).as_posix()
+        records.append({"path":relative,"sha256":_sha256_file(path),"size_bytes":path.stat().st_size})
+    return records
+
+
+def verify_catalog_report_package(report_dir: str|Path) -> tuple[bool,tuple[str,...]]:
+    """Verify integrity using only files delivered inside ``report-catalog``."""
+    root=Path(report_dir)
+    manifest_path=root/"manifest.json"
+    if not manifest_path.is_file():
+        return False,("manifest.json ausente",)
+    try:
+        manifest=json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError,ValueError,json.JSONDecodeError):
+        return False,("manifest.json inválido",)
+    records=manifest.get("packaged_files")
+    if not isinstance(records,list) or not records:
+        return False,("manifest sem packaged_files",)
+    errors=[]
+    for raw in records:
+        if not isinstance(raw,dict):
+            errors.append("registro de arquivo inválido")
+            continue
+        relative=str(raw.get("path") or "")
+        expected=str(raw.get("sha256") or "")
+        if not relative or not expected:
+            errors.append("registro de arquivo incompleto")
+            continue
+        candidate=(root/relative).resolve()
+        try:
+            candidate.relative_to(root.resolve())
+        except ValueError:
+            errors.append(f"caminho fora do pacote: {relative}")
+            continue
+        if not candidate.is_file():
+            errors.append(f"arquivo ausente: {relative}")
+            continue
+        if _sha256_file(candidate)!=expected:
+            errors.append(f"hash divergente: {relative}")
+    snapshot=manifest.get("audit_snapshot")
+    if not isinstance(snapshot,dict) or not snapshot.get("path") or not snapshot.get("sha256"):
+        errors.append("audit_snapshot ausente do manifest")
+    return not errors,tuple(errors)
+
+
 def catalog_report_is_fresh(*,audit_id: str,workspace: Any) -> bool:
-    """Return True only when the published tree matches the current persisted audit."""
+    """Return True only when the published tree is internally valid and matches live state."""
     report_dir=Path(workspace.root)/CATALOG_REPORT_DIR
     manifest_path=report_dir/"manifest.json"
     if not manifest_path.is_file():
@@ -77,6 +158,9 @@ def catalog_report_is_fresh(*,audit_id: str,workspace: Any) -> bool:
     if str(manifest.get("audit_id") or "")!=audit_id:
         return False
     if str(manifest.get("freshness") or "")!="FINAL":
+        return False
+    package_ok,_errors=verify_catalog_report_package(report_dir)
+    if not package_ok:
         return False
     expected=str(manifest.get("source_fingerprint") or "")
     if not expected:
@@ -99,13 +183,7 @@ def _discard_tree(path: Path) -> None:
 
 
 def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
-    """Build a final, fresh ``report-catalog/`` tree from persisted audit state.
-
-    The previous published tree is quarantined before rendering.  If rendering fails,
-    the old tree is discarded instead of remaining available as if it represented the
-    final database.  A successful build is promoted only when the source fingerprint
-    is unchanged from the beginning to the end of the projection.
-    """
+    """Build a final, fresh and self-verifiable ``report-catalog/`` tree."""
     from rasai.catalog_report_adherence import install_catalog_report_adherence
     from rasai.catalog_report_final_refinements import install_catalog_report_refinements
     from rasai.catalog_report_label_refinements import install_catalog_human_labels
@@ -122,8 +200,6 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
     quarantine=root/f".{CATALOG_REPORT_DIR}.stale-{token}"
     before=_source_fingerprint(database)
 
-    # Never let a previous tree survive a failed final materialization under the public
-    # report-catalog path.  A stale report is worse than an explicit missing report.
     if report_dir.exists() or report_dir.is_symlink():
         report_dir.replace(quarantine)
 
@@ -153,6 +229,13 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
         if before!=after:
             raise RuntimeError("catalog report source changed during materialization; refusing stale projection")
 
+        snapshot_path=staging/"integrity"/"audit-snapshot.db"
+        _snapshot_sqlite_database(database,snapshot_path)
+        if _source_fingerprint(database)!=after:
+            raise RuntimeError("catalog report source changed while creating integrity snapshot")
+        snapshot_hash=_sha256_file(snapshot_path)
+        packaged_files=_packaged_file_records(staging)
+
         manifest={
             "contract":CATALOG_REPORT_CONTRACT_VERSION,
             "projection_version":CATALOG_REPORT_CONTRACT_VERSION,
@@ -160,17 +243,21 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             "source_audit":audit_id,
             "source_of_truth":"audit.db + artifacts + secret-free execution snapshot",
             "source_fingerprint":after,
-            "source_fingerprint_algorithm":"sha256(audit.db + active WAL)",
+            "source_fingerprint_algorithm":"sha256(live audit.db + active WAL); runtime freshness only",
+            "audit_snapshot":{"path":"integrity/audit-snapshot.db","sha256":snapshot_hash,"algorithm":"sha256","standalone_sqlite":True},
+            "package_integrity_algorithm":"sha256(each packaged file; manifest excluded)",
+            "packaged_files":packaged_files,
             "generated_at":datetime.now(timezone.utc).isoformat(),
             "freshness":"FINAL",
             "catalog_report_dir":CATALOG_REPORT_DIR,
             "pages":[{"id":p.id,"filename":p.filename,"label":p.label,"catalog_id":p.catalog_id} for p in CATALOG_REPORT_PAGES],
-            "principles":{"read_only":True,"modal_scope":"contextual-atomic","human_labels":True,"cross_catalog_reference_not_duplication":True},
+            "principles":{"read_only":True,"modal_scope":"contextual-atomic","human_labels":True,"cross_catalog_reference_not_duplication":True,"self_verifiable_package":True},
         }
         (staging/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n",encoding="utf-8",newline="\n")
 
-        # Recheck after the manifest is complete; no source mutation is accepted between
-        # rendering and promotion either.
+        package_ok,package_errors=verify_catalog_report_package(staging)
+        if not package_ok:
+            raise RuntimeError("catalog report package integrity failed: "+"; ".join(package_errors))
         if _source_fingerprint(database)!=after:
             raise RuntimeError("catalog report source changed before promotion; refusing stale projection")
         staging.replace(report_dir)
@@ -183,7 +270,7 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
 
     if not catalog_report_is_fresh(audit_id=audit_id,workspace=workspace):
         _discard_tree(report_dir)
-        raise RuntimeError("catalog report freshness verification failed after promotion")
+        raise RuntimeError("catalog report freshness/integrity verification failed after promotion")
     return report_dir/"index.html"
 
 
