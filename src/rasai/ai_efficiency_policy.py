@@ -110,11 +110,7 @@ def install() -> None:
     from rasai.semantic_corpus_runtime import install as install_semantic_corpus_runtime
 
     install_ai_model_runtime()
-    # Extend the semantic output inside the existing provider call before any request
-    # wrappers capture the provider methods. No CAT-specific provider/router is created.
     install_semantic_coherence_runtime()
-    # Semantic CAT-03 calls remain on the same provider/routing stack, but the selected
-    # stack is mechanically guarded until the complete audit corpus/context is READY.
     install_semantic_corpus_runtime()
 
     _patch_provider_payload(semantic)
@@ -176,6 +172,7 @@ def install() -> None:
     from rasai.ai_orchestration_unification_cleanup import (
         install_ai_orchestration_unification_cleanup,
     )
+    from rasai.catalog_report_search_trust_runtime import install as install_catalog_report_search_trust_runtime
     from rasai.improvement_exchange_capture import install as install_improvement_exchange_capture
 
     install_ai_orchestration_unification()
@@ -183,6 +180,9 @@ def install() -> None:
     install_accepted_audit_refinements()
     install_accepted_timeout_context()
     install_accepted_report_compat()
+    # Must be installed after accepted report refinements so CAT-05 source-state and
+    # provenance semantics are the final renderer layer on every materialization.
+    install_catalog_report_search_trust_runtime()
     install_improvement_exchange_capture()
 
     from rasai.completion_recovery_alignment import install as install_completion_recovery_alignment
