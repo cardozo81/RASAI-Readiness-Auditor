@@ -189,6 +189,7 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
     from rasai.catalog_report_final_refinements import install_catalog_report_refinements
     from rasai.catalog_report_label_refinements import install_catalog_human_labels
     from rasai.catalog_report_search_trust import install as install_catalog_search_trust
+    from rasai.catalog_state_trust import install as install_catalog_state_trust
     from rasai.recommendation_governance import evaluate_recommendations
     from rasai.recommendation_governance_reporting import install as install_recommendation_governance_reporting
     from rasai.semantic_coherence_reporting import install as install_semantic_coherence_reporting
@@ -198,6 +199,7 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
     install_catalog_report_adherence()
     # Final trust/report layers are installed explicitly here so report materialization
     # does not depend on whether the console or worker imported an unrelated runtime hook.
+    install_catalog_state_trust()
     install_catalog_search_trust()
     install_semantic_coherence_reporting()
     install_recommendation_governance_reporting()
@@ -275,6 +277,7 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
                 "cross_catalog_reference_not_duplication":True,
                 "self_verifiable_package":True,
                 "serp_freshness_guard":True,
+                "catalog_result_requires_materialized_data":True,
                 "recommendation_governance":True,
                 "ai_dependency_provenance":True,
             },
