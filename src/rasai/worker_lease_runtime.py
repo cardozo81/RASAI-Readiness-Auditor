@@ -84,6 +84,8 @@ def _lease_heartbeat(
     def heartbeat() -> None:
         while not stop.wait(interval):
             try:
+                # Use a fresh control-plane handle. SQLite connections are thread-bound
+                # and PostgreSQL adapters should not share a transaction with the audit.
                 with open_platform_store(audits_root=audits_root) as heartbeat_store:
                     heartbeat_store.renew_execution_job_lease(
                         job_id,
@@ -91,9 +93,8 @@ def _lease_heartbeat(
                         lease_seconds=lease_seconds,
                     )
             except Exception as exc:
-                # One transient renewal failure is not enough to abort useful work. Keep
-                # retrying while the worker is alive; final completion still verifies
-                # ownership via finish_execution_job.
+                # A transient renewal failure does not interrupt a provider/collector
+                # mid-call. Final completion still verifies lease ownership.
                 failures.append(f"{type(exc).__name__}:{str(exc)[:200]}")
                 if len(failures) > 8:
                     del failures[:-8]
@@ -113,6 +114,11 @@ def _lease_heartbeat(
 
 def _install_worker() -> None:
     from rasai import worker
+    from rasai.search_audit_runtime import install_worker_projection
+
+    # Worker is now imported: bind the durable Search AUDIT fields to CLI argv before
+    # wrapping run_one with lease renewal. SEARCH_MONITOR remains a distinct job type.
+    install_worker_projection()
 
     current = worker.run_one
     if getattr(current, "_rasai_lease_heartbeat", False):
