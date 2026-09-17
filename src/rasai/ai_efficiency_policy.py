@@ -107,8 +107,6 @@ def install() -> None:
     from rasai import m18_ai, semantic
     from rasai.ai_model_runtime import install as install_ai_model_runtime
 
-    # Apply the effective model catalog before any runtime/console consumer captures
-    # provider-model metadata. Adapter protocol remains code; only model policy is data.
     install_ai_model_runtime()
 
     _patch_provider_payload(semantic)
@@ -127,24 +125,12 @@ def install() -> None:
     except ImportError:
         pass
 
-    # Completion reliability is installed before fulfillment wrappers so a deterministic
-    # CrUX NO_DATA classification is already reflected in the M21 result that fulfillment
-    # observes. It also hardens M24's resource-scoped provider schema without changing
-    # scoring or the central AI routing policy.
     from rasai.execution_completion_reliability import install as install_execution_completion_reliability
     from rasai.execution_completion_regression import install as install_execution_completion_regression
 
     install_execution_completion_reliability()
-    # Real-AUD regression coverage keeps the local M24 validator on the exact same
-    # resource evidence universe projected to providers. The GSC collector also honors
-    # an execution marker when one is supplied by the interactive-console child process.
     install_execution_completion_regression()
 
-    # One fulfillment contract governs initial execution and selective recovery.
-    # Core evidence recovery runs before AI recovery so no provider call can be used
-    # as a substitute for missing acquisition/render/extraction evidence. Integrity
-    # invalidation is installed before context composition so a recorded SUCCESS can
-    # be blocked only when its persisted evidence is demonstrably missing.
     from rasai.ai_attempt_diagnostic_reporting import install as install_ai_attempt_diagnostic_reporting
     from rasai.audit_fulfillment_runtime import install as install_audit_fulfillment
     from rasai.audit_fulfillment_saas import install as install_audit_fulfillment_saas
@@ -167,35 +153,14 @@ def install() -> None:
     install_semantic_recovery()
     install_audit_fulfillment_saas()
     install_technical_ai_eligibility()
-    # Install after the technical eligibility wrapper so the canonical projection sees
-    # the final technical-AI provider attempt and can restore CONTRACT_ERROR without
-    # bypassing source-quality gates, AUTO routing, quarantine or the shared pricing engine.
     install_fulfillment_execution_contract()
-    # Preserve a precise prerequisite/provider/service failure before the generic RPR
-    # trace wraps _apply_result. This keeps the actual recovery reason visible instead
-    # of replacing it with a generic *_RETRY_INCOMPLETE marker.
     install_reprocess_failure_preservation()
-    # Install last so the RPR trace wraps the final prerequisite-preserving apply
-    # function and the content-remediation recovery path uses stable ContextVar-aware hooks.
     install_reprocess_runtime_safety()
-    # Existing ai-usage/report projections consume the same append-only attempt rows;
-    # add only user-facing operation labels and sanitized local contract detail.
     install_ai_attempt_diagnostic_reporting()
-    # Refresh the execution matrix after the final fulfillment state is projected. This
-    # wrapper is installed before the public UX guard so the guard's common HTML pass
-    # sees the regenerated page and applies the same navigation/status treatment to it.
     install_execution_evidence_reporting()
-    # Profiles persist canonical capability IDs; keep the public evidence page on the
-    # same vocabulary instead of retaining the former module label/key.
     install_execution_profile_report_capabilities()
-    # Presentation-only final guard: fulfillment and recovery functions must already
-    # be imported so references copied by value can be reconciled safely.
     install_report_public_ux_guard()
 
-    # Specialist consumers must reuse the canonical provider runtime instead of owning
-    # feature-local provider selection. These installers are integration glue only: the
-    # AUTO cost ranking, quarantine, circuit breaker and retry/fallback limits remain
-    # exclusively owned by provider_runtime_policy/dynamic_ai_routing.
     from rasai.ai_orchestration_unification import install_ai_orchestration_unification
     from rasai.ai_orchestration_unification_cleanup import (
         install_ai_orchestration_unification_cleanup,
@@ -204,34 +169,17 @@ def install() -> None:
 
     install_ai_orchestration_unification()
     install_ai_orchestration_unification_cleanup()
-    # The deep-analysis contract uses the canonical provider runtime but historically
-    # persisted only attempt telemetry. Capture sanitized request/response envelopes
-    # after orchestration is fully composed so IA e integrações can audit every AI call.
     install_improvement_exchange_capture()
 
-    # Final runtime alignment intentionally runs after every fulfillment/routing wrapper.
-    # It introduces no new policy: initial execution and RPR consume the same M24 and
-    # CrUX completion semantics. Interactive-console environment isolation is installed
-    # by console_entrypoint because profile/session ownership belongs to that surface.
     from rasai.completion_recovery_alignment import install as install_completion_recovery_alignment
 
     install_completion_recovery_alignment()
 
-    # Task/persona specialization is the final AI-request composition layer. It does not
-    # select providers or weaken feature-owned evidence/schema/safety contracts.
     from rasai.ai_task_profile_runtime import install as install_ai_task_profile_runtime
     from rasai.ai_task_profile_semantic_compat import install as install_ai_task_profile_semantic_compat
 
     install_ai_task_profile_runtime()
     install_ai_task_profile_semantic_compat()
-
-    # The product is still pre-publication: these are the canonical contracts, not a
-    # backward-compatibility layer. Install after fulfillment/routing composition so the
-    # final runtime uses the exact CWV thresholds, scoped Apdex errors and mandatory
-    # CAT-08 fulfillment state defined for the current release.
-    from rasai.prepublication_correctness import install as install_prepublication_correctness
-
-    install_prepublication_correctness()
 
     _INSTALLED = True
 
