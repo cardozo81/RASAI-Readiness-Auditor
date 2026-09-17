@@ -217,14 +217,8 @@ def install(console_module: ModuleType) -> None:
     if getattr(console_module, "_rasai_ai_execution_configuration", False):
         return
 
-    from rasai.execution_adherence_refinement import (
-        finalize_after_console_run,
-        install_individual_m25_timestamps,
-    )
+    from rasai.execution_adherence_refinement import finalize_after_console_run
 
-    # M25 is still executed by the normal runtime.  This adapter only binds each sample
-    # to its individual collection time before the run starts.
-    install_individual_m25_timestamps()
     original = console_module.run_audit_from_console
 
     def run(state: Any) -> int:
@@ -232,7 +226,7 @@ def install(console_module: ModuleType) -> None:
             with execution_ai_configuration():
                 code = int(original(state) or 0)
                 # This wrapper is installed last and is therefore the outermost execution
-                # boundary.  Rebuild report-catalog only now, after cost/fulfillment and
+                # boundary. Rebuild report-catalog only now, after cost/fulfillment and
                 # every other inner persistence owner have returned.
                 return finalize_after_console_run(state, code)
         except (OSError, UnicodeError, ValueError) as exc:
