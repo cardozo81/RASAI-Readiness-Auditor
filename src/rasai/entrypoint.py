@@ -28,6 +28,7 @@ from rasai.governed_optional_runtime import (
     configure_audit_argv as configure_governed_audit_argv,
     install as install_governed_optional_runtime,
 )
+from rasai.governed_report_projection_runtime import install as install_governed_report_projection
 from rasai.gsc_oauth_runtime import install as install_gsc_oauth_runtime
 from rasai.gsc_scope_runtime import install as install_gsc_scope_runtime
 from rasai.improvement_intelligence_runtime import install as install_improvement_intelligence_runtime
@@ -242,6 +243,7 @@ def _install_audit_runtime() -> None:
     install_worker_lease_runtime()
     install_report_scope_clarity()
     install_governed_analysis_post()
+    install_governed_report_projection()
 
 
 def main(argv: Sequence[str] | None = None) -> int:
