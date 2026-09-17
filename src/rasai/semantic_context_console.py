@@ -62,8 +62,13 @@ def install() -> None:
         if name not in base.ENV_NAMES:
             base.ENV_NAMES = (*base.ENV_NAMES, name)
 
-    categories = [item for item in base.CATEGORIES if item != _OLD_CONTENT_CATEGORY]
-    insert_at = categories.index("Aplicação e execução") + 1 if "Aplicação e execução" in categories else 0
+    # Keep the historical category during composition because older additive installers
+    # still use it as an insertion anchor. CAT-03 variables themselves are re-owned by
+    # the three categories below, so the old label no longer groups the content context.
+    categories = list(base.CATEGORIES)
+    insert_at = categories.index(_OLD_CONTENT_CATEGORY) if _OLD_CONTENT_CATEGORY in categories else (
+        categories.index("Aplicação e execução") + 1 if "Aplicação e execução" in categories else 0
+    )
     for category in reversed((PROPERTY_CATEGORY, EDITORIAL_CATEGORY, TRUST_CATEGORY)):
         if category not in categories:
             categories.insert(insert_at, category)
