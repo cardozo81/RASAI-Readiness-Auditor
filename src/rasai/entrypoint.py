@@ -38,6 +38,10 @@ from rasai.report_scope_clarity import install as install_report_scope_clarity
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.runtime_contract_compatibility import install_runtime_contract_compatibility
+from rasai.search_audit_runtime import (
+    configure_audit_argv as configure_search_audit_argv,
+    install as install_search_audit_runtime,
+)
 from rasai.selective_optional_reprocess import install as install_selective_optional_reprocess
 from rasai.standards_css_validation import install as install_standards_css_validation
 from rasai.standards_gsc_observability_runtime import install as install_standards_gsc_observability_runtime
@@ -77,7 +81,6 @@ def _try_refresh_platform_index(argv: list[str]) -> None:
 
 
 def _blocking_catalog_report_errors(renderer_errors: Sequence[str]) -> tuple[str, ...]:
-    """Return catalog projection errors that make the final HTML surface incomplete."""
     return tuple(
         issue
         for issue in renderer_errors
@@ -126,8 +129,6 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         _LOGGER.exception("Unable to open audit workspace after execution")
         return code
 
-    # Last non-report metadata window before main() indexes the audit.db hash. No
-    # collector or provider may be invoked from this point onward.
     try:
         persist_current_configuration(workspace.root, result.audit_id)
     except Exception:
@@ -197,11 +198,6 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
 
 
 def _install_audit_runtime() -> None:
-    """Install audit extensions in dependency order.
-
-    Governed optional collection is installed after the existing wrappers so it can
-    capture their final safety/reuse behavior and relocate only the execution phase.
-    """
     install_standards_pre_context()
     install_external_observability_service_contract()
     install_report_registry()
@@ -232,6 +228,7 @@ def _install_audit_runtime() -> None:
     install_improvement_intelligence_runtime()
     install_selective_optional_reprocess()
     install_ai_dependency_runtime()
+    install_search_audit_runtime()
     install_governed_optional_runtime()
     install_report_scope_clarity()
 
@@ -297,6 +294,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return code
     if effective and effective[0] == "audit":
         configure_governed_audit_argv(effective)
+        configure_search_audit_argv(effective)
         code = _run_audit_and_finalize(effective)
         if code == 0:
             _try_refresh_platform_index(effective)
