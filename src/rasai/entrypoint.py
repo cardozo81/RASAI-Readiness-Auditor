@@ -54,6 +54,7 @@ from rasai.standards_runtime import (
 )
 from rasai.standards_structured_data_reconciliation import install as install_standards_structured_data_reconciliation
 from rasai.target_input_runtime import install as install_target_input_runtime
+from rasai.worker_lease_runtime import install as install_worker_lease_runtime
 
 _LOGGER = logging.getLogger(__name__)
 _REPORT_PROJECTION_INCOMPLETE_EXIT = 3
@@ -230,6 +231,7 @@ def _install_audit_runtime() -> None:
     install_ai_dependency_runtime()
     install_search_audit_runtime()
     install_governed_optional_runtime()
+    install_worker_lease_runtime()
     install_report_scope_clarity()
 
 
