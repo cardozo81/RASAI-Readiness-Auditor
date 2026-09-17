@@ -41,19 +41,20 @@ def _semantic_input(snapshot_id: str) -> SemanticInput:
     )
 
 
-def _workspace(tmp_path: Path) -> AuditWorkspace:
-    workspace = AuditWorkspace.create(tmp_path, "AUD-CORPUS")
+def _workspace(tmp_path: Path, audit_id: str = "AUD-CORPUS") -> AuditWorkspace:
+    workspace = AuditWorkspace.create(tmp_path, audit_id)
     connection = sqlite3.connect(workspace.database)
     try:
         with connection:
             connection.execute("CREATE TABLE IF NOT EXISTS audits(audit_id TEXT PRIMARY KEY)")
-            connection.execute("INSERT OR IGNORE INTO audits VALUES ('AUD-CORPUS')")
+            connection.execute("INSERT OR IGNORE INTO audits VALUES (?)", (audit_id,))
     finally:
         connection.close()
     return workspace
 
 
-def test_corpus_guard_never_delegates_for_unprepared_snapshot() -> None:
+def test_corpus_guard_never_delegates_for_unprepared_snapshot(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path, "AUD-1")
     manifest = SemanticCorpusManifest(
         audit_id="AUD-1",
         page_ids=("P1",),
@@ -63,7 +64,7 @@ def test_corpus_guard_never_delegates_for_unprepared_snapshot() -> None:
         created_at="2026-09-17T10:00:00Z",
     )
     provider = _Provider()
-    guarded = CorpusGuardProvider(provider, manifest)
+    guarded = CorpusGuardProvider(provider, manifest, workspace=workspace)
 
     result = guarded.analyze(_semantic_input("S2"))
 
