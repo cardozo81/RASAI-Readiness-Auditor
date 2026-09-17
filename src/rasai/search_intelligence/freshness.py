@@ -1,9 +1,13 @@
 """Freshness/provenance validation for SERP evidence used by one AUD.
 
-A current-audit LIVE_RECOLLECTION observation must not predate the audit start. Older
-observations are allowed only when explicitly classified as REUSED_EVIDENCE with a
-source audit/observation and reuse reason. Report generation uses this contract as a
-blocking integrity invariant; it never silently relabels stale data as live.
+A current-audit LIVE_RECOLLECTION observation must have been captured by RASAi during
+that AUD. Provider-reported observation timestamps may legitimately predate the AUD
+(e.g. provider search metadata/cache timestamps), so they are preserved in
+``serp_observations.collected_at`` but are not used as the authoritative local
+acquisition boundary. Older observations are allowed only when explicitly classified
+as REUSED_EVIDENCE with a source audit/observation and reuse reason. Report generation
+uses this contract as a blocking integrity invariant; it never silently relabels stale
+data as live.
 """
 from __future__ import annotations
 
@@ -107,7 +111,7 @@ def validate_serp_freshness(database: str | Path, audit_id: str) -> tuple[SerpFr
         rows = connection.execute(
             """SELECT o.observation_id,o.collected_at,
                       p.temporal_mode,p.captured_at,p.source_audit_id,p.source_observation_id,
-                      p.reused_at,p.reuse_reason
+                      p.reused_at,p.reuse_reason,p.created_at AS provenance_created_at
                FROM serp_observations o
                LEFT JOIN serp_evidence_provenance p ON p.observation_id=o.observation_id
                WHERE o.audit_id=? ORDER BY o.collected_at,o.observation_id""",
@@ -119,6 +123,7 @@ def validate_serp_freshness(database: str | Path, audit_id: str) -> tuple[SerpFr
             collected_at = _parse(row["collected_at"])
             mode = str(row["temporal_mode"] or "").strip().upper()
             captured_at = _parse(row["captured_at"] or row["collected_at"])
+            provenance_created_at = _parse(row["provenance_created_at"])
             if not mode:
                 if start is not None and collected_at is not None and collected_at < start:
                     issues.append(SerpFreshnessIssue(
@@ -128,11 +133,16 @@ def validate_serp_freshness(database: str | Path, audit_id: str) -> tuple[SerpFr
                     ))
                 continue
             if mode == SERP_TEMPORAL_LIVE:
-                if start is not None and captured_at is not None and captured_at < start:
+                # For live evidence, provenance creation is the local RASAi acquisition
+                # boundary. ``captured_at`` in older AUDs may contain the provider's own
+                # search timestamp and can therefore predate the current AUD even though
+                # RASAi performed the request during this execution.
+                local_capture = provenance_created_at or captured_at
+                if start is not None and local_capture is not None and local_capture < start:
                     issues.append(SerpFreshnessIssue(
                         observation_id,
                         "LIVE_RECOLLECTION_BEFORE_AUDIT",
-                        "LIVE_RECOLLECTION captured_at is earlier than audit start",
+                        "LIVE_RECOLLECTION local capture is earlier than audit start",
                     ))
                 if str(row["source_audit_id"] or "") not in {"", audit_id}:
                     issues.append(SerpFreshnessIssue(
