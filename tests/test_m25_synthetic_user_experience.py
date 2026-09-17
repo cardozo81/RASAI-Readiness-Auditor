@@ -108,7 +108,7 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
         self.assertEqual(classify_measurement(_ux(2500), calibration, error_scope="first-party")[0], "TOLERATING")
         self.assertEqual(classify_measurement(_ux(2501), calibration, error_scope="first-party")[0], "FRUSTRATED")
 
-    def test_qualifying_error_can_force_fast_action_to_frustrated(self) -> None:
+    def test_first_party_runtime_error_without_origin_remains_diagnostic(self) -> None:
         calibration = Calibration(
             source="TEST", kpm="USER_ACTION_DURATION",
             satisfied_threshold_seconds=1.0, frustrated_threshold_seconds=4.0,
@@ -118,22 +118,36 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
             _ux(300, js=1), calibration, error_scope="first-party"
         )
         self.assertEqual(value, 300.0)
+        self.assertEqual(classification, "SATISFIED")
+        self.assertFalse(forced)
+
+        classification, value, forced = classify_measurement(
+            _ux(300, first_http=1), calibration, error_scope="first-party"
+        )
+        self.assertEqual(value, 300.0)
         self.assertEqual(classification, "FRUSTRATED")
         self.assertTrue(forced)
 
-    def test_console_error_is_global_runtime_error_but_navigation_scope_remains_navigation_only(self) -> None:
+    def test_console_error_only_forces_under_all_error_scope(self) -> None:
         calibration = Calibration(
             source="TEST", kpm="USER_ACTION_DURATION",
             satisfied_threshold_seconds=1.0, frustrated_threshold_seconds=4.0,
             errors_affect_apdex=True, metadata={},
         )
-        for scope in ("first-party", "all"):
-            classification, value, forced = classify_measurement(
-                _ux(300, console=1), calibration, error_scope=scope
-            )
-            self.assertEqual(value, 300.0)
-            self.assertEqual(classification, "FRUSTRATED")
-            self.assertTrue(forced)
+        classification, value, forced = classify_measurement(
+            _ux(300, console=1), calibration, error_scope="first-party"
+        )
+        self.assertEqual(value, 300.0)
+        self.assertEqual(classification, "SATISFIED")
+        self.assertFalse(forced)
+
+        classification, value, forced = classify_measurement(
+            _ux(300, console=1), calibration, error_scope="all"
+        )
+        self.assertEqual(value, 300.0)
+        self.assertEqual(classification, "FRUSTRATED")
+        self.assertTrue(forced)
+
         classification, value, forced = classify_measurement(
             _ux(300, console=1), calibration, error_scope="navigation"
         )
@@ -232,8 +246,8 @@ class M25SyntheticUserExperienceTests(unittest.TestCase):
                 ).fetchone()[0]
             finally:
                 connection.close()
-            # 500ms S, 2000ms+JS error F, 700ms S, 3000ms F => Apdex 0.5.
-            self.assertEqual(population, (0.5, 2, 0, 2, 1))
+            # first-party: 500ms S, 2000ms+JS diagnostic T, 700ms S, 3000ms F => Apdex 0.625.
+            self.assertEqual(population, (0.625, 2, 1, 1, 0))
             self.assertEqual(tablet, 1)
             self.assertNotIn("DYNATRACE_API_TOKEN", stored_config)
             self.assertIn("measurement_contract", stored_config)
