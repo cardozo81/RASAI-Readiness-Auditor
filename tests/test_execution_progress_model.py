@@ -5,6 +5,7 @@ import sqlite3
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from rasai.audit_progress_runtime import _content_ai_ready, _flags
 from rasai.console_progress_model import phase_bounds, projected_overall, workload_weights
 from rasai.external_observability_progress_runtime import _evidence_ready
 
@@ -68,7 +69,7 @@ class _Workspace:
         self.database = root / "audit.db"
 
 
-def test_external_api_gate_requires_completed_core_and_persisted_snapshot(tmp_path: Path) -> None:
+def test_external_api_gate_requires_persisted_core_evidence_not_completed_audit(tmp_path: Path) -> None:
     workspace = _Workspace(tmp_path)
     connection = sqlite3.connect(workspace.database)
     try:
@@ -87,18 +88,6 @@ def test_external_api_gate_requires_completed_core_and_persisted_snapshot(tmp_pa
 
     ready, reason = _evidence_ready(workspace=workspace, audit_id="AUD-PROGRESS")
     assert ready is False
-    assert reason.startswith("AUDIT_STATUS_")
-
-    connection = sqlite3.connect(workspace.database)
-    try:
-        connection.execute(
-            "UPDATE audits SET status='COMPLETED',completion_status='COMPLETE' WHERE audit_id='AUD-PROGRESS'"
-        )
-        connection.commit()
-    finally:
-        connection.close()
-    ready, reason = _evidence_ready(workspace=workspace, audit_id="AUD-PROGRESS")
-    assert ready is False
     assert reason == "NO_PERSISTED_BROWSER_SNAPSHOT"
 
     connection = sqlite3.connect(workspace.database)
@@ -107,6 +96,19 @@ def test_external_api_gate_requires_completed_core_and_persisted_snapshot(tmp_pa
         connection.commit()
     finally:
         connection.close()
+
     ready, reason = _evidence_ready(workspace=workspace, audit_id="AUD-PROGRESS")
     assert ready is True
     assert reason == "READY"
+
+
+def test_content_remediation_gate_uses_semantic_context_not_future_scoring(tmp_path: Path) -> None:
+    workspace = _Workspace(tmp_path)
+    flags = _flags(workspace)
+    flags.clear()
+    flags.update({"SEMANTIC_ANALYSIS", "CONTEXT_COMPARISON"})
+
+    _content_ai_ready((), {"enabled": True}, "AUD-CONTENT", workspace)
+
+    assert "SCORING" not in flags
+    assert "RECOMMENDATION_BUILD" not in flags
