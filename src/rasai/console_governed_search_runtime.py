@@ -1,7 +1,7 @@
 """Move local-console Search Intelligence into the child AUD collection phase.
 
 The historical console wrapper executed SERP work after the audit subprocess had
-already completed.  This adapter keeps the same transient user inputs but serializes
+already completed. This adapter keeps the same transient user inputs but serializes
 them as explicit CLI execution arguments, suppresses the old post-AUD execution and
 projects the persisted in-AUD result back into the console state.
 """
@@ -32,7 +32,9 @@ def _append_search_args(command: list[str], state: Any) -> list[str]:
     region = str(getattr(state, "search_region", "") or "").strip()
     if region:
         output.extend(("--search-region", region))
-    output.extend(("--search-device", str(getattr(state, "search_device", "mobile") or "mobile")))
+    output.extend(
+        ("--search-device", str(getattr(state, "search_device", "mobile") or "mobile"))
+    )
     output.append(
         "--search-competitive"
         if bool(getattr(state, "search_competitive", True))
@@ -68,10 +70,12 @@ def _project_result(state: Any) -> None:
         state.search_last_status = "NOT_REQUESTED"
         return
     status = str(row["status"] or "UNKNOWN").upper()
-    state.search_last_status = "COMPLETE" if status == "SUCCESS" else "COMPLETE_WITH_LIMITATIONS"
+    state.search_last_status = (
+        "COMPLETE" if status == "SUCCESS" else "COMPLETE_WITH_LIMITATIONS"
+    )
     state.search_last_detail = str(row["last_error_message"] or "")
     result_ref = str(row["effective_result_ref"] or "")
-    if result_ref:
+    if result_ref and ":" not in result_ref:
         state.search_last_report = str(root / result_ref)
     elif (root / "report" / "search-intelligence.html").is_file():
         state.search_last_report = str(root / "report" / "search-intelligence.html")
@@ -82,22 +86,34 @@ def install(console_module: Any) -> None:
     if _INSTALLED or getattr(console_module, "_rasai_governed_search_runtime", False):
         return
 
-    original_build = console_module.build_command
     original_run = console_module.run_audit_from_console
-
-    def build_command(state: Any) -> list[str]:
-        return _append_search_args(list(original_build(state)), state)
 
     def run_audit_from_console(state: Any) -> int:
         queries = tuple(getattr(state, "search_queries", ()) or ())
         if not queries:
             return int(original_run(state) or 0)
 
+        from rasai import console_runtime
+
+        original_build = console_runtime.build_command
+
+        def governed_build(current: Any) -> list[str]:
+            return _append_search_args(list(original_build(current)), current)
+
+        governed_build._rasai_governed_search = True
+        governed_build._rasai_original = original_build
+
+        # The inner historical Search wrapper checks search_queries after the subprocess
+        # and would otherwise execute duplicate SERP collection. Keep the terms in a
+        # private execution snapshot for command construction while presenting an empty
+        # tuple to that obsolete post-AUD branch.
         state._governed_search_queries = queries
         state.search_queries = ()
+        console_runtime.build_command = governed_build
         try:
             code = int(original_run(state) or 0)
         finally:
+            console_runtime.build_command = original_build
             state.search_queries = queries
             try:
                 delattr(state, "_governed_search_queries")
@@ -106,11 +122,8 @@ def install(console_module: Any) -> None:
         _project_result(state)
         return code
 
-    build_command._rasai_governed_search = True
-    build_command._rasai_original = original_build
     run_audit_from_console._rasai_governed_search = True
     run_audit_from_console._rasai_original = original_run
-    console_module.build_command = build_command
     console_module.run_audit_from_console = run_audit_from_console
     console_module._rasai_governed_search_runtime = True
     _INSTALLED = True
