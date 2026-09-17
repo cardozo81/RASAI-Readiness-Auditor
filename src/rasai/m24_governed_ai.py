@@ -2,28 +2,20 @@
 
 M24 collects deterministic/network diagnostics before evidence sealing and invokes
 technical AI only after the seal. Provider/fallback/attempt persistence stays in the
-existing M24 provider runtime; this module adds causal ordering and task provenance.
+existing M24 provider runtime. Logical partial continuation is installed by
+``m24_partial_runtime`` so initial execution and RPR share the same engine.
 """
 from __future__ import annotations
 
 import json
 import sqlite3
+from dataclasses import replace
 from typing import Any
 
-from rasai.ai_governance import (
-    begin_round,
-    complete_round,
-    register_task,
-    task_missing_requirements,
-)
-from rasai.ai_selective_invalidation import register_task_dependency
 from rasai.audit_phase_runtime import require_sealed_evidence
 from rasai.m24_crawling_discovery import M24Diagnostic, M24ExecutionResult, load_m24_result
+from rasai.m24_partial_runtime import install as install_partial_runtime, latest_task_status
 from rasai.semantic import ProviderState
-
-
-_PURPOSE = "TECHNICAL_AI"
-_REQUIREMENTS = ("RESOURCE:SITEMAP", "RESOURCE:ROBOTS")
 
 
 def _decode(raw: Any, default: Any) -> Any:
@@ -95,67 +87,16 @@ def execute_m24_ai_phase(
     provider: Any,
     enabled: bool,
 ) -> M24ExecutionResult:
-    """Run only the optional technical-AI consumer against persisted M24 facts."""
+    """Run only the optional technical-AI consumer against sealed persisted M24 facts."""
     base = load_m24_result(audit_id=audit_id, workspace=workspace)
     if base is None:
         raise RuntimeError("M24 deterministic collection must complete before technical AI")
     if not enabled:
         return base
 
-    snapshot = require_sealed_evidence(audit_id=audit_id, workspace=workspace)
+    require_sealed_evidence(audit_id=audit_id, workspace=workspace)
+    install_partial_runtime()
     diagnostics = _load_diagnostics(workspace, audit_id)
-    evidence_ids = tuple(
-        dict.fromkeys(
-            evidence_id
-            for diagnostic in diagnostics
-            for evidence_id in diagnostic.evidence_ids
-        )
-    )
-    task_id = register_task(
-        workspace=workspace,
-        audit_id=audit_id,
-        purpose=_PURPOSE,
-        scope_type="AUDIT",
-        scope_key="AUDIT",
-        evidence_snapshot_id=snapshot.evidence_snapshot_id,
-        requirements=_REQUIREMENTS,
-        semantic_contract_version="M24-TECHNICAL-REMEDIATION-v2",
-    )
-    register_task_dependency(
-        workspace=workspace,
-        ai_task_id=task_id,
-        dependency_kind="TECHNICAL_RESOURCE_EVIDENCE",
-        scope_key="AUDIT",
-    )
-    pending = task_missing_requirements(workspace, task_id)
-    if not pending:
-        # Same sealed technical evidence and a complete accepted task: never pay for a
-        # duplicate provider call merely because reporting/reprocessing is invoked again.
-        return base
-
-    round_id = begin_round(
-        workspace=workspace,
-        ai_task_id=task_id,
-        requested_requirements=pending,
-        input_payload={
-            "evidence_snapshot_id": snapshot.evidence_snapshot_id,
-            "evidence_fingerprint": snapshot.fingerprint,
-            "requested_requirements": list(pending),
-            "diagnostics": [
-                {
-                    "code": item.code,
-                    "category": item.category,
-                    "evidence_ids": list(item.evidence_ids),
-                }
-                for item in diagnostics
-            ],
-        },
-        input_summary={
-            "diagnostics": len(diagnostics),
-            "evidence_ids": list(evidence_ids),
-            "requested_requirements": list(pending),
-        },
-    )
 
     try:
         from rasai.m24_ai import maybe_remediate_m24
@@ -166,59 +107,53 @@ def execute_m24_ai_phase(
             provider=provider,
             diagnostics=diagnostics,
         )
-    except Exception as exc:
-        complete_round(
-            workspace=workspace,
-            ai_round_id=round_id,
-            accepted={},
-            rejected={
-                "PROVIDER": {
-                    "error_type": type(exc).__name__,
-                    "message": str(exc)[:512],
-                }
-            },
-            missing=pending,
-            output_payload={"error": type(exc).__name__},
-            failed=True,
-        )
+    except Exception:
         _update_run(workspace, audit_id, state="UNAVAILABLE", scoring_impact="NONE")
-        return load_m24_result(audit_id=audit_id, workspace=workspace) or base
+        reopened = load_m24_result(audit_id=audit_id, workspace=workspace) or base
+        return replace(reopened, ai_enabled=True, ai_state="UNAVAILABLE", scoring_impact="NONE")
 
-    assessments: list[dict[str, Any]] = []
+    assessments: tuple[dict[str, Any], ...] = ()
     if result.explanation and isinstance(
         result.explanation.get("resource_assessments"), list
     ):
-        assessments = [
-            item
+        assessments = tuple(
+            dict(item)
             for item in result.explanation["resource_assessments"]
             if isinstance(item, dict)
-        ]
-    accepted = {
-        f"RESOURCE:{str(item.get('resource') or '').upper()}": dict(item)
-        for item in assessments
-        if f"RESOURCE:{str(item.get('resource') or '').upper()}" in pending
-    }
-    missing = tuple(item for item in pending if item not in accepted)
-    complete_round(
-        workspace=workspace,
-        ai_round_id=round_id,
-        accepted=accepted,
-        rejected={},
-        missing=missing,
-        output_payload=(
-            result.explanation
-            or {"state": result.state.value, "reason": result.reason}
-        ),
-        failed=result.state is not ProviderState.AVAILABLE,
-    )
+        )
+
+    task_status = latest_task_status(workspace, audit_id)
+    if task_status == "COMPLETE":
+        persisted_state = result.state.value
+    elif task_status in {"PARTIAL", "FAILED", "STALE"}:
+        persisted_state = "PARTIAL" if assessments else "UNAVAILABLE"
+    else:
+        # No resource-bound task means M24 ran as one atomic advisory remediation
+        # (for example diagnostics exist but no ROBOTS/SITEMAP scoring evidence).
+        persisted_state = result.state.value
+
     scoring_impact = "BOUNDED_AI_RESOURCE_ASSESSMENT" if assessments else "NONE"
     _update_run(
         workspace,
         audit_id,
-        state=result.state.value,
+        state=persisted_state,
         scoring_impact=scoring_impact,
     )
-    return load_m24_result(audit_id=audit_id, workspace=workspace) or base
+
+    # Scoring may safely consume every individually accepted assessment even while the
+    # logical technical-AI task remains PARTIAL. Fulfillment remains retryable until all
+    # declared requirements are accepted; later RPR clears/rebuilds only this bounded
+    # technical scoring bridge using the consolidated task result.
+    scoring_state = ProviderState.AVAILABLE.value if assessments else result.state.value
+    return replace(
+        base,
+        ai_enabled=True,
+        ai_state=scoring_state,
+        scoring_impact=scoring_impact,
+        ai_provider=result.provider,
+        ai_model=result.model,
+        ai_assessments=assessments,
+    )
 
 
 __all__ = ["execute_m24_ai_phase"]
