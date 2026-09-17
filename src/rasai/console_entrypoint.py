@@ -42,6 +42,7 @@ from rasai.execution_context_isolation import install as install_execution_conte
 from rasai.external_measurement_runtime import install as install_external_measurement_runtime
 from rasai.external_observability_console import install as install_external_observability_console
 from rasai.external_observability_runtime import install as install_external_observability_runtime, install_service_contract as install_external_observability_service_contract
+from rasai.final_smoke_closure import install as install_final_smoke_closure
 from rasai.fulfillment_execution_contract import install_console_projection
 from rasai.governed_analysis_runtime import (
     install_post as install_governed_analysis_post,
@@ -182,6 +183,8 @@ def main() -> int:
     install_integration_network_diagnostics(interactive_console)
     install_console_detail_presentation()
     install_ai_execution_configuration(interactive_console)
+    # Final runtime/report bindings must win after all console adapters are composed.
+    install_final_smoke_closure()
     install_governed_analysis_post()
     install_governed_report_projection()
     return interactive_console.main()
