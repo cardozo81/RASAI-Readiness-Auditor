@@ -1,8 +1,8 @@
 """Small mechanical corrections over :mod:`post_smoke_alignment`.
 
 Kept separate so the final smoke patch stays reviewable: the governed Common Crawl hook
-uses the current collector signature and the catalog snapshot sees transient SERP terms
-while the legacy post-AUD Search branch remains suppressed.
+uses the current collector signature, the catalog snapshot sees transient SERP terms,
+and the canonical console preparation route remains bound after all presentation layers.
 """
 from __future__ import annotations
 
@@ -263,6 +263,37 @@ def _install_materialized_sidecar_counts() -> None:
     alignment._sidecar_source_counts = sidecar_counts
 
 
+def _install_console_preparation_route_guard() -> None:
+    """Guarantee HOME option 1 resolves to the canonical catalog preparation screen.
+
+    ``console_detail_presentation`` historically installed the catalog workflow only when
+    a pair of presentation markers happened to be present.  That makes a core navigation
+    route depend on optional composition timing.  Wrap the entrypoint's late presentation
+    installer and reassert the canonical workflow/binding afterwards.  Both operations are
+    idempotent and change presentation/navigation only.
+    """
+    from rasai import console_entrypoint
+
+    current = console_entrypoint.install_console_detail_presentation
+    if bool(getattr(current, "_rasai_preparation_route_guard", False)):
+        return
+
+    def install() -> None:
+        current()
+        from rasai import console_navigation, interactive_console
+        from rasai.console_catalog_ui import preparation_menu
+        from rasai.console_catalog_workflow import install as install_catalog_workflow
+
+        install_catalog_workflow(interactive_console)
+        # Reassert after every late presentation overlay.  Option 1 in
+        # console_navigation consults this module-level callable at execution time.
+        console_navigation._preparation_menu = preparation_menu
+
+    install._rasai_preparation_route_guard = True
+    install._rasai_original = current
+    console_entrypoint.install_console_detail_presentation = install
+
+
 def install() -> None:
     global _INSTALLED
     if _INSTALLED:
@@ -271,6 +302,7 @@ def install() -> None:
     _install_common_crawl_deterministic_materialization()
     _install_catalog_snapshot_search_alignment()
     _install_materialized_sidecar_counts()
+    _install_console_preparation_route_guard()
     _INSTALLED = True
 
 
