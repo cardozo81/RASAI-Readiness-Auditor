@@ -106,8 +106,12 @@ def install() -> None:
 
     from rasai import m18_ai, semantic
     from rasai.ai_model_runtime import install as install_ai_model_runtime
+    from rasai.semantic_coherence_runtime import install as install_semantic_coherence_runtime
+    from rasai.semantic_corpus_runtime import install as install_semantic_corpus_runtime
 
     install_ai_model_runtime()
+    install_semantic_coherence_runtime()
+    install_semantic_corpus_runtime()
 
     _patch_provider_payload(semantic)
     _patch_request_method(semantic.OpenAIProvider)
@@ -164,10 +168,11 @@ def install() -> None:
     from rasai.accepted_audit_refinements import install as install_accepted_audit_refinements
     from rasai.accepted_report_compat import install as install_accepted_report_compat
     from rasai.accepted_timeout_context import install as install_accepted_timeout_context
+    from rasai.ai_dependency_runtime import install as install_ai_dependency_runtime
     from rasai.ai_orchestration_unification import install_ai_orchestration_unification
-    from rasai.ai_orchestration_unification_cleanup import (
-        install_ai_orchestration_unification_cleanup,
-    )
+    from rasai.ai_orchestration_unification_cleanup import install_ai_orchestration_unification_cleanup
+    from rasai.catalog_report_search_trust_runtime import install as install_catalog_report_search_trust_runtime
+    from rasai.context_interpretation_runtime import install as install_context_interpretation_runtime
     from rasai.improvement_exchange_capture import install as install_improvement_exchange_capture
     from rasai.request_remediation_intelligence import install as install_request_remediation_intelligence
     from rasai.request_remediation_report_patch import install as install_request_remediation_report_patch
@@ -179,7 +184,10 @@ def install() -> None:
     install_accepted_report_compat()
     install_request_remediation_intelligence()
     install_request_remediation_report_patch()
+    install_catalog_report_search_trust_runtime()
     install_improvement_exchange_capture()
+    install_context_interpretation_runtime()
+    install_ai_dependency_runtime()
 
     from rasai.completion_recovery_alignment import install as install_completion_recovery_alignment
 
@@ -197,7 +205,13 @@ def install() -> None:
 def strategy_summary() -> dict[str, Any]:
     return {
         "version": AI_CALL_POLICY_VERSION,
-        "semantic_granularity": "ONE_STRUCTURED_CALL_PER_SNAPSHOT_FOR_ALL_CONTRACTED_RULES",
+        "semantic_granularity": "ONE_STRUCTURED_CALL_PER_SNAPSHOT_FOR_RULES_AND_COHERENCE",
+        "semantic_corpus_gate": "WHOLE_AUDIT_CONTEXT_READY_BEFORE_FIRST_PROVIDER_CALL",
+        "property_cross_page_policy": "DETERMINISTIC_AGGREGATION_OF_PERSISTED_PAGE_AI_OUTPUTS",
+        "auto_context_interpretation": "PERSISTED_AS_NON_CANONICAL_AI_INFERENCE_NON_SCORING",
+        "technical_ai_dependency_gate": "TECHNICAL_RESOURCE_EVIDENCE_READY_BEFORE_PROVIDER_CALL",
+        "deep_analysis_dependency_gate": "ALL_REQUIRED_FULFILLMENT_AND_EVIDENCE_CONTEXT_READY_BEFORE_PROVIDER_CALL",
+        "request_error_remediation": "DETERMINISTIC_GROUPING_WITH_BOUNDED_NON_SCORING_AI_GUIDANCE",
         "origin_resource_repetition": "NONE_BY_DEVICE",
         "report_generation_ai_calls": 0,
         "device_snapshot_deduplication": "NOT_MERGED_WHEN_EVIDENCE_IDENTITIES_DIFFER",

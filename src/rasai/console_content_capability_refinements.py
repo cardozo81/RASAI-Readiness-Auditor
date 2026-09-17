@@ -1,8 +1,8 @@
-"""Presentation-only segmentation for the Conteúdo e JSON-LD capability.
+"""CAT-03 presentation for content, semantic context and structured data.
 
-The runtime contract remains unchanged: deterministic content/structure and JSON-LD
-analysis stay included, editorial context remains optional/AUTO, and AI remediation is
-an optional enrichment using the canonical primary-AI orchestration.
+CAT-03 owns evidence and diagnosis. Remediation is deliberately excluded from this
+surface and remains owned by CAT-09. Optional semantic AI uses the canonical global AI
+orchestrator; this module never creates a CAT-specific provider path.
 """
 from __future__ import annotations
 
@@ -10,45 +10,57 @@ from types import ModuleType
 from typing import Any
 
 from rasai.console_ui import CYAN, DIM, RED, paint
+from rasai.property_semantic_profile import PROPERTY_SEMANTIC_PROFILE_ENV_NAMES
 
-_CONTENT_EDITORIAL_NAMES = frozenset(
+_PROPERTY_NAMES = frozenset(PROPERTY_SEMANTIC_PROFILE_ENV_NAMES)
+_EDITORIAL_NAMES = frozenset(
     {
         "RASAI_CONTENT_ORIGIN",
-        "RASAI_CONTENT_RISK_PROFILE",
-        "RASAI_EXPERIENCE_REQUIREMENT",
-        "RASAI_FRESHNESS_SENSITIVITY",
         "RASAI_INTENDED_AUDIENCE",
         "RASAI_PAGE_PURPOSE",
-        "RASAI_YMYL_CATEGORY",
     }
 )
-_CONTENT_AI_NAMES = frozenset(
+_TRUST_NAMES = frozenset(
     {
-        "RASAI_AI_CONTENT_REMEDIATION",
-        "RASAI_AI_ANALYSIS_LANGUAGE",
+        "RASAI_CONTENT_RISK_PROFILE",
+        "RASAI_YMYL_CATEGORY",
+        "RASAI_EXPERIENCE_REQUIREMENT",
+        "RASAI_FRESHNESS_SENSITIVITY",
     }
 )
-_CONTENT_NAMES = _CONTENT_EDITORIAL_NAMES | _CONTENT_AI_NAMES
+_SHARED_AI_NAMES = frozenset({"RASAI_AI_ANALYSIS_LANGUAGE"})
+_CONTENT_NAMES = _PROPERTY_NAMES | _EDITORIAL_NAMES | _TRUST_NAMES | _SHARED_AI_NAMES
 
 
 def _content_spec(spec: Any) -> bool:
     return str(getattr(spec, "name", "")).upper() in _CONTENT_NAMES
 
 
-def _content_groups(specs: tuple[Any, ...]) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
-    editorial = tuple(
-        sorted(
-            (spec for spec in specs if str(spec.name).upper() in _CONTENT_EDITORIAL_NAMES),
-            key=lambda item: item.name.casefold(),
+def _content_groups(
+    specs: tuple[Any, ...],
+) -> tuple[tuple[Any, ...], tuple[Any, ...], tuple[Any, ...], tuple[Any, ...]]:
+    def group(names: frozenset[str]) -> tuple[Any, ...]:
+        return tuple(
+            sorted(
+                (spec for spec in specs if str(spec.name).upper() in names),
+                key=lambda item: item.name.casefold(),
+            )
         )
-    )
-    ai = tuple(
-        sorted(
-            (spec for spec in specs if str(spec.name).upper() in _CONTENT_AI_NAMES),
-            key=lambda item: item.name.casefold(),
-        )
-    )
-    return editorial, ai
+
+    return group(_PROPERTY_NAMES), group(_EDITORIAL_NAMES), group(_TRUST_NAMES), group(_SHARED_AI_NAMES)
+
+
+def _property_context_status() -> tuple[str, str]:
+    from rasai.property_semantic_profile import configured_property_semantic_profile
+
+    try:
+        profile = configured_property_semantic_profile()
+    except ValueError as exc:
+        return "CONFIGURAR", str(exc)
+    if profile.is_fully_auto:
+        return "AUTOMÁTICO", "perfil da propriedade permanece em auto; a IA pode inferir apenas hipóteses transitórias"
+    configured = ", ".join(profile.configured_fields)
+    return "PERSONALIZADO", f"contexto explícito em: {configured}"
 
 
 def _editorial_context_status() -> tuple[str, str]:
@@ -58,54 +70,80 @@ def _editorial_context_status() -> tuple[str, str]:
         context = configured_content_analysis_context()
     except ValueError as exc:
         return "CONFIGURAR", str(exc)
-    if context.is_fully_auto:
-        return "AUTOMÁTICO", "todos os campos editoriais permanecem em auto"
-    configured = ", ".join(context.configured_fields)
-    return "PERSONALIZADO", f"contexto explícito em: {configured}"
+    configured = [name for name in context.configured_fields if name in {"page_purpose", "intended_audience", "content_origin"}]
+    if not configured:
+        return "AUTOMÁTICO", "propósito, público categórico e origem permanecem em auto"
+    return "PERSONALIZADO", "contexto explícito em: " + ", ".join(configured)
 
 
-def _content_ai_status(state: Any) -> tuple[str, str]:
-    if not bool(getattr(state, "content_remediation", False)):
-        return "NÃO SOLICITADA", "remediação textual por IA não foi solicitada; análise determinística permanece incluída"
+def _trust_context_status() -> tuple[str, str]:
+    from rasai.content_context import configured_content_analysis_context
 
     try:
-        from rasai.console_execution_profiles import _effective_ai_provider
+        context = configured_content_analysis_context()
+    except ValueError as exc:
+        return "CONFIGURAR", str(exc)
+    configured = [
+        name
+        for name in context.configured_fields
+        if name in {"risk_profile", "ymyl_category", "experience_requirement", "freshness_sensitivity"}
+    ]
+    if not configured:
+        return "AUTOMÁTICO", "risco/YMYL, experiência e freshness permanecem em auto"
+    return "PERSONALIZADO", "requisitos explícitos em: " + ", ".join(configured)
 
-        provider = _effective_ai_provider(state)
+
+def _semantic_ai_status(state: Any) -> tuple[str, str]:
+    try:
+        from rasai.console_catalog_plan import ai_execution_enabled, ai_provider_readiness, is_selected
+
+        if not is_selected(state, "CAT-03") or not ai_execution_enabled(state):
+            return "NÃO SOLICITADA", "CAT-03 mantém baseline determinística; enriquecimento semântico por IA não foi solicitado"
+        ready, detail = ai_provider_readiness(state)
+        if not ready:
+            return "CONFIGURAR", detail or "execução semântica por IA foi solicitada, mas a IA principal não está apta"
+        return "APTO", detail or "IA principal apta para análise semântica evidence-bound"
     except (ImportError, AttributeError, TypeError, ValueError):
         provider = str(getattr(state, "ai_provider", "none") or "none").strip().casefold()
-
-    if provider == "none":
-        return "CONFIGURAR", "remediação por IA foi solicitada, mas nenhuma IA principal está apta"
-    return "APTO", f"remediação por IA solicitada; provider efetivo={provider}"
+        if provider == "none":
+            return "NÃO SOLICITADA", "baseline determinística disponível; IA semântica opcional"
+        return "APTO", f"IA principal configurada: {provider}"
 
 
 def _content_component_states(state: Any) -> tuple[tuple[str, str, str], ...]:
+    property_status, property_detail = _property_context_status()
     editorial_status, editorial_detail = _editorial_context_status()
-    ai_status, ai_detail = _content_ai_status(state)
+    trust_status, trust_detail = _trust_context_status()
+    ai_status, ai_detail = _semantic_ai_status(state)
     return (
         (
             "Conteúdo / estrutura",
             "INCLUÍDO",
-            "análise determinística do conteúdo e da estrutura permanece no contrato da auditoria",
+            "coleta e avaliações determinísticas permanecem no contrato da auditoria",
         ),
         (
             "JSON-LD",
             "INCLUÍDO",
-            "orientação e validação determinísticas permanecem independentes da IA",
+            "estrutura e consistência determinística permanecem independentes da IA",
         ),
+        ("Contexto da propriedade", property_status, property_detail),
         ("Contexto editorial", editorial_status, editorial_detail),
-        ("Remediação por IA", ai_status, ai_detail),
+        ("Risco / confiança", trust_status, trust_detail),
+        ("Coerência semântica IA", ai_status, ai_detail),
     )
 
 
 def _content_overall_status(state: Any) -> tuple[str, str]:
+    property_status, _ = _property_context_status()
     editorial_status, _ = _editorial_context_status()
-    ai_status, _ = _content_ai_status(state)
+    trust_status, _ = _trust_context_status()
+    ai_status, _ = _semantic_ai_status(state)
+    if "CONFIGURAR" in {property_status, editorial_status, trust_status}:
+        return "CONFIGURAR", "há contexto CAT-03 inválido; corrija antes da execução"
     return (
         "INCLUÍDO",
         "conteúdo/estrutura e JSON-LD determinísticos incluídos; "
-        f"contexto editorial={editorial_status}; remediação por IA={ai_status}",
+        f"propriedade={property_status}; editorial={editorial_status}; risco={trust_status}; IA semântica={ai_status}",
     )
 
 
@@ -117,31 +155,25 @@ def _print_spec_row(catalog: ModuleType, state: Any, spec: Any, *, shared: bool 
     )
 
 
+def _render_group(catalog: ModuleType, state: Any, title: str, specs: tuple[Any, ...], *, shared: bool = False) -> None:
+    catalog.section(title)
+    if specs:
+        for spec in specs:
+            _print_spec_row(catalog, state, spec, shared=shared)
+    else:
+        print(paint("Nenhuma configuração adicional neste contexto.", DIM))
+
+
 def _render_content_groups(catalog: ModuleType, state: Any, specs: tuple[Any, ...]) -> None:
-    editorial, ai = _content_groups(specs)
-
-    catalog.section("CONTEXTO EDITORIAL")
-    if editorial:
-        for spec in editorial:
-            _print_spec_row(catalog, state, spec)
-    else:
-        print(paint("Nenhuma configuração editorial adicional neste contexto.", DIM))
-    print(paint("Campos em auto são válidos e não representam pendência de configuração.", DIM))
-
-    catalog.section("ENRIQUECIMENTO POR IA")
-    if ai:
-        for spec in ai:
-            _print_spec_row(
-                catalog,
-                state,
-                spec,
-                shared=str(spec.name).upper() == "RASAI_AI_ANALYSIS_LANGUAGE",
-            )
-    else:
-        print(paint("Nenhuma configuração adicional de IA neste contexto.", DIM))
+    property_specs, editorial, trust, shared_ai = _content_groups(specs)
+    _render_group(catalog, state, "CONTEXTO DA PROPRIEDADE", property_specs)
+    print(paint("Campos em auto são válidos; inferências da IA não sobrescrevem esses valores.", DIM))
+    _render_group(catalog, state, "CONTEXTO EDITORIAL DA PÁGINA", editorial)
+    _render_group(catalog, state, "RISCO E REQUISITOS DE CONFIANÇA", trust)
+    _render_group(catalog, state, "IA SEMÂNTICA · CONFIGURAÇÃO COMPARTILHADA", shared_ai, shared=True)
     print(
         paint(
-            "A remediação por IA é opcional; JSON-LD e análise determinística de conteúdo não dependem dela.",
+            "Provider/modelo/reasoning pertencem à IA principal. Remediação não pertence ao CAT-03; consulte CAT-09.",
             DIM,
         )
     )
@@ -167,20 +199,19 @@ def _content_help(
         )
         catalog.section("OBJETIVO")
         print(
-            "Conteúdo/estrutura e JSON-LD são análises determinísticas incluídas. "
-            "O contexto editorial pode permanecer em auto ou receber overrides explícitos; "
-            "a remediação textual por IA é apenas um enriquecimento opcional."
+            "CAT-03 evidencia o que foi coletado, derivado deterministicamente e interpretado semanticamente. "
+            "O perfil da propriedade e o contexto editorial condicionam a análise; CAT-09 continua sendo o owner das remediações."
         )
 
         catalog.section("COMPONENTES")
         for label, status, detail in _content_component_states(state):
-            print(f"{label:<20}: {catalog.badge(status)}")
+            print(f"{label:<24}: {catalog.badge(status)}")
             print(paint(f"  {detail}", DIM))
 
         catalog.section("COMO OPERAR")
         print('Digite diretamente o ID da variável no campo "Número/ID ou ação" para editá-la.')
-        print("Valores editoriais em auto são válidos; configure apenas quando houver contexto humano conhecido.")
-        print("RASAI_AI_ANALYSIS_LANGUAGE é compartilhada com outras análises de IA e mantém owner canônico único.")
+        print("AUTO é válido e significa hipótese transitória quando a IA estiver habilitada; nunca vira configuração automaticamente.")
+        print("A IA semântica usa a IA principal global e mantém routing, fallback, custo e rastreabilidade canônicos.")
         _render_content_groups(catalog, state, specs)
 
         print("\nDigite um ID acima para abrir a configuração, ou ENTER/V para voltar.")
@@ -225,14 +256,13 @@ def _content_menu(
 
         catalog.section("COMPONENTES")
         for label, component_status, component_detail in _content_component_states(state):
-            print(f"{label:<20}: {catalog.badge(component_status)}")
+            print(f"{label:<24}: {catalog.badge(component_status)}")
             print(paint(f"  {component_detail}", DIM))
 
         catalog.section("INFORMAÇÃO")
         print(
-            "Análise de conteúdo e orientação JSON-LD determinísticas incluídas. "
-            "Contexto editorial pode permanecer automático ou ser informado explicitamente. "
-            "Remediação por IA é opcional."
+            "Conteúdo/estrutura e JSON-LD permanecem disponíveis sem IA. Quando solicitada, a IA avalia coerência "
+            "somente após o contexto/evidências necessários estarem coletados; ações corretivas pertencem ao CAT-09."
         )
 
         _render_content_groups(catalog, state, specs)
@@ -257,7 +287,7 @@ def _content_menu(
 
 
 def install(console_module: ModuleType) -> None:
-    """Install after the operator-navigation layer without altering runtime semantics."""
+    """Install CAT-03 presentation without altering runtime routing or scoring."""
     if getattr(console_module, "_rasai_content_capability_refinements", False):
         return
 
@@ -289,7 +319,6 @@ def install(console_module: ModuleType) -> None:
     catalog.capability_menu = capability_menu
     catalog._STATUS_COLORS["NÃO SOLICITADA"] = DIM
 
-    # console_ui_refactor imported these callables by value, so refresh its bindings too.
     refactor.capability_specs = capability_specs
     refactor.capability_status = capability_status
     refactor.capability_menu = capability_menu

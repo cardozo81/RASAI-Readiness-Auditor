@@ -10,6 +10,7 @@ from typing import Mapping
 from rasai.ai_exchange_log import MAX_CAPTURE_BYTES_ENV
 from rasai.cli import validate_target
 from rasai.content_context import CONTENT_CONTEXT_ENV_NAMES, configured_content_analysis_context
+from rasai.property_semantic_profile import PROPERTY_SEMANTIC_PROFILE_ENV_NAMES
 from rasai.provider_registry import auto_provider_ids, get_provider_registration, provider_environment_names, provider_registrations
 from rasai.provider_runtime_policy import (
     AI_TIMEOUT_ENV,
@@ -45,6 +46,7 @@ _BASE_ENV_NAMES = (
     "RASAI_CONFIG", "RASAI_CONSOLE_MODE", "RASAI_LOG_LEVEL", "RASAI_DEVICE_CONTEXT", AI_TIMEOUT_ENV,
     MAX_CAPTURE_BYTES_ENV, AUTO_EXCLUDE_ENV, REPROCESS_LIVE_VALIDITY_ENV,
     "RASAI_AI_CONTENT_REMEDIATION", "RASAI_AI_TECHNICAL_REMEDIATION", *CONTENT_CONTEXT_ENV_NAMES,
+    *PROPERTY_SEMANTIC_PROFILE_ENV_NAMES,
     "RASAI_WEB_PERFORMANCE",
     "RASAI_WEB_PERFORMANCE_MAX_PAGES", WEB_PERFORMANCE_TIMEOUT_ENV,
     "RASAI_WEB_PERFORMANCE_FIELD_SOURCE", "RASAI_LIGHTHOUSE_CATEGORIES",

@@ -5,6 +5,16 @@ id = "example"
 name = "Example Property"
 origin = "https://www.example.com"
 
+[semantic_profile]
+# Reusable human-declared context. Keep "auto" when the value is unknown or should be
+# interpreted only as a provisional, evidence-bound hypothesis during the AUD.
+business_sector = "auto"
+business_description = "auto"
+primary_offering = "auto"
+target_audience_profile = "auto"
+primary_goal = "auto"
+positioning = "auto"
+
 [execution]
 language = "pt-BR"
 market = "BR"
