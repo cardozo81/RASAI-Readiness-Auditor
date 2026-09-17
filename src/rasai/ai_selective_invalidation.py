@@ -1,10 +1,10 @@
 """Dependency-scoped AI staleness for evidence-version transitions.
 
-The global evidence fingerprint is useful to version an AUD, but it is intentionally
-*not* the invalidation key for every AI purpose.  A task records the evidence slice it
-actually consumed.  When a new evidence version is sealed, only tasks whose slice
-changed become STALE; unrelated tasks remain valid and record the newer snapshot
-through which their dependency fingerprint was revalidated.
+The global evidence fingerprint versions an AUD but is intentionally not the invalidation
+key for every AI purpose. A task records the evidence slice it actually consumed. When a
+new evidence version is sealed, only tasks whose slice changed become STALE; unrelated
+tasks remain valid and record the newer snapshot through which their dependency
+fingerprint was revalidated.
 """
 from __future__ import annotations
 
@@ -77,6 +77,28 @@ def _table_exists(connection: sqlite3.Connection, name: str) -> bool:
     ).fetchone() is not None
 
 
+def _technical_evidence_ids(connection: sqlite3.Connection, audit_id: str) -> tuple[str, ...]:
+    if not _table_exists(connection, "m24_diagnostics"):
+        return ()
+    rows = connection.execute(
+        "SELECT evidence_ids FROM m24_diagnostics WHERE audit_id=? ORDER BY rowid",
+        (audit_id,),
+    ).fetchall()
+    values: list[str] = []
+    for row in rows:
+        try:
+            raw = json.loads(str(row[0] or "[]"))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            raw = []
+        if not isinstance(raw, list):
+            continue
+        for value in raw:
+            text = str(value).strip()
+            if text and text not in values:
+                values.append(text)
+    return tuple(values)
+
+
 def _evidence_slice(
     connection: sqlite3.Connection,
     *,
@@ -96,6 +118,15 @@ def _evidence_slice(
         rows = connection.execute(
             "SELECT * FROM evidence WHERE audit_id=? AND page_id=? ORDER BY evidence_id",
             (audit_id, str(scope_key or "")),
+        ).fetchall()
+    elif kind == "TECHNICAL_RESOURCE_EVIDENCE":
+        ids = _technical_evidence_ids(connection, audit_id)
+        if not ids:
+            return []
+        marks = ",".join("?" for _ in ids)
+        rows = connection.execute(
+            f"SELECT * FROM evidence WHERE audit_id=? AND evidence_id IN ({marks}) ORDER BY evidence_id",
+            (audit_id, *ids),
         ).fetchall()
     else:
         rows = connection.execute(
@@ -254,8 +285,6 @@ def _reconcile_staleness(
             task_id = str(task["ai_task_id"])
             kind = task.get("dependency_kind")
             if not kind:
-                # Tasks without an explicit slice retain the conservative global
-                # invalidation applied by ai_governance.seal_evidence().
                 continue
             try:
                 keys_raw = json.loads(str(task.get("collection_keys_json") or "[]"))
@@ -267,28 +296,26 @@ def _reconcile_staleness(
                 audit_id=audit_id,
                 evidence_snapshot_id=new_snapshot.evidence_snapshot_id,
                 dependency_kind=str(kind),
-                scope_key=(str(task["scope_key"]) if task.get("scope_key") is not None else None),
+                scope_key=(
+                    str(task["scope_key"])
+                    if task.get("scope_key") is not None
+                    else None
+                ),
                 collection_keys=keys,
             )
             previous = str(task.get("dependency_fingerprint") or "")
             if current == previous:
-                # Undo the conservative global STALE transition: this task's actual
-                # evidence slice did not change.  Keep the original result valid and
-                # record that it was revalidated against the newer global snapshot.
                 with connection:
                     connection.execute(
                         "UPDATE ai_tasks SET status=?,stale_reason=NULL,updated_at=? WHERE ai_task_id=?",
                         (str(task["status"]), now, task_id),
                     )
                     connection.execute(
-                        """UPDATE ai_task_dependency_specs SET validated_snapshot_id=?,updated_at=?
-                           WHERE ai_task_id=?""",
+                        """UPDATE ai_task_dependency_specs
+                           SET validated_snapshot_id=?,updated_at=? WHERE ai_task_id=?""",
                         (new_snapshot.evidence_snapshot_id, now, task_id),
                     )
             else:
-                # The base governance layer marks COMPLETE/PARTIAL/READY stale.  Extend
-                # that same semantics to failed/blocked/skipped tasks because changed
-                # evidence may make them executable again on selective recovery.
                 with connection:
                     connection.execute(
                         """UPDATE ai_tasks SET status=?,stale_reason=?,updated_at=?
@@ -342,7 +369,6 @@ def install() -> None:
     seal_evidence._rasai_original = ensure_target
     ai_governance.seal_evidence = seal_evidence
 
-    # audit_phase_runtime imported seal_evidence by value.
     try:
         from rasai import audit_phase_runtime
         if getattr(audit_phase_runtime, "seal_evidence", None) is ensure_target:
