@@ -132,6 +132,53 @@ def _install_common_crawl_hook() -> None:
     external_sari.collect_common_crawl_history = persisted_only
 
 
+def _install_common_crawl_deterministic_materialization() -> None:
+    """Create BR-GEO-060 before evidence sealing; M9 then only reuses it."""
+    from rasai import external_sari
+    from rasai.audit_phase_runtime import register_deterministic_hook
+    from rasai.persistence import AuditPersistence
+
+    def materialize(*, audit_id: str, workspace: Any, collection_outcomes: Any):
+        services = (
+            collection_outcomes.get("EXTERNAL_OBSERVABILITY", {}).get("services", {})
+            if isinstance(collection_outcomes, dict)
+            else {}
+        )
+        common = services.get("common-crawl", {}) if isinstance(services, dict) else {}
+        state = str(common.get("collection_state") or common.get("service_state") or "").upper()
+        if state not in {"SUCCESS", "NO_DATA", "PARTIAL"}:
+            return {"status": "SKIPPED", "reason": state or "COMMON_CRAWL_NOT_READY"}
+        connection = sqlite3.connect(workspace.database)
+        try:
+            rule_ids = tuple(
+                str(row[0])
+                for row in connection.execute(
+                    "SELECT rule_execution_id FROM rule_executions WHERE audit_id=? ORDER BY executed_at,rule_execution_id",
+                    (audit_id,),
+                ).fetchall()
+                if row[0]
+            )
+        finally:
+            connection.close()
+        with AuditPersistence(workspace) as persistence:
+            result = external_sari.materialize_common_crawl_corroboration(
+                audit_id=audit_id,
+                rule_execution_ids=rule_ids,
+                persistence=persistence,
+                workspace=workspace,
+            )
+        return {
+            "status": result.state,
+            "dataset_id": result.dataset_id,
+            "rule_execution_ids": list(result.rule_execution_ids),
+            "observed_url_count": result.observed_url_count,
+            "reason": result.reason,
+        }
+
+    materialize._rasai_post_smoke_common_crawl_deterministic = True
+    register_deterministic_hook("COMMON_CRAWL_CORROBORATION", materialize, order=90)
+
+
 def _install_catalog_snapshot_search_alignment() -> None:
     from rasai import console_catalog_plan as plan
     from rasai.post_smoke_alignment import _EFFECTIVE_SEARCH_QUERIES
@@ -221,6 +268,7 @@ def install() -> None:
     if _INSTALLED:
         return
     _install_common_crawl_hook()
+    _install_common_crawl_deterministic_materialization()
     _install_catalog_snapshot_search_alignment()
     _install_materialized_sidecar_counts()
     _INSTALLED = True
