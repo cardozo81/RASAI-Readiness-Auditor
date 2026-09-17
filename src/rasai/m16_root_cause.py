@@ -113,10 +113,10 @@ _CAUSE_SUMMARY: dict[str, str] = {
     "BR-GEO-040": "A resposta observada depende de contexto ou inferência adicional para ser compreendida adequadamente.",
     "BR-GEO-041": "Afirmações factuais materiais não estão suficientemente distinguíveis ou explícitas.",
     "BR-GEO-042": "Afirmações factuais relevantes carecem do contexto necessário para interpretação segura.",
-    "BR-GEO-043": "Claims numéricos, temporais ou quantitativos carecem de qualificadores necessários.",
+    "BR-GEO-043": "Afirmações numéricas, temporais ou quantitativas carecem dos qualificadores necessários.",
     "BR-GEO-044": "Informações importantes exigem inferência excessiva em vez de estarem explícitas no conteúdo.",
-    "BR-GEO-045": "Claims materiais carecem de atribuição ou evidência de suporte quando isso é necessário.",
-    "BR-GEO-046": "A entidade responsável, publisher ou autor não está identificável quando relevante.",
+    "BR-GEO-045": "Afirmações materiais carecem de atribuição ou evidência de suporte quando necessário.",
+    "BR-GEO-046": "A entidade responsável, o autor ou o publicador não está identificável quando relevante.",
     "BR-GEO-047": "Sinais de publicação/atualização observados são insuficientes ou internamente inconsistentes.",
     "BR-GEO-048": "O conteúdo observado não representa suficientemente o conjunto de intenções relevantes identificado.",
     "BR-GEO-049": "Existe lacuna material de intenção sustentada pelas evidências disponíveis.",
@@ -139,9 +139,6 @@ _EXACT_TAGS: dict[str, tuple[str, ...]] = {
     "BR-GEO-037": ("script",),
 }
 
-# Structured-data rules have concrete script nodes and must be resolved through
-# _EXACT_TAGS before falling back to semantic content context. Context-only rules
-# are entity/answerability/citation/evidence/intent semantics.
 _SEMANTIC_CONTEXT_RULES = frozenset(
     f"BR-GEO-{number:03d}" for number in (*range(31, 34), *range(38, 50))
 )
@@ -259,7 +256,6 @@ class M16Persistence:
 
 def materialize_root_causes(*, audit_id: str, workspace: AuditWorkspace) -> int:
     """Derive one reproducible root-cause record for every persisted finding."""
-
     connection = sqlite3.connect(workspace.database)
     connection.row_factory = sqlite3.Row
     try:
