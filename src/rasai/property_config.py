@@ -14,6 +14,7 @@ import tomllib
 from typing import Any, Mapping
 from urllib.parse import urlsplit
 
+from .property_semantic_profile import PropertySemanticProfile, build_property_semantic_profile
 from .secret_safety import (
     detect_secret_exposures,
     is_secret_reference_name,
@@ -25,6 +26,14 @@ from .secret_safety import (
 PROPERTY_CONFIG_CONTRACT = "PROPERTY-CONFIG-001"
 _PROPERTY_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
 _ALLOWED_DATABASE_BACKENDS = {"sqlite", "postgresql"}
+_SEMANTIC_PROFILE_FIELDS = (
+    "business_sector",
+    "business_description",
+    "primary_offering",
+    "target_audience_profile",
+    "primary_goal",
+    "positioning",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +63,13 @@ class PropertyConfig:
     def missing_environment_references(self, env: Mapping[str, str] | None = None) -> tuple[str, ...]:
         environment = env if env is not None else os.environ
         return tuple(name for name in self.environment_references() if not (environment.get(name) or "").strip())
+
+    def semantic_profile(self) -> PropertySemanticProfile:
+        section = self.document.get("semantic_profile")
+        values = dict(section) if isinstance(section, Mapping) else {}
+        return build_property_semantic_profile(
+            **{name: str(values.get(name) or "auto") for name in _SEMANTIC_PROFILE_FIELDS}
+        )
 
 
 def _validate_origin(value: str) -> str:
@@ -96,6 +112,20 @@ def _validate_node(node: Any, *, path: str = "") -> None:
             )
 
 
+def _validate_semantic_profile(document: Mapping[str, Any]) -> None:
+    section = document.get("semantic_profile")
+    if section is None:
+        return
+    if not isinstance(section, Mapping):
+        raise ValueError("[semantic_profile] must be a TOML table")
+    unknown = sorted(set(str(key) for key in section) - set(_SEMANTIC_PROFILE_FIELDS))
+    if unknown:
+        raise ValueError("unsupported semantic_profile field(s): " + ", ".join(unknown))
+    build_property_semantic_profile(
+        **{name: str(section.get(name) or "auto") for name in _SEMANTIC_PROFILE_FIELDS}
+    )
+
+
 def load_property_config(path: str | Path) -> PropertyConfig:
     source = Path(path)
     if not source.is_file():
@@ -128,6 +158,8 @@ def load_property_config(path: str | Path) -> PropertyConfig:
             raise ValueError("postgresql property configuration requires database.database_url_env")
         if "database_url" in database:
             raise ValueError("database.database_url must not be versioned; use database_url_env")
+
+    _validate_semantic_profile(document)
 
     return PropertyConfig(
         property_id=property_id,
