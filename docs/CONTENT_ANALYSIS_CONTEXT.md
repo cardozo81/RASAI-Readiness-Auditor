@@ -1,4 +1,4 @@
-# Contexto de análise de conteúdo — propósito, YMYL, confiança e coerência
+# Contexto de análise de conteúdo - propósito, YMYL, confiança e coerência
 
 ## Objetivo
 
@@ -6,8 +6,8 @@ O RASAi mantém um **contexto editorial explícito** para evitar análise genér
 
 A auditoria de conteúdo distingue dois escopos:
 
-1. **perfil semântico da propriedade** — quem é o negócio/propriedade, sua oferta, público e objetivo;
-2. **contexto editorial, risco e confiança da página** — propósito, público categórico, origem, YMYL, experiência e freshness.
+1. **perfil semântico da propriedade** - quem é o negócio/propriedade, sua oferta, público e objetivo;
+2. **contexto editorial, risco e confiança da página** - propósito, público categórico, origem, YMYL, experiência e freshness.
 
 O contrato completo está em [SEMANTIC_COHERENCE_AUDIT.md](SEMANTIC_COHERENCE_AUDIT.md).
 
@@ -182,7 +182,7 @@ A auditoria de coerência não cria roteador, pricing ou exchange log paralelos.
 
 Referências principais:
 
-- Google Search Central — Creating helpful, reliable, people-first content: <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
+- Google Search Central - Creating helpful, reliable, people-first content: <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
 - Google Search Quality Rater Guidelines: <https://services.google.com/fh/files/misc/hsw-sqrg.pdf>
 
 Essas referências ajudam a contextualizar propósito, utilidade, confiança e YMYL. O RASAi não afirma uma fórmula oficial de E-E-A-T nem converte as diretrizes em fator matemático proprietário de ranking.
