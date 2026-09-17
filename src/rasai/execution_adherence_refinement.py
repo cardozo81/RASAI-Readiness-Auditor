@@ -6,8 +6,27 @@ FINAL. M25 sample timestamps are owned directly by the canonical measurement mod
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
+
+
+def _verified_preliminary_projection(workspace: Any) -> bool:
+    """Accept an incomplete AUD projection only when its package is self-consistent."""
+    from rasai.catalog_report_site import CATALOG_REPORT_DIR, verify_catalog_report_package
+
+    report_dir = Path(workspace.root) / CATALOG_REPORT_DIR
+    manifest_path = report_dir / "manifest.json"
+    if not manifest_path.is_file():
+        return False
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return False
+    if str(manifest.get("freshness") or "").upper() != "PRELIMINARY":
+        return False
+    valid, _errors = verify_catalog_report_package(report_dir)
+    return bool(valid)
 
 
 def finalize_catalog_projection(state: Any) -> Path | None:
@@ -34,9 +53,10 @@ def finalize_catalog_projection(state: Any) -> Path | None:
 
     path = materialize_catalog_report_site(audit_id=audit_id, workspace=workspace)
     if not catalog_report_is_fresh(audit_id=audit_id, workspace=workspace):
-        raise RuntimeError(
-            "report-catalog não permaneceu aderente ao audit.db após a finalização da execução"
-        )
+        if not _verified_preliminary_projection(workspace):
+            raise RuntimeError(
+                "report-catalog não permaneceu aderente ao audit.db após a finalização da execução"
+            )
     return path
 
 
