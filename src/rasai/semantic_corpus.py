@@ -21,6 +21,7 @@ from rasai.persistence import AuditWorkspace
 from rasai.property_semantic_profile import configured_property_semantic_profile
 from rasai.property_semantic_profile_persistence import persist_property_semantic_profile
 from rasai.semantic import ProviderCallResult, ProviderState, SemanticAnalysisProvider, SemanticInput
+from rasai.semantic_coherence_persistence import persist_page_coherence
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,9 +44,16 @@ class SemanticCorpusManifest:
 class CorpusGuardProvider:
     """Mechanical guard around the already-selected canonical provider/orchestrator."""
 
-    def __init__(self, delegate: SemanticAnalysisProvider, manifest: SemanticCorpusManifest) -> None:
+    def __init__(
+        self,
+        delegate: SemanticAnalysisProvider,
+        manifest: SemanticCorpusManifest,
+        *,
+        workspace: AuditWorkspace,
+    ) -> None:
         self._delegate = delegate
         self._manifest = manifest
+        self._workspace = workspace
         self.name = str(getattr(delegate, "name", type(delegate).__name__))
 
     @property
@@ -60,7 +68,16 @@ class CorpusGuardProvider:
                 ProviderState.UNAVAILABLE,
                 reason=f"AI_CONTEXT_NOT_READY:{exc}",
             )
-        return self._delegate.analyze(semantic_input)
+        result = self._delegate.analyze(semantic_input)
+        if result.state is ProviderState.AVAILABLE and result.response is not None:
+            persist_page_coherence(
+                workspace=self._workspace,
+                audit_id=self._manifest.audit_id,
+                snapshot_id=semantic_input.snapshot_id,
+                page_url=semantic_input.page_url,
+                response=result.response,
+            )
+        return result
 
 
 def _canonical_json(value: Any) -> str:
