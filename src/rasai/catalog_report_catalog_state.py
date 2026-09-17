@@ -2,6 +2,15 @@
 from rasai.catalog_report_presentation import *  # noqa: F401,F403
 
 
+def _plan_available(data: _ReportData) -> bool:
+    return bool(
+        data.configuration
+        and data.config_hash
+        and data.computed_hash
+        and data.config_hash == data.computed_hash
+    )
+
+
 def _friendly_component(value: Any) -> str:
     key=_norm(value)
     return _COMPONENT_LABELS.get(key, str(value or "—").replace("_"," ").title())
@@ -126,6 +135,8 @@ def _explicit_run(database: Path, data: _ReportData, catalog_id: str) -> dict[st
 
 
 def _catalog_status(database: Path, data: _ReportData, catalog_id: str) -> tuple[str,str,str]:
+    if not _plan_available(data):
+        return "INDETERMINADO","warn","O snapshot do plano/configuração desta auditoria está ausente ou inválido; não é possível concluir se este catálogo foi ou não solicitado."
     if catalog_id not in data.selected:
         return "NÃO SOLICITADO","neutral","Este catálogo não fazia parte do plano congelado desta auditoria."
     run=_explicit_run(database,data,catalog_id)
@@ -157,10 +168,11 @@ def _catalog_status(database: Path, data: _ReportData, catalog_id: str) -> tuple
 def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any]]:
     item=data.catalog_items.get(catalog_id,{})
     policy,ai_enabled=_ai_policy(data,catalog_id)
+    plan_available=_plan_available(data)
     rows=[
-        ("Incluído nesta auditoria","Sim" if catalog_id in data.selected else "Não","Plano congelado"),
-        ("URL / alvo","; ".join(data.targets) if data.targets else "—","Plano congelado"),
-        ("Uso de IA nesta capacidade",("Habilitado" if ai_enabled else "Não habilitado") if policy!="Não utiliza IA" else "Não se aplica","Plano congelado"),
+        ("Incluído nesta auditoria",("Sim" if catalog_id in data.selected else "Não") if plan_available else "Indeterminado — snapshot ausente/inválido","Plano congelado" if plan_available else "Snapshot da execução"),
+        ("URL / alvo","; ".join(data.targets) if data.targets else "—","Plano congelado" if plan_available else "Evidência persistida"),
+        ("Uso de IA nesta capacidade",("Habilitado" if ai_enabled else "Não habilitado") if policy!="Não utiliza IA" else "Não se aplica","Plano congelado" if plan_available else "Não determinável"),
         ("Política de IA",policy,"Catálogo"),
     ]
     settings=data.configuration.get("settings") if isinstance(data.configuration.get("settings"),Mapping) else {}
