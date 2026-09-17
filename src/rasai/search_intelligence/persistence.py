@@ -1,13 +1,17 @@
 """Additive SERP persistence using the existing per-audit SQLite database."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sqlite3
 from typing import Any
 
-from .models import SearchIntelligenceResult
+from .models import SearchIntelligenceResult, SerpDataMode
+
+SERP_TEMPORAL_LIVE = "LIVE_RECOLLECTION"
+SERP_TEMPORAL_REUSED = "REUSED_EVIDENCE"
+SERP_TEMPORAL_NON_LIVE = "NON_LIVE_SOURCE"
 
 
 def _dump(value: Any) -> str:
@@ -18,8 +22,12 @@ def _dt(value: datetime) -> str:
     return value.isoformat()
 
 
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 class SerpObservationRepository:
-    """Persist SERP observations without changing core audit/scoring tables."""
+    """Persist SERP observations with explicit freshness/provenance semantics."""
 
     def __init__(self, database: Path, *, audit_id: str) -> None:
         self.database = Path(database)
@@ -101,6 +109,18 @@ class SerpObservationRepository:
                     PRIMARY KEY (observation_id, position, url)
                 );
 
+                CREATE TABLE IF NOT EXISTS serp_evidence_provenance (
+                    observation_id TEXT PRIMARY KEY REFERENCES serp_observations(observation_id) ON DELETE CASCADE,
+                    audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
+                    temporal_mode TEXT NOT NULL,
+                    captured_at TEXT NOT NULL,
+                    source_audit_id TEXT,
+                    source_observation_id TEXT,
+                    reused_at TEXT,
+                    reuse_reason TEXT,
+                    created_at TEXT NOT NULL
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_serp_observations_audit_query_time
                     ON serp_observations(audit_id, query, collected_at);
                 CREATE INDEX IF NOT EXISTS idx_serp_observations_run
@@ -111,13 +131,22 @@ class SerpObservationRepository:
                     ON serp_results(observation_id, position);
                 CREATE INDEX IF NOT EXISTS idx_serp_results_domain
                     ON serp_results(domain, observation_id, position);
+                CREATE INDEX IF NOT EXISTS idx_serp_provenance_audit_mode
+                    ON serp_evidence_provenance(audit_id, temporal_mode, captured_at);
                 """
             )
+
+    @staticmethod
+    def _temporal_mode(data_mode: SerpDataMode) -> str:
+        if data_mode in {SerpDataMode.OBSERVED_API, SerpDataMode.OBSERVED_SYNTHETIC}:
+            return SERP_TEMPORAL_LIVE
+        return SERP_TEMPORAL_NON_LIVE
 
     def save(self, result: SearchIntelligenceResult) -> None:
         observation = result.observation
         if observation is None:
             return
+        temporal_mode = self._temporal_mode(observation.data_mode)
         with self.connection:
             self.connection.execute(
                 """
@@ -178,6 +207,71 @@ class SerpObservationRepository:
                     )
                     for item in observation.results
                 ],
+            )
+            self.connection.execute(
+                """INSERT INTO serp_evidence_provenance(
+                    observation_id,audit_id,temporal_mode,captured_at,source_audit_id,
+                    source_observation_id,reused_at,reuse_reason,created_at
+                ) VALUES (?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(observation_id) DO NOTHING""",
+                (
+                    observation.observation_id,
+                    self.audit_id,
+                    temporal_mode,
+                    _dt(observation.collected_at),
+                    self.audit_id if temporal_mode == SERP_TEMPORAL_LIVE else None,
+                    observation.observation_id if temporal_mode == SERP_TEMPORAL_LIVE else None,
+                    None,
+                    None,
+                    _now(),
+                ),
+            )
+
+    def mark_reused(
+        self,
+        observation_id: str,
+        *,
+        source_audit_id: str,
+        source_observation_id: str,
+        captured_at: str,
+        reuse_reason: str,
+        reused_at: str | None = None,
+    ) -> None:
+        """Explicitly classify an already-persisted observation as reused evidence."""
+        reason = str(reuse_reason or "").strip()
+        if not reason:
+            raise ValueError("reused SERP evidence requires reuse_reason")
+        source_audit = str(source_audit_id or "").strip()
+        source_observation = str(source_observation_id or "").strip()
+        if not source_audit or not source_observation:
+            raise ValueError("reused SERP evidence requires source audit and observation ids")
+        row = self.connection.execute(
+            "SELECT 1 FROM serp_observations WHERE observation_id=? AND audit_id=?",
+            (observation_id, self.audit_id),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"SERP observation not found in audit: {observation_id}")
+        with self.connection:
+            self.connection.execute(
+                """INSERT INTO serp_evidence_provenance(
+                    observation_id,audit_id,temporal_mode,captured_at,source_audit_id,
+                    source_observation_id,reused_at,reuse_reason,created_at
+                ) VALUES (?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(observation_id) DO UPDATE SET
+                    temporal_mode=excluded.temporal_mode,captured_at=excluded.captured_at,
+                    source_audit_id=excluded.source_audit_id,source_observation_id=excluded.source_observation_id,
+                    reused_at=excluded.reused_at,reuse_reason=excluded.reuse_reason""",
+                (
+                    observation_id,
+                    self.audit_id,
+                    SERP_TEMPORAL_REUSED,
+                    captured_at,
+                    source_audit,
+                    source_observation,
+                    reused_at or _now(),
+                    reason,
+                    _now(),
+                ),
             )
 
     def observation_count(self) -> int:
