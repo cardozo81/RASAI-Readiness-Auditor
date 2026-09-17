@@ -165,12 +165,64 @@ def _install_catalog_snapshot_search_alignment() -> None:
         workflow.catalog_snapshot = catalog_snapshot
 
 
+def _install_materialized_sidecar_counts() -> None:
+    """A dataset with zero rows is an execution artifact, not a 'source with data'."""
+    from rasai import post_smoke_alignment as alignment
+
+    def sidecar_counts(database: Any) -> dict[str, int]:
+        result: dict[str, int] = {}
+        sidecar = Path(database).parent / "observability.db"
+        if not sidecar.is_file():
+            return result
+        connection = sqlite3.connect(sidecar)
+        connection.row_factory = sqlite3.Row
+        try:
+            if not _table_exists(connection, "datasets"):
+                return result
+            for raw in connection.execute("SELECT * FROM datasets").fetchall():
+                dataset = dict(raw)
+                source = str(dataset.get("source_type") or "")
+                dataset_id = str(dataset.get("dataset_id") or "")
+                candidate_tables = (
+                    ("crux_history",)
+                    if source == "CHROME_UX_REPORT_HISTORY"
+                    else ("web_archive_observations",)
+                    if source == "COMMON_CRAWL_CDX_HISTORY"
+                    else ("behavioral_observations",)
+                    if source == "MICROSOFT_CLARITY_LIVE_INSIGHTS"
+                    else ("search_performance", "index_observations")
+                    if source.startswith("GOOGLE_SEARCH_CONSOLE_")
+                    else ()
+                )
+                count = 0
+                for table in candidate_tables:
+                    if not _table_exists(connection, table):
+                        continue
+                    columns = {
+                        str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")
+                    }
+                    if "dataset_id" not in columns:
+                        continue
+                    row = connection.execute(
+                        f"SELECT COUNT(*) FROM {table} WHERE dataset_id=?", (dataset_id,)
+                    ).fetchone()
+                    count += int(row[0] or 0) if row else 0
+                if count > 0:
+                    result[source] = result.get(source, 0) + count
+        finally:
+            connection.close()
+        return result
+
+    alignment._sidecar_source_counts = sidecar_counts
+
+
 def install() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
     _install_common_crawl_hook()
     _install_catalog_snapshot_search_alignment()
+    _install_materialized_sidecar_counts()
     _INSTALLED = True
 
 
