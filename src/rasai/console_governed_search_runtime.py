@@ -9,22 +9,25 @@ from __future__ import annotations
 
 from pathlib import Path
 import sqlite3
-from typing import Any
+from typing import Any, Sequence
 
 
 _INSTALLED = False
 
 
-def _append_search_args(command: list[str], state: Any) -> list[str]:
-    queries = tuple(
-        getattr(state, "_governed_search_queries", ())
-        or getattr(state, "search_queries", ())
-        or ()
+def _append_search_args(
+    command: list[str],
+    state: Any,
+    *,
+    queries: Sequence[str] | None = None,
+) -> list[str]:
+    effective_queries = tuple(
+        queries if queries is not None else (getattr(state, "search_queries", ()) or ())
     )
-    if not queries:
+    if not effective_queries:
         return command
     output = list(command)
-    for query in queries:
+    for query in effective_queries:
         text = " ".join(str(query).split())
         if text:
             output.extend(("--search-query", text))
@@ -98,16 +101,20 @@ def install(console_module: Any) -> None:
         original_build = console_runtime.build_command
 
         def governed_build(current: Any) -> list[str]:
-            return _append_search_args(list(original_build(current)), current)
+            return _append_search_args(
+                list(original_build(current)),
+                current,
+                queries=queries,
+            )
 
         governed_build._rasai_governed_search = True
         governed_build._rasai_original = original_build
 
         # The inner historical Search wrapper checks search_queries after the subprocess
-        # and would otherwise execute duplicate SERP collection. Keep the terms in a
-        # private execution snapshot for command construction while presenting an empty
-        # tuple to that obsolete post-AUD branch.
-        state._governed_search_queries = queries
+        # and would otherwise execute duplicate SERP collection. Keep the terms in this
+        # execution closure for command construction while presenting an empty tuple to
+        # that obsolete post-AUD branch. Console state classes use slots=True, so runtime
+        # orchestration data must not be attached dynamically to the state object.
         state.search_queries = ()
         console_runtime.build_command = governed_build
         try:
@@ -115,10 +122,6 @@ def install(console_module: Any) -> None:
         finally:
             console_runtime.build_command = original_build
             state.search_queries = queries
-            try:
-                delattr(state, "_governed_search_queries")
-            except AttributeError:
-                pass
         _project_result(state)
         return code
 
