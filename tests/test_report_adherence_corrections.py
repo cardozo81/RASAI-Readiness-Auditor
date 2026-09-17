@@ -115,8 +115,8 @@ def test_duration_only_apdex_is_separate_from_error_forced_classification() -> N
     run = {"satisfied_threshold_seconds": 3.0, "frustrated_threshold_seconds": 12.0}
 
     score, valid, satisfied, tolerating, frustrated = _duration_only_apdex(samples, run)
-    assert score == 1.0
-    assert (valid, satisfied, tolerating, frustrated) == (3, 3, 0, 0)
+    assert score == 5 / 6
+    assert (valid, satisfied, tolerating, frustrated) == (3, 2, 1, 0)
 
 
 def test_final_execution_boundary_runs_catalog_projection_after_inner_result(monkeypatch) -> None:
