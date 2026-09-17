@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 
-AI_CALL_POLICY_VERSION = "AI-CALL-POLICY-004"
+AI_CALL_POLICY_VERSION = "AI-CALL-POLICY-005"
 TOKEN_ECONOMY_INSTRUCTION = (
     "Be concise: do not restate the input evidence, rule text, or schema. "
     "Use the minimum wording needed for evidence-bound reasoning fields and avoid duplicate details."
@@ -169,10 +169,9 @@ def install() -> None:
     from rasai.accepted_report_compat import install as install_accepted_report_compat
     from rasai.accepted_timeout_context import install as install_accepted_timeout_context
     from rasai.ai_orchestration_unification import install_ai_orchestration_unification
-    from rasai.ai_orchestration_unification_cleanup import (
-        install_ai_orchestration_unification_cleanup,
-    )
+    from rasai.ai_orchestration_unification_cleanup import install_ai_orchestration_unification_cleanup
     from rasai.catalog_report_search_trust_runtime import install as install_catalog_report_search_trust_runtime
+    from rasai.context_interpretation_runtime import install as install_context_interpretation_runtime
     from rasai.improvement_exchange_capture import install as install_improvement_exchange_capture
 
     install_ai_orchestration_unification()
@@ -180,10 +179,11 @@ def install() -> None:
     install_accepted_audit_refinements()
     install_accepted_timeout_context()
     install_accepted_report_compat()
-    # Must be installed after accepted report refinements so CAT-05 source-state and
-    # provenance semantics are the final renderer layer on every materialization.
     install_catalog_report_search_trust_runtime()
     install_improvement_exchange_capture()
+    # Install after improvement exchange composition because that module imports the
+    # persistence function by value. The hook patches both canonical and bound references.
+    install_context_interpretation_runtime()
 
     from rasai.completion_recovery_alignment import install as install_completion_recovery_alignment
 
@@ -204,6 +204,7 @@ def strategy_summary() -> dict[str, Any]:
         "semantic_granularity": "ONE_STRUCTURED_CALL_PER_SNAPSHOT_FOR_RULES_AND_COHERENCE",
         "semantic_corpus_gate": "WHOLE_AUDIT_CONTEXT_READY_BEFORE_FIRST_PROVIDER_CALL",
         "property_cross_page_policy": "DETERMINISTIC_AGGREGATION_OF_PERSISTED_PAGE_AI_OUTPUTS",
+        "auto_context_interpretation": "PERSISTED_AS_NON_CANONICAL_AI_INFERENCE_NON_SCORING",
         "origin_resource_repetition": "NONE_BY_DEVICE",
         "report_generation_ai_calls": 0,
         "device_snapshot_deduplication": "NOT_MERGED_WHEN_EVIDENCE_IDENTITIES_DIFFER",
