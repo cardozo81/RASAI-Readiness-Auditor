@@ -1,4 +1,4 @@
-# Escopo implementado — coerência semântica e confiança do report
+# Escopo implementado - coerência semântica e confiança do report
 
 Este documento registra o fechamento do escopo desenvolvido na branch `feature/semantic-property-coherence`.
 
