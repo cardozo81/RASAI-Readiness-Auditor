@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 
-AI_CALL_POLICY_VERSION = "AI-CALL-POLICY-006"
+AI_CALL_POLICY_VERSION = "AI-CALL-POLICY-007"
 TOKEN_ECONOMY_INSTRUCTION = (
     "Be concise: do not restate the input evidence, rule text, or schema. "
     "Use the minimum wording needed for evidence-bound reasoning fields and avoid duplicate details."
@@ -174,17 +174,21 @@ def install() -> None:
     from rasai.catalog_report_search_trust_runtime import install as install_catalog_report_search_trust_runtime
     from rasai.context_interpretation_runtime import install as install_context_interpretation_runtime
     from rasai.improvement_exchange_capture import install as install_improvement_exchange_capture
+    from rasai.request_remediation_intelligence import install as install_request_remediation_intelligence
+    from rasai.request_remediation_report_patch import install as install_request_remediation_report_patch
 
     install_ai_orchestration_unification()
     install_ai_orchestration_unification_cleanup()
     install_accepted_audit_refinements()
     install_accepted_timeout_context()
     install_accepted_report_compat()
+    # Preserve current main's deterministic grouping and CAT-09 report patch before
+    # the final trust renderers/exchange wrappers compose around it.
+    install_request_remediation_intelligence()
+    install_request_remediation_report_patch()
     install_catalog_report_search_trust_runtime()
     install_improvement_exchange_capture()
     install_context_interpretation_runtime()
-    # Must wrap the final provider/deep-analysis owners: a NOT_READY snapshot stops at
-    # this boundary and therefore cannot create an AI attempt or incur provider cost.
     install_ai_dependency_runtime()
 
     from rasai.completion_recovery_alignment import install as install_completion_recovery_alignment
@@ -209,6 +213,7 @@ def strategy_summary() -> dict[str, Any]:
         "auto_context_interpretation": "PERSISTED_AS_NON_CANONICAL_AI_INFERENCE_NON_SCORING",
         "technical_ai_dependency_gate": "TECHNICAL_RESOURCE_EVIDENCE_READY_BEFORE_PROVIDER_CALL",
         "deep_analysis_dependency_gate": "ALL_REQUIRED_FULFILLMENT_AND_EVIDENCE_CONTEXT_READY_BEFORE_PROVIDER_CALL",
+        "request_error_remediation": "DETERMINISTIC_GROUPING_WITH_BOUNDED_NON_SCORING_AI_GUIDANCE",
         "origin_resource_repetition": "NONE_BY_DEVICE",
         "report_generation_ai_calls": 0,
         "device_snapshot_deduplication": "NOT_MERGED_WHEN_EVIDENCE_IDENTITIES_DIFFER",
