@@ -1,15 +1,13 @@
 """Composition bridge moving optional collection out of report finalization.
 
-The existing optional integrations keep their storage, safety and reporting code.  This
-module only changes *when* their collectors execute.  Finalizer wrappers subsequently
-read the already-persisted current-run outcome instead of performing another network
-request.
+Existing collectors keep their public callable contract, persistence, safety and retry
+behavior.  This module only registers them in the governed pre-seal collection phase.
+The report-only boundary is enforced separately by ``governed_analysis_runtime`` so a
+direct collector call outside reporting remains fully functional and testable.
 """
 from __future__ import annotations
 
-import json
-import sqlite3
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 from rasai.audit_phase_runtime import register_collection_hook
 
@@ -24,48 +22,26 @@ def configure_audit_argv(argv: Sequence[str]) -> None:
     _CURRENT_AUDIT_ARGV = tuple(str(item) for item in argv)
 
 
-def _service_row(workspace: Any, audit_id: str, service_id: str) -> dict[str, Any] | None:
-    connection = sqlite3.connect(workspace.database)
-    connection.row_factory = sqlite3.Row
-    try:
-        try:
-            row = connection.execute(
-                "SELECT * FROM standards_service_runs WHERE audit_id=? AND service_id=?",
-                (audit_id, service_id),
-            ).fetchone()
-        except sqlite3.OperationalError:
-            return None
-        if row is None:
-            return None
-        details: dict[str, Any] = {}
-        try:
-            parsed = json.loads(str(row["details_json"] or "{}"))
-            if isinstance(parsed, dict):
-                details = parsed
-        except (TypeError, ValueError, json.JSONDecodeError):
-            pass
-        details.setdefault("service_state", str(row["state"] or "UNKNOWN"))
-        details.setdefault("collection_state", str(row["state"] or "UNKNOWN"))
-        details.setdefault("requested", bool(row["requested"]))
-        details.setdefault("configured", bool(row["configured"]))
-        details.setdefault("effective_enabled", bool(row["effective_enabled"]))
-        details.setdefault("targets_attempted", int(row["targets_attempted"] or 0))
-        details.setdefault("targets_succeeded", int(row["targets_succeeded"] or 0))
-        return details
-    finally:
-        connection.close()
-
-
 def _aggregate(states: Sequence[str]) -> str:
     normalized = tuple(str(value or "UNKNOWN").upper() for value in states)
-    enabled = tuple(value for value in normalized if value not in {"DISABLED", "NOT_CONFIGURED", "NOT_APPLICABLE"})
+    enabled = tuple(
+        value
+        for value in normalized
+        if value not in {"DISABLED", "NOT_CONFIGURED", "NOT_APPLICABLE"}
+    )
     if not enabled:
         return "DISABLED"
-    if all(value in {"SUCCESS", "NO_DATA", "SKIPPED", "SKIPPED_SOURCE_BLOCKER"} for value in enabled):
+    if all(
+        value in {"SUCCESS", "NO_DATA", "SKIPPED", "SKIPPED_SOURCE_BLOCKER"}
+        for value in enabled
+    ):
         return "SUCCESS" if any(value == "SUCCESS" for value in enabled) else "NO_DATA"
     if any(value == "SUCCESS" for value in enabled):
         return "PARTIAL"
-    if all(value in {"ERROR", "FAILED_RETRYABLE", "FAILED_PERMANENT", "BLOCKED"} for value in enabled):
+    if all(
+        value in {"ERROR", "FAILED_RETRYABLE", "FAILED_PERMANENT", "BLOCKED"}
+        for value in enabled
+    ):
         return "ERROR"
     return "PARTIAL"
 
@@ -74,14 +50,13 @@ def _install_gsc() -> None:
     from rasai import standards_gsc_observability_runtime as gsc
 
     original = gsc.collect_configured_search_console
-    if getattr(original, "_rasai_governed_collection", False):
+    if bool(getattr(original, "_rasai_governed_collection", False)):
         return
 
     def collect(*, audit_id: str, workspace: Any, source_blocked: bool = False):
-        if source_blocked:
-            # GSC is a remote property API rather than another target navigation, so a
-            # source blocker does not make the configured property data unsafe to query.
-            pass
+        # GSC is a remote property API rather than target navigation. A source blocker
+        # does not make already-authorized property data unsafe to query.
+        del source_blocked
         result = original(audit_id=audit_id, workspace=workspace)
         return dict(result)
 
@@ -89,28 +64,12 @@ def _install_gsc() -> None:
     collect._rasai_original = original
     register_collection_hook("GOOGLE_SEARCH_CONSOLE", collect, order=40)
 
-    def persisted_only(*, audit_id: str, workspace: Any, env: Mapping[str, str] | None = None):
-        del env
-        return _service_row(workspace, audit_id, "google-search-console") or {
-            "service_state": "NOT_CONFIGURED",
-            "collection_state": "NOT_CONFIGURED",
-            "requested": False,
-            "configured": False,
-            "effective_enabled": False,
-            "operations": [],
-            "errors": [],
-        }
-
-    persisted_only._rasai_governed_projection_only = True
-    persisted_only._rasai_original = original
-    gsc.collect_configured_search_console = persisted_only
-
 
 def _install_external_observability() -> None:
     from rasai import external_observability_runtime as external
 
     original = external.collect_configured_external_observability
-    if getattr(original, "_rasai_governed_collection", False):
+    if bool(getattr(original, "_rasai_governed_collection", False)):
         return
 
     def collect(*, audit_id: str, workspace: Any, source_blocked: bool = False):
@@ -128,27 +87,6 @@ def _install_external_observability() -> None:
     collect._rasai_governed_collection = True
     collect._rasai_original = original
     register_collection_hook("EXTERNAL_OBSERVABILITY", collect, order=50)
-
-    def persisted_only(*, audit_id: str, workspace: Any, env: Mapping[str, str] | None = None):
-        del env
-        outcomes: dict[str, dict[str, Any]] = {}
-        for service_id in ("crux-history", "microsoft-clarity", "common-crawl"):
-            outcomes[service_id] = _service_row(workspace, audit_id, service_id) or {
-                "service_state": "NOT_CONFIGURED",
-                "collection_state": "NOT_CONFIGURED",
-                "requested": False,
-                "configured": False,
-                "effective_enabled": False,
-                "targets_attempted": 0,
-                "targets_succeeded": 0,
-                "datasets": [],
-                "errors": [],
-            }
-        return outcomes
-
-    persisted_only._rasai_governed_projection_only = True
-    persisted_only._rasai_original = original
-    external.collect_configured_external_observability = persisted_only
 
 
 def _m21_config():
@@ -175,9 +113,10 @@ def _install_m21() -> None:
         current_execute = audit_cli.execute_m21
         current_m24 = cli_extensions.execute_m24
 
-        # The CLI extension composes M23 and M24 into the M21 call. During the
-        # collection phase M24 is allowed to persist deterministic/network evidence but
-        # not to cross the provider boundary; its AI-only phase runs after sealing.
+        # The CLI extension composes synthetic measurements and crawling/discovery into
+        # the web-performance call. During collection the technical module may persist
+        # deterministic/network evidence, but its provider boundary is deferred until
+        # after EVIDENCE_SEALED.
         def deterministic_m24(*args: Any, **kwargs: Any):
             kwargs["technical_ai"] = False
             return base_execute_m24(*args, **kwargs)
@@ -190,9 +129,9 @@ def _install_m21() -> None:
 
         _M21_CACHE[audit_id] = result
 
-        # cli.main historically invokes M21 after run_audit returns. Replace only this
-        # in-process second invocation with the already-persisted result. Reporting
-        # enrichment still runs normally and therefore remains a projection step.
+        # cli.main historically invokes the web-performance execution after run_audit
+        # returns. Cache only that in-process second invocation; report enrichment still
+        # reads the already-persisted result and remains projection-only.
         def cached_execute(*args: Any, **kwargs: Any):
             requested_audit = str(kwargs.get("audit_id") or "")
             if requested_audit == audit_id and requested_audit in _M21_CACHE:
