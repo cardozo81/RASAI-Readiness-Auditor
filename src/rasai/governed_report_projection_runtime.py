@@ -1,8 +1,8 @@
 """Read-only report projection for persisted fulfillment state.
 
 The historical fulfillment finalizer mixed two concerns: reconciling/mutating the
-canonical AUD state and projecting that state into ``report/``.  Governed execution
-must finish every durable reconciliation before reporting starts, while report
+canonical AUD state and projecting that state into ``report/``. Governed execution
+finishes every durable reconciliation before reporting starts, while report
 materialization may only read ``audit.db`` and write report artifacts.
 
 This composition keeps the existing public banner/status contract without allowing a
@@ -84,6 +84,20 @@ def project_persisted_fulfillment(*, workspace: Any, audit_id: str):
     return summary
 
 
+def reconcile_before_reporting(*, workspace: Any, audit_id: str):
+    """Persist the canonical fulfillment outcome before the first report renderer."""
+    from rasai import fulfillment_execution_contract as contract
+
+    if report_projection_active():
+        raise RuntimeError(
+            "FULFILLMENT_RECONCILIATION_DURING_REPORT: durable reconciliation must precede reporting"
+        )
+    return contract.reconcile_requested_components(
+        workspace=workspace,
+        audit_id=audit_id,
+    )
+
+
 def _install_projection_reconciliation_guard() -> None:
     from rasai import fulfillment_execution_contract as contract
 
@@ -102,42 +116,31 @@ def _install_projection_reconciliation_guard() -> None:
     contract.reconcile_requested_components = reconcile_requested_components
 
 
-def _install_pre_report_reconciliation() -> None:
-    """Make the final durable fulfillment state part of the AI-close boundary."""
-    from rasai import audit_phase_runtime as phase
-    from rasai import fulfillment_execution_contract as contract
-
-    current = phase.mark_ai_sealed
-    if bool(getattr(current, "_rasai_pre_report_fulfillment", False)):
+def _install_reprocess_boundary() -> None:
+    """Keep RPR durable reconciliation before its renderer and projection-only after it."""
+    try:
+        from rasai import governed_reprocess_runtime as rpr
+    except ImportError:
         return
 
-    def mark_ai_sealed(*args: Any, **kwargs: Any):
-        result = current(*args, **kwargs)
-        audit_id = str(kwargs.get("audit_id") or "")
-        workspace = kwargs.get("workspace")
-        if audit_id and workspace is not None:
-            contract.reconcile_requested_components(
-                workspace=workspace,
-                audit_id=audit_id,
-            )
-        return result
+    current_mark = rpr.mark_ai_sealed
+    if not bool(getattr(current_mark, "_rasai_rpr_pre_report_fulfillment", False)):
+        def mark_and_reconcile(*args: Any, **kwargs: Any):
+            result = current_mark(*args, **kwargs)
+            audit_id = str(kwargs.get("audit_id") or "")
+            workspace = kwargs.get("workspace")
+            if audit_id and workspace is not None:
+                reconcile_before_reporting(workspace=workspace, audit_id=audit_id)
+            return result
 
-    mark_ai_sealed._rasai_pre_report_fulfillment = True
-    mark_ai_sealed._rasai_original = current
-    phase.mark_ai_sealed = mark_ai_sealed
+        mark_and_reconcile._rasai_rpr_pre_report_fulfillment = True
+        mark_and_reconcile._rasai_original = current_mark
+        rpr.mark_ai_sealed = mark_and_reconcile
 
-    # These modules import the phase callable by value. Keep every execution path on
-    # the same boundary rather than allowing CLI and RPR to diverge.
-    try:
-        from rasai import audit_runner
-        audit_runner.mark_ai_sealed = mark_ai_sealed
-    except ImportError:
-        pass
-    try:
-        from rasai import governed_reprocess_runtime
-        governed_reprocess_runtime.mark_ai_sealed = mark_ai_sealed
-    except ImportError:
-        pass
+    # RPR historically recalculated fulfillment again after the renderer. Once the
+    # governed pre-report reconciliation is complete, that late call must be a pure
+    # filesystem projection from the persisted summary.
+    rpr.project_report_validity = project_persisted_fulfillment
 
 
 def install() -> None:
@@ -145,8 +148,12 @@ def install() -> None:
     if _INSTALLED:
         return
     _install_projection_reconciliation_guard()
-    _install_pre_report_reconciliation()
+    _install_reprocess_boundary()
     _INSTALLED = True
 
 
-__all__ = ["install", "project_persisted_fulfillment"]
+__all__ = [
+    "install",
+    "project_persisted_fulfillment",
+    "reconcile_before_reporting",
+]
