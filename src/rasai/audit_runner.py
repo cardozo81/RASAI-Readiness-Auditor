@@ -47,6 +47,7 @@ from rasai.m24_scoring import persist_m24_scoring_assessments
 from rasai.operational_log import try_append_operational_event
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.pre_scoring_rules import execute_pre_scoring_rules
+from rasai.recommendation_governance import evaluate_recommendations
 from rasai.report_site import materialize_report_site
 from rasai.semantic import NoneProvider, SemanticAnalysisProvider
 from rasai.source_quality import (
@@ -534,6 +535,10 @@ def run_audit(
                 persistence=persistence,
                 workspace=workspace,
             )
+            # Recommendation governance is a persisted report-model derivation. It must
+            # be complete before any HTML renderer starts and never mutate audit.db from
+            # catalog/report projection.
+            evaluate_recommendations(workspace.database, audit_id)
             enrich_written_reports(audit_id=audit_id, workspace=workspace)
             report_path = materialize_report_site(
                 audit_id=audit_id,
