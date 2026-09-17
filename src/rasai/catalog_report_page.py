@@ -70,9 +70,13 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     metrics=_catalog_metrics(database,data,catalog_id)
     outline=_outline((("summary","Resumo"),("scope","Escopo"),("config","Configuração"),("execution","Execução"),("results","Resultados"),("evidence","Evidências"),("analysis","Análise"),("remediation","Remediações"),("technical","Detalhes técnicos")))
     summary=_section("summary","Resumo",f"<div class='catalog-state'><div><p>{escape(catalog.purpose)}</p><p class='muted'>{escape(catalog.expected_result)}</p></div>{_badge(status,tone)}</div><div class='metric-grid'>{_metric('Capacidades',len(catalog.capability_ids))}{_metric('Fontes com dados',len(sources))}{_metric('Etapas próprias',len(work))}{_metric('Indicadores principais',len(metrics))}</div>")
-    capabilities=[(_capability_label(c),"Incluída" if catalog_id in data.selected else "Não solicitada") for c in catalog.capability_ids]
+    if _plan_available(data):
+        capability_state="Incluída" if catalog_id in data.selected else "Não solicitada"
+    else:
+        capability_state="Indeterminada — snapshot do plano ausente/inválido"
+    capabilities=[(_capability_label(c),capability_state) for c in catalog.capability_ids]
     scope=_section("scope","Escopo solicitado",_table(("Capacidade","Situação"),capabilities)+f"<div class='notice'>{escape(detail)}</div>")
-    config=_section("config","Configuração efetiva",_table(("Configuração","Valor","Origem"),_configuration_rows(data,catalog_id))+"<p class='muted'>Os valores vêm do plano congelado desta AUD, não da configuração atual da máquina.</p>")
+    config=_section("config","Configuração efetiva",_table(("Configuração","Valor","Origem"),_configuration_rows(data,catalog_id))+"<p class='muted'>Os valores vêm do plano congelado desta AUD, não da configuração atual da máquina. Quando esse snapshot não existe, o relatório declara o estado como indeterminado em vez de inferir “não solicitado”.</p>")
     execution=_section("execution","Execução",_work_execution_html(data,catalog_id)+_execution_context_notice(database,data,catalog_id)+f"<p><strong>Estado funcional do catálogo:</strong> {_badge(status,tone)} {escape(detail)}</p>")
     results=_section("results","Resultados",_catalog_results_html(database,data,catalog_id))
     source_cards="".join(f"<div class='source-item'><strong>{escape(label)}</strong><small>{count} registro(s) persistido(s)</small></div>" for _table_name,label,count in sources)
