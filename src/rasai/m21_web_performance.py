@@ -37,9 +37,9 @@ _TRANSIENT_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504})
 _PAGESPEED_MAX_ATTEMPTS = 2
 
 _CWV_THRESHOLDS = {
-    "largest_contentful_paint": 2500.0,
-    "interaction_to_next_paint": 200.0,
-    "cumulative_layout_shift": 0.1,
+    "largest_contentful_paint": (2500.0, 4000.0),
+    "interaction_to_next_paint": (200.0, 500.0),
+    "cumulative_layout_shift": (0.1, 0.25),
 }
 
 
@@ -109,7 +109,7 @@ class PageSpeedInsightsClient:
         self._api_key = (api_key or "").strip() or None
 
     def run(self, *, url: str, strategy: str, categories: tuple[str, ...], timeout_seconds: float) -> HttpJsonResult:
-        query: list[tuple[str, str]] = [("url", url), ("strategy", strategy), ("locale", "en")]
+        query: list[tuple[str, str]] = [("url", url), ("strategy", strategy), ("locale", "pt-BR")]
         query.extend(("category", category) for category in categories)
         if self._api_key:
             query.append(("key", self._api_key))
@@ -615,8 +615,15 @@ def _assess_cwv(field: dict[str, float | None] | None) -> dict[str, str | None]:
     if not field:
         return {"lcp_assessment": None, "inp_assessment": None, "cls_assessment": None, "cwv_assessment": "UNAVAILABLE"}
 
-    def assess(value: float | None, threshold: float) -> str | None:
-        return None if value is None else "GOOD" if value <= threshold else "NEEDS_IMPROVEMENT_OR_POOR"
+    def assess(value: float | None, thresholds: tuple[float, float]) -> str | None:
+        if value is None:
+            return None
+        good_max, needs_improvement_max = thresholds
+        if value <= good_max:
+            return "GOOD"
+        if value <= needs_improvement_max:
+            return "NEEDS_IMPROVEMENT"
+        return "POOR"
 
     lcp = assess(field.get("lcp_p75_ms"), _CWV_THRESHOLDS["largest_contentful_paint"])
     inp = assess(field.get("inp_p75_ms"), _CWV_THRESHOLDS["interaction_to_next_paint"])
