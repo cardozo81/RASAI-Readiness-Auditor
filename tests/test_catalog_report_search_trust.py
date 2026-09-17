@@ -95,7 +95,7 @@ def test_common_crawl_errors_without_rows_are_visible_in_state(tmp_path: Path) -
             """
         )
         obs.execute(
-            "INSERT INTO datasets VALUES (?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO datasets VALUES (?,?,?,?,?,?,?,?,?)",
             (
                 "OBS-CC",
                 "COMMON_CRAWL_CDX_HISTORY",
