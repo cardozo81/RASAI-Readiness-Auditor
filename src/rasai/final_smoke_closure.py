@@ -238,6 +238,34 @@ def _install_common_crawl_final_binding() -> None:
     phase.register_deterministic_hook("COMMON_CRAWL_CORROBORATION", materialize, order=90)
 
 
+
+def _deduplicate_request_remediation_events(events: Any) -> list[dict[str, Any]]:
+    """Remove only derived request symptoms when the same sample/resource has CORS."""
+    normalized = [dict(item) for item in events]
+    cors_keys = {
+        (
+            str(item.get("sample_key") or ""),
+            str(item.get("normalized_url") or item.get("source_url") or ""),
+        )
+        for item in normalized
+        if str(item.get("family") or "").upper() == "CORS"
+    }
+    filtered: list[dict[str, Any]] = []
+    for item in normalized:
+        key = (
+            str(item.get("sample_key") or ""),
+            str(item.get("normalized_url") or item.get("source_url") or ""),
+        )
+        is_request_symptom = (
+            str(item.get("error_type") or "").upper() == "REQUEST_FAILED"
+            and str(item.get("family") or "").upper() in {"REQUEST_OTHER", "CONSOLE_RUNTIME"}
+        )
+        if is_request_symptom and key in cors_keys:
+            continue
+        filtered.append(item)
+    return filtered
+
+
 def _install_request_remediation_dedup() -> None:
     """Keep raw events, but do not count a CORS cause and its request symptom twice."""
     from rasai import request_remediation_intelligence as request
@@ -247,28 +275,7 @@ def _install_request_remediation_dedup() -> None:
         return
 
     def grouped(events: Any, sample_universe: Any, *, audit_id: str = ""):
-        normalized = [dict(item) for item in events]
-        cors_keys = {
-            (
-                str(item.get("sample_key") or ""),
-                str(item.get("normalized_url") or item.get("source_url") or ""),
-            )
-            for item in normalized
-            if str(item.get("family") or "").upper() == "CORS"
-        }
-        filtered = []
-        for item in normalized:
-            key = (
-                str(item.get("sample_key") or ""),
-                str(item.get("normalized_url") or item.get("source_url") or ""),
-            )
-            is_request_symptom = (
-                str(item.get("error_type") or "").upper() == "REQUEST_FAILED"
-                and str(item.get("family") or "").upper() in {"REQUEST_OTHER", "CONSOLE_RUNTIME"}
-            )
-            if is_request_symptom and key in cors_keys:
-                continue
-            filtered.append(item)
+        filtered = _deduplicate_request_remediation_events(events)
         return current(filtered, sample_universe, audit_id=audit_id)
 
     grouped._rasai_final_smoke_dedup = True
