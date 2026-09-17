@@ -47,6 +47,7 @@ from rasai.governed_analysis_runtime import (
     install_post as install_governed_analysis_post,
     install_pre as install_governed_analysis_pre,
 )
+from rasai.governed_report_projection_runtime import install as install_governed_report_projection
 from rasai.gsc_oauth_console import install as install_gsc_oauth_console
 from rasai.gsc_oauth_runtime import install as install_gsc_oauth_runtime
 from rasai.gsc_scope_runtime import install as install_gsc_scope_runtime
@@ -182,6 +183,7 @@ def main() -> int:
     install_console_detail_presentation()
     install_ai_execution_configuration(interactive_console)
     install_governed_analysis_post()
+    install_governed_report_projection()
     return interactive_console.main()
 
 
