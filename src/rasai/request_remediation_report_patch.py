@@ -5,7 +5,6 @@ consolidated remediation per deterministic group, with individual events only on
 """
 from __future__ import annotations
 
-from html import escape
 from typing import Any, Sequence
 
 _INSTALLED = False
@@ -104,8 +103,11 @@ def install() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
+    from rasai.request_remediation_telemetry_patch import install as install_telemetry
+
     _patch_cat07()
     _patch_cat09()
+    install_telemetry()
     _INSTALLED = True
 
 
