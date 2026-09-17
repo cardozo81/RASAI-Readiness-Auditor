@@ -84,7 +84,7 @@ Exemplos de impacto observado:
 - evento proveniente do CAT-06: navegação sintética observada;
 - amostra marcada por política de erro como `error_forced_frustrated`: impacto observado no Apdex de experiência.
 
-Riscos potenciais — como Performance, Funcionalidade ou Confiabilidade — são derivados da família técnica e aparecem explicitamente como potenciais. A IA não pode promovê-los a fatos observados.
+Riscos potenciais - como Performance, Funcionalidade ou Confiabilidade - são derivados da família técnica e aparecem explicitamente como potenciais. A IA não pode promovê-los a fatos observados.
 
 ## Papel da IA
 
