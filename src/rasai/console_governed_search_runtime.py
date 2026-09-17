@@ -54,7 +54,8 @@ def _project_result(state: Any) -> None:
     try:
         try:
             row = connection.execute(
-                """SELECT status,result_ref,error_message FROM audit_fulfillment_work_items
+                """SELECT status,effective_result_ref,last_error_message
+                   FROM audit_fulfillment_work_items
                    WHERE audit_id=? AND component='SEARCH_INTELLIGENCE'
                    ORDER BY updated_at DESC,rowid DESC LIMIT 1""",
                 (audit_id,),
@@ -68,8 +69,8 @@ def _project_result(state: Any) -> None:
         return
     status = str(row["status"] or "UNKNOWN").upper()
     state.search_last_status = "COMPLETE" if status == "SUCCESS" else "COMPLETE_WITH_LIMITATIONS"
-    state.search_last_detail = str(row["error_message"] or "")
-    result_ref = str(row["result_ref"] or "")
+    state.search_last_detail = str(row["last_error_message"] or "")
+    result_ref = str(row["effective_result_ref"] or "")
     if result_ref:
         state.search_last_report = str(root / result_ref)
     elif (root / "report" / "search-intelligence.html").is_file():
@@ -92,10 +93,6 @@ def install(console_module: Any) -> None:
         if not queries:
             return int(original_run(state) or 0)
 
-        # The inner historical Search wrapper checks search_queries after the subprocess
-        # and would otherwise execute a duplicate SERP collection.  Keep the values in a
-        # private execution snapshot for build_command while presenting an empty tuple to
-        # that obsolete post-AUD branch.
         state._governed_search_queries = queries
         state.search_queries = ()
         try:
