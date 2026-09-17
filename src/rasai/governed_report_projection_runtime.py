@@ -209,8 +209,10 @@ def install() -> None:
     # already composed before we add selective stale invalidation and M24 continuation.
     from rasai.governed_fulfillment_invalidation import install as install_stale_invalidation
     from rasai.m24_partial_runtime import install as install_m24_partial
+    from rasai.m24_reprocess_compat import install as install_m24_reprocess_compat
 
     install_stale_invalidation()
+    install_m24_reprocess_compat()
     install_m24_partial()
     _install_projection_reconciliation_guard()
     _remove_early_ai_seal_sync()
