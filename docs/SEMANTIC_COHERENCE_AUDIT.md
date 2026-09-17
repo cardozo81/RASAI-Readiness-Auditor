@@ -68,10 +68,10 @@ A primeira chamada semântica de IA só é elegível depois de o corpus inteiro 
 Ordem normativa:
 
 ```text
-M2 descoberta/coleta
-  -> M3 renderização e snapshots
-  -> M4 extração/evidências
-  -> M5/M6 contexto técnico aplicável
+descoberta e coleta
+  -> renderização e snapshots
+  -> extração e evidências
+  -> contexto técnico aplicável
   -> extração de conteúdo
   -> congelamento do contexto editorial + perfil da propriedade
   -> semantic_corpus_manifests = READY
