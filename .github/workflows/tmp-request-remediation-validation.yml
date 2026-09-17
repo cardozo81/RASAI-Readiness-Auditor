@@ -20,7 +20,7 @@ jobs:
         run: >-
           python -m py_compile
           src/rasai/request_remediation_intelligence.py
-          src/rasai/request_remediation_persistence_fix.py
+          src/rasai/request_remediation_runtime.py
           src/rasai/request_remediation_report_patch.py
           src/rasai/request_remediation_telemetry_patch.py
           src/rasai/ai_efficiency_policy.py
