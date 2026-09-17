@@ -7,9 +7,11 @@ import sqlite3
 from rasai.request_remediation_intelligence import (
     _validate_solutions,
     collect_request_error_evidence,
-    group_request_error_evidence,
 )
-from rasai.request_remediation_persistence_fix import persist_request_remediation_groups
+from rasai.request_remediation_runtime import (
+    group_request_error_evidence,
+    persist_request_remediation_groups,
+)
 
 
 def _database(path: Path) -> Path:
@@ -90,6 +92,8 @@ def test_groups_requests_by_solution_family_and_preserves_sources(tmp_path: Path
     assert not_found["problem_count"] == 2
     assert not_found["occurrence_count"] == 3
     assert not_found["affected_sample_count"] == 2
+    assert not_found["total_sample_count"] == 3
+    assert round(not_found["recurrence_ratio"], 4) == 0.6667
     assert not_found["source_catalogs"] == ["CAT-07"]
     assert not_found["observed_impacts"] == ["Apdex de experiência", "Experiência sintética"]
     assert not_found["resource_urls"] == [
@@ -100,6 +104,7 @@ def test_groups_requests_by_solution_family_and_preserves_sources(tmp_path: Path
     javascript = next(group for group in groups if group["family"] == "JAVASCRIPT_RUNTIME")
     assert javascript["occurrence_count"] == 2
     assert javascript["source_catalogs"] == ["CAT-06", "CAT-07"]
+    assert javascript["total_sample_count"] == 4
 
 
 def test_persists_grouped_evidence_without_duplicating_ai_facts(tmp_path: Path) -> None:
