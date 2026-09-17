@@ -222,7 +222,12 @@ def test_selective_invalidation_stales_only_changed_dependency_slice(tmp_path) -
 
 
 def test_audit_runner_keeps_ai_before_final_business_derivations() -> None:
-    source = inspect.getsource(audit_runner.run_audit)
+    target = audit_runner.run_audit
+    seen: set[int] = set()
+    while callable(getattr(target, "_rasai_original", None)) and id(target) not in seen:
+        seen.add(id(target))
+        target = target._rasai_original
+    source = inspect.getsource(target)
 
     assert source.index("run_collection_phase(") < source.index("seal_collection_evidence(")
     assert source.index("seal_collection_evidence(") < source.index("execute_m7(")

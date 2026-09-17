@@ -103,7 +103,7 @@ O fingerprint é determinístico sobre o conjunto persistido usado no seal. Repe
 
 ## Tarefas e rounds de IA
 
-`ai_tasks` e `ai_request_rounds` complementam — não substituem — os registros globais de provider, request/response, tokens, custo e fallback.
+`ai_tasks` e `ai_request_rounds` complementam - não substituem - os registros globais de provider, request/response, tokens, custo e fallback.
 
 Uma tarefa pode registrar:
 

@@ -35,7 +35,7 @@ def test_active_worker_can_extend_its_execution_lease(tmp_path) -> None:
             property_id=prop.property_id,
             environment_id=environment.environment_id,
             job_type="AUDIT",
-            payload={"target": "https://lease.example.test"},
+            payload={"ai_provider": "none"},
             requested_by=user.user_id,
         )
         claimed = store.claim_execution_job("worker-a", lease_seconds=30)
@@ -66,6 +66,7 @@ def test_lease_renewal_rejects_wrong_worker_or_terminal_job(tmp_path) -> None:
             property_id=prop.property_id,
             environment_id=environment.environment_id,
             job_type="AUDIT",
+            payload={"ai_provider": "none"},
             requested_by=user.user_id,
         )
         claimed = store.claim_execution_job("worker-a", lease_seconds=30)
