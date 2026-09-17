@@ -11,6 +11,7 @@ import uuid
 from typing import Any
 
 from rasai.catalog_report_integrations import *  # noqa: F401,F403
+from rasai.search_intelligence.freshness import require_valid_serp_freshness
 
 
 def _methodology_body(data: _ReportData) -> str:
@@ -92,7 +93,6 @@ def _snapshot_sqlite_database(source: Path, destination: Path) -> None:
     finally:
         target_connection.close()
         source_connection.close()
-    # A backup database is standalone and must not require sidecar WAL/SHM files.
     if not destination.is_file() or destination.stat().st_size<=0:
         raise RuntimeError("catalog report SQLite snapshot was not materialized")
 
@@ -195,6 +195,9 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
     root=Path(workspace.root)
     report_dir=root/CATALOG_REPORT_DIR
     database=Path(workspace.database)
+    # Freshness is a publication invariant. A stale observation may be used only when
+    # explicitly persisted as REUSED_EVIDENCE with source/reason provenance.
+    require_valid_serp_freshness(database,audit_id)
     token=uuid.uuid4().hex
     staging=root/f".{CATALOG_REPORT_DIR}.tmp-{token}"
     quarantine=root/f".{CATALOG_REPORT_DIR}.stale-{token}"
@@ -251,7 +254,7 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             "freshness":"FINAL",
             "catalog_report_dir":CATALOG_REPORT_DIR,
             "pages":[{"id":p.id,"filename":p.filename,"label":p.label,"catalog_id":p.catalog_id} for p in CATALOG_REPORT_PAGES],
-            "principles":{"read_only":True,"modal_scope":"contextual-atomic","human_labels":True,"cross_catalog_reference_not_duplication":True,"self_verifiable_package":True},
+            "principles":{"read_only":True,"modal_scope":"contextual-atomic","human_labels":True,"cross_catalog_reference_not_duplication":True,"self_verifiable_package":True,"serp_freshness_guard":True},
         }
         (staging/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n",encoding="utf-8",newline="\n")
 
