@@ -116,6 +116,29 @@ def _install_projection_reconciliation_guard() -> None:
     contract.reconcile_requested_components = reconcile_requested_components
 
 
+def _install_audit_pre_report_boundary() -> None:
+    """Run durable fulfillment reconciliation after final derivations, before M11."""
+    try:
+        from rasai import audit_runner
+    except ImportError:
+        return
+
+    current = audit_runner.execute_m11
+    if bool(getattr(current, "_rasai_pre_report_fulfillment", False)):
+        return
+
+    def execute_m11_after_fulfillment(*args: Any, **kwargs: Any):
+        audit_id = str(kwargs.get("audit_id") or "")
+        workspace = kwargs.get("workspace")
+        if audit_id and workspace is not None:
+            reconcile_before_reporting(workspace=workspace, audit_id=audit_id)
+        return current(*args, **kwargs)
+
+    execute_m11_after_fulfillment._rasai_pre_report_fulfillment = True
+    execute_m11_after_fulfillment._rasai_original = current
+    audit_runner.execute_m11 = execute_m11_after_fulfillment
+
+
 def _install_reprocess_boundary() -> None:
     """Keep RPR durable reconciliation before its renderer and projection-only after it."""
     try:
@@ -148,6 +171,7 @@ def install() -> None:
     if _INSTALLED:
         return
     _install_projection_reconciliation_guard()
+    _install_audit_pre_report_boundary()
     _install_reprocess_boundary()
     _INSTALLED = True
 
