@@ -203,6 +203,15 @@ def install() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
+
+    # These adapters are execution governance, not report features. Installing them at
+    # this late bootstrap point guarantees that all legacy RPR/fulfillment wrappers are
+    # already composed before we add selective stale invalidation and M24 continuation.
+    from rasai.governed_fulfillment_invalidation import install as install_stale_invalidation
+    from rasai.m24_partial_runtime import install as install_m24_partial
+
+    install_stale_invalidation()
+    install_m24_partial()
     _install_projection_reconciliation_guard()
     _remove_early_ai_seal_sync()
     _install_audit_pre_report_boundary()
