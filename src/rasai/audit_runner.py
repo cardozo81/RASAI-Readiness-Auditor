@@ -1,4 +1,4 @@
-"""End-to-end audit orchestration for the stable local baseline."""
+"""End-to-end audit orchestration for the governed RASAi pipeline."""
 
 from __future__ import annotations
 
@@ -9,6 +9,12 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from rasai import __version__
+from rasai.audit_phase_runtime import (
+    mark_ai_sealed,
+    run_collection_phase,
+    run_registered_ai_phase,
+    seal_collection_evidence,
+)
 from rasai.content_extractability import execute_content_extractability
 from rasai.domain import (
     Audit,
@@ -35,7 +41,8 @@ from rasai.m18_persistence import persist_provider_runtime
 from rasai.m18_reporting import enrich_written_reports
 from rasai.m20 import execute_m20
 from rasai.m20_reporting import enrich_m20_report_site
-from rasai.m24_crawling_discovery import execute_m24
+from rasai.m24_crawling_discovery import execute_m24, load_m24_result
+from rasai.m24_governed_ai import execute_m24_ai_phase
 from rasai.m24_scoring import persist_m24_scoring_assessments
 from rasai.operational_log import try_append_operational_event
 from rasai.persistence import AuditPersistence, AuditWorkspace
@@ -81,16 +88,13 @@ def run_audit(
     renderer: Any | None = None,
     lazy_probe: Any | None = None,
 ) -> AuditRunResult:
-    """Execute the approved pipeline and leave a reopenable local audit workspace.
+    """Execute one governed audit and leave a reopenable local workspace.
 
-    ``target`` may be one URL/domain or an explicit sequence of URLs. A
-    sequence always means URL_SET, even when normalization/deduplication leaves
-    a single unique URL. This prevents an explicit set from silently falling
-    back to ordinary crawl-expansion behavior.
-
-    ``content_remediation`` enables M20 exact-text suggestions. It is OFF by
-    default. M20 always materializes deterministic JSON-LD guidance, even when
-    AI remediation is disabled, and never changes score/findings.
+    AI is never used as a collector.  All registered external observations reach a
+    terminal state, M24 deterministic/network facts are materialized, and an immutable
+    evidence version is sealed before the first governed provider boundary.  Existing
+    provider routing/retry/fallback/cost telemetry remains unchanged inside each AI
+    consumer.
     """
 
     explicit_url_set = not isinstance(target, str)
@@ -144,6 +148,8 @@ def run_audit(
         "static_report_site",
         "jsonld_remediation_guidance",
         "source_quality_fail_fast",
+        "governed_evidence_sealing",
+        "dynamic_ai_tasks",
     ]
     if content_remediation:
         capabilities.append("optional_ai_content_remediation")
@@ -193,6 +199,9 @@ def run_audit(
             )
 
         try:
+            # ------------------------------------------------------------------
+            # CORE COLLECTION / EXTRACTION
+            # ------------------------------------------------------------------
             m2 = execute_m2(
                 audit,
                 audit_target,
@@ -208,10 +217,6 @@ def run_audit(
             browser_reconciliation = None
 
             if preflight_source_blocked:
-                # M2 is intentionally crawler-like and can receive a different CDN/WAF/
-                # redirect route than a real browser. Record the strong preflight signal,
-                # but do not call it a definitive SOURCE_BLOCKED until the single normal
-                # M3 Chromium navigation confirms the same technical blocker.
                 try_append_operational_event(
                     workspace,
                     "SOURCE_QUALITY_PREFLIGHT_BLOCKER",
@@ -223,9 +228,8 @@ def run_audit(
                     downstream_policy="VERIFY_ONCE_WITH_CHROMIUM_BEFORE_FAIL_FAST",
                 )
 
-            # Always allow the normal M3 Chromium pass to execute once. This is not an
-            # extra retry: M3 needs that navigation for every successful audit anyway.
-            # If it also fails, downstream repeated/external measurements are still cut.
+            # One normal Chromium pass is still required to distinguish a crawler-like
+            # acquisition block from an actual browser-visible source block.
             m3 = execute_m3(m2, persistence, workspace, renderer=renderer)
 
             if preflight_source_blocked:
@@ -294,6 +298,7 @@ def run_audit(
                     else False
                 ),
             )
+
             m4 = execute_m4(m3, persistence, workspace)
             m5 = execute_m5(audit, audit_target, m2, m3, m4, persistence, workspace)
             m6 = execute_m6(
@@ -313,13 +318,66 @@ def run_audit(
                 workspace=workspace,
             )
 
+            # ------------------------------------------------------------------
+            # EXTERNAL COLLECTION.  Runtime-installed collectors (M21/M23, GSC,
+            # CrUX history, Clarity, Common Crawl, etc.) must terminate here.
+            # ------------------------------------------------------------------
+            collection_states, collection_details = run_collection_phase(
+                audit_id=audit_id,
+                workspace=workspace,
+                source_blocked=source_blocked,
+            )
+
+            # Deterministic comparison is independent from semantic AI and therefore
+            # belongs to the pre-seal analytical context.
+            _set_status(persistence, audit_id, AuditStatus.COMPARING)
+            m8 = execute_m8(
+                audit_id=audit_id,
+                m3_result=m3,
+                persistence=persistence,
+                workspace=workspace,
+            )
+
+            # M24 owns one additional bounded network observation (llms.txt).  Run only
+            # its deterministic side before sealing.  cli_extensions may already have
+            # materialized this while composing M21/M23; in that case reuse it.
+            m24_collected = load_m24_result(audit_id=audit_id, workspace=workspace)
+            if m24_collected is None:
+                m24_collected = execute_m24(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    technical_ai=False,
+                    semantic_provider=None,
+                    allow_network=not source_blocked,
+                )
+            collection_states["CRAWLING_DISCOVERY"] = m24_collected.status
+            collection_details["CRAWLING_DISCOVERY"] = {
+                "status": m24_collected.status,
+                "llms_state": m24_collected.llms_state,
+                "diagnostics": m24_collected.diagnostics_count,
+                "ai_deferred": technical_remediation,
+            }
+
+            evidence_snapshot = seal_collection_evidence(
+                audit_id=audit_id,
+                workspace=workspace,
+                collection_states=collection_states,
+                collection_details=collection_details,
+            )
+
             configured_provider = semantic_provider or NoneProvider()
             analysis_provider = NoneProvider() if source_blocked else configured_provider
+            try_append_operational_event(
+                workspace,
+                "AI_PHASE_STARTED",
+                audit_id=audit_id,
+                evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
+                evidence_fingerprint=evidence_snapshot.fingerprint,
+            )
 
-            # A definitive blocker receives only the evidence-bound infrastructure AI
-            # explanation. A browser-recovered divergence may also receive that one
-            # explanation, but normal semantic analysis remains enabled because Chromium
-            # produced trustworthy page content.
+            # ------------------------------------------------------------------
+            # GOVERNED AI ANALYSIS.  Every call below happens after EVIDENCE_SEALED.
+            # ------------------------------------------------------------------
             explain_source_quality = source_blocked or (
                 browser_reconciliation is not None and browser_reconciliation.recovered_any
             )
@@ -339,6 +397,7 @@ def run_audit(
                         provider=ai_diagnosis.provider,
                         model=ai_diagnosis.model,
                         reason=ai_diagnosis.reason,
+                        evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
                     )
                 except Exception as exc:
                     try_append_operational_event(
@@ -373,22 +432,14 @@ def run_audit(
                 provider_class=type(configured_provider).__name__,
                 audit_mode=m7.audit_mode.value,
                 source_quality_diagnostic_only=source_blocked,
+                evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
             )
 
-            _set_status(persistence, audit_id, AuditStatus.COMPARING)
-            m8 = execute_m8(
-                audit_id=audit_id,
-                m3_result=m3,
-                persistence=persistence,
-                workspace=workspace,
-            )
-
-            m24 = execute_m24(
+            m24 = execute_m24_ai_phase(
                 audit_id=audit_id,
                 workspace=workspace,
-                technical_ai=technical_remediation,
-                semantic_provider=configured_provider,
-                allow_network=not source_blocked,
+                provider=configured_provider,
+                enabled=(technical_remediation and not source_blocked),
             )
             m24_scoring = persist_m24_scoring_assessments(
                 audit_id=audit_id,
@@ -398,6 +449,7 @@ def run_audit(
                 model=m24.ai_model,
                 assessments=m24.ai_assessments,
             )
+
             findings_before_integrity = _unique(
                 m5.finding_ids,
                 m6.finding_ids,
@@ -406,6 +458,33 @@ def run_audit(
                 m8.finding_ids,
                 m24_scoring.finding_ids,
             )
+
+            # M20 is advisory/non-scoring, but it is still provider work. Keep it in
+            # the same governed AI window so no provider boundary remains after AI_SEALED.
+            execute_m20(
+                audit_id=audit_id,
+                enabled=(content_remediation and not source_blocked),
+                semantic_provider=analysis_provider,
+                workspace=workspace,
+            )
+
+            registered_ai_outcomes = run_registered_ai_phase(
+                audit_id=audit_id,
+                workspace=workspace,
+                evidence_snapshot=evidence_snapshot,
+            )
+            mark_ai_sealed(
+                audit_id=audit_id,
+                workspace=workspace,
+                evidence_snapshot=evidence_snapshot,
+                outcomes=registered_ai_outcomes,
+            )
+
+            # ------------------------------------------------------------------
+            # FINAL BUSINESS DERIVATIONS. No provider/collector work is allowed here.
+            # Integrity rules validate the complete AI-derived finding set before score
+            # and recommendations are materialized.
+            # ------------------------------------------------------------------
             pre_scoring = execute_pre_scoring_rules(
                 audit_id=audit_id,
                 m2_result=m2,
@@ -446,17 +525,9 @@ def run_audit(
                 workspace=workspace,
             )
 
-            # M20 is strictly downstream of findings/scoring. It can only create
-            # auxiliary suggestions and telemetry; it cannot mutate evaluated
-            # entities or retroactively alter the audit result. A definitive source
-            # blocker disables exact-text remediation because no trustworthy corpus exists.
-            execute_m20(
-                audit_id=audit_id,
-                enabled=(content_remediation and not source_blocked),
-                semantic_provider=analysis_provider,
-                workspace=workspace,
-            )
-
+            # ------------------------------------------------------------------
+            # REPORT PROJECTION ONLY.  Network/AI work must not originate below here.
+            # ------------------------------------------------------------------
             _set_status(persistence, audit_id, AuditStatus.REPORTING)
             m11 = execute_m11(
                 audit_id=audit_id,
@@ -495,6 +566,7 @@ def run_audit(
                 findings=len(all_finding_ids),
                 recommendations=len(m10.recommendation_ids),
                 source_quality_blocked=source_blocked,
+                evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
             )
 
             return AuditRunResult(
