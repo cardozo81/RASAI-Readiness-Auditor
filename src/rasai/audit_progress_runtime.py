@@ -8,7 +8,8 @@ show the operation actually in flight.
 Provider-bearing analysis is guarded by persisted/observed upstream evidence: normal
 browser rendering must have completed before semantic AI, deterministic extraction
 must be complete before semantic analysis, context comparison must precede optional
-technical AI, and scoring must precede optional content-remediation AI.
+technical AI, and semantic/context evidence must precede optional content-remediation
+AI.
 """
 from __future__ import annotations
 
@@ -241,7 +242,7 @@ def _content_ai_ready(_args: tuple[Any, ...], kwargs: dict[str, Any], audit_id: 
         audit_id=audit_id,
         workspace=workspace,
         operation="CONTENT_REMEDIATION_AI",
-        required_flags=("SCORING", "RECOMMENDATION_BUILD"),
+        required_flags=("SEMANTIC_ANALYSIS", "CONTEXT_COMPARISON"),
     )
 
 
@@ -431,12 +432,12 @@ def install() -> None:
     )
     runner.execute_m20 = _wrap_step(
         runner.execute_m20,
-        phase="RECOMMENDING",
+        phase="ANALYZING",
         step_key="CONTENT_REMEDIATION",
-        step_index=3,
-        step_total=3,
+        step_index=5,
+        step_total=5,
         operation="API_OR_LOCAL:CONTENT_REMEDIATION",
-        detail="gerando sugestões de conteúdo somente após score e priorização",
+        detail="gerando sugestões de conteúdo somente com findings e evidências semânticas/contextuais já persistidos",
         completed_flag="CONTENT_REMEDIATION",
         readiness=_content_ai_ready,
     )
