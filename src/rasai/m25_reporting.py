@@ -231,8 +231,7 @@ def _measurement_contract_context(configuration: dict[str, Any]) -> dict[str, st
     contract = raw if isinstance(raw, dict) else {}
     duration = str(contract.get("user_action_duration") or "")
     settle_role = str(contract.get("settle_role") or "")
-    runtime_errors = str(contract.get("runtime_errors") or "")
-    request_scope = str(contract.get("request_error_scope") or configuration.get("error_scope") or "")
+    request_scope = str(contract.get("request_error_scope") or configuration.get("error_scope") or "").strip().casefold()
 
     duration_note = (
         "USER_ACTION_DURATION vai de navigationStart até loadEventEnd; XHR/fetch iniciado antes do loadEventEnd "
@@ -245,18 +244,21 @@ def _measurement_contract_context(configuration: dict[str, Any]) -> dict[str, st
         if settle_role == "observation_only_not_duration_extension"
         else "A janela pós-load é observacional e não deve ampliar a duração apenas por atividade tardia arbitrária."
     )
-    runtime_note = (
-        "Com errors_affect_apdex=true, erros JavaScript e console.error são erros de runtime qualificáveis nos "
-        "escopos first-party e all; o escopo navigation permanece restrito à navegação."
-        if runtime_errors == "javascript_and_console_errors_global_when_error_policy_is_enabled"
-        else "Erros JavaScript e console.error seguem a política de erro vigente da execução."
-    )
-    request_note = (
-        f"Request failures e HTTP ≥400 seguem o escopo configurado ({request_scope}); APPLICATION_ERROR da "
-        "navegação permanece qualificável independentemente desse filtro."
-        if request_scope
-        else "Request failures e HTTP ≥400 seguem o escopo de erro configurado na execução."
-    )
+    if request_scope == "first-party":
+        runtime_note = (
+            "Erros JavaScript e de console sem atribuição confiável à origem própria permanecem diagnósticos; "
+            "eles não forçam a classificação Frustrada no escopo first-party."
+        )
+        request_note = (
+            "Falhas de requisição e respostas HTTP ≥ 400 qualificam a ação somente quando pertencem a recursos próprios. "
+            "Erro HTTP da navegação principal continua qualificável como erro da aplicação."
+        )
+    elif request_scope == "navigation":
+        runtime_note = "Erros JavaScript, de console e de sub-requisições permanecem diagnósticos no escopo de navegação."
+        request_note = "Somente erro da navegação principal qualifica a ação por erro neste escopo."
+    else:
+        runtime_note = "Erros JavaScript e de console observados podem qualificar a ação como Frustrada no escopo amplo."
+        request_note = "Falhas de requisição e respostas HTTP ≥ 400 observadas podem qualificar a ação no escopo amplo."
     return {
         "duration": duration_note,
         "settle": settle_note,
@@ -289,19 +291,22 @@ def _contract_row(label: str, value: Any) -> str:
 
 def _error_policy_note(run: sqlite3.Row) -> str:
     if not bool(run["errors_affect_apdex"]):
-        return "Erros observados são diagnósticos e não forçam FRUSTRATED nesta execução."
-    scope = str(run["error_scope"])
+        return "Erros observados permanecem diagnósticos e não forçam classificação Frustrada nesta execução."
+    scope = str(run["error_scope"]).strip().casefold()
     if scope == "navigation":
         return (
-            "Somente falhas/status da navegação qualificam a ação por erro; JavaScript, console.error e erros de "
-            "subrequests permanecem diagnósticos."
+            "Somente falhas ou estado de erro da navegação qualificam a ação por erro; erros JavaScript, erros de "
+            "console e falhas de sub-requisições permanecem diagnósticos."
         )
     if scope == "first-party":
         return (
-            "Erros JavaScript e console.error são qualificáveis; request failures/HTTP ≥400 só qualificam quando "
-            "first-party."
+            "Somente falhas de requisição ou respostas HTTP com erro atribuídas a recursos próprios podem forçar "
+            "classificação Frustrada. Erros JavaScript e de console sem origem própria confiável permanecem diagnósticos."
         )
-    return "Erros JavaScript, console.error e request/HTTP errors observados são qualificáveis."
+    return (
+        "Erros JavaScript, erros de console, falhas de requisição e respostas HTTP com erro observados podem "
+        "forçar classificação Frustrada."
+    )
 
 
 def _settings_table(run: sqlite3.Row, configuration: dict[str, Any], metadata: dict[str, Any]) -> str:
