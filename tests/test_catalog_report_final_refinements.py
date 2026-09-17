@@ -20,7 +20,12 @@ from rasai.catalog_report_final_refinements import (
     _web_metric_rows,
 )
 from rasai.catalog_report_label_refinements import install_catalog_human_labels
-from rasai.catalog_report_site import _source_fingerprint, catalog_report_is_fresh, materialize_catalog_report_site
+from rasai.catalog_report_site import (
+    _sha256_file,
+    _source_fingerprint,
+    catalog_report_is_fresh,
+    materialize_catalog_report_site,
+)
 
 
 def test_lighthouse_one_is_one_out_of_100_not_100(tmp_path: Path) -> None:
@@ -102,17 +107,48 @@ def test_catalog_freshness_fails_after_source_database_changes(tmp_path: Path) -
     root = tmp_path / "AUD"
     root.mkdir()
     database = root / "audit.db"
-    database.write_bytes(b"source-v1")
+    con = sqlite3.connect(database)
+    try:
+        con.execute("CREATE TABLE marker(value TEXT)")
+        con.execute("INSERT INTO marker VALUES ('source-v1')")
+        con.commit()
+    finally:
+        con.close()
+
     report = root / "report-catalog"
-    report.mkdir()
+    integrity = report / "integrity"
+    integrity.mkdir(parents=True)
+    (report / "index.html").write_text("OK", encoding="utf-8")
+    snapshot = integrity / "audit-snapshot.db"
+    snapshot.write_bytes(database.read_bytes())
     fingerprint = _source_fingerprint(database)
+    packaged_files = [
+        {"path": "index.html", "sha256": _sha256_file(report / "index.html"), "size_bytes": (report / "index.html").stat().st_size},
+        {"path": "integrity/audit-snapshot.db", "sha256": _sha256_file(snapshot), "size_bytes": snapshot.stat().st_size},
+    ]
     (report / "manifest.json").write_text(
-        json.dumps({"audit_id": "AUD", "freshness": "FINAL", "source_fingerprint": fingerprint}),
+        json.dumps(
+            {
+                "audit_id": "AUD",
+                "freshness": "FINAL",
+                "source_fingerprint": fingerprint,
+                "audit_snapshot": {
+                    "path": "integrity/audit-snapshot.db",
+                    "sha256": _sha256_file(snapshot),
+                },
+                "packaged_files": packaged_files,
+            }
+        ),
         encoding="utf-8",
     )
     workspace = SimpleNamespace(root=root, database=database)
     assert catalog_report_is_fresh(audit_id="AUD", workspace=workspace) is True
-    database.write_bytes(b"source-v2")
+    con = sqlite3.connect(database)
+    try:
+        con.execute("INSERT INTO marker VALUES ('source-v2')")
+        con.commit()
+    finally:
+        con.close()
     assert catalog_report_is_fresh(audit_id="AUD", workspace=workspace) is False
 
 
@@ -120,7 +156,13 @@ def test_failed_materialization_never_leaves_old_catalog_public(tmp_path: Path, 
     root = tmp_path / "AUD"
     root.mkdir()
     database = root / "audit.db"
-    database.write_bytes(b"stable-source")
+    con = sqlite3.connect(database)
+    try:
+        con.execute("CREATE TABLE audits(audit_id TEXT PRIMARY KEY)")
+        con.execute("INSERT INTO audits VALUES ('AUD')")
+        con.commit()
+    finally:
+        con.close()
     old = root / "report-catalog"
     old.mkdir()
     (old / "index.html").write_text("STALE", encoding="utf-8")
