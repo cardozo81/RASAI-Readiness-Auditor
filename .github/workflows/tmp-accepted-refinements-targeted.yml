@@ -1,0 +1,36 @@
+name: Temporary accepted refinements targeted validation
+
+on:
+  push:
+    branches: [tmp-final-refinements]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and pytest only
+        run: python -m pip install -e . pytest
+      - name: Compile changed runtime modules
+        run: >-
+          python -m py_compile
+          src/rasai/accepted_audit_refinements.py
+          src/rasai/accepted_report_compat.py
+          src/rasai/accepted_timeout_context.py
+          src/rasai/accepted_apdex_error_evidence.py
+          src/rasai/accepted_apdex_error_evidence_compat.py
+          src/rasai/ai_efficiency_policy.py
+      - name: Run isolated accepted-refinements tests
+        run: >-
+          python -m pytest -q
+          tests/test_accepted_audit_refinements.py
+          tests/test_accepted_timeout_context.py
+          tests/test_accepted_apdex_error_evidence.py
