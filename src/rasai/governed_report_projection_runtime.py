@@ -1,12 +1,15 @@
 """Read-only report projection for persisted fulfillment state.
 
-The historical fulfillment finalizer mixed two concerns: reconciling/mutating the
-canonical AUD state and projecting that state into ``report/``. Governed execution
-finishes every durable reconciliation before reporting starts, while report
-materialization may only read ``audit.db`` and write report artifacts.
+The historical fulfillment/finalizer chain mixed three concerns:
 
-This composition keeps the existing public banner/status contract without allowing a
-late finalizer wrapper to mutate canonical audit state.
+1. reconciling canonical fulfillment from persisted execution state;
+2. deciding when the AUD is logically complete; and
+3. projecting that state into HTML/JSON presentation.
+
+Governed execution keeps (1) and (2) before the first report renderer. During report
+materialization, only filesystem presentation artifacts may change; ``audit.db`` is
+read-only. This module also removes the older AI-seal sync because AI sealing happens
+before final scoring/recommendation derivations.
 """
 from __future__ import annotations
 
@@ -85,13 +88,19 @@ def project_persisted_fulfillment(*, workspace: Any, audit_id: str):
 
 
 def reconcile_before_reporting(*, workspace: Any, audit_id: str):
-    """Persist the canonical fulfillment outcome before the first report renderer."""
-    from rasai import fulfillment_execution_contract as contract
-
+    """Persist the canonical fulfillment outcome immediately before reporting."""
     if report_projection_active():
         raise RuntimeError(
             "FULFILLMENT_RECONCILIATION_DURING_REPORT: durable reconciliation must precede reporting"
         )
+
+    # Core and optional fulfillment projections are distinct views over the same
+    # persisted AUD. Reconcile both before the final logical status is calculated.
+    # Neither operation performs source/API/provider collection.
+    from rasai import core_reprocessing
+    from rasai import fulfillment_execution_contract as contract
+
+    core_reprocessing.synchronize_core_work_items(workspace, audit_id)
     return contract.reconcile_requested_components(
         workspace=workspace,
         audit_id=audit_id,
@@ -114,6 +123,30 @@ def _install_projection_reconciliation_guard() -> None:
     reconcile_requested_components._rasai_governed_report_projection = True
     reconcile_requested_components._rasai_original = current
     contract.reconcile_requested_components = reconcile_requested_components
+
+
+def _remove_early_ai_seal_sync() -> None:
+    """Remove the legacy durable sync that ran before M9/M10 completed."""
+    from rasai import audit_phase_runtime as phase
+
+    current = phase.mark_ai_sealed
+    if not bool(getattr(current, "_rasai_final_persisted_sync", False)):
+        return
+    base = getattr(current, "_rasai_original", None)
+    if not callable(base):
+        raise RuntimeError("governed AI-seal wrapper lost its original callable")
+    phase.mark_ai_sealed = base
+
+    try:
+        from rasai import audit_runner
+        audit_runner.mark_ai_sealed = base
+    except ImportError:
+        pass
+    try:
+        from rasai import governed_reprocess_runtime as rpr
+        rpr.mark_ai_sealed = base
+    except ImportError:
+        pass
 
 
 def _install_audit_pre_report_boundary() -> None:
@@ -171,6 +204,7 @@ def install() -> None:
     if _INSTALLED:
         return
     _install_projection_reconciliation_guard()
+    _remove_early_ai_seal_sync()
     _install_audit_pre_report_boundary()
     _install_reprocess_boundary()
     _INSTALLED = True
