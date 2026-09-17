@@ -1,8 +1,8 @@
-"""Runtime/report integration for Improvement Intelligence.
+"""Governed runtime/report integration for Improvement Intelligence.
 
-The feature is additive and fail-open for scoring, while an explicitly enabled deep
-analysis is a required execution item whose fulfillment state is projected by the same
-runtime that performs the analysis. SARI/SCORE-GEO remain untouched.
+Deep analysis is additive and non-scoring, but it is still AI work.  It therefore runs
+inside the explicit governed AI phase, after evidence sealing and before reporting.
+The report finalizer is projection-only and never invokes a provider.
 """
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from pathlib import Path
 import sqlite3
 from typing import Any
 
+from rasai.ai_governance import begin_round, complete_round, register_task
 from rasai.audit_fulfillment import (
     FAILED_RETRYABLE,
     REPLAY_SAFE,
@@ -18,6 +19,7 @@ from rasai.audit_fulfillment import (
     register_work_item,
     set_work_item_status,
 )
+from rasai.audit_phase_runtime import register_ai_hook
 from rasai.improvement_intelligence import (
     CONTRACT_VERSION,
     REPORT_FILE,
@@ -110,20 +112,32 @@ def _install_report_contract() -> None:
                 "impacto potencial por Performance/SEO/Best Practices/Acessibilidade/AI Access/Security",
             ),
             required_dependencies=("audit.db",),
-            optional_dependencies=("exatamente uma URL de entrada", "provider de IA explícito", "Web Performance/Lighthouse", "Search Intelligence"),
+            optional_dependencies=(
+                "exatamente uma URL de entrada",
+                "provider de IA explícito",
+                "Web Performance/Lighthouse",
+                "Search Intelligence",
+            ),
             ai_usage=(
-                "Quando habilitada, executa análise estruturada própria com provider/modelo/esforço escolhidos para esta finalidade, "
-                "reutilizando somente a credencial já configurada. Cada tentativa é registrada em ai_provider_attempts."
+                "Quando habilitada, executa na fase de IA governada, após o sealing de evidências, "
+                "reutilizando a orquestração canônica de provider. Cada tentativa permanece em ai_provider_attempts."
             ),
             score_impact="Nenhum; advisory/non-scoring. SARI/SCORE-GEO permanecem determinísticos e independentes da recomendação.",
             source_of_truth="audit.db + artifacts persistidos; sugestões de IA são derivadas e identificadas separadamente",
         )
         surfaces = list(report_contract.REPORT_SURFACES)
-        insertion = next((index for index, item in enumerate(surfaces) if item.id == "content-suggestions"), len(surfaces))
+        insertion = next(
+            (index for index, item in enumerate(surfaces) if item.id == "content-suggestions"),
+            len(surfaces),
+        )
         surfaces.insert(insertion, surface)
         report_contract.REPORT_SURFACES = tuple(surfaces)
-        report_contract.CANONICAL_NAV_ITEMS = tuple((item.label, item.filename) for item in report_contract.REPORT_SURFACES)
-        report_contract.CANONICAL_FILENAMES = tuple(item.filename for item in report_contract.REPORT_SURFACES)
+        report_contract.CANONICAL_NAV_ITEMS = tuple(
+            (item.label, item.filename) for item in report_contract.REPORT_SURFACES
+        )
+        report_contract.CANONICAL_FILENAMES = tuple(
+            item.filename for item in report_contract.REPORT_SURFACES
+        )
 
     report_navigation.CANONICAL_NAV_ITEMS = report_contract.CANONICAL_NAV_ITEMS
     report_navigation.NAV_ITEMS = report_contract.CANONICAL_NAV_ITEMS
@@ -142,7 +156,6 @@ def _install_report_contract() -> None:
 
 
 def _install_consolidated_boundary() -> None:
-    """Add the Improvement Intelligence boundary without changing CONS identity."""
     try:
         from rasai.consolidation import reporting
     except Exception:
@@ -168,7 +181,6 @@ def _install_consolidated_boundary() -> None:
 
 
 def _install_ai_cost_attribution() -> None:
-    """Keep deep-analysis cost separate from semantic and technical remediation cost."""
     try:
         from rasai import documented_contract_reconciliation as reconciliation
     except Exception:
@@ -215,7 +227,181 @@ def _install_ai_cost_attribution() -> None:
     reconciliation._db_ai_costs = db_ai_costs
 
 
+def _governed_improvement_hook(*, audit_id: str, workspace: Any, evidence_snapshot: Any):
+    """Execute deep analysis inside the governed AI phase, never in reporting."""
+    try:
+        config = ImprovementConfig.from_environment()
+    except Exception as exc:
+        try_append_operational_event(
+            workspace,
+            "IMPROVEMENT_INTELLIGENCE_CONFIGURATION_INVALID",
+            level="WARNING",
+            audit_id=audit_id,
+            error_type=type(exc).__name__,
+            error_message=str(exc)[:512],
+            scoring_impact="NONE",
+        )
+        return {"status": "SKIPPED", "reason": "CONFIGURATION_INVALID"}
+
+    if not config.enabled:
+        return {"status": "SKIPPED", "reason": "DISABLED"}
+
+    _register_required_fulfillment(workspace, audit_id, config)
+    requirements = tuple(f"DOMAIN:{domain}" for domain in config.domains)
+    task_id = register_task(
+        workspace=workspace,
+        audit_id=audit_id,
+        purpose=_COMPONENT,
+        scope_type="AUDIT",
+        scope_key="AUDIT",
+        evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
+        requirements=requirements,
+        semantic_contract_version=CONTRACT_VERSION,
+    )
+    round_id = begin_round(
+        workspace=workspace,
+        ai_task_id=task_id,
+        requested_requirements=requirements,
+        input_payload={
+            "evidence_snapshot_id": evidence_snapshot.evidence_snapshot_id,
+            "evidence_fingerprint": evidence_snapshot.fingerprint,
+            "config_fingerprint": config.fingerprint(),
+            "domains": list(config.domains),
+        },
+        input_summary={
+            "evidence_count": len(evidence_snapshot.evidence_ids),
+            "domains": list(config.domains),
+            "provider": config.provider,
+            "model": config.model,
+        },
+    )
+
+    try_append_operational_event(
+        workspace,
+        "IMPROVEMENT_INTELLIGENCE_STARTED",
+        audit_id=audit_id,
+        contract_version=CONTRACT_VERSION,
+        provider=config.provider,
+        model=config.model,
+        reasoning=config.reasoning,
+        domains=config.domains,
+        scoring_impact="NONE",
+        security_mode="PASSIVE_ONLY",
+        evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
+    )
+
+    def progress(stage: str, percent: float, detail: str) -> None:
+        try_append_operational_event(
+            workspace,
+            "IMPROVEMENT_INTELLIGENCE_STAGE",
+            audit_id=audit_id,
+            stage=stage,
+            progress_percent=percent,
+            detail=detail,
+            provider=config.provider,
+            model=config.model,
+            evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
+        )
+
+    try:
+        result = execute_improvement_intelligence(
+            audit_id=audit_id,
+            workspace=workspace,
+            config=config,
+            progress=progress,
+        )
+        _project_fulfillment_result(
+            workspace,
+            audit_id,
+            status=result.status,
+            reason=result.reason,
+        )
+        # Improvement Intelligence returns one consolidated contract.  Domain-specific
+        # records remain in its existing tables; governance marks each requested domain
+        # as resolved only when the contract completed.  A limited/failed run remains
+        # partial and can be reprocessed without overwriting the accepted provider data.
+        complete = str(result.status).upper() == "COMPLETE"
+        accepted = (
+            {requirement: {"status": "COMPLETE"} for requirement in requirements}
+            if complete
+            else {}
+        )
+        complete_round(
+            workspace=workspace,
+            ai_round_id=round_id,
+            accepted=accepted,
+            rejected={},
+            missing=() if complete else requirements,
+            output_payload={
+                "status": result.status,
+                "target_url": result.target_url,
+                "findings_count": result.findings_count,
+                "recommendations_count": result.recommendations_count,
+                "provider": result.provider,
+                "model": result.model,
+                "reason": result.reason,
+                "reused": result.reused,
+            },
+            failed=not complete,
+        )
+        try_append_operational_event(
+            workspace,
+            "IMPROVEMENT_INTELLIGENCE_COMPLETED",
+            level="WARNING" if result.status == "COMPLETE_WITH_LIMITATIONS" else "INFO",
+            audit_id=audit_id,
+            status=result.status,
+            target_url=result.target_url,
+            findings=result.findings_count,
+            recommendations=result.recommendations_count,
+            provider=result.provider,
+            model=result.model,
+            reasoning=result.reasoning,
+            reason=result.reason,
+            reused=result.reused,
+            scoring_impact="NONE",
+            evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
+        )
+        return {
+            "status": result.status,
+            "findings": result.findings_count,
+            "recommendations": result.recommendations_count,
+            "reused": result.reused,
+        }
+    except Exception as exc:
+        _project_fulfillment_result(
+            workspace,
+            audit_id,
+            status="RUNTIME_ERROR",
+            reason=f"{type(exc).__name__}: {str(exc)[:400]}",
+        )
+        complete_round(
+            workspace=workspace,
+            ai_round_id=round_id,
+            accepted={},
+            rejected={"RUNTIME": {"error_type": type(exc).__name__, "message": str(exc)[:400]}},
+            missing=requirements,
+            output_payload={"error_type": type(exc).__name__, "message": str(exc)[:400]},
+            failed=True,
+        )
+        try_append_operational_event(
+            workspace,
+            "IMPROVEMENT_INTELLIGENCE_FAILURE",
+            level="WARNING",
+            audit_id=audit_id,
+            error_type=type(exc).__name__,
+            error_message=str(exc)[:512],
+            scoring_impact="NONE",
+            evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
+        )
+        return {"status": "ERROR", "reason": type(exc).__name__}
+
+
+def _install_governed_ai_phase() -> None:
+    register_ai_hook(_COMPONENT, _governed_improvement_hook, order=300)
+
+
 def _install_report_completion() -> None:
+    """Keep only report-contract projection in finalization; never execute AI here."""
     from rasai import report_completion
 
     if getattr(report_completion, "_rasai_improvement_intelligence_completion", False):
@@ -232,109 +418,18 @@ def _install_report_completion() -> None:
         context_interpretations=(),
         routing_snapshot=None,
     ):
-        errors: list[str] = []
-        try:
-            config = ImprovementConfig.from_environment()
-        except Exception as exc:
-            config = None
-            errors.append(f"improvement-config:{type(exc).__name__}:{str(exc)[:240]}")
-            try_append_operational_event(
-                workspace,
-                "IMPROVEMENT_INTELLIGENCE_CONFIGURATION_INVALID",
-                level="WARNING",
-                audit_id=audit_id,
-                error_type=type(exc).__name__,
-                error_message=str(exc)[:512],
-                scoring_impact="NONE",
-            )
-
-        if config is not None and config.enabled:
-            _register_required_fulfillment(workspace, audit_id, config)
-            try:
-                try_append_operational_event(
-                    workspace,
-                    "IMPROVEMENT_INTELLIGENCE_STARTED",
-                    audit_id=audit_id,
-                    contract_version=CONTRACT_VERSION,
-                    provider=config.provider,
-                    model=config.model,
-                    reasoning=config.reasoning,
-                    domains=config.domains,
-                    scoring_impact="NONE",
-                    security_mode="PASSIVE_ONLY",
-                )
-
-                def progress(stage: str, percent: float, detail: str) -> None:
-                    try_append_operational_event(
-                        workspace,
-                        "IMPROVEMENT_INTELLIGENCE_STAGE",
-                        audit_id=audit_id,
-                        stage=stage,
-                        progress_percent=percent,
-                        detail=detail,
-                        provider=config.provider,
-                        model=config.model,
-                    )
-
-                result = execute_improvement_intelligence(
-                    audit_id=audit_id,
-                    workspace=workspace,
-                    config=config,
-                    progress=progress,
-                )
-                _project_fulfillment_result(
-                    workspace,
-                    audit_id,
-                    status=result.status,
-                    reason=result.reason,
-                )
-                try_append_operational_event(
-                    workspace,
-                    "IMPROVEMENT_INTELLIGENCE_COMPLETED",
-                    level="WARNING" if result.status == "COMPLETE_WITH_LIMITATIONS" else "INFO",
-                    audit_id=audit_id,
-                    status=result.status,
-                    target_url=result.target_url,
-                    findings=result.findings_count,
-                    recommendations=result.recommendations_count,
-                    provider=result.provider,
-                    model=result.model,
-                    reasoning=result.reasoning,
-                    reason=result.reason,
-                    reused=result.reused,
-                    scoring_impact="NONE",
-                )
-            except Exception as exc:
-                _project_fulfillment_result(
-                    workspace,
-                    audit_id,
-                    status="RUNTIME_ERROR",
-                    reason=f"{type(exc).__name__}: {str(exc)[:400]}",
-                )
-                errors.append(f"improvement-runtime:{type(exc).__name__}:{str(exc)[:240]}")
-                try_append_operational_event(
-                    workspace,
-                    "IMPROVEMENT_INTELLIGENCE_FAILURE",
-                    level="WARNING",
-                    audit_id=audit_id,
-                    error_type=type(exc).__name__,
-                    error_message=str(exc)[:512],
-                    scoring_impact="NONE",
-                )
-
-        base = original(
+        # The renderer stack (including progress_completion_refinement) reads the
+        # already-persisted Improvement Intelligence state and writes HTML.  No
+        # collector/provider is called from this wrapper.
+        return original(
             audit_id=audit_id,
             workspace=workspace,
             context_interpretations=context_interpretations,
             routing_snapshot=routing_snapshot,
         )
-        return report_completion.AuditReportCompletion(
-            expected_pages=base.expected_pages,
-            generated_pages=base.generated_pages,
-            missing_pages=base.missing_pages,
-            renderer_errors=tuple((*base.renderer_errors, *errors)),
-        )
 
+    finalize_with_improvement._rasai_projection_only = True
+    finalize_with_improvement._rasai_original = original
     report_completion.finalize_audit_report_site = finalize_with_improvement
     report_completion._rasai_improvement_intelligence_completion = True
 
@@ -349,5 +444,6 @@ def install() -> None:
     _install_report_contract()
     _install_consolidated_boundary()
     _install_ai_cost_attribution()
+    _install_governed_ai_phase()
     _install_report_completion()
     _INSTALLED = True
