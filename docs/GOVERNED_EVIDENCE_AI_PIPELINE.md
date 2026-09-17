@@ -140,25 +140,25 @@ Portanto, `GSC ERROR -> retry -> GSC SUCCESS` não força rerun de uma tarefa qu
 
 ## Execução inicial
 
-A sequência de `audit_runner` é, conceitualmente:
+A sequência de execução é, conceitualmente:
 
 1. criar AUD e persistir configuração/contexto;
-2. M2/M3 e demais coleta/extratação core;
-3. coletores externos registrados;
-4. comparações e reconciliações determinísticas pré-seal;
-5. lado determinístico/network de M24;
+2. executar descoberta, aquisição, browser e extração core;
+3. executar coletores externos registrados;
+4. executar comparações e reconciliações determinísticas pré-seal;
+5. executar crawling/discovery técnico determinístico e observações de rede previstas no contrato;
 6. `EVIDENCE_SEALED`;
-7. diagnósticos de source quality por IA quando aplicável;
-8. M7 semântico;
-9. IA técnica M24 quando habilitada;
-10. M20 content remediation quando habilitado;
-11. tarefas de IA registradas, incluindo análise profunda quando habilitada;
+7. executar diagnóstico de qualidade da origem por IA quando aplicável;
+8. executar análise semântica governada;
+9. executar IA técnica de crawling/discovery quando habilitada;
+10. executar remediação de conteúdo quando habilitada;
+11. executar demais tarefas de IA registradas, incluindo análise profunda quando habilitada;
 12. `AI_SEALED`;
-13. regras finais de integridade pré-score;
-14. M9 scoring;
-15. M10 recomendações e linking;
-16. reconciliação final de fulfillment persistido;
-17. M11 e projeções de relatório.
+13. executar regras finais de integridade pré-score;
+14. executar scoring;
+15. executar recomendações e linking;
+16. reconciliar o fulfillment persistido final;
+17. materializar as projeções de relatório.
 
 Não deve existir chamada de provider depois do passo 12 nem coletor depois do passo 6 para a mesma versão.
 
@@ -206,9 +206,9 @@ O fulfillment foi separado em dois efeitos:
 
 A mesma regra vale para rerender: reabrir/materializar HTML não pode gerar custo de rede/IA nem modificar a evidência auditada.
 
-## Reprocessamento RPR
+## Reprocessamento seletivo
 
-O RPR usa o mesmo modelo de governança:
+O reprocessamento usa o mesmo modelo de governança:
 
 ```text
 RECOVERY / RECOLLECTION
