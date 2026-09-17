@@ -20,6 +20,10 @@ from rasai.external_observability_runtime import (
     install_service_contract as install_external_observability_service_contract,
 )
 from rasai.external_observability_safety import install as install_external_observability_safety
+from rasai.governed_analysis_runtime import (
+    install_post as install_governed_analysis_post,
+    install_pre as install_governed_analysis_pre,
+)
 from rasai.governed_optional_runtime import (
     configure_audit_argv as configure_governed_audit_argv,
     install as install_governed_optional_runtime,
@@ -199,6 +203,10 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
 
 
 def _install_audit_runtime() -> None:
+    # Install governance before legacy finalizer wrappers capture collector/reconciler
+    # functions. The post boundary is installed last so report projection is the
+    # outermost, read-only layer for CLI and SaaS worker execution.
+    install_governed_analysis_pre()
     install_standards_pre_context()
     install_external_observability_service_contract()
     install_report_registry()
@@ -233,6 +241,7 @@ def _install_audit_runtime() -> None:
     install_governed_optional_runtime()
     install_worker_lease_runtime()
     install_report_scope_clarity()
+    install_governed_analysis_post()
 
 
 def main(argv: Sequence[str] | None = None) -> int:
