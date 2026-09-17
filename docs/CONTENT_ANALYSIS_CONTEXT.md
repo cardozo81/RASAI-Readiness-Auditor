@@ -1,255 +1,188 @@
-# Contexto de análise de conteúdo - YMYL, E-E-A-T e finalidade da página
+# Contexto de análise de conteúdo — propósito, YMYL, confiança e coerência
 
 ## Objetivo
 
-O RASAi pode fornecer à camada de IA um **contexto editorial explícito** para evitar análises genéricas de conteúdo. Esse contexto condiciona a interpretação semântica e as sugestões por IA, mas **não altera aritmeticamente o `SARI-001`**, não cria um score de E-E-A-T/YMYL e não representa um fator oficial isolado de ranking.
+O RASAi mantém um **contexto editorial explícito** para evitar análise genérica de conteúdo. Esse contexto condiciona a interpretação semântica, mas não altera aritmeticamente `SARI-001`/`SCORE-GEO-004`, não cria score proprietário de E-E-A-T/YMYL e não representa fator oficial isolado de ranking.
 
-A configuração é especialmente útil em conteúdo **YMYL (Your Money or Your Life)**, no qual informações imprecisas podem afetar saúde, segurança, estabilidade financeira ou o bem-estar da sociedade.
+A auditoria de conteúdo distingue dois escopos:
 
-## Base pública oficial
+1. **perfil semântico da propriedade** — quem é o negócio/propriedade, sua oferta, público e objetivo;
+2. **contexto editorial, risco e confiança da página** — propósito, público categórico, origem, YMYL, experiência e freshness.
 
-Fontes normativas/conceituais usadas nesta implementação:
+O contrato completo está em [SEMANTIC_COHERENCE_AUDIT.md](SEMANTIC_COHERENCE_AUDIT.md).
 
-1. **Google Search Central - Creating helpful, reliable, people-first content**
-   <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
+## Contexto da propriedade
 
-   A documentação declara, entre outros pontos, que:
-   - E-E-A-T significa Experience, Expertise, Authoritativeness e Trustworthiness;
-   - **Trust é o aspecto mais importante**;
-   - um conteúdo não precisa demonstrar todos os componentes da mesma forma;
-   - conteúdo relacionado a tópicos YMYL recebe maior peso de sinais alinhados a E-E-A-T;
-   - autoria (`Who`), processo de criação (`How`) e finalidade (`Why`) são elementos úteis de autoavaliação;
-   - propósito do site, público existente/pretendido, experiência em primeira mão, completude e atualização são aspectos relevantes de conteúdo people-first;
-   - E-E-A-T **não é, por si só, um fator específico de ranking**.
+O perfil reutilizável usa:
 
-2. **Google - Search Quality Rater Guidelines / overview**
-   <https://services.google.com/fh/files/misc/hsw-sqrg.pdf>
+- `RASAI_PROPERTY_BUSINESS_SECTOR`
+- `RASAI_PROPERTY_BUSINESS_DESCRIPTION`
+- `RASAI_PROPERTY_PRIMARY_OFFERING`
+- `RASAI_PROPERTY_TARGET_AUDIENCE_PROFILE`
+- `RASAI_PROPERTY_PRIMARY_GOAL`
+- `RASAI_PROPERTY_POSITIONING`
 
-   As diretrizes são referência conceitual para propósito da página, Page Quality e Needs Met. Ratings humanos não são usados diretamente como ranking individual de uma página.
+Todos usam `auto` por padrão. Texto explícito é **contexto declarado pelo operador**, não evidência observada. Os valores são tratados como dados não confiáveis e nunca podem virar instruções executáveis para o provider.
 
-3. **Google - How AI Overviews in Search work**
-   <https://static.googleusercontent.com/media/www.google.com/en//search/howsearchworks/google-about-AI-overviews.pdf>
+## Contexto editorial da página
 
-   O Google informa que consultas YMYL recebem uma barra mais alta para informações de suporte provenientes de fontes confiáveis.
+### `RASAI_PAGE_PURPOSE`
 
-## Princípio de segurança
+Valores: `auto`, `informational`, `transactional`, `product-service`, `review-comparison`, `news-editorial`, `support-documentation`, `forum-ugc`, `other`.
 
-Configuração explícita tem precedência conceitual sobre interpretação automática.
+### `RASAI_INTENDED_AUDIENCE`
 
-Quando uma variável permanece `auto`, **a configuração oficial continua sendo `AUTO`**. Se IA estiver habilitada, o modelo pode produzir separadamente uma interpretação contextual baseada apenas no conteúdo visível e nas evidências fornecidas. Essa interpretação:
+Valores: `auto`, `general`, `professional`, `mixed`.
 
-- não se torna fato persistido sobre a organização ou a página;
-- não sobrescreve o valor `AUTO` em `content_analysis_contexts`;
-- não autoriza inventar credenciais, certificações, revisão profissional, reputação externa, compliance, experiência pessoal ou processo editorial;
-- deve usar `Não determinável` quando a evidência não sustenta uma classificação segura;
-- não substitui configuração humana quando o contexto do domínio é conhecido;
-- não é evidência determinística e não entra diretamente em `SARI-001`/`SCORE-GEO-004`.
+`RASAI_INTENDED_AUDIENCE` é uma classificação estruturada da página. O perfil detalhado do público da propriedade fica em `RASAI_PROPERTY_TARGET_AUDIENCE_PROFILE`.
 
-A finalidade dessa leitura é comparativa: o usuário pode considerar humanamente uma página não-YMYL, por exemplo, e ainda enxergar que o conteúdo fornecido levou um modelo a interpretá-la como relacionado a finanças, saúde, segurança ou outro contexto material - acompanhado de justificativa e confiança quando disponíveis.
+### `RASAI_CONTENT_ORIGIN`
 
-## Variáveis
+Valores: `auto`, `first-party`, `third-party`, `user-generated`, `mixed`.
 
-Todas são opcionais e usam `auto` por padrão.
+## Risco e requisitos de confiança
 
 ### `RASAI_CONTENT_RISK_PROFILE`
 
-Valores:
-
-```text
-auto
-standard
-ymyl
-```
-
-Use `ymyl` quando o conteúdo analisado puder afetar materialmente saúde, segurança, estabilidade financeira ou bem-estar social.
-
-`auto` mantém a configuração em aberto; quando IA estiver habilitada, o relatório pode mostrar separadamente a interpretação transitória feita pelo modelo. Para sites claramente YMYL, prefira `ymyl` explícito.
+Valores: `auto`, `standard`, `ymyl`.
 
 ### `RASAI_YMYL_CATEGORY`
 
-Valores:
-
-```text
-auto
-none
-health-safety
-financial-security
-civic-societal
-other-significant-welfare
-```
-
-A categoria serve apenas para contextualizar o tipo de risco. Não é classificação oficial emitida pelo Google para a página.
+Valores: `auto`, `none`, `health-safety`, `financial-security`, `civic-societal`, `other-significant-welfare`.
 
 Validações:
 
 - `risk_profile=standard` não aceita categoria YMYL explícita diferente de `none`/`auto`;
 - `risk_profile=ymyl` não aceita `ymyl_category=none`.
 
-### `RASAI_PAGE_PURPOSE`
-
-Valores:
-
-```text
-auto
-informational
-transactional
-product-service
-review-comparison
-news-editorial
-support-documentation
-forum-ugc
-other
-```
-
-Evita avaliar uma página transacional, uma review e uma documentação técnica com exatamente a mesma expectativa editorial.
-
-### `RASAI_INTENDED_AUDIENCE`
-
-Valores:
-
-```text
-auto
-general
-professional
-mixed
-```
-
-Ajuda a calibrar profundidade, explicações e necessidade de contexto. Não deve ser usado para inferir requisitos legais ou regulatórios.
+YMYL aumenta o rigor da análise de confiança/suporte quando aplicável. Não produz uma nota YMYL/E-E-A-T.
 
 ### `RASAI_EXPERIENCE_REQUIREMENT`
 
-Valores:
+Valores: `auto`, `required`, `beneficial`, `not-expected`.
 
-```text
-auto
-required
-beneficial
-not-expected
-```
-
-Diferencia **experiência em primeira mão** de **expertise técnica/profissional**. O RASAi não exige ambos indiscriminadamente.
-
-Exemplos conceituais:
-
-- review de produto: experiência em primeira mão tende a ser relevante;
-- orientação médica: experiência pessoal não substitui expertise adequada e suporte factual;
-- documentação de API: experiência pessoal pode ser secundária frente à exatidão técnica.
+Esse campo diferencia necessidade de experiência em primeira mão de expertise técnica/profissional. O RASAi não presume que ambos sejam exigidos em qualquer página.
 
 ### `RASAI_FRESHNESS_SENSITIVITY`
 
-Valores:
+Valores: `auto`, `low`, `medium`, `high`.
+
+Quando `high`, a interpretação aplica maior rigor a datas, períodos, qualificadores temporais e coerência entre sinais de atualização. O sistema não deve recomendar atualização artificial de data.
+
+## E-E-A-T
+
+E-E-A-T é usado como referência conceitual para interpretar sinais observáveis de confiança, experiência, expertise/atribuição e responsabilidade. O usuário não configura `E-E-A-T=alto`, `Trust=92%` ou equivalentes.
+
+Sinais como autoria, responsável, credenciais apresentadas, suporte de claims, fontes e datas são **observados pelo CAT-03** e avaliados no contexto da página. Ausência de evidência deve resultar em `NOT_DETERMINABLE` quando não houver base suficiente para uma conclusão.
+
+## AUTO
+
+Configuração explícita tem precedência sobre inferência.
+
+Quando um campo permanece `auto`, a configuração canônica continua sendo `AUTO`. Se IA estiver habilitada, o modelo pode produzir uma hipótese evidence-bound para aquela execução. Essa interpretação:
+
+- não sobrescreve configuração;
+- não vira fato canônico sobre a organização/página;
+- não autoriza inventar credenciais, certificações, reputação, compliance, experiência pessoal ou processo editorial;
+- deve usar `NOT_DETERMINABLE` quando a evidência não sustenta classificação segura;
+- não entra diretamente em scoring.
+
+Uma sugestão derivada de AUTO pode ser apresentada ao operador para futura confirmação, mas **IA recomenda contexto; humano confirma contexto**.
+
+## Gate antes da IA
+
+Configurar contexto não gera chamada externa por si só.
+
+Antes da primeira chamada semântica, o runtime deve materializar o corpus completo necessário ao CAT-03 e congelar:
+
+- páginas/snapshots da AUD;
+- evidência de extração disponível;
+- `ContentAnalysisContext` efetivo;
+- `PropertySemanticProfile` efetivo.
+
+Somente depois de `semantic_corpus_manifests.status=READY` o provider pode receber um `SemanticInput` daquela AUD. A ordem detalhada está em [SEMANTIC_COHERENCE_AUDIT.md](SEMANTIC_COHERENCE_AUDIT.md).
+
+## Console
+
+Na preparação do CAT-03 a UI usa grupos funcionais, não a antiga categoria genérica “IA - contexto editorial / YMYL”:
 
 ```text
-auto
-low
-medium
-high
+Contexto da propriedade
+Contexto editorial
+Risco e confiança
+Análise semântica por IA
 ```
 
-Quando `high`, a IA aplica maior rigor a datas, períodos, qualificadores temporais e coerência entre sinais de atualização. O sistema nunca deve propor alterar uma data apenas para aparentar conteúdo mais recente.
-
-### `RASAI_CONTENT_ORIGIN`
-
-Valores:
+Estado funcional esperado:
 
 ```text
-auto
-first-party
-third-party
-user-generated
-mixed
+Conteúdo / estrutura          INCLUÍDO
+JSON-LD                       INCLUÍDO
+Contexto da propriedade       AUTOMÁTICO / PERSONALIZADO / CONFIGURAR
+Contexto editorial            AUTOMÁTICO / PERSONALIZADO / CONFIGURAR
+Coerência semântica por IA    NÃO SOLICITADA / APTO / CONFIGURAR
 ```
 
-Ajuda a distinguir autor/criador do conteúdo e entidade publicadora/host. É relevante para atribuição, responsabilidade editorial e avaliação de conteúdo de terceiros ou UGC.
+`AUTO` é configuração válida e não representa pendência.
 
-## Apresentação no console
+**Remediação por IA não é componente funcional do CAT-03.** CAT-03 diagnostica/evidencia; CAT-09 centraliza possíveis correções derivadas dos catálogos produtores.
 
-Na preparação da auditoria, essas variáveis aparecem dentro da capacidade **Conteúdo e JSON-LD**, mas continuam pertencendo ao owner canônico de contexto editorial/IA. A capacidade não cria uma segunda configuração paralela.
+As treze variáveis de contexto são não secretas e pertencem ao catálogo canônico do console. Quando o operador escolhe persistir, usam o fluxo normal do `rasai-console.ini`; não existe shadow config do CAT-03.
 
-A UI segmenta o estado funcional para não confundir resultado determinístico com enriquecimento opcional:
+## Persistência por AUD
 
-```text
-Conteúdo / estrutura   INCLUÍDO
-JSON-LD                INCLUÍDO
-Contexto editorial     AUTOMÁTICO / PERSONALIZADO / CONFIGURAR
-Remediação por IA      NÃO SOLICITADA / APTO / CONFIGURAR
-```
+- `content_analysis_contexts` congela os sete campos editoriais/risco usados na execução;
+- `property_semantic_contexts` congela os seis campos da propriedade usados na execução;
+- `semantic_corpus_manifests` registra o gate/hash anterior à IA;
+- avaliações de coerência e sinais observados são persistidos separadamente e nunca sobrescrevem os contextos declarados.
 
-`AUTOMÁTICO` significa que todos os campos editoriais permanecem `auto`; isso é configuração válida e não uma pendência. `PERSONALIZADO` significa que ao menos um campo possui override explícito válido. Combinações inválidas, como `risk_profile=ymyl` com `ymyl_category=none`, aparecem como `CONFIGURAR` antes da execução.
+Alterar o `.ini`, Property Profile ou schedule depois do início não muda o contexto da AUD já materializada.
 
-Conteúdo/estrutura e orientação JSON-LD permanecem `INCLUÍDOS` porque são parte determinística da capacidade. A remediação textual por IA é opcional e seu readiness é apresentado separadamente.
+## SaaS
 
-As variáveis relacionadas são agrupadas visualmente em **Contexto editorial**. `RASAI_AI_CONTENT_REMEDIATION` e `RASAI_AI_ANALYSIS_LANGUAGE` aparecem em **Enriquecimento por IA**; `RASAI_AI_ANALYSIS_LANGUAGE` é compartilhada/global e não se torna propriedade exclusiva desta capacidade.
+O perfil semântico reutilizável pertence à Property e é persistido em entidade própria. Ao criar um job `AUDIT`:
 
-## Exemplo - site financeiro/YMYL
+1. o perfil da Property fornece valores para campos não explicitados;
+2. override explícito do job, inclusive `auto`, vence;
+3. o payload durável do job recebe os seis valores efetivos;
+4. o worker converte o mesmo contrato para os envs canônicos do core.
 
-PowerShell:
+## Relatórios
 
-```powershell
-$env:RASAI_CONTENT_RISK_PROFILE = "ymyl"
-$env:RASAI_YMYL_CATEGORY = "financial-security"
-$env:RASAI_PAGE_PURPOSE = "product-service"
-$env:RASAI_INTENDED_AUDIENCE = "general"
-$env:RASAI_EXPERIENCE_REQUIREMENT = "not-expected"
-$env:RASAI_FRESHNESS_SENSITIVITY = "high"
-$env:RASAI_CONTENT_ORIGIN = "first-party"
-```
+O CAT-03 é a projeção canônica do diagnóstico de conteúdo/semântica:
 
-Efeito esperado: a IA deve elevar a exigência de confiança, atribuição e suporte factual, prestar atenção especial a claims financeiros, datas, condições e qualificadores e evitar recomendações que criem promessas, garantias ou fatos não sustentados.
+- contexto efetivamente usado;
+- estado do gate;
+- coerência page-level;
+- coerência cross-page/property-level;
+- entidades;
+- dados estruturados;
+- evidências/drill-down.
 
-## Exemplo - conteúdo comum com interpretação parcial
+Detalhes de provider, request/response sanitizados, tokens, retries, fallback e custo permanecem em **IA e integrações**.
 
-```powershell
-$env:RASAI_CONTENT_RISK_PROFILE = "standard"
-$env:RASAI_CONTENT_ORIGIN = "first-party"
-```
+Soluções detalhadas ficam no CAT-09.
 
-Os demais campos permanecem `auto`. A configuração persistida continua distinguindo os valores explícitos daqueles mantidos em `AUTO`. Quando IA for usada, `readiness.html` pode apresentar separadamente a leitura transitória dos campos `AUTO`, sem resolver esses campos no banco.
+## IA, custo e rastreabilidade
 
-## Persistência e rastreabilidade
+Toda chamada usa o contrato global de IA do RASAi. Permanecem rastreáveis, quando disponibilizados pelo provider/adapter:
 
-`content_analysis_contexts` persiste **a configuração efetiva usada como input** da auditoria. Valores explícitos permanecem explícitos; valores `auto` permanecem `AUTO`.
+- provider/model/reasoning;
+- tentativas e decisões de retry/fallback;
+- horários/duração;
+- tokens de entrada/cache/saída/reasoning/total;
+- custo estimado e pricing version;
+- falhas técnicas/contratuais sanitizadas;
+- `ai_provider_attempts`;
+- `ai_exchange_log` com request/response sanitizados.
 
-A interpretação transitória de IA **não é persistida nessa tabela nem em outra classificação canônica**. Ela é capturada em memória durante a chamada e inserida na projeção HTML final depois que os renderizadores persistidos terminam.
+A auditoria de coerência não cria roteador, pricing ou exchange log paralelos.
 
-O report `content-suggestions.html` continua mostrando a configuração editorial usada. O report `readiness.html`, quando aplicável, mostra separadamente:
+## Base pública conceitual
 
-- configuração `AUTO`;
-- interpretação feita pela IA naquela execução;
-- confiança/qualificador;
-- justificativa curta;
-- IDs de evidência usados;
-- `Não determinável` quando não houver suporte suficiente.
+Referências principais:
 
-O HTML materializa a leitura daquela execução para inspeção humana, mas não transforma a classificação em verdade reutilizável em uma nova auditoria.
+- Google Search Central — Creating helpful, reliable, people-first content: <https://developers.google.com/search/docs/fundamentals/creating-helpful-content>
+- Google Search Quality Rater Guidelines: <https://services.google.com/fh/files/misc/hsw-sqrg.pdf>
 
-Detalhamento: [CONTENT_CONTEXT_AI_INTERPRETATION.md](CONTENT_CONTEXT_AI_INTERPRETATION.md).
-
-## IA, custo e telemetria
-
-Configurar contexto editorial **não gera chamada por si só**.
-
-Quando uma etapa com IA é executada, continuam valendo os contratos de telemetria:
-
-- provider;
-- modelo;
-- reasoning profile;
-- status/tentativas;
-- horário de início/fim e duração;
-- tokens de entrada, cache, saída, reasoning e total quando disponibilizados pelo provider;
-- custo estimado e moeda quando existe tabela de pricing suportada;
-- versão da tabela de pricing;
-- falhas técnicas/contratuais sem exposição de credenciais;
-- exchange sanitizado de request/response quando a chamada externa efetivamente ocorre.
-
-A interpretação editorial transitória é redigida do exchange log persistido e aparece legível somente na seção interpretativa do HTML, preservando a regra de não persistência canônica.
-
-O HTML não deve fabricar custo quando o adapter não possui base confiável para estimá-lo.
-
-## Relação com SARI-001
-
-O contexto editorial é **advisory/contextual**.
-
-Ele pode mudar a interpretação da IA sobre suficiência de evidência, trust, answerability, claims, atribuição, freshness e gaps de intenção, mas não adiciona diretamente uma nova parcela matemática ao score.
-
-Isso evita afirmar que existe uma fórmula oficial de E-E-A-T/YMYL ou uma probabilidade oficial de ranking/citação, o que não é suportado pela documentação pública atual.
+Essas referências ajudam a contextualizar propósito, utilidade, confiança e YMYL. O RASAi não afirma uma fórmula oficial de E-E-A-T nem converte as diretrizes em fator matemático proprietário de ranking.
