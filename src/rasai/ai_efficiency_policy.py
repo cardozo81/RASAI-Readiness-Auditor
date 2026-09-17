@@ -207,11 +207,13 @@ def install() -> None:
     install_ai_task_profile_runtime()
     install_ai_task_profile_semantic_compat()
 
-    # Final point alignment discovered by the end-to-end human smoke. This layer only
-    # repairs ownership/binding gaps; it does not change provider ranking or report HTML structure.
+    # Final point alignment discovered by the end-to-end human smoke. These layers only
+    # repair ownership/binding gaps; they do not change provider ranking or report HTML structure.
     from rasai.post_smoke_alignment import install as install_post_smoke_alignment
+    from rasai.post_smoke_hotfix import install as install_post_smoke_hotfix
 
     install_post_smoke_alignment()
+    install_post_smoke_hotfix()
 
     _INSTALLED = True
 
