@@ -139,6 +139,24 @@ def _catalog_status(database: Path, data: _ReportData, catalog_id: str) -> tuple
         return "INDETERMINADO","warn","O snapshot do plano/configuração desta auditoria está ausente ou inválido; não é possível concluir se este catálogo foi ou não solicitado."
     if catalog_id not in data.selected:
         return "NÃO SOLICITADO","neutral","Este catálogo não fazia parte do plano congelado desta auditoria."
+    if catalog_id=="CAT-05":
+        con=sqlite3.connect(database); con.row_factory=sqlite3.Row
+        try:
+            row=con.execute("SELECT * FROM standards_service_runs WHERE audit_id=? AND service_id='common-crawl' ORDER BY rowid DESC LIMIT 1",(data.audit_id,)).fetchone() if _table_exists(con,"standards_service_runs") else None
+        finally:
+            con.close()
+        if row is not None and bool(row["requested"]) and bool(row["effective_enabled"]):
+            state=_norm(row["state"])
+            attempted=int(row["targets_attempted"] or 0)
+            details={}
+            try:
+                parsed=json.loads(str(row["details_json"] or "{}"))
+                if isinstance(parsed,dict): details=parsed
+            except (TypeError,ValueError,json.JSONDecodeError):
+                pass
+            reason=str(details.get("reason") or "")
+            if state in {"ERROR","FAILED_RETRYABLE","FAILED_PERMANENT","BLOCKED"} or (attempted==0 and reason in {"PRE_SCORING_COLLECTION_STATE_NOT_FOUND","COMMON_CRAWL_PRESEAL_DATASET_MISSING"}):
+                return "PARCIAL","warn","Search Intelligence possui evidência persistida, mas Common Crawl foi solicitado e não concluiu validamente a coleta planejada nesta AUD."
     run=_explicit_run(database,data,catalog_id)
     if run:
         raw=_norm(run.get("status"))
