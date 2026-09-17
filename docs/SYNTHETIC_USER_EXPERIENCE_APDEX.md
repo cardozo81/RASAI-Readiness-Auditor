@@ -104,6 +104,10 @@ Com `errors_affect_apdex=true`, JavaScript runtime error ou `console.error` pode
 
 Dynatrace possui regras de request errors mais granulares, incluindo filtros e `impactApdex`. Portanto, `navigation/first-party/all` é uma política RASAi e não um enum do fornecedor.
 
+Além dos contadores, o runtime persiste evidência individual limitada dos eventos observados por amostra: falhas de request, respostas HTTP `>=400`, `console.error` e erros JavaScript. Quando disponíveis, são mantidos URL/fonte, first-party/third-party, tipo de recurso, status HTTP e mensagem técnica. Response bodies, cookies e secrets não são capturados por esta camada.
+
+Esses eventos alimentam também a correlação determinística de remediações descrita em [REQUEST_REMEDIATION_INTELLIGENCE.md](REQUEST_REMEDIATION_INTELLIGENCE.md). O agrupamento não altera a política de erro nem a classificação Apdex: ele apenas organiza a mesma evidência por padrão recorrente e solução possível.
+
 Fontes oficiais:
 
 - Dynatrace - Request errors: <https://docs.dynatrace.com/docs/dynatrace-api/environment-api/settings/schemas/builtin-rum-web-request-errors>
@@ -154,13 +158,16 @@ O console deve mostrar default, valor efetivo, origem e domínio permitido. Secr
 
 ## 8. Persistência e rastreabilidade
 
-Tabelas:
+Tabelas principais:
 
 ```text
 synthetic_ux_apdex_runs
 synthetic_ux_apdex_samples
 synthetic_ux_apdex_summaries
+synthetic_ux_apdex_error_details
 ```
+
+`synthetic_ux_apdex_error_details` é evidência diagnóstica subordinada à amostra. As tabelas `request_remediation_*` são uma projeção aditiva para agrupamento/solução e não substituem essa evidência de origem.
 
 A fórmula permanece:
 
@@ -183,9 +190,13 @@ A execução persiste configuração efetiva, contrato de medição, ambiente de
 - Satisfied/Tolerating/Frustrated e Frustrated forçado por erro;
 - p75/p90/p95/p99 quando disponíveis;
 - contadores XHR/fetch, recursos tardios e erros;
+- eventos individuais com URL/status/tipo/mensagem quando coletados;
+- padrões de erro agrupados entre amostras, com `N/Y`, percentual e frequência recorrente/intermitente/ocasional;
 - mix, session mode e grupos por device;
 - comparação com Synthetic Navigation Apdex quando houver contexto equivalente;
 - referências públicas.
+
+Os rótulos de recorrência descrevem frequência e não são usados isoladamente para afirmar causa estrutural. O detalhamento de solução fica no CAT-09; o CAT-07 permanece a projeção de observação/evidência.
 
 Nenhuma página HTML deve afirmar uma regra diferente da executada pelo runtime.
 
@@ -200,11 +211,12 @@ Verificações mínimas:
 3. KPM/thresholds efetivos correspondem à configuração;
 4. `console.error` força `FRUSTRATED` quando errors affect está ativo e o escopo não é `navigation`;
 5. JavaScript runtime error segue a mesma regra;
-6. request/HTTP error respeita o escopo configurado;
-7. request iniciado depois de `loadEventEnd` pode ser observado durante `settle`, mas não estende sozinho `USER_ACTION_DURATION`;
-8. igualdade com o limiar inferior é `TOLERATING` e igualdade com o limiar Frustrated também é `TOLERATING`;
-9. token Dynatrace não aparece em artifacts;
-10. Synthetic Navigation Apdex, scoring e demais domínios permanecem inalterados.
+6. request/HTTP error respeita o escopo configurado e mantém o detalhe técnico da ocorrência quando disponível;
+7. o agrupamento de recorrência não altera classificação, score ou a evidência individual e a solução correspondente aparece no CAT-09 sem criar uma recomendação por ocorrência;
+8. request iniciado depois de `loadEventEnd` pode ser observado durante `settle`, mas não estende sozinho `USER_ACTION_DURATION`;
+9. igualdade com o limiar inferior é `TOLERATING` e igualdade com o limiar Frustrated também é `TOLERATING`;
+10. token Dynatrace não aparece em artifacts;
+11. Synthetic Navigation Apdex, scoring e demais domínios permanecem inalterados.
 
 ## 11. Cold/warm, amostragem e carga
 
