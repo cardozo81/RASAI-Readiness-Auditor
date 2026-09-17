@@ -103,8 +103,10 @@ def install() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
+    from rasai.request_remediation_persistence_fix import install as install_persistence_fix
     from rasai.request_remediation_telemetry_patch import install as install_telemetry
 
+    install_persistence_fix()
     _patch_cat07()
     _patch_cat09()
     install_telemetry()
