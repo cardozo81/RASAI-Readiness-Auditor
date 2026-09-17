@@ -1,34 +1,34 @@
-"""Governed partial-continuation runtime for M7 semantic AI.
+"""Governed partial continuation for semantic AI without weakening provider contracts.
 
-Provider retry/fallback/quarantine/pricing remains owned by the existing provider
-runtime.  This layer operates one level above it: a semantic round may accept a valid
-subset of the requested BR-GEO rules, persist that subset, and issue a continuation
-containing only unresolved rule ids.  Accepted rules are immutable for the sealed
-evidence version.
+The provider layer remains fail-closed by default: a direct provider call still expects
+the complete canonical semantic contract.  Only a governed M7 call that is already bound
+to a sealed evidence version enters a temporary rule-scope context.  Inside that context
+a provider may return a valid subset of the rules requested for that logical round; the
+outer coordinator persists that subset and asks only for the unresolved rules next.
+
+Provider routing, retry, fallback, quarantine, usage and pricing remain owned by the
+existing provider runtime.
 """
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import replace
 import json
-from typing import Any, Mapping
+import sqlite3
+from typing import Any, Iterator, Mapping, Sequence
 
 from rasai.ai_governance import (
     begin_round,
     complete_round,
+    latest_evidence_snapshot,
     register_task,
     task_missing_requirements,
 )
-from rasai.audit_phase_runtime import require_sealed_evidence
 from rasai import semantic
 
 
 _CANONICAL_RULE_IDS = tuple(semantic.SEMANTIC_RULE_IDS)
-_ACTIVE_RULE_IDS: ContextVar[tuple[str, ...]] = ContextVar(
-    "rasai_semantic_requested_rules",
-    default=_CANONICAL_RULE_IDS,
-)
 _EXECUTION_CONTEXT: ContextVar[tuple[str, Any, Any] | None] = ContextVar(
     "rasai_semantic_execution_context",
     default=None,
@@ -41,35 +41,9 @@ _MAX_CONTINUATION_ROUNDS = 4
 _INSTALLED = False
 
 
-class _ContextualRuleIds(Sequence[str]):
-    """Sequence facade resolving rule ids from the current continuation round."""
-
-    def _values(self) -> tuple[str, ...]:
-        values = _ACTIVE_RULE_IDS.get()
-        return values or _CANONICAL_RULE_IDS
-
-    def __len__(self) -> int:
-        return len(self._values())
-
-    def __getitem__(self, index):
-        return self._values()[index]
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self._values())
-
-    def __contains__(self, value: object) -> bool:
-        return value in self._values()
-
-    def __repr__(self) -> str:
-        return repr(self._values())
-
-
-_RULE_PROXY = _ContextualRuleIds()
-
-
-def _assessment_payload(value: Any) -> dict[str, Any]:
+def _assessment_payload(value: Any, metadata: Mapping[str, Any] | None = None) -> dict[str, Any]:
     result = getattr(value, "result", None)
-    return {
+    output = {
         "rule_id": str(getattr(value, "rule_id", "")),
         "result": str(getattr(result, "value", result or "")),
         "confidence": float(getattr(value, "confidence", 0.0) or 0.0),
@@ -77,147 +51,198 @@ def _assessment_payload(value: Any) -> dict[str, Any]:
         "reasoning_summary": str(getattr(value, "reasoning_summary", "") or ""),
         "observed_value": getattr(value, "observed_value", {}),
     }
+    if metadata:
+        output["provider_metadata"] = {
+            "provider": metadata.get("provider"),
+            "model": metadata.get("model"),
+            "prompt_id": metadata.get("prompt_id"),
+            "prompt_version": metadata.get("prompt_version"),
+            "configuration_version": metadata.get("configuration_version"),
+        }
+    return output
 
 
-def _patch_rule_symbols() -> None:
+def _assessment_from_payload(value: Mapping[str, Any]):
+    from rasai.domain import RuleResult
+    from rasai.semantic import SemanticRuleAssessment
+
+    try:
+        rule_id = str(value.get("rule_id") or "")
+        if rule_id not in _CANONICAL_RULE_IDS:
+            return None
+        return SemanticRuleAssessment(
+            rule_id=rule_id,
+            result=RuleResult(str(value.get("result") or "UNKNOWN")),
+            confidence=float(value.get("confidence") or 0.0),
+            evidence_ids=tuple(str(item) for item in value.get("evidence_ids") or ()),
+            reasoning_summary=str(value.get("reasoning_summary") or ""),
+            observed_value=value.get("observed_value") or {},
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def _persisted_task_values(workspace: Any, task_id: str) -> tuple[dict[str, Any], dict[str, dict[str, str | None]]]:
+    connection = sqlite3.connect(workspace.database)
+    try:
+        row = connection.execute(
+            "SELECT accepted_json FROM ai_tasks WHERE ai_task_id=?",
+            (task_id,),
+        ).fetchone()
+    except sqlite3.OperationalError:
+        row = None
+    finally:
+        connection.close()
+    if row is None:
+        return {}, {}
+    try:
+        raw = json.loads(str(row[0] or "{}"))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}, {}
+    if not isinstance(raw, dict):
+        return {}, {}
+
+    accepted: dict[str, Any] = {}
+    metadata: dict[str, dict[str, str | None]] = {}
+    for key, value in raw.items():
+        if not isinstance(value, Mapping):
+            continue
+        assessment = _assessment_from_payload(value)
+        if assessment is None:
+            continue
+        rule_id = str(key)
+        accepted[rule_id] = assessment
+        raw_meta = value.get("provider_metadata")
+        if isinstance(raw_meta, Mapping):
+            metadata[rule_id] = {
+                "provider": str(raw_meta.get("provider") or "") or None,
+                "model": str(raw_meta.get("model") or "") or None,
+                "prompt_id": str(raw_meta.get("prompt_id") or "") or None,
+                "prompt_version": str(raw_meta.get("prompt_version") or "") or None,
+                "configuration_version": str(raw_meta.get("configuration_version") or "") or None,
+            }
+    return accepted, metadata
+
+
+def _set_rule_symbols(modules: Sequence[Any], values: tuple[str, ...]) -> None:
+    for module in modules:
+        if hasattr(module, "SEMANTIC_RULE_IDS"):
+            module.SEMANTIC_RULE_IDS = values
+
+
+@contextmanager
+def _scoped_provider_contract(requested: Sequence[str]) -> Iterator[None]:
+    """Temporarily narrow the semantic wire contract for one governed provider call.
+
+    Module symbols are restored before control returns to the caller, so direct provider
+    use and unrelated audits retain the canonical 22-rule fail-closed contract.  The
+    audit worker executes provider calls synchronously; ContextVar-backed outer state
+    keeps nested governed execution isolated.
+    """
     from rasai import m18_ai, openai_provider, provider_extensions
 
-    semantic.SEMANTIC_RULE_IDS = _RULE_PROXY
-    openai_provider.SEMANTIC_RULE_IDS = _RULE_PROXY
-    m18_ai.SEMANTIC_RULE_IDS = _RULE_PROXY
-    provider_extensions.SEMANTIC_RULE_IDS = _RULE_PROXY
-
-
-def _patch_schema_and_normalization() -> None:
-    from rasai import m18_ai, openai_provider, provider_extensions
-
-    original_hardened = openai_provider.hardened_semantic_output_schema
-    if not bool(getattr(original_hardened, "_rasai_partial_semantic", False)):
-        def hardened(allowed_evidence_ids=None):
-            schema = original_hardened(allowed_evidence_ids)
-            assessments = schema["properties"]["assessments"]
-            requested = tuple(_ACTIVE_RULE_IDS.get())
-            # Structured-output providers are asked for all requested rules, but the
-            # wire contract deliberately permits a non-empty subset so a valid partial
-            # response can be retained and continued instead of discarded wholesale.
-            assessments["minItems"] = 1
-            assessments["maxItems"] = max(1, len(requested))
-            assessments["items"]["properties"]["rule_id"]["enum"] = list(requested)
-            return schema
-
-        hardened._rasai_partial_semantic = True
-        hardened._rasai_original = original_hardened
-        openai_provider.hardened_semantic_output_schema = hardened
-        m18_ai.hardened_semantic_output_schema = hardened
-        provider_extensions.hardened_semantic_output_schema = hardened
-
-    original_normalize = semantic.normalize_provider_payload
-    if not bool(getattr(original_normalize, "_rasai_partial_semantic", False)):
-        def normalize(payload: Any, allowed_evidence_ids, **kwargs):
-            normalized = original_normalize(payload, allowed_evidence_ids, **kwargs)
-            requested = tuple(_ACTIVE_RULE_IDS.get())
-            received = tuple(
-                item.rule_id
-                for item in normalized.assessments
-                if item.rule_id in requested
-            )
-            if received:
-                # Existing provider adapters validate cardinality immediately after
-                # normalization.  Narrowing the contextual sequence to the locally
-                # validated response lets that validation mean "complete response for
-                # this returned subset"; the outer M7 coordinator remains responsible
-                # for the original requested set and continuation.
-                _ACTIVE_RULE_IDS.set(received)
-            return normalized
-
-        normalize._rasai_partial_semantic = True
-        normalize._rasai_original = original_normalize
-        semantic.normalize_provider_payload = normalize
-        openai_provider.normalize_provider_payload = normalize
-        m18_ai.normalize_provider_payload = normalize
-        provider_extensions.normalize_provider_payload = normalize
-
-    original_deepseek_schema = m18_ai._deepseek_semantic_output_schema
-    if not bool(getattr(original_deepseek_schema, "_rasai_partial_semantic", False)):
-        def deepseek_schema(allowed_evidence_ids=None):
-            schema = original_deepseek_schema(allowed_evidence_ids)
-            assessments = schema.get("properties", {}).get("assessments", {})
-            if isinstance(assessments, dict):
-                assessments["required"] = []
-            return schema
-
-        deepseek_schema._rasai_partial_semantic = True
-        deepseek_schema._rasai_original = original_deepseek_schema
-        m18_ai._deepseek_semantic_output_schema = deepseek_schema
-
-    original_canonicalize = m18_ai._canonicalize_deepseek_wire_payload
-    if not bool(getattr(original_canonicalize, "_rasai_partial_semantic", False)):
-        def canonicalize(payload: Any) -> Any:
-            if not isinstance(payload, Mapping):
-                return payload
-            assessments = payload.get("assessments")
-            if not isinstance(assessments, Mapping):
-                return payload
-            requested = tuple(_ACTIVE_RULE_IDS.get())
-            allowed = frozenset(requested)
-            received = frozenset(str(key) for key in assessments)
-            if not received or not received.issubset(allowed):
-                raise semantic.SemanticSchemaError("INVALID_SEMANTIC_RULE_SUBSET")
-            canonical: list[dict[str, Any]] = []
-            for rule_id in requested:
-                if rule_id not in assessments:
-                    continue
-                raw = assessments.get(rule_id)
-                if not isinstance(raw, Mapping):
-                    raise semantic.SemanticSchemaError(
-                        f"INVALID_ASSESSMENT_OBJECT_{rule_id}"
-                    )
-                if "rule_id" in raw:
-                    raise semantic.SemanticSchemaError(
-                        f"UNEXPECTED_RULE_ID_FIELD_{rule_id}"
-                    )
-                canonical.append({"rule_id": rule_id, **dict(raw)})
-            output = dict(payload)
-            output["assessments"] = canonical
-            return output
-
-        canonicalize._rasai_partial_semantic = True
-        canonicalize._rasai_original = original_canonicalize
-        m18_ai._canonicalize_deepseek_wire_payload = canonicalize
-
-
-def _patch_provider_attempt_summary() -> None:
-    """Keep per-round attempt telemetry honest when the requested set is < 22."""
-    from rasai import m18_ai
-
-    current = m18_ai.ResponsesSemanticProvider.analyze
-    if bool(getattr(current, "_rasai_partial_semantic", False)):
+    requested_ids = tuple(dict.fromkeys(str(item) for item in requested if str(item) in _CANONICAL_RULE_IDS))
+    if not requested_ids:
+        yield
         return
 
-    def analyze(self, semantic_input, *args: Any, **kwargs: Any):
-        requested = tuple(_ACTIVE_RULE_IDS.get())
-        result = current(self, semantic_input, *args, **kwargs)
-        accepted = len(getattr(getattr(result, "response", None), "assessments", ()) or ())
-        replacements: dict[Any, Any] = {}
-        for attempt in tuple(getattr(self, "_last_attempts", ()) or ()):
-            summary = str(getattr(attempt, "request_message_summary", "") or "")
-            summary = summary.replace(
-                "rules=22",
-                f"rules_requested={len(requested)};rules_accepted={accepted}",
-            )
-            replacements[attempt] = replace(attempt, request_message_summary=summary)
-        if replacements:
-            self._last_attempts = tuple(
-                replacements.get(item, item)
-                for item in tuple(getattr(self, "_last_attempts", ()) or ())
-            )
-            history = list(getattr(self, "_history", []) or [])
-            self._history[:] = [replacements.get(item, item) for item in history]
-        return result
+    modules = (semantic, openai_provider, m18_ai, provider_extensions)
+    saved_rule_ids = {module: getattr(module, "SEMANTIC_RULE_IDS", None) for module in modules}
+    saved_hardened = {
+        openai_provider: openai_provider.hardened_semantic_output_schema,
+        m18_ai: m18_ai.hardened_semantic_output_schema,
+        provider_extensions: provider_extensions.hardened_semantic_output_schema,
+    }
+    saved_normalize = {
+        semantic: semantic.normalize_provider_payload,
+        openai_provider: openai_provider.normalize_provider_payload,
+        m18_ai: m18_ai.normalize_provider_payload,
+        provider_extensions: provider_extensions.normalize_provider_payload,
+    }
+    saved_deepseek_schema = m18_ai._deepseek_semantic_output_schema
+    saved_deepseek_canonicalize = m18_ai._canonicalize_deepseek_wire_payload
 
-    analyze._rasai_partial_semantic = True
-    analyze._rasai_original = current
-    m18_ai.ResponsesSemanticProvider.analyze = analyze
+    original_hardened = openai_provider.hardened_semantic_output_schema
+    original_normalize = semantic.normalize_provider_payload
+    original_deepseek_schema = m18_ai._deepseek_semantic_output_schema
+
+    def set_expected(values: Sequence[str]) -> tuple[str, ...]:
+        normalized = tuple(dict.fromkeys(str(item) for item in values if str(item) in requested_ids))
+        if normalized:
+            _set_rule_symbols(modules, normalized)
+        return normalized
+
+    def partial_hardened(allowed_evidence_ids=None):
+        schema = original_hardened(allowed_evidence_ids)
+        active = tuple(getattr(openai_provider, "SEMANTIC_RULE_IDS", requested_ids))
+        assessments = schema["properties"]["assessments"]
+        assessments["minItems"] = 1
+        assessments["maxItems"] = max(1, len(active))
+        assessments["items"]["properties"]["rule_id"]["enum"] = list(active)
+        return schema
+
+    def partial_normalize(payload: Any, allowed_evidence_ids, **kwargs):
+        normalized = original_normalize(payload, allowed_evidence_ids, **kwargs)
+        received = tuple(item.rule_id for item in normalized.assessments)
+        if received:
+            set_expected(received)
+        return normalized
+
+    def partial_deepseek_schema(allowed_evidence_ids=None):
+        schema = original_deepseek_schema(allowed_evidence_ids)
+        assessments = schema.get("properties", {}).get("assessments", {})
+        if isinstance(assessments, dict):
+            # Ask for every requested property but allow a provider response to be
+            # salvaged item-by-item if it arrives incomplete; the outer task records
+            # what remains unresolved and performs the continuation.
+            assessments["required"] = []
+        return schema
+
+    def partial_deepseek_canonicalize(payload: Any) -> Any:
+        if not isinstance(payload, Mapping):
+            return payload
+        assessments = payload.get("assessments")
+        if not isinstance(assessments, Mapping):
+            return payload
+        expected = tuple(getattr(m18_ai, "SEMANTIC_RULE_IDS", requested_ids))
+        allowed = frozenset(expected)
+        received = tuple(str(key) for key in assessments)
+        if not received or not set(received).issubset(allowed):
+            raise semantic.SemanticSchemaError("INVALID_SEMANTIC_RULE_SUBSET")
+        canonical: list[dict[str, Any]] = []
+        for rule_id in expected:
+            if rule_id not in assessments:
+                continue
+            raw = assessments.get(rule_id)
+            if not isinstance(raw, Mapping):
+                raise semantic.SemanticSchemaError(f"INVALID_ASSESSMENT_OBJECT_{rule_id}")
+            if "rule_id" in raw:
+                raise semantic.SemanticSchemaError(f"UNEXPECTED_RULE_ID_FIELD_{rule_id}")
+            canonical.append({"rule_id": rule_id, **dict(raw)})
+        set_expected(tuple(item["rule_id"] for item in canonical))
+        output = dict(payload)
+        output["assessments"] = canonical
+        return output
+
+    _set_rule_symbols(modules, requested_ids)
+    for module in saved_hardened:
+        module.hardened_semantic_output_schema = partial_hardened
+    for module in saved_normalize:
+        module.normalize_provider_payload = partial_normalize
+    m18_ai._deepseek_semantic_output_schema = partial_deepseek_schema
+    m18_ai._canonicalize_deepseek_wire_payload = partial_deepseek_canonicalize
+    try:
+        yield
+    finally:
+        for module, value in saved_rule_ids.items():
+            if value is not None:
+                module.SEMANTIC_RULE_IDS = value
+        for module, value in saved_hardened.items():
+            module.hardened_semantic_output_schema = value
+        for module, value in saved_normalize.items():
+            module.normalize_provider_payload = value
+        m18_ai._deepseek_semantic_output_schema = saved_deepseek_schema
+        m18_ai._canonicalize_deepseek_wire_payload = saved_deepseek_canonicalize
 
 
 def _install_m7_continuation() -> None:
@@ -234,7 +259,13 @@ def _install_m7_continuation() -> None:
         workspace = kwargs.get("workspace")
         if not audit_id or workspace is None:
             return original_execute(*args, **kwargs)
-        snapshot = require_sealed_evidence(audit_id=audit_id, workspace=workspace)
+
+        # Low-level/unit consumers retain the original M7 contract.  The orchestrated
+        # AUD/RPR paths seal evidence first; only those paths activate continuation.
+        snapshot = latest_evidence_snapshot(workspace, audit_id)
+        if snapshot is None:
+            return original_execute(*args, **kwargs)
+
         token = _EXECUTION_CONTEXT.set((audit_id, workspace, snapshot))
         try:
             return original_execute(*args, **kwargs)
@@ -245,6 +276,7 @@ def _install_m7_continuation() -> None:
         context = _EXECUTION_CONTEXT.get()
         if context is None or str(getattr(provider, "name", "NONE")).upper() == "NONE":
             return original_safe(provider, semantic_input)
+
         audit_id, workspace, evidence_snapshot = context
         task_id = register_task(
             workspace=workspace,
@@ -267,13 +299,9 @@ def _install_m7_continuation() -> None:
                 scope_key=str(semantic_input.snapshot_id),
             )
         except Exception:
-            # Governance persistence is additive; semantic evaluation must retain the
-            # provider runtime's existing fail-open behavior if provenance persistence
-            # itself is unavailable.
             pass
 
-        accepted: dict[str, Any] = {}
-        provider_meta: dict[str, dict[str, str | None]] = {}
+        accepted, provider_meta = _persisted_task_values(workspace, task_id)
         entities: list[Any] = []
         entity_keys: set[tuple[Any, ...]] = set()
         primary_intent: str | None = None
@@ -302,11 +330,8 @@ def _install_m7_continuation() -> None:
                     "page_url": semantic_input.page_url,
                 },
             )
-            token = _ACTIVE_RULE_IDS.set(requested)
-            try:
+            with _scoped_provider_contract(requested):
                 call = original_safe(provider, semantic_input)
-            finally:
-                _ACTIVE_RULE_IDS.reset(token)
             last_call = call
             response = getattr(call, "response", None)
             new_values: dict[str, Any] = {}
@@ -316,23 +341,18 @@ def _install_m7_continuation() -> None:
                     rule_id = str(assessment.rule_id)
                     if rule_id not in requested or rule_id in accepted:
                         continue
-                    accepted[rule_id] = assessment
-                    new_values[rule_id] = _assessment_payload(assessment)
-                    provider_meta[rule_id] = {
+                    meta = {
                         "provider": str(getattr(response, "provider", "") or ""),
                         "model": getattr(response, "model", None),
                         "prompt_id": str(getattr(response, "prompt_id", "") or ""),
                         "prompt_version": str(getattr(response, "prompt_version", "") or ""),
-                        "configuration_version": str(
-                            getattr(response, "configuration_version", "") or ""
-                        ),
+                        "configuration_version": str(getattr(response, "configuration_version", "") or ""),
                     }
+                    accepted[rule_id] = assessment
+                    provider_meta[rule_id] = meta
+                    new_values[rule_id] = _assessment_payload(assessment, meta)
                 for entity in response.entities:
-                    key = (
-                        str(entity.name).casefold(),
-                        str(entity.entity_type),
-                        tuple(entity.evidence_ids),
-                    )
+                    key = (str(entity.name).casefold(), str(entity.entity_type), tuple(entity.evidence_ids))
                     if key not in entity_keys:
                         entity_keys.add(key)
                         entities.append(entity)
@@ -365,36 +385,39 @@ def _install_m7_continuation() -> None:
             return last_call or original_safe(provider, semantic_input)
 
         template = response_template
-        assert template is not None
+        if template is None:
+            # All values were reused from this same sealed evidence version. Metadata is
+            # preserved per rule below; the aggregate response needs only stable defaults.
+            first_meta = next(iter(provider_meta.values()), {})
+            provider_name = str(first_meta.get("provider") or "GOVERNED_REUSE")
+            model = first_meta.get("model")
+            prompt_id = str(first_meta.get("prompt_id") or "rasai-semantic-v1")
+            prompt_version = str(first_meta.get("prompt_version") or "1")
+            configuration_version = str(first_meta.get("configuration_version") or "1")
+        else:
+            provider_name = str(getattr(template, "provider", "") or "")
+            model = getattr(template, "model", None)
+            prompt_id = str(getattr(template, "prompt_id", "") or "")
+            prompt_version = str(getattr(template, "prompt_version", "") or "")
+            configuration_version = str(getattr(template, "configuration_version", "") or "")
+
         merged = semantic.SemanticProviderResponse(
-            assessments=tuple(
-                accepted[rule_id]
-                for rule_id in _CANONICAL_RULE_IDS
-                if rule_id in accepted
-            ),
+            assessments=tuple(accepted[rule_id] for rule_id in _CANONICAL_RULE_IDS if rule_id in accepted),
             entities=tuple(entities),
             primary_intent=primary_intent,
             secondary_intents=tuple(secondary_intents),
-            provider=str(getattr(template, "provider", "")),
-            model=getattr(template, "model", None),
-            configuration_version=str(
-                getattr(template, "configuration_version", "") or ""
-            ),
-            prompt_id=str(getattr(template, "prompt_id", "") or ""),
-            prompt_version=str(getattr(template, "prompt_version", "") or ""),
+            provider=provider_name,
+            model=model,
+            configuration_version=configuration_version,
+            prompt_id=prompt_id,
+            prompt_version=prompt_version,
         )
         _RULE_PROVIDER_METADATA.set(provider_meta)
-        unresolved = tuple(
-            rule_id for rule_id in _CANONICAL_RULE_IDS if rule_id not in accepted
-        )
+        unresolved = tuple(rule_id for rule_id in _CANONICAL_RULE_IDS if rule_id not in accepted)
         return semantic.ProviderCallResult(
             semantic.ProviderState.AVAILABLE,
             response=merged,
-            reason=(
-                "AI_PARTIAL_AFTER_CONTINUATION:" + ",".join(unresolved)
-                if unresolved
-                else None
-            ),
+            reason=("AI_PARTIAL_AFTER_CONTINUATION:" + ",".join(unresolved) if unresolved else None),
         )
 
     def evaluate(*args: Any, **kwargs: Any):
@@ -404,9 +427,7 @@ def _install_m7_continuation() -> None:
             provider_assessment = args[3]
         if provider_assessment is None or not bool(getattr(outcome, "provider_used", False)):
             return outcome
-        meta = _RULE_PROVIDER_METADATA.get().get(
-            str(getattr(provider_assessment, "rule_id", ""))
-        )
+        meta = _RULE_PROVIDER_METADATA.get().get(str(getattr(provider_assessment, "rule_id", "")))
         if not meta:
             return outcome
         return replace(
@@ -417,10 +438,7 @@ def _install_m7_continuation() -> None:
                 model=meta.get("model"),
                 prompt_id=meta.get("prompt_id") or outcome.metadata.prompt_id,
                 prompt_version=meta.get("prompt_version") or outcome.metadata.prompt_version,
-                configuration_version=(
-                    meta.get("configuration_version")
-                    or outcome.metadata.configuration_version
-                ),
+                configuration_version=meta.get("configuration_version") or outcome.metadata.configuration_version,
             ),
         )
 
@@ -434,7 +452,8 @@ def _install_m7_continuation() -> None:
     m7._safe_provider_call = safe_provider_call
     m7._evaluate = evaluate
 
-    # audit_runner imported execute_m7 by value.
+    # audit_runner imported execute_m7 by value; keep the high-level pipeline on the
+    # governed wrapper while direct low-level imports remain behaviorally compatible.
     try:
         from rasai import audit_runner
         if getattr(audit_runner, "execute_m7", None) is original_execute:
@@ -447,9 +466,6 @@ def install() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
-    _patch_rule_symbols()
-    _patch_schema_and_normalization()
-    _patch_provider_attempt_summary()
     _install_m7_continuation()
     _INSTALLED = True
 
