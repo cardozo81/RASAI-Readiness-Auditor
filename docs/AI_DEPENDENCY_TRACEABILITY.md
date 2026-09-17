@@ -56,7 +56,7 @@ Quando a evidência ainda não está pronta:
 - não há custo de IA;
 - o snapshot de dependência registra o bloqueio.
 
-## CAT-08 · análise profunda
+## CAT-08 - análise profunda
 
 Antes da análise profunda, o runtime verifica:
 
@@ -79,7 +79,7 @@ Para cada finalidade, deve ser possível auditar:
 - fingerprint;
 - momento da decisão.
 
-Isso complementa — não substitui — request/response, tokens, custo, provider/model e diagnóstico de tentativas.
+Isso complementa - não substitui - request/response, tokens, custo, provider/model e diagnóstico de tentativas.
 
 ## Regra de custo
 
