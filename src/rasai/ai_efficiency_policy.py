@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 
-AI_CALL_POLICY_VERSION = "AI-CALL-POLICY-002"
+AI_CALL_POLICY_VERSION = "AI-CALL-POLICY-003"
 TOKEN_ECONOMY_INSTRUCTION = (
     "Be concise: do not restate the input evidence, rule text, or schema. "
     "Use the minimum wording needed for evidence-bound reasoning fields and avoid duplicate details."
@@ -106,8 +106,12 @@ def install() -> None:
 
     from rasai import m18_ai, semantic
     from rasai.ai_model_runtime import install as install_ai_model_runtime
+    from rasai.semantic_corpus_runtime import install as install_semantic_corpus_runtime
 
     install_ai_model_runtime()
+    # Semantic CAT-03 calls remain on the same provider/routing stack, but the selected
+    # stack is mechanically guarded until the complete audit corpus/context is READY.
+    install_semantic_corpus_runtime()
 
     _patch_provider_payload(semantic)
     _patch_request_method(semantic.OpenAIProvider)
@@ -194,6 +198,7 @@ def strategy_summary() -> dict[str, Any]:
     return {
         "version": AI_CALL_POLICY_VERSION,
         "semantic_granularity": "ONE_STRUCTURED_CALL_PER_SNAPSHOT_FOR_ALL_CONTRACTED_RULES",
+        "semantic_corpus_gate": "WHOLE_AUDIT_CONTEXT_READY_BEFORE_FIRST_PROVIDER_CALL",
         "origin_resource_repetition": "NONE_BY_DEVICE",
         "report_generation_ai_calls": 0,
         "device_snapshot_deduplication": "NOT_MERGED_WHEN_EVIDENCE_IDENTITIES_DIFFER",
