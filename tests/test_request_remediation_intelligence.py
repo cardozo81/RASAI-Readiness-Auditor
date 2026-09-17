@@ -8,8 +8,8 @@ from rasai.request_remediation_intelligence import (
     _validate_solutions,
     collect_request_error_evidence,
     group_request_error_evidence,
-    persist_request_remediation_groups,
 )
+from rasai.request_remediation_persistence_fix import persist_request_remediation_groups
 
 
 def _database(path: Path) -> Path:
