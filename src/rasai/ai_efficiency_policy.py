@@ -169,12 +169,16 @@ def install() -> None:
         install_ai_orchestration_unification_cleanup,
     )
     from rasai.improvement_exchange_capture import install as install_improvement_exchange_capture
+    from rasai.request_remediation_intelligence import install as install_request_remediation_intelligence
+    from rasai.request_remediation_report_patch import install as install_request_remediation_report_patch
 
     install_ai_orchestration_unification()
     install_ai_orchestration_unification_cleanup()
     install_accepted_audit_refinements()
     install_accepted_timeout_context()
     install_accepted_report_compat()
+    install_request_remediation_intelligence()
+    install_request_remediation_report_patch()
     install_improvement_exchange_capture()
 
     from rasai.completion_recovery_alignment import install as install_completion_recovery_alignment
