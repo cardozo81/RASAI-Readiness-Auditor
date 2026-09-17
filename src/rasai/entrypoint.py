@@ -20,6 +20,7 @@ from rasai.external_observability_runtime import (
     install_service_contract as install_external_observability_service_contract,
 )
 from rasai.external_observability_safety import install as install_external_observability_safety
+from rasai.final_smoke_closure import install as install_final_smoke_closure
 from rasai.governed_analysis_runtime import (
     install_post as install_governed_analysis_post,
     install_pre as install_governed_analysis_pre,
@@ -242,6 +243,8 @@ def _install_audit_runtime() -> None:
     install_governed_optional_runtime()
     install_worker_lease_runtime()
     install_report_scope_clarity()
+    # Reassert final owners after legacy/runtime installers that register by name.
+    install_final_smoke_closure()
     install_governed_analysis_post()
     install_governed_report_projection()
 
