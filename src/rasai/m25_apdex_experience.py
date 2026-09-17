@@ -124,7 +124,7 @@ class ExperienceApdexConfig:
             "measurement_contract": {
                 "user_action_duration": "navigationStart_to_loadEventEnd_or_last_xhr_fetch_started_before_loadEventEnd",
                 "settle_role": "observation_only_not_duration_extension",
-                "runtime_errors": "javascript_and_console_errors_global_when_error_policy_is_enabled",
+                "runtime_errors": "javascript_and_console_errors_all_scope_only",
                 "request_error_scope": self.error_scope,
             },
         }
@@ -204,6 +204,7 @@ class _Classified:
     classification: str | None
     kpm_value_ms: float | None
     error_forced: bool
+    captured_at: str
 
 
 class _OriginPacer:
@@ -638,7 +639,7 @@ def execute_m25_experience(
         calibration_source=calibration.source,
         m25_profile_version=M25_PROFILE_VERSION,
         user_action_duration_policy="LOAD_EVENT_END_OR_LAST_XHR_FETCH_STARTED_BEFORE_LOAD_EVENT_END",
-        runtime_error_policy="GLOBAL_JAVASCRIPT_AND_CONSOLE_ERRORS",
+        runtime_error_policy="SCOPED_FIRST_PARTY_REQUEST_HTTP_ALL_SCOPE_JS_CONSOLE",
     )
 
     shared_gateway = gateway
@@ -834,7 +835,7 @@ def _measure_device(
             settle_seconds=config.settle_seconds,
         )
         classification, value, forced = classify_measurement(measurement, calibration, error_scope=config.error_scope)
-        item = _Classified(run_index, device, measurement, classification, value, forced)
+        item = _Classified(run_index, device, measurement, classification, value, forced, _utc_now())
         _log_progress(workspace, audit_id, url, device, page_index, page_total, target, max_attempts, item)
         return item
 
@@ -918,7 +919,7 @@ def _persisted_sample(
         http_error_count=m.http_error_count, first_party_http_error_count=m.first_party_http_error_count,
         network_settled=m.network_settled, error_forced_frustrated=item.error_forced,
         error_code=m.error_code, error_message=_bounded(m.error_message, 256),
-        cpu_method=m.cpu_method, network_method=m.network_method, captured_at=_utc_now(),
+        cpu_method=m.cpu_method, network_method=m.network_method, captured_at=item.captured_at,
     )
 
 
@@ -963,13 +964,17 @@ def _summary(
 def _qualifying_error(item: UxMeasurement, scope: str) -> bool:
     if item.status == "APPLICATION_ERROR":
         return True
-    if scope == "navigation":
+    normalized = str(scope or "").strip().casefold()
+    if normalized == "navigation":
         return False
-    if item.javascript_error_count > 0 or item.console_error_count > 0:
-        return True
-    if scope == "first-party":
+    if normalized == "first-party":
         return item.first_party_request_failed_count > 0 or item.first_party_http_error_count > 0
-    return item.request_failed_count > 0 or item.http_error_count > 0
+    return (
+        item.javascript_error_count > 0
+        or item.console_error_count > 0
+        or item.request_failed_count > 0
+        or item.http_error_count > 0
+    )
 
 
 def _profile_for_device(device: str) -> SyntheticProfile:
@@ -1032,6 +1037,7 @@ def _log_progress(
         request_failures=item.measurement.request_failed_count,
         http_errors=item.measurement.http_error_count,
         network_settled=item.measurement.network_settled,
+        captured_at=item.captured_at,
     )
 
 
