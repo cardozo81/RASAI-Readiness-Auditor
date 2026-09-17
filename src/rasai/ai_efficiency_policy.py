@@ -180,6 +180,7 @@ def install() -> None:
     from rasai.ai_orchestration_unification_cleanup import install_ai_orchestration_unification_cleanup
     from rasai.catalog_report_search_trust_runtime import install as install_catalog_report_search_trust_runtime
     from rasai.context_interpretation_runtime import install as install_context_interpretation_runtime
+    from rasai.execution_consistency_runtime import install as install_execution_consistency_runtime
     from rasai.improvement_exchange_capture import install as install_improvement_exchange_capture
     from rasai.request_remediation_intelligence import install as install_request_remediation_intelligence
     from rasai.request_remediation_report_patch import install as install_request_remediation_report_patch
@@ -192,6 +193,7 @@ def install() -> None:
     install_request_remediation_intelligence()
     install_request_remediation_report_patch()
     install_catalog_report_search_trust_runtime()
+    install_execution_consistency_runtime()
     install_improvement_exchange_capture()
     install_context_interpretation_runtime()
     install_ai_dependency_runtime()
