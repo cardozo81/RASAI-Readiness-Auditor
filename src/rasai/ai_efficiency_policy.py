@@ -207,11 +207,15 @@ def install() -> None:
     install_ai_task_profile_runtime()
     install_ai_task_profile_semantic_compat()
 
-    # Final point alignment discovered by the end-to-end human smoke. These layers only
-    # repair ownership/binding gaps; they do not change provider ranking or report HTML structure.
+    # Final point alignment discovered by the end-to-end human smoke. Common Crawl has
+    # a newer canonical implementation in post_smoke_hotfix; suppress the superseded
+    # installer before running the remaining alignment hooks so bootstrap cannot execute
+    # obsolete imports/signatures and there is only one owner for that collection phase.
+    from rasai import post_smoke_alignment as post_smoke_alignment_module
     from rasai.post_smoke_alignment import install as install_post_smoke_alignment
     from rasai.post_smoke_hotfix import install as install_post_smoke_hotfix
 
+    post_smoke_alignment_module._install_common_crawl_preseal = lambda: None
     install_post_smoke_alignment()
     install_post_smoke_hotfix()
 
