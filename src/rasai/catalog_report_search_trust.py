@@ -172,17 +172,26 @@ def _serp_rows(database: Path, audit_id: str) -> tuple[list[dict[str, Any]], dic
     try:
         if not _table_exists(connection, "serp_observations"):
             return [], {}
+        columns = _columns(connection, "serp_observations")
+        if "audit_id" not in columns:
+            # Never mix observations from different AUDs when a legacy/reduced schema
+            # cannot prove audit ownership.
+            return [], {}
+        order_columns = [name for name in ("collected_at", "observation_id") if name in columns]
+        order_by = ",".join(order_columns) if order_columns else "rowid"
         rows = [dict(row) for row in connection.execute(
-            "SELECT * FROM serp_observations WHERE audit_id=? ORDER BY collected_at,observation_id", (audit_id,)
+            f"SELECT * FROM serp_observations WHERE audit_id=? ORDER BY {order_by}", (audit_id,)
         )]
         provenance: dict[str, dict[str, Any]] = {}
         if _table_exists(connection, "serp_evidence_provenance"):
-            provenance = {
-                str(row["observation_id"]): dict(row)
-                for row in connection.execute(
-                    "SELECT * FROM serp_evidence_provenance WHERE audit_id=?", (audit_id,)
-                )
-            }
+            provenance_columns = _columns(connection, "serp_evidence_provenance")
+            if {"audit_id", "observation_id"}.issubset(provenance_columns):
+                provenance = {
+                    str(row["observation_id"]): dict(row)
+                    for row in connection.execute(
+                        "SELECT * FROM serp_evidence_provenance WHERE audit_id=?", (audit_id,)
+                    )
+                }
         return rows, provenance
     finally:
         connection.close()
