@@ -18,6 +18,11 @@ def install() -> None:
     been persisted and does not issue a second AI request.
     """
     from rasai import audit_runner
+    from rasai.semantic_coherence_reporting import install as install_reporting
+
+    # Reporting is additive and can render explicit context/limitations even when AI is
+    # disabled, so install it together with the corpus contract rather than on success.
+    install_reporting()
 
     if getattr(audit_runner, "_rasai_semantic_corpus_gate_installed", False):
         return
