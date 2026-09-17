@@ -83,6 +83,34 @@ def test_first_party_apdex_scope_does_not_promote_unattributed_console_noise_to_
     assert m25._qualifying_error(first_party_failure, "first-party") is True
 
 
+def test_apdex_public_copy_matches_first_party_error_policy() -> None:
+    from rasai import m25_reporting
+
+    install()
+    run = {"errors_affect_apdex": 1, "error_scope": "first-party"}
+    note = m25_reporting._error_policy_note(run)
+    contract = m25_reporting._measurement_contract_context({"error_scope": "first-party"})
+
+    assert "recursos próprios" in note
+    assert "Erros JavaScript e de console" in note
+    assert "permanecem diagnósticos" in note
+    assert "permanecem diagnósticos" in contract["runtime_errors"]
+    assert "recursos próprios" in contract["request_errors"]
+
+
+def test_semantic_rule_and_expected_condition_copy_is_canonical_pt_br() -> None:
+    from rasai import m7
+    from rasai import m16_root_cause as m16
+
+    install()
+    rule = next(item for item in m7._M7_DEFINITIONS if item.rule_id == "BR-GEO-041")
+
+    assert rule.name == "Afirmações factuais materiais devem ser explicitamente identificáveis"
+    assert m7._EXPECTED["BR-GEO-043"] == "afirmações numéricas, temporais e quantitativas contêm os qualificadores necessários"
+    assert "claims" not in m16._CAUSE_SUMMARY["BR-GEO-041"].casefold()
+    assert "publisher" not in m16._CAUSE_SUMMARY["BR-GEO-046"].casefold()
+
+
 def test_persisted_limited_improvement_run_is_mandatory_fulfillment_even_with_env_isolated(tmp_path: Path, monkeypatch) -> None:
     from rasai import fulfillment_execution_contract as contract
 
