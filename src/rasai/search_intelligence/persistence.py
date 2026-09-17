@@ -147,6 +147,14 @@ class SerpObservationRepository:
         if observation is None:
             return
         temporal_mode = self._temporal_mode(observation.data_mode)
+        persisted_at = _now()
+        # ``observation.collected_at`` is the provider/search timestamp and is retained
+        # verbatim on the observation. Provenance ``captured_at`` is the local RASAi
+        # acquisition/persistence boundary for LIVE_RECOLLECTION, so freshness checks do
+        # not confuse an older provider metadata timestamp with reuse of historical data.
+        provenance_captured_at = (
+            persisted_at if temporal_mode == SERP_TEMPORAL_LIVE else _dt(observation.collected_at)
+        )
         with self.connection:
             self.connection.execute(
                 """
@@ -218,12 +226,12 @@ class SerpObservationRepository:
                     observation.observation_id,
                     self.audit_id,
                     temporal_mode,
-                    _dt(observation.collected_at),
+                    provenance_captured_at,
                     self.audit_id if temporal_mode == SERP_TEMPORAL_LIVE else None,
                     observation.observation_id if temporal_mode == SERP_TEMPORAL_LIVE else None,
                     None,
                     None,
-                    _now(),
+                    persisted_at,
                 ),
             )
 
