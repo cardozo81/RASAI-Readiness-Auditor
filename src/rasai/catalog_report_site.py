@@ -190,7 +190,6 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
     from rasai.catalog_report_label_refinements import install_catalog_human_labels
     from rasai.catalog_report_search_trust import install as install_catalog_search_trust
     from rasai.catalog_state_trust import install as install_catalog_state_trust
-    from rasai.recommendation_governance import evaluate_recommendations
     from rasai.recommendation_governance_reporting import install as install_recommendation_governance_reporting
     from rasai.semantic_coherence_reporting import install as install_semantic_coherence_reporting
 
@@ -211,9 +210,8 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
     # Freshness is a publication invariant. A stale observation may be used only when
     # explicitly persisted as REUSED_EVIDENCE with source/reason provenance.
     require_valid_serp_freshness(database,audit_id)
-    # CAT-09 governance is deterministic persisted derivation. Materialize it before the
-    # source fingerprint; from this point onward report generation is read-only.
-    evaluate_recommendations(database,audit_id)
+    # CAT-09 governance is materialized by the canonical report-model phase before
+    # HTML projection. From this point onward report generation is strictly read-only.
     token=uuid.uuid4().hex
     staging=root/f".{CATALOG_REPORT_DIR}.tmp-{token}"
     quarantine=root/f".{CATALOG_REPORT_DIR}.stale-{token}"
