@@ -10,11 +10,11 @@ O contrato `RECOMMENDATION-GOVERNANCE-001` classifica e valida cada candidato an
 
 Cada recomendação recebe uma classe explícita:
 
-- `TARGET_SITE` — alteração no site/propriedade auditada;
-- `AUDITOR_INTERNAL` — problema ou ajuste interno do RASAi/auditor;
-- `EXTERNAL_PROVIDER` — ação em fornecedor/CDN/dependência de terceiro;
-- `ENVIRONMENTAL` — ação em ambiente/infraestrutura fora do ativo auditado;
-- `INFORMATIONAL` — orientação sem ownership seguro ou sem obrigação de implementação.
+- `TARGET_SITE` - alteração no site/propriedade auditada;
+- `AUDITOR_INTERNAL` - problema ou ajuste interno do RASAi/auditor;
+- `EXTERNAL_PROVIDER` - ação em fornecedor/CDN/dependência de terceiro;
+- `ENVIRONMENTAL` - ação em ambiente/infraestrutura fora do ativo auditado;
+- `INFORMATIONAL` - orientação sem ownership seguro ou sem obrigação de implementação.
 
 A classe descreve **quem é o alvo da ação**, não o catálogo de origem.
 
@@ -22,8 +22,8 @@ A classe descreve **quem é o alvo da ação**, não o catálogo de origem.
 
 Estados persistidos:
 
-- `ACCEPTED` — pode entrar no plano governado;
-- `REJECTED` — permanece auditável, mas não entra no plano do cliente.
+- `ACCEPTED` - pode entrar no plano governado;
+- `REJECTED` - permanece auditável, mas não entra no plano do cliente.
 
 Campos de governança persistidos em `recommendation_governance` incluem:
 
@@ -82,9 +82,9 @@ A governança não altera SARI/SCORE-GEO.
 
 O CAT-09 separa:
 
-1. **Plano de ação aceito** — somente recomendações `ACCEPTED`;
-2. **Itens rejeitados ou informativos** — auditáveis, fora do plano;
-3. **Inventário técnico de origem** — trilha bruta preservada para rastreabilidade, explicitamente não apresentada como plano governado.
+1. **Plano de ação aceito** - somente recomendações `ACCEPTED`;
+2. **Itens rejeitados ou informativos** - auditáveis, fora do plano;
+3. **Inventário técnico de origem** - trilha bruta preservada para rastreabilidade, explicitamente não apresentada como plano governado.
 
 A governança é materializada antes do fingerprint e do snapshot final de `report-catalog`, portanto o pacote entregue contém as mesmas decisões exibidas.
 
