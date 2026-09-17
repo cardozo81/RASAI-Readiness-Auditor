@@ -6,6 +6,8 @@ Data de referência: 2026-09-16.
 
 A estrutura visual permanece preservada. Os ajustes desta rodada são de contrato de dados, materialização, linguagem, rastreabilidade e projeção; não constituem redesign e não alteram scoring determinístico.
 
+Como o produto ainda não foi publicado, os contratos abaixo passam a ser o comportamento canônico atual. Não existe requisito de compatibilidade com estados, enums ou textos públicos obsoletos desta fase de desenvolvimento.
+
 ## Correções incorporadas
 
 ### Freshness, materialização e gate final
@@ -55,6 +57,15 @@ Foi corrigido o caso de fronteira em que `performance_score=1.0`, já persistido
 
 Pontuações de categoria provenientes de `web_performance_observations` são projetadas diretamente na escala persistida. Portanto `1.0` é exibido como `1 / 100`, enquanto `78.0` é `78 / 100`.
 
+As avaliações de Core Web Vitals deixaram de persistir o estado ambíguo `NEEDS_IMPROVEMENT_OR_POOR`. O contrato atual diferencia:
+
+- `GOOD`;
+- `NEEDS_IMPROVEMENT`;
+- `POOR`;
+- estado agregado `PASS`, `FAIL` ou `INCOMPLETE` conforme a disponibilidade das três métricas.
+
+Para LCP, INP e CLS são aplicados os dois limites necessários para separar `Precisa melhorar` de `Ruim`. A camada pública apresenta esses rótulos em português. A requisição PageSpeed solicita `locale=pt-BR`, preservando o runtime de timeout, telemetria e política de tentativas do coletor externo.
+
 Na camada de apresentação em português, rótulos genéricos de tabela passam a usar termos como `Desempenho web`, `Lighthouse · Desempenho`, `Lighthouse · Acessibilidade`, `Lighthouse · Boas práticas`, `Índice de velocidade (Speed Index)` e `Tempo total de bloqueio (TBT)`. Marcas, siglas e nomes técnicos oficiais permanecem preservados.
 
 ### CAT-05 - Search & AI Intelligence
@@ -83,11 +94,16 @@ A tabela de amostras mantém:
 
 - `captured_at` apresentado como data/hora da medição no timezone de apresentação;
 - para novas execuções, o timestamp é registrado individualmente quando cada amostra conclui sua coleta, antes da persistência posterior em lote;
+- quando existe aquisição compartilhada, o relatório também pode usar `synthetic_apdex_acquisitions.created_at` como proveniência do instante de coleta;
 - amostras coletadas em momentos diferentes deixam de herdar o mesmo horário apenas porque foram inseridas juntas no SQLite;
 - LCP e contagem de requests com falha entre as colunas principais;
 - ordenação client-side aplicada sobre o dataset inteiro antes da paginação;
 - paginação de 10 registros por página;
-- explicação explícita quando a política `errors_affect_apdex` força amostras para `Frustrada`, evitando atribuir a classificação somente à duração.
+- apresentação separada de `Apdex por duração` e `Apdex efetivo`, além da contagem de amostras forçadas por erro.
+
+A política de erro também foi corrigida. No escopo `first-party`, erros de console/JavaScript sem origem própria confiável permanecem diagnósticos e não forçam `Frustrada`. Somente falhas de requisição/HTTP atribuídas a recursos próprios, além de erro da navegação/aplicação quando aplicável, podem forçar a classificação. O escopo `all` continua disponível como política estrita explícita.
+
+Isso elimina o caso em que todas as amostras eram classificadas como frustradas apenas por ruído de terceiros, apesar de a duração isolada produzir um Apdex alto.
 
 ### Estado lógico x auditoria-base
 
@@ -98,6 +114,8 @@ O topo das páginas passa a expor separadamente:
 
 Assim, uma execução pode estar logicamente `Concluída` e, ao mesmo tempo, preservar `Concluído com limitações` na auditoria-base. Quando `audits.limitations` contém uma limitação conhecida, ela é apresentada de forma legível, por exemplo `Lacuna na descoberta renderizada: 10`, sem achatar a informação para um único estado verde.
 
+O aviso completo da limitação da auditoria-base fica concentrado nas páginas de visão geral/captura. Nos CATs, a limitação aparece de forma compacta com referência para os detalhes, evitando repetir o mesmo bloco extenso em todas as páginas.
+
 ### CAT-08 - Análise profunda
 
 CAT-08 projeta os findings finais persistidos, sua distribuição por domínio, severidade, origem/CAT e vínculo com recomendações.
@@ -105,6 +123,8 @@ CAT-08 projeta os findings finais persistidos, sua distribuição por domínio, 
 Quando houver menos recomendações que findings, a página mostra quantos achados não possuem remediação individual e, quando aplicável, explica o limite `max_recommendations`. Um finding sem recomendação não recebe correção inventada.
 
 Se a etapa for solicitada mas falhar sem resultado funcional, a página mostra rastreabilidade de provider/modelo/tentativa/erro/fallback em vez de apenas `sem resultado`.
+
+Quando CAT-08 exige IA, `IMPROVEMENT_INTELLIGENCE` passa a ser work-item obrigatório do fulfillment. Uma execução `COMPLETE_WITH_LIMITATIONS`, falha de contrato ou indisponibilidade dos providers não pode mais coexistir com CAT-08 apresentado como `CONCLUÍDO` integral. O catálogo é projetado como parcial/falho conforme o estado persistido e o fulfillment mantém a pendência reprocessável.
 
 ### CAT-09 - Remediações
 
@@ -130,7 +150,8 @@ A apresentação diferencia correção necessária de oportunidade:
 - `robots.txt` ausente não é rotulado como arquivo `não interpretável` nem como erro de crawling; pode aparecer como oportunidade de explicitar política;
 - sitemap ausente no caminho convencional é lacuna de descoberta/readiness, não falha fatal; URLs não descobertas não são inventadas;
 - `llms.txt` permanece opcional/não padronizado e sua ausência não é tratada como requisito obrigatório;
-- quando nenhum dado estruturado foi observado, a sugestão é `Considerar implementar dados estruturados aplicáveis`, e não `Corrigir sintaxe`.
+- quando nenhum dado estruturado foi observado, a sugestão é `Considerar implementar dados estruturados aplicáveis`, e não `Corrigir sintaxe`;
+- quando a dimensão `STRUCTURED_DATA` está `NOT_APPLICABLE` por ausência observada e a política metodológica é `NOT_APPLICABLE_WHEN_ABSENT`, o SARI apresenta `Não aplicável — nenhum dado estruturado foi observado`, e não `Sem dados para estimar`.
 
 ### Captura e contexto
 
@@ -141,6 +162,8 @@ A captura visual persistida tem preview na própria página, com dispositivo, da
 Estados e níveis usados na camada principal são humanizados. Códigos internos continuam permitidos apenas em detalhes técnicos/proveniência ou no payload bruto original. Valores em português como `CRÍTICO` também são normalizados sem perder acentuação legível.
 
 A revisão cobre também valores vindos do banco que antes escapavam como enums/termos ingleses em tabelas portuguesas, incluindo estados de execução, componentes, dispositivo móvel e categorias genéricas de qualidade web. Nomes de produto, padrões, siglas e identificadores técnicos oficiais não são traduzidos artificialmente.
+
+Para novas auditorias, os nomes e condições esperadas das regras semânticas `BR-GEO-028..049` passam a ser persistidos com texto humano em pt-BR. Isso evita propagar frases inglesas para CAT-03, CAT-08, CAT-09 e causas-raiz. O texto técnico bruto de uma fonte externa permanece preservado quando necessário para rastreabilidade.
 
 ## Limitações de dados ainda reais
 
@@ -172,4 +195,5 @@ Alguns collectors servem a mais de um domínio, por exemplo PageSpeed/Lighthouse
 - componentes visuais e ordem estrutural das seções permanecem compartilhados e estáveis;
 - um `report-catalog` cujo fingerprint não corresponda à fonte persistida não é considerado final;
 - `freshness=FINAL` somente é válido depois da última persistência da cadeia de execução local;
-- a auditoria não deve anunciar os relatórios HTML como completos quando o gate final de materialização/freshness do `report-catalog` falhar.
+- a auditoria não deve anunciar os relatórios HTML como completos quando o gate final de materialização/freshness do `report-catalog` falhar;
+- CAT-08 obrigatório não pode ser omitido do fulfillment nem projetado como conclusão integral quando a análise profunda terminou com limitações.
