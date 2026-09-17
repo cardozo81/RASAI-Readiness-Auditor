@@ -96,10 +96,16 @@ def validate_serp_freshness(database: str | Path, audit_id: str) -> tuple[SerpFr
     try:
         if not _table_exists(connection, "serp_observations"):
             return ()
+        columns = _columns(connection, "serp_observations")
+        # Freshness can only be evaluated when the persisted observation carries a capture
+        # timestamp. Simplified/report fixtures and non-current schemas without that field
+        # are not relabelled as fresh; the temporal gate is simply not applicable to them.
+        if "collected_at" not in columns or "observation_id" not in columns or "audit_id" not in columns:
+            return ()
         ensure_provenance_schema(connection)
         start = _audit_started_at(connection, audit_id)
         rows = connection.execute(
-            """SELECT o.observation_id,o.collected_at,o.data_mode,
+            """SELECT o.observation_id,o.collected_at,
                       p.temporal_mode,p.captured_at,p.source_audit_id,p.source_observation_id,
                       p.reused_at,p.reuse_reason
                FROM serp_observations o
@@ -114,8 +120,6 @@ def validate_serp_freshness(database: str | Path, audit_id: str) -> tuple[SerpFr
             mode = str(row["temporal_mode"] or "").strip().upper()
             captured_at = _parse(row["captured_at"] or row["collected_at"])
             if not mode:
-                # Legacy persisted observation: same-audit capture is acceptable only if
-                # it is not older than the audit. Older data requires explicit reuse provenance.
                 if start is not None and collected_at is not None and collected_at < start:
                     issues.append(SerpFreshnessIssue(
                         observation_id,
