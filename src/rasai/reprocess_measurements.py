@@ -416,7 +416,10 @@ def _m25_item_from_row(row: sqlite3.Row):
         network_settled=bool(row["network_settled"]),profile_applied=bool(row["classification"] is not None),
         error_code=row["error_code"],error_message=row["error_message"],cpu_method=row["cpu_method"],network_method=row["network_method"],
     )
-    return _Classified(int(row["run_index"]),str(row["device"]),measurement,row["classification"],row["kpm_value_ms"],bool(row["error_forced_frustrated"]))
+    return _Classified(
+        int(row["run_index"]),str(row["device"]),measurement,row["classification"],row["kpm_value_ms"],
+        bool(row["error_forced_frustrated"]),str(row["captured_at"] or ""),
+    )
 
 
 def recover_experience_apdex(
@@ -492,7 +495,7 @@ def recover_experience_apdex(
                             settle_seconds=cfg.settle_seconds,
                         )
                         classification,value,forced = m25.classify_measurement(measurement,calibration,error_scope=cfg.error_scope)
-                        classified = m25._Classified(next_index,device,measurement,classification,value,forced)
+                        classified = m25._Classified(next_index,device,measurement,classification,value,forced,m25._utc_now())
                         items.append(classified)
                         store.add_sample(m25._persisted_sample(audit_id,page_id,url,profile,cfg,calibration,classified))
                         next_index += 1
