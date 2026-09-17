@@ -1,4 +1,4 @@
-"""Runtime gates and dependency provenance for non-semantic AI purposes."""
+"""Runtime gates and dependency provenance for governed AI purposes."""
 from __future__ import annotations
 
 import json
@@ -179,8 +179,15 @@ def install() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
+    # Install evidence-version invalidation before semantic tasks are registered so
+    # every task may bind itself to a concrete evidence slice.
+    from rasai.ai_selective_invalidation import install as install_selective_invalidation
+    from rasai.semantic_partial_runtime import install as install_semantic_partial_runtime
+
+    install_selective_invalidation()
     _install_technical_gate_provenance()
     _install_deep_analysis_gate()
+    install_semantic_partial_runtime()
     _INSTALLED = True
 
 
