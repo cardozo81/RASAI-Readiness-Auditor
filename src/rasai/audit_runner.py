@@ -458,6 +458,33 @@ def run_audit(
                 m8.finding_ids,
                 m24_scoring.finding_ids,
             )
+
+            # M20 is advisory/non-scoring, but it is still provider work. Keep it in
+            # the same governed AI window so no provider boundary remains after AI_SEALED.
+            execute_m20(
+                audit_id=audit_id,
+                enabled=(content_remediation and not source_blocked),
+                semantic_provider=analysis_provider,
+                workspace=workspace,
+            )
+
+            registered_ai_outcomes = run_registered_ai_phase(
+                audit_id=audit_id,
+                workspace=workspace,
+                evidence_snapshot=evidence_snapshot,
+            )
+            mark_ai_sealed(
+                audit_id=audit_id,
+                workspace=workspace,
+                evidence_snapshot=evidence_snapshot,
+                outcomes=registered_ai_outcomes,
+            )
+
+            # ------------------------------------------------------------------
+            # FINAL BUSINESS DERIVATIONS. No provider/collector work is allowed here.
+            # Integrity rules validate the complete AI-derived finding set before score
+            # and recommendations are materialized.
+            # ------------------------------------------------------------------
             pre_scoring = execute_pre_scoring_rules(
                 audit_id=audit_id,
                 m2_result=m2,
@@ -467,10 +494,6 @@ def run_audit(
                 finding_ids_to_validate=findings_before_integrity,
             )
 
-            # ------------------------------------------------------------------
-            # FINAL DERIVATIONS.  Semantic/technical AI inputs that affect scoring are
-            # already persisted.  M20 and registered deep-analysis tasks are advisory.
-            # ------------------------------------------------------------------
             _set_status(persistence, audit_id, AuditStatus.SCORING)
             scoring_execution_ids = _unique(
                 m5.rule_execution_ids,
@@ -500,25 +523,6 @@ def run_audit(
                 finding_ids=all_finding_ids,
                 persistence=persistence,
                 workspace=workspace,
-            )
-
-            execute_m20(
-                audit_id=audit_id,
-                enabled=(content_remediation and not source_blocked),
-                semantic_provider=analysis_provider,
-                workspace=workspace,
-            )
-
-            registered_ai_outcomes = run_registered_ai_phase(
-                audit_id=audit_id,
-                workspace=workspace,
-                evidence_snapshot=evidence_snapshot,
-            )
-            mark_ai_sealed(
-                audit_id=audit_id,
-                workspace=workspace,
-                evidence_snapshot=evidence_snapshot,
-                outcomes=registered_ai_outcomes,
             )
 
             # ------------------------------------------------------------------
