@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 
-AI_CALL_POLICY_VERSION = "AI-CALL-POLICY-007"
+AI_CALL_POLICY_VERSION = "AI-CALL-POLICY-002"
 TOKEN_ECONOMY_INSTRUCTION = (
     "Be concise: do not restate the input evidence, rule text, or schema. "
     "Use the minimum wording needed for evidence-bound reasoning fields and avoid duplicate details."
@@ -182,8 +182,6 @@ def install() -> None:
     install_accepted_audit_refinements()
     install_accepted_timeout_context()
     install_accepted_report_compat()
-    # Preserve current main's deterministic grouping and CAT-09 report patch before
-    # the final trust renderers/exchange wrappers compose around it.
     install_request_remediation_intelligence()
     install_request_remediation_report_patch()
     install_catalog_report_search_trust_runtime()
