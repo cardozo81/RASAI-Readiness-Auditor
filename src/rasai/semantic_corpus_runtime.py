@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from rasai.semantic import NoneProvider
+from rasai.semantic_coherence_persistence import aggregate_property_coherence
 from rasai.semantic_corpus import CorpusGuardProvider, prepare_semantic_corpus
 
 
@@ -13,6 +14,8 @@ def install() -> None:
     The selected provider object is not replaced by a CAT-specific adapter. The guard
     delegates to the exact provider/routing session already produced by the global AI
     orchestration, preserving retries, AUTO routing, cost accounting and exchange logs.
+    Property-level coherence is computed only after all page-level provider results have
+    been persisted and does not issue a second AI request.
     """
     from rasai import audit_runner
 
@@ -38,8 +41,12 @@ def install() -> None:
             workspace=workspace,
         )
         selected = kwargs.get("provider") or NoneProvider()
-        kwargs["provider"] = CorpusGuardProvider(selected, manifest)
-        return original_execute_m7(*args, **kwargs)
+        kwargs["provider"] = CorpusGuardProvider(selected, manifest, workspace=workspace)
+        result = original_execute_m7(*args, **kwargs)
+        # All page/provider work is complete at this boundary. Aggregation reads only
+        # persisted page-level AI outputs and therefore has no network/provider side effect.
+        aggregate_property_coherence(workspace=workspace, audit_id=audit_id)
+        return result
 
     audit_runner.execute_m7 = execute_m7_after_corpus
     audit_runner._rasai_semantic_corpus_gate_installed = True
