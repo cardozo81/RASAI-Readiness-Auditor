@@ -1,7 +1,8 @@
 """Runtime/report integration for Improvement Intelligence.
 
-The feature is additive and fail-open. It materializes one canonical advisory report,
-keeps SARI/SCORE-GEO untouched and reuses only persisted audit/Search evidence.
+The feature is additive and fail-open for scoring, while an explicitly enabled deep
+analysis is a required execution item whose fulfillment state is projected by the same
+runtime that performs the analysis. SARI/SCORE-GEO remain untouched.
 """
 from __future__ import annotations
 
@@ -10,6 +11,13 @@ from pathlib import Path
 import sqlite3
 from typing import Any
 
+from rasai.audit_fulfillment import (
+    FAILED_RETRYABLE,
+    REPLAY_SAFE,
+    SUCCESS,
+    register_work_item,
+    set_work_item_status,
+)
 from rasai.improvement_intelligence import (
     CONTRACT_VERSION,
     REPORT_FILE,
@@ -20,13 +28,64 @@ from rasai.operational_log import try_append_operational_event
 
 _INSTALLED = False
 _SURFACE_ID = "improvement-intelligence"
+_COMPONENT = "IMPROVEMENT_INTELLIGENCE"
+
+
+def _fulfillment_configuration(config: ImprovementConfig) -> dict[str, Any]:
+    return {
+        "requested": True,
+        "provider": config.provider,
+        "model": config.model,
+        "reasoning": config.reasoning,
+        "domains": list(config.domains),
+        "max_recommendations": config.max_recommendations,
+        "language": config.language,
+    }
+
+
+def _register_required_fulfillment(workspace: Any, audit_id: str, config: ImprovementConfig) -> None:
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component=_COMPONENT,
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        retryable=True,
+        configuration=_fulfillment_configuration(config),
+    )
+
+
+def _project_fulfillment_result(
+    workspace: Any,
+    audit_id: str,
+    *,
+    status: str,
+    reason: str | None = None,
+) -> None:
+    normalized = str(status or "").strip().upper()
+    if normalized == "COMPLETE":
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component=_COMPONENT,
+            status=SUCCESS,
+        )
+        return
+    set_work_item_status(
+        workspace,
+        audit_id=audit_id,
+        component=_COMPONENT,
+        status=FAILED_RETRYABLE,
+        error_class="AI_ANALYSIS",
+        error_code=normalized or "IMPROVEMENT_INTELLIGENCE_UNAVAILABLE",
+        error_message=str(reason or normalized or "Improvement Intelligence não concluída")[:512],
+        retryable=True,
+    )
 
 
 def _install_report_contract() -> None:
     from rasai import context_scope_runtime, report_contract, report_manifest, report_navigation, report_registry
 
-    # Defensive registration for composed imports. The current public contract
-    # normally declares this surface statically in report_contract.
     if not any(surface.id == _SURFACE_ID for surface in report_contract.REPORT_SURFACES):
         surface = report_contract.ReportSurface(
             id=_SURFACE_ID,
@@ -190,6 +249,7 @@ def _install_report_completion() -> None:
             )
 
         if config is not None and config.enabled:
+            _register_required_fulfillment(workspace, audit_id, config)
             try:
                 try_append_operational_event(
                     workspace,
@@ -222,6 +282,12 @@ def _install_report_completion() -> None:
                     config=config,
                     progress=progress,
                 )
+                _project_fulfillment_result(
+                    workspace,
+                    audit_id,
+                    status=result.status,
+                    reason=result.reason,
+                )
                 try_append_operational_event(
                     workspace,
                     "IMPROVEMENT_INTELLIGENCE_COMPLETED",
@@ -239,6 +305,12 @@ def _install_report_completion() -> None:
                     scoring_impact="NONE",
                 )
             except Exception as exc:
+                _project_fulfillment_result(
+                    workspace,
+                    audit_id,
+                    status="RUNTIME_ERROR",
+                    reason=f"{type(exc).__name__}: {str(exc)[:400]}",
+                )
                 errors.append(f"improvement-runtime:{type(exc).__name__}:{str(exc)[:240]}")
                 try_append_operational_event(
                     workspace,
@@ -250,9 +322,6 @@ def _install_report_completion() -> None:
                     scoring_impact="NONE",
                 )
 
-        # The canonical report finalizer owns the Improvement Intelligence page,
-        # navigation normalization and manifest write. This wrapper executes only the
-        # optional analysis before that finalizer, avoiding duplicate HTML/manifest I/O.
         base = original(
             audit_id=audit_id,
             workspace=workspace,
