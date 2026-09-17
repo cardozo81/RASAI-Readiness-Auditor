@@ -7,7 +7,9 @@ import sqlite3
 from rasai.request_remediation_intelligence import (
     _validate_solutions,
     collect_request_error_evidence,
+    request_remediation_report_html,
 )
+from rasai.request_remediation_report_patch import _cat07_group_summary
 from rasai.request_remediation_runtime import (
     group_request_error_evidence,
     persist_request_remediation_groups,
@@ -125,6 +127,26 @@ def test_persists_grouped_evidence_without_duplicating_ai_facts(tmp_path: Path) 
         connection.close()
     assert group_count == len(groups)
     assert evidence_count == len(events)
+
+
+def test_report_projections_keep_cat07_evidence_and_cat09_solution_purpose(tmp_path: Path) -> None:
+    from rasai import catalog_report_analysis as analysis
+
+    database = _database(tmp_path / "audit.db")
+    events, universe = collect_request_error_evidence(database, "AUD-1")
+    groups = group_request_error_evidence(events, universe, audit_id="AUD-1")
+    persist_request_remediation_groups(database, "AUD-1", groups)
+
+    cat07 = _cat07_group_summary(database, "AUD-1")
+    assert "Padrões de erro entre as amostras" in cat07
+    assert "66.7%" in cat07
+    assert "Corrigir recursos ausentes ou referências quebradas" in cat07
+
+    cat09 = request_remediation_report_html(database, "AUD-1", analysis)
+    assert "Remediações de carregamento e execução" in cat09
+    assert "Problemas cobertos por esta solução" in cat09
+    assert "https://example.com/assets/a.js" in cat09
+    assert "A orientação de IA não está disponível" in cat09
 
 
 def test_ai_solution_validation_is_bound_to_known_group_ids() -> None:
