@@ -1,11 +1,13 @@
 """Canonical phase registry for governed audit execution.
 
-Optional integrations are composed by registration instead of by performing network
-or AI work inside report finalizers.  The audit runner owns the causal order:
+Optional integrations are composed by registration instead of performing network, AI
+or deterministic audit mutations inside report finalizers. The audit runner owns the
+causal order:
 
-    core collection -> registered collection hooks -> evidence seal -> AI -> reporting
+    core collection -> registered collection hooks -> deterministic analysis
+    -> evidence seal -> AI -> final derivations -> reporting
 
-Hooks remain deliberately small and return state/provenance only.  Their existing
+Hooks remain deliberately small and return state/provenance only. Their existing
 storage layers continue to persist the full raw datasets and observations.
 """
 from __future__ import annotations
@@ -23,6 +25,7 @@ from rasai.operational_log import try_append_operational_event
 
 
 CollectionHook = Callable[..., Mapping[str, Any] | None]
+DeterministicHook = Callable[..., Mapping[str, Any] | None]
 AiHook = Callable[..., Mapping[str, Any] | None]
 
 
@@ -34,25 +37,43 @@ class _Hook:
 
 
 _COLLECTION_HOOKS: dict[str, _Hook] = {}
+_DETERMINISTIC_HOOKS: dict[str, _Hook] = {}
 _AI_HOOKS: dict[str, _Hook] = {}
 
 
+def _key(name: str, *, kind: str) -> str:
+    value = str(name).strip().upper()
+    if not value:
+        raise ValueError(f"{kind} hook name must not be empty")
+    return value
+
+
 def register_collection_hook(name: str, callback: CollectionHook, *, order: int = 100) -> None:
-    key = str(name).strip().upper()
-    if not key:
-        raise ValueError("collection hook name must not be empty")
+    key = _key(name, kind="collection")
     _COLLECTION_HOOKS[key] = _Hook(key, callback, int(order))
 
 
+def register_deterministic_hook(
+    name: str,
+    callback: DeterministicHook,
+    *,
+    order: int = 100,
+) -> None:
+    key = _key(name, kind="deterministic")
+    _DETERMINISTIC_HOOKS[key] = _Hook(key, callback, int(order))
+
+
 def register_ai_hook(name: str, callback: AiHook, *, order: int = 100) -> None:
-    key = str(name).strip().upper()
-    if not key:
-        raise ValueError("AI hook name must not be empty")
+    key = _key(name, kind="AI")
     _AI_HOOKS[key] = _Hook(key, callback, int(order))
 
 
 def unregister_collection_hook(name: str) -> None:
     _COLLECTION_HOOKS.pop(str(name).strip().upper(), None)
+
+
+def unregister_deterministic_hook(name: str) -> None:
+    _DETERMINISTIC_HOOKS.pop(str(name).strip().upper(), None)
 
 
 def unregister_ai_hook(name: str) -> None:
@@ -77,8 +98,8 @@ def run_collection_phase(
 ) -> tuple[dict[str, str], dict[str, Any]]:
     """Execute every registered collector before any governed AI consumer.
 
-    Exceptions are converted to terminal ERROR states and logged.  Collectors own
-    their normal fail-open/fail-closed business semantics; this coordinator only makes
+    Exceptions are converted to terminal ERROR states and logged. Collectors own their
+    normal fail-open/fail-closed business semantics; this coordinator only makes
     completion explicit so the AI phase cannot race a still-running collector.
     """
 
@@ -112,7 +133,11 @@ def run_collection_phase(
             try_append_operational_event(
                 workspace,
                 "COLLECTOR_FINISHED",
-                level="WARNING" if state in {"PARTIAL", "ERROR", "FAILED_RETRYABLE", "BLOCKED"} else "INFO",
+                level=(
+                    "WARNING"
+                    if state in {"PARTIAL", "ERROR", "FAILED_RETRYABLE", "BLOCKED"}
+                    else "INFO"
+                ),
                 audit_id=audit_id,
                 collector=hook.name,
                 state=state,
@@ -153,18 +178,92 @@ def run_collection_phase(
     return states, details
 
 
+def run_deterministic_phase(
+    *,
+    audit_id: str,
+    workspace: Any,
+    source_blocked: bool = False,
+) -> dict[str, Mapping[str, Any]]:
+    """Run registered persisted derivations after collection and before evidence seal.
+
+    A deterministic hook must not call an AI provider. Hooks that require a remote
+    observation belong to ``run_collection_phase`` instead. Failures are persisted as
+    explicit outcomes and logged; they do not silently migrate into report rendering.
+    """
+
+    outcomes: dict[str, Mapping[str, Any]] = {}
+    hooks = sorted(_DETERMINISTIC_HOOKS.values(), key=lambda item: (item.order, item.name))
+    try_append_operational_event(
+        workspace,
+        "DETERMINISTIC_ANALYSIS_PHASE_STARTED",
+        audit_id=audit_id,
+        tasks=tuple(item.name for item in hooks),
+        source_blocked=source_blocked,
+    )
+    for hook in hooks:
+        try_append_operational_event(
+            workspace,
+            "DETERMINISTIC_TASK_STARTED",
+            audit_id=audit_id,
+            task=hook.name,
+        )
+        try:
+            raw = hook.callback(
+                audit_id=audit_id,
+                workspace=workspace,
+                source_blocked=source_blocked,
+            )
+            result = dict(raw or {})
+            status = str(result.get("status") or "SUCCESS").upper()
+            outcomes[hook.name] = result
+            try_append_operational_event(
+                workspace,
+                "DETERMINISTIC_TASK_FINISHED",
+                level="WARNING" if status in {"PARTIAL", "ERROR", "FAILED"} else "INFO",
+                audit_id=audit_id,
+                task=hook.name,
+                status=status,
+            )
+        except Exception as exc:
+            outcomes[hook.name] = {
+                "status": "ERROR",
+                "error_type": type(exc).__name__,
+                "error_message": str(exc)[:512],
+            }
+            try_append_operational_event(
+                workspace,
+                "DETERMINISTIC_TASK_FAILURE",
+                level="WARNING",
+                audit_id=audit_id,
+                task=hook.name,
+                error_type=type(exc).__name__,
+                error_message=str(exc)[:512],
+            )
+    try_append_operational_event(
+        workspace,
+        "DETERMINISTIC_ANALYSIS_PHASE_FINISHED",
+        audit_id=audit_id,
+        outcomes={name: str(value.get("status") or "SUCCESS") for name, value in outcomes.items()},
+    )
+    return outcomes
+
+
 def seal_collection_evidence(
     *,
     audit_id: str,
     workspace: Any,
     collection_states: Mapping[str, Any],
     collection_details: Mapping[str, Any] | None = None,
+    deterministic_analysis: Mapping[str, Any] | None = None,
 ) -> EvidenceSnapshot:
     snapshot = seal_evidence(
         workspace=workspace,
         audit_id=audit_id,
         collection_states=collection_states,
-        context={"collectors": dict(collection_details or {})},
+        context={
+            "collectors": dict(collection_details or {}),
+            "deterministic_analysis": dict(deterministic_analysis or {}),
+        },
     )
     try_append_operational_event(
         workspace,
@@ -175,6 +274,7 @@ def seal_collection_evidence(
         evidence_fingerprint=snapshot.fingerprint,
         evidence_count=len(snapshot.evidence_ids),
         collector_states=snapshot.collection_states,
+        deterministic_tasks=tuple(sorted((deterministic_analysis or {}).keys())),
     )
     return snapshot
 
@@ -215,7 +315,11 @@ def run_registered_ai_phase(
             try_append_operational_event(
                 workspace,
                 "AI_TASK_FINISHED",
-                level="WARNING" if str(result.get("status") or "").upper() in {"PARTIAL", "ERROR", "FAILED"} else "INFO",
+                level=(
+                    "WARNING"
+                    if str(result.get("status") or "").upper() in {"PARTIAL", "ERROR", "FAILED"}
+                    else "INFO"
+                ),
                 audit_id=audit_id,
                 purpose=hook.name,
                 evidence_snapshot_id=evidence_snapshot.evidence_snapshot_id,
@@ -259,10 +363,13 @@ def mark_ai_sealed(
 
 __all__ = [
     "register_collection_hook",
+    "register_deterministic_hook",
     "register_ai_hook",
     "unregister_collection_hook",
+    "unregister_deterministic_hook",
     "unregister_ai_hook",
     "run_collection_phase",
+    "run_deterministic_phase",
     "seal_collection_evidence",
     "require_sealed_evidence",
     "run_registered_ai_phase",
