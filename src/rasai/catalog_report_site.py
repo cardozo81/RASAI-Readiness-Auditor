@@ -184,13 +184,24 @@ def _discard_tree(path: Path) -> None:
 
 def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
     """Build a final, fresh and self-verifiable ``report-catalog/`` tree."""
+    from rasai.ai_dependency_reporting import install as install_ai_dependency_reporting
     from rasai.catalog_report_adherence import install_catalog_report_adherence
     from rasai.catalog_report_final_refinements import install_catalog_report_refinements
     from rasai.catalog_report_label_refinements import install_catalog_human_labels
+    from rasai.catalog_report_search_trust import install as install_catalog_search_trust
+    from rasai.recommendation_governance import evaluate_recommendations
+    from rasai.recommendation_governance_reporting import install as install_recommendation_governance_reporting
+    from rasai.semantic_coherence_reporting import install as install_semantic_coherence_reporting
 
     install_catalog_human_labels()
     install_catalog_report_refinements()
     install_catalog_report_adherence()
+    # Final trust/report layers are installed explicitly here so report materialization
+    # does not depend on whether the console or worker imported an unrelated runtime hook.
+    install_catalog_search_trust()
+    install_semantic_coherence_reporting()
+    install_recommendation_governance_reporting()
+    install_ai_dependency_reporting()
 
     root=Path(workspace.root)
     report_dir=root/CATALOG_REPORT_DIR
@@ -198,6 +209,9 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
     # Freshness is a publication invariant. A stale observation may be used only when
     # explicitly persisted as REUSED_EVIDENCE with source/reason provenance.
     require_valid_serp_freshness(database,audit_id)
+    # CAT-09 governance is deterministic persisted derivation. Materialize it before the
+    # source fingerprint; from this point onward report generation is read-only.
+    evaluate_recommendations(database,audit_id)
     token=uuid.uuid4().hex
     staging=root/f".{CATALOG_REPORT_DIR}.tmp-{token}"
     quarantine=root/f".{CATALOG_REPORT_DIR}.stale-{token}"
@@ -254,10 +268,18 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             "freshness":"FINAL",
             "catalog_report_dir":CATALOG_REPORT_DIR,
             "pages":[{"id":p.id,"filename":p.filename,"label":p.label,"catalog_id":p.catalog_id} for p in CATALOG_REPORT_PAGES],
-            "principles":{"read_only":True,"modal_scope":"contextual-atomic","human_labels":True,"cross_catalog_reference_not_duplication":True,"self_verifiable_package":True,"serp_freshness_guard":True},
+            "principles":{
+                "read_only":True,
+                "modal_scope":"contextual-atomic",
+                "human_labels":True,
+                "cross_catalog_reference_not_duplication":True,
+                "self_verifiable_package":True,
+                "serp_freshness_guard":True,
+                "recommendation_governance":True,
+                "ai_dependency_provenance":True,
+            },
         }
         (staging/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n",encoding="utf-8",newline="\n")
-
         package_ok,package_errors=verify_catalog_report_package(staging)
         if not package_ok:
             raise RuntimeError("catalog report package integrity failed: "+"; ".join(package_errors))
