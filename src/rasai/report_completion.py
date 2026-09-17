@@ -7,6 +7,7 @@ must render an explicit no-data/disabled state when no specialized content exist
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import sqlite3
 from typing import Any, Callable, Mapping, Sequence
@@ -84,6 +85,24 @@ def inspect_audit_report_site(*, audit_id: str, workspace: AuditWorkspace) -> Au
     return AuditReportCompletion(expected, generated, missing)
 
 
+def _verified_preliminary_catalog(workspace: AuditWorkspace) -> bool:
+    """Return True only for a self-consistent non-final catalog projection."""
+    from rasai.catalog_report_site import CATALOG_REPORT_DIR, verify_catalog_report_package
+
+    root = workspace.root / CATALOG_REPORT_DIR
+    manifest_path = root / "manifest.json"
+    if not manifest_path.is_file():
+        return False
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return False
+    if str(manifest.get("freshness") or "").upper() != "PRELIMINARY":
+        return False
+    valid, _errors = verify_catalog_report_package(root)
+    return bool(valid)
+
+
 def finalize_audit_report_site(
     *,
     audit_id: str,
@@ -95,8 +114,9 @@ def finalize_audit_report_site(
 
     The canonical/legacy generator continues to own ``report/`` and its existing
     completeness contract. The catalog proposal is materialized independently into
-    ``report-catalog/`` from the completed persisted AUD and must pass its own
-    fingerprint-based freshness gate before this finalizer returns.
+    ``report-catalog/`` from the persisted AUD. FINAL packages must pass the canonical
+    freshness gate; an incomplete/reprocess-eligible AUD may expose a PRELIMINARY
+    package only when that package is internally verifiable.
     """
     from rasai import report_navigation
     from rasai.catalog_report_site import catalog_report_is_fresh, materialize_catalog_report_site
@@ -129,8 +149,6 @@ def finalize_audit_report_site(
         except Exception as exc:
             errors.append(f"{label}:{type(exc).__name__}:{str(exc)[:240]}")
 
-    # Always install the public-readiness guard here as well as in normal entrypoint
-    # composition. Direct finalizer callers must not bypass the same HTML semantics.
     install_sari_readiness_presentation()
 
     run("base", lambda: materialize_report_site(audit_id=audit_id, workspace=workspace))
@@ -139,7 +157,6 @@ def finalize_audit_report_site(
     run("readiness", lambda: enrich_rasai_reporting(audit_id=audit_id, workspace=workspace))
     run("crawling-discovery", lambda: enrich_m24_report_site(audit_id=audit_id, workspace=workspace))
 
-    # Optional collectors remain conditional. Only HTML existence is static.
     if _workspace_run_enabled(
         workspace=workspace, audit_id=audit_id, table="synthetic_apdex_runs"
     ):
@@ -154,16 +171,10 @@ def finalize_audit_report_site(
         )
 
     run("scoring", lambda: write_score_geo_004_report(audit_id=audit_id, workspace=workspace))
-    # Improvement Intelligence is audit-owned even when disabled. The writer is read-only
-    # and materializes an explicit state page without creating an AI request.
     run(
         "improvement-intelligence",
         lambda: write_improvement_report(audit_id=audit_id, workspace=workspace),
     )
-
-    # Audit Quality is also audit-owned and read-only. It must be materialized from the
-    # completed persisted audit rather than left as a generic canonical placeholder.
-    # Fix Verification and Evidence Timeline remain separate multi-AUD operations.
     run("audit-quality", lambda: write_quality_report(workspace.root))
 
     report_dir = workspace.root / "report"
@@ -186,9 +197,6 @@ def finalize_audit_report_site(
         "ai-cost-attribution",
         lambda: enrich_ai_cost_attribution(audit_id=audit_id, workspace=workspace),
     )
-    # Sanitize and explain late AI/cost states first, then run the final common layout
-    # pass. Dashboard-specific semantic grouping runs after it so late renderers cannot
-    # reintroduce internal timeout codes or ambiguous optional states.
     run(
         "public-report-quality",
         lambda: reconcile_public_report_quality(audit_id=audit_id, workspace=workspace),
@@ -203,9 +211,6 @@ def finalize_audit_report_site(
     )
     run("manifest", lambda: write_report_manifest(report_dir))
 
-    # The catalog report is generated after all audit-owned late renderers. Its own
-    # materializer removes the previous public tree before attempting the new build,
-    # preventing a renderer error from silently exposing stale HTML as final.
     run(
         "catalog-report",
         lambda: materialize_catalog_report_site(audit_id=audit_id, workspace=workspace),
@@ -216,9 +221,9 @@ def finalize_audit_report_site(
         except Exception as exc:
             errors.append(f"catalog-report-freshness:{type(exc).__name__}:{str(exc)[:240]}")
         else:
-            if not fresh:
+            if not fresh and not _verified_preliminary_catalog(workspace):
                 errors.append(
-                    "catalog-report-freshness:RuntimeError:published catalog report does not match final persisted audit"
+                    "catalog-report-freshness:RuntimeError:published catalog report does not match persisted audit"
                 )
 
     inspected = inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
