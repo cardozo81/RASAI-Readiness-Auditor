@@ -91,3 +91,23 @@ def test_catalog_publication_is_preliminary_until_fulfillment_is_final(tmp_path:
         eligible=1,
     )
     assert _publication_state(final_database, "AUD-PUBLICATION") == "FINAL"
+
+
+def test_catalog_site_uses_latest_late_installed_catalog_renderer() -> None:
+    from rasai import catalog_report_page as page
+    from rasai import catalog_report_site as site
+    from rasai.catalog_projection_consistency import _sync_site_bindings
+
+    original_page = page._catalog_body
+    original_site = site._catalog_body
+
+    def latest_renderer(database, data, catalog_id):
+        return f"latest:{catalog_id}"
+
+    try:
+        page._catalog_body = latest_renderer
+        _sync_site_bindings()
+        assert site._catalog_body is latest_renderer
+    finally:
+        page._catalog_body = original_page
+        site._catalog_body = original_site
