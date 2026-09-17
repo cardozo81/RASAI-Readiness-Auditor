@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import sqlite3
+import sys
 from typing import Any, Mapping
 
 _INSTALLED = False
@@ -170,7 +171,6 @@ def _install_crux_history_cat05() -> None:
             crux = [row for row in datasets if str(row.get("source_type") or "") == _CRUX_SOURCE]
             if not crux:
                 return html
-            ids = [str(row.get("dataset_id") or "") for row in crux]
             details = []
             total = 0
             for dataset in crux:
@@ -291,13 +291,62 @@ def _install_browser_metrics() -> None:
         state_trust._browser_performance_count = browser_count
 
 
+def _sync_site_bindings() -> None:
+    """Refresh references imported by value after late report installers run."""
+    site = sys.modules.get("rasai.catalog_report_site")
+    if site is None:
+        return
+    from rasai import catalog_report_integrations as integrations
+    from rasai import catalog_report_metrics as metrics
+    from rasai import catalog_report_page as page
+
+    bindings = {
+        "_catalog_body": page._catalog_body,
+        "_catalog_status": page._catalog_status,
+        "_catalog_sources": page._catalog_sources,
+        "_search_intelligence_html": page._search_intelligence_html,
+        "_catalog_metrics": metrics._catalog_metrics,
+        "_web_metric_rows": metrics._web_metric_rows,
+        "_ai_integrations_body": integrations._ai_integrations_body,
+    }
+    for name, value in bindings.items():
+        if hasattr(site, name):
+            setattr(site, name, value)
+
+
+def _wrap_late_report_installers() -> None:
+    """Keep catalog_report_site aligned with renderers replaced after module import."""
+    from rasai import catalog_report_adherence as adherence
+    from rasai import catalog_report_search_trust as search_trust
+
+    for module, name in (
+        (adherence, "install_catalog_report_adherence"),
+        (search_trust, "install"),
+    ):
+        current = getattr(module, name)
+        if bool(getattr(current, "_rasai_catalog_projection_sync", False)):
+            continue
+
+        def wrapped(*args: Any, __current=current, **kwargs: Any):
+            result = __current(*args, **kwargs)
+            _sync_site_bindings()
+            return result
+
+        wrapped._rasai_catalog_projection_sync = True
+        wrapped._rasai_original = current
+        setattr(module, name, wrapped)
+
+
 def install() -> None:
     global _INSTALLED
     if _INSTALLED:
+        _sync_site_bindings()
         return
     _install_external_integrations()
     _install_crux_history_cat05()
     _install_browser_metrics()
+    _wrap_late_report_installers()
+    _sync_site_bindings()
     _INSTALLED = True
 
 
