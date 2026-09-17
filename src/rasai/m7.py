@@ -45,33 +45,31 @@ from rasai.semantic_baseline import (
 from rasai.semantic_persistence import EntityObservation, SemanticAssessment, SemanticPersistence
 
 
-# M7 rule semantics changed because deterministic evidence can now resolve a
-# conservative no-AI baseline. The SCORE-GEO-004 aggregation contract is unchanged.
 _RULE_VERSION = "2"
 
 _RULE_SPECS = (
-    (28, "Page title must be present and semantically representative", "SEMANTIC_STRUCTURE", Severity.HIGH, "SEMANTIC_TITLE"),
-    (29, "Main content must expose an understandable semantic hierarchy", "SEMANTIC_STRUCTURE", Severity.MEDIUM, "SEMANTIC_HIERARCHY"),
-    (30, "Primary topic and major sections must be identifiable", "SEMANTIC_STRUCTURE", Severity.MEDIUM, "SEMANTIC_TOPIC"),
-    (31, "Primary entity must be identifiable when applicable", "ENTITY_CLARITY", Severity.MEDIUM, "ENTITY_PRIMARY"),
-    (32, "Important entity types and relationships must have sufficient context", "ENTITY_CLARITY", Severity.MEDIUM, "ENTITY_CONTEXT"),
-    (33, "Material entity ambiguity must be detectable", "ENTITY_CLARITY", Severity.MEDIUM, "ENTITY_AMIGUITY"),
-    (34, "Structured Data must be syntactically interpretable when present", "STRUCTURED_DATA", Severity.MEDIUM, "STRUCTURED_DATA_SYNTAX"),
-    (35, "Structured Data types and relevant properties must be identifiable", "STRUCTURED_DATA", Severity.LOW, "STRUCTURED_DATA_SYNTAX"),
-    (36, "Structured Data must remain consistent with visible page content", "STRUCTURED_DATA", Severity.MEDIUM, "STRUCTURED_DATA_CONSISTENCY"),
-    (37, "Structured Data entities must be consistent with observed page entities", "STRUCTURED_DATA", Severity.MEDIUM, "STRUCTURED_DATA_CONSISTENCY"),
-    (38, "Primary user intent must be identifiable", "ANSWERABILITY", Severity.HIGH, "PRIMARY_INTENT"),
-    (39, "Relevant primary questions must receive explicit answers when applicable", "ANSWERABILITY", Severity.MEDIUM, "PRIMARY_ANSWERS"),
-    (40, "Answers must contain sufficient context", "ANSWERABILITY", Severity.MEDIUM, "PRIMARY_ANSWERS"),
-    (41, "Material factual claims must be explicitly identifiable", "CITATION_READINESS", Severity.LOW, "FACTUAL_CLAIMS"),
-    (42, "Factual statements must contain sufficient factual context", "CITATION_READINESS", Severity.MEDIUM, "FACTUAL_CONTEXT"),
-    (43, "Numeric, temporal and quantitative claims must include necessary qualifiers", "CITATION_READINESS", Severity.MEDIUM, "FACTUAL_CONTEXT"),
-    (44, "Important information must be understandable without excessive inference", "CITATION_READINESS", Severity.MEDIUM, "INFERENCE_LOAD"),
-    (45, "Material claims should expose appropriate attribution or supporting evidence when required", "EVIDENCE_TRUST", Severity.MEDIUM, "ATTRIBUTION"),
-    (46, "Publisher, author or responsible entity should be identifiable when relevant", "EVIDENCE_TRUST", Severity.LOW, "RESPONSIBILITY"),
-    (47, "Publication and freshness signals must remain internally consistent", "EVIDENCE_TRUST", Severity.MEDIUM, "FRESHNESS"),
-    (48, "Primary and relevant secondary intents must be represented", "INTENT_COVERAGE", Severity.MEDIUM, "INTENT_SET"),
-    (49, "Material intent coverage gaps must be evidence-backed", "INTENT_COVERAGE", Severity.MEDIUM, "INTENT_GAPS"),
+    (28, "O título da página deve estar presente e representar semanticamente o conteúdo", "SEMANTIC_STRUCTURE", Severity.HIGH, "SEMANTIC_TITLE"),
+    (29, "O conteúdo principal deve expor uma hierarquia semântica compreensível", "SEMANTIC_STRUCTURE", Severity.MEDIUM, "SEMANTIC_HIERARCHY"),
+    (30, "O tópico principal e as seções relevantes devem ser identificáveis", "SEMANTIC_STRUCTURE", Severity.MEDIUM, "SEMANTIC_TOPIC"),
+    (31, "A entidade principal deve ser identificável quando aplicável", "ENTITY_CLARITY", Severity.MEDIUM, "ENTITY_PRIMARY"),
+    (32, "Tipos e relações de entidades relevantes devem ter contexto suficiente", "ENTITY_CLARITY", Severity.MEDIUM, "ENTITY_CONTEXT"),
+    (33, "Ambiguidade material de entidade deve ser detectável", "ENTITY_CLARITY", Severity.MEDIUM, "ENTITY_AMIGUITY"),
+    (34, "Dados estruturados devem ser sintaticamente interpretáveis quando presentes", "STRUCTURED_DATA", Severity.MEDIUM, "STRUCTURED_DATA_SYNTAX"),
+    (35, "Tipos e propriedades relevantes dos dados estruturados devem ser identificáveis", "STRUCTURED_DATA", Severity.LOW, "STRUCTURED_DATA_SYNTAX"),
+    (36, "Dados estruturados devem permanecer consistentes com o conteúdo visível", "STRUCTURED_DATA", Severity.MEDIUM, "STRUCTURED_DATA_CONSISTENCY"),
+    (37, "Entidades dos dados estruturados devem ser consistentes com as entidades observadas", "STRUCTURED_DATA", Severity.MEDIUM, "STRUCTURED_DATA_CONSISTENCY"),
+    (38, "A intenção principal do usuário deve ser identificável", "ANSWERABILITY", Severity.HIGH, "PRIMARY_INTENT"),
+    (39, "Perguntas primárias relevantes devem receber respostas explícitas quando aplicável", "ANSWERABILITY", Severity.MEDIUM, "PRIMARY_ANSWERS"),
+    (40, "As respostas devem conter contexto suficiente", "ANSWERABILITY", Severity.MEDIUM, "PRIMARY_ANSWERS"),
+    (41, "Afirmações factuais materiais devem ser explicitamente identificáveis", "CITATION_READINESS", Severity.LOW, "FACTUAL_CLAIMS"),
+    (42, "Afirmações factuais devem conter contexto factual suficiente", "CITATION_READINESS", Severity.MEDIUM, "FACTUAL_CONTEXT"),
+    (43, "Afirmações numéricas, temporais e quantitativas devem incluir os qualificadores necessários", "CITATION_READINESS", Severity.MEDIUM, "FACTUAL_CONTEXT"),
+    (44, "Informações importantes devem ser compreensíveis sem inferência excessiva", "CITATION_READINESS", Severity.MEDIUM, "INFERENCE_LOAD"),
+    (45, "Afirmações materiais devem expor atribuição ou evidência de suporte adequada quando necessário", "EVIDENCE_TRUST", Severity.MEDIUM, "ATTRIBUTION"),
+    (46, "Publicador, autor ou entidade responsável devem ser identificáveis quando relevante", "EVIDENCE_TRUST", Severity.LOW, "RESPONSIBILITY"),
+    (47, "Sinais de publicação e atualidade devem permanecer internamente consistentes", "EVIDENCE_TRUST", Severity.MEDIUM, "FRESHNESS"),
+    (48, "Intenções primárias e secundárias relevantes devem estar representadas", "INTENT_COVERAGE", Severity.MEDIUM, "INTENT_SET"),
+    (49, "Lacunas materiais de cobertura de intenção devem ser sustentadas por evidência", "INTENT_COVERAGE", Severity.MEDIUM, "INTENT_GAPS"),
 )
 
 _M7_DEFINITIONS = tuple(
@@ -89,28 +87,28 @@ _M7_DEFINITIONS = tuple(
 )
 
 _EXPECTED = {
-    "BR-GEO-028": "title is present and semantically representative of the page",
-    "BR-GEO-029": "main content exposes an understandable semantic hierarchy",
-    "BR-GEO-030": "primary topic and major sections are identifiable with sufficient confidence",
-    "BR-GEO-031": "primary entity is identifiable when applicable",
-    "BR-GEO-032": "important entity types and relationships have sufficient context",
-    "BR-GEO-033": "material entity ambiguity is absent or explicitly identifiable",
-    "BR-GEO-034": "Structured Data is syntactically interpretable when present",
-    "BR-GEO-035": "Structured Data types and relevant properties are identifiable",
-    "BR-GEO-036": "Structured Data remains consistent with visible page content",
-    "BR-GEO-037": "Structured Data entities remain consistent with observed page entities",
-    "BR-GEO-038": "primary user intent is identifiable with evidence",
-    "BR-GEO-039": "relevant primary questions receive explicit answers when applicable",
-    "BR-GEO-040": "answers contain sufficient context",
-    "BR-GEO-041": "material factual claims are explicitly identifiable",
-    "BR-GEO-042": "factual statements contain sufficient factual context",
-    "BR-GEO-043": "numeric, temporal and quantitative claims contain necessary qualifiers",
-    "BR-GEO-044": "important information is understandable without excessive inference",
-    "BR-GEO-045": "material claims expose appropriate attribution or support when required",
-    "BR-GEO-046": "publisher, author or responsible entity is identifiable when relevant",
-    "BR-GEO-047": "publication and freshness signals are internally consistent",
-    "BR-GEO-048": "one primary and up to five relevant secondary intents are represented",
-    "BR-GEO-049": "material intent coverage gaps are evidence-backed",
+    "BR-GEO-028": "o título está presente e representa semanticamente a página",
+    "BR-GEO-029": "o conteúdo principal expõe uma hierarquia semântica compreensível",
+    "BR-GEO-030": "o tópico principal e as seções relevantes são identificáveis com confiança suficiente",
+    "BR-GEO-031": "a entidade principal é identificável quando aplicável",
+    "BR-GEO-032": "tipos e relações de entidades relevantes possuem contexto suficiente",
+    "BR-GEO-033": "ambiguidade material de entidade está ausente ou é explicitamente identificável",
+    "BR-GEO-034": "dados estruturados são sintaticamente interpretáveis quando presentes",
+    "BR-GEO-035": "tipos e propriedades relevantes dos dados estruturados são identificáveis",
+    "BR-GEO-036": "dados estruturados permanecem consistentes com o conteúdo visível da página",
+    "BR-GEO-037": "entidades dos dados estruturados permanecem consistentes com as entidades observadas na página",
+    "BR-GEO-038": "a intenção principal do usuário é identificável com evidência",
+    "BR-GEO-039": "perguntas primárias relevantes recebem respostas explícitas quando aplicável",
+    "BR-GEO-040": "as respostas contêm contexto suficiente",
+    "BR-GEO-041": "afirmações factuais materiais são explicitamente identificáveis",
+    "BR-GEO-042": "afirmações factuais contêm contexto factual suficiente",
+    "BR-GEO-043": "afirmações numéricas, temporais e quantitativas contêm os qualificadores necessários",
+    "BR-GEO-044": "informações importantes são compreensíveis sem inferência excessiva",
+    "BR-GEO-045": "afirmações materiais expõem atribuição ou suporte adequado quando necessário",
+    "BR-GEO-046": "publicador, autor ou entidade responsável é identificável quando relevante",
+    "BR-GEO-047": "sinais de publicação e atualidade são internamente consistentes",
+    "BR-GEO-048": "uma intenção primária e até cinco intenções secundárias relevantes estão representadas",
+    "BR-GEO-049": "lacunas materiais de cobertura de intenção são sustentadas por evidência",
 }
 
 
@@ -257,7 +255,6 @@ def execute_m7(
                     else {}
                 )
                 structured_summary = _structured_summary(semantic_input.structured_data)
-
                 for definition in _M7_DEFINITIONS:
                     provider_assessment = assessments_by_rule.get(definition.rule_id)
                     blocked = _dependency_state(
@@ -555,7 +552,7 @@ def _blocked_outcome(
             prompt_id="deterministic-m7",
             prompt_version="2",
             configuration_version="2",
-            reasoning_summary="Prerequisite technical/content rule blocked semantic evaluation.",
+            reasoning_summary="Pré-requisito técnico ou de conteúdo bloqueou a avaliação semântica.",
         ),
         provider_used=False,
     )
@@ -571,7 +568,6 @@ def _evaluate(
     response: SemanticProviderResponse | None,
     baseline_assessment: BaselineAssessment | None,
 ) -> _Outcome:
-    # Hard deterministic facts are authoritative in every mode.
     deterministic = _deterministic_outcome(
         rule_id,
         title,
@@ -597,14 +593,11 @@ def _evaluate(
                 prompt_id="deterministic-m7",
                 prompt_version="2",
                 configuration_version="2",
-                reasoning_summary="Structured Data is absent; the consistency rule is not applicable.",
+                reasoning_summary="Dados estruturados ausentes; a regra de consistência não é aplicável.",
             ),
             provider_used=False,
         )
 
-    # Preserve provider behavior when a valid semantic assessment exists. The
-    # deterministic baseline is the fallback for NO_AI / missing provider output,
-    # not a silent override of a configured semantic provider.
     if provider_assessment is not None and response is not None:
         observed = provider_assessment.observed_value
         if rule_id == "BR-GEO-048":
@@ -637,9 +630,6 @@ def _evaluate(
             provider_used=True,
         )
 
-    # A deliberately unavailable/invalid configured provider remains visible as
-    # degradation. Explicit NO_AI and valid-but-incomplete provider responses may
-    # use the local evidence-bound baseline instead.
     if (
         baseline_assessment is not None
         and call.state in {ProviderState.NOT_CONFIGURED, ProviderState.AVAILABLE}
@@ -721,7 +711,7 @@ def _deterministic_outcome(
             source_evidence_ids=(context_evidence_id,),
             metadata=replace(
                 metadata,
-                reasoning_summary="Title is deterministically absent; semantic representativeness cannot compensate for absence.",
+                reasoning_summary="O título está deterministicamente ausente; representatividade semântica não compensa a ausência.",
             ),
         )
 
@@ -747,8 +737,8 @@ def _deterministic_outcome(
             metadata=replace(
                 metadata,
                 reasoning_summary=(
-                    "Structured Data presence/syntax is evaluated deterministically from preserved JSON-LD blocks; "
-                    "absence is a modest readiness gap, not a hard failure."
+                    "Presença e sintaxe dos dados estruturados são avaliadas deterministicamente a partir dos blocos JSON-LD preservados; "
+                    "ausência é uma lacuna moderada de readiness, não uma falha rígida."
                 ),
             ),
         )
@@ -777,7 +767,7 @@ def _deterministic_outcome(
             source_evidence_ids=(context_evidence_id,),
             metadata=replace(
                 metadata,
-                reasoning_summary="Structured Data types are identified deterministically from preserved @type values.",
+                reasoning_summary="Tipos de dados estruturados são identificados deterministicamente a partir dos valores @type preservados.",
             ),
         )
     return None
