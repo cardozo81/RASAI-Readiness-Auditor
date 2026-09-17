@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import inspect
 import os
 import sqlite3
 from types import SimpleNamespace
@@ -173,3 +174,58 @@ def test_cost_is_not_comparable_with_required_incomplete_item(monkeypatch, tmp_p
     assert outcome.status == "NÃO COMPARÁVEL"
     assert outcome.deviation is None
     assert outcome.deviation_percent is None
+
+
+def test_cat05_is_partial_when_requested_common_crawl_failed(tmp_path: Path) -> None:
+    from rasai.catalog_report_catalog_state import _catalog_status
+
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            """CREATE TABLE standards_service_runs(
+                audit_id TEXT,
+                service_id TEXT,
+                requested INTEGER,
+                effective_enabled INTEGER,
+                targets_attempted INTEGER,
+                state TEXT,
+                details_json TEXT
+            )"""
+        )
+        connection.execute(
+            "INSERT INTO standards_service_runs VALUES (?,?,?,?,?,?,?)",
+            (
+                "AUD-X",
+                "common-crawl",
+                1,
+                1,
+                0,
+                "NO_DATA",
+                '{"reason":"PRE_SCORING_COLLECTION_STATE_NOT_FOUND"}',
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    data = SimpleNamespace(
+        audit_id="AUD-X",
+        configuration={"audit_catalog": {"selected": ["CAT-05"]}},
+        config_hash="same",
+        computed_hash="same",
+        selected={"CAT-05"},
+    )
+    status, tone, detail = _catalog_status(database, data, "CAT-05")
+
+    assert status == "PARCIAL"
+    assert tone == "warn"
+    assert "Common Crawl" in detail
+
+
+def test_catalog_renderer_does_not_materialize_recommendation_governance() -> None:
+    from rasai import catalog_report_site
+
+    source = inspect.getsource(catalog_report_site.materialize_catalog_report_site)
+
+    assert "evaluate_recommendations(" not in source
