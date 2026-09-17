@@ -17,6 +17,7 @@ from rasai.console_configuration_guidance import (
 from rasai.console_environment import EnvironmentSpec
 from rasai.provider_registry import get_provider_registration
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
+from rasai.semantic_context_console import install as install_semantic_context_console
 from rasai.standards_console_runtime import install as install_standards_console_runtime
 from rasai.standards_runtime import install_pre_context
 from rasai.synthetic_profile_console_runtime import install as install_synthetic_profile_console_runtime
@@ -24,11 +25,12 @@ from rasai.synthetic_profile_console_runtime import install as install_synthetic
 
 def _installed_facade():
     # Reproduce the public console composition relevant to the advanced configuration
-    # catalog. Canonical AI orchestration is installed before runtime-completion may
-    # rebuild the EnvironmentSpec surface, exactly as in console_entrypoint.main().
+    # catalog. Semantic context is installed before canonical AI/runtime completion,
+    # matching console_entrypoint.main(); later wrappers therefore preserve its rich specs.
     install_pre_context()
     install_standards_console_runtime()
     install_synthetic_profile_console_runtime()
+    install_semantic_context_console()
     install_ai_efficiency_policy()
     install_runtime_completion_extensions()
     install_standards_console_runtime()
