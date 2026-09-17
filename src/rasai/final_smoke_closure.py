@@ -238,33 +238,6 @@ def _install_common_crawl_final_binding() -> None:
     phase.register_deterministic_hook("COMMON_CRAWL_CORROBORATION", materialize, order=90)
 
 
-def _install_recommendation_governance_before_reporting() -> None:
-    """Persist CAT-09 governance after M10 and make report generation read-only."""
-    from rasai import audit_runner
-    from rasai import catalog_report_site as site
-    from rasai.recommendation_governance import evaluate_recommendations, list_governance
-
-    current = audit_runner.execute_m10
-    if not bool(getattr(current, "_rasai_final_smoke_governance", False)):
-        def execute_m10(*args: Any, **kwargs: Any):
-            result = current(*args, **kwargs)
-            audit_id = str(kwargs.get("audit_id") or "")
-            workspace = kwargs.get("workspace")
-            if audit_id and workspace is not None:
-                evaluate_recommendations(workspace.database, audit_id)
-            return result
-
-        execute_m10._rasai_final_smoke_governance = True
-        execute_m10._rasai_original = current
-        audit_runner.execute_m10 = execute_m10
-
-    def readonly_governance(database: Any, audit_id: str):
-        return list_governance(database, audit_id)
-
-    readonly_governance._rasai_final_smoke_readonly = True
-    site.evaluate_recommendations = readonly_governance
-
-
 def _install_request_remediation_dedup() -> None:
     """Keep raw events, but do not count a CORS cause and its request symptom twice."""
     from rasai import request_remediation_intelligence as request
@@ -420,7 +393,6 @@ def install() -> None:
     global _INSTALLED
     _install_improvement_final_binding()
     _install_common_crawl_final_binding()
-    _install_recommendation_governance_before_reporting()
     _install_request_remediation_dedup()
     _install_cat05_partial_projection()
     _install_cost_fulfillment_guard()
