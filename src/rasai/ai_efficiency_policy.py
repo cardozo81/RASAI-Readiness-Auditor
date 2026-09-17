@@ -104,6 +104,13 @@ def install() -> None:
     if _INSTALLED:
         return
 
+    # This must run before core_reprocessing.install(). It patches the wrapper factory
+    # so external/live recollection is inserted after core recovery and before any RPR
+    # provider call, while keeping the existing core archive/version semantics intact.
+    from rasai.governed_reprocess_runtime import install_pre_core as install_governed_reprocess_pre_core
+
+    install_governed_reprocess_pre_core()
+
     from rasai import m18_ai, semantic
     from rasai.ai_model_runtime import install as install_ai_model_runtime
     from rasai.semantic_coherence_runtime import install as install_semantic_coherence_runtime
