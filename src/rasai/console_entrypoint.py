@@ -27,6 +27,7 @@ from rasai.console_environment_reset import install_ai_secret_cancellation, inst
 from rasai.console_execution_profile_readiness import install as install_execution_profile_readiness
 from rasai.console_execution_profiles import install as install_execution_profiles
 from rasai.console_first_run_cost_preview import install as install_first_run_cost_preview
+from rasai.console_governed_progress import install as install_console_governed_progress
 from rasai.console_governed_search_runtime import install as install_console_governed_search_runtime
 from rasai.console_navigation import install as install_console_navigation
 from rasai.console_preparation_layout import install as install_console_preparation_layout
@@ -148,6 +149,7 @@ def main() -> int:
     install_console_runtime_contract_compatibility()
     install_report_scope_clarity()
     install_console_progress_presentation()
+    install_console_governed_progress()
     install_ai_provider_console_management()
     install_ai_secret_cancellation()
     install_improvement_intelligence_console(interactive_console)
@@ -166,9 +168,6 @@ def main() -> int:
     install_execution_context_isolation()
     install_console_reprocess_parity(interactive_console)
     install_search_fulfillment(interactive_console)
-    # Installed outside the historical Search wrapper: transient search inputs are
-    # passed into the AUD subprocess, the obsolete post-AUD SERP call is suppressed,
-    # and persisted fulfillment is projected back into the same console fields.
     install_console_governed_search_runtime(interactive_console)
     install_console_projection(interactive_console)
     install_integration_network_diagnostics(interactive_console)
