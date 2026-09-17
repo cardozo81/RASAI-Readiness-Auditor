@@ -1,0 +1,31 @@
+name: Temporary request remediation validation
+
+on:
+  push:
+    branches:
+      - tmp-request-remediation-groups
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and pytest
+        run: python -m pip install -e . pytest
+      - name: Compile changed modules
+        run: >-
+          python -m py_compile
+          src/rasai/request_remediation_intelligence.py
+          src/rasai/request_remediation_persistence_fix.py
+          src/rasai/request_remediation_report_patch.py
+          src/rasai/request_remediation_telemetry_patch.py
+          src/rasai/ai_efficiency_policy.py
+      - name: Run isolated tests
+        run: >-
+          pytest -q
+          tests/test_request_remediation_intelligence.py
+          tests/test_accepted_apdex_error_evidence.py
