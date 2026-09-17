@@ -41,7 +41,7 @@ def _cat07_group_summary(database: Any, audit_id: str) -> str:
         ))
     return (
         "<details open><summary>Padrões de erro entre as amostras (" + str(len(groups)) + ")</summary>"
-        "<div class='detail-body'><p class='section-lead'>A recorrência abaixo é calculada deterministicamente sobre as amostras coletadas. "
+        "<div class='detail-body'><p class='section-lead'>A recorrência abaixo é calculada deterministicamente sobre as amostras coletadas da(s) fonte(s) que contribuíram para o grupo. "
         "Os rótulos recorrente/intermitente/ocasional descrevem frequência e não atribuem causalidade estrutural por si sós. "
         "Os eventos individuais permanecem disponíveis logo abaixo.</p>"
         + analysis._table(
@@ -103,10 +103,10 @@ def install() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
-    from rasai.request_remediation_persistence_fix import install as install_persistence_fix
+    from rasai.request_remediation_runtime import install as install_runtime
     from rasai.request_remediation_telemetry_patch import install as install_telemetry
 
-    install_persistence_fix()
+    install_runtime()
     _patch_cat07()
     _patch_cat09()
     install_telemetry()
