@@ -131,9 +131,27 @@ def test_final_execution_boundary_runs_catalog_projection_after_inner_result(mon
     assert calls == ["AUD-1"]
 
 
-def test_sample_timestamp_registry_is_per_sample() -> None:
-    execution_refinement._remember_sample_timestamp("AUD-1", "https://example.test/", "mobile", 1, "T1")
-    execution_refinement._remember_sample_timestamp("AUD-1", "https://example.test/", "mobile", 2, "T2")
+def test_m25_persisted_sample_keeps_its_individual_capture_timestamp() -> None:
+    from rasai import m25_apdex_experience as m25
 
-    assert execution_refinement._take_sample_timestamp("AUD-1", "https://example.test/", "mobile", 1) == "T1"
-    assert execution_refinement._take_sample_timestamp("AUD-1", "https://example.test/", "mobile", 2) == "T2"
+    measurement = m25.UxMeasurement(status="SUCCESS", user_action_duration_ms=1000.0)
+    item = m25._Classified(1, "MOBILE", measurement, "SATISFIED", 1000.0, False, "2026-09-17T00:00:01+00:00")
+    calibration = m25.Calibration(
+        source="MANUAL_CALIBRATION",
+        kpm="USER_ACTION_DURATION",
+        satisfied_threshold_seconds=3.0,
+        frustrated_threshold_seconds=12.0,
+        errors_affect_apdex=True,
+        metadata={},
+    )
+    sample = m25._persisted_sample(
+        "AUD-1",
+        "PAGE-1",
+        "https://example.test/",
+        m25._profile_for_device("MOBILE"),
+        m25.ExperienceApdexConfig(),
+        calibration,
+        item,
+    )
+
+    assert sample.captured_at == item.captured_at
