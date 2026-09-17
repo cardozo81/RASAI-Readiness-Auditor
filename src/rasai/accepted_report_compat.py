@@ -1,4 +1,4 @@
-"""Small compatibility glue for accepted CAT-09 refinements."""
+"""Small compatibility glue for accepted catalog/report refinements."""
 from __future__ import annotations
 
 import json
@@ -31,7 +31,11 @@ def _jsonld_title(row: Mapping[str, Any]) -> str:
 
 def install() -> None:
     from rasai import catalog_report_analysis as analysis
+    from rasai.accepted_apdex_error_evidence import install as install_apdex_error_evidence
+    from rasai.accepted_apdex_error_evidence_compat import install as install_apdex_error_evidence_compat
 
+    install_apdex_error_evidence()
+    install_apdex_error_evidence_compat()
     analysis._discovery_title = _discovery_title
     analysis._jsonld_title = _jsonld_title
 
