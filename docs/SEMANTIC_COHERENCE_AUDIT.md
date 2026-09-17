@@ -142,11 +142,11 @@ O agregador evita tratar diferenças lexicais automaticamente como contradição
 
 A execução pode materializar:
 
-- `property_semantic_contexts` — snapshot do contexto declarado usado;
-- `semantic_corpus_manifests` — gate/hash do corpus antes da IA;
-- `semantic_coherence_assessments` — avaliações page-level;
-- `semantic_property_signals` — sinais observados por página;
-- `property_semantic_summaries` — agregação cross-page.
+- `property_semantic_contexts` - snapshot do contexto declarado usado;
+- `semantic_corpus_manifests` - gate/hash do corpus antes da IA;
+- `semantic_coherence_assessments` - avaliações page-level;
+- `semantic_property_signals` - sinais observados por página;
+- `property_semantic_summaries` - agregação cross-page.
 
 Essas tabelas são diagnósticas. Elas não participam automaticamente da fórmula de score.
 
