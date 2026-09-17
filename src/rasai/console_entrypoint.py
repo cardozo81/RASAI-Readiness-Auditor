@@ -71,6 +71,7 @@ from rasai.runtime_contract_compatibility import install_console_runtime_contrac
 from rasai.runtime_progress_gate import install_search_progress_gate
 from rasai.search_fulfillment_runtime import install as install_search_fulfillment
 from rasai.selective_optional_reprocess import install as install_selective_optional_reprocess
+from rasai.semantic_context_console import install as install_semantic_context_console
 from rasai.standards_console_runtime import install as install_standards_console_runtime
 from rasai.standards_css_validation import install as install_standards_css_validation
 from rasai.standards_gsc_console_progress import install as install_standards_gsc_console_progress
@@ -134,6 +135,10 @@ def main() -> int:
     install_gsc_oauth_console()
     install_external_observability_runtime()
     install_improvement_intelligence_environment()
+    # CAT-03 property/editorial/risk context is part of the public configuration
+    # contract. Install it before INI preparation so every non-secret value participates
+    # in the same canonical save/reload/default flow as the rest of the console.
+    install_semantic_context_console()
     # Windows/User persistence lives in HKCU and does not require elevation. Read known
     # persisted secrets directly before config/readiness evaluation so a stale parent
     # shell environment cannot make a successfully persisted credential appear absent.
