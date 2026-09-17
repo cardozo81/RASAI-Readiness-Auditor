@@ -163,6 +163,7 @@ def install() -> None:
 
     from rasai.accepted_audit_refinements import install as install_accepted_audit_refinements
     from rasai.accepted_report_compat import install as install_accepted_report_compat
+    from rasai.accepted_timeout_context import install as install_accepted_timeout_context
     from rasai.ai_orchestration_unification import install_ai_orchestration_unification
     from rasai.ai_orchestration_unification_cleanup import (
         install_ai_orchestration_unification_cleanup,
@@ -172,6 +173,7 @@ def install() -> None:
     install_ai_orchestration_unification()
     install_ai_orchestration_unification_cleanup()
     install_accepted_audit_refinements()
+    install_accepted_timeout_context()
     install_accepted_report_compat()
     install_improvement_exchange_capture()
 
