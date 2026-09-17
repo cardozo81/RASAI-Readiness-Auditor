@@ -43,6 +43,15 @@ from rasai.m25_cli import (
     parse_device_mix,
 )
 from rasai.m25_dynatrace import SUPPORTED_TIME_KPMS
+from rasai.property_semantic_profile import (
+    BUSINESS_DESCRIPTION_ENV,
+    BUSINESS_SECTOR_ENV,
+    POSITIONING_ENV,
+    PRIMARY_GOAL_ENV,
+    PRIMARY_OFFERING_ENV,
+    TARGET_AUDIENCE_PROFILE_ENV,
+    build_property_semantic_profile,
+)
 from rasai.provider_registry import cli_provider_choices, get_provider_registration
 from rasai.provider_runtime_policy import AI_TIMEOUT_ENV, DEFAULT_WEB_PERFORMANCE_TIMEOUT_SECONDS
 
@@ -65,6 +74,14 @@ _CONTENT_PAYLOAD_TO_ENV = {
     "freshness_sensitivity": FRESHNESS_SENSITIVITY_ENV,
     "content_origin": CONTENT_ORIGIN_ENV,
 }
+_PROPERTY_SEMANTIC_PAYLOAD_TO_ENV = {
+    "property_business_sector": BUSINESS_SECTOR_ENV,
+    "property_business_description": BUSINESS_DESCRIPTION_ENV,
+    "property_primary_offering": PRIMARY_OFFERING_ENV,
+    "property_target_audience_profile": TARGET_AUDIENCE_PROFILE_ENV,
+    "property_primary_goal": PRIMARY_GOAL_ENV,
+    "property_positioning": POSITIONING_ENV,
+}
 
 AUDIT_JOB_FIELDS = frozenset({
     "urls",
@@ -84,6 +101,7 @@ AUDIT_JOB_FIELDS = frozenset({
     "apdex_experience_settle_seconds", "apdex_experience_delay_seconds",
     "apdex_experience_concurrency",
     *_CONTENT_PAYLOAD_TO_ENV.keys(),
+    *_PROPERTY_SEMANTIC_PAYLOAD_TO_ENV.keys(),
 })
 
 
@@ -147,6 +165,12 @@ def audit_job_options() -> tuple[AuditJobOption, ...]:
         AuditJobOption("apdex_experience_settle_seconds", DEFAULT_UX_SETTLE_SECONDS, "number"),
         AuditJobOption("apdex_experience_delay_seconds", DEFAULT_UX_DELAY_SECONDS, "number"),
         AuditJobOption("apdex_experience_concurrency", DEFAULT_UX_CONCURRENCY, "integer"),
+        AuditJobOption("property_business_sector", "auto", "text", description="Ramo/setor declarado da propriedade; auto quando não informado."),
+        AuditJobOption("property_business_description", "auto", "text", description="Descrição objetiva declarada do negócio/propriedade."),
+        AuditJobOption("property_primary_offering", "auto", "text", description="Oferta principal declarada da propriedade."),
+        AuditJobOption("property_target_audience_profile", "auto", "text", description="Perfil detalhado do público-alvo declarado."),
+        AuditJobOption("property_primary_goal", "auto", "text", description="Objetivo principal declarado da propriedade."),
+        AuditJobOption("property_positioning", "auto", "text", description="Posicionamento/proposta central declarada."),
         AuditJobOption("content_risk_profile", "auto", "enum", ("auto", "standard", "ymyl")),
         AuditJobOption("ymyl_category", "auto", "enum", ("auto", "none", "health-safety", "financial-security", "civic-societal", "other-significant-welfare")),
         AuditJobOption("page_purpose", "auto", "enum", ("auto", "informational", "transactional", "product-service", "review-comparison", "news-editorial", "support-documentation", "forum-ugc", "other")),
@@ -300,6 +324,20 @@ def normalize_audit_job_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         if frustrated <= satisfied:
             raise ValueError("AUDIT payload apdex_experience_frustrated_seconds must be greater than satisfied")
 
+    property_values = {
+        name: _text(payload, name, "auto") or "auto"
+        for name in _PROPERTY_SEMANTIC_PAYLOAD_TO_ENV
+    }
+    build_property_semantic_profile(
+        business_sector=property_values["property_business_sector"],
+        business_description=property_values["property_business_description"],
+        primary_offering=property_values["property_primary_offering"],
+        target_audience_profile=property_values["property_target_audience_profile"],
+        primary_goal=property_values["property_primary_goal"],
+        positioning=property_values["property_positioning"],
+    )
+    normalized.update(property_values)
+
     content_values = {
         name: _text(payload, name, "auto") or "auto"
         for name in _CONTENT_PAYLOAD_TO_ENV
@@ -331,6 +369,10 @@ def audit_job_environment_overrides(payload: Mapping[str, Any]) -> dict[str, str
         **{
             environment_name: str(normalized[payload_name])
             for payload_name, environment_name in _CONTENT_PAYLOAD_TO_ENV.items()
+        },
+        **{
+            environment_name: str(normalized[payload_name])
+            for payload_name, environment_name in _PROPERTY_SEMANTIC_PAYLOAD_TO_ENV.items()
         },
     }
     if normalized["ai_reasoning"]:
