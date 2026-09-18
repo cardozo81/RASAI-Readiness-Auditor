@@ -531,8 +531,32 @@ def run_audit(
             # a read-only projection over the already-final audit model.
             evaluate_recommendations(workspace.database, audit_id)
 
+            # Flush every durable final derivation before REPORTING. This includes
+            # configuration/provenance/fulfillment/cost data needed by the renderers.
+            from rasai import ai_exchange_log
+            from rasai.ai_execution_state import current_ai_executions
+            from rasai.audit_configuration_reuse_runtime import persist_current_configuration
+            from rasai.audit_fulfillment_runtime import finalize_core_work_item_before_reporting
+            from rasai.console_cost_confirmation import persist_active_outcome_before_reporting
+            from rasai.governed_report_projection_runtime import reconcile_before_reporting
+
+            finalize_core_work_item_before_reporting(
+                workspace=workspace,
+                audit_id=audit_id,
+                audited_pages=len(m2.page_ids),
+            )
+            persist_current_configuration(workspace.root, audit_id)
+            for execution in current_ai_executions():
+                ai_exchange_log.persist_ai_exchange_log(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    recorder=execution.recorder,
+                )
+            reconcile_before_reporting(workspace=workspace, audit_id=audit_id)
+            persist_active_outcome_before_reporting(audit_id=audit_id, workspace=workspace)
+
             # ------------------------------------------------------------------
-            # REPORT PROJECTION ONLY.  Network/AI/business derivation work must not
+            # REPORT PROJECTION ONLY. Network/AI/business derivation work must not
             # originate below here.
             # ------------------------------------------------------------------
             _set_status(persistence, audit_id, AuditStatus.REPORTING)

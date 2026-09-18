@@ -16,6 +16,7 @@ from rasai.console_ui import CYAN, DIM, GREEN, RED, YELLOW, paint
 _DECLINED: set[int] = set()
 _FORECASTS: dict[int, CostForecast] = {}
 _OUTCOMES: dict[int, "_CostOutcome"] = {}
+_ACTIVE_RUN: tuple[Any, CostForecast] | None = None
 _ALERT_THRESHOLD_PERCENT = 5.0
 
 
@@ -387,6 +388,26 @@ def _persist_outcome(state: Any, forecast: CostForecast, outcome: _CostOutcome) 
     return True
 
 
+def persist_active_outcome_before_reporting(*, audit_id: str, workspace: Any) -> bool:
+    """Persist the confirmed forecast outcome before the REPORTING boundary."""
+    if _ACTIVE_RUN is None:
+        return False
+    state, forecast = _ACTIVE_RUN
+    current = str(getattr(state, "audit_id", "") or "")
+    if current not in {"", audit_id}:
+        return False
+    if not current:
+        try:
+            state.audit_id = audit_id
+        except Exception:
+            return False
+    outcome = _build_outcome(state, forecast)
+    if outcome is None:
+        return False
+    _OUTCOMES[id(state)] = outcome
+    return _persist_outcome(state, forecast, outcome)
+
+
 def _status_color(status: str) -> str:
     if status == "CRÍTICO":
         return RED
@@ -452,6 +473,7 @@ def install(console_module: ModuleType) -> None:
     original_usage = getattr(console_module, "_render_actual_usage", None)
 
     def run(state: Any) -> int:
+        global _ACTIVE_RUN
         forecast = forecast_local_cost(state)
         if not forecast.show_confirmation:
             return int(original_run(state) or 0)
@@ -466,12 +488,13 @@ def install(console_module: ModuleType) -> None:
             choice = input("Escolha: ").strip().upper()
             if choice == "C":
                 _FORECASTS[id(state)] = forecast
+                _ACTIVE_RUN = (state, forecast)
                 state.operation = "LOCAL:COST_CONFIRMED"
                 code = int(original_run(state) or 0)
-                outcome = _build_outcome(state, forecast)
-                if outcome is not None:
-                    _OUTCOMES[id(state)] = outcome
-                    _persist_outcome(state, forecast, outcome)
+                if id(state) not in _OUTCOMES:
+                    outcome = _build_outcome(state, forecast)
+                    if outcome is not None:
+                        _OUTCOMES[id(state)] = outcome
                 return code
             if choice in {"V", "Q"}:
                 _DECLINED.add(id(state))
@@ -492,6 +515,7 @@ def install(console_module: ModuleType) -> None:
             _render_outcome(forecast, outcome)
 
     def post_run(state: Any) -> bool:
+        global _ACTIVE_RUN
         if id(state) in _DECLINED:
             _DECLINED.discard(id(state))
             return False
@@ -500,6 +524,8 @@ def install(console_module: ModuleType) -> None:
         finally:
             _FORECASTS.pop(id(state), None)
             _OUTCOMES.pop(id(state), None)
+            if _ACTIVE_RUN is not None and _ACTIVE_RUN[0] is state:
+                _ACTIVE_RUN = None
 
     console_module.run_audit_from_console = run
     if callable(original_usage):

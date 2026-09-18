@@ -390,6 +390,36 @@ def _wrap_m24(original):
     return execute_m24_with_fulfillment
 
 
+def finalize_core_work_item_before_reporting(
+    *,
+    workspace: Any,
+    audit_id: str,
+    audited_pages: int,
+) -> None:
+    """Persist CORE_AUDIT while final derivations are still mutable."""
+    config = dict(_INITIAL_OPTIONS.get() or {})
+    initialize_contract(workspace, audit_id, config)
+    register_work_item(
+        workspace,
+        audit_id=audit_id,
+        component="CORE_AUDIT",
+        scope_key="AUDIT",
+        required=True,
+        temporal_mode=REPLAY_SAFE,
+        status=SUCCESS,
+        retryable=False,
+        configuration={"audited_pages": int(audited_pages)},
+    )
+    set_work_item_status(
+        workspace,
+        audit_id=audit_id,
+        component="CORE_AUDIT",
+        status=SUCCESS,
+        result_ref=f"audit:{audit_id}",
+        retryable=False,
+    )
+
+
 def _wrap_run_audit(original):
     if getattr(original, "_rasai_fulfillment", False):
         return original
@@ -398,26 +428,9 @@ def _wrap_run_audit(original):
         config = _safe_initial_configuration(target, kwargs)
         token = _INITIAL_OPTIONS.set(config)
         try:
-            result = original(target, *args, **kwargs)
+            return original(target, *args, **kwargs)
         finally:
             _INITIAL_OPTIONS.reset(token)
-        initialize_contract(result.audit_root, result.audit_id, config)
-        register_work_item(
-            result.audit_root,
-            audit_id=result.audit_id,
-            component="CORE_AUDIT",
-            scope_key="AUDIT",
-            required=True,
-            temporal_mode=REPLAY_SAFE,
-            status=SUCCESS,
-            retryable=False,
-            configuration={"audited_pages": result.audited_pages},
-        )
-        set_work_item_status(
-            result.audit_root,audit_id=result.audit_id,component="CORE_AUDIT",status=SUCCESS,
-            result_ref=f"audit:{result.audit_id}",retryable=False,
-        )
-        return result
 
     run_audit_with_fulfillment._rasai_fulfillment = True
     run_audit_with_fulfillment._rasai_original = original
@@ -635,13 +648,8 @@ def _wrap_finalizer(original):
         return original
 
     def finalize_with_fulfillment(*args: Any, **kwargs: Any):
-        result = original(*args, **kwargs)
-        audit_id = str(kwargs.get("audit_id") or (args[0] if args else ""))
-        workspace = kwargs.get("workspace")
-        if workspace is not None and audit_id:
-            _sync_persisted_components(audit_id=audit_id, workspace=workspace)
-            project_report_validity(audit_id=audit_id, workspace=workspace)
-        return result
+        # Durable fulfillment is owned by the pre-report final-derivation boundary.
+        return original(*args, **kwargs)
 
     finalize_with_fulfillment._rasai_fulfillment = True
     finalize_with_fulfillment._rasai_original = original
