@@ -53,9 +53,9 @@ def _runtime_diagnostics_html(database: Path, data: _ReportData) -> str:
         for item in _runtime_items(snap):
             idx+=1; mid=f"runtime-{idx}"
             label=_runtime_type_label(item.get("type"))
-            url=item.get("url") or "—"; message=item.get("message") or "—"
+            url=item.get("url") or "-"; message=item.get("message") or "-"
             rows.append((label,message,url,_modal_button(mid,"Ver ocorrência")))
-            modals.append(_modal(mid,label,f"{_device_label(snap.get('device'))} · {snap.get('final_url') or snap.get('requested_url') or snap.get('page_url') or '—'}",
+            modals.append(_modal(mid,label,f"{_device_label(snap.get('device'))} · {snap.get('final_url') or snap.get('requested_url') or snap.get('page_url') or '-'}",
                 _kv((("Mensagem",message),("Recurso / URL",url),("Identificador da captura",snap.get("snapshot_id")),("Dispositivo",_device_label(snap.get("device")))))))
     return _table(("Tipo","Mensagem","Recurso","Detalhe"),rows,empty="Nenhum erro de console, JavaScript ou requisição foi persistido nas capturas disponíveis.",sortable=bool(rows))+"".join(modals)
 
@@ -92,9 +92,9 @@ def _discovery_html(database: Path, data: _ReportData) -> str:
         situation=_status_label(state or row.get("severity"))
         category={"ROBOTS":"robots.txt","SITEMAP":"Sitemap / feed","AI_ACCESS":"Arquivo para agentes de IA","DISCOVERY":"Mecanismo de descoberta"}.get(_norm(row.get("category")),str(row.get("category") or "Recurso").replace("_"," ").title())
         title=_discovery_title(row,observed)
-        rows.append((category,title,row.get("scope_url") or "—",_modal_button(mid,"Ver leitura")))
+        rows.append((category,title,row.get("scope_url") or "-",_modal_button(mid,"Ver leitura")))
         human_observed = observed.get("reason") or observed.get("error") or observed.get("detail") if isinstance(observed,Mapping) else observed
-        modal_body=_kv((("Situação",situation),("Observação",human_observed or title),("Impacto na pontuação",_score_impact_label(row.get("scoring_impact"))),("Referência",row.get("diagnostic_id") or "—")))
+        modal_body=_kv((("Situação",situation),("Observação",human_observed or title),("Impacto na pontuação",_score_impact_label(row.get("scoring_impact"))),("Referência",row.get("diagnostic_id") or "-")))
         if row.get("remediation"):
             modal_body+="<h3>Orientação registrada</h3><p>"+escape(str(row.get("remediation")))+"</p><p class='muted'>A orientação técnica consolidada e, quando disponível, enriquecida por IA fica em <a href='cat-09.html'>CAT-09 · Remediações</a>.</p>"
         if isinstance(observed,(dict,list)):
@@ -147,10 +147,10 @@ def _lighthouse_accessibility_html(database: Path, data: _ReportData) -> str:
         items=details.get("items",[]) if isinstance(details,Mapping) else []
         sample=items[0] if items and isinstance(items[0],Mapping) else {}
         node=sample.get("node") if isinstance(sample.get("node"),Mapping) else {}
-        selector=node.get("selector") or "—"
+        selector=node.get("selector") or "-"
         snippet=node.get("snippet") or ""
         rows.append((title,"Requer atenção",selector,_modal_button(mid,"Ver evidência")))
-        body=_kv((("Verificação",title),("Descrição da fonte",a.get("description") or source_title or "—"),("Elemento",selector),("Trecho",snippet or "—"),("Identificador técnico",aid)))
+        body=_kv((("Verificação",title),("Descrição da fonte",a.get("description") or source_title or "-"),("Elemento",selector),("Trecho",snippet or "-"),("Identificador técnico",aid)))
         body+="<p class='muted'>Quando houver recomendação correspondente, a implementação é centralizada em <a href='cat-09.html'>CAT-09 · Remediações</a>.</p>"
         modals.append(_modal(mid,title,"Evidência automatizada do Lighthouse",body))
     return _table(("Verificação","Resultado","Elemento","Detalhe"),rows,empty="Nenhuma violação automatizada do Lighthouse foi encontrada no artefato persistido.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals)
@@ -170,7 +170,7 @@ def _structured_data_html(database: Path, data: _ReportData) -> str:
         rid=str(r.get("rule_id") or "")
         mid=f"structured-{i}"
         observed=_safe_json(r.get("observed_value"),r.get("observed_value"))
-        summary="—"
+        summary="-"
         if isinstance(observed,Mapping):
             if "present" in observed:
                 summary="Encontrado" if observed.get("present") else "Não encontrado"
@@ -181,7 +181,7 @@ def _structured_data_html(database: Path, data: _ReportData) -> str:
         elif observed not in (None,""):
             summary=str(observed)
         rows.append((_STRUCTURED_RULE_LABELS.get(rid,rid),_status_label(r.get("result")),summary,_modal_button(mid,"Ver validação")))
-        body=_kv((("Validação",_STRUCTURED_RULE_LABELS.get(rid,rid)),("Resultado",_status_label(r.get("result"))),("Condição esperada",r.get("expected_condition") or "—"),("Identificador",rid)))
+        body=_kv((("Validação",_STRUCTURED_RULE_LABELS.get(rid,rid)),("Resultado",_status_label(r.get("result"))),("Condição esperada",r.get("expected_condition") or "-"),("Identificador",rid)))
         if observed not in (None,""):
             body+="<details><summary>Ver dado técnico observado</summary><div class='detail-body'><div class='pre'>"+escape(json.dumps(observed,ensure_ascii=False,indent=2) if isinstance(observed,(dict,list)) else str(observed))+"</div></div></details>"
         modals.append(_modal(mid,_STRUCTURED_RULE_LABELS.get(rid,rid),"Validação determinística de dados estruturados",body))
@@ -197,12 +197,12 @@ def _semantic_html(database: Path, data: _ReportData) -> str:
     blocks=[]
     if entities:
         entity_labels={"ORGANIZATION":"Organização","PERSON":"Pessoa","PRODUCT":"Produto","SERVICE":"Serviço","PLACE":"Local","EVENT":"Evento","TOPIC":"Tópico"}
-        rows=[(r.get("name"),entity_labels.get(_norm(r.get("entity_type")),str(r.get("entity_type") or "—").replace("_"," ").title()),_confidence_label(r.get("confidence"))) for r in entities]
+        rows=[(r.get("name"),entity_labels.get(_norm(r.get("entity_type")),str(r.get("entity_type") or "-").replace("_"," ").title()),_confidence_label(r.get("confidence"))) for r in entities]
         blocks.append("<div class='subsection'><h3>Entidades identificadas</h3>"+_table(("Entidade","Tipo","Confiança"),rows,sortable=True,page_size=10 if len(rows)>10 else None)+"</div>")
     blocks.append("<div class='subsection'><h3>Dados estruturados / JSON-LD</h3>"+_structured_data_html(database,data)+"</div>")
     if assessments:
         providers=sorted({f"{r.get('provider')}/{r.get('model')}" for r in assessments if r.get("provider")})
-        blocks.append(f"<div class='notice'><strong>Análise semântica assistida por IA:</strong> {len(assessments)} avaliação(ões) persistida(s). Provedor/modelo: {escape(', '.join(providers) or '—')}. <a href='ai-integrations.html'>Ver requisições, dados envolvidos e consumo em IA e integrações</a>.</div>")
+        blocks.append(f"<div class='notice'><strong>Análise semântica assistida por IA:</strong> {len(assessments)} avaliação(ões) persistida(s). Provedor/modelo: {escape(', '.join(providers) or '-')}. <a href='ai-integrations.html'>Ver requisições, dados envolvidos e consumo em IA e integrações</a>.</div>")
     return "".join(blocks)
 
 

@@ -12,15 +12,15 @@ def _capture_context_body(database: Path, data: _ReportData) -> str:
         viewport=profile.get("viewport") if isinstance(profile,Mapping) and isinstance(profile.get("viewport"),Mapping) else {}
         runtime=_runtime_items(s)
         mid=f"capture-{i}"
-        rows.append((_device_label(s.get("device")),s.get("requested_url") or s.get("page_url") or "—",s.get("final_url") or "—",s.get("http_status") or "—",len(runtime),_modal_button(mid,"Ver captura")))
+        rows.append((_device_label(s.get("device")),s.get("requested_url") or s.get("page_url") or "-",s.get("final_url") or "-",s.get("http_status") or "-",len(runtime),_modal_button(mid,"Ver captura")))
         visual_ref=meta.get("visual_artifact_ref") if isinstance(meta,Mapping) else None
         visual_path=_artifact_path(database.parent,visual_ref)
         artifact_rows=[
-            ("Resposta HTTP",s.get("raw_artifact_ref") or "—"),("HTML renderizado",s.get("rendered_artifact_ref") or "—"),
-            ("Conteúdo principal",s.get("main_content_ref") or "—"),("Dados estruturados",s.get("structured_data_ref") or "—"),
-            ("Captura visual",visual_ref or "—"),
+            ("Resposta HTTP",s.get("raw_artifact_ref") or "-"),("HTML renderizado",s.get("rendered_artifact_ref") or "-"),
+            ("Conteúdo principal",s.get("main_content_ref") or "-"),("Dados estruturados",s.get("structured_data_ref") or "-"),
+            ("Captura visual",visual_ref or "-"),
         ]
-        body=_kv((("Identificador da página",s.get("page_id")),("Identificador da captura",s.get("snapshot_id")),("URL solicitada",s.get("requested_url") or s.get("page_url")),("URL final",s.get("final_url")),("Capturado em",s.get("captured_at")),("HTTP",s.get("http_status")),("Tipo de conteúdo",s.get("content_type")),("Renderização",s.get("rendering_mode")),("Arquitetura",s.get("architecture_classification")),("Dispositivo",_device_label(s.get("device"))),("Perfil",browser.get("descriptor") or profile.get("device") or "—"),("Área visível (viewport)",f"{viewport.get('width','—')} × {viewport.get('height','—')}"),("Escala de pixels (DPR)",profile.get("device_scale_factor") or "—"),("Navegador",f"{browser.get('channel','Chrome')} {browser.get('browser_version') or meta.get('browser_version','—')}"),("Idioma",browser.get("locale") or profile.get("locale") or "—"),("Diagnósticos da execução do navegador",len(runtime))))
+        body=_kv((("Identificador da página",s.get("page_id")),("Identificador da captura",s.get("snapshot_id")),("URL solicitada",s.get("requested_url") or s.get("page_url")),("URL final",s.get("final_url")),("Capturado em",s.get("captured_at")),("HTTP",s.get("http_status")),("Tipo de conteúdo",s.get("content_type")),("Renderização",s.get("rendering_mode")),("Arquitetura",s.get("architecture_classification")),("Dispositivo",_device_label(s.get("device"))),("Perfil",browser.get("descriptor") or profile.get("device") or "-"),("Área visível (viewport)",f"{viewport.get('width','-')} × {viewport.get('height','-')}"),("Escala de pixels (DPR)",profile.get("device_scale_factor") or "-"),("Navegador",f"{browser.get('channel','Chrome')} {browser.get('browser_version') or meta.get('browser_version','-')}"),("Idioma",browser.get("locale") or profile.get("locale") or "-"),("Diagnósticos da execução do navegador",len(runtime))))
         body+="<h3>Arquivos e evidências</h3>"+_table(("Arquivo / evidência","Referência"),artifact_rows)
         if visual_path is not None and visual_ref:
             href="../"+str(visual_ref).replace("\\","/")
@@ -28,7 +28,7 @@ def _capture_context_body(database: Path, data: _ReportData) -> str:
             body+=f"<a class='capture-link' href='{escape(href)}' target='_blank' rel='noopener'><img class='capture-preview' src='{escape(href)}' alt='Captura visual da página auditada em {_device_label(s.get('device'))}'></a>"
         elif visual_ref:
             body+="<div class='notice warn'>A referência da captura visual foi persistida, mas o arquivo não está disponível junto aos artefatos desta cópia da auditoria.</div>"
-        modals.append(_modal(mid,"Captura da página",f"{_device_label(s.get('device'))} · {s.get('final_url') or s.get('requested_url') or '—'}",body))
+        modals.append(_modal(mid,"Captura da página",f"{_device_label(s.get('device'))} · {s.get('final_url') or s.get('requested_url') or '-'}",body))
     body=_audit_hero(data,"Captura e contexto","Como a página foi capturada: URL, dispositivo, navegador, renderização e artefatos. Diagnósticos funcionais permanecem no catálogo responsável.")
     body+=_outline((("capture","Capturas"),("boundaries","Responsabilidades"),("technical","Detalhes técnicos")))
     body+=_section("capture","Capturas da auditoria",_table(("Dispositivo","URL solicitada","URL final","HTTP","Diagnósticos","Detalhe"),rows,empty="Nenhuma captura de navegador persistida.",sortable=bool(rows))+"".join(modals))
@@ -52,7 +52,7 @@ def _overview_body(database: Path, data: _ReportData) -> str:
         indexes.append((_Html(f"<a href='{link}'>{escape(label)}</a>"),_score_value(r),_device_label(r.get("device")),"Índice",_confidence_label(r.get("confidence"))))
     for cid in ("CAT-04","CAT-06","CAT-07"):
         for name,value,kind in _catalog_metrics(database,data,cid):
-            indexes.append((_Html(f"<a href='{CATALOG_PAGE_BY_ID[cid].filename}'>{escape(str(name))}</a>"),value,CATALOG_BY_ID[cid].label,kind,"—"))
+            indexes.append((_Html(f"<a href='{CATALOG_PAGE_BY_ID[cid].filename}'>{escape(str(name))}</a>"),value,CATALOG_BY_ID[cid].label,kind,"-"))
     integrity="Íntegro" if data.config_hash and data.computed_hash==data.config_hash else "Plano não encontrado" if not data.config_hash else "Integridade divergente"
     body=_audit_hero(data,"Visão geral por catálogos","Resumo do plano congelado e dos resultados persistidos, mantendo coleta, análise e remediação em responsabilidades distintas.")
     body+=_outline((("catalogs","Catálogos"),("indices","Índices"),("integrity","Integridade")))
@@ -64,7 +64,7 @@ def _overview_body(database: Path, data: _ReportData) -> str:
 
 def _sari_body(data: _ReportData) -> str:
     overall=[r for r in data.scores if _norm(r.get("dimension"))=="OVERALL_READINESS"]
-    cards="".join(_metric(f"SARI · {_device_label(r.get('device'))}",_score_value(r),f"Cobertura {r.get('coverage','—')} · Confiança {_confidence_label(r.get('confidence'))}") for r in overall)
+    cards="".join(_metric(f"SARI · {_device_label(r.get('device'))}",_score_value(r),f"Cobertura {r.get('coverage','-')} · Confiança {_confidence_label(r.get('confidence'))}") for r in overall)
     limitations=[]
     for r in overall:
         parsed=_safe_json(r.get("limitations"),[])
@@ -76,7 +76,7 @@ def _sari_body(data: _ReportData) -> str:
     body+=_section("result","Resultado geral",f"<div class='metric-grid'>{cards or _metric('SARI','Sem pontuação persistida')}</div><div class='notice'>O valor deve ser lido junto de cobertura, confiança e condições de validação persistidas.</div>")
     body+=_section("composition","Composição e dimensões",_score_table(data,include_overall=False))
     body+=_section("limitations","Limitações e gates persistidos",_table(("Contexto","Limitação / gate"),limitations,empty="Nenhuma limitação serializada foi encontrada."))
-    body+=_section("method","Metodologia aplicada",f"<div class='metric-grid'>{_metric('Versão da metodologia',', '.join(versions) or '—')}{_metric('Fonte do valor','Pontuação persistida da auditoria')}{_metric('Recalcula no HTML?','Não')}</div><p>Pesos, fórmulas e condições de validação pertencem à metodologia persistida. Consulte <a href='methodology.html'>Metodologia e pontuação</a>.</p>")
+    body+=_section("method","Metodologia aplicada",f"<div class='metric-grid'>{_metric('Versão da metodologia',', '.join(versions) or '-')}{_metric('Fonte do valor','Pontuação persistida da auditoria')}{_metric('Recalcula no HTML?','Não')}</div><p>Pesos, fórmulas e condições de validação pertencem à metodologia persistida. Consulte <a href='methodology.html'>Metodologia e pontuação</a>.</p>")
     return body
 
 
@@ -91,7 +91,7 @@ def _execution_evidence_body(database: Path, data: _ReportData) -> str:
         mid=f"fulfillment-{i}"
         work_status=_technical_work_status(r.get("status"))
         work_rows.append((_friendly_component(r.get("component")),work_status,_attempt_count_label(r.get("attempt_count")),_modal_button(mid,"Ver etapa")))
-        modals.append(_modal(mid,_friendly_component(r.get("component")),"Etapa técnica persistida da execução",_kv((("Conclusão da etapa",work_status),("Tentativas registradas na etapa",_attempt_count_label(r.get("attempt_count"))),("Obrigatória","Sim" if r.get("required") else "Não"),("Escopo técnico",r.get("scope_key") or "—"),("Resultado",r.get("effective_result_ref") or "—"),("Último erro",r.get("last_error_message") or r.get("last_error_code") or "—"),("Identificador",r.get("work_item_id") or "—")))))
+        modals.append(_modal(mid,_friendly_component(r.get("component")),"Etapa técnica persistida da execução",_kv((("Conclusão da etapa",work_status),("Tentativas registradas na etapa",_attempt_count_label(r.get("attempt_count"))),("Obrigatória","Sim" if r.get("required") else "Não"),("Escopo técnico",r.get("scope_key") or "-"),("Resultado",r.get("effective_result_ref") or "-"),("Último erro",r.get("last_error_message") or r.get("last_error_code") or "-"),("Identificador",r.get("work_item_id") or "-")))))
     body=_audit_hero(data,"Evidências da execução","O que foi solicitado, o estado funcional de cada catálogo e as etapas técnicas persistidas.")
     body+=_outline((("matrix","Plano × execução"),("integrity","Plano congelado"),("technical","Etapas técnicas")))
     body+=_section("matrix","Plano × execução",_table(("Catálogo","Contexto","Selecionado","Estado funcional","Interpretação"),rows,sortable=True))

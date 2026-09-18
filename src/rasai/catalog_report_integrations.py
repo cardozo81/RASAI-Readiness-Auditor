@@ -139,8 +139,8 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
         mid=f"ai-attempt-{i}"
         cost=float(a.get("estimated_cost") or a.get("estimated_cost_usd") or 0)
         usage_context,inputs,role=_ai_usage_detail(a)
-        rows.append((a.get("purpose"),usage_context,a.get("provider") or "—",a.get("model") or "—",_status_label(a.get("status")),f"{int(a.get('input_tokens') or 0):,} / {int(a.get('output_tokens') or 0):,}".replace(","," "),f"{a.get('cost_currency') or 'USD'} {cost:.8f}",_modal_button(mid,"Ver requisição")))
-        body=_kv((("Finalidade",a.get("purpose")),("Aplicação no relatório",usage_context),("Provedor",a.get("provider")),("Modelo",a.get("model")),("Resultado da tentativa",_status_label(a.get("status"))),("Tentativa",a.get("attempt_index") or "—"),("Início",a.get("started_at") or "—"),("Fim",a.get("finished_at") or "—"),("Duração",_fmt_number(a.get("duration_ms"),"ms")),("Tokens de entrada",a.get("input_tokens") or 0),("Entrada em cache",a.get("cached_input_tokens") or 0),("Tokens de saída",a.get("output_tokens") or 0),("Tokens de raciocínio",a.get("reasoning_tokens") or 0),("Tokens totais",_attempt_total_tokens(a)),("Custo individual",f"{a.get('cost_currency') or 'USD'} {cost:.8f}"),("Roteamento / contingência",a.get("decision") or a.get("fallback_reason") or "—"),("Erro",a.get("error_detail") or a.get("error_code") or "—")))
+        rows.append((a.get("purpose"),usage_context,a.get("provider") or "-",a.get("model") or "-",_status_label(a.get("status")),f"{int(a.get('input_tokens') or 0):,} / {int(a.get('output_tokens') or 0):,}".replace(","," "),f"{a.get('cost_currency') or 'USD'} {cost:.8f}",_modal_button(mid,"Ver requisição")))
+        body=_kv((("Finalidade",a.get("purpose")),("Aplicação no relatório",usage_context),("Provedor",a.get("provider")),("Modelo",a.get("model")),("Resultado da tentativa",_status_label(a.get("status"))),("Tentativa",a.get("attempt_index") or "-"),("Início",a.get("started_at") or "-"),("Fim",a.get("finished_at") or "-"),("Duração",_fmt_number(a.get("duration_ms"),"ms")),("Tokens de entrada",a.get("input_tokens") or 0),("Entrada em cache",a.get("cached_input_tokens") or 0),("Tokens de saída",a.get("output_tokens") or 0),("Tokens de raciocínio",a.get("reasoning_tokens") or 0),("Tokens totais",_attempt_total_tokens(a)),("Custo individual",f"{a.get('cost_currency') or 'USD'} {cost:.8f}"),("Roteamento / contingência",a.get("decision") or a.get("fallback_reason") or "-"),("Erro",a.get("error_detail") or a.get("error_code") or "-")))
         body+="<h3>Dados envolvidos</h3><p>"+escape(inputs)+"</p>"
         body+="<h3>Papel da IA nesta chamada</h3><p>"+escape(role)+"</p>"
         body+="<h3>O que foi solicitado</h3><p>"+escape(str(a.get("request_message_summary") or "Resumo textual da solicitação não persistido."))+"</p>"
@@ -151,14 +151,14 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
                 body+="<div class='notice warn'>O log persistido sinaliza truncamento; o relatório não reconstrói conteúdo ausente.</div>"
         else:
             body+="<div class='notice'>O conteúdo bruto da solicitação/resposta não foi persistido para esta tentativa. O relatório exibe somente a telemetria disponível e não inventa a comunicação.</div>"
-        body+="<details><summary>Ver contrato técnico da chamada</summary><div class='detail-body'>"+_kv((("Contrato",a.get("contract") or "—"),))+"</div></details>"
+        body+="<details><summary>Ver contrato técnico da chamada</summary><div class='detail-body'>"+_kv((("Contrato",a.get("contract") or "-"),))+"</div></details>"
         modals.append(_modal(mid,f"{a.get('purpose')} · tentativa {a.get('attempt_index') or i}",f"{a.get('provider') or 'IA'} / {a.get('model') or 'modelo não informado'}",body))
     int_rows=[];int_modals=[]
     for i,r in enumerate(external,1):
         mid=f"integration-{i}"
-        int_rows.append((r["name"],_status_label(r["status"]),r["attempts"],r["successes"],_fmt_number(r["duration_ms"],"ms") if r["duration_ms"] is not None else "—",_modal_button(mid,"Ver integração")))
+        int_rows.append((r["name"],_status_label(r["status"]),r["attempts"],r["successes"],_fmt_number(r["duration_ms"],"ms") if r["duration_ms"] is not None else "-",_modal_button(mid,"Ver integração")))
         raw=r["raw"];details=raw.get("details_json")
-        body=_kv((("Serviço",r["name"]),("Resultado",_status_label(r["status"])),("Tentativas / alvos",r["attempts"]),("Sucessos",r["successes"]),("HTTP",r["http_status"] or "—"),("Duração",_fmt_number(r["duration_ms"],"ms") if r["duration_ms"] is not None else "—"),("URL",r["url"] or "—"),("Erro",r["error"] or "—"),("Artefato",r["reference"] or "—")))
+        body=_kv((("Serviço",r["name"]),("Resultado",_status_label(r["status"])),("Tentativas / alvos",r["attempts"]),("Sucessos",r["successes"]),("HTTP",r["http_status"] or "-"),("Duração",_fmt_number(r["duration_ms"],"ms") if r["duration_ms"] is not None else "-"),("URL",r["url"] or "-"),("Erro",r["error"] or "-"),("Artefato",r["reference"] or "-")))
         if details:
             body+="<h3>Detalhes persistidos</h3><div class='pre'>"+escape(_safe_payload_text(details))+"</div>"
         int_modals.append(_modal(mid,r["name"],"Comunicação/serviço externo persistido",body))
@@ -190,7 +190,7 @@ def _ai_integrations_body(database: Path, data: _ReportData) -> str:
             +_metric("Faixa provável",f"{currency} {float(forecast.get('likely_low') or 0):.8f} – {currency} {float(forecast.get('likely_high') or 0):.8f}")
             +_metric("Cenário potencial (P90)",f"{currency} {float(forecast.get('potential') or 0):.8f}")
             +_metric("Confiança da previsão",_level_label(forecast.get("confidence")))
-            +_metric("Classificação",forecast.get("status") or "—")
+            +_metric("Classificação",forecast.get("status") or "-")
             +"</div>"
         )
         reconcile_tone="good" if reconciled and arithmetic_ok else "bad"

@@ -8,7 +8,7 @@ def _web_observation(database: Path, audit_id: str) -> dict[str,Any]:
 
 
 def _fmt_number(value: Any, unit: str="") -> str:
-    if value is None:return "—"
+    if value is None:return "-"
     try:n=float(value)
     except (TypeError,ValueError):return str(value)
     if unit=="ms":return f"{n:,.0f} ms".replace(","," ")
@@ -51,22 +51,22 @@ def _apdex_result_rows(database: Path, audit_id: str, *, experience: bool) -> li
     score=row.get("apdex_score",row.get("apdex"))
     rows=[
         ("Apdex",_fmt_number(score),"Índice"),
-        ("Amostras válidas",row.get("valid_samples",row.get("sample_count","—")),"Contagem"),
-        ("Satisfatórias",row.get("satisfied_count","—"),"Contagem"),
-        ("Toleráveis",row.get("tolerating_count","—"),"Contagem"),
-        ("Frustradas",row.get("frustrated_count","—"),"Contagem"),
+        ("Amostras válidas",row.get("valid_samples",row.get("sample_count","-")),"Contagem"),
+        ("Satisfatórias",row.get("satisfied_count","-"),"Contagem"),
+        ("Toleráveis",row.get("tolerating_count","-"),"Contagem"),
+        ("Frustradas",row.get("frustrated_count","-"),"Contagem"),
     ]
     if experience:
         rows.extend([
-            ("Frustradas por erro",row.get("error_forced_frustrated_count","—"),"Contagem"),
-            ("Amostras com erro de requisição",row.get("request_error_samples","—"),"Contagem"),
+            ("Frustradas por erro",row.get("error_forced_frustrated_count","-"),"Contagem"),
+            ("Amostras com erro de requisição",row.get("request_error_samples","-"),"Contagem"),
             ("p75",_fmt_number(row.get("p75_ms"),"ms"),"Tempo"),
             ("p95",_fmt_number(row.get("p95_ms"),"ms"),"Tempo"),
         ])
     else:
         rows.extend([
-            ("Limite satisfatório",f"{row.get('threshold_seconds','—')} s","Configuração"),
-            ("Limite frustrado",f"{row.get('frustration_seconds','—')} s","Configuração"),
+            ("Limite satisfatório",f"{row.get('threshold_seconds','-')} s","Configuração"),
+            ("Limite frustrado",f"{row.get('frustration_seconds','-')} s","Configuração"),
             ("Média",_fmt_number(row.get("mean_ms"),"ms"),"Tempo"),
             ("p95",_fmt_number(row.get("p95_ms"),"ms"),"Tempo"),
         ])
@@ -109,13 +109,13 @@ def _search_intelligence_html(database: Path, data: _ReportData) -> str:
                 try:positions.append(int(r.get("position")))
                 except (TypeError,ValueError):pass
             mid=f"serp-{i}"
-            device=_device_label(obs.get("device")) if obs.get("device") else "—"
-            position=f"{min(positions)} a {max(positions)}" if positions else "—"
-            rows.append((obs.get("query") or "—",obs.get("region") or "—",device,len(results),position,_modal_button(mid,"Ver observação")))
+            device=_device_label(obs.get("device")) if obs.get("device") else "-"
+            position=f"{min(positions)} a {max(positions)}" if positions else "-"
+            rows.append((obs.get("query") or "-",obs.get("region") or "-",device,len(results),position,_modal_button(mid,"Ver observação")))
             result_rows=[]
             for r in results[:50]:
-                result_rows.append((r.get("position") or "—",r.get("title") or "—",r.get("url") or "—"))
-            body=_kv((("Consulta",obs.get("query") or "—"),("Região",obs.get("region") or "—"),("Dispositivo",device),("Profundidade solicitada",obs.get("requested_depth") or "—"),("Resultados persistidos",len(results))))
+                result_rows.append((r.get("position") or "-",r.get("title") or "-",r.get("url") or "-"))
+            body=_kv((("Consulta",obs.get("query") or "-"),("Região",obs.get("region") or "-"),("Dispositivo",device),("Profundidade solicitada",obs.get("requested_depth") or "-"),("Resultados persistidos",len(results))))
             body+="<h3>Resultados persistidos</h3>"+_table(("Posição","Título","URL"),result_rows,empty="Nenhum resultado individual persistido para esta observação.")
             modals.append(_modal(mid,"Observação de busca",str(obs.get("query") or "Consulta SERP"),body))
         return _table(("Consulta","Região","Dispositivo","Resultados","Posições","Detalhe"),rows,empty="Nenhuma observação SERP persistida.")+"".join(modals)
