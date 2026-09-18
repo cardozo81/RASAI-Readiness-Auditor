@@ -15,6 +15,8 @@ import threading
 from html import escape
 from typing import Any, Mapping, Sequence
 
+from rasai.catalog_report_public_labels import public_label, public_text
+
 _CONTEXT = threading.local()
 
 _STATUS_PT = {
@@ -87,11 +89,28 @@ _COMPONENT_PT = {
 }
 
 _LIMITATION_PT = {
+    "MAX_PAGES_REACHED": "Limite máximo de páginas atingido",
+    "RENDERED_LINKS_OUTSIDE_AUDIT_UNIVERSE_MAX_PAGES": "Links renderizados fora do universo auditado devido ao limite máximo de páginas",
     "RENDERED_DISCOVERY_GAP": "Lacuna na descoberta renderizada",
     "RENDER_DISCOVERY_GAP": "Lacuna na descoberta renderizada",
     "DISCOVERY_GAP": "Lacuna de descoberta",
     "PARTIAL_RENDERED_DISCOVERY": "Descoberta renderizada parcial",
 }
+
+_MAX_PAGES_LIMITATION_RE = re.compile(
+    r"^MAX_PAGES_REACHED:discovered=(\d+);audited=(\d+)$",
+    re.I,
+)
+_COUNTED_LIMITATION_RE = re.compile(
+    r"^(RENDERED_LINKS_OUTSIDE_AUDIT_UNIVERSE_MAX_PAGES|"
+    r"RENDERED_DISCOVERY_GAP|RENDER_DISCOVERY_GAP|DISCOVERY_GAP|"
+    r"PARTIAL_RENDERED_DISCOVERY):(\d+)$",
+    re.I,
+)
+_TECHNICAL_PREREQUISITE_RE = re.compile(
+    r"^TECHNICAL_PREREQUISITE_BR_GEO_(\d{3})_([A-Z0-9_]+)$",
+    re.I,
+)
 
 _STRUCTURED_EXPECTED_PT = {
     "structured data is syntactically interpretable when present": "Dados estruturados são sintaticamente interpretáveis quando presentes",
@@ -114,15 +133,62 @@ def _human_status_value(value: Any, fallback: Any | None = None) -> str:
     return str(value or "-").replace("_", " ").title()
 
 
+def _url_count(value: int, *, state: str) -> str:
+    noun = "URL" if value == 1 else "URLs"
+    adjective = {
+        "discovered": "descoberta" if value == 1 else "descobertas",
+        "audited": "auditada" if value == 1 else "auditadas",
+        "rendered": "renderizada" if value == 1 else "renderizadas",
+    }[state]
+    return f"{value} {noun} {adjective}"
+
+
+def _human_limitation_detail(value: Any) -> str:
+    detail = str(value or "").strip()
+    if not detail:
+        return ""
+    prerequisite = _TECHNICAL_PREREQUISITE_RE.fullmatch(detail)
+    if prerequisite:
+        rule = f"BR-GEO-{prerequisite.group(1)}"
+        state = _human_status_value(prerequisite.group(2))
+        return f"pré-requisito técnico {rule}: {state.casefold()}"
+    return public_text(detail)
+
+
 def _human_limitation(value: Any) -> str:
     raw = str(value or "").strip()
     if not raw:
         return "Limitação registrada"
+
+    max_pages = _MAX_PAGES_LIMITATION_RE.fullmatch(raw)
+    if max_pages:
+        discovered = int(max_pages.group(1))
+        audited = int(max_pages.group(2))
+        return (
+            "Limite máximo de páginas atingido: "
+            f"{_url_count(discovered, state='discovered')}; "
+            f"{_url_count(audited, state='audited')}"
+        )
+
+    counted = _COUNTED_LIMITATION_RE.fullmatch(raw)
+    if counted:
+        code = _norm(counted.group(1))
+        count = int(counted.group(2))
+        label = _LIMITATION_PT.get(code) or public_label(code) or code.replace("_", " ").title()
+        if code == "RENDERED_LINKS_OUTSIDE_AUDIT_UNIVERSE_MAX_PAGES":
+            return (
+                f"{label}: {_url_count(count, state='rendered')} "
+                "fora do universo auditado"
+            )
+        return f"{label}: {_url_count(count, state='rendered')} fora do universo auditado"
+
     code, separator, detail = raw.partition(":")
-    label = _LIMITATION_PT.get(_norm(code))
+    label = _LIMITATION_PT.get(_norm(code)) or public_label(code)
     if label:
-        return f"{label}: {detail.strip()}" if separator and detail.strip() else label
-    return f"Limitação técnica registrada ({raw})"
+        translated_detail = _human_limitation_detail(detail) if separator else ""
+        return f"{label}: {translated_detail}" if translated_detail else label
+
+    return f"Limitação técnica registrada ({public_text(raw)})"
 
 
 def _audit_limitations(data: Any) -> tuple[str, ...]:
