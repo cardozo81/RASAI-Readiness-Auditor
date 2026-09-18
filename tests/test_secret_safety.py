@@ -112,6 +112,18 @@ def test_detector_allows_explicit_placeholders_but_rejects_inline_material() -> 
     assert {item.kind for item in findings} >= {"SECRET_ASSIGNMENT", "BEARER_TOKEN"}
 
 
+def test_detector_allows_bracketed_human_placeholder_in_sensitive_header() -> None:
+    safe = (
+        "Set-Cookie: [valor não exibido]; Secure\n"
+        "Set-Cookie: [valor não exibido]; SameSite=Lax"
+    )
+    assert detect_secret_exposures(safe, path="catalog-report.html", strict=True) == ()
+
+    unsafe = "Set-Cookie: session=live-cookie-value-93af; Secure"
+    findings = detect_secret_exposures(unsafe, path="catalog-report.html", strict=True)
+    assert any(item.kind == "SECRET_ASSIGNMENT" for item in findings)
+
+
 def test_versioned_property_configuration_uses_references_not_secret_values(tmp_path: Path) -> None:
     config = tmp_path / "client.toml"
     config.write_text(textwrap.dedent("""
