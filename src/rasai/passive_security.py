@@ -822,8 +822,10 @@ def _safe_csp_sources(values: Iterable[str]) -> list[str]:
 
 def _cookie_attributes(raw: str) -> dict[str, Any]:
     parts = [part.strip() for part in str(raw).split(";") if part.strip()]
+    cookie_name = parts[0].split("=", 1)[0].strip() if parts else ""
     attrs: dict[str, Any] = {
-        "name_hash": sha256(parts[0].split("=", 1)[0].strip().encode("utf-8")).hexdigest()[:12] if parts else "",
+        "name_hash": sha256(cookie_name.encode("utf-8")).hexdigest()[:12] if cookie_name else "",
+        "sensitive_name_hint": bool(re.search(r"(?:session|sess|auth|token|jwt|sid|login|credential)", cookie_name, re.I)),
         "secure": False,
         "httponly": False,
         "samesite": None,
@@ -1088,7 +1090,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                     audit_id=audit_id,page_id=page_id,url=url,code=f"COOKIE_SECURE_{index}",category="Cookies",
                     finding_type="CONFIGURATION_WEAKNESS",title="Cookie definido sem Secure em contexto HTTPS",
                     description=f"Set-Cookie #{index} não contém Secure. O valor do cookie não é persistido pelo CAT-10.",
-                    severity="HIGH",evidence_ids=ev,impact="O cookie pode ser elegível para envio em transporte não HTTPS conforme escopo e comportamento do cliente.",
+                    severity="HIGH" if attrs["sensitive_name_hint"] else "MEDIUM",evidence_ids=ev,impact="O cookie pode ser elegível para envio em transporte não HTTPS conforme escopo e comportamento do cliente.",
                     containment="Evitar uso do cookie para sessão/autorização até revisar seus atributos.",
                     remediation="Adicionar Secure quando o cookie for destinado a contexto HTTPS.",
                     validation="Reauditar Set-Cookie e fluxo de autenticação.",
@@ -1099,7 +1101,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                     audit_id=audit_id,page_id=page_id,url=url,code=f"COOKIE_HTTPONLY_{index}",category="Cookies",
                     finding_type="OBSERVATION",title="Cookie sem HttpOnly observado",
                     description=f"Set-Cookie #{index} não contém HttpOnly. Nem todo cookie precisa de HttpOnly; classificar o papel do cookie antes de alterar.",
-                    severity="INFO",evidence_ids=ev,impact="Se contiver sessão/autorização, o acesso por JavaScript amplia exposição em caso de script malicioso.",
+                    severity="MEDIUM" if attrs["sensitive_name_hint"] else "INFO",evidence_ids=ev,impact="Se contiver sessão/autorização, o acesso por JavaScript amplia exposição em caso de script malicioso.",
                     containment="Identificar se o cookie precisa ser acessível por JavaScript.",
                     remediation="Adicionar HttpOnly a cookies de sessão/autorização que não precisem de acesso por script.",
                     validation="Testar o fluxo funcional e reauditar os atributos.",
@@ -1111,7 +1113,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                     audit_id=audit_id,page_id=page_id,url=url,code=f"COOKIE_SAMESITE_{index}",category="Cookies",
                     finding_type="CONFIGURATION_WEAKNESS",title="Cookie sem SameSite explícito",
                     description=f"Set-Cookie #{index} não declara SameSite.",
-                    severity="LOW",evidence_ids=ev,impact="O comportamento cross-site depende do default do navegador.",
+                    severity="MEDIUM" if attrs["sensitive_name_hint"] else "LOW",evidence_ids=ev,impact="O comportamento cross-site depende do default do navegador.",
                     containment="Mapear fluxos cross-site legítimos antes da mudança.",
                     remediation="Definir SameSite=Lax/Strict ou None conforme necessidade real.",
                     validation="Testar login, redirects e integrações cross-site.",
