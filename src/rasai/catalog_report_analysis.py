@@ -17,10 +17,14 @@ def _integration_indicator(database: Path, data: _ReportData, catalog_id: str) -
             for a in _ai_attempts(database,data.audit_id):
                 if str(a.get("contract") or "").upper()=="M24-TECHNICAL-REMEDIATION-V2":
                     labels.append(("IA aplicada à remediação técnica da descoberta",_status_label(a.get("status"))))
-        if catalog_id in {"CAT-03","CAT-08","CAT-09"}:
+        if catalog_id in {"CAT-03","CAT-08","CAT-09","CAT-10"}:
             for a in _ai_attempts(database,data.audit_id):
                 if a.get("catalog_id")==catalog_id:
                     labels.append((a.get("purpose"),_status_label(a.get("status"))))
+        if catalog_id=="CAT-10":
+            for r in _audit_rows(con,"passive_security_integrations",data.audit_id):
+                integration=str(r.get("integration_id") or "")
+                labels.append((_friendly_service(integration),_status_label(r.get("state"))))
     finally:con.close()
     if not labels:return ""
     unique=[]
@@ -81,6 +85,194 @@ def _apdex_samples_html(database: Path, data: _ReportData, *, experience: bool) 
             note="<h3>Diagnóstico de navegador</h3><div class='pre'>"+escape(json.dumps(diagnostics,ensure_ascii=False,indent=2))+"</div>" if diagnostics else ""
         modals.append(_modal(mid,f"Amostra {s.get('run_index',i)}",f"{'Apdex de experiência' if experience else 'Apdex de navegação'} · {s.get('url') or '-'}",_kv(fields)+note))
     return _table(("Amostra","Data/hora","Dispositivo","Classificação","Duração","Medição","Detalhe"),rows,empty="Nenhuma amostra foi persistida para este Apdex.",sortable=bool(rows),page_size=10 if experience and len(rows)>10 else None)+"".join(modals)
+
+
+def _passive_security_html(database: Path, data: _ReportData) -> str:
+    con=sqlite3.connect(database); con.row_factory=sqlite3.Row
+    try:
+        run=_last(con,"passive_security_runs",data.audit_id)
+        findings=_audit_rows(con,"passive_security_findings",data.audit_id)
+        resources=_audit_rows(con,"passive_security_resources",data.audit_id)
+        components=_audit_rows(con,"passive_security_components",data.audit_id)
+        integrations=_audit_rows(con,"passive_security_integrations",data.audit_id)
+    finally:
+        con.close()
+
+    if not run:
+        return (
+            "<div class='notice warn'><strong>Segurança passiva sem resultado:</strong> "
+            "o CAT-10 não possui execução consolidada persistida nesta AUD. O relatório não infere "
+            "ausência de risco a partir da ausência de dados.</div>"
+        )
+
+    coverage=_safe_json(run.get("coverage_json"),{})
+    limitations=_safe_json(run.get("limitations_json"),[])
+    coverage_labels={
+        "transport":"HTTPS e redirects",
+        "headers":"Security headers",
+        "csp":"Content Security Policy",
+        "cookies":"Cookies",
+        "cors_cross_origin":"CORS e políticas cross-origin",
+        "scripts_resources":"Scripts e recursos",
+        "third_party":"Third-party",
+        "mixed_content":"Mixed content",
+        "forms_iframes":"Forms e iframes",
+        "runtime":"Erros/runtime",
+        "vulnerability_intelligence":"Vulnerability Intelligence",
+        "active_scanning":"Active scanning",
+    }
+    coverage_rows=[]
+    if isinstance(coverage,Mapping):
+        for key,value in coverage.items():
+            coverage_rows.append((
+                coverage_labels.get(str(key),str(key).replace("_"," ").title()),
+                "Coberto" if bool(value) else ("Não executado por política" if str(key)=="active_scanning" else "Não coberto"),
+            ))
+
+    severities={key:0 for key in ("CRITICAL","HIGH","MEDIUM","LOW","INFO")}
+    types={}
+    for item in findings:
+        sev=_norm(item.get("severity"))
+        if sev in severities:
+            severities[sev]+=1
+        typ=_norm(item.get("finding_type"))
+        types[typ]=types.get(typ,0)+1
+
+    summary=(
+        "<div class='notice'><strong>Escopo de segurança:</strong> análise estritamente passiva. "
+        "O CAT-10 não faz pentest, exploração, fuzzing, brute force, bypass de autenticação, submissão de formulários "
+        "ou payloads ofensivos. Ele reutiliza HTTP, HTML/DOM, browser/runtime e integrações externas governadas.</div>"
+        "<div class='metric-grid'>"
+        +_metric("Estado",_status_label(run.get("status")))
+        +_metric("Páginas analisadas",run.get("pages_analyzed",0))
+        +_metric("Recursos inventariados",len(resources))
+        +_metric("Componentes identificados",len(components))
+        +_metric("Findings",len(findings))
+        +_metric("Críticos",severities["CRITICAL"])
+        +_metric("Altos",severities["HIGH"])
+        +_metric("Médios",severities["MEDIUM"])
+        +"</div>"
+    )
+
+    limitation_html=""
+    if isinstance(limitations,list) and limitations:
+        limitation_html=(
+            "<div class='notice warn'><strong>Cobertura reduzida:</strong> "
+            +escape(" · ".join(str(v) for v in limitations))
+            +". Falha/indisponibilidade de fonte externa reduz a cobertura do CAT-10; não é convertida automaticamente em vulnerabilidade do alvo.</div>"
+        )
+
+    finding_rows=[]; modals=[]
+    for index,item in enumerate(findings,1):
+        mid=f"security-finding-{index}"
+        finding_type=_status_label(item.get("finding_type"))
+        if finding_type==str(item.get("finding_type") or "").replace("_"," ").title():
+            finding_type=str(item.get("finding_type") or "-").replace("_"," ").title()
+        cves=_safe_json(item.get("cve_json"),[])
+        evidence_ids=_safe_json(item.get("evidence_ids_json"),[])
+        details=_safe_json(item.get("details_json"),{})
+        finding_rows.append((
+            _level_label(item.get("severity")),
+            finding_type,
+            item.get("category") or "-",
+            item.get("title") or "Finding",
+            item.get("party_context") or "-",
+            _confidence_label(item.get("confidence")),
+            _modal_button(mid,"Ver finding"),
+        ))
+        body=_kv((
+            ("Problema observado",item.get("description") or "-"),
+            ("Classificação",finding_type),
+            ("Severidade",_level_label(item.get("severity"))),
+            ("Confiança",_confidence_label(item.get("confidence"))),
+            ("Origem",item.get("source") or "-"),
+            ("Contexto",item.get("party_context") or "-"),
+            ("Impacto",item.get("impact") or "-"),
+            ("Contenção imediata",item.get("containment") or "-"),
+            ("Correção definitiva",item.get("remediation") or "-"),
+            ("Como validar",item.get("validation") or "-"),
+            ("CWE",item.get("cwe") or "-"),
+            ("CVE(s)",", ".join(str(v) for v in cves) if isinstance(cves,list) and cves else "-"),
+        ))
+        if isinstance(evidence_ids,list) and evidence_ids:
+            body+="<h3>Rastreabilidade</h3><p class='mono'>"+escape(" · ".join(str(v) for v in evidence_ids))+"</p>"
+        if isinstance(details,Mapping) and details:
+            body+="<details><summary>Detalhes técnicos persistidos</summary><div class='detail-body'><div class='pre'>"+escape(json.dumps(details,ensure_ascii=False,indent=2,default=str))+"</div></div></details>"
+        modals.append(_modal(mid,item.get("title") or "Finding de segurança",f"{item.get('category') or 'Segurança'} · {item.get('source') or 'RASAi'}",body))
+
+    integration_rows=[]; integration_modals=[]
+    for index,item in enumerate(integrations,1):
+        mid=f"security-integration-{index}"
+        details=_safe_json(item.get("details_json"),{})
+        integration_rows.append((
+            _friendly_service(item.get("integration_id")),
+            "Sim" if bool(item.get("requested")) else "Não",
+            _status_label(item.get("state")),
+            item.get("attempts",0),
+            item.get("successes",0),
+            _modal_button(mid,"Ver integração"),
+        ))
+        body=_kv((
+            ("Integração",_friendly_service(item.get("integration_id"))),
+            ("Solicitada","Sim" if bool(item.get("requested")) else "Não"),
+            ("Estado",_status_label(item.get("state"))),
+            ("Tentativas",item.get("attempts",0)),
+            ("Sucessos",item.get("successes",0)),
+            ("Erro técnico",item.get("error_message") or item.get("error_type") or "-"),
+            ("Artefato",item.get("artifact_reference") or "-"),
+        ))
+        if isinstance(details,Mapping) and details:
+            body+="<h3>Detalhes persistidos</h3><div class='pre'>"+escape(json.dumps(details,ensure_ascii=False,indent=2,default=str))+"</div>"
+        body+="<div class='notice'>Estados NO_DATA, NOT_REQUESTED ou UNAVAILABLE descrevem cobertura da integração; não significam, por si sós, problema de segurança no site.</div>"
+        integration_modals.append(_modal(mid,_friendly_service(item.get("integration_id")),"Integração externa/reutilizada do CAT-10",body))
+
+    resource_groups={}
+    for item in resources:
+        key=(str(item.get("resource_kind") or "UNKNOWN"),str(item.get("party") or "UNKNOWN"))
+        resource_groups[key]=resource_groups.get(key,0)+1
+    resource_rows=[
+        (kind.replace("_"," ").title(),party.replace("_"," ").title(),count)
+        for (kind,party),count in sorted(resource_groups.items())
+    ]
+
+    component_rows=[]
+    for item in components[:100]:
+        component_rows.append((
+            item.get("library") or "-",
+            item.get("version") or "Versão não determinada",
+            item.get("ecosystem") or "-",
+            item.get("identification_method") or "-",
+            _confidence_label(item.get("confidence")),
+        ))
+
+    type_rows=[
+        (key.replace("_"," ").title(),value)
+        for key,value in sorted(types.items())
+    ]
+
+    return (
+        summary
+        +limitation_html
+        +"<div class='subsection'><h3>O que foi analisado</h3>"
+        +_table(("Cobertura","Estado"),coverage_rows,empty="Cobertura não persistida.")
+        +"</div>"
+        +"<div class='subsection'><h3>Findings</h3>"
+        +_table(("Severidade","Classificação","Categoria","Problema","Contexto","Confiança","Detalhe"),finding_rows,empty="Nenhum finding de segurança foi materializado para o escopo analisado.",sortable=bool(finding_rows),page_size=10 if len(finding_rows)>10 else None)
+        +"".join(modals)+"</div>"
+        +"<div class='subsection'><h3>Distribuição por classificação</h3>"
+        +_table(("Classificação","Findings"),type_rows,empty="Nenhuma classificação materializada.")
+        +"</div>"
+        +"<div class='subsection'><h3>Scripts, recursos e origem</h3>"
+        +_table(("Tipo de recurso","Origem","Quantidade"),resource_rows,empty="Nenhum recurso HTML foi inventariado.")
+        +"</div>"
+        +"<div class='subsection'><h3>Componentes/versionamento identificáveis</h3>"
+        +"<p class='section-lead'>Versão detectada por filename é evidência heurística moderada: pode habilitar correlação OSV, mas o finding permanece potencial até confirmação por inventário/build/SBOM.</p>"
+        +_table(("Componente","Versão","Ecossistema","Método","Confiança"),component_rows,empty="Nenhum componente com identificação útil foi detectado.",sortable=bool(component_rows))
+        +"</div>"
+        +"<div class='subsection'><h3>Integrações de segurança</h3>"
+        +_table(("Integração","Solicitada","Estado","Tentativas","Sucessos","Detalhe"),integration_rows,empty="Nenhuma integração própria do CAT-10 foi persistida.",sortable=bool(integration_rows))
+        +"".join(integration_modals)+"</div>"
+    )
 
 
 def _improvement_html(database: Path, data: _ReportData) -> str:
