@@ -25,6 +25,7 @@ CORE_IDS = {
     "audits_root": "00000007", "ai_primary": "00000008", "web_performance": "00000009",
     "search_terms": "00000010", "apdex_navigation": "00000011",
     "apdex_experience": "00000012", "deep_analysis": "00000013", "remediations": "00000014",
+    "passive_security": "00000015",
 }
 
 _STATUS_COLORS = {
@@ -281,6 +282,8 @@ def _matches(spec: Any, capability: str) -> bool:
     if capability == "deep-analysis": return name.startswith("RASAI_IMPROVEMENT_") or name == "RASAI_AI_ANALYSIS_LANGUAGE"
     if capability == "content-suggestions": return name == "RASAI_AI_CONTENT_REMEDIATION" or "contexto editorial" in category
     if capability == "remediation": return name in {"RASAI_AI_CONTENT_REMEDIATION","RASAI_AI_TECHNICAL_REMEDIATION"}
+    if capability == "passive-security":
+        return category.startswith("cat-10") or name in {"RASAI_MDN_OBSERVATORY","RASAI_STANDARDS_MDN_OBSERVATORY"}
     return False
 
 
@@ -307,6 +310,7 @@ CAPABILITIES = (
     CapabilityUI("deep-analysis","Análise profunda e melhorias","Análise evidence-bound de URL única com a IA principal.","13"),
     CapabilityUI("content-suggestions","Conteúdo e JSON-LD","Conteúdo/estrutura com IA opcional como enriquecimento advisory."),
     CapabilityUI("remediation","Remediações","Correções determinísticas e orientação opcional por IA.","5"),
+    CapabilityUI("passive-security","Segurança passiva","Postura HTTP/browser, cookies, recursos, third-party, runtime e vulnerability intelligence sem active scanning."),
     CapabilityUI("quality","Quality & decisão","Resultado derivado do conjunto de evidências.",automatic=True,derived=True),
 )
 
@@ -342,6 +346,8 @@ def capability_status(state: Any, capability: CapabilityUI) -> tuple[str, str]:
         enabled = bool(getattr(state,"content_remediation",False) or getattr(state,"technical_remediation",False))
         if not enabled: return "INCLUÍDO", "remediações determinísticas; IA advisory desabilitada"
         return ("APTO","enriquecimento por IA solicitado") if str(getattr(state,"ai_provider","none")) != "none" else ("CONFIGURAR","remediação por IA exige IA principal")
+    if capability.key == "passive-security":
+        return "APTO", "modo passivo; HTTP/browser/runtime reutilizados; OSV/KEV são externos opcionais e MDN Observatory é reutilizado"
     specs = capability_specs(capability.key); pending = tuple(s for s in specs if is_pending(s))
     if pending: return "CONFIGURAR", f"{len(pending)} configuração(ões) obrigatória(s) pendente(s)"
     return ("AUTOMÁTICO", "usa integrações configuradas quando aplicável")
