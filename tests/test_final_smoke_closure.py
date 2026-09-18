@@ -229,3 +229,110 @@ def test_catalog_renderer_does_not_materialize_recommendation_governance() -> No
     source = inspect.getsource(catalog_report_site.materialize_catalog_report_site)
 
     assert "evaluate_recommendations(" not in source
+
+
+def test_cat08_final_binding_reasserts_auto_primary_ai_context(monkeypatch) -> None:
+    from rasai import ai_orchestration_unification as orchestration
+    from rasai import post_smoke_alignment as alignment
+
+    observed: dict[str, object] = {}
+
+    def raw_hook(*, audit_id, workspace, evidence_snapshot):
+        del audit_id, workspace, evidence_snapshot
+        observed["context"] = orchestration._PRIMARY_AI_CONTEXT.get()
+        return {"status": "SUCCESS"}
+
+    monkeypatch.setattr(
+        phase,
+        "_AI_HOOKS",
+        {"IMPROVEMENT_INTELLIGENCE": phase._Hook("IMPROVEMENT_INTELLIGENCE", raw_hook, 100)},
+    )
+    monkeypatch.setattr(alignment, "_cat08_required", lambda workspace, audit_id: False)
+    monkeypatch.setattr(
+        alignment,
+        "_primary_ai_context",
+        lambda workspace, audit_id: ("auto", "", ""),
+    )
+    orchestration._PRIMARY_AI_CONTEXT.set(None)
+
+    closure._install_improvement_final_binding()
+    result = phase._AI_HOOKS["IMPROVEMENT_INTELLIGENCE"].callback(
+        audit_id="AUD-X",
+        workspace=SimpleNamespace(),
+        evidence_snapshot=SimpleNamespace(),
+    )
+
+    assert result["status"] == "SUCCESS"
+    assert observed["context"] == ("auto", "", "")
+    assert orchestration._PRIMARY_AI_CONTEXT.get() is None
+
+
+def test_common_crawl_final_binding_collects_preseal_after_late_owner(monkeypatch, tmp_path: Path) -> None:
+    from rasai import external_observability_runtime as external
+    from rasai import standards_service_registry as registry
+
+    calls: list[dict[str, object]] = []
+    persisted: list[dict[str, object]] = []
+
+    def late_owner(*, audit_id, workspace, source_blocked=False):
+        del audit_id, workspace, source_blocked
+        return {
+            "collection_state": "SUCCESS",
+            "services": {"crux-history": {"collection_state": "SUCCESS"}},
+        }
+
+    monkeypatch.setattr(
+        phase,
+        "_COLLECTION_HOOKS",
+        {"EXTERNAL_OBSERVABILITY": phase._Hook("EXTERNAL_OBSERVABILITY", late_owner, 50)},
+    )
+    monkeypatch.setattr(phase, "_DETERMINISTIC_HOOKS", {})
+    monkeypatch.setattr(registry, "service", lambda service_id: service_id)
+    monkeypatch.setattr(
+        registry,
+        "service_state",
+        lambda service_id, env: {
+            "state": "READY",
+            "requested": True,
+            "configured": True,
+            "effective_enabled": True,
+            "configuration_source": "TEST",
+            "missing_configuration": [],
+        },
+    )
+    monkeypatch.setattr(external, "common_crawl_max_urls", lambda value: 1)
+    monkeypatch.setattr(external, "common_crawl_index_count", lambda value: 1)
+    monkeypatch.setattr(external, "_positive_float", lambda value, default: 1.0)
+
+    def collect_common_crawl_history(**kwargs):
+        calls.append(dict(kwargs))
+        return "DATASET-CC-1"
+
+    monkeypatch.setattr(external, "collect_common_crawl_history", collect_common_crawl_history)
+    monkeypatch.setattr(
+        external,
+        "_upsert_service_run",
+        lambda **kwargs: persisted.append(dict(kwargs)),
+    )
+
+    closure._install_common_crawl_final_binding()
+    hook = phase._COLLECTION_HOOKS["EXTERNAL_OBSERVABILITY"].callback
+    workspace = SimpleNamespace(root=tmp_path, database=tmp_path / "audit.db")
+    result = hook(audit_id="AUD-X", workspace=workspace, source_blocked=False)
+
+    assert len(calls) == 1
+    assert calls[0]["audit_workspace"] == tmp_path
+    assert result["collection_state"] == "SUCCESS"
+    assert result["services"]["common-crawl"]["collection_state"] == "SUCCESS"
+    assert result["services"]["common-crawl"]["datasets"] == ["DATASET-CC-1"]
+    assert persisted and persisted[0]["service_id"] == "common-crawl"
+
+
+def test_recommendation_governance_finishes_before_reporting_phase() -> None:
+    from rasai import audit_runner
+
+    source = inspect.getsource(audit_runner.run_audit)
+    governance = source.index("evaluate_recommendations(workspace.database, audit_id)")
+    reporting = source.index("_set_status(persistence, audit_id, AuditStatus.REPORTING)")
+
+    assert governance < reporting
