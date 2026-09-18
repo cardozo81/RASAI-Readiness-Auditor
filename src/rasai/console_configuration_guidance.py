@@ -13,6 +13,7 @@ import os
 from typing import Callable, Iterable, Sequence
 
 from rasai.console_ui import CYAN, DIM, GREEN, YELLOW, paint
+from rasai.configuration_value_labels import configuration_value_choice
 from rasai.provider_registry import get_provider_registration, provider_registrations
 from rasai.search_intelligence.provider_catalog import SERP_PROVIDER_REGISTRY
 from rasai.standards_service_registry import services
@@ -240,9 +241,9 @@ def _single_choice(spec, input_fn: Callable[[str], str]) -> str | None:
             markers.append("atual")
         if item == spec.default:
             markers.append("default")
-        label = item
+        label = configuration_value_choice(spec.name, item)
         if str(spec.value_type).casefold() == "booleano":
-            label = paint(item, GREEN if item == "true" else DIM, bold=item == "true")
+            label = paint(label, GREEN if item == "true" else DIM, bold=item == "true")
         suffix = f" [{' / '.join(markers)}]" if markers else ""
         print(f" {index}. {label}{suffix}")
     print(" V. Voltar")
@@ -263,7 +264,7 @@ def _multi_choice(spec, input_fn: Callable[[str], str]) -> str | None:
     print("\nValores válidos (seleção múltipla):")
     for index, item in enumerate(spec.accepted, 1):
         marker = " [selecionado]" if item in current else ""
-        print(f" {index}. {item}{marker}")
+        print(f" {index}. {configuration_value_choice(spec.name, item)}{marker}")
     print(" Digite números ou valores separados por vírgula; 'todos' seleciona todos; V volta.")
     raw = input_fn("Escolha: ").strip()
     if raw.upper() == "V":

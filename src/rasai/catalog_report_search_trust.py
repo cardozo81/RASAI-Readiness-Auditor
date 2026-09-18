@@ -16,6 +16,7 @@ import sqlite3
 from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
+from rasai.configuration_value_labels import configuration_value_report
 from rasai.source_state import SourceState
 
 _COMMON_CRAWL_SOURCE = "COMMON_CRAWL_CDX_HISTORY"
@@ -473,6 +474,14 @@ def _common_crawl_error_rows(database: Path, dataset: Mapping[str, Any]) -> list
     return rows
 
 
+def _common_crawl_no_capture(error_rows: Sequence[Sequence[Any]]) -> bool:
+    for row in error_rows:
+        message = str(row[3] if len(row) > 3 else "").casefold()
+        if "404" in message and "no captures found" in message:
+            return True
+    return False
+
+
 def _overview_text(value: Any) -> str:
     strings=[]
     def visit(node: Any, key: str="") -> None:
@@ -634,7 +643,7 @@ def _contract_rows(configuration: Mapping[str, Any]) -> list[tuple[Any, ...]]:
         ("Termos de busca", ", ".join(str(v) for v in configuration.get("queries", []) if str(v)) or "-"),
         ("Localidade", configuration.get("region") or "-"),
         ("Profundidade desejada", configuration.get("depth") or "-"),
-        ("Dispositivo", configuration.get("device") or "-"),
+        ("Dispositivo", configuration_value_report("RASAI_DEVICE_CONTEXT", configuration.get("device") or "-")),
         ("Análise de concorrentes", yes(configuration.get("competitive"))),
         ("Comparação de conteúdo", yes(configuration.get("compare_content"))),
         ("Máx. páginas concorrentes", configuration.get("max_content_pages") if configuration.get("max_content_pages") is not None else "-"),
@@ -642,8 +651,8 @@ def _contract_rows(configuration: Mapping[str, Any]) -> list[tuple[Any, ...]]:
         ("Máx. bytes por página", configuration.get("content_max_bytes") if configuration.get("content_max_bytes") is not None else "-"),
         ("Máx. redirects", configuration.get("content_max_redirects") if configuration.get("content_max_redirects") is not None else "-"),
         ("IA competitiva", yes(configuration.get("ai_competitive"))),
-        ("Contexto YMYL da IA", configuration.get("ymyl_mode") or "-"),
-        ("Modo SERP", configuration.get("mode") or "-"),
+        ("Contexto YMYL da IA", configuration_value_report("SEARCH_YMYL_MODE", configuration.get("ymyl_mode") or "-")),
+        ("Modo SERP", configuration_value_report("RASAI_SERP_MODE", configuration.get("mode") or "-")),
         ("Provider SERP", configuration.get("provider") or "-"),
         ("Engine", configuration.get("engine") or "-"),
         ("Limite de queries", configuration.get("max_queries") if configuration.get("max_queries") is not None else "-"),
@@ -655,7 +664,7 @@ def _contract_rows(configuration: Mapping[str, Any]) -> list[tuple[Any, ...]]:
         ("Intervalo mínimo", f"{configuration.get('min_interval_seconds')} s" if configuration.get("min_interval_seconds") is not None else "-"),
         ("Market", configuration.get("market") or "-"),
         ("Idioma", configuration.get("language") or "-"),
-        ("IA principal solicitada", configuration.get("ai_provider") or "-"),
+        ("IA principal solicitada", configuration_value_report("RASAI_AI_PROVIDER", configuration.get("ai_provider") or "-")),
         ("Modelo solicitado", configuration.get("ai_model") or "Seleção automática / padrão do provider"),
     ]
 
@@ -1277,36 +1286,68 @@ def _external_html(database: Path, data: Any) -> str:
                 if source==_COMMON_CRAWL_SOURCE and int(meta.get("errors") or 0) > 0:
                     modal_id=f"common-crawl-error-{index}"
                     error_rows=_common_crawl_error_rows(database,row)
+                    no_capture=_common_crawl_no_capture(error_rows)
+                    state_label=(
+                        "Execução parcial · coleção sem captura"
+                        if no_capture and count
+                        else "Sem captura nas coleções consultadas"
+                        if no_capture
+                        else "Falha reprocessável"
+                        if not count
+                        else "Execução parcial"
+                    )
                     body=page._kv((
-                        ("Estado","Falha reprocessável" if not count else "Execução parcial"),
+                        ("Estado",state_label),
                         ("Conjunto de dados",row.get("dataset_id") or "-"),
                         ("Tentativas de API",meta.get("requests") or "-"),
                         ("Registros obtidos",meta.get("rows") or 0),
                         ("Erros",meta.get("errors") or len(error_rows)),
                         ("Artefato",row.get("artifact_path") or "-"),
                     ))
+                    display_error_rows=[
+                        (
+                            item[0],
+                            item[1],
+                            item[2],
+                            page._Html(escape(str(item[3] or "-"))),
+                            item[4],
+                        )
+                        for item in error_rows
+                    ]
                     body+="<h3>Erros observados</h3>"+page._table(
                         ("Coleção","URL auditada","Tipo","Mensagem","Endpoint"),
-                        error_rows,
+                        display_error_rows,
                         empty="O dataset informa erro, mas não há detalhe individual persistido.",
-                        sortable=bool(error_rows),
-                        page_size=10 if len(error_rows)>10 else None,
+                        sortable=bool(display_error_rows),
+                        page_size=10 if len(display_error_rows)>10 else None,
                     )
-                    body+=(
-                        "<h3>Como resolver</h3><ol>"
-                        "<li>Verifique conectividade HTTPS, proxy, firewall e resolução DNS para <code>index.commoncrawl.org</code> e para o endpoint CDX indicado acima.</li>"
-                        "<li>Confirme se a coleção Common Crawl indicada ainda responde pelo endpoint público CDX. O RASAi consulta somente o índice; não baixa WARC.</li>"
-                        "<li>Como o estado é reprocessável, execute o reprocessamento seletivo da mesma AUD para repetir somente a dependência pendente quando aplicável.</li>"
-                        "<li>Se o erro persistir em coleções diferentes, valide disponibilidade do serviço público e o detalhe da exceção antes de alterar a URL auditada.</li>"
-                        "</ol>"
-                        "<div class='notice'>Falha do Common Crawl não implica erro no site e não comprova ausência de indexação em mecanismos de busca.</div>"
-                    )
-                    detail_cell=page._modal_button(modal_id,"Ver erro e como corrigir")
+                    if no_capture:
+                        body+=(
+                            "<h3>Como interpretar e tratar</h3><ol>"
+                            "<li>O HTTP 404 com <code>No Captures found</code> indica que o endpoint do Common Crawl respondeu, mas não encontrou captura da URL na coleção consultada. Não é evidência de falha de DNS, proxy, firewall ou conectividade local.</li>"
+                            "<li>Esse estado descreve cobertura do arquivo público naquela coleção; não implica erro no site e não comprova ausência de indexação em mecanismos de busca.</li>"
+                            "<li>Se for necessário ampliar a evidência histórica, consulte outras coleções disponíveis em uma nova coleta ou aguarde atualização do arquivo público. Não altere a URL auditada apenas por esse retorno.</li>"
+                            "<li>Repetir imediatamente a mesma coleção pode retornar o mesmo resultado enquanto a cobertura do Common Crawl não mudar.</li>"
+                            "</ol>"
+                        )
+                        detail_label="Ver diagnóstico e orientação"
+                    else:
+                        body+=(
+                            "<h3>Como resolver</h3><ol>"
+                            "<li>Verifique conectividade HTTPS, proxy, firewall e resolução DNS para <code>index.commoncrawl.org</code> e para o endpoint CDX indicado acima.</li>"
+                            "<li>Confirme se a coleção Common Crawl indicada ainda responde pelo endpoint público CDX. O RASAi consulta somente o índice; não baixa WARC.</li>"
+                            "<li>Quando houver dependência realmente pendente/reprocessável no fulfillment, use o reprocessamento seletivo da mesma AUD.</li>"
+                            "<li>Se o erro persistir em coleções diferentes, valide disponibilidade do serviço público e o detalhe da exceção antes de alterar a URL auditada.</li>"
+                            "</ol>"
+                            "<div class='notice'>Falha do Common Crawl não implica erro no site e não comprova ausência de indexação em mecanismos de busca.</div>"
+                        )
+                        detail_label="Ver erro e como corrigir"
+                    detail_cell=page._modal_button(modal_id,detail_label)
                     source_modals.append(page._modal(modal_id,"Common Crawl - diagnóstico de coleta",str(row.get("dataset_id") or "Dataset"),body))
                 details.append((row.get("dataset_id"),row.get("capture_method"),row.get("collected_at"),meta.get("requests") if isinstance(meta,Mapping) else "-",meta.get("rows") if isinstance(meta,Mapping) else count,meta.get("errors") if isinstance(meta,Mapping) else errors,row.get("artifact_path"),detail_cell))
             lead=f"<div class='metric-grid'>{page._metric('Execuções/datasets',len(rows))}{page._metric('Resultados',count)}{page._metric('Erros',errors)}</div>"
             if source==_COMMON_CRAWL_SOURCE:
-                lead+="<div class='notice'>Common Crawl representa histórico do arquivo público e não comprova indexação atual em Google/Bing. Não participa diretamente do score. Quando houver erro, use o detalhe do dataset para ver exceção, endpoint e passos de reprocessamento.</div>"
+                lead+="<div class='notice'>Common Crawl representa histórico do arquivo público e não comprova indexação atual em Google/Bing. Não participa diretamente do score. Quando houver limitação ou erro, use o detalhe do dataset para distinguir ausência de captura, indisponibilidade do provider e falha de transporte.</div>"
             blocks.append("<div class='subsection'><h3>"+escape(title)+"</h3>"+lead+page._table(("Conjunto de dados","Método","Coletado em","Requisições","Registros","Erros","Artefato","Diagnóstico"),details,empty=f"{title} não executado/não persistido nesta AUD.")+"".join(source_modals)+"</div>")
         gsc=[row for row in datasets if str(row.get("source_type") or "").startswith(_GSC_PREFIX)]
         gsc_rows=[]

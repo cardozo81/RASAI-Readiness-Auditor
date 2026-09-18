@@ -18,6 +18,7 @@ from typing import Any, Callable
 from zoneinfo import ZoneInfo
 
 from rasai.console_ui import DIM, GREEN, paint
+from rasai.configuration_value_labels import configuration_value_choice
 
 _CONFIGURATION_ID_MODULUS = 1_000_000
 
@@ -245,9 +246,9 @@ def _single_choice(spec: Any, input_fn: Callable[[str], str]) -> str | None:
             markers.append("atual")
         if item == spec.default:
             markers.append("default")
-        label = item
+        label = configuration_value_choice(spec.name, item)
         if str(spec.value_type).casefold() == "booleano":
-            label = paint(item, GREEN if item == "true" else DIM, bold=item == "true")
+            label = paint(label, GREEN if item == "true" else DIM, bold=item == "true")
         suffix = f" [{' / '.join(markers)}]" if markers else ""
         print(f" {index}. {label}{suffix}")
         print(paint(f"    {value_description(spec, item)}", DIM))
@@ -271,7 +272,7 @@ def _multi_choice(spec: Any, input_fn: Callable[[str], str]) -> str | None:
     print("\nValores válidos (seleção múltipla):")
     for index, item in enumerate(spec.accepted, 1):
         marker = " [selecionado]" if item in current else ""
-        print(f" {index}. {item}{marker}")
+        print(f" {index}. {configuration_value_choice(spec.name, item)}{marker}")
         print(paint(f"    {value_description(spec, item)}", DIM))
     print(" Digite números ou valores separados por vírgula; 'todos' seleciona todos; V volta.")
     raw = input_fn("Escolha: ").strip()
@@ -297,7 +298,10 @@ def _multi_choice(spec: Any, input_fn: Callable[[str], str]) -> str | None:
     joined = ",".join(selected)
     print("\nSelecionados:")
     for value in selected:
-        print(f" - {value}  {paint(value_description(spec, value), DIM)}")
+        print(
+            f" - {configuration_value_choice(spec.name, value)}  "
+            f"{paint(value_description(spec, value), DIM)}"
+        )
     confirmation = input_fn("C. Confirmar | V. Voltar: ").strip().upper()
     if confirmation in {"C", ""}:
         return joined

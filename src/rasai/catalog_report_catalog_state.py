@@ -1,5 +1,9 @@
 """Catalog ownership, status and effective configuration."""
 from rasai.catalog_report_presentation import *  # noqa: F401,F403
+from rasai.configuration_value_labels import (
+    configuration_csv_report,
+    configuration_value_report,
+)
 import json
 
 
@@ -310,15 +314,29 @@ def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any
                 raw=environment.get(name)
                 if raw in (None,""):
                     continue
-                value="YMYL" if str(raw).casefold()=="ymyl" else public_label(raw) or str(raw)
+                value=configuration_value_report(name, raw)
                 rows.append((label,value,"Plano congelado / configuração efetiva"))
     elif catalog_id=="CAT-04":
         cfg=settings.get("web_performance") if isinstance(settings,Mapping) else {}
         if isinstance(cfg,Mapping):
             rows.extend([
                 ("Desempenho web","Habilitado" if str(cfg.get("enabled","")).lower()=="true" else "Desabilitado","Configuração da execução"),
-                ("Fonte de dados de campo",cfg.get("field_source") or "Automática","Configuração da execução"),
-                ("Categorias Lighthouse",str(cfg.get("lighthouse_categories") or "-").replace(","," · "),"Configuração da execução"),
+                (
+                    "Fonte de dados de campo",
+                    configuration_value_report(
+                        "RASAI_WEB_PERFORMANCE_FIELD_SOURCE",
+                        cfg.get("field_source") or "auto",
+                    ),
+                    "Configuração da execução",
+                ),
+                (
+                    "Categorias Lighthouse",
+                    configuration_csv_report(
+                        "RASAI_LIGHTHOUSE_CATEGORIES",
+                        cfg.get("lighthouse_categories") or "",
+                    ),
+                    "Configuração da execução",
+                ),
             ])
     elif catalog_id=="CAT-05":
         search=data.configuration.get("search_intelligence")

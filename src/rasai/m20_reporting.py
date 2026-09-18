@@ -11,6 +11,7 @@ import sqlite3
 from typing import Any
 
 from rasai.content_context import configured_content_analysis_context
+from rasai.configuration_value_labels import configuration_value_report
 from rasai.content_context_persistence import (
     load_content_analysis_context,
     persist_content_analysis_context,
@@ -287,7 +288,7 @@ def _context_panel(record: tuple[Any, dict[str, Any]] | None) -> str:
     cards = []
     for field in _CONTEXT_LABELS:
         raw_value = str(payload[field])
-        value = _CONTEXT_VALUE_LABELS.get(raw_value.casefold(), raw_value)
+        value = configuration_value_report(field, raw_value)
         inferred = field in set(metadata.get("auto_fields") or ())
         origin = "Inferido" if inferred else "Configurado"
         cards.append(

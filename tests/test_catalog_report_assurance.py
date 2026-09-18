@@ -283,7 +283,12 @@ def test_assurance_matrix_explains_each_axis_without_changing_columns() -> None:
         assert f"<th>{label}</th>" in html
     assert "cobertura de controles" in html
     assert "probabilidade estatística" in html
-    global_labels = (
+    coverage_start = html.index("data-assurance-summary='coverage'")
+    gates_start = html.index("data-assurance-summary='gates'")
+    coverage = html[coverage_start:gates_start]
+    gates = html[gates_start:]
+
+    expected_global_order = (
         "Configurabilidade global",
         "Governança global",
         "Exposição global",
@@ -292,10 +297,18 @@ def test_assurance_matrix_explains_each_axis_without_changing_columns() -> None:
         "Segurança global",
         "Maturidade global",
     )
-    positions = [html.index(label) for label in global_labels]
+    positions = [coverage.index(label) for label in expected_global_order]
     assert positions == sorted(positions)
-    assert "Gates de encerramento:" in html
-    assert "<small>Encerramento estrutural</small>" not in html
+    assert coverage.count("100.00%") == len(expected_global_order)
+    assert "ATENDE" not in coverage
+    assert "ELEGÍVEL" not in coverage
+
+    assert "Gate dos catálogos" in gates
+    assert "Segurança das páginas transversais" in gates
+    assert "Encerramento estrutural" in gates
+    assert "100.00%" not in gates
+    assert "ATENDE" in gates
+    assert "ELEGÍVEL" in gates
 
 def test_internal_orchestration_failure_reduces_assurance_instead_of_showing_all_100(monkeypatch, tmp_path: Path) -> None:
     from rasai import catalog_report_assurance as assurance

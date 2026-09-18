@@ -33,6 +33,10 @@ from rasai.console_m23 import (
 from rasai.console_runtime import render_header
 from rasai.console_session import clear_secret_volatile, mark_secret_volatile
 from rasai.console_ui import CYAN, DIM, GREEN, paint
+from rasai.configuration_value_labels import (
+    configuration_value_choice,
+    configuration_value_info,
+)
 from rasai.content_context import (
     CONTENT_ORIGIN_ENV,
     CONTENT_RISK_PROFILE_ENV,
@@ -548,17 +552,27 @@ def _status(spec: EnvironmentSpec) -> str:
             origin = environment_origin(spec.name, value)
             suffix = f" [{origin}]" if origin else ""
             return paint("[SET]" + suffix, GREEN, bold=True)
+        display_value = (
+            configuration_value_info(spec.name, value)
+            if spec.accepted
+            else value
+        )
         if value.casefold() in {"true", "1", "yes", "on"}:
-            return paint(value, GREEN, bold=True)
+            return paint(display_value, GREEN, bold=True)
         if value.casefold() in {"false", "0", "no", "off"}:
-            return paint(value, DIM)
-        return paint(value[:60], CYAN)
+            return paint(display_value, DIM)
+        return paint(display_value[:96], CYAN)
     if sensitive:
         origin = environment_origin(spec.name, None)
         if origin:
             return paint(f"<não ativa> [{origin}]", DIM)
     if spec.default is not None:
-        return paint(f"<default efetivo: {spec.default}>", DIM)
+        default_value = (
+            configuration_value_info(spec.name, spec.default)
+            if spec.accepted and "," not in str(spec.default)
+            else str(spec.default)
+        )
+        return paint(f"<default efetivo: {default_value}>", DIM)
     return paint("<sem default; condicional>", DIM)
 
 
@@ -726,7 +740,7 @@ def _prompt_choice(spec: EnvironmentSpec) -> str | None:
     print("\nValores aceitos:")
     for index, item in enumerate(spec.accepted, 1):
         marker = " [default]" if item == spec.default else ""
-        print(f" {index}. {item}{marker}")
+        print(f" {index}. {configuration_value_choice(spec.name, item)}{marker}")
     print(" V. Voltar")
     raw = input("Escolha: ").strip()
     if raw.upper() == "V":
@@ -746,8 +760,16 @@ def _render_detail(spec: EnvironmentSpec) -> None:
     print(f"Para que serve : {spec.purpose}")
     print(f"Tipo           : {spec.value_type}")
     if spec.accepted:
-        print(f"Valores aceitos: {', '.join(spec.accepted)}")
-    print(f"Default efetivo: {spec.default if spec.default is not None else 'nenhum seguro/aplicável'}")
+        print(
+            "Valores aceitos: "
+            + ", ".join(configuration_value_info(spec.name, value) for value in spec.accepted)
+        )
+    default_display = (
+        configuration_value_info(spec.name, spec.default)
+        if spec.default is not None and spec.accepted and "," not in str(spec.default)
+        else spec.default
+    )
+    print(f"Default efetivo: {default_display if default_display is not None else 'nenhum seguro/aplicável'}")
     print(f"Obrigatória    : {spec.required_when}")
     print(f"Sensível       : {'SIM - nunca exibida nem gravada no INI' if _is_sensitive_spec(spec) else 'não'}")
     print(f"Custo/impacto  : {spec.impact}")

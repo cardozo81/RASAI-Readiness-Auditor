@@ -6,6 +6,8 @@ are exposed only by the explicit technical-details action.
 """
 from __future__ import annotations
 
+from rasai.configuration_value_labels import configuration_value_info
+
 import builtins
 from contextlib import contextmanager
 from getpass import getpass
@@ -313,7 +315,7 @@ def variable_editor(console_module: ModuleType, state: Any, spec: Any) -> None:
         info("Estado", env.decision_badge(spec))
         section("COMO PREENCHER")
         if spec.accepted:
-            info("Opções aceitas", ", ".join(spec.accepted))
+            info("Opções aceitas", ", ".join(configuration_value_info(spec.name, value) for value in spec.accepted))
         else:
             info("Formato", spec.value_type)
         if getattr(spec, "example", ""):

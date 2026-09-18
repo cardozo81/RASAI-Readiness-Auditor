@@ -10,6 +10,7 @@ from typing import Any
 from rasai.score_geo_004 import DIMENSION_WEIGHTS, RULE_SCORING_CONTRACT
 from rasai.semantic_coherence import PAGE_COHERENCE_CRITERIA, PROPERTY_COHERENCE_CRITERIA
 from rasai.catalog_report_public_labels import public_label
+from rasai.configuration_value_labels import configuration_value_report
 
 _INSTALLED = False
 
@@ -139,7 +140,12 @@ def _context_html(evidence: Any, database: Any, audit_id: str) -> str:
     if content_rows:
         row=content_rows[0]
         for key,label in _CONTENT_LABELS.items():
-            raw=str(row.get(key) or "auto"); content_values.append((label,raw,"Automático" if raw.casefold()=="auto" else "Declarado"))
+            raw=str(row.get(key) or "auto")
+            content_values.append((
+                label,
+                configuration_value_report(key, raw),
+                "Automático" if raw.casefold()=="auto" else "Declarado",
+            ))
     if content_values:
         blocks.append("<div class='subsection'><h3>Contexto editorial, risco e confiança</h3>"+evidence._table(("Campo","Valor usado","Origem"),content_values)+"</div>")
     if manifest_rows:
@@ -151,8 +157,10 @@ def _context_html(evidence: Any, database: Any, audit_id: str) -> str:
     return "".join(blocks)
 
 
-def _context_display_value(value: Any) -> str:
+def _context_display_value(value: Any, field: str | None = None) -> str:
     raw = str(value or "auto").strip()
+    if field:
+        return configuration_value_report(field, raw)
     if raw.casefold() == "ymyl":
         return "YMYL"
     return public_label(raw) or raw
@@ -198,17 +206,17 @@ def _auto_interpretation_html(evidence: Any, database: Any, audit_id: str) -> st
         table_rows.append((
             row.get("page_url") or row.get("snapshot_id") or "-",
             _CONTENT_LABELS.get(field,field.replace("_"," ").title()),
-            _context_display_value(configured_raw),
+            _context_display_value(configured_raw, field),
             _status(row.get("status")),
-            _context_display_value(interpreted) if interpreted not in (None,"Não determinável") else "Não determinável",
+            _context_display_value(interpreted, field) if interpreted not in (None,"Não determinável") else "Não determinável",
             applied_label,
             _confidence(row.get("confidence")),
             evidence._modal_button(modal_id,"Ver interpretação"),
         ))
         ids=_json_list(row.get("evidence_ids_json"))
         body=evidence._kv((
-            ("Configuração canônica",_context_display_value(configured_raw)),
-            ("Interpretação registrada",_context_display_value(row.get("interpreted_value")) if row.get("interpreted_value") else "Não determinável"),
+            ("Configuração canônica",_context_display_value(configured_raw, field)),
+            ("Interpretação registrada",_context_display_value(row.get("interpreted_value"), field) if row.get("interpreted_value") else "Não determinável"),
             ("Aplicada ao contexto efetivo","Sim" if applied else "Não"),
             ("Motivo da não aplicação","Campo configurado explicitamente pelo usuário" if not configured_auto else "Outra interpretação AUTO posterior/efetiva foi selecionada" if status=="INTERPRETED" and not applied else "A IA não foi solicitada a interpretar este campo" if status=="NOT_REQUESTED" else "Interpretação não determinável"),
             ("Status",_status(row.get("status"))),
@@ -253,17 +261,26 @@ def _ymyl_alignment_html(evidence: Any, database: Any, audit_id: str) -> str:
     rows = [
         (
             "Perfil de risco configurado",
-            ymyl.get("configured_risk_profile") or "auto",
+            configuration_value_report(
+                "risk_profile",
+                ymyl.get("configured_risk_profile") or "auto",
+            ),
             "Configuração canônica",
         ),
         (
             "Categoria YMYL configurada",
-            ymyl.get("configured_category") or "auto",
+            configuration_value_report(
+                "ymyl_category",
+                ymyl.get("configured_category") or "auto",
+            ),
             "Configuração canônica",
         ),
         (
             "Categoria YMYL efetiva",
-            ymyl.get("effective_category") or "auto",
+            configuration_value_report(
+                "ymyl_category",
+                ymyl.get("effective_category") or "auto",
+            ),
             category_origin,
         ),
         (
