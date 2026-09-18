@@ -336,9 +336,13 @@ class _PassiveHTMLParser(HTMLParser):
             for key, value in attrs.items()
             if key in {
                 "type", "async", "defer", "integrity", "crossorigin", "sandbox", "allow",
-                "method", "autocomplete", "rel", "referrerpolicy", "src", "href", "action",
+                "method", "autocomplete", "rel", "referrerpolicy", "src", "href", "action", "nonce",
             }
         }
+        nonce = safe_attrs.pop("nonce", "")
+        if nonce:
+            safe_attrs["nonce_sha256"] = sha256(nonce.encode("utf-8")).hexdigest()
+            safe_attrs["nonce_length"] = len(nonce)
         self.items.append({
             "kind": kind,
             "url": _resolved(url, self.page_url),
@@ -801,6 +805,21 @@ def _parse_csp(values: Iterable[str]) -> dict[str, list[str]]:
     return directives
 
 
+def _safe_csp_sources(values: Iterable[str]) -> list[str]:
+    out: list[str] = []
+    for value in values:
+        raw = str(value)
+        lowered = raw.casefold().strip("'")
+        if lowered.startswith("nonce-"):
+            out.append("'nonce-[REDACTED]'")
+        elif re.match(r"^sha(?:256|384|512)-", lowered):
+            algorithm = lowered.split("-", 1)[0]
+            out.append(f"'{algorithm}-[HASH]'")
+        else:
+            out.append(raw)
+    return out
+
+
 def _cookie_attributes(raw: str) -> dict[str, Any]:
     parts = [part.strip() for part in str(raw).split(";") if part.strip()]
     attrs: dict[str, Any] = {
@@ -906,7 +925,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                 containment="Mapear dependências que exigem avaliação dinâmica antes da remoção.",
                 remediation="Remover 'unsafe-eval' após eliminar dependências incompatíveis.",
                 validation="Executar testes funcionais e confirmar a ausência de violações CSP necessárias ao produto.",
-                details={"script_sources": effective_script},
+                details={"script_sources": _safe_csp_sources(effective_script)},
             ))
         if "*" in effective_script:
             findings.append(_finding(
@@ -917,6 +936,17 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                 containment="Inventariar as origens efetivamente necessárias.",
                 remediation="Substituir wildcard por origens explícitas e minimizar a allowlist.",
                 validation="Reauditar CSP e verificar recursos observados contra a allowlist.",
+            ))
+        if "data:" in effective_script:
+            findings.append(_finding(
+                audit_id=audit_id,page_id=page_id,url=url,code="CSP_SCRIPT_DATA",category="Browser Security",
+                finding_type="CONFIGURATION_WEAKNESS",title="CSP permite data: como origem de script",
+                description="A diretiva efetiva de script contém data:, ampliando os formatos de conteúdo executável aceitos pela política.",
+                severity="MEDIUM",evidence_ids=ev,impact="A origem data: pode reduzir a contenção de scripts quando combinada com conteúdo controlável.",
+                containment="Revisar dependências que exigem data: antes de alterar a política.",
+                remediation="Remover data: de script-src quando não for estritamente necessário.",
+                validation="Validar em CSP Report-Only e reexecutar testes funcionais antes do enforcement.",
+                details={"script_sources": _safe_csp_sources(effective_script)},
             ))
         if "'unsafe-inline'" in effective_script:
             findings.append(_finding(
@@ -937,6 +967,16 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
                 containment="Revisar o fallback atual antes de alterar.",
                 remediation="Avaliar object-src 'none' quando objetos/plugins não forem necessários.",
                 validation="Revalidar a política e funcionalidades dependentes.",
+            ))
+        if "base-uri" not in csp:
+            findings.append(_finding(
+                audit_id=audit_id,page_id=page_id,url=url,code="CSP_BASE_URI",category="Browser Security",
+                finding_type="OBSERVATION",title="CSP não declara base-uri explicitamente",
+                description="A política não possui base-uri explícita. A ausência não comprova exploração; indica oportunidade de restringir alteração da URL base do documento.",
+                severity="INFO",evidence_ids=ev,impact="Uma política base-uri explícita pode reduzir superfícies associadas ao elemento base quando ele não é necessário.",
+                containment="Confirmar se a aplicação utiliza <base> legitimamente.",
+                remediation="Avaliar base-uri 'none' ou uma origem explicitamente necessária.",
+                validation="Testar navegação/resolução de URLs relativas e reauditar a CSP.",
             ))
 
     has_frame_ancestors = "frame-ancestors" in csp
@@ -1111,13 +1151,49 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
             remediation="Remover ou minimizar o header quando não houver necessidade operacional.",
             validation="Reauditar headers.",
         ))
+    for index, generator in enumerate(page.get("generators", ()) or (), 1):
+        if not re.search(r"\d+(?:\.\d+)+", str(generator)):
+            continue
+        findings.append(_finding(
+            audit_id=audit_id,page_id=page_id,url=url,code=f"GENERATOR_VERSION_{index}",category="Information Disclosure",
+            finding_type="INFORMATION_DISCLOSURE",title="Meta generator aparenta expor tecnologia/versionamento",
+            description="Meta generator com marcador de versão foi observado no HTML persistido. É tratado como fingerprinting declarado, não como prova do componente em execução.",
+            severity="LOW",evidence_ids=ev,impact="Pode facilitar identificação passiva de stack/versão declarada.",
+            containment="Não depender da remoção do banner como controle primário.",
+            remediation="Remover ou reduzir a identificação de versão quando não for necessária e manter o componente efetivamente utilizado atualizado.",
+            validation="Reauditar o HTML e confirmar a versão real pelo inventário de build/dependências.",
+        ))
     return findings
 
 
 def _analyze_resources(audit_id: str, resources: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     third_party_analysis = _truthy(os.environ.get(THIRD_PARTY_ENV), True)
-    for item in resources:
+    items = list(resources)
+    nonce_uses: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for item in items:
+        attrs = item.get("attributes") or {}
+        nonce_hash = str(attrs.get("nonce_sha256") or "")
+        if nonce_hash:
+            nonce_uses[nonce_hash].append(item)
+    for nonce_hash, uses in nonce_uses.items():
+        snapshots = {str(item.get("snapshot_id") or "") for item in uses if item.get("snapshot_id")}
+        if len(snapshots) <= 1:
+            continue
+        first = uses[0]
+        findings.append(_finding(
+            audit_id=audit_id,page_id=str(first.get("page_id") or "") or None,
+            url=str(first.get("page_url") or ""),code=f"NONCE_REUSE_{nonce_hash[:12]}",
+            category="Browser Security",finding_type="CONFIGURATION_WEAKNESS",
+            title="Nonce de script reutilizado entre snapshots",
+            description=f"O mesmo hash de nonce foi observado em {len(snapshots)} snapshots distintos. O valor bruto do nonce não é persistido pelo CAT-10.",
+            severity="MEDIUM",confidence="MEDIUM",evidence_ids=[str(item.get("snapshot_id") or "") for item in uses],
+            impact="Se esse nonce participar da CSP, reutilização entre respostas pode reduzir a propriedade de unicidade esperada do nonce.",
+            containment="Revisar a geração/cache da resposta antes de endurecer a política.",
+            remediation="Gerar nonce criptograficamente imprevisível por resposta e manter o mesmo nonce apenas dentro da resposta que o declara.",
+            validation="Capturar respostas independentes e confirmar hashes de nonce distintos entre snapshots.",
+        ))
+    for item in items:
         kind = str(item["resource_kind"])
         url = str(item.get("resource_url") or "")
         page_url = str(item.get("page_url") or "")
@@ -1146,6 +1222,20 @@ def _analyze_resources(audit_id: str, resources: Iterable[Mapping[str, Any]]) ->
                 remediation="Avaliar Subresource Integrity e crossorigin quando o recurso/fornecedor suportar conteúdo estável.",
                 validation="Testar hash, CORS, atualização do fornecedor e reauditar.",
             ))
+        integrity = str(attrs.get("integrity") or "").strip()
+        if third_party_analysis and party == "THIRD_PARTY" and kind in {"SCRIPT", "STYLESHEET"} and integrity:
+            tokens=[token for token in integrity.split() if token]
+            supported=any(re.match(r"^sha(?:256|384|512)-[A-Za-z0-9+/=_-]+$", token, re.I) for token in tokens)
+            if not supported:
+                findings.append(_finding(
+                    audit_id=audit_id,page_id=page_id,url=page_url,code=f"SRI_INVALID_{item['resource_id']}",category="Resource Integrity",
+                    finding_type="CONFIGURATION_WEAKNESS",title=f"SRI de recurso third-party {kind.lower()} sem hash suportado",
+                    description="O atributo integrity existe, mas não foi observado hash sha256/sha384/sha512 sintaticamente utilizável.",
+                    severity="MEDIUM",evidence_ids=ev,party=party,impact="O navegador pode ignorar a proteção SRI pretendida para este recurso.",
+                    containment="Fixar a versão do recurso até corrigir o hash.",
+                    remediation="Gerar um hash SRI sha256/sha384/sha512 válido para o conteúdo exato servido e revisar crossorigin quando aplicável.",
+                    validation="Recarregar o recurso em navegador suportado e reauditar o atributo integrity.",
+                ))
         if kind == "FORM":
             method = str(attrs.get("method") or "get").casefold()
             sensitive = list(attrs.get("sensitive_fields") or [])
@@ -1159,6 +1249,17 @@ def _analyze_resources(audit_id: str, resources: Iterable[Mapping[str, Any]]) ->
                     containment="Não coletar dados sensíveis por este formulário até correção.",
                     remediation="Usar destino HTTPS e revisar o endpoint.",
                     validation="Inspecionar action/método e testar submissão apenas em ambiente controlado pela equipe responsável.",
+                ))
+            if method == "get" and sensitive:
+                findings.append(_finding(
+                    audit_id=audit_id,page_id=page_id,url=page_url,code=f"FORM_GET_SENSITIVE_{item['resource_id']}",category="Forms",
+                    finding_type="EXPOSURE",title="Formulário com campo sensível utiliza GET",
+                    description=f"Campos semanticamente sensíveis ({', '.join(sensitive)}) foram observados em formulário GET. O CAT-10 não submeteu o formulário.",
+                    severity="HIGH" if "password" in sensitive else "MEDIUM",evidence_ids=ev,party=party,
+                    impact="Valores submetidos por GET podem compor a URL e aparecer em histórico, logs, analytics ou referrers.",
+                    containment="Evitar inserir dados sensíveis neste fluxo até revisar o método.",
+                    remediation="Usar POST quando a semântica do endpoint permitir e remover dados sensíveis de query strings.",
+                    validation="Revisar markup/endpoint e confirmar que dados sensíveis não aparecem na URL após o fluxo controlado.",
                 ))
             if third_party_analysis and party == "THIRD_PARTY" and sensitive:
                 findings.append(_finding(
@@ -1201,6 +1302,30 @@ def _analyze_runtime(audit_id: str, page_context: Mapping[str, Mapping[str, Any]
                 validation="Reexecutar a captura e confirmar ausência/redução das ocorrências.",
                 details={"runtime_type": kind, "count": count},
             ))
+        disclosures=[]
+        for item in page.get("runtime", ()) or ():
+            if not isinstance(item, Mapping):
+                continue
+            message=str(item.get("message") or "")
+            if re.search(r"(?:[A-Za-z]:\\[^\s]+|/(?:home|var/www|srv|app|usr/src)/[^\s]+)", message):
+                disclosures.append(message[:240])
+            elif re.search(r"\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b", message):
+                disclosures.append(message[:240])
+            elif "Traceback (most recent call last)" in message:
+                disclosures.append(message[:240])
+        if disclosures:
+            findings.append(_finding(
+                audit_id=audit_id,page_id=page_id,url=str(page.get("page_url") or ""),
+                code="RUNTIME_DISCLOSURE",category="Information Disclosure",
+                finding_type="INFORMATION_DISCLOSURE",title="Runtime aparenta expor detalhe interno",
+                description=f"{len(disclosures)} mensagem(ns) de runtime contém(êm) padrão de caminho interno, IP privado ou traceback.",
+                severity="LOW",confidence="MEDIUM",evidence_ids=[str(page_id)],
+                impact="Detalhes internos podem facilitar fingerprinting e diagnóstico por terceiros.",
+                containment="Evitar expor mensagens detalhadas ao cliente em produção.",
+                remediation="Sanitizar mensagens client-side/servidor e registrar detalhes completos apenas em observabilidade interna.",
+                validation="Reexecutar a captura em produção equivalente e confirmar ausência dos padrões internos.",
+                details={"sample_count": len(disclosures), "samples": disclosures[:3]},
+            ))
     return findings
 
 
@@ -1222,7 +1347,7 @@ def _advisory_findings(connection: sqlite3.Connection, audit_id: str) -> list[di
         kev = str(row["kev_state"] or "NOT_CHECKED").upper()
         title = f"{row['library']} {row['version']} correlacionado a {row['advisory_id']}"
         description = (
-            f"OSV retornou advisory para componente/versionamento identificado por filename com confiança alta. "
+            f"OSV retornou advisory para componente/versionamento identificado por filename com confiança moderada e versão explícita. "
             f"KEV={kev}. Esta correlação é objetiva para o identificador observado, mas não prova que o código vulnerável seja alcançável nesta página."
         )
         severity = "HIGH" if kev == "MATCHED" else "MEDIUM"
