@@ -1073,6 +1073,113 @@ def _render_observed_value(value: Any) -> str:
     return "<h3>Trecho / valor observado</h3><div class='pre'>" + escape(text) + "</div>"
 
 
+def _w3c_remediation_html(database: Any, audit_id: str, a: Any) -> tuple[list[Sequence[Any]], list[str]]:
+    """Project persisted W3C failures into CAT-09 without changing diagnostic ownership."""
+    from rasai.execution_consistency_runtime import _w3c_fix_hint
+
+    connection = sqlite3.connect(database)
+    connection.row_factory = sqlite3.Row
+    try:
+        metrics = a._audit_rows(connection, "standards_metric_observations", audit_id)
+    finally:
+        connection.close()
+
+    rows: list[Sequence[Any]] = []
+    modals: list[str] = []
+    wanted = {
+        "w3c_html_conformance": ("Conformidade HTML W3C", False),
+        "w3c_css_conformance": ("Conformidade CSS W3C", True),
+    }
+    for index, item in enumerate(metrics, 1):
+        metric_id = str(item.get("metric_id") or item.get("metric_key") or "")
+        if metric_id not in wanted:
+            continue
+        title, css = wanted[metric_id]
+        try:
+            errors = int(float(item.get("value") or 0))
+        except (TypeError, ValueError):
+            errors = 0
+        state = str(item.get("state") or item.get("status") or "").upper()
+        if errors <= 0 and state not in {"FAIL", "FAILED", "ERROR", "UNAVAILABLE"}:
+            continue
+
+        details = _safe_json(item.get("details_json"), {})
+        if not isinstance(details, Mapping):
+            details = {}
+        diagnostic_rows: list[tuple[Any, ...]] = []
+        if css:
+            raw_rows = details.get("error_details") if isinstance(details.get("error_details"), list) else []
+            for raw in raw_rows:
+                if not isinstance(raw, Mapping):
+                    continue
+                location = f"Linha {raw.get('line')}" if raw.get("line") not in (None, "") else "-"
+                message = raw.get("message") or raw.get("type") or "Erro CSS informado pelo W3C"
+                context = raw.get("context") or raw.get("skipped_string") or "-"
+                diagnostic_rows.append((location, message, context, _w3c_fix_hint(message, css=True)))
+        else:
+            raw_rows = details.get("messages") if isinstance(details.get("messages"), list) else []
+            for raw in raw_rows:
+                if not isinstance(raw, Mapping) or str(raw.get("type") or "") == "info":
+                    continue
+                line = raw.get("first_line") or raw.get("last_line")
+                column = raw.get("first_column") or raw.get("last_column")
+                location = (
+                    f"Linha {line}, coluna {column}"
+                    if line not in (None, "") and column not in (None, "")
+                    else f"Linha {line}" if line not in (None, "") else "-"
+                )
+                message = raw.get("message") or "Erro HTML informado pelo W3C"
+                diagnostic_rows.append((location, message, raw.get("extract") or "-", _w3c_fix_hint(message)))
+
+        criterion = (
+            "W3C CSS Validator com valid=true e 0 erros CSS."
+            if css
+            else "W3C Nu Checker com 0 erros HTML e 0 erros de documento."
+        )
+        modal_id = f"rem-w3c-{index}"
+        rows.append((
+            f"Corrigir {title}",
+            "Padrões web",
+            "Alta" if errors else "-",
+            "CAT-03 - validação W3C",
+            a._modal_button(modal_id, "Ver erros e correção"),
+        ))
+        body = a._kv((
+            ("Diagnóstico", title),
+            ("Estado observado", a._status_label(item.get("state") or item.get("status"))),
+            ("Erros persistidos", errors),
+            ("Alvo validado", item.get("target") or "-"),
+            ("Fonte", item.get("source") or "-"),
+            ("Metodologia", item.get("methodology") or "-"),
+            ("Identificador técnico", metric_id),
+            ("Critério de aceite", criterion),
+        ))
+        if diagnostic_rows:
+            body += "<h3>Erros que precisam ser corrigidos</h3>" + a._table(
+                ("Localização", "Mensagem original", "Trecho / contexto", "Orientação técnica"),
+                diagnostic_rows,
+                sortable=bool(diagnostic_rows),
+                page_size=10 if len(diagnostic_rows) > 10 else None,
+            )
+            body += (
+                "<div class='notice'><strong>Passo a passo:</strong> corrija os itens listados no código-fonte, "
+                "publique a alteração e execute novamente a validação W3C. O item só deve ser considerado resolvido "
+                "quando o validator atingir o critério de aceite acima.</div>"
+            )
+        elif errors:
+            body += (
+                "<div class='notice warn'><strong>Detalhe individual não materializado nesta AUD:</strong> "
+                "a contagem de erros foi persistida, mas as mensagens individuais não estão disponíveis. "
+                "Reexecute a validação W3C com a versão atual para obter localização, trecho e orientação por erro.</div>"
+            )
+        body += (
+            "<p class='muted'>Esta remediação é determinística e deriva diretamente do resultado do validator W3C. "
+            "Não é inferência da IA e não altera retroativamente a evidência do CAT-03.</p>"
+        )
+        modals.append(a._modal(modal_id, f"Remediação - {title}", str(item.get("target") or "Validação W3C"), body))
+    return rows, modals
+
+
 def _remediation_html(database: Any, data: Any) -> str:
     from rasai import catalog_report_analysis as a
     con = sqlite3.connect(database); con.row_factory = sqlite3.Row
@@ -1090,6 +1197,9 @@ def _remediation_html(database: Any, data: Any) -> str:
         con.close()
     ai_discovery, policy_note = a._m24_ai_guidance(database, data.audit_id)
     rows: list[Sequence[Any]] = []; modals: list[str] = []; index = 0
+    w3c_rows, w3c_modals = _w3c_remediation_html(database, data.audit_id, a)
+    rows.extend(w3c_rows)
+    modals.extend(w3c_modals)
     root_by_find = {str(row.get("finding_id")): row for row in roots if row.get("finding_id")}
     group_by_id = {str(row.get("group_id")): row for row in groups if row.get("group_id")}
     core_finding_by_id = {str(row.get("finding_id")): row for row in core_findings if row.get("finding_id")}
@@ -1160,7 +1270,7 @@ def _remediation_html(database: Any, data: Any) -> str:
     if policy_note: lead = "<div class='notice'><strong>Política para arquivos de descoberta:</strong> " + escape(policy_note) + "</div>"
     unique_findings = len({str(row.get("finding_id")) for row in deep_findings if row.get("finding_id")}); unique_deep = len(covered); without = max(0, unique_findings - unique_deep)
     if deep_run and deep_run.get("max_recommendations") and without: lead += f"<div class='notice'><strong>Cobertura da análise profunda:</strong> {unique_findings} problema(s) foram correlacionados; {unique_deep} possuem remediação individual persistida. O limite configurado foi {int(deep_run.get('max_recommendations'))} recomendações.</div>"
-    if rows: lead += "<div class='metric-grid'>" + a._metric("Correções e melhorias apresentadas", len(rows)) + a._metric("Remediações da análise profunda", len(deep)) + a._metric("Achados sem remediação IA individual", without) + a._metric("Orientações técnicas de descoberta", len(ai_discovery)) + "</div>"
+    if rows: lead += "<div class='metric-grid'>" + a._metric("Correções e melhorias apresentadas", len(rows)) + a._metric("Remediações W3C", len(w3c_rows)) + a._metric("Remediações da análise profunda", len(deep)) + a._metric("Achados sem remediação IA individual", without) + a._metric("Orientações técnicas de descoberta", len(ai_discovery)) + "</div>"
     return lead + a._table(("Correção / melhoria", "Domínio", "Prioridade", "Origem", "Detalhe"), rows, empty="Nenhuma remediação persistida para esta auditoria.", sortable=bool(rows), page_size=10 if len(rows) > 10 else None) + "".join(modals)
 
 
