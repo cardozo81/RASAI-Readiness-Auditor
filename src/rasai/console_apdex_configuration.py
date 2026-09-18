@@ -4,6 +4,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
+from rasai.configuration_value_labels import configuration_value_choice, configuration_value_info
 from rasai.console_m23 import State, config_from_state, experience_from_state, synthetic_load_summary
 from rasai.console_ui import DIM, YELLOW, paint
 from rasai.m25_cli import (
@@ -71,14 +72,20 @@ def _yes_no(prompt: str, current: bool) -> bool:
     raise ValueError("responda S ou N")
 
 
-def _choice(prompt: str, current: str, allowed: tuple[str, ...]) -> str:
-    options = ", ".join(allowed)
-    raw = input(f"{prompt} [{current}] ({options}): ").strip()
+def _choice(
+    prompt: str,
+    current: str,
+    allowed: tuple[str, ...],
+    domain_name: str = "",
+) -> str:
+    options = ", ".join(configuration_value_choice(domain_name, item) for item in allowed)
+    current_label = configuration_value_info(domain_name, current)
+    raw = input(f"{prompt} [{current_label}] ({options}): ").strip()
     value = current if not raw else raw
     lookup = {item.casefold(): item for item in allowed}
     selected = lookup.get(value.casefold())
     if selected is None:
-        raise ValueError(f"{prompt}: use {options}")
+        raise ValueError(f"{prompt}: use " + ", ".join(allowed))
     return selected
 
 
@@ -253,17 +260,25 @@ def _configure_experience(state: State) -> None:
     ))
     state.apdex_experience_device_mix = _device_mix(state.apdex_experience_device_mix)
     state.apdex_experience_session_mode = _choice(
-        "Modo de sessão", state.apdex_experience_session_mode, ("cold", "warm")
+        "Modo de sessão",
+        state.apdex_experience_session_mode,
+        ("cold", "warm"),
+        UX_SESSION_MODE_ENV,
     )
     state.apdex_experience_kpm = _choice(
-        "KPM temporal executável", state.apdex_experience_kpm, tuple(sorted(SUPPORTED_TIME_KPMS))
+        "KPM temporal executável",
+        state.apdex_experience_kpm,
+        tuple(sorted(SUPPORTED_TIME_KPMS)),
+        UX_KPM_ENV,
     )
     state.apdex_experience_errors = _yes_no(
         "Erros qualificáveis forçam Frustrated", state.apdex_experience_errors
     )
     state.apdex_experience_error_scope = _choice(
-        "Escopo de erros", state.apdex_experience_error_scope,
+        "Escopo de erros",
+        state.apdex_experience_error_scope,
         ("navigation", "first-party", "all"),
+        UX_ERROR_SCOPE_ENV,
     )
     state.apdex_experience_settle = float(_number(
         "Janela pós-load (segundos)", state.apdex_experience_settle, minimum=0.000001,
