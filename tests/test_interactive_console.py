@@ -370,7 +370,7 @@ def test_report_entrypoint_falls_back_to_validated_catalog_projection() -> None:
             "rasai.catalog_report_site.verify_catalog_report_package",
             return_value=(False, ("stale",)),
         ):
-            self.assertIsNone(report_entrypoint(workspace))
+            assert report_entrypoint(workspace) is None
 
 
 def test_console_lists_required_incomplete_components_with_error_code() -> None:
