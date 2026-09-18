@@ -84,6 +84,7 @@ _SAFE_PLACEHOLDER_WORDS = (
 _SAFE_EXACT_PLACEHOLDERS = frozenset({
     "token", "tokens", "password", "pass", "passwd", "secret", "secrets",
     "credential", "credentials", "value", "key", "senha",
+    "nome=valor", "name=value",
 })
 _CONFIG_LIKE_SUFFIXES = frozenset({
     ".toml", ".ini", ".json", ".yml", ".yaml", ".env",
@@ -388,6 +389,23 @@ def detect_secret_exposures(
             for match in pattern.finditer(text):
                 name, raw = match.group(1), match.group(value_group)
                 if not is_sensitive_name(name) or is_secret_reference_name(name) or is_safe_placeholder(raw):
+                    continue
+                normalized_name = _normalize_name(name)
+                cookie_assignment = (
+                    normalized_name in {"COOKIE", "SET_COOKIE"}
+                    or normalized_name.endswith("_COOKIE")
+                )
+                if (
+                    cookie_assignment
+                    and strict
+                    and not config_like
+                    and "=" not in raw
+                    and not _looks_high_confidence_secret(raw)
+                ):
+                    # Human-facing prose such as "cookie: Lax" is not credential
+                    # material. Actual Cookie/Set-Cookie values remain protected:
+                    # structured name=value material or opaque high-confidence tokens
+                    # still enter the strict finding path below.
                     continue
                 if strict or config_like or _looks_high_confidence_secret(raw):
                     findings.append(SecretExposure(path, _line_number(text, match.start()), "SECRET_ASSIGNMENT", f"inline value for {name}"))
