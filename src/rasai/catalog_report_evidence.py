@@ -1,5 +1,6 @@
 """Technical, accessibility and semantic evidence projections."""
 from rasai.catalog_report_metrics import *  # noqa: F401,F403
+from rasai.catalog_report_public_labels import public_text
 
 
 def _artifact_path(root: Path, reference: Any) -> Path|None:
@@ -76,7 +77,7 @@ def _discovery_title(row: Mapping[str,Any], observed: Any) -> str:
         "NOT_DETERMINABLE":"não determinável","NOT_REQUESTED":"não solicitado",
     }
     for raw,human in replacements.items():title=title.replace(raw,human)
-    return title
+    return public_text(title)
 
 
 def _discovery_html(database: Path, data: _ReportData) -> str:
