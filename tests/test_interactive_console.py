@@ -198,7 +198,7 @@ class InteractiveConsoleTests(unittest.TestCase):
             (workspace / "report").mkdir(parents=True)
             noncanonical = workspace / "report.html"
             noncanonical.write_text("noncanonical", encoding="utf-8")
-            self.assertIsNone(report_entrypoint(workspace))
+            assert report_entrypoint(workspace) is None
             current = workspace / "report" / "index.html"
             current.write_text("current", encoding="utf-8")
             self.assertEqual(report_entrypoint(workspace), current.resolve())
@@ -364,7 +364,7 @@ def test_report_entrypoint_falls_back_to_validated_catalog_projection() -> None:
             "rasai.catalog_report_site.verify_catalog_report_package",
             return_value=(True, ()),
         ):
-            self.assertEqual(report_entrypoint(workspace), entrypoint.resolve())
+            assert report_entrypoint(workspace) == entrypoint.resolve()
 
         with patch(
             "rasai.catalog_report_site.verify_catalog_report_package",
@@ -406,8 +406,8 @@ def test_console_lists_required_incomplete_components_with_error_code() -> None:
             _render_incomplete_requirements(state, workspace.root)
         text = output.getvalue()
 
-        self.assertIn("REQUISITOS OBRIGATÓRIOS INCOMPLETOS", text)
-        self.assertIn("WEB_PERFORMANCE", text)
-        self.assertIn("FAILED_RETRYABLE", text)
-        self.assertIn("código=PARTIAL", text)
-        self.assertIn("PageSpeed incomplete", text)
+        assert "REQUISITOS OBRIGATÓRIOS INCOMPLETOS" in text
+        assert "WEB_PERFORMANCE" in text
+        assert "FAILED_RETRYABLE" in text
+        assert "código=PARTIAL" in text
+        assert "PageSpeed incomplete" in text
