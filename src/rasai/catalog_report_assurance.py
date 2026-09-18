@@ -80,6 +80,18 @@ _SPECIFIC_CONFIG_MARKERS: dict[str, tuple[str, ...]] = {
         "Enriquecimento de conteúdo",
         "Remediação técnica",
     ),
+    "CAT-10": (
+        "Segurança passiva",
+        "Headers / CSP / CORS",
+        "Cookies",
+        "Scripts / recursos",
+        "Third-party",
+        "Correlação runtime",
+        "OSV",
+        "CISA KEV",
+        "Timeout externo",
+        "MDN HTTP Observatory",
+    ),
 }
 
 _ARTIFACT_PAIRS = (
@@ -730,13 +742,16 @@ def assurance_matrix_html(result: Mapping[str, Any]) -> str:
         "<th>Confiabilidade</th><th>Integridade</th><th>Segurança</th><th>Maturidade</th><th>Gate</th>"
         "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
         "<div class='metric-grid'>"
+        f"<div class='metric'><small>Configurabilidade global</small><strong>{_pct(global_scores.get('configurability'))}</strong></div>"
+        f"<div class='metric'><small>Governança global</small><strong>{_pct(global_scores.get('governance'))}</strong></div>"
+        f"<div class='metric'><small>Exposição global</small><strong>{_pct(global_scores.get('exposure'))}</strong></div>"
         f"<div class='metric'><small>Confiabilidade global</small><strong>{_pct(global_scores.get('reliability'))}</strong></div>"
         f"<div class='metric'><small>Integridade global</small><strong>{_pct(global_scores.get('integrity'))}</strong></div>"
         f"<div class='metric'><small>Segurança global</small><strong>{_pct(global_scores.get('security'))}</strong></div>"
         f"<div class='metric'><small>Maturidade global</small><strong>{_pct(global_scores.get('maturity'))}</strong></div>"
-        f"<div class='metric'><small>Segurança das páginas transversais</small><strong>{global_output_gate}</strong></div>"
-        f"<div class='metric'><small>Encerramento estrutural</small><strong>{close}</strong></div>"
-        "</div></section>"
+        "</div>"
+        f"<div class='notice'><strong>Gates de encerramento:</strong> segurança das páginas transversais = {global_output_gate}; encerramento estrutural = {close}. Esses estados são gates categóricos e por isso não são misturados aos percentuais acima.</div>"
+        "</section>"
     )
 
 
