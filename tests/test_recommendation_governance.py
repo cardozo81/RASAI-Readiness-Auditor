@@ -273,6 +273,28 @@ def test_grouped_neutral_robots_absence_is_informational_not_client_action() -> 
         assert json.loads(row["source_evidence_json"]) == ["EV-ROBOTS"]
 
 
+def test_known_neutral_discovery_states_are_informational() -> None:
+    cases = (
+        ("BR-GEO-003", {"sitemaps": [{"state": "ABSENT", "error": None}]}),
+        ("BR-GEO-017", {"state": "ABSENT"}),
+        ("BR-GEO-055", {"ai_verdict": "NEUTRAL", "resource": "SITEMAP"}),
+        ("BR-GEO-056", {"ai_verdict": "NEUTRAL", "resource": "ROBOTS"}),
+    )
+    for rule_id, observed in cases:
+        target, decision, reason, conflict, _rationale = classify_candidate(
+            "DETERMINISTIC",
+            {
+                "rule_id": rule_id,
+                "observed_value": json.dumps(observed),
+                "title": f"Remediar {rule_id}",
+            },
+        )
+        assert target == INFORMATIONAL
+        assert decision == REJECTED
+        assert reason == "DISCOVERY_NEUTRAL_STATE_HUMAN_DECISION"
+        assert conflict == "DISCOVERY_RESOURCE_STATE"
+
+
 def test_invalid_robots_state_remains_actionable() -> None:
     target, decision, reason, conflict, _rationale = classify_candidate(
         "DETERMINISTIC",
