@@ -51,26 +51,45 @@ def _catalog_work(data: _ReportData, catalog_id: str) -> list[dict[str,Any]]:
 
 
 def _catalog_source_specs(catalog_id: str) -> tuple[tuple[str,str],...]:
+    """Relevant persisted sources that must remain visible in the catalog provenance."""
     return {
         "CAT-01":(
             ("standards_metric_observations","Métricas de padrões web"),
             ("standards_service_runs","Serviços de padrões web"),
+            ("m24_runs","Execução dos diagnósticos técnicos"),
             ("m24_diagnostics","Diagnósticos de descoberta"),
             ("page_snapshots","Capturas de navegador"),
         ),
-        "CAT-02":(("web_performance_observations","Medições automatizadas de acessibilidade"),),
+        "CAT-02":(
+            ("web_performance_attempts","Tentativas Lighthouse/PageSpeed"),
+            ("web_performance_observations","Medições automatizadas de acessibilidade"),
+            ("element_observations","Elementos observados"),
+            ("finding_element_observations","Vínculos entre achados e elementos"),
+        ),
         "CAT-03":(
             ("entity_observations","Entidades identificadas"),
             ("semantic_assessments","Avaliações semânticas"),
+            ("semantic_coherence_assessments","Coerência semântica por página"),
+            ("semantic_property_signals","Sinais semânticos da propriedade"),
+            ("property_semantic_summaries","Resumo de coerência da propriedade"),
             ("content_analysis_contexts","Contextos de conteúdo"),
+            ("property_semantic_contexts","Contexto semântico da propriedade"),
+            ("content_context_interpretations","Interpretações contextuais de IA"),
+            ("semantic_corpus_manifests","Manifesto do corpus semântico"),
         ),
         "CAT-04":(
             ("web_performance_runs","Execuções de desempenho web"),
             ("web_performance_attempts","Tentativas de coleta externa"),
             ("web_performance_observations","Medições de desempenho"),
+            ("lighthouse_execution_profiles","Perfil efetivo do Lighthouse"),
         ),
         "CAT-05":(
             ("serp_observations","Observações de resultados de busca"),
+            ("serp_evidence_provenance","Provenance das observações SERP"),
+            ("serp_competitive_analyses","Comparações competitivas determinísticas"),
+            ("serp_competitive_results","Classificações competitivas"),
+            ("serp_competitive_pages","Páginas públicas comparadas"),
+            ("serp_competitive_ai_analyses","Análises competitivas por IA"),
             ("gsc_search_performance","Dados do Google Search Console"),
             ("generative_visibility_query_runs","Consultas de visibilidade em IA"),
             ("generative_visibility_page_citations","Citações observadas em IA"),
@@ -79,12 +98,14 @@ def _catalog_source_specs(catalog_id: str) -> tuple[tuple[str,str],...]:
             ("synthetic_apdex_runs","Execuções do Apdex de navegação"),
             ("synthetic_apdex_samples","Amostras do Apdex de navegação"),
             ("synthetic_apdex_summaries","Resumo do Apdex de navegação"),
+            ("synthetic_apdex_acquisition_runs","Execuções de aquisição sintética"),
             ("synthetic_apdex_acquisitions","Aquisições sintéticas disponíveis"),
         ),
         "CAT-07":(
             ("synthetic_ux_apdex_runs","Execuções do Apdex de experiência"),
             ("synthetic_ux_apdex_samples","Amostras do Apdex de experiência"),
             ("synthetic_ux_apdex_summaries","Resumo do Apdex de experiência"),
+            ("synthetic_ux_apdex_error_details","Erros detalhados observados na experiência"),
             ("synthetic_apdex_acquisitions","Aquisições sintéticas disponíveis"),
         ),
         "CAT-08":(
@@ -95,12 +116,16 @@ def _catalog_source_specs(catalog_id: str) -> tuple[tuple[str,str],...]:
         "CAT-09":(
             ("recommendations","Recomendações determinísticas"),
             ("root_cause_analyses","Análises de causa raiz"),
+            ("root_cause_precision","Precisão e provenance das causas"),
             ("content_remediation_suggestions","Sugestões de conteúdo"),
             ("jsonld_remediation_suggestions","Sugestões de dados estruturados"),
+            ("request_remediation_ai","Remediações de falhas de requisição"),
+            ("request_remediation_evidence","Evidências de remediação de requisições"),
+            ("recommendation_governance","Decisões de governança das recomendações"),
+            ("remediation_groups","Agrupamentos de remediação"),
             ("improvement_intelligence_recommendations","Remediações da análise profunda"),
         ),
     }[catalog_id]
-
 
 def _catalog_sources(database: Path, data: _ReportData, catalog_id: str) -> list[tuple[str,str,int]]:
     con=sqlite3.connect(database); con.row_factory=sqlite3.Row

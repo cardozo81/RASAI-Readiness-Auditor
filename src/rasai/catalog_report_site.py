@@ -192,6 +192,11 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
     from rasai.catalog_state_trust import install as install_catalog_state_trust
     from rasai.recommendation_governance_reporting import install as install_recommendation_governance_reporting
     from rasai.semantic_coherence_reporting import install as install_semantic_coherence_reporting
+    from rasai.catalog_report_assurance import (
+        assess_catalogs,
+        assurance_matrix_html,
+        catalog_assurance_html,
+    )
 
     install_catalog_human_labels()
     install_catalog_report_refinements()
@@ -234,8 +239,17 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             "methodology.html":_methodology_body(data),
             "metrics.html":_metrics_body(database,data),
         }
+        raw_catalog_bodies={}
         for catalog in CATALOGS:
-            bodies[CATALOG_PAGE_BY_ID[catalog.id].filename]=_catalog_body(database,data,catalog.id)
+            filename=CATALOG_PAGE_BY_ID[catalog.id].filename
+            raw_catalog_bodies[filename]=_catalog_body(database,data,catalog.id)
+            bodies[filename]=raw_catalog_bodies[filename]
+        assurance=assess_catalogs(database,data,raw_catalog_bodies)
+        assurance_by_catalog={row["catalog_id"]:row for row in assurance["catalogs"]}
+        for catalog in CATALOGS:
+            filename=CATALOG_PAGE_BY_ID[catalog.id].filename
+            bodies[filename]=raw_catalog_bodies[filename]+catalog_assurance_html(assurance_by_catalog[catalog.id])
+        bodies["index.html"]+=assurance_matrix_html(assurance)
         for page in CATALOG_REPORT_PAGES:
             body=bodies.get(page.filename)
             if body is None:
@@ -248,6 +262,12 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
 
         snapshot_path=staging/"integrity"/"audit-snapshot.db"
         _snapshot_sqlite_database(database,snapshot_path)
+        assurance_path=staging/"integrity"/"catalog-assurance.json"
+        assurance_path.write_text(
+            json.dumps(assurance,ensure_ascii=False,indent=2)+"\n",
+            encoding="utf-8",
+            newline="\n",
+        )
         if _source_fingerprint(database)!=after:
             raise RuntimeError("catalog report source changed while creating integrity snapshot")
         snapshot_hash=_sha256_file(snapshot_path)
@@ -264,6 +284,15 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             "audit_snapshot":{"path":"integrity/audit-snapshot.db","sha256":snapshot_hash,"algorithm":"sha256","standalone_sqlite":True},
             "package_integrity_algorithm":"sha256(each packaged file; manifest excluded)",
             "packaged_files":packaged_files,
+            "assurance":{
+                "metric_semantics":assurance["metric_semantics"],
+                "thresholds":assurance["thresholds"],
+                "global":assurance["global"],
+                "per_catalog_target_met":assurance["per_catalog_target_met"],
+                "high_assurance_target_met":assurance["high_assurance_target_met"],
+                "closure_eligible":assurance["closure_eligible"],
+                "artifact":"integrity/catalog-assurance.json",
+            },
             "generated_at":datetime.now(timezone.utc).isoformat(),
             "freshness":"FINAL",
             "catalog_report_dir":CATALOG_REPORT_DIR,
