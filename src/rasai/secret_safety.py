@@ -45,7 +45,7 @@ _QUOTED_ASSIGNMENT_RE = re.compile(
     rf"(?im)\b({_SENSITIVE_FIELD_PATTERN})\b\s*[:=]\s*([\"'])([^\"'\n]+)\2"
 )
 _UNQUOTED_ASSIGNMENT_RE = re.compile(
-    rf"(?im)\b({_SENSITIVE_FIELD_PATTERN})\b\s*[:=]\s*([^\s\"'#,;}}]+)"
+    rf"(?im)\b({_SENSITIVE_FIELD_PATTERN})\b\s*[:=]\s*(\[[^\]\n]+\]|[^\s\"'#,;}}]+)"
 )
 _PRIVATE_KEY_BEGIN = "-----BEGIN " + "PRIVATE KEY-----"
 _PRIVATE_KEY_END = "-----END " + "PRIVATE KEY-----"
