@@ -54,6 +54,8 @@ from rasai.gsc_oauth_runtime import install as install_gsc_oauth_runtime
 from rasai.gsc_scope_runtime import install as install_gsc_scope_runtime
 from rasai.improvement_intelligence_console import install as install_improvement_intelligence_console, install_environment as install_improvement_intelligence_environment
 from rasai.improvement_intelligence_runtime import install as install_improvement_intelligence_runtime
+from rasai.passive_security_console import install as install_passive_security_environment
+from rasai.passive_security_runtime import install as install_passive_security_runtime
 from rasai.integration_diagnostics_console import install as install_integration_diagnostics_console
 from rasai.integration_network_diagnostics import install as install_integration_network_diagnostics
 from rasai.integration_state_contract import install as install_integration_state_contract
@@ -128,6 +130,7 @@ def main() -> int:
     install_gsc_oauth_console()
     install_external_observability_runtime()
     install_improvement_intelligence_environment()
+    install_passive_security_environment()
     install_semantic_context_console()
     _activate_persisted_console_secrets()
     prepare_console_config()
@@ -148,6 +151,7 @@ def main() -> int:
     install_standards_gsc_console_progress()
     install_console_cancellation_runtime()
     install_improvement_intelligence_runtime()
+    install_passive_security_runtime()
     install_selective_optional_reprocess()
     install_masked_secret_input()
     install_environment_reset()
