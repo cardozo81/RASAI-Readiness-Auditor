@@ -526,8 +526,14 @@ def run_audit(
                 workspace=workspace,
             )
 
+            # Recommendation governance is a persisted final derivation. It must be
+            # complete before REPORTING starts so every HTML renderer/finalizer remains
+            # a read-only projection over the already-final audit model.
+            evaluate_recommendations(workspace.database, audit_id)
+
             # ------------------------------------------------------------------
-            # REPORT PROJECTION ONLY.  Network/AI work must not originate below here.
+            # REPORT PROJECTION ONLY.  Network/AI/business derivation work must not
+            # originate below here.
             # ------------------------------------------------------------------
             _set_status(persistence, audit_id, AuditStatus.REPORTING)
             m11 = execute_m11(
@@ -535,10 +541,6 @@ def run_audit(
                 persistence=persistence,
                 workspace=workspace,
             )
-            # Recommendation governance is a persisted report-model derivation. It must
-            # be complete before any HTML renderer starts and never mutate audit.db from
-            # catalog/report projection.
-            evaluate_recommendations(workspace.database, audit_id)
             enrich_written_reports(audit_id=audit_id, workspace=workspace)
             report_path = materialize_report_site(
                 audit_id=audit_id,
