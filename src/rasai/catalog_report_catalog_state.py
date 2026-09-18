@@ -127,12 +127,41 @@ def _catalog_source_specs(catalog_id: str) -> tuple[tuple[str,str],...]:
         ),
     }[catalog_id]
 
+def _catalog_source_count(connection: sqlite3.Connection, table: str, audit_id: str) -> int:
+    direct=_audit_count(connection,table,audit_id)
+    if direct:
+        return direct
+    if not _table_exists(connection,table):
+        return 0
+    if table=="finding_element_observations" and _table_exists(connection,"element_observations"):
+        rows=_rows(
+            connection,
+            """SELECT COUNT(*) FROM finding_element_observations feo
+               JOIN element_observations eo
+                 ON eo.element_observation_id=feo.element_observation_id
+               WHERE eo.audit_id=?""",
+            (audit_id,),
+        )
+        return int(rows[0][0]) if rows else 0
+    if table in {"serp_competitive_results","serp_competitive_pages"} and _table_exists(connection,"serp_competitive_analyses"):
+        rows=_rows(
+            connection,
+            f"""SELECT COUNT(*) FROM {table} child
+                JOIN serp_competitive_analyses parent
+                  ON parent.observation_id=child.observation_id
+                WHERE parent.audit_id=?""",
+            (audit_id,),
+        )
+        return int(rows[0][0]) if rows else 0
+    return 0
+
+
 def _catalog_sources(database: Path, data: _ReportData, catalog_id: str) -> list[tuple[str,str,int]]:
     con=sqlite3.connect(database); con.row_factory=sqlite3.Row
     try:
         out=[]
         for table,label in _catalog_source_specs(catalog_id):
-            count=_audit_count(con,table,data.audit_id)
+            count=_catalog_source_count(con,table,data.audit_id)
             if count:
                 out.append((table,label,count))
         if catalog_id=="CAT-03" and _table_exists(con,"rule_executions"):
@@ -220,7 +249,25 @@ def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any
         ("Política de IA",policy,"Catálogo"),
     ]
     settings=data.configuration.get("settings") if isinstance(data.configuration.get("settings"),Mapping) else {}
-    if catalog_id=="CAT-04":
+    if catalog_id=="CAT-03":
+        environment=settings.get("environment") if isinstance(settings,Mapping) else {}
+        if isinstance(environment,Mapping):
+            content_fields=(
+                ("Perfil de risco","RASAI_CONTENT_RISK_PROFILE"),
+                ("Categoria YMYL","RASAI_YMYL_CATEGORY"),
+                ("Propósito da página","RASAI_PAGE_PURPOSE"),
+                ("Público pretendido","RASAI_INTENDED_AUDIENCE"),
+                ("Requisito de experiência","RASAI_EXPERIENCE_REQUIREMENT"),
+                ("Sensibilidade à atualização","RASAI_FRESHNESS_SENSITIVITY"),
+                ("Origem do conteúdo","RASAI_CONTENT_ORIGIN"),
+            )
+            for label,name in content_fields:
+                raw=environment.get(name)
+                if raw in (None,""):
+                    continue
+                value="YMYL" if str(raw).casefold()=="ymyl" else public_label(raw) or str(raw)
+                rows.append((label,value,"Plano congelado / configuração efetiva"))
+    elif catalog_id=="CAT-04":
         cfg=settings.get("web_performance") if isinstance(settings,Mapping) else {}
         if isinstance(cfg,Mapping):
             rows.extend([
