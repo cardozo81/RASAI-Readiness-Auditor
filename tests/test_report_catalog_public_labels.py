@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from rasai.catalog_report_public_labels import public_contract_label, public_label
+from rasai.catalog_report_public_labels import public_contract_label, public_label, public_text
 from rasai.catalog_report_presentation import (
     _kv,
     _rich_text,
@@ -28,6 +28,13 @@ def test_internal_contract_values_have_human_labels_without_internal_tooltips() 
         "CLASSIFICATION_ONLY": "Somente classificação",
         "UNKNOWN_ACTION": "Ação não classificada",
         "RATE_LIMITED": "Limite de requisições atingido",
+        "NETWORK_ERROR": "Erro de rede",
+        "OBSERVED": "Observado",
+        "PARTIAL_RETRYABLE": "Parcial - reprocessamento disponível",
+        "PARTIAL_BLOCKED": "Parcial - há bloqueios",
+        "CUSTOMER": "Site auditado",
+        "COMPETITOR_CANDIDATE": "Candidato concorrente",
+        "CONTENT_REMEDIATION": "Remediação de conteúdo",
         "ORGANIC_CANDIDATE": "Candidato orgânico",
         "PUBLIC_AUTHORITY": "Autoridade pública",
         "ADD_CONTEXT": "Adicionar contexto",
@@ -55,14 +62,24 @@ def test_compound_sari_contracts_are_humanized() -> None:
         "DIMENSION_NOT_APPLICABLE:STRUCTURED_DATA": "Dimensão Dados estruturados não aplicável",
         "DIMENSION_MEASUREMENT_LIMITED:CONTENT_VALUE": "Medição limitada na dimensão Valor do conteúdo",
         "CRITICAL_GATE:DISCOVERY:WARNING": "Gate crítico de descoberta: atenção",
-        "CRITICAL_GATE:INDEXABILITY:WARNING": "Gate crítico de indexabilidade: atenção",
+        "CRITICAL_GATE:DISCOVERY:BLOCKED": "Gate crítico de descoberta: bloqueado",
+        "CRITICAL_GATE:INDEXABILITY:UNKNOWN": "Gate crítico de indexabilidade: não determinado",
         "CRITICAL_GATE:EXTRACTION:PASS": "Gate crítico de extração: aprovado",
         "READINESS_STATUS:ATTENTION": "Estado de prontidão: atenção",
+        "READINESS_STATUS:BLOCKED": "Estado de prontidão: bloqueado",
+        "OVERALL_MEASUREMENT_BELOW_MINIMUM_GATE": "Medição geral abaixo do mínimo exigido",
+        "OVERALL_MEASUREMENT_BELOW_CONSOLIDATION_GATE": "Medição geral abaixo do mínimo para consolidação",
         "OVERALL_AGGREGATION:HIERARCHICAL_WEIGHTED_READINESS_V1": "Agregação geral: prontidão hierárquica ponderada - versão 1",
         "EMPIRICAL_VALIDATION:NOT_SCORE_INPUT": "Validação empírica: não participa da pontuação",
     }
     for raw, label in expected.items():
         assert public_contract_label(raw) == label
+
+
+def test_embedded_diagnostic_tokens_are_localized_without_touching_free_text() -> None:
+    assert public_text("Sitemap/feed em estado NETWORK_ERROR") == "Sitemap/feed em estado Erro de rede"
+    assert public_text("Coleta OBSERVED para COMPETITOR_CANDIDATE") == "Coleta Observado para Candidato concorrente"
+    assert public_text("Código BR-GEO-060 preservado") == "Código BR-GEO-060 preservado"
 
 
 def test_external_translation_keeps_original_only_for_external_source_text() -> None:
@@ -91,6 +108,8 @@ def test_status_and_temporal_labels_are_human_first() -> None:
     assert _status_label("CONTENT_COMPARISON_DISABLED") == "Comparação de conteúdo desabilitada"
     assert _status_label("SERP_OBSERVATION_UNAVAILABLE") == "Observação de SERP indisponível"
     assert _status_label("NOT_CONSOLIDATED") == "Não consolidado"
+    assert _status_label("PARTIAL_RETRYABLE") == "Parcial - reprocessamento disponível"
+    assert _status_label("OBSERVED") == "Observado"
     rendered = str(_temporal_mode_label("LIVE_RECOLLECTION"))
     assert rendered == "Coleta ao vivo desta auditoria"
     assert "LIVE_RECOLLECTION" not in rendered
