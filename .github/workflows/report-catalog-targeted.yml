@@ -1,0 +1,70 @@
+name: Report Catalog Targeted
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/rasai/catalog_report_*.py'
+      - 'src/rasai/semantic.py'
+      - 'src/rasai/semantic_coherence*.py'
+      - 'src/rasai/openai_provider.py'
+      - 'src/rasai/m18_ai.py'
+      - 'src/rasai/provider_extensions.py'
+      - 'src/rasai/copilot_provider.py'
+      - 'src/rasai/accepted_audit_refinements.py'
+      - 'src/rasai/improvement_intelligence.py'
+      - 'src/rasai/editorial_risk_context.py'
+      - 'src/rasai/external_sari.py'
+      - 'src/rasai/final_smoke_closure.py'
+      - 'tests/test_report_catalog_public_labels.py'
+      - 'tests/test_cat03_ptbr_labels.py'
+      - 'tests/test_semantic_coherence_language.py'
+      - 'tests/test_ymyl_context_flow.py'
+      - 'tests/test_common_crawl_health.py'
+      - 'tests/test_reporting_read_only_boundary.py'
+      - '.github/workflows/report-catalog-targeted.yml'
+  pull_request:
+    paths:
+      - 'src/rasai/catalog_report_*.py'
+      - 'src/rasai/semantic.py'
+      - 'src/rasai/semantic_coherence*.py'
+      - 'src/rasai/openai_provider.py'
+      - 'src/rasai/m18_ai.py'
+      - 'src/rasai/provider_extensions.py'
+      - 'src/rasai/copilot_provider.py'
+      - 'src/rasai/accepted_audit_refinements.py'
+      - 'src/rasai/improvement_intelligence.py'
+      - 'src/rasai/editorial_risk_context.py'
+      - 'src/rasai/external_sari.py'
+      - 'src/rasai/final_smoke_closure.py'
+      - 'tests/test_report_catalog_public_labels.py'
+      - 'tests/test_cat03_ptbr_labels.py'
+      - 'tests/test_semantic_coherence_language.py'
+      - 'tests/test_ymyl_context_flow.py'
+      - 'tests/test_common_crawl_health.py'
+      - 'tests/test_reporting_read_only_boundary.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  focused-pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and pytest
+        run: python -m pip install -e . pytest
+      - name: Run report/lifecycle focused tests
+        run: >-
+          pytest -q
+          tests/test_report_catalog_public_labels.py
+          tests/test_cat03_ptbr_labels.py
+          tests/test_semantic_coherence_language.py
+          tests/test_ymyl_context_flow.py
+          tests/test_common_crawl_health.py
+          tests/test_reporting_read_only_boundary.py
