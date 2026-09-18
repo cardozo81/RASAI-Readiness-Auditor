@@ -22,7 +22,7 @@ def _translated_text(pt_br: Any, original: Any) -> _Html:
         escape(translated)
         + " <span class='translation-mark' title='"
         + escape(source, quote=True)
-        + "' aria-label='Rótulo amigável; valor interno: "
+        + "' aria-label='Tradução; texto original: "
         + escape(source, quote=True)
         + "'>🌐</span>"
     )
