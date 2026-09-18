@@ -18,6 +18,7 @@ from typing import Any
 from rasai import report_navigation
 from rasai.branding import CANONICAL_READINESS_REPORT, PUBLIC_INDEX_VERSION
 from rasai.content_context_persistence import load_content_analysis_context
+from rasai.configuration_value_labels import configuration_value_report
 from rasai.persistence import AuditWorkspace
 from rasai.rule_references import references_for
 
@@ -665,7 +666,21 @@ def _content_context_block(workspace: AuditWorkspace, audit_id: str) -> str:
         return "<section class='panel'><div class='kicker'>Content Risk Profile</div><h2>Contexto editorial</h2><p class='intro'>Nenhum contexto editorial persistido para esta auditoria.</p></section>"
     context, metadata = loaded
     source_mode = str(metadata.get("source_mode") or "-")
-    return f"<section class='panel'><div class='kicker'>Content Risk Profile</div><h2>Contexto editorial aplicado</h2><p class='intro'>YMYL e E-E-A-T orientam rigor e interpretação; não são scores oficiais.</p><div class='metric-grid'>{_metric('Risk profile', context.risk_profile.value)}{_metric('YMYL', context.ymyl_category.value)}{_metric('Page purpose', context.page_purpose.value)}{_metric('Audience', context.intended_audience.value)}{_metric('Experience requirement', context.experience_requirement.value)}{_metric('Freshness sensitivity', context.freshness_sensitivity.value)}{_metric('Content origin', context.content_origin.value)}{_metric('Resolução', source_mode)}</div><p><a href='content-suggestions.html'>Abrir análise e sugestões de conteúdo</a></p></section>"
+    return (
+        "<section class='panel'><div class='kicker'>Perfil de risco do conteúdo</div>"
+        "<h2>Contexto editorial aplicado</h2>"
+        "<p class='intro'>YMYL e E-E-A-T orientam rigor e interpretação; não são scores oficiais.</p>"
+        "<div class='metric-grid'>"
+        + _metric("Perfil de risco", configuration_value_report("risk_profile", context.risk_profile.value))
+        + _metric("Categoria YMYL", configuration_value_report("ymyl_category", context.ymyl_category.value))
+        + _metric("Propósito da página", configuration_value_report("page_purpose", context.page_purpose.value))
+        + _metric("Público pretendido", configuration_value_report("intended_audience", context.intended_audience.value))
+        + _metric("Requisito de experiência", configuration_value_report("experience_requirement", context.experience_requirement.value))
+        + _metric("Sensibilidade à atualização", configuration_value_report("freshness_sensitivity", context.freshness_sensitivity.value))
+        + _metric("Origem do conteúdo", configuration_value_report("content_origin", context.content_origin.value))
+        + _metric("Resolução", configuration_value_report("source_mode", source_mode))
+        + "</div><p><a href='content-suggestions.html'>Abrir análise e sugestões de conteúdo</a></p></section>"
+    )
 
 
 def _json_object(value: Any) -> dict[str, Any]:
