@@ -1,0 +1,77 @@
+name: Passive Security Targeted
+
+on:
+  push:
+    branches:
+      - feat/passive-security-catalog
+    paths:
+      - 'src/rasai/passive_security*.py'
+      - 'src/rasai/audit_catalog.py'
+      - 'src/rasai/console_catalog_*.py'
+      - 'src/rasai/console_ui_catalog.py'
+      - 'src/rasai/catalog_report_*.py'
+      - 'src/rasai/improvement_intelligence.py'
+      - 'src/rasai/config/rasai-defaults.ini'
+      - 'tests/test_passive_security_catalog.py'
+      - 'tests/test_catalog_report_assurance.py'
+      - 'tests/test_console_catalog_workflow.py'
+      - 'tests/test_catalog_report_site.py'
+      - '.github/workflows/passive-security-targeted.yml'
+  pull_request:
+    paths:
+      - 'src/rasai/passive_security*.py'
+      - 'src/rasai/audit_catalog.py'
+      - 'src/rasai/console_catalog_*.py'
+      - 'src/rasai/console_ui_catalog.py'
+      - 'src/rasai/catalog_report_*.py'
+      - 'src/rasai/improvement_intelligence.py'
+      - 'src/rasai/config/rasai-defaults.ini'
+      - 'tests/test_passive_security_catalog.py'
+      - 'tests/test_catalog_report_assurance.py'
+      - 'tests/test_console_catalog_workflow.py'
+      - 'tests/test_catalog_report_site.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install package and pytest
+        run: python -m pip install -e . pytest
+      - name: Compile only touched Python modules
+        run: >-
+          python -m py_compile
+          src/rasai/passive_security.py
+          src/rasai/passive_security_runtime.py
+          src/rasai/passive_security_console.py
+          src/rasai/passive_security_saas.py
+          src/rasai/audit_catalog.py
+          src/rasai/console_catalog_plan.py
+          src/rasai/console_catalog_ui.py
+          src/rasai/console_ui_catalog.py
+          src/rasai/catalog_report_model.py
+          src/rasai/catalog_report_catalog_state.py
+          src/rasai/catalog_report_metrics.py
+          src/rasai/catalog_report_presentation.py
+          src/rasai/catalog_report_integrations.py
+          src/rasai/catalog_report_analysis.py
+          src/rasai/catalog_report_page.py
+          src/rasai/catalog_report_assurance.py
+          src/rasai/improvement_intelligence.py
+      - name: Run CAT-10 isolated tests
+        run: pytest -q tests/test_passive_security_catalog.py
+      - name: Run directly affected contract regressions
+        run: >-
+          pytest -q
+          tests/test_catalog_report_assurance.py::test_assurance_matrix_explains_each_axis_without_changing_columns
+          tests/test_console_catalog_workflow.py::test_catalog_has_stable_unique_report_ready_ids
+          tests/test_console_catalog_workflow.py::test_ai_usage_is_limited_to_actual_ai_consumers
+          tests/test_catalog_report_site.py::test_catalog_report_is_generated_beside_untouched_legacy_tree
