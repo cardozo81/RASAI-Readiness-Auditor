@@ -67,6 +67,30 @@ def test_blocked_dependency_snapshot_is_visible_before_provider_execution() -> N
         assert "AI-DEPENDENCY-001" in html
 
 
+def test_content_remediation_dependency_purpose_is_localized() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        database = _database(Path(directory))
+        connection = sqlite3.connect(database)
+        try:
+            connection.execute(
+                "INSERT INTO ai_dependency_snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    "AID-CONTENT", "AUD-1", "CONTENT_REMEDIATION", "AUDIT",
+                    json.dumps(["SEMANTIC_CONTEXT", "SEALED_EVIDENCE"]),
+                    json.dumps({"SEMANTIC_CONTEXT": True, "SEALED_EVIDENCE": True}),
+                    "[]", "[]", "fingerprint-content", 1,
+                    "AI-DEPENDENCY-001", "2026-09-18T18:00:00Z",
+                ),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        html = dependency_html(database, SimpleNamespace(audit_id="AUD-1"))
+        assert "Remediação de conteúdo" in html
+        assert "CONTENT_REMEDIATION" not in html
+
+
 def test_ready_dependency_snapshot_is_projected_without_missing_dependencies() -> None:
     with tempfile.TemporaryDirectory() as directory:
         database = _database(Path(directory))
