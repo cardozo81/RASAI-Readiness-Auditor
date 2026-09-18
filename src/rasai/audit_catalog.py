@@ -133,6 +133,21 @@ CATALOGS: tuple[AuditCatalog, ...] = (
         ),
         producer=False,
     ),
+    AuditCatalog(
+        "CAT-10",
+        "Segurança passiva",
+        "Avaliar Web Security Readiness de forma passiva, reutilizando HTTP/browser/runtime e correlacionando vulnerabilidades conhecidas sem exploração.",
+        "Postura de transporte, headers, cookies, recursos, third-party, runtime, vulnerabilidades conhecidas e remediações rastreáveis.",
+        ("passive-security",),
+        (
+            AiUse(
+                "passive_security_advisory",
+                "Interpretação e remediação de segurança",
+                AI_OPTIONAL,
+                "Enriquece findings determinísticos após o sealing; não decide presença de controles, versão ou CVE.",
+            ),
+        ),
+    ),
 )
 CATALOG_BY_ID = {item.id: item for item in CATALOGS}
 PRODUCER_CATALOG_IDS = frozenset(item.id for item in CATALOGS if item.producer)
