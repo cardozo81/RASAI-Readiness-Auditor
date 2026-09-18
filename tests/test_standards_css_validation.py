@@ -30,7 +30,8 @@ _VALID = b"""<?xml version='1.0' encoding='utf-8'?>
 </env:Envelope>"""
 
 _INVALID = _VALID.replace(b"<m:validity>true</m:validity>", b"<m:validity>false</m:validity>").replace(
-    b"<m:errorcount>0</m:errorcount>", b"<m:errorcount>3</m:errorcount>"
+    b"<m:errorcount>0</m:errorcount>",
+    b"""<m:errorcount>3</m:errorcount><m:errorlist><m:error><m:line>17</m:line><m:errortype>parse-error</m:errortype><m:context>.hero { color: #12; }</m:context><m:message>Parse Error</m:message></m:error></m:errorlist>""",
 )
 
 
@@ -80,6 +81,9 @@ def test_parse_css_validation_soap_preserves_source_outcome() -> None:
     assert valid["css_level"] == "css3"
     assert invalid["valid"] is False
     assert invalid["errors"] == 3
+    assert invalid["error_details"][0]["line"] == 17
+    assert invalid["error_details"][0]["message"] == "Parse Error"
+    assert invalid["error_details"][0]["context"] == ".hero { color: #12; }"
 
 
 def test_css_collection_throttles_public_service_and_persists_pass_fail(tmp_path) -> None:

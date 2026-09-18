@@ -52,6 +52,47 @@ def _float_env(environment: Mapping[str, str], name: str, default: float) -> flo
     return value
 
 
+def _local_name(tag: Any) -> str:
+    return str(tag or "").rsplit("}", 1)[-1]
+
+
+def _node_text(node: ET.Element, local: str) -> str | None:
+    for child in node.iter():
+        if _local_name(child.tag) != local or child.text is None:
+            continue
+        value = child.text.strip()
+        if value:
+            return value
+    return None
+
+
+def _css_diagnostics(root: ET.Element, kind: str, *, limit: int = 200) -> list[dict[str, Any]]:
+    diagnostics: list[dict[str, Any]] = []
+    for node in root.iter():
+        if _local_name(node.tag) != kind:
+            continue
+        # Ignore aggregate containers such as <errors> / <warnings>.
+        if not any(_local_name(child.tag) in {"line", "message", "context", "errortype", "warningtype"} for child in list(node)):
+            continue
+        line_raw = _node_text(node, "line")
+        try:
+            line = int(line_raw) if line_raw is not None else None
+        except ValueError:
+            line = None
+        diagnostics.append({
+            "line": line,
+            "message": _node_text(node, "message"),
+            "context": _node_text(node, "context"),
+            "type": _node_text(node, "errortype") or _node_text(node, "warningtype"),
+            "subtype": _node_text(node, "errorsubtype"),
+            "skipped_string": _node_text(node, "skippedstring"),
+            "uri": _node_text(node, "uri"),
+        })
+        if len(diagnostics) >= max(1, int(limit)):
+            break
+    return diagnostics
+
+
 def parse_css_validation_soap(payload: bytes) -> dict[str, Any]:
     try:
         root = ET.fromstring(payload)
@@ -78,6 +119,8 @@ def parse_css_validation_soap(payload: bytes) -> dict[str, Any]:
         except ValueError:
             return 0
 
+    error_details = _css_diagnostics(root, "error")
+    warning_details = _css_diagnostics(root, "warning")
     return {
         "valid": validity_text == "true",
         "errors": count("errorcount"),
@@ -85,6 +128,9 @@ def parse_css_validation_soap(payload: bytes) -> dict[str, Any]:
         "css_level": text("csslevel"),
         "checked_by": text("checkedby"),
         "validated_at": text("date"),
+        "error_details": error_details,
+        "warning_details": warning_details,
+        "approval_criterion": "valid=true and 0 CSS errors from the W3C CSS Validation Service",
     }
 
 

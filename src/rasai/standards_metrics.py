@@ -537,6 +537,38 @@ def _request_json(request: Request, timeout: float) -> dict[str, Any]:
     return payload
 
 
+def _normalize_w3c_messages(messages: Any, *, limit: int = 200) -> list[dict[str, Any]]:
+    """Persist bounded Nu Checker diagnostics needed for actionable reporting."""
+    normalized: list[dict[str, Any]] = []
+    if not isinstance(messages, list):
+        return normalized
+    for raw in messages:
+        if not isinstance(raw, Mapping):
+            continue
+        message_type = str(raw.get("type") or "").strip()
+        subtype = str(raw.get("subtype") or "").strip()
+        if message_type not in {"error", "non-document-error", "info"}:
+            continue
+        if message_type == "info" and subtype != "warning":
+            continue
+        item = {
+            "type": message_type,
+            "subtype": subtype or None,
+            "message": str(raw.get("message") or "").strip() or None,
+            "extract": str(raw.get("extract") or "").strip() or None,
+            "first_line": raw.get("firstLine"),
+            "last_line": raw.get("lastLine"),
+            "first_column": raw.get("firstColumn"),
+            "last_column": raw.get("lastColumn"),
+            "hilite_start": raw.get("hiliteStart"),
+            "hilite_length": raw.get("hiliteLength"),
+        }
+        normalized.append(item)
+        if len(normalized) >= max(1, int(limit)):
+            break
+    return normalized
+
+
 def _w3c_validator(connection: sqlite3.Connection, audit_id: str, max_urls: int, timeout: float) -> tuple[int, int, dict[str, Any]]:
     item = service("w3c-validator")
     pages = list(connection.execute(
@@ -567,12 +599,21 @@ def _w3c_validator(connection: sqlite3.Connection, audit_id: str, max_urls: int,
             else:
                 outcome = "PASS"
             succeeded += 1
+            diagnostics = _normalize_w3c_messages(messages)
             _record(
                 connection, audit_id=audit_id, metric_id="w3c_html_conformance", label="W3C HTML Conformance",
                 scope="URL", target=url, state=outcome, value=float(errors), unit="error_count",
                 source="W3C Nu HTML Checker", methodology="W3C Nu Checker out=json outcome",
                 relation_degree=item.relation_degree,
-                details={"errors": errors, "warnings": warnings, "non_document_errors": non_document, "message_count": len(messages)},
+                details={
+                    "errors": errors,
+                    "warnings": warnings,
+                    "non_document_errors": non_document,
+                    "message_count": len(messages),
+                    "messages": diagnostics,
+                    "messages_persisted": len(diagnostics),
+                    "approval_criterion": "0 HTML errors and 0 non-document errors from the W3C Nu Checker",
+                },
             )
         except StandardsExternalError as exc:
             _record(

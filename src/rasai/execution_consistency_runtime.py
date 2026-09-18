@@ -378,6 +378,104 @@ def _consistent_execution_evidence_body(database: Path, data: Any) -> str:
     return body
 
 
+def _w3c_fix_hint(message: Any, *, css: bool = False) -> str:
+    text = str(message or "").casefold()
+    if css:
+        if "property" in text and ("doesn't exist" in text or "does not exist" in text or "unknown" in text):
+            return "Remover a propriedade inválida ou substituí-la por uma propriedade CSS válida e suportada."
+        if "value" in text or "valor" in text:
+            return "Corrigir o valor da propriedade conforme a gramática CSS indicada pelo validator."
+        if "parse" in text or "syntax" in text or "sintax" in text:
+            return "Corrigir a sintaxe da declaração indicada, revisando chaves, dois-pontos, ponto e vírgula e valor."
+        return "Corrigir a declaração CSS indicada pela mensagem W3C e executar novamente a validação."
+    if "duplicate id" in text or "id already defined" in text:
+        return "Garantir que cada atributo id seja único no documento."
+    if "attribute" in text and ("not allowed" in text or "bad value" in text or "invalid" in text):
+        return "Remover ou corrigir o atributo/valor inválido no elemento indicado pela mensagem W3C."
+    if "element" in text and ("not allowed" in text or "not permitted" in text):
+        return "Reposicionar ou substituir o elemento para respeitar o modelo de conteúdo HTML permitido."
+    if "stray end tag" in text or "end tag" in text:
+        return "Corrigir o aninhamento e o fechamento das tags no trecho indicado."
+    if "unclosed" in text or "not closed" in text:
+        return "Fechar corretamente o elemento HTML indicado antes de continuar a estrutura."
+    if "required attribute" in text or "missing" in text:
+        return "Adicionar o atributo obrigatório indicado, usando um valor compatível com o elemento."
+    return "Corrigir o markup indicado pela mensagem W3C e executar novamente a validação."
+
+
+def _w3c_detail_modal(e: Any, item: Mapping[str, Any], *, index: int) -> tuple[Any, str]:
+    key = str(item.get("metric_id") or item.get("metric_key") or "")
+    details = _safe_json(item.get("details_json"), {})
+    if not isinstance(details, Mapping):
+        details = {}
+    css = key == "w3c_css_conformance"
+    modal_id = f"standards-w3c-{index}"
+    errors = int(float(item.get("value") or 0)) if item.get("value") is not None else 0
+    criterion = (
+        "Aprovado quando o W3C CSS Validator retornar valid=true e 0 erros CSS."
+        if css
+        else "Aprovado quando o W3C Nu Checker retornar 0 erros HTML e 0 erros de documento."
+    )
+    diagnostic_rows: list[tuple[Any, ...]] = []
+    if css:
+        raw_rows = details.get("error_details") if isinstance(details.get("error_details"), list) else []
+        for row in raw_rows:
+            if not isinstance(row, Mapping):
+                continue
+            location = f"Linha {row.get('line')}" if row.get("line") not in (None, "") else "-"
+            message = row.get("message") or row.get("type") or "Erro CSS informado pelo W3C"
+            context = row.get("context") or row.get("skipped_string") or "-"
+            diagnostic_rows.append((location, message, context, _w3c_fix_hint(message, css=True)))
+    else:
+        raw_rows = details.get("messages") if isinstance(details.get("messages"), list) else []
+        for row in raw_rows:
+            if not isinstance(row, Mapping) or str(row.get("type") or "") == "info":
+                continue
+            line = row.get("first_line") or row.get("last_line")
+            column = row.get("first_column") or row.get("last_column")
+            location = (
+                f"Linha {line}, coluna {column}" if line not in (None, "") and column not in (None, "")
+                else f"Linha {line}" if line not in (None, "")
+                else "-"
+            )
+            message = row.get("message") or "Erro HTML informado pelo W3C"
+            diagnostic_rows.append((location, message, row.get("extract") or "-", _w3c_fix_hint(message)))
+    body = e._kv((
+        ("Resultado", e._status_label(item.get("state") or item.get("status"))),
+        ("Erros", errors),
+        ("Alvo validado", item.get("target") or "-"),
+        ("Fonte", item.get("source") or "-"),
+        ("Critério para aprovação", criterion),
+        ("Metodologia", item.get("methodology") or "-"),
+    ))
+    if diagnostic_rows:
+        body += "<h3>Erros retornados pelo W3C</h3>" + e._table(
+            ("Localização", "Mensagem", "Trecho / contexto", "O que corrigir"),
+            diagnostic_rows,
+            sortable=bool(diagnostic_rows),
+            page_size=10 if len(diagnostic_rows) > 10 else None,
+        )
+    elif errors:
+        body += (
+            "<div class='notice warn'><strong>Detalhe não persistido nesta execução:</strong> "
+            "a contagem de erros existe, mas esta AUD foi coletada antes do contrato que preserva as mensagens "
+            "individuais do validator. Reexecute a validação W3C para obter linha, mensagem, trecho e orientação.</div>"
+        )
+    else:
+        body += "<div class='notice good'>Nenhum erro W3C foi persistido para este alvo.</div>"
+    body += (
+        "<div class='notice'><strong>Como aprovar:</strong> corrija todos os erros listados, publique a alteração "
+        "e reexecute a auditoria/validação. Warnings podem exigir revisão técnica, mas o estado FAIL é determinado "
+        "pelos erros do validator conforme o contrato acima.</div>"
+    )
+    return e._modal_button(modal_id, "Ver erros e correção"), e._modal(
+        modal_id,
+        "Conformidade CSS W3C" if css else "Conformidade HTML W3C",
+        str(item.get("target") or "Validação W3C"),
+        body,
+    )
+
+
 def _consistent_standards_summary(database: Path, data: Any) -> str:
     from rasai import catalog_report_evidence as e
 
@@ -396,20 +494,25 @@ def _consistent_standards_summary(database: Path, data: Any) -> str:
         "web_platform_limited_availability_count": "Recursos com disponibilidade limitada",
     }
     rows: list[Sequence[Any]] = []
-    for item in metrics:
+    modals: list[str] = []
+    for index, item in enumerate(metrics, 1):
         key = str(item.get("metric_id") or item.get("metric_key") or "")
         if key not in wanted:
             continue
         raw_value = item.get("value") if "value" in item else item.get("value_num")
         unit = str(item.get("unit") or "")
         if raw_value is None:
-            value: Any = "—"
+            value: Any = "-"
         elif unit == "error_count":
             value = f"{int(float(raw_value))} erro(s)"
         else:
             number = float(raw_value)
             value = int(number) if number.is_integer() else round(number, 3)
-        rows.append((wanted[key], value, e._status_label(item.get("state") or item.get("status"))))
+        detail: Any = "-"
+        if key in {"w3c_html_conformance", "w3c_css_conformance"}:
+            detail, modal = _w3c_detail_modal(e, item, index=index)
+            modals.append(modal)
+        rows.append((wanted[key], value, e._status_label(item.get("state") or item.get("status")), detail))
     for item in services:
         service_id = str(item.get("service_id") or "")
         if service_id not in {"w3c-validator", "mdn-observatory", "w3c-css-validator", "web-platform-baseline"}:
@@ -421,8 +524,13 @@ def _consistent_standards_summary(database: Path, data: Any) -> str:
             grade = details.get("grade") or details.get("observatory_grade")
             if score is not None or grade:
                 result = " · ".join(str(value) for value in (score, grade) if value not in (None, ""))
-        rows.append((e._friendly_service(service_id) + " · execução", result, e._status_label(item.get("state"))))
-    return e._table(("Verificação", "Resultado", "Estado"), rows, empty="Nenhuma métrica de padrões web foi persistida.", sortable=bool(rows))
+        rows.append((e._friendly_service(service_id) + " · execução", result, e._status_label(item.get("state")), "-"))
+    return e._table(
+        ("Verificação", "Resultado", "Estado", "Detalhe"),
+        rows,
+        empty="Nenhuma métrica de padrões web foi persistida.",
+        sortable=bool(rows),
+    ) + "".join(modals)
 
 
 def _consistent_catalog_sources(database: Path, data: Any, catalog_id: str):
