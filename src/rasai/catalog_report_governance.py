@@ -63,13 +63,14 @@ def _overview_body(database: Path, data: _ReportData) -> str:
 
 
 def _sari_body(data: _ReportData) -> str:
+    from rasai.catalog_report_public_labels import public_contract_label
     overall=[r for r in data.scores if _norm(r.get("dimension"))=="OVERALL_READINESS"]
     cards="".join(_metric(f"SARI · {_device_label(r.get('device'))}",_score_value(r),f"Cobertura {r.get('coverage','-')} · Confiança {_confidence_label(r.get('confidence'))}") for r in overall)
     limitations=[]
     for r in overall:
         parsed=_safe_json(r.get("limitations"),[])
         for item in parsed if isinstance(parsed,list) else []:
-            limitations.append((_device_label(r.get("device")),str(item).replace("_"," ")))
+            limitations.append((_device_label(r.get("device")),public_contract_label(item)))
     versions=sorted({str(r.get("scoring_version")) for r in data.scores if r.get("scoring_version")})
     body=_audit_hero(data,"SARI · Search & AI Readiness Index","Índice persistido de prontidão, com cobertura, confiança, dimensões e limitações. O HTML não recalcula o SARI.")
     body+=_outline((("result","Resultado"),("composition","Composição"),("limitations","Limitações"),("method","Método")))

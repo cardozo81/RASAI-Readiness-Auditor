@@ -1,5 +1,6 @@
 """Human-facing labels for internal RASAi values used by report-catalog."""
 from __future__ import annotations
+import re
 from typing import Any
 
 PUBLIC_VALUE_LABELS: dict[str, str] = {
@@ -17,13 +18,15 @@ PUBLIC_VALUE_LABELS: dict[str, str] = {
     "HISTORICAL_WEB_ARCHIVE": "Arquivo histórico da web",
     "MIXED": "Origem temporal mista",
     "LEGACY": "Origem legada",
-    "DETERMINISTIC-CORRELATIONAL-001": "Correlação determinística de evidências",
+    "DETERMINISTIC_CORRELATIONAL_001": "Correlação determinística de evidências",
     "CONTENT_COMPARISON_DISABLED": "Comparação de conteúdo desabilitada",
     "CUSTOMER_URL_REQUIRED": "URL do site auditado necessária",
     "SERP_OBSERVATION_UNAVAILABLE": "Observação de SERP indisponível",
     "CLASSIFICATION_ONLY": "Somente classificação",
     "NOT_FOUND_WITHIN_DEPTH": "Não encontrado na profundidade coletada",
     "FOUND": "Encontrado na profundidade coletada",
+    "ORGANIC_CANDIDATE": "Candidato orgânico",
+    "PUBLIC_AUTHORITY": "Autoridade pública",
     "NON_SCORING": "Não participa da pontuação",
     "BOUNDED_AI_RESOURCE_ASSESSMENT": "Avaliação de IA limitada e vinculada a evidências",
     "SHARED_ACQUISITION": "Aquisição compartilhada",
@@ -35,6 +38,13 @@ PUBLIC_VALUE_LABELS: dict[str, str] = {
     "CONSOLE_ERROR": "Erro de console",
     "CORS": "Restrição CORS",
     "HTTP_ERROR": "Erro HTTP",
+    "ADD_CONTEXT": "Adicionar contexto",
+    "EDIT_CONTENT": "Editar conteúdo",
+    "ADD_OR_CORRECT": "Adicionar ou corrigir",
+    "ADD_OR_RESTRUCTURE_ANSWER": "Adicionar ou reestruturar resposta",
+    "CLARIFY_ENTITY_RELATIONSHIPS": "Esclarecer relações entre entidades",
+    "CLOSE_INTENT_GAPS": "Fechar lacunas de intenção",
+    "DISAMBIGUATE_ENTITY": "Desambiguar entidade",
     "DISCOVERY_ACCESS": "Acesso e descoberta",
     "TECHNICAL_ACCESSIBILITY": "Acessibilidade técnica",
     "INDEXABILITY": "Indexabilidade e canonicalização",
@@ -47,10 +57,84 @@ PUBLIC_VALUE_LABELS: dict[str, str] = {
     "EVIDENCE_TRUST": "Evidências e confiabilidade",
     "INTENT_COVERAGE": "Cobertura de intenções",
     "CONTENT_VALUE": "Valor do conteúdo",
+    "OVERALL_READINESS": "SARI - Search & AI Readiness",
+    "NOT_REQUESTED": "Não solicitado",
+    "INTERPRETED": "Interpretado",
+    "NOT_DETERMINABLE": "Não determinável",
+    "FINANCIAL_SECURITY": "Segurança financeira",
+    "GENERAL": "Público geral",
+    "NOT_EXPECTED": "Experiência prévia não esperada",
+    "PRODUCT_SERVICE": "Produto ou serviço",
+    "FIRST_PARTY": "Conteúdo próprio",
+    "LOW": "Baixa",
+    "MEDIUM": "Média",
+    "HIGH": "Alta",
+    "AI_INFERENCE": "Inferência de IA",
+    "AUTO": "Automático",
+    "NOT_CONSOLIDATED": "Não consolidado",
+    "CONSOLIDATED": "Consolidado",
 }
+
+PUBLIC_PHRASE_LABELS: dict[str, str] = {
+    "external organic result; business equivalence is not inferred": "Resultado orgânico externo; equivalência comercial não é inferida",
+    "public-authority domain heuristic": "Heurística de domínio de autoridade pública",
+}
+
+def _key(value: Any) -> str:
+    raw = str(value or "").strip().upper()
+    return re.sub(r"[^A-Z0-9]+", "_", raw).strip("_")
 
 def public_label(value: Any) -> str | None:
     raw = str(value or "").strip()
-    return PUBLIC_VALUE_LABELS.get(raw.upper()) if raw else None
+    if not raw:
+        return None
+    phrase = PUBLIC_PHRASE_LABELS.get(raw.casefold())
+    return phrase or PUBLIC_VALUE_LABELS.get(_key(raw))
 
-__all__ = ["PUBLIC_VALUE_LABELS", "public_label"]
+def public_contract_label(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "-"
+    parts = raw.split(":")
+    head = _key(parts[0])
+
+    if head == "DIMENSION_NOT_APPLICABLE" and len(parts) >= 2:
+        return f"Dimensão {public_label(parts[1]) or parts[1].replace('_',' ').title()} não aplicável"
+    if head == "DIMENSION_MEASUREMENT_LIMITED" and len(parts) >= 2:
+        return f"Medição limitada na dimensão {public_label(parts[1]) or parts[1].replace('_',' ').title()}"
+    if head == "DIMENSION_NOT_CONSOLIDATED" and len(parts) >= 2:
+        return f"Dimensão {public_label(parts[1]) or parts[1].replace('_',' ').title()} ainda não consolidada"
+    if head == "CRITICAL_GATE" and len(parts) >= 3:
+        subject = {
+            "DISCOVERY": "descoberta",
+            "INDEXABILITY": "indexabilidade",
+            "EXTRACTION": "extração",
+        }.get(_key(parts[1]), parts[1].replace("_"," ").casefold())
+        state = public_label(parts[2]) or {
+            "WARNING": "atenção",
+            "PASS": "aprovado",
+            "FAIL": "não aprovado",
+        }.get(_key(parts[2]), parts[2].replace("_"," ").casefold())
+        return f"Gate crítico de {subject}: {state}"
+    if head == "READINESS_STATUS" and len(parts) >= 2:
+        state = {"ATTENTION": "atenção", "READY": "pronto"}.get(_key(parts[1]), parts[1].replace("_"," ").casefold())
+        return f"Estado de prontidão: {state}"
+    if head == "OVERALL_AGGREGATION":
+        return "Agregação geral: prontidão hierárquica ponderada - versão 1"
+    if head == "DIMENSION_WEIGHTS":
+        return "Pesos das dimensões: política SARI - versão 1"
+    if head == "GROUP_WEIGHTS":
+        return "Pesos dos grupos: política SARI - versão 1"
+    if head == "CRITICAL_GATES":
+        return "Gates críticos: política SARI - versão 1"
+    if head == "MEASUREMENT_CONFIDENCE":
+        return "Confiança da medição: cálculo ponderado - versão 1"
+    if head == "EXTERNAL_CRAWL_CORROBORATION":
+        rule = parts[1] if len(parts) > 1 else "BR-GEO-060"
+        return f"Corroboração externa de crawl: somente impacto positivo, limite geral 0,45 - regra {rule}"
+    if head == "EMPIRICAL_VALIDATION":
+        return "Validação empírica: não participa da pontuação"
+
+    return public_label(raw) or raw.replace("_", " ")
+
+__all__ = ["PUBLIC_VALUE_LABELS", "PUBLIC_PHRASE_LABELS", "public_label", "public_contract_label"]

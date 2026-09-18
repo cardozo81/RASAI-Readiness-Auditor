@@ -609,7 +609,7 @@ def _search_intelligence_html(database: Any, data: Any) -> str:
                     pass
             modal_id = f"serp-{index}"
             device = m._device_label(obs.get("device")) if obs.get("device") else "-"
-            position = f"{min(positions)} a {max(positions)}" if positions else "—"
+            position = f"{min(positions)} a {max(positions)}" if positions else "-"
             reason = _serp_completion_reason(obs, len(results))
             rows.append((
                 obs.get("query") or "—", obs.get("region") or "—", device,
@@ -642,6 +642,13 @@ def _search_intelligence_html(database: Any, data: Any) -> str:
 
 
 _LIGHTHOUSE_PT: tuple[tuple[str, str], ...] = (
+    ("low-contrast text is difficult or impossible", "Contraste insuficiente entre texto e plano de fundo"),
+    ("background and foreground colors do not have a sufficient contrast ratio", "Contraste insuficiente entre texto e plano de fundo"),
+    ("links do not have a discernible name", "Links sem nome acessível identificável"),
+    ("avoid enormous network payloads", "Evitar payloads de rede excessivamente grandes"),
+    ("document request latency", "Latência de requisições precisa de atenção"),
+    ("legacy javascript", "JavaScript legado identificado"),
+    ("render-blocking requests", "Requisições estão bloqueando a renderização"),
     ("heading elements are not in a sequentially-descending order", "A hierarquia de títulos (headings) não segue uma ordem sequencial"),
     ("elements with role=\"dialog\"", "Diálogo sem nome acessível ou associação ARIA suficiente"),
     ("elements with role='dialog'", "Diálogo sem nome acessível ou associação ARIA suficiente"),
@@ -851,18 +858,20 @@ def _improvement_html(database: Any, data: Any) -> str:
         reference = a._Html(f"<a class='ref' href='{a.CATALOG_PAGE_BY_ID[source_cat].filename}'>Origem: {source_cat}</a>") if source_cat in a.CATALOG_PAGE_BY_ID else "—"
         labels = sorted(coverage.get(fid, set())); coverage_label = " · ".join(labels) if labels else "Não disponível"
         public_title = _finding_public_title(finding); severity = a._level_label(finding.get("severity"))
-        filter_rows.append(((public_title, a._domain_label(domain), severity, coverage_label, reference, a._modal_button(modal_id, "Ver análise")), {"domain": a._domain_label(domain), "severity": severity, "remediation": "com" if labels else "sem"}))
-        original_problem = str(finding.get("observation") or finding.get("title") or "—")
+        original_problem = str(finding.get("observation") or finding.get("title") or "-")
+        original_title = str(finding.get("title") or original_problem)
+        public_title_cell = a._translated_text(public_title, original_title) if public_title != original_title else public_title
+        filter_rows.append(((public_title_cell, a._domain_label(domain), severity, coverage_label, reference, a._modal_button(modal_id, "Ver análise")), {"domain": a._domain_label(domain), "severity": severity, "remediation": "com" if labels else "sem"}))
         body = a._kv((("Problema", public_title), ("Domínio", a._domain_label(domain)), ("Severidade", severity), ("Fonte", finding.get("source") or "—"), ("Catálogo de origem", source_cat or "—"), ("Seletor / path", finding.get("selector") or "Não se aplica / não identificado"), ("Cobertura de remediação", coverage_label)))
         if public_title != original_problem:
-            body += "<h3>Texto original da fonte</h3><div class='pre'>" + escape(original_problem) + "</div>"
+            body += "<h3>Texto original da fonte</h3><div class='pre rich-text'>" + str(a._rich_text(original_problem)) + "</div>"
         if finding.get("original_html"):
             body += "<h3>Trecho observado</h3><div class='pre'>" + escape(str(finding.get("original_html"))) + "</div>"
         evidence = a._safe_json(finding.get("evidence_ids_json"), [])
         if isinstance(evidence, list) and evidence:
             body += "<h3>Evidências vinculadas</h3><p>" + escape(" · ".join(str(v) for v in evidence)) + "</p>"
         if rec:
-            body += "<h3>Melhoria recomendada</h3><p>" + escape(str(rec.get("recommendation") or rec.get("title") or "—")) + "</p><p><a href='cat-09.html'>Ver implementação no CAT-09</a></p>"
+            body += "<h3>Melhoria recomendada</h3><p>" + str(a._rich_text(rec.get("recommendation") or rec.get("title") or "-")) + "</p><p><a href='cat-09.html'>Ver implementação no CAT-09</a></p>"
         else:
             body += "<div class='notice'>Não há recomendação individual do Improvement Intelligence para este finding. Outras camadas de remediação, quando existentes, são indicadas na cobertura acima.</div>"
         body += _technical_reference_links(domain, source_text=original_problem)

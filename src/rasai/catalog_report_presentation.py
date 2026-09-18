@@ -26,7 +26,7 @@ def _translated_text(pt_br: Any, original: Any) -> _Html:
 def _internal_value_label(value: Any) -> _Html | None:
     raw = str(value or "").strip()
     label = public_label(raw)
-    return _translated_text(label, raw) if label else None
+    return _Html(escape(label)) if label else None
 
 def _rich_text(value: Any) -> _Html:
     if isinstance(value, _Html):
@@ -126,7 +126,7 @@ def _level_label(value: Any) -> str:
     return {
         "CRITICAL":"Crítica","VERY_HIGH":"Muito alta","HIGH":"Alta","MEDIUM":"Média","LOW":"Baixa","VERY_LOW":"Muito baixa",
         "INFO":"Informativa","WARNING":"Atenção","P1":"Prioridade 1","P2":"Prioridade 2","P3":"Prioridade 3","P4":"Prioridade 4",
-    }.get(raw,str(value or "—").replace("_"," ").title())
+    }.get(raw,str(value or _EMPTY).replace("_"," ").title())
 
 
 def _confidence_label(value: Any) -> str:
@@ -143,7 +143,7 @@ def _confidence_label(value: Any) -> str:
         number=float(value)
         return f"{number*100:.0f}%" if 0<=number<=1 else f"{number:g}"
     except (TypeError,ValueError):
-        return str(value or "—").replace("_"," ")
+        return str(value or _EMPTY).replace("_"," ")
 
 
 def _session_label(value: Any) -> str:
@@ -297,8 +297,8 @@ def _audit_state(data: _ReportData) -> str:
 
 
 def _audit_hero(data: _ReportData, title: str, subtitle: str) -> str:
-    target=data.targets[0] if data.targets else "—"
-    project=str(data.audit.get("project_name") or "—")
+    target=data.targets[0] if data.targets else _EMPTY
+    project=str(data.audit.get("project_name") or _EMPTY)
     return f"<header class='hero'><div class='eyebrow'>Auditoria {escape(data.audit_id)}</div><h1>{escape(title)}</h1><p>{escape(subtitle)}</p><div class='metric-grid'>{_metric('URL auditada',target)}{_metric('Projeto',project)}{_metric('Resultado da execução',_audit_state(data))}{_metric('Catálogos selecionados',len(data.selected))}</div></header>"
 
 
@@ -306,7 +306,7 @@ def _score_value(row: Mapping[str,Any]) -> str:
     try:
         return f"{float(row.get('value')):.1f}"
     except (TypeError,ValueError):
-        return _plain(row.get("value")) or "—"
+        return _plain(row.get("value")) or _EMPTY
 
 
 def _score_table(data: _ReportData, *, include_overall: bool=True, context: str|None=None) -> str:
@@ -321,7 +321,7 @@ def _score_table(data: _ReportData, *, include_overall: bool=True, context: str|
         structured_absent=(dim=="STRUCTURED_DATA" and consolidation=="NOT_APPLICABLE" and row.get("value") is None)
         value="Não aplicável" if structured_absent else _score_value(row)
         confidence="Não aplicável - nenhum dado estruturado foi observado" if structured_absent else _confidence_label(row.get("confidence"))
-        rows.append((_DIMENSION_LABELS.get(dim,dim.replace("_"," ").title()),_device_label(row.get("device")),value,row.get("coverage","—"),confidence,_status_label(row.get("consolidation_status")),row.get("scoring_version","—")))
+        rows.append((_DIMENSION_LABELS.get(dim,dim.replace("_"," ").title()),_device_label(row.get("device")),value,row.get("coverage",_EMPTY),confidence,_status_label(row.get("consolidation_status")),row.get("scoring_version",_EMPTY)))
     return _table(("Indicador","Contexto","Valor","Cobertura","Confiança","Consolidação","Método"),rows)
 
 
