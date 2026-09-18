@@ -412,3 +412,21 @@ print("OK")
     )
     assert result.returncode == 0, result.stderr
     assert "OK" in result.stdout
+
+
+def test_packaged_defaults_keep_cat10_opt_in_with_safe_subcontrols() -> None:
+    from rasai.system_defaults import load_system_defaults
+
+    parser = load_system_defaults()
+    assert parser.getboolean("environment", "RASAI_PASSIVE_SECURITY") is False
+    for name in (
+        "RASAI_SECURITY_HEADERS",
+        "RASAI_SECURITY_COOKIES",
+        "RASAI_SECURITY_RESOURCES",
+        "RASAI_SECURITY_THIRD_PARTY",
+        "RASAI_SECURITY_RUNTIME_CORRELATION",
+        "RASAI_SECURITY_OSV",
+        "RASAI_SECURITY_CISA_KEV",
+    ):
+        assert parser.getboolean("environment", name) is True
+    assert parser.getfloat("environment", "RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS") == 15.0
