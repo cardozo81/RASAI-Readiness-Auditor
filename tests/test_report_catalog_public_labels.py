@@ -13,6 +13,7 @@ from rasai.catalog_report_presentation import (
     _translated_text,
 )
 from rasai.score_geo_004_reporting import _score_row
+from rasai.semantic import semantic_output_language_directive
 
 
 def test_internal_contract_values_have_human_labels_without_internal_tooltips() -> None:
@@ -152,3 +153,14 @@ def test_canonical_scoring_row_is_humanized() -> None:
     assert "Dispositivo móvel" in html
     assert "Baixa" in html
     assert "Não consolidado" in html
+
+
+def test_semantic_free_text_contract_uses_audit_language_and_hyphen() -> None:
+    directive = semantic_output_language_directive(
+        SimpleNamespace(primary_language="pt-BR")
+    )
+    assert "pt-BR" in directive
+    assert "reasoning_summary" in directive
+    assert "observed_value.summary" in directive
+    assert "ASCII hyphen '-'" in directive
+    assert "em dash" in directive

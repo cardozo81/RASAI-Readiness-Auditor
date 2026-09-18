@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/rasai/catalog_report_*.py'
       - 'src/rasai/score_geo_004_reporting.py'
+      - 'src/rasai/semantic.py'
       - 'src/rasai/accepted_audit_refinements.py'
       - 'src/rasai/improvement_intelligence.py'
       - 'src/rasai/editorial_risk_context.py'
@@ -19,6 +20,7 @@ on:
     paths:
       - 'src/rasai/catalog_report_*.py'
       - 'src/rasai/score_geo_004_reporting.py'
+      - 'src/rasai/semantic.py'
       - 'src/rasai/accepted_audit_refinements.py'
       - 'src/rasai/improvement_intelligence.py'
       - 'src/rasai/editorial_risk_context.py'
