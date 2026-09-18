@@ -7,6 +7,7 @@ on:
       - 'src/rasai/catalog_report_*.py'
       - 'tests/test_cat09_w3c_remediation.py'
       - 'tests/test_search_competitive_ai.py'
+      - 'tests/test_competitive_acquisition_policy.py'
       - 'src/rasai/cost_forecast.py'
       - 'src/rasai/platform/usage_ingestion.py'
       - 'src/rasai/m18_persistence.py'
@@ -37,6 +38,7 @@ on:
       - 'src/rasai/catalog_report_*.py'
       - 'tests/test_cat09_w3c_remediation.py'
       - 'tests/test_search_competitive_ai.py'
+      - 'tests/test_competitive_acquisition_policy.py'
       - 'src/rasai/cost_forecast.py'
       - 'src/rasai/platform/usage_ingestion.py'
       - 'src/rasai/m18_persistence.py'
@@ -85,6 +87,7 @@ jobs:
           tests/test_w3c_catalog_detail.py
           tests/test_catalog_report_search_trust.py
           tests/test_search_competitive_ai.py
+          tests/test_competitive_acquisition_policy.py
           tests/test_cat09_w3c_remediation.py
           tests/test_cat03_auto_projection.py
           tests/test_cat08_actionable_guidance.py

@@ -750,10 +750,12 @@ def _competitive_validation_rows(
     max_pages_state = (
         "SEM EVIDÊNCIA"
         if max_pages_int is None
+        else "INCONSISTENTE"
+        if selected_count > max_pages_int
         else "COM LIMITAÇÃO"
         if runtime_max_pages_int is None
         else "INCONSISTENTE"
-        if runtime_max_pages_int != max_pages_int or selected_count > max_pages_int
+        if runtime_max_pages_int != max_pages_int
         else "OK"
     )
     rows.append((
@@ -815,11 +817,12 @@ def _competitive_validation_rows(
     bytes_state = (
         "SEM EVIDÊNCIA"
         if max_bytes_int is None
+        else "INCONSISTENTE"
+        if max_observed_bytes is not None and max_observed_bytes > max_bytes_int
         else "COM LIMITAÇÃO"
         if runtime_max_bytes_int is None
         else "INCONSISTENTE"
         if runtime_max_bytes_int != max_bytes_int
-        or (max_observed_bytes is not None and max_observed_bytes > max_bytes_int)
         else "OK"
     )
     rows.append((
@@ -852,14 +855,13 @@ def _competitive_validation_rows(
     redirects_state = (
         "SEM EVIDÊNCIA"
         if max_redirects_int is None
+        else "INCONSISTENTE"
+        if max_observed_redirects is not None
+        and max_observed_redirects > max_redirects_int
         else "COM LIMITAÇÃO"
         if runtime_max_redirects_int is None
         else "INCONSISTENTE"
         if runtime_max_redirects_int != max_redirects_int
-        or (
-            max_observed_redirects is not None
-            and max_observed_redirects > max_redirects_int
-        )
         else "OK"
     )
     rows.append((
