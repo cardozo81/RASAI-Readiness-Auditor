@@ -62,6 +62,7 @@ CAT-06 Apdex de navegação
 CAT-07 Apdex de experiência
 CAT-08 Análise profunda e melhorias
 CAT-09 Remediações
+CAT-10 Segurança passiva
 ```
 
 `Quality & decisão` é derivado pelo sistema e não é selecionável.
@@ -137,7 +138,7 @@ Recursos não selecionados não bloqueiam a auditoria. Toda alteração relevant
 
 O catálogo identifica operações que não usam IA, podem usar IA ou exigem IA. Provider/modelo continuam sob a configuração principal e o orquestrador canônico.
 
-Com apenas consumidores opcionais selecionados, o plano inicia em `Executar sem IA (recomendado)`. A ação `U` permite alternar para `Executar com IA` somente quando a IA principal está configurada/apta. `CAT-08` torna IA obrigatória e remove a possibilidade de execução sem IA.
+Com apenas consumidores opcionais selecionados, o plano inicia em `Executar sem IA (recomendado)`. A ação `U` permite alternar para `Executar com IA` somente quando a IA principal está configurada/apta. `CAT-08` torna IA obrigatória e remove a possibilidade de execução sem IA. No `CAT-10`, essa opção reutiliza o mesmo Improvement Intelligence no domínio `SECURITY`; não existe motor/provider de segurança paralelo.
 
 A seleção AUTO usa o `provider_registry` dinâmico; **não é uma cadeia fixa OpenAI -> DeepSeek -> MiMo**. O catálogo atual também contempla Copilot conforme o contrato do registry. Providers marcados `explicit-only` não entram silenciosamente no AUTO; continuam disponíveis quando selecionados explicitamente conforme sua política canônica.
 
@@ -181,6 +182,16 @@ A seleção dos catálogos pertence à próxima execução. Ela é gravada no sn
 `CAT-08` consome evidências de catálogos produtores e exige IA principal apta.
 
 `CAT-09` produz ações rastreáveis às evidências. IA pode enriquecer explicações/exemplos, mas não altera scoring determinístico.
+
+## Segurança passiva
+
+`CAT-10` analisa postura de segurança somente com evidências HTTP/browser/runtime já coletadas e fontes externas governadas. Não executa pentest, exploração, fuzzing, brute force, bypass de autenticação ou submissão de formulários.
+
+As configurações relacionadas expõem headers/CSP/CORS, cookies, scripts/recursos, third-party, runtime, OSV, CISA KEV e timeout externo. MDN HTTP Observatory e Lighthouse Best Practices são reutilizados das coletas canônicas; falha de OSV/KEV reduz a cobertura, mas não é convertida em finding do site.
+
+A posição 15 da tela `PREPARAR AUDITORIA` passa a ser CAT-10; `Raiz das auditorias` fica na posição 16.
+
+Contrato técnico: [PASSIVE_SECURITY_CATALOG.md](PASSIVE_SECURITY_CATALOG.md).
 
 ## Histórico e configuração de AUD
 
