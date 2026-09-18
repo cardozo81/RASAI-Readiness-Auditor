@@ -1,5 +1,47 @@
 """Shared CAT page assembly preserving the stable section order."""
 from rasai.catalog_report_analysis import *  # noqa: F401,F403
+from rasai.secret_safety import redact_text
+
+
+def _web_performance_diagnostics_html(database: Path, data: _ReportData) -> str:
+    con=sqlite3.connect(database); con.row_factory=sqlite3.Row
+    try:
+        attempts=_audit_rows(con,"web_performance_attempts",data.audit_id)
+    finally:con.close()
+    rows=[]
+    for item in attempts:
+        message=redact_text(str(item.get("error_message") or "-"))
+        rows.append((
+            _friendly_service(item.get("service")),
+            _status_label(item.get("status")),
+            f"HTTP {item.get('http_status')}" if item.get("http_status") is not None else "-",
+            item.get("error_code") or "-",
+            message,
+        ))
+    attempt_table=_table(
+        ("Fonte externa","Resultado","HTTP","Código","Diagnóstico persistido"),
+        rows,
+        empty="Nenhuma tentativa externa de Web Performance foi persistida.",
+    )
+
+    work=next(
+        (item for item in data.work_items if _norm(item.get("component"))=="WEB_PERFORMANCE"),
+        None,
+    )
+    if not work:
+        return attempt_table
+    work_status=_status_label(work.get("status"))
+    retryable="Sim" if bool(work.get("retryable")) else "Não"
+    message=redact_text(str(work.get("last_error_message") or "-"))
+    fulfillment=_kv((
+        ("Estado do requisito",work_status),
+        ("Classe técnica",work.get("last_error_class") or "-"),
+        ("Código técnico",work.get("last_error_code") or "-"),
+        ("Reprocessável",retryable),
+        ("Motivo consolidado",message),
+    ))
+    tone=" warn" if _norm(work.get("status")) not in _STATUS_SUCCESS else ""
+    return attempt_table+f"<div class='notice{tone}'><strong>Estado no fulfillment:</strong>{fulfillment}</div>"
 
 
 def _catalog_results_html(database: Path, data: _ReportData, catalog_id: str) -> str:
@@ -16,7 +58,9 @@ def _catalog_results_html(database: Path, data: _ReportData, catalog_id: str) ->
         notes=[]
         for key,label in (("lcp_assessment","LCP"),("inp_assessment","INP"),("cls_assessment","CLS"),("cwv_assessment","Core Web Vitals")):
             if obs.get(key):notes.append((label,_assessment_label(obs.get(key))))
-        return base+("<div class='subsection'><h3>Avaliações persistidas</h3>"+_table(("Métrica","Avaliação"),notes)+"</div>" if notes else "")
+        assessments=("<div class='subsection'><h3>Avaliações persistidas</h3>"+_table(("Métrica","Avaliação"),notes)+"</div>" if notes else "")
+        diagnostics="<div class='subsection'><h3>Diagnóstico das fontes externas</h3>"+_web_performance_diagnostics_html(database,data)+"</div>"
+        return base+assessments+diagnostics
     if catalog_id=="CAT-05":
         return base+"<div class='subsection'><h3>Observações de busca</h3>"+_search_intelligence_html(database,data)+"</div>"
     if catalog_id=="CAT-06":
