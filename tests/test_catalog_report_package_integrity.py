@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 import sqlite3
@@ -12,7 +11,35 @@ from rasai.catalog_report_site import (
 )
 
 
+def _assurance_payload() -> dict:
+    return {
+        "metric_semantics": "deterministic structural-control coverage; not statistical probability",
+        "thresholds": {
+            "catalog_maturity_min": 95.0,
+            "reliability_integrity_security_min": 99.5,
+        },
+        "catalogs": [],
+        "global": {
+            "reliability": 100.0,
+            "integrity": 100.0,
+            "security": 100.0,
+            "maturity": 100.0,
+            "configurability": 100.0,
+            "governance": 100.0,
+            "exposure": 100.0,
+        },
+        "per_catalog_target_met": True,
+        "high_assurance_target_met": True,
+        "closure_eligible": True,
+    }
+
+
 def _manifest(root: Path) -> dict:
+    snapshot = root / "integrity" / "audit-snapshot.db"
+    assurance_path = root / "integrity" / "catalog-assurance.json"
+    assurance = _assurance_payload()
+    assurance_path.write_text(json.dumps(assurance), encoding="utf-8")
+
     files = []
     for path in sorted(item for item in root.rglob("*") if item.is_file() and item.name != "manifest.json"):
         files.append(
@@ -22,7 +49,6 @@ def _manifest(root: Path) -> dict:
                 "size_bytes": path.stat().st_size,
             }
         )
-    snapshot = root / "integrity" / "audit-snapshot.db"
     return {
         "audit_id": "AUD-INTEGRITY",
         "freshness": "FINAL",
@@ -33,6 +59,15 @@ def _manifest(root: Path) -> dict:
             "standalone_sqlite": True,
         },
         "packaged_files": files,
+        "assurance": {
+            "metric_semantics": assurance["metric_semantics"],
+            "thresholds": assurance["thresholds"],
+            "global": assurance["global"],
+            "per_catalog_target_met": True,
+            "high_assurance_target_met": True,
+            "closure_eligible": True,
+            "artifact": "integrity/catalog-assurance.json",
+        },
     }
 
 
@@ -78,3 +113,18 @@ def test_report_package_verifies_using_only_delivered_files_and_detects_tamperin
     ok, errors = verify_catalog_report_package(root)
     assert ok is False
     assert any("hash divergente: index.html" in item for item in errors)
+
+
+def test_report_package_rejects_assurance_manifest_divergence(tmp_path: Path) -> None:
+    root = tmp_path / "report-catalog"
+    (root / "integrity").mkdir(parents=True)
+    database = root / "integrity" / "audit-snapshot.db"
+    sqlite3.connect(database).close()
+    (root / "index.html").write_text("<html>ok</html>", encoding="utf-8")
+    manifest = _manifest(root)
+    manifest["assurance"]["closure_eligible"] = False
+    (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    ok, errors = verify_catalog_report_package(root)
+    assert ok is False
+    assert any("closure_eligible divergente" in item for item in errors)
