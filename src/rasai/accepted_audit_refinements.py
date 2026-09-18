@@ -151,6 +151,39 @@ def _repair_findings(
     return [item for item in findings if str(item.get("finding_id") or "") in ids]
 
 
+def _required_missing_ymyl_findings(
+    findings: Sequence[Mapping[str, Any]],
+    accepted: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    accepted_ids = {
+        str(item.get("finding_id") or "")
+        for item in accepted
+        if item.get("finding_id")
+    }
+    return [
+        dict(item)
+        for item in findings
+        if str(item.get("source") or "").upper() == "SEMANTIC_COHERENCE_YMYL"
+        and str(item.get("finding_id") or "")
+        and str(item.get("finding_id")) not in accepted_ids
+    ]
+
+
+def _repair_scope_findings(
+    findings: list[dict[str, Any]],
+    rejected: Sequence[Mapping[str, Any]],
+    accepted: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    selected: dict[str, dict[str, Any]] = {
+        str(item.get("finding_id")): item
+        for item in _repair_findings(findings, rejected)
+        if item.get("finding_id")
+    }
+    for item in _required_missing_ymyl_findings(findings, accepted):
+        selected.setdefault(str(item.get("finding_id")), item)
+    return list(selected.values())
+
+
 def _merge_recommendations(
     first: Sequence[Mapping[str, Any]], second: Sequence[Mapping[str, Any]], maximum: int
 ) -> list[dict[str, Any]]:
@@ -341,10 +374,11 @@ def _install_improvement_runtime_patch() -> None:
                     fallback_from=fallback_from,
                     fallback_reason=fallback_reason,
                 )
-                if not rejected:
+                required_missing = _required_missing_ymyl_findings(findings, accepted)
+                if not rejected and not required_missing:
                     return ai_summary, accepted, None
 
-                repair_findings = _repair_findings(findings, rejected)
+                repair_findings = _repair_scope_findings(findings, rejected, accepted)
                 if not repair_findings:
                     return (
                         ai_summary,
@@ -359,6 +393,7 @@ def _install_improvement_runtime_patch() -> None:
                 repair_context = {
                     "contract_version": improvement.CONTRACT_VERSION,
                     "repair_of_partial_response": True,
+                    "required_ymyl_completion": bool(required_missing),
                     "target": request_context["target"],
                     "page": request_context["page"],
                     "findings": repair_findings,
@@ -366,15 +401,15 @@ def _install_improvement_runtime_patch() -> None:
                     "governance": request_context["governance"],
                 }
                 repair_text = (
-                    "Repair only the rejected Improvement Intelligence recommendations below. "
+                    "Complete only the rejected recommendations and any required YMYL findings below. "
                     "Do not re-analyze or repeat findings that were already accepted. Use only evidence_ids "
                     "listed inside each supplied finding; never add another evidence id.\n"
                     + json.dumps(repair_context, ensure_ascii=False, default=str)
                 )
                 repair_instructions = (
                     instructions
-                    + " This is a bounded repair pass for previously rejected items only. Return recommendations "
-                    "only for the supplied findings and use only their explicitly listed evidence_ids."
+                    + " This is a bounded repair pass for rejected items and required YMYL coverage. Return exactly "
+                    "one recommendation for each supplied YMYL finding and use only explicitly listed evidence_ids."
                 )
                 repair_payload = orchestration._structured_payload(
                     provider,
@@ -414,6 +449,21 @@ def _install_improvement_runtime_patch() -> None:
                         repair_summary, repaired, still_rejected = _validate_partial_recommendations(
                             improvement, repair_extracted, repair_findings, repair_limit
                         )
+                        expected_ids = {
+                            str(item.get("finding_id") or "")
+                            for item in repair_findings
+                            if item.get("finding_id")
+                        }
+                        returned_ids = {
+                            str(item.get("finding_id") or "")
+                            for item in repaired
+                            if item.get("finding_id")
+                        }
+                        for missing_id in sorted(expected_ids - returned_ids):
+                            still_rejected.append({
+                                "finding_id": missing_id,
+                                "reason": "required repair recommendation omitted",
+                            })
                         if still_rejected:
                             repair_status = AttemptStatus.CONTRACT_ERROR
                             repair_diag = ProviderDiagnostic(

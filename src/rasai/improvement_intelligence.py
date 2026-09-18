@@ -970,6 +970,12 @@ def build_improvement_request_context(
         audit_id,
         page_url=context.url,
     )
+    required_ymyl_finding_ids = [
+        str(item.get("finding_id"))
+        for item in findings
+        if str(item.get("source") or "").upper() == "SEMANTIC_COHERENCE_YMYL"
+        and item.get("finding_id")
+    ]
     request_context = {
         "contract_version": CONTRACT_VERSION,
         "target": {
@@ -993,12 +999,20 @@ def build_improvement_request_context(
             "ranking_causality": "FORBIDDEN",
             "human_review_required": True,
             "ymyl_is_context_not_compliance": True,
+            "required_ymyl_recommendation_finding_ids": required_ymyl_finding_ids,
         },
     }
     instructions = (
         _instructions(language, config.domains)
         + " "
         + ymyl_prompt_directive(editorial_context)
+        + (
+            " Every finding listed in governance.required_ymyl_recommendation_finding_ids "
+            "must receive exactly one evidence-bound recommendation when it is supplied in this request. "
+            "Do not omit those findings merely because other findings have higher generic priority."
+            if required_ymyl_finding_ids
+            else ""
+        )
     )
     return request_context, instructions
 

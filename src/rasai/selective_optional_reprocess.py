@@ -375,29 +375,31 @@ def _augment_reconciliation_configuration() -> None:
             )
 
             environment = os.environ
+            existing = dict(getattr(item, "configuration", {}) or {})
             values: dict[str, Any] = {
                 "requested": True,
-                "provider": str(environment.get(PROVIDER_ENV) or item.configuration.get("provider") or ""),
-                "model": str(environment.get(MODEL_ENV) or item.configuration.get("model") or ""),
-                "reasoning": str(environment.get(REASONING_ENV) or item.configuration.get("reasoning") or ""),
-                "domains": [value.strip().upper() for value in str(environment.get(DOMAINS_ENV) or "").replace(";", ",").split(",") if value.strip()] or list(DEFAULT_DOMAINS),
-                "max_recommendations": str(environment.get(MAX_RECOMMENDATIONS_ENV) or "30"),
-                "timeout_seconds": str(environment.get(TIMEOUT_ENV) or "240"),
-                "language": str(environment.get(AI_ANALYSIS_LANGUAGE_ENV) or "auto"),
+                "provider": existing.get("provider") or str(environment.get(PROVIDER_ENV) or ""),
+                "model": existing.get("model") or str(environment.get(MODEL_ENV) or ""),
+                "reasoning": existing.get("reasoning") or str(environment.get(REASONING_ENV) or ""),
+                "domains": existing.get("domains") or [
+                    value.strip().upper()
+                    for value in str(environment.get(DOMAINS_ENV) or "").replace(";", ",").split(",")
+                    if value.strip()
+                ] or list(DEFAULT_DOMAINS),
+                "max_recommendations": existing.get("max_recommendations") or str(environment.get(MAX_RECOMMENDATIONS_ENV) or "30"),
+                "timeout_seconds": existing.get("timeout_seconds") or str(environment.get(TIMEOUT_ENV) or "240"),
+                "language": existing.get("language") or str(environment.get(AI_ANALYSIS_LANGUAGE_ENV) or "auto"),
             }
-            try:
-                cfg = ImprovementConfig.from_environment()
-            except Exception:
-                pass
-            else:
+            run = _improvement_run(workspace, audit_id)
+            if run is not None:
+                domains = _json_load(run.get("domains_json"), values["domains"])
                 values.update({
-                    "provider": cfg.provider,
-                    "model": cfg.model,
-                    "reasoning": cfg.reasoning,
-                    "domains": list(cfg.domains),
-                    "max_recommendations": cfg.max_recommendations,
-                    "timeout_seconds": cfg.timeout_seconds,
-                    "language": cfg.language,
+                    "provider": run.get("provider") or values["provider"],
+                    "model": run.get("model") or values["model"],
+                    "reasoning": run.get("reasoning") or values["reasoning"],
+                    "domains": domains if isinstance(domains, list) else values["domains"],
+                    "max_recommendations": run.get("max_recommendations") or values["max_recommendations"],
+                    "language": run.get("analysis_language") or values["language"],
                 })
             register_work_item(
                 workspace,

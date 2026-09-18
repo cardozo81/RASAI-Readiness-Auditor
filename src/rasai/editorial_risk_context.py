@@ -3,7 +3,7 @@
 Operator configuration remains canonical in content_analysis_contexts. AUTO
 interpretations are execution-scoped AI inference and are never promoted to configured
 facts or direct score inputs. The helper combines canonical configuration, persisted or
-current-execution AUTO interpretation, and the existing SC-P12 coherence assessment.
+current-execution AUTO interpretation, and the YMYL-relevant SC-P11/SC-P12/SC-P13 coherence assessments.
 """
 from __future__ import annotations
 
@@ -12,6 +12,8 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Mapping
 
+
+_YMYL_COHERENCE_CRITERIA = {"SC-P11", "SC-P12", "SC-P13"}
 
 _YMYL_ALIGNMENT_LABELS = {
     "COHERENT": "Aderente ao contexto YMYL observado",
@@ -104,6 +106,49 @@ def ymyl_alignment_label(value: Any) -> str:
     return _YMYL_ALIGNMENT_LABELS.get(token, token.replace("_", " ").title())
 
 
+def _configuration_relation(
+    canonical: Mapping[str, Any],
+    interpretations: Mapping[str, Mapping[str, Any]],
+    *,
+    effective_profile: Any,
+    effective_category: Any,
+) -> dict[str, Any]:
+    configured_profile = str(canonical.get("risk_profile") or "auto").casefold()
+    configured_category = str(canonical.get("ymyl_category") or "auto").casefold()
+    interpreted_category = interpretations.get("ymyl_category") or {}
+
+    conflict = False
+    if configured_profile not in {"", "auto"} and str(effective_profile or "").casefold() != configured_profile:
+        conflict = True
+    if (
+        configured_category not in {"", "auto"}
+        and str(effective_category or "").casefold() != configured_category
+    ):
+        conflict = True
+
+    if conflict:
+        label = "Há divergência entre a parametrização canônica e o contexto efetivo; exige revisão humana."
+    elif configured_profile == "ymyl" and configured_category == "auto":
+        interpreted = str(interpreted_category.get("value") or effective_category or "não determinável")
+        label = (
+            "A parametrização do usuário foi respeitada: o perfil YMYL permaneceu canônico "
+            f"e somente a categoria AUTO foi interpretada pela IA como {interpreted}."
+        )
+    elif configured_profile == "ymyl":
+        label = "A parametrização YMYL do usuário foi respeitada e não foi substituída pela IA."
+    else:
+        label = "A configuração canônica foi preservada; campos AUTO podem receber interpretação de IA sem sobrescrevê-la."
+
+    return {
+        "conflict": conflict,
+        "label": label,
+        "configured_profile": canonical.get("risk_profile"),
+        "configured_category": canonical.get("ymyl_category"),
+        "effective_profile": effective_profile,
+        "effective_category": effective_category,
+    }
+
+
 def build_editorial_risk_context(
     workspace: Any,
     audit_id: str,
@@ -151,7 +196,8 @@ def build_editorial_risk_context(
                     interpretations[field] = candidate
 
             for row in _rows(connection, "semantic_coherence_assessments", audit_id):
-                if str(row.get("criterion_id") or "") != "SC-P12":
+                criterion_id = str(row.get("criterion_id") or "")
+                if criterion_id not in _YMYL_COHERENCE_CRITERIA:
                     continue
                 row_url = str(row.get("page_url") or "")
                 if page_url and row_url and row_url != page_url:
@@ -163,7 +209,7 @@ def build_editorial_risk_context(
                 )
                 coherence.append(
                     {
-                        "criterion_id": "SC-P12",
+                        "criterion_id": criterion_id,
                         "page_url": row.get("page_url"),
                         "snapshot_id": row.get("snapshot_id"),
                         "result": str(row.get("result") or "NOT_DETERMINABLE").upper(),
@@ -243,6 +289,19 @@ def build_editorial_risk_context(
     effective_profile = effective("risk_profile")
     effective_category = effective("ymyl_category")
     alignment = _alignment_result(coherence)
+    relation = _configuration_relation(
+        canonical,
+        interpretations,
+        effective_profile=effective_profile,
+        effective_category=effective_category,
+    )
+    content_change_required: bool | None
+    if alignment in {"PARTIAL", "INCOHERENT"}:
+        content_change_required = True
+    elif alignment in {"COHERENT", "NOT_APPLICABLE"}:
+        content_change_required = False
+    else:
+        content_change_required = None
     evidence_ids = list(
         dict.fromkeys(
             [
@@ -269,6 +328,15 @@ def build_editorial_risk_context(
             "effective_category": effective_category,
             "alignment_result": alignment,
             "alignment_label": ymyl_alignment_label(alignment),
+            "configuration_relation": relation,
+            "content_change_required": content_change_required,
+            "content_change_label": (
+                "Há lacunas YMYL acionáveis no conteúdo observado."
+                if content_change_required is True
+                else "Nenhuma mudança YMYL é indicada pelos critérios avaliados."
+                if content_change_required is False
+                else "Não há evidência suficiente para concluir se o conteúdo precisa mudar."
+            ),
             "coherence": coherence,
             "evidence_ids": evidence_ids,
         },
