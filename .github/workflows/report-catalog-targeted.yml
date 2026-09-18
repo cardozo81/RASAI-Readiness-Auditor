@@ -12,6 +12,7 @@ on:
       - 'src/rasai/editorial_risk_context.py'
       - 'src/rasai/selective_optional_reprocess.py'
       - 'tests/test_report_catalog_public_labels.py'
+      - 'tests/test_catalog_report_final_refinements.py'
       - 'tests/test_cat03_ptbr_labels.py'
       - 'tests/test_ymyl_context_flow.py'
       - 'tests/test_improvement_fulfillment_effective_config.py'
@@ -26,6 +27,7 @@ on:
       - 'src/rasai/editorial_risk_context.py'
       - 'src/rasai/selective_optional_reprocess.py'
       - 'tests/test_report_catalog_public_labels.py'
+      - 'tests/test_catalog_report_final_refinements.py'
       - 'tests/test_cat03_ptbr_labels.py'
       - 'tests/test_ymyl_context_flow.py'
       - 'tests/test_improvement_fulfillment_effective_config.py'
@@ -49,6 +51,7 @@ jobs:
         run: >-
           pytest -q
           tests/test_report_catalog_public_labels.py
+          tests/test_catalog_report_final_refinements.py
           tests/test_cat03_ptbr_labels.py
           tests/test_ymyl_context_flow.py
           tests/test_improvement_fulfillment_effective_config.py
