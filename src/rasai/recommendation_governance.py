@@ -31,6 +31,7 @@ _INTERNAL_MARKERS = (
     "provider fallback", "telemetria", "telemetry", "persistência interna", "internal persistence",
 )
 _JSONLD_EXISTING_RE = re.compile(r"\b(corrigir|ajustar|alterar|atualizar|reparar|fix|update|repair)\b.*\b(json-?ld|dados estruturados|structured data)\b.*\b(existente|existing|atual|current)\b", re.I)
+_NEUTRAL_DISCOVERY_RULES = frozenset({"BR-GEO-003", "BR-GEO-017", "BR-GEO-055", "BR-GEO-056"})
 
 
 def _now() -> str:
@@ -133,6 +134,48 @@ def _request_target(row: Mapping[str, Any]) -> str:
     return INFORMATIONAL
 
 
+def _neutral_discovery_observation(rule_id: Any, observed_value: Any) -> bool:
+    rule = str(rule_id or "").upper()
+    if rule not in _NEUTRAL_DISCOVERY_RULES:
+        return False
+    observed = _load(observed_value, {})
+    if not isinstance(observed, Mapping):
+        return False
+    if rule == "BR-GEO-017":
+        return str(observed.get("state") or "").upper() == "ABSENT"
+    if rule == "BR-GEO-003":
+        sitemaps = observed.get("sitemaps")
+        if not isinstance(sitemaps, list) or not sitemaps:
+            return False
+        material = [item for item in sitemaps if isinstance(item, Mapping)]
+        return bool(material) and all(
+            str(item.get("state") or "").upper() == "ABSENT"
+            and not item.get("error")
+            for item in material
+        )
+    return str(observed.get("ai_verdict") or "").upper() == "NEUTRAL"
+
+
+def _deterministic_discovery_is_informational(row: Mapping[str, Any]) -> bool:
+    observations: list[tuple[Any, Any]] = []
+    if row.get("rule_id"):
+        observations.append((row.get("rule_id"), row.get("observed_value")))
+    linked = row.get("_governance_linked_findings")
+    if isinstance(linked, (list, tuple)):
+        for item in linked:
+            if isinstance(item, Mapping) and item.get("rule_id"):
+                observations.append((item.get("rule_id"), item.get("observed_value")))
+    relevant = [
+        (rule_id, observed)
+        for rule_id, observed in observations
+        if str(rule_id or "").upper() in _NEUTRAL_DISCOVERY_RULES
+    ]
+    return bool(relevant) and all(
+        _neutral_discovery_observation(rule_id, observed)
+        for rule_id, observed in relevant
+    )
+
+
 def classify_candidate(source_kind: str, row: Mapping[str, Any]) -> tuple[str, str, str | None, str | None, str]:
     """Return target_class, decision, rejection_reason, conflict_group and rationale."""
     source = str(source_kind).upper()
@@ -150,6 +193,14 @@ def classify_candidate(source_kind: str, row: Mapping[str, Any]) -> tuple[str, s
         return TARGET_SITE, decision, reason, conflict, rationale
     if source == "M24_DISCOVERY":
         return INFORMATIONAL, ACCEPTED, None, None, "Orientação técnica contextual; requer decisão humana antes de implementação."
+    if source == "DETERMINISTIC" and _deterministic_discovery_is_informational(row):
+        return (
+            INFORMATIONAL,
+            REJECTED,
+            "DISCOVERY_NEUTRAL_STATE_HUMAN_DECISION",
+            "DISCOVERY_RESOURCE_STATE",
+            "A evidência persistida descreve ausência válida ou avaliação neutra de robots/sitemap; não há base para transformar esse estado em correção automática do ativo.",
+        )
     if source in {"DETERMINISTIC", "CONTENT_AI", "DEEP_ANALYSIS"}:
         return TARGET_SITE, ACCEPTED, None, None, "A origem descreve uma mudança no ativo auditado e mantém vínculo com o finding/evidência de origem."
     return INFORMATIONAL, REJECTED, "UNCLASSIFIED_RECOMMENDATION_SOURCE", "TARGET_SCOPE", "A origem não possui contrato de ownership reconhecido."
@@ -204,11 +255,33 @@ def collect_candidates(connection: sqlite3.Connection, audit_id: str) -> list[di
 
     findings = {str(row.get("finding_id")): row for row in _rows(connection, "findings", audit_id)}
     roots = {str(row.get("finding_id")): row for row in _rows(connection, "root_cause_analyses", audit_id)}
+    groups = {str(row.get("group_id")): row for row in _rows(connection, "remediation_groups", audit_id)}
     for row in _rows(connection, "recommendations", audit_id):
         finding_id = str(row.get("finding_id") or "")
-        root = roots.get(finding_id, {})
-        merged = {**root, **row}
-        evidence = _evidence_values(findings.get(finding_id, {})) + _evidence_values(root)
+        group = groups.get(str(row.get("remediation_group_id") or ""), {})
+        affected = _load(group.get("affected_findings"), []) if group else []
+        linked_ids = (
+            [finding_id]
+            if finding_id
+            else [str(item) for item in affected if str(item).strip()]
+            if isinstance(affected, (list, tuple))
+            else []
+        )
+        linked_findings = [findings[item] for item in linked_ids if item in findings]
+        linked_roots = [roots[item] for item in linked_ids if item in roots]
+        primary_root = linked_roots[0] if len(linked_roots) == 1 else {}
+        merged = {
+            **primary_root,
+            **group,
+            **row,
+            "_governance_linked_findings": linked_findings,
+            "_governance_linked_roots": linked_roots,
+        }
+        evidence: list[str] = []
+        for source_row in (*linked_findings, *linked_roots):
+            for item in _evidence_values(source_row):
+                if item not in evidence:
+                    evidence.append(item)
         candidates.append(_candidate("DETERMINISTIC", row.get("recommendation_id"), row.get("title"), merged, source_catalog="CAT-09", evidence=evidence))
 
     for row in _rows(connection, "content_remediation_suggestions", audit_id):
