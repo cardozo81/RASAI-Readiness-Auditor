@@ -1,5 +1,5 @@
 name: Passive Security Targeted
-# HEAD validation: CAT-10 only; intentionally excludes broad suites.
+# HEAD validation: CAT-10 only; intentionally excludes broad suites. Final-code.
 
 on:
   push:
