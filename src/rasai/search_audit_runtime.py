@@ -423,9 +423,15 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
 
     try:
         runtime_snapshot = SerpRuntimeConfig.from_environment(validate=False)
+        runtime_registration = serp_provider_registration(runtime_snapshot.provider)
         runtime_configuration = {
             "mode": str(runtime_snapshot.mode),
             "provider": str(runtime_snapshot.provider),
+            "engine": (
+                str(runtime_registration.engine)
+                if runtime_registration is not None
+                else str(runtime_snapshot.provider)
+            ),
             "fixture_path": str(runtime_snapshot.fixture_path) if runtime_snapshot.fixture_path else "",
             "max_queries": int(runtime_snapshot.max_queries),
             "max_requests": int(runtime_snapshot.max_requests),

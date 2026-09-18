@@ -1271,7 +1271,8 @@ def _remediation_html(database: Any, data: Any) -> str:
     unique_findings = len({str(row.get("finding_id")) for row in deep_findings if row.get("finding_id")}); unique_deep = len(covered); without = max(0, unique_findings - unique_deep)
     if deep_run and deep_run.get("max_recommendations") and without: lead += f"<div class='notice'><strong>Cobertura da análise profunda:</strong> {unique_findings} problema(s) foram correlacionados; {unique_deep} possuem remediação individual persistida. O limite configurado foi {int(deep_run.get('max_recommendations'))} recomendações.</div>"
     if rows: lead += "<div class='metric-grid'>" + a._metric("Correções e melhorias apresentadas", len(rows)) + a._metric("Remediações W3C", len(w3c_rows)) + a._metric("Remediações da análise profunda", len(deep)) + a._metric("Achados sem remediação IA individual", without) + a._metric("Orientações técnicas de descoberta", len(ai_discovery)) + "</div>"
-    return lead + a._table(("Correção / melhoria", "Domínio", "Prioridade", "Origem", "Detalhe"), rows, empty="Nenhuma remediação persistida para esta auditoria.", sortable=bool(rows), page_size=10 if len(rows) > 10 else None) + "".join(modals)
+    anchor = "<span id='w3c-remediation'></span>" if w3c_rows else ""
+    return lead + anchor + a._table(("Correção / melhoria", "Domínio", "Prioridade", "Origem", "Detalhe"), rows, empty="Nenhuma remediação persistida para esta auditoria.", sortable=bool(rows), page_size=10 if len(rows) > 10 else None) + "".join(modals)
 
 
 def _apply_report_overrides() -> None:

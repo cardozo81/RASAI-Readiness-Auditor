@@ -274,10 +274,8 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             raw_catalog_bodies[filename]=_catalog_body(database,data,catalog.id)
             bodies[filename]=raw_catalog_bodies[filename]
         assurance=assess_catalogs(database,data,bodies)
-        assurance_by_catalog={row["catalog_id"]:row for row in assurance["catalogs"]}
-        for catalog in CATALOGS:
-            filename=CATALOG_PAGE_BY_ID[catalog.id].filename
-            bodies[filename]=raw_catalog_bodies[filename]+catalog_assurance_html(assurance_by_catalog[catalog.id])
+        # Structural assurance is consolidated in the overview matrix. Catalog pages
+        # keep only their functional/configuration/evidence/remediation content.
         bodies["index.html"]+=assurance_matrix_html(assurance)
         for page in CATALOG_REPORT_PAGES:
             body=bodies.get(page.filename)

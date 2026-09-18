@@ -8,6 +8,7 @@ import sqlite3
 from typing import Any
 
 from rasai.m18_ai import ProviderAttempt
+from rasai.m18_persistence import current_attempt_governance
 from rasai.persistence import AuditWorkspace
 
 
@@ -142,7 +143,10 @@ class M20Persistence:
                     pricing_version TEXT,
                     request_message_summary TEXT NOT NULL,
                     request_payload_hash TEXT,
-                    contract_version TEXT NOT NULL
+                    contract_version TEXT NOT NULL,
+                    operation TEXT,
+                    ai_task_id TEXT,
+                    ai_round_id TEXT
                 );
 
                 CREATE TABLE IF NOT EXISTS jsonld_remediation_suggestions (
@@ -168,6 +172,17 @@ class M20Persistence:
                     ON jsonld_remediation_suggestions(audit_id,page_id,device);
                 """
             )
+            existing_attempt_columns = {
+                str(row["name"])
+                for row in self._connection.execute(
+                    "PRAGMA table_info(content_remediation_attempts)"
+                ).fetchall()
+            }
+            for column in ("operation", "ai_task_id", "ai_round_id"):
+                if column not in existing_attempt_columns:
+                    self._connection.execute(
+                        f"ALTER TABLE content_remediation_attempts ADD COLUMN {column} TEXT"
+                    )
 
     def upsert_run(self, run: ContentRemediationRun) -> None:
         with self._connection:
@@ -235,11 +250,22 @@ class M20Persistence:
     ) -> None:
         diagnostic = attempt.diagnostic
         usage = attempt.usage
+        governance = current_attempt_governance()
+        operation = ai_task_id = ai_round_id = None
+        if governance is not None:
+            operation, ai_task_id, ai_round_id = governance
         with self._connection:
             self._connection.execute(
                 """
-                INSERT INTO content_remediation_attempts VALUES (
-                    ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
+                INSERT INTO content_remediation_attempts (
+                    attempt_id,audit_id,page_id,snapshot_id,device,url,provider,model,
+                    reasoning_profile,provider_rank,attempt_index,started_at,finished_at,
+                    duration_ms,status,http_status,error_class,error_type,error_code,request_id,
+                    input_tokens,cached_input_tokens,output_tokens,reasoning_tokens,total_tokens,
+                    estimated_cost,cost_currency,pricing_version,request_message_summary,
+                    request_payload_hash,contract_version,operation,ai_task_id,ai_round_id
+                ) VALUES (
+                    ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
                 )
                 """,
                 (
@@ -274,6 +300,9 @@ class M20Persistence:
                     attempt.request_message_summary[:512],
                     attempt.request_payload_hash,
                     attempt.semantic_contract_version,
+                    operation,
+                    ai_task_id,
+                    ai_round_id,
                 ),
             )
 

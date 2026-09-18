@@ -511,6 +511,10 @@ def _consistent_standards_summary(database: Path, data: Any) -> str:
         detail: Any = "-"
         if key in {"w3c_html_conformance", "w3c_css_conformance"}:
             detail, modal = _w3c_detail_modal(e, item, index=index)
+            detail = e._Html(
+                str(detail)
+                + " · <a href='cat-09.html#w3c-remediation'>Ver remediações no CAT-09</a>"
+            )
             modals.append(modal)
         rows.append((wanted[key], value, e._status_label(item.get("state") or item.get("status")), detail))
     for item in services:

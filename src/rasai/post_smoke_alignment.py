@@ -568,6 +568,81 @@ def _backfill_semantic_task(workspace: Any, audit_id: str) -> None:
         )
 
 
+def _prepare_content_task(workspace: Any, audit_id: str) -> tuple[str, str, tuple[str, ...]]:
+    """Create the M20 task and first round before any provider attempt."""
+    from rasai import m20
+    from rasai.ai_governance import begin_round, latest_evidence_snapshot, register_task
+
+    snapshot = latest_evidence_snapshot(workspace, audit_id)
+    if snapshot is None:
+        raise RuntimeError("CONTENT_REMEDIATION_REQUIRES_SEALED_EVIDENCE")
+    requests = m20._load_requests(audit_id=audit_id, workspace=workspace)
+    requirements = tuple(
+        dict.fromkeys(
+            f"FINDING:{finding.finding_id}"
+            for request in requests
+            for finding in request.findings
+            if finding.finding_id
+        )
+    ) or ("CONTENT_REMEDIATION_RESULT",)
+    task_id = register_task(
+        workspace=workspace,
+        audit_id=audit_id,
+        purpose="CONTENT_REMEDIATION",
+        scope_type="AUDIT",
+        scope_key="AUDIT",
+        evidence_snapshot_id=snapshot.evidence_snapshot_id,
+        requirements=requirements,
+        semantic_contract_version="M20-CONTENT-REMEDIATION-v3",
+    )
+    round_id = begin_round(
+        workspace=workspace,
+        ai_task_id=task_id,
+        requested_requirements=requirements,
+        input_payload={
+            "evidence_snapshot_id": snapshot.evidence_snapshot_id,
+            "request_contexts": len(requests),
+            "finding_count": sum(len(request.findings) for request in requests),
+        },
+        input_summary={
+            "request_contexts": len(requests),
+            "eligible_findings": sum(len(request.findings) for request in requests),
+        },
+    )
+    return task_id, round_id, requirements
+
+
+def _complete_content_task(
+    workspace: Any,
+    round_id: str,
+    requirements: Sequence[str],
+    result: Any,
+    *,
+    failed: bool = False,
+) -> None:
+    from rasai.ai_governance import complete_round
+
+    status = str(getattr(result, "status", "") or "").upper()
+    success = not failed and status == "SUCCESS"
+    complete_round(
+        workspace=workspace,
+        ai_round_id=round_id,
+        accepted=(
+            {requirement: {"status": "SUCCESS"} for requirement in requirements}
+            if success
+            else {}
+        ),
+        rejected={},
+        missing=() if success else requirements,
+        output_payload={
+            "status": status or ("FAILED" if failed else "UNKNOWN"),
+            "generated_suggestions": len(getattr(result, "suggestion_ids", ()) or ()),
+            "attempted_contexts": int(getattr(result, "attempted_contexts", 0) or 0),
+        },
+        failed=not success,
+    )
+
+
 def _backfill_content_task(workspace: Any, audit_id: str) -> None:
     from rasai.ai_governance import begin_round, complete_round, latest_evidence_snapshot, register_task
     snapshot = latest_evidence_snapshot(workspace, audit_id)
@@ -648,8 +723,12 @@ def _backfill_content_task(workspace: Any, audit_id: str) -> None:
 def _install_ai_governance_completion() -> None:
     """Ensure semantic/content AI expose dependency + task/round provenance."""
     from rasai import audit_runner
+    from rasai import m7 as m7_module
+    from rasai.m18_persistence import attempt_governance
 
-    current_m7 = audit_runner.execute_m7
+    # audit_runner imported execute_m7 by value. Resolve the current canonical M7 owner
+    # here so semantic_partial_runtime's task/round wrapper runs before the provider.
+    current_m7 = m7_module.execute_m7
     if not bool(getattr(current_m7, "_rasai_post_smoke_governance", False)):
         def execute_m7(*args: Any, **kwargs: Any):
             audit_id = str(kwargs.get("audit_id") or "")
@@ -676,17 +755,39 @@ def _install_ai_governance_completion() -> None:
             audit_id = str(kwargs.get("audit_id") or "")
             workspace = kwargs.get("workspace")
             enabled = bool(kwargs.get("enabled"))
-            if audit_id and workspace is not None and enabled:
-                _record_dependency(
-                    workspace=workspace,
-                    audit_id=audit_id,
-                    purpose="CONTENT_REMEDIATION",
-                    extra_name="CONTENT_FINDINGS_CONTEXT",
-                    ready=True,
+            if not (audit_id and workspace is not None and enabled):
+                return current_m20(*args, **kwargs)
+
+            _record_dependency(
+                workspace=workspace,
+                audit_id=audit_id,
+                purpose="CONTENT_REMEDIATION",
+                extra_name="CONTENT_FINDINGS_CONTEXT",
+                ready=True,
+            )
+            task_id, round_id, requirements = _prepare_content_task(workspace, audit_id)
+            try:
+                with attempt_governance(
+                    operation="CONTENT_REMEDIATION",
+                    ai_task_id=task_id,
+                    ai_round_id=round_id,
+                ):
+                    result = current_m20(*args, **kwargs)
+            except Exception:
+                _complete_content_task(
+                    workspace,
+                    round_id,
+                    requirements,
+                    None,
+                    failed=True,
                 )
-            result = current_m20(*args, **kwargs)
-            if audit_id and workspace is not None and enabled:
-                _backfill_content_task(workspace, audit_id)
+                raise
+            _complete_content_task(
+                workspace,
+                round_id,
+                requirements,
+                result,
+            )
             return result
         execute_m20._rasai_post_smoke_governance = True
         execute_m20._rasai_original = current_m20

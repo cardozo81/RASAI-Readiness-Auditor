@@ -21,6 +21,10 @@ _ATTEMPT_GOVERNANCE: ContextVar[
 ] = ContextVar("rasai_ai_attempt_governance", default=None)
 
 
+def current_attempt_governance() -> tuple[str | None, str | None, str | None] | None:
+    return _ATTEMPT_GOVERNANCE.get()
+
+
 @contextmanager
 def attempt_governance(
     *,

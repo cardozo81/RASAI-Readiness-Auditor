@@ -52,10 +52,25 @@ _PRIVATE_KEY_END = "-----END " + "PRIVATE KEY-----"
 _PRIVATE_KEY_BLOCK_RE = re.compile(
     re.escape(_PRIVATE_KEY_BEGIN) + r".*?" + re.escape(_PRIVATE_KEY_END), re.DOTALL
 )
+_OPENAI_SECRET_CANDIDATE_RE = re.compile(r"\bsk-[A-Za-z0-9_-]{24,}\b")
 _KNOWN_SECRET_RE = re.compile(
-    r"(?:sk-[A-Za-z0-9_-]{24,}|gh[pousr]_[A-Za-z0-9_]{12,}|AIza[A-Za-z0-9_-]{20,}|"
+    r"(?:gh[pousr]_[A-Za-z0-9_]{12,}|AIza[A-Za-z0-9_-]{20,}|"
     r"xox[baprs]-[A-Za-z0-9-]{12,}|AKIA[A-Z0-9]{16})"
 )
+
+
+def _looks_like_openai_secret(value: str) -> bool:
+    """Require token-like material, not merely a long DOM/CSS identifier prefixed with sk-."""
+    text = _placeholder_candidate(value)
+    match = _OPENAI_SECRET_CANDIDATE_RE.fullmatch(text)
+    if match is None or is_safe_placeholder(text):
+        return False
+    suffix = text[3:]
+    # Real provider keys are opaque tokens. Human-readable selector/id strings observed
+    # in audited DOMs frequently use sk- but contain no digits; field/header context
+    # remains independently protected by the assignment/header detectors below.
+    return any(ch.isdigit() for ch in suffix)
+
 
 _SAFE_PLACEHOLDER_WORDS = (
     "change_me", "changeme", "replace_me", "example", "placeholder", "redacted",
@@ -147,7 +162,7 @@ def _looks_high_confidence_secret(value: str) -> bool:
     text = _placeholder_candidate(value)
     if not text or is_safe_placeholder(text):
         return False
-    if _KNOWN_SECRET_RE.search(text):
+    if _KNOWN_SECRET_RE.search(text) or _looks_like_openai_secret(text):
         return True
     if len(text) < 24 or any(ch.isspace() for ch in text):
         return False
@@ -204,6 +219,10 @@ def redact_text(value: str) -> str:
     text = _BEARER_RE.sub("Bearer " + REDACTED, text)
     text = _URI_WITH_AUTH_RE.sub(lambda match: redact_url(match.group(0)), text)
     text = _KNOWN_SECRET_RE.sub(REDACTED, text)
+    text = _OPENAI_SECRET_CANDIDATE_RE.sub(
+        lambda match: REDACTED if _looks_like_openai_secret(match.group(0)) else match.group(0),
+        text,
+    )
 
     def quoted_assignment(match: re.Match[str]) -> str:
         name, quote_char, raw = match.group(1), match.group(2), match.group(3)
@@ -338,6 +357,9 @@ def detect_secret_exposures(
 
     for match in _KNOWN_SECRET_RE.finditer(text):
         findings.append(SecretExposure(path, _line_number(text, match.start()), "KNOWN_SECRET_PATTERN", "known credential token pattern"))
+    for match in _OPENAI_SECRET_CANDIDATE_RE.finditer(text):
+        if _looks_like_openai_secret(match.group(0)):
+            findings.append(SecretExposure(path, _line_number(text, match.start()), "KNOWN_SECRET_PATTERN", "OpenAI credential token pattern"))
 
     for match in _URI_WITH_AUTH_RE.finditer(text):
         candidate = match.group(0)
