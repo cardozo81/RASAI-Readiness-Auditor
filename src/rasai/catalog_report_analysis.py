@@ -95,6 +95,8 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         resources=_audit_rows(con,"passive_security_resources",data.audit_id)
         components=_audit_rows(con,"passive_security_components",data.audit_id)
         integrations=_audit_rows(con,"passive_security_integrations",data.audit_id)
+        standards=_audit_rows(con,"standards_metric_observations",data.audit_id)
+        web=_last(con,"web_performance_observations",data.audit_id)
     finally:
         con.close()
 
@@ -153,6 +155,14 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         +_metric("Médios",severities["MEDIUM"])
         +"</div>"
     )
+    best_practices=web.get("best_practices_score") if web else None
+    if best_practices is not None:
+        try:
+            bp=float(best_practices)
+            bp_label=f"{bp*100:.0f} / 100" if 0 <= bp <= 1 else f"{bp:.0f} / 100"
+        except (TypeError,ValueError):
+            bp_label=str(best_practices)
+        summary+="<div class='notice'><strong>Lighthouse Best Practices reutilizado:</strong> "+escape(bp_label)+". Este sinal já coletado é complementar; o CAT-10 não repete Lighthouse nem converte sua nota diretamente em finding.</div>"
 
     limitation_html=""
     if isinstance(limitations,list) and limitations:
@@ -245,6 +255,23 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             _confidence_label(item.get("confidence")),
         ))
 
+    mdn_rows=[]
+    for item in standards:
+        if str(item.get("metric_id") or "")!="mdn_http_observatory":
+            continue
+        details=_safe_json(item.get("details_json"),{})
+        grade=details.get("grade") if isinstance(details,Mapping) else None
+        tests_passed=details.get("tests_passed") if isinstance(details,Mapping) else None
+        tests_failed=details.get("tests_failed") if isinstance(details,Mapping) else None
+        mdn_rows.append((
+            item.get("target") or "-",
+            _status_label(item.get("state")),
+            grade or "-",
+            item.get("value") if item.get("value") is not None else "-",
+            tests_passed if tests_passed is not None else "-",
+            tests_failed if tests_failed is not None else "-",
+        ))
+
     type_rows=[
         (key.replace("_"," ").title(),value)
         for key,value in sorted(types.items())
@@ -268,6 +295,10 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         +"<div class='subsection'><h3>Componentes/versionamento identificáveis</h3>"
         +"<p class='section-lead'>Versão detectada por filename é evidência heurística moderada: pode habilitar correlação OSV, mas o finding permanece potencial até confirmação por inventário/build/SBOM.</p>"
         +_table(("Componente","Versão","Ecossistema","Método","Confiança"),component_rows,empty="Nenhum componente com identificação útil foi detectado.",sortable=bool(component_rows))
+        +"</div>"
+        +"<div class='subsection'><h3>MDN HTTP Observatory reutilizado</h3>"
+        +"<p class='section-lead'>Resultado proveniente da coleta canônica de padrões web; o CAT-10 não dispara uma segunda consulta ao Observatory.</p>"
+        +_table(("Origem","Estado","Grade","Score","Testes aprovados","Testes falhos"),mdn_rows,empty="Nenhuma medição do MDN HTTP Observatory foi persistida nesta AUD.",sortable=bool(mdn_rows))
         +"</div>"
         +"<div class='subsection'><h3>Integrações de segurança</h3>"
         +_table(("Integração","Solicitada","Estado","Tentativas","Sucessos","Detalhe"),integration_rows,empty="Nenhuma integração própria do CAT-10 foi persistida.",sortable=bool(integration_rows))
