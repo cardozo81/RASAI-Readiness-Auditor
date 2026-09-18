@@ -122,6 +122,35 @@ def _search_intelligence_html(database: Path, data: _ReportData) -> str:
     finally:con.close()
 
 
+def _passive_security_metric_rows(database: Path, audit_id: str) -> list[Sequence[Any]]:
+    con=sqlite3.connect(database); con.row_factory=sqlite3.Row
+    try:
+        run=_last(con,"passive_security_runs",audit_id)
+        findings=_audit_rows(con,"passive_security_findings",audit_id)
+        resources=_audit_rows(con,"passive_security_resources",audit_id)
+        components=_audit_rows(con,"passive_security_components",audit_id)
+    finally:
+        con.close()
+    if not run and not findings and not resources:
+        return []
+    severities={key:0 for key in ("CRITICAL","HIGH","MEDIUM","LOW","INFO")}
+    for row in findings:
+        key=_norm(row.get("severity"))
+        if key in severities:
+            severities[key]+=1
+    rows=[
+        ("Páginas analisadas",run.get("pages_analyzed","-") if run else "-","Contagem"),
+        ("Recursos inventariados",len(resources),"Contagem"),
+        ("Componentes identificados",len(components),"Contagem"),
+        ("Findings de segurança",len(findings),"Contagem"),
+    ]
+    for key,label in (("CRITICAL","Críticos"),("HIGH","Altos"),("MEDIUM","Médios"),("LOW","Baixos"),("INFO","Informativos")):
+        rows.append((f"Findings {label}",severities[key],"Contagem"))
+    if run:
+        rows.append(("Estado da análise",_status_label(run.get("status")),"Estado"))
+    return rows
+
+
 def _catalog_metrics(database: Path, data: _ReportData, catalog_id: str) -> list[Sequence[Any]]:
     if catalog_id in {"CAT-01","CAT-03"}:
         out=[]
@@ -137,6 +166,7 @@ def _catalog_metrics(database: Path, data: _ReportData, catalog_id: str) -> list
     if catalog_id=="CAT-05":return _serp_metric_rows(database,data.audit_id)
     if catalog_id=="CAT-06":return _apdex_result_rows(database,data.audit_id,experience=False)
     if catalog_id=="CAT-07":return _apdex_result_rows(database,data.audit_id,experience=True)
+    if catalog_id=="CAT-10":return _passive_security_metric_rows(database,data.audit_id)
     return []
 
 
