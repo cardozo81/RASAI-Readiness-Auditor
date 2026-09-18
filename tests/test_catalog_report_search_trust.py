@@ -550,8 +550,8 @@ def test_competitive_report_exposes_effective_contract_http_evidence_and_ai_gove
     assert "Máx. páginas concorrentes" in html
     assert "1500000" in html
     assert "Resultados SERP recebidos" in html
-    assert "ORGANIC_CANDIDATE" in html
-    assert "PUBLIC_AUTHORITY" in html
+    assert "Candidato orgânico" in html
+    assert "Autoridade pública" in html
     assert "URL solicitada" in html
     assert "QUERY_BODY_COVERAGE_LOWER" in html
     assert "Diferença correlacional; não implica causa de ranking." in html
