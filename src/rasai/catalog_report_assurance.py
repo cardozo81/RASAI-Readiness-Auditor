@@ -187,6 +187,56 @@ def _artifact_integrity(database: Path, audit_id: str, catalog_id: str) -> tuple
     return True, f"{checked} artefato(s) com hash verificável; nenhuma divergência encontrada"
 
 
+def _catalog_referential_integrity(
+    database: Path,
+    audit_id: str,
+    catalog_id: str,
+) -> tuple[bool, str]:
+    """Validate persisted FK integrity only for audit-owned sources of this catalog."""
+    from rasai import catalog_report_catalog_state as state
+
+    failures: list[str] = []
+    checked_tables = 0
+    connection = sqlite3.connect(database)
+    try:
+        for table, _label in state._catalog_source_specs(catalog_id):
+            columns = _columns(connection, table)
+            if "audit_id" not in columns:
+                continue
+            checked_tables += 1
+            try:
+                violations = connection.execute(
+                    f'PRAGMA foreign_key_check("{table}")'
+                ).fetchall()
+            except sqlite3.Error as exc:
+                failures.append(
+                    f"{table}: validação de FK indisponível ({exc.__class__.__name__})"
+                )
+                continue
+            for violation in violations:
+                rowid = violation[1]
+                if rowid is None:
+                    continue
+                owner = connection.execute(
+                    f'SELECT audit_id FROM "{table}" WHERE rowid=?',
+                    (rowid,),
+                ).fetchone()
+                if owner is None or str(owner[0]) != audit_id:
+                    continue
+                failures.append(
+                    f"{table}[rowid={rowid}] -> {violation[2]}"
+                )
+    finally:
+        connection.close()
+
+    if failures:
+        return False, (
+            f"{len(failures)} violação(ões) de integridade referencial nas fontes do catálogo: "
+            + "; ".join(failures[:8])
+        )
+    return True, f"FKs verificadas em {checked_tables} tabela(s) audit-owned; nenhuma violação encontrada"
+
+
 def _secret_free_configuration(data: Any) -> tuple[bool, str]:
     failures: list[str] = []
 
@@ -417,6 +467,11 @@ def assess_catalog(database: Path, data: Any, catalog_id: str, body: str) -> dic
     body_security_ok, body_security_failures = _safe_output(body)
     persisted_secret_ok, persisted_secret_detail = _secret_free_configuration(data)
     artifact_ok, artifact_detail = _artifact_integrity(database, data.audit_id, catalog_id)
+    referential_ok, referential_detail = _catalog_referential_integrity(
+        database,
+        data.audit_id,
+        catalog_id,
+    )
     read_only_ok, read_only_detail = _read_only_guard_present()
 
     checks: list[dict[str, Any]] = []
@@ -476,6 +531,7 @@ def assess_catalog(database: Path, data: Any, catalog_id: str, body: str) -> dic
     checks.extend([
         _check("INT_AI_ATTEMPT_PROVENANCE", "integrity", provenance_ok, provenance_detail),
         _check("INT_CONFIG_HASH", "integrity", plan_ok, "hash do plano confere"),
+        _check("INT_REFERENTIAL_INTEGRITY", "integrity", referential_ok, referential_detail),
         _check("INT_ARTIFACTS", "integrity", artifact_ok, artifact_detail),
         _check("INT_SOURCE_INVENTORY", "integrity", not hidden_sources, "inventário persistido/projetado reconciliado"),
         _check("INT_READ_ONLY_CONTRACT", "integrity", read_only_ok, read_only_detail),

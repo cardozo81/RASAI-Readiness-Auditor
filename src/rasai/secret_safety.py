@@ -66,10 +66,14 @@ def _looks_like_openai_secret(value: str) -> bool:
     if match is None or is_safe_placeholder(text):
         return False
     suffix = text[3:]
-    # Real provider keys are opaque tokens. Human-readable selector/id strings observed
-    # in audited DOMs frequently use sk- but contain no digits; field/header context
-    # remains independently protected by the assignment/header detectors below.
-    return any(ch.isdigit() for ch in suffix)
+    # Current scoped OpenAI key families carry an explicit opaque-key prefix. Legacy
+    # sk- keys were materially longer than DOM identifiers observed in audited pages.
+    # Keep field/header context independently protected by the assignment/header
+    # detectors below while avoiding CamelCase selector IDs such as
+    # sk-BradescoHomePageProcess1UI1.
+    if suffix.startswith(("proj-", "svcacct-", "admin-")):
+        return any(ch.isdigit() for ch in suffix)
+    return len(suffix) >= 32 and any(ch.isdigit() for ch in suffix)
 
 
 _SAFE_PLACEHOLDER_WORDS = (

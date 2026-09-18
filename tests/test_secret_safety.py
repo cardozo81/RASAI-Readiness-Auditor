@@ -178,6 +178,7 @@ def test_openai_secret_detection_distinguishes_opaque_tokens_from_sk_dom_identif
         "sk-LIFEShowcase-Covers-MultibrickCovers",
         "sk-TRAVELHiringProduct-AdditionalTravelers-MultibrickTravelers",
         "sk-CAPHiring-Contract-TermoDiretivaAvisoMessage",
+        "sk-BradescoHomePageProcess1UI1",
     )
     html = " ".join(f"id='{value}'" for value in dom_identifiers)
     assert detect_secret_exposures(html, path="catalog-report.html", strict=True) == ()

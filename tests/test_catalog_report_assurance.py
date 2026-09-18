@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from rasai.catalog_report_assurance import (
     CATALOG_MATURITY_MIN,
     HIGH_ASSURANCE_MIN,
+    _catalog_referential_integrity,
     _read_only_guard_present,
     _safe_output,
     assess_catalog,
@@ -125,6 +126,70 @@ def test_security_scanner_ignores_css_sk_classes_but_detects_credential_assignme
     ok, failures = _safe_output("<pre>api_key='prod-value-93af'</pre>")
     assert ok is False
     assert any("credencial" in item for item in failures)
+
+
+def test_catalog_referential_integrity_detects_audit_owned_fk_violation(monkeypatch, tmp_path: Path) -> None:
+    from rasai import catalog_report_catalog_state as state
+    import sqlite3
+
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE audits(audit_id TEXT PRIMARY KEY);
+            CREATE TABLE page_snapshots(snapshot_id TEXT PRIMARY KEY);
+            CREATE TABLE semantic_coherence_assessments(
+                assessment_id TEXT PRIMARY KEY,
+                audit_id TEXT NOT NULL REFERENCES audits(audit_id),
+                snapshot_id TEXT NOT NULL REFERENCES snapshots(snapshot_id)
+            );
+            INSERT INTO audits VALUES('AUD-ASSURANCE');
+            INSERT INTO page_snapshots VALUES('S1');
+            INSERT INTO semantic_coherence_assessments
+                VALUES('SCA-1','AUD-ASSURANCE','S1');
+            """
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    monkeypatch.setattr(
+        state,
+        "_catalog_source_specs",
+        lambda _catalog_id: (("semantic_coherence_assessments", "Coerência semântica"),),
+    )
+
+    passed, detail = _catalog_referential_integrity(
+        database,
+        "AUD-ASSURANCE",
+        "CAT-03",
+    )
+
+    assert passed is False
+    assert "1 violação(ões)" in detail
+    assert "semantic_coherence_assessments" in detail
+    assert "snapshots" in detail
+
+
+def test_referential_integrity_failure_reduces_integrity_axis(monkeypatch, tmp_path: Path) -> None:
+    from rasai import catalog_report_assurance as assurance
+
+    database = tmp_path / "audit.db"
+    database.write_bytes(b"")
+    _patch_catalog(monkeypatch)
+    monkeypatch.setattr(
+        assurance,
+        "_catalog_referential_integrity",
+        lambda *_args: (False, "1 violação de FK"),
+    )
+
+    result = assess_catalog(database, _data(), "CAT-01", _body())
+
+    assert result["integrity"] < 100.0
+    assert result["closure_eligible"] is False
+    failed = {item["code"] for item in result["checks"] if not item["passed"]}
+    assert "INT_REFERENTIAL_INTEGRITY" in failed
 
 
 def test_read_only_assurance_follows_materializer_wrapper_chain(monkeypatch) -> None:

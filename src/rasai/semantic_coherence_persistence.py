@@ -35,7 +35,7 @@ def _initialize(connection: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS semantic_coherence_assessments (
             assessment_id TEXT PRIMARY KEY,
             audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
-            snapshot_id TEXT NOT NULL REFERENCES snapshots(snapshot_id) ON DELETE CASCADE,
+            snapshot_id TEXT NOT NULL REFERENCES page_snapshots(snapshot_id) ON DELETE CASCADE,
             page_url TEXT NOT NULL,
             criterion_id TEXT NOT NULL,
             result TEXT NOT NULL,
@@ -54,7 +54,7 @@ def _initialize(connection: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS semantic_property_signals (
             observation_id TEXT PRIMARY KEY,
             audit_id TEXT NOT NULL REFERENCES audits(audit_id) ON DELETE CASCADE,
-            snapshot_id TEXT NOT NULL REFERENCES snapshots(snapshot_id) ON DELETE CASCADE,
+            snapshot_id TEXT NOT NULL REFERENCES page_snapshots(snapshot_id) ON DELETE CASCADE,
             page_url TEXT NOT NULL,
             signal_name TEXT NOT NULL,
             value TEXT,

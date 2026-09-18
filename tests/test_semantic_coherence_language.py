@@ -27,9 +27,9 @@ def test_property_coherence_summary_uses_pt_br_description(tmp_path: Path) -> No
         connection.executescript(
             """
             CREATE TABLE audits(audit_id TEXT PRIMARY KEY);
-            CREATE TABLE snapshots(snapshot_id TEXT PRIMARY KEY);
+            CREATE TABLE page_snapshots(snapshot_id TEXT PRIMARY KEY);
             INSERT INTO audits VALUES('AUD-LANG');
-            INSERT INTO snapshots VALUES('S1');
+            INSERT INTO page_snapshots VALUES('S1');
             """
         )
         connection.commit()

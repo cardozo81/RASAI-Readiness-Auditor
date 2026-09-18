@@ -113,10 +113,10 @@ def _workspace(tmp_path: Path) -> AuditWorkspace:
     try:
         with connection:
             connection.execute("CREATE TABLE IF NOT EXISTS audits(audit_id TEXT PRIMARY KEY)")
-            connection.execute("CREATE TABLE IF NOT EXISTS snapshots(snapshot_id TEXT PRIMARY KEY)")
+            connection.execute("CREATE TABLE IF NOT EXISTS page_snapshots(snapshot_id TEXT PRIMARY KEY)")
             connection.execute("INSERT OR IGNORE INTO audits VALUES('AUD-COHERENCE')")
-            connection.execute("INSERT OR IGNORE INTO snapshots VALUES('S1')")
-            connection.execute("INSERT OR IGNORE INTO snapshots VALUES('S2')")
+            connection.execute("INSERT OR IGNORE INTO page_snapshots VALUES('S1')")
+            connection.execute("INSERT OR IGNORE INTO page_snapshots VALUES('S2')")
     finally:
         connection.close()
     return workspace
@@ -186,9 +186,11 @@ def test_property_aggregation_runs_only_from_persisted_page_outputs(tmp_path: Pa
         page_count = connection.execute(
             "SELECT COUNT(*) FROM semantic_coherence_assessments WHERE audit_id='AUD-COHERENCE'"
         ).fetchone()[0]
+        foreign_key_violations = connection.execute("PRAGMA foreign_key_check").fetchall()
     finally:
         connection.close()
 
     assert identity == ("COHERENT", 2)
     assert offering == ("INCOHERENT", 2)
     assert page_count == len(PAGE_COHERENCE_IDS) * 2
+    assert foreign_key_violations == []
