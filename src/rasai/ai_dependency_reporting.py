@@ -6,13 +6,28 @@ import json
 import sqlite3
 from typing import Any
 
+from rasai.catalog_report_public_labels import public_label
+
 _INSTALLED = False
 
 _PURPOSE_LABELS = {
     "TECHNICAL_AI": "IA técnica",
     "DEEP_ANALYSIS": "CAT-08 · análise profunda",
     "SEMANTIC_AI": "CAT-03 · análise semântica",
+    "CONTENT_REMEDIATION": "Remediação de conteúdo",
+    "IMPROVEMENT_INTELLIGENCE": "Análise profunda e melhorias",
+    "COMPETITIVE_INTELLIGENCE": "Inteligência competitiva",
+    "SEMANTIC_M7": "CAT-03 · análise semântica",
+    "REQUEST_REMEDIATION": "Remediação de requisições",
+    "M24_TECHNICAL_REMEDIATION": "Remediação técnica de rastreamento e descoberta",
 }
+
+
+def _purpose_label(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "—"
+    return _PURPOSE_LABELS.get(raw, public_label(raw) or raw.replace("_", " ").title())
 
 
 def _load(value: Any, default: Any) -> Any:
@@ -68,7 +83,7 @@ def dependency_html(database: Any, data: Any) -> str:
         ready = bool(row.get("ready"))
         purpose = str(row.get("purpose") or "—")
         table_rows.append((
-            _PURPOSE_LABELS.get(purpose, purpose),
+            _purpose_label(purpose),
             "Pronto" if ready else "Bloqueado",
             len(expected) if isinstance(expected, list) else "—",
             len(missing) if isinstance(missing, list) else "—",
@@ -76,7 +91,7 @@ def dependency_html(database: Any, data: Any) -> str:
             i._modal_button(modal_id, "Ver dependências"),
         ))
         body = i._kv((
-            ("Finalidade", _PURPOSE_LABELS.get(purpose, purpose)),
+            ("Finalidade", _purpose_label(purpose)),
             ("Estado antes da chamada", "Pronto" if ready else "Bloqueado"),
             ("Escopo", row.get("scope_key") or "AUDIT"),
             ("Dependências esperadas", ", ".join(str(v) for v in expected) if isinstance(expected, list) else str(expected)),
@@ -95,7 +110,7 @@ def dependency_html(database: Any, data: Any) -> str:
                 "<div class='notice warn'><strong>Provider não elegível neste ponto:</strong> o gate registrou contexto "
                 "incompleto; essa decisão deve ocorrer antes da criação de tentativa/custo.</div>"
             )
-        modals.append(i._modal(modal_id, _PURPOSE_LABELS.get(purpose, purpose), "Prontidão do contexto antes do provider", body))
+        modals.append(i._modal(modal_id, _purpose_label(purpose), "Prontidão do contexto antes do provider", body))
 
     content = i._table(
         ("Finalidade", "Prontidão", "Esperadas", "Pendentes", "Registrado em", "Detalhe"),
