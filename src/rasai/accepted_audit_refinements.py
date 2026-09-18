@@ -558,7 +558,7 @@ def _search_intelligence_html(database: Any, data: Any) -> str:
                 except (TypeError, ValueError):
                     pass
             modal_id = f"serp-{index}"
-            device = m._device_label(obs.get("device")) if obs.get("device") else "—"
+            device = m._device_label(obs.get("device")) if obs.get("device") else "-"
             position = f"{min(positions)} a {max(positions)}" if positions else "—"
             reason = _serp_completion_reason(obs, len(results))
             rows.append((

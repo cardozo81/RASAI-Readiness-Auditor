@@ -32,7 +32,7 @@ def _assessment_label(value: Any) -> str:
         "NEEDS_IMPROVEMENT_OR_POOR": "Precisa melhorar / ruim",
         "NOT_APPLICABLE": "Não aplicável",
         "UNAVAILABLE": "Sem dados disponíveis",
-    }.get(raw, str(value or "—").replace("_", " ").title())
+    }.get(raw, str(value or "-").replace("_", " ").title())
 
 
 def _web_metric_rows(database: Any, audit_id: str) -> list[Sequence[Any]]:
@@ -449,9 +449,9 @@ def _remediation_html(database: Any, data: Any) -> str:
         if rec.get("suggested_html"):
             body += "<h3>Proposta corrigida</h3><div class='pre'>" + escape(str(rec.get("suggested_html"))) + "</div>"
         if rec.get("suggested_text"):
-            body += "<h3>Texto sugerido</h3><div class='pre'>" + escape(str(rec.get("suggested_text"))) + "</div>"
+            body += "<h3>Texto sugerido</h3><div class='pre rich-text'>" + str(a._rich_text(rec.get("suggested_text"))) + "</div>"
         if rec.get("verification"):
-            body += "<h3>Critério de validação / como revalidar</h3><p>" + escape(str(rec.get("verification"))) + "</p>"
+            body += "<h3>Critério de validação / como revalidar</h3><p>" + str(a._rich_text(rec.get("verification"))) + "</p>"
         evidence = a._safe_json(rec.get("evidence_ids_json"), [])
         if isinstance(evidence, list) and evidence:
             body += "<details><summary>Ver referências de evidência</summary><div class='detail-body'><p>" + escape(" · ".join(str(v) for v in evidence)) + "</p></div></details>"

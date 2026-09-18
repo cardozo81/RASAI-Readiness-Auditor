@@ -46,7 +46,7 @@ def _work_execution_html(data: _ReportData, catalog_id: str) -> str:
         status=_technical_work_status(row.get("status"))
         rows.append((_friendly_component(row.get("component")),status,_attempt_count_label(row.get("attempt_count")),_modal_button(mid,"Ver execução")))
         modals.append(_modal(mid,_friendly_component(row.get("component")),f"Etapa técnica relacionada a {catalog_id}",
-            _kv((("Conclusão da etapa",status),("Tentativas registradas na etapa",_attempt_count_label(row.get("attempt_count"))),("Escopo técnico",row.get("scope_key") or "—"),("Referência do resultado",row.get("effective_result_ref") or "—"),("Identificador",row.get("work_item_id") or "—")))))
+            _kv((("Conclusão da etapa",status),("Tentativas registradas na etapa",_attempt_count_label(row.get("attempt_count"))),("Escopo técnico",row.get("scope_key") or "-"),("Referência do resultado",row.get("effective_result_ref") or "—"),("Identificador",row.get("work_item_id") or "—")))))
     return _table(("Etapa","Conclusão técnica","Tentativas","Detalhe"),rows,empty="Este domínio não possui uma etapa de execução funcional própria; o estado é derivado de seu resultado persistido.")+"".join(modals)
 
 
