@@ -49,10 +49,18 @@ def _ai_attempts(database: Path, audit_id: str) -> list[dict[str,Any]]:
     con=sqlite3.connect(database);con.row_factory=sqlite3.Row
     try:
         attempts=[]
+        security_only_improvement=False
+        improvement=_last(con,"improvement_intelligence_runs",audit_id)
+        if improvement:
+            domains=_safe_json(improvement.get("domains_json"),[])
+            normalized={_norm(v) for v in domains} if isinstance(domains,list) else set()
+            security_only_improvement=normalized=={"SECURITY"} and bool(_audit_rows(con,"passive_security_runs",audit_id))
         for table,contract_field in (("ai_provider_attempts","semantic_contract_version"),("content_remediation_attempts","contract_version")):
             for r in _audit_rows(con,table,audit_id):
                 d=dict(r); contract=str(d.get(contract_field) or "")
                 purpose,catalog=_AI_PURPOSE_LABELS.get(contract.upper(),(contract or "Chamada de IA",""))
+                if contract.upper()=="IMPROVEMENT-INTELLIGENCE-001" and security_only_improvement:
+                    purpose,catalog="Análise advisory de segurança passiva","CAT-10"
                 d["_source_table"]=table;d["purpose"]=purpose;d["catalog_id"]=catalog;d["contract"]=contract
                 attempts.append(d)
         attempts.sort(key=lambda r:str(r.get("started_at") or ""))
@@ -93,12 +101,35 @@ def _external_integrations(database: Path, audit_id: str) -> list[dict[str,Any]]
             details=_safe_json(r.get("details_json"),{})
             errors=details.get("errors",[]) if isinstance(details,Mapping) else []
             out.append({"name":_friendly_service(service),"status":r.get("state"),"attempts":r.get("targets_attempted",0),"successes":r.get("targets_succeeded",0),"duration_ms":None,"http_status":None,"error":"; ".join(str(v) for v in errors) if isinstance(errors,list) else errors,"url":details.get("endpoint") if isinstance(details,Mapping) else None,"reference":details.get("observations_artifact") if isinstance(details,Mapping) else None,"raw":r})
+        for r in _audit_rows(con,"passive_security_integrations",audit_id):
+            integration=str(r.get("integration_id") or "")
+            if integration=="MDN_OBSERVATORY":
+                continue
+            details=_safe_json(r.get("details_json"),{})
+            out.append({
+                "name":_friendly_service(integration),
+                "status":r.get("state"),
+                "attempts":r.get("attempts",0),
+                "successes":r.get("successes",0),
+                "duration_ms":None,
+                "http_status":None,
+                "error":r.get("error_message") or r.get("error_type"),
+                "url":None,
+                "reference":r.get("artifact_reference"),
+                "raw":{**r,"details_json":details},
+            })
         return out
     finally:con.close()
 
 
 def _ai_usage_detail(attempt: Mapping[str,Any]) -> tuple[str,str,str]:
     contract=str(attempt.get("contract") or "").upper()
+    if contract=="IMPROVEMENT-INTELLIGENCE-001" and str(attempt.get("catalog_id") or "")=="CAT-10":
+        return (
+            "CAT-10 · Segurança passiva",
+            "Findings determinísticos/externos de segurança já persistidos, limitados ao domínio SECURITY; a IA não decide presença de headers, versão de componente ou CVE.",
+            "Interpretar impacto, priorizar e enriquecer remediação. O resultado é advisory, não executa exploração e não altera scores determinísticos.",
+        )
     return _AI_USAGE_DETAILS.get(contract,(attempt.get("catalog_id") or "Transversal","Contexto específico não descrito no contrato desta projeção.","Finalidade registrada pela própria tentativa de IA."))
 
 
