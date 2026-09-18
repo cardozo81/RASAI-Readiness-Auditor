@@ -57,7 +57,7 @@ def test_crux_not_found_is_no_data_and_does_not_make_valid_lighthouse_partial(tm
         (
             "O1","AUD-X","P1","S1","MOBILE","https://example.test/","mobile","PARTIAL",
             "13.0",None,91.0,95.0,93.0,96.0,None,900.0,1100.0,1400.0,20.0,0.01,
-            None,None,None,None,None,None,None,None,"UNAVAILABLE",200,404,
+            None,None,None,None,None,None,None,None,"UNAVAILABLE",200,None,
             "artifacts/psi.json",None,"CRUX:NOT_FOUND","2026-09-14T00:00:00Z",
         ),
     )
@@ -85,14 +85,15 @@ def test_crux_not_found_is_no_data_and_does_not_make_valid_lighthouse_partial(tm
         "SELECT status,error_code FROM web_performance_attempts WHERE attempt_id='A-CRUX'"
     ).fetchone()
     observation = connection.execute(
-        "SELECT status,error_summary FROM web_performance_observations WHERE observation_id='O1'"
+        """SELECT status,error_summary,crux_http_status
+           FROM web_performance_observations WHERE observation_id='O1'"""
     ).fetchone()
     run = connection.execute(
         "SELECT status,reason FROM web_performance_runs WHERE audit_id='AUD-X'"
     ).fetchone()
     connection.close()
     assert attempt == ("NO_DATA", "NO_DATA")
-    assert observation == ("SUCCESS", None)
+    assert observation == ("SUCCESS", None, 404)
     assert run == ("SUCCESS", None)
 
 

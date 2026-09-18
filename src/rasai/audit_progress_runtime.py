@@ -48,6 +48,14 @@ def _audit_id(args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
         value = getattr(item, "audit_id", None)
         if value:
             return str(value)
+    workspace = kwargs.get("workspace")
+    if workspace is None:
+        workspace = next((item for item in args if hasattr(item, "root")), None)
+    root = getattr(workspace, "root", None)
+    if root is not None:
+        workspace_name = Path(root).name
+        if workspace_name.startswith("AUD-"):
+            return workspace_name
     return ""
 
 

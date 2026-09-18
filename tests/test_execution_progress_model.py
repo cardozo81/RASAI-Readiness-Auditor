@@ -5,7 +5,7 @@ import sqlite3
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from rasai.audit_progress_runtime import _content_ai_ready, _flags
+from rasai.audit_progress_runtime import _audit_id, _content_ai_ready, _flags
 from rasai.console_progress_model import phase_bounds, projected_overall, workload_weights
 from rasai.external_observability_progress_runtime import _evidence_ready
 
@@ -112,3 +112,12 @@ def test_content_remediation_gate_uses_semantic_context_not_future_scoring(tmp_p
 
     assert "SCORING" not in flags
     assert "RECOMMENDATION_BUILD" not in flags
+
+
+def test_progress_audit_id_falls_back_to_audit_workspace_name(tmp_path: Path) -> None:
+    workspace = SimpleNamespace(
+        root=tmp_path / "AUD-TRACE",
+        database=tmp_path / "AUD-TRACE" / "audit.db",
+    )
+
+    assert _audit_id((), {"workspace": workspace}) == "AUD-TRACE"
