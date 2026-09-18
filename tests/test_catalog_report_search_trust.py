@@ -329,6 +329,80 @@ def test_common_crawl_error_modal_exposes_exception_and_recovery_steps(tmp_path:
     assert "Falha do Common Crawl não implica erro no site" in html
 
 
+def test_common_crawl_no_capture_404_is_presented_as_coverage_limitation(tmp_path: Path) -> None:
+    database = tmp_path / "audit.db"
+    _audit_db(database)
+    artifact = tmp_path / "artifacts" / "observability" / "common-crawl.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text(
+        json.dumps({
+            "error_details": [{
+                "collection": "CC-MAIN-TEST",
+                "target_url": "https://example.test/",
+                "endpoint": "https://index.commoncrawl.org/CC-MAIN-TEST-index",
+                "error_type": "RuntimeError",
+                "message": 'Common Crawl CDX HTTP 404: {"message": "No Captures found for: https://example.test/"}',
+            }],
+        }),
+        encoding="utf-8",
+    )
+    obs = sqlite3.connect(tmp_path / "observability.db")
+    try:
+        obs.executescript(
+            """
+            CREATE TABLE datasets(
+                dataset_id TEXT PRIMARY KEY,
+                source_type TEXT NOT NULL,
+                capture_method TEXT NOT NULL,
+                period_start TEXT,
+                period_end TEXT,
+                artifact_path TEXT NOT NULL,
+                artifact_sha256 TEXT NOT NULL,
+                metadata TEXT NOT NULL,
+                collected_at TEXT NOT NULL
+            );
+            CREATE TABLE web_archive_observations(
+                record_id TEXT,dataset_id TEXT,collection TEXT,target_url TEXT,captured_at TEXT,
+                status TEXT,mime TEXT,digest TEXT,warc_filename TEXT,warc_offset INTEGER,
+                warc_length INTEGER,metadata_json TEXT
+            );
+            CREATE TABLE behavioral_observations(record_id TEXT,dataset_id TEXT);
+            """
+        )
+        obs.execute(
+            "INSERT INTO datasets VALUES (?,?,?,?,?,?,?,?,?)",
+            (
+                "OBS-CC", "COMMON_CRAWL_CDX_HISTORY", "DIRECT_PUBLIC_INDEX_API",
+                None, None, "artifacts/observability/common-crawl.json", "abc",
+                json.dumps({"requests": 2, "rows": 1, "errors": 1}),
+                "2026-09-18T10:00:00+00:00",
+            ),
+        )
+        obs.execute(
+            "INSERT INTO web_archive_observations VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                "CC-1", "OBS-CC", "CC-MAIN-OLDER", "https://example.test/",
+                "2026-07-20T06:47:07Z", "302", "unk", "digest",
+                "crawl-data/example.warc.gz", 1, 100, "{}",
+            ),
+        )
+        obs.commit()
+    finally:
+        obs.close()
+
+    html = _external_html(database, _data())
+
+    assert "Ver diagnóstico e orientação" in html
+    assert "Execução parcial · coleção sem captura" in html
+    assert "HTTP 404" in html
+    assert "No Captures found for: https://example.test/" in html
+    assert "não encontrou captura da URL na coleção consultada" in html
+    assert "Não é evidência de falha de DNS, proxy, firewall ou conectividade local" in html
+    assert "Verifique conectividade HTTPS, proxy, firewall" not in html
+    assert "dependência realmente pendente/reprocessável" not in html
+    assert "href='https://example.test/&quot;" not in html
+
+
 def test_competitive_report_projects_persisted_ai_result_without_calling_ai(tmp_path: Path) -> None:
     database = tmp_path / "audit.db"
     _audit_db(database)
