@@ -57,7 +57,7 @@ Este documento registra o fechamento do escopo desenvolvido na branch `feature/s
 
 ## CAT-09
 
-- contrato `RECOMMENDATION-GOVERNANCE-001`;
+- contrato `RECOMMENDATION-GOVERNANCE-002`;
 - classificação `TARGET_SITE`, `AUDITOR_INTERNAL`, `EXTERNAL_PROVIDER`, `ENVIRONMENTAL`, `INFORMATIONAL`;
 - decisões `ACCEPTED/REJECTED` persistidas;
 - problemas internos do auditor não entram no plano do cliente;
