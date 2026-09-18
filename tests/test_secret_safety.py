@@ -173,3 +173,22 @@ def test_structured_header_pairs_are_redacted_and_css_sk_classes_are_not_secrets
     assert "TEST_ONLY_BEARER" not in request
     assert detect_secret_exposures("class='sk-header-content sk-toolbar-content'") == ()
 
+def test_openai_secret_detection_distinguishes_opaque_tokens_from_sk_dom_identifiers() -> None:
+    dom_identifiers = (
+        "sk-LIFEShowcase-Covers-MultibrickCovers",
+        "sk-TRAVELHiringProduct-AdditionalTravelers-MultibrickTravelers",
+        "sk-CAPHiring-Contract-TermoDiretivaAvisoMessage",
+    )
+    html = " ".join(f"id='{value}'" for value in dom_identifiers)
+    assert detect_secret_exposures(html, path="catalog-report.html", strict=True) == ()
+    assert redact_text(html) == html
+
+    synthetic_token = "sk-proj-ABCD1234efgh5678IJKL9012mnop3456"
+    findings = detect_secret_exposures(
+        f"provider token {synthetic_token}",
+        path="catalog-report.html",
+        strict=True,
+    )
+    assert any(item.kind == "KNOWN_SECRET_PATTERN" for item in findings)
+    assert synthetic_token not in redact_text(f"token={synthetic_token}")
+    assert REDACTED in redact_text(f"token={synthetic_token}")

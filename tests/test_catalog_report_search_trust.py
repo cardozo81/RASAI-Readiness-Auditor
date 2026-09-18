@@ -713,3 +713,46 @@ def test_cat05_ai_policy_reflects_enabled_competitive_ai() -> None:
     assert rows["Uso de IA nesta capacidade"][1] == "Habilitado para inteligência competitiva"
     assert rows["Política de IA"][1] == "IA competitiva opcional e evidence-bound"
 
+def test_serp_projection_exposes_persisted_engine(tmp_path: Path) -> None:
+    database = tmp_path / "audit.db"
+    _audit_db(database)
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            """CREATE TABLE serp_observations(
+                observation_id TEXT PRIMARY KEY,
+                audit_id TEXT,
+                query TEXT,
+                engine TEXT,
+                provider TEXT,
+                country TEXT,
+                language TEXT,
+                device TEXT,
+                requested_depth INTEGER,
+                collected_at TEXT
+            )"""
+        )
+        connection.execute(
+            """INSERT INTO serp_observations
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (
+                "SERP-ENGINE",
+                AUDIT_ID,
+                "seguro auto",
+                "google",
+                "serpapi",
+                "BR",
+                "pt-BR",
+                "mobile",
+                20,
+                "2026-09-18T10:05:00+00:00",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    html = _serp_html(database, _data())
+    assert ">Engine<" in html
+    assert ">google<" in html
+    assert "serpapi" in html

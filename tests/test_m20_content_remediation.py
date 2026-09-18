@@ -24,6 +24,7 @@ from rasai.domain import (
     TargetType,
 )
 from rasai.m18_ai import OpenAIProvider
+from rasai.m18_persistence import attempt_governance
 from rasai.m20 import execute_m20
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.semantic import NoneProvider
@@ -116,6 +117,52 @@ class M20ContentRemediationTests(unittest.TestCase):
                 self.assertEqual(attempt["contract_version"], "M20-CONTENT-REMEDIATION-v3")
             finally:
                 connection.close()
+
+    def test_enabled_ai_persists_governed_task_round_before_attempt(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = self._fixture(Path(directory), structured=False)
+
+            def transport(_url, _headers, _body, _timeout):
+                return {
+                    "output_text": json.dumps({
+                        "suggestions": [{
+                            "finding_id": "FND-M20",
+                            "objective": "Tornar a explicação mais direta.",
+                            "target_location": "Após o H1.",
+                            "proposed_text": "Serviço Exemplo com explicação clara.",
+                            "evidence_ids": ["EV-M20"],
+                            "confidence": 0.9,
+                            "review_note": "Revisar antes de publicar.",
+                        }]
+                    })
+                }
+
+            provider = OpenAIProvider(api_key="test", transport=transport)
+            with attempt_governance(
+                operation="CONTENT_REMEDIATION",
+                ai_task_id="AIT-M20-TEST",
+                ai_round_id="AIR-M20-TEST",
+            ):
+                result = execute_m20(
+                    audit_id="AUD-M20",
+                    enabled=True,
+                    semantic_provider=provider,
+                    workspace=workspace,
+                )
+            self.assertEqual(result.status, "SUCCESS")
+
+            connection = sqlite3.connect(workspace.database)
+            try:
+                row = connection.execute(
+                    """SELECT operation,ai_task_id,ai_round_id
+                       FROM content_remediation_attempts LIMIT 1"""
+                ).fetchone()
+            finally:
+                connection.close()
+            self.assertEqual(
+                row,
+                ("CONTENT_REMEDIATION", "AIT-M20-TEST", "AIR-M20-TEST"),
+            )
 
     def test_unsupported_numeric_claim_is_rejected_as_contract_error(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

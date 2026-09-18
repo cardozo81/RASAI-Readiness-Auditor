@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from types import SimpleNamespace
 
-from rasai.accepted_audit_refinements import _w3c_remediation_html
+from rasai.accepted_audit_refinements import _remediation_html, _w3c_remediation_html
 from rasai import catalog_report_analysis as analysis
 
 
@@ -104,3 +105,12 @@ def test_cat09_does_not_invent_details_when_only_w3c_count_was_persisted(tmp_pat
     html = "".join(modals)
     assert "Detalhe individual não materializado nesta AUD" in html
     assert "9" in html
+
+def test_cat09_remediation_exposes_stable_w3c_anchor(tmp_path) -> None:
+    database = tmp_path / "audit.db"
+    _database(database)
+
+    html = _remediation_html(database, SimpleNamespace(audit_id="AUD"))
+    assert "id='w3c-remediation'" in html
+    assert "Corrigir Conformidade HTML W3C" in html
+    assert "Corrigir Conformidade CSS W3C" in html

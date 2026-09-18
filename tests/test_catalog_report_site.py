@@ -228,3 +228,15 @@ def test_catalog_report_never_dumps_secret_configuration_values(tmp_path: Path) 
     combined = "\n".join(path.read_text(encoding="utf-8") for path in report.glob("*.html"))
     assert "DO-NOT-LEAK-THIS-SECRET" not in combined
     assert "RASAI_OPENAI_API_KEY" not in combined
+
+def test_structural_assurance_is_only_in_overview_not_repeated_in_catalog_pages(tmp_path: Path) -> None:
+    workspace, _legacy = _workspace(tmp_path)
+    report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
+
+    overview = (report / "index.html").read_text(encoding="utf-8")
+    assert overview.count("Matriz de encerramento estrutural") == 1
+    assert "Como ler os eixos" in overview
+
+    for catalog_id in range(1, 10):
+        html = (report / f"cat-{catalog_id:02d}.html").read_text(encoding="utf-8")
+        assert "Confiabilidade e governança estrutural" not in html

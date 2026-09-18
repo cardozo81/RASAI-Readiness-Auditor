@@ -6,6 +6,7 @@ import sqlite3
 from types import SimpleNamespace
 
 from rasai.post_smoke_alignment import _cat08_required, _primary_ai_context
+from rasai.m18_persistence import current_attempt_governance
 from rasai.post_smoke_hotfix import (
     _install_materialized_sidecar_counts,
     _latest_common_crawl_dataset,
@@ -128,3 +129,89 @@ def test_empty_common_crawl_dataset_is_not_counted_as_source_with_data(tmp_path:
     counts = alignment._sidecar_source_counts(audit_database)
     assert counts.get("CHROME_UX_REPORT_HISTORY") == 1
     assert "COMMON_CRAWL_CDX_HISTORY" not in counts
+
+def test_semantic_governance_uses_live_m7_owner_instead_of_stale_audit_runner_reference(monkeypatch) -> None:
+    from rasai import audit_runner, m7, post_smoke_alignment as alignment
+
+    calls: list[str] = []
+
+    def stale(*args, **kwargs):
+        calls.append("stale")
+        return "stale"
+
+    def canonical(*args, **kwargs):
+        calls.append("canonical")
+        return "canonical"
+
+    def m20_already_wrapped(*args, **kwargs):
+        return None
+
+    m20_already_wrapped._rasai_post_smoke_governance = True
+    monkeypatch.setattr(audit_runner, "execute_m7", stale)
+    monkeypatch.setattr(m7, "execute_m7", canonical)
+    monkeypatch.setattr(audit_runner, "execute_m20", m20_already_wrapped)
+    monkeypatch.setattr(alignment, "_record_dependency", lambda **kwargs: None)
+    monkeypatch.setattr(alignment, "_backfill_semantic_task", lambda *args, **kwargs: None)
+
+    alignment._install_ai_governance_completion()
+    result = audit_runner.execute_m7(
+        audit_id="AUD",
+        workspace=SimpleNamespace(),
+    )
+
+    assert result == "canonical"
+    assert calls == ["canonical"]
+
+
+def test_content_remediation_prepares_governance_before_provider_call(monkeypatch) -> None:
+    from rasai import audit_runner, m7, post_smoke_alignment as alignment
+
+    order: list[str] = []
+
+    def m7_already_wrapped(*args, **kwargs):
+        return None
+
+    m7_already_wrapped._rasai_post_smoke_governance = True
+
+    def provider_boundary(*args, **kwargs):
+        order.append("provider")
+        assert current_attempt_governance() == (
+            "CONTENT_REMEDIATION",
+            "AIT-CONTENT",
+            "AIR-CONTENT",
+        )
+        return SimpleNamespace(
+            status="SUCCESS",
+            suggestion_ids=("S1",),
+            attempted_contexts=1,
+        )
+
+    monkeypatch.setattr(m7, "execute_m7", m7_already_wrapped)
+    monkeypatch.setattr(audit_runner, "execute_m20", provider_boundary)
+    monkeypatch.setattr(
+        alignment,
+        "_record_dependency",
+        lambda **kwargs: order.append("dependency"),
+    )
+    monkeypatch.setattr(
+        alignment,
+        "_prepare_content_task",
+        lambda workspace, audit_id: (
+            order.append("prepare") or ("AIT-CONTENT", "AIR-CONTENT", ("FINDING:F1",))
+        ),
+    )
+    monkeypatch.setattr(
+        alignment,
+        "_complete_content_task",
+        lambda workspace, round_id, requirements, result, failed=False: order.append("complete"),
+    )
+
+    alignment._install_ai_governance_completion()
+    result = audit_runner.execute_m20(
+        audit_id="AUD",
+        workspace=SimpleNamespace(),
+        enabled=True,
+    )
+
+    assert result.status == "SUCCESS"
+    assert order == ["dependency", "prepare", "provider", "complete"]

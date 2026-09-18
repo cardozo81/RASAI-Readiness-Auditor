@@ -9,6 +9,7 @@ from rasai.catalog_report_assurance import (
     _read_only_guard_present,
     _safe_output,
     assess_catalog,
+    assurance_matrix_html,
     catalog_assurance_html,
 )
 
@@ -173,3 +174,44 @@ def test_transversal_secret_output_blocks_global_closure(monkeypatch, tmp_path: 
     assert "ai-integrations.html" in result["global_output_security"]["failures"]
     assert result["closure_eligible"] is False
 
+def test_assurance_matrix_explains_each_axis_without_changing_columns() -> None:
+    result = {
+        "catalogs": [{
+            "catalog_id": "CAT-01",
+            "selected": True,
+            "configurability": 100,
+            "governance": 100,
+            "exposure": 100,
+            "reliability": 100,
+            "integrity": 100,
+            "security": 100,
+            "maturity": 100,
+            "closure_eligible": True,
+        }],
+        "global": {
+            "reliability": 100,
+            "integrity": 100,
+            "security": 100,
+            "maturity": 100,
+        },
+        "global_output_security": {"passed": True, "failures": {}},
+        "closure_eligible": True,
+    }
+    html = assurance_matrix_html(result)
+
+    assert "Matriz de encerramento estrutural" in html
+    assert "Como ler os eixos" in html
+    for label in (
+        "CAT",
+        "Configurabilidade",
+        "Governança",
+        "Exposição",
+        "Confiabilidade",
+        "Integridade",
+        "Segurança",
+        "Maturidade",
+        "Gate",
+    ):
+        assert f"<th>{label}</th>" in html
+    assert "cobertura de controles" in html
+    assert "probabilidade estatística" in html
