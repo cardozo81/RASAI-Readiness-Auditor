@@ -105,6 +105,83 @@ def _auto_interpretation_html(evidence: Any, database: Any, audit_id: str) -> st
     return "<div class='subsection'><h3>Interpretações AUTO aplicadas</h3>"+evidence._table(("Página","Campo","Configuração","Status","Interpretação","Confiança","Detalhe"),table_rows,sortable=True,page_size=10 if len(table_rows)>10 else None)+"".join(modals)+"</div>"
 
 
+def _ymyl_alignment_html(evidence: Any, database: Any, audit_id: str) -> str:
+    from rasai.editorial_risk_context import build_editorial_risk_context
+
+    context = build_editorial_risk_context(database, audit_id)
+    ymyl = context.get("ymyl", {})
+    if not isinstance(ymyl, dict) or not bool(ymyl.get("active")):
+        return ""
+
+    interpretation = context.get("auto_interpretations", {}).get("ymyl_category", {})
+    category_origin = "Configuração declarada"
+    if str(ymyl.get("configured_category") or "auto").casefold() == "auto":
+        category_origin = (
+            "Inferência de IA desta execução"
+            if isinstance(interpretation, dict)
+            and str(interpretation.get("status") or "").upper() == "INTERPRETED"
+            else "AUTO não determinável"
+        )
+
+    rows = [
+        (
+            "Perfil de risco configurado",
+            ymyl.get("configured_risk_profile") or "auto",
+            "Configuração canônica",
+        ),
+        (
+            "Categoria YMYL configurada",
+            ymyl.get("configured_category") or "auto",
+            "Configuração canônica",
+        ),
+        (
+            "Categoria YMYL efetiva",
+            ymyl.get("effective_category") or "auto",
+            category_origin,
+        ),
+        (
+            "Conclusão conteúdo × contexto YMYL",
+            ymyl.get("alignment_label") or "Não determinável",
+            "SC-P12 · autoria/responsabilidade × risco/confiança",
+        ),
+    ]
+
+    details: list[tuple[Any, ...]] = []
+    for item in ymyl.get("coherence", []) or []:
+        details.append(
+            (
+                item.get("page_url") or item.get("snapshot_id") or "—",
+                _status(item.get("result")),
+                _confidence(item.get("confidence")),
+                item.get("reasoning_summary")
+                or item.get("observed_context")
+                or "—",
+                ", ".join(str(v) for v in item.get("evidence_ids", []) or []) or "—",
+            )
+        )
+    detail_html = (
+        "<details><summary>Ver leitura YMYL por página</summary><div class='detail-body'>"
+        + evidence._table(
+            ("Página", "Resultado", "Confiança", "Leitura da IA", "Evidências"),
+            details,
+            sortable=bool(details),
+            page_size=10 if len(details) > 10 else None,
+        )
+        + "</div></details>"
+        if details
+        else "<div class='notice'>SC-P12 não produziu conclusão suficiente para esta execução; o relatório não infere aderência por conta própria.</div>"
+    )
+    return (
+        "<div class='subsection'><h3>Contexto YMYL × conteúdo observado</h3>"
+        + evidence._table(("Leitura", "Resultado", "Origem"), rows)
+        + detail_html
+        + "<p class='muted'>A configuração humana permanece canônica. Interpretações AUTO são inferência de IA "
+        "auditável e não sobrescrevem a configuração. A conclusão acima não declara conformidade legal ou regulatória; "
+        "quando houver lacunas evidence-bound, o mesmo contexto é encaminhado ao CAT-08 e suas recomendações aparecem "
+        "no CAT-09.</p></div>"
+    )
+
+
 def _semantic_assessment_rows(database: Any, audit_id: str) -> list[dict[str,Any]]:
     connection=sqlite3.connect(database);connection.row_factory=sqlite3.Row
     try:
@@ -186,7 +263,7 @@ def install() -> None:
     from rasai import catalog_report_page as page
     original=evidence._semantic_html
     def semantic_html_with_coherence(database: Any,data: Any) -> str:
-        return _context_html(evidence,database,data.audit_id)+_auto_interpretation_html(evidence,database,data.audit_id)+_property_summary_html(evidence,database,data.audit_id)+_page_summary_html(evidence,database,data.audit_id)+_semantic_assessments_html(evidence,database,data.audit_id)+original(database,data)
+        return _context_html(evidence,database,data.audit_id)+_auto_interpretation_html(evidence,database,data.audit_id)+_ymyl_alignment_html(evidence,database,data.audit_id)+_property_summary_html(evidence,database,data.audit_id)+_page_summary_html(evidence,database,data.audit_id)+_semantic_assessments_html(evidence,database,data.audit_id)+original(database,data)
     evidence._semantic_html=semantic_html_with_coherence
     page._semantic_html=semantic_html_with_coherence
     _INSTALLED=True

@@ -844,12 +844,74 @@ def _persist_attempt(workspace: AuditWorkspace, audit_id: str, context: _TargetC
         store.add_attempt(attempt_id=new_id("AIA"), audit_id=audit_id, page_id=context.page_id, snapshot_id=context.snapshot_id, url=context.url, device=context.device, attempt=attempt)
 
 
+def build_improvement_request_context(
+    *,
+    audit_id: str,
+    workspace: AuditWorkspace,
+    context: _TargetContext,
+    config: ImprovementConfig,
+    findings: list[dict[str, Any]],
+    evidence_context: Mapping[str, Any],
+    language: str,
+) -> tuple[dict[str, Any], str]:
+    """Build the canonical evidence-bound deep-analysis request context."""
+    from rasai.editorial_risk_context import (
+        build_editorial_risk_context,
+        ymyl_prompt_directive,
+    )
+
+    editorial_context = build_editorial_risk_context(
+        workspace,
+        audit_id,
+        page_url=context.url,
+    )
+    request_context = {
+        "contract_version": CONTRACT_VERSION,
+        "target": {
+            "url": context.url,
+            "input_url": context.input_url,
+            "device_snapshot_used": context.device,
+            "market": context.market,
+        },
+        "selected_domains": list(config.domains),
+        "page": {
+            "title": context.title,
+            "description": context.description,
+            "canonical": context.canonical,
+        },
+        "findings": findings,
+        "supporting_context": evidence_context,
+        "editorial_risk_context": editorial_context,
+        "governance": {
+            "sari_score_impact": "NONE",
+            "security_mode": "PASSIVE_ONLY",
+            "ranking_causality": "FORBIDDEN",
+            "human_review_required": True,
+            "ymyl_is_context_not_compliance": True,
+        },
+    }
+    instructions = (
+        _instructions(language, config.domains)
+        + " "
+        + ymyl_prompt_directive(editorial_context)
+    )
+    return request_context, instructions
+
+
 def _ai_analyze(*, audit_id: str, workspace: AuditWorkspace, context: _TargetContext, config: ImprovementConfig, findings: list[dict[str, Any]], evidence_context: Mapping[str, Any], language: str, progress: Callable[[str, float, str], None] | None = None) -> tuple[str, list[dict[str, Any]], str | None]:
     provider = _build_provider(config)
     if not getattr(provider, "api_key", None): return "", [], "AI_NOT_CONFIGURED"
     schema = _schema(findings, config.max_recommendations)
-    request_context = {"contract_version": CONTRACT_VERSION, "target": {"url": context.url, "input_url": context.input_url, "device_snapshot_used": context.device, "market": context.market}, "selected_domains": list(config.domains), "page": {"title": context.title, "description": context.description, "canonical": context.canonical}, "findings": findings, "supporting_context": evidence_context, "governance": {"sari_score_impact": "NONE", "security_mode": "PASSIVE_ONLY", "ranking_causality": "FORBIDDEN", "human_review_required": True}}
-    user_text = "Persisted RASAi evidence for one URL:\n" + json.dumps(request_context, ensure_ascii=False, default=str); instructions = _instructions(language, config.domains); body = json.dumps(_provider_payload(provider, instructions=instructions, user_text=user_text, schema=schema), ensure_ascii=False, separators=(",", ":")).encode("utf-8"); payload_hash = sha256(body).hexdigest(); summary_text = f"contract={CONTRACT_VERSION};findings={len(findings)};domains={len(config.domains)};snapshot={context.snapshot_id}"; last_reason = None
+    request_context, instructions = build_improvement_request_context(
+        audit_id=audit_id,
+        workspace=workspace,
+        context=context,
+        config=config,
+        findings=findings,
+        evidence_context=evidence_context,
+        language=language,
+    )
+    user_text = "Persisted RASAi evidence for one URL:\n" + json.dumps(request_context, ensure_ascii=False, default=str); body = json.dumps(_provider_payload(provider, instructions=instructions, user_text=user_text, schema=schema), ensure_ascii=False, separators=(",", ":")).encode("utf-8"); payload_hash = sha256(body).hexdigest(); summary_text = f"contract={CONTRACT_VERSION};findings={len(findings)};domains={len(config.domains)};snapshot={context.snapshot_id}"; last_reason = None
     for ordinal in range(1, min(2, MAX_PROVIDER_ATTEMPTS_PER_CONTEXT) + 1):
         if progress: progress("AI_ANALYSIS", 72.0 + ordinal * 8.0, f"consultando {getattr(provider,'name',config.provider)} / {config.model}; tentativa {ordinal}/2")
         started_at = datetime.now(timezone.utc); started_perf = time.perf_counter(); diagnostic = None; usage = None; raw = None; status = AttemptStatus.TECHNICAL_ERROR

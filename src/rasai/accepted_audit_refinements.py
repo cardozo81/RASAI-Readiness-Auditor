@@ -231,33 +231,18 @@ def _install_improvement_runtime_patch() -> None:
     ) -> tuple[str, list[dict[str, Any]], str | None]:
         runtime = improvement._build_provider(config)
         schema = improvement._schema(findings, config.max_recommendations)
-        request_context = {
-            "contract_version": improvement.CONTRACT_VERSION,
-            "target": {
-                "url": context.url,
-                "input_url": context.input_url,
-                "device_snapshot_used": context.device,
-                "market": context.market,
-            },
-            "selected_domains": list(config.domains),
-            "page": {
-                "title": context.title,
-                "description": context.description,
-                "canonical": context.canonical,
-            },
-            "findings": findings,
-            "supporting_context": evidence_context,
-            "governance": {
-                "sari_score_impact": "NONE",
-                "security_mode": "PASSIVE_ONLY",
-                "ranking_causality": "FORBIDDEN",
-                "human_review_required": True,
-            },
-        }
+        request_context, instructions = improvement.build_improvement_request_context(
+            audit_id=audit_id,
+            workspace=workspace,
+            context=context,
+            config=config,
+            findings=findings,
+            evidence_context=evidence_context,
+            language=language,
+        )
         user_text = "Persisted RASAi evidence for one URL:\n" + json.dumps(
             request_context, ensure_ascii=False, default=str
         )
-        instructions = improvement._instructions(language, config.domains)
         hint = orchestration._token_hint(
             user_text,
             output_tokens=min(8000, 1600 + config.max_recommendations * 180),
@@ -377,6 +362,7 @@ def _install_improvement_runtime_patch() -> None:
                     "target": request_context["target"],
                     "page": request_context["page"],
                     "findings": repair_findings,
+                    "editorial_risk_context": request_context["editorial_risk_context"],
                     "governance": request_context["governance"],
                 }
                 repair_text = (
@@ -386,7 +372,7 @@ def _install_improvement_runtime_patch() -> None:
                     + json.dumps(repair_context, ensure_ascii=False, default=str)
                 )
                 repair_instructions = (
-                    improvement._instructions(language, config.domains)
+                    instructions
                     + " This is a bounded repair pass for previously rejected items only. Return recommendations "
                     "only for the supplied findings and use only their explicitly listed evidence_ids."
                 )
@@ -755,6 +741,39 @@ controls.querySelectorAll('select').forEach(el=>el.addEventListener('change',app
     return controls + table + script
 
 
+def _ymyl_analysis_context_html(database: Any, audit_id: str, a: Any) -> str:
+    from rasai.editorial_risk_context import build_editorial_risk_context
+
+    context = build_editorial_risk_context(database, audit_id)
+    ymyl = context.get("ymyl", {})
+    if not isinstance(ymyl, Mapping) or not bool(ymyl.get("active")):
+        return ""
+    configured = ymyl.get("configured_category") or "auto"
+    effective = ymyl.get("effective_category") or "auto"
+    interpretation = context.get("auto_interpretations", {}).get("ymyl_category", {})
+    origin = (
+        "Inferência de IA desta execução"
+        if isinstance(interpretation, Mapping)
+        and str(interpretation.get("status") or "").upper() == "INTERPRETED"
+        else "Configuração declarada / não determinável"
+    )
+    rows = (
+        ("Perfil de risco efetivo", ymyl.get("effective_risk_profile") or "—"),
+        ("Categoria YMYL configurada", configured),
+        ("Categoria YMYL efetiva", effective),
+        ("Conclusão conteúdo × YMYL", ymyl.get("alignment_label") or "—"),
+        ("Origem da categoria efetiva", origin),
+    )
+    return (
+        "<div class='subsection'><h3>Contexto YMYL aplicado à análise profunda</h3>"
+        + a._table(("Leitura", "Resultado"), rows)
+        + "<p class='muted'>Este mesmo contexto estruturado foi enviado ao Improvement Intelligence. "
+        "A IA só deve relacionar YMYL a findings suportados por evidência e, nesses casos, explicitar onde está "
+        "a lacuna, o que precisa mudar, como implementar e como revalidar. Isso não constitui declaração de "
+        "conformidade legal/regulatória.</p></div>"
+    )
+
+
 def _improvement_html(database: Any, data: Any) -> str:
     from rasai import catalog_report_analysis as a
     con = sqlite3.connect(database); con.row_factory = sqlite3.Row
@@ -799,7 +818,7 @@ def _improvement_html(database: Any, data: Any) -> str:
         body += _technical_reference_links(domain, source_text=original_problem)
         modals.append(a._modal(modal_id, public_title, f"Análise profunda · {source_cat or 'evidência transversal'}", body))
     unique_recs = len({str(r.get("finding_id")) for r in recs if r.get("finding_id")}); without = max(0, len(findings) - unique_recs)
-    intro = "<div class='metric-grid'>" + a._metric("Problemas correlacionados", len(findings)) + a._metric("Melhorias da análise profunda", len(recs)) + a._metric("Achados sem recomendação individual da análise profunda", without) + a._metric("Estado", a._status_label(run.get("status"))) + a._metric("Idioma da análise", run.get("analysis_language") or run.get("language") or "—") + "</div>"
+    intro = _ymyl_analysis_context_html(database, data.audit_id, a) + "<div class='metric-grid'>" + a._metric("Problemas correlacionados", len(findings)) + a._metric("Melhorias da análise profunda", len(recs)) + a._metric("Achados sem recomendação individual da análise profunda", without) + a._metric("Estado", a._status_label(run.get("status"))) + a._metric("Idioma da análise", run.get("analysis_language") or run.get("language") or "—") + "</div>"
     maximum = run.get("max_recommendations")
     if maximum and len(findings) > len(recs):
         intro += f"<div class='notice'><strong>Cobertura da análise profunda:</strong> a execução correlacionou {len(findings)} problema(s) e foi configurada para no máximo {int(maximum)} recomendações. A coluna de cobertura também considera remediações persistidas por outras camadas do CAT-09.</div>"
