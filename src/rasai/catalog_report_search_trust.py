@@ -7,6 +7,7 @@ and persisted evidence/artifacts only.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from hashlib import sha256
 from html import escape
 import json
 from pathlib import Path
@@ -548,8 +549,119 @@ def _serp_html(database: Path, data: Any) -> str:
     return "<div class='subsection'><h3>SERP</h3>"+serp_table+"</div><div class='subsection'><h3>AI Overview / recursos de busca por IA</h3>"+aio_table+"</div>"
 
 
+def _search_contract(data: Any) -> dict[str, Any]:
+    for item in getattr(data, "work_items", ()):
+        if str(item.get("component") or "").upper() != "SEARCH_INTELLIGENCE":
+            continue
+        raw = _safe_json(item.get("configuration"), {})
+        if isinstance(raw, Mapping):
+            return dict(raw)
+    return {}
+
+
+def _artifact_integrity(database: Path, reference: Any, expected_sha: Any) -> str:
+    ref = str(reference or "").strip().replace("\\", "/")
+    expected = str(expected_sha or "").strip().casefold()
+    if not ref:
+        return "Sem artefato"
+    root = database.parent.resolve()
+    path = (root / ref).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return "Referência fora do workspace"
+    if not path.is_file():
+        return "Artefato não encontrado"
+    if not expected:
+        return "Arquivo presente; SHA-256 esperado não persistido"
+    actual = sha256(path.read_bytes()).hexdigest().casefold()
+    return "Íntegro - SHA-256 confere" if actual == expected else "INCONSISTENTE - SHA-256 divergente"
+
+
+def _competitive_governance(
+    connection: sqlite3.Connection,
+    *,
+    audit_id: str,
+    observation_id: str,
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]], dict[str, Any] | None, list[dict[str, Any]]]:
+    task: dict[str, Any] | None = None
+    rounds: list[dict[str, Any]] = []
+    snapshot: dict[str, Any] | None = None
+    attempts: list[dict[str, Any]] = []
+    if _table_exists(connection, "ai_tasks"):
+        row = connection.execute(
+            """SELECT * FROM ai_tasks
+               WHERE audit_id=? AND purpose='COMPETITIVE_INTELLIGENCE' AND scope_key=?
+               ORDER BY created_at DESC,rowid DESC LIMIT 1""",
+            (audit_id, observation_id),
+        ).fetchone()
+        task = dict(row) if row is not None else None
+    if task and _table_exists(connection, "ai_request_rounds"):
+        rounds = [
+            dict(row)
+            for row in connection.execute(
+                "SELECT * FROM ai_request_rounds WHERE ai_task_id=? ORDER BY round_index,started_at",
+                (task.get("ai_task_id"),),
+            ).fetchall()
+        ]
+    if task and _table_exists(connection, "ai_evidence_versions"):
+        row = connection.execute(
+            "SELECT * FROM ai_evidence_versions WHERE evidence_snapshot_id=?",
+            (task.get("evidence_snapshot_id"),),
+        ).fetchone()
+        snapshot = dict(row) if row is not None else None
+    if task and _table_exists(connection, "ai_provider_attempts"):
+        cols = _columns(connection, "ai_provider_attempts")
+        if "ai_task_id" in cols:
+            attempts = [
+                dict(row)
+                for row in connection.execute(
+                    "SELECT * FROM ai_provider_attempts WHERE audit_id=? AND ai_task_id=? ORDER BY started_at,attempt_index",
+                    (audit_id, task.get("ai_task_id")),
+                ).fetchall()
+            ]
+    return task, rounds, snapshot, attempts
+
+
+def _contract_rows(configuration: Mapping[str, Any]) -> list[tuple[Any, ...]]:
+    if not configuration:
+        return []
+    def yes(value: Any) -> str:
+        return "Sim" if bool(value) else "Não"
+    return [
+        ("Termos de busca", ", ".join(str(v) for v in configuration.get("queries", []) if str(v)) or "-"),
+        ("Localidade", configuration.get("region") or "-"),
+        ("Profundidade desejada", configuration.get("depth") or "-"),
+        ("Dispositivo", configuration.get("device") or "-"),
+        ("Análise de concorrentes", yes(configuration.get("competitive"))),
+        ("Comparação de conteúdo", yes(configuration.get("compare_content"))),
+        ("Máx. páginas concorrentes", configuration.get("max_content_pages") if configuration.get("max_content_pages") is not None else "-"),
+        ("Timeout conteúdo", f"{configuration.get('content_timeout_seconds')} s" if configuration.get("content_timeout_seconds") is not None else "-"),
+        ("Máx. bytes por página", configuration.get("content_max_bytes") if configuration.get("content_max_bytes") is not None else "-"),
+        ("Máx. redirects", configuration.get("content_max_redirects") if configuration.get("content_max_redirects") is not None else "-"),
+        ("IA competitiva", yes(configuration.get("ai_competitive"))),
+        ("Contexto YMYL da IA", configuration.get("ymyl_mode") or "-"),
+        ("Modo SERP", configuration.get("mode") or "-"),
+        ("Provider SERP", configuration.get("provider") or "-"),
+        ("Engine", configuration.get("engine") or "-"),
+        ("Limite de queries", configuration.get("max_queries") if configuration.get("max_queries") is not None else "-"),
+        ("Limite de requests", configuration.get("max_requests") if configuration.get("max_requests") is not None else "-"),
+        ("Profundidade máxima", configuration.get("max_depth") if configuration.get("max_depth") is not None else "-"),
+        ("Máximo de concorrentes", configuration.get("max_competitors") if configuration.get("max_competitors") is not None else "-"),
+        ("Retries SERP", configuration.get("retries") if configuration.get("retries") is not None else "-"),
+        ("Timeout SERP", f"{configuration.get('timeout_seconds')} s" if configuration.get("timeout_seconds") is not None else "-"),
+        ("Intervalo mínimo", f"{configuration.get('min_interval_seconds')} s" if configuration.get("min_interval_seconds") is not None else "-"),
+        ("Market", configuration.get("market") or "-"),
+        ("Idioma", configuration.get("language") or "-"),
+        ("IA principal solicitada", configuration.get("ai_provider") or "-"),
+        ("Modelo solicitado", configuration.get("ai_model") or "Seleção automática / padrão do provider"),
+    ]
+
+
 def _competitive_html(database: Path, data: Any) -> str:
     from rasai import catalog_report_page as page
+
+    configuration = _search_contract(data)
     connection=sqlite3.connect(database); connection.row_factory=sqlite3.Row
     try:
         if not _table_exists(connection,"serp_competitive_analyses"):
@@ -558,32 +670,225 @@ def _competitive_html(database: Path, data: Any) -> str:
         rows=[]; modals=[]
         for index,item in enumerate(analyses,1):
             oid=str(item.get("observation_id") or "")
-            obs=connection.execute("SELECT query FROM serp_observations WHERE observation_id=?",(oid,)).fetchone() if _table_exists(connection,"serp_observations") else None
+            obs_row=connection.execute("SELECT * FROM serp_observations WHERE observation_id=?",(oid,)).fetchone() if _table_exists(connection,"serp_observations") else None
+            obs=dict(obs_row) if obs_row is not None else {}
             candidates=[dict(row) for row in connection.execute("SELECT * FROM serp_competitive_results WHERE observation_id=? ORDER BY position",(oid,))] if _table_exists(connection,"serp_competitive_results") else []
             pages=[dict(row) for row in connection.execute("SELECT * FROM serp_competitive_pages WHERE observation_id=? ORDER BY role,requested_url",(oid,))] if _table_exists(connection,"serp_competitive_pages") else []
             ai=connection.execute("SELECT * FROM serp_competitive_ai_analyses WHERE observation_id=?",(oid,)).fetchone() if _table_exists(connection,"serp_competitive_ai_analyses") else None
             ai=dict(ai) if ai is not None else None
+            task, rounds, snapshot, attempts = _competitive_governance(
+                connection,
+                audit_id=data.audit_id,
+                observation_id=oid,
+            )
             modal_id=f"cat05-competitive-{index}"
-            rows.append(((obs[0] if obs else "-"),page._status_label(item.get("comparison_status")),item.get("candidate_count") or 0,item.get("observed_competitor_pages") or 0,item.get("gap_count") or 0,page._status_label(ai.get("state")) if ai else "Não materializada",item.get("methodology") or "-",page._modal_button(modal_id,"Ver análise")))
-            candidate_rows=[(r.get("position"),r.get("domain"),r.get("classification"),"Sim" if r.get("selected_for_content_comparison") else "Não",r.get("reason")) for r in candidates]
-            page_rows=[(r.get("role"),r.get("domain"),page._status_label(r.get("fetch_status")),r.get("http_status") or "-",r.get("error_code") or "-") for r in pages]
-            body=page._kv((("Status",page._status_label(item.get("comparison_status"))),("Metodologia",item.get("methodology") or "-"),("Artefato",item.get("evidence_ref") or "-"),("SHA-256",item.get("evidence_sha256") or "-")))
-            body+="<h3>Candidatos/classificação</h3>"+page._table(("Posição","Domínio","Classificação","Comparado","Motivo"),candidate_rows,empty="Nenhum candidato persistido.")
-            body+="<h3>Comparação de conteúdo</h3>"+page._table(("Papel","Domínio","Coleta","HTTP","Erro"),page_rows,empty="Nenhuma página comparativa persistida.")
+            selected_count=sum(1 for r in candidates if r.get("selected_for_content_comparison"))
+            rows.append((
+                obs.get("query") or "-",
+                page._status_label(item.get("comparison_status")),
+                len(candidates),
+                selected_count,
+                item.get("observed_competitor_pages") or 0,
+                item.get("gap_count") or 0,
+                page._status_label(ai.get("state")) if ai else "Não materializada",
+                item.get("methodology") or "-",
+                page._modal_button(modal_id,"Ver análise"),
+            ))
+            candidate_rows=[(
+                r.get("position"),
+                r.get("domain"),
+                r.get("url") or "-",
+                r.get("classification"),
+                "Sim" if r.get("eligible_for_content_comparison") else "Não",
+                "Sim" if r.get("selected_for_content_comparison") else "Não",
+                r.get("reason") or "-",
+            ) for r in candidates]
+            page_rows=[(
+                r.get("role"),
+                r.get("domain"),
+                r.get("requested_url") or "-",
+                r.get("final_url") or "-",
+                page._status_label(r.get("fetch_status")),
+                r.get("http_status") or "-",
+                r.get("content_type") or "-",
+                r.get("bytes_read") if r.get("bytes_read") is not None else "-",
+                len(_safe_json(r.get("redirects_json"), [])),
+                r.get("content_sha256") or "-",
+                r.get("error_message") or r.get("error_code") or "-",
+            ) for r in pages]
+            body=page._kv((
+                ("Consulta",obs.get("query") or "-"),
+                ("Resultados SERP recebidos",obs.get("result_count") if obs.get("result_count") is not None else "-"),
+                ("Posição do domínio auditado",obs.get("customer_position") if obs.get("customer_position") is not None else "Não encontrado / não informado"),
+                ("Estado do domínio auditado",page._status_label(obs.get("domain_status")) if obs.get("domain_status") else "-"),
+                ("Status da comparação",page._status_label(item.get("comparison_status"))),
+                ("Metodologia",item.get("methodology") or "-"),
+                ("Artefato determinístico",item.get("evidence_ref") or "-"),
+                ("SHA-256 determinístico",item.get("evidence_sha256") or "-"),
+                ("Integridade do artefato",_artifact_integrity(database,item.get("evidence_ref"),item.get("evidence_sha256"))),
+            ))
+            inconsistencies=[]
+            if bool(configuration.get("compare_content")) and str(item.get("comparison_status") or "").upper()=="CONTENT_COMPARISON_DISABLED":
+                inconsistencies.append("A configuração efetiva exige comparação de conteúdo, mas a análise persistida indica comparação desabilitada.")
+            max_pages=configuration.get("max_content_pages")
+            try:
+                if max_pages is not None and selected_count>int(max_pages):
+                    inconsistencies.append(f"Foram selecionadas {selected_count} páginas concorrentes, acima do limite configurado de {int(max_pages)}.")
+            except (TypeError,ValueError):
+                pass
+            if bool(configuration.get("ai_competitive")) and str(item.get("comparison_status") or "").upper()=="CONSOLIDATED" and ai is None:
+                inconsistencies.append("A IA competitiva foi solicitada e a comparação está consolidada, mas nenhum resultado de IA foi materializado.")
+            if ai and task is None:
+                inconsistencies.append("Existe resultado persistido da IA competitiva, mas a task governada correspondente não foi encontrada.")
+            if inconsistencies:
+                body+="<div class='notice warn'><strong>Inconsistência de contrato:</strong><ul>"+"".join("<li>"+escape(v)+"</li>" for v in inconsistencies)+"</ul></div>"
+
+            body+="<h3>Candidatos e classificação</h3>"+page._table(
+                ("Posição","Domínio","URL","Classificação","Elegível","Selecionado","Motivo"),
+                candidate_rows,
+                empty="Nenhum candidato persistido.",
+                sortable=bool(candidate_rows),
+                page_size=10 if len(candidate_rows)>10 else None,
+            )
+            body+="<h3>Aquisição e comparação de conteúdo</h3>"+page._table(
+                ("Papel","Domínio","URL solicitada","URL final","Coleta","HTTP","Content-Type","Bytes","Redirects","SHA-256","Erro"),
+                page_rows,
+                empty="Nenhuma página comparativa persistida.",
+                sortable=bool(page_rows),
+                page_size=10 if len(page_rows)>10 else None,
+            )
             gaps=_safe_json(item.get("gaps_json"),[])
-            if gaps:
-                body+="<h3>Lacunas correlacionais</h3><div class='pre'>"+escape(json.dumps(gaps,ensure_ascii=False,indent=2))+"</div>"
+            gap_rows=[]
+            if isinstance(gaps,list):
+                for gap in gaps:
+                    if not isinstance(gap,Mapping):
+                        continue
+                    customer_value=gap.get("customer_value")
+                    leader=gap.get("leader_reference")
+                    gap_rows.append((
+                        gap.get("code") or "-",
+                        gap.get("severity") or "-",
+                        gap.get("message") or "-",
+                        json.dumps(customer_value,ensure_ascii=False) if isinstance(customer_value,(dict,list)) else customer_value if customer_value is not None else "-",
+                        json.dumps(leader,ensure_ascii=False) if isinstance(leader,(dict,list)) else leader if leader is not None else "-",
+                        ", ".join(str(v) for v in gap.get("evidence_urls",[]) if str(v)) or "-",
+                    ))
+            body+="<h3>Lacunas correlacionais determinísticas</h3>"+page._table(
+                ("Código","Severidade","Diferença observada","Valor do site auditado","Referência observada","Evidências/URLs"),
+                gap_rows,
+                empty="Nenhuma lacuna determinística foi persistida.",
+                sortable=bool(gap_rows),
+            )
+
             if ai:
                 opportunities=_safe_json(ai.get("opportunities_json"),[])
-                body+="<h3>Análise competitiva por IA</h3>"+page._kv((("Estado",page._status_label(ai.get("state"))),("Provider",ai.get("provider") or "-"),("Modelo",ai.get("model") or "-"),("Resumo",ai.get("summary") or ai.get("reason") or "-"),("Artefato",ai.get("evidence_ref") or "-"),("SHA-256",ai.get("evidence_sha256") or "-")))
-                opportunity_rows=[(row.get("priority") or "-",row.get("category") or "-",row.get("title") or "-",row.get("recommendation") or "-",", ".join(row.get("evidence_ids") or []),row.get("confidence") if row.get("confidence") is not None else "-") for row in opportunities if isinstance(row,Mapping)]
-                body+=page._table(("Prioridade","Categoria","Oportunidade","Recomendação","Evidências","Confiança"),opportunity_rows,empty="A IA não materializou oportunidades para esta observação.")
+                body+="<h3>Análise competitiva por IA</h3>"+page._kv((
+                    ("Estado",page._status_label(ai.get("state"))),
+                    ("Provider efetivo",ai.get("provider") or "-"),
+                    ("Modelo efetivo",ai.get("model") or "-"),
+                    ("Contrato",ai.get("contract_version") or "-"),
+                    ("Prompt",f"{ai.get('prompt_id') or '-'} v{ai.get('prompt_version') or '-'}"),
+                    ("Request ID",ai.get("provider_request_id") or "-"),
+                    ("Intenção da query",ai.get("query_intent") or "-"),
+                    ("Avaliação YMYL",ai.get("ymyl_assessment") or "-"),
+                    ("Resumo",ai.get("summary") or ai.get("reason") or "-"),
+                    ("Artefato da IA",ai.get("evidence_ref") or "-"),
+                    ("SHA-256 da IA",ai.get("evidence_sha256") or "-"),
+                    ("Integridade do artefato da IA",_artifact_integrity(database,ai.get("evidence_ref"),ai.get("evidence_sha256"))),
+                ))
+                opportunity_rows=[(
+                    row.get("priority") or "-",
+                    row.get("category") or "-",
+                    row.get("title") or "-",
+                    row.get("recommendation") or "-",
+                    row.get("rationale") or "-",
+                    ", ".join(row.get("evidence_ids") or []),
+                    row.get("confidence") if row.get("confidence") is not None else "-",
+                    row.get("causality_note") or "-",
+                ) for row in opportunities if isinstance(row,Mapping)]
+                body+=page._table(
+                    ("Prioridade","Categoria","Oportunidade","Recomendação","Racional","Evidências","Confiança","Nota de causalidade"),
+                    opportunity_rows,
+                    empty="A IA não materializou oportunidades para esta observação.",
+                    page_size=10 if len(opportunity_rows)>10 else None,
+                )
+
+            if task:
+                sealed_at=snapshot.get("sealed_at") if snapshot else None
+                first_round=min((str(r.get("started_at") or "") for r in rounds if r.get("started_at")),default="")
+                sealed_dt=_dt(sealed_at); round_dt=_dt(first_round)
+                order_label=(
+                    "Sim" if sealed_dt is not None and round_dt is not None and round_dt>=sealed_dt
+                    else "Não - ordem temporal inconsistente" if sealed_dt is not None and round_dt is not None
+                    else "Não determinável"
+                )
+                total_cost=sum(float(r.get("estimated_cost") or 0) for r in attempts)
+                total_tokens=sum(int(r.get("total_tokens") or 0) for r in attempts)
+                body+="<h3>Governança da IA competitiva</h3>"+page._kv((
+                    ("Purpose",task.get("purpose") or "-"),
+                    ("Scope",f"{task.get('scope_type') or '-'} / {task.get('scope_key') or '-'}"),
+                    ("Evidence snapshot",task.get("evidence_snapshot_id") or "-"),
+                    ("Evidência selada em",sealed_at or "-"),
+                    ("Primeiro round iniciado em",first_round or "-"),
+                    ("IA iniciou após o selo",order_label),
+                    ("Requirements",", ".join(_safe_json(task.get("requirements_json"),[])) or "-"),
+                    ("Estado da task",page._status_label(task.get("status"))),
+                    ("Rounds persistidos",len(rounds)),
+                    ("Tentativas de provider",len(attempts)),
+                    ("Tokens persistidos",total_tokens),
+                    ("Custo observado",f"{attempts[0].get('cost_currency') or 'USD'} {total_cost:.8f}" if attempts else "Não materializado"),
+                ))
+                round_rows=[(
+                    r.get("round_index"),
+                    page._status_label(r.get("status")),
+                    r.get("started_at") or "-",
+                    r.get("finished_at") or "-",
+                    r.get("input_hash") or "-",
+                    r.get("output_hash") or "-",
+                    ", ".join(_safe_json(r.get("missing_json"),[])) or "-",
+                ) for r in rounds]
+                body+=page._table(
+                    ("Round","Estado","Início","Fim","Hash entrada","Hash saída","Pendências"),
+                    round_rows,
+                    empty="Nenhum round governado persistido.",
+                )
+                attempt_rows=[(
+                    r.get("provider") or "-",
+                    r.get("model") or "-",
+                    r.get("reasoning_profile") or "-",
+                    page._status_label(r.get("status")),
+                    r.get("decision") or "-",
+                    r.get("input_tokens") or 0,
+                    r.get("output_tokens") or 0,
+                    r.get("total_tokens") or 0,
+                    f"{r.get('cost_currency') or 'USD'} {float(r.get('estimated_cost') or 0):.8f}",
+                    r.get("error_code") or "-",
+                ) for r in attempts]
+                body+=page._table(
+                    ("Provider","Modelo","Esforço","Estado","Roteamento","Input","Output","Total","Custo","Erro"),
+                    attempt_rows,
+                    empty="Nenhuma tentativa de provider vinculada a esta task foi persistida.",
+                )
+            elif bool(configuration.get("ai_competitive")):
+                body+="<div class='notice warn'><strong>Governança da IA:</strong> a configuração solicitou IA competitiva, mas não há task governada vinculada a esta observação.</div>"
+
             body+="<div class='notice'>A classificação e a comparação determinística são autoritativas para as evidências. A IA, quando solicitada, é executada somente depois do selo de evidências e produz interpretação advisory; não declara causalidade de ranking nem concorrência comercial.</div>"
-            modals.append(page._modal(modal_id,"Inteligência competitiva",str(obs[0] if obs else oid),body))
-        return page._table(("Consulta","Status","Candidatos","Páginas observadas","Lacunas","IA","Metodologia","Detalhe"),rows,empty="Nenhuma análise competitiva persistida.",sortable=bool(rows))+"".join(modals)
+            modals.append(page._modal(modal_id,"Inteligência competitiva",str(obs.get("query") or oid),body))
+
+        contract_html=(
+            "<div class='subsection'><h3>Contrato competitivo efetivo desta AUD</h3>"
+            + page._table(("Parâmetro","Valor efetivo"),_contract_rows(configuration),empty="O work item de Search Intelligence não contém configuração competitiva persistida.")
+            + "<p class='muted'>Estes valores vêm do work item persistido desta AUD e são usados para confrontar configuração, execução e resultado competitivo.</p></div>"
+        )
+        table=page._table(
+            ("Consulta","Status","Classificados","Selecionados","Páginas observadas","Lacunas","IA","Metodologia","Detalhe"),
+            rows,
+            empty="Nenhuma análise competitiva persistida.",
+            sortable=bool(rows),
+        )
+        return contract_html+table+"".join(modals)
     finally:
         connection.close()
-
 
 def _external_html(database: Path, data: Any) -> str:
     from rasai import catalog_report_page as page

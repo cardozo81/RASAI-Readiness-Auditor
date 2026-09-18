@@ -31,11 +31,11 @@ def _audit_db(path: Path) -> None:
         connection.close()
 
 
-def _data(configuration: dict | None = None):
+def _data(configuration: dict | None = None, *, work_items=()):
     return SimpleNamespace(
         audit_id=AUDIT_ID,
         configuration=configuration or {},
-        work_items=(),
+        work_items=work_items,
         targets=("https://example.test/",),
     )
 
@@ -407,3 +407,157 @@ def test_competitive_report_projects_persisted_ai_result_without_calling_ai(tmp_
     assert "Cobrir condição observada" in html
     assert "CE-GAP-001" in html
     assert "OPENAI" in html
+
+
+
+def test_competitive_report_exposes_effective_contract_http_evidence_and_ai_governance(tmp_path: Path) -> None:
+    database = tmp_path / "audit.db"
+    _audit_db(database)
+    artifact = tmp_path / "artifacts" / "search-intelligence" / "competitive" / "OBS.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("{}", encoding="utf-8")
+    digest = __import__("hashlib").sha256(b"{}").hexdigest()
+    ai_artifact = tmp_path / "artifacts" / "search-intelligence" / "competitive-ai" / "OBS.json"
+    ai_artifact.parent.mkdir(parents=True)
+    ai_artifact.write_text("{}", encoding="utf-8")
+    ai_digest = __import__("hashlib").sha256(b"{}").hexdigest()
+
+    connection = sqlite3.connect(database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE serp_observations(
+                observation_id TEXT PRIMARY KEY,query TEXT,result_count INTEGER,
+                customer_position INTEGER,domain_status TEXT
+            );
+            CREATE TABLE serp_competitive_analyses(
+                observation_id TEXT PRIMARY KEY,audit_id TEXT,methodology TEXT,comparison_status TEXT,
+                customer_url TEXT,candidate_count INTEGER,observed_competitor_pages INTEGER,
+                gap_count INTEGER,gaps_json TEXT,evidence_ref TEXT,evidence_sha256 TEXT
+            );
+            CREATE TABLE serp_competitive_results(
+                observation_id TEXT,position INTEGER,domain TEXT,url TEXT,classification TEXT,
+                eligible_for_content_comparison INTEGER,selected_for_content_comparison INTEGER,reason TEXT
+            );
+            CREATE TABLE serp_competitive_pages(
+                observation_id TEXT,role TEXT,domain TEXT,requested_url TEXT,final_url TEXT,
+                fetch_status TEXT,http_status INTEGER,content_type TEXT,content_sha256 TEXT,bytes_read INTEGER,
+                title TEXT,meta_description TEXT,headings_json TEXT,word_count INTEGER,query_terms_json TEXT,
+                query_terms_title_json TEXT,query_terms_description_json TEXT,query_terms_headings_json TEXT,
+                query_terms_body_json TEXT,jsonld_types_json TEXT,error_code TEXT,error_message TEXT,redirects_json TEXT
+            );
+            CREATE TABLE serp_competitive_ai_analyses(
+                observation_id TEXT PRIMARY KEY,audit_id TEXT,state TEXT,reason TEXT,provider TEXT,model TEXT,
+                contract_version TEXT,prompt_id TEXT,prompt_version TEXT,provider_request_id TEXT,
+                query_intent TEXT,ymyl_assessment TEXT,summary TEXT,opportunity_count INTEGER,
+                opportunities_json TEXT,evidence_ref TEXT,evidence_sha256 TEXT
+            );
+            CREATE TABLE ai_evidence_versions(
+                evidence_snapshot_id TEXT PRIMARY KEY,sealed_at TEXT
+            );
+            CREATE TABLE ai_tasks(
+                ai_task_id TEXT PRIMARY KEY,audit_id TEXT,purpose TEXT,scope_type TEXT,scope_key TEXT,
+                evidence_snapshot_id TEXT,semantic_contract_version TEXT,prompt_id TEXT,prompt_version TEXT,
+                requirements_json TEXT,status TEXT,created_at TEXT
+            );
+            CREATE TABLE ai_request_rounds(
+                ai_round_id TEXT PRIMARY KEY,ai_task_id TEXT,round_index INTEGER,status TEXT,
+                started_at TEXT,finished_at TEXT,input_hash TEXT,output_hash TEXT,missing_json TEXT
+            );
+            CREATE TABLE ai_provider_attempts(
+                attempt_id TEXT PRIMARY KEY,audit_id TEXT,provider TEXT,model TEXT,reasoning_profile TEXT,
+                status TEXT,decision TEXT,input_tokens INTEGER,output_tokens INTEGER,total_tokens INTEGER,
+                estimated_cost REAL,cost_currency TEXT,error_code TEXT,ai_task_id TEXT,ai_round_id TEXT
+            );
+            """
+        )
+        connection.execute("INSERT INTO serp_observations VALUES (?,?,?,?,?)",("OBS","seguro de vida",9,4,"FOUND"))
+        gaps=json.dumps([{
+            "code":"QUERY_BODY_COVERAGE_LOWER",
+            "severity":"MEDIUM",
+            "message":"Menor cobertura observada da query no body.",
+            "customer_value":0.25,
+            "leader_reference":0.75,
+            "evidence_urls":["https://competitor.test/vida"],
+        }])
+        connection.execute(
+            "INSERT INTO serp_competitive_analyses VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            ("OBS",AUDIT_ID,"DETERMINISTIC_CORRELATIONAL_001","CONSOLIDATED","https://example.test/",1,1,1,gaps,
+             "artifacts/search-intelligence/competitive/OBS.json",digest),
+        )
+        connection.executemany(
+            "INSERT INTO serp_competitive_results VALUES (?,?,?,?,?,?,?,?)",
+            [
+                ("OBS",1,"competitor.test","https://competitor.test/vida","ORGANIC_CANDIDATE",1,1,"external organic result; business equivalence is not inferred"),
+                ("OBS",2,"gov.br","https://gov.br/info","PUBLIC_AUTHORITY",0,0,"public-authority domain heuristic"),
+            ],
+        )
+        connection.executemany(
+            "INSERT INTO serp_competitive_pages VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            [
+                ("OBS","CUSTOMER","example.test","https://example.test/","https://example.test/","OBSERVED",200,"text/html","c"*64,12000,
+                 "Seguro","Vida","[]",900,"[]","[]","[]","[]","[]","[]",None,None,"[]"),
+                ("OBS","COMPETITOR_CANDIDATE","competitor.test","https://competitor.test/vida","https://competitor.test/vida","OBSERVED",200,"text/html","d"*64,15000,
+                 "Seguro de vida","Vida","[]",1500,"[]","[]","[]","[]","[]","[]",None,None,json.dumps(["https://competitor.test/r"])),
+            ],
+        )
+        opportunities=json.dumps([{
+            "priority":"HIGH","category":"TOPIC_COVERAGE","title":"Aprofundar cobertura",
+            "recommendation":"Cobrir a condição observada.","rationale":"A diferença foi observada nas páginas comparadas.",
+            "evidence_ids":["CE-GAP-001"],"confidence":0.88,
+            "causality_note":"Diferença correlacional; não implica causa de ranking.",
+        }])
+        connection.execute(
+            "INSERT INTO serp_competitive_ai_analyses VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("OBS",AUDIT_ID,"AVAILABLE",None,"OPENAI","gpt-5.6-luna","COMPETITIVE-AI-001",
+             "rasai-competitive-search","1","REQ","informational","financial-security","Resumo",1,opportunities,
+             "artifacts/search-intelligence/competitive-ai/OBS.json",ai_digest),
+        )
+        connection.execute("INSERT INTO ai_evidence_versions VALUES (?,?)",("EVIDENCE-1","2026-09-18T12:00:00+00:00"))
+        connection.execute(
+            "INSERT INTO ai_tasks VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("TASK-1",AUDIT_ID,"COMPETITIVE_INTELLIGENCE","SERP_OBSERVATION","OBS","EVIDENCE-1",
+             "COMPETITIVE-AI-001","rasai-competitive-search","1",json.dumps(["competitive_semantic_opportunities"]),
+             "COMPLETE","2026-09-18T12:00:01+00:00"),
+        )
+        connection.execute(
+            "INSERT INTO ai_request_rounds VALUES (?,?,?,?,?,?,?,?,?)",
+            ("AIR-1","TASK-1",1,"COMPLETE","2026-09-18T12:00:02+00:00","2026-09-18T12:00:03+00:00","in","out","[]"),
+        )
+        connection.execute(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("AIA-1",AUDIT_ID,"OPENAI","gpt-5.6-luna","HIGH","SUCCESS","SUCCESS",100,40,140,0.001,"USD",None,"TASK-1","AIR-1"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    work_items=({
+        "component":"SEARCH_INTELLIGENCE",
+        "configuration":json.dumps({
+            "queries":["seguro de vida"],"region":"BR","depth":20,"device":"mobile",
+            "competitive":True,"compare_content":True,"max_content_pages":1,
+            "content_timeout_seconds":12.5,"content_max_bytes":1500000,"content_max_redirects":2,
+            "ai_competitive":True,"ymyl_mode":"AUTO","mode":"live","provider":"serpapi","engine":"google",
+            "max_queries":5,"max_requests":10,"max_depth":100,"max_competitors":5,"retries":1,
+            "timeout_seconds":30.0,"min_interval_seconds":1.0,"market":"BR","language":"pt-BR",
+            "ai_provider":"auto","ai_model":"",
+        }),
+    },)
+
+    html=_competitive_html(database,_data(work_items=work_items))
+    assert "Contrato competitivo efetivo desta AUD" in html
+    assert "Máx. páginas concorrentes" in html
+    assert "1500000" in html
+    assert "Resultados SERP recebidos" in html
+    assert "ORGANIC_CANDIDATE" in html
+    assert "PUBLIC_AUTHORITY" in html
+    assert "URL solicitada" in html
+    assert "QUERY_BODY_COVERAGE_LOWER" in html
+    assert "Diferença correlacional; não implica causa de ranking." in html
+    assert "Governança da IA competitiva" in html
+    assert "EVIDENCE-1" in html
+    assert "IA iniciou após o selo" in html
+    assert "Tentativas de provider" in html
+    assert "USD 0.00100000" in html
+    assert "Íntegro - SHA-256 confere" in html
