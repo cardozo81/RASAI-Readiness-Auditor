@@ -29,6 +29,10 @@ from rasai.m18_ai import (
     estimate_cost,
 )
 from rasai.semantic import SemanticEvidenceInput, SemanticInput
+from rasai.ai_governance import begin_round, register_task, seal_evidence
+from rasai.domain import Audit, Page, PageSnapshot, DeviceContext, DiscoverySource
+from rasai.m18_persistence import M18Persistence, _durable_semantic_governance
+from rasai.persistence import AuditPersistence, AuditWorkspace
 from tests.test_m12_stable_baseline import _FixtureRenderer, _server
 
 
@@ -374,3 +378,85 @@ class M18ProviderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+def test_durable_semantic_governance_resolves_round_for_provider_attempt(tmp_path: Path) -> None:
+    audit_id = "AUD-M18-GOV"
+    workspace = AuditWorkspace.create(tmp_path, audit_id)
+    with AuditPersistence(workspace) as persistence:
+        persistence.audits.add(Audit(audit_id=audit_id, project_name="m18 governance"))
+        persistence.pages.add(Page(
+            "P1",
+            audit_id,
+            "https://example.test/",
+            "https://example.test/",
+            (DiscoverySource.SEED,),
+            0,
+        ))
+        persistence.snapshots.add(PageSnapshot(
+            snapshot_id="SNP-GOV",
+            page_id="P1",
+            device=DeviceContext.MOBILE,
+            requested_url="https://example.test/",
+            final_url="https://example.test/",
+            captured_at=datetime(2026, 9, 18, 20, 0, tzinfo=timezone.utc),
+            http_status=200,
+        ))
+
+    evidence = seal_evidence(
+        workspace=workspace,
+        audit_id=audit_id,
+        evidence_ids=(),
+        collection_states={"CORE": "SUCCESS"},
+    )
+    task_id = register_task(
+        workspace=workspace,
+        audit_id=audit_id,
+        purpose="SEMANTIC_M7",
+        scope_type="SNAPSHOT",
+        scope_key="SNP-GOV",
+        evidence_snapshot_id=evidence.evidence_snapshot_id,
+        requirements=("BR-GEO-028",),
+    )
+    round_id = begin_round(
+        workspace=workspace,
+        ai_task_id=task_id,
+        requested_requirements=("BR-GEO-028",),
+        input_payload={"snapshot_id": "SNP-GOV"},
+    )
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        started_at = connection.execute(
+            "SELECT started_at FROM ai_request_rounds WHERE ai_round_id=?",
+            (round_id,),
+        ).fetchone()[0]
+    finally:
+        connection.close()
+    started = datetime.fromisoformat(str(started_at).replace("Z", "+00:00"))
+    attempt = __import__("rasai.m18_ai", fromlist=["ProviderAttempt"]).ProviderAttempt(
+        provider="OPENAI",
+        model="gpt-test",
+        reasoning_profile="NONE",
+        provider_rank=1,
+        attempt_index=1,
+        snapshot_id="SNP-GOV",
+        url="https://example.test/",
+        started_at=started,
+        finished_at=started,
+        duration_ms=0,
+        status=__import__("rasai.m18_ai", fromlist=["AttemptStatus"]).AttemptStatus.SUCCESS,
+        usage=ProviderUsage(input_tokens=10, output_tokens=5, total_tokens=15),
+        estimated_cost=0.001,
+        cost_currency="USD",
+        pricing_version="test",
+        request_message_summary="semantic",
+        request_payload_hash="hash",
+        semantic_contract_version="M18-SEMANTIC-22-v1",
+    )
+
+    with M18Persistence(workspace) as store:
+        assert _durable_semantic_governance(
+            store,
+            audit_id=audit_id,
+            attempt=attempt,
+        ) == ("SEMANTIC_M7", task_id, round_id)

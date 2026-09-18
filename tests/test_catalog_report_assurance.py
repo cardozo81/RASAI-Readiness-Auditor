@@ -215,3 +215,69 @@ def test_assurance_matrix_explains_each_axis_without_changing_columns() -> None:
         assert f"<th>{label}</th>" in html
     assert "cobertura de controles" in html
     assert "probabilidade estatística" in html
+
+def test_internal_orchestration_failure_reduces_assurance_instead_of_showing_all_100(monkeypatch, tmp_path: Path) -> None:
+    from rasai import catalog_report_assurance as assurance
+
+    database = tmp_path / "audit.db"
+    database.write_bytes(b"")
+    _patch_catalog(monkeypatch)
+    monkeypatch.setattr(assurance, "_applicable_config_markers", lambda *_args: ())
+
+    data = _data()
+    data.selected = {"CAT-09"}
+    data.work_items = [{
+        "component": "CONTENT_REMEDIATION_AI",
+        "scope_key": "AUDIT",
+        "status": "FAILED_RETRYABLE",
+        "last_error_class": "ORCHESTRATION",
+        "last_error_code": "CONTENT_REMEDIATION_EXECUTION_FAILURE",
+    }]
+    result = assess_catalog(database, data, "CAT-09", _body())
+
+    assert result["governance"] < 100.0
+    assert result["reliability"] < 100.0
+    assert result["closure_eligible"] is False
+    failed = {item["code"] for item in result["checks"] if not item["passed"]}
+    assert "GOV_INTERNAL_EXECUTION" in failed
+    assert "REL_INTERNAL_EXECUTION" in failed
+
+
+def test_missing_semantic_attempt_task_round_provenance_reduces_integrity(monkeypatch, tmp_path: Path) -> None:
+    from rasai import catalog_report_assurance as assurance
+
+    database = tmp_path / "audit.db"
+    connection = __import__("sqlite3").connect(database)
+    try:
+        connection.execute(
+            """CREATE TABLE ai_provider_attempts(
+                audit_id TEXT,semantic_contract_version TEXT,
+                operation TEXT,ai_task_id TEXT,ai_round_id TEXT
+            )"""
+        )
+        connection.execute(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?)",
+            ("AUD-ASSURANCE", "M18-SEMANTIC-22-v1", None, None, None),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    _patch_catalog(monkeypatch)
+    monkeypatch.setattr(assurance, "_applicable_config_markers", lambda *_args: ())
+
+    data = _data()
+    data.selected = {"CAT-03"}
+    result = assess_catalog(database, data, "CAT-03", _body())
+
+    assert result["governance"] < 100.0
+    assert result["integrity"] < 100.0
+    assert result["closure_eligible"] is False
+    failed = {item["code"] for item in result["checks"] if not item["passed"]}
+    assert "GOV_AI_ATTEMPT_PROVENANCE" in failed
+    assert "INT_AI_ATTEMPT_PROVENANCE" in failed
+
+
+def test_requested_not_executed_is_explicit_in_catalog_execution_label() -> None:
+    from rasai.catalog_report_analysis import _technical_work_status
+
+    assert _technical_work_status("REQUESTED_NOT_EXECUTED") == "Solicitado, não executado"

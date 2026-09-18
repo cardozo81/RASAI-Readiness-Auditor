@@ -66,6 +66,7 @@ def test_cat09_projects_w3c_failures_as_deterministic_remediation(tmp_path) -> N
     assert len(rows) == 2
     assert "Corrigir Conformidade HTML W3C" in str(rows)
     assert "Corrigir Conformidade CSS W3C" in str(rows)
+    assert "CAT-01 - padrões e validação W3C" in str(rows)
     assert "Linha 31, coluna 9" in html
     assert "Element h4 not allowed" in html
     assert "Reposicionar ou substituir o elemento" in html
