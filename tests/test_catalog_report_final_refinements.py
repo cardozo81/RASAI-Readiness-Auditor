@@ -261,7 +261,7 @@ def test_cat08_explains_findings_without_individual_remediation(tmp_path: Path) 
     assert "Problemas correlacionados" in html
     assert "Achados sem recomendação individual da análise profunda" in html
     assert "foi configurada para no máximo 1 recomendações" in html
-    assert "Este finding não possui remediação individual" in html
+    assert "Não há recomendação individual do Improvement Intelligence para este finding" in html
 
 
 def test_capture_context_has_visible_preview_and_atomic_screenshot_modal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
