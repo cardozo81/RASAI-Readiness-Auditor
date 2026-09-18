@@ -331,8 +331,11 @@ def test_common_crawl_final_binding_collects_preseal_after_late_owner(monkeypatc
 def test_recommendation_governance_finishes_before_reporting_phase() -> None:
     from rasai import audit_runner
 
-    source = inspect.getsource(audit_runner.run_audit)
-    governance = source.index("evaluate_recommendations(")
+    # Read the module source from disk instead of the live function object: other
+    # focused runtime tests may legitimately install wrappers around run_audit in
+    # the same pytest process, which must not make this source-order contract flaky.
+    source = Path(audit_runner.__file__).read_text(encoding="utf-8")
+    governance = source.index("evaluate_recommendations(workspace.database, audit_id)")
     reporting = source.index("_set_status(persistence, audit_id, AuditStatus.REPORTING)")
 
     assert governance < reporting
