@@ -5,6 +5,7 @@ from types import ModuleType
 from typing import Any
 
 from rasai.audit_catalog import AI_NONE, AI_OPTIONAL, AI_REQUIRED, CATALOGS, AuditCatalog
+from rasai.configuration_value_labels import configuration_csv_info, configuration_value_info
 from rasai.console_ui import CYAN, DIM, RED, YELLOW, paint
 from rasai.console_ui_catalog import CORE_IDS, badge, capability_specs, configuration_id, info, origin_for, section, variable_editor
 from rasai.console_catalog_plan import (
@@ -68,9 +69,27 @@ def _render_context(state: Any, catalog: AuditCatalog) -> None:
     info("Device", getattr(state, "device", "mobile"))
     info("Idioma / mercado", f"{getattr(state, 'language', '-')} / {getattr(state, 'market', '-')}")
     if catalog.id == "CAT-04":
-        info("Web Performance", "ON" if bool(getattr(state, "web_performance", False)) else "OFF")
-        info("Field source", getattr(state, "field_source", "auto"))
-        info("Lighthouse", getattr(state, "lighthouse_categories", "-"))
+        info(
+            "Web Performance",
+            configuration_value_info(
+                "",
+                "ON" if bool(getattr(state, "web_performance", False)) else "OFF",
+            ),
+        )
+        info(
+            "Field source",
+            configuration_value_info(
+                "RASAI_WEB_PERFORMANCE_FIELD_SOURCE",
+                getattr(state, "field_source", "auto"),
+            ),
+        )
+        info(
+            "Lighthouse",
+            configuration_csv_info(
+                "RASAI_LIGHTHOUSE_CATEGORIES",
+                getattr(state, "lighthouse_categories", "-"),
+            ),
+        )
     elif catalog.id == "CAT-05":
         queries = tuple(getattr(state, "search_queries", ()) or ())
         info("Termos SERP", "; ".join(queries) if queries else "<não configurados>")
