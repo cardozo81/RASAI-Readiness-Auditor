@@ -154,16 +154,18 @@ def install() -> None:
             EXTERNAL_TIMEOUT_ENV: f"{float(normalized['security_external_timeout_seconds']):g}",
         })
         if normalized["passive_security_ai"]:
-            # Preserve CAT-08 if it is explicitly requested; otherwise reuse the same
-            # Improvement engine solely for SECURITY. If both are active, ensure
-            # SECURITY is included without creating a second provider call.
+            # Preserve CAT-08 only when it was explicitly enabled in the base payload.
+            # Otherwise CAT-10 reuses the same engine strictly for SECURITY.
             current_enabled = str(overrides.get(IMPROVEMENT_ENABLED_ENV) or "").casefold() == "true"
-            raw_domains = overrides.get(IMPROVEMENT_DOMAINS_ENV, "")
-            domains = list(parse_domains(raw_domains)) if raw_domains else []
-            if "SECURITY" not in domains:
-                domains.append("SECURITY")
+            if current_enabled:
+                raw_domains = overrides.get(IMPROVEMENT_DOMAINS_ENV, "")
+                domains = list(parse_domains(raw_domains)) if raw_domains else []
+                if "SECURITY" not in domains:
+                    domains.append("SECURITY")
+            else:
+                domains = ["SECURITY"]
             overrides[IMPROVEMENT_ENABLED_ENV] = "true"
-            overrides[IMPROVEMENT_DOMAINS_ENV] = ",".join(domains or ["SECURITY"])
+            overrides[IMPROVEMENT_DOMAINS_ENV] = ",".join(domains)
         return overrides
 
     contract.audit_job_options = options_with_security
