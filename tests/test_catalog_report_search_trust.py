@@ -6,6 +6,7 @@ import sqlite3
 from types import SimpleNamespace
 
 from rasai.catalog_report_search_trust import (
+    _competitive_validation_rows,
     _competitive_html,
     _external_html,
     _overview_references,
@@ -547,6 +548,12 @@ def test_competitive_report_exposes_effective_contract_http_evidence_and_ai_gove
 
     html=_competitive_html(database,_data(work_items=work_items))
     assert "Contrato competitivo efetivo desta AUD" in html
+    assert "Validação ponta a ponta - configuração, evidência e IA" in html
+    assert "Análise de concorrentes" in html
+    assert "Comparação de conteúdo" in html
+    assert "Evidence seal" in html
+    assert "IA pós-selo" in html
+    assert "COM LIMITAÇÃO" in html
     assert "Máx. páginas concorrentes" in html
     assert "1500000" in html
     assert "Resultados SERP recebidos" in html
@@ -561,3 +568,97 @@ def test_competitive_report_exposes_effective_contract_http_evidence_and_ai_gove
     assert "Tentativas de provider" in html
     assert "USD 0.00100000" in html
     assert "Íntegro - SHA-256 confere" in html
+
+
+def test_competitive_validation_matrix_flags_contract_divergence_without_guessing_execution() -> None:
+    configuration = {
+        "competitive": True,
+        "compare_content": True,
+        "max_content_pages": 1,
+        "content_timeout_seconds": 8.0,
+        "content_max_bytes": 1000,
+        "content_max_redirects": 1,
+        "ai_competitive": True,
+        "ymyl_mode": "AUTO",
+    }
+    item = {
+        "comparison_status": "CONTENT_COMPARISON_DISABLED",
+        "evidence_ref": "artifacts/search-intelligence/competitive/OBS.json",
+    }
+    candidates = [
+        {"selected_for_content_comparison": 1},
+        {"selected_for_content_comparison": 1},
+    ]
+    pages = [
+        {"bytes_read": 1500, "redirects_json": json.dumps(["a", "b"])},
+    ]
+
+    rows = _competitive_validation_rows(
+        configuration,
+        item,
+        candidates,
+        pages,
+        None,
+        None,
+        (),
+        None,
+    )
+    by_control = {row[0]: row for row in rows}
+
+    assert by_control["Comparação de conteúdo"][-1] == "INCONSISTENTE"
+    assert by_control["Máx. páginas concorrentes"][-1] == "INCONSISTENTE"
+    assert by_control["Timeout conteúdo"][-1] == "COM LIMITAÇÃO"
+    assert by_control["Máx. bytes por página"][-1] == "INCONSISTENTE"
+    assert by_control["Máx. redirects"][-1] == "INCONSISTENTE"
+    assert by_control["IA competitiva"][-1] == "NÃO ELEGÍVEL"
+    assert by_control["Evidence seal"][-1] == "NÃO ELEGÍVEL"
+    assert by_control["IA pós-selo"][-1] == "NÃO ELEGÍVEL"
+
+
+def test_competitive_validation_matrix_accepts_governed_post_seal_ai() -> None:
+    configuration = {
+        "competitive": True,
+        "compare_content": True,
+        "max_content_pages": 2,
+        "content_timeout_seconds": 8.0,
+        "content_max_bytes": 2000,
+        "content_max_redirects": 2,
+        "ai_competitive": True,
+        "ymyl_mode": "AUTO",
+    }
+    item = {
+        "comparison_status": "CONSOLIDATED",
+        "evidence_ref": "artifacts/search-intelligence/competitive/OBS.json",
+    }
+    candidates = [{"selected_for_content_comparison": 1}]
+    pages = [{"bytes_read": 1500, "redirects_json": json.dumps(["a"])}]
+    ai = {
+        "state": "AVAILABLE",
+        "ymyl_assessment": "financial-security",
+        "evidence_ref": "artifacts/search-intelligence/competitive-ai/OBS.json",
+    }
+    task = {"ai_task_id": "TASK-1", "evidence_snapshot_id": "EVIDENCE-1"}
+    rounds = [{"started_at": "2026-09-18T12:00:02+00:00"}]
+    snapshot = {"sealed_at": "2026-09-18T12:00:00+00:00"}
+
+    rows = _competitive_validation_rows(
+        configuration,
+        item,
+        candidates,
+        pages,
+        ai,
+        task,
+        rounds,
+        snapshot,
+    )
+    by_control = {row[0]: row for row in rows}
+
+    assert by_control["Análise de concorrentes"][-1] == "OK"
+    assert by_control["Comparação de conteúdo"][-1] == "OK"
+    assert by_control["Máx. páginas concorrentes"][-1] == "OK"
+    assert by_control["Máx. bytes por página"][-1] == "OK"
+    assert by_control["Máx. redirects"][-1] == "OK"
+    assert by_control["IA competitiva"][-1] == "OK"
+    assert by_control["YMYL"][-1] == "OK"
+    assert by_control["Evidence seal"][-1] == "OK"
+    assert by_control["IA pós-selo"][-1] == "OK"

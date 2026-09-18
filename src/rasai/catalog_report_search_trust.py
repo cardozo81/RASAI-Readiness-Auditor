@@ -660,6 +660,254 @@ def _contract_rows(configuration: Mapping[str, Any]) -> list[tuple[Any, ...]]:
     ]
 
 
+
+def _competitive_validation_rows(
+    configuration: Mapping[str, Any],
+    item: Mapping[str, Any],
+    candidates: Sequence[Mapping[str, Any]],
+    pages: Sequence[Mapping[str, Any]],
+    ai: Mapping[str, Any] | None,
+    task: Mapping[str, Any] | None,
+    rounds: Sequence[Mapping[str, Any]],
+    snapshot: Mapping[str, Any] | None,
+) -> list[tuple[Any, ...]]:
+    """Validate the CAT-05 persisted contract without treating configuration as observed execution."""
+    def yes(value: Any) -> str:
+        return "Sim" if bool(value) else "Não"
+
+    def persisted(key: str) -> str:
+        return "Sim" if key in configuration else "Não"
+
+    selected_count = sum(1 for row in candidates if row.get("selected_for_content_comparison"))
+    comparison_status = str(item.get("comparison_status") or "").upper()
+    artifact_ref = str(item.get("evidence_ref") or "").strip()
+    configured_competitive = bool(configuration.get("competitive"))
+    configured_compare = bool(configuration.get("compare_content"))
+    configured_ai = bool(configuration.get("ai_competitive"))
+
+    rows: list[tuple[Any, ...]] = []
+
+    competitive_state = (
+        "OK"
+        if configured_competitive and bool(item)
+        else "INCONSISTENTE"
+        if not configured_competitive and (bool(candidates) or bool(item))
+        else "NÃO EXECUTADO"
+    )
+    rows.append((
+        "Análise de concorrentes",
+        yes(configured_competitive),
+        persisted("competitive"),
+        f"{len(candidates)} candidato(s) classificado(s)" if item else "Não executado",
+        "Sim",
+        "serp_competitive_analyses / serp_competitive_results",
+        competitive_state,
+    ))
+
+    if configured_compare:
+        if comparison_status == "CONSOLIDATED":
+            comparison_state = "OK"
+        elif comparison_status == "CONTENT_COMPARISON_DISABLED":
+            comparison_state = "INCONSISTENTE"
+        elif comparison_status:
+            comparison_state = "COM LIMITAÇÃO"
+        else:
+            comparison_state = "SEM EVIDÊNCIA"
+    else:
+        comparison_state = (
+            "INCONSISTENTE"
+            if comparison_status == "CONSOLIDATED" or bool(pages)
+            else "NÃO EXECUTADO"
+        )
+    rows.append((
+        "Comparação de conteúdo",
+        yes(configured_compare),
+        persisted("compare_content"),
+        comparison_status or "Não executado",
+        "Sim",
+        artifact_ref or "serp_competitive_pages",
+        comparison_state,
+    ))
+
+    max_pages = configuration.get("max_content_pages")
+    try:
+        max_pages_int = int(max_pages) if max_pages is not None else None
+    except (TypeError, ValueError):
+        max_pages_int = None
+    max_pages_state = (
+        "SEM EVIDÊNCIA"
+        if max_pages_int is None
+        else "INCONSISTENTE"
+        if selected_count > max_pages_int
+        else "OK"
+    )
+    rows.append((
+        "Máx. páginas concorrentes",
+        max_pages if max_pages is not None else "-",
+        persisted("max_content_pages"),
+        selected_count,
+        "Sim",
+        "serp_competitive_results.selected_for_content_comparison",
+        max_pages_state,
+    ))
+
+    timeout = configuration.get("content_timeout_seconds")
+    rows.append((
+        "Timeout conteúdo",
+        f"{timeout} s" if timeout is not None else "-",
+        persisted("content_timeout_seconds"),
+        "Sem telemetria por requisição" if timeout is not None else "Não comprovado",
+        "Sim",
+        "Contrato persistido; duração/timeout efetivo por requisição não é armazenado",
+        "COM LIMITAÇÃO" if timeout is not None else "SEM EVIDÊNCIA",
+    ))
+
+    max_bytes = configuration.get("content_max_bytes")
+    byte_values = [
+        int(row.get("bytes_read"))
+        for row in pages
+        if row.get("bytes_read") is not None
+    ]
+    try:
+        max_bytes_int = int(max_bytes) if max_bytes is not None else None
+    except (TypeError, ValueError):
+        max_bytes_int = None
+    max_observed_bytes = max(byte_values, default=None)
+    bytes_state = (
+        "SEM EVIDÊNCIA"
+        if max_bytes_int is None or max_observed_bytes is None
+        else "INCONSISTENTE"
+        if max_observed_bytes > max_bytes_int
+        else "OK"
+    )
+    rows.append((
+        "Máx. bytes por página",
+        max_bytes if max_bytes is not None else "-",
+        persisted("content_max_bytes"),
+        f"máx. observado {max_observed_bytes} bytes"
+        if max_observed_bytes is not None
+        else "Sem página observada",
+        "Sim",
+        "serp_competitive_pages.bytes_read",
+        bytes_state,
+    ))
+
+    max_redirects = configuration.get("content_max_redirects")
+    redirect_counts = [len(_safe_json(row.get("redirects_json"), [])) for row in pages]
+    try:
+        max_redirects_int = int(max_redirects) if max_redirects is not None else None
+    except (TypeError, ValueError):
+        max_redirects_int = None
+    max_observed_redirects = max(redirect_counts, default=None)
+    redirects_state = (
+        "SEM EVIDÊNCIA"
+        if max_redirects_int is None or max_observed_redirects is None
+        else "INCONSISTENTE"
+        if max_observed_redirects > max_redirects_int
+        else "OK"
+    )
+    rows.append((
+        "Máx. redirects",
+        max_redirects if max_redirects is not None else "-",
+        persisted("content_max_redirects"),
+        f"máx. observado {max_observed_redirects}"
+        if max_observed_redirects is not None
+        else "Sem página observada",
+        "Sim",
+        "serp_competitive_pages.redirects_json",
+        redirects_state,
+    ))
+
+    ai_state = str((ai or {}).get("state") or "").upper()
+    if configured_ai:
+        if ai is not None and task is not None:
+            competitive_ai_state = "OK" if ai_state == "AVAILABLE" else "COM LIMITAÇÃO"
+        elif comparison_status != "CONSOLIDATED":
+            competitive_ai_state = "NÃO ELEGÍVEL"
+        else:
+            competitive_ai_state = "INCONSISTENTE"
+    else:
+        competitive_ai_state = (
+            "INCONSISTENTE" if ai is not None or task is not None else "NÃO EXECUTADO"
+        )
+    rows.append((
+        "IA competitiva",
+        yes(configured_ai),
+        persisted("ai_competitive"),
+        ai_state or "Não executada",
+        "Sim",
+        (ai or {}).get("evidence_ref") or (task or {}).get("ai_task_id") or "-",
+        competitive_ai_state,
+    ))
+
+    ymyl_mode = str(configuration.get("ymyl_mode") or "AUTO").upper()
+    ymyl_assessment = str((ai or {}).get("ymyl_assessment") or "").strip()
+    rows.append((
+        "YMYL",
+        ymyl_mode,
+        persisted("ymyl_mode"),
+        ymyl_assessment
+        or ("Não elegível sem IA competitiva" if not configured_ai else "Não materializado"),
+        "Sim",
+        (ai or {}).get("evidence_ref") or "-",
+        "OK"
+        if ai is not None and ymyl_assessment
+        else "NÃO ELEGÍVEL"
+        if not configured_ai or comparison_status != "CONSOLIDATED"
+        else "COM LIMITAÇÃO",
+    ))
+
+    snapshot_id = str((task or {}).get("evidence_snapshot_id") or "")
+    sealed_at = str((snapshot or {}).get("sealed_at") or "")
+    if not configured_ai or comparison_status != "CONSOLIDATED":
+        seal_state = "NÃO ELEGÍVEL"
+    elif task is not None and snapshot_id and sealed_at:
+        seal_state = "OK"
+    else:
+        seal_state = "SEM EVIDÊNCIA"
+    rows.append((
+        "Evidence seal",
+        "n/a",
+        snapshot_id or "Não materializado",
+        sealed_at or "Não materializado",
+        "Sim",
+        snapshot_id or "-",
+        seal_state,
+    ))
+
+    first_round = min(
+        (str(row.get("started_at") or "") for row in rounds if row.get("started_at")),
+        default="",
+    )
+    sealed_dt = _dt(sealed_at)
+    round_dt = _dt(first_round)
+    if not configured_ai or comparison_status != "CONSOLIDATED":
+        post_seal_state = "NÃO ELEGÍVEL"
+        post_seal_execution = "IA competitiva não elegível"
+    elif task is None or snapshot is None or not first_round:
+        post_seal_state = "SEM EVIDÊNCIA"
+        post_seal_execution = "Ordem temporal não comprovável"
+    elif sealed_dt is not None and round_dt is not None and round_dt >= sealed_dt:
+        post_seal_state = "OK"
+        post_seal_execution = f"{first_round} >= {sealed_at}"
+    elif sealed_dt is not None and round_dt is not None:
+        post_seal_state = "INCONSISTENTE"
+        post_seal_execution = f"{first_round} < {sealed_at}"
+    else:
+        post_seal_state = "SEM EVIDÊNCIA"
+        post_seal_execution = "Timestamps insuficientes"
+    rows.append((
+        "IA pós-selo",
+        "n/a",
+        (task or {}).get("ai_task_id") or "-",
+        post_seal_execution,
+        "Sim",
+        f"snapshot={snapshot_id or '-'} / task={(task or {}).get('ai_task_id') or '-'}",
+        post_seal_state,
+    ))
+    return rows
+
+
 def _competitive_html(database: Path, data: Any) -> str:
     from rasai import catalog_report_page as page
 
@@ -744,6 +992,29 @@ def _competitive_html(database: Path, data: Any) -> str:
                 inconsistencies.append("Existe resultado persistido da IA competitiva, mas a task governada correspondente não foi encontrada.")
             if inconsistencies:
                 body+="<div class='notice warn'><strong>Inconsistência de contrato:</strong><ul>"+"".join("<li>"+escape(v)+"</li>" for v in inconsistencies)+"</ul></div>"
+
+
+            validation_rows = _competitive_validation_rows(
+                configuration,
+                item,
+                candidates,
+                pages,
+                ai,
+                task,
+                rounds,
+                snapshot,
+            )
+            body += (
+                "<h3>Validação ponta a ponta - configuração, evidência e IA</h3>"
+                + page._table(
+                    ("Controle","Configurado","Persistido","Executado","Reportado","Evidência","Estado"),
+                    validation_rows,
+                    empty="Nenhum controle competitivo pôde ser validado.",
+                )
+                + "<p class='muted'>Configurado representa o contrato efetivo persistido no work item desta AUD. "
+                "A coluna Executado só afirma o que pode ser comprovado por evidência materializada; quando o runtime "
+                "não persiste telemetria granular, o estado é COM LIMITAÇÃO em vez de presumir execução.</p>"
+            )
 
             body+="<h3>Candidatos e classificação</h3>"+page._table(
                 ("Posição","Domínio","URL","Classificação","Elegível","Selecionado","Motivo"),
