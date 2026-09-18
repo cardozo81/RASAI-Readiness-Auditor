@@ -325,7 +325,8 @@ def _score_table(data: _ReportData, *, include_overall: bool=True, context: str|
         structured_absent=(dim=="STRUCTURED_DATA" and consolidation=="NOT_APPLICABLE" and row.get("value") is None)
         value="Não aplicável" if structured_absent else _score_value(row)
         confidence="Não aplicável - nenhum dado estruturado foi observado" if structured_absent else _confidence_label(row.get("confidence"))
-        rows.append((_DIMENSION_LABELS.get(dim,dim.replace("_"," ").title()),_device_label(row.get("device")),value,row.get("coverage",_EMPTY),confidence,_status_label(row.get("consolidation_status")),row.get("scoring_version",_EMPTY)))
+        dimension_label = public_label(dim) or _DIMENSION_LABELS.get(dim,dim.replace("_"," ").title())
+        rows.append((dimension_label,_device_label(row.get("device")),value,row.get("coverage",_EMPTY),confidence,_status_label(row.get("consolidation_status")),row.get("scoring_version",_EMPTY)))
     return _table(("Indicador","Contexto","Valor","Cobertura","Confiança","Consolidação","Método"),rows)
 
 

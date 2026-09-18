@@ -380,7 +380,7 @@ def _effective_improvement_configuration(
         "language": existing.get("language") or str(environment.get(AI_ANALYSIS_LANGUAGE_ENV) or "auto"),
     }
     if run is not None:
-        domains = _json_load(run.get("domains_json"), values["domains"])
+        domains = _safe_json(run.get("domains_json"), values["domains"])
         values.update({
             "provider": run.get("provider") or values["provider"],
             "model": run.get("model") or values["model"],
