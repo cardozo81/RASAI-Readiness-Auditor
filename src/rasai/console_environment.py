@@ -33,6 +33,11 @@ from rasai.console_m23 import (
 from rasai.console_runtime import render_header
 from rasai.console_session import clear_secret_volatile, mark_secret_volatile
 from rasai.console_ui import CYAN, DIM, GREEN, paint
+from rasai.configuration_value_labels import (
+    configuration_csv_info,
+    configuration_value_choice,
+    configuration_value_info,
+)
 from rasai.content_context import (
     CONTENT_ORIGIN_ENV,
     CONTENT_RISK_PROFILE_ENV,
@@ -726,7 +731,7 @@ def _prompt_choice(spec: EnvironmentSpec) -> str | None:
     print("\nValores aceitos:")
     for index, item in enumerate(spec.accepted, 1):
         marker = " [default]" if item == spec.default else ""
-        print(f" {index}. {item}{marker}")
+        print(f" {index}. {configuration_value_choice(spec.name, item)}{marker}")
     print(" V. Voltar")
     raw = input("Escolha: ").strip()
     if raw.upper() == "V":
@@ -746,7 +751,12 @@ def _render_detail(spec: EnvironmentSpec) -> None:
     print(f"Para que serve : {spec.purpose}")
     print(f"Tipo           : {spec.value_type}")
     if spec.accepted:
-        print(f"Valores aceitos: {', '.join(spec.accepted)}")
+        rendered_values = (
+            configuration_csv_info(spec.name, spec.default or "")
+            if str(spec.value_type).casefold() in {"lista csv", "lista", "csv"} and spec.default
+            else ", ".join(configuration_value_info(spec.name, value) for value in spec.accepted)
+        )
+        print(f"Valores aceitos: {rendered_values}")
     print(f"Default efetivo: {spec.default if spec.default is not None else 'nenhum seguro/aplicável'}")
     print(f"Obrigatória    : {spec.required_when}")
     print(f"Sensível       : {'SIM - nunca exibida nem gravada no INI' if _is_sensitive_spec(spec) else 'não'}")
