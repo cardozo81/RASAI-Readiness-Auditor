@@ -52,6 +52,8 @@ def _plan(state: Any) -> _Plan:
         selected.add("CAT-08")
     if bool(getattr(state, "content_remediation", False) or getattr(state, "technical_remediation", False)):
         selected.add("CAT-09")
+    if str(os.environ.get("RASAI_PASSIVE_SECURITY") or "").strip().casefold() in {"1","true","yes","on","sim","s"}:
+        selected.add("CAT-10")
     explicit_ai_work = bool(
         getattr(state, "improvement_enabled", False)
         or getattr(state, "content_remediation", False)
@@ -222,6 +224,13 @@ def catalog_status(state: Any, catalog: AuditCatalog) -> tuple[str, str]:
         if status == "BLOQUEADO":
             return status, detail
         return "APTO", "remediações determinísticas permanecem válidas; IA enriquece somente o advisory solicitado"
+    if catalog.id == "CAT-10":
+        try:
+            from rasai.passive_security import external_timeout
+            external_timeout()
+        except (ImportError, ValueError) as exc:
+            return "BLOQUEADO", f"configuração de segurança passiva inválida: {exc}"
+        return "APTO", "modo passivo; evidências HTTP/browser/runtime serão reutilizadas e integrações externas são fail-open"
     return "BLOQUEADO", "catálogo desconhecido"
 
 
@@ -323,6 +332,7 @@ def project_plan(state: Any) -> Iterator[None]:
     deep_analysis_switches = _deep_analysis_environment_switches()
     environment_switches = (
         "RASAI_GSC_ENABLED",
+        "RASAI_PASSIVE_SECURITY",
         *_optional_environment_switches(),
         *deep_analysis_switches,
     )
@@ -352,6 +362,7 @@ def project_plan(state: Any) -> Iterator[None]:
                 state.content_remediation = False
             if hasattr(state, "technical_remediation"):
                 state.technical_remediation = False
+        os.environ["RASAI_PASSIVE_SECURITY"] = "true" if "CAT-10" in selected else "false"
         if not ai_execution_enabled(state) and hasattr(state, "ai_provider"):
             state.ai_provider = "none"
             if hasattr(state, "ai_model"):
