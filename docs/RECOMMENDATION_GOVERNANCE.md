@@ -4,7 +4,7 @@
 
 O `CAT-09 · Remediações` é a superfície responsável por transformar findings/evidências dos demais catálogos em ações possíveis. Ele não pode tratar toda saída de IA ou todo diagnóstico técnico como ação do cliente.
 
-O contrato `RECOMMENDATION-GOVERNANCE-001` classifica e valida cada candidato antes de apresentá-lo no plano governado.
+O contrato `RECOMMENDATION-GOVERNANCE-002` classifica e valida cada candidato antes de apresentá-lo no plano governado.
 
 ## Classes de alvo
 
@@ -50,6 +50,16 @@ Remediação derivada de erro de requisição `THIRD_PARTY` é classificada como
 Remediação `FIRST_PARTY` é classificada como `TARGET_SITE`.
 
 Quando ownership não puder ser determinado com segurança, a orientação fica `INFORMATIONAL`.
+
+### Estados neutros de discovery
+
+Ausência válida ou avaliação explicitamente neutra de recursos de discovery não é promovida automaticamente a ação do cliente. O contrato mantém o item auditável como `INFORMATIONAL / REJECTED` quando a evidência persistida demonstra:
+
+- `BR-GEO-003`: sitemap convencional ausente, sem erro material no recurso observado;
+- `BR-GEO-017`: `robots.txt` ausente, quando a própria regra registra que ausência não é falha de crawling;
+- `BR-GEO-055` e `BR-GEO-056`: avaliação técnica assistida por IA com `ai_verdict=NEUTRAL`.
+
+Estados inválidos, erros ou evidência material de defeito continuam elegíveis ao plano de ação. A regra de governança não altera findings nem scoring; apenas evita transformar uma evidência neutra em obrigação de correção.
 
 ### Coerência com evidência de JSON-LD
 
