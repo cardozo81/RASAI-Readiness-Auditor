@@ -552,17 +552,27 @@ def _status(spec: EnvironmentSpec) -> str:
             origin = environment_origin(spec.name, value)
             suffix = f" [{origin}]" if origin else ""
             return paint("[SET]" + suffix, GREEN, bold=True)
+        display_value = (
+            configuration_value_info(spec.name, value)
+            if spec.accepted
+            else value
+        )
         if value.casefold() in {"true", "1", "yes", "on"}:
-            return paint(value, GREEN, bold=True)
+            return paint(display_value, GREEN, bold=True)
         if value.casefold() in {"false", "0", "no", "off"}:
-            return paint(value, DIM)
-        return paint(value[:60], CYAN)
+            return paint(display_value, DIM)
+        return paint(display_value[:96], CYAN)
     if sensitive:
         origin = environment_origin(spec.name, None)
         if origin:
             return paint(f"<não ativa> [{origin}]", DIM)
     if spec.default is not None:
-        return paint(f"<default efetivo: {spec.default}>", DIM)
+        default_value = (
+            configuration_value_info(spec.name, spec.default)
+            if spec.accepted and "," not in str(spec.default)
+            else str(spec.default)
+        )
+        return paint(f"<default efetivo: {default_value}>", DIM)
     return paint("<sem default; condicional>", DIM)
 
 
@@ -754,7 +764,12 @@ def _render_detail(spec: EnvironmentSpec) -> None:
             "Valores aceitos: "
             + ", ".join(configuration_value_info(spec.name, value) for value in spec.accepted)
         )
-    print(f"Default efetivo: {spec.default if spec.default is not None else 'nenhum seguro/aplicável'}")
+    default_display = (
+        configuration_value_info(spec.name, spec.default)
+        if spec.default is not None and spec.accepted and "," not in str(spec.default)
+        else spec.default
+    )
+    print(f"Default efetivo: {default_display if default_display is not None else 'nenhum seguro/aplicável'}")
     print(f"Obrigatória    : {spec.required_when}")
     print(f"Sensível       : {'SIM - nunca exibida nem gravada no INI' if _is_sensitive_spec(spec) else 'não'}")
     print(f"Custo/impacto  : {spec.impact}")
