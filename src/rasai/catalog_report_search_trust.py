@@ -16,6 +16,7 @@ import sqlite3
 from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
+from rasai.configuration_value_labels import configuration_value_report
 from rasai.source_state import SourceState
 
 _COMMON_CRAWL_SOURCE = "COMMON_CRAWL_CDX_HISTORY"
@@ -642,7 +643,7 @@ def _contract_rows(configuration: Mapping[str, Any]) -> list[tuple[Any, ...]]:
         ("Termos de busca", ", ".join(str(v) for v in configuration.get("queries", []) if str(v)) or "-"),
         ("Localidade", configuration.get("region") or "-"),
         ("Profundidade desejada", configuration.get("depth") or "-"),
-        ("Dispositivo", configuration.get("device") or "-"),
+        ("Dispositivo", configuration_value_report("RASAI_DEVICE_CONTEXT", configuration.get("device") or "-")),
         ("Análise de concorrentes", yes(configuration.get("competitive"))),
         ("Comparação de conteúdo", yes(configuration.get("compare_content"))),
         ("Máx. páginas concorrentes", configuration.get("max_content_pages") if configuration.get("max_content_pages") is not None else "-"),
@@ -650,8 +651,8 @@ def _contract_rows(configuration: Mapping[str, Any]) -> list[tuple[Any, ...]]:
         ("Máx. bytes por página", configuration.get("content_max_bytes") if configuration.get("content_max_bytes") is not None else "-"),
         ("Máx. redirects", configuration.get("content_max_redirects") if configuration.get("content_max_redirects") is not None else "-"),
         ("IA competitiva", yes(configuration.get("ai_competitive"))),
-        ("Contexto YMYL da IA", configuration.get("ymyl_mode") or "-"),
-        ("Modo SERP", configuration.get("mode") or "-"),
+        ("Contexto YMYL da IA", configuration_value_report("SEARCH_YMYL_MODE", configuration.get("ymyl_mode") or "-")),
+        ("Modo SERP", configuration_value_report("RASAI_SERP_MODE", configuration.get("mode") or "-")),
         ("Provider SERP", configuration.get("provider") or "-"),
         ("Engine", configuration.get("engine") or "-"),
         ("Limite de queries", configuration.get("max_queries") if configuration.get("max_queries") is not None else "-"),
@@ -663,7 +664,7 @@ def _contract_rows(configuration: Mapping[str, Any]) -> list[tuple[Any, ...]]:
         ("Intervalo mínimo", f"{configuration.get('min_interval_seconds')} s" if configuration.get("min_interval_seconds") is not None else "-"),
         ("Market", configuration.get("market") or "-"),
         ("Idioma", configuration.get("language") or "-"),
-        ("IA principal solicitada", configuration.get("ai_provider") or "-"),
+        ("IA principal solicitada", configuration_value_report("RASAI_AI_PROVIDER", configuration.get("ai_provider") or "-")),
         ("Modelo solicitado", configuration.get("ai_model") or "Seleção automática / padrão do provider"),
     ]
 
