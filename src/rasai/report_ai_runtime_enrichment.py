@@ -7,6 +7,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from rasai.configuration_value_labels import configuration_value_report
 from rasai.persistence import AuditWorkspace
 
 _CONTEXT_LABELS = {
@@ -109,7 +110,11 @@ def _render_auto_context(connection: sqlite3.Connection, audit_id: str, records:
                 continue
             if status == "INTERPRETED":
                 raw_value = str(item.get("value") or "")
-                interpretation = _VALUE_LABELS.get(raw_value, raw_value or "Não determinável")
+                interpretation = (
+                    configuration_value_report(field, raw_value)
+                    if raw_value
+                    else "Não determinável"
+                )
             else:
                 interpretation = "Não determinável"
             try:
@@ -119,7 +124,7 @@ def _render_auto_context(connection: sqlite3.Connection, audit_id: str, records:
             rationale = str(item.get("rationale") or "").strip() or "A resposta não trouxe justificativa suficiente."
             evidence_ids = item.get("evidence_ids") or ()
             evidence_text = ", ".join(str(value) for value in evidence_ids) or "-"
-            rows.append("<tr>" f"<td>{escape(page_url)}<br><small>{escape(device)} · <code>{escape(snapshot_id or '-')}</code></small></td>" f"<td>{escape(_CONTEXT_LABELS[field])}</td><td><code>AUTO</code></td>" f"<td><strong>{escape(interpretation)}</strong><br><small>confiança {escape(confidence_text)}</small></td>" f"<td>{escape(rationale)}<br><small>Evidências: {escape(evidence_text)}</small></td>" f"<td>{escape(provider)}<br><small>{escape(model)}</small></td></tr>")
+            rows.append("<tr>" f"<td>{escape(page_url)}<br><small>{escape(device)} · <code>{escape(snapshot_id or '-')}</code></small></td>" f"<td>{escape(_CONTEXT_LABELS[field])}</td><td>{escape(configuration_value_report(field, 'auto'))}</td>" f"<td><strong>{escape(interpretation)}</strong><br><small>confiança {escape(confidence_text)}</small></td>" f"<td>{escape(rationale)}<br><small>Evidências: {escape(evidence_text)}</small></td>" f"<td>{escape(provider)}<br><small>{escape(model)}</small></td></tr>")
     fields_text = ", ".join(_CONTEXT_LABELS[field] for field in auto_fields)
     intro = "<div class='notice auto-editorial-context' data-auto-editorial-context='true'><strong>Contexto editorial em modo automático:</strong> " + escape(fields_text) + ". A configuração oficial permanece <code>AUTO</code>. A leitura abaixo é uma interpretação contextual da IA baseada somente no conteúdo/evidências fornecidos nesta execução; não sobrescreve <code>content_analysis_contexts</code>, não entra no SCORE-GEO-004/SARI-001 e não é tratada como verdade canônica.</div>"
     if not rows:
