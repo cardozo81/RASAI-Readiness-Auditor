@@ -430,3 +430,16 @@ def test_packaged_defaults_keep_cat10_opt_in_with_safe_subcontrols() -> None:
     ):
         assert parser.getboolean("environment", name) is True
     assert parser.getfloat("environment", "RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS") == 15.0
+
+
+def test_cookie_sensitivity_hint_does_not_persist_cookie_name_or_value() -> None:
+    ordinary = security._cookie_attributes("theme=dark; Path=/")
+    sensitive = security._cookie_attributes("session=TOP-SECRET; HttpOnly; Path=/")
+
+    assert ordinary["sensitive_name_hint"] is False
+    assert sensitive["sensitive_name_hint"] is True
+    serialized = json.dumps({"ordinary": ordinary, "sensitive": sensitive})
+    assert "theme" not in serialized
+    assert "session" not in serialized
+    assert "dark" not in serialized
+    assert "TOP-SECRET" not in serialized
