@@ -700,6 +700,16 @@ def _header_map(connection: sqlite3.Connection, audit_id: str, page_id: str) -> 
 
 
 def _security_findings(connection: sqlite3.Connection, audit_id: str, context: _TargetContext) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    # CAT-10 is the canonical passive-security engine when its persisted result exists.
+    # The historical local header analyzer remains as a compatibility fallback for
+    # audits that did not select/execute CAT-10.
+    try:
+        from rasai.passive_security import improvement_findings as shared_security_findings
+        shared = shared_security_findings(connection, audit_id, context.page_id)
+    except (ImportError, sqlite3.Error, ValueError, TypeError):
+        shared = None
+    if shared is not None:
+        return shared
     headers, evidence_ids = _header_map(connection, audit_id, context.page_id)
     findings: list[dict[str, Any]] = []
     scheme = urlsplit(context.url).scheme.casefold()
