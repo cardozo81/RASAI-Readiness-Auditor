@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from types import ModuleType
+import os
 from typing import Any
 
 from rasai.audit_catalog import AI_NONE, AI_OPTIONAL, AI_REQUIRED, CATALOGS, AuditCatalog
@@ -93,6 +94,18 @@ def _render_context(state: Any, catalog: AuditCatalog) -> None:
     elif catalog.id == "CAT-09":
         info("Remediação conteúdo IA", "SIM" if bool(getattr(state, "content_remediation", False)) else "NÃO")
         info("Remediação técnica IA", "SIM" if bool(getattr(state, "technical_remediation", False)) else "NÃO")
+    elif catalog.id == "CAT-10":
+        truthy = {"1","true","yes","on","sim","s"}
+        flag = lambda name, default="true": "SIM" if str(os.environ.get(name, default)).strip().casefold() in truthy else "NÃO"
+        info("Modo", "PASSIVO")
+        info("Headers / CSP / CORS", flag("RASAI_SECURITY_HEADERS"))
+        info("Cookies", flag("RASAI_SECURITY_COOKIES"))
+        info("Scripts / recursos", flag("RASAI_SECURITY_RESOURCES"))
+        info("Third-party", flag("RASAI_SECURITY_THIRD_PARTY"))
+        info("Runtime", flag("RASAI_SECURITY_RUNTIME_CORRELATION"))
+        info("OSV", flag("RASAI_SECURITY_OSV"))
+        info("CISA KEV", flag("RASAI_SECURITY_CISA_KEV"))
+        info("MDN Observatory", "REUTILIZADO quando habilitado no catálogo canônico de padrões")
 
 
 def _render_capabilities(state: Any, catalog: AuditCatalog) -> None:
@@ -212,7 +225,7 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
         if ai_execution_enabled(state) and ai_provider_readiness(state)[0]:
             print(paint("  A previsão de consumo/custo será exibida pelo fluxo canônico antes da execução.", DIM))
         section("EXECUÇÃO / ARMAZENAMENTO")
-        print(f"15. {CORE_IDS['audits_root']}  Raiz das auditorias        : {getattr(state, 'audits_root', 'audits')}")
+        print(f"16. {CORE_IDS['audits_root']}  Raiz das auditorias        : {getattr(state, 'audits_root', 'audits')}")
         section("AÇÕES")
         print(f"R. Executar auditoria        [{badge(plan_state)}]")
         if ai_optional(state) and not ai_required(state) and ai_provider_readiness(state)[0]:
@@ -233,7 +246,7 @@ def _preparation_menu_impl(console_module: ModuleType, state: Any, detailed: Any
             continue
         if raw in {"S", "L"}:
             return raw
-        core = {"1": "1", "2": "2", "3": "3", "4": "9", "5": "12", "15": "10"}
+        core = {"1": "1", "2": "2", "3": "3", "4": "9", "5": "12", "16": "10"}
         if raw in core:
             console_module._configure(state, core[raw])
             continue
