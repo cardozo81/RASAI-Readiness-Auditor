@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 from rasai.console_ui import CYAN, DIM, paint
+from rasai.configuration_value_labels import configuration_value_info
 from rasai.console_ui_catalog import info, section
 
 _INSTALLED = False
@@ -58,7 +59,13 @@ def render_search_scope(state: Any) -> None:
         "IA competitiva",
         "Ativada" if bool(getattr(state, "search_ai_competitive", False)) else "Desativada",
     )
-    info("Contexto YMYL da IA", str(getattr(state, "search_ymyl_mode", "AUTO") or "AUTO").upper())
+    info(
+        "Contexto YMYL da IA",
+        configuration_value_info(
+            "SEARCH_YMYL_MODE",
+            str(getattr(state, "search_ymyl_mode", "AUTO") or "AUTO").upper(),
+        ),
+    )
     print(
         paint(
             "Estes valores pertencem à próxima execução. 'Profundidade desejada' é o Top N consultado; não é o limite máximo permitido pelo serviço. A IA competitiva usa exclusivamente a IA principal configurada e só executa após a comparação determinística e o selo de evidências.",
