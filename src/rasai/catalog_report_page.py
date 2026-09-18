@@ -48,7 +48,7 @@ def _catalog_results_html(database: Path, data: _ReportData, catalog_id: str) ->
     metrics=_catalog_metrics(database,data,catalog_id)
     base=_table(("Indicador","Valor","Tipo"),metrics,empty="Nenhum índice ou métrica principal foi materializado neste contexto.")
     if catalog_id=="CAT-01":
-        return base+"<div class='subsection'><h3>Arquivos e descoberta</h3>"+_discovery_html(database,data)+"</div><div class='subsection'><h3>Padrões e compatibilidade web</h3>"+_standards_summary(database,data)+"</div><div class='subsection'><h3>Erros e alertas do navegador</h3><p class='section-lead'>Erros de console, JavaScript e falhas de requisição pertencem a este catálogo. A captura do navegador é identificada em Governança.</p>"+_runtime_diagnostics_html(database,data)+"</div>"
+        return base+"<div class='subsection'><h3>Arquivos e descoberta</h3>"+_discovery_html(database,data)+"</div><div class='subsection'><h3>Padrões e compatibilidade web</h3>"+_standards_summary(database,data)+"</div><div class='subsection'><h3>Runtime compartilhado</h3><p class='section-lead'>A captura de navegador/runtime é evidência transversal. Diagnóstico de segurança, third-party, mixed content e correlação de falhas de runtime pertencem ao <a href='cat-10.html'>CAT-10 · Segurança passiva</a>; a telemetria bruta permanece disponível em Governança.</p></div>"
     if catalog_id=="CAT-02":
         return base+"<div class='subsection'><h3>Verificações automatizadas</h3>"+_lighthouse_accessibility_html(database,data)+"</div>"
     if catalog_id=="CAT-03":
@@ -71,6 +71,8 @@ def _catalog_results_html(database: Path, data: _ReportData, catalog_id: str) ->
         return _improvement_html(database,data)
     if catalog_id=="CAT-09":
         return _remediation_html(database,data)
+    if catalog_id=="CAT-10":
+        return _passive_security_html(database,data)
     return base
 
 
@@ -81,6 +83,8 @@ def _catalog_analysis_html(database: Path, data: _ReportData, catalog_id: str) -
         return "<div class='notice good'><strong>Função desta página:</strong> correlacionar evidências já coletadas, explicar problemas e priorizar melhorias. Quando a IA foi utilizada, o resultado permanece orientativo e vinculado às evidências; ela não altera a pontuação determinística.</div>"+indicator
     if catalog_id=="CAT-09":
         return "<div class='notice'><strong>Função desta página:</strong> transformar achados persistidos em ações de correção. Exemplos de código/texto são sugestões e exigem revisão humana e nova auditoria após a implementação.</div>"+indicator
+    if catalog_id=="CAT-10":
+        return "<div class='notice good'><strong>Fronteira de responsabilidade:</strong> o core determinístico decide presença/ausência de controles, classifica contexto e preserva evidências. OSV/KEV apenas correlacionam identificadores suficientemente observados. A IA, quando habilitada, é advisory: explica impacto e melhora a remediação, sem criar CVE, sem executar exploração e sem alterar pontuação.</div>"+indicator
     if policy=="Não utiliza IA":
         text="Este catálogo apresenta observações, medições e validações do seu próprio domínio. Recomendações aprofundadas ficam em CAT-08 e implementações em CAT-09."
     elif enabled:
@@ -93,6 +97,10 @@ def _catalog_analysis_html(database: Path, data: _ReportData, catalog_id: str) -
 def _execution_context_notice(database: Path, data: _ReportData, catalog_id: str) -> str:
     run=_explicit_run(database,data,catalog_id)
     if not run:return ""
+    if catalog_id=="CAT-10" and _norm(run.get("status"))=="PARTIAL":
+        limitations=_safe_json(run.get("limitations_json"),[])
+        detail=" · ".join(str(v) for v in limitations) if isinstance(limitations,list) and limitations else "cobertura externa reduzida"
+        return "<div class='notice warn'><strong>Por que o CAT-10 está Parcial?</strong> A análise determinística foi preservada, mas uma ou mais fontes opcionais/externas reduziram a cobertura: "+escape(detail)+". Isso não é convertido automaticamente em finding ou falha do site.</div>"
     if catalog_id=="CAT-06" and _norm(run.get("status"))=="PARTIAL":
         reason=_norm(run.get("reason"))
         if reason=="SMALL_GROUP_BELOW_NORMAL_MINIMUM":
@@ -130,6 +138,8 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
         rem_body="<p>As correções detalhadas deste catálogo aparecem em <strong>Resultados</strong>. Cada item procura informar problema, risco de manter, benefício esperado, local de aplicação, implementação sugerida e forma de validação quando esses dados foram persistidos.</p>"
     elif catalog_id=="CAT-08":
         rem_body="<p>A análise profunda prioriza melhorias. Implementação técnica, exemplos de HTML/texto e critérios de validação são consolidados em <a href='cat-09.html'>CAT-09 · Remediações</a>.</p>"
+    elif catalog_id=="CAT-10":
+        rem_body="<p>Cada finding do CAT-10 já apresenta contenção imediata, correção definitiva e forma de validação no detalhe do resultado. Quando a IA principal foi habilitada para segurança, o enriquecimento permanece advisory e rastreável em <a href='ai-integrations.html'>IA e integrações</a>.</p>"
     else:
         rem_body=f"<p>Este catálogo é proprietário do diagnóstico do seu domínio. Correções são centralizadas em <a href='cat-09.html'>CAT-09 · Remediações</a>; quando uma análise profunda usa esta evidência, o vínculo aparece em <a href='cat-08.html'>CAT-08 · Análise profunda e melhorias</a>.</p>"
     remediation=_section("remediation","Remediações",rem_body)
