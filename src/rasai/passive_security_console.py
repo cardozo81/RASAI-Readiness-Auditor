@@ -84,7 +84,7 @@ def install() -> None:
             ),
             base.EnvironmentSpec(
                 OSV_ENV, VULN_CATEGORY,
-                "Consulta OSV somente quando biblioteca + versão + ecosystem foram identificados com confiança alta.",
+                "Consulta OSV somente quando biblioteca + versão + ecosystem foram identificados com confiança suficiente.",
                 "booleano", ("true", "false"), "true",
                 impact="Chamada externa contém somente componente/versionamento; nenhuma URL auditada é enviada.",
                 example=f"{OSV_ENV}=true", source="docs/PASSIVE_SECURITY_CATALOG.md",
