@@ -482,6 +482,14 @@ def _common_crawl_no_capture(error_rows: Sequence[Sequence[Any]]) -> bool:
     return False
 
 
+def _common_crawl_provider_5xx(error_rows: Sequence[Sequence[Any]]) -> bool:
+    for row in error_rows:
+        message = str(row[3] if len(row) > 3 else "")
+        if re.search(r"\bHTTP\s+5\d\d\b", message, re.I):
+            return True
+    return False
+
+
 def _overview_text(value: Any) -> str:
     strings=[]
     def visit(node: Any, key: str="") -> None:
@@ -1287,11 +1295,16 @@ def _external_html(database: Path, data: Any) -> str:
                     modal_id=f"common-crawl-error-{index}"
                     error_rows=_common_crawl_error_rows(database,row)
                     no_capture=_common_crawl_no_capture(error_rows)
+                    provider_5xx=_common_crawl_provider_5xx(error_rows)
                     state_label=(
                         "Execução parcial · coleção sem captura"
                         if no_capture and count
                         else "Sem captura nas coleções consultadas"
                         if no_capture
+                        else "Execução parcial · indisponibilidade do provider"
+                        if provider_5xx and count
+                        else "Provider temporariamente indisponível"
+                        if provider_5xx
                         else "Falha reprocessável"
                         if not count
                         else "Execução parcial"
@@ -1331,6 +1344,17 @@ def _external_html(database: Path, data: Any) -> str:
                             "</ol>"
                         )
                         detail_label="Ver diagnóstico e orientação"
+                    elif provider_5xx:
+                        body+=(
+                            "<h3>Como interpretar e tratar</h3><ol>"
+                            "<li>O HTTP 5xx mostra que o endpoint do Common Crawl foi alcançado, mas o provider ou sua cadeia upstream não conseguiu concluir a requisição. Esse retorno, isoladamente, não indica falha de DNS, proxy ou firewall local.</li>"
+                            "<li>Resultados obtidos de outras coleções na mesma execução permanecem válidos; por isso a fonte pode ficar parcial em vez de sem dados.</li>"
+                            "<li>Não altere a URL auditada por causa desse 5xx. Se precisar ampliar a cobertura histórica, repita a coleta em outro momento e use reprocessamento seletivo somente quando o fulfillment expuser a dependência como pendente/reprocessável.</li>"
+                            "<li>Se respostas 5xx persistirem em coleções distintas e momentos diferentes, valide a disponibilidade pública do Common Crawl antes de investigar a rede local.</li>"
+                            "</ol>"
+                            "<div class='notice'>Indisponibilidade do Common Crawl não implica erro no site e não comprova ausência de indexação em mecanismos de busca.</div>"
+                        )
+                        detail_label="Ver indisponibilidade externa"
                     else:
                         body+=(
                             "<h3>Como resolver</h3><ol>"
