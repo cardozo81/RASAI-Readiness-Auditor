@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 import sqlite3
 from pathlib import Path
+from types import SimpleNamespace
 
 from rasai.search_intelligence.competitive_persistence import analysis_payload
+from rasai.search_intelligence import competitive_runtime
 from rasai.search_intelligence.competitive_runtime import execute_competitive_intelligence
 from rasai.search_intelligence.content import PublicWebFetcher
 from rasai.search_intelligence.models import (
@@ -130,3 +133,79 @@ def test_competitive_runtime_persists_effective_fetch_policy(tmp_path: Path) -> 
         "max_bytes": 1_500_000,
         "max_redirects": 2,
     }
+
+def test_multi_query_content_comparison_reuses_same_audited_customer_url(monkeypatch) -> None:
+    base = _search_execution()
+    first = base.results[0]
+    second = replace(
+        first,
+        request=replace(first.request, query="cotacao seguro"),
+        observation=replace(
+            first.observation,
+            observation_id="OBS-POLICY-2",
+            query="cotacao seguro",
+        ),
+    )
+    execution = replace(base, results=(first, second))
+    seen: list[tuple[str, str | None]] = []
+
+    def fake_analysis(search_result, *, customer_url, max_competitor_pages, fetcher):
+        from rasai.search_intelligence.competitive import select_competitive_candidates
+        from rasai.search_intelligence.content import CompetitiveContentAnalysis
+
+        seen.append((search_result.request.query, customer_url))
+        return CompetitiveContentAnalysis(
+            selection=select_competitive_candidates(
+                search_result,
+                max_pages=max_competitor_pages,
+            ),
+            customer_page=None,
+            competitor_pages=(),
+            gaps=(),
+            comparison_status="NO_ELIGIBLE_COMPETITOR_CANDIDATES",
+        )
+
+    monkeypatch.setattr(competitive_runtime, "analyze_competitive_content", fake_analysis)
+    result = execute_competitive_intelligence(
+        execution,
+        content_enabled=True,
+        customer_url="https://example.test/customer",
+        max_competitor_pages=3,
+    )
+
+    assert len(result.analyses) == 2
+    assert seen == [
+        ("seguro de vida", "https://example.test/customer"),
+        ("cotacao seguro", "https://example.test/customer"),
+    ]
+
+
+def test_competitive_comparison_summary_marks_incomplete_requested_query(tmp_path: Path) -> None:
+    from rasai.search_audit_runtime import _competitive_comparison_summary
+
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            "CREATE TABLE serp_competitive_analyses(audit_id TEXT, comparison_status TEXT)"
+        )
+        connection.executemany(
+            "INSERT INTO serp_competitive_analyses VALUES (?,?)",
+            [
+                ("AUD", "CONSOLIDATED"),
+                ("AUD", "NO_ELIGIBLE_COMPETITOR_CANDIDATES"),
+                ("AUD", "CUSTOMER_CONTENT_UNAVAILABLE"),
+            ],
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    summary = _competitive_comparison_summary(
+        SimpleNamespace(database=database),
+        "AUD",
+        expected_observations=3,
+    )
+    assert summary["complete"] is False
+    assert summary["incomplete_statuses"] == ["CUSTOMER_CONTENT_UNAVAILABLE"]
+

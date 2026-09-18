@@ -6,6 +6,8 @@ from types import SimpleNamespace
 from rasai.catalog_report_assurance import (
     CATALOG_MATURITY_MIN,
     HIGH_ASSURANCE_MIN,
+    _read_only_guard_present,
+    _safe_output,
     assess_catalog,
     catalog_assurance_html,
 )
@@ -113,3 +115,61 @@ def test_unsafe_external_link_blocks_security_closure(monkeypatch, tmp_path: Pat
     assert result["closure_eligible"] is False
     failed = {item["code"] for item in result["checks"] if not item["passed"]}
     assert "SEC_EXTERNAL_LINKS" in failed
+
+def test_security_scanner_ignores_css_sk_classes_but_detects_credential_assignment() -> None:
+    ok, failures = _safe_output("<div class='sk-header-content sk-button--loading'></div>")
+    assert ok is True
+    assert failures == []
+
+    ok, failures = _safe_output("<pre>api_key='prod-value-93af'</pre>")
+    assert ok is False
+    assert any("credencial" in item for item in failures)
+
+
+def test_read_only_assurance_follows_materializer_wrapper_chain(monkeypatch) -> None:
+    from rasai import catalog_report_site as site
+
+    original = site.materialize_catalog_report_site
+
+    def wrapper(*args, **kwargs):
+        return original(*args, **kwargs)
+
+    wrapper._rasai_original = original
+    monkeypatch.setattr(site, "materialize_catalog_report_site", wrapper)
+
+    passed, detail = _read_only_guard_present()
+    assert passed is True
+    assert "fingerprint" in detail
+
+
+def test_transversal_secret_output_blocks_global_closure(monkeypatch, tmp_path: Path) -> None:
+    from rasai import catalog_report_assurance as assurance
+
+    monkeypatch.setattr(
+        assurance,
+        "assess_catalog",
+        lambda _database, _data, catalog_id, _body: {
+            "catalog_id": catalog_id,
+            "selected": True,
+            "functional_status": "CONCLUÍDO",
+            "configurability": 100.0,
+            "governance": 100.0,
+            "exposure": 100.0,
+            "reliability": 100.0,
+            "integrity": 100.0,
+            "security": 100.0,
+            "maturity": 100.0,
+            "high_assurance": 100.0,
+            "closure_eligible": True,
+            "checks": [],
+        },
+    )
+    result = assurance.assess_catalogs(
+        tmp_path / "audit.db",
+        SimpleNamespace(),
+        {"ai-integrations.html": "<pre>api_key='prod-value-93af'</pre>"},
+    )
+    assert result["global_output_security"]["passed"] is False
+    assert "ai-integrations.html" in result["global_output_security"]["failures"]
+    assert result["closure_eligible"] is False
+

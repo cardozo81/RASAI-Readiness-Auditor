@@ -7,6 +7,7 @@ import textwrap
 
 import pytest
 
+from rasai.ai_exchange_log import _sanitize_request_text
 from rasai.logging_config import SecretSafeFormatter
 from rasai.property_config import PROPERTY_CONFIG_CONTRACT, load_property_config
 from rasai.search_intelligence.evidence import sanitize_raw_evidence
@@ -153,3 +154,22 @@ def test_versioned_example_is_valid_and_repository_has_no_detected_secret() -> N
     example = load_property_config(ROOT / "config" / "properties" / "example.toml")
     assert example.property_id == "example"
     assert scan_repository(ROOT) == ()
+
+def test_structured_header_pairs_are_redacted_and_css_sk_classes_are_not_secrets() -> None:
+    payload = {
+        "headers": [
+            ["Set-Cookie", "session=TEST_ONLY_COOKIE"],
+            ["Authorization", "Bearer TEST_ONLY_BEARER"],
+            ["Content-Type", "text/html"],
+        ]
+    }
+    sanitized = redact_value(payload)
+    assert sanitized["headers"][0] == ["Set-Cookie", REDACTED]
+    assert sanitized["headers"][1] == ["Authorization", REDACTED]
+    assert sanitized["headers"][2] == ["Content-Type", "text/html"]
+
+    request = _sanitize_request_text(json.dumps(payload))
+    assert "TEST_ONLY_COOKIE" not in request
+    assert "TEST_ONLY_BEARER" not in request
+    assert detect_secret_exposures("class='sk-header-content sk-toolbar-content'") == ()
+

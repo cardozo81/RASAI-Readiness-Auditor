@@ -5,6 +5,7 @@ from pathlib import Path
 import sqlite3
 from types import SimpleNamespace
 
+from rasai.catalog_report_catalog_state import _configuration_rows
 from rasai.catalog_report_search_trust import (
     _competitive_validation_rows,
     _competitive_html,
@@ -681,3 +682,34 @@ def test_competitive_validation_matrix_accepts_governed_post_seal_ai() -> None:
     assert by_control["YMYL"][-1] == "OK"
     assert by_control["Evidence seal"][-1] == "OK"
     assert by_control["IA pós-selo"][-1] == "OK"
+
+def test_cat05_ai_policy_reflects_enabled_competitive_ai() -> None:
+    data = SimpleNamespace(
+        audit_id=AUDIT_ID,
+        configuration={
+            "search_intelligence": {
+                "enabled": True,
+                "queries": ["seguro auto", "cotacao seguro"],
+                "depth": 20,
+                "device": "mobile",
+                "region": "Porto Alegre, RS",
+                "ai_competitive": True,
+            },
+            "settings": {},
+        },
+        config_hash="same",
+        computed_hash="same",
+        selected={"CAT-05"},
+        targets=("https://example.test/",),
+        catalog_items={
+            "CAT-05": {
+                "ai_mode": "NONE",
+                "ai_execution_enabled": False,
+            }
+        },
+        work_items=(),
+    )
+    rows = {str(row[0]): row for row in _configuration_rows(data, "CAT-05")}
+    assert rows["Uso de IA nesta capacidade"][1] == "Habilitado para inteligência competitiva"
+    assert rows["Política de IA"][1] == "IA competitiva opcional e evidence-bound"
+

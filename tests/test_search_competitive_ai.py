@@ -12,6 +12,7 @@ from rasai.ai_governance import seal_evidence
 from rasai.audit_fulfillment import LIVE_RECOLLECTION, register_work_item
 from rasai.domain import Audit
 from rasai.m18_ai import AttemptStatus, ProviderAttempt, ProviderUsage
+from rasai.m18_persistence import M18Persistence, attempt_governance
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.search_audit_runtime import _competitive_ai_hook
 from rasai.search_intelligence.cli import build_parser
@@ -561,3 +562,58 @@ class CompetitiveAiCliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+def test_attempt_governance_persists_task_round_and_nested_operation() -> None:
+    audit_id = "AUD-ATTEMPT-GOV"
+    with TemporaryDirectory() as directory:
+        workspace = AuditWorkspace.create(Path(directory), audit_id)
+        with AuditPersistence(workspace) as persistence:
+            persistence.audits.add(Audit(audit_id=audit_id, project_name="attempt governance"))
+
+        attempt = ProviderAttempt(
+            provider="OPENAI",
+            model="gpt-test",
+            reasoning_profile="HIGH",
+            provider_rank=1,
+            attempt_index=1,
+            snapshot_id=None,
+            url="https://example.test/",
+            started_at=datetime(2026, 9, 18, 12, 0, tzinfo=timezone.utc),
+            finished_at=datetime(2026, 9, 18, 12, 0, 1, tzinfo=timezone.utc),
+            duration_ms=1000,
+            status=AttemptStatus.SUCCESS,
+            usage=ProviderUsage(input_tokens=10, output_tokens=5, total_tokens=15),
+            estimated_cost=0.001,
+            cost_currency="USD",
+            pricing_version="test",
+            request_message_summary="governed",
+            request_payload_hash="hash",
+            semantic_contract_version="TEST-001",
+        )
+        with attempt_governance(
+            operation="IMPROVEMENT_INTELLIGENCE",
+            ai_task_id="AIT-TEST",
+            ai_round_id="AIR-TEST",
+        ):
+            with attempt_governance(operation="REQUEST_REMEDIATION"):
+                with M18Persistence(workspace) as store:
+                    store.add_attempt(
+                        attempt_id="AIA-TEST",
+                        audit_id=audit_id,
+                        page_id=None,
+                        snapshot_id=None,
+                        url="https://example.test/",
+                        device="desktop",
+                        attempt=attempt,
+                    )
+
+        connection = sqlite3.connect(workspace.database)
+        try:
+            row = connection.execute(
+                "SELECT operation,ai_task_id,ai_round_id FROM ai_provider_attempts WHERE attempt_id='AIA-TEST'"
+            ).fetchone()
+        finally:
+            connection.close()
+
+        assert row == ("REQUEST_REMEDIATION", "AIT-TEST", "AIR-TEST")
+
