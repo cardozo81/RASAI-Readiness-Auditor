@@ -254,6 +254,9 @@ def test_assurance_matrix_explains_each_axis_without_changing_columns() -> None:
             "closure_eligible": True,
         }],
         "global": {
+            "configurability": 100,
+            "governance": 100,
+            "exposure": 100,
             "reliability": 100,
             "integrity": 100,
             "security": 100,
@@ -280,6 +283,19 @@ def test_assurance_matrix_explains_each_axis_without_changing_columns() -> None:
         assert f"<th>{label}</th>" in html
     assert "cobertura de controles" in html
     assert "probabilidade estatística" in html
+    global_labels = (
+        "Configurabilidade global",
+        "Governança global",
+        "Exposição global",
+        "Confiabilidade global",
+        "Integridade global",
+        "Segurança global",
+        "Maturidade global",
+    )
+    positions = [html.index(label) for label in global_labels]
+    assert positions == sorted(positions)
+    assert "Gates de encerramento:" in html
+    assert "<small>Encerramento estrutural</small>" not in html
 
 def test_internal_orchestration_failure_reduces_assurance_instead_of_showing_all_100(monkeypatch, tmp_path: Path) -> None:
     from rasai import catalog_report_assurance as assurance
