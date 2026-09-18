@@ -132,9 +132,14 @@ def _reconcile_crux_no_data(workspace: Any, audit_id: str, result: Any) -> Any:
                     status = "UNAVAILABLE"
                 connection.execute(
                     """UPDATE web_performance_observations
-                       SET status=?,error_summary=?
+                       SET status=?,error_summary=?,crux_http_status=?
                        WHERE observation_id=?""",
-                    (status, cleaned, str(current.get("observation_id") or "")),
+                    (
+                        status,
+                        cleaned,
+                        attempt.get("http_status"),
+                        str(current.get("observation_id") or ""),
+                    ),
                 )
                 corrected += 1
 

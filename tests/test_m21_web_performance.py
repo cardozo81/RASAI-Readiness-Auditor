@@ -51,6 +51,28 @@ class _Crux:
         return HttpJsonResult(self.payload, 200, 8)
 
 
+class _Http500PageSpeed:
+    def run(self, *, url, strategy, categories, timeout_seconds):
+        raise ExternalServiceError(
+            "PAGESPEED_INSIGHTS",
+            "Lighthouse returned error: Something went wrong.",
+            http_status=500,
+            error_code="INTERNAL",
+            duration_ms=1250,
+        )
+
+
+class _CruxNoData:
+    def query(self, *, url, form_factor, timeout_seconds):
+        raise ExternalServiceError(
+            "CRUX_API",
+            "chrome ux report data not found",
+            http_status=404,
+            error_code="NOT_FOUND",
+            duration_ms=45,
+        )
+
+
 class M21WebPerformanceTests(unittest.TestCase):
     def test_disabled_is_no_network_and_persists_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -175,6 +197,41 @@ class M21WebPerformanceTests(unittest.TestCase):
                 self.assertEqual(set(services), {"PAGESPEED_INSIGHTS", "CRUX_API"})
             finally:
                 connection.close()
+
+    def test_failed_provider_http_statuses_are_preserved_in_observation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = self._fixture(Path(directory))
+            result = execute_m21(
+                audit_id="AUD-M21",
+                workspace=workspace,
+                config=WebPerformanceConfig(
+                    enabled=True,
+                    field_source="crux",
+                    crux_api_key="test-key",
+                ),
+                pagespeed_client=_Http500PageSpeed(),
+                crux_client=_CruxNoData(),
+            )
+
+            self.assertEqual(result.status, "UNAVAILABLE")
+            connection = sqlite3.connect(workspace.database)
+            try:
+                observation = connection.execute(
+                    """SELECT pagespeed_http_status,crux_http_status
+                       FROM web_performance_observations"""
+                ).fetchone()
+                attempts = connection.execute(
+                    """SELECT service,http_status
+                       FROM web_performance_attempts ORDER BY service"""
+                ).fetchall()
+            finally:
+                connection.close()
+
+            self.assertEqual(observation, (500, 404))
+            self.assertEqual(
+                set(attempts),
+                {("PAGESPEED_INSIGHTS", 500), ("CRUX_API", 404)},
+            )
 
     def test_pagespeed_timeout_with_crux_success_is_partial_and_logged(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

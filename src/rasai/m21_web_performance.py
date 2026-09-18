@@ -293,6 +293,7 @@ def execute_m21(
                     artifact_reference=psi_artifact,
                 )
             except ExternalServiceError as exc:
+                psi_http_status = exc.http_status
                 errors.append(f"PAGESPEED:{exc.error_code or exc.http_status or 'ERROR'}")
                 store.add_attempt(WebPerformanceAttempt(
                     attempt_id=new_id("WPA"), audit_id=audit_id, page_id=page_id, snapshot_id=snapshot_id,
@@ -352,6 +353,7 @@ def execute_m21(
                     if parsed is not None:
                         field_data, field_source, field_scope = parsed, "CRUX_API", _crux_scope(crux_payload)
                 except ExternalServiceError as exc:
+                    crux_http_status = exc.http_status
                     errors.append(f"CRUX:{exc.error_code or exc.http_status or 'ERROR'}")
                     store.add_attempt(WebPerformanceAttempt(
                         attempt_id=new_id("WPA"), audit_id=audit_id, page_id=page_id, snapshot_id=snapshot_id,
