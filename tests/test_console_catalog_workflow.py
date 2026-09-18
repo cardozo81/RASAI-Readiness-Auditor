@@ -58,9 +58,9 @@ def _isolate_plan_and_environment():
 
 
 def test_catalog_has_stable_unique_report_ready_ids() -> None:
-    assert audit_catalog.CATALOG_VERSION == "1"
-    assert [item.id for item in audit_catalog.CATALOGS] == [f"CAT-{index:02d}" for index in range(1, 10)]
-    assert len(audit_catalog.CATALOG_BY_ID) == 9
+    assert audit_catalog.CATALOG_VERSION == "2"
+    assert [item.id for item in audit_catalog.CATALOGS] == [f"CAT-{index:02d}" for index in range(1, 11)]
+    assert len(audit_catalog.CATALOG_BY_ID) == 10
     assert "quality" in audit_catalog.SYSTEM_DERIVED_CAPABILITY_IDS
     assert audit_catalog.CATALOG_BY_ID["CAT-05"].capability_ids == (
         "search-intelligence",
@@ -68,6 +68,7 @@ def test_catalog_has_stable_unique_report_ready_ids() -> None:
         "ai-visibility",
         "observability",
     )
+    assert audit_catalog.CATALOG_BY_ID["CAT-10"].capability_ids == ("passive-security",)
 
 
 def test_ai_usage_is_limited_to_actual_ai_consumers() -> None:
@@ -75,6 +76,7 @@ def test_ai_usage_is_limited_to_actual_ai_consumers() -> None:
     assert modes["CAT-03"] == audit_catalog.AI_OPTIONAL
     assert modes["CAT-08"] == audit_catalog.AI_REQUIRED
     assert modes["CAT-09"] == audit_catalog.AI_OPTIONAL
+    assert modes["CAT-10"] == audit_catalog.AI_OPTIONAL
     for catalog_id in ("CAT-01", "CAT-02", "CAT-04", "CAT-05", "CAT-06", "CAT-07"):
         assert modes[catalog_id] == audit_catalog.AI_NONE
 
