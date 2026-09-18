@@ -121,10 +121,29 @@ def test_catalog_freshness_fails_after_source_database_changes(tmp_path: Path) -
     (report / "index.html").write_text("OK", encoding="utf-8")
     snapshot = integrity / "audit-snapshot.db"
     snapshot.write_bytes(database.read_bytes())
+    assurance_payload = {
+        "thresholds": {
+            "catalog_maturity_min": 95.0,
+            "reliability_integrity_security_min": 99.5,
+        },
+        "global": {
+            "reliability": 100.0,
+            "integrity": 100.0,
+            "security": 100.0,
+            "maturity": 100.0,
+            "configurability": 100.0,
+            "governance": 100.0,
+            "exposure": 100.0,
+        },
+        "closure_eligible": True,
+    }
+    assurance_path = integrity / "catalog-assurance.json"
+    assurance_path.write_text(json.dumps(assurance_payload), encoding="utf-8")
     fingerprint = _source_fingerprint(database)
     packaged_files = [
         {"path": "index.html", "sha256": _sha256_file(report / "index.html"), "size_bytes": (report / "index.html").stat().st_size},
         {"path": "integrity/audit-snapshot.db", "sha256": _sha256_file(snapshot), "size_bytes": snapshot.stat().st_size},
+        {"path": "integrity/catalog-assurance.json", "sha256": _sha256_file(assurance_path), "size_bytes": assurance_path.stat().st_size},
     ]
     (report / "manifest.json").write_text(
         json.dumps(
@@ -137,6 +156,12 @@ def test_catalog_freshness_fails_after_source_database_changes(tmp_path: Path) -
                     "sha256": _sha256_file(snapshot),
                 },
                 "packaged_files": packaged_files,
+                "assurance": {
+                    "thresholds": assurance_payload["thresholds"],
+                    "global": assurance_payload["global"],
+                    "closure_eligible": True,
+                    "artifact": "integrity/catalog-assurance.json",
+                },
             }
         ),
         encoding="utf-8",
