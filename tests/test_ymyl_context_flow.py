@@ -11,7 +11,12 @@ from rasai.improvement_intelligence import (
     _semantic_risk_findings,
     build_improvement_request_context,
 )
+from rasai.accepted_audit_refinements import (
+    _repair_scope_findings,
+    _ymyl_analysis_context_html,
+)
 from rasai.semantic_coherence_reporting import _ymyl_alignment_html
+from rasai import catalog_report_analysis
 
 
 def _database(tmp_path: Path) -> Path:
@@ -55,26 +60,33 @@ def _database(tmp_path: Path) -> Path:
                 "product-service",
                 "auto",
                 "auto",
-                "high",
+                "low",
                 "first-party",
             ),
         )
-        connection.execute(
-            "INSERT INTO semantic_coherence_assessments VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        rows = [
             (
-                "AUD-YMYL",
-                "SC-P12",
-                "S1",
-                "https://example.test/",
-                "PARTIAL",
-                0.82,
-                "YMYL risk profile",
-                "Responsibility is visible but support is incomplete.",
-                '["EV-1"]',
-                "Trust support is incomplete for the configured risk context.",
-                "OPENAI",
-                "gpt-test",
+                "AUD-YMYL", "SC-P11", "S1", "https://example.test/", "PARTIAL", 0.89,
+                "YMYL financial-security", "Material claims have limited observable qualification.",
+                '["EV-11"]', "Claim support is incomplete for the configured risk context.",
+                "OPENAI", "gpt-test",
             ),
+            (
+                "AUD-YMYL", "SC-P12", "S1", "https://example.test/", "PARTIAL", 0.85,
+                "YMYL financial-security", "Organization is identifiable but editorial responsibility is limited.",
+                '["EV-12"]', "Responsibility support is incomplete for the configured risk context.",
+                "OPENAI", "gpt-test",
+            ),
+            (
+                "AUD-YMYL", "SC-P13", "S1", "https://example.test/", "NOT_DETERMINABLE", 0.94,
+                "Low freshness sensitivity", "No sufficient publication/update signals were observed.",
+                '["EV-13"]', "Freshness cannot be concluded from the available evidence.",
+                "OPENAI", "gpt-test",
+            ),
+        ]
+        connection.executemany(
+            "INSERT INTO semantic_coherence_assessments VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            rows,
         )
         connection.commit()
     finally:
@@ -96,7 +108,7 @@ def _install_live_category_interpretation() -> None:
                 "ymyl_category": {
                     "status": "INTERPRETED",
                     "value": "financial-security",
-                    "confidence": 0.91,
+                    "confidence": 0.96,
                     "rationale": "The page can materially affect a financial decision.",
                     "evidence_ids": ["EV-1"],
                 }
@@ -106,7 +118,7 @@ def _install_live_category_interpretation() -> None:
     ai_execution_state.set_current_ai_execution("PRIMARY", recorder)
 
 
-def test_editorial_context_combines_config_live_auto_interpretation_and_sc_p12(tmp_path: Path) -> None:
+def test_editorial_context_combines_user_config_auto_category_and_all_ymyl_criteria(tmp_path: Path) -> None:
     database = _database(tmp_path)
     _install_live_category_interpretation()
     context = build_editorial_risk_context(
@@ -114,16 +126,21 @@ def test_editorial_context_combines_config_live_auto_interpretation_and_sc_p12(t
         "AUD-YMYL",
         page_url="https://example.test/",
     )
-    assert context["ymyl"]["active"] is True
-    assert context["ymyl"]["configured_category"] == "auto"
-    assert context["ymyl"]["effective_category"] == "financial-security"
-    assert context["ymyl"]["alignment_result"] == "PARTIAL"
-    assert context["ymyl"]["evidence_ids"] == ["EV-1"]
-    assert context["auto_interpretations"]["ymyl_category"]["source"] == "CURRENT_AI_INFERENCE"
+    ymyl = context["ymyl"]
+    assert ymyl["active"] is True
+    assert ymyl["configured_risk_profile"] == "ymyl"
+    assert ymyl["configured_category"] == "auto"
+    assert ymyl["effective_category"] == "financial-security"
+    assert ymyl["alignment_result"] == "PARTIAL"
+    assert ymyl["content_change_required"] is True
+    assert ymyl["configuration_relation"]["conflict"] is False
+    assert "parametrização do usuário foi respeitada" in ymyl["configuration_relation"]["label"]
+    assert {item["criterion_id"] for item in ymyl["coherence"]} == {"SC-P11", "SC-P12", "SC-P13"}
+    assert set(ymyl["evidence_ids"]) == {"EV-1", "EV-11", "EV-12", "EV-13"}
     ai_execution_state.clear_current_ai_execution()
 
 
-def test_improvement_request_carries_same_ymyl_context_and_guardrails(tmp_path: Path) -> None:
+def test_improvement_request_requires_recommendations_for_actionable_ymyl_findings(tmp_path: Path) -> None:
     database = _database(tmp_path)
     _install_live_category_interpretation()
     target = SimpleNamespace(
@@ -136,24 +153,63 @@ def test_improvement_request_carries_same_ymyl_context_and_guardrails(tmp_path: 
         canonical="https://example.test/",
     )
     config = SimpleNamespace(domains=("CONTENT",))
+    finding = {
+        "finding_id": "SEMANTIC-YMYL:SC-P11:S1",
+        "source": "SEMANTIC_COHERENCE_YMYL",
+        "evidence_ids": ["EV-11"],
+    }
     request, instructions = build_improvement_request_context(
         audit_id="AUD-YMYL",
         workspace=SimpleNamespace(database=database, root=tmp_path),
         context=target,
         config=config,
-        findings=[{"finding_id": "F1", "evidence_ids": ["EV-1"]}],
+        findings=[finding],
         evidence_context={"semantic": "persisted"},
         language="pt-BR",
     )
     assert request["editorial_risk_context"]["ymyl"]["effective_category"] == "financial-security"
-    assert request["governance"]["ymyl_is_context_not_compliance"] is True
-    assert "WHERE the gap is" in instructions
-    assert "HOW it should be improved" in instructions
+    assert request["governance"]["required_ymyl_recommendation_finding_ids"] == [
+        "SEMANTIC-YMYL:SC-P11:S1"
+    ]
+    assert "must receive exactly one evidence-bound recommendation" in instructions
     assert "legal/regulatory compliance" in instructions
+    assert "hyphen" in instructions.casefold()
     ai_execution_state.clear_current_ai_execution()
 
 
-def test_cat03_exposes_config_interpretation_and_ymyl_alignment(tmp_path: Path) -> None:
+def test_missing_required_ymyl_recommendation_is_added_to_repair_scope() -> None:
+    findings = [
+        {"finding_id": "SEMANTIC-YMYL:SC-P11:S1", "source": "SEMANTIC_COHERENCE_YMYL"},
+        {"finding_id": "SEMANTIC-YMYL:SC-P12:S1", "source": "SEMANTIC_COHERENCE_YMYL"},
+        {"finding_id": "OTHER", "source": "HTML_STRUCTURE"},
+    ]
+    accepted = [{"finding_id": "SEMANTIC-YMYL:SC-P12:S1"}]
+    scope = _repair_scope_findings(findings, [], accepted)
+    assert [item["finding_id"] for item in scope] == ["SEMANTIC-YMYL:SC-P11:S1"]
+
+
+def test_ymyl_semantic_partial_gaps_become_improvement_findings(tmp_path: Path) -> None:
+    database = _database(tmp_path)
+    _install_live_category_interpretation()
+    connection = sqlite3.connect(database)
+    connection.row_factory = sqlite3.Row
+    try:
+        findings, summary = _semantic_risk_findings(
+            connection,
+            "AUD-YMYL",
+            SimpleNamespace(url="https://example.test/"),
+            SimpleNamespace(database=database, root=tmp_path),
+        )
+    finally:
+        connection.close()
+    ids = {item["finding_id"] for item in findings}
+    assert ids == {"SEMANTIC-YMYL:SC-P11:S1", "SEMANTIC-YMYL:SC-P12:S1"}
+    assert summary["active"] is True
+    assert all(item["source"] == "SEMANTIC_COHERENCE_YMYL" for item in findings)
+    ai_execution_state.clear_current_ai_execution()
+
+
+def test_cat03_explains_user_parameterization_and_content_change(tmp_path: Path) -> None:
     database = _database(tmp_path)
     _install_live_category_interpretation()
 
@@ -164,10 +220,26 @@ def test_cat03_exposes_config_interpretation_and_ymyl_alignment(tmp_path: Path) 
 
     html = _ymyl_alignment_html(Evidence, database, "AUD-YMYL")
     assert "Contexto YMYL × conteúdo observado" in html
-    assert "financial-security" in html
-    assert "Aderência parcial" in html
-    assert "SC-P12" in html
-    assert "não declara conformidade legal" in html
+    assert "parametrização do usuário foi respeitada" in html
+    assert "SC-P11, SC-P12 e SC-P13" in html
+    assert "Há lacunas YMYL acionáveis" in html
+    ai_execution_state.clear_current_ai_execution()
+
+
+def test_cat08_ymyl_block_explains_why_content_needs_change(tmp_path: Path) -> None:
+    database = _database(tmp_path)
+    _install_live_category_interpretation()
+    html = _ymyl_analysis_context_html(
+        database,
+        "AUD-YMYL",
+        catalog_report_analysis,
+    )
+    assert "Parametrização × interpretação" in html
+    assert "não de a IA ter sobrescrito ou rejeitado a parametrização do usuário" in html
+    assert "SC-P11 - Suporte observável de claims" in html
+    assert "SC-P12 - Autoria e responsabilidade" in html
+    assert "Mudança recomendada" not in html
+    assert "Remediação necessária ainda sem ação individual" in html
     ai_execution_state.clear_current_ai_execution()
 
 
@@ -186,53 +258,3 @@ def test_non_ymyl_context_does_not_force_ymyl_recommendations(tmp_path: Path) ->
     directive = ymyl_prompt_directive(context)
     assert context["ymyl"]["active"] is False
     assert "Do not invent a YMYL classification" in directive
-
-
-def test_ymyl_semantic_gap_becomes_improvement_finding(tmp_path: Path) -> None:
-    database = _database(tmp_path)
-    connection = sqlite3.connect(database)
-    connection.row_factory = sqlite3.Row
-    try:
-        context = SimpleNamespace(url="https://example.test/")
-        findings, summary = _semantic_risk_findings(
-            connection,
-            "AUD-YMYL",
-            context,
-            SimpleNamespace(database=database, root=tmp_path),
-        )
-    finally:
-        connection.close()
-    assert summary["active"] is True
-    assert len(findings) == 1
-    finding = findings[0]
-    assert finding["finding_id"] == "SEMANTIC-YMYL:SC-P12:S1"
-    assert finding["domain"] == "CONTENT"
-    assert finding["severity"] == "MEDIUM"
-    assert finding["source"] == "SEMANTIC_COHERENCE_YMYL"
-    assert finding["evidence_ids"] == ["EV-1"]
-    assert "autoria/responsabilidade" in finding["observation"]
-
-
-def test_standard_profile_does_not_create_ymyl_semantic_findings(tmp_path: Path) -> None:
-    database = _database(tmp_path)
-    connection = sqlite3.connect(database)
-    try:
-        connection.execute(
-            "UPDATE content_analysis_contexts SET risk_profile='standard', ymyl_category='none'"
-        )
-        connection.commit()
-    finally:
-        connection.close()
-    connection = sqlite3.connect(database)
-    connection.row_factory = sqlite3.Row
-    try:
-        findings, summary = _semantic_risk_findings(
-            connection,
-            "AUD-YMYL",
-            SimpleNamespace(url="https://example.test/"),
-            SimpleNamespace(database=database, root=tmp_path),
-        )
-    finally:
-        connection.close()
-    assert summary["active"] is False
-    assert findings == []

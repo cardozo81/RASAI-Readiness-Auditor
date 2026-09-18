@@ -135,7 +135,8 @@ def semantic_output_language_directive(semantic_input: SemanticInput) -> str:
         " Human-readable free-text output must use the audit primary_language "
         f"{language!r}. This applies to reasoning_summary, observed_value.summary, "
         "observed_value.details, primary_intent and secondary_intents. Keep rule IDs, "
-        "enum values, evidence IDs, URLs, proper names and technical identifiers unchanged."
+        "enum values, evidence IDs, URLs, proper names and technical identifiers unchanged. "
+        "Use the ASCII hyphen '-' instead of the em dash character in every human-readable field."
     )
 
 

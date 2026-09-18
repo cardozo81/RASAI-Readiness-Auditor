@@ -1006,6 +1006,7 @@ def build_improvement_request_context(
         _instructions(language, config.domains)
         + " "
         + ymyl_prompt_directive(editorial_context)
+        + " Use the ASCII hyphen '-' instead of the em dash character in every human-readable field. "
         + (
             " Every finding listed in governance.required_ymyl_recommendation_finding_ids "
             "must receive exactly one evidence-bound recommendation when it is supplied in this request. "
