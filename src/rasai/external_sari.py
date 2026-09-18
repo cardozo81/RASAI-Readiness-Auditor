@@ -74,6 +74,53 @@ class ExternalSariMaterialization:
     observed_url_count: int
     observed_ratio: float | None
     reason: str | None = None
+    errors: tuple[str, ...] = ()
+
+
+def common_crawl_dataset_health(
+    workspace: AuditWorkspace,
+    dataset_id: str,
+    *,
+    row_count: int | None = None,
+) -> tuple[str, tuple[str, ...]]:
+    """Classify persisted Common Crawl acquisition without repeating network I/O."""
+    dataset = _dataset_row(workspace, dataset_id)
+    if dataset is None:
+        return "FAILED_RETRYABLE", ("COMMON_CRAWL_DATASET_MISSING",)
+    metadata: dict[str, Any] = {}
+    try:
+        parsed = json.loads(str(dataset["metadata"] or "{}"))
+        if isinstance(parsed, dict):
+            metadata = parsed
+    except (TypeError, ValueError, json.JSONDecodeError):
+        metadata = {}
+    errors: list[str] = []
+    artifact_path = str(dataset["artifact_path"] or "")
+    if artifact_path:
+        path = Path(artifact_path)
+        if not path.is_absolute():
+            path = workspace.root / path
+        try:
+            artifact = json.loads(path.read_text(encoding="utf-8"))
+            raw_errors = artifact.get("errors") if isinstance(artifact, Mapping) else None
+            if isinstance(raw_errors, list):
+                errors.extend(str(item) for item in raw_errors if str(item).strip())
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            pass
+    try:
+        error_count = max(0, int(metadata.get("errors") or 0))
+    except (TypeError, ValueError):
+        error_count = 0
+    if error_count and not errors:
+        errors.append(f"COMMON_CRAWL_PROVIDER_ERRORS:{error_count}")
+    try:
+        rows = max(0, int(metadata.get("rows") if metadata.get("rows") is not None else (row_count or 0)))
+    except (TypeError, ValueError):
+        rows = max(0, int(row_count or 0))
+    unique_errors = tuple(dict.fromkeys(errors))
+    if unique_errors:
+        return ("PARTIAL" if rows > 0 else "FAILED_RETRYABLE"), unique_errors
+    return ("SUCCESS" if rows > 0 else "NO_DATA"), ()
 
 
 def materialize_common_crawl_corroboration(
@@ -139,7 +186,9 @@ def materialize_common_crawl_corroboration(
     selected_set = set(selected_urls)
     observed_in_scope = sorted(url for url in observed_urls if url in selected_set)
     ratio = (len(observed_in_scope) / len(selected_urls)) if selected_urls else None
-    collection_state = "SUCCESS" if rows else "NO_DATA"
+    collection_state, provider_errors = common_crawl_dataset_health(
+        workspace, dataset_id, row_count=len(rows)
+    )
 
     blocked = _current_discovery_blocked(persistence, rule_execution_ids)
     qualifies = bool(
@@ -150,7 +199,11 @@ def materialize_common_crawl_corroboration(
     )
     materialized: tuple[str, ...] = ()
     reason: str | None = None
-    if blocked:
+    if provider_errors and not rows:
+        reason = "COMMON_CRAWL_PROVIDER_ERRORS"
+    elif provider_errors:
+        reason = "COMMON_CRAWL_PARTIAL_PROVIDER_ERRORS"
+    elif blocked:
         reason = "CURRENT_DISCOVERY_GATE_BLOCKED"
     elif not rows:
         reason = "NO_COMMON_CRAWL_CAPTURE_OBSERVED"
@@ -214,6 +267,7 @@ def materialize_common_crawl_corroboration(
         len(observed_in_scope),
         round(float(ratio), 6) if ratio is not None else None,
         reason,
+        provider_errors,
     )
     _write_state(workspace, _state_payload(state_info, result, phase="PRE_SCORING"))
     return result
@@ -295,8 +349,10 @@ def install() -> None:
 
 
 def _state_payload(state_info: Mapping[str, Any], result: ExternalSariMaterialization, *, phase: str) -> dict[str, Any]:
-    success = 1 if result.dataset_id and result.state in {"SUCCESS", "NO_DATA"} else 0
-    errors = [result.reason] if result.state == "ERROR" and result.reason else []
+    success = 1 if result.dataset_id and result.state in {"SUCCESS", "NO_DATA", "PARTIAL"} else 0
+    errors = list(result.errors)
+    if not errors and result.state in {"ERROR", "FAILED_RETRYABLE"} and result.reason:
+        errors = [result.reason]
     return {
         "service_state": str(state_info.get("state") or "UNKNOWN"),
         "requested": bool(state_info.get("requested")),

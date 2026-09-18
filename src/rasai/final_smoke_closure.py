@@ -160,12 +160,24 @@ def _install_common_crawl_final_binding() -> None:
                             external.DEFAULT_STANDARDS_TIMEOUT_SECONDS,
                         ),
                     )
+                    dataset_state, dataset_errors = external_sari.common_crawl_dataset_health(
+                        workspace, dataset_id
+                    )
                     common.update(
                         targets_attempted=1,
-                        targets_succeeded=1,
+                        targets_succeeded=0 if dataset_state == "FAILED_RETRYABLE" else 1,
                         datasets=[dataset_id],
-                        errors=[],
-                        collection_state="SUCCESS",
+                        errors=list(dataset_errors),
+                        collection_state=dataset_state,
+                        reason=(
+                            "COMMON_CRAWL_PROVIDER_ERRORS"
+                            if dataset_state == "FAILED_RETRYABLE"
+                            else "COMMON_CRAWL_PARTIAL_PROVIDER_ERRORS"
+                            if dataset_state == "PARTIAL"
+                            else "NO_COMMON_CRAWL_CAPTURE_OBSERVED"
+                            if dataset_state == "NO_DATA"
+                            else None
+                        ),
                         scope="URL",
                     )
                 except Exception as exc:
@@ -322,14 +334,20 @@ def _install_cat05_partial_projection() -> None:
         except (TypeError, ValueError, json.JSONDecodeError):
             pass
         reason = str(details.get("reason") or "")
-        broken_no_attempt = requested and enabled and attempted == 0 and (
-            state in {"ERROR", "FAILED_RETRYABLE", "BLOCKED"}
-            or reason in {
-                "PRE_SCORING_COLLECTION_STATE_NOT_FOUND",
-                "COMMON_CRAWL_PRESEAL_DATASET_MISSING",
-            }
+        raw_errors = details.get("errors")
+        has_errors = isinstance(raw_errors, list) and bool(raw_errors)
+        broken_collection = requested and enabled and (
+            state in {"ERROR", "FAILED_RETRYABLE", "PARTIAL", "BLOCKED"}
+            or has_errors
+            or (
+                attempted == 0
+                and reason in {
+                    "PRE_SCORING_COLLECTION_STATE_NOT_FOUND",
+                    "COMMON_CRAWL_PRESEAL_DATASET_MISSING",
+                }
+            )
         )
-        if broken_no_attempt:
+        if broken_collection:
             return (
                 "PARCIAL",
                 "warn",
