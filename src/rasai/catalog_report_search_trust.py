@@ -737,6 +737,28 @@ def _competitive_validation_rows(
         comparison_state,
     ))
 
+    customer_source = str(runtime_policy.get("customer_source") or "").upper()
+    customer_source_label = {
+        "AUDIT_RENDERED_ARTIFACT": "Captura renderizada da própria AUD",
+        "PUBLIC_WEB_HTTP": "Aquisição HTTP pública",
+    }.get(customer_source, "Não materializado")
+    customer_source_state = (
+        "NÃO APLICÁVEL"
+        if not configured_compare
+        else "OK"
+        if customer_source in {"AUDIT_RENDERED_ARTIFACT", "PUBLIC_WEB_HTTP"}
+        else "COM LIMITAÇÃO"
+    )
+    rows.append((
+        "Fonte do conteúdo do site auditado",
+        "Reutilizar captura renderizada da AUD quando disponível",
+        "Sim" if "customer_source" in runtime_policy else "Não",
+        customer_source_label,
+        "Sim",
+        "artifact.acquisition_policy.customer_source",
+        customer_source_state,
+    ))
+
     max_pages = configuration.get("max_content_pages")
     try:
         max_pages_int = int(max_pages) if max_pages is not None else None
