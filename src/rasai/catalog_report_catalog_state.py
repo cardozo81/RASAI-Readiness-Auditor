@@ -14,12 +14,12 @@ def _plan_available(data: _ReportData) -> bool:
 
 def _friendly_component(value: Any) -> str:
     key=_norm(value)
-    return _COMPONENT_LABELS.get(key, str(value or "—").replace("_"," ").title())
+    return _COMPONENT_LABELS.get(key, str(value or "-").replace("_"," ").title())
 
 
 def _friendly_service(value: Any) -> str:
     key=str(value or "")
-    return _SERVICE_LABELS.get(key,_SERVICE_LABELS.get(key.casefold(),key.replace("_"," ").title() or "—"))
+    return _SERVICE_LABELS.get(key,_SERVICE_LABELS.get(key.casefold(),key.replace("_"," ").title() or "-"))
 
 
 def _ai_policy(data: _ReportData, catalog_id: str) -> tuple[str,bool]:
@@ -189,8 +189,8 @@ def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any
     policy,ai_enabled=_ai_policy(data,catalog_id)
     plan_available=_plan_available(data)
     rows=[
-        ("Incluído nesta auditoria",("Sim" if catalog_id in data.selected else "Não") if plan_available else "Indeterminado — snapshot ausente/inválido","Plano congelado" if plan_available else "Snapshot da execução"),
-        ("URL / alvo","; ".join(data.targets) if data.targets else "—","Plano congelado" if plan_available else "Evidência persistida"),
+        ("Incluído nesta auditoria",("Sim" if catalog_id in data.selected else "Não") if plan_available else "Indeterminado - snapshot ausente/inválido","Plano congelado" if plan_available else "Snapshot da execução"),
+        ("URL / alvo","; ".join(data.targets) if data.targets else "-","Plano congelado" if plan_available else "Evidência persistida"),
         ("Uso de IA nesta capacidade",("Habilitado" if ai_enabled else "Não habilitado") if policy!="Não utiliza IA" else "Não se aplica","Plano congelado" if plan_available else "Não determinável"),
         ("Política de IA",policy,"Catálogo"),
     ]
@@ -201,7 +201,7 @@ def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any
             rows.extend([
                 ("Desempenho web","Habilitado" if str(cfg.get("enabled","")).lower()=="true" else "Desabilitado","Configuração da execução"),
                 ("Fonte de dados de campo",cfg.get("field_source") or "Automática","Configuração da execução"),
-                ("Categorias Lighthouse",str(cfg.get("lighthouse_categories") or "—").replace(","," · "),"Configuração da execução"),
+                ("Categorias Lighthouse",str(cfg.get("lighthouse_categories") or "-").replace(","," · "),"Configuração da execução"),
             ])
     elif catalog_id=="CAT-05":
         search=data.configuration.get("search_intelligence")
@@ -209,8 +209,8 @@ def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any
             queries=search.get("queries",[])
             rows.extend([
                 ("Inteligência de busca / SERP","Habilitado" if bool(search.get("enabled")) else "Desabilitado","Plano congelado"),
-                ("Consultas de busca","; ".join(str(v) for v in queries if str(v).strip()) if isinstance(queries,list) else str(queries or "—"),"Plano congelado"),
-                ("Profundidade da busca",f"Top {search.get('depth','—')}","Plano congelado"),
+                ("Consultas de busca","; ".join(str(v) for v in queries if str(v).strip()) if isinstance(queries,list) else str(queries or "-"),"Plano congelado"),
+                ("Profundidade da busca",f"Top {search.get('depth','-')}","Plano congelado"),
                 ("Dispositivo",_device_label(search.get("device")),"Plano congelado"),
                 ("Região",search.get("region") or "Não definida","Plano congelado"),
             ])
@@ -218,17 +218,17 @@ def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any
         cfg=settings.get("synthetic_apdex") if isinstance(settings,Mapping) else {}
         if isinstance(cfg,Mapping):
             rows.extend([
-                ("Limite para experiência satisfatória",f"{cfg.get('threshold_seconds','—')} s","Configuração da execução"),
-                ("Amostras por contexto",cfg.get("samples_per_context","—"),"Configuração da execução"),
-                ("Máximo de tentativas",cfg.get("max_attempts_per_context","—"),"Configuração da execução"),
+                ("Limite para experiência satisfatória",f"{cfg.get('threshold_seconds','-')} s","Configuração da execução"),
+                ("Amostras por contexto",cfg.get("samples_per_context","-"),"Configuração da execução"),
+                ("Máximo de tentativas",cfg.get("max_attempts_per_context","-"),"Configuração da execução"),
             ])
     elif catalog_id=="CAT-07":
         cfg=settings.get("synthetic_apdex_experience") if isinstance(settings,Mapping) else {}
         if isinstance(cfg,Mapping):
             rows.extend([
-                ("Amostras por página",cfg.get("samples_per_page","—"),"Configuração da execução"),
-                ("Limite satisfatório",f"{cfg.get('satisfied_seconds','—')} s","Configuração da execução"),
-                ("Limite frustrado",f"{cfg.get('frustrated_seconds','—')} s","Configuração da execução"),
+                ("Amostras por página",cfg.get("samples_per_page","-"),"Configuração da execução"),
+                ("Limite satisfatório",f"{cfg.get('satisfied_seconds','-')} s","Configuração da execução"),
+                ("Limite frustrado",f"{cfg.get('frustrated_seconds','-')} s","Configuração da execução"),
                 ("Erros afetam o Apdex","Sim" if str(cfg.get("errors_affect_apdex","")).lower()=="true" else "Não","Configuração da execução"),
                 ("Escopo de erros",_error_scope_label(cfg.get("error_scope")),"Configuração da execução"),
                 ("Sessão",_session_label(cfg.get("session_mode")),"Configuração da execução"),
@@ -237,8 +237,8 @@ def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any
         cfg=settings.get("improvement_intelligence") if isinstance(settings,Mapping) else {}
         if isinstance(cfg,Mapping):
             rows.extend([
-                ("Domínios analisados"," · ".join(_domain_label(v) for v in str(cfg.get("domains") or "").split(",") if v.strip()) or "—","Configuração da execução"),
-                ("Máximo de recomendações",cfg.get("max_recommendations","—"),"Configuração da execução"),
+                ("Domínios analisados"," · ".join(_domain_label(v) for v in str(cfg.get("domains") or "").split(",") if v.strip()) or "-","Configuração da execução"),
+                ("Máximo de recomendações",cfg.get("max_recommendations","-"),"Configuração da execução"),
             ])
     elif catalog_id=="CAT-09":
         ai=settings.get("ai") if isinstance(settings,Mapping) else {}

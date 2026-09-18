@@ -148,7 +148,7 @@ def _context_html(evidence: Any, database: Any, audit_id: str) -> str:
         try:
             page_count=len(json.loads(str(manifest.get("page_ids_json") or "[]"))); snapshot_count=len(json.loads(str(manifest.get("snapshot_ids_json") or "[]")))
         except (TypeError,ValueError,json.JSONDecodeError):page_count=snapshot_count=0
-        blocks.append("<div class='notice'><strong>Gate semântico:</strong> "+f"{escape(str(manifest.get('status') or '—'))}. O contexto foi congelado antes da primeira chamada de IA; corpus com {page_count} página(s) e {snapshot_count} captura(s). A agregação entre páginas usa apenas resultados já persistidos e não gera uma chamada adicional.</div>")
+        blocks.append("<div class='notice'><strong>Gate semântico:</strong> "+f"{escape(str(manifest.get('status') or '-'))}. O contexto foi congelado antes da primeira chamada de IA; corpus com {page_count} página(s) e {snapshot_count} captura(s). A agregação entre páginas usa apenas resultados já persistidos e não gera uma chamada adicional.</div>")
     return "".join(blocks)
 
 
@@ -159,9 +159,9 @@ def _auto_interpretation_html(evidence: Any, database: Any, audit_id: str) -> st
     table_rows=[];modals=[]
     for index,row in enumerate(rows,1):
         field=str(row.get("field_name") or ""); modal_id=f"auto-context-{index}"
-        table_rows.append((row.get("page_url") or row.get("snapshot_id") or "—",_CONTENT_LABELS.get(field,field.replace("_"," ").title()),"AUTO",_status(row.get("status")),row.get("interpreted_value") or "Não determinável",_confidence(row.get("confidence")),evidence._modal_button(modal_id,"Ver interpretação")))
+        table_rows.append((row.get("page_url") or row.get("snapshot_id") or "-",_CONTENT_LABELS.get(field,field.replace("_"," ").title()),"AUTO",_status(row.get("status")),row.get("interpreted_value") or "Não determinável",_confidence(row.get("confidence")),evidence._modal_button(modal_id,"Ver interpretação")))
         ids=_json_list(row.get("evidence_ids_json"))
-        body=evidence._kv((("Configuração canônica","AUTO"),("Interpretação aplicada",row.get("interpreted_value") or "Não determinável"),("Status",_status(row.get("status"))),("Origem","Inferência de IA desta execução"),("Confiança",_confidence(row.get("confidence"))),("Justificativa",row.get("rationale") or "—"),("Evidências",", ".join(str(v) for v in ids) or "—"),("Provider",row.get("provider") or "—"),("Modelo",row.get("model") or "—"),("Sequência da chamada",row.get("sequence_no") or "—"),("Contrato",row.get("contract_version") or "—"),("Impacto direto no score","Não"),("Persistida como",row.get("interpretation_type") or "AI_INFERENCE")))
+        body=evidence._kv((("Configuração canônica","AUTO"),("Interpretação aplicada",row.get("interpreted_value") or "Não determinável"),("Status",_status(row.get("status"))),("Origem","Inferência de IA desta execução"),("Confiança",_confidence(row.get("confidence"))),("Justificativa",row.get("rationale") or "-"),("Evidências",", ".join(str(v) for v in ids) or "-"),("Provider",row.get("provider") or "-"),("Modelo",row.get("model") or "-"),("Sequência da chamada",row.get("sequence_no") or "-"),("Contrato",row.get("contract_version") or "-"),("Impacto direto no score","Não"),("Persistida como",row.get("interpretation_type") or "AI_INFERENCE")))
         body+="<p class='muted'>A inferência é reconstruível para esta AUD, mas não sobrescreve a configuração AUTO e não se torna fato canônico da propriedade.</p>"
         modals.append(evidence._modal(modal_id,_CONTENT_LABELS.get(field,field),str(row.get("page_url") or row.get("snapshot_id") or "Contexto"),body))
     return "<div class='subsection'><h3>Interpretações AUTO aplicadas</h3>"+evidence._table(("Página","Campo","Configuração","Status","Interpretação","Confiança","Detalhe"),table_rows,sortable=True,page_size=10 if len(table_rows)>10 else None)+"".join(modals)+"</div>"
@@ -212,13 +212,13 @@ def _ymyl_alignment_html(evidence: Any, database: Any, audit_id: str) -> str:
     for item in ymyl.get("coherence", []) or []:
         details.append(
             (
-                item.get("page_url") or item.get("snapshot_id") or "—",
+                item.get("page_url") or item.get("snapshot_id") or "-",
                 _status(item.get("result")),
                 _confidence(item.get("confidence")),
                 item.get("reasoning_summary")
                 or item.get("observed_context")
-                or "—",
-                ", ".join(str(v) for v in item.get("evidence_ids", []) or []) or "—",
+                or "-",
+                ", ".join(str(v) for v in item.get("evidence_ids", []) or []) or "-",
             )
         )
     detail_html = (
@@ -276,12 +276,12 @@ def _semantic_assessments_html(evidence: Any,database: Any,audit_id: str) -> str
     table_rows=[];modals=[]
     for index,row in enumerate(rows,1):
         rule=str(row.get("assessment_type") or "");contract=RULE_SCORING_CONTRACT.get(rule);modal_id=f"semantic-assessment-{index}"
-        dimension=contract.dimension if contract else "NON_SCORING";group=contract.scoring_group if contract else "—"
+        dimension=contract.dimension if contract else "NON_SCORING";group=contract.scoring_group if contract else "-"
         origin="Baseline determinístico" if str(row.get("provider") or "").upper()=="DETERMINISTIC_BASELINE" else "IA" if str(row.get("provider") or "").upper() not in {"","NONE"} else "Determinístico/sem IA"
-        table_rows.append((row.get("page_url") or "—",rule,_dimension_label(dimension),_status(row.get("result")),_confidence(row.get("confidence")),origin,evidence._modal_button(modal_id,"Ver proveniência")))
+        table_rows.append((row.get("page_url") or "-",rule,_dimension_label(dimension),_status(row.get("result")),_confidence(row.get("confidence")),origin,evidence._modal_button(modal_id,"Ver proveniência")))
         source_ids=_json_list(row.get("evidence_ids"));execution_ids=_json_list(row.get("execution_evidence_ids"));all_ids=list(dict.fromkeys([*source_ids,*execution_ids]))
         dim_weight=DIMENSION_WEIGHTS.get(dimension);group_weight=contract.group_weight if contract else None
-        body=evidence._kv((("Regra",rule),("Dimensão",_dimension_label(dimension)),("Código da dimensão",dimension),("Grupo de pontuação",group),("Resultado",_status(row.get("result"))),("Confiança",_confidence(row.get("confidence"))),("Origem da avaliação",origin),("Provider",row.get("provider") or "—"),("Modelo",row.get("model") or "—"),("Justificativa resumida",row.get("reasoning_summary") or "—"),("Evidências fonte",", ".join(str(v) for v in source_ids) or "—"),("Evidências da execução",", ".join(str(v) for v in all_ids) or "—"),("Assessment ID",row.get("assessment_id") or "—"),("Rule execution ID",row.get("rule_execution_id") or "—"),("Prompt",f"{row.get('prompt_id') or '—'} / v{row.get('prompt_version') or '—'}"),("Configuração",row.get("configuration_version") or "—"),("Executado em",row.get("executed_at") or "—"),("Peso da dimensão",f"{dim_weight*100:.2f}%" if dim_weight is not None else "Não aplicável"),("Peso do grupo dentro da dimensão",f"{group_weight*100:.2f}%" if group_weight is not None else "Não aplicável"),("Impacto na pontuação","Conforme SCORE-GEO-004" if contract else "Não participa")))
+        body=evidence._kv((("Regra",rule),("Dimensão",_dimension_label(dimension)),("Código da dimensão",dimension),("Grupo de pontuação",group),("Resultado",_status(row.get("result"))),("Confiança",_confidence(row.get("confidence"))),("Origem da avaliação",origin),("Provider",row.get("provider") or "-"),("Modelo",row.get("model") or "-"),("Justificativa resumida",row.get("reasoning_summary") or "-"),("Evidências fonte",", ".join(str(v) for v in source_ids) or "-"),("Evidências da execução",", ".join(str(v) for v in all_ids) or "-"),("Assessment ID",row.get("assessment_id") or "-"),("Rule execution ID",row.get("rule_execution_id") or "-"),("Prompt",f"{row.get('prompt_id') or '-'} / v{row.get('prompt_version') or '-'}"),("Configuração",row.get("configuration_version") or "-"),("Executado em",row.get("executed_at") or "-"),("Peso da dimensão",f"{dim_weight*100:.2f}%" if dim_weight is not None else "Não aplicável"),("Peso do grupo dentro da dimensão",f"{group_weight*100:.2f}%" if group_weight is not None else "Não aplicável"),("Impacto na pontuação","Conforme SCORE-GEO-004" if contract else "Não participa")))
         body+="<p class='muted'>O peso final por regra/escopo é calculado pelo contrato hierárquico, considerando aplicabilidade e normalização; o modelo de IA não escolhe nem altera os pesos. Veja <a href='sari.html'>SARI</a> e <a href='methodology.html'>Metodologia</a>.</p>"
         modals.append(evidence._modal(modal_id,f"{rule} · avaliação",str(row.get("page_url") or "Página"),body))
     return "<div class='subsection'><h3>Assessments semânticos</h3>"+evidence._table(("Página","Regra","Dimensão","Resultado","Confiança","Origem","Detalhe"),table_rows,sortable=True,page_size=10 if len(table_rows)>10 else None)+"".join(modals)+"</div>"
@@ -295,7 +295,7 @@ def _property_summary_html(evidence: Any, database: Any, audit_id: str) -> str:
         criterion=str(row.get("criterion_id") or "");modal_id=f"property-coherence-{index}"
         table_rows.append((evidence._translated_text(_PROPERTY_COHERENCE_LABELS.get(criterion,PROPERTY_COHERENCE_CRITERIA.get(criterion,criterion)),PROPERTY_COHERENCE_CRITERIA.get(criterion,criterion)),_status(row.get("result")),_confidence(row.get("confidence")),int(row.get("observation_count") or 0),evidence._modal_button(modal_id,"Ver análise")))
         ids=_json_list(row.get("evidence_ids_json"))
-        body=evidence._kv((("Critério",criterion),("Resultado",_status(row.get("result"))),("Confiança agregada",_confidence(row.get("confidence"))),("Páginas/observações consideradas",row.get("observation_count") or 0),("Leitura",row.get("summary") or "—"),("Evidências relacionadas",", ".join(str(item) for item in ids) or "—")))
+        body=evidence._kv((("Critério",criterion),("Resultado",_status(row.get("result"))),("Confiança agregada",_confidence(row.get("confidence"))),("Páginas/observações consideradas",row.get("observation_count") or 0),("Leitura",row.get("summary") or "-"),("Evidências relacionadas",", ".join(str(item) for item in ids) or "-")))
         modals.append(evidence._modal(modal_id,_PROPERTY_COHERENCE_LABELS.get(criterion,PROPERTY_COHERENCE_CRITERIA.get(criterion,criterion)),"Agregação determinística entre páginas",body))
     divergent=sum(1 for row in summaries if str(row.get("result")) in {"PARTIAL","INCOHERENT"})
     note=f"<p class='muted'>{divergent} dimensão(ões) com divergência ou coerência parcial. A implementação de correções fica centralizada em <a href='cat-09.html'>CAT-09 · Remediações</a>.</p>" if divergent else ""
@@ -312,7 +312,7 @@ def _page_summary_html(evidence: Any, database: Any, audit_id: str) -> str:
         items=grouped.get(criterion,[]);counts=Counter(str(item.get("result") or "NOT_DETERMINABLE") for item in items);divergence=counts.get("PARTIAL",0)+counts.get("INCOHERENT",0);confidence=sum(float(item.get("confidence") or 0) for item in items)/len(items) if items else 0.0;modal_id=f"page-coherence-{index}"
         state="Incoerente" if counts.get("INCOHERENT") else "Parcial" if divergence else "Coerente" if items else "Não determinável"
         table_rows.append((evidence._translated_text(_PAGE_COHERENCE_LABELS.get(criterion,PAGE_COHERENCE_CRITERIA[criterion]),PAGE_COHERENCE_CRITERIA[criterion]),state,_confidence(confidence),divergence,evidence._modal_button(modal_id,"Ver páginas")))
-        details=[(item.get("page_url") or "—",_status(item.get("result")),_confidence(item.get("confidence")),item.get("observed_context") or "—") for item in sorted(items,key=lambda value:(str(value.get("page_url")),str(value.get("snapshot_id"))))]
+        details=[(item.get("page_url") or "-",_status(item.get("result")),_confidence(item.get("confidence")),item.get("observed_context") or "-") for item in sorted(items,key=lambda value:(str(value.get("page_url")),str(value.get("snapshot_id"))))]
         body=evidence._table(("Página","Resultado","Confiança","Observado"),details,sortable=bool(details),page_size=10 if len(details)>10 else None)+"<p class='muted'>O detalhe técnico da chamada, provider, tokens e custo permanece em <a href='ai-integrations.html'>IA e integrações</a>.</p>"
         modals.append(evidence._modal(modal_id,_PAGE_COHERENCE_LABELS.get(criterion,PAGE_COHERENCE_CRITERIA[criterion]),criterion,body))
     return "<div class='subsection'><h3>Coerência semântica por página</h3>"+evidence._table(("Dimensão","Resultado","Confiança","Divergências","Detalhe"),table_rows,sortable=True)+"".join(modals)+"</div>"

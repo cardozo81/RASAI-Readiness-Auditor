@@ -111,7 +111,7 @@ def _human_status_value(value: Any, fallback: Any | None = None) -> str:
         return direct
     if callable(fallback):
         return str(fallback(value))
-    return str(value or "—").replace("_", " ").title()
+    return str(value or "-").replace("_", " ").title()
 
 
 def _human_limitation(value: Any) -> str:
@@ -146,10 +146,10 @@ def _audit_hero(data: Any, title: str, subtitle: str) -> str:
     """Expose logical AUD state without repeating the full base limitation on every CAT."""
     from rasai import catalog_report_presentation as p
 
-    target = data.targets[0] if getattr(data, "targets", ()) else "—"
+    target = data.targets[0] if getattr(data, "targets", ()) else "-"
     audit = data.audit if isinstance(getattr(data, "audit", None), Mapping) else {}
     fulfillment = data.fulfillment if isinstance(getattr(data, "fulfillment", None), Mapping) else {}
-    project = str(audit.get("project_name") or "—")
+    project = str(audit.get("project_name") or "-")
     logical_raw = fulfillment.get("processing_status") or audit.get("completion_status") or audit.get("status")
     base_raw = audit.get("completion_status") or audit.get("status")
     limitations = _audit_limitations(data)
@@ -578,7 +578,7 @@ def _install_apdex_projection() -> None:
             modal_id = ("ux" if experience else "nav") + f"-sample-{index}"
             sample_id = str(sample.get("sample_id") or "")
             measured_at = timestamp_map.get(sample_id)
-            displayed_at = measured_at or sample.get("captured_at") or "—"
+            displayed_at = measured_at or sample.get("captured_at") or "-"
             timestamp_label = "Medição em" if measured_at else "Persistida em"
             if not measured_at:
                 fallback_count += 1
@@ -594,7 +594,7 @@ def _install_apdex_projection() -> None:
                     ("Erros de console", sample.get("console_error_count")), ("Requisições com falha", sample.get("request_failed_count")), ("Falhas em recursos próprios", sample.get("first_party_request_failed_count")),
                     ("Respostas HTTP com erro", sample.get("http_error_count")), ("Erros HTTP em recursos próprios", sample.get("first_party_http_error_count")),
                     ("Rede estabilizada", "Sim" if sample.get("network_settled") else "Não"), ("Frustração forçada por erro", "Sim" if sample.get("error_forced_frustrated") else "Não"),
-                    ("Erro", sample.get("error_message") or sample.get("error_code") or "—"),
+                    ("Erro", sample.get("error_message") or sample.get("error_code") or "-"),
                 )
                 if measured_at:
                     note = "<div class='notice'>A data/hora vem do registro da aquisição física associado a esta medição. O horário de persistência em lote não é apresentado como horário da chamada.</div>"
@@ -604,12 +604,12 @@ def _install_apdex_projection() -> None:
             else:
                 duration = sample.get("duration_ms")
                 rows.append((sample.get("run_index", index), displayed_at, analysis._device_label(sample.get("device")), analysis._classification_label(sample.get("classification")), analysis._fmt_number(duration, "ms"), analysis._status_label(sample.get("status")), analysis._modal_button(modal_id, "Ver amostra")))
-                fields = (("Amostra", sample.get("sample_id")), (timestamp_label, displayed_at), ("URL", sample.get("url")), ("URL final", sample.get("final_url")), ("Classificação", analysis._classification_label(sample.get("classification"))), ("Duração", analysis._fmt_number(duration, "ms")), ("HTTP", sample.get("http_status")), ("Perfil técnico", sample.get("profile_id")), ("Política de cache", analysis._session_label(sample.get("cache_policy"))), ("Erro", sample.get("error_message") or sample.get("error_code") or "—"))
+                fields = (("Amostra", sample.get("sample_id")), (timestamp_label, displayed_at), ("URL", sample.get("url")), ("URL final", sample.get("final_url")), ("Classificação", analysis._classification_label(sample.get("classification"))), ("Duração", analysis._fmt_number(duration, "ms")), ("HTTP", sample.get("http_status")), ("Perfil técnico", sample.get("profile_id")), ("Política de cache", analysis._session_label(sample.get("cache_policy"))), ("Erro", sample.get("error_message") or sample.get("error_code") or "-"))
                 diagnostics = analysis._safe_json(sample.get("browser_diagnostics"), {})
                 note = "<h3>Diagnóstico de navegador</h3><div class='pre'>" + escape(json.dumps(diagnostics, ensure_ascii=False, indent=2)) + "</div>" if diagnostics else ""
                 if not measured_at:
                     note += "<div class='notice'>Não existe aquisição reutilizada vinculável a esta amostra; por isso o horário permanece explicitamente identificado como persistência.</div>"
-            modals.append(analysis._modal(modal_id, f"Amostra {sample.get('run_index', index)}", f"{'Apdex de experiência' if experience else 'Apdex de navegação'} · {sample.get('url') or '—'}", analysis._kv(fields) + note))
+            modals.append(analysis._modal(modal_id, f"Amostra {sample.get('run_index', index)}", f"{'Apdex de experiência' if experience else 'Apdex de navegação'} · {sample.get('url') or '-'}", analysis._kv(fields) + note))
 
         lead = ""
         if experience and run:
@@ -620,8 +620,8 @@ def _install_apdex_projection() -> None:
             effective_score = (effective_satisfied + 0.5 * effective_tolerating) / effective_valid if effective_valid else None
             forced = sum(1 for sample in samples if bool(sample.get("error_forced_frustrated")))
             lead += "<div class='metric-grid'>"
-            lead += analysis._metric("Apdex por duração", f"{duration_score:.3f}" if duration_score is not None else "—", f"{duration_valid} amostra(s); sem aplicar a política de erros")
-            lead += analysis._metric("Apdex efetivo", f"{effective_score:.3f}" if effective_score is not None else "—", "classificação final persistida")
+            lead += analysis._metric("Apdex por duração", f"{duration_score:.3f}" if duration_score is not None else "-", f"{duration_valid} amostra(s); sem aplicar a política de erros")
+            lead += analysis._metric("Apdex efetivo", f"{effective_score:.3f}" if effective_score is not None else "-", "classificação final persistida")
             lead += analysis._metric("Forçadas por erro", forced, f"de {effective_valid} amostra(s) válida(s)")
             lead += "</div>"
             if bool(run.get("errors_affect_apdex")):

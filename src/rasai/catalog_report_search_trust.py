@@ -444,8 +444,8 @@ def _serp_html(database: Path, data: Any) -> str:
             captured=prov.get("captured_at") or obs.get("collected_at")
             reused=mode=="REUSED_EVIDENCE"
             modal_id=f"cat05-serp-{index}"
-            rows.append((obs.get("query") or "—",obs.get("country") or obs.get("region") or "—",obs.get("language") or "—",page._device_label(obs.get("device")),obs.get("requested_depth") or "—",len(results),obs.get("provider") or "—",mode,captured or "—",page._modal_button(modal_id,"Ver proveniência")))
-            body=page._kv((("Consulta",obs.get("query")),("Provedor",obs.get("provider")),("Modo de dados",obs.get("data_mode")),("Estado da observação",page._status_label(obs.get("observation_status"))),("Capturado em",captured),("Atualidade dos dados",page._temporal_mode_label(mode)),("Reutilizada","Sim" if reused else "Não"),("AUD de origem",prov.get("source_audit_id") or data.audit_id),("Observação de origem",prov.get("source_observation_id") or oid),("Idade no reuso",_age(captured,prov.get("reused_at")) if reused else "Não aplicável"),("Motivo do reuso",prov.get("reuse_reason") or "Não aplicável"),("Artefato bruto",obs.get("raw_evidence_ref") or "—"),("SHA-256",obs.get("raw_evidence_sha256") or "—"),("Request ID",obs.get("provider_request_id") or "—")))
+            rows.append((obs.get("query") or "-",obs.get("country") or obs.get("region") or "-",obs.get("language") or "-",page._device_label(obs.get("device")),obs.get("requested_depth") or "-",len(results),obs.get("provider") or "-",mode,captured or "-",page._modal_button(modal_id,"Ver proveniência")))
+            body=page._kv((("Consulta",obs.get("query")),("Provedor",obs.get("provider")),("Modo de dados",obs.get("data_mode")),("Estado da observação",page._status_label(obs.get("observation_status"))),("Capturado em",captured),("Atualidade dos dados",page._temporal_mode_label(mode)),("Reutilizada","Sim" if reused else "Não"),("AUD de origem",prov.get("source_audit_id") or data.audit_id),("Observação de origem",prov.get("source_observation_id") or oid),("Idade no reuso",_age(captured,prov.get("reused_at")) if reused else "Não aplicável"),("Motivo do reuso",prov.get("reuse_reason") or "Não aplicável"),("Artefato bruto",obs.get("raw_evidence_ref") or "-"),("SHA-256",obs.get("raw_evidence_sha256") or "-"),("ID da requisição",obs.get("provider_request_id") or "-")))
             result_rows=[(r.get("position"),r.get("domain"),r.get("url"),r.get("result_type")) for r in results]
             body+="<h3>Resultados persistidos</h3>"+page._table(("Posição","Domínio","URL","Tipo"),result_rows,empty="Nenhum resultado individual persistido.",sortable=bool(result_rows),page_size=10 if len(result_rows)>10 else None)
             modals.append(page._modal(modal_id,"SERP · proveniência",str(obs.get("query") or "Consulta"),body))
@@ -461,8 +461,8 @@ def _serp_html(database: Path, data: Any) -> str:
             present_hosts={str(urlsplit(url).hostname or "").casefold().removeprefix("www.") for url in all_urls}
             brand_present=bool(target_hosts & present_hosts)
             detected=bool(overview)
-            overview_rows.append((obs.get("query") or "—","Sim" if detected else "Não","Sim" if brand_present else "Não" if detected else "Não determinável",len(all_urls),captured or "—",page._modal_button(overview_id,"Ver AI Overview")))
-            overview_body=page._kv((("Detectado","Sim" if detected else "Não"),("Site auditado entre as URLs citadas","Sim" if brand_present else "Não" if detected else "Não determinável"),("Provider",obs.get("provider") or "—"),("captured_at",captured or "—"),("Artefato",obs.get("raw_evidence_ref") or "—")))
+            overview_rows.append((obs.get("query") or "-","Sim" if detected else "Não","Sim" if brand_present else "Não" if detected else "Não determinável",len(all_urls),captured or "-",page._modal_button(overview_id,"Ver AI Overview")))
+            overview_body=page._kv((("Detectado","Sim" if detected else "Não"),("Site auditado entre as URLs citadas","Sim" if brand_present else "Não" if detected else "Não determinável"),("Provider",obs.get("provider") or "-"),("captured_at",captured or "-"),("Artefato",obs.get("raw_evidence_ref") or "-")))
             if overview:
                 overview_body+="<h3>Conteúdo / resumo persistido</h3><div class='pre'>"+escape(_overview_text(overview))+"</div>"
                 overview_body+="<h3>Fontes / URLs reconhecidas</h3>"+page._table(("URL",),[(url,) for url in all_urls],empty="O provider retornou AI Overview sem URLs reconhecíveis.")
@@ -490,10 +490,10 @@ def _competitive_html(database: Path, data: Any) -> str:
             candidates=[dict(row) for row in connection.execute("SELECT * FROM serp_competitive_results WHERE observation_id=? ORDER BY position",(oid,))] if _table_exists(connection,"serp_competitive_results") else []
             pages=[dict(row) for row in connection.execute("SELECT * FROM serp_competitive_pages WHERE observation_id=? ORDER BY role,requested_url",(oid,))] if _table_exists(connection,"serp_competitive_pages") else []
             modal_id=f"cat05-competitive-{index}"
-            rows.append(((obs[0] if obs else "—"),page._status_label(item.get("comparison_status")),item.get("candidate_count") or 0,item.get("observed_competitor_pages") or 0,item.get("gap_count") or 0,item.get("methodology") or "—",page._modal_button(modal_id,"Ver análise")))
+            rows.append(((obs[0] if obs else "-"),page._status_label(item.get("comparison_status")),item.get("candidate_count") or 0,item.get("observed_competitor_pages") or 0,item.get("gap_count") or 0,item.get("methodology") or "-",page._modal_button(modal_id,"Ver análise")))
             candidate_rows=[(r.get("position"),r.get("domain"),r.get("classification"),"Sim" if r.get("selected_for_content_comparison") else "Não",r.get("reason")) for r in candidates]
-            page_rows=[(r.get("role"),r.get("domain"),page._status_label(r.get("fetch_status")),r.get("http_status") or "—",r.get("error_code") or "—") for r in pages]
-            body=page._kv((("Status",page._status_label(item.get("comparison_status"))),("Metodologia",item.get("methodology") or "—"),("Artefato",item.get("evidence_ref") or "—"),("SHA-256",item.get("evidence_sha256") or "—")))
+            page_rows=[(r.get("role"),r.get("domain"),page._status_label(r.get("fetch_status")),r.get("http_status") or "-",r.get("error_code") or "-") for r in pages]
+            body=page._kv((("Status",page._status_label(item.get("comparison_status"))),("Metodologia",item.get("methodology") or "-"),("Artefato",item.get("evidence_ref") or "-"),("SHA-256",item.get("evidence_sha256") or "-")))
             body+="<h3>Candidatos/classificação</h3>"+page._table(("Posição","Domínio","Classificação","Comparado","Motivo"),candidate_rows,empty="Nenhum candidato persistido.")
             body+="<h3>Comparação de conteúdo</h3>"+page._table(("Papel","Domínio","Coleta","HTTP","Erro"),page_rows,empty="Nenhuma página comparativa persistida.")
             gaps=_safe_json(item.get("gaps_json"),[])
@@ -521,7 +521,7 @@ def _external_html(database: Path, data: Any) -> str:
             details=[]
             for row in rows:
                 meta=_safe_json(row.get("metadata"),{})
-                details.append((row.get("dataset_id"),row.get("capture_method"),row.get("collected_at"),meta.get("requests") if isinstance(meta,Mapping) else "—",meta.get("rows") if isinstance(meta,Mapping) else count,meta.get("errors") if isinstance(meta,Mapping) else errors,row.get("artifact_path")))
+                details.append((row.get("dataset_id"),row.get("capture_method"),row.get("collected_at"),meta.get("requests") if isinstance(meta,Mapping) else "-",meta.get("rows") if isinstance(meta,Mapping) else count,meta.get("errors") if isinstance(meta,Mapping) else errors,row.get("artifact_path")))
             lead=f"<div class='metric-grid'>{page._metric('Execuções/datasets',len(rows))}{page._metric('Resultados',count)}{page._metric('Erros',errors)}</div>"
             if source==_COMMON_CRAWL_SOURCE:
                 lead+="<div class='notice'>Common Crawl representa histórico do arquivo público e não comprova indexação atual em Google/Bing. Não participa diretamente do score.</div>"
@@ -530,7 +530,7 @@ def _external_html(database: Path, data: Any) -> str:
         gsc_rows=[]
         for row in gsc:
             meta=_safe_json(row.get("metadata"),{})
-            gsc_rows.append((str(row.get("source_type") or "").removeprefix(_GSC_PREFIX).replace("_"," ").title(),row.get("capture_method"),row.get("collected_at"),row.get("period_start") or "—",row.get("period_end") or "—",row.get("artifact_path"),meta.get("rows") if isinstance(meta,Mapping) else "—"))
+            gsc_rows.append((str(row.get("source_type") or "").removeprefix(_GSC_PREFIX).replace("_"," ").title(),row.get("capture_method"),row.get("collected_at"),row.get("period_start") or "-",row.get("period_end") or "-",row.get("artifact_path"),meta.get("rows") if isinstance(meta,Mapping) else "-"))
         blocks.append("<div class='subsection'><h3>Google Search Console</h3>"+page._table(("Conjunto de dados","Método","Coletado em","Período inicial","Período final","Artefato","Registros"),gsc_rows,empty="Nenhum dataset GSC persistido nesta AUD.")+"</div>")
         return "".join(blocks)
     finally:

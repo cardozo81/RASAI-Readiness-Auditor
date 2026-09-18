@@ -73,7 +73,7 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     if _plan_available(data):
         capability_state="Incluída" if catalog_id in data.selected else "Não solicitada"
     else:
-        capability_state="Indeterminada — snapshot do plano ausente/inválido"
+        capability_state="Indeterminada - snapshot do plano ausente/inválido"
     capabilities=[(_capability_label(c),capability_state) for c in catalog.capability_ids]
     scope=_section("scope","Escopo solicitado",_table(("Capacidade","Situação"),capabilities)+f"<div class='notice'>{escape(detail)}</div>")
     config=_section("config","Configuração efetiva",_table(("Configuração","Valor","Origem"),_configuration_rows(data,catalog_id))+"<p class='muted'>Os valores vêm do plano congelado desta AUD, não da configuração atual da máquina. Quando esse snapshot não existe, o relatório declara o estado como indeterminado em vez de inferir “não solicitado”.</p>")
@@ -91,7 +91,7 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     remediation=_section("remediation","Remediações",rem_body)
     tech_rows=[(label,table,count) for table,label,count in sources]
     item=data.catalog_items.get(catalog_id,{})
-    technical=_section("technical","Detalhes técnicos",f"<details><summary>Mostrar proveniência técnica</summary><div class='detail-body'>{_table(('Fonte funcional','Fonte interna','Registros'),tech_rows,empty='Nenhuma fonte interna específica identificada.')}<p><strong>Identificadores técnicos de capacidade:</strong> <code>{escape(', '.join(catalog.capability_ids))}</code></p><p><strong>Aptidão registrada no plano:</strong> {escape(str(item.get('status') or '—'))}</p></div></details>")
+    technical=_section("technical","Detalhes técnicos",f"<details><summary>Mostrar proveniência técnica</summary><div class='detail-body'>{_table(('Fonte funcional','Fonte interna','Registros'),tech_rows,empty='Nenhuma fonte interna específica identificada.')}<p><strong>Identificadores técnicos de capacidade:</strong> <code>{escape(', '.join(catalog.capability_ids))}</code></p><p><strong>Aptidão registrada no plano:</strong> {escape(str(item.get('status') or '-'))}</p></div></details>")
     return _audit_hero(data,f"{catalog.id} · {catalog.label}",catalog.expected_result)+outline+summary+scope+config+execution+results+evidence+analysis+remediation+technical
 
 
