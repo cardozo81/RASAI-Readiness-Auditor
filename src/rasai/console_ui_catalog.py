@@ -1,7 +1,7 @@
 """Canonical configuration/catalog UI for the local interactive console."""
 from __future__ import annotations
 
-from rasai.configuration_value_labels import configuration_value_info
+from rasai.configuration_value_labels import configuration_csv_info, configuration_value_info
 
 from configparser import ConfigParser
 from dataclasses import dataclass
@@ -122,8 +122,19 @@ def _value(spec: Any) -> str:
     if base._is_sensitive_spec(spec):
         return "[SET]" if raw else "<não configurada>"
     if raw:
+        if spec.accepted:
+            if str(spec.value_type).casefold() in {"lista csv", "lista", "csv"}:
+                return configuration_csv_info(spec.name, raw)
+            return configuration_value_info(spec.name, raw)
         return raw
-    return f"{spec.default} [default]" if spec.default is not None else "<não configurado>"
+    if spec.default is not None:
+        default_raw = str(spec.default)
+        if spec.accepted:
+            if str(spec.value_type).casefold() in {"lista csv", "lista", "csv"}:
+                return f"{configuration_csv_info(spec.name, default_raw)} [default]"
+            return f"{configuration_value_info(spec.name, default_raw)} [default]"
+        return f"{default_raw} [default]"
+    return "<não configurado>"
 
 
 def _apply(state: Any, spec: Any, raw: str | None) -> None:
@@ -174,7 +185,16 @@ def variable_editor(console_module: ModuleType, state: Any, spec: Any) -> None:
             info("Valores aceitos", ", ".join(configuration_value_info(spec.name, value) for value in spec.accepted)); print(paint("Entrada livre não é usada quando o domínio é conhecido.", DIM))
         else:
             print(paint("Valor aberto; o runtime continua sendo a autoridade de validação.", DIM))
-        info("Default", spec.default if spec.default is not None else "<sem default>"); render_enrichment(spec)
+        default_value = (
+            configuration_csv_info(spec.name, spec.default)
+            if spec.default is not None
+            and spec.accepted
+            and str(spec.value_type).casefold() in {"lista csv", "lista", "csv"}
+            else configuration_value_info(spec.name, spec.default)
+            if spec.default is not None and spec.accepted
+            else spec.default
+        )
+        info("Default", default_value if default_value is not None else "<sem default>"); render_enrichment(spec)
         secret = env.base_environment._is_sensitive_spec(spec)
         section("AÇÕES")
         print("S. Definir / alterar\nL. Limpar override somente desta sessão")
@@ -245,7 +265,10 @@ def catalog_menu(console_module: ModuleType, state: Any, *, view: str, title: st
         print(paint("Números identificam configurações; letras representam ações/navegação.", DIM))
         if view == "ai":
             section("IA PRINCIPAL DA EXECUÇÃO")
-            print(f"1. {CORE_IDS['ai_primary']}  Seleção principal          : {getattr(state, 'ai_provider', 'none')}")
+            print(
+                f"1. {CORE_IDS['ai_primary']}  Seleção principal          : "
+                f"{configuration_value_info('RASAI_AI_PROVIDER', getattr(state, 'ai_provider', 'none'))}"
+            )
             print(paint("   AUTO e seleção explícita continuam sob a orquestração canônica do runtime.", DIM))
         _rows(state, rows, mode == "owner" and search_rows is None)
         if not rows: print(paint("\nNenhuma configuração corresponde ao filtro atual.", DIM))
