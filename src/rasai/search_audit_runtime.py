@@ -31,6 +31,7 @@ from rasai.audit_phase_runtime import register_ai_hook, register_collection_hook
 from rasai.provider_runtime_policy import AI_TIMEOUT_ENV, DEFAULT_AI_TIMEOUT_SECONDS
 from rasai.search_intelligence.config import SerpRuntimeConfig
 from rasai.search_intelligence.provider_catalog import serp_provider_registration
+from rasai.url_utils import normalize_url
 
 
 _INSTALLED = False
@@ -569,6 +570,14 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
         )
         if target:
             command.extend(("--customer-url", target))
+            rendered_customer = _rendered_customer_artifact(
+                workspace,
+                audit_id,
+                target,
+                str(getattr(args, "search_device", "mobile")),
+            )
+            if rendered_customer is not None:
+                command.extend(("--customer-rendered-artifact", str(rendered_customer)))
 
     output = io.StringIO()
     try:
@@ -655,6 +664,59 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
         "exit_code": code,
         "detail": detail,
     }
+
+
+def _rendered_customer_artifact(
+    workspace: Any,
+    audit_id: str,
+    target: str,
+    device: str,
+) -> Path | None:
+    try:
+        expected = normalize_url(target)
+    except ValueError:
+        return None
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(page_snapshots)").fetchall()
+        }
+        if "rendered_artifact_ref" not in columns:
+            return None
+        device_expr = "ps.device" if "device" in columns else "''"
+        captured_expr = "ps.captured_at" if "captured_at" in columns else "''"
+        rows = connection.execute(
+            f"""SELECT p.normalized_url,ps.rendered_artifact_ref,{device_expr} AS device,
+                       {captured_expr} AS captured_at
+                FROM page_snapshots ps
+                JOIN pages p ON p.page_id=ps.page_id
+                WHERE p.audit_id=? AND ps.rendered_artifact_ref IS NOT NULL
+                ORDER BY CASE WHEN UPPER({device_expr})=UPPER(?) THEN 0 ELSE 1 END,
+                         {captured_expr} DESC,ps.rowid DESC""",
+            (audit_id, device),
+        ).fetchall()
+    except sqlite3.Error:
+        return None
+    finally:
+        connection.close()
+
+    for row in rows:
+        try:
+            candidate_url = normalize_url(str(row["normalized_url"] or ""))
+        except ValueError:
+            continue
+        if candidate_url != expected:
+            continue
+        candidate = (Path(workspace.root) / str(row["rendered_artifact_ref"])).resolve()
+        try:
+            candidate.relative_to(Path(workspace.root).resolve())
+        except ValueError:
+            continue
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def _persisted_search_configuration(workspace: Any, audit_id: str) -> dict[str, Any]:

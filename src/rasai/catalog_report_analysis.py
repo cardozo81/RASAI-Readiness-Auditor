@@ -34,6 +34,7 @@ def _technical_work_status(value: Any) -> str:
     raw=_norm(value)
     if raw in _STATUS_SUCCESS:return "Etapa concluída"
     if raw=="PARTIAL":return "Etapa parcial"
+    if raw=="REQUESTED_NOT_EXECUTED":return "Solicitado, não executado"
     if raw in _STATUS_PENDING:return "Etapa pendente"
     return _status_label(value)
 

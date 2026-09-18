@@ -71,6 +71,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="explicit customer page for content comparison; useful when the customer is not found within observed SERP depth",
     )
     parser.add_argument(
+        "--customer-rendered-artifact",
+        type=Path,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
         "--max-content-pages",
         type=int,
         default=3,
@@ -281,6 +286,10 @@ def _validate_args(parser: argparse.ArgumentParser, args, config: SerpRuntimeCon
         )
     if args.customer_url and not args.compare_content:
         raise ValueError("--customer-url requires --compare-content")
+    if args.customer_rendered_artifact and not args.compare_content:
+        raise ValueError("--customer-rendered-artifact requires --compare-content")
+    if args.customer_rendered_artifact and not args.customer_rendered_artifact.is_file():
+        raise ValueError("--customer-rendered-artifact must reference an existing file")
     if args.ai_competitive and not args.compare_content:
         raise ValueError("--ai-competitive requires --compare-content")
     if args.ai_timeout <= 0:
@@ -391,6 +400,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         competitive_execution = None
         if args.competitive or args.compare_content:
+            customer_rendered_html = (
+                args.customer_rendered_artifact.read_bytes()
+                if args.compare_content and args.customer_rendered_artifact is not None
+                else None
+            )
             competitive_execution = execute_competitive_intelligence(
                 execution,
                 content_enabled=args.compare_content,
@@ -398,6 +412,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 max_competitor_pages=args.max_content_pages,
                 workspace_root=args.audit_workspace,
                 fetcher=content_fetcher if args.compare_content else None,
+                customer_rendered_html=customer_rendered_html,
+                customer_rendered_final_url=args.customer_url,
             )
 
         ai_execution = None

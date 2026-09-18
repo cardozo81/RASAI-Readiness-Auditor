@@ -63,6 +63,59 @@ def current_attempt_governance() -> tuple[str | None, str | None, str | None] | 
     return _ATTEMPT_GOVERNANCE.get()
 
 
+def _durable_semantic_governance(
+    store: "M18Persistence",
+    *,
+    audit_id: str,
+    attempt: ProviderAttempt,
+) -> tuple[str | None, str | None, str | None] | None:
+    """Resolve the semantic task/round from durable governance timing and snapshot scope."""
+    snapshot_id = str(attempt.snapshot_id or "")
+    if not snapshot_id:
+        return None
+    try:
+        rows = store._connection.execute(
+            """
+            SELECT t.ai_task_id,r.ai_round_id,r.started_at,r.finished_at
+            FROM ai_tasks t
+            JOIN ai_request_rounds r ON r.ai_task_id=t.ai_task_id
+            WHERE t.audit_id=? AND t.purpose='SEMANTIC_M7' AND t.scope_key=?
+            ORDER BY r.started_at DESC,r.round_index DESC
+            """,
+            (audit_id, snapshot_id),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return None
+
+    started = attempt.started_at
+    finished = attempt.finished_at
+    for row in rows:
+        try:
+            round_started = datetime.fromisoformat(str(row["started_at"]).replace("Z", "+00:00"))
+            raw_finished = row["finished_at"]
+            round_finished = (
+                datetime.fromisoformat(str(raw_finished).replace("Z", "+00:00"))
+                if raw_finished
+                else None
+            )
+        except (TypeError, ValueError):
+            continue
+        if round_started.tzinfo is None:
+            round_started = round_started.replace(tzinfo=timezone.utc)
+        if round_finished is not None and round_finished.tzinfo is None:
+            round_finished = round_finished.replace(tzinfo=timezone.utc)
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        if finished.tzinfo is None:
+            finished = finished.replace(tzinfo=timezone.utc)
+        if started < round_started:
+            continue
+        if round_finished is not None and finished > round_finished:
+            continue
+        return ("SEMANTIC_M7", str(row["ai_task_id"]), str(row["ai_round_id"]))
+    return None
+
+
 @contextmanager
 def attempt_governance(
     *,
@@ -424,6 +477,12 @@ def persist_provider_runtime(*, audit_id: str, provider: Any, workspace: AuditWo
             if row is None:
                 continue
             governance = _consume_attempt_governance(attempt)
+            if governance is None:
+                governance = _durable_semantic_governance(
+                    store,
+                    audit_id=audit_id,
+                    attempt=attempt,
+                )
             store.add_attempt(
                 attempt_id=new_id("AIA"),
                 audit_id=audit_id,

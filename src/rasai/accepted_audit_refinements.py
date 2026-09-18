@@ -1141,7 +1141,7 @@ def _w3c_remediation_html(database: Any, audit_id: str, a: Any) -> tuple[list[Se
             f"Corrigir {title}",
             "Padrões web",
             "Alta" if errors else "-",
-            "CAT-03 - validação W3C",
+            "CAT-01 - padrões e validação W3C",
             a._modal_button(modal_id, "Ver erros e correção"),
         ))
         body = a._kv((

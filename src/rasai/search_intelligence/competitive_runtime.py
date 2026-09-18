@@ -13,6 +13,7 @@ from .content import (
     CompetitiveContentAnalysis,
     PublicWebFetcher,
     analyze_competitive_content,
+    extract_rendered_page_features,
 )
 from .runtime import SearchExecution, _refresh_search_intelligence_report
 
@@ -33,6 +34,10 @@ def execute_competitive_intelligence(
     max_competitor_pages: int = 3,
     workspace_root: Path | None = None,
     fetcher: PublicWebFetcher | None = None,
+    customer_rendered_html: bytes | None = None,
+    customer_rendered_final_url: str | None = None,
+    customer_rendered_http_status: int | None = 200,
+    customer_rendered_content_type: str = "text/html; charset=utf-8",
 ) -> CompetitiveExecution:
     """Classify SERP results and optionally inspect customer/competitor content.
 
@@ -63,6 +68,11 @@ def execute_competitive_intelligence(
             if content_enabled and shared_fetcher is not None
             else None
         ),
+        "customer_source": (
+            "AUDIT_RENDERED_ARTIFACT"
+            if content_enabled and customer_rendered_html is not None
+            else "PUBLIC_WEB_HTTP"
+        ),
     }
 
     repository = None
@@ -88,11 +98,23 @@ def execute_competitive_intelligence(
                     comparison_status="SERP_OBSERVATION_UNAVAILABLE",
                 )
             elif content_enabled:
+                customer_override = None
+                if customer_rendered_html is not None and customer_url:
+                    customer_override = extract_rendered_page_features(
+                        customer_rendered_html,
+                        requested_url=customer_url,
+                        final_url=customer_rendered_final_url or customer_url,
+                        domain=selection.customer_domain,
+                        query=selection.query,
+                        http_status=customer_rendered_http_status,
+                        content_type=customer_rendered_content_type,
+                    )
                 analysis = analyze_competitive_content(
                     search_result,
                     customer_url=customer_url,
                     max_competitor_pages=max_competitor_pages,
                     fetcher=shared_fetcher,
+                    customer_page_override=customer_override,
                 )
             else:
                 analysis = CompetitiveContentAnalysis(

@@ -528,6 +528,34 @@ def extract_page_features(
     )
 
 
+def extract_rendered_page_features(
+    html: bytes,
+    *,
+    requested_url: str,
+    final_url: str | None,
+    domain: str,
+    query: str,
+    http_status: int | None = 200,
+    content_type: str = "text/html; charset=utf-8",
+) -> CompetitivePageFeatures:
+    """Project an AUD-rendered HTML artifact into the same deterministic feature contract."""
+    fetched = _FetchedDocument(
+        requested_url=requested_url,
+        final_url=final_url or requested_url,
+        http_status=http_status,
+        headers={"content-type": content_type},
+        body=bytes(html),
+        redirects=(),
+        status=ContentFetchStatus.OBSERVED,
+    )
+    return extract_page_features(
+        fetched,
+        role="CUSTOMER",
+        domain=domain,
+        query=query,
+    )
+
+
 def _median(values: Iterable[float | int]) -> float | None:
     ordered = sorted(float(value) for value in values)
     if not ordered:
@@ -617,6 +645,7 @@ def analyze_competitive_content(
     customer_url: str | None = None,
     max_competitor_pages: int = 3,
     fetcher: PublicWebFetcher | None = None,
+    customer_page_override: CompetitivePageFeatures | None = None,
 ) -> CompetitiveContentAnalysis:
     selection = select_competitive_candidates(
         search_result, max_pages=max_competitor_pages
@@ -637,7 +666,7 @@ def analyze_competitive_content(
     customer_domain = selection.customer_domain or urlsplit(
         normalize_url(effective_customer_url)
     ).hostname or ""
-    customer_page = extract_page_features(
+    customer_page = customer_page_override or extract_page_features(
         client.fetch(effective_customer_url),
         role="CUSTOMER",
         domain=customer_domain,

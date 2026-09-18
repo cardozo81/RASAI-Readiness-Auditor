@@ -307,6 +307,100 @@ def _read_only_guard_present() -> tuple[bool, str]:
     )
 
 
+_INTERNAL_FAILURE_CLASSES = frozenset({"ORCHESTRATION", "INTERNAL", "PERSISTENCE", "AI_CONTRACT"})
+_INTERNAL_FAILURE_CODES = frozenset({
+    "REQUESTED_NOT_EXECUTED",
+    "CONTENT_REMEDIATION_EXECUTION_FAILURE",
+})
+
+
+def _internal_execution_gaps(data: Any, catalog_id: str) -> tuple[str, ...]:
+    try:
+        from rasai import catalog_report_page as page
+        work = page._catalog_work(data, catalog_id)
+    except Exception:
+        work = []
+    failures: list[str] = []
+    for row in work:
+        status = str(row.get("status") or "").upper()
+        error_class = str(row.get("last_error_class") or "").upper()
+        error_code = str(row.get("last_error_code") or "").upper()
+        if (
+            status == "REQUESTED_NOT_EXECUTED"
+            or error_class in _INTERNAL_FAILURE_CLASSES
+            or error_code in _INTERNAL_FAILURE_CODES
+            or error_code.endswith("_EXECUTION_FAILURE")
+        ):
+            component = str(row.get("component") or "UNKNOWN")
+            failures.append(f"{component}:{status or '-'}:{error_code or error_class or '-'}")
+    return tuple(failures)
+
+
+def _ai_attempt_provenance(
+    database: Path,
+    audit_id: str,
+    catalog_id: str,
+) -> tuple[bool, str]:
+    table = None
+    contract_column = None
+    contract_prefix = None
+    if catalog_id == "CAT-03":
+        table = "ai_provider_attempts"
+        contract_column = "semantic_contract_version"
+        contract_prefix = "M18-SEMANTIC"
+    elif catalog_id == "CAT-09":
+        table = "content_remediation_attempts"
+        contract_column = "contract_version"
+        contract_prefix = "M20-CONTENT-REMEDIATION"
+    else:
+        return True, "provenance de tentativa de IA não aplicável a este catálogo"
+
+    connection = sqlite3.connect(database)
+    connection.row_factory = sqlite3.Row
+    try:
+        if not _table_exists(connection, table):
+            return True, "nenhuma tentativa aplicável persistida"
+        columns = _columns(connection, table)
+        required = {"operation", "ai_task_id", "ai_round_id", contract_column}
+        if not required.issubset(columns):
+            return False, "schema de tentativa sem campos de provenance task/round"
+        rows = connection.execute(
+            f"""SELECT operation,ai_task_id,ai_round_id
+                FROM {table}
+                WHERE audit_id=? AND UPPER(COALESCE({contract_column},'')) LIKE ?""",
+            (audit_id, contract_prefix + "%"),
+        ).fetchall()
+        if not rows:
+            return True, "nenhuma tentativa aplicável persistida"
+        missing = [
+            row for row in rows
+            if not str(row["operation"] or "").strip()
+            or not str(row["ai_task_id"] or "").strip()
+            or not str(row["ai_round_id"] or "").strip()
+        ]
+        if missing:
+            return False, f"{len(missing)}/{len(rows)} tentativa(s) sem operation/task/round"
+        if not (_table_exists(connection, "ai_tasks") and _table_exists(connection, "ai_request_rounds")):
+            return False, "task/round referenciados sem tabelas de governança"
+        broken = 0
+        for row in rows:
+            task = connection.execute(
+                "SELECT 1 FROM ai_tasks WHERE ai_task_id=? AND audit_id=?",
+                (row["ai_task_id"], audit_id),
+            ).fetchone()
+            round_row = connection.execute(
+                "SELECT 1 FROM ai_request_rounds WHERE ai_round_id=? AND ai_task_id=?",
+                (row["ai_round_id"], row["ai_task_id"]),
+            ).fetchone()
+            if task is None or round_row is None:
+                broken += 1
+        if broken:
+            return False, f"{broken}/{len(rows)} tentativa(s) com referência task/round órfã"
+        return True, f"{len(rows)} tentativa(s) com provenance operation/task/round íntegra"
+    finally:
+        connection.close()
+
+
 def assess_catalog(database: Path, data: Any, catalog_id: str, body: str) -> dict[str, Any]:
     from rasai import catalog_report_page as page
 
@@ -353,7 +447,16 @@ def assess_catalog(database: Path, data: Any, catalog_id: str, body: str) -> dic
     hidden_sources = [label for label in source_labels if label not in body]
     status_resolved = str(status or "").upper() not in {"", "INDETERMINADO"}
 
+    internal_gaps = _internal_execution_gaps(data, catalog_id)
+    provenance_ok, provenance_detail = _ai_attempt_provenance(
+        database,
+        data.audit_id,
+        catalog_id,
+    )
+
     checks.extend([
+        _check("GOV_INTERNAL_EXECUTION", "governance", not internal_gaps, "sem falha interna de orquestração/persistência" if not internal_gaps else "; ".join(internal_gaps)),
+        _check("GOV_AI_ATTEMPT_PROVENANCE", "governance", provenance_ok, provenance_detail),
         _check("GOV_STATUS", "governance", status_resolved, f"estado funcional: {status or '-'}"),
         _check("GOV_EVIDENCE", "governance", "Evidências" in body, "superfície de provenance presente"),
         _check("GOV_TECHNICAL", "governance", "Detalhes técnicos" in body, "detalhes técnicos disponíveis sem dominar o primeiro plano"),
@@ -362,6 +465,7 @@ def assess_catalog(database: Path, data: Any, catalog_id: str, body: str) -> dic
     ])
 
     checks.extend([
+        _check("REL_INTERNAL_EXECUTION", "reliability", not internal_gaps, "execução interna sem lacuna estrutural conhecida" if not internal_gaps else "; ".join(internal_gaps)),
         _check("REL_STATUS_TRUTH", "reliability", status_resolved, "estado derivado de configuração/evidência persistida"),
         _check("REL_RESULTS", "reliability", "Resultados" in body, "resultado funcional projetado"),
         _check("REL_ANALYSIS", "reliability", "Análise" in body, "interpretação separada da evidência"),
@@ -370,6 +474,7 @@ def assess_catalog(database: Path, data: Any, catalog_id: str, body: str) -> dic
     ])
 
     checks.extend([
+        _check("INT_AI_ATTEMPT_PROVENANCE", "integrity", provenance_ok, provenance_detail),
         _check("INT_CONFIG_HASH", "integrity", plan_ok, "hash do plano confere"),
         _check("INT_ARTIFACTS", "integrity", artifact_ok, artifact_detail),
         _check("INT_SOURCE_INVENTORY", "integrity", not hidden_sources, "inventário persistido/projetado reconciliado"),
@@ -561,6 +666,8 @@ def assurance_matrix_html(result: Mapping[str, Any]) -> str:
         "<strong>Segurança</strong> verifica ausência de credenciais e padrões inseguros na projeção; "
         "<strong>Maturidade</strong> é a média determinística da cobertura desses eixos; "
         "<strong>Gate</strong> indica se o catálogo atingiu os thresholds estruturais de encerramento. "
+        "Falhas externas legítimas, quando corretamente registradas e expostas, não reduzem por si só a cobertura; "
+        "falhas internas de orquestração/persistência e perda de provenance reduzem os eixos correspondentes. "
         "Esses percentuais medem cobertura de controles, não probabilidade estatística de o conteúdo auditado estar correto.</div>"
         "<div class='table-wrap'><table><thead><tr>"
         "<th>CAT</th><th>Configurabilidade</th><th>Governança</th><th>Exposição</th>"
