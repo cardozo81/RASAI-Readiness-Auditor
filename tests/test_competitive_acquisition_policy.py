@@ -107,15 +107,11 @@ def test_competitive_runtime_persists_effective_fetch_policy(tmp_path: Path) -> 
     finally:
         connection.close()
 
-    class _NoNetworkFetcher(PublicWebFetcher):
-        def fetch(self, url: str):
-            return super().fetch(url)
-
     fetcher = PublicWebFetcher(
         timeout_seconds=12.5,
         max_redirects=2,
         max_bytes=1_500_000,
-        resolver=lambda host: ("93.184.216.34",),
+        resolver=lambda host, port: ("93.184.216.34",),
         opener=lambda *args, **kwargs: (_ for _ in ()).throw(OSError("fixture no network")),
     )
     execute_competitive_intelligence(
