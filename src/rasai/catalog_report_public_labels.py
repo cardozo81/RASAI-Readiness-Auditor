@@ -21,6 +21,10 @@ PUBLIC_VALUE_LABELS: dict[str, str] = {
     "DETERMINISTIC_CORRELATIONAL_001": "Correlação determinística de evidências",
     "CONTENT_COMPARISON_DISABLED": "Comparação de conteúdo desabilitada",
     "CUSTOMER_URL_REQUIRED": "URL do site auditado necessária",
+    "CUSTOMER_CONTENT_UNAVAILABLE": "Conteúdo do site auditado indisponível",
+    "NO_ELIGIBLE_COMPETITOR_CANDIDATES": "Nenhum candidato concorrente elegível",
+    "COMPETITOR_CONTENT_UNAVAILABLE": "Conteúdo dos concorrentes indisponível",
+    "PUBLIC_WEB_DESTINATION_BLOCKED": "Destino público bloqueado pela política de aquisição",
     "SERP_OBSERVATION_UNAVAILABLE": "Observação de SERP indisponível",
     "CLASSIFICATION_ONLY": "Somente classificação",
     "NOT_FOUND_WITHIN_DEPTH": "Não encontrado na profundidade coletada",
@@ -35,9 +39,31 @@ PUBLIC_VALUE_LABELS: dict[str, str] = {
     "RATE_LIMITED": "Limite de requisições atingido",
     "REQUEST_FAILED": "Falha na requisição",
     "NETWORK_ERROR": "Erro de rede",
+    "DNS": "Erro de DNS",
+    "CONNECTION": "Erro de conexão",
+    "TIMEOUT": "Tempo limite excedido",
+    "TLS": "Erro TLS",
+    "PROTOCOL": "Erro de protocolo",
+    "REDIRECT_LOOP": "Loop de redirecionamento",
+    "TOO_MANY_REDIRECTS": "Redirecionamentos em excesso",
+    "INVALID_REDIRECT": "Redirecionamento inválido",
     "CONSOLE_ERROR": "Erro de console",
     "CORS": "Restrição CORS",
     "HTTP_ERROR": "Erro HTTP",
+    "AUTH_ERROR": "Erro de autenticação",
+    "QUOTA_ERROR": "Cota excedida",
+    "CREDIT_ERROR": "Crédito indisponível",
+    "RATE_LIMIT_ERROR": "Limite de requisições atingido",
+    "MODEL_ERROR": "Erro do modelo",
+    "PERMISSION_ERROR": "Erro de permissão",
+    "TIMEOUT_ERROR": "Tempo limite excedido",
+    "SERVER_ERROR": "Erro do servidor",
+    "BUSINESS_ERROR": "Erro de regra de negócio",
+    "EMPTY_RESPONSE": "Resposta vazia",
+    "INVALID_RESPONSE": "Resposta inválida",
+    "UNKNOWN_PROVIDER_ERROR": "Erro não identificado do provedor",
+    "QUARANTINED": "Em quarentena",
+    "QUARANTINED_FOR_AUDIT": "Indisponível nesta auditoria",
     "ADD_CONTEXT": "Adicionar contexto",
     "EDIT_CONTENT": "Editar conteúdo",
     "ADD_OR_CORRECT": "Adicionar ou corrigir",
@@ -59,6 +85,22 @@ PUBLIC_VALUE_LABELS: dict[str, str] = {
     "CONTENT_VALUE": "Valor do conteúdo",
     "OVERALL_READINESS": "SARI - Search & AI Readiness",
     "NOT_REQUESTED": "Não solicitado",
+    "OBTAINED": "Obtido",
+    "OBSERVED": "Observado",
+    "INVALID": "Inválido",
+    "BLOCKED": "Bloqueado",
+    "UNKNOWN": "Não determinado",
+    "PARTIAL_RETRYABLE": "Parcial - reprocessamento disponível",
+    "PARTIAL_BLOCKED": "Parcial - há bloqueios",
+    "EXPIRED_FOR_COMPLETION": "Expirado para conclusão",
+    "CUSTOMER": "Site auditado",
+    "COMPETITOR_CANDIDATE": "Candidato concorrente",
+    "CONTENT_REMEDIATION": "Remediação de conteúdo",
+    "IMPROVEMENT_INTELLIGENCE": "Análise profunda e melhorias",
+    "COMPETITIVE_INTELLIGENCE": "Inteligência competitiva",
+    "SEMANTIC_M7": "Análise semântica",
+    "REQUEST_REMEDIATION": "Remediação de requisições",
+    "M24_TECHNICAL_REMEDIATION": "Remediação técnica de rastreamento e descoberta",
     "INTERPRETED": "Interpretado",
     "NOT_DETERMINABLE": "Não determinável",
     "FINANCIAL_SECURITY": "Segurança financeira",
@@ -91,6 +133,18 @@ def public_label(value: Any) -> str | None:
     phrase = PUBLIC_PHRASE_LABELS.get(raw.casefold())
     return phrase or PUBLIC_VALUE_LABELS.get(_key(raw))
 
+_PUBLIC_TOKEN_RE = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b")
+
+def public_text(value: Any) -> str:
+    """Translate known internal tokens embedded in human-facing diagnostic text."""
+    raw = str(value or "")
+    if not raw:
+        return raw
+    return _PUBLIC_TOKEN_RE.sub(
+        lambda match: public_label(match.group(0)) or match.group(0),
+        raw,
+    )
+
 def public_contract_label(value: Any) -> str:
     raw = str(value or "").strip()
     if not raw:
@@ -110,15 +164,29 @@ def public_contract_label(value: Any) -> str:
             "INDEXABILITY": "indexabilidade",
             "EXTRACTION": "extração",
         }.get(_key(parts[1]), parts[1].replace("_"," ").casefold())
-        state = public_label(parts[2]) or {
+        state = {
             "WARNING": "atenção",
             "PASS": "aprovado",
             "FAIL": "não aprovado",
-        }.get(_key(parts[2]), parts[2].replace("_"," ").casefold())
+            "BLOCKED": "bloqueado",
+            "UNKNOWN": "não determinado",
+            "NOT_DETERMINABLE": "não determinável",
+            "NOT_APPLICABLE": "não aplicável",
+        }.get(_key(parts[2]), public_label(parts[2]) or parts[2].replace("_"," ").casefold())
         return f"Gate crítico de {subject}: {state}"
     if head == "READINESS_STATUS" and len(parts) >= 2:
-        state = {"ATTENTION": "atenção", "READY": "pronto"}.get(_key(parts[1]), parts[1].replace("_"," ").casefold())
+        state = {
+            "ATTENTION": "atenção",
+            "READY": "pronto",
+            "BLOCKED": "bloqueado",
+            "UNKNOWN": "não determinado",
+            "NOT_DETERMINABLE": "não determinável",
+        }.get(_key(parts[1]), public_label(parts[1]) or parts[1].replace("_"," ").casefold())
         return f"Estado de prontidão: {state}"
+    if head == "OVERALL_MEASUREMENT_BELOW_MINIMUM_GATE":
+        return "Medição geral abaixo do mínimo exigido"
+    if head == "OVERALL_MEASUREMENT_BELOW_CONSOLIDATION_GATE":
+        return "Medição geral abaixo do mínimo para consolidação"
     if head == "OVERALL_AGGREGATION":
         return "Agregação geral: prontidão hierárquica ponderada - versão 1"
     if head == "DIMENSION_WEIGHTS":
@@ -137,4 +205,4 @@ def public_contract_label(value: Any) -> str:
 
     return public_label(raw) or raw.replace("_", " ")
 
-__all__ = ["PUBLIC_VALUE_LABELS", "PUBLIC_PHRASE_LABELS", "public_label", "public_contract_label"]
+__all__ = ["PUBLIC_VALUE_LABELS", "PUBLIC_PHRASE_LABELS", "public_label", "public_text", "public_contract_label"]
