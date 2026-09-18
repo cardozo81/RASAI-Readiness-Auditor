@@ -638,6 +638,7 @@ def _call_ai_batch(
     from rasai.accepted_audit_refinements import _deadline_candidate_call
     from rasai.ai_resilience import DECISION_FALLBACK, DECISION_STOP, DECISION_SUCCESS
     from rasai.m18_ai import AttemptStatus, ProviderDiagnostic, ProviderErrorClass
+    from rasai.m18_persistence import attempt_governance
 
     group_ids = [str(group["group_id"]) for group in groups]
     schema = _solution_schema(group_ids)
@@ -729,7 +730,8 @@ def _call_ai_batch(
                     f"accepted={len(accepted)};missing={len(missing)}"
                 ),
             )
-            improvement._persist_attempt(workspace, audit_id, context, attempt)
+            with attempt_governance(operation="REQUEST_REMEDIATION"):
+                improvement._persist_attempt(workspace, audit_id, context, attempt)
             if accepted:
                 return accepted, missing, str(provider.name), str(provider.model), None
             last_reason = diagnostic.reason if diagnostic is not None else "AI_PROVIDER_UNAVAILABLE"

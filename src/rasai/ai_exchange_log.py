@@ -24,6 +24,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from uuid import uuid4
 
 from rasai.persistence import AuditWorkspace
+from rasai.secret_safety import REDACTED as SECRET_REDACTED, is_sensitive_name
 
 MAX_CAPTURE_BYTES_ENV = "RASAI_AI_EXCHANGE_LOG_MAX_BYTES"
 DEFAULT_MAX_CAPTURE_BYTES = 512 * 1024
@@ -288,8 +289,8 @@ def _sanitize_tree(value: Any, *, redact_context: bool) -> Any:
         output: dict[str, Any] = {}
         for key, item in value.items():
             token = str(key).casefold()
-            if token in _SECRET_KEYS:
-                output[str(key)] = "[REDACTED]"
+            if token in _SECRET_KEYS or is_sensitive_name(str(key)):
+                output[str(key)] = SECRET_REDACTED
             elif token in _PRIVATE_REASONING_KEYS:
                 output[str(key)] = "[PRIVATE_REASONING_NOT_PERSISTED]"
             elif redact_context and token == _CONTEXT_KEY:
@@ -298,8 +299,12 @@ def _sanitize_tree(value: Any, *, redact_context: bool) -> Any:
                 output[str(key)] = _sanitize_tree(item, redact_context=redact_context)
         return output
     if isinstance(value, list):
+        if len(value) >= 2 and isinstance(value[0], str) and is_sensitive_name(value[0]):
+            return [value[0], SECRET_REDACTED, *[_sanitize_tree(item, redact_context=redact_context) for item in value[2:]]]
         return [_sanitize_tree(item, redact_context=redact_context) for item in value]
     if isinstance(value, tuple):
+        if len(value) >= 2 and isinstance(value[0], str) and is_sensitive_name(value[0]):
+            return [value[0], SECRET_REDACTED, *[_sanitize_tree(item, redact_context=redact_context) for item in value[2:]]]
         return [_sanitize_tree(item, redact_context=redact_context) for item in value]
     if isinstance(value, str):
         stripped = value.strip()

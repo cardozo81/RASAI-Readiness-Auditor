@@ -27,6 +27,7 @@ from rasai.improvement_intelligence import (
     execute_improvement_intelligence,
 )
 from rasai.operational_log import try_append_operational_event
+from rasai.m18_persistence import attempt_governance
 
 _INSTALLED = False
 _SURFACE_ID = "improvement-intelligence"
@@ -304,12 +305,17 @@ def _governed_improvement_hook(*, audit_id: str, workspace: Any, evidence_snapsh
         )
 
     try:
-        result = execute_improvement_intelligence(
-            audit_id=audit_id,
-            workspace=workspace,
-            config=config,
-            progress=progress,
-        )
+        with attempt_governance(
+            operation=_COMPONENT,
+            ai_task_id=task_id,
+            ai_round_id=round_id,
+        ):
+            result = execute_improvement_intelligence(
+                audit_id=audit_id,
+                workspace=workspace,
+                config=config,
+                progress=progress,
+            )
         _project_fulfillment_result(
             workspace,
             audit_id,

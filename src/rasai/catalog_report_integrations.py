@@ -1,5 +1,6 @@
 """AI and external-integration telemetry, payload safety and cost projection."""
 from rasai.catalog_report_governance import *  # noqa: F401,F403
+from rasai.secret_safety import redact_value
 
 
 _AI_USAGE_DETAILS: dict[str, tuple[str,str,str]] = {
@@ -32,15 +33,7 @@ _AI_USAGE_DETAILS: dict[str, tuple[str,str,str]] = {
 
 
 def _sanitize_obj(value: Any) -> Any:
-    if isinstance(value,Mapping):
-        out={}
-        for k,v in value.items():
-            out[str(k)]="[REDACTED]" if _SECRET_KEY_RE.search(str(k)) else _sanitize_obj(v)
-        return out
-    if isinstance(value,list):return [_sanitize_obj(v) for v in value]
-    if isinstance(value,str):
-        return _APIKEY_RE.sub("[REDACTED]",_BEARER_RE.sub("Bearer [REDACTED]",value))
-    return value
+    return redact_value(value)
 
 
 def _safe_payload_text(value: Any) -> str:

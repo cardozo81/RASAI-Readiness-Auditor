@@ -40,6 +40,7 @@ from rasai.m18_ai import (
 )
 from rasai.m18_persistence import M18Persistence
 from rasai.persistence import AuditWorkspace
+from rasai.secret_safety import redact_value
 from rasai.provider_extensions import (
     AnthropicProvider,
     GeminiProvider,
@@ -1044,7 +1045,8 @@ def build_improvement_request_context(
             else ""
         )
     )
-    return request_context, instructions
+    sanitized_context = redact_value(request_context)
+    return dict(sanitized_context), instructions
 
 
 def _ai_analyze(*, audit_id: str, workspace: AuditWorkspace, context: _TargetContext, config: ImprovementConfig, findings: list[dict[str, Any]], evidence_context: Mapping[str, Any], language: str, progress: Callable[[str, float, str], None] | None = None) -> tuple[str, list[dict[str, Any]], str | None]:

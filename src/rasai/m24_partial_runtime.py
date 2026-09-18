@@ -22,6 +22,7 @@ from rasai import ai_governance
 from rasai.ai_selective_invalidation import register_task_dependency
 from rasai.audit_phase_runtime import require_sealed_evidence
 from rasai.semantic import ProviderState
+from rasai.m18_persistence import attempt_governance
 
 
 _PURPOSE = "TECHNICAL_AI"
@@ -460,13 +461,18 @@ def _install_maybe_wrapper() -> None:
                     "diagnostics": len(filtered_diagnostics),
                 },
             )
-            with _requested_resources(active_resources):
-                result = current(
-                    audit_id=audit_id,
-                    workspace=workspace,
-                    provider=provider,
-                    diagnostics=filtered_diagnostics,
-                )
+            with attempt_governance(
+                operation=_PURPOSE,
+                ai_task_id=task_id,
+                ai_round_id=round_id,
+            ):
+                with _requested_resources(active_resources):
+                    result = current(
+                        audit_id=audit_id,
+                        workspace=workspace,
+                        provider=provider,
+                        diagnostics=filtered_diagnostics,
+                    )
             last_result = result
             if result.provider:
                 provider_name = result.provider

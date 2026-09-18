@@ -376,6 +376,39 @@ def _target_url(workspace: Any, audit_id: str) -> str | None:
     return None
 
 
+def _competitive_comparison_summary(
+    workspace: Any,
+    audit_id: str,
+    *,
+    expected_observations: int,
+) -> dict[str, Any]:
+    acceptable = {"CONSOLIDATED", "NO_ELIGIBLE_COMPETITOR_CANDIDATES"}
+    connection = sqlite3.connect(workspace.database)
+    try:
+        try:
+            rows = connection.execute(
+                """SELECT comparison_status,COUNT(*)
+                   FROM serp_competitive_analyses
+                   WHERE audit_id=?
+                   GROUP BY comparison_status""",
+                (audit_id,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            rows = []
+    finally:
+        connection.close()
+    statuses = {str(row[0] or "UNKNOWN"): int(row[1] or 0) for row in rows}
+    observed = sum(statuses.values())
+    incomplete = sorted(status for status in statuses if status not in acceptable)
+    return {
+        "complete": expected_observations > 0 and observed == expected_observations and not incomplete,
+        "expected_observations": expected_observations,
+        "observed_analyses": observed,
+        "statuses": statuses,
+        "incomplete_statuses": incomplete,
+    }
+
+
 def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
     args = _parsed_args()
     queries = tuple(
@@ -528,7 +561,7 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
                 "--content-max-redirects", str(int(getattr(args, "search_content_max_redirects", 5))),
             )
         )
-        if len(queries) == 1 and target:
+        if target:
             command.extend(("--customer-url", target))
 
     output = io.StringIO()
@@ -545,6 +578,39 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
     detail_lines = [line.strip() for line in output.getvalue().splitlines() if line.strip()]
     detail = detail_lines[-1][:512] if detail_lines else ""
     if code == 0:
+        if bool(getattr(args, "search_compare_content", False)):
+            comparison = _competitive_comparison_summary(
+                workspace,
+                audit_id,
+                expected_observations=len(queries),
+            )
+            if not comparison["complete"]:
+                statuses = ", ".join(
+                    f"{key}={value}" for key, value in sorted(comparison["statuses"].items())
+                ) or "nenhuma análise persistida"
+                detail = (
+                    "SERP concluída, mas a comparação competitiva solicitada não foi "
+                    f"consolidada para todas as consultas: {statuses}"
+                )
+                set_work_item_status(
+                    workspace,
+                    audit_id=audit_id,
+                    component=_COMPONENT,
+                    status=FAILED_RETRYABLE,
+                    error_class="COMPETITIVE_CONTENT",
+                    error_code="COMPETITIVE_CONTENT_PARTIAL",
+                    error_message=detail,
+                    retryable=True,
+                )
+                return {
+                    "collection_state": "PARTIAL",
+                    "requested": True,
+                    "queries": len(queries),
+                    "engine": engine,
+                    "report_materialized": report.is_file(),
+                    "comparison": comparison,
+                    "detail": detail,
+                }
         set_work_item_status(
             workspace,
             audit_id=audit_id,

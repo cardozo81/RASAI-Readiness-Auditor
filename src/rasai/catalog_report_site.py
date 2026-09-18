@@ -273,7 +273,7 @@ def materialize_catalog_report_site(*, audit_id: str, workspace: Any) -> Path:
             filename=CATALOG_PAGE_BY_ID[catalog.id].filename
             raw_catalog_bodies[filename]=_catalog_body(database,data,catalog.id)
             bodies[filename]=raw_catalog_bodies[filename]
-        assurance=assess_catalogs(database,data,raw_catalog_bodies)
+        assurance=assess_catalogs(database,data,bodies)
         assurance_by_catalog={row["catalog_id"]:row for row in assurance["catalogs"]}
         for catalog in CATALOGS:
             filename=CATALOG_PAGE_BY_ID[catalog.id].filename

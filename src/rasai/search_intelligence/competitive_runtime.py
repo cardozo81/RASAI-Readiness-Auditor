@@ -41,11 +41,6 @@ def execute_competitive_intelligence(
     """
     if max_competitor_pages < 0:
         raise ValueError("max_competitor_pages must be >= 0")
-    if customer_url and len(search_execution.results) != 1:
-        raise ValueError(
-            "an explicit customer_url can only be used when exactly one query is executed"
-        )
-
     shared_fetcher = fetcher
     if content_enabled and shared_fetcher is None:
         shared_fetcher = PublicWebFetcher()

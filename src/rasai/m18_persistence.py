@@ -2,17 +2,44 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 import json
 import logging
 import sqlite3
-from typing import Any
+from typing import Any, Iterator
 
 from rasai.ai_cost_policy import PRICING_CATALOG
 from rasai.m18_ai import ProviderAttempt
 from rasai.persistence import AuditWorkspace
 
 _LOGGER = logging.getLogger(__name__)
+
+_ATTEMPT_GOVERNANCE: ContextVar[
+    tuple[str | None, str | None, str | None] | None
+] = ContextVar("rasai_ai_attempt_governance", default=None)
+
+
+@contextmanager
+def attempt_governance(
+    *,
+    operation: str | None = None,
+    ai_task_id: str | None = None,
+    ai_round_id: str | None = None,
+) -> Iterator[None]:
+    parent = _ATTEMPT_GOVERNANCE.get()
+    token = _ATTEMPT_GOVERNANCE.set(
+        (
+            operation if operation is not None else (parent[0] if parent else None),
+            ai_task_id if ai_task_id is not None else (parent[1] if parent else None),
+            ai_round_id if ai_round_id is not None else (parent[2] if parent else None),
+        )
+    )
+    try:
+        yield
+    finally:
+        _ATTEMPT_GOVERNANCE.reset(token)
 
 
 def _dump(value: Any) -> str:
@@ -263,6 +290,12 @@ class M18Persistence:
         ai_task_id: str | None = None,
         ai_round_id: str | None = None,
     ) -> None:
+        governance = _ATTEMPT_GOVERNANCE.get()
+        if governance is not None:
+            inherited_operation, inherited_task_id, inherited_round_id = governance
+            operation = operation or inherited_operation
+            ai_task_id = ai_task_id or inherited_task_id
+            ai_round_id = ai_round_id or inherited_round_id
         diagnostic = attempt.diagnostic
         usage = attempt.usage
         columns = (

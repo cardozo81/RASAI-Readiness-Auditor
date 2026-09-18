@@ -242,11 +242,33 @@ def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any
     item=data.catalog_items.get(catalog_id,{})
     policy,ai_enabled=_ai_policy(data,catalog_id)
     plan_available=_plan_available(data)
+    cat05_competitive_ai=False
+    if catalog_id=="CAT-05":
+        search_cfg=data.configuration.get("search_intelligence")
+        if isinstance(search_cfg,Mapping):
+            raw=search_cfg.get("ai_competitive")
+            cat05_competitive_ai=raw is True or str(raw).strip().casefold() in {"1","true","yes","on","sim"}
+        if not cat05_competitive_ai:
+            for work in getattr(data,"work_items",()):
+                if _norm(work.get("component"))!="SEARCH_INTELLIGENCE":
+                    continue
+                raw_cfg=work.get("configuration")
+                try:
+                    parsed=json.loads(raw_cfg) if isinstance(raw_cfg,str) else raw_cfg
+                except (TypeError,ValueError,json.JSONDecodeError):
+                    parsed={}
+                if isinstance(parsed,Mapping):
+                    raw=parsed.get("ai_competitive")
+                    cat05_competitive_ai=raw is True or str(raw).strip().casefold() in {"1","true","yes","on","sim"}
+                if cat05_competitive_ai:
+                    break
+    ai_usage=("Habilitado para inteligência competitiva" if cat05_competitive_ai else (("Habilitado" if ai_enabled else "Não habilitado") if policy!="Não utiliza IA" else "Não se aplica"))
+    ai_policy=("IA competitiva opcional e evidence-bound" if cat05_competitive_ai else policy)
     rows=[
         ("Incluído nesta auditoria",("Sim" if catalog_id in data.selected else "Não") if plan_available else "Indeterminado - snapshot ausente/inválido","Plano congelado" if plan_available else "Snapshot da execução"),
         ("URL / alvo","; ".join(data.targets) if data.targets else "-","Plano congelado" if plan_available else "Evidência persistida"),
-        ("Uso de IA nesta capacidade",("Habilitado" if ai_enabled else "Não habilitado") if policy!="Não utiliza IA" else "Não se aplica","Plano congelado" if plan_available else "Não determinável"),
-        ("Política de IA",policy,"Catálogo"),
+        ("Uso de IA nesta capacidade",ai_usage,"Plano congelado / Search Intelligence" if cat05_competitive_ai else ("Plano congelado" if plan_available else "Não determinável")),
+        ("Política de IA",ai_policy,"Search Intelligence" if cat05_competitive_ai else "Catálogo"),
     ]
     settings=data.configuration.get("settings") if isinstance(data.configuration.get("settings"),Mapping) else {}
     if catalog_id=="CAT-03":

@@ -281,10 +281,6 @@ def _validate_args(parser: argparse.ArgumentParser, args, config: SerpRuntimeCon
         )
     if args.customer_url and not args.compare_content:
         raise ValueError("--customer-url requires --compare-content")
-    if args.compare_content and len(args.query) > 1 and args.customer_url:
-        raise ValueError(
-            "--customer-url with --compare-content is supported for one query at a time"
-        )
     if args.ai_competitive and not args.compare_content:
         raise ValueError("--ai-competitive requires --compare-content")
     if args.ai_timeout <= 0:

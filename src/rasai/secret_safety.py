@@ -53,7 +53,7 @@ _PRIVATE_KEY_BLOCK_RE = re.compile(
     re.escape(_PRIVATE_KEY_BEGIN) + r".*?" + re.escape(_PRIVATE_KEY_END), re.DOTALL
 )
 _KNOWN_SECRET_RE = re.compile(
-    r"(?:sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9_]{12,}|AIza[A-Za-z0-9_-]{20,}|"
+    r"(?:sk-[A-Za-z0-9_-]{24,}|gh[pousr]_[A-Za-z0-9_]{12,}|AIza[A-Za-z0-9_-]{20,}|"
     r"xox[baprs]-[A-Za-z0-9-]{12,}|AKIA[A-Z0-9]{16})"
 )
 
@@ -230,8 +230,22 @@ def redact_value(value: Any, *, field_name: str | None = None) -> Any:
     if isinstance(value, Mapping):
         return {str(key): redact_value(item, field_name=str(key)) for key, item in value.items()}
     if isinstance(value, tuple):
+        if (
+            len(value) >= 2
+            and isinstance(value[0], str)
+            and is_sensitive_name(value[0])
+            and not is_secret_reference_name(value[0])
+        ):
+            return tuple([value[0], REDACTED, *(redact_value(item) for item in value[2:])])
         return tuple(redact_value(item) for item in value)
     if isinstance(value, list):
+        if (
+            len(value) >= 2
+            and isinstance(value[0], str)
+            and is_sensitive_name(value[0])
+            and not is_secret_reference_name(value[0])
+        ):
+            return [value[0], REDACTED, *(redact_value(item) for item in value[2:])]
         return [redact_value(item) for item in value]
     if isinstance(value, str):
         return redact_text(value)

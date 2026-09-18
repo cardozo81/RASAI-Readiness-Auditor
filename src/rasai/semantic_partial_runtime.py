@@ -26,6 +26,7 @@ from rasai.ai_governance import (
     task_missing_requirements,
 )
 from rasai import semantic
+from rasai.m18_persistence import attempt_governance
 
 
 _CANONICAL_RULE_IDS = tuple(semantic.SEMANTIC_RULE_IDS)
@@ -330,8 +331,13 @@ def _install_m7_continuation() -> None:
                     "page_url": semantic_input.page_url,
                 },
             )
-            with _scoped_provider_contract(requested):
-                call = original_safe(provider, semantic_input)
+            with attempt_governance(
+                operation="SEMANTIC_M7",
+                ai_task_id=task_id,
+                ai_round_id=round_id,
+            ):
+                with _scoped_provider_contract(requested):
+                    call = original_safe(provider, semantic_input)
             last_call = call
             response = getattr(call, "response", None)
             new_values: dict[str, Any] = {}

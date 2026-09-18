@@ -8,13 +8,15 @@ and exposed truthfully.
 from __future__ import annotations
 
 from hashlib import sha256
-from html import escape
+from html import escape, unescape
 import inspect
 import json
 from pathlib import Path
 import re
 import sqlite3
 from typing import Any, Mapping, Sequence
+
+from rasai.secret_safety import detect_secret_exposures
 
 CATALOG_MATURITY_MIN = 95.0
 HIGH_ASSURANCE_MIN = 99.5
@@ -215,10 +217,17 @@ def _secret_free_configuration(data: Any) -> tuple[bool, str]:
     return True, "snapshot e work items sem valores de credenciais em chaves sensíveis"
 
 
+def _credential_output_failures(body: str) -> list[str]:
+    exposures = detect_secret_exposures(
+        unescape(body),
+        path="catalog-report.html",
+        strict=True,
+    )
+    return ["padrão de credencial detectado no HTML"] if exposures else []
+
+
 def _safe_output(body: str) -> tuple[bool, list[str]]:
-    failures: list[str] = []
-    if _BEARER_RE.search(body) or _APIKEY_RE.search(body):
-        failures.append("padrão de credencial detectado no HTML")
+    failures: list[str] = _credential_output_failures(body)
     if re.search(r"href=['\"]\s*javascript:", body, re.I):
         failures.append("href javascript: detectado")
     if re.search(r"href=['\"]\s*data:text/html", body, re.I):
@@ -264,19 +273,37 @@ def _applicable_config_markers(data: Any, catalog_id: str) -> tuple[str, ...]:
 def _read_only_guard_present() -> tuple[bool, str]:
     try:
         from rasai import catalog_report_site as site
-        source = inspect.getsource(site.materialize_catalog_report_site)
-    except (ImportError, OSError, TypeError):
+        owner = site.materialize_catalog_report_site
+    except ImportError:
         return False, "não foi possível inspecionar o owner da materialização"
+
     required = (
         "before=_source_fingerprint(database)",
         "after=_source_fingerprint(database)",
         "if before!=after",
         "if _source_fingerprint(database)!=after",
     )
-    missing = [marker for marker in required if marker not in source]
+    visited: set[int] = set()
+    sources: list[str] = []
+    current = owner
+    while callable(current) and id(current) not in visited:
+        visited.add(id(current))
+        try:
+            sources.append(inspect.getsource(current))
+        except (OSError, TypeError):
+            pass
+        original = getattr(current, "_rasai_original", None)
+        if not callable(original):
+            break
+        current = original
+
+    combined = "\n".join(sources)
+    missing = [marker for marker in required if marker not in combined]
     return (
         not missing,
-        "fingerprint antes/depois e antes da promoção" if not missing else "guardas ausentes: " + ", ".join(missing),
+        "fingerprint antes/depois e antes da promoção verificado na cadeia do materializador"
+        if not missing
+        else "guardas ausentes: " + ", ".join(missing),
     )
 
 
@@ -425,7 +452,19 @@ def assess_catalogs(database: Path, data: Any, bodies: Mapping[str, str]) -> dic
         or min(float(row["reliability"]), float(row["integrity"]), float(row["security"])) >= HIGH_ASSURANCE_MIN
         for row in catalogs
     )
-    closure_eligible = bool(per_catalog_target and high_assurance_target)
+    catalog_filenames = {CATALOG_PAGE_BY_ID[catalog.id].filename for catalog in CATALOGS}
+    transversal_secret_failures: dict[str, list[str]] = {}
+    for filename, body in bodies.items():
+        if filename in catalog_filenames:
+            continue
+        failures = _credential_output_failures(str(body or ""))
+        if failures:
+            transversal_secret_failures[str(filename)] = failures
+    global_output_security_ok = not transversal_secret_failures
+
+    closure_eligible = bool(
+        per_catalog_target and high_assurance_target and global_output_security_ok
+    )
     return {
         "metric_semantics": "deterministic structural-control coverage; not statistical probability",
         "thresholds": {
@@ -436,6 +475,10 @@ def assess_catalogs(database: Path, data: Any, bodies: Mapping[str, str]) -> dic
         "global": global_scores,
         "per_catalog_target_met": per_catalog_target,
         "high_assurance_target_met": high_assurance_target,
+        "global_output_security": {
+            "passed": global_output_security_ok,
+            "failures": transversal_secret_failures,
+        },
         "closure_eligible": closure_eligible,
     }
 
@@ -501,6 +544,8 @@ def assurance_matrix_html(result: Mapping[str, Any]) -> str:
         )
     global_scores = result.get("global", {})
     close = "ELEGÍVEL" if result.get("closure_eligible") else "PENDENTE"
+    global_output = result.get("global_output_security", {})
+    global_output_gate = "ATENDE" if global_output.get("passed", True) else "PENDENTE"
     return (
         "<section class='section' id='assurance-matrix'><h2>Matriz de encerramento estrutural</h2>"
         "<p class='muted'>Meta: cada catálogo selecionado com maturidade ≥95,00% e cada eixo de "
@@ -515,6 +560,7 @@ def assurance_matrix_html(result: Mapping[str, Any]) -> str:
         f"<div class='metric'><small>Integridade global</small><strong>{_pct(global_scores.get('integrity'))}</strong></div>"
         f"<div class='metric'><small>Segurança global</small><strong>{_pct(global_scores.get('security'))}</strong></div>"
         f"<div class='metric'><small>Maturidade global</small><strong>{_pct(global_scores.get('maturity'))}</strong></div>"
+        f"<div class='metric'><small>Segurança das páginas transversais</small><strong>{global_output_gate}</strong></div>"
         f"<div class='metric'><small>Encerramento estrutural</small><strong>{close}</strong></div>"
         "</div></section>"
     )
