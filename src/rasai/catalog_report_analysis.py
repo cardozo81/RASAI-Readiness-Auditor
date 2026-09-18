@@ -46,7 +46,7 @@ def _work_execution_html(data: _ReportData, catalog_id: str) -> str:
         status=_technical_work_status(row.get("status"))
         rows.append((_friendly_component(row.get("component")),status,_attempt_count_label(row.get("attempt_count")),_modal_button(mid,"Ver execução")))
         modals.append(_modal(mid,_friendly_component(row.get("component")),f"Etapa técnica relacionada a {catalog_id}",
-            _kv((("Conclusão da etapa",status),("Tentativas registradas na etapa",_attempt_count_label(row.get("attempt_count"))),("Escopo técnico",row.get("scope_key") or "-"),("Referência do resultado",row.get("effective_result_ref") or "—"),("Identificador",row.get("work_item_id") or "—")))))
+            _kv((("Conclusão da etapa",status),("Tentativas registradas na etapa",_attempt_count_label(row.get("attempt_count"))),("Escopo técnico",row.get("scope_key") or "-"),("Referência do resultado",row.get("effective_result_ref") or "-"),("Identificador",row.get("work_item_id") or "-")))))
     return _table(("Etapa","Conclusão técnica","Tentativas","Detalhe"),rows,empty="Este domínio não possui uma etapa de execução funcional própria; o estado é derivado de seu resultado persistido.")+"".join(modals)
 
 
@@ -60,7 +60,7 @@ def _apdex_samples_html(database: Path, data: _ReportData, *, experience: bool) 
     for i,s in enumerate(samples,1):
         mid=("ux" if experience else "nav")+f"-sample-{i}"
         duration=s.get("kpm_value_ms") if experience else s.get("duration_ms")
-        captured=s.get("captured_at") or "—"
+        captured=s.get("captured_at") or "-"
         rows.append((s.get("run_index",i),captured,_device_label(s.get("device")),_classification_label(s.get("classification")),_fmt_number(duration,"ms"),_status_label(s.get("status")),_modal_button(mid,"Ver amostra")))
         if experience:
             fields=(
@@ -71,14 +71,14 @@ def _apdex_samples_html(database: Path, data: _ReportData, *, experience: bool) 
                 ("Erros JavaScript",s.get("javascript_error_count")),("Erros de console",s.get("console_error_count")),
                 ("Requisições com falha",s.get("request_failed_count")),("Falhas em recursos próprios",s.get("first_party_request_failed_count")),
                 ("Respostas HTTP com erro",s.get("http_error_count")),("Rede estabilizada","Sim" if s.get("network_settled") else "Não"),
-                ("Frustração forçada por erro","Sim" if s.get("error_forced_frustrated") else "Não"),("Erro",s.get("error_message") or s.get("error_code") or "—"),
+                ("Frustração forçada por erro","Sim" if s.get("error_forced_frustrated") else "Não"),("Erro",s.get("error_message") or s.get("error_code") or "-"),
             )
             note="<div class='notice'>Esta amostra persiste contagens de falhas por requisição. Quando a lista individual de URLs não faz parte do contrato da amostra, o relatório não inventa esse detalhe.</div>"
         else:
-            fields=(("Amostra",s.get("sample_id")),("Data/hora da medição",captured),("URL",s.get("url")),("URL final",s.get("final_url")),("Classificação",_classification_label(s.get("classification"))),("Duração",_fmt_number(s.get("duration_ms"),"ms")),("HTTP",s.get("http_status")),("Perfil técnico",s.get("profile_id")),("Política de cache",_session_label(s.get("cache_policy"))),("Erro",s.get("error_message") or s.get("error_code") or "—"))
+            fields=(("Amostra",s.get("sample_id")),("Data/hora da medição",captured),("URL",s.get("url")),("URL final",s.get("final_url")),("Classificação",_classification_label(s.get("classification"))),("Duração",_fmt_number(s.get("duration_ms"),"ms")),("HTTP",s.get("http_status")),("Perfil técnico",s.get("profile_id")),("Política de cache",_session_label(s.get("cache_policy"))),("Erro",s.get("error_message") or s.get("error_code") or "-"))
             diagnostics=_safe_json(s.get("browser_diagnostics"),{})
             note="<h3>Diagnóstico de navegador</h3><div class='pre'>"+escape(json.dumps(diagnostics,ensure_ascii=False,indent=2))+"</div>" if diagnostics else ""
-        modals.append(_modal(mid,f"Amostra {s.get('run_index',i)}",f"{'Apdex de experiência' if experience else 'Apdex de navegação'} · {s.get('url') or '—'}",_kv(fields)+note))
+        modals.append(_modal(mid,f"Amostra {s.get('run_index',i)}",f"{'Apdex de experiência' if experience else 'Apdex de navegação'} · {s.get('url') or '-'}",_kv(fields)+note))
     return _table(("Amostra","Data/hora","Dispositivo","Classificação","Duração","Medição","Detalhe"),rows,empty="Nenhuma amostra foi persistida para este Apdex.",sortable=bool(rows),page_size=10 if experience and len(rows)>10 else None)+"".join(modals)
 
 
@@ -92,7 +92,7 @@ def _improvement_html(database: Path, data: _ReportData) -> str:
     if not run:
         attempts=[a for a in _ai_attempts(database,data.audit_id) if str(a.get("contract") or "").upper()=="IMPROVEMENT-INTELLIGENCE-001"]
         if attempts:
-            trace=[(a.get("provider") or "—",a.get("model") or "—",_status_label(a.get("status")),a.get("attempt_index") or "—") for a in attempts]
+            trace=[(a.get("provider") or "-",a.get("model") or "-",_status_label(a.get("status")),a.get("attempt_index") or "-") for a in attempts]
             return "<div class='notice bad'><strong>Resultado funcional ausente:</strong> existem tentativas de IA registradas para a análise profunda, mas o resultado consolidado não foi persistido. Isso é uma inconsistência de execução/persistência, não significa que a análise não tenha sido tentada. Consulte <a href='ai-integrations.html'>IA e integrações</a> para o diagnóstico.</div>"+_table(("Provedor","Modelo","Resultado da tentativa","Tentativa"),trace)
         return "<div class='notice warn'><strong>Análise profunda sem resultado:</strong> o catálogo foi solicitado, mas não há resultado funcional nem tentativa de IA reconhecida nesta auditoria. Consulte Evidências da execução para localizar a etapa que não foi produzida.</div>"
     rec_by_finding={str(r.get("finding_id")):r for r in recs}
@@ -101,14 +101,14 @@ def _improvement_html(database: Path, data: _ReportData) -> str:
         rec=rec_by_finding.get(str(f.get("finding_id")))
         mid=f"improvement-{i}"
         source_cat=_DOMAIN_CATALOG.get(_norm(f.get("domain")))
-        reference=_Html(f"<a class='ref' href='{CATALOG_PAGE_BY_ID[source_cat].filename}'>Origem: {source_cat}</a>") if source_cat in CATALOG_PAGE_BY_ID else "—"
-        rows.append((f.get("title") or "Problema identificado",_level_label(f.get("severity")),_level_label(rec.get("priority") if rec else "—"),reference,_modal_button(mid,"Ver análise")))
-        body=_kv((("Problema",f.get("observation") or f.get("title") or "—"),("Domínio",_domain_label(f.get("domain"))),("Severidade",_level_label(f.get("severity"))),("Fonte",f.get("source") or "—"),("Catálogo de origem",source_cat or "—")))
+        reference=_Html(f"<a class='ref' href='{CATALOG_PAGE_BY_ID[source_cat].filename}'>Origem: {source_cat}</a>") if source_cat in CATALOG_PAGE_BY_ID else "-"
+        rows.append((f.get("title") or "Problema identificado",_level_label(f.get("severity")),_level_label(rec.get("priority") if rec else "-"),reference,_modal_button(mid,"Ver análise")))
+        body=_kv((("Problema",f.get("observation") or f.get("title") or "-"),("Domínio",_domain_label(f.get("domain"))),("Severidade",_level_label(f.get("severity"))),("Fonte",f.get("source") or "-"),("Catálogo de origem",source_cat or "-")))
         if rec:
-            body+="<h3>Melhoria recomendada</h3><p>"+escape(str(rec.get("recommendation") or rec.get("title") or "—"))+"</p>"
+            body+="<h3>Melhoria recomendada</h3><p>"+escape(str(rec.get("recommendation") or rec.get("title") or "-"))+"</p>"
             body+="<p><a href='cat-09.html'>Ver remediação e detalhes de implementação no CAT-09</a></p>"
         modals.append(_modal(mid,f.get("title") or "Análise",f"Análise profunda · {source_cat or 'evidência transversal'}",body))
-    intro=f"<div class='metric-grid'>{_metric('Problemas correlacionados',len(findings))}{_metric('Melhorias recomendadas',len(recs))}{_metric('Estado',_status_label(run.get('status')))}{_metric('Idioma da análise',run.get('analysis_language') or run.get('language') or '—')}</div>"
+    intro=f"<div class='metric-grid'>{_metric('Problemas correlacionados',len(findings))}{_metric('Melhorias recomendadas',len(recs))}{_metric('Estado',_status_label(run.get('status')))}{_metric('Idioma da análise',run.get('analysis_language') or run.get('language') or '-')}</div>"
     summary=run.get("ai_summary") or run.get("summary")
     if summary:
         intro+=f"<div class='notice'><strong>Síntese da análise:</strong> {escape(str(summary))}</div>"
@@ -154,7 +154,7 @@ def _m24_ai_guidance(database: Path, audit_id: str) -> tuple[list[dict[str,Any]]
 
 def _impact_summary(value: Any) -> str:
     impacts=_safe_json(value,{})
-    if not isinstance(impacts,Mapping):return "—"
+    if not isinstance(impacts,Mapping):return "-"
     labels={"accessibility":"Acessibilidade","ai_access":"Acesso por IA","best_practices":"Boas práticas","performance":"Performance","security":"Segurança","seo":"SEO"}
     active=[f"{labels.get(str(k),str(k).replace('_',' ').title())}: {v}" for k,v in impacts.items() if isinstance(v,(int,float)) and v>0]
     return " · ".join(active) or "Sem impacto adicional quantificado"
@@ -196,7 +196,7 @@ def _remediation_html(database: Path, data: _ReportData) -> str:
         code=str(action.get("diagnostic_code") or "")
         objective=action.get("objective_pt") or "Orientação técnica de descoberta"
         rows.append((objective,"Informativa","CAT-01 → CAT-09 · IA técnica",_modal_button(mid,"Ver orientação")))
-        body=_kv((("Objetivo",objective),("Como proceder",action.get("recommended_change_pt") or "—"),("Validação humana necessária","Sim" if action.get("human_validation_required") else "Não"),("Evidências",", ".join(str(v) for v in action.get("evidence_ids",[]) if str(v)) or "—")))
+        body=_kv((("Objetivo",objective),("Como proceder",action.get("recommended_change_pt") or "-"),("Validação humana necessária","Sim" if action.get("human_validation_required") else "Não"),("Evidências",", ".join(str(v) for v in action.get("evidence_ids",[]) if str(v)) or "-")))
         body+="<div class='notice'><strong>Importante:</strong> ausência de robots.txt ou sitemap no caminho convencional não é convertida automaticamente em erro. A recomendação respeita o contexto e exige decisão operacional quando aplicável.</div>"
         modals.append(_modal(mid,str(objective),f"Orientação assistida por IA · evidência de descoberta {code or 'persistida'}",body))
 
@@ -206,23 +206,23 @@ def _remediation_html(database: Path, data: _ReportData) -> str:
         idx+=1;mid=f"rem-det-{idx}"
         title=_friendly_deterministic_title(r,root)
         rows.append((title,_level_label(r.get("priority_class")),"Determinística",_modal_button(mid,"Ver correção")))
-        body=_kv((("Problema / objetivo",r.get("description") or root.get("cause_summary") or "—"),("Impacto",_level_label(r.get("impact"))),("Esforço",_level_label(r.get("effort"))),("Confiança",_confidence_label(r.get("confidence"))),("Problema de origem",r.get("finding_id") or "—")))
+        body=_kv((("Problema / objetivo",r.get("description") or root.get("cause_summary") or "-"),("Impacto",_level_label(r.get("impact"))),("Esforço",_level_label(r.get("effort"))),("Confiança",_confidence_label(r.get("confidence"))),("Problema de origem",r.get("finding_id") or "-")))
         if root:
-            body+="<h3>Implementação sugerida</h3>"+_kv((("Mudança exata",root.get("exact_change") or "—"),("Exemplo após correção",root.get("example_after") or "—"),("Decisão humana necessária",root.get("human_decision_required") or "Não indicada"),("Critério de aceite",root.get("acceptance_criteria") or "—"),("Como revalidar",root.get("revalidation_steps") or "—")))
+            body+="<h3>Implementação sugerida</h3>"+_kv((("Mudança exata",root.get("exact_change") or "-"),("Exemplo após correção",root.get("example_after") or "-"),("Decisão humana necessária",root.get("human_decision_required") or "Não indicada"),("Critério de aceite",root.get("acceptance_criteria") or "-"),("Como revalidar",root.get("revalidation_steps") or "-")))
         modals.append(_modal(mid,title,"Remediação determinística derivada de problema persistido",body))
 
     for r in content:
         idx+=1;mid=f"rem-content-{idx}"
-        rows.append((r.get("objective") or "Melhoria de conteúdo","—","IA · conteúdo",_modal_button(mid,"Ver sugestão")))
+        rows.append((r.get("objective") or "Melhoria de conteúdo","-","IA · conteúdo",_modal_button(mid,"Ver sugestão")))
         body=_kv((("Objetivo",r.get("objective")),("Onde aplicar",r.get("target_location")),("Texto proposto",r.get("proposed_text")),("Confiança",_confidence_label(r.get("confidence"))),("Problema de origem",r.get("finding_id"))))
         modals.append(_modal(mid,r.get("objective") or "Sugestão de conteúdo","Conteúdo assistido por IA",body))
 
     for r in jsonld:
         idx+=1;mid=f"rem-jsonld-{idx}"
-        rows.append(("Aprimorar dados estruturados","—","Dados estruturados",_modal_button(mid,"Ver JSON-LD")))
+        rows.append(("Aprimorar dados estruturados","-","Dados estruturados",_modal_button(mid,"Ver JSON-LD")))
         proposed=_safe_json(r.get("proposed_json"),r.get("proposed_json"))
-        body=_kv((("Situação",_status_label(r.get("status"))),("Tipos existentes",", ".join(_safe_json(r.get("existing_types"),[])) or "Nenhum"),("Melhorias",r.get("improvements") or "—")))
-        body+="<h3>JSON-LD sugerido</h3><div class='pre'>"+escape(json.dumps(proposed,ensure_ascii=False,indent=2) if isinstance(proposed,(dict,list)) else str(proposed or "—"))+"</div>"
+        body=_kv((("Situação",_status_label(r.get("status"))),("Tipos existentes",", ".join(_safe_json(r.get("existing_types"),[])) or "Nenhum"),("Melhorias",r.get("improvements") or "-")))
+        body+="<h3>JSON-LD sugerido</h3><div class='pre'>"+escape(json.dumps(proposed,ensure_ascii=False,indent=2) if isinstance(proposed,(dict,list)) else str(proposed or "-"))+"</div>"
         modals.append(_modal(mid,"Dados estruturados","Sugestão persistida; exige revisão humana",body))
 
     for r in deep:
@@ -232,8 +232,8 @@ def _remediation_html(database: Path, data: _ReportData) -> str:
         finding=finding_by_id.get(str(r.get("finding_id")),{})
         rows.append((title,_level_label(r.get("priority")),f"CAT-08 → {source_cat or 'evidência transversal'}",_modal_button(mid,"Ver implementação")))
         rationale=_rationale_parts(r.get("rationale"))
-        problem=finding.get("observation") or finding.get("title") or "—"
-        body=_kv((("Problema observado",problem),("Domínio",_domain_label(r.get("domain"))),("Severidade",_level_label(r.get("severity"))),("Prioridade",_level_label(r.get("priority"))),("Onde aplicar",r.get("selector") or "Não se aplica / não identificado"),("Como corrigir",r.get("recommendation") or "—"),("Risco de manter como está",rationale.get("risk") or r.get("rationale") or "—"),("Benefício esperado da correção",rationale.get("benefit") or "—"),("Justificativa técnica",rationale.get("technical") or "—"),("Impactos relacionados",_impact_summary(r.get("impacts_json"))),("Esforço",_level_label(r.get("effort"))),("Confiança",_confidence_label(r.get("confidence"))),("Problema de origem",r.get("finding_id") or "—")))
+        problem=finding.get("observation") or finding.get("title") or "-"
+        body=_kv((("Problema observado",problem),("Domínio",_domain_label(r.get("domain"))),("Severidade",_level_label(r.get("severity"))),("Prioridade",_level_label(r.get("priority"))),("Onde aplicar",r.get("selector") or "Não se aplica / não identificado"),("Como corrigir",r.get("recommendation") or "-"),("Risco de manter como está",rationale.get("risk") or r.get("rationale") or "-"),("Benefício esperado da correção",rationale.get("benefit") or "-"),("Justificativa técnica",rationale.get("technical") or "-"),("Impactos relacionados",_impact_summary(r.get("impacts_json"))),("Esforço",_level_label(r.get("effort"))),("Confiança",_confidence_label(r.get("confidence"))),("Problema de origem",r.get("finding_id") or "-")))
         if r.get("original_html"):
             body+="<h3>Trecho observado</h3><div class='pre'>"+escape(str(r.get("original_html")))+"</div>"
         if r.get("suggested_html"):

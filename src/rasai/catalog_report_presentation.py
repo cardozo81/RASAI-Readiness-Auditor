@@ -10,7 +10,7 @@ _RICH_TOKEN_RE = re.compile(
 )
 
 def _translated_text(pt_br: Any, original: Any) -> _Html:
-    translated = str(pt_br or _EMPTY).replace("—", "-")
+    translated = str(pt_br or _EMPTY).replace("-", "-")
     source = str(original or "").strip()
     if not source or translated.casefold() == source.casefold():
         return _Html(escape(translated))
@@ -32,7 +32,7 @@ def _rich_text(value: Any) -> _Html:
     if isinstance(value, _Html):
         return value
     text = str(value or "").strip()
-    if not text or text == "—":
+    if not text or text == "-":
         return _Html(_EMPTY)
     internal = _internal_value_label(text)
     if internal is not None:
@@ -148,7 +148,7 @@ def _confidence_label(value: Any) -> str:
 
 def _session_label(value: Any) -> str:
     raw=_norm(value)
-    return {"COLD":"Sessão nova, sem reaproveitamento","WARM":"Sessão reutilizada","COLD_CONTEXT":"Contexto novo, sem reaproveitamento de cache","WARM_CONTEXT":"Contexto com reaproveitamento"}.get(raw,str(value or "—").replace("_"," ").title())
+    return {"COLD":"Sessão nova, sem reaproveitamento","WARM":"Sessão reutilizada","COLD_CONTEXT":"Contexto novo, sem reaproveitamento de cache","WARM_CONTEXT":"Contexto com reaproveitamento"}.get(raw,str(value or "-").replace("_"," ").title())
 
 
 def _error_scope_label(value: Any) -> str:
@@ -158,12 +158,12 @@ def _error_scope_label(value: Any) -> str:
         "FIRST_PARTY":"Somente falhas atribuídas a recursos do próprio domínio; erros de console/JavaScript sem origem confiável permanecem diagnósticos",
         "OWNER":"Somente falhas atribuídas a recursos do próprio domínio",
         "NAVIGATION":"Somente erro da ação/navegação principal",
-    }.get(raw,str(value or "—").replace("_"," ").title())
+    }.get(raw,str(value or "-").replace("_"," ").title())
 
 
 def _score_impact_label(value: Any) -> str:
     raw=_norm(value)
-    return {"NONE":"Sem impacto direto na pontuação","BOUNDED_AI_RESOURCE_ASSESSMENT":"Avaliação limitada e vinculada a evidências","NON_SCORING":"Não participa da pontuação"}.get(raw,str(value or "—").replace("_"," ").title())
+    return {"NONE":"Sem impacto direto na pontuação","BOUNDED_AI_RESOURCE_ASSESSMENT":"Avaliação limitada e vinculada a evidências","NON_SCORING":"Não participa da pontuação"}.get(raw,str(value or "-").replace("_"," ").title())
 
 
 def _domain_label(value: Any) -> str:
@@ -173,7 +173,7 @@ def _domain_label(value: Any) -> str:
         "CONTENT":"Conteúdo","SEARCH_RANKING":"Busca e posicionamento","FILES_DISCOVERY":"Arquivos de descoberta",
         "TECHNICAL_HTML":"HTML e estrutura técnica","BEST_PRACTICES":"Boas práticas","SECURITY":"Segurança passiva",
         "AI_ACCESS":"Acesso por agentes de IA",
-    }.get(raw,str(value or "—").replace("_"," ").title())
+    }.get(raw,str(value or "-").replace("_"," ").title())
 
 
 def _capability_label(value: Any) -> str:
@@ -186,7 +186,7 @@ def _capability_label(value: Any) -> str:
         "observability":"Observabilidade externa","apdex-navigation":"Apdex de navegação",
         "apdex-experience":"Apdex de experiência","deep-analysis":"Análise profunda e melhorias",
         "remediation":"Remediações",
-    }.get(raw,raw.replace("-"," ").replace("_"," ").title() or "—")
+    }.get(raw,raw.replace("-"," ").replace("_"," ").title() or "-")
 
 
 def _plan_detail_label(value: Any) -> str:
@@ -194,14 +194,14 @@ def _plan_detail_label(value: Any) -> str:
     match=re.fullmatch(r"mix=mobile=(\d+(?:\.\d+)?)",text,re.I)
     if match:
         return f"Distribuição de dispositivos: {match.group(1)}% mobile"
-    return text.replace("_"," ") if text else "—"
+    return text.replace("_"," ") if text else "-"
 
 
 def _attempt_count_label(value: Any) -> str:
     try:
         number=int(value)
     except (TypeError,ValueError):
-        return str(value or "—")
+        return str(value or "-")
     return "Não contabilizada neste item" if number==0 else str(number)
 
 
@@ -221,8 +221,8 @@ def _badge(text: str, tone: str|None=None) -> str:
 
 
 def _metric(label: str, value: Any, note: str="") -> str:
-    note_html=f"<small>{escape(note.replace('—','-'))}</small>" if note else ""
-    return f"<div class='metric'><small>{escape(label.replace('—','-'))}</small><strong>{_display_value(value)}</strong>{note_html}</div>"
+    note_html=f"<small>{escape(note.replace('-','-'))}</small>" if note else ""
+    return f"<div class='metric'><small>{escape(label.replace('-','-'))}</small><strong>{_display_value(value)}</strong>{note_html}</div>"
 
 
 def _table(
@@ -235,7 +235,7 @@ def _table(
 ) -> str:
     if not rows:
         return f"<div class='notice'>{escape(empty)}</div>"
-    head="".join(f"<th>{escape(str(h).replace('—','-'))}</th>" for h in headers)
+    head="".join(f"<th>{escape(str(h).replace('-','-'))}</th>" for h in headers)
     body="".join("<tr>"+"".join(f"<td>{_display_value(cell)}</td>" for cell in row)+"</tr>" for row in rows)
     interactive=bool(sortable or page_size)
     attrs=""
@@ -253,12 +253,12 @@ def _table(
 def _kv(items: Sequence[tuple[str,Any]]) -> str:
     pairs=[]
     for label,value in items:
-        pairs.append(f"<dt>{escape(label.replace('—','-'))}</dt><dd>{_display_value(value)}</dd>")
+        pairs.append(f"<dt>{escape(label.replace('-','-'))}</dt><dd>{_display_value(value)}</dd>")
     return "<dl class='kv'>"+"".join(pairs)+"</dl>"
 
 
 def _modal(modal_id: str, title: str, context: str, body: str) -> str:
-    return f"""<dialog id='{escape(modal_id)}' class='rasai-modal'><div class='modal-head'><div><h2>{escape(title.replace('—','-'))}</h2><p>{escape(context.replace('—','-'))}</p></div><button class='modal-close' type='button' data-modal-close aria-label='Fechar'>Fechar</button></div><div class='modal-body'>{body}</div></dialog>"""
+    return f"""<dialog id='{escape(modal_id)}' class='rasai-modal'><div class='modal-head'><div><h2>{escape(title.replace('-','-'))}</h2><p>{escape(context.replace('-','-'))}</p></div><button class='modal-close' type='button' data-modal-close aria-label='Fechar'>Fechar</button></div><div class='modal-body'>{body}</div></dialog>"""
 
 
 def _modal_button(modal_id: str, label: str="Ver detalhes") -> _Html:
