@@ -6,6 +6,7 @@ import json
 from typing import Sequence
 
 from rasai.improvement_intelligence_saas import install as install_improvement_intelligence_saas
+from rasai.passive_security_saas import install as install_passive_security_saas
 from rasai.saas_context_integration import install as install_saas_context_integration
 from rasai.secret_safety import redact_value
 from rasai.standards_saas_runtime import install as install_standards_saas_runtime
@@ -29,6 +30,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # top-level ``rasai worker`` path for Improvement Intelligence payload fields.
     install_standards_saas_runtime()
     install_improvement_intelligence_saas()
+    install_passive_security_saas()
     install_saas_context_integration()
     args = build_parser().parse_args(list(argv) if argv is not None else None)
     if args.worker_command == "run-once":
