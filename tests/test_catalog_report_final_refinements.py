@@ -259,7 +259,7 @@ def test_cat08_explains_findings_without_individual_remediation(tmp_path: Path) 
 
     html = _improvement_html(database, SimpleNamespace(audit_id="AUD"))
     assert "Problemas correlacionados" in html
-    assert "Achados sem remediação individual" in html
+    assert "Achados sem recomendação individual da análise profunda" in html
     assert "foi configurada para no máximo 1 recomendações" in html
     assert "Este finding não possui remediação individual" in html
 
