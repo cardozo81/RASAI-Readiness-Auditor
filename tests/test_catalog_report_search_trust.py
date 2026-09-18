@@ -5,7 +5,12 @@ from pathlib import Path
 import sqlite3
 from types import SimpleNamespace
 
-from rasai.catalog_report_search_trust import _serp_html, _source_states
+from rasai.catalog_report_search_trust import (
+    _external_html,
+    _overview_references,
+    _serp_html,
+    _source_states,
+)
 
 
 AUDIT_ID = "AUD-CAT05"
@@ -232,3 +237,90 @@ def test_ai_overview_is_projected_from_persisted_serp_artifact(tmp_path: Path) -
     assert "https://example.test/guide" in html
     assert "Site auditado entre as URLs citadas" in html
     assert "Sim" in html
+
+
+def test_ai_overview_reference_count_excludes_icons_and_thumbnails() -> None:
+    references = _overview_references([
+        {
+            "references": [
+                {
+                    "index": 0,
+                    "link": "https://example.test/source",
+                    "source": "Example",
+                    "source_icon": "https://assets.test/favicon.png",
+                    "thumbnail": "https://assets.test/thumb.png",
+                },
+                {
+                    "index": 1,
+                    "link": "https://other.test/source",
+                    "source": "Other",
+                },
+            ]
+        }
+    ])
+    assert [row["link"] for row in references] == [
+        "https://example.test/source",
+        "https://other.test/source",
+    ]
+
+
+def test_common_crawl_error_modal_exposes_exception_and_recovery_steps(tmp_path: Path) -> None:
+    database = tmp_path / "audit.db"
+    _audit_db(database)
+    artifact = tmp_path / "artifacts" / "observability" / "common-crawl.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text(
+        json.dumps({
+            "errors": ["CC-MAIN-TEST:https://example.test/:RuntimeError:HTTP 503"],
+            "error_details": [{
+                "collection": "CC-MAIN-TEST",
+                "target_url": "https://example.test/",
+                "endpoint": "https://index.commoncrawl.org/CC-MAIN-TEST-index",
+                "error_type": "RuntimeError",
+                "message": "HTTP 503",
+            }],
+        }),
+        encoding="utf-8",
+    )
+    obs = sqlite3.connect(tmp_path / "observability.db")
+    try:
+        obs.executescript(
+            """
+            CREATE TABLE datasets(
+                dataset_id TEXT PRIMARY KEY,
+                source_type TEXT NOT NULL,
+                capture_method TEXT NOT NULL,
+                period_start TEXT,
+                period_end TEXT,
+                artifact_path TEXT NOT NULL,
+                artifact_sha256 TEXT NOT NULL,
+                metadata TEXT NOT NULL,
+                collected_at TEXT NOT NULL
+            );
+            CREATE TABLE web_archive_observations(
+                record_id TEXT,dataset_id TEXT,collection TEXT,target_url TEXT,captured_at TEXT,
+                status TEXT,mime TEXT,digest TEXT,warc_filename TEXT,warc_offset INTEGER,
+                warc_length INTEGER,metadata_json TEXT
+            );
+            CREATE TABLE behavioral_observations(record_id TEXT,dataset_id TEXT);
+            """
+        )
+        obs.execute(
+            "INSERT INTO datasets VALUES (?,?,?,?,?,?,?,?,?)",
+            (
+                "OBS-CC", "COMMON_CRAWL_CDX_HISTORY", "DIRECT_PUBLIC_INDEX_API",
+                None, None, "artifacts/observability/common-crawl.json", "abc",
+                json.dumps({"requests": 1, "rows": 0, "errors": 1}),
+                "2026-09-18T10:00:00+00:00",
+            ),
+        )
+        obs.commit()
+    finally:
+        obs.close()
+
+    html = _external_html(database, _data())
+    assert "Ver erro e como corrigir" in html
+    assert "HTTP 503" in html
+    assert "index.commoncrawl.org/CC-MAIN-TEST-index" in html
+    assert "reprocessamento seletivo" in html
+    assert "Falha do Common Crawl não implica erro no site" in html

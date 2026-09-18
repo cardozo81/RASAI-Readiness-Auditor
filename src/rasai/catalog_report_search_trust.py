@@ -400,6 +400,78 @@ def _urls(value: Any) -> list[str]:
     return result[:30]
 
 
+def _overview_references(values: Sequence[Any]) -> list[dict[str, Any]]:
+    """Return only provider-declared AI Overview references/sources, excluding assets."""
+    rows: list[dict[str, Any]] = []
+    for overview in values:
+        if not isinstance(overview, Mapping):
+            continue
+        candidates = overview.get("references")
+        if not isinstance(candidates, list):
+            candidates = overview.get("sources")
+        if not isinstance(candidates, list):
+            continue
+        for position, raw in enumerate(candidates, 1):
+            if isinstance(raw, Mapping):
+                link = raw.get("link") or raw.get("url") or raw.get("href")
+                if not link:
+                    continue
+                rows.append({
+                    "index": raw.get("index") if raw.get("index") is not None else position - 1,
+                    "source": raw.get("source") or raw.get("title") or "-",
+                    "title": raw.get("title") or "-",
+                    "link": str(link),
+                })
+            elif isinstance(raw, str) and raw.startswith(("http://", "https://")):
+                rows.append({"index": position - 1, "source": "-", "title": "-", "link": raw})
+    return rows
+
+
+def _artifact_json(database: Path, reference: Any) -> Mapping[str, Any]:
+    path = _safe_artifact(database, reference)
+    if path is None or path.suffix.casefold() != ".json":
+        return {}
+    try:
+        if path.stat().st_size > 8 * 1024 * 1024:
+            return {}
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, Mapping) else {}
+    except (OSError, ValueError, json.JSONDecodeError):
+        return {}
+
+
+def _common_crawl_error_rows(database: Path, dataset: Mapping[str, Any]) -> list[tuple[Any, ...]]:
+    payload = _artifact_json(database, dataset.get("artifact_path"))
+    raw_details = payload.get("error_details") if isinstance(payload.get("error_details"), list) else []
+    rows: list[tuple[Any, ...]] = []
+    for raw in raw_details:
+        if not isinstance(raw, Mapping):
+            continue
+        rows.append((
+            raw.get("collection") or "-",
+            raw.get("target_url") or "-",
+            raw.get("error_type") or "Erro externo",
+            raw.get("message") or "Mensagem não informada pelo provider",
+            raw.get("endpoint") or "-",
+        ))
+    if rows:
+        return rows
+    legacy = payload.get("errors") if isinstance(payload.get("errors"), list) else []
+    for raw in legacy:
+        text = str(raw or "")
+        if not text:
+            continue
+        collection = "-"
+        target = "-"
+        error_type = text
+        if ":" in text:
+            collection, rest = text.split(":", 1)
+            if ":" in rest:
+                target, error_type = rest.rsplit(":", 1)
+        rows.append((collection or "-", target or "-", error_type or "Erro externo", "Detalhe não persistido nesta execução", "-"))
+    return rows
+
+
 def _overview_text(value: Any) -> str:
     strings=[]
     def visit(node: Any, key: str="") -> None:
@@ -454,25 +526,25 @@ def _serp_html(database: Path, data: Any) -> str:
             overview=_overview_values(raw)
             overview_id=f"cat05-aio-{index}"
             target_hosts=_target_hosts(data)
-            all_urls=[]
-            for item in overview:
-                for url in _urls(item):
-                    if url not in all_urls: all_urls.append(url)
-            present_hosts={str(urlsplit(url).hostname or "").casefold().removeprefix("www.") for url in all_urls}
+            references=_overview_references(overview)
+            reference_urls=[str(item.get("link") or "") for item in references if item.get("link")]
+            present_hosts={str(urlsplit(url).hostname or "").casefold().removeprefix("www.") for url in reference_urls}
             brand_present=bool(target_hosts & present_hosts)
             detected=bool(overview)
-            overview_rows.append((obs.get("query") or "-","Sim" if detected else "Não","Sim" if brand_present else "Não" if detected else "Não determinável",len(all_urls),captured or "-",page._modal_button(overview_id,"Ver AI Overview")))
-            overview_body=page._kv((("Detectado","Sim" if detected else "Não"),("Site auditado entre as URLs citadas","Sim" if brand_present else "Não" if detected else "Não determinável"),("Provider",obs.get("provider") or "-"),("captured_at",captured or "-"),("Artefato",obs.get("raw_evidence_ref") or "-")))
+            overview_rows.append((obs.get("query") or "-","Sim" if detected else "Não","Sim" if brand_present else "Não" if detected else "Não determinável",len(references),captured or "-",page._modal_button(overview_id,"Ver AI Overview")))
+            overview_body=page._kv((("Detectado","Sim" if detected else "Não"),("Site auditado entre as referências","Sim" if brand_present else "Não" if detected else "Não determinável"),("Provedor",obs.get("provider") or "-"),("Capturado em",captured or "-"),("Artefato",obs.get("raw_evidence_ref") or "-"),("Referências declaradas pelo provider",len(references))))
             if overview:
                 overview_body+="<h3>Conteúdo / resumo persistido</h3><div class='pre'>"+escape(_overview_text(overview))+"</div>"
-                overview_body+="<h3>Fontes / URLs reconhecidas</h3>"+page._table(("URL",),[(url,) for url in all_urls],empty="O provider retornou AI Overview sem URLs reconhecíveis.")
+                reference_rows=[(item.get("index"),item.get("source"),item.get("title"),item.get("link")) for item in references]
+                overview_body+="<h3>Referências do AI Overview</h3>"+page._table(("Índice","Fonte","Título","URL"),reference_rows,empty="O provider retornou AI Overview sem lista estruturada de referências.")
+                overview_body+="<p class='muted'>A contagem considera somente itens declarados em <code>references</code>/<code>sources</code>. Favicons, thumbnails e outros assets auxiliares não são contabilizados como fontes.</p>"
             else:
                 overview_body+="<div class='notice'>Nenhum campo <code>ai_overview</code> foi encontrado no artefato SERP persistido desta observação. O relatório não infere que a feature estava ausente quando o provider não fornece esse campo.</div>"
             overview_modals.append(page._modal(overview_id,"AI Overview",str(obs.get("query") or "Consulta"),overview_body))
     finally:
         connection.close()
     serp_table=page._table(("Consulta","País/região","Idioma","Dispositivo","Profundidade","Resultados","Provedor","Atualidade dos dados","Capturado em","Detalhe"),rows,empty="Nenhuma observação SERP persistida.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals)
-    aio_table=page._table(("Consulta","AI Overview detectado","Site citado","Fontes","Capturado em","Detalhe"),overview_rows,empty="Nenhuma SERP disponível para verificar AI Overview.",sortable=bool(overview_rows))+"".join(overview_modals)
+    aio_table=page._table(("Consulta","AI Overview detectado","Site citado","Referências","Capturado em","Detalhe"),overview_rows,empty="Nenhuma SERP disponível para verificar AI Overview.",sortable=bool(overview_rows))+"".join(overview_modals)
     return "<div class='subsection'><h3>SERP</h3>"+serp_table+"</div><div class='subsection'><h3>AI Overview / recursos de busca por IA</h3>"+aio_table+"</div>"
 
 
@@ -518,14 +590,44 @@ def _external_html(database: Path, data: Any) -> str:
             ids=[str(row.get("dataset_id")) for row in rows]
             count=_dataset_rows(connection,table,ids)
             errors=_dataset_errors(rows)
-            details=[]
-            for row in rows:
+            details=[]; source_modals=[]
+            for index,row in enumerate(rows,1):
                 meta=_safe_json(row.get("metadata"),{})
-                details.append((row.get("dataset_id"),row.get("capture_method"),row.get("collected_at"),meta.get("requests") if isinstance(meta,Mapping) else "-",meta.get("rows") if isinstance(meta,Mapping) else count,meta.get("errors") if isinstance(meta,Mapping) else errors,row.get("artifact_path")))
+                detail_cell: Any = "-"
+                if source==_COMMON_CRAWL_SOURCE and int(meta.get("errors") or 0) > 0:
+                    modal_id=f"common-crawl-error-{index}"
+                    error_rows=_common_crawl_error_rows(database,row)
+                    body=page._kv((
+                        ("Estado","Falha reprocessável" if not count else "Execução parcial"),
+                        ("Conjunto de dados",row.get("dataset_id") or "-"),
+                        ("Tentativas de API",meta.get("requests") or "-"),
+                        ("Registros obtidos",meta.get("rows") or 0),
+                        ("Erros",meta.get("errors") or len(error_rows)),
+                        ("Artefato",row.get("artifact_path") or "-"),
+                    ))
+                    body+="<h3>Erros observados</h3>"+page._table(
+                        ("Coleção","URL auditada","Tipo","Mensagem","Endpoint"),
+                        error_rows,
+                        empty="O dataset informa erro, mas não há detalhe individual persistido.",
+                        sortable=bool(error_rows),
+                        page_size=10 if len(error_rows)>10 else None,
+                    )
+                    body+=(
+                        "<h3>Como resolver</h3><ol>"
+                        "<li>Verifique conectividade HTTPS, proxy, firewall e resolução DNS para <code>index.commoncrawl.org</code> e para o endpoint CDX indicado acima.</li>"
+                        "<li>Confirme se a coleção Common Crawl indicada ainda responde pelo endpoint público CDX. O RASAi consulta somente o índice; não baixa WARC.</li>"
+                        "<li>Como o estado é reprocessável, execute o reprocessamento seletivo da mesma AUD para repetir somente a dependência pendente quando aplicável.</li>"
+                        "<li>Se o erro persistir em coleções diferentes, valide disponibilidade do serviço público e o detalhe da exceção antes de alterar a URL auditada.</li>"
+                        "</ol>"
+                        "<div class='notice'>Falha do Common Crawl não implica erro no site e não comprova ausência de indexação em mecanismos de busca.</div>"
+                    )
+                    detail_cell=page._modal_button(modal_id,"Ver erro e como corrigir")
+                    source_modals.append(page._modal(modal_id,"Common Crawl - diagnóstico de coleta",str(row.get("dataset_id") or "Dataset"),body))
+                details.append((row.get("dataset_id"),row.get("capture_method"),row.get("collected_at"),meta.get("requests") if isinstance(meta,Mapping) else "-",meta.get("rows") if isinstance(meta,Mapping) else count,meta.get("errors") if isinstance(meta,Mapping) else errors,row.get("artifact_path"),detail_cell))
             lead=f"<div class='metric-grid'>{page._metric('Execuções/datasets',len(rows))}{page._metric('Resultados',count)}{page._metric('Erros',errors)}</div>"
             if source==_COMMON_CRAWL_SOURCE:
-                lead+="<div class='notice'>Common Crawl representa histórico do arquivo público e não comprova indexação atual em Google/Bing. Não participa diretamente do score.</div>"
-            blocks.append("<div class='subsection'><h3>"+escape(title)+"</h3>"+lead+page._table(("Conjunto de dados","Método","Coletado em","Requisições","Registros","Erros","Artefato"),details,empty=f"{title} não executado/não persistido nesta AUD.")+"</div>")
+                lead+="<div class='notice'>Common Crawl representa histórico do arquivo público e não comprova indexação atual em Google/Bing. Não participa diretamente do score. Quando houver erro, use o detalhe do dataset para ver exceção, endpoint e passos de reprocessamento.</div>"
+            blocks.append("<div class='subsection'><h3>"+escape(title)+"</h3>"+lead+page._table(("Conjunto de dados","Método","Coletado em","Requisições","Registros","Erros","Artefato","Diagnóstico"),details,empty=f"{title} não executado/não persistido nesta AUD.")+"".join(source_modals)+"</div>")
         gsc=[row for row in datasets if str(row.get("source_type") or "").startswith(_GSC_PREFIX)]
         gsc_rows=[]
         for row in gsc:

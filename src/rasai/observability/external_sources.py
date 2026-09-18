@@ -272,6 +272,7 @@ def collect_common_crawl_history(
     request_count = 0
     counter = 0
     errors: list[str] = []
+    error_details: list[dict[str, Any]] = []
     for collection in usable:
         collection_id = str(collection["id"])
         endpoint = str(collection["cdx-api"])
@@ -288,7 +289,16 @@ def collect_common_crawl_history(
             try:
                 lines = _read_text(request, timeout=timeout, opener=opener, provider="Common Crawl CDX")
             except (OSError, RuntimeError, ValueError) as exc:
-                errors.append(f"{collection_id}:{target_url}:{type(exc).__name__}")
+                error_type = type(exc).__name__
+                message = str(exc).strip()[:500]
+                errors.append(f"{collection_id}:{target_url}:{error_type}:{message}" if message else f"{collection_id}:{target_url}:{error_type}")
+                error_details.append({
+                    "collection": collection_id,
+                    "target_url": target_url,
+                    "endpoint": endpoint,
+                    "error_type": error_type,
+                    "message": message or None,
+                })
                 continue
             for raw_line in lines.splitlines()[:100]:
                 raw_line = raw_line.strip()
@@ -333,6 +343,7 @@ def collect_common_crawl_history(
         "requested_urls": selected_urls,
         "requests": request_count,
         "errors": errors,
+        "error_details": error_details,
         "observations": observations,
     }
     dates = [row["captured_at"] for row in observations if row["captured_at"]]
