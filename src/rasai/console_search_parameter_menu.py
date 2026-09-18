@@ -11,6 +11,10 @@ import os
 from types import ModuleType
 from typing import Any
 
+from rasai.configuration_value_labels import (
+    configuration_value_choice,
+    configuration_value_info,
+)
 from rasai.console_search_guidance import (
     competitive_guidance,
     depth_guidance,
@@ -103,7 +107,7 @@ def _render_provider_context(search_module: ModuleType, config: SerpRuntimeConfi
     registration = _provider_registration(search_module, config)
     engine = registration.engine if registration is not None else "unknown"
     print("\n[ PROVIDER / LIMITES APLICADOS ]")
-    print(f"Modo                 : {config.mode}")
+    print(f"Modo                 : {configuration_value_info('RASAI_SERP_MODE', config.mode)}")
     print(f"Provider             : {_provider_name(search_module, config)} ({config.provider})")
     print(f"Engine               : {engine}")
     print(f"Credencial           : {_credential_state(search_module, config)}")
@@ -148,7 +152,11 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
             "11. IA competitiva          : "
             + ("Ativada" if bool(getattr(state, "search_ai_competitive", False)) else "Desativada")
         )
-        print(f"12. Contexto YMYL da IA     : {str(getattr(state, 'search_ymyl_mode', 'AUTO') or 'AUTO').upper()}")
+        ymyl_mode = str(getattr(state, "search_ymyl_mode", "AUTO") or "AUTO").upper()
+        print(
+            "12. Contexto YMYL da IA     : "
+            + configuration_value_info("SEARCH_YMYL_MODE", ymyl_mode)
+        )
     if queries:
         print(f"   Impacto projetado         : {projected}/{config.max_requests} requests no teto conservador")
     else:
@@ -389,9 +397,9 @@ def _edit_competitive_ai(state: Any) -> None:
 def _edit_ymyl_mode(state: Any) -> None:
     print("\nCONTEXTO YMYL DA IA COMPETITIVA")
     print("  AUTO = inferência contextual; ON = tratar como YMYL; OFF = não aplicar contexto YMYL.")
-    print("  1. AUTO")
-    print("  2. ON")
-    print("  3. OFF")
+    print(f"  1. {configuration_value_choice('SEARCH_YMYL_MODE', 'AUTO')}")
+    print(f"  2. {configuration_value_choice('SEARCH_YMYL_MODE', 'ON')}")
+    print(f"  3. {configuration_value_choice('SEARCH_YMYL_MODE', 'OFF')}")
     print("  V. Voltar")
     raw = input("Escolha [1-3/V]: ").strip().upper()
     values = {"1": "AUTO", "2": "ON", "3": "OFF"}
