@@ -416,8 +416,17 @@ def test_competitive_report_exposes_effective_contract_http_evidence_and_ai_gove
     _audit_db(database)
     artifact = tmp_path / "artifacts" / "search-intelligence" / "competitive" / "OBS.json"
     artifact.parent.mkdir(parents=True)
-    artifact.write_text("{}", encoding="utf-8")
-    digest = __import__("hashlib").sha256(b"{}").hexdigest()
+    artifact_payload=json.dumps({
+        "acquisition_policy":{
+            "content_enabled":True,
+            "max_competitor_pages":1,
+            "timeout_seconds":12.5,
+            "max_bytes":1500000,
+            "max_redirects":2,
+        }
+    },sort_keys=True)
+    artifact.write_text(artifact_payload, encoding="utf-8")
+    digest = __import__("hashlib").sha256(artifact_payload.encode("utf-8")).hexdigest()
     ai_artifact = tmp_path / "artifacts" / "search-intelligence" / "competitive-ai" / "OBS.json"
     ai_artifact.parent.mkdir(parents=True)
     ai_artifact.write_text("{}", encoding="utf-8")
@@ -553,7 +562,8 @@ def test_competitive_report_exposes_effective_contract_http_evidence_and_ai_gove
     assert "Comparação de conteúdo" in html
     assert "Evidence seal" in html
     assert "IA pós-selo" in html
-    assert "COM LIMITAÇÃO" in html
+    assert "artifact.acquisition_policy.timeout_seconds" in html
+    assert "runtime max_competitor_pages=1" in html
     assert "Máx. páginas concorrentes" in html
     assert "1500000" in html
     assert "Resultados SERP recebidos" in html
@@ -602,6 +612,7 @@ def test_competitive_validation_matrix_flags_contract_divergence_without_guessin
         None,
         (),
         None,
+        {},
     )
     by_control = {row[0]: row for row in rows}
 
@@ -650,6 +661,13 @@ def test_competitive_validation_matrix_accepts_governed_post_seal_ai() -> None:
         task,
         rounds,
         snapshot,
+        {
+            "content_enabled": True,
+            "max_competitor_pages": 2,
+            "timeout_seconds": 8.0,
+            "max_bytes": 2000,
+            "max_redirects": 2,
+        },
     )
     by_control = {row[0]: row for row in rows}
 
@@ -657,6 +675,7 @@ def test_competitive_validation_matrix_accepts_governed_post_seal_ai() -> None:
     assert by_control["Comparação de conteúdo"][-1] == "OK"
     assert by_control["Máx. páginas concorrentes"][-1] == "OK"
     assert by_control["Máx. bytes por página"][-1] == "OK"
+    assert by_control["Timeout conteúdo"][-1] == "OK"
     assert by_control["Máx. redirects"][-1] == "OK"
     assert by_control["IA competitiva"][-1] == "OK"
     assert by_control["YMYL"][-1] == "OK"

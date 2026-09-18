@@ -50,6 +50,26 @@ def execute_competitive_intelligence(
     if content_enabled and shared_fetcher is None:
         shared_fetcher = PublicWebFetcher()
 
+    acquisition_policy = {
+        "content_enabled": bool(content_enabled),
+        "max_competitor_pages": int(max_competitor_pages),
+        "timeout_seconds": (
+            float(shared_fetcher.timeout_seconds)
+            if content_enabled and shared_fetcher is not None
+            else None
+        ),
+        "max_bytes": (
+            int(shared_fetcher.max_bytes)
+            if content_enabled and shared_fetcher is not None
+            else None
+        ),
+        "max_redirects": (
+            int(shared_fetcher.max_redirects)
+            if content_enabled and shared_fetcher is not None
+            else None
+        ),
+    }
+
     repository = None
     sink = None
     if workspace_root is not None:
@@ -94,7 +114,9 @@ def execute_competitive_intelligence(
                 evidence_sha256 = None
                 if sink is not None:
                     evidence_ref, evidence_sha256 = sink.write(
-                        observation.observation_id, analysis
+                        observation.observation_id,
+                        analysis,
+                        acquisition_policy=acquisition_policy,
                     )
                 repository.save(
                     observation.observation_id,

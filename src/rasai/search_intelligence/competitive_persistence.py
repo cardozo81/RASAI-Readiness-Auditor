@@ -80,8 +80,13 @@ def _selection_payload(selection: CompetitiveSelection) -> dict[str, Any]:
     }
 
 
-def analysis_payload(analysis: CompetitiveContentAnalysis) -> dict[str, Any]:
+def analysis_payload(
+    analysis: CompetitiveContentAnalysis,
+    *,
+    acquisition_policy: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     return {
+        "acquisition_policy": dict(acquisition_policy or {}),
         "methodology": analysis.methodology,
         "comparison_status": analysis.comparison_status,
         "selection": _selection_payload(analysis.selection),
@@ -111,9 +116,17 @@ class FilesystemCompetitiveEvidenceSink:
         self.workspace_root = Path(workspace_root)
         self.root = self.workspace_root / "artifacts" / "search-intelligence" / "competitive"
 
-    def write(self, observation_id: str, analysis: CompetitiveContentAnalysis) -> tuple[str, str]:
+    def write(
+        self,
+        observation_id: str,
+        analysis: CompetitiveContentAnalysis,
+        *,
+        acquisition_policy: Mapping[str, Any] | None = None,
+    ) -> tuple[str, str]:
         self.root.mkdir(parents=True, exist_ok=True)
-        payload = _dump(analysis_payload(analysis)).encode("utf-8")
+        payload = _dump(
+            analysis_payload(analysis, acquisition_policy=acquisition_policy)
+        ).encode("utf-8")
         digest = sha256(payload).hexdigest()
         path = self.root / f"{observation_id}.json"
         path.write_bytes(payload)

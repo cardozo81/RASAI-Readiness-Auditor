@@ -670,6 +670,7 @@ def _competitive_validation_rows(
     task: Mapping[str, Any] | None,
     rounds: Sequence[Mapping[str, Any]],
     snapshot: Mapping[str, Any] | None,
+    runtime_policy: Mapping[str, Any] | None = None,
 ) -> list[tuple[Any, ...]]:
     """Validate the CAT-05 persisted contract without treating configuration as observed execution."""
     def yes(value: Any) -> str:
@@ -679,6 +680,7 @@ def _competitive_validation_rows(
         return "Sim" if key in configuration else "Não"
 
     selected_count = sum(1 for row in candidates if row.get("selected_for_content_comparison"))
+    runtime_policy = dict(runtime_policy or {})
     comparison_status = str(item.get("comparison_status") or "").upper()
     artifact_ref = str(item.get("evidence_ref") or "").strip()
     configured_competitive = bool(configuration.get("competitive"))
@@ -704,8 +706,11 @@ def _competitive_validation_rows(
         competitive_state,
     ))
 
+    runtime_content_enabled = runtime_policy.get("content_enabled")
     if configured_compare:
-        if comparison_status == "CONSOLIDATED":
+        if runtime_content_enabled is False:
+            comparison_state = "INCONSISTENTE"
+        elif comparison_status == "CONSOLIDATED":
             comparison_state = "OK"
         elif comparison_status == "CONTENT_COMPARISON_DISABLED":
             comparison_state = "INCONSISTENTE"
@@ -725,7 +730,10 @@ def _competitive_validation_rows(
         persisted("compare_content"),
         comparison_status or "Não executado",
         "Sim",
-        artifact_ref or "serp_competitive_pages",
+        (
+            f"{artifact_ref or 'serp_competitive_pages'}; runtime content_enabled="
+            f"{runtime_content_enabled if runtime_content_enabled is not None else 'não materializado'}"
+        ),
         comparison_state,
     ))
 
@@ -734,11 +742,18 @@ def _competitive_validation_rows(
         max_pages_int = int(max_pages) if max_pages is not None else None
     except (TypeError, ValueError):
         max_pages_int = None
+    runtime_max_pages = runtime_policy.get("max_competitor_pages")
+    try:
+        runtime_max_pages_int = int(runtime_max_pages) if runtime_max_pages is not None else None
+    except (TypeError, ValueError):
+        runtime_max_pages_int = None
     max_pages_state = (
         "SEM EVIDÊNCIA"
         if max_pages_int is None
+        else "COM LIMITAÇÃO"
+        if runtime_max_pages_int is None
         else "INCONSISTENTE"
-        if selected_count > max_pages_int
+        if runtime_max_pages_int != max_pages_int or selected_count > max_pages_int
         else "OK"
     )
     rows.append((
@@ -747,19 +762,38 @@ def _competitive_validation_rows(
         persisted("max_content_pages"),
         selected_count,
         "Sim",
-        "serp_competitive_results.selected_for_content_comparison",
+        (
+            "serp_competitive_results.selected_for_content_comparison; "
+            f"runtime max_competitor_pages={runtime_max_pages if runtime_max_pages is not None else 'não materializado'}"
+        ),
         max_pages_state,
     ))
 
     timeout = configuration.get("content_timeout_seconds")
+    runtime_timeout = runtime_policy.get("timeout_seconds")
+    try:
+        timeout_num = float(timeout) if timeout is not None else None
+        runtime_timeout_num = float(runtime_timeout) if runtime_timeout is not None else None
+    except (TypeError, ValueError):
+        timeout_num = None
+        runtime_timeout_num = None
+    timeout_state = (
+        "SEM EVIDÊNCIA"
+        if timeout_num is None
+        else "COM LIMITAÇÃO"
+        if runtime_timeout_num is None
+        else "OK"
+        if abs(runtime_timeout_num - timeout_num) < 1e-9
+        else "INCONSISTENTE"
+    )
     rows.append((
         "Timeout conteúdo",
         f"{timeout} s" if timeout is not None else "-",
         persisted("content_timeout_seconds"),
-        "Sem telemetria por requisição" if timeout is not None else "Não comprovado",
+        f"{runtime_timeout} s" if runtime_timeout is not None else "Não materializado no artefato",
         "Sim",
-        "Contrato persistido; duração/timeout efetivo por requisição não é armazenado",
-        "COM LIMITAÇÃO" if timeout is not None else "SEM EVIDÊNCIA",
+        "artifact.acquisition_policy.timeout_seconds",
+        timeout_state,
     ))
 
     max_bytes = configuration.get("content_max_bytes")
@@ -773,11 +807,19 @@ def _competitive_validation_rows(
     except (TypeError, ValueError):
         max_bytes_int = None
     max_observed_bytes = max(byte_values, default=None)
+    runtime_max_bytes = runtime_policy.get("max_bytes")
+    try:
+        runtime_max_bytes_int = int(runtime_max_bytes) if runtime_max_bytes is not None else None
+    except (TypeError, ValueError):
+        runtime_max_bytes_int = None
     bytes_state = (
         "SEM EVIDÊNCIA"
-        if max_bytes_int is None or max_observed_bytes is None
+        if max_bytes_int is None
+        else "COM LIMITAÇÃO"
+        if runtime_max_bytes_int is None
         else "INCONSISTENTE"
-        if max_observed_bytes > max_bytes_int
+        if runtime_max_bytes_int != max_bytes_int
+        or (max_observed_bytes is not None and max_observed_bytes > max_bytes_int)
         else "OK"
     )
     rows.append((
@@ -788,7 +830,10 @@ def _competitive_validation_rows(
         if max_observed_bytes is not None
         else "Sem página observada",
         "Sim",
-        "serp_competitive_pages.bytes_read",
+        (
+            f"artifact.acquisition_policy.max_bytes={runtime_max_bytes if runtime_max_bytes is not None else 'não materializado'}; "
+            "serp_competitive_pages.bytes_read"
+        ),
         bytes_state,
     ))
 
@@ -799,11 +844,22 @@ def _competitive_validation_rows(
     except (TypeError, ValueError):
         max_redirects_int = None
     max_observed_redirects = max(redirect_counts, default=None)
+    runtime_max_redirects = runtime_policy.get("max_redirects")
+    try:
+        runtime_max_redirects_int = int(runtime_max_redirects) if runtime_max_redirects is not None else None
+    except (TypeError, ValueError):
+        runtime_max_redirects_int = None
     redirects_state = (
         "SEM EVIDÊNCIA"
-        if max_redirects_int is None or max_observed_redirects is None
+        if max_redirects_int is None
+        else "COM LIMITAÇÃO"
+        if runtime_max_redirects_int is None
         else "INCONSISTENTE"
-        if max_observed_redirects > max_redirects_int
+        if runtime_max_redirects_int != max_redirects_int
+        or (
+            max_observed_redirects is not None
+            and max_observed_redirects > max_redirects_int
+        )
         else "OK"
     )
     rows.append((
@@ -814,7 +870,10 @@ def _competitive_validation_rows(
         if max_observed_redirects is not None
         else "Sem página observada",
         "Sim",
-        "serp_competitive_pages.redirects_json",
+        (
+            f"artifact.acquisition_policy.max_redirects={runtime_max_redirects if runtime_max_redirects is not None else 'não materializado'}; "
+            "serp_competitive_pages.redirects_json"
+        ),
         redirects_state,
     ))
 
@@ -994,6 +1053,12 @@ def _competitive_html(database: Path, data: Any) -> str:
                 body+="<div class='notice warn'><strong>Inconsistência de contrato:</strong><ul>"+"".join("<li>"+escape(v)+"</li>" for v in inconsistencies)+"</ul></div>"
 
 
+            deterministic_payload = _artifact_json(database, item.get("evidence_ref"))
+            runtime_policy = (
+                deterministic_payload.get("acquisition_policy")
+                if isinstance(deterministic_payload.get("acquisition_policy"), Mapping)
+                else {}
+            )
             validation_rows = _competitive_validation_rows(
                 configuration,
                 item,
@@ -1003,6 +1068,7 @@ def _competitive_html(database: Path, data: Any) -> str:
                 task,
                 rounds,
                 snapshot,
+                runtime_policy,
             )
             body += (
                 "<h3>Validação ponta a ponta - configuração, evidência e IA</h3>"
@@ -1012,8 +1078,8 @@ def _competitive_html(database: Path, data: Any) -> str:
                     empty="Nenhum controle competitivo pôde ser validado.",
                 )
                 + "<p class='muted'>Configurado representa o contrato efetivo persistido no work item desta AUD. "
-                "A coluna Executado só afirma o que pode ser comprovado por evidência materializada; quando o runtime "
-                "não persiste telemetria granular, o estado é COM LIMITAÇÃO em vez de presumir execução.</p>"
+                "Os limites de aquisição executados são confrontados com o snapshot <code>acquisition_policy</code> "
+                "do artefato competitivo; evidência ausente é marcada como COM LIMITAÇÃO/SEM EVIDÊNCIA em vez de ser presumida.</p>"
             )
 
             body+="<h3>Candidatos e classificação</h3>"+page._table(
