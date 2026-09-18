@@ -9,8 +9,12 @@ _RICH_TOKEN_RE = re.compile(
     re.I,
 )
 
+def _ui_text(value: Any) -> str:
+    return str(value or "").replace("\u2014", "-")
+
+
 def _translated_text(pt_br: Any, original: Any) -> _Html:
-    translated = str(pt_br or _EMPTY).replace("-", "-")
+    translated = _ui_text(pt_br or _EMPTY)
     source = str(original or "").strip()
     if not source or translated.casefold() == source.casefold():
         return _Html(escape(translated))
@@ -31,7 +35,7 @@ def _internal_value_label(value: Any) -> _Html | None:
 def _rich_text(value: Any) -> _Html:
     if isinstance(value, _Html):
         return value
-    text = str(value or "").strip()
+    text = _ui_text(value).strip()
     if not text or text == "-":
         return _Html(_EMPTY)
     internal = _internal_value_label(text)
@@ -221,8 +225,8 @@ def _badge(text: str, tone: str|None=None) -> str:
 
 
 def _metric(label: str, value: Any, note: str="") -> str:
-    note_html=f"<small>{escape(note.replace('-','-'))}</small>" if note else ""
-    return f"<div class='metric'><small>{escape(label.replace('-','-'))}</small><strong>{_display_value(value)}</strong>{note_html}</div>"
+    note_html=f"<small>{escape(_ui_text(note))}</small>" if note else ""
+    return f"<div class='metric'><small>{escape(_ui_text(label))}</small><strong>{_display_value(value)}</strong>{note_html}</div>"
 
 
 def _table(
@@ -235,7 +239,7 @@ def _table(
 ) -> str:
     if not rows:
         return f"<div class='notice'>{escape(empty)}</div>"
-    head="".join(f"<th>{escape(str(h).replace('-','-'))}</th>" for h in headers)
+    head="".join(f"<th>{escape(_ui_text(h))}</th>" for h in headers)
     body="".join("<tr>"+"".join(f"<td>{_display_value(cell)}</td>" for cell in row)+"</tr>" for row in rows)
     interactive=bool(sortable or page_size)
     attrs=""
@@ -258,7 +262,7 @@ def _kv(items: Sequence[tuple[str,Any]]) -> str:
 
 
 def _modal(modal_id: str, title: str, context: str, body: str) -> str:
-    return f"""<dialog id='{escape(modal_id)}' class='rasai-modal'><div class='modal-head'><div><h2>{escape(title.replace('-','-'))}</h2><p>{escape(context.replace('-','-'))}</p></div><button class='modal-close' type='button' data-modal-close aria-label='Fechar'>Fechar</button></div><div class='modal-body'>{body}</div></dialog>"""
+    return f"""<dialog id='{escape(modal_id)}' class='rasai-modal'><div class='modal-head'><div><h2>{escape(_ui_text(title))}</h2><p>{escape(_ui_text(context))}</p></div><button class='modal-close' type='button' data-modal-close aria-label='Fechar'>Fechar</button></div><div class='modal-body'>{body}</div></dialog>"""
 
 
 def _modal_button(modal_id: str, label: str="Ver detalhes") -> _Html:
