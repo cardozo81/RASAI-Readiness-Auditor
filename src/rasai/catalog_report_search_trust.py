@@ -975,9 +975,14 @@ def _competitive_html(database: Path, data: Any) -> str:
     configuration = _search_contract(data)
     connection=sqlite3.connect(database); connection.row_factory=sqlite3.Row
     try:
-        if not _table_exists(connection,"serp_competitive_analyses"):
-            return "<div class='notice'>Nenhuma análise competitiva persistida.</div>"
-        analyses=[dict(row) for row in connection.execute("SELECT * FROM serp_competitive_analyses WHERE audit_id=? ORDER BY observation_id",(data.audit_id,))]
+        analyses=(
+            [dict(row) for row in connection.execute(
+                "SELECT * FROM serp_competitive_analyses WHERE audit_id=? ORDER BY observation_id",
+                (data.audit_id,),
+            )]
+            if _table_exists(connection,"serp_competitive_analyses")
+            else []
+        )
         rows=[]; modals=[]
         for index,item in enumerate(analyses,1):
             oid=str(item.get("observation_id") or "")
@@ -1224,7 +1229,7 @@ def _competitive_html(database: Path, data: Any) -> str:
         table=page._table(
             ("Consulta","Status","Classificados","Selecionados","Páginas observadas","Lacunas","IA","Metodologia","Detalhe"),
             rows,
-            empty="Nenhuma análise competitiva persistida.",
+            empty="Nenhuma análise competitiva persistida. A configuração efetiva permanece exposta acima para distinguir não execução, não elegibilidade e falha de materialização.",
             sortable=bool(rows),
         )
         return contract_html+table+"".join(modals)

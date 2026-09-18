@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 from html import escape
+import inspect
 import json
 from pathlib import Path
 import re
@@ -260,6 +261,25 @@ def _applicable_config_markers(data: Any, catalog_id: str) -> tuple[str, ...]:
     return tuple(marker for marker in markers if marker in {"Termos de busca", "Localidade", "Profundidade desejada", "Dispositivo"})
 
 
+def _read_only_guard_present() -> tuple[bool, str]:
+    try:
+        from rasai import catalog_report_site as site
+        source = inspect.getsource(site.materialize_catalog_report_site)
+    except (ImportError, OSError, TypeError):
+        return False, "não foi possível inspecionar o owner da materialização"
+    required = (
+        "before=_source_fingerprint(database)",
+        "after=_source_fingerprint(database)",
+        "if before!=after",
+        "if _source_fingerprint(database)!=after",
+    )
+    missing = [marker for marker in required if marker not in source]
+    return (
+        not missing,
+        "fingerprint antes/depois e antes da promoção" if not missing else "guardas ausentes: " + ", ".join(missing),
+    )
+
+
 def assess_catalog(database: Path, data: Any, catalog_id: str, body: str) -> dict[str, Any]:
     from rasai import catalog_report_page as page
 
@@ -276,6 +296,7 @@ def assess_catalog(database: Path, data: Any, catalog_id: str, body: str) -> dic
     body_security_ok, body_security_failures = _safe_output(body)
     persisted_secret_ok, persisted_secret_detail = _secret_free_configuration(data)
     artifact_ok, artifact_detail = _artifact_integrity(database, data.audit_id, catalog_id)
+    read_only_ok, read_only_detail = _read_only_guard_present()
 
     checks: list[dict[str, Any]] = []
 
@@ -325,7 +346,7 @@ def assess_catalog(database: Path, data: Any, catalog_id: str, body: str) -> dic
         _check("INT_CONFIG_HASH", "integrity", plan_ok, "hash do plano confere"),
         _check("INT_ARTIFACTS", "integrity", artifact_ok, artifact_detail),
         _check("INT_SOURCE_INVENTORY", "integrity", not hidden_sources, "inventário persistido/projetado reconciliado"),
-        _check("INT_READ_ONLY_CONTRACT", "integrity", "somente para leitura" in body.casefold() or "read-only" in body.casefold() or True, "materialização é protegida por fingerprint antes/depois no owner do site"),
+        _check("INT_READ_ONLY_CONTRACT", "integrity", read_only_ok, read_only_detail),
     ])
 
     checks.extend([
