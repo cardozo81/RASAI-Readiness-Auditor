@@ -129,6 +129,16 @@ class ProviderCallResult:
     reason: str | None = None
 
 
+def semantic_output_language_directive(semantic_input: SemanticInput) -> str:
+    language = str(semantic_input.primary_language or "pt-BR").strip() or "pt-BR"
+    return (
+        " Human-readable free-text output must use the audit primary_language "
+        f"{language!r}. This applies to reasoning_summary, observed_value.summary, "
+        "observed_value.details, primary_intent and secondary_intents. Keep rule IDs, "
+        "enum values, evidence IDs, URLs, proper names and technical identifiers unchanged."
+    )
+
+
 class SemanticAnalysisProvider(Protocol):
     name: str
 
@@ -222,6 +232,7 @@ class OpenAIProvider:
             "Return JSON matching the schema. Never invent evidence_ids. "
             "Use UNKNOWN when the supplied evidence is insufficient. "
             "Do not infer hidden facts or score the website."
+            + semantic_output_language_directive(semantic_input)
         )
         return {
             "model": self.model,

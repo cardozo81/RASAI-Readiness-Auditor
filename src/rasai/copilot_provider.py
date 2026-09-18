@@ -13,7 +13,12 @@ from typing import Any, Mapping
 from rasai.m18_ai import ProviderAttempt, ProviderPolicy, RuntimeProviderState
 from rasai.openai_provider import SEMANTIC_RULE_CRITERIA
 from rasai.provider_extensions import IsolatedStructuredSemanticProvider
-from rasai.semantic import SEMANTIC_RULE_IDS, SemanticInput, SemanticProviderError
+from rasai.semantic import (
+    SEMANTIC_RULE_IDS,
+    SemanticInput,
+    SemanticProviderError,
+    semantic_output_language_directive,
+)
 
 COPILOT_PROVIDER_NAME = "COPILOT"
 COPILOT_KEY_ENV = "COPILOT_GITHUB_TOKEN"
@@ -34,7 +39,9 @@ def _semantic_prompt(semantic_input: SemanticInput) -> str:
         "Evaluate only the supplied evidence. Return one JSON object only, with exactly "
         "the RASAi semantic response contract. Never call tools, browse, read files, run "
         "commands, or invent evidence IDs. Use UNKNOWN when evidence is insufficient. "
-        "The assessments array must contain exactly one assessment for every rule below.\n\n"
+        "The assessments array must contain exactly one assessment for every rule below."
+        + semantic_output_language_directive(semantic_input)
+        + "\n\n"
         f"Semantic rules:\n{criteria}\n\n"
         "Required JSON top-level fields: assessments, entities, primary_intent, "
         "secondary_intents. Each assessment requires rule_id, result, confidence, "

@@ -42,6 +42,7 @@ from rasai.semantic import (
     SemanticProviderError,
     SemanticSchemaError,
     normalize_provider_payload,
+    semantic_output_language_directive,
 )
 
 
@@ -209,7 +210,7 @@ def _int_or_none(value: Any) -> int | None:
     return result if result >= 0 else None
 
 
-def _semantic_instructions() -> str:
+def _semantic_instructions(semantic_input: SemanticInput | None = None) -> str:
     criteria = "\n".join(
         f"- {rule_id}: {SEMANTIC_RULE_CRITERIA[rule_id]}"
         for rule_id in SEMANTIC_RULE_IDS
@@ -221,7 +222,9 @@ def _semantic_instructions() -> str:
         "Use UNKNOWN when evidence is insufficient and NOT_APPLICABLE only when "
         "the rule genuinely does not apply. The assessments array MUST contain "
         "exactly one item for every rule listed below, with no omissions, "
-        "duplicates or unknown rule ids.\n\nSemantic rule contract:\n" + criteria
+        "duplicates or unknown rule ids."
+        + (semantic_output_language_directive(semantic_input) if semantic_input is not None else "")
+        + "\n\nSemantic rule contract:\n" + criteria
     )
 
 
@@ -608,7 +611,7 @@ class XAIProvider(IsolatedStructuredSemanticProvider):
     def _request_payload(self, semantic_input: SemanticInput) -> dict[str, Any]:
         return {
             "model": self.model,
-            "instructions": _semantic_instructions(),
+            "instructions": _semantic_instructions(semantic_input),
             "input": [{
                 "role": "user",
                 "content": [{

@@ -48,6 +48,7 @@ from rasai.semantic import (
     SemanticSchemaError,
     _extract_json_payload,
     normalize_provider_payload,
+    semantic_output_language_directive,
 )
 
 SEMANTIC_CONTRACT_VERSION = "M18-SEMANTIC-22-v1"
@@ -451,7 +452,9 @@ class ResponsesSemanticProvider(_HardenedOpenAIProvider):
             "Never invent evidence_ids or hidden facts. Do not score the website. Use UNKNOWN when "
             "evidence is insufficient and NOT_APPLICABLE only when the rule genuinely does not apply. "
             "The assessments array MUST contain exactly one item for every rule listed below, with no "
-            "omissions, duplicates or unknown rule ids.\n\nSemantic rule contract:\n" + criteria
+            "omissions, duplicates or unknown rule ids."
+            + semantic_output_language_directive(semantic_input)
+            + "\n\nSemantic rule contract:\n" + criteria
         )
         semantic_schema = hardened_semantic_output_schema(semantic_input.allowed_evidence_ids)
         if self.name == "DEEPSEEK":

@@ -26,6 +26,7 @@ from rasai.semantic import (
     _extract_json_payload,
     normalize_provider_payload,
     semantic_output_schema,
+    semantic_output_language_directive,
 )
 
 
@@ -182,7 +183,9 @@ class OpenAIProvider(_BaseOpenAIProvider):
             "NOT_APPLICABLE only when the rule genuinely does not apply. "
             "Declared property/editorial context is comparison context, not observed proof. "
             "The assessments array MUST contain exactly one item for every rule listed below, "
-            "with no omissions and no duplicates.\n\nSemantic rule contract:\n"
+            "with no omissions and no duplicates."
+            + semantic_output_language_directive(semantic_input)
+            + "\n\nSemantic rule contract:\n"
             + criteria
         )
         return {
