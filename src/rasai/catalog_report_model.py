@@ -32,6 +32,11 @@ _SERVICE_LABELS = {
     "google-search-console":"Google Search Console",
     "derived-readiness":"Métricas derivadas de prontidão",
     "retrieval-metrics":"Métricas de recuperação",
+    "OSV":"OSV",
+    "CISA_KEV":"CISA Known Exploited Vulnerabilities (KEV)",
+    "MDN_OBSERVATORY":"MDN HTTP Observatory",
+    "TLS_EXTERNAL":"TLS externo opcional",
+    "THREAT_REPUTATION":"Threat Intelligence / reputação",
 }
 _AI_PURPOSE_LABELS = {
     "M18-SEMANTIC-22-V1":("Análise semântica","CAT-03"),
