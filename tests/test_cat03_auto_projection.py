@@ -59,8 +59,8 @@ def test_cat03_auto_projection_uses_real_canonical_configuration_and_marks_effec
 
     html=_auto_interpretation_html(_Evidence,database,"AUD")
     assert "Interpretações de contexto por IA" in html
-    assert "Perfil de risco|YMYL|Não solicitado" in html
+    assert "Perfil de risco|YMYL (ymyl)|Não solicitado" in html
     assert "Não - campo declarado" in html
-    assert "Categoria YMYL|Automático" in html
-    assert "Segurança financeira|Sim" in html
+    assert "Categoria YMYL|Automático (auto)" in html
+    assert "Segurança financeira (financial-security)|Sim" in html
     assert "Outra interpretação AUTO posterior/efetiva foi selecionada" in html
