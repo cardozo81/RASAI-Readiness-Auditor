@@ -156,6 +156,15 @@ def _catalog_source_count(connection: sqlite3.Connection, table: str, audit_id: 
             (audit_id,),
         )
         return int(rows[0][0]) if rows else 0
+    if table=="page_snapshots" and _table_exists(connection,"pages"):
+        rows=_rows(
+            connection,
+            """SELECT COUNT(*) FROM page_snapshots ps
+               JOIN pages p ON p.page_id=ps.page_id
+               WHERE p.audit_id=?""",
+            (audit_id,),
+        )
+        return int(rows[0][0]) if rows else 0
     if table in {"serp_competitive_results","serp_competitive_pages"} and _table_exists(connection,"serp_competitive_analyses"):
         rows=_rows(
             connection,
