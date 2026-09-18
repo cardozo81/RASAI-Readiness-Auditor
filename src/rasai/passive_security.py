@@ -53,8 +53,8 @@ FINDING_TYPES = frozenset({
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
 KNOWN_NPM_LIBRARIES = {
     "jquery": "jquery",
-    "react": "react",
     "react-dom": "react-dom",
+    "react": "react",
     "vue": "vue",
     "angular": "angular",
     "lodash": "lodash",
@@ -414,7 +414,7 @@ def _component_from_url(url: str | None) -> tuple[str, str, str, str] | None:
         if not match:
             match = re.search(r"[-_.]v?(\d+\.\d+(?:\.\d+)?(?:[-+][0-9a-z.-]+)?)", name, re.IGNORECASE)
         if match:
-            return package, match.group(1), "npm", "HIGH"
+            return package, match.group(1), "npm", "MEDIUM"
         return package, "", "npm", "LOW"
     return None
 
@@ -593,13 +593,13 @@ def collect_external_intelligence(*, audit_id: str, workspace: Any, source_block
         else:
             queryable = [
                 item for item in components
-                if item.get("version") and item.get("ecosystem") and item.get("confidence") == "HIGH"
+                if item.get("version") and item.get("ecosystem") and item.get("confidence") in {"HIGH", "MEDIUM"}
             ]
             if not queryable:
                 with connection:
                     _integration_row(
                         connection, audit_id=audit_id, integration_id="OSV", requested=True,
-                        state="NO_DATA", details={"reason": "NO_HIGH_CONFIDENCE_COMPONENT_VERSION"},
+                        state="NO_DATA", details={"reason": "NO_VERSIONED_COMPONENT_IDENTIFIED"},
                     )
             else:
                 last_error: Exception | None = None
@@ -723,7 +723,14 @@ def collect_external_intelligence(*, audit_id: str, workspace: Any, source_block
             _integration_row(connection, audit_id=audit_id, integration_id="TLS_EXTERNAL", requested=False, state="NOT_REQUESTED", details={"reason": "OPTIONAL_DEEP_TLS_NOT_ENABLED_IN_INITIAL_SCOPE"})
             _integration_row(connection, audit_id=audit_id, integration_id="THREAT_REPUTATION", requested=False, state="NOT_REQUESTED", details={"reason": "URL_REPUTATION_REQUIRES_EXPLICIT_PRIVACY_AND_PROVIDER_POLICY"})
         return {
-            "collection_state": "COMPLETED" if osv_successes or not osv_requested else "PARTIAL",
+            "collection_state": (
+                "COMPLETED"
+                if (not osv_requested or osv_successes or not [
+                    item for item in components
+                    if item.get("version") and item.get("ecosystem") and item.get("confidence") in {"HIGH", "MEDIUM"}
+                ])
+                else "PARTIAL"
+            ),
             "components": len(components),
             "osv_attempts": osv_attempts,
             "osv_successes": osv_successes,
@@ -1221,11 +1228,11 @@ def _advisory_findings(connection: sqlite3.Connection, audit_id: str) -> list[di
         severity = "HIGH" if kev == "MATCHED" else "MEDIUM"
         findings.append(_finding(
             audit_id=audit_id,page_id=str(row["page_id"] or "") or None,url=str(row["page_url"] or ""),
-            code=f"OSV_{row['row_id']}",category="Known Vulnerability",
-            finding_type="KNOWN_VULNERABILITY",title=title,description=description,severity=severity,
-            confidence="HIGH",source="OSV + CISA KEV" if kev == "MATCHED" else "OSV",
+            code=f"OSV_{row['row_id']}",category="Vulnerability Intelligence",
+            finding_type="POTENTIAL_VULNERABILITY",title=title,description=description,severity=severity,
+            confidence="MEDIUM",source="OSV + CISA KEV" if kev == "MATCHED" else "OSV",
             evidence_ids=[str(row["component_id"]), str(row["resource_id"])],party=str(row["party"] or "UNKNOWN"),
-            origin="EXTERNAL",impact="Componente/versionamento observado possui advisory conhecido; KEV, quando presente, eleva a prioridade operacional por exploração conhecida em campo.",
+            origin="EXTERNAL",impact="O identificador de componente/versionamento observado correlaciona com advisory conhecido; como a identificação veio do nome do recurso, o CAT-10 mantém o finding como potencial até confirmação por inventário/build/SBOM. KEV, quando presente, eleva a prioridade operacional.",
             containment="Reduzir exposição do componente afetado, restringir funcionalidade dependente ou isolar a rota enquanto a atualização é planejada.",
             remediation="Atualizar para versão não afetada indicada pelo advisory/fonte do fornecedor, validando compatibilidade.",
             validation="Reidentificar a versão, consultar novamente OSV e confirmar ausência do CVE/advisory; executar testes de regressão.",
