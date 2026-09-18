@@ -53,6 +53,7 @@ from rasai.console_settings import (
     save_console_config,
     sync_nonsecret_runtime_environment,
 )
+from rasai.configuration_value_labels import configuration_value_choice
 from rasai.console_ui import (
     CYAN,
     DIM,
@@ -113,7 +114,8 @@ def _select(state: State, title: str, options: list[tuple[str, bool, str]]) -> s
     for index, (value, available, reason) in enumerate(options, 1):
         marker = availability_badge(available)
         reason_text = paint(reason, CYAN if available else RED)
-        print(f" {index}. {value:<18} [{marker}] {reason_text}")
+        display_value = configuration_value_choice("", value)
+        print(f" {index}. {display_value:<32} [{marker}] {reason_text}")
         if available:
             allowed[str(index)] = value
     print("\n V. Voltar")
