@@ -142,6 +142,35 @@ def verify_catalog_report_package(report_dir: str|Path) -> tuple[bool,tuple[str,
     snapshot=manifest.get("audit_snapshot")
     if not isinstance(snapshot,dict) or not snapshot.get("path") or not snapshot.get("sha256"):
         errors.append("audit_snapshot ausente do manifest")
+
+    assurance=manifest.get("assurance")
+    if not isinstance(assurance,dict):
+        errors.append("assurance ausente do manifest")
+    else:
+        assurance_ref=str(assurance.get("artifact") or "")
+        if not assurance_ref:
+            errors.append("artifact de assurance ausente do manifest")
+        else:
+            assurance_path=(root/assurance_ref).resolve()
+            try:
+                assurance_path.relative_to(root.resolve())
+            except ValueError:
+                errors.append("artifact de assurance fora do pacote")
+            else:
+                if not assurance_path.is_file():
+                    errors.append("artifact de assurance ausente")
+                else:
+                    try:
+                        assurance_payload=json.loads(assurance_path.read_text(encoding="utf-8"))
+                    except (OSError,ValueError,json.JSONDecodeError):
+                        errors.append("artifact de assurance inválido")
+                    else:
+                        if bool(assurance_payload.get("closure_eligible")) != bool(assurance.get("closure_eligible")):
+                            errors.append("closure_eligible divergente entre manifest e assurance")
+                        if assurance_payload.get("thresholds") != assurance.get("thresholds"):
+                            errors.append("thresholds divergentes entre manifest e assurance")
+                        if assurance_payload.get("global") != assurance.get("global"):
+                            errors.append("scores globais divergentes entre manifest e assurance")
     return not errors,tuple(errors)
 
 
