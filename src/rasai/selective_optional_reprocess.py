@@ -347,6 +347,51 @@ def _reconcile_gsc_rpr(workspace: Any, audit_id: str) -> None:
     )
 
 
+def _effective_improvement_configuration(
+    item: Any,
+    run: Mapping[str, Any] | None,
+    environment: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Resolve fulfillment metadata from the executed run before current environment."""
+    from rasai.improvement_intelligence import (
+        AI_ANALYSIS_LANGUAGE_ENV,
+        DEFAULT_DOMAINS,
+        DOMAINS_ENV,
+        MAX_RECOMMENDATIONS_ENV,
+        MODEL_ENV,
+        PROVIDER_ENV,
+        REASONING_ENV,
+        TIMEOUT_ENV,
+    )
+
+    existing = dict(getattr(item, "configuration", {}) or {})
+    values: dict[str, Any] = {
+        "requested": True,
+        "provider": existing.get("provider") or str(environment.get(PROVIDER_ENV) or ""),
+        "model": existing.get("model") or str(environment.get(MODEL_ENV) or ""),
+        "reasoning": existing.get("reasoning") or str(environment.get(REASONING_ENV) or ""),
+        "domains": existing.get("domains") or [
+            value.strip().upper()
+            for value in str(environment.get(DOMAINS_ENV) or "").replace(";", ",").split(",")
+            if value.strip()
+        ] or list(DEFAULT_DOMAINS),
+        "max_recommendations": existing.get("max_recommendations") or str(environment.get(MAX_RECOMMENDATIONS_ENV) or "30"),
+        "timeout_seconds": existing.get("timeout_seconds") or str(environment.get(TIMEOUT_ENV) or "240"),
+        "language": existing.get("language") or str(environment.get(AI_ANALYSIS_LANGUAGE_ENV) or "auto"),
+    }
+    if run is not None:
+        domains = _json_load(run.get("domains_json"), values["domains"])
+        values.update({
+            "provider": run.get("provider") or values["provider"],
+            "model": run.get("model") or values["model"],
+            "reasoning": run.get("reasoning") or values["reasoning"],
+            "domains": domains if isinstance(domains, list) else values["domains"],
+            "max_recommendations": run.get("max_recommendations") or values["max_recommendations"],
+            "language": run.get("analysis_language") or values["language"],
+        })
+    return values
+
+
 def _augment_reconciliation_configuration() -> None:
     """Persist complete non-secret optional-service configuration into each work item."""
     from rasai import fulfillment_execution_contract as contract
@@ -374,33 +419,11 @@ def _augment_reconciliation_configuration() -> None:
                 ImprovementConfig,
             )
 
-            environment = os.environ
-            existing = dict(getattr(item, "configuration", {}) or {})
-            values: dict[str, Any] = {
-                "requested": True,
-                "provider": existing.get("provider") or str(environment.get(PROVIDER_ENV) or ""),
-                "model": existing.get("model") or str(environment.get(MODEL_ENV) or ""),
-                "reasoning": existing.get("reasoning") or str(environment.get(REASONING_ENV) or ""),
-                "domains": existing.get("domains") or [
-                    value.strip().upper()
-                    for value in str(environment.get(DOMAINS_ENV) or "").replace(";", ",").split(",")
-                    if value.strip()
-                ] or list(DEFAULT_DOMAINS),
-                "max_recommendations": existing.get("max_recommendations") or str(environment.get(MAX_RECOMMENDATIONS_ENV) or "30"),
-                "timeout_seconds": existing.get("timeout_seconds") or str(environment.get(TIMEOUT_ENV) or "240"),
-                "language": existing.get("language") or str(environment.get(AI_ANALYSIS_LANGUAGE_ENV) or "auto"),
-            }
-            run = _improvement_run(workspace, audit_id)
-            if run is not None:
-                domains = _json_load(run.get("domains_json"), values["domains"])
-                values.update({
-                    "provider": run.get("provider") or values["provider"],
-                    "model": run.get("model") or values["model"],
-                    "reasoning": run.get("reasoning") or values["reasoning"],
-                    "domains": domains if isinstance(domains, list) else values["domains"],
-                    "max_recommendations": run.get("max_recommendations") or values["max_recommendations"],
-                    "language": run.get("analysis_language") or values["language"],
-                })
+            values = _effective_improvement_configuration(
+                item,
+                _improvement_run(workspace, audit_id),
+                os.environ,
+            )
             register_work_item(
                 workspace,
                 audit_id=audit_id,

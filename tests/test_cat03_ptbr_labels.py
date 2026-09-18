@@ -5,21 +5,20 @@ from rasai.semantic_coherence_reporting import (
 )
 
 
-def test_cat03_dimension_labels_are_presented_in_pt_br_with_original_tooltip() -> None:
+def test_cat03_dimension_labels_are_pt_br_without_internal_translation_tooltip() -> None:
     semantic = str(_dimension_label("SEMANTIC_STRUCTURE"))
     entity = str(_dimension_label("ENTITY_CLARITY"))
     structured = str(_dimension_label("STRUCTURED_DATA"))
     evidence = str(_dimension_label("EVIDENCE_TRUST"))
     intent = str(_dimension_label("INTENT_COVERAGE"))
 
-    assert "Estrutura semântica" in semantic
-    assert "title='Semantic Structure'" in semantic
-    assert "Clareza de entidades" in entity
-    assert "title='Entity Clarity'" in entity
-    assert "Dados estruturados" in structured
-    assert "Evidências e confiabilidade" in evidence
-    assert "Cobertura de intenções" in intent
-    assert "🌐" in semantic
+    assert semantic == "Estrutura semântica"
+    assert entity == "Clareza de entidades"
+    assert structured == "Dados estruturados"
+    assert evidence == "Evidências e confiabilidade"
+    assert intent == "Cobertura de intenções"
+    assert "🌐" not in semantic
+    assert "Semantic Structure" not in semantic
 
 
 def test_cat03_coherence_descriptions_are_presented_in_pt_br() -> None:
