@@ -87,6 +87,62 @@ def _apdex_samples_html(database: Path, data: _ReportData, *, experience: bool) 
     return _table(("Amostra","Data/hora","Dispositivo","Classificação","Duração","Medição","Detalhe"),rows,empty="Nenhuma amostra foi persistida para este Apdex.",sortable=bool(rows),page_size=10 if experience and len(rows)>10 else None)+"".join(modals)
 
 
+def _security_finding_type_label(value: Any) -> str:
+    return {
+        "OBSERVATION":"Observação",
+        "CONFIGURATION_WEAKNESS":"Fragilidade de configuração",
+        "EXPOSURE":"Exposição",
+        "POTENTIAL_VULNERABILITY":"Vulnerabilidade potencial",
+        "KNOWN_VULNERABILITY":"Vulnerabilidade conhecida",
+        "THREAT_REPUTATION":"Threat Intelligence / reputação",
+        "RUNTIME_FAILURE":"Falha de Runtime",
+        "INFORMATION_DISCLOSURE":"Exposição de informação",
+    }.get(_norm(value),str(value or "-").replace("_"," ").title())
+
+
+def _security_category_label(value: Any) -> str:
+    return {
+        "TRANSPORT":"Transporte",
+        "HTTP_SECURITY":"Segurança HTTP",
+        "BROWSER_SECURITY":"Segurança do navegador",
+        "CORS":"CORS",
+        "COOKIES":"Cookies",
+        "PRIVACY_BROWSER":"Privacidade / navegador",
+        "CROSS_ORIGIN":"Cross-Origin",
+        "INFORMATION_DISCLOSURE":"Exposição de informação",
+        "MIXED_CONTENT":"Mixed Content",
+        "RESOURCE_INTEGRITY":"Integridade de recursos",
+        "FORMS":"Formulários",
+        "IFRAMES":"Iframes",
+        "RUNTIME":"Runtime",
+        "VULNERABILITY_INTELLIGENCE":"Vulnerability Intelligence / CVE",
+    }.get(_norm(value),str(value or "-").replace("_"," ").title())
+
+
+def _security_party_label(value: Any) -> str:
+    return {
+        "FIRST_PARTY":"First-party (próprio domínio)",
+        "THIRD_PARTY":"Third-party (domínio externo)",
+        "INLINE":"Inline",
+        "UNKNOWN":"Não determinado",
+    }.get(_norm(value),str(value or "-").replace("_"," ").title())
+
+
+def _security_resource_kind_label(value: Any) -> str:
+    return {
+        "SCRIPT":"Script",
+        "STYLESHEET":"Folha de estilos",
+        "RESOURCE":"Recurso",
+        "FORM":"Formulário",
+        "IFRAME":"Iframe",
+        "IMG":"Imagem",
+        "SOURCE":"Source",
+        "VIDEO":"Vídeo",
+        "AUDIO":"Áudio",
+        "TRACK":"Track",
+    }.get(_norm(value),str(value or "-").replace("_"," ").title())
+
+
 def _passive_security_html(database: Path, data: _ReportData) -> str:
     con=sqlite3.connect(database); con.row_factory=sqlite3.Row
     try:
@@ -175,18 +231,18 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
     finding_rows=[]; modals=[]
     for index,item in enumerate(findings,1):
         mid=f"security-finding-{index}"
-        finding_type=_status_label(item.get("finding_type"))
-        if finding_type==str(item.get("finding_type") or "").replace("_"," ").title():
-            finding_type=str(item.get("finding_type") or "-").replace("_"," ").title()
+        finding_type=_security_finding_type_label(item.get("finding_type"))
+        category=_security_category_label(item.get("category"))
+        party=_security_party_label(item.get("party_context"))
         cves=_safe_json(item.get("cve_json"),[])
         evidence_ids=_safe_json(item.get("evidence_ids_json"),[])
         details=_safe_json(item.get("details_json"),{})
         finding_rows.append((
             _level_label(item.get("severity")),
             finding_type,
-            item.get("category") or "-",
+            category,
             item.get("title") or "Finding",
-            item.get("party_context") or "-",
+            party,
             _confidence_label(item.get("confidence")),
             _modal_button(mid,"Ver finding"),
         ))
@@ -196,7 +252,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             ("Severidade",_level_label(item.get("severity"))),
             ("Confiança",_confidence_label(item.get("confidence"))),
             ("Origem",item.get("source") or "-"),
-            ("Contexto",item.get("party_context") or "-"),
+            ("Contexto",party),
             ("Impacto",item.get("impact") or "-"),
             ("Contenção imediata",item.get("containment") or "-"),
             ("Correção definitiva",item.get("remediation") or "-"),
@@ -208,7 +264,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             body+="<h3>Rastreabilidade</h3><p class='mono'>"+escape(" · ".join(str(v) for v in evidence_ids))+"</p>"
         if isinstance(details,Mapping) and details:
             body+="<details><summary>Detalhes técnicos persistidos</summary><div class='detail-body'><div class='pre'>"+escape(json.dumps(details,ensure_ascii=False,indent=2,default=str))+"</div></div></details>"
-        modals.append(_modal(mid,item.get("title") or "Finding de segurança",f"{item.get('category') or 'Segurança'} · {item.get('source') or 'RASAi'}",body))
+        modals.append(_modal(mid,item.get("title") or "Finding de segurança",f"{category} · {item.get('source') or 'RASAi'}",body))
 
     integration_rows=[]; integration_modals=[]
     for index,item in enumerate(integrations,1):
@@ -241,7 +297,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         key=(str(item.get("resource_kind") or "UNKNOWN"),str(item.get("party") or "UNKNOWN"))
         resource_groups[key]=resource_groups.get(key,0)+1
     resource_rows=[
-        (kind.replace("_"," ").title(),party.replace("_"," ").title(),count)
+        (_security_resource_kind_label(kind),_security_party_label(party),count)
         for (kind,party),count in sorted(resource_groups.items())
     ]
 
@@ -273,7 +329,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         ))
 
     type_rows=[
-        (key.replace("_"," ").title(),value)
+        (_security_finding_type_label(key),value)
         for key,value in sorted(types.items())
     ]
 
