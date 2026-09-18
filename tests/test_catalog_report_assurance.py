@@ -281,3 +281,32 @@ def test_requested_not_executed_is_explicit_in_catalog_execution_label() -> None
     from rasai.catalog_report_analysis import _technical_work_status
 
     assert _technical_work_status("REQUESTED_NOT_EXECUTED") == "Solicitado, não executado"
+
+def test_truthfully_persisted_provider_contract_failure_is_not_misclassified_as_internal_gap(monkeypatch, tmp_path: Path) -> None:
+    from rasai import catalog_report_assurance as assurance
+
+    database = tmp_path / "audit.db"
+    database.write_bytes(b"")
+    _patch_catalog(monkeypatch)
+    monkeypatch.setattr(assurance, "_applicable_config_markers", lambda *_args: ())
+
+    data = _data()
+    data.selected = {"CAT-09"}
+    data.work_items = [{
+        "component": "CONTENT_REMEDIATION_AI",
+        "scope_key": "AUDIT",
+        "status": "FAILED_RETRYABLE",
+        "last_error_class": "AI_CONTRACT",
+        "last_error_code": "PROVIDER_RESPONSE_CONTRACT_ERROR",
+    }]
+    result = assess_catalog(database, data, "CAT-09", _body())
+
+    internal = {
+        item["code"]: item["passed"]
+        for item in result["checks"]
+        if item["code"] in {"GOV_INTERNAL_EXECUTION", "REL_INTERNAL_EXECUTION"}
+    }
+    assert internal == {
+        "GOV_INTERNAL_EXECUTION": True,
+        "REL_INTERNAL_EXECUTION": True,
+    }

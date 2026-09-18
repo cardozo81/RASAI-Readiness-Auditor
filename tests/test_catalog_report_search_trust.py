@@ -424,6 +424,7 @@ def test_competitive_report_exposes_effective_contract_http_evidence_and_ai_gove
             "timeout_seconds":12.5,
             "max_bytes":1500000,
             "max_redirects":2,
+            "customer_source":"AUDIT_RENDERED_ARTIFACT",
         }
     },sort_keys=True)
     artifact.write_text(artifact_payload, encoding="utf-8")
@@ -564,6 +565,9 @@ def test_competitive_report_exposes_effective_contract_http_evidence_and_ai_gove
     assert "Evidence seal" in html
     assert "IA pós-selo" in html
     assert "artifact.acquisition_policy.timeout_seconds" in html
+    assert "Fonte do conteúdo do site auditado" in html
+    assert "Captura renderizada da própria AUD" in html
+    assert "artifact.acquisition_policy.customer_source" in html
     assert "runtime max_competitor_pages=1" in html
     assert "Máx. páginas concorrentes" in html
     assert "1500000" in html
@@ -756,3 +760,25 @@ def test_serp_projection_exposes_persisted_engine(tmp_path: Path) -> None:
     assert ">Engine<" in html
     assert ">google<" in html
     assert "serpapi" in html
+
+def test_competitive_validation_exposes_customer_content_source() -> None:
+    rows = _competitive_validation_rows(
+        {"competitive": True, "compare_content": True},
+        {"comparison_status": "CONSOLIDATED", "evidence_ref": "artifact.json"},
+        (),
+        (),
+        None,
+        None,
+        (),
+        None,
+        {
+            "content_enabled": True,
+            "customer_source": "AUDIT_RENDERED_ARTIFACT",
+        },
+    )
+    by_control = {row[0]: row for row in rows}
+    source = by_control["Fonte do conteúdo do site auditado"]
+    assert source[2] == "Sim"
+    assert source[3] == "Captura renderizada da própria AUD"
+    assert source[5] == "artifact.acquisition_policy.customer_source"
+    assert source[-1] == "OK"
