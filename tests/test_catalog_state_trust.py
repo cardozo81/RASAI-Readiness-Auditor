@@ -9,12 +9,15 @@ from rasai.catalog_state_trust import install
 
 
 def _data(*catalogs: str):
+    selected = set(catalogs)
     return SimpleNamespace(
         audit_id="AUD-1",
-        selected=set(catalogs),
+        selected=selected,
         work_items=[],
         catalog_items={},
-        configuration={},
+        configuration={"audit_catalog": {"selected": sorted(selected)}},
+        config_hash="test-plan",
+        computed_hash="test-plan",
         targets=(),
     )
 

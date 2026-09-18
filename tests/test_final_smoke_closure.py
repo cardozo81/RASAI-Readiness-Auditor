@@ -332,7 +332,7 @@ def test_recommendation_governance_finishes_before_reporting_phase() -> None:
     from rasai import audit_runner
 
     source = inspect.getsource(audit_runner.run_audit)
-    governance = source.index("evaluate_recommendations(workspace.database, audit_id)")
+    governance = source.index("evaluate_recommendations(")
     reporting = source.index("_set_status(persistence, audit_id, AuditStatus.REPORTING)")
 
     assert governance < reporting

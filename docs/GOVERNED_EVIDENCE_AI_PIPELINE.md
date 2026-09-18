@@ -208,7 +208,7 @@ A mesma regra vale para rerender: reabrir/materializar HTML não pode gerar cust
 
 ### Fechamentos do baseline de execução
 
-- **Common Crawl** possui um único owner de coleta na fase externa pré-seal. A regra `BR-GEO-060` é derivada deterministicamente antes de `EVIDENCE_SEALED` e reutiliza somente o dataset já persistido; M9/relatórios não podem abrir nova chamada de rede.
+- **Common Crawl** possui um único owner de coleta na fase externa pré-seal. A regra `BR-GEO-060` é derivada deterministicamente antes de `EVIDENCE_SEALED` e reutiliza somente o dataset já persistido; scoring e relatórios não podem abrir nova chamada de rede.
 - **CAT-08 / Improvement Intelligence** executa dentro da janela governada de IA, herda a seleção global de provider/AUTO e recebe os parâmetros específicos congelados da AUD (domínios, limite de recomendações e timeout). Quando obrigatório, sua ausência/falha permanece explícita no fulfillment.
 - **Governança de recomendações do CAT-09** é materializada no report-model durável antes da projeção HTML. O `report-catalog` apenas lê `recommendation_governance`; não cria, atualiza ou remove linhas durante o rendering.
 - **Custo observado** só recebe classificação de aderência quando todos os requisitos obrigatórios do fulfillment estiverem concluídos. Execução obrigatória incompleta é apresentada como não comparável, ainda que o valor monetário observado seja menor que o previsto.
