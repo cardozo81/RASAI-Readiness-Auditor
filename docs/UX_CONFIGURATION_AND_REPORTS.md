@@ -18,7 +18,7 @@ A implementação atual altera o console e grava a taxonomia no snapshot reutili
 
 ## Antes da execução
 
-O console usa `CAT-01..CAT-09`, readiness contextual e parâmetros efetivos. Recursos não selecionados não aparecem como bloqueios globais.
+O console usa `CAT-01..CAT-10`, readiness contextual e parâmetros efetivos. Recursos não selecionados não aparecem como bloqueios globais.
 
 ## Depois da execução
 
