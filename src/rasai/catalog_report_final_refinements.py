@@ -124,7 +124,7 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
         usage_context, inputs, role = i._ai_usage_detail(attempt)
         currency = str(attempt.get("cost_currency") or "USD")
         rows.append((
-            attempt.get("purpose"), usage_context, attempt.get("provider") or "—", attempt.get("model") or "—",
+            attempt.get("purpose"), usage_context, attempt.get("provider") or "-", attempt.get("model") or "-",
             i._status_label(attempt.get("status")),
             f"{int(attempt.get('input_tokens') or 0):,} / {int(attempt.get('output_tokens') or 0):,}".replace(",", " "),
             _money(cost, currency), i._modal_button(modal_id, "Ver requisição"),
@@ -135,9 +135,9 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
             ("Provedor", attempt.get("provider")),
             ("Modelo", attempt.get("model")),
             ("Resultado da tentativa", i._status_label(attempt.get("status"))),
-            ("Tentativa", attempt.get("attempt_index") or "—"),
-            ("Início", attempt.get("started_at") or "—"),
-            ("Fim", attempt.get("finished_at") or "—"),
+            ("Tentativa", attempt.get("attempt_index") or "-"),
+            ("Início", attempt.get("started_at") or "-"),
+            ("Fim", attempt.get("finished_at") or "-"),
             ("Duração", i._fmt_number(attempt.get("duration_ms"), "ms")),
             ("Tokens de entrada", attempt.get("input_tokens") or 0),
             ("Entrada em cache", attempt.get("cached_input_tokens") or 0),
@@ -145,9 +145,9 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
             ("Tokens de raciocínio", attempt.get("reasoning_tokens") or 0),
             ("Tokens totais", i._attempt_total_tokens(attempt)),
             ("Custo individual", _money(cost, currency)),
-            ("Roteamento / contingência", attempt.get("decision") or attempt.get("fallback_reason") or "—"),
-            ("Fallback de", attempt.get("fallback_from_provider") or "—"),
-            ("Erro", attempt.get("error_detail") or attempt.get("error_code") or "—"),
+            ("Roteamento / contingência", attempt.get("decision") or attempt.get("fallback_reason") or "-"),
+            ("Fallback de", attempt.get("fallback_from_provider") or "-"),
+            ("Erro", attempt.get("error_detail") or attempt.get("error_code") or "-"),
         ))
         body += "<h3>Entrada utilizada</h3><p>" + escape(_attempt_input_detail(attempt)) + "</p>"
         body += "<h3>Dados envolvidos</h3><p>" + escape(inputs) + "</p>"
@@ -159,17 +159,17 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
                 body += "<div class='notice warn'>O log persistido sinaliza truncamento; o relatório não reconstrói conteúdo ausente.</div>"
         else:
             body += "<div class='notice'><strong>Solicitação/resposta bruta não persistida.</strong> A telemetria disponível é exibida acima; o relatório não reconstrói nem inventa o payload.</div>"
-        body += "<details><summary>Ver contrato técnico da chamada</summary><div class='detail-body'>" + i._kv((("Contrato", attempt.get("contract") or "—"), ("Hash do payload", attempt.get("request_payload_hash") or "—"))) + "</div></details>"
+        body += "<details><summary>Ver contrato técnico da chamada</summary><div class='detail-body'>" + i._kv((("Contrato", attempt.get("contract") or "-"), ("Hash do payload", attempt.get("request_payload_hash") or "-"))) + "</div></details>"
         modals.append(i._modal(modal_id, f"{attempt.get('purpose')} · tentativa {attempt.get('attempt_index') or index}", f"{attempt.get('provider') or 'IA'} / {attempt.get('model') or 'modelo não informado'}", body))
 
     int_rows: list[Sequence[Any]] = []
     int_modals: list[str] = []
     for index, row in enumerate(external, 1):
         modal_id = f"integration-{index}"
-        int_rows.append((row["name"], i._status_label(row["status"]), row["attempts"], row["successes"], i._fmt_number(row["duration_ms"], "ms") if row["duration_ms"] is not None else "—", i._modal_button(modal_id, "Ver integração")))
+        int_rows.append((row["name"], i._status_label(row["status"]), row["attempts"], row["successes"], i._fmt_number(row["duration_ms"], "ms") if row["duration_ms"] is not None else "-", i._modal_button(modal_id, "Ver integração")))
         raw = row["raw"]
         details = raw.get("details_json")
-        detail_body = i._kv((("Serviço", row["name"]), ("Resultado", i._status_label(row["status"])), ("Tentativas / alvos", row["attempts"]), ("Sucessos", row["successes"]), ("HTTP", row["http_status"] or "—"), ("Duração", i._fmt_number(row["duration_ms"], "ms") if row["duration_ms"] is not None else "—"), ("URL", row["url"] or "—"), ("Erro", row["error"] or "—"), ("Artefato", row["reference"] or "—")))
+        detail_body = i._kv((("Serviço", row["name"]), ("Resultado", i._status_label(row["status"])), ("Tentativas / alvos", row["attempts"]), ("Sucessos", row["successes"]), ("HTTP", row["http_status"] or "-"), ("Duração", i._fmt_number(row["duration_ms"], "ms") if row["duration_ms"] is not None else "-"), ("URL", row["url"] or "-"), ("Erro", row["error"] or "-"), ("Artefato", row["reference"] or "-")))
         if details:
             detail_body += "<h3>Detalhes persistidos</h3><div class='pre'>" + escape(i._safe_payload_text(details)) + "</div>"
         int_modals.append(i._modal(modal_id, row["name"], "Comunicação/serviço externo persistido", detail_body))
@@ -226,7 +226,7 @@ def _ai_integrations_body(database: Any, data: Any) -> str:
         cost_html += f"<div class='notice {tone}'><strong>Conciliação:</strong> {escape(text)}</div>"
         if forecast.get("relation"):
             cost_html += f"<div class='notice'><strong>Posição:</strong> {escape(str(forecast.get('relation')))}</div>"
-        cost_html += f"<p class='muted'>Previsão avaliada em {escape(str(forecast.get('evaluated_at') or '—'))}. O custo é uma estimativa monetária técnica do RASAi; não representa invoice/fatura do provedor.</p>"
+        cost_html += f"<p class='muted'>Previsão avaliada em {escape(str(forecast.get('evaluated_at') or '-'))}. O custo é uma estimativa monetária técnica do RASAi; não representa invoice/fatura do provedor.</p>"
         if int(forecast.get("unpriced_ai_attempts") or 0):
             cost_html += f"<div class='notice warn'>{int(forecast.get('unpriced_ai_attempts') or 0)} tentativa(s) de IA não possuem preço monetário conhecido e permanecem fora do total.</div>"
     else:
@@ -253,7 +253,7 @@ def _apdex_samples_html(database: Any, data: Any, *, experience: bool) -> str:
     modals: list[str] = []
     for index, sample in enumerate(samples, 1):
         modal_id = ("ux" if experience else "nav") + f"-sample-{index}"
-        captured = sample.get("captured_at") or "—"
+        captured = sample.get("captured_at") or "-"
         if experience:
             duration = sample.get("kpm_value_ms") if sample.get("kpm_value_ms") is not None else sample.get("user_action_duration_ms")
             rows.append((sample.get("run_index", index), captured, a._device_label(sample.get("device")), a._classification_label(sample.get("classification")), a._fmt_number(duration, "ms"), a._fmt_number(sample.get("lcp_ms"), "ms"), sample.get("request_failed_count") or 0, a._status_label(sample.get("status")), a._modal_button(modal_id, "Ver amostra")))
@@ -264,16 +264,16 @@ def _apdex_samples_html(database: Any, data: Any, *, experience: bool) -> str:
                 ("Requisições XHR/fetch", sample.get("xhr_fetch_count")), ("Recursos dinâmicos", sample.get("dynamic_resource_count")), ("Erros JavaScript", sample.get("javascript_error_count")),
                 ("Erros de console", sample.get("console_error_count")), ("Requisições com falha", sample.get("request_failed_count")), ("Falhas em recursos próprios", sample.get("first_party_request_failed_count")),
                 ("Respostas HTTP com erro", sample.get("http_error_count")), ("Rede estabilizada", "Sim" if sample.get("network_settled") else "Não"), ("Frustração forçada por erro", "Sim" if sample.get("error_forced_frustrated") else "Não"),
-                ("Erro", sample.get("error_message") or sample.get("error_code") or "—"),
+                ("Erro", sample.get("error_message") or sample.get("error_code") or "-"),
             )
             note = "<div class='notice'>O horário representa o <strong>momento persistido da captura da amostra</strong>; não é apresentado como horário de início da navegação. A amostra persiste contagens de falhas por requisição; quando a lista individual de URLs não foi persistida, o relatório não a inventa.</div>"
         else:
             duration = sample.get("duration_ms")
             rows.append((sample.get("run_index", index), captured, a._device_label(sample.get("device")), a._classification_label(sample.get("classification")), a._fmt_number(duration, "ms"), a._status_label(sample.get("status")), a._modal_button(modal_id, "Ver amostra")))
-            fields = (("Amostra", sample.get("sample_id")), ("Capturada em", captured), ("URL", sample.get("url")), ("URL final", sample.get("final_url")), ("Classificação", a._classification_label(sample.get("classification"))), ("Duração", a._fmt_number(duration, "ms")), ("HTTP", sample.get("http_status")), ("Perfil técnico", sample.get("profile_id")), ("Política de cache", a._session_label(sample.get("cache_policy"))), ("Erro", sample.get("error_message") or sample.get("error_code") or "—"))
+            fields = (("Amostra", sample.get("sample_id")), ("Capturada em", captured), ("URL", sample.get("url")), ("URL final", sample.get("final_url")), ("Classificação", a._classification_label(sample.get("classification"))), ("Duração", a._fmt_number(duration, "ms")), ("HTTP", sample.get("http_status")), ("Perfil técnico", sample.get("profile_id")), ("Política de cache", a._session_label(sample.get("cache_policy"))), ("Erro", sample.get("error_message") or sample.get("error_code") or "-"))
             diagnostics = a._safe_json(sample.get("browser_diagnostics"), {})
             note = "<h3>Diagnóstico de navegador</h3><div class='pre'>" + escape(json.dumps(diagnostics, ensure_ascii=False, indent=2)) + "</div>" if diagnostics else ""
-        modals.append(a._modal(modal_id, f"Amostra {sample.get('run_index', index)}", f"{'Apdex de experiência' if experience else 'Apdex de navegação'} · {sample.get('url') or '—'}", a._kv(fields) + note))
+        modals.append(a._modal(modal_id, f"Amostra {sample.get('run_index', index)}", f"{'Apdex de experiência' if experience else 'Apdex de navegação'} · {sample.get('url') or '-'}", a._kv(fields) + note))
 
     lead = ""
     if experience and run and bool(run.get("errors_affect_apdex")):
@@ -289,73 +289,14 @@ def _attempt_trace(database: Any, audit_id: str) -> str:
     from rasai import catalog_report_analysis as a
 
     attempts = [item for item in a._ai_attempts(database, audit_id) if str(item.get("contract") or "").upper() == "IMPROVEMENT-INTELLIGENCE-001"]
-    rows = [(item.get("provider") or "—", item.get("model") or "—", a._status_label(item.get("status")), item.get("attempt_index") or "—", item.get("error_detail") or item.get("error_code") or "—") for item in attempts]
+    rows = [(item.get("provider") or "-", item.get("model") or "-", a._status_label(item.get("status")), item.get("attempt_index") or "-", item.get("error_detail") or item.get("error_code") or "-") for item in attempts]
     return a._table(("Provedor", "Modelo", "Resultado da tentativa", "Tentativa", "Erro"), rows, empty="Nenhuma tentativa de IA foi persistida para esta etapa.")
 
 
 def _improvement_html(database: Any, data: Any) -> str:
-    from rasai import catalog_report_analysis as a
-
-    con = sqlite3.connect(database)
-    con.row_factory = sqlite3.Row
-    try:
-        run = a._last(con, "improvement_intelligence_runs", data.audit_id)
-        findings = a._audit_rows(con, "improvement_intelligence_findings", data.audit_id)
-        recs = a._audit_rows(con, "improvement_intelligence_recommendations", data.audit_id)
-    finally:
-        con.close()
-    if not run:
-        return "<div class='notice bad'><strong>Resultado funcional ausente:</strong> a análise profunda foi solicitada, mas o resultado consolidado não está persistido. Consulte a rastreabilidade abaixo e IA e integrações; isso não é tratado como 'nenhuma análise realizada'.</div>" + _attempt_trace(database, data.audit_id)
-
-    status = a._norm(run.get("status"))
-    if status not in a._STATUS_SUCCESS and not findings:
-        metrics = "<div class='metric-grid'>" + a._metric("Estado da análise", a._status_label(run.get("status"))) + a._metric("Problemas persistidos", 0) + a._metric("Recomendações persistidas", 0) + "</div>"
-        return metrics + "<div class='notice bad'><strong>Análise profunda sem resultado funcional:</strong> a etapa possui estado persistido, mas não materializou findings. A tabela abaixo mostra tentativas, fallback e erro para permitir correção/reprocessamento.</div>" + _attempt_trace(database, data.audit_id)
-
-    rec_by_finding = {str(r.get("finding_id")): r for r in recs if r.get("finding_id")}
-    rows: list[Sequence[Any]] = []
-    modals: list[str] = []
-    distribution: Counter[str] = Counter()
-    for index, finding in enumerate(findings, 1):
-        rec = rec_by_finding.get(str(finding.get("finding_id")))
-        domain = a._norm(finding.get("domain"))
-        distribution[domain] += 1
-        source_cat = a._DOMAIN_CATALOG.get(domain)
-        modal_id = f"improvement-{index}"
-        reference = a._Html(f"<a class='ref' href='{a.CATALOG_PAGE_BY_ID[source_cat].filename}'>Origem: {source_cat}</a>") if source_cat in a.CATALOG_PAGE_BY_ID else "—"
-        rows.append((finding.get("title") or "Problema identificado", a._domain_label(domain), a._level_label(finding.get("severity")), "Sim" if rec else "Não", reference, a._modal_button(modal_id, "Ver análise")))
-        body = a._kv((("Problema", finding.get("observation") or finding.get("title") or "—"), ("Domínio", a._domain_label(domain)), ("Severidade", a._level_label(finding.get("severity"))), ("Fonte", finding.get("source") or "—"), ("Catálogo de origem", source_cat or "—"), ("Seletor / path", finding.get("selector") or "Não se aplica / não identificado")))
-        if finding.get("original_html"):
-            body += "<h3>Trecho observado</h3><div class='pre'>" + escape(str(finding.get("original_html"))) + "</div>"
-        evidence = a._safe_json(finding.get("evidence_ids_json"), [])
-        if isinstance(evidence, list) and evidence:
-            body += "<h3>Evidências vinculadas</h3><p>" + escape(" · ".join(str(v) for v in evidence)) + "</p>"
-        if rec:
-            body += "<h3>Melhoria recomendada</h3><p>" + escape(str(rec.get("recommendation") or rec.get("title") or "—")) + "</p><p><a href='cat-09.html'>Ver implementação no CAT-09</a></p>"
-        else:
-            body += "<div class='notice'>Este finding não possui remediação individual da análise profunda persistida nesta execução. O relatório não inventa uma correção.</div>"
-        modals.append(a._modal(modal_id, finding.get("title") or "Análise", f"Análise profunda · {source_cat or 'evidência transversal'}", body))
-
-    unique_recs = len({str(r.get("finding_id")) for r in recs if r.get("finding_id")})
-    without = max(0, len(findings) - unique_recs)
-    intro = "<div class='metric-grid'>"
-    intro += a._metric("Problemas correlacionados", len(findings))
-    intro += a._metric("Melhorias recomendadas", len(recs))
-    intro += a._metric("Achados sem remediação individual", without)
-    intro += a._metric("Estado", a._status_label(run.get("status")))
-    intro += a._metric("Idioma da análise", run.get("analysis_language") or run.get("language") or "—")
-    intro += "</div>"
-    maximum = run.get("max_recommendations")
-    if maximum and len(findings) > len(recs):
-        intro += f"<div class='notice'><strong>Cobertura das remediações:</strong> a execução analisou {len(findings)} problema(s) e foi configurada para no máximo {int(maximum)} recomendações. Por isso nem todo finding precisa ter uma correção individual gerada pela IA.</div>"
-    if distribution:
-        dist_rows = [(a._domain_label(key), value) for key, value in sorted(distribution.items())]
-        intro += "<details><summary>Distribuição dos problemas por domínio</summary><div class='detail-body'>" + a._table(("Domínio", "Problemas"), dist_rows) + "</div></details>"
-    summary = run.get("ai_summary") or run.get("summary")
-    if summary:
-        intro += f"<div class='notice'><strong>Síntese da análise:</strong> {escape(str(summary))}</div>"
-    return intro + a._table(("Problema", "Domínio", "Severidade", "Tem remediação", "Referência", "Detalhe"), rows, empty="A análise foi concluída sem materializar problemas correlacionados.", sortable=bool(rows), page_size=10 if len(rows) > 10 else None) + "".join(modals)
-
+    """Single CAT-08 projection owner; delegate to the accepted evidence-bound renderer."""
+    from rasai import accepted_audit_refinements as accepted
+    return accepted._improvement_html(database, data)
 
 def _discovery_title(action: Mapping[str, Any]) -> tuple[str, str]:
     code = str(action.get("diagnostic_code") or "").upper()
@@ -390,179 +331,9 @@ def _friendly_deterministic_title(row: Mapping[str, Any], root: Mapping[str, Any
 
 
 def _remediation_html(database: Any, data: Any) -> str:
-    from rasai import catalog_report_analysis as a
-
-    con = sqlite3.connect(database)
-    con.row_factory = sqlite3.Row
-    try:
-        roots = a._audit_rows(con, "root_cause_analyses", data.audit_id)
-        deterministic = a._audit_rows(con, "recommendations", data.audit_id)
-        content = a._audit_rows(con, "content_remediation_suggestions", data.audit_id)
-        jsonld = a._audit_rows(con, "jsonld_remediation_suggestions", data.audit_id)
-        deep = a._audit_rows(con, "improvement_intelligence_recommendations", data.audit_id)
-        deep_findings = a._audit_rows(con, "improvement_intelligence_findings", data.audit_id)
-        deep_run = a._last(con, "improvement_intelligence_runs", data.audit_id)
-    finally:
-        con.close()
-    ai_discovery, policy_note = a._m24_ai_guidance(database, data.audit_id)
-    rows: list[Sequence[Any]] = []
-    modals: list[str] = []
-    index = 0
-    root_by_find = {str(row.get("finding_id")): row for row in roots}
-    finding_by_id = {str(row.get("finding_id")): row for row in deep_findings}
-    covered = {str(row.get("finding_id")) for row in deep if row.get("finding_id")}
-
-    ai_codes = {str(item.get("diagnostic_code") or "") for item in ai_discovery}
-    suppressed_rules: set[str] = set()
-    if "M24-ROBOTS-ABSENT" in ai_codes:
-        suppressed_rules.update({"BR-GEO-017", "BR-GEO-056"})
-    if "M24-SITEMAP-ABSENT" in ai_codes:
-        suppressed_rules.update({"BR-GEO-003", "BR-GEO-055"})
-
-    for action in ai_discovery:
-        index += 1
-        modal_id = f"rem-discovery-{index}"
-        code = str(action.get("diagnostic_code") or "")
-        title, priority = _discovery_title(action)
-        rows.append((title, a._domain_label("FILES_DISCOVERY"), priority, "CAT-01 → CAT-09 · IA técnica", a._modal_button(modal_id, "Ver orientação")))
-        body = a._kv((("Situação / objetivo", title), ("Como proceder", action.get("recommended_change_pt") or "—"), ("Validação humana necessária", "Sim" if action.get("human_validation_required") else "Não"), ("Evidências", ", ".join(str(v) for v in action.get("evidence_ids", []) if str(v)) or "—")))
-        if "ROBOTS-ABSENT" in code.upper():
-            body += "<div class='notice'><strong>Classificação:</strong> robots.txt ausente não é erro de crawling por si só. Esta é uma oportunidade de explicitar política quando houver necessidade operacional; o relatório não fabrica bloqueios.</div>"
-        if "SITEMAP-ABSENT" in code.upper():
-            body += "<div class='notice'><strong>Classificação:</strong> a ausência no caminho convencional é uma lacuna de descoberta/readiness, não prova falha fatal. URLs não descobertas não são inventadas.</div>"
-        modals.append(a._modal(modal_id, title, f"Orientação assistida por IA · {code or 'evidência persistida'}", body))
-
-    for rec in deep:
-        index += 1
-        modal_id = f"rem-deep-{index}"
-        title = rec.get("title") or "Melhoria da análise profunda"
-        domain = a._norm(rec.get("domain"))
-        source_cat = a._DOMAIN_CATALOG.get(domain)
-        finding = finding_by_id.get(str(rec.get("finding_id")), {})
-        rows.append((title, a._domain_label(domain), a._level_label(rec.get("priority")), f"CAT-08 → {source_cat or 'evidência transversal'}", a._modal_button(modal_id, "Ver implementação")))
-        rationale = a._rationale_parts(rec.get("rationale"))
-        problem = finding.get("observation") or finding.get("title") or "—"
-        body = a._kv((("Problema observado", problem), ("Catálogo de origem", source_cat or "—"), ("Domínio", a._domain_label(domain)), ("Severidade", a._level_label(rec.get("severity"))), ("Prioridade", a._level_label(rec.get("priority"))), ("Seletor / path", rec.get("selector") or finding.get("selector") or "Não se aplica / não identificado"), ("Como corrigir", rec.get("recommendation") or "—"), ("Risco de manter como está", rationale.get("risk") or rec.get("rationale") or "—"), ("Benefício esperado da correção", rationale.get("benefit") or "—"), ("Justificativa técnica", rationale.get("technical") or "—"), ("Impactos relacionados", a._impact_summary(rec.get("impacts_json"))), ("Esforço", a._level_label(rec.get("effort"))), ("Confiança", a._confidence_label(rec.get("confidence"))), ("Problema de origem", rec.get("finding_id") or "—")))
-        original = rec.get("original_html") or finding.get("original_html")
-        if original:
-            body += "<h3>Situação atual</h3><div class='pre'>" + escape(str(original)) + "</div>"
-        if rec.get("suggested_html"):
-            body += "<h3>Proposta corrigida</h3><div class='pre'>" + escape(str(rec.get("suggested_html"))) + "</div>"
-        if rec.get("suggested_text"):
-            body += "<h3>Texto sugerido</h3><div class='pre rich-text'>" + str(a._rich_text(rec.get("suggested_text"))) + "</div>"
-        if rec.get("verification"):
-            body += "<h3>Critério de validação / como revalidar</h3><p>" + str(a._rich_text(rec.get("verification"))) + "</p>"
-        evidence = a._safe_json(rec.get("evidence_ids_json"), [])
-        if isinstance(evidence, list) and evidence:
-            body += "<details><summary>Ver referências de evidência</summary><div class='detail-body'><p>" + escape(" · ".join(str(v) for v in evidence)) + "</p></div></details>"
-        modals.append(a._modal(modal_id, title, f"Remediação da análise CAT-08 · origem {source_cat or 'transversal'}", body))
-
-    for rec in deterministic:
-        if rec.get("finding_id") and str(rec.get("finding_id")) in covered:
-            continue
-        root = root_by_find.get(str(rec.get("finding_id")), {})
-        if str(root.get("rule_id") or "") in suppressed_rules:
-            continue
-        index += 1
-        modal_id = f"rem-det-{index}"
-        title = _friendly_deterministic_title(rec, root)
-        rows.append((title, "Técnico / determinístico", a._level_label(rec.get("priority_class")), "Diagnóstico persistido", a._modal_button(modal_id, "Ver correção")))
-        body = a._kv((("Problema / objetivo", rec.get("description") or root.get("cause_summary") or "—"), ("Impacto", a._level_label(rec.get("impact"))), ("Esforço", a._level_label(rec.get("effort"))), ("Confiança", a._confidence_label(rec.get("confidence"))), ("Problema de origem", rec.get("finding_id") or "—")))
-        if root:
-            body += "<h3>Implementação sugerida</h3>" + a._kv((("Mudança exata", root.get("exact_change") or "—"), ("Exemplo após correção", root.get("example_after") or "—"), ("Decisão humana necessária", root.get("human_decision_required") or "Não indicada"), ("Critério de aceite", root.get("acceptance_criteria") or "—"), ("Como revalidar", root.get("revalidation_steps") or "—")))
-        modals.append(a._modal(modal_id, title, "Remediação determinística derivada de problema persistido", body))
-
-    for rec in content:
-        if rec.get("finding_id") and str(rec.get("finding_id")) in covered:
-            continue
-        index += 1
-        modal_id = f"rem-content-{index}"
-        title = rec.get("objective") or "Melhoria de conteúdo"
-        rows.append((title, a._domain_label("CONTENT"), "—", "IA · conteúdo", a._modal_button(modal_id, "Ver sugestão")))
-        body = a._kv((("Objetivo", title), ("Onde aplicar", rec.get("target_location")), ("Texto proposto", rec.get("proposed_text")), ("Confiança", a._confidence_label(rec.get("confidence"))), ("Problema de origem", rec.get("finding_id"))))
-        modals.append(a._modal(modal_id, title, "Conteúdo assistido por IA", body))
-
-    for rec in jsonld:
-        if rec.get("finding_id") and str(rec.get("finding_id")) in covered:
-            continue
-        index += 1
-        modal_id = f"rem-jsonld-{index}"
-        title = _jsonld_title(rec)
-        rows.append((title, "Dados estruturados", "—", "CAT-03 → CAT-09", a._modal_button(modal_id, "Ver JSON-LD")))
-        proposed = a._safe_json(rec.get("proposed_json"), rec.get("proposed_json"))
-        existing = a._safe_json(rec.get("existing_types"), [])
-        body = a._kv((("Situação", a._status_label(rec.get("status"))), ("Tipos existentes", ", ".join(existing) if isinstance(existing, list) and existing else "Nenhum"), ("Melhorias", rec.get("improvements") or "—")))
-        body += "<div class='notice'>Quando nenhum bloco estruturado foi observado, esta sugestão é uma oportunidade de implementação aplicável ao conteúdo; não é descrita como 'correção de sintaxe'.</div>"
-        body += "<h3>JSON-LD sugerido</h3><div class='pre'>" + escape(json.dumps(proposed, ensure_ascii=False, indent=2) if isinstance(proposed, (dict, list)) else str(proposed or "—")) + "</div>"
-        modals.append(a._modal(modal_id, "Dados estruturados", "Sugestão persistida; exige revisão humana", body))
-
-    lead = ""
-    if policy_note:
-        lead = "<div class='notice'><strong>Política para arquivos de descoberta:</strong> " + escape(policy_note) + "</div>"
-    unique_findings = len({str(row.get("finding_id")) for row in deep_findings if row.get("finding_id")})
-    unique_deep = len(covered)
-    without = max(0, unique_findings - unique_deep)
-    if deep_run and deep_run.get("max_recommendations") and without:
-        lead += f"<div class='notice'><strong>Cobertura da análise profunda:</strong> {unique_findings} problema(s) foram correlacionados; {unique_deep} possuem remediação individual persistida. O limite configurado foi {int(deep_run.get('max_recommendations'))} recomendações. Itens sem remediação individual permanecem visíveis no CAT-08, sem correção inventada.</div>"
-    if rows:
-        lead += "<div class='metric-grid'>"
-        lead += a._metric("Correções e melhorias apresentadas", len(rows))
-        lead += a._metric("Remediações da análise profunda", len(deep))
-        lead += a._metric("Achados sem remediação IA individual", without)
-        lead += a._metric("Orientações técnicas de descoberta", len(ai_discovery))
-        lead += "</div>"
-    return lead + a._table(("Correção / melhoria", "Domínio", "Prioridade", "Origem", "Detalhe"), rows, empty="Nenhuma remediação persistida para esta auditoria.", sortable=bool(rows), page_size=10 if len(rows) > 10 else None) + "".join(modals)
-
-
-def _capture_context_body(database: Any, data: Any) -> str:
-    from rasai import catalog_report_governance as g
-
-    snaps = g._capture_snapshots(database, data.audit_id)
-    rows: list[Sequence[Any]] = []
-    detail_modals: list[str] = []
-    shot_modals: list[str] = []
-    gallery: list[str] = []
-    for index, snap in enumerate(snaps, 1):
-        meta = g._safe_json(snap.get("browser_metadata"), {})
-        profile = meta.get("profile") if isinstance(meta, Mapping) and isinstance(meta.get("profile"), Mapping) else {}
-        browser = meta.get("browser_identity") if isinstance(meta, Mapping) and isinstance(meta.get("browser_identity"), Mapping) else {}
-        viewport = profile.get("viewport") if isinstance(profile, Mapping) and isinstance(profile.get("viewport"), Mapping) else {}
-        visual_state = meta.get("visual_snapshot") if isinstance(meta, Mapping) and isinstance(meta.get("visual_snapshot"), Mapping) else {}
-        runtime = g._runtime_items(snap)
-        detail_id = f"capture-{index}"
-        shot_id = f"capture-image-{index}"
-        visual_ref = meta.get("visual_artifact_ref") if isinstance(meta, Mapping) else None
-        visual_path = g._artifact_path(database.parent, visual_ref)
-        shot_action = g._modal_button(shot_id, "Ver imagem") if visual_path is not None and visual_ref else "—"
-        rows.append((g._device_label(snap.get("device")), snap.get("requested_url") or snap.get("page_url") or "—", snap.get("final_url") or "—", snap.get("captured_at") or "—", snap.get("http_status") or "—", len(runtime), shot_action, g._modal_button(detail_id, "Ver contexto")))
-        artifact_rows = (("Resposta HTTP", snap.get("raw_artifact_ref") or "—"), ("HTML renderizado", snap.get("rendered_artifact_ref") or "—"), ("Conteúdo principal", snap.get("main_content_ref") or "—"), ("Dados estruturados", snap.get("structured_data_ref") or "—"), ("Captura visual", visual_ref or "—"))
-        viewport_width = viewport.get("width", visual_state.get("viewport_width", "—"))
-        viewport_height = viewport.get("height", visual_state.get("viewport_height", "—"))
-        detail = g._kv((("Identificador da página", snap.get("page_id")), ("Identificador da captura", snap.get("snapshot_id")), ("URL solicitada", snap.get("requested_url") or snap.get("page_url")), ("URL final", snap.get("final_url")), ("Capturada em", snap.get("captured_at")), ("HTTP", snap.get("http_status")), ("Tipo de conteúdo", snap.get("content_type")), ("Renderização", snap.get("rendering_mode")), ("Arquitetura", snap.get("architecture_classification")), ("Dispositivo", g._device_label(snap.get("device"))), ("Perfil", browser.get("descriptor") or profile.get("device") or "—"), ("Área visível (viewport)", f"{viewport_width} × {viewport_height}"), ("Escala de pixels (DPR)", profile.get("device_scale_factor") or "—"), ("Navegador", f"{browser.get('channel', 'Chrome')} {browser.get('browser_version') or meta.get('browser_version', '—')}"), ("Idioma", browser.get("locale") or profile.get("locale") or "—"), ("Diagnósticos da execução do navegador", len(runtime))))
-        detail += "<h3>Arquivos e evidências</h3>" + g._table(("Arquivo / evidência", "Referência"), artifact_rows)
-        if visual_path is not None and visual_ref:
-            detail += "<p>" + str(g._modal_button(shot_id, "Abrir captura visual")) + "</p>"
-        elif visual_ref:
-            detail += "<div class='notice warn'>A referência da captura visual foi persistida, mas o arquivo não está disponível junto aos artefatos desta cópia da auditoria.</div>"
-        detail_modals.append(g._modal(detail_id, "Contexto da captura", f"{g._device_label(snap.get('device'))} · {snap.get('final_url') or snap.get('requested_url') or '—'}", detail))
-        if visual_path is not None and visual_ref:
-            href = "../" + str(visual_ref).replace("\\", "/")
-            alt = f"Captura visual da página auditada em {g._device_label(snap.get('device'))}"
-            gallery.append(f"<div class='card'><h3>{escape(g._device_label(snap.get('device')))}</h3><p class='muted'>{escape(str(snap.get('captured_at') or '—'))} · viewport {escape(str(viewport_width))} × {escape(str(viewport_height))}</p><button type='button' class='action' data-modal-open='{escape(shot_id)}'><img class='capture-preview' src='{escape(href)}' alt='{escape(alt)}'></button><p class='muted mono'>{escape(str(visual_ref))}</p></div>")
-            shot_body = f"<img class='capture-preview' src='{escape(href)}' alt='{escape(alt)}'><p class='muted mono'>{escape(str(visual_ref))}</p>"
-            shot_modals.append(g._modal(shot_id, "Captura visual", f"{g._device_label(snap.get('device'))} · {snap.get('captured_at') or '—'}", shot_body))
-
-    capture_html = g._table(("Dispositivo", "URL solicitada", "URL final", "Data/hora", "HTTP", "Diagnósticos", "Imagem", "Detalhe"), rows, empty="Nenhuma captura de navegador persistida.", sortable=bool(rows))
-    if gallery:
-        capture_html += "<div class='subsection'><h3>Prévia visual</h3><div class='grid'>" + "".join(gallery) + "</div></div>"
-    capture_html += "".join(detail_modals) + "".join(shot_modals)
-    body = g._audit_hero(data, "Captura e contexto", "Como a página foi capturada: URL, dispositivo, navegador, renderização e artefatos. Diagnósticos funcionais permanecem no catálogo responsável.")
-    body += g._outline((("capture", "Capturas"), ("boundaries", "Responsabilidades"), ("technical", "Detalhes técnicos")))
-    body += g._section("capture", "Capturas da auditoria", capture_html)
-    body += g._section("boundaries", "Responsabilidades", "<div class='grid'><div class='card'><h3>Captura e contexto</h3><p>Identifica a captura, navegador, dispositivo, área visível, URL e arquivos de evidência.</p></div><div class='card'><h3>CAT-01</h3><p>Exibe erros/alertas do navegador e problemas técnicos observados.</p><p><a href='cat-01.html'>Abrir CAT-01</a></p></div><div class='card'><h3>CAT-06 / CAT-07</h3><p>Exibem suas próprias amostras sintéticas; não duplicam a captura base.</p></div></div>")
-    body += g._section("technical", "Detalhes técnicos", "<details><summary>Como interpretar os identificadores</summary><div class='detail-body'><p>O identificador da página localiza o alvo auditado; o identificador da captura localiza uma execução específica por dispositivo/contexto. Os CATs referenciam esses identificadores sem criar cópias dos artefatos.</p></div></details>")
-    return body
-
+    """Single CAT-09 projection owner; delegate to the accepted governed renderer."""
+    from rasai import accepted_audit_refinements as accepted
+    return accepted._remediation_html(database, data)
 
 def install_catalog_report_refinements() -> None:
     from rasai import catalog_report_analysis as analysis

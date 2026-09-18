@@ -10,6 +10,7 @@ from rasai import report_navigation
 from rasai.persistence import AuditWorkspace
 from rasai.report_contract import REPORT_CONTRACT_VERSION, SARI_VERSION
 from rasai.report_presentation import public_label
+from rasai.catalog_report_public_labels import public_label as human_label
 from rasai.score_geo_004 import (
     DIMENSION_WEIGHTS,
     FEATURE_ORDER,
@@ -26,18 +27,18 @@ REPORT_FILE = "scoring.html"
 # Conceptual labels remain in their established English form. The compatibility
 # key resolves to the current concept so it cannot leak obsolete public vocabulary.
 _DIMENSION_LABELS = {
-    "DISCOVERY_ACCESS": "Discovery & Crawler Access",
-    "TECHNICAL_ACCESSIBILITY": "Discovery & Crawler Access",
-    "INDEXABILITY": "Indexability",
-    "CONTENT_EXTRACTABILITY": "Rendering & Extractability",
-    "SEMANTIC_STRUCTURE": "Semantic Structure",
-    "ENTITY_CLARITY": "Entity Clarity",
-    "STRUCTURED_DATA": "Structured Data",
-    "ANSWERABILITY": "Answerability",
-    "CITATION_READINESS": "Citation Readiness",
-    "EVIDENCE_TRUST": "Evidence & Trust",
-    "INTENT_COVERAGE": "Intent Coverage",
-    "CONTENT_VALUE": "Content Value",
+    "DISCOVERY_ACCESS": "Acesso e descoberta",
+    "TECHNICAL_ACCESSIBILITY": "Acessibilidade técnica",
+    "INDEXABILITY": "Indexabilidade e canonicalização",
+    "CONTENT_EXTRACTABILITY": "Renderização e extração",
+    "SEMANTIC_STRUCTURE": "Estrutura semântica",
+    "ENTITY_CLARITY": "Clareza de entidades",
+    "STRUCTURED_DATA": "Dados estruturados",
+    "ANSWERABILITY": "Capacidade de resposta",
+    "CITATION_READINESS": "Preparação para citação",
+    "EVIDENCE_TRUST": "Evidências e confiabilidade",
+    "INTENT_COVERAGE": "Cobertura de intenções",
+    "CONTENT_VALUE": "Valor do conteúdo",
 }
 
 # Page-scoped layout: scoring contribution tables need substantially more horizontal
@@ -187,10 +188,8 @@ def _method_section(version: str, workspace: AuditWorkspace, audit_id: str) -> s
                 group = str(row["scoring_group"] or "regra independente")
                 scoring_groups.add(group)
                 rule_id = str(row["rule_id"])
-                group_label = public_label(group)
+                group_label = human_label(group) or public_label(group) or group.replace("_", " ").title()
                 group_cell = escape(group_label)
-                if group_label != group:
-                    group_cell += f"<code>{escape(group)}</code>"
                 body.append(
                     "<tr>"
                     f"<td><strong>{escape(rule_id)}</strong></td>"
@@ -244,13 +243,21 @@ def _version_integrity_notice(versions: list[str]) -> str:
 
 def _score_row(row: sqlite3.Row) -> str:
     value = "Indisponível" if row["value"] is None else f"{float(row['value']):.1f}/100"
+    device = {"MOBILE": "Dispositivo móvel", "DESKTOP": "Desktop", "TABLET": "Tablet"}.get(
+        str(row["device"] or "").upper(), str(row["device"] or "-")
+    )
+    confidence = {
+        "HIGH": "Alta", "MEDIUM": "Média", "LOW": "Baixa",
+        "VERY_HIGH": "Muito alta", "VERY_LOW": "Muito baixa",
+    }.get(str(row["confidence"] or "").upper(), human_label(row["confidence"]) or str(row["confidence"] or "-"))
+    consolidation = human_label(row["consolidation_status"]) or str(row["consolidation_status"] or "-").replace("_", " ").title()
     return (
         "<tr>"
-        f"<td>{escape(str(row['device']))}</td>"
+        f"<td>{escape(device)}</td>"
         f"<td>{escape(value)}</td>"
         f"<td>{float(row['coverage'])*100:.1f}%</td>"
-        f"<td>{escape(str(row['confidence']))}</td>"
-        f"<td>{escape(str(row['consolidation_status']))}</td>"
+        f"<td>{escape(confidence)}</td>"
+        f"<td>{escape(consolidation)}</td>"
         f"<td>{escape(str(row['scoring_version']))}</td>"
         f"<td>{escape(_score_reason(row))}</td>"
         "</tr>"

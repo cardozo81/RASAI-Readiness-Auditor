@@ -612,18 +612,18 @@ def _search_intelligence_html(database: Any, data: Any) -> str:
             position = f"{min(positions)} a {max(positions)}" if positions else "-"
             reason = _serp_completion_reason(obs, len(results))
             rows.append((
-                obs.get("query") or "—", obs.get("region") or "—", device,
+                obs.get("query") or "-", obs.get("region") or "-", device,
                 len(results), position, reason, m._modal_button(modal_id, "Ver observação")
             ))
             result_rows = [
-                (r.get("position") or "—", r.get("title") or "—", r.get("url") or "—")
+                (r.get("position") or "-", r.get("title") or "-", r.get("url") or "-")
                 for r in results[:50]
             ]
             body = m._kv((
-                ("Consulta", obs.get("query") or "—"),
-                ("Região", obs.get("region") or "—"),
+                ("Consulta", obs.get("query") or "-"),
+                ("Região", obs.get("region") or "-"),
                 ("Dispositivo", device),
-                ("Profundidade solicitada", obs.get("requested_depth") or "—"),
+                ("Profundidade solicitada", obs.get("requested_depth") or "-"),
                 ("Resultados persistidos", len(results)),
             ))
             body += "<h3>Resultados persistidos</h3>" + m._table(
@@ -748,7 +748,7 @@ def _coverage_by_finding(connection: sqlite3.Connection, audit_id: str) -> dict[
 
 def _cell_html(cell: Any) -> str:
     if cell is None:
-        return "—"
+        return "-"
     if cell.__class__.__name__ == "_Html":
         return str(cell)
     return escape(str(cell))
@@ -805,6 +805,8 @@ def _ymyl_analysis_context_html(database: Any, audit_id: str, a: Any) -> str:
     ymyl = context.get("ymyl", {})
     if not isinstance(ymyl, Mapping) or not bool(ymyl.get("active")):
         return ""
+
+    relation = ymyl.get("configuration_relation") or {}
     configured = ymyl.get("configured_category") or "auto"
     effective = ymyl.get("effective_category") or "auto"
     interpretation = context.get("auto_interpretations", {}).get("ymyl_category", {})
@@ -814,22 +816,105 @@ def _ymyl_analysis_context_html(database: Any, audit_id: str, a: Any) -> str:
         and str(interpretation.get("status") or "").upper() == "INTERPRETED"
         else "Configuração declarada / não determinável"
     )
-    rows = (
-        ("Perfil de risco efetivo", ymyl.get("effective_risk_profile") or "—"),
+
+    connection = sqlite3.connect(database)
+    connection.row_factory = sqlite3.Row
+    try:
+        findings = _rows(connection, "improvement_intelligence_findings", audit_id)
+        coverage = _coverage_by_finding(connection, audit_id)
+    finally:
+        connection.close()
+
+    criterion_findings: dict[str, str] = {}
+    for finding in findings:
+        fid = str(finding.get("finding_id") or "")
+        if not fid.startswith("SEMANTIC-YMYL:"):
+            continue
+        parts = fid.split(":")
+        if len(parts) >= 2:
+            criterion_findings[parts[1]] = fid
+
+    top_rows = (
+        ("Perfil de risco efetivo", ymyl.get("effective_risk_profile") or "-"),
         ("Categoria YMYL configurada", configured),
         ("Categoria YMYL efetiva", effective),
-        ("Conclusão conteúdo × YMYL", ymyl.get("alignment_label") or "—"),
         ("Origem da categoria efetiva", origin),
+        ("Relação com a parametrização do usuário", relation.get("label") or "Não determinável"),
+        ("Conclusão conteúdo × YMYL", ymyl.get("alignment_label") or "-"),
+        ("Necessidade de mudança no conteúdo", ymyl.get("content_change_label") or "Não determinável"),
+    )
+
+    criterion_labels = {
+        "SC-P11": "Suporte observável de claims",
+        "SC-P12": "Autoria e responsabilidade",
+        "SC-P13": "Atualização e sensibilidade temporal",
+    }
+    detail_rows: list[tuple[Any, ...]] = []
+    for item in sorted(
+        ymyl.get("coherence", []) or [],
+        key=lambda value: (str(value.get("criterion_id") or ""), str(value.get("page_url") or "")),
+    ):
+        criterion = str(item.get("criterion_id") or "")
+        result = str(item.get("result") or "NOT_DETERMINABLE").upper()
+        fid = criterion_findings.get(criterion)
+        remediation = sorted(coverage.get(fid, set())) if fid else []
+        if result in {"PARTIAL", "INCOHERENT"}:
+            action = "Mudança recomendada" if remediation else "Remediação necessária ainda sem ação individual"
+        elif result in {"COHERENT", "NOT_APPLICABLE"}:
+            action = "Nenhuma mudança indicada por este critério"
+        else:
+            action = "Sem conclusão suficiente para exigir mudança"
+        remediation_cell: Any = " · ".join(remediation) if remediation else "-"
+        if remediation:
+            remediation_cell = a._Html(
+                escape(" · ".join(remediation))
+                + " - <a href='cat-09.html'>ver CAT-09</a>"
+            )
+        detail_rows.append(
+            (
+                f"{criterion} - {criterion_labels.get(criterion, 'Critério YMYL')}",
+                a._status_label(result),
+                a._confidence_label(item.get("confidence")),
+                item.get("reasoning_summary") or item.get("observed_context") or "-",
+                action,
+                remediation_cell,
+            )
+        )
+
+    if bool(relation.get("conflict")):
+        explanation = (
+            "<div class='notice warn'><strong>Parametrização × interpretação:</strong> "
+            "há divergência material entre a configuração canônica e o contexto efetivo. "
+            "O RASAi não substitui a parametrização; exige revisão humana antes de tratá-la como mudança de conteúdo.</div>"
+        )
+    else:
+        explanation = (
+            "<div class='notice'><strong>Parametrização × interpretação:</strong> "
+            + escape(str(relation.get("label") or "A configuração canônica foi preservada."))
+            + " Portanto, eventuais mudanças recomendadas abaixo decorrem de lacunas observadas no conteúdo, "
+            "não de a IA ter sobrescrito ou rejeitado a parametrização do usuário.</div>"
+        )
+
+    detail_html = (
+        a._table(
+            ("Critério", "Resultado", "Confiança", "Motivo observado", "Implicação", "Remediação"),
+            detail_rows,
+            sortable=bool(detail_rows),
+            page_size=10 if len(detail_rows) > 10 else None,
+        )
+        if detail_rows
+        else "<div class='notice'>Nenhum critério YMYL persistido foi suficiente para concluir aderência ou necessidade de mudança.</div>"
     )
     return (
         "<div class='subsection'><h3>Contexto YMYL aplicado à análise profunda</h3>"
-        + a._table(("Leitura", "Resultado"), rows)
-        + "<p class='muted'>Este mesmo contexto estruturado foi enviado ao Improvement Intelligence. "
-        "A IA só deve relacionar YMYL a findings suportados por evidência e, nesses casos, explicitar onde está "
-        "a lacuna, o que precisa mudar, como implementar e como revalidar. Isso não constitui declaração de "
-        "conformidade legal/regulatória.</p></div>"
+        + a._table(("Leitura", "Resultado"), top_rows)
+        + explanation
+        + "<h4>Por que o conteúdo está aderente, parcial ou incoerente</h4>"
+        + detail_html
+        + "<p class='muted'>SC-P11, SC-P12 e SC-P13 são avaliados contra evidência observada. "
+        "A conclusão não declara conformidade legal/regulatória. Findings YMYL parciais ou incoerentes "
+        "são obrigatórios no pedido de remediação da análise profunda e devem chegar ao CAT-09 quando acionáveis.</p></div>"
     )
-
 
 def _improvement_html(database: Any, data: Any) -> str:
     from rasai import catalog_report_analysis as a
@@ -855,14 +940,14 @@ def _improvement_html(database: Any, data: Any) -> str:
         rec = rec_by_finding.get(fid)
         domain = a._norm(finding.get("domain")); distribution[domain] = distribution.get(domain, 0) + 1
         source_cat = a._DOMAIN_CATALOG.get(domain); modal_id = f"improvement-{index}"
-        reference = a._Html(f"<a class='ref' href='{a.CATALOG_PAGE_BY_ID[source_cat].filename}'>Origem: {source_cat}</a>") if source_cat in a.CATALOG_PAGE_BY_ID else "—"
+        reference = a._Html(f"<a class='ref' href='{a.CATALOG_PAGE_BY_ID[source_cat].filename}'>Origem: {source_cat}</a>") if source_cat in a.CATALOG_PAGE_BY_ID else "-"
         labels = sorted(coverage.get(fid, set())); coverage_label = " · ".join(labels) if labels else "Não disponível"
         public_title = _finding_public_title(finding); severity = a._level_label(finding.get("severity"))
         original_problem = str(finding.get("observation") or finding.get("title") or "-")
         original_title = str(finding.get("title") or original_problem)
         public_title_cell = a._translated_text(public_title, original_title) if public_title != original_title else public_title
         filter_rows.append(((public_title_cell, a._domain_label(domain), severity, coverage_label, reference, a._modal_button(modal_id, "Ver análise")), {"domain": a._domain_label(domain), "severity": severity, "remediation": "com" if labels else "sem"}))
-        body = a._kv((("Problema", public_title), ("Domínio", a._domain_label(domain)), ("Severidade", severity), ("Fonte", finding.get("source") or "—"), ("Catálogo de origem", source_cat or "—"), ("Seletor / path", finding.get("selector") or "Não se aplica / não identificado"), ("Cobertura de remediação", coverage_label)))
+        body = a._kv((("Problema", public_title), ("Domínio", a._domain_label(domain)), ("Severidade", severity), ("Fonte", finding.get("source") or "-"), ("Catálogo de origem", source_cat or "-"), ("Seletor / path", finding.get("selector") or "Não se aplica / não identificado"), ("Cobertura de remediação", coverage_label)))
         if public_title != original_problem:
             body += "<h3>Texto original da fonte</h3><div class='pre rich-text'>" + str(a._rich_text(original_problem)) + "</div>"
         if finding.get("original_html"):
@@ -877,7 +962,7 @@ def _improvement_html(database: Any, data: Any) -> str:
         body += _technical_reference_links(domain, source_text=original_problem)
         modals.append(a._modal(modal_id, public_title, f"Análise profunda · {source_cat or 'evidência transversal'}", body))
     unique_recs = len({str(r.get("finding_id")) for r in recs if r.get("finding_id")}); without = max(0, len(findings) - unique_recs)
-    intro = _ymyl_analysis_context_html(database, data.audit_id, a) + "<div class='metric-grid'>" + a._metric("Problemas correlacionados", len(findings)) + a._metric("Melhorias da análise profunda", len(recs)) + a._metric("Achados sem recomendação individual da análise profunda", without) + a._metric("Estado", a._status_label(run.get("status"))) + a._metric("Idioma da análise", run.get("analysis_language") or run.get("language") or "—") + "</div>"
+    intro = _ymyl_analysis_context_html(database, data.audit_id, a) + "<div class='metric-grid'>" + a._metric("Problemas correlacionados", len(findings)) + a._metric("Melhorias da análise profunda", len(recs)) + a._metric("Achados sem recomendação individual da análise profunda", without) + a._metric("Estado", a._status_label(run.get("status"))) + a._metric("Idioma da análise", run.get("analysis_language") or run.get("language") or "-") + "</div>"
     maximum = run.get("max_recommendations")
     if maximum and len(findings) > len(recs):
         intro += f"<div class='notice'><strong>Cobertura da análise profunda:</strong> a execução correlacionou {len(findings)} problema(s) e foi configurada para no máximo {int(maximum)} recomendações. A coluna de cobertura também considera remediações persistidas por outras camadas do CAT-09.</div>"
@@ -946,14 +1031,14 @@ def _remediation_html(database: Any, data: Any) -> str:
     for action in ai_discovery:
         index += 1; modal_id = f"rem-discovery-{index}"; code = str(action.get("diagnostic_code") or ""); title, priority = a._discovery_title(action)
         rows.append((title, a._domain_label("FILES_DISCOVERY"), priority, "CAT-01 → CAT-09 · IA técnica", a._modal_button(modal_id, "Ver orientação")))
-        body = a._kv((("Situação / objetivo", title), ("Como proceder", action.get("recommended_change_pt") or "—"), ("Validação humana necessária", "Sim" if action.get("human_validation_required") else "Não"), ("Evidências", ", ".join(str(v) for v in action.get("evidence_ids", []) if str(v)) or "—"))) + _technical_reference_links("FILES_DISCOVERY", source_text=title)
+        body = a._kv((("Situação / objetivo", title), ("Como proceder", action.get("recommended_change_pt") or "-"), ("Validação humana necessária", "Sim" if action.get("human_validation_required") else "Não"), ("Evidências", ", ".join(str(v) for v in action.get("evidence_ids", []) if str(v)) or "-"))) + _technical_reference_links("FILES_DISCOVERY", source_text=title)
         modals.append(a._modal(modal_id, title, f"Orientação assistida por IA · {code or 'evidência persistida'}", body))
 
     for rec in deep:
         index += 1; modal_id = f"rem-deep-{index}"; title = rec.get("title") or "Melhoria da análise profunda"; domain = a._norm(rec.get("domain")); source_cat = a._DOMAIN_CATALOG.get(domain); finding = deep_finding_by_id.get(str(rec.get("finding_id")), {})
         rows.append((title, a._domain_label(domain), a._level_label(rec.get("priority")), f"CAT-08 → {source_cat or 'evidência transversal'}", a._modal_button(modal_id, "Ver implementação")))
-        rationale = a._rationale_parts(rec.get("rationale")); problem = finding.get("observation") or finding.get("title") or "—"
-        body = a._kv((("Problema observado", _finding_public_title(finding) if finding else problem), ("Catálogo de origem", source_cat or "—"), ("Domínio", a._domain_label(domain)), ("Severidade", a._level_label(rec.get("severity"))), ("Prioridade", a._level_label(rec.get("priority"))), ("Seletor / path", rec.get("selector") or finding.get("selector") or "Não se aplica / não identificado"), ("Como corrigir", rec.get("recommendation") or "—"), ("Risco de manter como está", rationale.get("risk") or rec.get("rationale") or "—"), ("Benefício esperado da correção", rationale.get("benefit") or "—"), ("Justificativa técnica", rationale.get("technical") or "—"), ("Impactos relacionados", a._impact_summary(rec.get("impacts_json"))), ("Esforço", a._level_label(rec.get("effort"))), ("Confiança", a._confidence_label(rec.get("confidence"))), ("Problema de origem", rec.get("finding_id") or "—")))
+        rationale = a._rationale_parts(rec.get("rationale")); problem = finding.get("observation") or finding.get("title") or "-"
+        body = a._kv((("Problema observado", _finding_public_title(finding) if finding else problem), ("Catálogo de origem", source_cat or "-"), ("Domínio", a._domain_label(domain)), ("Severidade", a._level_label(rec.get("severity"))), ("Prioridade", a._level_label(rec.get("priority"))), ("Seletor / path", rec.get("selector") or finding.get("selector") or "Não se aplica / não identificado"), ("Como corrigir", rec.get("recommendation") or "-"), ("Risco de manter como está", rationale.get("risk") or rec.get("rationale") or "-"), ("Benefício esperado da correção", rationale.get("benefit") or "-"), ("Justificativa técnica", rationale.get("technical") or "-"), ("Impactos relacionados", a._impact_summary(rec.get("impacts_json"))), ("Esforço", a._level_label(rec.get("effort"))), ("Confiança", a._confidence_label(rec.get("confidence"))), ("Problema de origem", rec.get("finding_id") or "-")))
         original = rec.get("original_html") or finding.get("original_html")
         if original: body += "<h3>Situação atual</h3><div class='pre'>" + escape(str(original)) + "</div>"
         if rec.get("suggested_html"): body += "<h3>Proposta corrigida</h3><div class='pre'>" + escape(str(rec.get("suggested_html"))) + "</div>"
@@ -970,34 +1055,34 @@ def _remediation_html(database: Any, data: Any) -> str:
         if rule_id in suppressed_rules: continue
         index += 1; modal_id = f"rem-det-{index}"; title = a._friendly_deterministic_title(rec, root)
         rows.append((title, "Técnico / determinístico", a._level_label(rec.get("priority_class")), "Diagnóstico persistido", a._modal_button(modal_id, "Ver correção")))
-        body = a._kv((("Problema / objetivo", rec.get("description") or root.get("cause_summary") or (group or {}).get("root_cause") or "—"), ("Regra", rule_id or "—"), ("Impacto", a._level_label(rec.get("impact") or (group or {}).get("impact"))), ("Esforço", a._level_label(rec.get("effort") or (group or {}).get("effort"))), ("Confiança", a._confidence_label(rec.get("confidence") or (group or {}).get("confidence"))), ("Problemas de origem", ", ".join(affected_ids) or rec.get("finding_id") or "—"))) + _render_observed_value(root.get("observed_value"))
+        body = a._kv((("Problema / objetivo", rec.get("description") or root.get("cause_summary") or (group or {}).get("root_cause") or "-"), ("Regra", rule_id or "-"), ("Impacto", a._level_label(rec.get("impact") or (group or {}).get("impact"))), ("Esforço", a._level_label(rec.get("effort") or (group or {}).get("effort"))), ("Confiança", a._confidence_label(rec.get("confidence") or (group or {}).get("confidence"))), ("Problemas de origem", ", ".join(affected_ids) or rec.get("finding_id") or "-"))) + _render_observed_value(root.get("observed_value"))
         if root:
-            body += "<h3>Implementação sugerida</h3>" + a._kv((("Mudança exata", root.get("exact_change") or "—"), ("Exemplo após correção", root.get("example_after") or "—"), ("Decisão humana necessária", root.get("human_decision_required") or "Não indicada"), ("Critério de aceite", root.get("acceptance_criteria") or "—"), ("Como revalidar", root.get("revalidation_steps") or "—")))
+            body += "<h3>Implementação sugerida</h3>" + a._kv((("Mudança exata", root.get("exact_change") or "-"), ("Exemplo após correção", root.get("example_after") or "-"), ("Decisão humana necessária", root.get("human_decision_required") or "Não indicada"), ("Critério de aceite", root.get("acceptance_criteria") or "-"), ("Como revalidar", root.get("revalidation_steps") or "-")))
         if group:
             affected_pages = _safe_json(group.get("affected_pages"), []); affected_elements = _safe_json(root.get("affected_elements"), [])
-            body += "<details><summary>Escopo técnico relacionado</summary><div class='detail-body'>" + a._kv((("Grupo de remediação", group.get("group_id") or "—"), ("Páginas afetadas", ", ".join(str(v) for v in affected_pages) if isinstance(affected_pages, list) else affected_pages), ("Elementos afetados", ", ".join(str(v) for v in affected_elements) if isinstance(affected_elements, list) else affected_elements))) + "</div></details>"
+            body += "<details><summary>Escopo técnico relacionado</summary><div class='detail-body'>" + a._kv((("Grupo de remediação", group.get("group_id") or "-"), ("Páginas afetadas", ", ".join(str(v) for v in affected_pages) if isinstance(affected_pages, list) else affected_pages), ("Elementos afetados", ", ".join(str(v) for v in affected_elements) if isinstance(affected_elements, list) else affected_elements))) + "</div></details>"
         body += _technical_reference_links("TECHNICAL_HTML", rule_id, str(root.get("cause_summary") or title)); modals.append(a._modal(modal_id, str(title), "Remediação determinística derivada de problema persistido", body))
 
     for rec in content:
         fid = str(rec.get("finding_id") or rec.get("source_finding_id") or "")
         if fid and fid in covered: continue
         index += 1; modal_id = f"rem-content-{index}"; title = rec.get("objective") or "Melhoria de conteúdo"; root = root_by_find.get(fid, {}); finding = core_finding_by_id.get(fid, {})
-        rows.append((title, a._domain_label("CONTENT"), "—", "IA · conteúdo", a._modal_button(modal_id, "Ver sugestão")))
-        body = a._kv((("Objetivo", title), ("Problema observado", finding.get("title") or root.get("cause_summary") or "—"), ("Onde aplicar", rec.get("target_location") or "—"), ("Texto proposto", rec.get("proposed_text") or "—"), ("Confiança", a._confidence_label(rec.get("confidence"))), ("Problema de origem", fid or "—"))) + _render_observed_value(root.get("observed_value"))
+        rows.append((title, a._domain_label("CONTENT"), "-", "IA · conteúdo", a._modal_button(modal_id, "Ver sugestão")))
+        body = a._kv((("Objetivo", title), ("Problema observado", finding.get("title") or root.get("cause_summary") or "-"), ("Onde aplicar", rec.get("target_location") or "-"), ("Texto proposto", rec.get("proposed_text") or "-"), ("Confiança", a._confidence_label(rec.get("confidence"))), ("Problema de origem", fid or "-"))) + _render_observed_value(root.get("observed_value"))
         review = str(rec.get("review_note") or "")
         if review: body += "<h3>Explicação técnica / impacto</h3><div class='pre'>" + escape(review) + "</div>"
-        if root: body += "<h3>Critério de validação</h3>" + a._kv((("Critério de aceite", root.get("acceptance_criteria") or "—"), ("Como revalidar", root.get("revalidation_steps") or "—")))
+        if root: body += "<h3>Critério de validação</h3>" + a._kv((("Critério de aceite", root.get("acceptance_criteria") or "-"), ("Como revalidar", root.get("revalidation_steps") or "-")))
         body += _technical_reference_links("CONTENT", str(root.get("rule_id") or ""), str(title)); modals.append(a._modal(modal_id, str(title), "Conteúdo assistido por IA", body))
 
     for rec in jsonld:
         fid = str(rec.get("finding_id") or rec.get("source_finding_id") or "")
         if fid and fid in covered: continue
         index += 1; modal_id = f"rem-jsonld-{index}"; title = a._jsonld_title(rec)
-        rows.append((title, "Dados estruturados", "—", "CAT-03 → CAT-09", a._modal_button(modal_id, "Ver JSON-LD")))
+        rows.append((title, "Dados estruturados", "-", "CAT-03 → CAT-09", a._modal_button(modal_id, "Ver JSON-LD")))
         proposed = a._safe_json(rec.get("proposed_json"), rec.get("proposed_json")); existing = a._safe_json(rec.get("existing_types"), [])
-        body = a._kv((("Situação", a._status_label(rec.get("status"))), ("Tipos existentes", ", ".join(existing) if isinstance(existing, list) and existing else "Nenhum"), ("Melhorias", rec.get("improvements") or "—"), ("Problema de origem", fid or "—")))
-        root = root_by_find.get(fid, {}); body += _render_observed_value(root.get("observed_value")); body += "<h3>JSON-LD sugerido</h3><div class='pre'>" + escape(json.dumps(proposed, ensure_ascii=False, indent=2) if isinstance(proposed, (dict, list)) else str(proposed or "—")) + "</div>"
-        if root: body += "<h3>Validação</h3>" + a._kv((("Critério de aceite", root.get("acceptance_criteria") or "—"), ("Como revalidar", root.get("revalidation_steps") or "—")))
+        body = a._kv((("Situação", a._status_label(rec.get("status"))), ("Tipos existentes", ", ".join(existing) if isinstance(existing, list) and existing else "Nenhum"), ("Melhorias", rec.get("improvements") or "-"), ("Problema de origem", fid or "-")))
+        root = root_by_find.get(fid, {}); body += _render_observed_value(root.get("observed_value")); body += "<h3>JSON-LD sugerido</h3><div class='pre'>" + escape(json.dumps(proposed, ensure_ascii=False, indent=2) if isinstance(proposed, (dict, list)) else str(proposed or "-")) + "</div>"
+        if root: body += "<h3>Validação</h3>" + a._kv((("Critério de aceite", root.get("acceptance_criteria") or "-"), ("Como revalidar", root.get("revalidation_steps") or "-")))
         body += _technical_reference_links("SEMANTICS_STRUCTURE", str(root.get("rule_id") or ""), "JSON-LD"); modals.append(a._modal(modal_id, "Dados estruturados", "Sugestão persistida; exige revisão humana", body))
 
     lead = ""
