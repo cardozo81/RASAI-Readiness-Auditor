@@ -22,6 +22,52 @@ _PROPERTY_LABELS = {
     "primary_offering": "Oferta principal", "target_audience_profile": "Público-alvo detalhado",
     "primary_goal": "Objetivo principal", "positioning": "Posicionamento",
 }
+_DIMENSION_LABELS = {
+    "DISCOVERY_ACCESS": "Acesso e descoberta",
+    "INDEXABILITY": "Capacidade de indexação",
+    "CONTENT_EXTRACTABILITY": "Extração de conteúdo",
+    "SEMANTIC_STRUCTURE": "Estrutura semântica",
+    "ENTITY_CLARITY": "Clareza de entidades",
+    "STRUCTURED_DATA": "Dados estruturados",
+    "ANSWERABILITY": "Capacidade de resposta",
+    "CITATION_READINESS": "Preparação para citação",
+    "EVIDENCE_TRUST": "Evidências e confiabilidade",
+    "INTENT_COVERAGE": "Cobertura de intenções",
+    "CONTENT_VALUE": "Valor do conteúdo",
+    "NON_SCORING": "Não participa da pontuação",
+}
+
+_PROPERTY_COHERENCE_LABELS = {
+    "SC-X01": "Identidade da organização permanece coerente entre as páginas auditadas",
+    "SC-X02": "Oferta principal permanece alinhada entre as páginas e o contexto declarado",
+    "SC-X03": "Público-alvo permanece alinhado entre as páginas e o contexto declarado",
+    "SC-X04": "Posicionamento permanece alinhado entre as páginas e o contexto declarado",
+    "SC-X05": "Objetivo principal e chamadas para ação permanecem alinhados entre as páginas",
+    "SC-X06": "Propósitos das páginas permanecem alinhados ao contexto da propriedade sem contradição material",
+}
+
+_PAGE_COHERENCE_LABELS = {
+    "SC-P01": "Título e conteúdo principal visível expressam o mesmo assunto principal",
+    "SC-P02": "Headings e conteúdo principal visível expressam uma hierarquia semântica coerente",
+    "SC-P03": "Propósito declarado ou interpretado é coerente com o conteúdo visível e a intenção do usuário",
+    "SC-P04": "Público declarado ou interpretado é coerente com linguagem, profundidade e terminologia",
+    "SC-P05": "Oferta principal declarada está representada de forma coerente quando aplicável",
+    "SC-P06": "Posicionamento declarado está representado de forma coerente quando aplicável",
+    "SC-P07": "Entidades observadas são coerentes com o conteúdo visível",
+    "SC-P08": "Dados estruturados são coerentes com o conteúdo visível",
+    "SC-P09": "Entidades dos dados estruturados são coerentes com as entidades observadas no conteúdo",
+    "SC-P10": "Chamadas para ação são coerentes com o propósito da página e o objetivo declarado quando aplicável",
+    "SC-P11": "Claims materiais apresentam suporte ou qualificação observável suficiente para o contexto",
+    "SC-P12": "Sinais de autoria ou responsabilidade são coerentes com o risco editorial e os requisitos de confiança",
+    "SC-P13": "Sinais de publicação e atualização são coerentes com a sensibilidade temporal da página",
+}
+
+
+def _dimension_label(value: Any) -> str:
+    token = str(value or "NON_SCORING").upper()
+    return _DIMENSION_LABELS.get(token, token.replace("_", " ").title())
+
+
 _CONTENT_LABELS = {
     "page_purpose": "Propósito da página", "intended_audience": "Público pretendido",
     "content_origin": "Origem do conteúdo", "risk_profile": "Perfil de risco",
@@ -216,10 +262,10 @@ def _semantic_assessments_html(evidence: Any,database: Any,audit_id: str) -> str
         rule=str(row.get("assessment_type") or "");contract=RULE_SCORING_CONTRACT.get(rule);modal_id=f"semantic-assessment-{index}"
         dimension=contract.dimension if contract else "NON_SCORING";group=contract.scoring_group if contract else "—"
         origin="Baseline determinístico" if str(row.get("provider") or "").upper()=="DETERMINISTIC_BASELINE" else "IA" if str(row.get("provider") or "").upper() not in {"","NONE"} else "Determinístico/sem IA"
-        table_rows.append((row.get("page_url") or "—",rule,dimension.replace("_"," ").title(),_status(row.get("result")),_confidence(row.get("confidence")),origin,evidence._modal_button(modal_id,"Ver proveniência")))
+        table_rows.append((row.get("page_url") or "—",rule,_dimension_label(dimension),_status(row.get("result")),_confidence(row.get("confidence")),origin,evidence._modal_button(modal_id,"Ver proveniência")))
         source_ids=_json_list(row.get("evidence_ids"));execution_ids=_json_list(row.get("execution_evidence_ids"));all_ids=list(dict.fromkeys([*source_ids,*execution_ids]))
         dim_weight=DIMENSION_WEIGHTS.get(dimension);group_weight=contract.group_weight if contract else None
-        body=evidence._kv((("Regra",rule),("Dimensão",dimension),("Grupo de scoring",group),("Resultado",_status(row.get("result"))),("Confiança",_confidence(row.get("confidence"))),("Origem da avaliação",origin),("Provider",row.get("provider") or "—"),("Modelo",row.get("model") or "—"),("Justificativa resumida",row.get("reasoning_summary") or "—"),("Evidências fonte",", ".join(str(v) for v in source_ids) or "—"),("Evidências da execução",", ".join(str(v) for v in all_ids) or "—"),("Assessment ID",row.get("assessment_id") or "—"),("Rule execution ID",row.get("rule_execution_id") or "—"),("Prompt",f"{row.get('prompt_id') or '—'} / v{row.get('prompt_version') or '—'}"),("Configuração",row.get("configuration_version") or "—"),("Executado em",row.get("executed_at") or "—"),("Peso da dimensão",f"{dim_weight*100:.2f}%" if dim_weight is not None else "Não aplicável"),("Peso do grupo dentro da dimensão",f"{group_weight*100:.2f}%" if group_weight is not None else "Não aplicável"),("Impacto no score","Conforme SCORE-GEO-004" if contract else "Não participa")))
+        body=evidence._kv((("Regra",rule),("Dimensão",_dimension_label(dimension)),("Código da dimensão",dimension),("Grupo de scoring",group),("Resultado",_status(row.get("result"))),("Confiança",_confidence(row.get("confidence"))),("Origem da avaliação",origin),("Provider",row.get("provider") or "—"),("Modelo",row.get("model") or "—"),("Justificativa resumida",row.get("reasoning_summary") or "—"),("Evidências fonte",", ".join(str(v) for v in source_ids) or "—"),("Evidências da execução",", ".join(str(v) for v in all_ids) or "—"),("Assessment ID",row.get("assessment_id") or "—"),("Rule execution ID",row.get("rule_execution_id") or "—"),("Prompt",f"{row.get('prompt_id') or '—'} / v{row.get('prompt_version') or '—'}"),("Configuração",row.get("configuration_version") or "—"),("Executado em",row.get("executed_at") or "—"),("Peso da dimensão",f"{dim_weight*100:.2f}%" if dim_weight is not None else "Não aplicável"),("Peso do grupo dentro da dimensão",f"{group_weight*100:.2f}%" if group_weight is not None else "Não aplicável"),("Impacto no score","Conforme SCORE-GEO-004" if contract else "Não participa")))
         body+="<p class='muted'>O peso final por regra/escopo é calculado pelo contrato hierárquico, considerando aplicabilidade e normalização; o modelo de IA não escolhe nem altera os pesos. Veja <a href='sari.html'>SARI</a> e <a href='methodology.html'>Metodologia</a>.</p>"
         modals.append(evidence._modal(modal_id,f"{rule} · assessment",str(row.get("page_url") or "Página"),body))
     return "<div class='subsection'><h3>Assessments semânticos</h3>"+evidence._table(("Página","Regra","Dimensão","Resultado","Confiança","Origem","Detalhe"),table_rows,sortable=True,page_size=10 if len(table_rows)>10 else None)+"".join(modals)+"</div>"
@@ -231,10 +277,10 @@ def _property_summary_html(evidence: Any, database: Any, audit_id: str) -> str:
     table_rows=[];modals=[]
     for index,row in enumerate(summaries,1):
         criterion=str(row.get("criterion_id") or "");modal_id=f"property-coherence-{index}"
-        table_rows.append((PROPERTY_COHERENCE_CRITERIA.get(criterion,criterion),_status(row.get("result")),_confidence(row.get("confidence")),int(row.get("observation_count") or 0),evidence._modal_button(modal_id,"Ver análise")))
+        table_rows.append((_PROPERTY_COHERENCE_LABELS.get(criterion,PROPERTY_COHERENCE_CRITERIA.get(criterion,criterion)),_status(row.get("result")),_confidence(row.get("confidence")),int(row.get("observation_count") or 0),evidence._modal_button(modal_id,"Ver análise")))
         ids=_json_list(row.get("evidence_ids_json"))
         body=evidence._kv((("Critério",criterion),("Resultado",_status(row.get("result"))),("Confiança agregada",_confidence(row.get("confidence"))),("Páginas/observações consideradas",row.get("observation_count") or 0),("Leitura",row.get("summary") or "—"),("Evidências relacionadas",", ".join(str(item) for item in ids) or "—")))
-        modals.append(evidence._modal(modal_id,PROPERTY_COHERENCE_CRITERIA.get(criterion,criterion),"Agregação cross-page determinística",body))
+        modals.append(evidence._modal(modal_id,_PROPERTY_COHERENCE_LABELS.get(criterion,PROPERTY_COHERENCE_CRITERIA.get(criterion,criterion)),"Agregação cross-page determinística",body))
     divergent=sum(1 for row in summaries if str(row.get("result")) in {"PARTIAL","INCOHERENT"})
     note=f"<p class='muted'>{divergent} dimensão(ões) com divergência ou coerência parcial. A implementação de correções fica centralizada em <a href='cat-09.html'>CAT-09 · Remediações</a>.</p>" if divergent else ""
     return "<div class='subsection'><h3>Coerência da propriedade</h3>"+evidence._table(("Dimensão","Resultado","Confiança","Base","Detalhe"),table_rows,sortable=True)+note+"".join(modals)+"</div>"
@@ -249,10 +295,10 @@ def _page_summary_html(evidence: Any, database: Any, audit_id: str) -> str:
     for index,criterion in enumerate(PAGE_COHERENCE_CRITERIA,1):
         items=grouped.get(criterion,[]);counts=Counter(str(item.get("result") or "NOT_DETERMINABLE") for item in items);divergence=counts.get("PARTIAL",0)+counts.get("INCOHERENT",0);confidence=sum(float(item.get("confidence") or 0) for item in items)/len(items) if items else 0.0;modal_id=f"page-coherence-{index}"
         state="Incoerente" if counts.get("INCOHERENT") else "Parcial" if divergence else "Coerente" if items else "Não determinável"
-        table_rows.append((PAGE_COHERENCE_CRITERIA[criterion],state,_confidence(confidence),divergence,evidence._modal_button(modal_id,"Ver páginas")))
+        table_rows.append((_PAGE_COHERENCE_LABELS.get(criterion,PAGE_COHERENCE_CRITERIA[criterion]),state,_confidence(confidence),divergence,evidence._modal_button(modal_id,"Ver páginas")))
         details=[(item.get("page_url") or "—",_status(item.get("result")),_confidence(item.get("confidence")),item.get("observed_context") or "—") for item in sorted(items,key=lambda value:(str(value.get("page_url")),str(value.get("snapshot_id"))))]
         body=evidence._table(("Página","Resultado","Confiança","Observado"),details,sortable=bool(details),page_size=10 if len(details)>10 else None)+"<p class='muted'>O detalhe técnico da chamada, provider, tokens e custo permanece em <a href='ai-integrations.html'>IA e integrações</a>.</p>"
-        modals.append(evidence._modal(modal_id,PAGE_COHERENCE_CRITERIA[criterion],criterion,body))
+        modals.append(evidence._modal(modal_id,_PAGE_COHERENCE_LABELS.get(criterion,PAGE_COHERENCE_CRITERIA[criterion]),criterion,body))
     return "<div class='subsection'><h3>Coerência semântica por página</h3>"+evidence._table(("Dimensão","Resultado","Confiança","Divergências","Detalhe"),table_rows,sortable=True)+"".join(modals)+"</div>"
 
 
