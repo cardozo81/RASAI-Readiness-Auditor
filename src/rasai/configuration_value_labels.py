@@ -239,7 +239,7 @@ def _combined(name: Any, value: Any, *, translated_first: bool) -> str:
     if not raw:
         return "-"
     label = configuration_value_label(name, raw)
-    if not label or label.casefold() == raw.casefold():
+    if not label or label == raw:
         return raw
     return f"{label} ({raw})" if translated_first else f"{raw} ({label})"
 
