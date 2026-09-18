@@ -294,6 +294,24 @@ Estado da integração e, quando coletados, Lighthouse/PageSpeed/CrUX. Permanece
 
 Superfície canônica de métricas e serviços de padrões. Pode conter W3C HTML/CSS, MDN Observatory, Web Platform Baseline/WebDX e métricas derivadas quando disponíveis. Sem coleta/dataset, mantém estado explícito e não dispara serviço apenas para preencher o HTML.
 
+### `report-catalog/cat-10.html`
+
+Página de **Segurança passiva**. Projeta somente dados já persistidos e não dispara coleta durante o HTML. Apresenta cobertura, findings, severidade/classificação, rastreabilidade, recursos first/third-party, componentes/versionamento identificáveis, MDN HTTP Observatory/Lighthouse já coletados, OSV/CISA KEV e remediação por finding.
+
+Persistência própria:
+
+```text
+passive_security_runs
+passive_security_resources
+passive_security_components
+passive_security_integrations
+passive_security_advisories
+passive_security_findings
+passive_security_remediations
+```
+
+Artifacts externos de vulnerability intelligence ficam em `artifacts/security/` quando a integração efetivamente produz resposta. Valores de cookies e nonces brutos não são copiados para as tabelas do CAT-10. Consulte [PASSIVE_SECURITY_CATALOG.md](PASSIVE_SECURITY_CATALOG.md).
+
 ### `ai-usage.html`
 
 Estado de uso de IA, provider/modelo, tentativas, tokens e custo estimado quando aplicável. Não gera nova chamada de IA.
