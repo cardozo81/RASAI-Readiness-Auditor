@@ -9,6 +9,7 @@ import sqlite3
 from typing import Any
 
 from rasai import report_navigation
+from rasai.configuration_value_labels import configuration_value_report
 from rasai.m25_cli import (
     DEFAULT_UX_CONCURRENCY,
     DEFAULT_UX_DELAY_SECONDS,
@@ -144,12 +145,12 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
     dynatrace_contract = _dynatrace_contract_table(metadata)
     metrics = "".join((
         _metric("Estado", status),
-        _metric("KPM efetiva", str(run["kpm"])),
+        _metric("KPM efetiva", configuration_value_report("RASAI_APDEX_EXPERIENCE_KPM", run["kpm"])),
         _metric("Satisfied <", f"{float(run['satisfied_threshold_seconds']):g} s"),
         _metric("Frustrated >", f"{float(run['frustrated_threshold_seconds']):g} s"),
         _metric("Erros afetam", errors),
-        _metric("Escopo de erro", str(run["error_scope"])),
-        _metric("Sessão", str(run["session_mode"]).upper()),
+        _metric("Escopo de erro", configuration_value_report("RASAI_APDEX_EXPERIENCE_ERROR_SCOPE", run["error_scope"])),
+        _metric("Sessão", configuration_value_report("RASAI_APDEX_EXPERIENCE_SESSION_MODE", run["session_mode"])),
         _metric("Amostras válidas", int(run["valid_samples"])),
     ))
 
@@ -191,8 +192,8 @@ def _page(data: dict[str, Any], report_dir: Path) -> str:
       <p><strong>Origem:</strong> {escape(str(run['calibration_source']))}. {escape(calibration_note)}</p>
       {fallback_notice}
       <p><strong>Mix de dispositivos:</strong> {escape(mix_text)}. <strong>Alvo:</strong> {int(run['target_samples_per_page'])} amostras válidas por página no total, não por device.</p>
-      <p><strong>Janela pós-load:</strong> até {float(run['settle_seconds']):g}s. Esta janela observa atividade tardia e network idle; por si só não estende <code>USER_ACTION_DURATION</code>. <strong>Session mode:</strong> {escape(str(run['session_mode']))}; <code>cold</code> cria contexto isolado/cache frio por sample, <code>warm</code> preserva contexto/cookies/cache entre samples do mesmo worker/perfil.</p>
-      <p><strong>Política de erros:</strong> errors_affect_apdex={errors}, scope={escape(str(run['error_scope']))}. {_error_policy_note(run)}</p>
+      <p><strong>Janela pós-load:</strong> até {float(run['settle_seconds']):g}s. Esta janela observa atividade tardia e network idle; por si só não estende <code>USER_ACTION_DURATION</code>. <strong>Modo de sessão:</strong> {escape(configuration_value_report("RASAI_APDEX_EXPERIENCE_SESSION_MODE", run['session_mode']))}; <code>cold</code> cria contexto isolado/cache frio por amostra, <code>warm</code> preserva contexto/cookies/cache entre amostras do mesmo worker/perfil.</p>
+      <p><strong>Política de erros:</strong> errors_affect_apdex={errors}, escopo={escape(configuration_value_report("RASAI_APDEX_EXPERIENCE_ERROR_SCOPE", run['error_scope']))}. {_error_policy_note(run)}</p>
     </section>
     {_measurement_contract_section(measurement_contract)}
     <section class='panel'>
@@ -318,16 +319,16 @@ def _settings_table(run: sqlite3.Row, configuration: dict[str, Any], metadata: d
     default_mix = DEFAULT_UX_DEVICE_MIX
 
     rows = [
-        _setting_row("KPM efetiva", run["kpm"], DEFAULT_UX_KPM, "DYNATRACE IMPORT" if imported else _origin(run["kpm"], DEFAULT_UX_KPM), f"Dynatrace Load primária: {DYNATRACE_LOAD_PRIMARY_KPM}; baseline RASAi usa fallback mensurável."),
+        _setting_row("KPM efetiva", configuration_value_report("RASAI_APDEX_EXPERIENCE_KPM", run["kpm"]), configuration_value_report("RASAI_APDEX_EXPERIENCE_KPM", DEFAULT_UX_KPM), "DYNATRACE IMPORT" if imported else _origin(run["kpm"], DEFAULT_UX_KPM), f"Dynatrace Load primária: {DYNATRACE_LOAD_PRIMARY_KPM}; baseline RASAi usa fallback mensurável."),
         _setting_row("Satisfied", f"{float(run['satisfied_threshold_seconds']):g} s", f"{DEFAULT_UX_SATISFIED_SECONDS:g} s", "DYNATRACE IMPORT" if imported else _origin(float(run["satisfied_threshold_seconds"]), DEFAULT_UX_SATISFIED_SECONDS), "Valor estritamente abaixo deste limiar é Satisfied; igualdade inicia Tolerating."),
         _setting_row("Frustrated", f"{float(run['frustrated_threshold_seconds']):g} s", f"{DEFAULT_UX_FRUSTRATED_SECONDS:g} s", "DYNATRACE IMPORT" if imported else _origin(float(run["frustrated_threshold_seconds"]), DEFAULT_UX_FRUSTRATED_SECONDS), "Valor estritamente acima deste limiar é Frustrated; igualdade permanece Tolerating."),
         _setting_row("Erros afetam Apdex", bool(run["errors_affect_apdex"]), True, "DYNATRACE IMPORT/POLICY" if imported and metadata.get("errors_affect_apdex_observed") else _origin(bool(run["errors_affect_apdex"]), True), "Dynatrace também pode frustrar ações por JavaScript/request errors; regras específicas podem variar."),
-        _setting_row("Escopo de erro", run["error_scope"], DEFAULT_UX_ERROR_SCOPE, _origin(str(run["error_scope"]), DEFAULT_UX_ERROR_SCOPE), "Default conservador RASAi; a regra efetiva aparece no contrato de medição."),
+        _setting_row("Escopo de erro", configuration_value_report("RASAI_APDEX_EXPERIENCE_ERROR_SCOPE", run["error_scope"]), configuration_value_report("RASAI_APDEX_EXPERIENCE_ERROR_SCOPE", DEFAULT_UX_ERROR_SCOPE), _origin(str(run["error_scope"]), DEFAULT_UX_ERROR_SCOPE), "Default conservador RASAi; a regra efetiva aparece no contrato de medição."),
         _setting_row("Amostras por página", samples, DEFAULT_UX_SAMPLES, _origin(samples, DEFAULT_UX_SAMPLES), "Parâmetro sintético RASAi; RUM não possui N sintético."),
         _setting_row("Máximo de tentativas", configuration.get("max_attempts_per_page", derived_attempts), derived_attempts, _origin(int(configuration.get("max_attempts_per_page", derived_attempts)), derived_attempts), "Default derivado: ceil(1.25 × samples)."),
         _setting_row("Máximo de páginas", configuration.get("max_pages", DEFAULT_UX_MAX_PAGES), DEFAULT_UX_MAX_PAGES, _origin(int(configuration.get("max_pages", DEFAULT_UX_MAX_PAGES)), DEFAULT_UX_MAX_PAGES), "Parâmetro operacional RASAi."),
         _setting_row("Device mix", mix_value, default_mix, _origin(_mix_normalized(config_mix), _mix_normalized(_mix_from_text(default_mix))), "Sem default Dynatrace RUM; população real é observada."),
-        _setting_row("Session mode", configuration.get("session_mode", run["session_mode"]), DEFAULT_UX_SESSION_MODE, _origin(str(configuration.get("session_mode", run["session_mode"])), DEFAULT_UX_SESSION_MODE), "Parâmetro sintético RASAi; sem equivalente direto RUM."),
+        _setting_row("Modo de sessão", configuration_value_report("RASAI_APDEX_EXPERIENCE_SESSION_MODE", configuration.get("session_mode", run["session_mode"])), configuration_value_report("RASAI_APDEX_EXPERIENCE_SESSION_MODE", DEFAULT_UX_SESSION_MODE), _origin(str(configuration.get("session_mode", run["session_mode"])), DEFAULT_UX_SESSION_MODE), "Parâmetro sintético RASAi; sem equivalente direto RUM."),
         _setting_row("Janela pós-load", f"{float(configuration.get('settle_seconds', run['settle_seconds'])):g} s", f"{DEFAULT_UX_SETTLE_SECONDS:g} s", _origin(float(configuration.get("settle_seconds", run["settle_seconds"])), DEFAULT_UX_SETTLE_SECONDS), "Janela observacional; não amplia USER_ACTION_DURATION apenas por atividade tardia arbitrária."),
         _setting_row("Delay", f"{float(configuration.get('delay_seconds', DEFAULT_UX_DELAY_SECONDS)):g} s", f"{DEFAULT_UX_DELAY_SECONDS:g} s", _origin(float(configuration.get("delay_seconds", DEFAULT_UX_DELAY_SECONDS)), DEFAULT_UX_DELAY_SECONDS), "Controle de carga RASAi."),
         _setting_row("Concorrência", int(configuration.get("concurrency", DEFAULT_UX_CONCURRENCY)), DEFAULT_UX_CONCURRENCY, _origin(int(configuration.get("concurrency", DEFAULT_UX_CONCURRENCY)), DEFAULT_UX_CONCURRENCY), "Controle de carga RASAi."),
