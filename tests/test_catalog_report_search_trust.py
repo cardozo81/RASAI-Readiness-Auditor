@@ -322,11 +322,15 @@ def test_common_crawl_error_modal_exposes_exception_and_recovery_steps(tmp_path:
         obs.close()
 
     html = _external_html(database, _data())
-    assert "Ver erro e como corrigir" in html
+    assert "Ver indisponibilidade externa" in html
+    assert "Provider temporariamente indisponível" in html
     assert "HTTP 503" in html
     assert "index.commoncrawl.org/CC-MAIN-TEST-index" in html
-    assert "reprocessamento seletivo" in html
-    assert "Falha do Common Crawl não implica erro no site" in html
+    assert "endpoint do Common Crawl foi alcançado" in html
+    assert "não indica falha de DNS, proxy ou firewall local" in html
+    assert "Não altere a URL auditada por causa desse 5xx" in html
+    assert "Verifique conectividade HTTPS, proxy, firewall" not in html
+    assert "Indisponibilidade do Common Crawl não implica erro no site" in html
 
 
 def test_common_crawl_no_capture_404_is_presented_as_coverage_limitation(tmp_path: Path) -> None:
