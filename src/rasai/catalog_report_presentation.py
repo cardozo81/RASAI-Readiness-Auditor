@@ -85,7 +85,7 @@ def _status_label(value: Any) -> str:
         "SUCCESS":"Concluído","COMPLETE":"Concluído","COMPLETED":"Concluído","FINAL":"Concluído",
         "READY":"Disponível","AVAILABLE":"Disponível","MEASURED":"Medido","GENERATED":"Gerado","CONSOLIDATED":"Consolidado",
         "PASS":"Aprovado","FAIL":"Não aprovado","WARNING":"Atenção","INFO":"Informativo",
-        "PARTIAL":"Parcial","FAILED_RETRYABLE":"Falha reprocessável","FAILED_PERMANENT":"Falha permanente",
+        "PARTIAL":"Parcial","FAILED_RETRYABLE":"Falha reprocessável","FAILED_TERMINAL":"Falha terminal","FAILED_PERMANENT":"Falha permanente",
         "FAILED_FATAL":"Falha fatal","FAILURE":"Falha","ERROR":"Erro","TECHNICAL_ERROR":"Erro técnico",
         "CONTRACT_ERROR":"Erro de resposta contratual","BLOCKED":"Bloqueado","DISABLED":"Desabilitado",
         "NOT_REQUESTED":"Não solicitado","REQUESTED_NOT_EXECUTED":"Solicitado, não executado","NOT_CONFIGURED":"Não configurado",
@@ -189,7 +189,7 @@ def _capability_label(value: Any) -> str:
         "google-search-console":"Google Search Console","ai-visibility":"Visibilidade em respostas de IA",
         "observability":"Observabilidade externa","apdex-navigation":"Apdex de navegação",
         "apdex-experience":"Apdex de experiência","deep-analysis":"Análise profunda e melhorias",
-        "remediation":"Remediações",
+        "remediation":"Remediações","passive-security":"Segurança passiva",
     }.get(raw,raw.replace("-"," ").replace("_"," ").title() or "-")
 
 
