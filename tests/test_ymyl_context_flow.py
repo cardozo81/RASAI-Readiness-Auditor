@@ -7,7 +7,10 @@ from types import SimpleNamespace
 from rasai import ai_execution_state
 from rasai.ai_exchange_log import AiExchangeRecorder, ContextInterpretationRecord
 from rasai.editorial_risk_context import build_editorial_risk_context, ymyl_prompt_directive
-from rasai.improvement_intelligence import build_improvement_request_context
+from rasai.improvement_intelligence import (
+    _semantic_risk_findings,
+    build_improvement_request_context,
+)
 from rasai.semantic_coherence_reporting import _ymyl_alignment_html
 
 
@@ -183,3 +186,53 @@ def test_non_ymyl_context_does_not_force_ymyl_recommendations(tmp_path: Path) ->
     directive = ymyl_prompt_directive(context)
     assert context["ymyl"]["active"] is False
     assert "Do not invent a YMYL classification" in directive
+
+
+def test_ymyl_semantic_gap_becomes_improvement_finding(tmp_path: Path) -> None:
+    database = _database(tmp_path)
+    connection = sqlite3.connect(database)
+    connection.row_factory = sqlite3.Row
+    try:
+        context = SimpleNamespace(url="https://example.test/")
+        findings, summary = _semantic_risk_findings(
+            connection,
+            "AUD-YMYL",
+            context,
+            SimpleNamespace(database=database, root=tmp_path),
+        )
+    finally:
+        connection.close()
+    assert summary["active"] is True
+    assert len(findings) == 1
+    finding = findings[0]
+    assert finding["finding_id"] == "SEMANTIC-YMYL:SC-P12:S1"
+    assert finding["domain"] == "CONTENT"
+    assert finding["severity"] == "MEDIUM"
+    assert finding["source"] == "SEMANTIC_COHERENCE_YMYL"
+    assert finding["evidence_ids"] == ["EV-1"]
+    assert "autoria/responsabilidade" in finding["observation"]
+
+
+def test_standard_profile_does_not_create_ymyl_semantic_findings(tmp_path: Path) -> None:
+    database = _database(tmp_path)
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute(
+            "UPDATE content_analysis_contexts SET risk_profile='standard', ymyl_category='none'"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    connection = sqlite3.connect(database)
+    connection.row_factory = sqlite3.Row
+    try:
+        findings, summary = _semantic_risk_findings(
+            connection,
+            "AUD-YMYL",
+            SimpleNamespace(url="https://example.test/"),
+            SimpleNamespace(database=database, root=tmp_path),
+        )
+    finally:
+        connection.close()
+    assert summary["active"] is False
+    assert findings == []

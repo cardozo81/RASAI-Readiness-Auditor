@@ -475,6 +475,111 @@ def _existing_findings(connection: sqlite3.Connection, audit_id: str, context: _
     return output
 
 
+_YMYL_SEMANTIC_CRITERIA: dict[str, tuple[str, str]] = {
+    "SC-P11": (
+        "Suporte observável de claims é insuficiente para o contexto YMYL",
+        "claims materiais × suporte/qualificação observável",
+    ),
+    "SC-P12": (
+        "Sinais de autoria ou responsabilidade são insuficientes para o contexto YMYL",
+        "autoria/responsabilidade × risco/confiança",
+    ),
+    "SC-P13": (
+        "Sinais de atualização são insuficientes para a sensibilidade YMYL",
+        "freshness/publicação × sensibilidade temporal",
+    ),
+}
+
+
+def _semantic_risk_findings(
+    connection: sqlite3.Connection,
+    audit_id: str,
+    context: _TargetContext,
+    workspace: AuditWorkspace,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Bridge persisted semantic-coherence gaps into evidence-bound deep analysis."""
+    from rasai.editorial_risk_context import build_editorial_risk_context
+
+    editorial = build_editorial_risk_context(
+        workspace,
+        audit_id,
+        page_url=context.url,
+    )
+    ymyl = editorial.get("ymyl", {})
+    summary = {
+        "active": bool(isinstance(ymyl, Mapping) and ymyl.get("active")),
+        "configured_risk_profile": ymyl.get("configured_risk_profile") if isinstance(ymyl, Mapping) else None,
+        "configured_category": ymyl.get("configured_category") if isinstance(ymyl, Mapping) else None,
+        "effective_category": ymyl.get("effective_category") if isinstance(ymyl, Mapping) else None,
+        "alignment_result": ymyl.get("alignment_result") if isinstance(ymyl, Mapping) else None,
+        "criteria_considered": list(_YMYL_SEMANTIC_CRITERIA),
+        "gaps": [],
+    }
+    if not summary["active"] or not _table_exists(connection, "semantic_coherence_assessments"):
+        return [], summary
+
+    placeholders = ",".join("?" for _ in _YMYL_SEMANTIC_CRITERIA)
+    rows = _many(
+        connection,
+        f"""SELECT * FROM semantic_coherence_assessments
+            WHERE audit_id=? AND page_url=? AND criterion_id IN ({placeholders})
+            ORDER BY criterion_id,snapshot_id""",
+        (audit_id, context.url, *_YMYL_SEMANTIC_CRITERIA),
+    )
+    findings: list[dict[str, Any]] = []
+    for row in rows:
+        criterion = str(row["criterion_id"] or "")
+        result = str(row["result"] or "NOT_DETERMINABLE").upper()
+        if criterion not in _YMYL_SEMANTIC_CRITERIA or result not in {"PARTIAL", "INCOHERENT"}:
+            continue
+        title, relation = _YMYL_SEMANTIC_CRITERIA[criterion]
+        evidence_ids = _json_load(row["evidence_ids_json"], []) or []
+        if not isinstance(evidence_ids, list):
+            evidence_ids = []
+        confidence = float(row["confidence"] or 0.0)
+        reasoning = str(row["reasoning_summary"] or "").strip()
+        observed = str(row["observed_context"] or "").strip()
+        declared = str(row["declared_context"] or "").strip()
+        observation = (
+            f"{relation}. Resultado persistido: {result}; confiança={confidence:.2f}. "
+            f"Contexto declarado: {declared or 'não informado'}. "
+            f"Contexto observado: {observed or 'não determinável'}."
+        )
+        if reasoning:
+            observation += f" Leitura da IA: {reasoning}"
+        finding = _finding(
+            finding_id=f"SEMANTIC-YMYL:{criterion}:{row['snapshot_id']}",
+            domain="CONTENT",
+            severity="HIGH" if result == "INCOHERENT" else "MEDIUM",
+            title=title,
+            observation=observation,
+            evidence_ids=evidence_ids,
+            impacts=_impacts(seo=1, ai_access=3, best_practices=1),
+            source="SEMANTIC_COHERENCE_YMYL",
+            details={
+                "criterion_id": criterion,
+                "result": result,
+                "confidence": confidence,
+                "declared_context": declared,
+                "observed_context": observed,
+                "reasoning_summary": reasoning,
+                "ymyl_effective_category": summary["effective_category"],
+                "non_scoring_context": True,
+            },
+        )
+        findings.append(finding)
+        summary["gaps"].append(
+            {
+                "finding_id": finding["finding_id"],
+                "criterion_id": criterion,
+                "result": result,
+                "confidence": confidence,
+                "evidence_ids": list(evidence_ids),
+            }
+        )
+    return findings, summary
+
+
 def _structure_findings(context: _TargetContext) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     parser = _StructureParser()
     try:
@@ -947,7 +1052,11 @@ def collect_improvement_evidence(*, audit_id: str, workspace: AuditWorkspace, co
     try:
         context = _target_context(connection, audit_id, workspace)
         if progress: progress("EVIDENCE", 12.0, "carregando findings, HTML e evidências persistidas da URL alvo")
-        existing = _existing_findings(connection, audit_id, context); structure, structure_summary = _structure_findings(context)
+        existing = _existing_findings(connection, audit_id, context)
+        semantic_risk, semantic_risk_summary = _semantic_risk_findings(
+            connection, audit_id, context, workspace
+        )
+        structure, structure_summary = _structure_findings(context)
         if progress: progress("HTML", 28.0, "analisando semântica, headings, elementos HTML e coerência estrutural")
         security, security_summary = _security_findings(connection, audit_id, context)
         if progress: progress("SECURITY", 40.0, "avaliando postura de segurança passiva nos headers já capturados")
@@ -958,8 +1067,8 @@ def collect_improvement_evidence(*, audit_id: str, workspace: AuditWorkspace, co
         search, search_summary = _search_context(connection, audit_id, context)
         if progress: progress("SERP", 68.0, "correlacionando posição SERP e gaps competitivos quando disponíveis")
     finally: connection.close()
-    findings = [item for item in _dedupe_findings([*existing, *structure, *security, *lighthouse, *discovery, *search]) if item["domain"] in set(config.domains)]
-    supporting = {"structure": structure_summary, "security": security_summary, "lighthouse": lighthouse_summary, "discovery": discovery_summary, "search": search_summary, "raw_html_excerpt": context.html[:_AI_HTML_LIMIT], "structured_data": context.structured_data}
+    findings = [item for item in _dedupe_findings([*existing, *semantic_risk, *structure, *security, *lighthouse, *discovery, *search]) if item["domain"] in set(config.domains)]
+    supporting = {"structure": structure_summary, "semantic_ymyl_risk": semantic_risk_summary, "security": security_summary, "lighthouse": lighthouse_summary, "discovery": discovery_summary, "search": search_summary, "raw_html_excerpt": context.html[:_AI_HTML_LIMIT], "structured_data": context.structured_data}
     return context, findings, supporting, _evidence_fingerprint(findings, search_summary, lighthouse_summary)
 
 
