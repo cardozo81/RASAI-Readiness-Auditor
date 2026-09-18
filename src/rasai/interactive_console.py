@@ -6,7 +6,10 @@ import math
 import os
 
 from rasai.console_artifacts import artifact_status, open_audit_folder, open_report
-from rasai.console_collection import load_collection_coverage
+from rasai.console_collection import (
+    load_collection_coverage,
+    load_web_performance_attempt_diagnostics,
+)
 from rasai.console_config import (
     DEFAULT_MODELS,
     ENV_NAMES as BASE_ENV_NAMES,
@@ -578,6 +581,48 @@ def _render_actual_usage(state: State) -> None:
     print("Observação           : custos são estimativas técnicas dos adapters, não invoice do provider.")
 
 
+def _web_performance_service_label(value: str) -> str:
+    return {
+        "PAGESPEED_INSIGHTS": "PageSpeed Insights",
+        "CRUX_API": "CrUX API",
+    }.get(str(value or "").upper(), str(value or "Serviço externo").replace("_", " ").title())
+
+
+def _web_performance_attempt_status_label(value: str) -> str:
+    raw = str(value or "UNKNOWN").upper()
+    if raw == "SUCCESS":
+        return "CONCLUÍDO"
+    if raw == "NO_DATA":
+        return "SEM DADOS"
+    if raw == "NOT_CONFIGURED":
+        return "NÃO CONFIGURADO"
+    if raw in {"ERROR", "FAILED", "FAILED_RETRYABLE", "FAILED_PERMANENT", "UNAVAILABLE"}:
+        return "ERRO"
+    return raw.replace("_", " ")
+
+
+def _render_web_performance_failure_detail(
+    state: State,
+    workspace: Path | None,
+    item: object,
+) -> None:
+    attempts = load_web_performance_attempt_diagnostics(workspace, state.audit_id)
+    if attempts:
+        print("  Diagnóstico persistido da coleta:")
+        for attempt in attempts:
+            http = f" · HTTP {attempt.http_status}" if attempt.http_status is not None else ""
+            code = f" · código={attempt.error_code}" if attempt.error_code else ""
+            print(
+                f"    {_web_performance_service_label(attempt.service):<20} "
+                f"{_web_performance_attempt_status_label(attempt.status)}{http}{code}"
+            )
+            if attempt.error_message:
+                print(f"      Motivo: {attempt.error_message}")
+    error_class = str(getattr(item, "last_error_class", None) or "-")
+    retryable = "SIM" if bool(getattr(item, "retryable", False)) else "NÃO"
+    print(f"  Classificação do fulfillment: {error_class} · reprocessável={retryable}")
+
+
 def _render_incomplete_requirements(state: State, workspace: Path | None) -> None:
     if workspace is None or not state.audit_id:
         return
@@ -605,6 +650,8 @@ def _render_incomplete_requirements(state: State, workspace: Path | None) -> Non
         print(f"{item.component:<28} {item.status}{scope} · código={code}")
         if item.last_error_message:
             print(f"  Motivo: {item.last_error_message}")
+        if str(item.component).upper() == "WEB_PERFORMANCE":
+            _render_web_performance_failure_detail(state, workspace, item)
 
 
 def _post_run_actions(state: State) -> bool:

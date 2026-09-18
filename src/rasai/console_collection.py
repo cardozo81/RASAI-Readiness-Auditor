@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import sqlite3
 
+from rasai.secret_safety import redact_text
+
 
 @dataclass(frozen=True, slots=True)
 class CollectionCoverage:
@@ -21,6 +23,73 @@ class CollectionCoverage:
     accessibility_obtained: int
     accessibility_contexts: int
     accessibility_reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class WebPerformanceAttemptDiagnostic:
+    service: str
+    status: str
+    http_status: int | None
+    error_code: str | None
+    error_message: str | None
+
+
+def load_web_performance_attempt_diagnostics(
+    workspace: Path | None,
+    audit_id: str | None = None,
+) -> tuple[WebPerformanceAttemptDiagnostic, ...]:
+    """Return the latest persisted attempt per M21 external service without probing again."""
+    if workspace is None:
+        return ()
+    database = workspace / "audit.db"
+    if not database.is_file():
+        return ()
+    try:
+        db = sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=0.5)
+        db.row_factory = sqlite3.Row
+        try:
+            exists = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='web_performance_attempts'"
+            ).fetchone()
+            if exists is None:
+                return ()
+            if audit_id:
+                rows = db.execute(
+                    """SELECT service,status,http_status,error_code,error_message,created_at
+                       FROM web_performance_attempts
+                       WHERE audit_id=?
+                       ORDER BY created_at DESC,rowid DESC""",
+                    (audit_id,),
+                ).fetchall()
+            else:
+                rows = db.execute(
+                    """SELECT service,status,http_status,error_code,error_message,created_at
+                       FROM web_performance_attempts
+                       ORDER BY created_at DESC,rowid DESC"""
+                ).fetchall()
+        finally:
+            db.close()
+    except sqlite3.Error:
+        return ()
+
+    latest: dict[str, WebPerformanceAttemptDiagnostic] = {}
+    for row in rows:
+        service = str(row["service"] or "").upper()
+        if not service or service in latest:
+            continue
+        message = str(row["error_message"] or "").strip()
+        latest[service] = WebPerformanceAttemptDiagnostic(
+            service=service,
+            status=str(row["status"] or "UNKNOWN").upper(),
+            http_status=int(row["http_status"]) if row["http_status"] is not None else None,
+            error_code=str(row["error_code"] or "").strip() or None,
+            error_message=redact_text(message) if message else None,
+        )
+
+    order = {"PAGESPEED_INSIGHTS": 0, "CRUX_API": 1}
+    return tuple(
+        sorted(latest.values(), key=lambda item: (order.get(item.service, 99), item.service))
+    )
 
 
 def load_collection_coverage(workspace: Path | None) -> CollectionCoverage | None:

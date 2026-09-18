@@ -4,6 +4,7 @@ from io import StringIO
 import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from rasai.console_artifacts import audit_workspace, report_entrypoint
 from rasai.interactive_console import _render_incomplete_requirements
@@ -411,3 +412,64 @@ def test_console_lists_required_incomplete_components_with_error_code() -> None:
         assert "FAILED_RETRYABLE" in text
         assert "código=PARTIAL" in text
         assert "PageSpeed incomplete" in text
+
+
+def test_console_expands_web_performance_failure_from_persisted_attempts() -> None:
+    from rasai.audit_fulfillment import FAILED_RETRYABLE, REPLAY_SAFE, register_work_item, set_work_item_status
+    from rasai.console_collection import WebPerformanceAttemptDiagnostic
+    from rasai.domain import Audit
+    from rasai.persistence import AuditPersistence, AuditWorkspace
+
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        workspace = AuditWorkspace.create(root, "AUD-WEB-DIAGNOSTIC")
+        with AuditPersistence(workspace) as persistence:
+            persistence.audits.add(Audit(audit_id="AUD-WEB-DIAGNOSTIC", project_name="web diagnostic"))
+        register_work_item(
+            workspace,
+            audit_id="AUD-WEB-DIAGNOSTIC",
+            component="WEB_PERFORMANCE",
+            required=True,
+            temporal_mode=REPLAY_SAFE,
+        )
+        set_work_item_status(
+            workspace,
+            audit_id="AUD-WEB-DIAGNOSTIC",
+            component="WEB_PERFORMANCE",
+            status=FAILED_RETRYABLE,
+            error_class="EXTERNAL_SERVICE",
+            error_code="UNAVAILABLE",
+            error_message="web performance state=UNAVAILABLE",
+        )
+        diagnostics = (
+            WebPerformanceAttemptDiagnostic(
+                "PAGESPEED_INSIGHTS",
+                "ERROR",
+                500,
+                "INTERNAL",
+                "Lighthouse returned error: Something went wrong.",
+            ),
+            WebPerformanceAttemptDiagnostic(
+                "CRUX_API",
+                "NO_DATA",
+                404,
+                "NO_DATA",
+                "chrome ux report data not found",
+            ),
+        )
+
+        state = State(audits_root=str(root), audit_id="AUD-WEB-DIAGNOSTIC")
+        output = StringIO()
+        with patch(
+            "rasai.interactive_console.load_web_performance_attempt_diagnostics",
+            return_value=diagnostics,
+        ), redirect_stdout(output):
+            _render_incomplete_requirements(state, workspace.root)
+        text = output.getvalue()
+
+        assert "PageSpeed Insights" in text
+        assert "ERRO · HTTP 500" in text
+        assert "Lighthouse returned error: Something went wrong." in text
+        assert "CrUX API" in text
+        assert "SEM DADOS · HTTP 404" in text
+        assert "Classificação do fulfillment: EXTERNAL_SERVICE · reprocessável=SIM" in text
