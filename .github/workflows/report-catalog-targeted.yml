@@ -28,6 +28,9 @@ on:
       - 'src/rasai/editorial_risk_context.py'
       - 'src/rasai/selective_optional_reprocess.py'
       - 'tests/test_report_catalog_public_labels.py'
+      - 'tests/test_catalog_report_package_integrity.py'
+      - 'tests/test_catalog_source_inventory.py'
+      - 'tests/test_catalog_report_assurance.py'
       - 'tests/test_catalog_report_final_refinements.py'
       - 'tests/test_cat03_ptbr_labels.py'
       - 'tests/test_ymyl_context_flow.py'
@@ -59,6 +62,9 @@ on:
       - 'src/rasai/editorial_risk_context.py'
       - 'src/rasai/selective_optional_reprocess.py'
       - 'tests/test_report_catalog_public_labels.py'
+      - 'tests/test_catalog_report_package_integrity.py'
+      - 'tests/test_catalog_source_inventory.py'
+      - 'tests/test_catalog_report_assurance.py'
       - 'tests/test_catalog_report_final_refinements.py'
       - 'tests/test_cat03_ptbr_labels.py'
       - 'tests/test_ymyl_context_flow.py'
@@ -83,6 +89,9 @@ jobs:
         run: >-
           pytest -q
           tests/test_report_catalog_public_labels.py
+          tests/test_catalog_report_assurance.py
+          tests/test_catalog_source_inventory.py
+          tests/test_catalog_report_package_integrity.py
           tests/test_standards_css_validation.py
           tests/test_w3c_catalog_detail.py
           tests/test_catalog_report_search_trust.py
