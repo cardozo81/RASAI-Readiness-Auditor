@@ -74,6 +74,13 @@ def test_search_inputs_are_persisted_only_by_console_save(tmp_path) -> None:
     state.search_region = "Porto Alegre, RS, Brazil"
     state.search_device = "desktop"
     state.search_competitive = False
+    state.search_compare_content = True
+    state.search_max_content_pages = 4
+    state.search_content_timeout_seconds = 12.5
+    state.search_content_max_bytes = 1_500_000
+    state.search_content_max_redirects = 2
+    state.search_ai_competitive = True
+    state.search_ymyl_mode = "ON"
     destination = tmp_path / "rasai-console.ini"
 
     console_settings.save_console_config(state, destination)
@@ -83,6 +90,13 @@ def test_search_inputs_are_persisted_only_by_console_save(tmp_path) -> None:
     assert parser.getint("search_intelligence", "depth") == 17
     assert parser.get("search_intelligence", "device") == "desktop"
     assert parser.getboolean("search_intelligence", "competitive") is False
+    assert parser.getboolean("search_intelligence", "compare_content") is True
+    assert parser.getint("search_intelligence", "max_content_pages") == 4
+    assert parser.getfloat("search_intelligence", "content_timeout_seconds") == 12.5
+    assert parser.getint("search_intelligence", "content_max_bytes") == 1_500_000
+    assert parser.getint("search_intelligence", "content_max_redirects") == 2
+    assert parser.getboolean("search_intelligence", "ai_competitive") is True
+    assert parser.get("search_intelligence", "ymyl_mode") == "ON"
 
     restored = SearchConsoleState()
     console_settings.load_console_config(restored, destination)
@@ -91,6 +105,13 @@ def test_search_inputs_are_persisted_only_by_console_save(tmp_path) -> None:
     assert restored.search_region == state.search_region
     assert restored.search_device == state.search_device
     assert restored.search_competitive is False
+    assert restored.search_compare_content is True
+    assert restored.search_max_content_pages == 4
+    assert restored.search_content_timeout_seconds == 12.5
+    assert restored.search_content_max_bytes == 1_500_000
+    assert restored.search_content_max_redirects == 2
+    assert restored.search_ai_competitive is True
+    assert restored.search_ymyl_mode == "ON"
 
 
 def test_inherited_experience_mix_is_not_materialized_as_override(tmp_path) -> None:

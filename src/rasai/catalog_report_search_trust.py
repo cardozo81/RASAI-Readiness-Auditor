@@ -561,8 +561,10 @@ def _competitive_html(database: Path, data: Any) -> str:
             obs=connection.execute("SELECT query FROM serp_observations WHERE observation_id=?",(oid,)).fetchone() if _table_exists(connection,"serp_observations") else None
             candidates=[dict(row) for row in connection.execute("SELECT * FROM serp_competitive_results WHERE observation_id=? ORDER BY position",(oid,))] if _table_exists(connection,"serp_competitive_results") else []
             pages=[dict(row) for row in connection.execute("SELECT * FROM serp_competitive_pages WHERE observation_id=? ORDER BY role,requested_url",(oid,))] if _table_exists(connection,"serp_competitive_pages") else []
+            ai=connection.execute("SELECT * FROM serp_competitive_ai_analyses WHERE observation_id=?",(oid,)).fetchone() if _table_exists(connection,"serp_competitive_ai_analyses") else None
+            ai=dict(ai) if ai is not None else None
             modal_id=f"cat05-competitive-{index}"
-            rows.append(((obs[0] if obs else "-"),page._status_label(item.get("comparison_status")),item.get("candidate_count") or 0,item.get("observed_competitor_pages") or 0,item.get("gap_count") or 0,item.get("methodology") or "-",page._modal_button(modal_id,"Ver análise")))
+            rows.append(((obs[0] if obs else "-"),page._status_label(item.get("comparison_status")),item.get("candidate_count") or 0,item.get("observed_competitor_pages") or 0,item.get("gap_count") or 0,page._status_label(ai.get("state")) if ai else "Não materializada",item.get("methodology") or "-",page._modal_button(modal_id,"Ver análise")))
             candidate_rows=[(r.get("position"),r.get("domain"),r.get("classification"),"Sim" if r.get("selected_for_content_comparison") else "Não",r.get("reason")) for r in candidates]
             page_rows=[(r.get("role"),r.get("domain"),page._status_label(r.get("fetch_status")),r.get("http_status") or "-",r.get("error_code") or "-") for r in pages]
             body=page._kv((("Status",page._status_label(item.get("comparison_status"))),("Metodologia",item.get("methodology") or "-"),("Artefato",item.get("evidence_ref") or "-"),("SHA-256",item.get("evidence_sha256") or "-")))
@@ -571,9 +573,14 @@ def _competitive_html(database: Path, data: Any) -> str:
             gaps=_safe_json(item.get("gaps_json"),[])
             if gaps:
                 body+="<h3>Lacunas correlacionais</h3><div class='pre'>"+escape(json.dumps(gaps,ensure_ascii=False,indent=2))+"</div>"
-            body+="<div class='notice'>A classificação seleciona candidatos para comparação limitada; não declara causalidade de ranking nem concorrência comercial.</div>"
+            if ai:
+                opportunities=_safe_json(ai.get("opportunities_json"),[])
+                body+="<h3>Análise competitiva por IA</h3>"+page._kv((("Estado",page._status_label(ai.get("state"))),("Provider",ai.get("provider") or "-"),("Modelo",ai.get("model") or "-"),("Resumo",ai.get("summary") or ai.get("reason") or "-"),("Artefato",ai.get("evidence_ref") or "-"),("SHA-256",ai.get("evidence_sha256") or "-")))
+                opportunity_rows=[(row.get("priority") or "-",row.get("category") or "-",row.get("title") or "-",row.get("recommendation") or "-",", ".join(row.get("evidence_ids") or []),row.get("confidence") if row.get("confidence") is not None else "-") for row in opportunities if isinstance(row,Mapping)]
+                body+=page._table(("Prioridade","Categoria","Oportunidade","Recomendação","Evidências","Confiança"),opportunity_rows,empty="A IA não materializou oportunidades para esta observação.")
+            body+="<div class='notice'>A classificação e a comparação determinística são autoritativas para as evidências. A IA, quando solicitada, é executada somente depois do selo de evidências e produz interpretação advisory; não declara causalidade de ranking nem concorrência comercial.</div>"
             modals.append(page._modal(modal_id,"Inteligência competitiva",str(obs[0] if obs else oid),body))
-        return page._table(("Consulta","Status","Candidatos","Páginas observadas","Lacunas","Metodologia","Detalhe"),rows,empty="Nenhuma análise competitiva persistida.",sortable=bool(rows))+"".join(modals)
+        return page._table(("Consulta","Status","Candidatos","Páginas observadas","Lacunas","IA","Metodologia","Detalhe"),rows,empty="Nenhuma análise competitiva persistida.",sortable=bool(rows))+"".join(modals)
     finally:
         connection.close()
 

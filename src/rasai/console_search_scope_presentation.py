@@ -46,9 +46,22 @@ def render_search_scope(state: Any) -> None:
         "Análise de concorrentes",
         "Ativada" if bool(getattr(state, "search_competitive", True)) else "Desativada",
     )
+    info(
+        "Comparação de conteúdo",
+        "Ativada" if bool(getattr(state, "search_compare_content", False)) else "Desativada",
+    )
+    info("Máx. páginas concorrentes", int(getattr(state, "search_max_content_pages", 3)))
+    info("Timeout de conteúdo", f"{float(getattr(state, 'search_content_timeout_seconds', 10.0)):g} s")
+    info("Máx. bytes por página", int(getattr(state, "search_content_max_bytes", 2_000_000)))
+    info("Máx. redirects", int(getattr(state, "search_content_max_redirects", 5)))
+    info(
+        "IA competitiva",
+        "Ativada" if bool(getattr(state, "search_ai_competitive", False)) else "Desativada",
+    )
+    info("Contexto YMYL da IA", str(getattr(state, "search_ymyl_mode", "AUTO") or "AUTO").upper())
     print(
         paint(
-            "Estes valores pertencem à próxima execução. 'Profundidade desejada' é o Top N consultado; não é o limite máximo permitido pelo serviço.",
+            "Estes valores pertencem à próxima execução. 'Profundidade desejada' é o Top N consultado; não é o limite máximo permitido pelo serviço. A IA competitiva usa exclusivamente a IA principal configurada e só executa após a comparação determinística e o selo de evidências.",
             DIM,
         )
     )

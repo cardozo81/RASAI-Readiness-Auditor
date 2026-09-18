@@ -6,6 +6,7 @@ import sqlite3
 from types import SimpleNamespace
 
 from rasai.catalog_report_search_trust import (
+    _competitive_html,
     _external_html,
     _overview_references,
     _serp_html,
@@ -324,3 +325,85 @@ def test_common_crawl_error_modal_exposes_exception_and_recovery_steps(tmp_path:
     assert "index.commoncrawl.org/CC-MAIN-TEST-index" in html
     assert "reprocessamento seletivo" in html
     assert "Falha do Common Crawl não implica erro no site" in html
+
+
+def test_competitive_report_projects_persisted_ai_result_without_calling_ai(tmp_path: Path) -> None:
+    database = tmp_path / "audit.db"
+    _audit_db(database)
+    connection = sqlite3.connect(database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE serp_observations(
+                observation_id TEXT PRIMARY KEY,
+                query TEXT NOT NULL
+            );
+            CREATE TABLE serp_competitive_analyses(
+                observation_id TEXT PRIMARY KEY,
+                audit_id TEXT NOT NULL,
+                methodology TEXT NOT NULL,
+                comparison_status TEXT NOT NULL,
+                customer_url TEXT,
+                candidate_count INTEGER NOT NULL,
+                observed_competitor_pages INTEGER NOT NULL,
+                gap_count INTEGER NOT NULL,
+                gaps_json TEXT NOT NULL,
+                evidence_ref TEXT,
+                evidence_sha256 TEXT
+            );
+            CREATE TABLE serp_competitive_ai_analyses(
+                observation_id TEXT PRIMARY KEY,
+                audit_id TEXT NOT NULL,
+                state TEXT NOT NULL,
+                reason TEXT,
+                provider TEXT,
+                model TEXT,
+                contract_version TEXT NOT NULL,
+                prompt_id TEXT NOT NULL,
+                prompt_version TEXT NOT NULL,
+                provider_request_id TEXT,
+                query_intent TEXT,
+                ymyl_assessment TEXT,
+                summary TEXT,
+                opportunity_count INTEGER NOT NULL,
+                opportunities_json TEXT NOT NULL,
+                evidence_ref TEXT,
+                evidence_sha256 TEXT
+            );
+            """
+        )
+        connection.execute("INSERT INTO serp_observations VALUES(?,?)", ("SERP-COMP-1", "seguro de vida"))
+        connection.execute(
+            "INSERT INTO serp_competitive_analyses VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ("SERP-COMP-1", AUDIT_ID, "DETERMINISTIC_CORRELATIONAL_001", "CONSOLIDATED",
+             "https://example.test/", 3, 3, 1, "[]",
+             "artifacts/search-intelligence/competitive/SERP-COMP-1.json", "det-sha"),
+        )
+        opportunities = json.dumps([
+            {
+                "priority": "HIGH",
+                "category": "TOPIC_COVERAGE",
+                "title": "Cobrir condição observada",
+                "recommendation": "Detalhar a condição com base nas evidências observadas.",
+                "evidence_ids": ["CE-GAP-001"],
+                "confidence": 0.84,
+            }
+        ])
+        connection.execute(
+            "INSERT INTO serp_competitive_ai_analyses VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("SERP-COMP-1", AUDIT_ID, "AVAILABLE", None, "OPENAI", "gpt-test",
+             "COMPETITIVE-AI-001", "rasai-competitive-search", "1", "REQ-1",
+             "informational", "LOW", "Resumo competitivo baseado nas evidências.", 1,
+             opportunities, "artifacts/search-intelligence/competitive-ai/SERP-COMP-1.json", "ai-sha"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    html = _competitive_html(database, _data())
+
+    assert "Análise competitiva por IA" in html
+    assert "Resumo competitivo baseado nas evidências" in html
+    assert "Cobrir condição observada" in html
+    assert "CE-GAP-001" in html
+    assert "OPENAI" in html

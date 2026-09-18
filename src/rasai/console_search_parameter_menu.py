@@ -6,6 +6,7 @@ reusable provider/governance settings in the canonical configuration catalog.
 """
 from __future__ import annotations
 
+import math
 import os
 from types import ModuleType
 from typing import Any
@@ -139,6 +140,15 @@ def _render_execution_menu(state: Any, config: SerpRuntimeConfig) -> None:
             "6. Comparação de conteúdo   : "
             + ("Ativada (HTTP adicional limitado)" if compare else "Desativada")
         )
+        print(f"7. Máx. páginas concorrentes: {int(getattr(state, 'search_max_content_pages', 3))}")
+        print(f"8. Timeout conteúdo         : {float(getattr(state, 'search_content_timeout_seconds', 10.0)):g} s")
+        print(f"9. Máx. bytes por página    : {int(getattr(state, 'search_content_max_bytes', 2_000_000))}")
+        print(f"10. Máx. redirects          : {int(getattr(state, 'search_content_max_redirects', 5))}")
+        print(
+            "11. IA competitiva          : "
+            + ("Ativada" if bool(getattr(state, "search_ai_competitive", False)) else "Desativada")
+        )
+        print(f"12. Contexto YMYL da IA     : {str(getattr(state, 'search_ymyl_mode', 'AUTO') or 'AUTO').upper()}")
     if queries:
         print(f"   Impacto projetado         : {projected}/{config.max_requests} requests no teto conservador")
     else:
@@ -279,6 +289,118 @@ def _edit_content_comparison(state: Any) -> None:
         print("  Opção inválida: use 1, 2 ou V.")
 
 
+def _edit_max_content_pages(state: Any, config: SerpRuntimeConfig) -> None:
+    print("\nMÁXIMO DE PÁGINAS CONCORRENTES")
+    print(
+        "  Limita páginas públicas adquiridas por consulta para a comparação determinística. "
+        "A página do site auditado não entra nesse teto."
+    )
+    print(f"  Faixa aceita: 0..{config.max_competitors}.")
+    raw = input(f"Novo limite [0-{config.max_competitors}] [V=voltar]: ").strip()
+    if raw.upper() == "V":
+        return
+    try:
+        value = int(raw)
+    except ValueError:
+        print("  Valor inválido: informe um inteiro dentro da faixa.")
+        return
+    if value < 0 or value > config.max_competitors:
+        print("  Valor inválido: informe um inteiro dentro da faixa.")
+        return
+    state.search_max_content_pages = value
+
+
+def _edit_content_timeout(state: Any) -> None:
+    print("\nTIMEOUT DA COMPARAÇÃO DE CONTEÚDO")
+    print("  Timeout por tentativa HTTP de página pública, em segundos; deve ser finito e > 0.")
+    raw = input("Novo timeout em segundos [V=voltar]: ").strip()
+    if raw.upper() == "V":
+        return
+    try:
+        value = float(raw)
+    except ValueError:
+        print("  Valor inválido: informe um número > 0.")
+        return
+    if not math.isfinite(value) or value <= 0:
+        print("  Valor inválido: informe um número finito > 0.")
+        return
+    state.search_content_timeout_seconds = value
+
+
+def _edit_content_max_bytes(state: Any) -> None:
+    print("\nMÁXIMO DE BYTES POR PÁGINA")
+    print("  Limita o corpo HTML lido por página pública; deve ser inteiro > 0.")
+    raw = input("Novo limite em bytes [V=voltar]: ").strip()
+    if raw.upper() == "V":
+        return
+    try:
+        value = int(raw)
+    except ValueError:
+        print("  Valor inválido: informe um inteiro > 0.")
+        return
+    if value <= 0:
+        print("  Valor inválido: informe um inteiro > 0.")
+        return
+    state.search_content_max_bytes = value
+
+
+def _edit_content_redirects(state: Any) -> None:
+    print("\nMÁXIMO DE REDIRECTS")
+    print("  Limita redirects HTTP seguidos durante aquisição pública; deve ser inteiro >= 0.")
+    raw = input("Novo limite de redirects [V=voltar]: ").strip()
+    if raw.upper() == "V":
+        return
+    try:
+        value = int(raw)
+    except ValueError:
+        print("  Valor inválido: informe um inteiro >= 0.")
+        return
+    if value < 0:
+        print("  Valor inválido: informe um inteiro >= 0.")
+        return
+    state.search_content_max_redirects = value
+
+
+def _edit_competitive_ai(state: Any) -> None:
+    print("\nIA COMPETITIVA")
+    print(
+        "  Uso: interpreta somente evidências competitivas determinísticas já consolidadas. "
+        "Executa após o selo de evidências e reutiliza a IA principal, sua política de custo, "
+        "fallback, telemetria e limites."
+    )
+    print("  1. Ativada")
+    print("  2. Desativada")
+    print("  V. Voltar")
+    raw = input("Escolha [1-2/V]: ").strip().upper()
+    if raw == "1":
+        if not bool(getattr(state, "search_compare_content", False)):
+            print("  Ative primeiro a Comparação de conteúdo.")
+            return
+        if str(getattr(state, "ai_provider", "none") or "none").strip().casefold() == "none":
+            print("  Configure primeiro a IA principal (provider explícito ou AUTO).")
+            return
+        state.search_ai_competitive = True
+    elif raw == "2":
+        state.search_ai_competitive = False
+    elif raw != "V":
+        print("  Opção inválida: use 1, 2 ou V.")
+
+
+def _edit_ymyl_mode(state: Any) -> None:
+    print("\nCONTEXTO YMYL DA IA COMPETITIVA")
+    print("  AUTO = inferência contextual; ON = tratar como YMYL; OFF = não aplicar contexto YMYL.")
+    print("  1. AUTO")
+    print("  2. ON")
+    print("  3. OFF")
+    print("  V. Voltar")
+    raw = input("Escolha [1-3/V]: ").strip().upper()
+    values = {"1": "AUTO", "2": "ON", "3": "OFF"}
+    if raw in values:
+        state.search_ymyl_mode = values[raw]
+    elif raw != "V":
+        print("  Opção inválida: use 1, 2, 3 ou V.")
+
+
 def _mark_pending(search_module: ModuleType, state: Any, config: SerpRuntimeConfig) -> None:
     queries = tuple(getattr(state, "search_queries", ()) or ())
     if not queries:
@@ -329,7 +451,7 @@ def configure_search_parameters(search_module: ModuleType, state: Any) -> None:
             continue
         editable = {"1", "2", "3", "4", "5"}
         if hasattr(state, "search_compare_content"):
-            editable.add("6")
+            editable.update({"6", "7", "8", "9", "10", "11", "12"})
         if raw in editable:
             blocker = _provider_blocker(search_module, config)
             if blocker:
@@ -347,8 +469,20 @@ def configure_search_parameters(search_module: ModuleType, state: Any) -> None:
             _edit_competitive(state, config)
         elif raw == "6" and hasattr(state, "search_compare_content"):
             _edit_content_comparison(state)
+        elif raw == "7" and hasattr(state, "search_compare_content"):
+            _edit_max_content_pages(state, config)
+        elif raw == "8" and hasattr(state, "search_compare_content"):
+            _edit_content_timeout(state)
+        elif raw == "9" and hasattr(state, "search_compare_content"):
+            _edit_content_max_bytes(state)
+        elif raw == "10" and hasattr(state, "search_compare_content"):
+            _edit_content_redirects(state)
+        elif raw == "11" and hasattr(state, "search_compare_content"):
+            _edit_competitive_ai(state)
+        elif raw == "12" and hasattr(state, "search_compare_content"):
+            _edit_ymyl_mode(state)
         else:
-            allowed = "1-6" if hasattr(state, "search_compare_content") else "1-5"
+            allowed = "1-12" if hasattr(state, "search_compare_content") else "1-5"
             print(f"  Opção inválida: use {allowed}, D ou V.")
 
 

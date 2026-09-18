@@ -40,6 +40,13 @@ def test_console_snapshot_preserves_search_execution_inputs() -> None:
     state.search_region = "Rio Grande do Sul"
     state.search_device = "desktop"
     state.search_competitive = False
+    state.search_compare_content = True
+    state.search_max_content_pages = 4
+    state.search_content_timeout_seconds = 12.5
+    state.search_content_max_bytes = 1_500_000
+    state.search_content_max_redirects = 2
+    state.search_ai_competitive = True
+    state.search_ymyl_mode = "ON"
 
     exported = _export_settings(state, ("https://example.com/",))
 
@@ -51,6 +58,13 @@ def test_console_snapshot_preserves_search_execution_inputs() -> None:
         "region": "Rio Grande do Sul",
         "device": "desktop",
         "competitive": False,
+        "compare_content": True,
+        "max_content_pages": 4,
+        "content_timeout_seconds": 12.5,
+        "content_max_bytes": 1_500_000,
+        "content_max_redirects": 2,
+        "ai_competitive": True,
+        "ymyl_mode": "ON",
     }
 
 
@@ -100,6 +114,13 @@ def test_console_restores_search_terms_and_parameters(tmp_path: Path) -> None:
     source.search_region = "BR-RS"
     source.search_device = "desktop"
     source.search_competitive = False
+    source.search_compare_content = True
+    source.search_max_content_pages = 4
+    source.search_content_timeout_seconds = 12.5
+    source.search_content_max_bytes = 1_500_000
+    source.search_content_max_redirects = 2
+    source.search_ai_competitive = True
+    source.search_ymyl_mode = "ON"
     configuration = _export_settings(source, ("https://example.com/",))
 
     target = SearchConsoleState()
@@ -109,6 +130,8 @@ def test_console_restores_search_terms_and_parameters(tmp_path: Path) -> None:
     target.search_region = ""
     target.search_device = "mobile"
     target.search_competitive = True
+    target.search_compare_content = False
+    target.search_ai_competitive = False
 
     warnings = _apply_settings(target, configuration, "AUD-SOURCE")
 
@@ -118,6 +141,13 @@ def test_console_restores_search_terms_and_parameters(tmp_path: Path) -> None:
     assert target.search_region == "BR-RS"
     assert target.search_device == "desktop"
     assert target.search_competitive is False
+    assert target.search_compare_content is True
+    assert target.search_max_content_pages == 4
+    assert target.search_content_timeout_seconds == 12.5
+    assert target.search_content_max_bytes == 1_500_000
+    assert target.search_content_max_redirects == 2
+    assert target.search_ai_competitive is True
+    assert target.search_ymyl_mode == "ON"
     assert target.search_last_status == "PENDING"
 
 

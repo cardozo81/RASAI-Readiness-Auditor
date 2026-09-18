@@ -72,6 +72,11 @@ def test_search_recovery_uses_persisted_contract_and_current_secret(monkeypatch)
                 "region": "RS",
                 "device": "mobile",
                 "competitive": False,
+                "compare_content": True,
+                "max_content_pages": 4,
+                "content_timeout_seconds": 12.5,
+                "content_max_bytes": 1_500_000,
+                "content_max_redirects": 2,
                 "market": "BR",
                 "language": "pt-BR",
                 "mode": "live",
@@ -89,6 +94,7 @@ def test_search_recovery_uses_persisted_contract_and_current_secret(monkeypatch)
         item = next(item for item in list_work_items(workspace, AUDIT_ID) if item.component == "SEARCH_INTELLIGENCE")
         monkeypatch.setenv("RASAI_SERPAPI_API_KEY", "current-secret")
         monkeypatch.setattr(runtime, "_audit_domain", lambda *args, **kwargs: "example.com")
+        monkeypatch.setattr(runtime, "_audit_target_url", lambda *args, **kwargs: "https://example.com/")
         captured: dict[str, object] = {}
 
         def fake_execute(requests, *, config, environment, workspace_root, fixture_path=None, evidence_sink=None):
@@ -114,6 +120,18 @@ def test_search_recovery_uses_persisted_contract_and_current_secret(monkeypatch)
             )
 
         monkeypatch.setattr(search_runtime, "execute_search", fake_execute)
+        from rasai.search_intelligence import competitive_runtime as competitive_runtime
+
+        def fake_competitive(execution, **kwargs):
+            captured["competitive_kwargs"] = kwargs
+            return SimpleNamespace(
+                analyses=(),
+                content_enabled=kwargs["content_enabled"],
+                content_http_requests=0,
+                persisted=True,
+            )
+
+        monkeypatch.setattr(competitive_runtime, "execute_competitive_intelligence", fake_competitive)
 
         assert _recover_search(workspace, AUDIT_ID, item) is True
 
@@ -127,6 +145,13 @@ def test_search_recovery_uses_persisted_contract_and_current_secret(monkeypatch)
         assert captured["config"].mode == "live"
         assert captured["config"].retries == 0
         assert captured["config"].min_interval_seconds == 0.0
+        competitive_kwargs = captured["competitive_kwargs"]
+        assert competitive_kwargs["content_enabled"] is True
+        assert competitive_kwargs["customer_url"] == "https://example.com/"
+        assert competitive_kwargs["max_competitor_pages"] == 4
+        assert competitive_kwargs["fetcher"].timeout_seconds == 12.5
+        assert competitive_kwargs["fetcher"].max_bytes == 1_500_000
+        assert competitive_kwargs["fetcher"].max_redirects == 2
 
 
 def test_successful_optional_services_are_reused_by_contextual_hooks() -> None:
@@ -232,6 +257,13 @@ def test_saved_console_search_is_backfilled_into_denominator() -> None:
                 "region": "RS",
                 "device": "mobile",
                 "competitive": True,
+                "compare_content": True,
+                "max_content_pages": 3,
+                "content_timeout_seconds": 10.0,
+                "content_max_bytes": 2000000,
+                "content_max_redirects": 5,
+                "ai_competitive": False,
+                "ymyl_mode": "AUTO",
             },
         }
         connection = sqlite3.connect(workspace.database)
@@ -257,3 +289,10 @@ def test_saved_console_search_is_backfilled_into_denominator() -> None:
         assert item.configuration["queries"] == ["rasai"]
         assert item.configuration["mode"] == "live"
         assert item.configuration["provider"] == "serpapi"
+        assert item.configuration["compare_content"] is True
+        assert item.configuration["max_content_pages"] == 3
+        assert item.configuration["content_timeout_seconds"] == 10.0
+        assert item.configuration["content_max_bytes"] == 2_000_000
+        assert item.configuration["content_max_redirects"] == 5
+        assert item.configuration["ai_competitive"] is False
+        assert item.configuration["ymyl_mode"] == "AUTO"

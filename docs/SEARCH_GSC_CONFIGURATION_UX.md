@@ -34,6 +34,11 @@ O QUE PESQUISAR
   Profundidade desejada (Top N)
   Dispositivo da busca
   Análise de concorrentes
+  Comparação de conteúdo
+  Máximo de páginas concorrentes
+  Timeout / bytes / redirects da aquisição
+  IA competitiva
+  Contexto YMYL da IA competitiva
 
 GOOGLE SEARCH CONSOLE
   Estado para a URL atual
@@ -46,7 +51,7 @@ Os valores internos `search_queries`, `search_region`, `search_depth`, `search_d
 Na tela do CAT-05, a ação primária explicita o destino e também é referenciada junto ao próprio bloco `O QUE PESQUISAR`, para não ficar escondida depois da lista longa de configurações relacionadas:
 
 ```text
-1. Configurar O QUE PESQUISAR (termos, localidade, profundidade, dispositivo e concorrentes)
+1. Configurar O QUE PESQUISAR (termos, localidade, profundidade, dispositivo, concorrentes, comparação de conteúdo e IA competitiva)
 ```
 
 `Profundidade desejada` significa o Top N que será consultado para cada termo. Ela não deve ser confundida com a configuração persistente `profundidade máxima permitida`, que é um limite de governança do serviço.

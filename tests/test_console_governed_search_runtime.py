@@ -30,6 +30,13 @@ def test_governed_search_uses_execution_closure_with_slotted_state(monkeypatch) 
         search_region="São Paulo",
         search_device="mobile",
         search_competitive=True,
+        search_compare_content=True,
+        search_max_content_pages=4,
+        search_content_timeout_seconds=12.5,
+        search_content_max_bytes=1_500_000,
+        search_content_max_redirects=2,
+        search_ai_competitive=True,
+        search_ymyl_mode="ON",
     )
 
     assert not hasattr(state, "__dict__")
@@ -51,6 +58,18 @@ def test_governed_search_uses_execution_closure_with_slotted_state(monkeypatch) 
         "--search-device",
         "mobile",
         "--search-competitive",
+        "--search-compare-content",
+        "--search-max-content-pages",
+        "4",
+        "--search-content-timeout-seconds",
+        "12.5",
+        "--search-content-max-bytes",
+        "1500000",
+        "--search-content-max-redirects",
+        "2",
+        "--search-ai-competitive",
+        "--search-ymyl-mode",
+        "ON",
     ]
     assert state.search_queries == ("seguro de vida", "previdencia privada")
     assert not hasattr(state, "_governed_search_queries")

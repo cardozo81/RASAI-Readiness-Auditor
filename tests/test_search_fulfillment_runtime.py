@@ -29,6 +29,16 @@ def _state(root: Path, **overrides):
         "search_region": "RS",
         "search_device": "mobile",
         "search_competitive": True,
+        "search_compare_content": True,
+        "search_max_content_pages": 4,
+        "search_content_timeout_seconds": 12.5,
+        "search_content_max_bytes": 1_500_000,
+        "search_content_max_redirects": 2,
+        "search_ai_competitive": True,
+        "search_ymyl_mode": "ON",
+        "ai_provider": "openai",
+        "ai_model": "gpt-test",
+        "ai_timeout": 60.0,
         "market": "BR",
         "language": "pt-BR",
         "search_last_status": "COMPLETE",
@@ -50,6 +60,16 @@ def test_search_contract_persists_nonsecret_provider_configuration(monkeypatch) 
     assert config["provider"] == "serpapi"
     assert config["max_requests"] == 12
     assert config["queries"] == ["rasai", "search readiness"]
+    assert config["compare_content"] is True
+    assert config["max_content_pages"] == 4
+    assert config["content_timeout_seconds"] == 12.5
+    assert config["content_max_bytes"] == 1_500_000
+    assert config["content_max_redirects"] == 2
+    assert config["ai_competitive"] is True
+    assert config["ymyl_mode"] == "ON"
+    assert config["ai_provider"] == "openai"
+    assert config["ai_model"] == "gpt-test"
+    assert config["ai_timeout_seconds"] == 60.0
     assert "RASAI_SERPAPI_API_KEY" not in config
     assert "secret-value" not in repr(config)
 

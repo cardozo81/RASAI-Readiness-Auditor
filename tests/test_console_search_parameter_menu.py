@@ -61,6 +61,10 @@ def test_serp_action_opens_parameter_menu_before_editing() -> None:
     assert "3. Profundidade desejada" in rendered
     assert "4. Dispositivo da busca" in rendered
     assert "5. Análise de concorrentes" in rendered
+    assert "6. Comparação de conteúdo" in rendered
+    assert "7. Máx. páginas concorrentes" in rendered
+    assert "11. IA competitiva" in rendered
+    assert "12. Contexto YMYL da IA" in rendered
     assert "1. Mobile" in rendered
     assert "2. Desktop" in rendered
     assert state.search_device == "desktop"
@@ -157,3 +161,41 @@ def test_content_comparison_stays_a_closed_optional_search_input() -> None:
     assert "HTTP adicional" in output.getvalue()
     assert "não ativa IA" in output.getvalue()
     assert state.search_compare_content is True
+
+
+def test_competitive_content_controls_are_closed_and_effective() -> None:
+    state = SearchConsoleState(search_compare_content=True, ai_provider="openai")
+
+    rendered = _run(
+        state,
+        [
+            "7", "4",
+            "8", "12.5",
+            "9", "1500000",
+            "10", "2",
+            "11", "1",
+            "12", "2",
+            "V",
+        ],
+    )
+
+    assert "Faixa aceita: 0..5" in rendered
+    assert state.search_max_content_pages == 4
+    assert state.search_content_timeout_seconds == 12.5
+    assert state.search_content_max_bytes == 1_500_000
+    assert state.search_content_max_redirects == 2
+    assert state.search_ai_competitive is True
+    assert state.search_ymyl_mode == "ON"
+
+
+def test_competitive_ai_requires_content_comparison_and_main_ai() -> None:
+    state = SearchConsoleState(search_compare_content=False, search_ai_competitive=False)
+
+    rendered = _run(state, ["11", "1", "V"])
+    assert "Ative primeiro a Comparação de conteúdo" in rendered
+    assert state.search_ai_competitive is False
+
+    state.search_compare_content = True
+    rendered = _run(state, ["11", "1", "V"])
+    assert "Configure primeiro a IA principal" in rendered
+    assert state.search_ai_competitive is False

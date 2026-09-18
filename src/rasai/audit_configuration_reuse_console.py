@@ -1,6 +1,7 @@
 """Interactive-console adapter for reusable AUD configurations."""
 from __future__ import annotations
 
+import math
 import os
 from pathlib import Path
 from types import ModuleType
@@ -29,6 +30,13 @@ def _search_execution_settings(state: Any) -> dict[str, Any] | None:
         "region": str(getattr(state, "search_region", "") or ""),
         "device": str(getattr(state, "search_device", "mobile") or "mobile"),
         "competitive": bool(getattr(state, "search_competitive", True)),
+        "compare_content": bool(getattr(state, "search_compare_content", False)),
+        "max_content_pages": int(getattr(state, "search_max_content_pages", 3)),
+        "content_timeout_seconds": float(getattr(state, "search_content_timeout_seconds", 10.0)),
+        "content_max_bytes": int(getattr(state, "search_content_max_bytes", 2_000_000)),
+        "content_max_redirects": int(getattr(state, "search_content_max_redirects", 5)),
+        "ai_competitive": bool(getattr(state, "search_ai_competitive", False)),
+        "ymyl_mode": str(getattr(state, "search_ymyl_mode", "AUTO") or "AUTO").upper(),
     }
 
 
@@ -168,6 +176,50 @@ def _apply_search_settings(state: Any, configuration: Mapping[str, Any], warning
         search.get("competitive"),
         default=bool(getattr(state, "search_competitive", True)),
     )
+    state.search_compare_content = _as_bool(
+        search.get("compare_content"),
+        default=bool(getattr(state, "search_compare_content", False)),
+    )
+    state.search_ai_competitive = _as_bool(
+        search.get("ai_competitive"),
+        default=bool(getattr(state, "search_ai_competitive", False)),
+    )
+    try:
+        value = int(search.get("max_content_pages", getattr(state, "search_max_content_pages", 3)))
+        if value < 0:
+            raise ValueError
+        state.search_max_content_pages = value
+    except (TypeError, ValueError):
+        warnings.append("search_intelligence.max_content_pages: use inteiro >= 0")
+    try:
+        value = float(search.get("content_timeout_seconds", getattr(state, "search_content_timeout_seconds", 10.0)))
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError
+        state.search_content_timeout_seconds = value
+    except (TypeError, ValueError):
+        warnings.append("search_intelligence.content_timeout_seconds: use número finito > 0")
+    try:
+        value = int(search.get("content_max_bytes", getattr(state, "search_content_max_bytes", 2_000_000)))
+        if value <= 0:
+            raise ValueError
+        state.search_content_max_bytes = value
+    except (TypeError, ValueError):
+        warnings.append("search_intelligence.content_max_bytes: use inteiro > 0")
+    try:
+        value = int(search.get("content_max_redirects", getattr(state, "search_content_max_redirects", 5)))
+        if value < 0:
+            raise ValueError
+        state.search_content_max_redirects = value
+    except (TypeError, ValueError):
+        warnings.append("search_intelligence.content_max_redirects: use inteiro >= 0")
+    ymyl_mode = str(search.get("ymyl_mode", getattr(state, "search_ymyl_mode", "AUTO")) or "AUTO").strip().upper()
+    if ymyl_mode in {"AUTO", "ON", "OFF"}:
+        state.search_ymyl_mode = ymyl_mode
+    else:
+        warnings.append("search_intelligence.ymyl_mode: use AUTO, ON ou OFF")
+    if state.search_ai_competitive and not state.search_compare_content:
+        warnings.append("search_intelligence.ai_competitive: exige compare_content=true")
+        state.search_ai_competitive = False
     if state.search_queries:
         state.search_last_status = "PENDING"
         state.search_last_detail = f"{len(state.search_queries)} termo(s) restaurados do AUD de origem"

@@ -140,6 +140,13 @@ def _backfill_console_search(workspace: Any, audit_id: str) -> None:
         "region": str(search.get("region") or ""),
         "device": str(search.get("device") or "mobile"),
         "competitive": bool(search.get("competitive", True)),
+        "compare_content": bool(search.get("compare_content", False)),
+        "max_content_pages": int(search.get("max_content_pages") or 3),
+        "content_timeout_seconds": float(search.get("content_timeout_seconds") or 10.0),
+        "content_max_bytes": int(search.get("content_max_bytes") or 2_000_000),
+        "content_max_redirects": int(search.get("content_max_redirects") or 5),
+        "ai_competitive": bool(search.get("ai_competitive", False)),
+        "ymyl_mode": str(search.get("ymyl_mode") or "AUTO").upper(),
     }
     env_map = {
         "RASAI_SERP_MODE": "mode",
@@ -530,7 +537,7 @@ def _validate_success_integrity(workspace: Any, audit_id: str) -> None:
         )
 
 
-def _audit_domain(workspace: Any, audit_id: str) -> str:
+def _audit_target_url(workspace: Any, audit_id: str) -> str:
     connection = sqlite3.connect(workspace.database)
     try:
         row = connection.execute(
@@ -539,7 +546,14 @@ def _audit_domain(workspace: Any, audit_id: str) -> str:
         ).fetchone()
     finally:
         connection.close()
-    host = urlsplit(str(row[0]) if row else "").hostname
+    target = str(row[0] or "").strip() if row else ""
+    if not target:
+        raise ValueError("não foi possível derivar a URL auditada para reprocessar Search Intelligence")
+    return target
+
+
+def _audit_domain(workspace: Any, audit_id: str) -> str:
+    host = urlsplit(_audit_target_url(workspace, audit_id)).hostname
     if not host:
         raise ValueError("não foi possível derivar o domínio auditado para reprocessar Search Intelligence")
     return host
@@ -571,6 +585,7 @@ def _search_runtime_config(item: Any):
 
 def _recover_search(workspace: Any, audit_id: str, item: Any) -> bool:
     from rasai.search_intelligence.competitive_runtime import execute_competitive_intelligence
+    from rasai.search_intelligence.content import PublicWebFetcher
     from rasai.search_intelligence.models import DomainMatchStatus, QueryOrigin, SerpQueryRequest, new_identifier
     from rasai.search_intelligence.provider_catalog import serp_provider_registration
     from rasai.search_intelligence.runtime import execute_search
@@ -619,11 +634,31 @@ def _recover_search(workspace: Any, audit_id: str, item: Any) -> bool:
             workspace_root=workspace.root,
             fixture_path=runtime.fixture_path,
         )
-        if bool(values.get("competitive", True)):
+        compare_content = bool(values.get("compare_content", False))
+        if bool(values.get("competitive", True)) or compare_content:
+            max_content_pages = min(
+                int(values.get("max_content_pages") or 3),
+                int(runtime.max_competitors),
+            )
+            fetcher = (
+                PublicWebFetcher(
+                    timeout_seconds=float(values.get("content_timeout_seconds") or 10.0),
+                    max_redirects=int(values.get("content_max_redirects") or 5),
+                    max_bytes=int(values.get("content_max_bytes") or 2_000_000),
+                )
+                if compare_content
+                else None
+            )
             execute_competitive_intelligence(
                 execution,
-                content_enabled=False,
-                max_competitor_pages=runtime.max_competitors,
+                content_enabled=compare_content,
+                customer_url=(
+                    _audit_target_url(workspace, audit_id)
+                    if compare_content and len(requests) == 1
+                    else None
+                ),
+                max_competitor_pages=max_content_pages,
+                fetcher=fetcher,
                 workspace_root=workspace.root,
             )
     except (OSError, TypeError, ValueError) as exc:

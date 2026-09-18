@@ -19,7 +19,7 @@ from rasai.m18_ai import ProviderUsage, estimate_cost
 from rasai.provider_registry import get_provider_registration
 
 _SUCCESS = {"SUCCESS", "SUCCEEDED", "COMPLETED", "PASS"}
-_AI_OPS = {"SEMANTIC_ANALYSIS", "CONTENT_REMEDIATION", "IMPROVEMENT_INTELLIGENCE"}
+_AI_OPS = {"SEMANTIC_ANALYSIS", "CONTENT_REMEDIATION", "IMPROVEMENT_INTELLIGENCE", "COMPETITIVE_INTELLIGENCE"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +188,8 @@ def _local_comparable(state: Any, cfg: Mapping[str, Any] | None) -> bool:
         return False
     if bool(cfg.get("content_remediation", False)) != bool(getattr(state, "content_remediation", False)):
         return False
+    if "search_ai_competitive" in cfg and bool(cfg.get("search_ai_competitive")) != bool(getattr(state, "search_ai_competitive", False)):
+        return False
     current, old = str(getattr(state, "ai_model", "") or ""), str(cfg.get("ai_model") or "")
     return not (current and old and current != old)
 
@@ -316,6 +318,8 @@ def forecast_local_cost(state: Any) -> CostForecast:
     notes = []
     if improvement:
         notes.append("Improvement Intelligence usa a mesma seleção principal de IA; em AUTO o histórico preserva o mix efetivo de providers/modelos")
+    if bool(getattr(state, "search_ai_competitive", False)):
+        notes.append("Competitive Intelligence usa a mesma seleção principal de IA e somente evidência determinística consolidada")
     return _forecast_from_runs(runs, target_pages=_target_local(state, runs), source="local-audit-history", notes=notes)
 
 
@@ -330,7 +334,8 @@ def _job_payload(job: Any) -> dict[str, Any] | None:
 
 def _job_comparable(current: Mapping[str, Any], historical: Mapping[str, Any]) -> bool:
     if any(current.get(key) != historical.get(key) for key in (
-        "device_context", "ai_provider", "ai_content_remediation", "ai_technical_remediation", "improvement_intelligence"
+        "device_context", "ai_provider", "ai_content_remediation", "ai_technical_remediation",
+        "improvement_intelligence", "search_ai_competitive", "search_compare_content"
     )):
         return False
     current_model, historical_model = str(current.get("ai_model") or ""), str(historical.get("ai_model") or "")
@@ -415,6 +420,8 @@ def forecast_saas_cost(
             continue
         if operation == "IMPROVEMENT_INTELLIGENCE" and not bool(current.get("improvement_intelligence")):
             continue
+        if operation == "COMPETITIVE_INTELLIGENCE" and not bool(current.get("search_ai_competitive")):
+            continue
         if (provider_filter and provider != provider_filter) or (model_filter and model != model_filter):
             continue
         amount, currency, was_repriced = _group_cost(group)
@@ -447,6 +454,8 @@ def forecast_saas_cost(
     )
     if bool(current.get("improvement_intelligence")):
         notes.append("Improvement Intelligence usa a mesma seleção principal de IA e participa do custo comparável quando sua telemetria está disponível")
+    if bool(current.get("search_ai_competitive")):
+        notes.append("Competitive Intelligence participa do custo comparável quando sua telemetria persistida está disponível")
     return _forecast_from_runs(
         runs, target_pages=_target_saas(current, runs), source="saas-usage-ledger", notes=notes
     )

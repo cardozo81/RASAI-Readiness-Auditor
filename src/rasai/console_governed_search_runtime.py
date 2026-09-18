@@ -43,6 +43,21 @@ def _append_search_args(
         if bool(getattr(state, "search_competitive", True))
         else "--no-search-competitive"
     )
+    output.append(
+        "--search-compare-content"
+        if bool(getattr(state, "search_compare_content", False))
+        else "--no-search-compare-content"
+    )
+    output.extend(("--search-max-content-pages", str(int(getattr(state, "search_max_content_pages", 3)))))
+    output.extend(("--search-content-timeout-seconds", str(float(getattr(state, "search_content_timeout_seconds", 10.0)))))
+    output.extend(("--search-content-max-bytes", str(int(getattr(state, "search_content_max_bytes", 2_000_000)))))
+    output.extend(("--search-content-max-redirects", str(int(getattr(state, "search_content_max_redirects", 5)))))
+    output.append(
+        "--search-ai-competitive"
+        if bool(getattr(state, "search_ai_competitive", False))
+        else "--no-search-ai-competitive"
+    )
+    output.extend(("--search-ymyl-mode", str(getattr(state, "search_ymyl_mode", "AUTO") or "AUTO").upper()))
     return output
 
 

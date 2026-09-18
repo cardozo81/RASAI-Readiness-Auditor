@@ -6,7 +6,13 @@ from pathlib import Path
 import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
+from rasai.ai_governance import seal_evidence
+from rasai.audit_fulfillment import LIVE_RECOLLECTION, register_work_item
+from rasai.domain import Audit
+from rasai.persistence import AuditPersistence, AuditWorkspace
+from rasai.search_audit_runtime import _competitive_ai_hook
 from rasai.search_intelligence.cli import build_parser
 from rasai.search_intelligence.competitive import CompetitiveSelection
 from rasai.search_intelligence.competitive_ai import (
@@ -22,6 +28,7 @@ from rasai.search_intelligence.competitive_ai_persistence import (
     FilesystemCompetitiveAiEvidenceSink,
 )
 from rasai.search_intelligence.competitive_ai_runtime import execute_competitive_ai
+from rasai.search_intelligence.competitive_persistence import analysis_payload
 from rasai.search_intelligence.competitive_runtime import CompetitiveExecution
 from rasai.search_intelligence.content import (
     CompetitiveContentAnalysis,
@@ -342,6 +349,135 @@ class CompetitiveAiPersistenceTests(unittest.TestCase):
             self.assertEqual(tuple(row[:3]), ("AVAILABLE", "FIXTURE", 1))
             self.assertTrue(row["evidence_ref"].endswith("competitive-ai/OBS-1.json"))
             self.assertTrue((root / row["evidence_ref"]).is_file())
+
+
+
+class CompetitiveAiAuditPhaseTests(unittest.TestCase):
+    def test_governed_hook_consumes_only_sealed_persisted_competitive_evidence(self) -> None:
+        audit_id = "AUD-COMPETITIVE-AI-HOOK"
+        observation_id = "OBS-HOOK-1"
+        with TemporaryDirectory() as directory:
+            workspace = AuditWorkspace.create(Path(directory), audit_id)
+            with AuditPersistence(workspace) as persistence:
+                persistence.audits.add(Audit(audit_id=audit_id, project_name="competitive ai hook"))
+
+            register_work_item(
+                workspace,
+                audit_id=audit_id,
+                component="SEARCH_INTELLIGENCE",
+                required=True,
+                temporal_mode=LIVE_RECOLLECTION,
+                retryable=True,
+                configuration={
+                    "requested": True,
+                    "compare_content": True,
+                    "ai_competitive": True,
+                    "ai_provider": "openai",
+                    "ai_model": "",
+                    "ai_timeout_seconds": 30.0,
+                    "market": "BR",
+                    "language": "pt-BR",
+                    "ymyl_mode": "AUTO",
+                },
+            )
+
+            deterministic = analysis_payload(_analysis())
+            artifact_dir = workspace.root / "artifacts" / "search-intelligence" / "competitive"
+            artifact_dir.mkdir(parents=True, exist_ok=True)
+            artifact = artifact_dir / f"{observation_id}.json"
+            encoded = json.dumps(
+                deterministic,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            artifact.write_bytes(encoded)
+            evidence_ref = artifact.relative_to(workspace.root).as_posix()
+
+            connection = sqlite3.connect(workspace.database)
+            try:
+                connection.executescript(
+                    """
+                    CREATE TABLE IF NOT EXISTS serp_observations(
+                        observation_id TEXT PRIMARY KEY,
+                        audit_id TEXT NOT NULL,
+                        query TEXT NOT NULL,
+                        country TEXT NOT NULL,
+                        language TEXT NOT NULL,
+                        collected_at TEXT NOT NULL
+                    );
+                    CREATE TABLE IF NOT EXISTS serp_competitive_analyses(
+                        observation_id TEXT PRIMARY KEY,
+                        audit_id TEXT NOT NULL,
+                        comparison_status TEXT NOT NULL,
+                        evidence_ref TEXT,
+                        evidence_sha256 TEXT
+                    );
+                    """
+                )
+                connection.execute(
+                    "INSERT INTO serp_observations VALUES(?,?,?,?,?,?)",
+                    (
+                        observation_id,
+                        audit_id,
+                        "seguro auto",
+                        "BR",
+                        "pt-BR",
+                        "2026-09-18T12:00:00+00:00",
+                    ),
+                )
+                connection.execute(
+                    "INSERT INTO serp_competitive_analyses VALUES(?,?,?,?,?)",
+                    (
+                        observation_id,
+                        audit_id,
+                        "CONSOLIDATED",
+                        evidence_ref,
+                        __import__("hashlib").sha256(encoded).hexdigest(),
+                    ),
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+            snapshot = seal_evidence(
+                workspace=workspace,
+                audit_id=audit_id,
+                collection_states={"SEARCH_INTELLIGENCE": "SUCCESS"},
+            )
+            fixture = FixtureCompetitiveAiProvider(_payload())
+            with patch(
+                "rasai.search_intelligence.competitive_ai.build_competitive_ai_provider",
+                return_value=fixture,
+            ):
+                outcome = _competitive_ai_hook(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    evidence_snapshot=snapshot,
+                )
+
+            self.assertEqual(outcome["status"], "COMPLETE")
+            self.assertEqual(outcome["available"], 1)
+
+            connection = sqlite3.connect(workspace.database)
+            try:
+                ai_row = connection.execute(
+                    "SELECT state,provider,opportunity_count FROM serp_competitive_ai_analyses "
+                    "WHERE observation_id=?",
+                    (observation_id,),
+                ).fetchone()
+                task_row = connection.execute(
+                    "SELECT purpose,evidence_snapshot_id,status FROM ai_tasks "
+                    "WHERE audit_id=? AND scope_key=?",
+                    (audit_id, observation_id),
+                ).fetchone()
+            finally:
+                connection.close()
+
+            self.assertEqual(ai_row, ("AVAILABLE", "FIXTURE", 1))
+            self.assertEqual(task_row[0], "COMPETITIVE_INTELLIGENCE")
+            self.assertEqual(task_row[1], snapshot.evidence_snapshot_id)
+            self.assertEqual(task_row[2], "COMPLETE")
 
 
 class CompetitiveAiCliTests(unittest.TestCase):

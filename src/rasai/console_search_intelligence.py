@@ -11,6 +11,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 import builtins
 import io
+import math
 import os
 from pathlib import Path
 import time
@@ -37,6 +38,13 @@ class SearchConsoleState(BaseState):
     search_region: str = ""
     search_device: str = "mobile"
     search_competitive: bool = True
+    search_compare_content: bool = False
+    search_max_content_pages: int = 3
+    search_content_timeout_seconds: float = 10.0
+    search_content_max_bytes: int = 2_000_000
+    search_content_max_redirects: int = 5
+    search_ai_competitive: bool = False
+    search_ymyl_mode: str = "AUTO"
     search_last_status: str = "NOT_REQUESTED"
     search_last_detail: str = ""
     search_last_report: str = ""
@@ -93,6 +101,31 @@ def _configured_search(state: object, env: Mapping[str, str] | None = None) -> S
     device = str(getattr(state, "search_device", "mobile")).casefold()
     if device not in {"mobile", "desktop"}:
         raise ValueError("dispositivo SERP deve ser mobile ou desktop")
+
+    compare_content = bool(getattr(state, "search_compare_content", False))
+    max_content_pages = int(getattr(state, "search_max_content_pages", 3))
+    if max_content_pages < 0 or max_content_pages > config.max_competitors:
+        raise ValueError(
+            "páginas competitivas deve ficar entre 0 e "
+            f"RASAI_SERP_MAX_COMPETITORS={config.max_competitors}"
+        )
+    content_timeout = float(getattr(state, "search_content_timeout_seconds", 10.0))
+    if not math.isfinite(content_timeout) or content_timeout <= 0:
+        raise ValueError("timeout da comparação de conteúdo deve ser finito e > 0")
+    if int(getattr(state, "search_content_max_bytes", 2_000_000)) <= 0:
+        raise ValueError("limite de bytes da comparação de conteúdo deve ser > 0")
+    if int(getattr(state, "search_content_max_redirects", 5)) < 0:
+        raise ValueError("máximo de redirects da comparação de conteúdo deve ser >= 0")
+    ai_competitive = bool(getattr(state, "search_ai_competitive", False))
+    if ai_competitive and not compare_content:
+        raise ValueError("IA competitiva exige Comparação de conteúdo ativada")
+    if ai_competitive and str(getattr(state, "ai_provider", "none") or "none").strip().casefold() == "none":
+        raise ValueError(
+            "IA competitiva exige IA principal configurada; selecione um provider explícito ou AUTO"
+        )
+    ymyl_mode = str(getattr(state, "search_ymyl_mode", "AUTO") or "AUTO").strip().upper()
+    if ymyl_mode not in {"AUTO", "ON", "OFF"}:
+        raise ValueError("modo YMYL competitivo deve ser AUTO, ON ou OFF")
     if config.mode == "live":
         registration = _provider_registration(config.provider)
         if registration is None:

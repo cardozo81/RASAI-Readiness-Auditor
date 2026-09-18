@@ -9,6 +9,10 @@ from __future__ import annotations
 
 import io
 from contextlib import redirect_stderr, redirect_stdout
+from hashlib import sha256
+import json
+import math
+import os
 from pathlib import Path
 import sqlite3
 import sys
@@ -19,10 +23,12 @@ from rasai.audit_fulfillment import (
     FAILED_RETRYABLE,
     LIVE_RECOLLECTION,
     SUCCESS,
+    list_work_items,
     register_work_item,
     set_work_item_status,
 )
-from rasai.audit_phase_runtime import register_collection_hook
+from rasai.audit_phase_runtime import register_ai_hook, register_collection_hook
+from rasai.provider_runtime_policy import AI_TIMEOUT_ENV, DEFAULT_AI_TIMEOUT_SECONDS
 from rasai.search_intelligence.config import SerpRuntimeConfig
 from rasai.search_intelligence.provider_catalog import serp_provider_registration
 
@@ -38,6 +44,13 @@ _SEARCH_JOB_FIELDS = frozenset(
         "search_region",
         "search_device",
         "search_competitive",
+        "search_compare_content",
+        "search_max_content_pages",
+        "search_content_timeout_seconds",
+        "search_content_max_bytes",
+        "search_content_max_redirects",
+        "search_ai_competitive",
+        "search_ymyl_mode",
     }
 )
 
@@ -89,6 +102,39 @@ def _install_arguments() -> None:
                 action="store_false",
             )
             audit.set_defaults(search_competitive=True)
+            comparison = audit.add_mutually_exclusive_group()
+            comparison.add_argument(
+                "--search-compare-content",
+                dest="search_compare_content",
+                action="store_true",
+            )
+            comparison.add_argument(
+                "--no-search-compare-content",
+                dest="search_compare_content",
+                action="store_false",
+            )
+            audit.set_defaults(search_compare_content=False)
+            audit.add_argument("--search-max-content-pages", type=int, default=3)
+            audit.add_argument("--search-content-timeout-seconds", type=float, default=10.0)
+            audit.add_argument("--search-content-max-bytes", type=int, default=2_000_000)
+            audit.add_argument("--search-content-max-redirects", type=int, default=5)
+            competitive_ai = audit.add_mutually_exclusive_group()
+            competitive_ai.add_argument(
+                "--search-ai-competitive",
+                dest="search_ai_competitive",
+                action="store_true",
+            )
+            competitive_ai.add_argument(
+                "--no-search-ai-competitive",
+                dest="search_ai_competitive",
+                action="store_false",
+            )
+            audit.set_defaults(search_ai_competitive=False)
+            audit.add_argument(
+                "--search-ymyl-mode",
+                choices=("AUTO", "ON", "OFF"),
+                default="AUTO",
+            )
         return parser
 
     build_parser._rasai_search_audit_args = True
@@ -149,6 +195,18 @@ def _install_saas_contract() -> None:
                     ("mobile", "desktop"),
                 ),
                 contract.AuditJobOption("search_competitive", True, "boolean"),
+                contract.AuditJobOption("search_compare_content", False, "boolean"),
+                contract.AuditJobOption("search_max_content_pages", 3, "integer"),
+                contract.AuditJobOption("search_content_timeout_seconds", 10.0, "number"),
+                contract.AuditJobOption("search_content_max_bytes", 2_000_000, "integer"),
+                contract.AuditJobOption("search_content_max_redirects", 5, "integer"),
+                contract.AuditJobOption("search_ai_competitive", False, "boolean"),
+                contract.AuditJobOption(
+                    "search_ymyl_mode",
+                    "AUTO",
+                    "enum",
+                    ("AUTO", "ON", "OFF"),
+                ),
             )
             options.extend(item for item in additions if item.name not in existing)
             return tuple(options)
@@ -174,6 +232,31 @@ def _install_saas_contract() -> None:
             competitive = payload.get("search_competitive", normalized.get("search_competitive", True))
             if not isinstance(competitive, bool):
                 raise ValueError("AUDIT payload search_competitive must be boolean")
+            compare_content = payload.get("search_compare_content", normalized.get("search_compare_content", False))
+            if not isinstance(compare_content, bool):
+                raise ValueError("AUDIT payload search_compare_content must be boolean")
+            max_content_pages = payload.get("search_max_content_pages", normalized.get("search_max_content_pages", 3))
+            if isinstance(max_content_pages, bool) or not isinstance(max_content_pages, int) or not 0 <= max_content_pages <= 100:
+                raise ValueError("AUDIT payload search_max_content_pages must be an integer between 0 and 100")
+            content_timeout = payload.get("search_content_timeout_seconds", normalized.get("search_content_timeout_seconds", 10.0))
+            if isinstance(content_timeout, bool) or not isinstance(content_timeout, (int, float)) or not math.isfinite(float(content_timeout)) or float(content_timeout) <= 0:
+                raise ValueError("AUDIT payload search_content_timeout_seconds must be a finite number > 0")
+            content_max_bytes = payload.get("search_content_max_bytes", normalized.get("search_content_max_bytes", 2_000_000))
+            if isinstance(content_max_bytes, bool) or not isinstance(content_max_bytes, int) or content_max_bytes <= 0:
+                raise ValueError("AUDIT payload search_content_max_bytes must be an integer > 0")
+            content_max_redirects = payload.get("search_content_max_redirects", normalized.get("search_content_max_redirects", 5))
+            if isinstance(content_max_redirects, bool) or not isinstance(content_max_redirects, int) or content_max_redirects < 0:
+                raise ValueError("AUDIT payload search_content_max_redirects must be an integer >= 0")
+            ai_competitive = payload.get("search_ai_competitive", normalized.get("search_ai_competitive", False))
+            if not isinstance(ai_competitive, bool):
+                raise ValueError("AUDIT payload search_ai_competitive must be boolean")
+            if ai_competitive and not compare_content:
+                raise ValueError("AUDIT payload search_ai_competitive requires search_compare_content=true")
+            if ai_competitive and str(normalized.get("ai_provider") or "none").casefold() == "none":
+                raise ValueError("AUDIT payload search_ai_competitive requires the main AI provider")
+            ymyl_mode = payload.get("search_ymyl_mode", normalized.get("search_ymyl_mode", "AUTO"))
+            if not isinstance(ymyl_mode, str) or ymyl_mode.strip().upper() not in {"AUTO", "ON", "OFF"}:
+                raise ValueError("AUDIT payload search_ymyl_mode must be AUTO, ON or OFF")
             normalized.update(
                 {
                     "search_queries": queries,
@@ -181,6 +264,13 @@ def _install_saas_contract() -> None:
                     "search_region": region.strip(),
                     "search_device": device.strip().casefold(),
                     "search_competitive": competitive,
+                    "search_compare_content": compare_content,
+                    "search_max_content_pages": int(max_content_pages),
+                    "search_content_timeout_seconds": float(content_timeout),
+                    "search_content_max_bytes": int(content_max_bytes),
+                    "search_content_max_redirects": int(content_max_redirects),
+                    "search_ai_competitive": ai_competitive,
+                    "search_ymyl_mode": ymyl_mode.strip().upper(),
                 }
             )
             return normalized
@@ -235,6 +325,21 @@ def install_worker_projection() -> None:
             if bool(payload["search_competitive"])
             else "--no-search-competitive"
         )
+        argv.append(
+            "--search-compare-content"
+            if bool(payload["search_compare_content"])
+            else "--no-search-compare-content"
+        )
+        argv.extend(("--search-max-content-pages", str(int(payload["search_max_content_pages"]))))
+        argv.extend(("--search-content-timeout-seconds", str(float(payload["search_content_timeout_seconds"]))))
+        argv.extend(("--search-content-max-bytes", str(int(payload["search_content_max_bytes"]))))
+        argv.extend(("--search-content-max-redirects", str(int(payload["search_content_max_redirects"]))))
+        argv.append(
+            "--search-ai-competitive"
+            if bool(payload["search_ai_competitive"])
+            else "--no-search-ai-competitive"
+        )
+        argv.extend(("--search-ymyl-mode", str(payload["search_ymyl_mode"]).upper()))
         return argv
 
     audit_arguments._rasai_search_audit = True
@@ -283,6 +388,22 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
     if not queries:
         return {"collection_state": "DISABLED", "requested": False, "queries": 0}
 
+    try:
+        runtime_snapshot = SerpRuntimeConfig.from_environment(validate=False)
+        runtime_configuration = {
+            "mode": str(runtime_snapshot.mode),
+            "provider": str(runtime_snapshot.provider),
+            "fixture_path": str(runtime_snapshot.fixture_path) if runtime_snapshot.fixture_path else "",
+            "max_queries": int(runtime_snapshot.max_queries),
+            "max_requests": int(runtime_snapshot.max_requests),
+            "max_depth": int(runtime_snapshot.max_depth),
+            "max_competitors": int(runtime_snapshot.max_competitors),
+            "timeout_seconds": float(runtime_snapshot.timeout_seconds),
+            "retries": int(runtime_snapshot.retries),
+            "min_interval_seconds": float(runtime_snapshot.min_interval_seconds),
+        }
+    except (OSError, TypeError, ValueError):
+        runtime_configuration = {}
     configuration = {
         "requested": True,
         "queries": list(queries),
@@ -290,6 +411,22 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
         "region": str(getattr(args, "search_region", "") or ""),
         "device": str(getattr(args, "search_device", "mobile")),
         "competitive": bool(getattr(args, "search_competitive", True)),
+        "compare_content": bool(getattr(args, "search_compare_content", False)),
+        "max_content_pages": int(getattr(args, "search_max_content_pages", 3)),
+        "content_timeout_seconds": float(getattr(args, "search_content_timeout_seconds", 10.0)),
+        "content_max_bytes": int(getattr(args, "search_content_max_bytes", 2_000_000)),
+        "content_max_redirects": int(getattr(args, "search_content_max_redirects", 5)),
+        "ai_competitive": bool(getattr(args, "search_ai_competitive", False)),
+        "ymyl_mode": str(getattr(args, "search_ymyl_mode", "AUTO") or "AUTO").upper(),
+        "market": str(getattr(args, "market", "BR") or "BR"),
+        "language": str(getattr(args, "language", "pt-BR") or "pt-BR"),
+        "ai_provider": str(getattr(args, "ai_provider", "none") or "none"),
+        "ai_model": str(getattr(args, "ai_model", "") or ""),
+        "ai_timeout_seconds": float(
+            os.environ.get(AI_TIMEOUT_ENV, str(DEFAULT_AI_TIMEOUT_SECONDS))
+            or DEFAULT_AI_TIMEOUT_SECONDS
+        ),
+        **runtime_configuration,
     }
     register_work_item(
         workspace,
@@ -377,6 +514,22 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
         command.extend(("--region", region))
     if bool(getattr(args, "search_competitive", True)):
         command.append("--competitive")
+    if bool(getattr(args, "search_compare_content", False)):
+        max_content_pages = min(
+            int(getattr(args, "search_max_content_pages", 3)),
+            int(config.max_competitors),
+        )
+        command.extend(
+            (
+                "--compare-content",
+                "--max-content-pages", str(max_content_pages),
+                "--content-timeout", str(float(getattr(args, "search_content_timeout_seconds", 10.0))),
+                "--content-max-bytes", str(int(getattr(args, "search_content_max_bytes", 2_000_000))),
+                "--content-max-redirects", str(int(getattr(args, "search_content_max_redirects", 5))),
+            )
+        )
+        if len(queries) == 1 and target:
+            command.extend(("--customer-url", target))
 
     output = io.StringIO()
     try:
@@ -432,6 +585,298 @@ def _collector(*, audit_id: str, workspace: Any, source_blocked: bool = False):
     }
 
 
+def _persisted_search_configuration(workspace: Any, audit_id: str) -> dict[str, Any]:
+    for item in list_work_items(workspace, audit_id):
+        if str(getattr(item, "component", "")) == _COMPONENT and str(getattr(item, "scope_key", "AUDIT")) == "AUDIT":
+            return dict(getattr(item, "configuration", {}) or {})
+    return {}
+
+
+def _competitive_ai_input_from_artifact(
+    observation_id: str,
+    payload: Mapping[str, Any],
+    *,
+    market: str,
+    language: str,
+    ymyl_mode: str,
+    artifact_reference: str,
+):
+    from rasai.search_intelligence.competitive_ai import CompetitiveAiEvidence, CompetitiveAiInput
+
+    if str(payload.get("comparison_status") or "") != "CONSOLIDATED":
+        raise ValueError("competitive AI requires consolidated deterministic content")
+    selection = payload.get("selection")
+    if not isinstance(selection, Mapping):
+        raise ValueError("competitive evidence selection is missing")
+    customer = payload.get("customer_page")
+    if not isinstance(customer, Mapping) or str(customer.get("status") or "") != "OBSERVED":
+        raise ValueError("competitive AI requires observed customer content")
+
+    selected = selection.get("selected_candidates")
+    selected_count = len(selected) if isinstance(selected, list) else 0
+    customer_result = selection.get("customer_result")
+    customer_position = customer_result.get("position") if isinstance(customer_result, Mapping) else None
+    evidence = [
+        CompetitiveAiEvidence(
+            "CE-QUERY",
+            "SEARCH_QUERY_CONTEXT",
+            "SERP_OBSERVATION",
+            {
+                "query": str(selection.get("query") or ""),
+                "customer_domain": str(selection.get("customer_domain") or ""),
+                "customer_position": customer_position,
+                "candidate_count": selected_count,
+            },
+            artifact_reference,
+        ),
+        CompetitiveAiEvidence(
+            "CE-CUSTOMER",
+            "CUSTOMER_PAGE_FEATURES",
+            str(customer.get("final_url") or customer.get("requested_url") or "CUSTOMER"),
+            dict(customer),
+            artifact_reference,
+        ),
+    ]
+    competitors = payload.get("competitor_pages")
+    if isinstance(competitors, list):
+        observed_index = 0
+        for page in competitors:
+            if not isinstance(page, Mapping) or str(page.get("status") or "") != "OBSERVED":
+                continue
+            observed_index += 1
+            evidence.append(
+                CompetitiveAiEvidence(
+                    f"CE-COMP-{observed_index:03d}",
+                    "OBSERVED_LEADER_PAGE_FEATURES",
+                    str(page.get("final_url") or page.get("requested_url") or "COMPETITOR"),
+                    dict(page),
+                    artifact_reference,
+                )
+            )
+    gaps = payload.get("gaps")
+    if isinstance(gaps, list):
+        gap_index = 0
+        for gap in gaps:
+            if not isinstance(gap, Mapping):
+                continue
+            gap_index += 1
+            evidence.append(
+                CompetitiveAiEvidence(
+                    f"CE-GAP-{gap_index:03d}",
+                    "DETERMINISTIC_CONTENT_DIFFERENCE",
+                    "RASAI_DETERMINISTIC_COMPARISON",
+                    dict(gap),
+                    artifact_reference,
+                )
+            )
+    return CompetitiveAiInput(
+        observation_id=observation_id,
+        query=str(selection.get("query") or ""),
+        market=market,
+        language=language,
+        ymyl_mode=ymyl_mode,
+        evidence=tuple(evidence),
+    )
+
+
+def _competitive_ai_rows(workspace: Any, audit_id: str) -> tuple[dict[str, Any], ...]:
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        table = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='serp_competitive_analyses'"
+        ).fetchone()
+        if table is None:
+            return ()
+        rows = connection.execute(
+            """SELECT a.observation_id,a.evidence_ref,a.evidence_sha256,
+                      o.query,o.country,o.language
+               FROM serp_competitive_analyses a
+               JOIN serp_observations o ON o.observation_id=a.observation_id
+               WHERE a.audit_id=? AND a.comparison_status='CONSOLIDATED'
+               ORDER BY o.collected_at,a.observation_id""",
+            (audit_id,),
+        ).fetchall()
+        return tuple(dict(row) for row in rows)
+    finally:
+        connection.close()
+
+
+def _competitive_ai_hook(
+    *,
+    audit_id: str,
+    workspace: Any,
+    evidence_snapshot: Any = None,
+    source_blocked: bool = False,
+):
+    configuration = _persisted_search_configuration(workspace, audit_id)
+    if not configuration or not bool(configuration.get("ai_competitive", False)):
+        return {"status": "DISABLED", "requested": False}
+    if source_blocked:
+        return {"status": "SKIPPED_SOURCE_BLOCKER", "requested": True}
+    if not bool(configuration.get("compare_content", False)):
+        return {
+            "status": "NOT_ELIGIBLE",
+            "requested": True,
+            "reason": "CONTENT_COMPARISON_REQUIRED",
+        }
+
+    rows = _competitive_ai_rows(workspace, audit_id)
+    if not rows:
+        return {
+            "status": "NOT_ELIGIBLE",
+            "requested": True,
+            "reason": "NO_CONSOLIDATED_COMPETITIVE_EVIDENCE",
+        }
+
+    from rasai.ai_governance import begin_round, complete_round, latest_evidence_snapshot, register_task
+    from rasai.search_intelligence.competitive_ai import (
+        COMPETITIVE_AI_CONTRACT_VERSION,
+        COMPETITIVE_AI_PROMPT_ID,
+        COMPETITIVE_AI_PROMPT_VERSION,
+        CompetitiveAiResult,
+        CompetitiveAiState,
+        build_competitive_ai_provider,
+    )
+    from rasai.search_intelligence.competitive_ai_persistence import (
+        CompetitiveAiRepository,
+        FilesystemCompetitiveAiEvidenceSink,
+        competitive_ai_result_payload,
+    )
+
+    snapshot = evidence_snapshot or latest_evidence_snapshot(workspace, audit_id)
+    snapshot_id = str(getattr(snapshot, "evidence_snapshot_id", "") or "")
+    if not snapshot_id:
+        return {
+            "status": "NOT_ELIGIBLE",
+            "requested": True,
+            "reason": "SEALED_EVIDENCE_REQUIRED",
+        }
+
+    provider_name = str(configuration.get("ai_provider") or "none").casefold()
+    model = str(configuration.get("ai_model") or "").strip() or None
+    timeout = float(configuration.get("ai_timeout_seconds") or DEFAULT_AI_TIMEOUT_SECONDS)
+    provider = build_competitive_ai_provider(
+        provider_name,
+        model=(model if provider_name not in {"auto", "none"} else None),
+        timeout=timeout,
+    )
+    repository = CompetitiveAiRepository.from_workspace(Path(workspace.root))
+    sink = FilesystemCompetitiveAiEvidenceSink(Path(workspace.root))
+    available = 0
+    limitations = 0
+    try:
+        for row in rows:
+            observation_id = str(row["observation_id"])
+            evidence_ref = str(row.get("evidence_ref") or "")
+            try:
+                if not evidence_ref:
+                    raise ValueError("competitive evidence artifact reference is missing")
+                artifact = Path(workspace.root) / evidence_ref
+                raw = artifact.read_bytes()
+                expected = str(row.get("evidence_sha256") or "")
+                if expected and sha256(raw).hexdigest() != expected:
+                    raise ValueError("competitive evidence SHA-256 mismatch")
+                payload = json.loads(raw.decode("utf-8"))
+                if not isinstance(payload, Mapping):
+                    raise ValueError("competitive evidence artifact must be an object")
+                competitive_input = _competitive_ai_input_from_artifact(
+                    observation_id,
+                    payload,
+                    market=str(configuration.get("market") or row.get("country") or "BR"),
+                    language=str(configuration.get("language") or row.get("language") or "pt-BR"),
+                    ymyl_mode=str(configuration.get("ymyl_mode") or "AUTO").upper(),
+                    artifact_reference=evidence_ref,
+                )
+            except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                result = CompetitiveAiResult(
+                    CompetitiveAiState.UNAVAILABLE,
+                    reason=f"COMPETITIVE_EVIDENCE_INVALID:{type(exc).__name__}:{str(exc)[:240]}",
+                )
+                limitations += 1
+                result_ref, result_sha = sink.write(observation_id, result)
+                repository.save(
+                    observation_id,
+                    result,
+                    evidence_ref=result_ref,
+                    evidence_sha256=result_sha,
+                )
+                continue
+
+            requirement = "competitive_semantic_opportunities"
+            task_id = register_task(
+                workspace=workspace,
+                audit_id=audit_id,
+                purpose="COMPETITIVE_INTELLIGENCE",
+                scope_type="SERP_OBSERVATION",
+                scope_key=observation_id,
+                evidence_snapshot_id=snapshot_id,
+                requirements=(requirement,),
+                semantic_contract_version=COMPETITIVE_AI_CONTRACT_VERSION,
+                prompt_id=COMPETITIVE_AI_PROMPT_ID,
+                prompt_version=COMPETITIVE_AI_PROMPT_VERSION,
+            )
+            round_id = begin_round(
+                workspace=workspace,
+                ai_task_id=task_id,
+                requested_requirements=(requirement,),
+                input_payload=competitive_input.provider_payload(),
+                input_summary={
+                    "observation_id": observation_id,
+                    "query": str(row.get("query") or ""),
+                    "evidence_count": len(competitive_input.evidence),
+                },
+            )
+            try:
+                result = provider.analyze(competitive_input)
+            except Exception as exc:
+                result = CompetitiveAiResult(
+                    CompetitiveAiState.UNAVAILABLE,
+                    reason=f"COMPETITIVE_AI_RUNTIME_ERROR:{type(exc).__name__}:{str(exc)[:240]}",
+                )
+            result_payload = competitive_ai_result_payload(result)
+            if result.state is CompetitiveAiState.AVAILABLE:
+                available += 1
+                complete_round(
+                    workspace=workspace,
+                    ai_round_id=round_id,
+                    accepted={requirement: result_payload},
+                    output_payload=result_payload,
+                )
+            else:
+                limitations += 1
+                complete_round(
+                    workspace=workspace,
+                    ai_round_id=round_id,
+                    missing=(requirement,),
+                    output_payload=result_payload,
+                    failed=result.state is CompetitiveAiState.UNAVAILABLE,
+                )
+            result_ref, result_sha = sink.write(observation_id, result)
+            repository.save(
+                observation_id,
+                result,
+                evidence_ref=result_ref,
+                evidence_sha256=result_sha,
+            )
+    finally:
+        repository.close()
+
+    try:
+        from rasai.search_intelligence.runtime import _refresh_search_intelligence_report
+        _refresh_search_intelligence_report(Path(workspace.root))
+    except Exception:
+        pass
+    return {
+        "status": "COMPLETE" if limitations == 0 else "COMPLETE_WITH_LIMITATIONS",
+        "requested": True,
+        "observations": len(rows),
+        "available": available,
+        "limitations": limitations,
+        "provider": provider_name,
+    }
+
+
 def install() -> None:
     global _INSTALLED
     if _INSTALLED:
@@ -439,7 +884,13 @@ def install() -> None:
     _install_arguments()
     _install_saas_contract()
     register_collection_hook(_COMPONENT, _collector, order=35)
+    register_ai_hook("COMPETITIVE_INTELLIGENCE", _competitive_ai_hook, order=35)
     _INSTALLED = True
 
 
-__all__ = ["configure_audit_argv", "install", "install_worker_projection"]
+__all__ = [
+    "configure_audit_argv",
+    "install",
+    "install_worker_projection",
+    "_competitive_ai_hook",
+]

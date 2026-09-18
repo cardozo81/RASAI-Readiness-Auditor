@@ -58,7 +58,13 @@ A superfície segue o contrato:
   3. Profundidade desejada
   4. Dispositivo da busca
   5. Análise de concorrentes
-  6. Comparação de conteúdo, quando essa capacidade opcional estiver disponível
+  6. Comparação de conteúdo
+  7. Máximo de páginas concorrentes
+  8. Timeout da aquisição de conteúdo
+  9. Máximo de bytes por página
+  10. Máximo de redirects
+  11. IA competitiva
+  12. Contexto YMYL da IA competitiva
 
   D. Não solicitar SERP nesta execução
   V. Voltar
@@ -73,7 +79,13 @@ Cada campo da próxima execução aplica o domínio permitido pelo runtime/provi
 - **Profundidade**: aceita somente inteiro dentro do intervalo efetivo `1..N`; `N` respeita `RASAI_SERP_MAX_DEPTH` e, para paginação previsível, também o orçamento de `RASAI_SERP_MAX_REQUESTS` considerando quantidade de termos e retries;
 - **Dispositivo**: enum fechado `Mobile` ou `Desktop`;
 - **Análise de concorrentes**: enum fechado `Ativada` ou `Desativada`; a tela informa também `RASAI_SERP_MAX_COMPETITORS`;
-- **Comparação de conteúdo**: enum fechado `Ativada` ou `Desativada` quando o runtime expõe a capacidade; ativar adiciona aquisição HTTP limitada de páginas públicas para comparação determinística e não ativa IA;
+- **Comparação de conteúdo**: enum fechado `Ativada` ou `Desativada`; ativar adiciona aquisição HTTP limitada de páginas públicas para comparação determinística;
+- **Máximo de páginas concorrentes**: inteiro entre `0` e `RASAI_SERP_MAX_COMPETITORS`;
+- **Timeout de conteúdo**: número finito `> 0`, em segundos, por tentativa HTTP de página pública;
+- **Máximo de bytes por página**: inteiro `> 0`;
+- **Máximo de redirects**: inteiro `>= 0`;
+- **IA competitiva**: opt-in separado; exige comparação de conteúdo ativa e IA principal diferente de `none`. A chamada ocorre somente depois da comparação determinística persistida e do selo de evidências;
+- **Contexto YMYL**: enum fechado `AUTO|ON|OFF` usado somente pela análise competitiva por IA;
 - **D. Não solicitar SERP**: limpa os termos e projeta o estado como `NÃO SOLICITADO` para a próxima execução.
 
 O menu mostra explicação de uso e abrangência antes de solicitar valores fechados/ranged. Entradas fora do domínio permitido não alteram o estado corrente. Em modo `disabled`, ou com provider live sem a credencial exigida, o menu informa a pendência e não aceita alterações que produziriam uma solicitação SERP inválida.
@@ -93,6 +105,13 @@ depth = ...
 region = ...
 device = mobile|desktop
 competitive = true|false
+compare_content = true|false
+max_content_pages = 3
+content_timeout_seconds = 10.0
+content_max_bytes = 2000000
+content_max_redirects = 5
+ai_competitive = true|false
+ymyl_mode = AUTO|ON|OFF
 ```
 
 Credenciais SERP nunca são escritas nessa seção nem em qualquer outra parte do INI.
@@ -167,7 +186,9 @@ A região adiciona localização específica quando ranking geográfico é relev
 
 A classificação competitiva determinística usa a SERP já coletada e não cria por si só uma nova chamada comercial.
 
-A comparação opcional de conteúdo pode adquirir um conjunto limitado de páginas públicas para materializar diferenças determinísticas de título, headings, corpo e dados estruturados. Ela acrescenta HTTP, mas não ativa IA. Análises por IA pertencem às capacidades próprias e, quando usam IA, reutilizam a seleção principal da execução.
+A comparação opcional de conteúdo pode adquirir um conjunto limitado de páginas públicas para materializar diferenças determinísticas de título, headings, corpo e dados estruturados. Ela acrescenta HTTP e permanece independente da IA.
+
+Quando `IA competitiva` é ativada, o runtime reutiliza a seleção principal de IA da auditoria (`provider` explícito ou `AUTO`), sua política de custo/fallback/telemetria e executa somente depois que a evidência competitiva determinística foi persistida e o snapshot de evidências foi selado. O relatório apenas projeta o resultado persistido; renderização não chama provider.
 
 ## Readiness e preflight
 

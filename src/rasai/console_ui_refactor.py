@@ -11,6 +11,7 @@ from __future__ import annotations
 import builtins
 from contextlib import redirect_stdout
 import io
+import math
 import sys
 from types import ModuleType
 from typing import Any
@@ -160,6 +161,13 @@ def _install_search_persistence() -> None:
                 "region": str(getattr(state, "search_region", "") or ""),
                 "device": str(getattr(state, "search_device", "mobile") or "mobile"),
                 "competitive": "true" if bool(getattr(state, "search_competitive", True)) else "false",
+                "compare_content": "true" if bool(getattr(state, "search_compare_content", False)) else "false",
+                "max_content_pages": str(int(getattr(state, "search_max_content_pages", 3))),
+                "content_timeout_seconds": str(float(getattr(state, "search_content_timeout_seconds", 10.0))),
+                "content_max_bytes": str(int(getattr(state, "search_content_max_bytes", 2_000_000))),
+                "content_max_redirects": str(int(getattr(state, "search_content_max_redirects", 5))),
+                "ai_competitive": "true" if bool(getattr(state, "search_ai_competitive", False)) else "false",
+                "ymyl_mode": str(getattr(state, "search_ymyl_mode", "AUTO") or "AUTO").upper(),
             }
         return result
 
@@ -186,6 +194,35 @@ def _install_search_persistence() -> None:
             state.search_device = value
         elif option == "competitive":
             state.search_competitive = settings._parse_bool(raw)
+        elif option == "compare_content":
+            state.search_compare_content = settings._parse_bool(raw)
+        elif option == "max_content_pages":
+            value = int(raw)
+            if value < 0:
+                raise ValueError("search_intelligence.max_content_pages: use inteiro >= 0")
+            state.search_max_content_pages = value
+        elif option == "content_timeout_seconds":
+            value = float(raw)
+            if not math.isfinite(value) or value <= 0:
+                raise ValueError("search_intelligence.content_timeout_seconds: use número finito > 0")
+            state.search_content_timeout_seconds = value
+        elif option == "content_max_bytes":
+            value = int(raw)
+            if value <= 0:
+                raise ValueError("search_intelligence.content_max_bytes: use inteiro > 0")
+            state.search_content_max_bytes = value
+        elif option == "content_max_redirects":
+            value = int(raw)
+            if value < 0:
+                raise ValueError("search_intelligence.content_max_redirects: use inteiro >= 0")
+            state.search_content_max_redirects = value
+        elif option == "ai_competitive":
+            state.search_ai_competitive = settings._parse_bool(raw)
+        elif option == "ymyl_mode":
+            value = raw.strip().upper()
+            if value not in {"AUTO", "ON", "OFF"}:
+                raise ValueError("search_intelligence.ymyl_mode: use AUTO, ON ou OFF")
+            state.search_ymyl_mode = value
         return None
 
     settings._state_values = values
