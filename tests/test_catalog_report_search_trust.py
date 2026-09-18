@@ -235,7 +235,7 @@ def test_ai_overview_is_projected_from_persisted_serp_artifact(tmp_path: Path) -
     assert "AI Overview detectado" in html
     assert "Resumo gerado para a consulta" in html
     assert "https://example.test/guide" in html
-    assert "Site auditado entre as URLs citadas" in html
+    assert "Site auditado entre as referências" in html
     assert "Sim" in html
 
 
