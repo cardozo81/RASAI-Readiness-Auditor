@@ -1,6 +1,78 @@
 """Human-facing labels and shared visual helpers."""
 from rasai.catalog_report_model import *  # noqa: F401,F403
 from rasai.time_contract import localize_html_timestamps
+from rasai.catalog_report_public_labels import public_label
+
+_EMPTY = "-"
+_RICH_TOKEN_RE = re.compile(
+    r"(\[[^\]\n]+\]\(https?://[^)\s]+\)|`[^`\n]+`|https?://[^\s<>()]+)",
+    re.I,
+)
+
+def _translated_text(pt_br: Any, original: Any) -> _Html:
+    translated = str(pt_br or _EMPTY).replace("—", "-")
+    source = str(original or "").strip()
+    if not source or translated.casefold() == source.casefold():
+        return _Html(escape(translated))
+    return _Html(
+        escape(translated)
+        + " <span class='translation-mark' title='"
+        + escape(source, quote=True)
+        + "' aria-label='Rótulo amigável; valor interno: "
+        + escape(source, quote=True)
+        + "'>🌐</span>"
+    )
+
+def _internal_value_label(value: Any) -> _Html | None:
+    raw = str(value or "").strip()
+    label = public_label(raw)
+    return _translated_text(label, raw) if label else None
+
+def _rich_text(value: Any) -> _Html:
+    if isinstance(value, _Html):
+        return value
+    text = str(value or "").strip()
+    if not text or text == "—":
+        return _Html(_EMPTY)
+    internal = _internal_value_label(text)
+    if internal is not None:
+        return internal
+    out: list[str] = []
+    cursor = 0
+    for match in _RICH_TOKEN_RE.finditer(text):
+        out.append(escape(text[cursor:match.start()]))
+        token = match.group(0)
+        markdown = re.fullmatch(r"\[([^\]\n]+)\]\((https?://[^)\s]+)\)", token, re.I)
+        if markdown:
+            label, href = markdown.group(1), markdown.group(2)
+            out.append(
+                "<a class='external-link' href='" + escape(href, quote=True)
+                + "' target='_blank' rel='noopener noreferrer'>"
+                + escape(label) + " ↗</a>"
+            )
+        elif token.startswith("`") and token.endswith("`"):
+            out.append("<code>" + escape(token[1:-1]) + "</code>")
+        else:
+            href = token
+            trailing = ""
+            while href and href[-1] in ".,;:":
+                trailing = href[-1] + trailing
+                href = href[:-1]
+            out.append(
+                "<a class='external-link' href='" + escape(href, quote=True)
+                + "' target='_blank' rel='noopener noreferrer'>"
+                + escape(href) + " ↗</a>" + escape(trailing)
+            )
+        cursor = match.end()
+    out.append(escape(text[cursor:]))
+    return _Html("".join(out).replace("\n", "<br>"))
+
+def _display_value(value: Any) -> _Html:
+    return value if isinstance(value, _Html) else _rich_text(value)
+
+def _temporal_mode_label(value: Any) -> _Html:
+    return _internal_value_label(value) or _rich_text(value)
+
 
 
 def _status_label(value: Any) -> str:
@@ -21,7 +93,8 @@ def _status_label(value: Any) -> str:
         "APPLICATION_ERROR":"Erro da aplicação","INVALID_SAMPLE":"Amostra inválida","BROWSER_UNAVAILABLE":"Navegador indisponível",
         "TIMEOUT":"Tempo limite excedido","NAVIGATION_ERROR":"Erro de navegação",
     }
-    return mapping.get(raw, str(value or "—").replace("_"," ").title())
+    mapped=public_label(value)
+    return mapping.get(raw, mapped or str(value or _EMPTY).replace("_"," ").title())
 
 
 def _assessment_label(value: Any) -> str:
@@ -40,12 +113,12 @@ def _assessment_label(value: Any) -> str:
 
 def _device_label(value: Any) -> str:
     raw=_norm(value)
-    return {"MOBILE":"Dispositivo móvel","DESKTOP":"Desktop","TABLET":"Tablet"}.get(raw,str(value or "—").replace("_"," ").title())
+    return {"MOBILE":"Dispositivo móvel","DESKTOP":"Desktop","TABLET":"Tablet"}.get(raw,str(value or _EMPTY).replace("_"," ").title())
 
 
 def _classification_label(value: Any) -> str:
     raw=_norm(value)
-    return {"SATISFIED":"Satisfatória","TOLERATING":"Tolerável","FRUSTRATED":"Frustrada"}.get(raw,str(value or "—").replace("_"," ").title())
+    return {"SATISFIED":"Satisfatória","TOLERATING":"Tolerável","FRUSTRATED":"Frustrada"}.get(raw,str(value or _EMPTY).replace("_"," ").title())
 
 
 def _level_label(value: Any) -> str:
@@ -148,8 +221,8 @@ def _badge(text: str, tone: str|None=None) -> str:
 
 
 def _metric(label: str, value: Any, note: str="") -> str:
-    note_html=f"<small>{escape(note)}</small>" if note else ""
-    return f"<div class='metric'><small>{escape(label)}</small><strong>{escape(_plain(value) or '—')}</strong>{note_html}</div>"
+    note_html=f"<small>{escape(note.replace('—','-'))}</small>" if note else ""
+    return f"<div class='metric'><small>{escape(label.replace('—','-'))}</small><strong>{_display_value(value)}</strong>{note_html}</div>"
 
 
 def _table(
@@ -162,8 +235,8 @@ def _table(
 ) -> str:
     if not rows:
         return f"<div class='notice'>{escape(empty)}</div>"
-    head="".join(f"<th>{escape(str(h))}</th>" for h in headers)
-    body="".join("<tr>"+"".join(f"<td>{cell if isinstance(cell,_Html) else escape(_plain(cell))}</td>" for cell in row)+"</tr>" for row in rows)
+    head="".join(f"<th>{escape(str(h).replace('—','-'))}</th>" for h in headers)
+    body="".join("<tr>"+"".join(f"<td>{_display_value(cell)}</td>" for cell in row)+"</tr>" for row in rows)
     interactive=bool(sortable or page_size)
     attrs=""
     if interactive:
@@ -180,12 +253,12 @@ def _table(
 def _kv(items: Sequence[tuple[str,Any]]) -> str:
     pairs=[]
     for label,value in items:
-        pairs.append(f"<dt>{escape(label)}</dt><dd>{value if isinstance(value,_Html) else escape(_plain(value) or '—')}</dd>")
+        pairs.append(f"<dt>{escape(label.replace('—','-'))}</dt><dd>{_display_value(value)}</dd>")
     return "<dl class='kv'>"+"".join(pairs)+"</dl>"
 
 
 def _modal(modal_id: str, title: str, context: str, body: str) -> str:
-    return f"""<dialog id='{escape(modal_id)}' class='rasai-modal'><div class='modal-head'><div><h2>{escape(title)}</h2><p>{escape(context)}</p></div><button class='modal-close' type='button' data-modal-close aria-label='Fechar'>Fechar</button></div><div class='modal-body'>{body}</div></dialog>"""
+    return f"""<dialog id='{escape(modal_id)}' class='rasai-modal'><div class='modal-head'><div><h2>{escape(title.replace('—','-'))}</h2><p>{escape(context.replace('—','-'))}</p></div><button class='modal-close' type='button' data-modal-close aria-label='Fechar'>Fechar</button></div><div class='modal-body'>{body}</div></dialog>"""
 
 
 def _modal_button(modal_id: str, label: str="Ver detalhes") -> _Html:
@@ -247,7 +320,7 @@ def _score_table(data: _ReportData, *, include_overall: bool=True, context: str|
         consolidation=_norm(row.get("consolidation_status"))
         structured_absent=(dim=="STRUCTURED_DATA" and consolidation=="NOT_APPLICABLE" and row.get("value") is None)
         value="Não aplicável" if structured_absent else _score_value(row)
-        confidence="Não aplicável — nenhum dado estruturado foi observado" if structured_absent else _confidence_label(row.get("confidence"))
+        confidence="Não aplicável - nenhum dado estruturado foi observado" if structured_absent else _confidence_label(row.get("confidence"))
         rows.append((_DIMENSION_LABELS.get(dim,dim.replace("_"," ").title()),_device_label(row.get("device")),value,row.get("coverage","—"),confidence,_status_label(row.get("consolidation_status")),row.get("scoring_version","—")))
     return _table(("Indicador","Contexto","Valor","Cobertura","Confiança","Consolidação","Método"),rows)
 

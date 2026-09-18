@@ -93,7 +93,7 @@ def _age(captured_at: Any, reused_at: Any) -> str:
     captured = _dt(captured_at)
     reused = _dt(reused_at) or datetime.now(timezone.utc)
     if captured is None:
-        return "—"
+        return "-"
     seconds = max(0, int((reused - captured).total_seconds()))
     days, remainder = divmod(seconds, 86400)
     hours = remainder // 3600
@@ -445,7 +445,7 @@ def _serp_html(database: Path, data: Any) -> str:
             reused=mode=="REUSED_EVIDENCE"
             modal_id=f"cat05-serp-{index}"
             rows.append((obs.get("query") or "—",obs.get("country") or obs.get("region") or "—",obs.get("language") or "—",page._device_label(obs.get("device")),obs.get("requested_depth") or "—",len(results),obs.get("provider") or "—",mode,captured or "—",page._modal_button(modal_id,"Ver proveniência")))
-            body=page._kv((("Consulta",obs.get("query")),("Provider",obs.get("provider")),("Modo de dados",obs.get("data_mode")),("Estado da observação",page._status_label(obs.get("observation_status"))),("captured_at",captured),("Freshness",mode),("Reutilizada","Sim" if reused else "Não"),("AUD de origem",prov.get("source_audit_id") or data.audit_id),("Observação de origem",prov.get("source_observation_id") or oid),("Idade no reuso",_age(captured,prov.get("reused_at")) if reused else "Não aplicável"),("Motivo do reuso",prov.get("reuse_reason") or "Não aplicável"),("Artefato bruto",obs.get("raw_evidence_ref") or "—"),("SHA-256",obs.get("raw_evidence_sha256") or "—"),("Request ID",obs.get("provider_request_id") or "—")))
+            body=page._kv((("Consulta",obs.get("query")),("Provedor",obs.get("provider")),("Modo de dados",obs.get("data_mode")),("Estado da observação",page._status_label(obs.get("observation_status"))),("Capturado em",captured),("Atualidade dos dados",page._temporal_mode_label(mode)),("Reutilizada","Sim" if reused else "Não"),("AUD de origem",prov.get("source_audit_id") or data.audit_id),("Observação de origem",prov.get("source_observation_id") or oid),("Idade no reuso",_age(captured,prov.get("reused_at")) if reused else "Não aplicável"),("Motivo do reuso",prov.get("reuse_reason") or "Não aplicável"),("Artefato bruto",obs.get("raw_evidence_ref") or "—"),("SHA-256",obs.get("raw_evidence_sha256") or "—"),("Request ID",obs.get("provider_request_id") or "—")))
             result_rows=[(r.get("position"),r.get("domain"),r.get("url"),r.get("result_type")) for r in results]
             body+="<h3>Resultados persistidos</h3>"+page._table(("Posição","Domínio","URL","Tipo"),result_rows,empty="Nenhum resultado individual persistido.",sortable=bool(result_rows),page_size=10 if len(result_rows)>10 else None)
             modals.append(page._modal(modal_id,"SERP · proveniência",str(obs.get("query") or "Consulta"),body))
@@ -471,7 +471,7 @@ def _serp_html(database: Path, data: Any) -> str:
             overview_modals.append(page._modal(overview_id,"AI Overview",str(obs.get("query") or "Consulta"),overview_body))
     finally:
         connection.close()
-    serp_table=page._table(("Consulta","País/região","Idioma","Dispositivo","Profundidade","Resultados","Provider","Freshness","Capturado em","Detalhe"),rows,empty="Nenhuma observação SERP persistida.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals)
+    serp_table=page._table(("Consulta","País/região","Idioma","Dispositivo","Profundidade","Resultados","Provedor","Atualidade dos dados","Capturado em","Detalhe"),rows,empty="Nenhuma observação SERP persistida.",sortable=bool(rows),page_size=10 if len(rows)>10 else None)+"".join(modals)
     aio_table=page._table(("Consulta","AI Overview detectado","Site citado","Fontes","Capturado em","Detalhe"),overview_rows,empty="Nenhuma SERP disponível para verificar AI Overview.",sortable=bool(overview_rows))+"".join(overview_modals)
     return "<div class='subsection'><h3>SERP</h3>"+serp_table+"</div><div class='subsection'><h3>AI Overview / recursos de busca por IA</h3>"+aio_table+"</div>"
 
@@ -495,7 +495,7 @@ def _competitive_html(database: Path, data: Any) -> str:
             page_rows=[(r.get("role"),r.get("domain"),page._status_label(r.get("fetch_status")),r.get("http_status") or "—",r.get("error_code") or "—") for r in pages]
             body=page._kv((("Status",page._status_label(item.get("comparison_status"))),("Metodologia",item.get("methodology") or "—"),("Artefato",item.get("evidence_ref") or "—"),("SHA-256",item.get("evidence_sha256") or "—")))
             body+="<h3>Candidatos/classificação</h3>"+page._table(("Posição","Domínio","Classificação","Comparado","Motivo"),candidate_rows,empty="Nenhum candidato persistido.")
-            body+="<h3>Comparação de conteúdo</h3>"+page._table(("Papel","Domínio","Fetch","HTTP","Erro"),page_rows,empty="Nenhuma página comparativa persistida.")
+            body+="<h3>Comparação de conteúdo</h3>"+page._table(("Papel","Domínio","Coleta","HTTP","Erro"),page_rows,empty="Nenhuma página comparativa persistida.")
             gaps=_safe_json(item.get("gaps_json"),[])
             if gaps:
                 body+="<h3>Lacunas correlacionais</h3><div class='pre'>"+escape(json.dumps(gaps,ensure_ascii=False,indent=2))+"</div>"
@@ -525,13 +525,13 @@ def _external_html(database: Path, data: Any) -> str:
             lead=f"<div class='metric-grid'>{page._metric('Execuções/datasets',len(rows))}{page._metric('Resultados',count)}{page._metric('Erros',errors)}</div>"
             if source==_COMMON_CRAWL_SOURCE:
                 lead+="<div class='notice'>Common Crawl representa histórico do arquivo público e não comprova indexação atual em Google/Bing. Não participa diretamente do score.</div>"
-            blocks.append("<div class='subsection'><h3>"+escape(title)+"</h3>"+lead+page._table(("Dataset","Método","Coletado em","Requests","Rows","Erros","Artefato"),details,empty=f"{title} não executado/não persistido nesta AUD.")+"</div>")
+            blocks.append("<div class='subsection'><h3>"+escape(title)+"</h3>"+lead+page._table(("Conjunto de dados","Método","Coletado em","Requisições","Registros","Erros","Artefato"),details,empty=f"{title} não executado/não persistido nesta AUD.")+"</div>")
         gsc=[row for row in datasets if str(row.get("source_type") or "").startswith(_GSC_PREFIX)]
         gsc_rows=[]
         for row in gsc:
             meta=_safe_json(row.get("metadata"),{})
             gsc_rows.append((str(row.get("source_type") or "").removeprefix(_GSC_PREFIX).replace("_"," ").title(),row.get("capture_method"),row.get("collected_at"),row.get("period_start") or "—",row.get("period_end") or "—",row.get("artifact_path"),meta.get("rows") if isinstance(meta,Mapping) else "—"))
-        blocks.append("<div class='subsection'><h3>Google Search Console</h3>"+page._table(("Dataset","Método","Coletado em","Período início","Período fim","Artefato","Rows"),gsc_rows,empty="Nenhum dataset GSC persistido nesta AUD.")+"</div>")
+        blocks.append("<div class='subsection'><h3>Google Search Console</h3>"+page._table(("Conjunto de dados","Método","Coletado em","Período inicial","Período final","Artefato","Registros"),gsc_rows,empty="Nenhum dataset GSC persistido nesta AUD.")+"</div>")
         return "".join(blocks)
     finally:
         connection.close()
@@ -540,7 +540,7 @@ def _external_html(database: Path, data: Any) -> str:
 def _search_intelligence_html(database: Path, data: Any) -> str:
     return (
         _serp_html(database,data)
-        + "<div class='subsection'><h3>Competitive Intelligence</h3>"+_competitive_html(database,data)+"</div>"
+        + "<div class='subsection'><h3>Inteligência competitiva</h3>"+_competitive_html(database,data)+"</div>"
         + _external_html(database,data)
     )
 
