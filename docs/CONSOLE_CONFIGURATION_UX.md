@@ -88,7 +88,7 @@ Isso não impede edição contextual de uma configuração diretamente necessár
 
 ### Catálogos
 
-A preparação usa os IDs estáveis `CAT-01..CAT-09` definidos em [AUDIT_CATALOG_WORKFLOW.md](AUDIT_CATALOG_WORKFLOW.md).
+A preparação usa os IDs estáveis `CAT-01..CAT-10` definidos em [AUDIT_CATALOG_WORKFLOW.md](AUDIT_CATALOG_WORKFLOW.md).
 
 Selecionar um catálogo o inclui no plano e abre imediatamente seu submenu. O submenu segue:
 
