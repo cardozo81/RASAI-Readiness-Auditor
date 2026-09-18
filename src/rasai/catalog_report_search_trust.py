@@ -613,10 +613,12 @@ def _competitive_governance(
     if task and _table_exists(connection, "ai_provider_attempts"):
         cols = _columns(connection, "ai_provider_attempts")
         if "ai_task_id" in cols:
+            order_parts = [name for name in ("started_at", "attempt_index", "attempt_id") if name in cols]
+            order_by = ",".join(order_parts) if order_parts else "rowid"
             attempts = [
                 dict(row)
                 for row in connection.execute(
-                    "SELECT * FROM ai_provider_attempts WHERE audit_id=? AND ai_task_id=? ORDER BY started_at,attempt_index",
+                    f"SELECT * FROM ai_provider_attempts WHERE audit_id=? AND ai_task_id=? ORDER BY {order_by}",
                     (audit_id, task.get("ai_task_id")),
                 ).fetchall()
             ]
