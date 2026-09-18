@@ -11,6 +11,7 @@ from typing import Any, Iterator
 from fastapi import Request
 
 from rasai.improvement_intelligence_saas import install as install_improvement_intelligence_saas
+from rasai.passive_security_saas import install as install_passive_security_saas
 from rasai.standards_gsc_contract import install as install_gsc_contract
 from rasai.synthetic_profile_saas_runtime import install as install_synthetic_profile_saas_runtime
 
@@ -38,6 +39,7 @@ def create_app(
     # validation and worker payloads agree even when the top-level entrypoint is bypassed.
     install_gsc_contract()
     install_improvement_intelligence_saas()
+    install_passive_security_saas()
     install_synthetic_profile_saas_runtime()
 
     app = create_api_app(
