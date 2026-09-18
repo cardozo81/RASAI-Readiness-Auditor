@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-CATALOG_VERSION = "1"
+CATALOG_VERSION = "2"
 AI_NONE = "NONE"
 AI_OPTIONAL = "OPTIONAL"
 AI_REQUIRED = "REQUIRED"
