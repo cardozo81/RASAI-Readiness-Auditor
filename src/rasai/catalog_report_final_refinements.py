@@ -335,6 +335,56 @@ def _remediation_html(database: Any, data: Any) -> str:
     from rasai import accepted_audit_refinements as accepted
     return accepted._remediation_html(database, data)
 
+def _capture_context_body(database: Any, data: Any) -> str:
+    from rasai import catalog_report_governance as g
+
+    snaps = g._capture_snapshots(database, data.audit_id)
+    rows: list[Sequence[Any]] = []
+    detail_modals: list[str] = []
+    shot_modals: list[str] = []
+    gallery: list[str] = []
+    for index, snap in enumerate(snaps, 1):
+        meta = g._safe_json(snap.get("browser_metadata"), {})
+        profile = meta.get("profile") if isinstance(meta, Mapping) and isinstance(meta.get("profile"), Mapping) else {}
+        browser = meta.get("browser_identity") if isinstance(meta, Mapping) and isinstance(meta.get("browser_identity"), Mapping) else {}
+        viewport = profile.get("viewport") if isinstance(profile, Mapping) and isinstance(profile.get("viewport"), Mapping) else {}
+        visual_state = meta.get("visual_snapshot") if isinstance(meta, Mapping) and isinstance(meta.get("visual_snapshot"), Mapping) else {}
+        runtime = g._runtime_items(snap)
+        detail_id = f"capture-{index}"
+        shot_id = f"capture-image-{index}"
+        visual_ref = meta.get("visual_artifact_ref") if isinstance(meta, Mapping) else None
+        visual_path = g._artifact_path(database.parent, visual_ref)
+        shot_action = g._modal_button(shot_id, "Ver imagem") if visual_path is not None and visual_ref else "-"
+        rows.append((g._device_label(snap.get("device")), snap.get("requested_url") or snap.get("page_url") or "-", snap.get("final_url") or "-", snap.get("captured_at") or "-", snap.get("http_status") or "-", len(runtime), shot_action, g._modal_button(detail_id, "Ver contexto")))
+        artifact_rows = (("Resposta HTTP", snap.get("raw_artifact_ref") or "-"), ("HTML renderizado", snap.get("rendered_artifact_ref") or "-"), ("Conteúdo principal", snap.get("main_content_ref") or "-"), ("Dados estruturados", snap.get("structured_data_ref") or "-"), ("Captura visual", visual_ref or "-"))
+        viewport_width = viewport.get("width", visual_state.get("viewport_width", "-"))
+        viewport_height = viewport.get("height", visual_state.get("viewport_height", "-"))
+        detail = g._kv((("Identificador da página", snap.get("page_id")), ("Identificador da captura", snap.get("snapshot_id")), ("URL solicitada", snap.get("requested_url") or snap.get("page_url")), ("URL final", snap.get("final_url")), ("Capturada em", snap.get("captured_at")), ("HTTP", snap.get("http_status")), ("Tipo de conteúdo", snap.get("content_type")), ("Renderização", snap.get("rendering_mode")), ("Arquitetura", snap.get("architecture_classification")), ("Dispositivo", g._device_label(snap.get("device"))), ("Perfil", browser.get("descriptor") or profile.get("device") or "-"), ("Área visível (viewport)", f"{viewport_width} × {viewport_height}"), ("Escala de pixels (DPR)", profile.get("device_scale_factor") or "-"), ("Navegador", f"{browser.get('channel', 'Chrome')} {browser.get('browser_version') or meta.get('browser_version', '-')}"), ("Idioma", browser.get("locale") or profile.get("locale") or "-"), ("Diagnósticos da execução do navegador", len(runtime))))
+        detail += "<h3>Arquivos e evidências</h3>" + g._table(("Arquivo / evidência", "Referência"), artifact_rows)
+        if visual_path is not None and visual_ref:
+            detail += "<p>" + str(g._modal_button(shot_id, "Abrir captura visual")) + "</p>"
+        elif visual_ref:
+            detail += "<div class='notice warn'>A referência da captura visual foi persistida, mas o arquivo não está disponível junto aos artefatos desta cópia da auditoria.</div>"
+        detail_modals.append(g._modal(detail_id, "Contexto da captura", f"{g._device_label(snap.get('device'))} · {snap.get('final_url') or snap.get('requested_url') or '-'}", detail))
+        if visual_path is not None and visual_ref:
+            href = "../" + str(visual_ref).replace("\\", "/")
+            alt = f"Captura visual da página auditada em {g._device_label(snap.get('device'))}"
+            gallery.append(f"<div class='card'><h3>{escape(g._device_label(snap.get('device')))}</h3><p class='muted'>{escape(str(snap.get('captured_at') or '-'))} · viewport {escape(str(viewport_width))} × {escape(str(viewport_height))}</p><button type='button' class='action' data-modal-open='{escape(shot_id)}'><img class='capture-preview' src='{escape(href)}' alt='{escape(alt)}'></button><p class='muted mono'>{escape(str(visual_ref))}</p></div>")
+            shot_body = f"<img class='capture-preview' src='{escape(href)}' alt='{escape(alt)}'><p class='muted mono'>{escape(str(visual_ref))}</p>"
+            shot_modals.append(g._modal(shot_id, "Captura visual", f"{g._device_label(snap.get('device'))} · {snap.get('captured_at') or '-'}", shot_body))
+
+    capture_html = g._table(("Dispositivo", "URL solicitada", "URL final", "Data/hora", "HTTP", "Diagnósticos", "Imagem", "Detalhe"), rows, empty="Nenhuma captura de navegador persistida.", sortable=bool(rows))
+    if gallery:
+        capture_html += "<div class='subsection'><h3>Prévia visual</h3><div class='grid'>" + "".join(gallery) + "</div></div>"
+    capture_html += "".join(detail_modals) + "".join(shot_modals)
+    body = g._audit_hero(data, "Captura e contexto", "Como a página foi capturada: URL, dispositivo, navegador, renderização e artefatos. Diagnósticos funcionais permanecem no catálogo responsável.")
+    body += g._outline((("capture", "Capturas"), ("boundaries", "Responsabilidades"), ("technical", "Detalhes técnicos")))
+    body += g._section("capture", "Capturas da auditoria", capture_html)
+    body += g._section("boundaries", "Responsabilidades", "<div class='grid'><div class='card'><h3>Captura e contexto</h3><p>Identifica a captura, navegador, dispositivo, área visível, URL e arquivos de evidência.</p></div><div class='card'><h3>CAT-01</h3><p>Exibe erros/alertas do navegador e problemas técnicos observados.</p><p><a href='cat-01.html'>Abrir CAT-01</a></p></div><div class='card'><h3>CAT-06 / CAT-07</h3><p>Exibem suas próprias amostras sintéticas; não duplicam a captura base.</p></div></div>")
+    body += g._section("technical", "Detalhes técnicos", "<details><summary>Como interpretar os identificadores</summary><div class='detail-body'><p>O identificador da página localiza o alvo auditado; o identificador da captura localiza uma execução específica por dispositivo/contexto. Os CATs referenciam esses identificadores sem criar cópias dos artefatos.</p></div></details>")
+    return body
+
+
 def install_catalog_report_refinements() -> None:
     from rasai import catalog_report_analysis as analysis
     from rasai import catalog_report_governance as governance
