@@ -30,6 +30,7 @@ _REASON_LABELS = {
     "JSONLD_ABSENT_EXISTING_CONFLICT": "Conflito: a recomendação pressupõe JSON-LD existente, mas a evidência indica ausência",
     "JSONLD_ABSENT_WITHOUT_CREATION_PAYLOAD": "JSON-LD ausente sem payload de criação materializado",
     "UNCLASSIFIED_RECOMMENDATION_SOURCE": "Origem sem contrato de ownership reconhecido",
+    "DISCOVERY_NEUTRAL_STATE_HUMAN_DECISION": "Estado neutro/ausência válida de discovery — requer decisão humana, não correção automática",
 }
 
 
