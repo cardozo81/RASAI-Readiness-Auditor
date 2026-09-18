@@ -325,7 +325,7 @@ def project_plan(state: Any) -> Iterator[None]:
     selected = _plan(state).selected
     names = (
         "web_performance", "search_queries", "synthetic_apdex", "apdex_experience",
-        "improvement_enabled", "content_remediation", "technical_remediation",
+        "improvement_enabled", "improvement_domains", "content_remediation", "technical_remediation",
         "ai_provider", "ai_model", "ai_reasoning",
     )
     saved = {name: getattr(state, name) for name in names if hasattr(state, name)}
@@ -354,8 +354,15 @@ def project_plan(state: Any) -> Iterator[None]:
             state.apdex_experience = False
         if "CAT-08" not in selected:
             if hasattr(state, "improvement_enabled"):
-                state.improvement_enabled = False
+                # CAT-10 optional AI reuses the same evidence-bound Improvement engine
+                # restricted to SECURITY; no second provider policy or AI implementation.
+                security_ai = "CAT-10" in selected and ai_execution_enabled(state)
+                state.improvement_enabled = security_ai
+                if security_ai and hasattr(state, "improvement_domains"):
+                    state.improvement_domains = ("SECURITY",)
             for name in deep_analysis_switches:
+                # The local console wrapper owns post-audit Improvement execution and
+                # deliberately keeps the child runtime hook disabled to avoid duplicate calls.
                 os.environ[name] = "false"
         if "CAT-09" not in selected or not ai_execution_enabled(state):
             if hasattr(state, "content_remediation"):
