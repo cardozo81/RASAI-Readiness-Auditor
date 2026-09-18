@@ -578,6 +578,35 @@ def _render_actual_usage(state: State) -> None:
     print("Observação           : custos são estimativas técnicas dos adapters, não invoice do provider.")
 
 
+def _render_incomplete_requirements(state: State, workspace: Path | None) -> None:
+    if workspace is None or not state.audit_id:
+        return
+    try:
+        from rasai.audit_fulfillment import list_work_items
+        from rasai.persistence import AuditWorkspace
+
+        audit_workspace = AuditWorkspace.open(workspace)
+        items = tuple(
+            item
+            for item in list_work_items(audit_workspace, state.audit_id)
+            if item.required
+            and str(item.status).upper()
+            not in {"SUCCESS", "COMPLETE", "COMPLETED", "FINAL", "DISABLED", "NOT_APPLICABLE"}
+        )
+    except Exception:
+        return
+    if not items:
+        return
+    print("\nREQUISITOS OBRIGATÓRIOS INCOMPLETOS")
+    print("-" * 100)
+    for item in sorted(items, key=lambda value: (value.component, value.scope_key)):
+        code = item.last_error_code or "-"
+        scope = "" if item.scope_key == "AUDIT" else f" · escopo={item.scope_key}"
+        print(f"{item.component:<28} {item.status}{scope} · código={code}")
+        if item.last_error_message:
+            print(f"  Motivo: {item.last_error_message}")
+
+
 def _post_run_actions(state: State) -> bool:
     while True:
         render_header(state)
@@ -585,6 +614,7 @@ def _post_run_actions(state: State) -> bool:
         if state.audit_id:
             print(f"Audit ID    : {state.audit_id}")
         _render_actual_usage(state)
+        _render_incomplete_requirements(state, workspace)
         print("\nAÇÕES DA AUDITORIA DESTA SESSÃO")
         print(f" P. Abrir pasta da auditoria [{availability_badge(bool(workspace))}]")
         print(f" I. Abrir relatório HTML   [{availability_badge(bool(report))}]")

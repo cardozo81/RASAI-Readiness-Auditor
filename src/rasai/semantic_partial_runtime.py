@@ -26,7 +26,7 @@ from rasai.ai_governance import (
     task_missing_requirements,
 )
 from rasai import semantic
-from rasai.m18_persistence import attempt_governance
+from rasai.m18_persistence import attempt_governance, remember_attempt_governance
 
 
 _CANONICAL_RULE_IDS = tuple(semantic.SEMANTIC_RULE_IDS)
@@ -40,6 +40,20 @@ _RULE_PROVIDER_METADATA: ContextVar[dict[str, dict[str, str | None]]] = ContextV
 )
 _MAX_CONTINUATION_ROUNDS = 4
 _INSTALLED = False
+
+
+@contextmanager
+def governed_execution_context(*, audit_id: str, workspace: Any) -> Iterator[Any | None]:
+    """Bind the existing audit-runner wrapper stack to the latest sealed evidence."""
+    snapshot = latest_evidence_snapshot(workspace, audit_id)
+    if snapshot is None:
+        yield None
+        return
+    token = _EXECUTION_CONTEXT.set((audit_id, workspace, snapshot))
+    try:
+        yield snapshot
+    finally:
+        _EXECUTION_CONTEXT.reset(token)
 
 
 def _assessment_payload(value: Any, metadata: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -263,15 +277,10 @@ def _install_m7_continuation() -> None:
 
         # Low-level/unit consumers retain the original M7 contract.  The orchestrated
         # AUD/RPR paths seal evidence first; only those paths activate continuation.
-        snapshot = latest_evidence_snapshot(workspace, audit_id)
-        if snapshot is None:
+        with governed_execution_context(audit_id=audit_id, workspace=workspace) as snapshot:
+            if snapshot is None:
+                return original_execute(*args, **kwargs)
             return original_execute(*args, **kwargs)
-
-        token = _EXECUTION_CONTEXT.set((audit_id, workspace, snapshot))
-        try:
-            return original_execute(*args, **kwargs)
-        finally:
-            _EXECUTION_CONTEXT.reset(token)
 
     def safe_provider_call(provider: Any, semantic_input: Any):
         context = _EXECUTION_CONTEXT.get()
@@ -331,6 +340,8 @@ def _install_m7_continuation() -> None:
                     "page_url": semantic_input.page_url,
                 },
             )
+            from rasai.m18_ai import provider_attempt_history
+            before_attempts = len(provider_attempt_history(provider))
             with attempt_governance(
                 operation="SEMANTIC_M7",
                 ai_task_id=task_id,
@@ -338,6 +349,13 @@ def _install_m7_continuation() -> None:
             ):
                 with _scoped_provider_contract(requested):
                     call = original_safe(provider, semantic_input)
+            for provider_attempt in provider_attempt_history(provider)[before_attempts:]:
+                remember_attempt_governance(
+                    provider_attempt,
+                    operation="SEMANTIC_M7",
+                    ai_task_id=task_id,
+                    ai_round_id=round_id,
+                )
             last_call = call
             response = getattr(call, "response", None)
             new_values: dict[str, Any] = {}

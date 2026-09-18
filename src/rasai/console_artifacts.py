@@ -19,11 +19,22 @@ def audit_workspace(state: State) -> Path | None:
 
 
 def report_entrypoint(workspace: Path | None) -> Path | None:
-    """Resolve the canonical report entrypoint."""
+    """Resolve a usable report entrypoint without exposing a stale catalog tree."""
     if workspace is None:
         return None
     candidate = workspace / "report" / "index.html"
-    return candidate.resolve() if candidate.is_file() else None
+    if candidate.is_file():
+        return candidate.resolve()
+
+    catalog = workspace / "report-catalog" / "index.html"
+    if not catalog.is_file():
+        return None
+    try:
+        from rasai.catalog_report_site import verify_catalog_report_package
+        valid, _errors = verify_catalog_report_package(catalog.parent)
+    except Exception:
+        return None
+    return catalog.resolve() if valid else None
 
 
 def open_external_path(path: Path) -> tuple[bool, str]:

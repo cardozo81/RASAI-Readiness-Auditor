@@ -723,12 +723,13 @@ def _backfill_content_task(workspace: Any, audit_id: str) -> None:
 def _install_ai_governance_completion() -> None:
     """Ensure semantic/content AI expose dependency + task/round provenance."""
     from rasai import audit_runner
-    from rasai import m7 as m7_module
     from rasai.m18_persistence import attempt_governance
+    from rasai.semantic_partial_runtime import governed_execution_context
 
-    # audit_runner imported execute_m7 by value. Resolve the current canonical M7 owner
-    # here so semantic_partial_runtime's task/round wrapper runs before the provider.
-    current_m7 = m7_module.execute_m7
+    # Preserve every already-installed audit_runner wrapper (progress, corpus,
+    # fulfillment and recovery). The governed semantic context makes the canonical
+    # _safe_provider_call task/round-aware without replacing that wrapper chain.
+    current_m7 = audit_runner.execute_m7
     if not bool(getattr(current_m7, "_rasai_post_smoke_governance", False)):
         def execute_m7(*args: Any, **kwargs: Any):
             audit_id = str(kwargs.get("audit_id") or "")
@@ -741,7 +742,11 @@ def _install_ai_governance_completion() -> None:
                     extra_name="SEMANTIC_EVIDENCE_CONTEXT",
                     ready=True,
                 )
-            result = current_m7(*args, **kwargs)
+            if audit_id and workspace is not None:
+                with governed_execution_context(audit_id=audit_id, workspace=workspace):
+                    result = current_m7(*args, **kwargs)
+            else:
+                result = current_m7(*args, **kwargs)
             if audit_id and workspace is not None:
                 _backfill_semantic_task(workspace, audit_id)
             return result
@@ -848,7 +853,8 @@ def _standards_summary(database: Path, data: Any) -> str:
         "web_platform_limited_availability_count": "Recursos com disponibilidade limitada",
     }
     rows: list[Sequence[Any]] = []
-    for item in metrics:
+    modals: list[str] = []
+    for index, item in enumerate(metrics, 1):
         key = str(item.get("metric_id") or item.get("metric_key") or "")
         if key not in wanted:
             continue
@@ -864,14 +870,28 @@ def _standards_summary(database: Path, data: Any) -> str:
         else:
             number = float(raw)
             value = int(number) if number.is_integer() else round(number, 3)
-        rows.append((wanted[key], value, e._status_label(item.get("state") or item.get("status"))))
+        detail: Any = "-"
+        if key in {"w3c_html_conformance", "w3c_css_conformance"}:
+            from rasai.execution_consistency_runtime import _w3c_detail_modal
+            detail, modal = _w3c_detail_modal(e, item, index=index)
+            detail = e._Html(
+                str(detail)
+                + " · <a href='cat-09.html#w3c-remediation'>Ver remediações no CAT-09</a>"
+            )
+            modals.append(modal)
+        rows.append((wanted[key], value, e._status_label(item.get("state") or item.get("status")), detail))
     for item in services:
         service_id = str(item.get("service_id") or "")
         if service_id not in {"w3c-validator", "mdn-observatory", "w3c-css-validator", "web-platform-baseline"}:
             continue
         result = f"{item.get('targets_succeeded', 0)}/{item.get('targets_attempted', 0)} alvo(s)"
-        rows.append((e._friendly_service(service_id) + " · execução", result, e._status_label(item.get("state"))))
-    return e._table(("Verificação", "Resultado", "Estado"), rows, empty="Nenhuma métrica de padrões web foi persistida.", sortable=bool(rows))
+        rows.append((e._friendly_service(service_id) + " · execução", result, e._status_label(item.get("state")), "-"))
+    return e._table(
+        ("Verificação", "Resultado", "Estado", "Detalhe"),
+        rows,
+        empty="Nenhuma métrica de padrões web foi persistida.",
+        sortable=bool(rows),
+    ) + "".join(modals)
 
 
 def _align_report_bindings() -> None:

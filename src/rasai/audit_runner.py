@@ -610,6 +610,17 @@ def run_audit(
                 recommendation_count=len(m10.recommendation_ids),
             )
         except Exception as exc:
+            try:
+                from rasai.fulfillment_execution_contract import _reconcile_requested_improvement
+                _reconcile_requested_improvement(workspace, audit_id)
+            except Exception as fulfillment_exc:
+                try_append_operational_event(
+                    workspace,
+                    "AUDIT_FAILURE_FULFILLMENT_RECONCILIATION_FAILED",
+                    level="WARNING",
+                    audit_id=audit_id,
+                    error_type=type(fulfillment_exc).__name__,
+                )
             current = persistence.audits.get(audit_id)
             if current is not None and current.status not in {AuditStatus.COMPLETED, AuditStatus.CANCELLED}:
                 persistence.audits.update(replace(current, status=AuditStatus.FAILED))

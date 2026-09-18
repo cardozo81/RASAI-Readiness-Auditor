@@ -16,6 +16,7 @@ from __future__ import annotations
 from functools import wraps
 import json
 from pathlib import Path
+import sqlite3
 import time
 from typing import Any, Callable
 
@@ -82,6 +83,35 @@ def _rendering_completed(workspace: Any) -> bool:
     return False
 
 
+def _semantic_analysis_completed(workspace: Any, audit_id: str) -> bool:
+    if not audit_id:
+        return False
+    try:
+        connection = sqlite3.connect(workspace.database)
+        try:
+            latest = connection.execute(
+                """SELECT evidence_snapshot_id FROM ai_evidence_versions
+                   WHERE audit_id=? ORDER BY version_number DESC LIMIT 1""",
+                (audit_id,),
+            ).fetchone()
+            if latest is None:
+                return False
+            row = connection.execute(
+                """SELECT COUNT(*),
+                          SUM(CASE WHEN status='COMPLETE' THEN 1 ELSE 0 END)
+                   FROM ai_tasks
+                   WHERE audit_id=? AND purpose='SEMANTIC_M7' AND evidence_snapshot_id=?""",
+                (audit_id, str(latest[0])),
+            ).fetchone()
+            total = int(row[0] or 0) if row else 0
+            complete = int(row[1] or 0) if row else 0
+            return total > 0 and complete == total
+        finally:
+            connection.close()
+    except sqlite3.Error:
+        return False
+
+
 def _assert_ready(
     *,
     audit_id: str,
@@ -93,6 +123,9 @@ def _assert_ready(
     if "RENDERING_COMPLETED" in missing and _rendering_completed(workspace):
         _flags(workspace).add("RENDERING_COMPLETED")
         missing.remove("RENDERING_COMPLETED")
+    if "SEMANTIC_ANALYSIS" in missing and _semantic_analysis_completed(workspace, audit_id):
+        _flags(workspace).add("SEMANTIC_ANALYSIS")
+        missing.remove("SEMANTIC_ANALYSIS")
     if not missing:
         return
     try_append_operational_event(
@@ -250,6 +283,20 @@ def _source_quality_ready(args: tuple[Any, ...], kwargs: dict[str, Any], audit_i
     _semantic_ready(args, kwargs, audit_id, workspace)
 
 
+def wrap_semantic_step(fn: Callable[..., Any]) -> Callable[..., Any]:
+    return _wrap_step(
+        fn,
+        phase="ANALYZING",
+        step_key="SEMANTIC_ANALYSIS",
+        step_index=5,
+        step_total=5,
+        operation="API_OR_LOCAL:SEMANTIC_ANALYSIS",
+        detail="executando análise semântica somente após renderização, extração e regras locais",
+        completed_flag="SEMANTIC_ANALYSIS",
+        readiness=_semantic_ready,
+    )
+
+
 def install() -> None:
     """Install progress instrumentation on the final audit-runner call graph."""
     global _INSTALLED
@@ -358,17 +405,7 @@ def install() -> None:
 
     runner.maybe_explain_source_quality = source_quality
 
-    runner.execute_m7 = _wrap_step(
-        runner.execute_m7,
-        phase="ANALYZING",
-        step_key="SEMANTIC_ANALYSIS",
-        step_index=5,
-        step_total=5,
-        operation="API_OR_LOCAL:SEMANTIC_ANALYSIS",
-        detail="executando análise semântica somente após renderização, extração e regras locais",
-        completed_flag="SEMANTIC_ANALYSIS",
-        readiness=_semantic_ready,
-    )
+    runner.execute_m7 = wrap_semantic_step(runner.execute_m7)
     runner.execute_m8 = _wrap_step(
         runner.execute_m8,
         phase="COMPARING",

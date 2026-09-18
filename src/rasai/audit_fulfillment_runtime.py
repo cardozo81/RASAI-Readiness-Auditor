@@ -316,7 +316,21 @@ def _wrap_m20(original):
                 temporal_mode=REPLAY_SAFE,
                 configuration={"enabled": True},
             )
-        result = original(*args, **kwargs)
+        try:
+            result = original(*args, **kwargs)
+        except Exception as exc:
+            if audit_id and workspace is not None and enabled:
+                set_work_item_status(
+                    workspace,
+                    audit_id=audit_id,
+                    component="CONTENT_REMEDIATION_AI",
+                    status=FAILED_RETRYABLE,
+                    error_class="ORCHESTRATION",
+                    error_code="CONTENT_REMEDIATION_EXECUTION_FAILURE",
+                    error_message=f"content remediation execution failed before terminal result: {type(exc).__name__}",
+                    retryable=True,
+                )
+            raise
         if not audit_id or workspace is None or not enabled:
             return result
         status = str(getattr(result, "status", ""))

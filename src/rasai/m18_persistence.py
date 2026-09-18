@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import json
 import logging
 import sqlite3
+import threading
 from typing import Any, Iterator
 
 from rasai.ai_cost_policy import PRICING_CATALOG
@@ -19,6 +20,43 @@ _LOGGER = logging.getLogger(__name__)
 _ATTEMPT_GOVERNANCE: ContextVar[
     tuple[str | None, str | None, str | None] | None
 ] = ContextVar("rasai_ai_attempt_governance", default=None)
+_ATTEMPT_GOVERNANCE_BY_ATTEMPT: dict[
+    tuple[str, str, str, str, int],
+    tuple[str | None, str | None, str | None],
+] = {}
+_ATTEMPT_GOVERNANCE_LOCK = threading.Lock()
+
+
+def _attempt_governance_key(attempt: ProviderAttempt) -> tuple[str, str, str, str, int]:
+    return (
+        str(attempt.provider),
+        str(attempt.snapshot_id or ""),
+        str(attempt.request_payload_hash or ""),
+        attempt.started_at.isoformat(),
+        int(attempt.attempt_index),
+    )
+
+
+def remember_attempt_governance(
+    attempt: ProviderAttempt,
+    *,
+    operation: str | None,
+    ai_task_id: str | None,
+    ai_round_id: str | None,
+) -> None:
+    with _ATTEMPT_GOVERNANCE_LOCK:
+        _ATTEMPT_GOVERNANCE_BY_ATTEMPT[_attempt_governance_key(attempt)] = (
+            operation,
+            ai_task_id,
+            ai_round_id,
+        )
+
+
+def _consume_attempt_governance(
+    attempt: ProviderAttempt,
+) -> tuple[str | None, str | None, str | None] | None:
+    with _ATTEMPT_GOVERNANCE_LOCK:
+        return _ATTEMPT_GOVERNANCE_BY_ATTEMPT.pop(_attempt_governance_key(attempt), None)
 
 
 def current_attempt_governance() -> tuple[str | None, str | None, str | None] | None:
@@ -385,6 +423,7 @@ def persist_provider_runtime(*, audit_id: str, provider: Any, workspace: AuditWo
             ).fetchone()
             if row is None:
                 continue
+            governance = _consume_attempt_governance(attempt)
             store.add_attempt(
                 attempt_id=new_id("AIA"),
                 audit_id=audit_id,
@@ -393,6 +432,9 @@ def persist_provider_runtime(*, audit_id: str, provider: Any, workspace: AuditWo
                 url=str(row["normalized_url"]),
                 device=str(row["device"]),
                 attempt=attempt,
+                operation=governance[0] if governance else None,
+                ai_task_id=governance[1] if governance else None,
+                ai_round_id=governance[2] if governance else None,
             )
             diagnostic = attempt.diagnostic
             usage = attempt.usage
