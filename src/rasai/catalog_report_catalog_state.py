@@ -41,6 +41,7 @@ def _catalog_work(data: _ReportData, catalog_id: str) -> list[dict[str,Any]]:
         "CAT-07":{"EXPERIENCE_APDEX","SYNTHETIC_UX_APDEX"},
         "CAT-08":{"IMPROVEMENT_INTELLIGENCE"},
         "CAT-09":{"CONTENT_REMEDIATION_AI","TECHNICAL_AI"},
+        "CAT-10":{"PASSIVE_SECURITY"},
     }[catalog_id]
     out=[]
     for row in data.work_items:
@@ -125,6 +126,18 @@ def _catalog_source_specs(catalog_id: str) -> tuple[tuple[str,str],...]:
             ("remediation_groups","Agrupamentos de remediação"),
             ("improvement_intelligence_recommendations","Remediações da análise profunda"),
         ),
+        "CAT-10":(
+            ("passive_security_runs","Execução da segurança passiva"),
+            ("passive_security_resources","Inventário de scripts, recursos, forms e iframes"),
+            ("passive_security_components","Componentes e versões identificáveis"),
+            ("passive_security_integrations","Estado de OSV, CISA KEV e fontes reutilizadas"),
+            ("passive_security_advisories","Advisories e CVEs correlacionados"),
+            ("passive_security_findings","Findings determinísticos/externos"),
+            ("passive_security_remediations","Plano de remediação de segurança"),
+            ("web_performance_observations","Lighthouse Best Practices reutilizado"),
+            ("standards_service_runs","MDN HTTP Observatory reutilizado"),
+            ("page_snapshots","Runtime e snapshots reutilizados"),
+        ),
     }[catalog_id]
 
 def _catalog_source_count(connection: sqlite3.Connection, table: str, audit_id: str) -> int:
@@ -179,6 +192,7 @@ def _explicit_run(database: Path, data: _ReportData, catalog_id: str) -> dict[st
     table={
         "CAT-04":"web_performance_runs","CAT-06":"synthetic_apdex_runs","CAT-07":"synthetic_ux_apdex_runs",
         "CAT-08":"improvement_intelligence_runs","CAT-09":"content_remediation_runs",
+        "CAT-10":"passive_security_runs",
     }.get(catalog_id)
     if not table:
         return {}
@@ -341,6 +355,25 @@ def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any
                 ("Enriquecimento de conteúdo","Habilitado" if str(ai.get("content_remediation","")).lower()=="true" else "Desabilitado","Configuração da execução"),
                 ("Remediação técnica","Habilitada" if str(ai.get("technical_remediation","")).lower()=="true" else "Desabilitada","Configuração da execução"),
             ])
+    elif catalog_id=="CAT-10":
+        environment=settings.get("environment") if isinstance(settings,Mapping) else {}
+        if isinstance(environment,Mapping):
+            fields=(
+                ("Segurança passiva","RASAI_PASSIVE_SECURITY"),
+                ("Headers / CSP / CORS","RASAI_SECURITY_HEADERS"),
+                ("Cookies","RASAI_SECURITY_COOKIES"),
+                ("Scripts / recursos","RASAI_SECURITY_RESOURCES"),
+                ("Third-party","RASAI_SECURITY_THIRD_PARTY"),
+                ("Correlação runtime","RASAI_SECURITY_RUNTIME_CORRELATION"),
+                ("OSV","RASAI_SECURITY_OSV"),
+                ("CISA KEV","RASAI_SECURITY_CISA_KEV"),
+                ("Timeout externo (s)","RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS"),
+            )
+            for label,name in fields:
+                raw=environment.get(name)
+                if raw not in (None,""):
+                    rows.append((label,public_label(raw) or str(raw),"Plano congelado / configuração efetiva"))
+        rows.append(("MDN HTTP Observatory","Reutilizado da configuração canônica de padrões; não há configuração paralela no CAT-10","Arquitetura do catálogo"))
     if item.get("detail"):
         rows.append(("Condição registrada no plano",_plan_detail_label(item.get("detail")),"Plano congelado"))
     return rows
