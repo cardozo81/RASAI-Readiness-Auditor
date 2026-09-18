@@ -133,7 +133,17 @@ def public_label(value: Any) -> str | None:
     phrase = PUBLIC_PHRASE_LABELS.get(raw.casefold())
     return phrase or PUBLIC_VALUE_LABELS.get(_key(raw))
 
-_PUBLIC_TOKEN_RE = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b")
+_PUBLIC_SINGLE_TOKEN_PATTERN = "|".join(
+    re.escape(key)
+    for key in sorted(
+        (key for key in PUBLIC_VALUE_LABELS if "_" not in key),
+        key=len,
+        reverse=True,
+    )
+)
+_PUBLIC_TOKEN_RE = re.compile(
+    rf"\b(?:{_PUBLIC_SINGLE_TOKEN_PATTERN}|[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b"
+)
 
 def public_text(value: Any) -> str:
     """Translate known internal tokens embedded in human-facing diagnostic text."""
