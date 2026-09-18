@@ -1,6 +1,8 @@
 """Canonical configuration/catalog UI for the local interactive console."""
 from __future__ import annotations
 
+from rasai.configuration_value_labels import configuration_value_info
+
 from configparser import ConfigParser
 from dataclasses import dataclass
 import hashlib
@@ -169,7 +171,7 @@ def variable_editor(console_module: ModuleType, state: Any, spec: Any) -> None:
         section("DOMÍNIO / INPUT")
         info("Tipo", spec.value_type)
         if spec.accepted:
-            info("Valores aceitos", ", ".join(spec.accepted)); print(paint("Entrada livre não é usada quando o domínio é conhecido.", DIM))
+            info("Valores aceitos", ", ".join(configuration_value_info(spec.name, value) for value in spec.accepted)); print(paint("Entrada livre não é usada quando o domínio é conhecido.", DIM))
         else:
             print(paint("Valor aberto; o runtime continua sendo a autoridade de validação.", DIM))
         info("Default", spec.default if spec.default is not None else "<sem default>"); render_enrichment(spec)
