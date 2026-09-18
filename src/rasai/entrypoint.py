@@ -97,9 +97,7 @@ def _blocking_catalog_report_errors(renderer_errors: Sequence[str]) -> tuple[str
 
 def _run_audit_and_finalize(effective: list[str]) -> int:
     from rasai import m9
-    from rasai.ai_exchange_log import persist_ai_exchange_log
-    from rasai.ai_execution_state import consume_current_ai_execution
-    from rasai.audit_configuration_reuse_runtime import persist_current_configuration
+    from rasai.ai_execution_state import consume_all_ai_executions
     from rasai.m18_ai import provider_session_snapshot
     from rasai.persistence import AuditWorkspace
     from rasai.report_completion import finalize_audit_report_site
@@ -125,7 +123,7 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         cli_extensions._audit_cli.run_audit = original_run_audit
         m9.write_score_geo_004_report = original_score_writer
 
-    execution = consume_current_ai_execution()
+    executions = consume_all_ai_executions()
     if not captured:
         return code
 
@@ -136,25 +134,18 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
         _LOGGER.exception("Unable to open audit workspace after execution")
         return code
 
-    try:
-        persist_current_configuration(workspace.root, result.audit_id)
-    except Exception:
-        _LOGGER.exception("Reusable audit configuration snapshot could not be persisted")
-
     if code != 0:
         return code
 
     try:
-        context_interpretations = ()
-        routing_snapshot = None
-        if execution is not None:
-            persist_ai_exchange_log(
-                audit_id=result.audit_id,
-                workspace=workspace,
-                recorder=execution.recorder,
-            )
-            context_interpretations = execution.recorder.context_interpretations
-            routing_snapshot = provider_session_snapshot(execution.provider)
+        context_interpretations = tuple(
+            interpretation
+            for execution in executions
+            for interpretation in execution.recorder.context_interpretations
+        )
+        routing_snapshot = (
+            provider_session_snapshot(executions[0].provider) if executions else None
+        )
         completion = finalize_audit_report_site(
             audit_id=result.audit_id,
             workspace=workspace,

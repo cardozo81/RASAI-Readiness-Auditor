@@ -161,10 +161,8 @@ def _install_audit_pre_report_boundary() -> None:
         return
 
     def execute_m11_after_fulfillment(*args: Any, **kwargs: Any):
-        audit_id = str(kwargs.get("audit_id") or "")
-        workspace = kwargs.get("workspace")
-        if audit_id and workspace is not None:
-            reconcile_before_reporting(workspace=workspace, audit_id=audit_id)
+        # audit_runner owns durable reconciliation before it sets REPORTING.
+        # execute_m11 is already inside the read-only projection boundary.
         return current(*args, **kwargs)
 
     execute_m11_after_fulfillment._rasai_pre_report_fulfillment = True
