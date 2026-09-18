@@ -169,6 +169,26 @@ def _required_missing_ymyl_findings(
     ]
 
 
+def _required_missing_actionable_findings(
+    findings: Sequence[Mapping[str, Any]],
+    accepted: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    from rasai.improvement_intelligence import _required_actionable_recommendation_finding_ids
+
+    required=set(_required_actionable_recommendation_finding_ids(findings))
+    accepted_ids={
+        str(item.get("finding_id") or "")
+        for item in accepted
+        if item.get("finding_id")
+    }
+    return [
+        dict(item)
+        for item in findings
+        if str(item.get("finding_id") or "") in required
+        and str(item.get("finding_id") or "") not in accepted_ids
+    ]
+
+
 def _repair_scope_findings(
     findings: list[dict[str, Any]],
     rejected: Sequence[Mapping[str, Any]],
@@ -180,6 +200,8 @@ def _repair_scope_findings(
         if item.get("finding_id")
     }
     for item in _required_missing_ymyl_findings(findings, accepted):
+        selected.setdefault(str(item.get("finding_id")), item)
+    for item in _required_missing_actionable_findings(findings, accepted):
         selected.setdefault(str(item.get("finding_id")), item)
     return list(selected.values())
 
@@ -374,7 +396,9 @@ def _install_improvement_runtime_patch() -> None:
                     fallback_from=fallback_from,
                     fallback_reason=fallback_reason,
                 )
-                required_missing = _required_missing_ymyl_findings(findings, accepted)
+                required_ymyl_missing = _required_missing_ymyl_findings(findings, accepted)
+                required_actionable_missing = _required_missing_actionable_findings(findings, accepted)
+                required_missing = [*required_ymyl_missing, *required_actionable_missing]
                 if not rejected and not required_missing:
                     return ai_summary, accepted, None
 
@@ -393,7 +417,8 @@ def _install_improvement_runtime_patch() -> None:
                 repair_context = {
                     "contract_version": improvement.CONTRACT_VERSION,
                     "repair_of_partial_response": True,
-                    "required_ymyl_completion": bool(required_missing),
+                    "required_ymyl_completion": bool(required_ymyl_missing),
+                    "required_actionable_completion": bool(required_actionable_missing),
                     "target": request_context["target"],
                     "page": request_context["page"],
                     "findings": repair_findings,
@@ -401,15 +426,17 @@ def _install_improvement_runtime_patch() -> None:
                     "governance": request_context["governance"],
                 }
                 repair_text = (
-                    "Complete only the rejected recommendations and any required YMYL findings below. "
+                    "Complete only the rejected recommendations and any required YMYL/actionable findings below. "
                     "Do not re-analyze or repeat findings that were already accepted. Use only evidence_ids "
                     "listed inside each supplied finding; never add another evidence id.\n"
                     + json.dumps(repair_context, ensure_ascii=False, default=str)
                 )
                 repair_instructions = (
                     instructions
-                    + " This is a bounded repair pass for rejected items and required YMYL coverage. Return exactly "
-                    "one recommendation for each supplied YMYL finding and use only explicitly listed evidence_ids."
+                    + " This is a bounded repair pass for rejected items and required YMYL/actionable coverage. "
+                    "Return exactly one recommendation for every supplied required finding and use only explicitly "
+                    "listed evidence_ids. When an element-level accessibility fix can be illustrated safely, include "
+                    "suggested_html or suggested_text plus a concrete verification step."
                 )
                 repair_payload = orchestration._structured_payload(
                     provider,
@@ -649,6 +676,10 @@ _LIGHTHOUSE_PT: tuple[tuple[str, str], ...] = (
     ("document request latency", "Latência de requisições precisa de atenção"),
     ("legacy javascript", "JavaScript legado identificado"),
     ("render-blocking requests", "Requisições estão bloqueando a renderização"),
+    ("accessibility tree is not well-formed", "Árvore de acessibilidade malformada"),
+    ("browser errors were logged to the console", "Erros do navegador foram registrados no console"),
+    ("displays images with incorrect aspect ratio", "Imagens exibidas com proporção incorreta"),
+    ("missing source maps for large first-party javascript", "Source maps ausentes para JavaScript first-party de grande porte"),
     ("heading elements are not in a sequentially-descending order", "A hierarquia de títulos (headings) não segue uma ordem sequencial"),
     ("elements with role=\"dialog\"", "Diálogo sem nome acessível ou associação ARIA suficiente"),
     ("elements with role='dialog'", "Diálogo sem nome acessível ou associação ARIA suficiente"),
@@ -821,10 +852,16 @@ def _ymyl_analysis_context_html(database: Any, audit_id: str, a: Any) -> str:
     connection.row_factory = sqlite3.Row
     try:
         findings = _rows(connection, "improvement_intelligence_findings", audit_id)
+        recommendations = _rows(connection, "improvement_intelligence_recommendations", audit_id)
         coverage = _coverage_by_finding(connection, audit_id)
     finally:
         connection.close()
 
+    recommendation_by_finding={
+        str(item.get("finding_id")): item
+        for item in recommendations
+        if item.get("finding_id")
+    }
     criterion_findings: dict[str, str] = {}
     for finding in findings:
         fid = str(finding.get("finding_id") or "")
@@ -850,6 +887,7 @@ def _ymyl_analysis_context_html(database: Any, audit_id: str, a: Any) -> str:
         "SC-P13": "Atualização e sensibilidade temporal",
     }
     detail_rows: list[tuple[Any, ...]] = []
+    detail_modals: list[str] = []
     for item in sorted(
         ymyl.get("coherence", []) or [],
         key=lambda value: (str(value.get("criterion_id") or ""), str(value.get("page_url") or "")),
@@ -870,6 +908,27 @@ def _ymyl_analysis_context_html(database: Any, audit_id: str, a: Any) -> str:
                 escape(" · ".join(remediation))
                 + " - <a href='cat-09.html'>ver CAT-09</a>"
             )
+        rec=recommendation_by_finding.get(str(fid or ""))
+        orientation=rec.get("recommendation") or rec.get("title") if rec else "-"
+        detail_cell: Any="-"
+        if rec:
+            modal_id=f"ymyl-remediation-{criterion.casefold()}-{len(detail_modals)+1}"
+            detail_body=a._kv((
+                ("Critério",f"{criterion} - {criterion_labels.get(criterion, 'Critério YMYL')}"),
+                ("Orientação da IA",rec.get("recommendation") or rec.get("title") or "-"),
+                ("Onde aplicar",rec.get("selector") or "Conteúdo/página relacionada à evidência persistida"),
+                ("Racional",rec.get("rationale") or "-"),
+                ("Confiança",a._confidence_label(rec.get("confidence"))),
+            ))
+            if rec.get("suggested_html"):
+                detail_body+="<h3>Exemplo técnico sugerido</h3><div class='pre'>"+escape(str(rec.get("suggested_html")))+"</div>"
+            if rec.get("suggested_text"):
+                detail_body+="<h3>Texto sugerido</h3><div class='pre rich-text'>"+str(a._rich_text(rec.get("suggested_text")))+"</div>"
+            if rec.get("verification"):
+                detail_body+="<h3>Como validar a correção</h3><p>"+str(a._rich_text(rec.get("verification")))+"</p>"
+            detail_body+="<p><a href='cat-09.html'>Ver implementação consolidada no CAT-09</a></p>"
+            detail_cell=a._modal_button(modal_id,"Ver orientação e exemplo")
+            detail_modals.append(a._modal(modal_id,"Remediação YMYL orientada pela IA",criterion,detail_body))
         detail_rows.append(
             (
                 f"{criterion} - {criterion_labels.get(criterion, 'Critério YMYL')}",
@@ -877,7 +936,9 @@ def _ymyl_analysis_context_html(database: Any, audit_id: str, a: Any) -> str:
                 a._confidence_label(item.get("confidence")),
                 item.get("reasoning_summary") or item.get("observed_context") or "-",
                 action,
+                orientation,
                 remediation_cell,
+                detail_cell,
             )
         )
 
@@ -897,7 +958,7 @@ def _ymyl_analysis_context_html(database: Any, audit_id: str, a: Any) -> str:
 
     detail_html = (
         a._table(
-            ("Critério", "Resultado", "Confiança", "Motivo observado", "Implicação", "Remediação"),
+            ("Critério", "Resultado", "Confiança", "Motivo observado", "Implicação", "Orientação da IA", "Remediação", "Detalhe"),
             detail_rows,
             sortable=bool(detail_rows),
             page_size=10 if len(detail_rows) > 10 else None,
@@ -911,6 +972,7 @@ def _ymyl_analysis_context_html(database: Any, audit_id: str, a: Any) -> str:
         + explanation
         + "<h4>Por que o conteúdo está aderente, parcial ou incoerente</h4>"
         + detail_html
+        + "".join(detail_modals)
         + "<p class='muted'>SC-P11, SC-P12 e SC-P13 são avaliados contra evidência observada. "
         "A conclusão não declara conformidade legal/regulatória. Findings YMYL parciais ou incoerentes "
         "são obrigatórios no pedido de remediação da análise profunda e devem chegar ao CAT-09 quando acionáveis.</p></div>"
@@ -956,7 +1018,16 @@ def _improvement_html(database: Any, data: Any) -> str:
         if isinstance(evidence, list) and evidence:
             body += "<h3>Evidências vinculadas</h3><p>" + escape(" · ".join(str(v) for v in evidence)) + "</p>"
         if rec:
-            body += "<h3>Melhoria recomendada</h3><p>" + str(a._rich_text(rec.get("recommendation") or rec.get("title") or "-")) + "</p><p><a href='cat-09.html'>Ver implementação no CAT-09</a></p>"
+            body += "<h3>Melhoria recomendada</h3><p>" + str(a._rich_text(rec.get("recommendation") or rec.get("title") or "-")) + "</p>"
+            if rec.get("rationale"):
+                body += "<h3>Por que esta correção é recomendada</h3><p>" + str(a._rich_text(rec.get("rationale"))) + "</p>"
+            if rec.get("suggested_html"):
+                body += "<h3>Exemplo técnico sugerido pela IA</h3><div class='pre'>" + escape(str(rec.get("suggested_html"))) + "</div>"
+            if rec.get("suggested_text"):
+                body += "<h3>Texto / exemplo sugerido pela IA</h3><div class='pre rich-text'>" + str(a._rich_text(rec.get("suggested_text"))) + "</div>"
+            if rec.get("verification"):
+                body += "<h3>Como validar a correção</h3><p>" + str(a._rich_text(rec.get("verification"))) + "</p>"
+            body += "<p><a href='cat-09.html'>Ver implementação no CAT-09</a></p>"
         else:
             body += "<div class='notice'>Não há recomendação individual do Improvement Intelligence para este finding. Outras camadas de remediação, quando existentes, são indicadas na cobertura acima.</div>"
         body += _technical_reference_links(domain, source_text=original_problem)

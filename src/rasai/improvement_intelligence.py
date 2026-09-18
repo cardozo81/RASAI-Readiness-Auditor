@@ -949,6 +949,24 @@ def _persist_attempt(workspace: AuditWorkspace, audit_id: str, context: _TargetC
         store.add_attempt(attempt_id=new_id("AIA"), audit_id=audit_id, page_id=context.page_id, snapshot_id=context.snapshot_id, url=context.url, device=context.device, attempt=attempt)
 
 
+def _required_actionable_recommendation_finding_ids(
+    findings: Iterable[Mapping[str, Any]],
+) -> list[str]:
+    """Require deep guidance for critical/high element-level accessibility findings."""
+    required: list[str] = []
+    for item in findings:
+        if str(item.get("source") or "").upper() != "LIGHTHOUSE":
+            continue
+        if str(item.get("domain") or "").upper() != "ACCESSIBILITY":
+            continue
+        if str(item.get("severity") or "").upper() not in {"CRITICAL", "HIGH"}:
+            continue
+        finding_id=str(item.get("finding_id") or "").strip()
+        if finding_id and finding_id not in required:
+            required.append(finding_id)
+    return required
+
+
 def build_improvement_request_context(
     *,
     audit_id: str,
@@ -976,6 +994,7 @@ def build_improvement_request_context(
         if str(item.get("source") or "").upper() == "SEMANTIC_COHERENCE_YMYL"
         and item.get("finding_id")
     ]
+    required_actionable_finding_ids = _required_actionable_recommendation_finding_ids(findings)
     request_context = {
         "contract_version": CONTRACT_VERSION,
         "target": {
@@ -1000,6 +1019,7 @@ def build_improvement_request_context(
             "human_review_required": True,
             "ymyl_is_context_not_compliance": True,
             "required_ymyl_recommendation_finding_ids": required_ymyl_finding_ids,
+            "required_actionable_recommendation_finding_ids": required_actionable_finding_ids,
         },
     }
     instructions = (
@@ -1012,6 +1032,15 @@ def build_improvement_request_context(
             "must receive exactly one evidence-bound recommendation when it is supplied in this request. "
             "Do not omit those findings merely because other findings have higher generic priority."
             if required_ymyl_finding_ids
+            else ""
+        )
+        + (
+            " Every finding listed in governance.required_actionable_recommendation_finding_ids must receive "
+            "exactly one evidence-bound technical recommendation. For element-level accessibility findings, "
+            "provide suggested_html when a concrete HTML/ARIA/CSS example can be safely derived from the observed "
+            "element; otherwise provide suggested_text. Always provide verification. Examples are illustrative: "
+            "preserve existing business copy/data and use placeholders instead of inventing names, claims or facts."
+            if required_actionable_finding_ids
             else ""
         )
     )

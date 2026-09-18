@@ -151,20 +151,86 @@ def _context_html(evidence: Any, database: Any, audit_id: str) -> str:
     return "".join(blocks)
 
 
+def _context_display_value(value: Any) -> str:
+    raw = str(value or "auto").strip()
+    if raw.casefold() == "ymyl":
+        return "YMYL"
+    return public_label(raw) or raw
+
+
 def _auto_interpretation_html(evidence: Any, database: Any, audit_id: str) -> str:
-    rows=sorted(_rows(database,audit_id,"content_context_interpretations"),key=lambda r:(str(r.get("page_url") or ""),int(r.get("sequence_no") or 0),str(r.get("field_name") or "")))
+    rows=sorted(
+        _rows(database,audit_id,"content_context_interpretations"),
+        key=lambda r:(
+            str(r.get("page_url") or r.get("snapshot_id") or ""),
+            str(r.get("field_name") or ""),
+            str(r.get("created_at") or ""),
+            int(r.get("sequence_no") or 0),
+            str(r.get("interpretation_id") or ""),
+        ),
+    )
+    canonical_rows=_rows(database,audit_id,"content_analysis_contexts")
+    canonical=dict(canonical_rows[-1]) if canonical_rows else {}
     if not rows:
-        return "<div class='subsection'><h3>Interpretações AUTO aplicadas</h3><div class='notice'>Nenhuma interpretação AUTO estruturada foi persistida nesta execução. Campos configurados explicitamente continuam sendo a fonte de contexto; ausência desta tabela não é convertida em inferência.</div></div>"
+        return "<div class='subsection'><h3>Interpretações de contexto por IA</h3><div class='notice'>Nenhuma interpretação AUTO estruturada foi persistida nesta execução. Campos configurados explicitamente continuam sendo a fonte canônica de contexto.</div></div>"
+
+    latest_applied: dict[tuple[str,str], str] = {}
+    for row in rows:
+        field=str(row.get("field_name") or "")
+        configured=str(canonical.get(field) or "auto").casefold()
+        if configured!="auto" or str(row.get("status") or "").upper()!="INTERPRETED":
+            continue
+        scope=str(row.get("page_url") or row.get("snapshot_id") or "")
+        latest_applied[(scope,field)]=str(row.get("interpretation_id") or f"{row.get('provider')}:{row.get('sequence_no')}:{row.get('created_at')}")
+
     table_rows=[];modals=[]
     for index,row in enumerate(rows,1):
-        field=str(row.get("field_name") or ""); modal_id=f"auto-context-{index}"
-        table_rows.append((row.get("page_url") or row.get("snapshot_id") or "-",_CONTENT_LABELS.get(field,field.replace("_"," ").title()),"AUTO",_status(row.get("status")),row.get("interpreted_value") or "Não determinável",_confidence(row.get("confidence")),evidence._modal_button(modal_id,"Ver interpretação")))
+        field=str(row.get("field_name") or "")
+        modal_id=f"auto-context-{index}"
+        configured_raw=str(canonical.get(field) or "auto")
+        configured_auto=configured_raw.casefold()=="auto"
+        status=str(row.get("status") or "").upper()
+        scope=str(row.get("page_url") or row.get("snapshot_id") or "")
+        identity=str(row.get("interpretation_id") or f"{row.get('provider')}:{row.get('sequence_no')}:{row.get('created_at')}")
+        applied=bool(configured_auto and status=="INTERPRETED" and latest_applied.get((scope,field))==identity)
+        applied_label="Sim" if applied else "Não - campo declarado" if not configured_auto else "Não - registro de provenance"
+        interpreted=row.get("interpreted_value") if applied else row.get("interpreted_value") or "Não determinável"
+        table_rows.append((
+            row.get("page_url") or row.get("snapshot_id") or "-",
+            _CONTENT_LABELS.get(field,field.replace("_"," ").title()),
+            _context_display_value(configured_raw),
+            _status(row.get("status")),
+            _context_display_value(interpreted) if interpreted not in (None,"Não determinável") else "Não determinável",
+            applied_label,
+            _confidence(row.get("confidence")),
+            evidence._modal_button(modal_id,"Ver interpretação"),
+        ))
         ids=_json_list(row.get("evidence_ids_json"))
-        body=evidence._kv((("Configuração canônica","AUTO"),("Interpretação aplicada",row.get("interpreted_value") or "Não determinável"),("Status",_status(row.get("status"))),("Origem","Inferência de IA desta execução"),("Confiança",_confidence(row.get("confidence"))),("Justificativa",row.get("rationale") or "-"),("Evidências",", ".join(str(v) for v in ids) or "-"),("Provedor",row.get("provider") or "-"),("Modelo",row.get("model") or "-"),("Sequência da chamada",row.get("sequence_no") or "-"),("Contrato",row.get("contract_version") or "-"),("Impacto direto na pontuação","Não"),("Persistida como",row.get("interpretation_type") or "AI_INFERENCE")))
-        body+="<p class='muted'>A inferência é reconstruível para esta AUD, mas não sobrescreve a configuração AUTO e não se torna fato canônico da propriedade.</p>"
+        body=evidence._kv((
+            ("Configuração canônica",_context_display_value(configured_raw)),
+            ("Interpretação registrada",_context_display_value(row.get("interpreted_value")) if row.get("interpreted_value") else "Não determinável"),
+            ("Aplicada ao contexto efetivo","Sim" if applied else "Não"),
+            ("Motivo da não aplicação","Campo configurado explicitamente pelo usuário" if not configured_auto else "Outra interpretação AUTO posterior/efetiva foi selecionada" if status=="INTERPRETED" and not applied else "A IA não foi solicitada a interpretar este campo" if status=="NOT_REQUESTED" else "Interpretação não determinável"),
+            ("Status",_status(row.get("status"))),
+            ("Origem","Inferência de IA / provenance desta execução"),
+            ("Confiança",_confidence(row.get("confidence"))),
+            ("Justificativa",row.get("rationale") or "-"),
+            ("Evidências",", ".join(str(v) for v in ids) or "-"),
+            ("Provedor",row.get("provider") or "-"),
+            ("Modelo",row.get("model") or "-"),
+            ("Sequência da chamada",row.get("sequence_no") or "-"),
+            ("Contrato",row.get("contract_version") or "-"),
+            ("Impacto direto na pontuação","Não"),
+            ("Persistida como",row.get("interpretation_type") or "AI_INFERENCE"),
+        ))
+        body+="<p class='muted'>A configuração humana permanece canônica. Registros não aplicados são mantidos para auditabilidade da execução e não são apresentados como configuração AUTO efetiva.</p>"
         modals.append(evidence._modal(modal_id,_CONTENT_LABELS.get(field,field),str(row.get("page_url") or row.get("snapshot_id") or "Contexto"),body))
-    return "<div class='subsection'><h3>Interpretações AUTO aplicadas</h3>"+evidence._table(("Página","Campo","Configuração","Status","Interpretação","Confiança","Detalhe"),table_rows,sortable=True,page_size=10 if len(table_rows)>10 else None)+"".join(modals)+"</div>"
-
+    return (
+        "<div class='subsection'><h3>Interpretações de contexto por IA</h3>"
+        "<p class='muted'>A coluna Aplicada? distingue a interpretação AUTO efetivamente usada de registros preservados apenas como provenance. Campos declarados pelo usuário exibem seu valor canônico real.</p>"
+        +evidence._table(("Página","Campo","Configuração canônica","Status","Interpretação","Aplicada?","Confiança","Detalhe"),table_rows,sortable=True,page_size=10 if len(table_rows)>10 else None)
+        +"".join(modals)+"</div>"
+    )
 
 def _ymyl_alignment_html(evidence: Any, database: Any, audit_id: str) -> str:
     from rasai.editorial_risk_context import build_editorial_risk_context
