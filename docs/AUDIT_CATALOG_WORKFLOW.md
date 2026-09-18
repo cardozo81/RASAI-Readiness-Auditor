@@ -37,6 +37,7 @@ Os IDs `CAT-*` são estáveis e independem da ordem visual ou do texto exibido.
 | `CAT-07` | Apdex de experiência | Synthetic User Experience Apdex | não usa IA no cálculo; depende de `CAT-06` |
 | `CAT-08` | Análise profunda e melhorias | análise evidence-bound | **obrigatória** |
 | `CAT-09` | Remediações | ações determinísticas e advisory | opcional; IA não altera scoring |
+| `CAT-10` | Segurança passiva | HTTP/browser/runtime, cookies, recursos, third-party e vulnerability intelligence sem exploração | opcional para interpretação/remediação; fatos técnicos permanecem determinísticos |
 
 `Quality & decisão` permanece resultado sistêmico derivado, não catálogo selecionável.
 
@@ -59,6 +60,10 @@ A tela de preparação apresenta primeiro o escopo e depois o catálogo.
 7.  [ ] CAT-02 Acessibilidade
 ...
 14. [ ] CAT-09 Remediações
+15. [ ] CAT-10 Segurança passiva
+
+[ EXECUÇÃO / ARMAZENAMENTO ]
+16. Raiz das auditorias
 ```
 
 Selecionar um catálogo:
@@ -109,7 +114,8 @@ Exemplos:
 - GSC explicitamente obrigatório e incompatível: `CAT-05` fica `BLOQUEADO`;
 - `CAT-08` sem nenhum catálogo produtor de evidência: `BLOQUEADO`;
 - `CAT-08` sem IA principal apta: `BLOQUEADO`;
-- `CAT-07` inclui `CAT-06` como dependência técnica.
+- `CAT-07` inclui `CAT-06` como dependência técnica;
+- `CAT-10` é executável sem IA; OSV/KEV são enriquecimentos externos fail-open e sua indisponibilidade reduz cobertura sem virar falha do alvo.
 
 Readiness local não promete disponibilidade futura de um serviço externo. Timeout/rate limit/provider indisponível durante a execução continuam sendo fatos runtime.
 
@@ -164,6 +170,7 @@ Regras atuais:
 - `CAT-03` pode usar a IA principal para análise semântica/contextual quando o operador escolher **Executar com IA**;
 - `CAT-08` exige IA para entregar seu produto;
 - `CAT-09` usa IA somente quando o operador escolher **Executar com IA** e o enriquecimento/remediação advisory correspondente estiver habilitado;
+- `CAT-10` pode usar a IA principal opcionalmente por meio do mesmo Improvement Intelligence; sem CAT-08, o domínio é limitado a `SECURITY`; com CAT-08, `SECURITY` é adicionado aos domínios já selecionados;
 - `CAT-01`, `CAT-02`, `CAT-04`, `CAT-05`, `CAT-06` e `CAT-07` não ganham chamadas de IA só por serem selecionados;
 - o uso de provider de IA durante a auditoria não cria, por si só, dados de visibilidade observada em IA;
 - `CAT-06` e `CAT-07` não usam IA para os cálculos de Apdex;
@@ -196,7 +203,8 @@ Exemplos de recursos opcionais mascarados quando o catálogo correspondente não
 - Análise profunda;
 - remediação por IA;
 - IA principal quando nenhum catálogo selecionado pode usá-la ou quando o operador escolheu executar sem IA;
-- flags de remediação por IA quando a execução sem IA foi escolhida.
+- flags de remediação por IA quando a execução sem IA foi escolhida;
+- `RASAI_PASSIVE_SECURITY`, que só é projetada como `true` quando CAT-10 está no plano; os subcontroles persistentes do CAT-10 não são sobrescritos.
 
 Collectors determinísticos basais não são desligados por essa camada, porque isso seria mudança de regra do core.
 
@@ -246,15 +254,15 @@ A materialização final do `report-catalog/` é validada contra a fonte persist
 
 ## 12. SaaS
 
-O catálogo implementado neste escopo é instalado pelo `rasai-console`. Ele não altera automaticamente endpoints, payloads, autenticação, regras ou runtime do SaaS.
+CAT-10 possui contrato secret-free explícito no control plane. O job pode transportar `passive_security`, os subcontroles de headers/cookies/resources/third-party/runtime, OSV/KEV, timeout externo e `passive_security_ai`. Credenciais continuam fora do payload.
 
-A taxonomia neutra `rasai.audit_catalog` pode ser reutilizada por superfícies SaaS somente por mudança explícita de produto.
+`passive_security_ai=true` reutiliza a IA principal e o mesmo Improvement Intelligence; não existe provider/model/reasoning paralelo de segurança. O runtime SaaS projeta `SECURITY` isoladamente quando CAT-08 não está ativo e preserva/adiciona `SECURITY` quando CAT-08 também foi solicitado.
 
 ## 13. Testes Windows
 
 A regressão do console deve rodar em `windows-latest`, incluindo:
 
-- IDs estáveis `CAT-01..CAT-09`;
+- IDs estáveis `CAT-01..CAT-10`;
 - seleção imediata e abertura do submenu;
 - dependência `CAT-07 -> CAT-06`;
 - bloqueio de `CAT-08` sem evidência/IA;
