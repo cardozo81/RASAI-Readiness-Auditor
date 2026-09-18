@@ -12,7 +12,12 @@ from rasai.ai_governance import seal_evidence
 from rasai.audit_fulfillment import LIVE_RECOLLECTION, register_work_item
 from rasai.domain import Audit
 from rasai.m18_ai import AttemptStatus, ProviderAttempt, ProviderUsage
-from rasai.m18_persistence import M18Persistence, attempt_governance
+from rasai.m18_persistence import (
+    M18Persistence,
+    _consume_attempt_governance,
+    attempt_governance,
+    remember_attempt_governance,
+)
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.search_audit_runtime import _competitive_ai_hook
 from rasai.search_intelligence.cli import build_parser
@@ -617,3 +622,38 @@ def test_attempt_governance_persists_task_round_and_nested_operation() -> None:
 
         assert row == ("REQUEST_REMEDIATION", "AIT-TEST", "AIR-TEST")
 
+def test_semantic_attempt_governance_survives_provider_call_until_later_persistence() -> None:
+    attempt = ProviderAttempt(
+        provider="OPENAI",
+        model="gpt-test",
+        reasoning_profile="HIGH",
+        provider_rank=1,
+        attempt_index=1,
+        snapshot_id="SNP-SEM",
+        url="https://example.test/",
+        started_at=datetime(2026, 9, 18, 12, 0, tzinfo=timezone.utc),
+        finished_at=datetime(2026, 9, 18, 12, 0, 1, tzinfo=timezone.utc),
+        duration_ms=1000,
+        status=AttemptStatus.SUCCESS,
+        usage=ProviderUsage(input_tokens=10, output_tokens=5, total_tokens=15),
+        estimated_cost=0.001,
+        cost_currency="USD",
+        pricing_version="test",
+        request_message_summary="semantic governed",
+        request_payload_hash="semantic-hash",
+        semantic_contract_version="M18-SEMANTIC-22-v1",
+    )
+
+    remember_attempt_governance(
+        attempt,
+        operation="SEMANTIC_M7",
+        ai_task_id="AIT-SEM",
+        ai_round_id="AIR-SEM",
+    )
+
+    assert _consume_attempt_governance(attempt) == (
+        "SEMANTIC_M7",
+        "AIT-SEM",
+        "AIR-SEM",
+    )
+    assert _consume_attempt_governance(attempt) is None

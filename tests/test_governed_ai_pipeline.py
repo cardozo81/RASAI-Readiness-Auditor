@@ -237,3 +237,46 @@ def test_audit_runner_keeps_ai_before_final_business_derivations() -> None:
     assert source.index("execute_pre_scoring_rules(") < source.index("execute_m9(")
     assert source.index("execute_m9(") < source.index("execute_m10(")
     assert source.index("execute_m10(") < source.index("execute_m11(")
+
+def test_content_ai_gate_recovers_semantic_completion_from_durable_task(tmp_path) -> None:
+    from rasai import audit_progress_runtime
+
+    workspace, audit_id = _workspace(tmp_path, "AUD-DURABLE-SEMANTIC")
+    sealed = ai_governance.seal_evidence(
+        workspace=workspace,
+        audit_id=audit_id,
+        evidence_ids=(),
+        collection_states={"CORE": "SUCCESS"},
+    )
+    ai_governance.register_task(
+        workspace=workspace,
+        audit_id=audit_id,
+        purpose="SEMANTIC_M7",
+        scope_type="SNAPSHOT",
+        scope_key="SNP-1",
+        evidence_snapshot_id=sealed.evidence_snapshot_id,
+        requirements=("BR-GEO-028",),
+        status=ai_governance.TASK_COMPLETE,
+    )
+    audit_progress_runtime._flags(workspace).discard("SEMANTIC_ANALYSIS")
+
+    audit_progress_runtime._assert_ready(
+        audit_id=audit_id,
+        workspace=workspace,
+        operation="CONTENT_REMEDIATION_AI",
+        required_flags=("SEMANTIC_ANALYSIS",),
+    )
+
+    assert "SEMANTIC_ANALYSIS" in audit_progress_runtime._flags(workspace)
+
+
+def test_audit_failure_reconciles_requested_improvement_before_failed_event() -> None:
+    target = audit_runner.run_audit
+    seen: set[int] = set()
+    while callable(getattr(target, "_rasai_original", None)) and id(target) not in seen:
+        seen.add(id(target))
+        target = target._rasai_original
+    source = inspect.getsource(target)
+
+    assert "_reconcile_requested_improvement(workspace, audit_id)" in source
+    assert source.index("_reconcile_requested_improvement(workspace, audit_id)") < source.index('"AUDIT_FAILED"')

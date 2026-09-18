@@ -130,38 +130,35 @@ def test_empty_common_crawl_dataset_is_not_counted_as_source_with_data(tmp_path:
     assert counts.get("CHROME_UX_REPORT_HISTORY") == 1
     assert "COMMON_CRAWL_CDX_HISTORY" not in counts
 
-def test_semantic_governance_uses_live_m7_owner_instead_of_stale_audit_runner_reference(monkeypatch) -> None:
+def test_semantic_governance_preserves_existing_audit_runner_wrapper_chain(monkeypatch) -> None:
     from rasai import audit_runner, m7, post_smoke_alignment as alignment
 
     calls: list[str] = []
 
-    def stale(*args, **kwargs):
-        calls.append("stale")
-        return "stale"
+    def existing_stack(*args, **kwargs):
+        calls.append("existing-stack")
+        return "wrapped-result"
 
     def canonical(*args, **kwargs):
-        calls.append("canonical")
-        return "canonical"
+        calls.append("canonical-direct")
+        return "canonical-result"
 
     def m20_already_wrapped(*args, **kwargs):
         return None
 
     m20_already_wrapped._rasai_post_smoke_governance = True
-    monkeypatch.setattr(audit_runner, "execute_m7", stale)
+    monkeypatch.setattr(audit_runner, "execute_m7", existing_stack)
     monkeypatch.setattr(m7, "execute_m7", canonical)
     monkeypatch.setattr(audit_runner, "execute_m20", m20_already_wrapped)
-    monkeypatch.setattr(alignment, "_record_dependency", lambda **kwargs: None)
-    monkeypatch.setattr(alignment, "_backfill_semantic_task", lambda *args, **kwargs: None)
 
     alignment._install_ai_governance_completion()
     result = audit_runner.execute_m7(
         audit_id="AUD",
-        workspace=SimpleNamespace(),
+        workspace=None,
     )
 
-    assert result == "canonical"
-    assert calls == ["canonical"]
-
+    assert result == "wrapped-result"
+    assert calls == ["existing-stack"]
 
 def test_content_remediation_prepares_governance_before_provider_call(monkeypatch) -> None:
     from rasai import audit_runner, m7, post_smoke_alignment as alignment

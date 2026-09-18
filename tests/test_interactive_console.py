@@ -1,9 +1,12 @@
 from pathlib import Path
+from contextlib import redirect_stdout
+from io import StringIO
 import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
 
 from rasai.console_artifacts import audit_workspace, report_entrypoint
+from rasai.interactive_console import _render_incomplete_requirements
 from rasai.console_config import (
     State,
     apply_environment_defaults,
@@ -346,3 +349,65 @@ class InteractiveConsoleTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+def test_report_entrypoint_falls_back_to_validated_catalog_projection() -> None:
+    from unittest.mock import patch
+
+    with TemporaryDirectory() as directory:
+        workspace = Path(directory) / "AUD-PRELIM"
+        catalog = workspace / "report-catalog"
+        catalog.mkdir(parents=True)
+        entrypoint = catalog / "index.html"
+        entrypoint.write_text("<html>preliminary</html>", encoding="utf-8")
+
+        with patch(
+            "rasai.catalog_report_site.verify_catalog_report_package",
+            return_value=(True, ()),
+        ):
+            self.assertEqual(report_entrypoint(workspace), entrypoint.resolve())
+
+        with patch(
+            "rasai.catalog_report_site.verify_catalog_report_package",
+            return_value=(False, ("stale",)),
+        ):
+            self.assertIsNone(report_entrypoint(workspace))
+
+
+def test_console_lists_required_incomplete_components_with_error_code() -> None:
+    from rasai.audit_fulfillment import FAILED_RETRYABLE, REPLAY_SAFE, register_work_item, set_work_item_status
+    from rasai.domain import Audit
+    from rasai.persistence import AuditPersistence, AuditWorkspace
+
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        workspace = AuditWorkspace.create(root, "AUD-PENDING")
+        with AuditPersistence(workspace) as persistence:
+            persistence.audits.add(Audit(audit_id="AUD-PENDING", project_name="pending console"))
+        register_work_item(
+            workspace,
+            audit_id="AUD-PENDING",
+            component="WEB_PERFORMANCE",
+            required=True,
+            temporal_mode=REPLAY_SAFE,
+        )
+        set_work_item_status(
+            workspace,
+            audit_id="AUD-PENDING",
+            component="WEB_PERFORMANCE",
+            status=FAILED_RETRYABLE,
+            error_class="EXTERNAL_SERVICE",
+            error_code="PARTIAL",
+            error_message="PageSpeed incomplete",
+        )
+
+        state = State(audits_root=str(root), audit_id="AUD-PENDING")
+        output = StringIO()
+        with redirect_stdout(output):
+            _render_incomplete_requirements(state, workspace.root)
+        text = output.getvalue()
+
+        self.assertIn("REQUISITOS OBRIGATÓRIOS INCOMPLETOS", text)
+        self.assertIn("WEB_PERFORMANCE", text)
+        self.assertIn("FAILED_RETRYABLE", text)
+        self.assertIn("código=PARTIAL", text)
+        self.assertIn("PageSpeed incomplete", text)

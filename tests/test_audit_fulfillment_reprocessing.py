@@ -218,3 +218,29 @@ def test_reprocess_is_noop_after_success_and_does_not_repeat_successful_item() -
         assert second.reprocess_id is None
         assert second.processing_status == COMPLETE
         assert second.consolidation_eligible is True
+
+def test_m20_exception_does_not_leave_required_work_item_pending() -> None:
+    from rasai.audit_fulfillment_runtime import _wrap_m20
+
+    with TemporaryDirectory() as directory:
+        workspace = _workspace(Path(directory))
+
+        def fail_m20(*args, **kwargs):
+            raise RuntimeError("synthetic orchestration failure")
+
+        wrapped = _wrap_m20(fail_m20)
+        try:
+            wrapped(audit_id="AUD-TEST", workspace=workspace, enabled=True)
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("expected synthetic M20 failure")
+
+        item = next(
+            item
+            for item in list_work_items(workspace, "AUD-TEST")
+            if item.component == "CONTENT_REMEDIATION_AI"
+        )
+        assert item.status == FAILED_RETRYABLE
+        assert item.last_error_class == "ORCHESTRATION"
+        assert item.last_error_code == "CONTENT_REMEDIATION_EXECUTION_FAILURE"
