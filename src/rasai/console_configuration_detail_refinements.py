@@ -5,6 +5,8 @@ example and activation criteria visible before the operator types an open value.
 """
 from __future__ import annotations
 
+from rasai.configuration_value_labels import configuration_value_info
+
 from dataclasses import replace
 from typing import Any
 
@@ -125,7 +127,7 @@ def _render_enrichment(spec: Any) -> None:
             else "seleção única"
         )
         print(f"Como preencher : {mode}; escolha somente entre os valores apresentados pelo console.")
-        print("Valores aceitos : " + ", ".join(str(value) for value in spec.accepted))
+        print("Valores aceitos : " + ", ".join(configuration_value_info(spec.name, value) for value in spec.accepted))
     else:
         print(f"Como preencher : entrada específica validada pelo runtime; formato aceito: {spec.value_type}.")
         if getattr(spec, "example", ""):
