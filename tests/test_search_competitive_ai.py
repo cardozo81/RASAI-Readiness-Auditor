@@ -11,6 +11,7 @@ from unittest.mock import patch
 from rasai.ai_governance import seal_evidence
 from rasai.audit_fulfillment import LIVE_RECOLLECTION, register_work_item
 from rasai.domain import Audit
+from rasai.m18_ai import AttemptStatus, ProviderAttempt, ProviderUsage
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.search_audit_runtime import _competitive_ai_hook
 from rasai.search_intelligence.cli import build_parser
@@ -352,6 +353,41 @@ class CompetitiveAiPersistenceTests(unittest.TestCase):
 
 
 
+class _TelemetryCompetitiveProvider:
+    def __init__(self, result):
+        self._result = result
+        self._attempts = (
+            ProviderAttempt(
+                provider="OPENAI",
+                model="gpt-test",
+                reasoning_profile="HIGH",
+                provider_rank=1,
+                attempt_index=1,
+                snapshot_id=None,
+                url=None,
+                started_at=datetime(2026, 9, 18, 12, 0, tzinfo=timezone.utc),
+                finished_at=datetime(2026, 9, 18, 12, 0, 1, tzinfo=timezone.utc),
+                duration_ms=1000,
+                status=AttemptStatus.SUCCESS,
+                usage=ProviderUsage(input_tokens=100, output_tokens=40, total_tokens=140),
+                estimated_cost=0.001,
+                cost_currency="USD",
+                pricing_version="test",
+                request_message_summary="contract=COMPETITIVE-AI-001",
+                request_payload_hash="hash",
+                semantic_contract_version="COMPETITIVE-AI-001",
+            ),
+        )
+
+    def analyze(self, _competitive_input):
+        return self._result
+
+    def consume_attempts(self):
+        attempts = self._attempts
+        self._attempts = ()
+        return attempts
+
+
 class CompetitiveAiAuditPhaseTests(unittest.TestCase):
     def test_governed_hook_consumes_only_sealed_persisted_competitive_evidence(self) -> None:
         audit_id = "AUD-COMPETITIVE-AI-HOOK"
@@ -446,9 +482,19 @@ class CompetitiveAiAuditPhaseTests(unittest.TestCase):
                 collection_states={"SEARCH_INTELLIGENCE": "SUCCESS"},
             )
             fixture = FixtureCompetitiveAiProvider(_payload())
+            provider = _TelemetryCompetitiveProvider(fixture.analyze(
+                build_competitive_ai_input(
+                    observation_id,
+                    _analysis(),
+                    market="BR",
+                    language="pt-BR",
+                    ymyl_mode="AUTO",
+                    artifact_reference="fixture",
+                )
+            ))
             with patch(
                 "rasai.search_intelligence.competitive_ai.build_competitive_ai_provider",
-                return_value=fixture,
+                return_value=provider,
             ):
                 outcome = _competitive_ai_hook(
                     audit_id=audit_id,
@@ -467,9 +513,14 @@ class CompetitiveAiAuditPhaseTests(unittest.TestCase):
                     (observation_id,),
                 ).fetchone()
                 task_row = connection.execute(
-                    "SELECT purpose,evidence_snapshot_id,status FROM ai_tasks "
+                    "SELECT purpose,evidence_snapshot_id,status,ai_task_id FROM ai_tasks "
                     "WHERE audit_id=? AND scope_key=?",
                     (audit_id, observation_id),
+                ).fetchone()
+                attempt_row = connection.execute(
+                    "SELECT operation,ai_task_id,ai_round_id,input_tokens,output_tokens,total_tokens,estimated_cost "
+                    "FROM ai_provider_attempts WHERE audit_id=? AND semantic_contract_version='COMPETITIVE-AI-001'",
+                    (audit_id,),
                 ).fetchone()
             finally:
                 connection.close()
@@ -478,6 +529,11 @@ class CompetitiveAiAuditPhaseTests(unittest.TestCase):
             self.assertEqual(task_row[0], "COMPETITIVE_INTELLIGENCE")
             self.assertEqual(task_row[1], snapshot.evidence_snapshot_id)
             self.assertEqual(task_row[2], "COMPLETE")
+            self.assertEqual(attempt_row[0], "COMPETITIVE_INTELLIGENCE")
+            self.assertEqual(attempt_row[1], task_row[3])
+            self.assertTrue(str(attempt_row[2]).startswith("AIR-"))
+            self.assertEqual(tuple(attempt_row[3:6]), (100, 40, 140))
+            self.assertEqual(attempt_row[6], 0.001)
 
 
 class CompetitiveAiCliTests(unittest.TestCase):

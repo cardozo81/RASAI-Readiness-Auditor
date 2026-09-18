@@ -834,6 +834,36 @@ def _competitive_ai_hook(
                     CompetitiveAiState.UNAVAILABLE,
                     reason=f"COMPETITIVE_AI_RUNTIME_ERROR:{type(exc).__name__}:{str(exc)[:240]}",
                 )
+
+            consume_attempts = getattr(provider, "consume_attempts", None)
+            provider_attempts = tuple(consume_attempts()) if callable(consume_attempts) else ()
+            if provider_attempts:
+                from rasai.domain import new_id
+                from rasai.m18_persistence import M18Persistence
+
+                customer_url = next(
+                    (
+                        str(item.observed_value.get("requested_url") or item.observed_value.get("final_url") or "")
+                        for item in competitive_input.evidence
+                        if item.evidence_id == "CE-CUSTOMER" and isinstance(item.observed_value, Mapping)
+                    ),
+                    "",
+                ) or f"serp-observation:{observation_id}"
+                with M18Persistence(workspace) as attempt_store:
+                    for provider_attempt in provider_attempts:
+                        attempt_store.add_attempt(
+                            attempt_id=new_id("AIA"),
+                            audit_id=audit_id,
+                            page_id=None,
+                            snapshot_id=None,
+                            url=customer_url,
+                            device="search",
+                            attempt=provider_attempt,
+                            operation="COMPETITIVE_INTELLIGENCE",
+                            ai_task_id=task_id,
+                            ai_round_id=round_id,
+                        )
+
             result_payload = competitive_ai_result_payload(result)
             if result.state is CompetitiveAiState.AVAILABLE:
                 available += 1

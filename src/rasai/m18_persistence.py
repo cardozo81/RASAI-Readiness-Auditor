@@ -134,6 +134,9 @@ class M18Persistence:
                     request_message_summary TEXT NOT NULL,
                     request_payload_hash TEXT,
                     semantic_contract_version TEXT NOT NULL,
+                    operation TEXT,
+                    ai_task_id TEXT,
+                    ai_round_id TEXT,
                     provider_qualification TEXT,
                     provider_reliability_score REAL,
                     qualification_version TEXT NOT NULL
@@ -170,6 +173,9 @@ class M18Persistence:
                 ('decision', "TEXT NOT NULL DEFAULT 'STOP'"),
                 ('fallback_from_provider', 'TEXT'),
                 ('fallback_reason', 'TEXT'),
+                ('operation', 'TEXT'),
+                ('ai_task_id', 'TEXT'),
+                ('ai_round_id', 'TEXT'),
             ):
                 if column not in existing_attempt_columns:
                     self._connection.execute(f'ALTER TABLE ai_provider_attempts ADD COLUMN {column} {ddl}')
@@ -248,11 +254,14 @@ class M18Persistence:
         *,
         attempt_id: str,
         audit_id: str,
-        page_id: str,
-        snapshot_id: str,
+        page_id: str | None,
+        snapshot_id: str | None,
         url: str,
-        device: str,
+        device: str | None,
         attempt: ProviderAttempt,
+        operation: str | None = None,
+        ai_task_id: str | None = None,
+        ai_round_id: str | None = None,
     ) -> None:
         diagnostic = attempt.diagnostic
         usage = attempt.usage
@@ -263,7 +272,8 @@ class M18Persistence:
             "retry_eligible", "retry_after_seconds", "decision", "fallback_from_provider", "fallback_reason",
             "input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens", "total_tokens",
             "estimated_cost", "cost_currency", "pricing_version", "request_message_summary", "request_payload_hash",
-            "semantic_contract_version", "provider_qualification", "provider_reliability_score", "qualification_version",
+            "semantic_contract_version", "operation", "ai_task_id", "ai_round_id",
+            "provider_qualification", "provider_reliability_score", "qualification_version",
         )
         values = (
             attempt_id, audit_id, page_id, snapshot_id, url, device, attempt.provider, attempt.model,
@@ -290,6 +300,9 @@ class M18Persistence:
             attempt.request_message_summary[:512],
             attempt.request_payload_hash,
             attempt.semantic_contract_version,
+            operation,
+            ai_task_id,
+            ai_round_id,
             attempt.provider_qualification,
             attempt.provider_reliability_score,
             attempt.qualification_version,

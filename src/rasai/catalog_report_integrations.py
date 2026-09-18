@@ -23,6 +23,11 @@ _AI_USAGE_DETAILS: dict[str, tuple[str,str,str]] = {
         "Evidências persistidas dos domínios selecionados, podendo incluir performance, acessibilidade, semântica, conteúdo, descoberta, boas práticas e segurança passiva.",
         "Correlacionar problemas, explicar impacto, priorizar melhorias e produzir recomendações evidence-bound. A implementação detalhada é projetada no CAT-09.",
     ),
+    "COMPETITIVE-AI-001": (
+        "CAT-05 · Inteligência competitiva",
+        "SERP persistida, classificação competitiva, páginas públicas observadas, comparação determinística e lacunas vinculadas ao snapshot de evidências.",
+        "Interpretar oportunidades competitivas somente sobre evidência selada. O resultado é advisory, não altera score e não declara causalidade de ranking.",
+    ),
 }
 
 

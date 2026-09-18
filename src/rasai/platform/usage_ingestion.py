@@ -156,6 +156,7 @@ def ingest_audit_usage(
             for raw in connection.execute(f"SELECT * FROM {table} WHERE audit_id=?", (audit.audit_id,)):
                 row = _row_dict(raw)
                 attempt_id = str(row.get("attempt_id") or "unknown")
+                effective_operation = str(row.get("operation") or operation)
                 result = store.record_usage_once(
                     source_key=f"audit:{audit.audit_id}:{table}:{attempt_id}",
                     organization_id=organization_id,
@@ -173,7 +174,7 @@ def ingest_audit_usage(
                         user_id=user_id,
                         environment_id=environment_id,
                         job_id=job_id,
-                        operation=operation,
+                        operation=effective_operation,
                         resource_type="AI",
                     ),
                     occurred_at=row.get("started_at") or audit.event_time,

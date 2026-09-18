@@ -253,12 +253,22 @@ def _read_local_run(state: Any, database: Path) -> HistoricalRunCost | None:
         currency: str | None = None
         for family, row in rows:
             provider, model = str(_value(row, "provider") or "").upper(), str(_value(row, "model") or "")
+            contract = str(_value(row, "semantic_contract_version") or "").upper()
             is_improvement = (
                 family == "semantic"
                 and improvement_contract
-                and str(_value(row, "semantic_contract_version") or "") == improvement_contract
+                and contract == str(improvement_contract).upper()
             )
-            if is_improvement:
+            is_competitive = family == "semantic" and contract == "COMPETITIVE-AI-001"
+            if is_competitive:
+                if not bool(getattr(state, "search_ai_competitive", False)):
+                    continue
+                if selection != "auto" and (
+                    (selected_provider and provider != selected_provider)
+                    or (selected_model and model != selected_model)
+                ):
+                    continue
+            elif is_improvement:
                 if not improvement_enabled:
                     continue
                 if selection != "auto" and (

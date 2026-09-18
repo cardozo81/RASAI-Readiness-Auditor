@@ -37,6 +37,7 @@ _AI_PURPOSE_LABELS = {
     "M24-TECHNICAL-REMEDIATION-V2":("Remediação técnica de descoberta","CAT-09"),
     "M20-CONTENT-REMEDIATION-V3":("Remediação de conteúdo","CAT-09"),
     "IMPROVEMENT-INTELLIGENCE-001":("Análise profunda e melhorias","CAT-08"),
+    "COMPETITIVE-AI-001":("Inteligência competitiva por IA","CAT-05"),
 }
 _AI_EXCHANGE_PURPOSES = {
     "SEMANTIC_ANALYSIS":"Análise semântica",
