@@ -10,7 +10,11 @@ from typing import Any
 from rasai.domain import new_id, utc_now
 from rasai.persistence import AuditWorkspace
 from rasai.property_semantic_profile_persistence import load_property_semantic_profile
-from rasai.semantic_coherence import CoherenceResult, PROPERTY_COHERENCE_CRITERIA
+from rasai.semantic_coherence import (
+    CoherenceResult,
+    PROPERTY_COHERENCE_CRITERIA,
+    PROPERTY_COHERENCE_LABELS_PT_BR,
+)
 
 _PAGE_TO_PROPERTY = {
     "SC-X02": "SC-P05",
@@ -226,7 +230,10 @@ def aggregate_property_coherence(*, workspace: AuditWorkspace, audit_id: str) ->
 
             created_at = str(utc_now())
             for criterion_id, result, confidence, evidence, summary, count in rows_to_write:
-                description = PROPERTY_COHERENCE_CRITERIA[criterion_id]
+                description = PROPERTY_COHERENCE_LABELS_PT_BR.get(
+                    criterion_id,
+                    PROPERTY_COHERENCE_CRITERIA[criterion_id],
+                )
                 connection.execute(
                     """INSERT INTO property_semantic_summaries(
                         summary_id,audit_id,criterion_id,result,confidence,evidence_ids_json,

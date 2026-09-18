@@ -53,6 +53,32 @@ PROPERTY_COHERENCE_CRITERIA: dict[str, str] = {
     "SC-X05": "primary goal and calls to action remain aligned across audited pages",
     "SC-X06": "page purposes remain aligned with the property context without material contradiction",
 }
+
+
+PROPERTY_COHERENCE_LABELS_PT_BR: dict[str, str] = {
+    "SC-X01": "Identidade da organização permanece coerente entre as páginas auditadas",
+    "SC-X02": "Oferta principal permanece alinhada entre as páginas e o contexto declarado",
+    "SC-X03": "Público-alvo permanece alinhado entre as páginas e o contexto declarado",
+    "SC-X04": "Posicionamento permanece alinhado entre as páginas e o contexto declarado",
+    "SC-X05": "Objetivo principal e chamadas para ação permanecem alinhados entre as páginas",
+    "SC-X06": "Propósitos das páginas permanecem alinhados ao contexto da propriedade sem contradição material",
+}
+
+PAGE_COHERENCE_LABELS_PT_BR: dict[str, str] = {
+    "SC-P01": "Título e conteúdo principal visível expressam o mesmo assunto principal",
+    "SC-P02": "Headings e conteúdo principal visível expressam uma hierarquia semântica coerente",
+    "SC-P03": "Propósito declarado ou interpretado é coerente com o conteúdo visível e a intenção do usuário",
+    "SC-P04": "Público declarado ou interpretado é coerente com linguagem, profundidade e terminologia",
+    "SC-P05": "Oferta principal declarada está representada de forma coerente quando aplicável",
+    "SC-P06": "Posicionamento declarado está representado de forma coerente quando aplicável",
+    "SC-P07": "Entidades observadas são coerentes com o conteúdo visível",
+    "SC-P08": "Dados estruturados são coerentes com o conteúdo visível",
+    "SC-P09": "Entidades dos dados estruturados são coerentes com as entidades observadas no conteúdo",
+    "SC-P10": "Chamadas para ação são coerentes com o propósito da página e o objetivo declarado quando aplicável",
+    "SC-P11": "Claims materiais apresentam suporte ou qualificação observável suficiente para o contexto",
+    "SC-P12": "Sinais de autoria ou responsabilidade são coerentes com o risco editorial e os requisitos de confiança",
+    "SC-P13": "Sinais de publicação e atualização são coerentes com a sensibilidade temporal da página",
+}
 PROPERTY_COHERENCE_IDS = tuple(PROPERTY_COHERENCE_CRITERIA)
 
 
@@ -145,5 +171,9 @@ def coherence_prompt_directive() -> str:
         "must cite supplied evidence_ids. Also return exactly one observed property signal for each of: "
         f"{signals}. A signal is an observed/inferred page-level descriptor, not a declared fact; use "
         "value=null with empty evidence_ids when it cannot be determined. Never invent hidden business "
-        "facts, credentials, reputation, policies, audiences or offerings."
+        "facts, credentials, reputation, policies, audiences or offerings. "
+        "For every human-readable free-text field produced by this coherence extension "
+        "(declared_context, observed_context, reasoning_summary and non-null property signal values), "
+        "write in the primary_language supplied inside JSON page evidence. When primary_language is pt-BR, "
+        "write those fields in Brazilian Portuguese. Keep criterion_id, signal_name and enum values unchanged."
     )
