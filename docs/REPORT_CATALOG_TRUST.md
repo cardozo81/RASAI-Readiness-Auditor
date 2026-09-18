@@ -106,3 +106,35 @@ A geração de relatório não realiza nova análise por IA. Ela lê estado pers
 ## Verificação offline
 
 `verify_catalog_report_package()` valida o conteúdo usando somente os arquivos entregues no pacote. Alteração ou remoção de arquivo após materialização invalida o manifest.
+
+
+## Gate de encerramento estrutural
+
+O `report-catalog` materializa `integrity/catalog-assurance.json` e projeta a mesma matriz na visão geral e em cada catálogo.
+
+Os percentuais são **cobertura determinística de controles estruturais**. Eles não são probabilidade estatística de uma observação externa estar correta e não transformam indisponibilidade de provider em erro do site.
+
+Eixos avaliados:
+
+- configurabilidade: parâmetros aplicáveis congelados, origem e exposição;
+- governança: estado, limitações, evidências, detalhes técnicos e remediação;
+- exposição: dados materiais persistidos permanecem acessíveis à decisão humana;
+- confiabilidade: estado/resultados/análise derivam do estado persistido sem fallback inventado;
+- integridade: hash da configuração, inventário de fontes, artefatos verificáveis e boundary read-only;
+- segurança: snapshot secret-free, saída sem credenciais, links externos endurecidos e ausência de URLs/handlers executáveis injetados pela projeção.
+
+Critérios de encerramento definidos para a estruturação/exposição:
+
+- cada catálogo selecionado: maturidade estrutural >= 95,00%;
+- cada catálogo selecionado: confiabilidade >= 99,50%;
+- cada catálogo selecionado: integridade >= 99,50%;
+- cada catálogo selecionado: segurança >= 99,50%;
+- nenhuma média global pode compensar um catálogo individual abaixo desses gates.
+
+Como os checks são discretos, um catálogo normalmente atinge 100% quando todos os controles aplicáveis passam. A meta de 99,50% funciona como limite mínimo, não como estimativa probabilística.
+
+Falhas externas legítimas, `NO_DATA`, `PARTIAL`, indisponibilidade de API ou limitação amostral não reduzem automaticamente o assurance estrutural. O que reduz o assurance é ocultar, classificar incorretamente, perder provenance, quebrar integridade, omitir configuração aplicável ou não tornar a limitação auditável.
+
+`manifest.json` referencia `integrity/catalog-assurance.json`. A verificação offline recusa divergência entre os thresholds, scores globais ou `closure_eligible` registrados nos dois arquivos.
+
+A estruturação/exposição de dados dos catálogos só pode ser declarada encerrada após um smoke CLEAN cujo pacote materializado resulte em `closure_eligible=true`.
