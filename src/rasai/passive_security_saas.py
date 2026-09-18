@@ -106,7 +106,7 @@ def install() -> None:
             contract.AuditJobOption("security_resources", True, "boolean", description="Scripts, recursos, mixed content, forms e iframes persistidos."),
             contract.AuditJobOption("security_third_party", True, "boolean", description="Classificação first-party/third-party e exposição externa."),
             contract.AuditJobOption("security_runtime_correlation", True, "boolean", description="Reutiliza requestfailed/HTTP/console/page errors; não altera Apdex."),
-            contract.AuditJobOption("security_osv", True, "boolean", description="OSV somente com componente+versão identificados com confiança alta."),
+            contract.AuditJobOption("security_osv", True, "boolean", description="OSV somente com componente+versão identificados com confiança suficiente."),
             contract.AuditJobOption("security_cisa_kev", True, "boolean", description="Correlação CVE com CISA KEV."),
             contract.AuditJobOption("security_external_timeout_seconds", 15.0, "number", description="Timeout por integração externa de vulnerability intelligence."),
             contract.AuditJobOption("passive_security_ai", False, "boolean", description="Enriquecimento advisory pela IA principal, restrito ao domínio SECURITY."),
