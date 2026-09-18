@@ -707,6 +707,10 @@ def assurance_matrix_html(result: Mapping[str, Any]) -> str:
     close = "ELEGÍVEL" if result.get("closure_eligible") else "PENDENTE"
     global_output = result.get("global_output_security", {})
     global_output_gate = "ATENDE" if global_output.get("passed", True) else "PENDENTE"
+    catalog_gate = "ATENDE" if all(
+        (not row.get("selected")) or bool(row.get("closure_eligible"))
+        for row in result.get("catalogs", ())
+    ) else "PENDENTE"
     return (
         "<section class='section' id='assurance-matrix'><h2>Matriz de encerramento estrutural</h2>"
         "<p class='muted'>Meta: cada catálogo selecionado com maturidade ≥95,00% e cada eixo de "
@@ -729,11 +733,21 @@ def assurance_matrix_html(result: Mapping[str, Any]) -> str:
         "<th>CAT</th><th>Configurabilidade</th><th>Governança</th><th>Exposição</th>"
         "<th>Confiabilidade</th><th>Integridade</th><th>Segurança</th><th>Maturidade</th><th>Gate</th>"
         "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
-        "<div class='metric-grid'>"
+        "<h3>Cobertura global dos eixos</h3>"
+        "<p class='muted'>Os totalizadores abaixo seguem a mesma ordem e a mesma unidade percentual das colunas estruturais da matriz.</p>"
+        "<div class='metric-grid' data-assurance-summary='coverage'>"
+        f"<div class='metric'><small>Configurabilidade global</small><strong>{_pct(global_scores.get('configurability'))}</strong></div>"
+        f"<div class='metric'><small>Governança global</small><strong>{_pct(global_scores.get('governance'))}</strong></div>"
+        f"<div class='metric'><small>Exposição global</small><strong>{_pct(global_scores.get('exposure'))}</strong></div>"
         f"<div class='metric'><small>Confiabilidade global</small><strong>{_pct(global_scores.get('reliability'))}</strong></div>"
         f"<div class='metric'><small>Integridade global</small><strong>{_pct(global_scores.get('integrity'))}</strong></div>"
         f"<div class='metric'><small>Segurança global</small><strong>{_pct(global_scores.get('security'))}</strong></div>"
         f"<div class='metric'><small>Maturidade global</small><strong>{_pct(global_scores.get('maturity'))}</strong></div>"
+        "</div>"
+        "<h3>Estados de encerramento</h3>"
+        "<p class='muted'>Estados de gate são qualitativos e ficam separados das métricas percentuais de cobertura.</p>"
+        "<div class='metric-grid' data-assurance-summary='gates'>"
+        f"<div class='metric'><small>Gate dos catálogos</small><strong>{catalog_gate}</strong></div>"
         f"<div class='metric'><small>Segurança das páginas transversais</small><strong>{global_output_gate}</strong></div>"
         f"<div class='metric'><small>Encerramento estrutural</small><strong>{close}</strong></div>"
         "</div></section>"
