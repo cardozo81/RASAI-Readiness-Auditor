@@ -265,6 +265,24 @@ O valor `mobile=60,desktop=35,tablet=5` acima é o default técnico do runtime/v
 
 Criação e segurança do token Dynatrace: [EXTERNAL_CREDENTIALS.md](EXTERNAL_CREDENTIALS.md). Consulte também [SYNTHETIC_USER_EXPERIENCE_APDEX.md](SYNTHETIC_USER_EXPERIENCE_APDEX.md).
 
+## 9.1 CAT-10 · Segurança passiva
+
+O CAT-10 é opt-in no plano da auditoria. Quando selecionado, reutiliza evidências HTTP/browser/runtime já persistidas e não executa pentest ou exploração. OSV e CISA KEV recebem apenas identificadores de componente/versionamento elegíveis; indisponibilidade externa reduz cobertura, sem virar finding do site.
+
+| Variável | Default efetivo | Valores permitidos | Recomendado | Dependência / finalidade |
+|---|---|---|---|---|
+| `RASAI_PASSIVE_SECURITY` | `false` | booleano | `false`; a seleção CAT-10 projeta `true` somente na execução | ativa o runtime do catálogo sem active scanning |
+| `RASAI_SECURITY_HEADERS` | `true` | booleano | `true` | HTTPS/redirects, headers, CSP, CORS e políticas cross-origin persistidas |
+| `RASAI_SECURITY_COOKIES` | `true` | booleano | `true` | avalia atributos de Set-Cookie; valores não são copiados para o CAT-10 |
+| `RASAI_SECURITY_RESOURCES` | `true` | booleano | `true` | scripts, recursos, mixed content, forms e iframes do HTML já persistido |
+| `RASAI_SECURITY_THIRD_PARTY` | `true` | booleano | `true` | classificação first/third-party, SRI e destinos externos |
+| `RASAI_SECURITY_RUNTIME_CORRELATION` | `true` | booleano | `true` | reutiliza requestfailed/pageerror/console.error e diagnósticos persistidos; não altera Apdex |
+| `RASAI_SECURITY_OSV` | `true` | booleano | `true` salvo política de egress | consulta OSV somente com componente + ecossistema + versão identificáveis |
+| `RASAI_SECURITY_CISA_KEV` | `true` | booleano | `true` salvo política de egress | cruza CVEs obtidos via OSV com CISA KEV |
+| `RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS` | `15` | número `> 0` e `<= 300` | `15` | timeout por chamada de vulnerability intelligence |
+
+MDN HTTP Observatory e Lighthouse Best Practices são **reutilizados** das coletas canônicas existentes; o CAT-10 não dispara segunda coleta para preencher o relatório. IA opcional reutiliza o Improvement Intelligence e a IA principal, limitada a `SECURITY` quando CAT-08 não foi solicitado. Contrato completo: [PASSIVE_SECURITY_CATALOG.md](PASSIVE_SECURITY_CATALOG.md).
+
 ## 10. Search Intelligence / Observability
 
 | Variável | Default efetivo | Valores permitidos | Recomendado | Dependência / finalidade |
