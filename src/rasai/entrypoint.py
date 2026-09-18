@@ -33,6 +33,7 @@ from rasai.governed_report_projection_runtime import install as install_governed
 from rasai.gsc_oauth_runtime import install as install_gsc_oauth_runtime
 from rasai.gsc_scope_runtime import install as install_gsc_scope_runtime
 from rasai.improvement_intelligence_runtime import install as install_improvement_intelligence_runtime
+from rasai.passive_security_runtime import install as install_passive_security_runtime
 from rasai.improvement_intelligence_saas import install as install_improvement_intelligence_saas
 from rasai.integration_state_contract import install as install_integration_state_contract
 from rasai.integration_state_refinements import install as install_integration_state_refinements
@@ -228,6 +229,7 @@ def _install_audit_runtime() -> None:
     install_runtime_contract_compatibility()
     install_provider_presentation_alignment()
     install_improvement_intelligence_runtime()
+    install_passive_security_runtime()
     install_selective_optional_reprocess()
     install_ai_dependency_runtime()
     install_search_audit_runtime()
