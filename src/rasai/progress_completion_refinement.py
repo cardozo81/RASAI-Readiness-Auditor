@@ -83,9 +83,8 @@ def _install_progress_contract() -> None:
         set_runtime_progress._rasai_improvement_operation_truth = True  # type: ignore[attr-defined]
         console_runtime.set_runtime_progress = set_runtime_progress
 
-    # Replace the legacy fixed 94->99 projection before the console feature installs.
-    # set_runtime_progress still receives the exact substage percentage; the workload
-    # model projects it into the execution-wide range dynamically.
+    # Improvement substages publish exact local progress; the workload model projects
+    # that progress into the execution-wide range dynamically.
     def install_projection() -> None:
         console_runtime._PHASE_PROGRESS[_PHASE] = ("Análise profunda e melhorias", 0.0)
         console_runtime._rasai_improvement_progress_projection = True
