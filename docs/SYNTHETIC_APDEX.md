@@ -121,7 +121,7 @@ Não interprete `100 amostras` como `100 requests HTTP`. A baseline automática 
 Os dados são persistidos em tabelas dedicadas e o relatório é materializado em:
 
 ```text
-report/apdex.html
+report-catalog/cat-06.html
 ```
 
 Identificadores de tabela/evento são detalhes internos de implementação. A UI e a documentação operacional usam nomenclatura funcional e o relatório persiste o perfil efetivamente utilizado para permitir reprodução e comparação correta.
