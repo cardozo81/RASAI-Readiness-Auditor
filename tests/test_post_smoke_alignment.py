@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+from rasai.observability.store import observability_database_path
+
+def _obs_path(workspace: Path) -> Path:
+    path = observability_database_path(workspace)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 import json
 from pathlib import Path
 import sqlite3
@@ -76,7 +84,7 @@ def test_cat08_required_uses_frozen_plan_and_auto_session(tmp_path: Path) -> Non
 
 
 def test_common_crawl_scoring_reuses_preseal_dataset(tmp_path: Path) -> None:
-    database = tmp_path / "observability.db"
+    database = _obs_path(tmp_path)
     connection = sqlite3.connect(database)
     try:
         connection.execute(
@@ -100,7 +108,7 @@ def test_common_crawl_scoring_reuses_preseal_dataset(tmp_path: Path) -> None:
 def test_empty_common_crawl_dataset_is_not_counted_as_source_with_data(tmp_path: Path) -> None:
     audit_database = tmp_path / "audit.db"
     sqlite3.connect(audit_database).close()
-    sidecar = tmp_path / "observability.db"
+    sidecar = _obs_path(tmp_path)
     connection = sqlite3.connect(sidecar)
     try:
         connection.executescript(
