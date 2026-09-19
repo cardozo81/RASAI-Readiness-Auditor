@@ -419,7 +419,7 @@ def _install_search_console_adherence() -> None:
                 state,
                 completed=index,
                 total=len(queries),
-                detail=f"termo {index}/{len(queries)} finalizado; persistindo observação e atualizando relatório Search Intelligence",
+                detail=f"termo {index}/{len(queries)} finalizado; persistindo observação Search Intelligence",
             )
 
         duration = max(time.monotonic() - started, 0.0)
@@ -429,14 +429,12 @@ def _install_search_console_adherence() -> None:
             state,
             completed=len(queries),
             total=len(queries),
-            detail="SERP concluído; consolidando destaque do domínio, limitações e relatório geral",
+            detail="SERP concluído; consolidando estado persistido e limitações",
         )
-        _enrich_serp_reports(workspace, issues, found)
 
-        report = workspace / "report" / "search-intelligence.html"
         state.search_last_duration_seconds = duration
-        state.search_last_report = str(report) if report.is_file() else ""
-        limited = bool(any_nonzero or issues or runner_errors or not report.is_file())
+        state.search_last_report = ""
+        limited = bool(any_nonzero or issues or runner_errors)
         if limited:
             state.search_last_status = "COMPLETE_WITH_LIMITATIONS"
             details: list[str] = []
@@ -447,8 +445,6 @@ def _install_search_console_adherence() -> None:
                     f"{_serp_issue_category(code, message)} / {code}: {message}"
                 )
             details.extend(runner_errors[:2])
-            if not report.is_file():
-                details.append("search-intelligence.html não foi materializado")
             state.search_last_detail = (
                 f"{len(queries)} termo(s); duração SERP={duration:.1f}s; "
                 + (" | ".join(details) if details else "uma ou mais consultas retornaram limitação")
@@ -456,7 +452,7 @@ def _install_search_console_adherence() -> None:
         else:
             state.search_last_status = "COMPLETE"
             state.search_last_detail = (
-                f"{len(queries)} termo(s) observados; relatório={report.name}; duração SERP={duration:.1f}s"
+                f"{len(queries)} termo(s) observados; duração SERP={duration:.1f}s"
             )
 
         _finalize_console_clock(
@@ -464,9 +460,9 @@ def _install_search_console_adherence() -> None:
             workspace,
             limited=limited,
             detail=(
-                "processo finalizado; Search Intelligence registrou limitação detalhada no relatório e no log"
+                "processo finalizado; Search Intelligence registrou limitação no estado persistido e no log"
                 if limited
-                else "processo finalizado incluindo Search Intelligence e atualização final dos relatórios"
+                else "processo finalizado incluindo Search Intelligence persistida"
             ),
         )
         return 1 if limited else 0
