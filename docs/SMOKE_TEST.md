@@ -50,7 +50,7 @@ report-catalog/manifest.json      existe
 report-catalog/css/site.css       existe
 ```
 
-Validar no `report-catalog/` os CATs selecionados e suas páginas de governança. A retirada do relatório convencional não pode remover findings, recomendações, causa raiz, precisão ou telemetria persistida.
+Validar no `report-catalog/` os CATs selecionados e suas páginas de governança. A ausência de HTML não-catalog não pode reduzir findings, recomendações, causa raiz, precisão ou telemetria persistida.
 
 ## 3. Desktop e Both
 
