@@ -7,6 +7,7 @@ on:
       - feat/passive-security-catalog
     paths:
       - 'src/rasai/audit_runner.py'
+      - 'src/rasai/audit_progress_runtime.py'
       - 'src/rasai/m9.py'
       - 'src/rasai/cli.py'
       - 'src/rasai/cli_extensions.py'
@@ -79,6 +80,7 @@ jobs:
         run: |
           python -m py_compile \
             src/rasai/audit_runner.py \
+            src/rasai/audit_progress_runtime.py \
             src/rasai/m9.py \
             src/rasai/cli.py \
             src/rasai/cli_extensions.py \
