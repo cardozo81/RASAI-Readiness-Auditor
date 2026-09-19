@@ -2,6 +2,7 @@
 from rasai.catalog_report_presentation import *  # noqa: F401,F403
 from rasai.configuration_value_labels import (
     configuration_csv_report,
+    configuration_value_label,
     configuration_value_report,
 )
 import json
@@ -140,7 +141,7 @@ def _catalog_source_specs(catalog_id: str) -> tuple[tuple[str,str],...]:
             ("passive_security_resources","Inventário de scripts, recursos, formulários e iframes"),
             ("passive_security_components","Componentes e versões identificáveis"),
             ("passive_security_integrations","Estado de OSV, CISA KEV e fontes reutilizadas"),
-            ("passive_security_advisories","Advisories e CVEs correlacionados"),
+            ("passive_security_advisories","Avisos de segurança e CVEs correlacionados"),
             ("passive_security_findings","Achados determinísticos/externos"),
             ("passive_security_remediations","Plano de remediação de segurança"),
             ("web_performance_observations","Lighthouse · Boas práticas reutilizado"),
@@ -422,8 +423,13 @@ def _configuration_rows(data: _ReportData, catalog_id: str) -> list[Sequence[Any
             )
             for label,name in fields:
                 raw=environment.get(name)
-                if raw not in (None,""):
-                    rows.append((label,public_label(raw) or str(raw),"Plano congelado / configuração efetiva"))
+                if raw in (None,""):
+                    continue
+                if name=="RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS":
+                    value=str(raw)
+                else:
+                    value=configuration_value_label(name,raw) or public_label(raw) or str(raw)
+                rows.append((label,value,"Plano congelado / configuração efetiva"))
         rows.append(("MDN HTTP Observatory","Reutilizado da configuração canônica de padrões; não há configuração paralela no CAT-10","Arquitetura do catálogo"))
     if item.get("detail"):
         rows.append(("Condição registrada no plano",_plan_detail_label(item.get("detail")),"Plano congelado"))
