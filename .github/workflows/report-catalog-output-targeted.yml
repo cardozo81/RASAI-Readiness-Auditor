@@ -48,12 +48,14 @@ on:
       - 'src/rasai/search_audit_runtime.py'
       - 'src/rasai/console_search_intelligence.py'
       - 'src/rasai/console_governed_search_runtime.py'
+      - 'src/rasai/documented_contract_reconciliation.py'
       - 'src/rasai/search_intelligence/runtime.py'
       - 'src/rasai/search_intelligence/competitive_runtime.py'
       - 'src/rasai/search_intelligence/competitive_ai_runtime.py'
       - 'src/rasai/search_intelligence/reporting.py'
       - 'tests/test_serp.py'
       - 'tests/test_console_search_intelligence.py'
+      - 'tests/test_documented_contract_reconciliation.py'
       - 'tests/test_report_catalog_output_contract.py'
       - 'tests/test_m12_stable_baseline.py'
       - 'tests/test_m16_root_cause.py'
@@ -130,6 +132,7 @@ jobs:
             src/rasai/search_audit_runtime.py \
             src/rasai/console_search_intelligence.py \
             src/rasai/console_governed_search_runtime.py \
+            src/rasai/documented_contract_reconciliation.py \
             src/rasai/search_intelligence/runtime.py \
             src/rasai/search_intelligence/competitive_runtime.py \
             src/rasai/search_intelligence/competitive_ai_runtime.py
