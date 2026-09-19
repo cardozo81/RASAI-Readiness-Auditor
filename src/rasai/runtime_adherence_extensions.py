@@ -151,59 +151,6 @@ def _issue_notice(issues: Sequence[Mapping[str, Any]], *, title: str) -> str:
     )
 
 
-def _enrich_serp_reports(workspace: Path, issues: Sequence[Mapping[str, Any]], found: Sequence[Mapping[str, Any]]) -> None:
-    """Add operator-facing SERP limitation and customer-position emphasis to reports."""
-    start_marker = "<!-- RASAI_SERP_RUNTIME_ADHERENCE_START -->"
-    end_marker = "<!-- RASAI_SERP_RUNTIME_ADHERENCE_END -->"
-    search_path = workspace / "report" / "search-intelligence.html"
-    if search_path.is_file():
-        try:
-            html = search_path.read_text(encoding="utf-8")
-            html = _remove_managed_block(html, start_marker, end_marker)
-            additions: list[str] = []
-            if found:
-                hit_rows = []
-                for row in found:
-                    hit_rows.append(
-                        "<li>"
-                        f"<strong>{escape(str(row.get('query') or '-'))}</strong>: "
-                        f"domínio principal <code>{escape(str(row.get('domain_of_interest') or '-'))}</code> "
-                        f"encontrado na posição <strong>#{escape(str(row.get('customer_position') or '-'))}</strong>."
-                        "</li>"
-                    )
-                additions.append(
-                    "<section class='panel rasai-serp-customer-highlight' style='border-width:2px'>"
-                    "<div class='kicker'>Domínio principal localizado</div>"
-                    "<h2>Posição do domínio auditado na SERP</h2>"
-                    "<div class='notice'><strong>Destaque:</strong> estas posições correspondem ao mesmo domínio derivado da URL principal da auditoria.</div>"
-                    f"<ul>{''.join(hit_rows)}</ul></section>"
-                )
-            notice = _issue_notice(issues, title="Falha ou indisponibilidade na coleta SERP")
-            if notice:
-                additions.append(notice)
-            if additions:
-                block = start_marker + "".join(additions) + end_marker
-                anchor = "</header>"
-                html = html.replace(anchor, anchor + block, 1) if anchor in html else html + block
-            search_path.write_text(html, encoding="utf-8", newline="\n")
-        except (OSError, UnicodeError):
-            pass
-
-    index_path = workspace / "report" / "index.html"
-    if index_path.is_file():
-        try:
-            html = index_path.read_text(encoding="utf-8")
-            html = _remove_managed_block(html, start_marker, end_marker)
-            notice = _issue_notice(issues, title="Search Intelligence concluído com limitações")
-            if notice:
-                block = start_marker + notice + end_marker
-                anchor = "</header>"
-                html = html.replace(anchor, anchor + block, 1) if anchor in html else html + block
-            index_path.write_text(html, encoding="utf-8", newline="\n")
-        except (OSError, UnicodeError):
-            pass
-
-
 def _append_serp_events(workspace: Path, state: Any, issues: Sequence[Mapping[str, Any]], duration: float, runner_errors: Sequence[str]) -> None:
     try:
         from rasai.operational_log import try_append_operational_event
