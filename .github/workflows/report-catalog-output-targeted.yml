@@ -17,6 +17,7 @@ on:
       - 'src/rasai/context_scope_runtime.py'
       - 'src/rasai/improvement_intelligence_runtime.py'
       - 'src/rasai/ai_orchestration_unification.py'
+      - 'src/rasai/ai_orchestration_unification_cleanup.py'
       - 'src/rasai/ai_efficiency_policy.py'
       - 'src/rasai/quality_report_presentation.py'
       - 'src/rasai/public_contract_gate.py'
@@ -88,6 +89,7 @@ jobs:
             src/rasai/context_scope_runtime.py \
             src/rasai/improvement_intelligence_runtime.py \
             src/rasai/ai_orchestration_unification.py \
+            src/rasai/ai_orchestration_unification_cleanup.py \
             src/rasai/ai_efficiency_policy.py \
             src/rasai/quality_report_presentation.py \
             src/rasai/public_contract_gate.py \
@@ -162,6 +164,23 @@ jobs:
           import rasai.audit_reprocess
           import rasai.web.pilot_app
           print("affected imports: OK")
+          PY
+
+      - name: Bootstrap AI efficiency policy
+        run: |
+          python - <<'PY'
+          from rasai.ai_efficiency_policy import install
+          install()
+          print("AI efficiency bootstrap: OK")
+          PY
+
+      - name: Bootstrap local console without entering interactive loop
+        run: |
+          python - <<'PY'
+          import rasai.console_entrypoint as console
+          console.interactive_console.main = lambda: 0
+          assert console.main() == 0
+          print("console bootstrap: OK")
           PY
 
       - name: Run catalog-only output contract tests
