@@ -36,6 +36,7 @@ from rasai.external_observability_policy import (
 )
 from rasai.observability.external_sources import (
     SOURCE_COMMON_CRAWL,
+    _common_crawl_no_capture_message,
     archive_rows,
     collect_common_crawl_history,
 )
@@ -95,6 +96,7 @@ def common_crawl_dataset_health(
     except (TypeError, ValueError, json.JSONDecodeError):
         metadata = {}
     errors: list[str] = []
+    no_capture_error_count = 0
     artifact_path = str(dataset["artifact_path"] or "")
     if artifact_path:
         path = Path(artifact_path)
@@ -104,15 +106,25 @@ def common_crawl_dataset_health(
             artifact = json.loads(path.read_text(encoding="utf-8"))
             raw_errors = artifact.get("errors") if isinstance(artifact, Mapping) else None
             if isinstance(raw_errors, list):
-                errors.extend(str(item) for item in raw_errors if str(item).strip())
+                for item in raw_errors:
+                    text = str(item or "").strip()
+                    if not text:
+                        continue
+                    if _common_crawl_no_capture_message(text):
+                        # Backward compatibility for artifacts produced before no-capture
+                        # events were separated from actual provider errors.
+                        no_capture_error_count += 1
+                        continue
+                    errors.append(text)
         except (OSError, TypeError, ValueError, json.JSONDecodeError):
             pass
     try:
         error_count = max(0, int(metadata.get("errors") or 0))
     except (TypeError, ValueError):
         error_count = 0
-    if error_count and not errors:
-        errors.append(f"COMMON_CRAWL_PROVIDER_ERRORS:{error_count}")
+    effective_error_count = max(0, error_count - no_capture_error_count)
+    if effective_error_count and not errors:
+        errors.append(f"COMMON_CRAWL_PROVIDER_ERRORS:{effective_error_count}")
     try:
         rows = max(0, int(metadata.get("rows") if metadata.get("rows") is not None else (row_count or 0)))
     except (TypeError, ValueError):
