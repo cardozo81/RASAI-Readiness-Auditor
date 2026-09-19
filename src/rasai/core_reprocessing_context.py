@@ -198,7 +198,7 @@ def _safe_core_wrapper(base: Any, module: Any, core: Any):
             skipped_success_items=skipped_success,
             remaining_items=summary.pending_items + summary.blocked_items,
             temporal_expired_items=summary.expired_items,
-            report_root=workspace.root / "report",
+            report_root=workspace.root / "report-catalog",
         )
 
     reprocess_with_core_context._rasai_core_reprocessing_contextsafe = True
