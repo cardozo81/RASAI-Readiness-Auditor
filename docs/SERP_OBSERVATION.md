@@ -339,7 +339,7 @@ Essas superfícies de ingestão permanecem separadas do contrato de adapter SERP
 Relatório pontual da auditoria:
 
 ```text
-AUD-*/report/search-intelligence.html
+AUD-*/report-catalog/cat-05.html
 ```
 
 Histórico determinístico do par:
