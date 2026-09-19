@@ -12,6 +12,7 @@ from rasai.catalog_report_contract import CATALOG_REPORT_FILENAMES, CATALOG_REPO
 from rasai.catalog_report_model import _load_data
 from rasai.directed_analysis import (
     _catalogs_for_candidate,
+    _provider_config,
     _validate_ai_output,
     _validate_references,
     build_strategic_context,
@@ -341,3 +342,52 @@ def test_directed_report_hides_internal_control_domains(tmp_path: Path) -> None:
     assert "Não foi possível resolver um provedor de IA elegível" in html
     assert "Análise direcionada" in html
     assert "Remediação" in html
+
+
+def test_provider_config_resolves_actual_success_when_improvement_run_used_auto(monkeypatch, tmp_path: Path) -> None:
+    workspace=_workspace(tmp_path,ai_enabled=True)
+    connection=sqlite3.connect(workspace.database)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE improvement_intelligence_runs(
+                audit_id TEXT PRIMARY KEY,
+                provider TEXT,
+                model TEXT,
+                reasoning TEXT,
+                updated_at TEXT
+            );
+            CREATE TABLE ai_provider_attempts(
+                attempt_id TEXT PRIMARY KEY,
+                audit_id TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                model TEXT,
+                reasoning_profile TEXT NOT NULL,
+                status TEXT NOT NULL,
+                operation TEXT,
+                started_at TEXT NOT NULL
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO improvement_intelligence_runs VALUES (?,?,?,?,?)",
+            (AUDIT_ID,"auto",None,None,"2026-09-19T17:35:21+00:00"),
+        )
+        connection.execute(
+            "INSERT INTO ai_provider_attempts VALUES (?,?,?,?,?,?,?,?)",
+            (
+                "AIP-1",AUDIT_ID,"OPENAI","gpt-5.6-luna","NONE","SUCCESS",
+                "IMPROVEMENT_INTELLIGENCE","2026-09-19T17:34:19+00:00",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    monkeypatch.setenv("OPENAI_API_KEY","test-key")
+    config=_provider_config(AUDIT_ID,workspace,"pt-BR")
+
+    assert config is not None
+    assert config.provider == "openai"
+    assert config.model == "gpt-5.6-luna"
+    assert config.reasoning == "NONE"
