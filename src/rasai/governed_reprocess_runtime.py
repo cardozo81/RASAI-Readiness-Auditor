@@ -482,10 +482,16 @@ def _registered_ai_purposes(
     recovered: Mapping[str, str],
 ) -> frozenset[str]:
     """Return only registered AI purposes justified by this RPR dependency graph."""
-    if any(
-        str(item.component) not in _AI_COMPONENTS
-        for item in _required_pending(workspace, audit_id)
-    ):
+    pending = _required_pending(workspace, audit_id)
+    blockers = tuple(
+        item
+        for item in pending
+        if str(item.component) != "IMPROVEMENT_INTELLIGENCE"
+    )
+    if blockers:
+        # Registered/advisory AI is downstream of the primary required AI pipeline.
+        # Running it while semantic/technical/content or collection work is unresolved
+        # would spend provider quota on context that may still change.
         return frozenset()
 
     purposes: set[str] = set()
