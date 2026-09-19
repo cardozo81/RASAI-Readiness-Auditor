@@ -349,17 +349,26 @@ def _stale_tasks_to_fulfillment(workspace: Any, audit_id: str) -> int:
     return changed
 
 
-def prepare_reprocess_evidence(workspace: Any, audit_id: str) -> Any:
-    """Finish bounded pending collection and seal the evidence used by RPR AI."""
+def _required_pending(workspace: Any, audit_id: str) -> tuple[Any, ...]:
+    return tuple(
+        item
+        for item in list_work_items(workspace, audit_id, pending_only=True)
+        if bool(item.required)
+    )
+
+
+def _prepare_reprocess(workspace: Any, audit_id: str) -> ReprocessPreparation:
+    """Retry required collection dependencies and seal the resulting evidence."""
     try_append_operational_event(
         workspace,
         "AUDIT_REPROCESS_COLLECTION_PHASE_STARTED",
         audit_id=audit_id,
         reprocess_id=_current_reprocess_id(workspace, audit_id),
     )
-    recovered = {}
+    recovered: dict[str, str] = {}
     recovered.update(_recover_live_measurements(workspace, audit_id))
-    recovered.update(_recover_optional_collectors(workspace, audit_id))
+    optional_states, evaluated_optional = _recover_optional_collectors(workspace, audit_id)
+    recovered.update(optional_states)
     states = _terminalized_states(_collection_states(workspace, audit_id))
     prior = latest_evidence_snapshot(workspace, audit_id)
     snapshot = seal_evidence(
@@ -368,7 +377,6 @@ def prepare_reprocess_evidence(workspace: Any, audit_id: str) -> Any:
         collection_states=states,
         context={
             "phase": "AUDIT_REPROCESS",
-            "reprocess_id": _current_reprocess_id(workspace, audit_id),
             "recovered_collectors": recovered,
         },
     )
@@ -384,50 +392,147 @@ def prepare_reprocess_evidence(workspace: Any, audit_id: str) -> Any:
         supersedes_snapshot_id=(prior.evidence_snapshot_id if prior is not None else None),
         stale_ai_tasks=stale,
         collector_states=states,
+        recovered_collectors=recovered,
     )
-    return snapshot
+    return ReprocessPreparation(
+        snapshot=snapshot,
+        recovered=recovered,
+        evaluated_optional=evaluated_optional,
+        sealed_new_evidence=(
+            prior is None or snapshot.evidence_snapshot_id != prior.evidence_snapshot_id
+        ),
+    )
+
+
+def prepare_reprocess_evidence(workspace: Any, audit_id: str) -> Any:
+    """Compatibility entrypoint returning the evidence snapshot prepared for RPR."""
+    return _prepare_reprocess(workspace, audit_id).snapshot
 
 
 @contextmanager
-def _suppress_mid_reprocess_reporting() -> Iterator[Any]:
-    from rasai import report_completion
+def _defer_mid_reprocess_projection() -> Iterator[tuple[Any, Any, Any]]:
+    """Defer derived strategy/catalog projection until all RPR work is final."""
+    from rasai import directed_analysis, report_completion
 
-    current = report_completion.finalize_audit_report_site
+    data_finalizer = report_completion.finalize_audit_report_site
+    directed_finalizer = directed_analysis.reprocess_directed_analysis
+    catalog_finalizer = report_completion.materialize_catalog_report_projection
 
     def deferred(*args: Any, **kwargs: Any):
         del args, kwargs
         return None
 
     report_completion.finalize_audit_report_site = deferred
+    directed_analysis.reprocess_directed_analysis = deferred
+    report_completion.materialize_catalog_report_projection = deferred
     try:
-        yield current
+        yield data_finalizer, directed_finalizer, catalog_finalizer
     finally:
-        report_completion.finalize_audit_report_site = current
+        report_completion.finalize_audit_report_site = data_finalizer
+        directed_analysis.reprocess_directed_analysis = directed_finalizer
+        report_completion.materialize_catalog_report_projection = catalog_finalizer
+
+
+@contextmanager
+def _defer_reprocess_finish(
+    module: Any,
+    *,
+    workspace: Any,
+    audit_id: str,
+    reprocess_id: str,
+) -> Iterator[Any]:
+    """Keep the RPR open until governed AI and final projections are complete."""
+    current_start = module.start_reprocess_run
+    current_finish = module.finish_reprocess_run
+
+    def reuse_start(*args: Any, **kwargs: Any) -> str:
+        del args, kwargs
+        return reprocess_id
+
+    def defer_finish(*args: Any, **kwargs: Any):
+        del args, kwargs
+        return recalculate(workspace, audit_id)
+
+    module.start_reprocess_run = reuse_start
+    module.finish_reprocess_run = defer_finish
+    try:
+        yield current_finish
+    finally:
+        module.start_reprocess_run = current_start
+        module.finish_reprocess_run = current_finish
+
+
+def _registered_ai_purposes(
+    workspace: Any,
+    audit_id: str,
+    recovered: Mapping[str, str],
+) -> frozenset[str]:
+    """Return only registered AI purposes justified by this RPR dependency graph."""
+    if any(
+        str(item.component) not in _AI_COMPONENTS
+        for item in _required_pending(workspace, audit_id)
+    ):
+        return frozenset()
+
+    purposes: set[str] = set()
+    if _pending_item(workspace, audit_id, "IMPROVEMENT_INTELLIGENCE") is not None:
+        purposes.add("IMPROVEMENT_INTELLIGENCE")
+    if str(recovered.get("SEARCH_INTELLIGENCE") or "").upper() == "SUCCESS":
+        purposes.add("COMPETITIVE_INTELLIGENCE")
+    return frozenset(purposes)
 
 
 def _registered_ai_and_report(
     *,
     workspace: Any,
     audit_id: str,
-    renderer: Any,
+    preparation: ReprocessPreparation,
+    data_finalizer: Any,
+    directed_finalizer: Any,
+    catalog_finalizer: Any,
 ) -> None:
-    snapshot = latest_evidence_snapshot(workspace, audit_id)
+    """Finish AI/derived data first and materialize report-catalog exactly once."""
+    from rasai import selective_optional_reprocess as optional
+
+    snapshot = preparation.snapshot
     if snapshot is None:
         raise RuntimeError("RPR cannot run AI without a sealed evidence version")
-    outcomes = run_registered_ai_phase(
-        audit_id=audit_id,
-        workspace=workspace,
-        evidence_snapshot=snapshot,
-    )
-    mark_ai_sealed(
-        audit_id=audit_id,
-        workspace=workspace,
-        evidence_snapshot=snapshot,
-        outcomes=outcomes,
-    )
-    renderer(audit_id=audit_id, workspace=workspace)
-    project_report_validity(audit_id=audit_id, workspace=workspace)
 
+    purposes = _registered_ai_purposes(workspace, audit_id, preparation.recovered)
+    evaluated = set(preparation.evaluated_optional)
+    outcomes: dict[str, Mapping[str, Any]] = {}
+    non_ai_pending = tuple(
+        item
+        for item in _required_pending(workspace, audit_id)
+        if str(item.component) not in _AI_COMPONENTS
+    )
+    if not non_ai_pending:
+        if purposes:
+            with optional._original_optional_environment(workspace, audit_id):
+                outcomes = run_registered_ai_phase(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    evidence_snapshot=snapshot,
+                    purposes=purposes,
+                )
+            if "IMPROVEMENT_INTELLIGENCE" in purposes:
+                evaluated.add("IMPROVEMENT_INTELLIGENCE")
+        mark_ai_sealed(
+            audit_id=audit_id,
+            workspace=workspace,
+            evidence_snapshot=snapshot,
+            outcomes=outcomes,
+        )
+
+    data_finalizer(audit_id=audit_id, workspace=workspace)
+    if evaluated:
+        optional._record_optional_attempts(workspace, audit_id, evaluated)
+
+    summary = recalculate(workspace, audit_id)
+    if str(summary.processing_status).upper() == "COMPLETE":
+        directed_finalizer(audit_id=audit_id, workspace=workspace)
+    catalog_finalizer(audit_id=audit_id, workspace=workspace)
+    project_report_validity(audit_id=audit_id, workspace=workspace)
 
 def _install_core_composition() -> None:
     """Inject pre-AI collection into the core-reprocessing wrapper factory.
