@@ -35,10 +35,8 @@ from rasai.external_observability_policy import (
     common_crawl_max_urls,
     dimensions_csv,
 )
-from rasai.external_observability_reporting import enrich_external_observability_reports
 from rasai.observability.crux_history import collect_crux_history
 from rasai.observability.external_sources import collect_clarity_insights, collect_common_crawl_history
-from rasai.observability.reporting import enrich_observability_report
 from rasai.secret_safety import redact_text
 from rasai.standards_service_registry import (
     DEFAULT_STANDARDS_TIMEOUT_SECONDS,
@@ -428,11 +426,8 @@ def _safe_error(label: str, exc: Exception) -> str:
 
 
 def install() -> None:
-    """Wrap final report materialization after the canonical/GSC finalizers."""
-    from rasai import report_completion, report_navigation
-    from rasai.report_manifest import write_report_manifest
-    from rasai.report_scale_ux import enhance_report_directory
-    from rasai.standards_metrics import enrich_existing_reports, write_standards_report
+    """Collect configured external observability without conventional HTML projection."""
+    from rasai import report_completion
 
     if getattr(report_completion, "_rasai_external_observability_runtime", False):
         return
@@ -445,21 +440,11 @@ def install() -> None:
             context_interpretations=context_interpretations,
             routing_snapshot=routing_snapshot,
         )
-        if base.missing_pages:
-            return base
         try:
-            outcomes = collect_configured_external_observability(audit_id=audit_id, workspace=workspace)
-            if any(bool(item.get("effective_enabled")) for item in outcomes.values()):
-                enrich_observability_report(audit_workspace=workspace.root)
-                enrich_external_observability_reports(audit_workspace=workspace.root)
-                write_standards_report(audit_id=audit_id, workspace=workspace)
-                enrich_existing_reports(audit_id=audit_id, workspace=workspace)
-                # standards re-render may replace thematic pages; project external
-                # panels once more against their final current-run HTML.
-                enrich_external_observability_reports(audit_workspace=workspace.root)
-                report_navigation.normalize_report_navigation(workspace.root / "report")
-                enhance_report_directory(workspace.root / "report")
-                write_report_manifest(workspace.root / "report")
+            outcomes = collect_configured_external_observability(
+                audit_id=audit_id,
+                workspace=workspace,
+            )
             for service_id, result in outcomes.items():
                 if result.get("collection_state") in {"ERROR", "PARTIAL"}:
                     _LOGGER.warning(
@@ -469,17 +454,17 @@ def install() -> None:
                         "; ".join(str(item) for item in result.get("errors") or ()),
                     )
         except Exception:
-            # External enrichment must not compromise the already completed canonical
-            # audit/report. Details go to the application log without changing score.
-            _LOGGER.exception("External observability finalization failed; canonical audit preserved")
+            _LOGGER.exception(
+                "External observability finalization failed; canonical audit data preserved"
+            )
 
-        inspected = report_completion.inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
         return report_completion.AuditReportCompletion(
-            expected_pages=inspected.expected_pages,
-            generated_pages=inspected.generated_pages,
-            missing_pages=inspected.missing_pages,
+            expected_pages=base.expected_pages,
+            generated_pages=base.generated_pages,
+            missing_pages=base.missing_pages,
             renderer_errors=base.renderer_errors,
         )
 
     report_completion.finalize_audit_report_site = finalize_with_external_observability
     report_completion._rasai_external_observability_runtime = True
+
