@@ -72,7 +72,7 @@ Synthetic User Experience Apdex pode modelar `TABLET` como perfil sintético, ma
 ```text
 AUD-*/audit.db
 AUD-*/artifacts/
-AUD-*/report/
+AUD-*/report-catalog/
 ```
 
 ### Sidecar de Observability
