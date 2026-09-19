@@ -355,6 +355,13 @@ def _action_from_candidate(
         for cat in catalogs
         if cat in CATALOG_PAGE_BY_ID
     ]
+    if source_kind == "DETERMINISTIC" and "CAT-09" in CATALOG_PAGE_BY_ID:
+        source_refs = [
+            _exact_ref(
+                "CAT-09","results",topic=title,ref_id=source_id,
+                anchor_id="rem-det-"+_anchor_token(source_id,"recommendation"),
+            )
+        ]
     if source_kind == "DEEP_ANALYSIS" and row.get("finding_id") and "CAT-08" in CATALOG_PAGE_BY_ID:
         finding_id = str(row.get("finding_id"))
         source_refs = [
