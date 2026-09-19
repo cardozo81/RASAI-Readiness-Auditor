@@ -147,6 +147,7 @@ def install() -> None:
     from rasai.fulfillment_execution_contract import install as install_fulfillment_execution_contract
     from rasai.reprocess_failure_preservation import install as install_reprocess_failure_preservation
     from rasai.reprocess_runtime_safety import install as install_reprocess_runtime_safety
+    from rasai.quality_report_presentation import install as install_quality_report_presentation
     from rasai.semantic_recovery_runtime import install as install_semantic_recovery
     from rasai.technical_ai_eligibility import install as install_technical_ai_eligibility
 
@@ -160,6 +161,7 @@ def install() -> None:
     install_fulfillment_execution_contract()
     install_reprocess_failure_preservation()
     install_reprocess_runtime_safety()
+    install_quality_report_presentation()
 
     from rasai.accepted_audit_refinements import install as install_accepted_audit_refinements
     from rasai.accepted_report_compat import install as install_accepted_report_compat
@@ -199,10 +201,8 @@ def install() -> None:
     install_ai_task_profile_runtime()
     install_ai_task_profile_semantic_compat()
 
-    # Final point alignment discovered by the end-to-end human smoke. Common Crawl has
-    # a newer canonical implementation in post_smoke_hotfix; suppress the superseded
-    # installer before running the remaining alignment hooks so bootstrap cannot execute
-    # obsolete imports/signatures and there is only one owner for that collection phase.
+    # Common Crawl collection has a single canonical owner in post_smoke_hotfix.
+    # Suppress duplicate installer ownership before composing the remaining runtime hooks.
     from rasai import post_smoke_alignment as post_smoke_alignment_module
     from rasai.post_smoke_alignment import install as install_post_smoke_alignment
     from rasai.post_smoke_hotfix import install as install_post_smoke_hotfix
