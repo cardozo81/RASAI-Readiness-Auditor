@@ -2,7 +2,7 @@
 
 ## Contrato de workspace da auditoria
 
-Cada execução de `rasai audit` persiste a evidência no workspace `audits/<AUD-ID>/`. O banco `audit.db` e os artifacts coletados são a fonte de verdade; HTML, CSS e manifests são projeções reconstruíveis para leitura e integração.
+Cada execução de `rasai audit` persiste a evidência no workspace `audits/<AUD-ID>/`. O banco `audit.db` e os artifacts coletados são a fonte de verdade. O HTML é uma projeção reconstruível para leitura e integração.
 
 ```text
 audits/<AUD-ID>/
@@ -14,113 +14,56 @@ audits/<AUD-ID>/
 │  └─ outros artifacts internos por capacidade, quando aplicável
 ├─ logs/
 │  └─ audit.log                # quando logging persistente estiver ativo
-└─ report/
+└─ report-catalog/
    ├─ index.html
-   ├─ readiness.html
-   ├─ scoring.html
-   ├─ context.html
-   ├─ crawling-discovery.html
-   ├─ mobile.html
-   ├─ desktop.html
-   ├─ accessibility.html
-   ├─ web-performance.html
-   ├─ standards.html
-   ├─ apdex.html
-   ├─ apdex-experience.html
-   ├─ search-intelligence.html
-   ├─ ai-visibility.html
-   ├─ observability.html
-   ├─ ai-usage.html
-   ├─ improvement-intelligence.html
-   ├─ content-suggestions.html
-   ├─ remediation.html
-   ├─ quality.html
-   ├─ references.html
-   ├─ report-manifest.json
+   ├─ sari.html
+   ├─ cat-01.html ... cat-10.html
+   ├─ capture-context.html
+   ├─ execution-evidence.html
+   ├─ ai-integrations.html
+   ├─ methodology.html
+   ├─ metrics.html
+   ├─ manifest.json
    └─ css/site.css
 ```
 
-### Páginas que uma auditoria normal deve materializar
+### Saídas retiradas da auditoria
 
-O término bem-sucedido de uma análise de URLs exige que existam fisicamente **todas as superfícies canônicas do contrato público**. A disponibilidade de dados é independente da disponibilidade estrutural da página.
-
-```text
-index.html
-readiness.html
-scoring.html
-context.html
-crawling-discovery.html
-mobile.html
-desktop.html
-accessibility.html
-web-performance.html
-standards.html
-apdex.html
-apdex-experience.html
-search-intelligence.html
-ai-visibility.html
-observability.html
-ai-usage.html
-improvement-intelligence.html
-content-suggestions.html
-remediation.html
-quality.html
-references.html
-```
-
-Quando uma capacidade está desabilitada, não configurada, não é aplicável ou não retornou dado, a superfície correspondente continua presente e representa explicitamente estado como `SEM DADOS`, desabilitado, indisponível, não solicitado ou não observado. Ausência de coleta não deve ser mascarada pela ausência do HTML e também não deve ser convertida em falha do website ou score zero.
-
-Essa estabilidade é somente de apresentação. Criar/manter a superfície HTML **não** habilita collector, API, provider, IA, SERP ou synthetic workload. Chamadas externas continuam condicionadas à configuração da execução.
-
-`improvement-intelligence.html`, por exemplo, registra `NOT_EXECUTED`/estado equivalente quando a análise profunda não foi solicitada e não cria chamada de IA apenas para materializar o report. Da mesma forma, `apdex.html` e `apdex-experience.html` não criam navegações sintéticas quando os respectivos módulos não foram executados.
-
-Ao final de `rasai audit`, o runtime reconstrói as projeções audit-owned a partir do workspace persistido, permite que renderizadores especializados escrevam dados reais e, por último, materializa estado neutro somente para superfícies canônicas ainda ausentes. Em seguida compara o catálogo esperado com os arquivos físicos e retorna status não zero se alguma página continuar ausente. O `audit.db` não é descartado em caso de falha exclusiva de projeção.
-
-### Capacidades especializadas e dados pós-auditoria
-
-As superfícies abaixo continuam pertencendo ao catálogo canônico e agora também existem estruturalmente em toda auditoria finalizada:
+Novas auditorias não materializam mais:
 
 ```text
-search-intelligence.html
-ai-visibility.html
-observability.html
-quality.html
+<AUD>/report/
+<AUD>/report.html
+<AUD>/remediation.html
 ```
 
-O que permanece opcional é o **conteúdo especializado**. Comandos/capacidades posteriores podem enriquecer essas páginas com dados correspondentes ou produzir saídas standalone adicionais. A ausência de dataset/sidecar/processamento deve resultar em estado neutro dentro da página, não em desaparecimento do link.
-
-O menu final é estático e preserva a ordem definida por `ReportSurface`. `scoring.html` é a única URL canônica da metodologia.
-
-## `report/report-manifest.json`
-
-O manifest é metadado de projeção, não segunda fonte de verdade. Além das versões e páginas materializadas, o contrato atual registra a completude da projeção pertencente à auditoria:
+A remoção é exclusivamente da projeção HTML convencional. Permanecem inalterados os dados e processamentos funcionais que alimentam outras capacidades, incluindo:
 
 ```text
-audit_id
-auditor_version
-ruleset_version
-sari_version
-scoring_version
-report_contract_version
-observability_contract_version
-generated_pages
-audit_expected_pages
-audit_missing_pages
-audit_report_complete
-generated_at
-source_db
+findings
+evidence
+recommendations
+root_cause_analyses
+root_cause_precision
+scores
+score_contributions
+telemetria/custos de IA
+fulfillment e rastreabilidade
 ```
 
-Para uma auditoria íntegra quanto à projeção HTML:
+Nenhum collector, crawler, integração externa, scoring, análise determinística ou chamada de IA é eliminado por essa mudança.
 
-```json
-{
-  "audit_report_complete": true,
-  "audit_missing_pages": []
-}
-```
+### Relatório suportado por auditoria
 
-`audit_expected_pages` corresponde ao conjunto canônico estático. `generated_pages` deve conter essas superfícies depois da finalização; saídas standalone ou artifacts adicionais permanecem fora desse contrato.
+A projeção HTML audit-owned suportada é `report-catalog/`. Sua materialização continua usando a fonte persistida da AUD e não executa collectors, APIs, providers, IA ou scoring para preencher HTML.
+
+O catálogo possui contrato próprio e continua incluindo as páginas CAT selecionadas e suas páginas de governança. A retirada de `report/` não altera CAT-01 ... CAT-10, Matriz de encerramento estrutural, regras de catálogo ou rastreabilidade do catálogo.
+
+Saídas standalone fora de uma AUD, como `monitoring/`, `verification/`, `quality/TIMELINE-*`, `search-history/` e `consolidated/`, mantêm seus contratos próprios e não são removidas por este escopo.
+
+### SaaS / Web
+
+Os endpoints `/api/v1/audits/{audit_id}/reports...` continuam disponíveis, mas servem somente arquivos autorizados dentro de `<AUD>/report-catalog/`. A rota não expõe `audit.db`, artifacts privados ou caminhos internos.
 
 ## Fonte de verdade e versões
 
