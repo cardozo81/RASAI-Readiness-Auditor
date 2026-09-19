@@ -472,6 +472,7 @@ def _archive_passive_security(workspace: Any, audit_id: str) -> None:
         ("passive_security_findings", "finding", "finding_id"),
         ("passive_security_remediations", "remediation", "remediation_id"),
     )
+    batches: list[tuple[str, str, list[dict[str, Any]]]] = []
     connection = sqlite3.connect(workspace.database)
     connection.row_factory = sqlite3.Row
     try:
@@ -492,17 +493,20 @@ def _archive_passive_security(workspace: Any, audit_id: str) -> None:
                 ).fetchall()
             ]
             if rows:
-                archive_rows(
-                    workspace,
-                    audit_id=audit_id,
-                    reprocess_id=reprocess_id,
-                    component="PASSIVE_SECURITY",
-                    entity_type=entity_type,
-                    id_field=id_field,
-                    rows=rows,
-                )
+                batches.append((entity_type, id_field, rows))
     finally:
         connection.close()
+
+    for entity_type, id_field, rows in batches:
+        archive_rows(
+            workspace,
+            audit_id=audit_id,
+            reprocess_id=reprocess_id,
+            component="PASSIVE_SECURITY",
+            entity_type=entity_type,
+            id_field=id_field,
+            rows=rows,
+        )
 
 
 def _recover_impacted_deterministic(workspace: Any, audit_id: str) -> dict[str, str]:
