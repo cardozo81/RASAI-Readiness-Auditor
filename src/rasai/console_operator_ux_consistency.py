@@ -39,8 +39,8 @@ _ACTION_REWRITES = {
     "A. Ajustar dependência/parâmetro": (
         "A. Ajustar dependência/parâmetro desta integração"
     ),
-    "T. Validar todas as integrações configuradas com probe seguro": (
-        "T. Validar integrações configuradas — somente probes seguros; pode consumir quota"
+    "T. Validar integrações e IAs configuradas — somente probes seguros": (
+        "T. Validar integrações e IAs configuradas — somente probes seguros; pode consumir quota"
     ),
     "1. Reprocessar somente pendências desta auditoria": (
         "1. Reprocessar somente pendências recuperáveis desta auditoria"
