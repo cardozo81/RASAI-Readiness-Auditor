@@ -164,5 +164,5 @@ jobs:
       - name: Run catalog and SaaS boundary regressions
         run: >-
           pytest -q
-          tests/test_catalog_report_site.py::test_catalog_report_materializes_without_conventional_report_tree
+          tests/test_catalog_report_site.py::test_catalog_report_materializes_without_non_catalog_report_tree
           tests/test_web_pilot.py::test_report_boundary_serves_only_authorized_catalog_report_tree
