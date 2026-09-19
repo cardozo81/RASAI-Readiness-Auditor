@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from html import escape
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 import sqlite3
 
 from rasai.persistence import AuditWorkspace
@@ -33,7 +34,7 @@ def _latest_dataset(connection: sqlite3.Connection) -> str | None:
 def reconcile_gsc_visibility_counts(*, audit_id: str, workspace: AuditWorkspace) -> None:
     """Project distinct returned-row query/URL counts from the latest GSC dataset."""
 
-    sidecar = Path(workspace.root) / "observability.db"
+    sidecar = observability_database_path(workspace.root)
     if not sidecar.is_file():
         return
 
