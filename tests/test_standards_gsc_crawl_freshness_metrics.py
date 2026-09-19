@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+from rasai.observability.store import observability_database_path
+
+def _obs_path(workspace: Path) -> Path:
+    path = observability_database_path(workspace)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 import json
 import sqlite3
 from types import SimpleNamespace
@@ -121,7 +129,7 @@ def _metrics(path):
 def test_crawl_freshness_uses_latest_dataset_and_persisted_collection_time(tmp_path) -> None:
     audit_db = tmp_path / "audit.db"
     _audit_database(audit_db)
-    _observability_database(tmp_path / "observability.db")
+    _observability_database(_obs_path(tmp_path))
     workspace = SimpleNamespace(root=tmp_path, database=audit_db)
 
     reconcile_gsc_crawl_freshness_metrics(audit_id="AUD-GSC-CRAWL", workspace=workspace)
@@ -145,7 +153,7 @@ def test_crawl_freshness_uses_latest_dataset_and_persisted_collection_time(tmp_p
 def test_crawl_freshness_keeps_percentiles_no_data_without_valid_last_crawl_times(tmp_path) -> None:
     audit_db = tmp_path / "audit.db"
     _audit_database(audit_db)
-    obs_db = tmp_path / "observability.db"
+    obs_db = _obs_path(tmp_path)
     connection = sqlite3.connect(obs_db)
     try:
         connection.executescript(
