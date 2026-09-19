@@ -99,6 +99,7 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
     from rasai.m18_ai import provider_session_snapshot
     from rasai.persistence import AuditWorkspace
     from rasai.report_completion import finalize_audit_report_site, materialize_catalog_report_projection
+    from rasai.directed_analysis import execute_directed_analysis
 
     original_run_audit = cli_extensions._audit_cli.run_audit
     captured: list[object] = []
@@ -143,6 +144,22 @@ def _run_audit_and_finalize(effective: list[str]) -> int:
             context_interpretations=context_interpretations,
             routing_snapshot=routing_snapshot,
         )
+        try:
+            directed = execute_directed_analysis(
+                audit_id=result.audit_id,
+                workspace=workspace,
+            )
+            _LOGGER.info(
+                "Directed Analysis finalized: audit=%s status=%s actions=%s ai_actions=%s",
+                result.audit_id,
+                directed.status,
+                directed.actions_count,
+                directed.ai_actions_count,
+            )
+        except Exception:
+            # Directed Analysis is advisory. A failure in this strategic layer must not
+            # invalidate the technical audit or the CAT-* source reports.
+            _LOGGER.exception("Directed Analysis failed; catalog technical results remain valid")
         catalog_completion = materialize_catalog_report_projection(
             audit_id=result.audit_id,
             workspace=workspace,
