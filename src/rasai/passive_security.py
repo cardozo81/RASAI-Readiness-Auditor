@@ -533,7 +533,25 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
     return resources, components, page_context
 
 
-def _persist_inventory(connection: sqlite3.Connection, audit_id: str, resources: Iterable[Mapping[str, Any]], components: Iterable[Mapping[str, Any]]) -> None:
+def _persist_inventory(
+    connection: sqlite3.Connection,
+    audit_id: str,
+    resources: Iterable[Mapping[str, Any]],
+    components: Iterable[Mapping[str, Any]],
+    *,
+    preserve_advisories: bool = False,
+) -> None:
+    resource_rows = tuple(resources)
+    component_rows = tuple(components)
+    advisories: tuple[dict[str, Any], ...] = ()
+    if preserve_advisories and _table_exists(connection, "passive_security_advisories"):
+        advisories = tuple(
+            dict(row)
+            for row in connection.execute(
+                "SELECT * FROM passive_security_advisories WHERE audit_id=?",
+                (audit_id,),
+            ).fetchall()
+        )
     connection.execute("DELETE FROM passive_security_advisories WHERE audit_id=?", (audit_id,))
     connection.execute("DELETE FROM passive_security_components WHERE audit_id=?", (audit_id,))
     connection.execute("DELETE FROM passive_security_resources WHERE audit_id=?", (audit_id,))
@@ -546,7 +564,7 @@ def _persist_inventory(connection: sqlite3.Connection, audit_id: str, resources:
             item.get("page_url") or "", item.get("resource_url"), item["resource_kind"],
             item["party"], item.get("protocol") or "", item.get("domain") or "",
             _dump(item.get("attributes") or {}), _dump(item.get("evidence_ids") or []),
-        ) for item in resources],
+        ) for item in resource_rows],
     )
     connection.executemany(
         """INSERT INTO passive_security_components
@@ -556,8 +574,24 @@ def _persist_inventory(connection: sqlite3.Connection, audit_id: str, resources:
             item["component_id"], audit_id, item["resource_id"], item["library"],
             item.get("version"), item.get("ecosystem"), item["identification_method"],
             item["confidence"], _dump(item.get("evidence_ids") or []),
-        ) for item in components],
+        ) for item in component_rows],
     )
+    if advisories:
+        valid_components = {str(item["component_id"]) for item in component_rows}
+        preserved = [row for row in advisories if str(row.get("component_id") or "") in valid_components]
+        connection.executemany(
+            """INSERT INTO passive_security_advisories
+               (row_id,audit_id,component_id,source,advisory_id,aliases_json,severity_json,references_json,kev_state,kev_details_json)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            [
+                (
+                    row["row_id"], row["audit_id"], row["component_id"], row["source"],
+                    row["advisory_id"], row["aliases_json"], row["severity_json"],
+                    row["references_json"], row["kev_state"], row["kev_details_json"],
+                )
+                for row in preserved
+            ],
+        )
 
 
 def _http_json(url: str, *, timeout: float, body: Mapping[str, Any] | None = None) -> Any:
@@ -1444,11 +1478,13 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
         with connection:
             ensure_schema(connection)
             resources, components, page_context = _resource_inventory(connection, workspace, audit_id)
-            existing_components = connection.execute(
-                "SELECT COUNT(*) FROM passive_security_components WHERE audit_id=?", (audit_id,)
-            ).fetchone()[0]
-            if not existing_components:
-                _persist_inventory(connection, audit_id, resources, components)
+            _persist_inventory(
+                connection,
+                audit_id,
+                resources,
+                components,
+                preserve_advisories=True,
+            )
 
             findings: list[dict[str, Any]] = []
             for page in page_context.values():
