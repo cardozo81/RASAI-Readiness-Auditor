@@ -37,6 +37,8 @@ on:
       - 'tests/test_catalog_report_assurance.py'
       - 'tests/test_console_catalog_workflow.py'
       - 'tests/test_catalog_report_site.py'
+      - 'tests/test_common_crawl_health.py'
+      - 'tests/test_external_observability_integrations.py'
   workflow_dispatch:
 
 permissions:
