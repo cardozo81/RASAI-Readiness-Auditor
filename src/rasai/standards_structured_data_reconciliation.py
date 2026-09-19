@@ -7,12 +7,11 @@ property completeness and without changing SARI-001/SCORE-GEO-004.
 """
 from __future__ import annotations
 
-from html import escape
 import sqlite3
 from typing import Any
 
 from rasai.persistence import AuditWorkspace
-from rasai.standards_metrics import _fmt_metric, _insert_panel, _record, load_metrics
+from rasai.standards_metrics import _record
 from rasai.standards_service_registry import service
 
 _METRIC_ID = "structured_data_type_property_identifiability_rate"
@@ -78,32 +77,6 @@ def reconcile_structured_data_metrics(*, audit_id: str, workspace: AuditWorkspac
             )
     finally:
         connection.close()
-
-
-def enrich_structured_data_report(*, audit_id: str, workspace: AuditWorkspace) -> None:
-    row = next(
-        (
-            item for item in load_metrics(audit_id, workspace)
-            if str(item["metric_id"]) == _METRIC_ID
-        ),
-        None,
-    )
-    if row is None:
-        return
-    card = (
-        "<div class='metric'><small>" + escape(str(row["label"])) + "</small><strong>"
-        + _fmt_metric(row)
-        + "</strong><span>DEVICE_SNAPSHOT · BR-GEO-035 determinável</span></div>"
-    )
-    _insert_panel(
-        workspace.root / "report" / "crawling-discovery.html",
-        "RASAI_STRUCTURED_DATA_IDENTIFIABILITY",
-        "<section class='panel'><h2>Dados estruturados · tipos e propriedades</h2>"
-        "<p>Consolidação determinística de BR-GEO-035. Mede identificabilidade dos tipos e propriedades relevantes "
-        "quando a regra é aplicável; não afirma completude de propriedades obrigatórias/recomendadas de Schema.org.</p>"
-        "<div class='metric-grid'>" + card + "</div>"
-        "<p><a href='standards.html'>Abrir metodologia e métricas de referência</a></p></section>",
-    )
 
 
 def install() -> None:
