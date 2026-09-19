@@ -21,7 +21,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
-from rasai.secret_safety import redact_value
+from rasai.secret_safety import redact_url, redact_value
 
 CONTRACT_VERSION = "PASSIVE-SECURITY-001"
 
@@ -286,6 +286,26 @@ def _resolved(resource_url: str | None, page_url: str) -> str | None:
         return resource_url
 
 
+def _redact_urlish(value: Any) -> Any:
+    """Redact credential-bearing URL material before CAT-10 persistence.
+
+    Security analysis only needs scheme/host/path/query-key structure. Raw signed
+    query values remain in the canonical source evidence and are not duplicated
+    into the CAT-10 tables.
+    """
+    if isinstance(value, Mapping):
+        return {str(key): _redact_urlish(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return tuple(_redact_urlish(item) for item in value)
+    if isinstance(value, list):
+        return [_redact_urlish(item) for item in value]
+    if isinstance(value, str):
+        lowered=value.strip().casefold()
+        if lowered.startswith(("http://","https://")):
+            return redact_url(value)
+    return value
+
+
 class _PassiveHTMLParser(HTMLParser):
     def __init__(self, page_url: str) -> None:
         super().__init__(convert_charrefs=True)
@@ -343,6 +363,9 @@ class _PassiveHTMLParser(HTMLParser):
         if nonce:
             safe_attrs["nonce_sha256"] = sha256(nonce.encode("utf-8")).hexdigest()
             safe_attrs["nonce_length"] = len(nonce)
+        for url_attribute in ("src","href","action"):
+            if safe_attrs.get(url_attribute):
+                safe_attrs[url_attribute] = _redact_urlish(safe_attrs[url_attribute])
         self.items.append({
             "kind": kind,
             "url": _resolved(url, self.page_url),
@@ -430,7 +453,8 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
     seen_snapshots: set[str] = set()
     for row in _page_rows(connection, audit_id):
         page_id = str(row["page_id"])
-        page_url = str(row["final_url"] or row["requested_url"] or row["normalized_url"] or "")
+        raw_page_url = str(row["final_url"] or row["requested_url"] or row["normalized_url"] or "")
+        page_url = str(_redact_urlish(raw_page_url) or "")
         snapshot_id = str(row["snapshot_id"] or "")
         headers, header_evidence = _headers_for_page(connection, audit_id, page_id)
         http, http_evidence = _http_response_for_page(connection, audit_id, page_id)
@@ -439,7 +463,7 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
             "page_url": page_url,
             "headers": headers,
             "header_evidence": header_evidence,
-            "http": http,
+            "http": _redact_urlish(http),
             "http_evidence": http_evidence,
             "runtime": [],
         })
@@ -456,7 +480,7 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
         html = _artifact_text(workspace, row["rendered_artifact_ref"] or row["raw_artifact_ref"])
         if not html:
             continue
-        parser = _PassiveHTMLParser(page_url)
+        parser = _PassiveHTMLParser(raw_page_url)
         try:
             parser.feed(html)
         except Exception:
@@ -472,6 +496,7 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
                     if entry.get("type") in {"password", "email", "tel", "number"}
                 ]
             resolved = item.get("url")
+            safe_resolved = _redact_urlish(resolved)
             parsed = urlsplit(resolved or "") if resolved else None
             resource_id = _stable("PSR", audit_id, snapshot_id, item["kind"], index, resolved)
             resource = {
@@ -480,7 +505,7 @@ def _resource_inventory(connection: sqlite3.Connection, workspace: Any, audit_id
                 "page_id": page_id,
                 "snapshot_id": snapshot_id,
                 "page_url": page_url,
-                "resource_url": resolved,
+                "resource_url": safe_resolved,
                 "resource_kind": item["kind"],
                 "party": item["party"],
                 "protocol": parsed.scheme.casefold() if parsed else "",
@@ -1442,6 +1467,10 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
                 (audit_id,),
             ).fetchall()
             integration_states = {str(row["integration_id"]): str(row["state"]) for row in integration_rows}
+            osv_state = str(integration_states.get("OSV") or "NOT_REQUESTED").upper()
+            kev_state = str(integration_states.get("CISA_KEV") or "NOT_REQUESTED").upper()
+            osv_covered = osv_state in {"COMPLETED", "NO_DATA"}
+            kev_covered = kev_state in {"COMPLETED", "NO_DATA"}
             coverage = {
                 "transport": True,
                 "headers": _truthy(os.environ.get(HEADERS_ENV), True),
@@ -1453,7 +1482,10 @@ def analyze_passive_security(*, audit_id: str, workspace: Any, source_blocked: b
                 "mixed_content": _truthy(os.environ.get(RESOURCES_ENV), True),
                 "forms_iframes": _truthy(os.environ.get(RESOURCES_ENV), True),
                 "runtime": _truthy(os.environ.get(RUNTIME_ENV), True),
-                "vulnerability_intelligence": bool(components),
+                "component_inventory": bool(components),
+                "osv_intelligence": osv_covered,
+                "cisa_kev": kev_covered,
+                "vulnerability_intelligence": osv_covered,
                 "active_scanning": False,
             }
             limitations: list[str] = []
