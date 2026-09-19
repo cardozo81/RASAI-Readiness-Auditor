@@ -199,7 +199,7 @@ def test_report_boundary_serves_only_authorized_catalog_report_tree() -> None:
 
             report = client.get(f"/api/v1/audits/{audit_id}/reports/index.html", headers=headers)
             assert report.status_code == 200
-            assert "Tenant A report" in report.text
+            assert "Tenant A catalog report" in report.text
 
             css = client.get(f"/api/v1/audits/{audit_id}/reports/css/site.css", headers=headers)
             assert css.status_code == 200
