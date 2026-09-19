@@ -327,9 +327,9 @@ Os resultados substituídos permanecem disponíveis na trilha de reprocessamento
 
 ## Status público
 
-O diretório `report/` recebe `processing-status.json` com estado de processamento, score, relatório, elegibilidade para consolidação, quantidade de requisitos, tentativas e reprocessamentos.
+O estado de processamento, score, elegibilidade para consolidação, quantidade de requisitos, tentativas e reprocessamentos permanece persistido no contrato de fulfillment. O runtime não cria mais `report/processing-status.json` apenas para projeção do relatório convencional.
 
-Os HTMLs apresentam indicação explícita de estado preliminar ou final conforme o fulfillment efetivo.
+`report-catalog/` continua projetando o estado efetivo persistido, inclusive condição preliminar/final quando aplicável.
 
 ## Consolidação
 
