@@ -136,11 +136,10 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
         self.assertEqual(argv[argv.index("--region") + 1], "Porto Alegre, RS, Brazil")
         self.assertIn("--competitive", argv)
 
-    def test_execute_search_materializes_report_and_keeps_audit_binding(self) -> None:
+    def test_execute_search_keeps_audit_binding_without_non_catalog_report(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             workspace = root / "AUD-TEST"
-            (workspace / "report").mkdir(parents=True)
             state = SearchConsoleState(
                 audits_root=str(root),
                 audit_id="AUD-TEST",
@@ -155,8 +154,6 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
 
             def runner(argv):
                 captured.extend(argv or ())
-                report = workspace / "report" / "search-intelligence.html"
-                report.write_text("<html>ok</html>", encoding="utf-8")
                 return 0
 
             with patch.dict(os.environ, self._live_env(), clear=False):
@@ -168,7 +165,8 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
 
             self.assertEqual(code, 0)
             self.assertEqual(state.search_last_status, "COMPLETE")
-            self.assertTrue(Path(state.search_last_report).is_file())
+            self.assertEqual(state.search_last_report, "")
+            self.assertFalse((workspace / "report").exists())
             self.assertEqual(captured[captured.index("--domain") + 1], "loja.example.com.br")
             captured_workspace = captured[captured.index("--audit-workspace") + 1]
             self.assertEqual(
@@ -180,7 +178,6 @@ class ConsoleSearchIntelligenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             workspace = root / "AUD-TEST"
-            (workspace / "report").mkdir(parents=True)
             state = SearchConsoleState(
                 audits_root=str(root),
                 audit_id="AUD-TEST",
