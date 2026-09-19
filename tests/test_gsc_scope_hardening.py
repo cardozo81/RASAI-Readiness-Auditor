@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from rasai.observability.store import observability_database_path
+
 import json
 from pathlib import Path
 import sqlite3
@@ -120,7 +122,7 @@ def test_search_analytics_rejects_property_with_only_out_of_scope_rows_without_s
                 max_rows=1,
                 opener=opener,
             )
-        assert not (workspace / "observability.db").exists()
+        assert not observability_database_path(workspace).exists()
 
 
 def test_search_analytics_requires_page_dimension_for_aud_scoping() -> None:
