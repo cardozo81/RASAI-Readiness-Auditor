@@ -173,20 +173,35 @@ _SECURITY_DETAIL_KEY_LABELS = {
     "references": "Referências da fonte",
     "kev_state": "Correspondência com CISA KEV",
     "kev": "Detalhes CISA KEV",
-    "component_id": "Identificador do componente",
-    "resource_id": "Identificador do recurso",
     "library": "Biblioteca",
     "version": "Versão",
     "ecosystem": "Ecossistema",
     "identification_method": "Método de identificação",
+    "domain": "Domínio",
+    "path": "Caminho",
+    "name_hash": "Identificador protegido do cookie",
+    "url": "URL",
+    "type": "Tipo",
+    "score": "Pontuação",
+    "cveID": "CVE",
+    "vendorProject": "Fornecedor / projeto",
+    "product": "Produto",
+    "dateAdded": "Data de inclusão",
+    "shortDescription": "Descrição",
+    "requiredAction": "Ação requerida",
+    "dueDate": "Prazo",
+    "knownRansomwareCampaignUse": "Uso conhecido em ransomware",
+    "notes": "Observações",
+    "cwes": "CWEs",
 }
+
+_SECURITY_DETAIL_ALLOWED_KEYS = frozenset(_SECURITY_DETAIL_KEY_LABELS)
 
 _SECURITY_DETAIL_VALUE_LABELS = {
     "NO_VERSIONED_COMPONENT_IDENTIFIED": "Nenhum componente com versão identificável foi encontrado.",
     "NO_CVE_FROM_OSV": "Nenhum CVE foi retornado pelo OSV para os componentes consultados.",
     "OPTIONAL_DEEP_TLS_NOT_ENABLED_IN_INITIAL_SCOPE": "Análise TLS externa aprofundada não habilitada neste escopo.",
     "URL_REPUTATION_REQUIRES_EXPLICIT_PRIVACY_AND_PROVIDER_POLICY": "Consulta de reputação de URL não habilitada; exige política explícita de privacidade e de provedor.",
-    "STANDARDS_SERVICE_RUNS": "Medição de padrões web já persistida",
     "MATCHED": "Correspondência encontrada",
     "NOT_MATCHED": "Sem correspondência",
     "NOT_CHECKED": "Não verificado",
@@ -254,16 +269,22 @@ def _security_detail_html(value: Any) -> str:
     if isinstance(value,Mapping):
         rows=[]
         for key,item in value.items():
+            if str(key) not in _SECURITY_DETAIL_ALLOWED_KEYS:
+                continue
             rendered=_security_detail_html(item)
+            if not rendered:
+                continue
             rows.append(
                 "<dt>"+escape(_security_detail_key_label(key))+"</dt>"
                 "<dd>"+rendered+"</dd>"
             )
-        return "<dl class='kv'>"+"".join(rows)+"</dl>"
+        return "<dl class='kv'>"+"".join(rows)+"</dl>" if rows else ""
     if isinstance(value,(list,tuple)):
         if not value:
             return "<span class='muted'>Nenhum valor informado.</span>"
-        return "<ul>"+"".join("<li>"+_security_detail_html(item)+"</li>" for item in value)+"</ul>"
+        rendered=[_security_detail_html(item) for item in value]
+        rendered=[item for item in rendered if item]
+        return "<ul>"+"".join("<li>"+item+"</li>" for item in rendered)+"</ul>" if rendered else ""
     return escape(_security_detail_scalar(value))
 
 
@@ -460,9 +481,11 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
         elif ai_requested:
             body+="<div class='notice warn'><strong>IA consultiva sem recomendação específica para este achado.</strong> A configuração solicitava IA; consulte o estado da Análise Profunda e a cobertura N/M no resumo do CAT-10.</div>"
         if isinstance(evidence_ids,list) and evidence_ids:
-            body+="<h3>Rastreabilidade</h3><p class='mono'>"+escape(" · ".join(str(v) for v in evidence_ids))+"</p>"
+            body+="<h3>Rastreabilidade</h3><p>"+escape(str(len(evidence_ids)))+" referência(s) de evidência persistida(s) e vinculada(s) a este achado.</p>"
         if isinstance(details,Mapping) and details:
-            body+="<details><summary>Detalhes técnicos persistidos</summary><div class='detail-body'>"+_security_detail_html(details)+"</div></details>"
+            rendered_details=_security_detail_html(details)
+            if rendered_details:
+                body+="<details><summary>Detalhes técnicos persistidos</summary><div class='detail-body'>"+rendered_details+"</div></details>"
         modals.append(_modal(mid,item.get("title") or "Achado de segurança",f"{category} · {item.get('source') or 'RASAi'}",body))
 
     integration_rows=[]; integration_modals=[]
@@ -484,10 +507,11 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             ("Tentativas",item.get("attempts",0)),
             ("Sucessos",item.get("successes",0)),
             ("Erro técnico",item.get("error_message") or item.get("error_type") or "-"),
-            ("Artefato",item.get("artifact_reference") or "-"),
         ))
         if isinstance(details,Mapping) and details:
-            body+="<h3>Detalhes persistidos</h3>"+_security_detail_html(details)
+            rendered_details=_security_detail_html(details)
+            if rendered_details:
+                body+="<h3>Detalhes persistidos</h3>"+rendered_details
         body+="<div class='notice'>Os estados apresentados descrevem a cobertura da integração — por exemplo, sem dados, não solicitado ou indisponível — e não significam, por si sós, problema de segurança no site.</div>"
         integration_modals.append(_modal(mid,_friendly_service(item.get("integration_id")),"Integração externa/reutilizada do CAT-10",body))
 
