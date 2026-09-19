@@ -1006,7 +1006,7 @@ def _improvement_html(database: Any, data: Any) -> str:
         fid = str(finding.get("finding_id") or "")
         rec = rec_by_finding.get(fid)
         domain = a._norm(finding.get("domain")); distribution[domain] = distribution.get(domain, 0) + 1
-        source_cat = a._DOMAIN_CATALOG.get(domain); modal_id = f"improvement-{index}"
+        source_cat = a._DOMAIN_CATALOG.get(domain); modal_id = _stable_report_anchor("improvement", fid, index)
         reference = a._Html(f"<a class='ref' href='{a.CATALOG_PAGE_BY_ID[source_cat].filename}'>Origem: {source_cat}</a>") if source_cat in a.CATALOG_PAGE_BY_ID else "-"
         labels = sorted(coverage.get(fid, set())); coverage_label = " · ".join(labels) if labels else "Não disponível"
         public_title = _finding_public_title(finding); severity = a._level_label(finding.get("severity"))
