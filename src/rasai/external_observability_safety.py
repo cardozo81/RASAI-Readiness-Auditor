@@ -50,10 +50,9 @@ def install() -> None:
         report_completion._rasai_external_observability_public_target_safety = True
 
     # Import late to keep metadata/configuration discovery side-effect free.
+    # External SARI persists corroboration data; its retired HTML projection is not installed.
     from rasai.external_sari import install as install_external_sari
-    from rasai.external_sari_reporting import install as install_external_sari_reporting
     install_external_sari()
-    install_external_sari_reporting()
 
     # Progress/evidence-ordering installers are also late: they must wrap the final
     # composed runtime and never affect metadata-only provider/service discovery.
