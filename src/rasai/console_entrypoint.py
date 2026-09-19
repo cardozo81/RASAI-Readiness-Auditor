@@ -63,7 +63,6 @@ from rasai.integration_state_refinements import install as install_integration_s
 from rasai.m21_console_progress import install_m21_external_progress
 from rasai.m3_console_progress import install_m3_render_progress
 from rasai.m3_render_deadline_runtime import install as install_m3_render_deadline_runtime
-from rasai.report_observation_reconciliation import install as install_report_observation_reconciliation
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.runtime_contract_compatibility import install_console_runtime_contract_compatibility
@@ -138,7 +137,6 @@ def main() -> int:
     install_gsc_oauth_console()
     install_ai_model_console()
     install_ai_pricing_console()
-    install_report_observation_reconciliation()
     install_runtime_adherence_extensions()
     install_integration_state_contract()
     install_integration_state_refinements()
