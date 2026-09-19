@@ -165,6 +165,29 @@ Exemplos:
 
 Uma chamada sobre um `AUD-*` já completo é um no-op analítico: o estado atual é devolvido sem repetir serviços bem-sucedidos.
 
+### Mudança material e invalidação de dependências
+
+Uma tentativa de reprocessamento, por si só, não cria uma nova versão analítica da evidência. Antes e depois das recuperações elegíveis, o runtime compara um fingerprint material dos resultados persistidos que alimentam análise e relatório.
+
+Não constituem mudança material isoladamente:
+
+- timestamp de tentativa;
+- atualização do ledger operacional;
+- nova mensagem transitória de erro sem mudança do resultado efetivo;
+- abertura de um `RPR-*` que não produziu novo dado.
+
+Constituem mudança material, quando aplicável:
+
+- nova observação/medição efetiva;
+- alteração do estado analítico de uma coleta;
+- novo dataset observacional ou artifact com conteúdo diferente;
+- recuperação de HTTP, render ou extração que substitui a evidência efetiva;
+- alteração de inventário ou resultado derivado persistido.
+
+Sem mudança material e sem mudança nos IDs de evidência, o RASAi reutiliza o snapshot de evidência anterior. Tarefas de IA e derivados já concluídos permanecem válidos e não entram novamente na fila.
+
+Quando a mudança material afeta uma dependência, somente o work-item dependente é invalidado. O resultado anterior conserva `last_success_at`, `effective_result_ref`, tentativas e archive do RPR para rastreabilidade; a nova execução passa a ser a versão efetiva apenas depois de concluída.
+
 ## Componentes opcionais solicitados na auditoria
 
 Um recurso opcional deixa de ser opcional para o fulfillment quando o usuário o seleciona explicitamente na configuração daquela auditoria. Nesse caso ele passa a integrar o denominador obrigatório do `AUD-*` e precisa ter resultado efetivo antes de o relatório ser final e o AUD ser elegível para consolidação.
@@ -239,6 +262,22 @@ Há uma distinção obrigatória entre **falha de coleta** e **perda de evidênc
 O mesmo princípio vale para componentes opcionais: um work-item marcado como sucesso não é considerado íntegro se a evidência persistida que comprova esse resultado desapareceu. Nesse caso o status de sucesso é invalidado e a inconsistência aparece como falha de integridade, em vez de o RASAi assumir que o resultado ainda existe.
 
 Quando uma recuperação core altera a evidência efetiva, somente os cálculos determinísticos e derivados dependentes são recalculados. As versões anteriores permanecem na trilha do `RPR-*`.
+
+A validação de integridade pré-RPR também confronta o estado `SUCCESS` com o resultado persistido de Search Intelligence, Google Search Console, Improvement Intelligence, Web Performance, Synthetic Navigation Apdex, Synthetic User Experience Apdex e Segurança passiva. Se o resultado que comprovava um sucesso não existe mais ou está estruturalmente inconsistente, o item fica `BLOCKED` e não é recolhido automaticamente para simular a evidência histórica perdida.
+
+### Segurança passiva no reprocessamento
+
+CAT-10 consome HTTP, headers, HTML bruto/renderizado, runtime e inventário de recursos já persistidos. Por isso, um CAT-10 concluído **não** é reexecutado quando o RPR trata somente PageSpeed, Search, GSC, Apdex ou outro requisito independente.
+
+Se HTTP, render ou extração core forem recuperados e alterarem a entrada efetiva do CAT-10:
+
+1. somente o work-item `PASSIVE_SECURITY` é reaberto por dependência;
+2. o estado CAT-10 anterior é arquivado na trilha do `RPR-*`;
+3. recursos, componentes, findings e remediações são recalculados a partir da evidência efetiva;
+4. advisories OSV/KEV continuam reutilizados quando os mesmos componentes/versionamentos permanecem válidos;
+5. OSV/KEV só são consultados novamente quando o inventário de componentes/versionamento realmente mudou e a configuração congelada da AUD mantém essas fontes habilitadas.
+
+A configuração usada nesse recálculo vem do contrato não secreto persistido da própria auditoria. O RPR não adota silenciosamente toggles CAT-10 diferentes apenas porque o ambiente atual mudou.
 
 ## Histórico de tentativas e motivo de falha
 
