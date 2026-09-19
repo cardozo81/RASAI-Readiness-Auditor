@@ -2,7 +2,7 @@
 
 The module is deliberately additive and idempotent.  It does not redesign report HTML
 or provider policy.  It closes remaining ownership/binding gaps between the governed
-collection/AI lifecycle and legacy console/report adapters.
+collection/AI lifecycle and console/runtime adapters.
 """
 from __future__ import annotations
 
@@ -227,7 +227,7 @@ def _project_improvement_console_state(state: Any) -> None:
 
 
 def _install_improvement_console_adapter() -> None:
-    """Keep Improvement console UI/readiness but remove its obsolete post-AUD AI owner."""
+    """Keep Improvement console UI/readiness aligned with the governed AI owner."""
     try:
         from rasai import console_entrypoint
         from rasai import improvement_intelligence_console as feature
@@ -409,7 +409,7 @@ def _install_common_crawl_preseal() -> None:
 
 
 def _install_effective_search_snapshot() -> None:
-    """Persist the exact SERP terms sent to the child while suppressing the legacy replay."""
+    """Persist the exact SERP terms sent to the child without duplicate execution."""
     try:
         from rasai import audit_configuration_reuse_console as reuse
         from rasai import console_entrypoint
