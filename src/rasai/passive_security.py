@@ -1051,7 +1051,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
             severity="MEDIUM",evidence_ids=ev,impact="A resposta não declara restrição explícita de embedding em frames.",
             containment="Evitar fluxos sensíveis em páginas que possam ser embutidas até revisar a necessidade.",
             remediation="Definir CSP frame-ancestors e, quando necessário para compatibilidade, X-Frame-Options.",
-            validation="Testar embeddings legítimos e reauditar headers.",
+            validation="Testar incorporações legítimas e reauditar os cabeçalhos.",
             cwe="CWE-1021",
         ))
     if "x-content-type-options" not in headers:
@@ -1202,7 +1202,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
             severity="LOW",evidence_ids=ev,impact="A versão declarada pode auxiliar fingerprinting; não confirma a versão real do software.",
             containment="Evitar depender do banner como controle de segurança.",
             remediation="Reduzir detalhes do banner quando operacionalmente possível e manter componentes atualizados.",
-            validation="Reauditar headers; validar versão real por inventário interno, não pelo banner.",
+            validation="Reauditar os cabeçalhos; validar a versão real por inventário interno, não pelo banner.",
         ))
     if powered:
         findings.append(_finding(
@@ -1212,7 +1212,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
             severity="LOW",evidence_ids=ev,impact="Aumenta fingerprinting passivo da aplicação.",
             containment="Não usar ocultação de banner como substituto de atualização/patching.",
             remediation="Remover ou minimizar o header quando não houver necessidade operacional.",
-            validation="Reauditar headers.",
+            validation="Reauditar os cabeçalhos.",
         ))
     for index, generator in enumerate(page.get("generators", ()) or (), 1):
         if not re.search(r"\d+(?:\.\d+)+", str(generator)):
@@ -1273,7 +1273,7 @@ def _analyze_resources(audit_id: str, resources: Iterable[Mapping[str, Any]]) ->
                 evidence_ids=ev,party=party,impact="Mixed content pode ser bloqueado ou reduzir garantias de integridade/confidencialidade do recurso.",
                 containment="Evitar carregar o recurso até disponibilizá-lo por HTTPS.",
                 remediation="Migrar a URL do recurso para HTTPS e remover dependências HTTP.",
-                validation="Reauditar HTML e runtime; confirmar que não há request HTTP observado.",
+                validation="Reauditar HTML e dados de tempo de execução; confirmar que não há requisição HTTP observada.",
             ))
         if third_party_analysis and party == "THIRD_PARTY" and kind in {"SCRIPT", "STYLESHEET"} and not str(attrs.get("integrity") or "").strip():
             findings.append(_finding(
@@ -1327,7 +1327,7 @@ def _analyze_resources(audit_id: str, resources: Iterable[Mapping[str, Any]]) ->
             if third_party_analysis and party == "THIRD_PARTY" and sensitive:
                 findings.append(_finding(
                     audit_id=audit_id,page_id=page_id,url=page_url,code=f"FORM_THIRD_{item['resource_id']}",category="Forms",
-                    finding_type="EXPOSURE",title="Formulário com campo sensível aponta para third-party",
+                    finding_type="EXPOSURE",title="Formulário com campo sensível aponta para destino externo",
                     description=f"Campos semanticamente sensíveis ({', '.join(sensitive)}) e destino externo foram observados. Nenhuma submissão foi realizada.",
                     severity="MEDIUM",evidence_ids=ev,party=party,impact="Dados podem ser enviados a uma origem externa quando o usuário submeter o formulário.",
                     containment="Confirmar contrato/necessidade do terceiro e minimizar dados.",
