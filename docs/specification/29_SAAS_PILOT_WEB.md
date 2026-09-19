@@ -19,7 +19,7 @@ Disponibilizar uma interface Web utilizável sobre o control plane e a execution
 
 `WEB-PILOT-005` - o catálogo HTTP de auditorias não pode expor `workspace_path`.
 
-`WEB-PILOT-006` - quando reports forem servidos via HTTP, somente a árvore `AUD-*/report-catalog/**` do AUD autorizado pode ser disponibilizada. `audit.db`, secrets, `report/` legado e artifacts fora da superfície pública não podem ser acessíveis pelo limite de rota.
+`WEB-PILOT-006` - quando reports forem servidos via HTTP, somente a árvore `AUD-*/report-catalog/**` do AUD autorizado pode ser disponibilizada. `audit.db`, secrets, `AUD-*/report/` e artifacts fora da superfície pública não podem ser acessíveis pelo limite de rota.
 
 `WEB-PILOT-007` - path traversal, symlink escape e extensão fora do allowlist de apresentação Web devem falhar fechado.
 
