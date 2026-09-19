@@ -59,7 +59,6 @@ from rasai.passive_security_runtime import install as install_passive_security_r
 from rasai.integration_diagnostics_console import install as install_integration_diagnostics_console
 from rasai.integration_network_diagnostics import install as install_integration_network_diagnostics
 from rasai.integration_state_contract import install as install_integration_state_contract
-from rasai.integration_state_refinements import install as install_integration_state_refinements
 from rasai.m21_console_progress import install_m21_external_progress
 from rasai.m3_console_progress import install_m3_render_progress
 from rasai.m3_render_deadline_runtime import install as install_m3_render_deadline_runtime
@@ -139,7 +138,6 @@ def main() -> int:
     install_ai_pricing_console()
     install_runtime_adherence_extensions()
     install_integration_state_contract()
-    install_integration_state_refinements()
     install_m3_render_progress()
     install_m21_external_progress()
     install_search_progress_gate()
