@@ -963,14 +963,23 @@ def _persist_attempt(workspace: AuditWorkspace, audit_id: str, context: _TargetC
 def _required_actionable_recommendation_finding_ids(
     findings: Iterable[Mapping[str, Any]],
 ) -> list[str]:
-    """Require deep guidance for critical/high element-level accessibility findings."""
+    """Require deep guidance for CAT-10 findings and high-impact accessibility findings."""
     required: list[str] = []
     for item in findings:
-        if str(item.get("source") or "").upper() != "LIGHTHOUSE":
-            continue
-        if str(item.get("domain") or "").upper() != "ACCESSIBILITY":
-            continue
-        if str(item.get("severity") or "").upper() not in {"CRITICAL", "HIGH"}:
+        domain = str(item.get("domain") or "").upper()
+        details = item.get("details")
+        is_cat10_security = (
+            domain == "SECURITY"
+            and isinstance(details, Mapping)
+            and bool(str(details.get("finding_type") or "").strip())
+            and "deterministic_remediation" in details
+        )
+        is_high_accessibility = (
+            str(item.get("source") or "").upper() == "LIGHTHOUSE"
+            and domain == "ACCESSIBILITY"
+            and str(item.get("severity") or "").upper() in {"CRITICAL", "HIGH"}
+        )
+        if not (is_cat10_security or is_high_accessibility):
             continue
         finding_id=str(item.get("finding_id") or "").strip()
         if finding_id and finding_id not in required:
@@ -1005,7 +1014,7 @@ def build_improvement_request_context(
         if str(item.get("source") or "").upper() == "SEMANTIC_COHERENCE_YMYL"
         and item.get("finding_id")
     ]
-    required_actionable_finding_ids = _required_actionable_recommendation_finding_ids(findings)
+    required_actionable_finding_ids = _required_actionable_recommendation_finding_ids(findings)[:config.max_recommendations]
     request_context = {
         "contract_version": CONTRACT_VERSION,
         "target": {
@@ -1047,9 +1056,11 @@ def build_improvement_request_context(
         )
         + (
             " Every finding listed in governance.required_actionable_recommendation_finding_ids must receive "
-            "exactly one evidence-bound technical recommendation. For element-level accessibility findings, "
-            "provide suggested_html when a concrete HTML/ARIA/CSS example can be safely derived from the observed "
-            "element; otherwise provide suggested_text. Always provide verification. Examples are illustrative: "
+            "exactly one evidence-bound technical recommendation. For CAT-10 SECURITY findings, explain the observed "
+            "risk context, practical containment/correction and a concrete passive verification step without proposing "
+            "exploitation, payloads, bypasses, credential attacks or active scanning. For element-level accessibility "
+            "findings, provide suggested_html when a concrete HTML/ARIA/CSS example can be safely derived from the "
+            "observed element; otherwise provide suggested_text. Always provide verification. Examples are illustrative: "
             "preserve existing business copy/data and use placeholders instead of inventing names, claims or facts."
             if required_actionable_finding_ids
             else ""
