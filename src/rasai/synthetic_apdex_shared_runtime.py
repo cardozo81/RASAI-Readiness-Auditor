@@ -21,10 +21,8 @@ from __future__ import annotations
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from html import escape
 import math
 import os
-from pathlib import Path
 import sqlite3
 import threading
 import time
@@ -37,9 +35,6 @@ from rasai.persistence import AuditWorkspace
 ACQUISITION_MODE_ENV = "RASAI_APDEX_ACQUISITION_MODE"
 DEFAULT_ACQUISITION_MODE = "auto"
 _ALLOWED_MODES = frozenset({"auto", "isolated"})
-
-_MANAGED_START = "<!-- RASAI_SHARED_APDEX_ACQUISITION_START -->"
-_MANAGED_END = "<!-- RASAI_SHARED_APDEX_ACQUISITION_END -->"
 
 
 @dataclass(frozen=True, slots=True)
@@ -484,71 +479,6 @@ def acquisition_stats(*, audit_id: str, workspace: AuditWorkspace) -> dict[str, 
     return result
 
 
-def _report_block(stats: dict[str, Any]) -> str:
-    baseline = int(stats["physical_without_sharing"])
-    physical = int(stats["physical_with_sharing"])
-    avoided = int(stats["avoided"])
-    reduction = (avoided / baseline * 100.0) if baseline else 0.0
-    reason = str(stats.get("reason") or "")
-    reason_html = f"<p><strong>Fallback/estado:</strong> {escape(reason)}</p>" if reason else ""
-    return (
-        _MANAGED_START
-        + "<section class='panel rasai-shared-apdex-acquisition'>"
-        + "<div class='kicker'>Aquisição sintética</div><h2>Uma navegação física, avaliações Apdex independentes</h2>"
-        + "<p>Quando URL, dispositivo, perfil sintético e sessão <code>cold</code> são compatíveis, "
-          "a mesma navegação física pode fornecer a fronteira de <code>load</code> ao Synthetic Navigation Apdex "
-          "e continuar aberta para a observação pós-load do Synthetic User Experience Apdex. "
-          "Targets, device mix, thresholds, KPM, política de erros e classificações continuam independentes.</p>"
-        + "<div class='metric-grid'>"
-        + f"<article class='metric'><span>Modo</span><strong>{escape(str(stats['mode']).upper())}</strong></article>"
-        + f"<article class='metric'><span>Aquisições Experience elegíveis</span><strong>{int(stats['eligible'])}</strong></article>"
-        + f"<article class='metric'><span>Reutilizadas no Navigation</span><strong>{int(stats['reused'])}</strong></article>"
-        + f"<article class='metric'><span>Navegações físicas evitadas</span><strong>{avoided}</strong></article>"
-        + f"<article class='metric'><span>Baseline sem compartilhamento</span><strong>{baseline}</strong></article>"
-        + f"<article class='metric'><span>Navegações físicas efetivas</span><strong>{physical}</strong></article>"
-        + f"<article class='metric'><span>Redução de navegações</span><strong>{reduction:.1f}%</strong></article>"
-        + f"<article class='metric'><span>Incompatíveis por timeout M23</span><strong>{int(stats['timeout_incompatible'])}</strong></article>"
-        + "</div>"
-        + reason_html
-        + "<p><strong>Importante:</strong> compartilhamento de aquisição não significa compartilhamento de score. "
-          "Uma amostra reaproveitada é reclassificada integralmente pelas regras próprias de cada método.</p>"
-        + "</section>"
-        + _MANAGED_END
-    )
-
-
-def _remove_managed(html: str) -> str:
-    while _MANAGED_START in html:
-        start = html.find(_MANAGED_START)
-        end = html.find(_MANAGED_END, start)
-        if end < 0:
-            return html[:start]
-        html = html[:start] + html[end + len(_MANAGED_END):]
-    return html
-
-
-def enrich_shared_acquisition_reports(*, audit_id: str, workspace: AuditWorkspace) -> None:
-    stats = acquisition_stats(audit_id=audit_id, workspace=workspace)
-    if not stats["m23_attempted"] and not stats["m25_attempted"]:
-        return
-    block = _report_block(stats)
-    for filename in ("apdex.html", "apdex-experience.html"):
-        path = workspace.root / "report" / filename
-        if not path.is_file():
-            continue
-        try:
-            html = _remove_managed(path.read_text(encoding="utf-8"))
-            if "</main>" in html:
-                html = html.replace("</main>", block + "</main>", 1)
-            elif "</body>" in html:
-                html = html.replace("</body>", block + "</body>", 1)
-            else:
-                html += block
-            path.write_text(html, encoding="utf-8", newline="\n")
-        except (OSError, UnicodeError):
-            continue
-
-
 def _optional_text(value: Any) -> str | None:
     if value is None:
         return None
@@ -576,7 +506,6 @@ def install() -> None:
     from rasai import m23_apdex_profiles as profiles
     from rasai import m25_apdex_experience as ux
     from rasai import m25_runtime
-    from rasai import synthetic_profile_reporting
 
     shared_ux_gateway = _shared_ux_gateway_class(ux)
 
@@ -670,16 +599,5 @@ def install() -> None:
         cli_extensions.execute_m23_apdex = execute_m23_with_shared_acquisition
         if m23.execute_m23_apdex is original_m23_execute:
             m23.execute_m23_apdex = execute_m23_with_shared_acquisition
-
-    original_enrich = synthetic_profile_reporting.enrich_synthetic_profile_reports
-    if not getattr(original_enrich, "_rasai_shared_acquisition", False):
-        def enrich_with_shared_acquisition(*, audit_id: str, workspace: AuditWorkspace):
-            result = original_enrich(audit_id=audit_id, workspace=workspace)
-            enrich_shared_acquisition_reports(audit_id=audit_id, workspace=workspace)
-            return result
-
-        enrich_with_shared_acquisition._rasai_shared_acquisition = True
-        enrich_with_shared_acquisition._rasai_original = original_enrich
-        synthetic_profile_reporting.enrich_synthetic_profile_reports = enrich_with_shared_acquisition
 
     _INSTALLED = True
