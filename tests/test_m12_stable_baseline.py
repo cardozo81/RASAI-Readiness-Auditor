@@ -94,7 +94,7 @@ class _FixtureRenderer:
 
 
 class M12StableBaselineTests(unittest.TestCase):
-    def test_end_to_end_pipeline_materializes_all_rules_devices_scores_and_report_site(self) -> None:
+    def test_end_to_end_pipeline_preserves_data_without_conventional_html(self) -> None:
         with _server() as origin, TemporaryDirectory() as directory:
             html = f"""<!doctype html><html lang='pt-BR'><head><title>Guia RASAi</title>
 <meta name='description' content='Guia técnico.'><link rel='canonical' href='{origin}/'>
@@ -114,16 +114,10 @@ class M12StableBaselineTests(unittest.TestCase):
                     lazy_probe=lambda url, device: None,
                 )
 
-            self.assertTrue(result.report_path.is_file())
-            self.assertEqual(result.report_path, result.audit_root / "report" / "index.html")
+            self.assertIsNone(result.report_path)
             self.assertTrue((result.audit_root / "audit.db").is_file())
             self.assertTrue((result.audit_root / "artifacts").is_dir())
-            self.assertTrue((result.audit_root / "report" / "css" / "site.css").is_file())
-            for filename in (
-                "mobile.html", "desktop.html", "remediation.html",
-                "content-suggestions.html", "ai-usage.html", "references.html",
-            ):
-                self.assertTrue((result.audit_root / "report" / filename).is_file(), filename)
+            self.assertFalse((result.audit_root / "report").exists())
             self.assertFalse((result.audit_root / "report.html").exists())
             self.assertFalse((result.audit_root / "remediation.html").exists())
             self.assertEqual(result.audited_pages, 1)
@@ -160,8 +154,28 @@ class M12StableBaselineTests(unittest.TestCase):
                 score_devices = {row[0] for row in connection.execute("SELECT DISTINCT device FROM scores")}
                 self.assertEqual(score_devices, {"DESKTOP", "MOBILE"})
                 report_rows = connection.execute("SELECT file_path FROM reports").fetchall()
-                self.assertEqual(len(report_rows), 1)
-                self.assertEqual(report_rows[0][0], "report/index.html")
+                self.assertEqual(report_rows, [])
+
+                root_causes = connection.execute(
+                    "SELECT COUNT(*) FROM root_cause_analyses WHERE audit_id=?",
+                    (result.audit_id,),
+                ).fetchone()[0]
+                precision = connection.execute(
+                    "SELECT COUNT(*) FROM root_cause_precision WHERE audit_id=?",
+                    (result.audit_id,),
+                ).fetchone()[0]
+                findings = connection.execute(
+                    "SELECT COUNT(*) FROM findings WHERE audit_id=?",
+                    (result.audit_id,),
+                ).fetchone()[0]
+                recommendations = connection.execute(
+                    "SELECT COUNT(*) FROM recommendations WHERE audit_id=?",
+                    (result.audit_id,),
+                ).fetchone()[0]
+                self.assertGreater(root_causes, 0)
+                self.assertGreater(precision, 0)
+                self.assertGreater(findings, 0)
+                self.assertGreater(recommendations, 0)
 
                 invalid_findings = connection.execute(
                     """
@@ -186,33 +200,12 @@ class M12StableBaselineTests(unittest.TestCase):
             finally:
                 connection.close()
 
-            report = result.report_path.read_text(encoding="utf-8")
-            content_report = (result.audit_root / "report" / "content-suggestions.html").read_text(encoding="utf-8")
-            ai_report = (result.audit_root / "report" / "ai-usage.html").read_text(encoding="utf-8")
-            css = (result.audit_root / "report" / "css" / "site.css").read_text(encoding="utf-8")
-            self.assertIn('lang="pt-BR"', report)
-            self.assertIn("Visão geral da auditoria", report)
-            self.assertIn("Cobertura e confiabilidade", report)
-            self.assertIn("Confiabilidade baixa não significa", report)
-            self.assertIn("Relatório Mobile", report)
-            self.assertIn("Relatório Desktop", report)
-            self.assertIn("Referências e metodologia", report)
-            self.assertIn("Conteúdo e JSON-LD", report)
-            self.assertIn('<link rel="stylesheet" href="css/site.css">', report)
-            self.assertNotIn("<style", report.casefold())
-            self.assertIn("Conteúdo e JSON-LD", content_report)
-            self.assertIn("Structured Data", content_report)
-            self.assertIn("css/site.css", content_report)
-            self.assertNotIn("<style", content_report.casefold())
-            self.assertIn("remediation-ai-telemetry", ai_report)
-            self.assertIn("--nav:", css)
-
     def test_cli_audit_command_defaults_to_mobile_and_restores_environment(self) -> None:
         with TemporaryDirectory() as directory:
             expected = AuditRunResult(
                 audit_id="AUD-TEST",
                 audit_root=Path(directory) / "AUD-TEST",
-                report_path=Path(directory) / "AUD-TEST" / "report" / "index.html",
+                report_path=None,
                 completion_status=CompletionStatus.COMPLETE_WITH_LIMITATIONS,
                 audited_pages=2,
                 finding_count=3,
@@ -249,8 +242,8 @@ class M12StableBaselineTests(unittest.TestCase):
             self.assertIn("Auditoria concluída: AUD-TEST", rendered)
             self.assertIn("Contexto de dispositivo: MOBILE", rendered)
             self.assertIn("Sugestões de conteúdo por IA: DESABILITADAS", rendered)
-            self.assertIn("report", rendered)
-            self.assertIn("index.html", rendered)
+            self.assertNotIn("report/index.html", rendered)
+            self.assertNotIn("remediation.html", rendered)
 
 
 if __name__ == "__main__":
