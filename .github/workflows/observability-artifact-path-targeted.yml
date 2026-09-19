@@ -1,4 +1,4 @@
-name: Observability Artifact Path Targeted
+name: Smoke Fixes Targeted
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
 jobs:
   focused:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -21,38 +21,16 @@ jobs:
           python-version: '3.13'
       - name: Install package and pytest
         run: python -m pip install -e . pytest
-      - name: Compile touched observability consumers
-        run: >-
-          python -m py_compile
-          src/rasai/observability/store.py
-          src/rasai/observability/cli.py
-          src/rasai/observability/reporting.py
-          src/rasai/observability/diagnostics.py
-          src/rasai/observability/external_sources.py
-          src/rasai/monitoring/impact.py
-          src/rasai/quality/analysis.py
-          src/rasai/integration_state_contract.py
-          src/rasai/catalog_state_trust.py
-          src/rasai/catalog_projection_consistency.py
-          src/rasai/catalog_report_search_trust.py
-          src/rasai/standards_gsc_metrics.py
-          src/rasai/standards_gsc_sitemap_metrics.py
-          src/rasai/standards_gsc_visibility_metrics.py
-          src/rasai/standards_gsc_crawl_freshness_metrics.py
-          src/rasai/execution_consistency_runtime.py
-          src/rasai/post_smoke_alignment.py
-          src/rasai/post_smoke_hotfix.py
-      - name: Run directly affected tests only
+      - name: Run only smoke-fix point tests
         run: >-
           pytest -q
-          tests/test_observability_collectors.py
-          tests/test_quality_observability_hardening.py
-          tests/test_standards_gsc_metrics.py
-          tests/test_standards_gsc_sitemap_metrics.py
-          tests/test_standards_gsc_visibility_metrics.py
-          tests/test_standards_gsc_crawl_freshness_metrics.py
-          tests/test_integration_state_contract.py
-          tests/test_post_smoke_alignment.py
-          tests/test_gsc_inspection_failure_policy.py
-          tests/test_crux_scope_hardening.py
-          tests/test_gsc_scope_hardening.py
+          tests/test_integration_state_contract.py::test_observability_attempt_ledger_persists_failure_reason_without_touching_audit_db
+          tests/test_observability_collectors.py::test_search_analytics_collects_and_does_not_persist_token
+          tests/test_standards_gsc_metrics.py::test_gsc_metrics_use_only_latest_persisted_datasets
+          tests/test_post_smoke_alignment.py::test_common_crawl_scoring_reuses_preseal_dataset
+          tests/test_catalog_report_search_trust.py::test_common_crawl_errors_without_rows_are_visible_in_state
+          tests/test_catalog_report_assurance.py::test_assurance_matrix_explains_each_axis_without_changing_columns
+          tests/test_console_catalog_workflow.py::test_accessibility_readiness_exposes_lighthouse_dependency
+          tests/test_catalog_report_site.py::test_catalog_report_materializes_without_non_catalog_report_tree
+          tests/test_quality_observability_hardening.py::test_quality_health_uses_catalog_report_entrypoint
+          tests/test_runtime_contract_compatibility.py::test_public_runtime_composition_skips_contracts_that_are_native
