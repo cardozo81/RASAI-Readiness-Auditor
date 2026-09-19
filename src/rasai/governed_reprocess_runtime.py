@@ -12,7 +12,7 @@ No provider retry/fallback/pricing logic is duplicated here.
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 import json
 import sqlite3
@@ -39,12 +39,23 @@ from rasai.persistence import AuditWorkspace
 
 
 _INSTALLED = False
+_AI_COMPONENTS = frozenset(
+    {"SEMANTIC_AI", "TECHNICAL_AI", "CONTENT_REMEDIATION_AI", "IMPROVEMENT_INTELLIGENCE"}
+)
 _LIVE_COMPONENTS = frozenset(
     {"WEB_PERFORMANCE", "SYNTHETIC_APDEX", "EXPERIENCE_APDEX"}
 )
 _OPTIONAL_COLLECTORS = frozenset(
-    {"SEARCH_INTELLIGENCE", "GOOGLE_SEARCH_CONSOLE", "EXTERNAL_OBSERVABILITY"}
+    {"SEARCH_INTELLIGENCE", "GOOGLE_SEARCH_CONSOLE"}
 )
+
+
+@dataclass(frozen=True, slots=True)
+class ReprocessPreparation:
+    snapshot: Any
+    recovered: dict[str, str]
+    evaluated_optional: frozenset[str]
+    sealed_new_evidence: bool
 
 
 def _table_exists(connection: sqlite3.Connection, name: str) -> bool:
@@ -186,43 +197,26 @@ def _registered_collector(name: str):
     return hook.callback if hook is not None else None
 
 
-def _external_observability_retry_needed(workspace: Any, audit_id: str) -> bool:
-    connection = sqlite3.connect(workspace.database)
-    connection.row_factory = sqlite3.Row
-    try:
-        if not _table_exists(connection, "standards_service_runs"):
-            return False
-        rows = connection.execute(
-            """SELECT service_id,state,requested,effective_enabled
-               FROM standards_service_runs
-               WHERE audit_id=? AND service_id IN ('crux-history','microsoft-clarity','common-crawl')""",
-            (audit_id,),
-        ).fetchall()
-    finally:
-        connection.close()
-    for row in rows:
-        requested = bool(row["requested"]) or bool(row["effective_enabled"])
-        state = str(row["state"] or "UNKNOWN").upper()
-        if requested and state not in {
-            "SUCCESS",
-            "NO_DATA",
-            "DISABLED",
-            "NOT_CONFIGURED",
-            "NOT_APPLICABLE",
-            "SKIPPED",
-            "SKIPPED_SOURCE_BLOCKER",
-        }:
-            return True
-    return False
+def _recover_optional_collectors(
+    workspace: Any,
+    audit_id: str,
+) -> tuple[dict[str, str], frozenset[str]]:
+    """Retry only explicitly required optional collectors that are still pending.
 
-
-def _recover_optional_collectors(workspace: Any, audit_id: str) -> dict[str, str]:
+    Search Intelligence and Google Search Console are part of the fulfillment
+    denominator when explicitly requested. Non-blocking observability sources such as
+    Common Crawl, CrUX History and Clarity are not retried merely because another RPR
+    requirement is pending; refreshing those observations requires a new audit unless
+    they gain an explicit required work-item contract.
+    """
     from rasai import selective_optional_reprocess as optional
 
     states: dict[str, str] = {}
+    evaluated: set[str] = set()
 
     search = _pending_item(workspace, audit_id, "SEARCH_INTELLIGENCE")
     if search is not None and not optional._expired(search):
+        evaluated.add("SEARCH_INTELLIGENCE")
         try:
             success = bool(optional._recover_search(workspace, audit_id, search))
         except Exception as exc:
@@ -243,6 +237,7 @@ def _recover_optional_collectors(workspace: Any, audit_id: str) -> dict[str, str
     if gsc is not None and not optional._expired(gsc):
         callback = _registered_collector("GOOGLE_SEARCH_CONSOLE")
         if callback is not None:
+            evaluated.add("GOOGLE_SEARCH_CONSOLE")
             with optional._original_optional_environment(workspace, audit_id):
                 try:
                     raw = callback(audit_id=audit_id, workspace=workspace, source_blocked=False)
@@ -260,30 +255,9 @@ def _recover_optional_collectors(workspace: Any, audit_id: str) -> dict[str, str
                     )
             optional._reconcile_gsc_rpr(workspace, audit_id)
             refreshed = _pending_item(workspace, audit_id, "GOOGLE_SEARCH_CONSOLE")
-            states["GOOGLE_SEARCH_CONSOLE"] = (
-                state if refreshed is not None else "SUCCESS"
-            )
+            states["GOOGLE_SEARCH_CONSOLE"] = state if refreshed is not None else "SUCCESS"
 
-    if _external_observability_retry_needed(workspace, audit_id):
-        callback = _registered_collector("EXTERNAL_OBSERVABILITY")
-        if callback is not None:
-            try:
-                raw = callback(audit_id=audit_id, workspace=workspace, source_blocked=False)
-                state = str((raw or {}).get("collection_state") or "SUCCESS").upper()
-            except Exception as exc:
-                state = "ERROR"
-                try_append_operational_event(
-                    workspace,
-                    "AUDIT_REPROCESS_COLLECTION_FAILURE",
-                    level="WARNING",
-                    audit_id=audit_id,
-                    component="EXTERNAL_OBSERVABILITY",
-                    error_type=type(exc).__name__,
-                    error_message=str(exc)[:512],
-                )
-            states["EXTERNAL_OBSERVABILITY"] = state
-    return states
-
+    return states, frozenset(evaluated)
 
 def _collection_states(workspace: Any, audit_id: str) -> dict[str, str]:
     states: dict[str, str] = {}
