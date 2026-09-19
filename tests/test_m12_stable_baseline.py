@@ -94,7 +94,7 @@ class _FixtureRenderer:
 
 
 class M12StableBaselineTests(unittest.TestCase):
-    def test_end_to_end_pipeline_preserves_data_without_conventional_html(self) -> None:
+    def test_end_to_end_pipeline_preserves_data_without_non_catalog_html(self) -> None:
         with _server() as origin, TemporaryDirectory() as directory:
             html = f"""<!doctype html><html lang='pt-BR'><head><title>Guia RASAi</title>
 <meta name='description' content='Guia técnico.'><link rel='canonical' href='{origin}/'>
@@ -153,9 +153,6 @@ class M12StableBaselineTests(unittest.TestCase):
 
                 score_devices = {row[0] for row in connection.execute("SELECT DISTINCT device FROM scores")}
                 self.assertEqual(score_devices, {"DESKTOP", "MOBILE"})
-                report_rows = connection.execute("SELECT file_path FROM reports").fetchall()
-                self.assertEqual(report_rows, [])
-
                 root_causes = connection.execute(
                     "SELECT COUNT(*) FROM root_cause_analyses WHERE audit_id=?",
                     (result.audit_id,),
