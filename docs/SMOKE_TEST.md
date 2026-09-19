@@ -42,17 +42,15 @@ Sugestões de conteúdo por IA: DESABILITADAS
 Workspace:
 
 ```text
-report/index.html                 existe
-report/mobile.html                existe
-report/desktop.html               não existe
-report/remediation.html           existe
-report/content-suggestions.html   existe
-report/ai-usage.html              existe
-report/references.html            existe
-report/css/site.css               existe
+report/                           não existe
+report.html                       não existe
+remediation.html                  não existe
+report-catalog/index.html         existe
+report-catalog/manifest.json      existe
+report-catalog/css/site.css       existe
 ```
 
-Em `content-suggestions.html`, Sugestões e remediação de conteúdo por IA textual deve estar DISABLED e a revisão JSON-LD deve existir.
+Validar no `report-catalog/` os CATs selecionados e suas páginas de governança. A retirada do relatório convencional não pode remover findings, recomendações, causa raiz, precisão ou telemetria persistida.
 
 ## 3. Desktop e Both
 
