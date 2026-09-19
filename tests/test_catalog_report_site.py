@@ -21,9 +21,9 @@ AUDIT_ID = "AUD-CATALOG-REPORT"
 def _workspace(tmp_path: Path):
     root = tmp_path / AUDIT_ID
     root.mkdir()
-    legacy = root / "report"
-    legacy.mkdir()
-    (legacy / "index.html").write_text("LEGACY-REPORT-MUST-STAY", encoding="utf-8")
+    non_catalog = root / "report"
+    non_catalog.mkdir()
+    (non_catalog / "index.html").write_text("NON-CATALOG-REPORT-BOUNDARY", encoding="utf-8")
     database = root / "audit.db"
     configuration = {
         "targets": ["https://example.test/"],
@@ -163,23 +163,23 @@ def _workspace(tmp_path: Path):
         connection.commit()
     finally:
         connection.close()
-    return SimpleNamespace(root=root, database=database), legacy
+    return SimpleNamespace(root=root, database=database), non_catalog
 
 
-def test_catalog_report_is_generated_beside_untouched_legacy_tree(tmp_path: Path) -> None:
-    workspace, legacy = _workspace(tmp_path)
+def test_catalog_report_is_isolated_from_non_catalog_tree(tmp_path: Path) -> None:
+    workspace, non_catalog = _workspace(tmp_path)
     index = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace)
 
     assert index == workspace.root / "report-catalog" / "index.html"
-    assert (legacy / "index.html").read_text(encoding="utf-8") == "LEGACY-REPORT-MUST-STAY"
+    assert (non_catalog / "index.html").read_text(encoding="utf-8") == "NON-CATALOG-REPORT-BOUNDARY"
     assert set(path.name for path in index.parent.glob("*.html")) == set(CATALOG_REPORT_FILENAMES)
     assert (index.parent / "manifest.json").is_file()
     assert (index.parent / "css" / "site.css").is_file()
 
 
 def test_catalog_report_materializes_without_non_catalog_report_tree(tmp_path: Path) -> None:
-    workspace, legacy = _workspace(tmp_path)
-    shutil.rmtree(legacy)
+    workspace, non_catalog = _workspace(tmp_path)
+    shutil.rmtree(non_catalog)
 
     index = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace)
 
@@ -192,7 +192,7 @@ def test_catalog_report_materializes_without_non_catalog_report_tree(tmp_path: P
 
 
 def test_every_new_page_uses_the_same_menu_and_one_active_item(tmp_path: Path) -> None:
-    workspace, _legacy = _workspace(tmp_path)
+    workspace, _non_catalog = _workspace(tmp_path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
 
     expected_links = tuple(page.filename for page in CATALOG_REPORT_PAGES)
@@ -205,7 +205,7 @@ def test_every_new_page_uses_the_same_menu_and_one_active_item(tmp_path: Path) -
 
 
 def test_sari_and_metrics_use_persisted_values_without_recalculation(tmp_path: Path) -> None:
-    workspace, _legacy = _workspace(tmp_path)
+    workspace, _non_catalog = _workspace(tmp_path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
 
     sari = (report / "sari.html").read_text(encoding="utf-8")
@@ -223,7 +223,7 @@ def test_sari_and_metrics_use_persisted_values_without_recalculation(tmp_path: P
 
 
 def test_catalog_contexts_show_execution_scope_and_unselected_state(tmp_path: Path) -> None:
-    workspace, _legacy = _workspace(tmp_path)
+    workspace, _non_catalog = _workspace(tmp_path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
 
     search = (report / "cat-05.html").read_text(encoding="utf-8")
@@ -237,7 +237,7 @@ def test_catalog_contexts_show_execution_scope_and_unselected_state(tmp_path: Pa
 
 
 def test_catalog_report_never_dumps_secret_configuration_values(tmp_path: Path) -> None:
-    workspace, _legacy = _workspace(tmp_path)
+    workspace, _non_catalog = _workspace(tmp_path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
 
     combined = "\n".join(path.read_text(encoding="utf-8") for path in report.glob("*.html"))
@@ -245,7 +245,7 @@ def test_catalog_report_never_dumps_secret_configuration_values(tmp_path: Path) 
     assert "RASAI_OPENAI_API_KEY" not in combined
 
 def test_structural_assurance_is_only_in_overview_not_repeated_in_catalog_pages(tmp_path: Path) -> None:
-    workspace, _legacy = _workspace(tmp_path)
+    workspace, _non_catalog = _workspace(tmp_path)
     report = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace).parent
 
     overview = (report / "index.html").read_text(encoding="utf-8")
