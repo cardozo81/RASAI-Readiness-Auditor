@@ -241,6 +241,11 @@ def test_report_renders_strategy_and_menu_contract_contains_page(tmp_path: Path)
     assert "O que corrigir para obter maior ganho transversal" in html
     assert "Rastreabilidade CAT → seção → assunto" in html
     assert "cat-09.html#rem-jsonld-j1" in html
+
+    from rasai.accepted_audit_refinements import _remediation_html
+    remediation_html=_remediation_html(workspace.database,data)
+    assert "id='rem-jsonld-j1'" in remediation_html
+
     assert "directed-analysis.html" in CATALOG_REPORT_FILENAMES
     page=next(item for item in CATALOG_REPORT_PAGES if item.filename=="directed-analysis.html")
     assert page.group == "Estratégia"
