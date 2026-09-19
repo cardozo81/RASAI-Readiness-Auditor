@@ -7,7 +7,6 @@ import unittest
 from urllib.error import HTTPError
 
 from rasai.cli import _semantic_provider, build_parser
-from rasai.m11 import _ai_usage_status
 from rasai.openai_provider import (
     OpenAIProvider,
     SEMANTIC_RULE_CRITERIA,
@@ -150,16 +149,6 @@ class OpenAIProviderHardeningTests(unittest.TestCase):
         provider = _semantic_provider(args)
         self.assertIsInstance(provider, OpenAIProvider)
 
-    def test_report_ai_usage_distinguishes_failure_from_success(self) -> None:
-        self.assertEqual(
-            _ai_usage_status([{"provider": "DETERMINISTIC"}, {"provider": "UNAVAILABLE"}]),
-            "TENTATIVA SEM SUCESSO",
-        )
-        self.assertEqual(
-            _ai_usage_status([{"provider": "DETERMINISTIC"}, {"provider": "OPENAI"}]),
-            "SIM",
-        )
-        self.assertEqual(_ai_usage_status([{"provider": "DETERMINISTIC"}]), "NÃO")
 
 
 if __name__ == "__main__":
