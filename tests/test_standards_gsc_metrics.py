@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+from rasai.observability.store import observability_database_path
+
+def _obs_path(workspace: Path) -> Path:
+    path = observability_database_path(workspace)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 import json
 import sqlite3
 from types import SimpleNamespace
@@ -176,7 +184,7 @@ def _metrics(path):
 
 def test_gsc_metrics_use_only_latest_persisted_datasets(tmp_path) -> None:
     audit_db = tmp_path / "audit.db"
-    obs_db = tmp_path / "observability.db"
+    obs_db = _obs_path(tmp_path)
     _audit_database(audit_db)
     _observability_database(obs_db)
     workspace = SimpleNamespace(root=tmp_path, database=audit_db)
@@ -217,7 +225,7 @@ def test_gsc_metrics_use_only_latest_persisted_datasets(tmp_path) -> None:
 def test_gsc_metrics_are_idempotent_for_same_latest_datasets(tmp_path) -> None:
     audit_db = tmp_path / "audit.db"
     _audit_database(audit_db)
-    _observability_database(tmp_path / "observability.db")
+    _observability_database(_obs_path(tmp_path))
     workspace = SimpleNamespace(root=tmp_path, database=audit_db)
 
     reconcile_gsc_observational_metrics(audit_id="AUD-GSC-METRICS", workspace=workspace)
@@ -242,7 +250,7 @@ def test_gsc_metrics_do_nothing_without_observability_sidecar(tmp_path) -> None:
 
 def test_empty_search_analytics_dataset_is_measured_as_zero_rows_not_missing_dataset(tmp_path) -> None:
     audit_db = tmp_path / "audit.db"
-    obs_db = tmp_path / "observability.db"
+    obs_db = _obs_path(tmp_path)
     _audit_database(audit_db)
     _observability_database(obs_db)
 
