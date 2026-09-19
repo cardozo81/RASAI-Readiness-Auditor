@@ -136,15 +136,15 @@ CATALOGS: tuple[AuditCatalog, ...] = (
     AuditCatalog(
         "CAT-10",
         "Segurança passiva",
-        "Avaliar Web Security Readiness de forma passiva, reutilizando HTTP/browser/runtime e correlacionando vulnerabilidades conhecidas sem exploração.",
-        "Postura de transporte, headers, cookies, recursos, third-party, runtime, vulnerabilidades conhecidas e remediações rastreáveis.",
+        "Avaliar a prontidão de segurança web de forma passiva, reutilizando HTTP, navegador e dados de tempo de execução, além de correlacionar vulnerabilidades conhecidas sem exploração.",
+        "Postura de transporte, cabeçalhos, cookies, recursos próprios e externos, dados de tempo de execução, vulnerabilidades conhecidas e remediações rastreáveis.",
         ("passive-security",),
         (
             AiUse(
                 "passive_security_advisory",
                 "Interpretação e remediação de segurança",
                 AI_OPTIONAL,
-                "Enriquece findings determinísticos após o sealing; não decide presença de controles, versão ou CVE.",
+                "Enriquece achados determinísticos após a consolidação da evidência; não decide presença de controles, versão ou CVE.",
             ),
         ),
     ),
