@@ -19,6 +19,7 @@ on:
       - 'tests/test_catalog_report_assurance.py'
       - 'tests/test_console_catalog_workflow.py'
       - 'tests/test_catalog_report_site.py'
+      - 'tests/test_catalog_report_search_trust.py'
       - 'tests/test_common_crawl_health.py'
       - 'tests/test_external_observability_integrations.py'
       - '.github/workflows/passive-security-targeted.yml'
@@ -37,6 +38,7 @@ on:
       - 'tests/test_catalog_report_assurance.py'
       - 'tests/test_console_catalog_workflow.py'
       - 'tests/test_catalog_report_site.py'
+      - 'tests/test_catalog_report_search_trust.py'
       - 'tests/test_common_crawl_health.py'
       - 'tests/test_external_observability_integrations.py'
   workflow_dispatch:
@@ -88,6 +90,8 @@ jobs:
           tests/test_catalog_report_assurance.py::test_partial_canonical_run_is_structurally_materialized
           tests/test_common_crawl_health.py
           tests/test_external_observability_integrations.py::test_common_crawl_persists_no_capture_as_coverage_not_error
+          tests/test_catalog_report_search_trust.py::test_common_crawl_error_modal_exposes_exception_and_recovery_steps
+          tests/test_catalog_report_search_trust.py::test_common_crawl_no_capture_404_is_presented_as_coverage_limitation
           tests/test_console_catalog_workflow.py::test_catalog_has_stable_unique_report_ready_ids
           tests/test_console_catalog_workflow.py::test_ai_usage_is_limited_to_actual_ai_consumers
           tests/test_catalog_report_site.py::test_catalog_report_is_generated_beside_untouched_legacy_tree
