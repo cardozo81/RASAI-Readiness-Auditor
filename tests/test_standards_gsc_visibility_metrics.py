@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+from rasai.observability.store import observability_database_path
+
+def _obs_path(workspace: Path) -> Path:
+    path = observability_database_path(workspace)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 import json
 import sqlite3
 from types import SimpleNamespace
@@ -131,7 +139,7 @@ def _metrics(path):
 def test_visibility_counts_use_latest_dataset_and_deduplicate_dimensions(tmp_path) -> None:
     audit_db = tmp_path / "audit.db"
     _audit_database(audit_db)
-    _observability_database(tmp_path / "observability.db")
+    _observability_database(_obs_path(tmp_path))
     workspace = SimpleNamespace(root=tmp_path, database=audit_db)
 
     reconcile_gsc_visibility_counts(audit_id="AUD-GSC-VIS", workspace=workspace)
@@ -152,7 +160,7 @@ def test_visibility_counts_use_latest_dataset_and_deduplicate_dimensions(tmp_pat
 
 def test_visibility_counts_materialize_zero_for_valid_empty_latest_dataset(tmp_path) -> None:
     audit_db = tmp_path / "audit.db"
-    obs_db = tmp_path / "observability.db"
+    obs_db = _obs_path(tmp_path)
     _audit_database(audit_db)
     _observability_database(obs_db)
     connection = sqlite3.connect(obs_db)
@@ -175,7 +183,7 @@ def test_visibility_counts_materialize_zero_for_valid_empty_latest_dataset(tmp_p
 def test_visibility_counts_are_idempotent(tmp_path) -> None:
     audit_db = tmp_path / "audit.db"
     _audit_database(audit_db)
-    _observability_database(tmp_path / "observability.db")
+    _observability_database(_obs_path(tmp_path))
     workspace = SimpleNamespace(root=tmp_path, database=audit_db)
 
     reconcile_gsc_visibility_counts(audit_id="AUD-GSC-VIS", workspace=workspace)
