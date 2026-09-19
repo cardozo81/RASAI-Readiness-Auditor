@@ -846,7 +846,7 @@ def _wrap_reprocess(original: Any, module: Any):
             score_status=summary.score_status,report_status=summary.report_status,
             consolidation_eligible=summary.consolidation_eligible,attempted_items=attempted,successful_items=successful,
             skipped_success_items=skipped_success,remaining_items=summary.pending_items+summary.blocked_items,
-            temporal_expired_items=summary.expired_items,report_root=workspace.root / "report",
+            temporal_expired_items=summary.expired_items,report_root=workspace.root / "report-catalog",
         )
 
     reprocess_with_core._rasai_core_reprocessing = True
