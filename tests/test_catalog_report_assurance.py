@@ -9,6 +9,7 @@ from rasai.catalog_report_assurance import (
     _catalog_referential_integrity,
     _read_only_guard_present,
     _safe_output,
+    _secret_free_configuration,
     assess_catalog,
     assurance_matrix_html,
     catalog_assurance_html,
@@ -70,6 +71,27 @@ def _patch_catalog(monkeypatch) -> None:
     )
     monkeypatch.setattr(state, "_catalog_source_specs", lambda _catalog_id: ())
 
+
+
+
+def test_nonsecret_cat10_cookie_toggle_is_not_treated_as_persisted_credential() -> None:
+    data = _data()
+    data.configuration["settings"] = {
+        "environment": {
+            "RASAI_SECURITY_COOKIES": "true",
+        }
+    }
+
+    passed, detail = _secret_free_configuration(data)
+
+    assert passed is True
+    assert "sem valores de credenciais" in detail
+
+    data.configuration["settings"]["environment"]["RASAI_OPENAI_API_KEY"] = "real-secret-value"
+    passed, detail = _secret_free_configuration(data)
+
+    assert passed is False
+    assert "RASAI_OPENAI_API_KEY" in detail
 
 def test_catalog_assurance_reaches_closure_targets_when_all_controls_pass(monkeypatch, tmp_path: Path) -> None:
     database = tmp_path / "audit.db"
