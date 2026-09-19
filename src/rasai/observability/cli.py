@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 import sqlite3
 
 from rasai.gsc_oauth import ACCESS_TOKEN_ENV, resolve_access_token
@@ -128,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Search & AI Observability report: {path}")
             return 0
         if args.observe_command == "status":
-            if not (workspace / "observability.db").is_file():
+            if not (observability_database_path(workspace)).is_file():
                 print("Observability: nenhum dataset persistido.")
                 return 0
             with ObservabilityStore(workspace) as store:
