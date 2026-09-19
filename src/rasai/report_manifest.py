@@ -12,6 +12,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 import sqlite3
 from typing import Any
 
@@ -59,7 +60,7 @@ def write_report_manifest(report_dir: str | Path) -> Path | None:
 
     # ``observability.html`` is now a stable canonical surface and may be only a neutral
     # placeholder. The sidecar itself is the capability/data signal.
-    observability_database = root.parent / "observability.db"
+    observability_database = observability_database_path(root.parent)
 
     manifest: dict[str, Any] = {
         "audit_id": audit_id,
