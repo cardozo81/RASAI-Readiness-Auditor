@@ -597,12 +597,19 @@ def test_cat10_report_projects_ai_recommendation_on_matching_finding(monkeypatch
         ),
     )
 
-    assert "Findings com análise IA" in html
+    assert "Achados com análise por IA" in html
     assert "Analisado pela IA" in html
-    assert "Análise e sugestão advisory da IA" in html
+    assert "Análise e sugestão consultiva da IA" in html
     assert "Aplicar a correção defensiva observável." in html
     assert "A recomendação deriva do finding" in html
     assert "Orientação gerada por IA" in html
+    assert "Cabeçalhos de segurança" in html
+    assert "Recursos de terceiros" in html
+    assert "Conteúdo misto" in html
+    assert "Varredura ativa" in html
+    assert "Vulnerability Intelligence" not in html
+    assert "Security headers" not in html
+    assert "Active scanning" not in html
 
 def test_packaged_defaults_keep_cat10_opt_in_with_safe_subcontrols() -> None:
     from rasai.system_defaults import load_system_defaults
