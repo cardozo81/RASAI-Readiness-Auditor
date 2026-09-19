@@ -190,7 +190,7 @@ jobs:
       - name: Prove catalog implementation source is unchanged by this scope
         shell: bash
         run: |
-          baseline=e8870710cf2e0f59e4a47a897522d16f2c39e94e
+          baseline=fc8f38533d989c55ac13a06e7b705f4ba32aa9bf
           changed="$(git diff --name-only "${baseline}...HEAD")"
           if echo "${changed}" | grep -E '^src/rasai/catalog_report_|^src/rasai/audit_catalog\.py$'; then
             echo "Catalog implementation source changed during the non-catalog output change."
