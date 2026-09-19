@@ -1,7 +1,7 @@
 """Chrome UX Report History API collector.
 
 Uses the official queryHistoryRecord endpoint and persists weekly p75/density
-series in observability.db without changing the source audit database.
+series in artifacts/observability/observability.db without changing the source audit database.
 """
 from __future__ import annotations
 
