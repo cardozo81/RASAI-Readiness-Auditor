@@ -9,7 +9,6 @@ from rasai.domain import EvidenceType, RuleExecution, RuleResult, new_id, utc_no
 from rasai.evidence import EvidenceManager
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.score_geo_004 import OVERALL_AGGREGATION_VERSION, SCORING_VERSION
-from rasai.score_geo_004_reporting import write_score_geo_004_report
 from rasai.scoring import ScoringResult
 from rasai.scoring_persistence import ScoringPersistence
 from rasai.scoring_v004 import ScoreGeo004Engine
@@ -105,8 +104,6 @@ def execute_m9(
         evidence_ids=(evidence.evidence_id,), executed_at=utc_now(), error=None,
     )
     persistence.rule_executions.add(integrity_execution)
-    write_score_geo_004_report(audit_id=audit_id, workspace=workspace)
-
     return M9ExecutionResult(
         score_ids=tuple(score_ids),
         contribution_ids=tuple(contribution_ids),
