@@ -216,10 +216,10 @@ Quando Search Intelligence é solicitado e a auditoria principal permite a etapa
 A evidência persistida materializa o relatório:
 
 ```text
-AUD-*/report/search-intelligence.html
+AUD-*/report-catalog/cat-05.html
 ```
 
-Abrir ou renderizar o HTML usa a evidência persistida e não refaz chamadas SERP somente para exibição.
+Abrir o CAT-05 usa a evidência persistida e não refaz chamadas SERP somente para exibição.
 
 ## Falhas externas
 
