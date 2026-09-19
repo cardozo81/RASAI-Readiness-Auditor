@@ -27,9 +27,9 @@ audits/<AUD-ID>/
    └─ css/site.css
 ```
 
-### Saídas retiradas da auditoria
+### Caminhos fora do contrato de saída de `rasai audit`
 
-Novas auditorias não materializam mais:
+O runtime de `rasai audit` não materializa:
 
 ```text
 <AUD>/report/
@@ -57,9 +57,9 @@ Nenhum collector, crawler, integração externa, scoring, análise determinísti
 
 A projeção HTML audit-owned suportada é `report-catalog/`. Sua materialização continua usando a fonte persistida da AUD e não executa collectors, APIs, providers, IA ou scoring para preencher HTML.
 
-O catálogo possui contrato próprio e continua incluindo as páginas CAT selecionadas e suas páginas de governança. A retirada de `report/` não altera CAT-01 ... CAT-10, Matriz de encerramento estrutural, regras de catálogo ou rastreabilidade do catálogo.
+O catálogo possui contrato próprio e inclui as páginas CAT selecionadas e suas páginas de governança. CAT-01 ... CAT-10, Matriz de encerramento estrutural, regras de catálogo e rastreabilidade dependem dos dados persistidos, não de uma árvore HTML paralela.
 
-Saídas standalone fora de uma AUD, como `monitoring/`, `verification/`, `quality/TIMELINE-*`, `search-history/` e `consolidated/`, mantêm seus contratos próprios e não são removidas por este escopo.
+Saídas standalone como `monitoring/`, `verification/`, `quality/TIMELINE-*`, `search-history/` e `consolidated/` mantêm seus contratos próprios e ficam fora do contrato HTML audit-owned de `report-catalog/`.
 
 ### SaaS / Web
 
