@@ -142,6 +142,17 @@ def _security_party_label(value: Any) -> str:
     }.get(_norm(value),str(value or "-").replace("_"," ").title())
 
 
+def _security_source_label(value: Any) -> str:
+    raw=str(value or "").strip()
+    if not raw:
+        return "-"
+    return {
+        "RASAI PASSIVE SECURITY ANALYZER": "Análise determinística de segurança passiva",
+        "OSV + CISA KEV": "OSV + CISA KEV",
+        "OSV": "OSV",
+    }.get(raw.upper(),raw)
+
+
 def _security_resource_kind_label(value: Any) -> str:
     return {
         "SCRIPT":"Script",
@@ -466,7 +477,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             ("Classificação",finding_type),
             ("Severidade",_level_label(item.get("severity"))),
             ("Confiança",_confidence_label(item.get("confidence"))),
-            ("Origem",item.get("source") or "-"),
+            ("Origem",_security_source_label(item.get("source"))),
             ("Contexto",party),
             ("Impacto",item.get("impact") or "-"),
             ("Contenção imediata",item.get("containment") or "-"),
@@ -500,7 +511,7 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
             rendered_details=_security_detail_html(details)
             if rendered_details:
                 body+="<details><summary>Detalhes técnicos persistidos</summary><div class='detail-body'>"+rendered_details+"</div></details>"
-        modals.append(_modal(mid,item.get("title") or "Achado de segurança",f"{category} · {item.get('source') or 'RASAi'}",body))
+        modals.append(_modal(mid,item.get("title") or "Achado de segurança",f"{category} · {_security_source_label(item.get('source'))}",body))
 
     integration_rows=[]; integration_modals=[]
     for index,item in enumerate(integrations,1):
