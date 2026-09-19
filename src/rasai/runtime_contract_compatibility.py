@@ -23,14 +23,12 @@ def install_runtime_contract_compatibility() -> None:
         _install_crawling_capture_wording_fix,
         _install_m24_fallback_telemetry_fix,
         _install_scoring_wording_fix,
-        _install_search_comparison_guidance,
     )
 
     _install_ai_cost_report_fix()
     _install_ai_usage_presentation_fix()
     _install_scoring_wording_fix()
     _install_crawling_capture_wording_fix()
-    _install_search_comparison_guidance()
     _install_m24_fallback_telemetry_fix()
     _RUNTIME_INSTALLED = True
 
