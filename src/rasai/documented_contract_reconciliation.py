@@ -1,16 +1,13 @@
 """Runtime reconciliation for documented public contracts.
 
-The fixes in this module are intentionally narrow and additive. They keep provider
-credentials separate from AUTO-pool membership, make post-run AI cost reporting derive
-from persisted telemetry, reconcile the PageSpeed Agentic Browsing category with the
-current API contract, clarify optional Search content comparison, and remove misleading
-presentation states without changing SARI/SCORE-GEO evidence.
+This module keeps provider credentials separate from AUTO-pool membership, reconciles
+the PageSpeed Agentic Browsing category with the current API contract, configures
+optional Search content comparison, and preserves M24 fallback telemetry without
+changing SARI/SCORE-GEO evidence.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
-from html import escape
 import os
 from pathlib import Path
 import sqlite3
@@ -424,152 +421,6 @@ def _install_current_pagespeed_categories() -> None:
         console_config.apply_environment_defaults = apply_environment_defaults
 
 
-def _format_cost(value: Decimal) -> str:
-    return f"{value:.8f}".rstrip("0").rstrip(".")
-
-
-def _db_ai_costs(database: Path) -> dict[str, dict[str, Decimal]]:
-    totals: dict[str, dict[str, Decimal]] = {}
-    if not database.is_file():
-        return totals
-    connection = sqlite3.connect(database)
-    try:
-        for table, label_sql in (
-            (
-                "ai_provider_attempts",
-                "CASE WHEN semantic_contract_version LIKE 'M24-%' THEN 'Remediação técnica por IA' ELSE 'Análise semântica por IA' END",
-            ),
-            ("content_remediation_attempts", "'Remediação textual por IA'"),
-        ):
-            exists = connection.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
-            ).fetchone()
-            if not exists:
-                continue
-            rows = connection.execute(
-                f"SELECT {label_sql},cost_currency,SUM(estimated_cost) "
-                f"FROM {table} WHERE estimated_cost IS NOT NULL AND cost_currency IS NOT NULL "
-                "GROUP BY 1,cost_currency"
-            ).fetchall()
-            for label, currency, amount in rows:
-                totals.setdefault(str(currency), {})[str(label)] = (
-                    totals.setdefault(str(currency), {}).get(str(label), Decimal("0"))
-                    + Decimal(str(amount))
-                )
-    finally:
-        connection.close()
-    return totals
-
-
-def _install_ai_cost_report_fix() -> None:
-    from rasai import report_navigation
-
-    original = report_navigation._enhance_ai_cost_total
-    if getattr(original, "_rasai_persisted_ai_cost", False):
-        return
-
-    def enhance_ai_cost_total(report_dir: Path) -> None:
-        path = report_dir / "ai-usage.html"
-        if not path.is_file():
-            return
-        totals = _db_ai_costs(report_dir.parent / "audit.db")
-        if not totals:
-            return original(report_dir)
-        html = path.read_text(encoding="utf-8")
-        html = report_navigation._AI_COST_TOTAL_RE.sub("", html)
-        banners: list[str] = []
-        for currency, components in sorted(totals.items()):
-            total = sum(components.values(), Decimal("0"))
-            breakdown = " + ".join(
-                f"{label} {_format_cost(amount)} {currency}"
-                for label, amount in sorted(components.items())
-            )
-            banners.append(
-                "<section class='notice cost-total' data-api-cost-total='true'>"
-                f"<strong>Custo estimado total de IA com telemetria persistida: {_format_cost(total)} {escape(currency)}</strong>"
-                f"<span class='cost-breakdown'>{escape(breakdown)}. "
-                "Estimativa técnica pós-execução baseada em tokens/pricing persistidos; não substitui billing/invoice e não inventa custo para chamadas sem usage retornado.</span>"
-                "</section>"
-            )
-        html = html.replace("</header>", "</header>" + "".join(banners), 1)
-        path.write_text(html, encoding="utf-8", newline="\n")
-
-    enhance_ai_cost_total._rasai_persisted_ai_cost = True
-    enhance_ai_cost_total._rasai_original = original
-    report_navigation._enhance_ai_cost_total = enhance_ai_cost_total
-
-
-def _install_ai_usage_presentation_fix() -> None:
-    from rasai import report_ai_runtime_enrichment, report_navigation, report_semantics
-
-    report_ai_runtime_enrichment._RUNTIME_STYLE = (
-        report_ai_runtime_enrichment._RUNTIME_STYLE.replace(
-            "background:var(--code-bg,#f6f7f9);", "background:transparent;"
-        )
-    )
-    css = (
-        "\n.result-tag .badge.good,.result-tag .badge.warn,.result-tag .badge.bad,"
-        ".result-tag .badge.info,.result-tag .badge.unknown{background:transparent}\n"
-    )
-    if ".result-tag .badge.good" not in report_semantics.SEMANTIC_CSS:
-        report_semantics.SEMANTIC_CSS += css
-    if ".result-tag .badge.good" not in report_navigation.SEMANTIC_CSS:
-        report_navigation.SEMANTIC_CSS += css
-
-
-def _install_scoring_wording_fix() -> None:
-    from rasai import report_registry
-
-    original = report_registry._normalize_known_legacy_wording
-    if getattr(original, "_rasai_weighted_overall_wording", False):
-        return
-
-    def normalize(html: str, *, page_name: str) -> str:
-        updated = original(html, page_name=page_name)
-        stale = (
-            "média aritmética de igual peso das dimensões aplicáveis que possuem valor e não estão em "
-            "<code>NOT_CONSOLIDATED</code>. Uma dimensão legitimamente <code>NOT_APPLICABLE</code> sai do denominador."
-        )
-        current = (
-            "média ponderada pelos pesos versionados das dimensões aplicáveis e efetivamente medidas, "
-            "com renormalização do denominador. Uma dimensão legitimamente <code>NOT_APPLICABLE</code> "
-            "sai do denominador; dimensão aplicável sem valor reduz Coverage/Confidence sem receber zero artificial."
-        )
-        return updated.replace(stale, current)
-
-    normalize._rasai_weighted_overall_wording = True
-    normalize._rasai_original = original
-    report_registry._normalize_known_legacy_wording = normalize
-
-
-def _install_crawling_capture_wording_fix() -> None:
-    from rasai import m24_reporting
-
-    original = m24_reporting._captured_resources_block
-    if getattr(original, "_rasai_captured_artifact_wording", False):
-        return
-
-    def captured_resources_block(resources: list[dict[str, Any]]) -> str:
-        html = original(resources)
-        html = html.replace(
-            "<h2>robots.txt, sitemaps e llms.txt observados</h2>",
-            "<h2>Artifacts textuais efetivamente preservados</h2>",
-        )
-        html = html.replace(
-            "Nenhum artifact textual capturado está disponível para exibição nesta auditoria.",
-            "Nenhum artifact textual foi preservado para exibição. Recursos ausentes ou indisponíveis permanecem descritos pelo estado e pelos diagnósticos; não é criado accordion sem conteúdo capturado.",
-        )
-        html = html.replace(
-            "Conteúdo read-only dos arquivos efetivamente preservados pela auditoria. Abrir um item não executa nova coleta.",
-            "Conteúdo read-only das respostas/artifacts efetivamente preservados pela auditoria. Um recurso pode estar ausente e ainda possuir uma resposta HTTP capturada; recursos sem artifact, como um llms.txt 404 não preservado, permanecem somente no estado/diagnóstico. Abrir um item não executa nova coleta.",
-        )
-        return html
-
-    captured_resources_block._rasai_captured_artifact_wording = True
-    captured_resources_block._rasai_original = original
-    m24_reporting._captured_resources_block = captured_resources_block
-
-
 def _install_console_search_content_comparison() -> None:
     from rasai import console_search_intelligence, interactive_console
 
@@ -717,10 +568,6 @@ def install_documented_contract_reconciliation() -> None:
     _install_console_auto_capability_filter()
     _install_console_auto_persistence()
     _install_current_pagespeed_categories()
-    _install_ai_cost_report_fix()
-    _install_ai_usage_presentation_fix()
-    _install_scoring_wording_fix()
-    _install_crawling_capture_wording_fix()
     _install_m24_fallback_telemetry_fix()
     _INSTALLED = True
 
