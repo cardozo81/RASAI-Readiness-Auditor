@@ -15,7 +15,7 @@ from .competitive_ai_persistence import (
     FilesystemCompetitiveAiEvidenceSink,
 )
 from .competitive_runtime import CompetitiveExecution
-from .runtime import SearchExecution, _refresh_search_intelligence_report
+from .runtime import SearchExecution
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,9 +138,6 @@ def execute_competitive_ai(
         if repository is not None:
             repository.close()
 
-    # The HTML is a read-only projection of persisted Search/competitive/AI evidence.
-    # Reporting remains fail-open and cannot change a successfully persisted AI result.
-    _refresh_search_intelligence_report(workspace_root)
     return CompetitiveAiExecution(
         results=tuple(outputs),
         provider=provider.name,
