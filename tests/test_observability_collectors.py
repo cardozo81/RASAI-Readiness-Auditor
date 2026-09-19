@@ -62,6 +62,8 @@ def test_search_analytics_collects_and_does_not_persist_token() -> None:
         )
         assert dataset.startswith("OBS-")
         with ObservabilityStore(workspace) as store:
+            assert store.path == workspace / "artifacts" / "observability" / "observability.db"
+            assert not (workspace / "observability.db").exists()
             rows = store.search_rows()
             datasets = store.datasets()
             assert len(rows) == 1
