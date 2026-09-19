@@ -388,6 +388,31 @@ def test_cat10_requested_ai_execution_gap_reduces_structural_assurance(monkeypat
     failed = {item["code"] for item in result["checks"] if not item["passed"]}
     assert "GOV_INTERNAL_EXECUTION" in failed
     assert "REL_INTERNAL_EXECUTION" in failed
+    assert "GOV_CANONICAL_RUN" in failed
+    assert "REL_CANONICAL_RUN" in failed
+
+
+def test_partial_canonical_run_is_structurally_materialized(tmp_path: Path) -> None:
+    from rasai.catalog_report_assurance import _canonical_run_materialized
+    import sqlite3
+
+    database = tmp_path / "audit.db"
+    connection = sqlite3.connect(database)
+    try:
+        connection.execute("CREATE TABLE synthetic_apdex_runs(audit_id TEXT,status TEXT)")
+        connection.execute(
+            "INSERT INTO synthetic_apdex_runs VALUES (?,?)",
+            ("AUD-ASSURANCE", "PARTIAL"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    passed, detail = _canonical_run_materialized(database, "AUD-ASSURANCE", "CAT-06")
+
+    assert passed is True
+    assert "synthetic_apdex_runs" in detail
+
 
 def test_missing_semantic_attempt_task_round_provenance_reduces_integrity(monkeypatch, tmp_path: Path) -> None:
     from rasai import catalog_report_assurance as assurance
