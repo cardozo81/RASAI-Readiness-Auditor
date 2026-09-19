@@ -950,7 +950,8 @@ def request_remediation_report_html(database: Any, audit_id: str, analysis: Any)
     for index, group in enumerate(groups, 1):
         group_id = str(group.get("group_id") or "")
         ai = ai_rows.get(group_id, {})
-        modal_id = f"request-remediation-{index}"
+        anchor_token = re.sub(r"[^a-z0-9_-]+", "-", group_id.casefold()).strip("-") or str(index)
+        modal_id = f"request-remediation-{anchor_token}"
         title = ai.get("title") or group.get("title") or "Remediação técnica"
         ratio = float(group.get("recurrence_ratio") or 0.0)
         confidence = "—"
