@@ -18,7 +18,6 @@ from rasai.config import load_config
 from rasai.device_context import DEVICE_CONTEXT_ENV, configured_device_context
 from rasai.logging_config import configure_logging
 from rasai.m18_ai import build_semantic_provider
-from rasai.m21_reporting import enrich_m21_report_site
 from rasai.m24_cli import configured_m24, register_m24_arguments
 from rasai.m21_web_performance import DEFAULT_CATEGORIES, WebPerformanceConfig, execute_m21
 from rasai.operational_log import try_append_operational_event
@@ -347,7 +346,6 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "audit":
         web_result = None
-        web_report_path: Path | None = None
         web_runtime_failed = False
         workspace: AuditWorkspace | None = None
         try:
@@ -392,16 +390,6 @@ def main(argv: list[str] | None = None) -> int:
                             workspace=workspace,
                             config=web_performance,
                         )
-                        web_report_path = enrich_m21_report_site(
-                            audit_id=result.audit_id,
-                            workspace=workspace,
-                        )
-                        try_append_operational_event(
-                            workspace,
-                            "M21_REPORT_GENERATED",
-                            audit_id=result.audit_id,
-                            report_path=str(web_report_path.relative_to(workspace.root)),
-                        )
                     except Exception as exc:
                         web_runtime_failed = True
                         if workspace is not None:
@@ -443,7 +431,7 @@ def main(argv: list[str] | None = None) -> int:
             if web_result.status == "PARTIAL":
                 print(
                     "Web Performance aviso: coleta parcial; um ou mais componentes externos falharam "
-                    "ou ficaram indisponíveis. Consulte o relatório e o log operacional."
+                    "ou ficaram indisponíveis. Consulte os dados persistidos e o log operacional."
                 )
         elif web_runtime_failed:
             print(
@@ -452,15 +440,6 @@ def main(argv: list[str] | None = None) -> int:
             )
         print(f"Problemas identificados: {result.finding_count}")
         print(f"Recomendações: {result.recommendation_count}")
-        print(f"Relatório: {result.report_path}")
-        remediation_path = result.audit_root / "report" / "remediation.html"
-        if remediation_path.is_file():
-            print(f"Relatório por problemas: {remediation_path}")
-        content_path = result.audit_root / "report" / "content-suggestions.html"
-        if content_path.is_file():
-            print(f"Conteúdo e JSON-LD: {content_path}")
-        if web_report_path is not None and web_report_path.is_file():
-            print(f"Core Web Vitals e Lighthouse: {web_report_path}")
         log_path = result.audit_root / "logs" / "audit.log"
         if log_path.is_file():
             print(f"Log operacional: {log_path}")
