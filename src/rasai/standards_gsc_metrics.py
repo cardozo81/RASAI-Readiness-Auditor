@@ -10,6 +10,7 @@ from __future__ import annotations
 from html import escape
 import json
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 import sqlite3
 from typing import Any, Iterable, Mapping
 
@@ -357,7 +358,7 @@ def _reconcile_search_analytics(
 def reconcile_gsc_observational_metrics(*, audit_id: str, workspace: AuditWorkspace) -> None:
     """Project latest persisted GSC sidecar data into audit-scoped standards metrics."""
 
-    sidecar = Path(workspace.root) / "observability.db"
+    sidecar = observability_database_path(workspace.root)
     if not sidecar.is_file():
         return
     audit_connection = sqlite3.connect(workspace.database)
