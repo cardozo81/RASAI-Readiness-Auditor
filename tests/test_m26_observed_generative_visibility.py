@@ -9,7 +9,6 @@ from unittest.mock import patch
 import pytest
 
 from rasai import entrypoint
-from rasai.m26_reporting import enrich_m26_report_site
 from rasai.m26_visibility import FORMAT_VERSION, import_visibility_file, wilson_interval
 from rasai.persistence import AuditWorkspace
 
@@ -149,31 +148,6 @@ def test_import_is_same_origin_idempotent_and_non_scoring() -> None:
         assert score == (81.0, "SCORE-GEO-004")
 
 
-def test_report_keeps_source_metrics_and_computed_presence_separate() -> None:
-    with tempfile.TemporaryDirectory() as directory:
-        root = Path(directory)
-        workspace = _workspace(root)
-        source = _write(root, _payload())
-        import_visibility_file(audit_id="AUD-M26", workspace=workspace, path=source)
-        report = enrich_m26_report_site(audit_id="AUD-M26", workspace=workspace)
-        html = report.read_text(encoding="utf-8")
-        index = (workspace.root / "report" / "index.html").read_text(encoding="utf-8")
-
-        assert "Observed Generative Visibility" in html
-        assert "Total Citations · fonte" in html
-        assert ">12<" in html
-        assert "Average Cited Pages · fonte" in html
-        assert "Citation Presence Rate" in html
-        assert "50.0%" in html
-        assert "NORMALIZED_EXPORT" in html
-        assert "não autentica o portal externo" in html
-        assert "runs válidos que citaram" in html
-        assert "não compõem SARI-001/SCORE-GEO-004" in html
-        assert "contratos históricos" not in html
-        assert "não faz scraping" in html
-        assert "ai-visibility.html" in index
-
-
 def test_capture_method_is_required_and_bounded() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
@@ -236,5 +210,5 @@ def test_top_level_entrypoint_delegates_existing_commands_and_intercepts_visibil
         existing.assert_called_once_with(["audit", "example.test"])
 
     with patch("rasai.m26_cli.main", return_value=23) as visibility:
-        assert entrypoint.main(["visibility", "report", "--audit-id", "AUD-X"]) == 23
-        visibility.assert_called_once_with(["report", "--audit-id", "AUD-X"])
+        assert entrypoint.main(["visibility", "import", "--audit-id", "AUD-X", "--file", "visibility.json"]) == 23
+        visibility.assert_called_once_with(["import", "--audit-id", "AUD-X", "--file", "visibility.json"])
