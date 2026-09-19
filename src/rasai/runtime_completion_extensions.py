@@ -1,7 +1,7 @@
-"""Small runtime extensions that close additive reporting/provider gaps.
+"""Small runtime extensions for public configuration and provider contracts.
 
-These patches keep public console/help and report surfaces aligned with the canonical
-runtime contracts without changing SARI arithmetic or evaluated website facts.
+These patches keep console/help, monitoring metrics and provider diagnostics aligned
+without changing SARI arithmetic or evaluated website facts.
 """
 from __future__ import annotations
 
@@ -50,7 +50,6 @@ def install_runtime_completion_extensions() -> None:
     _install_console_environment()
     _install_improvement_environment_contract()
     _install_console_cost()
-    _install_dashboard_metrics()
     _install_monitoring_metrics()
     _install_agentic_provenance()
     _install_gemini_diagnostics()
@@ -395,38 +394,6 @@ def _install_console_cost() -> None:
     from rasai import console_cost
 
     console_cost._rasai_dynamic_auto_exposure_current = True
-
-
-def _install_dashboard_metrics() -> None:
-    from rasai import rasai_readiness_reporting as reporting
-
-    if getattr(reporting, "_rasai_extended_lighthouse_dashboard", False):
-        return
-    original_dashboard = reporting._dashboard
-
-    def dashboard_with_extended_lighthouse(data: dict[str, Any], report_dir):
-        html = original_dashboard(data, report_dir)
-        web = data.get("web", [])
-        specifications = (
-            ("Lighthouse Best Practices", "best_practices_score", "Chrome Lighthouse via PageSpeed", "web-performance.html"),
-            ("Lighthouse SEO técnico", "seo_score", "Chrome Lighthouse via PageSpeed", "web-performance.html"),
-        )
-        additions: list[str] = []
-        for title, column, source, href in specifications:
-            if f"<h3>{title}</h3>" in html:
-                continue
-            value, detail = reporting._device_ranges(web, column, scale=1.0, suffix="/100")
-            condition, condition_label = reporting._lighthouse_condition(web, column)
-            additions.append(reporting._indicator_card(title, value, detail, href, source, condition, condition_label))
-        if not additions:
-            return html
-        target = "</div></section>" + reporting._DASHBOARD_END
-        if target not in html:
-            return html
-        return html.replace(target, "".join(additions) + target, 1)
-
-    reporting._dashboard = dashboard_with_extended_lighthouse
-    reporting._rasai_extended_lighthouse_dashboard = True
 
 
 def _install_monitoring_metrics() -> None:
