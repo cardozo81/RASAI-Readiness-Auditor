@@ -12,6 +12,7 @@ from datetime import date, datetime, timezone
 from html.parser import HTMLParser
 import json
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 import re
 import sqlite3
 from typing import Any
@@ -483,7 +484,7 @@ def _intent_by_url(connection: sqlite3.Connection, audit_id: str, pages: dict[st
 
 
 def _external_rows(workspace: Path, table: str) -> list[dict[str, Any]]:
-    database = workspace / "observability.db"
+    database = observability_database_path(workspace)
     if not database.is_file():
         return []
     if table not in {"search_performance", "index_observations", "crux_history", "datasets"}:
