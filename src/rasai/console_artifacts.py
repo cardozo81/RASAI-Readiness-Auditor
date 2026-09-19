@@ -19,13 +19,9 @@ def audit_workspace(state: State) -> Path | None:
 
 
 def report_entrypoint(workspace: Path | None) -> Path | None:
-    """Resolve a usable report entrypoint without exposing a stale catalog tree."""
+    """Resolve the supported catalog-report entrypoint only."""
     if workspace is None:
         return None
-    candidate = workspace / "report" / "index.html"
-    if candidate.is_file():
-        return candidate.resolve()
-
     catalog = workspace / "report-catalog" / "index.html"
     if not catalog.is_file():
         return None
