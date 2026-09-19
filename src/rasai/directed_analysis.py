@@ -21,7 +21,7 @@ from rasai.ai_exchange_log import AiExchangeRecorder, instrument_provider_transp
 from rasai.ai_resilience import DECISION_RETRY, DECISION_STOP, DECISION_SUCCESS, DECISION_SUCCESS_AFTER_RETRY, retry_policy
 from rasai.catalog_report_contract import CATALOG_PAGE_BY_ID, CATALOG_REPORT_CONTRACT_VERSION
 from rasai.catalog_report_model import _DOMAIN_CATALOG, _load_data
-from rasai.catalog_report_catalog_state import _catalog_metrics, _catalog_status
+from rasai import catalog_report_page as catalog_page
 from rasai.domain import new_id
 from rasai.improvement_intelligence import (
     DEFAULT_DOMAINS,
@@ -491,10 +491,10 @@ def build_strategic_context(*, audit_id: str, workspace: AuditWorkspace) -> tupl
         for catalog_id in sorted(data.selected):
             if catalog_id not in CATALOG_PAGE_BY_ID:
                 continue
-            status, _tone, detail = _catalog_status(workspace.database, data, catalog_id)
+            status, _tone, detail = catalog_page._catalog_status(workspace.database, data, catalog_id)
             metrics = [
                 {"name": str(name), "value": value, "kind": str(kind)}
-                for name, value, kind in _catalog_metrics(workspace.database, data, catalog_id)[:12]
+                for name, value, kind in catalog_page._catalog_metrics(workspace.database, data, catalog_id)[:12]
             ]
             catalog_rows.append({
                 "catalog_id": catalog_id,
