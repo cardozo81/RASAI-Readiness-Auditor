@@ -264,6 +264,14 @@ def catalog_menu(console_module: ModuleType, state: Any, *, view: str, title: st
         env.base_environment.render_header(state); print(paint(f"INÍCIO > {title}", CYAN, bold=True))
         print("\nCada variável possui ID numérico estável; o mesmo ID aparece em qualquer contexto.")
         print(paint("Números identificam configurações; letras representam ações/navegação.", DIM))
+        if view == "integrations":
+            section("DIAGNÓSTICO / TESTES")
+            print("D. Diagnóstico / teste de integrações e IA")
+            print(paint(
+                "   Inclui providers de IA, SERP/Search Intelligence e serviços externos; "
+                "usa o diagnóstico canônico e respeita probes seguros, quota e safe_for_bulk.",
+                DIM,
+            ))
         if view == "ai":
             section("IA PRINCIPAL DA EXECUÇÃO")
             print(
@@ -275,7 +283,6 @@ def catalog_menu(console_module: ModuleType, state: Any, *, view: str, title: st
         if not rows: print(paint("\nNenhuma configuração corresponde ao filtro atual.", DIM))
         section("AÇÕES")
         print("O. Por owner funcional\nA. Ordem alfabética\nE. Por estado\nM. Somente modificadas\nP. Somente pendentes\nF. Localizar por ID/nome/finalidade")
-        if view == "integrations": print("D. Diagnóstico técnico das integrações")
         print("V. Voltar")
         raw = input("ID ou ação: ").strip().upper()
         if raw == "V": return
