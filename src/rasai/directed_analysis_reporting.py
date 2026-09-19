@@ -1,6 +1,7 @@
 """Read-only report projection for the evidence-bound Directed Analysis."""
 from __future__ import annotations
 
+from hashlib import sha256
 import json
 import sqlite3
 from typing import Any, Mapping, Sequence
@@ -137,7 +138,8 @@ def _links(values: Any, *, label_prefix: str) -> _Html:
 
 def _action_modal(action: Mapping[str,Any], by_id: Mapping[str,Mapping[str,Any]]) -> str:
     action_id=str(action.get("action_id") or "")
-    modal_id="directed-"+re.sub(r"[^a-z0-9_-]+","-",action_id.casefold()).strip("-")
+    title_token=re.sub(r"[^a-z0-9_-]+","-",str(action.get("title") or "acao").casefold()).strip("-") or "acao"
+    modal_id="directed-"+title_token[:48]+"-"+sha256(action_id.encode("utf-8")).hexdigest()[:8]
     dimensions=_json(action.get("affected_dimensions_json"),[])
     dependencies=_json(action.get("dependencies_json"),[])
     guidance=_json(action.get("implementation_guidance_json"),[])
