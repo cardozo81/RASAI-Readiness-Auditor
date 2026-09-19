@@ -1,7 +1,7 @@
 # Requisitos funcionais e não funcionais do RASAi
 
 **Estado:** APROVADO / VIGENTE  
-**Contrato relacionado:** rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance + Sugestões e remediação de conteúdo por IA + análise semântica por IA, roteamento e telemetria + `SCORE-GEO-004` + `SARI-001` + `REPORT-CONTRACT-002`
+**Contrato relacionado:** rastreamento, descoberta e acesso de crawlers + Synthetic Navigation Apdex + Acessibilidade automatizada e diagnósticos Web + Web Performance + Sugestões e remediação de conteúdo por IA + análise semântica por IA, roteamento e telemetria + `SCORE-GEO-004` + `SARI-001` + `CATALOG-REPORT-002`
 
 Os identificadores `FR-GEO-*` e `NFR-GEO-*` são canônicos. Termos de implementação, flags, enums, nomes de classes e arquivos permanecem em inglês quando fazem parte do contrato técnico; a descrição funcional é mantida em português do Brasil.
 
@@ -143,10 +143,10 @@ Consolidar recomendações repetitivas por causa raiz quando a evidência permit
 Gerar recomendações técnicas mesmo sem IA.
 
 ### FR-GEO-046
-Gerar mini-site HTML estático em `report/`, com `report/index.html` como ponto de entrada, materializando todas as superfícies canônicas de `REPORT-CONTRACT-002` após auditoria concluída com sucesso.
+Gerar a projeção HTML audit-owned em `report-catalog/`, com `report-catalog/index.html` como ponto de entrada, após a produção dos dados funcionais da auditoria. Não gerar `report/`, `report.html` ou `remediation.html` para a família convencional removida.
 
 ### FR-GEO-047
-Produzir mini-site local e navegável sem servidor Web, usando dependências relativas internas ao workspace.
+Produzir `report-catalog/` local e navegável sem servidor Web, usando dependências relativas internas ao workspace.
 
 ### FR-GEO-048
 Utilizar português do Brasil na camada de apresentação, preservando termos técnicos canônicos quando a tradução reduzir precisão.
@@ -161,7 +161,7 @@ Explicar limitações provocadas por indisponibilidade de IA sem atribuí-las ao
 Preservar termos técnicos quando a tradução prejudicar precisão ou quebrar rastreabilidade.
 
 ### FR-GEO-052
-Produzir apresentação profissional com resumo, scorecard, findings, evidências, prioridades, remediações, limitações e detalhes técnicos distribuídos pelos domínios apropriados do mini-site.
+Produzir apresentação profissional no `report-catalog/`, projetando resumo, métricas, findings, evidências, prioridades, remediações, limitações e detalhes técnicos sem recalcular os dados funcionais.
 
 ### FR-GEO-053
 Exibir readiness geral como não determinado/não consolidado quando `OVERALL_READINESS` não possuir valor publicável pelo contrato; nunca substituir Score por Coverage.
@@ -215,7 +215,7 @@ Excluir do Overall somente dimensões integralmente e legitimamente `NOT_APPLICA
 Quando tópico opcional passa a existir, suas regras tornam-se aplicáveis. JSON-LD observado torna `BR-GEO-034..037` parte do fluxo aplicável.
 
 ### FR-GEO-070
-Exibir no mini-site dimensões legitimamente excluídas como `NÃO APLICÁVEL`, diferentes de `NÃO DETERMINADO`, e informar o universo efetivamente considerado no Overall.
+Exibir no `report-catalog/` dimensões legitimamente excluídas como `NÃO APLICÁVEL`, diferentes de `NÃO DETERMINADO`, e informar o universo efetivamente considerado no Overall.
 
 ### FR-GEO-071
 Documentar premissas `MÍNIMO`, `CONTEXTUAL`, `OPCIONAL / REFORÇO` e `NÃO OBRIGATÓRIO`, sem transformar recomendações externas em requisitos artificiais de score.
@@ -230,13 +230,13 @@ Expor `--device-context mobile|desktop|both` e `RASAI_DEVICE_CONTEXT`, com prece
 O contexto de dispositivo selecionado deve controlar rendering e, por consequência, os contextos enviados ao provider semântico; nenhum provider deve ser chamado para dispositivo sem snapshot selecionado.
 
 ### FR-GEO-075
-Manter `report/mobile.html` e `report/desktop.html` como superfícies canônicas estáveis. Ambas as páginas são materializadas em auditoria concluída com sucesso; cada uma deve apresentar resultados somente quando o respectivo contexto foi auditado e, caso contrário, exibir estado neutro de contexto não executado.
+Projetar o contexto Mobile/Desktop persistido nas superfícies responsáveis de `report-catalog/`, sem recriar as antigas páginas `report/mobile.html` e `report/desktop.html`. Contexto não executado deve permanecer explicitamente distinguível de contexto executado.
 
 ### FR-GEO-076
-Separar telemetria operacional em `report/ai-usage.html` e fundamentação técnica em `report/references.html`, evitando confundir erro de provider com qualidade do website.
+Separar telemetria operacional de IA e fundamentação técnica nas superfícies de governança do `report-catalog/`, evitando confundir erro de provider com qualidade do website.
 
 ### FR-GEO-077
-Todos os HTMLs finais devem usar navegação consistente e stylesheet compartilhado `report/css/site.css`; CSS estrutural inline/embutido não deve compor o mini-site final.
+Todos os HTMLs do catálogo devem usar navegação consistente e stylesheet compartilhado `report-catalog/css/site.css`, conforme contrato próprio do catálogo.
 
 ### FR-GEO-078
 Explicar que Confidence representa força da conclusão do auditor e que `LOW`, isoladamente, não significa baixa qualidade ou não aderência do texto.
@@ -278,7 +278,7 @@ Quando JSON-LD estiver ausente, propor somente baseline Schema.org conservador s
 Quando JSON-LD estiver presente, não o sobrescrever integralmente; apontar problemas genéricos verificáveis, como erros de parsing, duplicação idêntica, ausência de `@context`, nós sem `@type` e propriedades genéricas ausentes cujo valor já seja conhecido.
 
 ### FR-GEO-091
-Expor remediação por IA em `report/content-suggestions.html`, com navegação/CSS compartilhados, e telemetria correspondente em `report/ai-usage.html`, separada da finalidade de análise semântica.
+Expor remediação por IA nas superfícies responsáveis de `report-catalog/`, com telemetria correspondente na governança de IA/integrações e separada da finalidade de análise semântica.
 
 ### FR-GEO-092
 Informar que JSON-LD é reforço opcional, que não existe markup especial GEO/AEO obrigatório, que propriedades de rich result dependem do tipo/feature e que markup válido não garante exibição de rich result.
@@ -308,10 +308,10 @@ Web Performance deve adicionar zero chamadas LLM e não pode reutilizar automati
 Persistir Web Performance em tabelas auxiliares e artifacts JSON reabríveis, mantendo tentativas/erros de PageSpeed/CrUX como telemetria operacional externa e não como Finding/Recommendation do website.
 
 ### FR-GEO-102
-Materializar `report/web-performance.html` com navegação/CSS compartilhados, separando Lighthouse lab, Core Web Vitals de campo, source/scope, indisponibilidade e telemetria de coleta. A superfície existe mesmo quando a coleta não foi executada e, nesse caso, deve apresentar estado neutro.
+Projetar Web Performance na superfície responsável de `report-catalog/`, separando Lighthouse lab, Core Web Vitals de campo, source/scope, indisponibilidade e telemetria de coleta. Ausência de coleta deve ser representada como estado, não como ausência de dados inventada.
 
 ### FR-GEO-103
-Projetar em `report/index.html` somente resumo explicitamente rotulado como Web Performance externo, sem substituir ou recalcular Overall Readiness, Coverage ou Confidence.
+Quando `report-catalog/` apresentar resumo de Web Performance, rotulá-lo explicitamente como domínio externo, sem substituir ou recalcular Overall Readiness, Coverage ou Confidence.
 
 ### FR-GEO-105
 Executar Web Performance como enriquecimento pós-auditoria/fail-open: indisponibilidade ou erro do serviço externo não pode invalidar `RuleExecution`, Finding, Recommendation ou score já concluídos.
@@ -362,7 +362,7 @@ Restringir a IA técnica a diagnósticos/evidências persistidos, rejeitar inven
 Persistir estado/telemetria de crawling/discovery em tabelas auxiliares próprias, mantendo separação entre qualidade do website, diagnósticos técnicos e consumo de provider.
 
 ### FR-GEO-121
-Materializar `report/crawling-discovery.html` com navegação/CSS compartilhados, robots/crawler policy, múltiplos sitemaps, múltiplos `llms.txt` raiz/scoped, feeds, IndexNow, conteúdo capturado reabrível/copiável, limitações de segurança, referências e eventual orientação técnica por IA. A página permanece presente quando não houver dados opcionais e deve indicar o estado correspondente.
+Projetar crawling/discovery na superfície responsável de `report-catalog/`, preservando robots/crawler policy, sitemaps, `llms.txt`, feeds, IndexNow, evidências, limitações e eventual orientação técnica por IA a partir dos dados persistidos.
 
 ### FR-GEO-122
 Quando houver hard source blocker confirmado, evitar aquisição adicional de `llms.txt` e chamada técnica de IA dependente do corpus, persistindo estado de skip/fail-open sem invalidar a auditoria principal.
@@ -400,7 +400,7 @@ Dados permanecem locais, exceto conteúdo explicitamente enviado a provider conf
 Resultado com cobertura/confiabilidade insuficiente não pode ser apresentado como conclusivo.
 
 ### NFR-GEO-011
-O mini-site deve ser responsivo, imprimível, navegável localmente e sem dependências externas obrigatórias de runtime.
+`report-catalog/` deve ser responsivo, imprimível, navegável localmente e sem dependências externas obrigatórias de runtime.
 
 ### NFR-GEO-012
 `RemediationRecipe` e apresentação devem ser determinísticas/reproduzíveis a partir do estado persistido e versão do código/ruleset.
