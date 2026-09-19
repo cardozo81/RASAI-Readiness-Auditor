@@ -277,51 +277,6 @@ def _install_execution_profile_contract() -> None:
     readiness._enhanced_dependency_status = enhanced_dependency_status
 
 
-def _install_improvement_report_contract() -> None:
-    from rasai import improvement_intelligence_runtime as runtime
-
-    original = runtime._install_report_contract
-    if getattr(original, "_rasai_primary_ai_contract", False):
-        return
-
-    def install_report_contract() -> None:
-        original()
-        from rasai import report_contract, report_manifest, report_registry
-
-        surfaces = []
-        for surface in report_contract.REPORT_SURFACES:
-            if surface.id == "improvement-intelligence":
-                surface = replace(
-                    surface,
-                    optional_dependencies=(
-                        "exatamente uma URL de entrada",
-                        "IA principal habilitada (provider explícito ou AUTO)",
-                        "Web Performance/Lighthouse",
-                        "Search Intelligence",
-                    ),
-                    ai_usage=(
-                        "Quando habilitada, executa o contrato estruturado de Improvement Intelligence "
-                        "usando a seleção principal de IA. Em AUTO, reutiliza a política canônica de "
-                        "custo, elegibilidade, quarentena, circuit breaker e fallback. Cada tentativa "
-                        "é registrada em ai_provider_attempts."
-                    ),
-                )
-            surfaces.append(surface)
-        report_contract.REPORT_SURFACES = tuple(surfaces)
-        report_contract.CANONICAL_NAV_ITEMS = tuple(
-            (item.label, item.filename) for item in report_contract.REPORT_SURFACES
-        )
-        report_contract.CANONICAL_FILENAMES = tuple(
-            item.filename for item in report_contract.REPORT_SURFACES
-        )
-        report_registry.REPORT_SURFACES = report_contract.REPORT_SURFACES
-        report_manifest.REPORT_SURFACES = report_contract.REPORT_SURFACES
-
-    install_report_contract._rasai_primary_ai_contract = True
-    install_report_contract._rasai_original = original
-    runtime._install_report_contract = install_report_contract
-
-
 def _materialize_patched_saas_contract() -> None:
     """Run the dynamically patched SaaS installer before stale import aliases can run."""
     from rasai import improvement_intelligence_saas as saas
@@ -336,6 +291,5 @@ def install_ai_orchestration_unification_cleanup() -> None:
     _install_search_monitor_validation()
     _install_improvement_console_settings()
     _install_execution_profile_contract()
-    _install_improvement_report_contract()
     _materialize_patched_saas_contract()
     _INSTALLED = True
