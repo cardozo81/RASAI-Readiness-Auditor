@@ -215,10 +215,10 @@ def _health_checks(
         {"checked": artifact_total, "missing": artifact_missing},
     ))
 
-    index = workspace / "report" / "index.html"
+    index = workspace / "report-catalog" / "index.html"
     out.append(_health(
-        "AUDIT-REPORT-ENTRYPOINT", "PASS" if index.is_file() else "WARNING", "MEDIUM", "Entrada do relatório HTML",
-        "report/index.html presente." if index.is_file() else "report/index.html não encontrado neste workspace.",
+        "AUDIT-REPORT-ENTRYPOINT", "PASS" if index.is_file() else "WARNING", "MEDIUM", "Entrada do relatório por catálogo",
+        "report-catalog/index.html presente." if index.is_file() else "report-catalog/index.html não encontrado neste workspace.",
         {"path": index.relative_to(workspace).as_posix()},
     ))
 
