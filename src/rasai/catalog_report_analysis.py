@@ -161,18 +161,26 @@ def _passive_security_html(database: Path, data: _ReportData) -> str:
     finally:
         con.close()
 
+    catalog_items=getattr(data,"catalog_items",{}) or {}
+    cat10_item=catalog_items.get("CAT-10",{}) if isinstance(catalog_items,Mapping) else {}
+    ai_requested=bool(cat10_item.get("ai_execution_enabled",False)) if isinstance(cat10_item,Mapping) else False
+
     if not run:
-        return (
+        message=(
             "<div class='notice warn'><strong>Segurança passiva sem resultado:</strong> "
             "o CAT-10 não possui execução consolidada persistida nesta AUD. O relatório não infere "
             "ausência de risco a partir da ausência de dados.</div>"
         )
+        if ai_requested:
+            message+=(
+                "<div class='notice warn'><strong>IA advisory solicitada, mas não executada de forma utilizável:</strong> "
+                "sem a execução consolidada do CAT-10 não há base final para materializar a análise SECURITY por IA. "
+                "Consulte Execução e IA e integrações; este estado não deve ser apresentado como análise concluída.</div>"
+            )
+        return message
 
     coverage=_safe_json(run.get("coverage_json"),{})
     limitations=_safe_json(run.get("limitations_json"),[])
-    catalog_items=getattr(data,"catalog_items",{}) or {}
-    cat10_item=catalog_items.get("CAT-10",{}) if isinstance(catalog_items,Mapping) else {}
-    ai_requested=bool(cat10_item.get("ai_execution_enabled",False)) if isinstance(cat10_item,Mapping) else False
     ai_rec_by_finding={
         str(row.get("finding_id")): row
         for row in ai_recommendations
