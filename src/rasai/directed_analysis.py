@@ -1044,8 +1044,13 @@ def execute_directed_analysis(*, audit_id: str, workspace: AuditWorkspace, force
 
 
 def reprocess_directed_analysis(*, audit_id: str, workspace: AuditWorkspace) -> DirectedAnalysisResult:
-    """Rebuild only Directed Analysis from the existing AUD without new collection."""
-    return execute_directed_analysis(audit_id=audit_id,workspace=workspace,force=True)
+    """Refresh Directed Analysis only when its persisted strategic context changed.
+
+    Reprocessing must not create a paid AI call merely because another requirement was
+    retried. The canonical executor fingerprints persisted inputs and reuses a completed
+    result when that context is unchanged.
+    """
+    return execute_directed_analysis(audit_id=audit_id,workspace=workspace,force=False)
 
 
 __all__=[
