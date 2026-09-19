@@ -1,7 +1,7 @@
 """Derived observational metrics over already-persisted Google Search Console data.
 
 This module never calls Google. It reads the latest Search Console datasets already
-stored in ``observability.db`` and projects bounded, source-labelled observations into
+stored in ``artifacts/observability/observability.db`` and projects bounded, source-labelled observations into
 the standards metric table in ``audit.db``. The results are advisory and do not change
 SARI-001 or SCORE-GEO-004.
 """
