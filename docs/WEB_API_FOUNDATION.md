@@ -164,8 +164,8 @@ Todas revalidam tenancy no servidor.
 | Método | Endpoint | Finalidade / limite |
 |---|---|---|
 | `GET` | `/api/v1/projects/{project_id}/audits` | catálogo de AUDs do projeto sem expor `workspace_path` interno |
-| `GET` | `/api/v1/audits/{audit_id}/reports` | lista arquivos canônicos existentes sob `report/` do AUD autorizado |
-| `GET` | `/api/v1/audits/{audit_id}/reports/{asset_path}` | serve somente asset permitido dentro da árvore pública `report/` |
+| `GET` | `/api/v1/audits/{audit_id}/reports` | lista arquivos canônicos existentes sob `report-catalog/` do AUD autorizado |
+| `GET` | `/api/v1/audits/{audit_id}/reports/{asset_path}` | serve somente asset permitido dentro da árvore pública `report-catalog/` |
 
 Extensões permitidas no boundary de reports:
 
