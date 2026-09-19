@@ -317,16 +317,22 @@ def install() -> None:
     original = report_completion.finalize_audit_report_site
 
     def finalize_with_gsc(*, audit_id: str, workspace: Any, context_interpretations=(), routing_snapshot=None):
-        # Remove stale derived GSC metrics before current-run collection. Raw
-        # observability history remains untouched.
-        _clear_all_gsc_metric_projections(audit_id=audit_id, workspace=workspace)
-
         base = original(
             audit_id=audit_id,
             workspace=workspace,
             context_interpretations=context_interpretations,
             routing_snapshot=routing_snapshot,
         )
+        from rasai.selective_reprocess_context import active as reprocess_active
+        if reprocess_active():
+            # The governed RPR collection phase is the sole owner of any GSC call.
+            # Final data projection only reuses the state already reconciled pre-seal.
+            return base
+
+        # Remove stale derived GSC metrics before current-run collection. Raw
+        # observability history remains untouched.
+        _clear_all_gsc_metric_projections(audit_id=audit_id, workspace=workspace)
+
         errors = list(base.renderer_errors)
         result: Mapping[str, Any] = {"operations": [], "effective_enabled": False}
         try:
