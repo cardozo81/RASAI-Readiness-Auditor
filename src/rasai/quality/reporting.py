@@ -1,4 +1,4 @@
-"""HTML reporting for RASAi Quality & Verification."""
+"""Standalone HTML reporting for verification and evidence timelines."""
 from __future__ import annotations
 
 from html import escape
@@ -6,62 +6,12 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-from rasai import report_navigation
 from rasai.report_presentation import humanize_report_html
-from rasai.report_registry import install as install_report_registry
-from .analysis import QualityBundle, analyze_quality
-from .content_controls import analyze_content_controls
+from .analysis import QualityBundle
 from .timeline import TimelineBundle
 from .verification import VerificationBundle
 
-QUALITY_FILE = "quality.html"
 _INACTIVE_FINDING_STATES = frozenset({"RESOLVED", "CLOSED", "DISMISSED"})
-
-
-def write_quality_report(audit_workspace: str | Path) -> Path:
-    install_report_registry()
-    workspace = Path(audit_workspace)
-    report_dir = workspace / "report"
-    report_dir.mkdir(parents=True, exist_ok=True)
-    bundle = analyze_quality(workspace)
-    controls = analyze_content_controls(workspace)
-    path = report_dir / QUALITY_FILE
-    nav = report_navigation.render_report_navigation(report_dir, QUALITY_FILE)
-    confidence_counts = _count(item.evidence_confidence for item in bundle.finding_assessments)
-    actionable = _actionable_findings(bundle)
-    priority_counts = _count(item.priority_class for item in actionable)
-    top_priorities = actionable[:10]
-    rec_attention = sum(
-        item.status not in {"SUPPORTED_BY_PERSISTED_EVIDENCE", "SUPPORTED_BY_GROUP"}
-        for item in bundle.recommendation_assessments
-    )
-    body = f"""
-<header class='hero'>
-  <div class='eyebrow'>RASAi Quality · derivado · non-scoring</div>
-  <h1>Qualidade da auditoria e decisão</h1>
-  <p class='lead'>Avalia a qualidade da própria evidência RASAi, prioriza findings acionáveis e valida a coerência das recomendações sem alterar SARI-001/SCORE-GEO-004.</p>
-  <div class='metric-grid'>
-    {_metric('Audit health', bundle.health_status)}
-    {_metric('Findings', len(bundle.finding_assessments))}
-    {_metric('Findings acionáveis', len(actionable))}
-    {_metric('Evidence HIGH', confidence_counts.get('HIGH', 0))}
-    {_metric('Prioridades P0/P1 acionáveis', priority_counts.get('P0', 0) + priority_counts.get('P1', 0))}
-    {_metric('Recomendações a revisar', rec_attention)}
-    {_metric('Controles de conteúdo', len(controls))}
-  </div>
-</header>
-<section class='panel notice'><h2>Fronteira metodológica</h2><p><strong>Quality não é um novo score de readiness.</strong> Audit Health descreve a qualidade/completude da coleta; Evidence Confidence descreve a força da evidência de cada finding; Operational Priority é uma heurística de decisão independente; nenhum deles recalcula SARI.</p></section>
-<section class='panel'><div class='kicker'>Audit Health</div><h2>Qualidade da própria auditoria</h2><div class='table-wrap'><table><thead><tr><th>Status</th><th>Sev.</th><th>Código</th><th>Verificação</th><th>Detalhe</th></tr></thead><tbody>{''.join(_health_row(x) for x in bundle.health_checks) or '<tr><td colspan=5>Sem verificações.</td></tr>'}</tbody></table></div></section>
-<section class='panel'><div class='kicker'>Executive decision</div><h2>Top prioridades operacionais acionáveis</h2><p>Somente findings não resolvidos/fechados/dispensados entram nesta lista. A prioridade combina severidade, abrangência, confiança da evidência e esforço estimado; orienta ordem de trabalho e não altera scoring.</p><div class='table-wrap'><table><thead><tr><th>Prior.</th><th>Score</th><th>Regra</th><th>Sev.</th><th>Confidence</th><th>Escopo</th><th>Esforço</th><th>URL</th><th>Título</th></tr></thead><tbody>{''.join(_finding_row(x) for x in top_priorities) or '<tr><td colspan=9>Nenhum finding acionável.</td></tr>'}</tbody></table></div></section>
-<section class='panel'><div class='kicker'>Evidence Confidence</div><h2>Confiança por finding</h2><p>Esta tabela preserva também findings históricos/resolvidos para rastreabilidade.</p><div class='table-wrap'><table><thead><tr><th>Status</th><th>Prior.</th><th>Regra</th><th>Sev.</th><th>Confidence</th><th>Proveniência</th><th>Device</th><th>URL</th><th>Razões</th></tr></thead><tbody>{''.join(_confidence_row(x) for x in sorted(bundle.finding_assessments, key=lambda i: (-i.operational_priority, i.rule_id, i.finding_id))) or '<tr><td colspan=9>Nenhum finding.</td></tr>'}</tbody></table></div></section>
-<section class='panel'><div class='kicker'>Coverage Map</div><h2>URL × domínio de evidência</h2><div class='table-wrap'><table><thead><tr><th>URL</th><th>Device</th><th>Technical</th><th>Rendering</th><th>Semantic/entity</th><th>Answer/evidence/intent</th><th>Governance</th></tr></thead><tbody>{''.join(_coverage_row(x) for x in bundle.coverage_map) or '<tr><td colspan=7>Sem cobertura por URL.</td></tr>'}</tbody></table></div></section>
-<section class='panel'><div class='kicker'>Search & AI content controls</div><h2>Controles de snippet e uso direto</h2><p>Diretivas restritivas são decisões do publisher e não penalidades. O RASAi apenas registra sua presença para interpretar corretamente Search/GenAI observados.</p><div class='table-wrap'><table><thead><tr><th>URL</th><th>Device</th><th>Meta robots</th><th>X-Robots-Tag</th><th>nosnippet</th><th>max-snippet</th><th>data-nosnippet</th><th>Interpretação</th></tr></thead><tbody>{''.join(_control_row(x) for x in controls) or '<tr><td colspan=8>Sem snapshots para avaliar.</td></tr>'}</tbody></table></div></section>
-<section class='panel'><div class='kicker'>Recommendation Validation</div><h2>Coerência das recomendações persistidas</h2><p>Esta validação verifica referência, estado e confiança contra a evidência atual; não substitui revisão humana do conteúdo da recomendação.</p><div class='table-wrap'><table><thead><tr><th>Status</th><th>ID</th><th>Confidence</th><th>Prior.</th><th>Recomendação</th><th>Motivo</th></tr></thead><tbody>{''.join(_rec_row(x) for x in bundle.recommendation_assessments) or '<tr><td colspan=6>Sem recomendações persistidas.</td></tr>'}</tbody></table></div></section>
-<footer class='footer'>Métodos: {escape(' · '.join(f'{k}={v}' for k, v in bundle.methodology.items()))}</footer>
-"""
-    path.write_text(_shell(nav, body), encoding="utf-8", newline="\n")
-    report_navigation.normalize_report_navigation(report_dir)
-    return path
 
 
 def write_verification_report(
