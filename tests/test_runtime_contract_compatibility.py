@@ -7,10 +7,6 @@ def test_public_runtime_composition_skips_contracts_that_are_native(monkeypatch)
 
     calls: list[str] = []
     expected = (
-        "_install_ai_cost_report_fix",
-        "_install_ai_usage_presentation_fix",
-        "_install_scoring_wording_fix",
-        "_install_crawling_capture_wording_fix",
         "_install_m24_fallback_telemetry_fix",
     )
 
