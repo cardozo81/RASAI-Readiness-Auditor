@@ -131,10 +131,24 @@ def _apply_live_result(
 
 
 def _recover_live_measurements(workspace: Any, audit_id: str) -> dict[str, str]:
+    from rasai import selective_optional_reprocess as optional
+
     states: dict[str, str] = {}
     for component in ("WEB_PERFORMANCE", "SYNTHETIC_APDEX", "EXPERIENCE_APDEX"):
         item = _pending_item(workspace, audit_id, component)
         if item is None:
+            continue
+        if optional._expired(item):
+            try_append_operational_event(
+                workspace,
+                "AUDIT_REPROCESS_ITEM_EXPIRED",
+                level="WARNING",
+                audit_id=audit_id,
+                reprocess_id=_current_reprocess_id(workspace, audit_id),
+                component=component,
+                scope_key=str(getattr(item, "scope_key", "AUDIT")),
+                valid_until=getattr(item, "valid_until", None),
+            )
             continue
         try:
             if component == "WEB_PERFORMANCE":
