@@ -1,7 +1,7 @@
 """Final closure for defects exposed by the last governed-pipeline human smoke.
 
-This module is intentionally narrow. It reasserts final ownership after all legacy
-installers have run and keeps report projection read-only.
+This module is intentionally narrow. It reasserts final ownership after runtime
+installers have run and keeps catalog projection deterministic.
 """
 from __future__ import annotations
 
