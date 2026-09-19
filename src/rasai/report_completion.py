@@ -1,21 +1,21 @@
-"""Final materialization and completeness gate for audit-owned HTML surfaces.
+"""Final materialization gate for audit-owned catalog HTML.
 
-Canonical HTML existence is stable across audits. Optional collectors and data domains
-remain optional, but their public surface is always expected in the final mini-site and
-must render an explicit no-data/disabled state when no specialized content exists.
+The conventional <AUD>/report/ mini-site was retired. This module keeps the
+historical finalizer API so runtime composition and reprocessing can continue to
+materialize and verify report-catalog/ without creating any non-catalog HTML.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from pathlib import Path
-import sqlite3
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 from rasai.persistence import AuditWorkspace
-from rasai.report_contract import CANONICAL_FILENAMES
 
-AUDIT_ALWAYS_PAGES: tuple[str, ...] = CANONICAL_FILENAMES
+
+# Compatibility surface for callers that previously extended the conventional report
+# contract. No conventional AUD HTML pages are expected or generated anymore.
+AUDIT_ALWAYS_PAGES: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,59 +30,16 @@ class AuditReportCompletion:
         return not self.missing_pages
 
 
-def _table_exists(connection: sqlite3.Connection, name: str) -> bool:
-    return connection.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
-    ).fetchone() is not None
-
-
-def _enabled_run(connection: sqlite3.Connection, table: str, audit_id: str) -> bool:
-    if not _table_exists(connection, table):
-        return False
-    try:
-        row = connection.execute(
-            f"SELECT enabled FROM {table} WHERE audit_id=? ORDER BY rowid DESC LIMIT 1",
-            (audit_id,),
-        ).fetchone()
-    except sqlite3.OperationalError:
-        row = connection.execute(
-            f"SELECT 1 FROM {table} WHERE audit_id=? ORDER BY rowid DESC LIMIT 1",
-            (audit_id,),
-        ).fetchone()
-        return row is not None
-    return row is not None and bool(row[0])
-
-
-def _workspace_run_enabled(*, workspace: AuditWorkspace, audit_id: str, table: str) -> bool:
-    connection = sqlite3.connect(workspace.database)
-    try:
-        return _enabled_run(connection, table, audit_id)
-    finally:
-        connection.close()
-
-
 def expected_audit_report_pages(*, audit_id: str, workspace: AuditWorkspace) -> tuple[str, ...]:
-    """Return the stable public HTML surface set for every completed URL audit.
-
-    ``audit_id`` and ``workspace`` remain part of the signature for API compatibility.
-    They no longer determine whether a canonical page exists; capability state belongs
-    inside each page rather than in the navigation/file set.
-    """
+    """Return the retired conventional AUD HTML surface set (always empty)."""
     del audit_id, workspace
-    return AUDIT_ALWAYS_PAGES
+    return ()
 
 
 def inspect_audit_report_site(*, audit_id: str, workspace: AuditWorkspace) -> AuditReportCompletion:
-    report_dir = workspace.root / "report"
-    expected = expected_audit_report_pages(audit_id=audit_id, workspace=workspace)
-    generated = (
-        tuple(sorted(path.name for path in report_dir.glob("*.html") if path.is_file()))
-        if report_dir.is_dir()
-        else ()
-    )
-    generated_set = set(generated)
-    missing = tuple(name for name in expected if name not in generated_set)
-    return AuditReportCompletion(expected, generated, missing)
+    """Compatibility inspection for the retired conventional AUD report family."""
+    del audit_id, workspace
+    return AuditReportCompletion((), (), ())
 
 
 def _verified_preliminary_catalog(workspace: AuditWorkspace) -> bool:
@@ -110,111 +67,23 @@ def finalize_audit_report_site(
     context_interpretations: Sequence[Any] = (),
     routing_snapshot: Mapping[str, Any] | None = None,
 ) -> AuditReportCompletion:
-    """Rebuild persisted projections, then add execution-local presentation data.
+    """Materialize only the supported catalog report projection.
 
-    The canonical/legacy generator continues to own ``report/`` and its existing
-    completeness contract. The catalog proposal is materialized independently into
-    ``report-catalog/`` from the persisted AUD. FINAL packages must pass the canonical
-    freshness gate; an incomplete/reprocess-eligible AUD may expose a PRELIMINARY
-    package only when that package is internally verifiable.
+    context_interpretations and routing_snapshot remain accepted for runtime
+    compatibility; they belonged to the removed conventional HTML projection and are
+    intentionally ignored here. Catalog generation continues to read the canonical
+    persisted audit state exactly as before.
     """
-    from rasai import report_navigation
+    del context_interpretations, routing_snapshot
+
     from rasai.catalog_report_site import catalog_report_is_fresh, materialize_catalog_report_site
-    from rasai.improvement_intelligence import write_improvement_report
-    from rasai.m20_reporting import enrich_m20_report_site
-    from rasai.m21_reporting import enrich_m21_report_site
-    from rasai.m23_reporting import enrich_m23_report_site
-    from rasai.m24_reporting import enrich_m24_report_site
-    from rasai.m25_overview_reporting import enrich_m25_overview_summary
-    from rasai.m25_reporting import enrich_m25_report_site
-    from rasai.quality.reporting import write_quality_report
-    from rasai.rasai_readiness_reporting import enrich_rasai_reporting
-    from rasai.report_ai_cost_attribution import enrich_ai_cost_attribution
-    from rasai.report_ai_runtime_enrichment import enrich_ai_runtime_report
-    from rasai.report_consistency_v2 import reconcile_report_outputs
-    from rasai.report_dashboard_final_polish import finalize_dashboard_presentation
-    from rasai.report_manifest import write_report_manifest
-    from rasai.report_presentation_finalizer import finalize_report_presentation
-    from rasai.report_quality_reconciliation import reconcile_public_report_quality
-    from rasai.report_site import materialize_report_site
-    from rasai.report_validation_reconciliation import reconcile_validated_report_details
-    from rasai.sari_readiness_presentation import install as install_sari_readiness_presentation
-    from rasai.score_geo_004_reporting import write_score_geo_004_report
 
     errors: list[str] = []
+    try:
+        materialize_catalog_report_site(audit_id=audit_id, workspace=workspace)
+    except Exception as exc:
+        errors.append(f"catalog-report:{type(exc).__name__}:{str(exc)[:240]}")
 
-    def run(label: str, function: Callable[[], object]) -> None:
-        try:
-            function()
-        except Exception as exc:
-            errors.append(f"{label}:{type(exc).__name__}:{str(exc)[:240]}")
-
-    install_sari_readiness_presentation()
-
-    run("base", lambda: materialize_report_site(audit_id=audit_id, workspace=workspace))
-    run("content", lambda: enrich_m20_report_site(audit_id=audit_id, workspace=workspace))
-    run("web-performance", lambda: enrich_m21_report_site(audit_id=audit_id, workspace=workspace))
-    run("readiness", lambda: enrich_rasai_reporting(audit_id=audit_id, workspace=workspace))
-    run("crawling-discovery", lambda: enrich_m24_report_site(audit_id=audit_id, workspace=workspace))
-
-    if _workspace_run_enabled(
-        workspace=workspace, audit_id=audit_id, table="synthetic_apdex_runs"
-    ):
-        run("apdex", lambda: enrich_m23_report_site(audit_id=audit_id, workspace=workspace))
-    if _workspace_run_enabled(
-        workspace=workspace, audit_id=audit_id, table="synthetic_ux_apdex_runs"
-    ):
-        run("apdex-experience", lambda: enrich_m25_report_site(audit_id=audit_id, workspace=workspace))
-        run(
-            "apdex-experience-overview",
-            lambda: enrich_m25_overview_summary(audit_id=audit_id, workspace=workspace),
-        )
-
-    run("scoring", lambda: write_score_geo_004_report(audit_id=audit_id, workspace=workspace))
-    run(
-        "improvement-intelligence",
-        lambda: write_improvement_report(audit_id=audit_id, workspace=workspace),
-    )
-    run("audit-quality", lambda: write_quality_report(workspace.root))
-
-    report_dir = workspace.root / "report"
-    run("consistency", lambda: reconcile_report_outputs(audit_id=audit_id, workspace=workspace))
-    run("navigation", lambda: report_navigation.normalize_report_navigation(report_dir))
-    run(
-        "validated-presentation",
-        lambda: reconcile_validated_report_details(audit_id=audit_id, workspace=workspace),
-    )
-    run(
-        "ai-runtime-presentation",
-        lambda: enrich_ai_runtime_report(
-            audit_id=audit_id,
-            workspace=workspace,
-            context_interpretations=context_interpretations,
-            routing_snapshot=routing_snapshot,
-        ),
-    )
-    run(
-        "ai-cost-attribution",
-        lambda: enrich_ai_cost_attribution(audit_id=audit_id, workspace=workspace),
-    )
-    run(
-        "public-report-quality",
-        lambda: reconcile_public_report_quality(audit_id=audit_id, workspace=workspace),
-    )
-    run(
-        "presentation-finalizer",
-        lambda: finalize_report_presentation(audit_id=audit_id, workspace=workspace),
-    )
-    run(
-        "dashboard-final-polish",
-        lambda: finalize_dashboard_presentation(audit_id=audit_id, workspace=workspace),
-    )
-    run("manifest", lambda: write_report_manifest(report_dir))
-
-    run(
-        "catalog-report",
-        lambda: materialize_catalog_report_site(audit_id=audit_id, workspace=workspace),
-    )
     if not any(error.startswith("catalog-report:") for error in errors):
         try:
             fresh = catalog_report_is_fresh(audit_id=audit_id, workspace=workspace)
@@ -226,10 +95,9 @@ def finalize_audit_report_site(
                     "catalog-report-freshness:RuntimeError:published catalog report does not match persisted audit"
                 )
 
-    inspected = inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
     return AuditReportCompletion(
-        expected_pages=inspected.expected_pages,
-        generated_pages=inspected.generated_pages,
-        missing_pages=inspected.missing_pages,
+        expected_pages=(),
+        generated_pages=(),
+        missing_pages=(),
         renderer_errors=tuple(errors),
     )
