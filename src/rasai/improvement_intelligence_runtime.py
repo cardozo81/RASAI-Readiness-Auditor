@@ -336,7 +336,7 @@ def _install_governed_ai_phase() -> None:
 
 
 def install() -> None:
-    """Install governed Improvement Intelligence without conventional AUD HTML hooks."""
+    """Install governed Improvement Intelligence independently of HTML projection."""
     global _INSTALLED
     if _INSTALLED:
         return
