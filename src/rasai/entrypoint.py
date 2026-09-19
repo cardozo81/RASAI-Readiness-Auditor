@@ -40,7 +40,6 @@ from rasai.integration_state_contract import install as install_integration_stat
 from rasai.integration_state_refinements import install as install_integration_state_refinements
 from rasai.m3_render_deadline_runtime import install as install_m3_render_deadline_runtime
 from rasai.provider_presentation_alignment import install as install_provider_presentation_alignment
-from rasai.report_observation_reconciliation import install as install_report_observation_reconciliation
 from rasai.runtime_adherence_extensions import install_runtime_adherence_extensions
 from rasai.runtime_completion_extensions import install_runtime_completion_extensions
 from rasai.runtime_contract_compatibility import install_runtime_contract_compatibility
@@ -202,7 +201,6 @@ def _install_audit_runtime() -> None:
     install_passive_security_saas()
     install_ai_efficiency_policy()
     install_runtime_completion_extensions()
-    install_report_observation_reconciliation()
     install_runtime_adherence_extensions()
     install_integration_state_contract()
     install_integration_state_refinements()
