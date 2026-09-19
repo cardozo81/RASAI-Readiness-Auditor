@@ -1,8 +1,7 @@
 """Runtime integration for persisted capture-context data.
 
-The conventional AUD HTML report was retired. This installer now keeps only the
-capture/runtime integrations whose persisted data is consumed by scoring, diagnostics
-and report-catalog.
+This installer owns capture/runtime integrations whose persisted data is consumed by
+scoring, diagnostics and `report-catalog/`. HTML projection is not owned here.
 """
 from __future__ import annotations
 
