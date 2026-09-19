@@ -9,13 +9,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import json
 import os
-from pathlib import Path
 import sqlite3
 from typing import Any, Mapping
 
 from rasai.observability.google_search_console import collect_search_analytics, collect_url_inspection
 from rasai.observability.gsc_resources import collect_sitemaps
-from rasai.observability.reporting import enrich_observability_report
 from rasai.secret_safety import redact_text
 from rasai.standards_gsc_policy import (
     GSC_FINAL_DATA_LAG_DAYS_ENV,
@@ -77,12 +75,6 @@ _ALL_GSC_METRIC_IDS = tuple(
     dict.fromkeys(metric_id for metric_ids in _GSC_METRICS_BY_OPERATION.values() for metric_id in metric_ids)
 )
 
-_GSC_REPORT_PANEL_MARKERS = (
-    "RASAI_GSC_OBSERVATIONAL_METRICS",
-    "RASAI_GSC_CRAWL_FRESHNESS_METRICS",
-    "RASAI_GSC_SITEMAP_METRICS",
-    "RASAI_GSC_RETURNED_VISIBILITY_COUNTS",
-)
 
 
 def _bounded_urls(workspace: Any, audit_id: str, limit: int) -> tuple[str, ...]:
@@ -284,39 +276,6 @@ def _clear_metrics_without_current_success(
         for metric_id in metric_ids
     )
     _delete_metric_ids(audit_id=audit_id, workspace=workspace, metric_ids=stale_metric_ids)
-
-
-def _remove_marked_panel(path: Path, marker: str) -> bool:
-    """Remove one previously inserted report block without touching unrelated content."""
-    if not path.is_file():
-        return False
-    text = path.read_text(encoding="utf-8")
-    original = text
-    start_token = f"<!-- {marker}:START -->"
-    end_token = f"<!-- {marker}:END -->"
-    while True:
-        start = text.find(start_token)
-        if start < 0:
-            break
-        end = text.find(end_token, start + len(start_token))
-        if end < 0:
-            # Do not truncate a malformed document. Leave it intact for normal report
-            # validation to surface rather than deleting an unbounded suffix.
-            break
-        text = text[:start] + text[end + len(end_token):]
-    if text == original:
-        return False
-    path.write_text(text, encoding="utf-8", newline="\n")
-    return True
-
-
-def _clear_gsc_report_panels(report_dir: Path) -> bool:
-    """Remove all GSC advisory panels so the current finalization can re-project them."""
-    path = report_dir / "observability.html"
-    changed = False
-    for marker in _GSC_REPORT_PANEL_MARKERS:
-        changed = _remove_marked_panel(path, marker) or changed
-    return changed
 
 
 def _update_service_run(*, audit_id: str, workspace: Any, result: Mapping[str, Any]) -> None:
