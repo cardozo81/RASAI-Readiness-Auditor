@@ -1015,7 +1015,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
             findings.append(_finding(
                 audit_id=audit_id,page_id=page_id,url=url,code="CSP_UNSAFE_INLINE",category="Browser Security",
                 finding_type="CONFIGURATION_WEAKNESS",title="CSP contém 'unsafe-inline' para scripts",
-                description="A política contém 'unsafe-inline'. Em políticas com nonce/hash a efetividade depende do navegador e das demais fontes; o finding não presume exploração.",
+                description="A política contém 'unsafe-inline'. Em políticas com nonce/hash a efetividade depende do navegador e das demais fontes; o achado não presume exploração.",
                 severity="LOW",evidence_ids=ev,impact="Pode reduzir a proteção contra execução de script inline conforme a política efetiva.",
                 containment="Verificar se nonces/hashes já cobrem scripts inline legítimos.",
                 remediation="Migrar scripts inline necessários para nonce/hash e remover 'unsafe-inline' quando compatível.",
@@ -1224,7 +1224,7 @@ def _analyze_headers(audit_id: str, page: Mapping[str, Any]) -> list[dict[str, A
             severity="LOW",evidence_ids=ev,impact="Pode facilitar identificação passiva de stack/versão declarada.",
             containment="Não depender da remoção do banner como controle primário.",
             remediation="Remover ou reduzir a identificação de versão quando não for necessária e manter o componente efetivamente utilizado atualizado.",
-            validation="Reauditar o HTML e confirmar a versão real pelo inventário de build/dependências.",
+            validation="Reauditar o HTML e confirmar a versão real pelo inventário de compilação e dependências.",
         ))
     return findings
 
@@ -1278,7 +1278,7 @@ def _analyze_resources(audit_id: str, resources: Iterable[Mapping[str, Any]]) ->
         if third_party_analysis and party == "THIRD_PARTY" and kind in {"SCRIPT", "STYLESHEET"} and not str(attrs.get("integrity") or "").strip():
             findings.append(_finding(
                 audit_id=audit_id,page_id=page_id,url=page_url,code=f"SRI_{item['resource_id']}",category="Resource Integrity",
-                finding_type="EXPOSURE",title=f"Recurso third-party {kind.lower()} sem SRI observado",
+                finding_type="EXPOSURE",title=f"Recurso externo {kind.lower()} sem SRI observado",
                 description="O recurso externo não declara integrity. SRI não é universalmente obrigatório; a aplicabilidade depende de URL estável, CORS/CDN e modelo de deployment.",
                 severity="LOW",evidence_ids=ev,party=party,impact="Quando SRI é aplicável, sua ausência deixa a integridade do recurso dependente apenas do transporte/origem remota.",
                 containment="Fixar versão/origem e reduzir dependências externas mutáveis.",
@@ -1292,7 +1292,7 @@ def _analyze_resources(audit_id: str, resources: Iterable[Mapping[str, Any]]) ->
             if not supported:
                 findings.append(_finding(
                     audit_id=audit_id,page_id=page_id,url=page_url,code=f"SRI_INVALID_{item['resource_id']}",category="Resource Integrity",
-                    finding_type="CONFIGURATION_WEAKNESS",title=f"SRI de recurso third-party {kind.lower()} sem hash suportado",
+                    finding_type="CONFIGURATION_WEAKNESS",title=f"SRI de recurso externo {kind.lower()} sem hash suportado",
                     description="O atributo integrity existe, mas não foi observado hash sha256/sha384/sha512 sintaticamente utilizável.",
                     severity="MEDIUM",evidence_ids=ev,party=party,impact="O navegador pode ignorar a proteção SRI pretendida para este recurso.",
                     containment="Fixar a versão do recurso até corrigir o hash.",
@@ -1328,16 +1328,16 @@ def _analyze_resources(audit_id: str, resources: Iterable[Mapping[str, Any]]) ->
                 findings.append(_finding(
                     audit_id=audit_id,page_id=page_id,url=page_url,code=f"FORM_THIRD_{item['resource_id']}",category="Forms",
                     finding_type="EXPOSURE",title="Formulário com campo sensível aponta para third-party",
-                    description=f"Campos semanticamente sensíveis ({', '.join(sensitive)}) e destino third-party foram observados. Nenhuma submissão foi realizada.",
+                    description=f"Campos semanticamente sensíveis ({', '.join(sensitive)}) e destino externo foram observados. Nenhuma submissão foi realizada.",
                     severity="MEDIUM",evidence_ids=ev,party=party,impact="Dados podem ser enviados a uma origem externa quando o usuário submeter o formulário.",
                     containment="Confirmar contrato/necessidade do terceiro e minimizar dados.",
-                    remediation="Validar o destino, base legal/política de dados e preferir first-party quando aplicável.",
+                    remediation="Validar o destino, a base legal/política de dados e preferir recurso do próprio domínio quando aplicável.",
                     validation="Revisão humana do fluxo e nova auditoria do markup.",
                 ))
         if third_party_analysis and kind == "IFRAME" and party == "THIRD_PARTY" and not str(attrs.get("sandbox") or "").strip():
             findings.append(_finding(
                 audit_id=audit_id,page_id=page_id,url=page_url,code=f"IFRAME_SANDBOX_{item['resource_id']}",category="Iframes",
-                finding_type="OBSERVATION",title="Iframe third-party sem sandbox observado",
+                finding_type="OBSERVATION",title="Iframe externo sem sandbox observado",
                 description="Iframe externo sem atributo sandbox. A ausência pode ser intencional conforme a integração e não é classificada como vulnerabilidade confirmada.",
                 severity="INFO",evidence_ids=ev,party=party,impact="O iframe não recebe restrições sandbox declaradas pelo documento host.",
                 containment="Revisar permissões realmente necessárias ao conteúdo embutido.",
@@ -1356,12 +1356,12 @@ def _analyze_runtime(audit_id: str, page_context: Mapping[str, Mapping[str, Any]
                 continue
             findings.append(_finding(
                 audit_id=audit_id,page_id=page_id,url=str(page.get("page_url") or ""),code=f"RUNTIME_{kind}",category="Runtime",
-                finding_type="RUNTIME_FAILURE",title=f"{kind.replace('_',' ').title()} observado no runtime",
+                finding_type="RUNTIME_FAILURE",title=f"{kind.replace('_',' ').title()} observado em tempo de execução",
                 description=f"{count} ocorrência(s) persistida(s) nas capturas de navegador. O CAT-10 apenas consome esta telemetria e não altera Apdex.",
                 severity="MEDIUM" if kind in {"PAGE_ERROR","REQUEST_FAILED"} else "LOW",
-                evidence_ids=[str(page_id)],impact="Falhas de runtime podem indicar dependência indisponível, erro JavaScript ou recurso com resposta de erro.",
+                evidence_ids=[str(page_id)],impact="Falhas em tempo de execução podem indicar dependência indisponível, erro JavaScript ou recurso com resposta de erro.",
                 containment="Identificar a origem afetada e reduzir dependência crítica enquanto a causa é corrigida.",
-                remediation="Corrigir a causa no recurso/aplicação correspondente; priorizar first-party e erros repetidos.",
+                remediation="Corrigir a causa no recurso/aplicação correspondente; priorizar recursos do próprio domínio e erros repetidos.",
                 validation="Reexecutar a captura e confirmar ausência/redução das ocorrências.",
                 details={"runtime_type": kind, "count": count},
             ))
@@ -1380,8 +1380,8 @@ def _analyze_runtime(audit_id: str, page_context: Mapping[str, Mapping[str, Any]
             findings.append(_finding(
                 audit_id=audit_id,page_id=page_id,url=str(page.get("page_url") or ""),
                 code="RUNTIME_DISCLOSURE",category="Information Disclosure",
-                finding_type="INFORMATION_DISCLOSURE",title="Runtime aparenta expor detalhe interno",
-                description=f"{len(disclosures)} mensagem(ns) de runtime contém(êm) padrão de caminho interno, IP privado ou traceback.",
+                finding_type="INFORMATION_DISCLOSURE",title="Tempo de execução aparenta expor detalhe interno",
+                description=f"{len(disclosures)} mensagem(ns) de tempo de execução contém(êm) padrão de caminho interno, IP privado ou rastreamento de exceção.",
                 severity="LOW",confidence="MEDIUM",evidence_ids=[str(page_id)],
                 impact="Detalhes internos podem facilitar fingerprinting e diagnóstico por terceiros.",
                 containment="Evitar expor mensagens detalhadas ao cliente em produção.",
@@ -1408,9 +1408,9 @@ def _advisory_findings(connection: sqlite3.Connection, audit_id: str) -> list[di
         aliases = _load(row["aliases_json"], [])
         cves = [str(v).upper() for v in aliases if re.fullmatch(r"CVE-\d{4}-\d+", str(v), re.I)]
         kev = str(row["kev_state"] or "NOT_CHECKED").upper()
-        title = f"{row['library']} {row['version']} correlacionado a {row['advisory_id']}"
+        title = f"{row['library']} {row['version']} correlacionado ao aviso de segurança {row['advisory_id']}"
         description = (
-            f"OSV retornou advisory para componente/versionamento identificado por filename com confiança moderada e versão explícita. "
+            f"OSV retornou aviso de segurança para componente/versionamento identificado pelo nome do arquivo, com confiança moderada e versão explícita. "
             f"KEV={kev}. Esta correlação é objetiva para o identificador observado, mas não prova que o código vulnerável seja alcançável nesta página."
         )
         severity = "HIGH" if kev == "MATCHED" else "MEDIUM"
@@ -1420,10 +1420,10 @@ def _advisory_findings(connection: sqlite3.Connection, audit_id: str) -> list[di
             finding_type="POTENTIAL_VULNERABILITY",title=title,description=description,severity=severity,
             confidence="MEDIUM",source="OSV + CISA KEV" if kev == "MATCHED" else "OSV",
             evidence_ids=[str(row["component_id"]), str(row["resource_id"])],party=str(row["party"] or "UNKNOWN"),
-            origin="EXTERNAL",impact="O identificador de componente/versionamento observado correlaciona com advisory conhecido; como a identificação veio do nome do recurso, o CAT-10 mantém o finding como potencial até confirmação por inventário/build/SBOM. KEV, quando presente, eleva a prioridade operacional.",
+            origin="EXTERNAL",impact="O identificador de componente/versionamento observado correlaciona com aviso de segurança conhecido; como a identificação veio do nome do recurso, o CAT-10 mantém o achado como potencial até confirmação por inventário, compilação ou SBOM. KEV, quando presente, eleva a prioridade operacional.",
             containment="Reduzir exposição do componente afetado, restringir funcionalidade dependente ou isolar a rota enquanto a atualização é planejada.",
-            remediation="Atualizar para versão não afetada indicada pelo advisory/fonte do fornecedor, validando compatibilidade.",
-            validation="Reidentificar a versão, consultar novamente OSV e confirmar ausência do CVE/advisory; executar testes de regressão.",
+            remediation="Atualizar para versão não afetada indicada pelo aviso de segurança ou pela fonte do fornecedor, validando compatibilidade.",
+            validation="Reidentificar a versão, consultar novamente o OSV e confirmar ausência do CVE/aviso de segurança; executar testes de regressão.",
             cves=cves,details={
                 "advisory_id": row["advisory_id"],
                 "aliases": aliases,
@@ -1463,7 +1463,7 @@ def _persist_findings(connection: sqlite3.Connection, audit_id: str, findings: l
                 "DETERMINISTIC" if item["origin_kind"] != "AI" else "AI",
                 item["containment"], item["remediation"],
                 "Priorizar por severidade, KEV e dependências técnicas; validar em ambiente controlado antes de produção.",
-                "A alteração pode impactar integrações, cookies, CSP, CORS ou recursos third-party; aplicar incrementalmente com rollback disponível.",
+                "A alteração pode impactar integrações, cookies, CSP, CORS ou recursos externos; aplicar incrementalmente com possibilidade de reversão.",
                 item["validation"], 1, now,
             ),
         )
@@ -1619,7 +1619,7 @@ def improvement_findings(connection: sqlite3.Connection, audit_id: str, page_id:
         "status": str(run["status"]) if run else "UNKNOWN",
         "coverage": _load(run["coverage_json"], {}) if run else {},
         "limitations": _load(run["limitations_json"], []) if run else [],
-        "note": "Findings determinísticos reutilizados do CAT-10; IA não decide presença de headers, versão ou CVE.",
+        "note": "Achados determinísticos reutilizados do CAT-10; a IA não decide presença de cabeçalhos, versão ou CVE.",
     }
     return findings, summary
 
