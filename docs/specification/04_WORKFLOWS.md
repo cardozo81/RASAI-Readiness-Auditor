@@ -77,47 +77,17 @@ Regras:
 
 Recomendações derivam de findings/evidências persistidos e receitas aprovadas de remediação. Exemplos propostos não são evidência observada. Remediação não altera score por si só.
 
-## 7. Site estático de relatório
+## 7. Projeção HTML da auditoria
 
 Entrada canônica:
 
 ```text
-report/index.html
+report-catalog/index.html
 ```
 
-Após uma auditoria concluída com sucesso, todas as superfícies HTML canônicas são materializadas fisicamente. A existência da página não significa que a respectiva capacidade tenha sido executada ou produzido dados.
+O runtime não gera mais `report/`, `report.html` ou `remediation.html` para uma AUD. A retirada é somente de projeção HTML: recomendações, findings, evidências, causa raiz, precisão, scoring, integrações, IA e telemetria continuam sendo materializados/persistidos conforme seus contratos.
 
-Superfícies canônicas:
-
-```text
-index.html
-readiness.html
-scoring.html
-context.html
-crawling-discovery.html
-mobile.html
-desktop.html
-accessibility.html
-web-performance.html
-standards.html
-apdex.html
-apdex-experience.html
-search-intelligence.html
-ai-visibility.html
-observability.html
-ai-usage.html
-improvement-intelligence.html
-content-suggestions.html
-remediation.html
-quality.html
-references.html
-```
-
-Quando uma capacidade não foi solicitada, não está configurada, não é aplicável ou não produziu dados utilizáveis, a superfície correspondente permanece estável e apresenta estado neutro ou explicativo. A geração da página não pode disparar coleta, provider, API externa ou IA apenas para preencher o relatório.
-
-A fonte de verdade para a lista de superfícies é `src/rasai/report_contract.py`. O contrato detalhado está em `../OUTPUTS_AND_ARTIFACTS.md` e `../REPORT_GUIDE.md`.
-
-Abrir HTML estático não dispara crawling, IA nem coleta de API externa. `audit.db` + artefatos permanecem a evidência de origem.
+`report-catalog/` é gerado após a produção dos dados e não pode disparar coleta, provider, API externa ou IA apenas para preencher o HTML. `audit.db` + artifacts permanecem a evidência de origem.
 
 ## 8. Conclusão e fluxos derivados
 
