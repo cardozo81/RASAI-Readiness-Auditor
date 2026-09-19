@@ -71,7 +71,7 @@ SARI-001 é metodologia proprietária, evidence-bound e reprodutível. Não repr
 | Acessibilidade automatizada | `accessibility.html` | diagnóstico; não certificação WCAG |
 | Core Web Vitals / Lighthouse | `web-performance.html` | lab + field data separados |
 | Métricas e padrões | `standards.html` | W3C HTML/CSS, MDN Observatory, WebDX/Baseline e métricas derivadas quando disponíveis; advisory |
-| Search Intelligence | `search-intelligence.html` | SERP observado e análise competitiva; non-scoring |
+| Search Intelligence | `cat-05.html` | SERP observado e análise competitiva; non-scoring |
 | Synthetic Navigation Apdex | `apdex.html` | sintético quando executado |
 | Synthetic User Experience Apdex | `apdex-experience.html` | sintético calibrável quando executado; não RUM |
 | Uso/custo de IA | `ai-usage.html` | telemetria operacional |
@@ -244,9 +244,9 @@ Pode mostrar métricas reportadas pela fonte, atividade de URLs, grounding queri
 
 ## Search Intelligence
 
-`search-intelligence.html` é uma superfície canônica point-in-time. Pode conter SERP Observation, posição observada, candidatos competitivos, comparação determinística de conteúdo e análise semântica evidence-bound quando explicitamente executada.
+`cat-05.html` é a superfície point-in-time de Search Intelligence no `report-catalog/`. Pode conter SERP Observation, posição observada, candidatos competitivos, comparação determinística de conteúdo e análise semântica evidence-bound quando explicitamente executada.
 
-Sem termos, provider SERP ou observações persistidas, a página permanece disponível em estado neutro. O RASAi não inventa termos nem dispara Search para preencher HTML.
+Sem termos, provider SERP ou observações persistidas, o CAT-05 apresenta o estado correspondente. O RASAi não inventa termos nem dispara Search para preencher HTML.
 
 Quando Competitive AI é solicitada, ela usa a seleção principal de IA da execução; não existe provider de IA específico de Search no contrato vigente.
 
@@ -339,7 +339,7 @@ observability.db + artifacts/observability
 -> dados que enriquecem observability.html quando disponíveis
 
 audit.db read-only + capacidades especializadas
--> dados que enriquecem quality.html / search-intelligence.html / ai-visibility.html quando aplicável
+-> dados que alimentam as superfícies correspondentes do report-catalog/ quando aplicável
 
 2 x audit.db read-only
 -> relatórios comparativos
