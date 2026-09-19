@@ -27,16 +27,21 @@ def invalidate_work_item(
     error_class: str = "EVIDENCE_VERSION",
     error_code: str = "RESULT_STALE",
     error_message: str = "resultado invalidado por mudança da evidência dependente",
+    status: str | None = None,
+    retryable: bool = True,
 ) -> bool:
     """Invalidate one effective SUCCESS only for a governed evidence/integrity transition.
 
     The prior success timestamp, effective result reference and attempt history remain
     intact for auditability. Normal transient failures still cannot demote SUCCESS.
     """
-    from rasai.audit_fulfillment import FAILED_RETRYABLE, SUCCESS, ensure_schema, recalculate
+    from rasai.audit_fulfillment import BLOCKED, FAILED_RETRYABLE, SUCCESS, ensure_schema, recalculate
 
     ensure_schema(workspace)
     now = datetime.now(timezone.utc).isoformat()
+    target_status = str(status or FAILED_RETRYABLE).upper()
+    if target_status not in {FAILED_RETRYABLE, BLOCKED}:
+        raise ValueError("governed invalidation accepts only FAILED_RETRYABLE or BLOCKED")
     connection = sqlite3.connect(workspace.database)
     changed = False
     try:
@@ -50,11 +55,12 @@ def invalidate_work_item(
         with connection:
             connection.execute(
                 """UPDATE audit_fulfillment_work_items SET
-                   status=?,retryable=1,last_error_class=?,
+                   status=?,retryable=?,last_error_class=?,
                    last_error_code=?,last_error_message=?,updated_at=?
                    WHERE work_item_id=?""",
                 (
-                    FAILED_RETRYABLE,
+                    target_status,
+                    1 if retryable else 0,
                     str(error_class)[:80],
                     str(error_code)[:160],
                     str(error_message)[:1000],
