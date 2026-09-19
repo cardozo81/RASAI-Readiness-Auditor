@@ -16,6 +16,7 @@ on:
       - 'src/rasai/console_entrypoint.py'
       - 'src/rasai/console_artifacts.py'
       - 'src/rasai/context_scope_runtime.py'
+      - 'src/rasai/synthetic_apdex_shared_runtime.py'
       - 'src/rasai/improvement_intelligence_runtime.py'
       - 'src/rasai/ai_orchestration_unification.py'
       - 'src/rasai/ai_orchestration_unification_cleanup.py'
@@ -100,6 +101,7 @@ jobs:
             src/rasai/console_entrypoint.py \
             src/rasai/console_artifacts.py \
             src/rasai/context_scope_runtime.py \
+            src/rasai/synthetic_apdex_shared_runtime.py \
             src/rasai/improvement_intelligence_runtime.py \
             src/rasai/ai_orchestration_unification.py \
             src/rasai/ai_orchestration_unification_cleanup.py \
