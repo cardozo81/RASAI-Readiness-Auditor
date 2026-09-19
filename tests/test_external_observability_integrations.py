@@ -179,6 +179,43 @@ def test_common_crawl_is_bounded_and_does_not_fetch_warc(tmp_path: Path) -> None
     assert metadata["device_dimension"] is False
 
 
+
+
+def test_common_crawl_persists_no_capture_as_coverage_not_error(tmp_path: Path) -> None:
+    root = _workspace(tmp_path)
+
+    def opener(request, timeout):
+        if request.full_url.endswith("collinfo.json"):
+            return _Response([
+                {"id": "CC-MAIN-2026-34", "cdx-api": "https://index.commoncrawl.org/CC-MAIN-2026-34-index"},
+            ])
+        raise RuntimeError(
+            'Common Crawl CDX HTTP 404: {"message": "No Captures found for: https://example.com/a"}'
+        )
+
+    dataset_id = collect_common_crawl_history(
+        audit_workspace=root,
+        max_urls=1,
+        collection_count=1,
+        min_interval_seconds=0,
+        opener=opener,
+    )
+
+    assert archive_rows(root) == []
+    with ObservabilityStore(root) as store:
+        dataset = next(row for row in store.datasets() if row["dataset_id"] == dataset_id)
+        metadata = json.loads(dataset["metadata"])
+        artifact = json.loads((root / str(dataset["artifact_path"])).read_text(encoding="utf-8"))
+
+    assert metadata["rows"] == 0
+    assert metadata["errors"] == 0
+    assert metadata["no_captures"] == 1
+    assert artifact["errors"] == []
+    assert artifact["error_details"] == []
+    assert len(artifact["no_capture_details"]) == 1
+    assert "No Captures found" in artifact["no_capture_details"][0]["message"]
+
+
 def test_external_data_is_projected_only_into_relevant_reports(tmp_path: Path) -> None:
     root = _workspace(tmp_path)
 
