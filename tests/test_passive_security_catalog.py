@@ -603,6 +603,8 @@ def test_cat10_report_projects_ai_recommendation_on_matching_finding(monkeypatch
     assert "Aplicar a correção defensiva observável." in html
     assert "A recomendação deriva do finding" in html
     assert "Orientação gerada por IA" in html
+    finding_anchor = "security-finding-" + str(finding["finding_id"]).casefold()
+    assert f"id='{finding_anchor}'" in html
     assert "Cabeçalhos de segurança" in html
     assert "Recursos de terceiros" in html
     assert "Conteúdo misto" in html
