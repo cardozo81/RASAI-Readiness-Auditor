@@ -793,6 +793,33 @@ def _optional_environment_values(workspace: Any, audit_id: str) -> dict[str, Any
         if isinstance(domains, (list, tuple)) and domains:
             overrides[DOMAINS_ENV] = ",".join(str(value) for value in domains)
 
+    passive = _item(workspace, audit_id, "PASSIVE_SECURITY")
+    if passive is not None:
+        from rasai.passive_security import (
+            COOKIES_ENV,
+            ENABLED_ENV as SECURITY_ENABLED_ENV,
+            EXTERNAL_TIMEOUT_ENV,
+            HEADERS_ENV,
+            KEV_ENV,
+            OSV_ENV,
+            RESOURCES_ENV,
+            RUNTIME_ENV,
+            THIRD_PARTY_ENV,
+        )
+        saved = _saved_environment(workspace, audit_id)
+        overrides[SECURITY_ENABLED_ENV] = "true"
+        for name, default in (
+            (HEADERS_ENV, "true"),
+            (COOKIES_ENV, "true"),
+            (RESOURCES_ENV, "true"),
+            (THIRD_PARTY_ENV, "true"),
+            (RUNTIME_ENV, "true"),
+            (OSV_ENV, "true"),
+            (KEV_ENV, "true"),
+            (EXTERNAL_TIMEOUT_ENV, "15"),
+        ):
+            overrides[name] = saved.get(name, default)
+
     gsc = _item(workspace, audit_id, "GOOGLE_SEARCH_CONSOLE")
     if gsc is not None:
         from rasai.standards_gsc_policy import (
