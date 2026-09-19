@@ -63,7 +63,7 @@ Documentação: [docs/SCORE_GEO_004.md](docs/SCORE_GEO_004.md), [docs/SCORING_GU
 
 ## Relatórios HTML
 
-A auditoria não materializa mais o mini-site HTML convencional em `<AUD>/report/`, nem os arquivos legados `<AUD>/report.html` e `<AUD>/remediation.html`.
+A saída HTML audit-owned de uma execução `rasai audit` é `report-catalog/`, com entrada em `<AUD>/report-catalog/index.html`.
 
 A projeção HTML audit-owned suportada é:
 
@@ -71,11 +71,11 @@ A projeção HTML audit-owned suportada é:
 report-catalog/index.html
 ```
 
-`report-catalog/` é derivado de `audit.db` + artifacts persistidos e permanece uma projeção read-only. A retirada de `report/` não remove collectors, scoring, findings, evidences, recommendations, causa raiz, precisão, IA, custos ou rastreabilidade.
+`report-catalog/` é derivado de `audit.db` + artifacts persistidos e permanece uma projeção read-only. Collectors, scoring, findings, evidences, recommendations, causa raiz, precisão, IA, custos e rastreabilidade pertencem ao processamento/persistência, não ao renderer HTML.
 
 O catálogo preserva suas superfícies próprias, incluindo CAT-01 ... CAT-10 e páginas de governança. A geração do catálogo continua pela rotina canônica `materialize_catalog_report_site(...)`; esta remoção não altera regras CAT-*, Matriz de encerramento estrutural ou conteúdo funcional do catálogo.
 
-Saídas especializadas independentes de uma AUD, como monitoring, verification, timelines, consolidações e históricos, mantêm seus contratos próprios e não são abrangidas pela retirada de `<AUD>/report/`.
+Saídas especializadas, como monitoring, verification, timelines, consolidações e históricos, mantêm seus contratos próprios e não integram o contrato HTML audit-owned de `report-catalog/`.
 
 ### SaaS / Web
 
@@ -266,7 +266,7 @@ Princípios:
 
 - `audit.db` + artifacts são evidência imutável da auditoria;
 - `report-catalog/` é projeção reconstruível, não segunda fonte de verdade;
-- o relatório convencional `<AUD>/report/` e os legados `<AUD>/report.html` / `<AUD>/remediation.html` não são mais saídas da auditoria;
+- `<AUD>/report/`, `<AUD>/report.html` e `<AUD>/remediation.html` não pertencem ao contrato de saída de `rasai audit`;
 - superfície HTML presente não prova que a capacidade, API, provider ou IA correspondente foi executada;
 - sidecars e índices consolidados são derivados/reconstruíveis;
 - secrets não devem ser persistidos em reports, SQLite, INI ou logs;
