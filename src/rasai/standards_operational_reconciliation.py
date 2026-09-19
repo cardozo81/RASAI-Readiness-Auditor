@@ -300,7 +300,7 @@ def reconcile_operational_http_metrics(*, audit_id: str, workspace: AuditWorkspa
 
 
 def install() -> None:
-    """Reconcile operational HTTP metrics without conventional HTML projection."""
+    """Reconcile operational HTTP metrics as persisted audit data."""
     from rasai import report_completion
 
     if getattr(report_completion, "_rasai_operational_http_reconciliation", False):
