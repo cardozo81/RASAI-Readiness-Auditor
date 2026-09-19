@@ -279,7 +279,7 @@ def test_reprocess_reuses_unchanged_directed_analysis_without_ai_call(
 
     assert second.status == "COMPLETE"
     assert second.reused is True
-    assert second.run_id == first.run_id
+    assert second.analysis_run_id == first.analysis_run_id
 
 
 def test_report_renders_strategy_and_menu_contract_contains_page(tmp_path: Path) -> None:
