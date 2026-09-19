@@ -23,6 +23,11 @@ _INSTALLED = False
 _REPORT_INSTALL_WRAPPED = False
 
 
+def _stable_report_anchor(prefix: str, value: Any, fallback: Any) -> str:
+    token = re.sub(r"[^a-z0-9_-]+", "-", str(value or fallback).strip().casefold()).strip("-")
+    return f"{prefix}-{token or str(fallback).casefold()}"
+
+
 def _safe_json(value: Any, default: Any) -> Any:
     if value in (None, ""):
         return default
@@ -1210,13 +1215,13 @@ def _remediation_html(database: Any, data: Any) -> str:
     if "M24-SITEMAP-ABSENT" in ai_codes: suppressed_rules.update({"BR-GEO-003", "BR-GEO-055"})
 
     for action in ai_discovery:
-        index += 1; modal_id = f"rem-discovery-{index}"; code = str(action.get("diagnostic_code") or ""); title, priority = a._discovery_title(action)
+        index += 1; code = str(action.get("diagnostic_code") or ""); modal_id = _stable_report_anchor("rem-discovery", code, index); title, priority = a._discovery_title(action)
         rows.append((title, a._domain_label("FILES_DISCOVERY"), priority, "CAT-01 → CAT-09 · IA técnica", a._modal_button(modal_id, "Ver orientação")))
         body = a._kv((("Situação / objetivo", title), ("Como proceder", action.get("recommended_change_pt") or "-"), ("Validação humana necessária", "Sim" if action.get("human_validation_required") else "Não"), ("Evidências", ", ".join(str(v) for v in action.get("evidence_ids", []) if str(v)) or "-"))) + _technical_reference_links("FILES_DISCOVERY", source_text=title)
         modals.append(a._modal(modal_id, title, f"Orientação assistida por IA · {code or 'evidência persistida'}", body))
 
     for rec in deep:
-        index += 1; modal_id = f"rem-deep-{index}"; title = rec.get("title") or "Melhoria da análise profunda"; domain = a._norm(rec.get("domain")); source_cat = a._DOMAIN_CATALOG.get(domain); finding = deep_finding_by_id.get(str(rec.get("finding_id")), {})
+        index += 1; modal_id = _stable_report_anchor("rem-deep", rec.get("recommendation_id"), index); title = rec.get("title") or "Melhoria da análise profunda"; domain = a._norm(rec.get("domain")); source_cat = a._DOMAIN_CATALOG.get(domain); finding = deep_finding_by_id.get(str(rec.get("finding_id")), {})
         rows.append((title, a._domain_label(domain), a._level_label(rec.get("priority")), f"CAT-08 → {source_cat or 'evidência transversal'}", a._modal_button(modal_id, "Ver implementação")))
         rationale = a._rationale_parts(rec.get("rationale")); problem = finding.get("observation") or finding.get("title") or "-"
         body = a._kv((("Problema observado", _finding_public_title(finding) if finding else problem), ("Catálogo de origem", source_cat or "-"), ("Domínio", a._domain_label(domain)), ("Severidade", a._level_label(rec.get("severity"))), ("Prioridade", a._level_label(rec.get("priority"))), ("Seletor / path", rec.get("selector") or finding.get("selector") or "Não se aplica / não identificado"), ("Como corrigir", rec.get("recommendation") or "-"), ("Risco de manter como está", rationale.get("risk") or rec.get("rationale") or "-"), ("Benefício esperado da correção", rationale.get("benefit") or "-"), ("Justificativa técnica", rationale.get("technical") or "-"), ("Impactos relacionados", a._impact_summary(rec.get("impacts_json"))), ("Esforço", a._level_label(rec.get("effort"))), ("Confiança", a._confidence_label(rec.get("confidence"))), ("Problema de origem", rec.get("finding_id") or "-")))
@@ -1234,7 +1239,7 @@ def _remediation_html(database: Any, data: Any) -> str:
         if affected_ids and covered.intersection(affected_ids): continue
         rule_id = str(root.get("rule_id") or (group or {}).get("rule_id") or "")
         if rule_id in suppressed_rules: continue
-        index += 1; modal_id = f"rem-det-{index}"; title = a._friendly_deterministic_title(rec, root)
+        index += 1; modal_id = _stable_report_anchor("rem-det", rec.get("recommendation_id"), index); title = a._friendly_deterministic_title(rec, root)
         rows.append((title, "Técnico / determinístico", a._level_label(rec.get("priority_class")), "Diagnóstico persistido", a._modal_button(modal_id, "Ver correção")))
         body = a._kv((("Problema / objetivo", rec.get("description") or root.get("cause_summary") or (group or {}).get("root_cause") or "-"), ("Regra", rule_id or "-"), ("Impacto", a._level_label(rec.get("impact") or (group or {}).get("impact"))), ("Esforço", a._level_label(rec.get("effort") or (group or {}).get("effort"))), ("Confiança", a._confidence_label(rec.get("confidence") or (group or {}).get("confidence"))), ("Problemas de origem", ", ".join(affected_ids) or rec.get("finding_id") or "-"))) + _render_observed_value(root.get("observed_value"))
         if root:
@@ -1247,7 +1252,7 @@ def _remediation_html(database: Any, data: Any) -> str:
     for rec in content:
         fid = str(rec.get("finding_id") or rec.get("source_finding_id") or "")
         if fid and fid in covered: continue
-        index += 1; modal_id = f"rem-content-{index}"; title = rec.get("objective") or "Melhoria de conteúdo"; root = root_by_find.get(fid, {}); finding = core_finding_by_id.get(fid, {})
+        index += 1; modal_id = _stable_report_anchor("rem-content", rec.get("suggestion_id"), index); title = rec.get("objective") or "Melhoria de conteúdo"; root = root_by_find.get(fid, {}); finding = core_finding_by_id.get(fid, {})
         rows.append((title, a._domain_label("CONTENT"), "-", "IA · conteúdo", a._modal_button(modal_id, "Ver sugestão")))
         body = a._kv((("Objetivo", title), ("Problema observado", finding.get("title") or root.get("cause_summary") or "-"), ("Onde aplicar", rec.get("target_location") or "-"), ("Texto proposto", rec.get("proposed_text") or "-"), ("Confiança", a._confidence_label(rec.get("confidence"))), ("Problema de origem", fid or "-"))) + _render_observed_value(root.get("observed_value"))
         review = str(rec.get("review_note") or "")
@@ -1258,7 +1263,7 @@ def _remediation_html(database: Any, data: Any) -> str:
     for rec in jsonld:
         fid = str(rec.get("finding_id") or rec.get("source_finding_id") or "")
         if fid and fid in covered: continue
-        index += 1; modal_id = f"rem-jsonld-{index}"; title = a._jsonld_title(rec)
+        index += 1; modal_id = _stable_report_anchor("rem-jsonld", rec.get("suggestion_id"), index); title = a._jsonld_title(rec)
         rows.append((title, "Dados estruturados", "-", "CAT-03 → CAT-09", a._modal_button(modal_id, "Ver JSON-LD")))
         proposed = a._safe_json(rec.get("proposed_json"), rec.get("proposed_json")); existing = a._safe_json(rec.get("existing_types"), [])
         body = a._kv((("Situação", a._status_label(rec.get("status"))), ("Tipos existentes", ", ".join(existing) if isinstance(existing, list) and existing else "Nenhum"), ("Melhorias", rec.get("improvements") or "-"), ("Problema de origem", fid or "-")))
