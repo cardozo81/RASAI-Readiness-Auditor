@@ -9,7 +9,10 @@ from types import SimpleNamespace
 from urllib.error import URLError
 
 from rasai import passive_security as security
+from rasai.ai_governance import collection_state_is_terminal
 from rasai.catalog_report_analysis import _passive_security_html
+from rasai.catalog_report_catalog_state import _catalog_status, _catalog_work
+from rasai.improvement_intelligence import _required_actionable_recommendation_finding_ids
 from rasai import console_catalog_plan as catalog_plan
 
 
@@ -282,6 +285,7 @@ def test_osv_and_kev_use_only_versioned_component_identifiers(monkeypatch, tmp_p
         workspace=workspace,
     )
     assert collected["collection_state"] == "SUCCESS"
+    assert collection_state_is_terminal(collected["collection_state"]) is True
     assert collected["osv_successes"] == 1
     assert collected["cves"] == 1
     assert all("audited.example" not in json.dumps(body or {}) for _url, body in calls)
@@ -445,6 +449,160 @@ print("OK")
     assert result.returncode == 0, result.stderr
     assert "OK" in result.stdout
 
+
+
+
+def test_cat10_preparatory_evidence_without_consolidated_run_is_partial(monkeypatch, tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path, html=_security_html())
+    monkeypatch.setenv(security.ENABLED_ENV, "true")
+    monkeypatch.setenv(security.OSV_ENV, "false")
+    monkeypatch.setenv(security.KEV_ENV, "false")
+
+    collected = security.collect_external_intelligence(audit_id=AUDIT_ID, workspace=workspace)
+    assert collected["collection_state"] == "SUCCESS"
+
+    data = SimpleNamespace(
+        audit_id=AUDIT_ID,
+        configuration={"audit_catalog": {"selected": ["CAT-10"]}},
+        config_hash="same",
+        computed_hash="same",
+        selected={"CAT-10"},
+        catalog_items={"CAT-10": {"ai_execution_enabled": False}},
+        work_items=[],
+    )
+    status, tone, detail = _catalog_status(workspace.database, data, "CAT-10")
+
+    assert status == "PARCIAL"
+    assert tone == "warn"
+    assert "execução consolidada" in detail
+    assert "passive_security_runs" in detail
+
+
+def test_cat10_ai_work_item_is_owned_only_when_ai_was_requested() -> None:
+    work = [{
+        "component": "IMPROVEMENT_INTELLIGENCE",
+        "status": "REQUESTED_NOT_EXECUTED",
+        "last_error_class": "ORCHESTRATION",
+        "last_error_code": "REQUESTED_NOT_EXECUTED",
+    }]
+    base = dict(
+        audit_id=AUDIT_ID,
+        configuration={"audit_catalog": {"selected": ["CAT-10"]}},
+        config_hash="same",
+        computed_hash="same",
+        selected={"CAT-10"},
+        work_items=work,
+    )
+
+    without_ai = SimpleNamespace(**base, catalog_items={"CAT-10": {"ai_execution_enabled": False}})
+    with_ai = SimpleNamespace(**base, catalog_items={"CAT-10": {"ai_execution_enabled": True}})
+
+    assert _catalog_work(without_ai, "CAT-10") == []
+    assert _catalog_work(with_ai, "CAT-10") == work
+
+
+def test_cat10_findings_are_required_for_canonical_advisory_ai(monkeypatch, tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path, html=_security_html())
+    monkeypatch.setenv(security.ENABLED_ENV, "true")
+    monkeypatch.setenv(security.OSV_ENV, "false")
+    monkeypatch.setenv(security.KEV_ENV, "false")
+    security.analyze_passive_security(audit_id=AUDIT_ID, workspace=workspace)
+
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        projected = security.improvement_findings(connection, AUDIT_ID, PAGE_ID)
+        assert projected is not None
+        findings, _summary = projected
+    finally:
+        connection.close()
+
+    required = _required_actionable_recommendation_finding_ids(findings)
+
+    assert required
+    assert set(required) == {str(item["finding_id"]) for item in findings}
+
+
+def test_cat10_report_projects_ai_recommendation_on_matching_finding(monkeypatch, tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path, html=_security_html())
+    monkeypatch.setenv(security.ENABLED_ENV, "true")
+    monkeypatch.setenv(security.OSV_ENV, "false")
+    monkeypatch.setenv(security.KEV_ENV, "false")
+    security.analyze_passive_security(audit_id=AUDIT_ID, workspace=workspace)
+
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        finding = connection.execute(
+            "SELECT finding_id FROM passive_security_findings WHERE audit_id=? ORDER BY rowid LIMIT 1",
+            (AUDIT_ID,),
+        ).fetchone()
+        assert finding is not None
+        connection.executescript(
+            """
+            CREATE TABLE improvement_intelligence_runs(
+                audit_id TEXT PRIMARY KEY,
+                status TEXT,
+                domains_json TEXT
+            );
+            CREATE TABLE improvement_intelligence_recommendations(
+                recommendation_id TEXT PRIMARY KEY,
+                audit_id TEXT,
+                finding_id TEXT,
+                domain TEXT,
+                priority TEXT,
+                confidence REAL,
+                effort TEXT,
+                title TEXT,
+                recommendation TEXT,
+                rationale TEXT,
+                verification TEXT,
+                suggested_text TEXT,
+                suggested_html TEXT
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO improvement_intelligence_runs VALUES (?,?,?)",
+            (AUDIT_ID, "COMPLETE", json.dumps(["SECURITY"])),
+        )
+        connection.execute(
+            """INSERT INTO improvement_intelligence_recommendations
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                "IIR-SEC-1",
+                AUDIT_ID,
+                str(finding["finding_id"]),
+                "SECURITY",
+                "HIGH",
+                0.91,
+                "MEDIUM",
+                "Correção assistida",
+                "Aplicar a correção defensiva observável.",
+                "A recomendação deriva do finding e de sua evidência persistida.",
+                "Reexecutar a auditoria e confirmar o controle.",
+                "Exemplo seguro de configuração.",
+                None,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    html = _passive_security_html(
+        workspace.database,
+        SimpleNamespace(
+            audit_id=AUDIT_ID,
+            catalog_items={"CAT-10": {"ai_execution_enabled": True}},
+        ),
+    )
+
+    assert "Findings com análise IA" in html
+    assert "Analisado pela IA" in html
+    assert "Análise e sugestão advisory da IA" in html
+    assert "Aplicar a correção defensiva observável." in html
+    assert "A recomendação deriva do finding" in html
+    assert "Orientação gerada por IA" in html
 
 def test_packaged_defaults_keep_cat10_opt_in_with_safe_subcontrols() -> None:
     from rasai.system_defaults import load_system_defaults
