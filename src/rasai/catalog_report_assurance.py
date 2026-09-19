@@ -382,6 +382,36 @@ _INTERNAL_FAILURE_CODES = frozenset({
 })
 
 
+_CANONICAL_RUN_TABLES = {
+    "CAT-04": "web_performance_runs",
+    "CAT-06": "synthetic_apdex_runs",
+    "CAT-07": "synthetic_ux_apdex_runs",
+    "CAT-08": "improvement_intelligence_runs",
+    "CAT-09": "content_remediation_runs",
+    "CAT-10": "passive_security_runs",
+}
+
+
+def _canonical_run_materialized(
+    database: Path,
+    audit_id: str,
+    catalog_id: str,
+) -> tuple[bool, str]:
+    """Verify that selected execution-owning catalogs materialized their canonical run."""
+    table = _CANONICAL_RUN_TABLES.get(catalog_id)
+    if table is None:
+        return True, "catálogo não exige tabela canônica de execução"
+    connection = sqlite3.connect(database)
+    connection.row_factory = sqlite3.Row
+    try:
+        rows = _audit_rows(connection, table, audit_id)
+    finally:
+        connection.close()
+    if rows:
+        return True, f"execução canônica persistida em {table}"
+    return False, f"execução canônica ausente em {table}"
+
+
 def _internal_execution_gaps(data: Any, catalog_id: str) -> tuple[str, ...]:
     try:
         from rasai import catalog_report_page as page
@@ -521,6 +551,12 @@ def assess_catalog(database: Path, data: Any, catalog_id: str, body: str) -> dic
     status_resolved = str(status or "").upper() not in {"", "INDETERMINADO"}
 
     internal_gaps = _internal_execution_gaps(data, catalog_id)
+    canonical_run_ok, canonical_run_detail = _canonical_run_materialized(
+        database,
+        data.audit_id,
+        catalog_id,
+    )
+    canonical_run_ok = (not selected) or canonical_run_ok
     provenance_ok, provenance_detail = _ai_attempt_provenance(
         database,
         data.audit_id,
@@ -529,6 +565,7 @@ def assess_catalog(database: Path, data: Any, catalog_id: str, body: str) -> dic
 
     checks.extend([
         _check("GOV_INTERNAL_EXECUTION", "governance", not internal_gaps, "sem falha interna de orquestração/persistência" if not internal_gaps else "; ".join(internal_gaps)),
+        _check("GOV_CANONICAL_RUN", "governance", canonical_run_ok, canonical_run_detail),
         _check("GOV_AI_ATTEMPT_PROVENANCE", "governance", provenance_ok, provenance_detail),
         _check("GOV_STATUS", "governance", status_resolved, f"estado funcional: {status or '-'}"),
         _check("GOV_EVIDENCE", "governance", "Evidências" in body, "superfície de provenance presente"),
@@ -539,6 +576,7 @@ def assess_catalog(database: Path, data: Any, catalog_id: str, body: str) -> dic
 
     checks.extend([
         _check("REL_INTERNAL_EXECUTION", "reliability", not internal_gaps, "execução interna sem lacuna estrutural conhecida" if not internal_gaps else "; ".join(internal_gaps)),
+        _check("REL_CANONICAL_RUN", "reliability", canonical_run_ok, canonical_run_detail),
         _check("REL_STATUS_TRUTH", "reliability", status_resolved, "estado derivado de configuração/evidência persistida"),
         _check("REL_RESULTS", "reliability", "Resultados" in body, "resultado funcional projetado"),
         _check("REL_ANALYSIS", "reliability", "Análise" in body, "interpretação separada da evidência"),
