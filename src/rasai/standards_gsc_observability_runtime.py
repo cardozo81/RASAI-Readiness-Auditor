@@ -346,30 +346,21 @@ def _update_service_run(*, audit_id: str, workspace: Any, result: Mapping[str, A
 
 
 def install() -> None:
-    """Wrap final report materialization with credential-gated GSC observability."""
-    from rasai import report_completion, report_navigation
-    from rasai.report_manifest import write_report_manifest
-    from rasai.report_scale_ux import enhance_report_directory
-    from rasai.standards_gsc_crawl_freshness_metrics import (
-        enrich_gsc_crawl_freshness_report,
-        reconcile_gsc_crawl_freshness_metrics,
-    )
-    from rasai.standards_gsc_metrics import enrich_gsc_metrics_report, reconcile_gsc_observational_metrics
-    from rasai.standards_gsc_sitemap_metrics import enrich_gsc_sitemap_report, reconcile_gsc_sitemap_metrics
-    from rasai.standards_gsc_visibility_metrics import enrich_gsc_visibility_report, reconcile_gsc_visibility_counts
-    from rasai.standards_metrics import enrich_existing_reports, write_standards_report
+    """Collect and reconcile GSC observability without conventional HTML projection."""
+    from rasai import report_completion
+    from rasai.standards_gsc_crawl_freshness_metrics import reconcile_gsc_crawl_freshness_metrics
+    from rasai.standards_gsc_metrics import reconcile_gsc_observational_metrics
+    from rasai.standards_gsc_sitemap_metrics import reconcile_gsc_sitemap_metrics
+    from rasai.standards_gsc_visibility_metrics import reconcile_gsc_visibility_counts
 
     if getattr(report_completion, "_rasai_gsc_observability_runtime", False):
         return
     original = report_completion.finalize_audit_report_site
 
     def finalize_with_gsc(*, audit_id: str, workspace: Any, context_interpretations=(), routing_snapshot=None):
-        report_dir = workspace.root / "report"
-
-        # Remove old GSC projections before the base renderer can read them. The raw
-        # observability history is intentionally preserved in observability.db.
+        # Remove stale derived GSC metrics before current-run collection. Raw
+        # observability history remains untouched.
         _clear_all_gsc_metric_projections(audit_id=audit_id, workspace=workspace)
-        _clear_gsc_report_panels(report_dir)
 
         base = original(
             audit_id=audit_id,
@@ -380,58 +371,41 @@ def install() -> None:
         errors = list(base.renderer_errors)
         result: Mapping[str, Any] = {"operations": [], "effective_enabled": False}
         try:
-            # The base renderer may reuse an existing report file. Remove GSC marker
-            # blocks once more before current-run enrichment.
-            _clear_gsc_report_panels(report_dir)
             result = collect_configured_search_console(audit_id=audit_id, workspace=workspace)
             _update_service_run(audit_id=audit_id, workspace=workspace, result=result)
             if bool(result.get("effective_enabled")):
-                enrich_observability_report(audit_workspace=workspace.root)
                 try:
                     reconcile_gsc_observational_metrics(audit_id=audit_id, workspace=workspace)
                     reconcile_gsc_crawl_freshness_metrics(audit_id=audit_id, workspace=workspace)
                     reconcile_gsc_sitemap_metrics(audit_id=audit_id, workspace=workspace)
                     reconcile_gsc_visibility_counts(audit_id=audit_id, workspace=workspace)
                 finally:
-                    # Reconcilers use persisted latest datasets; this filter guarantees
-                    # that only families successful in this finalization survive.
                     _clear_metrics_without_current_success(
                         audit_id=audit_id,
                         workspace=workspace,
                         result=result,
                     )
             else:
-                _clear_metrics_without_current_success(audit_id=audit_id, workspace=workspace, result=result)
-
-            if bool(result.get("effective_enabled")):
-                # Only enabled GSC finalizations create new advisory rows after the
-                # pre-render cleanup, so only this path needs a second standards render.
-                write_standards_report(audit_id=audit_id, workspace=workspace)
-                enrich_existing_reports(audit_id=audit_id, workspace=workspace)
-                enrich_gsc_metrics_report(audit_id=audit_id, workspace=workspace)
-                enrich_gsc_crawl_freshness_report(audit_id=audit_id, workspace=workspace)
-                enrich_gsc_sitemap_report(audit_id=audit_id, workspace=workspace)
-                enrich_gsc_visibility_report(audit_id=audit_id, workspace=workspace)
-                report_navigation.normalize_report_navigation(report_dir)
-                enhance_report_directory(report_dir)
-
-            # Hashes must describe post-cleanup/post-projection files even when the
-            # service is disabled and only stale content was removed.
-            write_report_manifest(report_dir)
+                _clear_metrics_without_current_success(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    result=result,
+                )
         except Exception as exc:
-            # No failure in configuration/composition may resurrect historical GSC
-            # data as current. The sidecar itself is never deleted.
-            _clear_metrics_without_current_success(audit_id=audit_id, workspace=workspace, result=result)
-            _clear_gsc_report_panels(report_dir)
+            _clear_metrics_without_current_success(
+                audit_id=audit_id,
+                workspace=workspace,
+                result=result,
+            )
             errors.append(f"gsc-runtime:{type(exc).__name__}:{redact_text(str(exc)[:500])}")
 
-        inspected = report_completion.inspect_audit_report_site(audit_id=audit_id, workspace=workspace)
         return report_completion.AuditReportCompletion(
-            expected_pages=inspected.expected_pages,
-            generated_pages=inspected.generated_pages,
-            missing_pages=inspected.missing_pages,
+            expected_pages=base.expected_pages,
+            generated_pages=base.generated_pages,
+            missing_pages=base.missing_pages,
             renderer_errors=tuple(errors),
         )
 
     report_completion.finalize_audit_report_site = finalize_with_gsc
     report_completion._rasai_gsc_observability_runtime = True
+
