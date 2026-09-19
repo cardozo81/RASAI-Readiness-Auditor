@@ -25,10 +25,10 @@ AUD-CURRENT/audit.db ------/
 
 AUD-CURRENT/audit.db (somente leitura)
           |
-          +--> observability.db          # RASAI-OBS-002
+          +--> artifacts/observability/observability.db   # RASAI-OBS-002
           +--> artifacts/observability/*
-          +--> report/observability.html
-          +--> report/quality.html
+          +--> report-catalog/cat-05.html
+          +--> report-catalog/metrics.html
 
 coleção AUD-*
           |
@@ -125,7 +125,7 @@ Regras comuns à coleta externa:
 
 ## Diagnósticos de observabilidade
 
-`report/observability.html` pode incluir:
+`report-catalog/cat-05.html` e `report-catalog/metrics.html` podem projetar:
 
 - Indexability Reality Matrix;
 - Query × Intent Alignment;
