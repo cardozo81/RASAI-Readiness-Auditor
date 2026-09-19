@@ -1,10 +1,9 @@
-"""CLI do M26 - importação/report de Observed Generative Visibility."""
+"""CLI do M26 - importação de Observed Generative Visibility."""
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
 
-from rasai.m26_reporting import enrich_m26_report_site
 from rasai.m26_visibility import import_visibility_file
 from rasai.operational_log import try_append_operational_event
 from rasai.persistence import AuditWorkspace
@@ -21,8 +20,6 @@ def build_parser() -> argparse.ArgumentParser:
     _workspace_arguments(import_parser)
     import_parser.add_argument("--file", required=True, help="arquivo JSON UTF-8 no contrato OGV-IMPORT-001")
 
-    report_parser = subparsers.add_parser("report", help="regenerar ai-visibility.html a partir do audit.db")
-    _workspace_arguments(report_parser)
     return parser
 
 
@@ -42,7 +39,6 @@ def main(argv: list[str] | None = None) -> int:
         workspace = _workspace(args)
         if args.visibility_command == "import":
             result = import_visibility_file(audit_id=args.audit_id, workspace=workspace, path=args.file)
-            report = enrich_m26_report_site(audit_id=args.audit_id, workspace=workspace)
             try_append_operational_event(
                 workspace,
                 "M26_OBSERVED_GENERATIVE_VISIBILITY_IMPORTED",
@@ -71,14 +67,9 @@ def main(argv: list[str] | None = None) -> int:
                     f"{result.citation_presence_ci95_low * 100:.1f}%-{result.citation_presence_ci95_high * 100:.1f}%"
                 )
             print(f"Artifact preservado: {result.artifact_path}")
-            print(f"Relatório: {report}")
             print("Impacto no SARI/SCORE-GEO: NENHUM")
             return 0
 
-        if args.visibility_command == "report":
-            report = enrich_m26_report_site(audit_id=args.audit_id, workspace=workspace)
-            print(f"Relatório de visibilidade generativa: {report}")
-            return 0
     except (OSError, ValueError, RuntimeError) as exc:
         parser.error(str(exc))
 
