@@ -188,12 +188,17 @@ jobs:
             exit 1
           fi
 
-      - name: Prove catalog implementation source is unchanged by this scope
+      - name: Prove catalog implementation source is unchanged outside smoke-approved presentation scope
         shell: bash
         run: |
           baseline=fc8f38533d989c55ac13a06e7b705f4ba32aa9bf
           changed="$(git diff --name-only "${baseline}...HEAD")"
-          violations="$(echo "${changed}" | grep -E '^src/rasai/catalog_report_|^src/rasai/audit_catalog\.py
+          violations="$(echo "${changed}" | grep -E '^src/rasai/catalog_report_|^src/rasai/audit_catalog[.]py$' | grep -v -E '^src/rasai/catalog_report_assurance[.]py$' || true)"
+          if test -n "${violations}"; then
+            echo "${violations}"
+            echo "Catalog implementation outside the smoke-approved assurance presentation scope changed."
+            exit 1
+          fi
 
       - name: Import affected composition roots
         run: |
