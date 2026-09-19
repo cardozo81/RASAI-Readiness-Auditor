@@ -501,8 +501,159 @@ def _augment_reconciliation_configuration() -> None:
         contract._reconcile_explicit_services = reconcile_services
 
 
+def _web_performance_integrity(workspace: Any, audit_id: str) -> bool:
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        if not (
+            _table_exists(connection, "web_performance_runs")
+            and _table_exists(connection, "web_performance_observations")
+        ):
+            return False
+        run = connection.execute(
+            "SELECT * FROM web_performance_runs WHERE audit_id=?",
+            (audit_id,),
+        ).fetchone()
+        if run is None or str(run["status"] or "").upper() != "SUCCESS":
+            return False
+        successful = int(run["successful_contexts"] or 0)
+        if successful <= 0:
+            return False
+        rows = connection.execute(
+            """SELECT pagespeed_artifact_reference,crux_artifact_reference
+               FROM web_performance_observations WHERE audit_id=?""",
+            (audit_id,),
+        ).fetchall()
+        if len(rows) < successful:
+            return False
+        for row in rows:
+            for column in ("pagespeed_artifact_reference", "crux_artifact_reference"):
+                reference = str(row[column] or "").strip()
+                if reference and not (Path(workspace.root) / reference).is_file():
+                    return False
+        return True
+    finally:
+        connection.close()
+
+
+def _synthetic_apdex_integrity(workspace: Any, audit_id: str, item: Any) -> bool:
+    try:
+        from rasai.audit_fulfillment_runtime import _m23_effective_success
+        target = int(dict(item.configuration or {}).get("target_valid_samples") or 0)
+        return target > 0 and bool(_m23_effective_success(workspace, audit_id, target))
+    except (ImportError, TypeError, ValueError):
+        return False
+
+
+def _experience_apdex_integrity(workspace: Any, audit_id: str, item: Any) -> bool:
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        if not (
+            _table_exists(connection, "synthetic_ux_apdex_runs")
+            and _table_exists(connection, "synthetic_ux_apdex_summaries")
+        ):
+            return False
+        run = connection.execute(
+            "SELECT * FROM synthetic_ux_apdex_runs WHERE audit_id=?",
+            (audit_id,),
+        ).fetchone()
+        if run is None or str(run["status"] or "").upper() != "SUCCESS":
+            return False
+        target = int(
+            dict(item.configuration or {}).get("target_samples_per_page")
+            or run["target_samples_per_page"]
+            or 0
+        )
+        stats = connection.execute(
+            "SELECT COUNT(*),MIN(valid_samples) FROM synthetic_ux_apdex_summaries WHERE audit_id=?",
+            (audit_id,),
+        ).fetchone()
+        return bool(
+            target > 0
+            and stats
+            and int(stats[0] or 0) > 0
+            and stats[1] is not None
+            and int(stats[1]) >= target
+        )
+    finally:
+        connection.close()
+
+
+def _passive_security_integrity(workspace: Any, audit_id: str) -> bool:
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        required = {
+            "passive_security_runs",
+            "passive_security_resources",
+            "passive_security_components",
+            "passive_security_findings",
+            "passive_security_remediations",
+            "passive_security_integrations",
+        }
+        if not all(_table_exists(connection, table) for table in required):
+            return False
+        run = connection.execute(
+            "SELECT * FROM passive_security_runs WHERE audit_id=?",
+            (audit_id,),
+        ).fetchone()
+        if run is None or str(run["status"] or "").upper() not in {"COMPLETED", "PARTIAL"}:
+            return False
+        counts = {
+            "resources_count": "passive_security_resources",
+            "components_count": "passive_security_components",
+            "findings_count": "passive_security_findings",
+            "remediations_count": "passive_security_remediations",
+        }
+        for column, table in counts.items():
+            actual = int(
+                connection.execute(
+                    f"SELECT COUNT(*) FROM {table} WHERE audit_id=?",
+                    (audit_id,),
+                ).fetchone()[0]
+            )
+            if actual != int(run[column] or 0):
+                return False
+
+        evidence_ids = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT evidence_id FROM evidence WHERE audit_id=?",
+                (audit_id,),
+            ).fetchall()
+        } if _table_exists(connection, "evidence") else set()
+        for table in ("passive_security_resources", "passive_security_components", "passive_security_findings"):
+            if "evidence_ids_json" not in {
+                str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+            }:
+                continue
+            for row in connection.execute(
+                f"SELECT evidence_ids_json FROM {table} WHERE audit_id=?",
+                (audit_id,),
+            ):
+                try:
+                    values = json.loads(str(row[0] or "[]"))
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    return False
+                if any(str(value) not in evidence_ids for value in values or ()):
+                    return False
+
+        for row in connection.execute(
+            """SELECT artifact_reference FROM passive_security_integrations
+               WHERE audit_id=? AND artifact_reference IS NOT NULL""",
+            (audit_id,),
+        ):
+            reference = str(row[0] or "").strip()
+            if reference and not (Path(workspace.root) / reference).is_file():
+                return False
+        return True
+    finally:
+        connection.close()
+
+
 def _validate_success_integrity(workspace: Any, audit_id: str) -> None:
-    """A successful optional work item must still have the persisted evidence it claims."""
+    """Invalidate only successful work whose claimed persisted result is no longer valid."""
     gsc = _gsc_service_run(workspace, audit_id)
     improvement = _improvement_run(workspace, audit_id)
     connection = sqlite3.connect(workspace.database)
@@ -516,24 +667,50 @@ def _validate_success_integrity(workspace: Any, audit_id: str) -> None:
     finally:
         connection.close()
 
-    checks = (
-        ("GOOGLE_SEARCH_CONSOLE", bool(gsc and str(gsc.get("state") or "").upper() in {"SUCCESS", "READY"} and gsc.get("details_json"))),
-        ("IMPROVEMENT_INTELLIGENCE", bool(improvement and str(improvement.get("status") or "").upper() == "COMPLETE")),
-        ("SEARCH_INTELLIGENCE", search_count is not None and search_count > 0),
-    )
-    for component, valid in checks:
-        item = _item(workspace, audit_id, component)
+    items = {
+        str(item.component): item
+        for item in list_work_items(workspace, audit_id)
+    }
+    checks: dict[str, bool] = {
+        "GOOGLE_SEARCH_CONSOLE": bool(
+            gsc
+            and str(gsc.get("state") or "").upper() in {"SUCCESS", "READY"}
+            and gsc.get("details_json")
+        ),
+        "IMPROVEMENT_INTELLIGENCE": bool(
+            improvement
+            and str(improvement.get("status") or "").upper() == "COMPLETE"
+        ),
+        "SEARCH_INTELLIGENCE": search_count is not None and search_count > 0,
+        "WEB_PERFORMANCE": _web_performance_integrity(workspace, audit_id),
+        "PASSIVE_SECURITY": _passive_security_integrity(workspace, audit_id),
+    }
+    if "SYNTHETIC_APDEX" in items:
+        checks["SYNTHETIC_APDEX"] = _synthetic_apdex_integrity(
+            workspace, audit_id, items["SYNTHETIC_APDEX"]
+        )
+    if "EXPERIENCE_APDEX" in items:
+        checks["EXPERIENCE_APDEX"] = _experience_apdex_integrity(
+            workspace, audit_id, items["EXPERIENCE_APDEX"]
+        )
+
+    from rasai.governed_fulfillment_invalidation import invalidate_work_item
+
+    for component, valid in checks.items():
+        item = items.get(component)
         if item is None or str(item.status) != SUCCESS or valid:
             continue
-        set_work_item_status(
+        invalidate_work_item(
             workspace,
             audit_id=audit_id,
             component=component,
-            status=FAILED_RETRYABLE,
+            scope_key=str(item.scope_key),
             error_class="INTEGRITY",
             error_code="PERSISTED_EVIDENCE_MISSING",
-            error_message=f"{component} estava marcado como SUCCESS, mas sua evidência persistida não está disponível",
-            retryable=True,
+            error_message=(
+                f"{component} estava marcado como SUCCESS, mas o resultado persistido "
+                "não satisfaz mais o contrato de integridade"
+            ),
         )
 
 
