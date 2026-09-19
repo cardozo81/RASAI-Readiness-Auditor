@@ -201,7 +201,7 @@ Cada evento pode conter:
 
 ## Relação com o relatório HTML
 
-`report/search-intelligence.html` é a superfície canônica de Search Intelligence da auditoria em um ponto no tempo.
+`report-catalog/cat-05.html` é a superfície de Search Intelligence da auditoria em um ponto no tempo.
 
 `SEARCH-HISTORY-001` é um contrato separado de comparação temporal. Manter esses contratos separados evita que o HTML pontual sugira silenciosamente que uma observação posterior foi causada por um deploy.
 
