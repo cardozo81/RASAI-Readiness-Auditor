@@ -292,11 +292,11 @@ O console exibe a URL oficial de cadastro/login e a variável de credencial corr
 
 `NOT_FOUND_WITHIN_DEPTH` significa apenas que o domínio não foi observado na profundidade solicitada. Search Intelligence é non-scoring.
 
-No `rasai-console`, quando termos SERP fazem parte da sessão, a etapa Search Intelligence integra o mesmo relógio de duração e o progresso global até a consolidação dos relatórios. As consultas são acompanhadas por termo. Erros do provider permanecem fail-open para a auditoria principal: o diagnóstico original é persistido e categorizado como limitação técnica ou de conta/negócio quando identificável (por exemplo crédito, autenticação/permissão ou quota/plano), o relatório geral é disponibilizado e sinaliza a limitação. O relatório Search destaca explicitamente a posição quando o domínio derivado da URL principal é encontrado.
+No `rasai-console`, quando termos SERP fazem parte da sessão, a etapa Search Intelligence integra o mesmo relógio de duração e o progresso global da auditoria. As consultas são acompanhadas por termo. Erros do provider permanecem fail-open para a auditoria principal: o diagnóstico original é persistido e categorizado como limitação técnica ou de conta/negócio quando identificável. O CAT-05 projeta a posição observada e o estado da capacidade a partir desses dados.
 
-A comparação de conteúdo competitivo é opt-in porque baixa páginas públicas adicionais. Quando não habilitada, a classificação SERP pode existir sem listas de diferenças de conteúdo; o relatório deve explicar essa ausência em vez de apresentar listas vazias como se fossem uma conclusão analítica. Recomendações competitivas por IA exigem comparação determinística consolidada e permanecem evidence-bound e não causais.
+A comparação de conteúdo competitivo é opt-in porque baixa páginas públicas adicionais. Quando não habilitada, a classificação SERP pode existir sem listas de diferenças de conteúdo; o CAT-05 deve explicar essa ausência em vez de apresentar listas vazias como se fossem uma conclusão analítica. Recomendações competitivas por IA exigem comparação determinística consolidada e permanecem evidence-bound e não causais.
 
-O renderer de `search-intelligence.html` projeta o campo `provider` persistido por observação; não mantém allowlist visual específica de SerpApi/Zenserp/ScrapingDog.
+O CAT-05 projeta o campo `provider` persistido por observação; não mantém allowlist visual específica de SerpApi/Zenserp/ScrapingDog.
 
 ### Histórico
 
