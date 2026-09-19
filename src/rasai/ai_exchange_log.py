@@ -50,6 +50,7 @@ _SECRET_KEYS = frozenset({
     "bearer",
 })
 _PURPOSE_MARKERS = (
+    ("directed_analysis", "DIRECTED_ANALYSIS"),
     ("rasai_m24_technical_remediation", "TECHNICAL_REMEDIATION"),
     ("rasai_content_remediation", "CONTENT_REMEDIATION"),
     ("rasai_source_quality", "SOURCE_QUALITY_EXPLANATION"),
