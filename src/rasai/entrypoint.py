@@ -221,7 +221,7 @@ def _install_audit_runtime() -> None:
     install_search_audit_runtime()
     install_governed_optional_runtime()
     install_worker_lease_runtime()
-    # Reassert final owners after legacy/runtime installers that register by name.
+    # Reassert final owners after runtime installers that register by name.
     install_final_smoke_closure()
     install_governed_analysis_post()
     install_governed_report_projection()
