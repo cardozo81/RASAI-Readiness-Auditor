@@ -91,6 +91,8 @@ Falha, timeout ou indisponibilidade de OSV/CISA KEV:
 
 NO_DATA significa que a integração executada não possuía insumo aplicável, por exemplo ausência de componente com versão suficiente.
 
+A cobertura de Vulnerability Intelligence é derivada do estado real das integrações, não da mera existência de um componente no HTML. O relatório separa inventário de componentes, cobertura OSV e cobertura CISA KEV; OSV desabilitado ou indisponível não pode aparecer como análise de vulnerabilidade "coberta".
+
 ## Persistência
 
 Tabelas do CAT-10:
@@ -135,6 +137,8 @@ INFO
 O CAT-10 não copia o valor dos cookies para suas tabelas. O nome do cookie é persistido somente como hash curto para correlação local.
 
 Nonce de script é persistido somente como SHA-256 e comprimento. O valor bruto não é materializado nos findings.
+
+URLs duplicadas no inventário CAT-10 preservam esquema/host/path e estrutura útil, mas parâmetros de query reconhecidos como sensíveis são redigidos antes da persistência, inclusive quando o HTML usa URL relativa. A evidência canônica original permanece na fonte já coletada; o catálogo não cria uma segunda cópia de credenciais ou signed URLs.
 
 Segredos do runtime continuam sujeitos ao secret_safety canônico.
 
