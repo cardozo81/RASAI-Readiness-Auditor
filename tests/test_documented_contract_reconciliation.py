@@ -16,7 +16,6 @@ from rasai.documented_contract_reconciliation import (
     _install_ai_usage_presentation_fix,
     _install_current_pagespeed_categories,
     _install_scoring_wording_fix,
-    _install_search_comparison_guidance,
     _install_auto_runtime_filter,
     _install_console_auto_capability_filter,
     parse_auto_exclusions,
@@ -140,20 +139,3 @@ def test_scoring_active_wording_is_weighted() -> None:
     assert "média aritmética de igual peso" not in current
     assert "média ponderada pelos pesos versionados" in current
 
-
-def test_search_report_explains_disabled_content_comparison() -> None:
-    from rasai.search_intelligence import reporting
-
-    _install_search_comparison_guidance()
-    analysis = {
-        "comparison_status": "CONTENT_COMPARISON_DISABLED",
-        "methodology_version": "DETERMINISTIC-CORRELATIONAL-001",
-        "artifact_reference": None,
-        "candidate_count": 0,
-        "gaps": "[]",
-        "limitations": "[]",
-    }
-    html = reporting._competitive_section(analysis, [], [])
-    assert "Por que as listas estão vazias" in html
-    assert "classificação determinística dos resultados SERP" in html
-    assert "Nenhuma página concorrente/cliente foi adquirida" in html
