@@ -68,13 +68,6 @@ def _audit_workspace(
         ),
         encoding="utf-8",
     )
-    report = workspace / "report"
-    report.mkdir()
-    (report / "index.html").write_text(
-        "<!doctype html><html><body><aside class='app-nav'><nav><a href='index.html'>Index</a></nav></aside><main class='app-main'>Index</main></body></html>",
-        encoding="utf-8",
-    )
-
     connection = sqlite3.connect(workspace / "audit.db")
     try:
         connection.executescript(
@@ -408,7 +401,7 @@ def test_quality_analysis_content_controls_and_freshness_use_persisted_audit_dat
         assert quality.finding_assessments
         assert quality.coverage_map
         assert any(item.code == "AUDIT-DB-INTEGRITY" and item.status == "PASS" for item in quality.health_checks)
-        assert not (workspace / "report").exists() or not (workspace / "report" / "quality.html").exists()
+        assert not (workspace / "report").exists()
 
 
 def test_fix_verification_requires_persisted_rule_transition() -> None:
