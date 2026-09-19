@@ -14,7 +14,7 @@ from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from rasai.platform.deployment import resolve_deployment_pair
-from rasai.report_contract import CANONICAL_NAV_ITEMS
+from rasai.catalog_report_contract import CATALOG_REPORT_DIR, CATALOG_REPORT_PAGES
 from rasai.secret_safety import redact_value
 
 from .authz import AuthorizationError, Principal, accessible_organization_ids, require_project_read
@@ -33,10 +33,10 @@ _ALLOWED_REPORT_EXTENSIONS = {
     ".ico",
 }
 
-# Keep SaaS report discovery on the exact same canonical contract used by the
-# generated mini-site. The API only returns files that actually exist for the audit.
+# Keep SaaS report discovery on the exact same contract used by report-catalog/.
+# The API only returns files that actually exist for the authorized audit.
 _CANONICAL_REPORT_PAGES = tuple(
-    (filename, label) for label, filename in CANONICAL_NAV_ITEMS
+    (page.filename, page.label) for page in CATALOG_REPORT_PAGES
 )
 
 
@@ -60,7 +60,7 @@ def _authorized_audit(store: Any, principal: Principal, audit_id: str) -> Any:
 
 
 def _report_root(audit: Any) -> Path:
-    return (Path(audit.workspace_path).resolve() / "report").resolve()
+    return (Path(audit.workspace_path).resolve() / CATALOG_REPORT_DIR).resolve()
 
 
 def _report_asset(root: Path, asset_path: str) -> Path:
