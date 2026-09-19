@@ -365,7 +365,9 @@ class _PassiveHTMLParser(HTMLParser):
             safe_attrs["nonce_length"] = len(nonce)
         for url_attribute in ("src","href","action"):
             if safe_attrs.get(url_attribute):
-                safe_attrs[url_attribute] = _redact_urlish(safe_attrs[url_attribute])
+                safe_attrs[url_attribute] = _redact_urlish(
+                    _resolved(safe_attrs[url_attribute], self.page_url)
+                )
         self.items.append({
             "kind": kind,
             "url": _resolved(url, self.page_url),
