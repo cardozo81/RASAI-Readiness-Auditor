@@ -757,6 +757,23 @@ def _recompute_deterministic_snapshot(
             m6._persist_finding(definition,execution,persistence)
 
 
+def _invalidate_core_dependents(workspace: AuditWorkspace, audit_id: str) -> bool:
+    """Reopen only derived work whose effective inputs changed after core recovery."""
+    from rasai.governed_fulfillment_invalidation import invalidate_work_item
+
+    return invalidate_work_item(
+        workspace,
+        audit_id=audit_id,
+        component="PASSIVE_SECURITY",
+        error_class="EVIDENCE_DEPENDENCY",
+        error_code="PASSIVE_SECURITY_INPUT_CHANGED",
+        error_message=(
+            "CAT-10 invalidado seletivamente porque HTTP/render/conteúdo persistido "
+            "que alimenta sua análise foi recuperado"
+        ),
+    )
+
+
 def _wrap_reprocess(original: Any, module: Any):
     if getattr(original,"_rasai_core_reprocessing",False):
         return original
@@ -804,18 +821,7 @@ def _wrap_reprocess(original: Any, module: Any):
         for snapshot_id in sorted(affected):
             _recompute_deterministic_snapshot(workspace,audit_id,snapshot_id,reprocess_id)
         if affected:
-            from rasai.governed_fulfillment_invalidation import invalidate_work_item
-            invalidate_work_item(
-                workspace,
-                audit_id=audit_id,
-                component="PASSIVE_SECURITY",
-                error_class="EVIDENCE_DEPENDENCY",
-                error_code="PASSIVE_SECURITY_INPUT_CHANGED",
-                error_message=(
-                    "CAT-10 invalidado seletivamente porque HTTP/render/conteúdo persistido "
-                    "que alimenta sua análise foi recuperado"
-                ),
-            )
+            _invalidate_core_dependents(workspace, audit_id)
             from rasai.reprocess_ai import recompute_derived_after_ai
             recompute_derived_after_ai(
                 workspace=workspace,audit_id=audit_id,reprocess_id=reprocess_id,semantic_changed=False,
