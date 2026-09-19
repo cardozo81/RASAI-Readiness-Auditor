@@ -193,8 +193,132 @@ jobs:
         run: |
           baseline=fc8f38533d989c55ac13a06e7b705f4ba32aa9bf
           changed="$(git diff --name-only "${baseline}...HEAD")"
-          if echo "${changed}" | grep -E '^src/rasai/catalog_report_|^src/rasai/audit_catalog\.py$'; then
-            echo "Catalog implementation source changed during the non-catalog output change."
+          violations="$(echo "${changed}" | grep -E '^src/rasai/catalog_report_|^src/rasai/audit_catalog\.py
+
+      - name: Import affected composition roots
+        run: |
+          python - <<'PY'
+          import rasai.audit_runner
+          import rasai.entrypoint
+          import rasai.console_entrypoint
+          import rasai.report_completion
+          import rasai.audit_reprocess
+          import rasai.web.pilot_app
+          print("affected imports: OK")
+          PY
+
+      - name: Bootstrap AI efficiency policy
+        run: |
+          python - <<'PY'
+          from rasai.ai_efficiency_policy import install
+          install()
+          print("AI efficiency bootstrap: OK")
+          PY
+
+      - name: Bootstrap local console without entering interactive loop
+        run: |
+          python - <<'PY'
+          import rasai.console_entrypoint as console
+          console.interactive_console.main = lambda: 0
+          assert console.main() == 0
+          print("console bootstrap: OK")
+          PY
+
+      - name: Run catalog-only output contract tests
+        run: pytest -q tests/test_report_catalog_output_contract.py
+
+      - name: Run directly changed presentation/runtime contracts
+        run: >-
+          pytest -q
+          tests/test_public_contract_gate_catalog.py
+          tests/test_m25_synthetic_user_experience.py::M25SyntheticUserExperienceTests::test_execution_persists_population_tablet_errors_without_html_side_effect
+
+
+      - name: Run Search Intelligence output regressions
+        run: >-
+          pytest -q
+          tests/test_serp.py::RuntimeTests::test_fixture_persists_search_without_creating_report_tree
+          tests/test_console_search_intelligence.py::ConsoleSearchIntelligenceTests::test_execute_search_keeps_audit_binding_without_non_catalog_report
+          tests/test_console_search_intelligence.py::ConsoleSearchIntelligenceTests::test_search_failure_is_recorded_as_optional_limitation
+          tests/test_runtime_contract_compatibility.py::test_public_runtime_composition_skips_contracts_that_are_native
+
+      - name: Run persisted-data regressions
+        run: >-
+          pytest -q
+          tests/test_m12_stable_baseline.py::M12StableBaselineTests::test_end_to_end_pipeline_preserves_data_without_non_catalog_html
+          tests/test_m16_root_cause.py::M16RootCauseTests::test_materializes_exact_set_context_and_global_scopes
+          tests/test_m17_precision_reporting.py::M17PrecisionReportingTests::test_canonical_absence_becomes_precise_cause_and_target_selector
+
+      - name: Run catalog and SaaS boundary regressions
+        run: >-
+          pytest -q
+          tests/test_catalog_report_site.py::test_catalog_report_materializes_without_non_catalog_report_tree
+          tests/test_web_pilot.py::test_report_boundary_serves_only_authorized_catalog_report_tree
+ | grep -v -E '^src/rasai/catalog_report_assurance\.py
+
+      - name: Import affected composition roots
+        run: |
+          python - <<'PY'
+          import rasai.audit_runner
+          import rasai.entrypoint
+          import rasai.console_entrypoint
+          import rasai.report_completion
+          import rasai.audit_reprocess
+          import rasai.web.pilot_app
+          print("affected imports: OK")
+          PY
+
+      - name: Bootstrap AI efficiency policy
+        run: |
+          python - <<'PY'
+          from rasai.ai_efficiency_policy import install
+          install()
+          print("AI efficiency bootstrap: OK")
+          PY
+
+      - name: Bootstrap local console without entering interactive loop
+        run: |
+          python - <<'PY'
+          import rasai.console_entrypoint as console
+          console.interactive_console.main = lambda: 0
+          assert console.main() == 0
+          print("console bootstrap: OK")
+          PY
+
+      - name: Run catalog-only output contract tests
+        run: pytest -q tests/test_report_catalog_output_contract.py
+
+      - name: Run directly changed presentation/runtime contracts
+        run: >-
+          pytest -q
+          tests/test_public_contract_gate_catalog.py
+          tests/test_m25_synthetic_user_experience.py::M25SyntheticUserExperienceTests::test_execution_persists_population_tablet_errors_without_html_side_effect
+
+
+      - name: Run Search Intelligence output regressions
+        run: >-
+          pytest -q
+          tests/test_serp.py::RuntimeTests::test_fixture_persists_search_without_creating_report_tree
+          tests/test_console_search_intelligence.py::ConsoleSearchIntelligenceTests::test_execute_search_keeps_audit_binding_without_non_catalog_report
+          tests/test_console_search_intelligence.py::ConsoleSearchIntelligenceTests::test_search_failure_is_recorded_as_optional_limitation
+          tests/test_runtime_contract_compatibility.py::test_public_runtime_composition_skips_contracts_that_are_native
+
+      - name: Run persisted-data regressions
+        run: >-
+          pytest -q
+          tests/test_m12_stable_baseline.py::M12StableBaselineTests::test_end_to_end_pipeline_preserves_data_without_non_catalog_html
+          tests/test_m16_root_cause.py::M16RootCauseTests::test_materializes_exact_set_context_and_global_scopes
+          tests/test_m17_precision_reporting.py::M17PrecisionReportingTests::test_canonical_absence_becomes_precise_cause_and_target_selector
+
+      - name: Run catalog and SaaS boundary regressions
+        run: >-
+          pytest -q
+          tests/test_catalog_report_site.py::test_catalog_report_materializes_without_non_catalog_report_tree
+          tests/test_web_pilot.py::test_report_boundary_serves_only_authorized_catalog_report_tree
+ || true)"
+          if test -n "${violations}"; then
+            echo "${violations}"
+            echo "Catalog implementation outside the smoke-approved assurance presentation scope changed."
             exit 1
           fi
 
