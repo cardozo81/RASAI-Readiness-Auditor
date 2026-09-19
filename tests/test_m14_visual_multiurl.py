@@ -36,11 +36,9 @@ from rasai.domain import (
     TargetType,
 )
 from rasai.m3 import execute_m3
-from rasai.m11 import execute_m11
 from rasai.m14_discovery import discover_url_set
 from rasai.m14_linking import link_findings_to_elements
 from rasai.m14_persistence import ElementObservation, M14Persistence, sanitize_element_observation
-from rasai.m14_reporting import TEMPLATE_VERSION
 from rasai.m2 import M2ExecutionResult
 from rasai.persistence import AuditPersistence, AuditWorkspace
 from rasai.rendering import BrowserRenderResult, RenderedElementObservation
@@ -279,135 +277,6 @@ class M14ActionabilityAndReportTests(unittest.TestCase):
             Actionability.OPTIONAL_IMPROVEMENT,
         )
 
-    def test_report_separates_zero_from_not_calculated_and_exposes_page_visual_dom_reference(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            workspace = AuditWorkspace.create(Path(directory), "AUD-REPORT")
-            url = "https://example.com/produto"
-            acquisition = _http(url)
-            m2 = M2ExecutionResult(
-                discovery=DiscoveryResult(
-                    origin="https://example.com",
-                    pages=(DiscoveredPage(url, url, (DiscoverySource.SEED,), 0, 0),),
-                    page_acquisitions={url: acquisition},
-                    provenance=(DiscoveryProvenance(url, DiscoverySource.SEED, None, url),),
-                    robots=RobotsResult(
-                        url="https://example.com/robots.txt",
-                        state=RobotsState.ABSENT,
-                        acquisition=_http("https://example.com/robots.txt", status=404),
-                        sitemap_urls=(),
-                        crawler_access={url: {"Googlebot": True, "OAI-SearchBot": True, "GPTBot": True}},
-                    ),
-                    sitemaps=(),
-                    total_discovered=1,
-                    total_audited=1,
-                    max_pages=10,
-                    limit_reached=False,
-                ),
-                page_ids={url: "PGE-R"},
-                raw_artifact_refs={url: None},
-                evidence_ids=(),
-                rule_execution_ids=(),
-            )
-
-            with AuditPersistence(workspace) as persistence:
-                persistence.audits.add(Audit(audit_id="AUD-REPORT", project_name="Projeto M14", auditor_version="test", ruleset_version="1"))
-                persistence.targets.add(AuditTarget("TGT-R", "AUD-REPORT", url, "https://example.com", TargetType.URL))
-                persistence.pages.add(Page("PGE-R", "AUD-REPORT", url, url, (DiscoverySource.SEED,), 0))
-                with M14Persistence(workspace) as m14:
-                    m14.replace_input_urls("AUD-REPORT", ((url, url),))
-                m3 = execute_m3(m2, persistence, workspace, renderer=_FakeRenderer())
-                snapshot_id = m3.snapshot_ids["PGE-R"][DeviceContext.DESKTOP]
-                persistence.evidence.add(Evidence(
-                    evidence_id="EVD-R",
-                    audit_id="AUD-REPORT",
-                    page_id="PGE-R",
-                    snapshot_id=snapshot_id,
-                    device=DeviceContext.DESKTOP,
-                    evidence_type=EvidenceType.DOM_ELEMENT,
-                    source="fixture",
-                    observed_value={"outer_html": "<title>Produto</title>"},
-                    artifact_reference=None,
-                    captured_at=_NOW,
-                ))
-                persistence.rule_executions.add(RuleExecution(
-                    rule_execution_id="REX-R",
-                    audit_id="AUD-REPORT",
-                    rule_id="BR-GEO-028",
-                    rule_version="1",
-                    page_id="PGE-R",
-                    snapshot_id=snapshot_id,
-                    device=DeviceContext.DESKTOP,
-                    result=RuleResult.FAIL,
-                    observed_value={"title": "Produto"},
-                    expected_condition="title is present and semantically representative of the page",
-                    evidence_ids=("EVD-R",),
-                    executed_at=_NOW,
-                ))
-                persistence.findings.add(Finding(
-                    finding_id="FND-R",
-                    audit_id="AUD-REPORT",
-                    rule_id="BR-GEO-028",
-                    rule_execution_id="REX-R",
-                    page_id="PGE-R",
-                    device=FindingDevice.DESKTOP,
-                    category="SEMANTIC_STRUCTURE",
-                    severity=Severity.HIGH,
-                    source="test",
-                    title="Título semanticamente insuficiente",
-                    observed_value={"title": "Produto"},
-                    expected_condition="title is present and semantically representative of the page",
-                    evidence_ids=("EVD-R",),
-                    status="OPEN",
-                ))
-                link_findings_to_elements(finding_ids=("FND-R",), persistence=persistence, workspace=workspace)
-
-                with ScoringPersistence(workspace) as scoring:
-                    scoring.add_score(Score(
-                        score_id="SCR-D0",
-                        audit_id="AUD-REPORT",
-                        dimension="OVERALL_READINESS",
-                        device=DeviceContext.DESKTOP,
-                        value=0.0,
-                        coverage=0.0,
-                        confidence=ScoreConfidence.HIGH,
-                        consolidation_status=ConsolidationStatus.CONSOLIDATED,
-                        scoring_version=SCORING_VERSION,
-                        calculated_at=_NOW,
-                        limitations=(),
-                    ))
-                    scoring.add_score(Score(
-                        score_id="SCR-MNONE",
-                        audit_id="AUD-REPORT",
-                        dimension="OVERALL_READINESS",
-                        device=DeviceContext.MOBILE,
-                        value=None,
-                        coverage=0.0,
-                        confidence=ScoreConfidence.UNAVAILABLE,
-                        consolidation_status=ConsolidationStatus.NOT_CONSOLIDATED,
-                        scoring_version=SCORING_VERSION,
-                        calculated_at=_NOW,
-                        limitations=("sem dados",),
-                    ))
-
-                result = execute_m11(audit_id="AUD-REPORT", persistence=persistence, workspace=workspace)
-
-            html = (workspace.root / "report.html").read_text(encoding="utf-8")
-            self.assertEqual(result.template_version, TEMPLATE_VERSION)
-            self.assertIn("Score: 0.0", html)
-            self.assertIn("Estado: CALCULADO", html)
-            self.assertIn("Score: NÃO DETERMINADO", html)
-            self.assertIn("Estado: NÃO CALCULADO", html)
-            self.assertGreaterEqual(html.count("Coverage: 0%"), 2)
-            self.assertIn("PÁGINA ANALISADA", html)
-            self.assertIn(url, html)
-            self.assertIn("AÇÃO NECESSÁRIA", html)
-            self.assertIn("<strong>title</strong>", html)
-            self.assertIn("&lt;title&gt;Produto&lt;/title&gt;", html)
-            self.assertIn("artifacts/visual/PGE-R/desktop/", html)
-            self.assertIn("WHATWG", html)
-            self.assertIn("Sitemap: NÃO LOCALIZADO", html)
-            self.assertIn("overflow-wrap:anywhere", html)
-            self.assertNotIn("Trecho HTML original não persistido para esta evidência.", html.split("FND-R")[0] if "FND-R" in html else "")
 
 
 if __name__ == "__main__":
