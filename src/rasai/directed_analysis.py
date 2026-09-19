@@ -196,6 +196,24 @@ def _stable_action_id(audit_id: str, source_kind: str, source_id: str) -> str:
     return "ACT-" + digest
 
 
+def _anchor_token(value: Any, fallback: str) -> str:
+    token = re.sub(r"[^a-z0-9_-]+", "-", str(value or fallback).strip().casefold()).strip("-")
+    return token or fallback
+
+
+def _exact_ref(
+    catalog_id: str,
+    section_id: str,
+    *,
+    topic: str,
+    ref_id: str,
+    anchor_id: str,
+) -> dict[str, Any]:
+    ref = _catalog_ref(catalog_id, section_id, topic=topic, ref_id=ref_id)
+    page = CATALOG_PAGE_BY_ID[catalog_id]
+    return {**ref, "anchor_id": anchor_id, "href": f"{page.filename}#{anchor_id}"}
+
+
 def _catalog_ref(catalog_id: str, section_id: str, *, topic: str, ref_id: str | None = None) -> dict[str, Any]:
     page = CATALOG_PAGE_BY_ID.get(catalog_id)
     if page is None or section_id not in _CATALOG_SECTIONS:
@@ -337,6 +355,14 @@ def _action_from_candidate(
         for cat in catalogs
         if cat in CATALOG_PAGE_BY_ID
     ]
+    if source_kind == "DEEP_ANALYSIS" and row.get("finding_id") and "CAT-08" in CATALOG_PAGE_BY_ID:
+        finding_id = str(row.get("finding_id"))
+        source_refs = [
+            _exact_ref(
+                "CAT-08","results",topic=title,ref_id=finding_id,
+                anchor_id="improvement-"+_anchor_token(finding_id,"finding"),
+            )
+        ]
     if not source_refs and "CAT-09" in CATALOG_PAGE_BY_ID:
         source_refs = [_catalog_ref("CAT-09","results",topic=title,ref_id=source_id)]
 
@@ -350,10 +376,21 @@ def _action_from_candidate(
         "kind": "source_record",
     })
 
-    remediation_catalog = "CAT-10" if "CAT-10" in catalogs and str(row.get("domain") or "").upper()=="SECURITY" else "CAT-09"
-    remediation_refs = [
-        _catalog_ref(remediation_catalog, "results" if remediation_catalog=="CAT-09" else "results", topic=title, ref_id=source_id)
-    ]
+    remediation_refs: list[dict[str, Any]] = []
+    remediation_prefix = {
+        "DETERMINISTIC": "rem-det",
+        "CONTENT_AI": "rem-content",
+        "JSONLD": "rem-jsonld",
+        "DEEP_ANALYSIS": "rem-deep",
+        "REQUEST_REMEDIATION": "request-remediation",
+    }.get(source_kind)
+    if remediation_prefix and "CAT-09" in CATALOG_PAGE_BY_ID:
+        remediation_refs = [
+            _exact_ref(
+                "CAT-09","results",topic=title,ref_id=source_id,
+                anchor_id=remediation_prefix+"-"+_anchor_token(source_id,"remediation"),
+            )
+        ]
 
     guidance = _first_text(
         row,
@@ -407,6 +444,7 @@ def _security_actions(connection: sqlite3.Connection, audit_id: str) -> list[dic
             "evidence_id": f"PASSIVE_SECURITY:{finding_id or source_id}",
             "kind": "source_record",
         })
+        finding_anchor="security-finding-"+_anchor_token(finding_id or source_id,"finding")
         actions.append({
             "action_id": _stable_action_id(audit_id, "SECURITY_REMEDIATION", source_id),
             "source_kind": "SECURITY_REMEDIATION",
@@ -426,9 +464,9 @@ def _security_actions(connection: sqlite3.Connection, audit_id: str) -> list[dic
             "dependencies": [],
             "implementation_guidance": [str(row.get("correction") or row.get("containment") or "")[:4000]] if row.get("correction") or row.get("containment") else [],
             "validation_steps": [str(row.get("validation") or "")[:2500]] if row.get("validation") else [],
-            "source_refs": [_catalog_ref("CAT-10","results",topic=title,ref_id=finding_id or source_id)],
+            "source_refs": [_exact_ref("CAT-10","results",topic=title,ref_id=finding_id or source_id,anchor_id=finding_anchor)],
             "evidence_refs": refs,
-            "remediation_refs": [_catalog_ref("CAT-10","results",topic=title,ref_id=source_id)],
+            "remediation_refs": [_exact_ref("CAT-10","results",topic=title,ref_id=source_id,anchor_id=finding_anchor)],
             "analysis_state": "PERSISTED_SOURCE",
             "_severity": str(finding.get("severity") or "").upper(),
         })
@@ -451,8 +489,12 @@ def _validate_references(actions: Sequence[Mapping[str, Any]]) -> None:
                 page = CATALOG_PAGE_BY_ID.get(catalog_id)
                 if page is None or section_id not in _CATALOG_SECTIONS:
                     raise ValueError(f"unresolvable catalog reference: {catalog_id}#{section_id}")
-                if str(ref.get("href") or "") != f"{page.filename}#{section_id}":
+                anchor_id = str(ref.get("anchor_id") or "")
+                expected_href = f"{page.filename}#{anchor_id}" if anchor_id else f"{page.filename}#{section_id}"
+                if str(ref.get("href") or "") != expected_href:
                     raise ValueError("catalog href is not deterministic")
+                if anchor_id and not re.fullmatch(r"[a-z0-9_-]+", anchor_id):
+                    raise ValueError("catalog anchor is not deterministic")
 
 
 def build_strategic_context(*, audit_id: str, workspace: AuditWorkspace) -> tuple[dict[str, Any], list[dict[str, Any]], str]:
