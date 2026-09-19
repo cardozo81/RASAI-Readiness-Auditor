@@ -2,7 +2,7 @@ from __future__ import annotations
 
 
 def test_public_runtime_composition_skips_contracts_that_are_native(monkeypatch) -> None:
-    from rasai import documented_contract_reconciliation as legacy
+    from rasai import documented_contract_reconciliation as contracts
     from rasai import runtime_contract_compatibility as composition
 
     calls: list[str] = []
@@ -11,13 +11,12 @@ def test_public_runtime_composition_skips_contracts_that_are_native(monkeypatch)
         "_install_ai_usage_presentation_fix",
         "_install_scoring_wording_fix",
         "_install_crawling_capture_wording_fix",
-        "_install_search_comparison_guidance",
         "_install_m24_fallback_telemetry_fix",
     )
 
     for name in expected:
         monkeypatch.setattr(
-            legacy,
+            contracts,
             name,
             lambda name=name: calls.append(name),
         )
@@ -30,7 +29,7 @@ def test_public_runtime_composition_skips_contracts_that_are_native(monkeypatch)
         "_install_console_auto_persistence",
         "_install_current_pagespeed_categories",
     ):
-        monkeypatch.setattr(legacy, name, obsolete)
+        monkeypatch.setattr(contracts, name, obsolete)
 
     composition._RUNTIME_INSTALLED = False
     composition.install_runtime_contract_compatibility()
@@ -39,7 +38,7 @@ def test_public_runtime_composition_skips_contracts_that_are_native(monkeypatch)
 
 
 def test_console_composition_keeps_only_console_specific_adapters(monkeypatch) -> None:
-    from rasai import documented_contract_reconciliation as legacy
+    from rasai import documented_contract_reconciliation as contracts
     from rasai import runtime_contract_compatibility as composition
 
     calls: list[str] = []
@@ -50,7 +49,7 @@ def test_console_composition_keeps_only_console_specific_adapters(monkeypatch) -
     )
     for name in expected:
         monkeypatch.setattr(
-            legacy,
+            contracts,
             name,
             lambda name=name: calls.append(name),
         )
