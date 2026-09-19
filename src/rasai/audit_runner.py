@@ -554,8 +554,8 @@ def run_audit(
             persist_active_outcome_before_reporting(audit_id=audit_id, workspace=workspace)
 
             # Root-cause and precision are durable audit derivations consumed by
-            # report-catalog and downstream analysis. They deliberately remain in the
-            # core flow after the legacy/non-catalog HTML projection was removed.
+            # report-catalog and downstream analysis. They belong to the core audit
+            # flow and are independent of HTML projection.
             materialize_root_causes(audit_id=audit_id, workspace=workspace)
             materialize_m17_precision(audit_id=audit_id, workspace=workspace)
             report_path = None
