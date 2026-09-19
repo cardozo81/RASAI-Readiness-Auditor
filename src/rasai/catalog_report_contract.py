@@ -35,6 +35,15 @@ _CATALOG_PAGES = tuple(
     for item in CATALOGS
 )
 
+_STRATEGIC_PAGES = (
+    CatalogReportPage(
+        "directed-analysis",
+        "directed-analysis.html",
+        "Análise Direcionada",
+        "Estratégia",
+    ),
+)
+
 _GOVERNANCE_PAGES = (
     CatalogReportPage(
         "capture-context",
@@ -68,7 +77,7 @@ _GOVERNANCE_PAGES = (
     ),
 )
 
-CATALOG_REPORT_PAGES = _BASE_PAGES + _CATALOG_PAGES + _GOVERNANCE_PAGES
+CATALOG_REPORT_PAGES = _BASE_PAGES + _CATALOG_PAGES + _STRATEGIC_PAGES + _GOVERNANCE_PAGES
 CATALOG_REPORT_FILENAMES = tuple(page.filename for page in CATALOG_REPORT_PAGES)
 CATALOG_PAGE_BY_ID = {
     page.catalog_id: page for page in CATALOG_REPORT_PAGES if page.catalog_id is not None
