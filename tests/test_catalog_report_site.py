@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import sqlite3
+import shutil
 from types import SimpleNamespace
 
 from rasai.audit_configuration_reuse import configuration_hash
@@ -174,6 +175,20 @@ def test_catalog_report_is_generated_beside_untouched_legacy_tree(tmp_path: Path
     assert set(path.name for path in index.parent.glob("*.html")) == set(CATALOG_REPORT_FILENAMES)
     assert (index.parent / "manifest.json").is_file()
     assert (index.parent / "css" / "site.css").is_file()
+
+
+def test_catalog_report_materializes_without_conventional_report_tree(tmp_path: Path) -> None:
+    workspace, legacy = _workspace(tmp_path)
+    shutil.rmtree(legacy)
+
+    index = materialize_catalog_report_site(audit_id=AUDIT_ID, workspace=workspace)
+
+    assert index == workspace.root / "report-catalog" / "index.html"
+    assert index.is_file()
+    assert not (workspace.root / "report").exists()
+    assert not (workspace.root / "report.html").exists()
+    assert not (workspace.root / "remediation.html").exists()
+    assert set(path.name for path in index.parent.glob("*.html")) == set(CATALOG_REPORT_FILENAMES)
 
 
 def test_every_new_page_uses_the_same_menu_and_one_active_item(tmp_path: Path) -> None:
