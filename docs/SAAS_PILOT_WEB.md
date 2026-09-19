@@ -140,13 +140,13 @@ GET /api/v1/audits/{audit_id}/reports/{asset_path}
 Regras:
 
 - o AUD é autorizado novamente no servidor;
-- somente arquivos sob `AUD-*/report/` podem ser servidos;
+- somente arquivos sob `AUD-*/report-catalog/` podem ser servidos;
 - `..`, traversal e saída por symlink/resolve são recusados;
 - extensões ficam limitadas a assets de apresentação Web;
 - `audit.db`, artifacts privados e paths internos não são expostos;
 - respostas usam `Cache-Control: no-store`.
 
-O HTML continua sendo projeção; a fonte de verdade é `audit.db + artifacts`.
+O HTML continua sendo projeção; a fonte de verdade é `audit.db + artifacts`. O SaaS não possui fallback para a árvore convencional `report/`, que deixou de ser saída da auditoria.
 
 ## Endpoints e contratos aditivos
 
