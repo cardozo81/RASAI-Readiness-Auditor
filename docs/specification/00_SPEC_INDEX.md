@@ -92,7 +92,7 @@ Detalhes: `05_SCORING_MODEL.md`, `../SCORE_GEO_004.md`, `../SCORING_GUIDE.md` e 
 
 ## 5. CATALOG-REPORT-002
 
-A projeção HTML audit-owned suportada é `<AUD-ID>/report-catalog/`. O mini-site convencional `<AUD-ID>/report/` e os legados `<AUD-ID>/report.html` / `<AUD-ID>/remediation.html` não fazem mais parte do contrato de saída da auditoria.
+A projeção HTML audit-owned suportada é `<AUD-ID>/report-catalog/`. `<AUD-ID>/report/`, `<AUD-ID>/report.html` e `<AUD-ID>/remediation.html` não pertencem ao contrato de saída de `rasai audit`.
 
 Entrada principal:
 
