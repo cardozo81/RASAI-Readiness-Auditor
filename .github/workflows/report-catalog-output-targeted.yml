@@ -20,7 +20,6 @@ on:
       - 'src/rasai/ai_orchestration_unification.py'
       - 'src/rasai/ai_orchestration_unification_cleanup.py'
       - 'src/rasai/ai_efficiency_policy.py'
-      - 'src/rasai/quality_report_presentation.py'
       - 'src/rasai/public_contract_gate.py'
       - 'src/rasai/m25_runtime.py'
       - 'src/rasai/m25_apdex_experience.py'
@@ -64,7 +63,6 @@ on:
       - 'tests/test_m17_precision_reporting.py'
       - 'tests/test_web_pilot.py'
       - 'tests/test_catalog_report_site.py'
-      - 'tests/test_quality_report_presentation.py'
       - 'tests/test_public_contract_gate_catalog.py'
       - 'tests/test_m25_synthetic_user_experience.py'
       - 'docs/**'
@@ -106,7 +104,6 @@ jobs:
             src/rasai/ai_orchestration_unification.py \
             src/rasai/ai_orchestration_unification_cleanup.py \
             src/rasai/ai_efficiency_policy.py \
-            src/rasai/quality_report_presentation.py \
             src/rasai/public_contract_gate.py \
             src/rasai/m25_runtime.py \
             src/rasai/m25_apdex_experience.py \
@@ -232,7 +229,6 @@ jobs:
       - name: Run directly changed presentation/runtime contracts
         run: >-
           pytest -q
-          tests/test_quality_report_presentation.py
           tests/test_public_contract_gate_catalog.py
           tests/test_m25_synthetic_user_experience.py::M25SyntheticUserExperienceTests::test_execution_persists_population_tablet_errors_without_html_side_effect
 
