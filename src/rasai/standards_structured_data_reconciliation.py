@@ -80,7 +80,7 @@ def reconcile_structured_data_metrics(*, audit_id: str, workspace: AuditWorkspac
 
 
 def install() -> None:
-    """Reconcile structured-data metrics without rendering the retired report."""
+    """Reconcile structured-data metrics as persisted audit data."""
     from rasai import report_completion
 
     if getattr(report_completion, "_rasai_structured_data_metric_reconciliation", False):
