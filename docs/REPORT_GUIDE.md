@@ -8,7 +8,7 @@ O RASAi mantém HTML como projeção de leitura sobre dados persistidos; HTML n�
 report-catalog/index.html
 ```
 
-A árvore convencional `<AUD>/report/` foi retirada, assim como os legados `<AUD>/report.html` e `<AUD>/remediation.html`.
+`<AUD>/report/`, `<AUD>/report.html` e `<AUD>/remediation.html` não pertencem ao contrato HTML de uma execução `rasai audit`.
 
 ## Estrutura suportada
 
@@ -25,7 +25,7 @@ A projeção audit-owned suportada é `report-catalog/`. Ela preserva:
 
 O catálogo é read-only sobre a evidência final. Sua materialização não deve disparar collector, API, provider, IA, SERP, scoring ou workload sintético.
 
-## Dados preservados após a retirada de report/
+## Dados funcionais independentes da projeção HTML
 
 A remoção do HTML convencional não remove ou reduz:
 
@@ -41,7 +41,7 @@ Esses dados continuam disponíveis ao `report-catalog/` e a outras capacidades q
 
 ## Saídas fora do report da AUD
 
-Relatórios standalone, como monitoring, verification, timelines, históricos e consolidações, possuem contratos próprios e não são abrangidos por esta retirada.
+Relatórios standalone, como monitoring, verification, timelines, históricos e consolidações, possuem contratos próprios e ficam fora da projeção audit-owned de `report-catalog/`.
 
 ## SARI-001 / SCORE-GEO-004
 
