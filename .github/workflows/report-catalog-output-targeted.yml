@@ -45,6 +45,15 @@ on:
       - 'src/rasai/audit_reprocess.py'
       - 'src/rasai/core_reprocessing.py'
       - 'src/rasai/core_reprocessing_context.py'
+      - 'src/rasai/search_audit_runtime.py'
+      - 'src/rasai/console_search_intelligence.py'
+      - 'src/rasai/console_governed_search_runtime.py'
+      - 'src/rasai/search_intelligence/runtime.py'
+      - 'src/rasai/search_intelligence/competitive_runtime.py'
+      - 'src/rasai/search_intelligence/competitive_ai_runtime.py'
+      - 'src/rasai/search_intelligence/reporting.py'
+      - 'tests/test_serp.py'
+      - 'tests/test_console_search_intelligence.py'
       - 'tests/test_report_catalog_output_contract.py'
       - 'tests/test_m12_stable_baseline.py'
       - 'tests/test_m16_root_cause.py'
@@ -117,7 +126,13 @@ jobs:
             src/rasai/web/pilot.py \
             src/rasai/audit_reprocess.py \
             src/rasai/core_reprocessing.py \
-            src/rasai/core_reprocessing_context.py
+            src/rasai/core_reprocessing_context.py \
+            src/rasai/search_audit_runtime.py \
+            src/rasai/console_search_intelligence.py \
+            src/rasai/console_governed_search_runtime.py \
+            src/rasai/search_intelligence/runtime.py \
+            src/rasai/search_intelligence/competitive_runtime.py \
+            src/rasai/search_intelligence/competitive_ai_runtime.py
 
       - name: Reject non-catalog report generators in runtime imports
         shell: bash
@@ -143,6 +158,26 @@ jobs:
           )
           if git grep -n -E 'report/index\.html|workspace\.root / "report"|workspace / "report"|/ "report\.html"|/ "remediation\.html"' -- "${files[@]}"; then
             echo "A non-catalog audit report path remains in the primary operational flow."
+            exit 1
+          fi
+
+      - name: Reject Search Intelligence non-catalog HTML projection
+        shell: bash
+        run: |
+          if test -f src/rasai/search_intelligence/reporting.py; then
+            echo "Audit Search HTML renderer still exists."
+            exit 1
+          fi
+          files=(
+            src/rasai/search_audit_runtime.py
+            src/rasai/console_search_intelligence.py
+            src/rasai/console_governed_search_runtime.py
+            src/rasai/search_intelligence/runtime.py
+            src/rasai/search_intelligence/competitive_runtime.py
+            src/rasai/search_intelligence/competitive_ai_runtime.py
+          )
+          if git grep -n -E 'search-intelligence\.html|/ "report"|workspace[^[:space:]]* / "report"|_refresh_search_intelligence_report' -- "${files[@]}"; then
+            echo "Search Intelligence can still create or depend on non-catalog AUD HTML."
             exit 1
           fi
 
@@ -195,6 +230,13 @@ jobs:
           tests/test_public_contract_gate_catalog.py
           tests/test_m25_synthetic_user_experience.py::M25SyntheticUserExperienceTests::test_execution_persists_population_tablet_errors_without_html_side_effect
 
+
+      - name: Run Search Intelligence output regressions
+        run: >-
+          pytest -q
+          tests/test_serp.py::RuntimeTests::test_fixture_persists_search_without_creating_report_tree
+          tests/test_console_search_intelligence.py::ConsoleSearchIntelligenceTests::test_execute_search_keeps_audit_binding_without_non_catalog_report
+          tests/test_console_search_intelligence.py::ConsoleSearchIntelligenceTests::test_search_failure_is_recorded_as_optional_limitation
 
       - name: Run persisted-data regressions
         run: >-
