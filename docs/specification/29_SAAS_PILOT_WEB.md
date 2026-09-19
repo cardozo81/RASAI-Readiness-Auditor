@@ -19,7 +19,7 @@ Disponibilizar uma interface Web utilizável sobre o control plane e a execution
 
 `WEB-PILOT-005` - o catálogo HTTP de auditorias não pode expor `workspace_path`.
 
-`WEB-PILOT-006` - quando reports forem servidos via HTTP, somente a árvore `AUD-*/report/**` do AUD autorizado pode ser disponibilizada. `audit.db`, secrets e artifacts fora da superfície pública não podem ser acessíveis pelo limite de rota.
+`WEB-PILOT-006` - quando reports forem servidos via HTTP, somente a árvore `AUD-*/report-catalog/**` do AUD autorizado pode ser disponibilizada. `audit.db`, secrets, `report/` legado e artifacts fora da superfície pública não podem ser acessíveis pelo limite de rota.
 
 `WEB-PILOT-007` - path traversal, symlink escape e extensão fora do allowlist de apresentação Web devem falhar fechado.
 
@@ -71,7 +71,7 @@ Enumeração de ID pertencente a outro tenant deve resultar em recusa, inclusive
 São permitidos somente arquivos resolvidos dentro de:
 
 ```text
-<Path persistido do AUD>/report/
+<Path persistido do AUD>/report-catalog/
 ```
 
 O servidor deve normalizar/resolver o path e confirmar que o resultado permanece descendente do report root.
@@ -129,7 +129,7 @@ O contrato deve possuir regressão automatizada para:
 - carregamento da shell sem dado de tenant embutido;
 - tenant isolation das projeções aditivas;
 - autorização do limite de reports;
-- bloqueio de tentativa de acesso fora de `report/`;
+- bloqueio de tentativa de acesso fora de `report-catalog/`;
 - preservação da API/execution queue já existente;
 - igualdade dos defaults compartilhados entre CLI/runtime e SaaS;
 - rejeição antecipada de payloads inválidos;
