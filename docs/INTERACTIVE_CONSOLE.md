@@ -38,6 +38,19 @@ O operador seleciona um ou mais itens `CAT-*`. A seleção abre imediatamente as
 
 A tela `PREPARAR AUDITORIA` contém somente ações ligadas ao plano corrente. Os acessos globais ficam exclusivamente no menu `INÍCIO`; portanto a preparação não repete atalhos para Inteligência Artificial, Integrações e serviços, Todas as configurações, Ajuda, Histórico/Consolidados ou Sair.
 
+### Diagnóstico de integrações e IA
+
+A superfície global de integrações expõe o diagnóstico canônico pelo caminho:
+
+```text
+INÍCIO
+→ Integrações e serviços
+→ D. Diagnóstico / teste de integrações e IA
+```
+
+O diagnóstico cobre providers de IA, SERP/Search Intelligence e serviços externos configurados. A ação `T` valida em lote somente integrações elegíveis a probes seguros; integrações com `safe_for_bulk=False` permanecem disponíveis para teste individual. O diagnóstico é consultivo e não altera provider routing, AUTO, scoring, fulfillment, reprocessamento ou a URL auditada.
+
+
 Ações contextuais da preparação:
 
 ```text
