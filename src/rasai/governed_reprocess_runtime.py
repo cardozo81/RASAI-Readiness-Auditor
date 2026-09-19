@@ -49,6 +49,7 @@ _LIVE_COMPONENTS = frozenset(
 _OPTIONAL_COLLECTORS = frozenset(
     {"SEARCH_INTELLIGENCE", "GOOGLE_SEARCH_CONSOLE"}
 )
+_DERIVED_RECOVERY_COMPONENTS = frozenset({"PASSIVE_SECURITY"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -412,6 +413,195 @@ def _recover_optional_collectors(
 
     return states, frozenset(evaluated)
 
+def _passive_component_signature(workspace: Any, audit_id: str, *, persisted: bool) -> tuple[tuple[str, ...], ...]:
+    from rasai import passive_security as security
+
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        security.ensure_schema(connection)
+        if persisted:
+            rows = connection.execute(
+                """SELECT component_id,library,version,ecosystem,confidence
+                   FROM passive_security_components WHERE audit_id=?""",
+                (audit_id,),
+            ).fetchall()
+            values = [
+                (
+                    str(row["component_id"] or ""),
+                    str(row["library"] or ""),
+                    str(row["version"] or ""),
+                    str(row["ecosystem"] or ""),
+                    str(row["confidence"] or ""),
+                )
+                for row in rows
+            ]
+        else:
+            _resources, components, _context = security._resource_inventory(
+                connection,
+                workspace,
+                audit_id,
+            )
+            values = [
+                (
+                    str(item.get("component_id") or ""),
+                    str(item.get("library") or ""),
+                    str(item.get("version") or ""),
+                    str(item.get("ecosystem") or ""),
+                    str(item.get("confidence") or ""),
+                )
+                for item in components
+            ]
+        return tuple(sorted(values))
+    finally:
+        connection.close()
+
+
+def _archive_passive_security(workspace: Any, audit_id: str) -> None:
+    reprocess_id = _current_reprocess_id(workspace, audit_id)
+    if not reprocess_id:
+        return
+    from rasai.audit_fulfillment import archive_rows
+
+    specs = (
+        ("passive_security_runs", "run", "audit_id"),
+        ("passive_security_resources", "resource", "resource_id"),
+        ("passive_security_components", "component", "component_id"),
+        ("passive_security_integrations", "integration", "integration_id"),
+        ("passive_security_advisories", "advisory", "row_id"),
+        ("passive_security_findings", "finding", "finding_id"),
+        ("passive_security_remediations", "remediation", "remediation_id"),
+    )
+    connection = sqlite3.connect(workspace.database)
+    connection.row_factory = sqlite3.Row
+    try:
+        existing = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        for table, entity_type, id_field in specs:
+            if table not in existing:
+                continue
+            rows = [
+                dict(row)
+                for row in connection.execute(
+                    f"SELECT * FROM {table} WHERE audit_id=?",
+                    (audit_id,),
+                ).fetchall()
+            ]
+            if rows:
+                archive_rows(
+                    workspace,
+                    audit_id=audit_id,
+                    reprocess_id=reprocess_id,
+                    component="PASSIVE_SECURITY",
+                    entity_type=entity_type,
+                    id_field=id_field,
+                    rows=rows,
+                )
+    finally:
+        connection.close()
+
+
+def _recover_impacted_deterministic(workspace: Any, audit_id: str) -> dict[str, str]:
+    item = _pending_item(workspace, audit_id, "PASSIVE_SECURITY")
+    if item is None:
+        return {}
+
+    from rasai import passive_security as security
+    from rasai import selective_optional_reprocess as optional
+    from rasai.reprocess_runtime_safety import record_reprocess_evaluation
+
+    prior_components = _passive_component_signature(workspace, audit_id, persisted=True)
+    current_components = _passive_component_signature(workspace, audit_id, persisted=False)
+    components_changed = prior_components != current_components
+    _archive_passive_security(workspace, audit_id)
+    external_refreshed = False
+    try:
+        with optional._original_optional_environment(workspace, audit_id):
+            if components_changed:
+                security.collect_external_intelligence(
+                    audit_id=audit_id,
+                    workspace=workspace,
+                    source_blocked=False,
+                )
+                external_refreshed = True
+            result = security.analyze_passive_security(
+                audit_id=audit_id,
+                workspace=workspace,
+                source_blocked=False,
+            )
+        status = str(result.get("status") or "").upper()
+        success = status in {"COMPLETED", "PARTIAL"}
+    except Exception as exc:
+        status = "ERROR"
+        success = False
+        try_append_operational_event(
+            workspace,
+            "AUDIT_REPROCESS_DERIVED_FAILURE",
+            level="WARNING",
+            audit_id=audit_id,
+            component="PASSIVE_SECURITY",
+            error_type=type(exc).__name__,
+            error_message=str(exc)[:512],
+        )
+
+    if success:
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="PASSIVE_SECURITY",
+            status=SUCCESS,
+            result_ref=f"passive_security_runs:{audit_id}",
+            retryable=True,
+        )
+    else:
+        set_work_item_status(
+            workspace,
+            audit_id=audit_id,
+            component="PASSIVE_SECURITY",
+            status=FAILED_RETRYABLE,
+            error_class="PASSIVE_SECURITY",
+            error_code=status or "NO_RESULT",
+            error_message="CAT-10 não pôde ser recalculado a partir da evidência efetiva",
+            retryable=True,
+        )
+
+    reprocess_id = _current_reprocess_id(workspace, audit_id)
+    if reprocess_id:
+        refreshed = next(
+            (
+                value
+                for value in list_work_items(workspace, audit_id)
+                if str(value.component) == "PASSIVE_SECURITY"
+            ),
+            item,
+        )
+        record_reprocess_evaluation(
+            workspace,
+            item=refreshed,
+            reprocess_id=reprocess_id,
+            metadata={
+                "component": "PASSIVE_SECURITY",
+                "kind": "DEPENDENCY_IMPACT_RECALCULATION",
+                "components_changed": components_changed,
+                "external_intelligence_refreshed": external_refreshed,
+            },
+        )
+    try_append_operational_event(
+        workspace,
+        "AUDIT_REPROCESS_DERIVED_RECALCULATED",
+        audit_id=audit_id,
+        component="PASSIVE_SECURITY",
+        status="SUCCESS" if success else "FAILED_RETRYABLE",
+        components_changed=components_changed,
+        external_intelligence_refreshed=external_refreshed,
+    )
+    return {"PASSIVE_SECURITY": "SUCCESS" if success else "FAILED_RETRYABLE"}
+
+
 def _collection_states(workspace: Any, audit_id: str) -> dict[str, str]:
     states: dict[str, str] = {}
     for item in list_work_items(workspace, audit_id):
@@ -524,6 +714,7 @@ def _prepare_reprocess(workspace: Any, audit_id: str) -> ReprocessPreparation:
     recovered.update(_recover_live_measurements(workspace, audit_id))
     optional_states, evaluated_optional = _recover_optional_collectors(workspace, audit_id)
     recovered.update(optional_states)
+    recovered.update(_recover_impacted_deterministic(workspace, audit_id))
     states = _terminalized_states(_collection_states(workspace, audit_id))
     after_material = _material_state_fingerprint(workspace, audit_id)
     current_evidence = _current_evidence_ids(workspace, audit_id)
@@ -770,6 +961,7 @@ def _install_core_composition() -> None:
                     for item in latest(active_workspace, active_audit_id)
                     if str(item.component) not in _LIVE_COMPONENTS
                     and str(item.component) not in _OPTIONAL_COLLECTORS
+                    and str(item.component) not in _DERIVED_RECOVERY_COMPONENTS
                 )
 
             module._latest_pending = ai_only_pending
@@ -801,13 +993,14 @@ def _install_core_composition() -> None:
                         )
 
                     summary = recalculate(workspace, audit_id)
+                    live_or_derived = _LIVE_COMPONENTS | _DERIVED_RECOVERY_COMPONENTS
                     live_attempted = sum(
-                        1 for name in preparation.recovered if name in _LIVE_COMPONENTS
+                        1 for name in preparation.recovered if name in live_or_derived
                     )
                     live_successful = sum(
                         1
                         for name, state in preparation.recovered.items()
-                        if name in _LIVE_COMPONENTS and str(state).upper() == SUCCESS
+                        if name in live_or_derived and str(state).upper() == SUCCESS
                     )
                     attempted = int(getattr(result, "attempted_items", 0) or 0) + live_attempted
                     successful = int(getattr(result, "successful_items", 0) or 0) + live_successful
