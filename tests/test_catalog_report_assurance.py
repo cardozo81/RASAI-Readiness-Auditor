@@ -359,6 +359,36 @@ def test_internal_orchestration_failure_reduces_assurance_instead_of_showing_all
     assert "REL_INTERNAL_EXECUTION" in failed
 
 
+
+
+def test_cat10_requested_ai_execution_gap_reduces_structural_assurance(monkeypatch, tmp_path: Path) -> None:
+    from rasai import catalog_report_assurance as assurance
+
+    database = tmp_path / "audit.db"
+    database.write_bytes(b"")
+    _patch_catalog(monkeypatch)
+    monkeypatch.setattr(assurance, "_applicable_config_markers", lambda *_args: ())
+
+    data = _data()
+    data.selected = {"CAT-10"}
+    data.catalog_items = {"CAT-10": {"ai_execution_enabled": True}}
+    data.work_items = [{
+        "component": "IMPROVEMENT_INTELLIGENCE",
+        "scope_key": "AUDIT",
+        "status": "REQUESTED_NOT_EXECUTED",
+        "last_error_class": "ORCHESTRATION",
+        "last_error_code": "REQUESTED_NOT_EXECUTED",
+    }]
+
+    result = assess_catalog(database, data, "CAT-10", _body())
+
+    assert result["governance"] < 100.0
+    assert result["reliability"] < 100.0
+    assert result["closure_eligible"] is False
+    failed = {item["code"] for item in result["checks"] if not item["passed"]}
+    assert "GOV_INTERNAL_EXECUTION" in failed
+    assert "REL_INTERNAL_EXECUTION" in failed
+
 def test_missing_semantic_attempt_task_round_provenance_reduces_integrity(monkeypatch, tmp_path: Path) -> None:
     from rasai import catalog_report_assurance as assurance
 
