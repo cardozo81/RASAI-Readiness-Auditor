@@ -78,7 +78,7 @@ AUD-*/report-catalog/
 ### Sidecar de Observability
 
 ```text
-AUD-*/observability.db
+AUD-*/artifacts/observability/observability.db
 AUD-*/artifacts/observability/
 ```
 
