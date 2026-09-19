@@ -301,7 +301,7 @@ def collect_css_validation(
 
 
 def install() -> None:
-    """Collect CSS conformance without rendering the retired conventional report."""
+    """Collect CSS conformance in the governed audit collection lifecycle."""
     from rasai import report_completion
 
     if getattr(report_completion, "_rasai_css_validation_runtime", False):
@@ -315,6 +315,11 @@ def install() -> None:
             context_interpretations=context_interpretations,
             routing_snapshot=routing_snapshot,
         )
+        from rasai.selective_reprocess_context import active as reprocess_active
+        if reprocess_active():
+            # W3C CSS validation is an external observation. RPR finalization reuses
+            # persisted validation and never calls the validator merely to refresh HTML.
+            return base
         errors = list(base.renderer_errors)
         try:
             collect_css_validation(audit_id=audit_id, workspace=workspace)
