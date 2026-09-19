@@ -941,62 +941,6 @@ def _record_optional_attempts(workspace: Any, audit_id: str, components: set[str
         record_optional_evaluation(success=str(item.status) == SUCCESS)
 
 
-def _install_report_finalizer() -> None:
-    from rasai import report_completion
-
-    original = report_completion.finalize_audit_report_site
-    if bool(getattr(original, "_rasai_selective_optional_reprocess", False)):
-        return
-
-    def finalize_selective_optional(*args: Any, **kwargs: Any):
-        active_context = current()
-        audit_id = str(kwargs.get("audit_id") or (args[0] if args else ""))
-        workspace = kwargs.get("workspace")
-        if active_context is None or not audit_id or workspace is None or active_context.audit_id != audit_id:
-            return original(*args, **kwargs)
-
-        evaluated: set[str] = set()
-        search = _item(workspace, audit_id, "SEARCH_INTELLIGENCE")
-        if (
-            search is not None
-            and should_execute("SEARCH_INTELLIGENCE")
-            and str(search.status) != SUCCESS
-            and not _expired(search)
-        ):
-            evaluated.add("SEARCH_INTELLIGENCE")
-            try:
-                _recover_search(workspace, audit_id, search)
-            except Exception as exc:
-                set_work_item_status(
-                    workspace,
-                    audit_id=audit_id,
-                    component="SEARCH_INTELLIGENCE",
-                    status=FAILED_RETRYABLE,
-                    error_class="SEARCH_PROVIDER",
-                    error_code="SEARCH_INTELLIGENCE_RUNTIME_ERROR",
-                    error_message=redact_text(f"{type(exc).__name__}: {exc}")[:1000],
-                    retryable=True,
-                )
-
-        for component in ("GOOGLE_SEARCH_CONSOLE", "IMPROVEMENT_INTELLIGENCE"):
-            item = _item(workspace, audit_id, component)
-            if item is None or not should_execute(component) or str(item.status) == SUCCESS:
-                continue
-            if component == "GOOGLE_SEARCH_CONSOLE" and _expired(item):
-                continue
-            evaluated.add(component)
-
-        with _original_optional_environment(workspace, audit_id):
-            try:
-                return original(*args, **kwargs)
-            finally:
-                _record_optional_attempts(workspace, audit_id, evaluated)
-
-    finalize_selective_optional._rasai_selective_optional_reprocess = True
-    finalize_selective_optional._rasai_original = original
-    report_completion.finalize_audit_report_site = finalize_selective_optional
-
-
 def _update_reprocess_counts(workspace: Any, reprocess_id: str | None, attempted: int, successful: int) -> None:
     if not reprocess_id or (attempted == 0 and successful == 0):
         return
@@ -1059,12 +1003,11 @@ def _install_reprocess_wrapper() -> None:
 
 
 def install() -> None:
-    """Install after Improvement/GSC runtimes so the finalizer wrapper is outermost."""
+    """Install selective optional recovery without coupling integration calls to reporting."""
     global _INSTALLED
     if _INSTALLED:
         return
     _augment_reconciliation_configuration()
     _install_contextual_optional_hooks()
     _install_reprocess_wrapper()
-    _install_report_finalizer()
     _INSTALLED = True
