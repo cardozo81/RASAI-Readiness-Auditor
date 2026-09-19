@@ -333,10 +333,10 @@ O SaaS Pilot Web usa o mesmo catálogo canônico do mini-site para listar superf
 
 ```text
 audit.db + artifacts
--> report HTML audit-owned e superfícies canônicas em estado real ou neutro
+-> report-catalog/ em estado real, parcial, sem resultado ou neutro conforme evidência persistida
 
-observability.db + artifacts/observability
--> dados que enriquecem observability.html quando disponíveis
+artifacts/observability/observability.db + artifacts/observability
+-> dados observacionais que enriquecem CAT-05 e métricas quando disponíveis
 
 audit.db read-only + capacidades especializadas
 -> dados que alimentam as superfícies correspondentes do report-catalog/ quando aplicável
