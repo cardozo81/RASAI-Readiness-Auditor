@@ -8,6 +8,25 @@ from typing import Any, Mapping, Sequence
 from rasai.catalog_report_presentation import *  # noqa: F401,F403
 
 
+_SECTION_LABELS_DIRECTED = {
+    "summary": "Resumo",
+    "scope": "Escopo",
+    "config": "Configuração",
+    "execution": "Execução",
+    "results": "Resultados",
+    "evidence": "Evidências",
+    "analysis": "Análise",
+    "remediation": "Remediação",
+    "technical": "Detalhes técnicos",
+}
+
+_DIRECTED_REASON_LABELS = {
+    "AI_NOT_REQUESTED_FOR_AUDIT": "Síntese estratégica por IA não solicitada para esta auditoria.",
+    "AI_PROVIDER_NOT_RESOLVED": "Não foi possível resolver um provedor de IA elegível para a síntese estratégica.",
+    "NO_ACTIONABLE_PERSISTED_RECOMMENDATIONS": "Nenhuma recomendação acionável persistida foi encontrada para compor a síntese.",
+}
+
+
 _DIMENSION_LABELS_DIRECTED = {
     "APDEX_NAVIGATION": "Apdex de navegação",
     "APDEX_EXPERIENCE": "Apdex de experiência",
@@ -90,13 +109,13 @@ def _links(values: Any, *, label_prefix: str) -> _Html:
         if not href:
             continue
         catalog=str(ref.get("catalog_id") or "CAT")
-        section=str(ref.get("section_id") or "")
-        topic=str(ref.get("topic") or "")
-        reference=str(ref.get("reference_id") or ref.get("evidence_id") or "")
-        title=" → ".join(v for v in (catalog,section,topic,reference) if v)
+        section_raw=str(ref.get("section_id") or "")
+        section=_SECTION_LABELS_DIRECTED.get(section_raw, "Seção")
+        topic=str(ref.get("topic") or "").strip()
+        title=" → ".join(v for v in (catalog,section,topic) if v)
         links.append(
             "<a class='ref' href='"+escape(href,quote=True)+"' title='"+escape(title,quote=True)+"'>"
-            +escape(f"{label_prefix} {index}: {catalog} → {section or 'seção'}")
+            +escape(f"{label_prefix} {index}: {catalog} → {section}")
             +"</a>"
         )
     return _Html("<div class='pill-list'>"+"".join(links)+"</div>" if links else "<span class='muted'>Sem referência aplicável.</span>")
@@ -119,9 +138,8 @@ def _action_modal(action: Mapping[str,Any], by_id: Mapping[str,Mapping[str,Any]]
     dep_rows=[]
     for dep in dependencies if isinstance(dependencies,list) else []:
         dep_action=by_id.get(str(dep),{})
-        dep_rows.append((str(dep),dep_action.get("title") or "Ação relacionada"))
+        dep_rows.append((dep_action.get("title") or "Ação relacionada",))
     body=_kv((
-        ("Identificador",action_id),
         ("Por que agir",action.get("reason") or "-"),
         ("Objetivo principal",action.get("primary_objective") or "Não consolidado pela IA"),
         ("Prioridade",_level_label(action.get("priority")) if action.get("priority") else "Não consolidada"),
@@ -132,7 +150,7 @@ def _action_modal(action: Mapping[str,Any], by_id: Mapping[str,Mapping[str,Any]]
     ))
     body+="<h3>Impacto multidimensional</h3>"+_table(("Dimensão","Ganho esperado"),dim_rows,empty="Nenhuma dimensão adicional foi materializada.")
     if dep_rows:
-        body+="<h3>Dependências</h3>"+_table(("Ação","Descrição"),dep_rows)
+        body+="<h3>Dependências</h3>"+_table(("Ação relacionada",),dep_rows)
     body+="<h3>Como implementar</h3>"+(
         "<ol>"+"".join("<li>"+escape(str(v))+"</li>" for v in guidance)+"</ol>"
         if isinstance(guidance,list) and guidance else "<p class='muted'>Consulte a remediação técnica de origem.</p>"
@@ -145,7 +163,7 @@ def _action_modal(action: Mapping[str,Any], by_id: Mapping[str,Mapping[str,Any]]
     body+="<h3>Evidências</h3>"+str(_links(evidence_refs,label_prefix="Evidência"))
     body+="<h3>Correção técnica / remediação</h3>"+str(_links(remediation_refs,label_prefix="Remediação"))
     body+="<div class='notice'>Os links são construídos pelo RASAi a partir de referências persistidas e seções estáveis dos CATs. A IA não cria nomes de arquivo, anchors ou identificadores de evidência.</div>"
-    return modal_id,_modal(modal_id,action.get("title") or "Ação estratégica",f"Análise Direcionada · {action_id}",body)
+    return modal_id,_modal(modal_id,action.get("title") or "Ação estratégica","Análise Direcionada · ação estratégica",body)
 
 
 def directed_analysis_body(database: Any, data: Any) -> str:
@@ -254,8 +272,8 @@ def directed_analysis_body(database: Any, data: Any) -> str:
             if not isinstance(phase,Mapping):
                 continue
             ids=[str(v) for v in phase.get("action_ids",[]) if str(v) in by_id]
-            rows=[(action_id,by_id[action_id].get("title") or "-") for action_id in ids]
-            roadmap_html+="<div class='card'><h3>"+escape(str(phase.get("phase") or "Fase"))+"</h3><p>"+escape(str(phase.get("objective") or ""))+"</p>"+_table(("Ação","Descrição"),rows,empty="Nenhuma ação vinculada.")+"</div>"
+            rows=[(by_id[action_id].get("title") or "-",) for action_id in ids]
+            roadmap_html+="<div class='card'><h3>"+escape(str(phase.get("phase") or "Fase"))+"</h3><p>"+escape(str(phase.get("objective") or ""))+"</p>"+_table(("Ação",),rows,empty="Nenhuma ação vinculada.")+"</div>"
     if not roadmap_html:
         roadmap_html="<div class='notice'>Ordem estratégica não materializada. O relatório não fabrica uma sequência quando a IA estratégica não produziu uma resposta válida.</div>"
     body+=_section("roadmap","Plano geral de ação","<div class='grid'>"+roadmap_html+"</div>" if roadmap_html.startswith("<div class='card'>") else roadmap_html)
@@ -287,7 +305,6 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         modal_id,modal=_action_modal(action,by_id)
         dimensions_list=_json(action.get("affected_dimensions_json"),[])
         action_rows.append((
-            action.get("action_id") or "-",
             action.get("title") or "-",
             _level_label(action.get("priority")) if action.get("priority") else "Não consolidada",
             _level_label(action.get("effort")) if action.get("effort") else "Não consolidado",
@@ -298,13 +315,12 @@ def directed_analysis_body(database: Any, data: Any) -> str:
         modals.append(modal)
     body+=_section(
         "actions","Ações estratégicas",
-        _table(("ID","Ação","Prioridade","Esforço","Confiança","Dimensões","Detalhe"),action_rows,empty="Nenhuma ação foi materializada.",sortable=bool(action_rows),page_size=10 if len(action_rows)>10 else None)+"".join(modals),
+        _table(("Ação","Prioridade","Esforço","Confiança","Dimensões","Detalhe"),action_rows,empty="Nenhuma ação foi materializada.",sortable=bool(action_rows),page_size=10 if len(action_rows)>10 else None)+"".join(modals),
     )
 
     trace_rows=[]
     for action in actions:
         trace_rows.append((
-            action.get("action_id") or "-",
             action.get("title") or "-",
             _links(action.get("source_refs_json"),label_prefix="Origem"),
             _links(action.get("evidence_refs_json"),label_prefix="Evidência"),
@@ -313,17 +329,23 @@ def directed_analysis_body(database: Any, data: Any) -> str:
     body+=_section(
         "traceability","Rastreabilidade CAT → seção → assunto",
         "<p class='section-lead'>Cada ação usa somente referências criadas e validadas pelo sistema. Alterações de título/idioma não são usadas para compor o destino do link.</p>"
-        +_table(("Ação","Descrição","Origem","Evidência","Correção técnica"),trace_rows,empty="Nenhuma cadeia de rastreabilidade materializada."),
+        +_table(("Ação","Origem","Evidência","Correção técnica"),trace_rows,empty="Nenhuma cadeia de rastreabilidade materializada."),
     )
 
     limitation_rows=[]
     if isinstance(limitations,list):
         for item in limitations:
             if isinstance(item,Mapping):
+                raw_scope=str(item.get("catalog_id") or item.get("scope") or "Auditoria")
+                scope="Análise direcionada" if _norm(raw_scope)=="DIRECTED_ANALYSIS" else raw_scope
+                raw_reason=str(item.get("reason") or "")
+                reason=_DIRECTED_REASON_LABELS.get(_norm(raw_reason), raw_reason)
+                if raw_reason.startswith("DIRECTED_ANALYSIS_ERROR:"):
+                    reason="A síntese estratégica encontrou um erro técnico e foi concluída com limitações."
                 limitation_rows.append((
-                    item.get("catalog_id") or item.get("scope") or "Auditoria",
-                    _status_label(item.get("status")) if item.get("status") else item.get("reason") or "-",
-                    item.get("detail") or item.get("reason") or "-",
+                    scope,
+                    _status_label(item.get("status")) if item.get("status") else reason or "Limitação",
+                    item.get("detail") or reason or "-",
                 ))
             else:
                 limitation_rows.append(("Auditoria","Limitação",str(item)))
