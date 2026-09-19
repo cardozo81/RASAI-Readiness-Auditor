@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from rasai.observability.store import observability_database_path
+
 from io import BytesIO
 from pathlib import Path
 import sqlite3
@@ -60,7 +62,7 @@ def test_url_inspection_aborts_after_first_systemic_http_failure(status: int) ->
                 opener=opener,
             )
         assert calls == 1
-        assert not (workspace / "observability.db").exists()
+        assert not observability_database_path(workspace).exists()
 
 
 def test_url_inspection_keeps_url_specific_error_and_continues() -> None:
