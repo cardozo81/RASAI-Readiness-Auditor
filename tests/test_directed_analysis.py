@@ -229,6 +229,59 @@ def test_ai_enabled_enriches_only_existing_action_and_persists_strategy(monkeypa
     assert action["confidence"] == "HIGH"
 
 
+def test_reprocess_reuses_unchanged_directed_analysis_without_ai_call(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    import rasai.directed_analysis as feature
+
+    workspace=_workspace(tmp_path,ai_enabled=True)
+    fake_config=SimpleNamespace(provider="openai",model="model-test",reasoning="HIGH",language="pt-BR")
+    monkeypatch.setattr(feature,"_provider_config",lambda *_args,**_kwargs: fake_config)
+    monkeypatch.setattr(
+        feature,
+        "_target_context",
+        lambda *_args,**_kwargs: SimpleNamespace(snapshot_id="S1",url="https://example.test/"),
+    )
+
+    def first_ai(*, actions, **_kwargs):
+        action_id=actions[0]["action_id"]
+        return (
+            {
+                "strengths":[],"fragilities":[],"risks":[],"opportunities":[],
+                "insufficient_evidence":[],"plan_overview":"Persistido.",
+            },
+            {action_id:{
+                "reason":"Persistido.","primary_objective":"Melhorar",
+                "affected_dimensions":[{"dimension":"SEO","expected_gain":"MEDIUM"}],
+                "priority":"MEDIUM","effort":"LOW","confidence":"HIGH",
+                "confidence_rationale":"Evidência persistida.","dependencies":[],
+                "implementation_guidance":["Aplicar."],"validation_steps":["Revalidar."],
+                "analysis_state":"AI_ANALYZED",
+            }},
+            [],
+            {"synthetic":"first"},
+            None,
+        )
+
+    monkeypatch.setattr(feature,"_ai_analyze",first_ai)
+    first=feature.execute_directed_analysis(audit_id=AUDIT_ID,workspace=workspace)
+    assert first.status == "COMPLETE"
+    assert first.reused is False
+
+    monkeypatch.setattr(
+        feature,
+        "_ai_analyze",
+        lambda **_kwargs: pytest.fail("unchanged Directed Analysis must not call AI on RPR"),
+    )
+
+    second=feature.reprocess_directed_analysis(audit_id=AUDIT_ID,workspace=workspace)
+
+    assert second.status == "COMPLETE"
+    assert second.reused is True
+    assert second.run_id == first.run_id
+
+
 def test_report_renders_strategy_and_menu_contract_contains_page(tmp_path: Path) -> None:
     workspace=_workspace(tmp_path,ai_enabled=False)
     execute_directed_analysis(audit_id=AUDIT_ID,workspace=workspace)
