@@ -275,9 +275,9 @@ Plano de correção evidence-bound derivado dos findings persistidos.
 
 Metodologia, natureza das fontes e referências públicas.
 
-### `search-intelligence.html`
+### `report-catalog/cat-05.html`
 
-Superfície canônica de SERP Observation, classificação competitiva e análises associadas. Sem observações persistidas, exibe estado neutro. É observacional/advisory e não altera automaticamente `SARI-001`/`SCORE-GEO-004`.
+Superfície audit-owned de SERP Observation, classificação competitiva e análises associadas. Sem observações persistidas, projeta o estado correspondente. É observacional/advisory e não altera automaticamente `SARI-001`/`SCORE-GEO-004`.
 
 ### `apdex.html`
 
