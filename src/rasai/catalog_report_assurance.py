@@ -745,10 +745,12 @@ def assurance_matrix_html(result: Mapping[str, Any]) -> str:
         if not row.get("selected"):
             gate = "Não aplicável"
         else:
-            gate = "ATENDE" if row.get("closure_eligible") else "PENDENTE"
+            gate = "ATENDE ESTRUTURA" if row.get("closure_eligible") else "PENDENTE"
+        functional_status = escape(str(row.get("functional_status") or "NÃO DETERMINADO"))
         rows.append(
             "<tr>"
             f"<td>{escape(str(row.get('catalog_id') or '-'))}</td>"
+            f"<td>{functional_status}</td>"
             f"<td>{_pct(row.get('configurability'))}</td>"
             f"<td>{_pct(row.get('governance'))}</td>"
             f"<td>{_pct(row.get('exposure'))}</td>"
@@ -774,6 +776,7 @@ def assurance_matrix_html(result: Mapping[str, Any]) -> str:
         "quando são persistidas, classificadas e expostas corretamente.</p>"
         "<div class='notice'><strong>Como ler os eixos:</strong> "
         "<strong>CAT</strong> identifica o catálogo avaliado; "
+        "<strong>Estado funcional</strong> mostra o resultado real da execução e permanece independente do assurance estrutural; "
         "<strong>Configurabilidade</strong> mede se os controles humanos/runtime aplicáveis foram congelados e expostos; "
         "<strong>Governança</strong> verifica estado, evidência, limitações e remediação com provenance; "
         "<strong>Exposição</strong> verifica se configuração, resultados, fontes e detalhes estão visíveis ao usuário; "
@@ -781,13 +784,13 @@ def assurance_matrix_html(result: Mapping[str, Any]) -> str:
         "<strong>Integridade</strong> verifica hashes, artefatos, inventário de fontes e contrato read-only; "
         "<strong>Segurança</strong> verifica ausência de credenciais e padrões inseguros na projeção; "
         "<strong>Maturidade</strong> é a média determinística da cobertura desses eixos; "
-        "<strong>Gate</strong> indica se o catálogo atingiu os thresholds estruturais de encerramento. "
+        "<strong>Gate estrutural</strong> indica somente se o catálogo atingiu os thresholds estruturais de encerramento. "
         "Falhas externas legítimas, quando corretamente registradas e expostas, não reduzem por si só a cobertura; "
         "falhas internas de orquestração/persistência e perda de provenance reduzem os eixos correspondentes. "
         "Esses percentuais medem cobertura de controles, não probabilidade estatística de o conteúdo auditado estar correto.</div>"
         "<div class='table-wrap'><table><thead><tr>"
-        "<th>CAT</th><th>Configurabilidade</th><th>Governança</th><th>Exposição</th>"
-        "<th>Confiabilidade</th><th>Integridade</th><th>Segurança</th><th>Maturidade</th><th>Gate</th>"
+        "<th>CAT</th><th>Estado funcional</th><th>Configurabilidade</th><th>Governança</th><th>Exposição</th>"
+        "<th>Confiabilidade</th><th>Integridade</th><th>Segurança</th><th>Maturidade</th><th>Gate estrutural</th>"
         "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
         "<h3>Cobertura global dos eixos</h3>"
         "<p class='muted'>Os totalizadores abaixo seguem a mesma ordem e a mesma unidade percentual das colunas estruturais da matriz.</p>"
