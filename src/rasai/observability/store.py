@@ -1,6 +1,6 @@
 """Sidecar persistence for observed external data.
 
-The sidecar deliberately lives beside audit.db and never mutates the source audit.
+The sidecar is persisted under artifacts/observability and never mutates audit.db.
 It is derived/rebuildable from preserved artifacts and direct collection results.
 """
 from __future__ import annotations
@@ -45,14 +45,19 @@ _TABLE_COLUMNS: dict[str, tuple[str, ...]] = {
 }
 
 
+def observability_database_path(audit_workspace: str | Path) -> Path:
+    """Return the canonical observability sidecar path inside the AUD artifacts tree."""
+    return Path(audit_workspace) / "artifacts" / "observability" / "observability.db"
+
+
 class ObservabilityStore:
     def __init__(self, audit_workspace: str | Path) -> None:
         self.workspace = Path(audit_workspace)
         if not (self.workspace / "audit.db").is_file():
             raise FileNotFoundError(f"audit database not found: {self.workspace / 'audit.db'}")
-        self.path = self.workspace / "observability.db"
         self.artifacts = self.workspace / "artifacts" / "observability"
         self.artifacts.mkdir(parents=True, exist_ok=True)
+        self.path = observability_database_path(self.workspace)
         self.connection = sqlite3.connect(self.path)
         self.connection.row_factory = sqlite3.Row
         self._initialize()
