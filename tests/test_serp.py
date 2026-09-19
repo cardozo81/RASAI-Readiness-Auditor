@@ -318,6 +318,41 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual('fixture', execution.mode)
             self.assertEqual(0, execution.actual_http_requests)
 
+    def test_fixture_persists_search_without_creating_report_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            (root/'artifacts').mkdir()
+            db=root/'audit.db'
+            connection=sqlite3.connect(db)
+            connection.execute('CREATE TABLE audits (audit_id TEXT PRIMARY KEY, created_at TEXT)')
+            connection.execute('INSERT INTO audits VALUES (?,?)',('AUD-SEARCH','2026-09-19T00:00:00Z'))
+            connection.commit()
+            connection.close()
+
+            fixture=root/'fixture.json'
+            fixture.write_text(
+                json.dumps({
+                    'query': request().query,
+                    'results': [{'position':1,'url':'https://client.example/'}],
+                }),
+                encoding='utf-8',
+            )
+            execution=execute_search(
+                (request(),),
+                config=SerpRuntimeConfig(mode='fixture'),
+                workspace_root=root,
+                fixture_path=fixture,
+            )
+
+            self.assertTrue(execution.persisted)
+            self.assertFalse((root/'report').exists())
+            connection=sqlite3.connect(db)
+            try:
+                count=connection.execute('SELECT COUNT(*) FROM serp_observations').fetchone()[0]
+            finally:
+                connection.close()
+            self.assertEqual(1,count)
+
     def test_depth_aware_worst_case_request_projection(self):
         config=SerpRuntimeConfig(mode='live',retries=1).validate()
         self.assertEqual(2, config.worst_case_http_requests(1, depth=10))
