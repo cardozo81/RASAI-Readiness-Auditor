@@ -27,6 +27,7 @@ on:
       - 'src/rasai/final_smoke_closure.py'
       - 'src/rasai/post_smoke_alignment.py'
       - 'src/rasai/progress_completion_refinement.py'
+      - 'src/rasai/runtime_completion_extensions.py'
       - 'src/rasai/audit_fulfillment.py'
       - 'src/rasai/governed_report_projection_runtime.py'
       - 'src/rasai/governed_analysis_runtime.py'
@@ -112,6 +113,7 @@ jobs:
             src/rasai/final_smoke_closure.py \
             src/rasai/post_smoke_alignment.py \
             src/rasai/progress_completion_refinement.py \
+            src/rasai/runtime_completion_extensions.py \
             src/rasai/audit_fulfillment.py \
             src/rasai/governed_report_projection_runtime.py \
             src/rasai/governed_analysis_runtime.py \
