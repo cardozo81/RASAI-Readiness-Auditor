@@ -204,7 +204,7 @@ A configuração deve ser comparada com o perfil do sistema de referência antes
 
 Observed Generative Visibility é import-first e permanece fora do SARI. `ai-visibility.html` existe estruturalmente mesmo sem import e explicita ausência de dados.
 
-Search & AI Observability usa `observability.db` + `artifacts/observability/` para resultados externos pós-auditoria. Dados ausentes não viram zero e correlação temporal não é tratada como causalidade. `observability.html` permanece no menu mesmo sem sidecar/dados observacionais.
+Search & AI Observability usa `artifacts/observability/observability.db` + artifacts observacionais para resultados externos. Dados ausentes não viram zero e correlação temporal não é tratada como causalidade. A projeção audit-owned correspondente fica no `report-catalog/`, principalmente CAT-05 e métricas.
 
 Comandos principais:
 
