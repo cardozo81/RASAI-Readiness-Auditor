@@ -1,88 +1,47 @@
 # Guia de leitura dos relatórios
 
-O RASAi gera um mini-site HTML estático por auditoria. O report é uma projeção humana e de integração derivada da persistência; ele não recalcula scoring, não inventa dado ausente e não substitui `audit.db` + artifacts como fonte de verdade.
+O RASAi mantém HTML como projeção de leitura sobre dados persistidos; HTML não recalcula scoring, não inventa dado ausente e não substitui `audit.db` + artifacts como fonte de verdade.
 
-## Entrada principal
-
-```text
-report/index.html
-```
-
-O dashboard é multimetodológico, mas não cria um score combinado. Readiness, outcomes observados, Quality, Web Performance, acessibilidade, padrões, Apdex e Improvement Intelligence permanecem domínios analíticos distintos.
-
-Princípios obrigatórios:
-
-- não somar ou ponderar metodologias distintas em uma nota comum;
-- mostrar apenas fatos, estados e resultados persistidos ou derivados deterministicamente deles;
-- ausência de dado permanece `SEM DADOS`, `NÃO DISPONÍVEL`, `INCOMPLETO`, `UNKNOWN`, `NOT_OBSERVED` ou equivalente;
-- `NULL` de fonte externa não vira zero observado;
-- cada domínio usa filename canônico estável;
-- após a finalização bem-sucedida de `rasai audit`, o menu e o conjunto de superfícies HTML canônicas são estáveis;
-- a existência da página não significa que a capacidade correspondente foi habilitada, executada ou retornou dados;
-- coletores, providers, APIs, IA e serviços externos continuam condicionados exclusivamente à configuração da execução; a estrutura HTML estática não dispara chamadas adicionais;
-- quando uma capacidade não foi executada ou não materializou dados, sua página permanece disponível e apresenta estado neutro explícito, sem converter ausência em falha do website ou score zero;
-- uma projeção especializada que possua dados substitui/enriquece o estado neutro da mesma superfície canônica, sem criar outro filename público.
-
-## Estrutura canônica de uma auditoria normal
-
-Após a finalização bem-sucedida de `rasai audit`, o conjunto canônico esperado é:
+## Entrada principal da auditoria
 
 ```text
-report/
-├─ index.html
-├─ readiness.html                   # SARI-001
-├─ scoring.html                     # fórmula, pesos e gates do scoring vigente
-├─ context.html                     # topologia de captura URL/device; read-only
-├─ execution-evidence.html          # opções solicitadas, execução, falhas e dependências
-├─ crawling-discovery.html          # Domínio e descoberta; recursos ORIGIN
-├─ mobile.html                      # dados Mobile ou estado SEM DADOS/NÃO APLICÁVEL
-├─ desktop.html                     # dados Desktop ou estado SEM DADOS/NÃO APLICÁVEL
-├─ accessibility.html               # diagnóstico ou estado explícito
-├─ web-performance.html             # Lighthouse/CrUX ou estado explícito
-├─ standards.html                   # W3C/MDN/WebDX/métricas derivadas ou estado explícito
-├─ apdex.html                       # Synthetic Navigation Apdex ou estado explícito
-├─ apdex-experience.html            # Synthetic User Experience Apdex ou estado explícito
-├─ search-intelligence.html         # SERP/Search Intelligence ou estado explícito
-├─ ai-visibility.html               # visibilidade generativa observada ou estado explícito
-├─ observability.html               # observabilidade externa ou estado explícito
-├─ ai-usage.html                    # telemetria de IA ou estado sem uso
-├─ improvement-intelligence.html    # análise profunda ou estado não executado
-├─ content-suggestions.html         # sugestões/JSON-LD ou estado sem IA
-├─ remediation.html
-├─ quality.html                     # Quality & decisão ou estado explícito
-├─ references.html
-├─ report-manifest.json
-└─ css/site.css
+report-catalog/index.html
 ```
 
-### Gate de completude do HTML
+A árvore convencional `<AUD>/report/` foi retirada, assim como os legados `<AUD>/report.html` e `<AUD>/remediation.html`.
 
-Uma execução de URLs que terminou de persistir a auditoria não deve declarar sucesso pleno se o mini-site ficou estruturalmente incompleto. A finalização reconstrói as projeções audit-owned a partir do workspace já persistido, permite que os renderizadores especializados materializem conteúdo e, ao final, cria um estado neutro apenas para qualquer superfície canônica ainda ausente.
+## Estrutura suportada
 
-Depois dessa etapa, o conjunto esperado é estático e corresponde ao catálogo canônico do relatório. Se ainda faltar uma página, o comando retorna status de processo não zero e preserva `audit.db`. Assim, um problema de renderização não destrói a evidência, mas também não é ocultado como execução integralmente bem-sucedida.
+A projeção audit-owned suportada é `report-catalog/`. Ela preserva:
 
-O manifest registra:
+- visão geral e SARI;
+- CAT-01 ... CAT-10 conforme contrato da auditoria;
+- captura/contexto;
+- evidências da execução;
+- IA e integrações;
+- metodologia/scoring;
+- índices e métricas;
+- manifest e assets próprios.
 
-```text
-audit_expected_pages
-audit_missing_pages
-audit_report_complete
-```
+O catálogo é read-only sobre a evidência final. Sua materialização não deve disparar collector, API, provider, IA, SERP, scoring ou workload sintético.
 
-Em uma auditoria com projeção íntegra, `audit_expected_pages` contém todas as superfícies HTML canônicas, `audit_missing_pages` deve estar vazio e `audit_report_complete` deve ser `true`.
+## Dados preservados após a retirada de report/
 
-### Superfície estática não significa coleta obrigatória
+A remoção do HTML convencional não remove ou reduz:
 
-A estabilidade do menu não altera a política operacional. Exemplos:
+- `findings`, `evidence` e `recommendations`;
+- `root_cause_analyses`;
+- `root_cause_precision`;
+- scores e contribuições;
+- resultados de Search Intelligence, GSC, Clarity, Web Performance, W3C, Apdex e demais integrações;
+- telemetria, custo e provenance de IA;
+- estados de fulfillment e reprocessamento.
 
-- `apdex.html` existe mesmo quando Synthetic Navigation Apdex não foi solicitado; nesse caso mostra estado neutro e nenhuma navegação sintética adicional é criada por causa do HTML;
-- `search-intelligence.html` existe mesmo sem termos SERP, provider ou observações; o RASAi não inventa termos nem executa Search apenas para preencher a página;
-- `ai-visibility.html`, `observability.html` e `quality.html` podem existir sem dataset/sidecar/processamento correspondente e informar ausência de dados;
-- `mobile.html` e `desktop.html` permanecem URLs públicas estáveis mesmo quando um dos dispositivos não possui snapshot persistido;
-- `standards.html` existe independentemente de W3C, MDN Observatory ou Web Platform Baseline terem retornado dados;
-- páginas vazias não alteram SARI, SCORE-GEO, Coverage, Confidence, Consolidation ou findings.
+Esses dados continuam disponíveis ao `report-catalog/` e a outras capacidades que os consumam.
 
-Comandos especializados e processos pós-auditoria podem posteriormente materializar dados reais nessas superfícies ou produzir saídas standalone adicionais. Saídas comparativas e consolidadas também podem existir fora do diretório `report/` do AUD, por exemplo em `search-history/`, `monitoring/`, `verification/`, `quality/TIMELINE-*` e `consolidated/`.
+## Saídas fora do report da AUD
+
+Relatórios standalone, como monitoring, verification, timelines, históricos e consolidações, possuem contratos próprios e não são abrangidos por esta retirada.
 
 ## SARI-001 / SCORE-GEO-004
 
