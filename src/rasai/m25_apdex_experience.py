@@ -759,17 +759,6 @@ def execute_m25_experience(
         if owned_shared and shared_gateway is not None:
             shared_gateway.close()
 
-    report_path: str | None = None
-    try:
-        from rasai.m25_reporting import enrich_m25_report_site
-        path = enrich_m25_report_site(audit_id=audit_id, workspace=workspace)
-        report_path = str(path)
-    except Exception as exc:
-        try_append_operational_event(
-            workspace, "M25_UX_REPORT_FAILURE", level="WARNING", audit_id=audit_id,
-            error_type=type(exc).__name__, error_message=_bounded(str(exc), 512),
-        )
-
     try_append_operational_event(
         workspace,
         "M25_UX_COMPLETED",
@@ -779,9 +768,17 @@ def execute_m25_experience(
         valid_samples=valid_total,
         invalid_samples=invalid_total,
         final_population_groups=final_groups,
-        report_path=report_path,
     )
-    return M25ExecutionResult(True, status, len(pages), attempted_total, valid_total, invalid_total, final_groups, report_path)
+    return M25ExecutionResult(
+        True,
+        status,
+        len(pages),
+        attempted_total,
+        valid_total,
+        invalid_total,
+        final_groups,
+        None,
+    )
 
 
 def allocate_samples(total: int, mix: dict[str, float]) -> dict[str, int]:
