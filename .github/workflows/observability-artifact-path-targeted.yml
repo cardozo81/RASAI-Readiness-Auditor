@@ -1,4 +1,4 @@
-name: Smoke Fixes Targeted
+name: Reprocess Governance Point Tests
 
 on:
   push:
@@ -21,16 +21,12 @@ jobs:
           python-version: '3.13'
       - name: Install package and pytest
         run: python -m pip install -e . pytest
-      - name: Run only smoke-fix point tests
+      - name: Run only reprocess-governance point tests
         run: >-
           pytest -q
-          tests/test_integration_state_contract.py::test_observability_attempt_ledger_persists_failure_reason_without_touching_audit_db
-          tests/test_observability_collectors.py::test_search_analytics_collects_and_does_not_persist_token
-          tests/test_standards_gsc_metrics.py::test_gsc_metrics_use_only_latest_persisted_datasets
-          tests/test_post_smoke_alignment.py::test_common_crawl_scoring_reuses_preseal_dataset
-          tests/test_catalog_report_search_trust.py::test_common_crawl_errors_without_rows_are_visible_in_state
-          tests/test_catalog_report_assurance.py::test_assurance_matrix_explains_each_axis_without_changing_columns
-          tests/test_console_catalog_workflow.py::test_accessibility_readiness_exposes_lighthouse_dependency
-          tests/test_catalog_report_site.py::test_catalog_report_materializes_without_non_catalog_report_tree
-          tests/test_quality_observability_hardening.py::test_quality_health_uses_catalog_report_entrypoint
-          tests/test_runtime_contract_compatibility.py::test_public_runtime_composition_skips_contracts_that_are_native
+          tests/test_selective_optional_reprocess.py::test_success_without_persisted_optional_evidence_is_blocked_by_integrity
+          tests/test_governed_reprocess_dependencies.py::test_reprocess_material_fingerprint_ignores_volatile_timestamps_but_detects_result_change
+          tests/test_governed_reprocess_dependencies.py::test_prepare_reprocess_reuses_evidence_snapshot_when_nothing_material_changed
+          tests/test_governed_reprocess_dependencies.py::test_passive_security_rpr_refreshes_external_intelligence_only_when_components_change
+          tests/test_governed_reprocess_dependencies.py::test_governed_dependency_invalidation_reopens_only_impacted_success
+          tests/test_passive_security_catalog.py::test_osv_and_kev_use_only_versioned_component_identifiers
