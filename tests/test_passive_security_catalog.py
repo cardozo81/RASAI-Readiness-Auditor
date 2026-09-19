@@ -11,7 +11,7 @@ from urllib.error import URLError
 from rasai import passive_security as security
 from rasai.ai_governance import collection_state_is_terminal
 from rasai.catalog_report_analysis import _passive_security_html
-from rasai.catalog_report_catalog_state import _catalog_status, _catalog_work
+from rasai.catalog_report_catalog_state import _catalog_status, _catalog_work, _configuration_rows
 from rasai.improvement_intelligence import _required_actionable_recommendation_finding_ids
 from rasai import console_catalog_plan as catalog_plan
 
@@ -656,3 +656,90 @@ def test_cat10_integrity_accepts_mixed_trace_identifiers(monkeypatch, tmp_path: 
     from rasai.selective_optional_reprocess import _passive_security_integrity
 
     assert _passive_security_integrity(workspace, AUDIT_ID) is True
+
+
+def test_cat10_report_hides_internal_control_values(monkeypatch, tmp_path: Path) -> None:
+    data = SimpleNamespace(
+        catalog_items={"CAT-10": {"ai_mode": "OPTIONAL", "ai_execution_enabled": False}},
+        configuration={
+            "settings": {
+                "environment": {
+                    "RASAI_PASSIVE_SECURITY": "true",
+                    "RASAI_SECURITY_HEADERS": "false",
+                    "RASAI_SECURITY_OSV": "true",
+                    "RASAI_SECURITY_CISA_KEV": "false",
+                    "RASAI_SECURITY_EXTERNAL_TIMEOUT_SECONDS": "15",
+                }
+            }
+        },
+        config_hash="same",
+        computed_hash="same",
+        selected={"CAT-10"},
+        targets=["https://audited.example/"],
+        work_items=[],
+    )
+    rows = _configuration_rows(data, "CAT-10")
+    values = {str(label): str(value) for label, value, _origin in rows}
+
+    assert values["Segurança passiva"] == "Ativado"
+    assert values["Headers / CSP / CORS"] == "Desativado"
+    assert values["OSV"] == "Ativado"
+    assert values["CISA KEV"] == "Desativado"
+    assert values["Timeout externo (s)"] == "15"
+    assert all(value.casefold() not in {"true", "false"} for value in values.values())
+
+    workspace = _workspace(tmp_path, html=_security_html())
+    monkeypatch.setenv(security.ENABLED_ENV, "true")
+    monkeypatch.setenv(security.OSV_ENV, "false")
+    monkeypatch.setenv(security.KEV_ENV, "false")
+    security.analyze_passive_security(audit_id=AUDIT_ID, workspace=workspace)
+
+    connection = sqlite3.connect(workspace.database)
+    try:
+        connection.execute(
+            """INSERT OR REPLACE INTO passive_security_integrations
+               (audit_id,integration_id,requested,state,attempts,successes,artifact_reference,
+                details_json,error_type,error_message,observed_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                AUDIT_ID,
+                "OSV",
+                1,
+                "NO_DATA",
+                1,
+                0,
+                "artifacts/security/internal-control.json",
+                json.dumps({
+                    "reason": "NO_CVE_FROM_OSV",
+                    "source_blocked": True,
+                    "reused_from": "standards_service_runs",
+                }),
+                None,
+                None,
+                "2026-09-19T12:00:00+00:00",
+            ),
+        )
+        row = connection.execute(
+            "SELECT evidence_ids_json FROM passive_security_findings WHERE audit_id=? LIMIT 1",
+            (AUDIT_ID,),
+        ).fetchone()
+        evidence_id = json.loads(row[0])[0] if row and json.loads(row[0]) else None
+        connection.commit()
+    finally:
+        connection.close()
+
+    html = _passive_security_html(
+        workspace.database,
+        SimpleNamespace(
+            audit_id=AUDIT_ID,
+            catalog_items={"CAT-10": {"ai_execution_enabled": False}},
+        ),
+    )
+
+    assert "NO_CVE_FROM_OSV" not in html
+    assert "source_blocked" not in html
+    assert "reused_from" not in html
+    assert "internal-control.json" not in html
+    assert "Nenhum CVE foi retornado pelo OSV" in html
+    if evidence_id:
+        assert str(evidence_id) not in html
