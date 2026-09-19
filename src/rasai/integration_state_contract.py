@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import io
 import json
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 import sqlite3
 import sys
 from typing import Any, Mapping
@@ -59,7 +60,7 @@ def _ensure_observability_attempt_table(workspace: Path) -> Path | None:
     workspace = Path(workspace)
     if not (workspace / "audit.db").is_file():
         return None
-    database = workspace / "observability.db"
+    database = observability_database_path(workspace)
     connection = sqlite3.connect(database)
     try:
         with connection:
