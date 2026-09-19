@@ -14,6 +14,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from pathlib import Path
+import hashlib
 import json
 import sqlite3
 from typing import Any, Iterator, Mapping
@@ -63,6 +64,144 @@ def _table_exists(connection: sqlite3.Connection, name: str) -> bool:
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
         (name,),
     ).fetchone() is not None
+
+
+_MATERIAL_TABLES = frozenset({
+    "web_performance_runs",
+    "web_performance_observations",
+    "synthetic_apdex_runs",
+    "synthetic_apdex_samples",
+    "synthetic_apdex_summaries",
+    "synthetic_ux_apdex_runs",
+    "synthetic_ux_apdex_samples",
+    "synthetic_ux_apdex_summaries",
+    "standards_service_runs",
+    "standards_metric_observations",
+})
+_VOLATILE_MATERIAL_COLUMNS = frozenset({
+    "created_at",
+    "updated_at",
+    "captured_at",
+    "calculated_at",
+    "attempted_at",
+    "started_at",
+    "finished_at",
+    "completed_at",
+    "observed_at",
+    "last_attempt_at",
+    "error_message",
+    "last_error_message",
+})
+
+
+def _material_table_names(connection: sqlite3.Connection) -> tuple[str, ...]:
+    names = {
+        str(row[0])
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+    return tuple(sorted(
+        name for name in names
+        if name in _MATERIAL_TABLES
+        or name.startswith("serp_")
+        or name.startswith("passive_security_")
+    ))
+
+
+def _material_rows(
+    connection: sqlite3.Connection,
+    table: str,
+    *,
+    audit_id: str | None,
+) -> list[dict[str, Any]]:
+    columns = [
+        str(row[1])
+        for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+    ]
+    selected = [name for name in columns if name not in _VOLATILE_MATERIAL_COLUMNS]
+    if not selected:
+        return []
+    connection.row_factory = sqlite3.Row
+    where = " WHERE audit_id=?" if audit_id is not None and "audit_id" in columns else ""
+    params = (audit_id,) if where else ()
+    rows = connection.execute(
+        f"SELECT {','.join(selected)} FROM {table}{where}",
+        params,
+    ).fetchall()
+    values = [dict(row) for row in rows]
+    values.sort(
+        key=lambda row: json.dumps(
+            row,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        )
+    )
+    return values
+
+
+def _material_state_fingerprint(workspace: Any, audit_id: str) -> str:
+    payload: dict[str, Any] = {"audit": {}, "observability": {}}
+    connection = sqlite3.connect(workspace.database)
+    try:
+        for table in _material_table_names(connection):
+            payload["audit"][table] = _material_rows(
+                connection,
+                table,
+                audit_id=audit_id,
+            )
+    finally:
+        connection.close()
+
+    try:
+        from rasai.observability.store import observability_database_path
+        sidecar = observability_database_path(Path(workspace.root))
+    except Exception:
+        sidecar = Path(workspace.root) / "artifacts" / "observability" / "observability.db"
+    if sidecar.is_file():
+        connection = sqlite3.connect(sidecar)
+        try:
+            names = {
+                str(row[0])
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            for table in sorted(name for name in names if not name.startswith("sqlite_") and name != "integration_attempts"):
+                payload["observability"][table] = _material_rows(
+                    connection,
+                    table,
+                    audit_id=None,
+                )
+        finally:
+            connection.close()
+
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _current_evidence_ids(workspace: Any, audit_id: str) -> tuple[str, ...]:
+    connection = sqlite3.connect(workspace.database)
+    try:
+        if not _table_exists(connection, "evidence"):
+            return ()
+        return tuple(
+            str(row[0])
+            for row in connection.execute(
+                "SELECT evidence_id FROM evidence WHERE audit_id=? ORDER BY evidence_id",
+                (audit_id,),
+            ).fetchall()
+        )
+    finally:
+        connection.close()
 
 
 def _pending_item(workspace: Any, audit_id: str, component: str):
@@ -372,29 +511,37 @@ def _required_pending(workspace: Any, audit_id: str) -> tuple[Any, ...]:
 
 
 def _prepare_reprocess(workspace: Any, audit_id: str) -> ReprocessPreparation:
-    """Retry required collection dependencies and seal the resulting evidence."""
+    """Retry pending dependencies and version evidence only after a material change."""
     try_append_operational_event(
         workspace,
         "AUDIT_REPROCESS_COLLECTION_PHASE_STARTED",
         audit_id=audit_id,
         reprocess_id=_current_reprocess_id(workspace, audit_id),
     )
+    prior = latest_evidence_snapshot(workspace, audit_id)
+    before_material = _material_state_fingerprint(workspace, audit_id)
     recovered: dict[str, str] = {}
     recovered.update(_recover_live_measurements(workspace, audit_id))
     optional_states, evaluated_optional = _recover_optional_collectors(workspace, audit_id)
     recovered.update(optional_states)
     states = _terminalized_states(_collection_states(workspace, audit_id))
-    prior = latest_evidence_snapshot(workspace, audit_id)
-    snapshot = seal_evidence(
-        workspace=workspace,
-        audit_id=audit_id,
-        collection_states=states,
-        context={
-            "phase": "AUDIT_REPROCESS",
-            "recovered_collectors": recovered,
-        },
-    )
-    stale = _stale_tasks_to_fulfillment(workspace, audit_id)
+    after_material = _material_state_fingerprint(workspace, audit_id)
+    current_evidence = _current_evidence_ids(workspace, audit_id)
+    material_changed = before_material != after_material
+    evidence_changed = prior is None or current_evidence != tuple(prior.evidence_ids)
+    if prior is not None and not material_changed and not evidence_changed:
+        snapshot = prior
+        stale = 0
+    else:
+        snapshot = seal_evidence(
+            workspace=workspace,
+            audit_id=audit_id,
+            collection_states={},
+            context={
+                "material_state_fingerprint": after_material,
+            },
+        )
+        stale = _stale_tasks_to_fulfillment(workspace, audit_id)
     try_append_operational_event(
         workspace,
         "AUDIT_REPROCESS_EVIDENCE_SEALED",
@@ -407,6 +554,8 @@ def _prepare_reprocess(workspace: Any, audit_id: str) -> ReprocessPreparation:
         stale_ai_tasks=stale,
         collector_states=states,
         recovered_collectors=recovered,
+        material_state_changed=material_changed,
+        evidence_ids_changed=evidence_changed,
     )
     return ReprocessPreparation(
         snapshot=snapshot,
