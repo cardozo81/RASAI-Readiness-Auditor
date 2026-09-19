@@ -18,7 +18,7 @@ Capacidades integradas no contrato atual:
 - auditoria por URL única, conjunto explícito ou arquivo TXT;
 - `mobile`, `desktop` ou `both`;
 - persistência em SQLite + artifacts + log operacional;
-- mini-site HTML estático com navegação canônica e superfícies estruturais estáveis;
+- relatório HTML audit-owned em `report-catalog/`, derivado da evidência persistida;
 - `SARI-001` com `SCORE-GEO-004`, Coverage, Confidence e Consolidation separados;
 - análise semântica opcional por IA e fallback provider-neutral;
 - remediação textual/JSON-LD advisory e evidence-bound;
@@ -63,114 +63,30 @@ Documentação: [docs/SCORE_GEO_004.md](docs/SCORE_GEO_004.md), [docs/SCORING_GU
 
 ## Relatórios HTML
 
-Entrada principal por auditoria:
+A auditoria não materializa mais o mini-site HTML convencional em `<AUD>/report/`, nem os arquivos legados `<AUD>/report.html` e `<AUD>/remediation.html`.
+
+A projeção HTML audit-owned suportada é:
 
 ```text
-report/index.html
+report-catalog/index.html
 ```
 
-### Superfícies canônicas de uma execução `rasai audit`
+`report-catalog/` é derivado de `audit.db` + artifacts persistidos e permanece uma projeção read-only. A retirada de `report/` não remove collectors, scoring, findings, evidences, recommendations, causa raiz, precisão, IA, custos ou rastreabilidade.
 
-Uma análise de URLs concluída com sucesso deve terminar com **todas as superfícies HTML canônicas fisicamente materializadas**. O catálogo e o menu são estáveis; o que muda conforme a configuração é o conteúdo/estado de cada página.
+O catálogo preserva suas superfícies próprias, incluindo CAT-01 ... CAT-10 e páginas de governança. A geração do catálogo continua pela rotina canônica `materialize_catalog_report_site(...)`; esta remoção não altera regras CAT-*, Matriz de encerramento estrutural ou conteúdo funcional do catálogo.
 
-Quando uma capacidade não foi solicitada, não está configurada, não é aplicável ou não retornou dados, a página continua existindo e apresenta estado neutro (`SEM DADOS`, desabilitado, não solicitado, indisponível ou equivalente). A estrutura HTML não dispara collector, API, provider, IA, SERP ou workload sintético apenas para preencher o menu.
+Saídas especializadas independentes de uma AUD, como monitoring, verification, timelines, consolidações e históricos, mantêm seus contratos próprios e não são abrangidas pela retirada de `<AUD>/report/`.
+
+### SaaS / Web
+
+Os endpoints existentes de reports permanecem estáveis:
 
 ```text
-index.html                    síntese executiva
-readiness.html                SARI-001
-scoring.html                  metodologia de scoring e versão efetiva
-context.html                  contexto de captura e escopo
-crawling-discovery.html       crawling/discovery
-mobile.html                   dados Mobile ou estado sem dados/não aplicável
-desktop.html                  dados Desktop ou estado sem dados/não aplicável
-accessibility.html            acessibilidade automatizada ou estado da coleta
-web-performance.html          Lighthouse/Core Web Vitals ou estado da coleta
-standards.html                W3C/MDN/WebDX/métricas derivadas ou estado da capacidade
-apdex.html                    Synthetic Navigation Apdex ou estado não executado
-apdex-experience.html         Synthetic User Experience Apdex ou estado não executado
-search-intelligence.html      Search Intelligence / SERP observado ou estado sem observações
-ai-visibility.html            Observed Generative Visibility ou estado sem dataset/import
-observability.html            Search & AI Observability ou estado sem sidecar/dados
-ai-usage.html                 uso/custo estimado de IA ou estado sem IA
-improvement-intelligence.html análise profunda e backlog; explicita estado quando não solicitada
-content-suggestions.html      estado/sugestões de conteúdo e JSON-LD
-remediation.html              remediação
-quality.html                  qualidade da evidência/decisão ou estado não processado
-references.html               referências e metodologia
+GET /api/v1/audits/{audit_id}/reports
+GET /api/v1/audits/{audit_id}/reports/{asset_path}
 ```
 
-Se uma superfície canônica não puder ser criada nem reparada a partir do workspace, o comando retorna status de processo não-zero em vez de declarar silenciosamente que o mini-site está completo. Dados ausentes permanecem dados ausentes; a página neutra não fabrica evidência nem score.
-
-A ordem e os filenames vêm de um contrato estruturado único (`ReportSurface`). O mesmo catálogo é usado para navegação, testes, manifest e validação de completude. O item ativo é único.
-
-### `scoring.html` é estável
-
-A versão pertence ao campo persistido `scoring_version` e ao conteúdo da página, não ao filename. Isso evita quebrar bookmarks, integrações, automações e futuras rotas SaaS a cada revisão metodológica.
-
-### Manifest do report
-
-Após a normalização do mini-site, o RASAi materializa:
-
-```text
-report/report-manifest.json
-```
-
-O manifest é **metadado de projeção**, não segunda fonte de verdade. Ele registra, quando disponível:
-
-```text
-audit_id
-auditor_version
-ruleset_version
-sari_version
-scoring_version
-report_contract_version
-observability_contract_version
-generated_pages
-audit_expected_pages
-audit_missing_pages
-audit_report_complete
-generated_at
-source_db
-```
-
-`generated_pages` descreve o que existe fisicamente. `audit_expected_pages` corresponde ao catálogo HTML canônico estático. `audit_missing_pages` deve ficar vazio ao final de uma execução bem-sucedida.
-
-O manifest não duplica score, findings ou evidence. É produzido a partir de `audit.db` em modo read-only e facilita debugging, completude e evolução para API/SaaS.
-
-## Como os reports se relacionam
-
-O fluxo abaixo representa dependência de evidência/projeção, **não causalidade entre métricas**:
-
-```text
-Audit Evidence
-   |
-   +--> SARI / SCORE-GEO-004        participa do readiness
-   |
-   +--> Improvement Intelligence    advisory; prioriza correções sem alterar o score
-   |
-   +--> Remediation                 derivado read-only
-   |
-   +--> Web Performance
-   |      +--> Accessibility        usa o artifact Lighthouse quando disponível
-   |
-   +--> Standards / Web Quality     complementar/advisory quando disponível
-   |
-   +--> Synthetic Navigation Apdex  complementar e opt-in
-   |
-   +--> Synthetic UX Apdex          complementar e opt-in
-   |
-   +--> Search Intelligence         especialista/observacional
-   |
-   +--> Observed AI Visibility      especialista/import-first
-   |
-   +--> Observability               resultados externos pós-auditoria
-   |
-   +--> Quality                     derivado read-only pós-auditoria
-   |
-   +--> AI Usage                    telemetria de IA
-```
-
-Cada página HTML declara **Inputs, Outputs, dependências obrigatórias/opcionais, uso de IA, impacto no SARI/SCORE e fonte de verdade**. Isso evita inferir, por exemplo, que Lighthouse, Acessibilidade, Standards, Apdex ou recomendações da análise profunda alterem o `SCORE-GEO-004`.
+A raiz pública autorizada desses endpoints passa a ser exclusivamente `<AUD>/report-catalog/`. `audit.db`, artifacts privados e caminhos internos continuam fora da superfície HTTP.
 
 ## Versões e contratos são conceitos diferentes
 
@@ -349,8 +265,8 @@ Detalhes: [docs/PRODUCT_PLATFORM_ARCHITECTURE.md](docs/PRODUCT_PLATFORM_ARCHITEC
 Princípios:
 
 - `audit.db` + artifacts são evidência imutável da auditoria;
-- HTML e `report-manifest.json` são projeções, não segunda fonte de verdade;
-- uma execução `rasai audit` só é considerada completa no nível de processo quando todas as superfícies HTML canônicas foram materializadas;
+- `report-catalog/` é projeção reconstruível, não segunda fonte de verdade;
+- o relatório convencional `<AUD>/report/` e os legados `<AUD>/report.html` / `<AUD>/remediation.html` não são mais saídas da auditoria;
 - superfície HTML presente não prova que a capacidade, API, provider ou IA correspondente foi executada;
 - sidecars e índices consolidados são derivados/reconstruíveis;
 - secrets não devem ser persistidos em reports, SQLite, INI ou logs;
