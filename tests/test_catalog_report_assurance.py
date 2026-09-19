@@ -261,7 +261,7 @@ def test_transversal_secret_output_blocks_global_closure(monkeypatch, tmp_path: 
     assert "ai-integrations.html" in result["global_output_security"]["failures"]
     assert result["closure_eligible"] is False
 
-def test_assurance_matrix_separates_functional_state_from_structural_gate() -> None:
+def test_assurance_matrix_explains_each_axis_without_changing_columns() -> None:
     result = {
         "catalogs": [{
             "catalog_id": "CAT-01",
