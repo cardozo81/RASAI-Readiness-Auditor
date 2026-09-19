@@ -146,7 +146,7 @@ Regras:
 - `audit.db`, artifacts privados e paths internos não são expostos;
 - respostas usam `Cache-Control: no-store`.
 
-O HTML continua sendo projeção; a fonte de verdade é `audit.db + artifacts`. O SaaS não possui fallback para a árvore convencional `report/`, que deixou de ser saída da auditoria.
+O HTML continua sendo projeção; a fonte de verdade é `audit.db + artifacts`. O boundary SaaS de reports usa exclusivamente `AUD-*/report-catalog/`; `AUD-*/report/` não integra essa superfície.
 
 ## Endpoints e contratos aditivos
 
