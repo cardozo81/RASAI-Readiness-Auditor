@@ -139,7 +139,7 @@ def _catalog_body(database: Path, data: _ReportData, catalog_id: str) -> str:
     elif catalog_id=="CAT-08":
         rem_body="<p>A análise profunda prioriza melhorias. Implementação técnica, exemplos de HTML/texto e critérios de validação são consolidados em <a href='cat-09.html'>CAT-09 · Remediações</a>.</p>"
     elif catalog_id=="CAT-10":
-        rem_body="<p>Cada finding do CAT-10 já apresenta contenção imediata, correção definitiva e forma de validação no detalhe do resultado. Quando a IA principal foi habilitada para segurança, o enriquecimento permanece advisory e rastreável em <a href='ai-integrations.html'>IA e integrações</a>.</p>"
+        rem_body="<p>Cada achado do CAT-10 já apresenta contenção imediata, correção definitiva e forma de validação no detalhe do resultado. Quando a IA principal foi habilitada para segurança, o enriquecimento permanece consultivo e rastreável em <a href='ai-integrations.html'>IA e integrações</a>.</p>"
     else:
         rem_body=f"<p>Este catálogo é proprietário do diagnóstico do seu domínio. Correções são centralizadas em <a href='cat-09.html'>CAT-09 · Remediações</a>; quando uma análise profunda usa esta evidência, o vínculo aparece em <a href='cat-08.html'>CAT-08 · Análise profunda e melhorias</a>.</p>"
     remediation=_section("remediation","Remediações",rem_body)
