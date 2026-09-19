@@ -49,8 +49,11 @@ dialog.rasai-modal{width:min(920px,calc(100vw - 32px));max-height:88vh;border:0;
 
 _JS = r"""
 (()=>{
-const open=(id)=>{const el=document.getElementById(id);if(el&&typeof el.showModal==='function')el.showModal();};
+const open=(id)=>{const el=document.getElementById(id);if(el&&typeof el.showModal==='function'&&!el.open)el.showModal();};
+const openHash=()=>{const id=decodeURIComponent((location.hash||'').replace(/^#/,'')).trim();if(id)open(id);};
 document.addEventListener('click',(event)=>{const trigger=event.target.closest('[data-modal-open]');if(trigger){event.preventDefault();open(trigger.getAttribute('data-modal-open'));return;}const closer=event.target.closest('[data-modal-close]');if(closer){event.preventDefault();const dlg=closer.closest('dialog');if(dlg)dlg.close();}});
+window.addEventListener('hashchange',openHash);
+openHash();
 document.addEventListener('cancel',(event)=>{if(event.target.matches('dialog.rasai-modal'))event.target.close();});
 document.addEventListener('click',(event)=>{const dlg=event.target;if(dlg instanceof HTMLDialogElement&&dlg.classList.contains('rasai-modal')){const rect=dlg.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)dlg.close();}});
 
