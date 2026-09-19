@@ -88,8 +88,8 @@ def _is_expired(item: WorkItem) -> bool:
 def _backfill_contract(workspace: AuditWorkspace, audit_id: str) -> None:
     """Create the current contract from persisted evidence when it is absent.
 
-    This is not a compatibility/legacy mode. It is deterministic indexing of an
-    existing AUD into the same current fulfillment schema used by new executions.
+    This is deterministic indexing of an existing AUD into the current fulfillment
+    schema used by all executions.
     """
     initialize_contract(workspace, audit_id)
     connection = sqlite3.connect(workspace.database)
