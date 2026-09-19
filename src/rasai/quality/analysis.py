@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+from rasai.observability.store import observability_database_path
 import sqlite3
 from typing import Any
 
@@ -226,7 +227,7 @@ def _health_checks(
 
 
 def _observability_health(workspace: Path) -> list[HealthCheck]:
-    database = workspace / "observability.db"
+    database = observability_database_path(workspace)
     if not database.is_file():
         return [_health(
             "OBS-SIDECAR", "PASS", "INFO", "Sidecar observacional",
